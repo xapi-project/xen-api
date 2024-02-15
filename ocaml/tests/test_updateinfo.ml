@@ -422,11 +422,8 @@ let fields_of_updateinfo =
       field "id" (fun (r : UpdateInfo.t) -> r.id) string
     ; field "summary" (fun (r : UpdateInfo.t) -> r.summary) string
     ; field "description" (fun (r : UpdateInfo.t) -> r.description) string
-    ; field "rec_guidance"
-        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.rec_guidance)
-        string
-    ; field "abs_guidance"
-        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.abs_guidance)
+    ; field "guidance"
+        (fun (r : UpdateInfo.t) -> GuidanceInUpdateInfo.to_string r.guidance)
         string
     ; field "guidance_applicabilities"
         (fun (r : UpdateInfo.t) ->
@@ -436,11 +433,6 @@ let fields_of_updateinfo =
     ; field "spec_info" (fun (r : UpdateInfo.t) -> r.spec_info) string
     ; field "url" (fun (r : UpdateInfo.t) -> r.url) string
     ; field "update_type" (fun (r : UpdateInfo.t) -> r.update_type) string
-    ; field "livepatch_guidance"
-        (fun (r : UpdateInfo.t) ->
-          UpdateInfo.guidance_to_string r.livepatch_guidance
-        )
-        string
     ; field "livepatches"
         (fun (r : UpdateInfo.t) ->
           List.map
@@ -454,6 +446,7 @@ let fields_of_updateinfo =
     ; field "severity"
         (fun (r : UpdateInfo.t) -> Severity.to_string r.severity)
         string
+    ; field "title" (fun (r : UpdateInfo.t) -> r.title) string
     ]
 
 module UpdateInfoOfXml = Generic.MakeStateless (struct
@@ -479,6 +472,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
     try Ok (UpdateInfo.of_xml (Xml.parse_string input)) with e -> Error e
 
   let tests =
+    let open Guidance in
     `QuickAndAutoDocumented
       [
         (* No "updates" node *)
@@ -561,16 +555,21 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= ""
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= None
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -624,17 +623,22 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= None
                   ; livepatches= []
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
@@ -674,17 +678,22 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= None
                   ; livepatches= []
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ; ( "UPDATE-0001"
@@ -693,22 +702,27 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0001"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= None
                   ; livepatches= []
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:50Z"
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
         )
-      ; (* Single update with guidances *)
+      ; (* Single update with deprecated guidances only *)
         ( {|
             <updates>
               <update type="security">
@@ -751,8 +765,13 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= Some Guidance.RestartDeviceModel
-                  ; abs_guidance= Some Guidance.RebootHost
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -777,16 +796,16 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= None
                   ; livepatches= []
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
         )
-      ; (* Single update with new guidances *)
+      ; (* Single update with unknown guidance *)
         ( {|
             <updates>
               <update type="security">
@@ -798,6 +817,18 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <url>https://update.details.info</url>
                 <recommended_guidance>NewGuidance</recommended_guidance>
                 <absolute_guidance>NewGuidance</absolute_guidance>
+                <guidance>
+                  <mandatory>
+                    <value>NewGuidance</value>
+                  </mandatory>
+                  <full>
+                    <value>NewGuidance</value>
+                    <value>RestartVM</value>
+                  </full>
+                  <recommended>
+                    <value>NewGuidance</value>
+                  </recommended>
+                </guidance>
                 <guidance_applicabilities>
                   <applicability>
                     <name>xsconsole</name>
@@ -829,8 +860,13 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= Some Guidance.RebootHost
-                  ; abs_guidance= Some Guidance.RebootHost
+                  ; guidance=
+                      [
+                        (Recommended, [RebootHost])
+                      ; (Full, [RebootHost; RestartVM])
+                      ; (Mandatory, [RebootHost])
+                      ; (Livepatch, [])
+                      ]
                   ; guidance_applicabilities=
                       [
                         Applicability.
@@ -855,16 +891,16 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= None
                   ; livepatches= []
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
         )
-      ; (* Single update with livepatches and livepatch_guidance *)
+      ; (* Single update with livepatches and livepatch guidance *)
         ( {|
             <updates>
               <update type="security">
@@ -874,6 +910,11 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <description>description</description>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
+                <guidance>
+                  <livepatch>
+                    <value>RestartToolstack</value>
+                  </livepatch>
+                </guidance>
                 <guidance_applicabilities/>
                 <livepatch_guidance>RestartToolstack</livepatch_guidance>
                 <livepatches>
@@ -893,13 +934,17 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Livepatch, [RestartToolstack])
+                      ; (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= Some Guidance.RestartToolstack
                   ; livepatches=
                       [
                         LivePatch.
@@ -926,11 +971,12 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
         )
-      ; (* Single update with livepatches and new livepatch_guidance *)
+      ; (* Single update with livepatches and unknown livepatch guidance *)
         ( {|
             <updates>
               <update type="security">
@@ -941,6 +987,11 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
                 <guidance_applicabilities/>
+                <guidance>
+                  <livepatch>
+                    <value>NewGuidance</value>
+                  </livepatch>
+                </guidance>
                 <livepatch_guidance>NewGuidance</livepatch_guidance>
                 <livepatches>
                   <livepatch component="kernel" base="4.19.19-8.0.19.xs8" to="4.19.19-8.0.21.xs8" base-buildid="8346194f2e98a228f5a595b13ecabd43a99fada0"/>
@@ -959,13 +1010,17 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Livepatch, [RebootHost])
+                      ; (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= Some Guidance.RebootHost
                   ; livepatches=
                       [
                         LivePatch.
@@ -992,11 +1047,12 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                   ; issued=
                       Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
                   ; severity= Severity.High
+                  ; title= "title"
                   }
               )
             ]
         )
-      ; (* Single update with livepatch_guidance but empty livepatches *)
+      ; (* Single update with livepatch guidance but empty livepatch *)
         ( {|
             <updates>
               <update type="security">
@@ -1005,6 +1061,11 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <summary>summary</summary>
                 <description>description</description>
                 <special_info>special information</special_info>
+                <guidance>
+                  <livepatch>
+                    <value>RestartDeviceModel</value>
+                  </livepatch>
+                </guidance>
                 <url>https://update.details.info</url>
                 <guidance_applicabilities/>
                 <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
@@ -1021,21 +1082,26 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Livepatch, [RestartDeviceModel])
+                      ; (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= Some Guidance.RestartDeviceModel
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
         )
-      ; (* Single update with invalid livepatches *)
+      ; (* Single update with valid livepatches *)
         ( {|
             <updates>
               <update type="security">
@@ -1043,6 +1109,11 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <title>title</title>
                 <summary>summary</summary>
                 <description>description</description>
+                <guidance>
+                  <livepatch>
+                    <value>RestartToolstack</value>
+                  </livepatch>
+                </guidance>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
                 <guidance_applicabilities/>
@@ -1062,13 +1133,17 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Livepatch, [RestartToolstack])
+                      ; (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= Some Guidance.RestartToolstack
                   ; livepatches=
                       [
                         LivePatch.
@@ -1084,6 +1159,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                       ]
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]
@@ -1096,6 +1172,11 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                 <title>title</title>
                 <summary>summary</summary>
                 <description>description</description>
+                <guidance>
+                  <livepatch>
+                    <value>RestartToolstack</value>
+                  </livepatch>
+                </guidance>
                 <special_info>special information</special_info>
                 <url>https://update.details.info</url>
                 <guidance_applicabilities/>
@@ -1115,16 +1196,350 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
                     id= "UPDATE-0000"
                   ; summary= "summary"
                   ; description= "description"
-                  ; rec_guidance= None
-                  ; abs_guidance= None
+                  ; guidance=
+                      [
+                        (Livepatch, [RestartToolstack])
+                      ; (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ]
                   ; guidance_applicabilities= []
                   ; spec_info= "special information"
                   ; url= "https://update.details.info"
                   ; update_type= "security"
-                  ; livepatch_guidance= Some Guidance.RestartToolstack
                   ; livepatches= []
                   ; issued= Xapi_stdext_date.Date.epoch
                   ; severity= Severity.None
+                  ; title= "title"
+                  }
+              )
+            ]
+        )
+      ; (* guidance in new format: empty guidance *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>empty guidance</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <recommended_guidance>EvacuateHost</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
+                <guidance_applicabilities/>
+                <guidance/>
+                <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "empty guidance"
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatches= []
+                  ; issued= Xapi_stdext_date.Date.epoch
+                  ; severity= Severity.None
+                  ; title= "title"
+                  }
+              )
+            ]
+        )
+      ; (* guidance in new format only: empty guidance *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>guidance in new format only: empty guidance</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <guidance/>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "guidance in new format only: empty guidance"
+                  ; guidance=
+                      [
+                        (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatches= []
+                  ; issued= Xapi_stdext_date.Date.epoch
+                  ; severity= Severity.None
+                  ; title= "title"
+                  }
+              )
+            ]
+        )
+      ; (* guidance in new format: empty mandatory and full *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>empty mandatory and full</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <recommended_guidance>EvacuateHost</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
+                <guidance_applicabilities/>
+                <guidance>
+                  <mandatory/>
+                  <full>
+                  </full>
+                </guidance>
+                <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "empty mandatory and full"
+                  ; guidance=
+                      [
+                        (Full, [])
+                      ; (Mandatory, [])
+                      ; (Recommended, [])
+                      ; (Livepatch, [])
+                      ]
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatches= []
+                  ; issued= Xapi_stdext_date.Date.epoch
+                  ; severity= Severity.None
+                  ; title= "title"
+                  }
+              )
+            ]
+        )
+      ; (* guidance in new format: mandatory only *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>mandatory only</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <recommended_guidance>EvacuateHost</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
+                <guidance_applicabilities/>
+                <guidance>
+                  <mandatory>
+                    <value>RestartDeviceModel</value>
+                    <value>EvacuateHost</value>
+                    <value>RestartToolstack</value>
+                  </mandatory>
+                </guidance>
+                <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "mandatory only"
+                  ; guidance=
+                      [
+                        ( Mandatory
+                        , [RestartDeviceModel; EvacuateHost; RestartToolstack]
+                        )
+                      ; (Recommended, [])
+                      ; (Full, [])
+                      ; (Livepatch, [])
+                      ]
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatches= []
+                  ; issued= Xapi_stdext_date.Date.epoch
+                  ; severity= Severity.None
+                  ; title= "title"
+                  }
+              )
+            ]
+        )
+      ; (* guidance in new format: mandatory, recommended, full and livepatch *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>mandatory, recommended, full and livepatch</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <recommended_guidance>EvacuateHost</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
+                <guidance_applicabilities/>
+                <guidance>
+                  <mandatory>
+                    <value>RestartToolstack</value>
+                  </mandatory>
+                  <recommended>
+                    <value>EvacuateHost</value>
+                  </recommended>
+                  <livepatch>
+                    <value>RestartDeviceModel</value>
+                  </livepatch>
+                  <full>
+                    <value>RebootHost</value>
+                  </full>
+                </guidance>
+                <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "mandatory, recommended, full and livepatch"
+                  ; guidance=
+                      [
+                        (Full, [RebootHost])
+                      ; (Livepatch, [RestartDeviceModel])
+                      ; (Recommended, [EvacuateHost])
+                      ; (Mandatory, [RestartToolstack])
+                      ]
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatches= []
+                  ; issued= Xapi_stdext_date.Date.epoch
+                  ; severity= Severity.None
+                  ; title= "title"
+                  }
+              )
+            ]
+        )
+      ; (* guidance in new format: mandatory, recommended, full and livepatch *)
+        ( {|
+            <updates>
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>RestartVM in mandatory</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <recommended_guidance>EvacuateHost</recommended_guidance>
+                <absolute_guidance>RebootHost</absolute_guidance>
+                <guidance_applicabilities/>
+                <guidance>
+                  <mandatory>
+                    <value>RestartVM</value>
+                  </mandatory>
+                  <recommended>
+                    <value>EvacuateHost</value>
+                  </recommended>
+                  <livepatch>
+                    <value>RestartDeviceModel</value>
+                  </livepatch>
+                  <full>
+                    <value>RebootHost</value>
+                  </full>
+                </guidance>
+                <livepatch_guidance>RestartDeviceModel</livepatch_guidance>
+                <livepatches>
+                  <livepatch component="xen" base="4.19.19-8.0.20.xs8" to="4.19.19-8.0.21.xs8" base-buildid=""/>
+                  <livepatch component="kernel" base="4.19.19-8.0.20.xs8" base-buildid="9346194f2e98a228f5a595b13ecabd43a99fada0"/>
+                </livepatches>
+              </update>
+            </updates>
+          |}
+        , Ok
+            [
+              ( "UPDATE-0000"
+              , UpdateInfo.
+                  {
+                    id= "UPDATE-0000"
+                  ; summary= "summary"
+                  ; description= "RestartVM in mandatory"
+                  ; guidance=
+                      [
+                        (Full, [RebootHost])
+                      ; (Livepatch, [RestartDeviceModel])
+                      ; (Recommended, [EvacuateHost])
+                      ; (Mandatory, [RestartVM])
+                      ]
+                  ; guidance_applicabilities= []
+                  ; spec_info= "special information"
+                  ; url= "https://update.details.info"
+                  ; update_type= "security"
+                  ; livepatches= []
+                  ; issued= Xapi_stdext_date.Date.epoch
+                  ; severity= Severity.None
+                  ; title= "title"
                   }
               )
             ]

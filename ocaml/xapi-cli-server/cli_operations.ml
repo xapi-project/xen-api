@@ -5462,6 +5462,37 @@ let wait_for_task_complete rpc session_id task_id =
     Thread.delay 1.0
   done
 
+let check_task_status ?(quiet_on_success = false) ~rpc ~session_id ~task ~fd
+    ~label ~ok () =
+  (* if the client thinks it's ok, check that the server does too *)
+  match Client.Task.get_status ~rpc ~session_id ~self:task with
+  | `success when ok && not quiet_on_success ->
+      marshal fd (Command (Print (Printf.sprintf "%s succeeded" label)))
+  | `success when ok && quiet_on_success ->
+      ()
+  | `success ->
+      marshal fd
+        (Command
+           (PrintStderr (Printf.sprintf "%s failed, unknown error.\n" label))
+        ) ;
+      raise (ExitWithError 1)
+  | `failure ->
+      let result = Client.Task.get_error_info ~rpc ~session_id ~self:task in
+      if result = [] then
+        marshal fd
+          (Command
+             (PrintStderr (Printf.sprintf "%s failed, unknown error\n" label))
+          )
+      else
+        raise (Api_errors.Server_error (List.hd result, List.tl result))
+  | `cancelled ->
+      marshal fd (Command (PrintStderr (Printf.sprintf "%s cancelled\n" label))) ;
+      raise (ExitWithError 1)
+  | _ ->
+      marshal fd (Command (PrintStderr "Internal error\n")) ;
+      (* should never happen *)
+      raise (ExitWithError 1)
+
 let download_file rpc session_id task fd filename uri label =
   marshal fd (Command (HttpGet (filename, uri))) ;
   let response = ref (Response Wait) in
@@ -5484,34 +5515,8 @@ let download_file rpc session_id task fd filename uri label =
   wait_for_task_complete rpc session_id task ;
   (* Check the server status -- even if the client thinks it's ok, we need
      	   to check that the server does too. *)
-  match Client.Task.get_status ~rpc ~session_id ~self:task with
-  | `success ->
-      if ok then (
-        if filename <> "" then
-          marshal fd (Command (Print (Printf.sprintf "%s succeeded" label)))
-      ) else (
-        marshal fd
-          (Command
-             (PrintStderr (Printf.sprintf "%s failed, unknown error.\n" label))
-          ) ;
-        raise (ExitWithError 1)
-      )
-  | `failure ->
-      let result = Client.Task.get_error_info ~rpc ~session_id ~self:task in
-      if result = [] then
-        marshal fd
-          (Command
-             (PrintStderr (Printf.sprintf "%s failed, unknown error\n" label))
-          )
-      else
-        raise (Api_errors.Server_error (List.hd result, List.tl result))
-  | `cancelled ->
-      marshal fd (Command (PrintStderr (Printf.sprintf "%s cancelled\n" label))) ;
-      raise (ExitWithError 1)
-  | _ ->
-      marshal fd (Command (PrintStderr "Internal error\n")) ;
-      (* should never happen *)
-      raise (ExitWithError 1)
+  let quiet_on_success = if filename = "" then true else false in
+  check_task_status ~rpc ~session_id ~task ~fd ~label ~ok ~quiet_on_success ()
 
 let download_file_with_task fd rpc session_id filename uri query label task_name
     =
@@ -5675,24 +5680,17 @@ let vm_import fd _printer rpc session_id params =
     in
     marshal fd (Command (Print (String.concat "," uuids)))
 
-let blob_get fd _printer rpc session_id params =
-  let blob_uuid = List.assoc "uuid" params in
-  let blob_ref = Client.Blob.get_by_uuid ~rpc ~session_id ~uuid:blob_uuid in
-  let filename = List.assoc "filename" params in
-  let blobtask =
+let command_in_task ~rpc ~session_id ~fd ~obj ~label ~quiet_on_success f =
+  let task =
     Client.Task.create ~rpc ~session_id
-      ~label:(Printf.sprintf "Obtaining blob, ref=%s" (Ref.string_of blob_ref))
+      ~label:(Printf.sprintf "%s (ref=%s)" label (Ref.string_of obj))
       ~description:""
   in
-  Client.Task.set_progress ~rpc ~session_id ~self:blobtask ~value:(-1.0) ;
-  let bloburi =
-    Printf.sprintf "%s?session_id=%s&task_id=%s&ref=%s" Constants.blob_uri
-      (Ref.string_of session_id) (Ref.string_of blobtask)
-      (Ref.string_of blob_ref)
-  in
+  Client.Task.set_progress ~rpc ~session_id ~self:task ~value:(-1.0) ;
+  let command = f session_id task obj in
   finally
     (fun () ->
-      marshal fd (Command (HttpGet (filename, bloburi))) ;
+      marshal fd (Command command) ;
       let response = ref (Response Wait) in
       while !response = Response Wait do
         response := unmarshal fd
@@ -5702,106 +5700,48 @@ let blob_get fd _printer rpc session_id params =
         | Response OK ->
             true
         | Response Failed ->
-            if Client.Task.get_progress ~rpc ~session_id ~self:blobtask < 0.0
-            then
-              Client.Task.set_status ~rpc ~session_id ~self:blobtask
-                ~value:`failure ;
+            (* Need to check whether the thin cli managed to contact the server
+             * or not. If not, we need to mark the task as failed.
+             *)
+            if Client.Task.get_progress ~rpc ~session_id ~self:task < 0.0 then
+              Client.Task.set_status ~rpc ~session_id ~self:task ~value:`failure ;
             false
         | _ ->
             false
       in
-      wait_for_task_complete rpc session_id blobtask ;
-      (* if the client thinks it's ok, check that the server does too *)
-      match Client.Task.get_status ~rpc ~session_id ~self:blobtask with
-      | `success ->
-          if ok then
-            marshal fd (Command (Print "Blob get succeeded"))
-          else (
-            marshal fd
-              (Command (PrintStderr "Blob get failed, unknown error.\n")) ;
-            raise (ExitWithError 1)
-          )
-      | `failure ->
-          let result =
-            Client.Task.get_error_info ~rpc ~session_id ~self:blobtask
-          in
-          if result = [] then
-            marshal fd (Command (PrintStderr "Blob get failed, unknown error\n"))
-          else
-            raise (Api_errors.Server_error (List.hd result, List.tl result))
-      | `cancelled ->
-          marshal fd (Command (PrintStderr "Blob get cancelled\n")) ;
-          raise (ExitWithError 1)
-      | _ ->
-          marshal fd (Command (PrintStderr "Internal error\n")) ;
-          (* should never happen *)
-          raise (ExitWithError 1)
+      wait_for_task_complete rpc session_id task ;
+      check_task_status ~rpc ~session_id ~task ~fd ~label ~ok ~quiet_on_success
+        ()
     )
-    (fun () -> Client.Task.destroy ~rpc ~session_id ~self:blobtask)
+    (fun () -> Client.Task.destroy ~rpc ~session_id ~self:task)
+
+let blob_uri ~session_id ~task ~blob =
+  let query =
+    [
+      ("session_id", [Ref.string_of session_id])
+    ; ("task_id", [Ref.string_of task])
+    ; ("ref", [Ref.string_of blob])
+    ]
+  in
+  Uri.make ~path:Constants.blob_uri ~query () |> Uri.to_string
+
+let blob_get fd _printer rpc session_id params =
+  let blob_uuid = List.assoc "uuid" params in
+  let blob_ref = Client.Blob.get_by_uuid ~rpc ~session_id ~uuid:blob_uuid in
+  let filename = List.assoc "filename" params in
+  command_in_task ~rpc ~session_id ~fd ~obj:blob_ref ~label:"GET blob"
+    ~quiet_on_success:false (fun session_id task blob ->
+      HttpGet (filename, blob_uri ~session_id ~task ~blob)
+  )
 
 let blob_put fd _printer rpc session_id params =
   let blob_uuid = List.assoc "uuid" params in
   let blob_ref = Client.Blob.get_by_uuid ~rpc ~session_id ~uuid:blob_uuid in
   let filename = List.assoc "filename" params in
-  let blobtask =
-    Client.Task.create ~rpc ~session_id
-      ~label:(Printf.sprintf "Blob PUT, ref=%s" (Ref.string_of blob_ref))
-      ~description:""
-  in
-  Client.Task.set_progress ~rpc ~session_id ~self:blobtask ~value:(-1.0) ;
-  let bloburi =
-    Printf.sprintf "%s?session_id=%s&task_id=%s&ref=%s" Constants.blob_uri
-      (Ref.string_of session_id) (Ref.string_of blobtask)
-      (Ref.string_of blob_ref)
-  in
-  finally
-    (fun () ->
-      marshal fd (Command (HttpPut (filename, bloburi))) ;
-      let response = ref (Response Wait) in
-      while !response = Response Wait do
-        response := unmarshal fd
-      done ;
-      let ok =
-        match !response with
-        | Response OK ->
-            true
-        | Response Failed ->
-            if Client.Task.get_progress ~rpc ~session_id ~self:blobtask < 0.0
-            then
-              Client.Task.set_status ~rpc ~session_id ~self:blobtask
-                ~value:`failure ;
-            false
-        | _ ->
-            false
-      in
-      wait_for_task_complete rpc session_id blobtask ;
-      (* if the client thinks it's ok, check that the server does too *)
-      match Client.Task.get_status ~rpc ~session_id ~self:blobtask with
-      | `success ->
-          if ok then
-            marshal fd (Command (Print "Blob put succeeded"))
-          else (
-            marshal fd
-              (Command (PrintStderr "Blob put failed, unknown error.\n")) ;
-            raise (ExitWithError 1)
-          )
-      | `failure ->
-          let result =
-            Client.Task.get_error_info ~rpc ~session_id ~self:blobtask
-          in
-          if result = [] then
-            marshal fd (Command (PrintStderr "Blob put failed, unknown error\n"))
-          else
-            raise (Api_errors.Server_error (List.hd result, List.tl result))
-      | `cancelled ->
-          marshal fd (Command (PrintStderr "Blob put cancelled\n")) ;
-          raise (ExitWithError 1)
-      | _ ->
-          marshal fd (Command (PrintStderr "Internal error\n")) ;
-          (* should never happen *)
-          raise (ExitWithError 1)
-    )
-    (fun () -> Client.Task.destroy ~rpc ~session_id ~self:blobtask)
+  command_in_task ~rpc ~session_id ~fd ~obj:blob_ref ~label:"PUT blob"
+    ~quiet_on_success:false (fun session_id task blob ->
+      HttpPut (filename, blob_uri ~session_id ~task ~blob)
+  )
 
 let blob_create printer rpc session_id params =
   let name = List.assoc "name" params in
@@ -7110,6 +7050,9 @@ let host_reset_server_certificate _printer rpc session_id params =
        params []
     )
 
+let host_emergency_clear_mandatory_guidance _printer rpc session_id _params =
+  Client.Host.emergency_clear_mandatory_guidance ~rpc ~session_id
+
 let host_management_reconfigure _printer rpc session_id params =
   let pif =
     Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "pif-uuid" params)
@@ -7681,19 +7624,58 @@ let update_resync_host _printer rpc session_id params =
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
   Client.Pool_update.resync_host ~rpc ~session_id ~host
 
-let host_apply_updates _printer rpc session_id params =
+let get_avail_updates_uri ~session_id ~task ~host =
+  let query =
+    [
+      ("session_id", [Ref.string_of session_id])
+    ; ("task_id", [Ref.string_of task])
+    ; ("host_refs", [Ref.string_of host])
+    ]
+  in
+  Uri.make ~path:Constants.get_updates_uri ~query () |> Uri.to_string
+
+let print_avail_updates ~rpc ~session_id ~fd ~host =
+  command_in_task ~rpc ~session_id ~fd ~obj:host
+    ~label:"Print available updates for host" ~quiet_on_success:true
+    (fun session_id task host ->
+      PrintHttpGetJson (get_avail_updates_uri ~session_id ~task ~host)
+  )
+
+let print_update_guidance ~rpc ~session_id ~fd ~host =
+  command_in_task ~rpc ~session_id ~fd ~obj:host
+    ~label:"Print update guidance for host" ~quiet_on_success:true
+    (fun session_id task host ->
+      PrintUpdateGuidance (get_avail_updates_uri ~session_id ~task ~host)
+  )
+
+let host_apply_updates fd printer rpc session_id params =
   let hash = List.assoc "hash" params in
-  ignore
-    (do_host_op rpc session_id ~multiple:false
-       (fun _ host ->
-         let host = host.getref () in
-         Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash
-         |> List.iter (fun l ->
-                _printer (Cli_printer.PMsg (String.concat "; " l))
-            )
-       )
-       params ["hash"]
+  do_host_op rpc session_id ~multiple:false
+    (fun _ host ->
+      let host = host.getref () in
+      printer (Cli_printer.PMsg "Guidance of updates:") ;
+      print_update_guidance ~rpc ~session_id ~fd ~host ;
+      printer (Cli_printer.PMsg "Applying updates ...") ;
+      match Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash with
+      | [] ->
+          printer (Cli_printer.PMsg "Updated.")
+      | warnings ->
+          printer (Cli_printer.PMsg "Updated with warnings:") ;
+          List.iter
+            (fun l -> printer (Cli_printer.PMsg (String.concat "; " l)))
+            warnings
     )
+    params ["hash"]
+  |> ignore
+
+let host_updates_show_available fd _printer rpc session_id params =
+  do_host_op rpc session_id ~multiple:false
+    (fun _ host ->
+      let host = host.getref () in
+      print_avail_updates ~rpc ~session_id ~fd ~host
+    )
+    params []
+  |> ignore
 
 module SDN_controller = struct
   let introduce printer rpc session_id params =

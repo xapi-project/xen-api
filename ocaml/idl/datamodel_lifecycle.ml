@@ -39,6 +39,12 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "host", "last_update_hash" ->
+      Some "24.10.0"
+  | "host", "pending_guidances_full" ->
+      Some "24.10.0"
+  | "host", "pending_guidances_recommended" ->
+      Some "24.10.0"
   | "host", "numa_affinity_policy" ->
       Some "24.0.0"
   | "host", "latest_synced_updates_applied" ->
@@ -49,6 +55,10 @@ let prototyped_of_field = function
       Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
+  | "VM", "pending_guidances_full" ->
+      Some "24.10.0"
+  | "VM", "pending_guidances_recommended" ->
+      Some "24.10.0"
   | "VM", "recommended_guidances" ->
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
@@ -109,6 +119,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "host", "emergency_clear_mandatory_guidance" ->
+      Some "24.10.0"
   | "host", "apply_recommended_guidances" ->
       Some "23.18.0"
   | "host", "set_https_only" ->

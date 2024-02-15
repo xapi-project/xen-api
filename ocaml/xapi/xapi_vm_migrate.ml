@@ -479,6 +479,9 @@ let remove_stale_pcis ~__context ~vm =
 let pool_migrate_complete ~__context ~vm ~host:_ =
   let id = Db.VM.get_uuid ~__context ~self:vm in
   debug "VM.pool_migrate_complete %s" id ;
+  (* clear RestartDeviceModel guidance on VM migrate *)
+  Xapi_vm_lifecycle.remove_pending_guidance ~__context ~self:vm
+    ~value:`restart_device_model ;
   let dbg = Context.string_of_task __context in
   let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then (

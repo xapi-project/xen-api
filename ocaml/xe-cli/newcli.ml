@@ -435,6 +435,38 @@ let assert_filename_permitted ?(permit_cwd = false) permitted_filenames filename
   | _ ->
       ()
 
+let do_http_get ofd url exit_code f =
+  try
+    let rec doit url =
+      let server, path = parse_url url in
+      debug "Opening connection to server '%s' path '%s'\n%!" server path ;
+      with_open_tcp server @@ fun (ic, oc) ->
+      Printf.fprintf oc "GET %s HTTP/1.0\r\n\r\n" path ;
+      flush oc ;
+      (* Get the result header immediately *)
+      let resultline = input_line ic in
+      debug "Got %s\n%!" resultline ;
+      match http_response_code resultline with
+      | 200 ->
+          f ic ; marshal ofd (Response OK)
+      | 302 ->
+          let headers = read_rest_of_headers ic in
+          let newloc = List.assoc "location" headers in
+          (* see above about Unixfd.with_connection *)
+          close_in_noerr ic ; close_out_noerr oc ; doit newloc
+      | _ ->
+          failwith "Unhandled response code"
+    in
+    doit url
+  with
+  | ClientSideError msg ->
+      marshal ofd (Response Failed) ;
+      Printf.fprintf stderr "Operation failed. Error: %s\n" msg ;
+      exit_code := Some 1
+  | e ->
+      debug "HTTP GET failure: %s\n%!" (Printexc.to_string e) ;
+      marshal ofd (Response Failed)
+
 let main_loop ifd ofd permitted_filenames =
   (* Intially exchange version information *)
   let major', minor' =
@@ -709,64 +741,55 @@ let main_loop ifd ofd permitted_filenames =
                the normal communication channel *)
             marshal ofd (Response Failed)
       )
-    | Command (HttpGet (filename, url)) -> (
-      try
-        let rec doit url =
-          let server, path = parse_url url in
-          debug "Opening connection to server '%s' path '%s'\n%!" server path ;
-          with_open_tcp server @@ fun (ic, oc) ->
-          Printf.fprintf oc "GET %s HTTP/1.0\r\n\r\n" path ;
-          flush oc ;
-          (* Get the result header immediately *)
-          let resultline = input_line ic in
-          debug "Got %s\n%!" resultline ;
-          match http_response_code resultline with
-          | 200 ->
-              let file_ch =
-                if filename = "" then
-                  Unix.out_channel_of_descr (Unix.dup Unix.stdout)
-                else (
-                  assert_filename_permitted ~permit_cwd:true permitted_filenames
-                    filename ;
-                  try
-                    open_out_gen
-                      [Open_wronly; Open_creat; Open_excl]
-                      0o600 filename
-                  with e -> raise (ClientSideError (Printexc.to_string e))
-                )
-              in
-              while input_line ic <> "\r" do
-                ()
-              done ;
-              Pervasiveext.finally
-                (fun () ->
-                  copy_with_heartbeat ic file_ch heartbeat_fun ;
-                  marshal ofd (Response OK)
-                )
-                (fun () -> try close_out file_ch with _ -> ())
-          | 302 ->
-              let headers = read_rest_of_headers ic in
-              let newloc = List.assoc "location" headers in
-              (* see above about Unixfd.with_connection *)
-              close_in_noerr ic ; close_out_noerr oc ; doit newloc
-          | _ ->
-              failwith "Unhandled response code"
-        in
-        doit url
-      with
-      | ClientSideError msg ->
-          marshal ofd (Response Failed) ;
-          Printf.fprintf stderr "Operation failed. Error: %s\n" msg ;
-          exit_code := Some 1
-      | e -> (
-        match e with
-        | Filename_not_permitted _ ->
-            raise e
-        | _ ->
-            debug "HttpGet failure: %s\n%!" (Printexc.to_string e) ;
-            marshal ofd (Response Failed)
-      )
-    )
+    | Command (HttpGet (filename, url)) ->
+        do_http_get ofd url exit_code (fun ic ->
+            let file_ch =
+              if filename = "" then
+                Unix.out_channel_of_descr (Unix.dup Unix.stdout)
+              else (
+                assert_filename_permitted ~permit_cwd:true permitted_filenames
+                  filename ;
+                try
+                  open_out_gen
+                    [Open_wronly; Open_creat; Open_excl]
+                    0o600 filename
+                with e -> raise (ClientSideError (Printexc.to_string e))
+              )
+            in
+            while input_line ic <> "\r" do
+              ()
+            done ;
+            Pervasiveext.finally
+              (fun () -> copy_with_heartbeat ic file_ch heartbeat_fun)
+              (fun () -> try close_out file_ch with _ -> ())
+        )
+    | Command (PrintHttpGetJson url) ->
+        do_http_get ofd url exit_code (fun ic ->
+            while input_line ic <> "\r" do
+              ()
+            done ;
+            Yojson.Basic.from_channel ic
+            |> Yojson.Basic.pretty_to_string
+            |> print_endline ;
+            flush stdout
+        )
+    | Command (PrintUpdateGuidance url) ->
+        do_http_get ofd url exit_code (fun ic ->
+            while input_line ic <> "\r" do
+              ()
+            done ;
+            Yojson.Basic.from_channel ic |> Yojson.Basic.Util.member "hosts"
+            |> function
+            | `List [] ->
+                raise (ClientSideError "No host data returned")
+            | `List (host :: _) ->
+                Yojson.Basic.Util.member "guidance" host
+                |> Yojson.Basic.pretty_to_string
+                |> print_endline ;
+                flush stdout
+            | _ ->
+                raise (ClientSideError "Unknown data format")
+        )
     | Command Prompt ->
         let data = input_line stdin in
         marshal ofd (Blob (Chunk (Int32.of_int (String.length data)))) ;

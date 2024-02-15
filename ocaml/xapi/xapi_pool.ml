@@ -3359,11 +3359,14 @@ let set_repositories ~__context ~self ~value =
     (fun x ->
       if not (List.mem x existings) then (
         Db.Repository.set_hash ~__context ~self:x ~value:"" ;
-        Repository.reset_updates_in_cache ()
+        Repository.reset_updates_in_cache () ;
+        Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
       )
     )
     value ;
-  Db.Pool.set_repositories ~__context ~self ~value
+  Db.Pool.set_repositories ~__context ~self ~value ;
+  if Db.Pool.get_repositories ~__context ~self = [] then
+    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
 
 let add_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
@@ -3373,7 +3376,8 @@ let add_repository ~__context ~self ~value =
   if not (List.mem value existings) then (
     Db.Pool.add_repositories ~__context ~self ~value ;
     Db.Repository.set_hash ~__context ~self:value ~value:"" ;
-    Repository.reset_updates_in_cache ()
+    Repository.reset_updates_in_cache () ;
+    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
   )
 
 let remove_repository ~__context ~self ~value =
@@ -3388,7 +3392,9 @@ let remove_repository ~__context ~self ~value =
       )
     )
     (Db.Pool.get_repositories ~__context ~self) ;
-  Db.Pool.remove_repositories ~__context ~self ~value
+  Db.Pool.remove_repositories ~__context ~self ~value ;
+  if Db.Pool.get_repositories ~__context ~self = [] then
+    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
 
 let sync_updates ~__context ~self ~force ~token ~token_id =
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
