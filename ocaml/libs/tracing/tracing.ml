@@ -352,75 +352,91 @@ module Spans = struct
 
   let finished_span_hashtbl_is_empty () = Hashtbl.length finished_spans = 0
 
-  let remove_from_spans span =
+  let remove_from_spans ?(with_lock = true) span =
     let key = span.Span.context.trace_id in
-    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        match Hashtbl.find_opt spans key with
-        | None ->
-            debug "%s span does not exist or already finished" __FUNCTION__ ;
-            None
-        | Some span_list ->
-            ( match
-                List.filter
-                  (fun x ->
-                    if x.Span.context <> span.context then
-                      true
-                    else
-                      let _ = SpanFrequencies.decr_frequency_tbl ~span:x in
-                      false
-                  )
-                  span_list
-              with
-            | [] ->
-                Hashtbl.remove spans key
-            | filtered_list ->
-                Hashtbl.replace spans key filtered_list
-            ) ;
-            Some span
-    )
+    let remove () =
+      match Hashtbl.find_opt spans key with
+      | None ->
+          debug "%s span does not exist or already finished" __FUNCTION__ ;
+          None
+      | Some span_list ->
+          ( match
+              List.filter
+                (fun x ->
+                  if x.Span.context <> span.context then
+                    true
+                  else
+                    let _ = SpanFrequencies.decr_frequency_tbl ~span:x in
+                    false
+                )
+                span_list
+            with
+          | [] ->
+              Hashtbl.remove spans key
+          | filtered_list ->
+              Hashtbl.replace spans key filtered_list
+          ) ;
+          Some span
+    in
+    if with_lock then
+      Xapi_stdext_threads.Threadext.Mutex.execute lock remove
+    else
+      remove ()
 
-  let add_to_finished span =
+  type tbls = ActiveTbl | FinishedTbl
+
+  let add_to_tbl_helper ?(trace_bucket = []) ~span ~key ~tbl ~tbl_type
+      do_on_full =
+    let full () =
+      match trace_bucket with
+      | [] ->
+          Hashtbl.length tbl >= !max_traces
+      | _ ->
+          List.length trace_bucket >= !max_spans
+    in
+
+    if not (full ()) then
+      match tbl_type with
+      | ActiveTbl ->
+          SpanFrequencies.incr_frequency_tbl ~span ;
+          Hashtbl.replace tbl key (span :: trace_bucket) ;
+          if full () then
+            do_on_full ()
+          else
+            ()
+      | FinishedTbl ->
+          Hashtbl.replace tbl key (span :: trace_bucket)
+    else
+      do_on_full ()
+
+  let add_to_finished ?(with_lock = true) span =
     let key = span.Span.context.trace_id in
-    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        match Hashtbl.find_opt finished_spans key with
-        | None ->
-            if Hashtbl.length finished_spans < !max_traces then
-              Hashtbl.add finished_spans key [span]
-            else
-              debug "%s exceeded max traces when adding to finished span table"
-                __FUNCTION__
-        | Some span_list ->
-            if List.length span_list < !max_spans then
-              Hashtbl.replace finished_spans key (span :: span_list)
-            else
-              debug "%s exceeded max traces when adding to finished span table"
-                __FUNCTION__
-    )
+    let add () =
+      add_to_tbl_helper
+        ?trace_bucket:(Hashtbl.find_opt finished_spans key)
+        ~span ~key ~tbl:finished_spans ~tbl_type:FinishedTbl
+      @@ fun () ->
+      debug "%s exceeded max traces when adding to finished span table"
+        __FUNCTION__
+    in
+    if with_lock then
+      Xapi_stdext_threads.Threadext.Mutex.execute lock add
+    else
+      add ()
 
-  let mark_finished span = Option.iter add_to_finished (remove_from_spans span)
+  let mark_finished ?(with_lock = true) span =
+    Option.iter (add_to_finished ~with_lock) (remove_from_spans ~with_lock span)
 
   let add_to_spans ~(span : Span.t) =
     let key = span.context.trace_id in
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        match Hashtbl.find_opt spans key with
-        | None ->
-            if Hashtbl.length spans < !max_traces then (
-              SpanFrequencies.incr_frequency_tbl ~span ;
-              Hashtbl.add spans key [span]
-            ) else (
-              debug "%s exceeded max traces when adding to span table"
-                __FUNCTION__ ;
-              ignore (SpanFrequencies.debug_most_frequent ())
-            )
-        | Some span_list ->
-            if List.length span_list < !max_spans then (
-              SpanFrequencies.incr_frequency_tbl ~span ;
-              Hashtbl.replace spans key (span :: span_list)
-            ) else (
-              debug "%s exceeded max traces when adding to span table"
-                __FUNCTION__ ;
-              ignore (SpanFrequencies.debug_most_frequent ())
-            )
+        add_to_tbl_helper
+          ?trace_bucket:(Hashtbl.find_opt spans key)
+          ~span ~key ~tbl:spans ~tbl_type:ActiveTbl
+        @@ fun () ->
+        debug "%s exceeded max traces when adding to finished span table"
+          __FUNCTION__ ;
+        ignore (SpanFrequencies.debug_most_frequent ())
     )
 
   let span_is_finished x =
@@ -443,7 +459,7 @@ module Spans = struct
         copy
     )
 
-  let dump () = Hashtbl.(copy spans, Hashtbl.copy finished_spans)
+  let dump () = Hashtbl.(copy spans, copy finished_spans)
 
   module GC = struct
     let lock = Mutex.create ()
