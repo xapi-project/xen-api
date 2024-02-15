@@ -6,11 +6,13 @@
     certificate_check
     daily_license_check
     dune-build-info
+    expiry_alert
     fmt
     xapi-consts
     xapi-log
     xapi-stdext-date
     xapi-types
+    uuid
   )
   (action (run %{test} --color=always))
 )

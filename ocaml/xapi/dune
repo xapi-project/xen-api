@@ -64,6 +64,7 @@
     cstruct
     base64
     cohttp
+    cohttp_posix
     domain-name
     ezxenstore.core
     fmt
@@ -72,6 +73,7 @@
     gzip
     hex
     http_lib
+    httpsvr
     ipaddr
     message-switch-core
     message-switch-unix
@@ -83,6 +85,7 @@
     pciutil
     pci
     ptime
+    ptime.clock.os
     rpclib.core
     rpclib.json
     rpclib.xml
@@ -109,7 +112,7 @@
     x509
     xapi_aux
     xapi-backtrace
-    xapi-consts
+    (re_export xapi-consts)
     xapi-consts.xapi_version
     xapi-client
     xapi-cli-protocol
@@ -136,7 +139,7 @@
     xapi-log
     xapi-open-uri
     xapi-rrd
-    xapi-types
+    (re_export xapi-types)
     xapi-stdext-date
     xapi-stdext-encodings
     xapi-stdext-pervasives

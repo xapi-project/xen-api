@@ -3,7 +3,7 @@
   (public_name ezxenstore)
   (wrapped false)
   (libraries
-    ezxenstore_core
-    ezxenstore_watch
+    (re_export ezxenstore_core)
+    (re_export ezxenstore_watch)
   )
 )

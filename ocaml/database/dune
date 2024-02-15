@@ -40,6 +40,7 @@
     xapi-datamodel
     xapi-log
     (re_export xapi-schema)
+    xapi-idl.updates
     xapi-stdext-encodings
     xapi-stdext-pervasives
     xapi-stdext-std

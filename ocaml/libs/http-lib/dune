@@ -8,6 +8,7 @@
   (libraries
     astring
     base64
+    fmt
     ipaddr
     mtime
     mtime.clock.os
@@ -39,6 +40,7 @@
   (libraries
     astring
     http_lib
+    ipaddr
     polly
     threads.posix
     xapi-log
@@ -55,6 +57,7 @@
   (libraries
     alcotest
     dune-build-info
+    fmt
     http_lib
   )
 )
