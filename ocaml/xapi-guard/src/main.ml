@@ -110,7 +110,7 @@ let listen_for_vm {Persistent.vm_uuid; path; gid; typ} =
     (Types.Service.to_string typ)
     path vm_uuid_str ;
   let* () = safe_unlink path in
-  let* stop_server = make_server ~cache path vm_uuid_str in
+  let* stop_server = make_server ~cache path vm_uuid in
   let* () = log_fds () in
   Hashtbl.add sockets path (stop_server, (vm_uuid, gid, typ)) ;
   let* () = Lwt_unix.chmod path 0o660 in

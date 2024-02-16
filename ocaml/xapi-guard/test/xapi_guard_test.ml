@@ -60,7 +60,9 @@ let xapi_rpc call =
   | _ ->
       Fmt.failwith "XAPI RPC call %s not expected in test" call.Rpc.name
 
-let vm_uuid = Uuidx.(to_string (make ()))
+let vm_uuid = Uuidm.v `V4
+
+let vm_uuid_str = Uuidm.to_string vm_uuid
 
 let () =
   let old_hook = !Lwt.async_exception_hook in
@@ -101,7 +103,7 @@ let with_rpc f switch () =
 let dict = Alcotest.(list @@ pair string string)
 
 let test_change_nvram ~rpc ~session_id () =
-  let* self = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+  let* self = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid_str in
   let* nvram0 = VM.get_NVRAM ~rpc ~session_id ~self in
   Alcotest.(check' dict) ~msg:"nvram initial" ~expected:[] ~actual:nvram0 ;
   let contents = "nvramnew" in
@@ -131,7 +133,7 @@ let test_bad_set_nvram ~rpc ~session_id () =
   let* () =
     VM.set_NVRAM_EFI_variables ~rpc ~session_id ~self:vm_bad ~value:"bad"
   in
-  let* vm_ref = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+  let* vm_ref = VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid_str in
   let* nvram = VM.get_NVRAM ~rpc ~session_id ~self:vm_ref in
   Alcotest.(check' dict)
     ~msg:"only managed to change own nvram" ~actual:nvram

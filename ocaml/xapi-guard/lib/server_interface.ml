@@ -102,8 +102,9 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
 
 let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
   let get_vtpm_ref () =
+    let vm_uuid_str = Uuidm.to_string vm_uuid in
     let* vm =
-      with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid
+      with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid_str
     in
     let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
     match vTPMs with
@@ -113,7 +114,8 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
            ignoring request"
           __FUNCTION__ ;
         let msg =
-          Printf.sprintf "No VTPM associated with VM %s, nothing to do" vm_uuid
+          Printf.sprintf "No VTPM associated with VM %s, nothing to do"
+            vm_uuid_str
         in
         raise (Failure msg)
     | self :: _ ->
@@ -163,9 +165,10 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
 
 (* Create a restricted RPC function and socket for a specific VM *)
 let make_server_varstored ~cache path vm_uuid =
+  let vm_uuid_str = Uuidm.to_string vm_uuid in
   let module Server =
     Xapi_idl_guard_varstored.Interface.RPC_API (Rpc_lwt.GenServer ()) in
-  let get_vm_ref () = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
+  let get_vm_ref () = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid_str in
   let ret v =
     (* TODO: maybe map XAPI exceptions *)
     Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
@@ -187,7 +190,7 @@ let make_server_varstored ~cache path vm_uuid =
       (let* (_ : _ Ref.t) =
          with_xapi ~cache
          @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
-              ~obj_uuid:vm_uuid ~body
+              ~obj_uuid:vm_uuid_str ~body
        in
        Lwt.return_unit
       )
