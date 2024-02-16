@@ -100,28 +100,37 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
       in
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
-let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
-  let get_vtpm_ref () =
-    let vm_uuid_str = Uuidm.to_string vm_uuid in
-    let* vm =
-      with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid_str
-    in
-    let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
-    match vTPMs with
-    | [] ->
-        D.warn
-          "%s: received a request from a VM that has no VTPM associated, \
-           ignoring request"
-          __FUNCTION__ ;
-        let msg =
-          Printf.sprintf "No VTPM associated with VM %s, nothing to do"
-            vm_uuid_str
-        in
-        raise (Failure msg)
-    | self :: _ ->
-        let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
-        with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
+let with_xapi_vtpm ~cache vm_uuid =
+  let vm_uuid_str = Uuidm.to_string vm_uuid in
+  let* vm =
+    with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid_str
   in
+  let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
+  match vTPMs with
+  | [] ->
+      D.warn
+        "%s: received a request from a VM that has no VTPM associated, \
+         ignoring request"
+        __FUNCTION__ ;
+      let msg =
+        Printf.sprintf "No VTPM associated with VM %s, nothing to do"
+          vm_uuid_str
+      in
+      raise (Failure msg)
+  | self :: _ ->
+      let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
+      with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
+
+let push_vtpm ~cache vm_uuid path contents =
+  let* self = with_xapi_vtpm ~cache vm_uuid in
+  let* old_contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+  let contents =
+    Tpm.(old_contents |> deserialize |> update key contents |> serialize)
+  in
+  let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
+  Lwt.return_unit
+
+let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
   let uri = Cohttp.Request.uri req in
   (* in case the connection is interrupted/etc. we may still have pending operations,
      so use a per vTPM mutex to ensure we really only have 1 pending operation at a time for a vTPM
@@ -130,7 +139,7 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
   (* TODO: some logging *)
   match (Cohttp.Request.meth req, Uri.path uri) with
   | `GET, path when path <> "/" ->
-      let* self = get_vtpm_ref () in
+      let* self = with_xapi_vtpm ~cache vm_uuid in
       let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let key = Tpm.key_of_swtpm path in
       let body = Tpm.(contents |> deserialize |> lookup ~key) in
@@ -140,17 +149,12 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
       Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK ~body ()
   | `PUT, path when path <> "/" ->
       let* body = Cohttp_lwt.Body.to_string body in
-      let* self = get_vtpm_ref () in
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let key = Tpm.key_of_swtpm path in
-      let contents =
-        Tpm.(contents |> deserialize |> update key body |> serialize)
-      in
-      let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
+      let* () = push_vtpm ~cache vm_uuid key body in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
         ~body:Cohttp_lwt.Body.empty ()
   | `DELETE, path when path <> "/" ->
-      let* self = get_vtpm_ref () in
+      let* self = with_xapi_vtpm ~cache vm_uuid in
       let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let key = Tpm.key_of_swtpm path in
       let contents =
