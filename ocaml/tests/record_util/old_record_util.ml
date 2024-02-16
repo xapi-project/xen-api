@@ -177,8 +177,6 @@ let pool_operation_to_string = function
       "exchange_ca_certificates_on_join"
   | `copy_primary_host_certs ->
       "copy_primary_host_certs"
-  | `eject ->
-      "eject"
 
 let host_operation_to_string = function
   | `provision ->
@@ -199,24 +197,16 @@ let host_operation_to_string = function
       "VM.migrate"
   | `apply_updates ->
       "apply_updates"
-  | `enable ->
-      "enable"
 
 let update_guidance_to_string = function
   | `reboot_host ->
       "reboot_host"
   | `reboot_host_on_livepatch_failure ->
       "reboot_host_on_livepatch_failure"
-  | `reboot_host_on_kernel_livepatch_failure ->
-      "reboot_host_on_kernel_livepatch_failure"
-  | `reboot_host_on_xen_livepatch_failure ->
-      "reboot_host_on_xen_livepatch_failure"
   | `restart_toolstack ->
       "restart_toolstack"
   | `restart_device_model ->
       "restart_device_model"
-  | `restart_vm ->
-      "restart_vm"
 
 let latest_synced_updates_applied_state_to_string = function
   | `yes ->
