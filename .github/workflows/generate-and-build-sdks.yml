@@ -137,7 +137,7 @@ jobs:
       - name: Store PowerShell SDK (.NET Framework 4.5)
         uses: actions/upload-artifact@v3
         with:
-          name: XenServerPowerShell_NET45
+          name: SDK_Binaries_XenServerPowerShell_NET45
           path: output/**/*
 
   build-powershell-7x-sdk:
@@ -207,5 +207,5 @@ jobs:
       - name: Store PowerShell SDK (.NET ${{ matrix.dotnet }})
         uses: actions/upload-artifact@v3
         with:
-          name: XenServerPowerShell_NET${{ matrix.dotnet }}
+          name: SDK_Binaries_XenServerPowerShell_NET${{ matrix.dotnet }}
           path: output/**/*

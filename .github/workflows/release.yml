@@ -61,13 +61,13 @@ jobs:
       - name: Retrieve PowerShell 5.x SDK distribution artifacts
         uses: actions/download-artifact@v3
         with:
-          name: XenServerPowerShell_NET45
+          name: SDK_Binaries_XenServerPowerShell_NET45
           path: sdk_powershell_5x/
 
       - name: Retrieve PowerShell 7.x SDK distribution artifacts
         uses: actions/download-artifact@v3
         with:
-          name: XenServerPowerShell_NET8
+          name: SDK_Binaries_XenServerPowerShell_NET6
           path: sdk_powershell_7x/
 
       - name: Zip PowerShell 5.x SDK artifacts for deployment
