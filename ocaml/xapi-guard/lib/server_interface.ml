@@ -118,8 +118,7 @@ let with_xapi_vtpm ~cache vm_uuid =
       in
       raise (Failure msg)
   | self :: _ ->
-      let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
-      with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
+      Lwt.return self
 
 let push_vtpm ~cache (vm_uuid, _timestamp, key) contents =
   let* self = with_xapi_vtpm ~cache vm_uuid in
