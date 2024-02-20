@@ -18,6 +18,7 @@ open Lwt.Syntax
 module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
+module Tpm = Xapi_guard.Types.Tpm
 
 type rpc_t = Rpc.t
 
@@ -99,59 +100,6 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
       in
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
-(* The TPM has 3 kinds of states *)
-type state = {
-    permall: string  (** permanent storage *)
-  ; savestate: string  (** for ACPI S3 *)
-  ; volatilestate: string  (** for snapshot/migration/etc. *)
-}
-
-let split_char = ' '
-
-let join_string = String.make 1 split_char
-
-let deserialize t =
-  match String.split_on_char split_char t with
-  | [permall] ->
-      (* backwards compat with reading tpm2-00.permall *)
-      {permall; savestate= ""; volatilestate= ""}
-  | [permall; savestate; volatilestate] ->
-      {permall; savestate; volatilestate}
-  | splits ->
-      Fmt.failwith "Invalid state: too many splits %d" (List.length splits)
-
-let serialize t =
-  (* it is assumed that swtpm has already base64 encoded this *)
-  String.concat join_string [t.permall; t.savestate; t.volatilestate]
-
-let lookup_key key t =
-  match key with
-  | "/tpm2-00.permall" ->
-      t.permall
-  | "/tpm2-00.savestate" ->
-      t.savestate
-  | "/tpm2-00.volatilestate" ->
-      t.volatilestate
-  | s ->
-      Fmt.invalid_arg "Unknown TPM state key: %s" s
-
-let update_key key state t =
-  if String.contains state split_char then
-    Fmt.invalid_arg
-      "State to be stored (%d bytes) contained forbidden separator: %c"
-      (String.length state) split_char ;
-  match key with
-  | "/tpm2-00.permall" ->
-      {t with permall= state}
-  | "/tpm2-00.savestate" ->
-      {t with savestate= state}
-  | "/tpm2-00.volatilestate" ->
-      {t with volatilestate= state}
-  | s ->
-      Fmt.invalid_arg "Unknown TPM state key: %s" s
-
-let empty = ""
-
 let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
   let get_vtpm_ref () =
     let* vm =
@@ -179,29 +127,32 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
   Lwt_mutex.with_lock mutex @@ fun () ->
   (* TODO: some logging *)
   match (Cohttp.Request.meth req, Uri.path uri) with
-  | `GET, key when key <> "/" ->
+  | `GET, path when path <> "/" ->
       let* self = get_vtpm_ref () in
       let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
-      let body = contents |> deserialize |> lookup_key key in
+      let key = Tpm.key_of_swtpm path in
+      let body = Tpm.(contents |> deserialize |> lookup ~key) in
       let headers =
         Cohttp.Header.of_list [("Content-Type", "application/octet-stream")]
       in
       Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK ~body ()
-  | `PUT, key when key <> "/" ->
+  | `PUT, path when path <> "/" ->
       let* body = Cohttp_lwt.Body.to_string body in
       let* self = get_vtpm_ref () in
       let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+      let key = Tpm.key_of_swtpm path in
       let contents =
-        contents |> deserialize |> update_key key body |> serialize
+        Tpm.(contents |> deserialize |> update key body |> serialize)
       in
       let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
         ~body:Cohttp_lwt.Body.empty ()
-  | `DELETE, key when key <> "/" ->
+  | `DELETE, path when path <> "/" ->
       let* self = get_vtpm_ref () in
       let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+      let key = Tpm.key_of_swtpm path in
       let contents =
-        contents |> deserialize |> update_key key empty |> serialize
+        Tpm.(contents |> deserialize |> update key empty_state |> serialize)
       in
       let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
