@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies only needed for python 3
         if: ${{ matrix.python-version != '2.7' }}
-        run: pip install pandas pytype toml
+        run: pip install pandas pytype toml wrapt
 
       - name: Install common dependencies for Python ${{matrix.python-version}}
         run: pip install future mock pytest-coverage pytest-mock

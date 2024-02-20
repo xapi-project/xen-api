@@ -39,8 +39,8 @@ ensure_newline_before_comments = false
 # Note mypy has no config setting for PYTHONPATH, so you need to call it with:
 # PYTHONPATH="scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
 files = [
+    "python3",
     "scripts/usb_reset.py",
-    "scripts/unit_tests",
 ]
 pretty = true
 error_summary = true
