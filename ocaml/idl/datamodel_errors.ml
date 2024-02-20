@@ -1942,10 +1942,6 @@ let _ =
     ~doc:"The repository domain allowlist has some invalid domains." () ;
   error Api_errors.apply_livepatch_failed ["livepatch"]
     ~doc:"Failed to apply a livepatch." () ;
-  error Api_errors.updates_require_recommended_guidance ["recommended_guidance"]
-    ~doc:"Requires recommended guidance after applying updates." () ;
-  error Api_errors.update_guidance_changed ["guidance"]
-    ~doc:"Guidance for the update has changed" () ;
 
   error Api_errors.vtpm_max_amount_reached ["amount"]
     ~doc:"The VM cannot be associated with more VTPMs." () ;
@@ -1962,6 +1958,15 @@ let _ =
 
   error Api_errors.no_repositories_configured []
     ~doc:"No update repositories have been configured." () ;
+
+  error Api_errors.host_pending_mandatory_guidances_not_empty ["host"]
+    ~doc:
+      "Operation could not be performed on the host because there is pending \
+       mandatory update guidance on it."
+    () ;
+
+  error Api_errors.host_evacuation_is_required ["host"]
+    ~doc:"Host evacuation is required before applying updates." () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

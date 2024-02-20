@@ -181,6 +181,8 @@ namespace XenAPI
         public bool PreAuthenticate { get; set; }
         public CookieContainer Cookies { get; set; }
         public RemoteCertificateValidationCallback ServerCertificateValidationCallback { get; set; }
+        public Dictionary<string, string> RequestHeaders { get; set; }
+        public Dictionary<string, string> ResponseHeaders { get; set; }
 
         public string Url { get; private set; }
 
@@ -285,14 +287,32 @@ namespace XenAPI
             webRequest.CookieContainer = Cookies ?? webRequest.CookieContainer ?? new CookieContainer();
             webRequest.ServerCertificateValidationCallback = ServerCertificateValidationCallback ?? ServicePointManager.ServerCertificateValidationCallback;
 
+            if (RequestHeaders != null)
+            {
+                foreach (var header in RequestHeaders)
+                    webRequest.Headers.Add(header.Key, header.Value);
+            }
+
             using (var str = webRequest.GetRequestStream())
             {
                 postStream.CopyTo(str);
                 str.Flush();
             }
 
-            using (var webResponse = (HttpWebResponse)webRequest.GetResponse())
+            HttpWebResponse webResponse = null;
+            try
             {
+                webResponse = (HttpWebResponse)webRequest.GetResponse();
+
+                ResponseHeaders = new Dictionary<string, string>();
+
+                if (webResponse.Headers != null)
+                {
+                    var keys = webResponse.Headers.AllKeys;
+                    foreach (var key in keys)
+                        ResponseHeaders.Add(key, string.Join(",", webResponse.Headers.Get(key)));
+                }
+
                 if (webResponse.StatusCode != HttpStatusCode.OK)
                     throw new WebException(webResponse.StatusCode.ToString());
 
@@ -304,6 +324,11 @@ namespace XenAPI
                     str.CopyTo(responseStream);
                     responseStream.Flush();
                 }
+            }
+            finally
+            {
+                RequestHeaders = null;
+                webResponse?.Dispose();
             }
         }
 

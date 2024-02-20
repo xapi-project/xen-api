@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 774
+let schema_minor_vsn = 775
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -134,6 +134,10 @@ let yangtze_release_schema_major_vsn = 5
 
 let yangtze_release_schema_minor_vsn = 602
 
+let nile_release_schema_major_vsn = 5
+
+let nile_release_schema_minor_vsn = 775
+
 (* List of tech-preview releases. Fields in these releases are not guaranteed to be retained when
  * upgrading to a full release. *)
 let tech_preview_releases =
@@ -151,7 +155,7 @@ let tech_preview_releases =
  * but there are exceptions: please consult the XenCenter maintainers if in doubt. *)
 let api_version_major = 2L
 
-let api_version_minor = 20L
+let api_version_minor = 21L
 
 let api_version_string =
   Printf.sprintf "%Ld.%Ld" api_version_major api_version_minor
@@ -316,6 +320,14 @@ let update_guidances =
         , "Indicates the updated host should reboot as soon as possible since \
            one or more livepatch(es) failed to be applied."
         )
+      ; ( "reboot_host_on_kernel_livepatch_failure"
+        , "Indicates the updated host should reboot as soon as possible since \
+           one or more kernel livepatch(es) failed to be applied."
+        )
+      ; ( "reboot_host_on_xen_livepatch_failure"
+        , "Indicates the updated host should reboot as soon as possible since \
+           one or more xen livepatch(es) failed to be applied."
+        )
       ; ( "restart_toolstack"
         , "Indicates the Toolstack running on the updated host should restart \
            as soon as possible"
@@ -324,6 +336,7 @@ let update_guidances =
         , "Indicates the device model of a running VM should restart as soon \
            as possible"
         )
+      ; ("restart_vm", "Indicates the VM should restart as soon as possible")
       ]
     )
 

@@ -187,118 +187,6 @@ module UpdateOfJsonTest = Generic.MakeStateless (struct
       ]
 end)
 
-module GuidanceSetAssertValidGuidanceTest = Generic.MakeStateless (struct
-  module Io = struct
-    type input_t = Guidance.t list
-
-    type output_t = (unit, exn) result
-
-    let string_of_input_t l =
-      Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
-
-    let string_of_output_t =
-      Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
-  end
-
-  let transform input =
-    try Ok (GuidanceSet.assert_valid_guidances input) with e -> Error e
-
-  let tests =
-    let open Guidance in
-    `QuickAndAutoDocumented
-      [
-        ([], Ok ())
-      ; ([RebootHost], Ok ())
-      ; ([RestartToolstack], Ok ())
-      ; ([RestartDeviceModel], Ok ())
-      ; ([EvacuateHost], Ok ())
-      ; ([EvacuateHost; RestartToolstack], Ok ())
-      ; ([RestartDeviceModel; RestartToolstack], Ok ())
-      ; ( [RestartDeviceModel; EvacuateHost]
-        , Error
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [GuidanceSet.error_msg [RestartDeviceModel; EvacuateHost]]
-                )
-            )
-        )
-      ; ( [EvacuateHost; RestartToolstack; RestartDeviceModel]
-        , Error
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [
-                    GuidanceSet.error_msg
-                      [EvacuateHost; RestartToolstack; RestartDeviceModel]
-                  ]
-                )
-            )
-        )
-      ; ( [RebootHost; RestartToolstack]
-        , Error
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [GuidanceSet.error_msg [RebootHost; RestartToolstack]]
-                )
-            )
-        )
-      ; ( [RebootHost; RestartDeviceModel]
-        , Error
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [GuidanceSet.error_msg [RebootHost; RestartDeviceModel]]
-                )
-            )
-        )
-      ; ( [RebootHost; EvacuateHost]
-        , Error
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [GuidanceSet.error_msg [RebootHost; EvacuateHost]]
-                )
-            )
-        )
-      ]
-end)
-
-let fields_of_updateinfo =
-  Fmt.Dump.
-    [
-      field "id" (fun (r : UpdateInfo.t) -> r.id) string
-    ; field "summary" (fun (r : UpdateInfo.t) -> r.summary) string
-    ; field "description" (fun (r : UpdateInfo.t) -> r.description) string
-    ; field "rec_guidance"
-        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.rec_guidance)
-        string
-    ; field "abs_guidance"
-        (fun (r : UpdateInfo.t) -> UpdateInfo.guidance_to_string r.abs_guidance)
-        string
-    ; field "guidance_applicabilities"
-        (fun (r : UpdateInfo.t) ->
-          List.map Applicability.to_string r.guidance_applicabilities
-        )
-        (list string)
-    ; field "spec_info" (fun (r : UpdateInfo.t) -> r.spec_info) string
-    ; field "url" (fun (r : UpdateInfo.t) -> r.url) string
-    ; field "update_type" (fun (r : UpdateInfo.t) -> r.update_type) string
-    ; field "livepatch_guidance"
-        (fun (r : UpdateInfo.t) ->
-          UpdateInfo.guidance_to_string r.livepatch_guidance
-        )
-        string
-    ; field "livepatches"
-        (fun (r : UpdateInfo.t) ->
-          List.map
-            (fun x -> x |> LivePatch.to_json |> Yojson.Basic.pretty_to_string)
-            r.livepatches
-        )
-        (list string)
-    ]
-
 module AssertUrlIsValid = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * string list
@@ -520,10 +408,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
         updates_info: (string * UpdateInfo.t) list
       ; update: Update.t
       ; upd_ids_of_livepatches: string list
-      ; upd_ids_of_failed_livepatches: string list
+      ; kind: Guidance.kind
     }
 
-    type output_t = Guidance.t option
+    type output_t = Guidance.t list
 
     let fields_of_input =
       Fmt.Dump.
@@ -548,37 +436,24 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
               |> Printf.sprintf "[%s]"
             )
             string
-        ; field "upd_ids_of_failed_livepatches"
-            (fun (r : input_t) ->
-              r.upd_ids_of_failed_livepatches
-              |> String.concat ";"
-              |> Printf.sprintf "[%s]"
-            )
+        ; field "kind"
+            (fun (r : input_t) -> Guidance.kind_to_string r.kind)
             string
         ]
 
     let string_of_input_t = Fmt.(str "%a" Dump.(record @@ fields_of_input))
 
-    let string_of_output_t g =
-      Fmt.(str "%a" Dump.(string)) (UpdateInfo.guidance_to_string g)
+    let string_of_output_t l =
+      Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
   end
 
-  let transform
-      Io.
-        {
-          updates_info
-        ; update
-        ; upd_ids_of_livepatches
-        ; upd_ids_of_failed_livepatches
-        } =
-    eval_guidance_for_one_update ~updates_info ~update
-      ~kind:Guidance.Recommended
+  let transform Io.{updates_info; update; upd_ids_of_livepatches; kind} =
+    eval_guidance_for_one_update ~updates_info ~update ~kind
       ~upd_ids_of_livepatches:(UpdateIdSet.of_list upd_ids_of_livepatches)
-      ~upd_ids_of_failed_livepatches:
-        (UpdateIdSet.of_list upd_ids_of_failed_livepatches)
 
   let tests =
     let open Io in
+    let open Guidance in
     `QuickAndAutoDocumented
       [
         (* Update ID in update can't be found in updateinfo list *)
@@ -600,9 +475,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Mandatory
           }
-        , None
+        , []
         )
       ; (* Update ID in update can't be found in updateinfo list *)
         ( {
@@ -614,16 +489,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.EvacuateHost
-                    ; abs_guidance= Some Guidance.RebootHost
+                    ; guidance=
+                        [
+                          (Mandatory, [EvacuateHost])
+                        ; (Recommended, [])
+                        ; (Full, [RebootHost])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -632,16 +512,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.EvacuateHost
-                    ; abs_guidance= Some Guidance.RebootHost
+                    ; guidance=
+                        [
+                          (Mandatory, [EvacuateHost])
+                        ; (Recommended, [])
+                        ; (Full, [RebootHost])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -661,9 +546,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Mandatory
           }
-        , None
+        , []
         )
       ; (* No update ID in update *)
         ( {
@@ -675,16 +560,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.EvacuateHost
-                    ; abs_guidance= Some Guidance.RebootHost
+                    ; guidance=
+                        [
+                          (Mandatory, [EvacuateHost])
+                        ; (Recommended, [])
+                        ; (Full, [RebootHost])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -703,9 +593,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , None
+        , []
         )
       ; (* Empty applicabilities *)
         ( {
@@ -717,16 +607,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -735,16 +630,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -763,9 +663,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RebootHost
+        , [RebootHost]
         )
       ; (* Matched applicability *)
         ( {
@@ -777,16 +677,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -795,8 +700,13 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RestartDeviceModel
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [RestartDeviceModel])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities=
                         [
                           Applicability.
@@ -814,10 +724,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -836,9 +746,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Mandatory
           }
-        , Some Guidance.RestartDeviceModel
+        , [RestartDeviceModel]
         )
       ; (* Matched in multiple applicabilities *)
         ( {
@@ -850,16 +760,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -868,8 +783,13 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RestartDeviceModel
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [EvacuateHost])
+                        ; (Recommended, [RestartDeviceModel])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities=
                         [
                           Applicability.
@@ -898,10 +818,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -920,9 +840,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RestartDeviceModel
+        , [RestartDeviceModel]
         )
       ; (* No matched applicability *)
         ( {
@@ -934,16 +854,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -952,8 +877,13 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RestartDeviceModel
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [RestartDeviceModel])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities=
                         [
                           Applicability.
@@ -971,10 +901,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -993,9 +923,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Mandatory
           }
-        , None
+        , []
         )
       ; (* Unmatched arch *)
         ( {
@@ -1007,16 +937,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1025,8 +960,13 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RestartDeviceModel
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [RestartDeviceModel])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities=
                         [
                           Applicability.
@@ -1043,10 +983,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1065,9 +1005,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Mandatory
           }
-        , None
+        , []
         )
       ; (* Matched in multiple applicabilities with epoch *)
         ( {
@@ -1079,16 +1019,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= []
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1097,8 +1042,13 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RestartDeviceModel
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RestartDeviceModel; RestartToolstack])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities=
                         [
                           Applicability.
@@ -1127,10 +1077,10 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1149,11 +1099,11 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= []
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RestartDeviceModel
+        , [RestartDeviceModel; RestartToolstack]
         )
-      ; (* livepatch_guidance: Some _ *)
+      ; (* livepatch_guidance *)
         ( {
             updates_info=
               [
@@ -1163,13 +1113,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartDeviceModel; RestartToolstack])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= Some Guidance.RestartDeviceModel
                     ; livepatches=
                         [
                           LivePatch.
@@ -1195,6 +1149,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1213,11 +1168,11 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RestartDeviceModel
+        , [RestartDeviceModel; RestartToolstack]
         )
-      ; (* livepatch_guidance - None *)
+      ; (* livepatch_guidance - empty *)
         ( {
             updates_info=
               [
@@ -1227,13 +1182,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches=
                         [
                           LivePatch.
@@ -1249,6 +1208,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1267,9 +1227,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , None
+        , []
         )
       ; (* livepatch_guidance: livepatch does not come from RPM update UPDATE-0001.
          * And the RPM update UPDATE-0001 requires RebootHost.
@@ -1283,13 +1243,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartDeviceModel])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= Some Guidance.RestartDeviceModel
                     ; livepatches=
                         [
                           LivePatch.
@@ -1305,6 +1269,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1313,13 +1278,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartToolstack])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= Some Guidance.RestartToolstack
                     ; livepatches=
                         [
                           LivePatch.
@@ -1335,6 +1304,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1353,9 +1323,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RebootHost
+        , [RebootHost]
         )
       ; (* livepatch_guidance: livepatch comes from the RPM update UPDATE-001 *)
         ( {
@@ -1367,13 +1337,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartDeviceModel])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= Some Guidance.RestartDeviceModel
                     ; livepatches=
                         [
                           LivePatch.
@@ -1389,6 +1363,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1397,13 +1372,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartToolstack])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= Some Guidance.RestartToolstack
                     ; livepatches=
                         [
                           LivePatch.
@@ -1429,6 +1408,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1447,11 +1427,11 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0001"]
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RestartToolstack
+        , [RestartToolstack]
         )
-      ; (* livepatch_guidance: latest update doesn't have livepatch and recommendedGuidance is None *)
+      ; (* livepatch_guidance: latest update doesn't have livepatch and recommended is empty *)
         ( {
             updates_info=
               [
@@ -1461,13 +1441,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartDeviceModel])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches=
                         [
                           LivePatch.
@@ -1483,6 +1467,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1491,16 +1476,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= None
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RestartToolstack])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1519,11 +1509,11 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , None
+        , [RestartToolstack]
         )
-      ; (* livepatch_guidance: latest update doesn't have livepatch and recommendedGuidance is RebootHost *)
+      ; (* livepatch_guidance: latest update doesn't have livepatch but recommended is RebootHost *)
         ( {
             updates_info=
               [
@@ -1533,13 +1523,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartToolstack])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches=
                         [
                           LivePatch.
@@ -1555,6 +1549,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1563,16 +1558,21 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches= []
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1591,11 +1591,11 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
-          ; upd_ids_of_failed_livepatches= []
+          ; kind= Recommended
           }
-        , Some Guidance.RebootHost
+        , [RebootHost]
         )
-      ; (* livepatch_guidance: failure of applying livepatch *)
+      ; (* livepatch_guidance: is overwhelmed by aother update *)
         ( {
             updates_info=
               [
@@ -1605,13 +1605,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0000"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RestartVM])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartVM])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= Some Guidance.RestartToolstack
                     ; livepatches=
                         [
                           LivePatch.
@@ -1637,6 +1641,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ; ( "UPDATE-0001"
@@ -1645,13 +1650,17 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                       id= "UPDATE-0001"
                     ; summary= "summary"
                     ; description= "description"
-                    ; rec_guidance= Some Guidance.RebootHost
-                    ; abs_guidance= None
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [RebootHost])
+                        ; (Full, [])
+                        ; (Livepatch, [RestartDeviceModel])
+                        ]
                     ; guidance_applicabilities= [] (* No applicabilities *)
                     ; spec_info= "special info"
                     ; url= "https://update.details.info"
                     ; update_type= "security"
-                    ; livepatch_guidance= None
                     ; livepatches=
                         [
                           LivePatch.
@@ -1667,6 +1676,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                         ]
                     ; issued= Xapi_stdext_date.Date.epoch
                     ; severity= Severity.None
+                    ; title= ""
                     }
                 )
               ]
@@ -1685,9 +1695,9 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                 ; repository= "regular"
                 }
           ; upd_ids_of_livepatches= ["UPDATE-0000"]
-          ; upd_ids_of_failed_livepatches= ["UPDATE-0001"]
+          ; kind= Recommended
           }
-        , None
+        , [RebootHost]
         )
       ]
 end)
@@ -2000,46 +2010,71 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         id= ""
       ; summary= "summary"
       ; description= "description"
-      ; rec_guidance= None
-      ; abs_guidance= None
+      ; guidance=
+          [(Mandatory, []); (Recommended, []); (Full, []); (Livepatch, [])]
       ; guidance_applicabilities= []
       ; spec_info= "special info"
       ; url= "https://update.details.info"
       ; update_type= "security"
-      ; livepatch_guidance= None
       ; livepatches= []
       ; issued= Xapi_stdext_date.Date.epoch
       ; severity= Severity.None
+      ; title= ""
       }
 
   let updates_info =
+    let open Guidance in
     [
       ( "UPDATE-0000"
       , {
           updateinfo with
           id= "UPDATE-0000"
-        ; rec_guidance= Some Guidance.EvacuateHost
+        ; guidance=
+            [
+              (Mandatory, [EvacuateHost])
+            ; (Recommended, [])
+            ; (Full, [])
+            ; (Livepatch, [])
+            ]
         }
       )
     ; ( "UPDATE-0001"
       , {
           updateinfo with
           id= "UPDATE-0001"
-        ; rec_guidance= Some Guidance.RebootHost
+        ; guidance=
+            [
+              (Mandatory, [RebootHost])
+            ; (Recommended, [])
+            ; (Full, [])
+            ; (Livepatch, [])
+            ]
         }
       )
     ; ( "UPDATE-0002"
       , {
           updateinfo with
           id= "UPDATE-0002"
-        ; rec_guidance= Some Guidance.RestartDeviceModel
+        ; guidance=
+            [
+              (Mandatory, [RestartDeviceModel])
+            ; (Recommended, [])
+            ; (Full, [])
+            ; (Livepatch, [])
+            ]
         }
       )
     ; ( "UPDATE-0003"
       , {
           updateinfo with
           id= "UPDATE-0003"
-        ; rec_guidance= Some Guidance.EvacuateHost
+        ; guidance=
+            [
+              (Mandatory, [EvacuateHost])
+            ; (Recommended, [])
+            ; (Full, [])
+            ; (Livepatch, [])
+            ]
         }
       )
     ]
@@ -2064,8 +2099,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ("RPMS", `List [])
               ; ("updates", `List [])
               ; ("livepatches", `List [])
@@ -2144,8 +2185,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "RebootHost"])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [`String "RebootHost"])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ( "RPMS"
                 , `List
                     [
@@ -2201,8 +2248,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "RebootHost"])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [`String "RebootHost"])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0001"])
               ; ("livepatches", `List [])
@@ -2252,8 +2305,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "EvacuateHost"])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [`String "EvacuateHost"])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ("RPMS", `List [`String "libpath-utils-0.2.2-9.el7.noarch.rpm"])
               ; ("updates", `List [`String "UPDATE-0003"])
               ; ("livepatches", `List [])
@@ -2330,8 +2389,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "RebootHost"])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [`String "RebootHost"])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ( "RPMS"
                 , `List
                     [
@@ -2414,8 +2479,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "RebootHost"])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [`String "RebootHost"])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ( "RPMS"
                 , `List
                     [
@@ -2530,8 +2601,14 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
         , ( `Assoc
               [
                 ("ref", `String host)
-              ; ("recommended-guidance", `List [`String "RebootHost"])
-              ; ("absolute-guidance", `List [])
+              ; ( "guidance"
+                , `Assoc
+                    [
+                      ("mandatory", `List [`String "RebootHost"])
+                    ; ("recommended", `List [])
+                    ; ("full", `List [])
+                    ]
+                )
               ; ( "RPMS"
                 , `List
                     [
@@ -2750,52 +2827,725 @@ module ParseUpdateInfoList = Generic.MakeStateless (struct
       ]
 end)
 
-module GuidanceSetResortGuidancesTest = Generic.MakeStateless (struct
+module GuidanceSetResortTest = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = Guidance.guidance_kind * Guidance.t list
+    type input_t = Guidance.t list
 
     type output_t = Guidance.t list
 
-    let string_of_input_t (kind, l) =
-      let kind' =
-        match kind with
-        | Guidance.Recommended ->
-            "Recommended"
-        | Guidance.Absolute ->
-            "Absolute"
-      in
-      kind'
-      ^ ", "
-      ^ Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
+    let string_of_input_t l =
+      Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
+
+    let string_of_output_t = string_of_input_t
+  end
+
+  let transform guidances =
+    guidances
+    |> GuidanceSet.of_list
+    |> GuidanceSet.resort
+    |> GuidanceSet.elements
+
+  let tests =
+    let open Guidance in
+    `QuickAndAutoDocumented
+      [
+        ([], [])
+      ; ([EvacuateHost], [EvacuateHost])
+      ; ([EvacuateHost; RestartDeviceModel], [EvacuateHost])
+      ; ( [EvacuateHost; RestartDeviceModel; RestartToolstack]
+        , [RestartToolstack; EvacuateHost]
+        )
+      ; ( [EvacuateHost; RestartDeviceModel; RestartToolstack; RebootHost]
+        , [RebootHost]
+        )
+      ; ([EvacuateHost; RestartDeviceModel; RebootHost], [RebootHost])
+      ; ([EvacuateHost; RestartToolstack], [RestartToolstack; EvacuateHost])
+      ; ([EvacuateHost; RestartToolstack; RebootHost], [RebootHost])
+      ; ([EvacuateHost; RebootHost], [RebootHost])
+      ; ([RestartDeviceModel], [RestartDeviceModel])
+      ; ( [RestartDeviceModel; RestartToolstack]
+        , [RestartToolstack; RestartDeviceModel]
+        )
+      ; ([RestartDeviceModel; RestartToolstack; RebootHost], [RebootHost])
+      ; ([RestartDeviceModel; RebootHost], [RebootHost])
+      ; ([RestartToolstack], [RestartToolstack])
+      ; ([RestartToolstack; RebootHost], [RebootHost])
+      ; ([RebootHost], [RebootHost])
+      ; ([RestartVM], [RestartVM])
+      ; ([RestartVM; EvacuateHost], [EvacuateHost; RestartVM])
+      ; ( [RestartVM; EvacuateHost; RestartDeviceModel]
+        , [EvacuateHost; RestartVM]
+        )
+      ; ( [RestartVM; EvacuateHost; RestartDeviceModel; RestartToolstack]
+        , [RestartToolstack; EvacuateHost; RestartVM]
+        )
+      ; ( [
+            RestartVM
+          ; EvacuateHost
+          ; RestartDeviceModel
+          ; RestartToolstack
+          ; RebootHost
+          ]
+        , [RebootHost; RestartVM]
+        )
+      ; ( [RestartVM; EvacuateHost; RestartDeviceModel; RebootHost]
+        , [RebootHost; RestartVM]
+        )
+      ; ( [RestartVM; EvacuateHost; RestartToolstack]
+        , [RestartToolstack; EvacuateHost; RestartVM]
+        )
+      ; ( [RestartVM; EvacuateHost; RestartToolstack; RebootHost]
+        , [RebootHost; RestartVM]
+        )
+      ; ([RestartVM; EvacuateHost; RebootHost], [RebootHost; RestartVM])
+      ; ([RestartVM; RestartDeviceModel], [RestartVM])
+      ; ( [RestartVM; RestartDeviceModel; RestartToolstack]
+        , [RestartToolstack; RestartVM]
+        )
+      ; ( [RestartVM; RestartDeviceModel; RestartToolstack; RebootHost]
+        , [RebootHost; RestartVM]
+        )
+      ; ([RestartVM; RestartDeviceModel; RebootHost], [RebootHost; RestartVM])
+      ; ([RestartVM; RestartToolstack], [RestartToolstack; RestartVM])
+      ; ([RestartVM; RestartToolstack; RebootHost], [RebootHost; RestartVM])
+      ; ([RestartVM; RebootHost], [RebootHost; RestartVM])
+      ]
+end)
+
+module GuidanceSetReduceTest = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = Guidance.t list * Guidance.t list
+
+    type output_t = Guidance.t list
+
+    let string_of_input_t (l1, l2) =
+      Fmt.(
+        str "%a + %a"
+          Dump.(list string)
+          (List.map Guidance.to_string l1)
+          Dump.(list string)
+          (List.map Guidance.to_string l2)
+      )
 
     let string_of_output_t l =
       Fmt.(str "%a" Dump.(list string)) (List.map Guidance.to_string l)
   end
 
-  let transform (kind, guidances) =
-    guidances
-    |> GuidanceSet.of_list
-    |> GuidanceSet.resort_guidances
-         ~remove_evacuations:(kind = Guidance.Absolute)
-    |> GuidanceSet.elements
+  let transform (l1, l2) =
+    let open GuidanceSet in
+    reduce (of_list l1) (of_list l2) |> elements
 
   let tests =
+    let open Guidance in
     `QuickAndAutoDocumented
       [
-        ((Guidance.Recommended, [Guidance.RebootHost]), [Guidance.RebootHost])
-      ; ( (Guidance.Recommended, [Guidance.RebootHost; Guidance.RebootHost])
-        , [Guidance.RebootHost]
+        (([], []), [])
+      ; (([], [EvacuateHost]), [EvacuateHost])
+      ; (([], [RebootHost]), [RebootHost])
+      ; (([], [RestartDeviceModel]), [RestartDeviceModel])
+      ; ( ([], [RestartToolstack; EvacuateHost])
+        , [RestartToolstack; EvacuateHost]
         )
-      ; ( ( Guidance.Recommended
-          , [Guidance.RebootHost; Guidance.RestartDeviceModel]
-          )
-        , [Guidance.RebootHost]
+      ; ( ([], [RestartToolstack; RestartDeviceModel])
+        , [RestartToolstack; RestartDeviceModel]
         )
-      ; ((Guidance.Absolute, [Guidance.EvacuateHost]), [])
-      ; ( ( Guidance.Recommended
-          , [Guidance.EvacuateHost; Guidance.RestartDeviceModel]
+      ; (([], [RestartToolstack]), [RestartToolstack])
+      ; (([EvacuateHost], [EvacuateHost]), [])
+      ; (([EvacuateHost], [RebootHost]), [RebootHost])
+      ; (([EvacuateHost], [RestartDeviceModel]), [])
+      ; (([EvacuateHost], [RestartToolstack; EvacuateHost]), [RestartToolstack])
+      ; ( ([EvacuateHost], [RestartToolstack; RestartDeviceModel])
+        , [RestartToolstack]
+        )
+      ; (([EvacuateHost], [RestartToolstack]), [RestartToolstack])
+      ; (([EvacuateHost], []), [])
+      ; (([RebootHost], [EvacuateHost]), [])
+      ; (([RebootHost], [RebootHost]), [])
+      ; (([RebootHost], [RestartDeviceModel]), [])
+      ; (([RebootHost], [RestartToolstack; EvacuateHost]), [])
+      ; (([RebootHost], [RestartToolstack; RestartDeviceModel]), [])
+      ; (([RebootHost], [RestartToolstack]), [])
+      ; (([RebootHost], []), [])
+      ; (([RestartDeviceModel], [EvacuateHost]), [EvacuateHost])
+      ; (([RestartDeviceModel], [RebootHost]), [RebootHost])
+      ; (([RestartDeviceModel], [RestartDeviceModel]), [])
+      ; ( ([RestartDeviceModel], [RestartToolstack; EvacuateHost])
+        , [RestartToolstack; EvacuateHost]
+        )
+      ; ( ([RestartDeviceModel], [RestartToolstack; RestartDeviceModel])
+        , [RestartToolstack]
+        )
+      ; (([RestartDeviceModel], [RestartToolstack]), [RestartToolstack])
+      ; (([RestartDeviceModel], []), [])
+      ; (([RestartToolstack; EvacuateHost], [EvacuateHost]), [])
+      ; (([RestartToolstack; EvacuateHost], [RebootHost]), [RebootHost])
+      ; (([RestartToolstack; EvacuateHost], [RestartDeviceModel]), [])
+      ; ( ([RestartToolstack; EvacuateHost], [RestartToolstack; EvacuateHost])
+        , []
+        )
+      ; ( ( [RestartToolstack; EvacuateHost]
+          , [RestartToolstack; RestartDeviceModel]
           )
-        , [Guidance.EvacuateHost]
+        , []
+        )
+      ; (([RestartToolstack; EvacuateHost], [RestartToolstack]), [])
+      ; (([RestartToolstack; EvacuateHost], []), [])
+      ; ( ([RestartToolstack; RestartDeviceModel], [EvacuateHost])
+        , [EvacuateHost]
+        )
+      ; (([RestartToolstack; RestartDeviceModel], [RebootHost]), [RebootHost])
+      ; (([RestartToolstack; RestartDeviceModel], [RestartDeviceModel]), [])
+      ; ( ( [RestartToolstack; RestartDeviceModel]
+          , [RestartToolstack; EvacuateHost]
+          )
+        , [EvacuateHost]
+        )
+      ; ( ( [RestartToolstack; RestartDeviceModel]
+          , [RestartToolstack; RestartDeviceModel]
+          )
+        , []
+        )
+      ; (([RestartToolstack; RestartDeviceModel], [RestartToolstack]), [])
+      ; (([RestartToolstack; RestartDeviceModel], []), [])
+      ; (([RestartToolstack], [EvacuateHost]), [EvacuateHost])
+      ; (([RestartToolstack], [RebootHost]), [RebootHost])
+      ; (([RestartToolstack], [RestartDeviceModel]), [RestartDeviceModel])
+      ; (([RestartToolstack], [RestartToolstack; EvacuateHost]), [EvacuateHost])
+      ; ( ([RestartToolstack], [RestartToolstack; RestartDeviceModel])
+        , [RestartDeviceModel]
+        )
+      ; (([RestartToolstack], [RestartToolstack]), [])
+      ; (([RestartToolstack], []), [])
+      ; (([RestartVM; EvacuateHost], [EvacuateHost]), [])
+      ; (([RestartVM; EvacuateHost], [RebootHost; RestartVM]), [RebootHost])
+      ; (([RestartVM; EvacuateHost], [RebootHost]), [RebootHost])
+      ; (([RestartVM; EvacuateHost], [RestartDeviceModel]), [])
+      ; ( ([RestartVM; EvacuateHost], [RestartToolstack; EvacuateHost])
+        , [RestartToolstack]
+        )
+      ; ( ([RestartVM; EvacuateHost], [RestartToolstack; RestartDeviceModel])
+        , [RestartToolstack]
+        )
+      ; (([RestartVM; EvacuateHost], [RestartToolstack]), [RestartToolstack])
+      ; (([RestartVM; EvacuateHost], [RestartVM; EvacuateHost]), [])
+      ; ( ( [RestartVM; EvacuateHost]
+          , [RestartVM; RestartToolstack; EvacuateHost]
+          )
+        , [RestartToolstack]
+        )
+      ; ( ([RestartVM; EvacuateHost], [RestartVM; RestartToolstack])
+        , [RestartToolstack]
+        )
+      ; (([RestartVM; EvacuateHost], [RestartVM]), [])
+      ; (([RestartVM; EvacuateHost], []), [])
+      ; (([RestartVM; RestartToolstack; EvacuateHost], [EvacuateHost]), [])
+      ; ( ([RestartVM; RestartToolstack; EvacuateHost], [RebootHost; RestartVM])
+        , [RebootHost]
+        )
+      ; ( ([RestartVM; RestartToolstack; EvacuateHost], [RebootHost])
+        , [RebootHost]
+        )
+      ; (([RestartVM; RestartToolstack; EvacuateHost], [RestartDeviceModel]), [])
+      ; ( ( [RestartVM; RestartToolstack; EvacuateHost]
+          , [RestartToolstack; EvacuateHost]
+          )
+        , []
+        )
+      ; ( ( [RestartVM; RestartToolstack; EvacuateHost]
+          , [RestartToolstack; RestartDeviceModel]
+          )
+        , []
+        )
+      ; (([RestartVM; RestartToolstack; EvacuateHost], [RestartToolstack]), [])
+      ; ( ( [RestartVM; RestartToolstack; EvacuateHost]
+          , [RestartVM; EvacuateHost]
+          )
+        , []
+        )
+      ; ( ( [RestartVM; RestartToolstack; EvacuateHost]
+          , [RestartVM; RestartToolstack; EvacuateHost]
+          )
+        , []
+        )
+      ; ( ( [RestartVM; RestartToolstack; EvacuateHost]
+          , [RestartVM; RestartToolstack]
+          )
+        , []
+        )
+      ; (([RestartVM; RestartToolstack; EvacuateHost], [RestartVM]), [])
+      ; (([RestartVM; RestartToolstack; EvacuateHost], []), [])
+      ; (([RestartVM; RestartToolstack], [EvacuateHost]), [EvacuateHost])
+      ; (([RestartVM; RestartToolstack], [RebootHost; RestartVM]), [RebootHost])
+      ; (([RestartVM; RestartToolstack], [RebootHost]), [RebootHost])
+      ; (([RestartVM; RestartToolstack], [RestartDeviceModel]), [])
+      ; ( ([RestartVM; RestartToolstack], [RestartToolstack; EvacuateHost])
+        , [EvacuateHost]
+        )
+      ; ( ([RestartVM; RestartToolstack], [RestartToolstack; RestartDeviceModel])
+        , []
+        )
+      ; (([RestartVM; RestartToolstack], [RestartToolstack]), [])
+      ; ( ([RestartVM; RestartToolstack], [RestartVM; EvacuateHost])
+        , [EvacuateHost]
+        )
+      ; ( ( [RestartVM; RestartToolstack]
+          , [RestartVM; RestartToolstack; EvacuateHost]
+          )
+        , [EvacuateHost]
+        )
+      ; (([RestartVM; RestartToolstack], [RestartVM; RestartToolstack]), [])
+      ; (([RestartVM; RestartToolstack], [RestartVM]), [])
+      ; (([RestartVM; RestartToolstack], []), [])
+      ; (([RestartVM], [EvacuateHost]), [EvacuateHost])
+      ; (([RestartVM], [RebootHost; RestartVM]), [RebootHost])
+      ; (([RestartVM], [RebootHost]), [RebootHost])
+      ; (([RestartVM], [RestartDeviceModel]), [])
+      ; ( ([RestartVM], [RestartToolstack; EvacuateHost])
+        , [RestartToolstack; EvacuateHost]
+        )
+      ; ( ([RestartVM], [RestartToolstack; RestartDeviceModel])
+        , [RestartToolstack]
+        )
+      ; (([RestartVM], [RestartToolstack]), [RestartToolstack])
+      ; (([RestartVM], [RestartVM; EvacuateHost]), [EvacuateHost])
+      ; ( ([RestartVM], [RestartVM; RestartToolstack; EvacuateHost])
+        , [RestartToolstack; EvacuateHost]
+        )
+      ; (([RestartVM], [RestartVM; RestartToolstack]), [RestartToolstack])
+      ; (([RestartVM], [RestartVM]), [])
+      ; (([RestartVM], []), [])
+      ; (([], [RestartVM; EvacuateHost]), [EvacuateHost; RestartVM])
+      ; ( ([], [RestartVM; RestartToolstack; EvacuateHost])
+        , [RestartToolstack; EvacuateHost; RestartVM]
+        )
+      ; (([], [RestartVM; RestartToolstack]), [RestartToolstack; RestartVM])
+      ; (([], [RestartVM]), [RestartVM])
+      ]
+end)
+
+module GuidanceSetReduceCascadedListTest = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = (Guidance.kind * Guidance.t list) list
+
+    type output_t = input_t
+
+    let string_of_input_t l =
+      let string_of_kind_guidances (kind, gs) =
+        Fmt.(
+          str "%a: %a"
+            Dump.(string)
+            (Guidance.kind_to_string kind)
+            Dump.(list string)
+            (List.map Guidance.to_string gs)
+        )
+      in
+      Fmt.(str "%a" Dump.(list string)) (List.map string_of_kind_guidances l)
+
+    let string_of_output_t = string_of_input_t
+  end
+
+  let transform l =
+    l
+    |> List.map (fun (k, l') -> (k, GuidanceSet.of_list l'))
+    |> GuidanceSet.reduce_cascaded_list
+    |> List.map (fun (k, s') -> (k, GuidanceSet.elements s'))
+
+  let tests =
+    let open Guidance in
+    `QuickAndAutoDocumented
+      [
+        ([], [])
+      ; ( [(Mandatory, []); (Recommended, []); (Full, [])]
+        , [(Mandatory, []); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [])
+          ; (Recommended, [])
+          ; (Full, [RestartToolstack; RestartDeviceModel])
+          ]
+        , [
+            (Mandatory, [])
+          ; (Recommended, [])
+          ; (Full, [RestartToolstack; RestartDeviceModel])
+          ]
+        )
+      ; ( [
+            (Mandatory, [])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RestartDeviceModel])
+          ]
+        , [
+            (Mandatory, [])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RestartDeviceModel])
+          ]
+        )
+      ; ( [
+            (Mandatory, [])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [])
+          ; (Recommended, [RestartToolstack; RestartDeviceModel])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [])
+          ; (Recommended, [RestartToolstack; RestartDeviceModel])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [(Mandatory, [RestartToolstack]); (Recommended, []); (Full, [])]
+        , [(Mandatory, [RestartToolstack]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [])
+          ; (Full, [RestartToolstack])
+          ]
+        , [(Mandatory, [RestartToolstack]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RestartDeviceModel])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [RestartDeviceModel])
+          ; (Full, [RestartToolstack])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [(Mandatory, [RebootHost]); (Recommended, []); (Full, [])]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [RestartToolstack; RestartDeviceModel])
+          ]
+        , [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [])
+          ; (Full, [RestartToolstack])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [])
+          ; (Full, [RestartToolstack; RestartDeviceModel])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [RestartDeviceModel])
+          ; (Full, [RestartToolstack])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RestartDeviceModel])
+          ]
+        , [(Mandatory, [EvacuateHost]); (Recommended, []); (Full, [])]
+        )
+      ; ( [(Mandatory, [EvacuateHost]); (Recommended, []); (Full, [RebootHost])]
+        , [(Mandatory, [EvacuateHost]); (Recommended, []); (Full, [RebootHost])]
+        )
+      ; ( [
+            (Mandatory, [RebootHost; RestartVM])
+          ; (Recommended, [])
+          ; (Full, [RestartVM])
+          ]
+        , [(Mandatory, [RebootHost; RestartVM]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RebootHost; RestartVM])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [(Mandatory, [RebootHost; RestartVM]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [RestartVM; EvacuateHost])
+          ; (Full, [RebootHost])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, [RestartVM]); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RestartVM])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [RestartVM])]
+        )
+      ; ( [
+            (Mandatory, [RebootHost; RestartVM])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [(Mandatory, [RebootHost; RestartVM]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RestartVM])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartVM; RestartToolstack])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; RestartVM])
+          ; (Recommended, [])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [RestartVM])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [RestartVM])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RebootHost; RestartVM])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RebootHost])
+          ]
+        , [(Mandatory, [RebootHost; RestartVM]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartVM; RestartToolstack])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; RestartVM])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RestartVM])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartVM])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartVM])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [RestartVM])]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [RestartDeviceModel])
+          ; (Full, [RestartVM])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [RestartVM])]
+        )
+      ; ( [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [RestartToolstack])
+          ; (Full, [RestartVM])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [RestartVM; EvacuateHost])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [EvacuateHost; RestartVM])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RebootHost])
+          ; (Recommended, [RestartToolstack; EvacuateHost])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [(Mandatory, [RebootHost]); (Recommended, []); (Full, [RestartVM])]
+        )
+      ; ( [
+            (Mandatory, [RestartVM])
+          ; (Recommended, [RestartDeviceModel])
+          ; (Full, [RestartVM])
+          ]
+        , [(Mandatory, [RestartVM]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartVM; RestartToolstack])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; RestartVM])
+          ; (Recommended, [EvacuateHost])
+          ; (Full, [RebootHost])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [RebootHost])
+          ; (Full, [RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartDeviceModel])
+          ; (Recommended, [RebootHost])
+          ; (Full, [RestartVM])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RebootHost; RestartVM])
+          ; (Recommended, [RestartToolstack; RestartDeviceModel])
+          ; (Full, [RebootHost; RestartVM])
+          ]
+        , [(Mandatory, [RebootHost; RestartVM]); (Recommended, []); (Full, [])]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [RestartDeviceModel])
+          ; (Full, [RestartVM])
+          ]
+        , [
+            (Mandatory, [RestartToolstack; EvacuateHost])
+          ; (Recommended, [])
+          ; (Full, [RestartVM])
+          ]
+        )
+      ; ( [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [RestartVM])
+          ; (Full, [RebootHost])
+          ]
+        , [
+            (Mandatory, [RestartToolstack])
+          ; (Recommended, [RestartVM])
+          ; (Full, [RebootHost])
+          ]
         )
       ]
 end)
@@ -3141,16 +3891,16 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
         id= "UPDATE-00"
       ; summary= "SUMMARY"
       ; description= "DESCRIPTION"
-      ; rec_guidance= None
-      ; abs_guidance= None
+      ; guidance=
+          [(Mandatory, []); (Recommended, []); (Full, []); (Livepatch, [])]
       ; guidance_applicabilities= []
       ; spec_info= "SPEC_INFO"
       ; url= "URL"
       ; update_type= "UPDATE_TYPE"
-      ; livepatch_guidance= None
       ; livepatches= []
       ; issued= Xapi_stdext_date.Date.epoch
       ; severity= Severity.None
+      ; title= ""
       }
 
   let tests =
@@ -3626,18 +4376,392 @@ module GetLatestUpdatesFromRedundancy = Generic.MakeStateless (struct
       ]
 end)
 
+module SetPendingGuidance = Generic.MakeStateless (struct
+  module Io = struct
+    (* ([host pending guidance list], [VMs pending guidance lists]), [coming guidance list] *)
+    type input_t =
+      (Guidance.t list * (string * Guidance.t list) list) * Guidance.t list
+
+    (* ([host pending guidance list], [VMs pending guidance lists]) *)
+    type output_t = Guidance.t list * (string * Guidance.t list) list
+
+    let string_of_pending (host_pending, vms_pending) =
+      Fmt.(
+        str "Host: %a; VMs: %a"
+          Dump.(list string)
+          (List.map Guidance.to_string host_pending)
+          Dump.(list (pair string (list string)))
+          (List.map
+             (fun (vm, l) -> (vm, List.map Guidance.to_string l))
+             vms_pending
+          )
+      )
+
+    let string_of_input_t (pending, coming) =
+      Fmt.(
+        str "Pending: %s. Coming: %a"
+          (string_of_pending pending)
+          Dump.(list string)
+          (List.map Guidance.to_string coming)
+      )
+
+    let string_of_output_t = string_of_pending
+  end
+
+  let transform ((host_pending, vms_pending), coming) =
+    (* Use two hash tables to simulate the host's pending list and the VMs' pending lists *)
+    let host_tbl :
+        ( string
+        , [ `reboot_host
+          | `restart_toolstack
+          | `reboot_host_on_livepatch_failure
+          | `reboot_host_on_xen_livepatch_failure
+          | `reboot_host_on_kernel_livepatch_failure ]
+          list
+        )
+        Hashtbl.t =
+      Hashtbl.create 1
+    in
+    let vms_tbl : (string, [`restart_device_model | `restart_vm] list) Hashtbl.t
+        =
+      Hashtbl.create 3
+    in
+    (* Only one host in the table *)
+    let host_ref = "host_ref" in
+    let open Guidance in
+    let host_to_pending = function
+      | RebootHost ->
+          Some `reboot_host
+      | RebootHostOnLivePatchFailure ->
+          Some `reboot_host_on_livepatch_failure
+      | RebootHostOnXenLivePatchFailure ->
+          Some `reboot_host_on_xen_livepatch_failure
+      | RebootHostOnKernelLivePatchFailure ->
+          Some `reboot_host_on_kernel_livepatch_failure
+      | RestartToolstack ->
+          Some `restart_toolstack
+      | _ ->
+          None
+    in
+    let vm_to_pending = function
+      | RestartDeviceModel ->
+          Some `restart_device_model
+      | RestartVM ->
+          Some `restart_vm
+      | _ ->
+          None
+    in
+    let to_guidance = Guidance.of_pending_guidance in
+    Hashtbl.add host_tbl host_ref (List.filter_map host_to_pending host_pending) ;
+    let vm_mapper (vm_ref, l) = (vm_ref, List.filter_map vm_to_pending l) in
+    Hashtbl.add_seq vms_tbl (List.to_seq (List.map vm_mapper vms_pending)) ;
+    let ops =
+      let host_get () =
+        Hashtbl.find host_tbl host_ref |> List.map to_guidance
+      in
+      let host_add value =
+        Hashtbl.find host_tbl host_ref
+        |> List.cons value
+        |> Hashtbl.replace host_tbl host_ref
+      in
+      let host_remove value =
+        Hashtbl.find host_tbl host_ref
+        |> List.filter (fun g -> g <> value)
+        |> Hashtbl.replace host_tbl host_ref
+      in
+      let vms_get () =
+        Hashtbl.to_seq vms_tbl
+        |> List.of_seq
+        |> List.map (fun (vm_ref, l) -> (vm_ref, List.map to_guidance l))
+      in
+      let vm_add vm_ref value =
+        Hashtbl.find vms_tbl vm_ref
+        |> List.cons value
+        |> Hashtbl.replace vms_tbl vm_ref
+      in
+      let vm_remove vm_ref value =
+        Hashtbl.find vms_tbl vm_ref
+        |> List.filter (fun g -> g <> value)
+        |> Hashtbl.replace vms_tbl vm_ref
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+    in
+    (* transform *)
+    set_pending_guidances ~ops ~coming ;
+    (* return result *)
+    ( ops.host_get ()
+      |> List.sort (fun g1 g2 -> String.compare (to_string g1) (to_string g2))
+    , ops.vms_get () |> List.sort (fun (k1, _) (k2, _) -> String.compare k1 k2)
+    )
+
+  let tests =
+    let open Guidance in
+    `QuickAndAutoDocumented
+      [
+        ((([], []), []), ([], []))
+      ; ((([], []), [RebootHost]), ([RebootHost], []))
+      ; ( (([], [("vm1", [RestartDeviceModel]); ("vm2", [])]), [RebootHost])
+        , ([RebootHost], [("vm1", [RestartDeviceModel]); ("vm2", [])])
+        )
+      ; ((([], []), [RestartDeviceModel]), ([], []))
+      ; ( (([RebootHost], [("vm1", []); ("vm2", [])]), [RebootHost])
+        , ([RebootHost], [("vm1", []); ("vm2", [])])
+        )
+      ; ( (([RestartToolstack], [("vm1", []); ("vm2", [])]), [RebootHost])
+        , ([RebootHost; RestartToolstack], [("vm1", []); ("vm2", [])])
+        )
+      ; ( ( ([RestartToolstack], [("vm1", [RestartDeviceModel]); ("vm2", [])])
+          , [RebootHost]
+          )
+        , ( [RebootHost; RestartToolstack]
+          , [("vm1", [RestartDeviceModel]); ("vm2", [])]
+          )
+        )
+      ; ( ( ([RestartToolstack], [("vm1", [RestartDeviceModel]); ("vm2", [])])
+          , [RestartDeviceModel]
+          )
+        , ( [RestartToolstack]
+          , [("vm1", [RestartDeviceModel]); ("vm2", [RestartDeviceModel])]
+          )
+        )
+      ; ( (([RebootHostOnLivePatchFailure], [("vm1", [])]), [RebootHost])
+        , ([RebootHost; RebootHostOnLivePatchFailure], [("vm1", [])])
+        )
+      ; ( (([RebootHost], [("vm1", [])]), [RebootHostOnLivePatchFailure])
+        , ([RebootHost; RebootHostOnLivePatchFailure], [("vm1", [])])
+        )
+      ; ( ( ( []
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RebootHost]
+          )
+        , ( [RebootHost]
+          , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+          )
+        )
+      ; ( ( ( [RestartToolstack]
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RebootHost]
+          )
+        , ( [RebootHost; RestartToolstack]
+          , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+          )
+        )
+      ; ( ( ( [RestartToolstack]
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RestartToolstack]
+          )
+        , ( [RestartToolstack]
+          , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+          )
+        )
+      ; ( ( ( [RestartToolstack]
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RestartDeviceModel]
+          )
+        , ( [RestartToolstack]
+          , [
+              ("vm1", [RestartDeviceModel])
+            ; ("vm2", [RestartDeviceModel])
+            ; ("vm3", [RestartDeviceModel; RestartVM])
+            ]
+          )
+        )
+      ; ( ( ( [RestartToolstack]
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RestartVM]
+          )
+        , ( [RestartToolstack]
+          , [
+              ("vm1", [RestartVM])
+            ; ("vm2", [RestartVM; RestartDeviceModel])
+            ; ("vm3", [RestartVM])
+            ]
+          )
+        )
+      ; ( ( ( [RestartToolstack; RebootHostOnXenLivePatchFailure]
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RestartToolstack]
+          )
+        , ( [RebootHostOnXenLivePatchFailure; RestartToolstack]
+          , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+          )
+        )
+      ; ( ( ( [RebootHost; RebootHostOnKernelLivePatchFailure]
+            , [("vm1", []); ("vm2", [RestartDeviceModel]); ("vm3", [RestartVM])]
+            )
+          , [RestartToolstack; RestartVM]
+          )
+        , ( [RebootHost; RebootHostOnKernelLivePatchFailure; RestartToolstack]
+          , [
+              ("vm1", [RestartVM])
+            ; ("vm2", [RestartVM; RestartDeviceModel])
+            ; ("vm3", [RestartVM])
+            ]
+          )
+        )
+      ]
+end)
+
+module MergeLivepatchFailures = Generic.MakeStateless (struct
+  module Io = struct
+    (* (previous_failures, (applied, failed)) *)
+    type input_t =
+      Guidance.t list * (Livepatch.component list * Livepatch.component list)
+
+    (* to_be_removed, to_be_added *)
+    type output_t = Guidance.t list * Guidance.t list
+
+    let string_of_input_t (previous_failures, (applied, failed)) =
+      Fmt.(str "%a" Dump.(pair (list string) (pair (list string) (list string))))
+        ( List.map Guidance.to_string previous_failures
+        , ( List.map Livepatch.string_of_component applied
+          , List.map Livepatch.string_of_component failed
+          )
+        )
+
+    let string_of_output_t (to_be_removed, to_be_added) =
+      Fmt.(str "%a" Dump.(pair (list string) (list string)))
+        ( List.map Guidance.to_string to_be_removed
+        , List.map Guidance.to_string to_be_added
+        )
+  end
+
+  let transform (previous_failures, (applied, failed)) =
+    merge_livepatch_failures ~previous_failures ~applied ~failed
+
+  let tests =
+    let open Guidance in
+    let open Livepatch in
+    `QuickAndAutoDocumented
+      [
+        (([], ([Xen; Kernel], [])), ([], []))
+      ; (([], ([Kernel], [Xen])), ([], [RebootHostOnXenLivePatchFailure]))
+      ; (([], ([Kernel], [])), ([], []))
+      ; (([], ([Xen], [Kernel])), ([], [RebootHostOnKernelLivePatchFailure]))
+      ; (([], ([Xen], [])), ([], []))
+      ; ( ([], ([], [Xen; Kernel]))
+        , ( []
+          , [
+              RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure
+            ]
+          )
+        )
+      ; (([], ([], [Kernel])), ([], [RebootHostOnKernelLivePatchFailure]))
+      ; (([], ([], [Xen])), ([], [RebootHostOnXenLivePatchFailure]))
+      ; (([], ([], [])), ([], []))
+      ; ( ([RebootHostOnXenLivePatchFailure], ([Xen; Kernel], []))
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; (([RebootHostOnXenLivePatchFailure], ([Kernel], [Xen])), ([], []))
+      ; (([RebootHostOnXenLivePatchFailure], ([Kernel], [])), ([], []))
+      ; ( ([RebootHostOnXenLivePatchFailure], ([Xen], [Kernel]))
+        , ( [RebootHostOnXenLivePatchFailure]
+          , [RebootHostOnKernelLivePatchFailure]
+          )
+        )
+      ; ( ([RebootHostOnXenLivePatchFailure], ([Xen], []))
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; ( ([RebootHostOnXenLivePatchFailure], ([], [Xen; Kernel]))
+        , ([], [RebootHostOnKernelLivePatchFailure])
+        )
+      ; ( ([RebootHostOnXenLivePatchFailure], ([], [Kernel]))
+        , ([], [RebootHostOnKernelLivePatchFailure])
+        )
+      ; (([RebootHostOnXenLivePatchFailure], ([], [Xen])), ([], []))
+      ; (([RebootHostOnXenLivePatchFailure], ([], [])), ([], []))
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Xen; Kernel], [])
+          )
+        , ( [RebootHostOnKernelLivePatchFailure; RebootHostOnXenLivePatchFailure]
+          , []
+          )
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Kernel], [Xen])
+          )
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Kernel], [])
+          )
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Xen], [Kernel])
+          )
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([Xen], [])
+          )
+        , ([RebootHostOnXenLivePatchFailure], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [Xen; Kernel])
+          )
+        , ([], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [Kernel])
+          )
+        , ([], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [Xen])
+          )
+        , ([], [])
+        )
+      ; ( ( [RebootHostOnXenLivePatchFailure; RebootHostOnKernelLivePatchFailure]
+          , ([], [])
+          )
+        , ([], [])
+        )
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([Xen; Kernel], []))
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([Kernel], [Xen]))
+        , ( [RebootHostOnKernelLivePatchFailure]
+          , [RebootHostOnXenLivePatchFailure]
+          )
+        )
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([Kernel], []))
+        , ([RebootHostOnKernelLivePatchFailure], [])
+        )
+      ; (([RebootHostOnKernelLivePatchFailure], ([Xen], [Kernel])), ([], []))
+      ; (([RebootHostOnKernelLivePatchFailure], ([Xen], [])), ([], []))
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Xen; Kernel]))
+        , ([], [RebootHostOnXenLivePatchFailure])
+        )
+      ; (([RebootHostOnKernelLivePatchFailure], ([], [Kernel])), ([], []))
+      ; ( ([RebootHostOnKernelLivePatchFailure], ([], [Xen]))
+        , ([], [RebootHostOnXenLivePatchFailure])
+        )
+      ; (([RebootHostOnKernelLivePatchFailure], ([], [])), ([], []))
+      ]
+end)
+
 let tests =
   make_suite "repository_helpers_"
     [
       ("update_of_json", UpdateOfJsonTest.tests)
-    ; ("assert_valid_guidances", GuidanceSetAssertValidGuidanceTest.tests)
     ; ("assert_url_is_valid", AssertUrlIsValid.tests)
     ; ("write_yum_config", WriteYumConfig.tests)
     ; ("eval_guidance_for_one_update", EvalGuidanceForOneUpdate.tests)
     ; ("get_update_in_json", GetUpdateInJson.tests)
     ; ("consolidate_updates_of_host", ConsolidateUpdatesOfHost.tests)
     ; ("parse_updateinfo_list", ParseUpdateInfoList.tests)
-    ; ("resort_guidances", GuidanceSetResortGuidancesTest.tests)
+    ; ("guidance_set_resort", GuidanceSetResortTest.tests)
+    ; ("guidance_set_reduce", GuidanceSetReduceTest.tests)
+    ; ( "guidance_set_reduce_cascaded_list"
+      , GuidanceSetReduceCascadedListTest.tests
+      )
     ; ("prune_accumulative_updates", PruneAccumulativeUpdates.tests)
     ; ("prune_updateinfo_for_livepatches", PruneUpdateInfoForLivepatches.tests)
     ; ( "parse_output_of_yum_upgrade_dry_run"
@@ -3646,6 +4770,8 @@ let tests =
     ; ( "get_latest_updates_from_redundancy"
       , GetLatestUpdatesFromRedundancy.tests
       )
+    ; ("set_pending_guidances", SetPendingGuidance.tests)
+    ; ("merge_livepatch_failures", MergeLivepatchFailures.tests)
     ]
 
 let () = Alcotest.run "Repository Helpers" tests

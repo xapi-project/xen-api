@@ -1263,6 +1263,7 @@ let operations =
       ; ("vm_resume", "This host is resuming a VM")
       ; ("vm_migrate", "This host is the migration target of a VM")
       ; ("apply_updates", "Indicates this host is being updated")
+      ; ("enable", "Indicates this host is in the process of enabling")
       ]
     )
 
@@ -1809,6 +1810,12 @@ let apply_recommended_guidances =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let emergency_clear_mandatory_guidance =
+  call ~flags:[`Session] ~name:"emergency_clear_mandatory_guidance"
+    ~lifecycle:[] ~in_oss_since:None ~params:[]
+    ~doc:"Clear the pending mandatory guidance on this host"
+    ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -1963,6 +1970,7 @@ let t =
       ; copy_primary_host_certs
       ; set_https_only
       ; apply_recommended_guidances
+      ; emergency_clear_mandatory_guidance
       ]
     ~contents:
       ([
@@ -2173,7 +2181,8 @@ let t =
         ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
-            "The set of pending guidances after applying updates"
+            "The set of pending mandatory guidances after applying updates, \
+             which must be applied, as otherwise there may be e.g. VM failures"
         ; field ~qualifier:DynamicRO ~in_product_since:"1.313.0" ~ty:Bool
             "tls_verification_enabled" ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
@@ -2199,6 +2208,21 @@ let t =
             "numa_affinity_policy"
             ~default_value:(Some (VEnum "default_policy"))
             "NUMA-aware VM memory and vCPU placement policy"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "pending_guidances_recommended" ~default_value:(Some (VSet []))
+            "The set of pending recommended guidances after applying updates, \
+             which most users should follow to make the updates effective, but \
+             if not followed, will not cause a failure"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "pending_guidances_full" ~default_value:(Some (VSet []))
+            "The set of pending full guidances after applying updates, which a \
+             user should follow to make some updates, e.g. specific hardware \
+             drivers or CPU features, fully effective, but the 'average user' \
+             doesn't need to"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "")) "last_update_hash"
+            "The SHA256 checksum of updateinfo of the most recently applied \
+             update on the host"
         ]
       )
     ()

@@ -673,7 +673,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~is_vmss_snapshot:false ~appliance ~start_delay ~shutdown_delay ~order
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
     ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
-    ~pending_guidances:[] ~recommended_guidances:[] ;
+    ~pending_guidances:[] ~recommended_guidances:[]
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;
@@ -1611,6 +1612,19 @@ let set_NVRAM_EFI_variables ~__context ~self ~value =
   )
 
 let restart_device_models ~__context ~self =
+  let power_state = Db.VM.get_power_state ~__context ~self in
+  if power_state <> `Running then
+    raise
+      Api_errors.(
+        Server_error
+          ( vm_bad_power_state
+          , [
+              Ref.string_of self
+            ; Record_util.power_state_to_string `Running
+            ; Record_util.power_state_to_string power_state
+            ]
+          )
+      ) ;
   let host = Db.VM.get_resident_on ~__context ~self in
   (* As it is implemented as a localhost migration, just reuse message
    * forwarding of "pool_migrate" to handle "allowed operation" and "message

@@ -99,54 +99,38 @@ module GuidanceSet = struct
   include GuidanceSet'
   open Guidance
 
-  let eq l s = equal (of_list l) (of_list s)
-
-  let eq_set1 = eq [EvacuateHost; RestartToolstack]
-
-  let eq_set2 = eq [RestartDeviceModel; RestartToolstack]
-
-  let error_msg l =
-    Printf.sprintf "Found wrong guidance(s): %s"
-      (String.concat ";" (List.map to_string l))
-
-  let assert_valid_guidances = function
-    | []
-    | [RebootHost]
-    | [EvacuateHost]
-    | [RestartToolstack]
-    | [RestartDeviceModel] ->
-        ()
-    | l when eq_set1 l ->
-        (* EvacuateHost and RestartToolstack *)
-        ()
-    | l when eq_set2 l ->
-        (* RestartDeviceModel and RestartToolstack *)
-        ()
-    | l ->
-        let msg = error_msg l in
-        raise Api_errors.(Server_error (internal_error, [msg]))
-
   let precedences =
     [
       (RebootHost, of_list [RestartToolstack; EvacuateHost; RestartDeviceModel])
     ; (EvacuateHost, of_list [RestartDeviceModel])
+    ; (RestartVM, of_list [RestartDeviceModel])
     ]
 
-  let resort_guidances ~remove_evacuations gs =
-    let gs' =
+  (** reduce the set [gs] by sorting partially with the defined [precedences] *)
+  let resort gs =
+    List.fold_left
+      (fun acc (higher, lowers) ->
+        if mem higher acc then
+          diff acc lowers
+        else
+          acc
+      )
+      gs precedences
+
+  (** remove the guidances which are in s1 from s2. *)
+  let reduce s1 s2 = diff (resort (union s1 s2)) s1
+
+  (** for each set in the list, remove the guidances which are in previous sets from it. *)
+  let reduce_cascaded_list l =
+    let _, reduced_list_in_reverse =
       List.fold_left
-        (fun acc (higher, lowers) ->
-          if mem higher acc then
-            diff acc lowers
-          else
-            acc
+        (fun (acc_set, acc_list) (k, s) ->
+          let reduced = reduce acc_set s in
+          (union s acc_set, (k, reduced) :: acc_list)
         )
-        gs precedences
+        (empty, []) l
     in
-    if remove_evacuations then
-      remove EvacuateHost gs'
-    else
-      gs'
+    List.rev reduced_list_in_reverse
 end
 
 let create_repository_record ~__context ~name_label ~name_description
@@ -559,34 +543,31 @@ let get_updates_from_updateinfo ~__context repositories =
   in
   new_updates @ updates
 
+let is_applicable ~update (applicability : Applicability.t) =
+  let open Update in
+  match
+    (update.name = applicability.name, update.arch = applicability.arch)
+  with
+  | true, true -> (
+    match (update.old_epoch, update.old_version, update.old_release) with
+    | Some old_epoch, Some old_version, Some old_release ->
+        Applicability.eval ~epoch:old_epoch ~version:old_version
+          ~release:old_release ~applicability
+    | _ ->
+        warn "No installed epoch, version or release for package %s.%s"
+          update.name update.arch ;
+        false
+  )
+  | _ ->
+      false
+
 let eval_guidance_for_one_update ~updates_info ~update ~kind
-    ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches =
+    ~upd_ids_of_livepatches =
   let open Update in
   match update.update_id with
   | Some upd_id -> (
     match List.assoc_opt upd_id updates_info with
     | Some updateinfo -> (
-        let is_applicable (a : Applicability.t) =
-          match
-            ( update.name = a.Applicability.name
-            , update.arch = a.Applicability.arch
-            )
-          with
-          | true, true -> (
-            match
-              (update.old_epoch, update.old_version, update.old_release)
-            with
-            | Some old_epoch, Some old_version, Some old_release ->
-                Applicability.eval ~epoch:old_epoch ~version:old_version
-                  ~release:old_release ~applicability:a
-            | _ ->
-                warn "No installed epoch, version or release for package %s.%s"
-                  update.name update.arch ;
-                false
-          )
-          | _ ->
-              false
-        in
         let pkg_str =
           Printf.sprintf "package %s.%s in update %s" update.name update.arch
             upd_id
@@ -595,72 +576,77 @@ let eval_guidance_for_one_update ~updates_info ~update ~kind
           Printf.sprintf "Evaluating applicability for %s returned '%s'" pkg_str
             (string_of_bool r)
         in
+        let str_of_guidances guidances =
+          String.concat ";" (List.map Guidance.to_string guidances)
+        in
         let apps = updateinfo.UpdateInfo.guidance_applicabilities in
-        match (List.exists is_applicable apps, apps) with
+        match (List.exists (is_applicable ~update) apps, apps) with
         | true, _ | false, [] -> (
             debug "%s" (dbg_msg true) ;
+            let open Guidance in
+            let open UpdateInfo in
             match kind with
-            | Guidance.Absolute ->
-                updateinfo.UpdateInfo.abs_guidance
-            | Guidance.Recommended -> (
-              match
-                ( UpdateIdSet.mem upd_id upd_ids_of_livepatches
-                , UpdateIdSet.mem upd_id upd_ids_of_failed_livepatches
-                )
-              with
-              | _, true ->
-                  (* The update contains a failed livepatch. No guidance should be picked up. *)
-                  debug
-                    "%s doesn't contribute guidance due to a livepatch failure"
-                    pkg_str ;
-                  None
-              | true, false ->
-                  (* The update has an applicable/successful livepatch.
-                   * Using the livepatch guidance.
-                   *)
-                  let g = updateinfo.UpdateInfo.livepatch_guidance in
-                  debug "%s provides livepatch guidance %s" pkg_str
-                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
-                  g
-              | false, false ->
-                  let g = updateinfo.UpdateInfo.rec_guidance in
-                  debug "%s provides recommended guidance %s" pkg_str
-                    (Option.value (Option.map Guidance.to_string g) ~default:"") ;
-                  g
-            )
+            | Livepatch ->
+                (* Livepatch should not be evaluated directly *)
+                []
+            | Full | Mandatory ->
+                let gs = get_guidances_of_kind ~kind updateinfo in
+                debug "%s contributes to %s guidances [%s]" pkg_str
+                  (kind_to_string kind) (str_of_guidances gs) ;
+                gs
+            | Recommended ->
+                let gs =
+                  match UpdateIdSet.mem upd_id upd_ids_of_livepatches with
+                  | true ->
+                      debug "use livepatch guidance of %s" pkg_str ;
+                      get_guidances_of_kind ~kind:Livepatch updateinfo
+                  | false ->
+                      get_guidances_of_kind ~kind:Recommended updateinfo
+                in
+                debug "%s contributes to recommended guidances [%s]" pkg_str
+                  (str_of_guidances gs) ;
+                gs
           )
         | _ ->
             debug "%s" (dbg_msg false) ;
-            None
+            []
       )
     | None ->
         warn "Can't find update ID %s from updateinfo.xml for update %s.%s"
           upd_id update.name update.arch ;
-        None
+        []
   )
   | None ->
       warn "Ignore evaluating against package %s.%s as its update ID is missing"
         update.name update.arch ;
-      None
+      []
 
 (* In case that the RPM in an update has been installed (including livepatch file),
  * but the livepatch has not been applied.
  * In other words, this RPM update will not appear in parameter [updates] of
  * function [eval_guidances], but the livepatch in it is still applicable.
  *)
-let append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches guidances =
+let append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches
+    guidance_tasks =
+  let ( let* ) = Option.bind in
   UpdateIdSet.fold
     (fun upd_id acc ->
-      match List.assoc_opt upd_id updates_info with
-      | Some UpdateInfo.{livepatch_guidance= Some g; _} ->
-          GuidanceSet.add g acc
-      | _ ->
+      let get_livepatch_guidance () =
+        let* updateinfo = List.assoc_opt upd_id updates_info in
+        let* l =
+          List.assoc_opt Guidance.Livepatch updateinfo.UpdateInfo.guidance
+        in
+        Some (GuidanceSet.of_list l)
+      in
+      match get_livepatch_guidance () with
+      | Some s ->
+          GuidanceSet.union s acc
+      | None ->
           acc
     )
-    upd_ids_of_livepatches guidances
+    upd_ids_of_livepatches guidance_tasks
 
-let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
-    =
+let eval_guidances ~updates_info ~updates ~kind ~livepatches =
   let extract_upd_ids lps =
     List.fold_left
       (fun acc (_, lps) ->
@@ -671,32 +657,22 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches ~failed_livepatches
       UpdateIdSet.empty lps
   in
   let upd_ids_of_livepatches = extract_upd_ids livepatches in
-  let upd_ids_of_failed_livepatches = extract_upd_ids failed_livepatches in
   List.fold_left
     (fun acc u ->
-      match
-        eval_guidance_for_one_update ~updates_info ~update:u ~kind
-          ~upd_ids_of_livepatches ~upd_ids_of_failed_livepatches
-      with
-      | Some g ->
-          GuidanceSet.add g acc
-      | None ->
-          acc
+      eval_guidance_for_one_update ~updates_info ~update:u ~kind
+        ~upd_ids_of_livepatches
+      |> GuidanceSet.of_list
+      |> GuidanceSet.union acc
     )
     GuidanceSet.empty updates
-  |> append_livepatch_guidances ~updates_info ~upd_ids_of_livepatches
-  |> GuidanceSet.resort_guidances ~remove_evacuations:(kind = Guidance.Absolute)
-  |> GuidanceSet.elements
-
-let merge_with_unapplied_guidances ~__context ~host ~guidances =
-  let open GuidanceSet in
-  Db.Host.get_pending_guidances ~__context ~self:host
-  |> List.map (fun g -> Guidance.of_update_guidance g)
-  |> List.filter (fun g -> g <> Guidance.RebootHostOnLivePatchFailure)
-  |> of_list
-  |> union (of_list guidances)
-  |> resort_guidances ~remove_evacuations:false
-  |> elements
+  |> (fun l ->
+       match kind with
+       | Recommended ->
+           append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches l
+       | _ ->
+           l
+     )
+  |> GuidanceSet.resort
 
 let repoquery_sep = ":|"
 
@@ -1248,6 +1224,16 @@ let merge_livepatches ~livepatches =
        )
        (UpdateIdSet.empty, [])
 
+let reduce_guidance ~updates_info ~updates ~livepatches =
+  let open Guidance in
+  (* The order does matter with the following reducing *)
+  [Mandatory; Recommended; Full]
+  |> List.map (fun kind ->
+         (kind, eval_guidances ~updates_info ~updates ~kind ~livepatches)
+     )
+  |> GuidanceSet.reduce_cascaded_list
+  |> List.map (fun (kind, s) -> (kind, GuidanceSet.elements s))
+
 let consolidate_updates_of_host ~repository_name ~updates_info host
     updates_of_host =
   let latest_updates =
@@ -1281,35 +1267,19 @@ let consolidate_updates_of_host ~repository_name ~updates_info host
   let livepatches =
     retrieve_livepatches_from_updateinfo ~updates_info ~updates:updates_of_host
   in
-  let rec_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Recommended ~livepatches
-      ~failed_livepatches:[]
-  in
-  let abs_guidances =
-    eval_guidances ~updates_info ~updates ~kind:Absolute ~livepatches:[]
-      ~failed_livepatches:[]
-    |> List.filter (fun g -> not (List.mem g rec_guidances))
-  in
-  let upd_ids_of_livepatches, lps =
-    if List.mem Guidance.RebootHost rec_guidances then
-      (* Any livepatches should not be applied if packages updates require RebootHost *)
-      (UpdateIdSet.empty, [])
-    else
-      merge_livepatches ~livepatches
-  in
+  let guidance = reduce_guidance ~updates_info ~updates ~livepatches in
+  let upd_ids_of_livepatches, lps = merge_livepatches ~livepatches in
   let upd_ids = UpdateIdSet.union ids_of_updates upd_ids_of_livepatches in
   let host_updates =
     HostUpdates.
       {
         host
-      ; rec_guidances
-      ; abs_guidances
+      ; guidance
       ; rpms
       ; update_ids= UpdateIdSet.elements upd_ids
       ; livepatches= lps
       }
   in
-
   (host_updates, upd_ids)
 
 let append_by_key l k v =
@@ -1372,15 +1342,314 @@ let prune_updateinfo_for_livepatches livepatches updateinfo =
   in
   {updateinfo with livepatches= lps}
 
-let do_with_device_models ~__context ~host f =
-  (* Call f with device models of all running HVM VMs on the host *)
-  Db.Host.get_resident_VMs ~__context ~self:host
-  |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
-  |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
-  |> List.filter_map f
-  |> function
-  | [] ->
+let do_with_host_pending_guidances ~op guidances =
+  List.iter
+    (fun g ->
+      match Guidance.to_pending_guidance g with
+      | ( Some `restart_toolstack
+        | Some `reboot_host
+        | Some `reboot_host_on_xen_livepatch_failure
+        | Some `reboot_host_on_kernel_livepatch_failure
+        | Some `reboot_host_on_livepatch_failure ) as g' ->
+          Option.iter op g'
+      | _ ->
+          ()
+    )
+    guidances
+
+let do_with_vm_pending_guidances ~op ~vm guidances =
+  List.iter
+    (fun g ->
+      match Guidance.to_pending_guidance g with
+      | Some `restart_device_model ->
+          op vm `restart_device_model
+      | Some `restart_vm ->
+          op vm `restart_vm
+      | _ ->
+          ()
+    )
+    guidances
+
+let merge_with_pending_guidances ~pending ~coming =
+  let open GuidanceSet in
+  let pending = of_list pending in
+  let unioned = union pending (of_list coming) |> remove EvacuateHost in
+  (diff unioned pending |> elements, diff pending unioned |> elements)
+
+let is_livepatch_failure = function
+  | Guidance.RebootHostOnLivePatchFailure
+  | Guidance.RebootHostOnXenLivePatchFailure
+  | Guidance.RebootHostOnKernelLivePatchFailure ->
+      true
+  | _ ->
+      false
+
+type pending_ops = {
+    host_get: unit -> Guidance.t list
+  ; host_add:
+         [ `reboot_host
+         | `reboot_host_on_livepatch_failure
+         | `restart_toolstack
+         | `reboot_host_on_xen_livepatch_failure
+         | `reboot_host_on_kernel_livepatch_failure ]
+      -> unit
+  ; host_remove:
+         [ `reboot_host
+         | `reboot_host_on_livepatch_failure
+         | `restart_toolstack
+         | `reboot_host_on_xen_livepatch_failure
+         | `reboot_host_on_kernel_livepatch_failure ]
+      -> unit
+  ; vms_get: unit -> (string * Guidance.t list) list
+  ; vm_add: string -> [`restart_device_model | `restart_vm] -> unit
+  ; vm_remove: string -> [`restart_device_model | `restart_vm] -> unit
+}
+
+let get_ops_of_pending ~__context ~host ~kind =
+  let get_pending_guidances_of_host ~db_get =
+    db_get ~__context ~self:host |> List.map Guidance.of_pending_guidance
+  in
+  let get_pending_guidances_of_vms ~db_get =
+    Db.Host.get_resident_VMs ~__context ~self:host
+    |> List.filter (fun self ->
+           not (Db.VM.get_is_control_domain ~__context ~self)
+       )
+    |> List.map (fun vm_ref ->
+           let pending_guidances =
+             db_get ~__context ~self:vm_ref
+             |> List.map Guidance.of_pending_guidance
+           in
+           (Ref.string_of vm_ref, pending_guidances)
+       )
+  in
+  let is_vm_applicable ~self = function
+    | `restart_device_model ->
+        Helpers.has_qemu_currently ~__context ~self
+    | `restart_vm ->
+        (* RestartVM will be set in host.apply_updates when updating the coordinator.
+         * To avoid confusions, not setting it here.
+         *)
+        false
+  in
+  match kind with
+  | Guidance.Mandatory ->
+      let host_get () =
+        get_pending_guidances_of_host ~db_get:Db.Host.get_pending_guidances
+      in
+      let host_add value =
+        Db.Host.add_pending_guidances ~__context ~self:host ~value
+      in
+      let host_remove value =
+        Db.Host.remove_pending_guidances ~__context ~self:host ~value
+      in
+      let vms_get () =
+        get_pending_guidances_of_vms ~db_get:Db.VM.get_pending_guidances
+      in
+      let vm_add vm value =
+        let self = Ref.of_string vm in
+        if is_vm_applicable ~self value then
+          Db.VM.add_pending_guidances ~__context ~self:(Ref.of_string vm) ~value
+      in
+      let vm_remove vm value =
+        Db.VM.remove_pending_guidances ~__context ~self:(Ref.of_string vm)
+          ~value
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+  | Guidance.Recommended ->
+      let host_get () =
+        get_pending_guidances_of_host
+          ~db_get:Db.Host.get_pending_guidances_recommended
+      in
+      let host_add value =
+        Db.Host.add_pending_guidances_recommended ~__context ~self:host ~value
+      in
+      let host_remove value =
+        Db.Host.remove_pending_guidances_recommended ~__context ~self:host
+          ~value
+      in
+      let vms_get () =
+        get_pending_guidances_of_vms
+          ~db_get:Db.VM.get_pending_guidances_recommended
+      in
+      let vm_add vm value =
+        let self = Ref.of_string vm in
+        if is_vm_applicable ~self value then
+          Db.VM.add_pending_guidances_recommended ~__context ~self ~value
+      in
+      let vm_remove vm value =
+        Db.VM.remove_pending_guidances_recommended ~__context
+          ~self:(Ref.of_string vm) ~value
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+  | Guidance.Full ->
+      let host_get () =
+        get_pending_guidances_of_host ~db_get:Db.Host.get_pending_guidances_full
+      in
+      let host_add value =
+        Db.Host.add_pending_guidances_full ~__context ~self:host ~value
+      in
+      let host_remove value =
+        Db.Host.remove_pending_guidances_full ~__context ~self:host ~value
+      in
+      let vms_get () =
+        get_pending_guidances_of_vms ~db_get:Db.VM.get_pending_guidances_full
+      in
+      let vm_add vm value =
+        let self = Ref.of_string vm in
+        if is_vm_applicable ~self value then
+          Db.VM.add_pending_guidances_full ~__context ~self ~value
+      in
+      let vm_remove vm value =
+        Db.VM.remove_pending_guidances_full ~__context ~self:(Ref.of_string vm)
+          ~value
+      in
+      {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
+  | Guidance.Livepatch ->
+      raise
+        Api_errors.(
+          Server_error
+            (internal_error, ["No pending operations for Livepatch guidance"])
+        )
+
+let set_pending_guidances ~ops ~coming =
+  let pending_of_host =
+    ops.host_get () |> List.filter (fun x -> not (is_livepatch_failure x))
+  in
+  let to_be_added, to_be_removed =
+    merge_with_pending_guidances ~pending:pending_of_host ~coming
+  in
+  do_with_host_pending_guidances ~op:ops.host_remove to_be_removed ;
+  do_with_host_pending_guidances ~op:ops.host_add to_be_added ;
+
+  ops.vms_get ()
+  |> List.map (fun (vm_ref_str, pending_of_vm) ->
+         let pending = List.append pending_of_host pending_of_vm in
+         (vm_ref_str, merge_with_pending_guidances ~pending ~coming)
+     )
+  |> List.iter (fun (vm_ref_str, (to_be_added, to_be_removed)) ->
+         do_with_vm_pending_guidances ~op:ops.vm_remove ~vm:vm_ref_str
+           to_be_removed ;
+         do_with_vm_pending_guidances ~op:ops.vm_add ~vm:vm_ref_str to_be_added
+     )
+
+let failure_of_livepatch_component = function
+  | Livepatch.Xen ->
+      Guidance.RebootHostOnXenLivePatchFailure
+  | Livepatch.Kernel ->
+      Guidance.RebootHostOnKernelLivePatchFailure
+
+let component_of_livepatch_failure = function
+  | Guidance.RebootHostOnXenLivePatchFailure ->
+      Some Livepatch.Xen
+  | Guidance.RebootHostOnKernelLivePatchFailure ->
+      Some Livepatch.Kernel
+  | _ ->
+      None
+
+let merge_livepatch_failures ~previous_failures ~applied ~failed =
+  let current_failures = List.map failure_of_livepatch_component failed in
+  (* Determine how to deal with previous livepatch failures *)
+  List.fold_left
+    (fun acc_fails prev_fail ->
+      match component_of_livepatch_failure prev_fail with
+      | Some prev_failed_component -> (
+          let comp_str = Livepatch.string_of_component prev_failed_component in
+          match
+            ( List.mem prev_fail current_failures
+            , List.mem prev_failed_component applied
+            )
+          with
+          | true, false ->
+              debug "%s Livepatch failed again." comp_str ;
+              acc_fails
+          | false, true ->
+              (* applied in this update. No changes on current failures *)
+              debug
+                "%s Livepatch (failed in previous updates) has been applied."
+                comp_str ;
+              acc_fails
+          | true, true ->
+              (* Impossible case: a component is in both failed and applied *)
+              warn "%s Livepatch shouldn't be in both applied and failed lists."
+                comp_str ;
+              acc_fails
+          | false, false ->
+              (* Didn't try in this update. Keep previous failure in current list *)
+              debug "%s Livepatch failed in previous updates." comp_str ;
+              prev_fail :: acc_fails
+        )
+      | None ->
+          warn "Unknown livepatch failure." ;
+          acc_fails
+    )
+    current_failures previous_failures
+  |> fun failures ->
+  let open GuidanceSet in
+  let to_be_removed =
+    diff (of_list previous_failures) (of_list failures) |> elements
+  in
+  let to_be_added =
+    diff (of_list failures) (of_list previous_failures) |> elements
+  in
+  (to_be_removed, to_be_added)
+
+let update_livepatch_failure_guidance ~__context ~host ~applied ~failed =
+  let previous_failures =
+    Db.Host.get_pending_guidances_recommended ~__context ~self:host
+    |> List.map Guidance.of_pending_guidance
+    |> List.filter is_livepatch_failure
+  in
+  let to_be_removed, to_be_added =
+    merge_livepatch_failures ~previous_failures ~applied ~failed
+  in
+  (* The livepatch failure guidance is in host pending recommended list *)
+  let host_remove value =
+    Db.Host.remove_pending_guidances_recommended ~__context ~self:host ~value
+  in
+  let host_add value =
+    Db.Host.add_pending_guidances_recommended ~__context ~self:host ~value
+  in
+  List.iter host_remove
+    (List.filter_map Guidance.to_pending_guidance to_be_removed) ;
+  List.iter host_add (List.filter_map Guidance.to_pending_guidance to_be_added)
+
+let assert_no_host_pending_mandatory_guidance ~__context ~host =
+  let host_pending_mandatory_guidances =
+    Db.Host.get_pending_guidances ~__context ~self:host
+  in
+  if host_pending_mandatory_guidances <> [] then (
+    error "%s: %d mandatory guidances are pending for host %s: [%s]"
+      __FUNCTION__
+      (List.length host_pending_mandatory_guidances)
+      (Ref.string_of host)
+      (host_pending_mandatory_guidances
+      |> List.map Updateinfo.Guidance.of_pending_guidance
+      |> List.map Updateinfo.Guidance.to_string
+      |> String.concat ";"
+      ) ;
+    raise
+      Api_errors.(
+        Server_error
+          (host_pending_mandatory_guidances_not_empty, [Ref.string_of host])
+      )
+  )
+
+let assert_host_evacuation_if_required ~__context ~host ~mandatory =
+  let open Guidance in
+  let need_evacuation =
+    List.exists (fun g -> g = RebootHost || g = EvacuateHost) mandatory
+  in
+  let resident_vms =
+    Db.Host.get_resident_VMs ~__context ~self:host
+    |> List.filter (fun self ->
+           not (Db.VM.get_is_control_domain ~__context ~self)
+       )
+  in
+  match (need_evacuation, resident_vms <> []) with
+  | true, true ->
+      raise
+        Api_errors.(
+          Server_error (host_evacuation_is_required, [Ref.string_of host])
+        )
+  | _ ->
       ()
-  | _ :: _ ->
-      let host' = Ref.string_of host in
-      raise Api_errors.(Server_error (cannot_restart_device_model, [host']))

@@ -1687,8 +1687,9 @@ let set_NVRAM_EFI_variables =
     ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let restart_device_models =
-  call ~flags:[`Session] ~name:"restart_device_models" ~lifecycle:[]
+  call ~name:"restart_device_models" ~lifecycle:[]
     ~params:[(Ref _vm, "self", "The VM")]
+    ~doc:"Restart device models of the VM"
     ~errs:
       [
         Api_errors.vm_bad_power_state
@@ -2155,12 +2156,24 @@ let t =
         ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
-            "The set of pending guidances after applying updates"
+            "The set of pending mandatory guidances after applying updates, \
+             which must be applied, as otherwise there may be e.g. VM failures"
         ; field ~qualifier:DynamicRO ~internal_only:true
             ~lifecycle:[(Prototyped, "23.18.0", ""); (Removed, "23.24.0", "")]
             ~ty:(Set update_guidances) "recommended_guidances"
             ~default_value:(Some (VSet []))
             "The set of recommended guidances after applying updates"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "pending_guidances_recommended" ~default_value:(Some (VSet []))
+            "The set of pending recommended guidances after applying updates, \
+             which most users should follow to make the updates effective, but \
+             if not followed, will not cause a failure"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set update_guidances)
+            "pending_guidances_full" ~default_value:(Some (VSet []))
+            "The set of pending full guidances after applying updates, which a \
+             user should follow to make some updates, e.g. specific hardware \
+             drivers or CPU features, fully effective, but the 'average user' \
+             doesn't need to"
         ]
       )
     ()

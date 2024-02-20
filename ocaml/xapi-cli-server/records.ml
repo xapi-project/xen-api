@@ -2595,6 +2595,18 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"vtpms"
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_VTPMs)
           ()
+      ; make_field ~name:"pending-guidances-recommended"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.vM_pending_guidances_recommended
+          )
+          ()
+      ; make_field ~name:"pending-guidances-full"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.vM_pending_guidances_full
+          )
+          ()
       ]
   }
 
@@ -3248,6 +3260,21 @@ let host_record rpc session_id host =
             Record_util.latest_synced_updates_applied_state_to_string
               (x ()).API.host_latest_synced_updates_applied
           )
+          ()
+      ; make_field ~name:"pending-guidances-recommended"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.host_pending_guidances_recommended
+          )
+          ()
+      ; make_field ~name:"pending-guidances-full"
+          ~get:(fun () ->
+            map_and_concat Record_util.update_guidance_to_string
+              (x ()).API.host_pending_guidances_full
+          )
+          ()
+      ; make_field ~name:"last-update-hash"
+          ~get:(fun () -> (x ()).API.host_last_update_hash)
           ()
       ]
   }

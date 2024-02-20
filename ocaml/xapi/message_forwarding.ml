@@ -3279,8 +3279,11 @@ functor
       let enable ~__context ~host =
         info "Host.enable: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable ~rpc ~session_id ~host
+        Xapi_host_helpers.with_host_operation ~__context ~self:host
+          ~doc:"Host.enable" ~op:`enable (fun () ->
+            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+                Client.Host.enable ~rpc ~session_id ~host
+            )
         ) ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
@@ -4050,6 +4053,10 @@ functor
         do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
             Client.Host.set_https_only ~rpc ~session_id ~self ~value
         )
+
+      let emergency_clear_mandatory_guidance ~__context =
+        info "Host.emergency_clear_mandatory_guidance" ;
+        Local.Host.emergency_clear_mandatory_guidance ~__context
     end
 
     module Host_crashdump = struct

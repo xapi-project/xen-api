@@ -97,6 +97,10 @@ let rel_stockholm = "stockholm"
 
 let rel_stockholm_psr = "stockholm_psr"
 
+let rel_nile_preview = "nile-preview"
+
+let rel_nile = "nile"
+
 type api_release = {
     code_name: string option
   ; version_major: int
@@ -335,11 +339,18 @@ let release_order_full =
     ; release_date= Some "November 2020"
     }
   ; {
-      code_name= Some "nile-preview"
+      code_name= Some rel_nile_preview
     ; version_major= 2
     ; version_minor= 20
     ; branding= "XenServer 8 Preview"
     ; release_date= Some "August 2023"
+    }
+  ; {
+      code_name= Some rel_nile
+    ; version_major= 2
+    ; version_minor= 21
+    ; branding= "XenServer 8"
+    ; release_date= None
     }
   ]
 (* When you add a new release, use the version number of the latest release, "Unreleased"

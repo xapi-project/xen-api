@@ -37,6 +37,7 @@ let all_operations =
   ; `vm_migrate
   ; `power_on
   ; `apply_updates
+  ; `enable
   ]
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
@@ -86,7 +87,7 @@ let valid_operations ~__context record _ref' =
   if List.mem `apply_updates current_ops then
     set_errors Api_errors.other_operation_in_progress
       ["host"; _ref; host_operation_to_string `apply_updates]
-      [`reboot; `shutdown] ;
+      [`reboot; `shutdown; `enable] ;
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
      template we can relax this. *)
@@ -344,6 +345,42 @@ let assert_xen_compatible () =
   if not compatible then
     raise Api_errors.(Server_error (xen_incompatible, []))
 
+let remove_pending_guidance ~__context ~self ~value =
+  let h = Db.Host.get_name_label ~__context ~self in
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.Host.get_pending_guidances ~__context ~self)
+  then (
+    debug "Remove guidance [%s] from host [%s]'s pending_guidances list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      h ;
+    Db.Host.remove_pending_guidances ~__context ~self ~value
+  ) ;
+
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.Host.get_pending_guidances_recommended ~__context ~self)
+  then (
+    debug
+      "Remove guidance [%s] from host [%s]'s pending_guidances_recommended list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      h ;
+    Db.Host.remove_pending_guidances_recommended ~__context ~self ~value
+  ) ;
+
+  if
+    List.exists
+      (fun g -> g = value)
+      (Db.Host.get_pending_guidances_full ~__context ~self)
+  then (
+    debug "Remove guidance [%s] from host [%s]'s pending_guidances_full list"
+      Updateinfo.Guidance.(of_pending_guidance value |> to_string)
+      h ;
+    Db.Host.remove_pending_guidances_full ~__context ~self ~value
+  )
+
 let consider_enabling_host_nolock ~__context =
   debug "Xapi_host_helpers.consider_enabling_host_nolock called" ;
   (* If HA is enabled only consider marking the host as enabled if all the storage plugs in successfully.
@@ -372,20 +409,38 @@ let consider_enabling_host_nolock ~__context =
        		   letting a machine with no fencing touch any VMs. Once the host reboots we can safely clear
        		   the flag 'host_disabled_until_reboot' *)
     let pool = Helpers.get_pool ~__context in
-    Db.Host.remove_pending_guidances ~__context ~self:localhost
-      ~value:`restart_toolstack ;
+    let if_no_pending_guidances f =
+      let host_pending_mandatory_guidances =
+        Db.Host.get_pending_guidances ~__context ~self:localhost
+      in
+      if host_pending_mandatory_guidances <> [] then
+        debug
+          "Host.enabled: there are %d pending mandatory guidances on host \
+           (%s): [%s]. Leave host disabled."
+          (List.length host_pending_mandatory_guidances)
+          (Ref.string_of localhost)
+          (String.concat ";"
+             (List.map Updateinfo.Guidance.to_string
+                (List.map Updateinfo.Guidance.of_pending_guidance
+                   host_pending_mandatory_guidances
+                )
+             )
+          )
+      else
+        f ()
+    in
     if !Xapi_globs.on_system_boot then (
-      debug
-        "Host.enabled: system has just restarted: setting localhost to enabled" ;
-      Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
-      Db.Host.remove_pending_guidances ~__context ~self:localhost
-        ~value:`reboot_host ;
-      Db.Host.remove_pending_guidances ~__context ~self:localhost
-        ~value:`reboot_host_on_livepatch_failure ;
-      update_allowed_operations ~__context ~self:localhost ;
-      Localdb.put Constants.host_disabled_until_reboot "false" ;
-      (* Start processing pending VM powercycle events *)
-      Local_work_queue.start_vm_lifecycle_queue ()
+      debug "Host.enabled: system has just restarted" ;
+      if_no_pending_guidances (fun () ->
+          debug
+            "Host.enabled: system has just restarted and no pending mandatory \
+             guidances: setting localhost to enabled" ;
+          Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+          update_allowed_operations ~__context ~self:localhost ;
+          Localdb.put Constants.host_disabled_until_reboot "false" ;
+          (* Start processing pending VM powercycle events *)
+          Local_work_queue.start_vm_lifecycle_queue ()
+      )
     ) else if
         try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
         with _ -> false
@@ -396,11 +451,17 @@ let consider_enabling_host_nolock ~__context =
     else (
       debug
         "Host.enabled: system not just rebooted && host_disabled_until_reboot \
-         not set: setting localhost to enabled" ;
-      Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
-      update_allowed_operations ~__context ~self:localhost ;
-      (* Start processing pending VM powercycle events *)
-      Local_work_queue.start_vm_lifecycle_queue ()
+         not set" ;
+      if_no_pending_guidances (fun () ->
+          debug
+            "Host.enabled: system not just rebooted && \
+             host_disabled_until_reboot not set and no pending mandatory \
+             guidances: setting localhost to enabled" ;
+          Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+          update_allowed_operations ~__context ~self:localhost ;
+          (* Start processing pending VM powercycle events *)
+          Local_work_queue.start_vm_lifecycle_queue ()
+      )
     ) ;
     (* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)
     if

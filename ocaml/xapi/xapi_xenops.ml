@@ -1999,6 +1999,9 @@ let update_vm ~__context id =
             xenapi_of_xenops_power_state
               (Option.map (fun x -> (snd x).Vm.power_state) info)
           in
+          let power_state_before_update =
+            Db.VM.get_power_state ~__context ~self
+          in
           (* We preserve the current_domain_type of suspended VMs like we preserve
              the currently_attached fields for VBDs/VIFs etc - it's important to know
              whether suspended VMs are going to resume into PV or PVinPVH for example.
@@ -2275,13 +2278,28 @@ let update_vm ~__context id =
               try
                 Option.iter
                   (fun (_, state) ->
-                    debug "xenopsd event: Updating VM %s last_start_time <- %s"
-                      id
-                      (Date.to_string (Date.of_float state.Vm.last_start_time)) ;
                     let metrics = Db.VM.get_metrics ~__context ~self in
                     let start_time = Date.of_float state.Vm.last_start_time in
-                    Db.VM_metrics.set_start_time ~__context ~self:metrics
-                      ~value:start_time ;
+                    if
+                      start_time
+                      <> Db.VM_metrics.get_start_time ~__context ~self:metrics
+                    then (
+                      debug
+                        "xenopsd event: Updating VM %s last_start_time <- %s" id
+                        (Date.to_string (Date.of_float state.Vm.last_start_time)) ;
+                      Db.VM_metrics.set_start_time ~__context ~self:metrics
+                        ~value:start_time ;
+                      if
+                        (* VM start and VM reboot *)
+                        power_state = `Running
+                        && power_state_before_update <> `Suspended
+                      then (
+                        Xapi_vm_lifecycle.remove_pending_guidance ~__context
+                          ~self ~value:`restart_device_model ;
+                        Xapi_vm_lifecycle.remove_pending_guidance ~__context
+                          ~self ~value:`restart_vm
+                      )
+                    ) ;
                     create_guest_metrics_if_needed () ;
                     let gm = Db.VM.get_guest_metrics ~__context ~self in
                     let update_time =
@@ -3507,10 +3525,7 @@ let set_resident_on ~__context ~self =
   refresh_vm ~__context ~self ;
   !trigger_xenapi_reregister () ;
   (* Any future XenAPI updates will trigger events, but we might have missed one so: *)
-  Xenopsd_metadata.update ~__context ~self ;
-  Db.VM.remove_pending_guidances ~__context ~self ~value:`restart_device_model ;
-  Db.VM.remove_recommended_guidances ~__context ~self
-    ~value:`restart_device_model
+  Xenopsd_metadata.update ~__context ~self
 
 let update_debug_info __context t =
   let task = Context.get_task_id __context in

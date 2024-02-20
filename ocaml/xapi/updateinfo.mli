@@ -20,22 +20,43 @@ module Guidance : sig
     | EvacuateHost
     | RestartDeviceModel
     | RebootHostOnLivePatchFailure
+    | RebootHostOnKernelLivePatchFailure
+    | RebootHostOnXenLivePatchFailure
+    | RestartVM
 
-  type guidance_kind = Absolute | Recommended
+  type kind = Mandatory | Recommended | Full | Livepatch
+
+  val kind_to_string : kind -> string
 
   val compare : t -> t -> int
 
   val to_string : t -> string
 
+  val to_json : t -> Yojson.Basic.t
+
   (* may fail *)
   val of_string : string -> t
 
-  val of_update_guidance :
+  val of_pending_guidance :
        [< `reboot_host
        | `reboot_host_on_livepatch_failure
+       | `reboot_host_on_kernel_livepatch_failure
+       | `reboot_host_on_xen_livepatch_failure
        | `restart_device_model
-       | `restart_toolstack ]
+       | `restart_toolstack
+       | `restart_vm ]
     -> t
+
+  val to_pending_guidance :
+       t
+    -> [> `reboot_host
+       | `reboot_host_on_livepatch_failure
+       | `reboot_host_on_kernel_livepatch_failure
+       | `reboot_host_on_xen_livepatch_failure
+       | `restart_device_model
+       | `restart_toolstack
+       | `restart_vm ]
+       option
 end
 
 (** The applicability of metadata for one update in updateinfo *)
@@ -107,22 +128,34 @@ module Severity : sig
   val of_string : string -> t
 end
 
-(** The metadata of one update in updateinfo *)
+(** The type of [guidance] in updateinfo metadata. *)
+module GuidanceInUpdateInfo : sig
+  type t = (Guidance.kind * Guidance.t list) list
+
+  val default : t
+
+  val of_xml : Xml.xml list -> t
+
+  val to_json : t -> Yojson.Basic.t
+
+  val to_string : t -> string
+end
+
+(** The metadata of one update in updateinfo. *)
 module UpdateInfo : sig
   type t = {
       id: string
     ; summary: string
     ; description: string
-    ; rec_guidance: Guidance.t option
-    ; abs_guidance: Guidance.t option
+    ; guidance: GuidanceInUpdateInfo.t
     ; guidance_applicabilities: Applicability.t list
     ; spec_info: string
     ; url: string
     ; update_type: string
-    ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
     ; severity: Severity.t
+    ; title: string
   }
 
   val to_json : t -> Yojson.Basic.t
@@ -132,13 +165,14 @@ module UpdateInfo : sig
   val of_xml : Xml.xml -> (string * t) list
 
   val of_xml_file : string -> (string * t) list
+
+  val get_guidances_of_kind : kind:Guidance.kind -> t -> Guidance.t list
 end
 
 module HostUpdates : sig
   type t = {
       host: string
-    ; rec_guidances: Guidance.t list
-    ; abs_guidances: Guidance.t list
+    ; guidance: GuidanceInUpdateInfo.t
     ; rpms: Rpm.Pkg.t list
     ; update_ids: string list
     ; livepatches: LivePatch.t list

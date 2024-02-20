@@ -67,19 +67,25 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
   Xapi_host_helpers.update_allowed_operations ~__context ~self
 
 (** Before we re-enable this host we make sure it's safe to do so. It isn't if:
-    	+ we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled.
-    	+ xapi hasn't properly started up yet.
-    	+ HA is enabled and this host has broken storage or networking which would cause protected VMs
-    	to become non-agile
+        + there are pending mandatory guidances on the host
+        + we're in the middle of an HA shutdown/reboot and have our fencing temporarily disabled.
+        + xapi hasn't properly started up yet.
+        + HA is enabled and this host has broken storage or networking which would cause protected VMs
+        to become non-agile
 *)
 let assert_safe_to_reenable ~__context ~self =
   assert_startup_complete () ;
+  Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
+    ~host:self ;
   let host_disabled_until_reboot =
     try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
     with _ -> false
   in
   if host_disabled_until_reboot then
-    raise (Api_errors.Server_error (Api_errors.host_disabled_until_reboot, [])) ;
+    raise
+      (Api_errors.Server_error
+         (Api_errors.host_disabled_until_reboot, [Ref.string_of self])
+      ) ;
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then (
     let pbds = Db.Host.get_PBDs ~__context ~self in
     let unplugged_pbds =
@@ -1056,7 +1062,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update ~recommended_guidances:[]
-    ~latest_synced_updates_applied:`unknown ;
+    ~latest_synced_updates_applied:`unknown ~pending_guidances_recommended:[]
+    ~pending_guidances_full:[] ~last_update_hash:"" ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics
     ~value:(Date.of_float (Unix.gettimeofday ())) ;
@@ -3001,7 +3008,7 @@ let apply_updates ~__context ~self ~hash =
   (* This function runs on master host *)
   Helpers.assert_we_are_master ~__context ;
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
-  let guidances, warnings =
+  let warnings =
     Xapi_pool_helpers.with_pool_operation ~__context
       ~self:(Helpers.get_pool ~__context)
       ~doc:"Host.apply_updates" ~op:`apply_updates
@@ -3009,6 +3016,10 @@ let apply_updates ~__context ~self ~hash =
     let pool = Helpers.get_pool ~__context in
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise Api_errors.(Server_error (ha_is_enabled, [])) ;
+    if Db.Host.get_enabled ~__context ~self then (
+      disable ~__context ~host:self ;
+      Xapi_host_helpers.update_allowed_operations ~__context ~self
+    ) ;
     Xapi_host_helpers.with_host_operation ~__context ~self
       ~doc:"Host.apply_updates" ~op:`apply_updates
     @@ fun () -> Repository.apply_updates ~__context ~host:self ~hash
@@ -3016,15 +3027,8 @@ let apply_updates ~__context ~self ~hash =
   Db.Host.set_last_software_update ~__context ~self
     ~value:(get_servertime ~__context ~host:self) ;
   Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
-  List.map
-    (fun g ->
-      [
-        Api_errors.updates_require_recommended_guidance
-      ; Updateinfo.Guidance.to_string g
-      ]
-    )
-    guidances
-  @ warnings
+  Db.Host.set_last_update_hash ~__context ~self ~value:hash ;
+  warnings
 
 let cc_prep () =
   let cc = "CC_PREPARATIONS" in
@@ -3053,3 +3057,14 @@ let set_https_only ~__context ~self ~value =
   | true ->
       (* it is illegal changing the firewall/https config in CC/FIPS mode *)
       raise (Api_errors.Server_error (Api_errors.illegal_in_fips_mode, []))
+
+let emergency_clear_mandatory_guidance ~__context =
+  debug "Host.emergency_clear_mandatory_guidance" ;
+  let self = Helpers.get_localhost ~__context in
+  Db.Host.get_pending_guidances ~__context ~self
+  |> List.iter (fun g ->
+         let open Updateinfo.Guidance in
+         let s = g |> of_pending_guidance |> to_string in
+         info "%s: %s is cleared" __FUNCTION__ s
+     ) ;
+  Db.Host.set_pending_guidances ~__context ~self ~value:[]

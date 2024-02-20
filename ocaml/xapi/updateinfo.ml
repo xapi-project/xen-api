@@ -24,8 +24,21 @@ module Guidance = struct
     | EvacuateHost
     | RestartDeviceModel
     | RebootHostOnLivePatchFailure
+    | RebootHostOnKernelLivePatchFailure
+    | RebootHostOnXenLivePatchFailure
+    | RestartVM
 
-  type guidance_kind = Absolute | Recommended
+  type kind = Mandatory | Recommended | Full | Livepatch
+
+  let kind_to_string = function
+    | Recommended ->
+        "recommended"
+    | Mandatory ->
+        "mandatory"
+    | Full ->
+        "full"
+    | Livepatch ->
+        "livepatch"
 
   let compare = Stdlib.compare
 
@@ -40,6 +53,14 @@ module Guidance = struct
         "RestartDeviceModel"
     | RebootHostOnLivePatchFailure ->
         "RebootHostOnLivePatchFailure"
+    | RebootHostOnKernelLivePatchFailure ->
+        "RebootHostOnKernelLivePatchFailure"
+    | RebootHostOnXenLivePatchFailure ->
+        "RebootHostOnXenLivePatchFailure"
+    | RestartVM ->
+        "RestartVM"
+
+  let to_json g = `String (to_string g)
 
   let of_string = function
     | "RebootHost" ->
@@ -50,23 +71,45 @@ module Guidance = struct
         EvacuateHost
     | "RestartDeviceModel" ->
         RestartDeviceModel
+    | "RestartVM" ->
+        RestartVM
     | g ->
-        warn
-          "Un-recognized guidance in \
-           <absolute|recommended|livepatch_guidance>: %s, fallback to \
-           RebootHost"
-          g ;
+        warn "Un-recognized guidance: %s, fallback to RebootHost" g ;
         RebootHost
 
-  let of_update_guidance = function
+  let of_pending_guidance = function
     | `reboot_host ->
         RebootHost
     | `reboot_host_on_livepatch_failure ->
         RebootHostOnLivePatchFailure
+    | `reboot_host_on_kernel_livepatch_failure ->
+        RebootHostOnKernelLivePatchFailure
+    | `reboot_host_on_xen_livepatch_failure ->
+        RebootHostOnXenLivePatchFailure
     | `restart_toolstack ->
         RestartToolstack
     | `restart_device_model ->
         RestartDeviceModel
+    | `restart_vm ->
+        RestartVM
+
+  let to_pending_guidance = function
+    | RebootHost ->
+        Some `reboot_host
+    | RebootHostOnLivePatchFailure ->
+        Some `reboot_host_on_livepatch_failure
+    | RestartToolstack ->
+        Some `restart_toolstack
+    | RestartDeviceModel ->
+        Some `restart_device_model
+    | RebootHostOnXenLivePatchFailure ->
+        Some `reboot_host_on_xen_livepatch_failure
+    | RebootHostOnKernelLivePatchFailure ->
+        Some `reboot_host_on_kernel_livepatch_failure
+    | RestartVM ->
+        Some `restart_vm
+    | EvacuateHost ->
+        None
 end
 
 module Applicability = struct
@@ -424,28 +467,90 @@ module Severity = struct
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
 end
 
+module GuidanceInUpdateInfo = struct
+  type t = (Guidance.kind * Guidance.t list) list
+
+  let value_of_xml = function
+    | Xml.Element ("value", _, [Xml.PCData v]) ->
+        Some (Guidance.of_string v)
+    | Xml.Element (unexpected, _, _) ->
+        warn "Ignore unexpected guidance value XML tag %s" unexpected ;
+        None
+    | _ ->
+        None
+
+  exception Unsupported_kind_xml
+
+  let kind_of_xml = function
+    | "recommended" ->
+        Guidance.Recommended
+    | "mandatory" ->
+        Guidance.Mandatory
+    | "full" ->
+        Guidance.Full
+    | "livepatch" ->
+        Guidance.Livepatch
+    | _ ->
+        raise Unsupported_kind_xml
+
+  let default =
+    let open Guidance in
+    [(Mandatory, []); (Recommended, []); (Full, []); (Livepatch, [])]
+
+  let of_xml xml_blocks =
+    List.fold_left
+      (fun acc xml_block ->
+        match xml_block with
+        | Xml.Element (kind_xml, _, values_in_xml) -> (
+          match kind_of_xml kind_xml with
+          | kind ->
+              let values = List.filter_map value_of_xml values_in_xml in
+              (kind, values) :: List.remove_assoc kind acc
+          | exception Unsupported_kind_xml ->
+              warn "Unsupported guidance kind XML tag %s" kind_xml ;
+              acc
+        )
+        | _ ->
+            warn "Ignore unexpected XML node in guidance." ;
+            acc
+      )
+      default xml_blocks
+
+  let to_json guidance =
+    List.map
+      (fun (kind, guidance_tasks) ->
+        ( Guidance.kind_to_string kind
+        , `List (List.map Guidance.to_json guidance_tasks)
+        )
+      )
+      guidance
+    |> fun l -> `Assoc l
+
+  let to_string guidance = to_json guidance |> Yojson.Basic.to_string
+end
+
 module UpdateInfo = struct
+  (** The [guidance] deprecates [rec_guidance], [abs_guidance] and [livepatch_guidance] *)
   type t = {
       id: string
     ; summary: string
     ; description: string
-    ; rec_guidance: Guidance.t option
-    ; abs_guidance: Guidance.t option
+    ; guidance: GuidanceInUpdateInfo.t
     ; guidance_applicabilities: Applicability.t list
     ; spec_info: string
     ; url: string
     ; update_type: string
-    ; livepatch_guidance: Guidance.t option
     ; livepatches: LivePatch.t list
     ; issued: Xapi_stdext_date.Date.t
     ; severity: Severity.t
+    ; title: string
   }
 
   let guidance_to_string o =
     Option.value (Option.map Guidance.to_string o) ~default:""
 
   let to_json ui =
-    let l =
+    `Assoc
       [
         ("id", `String ui.id)
       ; ("summary", `String ui.summary)
@@ -453,55 +558,31 @@ module UpdateInfo = struct
       ; ("special-info", `String ui.spec_info)
       ; ("URL", `String ui.url)
       ; ("type", `String ui.update_type)
-      ; ("recommended-guidance", `String (guidance_to_string ui.rec_guidance))
-      ; ("absolute-guidance", `String (guidance_to_string ui.abs_guidance))
       ; ("issued", `String (Xapi_stdext_date.Date.to_string ui.issued))
       ; ("severity", `String (Severity.to_string ui.severity))
+      ; ( "livepatches"
+        , `List (List.map (fun x -> LivePatch.to_json x) ui.livepatches)
+        )
+      ; ("guidance", GuidanceInUpdateInfo.to_json ui.guidance)
+      ; ("title", `String ui.title)
       ]
-    in
-    match ui.livepatches with
-    | [] ->
-        `Assoc l
-    | _ as lps ->
-        let l' =
-          ( "livepatch-guidance"
-          , `String (guidance_to_string ui.livepatch_guidance)
-          )
-          :: ("livepatches", `List (List.map (fun x -> LivePatch.to_json x) lps))
-          :: l
-        in
-        `Assoc l'
 
-  let to_string ui =
-    Printf.sprintf
-      "id=%s rec_guidance=%s abs_guidance=%s guidance_applicabilities=%s \
-       livepatch_guidance=%s livepatches=%s"
-      ui.id
-      (guidance_to_string ui.rec_guidance)
-      (guidance_to_string ui.abs_guidance)
-      (String.concat ";"
-         (List.map Applicability.to_string ui.guidance_applicabilities)
-      )
-      (guidance_to_string ui.livepatch_guidance)
-      (Astring.String.concat ~sep:";"
-         (List.map LivePatch.to_string ui.livepatches)
-      )
+  let to_string ui = to_json ui |> Yojson.Basic.to_string
 
   let default =
     {
       id= ""
     ; summary= ""
     ; description= ""
-    ; rec_guidance= None
-    ; abs_guidance= None
+    ; guidance= GuidanceInUpdateInfo.default
     ; guidance_applicabilities= []
     ; spec_info= ""
     ; url= ""
     ; update_type= ""
-    ; livepatch_guidance= None
     ; livepatches= []
     ; issued= Xapi_stdext_date.Date.epoch
     ; severity= Severity.None
+    ; title= ""
     }
 
   let assert_valid_updateinfo = function
@@ -519,6 +600,9 @@ module UpdateInfo = struct
       error "Found updates with same upadte ID" ;
       raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
     )
+
+  let get_guidances_of_kind ~kind updateinfo =
+    Option.value (List.assoc_opt kind updateinfo.guidance) ~default:[]
 
   let of_xml = function
     | Xml.Element ("updates", _, children) ->
@@ -547,15 +631,11 @@ module UpdateInfo = struct
                           {acc with summary= v}
                       | Xml.Element ("description", _, [Xml.PCData v]) ->
                           {acc with description= v}
-                      | Xml.Element ("recommended_guidance", _, [Xml.PCData v])
-                        ->
-                          {acc with rec_guidance= Some (Guidance.of_string v)}
-                      | Xml.Element ("absolute_guidance", _, [Xml.PCData v]) ->
-                          {acc with abs_guidance= Some (Guidance.of_string v)}
-                      | Xml.Element ("livepatch_guidance", _, [Xml.PCData v]) ->
+                      | Xml.Element ("guidance", _, guidance_blocks) ->
                           {
                             acc with
-                            livepatch_guidance= Some (Guidance.of_string v)
+                            guidance=
+                              GuidanceInUpdateInfo.of_xml guidance_blocks
                           }
                       | Xml.Element ("guidance_applicabilities", _, apps) ->
                           {
@@ -596,6 +676,8 @@ module UpdateInfo = struct
                           warn "%s" (ExnHelper.string_of_exn e) ;
                           acc
                       )
+                      | Xml.Element ("title", _, [Xml.PCData v]) ->
+                          {acc with title= v}
                       | _ ->
                           acc
                     )
@@ -627,23 +709,18 @@ end
 module HostUpdates = struct
   type t = {
       host: string
-    ; rec_guidances: Guidance.t list
-    ; abs_guidances: Guidance.t list
+    ; guidance: GuidanceInUpdateInfo.t
     ; rpms: Rpm.Pkg.t list
     ; update_ids: string list
     ; livepatches: LivePatch.t list
   }
 
   let to_json host_updates =
-    let g_to_j x = `String (Guidance.to_string x) in
     let p_to_j x = `String (Pkg.to_fullname x) in
     `Assoc
       [
         ("ref", `String host_updates.host)
-      ; ( "recommended-guidance"
-        , `List (List.map g_to_j host_updates.rec_guidances)
-        )
-      ; ("absolute-guidance", `List (List.map g_to_j host_updates.abs_guidances))
+      ; ("guidance", GuidanceInUpdateInfo.to_json host_updates.guidance)
       ; ("RPMS", `List (List.map p_to_j host_updates.rpms))
       ; ( "updates"
         , `List (List.map (fun upd_id -> `String upd_id) host_updates.update_ids)
