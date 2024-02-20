@@ -67,12 +67,112 @@ module Span : sig
 end
 
 module Spans : sig
-  val set_max_spans : int -> unit
+  module SpanTbl : sig
+    (** Data structure that stores multiple Span.t and information about their 
+      * traces
+      *)
 
-  val set_max_traces : int -> unit
+    (** Type that represents a span table.
+      *)
+    type t
 
-  val dump :
-    unit -> (string, Span.t list) Hashtbl.t * (string, Span.t list) Hashtbl.t
+    val create : int -> t
+    (** [create n] creates an empty span table with initial size [n].
+      *)
+
+    val is_empty : t -> bool
+    (** [is_empty spantbl] returns whether the [spantbl] contains any spans 
+      * or not.
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val add : t -> Span.t -> Span.t list option
+    (** [add spantbl span] adds a new [span] in the [spantbl], modifying the 
+      * original table. Returns [None] if [spantbl] did not reach full capacity
+      * after the addition. Otherwise, returns [Some spans], a list of spans 
+      * with the most frequent names.
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val mem : t -> Span.t -> bool
+    (** [mem spantbl span] returns whether the [spantbl] contains the [span].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val remove : t -> Span.t -> Span.t option
+    (** [remove spantbl span] removes the [span] from the [spanttbl], modifying
+      * the original table. Returns [None] if there was no [span] in [spantbl].
+      * Otherwise, returns [Some span].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val since : t -> t
+    (** [since spantbl] clears the entries in [spantbl] and returns a copy of 
+      * the original table.
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val clear : t -> unit
+    (** [clear spantbl] clears the entries in [spantbl].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val copy : t -> t
+    (** [copy spantbl] returns a copy of [spantbl].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val set_max_spans : int -> unit
+    (** [set_max_spans n] sets [n] as the expected maximum number of spans in 
+      * a trace.
+      *)
+
+    val set_max_traces : int -> unit
+    (** [set_max_traces n] sets [n] as the expected maximum number of traces in 
+      * a span table.
+      *)
+
+    val stats : t -> (string * int) list
+    (** [stats spantbl] retuns a associon list that contains the frequencies of
+      * the most common spans in [spantbl].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val count_traces : t -> int
+    (** [count_traces spantbl] returns the number of traces found in [spantbl].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val spans_with_names : t -> string list -> Span.t list
+    (** [count_traces spantbl lst] returns the list of spans in [spantbl] with
+      * names that appear in [lst].
+      *
+      * This operation locks [spantbl]. 
+      *)
+
+    val traces : t -> string list
+    (** [traces spantbl] returns the list of traces in [spantbl].
+      *
+      * This operation locks [spantbl].
+      *)
+
+    val to_list : t -> Span.t list
+    (** [to_spans spantbl] returns the list of all spans in [spantbl].
+      *
+      * This operation locks [spantbl].
+      *)
+  end
+
+  val dump : unit -> SpanTbl.t * SpanTbl.t
 end
 
 module Tracer : sig

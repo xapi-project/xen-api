@@ -367,27 +367,21 @@ let test_all_spans_finish () =
   let active_spans, _ = Spans.dump () in
   let _ = List.map (fun span -> Tracer.finish span) trace_spans in
   let remaining_spans, finished_spans = Spans.dump () in
-  let result =
-    Hashtbl.fold
-      (fun k v acc ->
-        Option.fold ~none:0 ~some:List.length (Hashtbl.find_opt finished_spans k)
-        = List.length v
-        && acc
-      )
-      active_spans true
-  in
-  Alcotest.(check bool)
-    "All spans that are finished are moved to finished_spans" true result ;
+  let span_count tbl = tbl |> Spans.SpanTbl.to_list |> List.length in
+  Alcotest.(check int)
+    "All spans that are finished are moved to finished_spans"
+    (span_count active_spans)
+    (span_count finished_spans) ;
   Alcotest.(check int)
     "traces with no spans are removed from the hashtable" 0
-    (Hashtbl.length remaining_spans) ;
+    (Spans.SpanTbl.count_traces remaining_spans) ;
   test_destroy ~__context ~self ()
 
 let test_most_frequent_spans () =
   let __context = Test_common.make_test_database () in
   let self = test_create ~__context () ~enabled:true in
   let tracer = get_tracer ~name:"test-observer" in
-  let () = Tracing.Spans.set_max_traces 15 in
+  let () = Tracing.Spans.SpanTbl.set_max_traces 15 in
 
   let expected_finished_sn =
     [
@@ -431,11 +425,9 @@ let test_most_frequent_spans () =
   let active_spans, finished_spans = Spans.dump () in
 
   let span_names_of_table table =
-    Hashtbl.to_seq_values table
-    |> Seq.map List.to_seq
-    |> Seq.concat
-    |> Seq.map (fun s -> Tracing.Span.get_tag s "span.name")
-    |> List.of_seq
+    table
+    |> Spans.SpanTbl.to_list
+    |> List.map (fun s -> Tracing.Span.get_tag s "span.name")
   in
 
   let finished_spans_names = span_names_of_table finished_spans in
@@ -448,17 +440,15 @@ let test_most_frequent_spans () =
 
   let test_attribute spans_tbl =
     spans_tbl
-    |> Hashtbl.to_seq_values
-    |> Seq.iter
-         (List.iter (fun span ->
-              Alcotest.(check string)
-                (Printf.sprintf "Check span %s has correct attribute"
-                   (Tracing.Span.get_tag span "span.name")
-                )
-                (Tracing.Span.get_tag span "xs.tracing.finished.reason")
-                "gc.full"
-          )
-         )
+    |> Spans.SpanTbl.to_list
+    |> List.iter (fun span ->
+           Alcotest.(check string)
+             (Printf.sprintf "Check span %s has correct attribute"
+                (Tracing.Span.get_tag span "span.name")
+             )
+             (Tracing.Span.get_tag span "xs.tracing.finished.reason")
+             "gc.full"
+       )
   in
 
   test_attribute finished_spans ;

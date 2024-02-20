@@ -4066,13 +4066,13 @@ module Observer = struct
   let set_max_spans _ dbg spans =
     debug "Observer.set_max_spans : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Spans.set_max_spans spans)
+      (fun () -> Tracing.Spans.SpanTbl.set_max_spans spans)
       ()
 
   let set_max_traces _ dbg traces =
     debug "Observer.set_max_traces : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Spans.set_max_traces traces)
+      (fun () -> Tracing.Spans.SpanTbl.set_max_traces traces)
       ()
 
   let set_max_file_size _ dbg file_size =

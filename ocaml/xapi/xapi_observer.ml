@@ -94,11 +94,11 @@ module Observer : ObserverInterface = struct
 
   let set_max_spans ~__context ~spans =
     debug "Observer.set_max_spans" ;
-    Tracing.Spans.set_max_spans spans
+    Tracing.Spans.SpanTbl.set_max_spans spans
 
   let set_max_traces ~__context ~traces =
     debug "Observer.set_max_traces" ;
-    Tracing.Spans.set_max_traces traces
+    Tracing.Spans.SpanTbl.set_max_traces traces
 
   let set_max_file_size ~__context ~file_size =
     debug "Observer.set_max_file_size" ;
