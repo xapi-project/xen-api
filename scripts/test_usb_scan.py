@@ -136,7 +136,9 @@ class TestUsbScan(unittest.TestCase):
         with self.assertRaises(SystemExit) as cm:
             self.test_usb_common(devices, interfaces, results, path)
         if msg:
-            # cm.exception.code is int type whose format like "duplicated tag'vid' found, malformed line ALLOW:vid=056a vid=0314 class=03"
+            # cm.exception.code is int type whose format
+            # looks like "duplicated tag'vid' found,
+            # malformed line ALLOW:vid=056a vid=0314 class=03"
             self.assertIn(msg, cm.exception.code)  #pytype: disable=wrong-arg-types
 
     def test_usb_dongle(self):
