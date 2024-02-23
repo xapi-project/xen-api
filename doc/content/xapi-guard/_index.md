@@ -35,6 +35,9 @@ This situation usually happens when xapi is being restarted as part of an update
 SWTPM, the vTPM daemon, reads the contents of the TPM from xapi-guard on startup, suspend, and resume.
 During normal operation SWTPM does not send read requests from xapi-guard.
 
+Structure
+---------
+
 The cache module consists of two Lwt threads, one that writes to disk, and another one that reads from disk.
 The writer is triggered when a VM writes to the vTPM.
 It never blocks if xapi is unreachable, but responds as soon as the data has been stored either by xapi or on the local disk, such that the VM receives a timely response to the write request.
@@ -82,3 +85,14 @@ stateDiagram-v2
     Engaged --> Engaged : Writer receives TPM, queue is not full
     Engaged --> Disengaged : Writer receives TPM, queue is full
 ```
+
+Startup
+------
+
+At startup, there's a dedicated routine to transform the existing contents of the cache.
+This is currently done because the timestamp reference change on each boot.
+This means that the existing contents might have timestamps considered more recent than timestamps of writes coming from running events, leading to missing content updates.
+This must be avoided and instead the updates with offending timestamps are renamed to a timestamp taken from the current timestamp, ensuring a consistent
+ordering.
+The routine is also used to keep a minimal file tree: unrecognised files are deleted, temporary files created to ensure atomic writes are left untouched, and empty directories are deleted.
+This mechanism can be changed in the future to migrate to other formats.

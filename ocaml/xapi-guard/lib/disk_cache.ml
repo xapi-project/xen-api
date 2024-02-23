@@ -107,7 +107,7 @@ let get_all_contents root =
             let file =
               if found then Outdated valid_file else Latest valid_file
             in
-            loop (file :: acc, false) others
+            loop (file :: acc, true) others
       )
     in
     let ordered = List.fast_sort (fun x y -> String.compare y x) contents in
@@ -180,7 +180,6 @@ type channel = {
    IDEA: carryover: read contents of cache and "convert it" to the current run
 
    TODO:
-     - Add startup step to convert existing content to new time
      - Exponential backoff on xapi push error
      - Limit error logging on xapi push error: once per downtime is enough
  *)
@@ -442,8 +441,86 @@ end = struct
     loop
 end
 
+(** Module use to change the cache contents before the reader and writer start
+    running *)
+module Setup : sig
+  val retime_cache_contents : Types.Service.t -> unit Lwt.t
+end = struct
+  type file_action =
+    | Keep of file
+    | Delete of string
+    | Move of {from: string; into: string}
+
+  let get_fs_action root now = function
+    | Latest ((uuid, timestamp, key), from) as latest ->
+        if Mtime.is_later ~than:now timestamp then
+          let timestamp = now in
+          let into = path_of_key root (uuid, timestamp, key) in
+          Move {from; into}
+        else
+          Keep latest
+    | Temporary _ as temp ->
+        Keep temp
+    | Invalid p | Outdated (_, p) ->
+        Delete p
+
+  let commit __FUN = function
+    | Keep (Temporary p) ->
+        D.warn "%s: Found temporary file, ignoring '%s'" __FUN p ;
+        Lwt.return_unit
+    | Keep _ ->
+        Lwt.return_unit
+    | Delete p ->
+        D.info "%s: Deleting '%s'" __FUN p ;
+        Lwt_unix.unlink p
+    | Move {from; into} ->
+        D.info "%s: Moving '%s' to '%s'" __FUN from into ;
+        Lwt_unix.rename from into
+
+  let rec delete_empty_dirs ~delete_root root =
+    (* Delete subdirectories, then *)
+    let* files = files_in root ~otherwise:(fun _ -> Lwt.return []) in
+    let* () =
+      Lwt_list.iter_p
+        (fun path ->
+          let* {st_kind; _} = Lwt_unix.stat path in
+          match st_kind with
+          | S_DIR ->
+              delete_empty_dirs ~delete_root:true path
+          | _ ->
+              Lwt.return_unit
+        )
+        files
+    in
+    if not delete_root then
+      Lwt.return_unit
+    else
+      let* files = files_in root ~otherwise:(fun _ -> Lwt.return []) in
+      Lwt.catch
+        (fun () ->
+          if files = [] then
+            Lwt_unix.rmdir root
+          else
+            Lwt.return_unit
+        )
+        (fun _ -> Lwt.return_unit)
+
+  (* The code assumes it's the only with access to the disk cache while running *)
+  let retime_cache_contents typ =
+    let now = Mtime_clock.now () in
+    let root = cache_of typ in
+    let* contents = get_all_contents root in
+    let* () =
+      contents
+      |> List.map (get_fs_action root now)
+      |> Lwt_list.iter_p (commit __FUNCTION__)
+    in
+    delete_empty_dirs ~delete_root:false root
+end
+
 let setup typ direct =
-  let queue, push = Lwt_bounded_stream.create 4098 in
+  let* () = Setup.retime_cache_contents typ in
+  let queue, push = Lwt_bounded_stream.create 2 in
   let lock = Lwt_mutex.create () in
   let q = {queue; push; lock; state= Disengaged} in
-  (Writer.with_cache ~direct typ q, Watcher.watch ~direct typ q)
+  Lwt.return (Writer.with_cache ~direct typ q, Watcher.watch ~direct typ q)

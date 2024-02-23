@@ -75,8 +75,7 @@ let retry_forever fname f =
           Lwt_unix.sleep 0.5
           )
     in
-    loop ()
-      [@@tailcall]
+    (loop [@tailcall]) ()
   in
   loop ()
 
@@ -145,7 +144,7 @@ let to_cache with_writer =
 let from_cache with_watcher = retry_forever "watcher" with_watcher
 
 let main () =
-  let with_writer, with_watcher = Xapi_guard.Disk_cache.(setup Swtpm log) in
+  let* with_writer, with_watcher = Xapi_guard.Disk_cache.(setup Swtpm log) in
   let reader = from_cache with_watcher in
   let writers = to_cache with_writer in
   let* _ = Lwt.all (reader :: writers) in

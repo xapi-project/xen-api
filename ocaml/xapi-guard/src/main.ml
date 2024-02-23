@@ -268,7 +268,7 @@ let retry_forever fname f =
 let cache_reader with_watcher = retry_forever "cache watcher" with_watcher
 
 let make_message_switch_server () =
-  let with_swtpm_push, with_watch =
+  let* with_swtpm_push, with_watch =
     Xapi_guard.Disk_cache.(setup Swtpm (Server_interface.push_vtpm ~cache))
   in
   let open Message_switch_lwt.Protocol_lwt in
