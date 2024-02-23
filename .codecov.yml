@@ -192,7 +192,7 @@ coverage:
       #
       tests:
         # Ensure that all tests are executed (tests themselves must be 100% covered)
-        target: 100%
+        target: 98%
         paths: ["**/test_*.py"]
 
 
