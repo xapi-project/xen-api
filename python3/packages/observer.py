@@ -1,5 +1,3 @@
-#!/usr/bin/python3
-
 if __name__ == '__main__':
   # run a program passed as parameter, with its original arguments
   import runpy

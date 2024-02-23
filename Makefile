@@ -147,6 +147,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
 	make -C scripts install
+	make -C python3 install
 	cp -f _build/install/default/bin/xapi $(DESTDIR)$(OPTDIR)/bin/xapi
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin

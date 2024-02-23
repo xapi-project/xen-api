@@ -177,7 +177,6 @@ endif
 	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
 	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE3_DIR)/
-	$(IDATA) observer.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 # poweron
