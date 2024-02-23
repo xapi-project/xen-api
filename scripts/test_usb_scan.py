@@ -27,11 +27,10 @@ class MocDeviceAttrs(Mapping):
         self.d = device.get_attr()
 
     def __iter__(self):
-        for name in self.d:
-            yield name
+        """Currently unused"""
 
     def __len__(self):
-        return len(self.d)
+        """Currently unused"""
 
     def __getitem__(self, name):
         return self.d.get(name)
@@ -57,11 +56,10 @@ class MocDevice(Mapping):
         return MocDeviceAttrs(self)
 
     def __iter__(self):
-        for name in self.get_prop():
-            yield name
+        """Currently unused"""
 
     def __len__(self):
-        return len(self.get_prop())
+        """Currently unused"""
 
     def __getitem__(self, name):
         return self.get_prop().get(name)
@@ -90,7 +88,6 @@ class MocContext(object):
                 return MocEnumerator(self.devices)
             elif "usb_interface" == dev_type:
                 return MocEnumerator(self.interfaces)
-        return MocEnumerator([])
 
 
 def mock_setup(mod, devices, interfaces, path):
@@ -109,10 +106,7 @@ def test_log(m):
 class TestUsbScan(unittest.TestCase):
 
     def setUp(self):
-        try:
-            self.work_dir = tempfile.mkdtemp(prefix="test_usb_scan")
-        except:
-            raise
+        self.work_dir = tempfile.mkdtemp(prefix="test_usb_scan")
 
     def tearDown(self):
         shutil.rmtree(self.work_dir, ignore_errors=True)

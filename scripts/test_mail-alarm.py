@@ -60,15 +60,12 @@ def log_err(err):
 class TestXapiMessage(unittest.TestCase):
     def setUp(self):
         global log_file_global
-        try:
-            self.work_dir = tempfile.mkdtemp(prefix="test-mail-alarm-")
-            log_file_global = os.path.join(self.work_dir, "user.log")
-            src_file = "./scripts/mail-alarm"
-            dst_file = os.path.join(self.work_dir, "mailalarm.py")
-            shutil.copyfile(src_file, dst_file)
-            sys.path.append(self.work_dir)
-        except:
-            raise
+        self.work_dir = tempfile.mkdtemp(prefix="test-mail-alarm-")
+        log_file_global = os.path.join(self.work_dir, "user.log")
+        src_file = "./scripts/mail-alarm"
+        dst_file = os.path.join(self.work_dir, "mailalarm.py")
+        shutil.copyfile(src_file, dst_file)
+        sys.path.append(self.work_dir)
 
     def tearDown(self):
         shutil.rmtree(self.work_dir, ignore_errors=True)
