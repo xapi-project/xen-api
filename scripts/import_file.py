@@ -4,14 +4,10 @@ It never runs directly, so no shebang and no main()
 """
 import sys
 import os
-if sys.version_info.major > 2:
-    from importlib import machinery, util
+from importlib import machinery, util
 
 def import_from_file(module_name, file_path):
     """Import a file as a module"""
-    # Only for python3, but CI has python2 pytest check, so add this line
-    if sys.version_info.major == 2:
-        return None
     loader = machinery.SourceFileLoader(module_name, file_path)
     spec = util.spec_from_loader(module_name, loader)
     assert spec
