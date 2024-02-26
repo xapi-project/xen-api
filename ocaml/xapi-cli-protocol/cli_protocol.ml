@@ -26,6 +26,13 @@ let minor = 2
     a totally different kind of server (eg a standard HTTP server) *)
 let prefix = "XenSource thin CLI protocol"
 
+(* Be careful to add/remove/modify the commands. The CLI interface is expected
+   to be extreme stable. Please keep following in mind when doing the changes:
+     1. backwards compatibility support. E.g. a very old CLI client may need to
+        be supported still,
+     2. a new command should be one for general purpose only rather than for a
+        specific usage. *)
+
 (** Command sent by the server to the client.
     If the command is "Save" then the server waits for "OK" from the client
     and then streams a list of data chunks to the client. *)
