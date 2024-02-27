@@ -2,10 +2,7 @@
 #
 # unittest for usb_scan.py
 
-try:
-    from collections.abc import Mapping, Container, Iterable
-except ImportError: # python2
-    from collections import Mapping, Container, Iterable
+from collections.abc import Mapping, Container, Iterable
 import mock
 import os
 import shutil
@@ -109,10 +106,7 @@ def test_log(m):
 class TestUsbScan(unittest.TestCase):
 
     def setUp(self):
-        try:
-            self.work_dir = tempfile.mkdtemp(prefix="test_usb_scan")
-        except:
-            raise
+        self.work_dir = tempfile.mkdtemp(prefix="test_usb_scan")
 
     def tearDown(self):
         shutil.rmtree(self.work_dir, ignore_errors=True)
@@ -124,6 +118,9 @@ class TestUsbScan(unittest.TestCase):
         mock_setup(usb_scan, moc_devices, moc_interfaces, path)
 
         devices, interfaces = usb_scan.get_usb_info()
+        
+        usb_scan.log_list(devices)
+        usb_scan.log_list(interfaces)
 
         pusbs = usb_scan.make_pusbs_list(devices, interfaces)
 

@@ -115,7 +115,6 @@ class UsbObject(dict):
 
         :return: bool, if this belongs to a hub
         """
-        pass
 
     @abc.abstractmethod
     def is_child_of(self, parent):
@@ -124,7 +123,6 @@ class UsbObject(dict):
         :param parent:(UsbObject) the parent to check against
         :return:
         """
-        pass
 
     @staticmethod
     def validate_int(s, base=10):
@@ -438,8 +436,6 @@ class Policy:
         except ValueError as e:
             if line.rstrip():
                 log_exit("Caught error {}, malformed line: {}".format(str(e), line))
-            # empty line, just return
-            return
 
         # 3. parse action
         # \s*(ALLOW|DENY)\s*
@@ -664,7 +660,7 @@ def make_pusbs_list(devices, interfaces):
     return [to_pusb(d) for d in devices if d.is_ready() and policy.check(d)]
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     args = parse_args()
     if args.diagnostic:
         log.logToSyslog(level=logging.DEBUG)
