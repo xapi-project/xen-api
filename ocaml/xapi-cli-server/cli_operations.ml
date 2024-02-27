@@ -5462,17 +5462,40 @@ let wait_for_task_complete rpc session_id task_id =
     Thread.delay 1.0
   done
 
-let check_task_status ~rpc ~session_id ~task ~fd ~label ~ok =
-  (* if the client thinks it's ok, check that the server does too *)
+let download_file rpc session_id task fd filename uri label =
+  marshal fd (Command (HttpGet (filename, uri))) ;
+  let response = ref (Response Wait) in
+  while !response = Response Wait do
+    response := unmarshal fd
+  done ;
+  let ok =
+    match !response with
+    | Response OK ->
+        true
+    | Response Failed ->
+        (* Need to check whether the thin cli managed to contact the server
+           				   or not. If not, we need to mark the task as failed *)
+        if Client.Task.get_progress ~rpc ~session_id ~self:task < 0.0 then
+          Client.Task.set_status ~rpc ~session_id ~self:task ~value:`failure ;
+        false
+    | _ ->
+        false
+  in
+  wait_for_task_complete rpc session_id task ;
+  (* Check the server status -- even if the client thinks it's ok, we need
+     	   to check that the server does too. *)
   match Client.Task.get_status ~rpc ~session_id ~self:task with
-  | `success when ok ->
-      marshal fd (Command (Print (Printf.sprintf "%s succeeded" label)))
   | `success ->
-      marshal fd
-        (Command
-           (PrintStderr (Printf.sprintf "%s failed, unknown error.\n" label))
-        ) ;
-      raise (ExitWithError 1)
+      if ok then (
+        if filename <> "" then
+          marshal fd (Command (Print (Printf.sprintf "%s succeeded" label)))
+      ) else (
+        marshal fd
+          (Command
+             (PrintStderr (Printf.sprintf "%s failed, unknown error.\n" label))
+          ) ;
+        raise (ExitWithError 1)
+      )
   | `failure ->
       let result = Client.Task.get_error_info ~rpc ~session_id ~self:task in
       if result = [] then
@@ -5489,32 +5512,6 @@ let check_task_status ~rpc ~session_id ~task ~fd ~label ~ok =
       marshal fd (Command (PrintStderr "Internal error\n")) ;
       (* should never happen *)
       raise (ExitWithError 1)
-
-let download_file rpc session_id task fd filename uri label =
-  marshal fd (Command (HttpGet (filename, uri))) ;
-  let response = ref (Response Wait) in
-  while !response = Response Wait do
-    response := unmarshal fd
-  done ;
-  let ok =
-    match (!response, filename <> "") with
-    | Response OK, true ->
-        true
-    | Response OK, false ->
-        false
-    | Response Failed, _ ->
-        (* Need to check whether the thin cli managed to contact the server
-           				   or not. If not, we need to mark the task as failed *)
-        if Client.Task.get_progress ~rpc ~session_id ~self:task < 0.0 then
-          Client.Task.set_status ~rpc ~session_id ~self:task ~value:`failure ;
-        false
-    | _ ->
-        false
-  in
-  wait_for_task_complete rpc session_id task ;
-  (* Check the server status -- even if the client thinks it's ok, we need
-     	   to check that the server does too. *)
-  check_task_status ~rpc ~session_id ~task ~fd ~label ~ok
 
 let download_file_with_task fd rpc session_id filename uri query label task_name
     =
@@ -5714,8 +5711,31 @@ let blob_get fd _printer rpc session_id params =
             false
       in
       wait_for_task_complete rpc session_id blobtask ;
-      check_task_status ~rpc ~session_id ~task:blobtask ~fd ~label:"Blob get"
-        ~ok
+      (* if the client thinks it's ok, check that the server does too *)
+      match Client.Task.get_status ~rpc ~session_id ~self:blobtask with
+      | `success ->
+          if ok then
+            marshal fd (Command (Print "Blob get succeeded"))
+          else (
+            marshal fd
+              (Command (PrintStderr "Blob get failed, unknown error.\n")) ;
+            raise (ExitWithError 1)
+          )
+      | `failure ->
+          let result =
+            Client.Task.get_error_info ~rpc ~session_id ~self:blobtask
+          in
+          if result = [] then
+            marshal fd (Command (PrintStderr "Blob get failed, unknown error\n"))
+          else
+            raise (Api_errors.Server_error (List.hd result, List.tl result))
+      | `cancelled ->
+          marshal fd (Command (PrintStderr "Blob get cancelled\n")) ;
+          raise (ExitWithError 1)
+      | _ ->
+          marshal fd (Command (PrintStderr "Internal error\n")) ;
+          (* should never happen *)
+          raise (ExitWithError 1)
     )
     (fun () -> Client.Task.destroy ~rpc ~session_id ~self:blobtask)
 
@@ -5756,8 +5776,30 @@ let blob_put fd _printer rpc session_id params =
       in
       wait_for_task_complete rpc session_id blobtask ;
       (* if the client thinks it's ok, check that the server does too *)
-      check_task_status ~rpc ~session_id ~task:blobtask ~fd ~label:"Blob put"
-        ~ok
+      match Client.Task.get_status ~rpc ~session_id ~self:blobtask with
+      | `success ->
+          if ok then
+            marshal fd (Command (Print "Blob put succeeded"))
+          else (
+            marshal fd
+              (Command (PrintStderr "Blob put failed, unknown error.\n")) ;
+            raise (ExitWithError 1)
+          )
+      | `failure ->
+          let result =
+            Client.Task.get_error_info ~rpc ~session_id ~self:blobtask
+          in
+          if result = [] then
+            marshal fd (Command (PrintStderr "Blob put failed, unknown error\n"))
+          else
+            raise (Api_errors.Server_error (List.hd result, List.tl result))
+      | `cancelled ->
+          marshal fd (Command (PrintStderr "Blob put cancelled\n")) ;
+          raise (ExitWithError 1)
+      | _ ->
+          marshal fd (Command (PrintStderr "Internal error\n")) ;
+          (* should never happen *)
+          raise (ExitWithError 1)
     )
     (fun () -> Client.Task.destroy ~rpc ~session_id ~self:blobtask)
 
