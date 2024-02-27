@@ -27,6 +27,15 @@ type t = Uuidm.t * Mtime.t * Types.Tpm.key
 
 let cache_of service = runtime_data // Types.Service.to_string service
 
+let fistpoint () =
+  let name = "/tmp/fist_disable_xapi_guard_cache" in
+  Lwt.catch
+    (fun () ->
+      let* () = Lwt_unix.access name [Unix.F_OK] in
+      Lwt.return true
+    )
+    (fun _ -> Lwt.return false)
+
 let files_in dir ~otherwise =
   Lwt.catch
     (fun () ->
@@ -266,7 +275,7 @@ end = struct
       let* () = persist_and_push () in
       Lwt_result.return ()
     in
-    let _fail exn =
+    let fail exn =
       Debug.log_backtrace exn (Backtrace.get exn) ;
       Lwt_result.fail exn
     in
@@ -289,7 +298,8 @@ end = struct
           let* () = persist () in
           Lwt_result.return ()
     in
-    let on_exception = engage_and_persist in
+    let* cache_disabled = fistpoint () in
+    let on_exception = if cache_disabled then fail else engage_and_persist in
 
     let* result = with_lock queue.lock (read_state_and_push on_exception) in
     let* () =
