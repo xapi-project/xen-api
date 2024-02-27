@@ -149,14 +149,14 @@ class TestUsbScan(unittest.TestCase):
                     "ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."
                 },
                 "attrs": {
-                    "idVendor": "096e",
-                    "bNumInterfaces": " 1",
-                    "bConfigurationValue": "1",
-                    "bcdDevice": "010a",
-                    "version": " 1.10",
-                    "idProduct": "0302",
-                    "bDeviceClass": "00",
-                    "speed": "480"
+                    "idVendor": b"096e",
+                    "bNumInterfaces": b" 1",
+                    "bConfigurationValue": b"1",
+                    "bcdDevice": b"010a",
+                    "version": b" 1.10",
+                    "idProduct": b"0302",
+                    "bDeviceClass": b"00",
+                    "speed": b"480"
                 }
             }
         ]
@@ -164,10 +164,10 @@ class TestUsbScan(unittest.TestCase):
             {
                 "name": "1-2:1.0",
                 "attrs": {
-                    "bInterfaceClass": "03",
-                    "bInterfaceSubClass": "00",
-                    "bInterfaceProtocol": "00",
-                    "bInterfaceNumber": "00",
+                    "bInterfaceClass": b"03",
+                    "bInterfaceSubClass": b"00",
+                    "bInterfaceProtocol": b"00",
+                    "bInterfaceNumber": b"00",
                 }
             }
         ]
@@ -194,14 +194,14 @@ class TestUsbScan(unittest.TestCase):
                     "ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."
                 },
                 "attrs": {
-                    "idVendor": "096e",
-                    "bNumInterfaces": " 1",
-                    "bConfigurationValue": "1",
-                    "bcdDevice": "010a",
-                    "version": " 1.10",
-                    "idProduct": "0302",
-                    "bDeviceClass": "00",
-                    "speed": "12"
+                    "idVendor": b"096e",
+                    "bNumInterfaces": b" 1",
+                    "bConfigurationValue": b"1",
+                    "bcdDevice": b"010a",
+                    "version": b" 1.10",
+                    "idProduct": b"0302",
+                    "bDeviceClass": b"00",
+                    "speed": b"12"
                 }
             }
         ]
@@ -209,10 +209,10 @@ class TestUsbScan(unittest.TestCase):
             {
                 "name": "1-2.1:1.0",
                 "attrs": {
-                    "bInterfaceClass": "03",
-                    "bInterfaceSubClass": "00",
-                    "bInterfaceProtocol": "00",
-                    "bInterfaceNumber": "00",
+                    "bInterfaceClass": b"03",
+                    "bInterfaceSubClass": b"00",
+                    "bInterfaceProtocol": b"00",
+                    "bInterfaceNumber": b"00",
                 }
             }
         ]
@@ -239,13 +239,13 @@ class TestUsbScan(unittest.TestCase):
                     "ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."
                 },
                 "attrs": {
-                    "idVendor": "096e",
-                    "bNumInterfaces": "",
-                    "bConfigurationValue": "",
-                    "bcdDevice": "010a",
-                    "version": " 1.10",
-                    "idProduct": "0302",
-                    "bDeviceClass": "00",
+                    "idVendor": b"096e",
+                    "bNumInterfaces": b"",
+                    "bConfigurationValue": b"",
+                    "bcdDevice": b"010a",
+                    "version": b" 1.10",
+                    "idProduct": b"0302",
+                    "bDeviceClass": b"00",
                 }
             }
         ]
@@ -263,13 +263,13 @@ class TestUsbScan(unittest.TestCase):
                     "ID_VENDOR_FROM_DATABASE": "Dell Computer Corp."
                 },
                 "attrs": {
-                    "idVendor": "413c",
-                    "bNumInterfaces": " 2",
-                    "bConfigurationValue": "1",
-                    "bcdDevice": "0110",
-                    "version": " 2.00",
-                    "idProduct": "2113",
-                    "bDeviceClass": "00",
+                    "idVendor": b"413c",
+                    "bNumInterfaces": b" 2",
+                    "bConfigurationValue": b"1",
+                    "bcdDevice": b"0110",
+                    "version": b" 2.00",
+                    "idProduct": b"2113",
+                    "bDeviceClass": b"00",
                 }
             }
         ]
@@ -277,19 +277,19 @@ class TestUsbScan(unittest.TestCase):
             {
                 "name": "1-2:1.0",
                 "attrs": {
-                    "bInterfaceClass": "03",
-                    "bInterfaceSubClass": "01",
-                    "bInterfaceProtocol": "01",
-                    "bInterfaceNumber": "00",
+                    "bInterfaceClass": b"03",
+                    "bInterfaceSubClass": b"01",
+                    "bInterfaceProtocol": b"01",
+                    "bInterfaceNumber": b"00",
                 }
             },
             {
                 "name": "1-2:1.1",
                 "attrs": {
-                    "bInterfaceClass": "03",
-                    "bInterfaceSubClass": "00",
-                    "bInterfaceProtocol": "00",
-                    "bInterfaceNumber": "01",
+                    "bInterfaceClass": b"03",
+                    "bInterfaceSubClass": b"00",
+                    "bInterfaceProtocol": b"00",
+                    "bInterfaceNumber": b"01",
                 }
             }
         ]
