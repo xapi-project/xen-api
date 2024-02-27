@@ -241,8 +241,11 @@ end = struct
     let* outdated_contents = files_in_existing key_dir in
 
     let filename = key_dir // (Mtime.to_uint64_ns now |> Int64.to_string) in
-    (* 2. Write new timestamped content to cache, atomically, if needed; and
-       notify the other side, if needed *)
+
+    (* 2. Try to push the changes, if possible. If it's not possible because of
+       the mode or a failure, write new timestamped content to cache,
+       atomically; and finally notify the other side if needed *)
+    (* Note that all queue operations must use while holding its mutex *)
     let persist () = persist_to ~filename ~contents in
     let persist_and_push () =
       let push () =
@@ -260,27 +263,39 @@ end = struct
     let engage_and_persist exn =
       queue.state <- Engaged ;
       D.info "%s: Error on push. Reason: %s" __FUN (Printexc.to_string exn) ;
-      persist_and_push ()
+      let* () = persist_and_push () in
+      Lwt_result.return ()
     in
+    let _fail exn =
+      Debug.log_backtrace exn (Backtrace.get exn) ;
+      Lwt_result.fail exn
+    in
+    let read_state_and_push on_exception () =
+      match queue.state with
+      | Direct ->
+          let* result =
+            Lwt.try_bind
+              (fun () -> direct (uuid, now, key) contents)
+              (function
+                | Ok () -> Lwt_result.return () | Error exn -> on_exception exn
+                )
+              on_exception
+          in
+          Lwt.return result
+      | Engaged ->
+          let* () = persist_and_push () in
+          Lwt_result.return ()
+      | Disengaged ->
+          let* () = persist () in
+          Lwt_result.return ()
+    in
+    let on_exception = engage_and_persist in
+
+    let* result = with_lock queue.lock (read_state_and_push on_exception) in
     let* () =
-      with_lock queue.lock (fun () ->
-          match queue.state with
-          | Direct ->
-              Lwt.try_bind
-                (fun () -> direct (uuid, now, key) contents)
-                (function
-                  | Ok () ->
-                      Lwt.return_unit
-                  | Error exn ->
-                      engage_and_persist exn
-                  )
-                (function exn -> engage_and_persist exn)
-          | Engaged ->
-              persist_and_push ()
-          | Disengaged ->
-              persist ()
-      )
+      match result with Ok () -> Lwt.return_unit | Error exn -> raise exn
     in
+
     (* 4. Delete previous requests from filesystem *)
     let* _ = Lwt_list.map_p unlink_safe outdated_contents in
     Lwt.return_unit
