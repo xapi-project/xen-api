@@ -7641,32 +7641,19 @@ let print_avail_updates ~rpc ~session_id ~fd ~host =
       PrintHttpGetJson (get_avail_updates_uri ~session_id ~task ~host)
   )
 
-let print_update_guidance ~rpc ~session_id ~fd ~host =
-  command_in_task ~rpc ~session_id ~fd ~obj:host
-    ~label:"Print update guidance for host" ~quiet_on_success:true
-    (fun session_id task host ->
-      PrintUpdateGuidance (get_avail_updates_uri ~session_id ~task ~host)
-  )
-
-let host_apply_updates fd printer rpc session_id params =
+let host_apply_updates _printer rpc session_id params =
   let hash = List.assoc "hash" params in
-  do_host_op rpc session_id ~multiple:false
-    (fun _ host ->
-      let host = host.getref () in
-      printer (Cli_printer.PMsg "Guidance of updates:") ;
-      print_update_guidance ~rpc ~session_id ~fd ~host ;
-      printer (Cli_printer.PMsg "Applying updates ...") ;
-      match Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash with
-      | [] ->
-          printer (Cli_printer.PMsg "Updated.")
-      | warnings ->
-          printer (Cli_printer.PMsg "Updated with warnings:") ;
-          List.iter
-            (fun l -> printer (Cli_printer.PMsg (String.concat "; " l)))
-            warnings
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.apply_updates ~rpc ~session_id ~self:host ~hash
+         |> List.iter (fun l ->
+                _printer (Cli_printer.PMsg (String.concat "; " l))
+            )
+       )
+       params ["hash"]
     )
-    params ["hash"]
-  |> ignore
 
 let host_updates_show_available fd _printer rpc session_id params =
   do_host_op rpc session_id ~multiple:false
