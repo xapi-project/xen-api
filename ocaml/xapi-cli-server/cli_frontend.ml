@@ -1032,7 +1032,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= ["hash"]
       ; optn= []
       ; help= "Apply updates from enabled repository on specified host."
-      ; implementation= With_fd Cli_operations.host_apply_updates
+      ; implementation= No_fd Cli_operations.host_apply_updates
       ; flags= [Host_selectors]
       }
     )

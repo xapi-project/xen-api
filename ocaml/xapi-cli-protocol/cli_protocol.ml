@@ -26,6 +26,13 @@ let minor = 2
     a totally different kind of server (eg a standard HTTP server) *)
 let prefix = "XenSource thin CLI protocol"
 
+(* Be careful to add/remove/modify the commands. The CLI interface is expected
+   to be extreme stable. Please keep following in mind when doing the changes:
+     1. backwards compatibility support. E.g. a very old CLI client may need to
+        be supported still,
+     2. a new command should be one for general purpose only rather than for a
+        specific usage. *)
+
 (** Command sent by the server to the client.
     If the command is "Save" then the server waits for "OK" from the client
     and then streams a list of data chunks to the client. *)
@@ -35,7 +42,6 @@ type command =
   | Load of string (* filename *)
   | HttpGet of string * string (* filename * path *)
   | PrintHttpGetJson of string (* path *)
-  | PrintUpdateGuidance of string (* path *)
   | HttpPut of string * string (* filename * path *)
   | HttpConnect of string (* path *)
   | Prompt (* request the user enter some text *)
@@ -70,8 +76,6 @@ let string_of_command = function
       "HttpGet " ^ path ^ " -> " ^ filename
   | PrintHttpGetJson path ->
       "PrintHttpGetJson " ^ path ^ " -> stdout"
-  | PrintUpdateGuidance path ->
-      "PrintUpdateGuidance " ^ path ^ " -> stdout"
   | HttpPut (filename, path) ->
       "HttpPut " ^ path ^ " -> " ^ filename
   | HttpConnect path ->
@@ -161,7 +165,7 @@ let unmarshal_list pos f =
 (*****************************************************************************)
 (* Marshal/Unmarshal higher-level messages                                   *)
 
-(* Highest command id: 19 *)
+(* Highest command id: 18 *)
 
 let marshal_command = function
   | Print x ->
@@ -174,8 +178,6 @@ let marshal_command = function
       marshal_int 12 ^ marshal_string a ^ marshal_string b
   | PrintHttpGetJson a ->
       marshal_int 18 ^ marshal_string a
-  | PrintUpdateGuidance a ->
-      marshal_int 19 ^ marshal_string a
   | HttpPut (a, b) ->
       marshal_int 13 ^ marshal_string a ^ marshal_string b
   | HttpConnect a ->
@@ -229,9 +231,6 @@ let unmarshal_command pos =
   | 18 ->
       let a, pos = unmarshal_string pos in
       (PrintHttpGetJson a, pos)
-  | 19 ->
-      let a, pos = unmarshal_string pos in
-      (PrintUpdateGuidance a, pos)
   | n ->
       raise (Unknown_tag ("command", n))
 
