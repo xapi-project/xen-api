@@ -41,7 +41,6 @@ type command =
   | Debug of string (* debug message to optionally display *)
   | Load of string (* filename *)
   | HttpGet of string * string (* filename * path *)
-  | PrintHttpGetJson of string (* path *)
   | HttpPut of string * string (* filename * path *)
   | HttpConnect of string (* path *)
   | Prompt (* request the user enter some text *)
@@ -74,8 +73,6 @@ let string_of_command = function
       "Load " ^ x
   | HttpGet (filename, path) ->
       "HttpGet " ^ path ^ " -> " ^ filename
-  | PrintHttpGetJson path ->
-      "PrintHttpGetJson " ^ path ^ " -> stdout"
   | HttpPut (filename, path) ->
       "HttpPut " ^ path ^ " -> " ^ filename
   | HttpConnect path ->
@@ -165,7 +162,7 @@ let unmarshal_list pos f =
 (*****************************************************************************)
 (* Marshal/Unmarshal higher-level messages                                   *)
 
-(* Highest command id: 18 *)
+(* Highest command id: 17 *)
 
 let marshal_command = function
   | Print x ->
@@ -176,8 +173,6 @@ let marshal_command = function
       marshal_int 1 ^ marshal_string x
   | HttpGet (a, b) ->
       marshal_int 12 ^ marshal_string a ^ marshal_string b
-  | PrintHttpGetJson a ->
-      marshal_int 18 ^ marshal_string a
   | HttpPut (a, b) ->
       marshal_int 13 ^ marshal_string a ^ marshal_string b
   | HttpConnect a ->
@@ -228,9 +223,6 @@ let unmarshal_command pos =
   | 16 ->
       let body, pos = unmarshal_string pos in
       (PrintStderr body, pos)
-  | 18 ->
-      let a, pos = unmarshal_string pos in
-      (PrintHttpGetJson a, pos)
   | n ->
       raise (Unknown_tag ("command", n))
 
