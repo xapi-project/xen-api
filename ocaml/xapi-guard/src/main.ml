@@ -99,7 +99,7 @@ let () =
       Xen_api_lwt_unix.SessionCache.destroy cache
   )
 
-let listen_for_vm write_push {Persistent.vm_uuid; path; gid; typ} =
+let listen_for_vm read_write {Persistent.vm_uuid; path; gid; typ} =
   let make_server =
     match typ with
     | Varstored ->
@@ -112,19 +112,19 @@ let listen_for_vm write_push {Persistent.vm_uuid; path; gid; typ} =
     (Types.Service.to_string typ)
     path vm_uuid_str ;
   let* () = safe_unlink path in
-  let* stop_server = make_server write_push ~cache path vm_uuid in
+  let* stop_server = make_server read_write ~cache path vm_uuid in
   let* () = log_fds () in
   Hashtbl.add sockets path (stop_server, (vm_uuid, gid, typ)) ;
   let* () = Lwt_unix.chmod path 0o660 in
   Lwt_unix.chown path 0 gid
 
-let resume ~vtpm_write_push ~uefi_write_push () =
+let resume ~vtpm_read_write ~uefi_read_write () =
   let* vms = Persistent.loadfrom recover_path in
   let listen_to_vm = function
     | Persistent.{typ= Varstored; _} as vm ->
-        listen_for_vm uefi_write_push vm
+        listen_for_vm uefi_read_write vm
     | Persistent.{typ= Swtpm; _} as vm ->
-        listen_for_vm vtpm_write_push vm
+        listen_for_vm vtpm_read_write vm
   in
   let+ () = Lwt_list.iter_p listen_to_vm vms in
   D.debug "%s: completed" __FUNCTION__
@@ -166,7 +166,7 @@ let depriv_varstored_destroy dbg gid path =
       D.debug "[%s] stopped server for gid %d and removed socket" dbg gid ;
       Lwt.return_unit
 
-let depriv_swtpm_create write_push dbg vm_uuid gid path =
+let depriv_swtpm_create read_write dbg vm_uuid gid path =
   if Hashtbl.mem sockets path then
     Lwt.return_error
       (Xapi_idl_guard_privileged.Interface.InternalError
@@ -179,7 +179,7 @@ let depriv_swtpm_create write_push dbg vm_uuid gid path =
     ( D.debug "[%s] creating deprivileged socket at %s, owned by group %d" dbg
         path gid ;
       let* () =
-        listen_for_vm write_push {Persistent.path; vm_uuid; gid; typ= Swtpm}
+        listen_for_vm read_write {Persistent.path; vm_uuid; gid; typ= Swtpm}
       in
       store_args sockets
     )
@@ -230,25 +230,25 @@ let vtpm_get_contents _dbg vtpm_uuid =
   @@ let* self = Server_interface.with_xapi ~cache @@ VTPM.get_by_uuid ~uuid in
      Server_interface.with_xapi ~cache @@ VTPM.get_contents ~self
 
-let rpc_fn ~vtpm_write_push ~uefi_write_push =
+let rpc_fn ~vtpm_read_write ~uefi_read_write =
   let module Server =
     Xapi_idl_guard_privileged.Interface.RPC_API (Rpc_lwt.GenServer ()) in
   (* bind APIs *)
-  Server.varstore_create (depriv_varstored_create uefi_write_push) ;
+  Server.varstore_create (depriv_varstored_create uefi_read_write) ;
   Server.varstore_destroy depriv_varstored_destroy ;
-  Server.vtpm_create (depriv_swtpm_create vtpm_write_push) ;
+  Server.vtpm_create (depriv_swtpm_create vtpm_read_write) ;
   Server.vtpm_destroy depriv_swtpm_destroy ;
   Server.vtpm_set_contents vtpm_set_contents ;
   Server.vtpm_get_contents vtpm_get_contents ;
   Rpc_lwt.server Server.implementation
 
-let process ~vtpm_write_push ~uefi_write_push body =
+let process ~vtpm_read_write ~uefi_read_write body =
   let+ response =
     Xapi_guard.Dorpc.wrap_rpc Xapi_idl_guard_privileged.Interface.E.error
       (fun () ->
         let call = Jsonrpc.call_of_string body in
         D.debug "Received request from message-switch, method %s" call.Rpc.name ;
-        rpc_fn ~vtpm_write_push ~uefi_write_push call
+        rpc_fn ~vtpm_read_write ~uefi_read_write call
     )
   in
   Jsonrpc.string_of_response response
@@ -268,21 +268,25 @@ let retry_forever fname f =
 let cache_reader with_watcher = retry_forever "cache watcher" with_watcher
 
 let make_message_switch_server () =
-  let* with_swtpm_push, with_watch =
-    Xapi_guard.Disk_cache.(setup Swtpm (Server_interface.push_vtpm ~cache))
+  let* with_swtpm_cache, with_watch =
+    Xapi_guard.Disk_cache.(
+      setup Swtpm
+        Server_interface.(read_vtpm ~cache)
+        Server_interface.(push_vtpm ~cache)
+    )
   in
   let open Message_switch_lwt.Protocol_lwt in
   let wait_server, server_stopped = Lwt.task () in
-  let@ vtpm_write_push = with_swtpm_push in
-  let uefi_write_push _ _ =
+  let@ vtpm_read_write = with_swtpm_cache in
+  let uefi_read_write =
     (* This is unused for the time being, added to be consistent with both
        interfaces *)
-    Lwt.return_unit
+    ((fun _ -> Lwt.return ""), fun _ _ -> Lwt.return_unit)
   in
   let server =
     let* result =
       Server.listen
-        ~process:(process ~vtpm_write_push ~uefi_write_push)
+        ~process:(process ~vtpm_read_write ~uefi_read_write)
         ~switch:!Xcp_client.switch_path
         ~queue:Xapi_idl_guard_privileged.Interface.queue_name ()
     in
@@ -295,7 +299,7 @@ let make_message_switch_server () =
         ) ;
         (* best effort resume *)
         let* () =
-          Lwt.catch (resume ~vtpm_write_push ~uefi_write_push) (fun e ->
+          Lwt.catch (resume ~vtpm_read_write ~uefi_read_write) (fun e ->
               D.log_backtrace () ;
               D.warn "Resume failed: %s" (Printexc.to_string e) ;
               Lwt.return_unit

@@ -17,11 +17,15 @@ type t = Uuidm.t * Mtime.t * Types.Tpm.key
 
 val setup :
      Types.Service.t
+  -> (t -> (string, exn) Lwt_result.t)
   -> (t -> string -> (unit, exn) Lwt_result.t)
-  -> ( (((t -> string -> unit Lwt.t) -> 'a Lwt.t) -> 'a Lwt.t)
+  -> ( (   ((t -> string Lwt.t) * (t -> string -> unit Lwt.t) -> 'a Lwt.t)
+        -> 'a Lwt.t
+       )
      * (unit -> unit Lwt.t)
      )
      Lwt.t
-(** [setup service push_callback] Returns a local disk buffer for [service]
-    which will use [push_callback] to push the elements to their final
-    destination *)
+(** [setup service read_callback push_callback] Returns a local disk buffer for
+    [service] which will use [push_callback] to push the elements to their
+    final destination and [read_callback] to read elements if they are not in
+    the buffer. *)

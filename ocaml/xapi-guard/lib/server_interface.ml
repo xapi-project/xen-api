@@ -129,7 +129,14 @@ let push_vtpm ~cache (vm_uuid, _timestamp, key) contents =
   let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
   Lwt_result.return ()
 
-let serve_forever_lwt_callback_vtpm ~cache mutex persist vm_uuid _ req body =
+let read_vtpm ~cache (vm_uuid, _timestamp, key) =
+  let* self = with_xapi_vtpm ~cache vm_uuid in
+  let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+  let body = Tpm.(contents |> deserialize |> lookup ~key) in
+  Lwt_result.return body
+
+let serve_forever_lwt_callback_vtpm ~cache mutex (read, persist) vm_uuid _ req
+    body =
   let uri = Cohttp.Request.uri req in
   let timestamp = Mtime_clock.now () in
   (* in case the connection is interrupted/etc. we may still have pending operations,
@@ -139,10 +146,8 @@ let serve_forever_lwt_callback_vtpm ~cache mutex persist vm_uuid _ req body =
   (* TODO: some logging *)
   match (Cohttp.Request.meth req, Uri.path uri) with
   | `GET, path when path <> "/" ->
-      let* self = with_xapi_vtpm ~cache vm_uuid in
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
       let key = Tpm.key_of_swtpm path in
-      let body = Tpm.(contents |> deserialize |> lookup ~key) in
+      let* body = read (vm_uuid, timestamp, key) in
       let headers =
         Cohttp.Header.of_list [("Content-Type", "application/octet-stream")]
       in
@@ -211,7 +216,9 @@ let make_server_varstored _persist ~cache path vm_uuid =
   serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
   |> serve_forever_lwt path
 
-let make_server_vtpm_rest persist ~cache path vm_uuid =
+let make_server_vtpm_rest read_write ~cache path vm_uuid =
   let mutex = Lwt_mutex.create () in
-  let callback = serve_forever_lwt_callback_vtpm ~cache mutex persist vm_uuid in
+  let callback =
+    serve_forever_lwt_callback_vtpm ~cache mutex read_write vm_uuid
+  in
   serve_forever_lwt path callback

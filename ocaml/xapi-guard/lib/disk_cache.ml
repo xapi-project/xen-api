@@ -195,19 +195,21 @@ type channel = {
 
 module Writer : sig
   val with_cache :
-       direct:(t -> string -> (unit, exn) Lwt_result.t)
+       direct:
+         (t -> (string, exn) Lwt_result.t)
+         * (t -> string -> (unit, exn) Lwt_result.t)
     -> Types.Service.t
     -> channel
-    -> ((t -> string -> unit Lwt.t) -> 'a Lwt.t)
+    -> ((t -> string Lwt.t) * (t -> string -> unit Lwt.t) -> 'a Lwt.t)
     -> 'a Lwt.t
   (** [with_cache ~direct typ queue context] creates a cache for content of
-      type [typ]. The cache is writable through the function [context], which
-      is provided a writing function to persist to the cache. It uses [channel]
-      to push events to
+      type [typ]. The cache is readable and writable through the function
+      [context], which is provided a reading and writing functions [direct].
+      It uses [channel] to push events to
 
       Example:
-        Xapi_guard.Disk_cache.(Writer.with_cache ~direct:(upload session_cache) Tpm channel)
-        @@ fun write_tpm -> write_tpm (uuid, time, key) contents
+        Xapi_guard.Disk_cache.(Writer.with_cache ~direct:(read, upload) Tpm channel)
+        @@ fun read_tpm, write_tpm -> write_tpm (uuid, time, key) contents
     *)
 end = struct
   let mkdir_p ?(perm = 0o755) path =
@@ -241,9 +243,30 @@ end = struct
     in
     files_in dir ~otherwise:create_dir
 
+  let fail exn =
+    Debug.log_backtrace exn (Backtrace.get exn) ;
+    Lwt_result.fail exn
+
+  let read_contents ~direct _root (uuid, now, key) =
+    let read, _ = direct in
+    let* result =
+      Lwt.try_bind
+        (fun () -> read (uuid, now, key))
+        (function
+          | Ok contents -> Lwt_result.return contents | Error exn -> fail exn
+          )
+        fail
+    in
+    match result with
+    | Ok contents ->
+        Lwt.return contents
+    | Error exn ->
+        raise exn
+
   let write_contents ~direct root queue (uuid, now, key) contents =
     let __FUN = __FUNCTION__ in
 
+    let _, direct = direct in
     let key_str = Types.Tpm.(serialize_key key |> string_of_int) in
     let key_dir = root // Uuidm.(to_string uuid) // key_str in
     (* 1. Record existing requests in cache *)
@@ -274,10 +297,6 @@ end = struct
       D.info "%s: Error on push. Reason: %s" __FUN (Printexc.to_string exn) ;
       let* () = persist_and_push () in
       Lwt_result.return ()
-    in
-    let fail exn =
-      Debug.log_backtrace exn (Backtrace.get exn) ;
-      Lwt_result.fail exn
     in
     let read_state_and_push on_exception () =
       match queue.state with
@@ -313,7 +332,7 @@ end = struct
   let with_cache ~direct typ queue f =
     let root = cache_of typ in
     let* () = mkdir_p root ~perm:0o700 in
-    f (write_contents ~direct root queue)
+    f (read_contents ~direct root, write_contents ~direct root queue)
 end
 
 module Watcher : sig
@@ -543,9 +562,12 @@ end = struct
     delete_empty_dirs ~delete_root:false root
 end
 
-let setup typ direct =
+let setup typ read write =
   let* () = Setup.retime_cache_contents typ in
   let queue, push = Lwt_bounded_stream.create 2 in
   let lock = Lwt_mutex.create () in
   let q = {queue; push; lock; state= Disengaged} in
-  Lwt.return (Writer.with_cache ~direct typ q, Watcher.watch ~direct typ q)
+  Lwt.return
+    ( Writer.with_cache ~direct:(read, write) typ q
+    , Watcher.watch ~direct:write typ q
+    )

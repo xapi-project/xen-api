@@ -5,7 +5,9 @@ let ( let* ) = Lwt.bind
 module Tpm = Xapi_guard.Types.Tpm
 
 module TPMs = struct
-  let tpms_created = Atomic.make 1
+  let writes_created = Atomic.make 1
+
+  let reads_created = Atomic.make 1
 
   let request_persist uuid write =
     let __FUN = __FUNCTION__ in
@@ -13,18 +15,35 @@ module TPMs = struct
     let key = Tpm.deserialize_key (Random.int 3) in
 
     let time = Mtime_clock.now () in
-    let serial_n = Atomic.fetch_and_add tpms_created 1 in
+    let serial_n = Atomic.fetch_and_add writes_created 1 in
     let contents =
       Printf.sprintf "contents %s" (Mtime.to_uint64_ns time |> Int64.to_string)
     in
     let* () =
       Logs_lwt.app (fun m ->
-          m "%s: Content № %i created: %a/%i/%a" __FUN serial_n Uuidm.pp uuid
+          m "%s: Write № %i requested: %a/%i/%a" __FUN serial_n Uuidm.pp uuid
             Tpm.(serialize_key key)
             Mtime.pp time
       )
     in
     write (uuid, time, key) contents
+
+  let request_read uuid read =
+    let __FUN = __FUNCTION__ in
+
+    let key = Tpm.deserialize_key (Random.int 3) in
+
+    let time = Mtime_clock.now () in
+    let serial_n = Atomic.fetch_and_add reads_created 1 in
+    let* () =
+      Logs_lwt.app (fun m ->
+          m "%s: Read № %i requested: %a/%i/%a" __FUN serial_n Uuidm.pp uuid
+            Tpm.(serialize_key key)
+            Mtime.pp time
+      )
+    in
+    let* () = Lwt_unix.sleep 0.05 in
+    read (uuid, time, key)
 end
 
 let lwt_reporter () =
@@ -79,9 +98,13 @@ let retry_forever fname f =
   in
   loop ()
 
-let max_sent = 128
+let max_writes = 128
 
-let received = ref 0
+let max_reads = 500_000
+
+let received_writes = ref 0
+
+let received_reads = ref 0
 
 let throttled_reads = Mtime.Span.(200 * ms)
 
@@ -99,7 +122,7 @@ let should_fail () : bool =
   let elapsed = Mtime.span epoch (Mtime_clock.now ()) in
   polarity elapsed
 
-let log (uuid, timestamp, key) content : (unit, exn) Result.t Lwt.t =
+let log_write (uuid, timestamp, key) content =
   let __FUN = __FUNCTION__ in
   let ( let* ) = Lwt_result.bind in
   let maybe_fail () =
@@ -110,43 +133,69 @@ let log (uuid, timestamp, key) content : (unit, exn) Result.t Lwt.t =
       Lwt_result.return ()
   in
   let* () = maybe_fail () in
-  received := !received + 1 ;
+  received_writes := !received_writes + 1 ;
   Logs_lwt.app (fun m ->
-      m "%s Content № %i detected: %a/%i/%a" __FUN !received Uuidm.pp uuid
+      m "%s Write № %i detected: %a/%i/%a" __FUN !received_writes Uuidm.pp uuid
         Tpm.(serialize_key key)
         Mtime.pp timestamp
   )
   |> ok
 
-let to_cache with_writer =
+let log_read (uuid, timestamp, key) =
+  let __FUN = __FUNCTION__ in
+  let ( let* ) = Lwt_result.bind in
+  received_reads := !received_reads + 1 ;
+  let* () =
+    Logs_lwt.app (fun m ->
+        m "%s Read to source № %i detected: %a/%i/%a" __FUN !received_reads
+          Uuidm.pp uuid
+          Tpm.(serialize_key key)
+          Mtime.pp timestamp
+    )
+    |> ok
+  in
+  Lwt_result.return "yes"
+
+let to_cache with_read_writes =
   let __FUN = __FUNCTION__ in
   let elapsed = Mtime_clock.counter () in
-  let rec loop_and_stop uuid sent () =
+  let persist uuid (_, write_tpm) = TPMs.request_persist uuid write_tpm in
+  let read uuid (read_tpm, _) =
+    let* contents = TPMs.request_read uuid read_tpm in
+    Logs_lwt.app (fun m -> m "%s Read received: '%s'" __FUN contents)
+  in
+  let rec loop_and_stop f name uuid max sent =
     let sent = sent + 1 in
-
-    let@ write_tpm = with_writer in
-    let* () = TPMs.request_persist uuid write_tpm in
-    if sent >= max_sent then
+    let@ read_write = with_read_writes in
+    let* () = f uuid read_write in
+    if sent >= max then
       Logs_lwt.app (fun m ->
-          m "%s: Stopping requests after %i writes" __FUN sent
+          m "%s: Stopping requests after %i %ss" __FUN sent name
       )
     else if Mtime.Span.compare (Mtime_clock.count elapsed) throttled_reads > 0
     then
       let* () = Lwt_unix.sleep 0.1 in
-      loop_and_stop uuid sent ()
+      loop_and_stop f name uuid max sent
     else
       let* () = Lwt.pause () in
-      loop_and_stop uuid sent ()
+      loop_and_stop f name uuid max sent
   in
-  List.init 4 (fun _ -> Uuidm.(v `V4))
-  |> List.map (fun uuid -> loop_and_stop uuid 0 ())
+  let vms = List.init 4 (fun _ -> Uuidm.(v `V4)) in
+
+  List.concat
+    [
+      List.map (fun uuid -> loop_and_stop persist "write" uuid max_writes 0) vms
+    ; List.map (fun uuid -> loop_and_stop read "read" uuid max_reads 0) vms
+    ]
 
 let from_cache with_watcher = retry_forever "watcher" with_watcher
 
 let main () =
-  let* with_writer, with_watcher = Xapi_guard.Disk_cache.(setup Swtpm log) in
+  let* with_read_writes, with_watcher =
+    Xapi_guard.Disk_cache.(setup Swtpm log_read log_write)
+  in
   let reader = from_cache with_watcher in
-  let writers = to_cache with_writer in
+  let writers = to_cache with_read_writes in
   let* _ = Lwt.all (reader :: writers) in
   Lwt.return_unit
 
