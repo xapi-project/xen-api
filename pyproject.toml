@@ -70,7 +70,6 @@ discard_messages_matching = [
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
 expected_to_fail = [
-    "scripts/hfx_filename",
     "scripts/perfmon",
     # Need 2to3 -w <file> and maybe a few other minor updates:
     "scripts/hatests",
@@ -96,7 +95,6 @@ expected_to_fail = [
 
 [tool.pytype]
 inputs = [
-    "scripts/hfx_filename",
     "scripts/perfmon",
     "scripts/static-vdis",
     "scripts/Makefile",
@@ -111,6 +109,10 @@ inputs = [
     "scripts/examples/python",
     "scripts/yum-plugins",
     "scripts/*.py",
+
+    # Python 3
+    "python3/bin/hfx_filename",
+    "python3/*.py",
 
     # To be added later,
     # when converted to Python3-compatible syntax:
