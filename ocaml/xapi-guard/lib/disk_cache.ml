@@ -97,35 +97,33 @@ let path_is_temp path =
 
 let temp_of_path path = path ^ ".pre"
 
-let get_all_contents root =
-  let classify contents =
-    let rec loop (acc, found) = function
-      | [] ->
-          List.rev acc
-      | latest :: others -> (
-        match key_of_path latest with
-        | None ->
-            let file =
-              if path_is_temp latest then
-                Temporary latest
-              else
-                Invalid latest
-            in
-            loop (file :: acc, found) others
-        | Some valid_file ->
-            let file =
-              if found then Outdated valid_file else Latest valid_file
-            in
-            loop (file :: acc, true) others
-      )
-    in
-    let ordered = List.fast_sort (fun x y -> String.compare y x) contents in
-    loop ([], false) ordered
+let sort_updates contents =
+  let rec loop (acc, found) = function
+    | [] ->
+        List.rev acc
+    | latest :: others -> (
+      match key_of_path latest with
+      | None ->
+          let file =
+            if path_is_temp latest then
+              Temporary latest
+            else
+              Invalid latest
+          in
+          loop (file :: acc, found) others
+      | Some valid_file ->
+          let file = if found then Outdated valid_file else Latest valid_file in
+          loop (file :: acc, true) others
+    )
   in
+  let ordered = List.fast_sort (fun x y -> String.compare y x) contents in
+  loop ([], false) ordered
+
+let get_all_contents root =
   let empty = Fun.const (Lwt.return []) in
   let contents_of_key key =
     let* contents = files_in key ~otherwise:empty in
-    Lwt.return (classify contents)
+    Lwt.return (sort_updates contents)
   in
   let* tpms = files_in root ~otherwise:empty in
   let* files =
@@ -137,6 +135,12 @@ let get_all_contents root =
       tpms
   in
   Lwt.return List.(concat (concat files))
+
+(** Warning, may raise Unix.Unix_error *)
+let read_from ~filename =
+  let flags = Unix.[O_RDONLY] in
+  let perm = 0o000 in
+  Lwt_io.with_file ~flags ~perm ~mode:Input filename Lwt_io.read
 
 let persist_to ~filename:f_path ~contents =
   let atomic_write_to_file ~perm f =
@@ -247,21 +251,46 @@ end = struct
     Debug.log_backtrace exn (Backtrace.get exn) ;
     Lwt_result.fail exn
 
-  let read_contents ~direct _root (uuid, now, key) =
-    let read, _ = direct in
-    let* result =
-      Lwt.try_bind
-        (fun () -> read (uuid, now, key))
-        (function
-          | Ok contents -> Lwt_result.return contents | Error exn -> fail exn
-          )
-        fail
+  let read_contents ~direct root (uuid, now, key) =
+    let read_remote () =
+      let read, _ = direct in
+      let* result =
+        Lwt.try_bind
+          (fun () -> read (uuid, now, key))
+          (function
+            | Ok contents -> Lwt_result.return contents | Error exn -> fail exn
+            )
+          fail
+      in
+      match result with
+      | Ok contents ->
+          Lwt.return contents
+      | Error exn ->
+          raise exn
     in
-    match result with
-    | Ok contents ->
-        Lwt.return contents
-    | Error exn ->
-        raise exn
+
+    let key_str = Types.Tpm.(serialize_key key |> string_of_int) in
+    let key_dir = root // Uuidm.(to_string uuid) // key_str in
+
+    (* 1. Get updates *)
+    let* contents = files_in key_dir ~otherwise:(fun _ -> Lwt.return []) in
+    let updates = sort_updates contents in
+
+    (* 2. Pick latest *)
+    let only_latest = function
+      | Latest (_, p) ->
+          Either.Left p
+      | Temporary p | Outdated (_, p) | Invalid p ->
+          Right p
+    in
+    let latest, _ = List.partition_map only_latest updates in
+
+    (* 3. fall back to remote read if needed *)
+    let get_contents path =
+      Lwt.catch (fun () -> read_from ~filename:path) (fun _ -> read_remote ())
+    in
+
+    match latest with path :: _ -> get_contents path | [] -> read_remote ()
 
   let write_contents ~direct root queue (uuid, now, key) contents =
     let __FUN = __FUNCTION__ in
@@ -366,12 +395,6 @@ end = struct
       List.filter_map (function Latest f -> Some f | _ -> None) keep
     in
     Lwt.return latest
-
-  (** Warning, may raise Unix.Unix_error *)
-  let read_from ~filename =
-    let flags = Unix.[O_RDONLY] in
-    let perm = 0o000 in
-    Lwt_io.with_file ~flags ~perm ~mode:Input filename Lwt_io.read
 
   let retry_push push (uuid, timestamp, key) contents =
     let __FUN = __FUNCTION__ in
