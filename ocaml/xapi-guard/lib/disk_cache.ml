@@ -98,26 +98,34 @@ let path_is_temp path =
 let temp_of_path path = path ^ ".pre"
 
 let sort_updates contents =
-  let rec loop (acc, found) = function
-    | [] ->
-        List.rev acc
-    | latest :: others -> (
-      match key_of_path latest with
-      | None ->
-          let file =
-            if path_is_temp latest then
-              Temporary latest
-            else
-              Invalid latest
-          in
-          loop (file :: acc, found) others
-      | Some valid_file ->
-          let file = if found then Outdated valid_file else Latest valid_file in
-          loop (file :: acc, true) others
-    )
+  let classify elem =
+    match key_of_path elem with
+    | None ->
+        let file =
+          if path_is_temp elem then
+            Temporary elem
+          else
+            Invalid elem
+        in
+        Either.Right file
+    | Some valid_file ->
+        Either.Left valid_file
   in
-  let ordered = List.fast_sort (fun x y -> String.compare y x) contents in
-  loop ([], false) ordered
+  let valid_files, invalid = List.partition_map classify contents in
+
+  let valid =
+    let ordered =
+      List.fast_sort
+        (fun ((_, x, _), _) ((_, y, _), _) -> Mtime.compare y x)
+        valid_files
+    in
+    match ordered with
+    | [] ->
+        []
+    | latest :: outdated ->
+        Latest latest :: List.map (fun outdated -> Outdated outdated) outdated
+  in
+  List.concat [valid; invalid]
 
 let get_all_contents root =
   let empty = Fun.const (Lwt.return []) in
