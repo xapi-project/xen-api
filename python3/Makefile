@@ -8,6 +8,8 @@ SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; pr
 install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(SITE3_DIR)
+	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
+	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)

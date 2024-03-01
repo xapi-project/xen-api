@@ -8,7 +8,7 @@ import sys
 import tempfile
 import unittest
 from collections.abc import Mapping
-
+from import_file import get_module
 import mock
 
 
@@ -113,7 +113,7 @@ class TestUsbScan(unittest.TestCase):
     def test_usb_common(
         self, moc_devices, moc_interfaces, moc_results, path="./scripts/usb-policy.conf"
     ):
-        import usb_scan
+        usb_scan = get_module("usb_scan", "../libexec/usb_scan.py")
 
         mock_setup(usb_scan, moc_devices, moc_interfaces, path)
 

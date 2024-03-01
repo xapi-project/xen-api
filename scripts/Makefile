@@ -110,7 +110,6 @@ install:
 	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCXENDIR)
 	$(IPROG) usb_reset.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
@@ -195,4 +194,3 @@ endif
 	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
 # uefi
 	mkdir -p $(DESTDIR)/etc/xapi.d/efi-clone
-
