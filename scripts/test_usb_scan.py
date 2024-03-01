@@ -2,17 +2,20 @@
 #
 # unittest for usb_scan.py
 
-from collections.abc import Mapping, Container, Iterable
-import mock
 import os
 import shutil
 import sys
 import tempfile
 import unittest
+from collections.abc import Mapping
+
+import mock
+
 
 def nottest(obj):
     obj.__test__ = False
     return obj
+
 
 sys.modules["xcp"] = mock.Mock()
 sys.modules["xcp.logger"] = mock.Mock()
@@ -35,7 +38,6 @@ class MocDeviceAttrs(Mapping):
 
 
 class MocDevice(Mapping):
-
     def __init__(self, d):
         self.d = d
 
@@ -65,7 +67,6 @@ class MocDevice(Mapping):
 
 
 class MocEnumerator(object):
-
     def __init__(self, ds):
         self.ds = ds
 
@@ -75,17 +76,16 @@ class MocEnumerator(object):
 
 
 class MocContext(object):
-
     def __init__(self, devices, interfaces):
         self.devices = devices
         self.interfaces = interfaces
 
     def list_devices(self, **kwargs):
-        if "usb" == kwargs.pop("subsystem"):
+        if kwargs.pop("subsystem") == "usb":
             dev_type = kwargs.pop("DEVTYPE")
-            if "usb_device" == dev_type:
+            if dev_type == "usb_device":
                 return MocEnumerator(self.devices)
-            elif "usb_interface" == dev_type:
+            elif dev_type == "usb_interface":
                 return MocEnumerator(self.interfaces)
         return MocEnumerator([])
 
@@ -94,8 +94,7 @@ def mock_setup(mod, devices, interfaces, path):
     mod.log.error = test_log
     mod.log.debug = test_log
     mod.Policy._PATH = path
-    mod.pyudev.Context = mock.Mock(return_value=MocContext(
-        devices, interfaces))
+    mod.pyudev.Context = mock.Mock(return_value=MocContext(devices, interfaces))
 
 
 @nottest
@@ -104,7 +103,6 @@ def test_log(m):
 
 
 class TestUsbScan(unittest.TestCase):
-
     def setUp(self):
         self.work_dir = tempfile.mkdtemp(prefix="test_usb_scan")
 
@@ -112,13 +110,15 @@ class TestUsbScan(unittest.TestCase):
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
     @nottest
-    def test_usb_common(self, moc_devices, moc_interfaces, moc_results,
-                        path="./scripts/usb-policy.conf"):
+    def test_usb_common(
+        self, moc_devices, moc_interfaces, moc_results, path="./scripts/usb-policy.conf"
+    ):
         import usb_scan
+
         mock_setup(usb_scan, moc_devices, moc_interfaces, path)
 
         devices, interfaces = usb_scan.get_usb_info()
-        
+
         usb_scan.log_list(devices)
         usb_scan.log_list(interfaces)
 
@@ -128,23 +128,22 @@ class TestUsbScan(unittest.TestCase):
         self.assertEqual(sorted(pusbs), sorted(moc_results))
 
     @nottest
-    def test_usb_exit(self, devices, interfaces, results,
-                      path="./scripts/usb-policy.conf", msg=""):
+    def test_usb_exit(
+        self, devices, interfaces, results, path="./scripts/usb-policy.conf", msg=""
+    ):
         with self.assertRaises(SystemExit) as cm:
             self.test_usb_common(devices, interfaces, results, path)
         if msg:
             # cm.exception.code is int type whose format
             # looks like "duplicated tag'vid' found,
             # malformed line ALLOW:vid=056a vid=0314 class=03"
-            self.assertIn(msg, cm.exception.code)  #pytype: disable=wrong-arg-types
+            self.assertIn(msg, cm.exception.code)  # pytype: disable=wrong-arg-types
 
     def test_usb_dongle(self):
         devices = [
             {
                 "name": "1-2",
-                "props": {
-                    "ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."
-                },
+                "props": {"ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."},
                 "attrs": {
                     "idVendor": b"096e",
                     "bNumInterfaces": b" 1",
@@ -153,8 +152,8 @@ class TestUsbScan(unittest.TestCase):
                     "version": b" 1.10",
                     "idProduct": b"0302",
                     "bDeviceClass": b"00",
-                    "speed": b"480"
-                }
+                    "speed": b"480",
+                },
             }
         ]
         interfaces = [
@@ -165,7 +164,7 @@ class TestUsbScan(unittest.TestCase):
                     "bInterfaceSubClass": b"00",
                     "bInterfaceProtocol": b"00",
                     "bInterfaceNumber": b"00",
-                }
+                },
             }
         ]
         results = [
@@ -178,7 +177,7 @@ class TestUsbScan(unittest.TestCase):
                 "vendor-id": "096e",
                 "path": "1-2",
                 "serial": "",
-                "speed": "480"
+                "speed": "480",
             }
         ]
         self.test_usb_common(devices, interfaces, results)
@@ -187,9 +186,7 @@ class TestUsbScan(unittest.TestCase):
         devices = [
             {
                 "name": "1-2.1",
-                "props": {
-                    "ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."
-                },
+                "props": {"ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."},
                 "attrs": {
                     "idVendor": b"096e",
                     "bNumInterfaces": b" 1",
@@ -198,8 +195,8 @@ class TestUsbScan(unittest.TestCase):
                     "version": b" 1.10",
                     "idProduct": b"0302",
                     "bDeviceClass": b"00",
-                    "speed": b"12"
-                }
+                    "speed": b"12",
+                },
             }
         ]
         interfaces = [
@@ -210,7 +207,7 @@ class TestUsbScan(unittest.TestCase):
                     "bInterfaceSubClass": b"00",
                     "bInterfaceProtocol": b"00",
                     "bInterfaceNumber": b"00",
-                }
+                },
             }
         ]
         results = [
@@ -223,7 +220,7 @@ class TestUsbScan(unittest.TestCase):
                 "vendor-id": "096e",
                 "path": "1-2.1",
                 "serial": "",
-                "speed": "12"
+                "speed": "12",
             }
         ]
         self.test_usb_common(devices, interfaces, results)
@@ -232,9 +229,7 @@ class TestUsbScan(unittest.TestCase):
         devices = [
             {
                 "name": "1-2",
-                "props": {
-                    "ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."
-                },
+                "props": {"ID_VENDOR_FROM_DATABASE": "Feitian Technologies, Inc."},
                 "attrs": {
                     "idVendor": b"096e",
                     "bNumInterfaces": b"",
@@ -243,22 +238,18 @@ class TestUsbScan(unittest.TestCase):
                     "version": b" 1.10",
                     "idProduct": b"0302",
                     "bDeviceClass": b"00",
-                }
+                },
             }
         ]
-        interfaces = [
-        ]
-        results = [
-        ]
+        interfaces = []
+        results = []
         self.test_usb_common(devices, interfaces, results)
 
     def test_usb_keyboard(self):
         devices = [
             {
                 "name": "1-2",
-                "props": {
-                    "ID_VENDOR_FROM_DATABASE": "Dell Computer Corp."
-                },
+                "props": {"ID_VENDOR_FROM_DATABASE": "Dell Computer Corp."},
                 "attrs": {
                     "idVendor": b"413c",
                     "bNumInterfaces": b" 2",
@@ -267,7 +258,7 @@ class TestUsbScan(unittest.TestCase):
                     "version": b" 2.00",
                     "idProduct": b"2113",
                     "bDeviceClass": b"00",
-                }
+                },
             }
         ]
         interfaces = [
@@ -278,7 +269,7 @@ class TestUsbScan(unittest.TestCase):
                     "bInterfaceSubClass": b"01",
                     "bInterfaceProtocol": b"01",
                     "bInterfaceNumber": b"00",
-                }
+                },
             },
             {
                 "name": "1-2:1.1",
@@ -287,11 +278,10 @@ class TestUsbScan(unittest.TestCase):
                     "bInterfaceSubClass": b"00",
                     "bInterfaceProtocol": b"00",
                     "bInterfaceNumber": b"01",
-                }
-            }
+                },
+            },
         ]
-        results = [
-        ]
+        results = []
         self.test_usb_common(devices, interfaces, results)
 
     def test_usb_config_missing(self):
@@ -309,8 +299,7 @@ class TestUsbScan(unittest.TestCase):
 ALLOW:vid=056a pid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content,
-                                          "to unpack")
+        self.test_usb_config_error_common(content, "to unpack")
 
     def test_usb_config_error_duplicated_key(self):
         content = """# duplicated key word
@@ -324,8 +313,9 @@ ALLOW: # Otherwise allow everything else
 ALLOW:vid=056a psid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed policy rule, "
-                                                   "unable to parse")
+        self.test_usb_config_error_common(
+            content, "Malformed policy rule, " "unable to parse"
+        )
 
     def test_usb_config_error_hex_length_4(self):
         content = """# hex length not 4
@@ -353,8 +343,9 @@ ALLOW: # Otherwise allow everything else
 ALLOW:vid=056a pid=0314 class=03 kk # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed policy rule, "
-                                                   "unable to parse")
+        self.test_usb_config_error_common(
+            content, "Malformed policy rule, " "unable to parse"
+        )
 
     def test_usb_config_error_unexpected_chars_beg(self):
         content = """# unexpected words at the beginning
@@ -368,8 +359,9 @@ ALLOW: # Otherwise allow everything else
 ALLOW:vid=056a pid=0314 jj class=03  # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed policy rule, "
-                                                   "unable to parse")
+        self.test_usb_config_error_common(
+            content, "Malformed policy rule, " "unable to parse"
+        )
 
     def test_usb_config_error_unexpected_non_empty_line(self):
         content = """# unexpected non empty line
@@ -377,13 +369,11 @@ ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 aa
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content,
-                                          "to unpack")
+        self.test_usb_config_error_common(content, "to unpack")
 
     def test_usb_config_error_missing_colon(self):
         content = """# missing colon after action
 ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 ALLOW # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content,
-                                          "to unpack")
+        self.test_usb_config_error_common(content, "to unpack")
