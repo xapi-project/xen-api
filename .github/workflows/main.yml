@@ -56,11 +56,24 @@ jobs:
       - name: Install common dependencies for Python ${{matrix.python-version}}
         run: pip install future mock pytest-coverage pytest-mock
 
-      - name: Run Pytest and get code coverage for Codecov
+      - name: Run Pytest for python 2 and get code coverage for Codecov
+        if: ${{ matrix.python-version == '2.7' }}
         run: >
           pytest
           --cov=scripts --cov=ocaml/xcp-rrdd
           scripts/ ocaml/xcp-rrdd -vv -rA
+          --junitxml=.git/pytest${{matrix.python-version}}.xml
+          --cov-report term-missing
+          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+        env:
+          PYTHONDEVMODE: yes
+
+      - name: Run Pytest for python 3 and get code coverage for Codecov
+        if: ${{ matrix.python-version != '2.7' }}
+        run: >
+          pytest
+          --cov=scripts --cov=ocaml/xcp-rrdd --cov=python3/
+          scripts/ ocaml/xcp-rrdd python3/ -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml

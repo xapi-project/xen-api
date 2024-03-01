@@ -150,7 +150,6 @@ install:
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) pv2hvm $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	mkdir -p $(DESTDIR)/etc/cron.hourly
