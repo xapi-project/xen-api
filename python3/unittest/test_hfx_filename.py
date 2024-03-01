@@ -12,7 +12,7 @@ from import_file import get_module
 # mock modules to avoid dependencies
 sys.modules["XenAPI"] = MagicMock()
 
-hfx_filename = get_module("hfx_filename", "/../bin/hfx_filename")
+hfx_filename = get_module("hfx_filename", "../bin/hfx_filename")
 
 
 @patch("socket.socket")

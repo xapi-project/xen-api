@@ -26,11 +26,11 @@ class MocDeviceAttrs(Mapping):
     def __init__(self, device):
         self.d = device.get_attr()
 
-    def __iter__(self):
+    def __iter__(self):  # pragma: no cover
         for name in self.d:
             yield name
 
-    def __len__(self):
+    def __len__(self):  # pragma: no cover
         return len(self.d)
 
     def __getitem__(self, name):
@@ -55,11 +55,11 @@ class MocDevice(Mapping):
     def attributes(self):
         return MocDeviceAttrs(self)
 
-    def __iter__(self):
+    def __iter__(self):  # pragma: no cover
         for name in self.get_prop():
             yield name
 
-    def __len__(self):
+    def __len__(self):  # pragma: no cover
         return len(self.get_prop())
 
     def __getitem__(self, name):
