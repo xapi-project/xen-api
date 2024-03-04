@@ -54,7 +54,7 @@ module Semaphore : sig
   (** a semaphore that allows at most N operations to proceed at a time *)
   type t
 
-  val create : string -> t
+  val create : ?max:int -> string -> t
   (** [create name] creates a semaphore with an initial count of 1.
     @see {!set_max} *)
 

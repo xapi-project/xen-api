@@ -316,8 +316,7 @@ module Semaphore = struct
     ; mutable max: int
   }
 
-  let create name =
-    let max = 1 in
+  let create ?(max=1) name =
     {name; sem= Semaphore_vendored.Counting.make max; max_lock= Mutex.create (); max}
 
   let execute (x : t) f =

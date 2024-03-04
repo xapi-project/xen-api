@@ -32,9 +32,11 @@ let local_superuser = "root"
 
 let xapi_internal_originator = "xapi"
 
-let throttle_auth_internal = Locking_helpers.Semaphore.create "Internal auth"
+let throttle_auth_internal =
+  Locking_helpers.Semaphore.create ~max:8 "Internal auth"
 
-let throttle_auth_external = Locking_helpers.Semaphore.create "External auth"
+let throttle_auth_external =
+  Locking_helpers.Semaphore.create ~max:8 "External auth"
 
 let with_throttle = Locking_helpers.Semaphore.execute
 
