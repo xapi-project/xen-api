@@ -1,6 +1,8 @@
 [Unit]
 Description=XenAPI server (XAPI)
 
+Requires=systemd-tmpfiles-setup.service
+After=systemd-tmpfiles-setup.service
 After=attach-static-vdis.service
 After=forkexecd.service
 After=message-switch.service
