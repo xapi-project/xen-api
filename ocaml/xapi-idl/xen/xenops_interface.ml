@@ -461,6 +461,7 @@ module Host = struct
   type cpu_info = {
       cpu_count: int
     ; socket_count: int
+    ; threads_per_core: int
     ; vendor: string
     ; speed: string
     ; modelname: string
