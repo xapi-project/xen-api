@@ -10,6 +10,7 @@ install:
 	mkdir -p $(DESTDIR)$(SITE3_DIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 
-	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) libexec/nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)

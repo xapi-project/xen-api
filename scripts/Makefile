@@ -30,7 +30,6 @@ install:
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) list_plugins $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/observer
