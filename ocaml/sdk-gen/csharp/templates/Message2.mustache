@@ -38,6 +38,7 @@ namespace XenAPI
             UPDATES_FEATURE_EXPIRING_WARNING,
             UPDATES_FEATURE_EXPIRING_MAJOR,
             UPDATES_FEATURE_EXPIRING_CRITICAL,
+            GFS2_CAPACITY,
             LEAF_COALESCE_START_MESSAGE,
             LEAF_COALESCE_COMPLETED,
             LEAF_COALESCE_FAILED,
@@ -62,6 +63,8 @@ namespace XenAPI
                         return MessageType.UPDATES_FEATURE_EXPIRING_MAJOR;
                     case "UPDATES_FEATURE_EXPIRING_CRITICAL":
                         return MessageType.UPDATES_FEATURE_EXPIRING_CRITICAL;
+                    case "GFS2_CAPACITY":
+                        return MessageType.GFS2_CAPACITY;
                     case "LEAF_COALESCE_START_MESSAGE":
                         return MessageType.LEAF_COALESCE_START_MESSAGE;
                     case "LEAF_COALESCE_COMPLETED":
