@@ -49,7 +49,6 @@ module Named_mutex : sig
   val execute : t -> (unit -> 'a) -> 'a
 end
 
-
 module Semaphore : sig
   (** a semaphore that allows at most N operations to proceed at a time *)
   type t

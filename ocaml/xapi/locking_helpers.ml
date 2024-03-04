@@ -307,7 +307,6 @@ let release_lock (target : API.ref_VM) (token : token) =
   Thread_state.released (lock_of_vm target) ;
   debug "Released lock on VM %s with token %Ld" (Ref.string_of target) token
 
-
 module Semaphore = struct
   type t = {
       name: string
@@ -316,8 +315,13 @@ module Semaphore = struct
     ; mutable max: int
   }
 
-  let create ?(max=1) name =
-    {name; sem= Semaphore_vendored.Counting.make max; max_lock= Mutex.create (); max}
+  let create ?(max = 1) name =
+    {
+      name
+    ; sem= Semaphore_vendored.Counting.make max
+    ; max_lock= Mutex.create ()
+    ; max
+    }
 
   let execute (x : t) f =
     Semaphore_vendored.Counting.acquire x.sem ;
