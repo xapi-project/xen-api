@@ -20,10 +20,13 @@
 )
 (library
  (name xapi_guard)
- (modules dorpc types)
+ (modules dorpc types disk_cache lwt_bounded_stream)
  (libraries
   rpclib.core
+  inotify
+  inotify.lwt
   lwt
+  lwt.unix
   uri
   xapi-backtrace
   xapi-consts
