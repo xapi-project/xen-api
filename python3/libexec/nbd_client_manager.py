@@ -6,16 +6,15 @@ NBD devices.
 """
 
 import argparse
+import fcntl
+import json
 import logging
 import logging.handlers
 import os
+import re
 import subprocess
 import time
-import fcntl
-import json
-import re
 from datetime import datetime, timedelta
-
 
 LOGGER = logging.getLogger("nbd_client_manager")
 LOGGER.setLevel(logging.DEBUG)
@@ -76,7 +75,8 @@ def _call(cmd_args, error=True):
     """
     LOGGER.debug("Running cmd %s", cmd_args)
     proc = subprocess.Popen(
-        cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True
+        cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True,
+        universal_newlines=True
     )
 
     stdout, stderr = proc.communicate()
@@ -158,7 +158,7 @@ def _persist_connect_info(device, path, exportname):
     if not os.path.exists(PERSISTENT_INFO_DIR):
         os.makedirs(PERSISTENT_INFO_DIR)
     filename = _get_persistent_connect_info_filename(device)
-    with open(filename, "w") as info_file:
+    with open(filename, "w", encoding="utf-8") as info_file:
         info_file.write(json.dumps({"path": path, "exportname": exportname}))
 
 
@@ -196,12 +196,12 @@ def connect_nbd(path, exportname):
                     if nbd_device.startswith("/dev/")
                     else nbd_device
                 )
-                with open("/sys/block/" + nbd + "/queue/scheduler", "w") as fd:
+                with open("/sys/block/" + nbd + "/queue/scheduler", "w", encoding="utf-8") as fd:
                     fd.write("none")
                 # Set the NBD queue size to the same as the qcow2 cluster size
-                with open("/sys/block/" + nbd + "/queue/max_sectors_kb", "w") as fd:
+                with open("/sys/block/" + nbd + "/queue/max_sectors_kb", "w", encoding="utf-8") as fd:
                     fd.write("512")
-                with open("/sys/block/" + nbd + "/queue/nr_requests", "w") as fd:
+                with open("/sys/block/" + nbd + "/queue/nr_requests", "w", encoding="utf-8") as fd:
                     fd.write("8")
 
             return nbd_device
