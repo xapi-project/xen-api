@@ -1,6 +1,8 @@
-(lang dune 2.0)
+(lang dune 2.7)
 (formatting (enabled_for ocaml))
 
+(cram enable)
+(implicit_transitive_deps false)
 (generate_opam_files true)
 
 (source (github xapi-project/xen-api))
@@ -274,6 +276,7 @@
     (xapi-stdext-threads (= :version))
     (xapi-stdext-unix (= :version))
     (xapi-stdext-zerocheck (= :version))
+    (xapi-fdcaps (= :version))
   )
 )
 
@@ -333,6 +336,8 @@
     base-unix
     (odoc :with-doc)
     (xapi-stdext-pervasives (= :version))
+    (mtime :with-test)
+    (xapi-stdext-unix (= :version))
   )
 )
 
@@ -346,6 +351,7 @@
     (odoc :with-doc)
     xapi-backtrace
     (xapi-stdext-pervasives (= :version))
+    polly
   )
 )
 
@@ -355,5 +361,29 @@
   (depends
     ocaml
     (odoc :with-doc)
+  )
+)
+
+(package
+  (name xapi-fdcaps)
+  (synopsis "Static capabilities for file descriptor operations")
+  (depends
+    (alcotest :with-test)
+    base-unix
+    fmt
+    (bisect_ppx :with-test)
+  )
+)
+
+(package
+  (name xapi-fd-test)
+  (synopsis "Test framework for file descriptor operations")
+  (depends
+    (alcotest :with-test)
+    base-unix
+    fmt
+    (mtime (>= 2.0.0))
+    logs
+    (qcheck-core (>= 0.21.2))
   )
 )

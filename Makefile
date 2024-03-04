@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall
+.PHONY: build clean test doc python format install uninstall coverage
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -19,6 +19,11 @@ build:
 # Quickly verify that the code compiles, without actually building it
 check:
 	dune build @check -j $(JOBS)
+
+coverage:
+	dune runtest --instrument-with bisect_ppx --force --profile=$(RELEASE) -j $(JOBS)
+	bisect-ppx-report html
+	bisect-ppx-report summary --per-file
 
 clean:
 	dune clean

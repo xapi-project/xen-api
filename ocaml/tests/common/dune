@@ -1,6 +1,7 @@
 (library
   (name tests_common)
   (modules :standard)
+  (modes best)
   (wrapped false)
   (libraries
     alcotest

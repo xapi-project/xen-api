@@ -7,16 +7,17 @@ license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
-  "dune" {>= "2.0"}
+  "dune" {>= "2.7"}
   "ocaml" {>= "4.12.0"}
   "base-unix"
   "fd-send-recv" {>= "2.0.0"}
   "odoc" {with-doc}
   "xapi-backtrace"
   "xapi-stdext-pervasives" {= version}
+  "polly"
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"
@@ -31,4 +32,4 @@ build: [
 ]
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 depexts: ["linux-headers"] {os-distribution = "alpine"}
-available: [ os = "macos" | os = "linux" ]
+available: [ os = "linux" ]

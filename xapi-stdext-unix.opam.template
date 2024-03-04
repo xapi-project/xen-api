@@ -1,2 +1,2 @@
 depexts: ["linux-headers"] {os-distribution = "alpine"}
-available: [ os = "macos" | os = "linux" ]
+available: [ os = "linux" ]

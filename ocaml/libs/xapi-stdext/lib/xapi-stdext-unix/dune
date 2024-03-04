@@ -3,8 +3,10 @@
   (public_name xapi-stdext-unix)
   (libraries
     fd-send-recv
+    polly
     unix
     xapi-backtrace
+    threads.posix
     xapi-stdext-pervasives)
   (foreign_stubs
     (language c)

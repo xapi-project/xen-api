@@ -12,6 +12,7 @@
     rresult
     sexplib
     sexplib0
+    uri
     tar
     threads.posix
     xapi-backtrace

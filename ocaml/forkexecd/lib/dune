@@ -12,6 +12,7 @@
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-unix
+   rpclib.xml
  )
  (preprocess
   (pps ppx_deriving_rpc)))

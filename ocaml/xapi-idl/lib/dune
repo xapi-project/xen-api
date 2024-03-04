@@ -51,6 +51,7 @@
    rpclib.json
    sexplib
    sexplib0
+   tracing
    threads.posix
    xapi-backtrace
    xapi-idl

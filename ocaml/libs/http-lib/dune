@@ -8,6 +8,7 @@
   (libraries
     astring
     base64
+    fmt
     ipaddr
     mtime
     mtime.clock.os
@@ -35,10 +36,12 @@
 (library
   (name httpsvr)
   (wrapped false)
+  (modes best)
   (modules http_svr http_proxy server_io)
   (libraries
     astring
     http_lib
+    ipaddr
     polly
     threads.posix
     xapi-log
@@ -51,10 +54,12 @@
 (tests
   (names http_test radix_tree_test)
   (package http-lib)
+  (modes (best exe))
   (modules http_test radix_tree_test)
   (libraries
     alcotest
     dune-build-info
+    fmt
     http_lib
   )
 )
