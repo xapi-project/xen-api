@@ -21,7 +21,6 @@
 # 2. check if device can be passed through based on policy file
 # 3. return the device info to XAPI in json format
 
-from __future__ import print_function
 
 import abc
 import argparse
@@ -66,7 +65,7 @@ class UsbObject(dict):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, node):
-        super(UsbObject, self).__init__()
+        super().__init__()
         self.node = node
 
     def get_node(self):
@@ -182,7 +181,7 @@ class UsbDevice(UsbObject):
         :param props2(pyudev.Device.attributes): device attributes, to get
         properties from sysfs
         """
-        super(UsbDevice, self).__init__(node)
+        super().__init__(node)
 
         for p in self._PRODUCT_DESC:
             if props1.get(p) is not None:
@@ -197,7 +196,7 @@ class UsbDevice(UsbObject):
         self.interfaces = set()
 
     def debug_str(self, level=0):
-        s = super(UsbDevice, self).debug_str(level)
+        s = super().debug_str(level)
         for i in self.interfaces:
             s += i.debug_str(level + 1)
         return s
@@ -215,7 +214,7 @@ class UsbDevice(UsbObject):
             if not self.validate_int(self[p]):
                 return False
 
-        return super(UsbDevice, self).is_initialized()
+        return super().is_initialized()
 
     def is_class_hub(self):
         return self._is_class_hub(self._CLASS)
@@ -278,14 +277,13 @@ class UsbInterface(UsbObject):
         :param props(pyudev.Device.attributes): device attributes, to get
         properties from sysfs
         """
-        super(UsbInterface, self).__init__(node)
+        super().__init__(node)
         for p in self._PROPS:
             if props.get(p) is not None:
                 self[p] = props.get(p).decode()
 
     def debug_str(self, level=0):
-        s = super(UsbInterface, self).debug_str(level)
-        return s
+        return super().debug_str(level)
 
     def is_class_hub(self):
         return self._is_class_hub(self._CLASS)
@@ -298,7 +296,7 @@ class UsbInterface(UsbObject):
         for p in self._PROPS:
             if p not in self or not self.validate_int(self[p], 16):
                 return False
-        return super(UsbInterface, self).is_initialized()
+        return super().is_initialized()
 
     def is_child_of(self, parent):
         if isinstance(parent, UsbDevice) and parent.is_initialized():
@@ -350,16 +348,16 @@ class Policy:
 
     # key in policy <--> key in usb device
     _KEY_MAP_DEVICE = {
-        _ID_VENDOR: UsbDevice._ID_VENDOR,
-        _ID_PRODUCT: UsbDevice._ID_PRODUCT,
-        _BCD_DEVICE: UsbDevice._BCD_DEVICE,
+        _ID_VENDOR: UsbDevice._ID_VENDOR,    # pylint: disable=protected-access
+        _ID_PRODUCT: UsbDevice._ID_PRODUCT,  # pylint: disable=protected-access
+        _BCD_DEVICE: UsbDevice._BCD_DEVICE,  # pylint: disable=protected-access
     }
 
     # key in policy <--> key in usb interface
     _KEY_MAP_INTERFACE = {
-        _CLASS: UsbInterface._CLASS,
-        _SUBCLASS: UsbInterface._SUB_CLASS,
-        _PROTOCOL: UsbInterface._PROTOCOL,
+        _CLASS: UsbInterface._CLASS,         # pylint: disable=protected-access
+        _SUBCLASS: UsbInterface._SUB_CLASS,  # pylint: disable=protected-access
+        _PROTOCOL: UsbInterface._PROTOCOL,   # pylint: disable=protected-access
     }
 
     _PAT_KEY = r"\s*({}|{}|{}|{}|{}|{})\s*".format(
@@ -376,13 +374,13 @@ class Policy:
         """
         self.rule_list = []
         try:
-            with open(self._PATH, "r") as f:
+            with open(self._PATH) as f:
                 log.debug("=== policy file begin")
                 for line in f:
                     log.debug(line[0:-1])
                     self.parse_line(line)
                 log.debug("=== policy file end")
-        except IOError as e:
+        except OSError as e:
             # without policy file, no device will be allowed to passed through
             log_exit("Caught error {}, policy file error".format(str(e)))
 
@@ -432,7 +430,7 @@ class Policy:
         # 2. split action and match field
         # ^\s*(ALLOW|DENY)\s*:\s*([^:]*)$
         try:
-            action, target = [part.strip() for part in line.split(":")]
+            action, target = (part.strip() for part in line.split(":"))
         except ValueError as e:
             if line.rstrip():
                 log_exit("Caught error {}, malformed line: {}".format(str(e), line))
@@ -457,7 +455,7 @@ class Policy:
                 self.parse_error(last_end, m.start(), target, line)
 
             try:
-                name, value = [part.lower() for part in m.groups()]
+                name, value = (part.lower() for part in m.groups())
             # This can happen if `part` is None
             except AttributeError:
                 self.parse_error(m.start(), m.end(), target, line)
@@ -670,8 +668,8 @@ if __name__ == "__main__":  # pragma: no cover
     # get usb info
     try:
         devices, interfaces = get_usb_info()
-    except Exception as e:
-        log_exit("Failed to get usb info: {}".format(str(e)))
+    except Exception as ex:
+        log_exit("Failed to get usb info: {}".format(str(ex)))
 
     # debug info
     log_list(devices)

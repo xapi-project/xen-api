@@ -8,8 +8,9 @@ import sys
 import tempfile
 import unittest
 from collections.abc import Mapping
-from import_file import get_module
+
 import mock
+from import_file import get_module
 
 
 def nottest(obj):
@@ -129,8 +130,10 @@ class TestUsbScan(unittest.TestCase):
 
     @nottest
     def test_usb_exit(
-        self, devices, interfaces, results, path="./scripts/usb-policy.conf", msg=""
-    ):
+            self, devices, interfaces, results,
+            path="./scripts/usb-policy.conf",
+            msg=""
+            ):  # pylint: disable=too-many-arguments
         with self.assertRaises(SystemExit) as cm:
             self.test_usb_common(devices, interfaces, results, path)
         if msg:
@@ -313,9 +316,8 @@ ALLOW: # Otherwise allow everything else
 ALLOW:vid=056a psid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(
-            content, "Malformed policy rule, " "unable to parse"
-        )
+        self.test_usb_config_error_common(content, "Malformed policy rule, "
+                                                   "unable to parse")
 
     def test_usb_config_error_hex_length_4(self):
         content = """# hex length not 4
@@ -343,9 +345,8 @@ ALLOW: # Otherwise allow everything else
 ALLOW:vid=056a pid=0314 class=03 kk # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(
-            content, "Malformed policy rule, " "unable to parse"
-        )
+        self.test_usb_config_error_common(content, "Malformed policy rule, "
+                                                   "unable to parse")
 
     def test_usb_config_error_unexpected_chars_beg(self):
         content = """# unexpected words at the beginning
@@ -359,9 +360,8 @@ ALLOW: # Otherwise allow everything else
 ALLOW:vid=056a pid=0314 jj class=03  # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(
-            content, "Malformed policy rule, " "unable to parse"
-        )
+        self.test_usb_config_error_common(content, "Malformed policy rule, "
+                                                   "unable to parse")
 
     def test_usb_config_error_unexpected_non_empty_line(self):
         content = """# unexpected non empty line
