@@ -595,7 +595,8 @@ end
 
 let setup typ read write =
   let* () = Setup.retime_cache_contents typ in
-  let queue, push = Lwt_bounded_stream.create 2 in
+  let capacity = 512 in
+  let queue, push = Lwt_bounded_stream.create capacity in
   let lock = Lwt_mutex.create () in
   let q = {queue; push; lock; state= Disengaged} in
   Lwt.return
