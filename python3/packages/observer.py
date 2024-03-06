@@ -41,7 +41,7 @@ from typing import List, Sequence
 # We only want to import opentelemetry libraries if instrumentation is enabled
 # pylint: disable=import-outside-toplevel
 
-DEBUG_ENABLED = False
+DEBUG_ENABLED = os.getenv("XAPI_TEST")
 DEFAULT_MODULES = "LVHDSR,XenAPI,SR,SRCommand,util"
 FORMAT = "observer.py: %(message)s"
 handler = SysLogHandler(facility="local5", address="/dev/log")
