@@ -52,7 +52,7 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   let pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq (Literal (Ref.string_of host), Field "host")
             , Eq (Literal (Ref.string_of network), Field "network")
@@ -118,10 +118,12 @@ let handle_error = function
       failwith ("Unix Error: " ^ message)
 
 let assert_cluster_host_can_be_created ~__context ~host =
-  match
-    Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq (Literal (Ref.string_of host), Field "host"))
-  with
+  let expr =
+    Xapi_database.Db_filter_types.(
+      Eq (Literal (Ref.string_of host), Field "host")
+    )
+  in
+  match Db.Cluster_host.get_refs_where ~__context ~expr with
   | [] ->
       ()
   | _ ->
@@ -137,10 +139,10 @@ let assert_cluster_host_can_be_created ~__context ~host =
     [get_required_cluster_stacks context sr_sm_type]
     should be configured and running for SRs of type [sr_sm_type] to work. *)
 let get_required_cluster_stacks ~__context ~sr_sm_type =
-  let sms_matching_sr_type =
-    Db.SM.get_records_where ~__context
-      ~expr:Db_filter_types.(Eq (Field "type", Literal sr_sm_type))
+  let expr =
+    Xapi_database.Db_filter_types.(Eq (Field "type", Literal sr_sm_type))
   in
+  let sms_matching_sr_type = Db.SM.get_records_where ~__context ~expr in
   sms_matching_sr_type
   |> List.map (fun (_sm_ref, sm_rec) -> sm_rec.API.sM_required_cluster_stack)
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
@@ -166,10 +168,12 @@ let with_clustering_lock_if_cluster_exists ~__context where f =
       with_clustering_lock where f
 
 let find_cluster_host ~__context ~host =
-  match
-    Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))
-  with
+  let expr =
+    Xapi_database.Db_filter_types.(
+      Eq (Field "host", Literal (Ref.string_of host))
+    )
+  in
+  match Db.Cluster_host.get_refs_where ~__context ~expr with
   | [ref] ->
       Some ref
   | _ :: _ ->

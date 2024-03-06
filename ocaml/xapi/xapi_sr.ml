@@ -25,7 +25,8 @@ module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Db_filter_types
+module Redo_log = Xapi_database.Redo_log
+open Xapi_database.Db_filter_types
 open API
 open Client
 
@@ -461,7 +462,6 @@ let assert_sr_not_local_cache ~__context ~sr =
       ()
 
 let find_or_create_rrd_vdi ~__context ~sr =
-  let open Db_filter_types in
   match
     Db.VDI.get_refs_where ~__context
       ~expr:

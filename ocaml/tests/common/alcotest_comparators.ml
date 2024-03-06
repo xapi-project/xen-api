@@ -31,9 +31,11 @@ let vdi_nbd_server_info_set =
 let vdi_type : API.vdi_type Alcotest.testable =
   from_rpc_of_t API.rpc_of_vdi_type
 
-let db_cache_structured_op = from_rpc_of_t Db_cache_types.rpc_of_structured_op_t
+let db_cache_structured_op =
+  from_rpc_of_t Xapi_database.Db_cache_types.rpc_of_structured_op_t
 
-let db_rpc_request = from_rpc_of_t Db_rpc_common_v2.Request.rpc_of_t
+let db_rpc_request =
+  from_rpc_of_t Xapi_database.Db_rpc_common_v2.Request.rpc_of_t
 
 let ref () = from_to_string Ref.string_of
 

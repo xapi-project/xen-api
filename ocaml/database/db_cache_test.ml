@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Db_cache_types
+open Xapi_database
+open Xapi_database.Db_cache_types
 
 let create_test_db () =
   let schema = Test_schemas.many_to_many in

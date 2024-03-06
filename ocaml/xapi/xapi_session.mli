@@ -78,7 +78,7 @@ val get_top : __context:Context.t -> self:API.ref_session -> API.ref_session
 val create_readonly_session :
      __context:Context.t
   -> uname:string
-  -> db_ref:Db_ref.t option
+  -> db_ref:Xapi_database.Db_ref.t option
   -> API.ref_session
 
 val create_from_db_file :

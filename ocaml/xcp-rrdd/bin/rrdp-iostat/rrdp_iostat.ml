@@ -20,7 +20,7 @@ open Blktap3_stats
 module Process = Process (struct let name = "xcp-rrdd-iostat" end)
 
 open Process
-open Xenstore
+open Ezxenstore_core.Xenstore
 
 let with_xc_and_xs f = Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 

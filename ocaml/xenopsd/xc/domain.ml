@@ -15,7 +15,7 @@
 
 open Printf
 open Xenops_utils
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Cancel_utils
 open Device_common
 open Xenops_task
@@ -2008,7 +2008,6 @@ let move_xstree ~xs domid olduuid newuuid =
   in
   let regexp = Re.Pcre.regexp olduuid in
   let rec get_tree t path =
-    let open Xenstore in
     let subtrees =
       let path' = String.concat "/" path in
       try t.Xs.directory path'
@@ -2030,7 +2029,6 @@ let move_xstree ~xs domid olduuid newuuid =
     with Xs_protocol.Enoent _ -> false
   in
   let mv_tree path =
-    let open Xenstore in
     Xs.transaction xs (fun t ->
         if exists t path then
           let tree = get_tree t path in

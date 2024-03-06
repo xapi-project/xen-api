@@ -117,7 +117,7 @@ let receive progress_cb format protocol (s : Unix.file_descr)
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
   try
-    let open Xenstore in
+    let open Ezxenstore_core.Xenstore in
     (* If we're looking at a xen frontend device, see if the backend
        is in the same domain. If so check if it looks like a .vhd *)
     let rdev = (Unix.stat path).Unix.st_rdev in

@@ -654,10 +654,10 @@ let stop ~dbg ~id =
       raise (Storage_interface.Storage_error (Does_not_exist ("mirror", id)))
 
 let dbg_and_tracing_of_task task =
-  Debuginfo.make
+  Debug_info.make
     ~log:(Storage_task.get_dbg task)
     ~tracing:(Storage_task.tracing task)
-  |> Debuginfo.to_string
+  |> Debug_info.to_string
 
 let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
   debug "Mirror.start sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
@@ -1336,8 +1336,8 @@ let copy ~task ~dbg ~sr ~vdi ~dp:_ ~url ~dest ~verify_dest =
 
 let with_task_and_thread ~dbg f =
   let task =
-    Storage_task.add tasks dbg.Debuginfo.log (fun task ->
-        Storage_task.set_tracing task dbg.Debuginfo.tracing ;
+    Storage_task.add tasks dbg.Debug_info.log (fun task ->
+        Storage_task.set_tracing task dbg.Debug_info.tracing ;
         try f task with
         | Storage_error (Backend_error (code, params))
         | Api_errors.Server_error (code, params) ->
@@ -1360,17 +1360,17 @@ let with_task_and_thread ~dbg f =
 
 let start ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
-      start' ~task ~dbg:dbg.Debuginfo.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
+      start' ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
   )
 
 let copy ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
-      copy ~task ~dbg:dbg.Debuginfo.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
+      copy ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
   )
 
 let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
-      copy_into ~task ~dbg:dbg.Debuginfo.log ~sr ~vdi ~url ~dest ~dest_vdi
+      copy_into ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~url ~dest ~dest_vdi
         ~verify_dest
   )
 

@@ -17,7 +17,7 @@ open D
 
 module L = Debug.Make (struct let name = "license" end)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_std.Xstringext
 module Date = Xapi_stdext_date.Date
@@ -27,12 +27,10 @@ let get_device_pci ~__context ~host ~device =
   let dbg = Context.string_of_task __context in
   let pci_bus_path = Net.Interface.get_pci_bus_path dbg device in
   let expr =
-    Db_filter_types.(
-      And
-        ( Eq (Field "pci_id", Literal pci_bus_path)
-        , Eq (Field "host", Literal (Ref.string_of host))
-        )
-    )
+    And
+      ( Eq (Field "pci_id", Literal pci_bus_path)
+      , Eq (Field "host", Literal (Ref.string_of host))
+      )
   in
   match Db.PCI.get_refs_where ~__context ~expr with
   | pci :: _ ->
@@ -515,9 +513,7 @@ let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
 
 (* Assertion passes if PIF has clusters attached but host has disabled clustering *)
 let assert_no_clustering_enabled_on ~__context ~self =
-  let cluster_host_on_pif =
-    Db_filter_types.(Eq (Field "PIF", Literal (Ref.string_of self)))
-  in
+  let cluster_host_on_pif = Eq (Field "PIF", Literal (Ref.string_of self)) in
   match Db.Cluster_host.get_refs_where ~__context ~expr:cluster_host_on_pif with
   | [] ->
       ()

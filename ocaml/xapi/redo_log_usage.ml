@@ -19,6 +19,8 @@ exception DeltaTooOld
 
 exception DatabaseWrongSize of int * int
 
+open Xapi_database
+
 let read_from_redo_log log staging_path db_ref =
   R.log_and_ignore_exn @@ fun () ->
   (* 1. Start the process with which we communicate to access the redo log *)
