@@ -37,8 +37,7 @@ class NbdDeviceNotFound(Exception):
         )
         self.nbd_device = nbd_device
 
-
-class FileLock(object):
+class FileLock: # pragma: no cover
     """Container for data relating to a file lock"""
 
     def __init__(self, path):
@@ -243,8 +242,9 @@ def _connect_cli(args):
 def _disconnect_cli(args):
     disconnect_nbd_device(nbd_device=args.device)
 
-
-def _main():
+# The main function is covered by manual test and XenRT test
+# Exclude it from unit test coverage
+def _main(): # pragma: no cover
     # Configure the root logger to log into syslog
     # (Specifically, into /var/log/user.log)
     syslog_handler = logging.handlers.SysLogHandler(
