@@ -54,14 +54,17 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
-        Cluster_interface.(
-          Extended
-            {
-              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-            ; hostuuid
-            ; hostname
-            }
-        )
+        if Xapi_cluster_helpers.cluster_health_enabled ~__context then
+          Cluster_interface.(
+            Extended
+              {
+                ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+              ; hostuuid
+              ; hostname
+              }
+          )
+        else
+          Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
       in
       let token_timeout_ms = Int64.of_float (token_timeout *. 1000.0) in
       let token_timeout_coefficient_ms =

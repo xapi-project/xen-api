@@ -135,14 +135,17 @@ let join_internal ~__context ~self =
       let host = Db.Cluster_host.get_host ~__context ~self in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
-        Cluster_interface.(
-          Extended
-            {
-              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-            ; hostuuid
-            ; hostname
-            }
-        )
+        if Xapi_cluster_helpers.cluster_health_enabled ~__context then
+          Cluster_interface.(
+            Extended
+              {
+                ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+              ; hostuuid
+              ; hostname
+              }
+          )
+        else
+          Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
       in
       let ip_list =
         List.filter_map
@@ -334,14 +337,17 @@ let enable ~__context ~self =
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
-        Cluster_interface.(
-          Extended
-            {
-              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-            ; hostuuid
-            ; hostname
-            }
-        )
+        if Xapi_cluster_helpers.cluster_health_enabled ~__context then
+          Cluster_interface.(
+            Extended
+              {
+                ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+              ; hostuuid
+              ; hostname
+              }
+          )
+        else
+          Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
       in
       (* TODO: Pass these through from CLI *)
       if not !Xapi_clustering.Daemon.enabled then (
