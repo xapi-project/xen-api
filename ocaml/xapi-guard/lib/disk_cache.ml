@@ -519,25 +519,28 @@ end
 (** Module use to change the cache contents before the reader and writer start
     running *)
 module Setup : sig
-  val retime_cache_contents : Types.Service.t -> unit Lwt.t
+  val retime_cache_contents : Types.Service.t -> t List.t Lwt.t
+  (** [retime_cache_contents typ] retimes the current cache contents so they
+      are time congruently with the current execution and returns the keys of
+      valid files that are yet to be pushed *)
 end = struct
   type file_action =
     | Keep of file
     | Delete of string
     | Move of {from: string; into: string}
 
-  let get_fs_action root now = function
+  let get_fs_action root now acc = function
     | Latest ((uuid, timestamp, key), from) as latest ->
         if Mtime.is_later ~than:now timestamp then
           let timestamp = now in
           let into = path_of_key root (uuid, timestamp, key) in
-          Move {from; into}
+          ((uuid, timestamp, key) :: acc, Move {from; into})
         else
-          Keep latest
+          ((uuid, timestamp, key) :: acc, Keep latest)
     | Temporary _ as temp ->
-        Keep temp
+        (acc, Keep temp)
     | Invalid p | Outdated (_, p) ->
-        Delete p
+        (acc, Delete p)
 
   let commit __FUN = function
     | Keep (Temporary p) ->
@@ -585,20 +588,31 @@ end = struct
     let now = Mtime_clock.now () in
     let root = cache_of typ in
     let* contents = get_all_contents root in
-    let* () =
-      contents
-      |> List.map (get_fs_action root now)
-      |> Lwt_list.iter_p (commit __FUNCTION__)
+    let pending, actions =
+      contents |> List.fold_left_map (get_fs_action root now) []
     in
-    delete_empty_dirs ~delete_root:false root
+    let* () = Lwt_list.iter_p (commit __FUNCTION__) actions in
+    let* () = delete_empty_dirs ~delete_root:false root in
+    Lwt.return pending
 end
 
 let setup typ read write =
-  let* () = Setup.retime_cache_contents typ in
+  let* pending = Setup.retime_cache_contents typ in
   let capacity = 512 in
   let queue, push = Lwt_bounded_stream.create capacity in
   let lock = Lwt_mutex.create () in
-  let q = {queue; push; lock; state= Disengaged} in
+  let state =
+    if pending = [] then
+      Direct
+    else if List.length pending < capacity then
+      let () =
+        List.iter (fun e -> Option.value ~default:() (push (Some e))) pending
+      in
+      Engaged
+    else
+      Disengaged
+  in
+  let q = {queue; push; lock; state} in
   Lwt.return
     ( Writer.with_cache ~direct:(read, write) typ q
     , Watcher.watch ~direct:write typ q
