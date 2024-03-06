@@ -82,7 +82,13 @@ module TracerProvider = struct
           ()
         with _ -> Alcotest.failf "Missing mandatory attribute: %s" x
       )
-      ["xs.pool.uuid"; "xs.host.name"; "xs.host.uuid"; "xs.observer.name"]
+      [
+        "xs.pool.uuid"
+      ; "xs.host.name"
+      ; "xs.host.uuid"
+      ; "xs.observer.name"
+      ; "service.name"
+      ]
 
   let check_endpoints ~name ~endpoints =
     let provider = find_provider_exn ~name in
@@ -287,6 +293,7 @@ let verify_json_fields_and_values ~json =
             ; ("xs.observer.name", `String "test-observer")
             ; ("xs.host.uuid", `String _)
             ; ("xs.host.name", `String _)
+            ; ("service.name", `String _)
             ]
         )
       ; ("annotations", `List _)
