@@ -149,65 +149,15 @@ discard_messages_matching = [
     "No attribute 'group' on None",
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
-expected_to_fail = [
-    "scripts/hfx_filename",
-    "scripts/perfmon",
-    # Need 2to3 -w <file> and maybe a few other minor updates:
-    "scripts/hatests",
-    "scripts/backup-sr-metadata.py",
-    "scripts/restore-sr-metadata.py",
-    "scripts/nbd_client_manager.py",
-    # No attribute 'popen2' on module 'os' [module-attr] and a couple more:
-    "scripts/mail-alarm",
-    # SSLSocket.send() only accepts bytes, not unicode string as argument:
-    "scripts/examples/python/exportimport.py",
-    # Other fixes needed:
-    "scripts/examples/python/mini-xenrt.py",
-    "scripts/examples/python/XenAPI/XenAPI.py",
-    "scripts/examples/python/monitor-unwanted-domains.py",
-    "scripts/examples/python/shell.py",
-    "scripts/examples/smapiv2.py",
-    "scripts/static-vdis",
-    # add_interface: unsupported operand type(s) for +: str and UsbInterface
-    "scripts/usb_scan.py",
-    # TestUsbScan.assertIn() is called with wrong arguments(code not iterable)
-    "scripts/test_usb_scan.py",
-    "scripts/plugins/extauth-hook-AD.py",
-]
+expected_to_fail = []
 
 
 [tool.pytype]
 inputs = [
-    "scripts/hfx_filename",
-    "scripts/perfmon",
-    "scripts/static-vdis",
-    "scripts/Makefile",
-    "scripts/generate-iscsi-iqn",
-    "scripts/hatests",
-    "scripts/host-display",
-    "scripts/mail-alarm",
-    "scripts/print-custom-templates",
-    "scripts/probe-device-for-file",
-    "scripts/xe-reset-networking",
-    "scripts/xe-scsi-dev-map",
-    "scripts/examples/python",
-    "scripts/yum-plugins",
-    "scripts/*.py",
-    "python3/packages/*.py",
-
-    # To be added later,
-    # when converted to Python3-compatible syntax:
-    # "ocaml/message-switch/python",
-    # "ocaml/idl/ocaml_backend/python",
-    # "ocaml/xapi-storage/python",
+    "python3/",
+    "ocaml/xcp-rrdd",
 ]
 disable = [
-    "import-error",  # xenfsimage, xcp.bootloader. xcp.cmd
-    "ignored-abstractmethod",
-    "ignored-metaclass",
-    # https://github.com/google/pytype/issues/1130,
-    # https://github.com/google/pytype/issues/1485:
-    "pyi-error",
 ]
 platform = "linux"
-pythonpath = "scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
+pythonpath = ""

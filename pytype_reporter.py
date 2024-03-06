@@ -599,13 +599,15 @@ def main():
     config_file = "pyproject.toml"
     config = load_config(config_file, basename(__file__))
     config.setdefault("expected_to_fail", [])
-    debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
+    changed_but_in_expected_to_fail = []
+    if config["expected_to_fail"]:
+        debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
 
-    changed_but_in_expected_to_fail = git_diff(
-        "--name-only",
-        find_branch_point(config),
-        *config["expected_to_fail"],
-    ).splitlines()
+        changed_but_in_expected_to_fail = git_diff(
+            "--name-only",
+            find_branch_point(config),
+            *config["expected_to_fail"],
+        ).splitlines()
 
     if check_only_reverts_from_branch_point(config, changed_but_in_expected_to_fail):
         return run_pytype_and_generate_summary(config)
