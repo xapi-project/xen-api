@@ -63,7 +63,7 @@ flowchart TD
             like **xapi_vm_migrate.ml**`"]
 
             vm_management -- Call --> xapi_xenops["`Transform xenops
-            see (**xapi_xenpos.ml**)`"]
+            see (**xapi_xenops.ml**)`"]
                 xapi_xenops <-- Post following IDL model (see xenops_interface.ml) --> msg_switch
 
 
