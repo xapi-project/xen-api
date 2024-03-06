@@ -1,7 +1,7 @@
 # https://packaging.python.org/en/latest/specifications/pyproject-toml/
 [project]
 name = "xen-api"
-requires-python = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*"
+requires-python = ">=3.6.*"
 license = {file = "LICENSE"}
 keywords = ["xen-project", "Xen", "hypervisor", "libraries"]
 maintainers = [
@@ -29,7 +29,7 @@ line-length = 88
 
 [tool.isort]
 line_length = 88
-py_version = 27
+py_version = 36
 profile = "black"
 combine_as_imports = true
 ensure_newline_before_comments = false
@@ -59,6 +59,86 @@ disallow_any_explicit = false
 disallow_any_generics = true
 disallow_any_unimported = true
 disallow_subclassing_any = true
+
+
+# https://microsoft.github.io/pyright/#/configuration?id=main-configuration-options
+[tool.pyright]
+
+# Specifies the paths of directories or files that should be included in the
+# analysis. If no paths are specified, all files in the workspace are included:
+include = ["python3", "ocaml/xcp-rrdd"]
+
+# Conditionalize the stube files for type definitions based on the platform:
+pythonPlatform = "Linux"
+
+# typeCheckingMode: "off", "basic", "standard" or "strict"
+typeCheckingMode = "standard"
+
+# Specifies the version of Python that will be used to execute the source code.
+# Venerate errors if the source code makes use of language features that are
+# not supported in that version. It will also tailor its use of type stub files,
+# which conditionalizes type definitions based on the version. If no version is
+# specified, pyright will use the version of the current python interpreter,
+# if one is present:
+pythonVersion = "3.6"
+
+# Paths of directories or files that should use "strict" analysis if they are
+# included. This is the same as manually adding a "# pyright: strict" comment.
+# In strict mode, most type-checking rules are enabled, and the type-checker
+# will be more aggressive in inferring types. If no paths are specified, strict
+# mode is not enabled:
+strict = ["python3/tests/observer"]
+
+#
+# Paths to exclude from analysis. If a file is excluded, it will not be
+# analyzed.
+#
+# FIXME: Some of these may have type errors, so they should be inspected and fixed:
+#
+exclude = [
+    "ocaml/xcp-rrdd/scripts/rrdd/rrdd.py",
+    "ocaml/xcp-rrdd/scripts/rrdd/rrdd-example.py",
+    "python3/packages/observer.py",
+]
+
+[tool.pytest.ini_options]
+# The following options are passed to pytest:
+# -v is used to increase verbosity
+# -rA is used to show extra test summary info for all tests
+# --cov=python3 is used to measure coverage of the python3 directory
+# --cov-fail-under=60 is the minimum coverage required for the tests to pass
+# --cov-context=test is used to distinguish between test and non-test code
+# --cov-report=term-missing is used to show missing lines in the coverage report
+# --cov-report=html:.git/coverage is used to generate an HTML coverage report
+# --cov-report=xml:.git/coverage.xml is used to generate an XML coverage report
+# --junitxml=.git/pytest.xml is used to generate a JUnit XML report
+addopts = """
+-v -rA --cov=python3 --cov=scripts --cov-context=test --cov-fail-under=50
+--cov-report=term-missing
+--cov-report=html:.git/coverage
+--cov-report=xml:.git/coverage.xml
+--junitxml=.git/pytest.xml
+"""
+#
+# The following options are used to configure pytest:
+# log_cli = true is used to show log messages on the console
+# log_cli_level = "INFO" is used to set the log level to INFO
+# python_files = ["test_*.py"] is used to match test files
+# python_functions = ["test_", "it_", "when_"] is used to match test functions
+# pythonpath = "python3 python3/stubs" is used to add the python3 directory and
+# the stubs directory to the PYTHONPATH
+# testpaths = ["python3", "ocaml/xcp-rrdd"] sets test paths where tests are looked for
+# xfail_strict = true is used to fail tests marked as xfail if they pass(used for TDD)
+# required_plugins = ["pytest-cov", "pytest-mock"] makes sure that these are installed
+#
+log_cli = true
+log_cli_level = "INFO"
+python_files = ["test_*.py", "it_*.py"]
+python_functions = ["test_", "it_", "when_"]
+pythonpath = "python3 python3/stubs"
+required_plugins = ["pytest-cov", "pytest-mock"]
+testpaths = ["python3", "scripts", "ocaml/xcp-rrdd"]
+xfail_strict = true
 
 
 [tool.pytype_reporter]
