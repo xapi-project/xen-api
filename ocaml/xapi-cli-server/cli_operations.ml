@@ -7113,6 +7113,60 @@ let host_reset_server_certificate _printer rpc session_id params =
 let host_emergency_clear_mandatory_guidance _printer rpc session_id _params =
   Client.Host.emergency_clear_mandatory_guidance ~rpc ~session_id
 
+let host_updates_show_available fd _printer rpc session_id params =
+  do_host_op rpc session_id ~multiple:false
+    (fun _ host ->
+      let host = host.getref () in
+      let pool = get_pool_with_default rpc session_id params "uuid" in
+      let master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
+      let master_address =
+        Http.Url.maybe_wrap_IPv6_literal
+          (Client.Host.get_address ~rpc ~session_id ~self:master)
+      in
+      let open Xmlrpc_client in
+      let transport =
+        SSL
+          ( SSL.make () ~verify_cert:(Stunnel_client.pool ())
+          , master_address
+          , !Constants.https_port
+          )
+      in
+      let request =
+        Http.Request.make ~user_agent:Constants.xapi_user_agent
+          ~cookie:[("session_id", Ref.string_of session_id)]
+          ~query:[("host_refs", Ref.string_of host)]
+          Http.Get Constants.get_updates_uri
+      in
+      debug "%s: Getting host available updates for the host (ref:%s)"
+        __FUNCTION__ (Ref.string_of host) ;
+      match
+        with_transport transport
+          (with_http request (fun (_, fd) ->
+               Xapi_stdext_unix.Unixext.string_of_fd fd
+           )
+          )
+        |> Yojson.Basic.from_string
+        |> Yojson.Basic.pretty_to_string
+      with
+      | avail_updates ->
+          marshal fd (Command (Print avail_updates))
+      | exception e -> (
+        match e with
+        | Api_errors.Server_error _ as e ->
+            let msg = Api_errors.to_string e in
+            error "%s: %s" __FUNCTION__ msg ;
+            failwith
+              ("Failed to show available updates for the host in xapi: " ^ msg)
+        | Yojson.Json_error msg ->
+            error "%s: %s" __FUNCTION__ msg ;
+            failwith "Failed to show available updates for the host: JSON error"
+        | _ ->
+            failwith "Failed to show available updates for the host"
+      )
+    )
+    params []
+  |> ignore
+
 let host_management_reconfigure _printer rpc session_id params =
   let pif =
     Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "pif-uuid" params)
