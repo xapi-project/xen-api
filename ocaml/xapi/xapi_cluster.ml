@@ -13,6 +13,7 @@
  *)
 
 open Xapi_clustering
+open Ipaddr_rpc_type
 
 module D = Debug.Make (struct let name = "xapi_cluster" end)
 
@@ -49,14 +50,29 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let host = Helpers.get_master ~__context in
       let pifrec = Db.PIF.get_record ~__context ~self:pIF in
       assert_pif_prerequisites (pIF, pifrec) ;
-      let ip = ip_of_pif (pIF, pifrec) in
+      let ip_addr = ip_of_pif (pIF, pifrec) in
+      let hostuuid = Inventory.lookup Inventory._installation_uuid in
+      let hostname = Db.Host.get_hostname ~__context ~self:host in
+      let member =
+        if Xapi_cluster_helpers.cluster_health_enabled ~__context then
+          Cluster_interface.(
+            Extended
+              {
+                ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+              ; hostuuid
+              ; hostname
+              }
+          )
+        else
+          Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
+      in
       let token_timeout_ms = Int64.of_float (token_timeout *. 1000.0) in
       let token_timeout_coefficient_ms =
         Int64.of_float (token_timeout_coefficient *. 1000.0)
       in
       let init_config =
         {
-          Cluster_interface.local_ip= ip
+          Cluster_interface.member
         ; token_timeout_ms= Some token_timeout_ms
         ; token_coefficient_ms= Some token_timeout_coefficient_ms
         ; name= None
