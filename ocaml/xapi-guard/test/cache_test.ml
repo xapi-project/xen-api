@@ -200,5 +200,6 @@ let main () =
   Lwt.return_unit
 
 let () =
+  Debug.log_to_stdout () ;
   setup_log @@ Some Logs.Debug ;
   Lwt_main.run (main ())
