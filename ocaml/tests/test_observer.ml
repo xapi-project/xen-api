@@ -16,6 +16,19 @@ open Tracing
 module D = Debug.Make (struct let name = "test_observer" end)
 
 open D
+module ComponentSet = Set.Make (Xapi_observer_components)
+
+let component_set_to_string cs =
+  cs
+  |> ComponentSet.to_seq
+  |> Seq.map Xapi_observer_components.to_string
+  |> List.of_seq
+  |> String.concat ","
+
+let component_set_testable =
+  let pp = Fmt.of_to_string component_set_to_string in
+
+  Alcotest.testable pp ComponentSet.equal
 
 let () = Printexc.record_backtrace true
 
@@ -515,6 +528,47 @@ let test_attribute_validation () =
   List.iter test_good_attribute good_attributes ;
   List.iter test_bad_attribute bad_attributes
 
+let test_observed_components_of () =
+  let open Xapi_globs in
+  let open Xapi_observer_components in
+  let original_value = !observer_experimental_components in
+  let remove comp = List.filter (fun c -> comp <> c) in
+  let inputs = [[]; [SMApi]; [Xapi; SMApi]; all] in
+
+  let expected_components_given_config_value =
+    [
+      ( "No experimental component is expected"
+      , StringSet.empty
+      , [remove Xapi_clusterd all; [SMApi]; [Xapi; SMApi]; all]
+      )
+    ; ( "SMapi is experimental component"
+      , StringSet.singleton Constants.observer_component_smapi
+      , [
+          all |> remove Xapi_clusterd |> remove SMApi
+        ; []
+        ; [Xapi]
+        ; remove SMApi all
+        ]
+      )
+    ]
+  in
+
+  let test_exp_comp (msg, v, expected_list) =
+    Xapi_globs.observer_experimental_components := v ;
+    let observed_components = List.map observed_components_of inputs in
+    List.iter2
+      (fun expected received ->
+        Alcotest.(check component_set_testable)
+          msg
+          (ComponentSet.of_list expected)
+          (ComponentSet.of_list received)
+      )
+      expected_list observed_components
+  in
+
+  List.iter test_exp_comp expected_components_given_config_value ;
+  observer_experimental_components := original_value
+
 let test =
   [
     ( "test_observer_create_and_destroy"
@@ -528,6 +582,7 @@ let test =
   ; ("test_hashtbl_leaks", `Quick, test_hashtbl_leaks)
   ; ("test_tracing_exn_backtraces", `Quick, test_tracing_exn_backtraces)
   ; ("test_attribute_validation", `Quick, test_attribute_validation)
+  ; ("test_observed_components_of", `Quick, test_observed_components_of)
   ]
 
 let () =
