@@ -25,6 +25,18 @@ LOCK_FILE = "/var/run/nonpersistent/nbd_client_manager"
 MAX_DEVICE_WAIT_MINUTES = 10
 
 
+class NotGetNbdNumber(Exception):
+    """
+    The NBD device should be in this format: nbd{0-100}
+    If we cannot match this pattern, raise this exception
+    """
+
+class NbdConnStateTimeout(Exception):
+    """
+    If we cannot get the connection status of a nbd device,
+    raise this exception.
+    """
+
 class NbdDeviceNotFound(Exception):
     """
     The NBD device file does not exist. Raised when there are no free NBD
@@ -32,8 +44,8 @@ class NbdDeviceNotFound(Exception):
     """
 
     def __init__(self, nbd_device):
-        super(NbdDeviceNotFound, self).__init__(
-            "NBD device '{}' does not exist".format(nbd_device)
+        super().__init__(
+            f"NBD device '{nbd_device}' does not exist"
         )
         self.nbd_device = nbd_device
 
@@ -47,7 +59,8 @@ class FileLock: # pragma: no cover
     def _lock(self):
         """Acquire the lock"""
         flags = fcntl.LOCK_EX
-        self._lock_file = open(self._path, "w+")
+        # pylint: disable=consider-using-with
+        self._lock_file = open(self._path, "w+", encoding="utf8")
         fcntl.flock(self._lock_file, flags)
 
     def _unlock(self):
@@ -73,12 +86,13 @@ def _call(cmd_args, error=True):
     If [error] and exit code != 0, log and throws a CalledProcessError.
     """
     LOGGER.debug("Running cmd %s", cmd_args)
+    # pylint: disable=consider-using-with
     proc = subprocess.Popen(
         cmd_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True,
         universal_newlines=True
     )
 
-    stdout, stderr = proc.communicate()
+    _, stderr = proc.communicate()
 
     if error and proc.returncode != 0:
         LOGGER.error(
@@ -117,19 +131,22 @@ def _find_unused_nbd_device():
     Raises NbdDeviceNotFound if no devices are available.
     """
     for device_no in range(0, 1000):
-        nbd_device = "/dev/nbd{}".format(device_no)
+        nbd_device = f"/dev/nbd{device_no}"
         if not _is_nbd_device_connected(nbd_device=nbd_device):
             return nbd_device
-
+    # Actually `_is_nbd_device_connected` will raise an exception
+    # if no unused device
+    # Add this return for pylint check
+    return None
 
 def _wait_for_nbd_device(nbd_device, connected):
     deadline = datetime.now() + timedelta(minutes=MAX_DEVICE_WAIT_MINUTES)
 
     while _is_nbd_device_connected(nbd_device=nbd_device) != connected:
         if datetime.now() > deadline:
-            raise Exception(
-                "Timed out waiting for connection state of device %s to be %s"
-                % (nbd_device, connected)
+            raise NbdConnStateTimeout(
+                f"Timed out waiting for connection state of "
+                f"device {nbd_device} to be {connected}"
             )
 
         LOGGER.debug(
@@ -149,7 +166,10 @@ def _get_persistent_connect_info_filename(device):
     the connection details. This is based on the device
     name, so /dev/nbd0 -> /var/run/nonpersistent/nbd/0
     """
-    number = re.search("/dev/nbd([0-9]+)", device).group(1)
+    matched = re.search("/dev/nbd([0-9]+)", device)
+    if not matched:
+        raise NotGetNbdNumber(f"Can not get the nbd number for device: {device}")
+    number = matched.group(1)
     return PERSISTENT_INFO_DIR + "/" + number
 
 
@@ -195,17 +215,20 @@ def connect_nbd(path, exportname):
                     if nbd_device.startswith("/dev/")
                     else nbd_device
                 )
-                with open("/sys/block/" + nbd + "/queue/scheduler", "w", encoding="utf-8") as fd:
+                with open("/sys/block/" + nbd + "/queue/scheduler",
+                          "w", encoding="utf-8") as fd:
                     fd.write("none")
                 # Set the NBD queue size to the same as the qcow2 cluster size
-                with open("/sys/block/" + nbd + "/queue/max_sectors_kb", "w", encoding="utf-8") as fd:
+                with open("/sys/block/" + nbd + "/queue/max_sectors_kb",
+                          "w", encoding="utf-8") as fd:
                     fd.write("512")
-                with open("/sys/block/" + nbd + "/queue/nr_requests", "w", encoding="utf-8") as fd:
+                with open("/sys/block/" + nbd + "/queue/nr_requests",
+                          "w", encoding="utf-8") as fd:
                     fd.write("8")
 
             return nbd_device
         except NbdDeviceNotFound as exn:
-            LOGGER.warn("Failed to find free nbd device: %s", exn)
+            LOGGER.warning("Failed to find free nbd device: %s", exn)
             retries = retries + 1
             if retries == 1:
                 # We sleep for a shorter period first, in case an nbd device
