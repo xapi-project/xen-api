@@ -116,7 +116,7 @@ def _init_tracing(configs: List[str], config_dir: str):
 
         # On 3.10-3.12, the import of wrapt might trigger warnings, filter them:
         simplefilter(action="ignore", category=DeprecationWarning)
-        import wrapt # type: ignore[import-untyped]
+        import wrapt  # type: ignore[import-untyped]
         from opentelemetry import context, trace
         from opentelemetry.baggage.propagation import W3CBaggagePropagator
         from opentelemetry.exporter.zipkin.json import ZipkinExporter
@@ -149,7 +149,7 @@ def _init_tracing(configs: List[str], config_dir: str):
             self.bytes_written = 0
             super().__init__(*args, **kwargs)
 
-        def export(self, spans: Sequence[trace.Span]) -> SpanExportResult:
+        def export(self, spans: Sequence[trace.Span]) -> SpanExportResult:  # type: ignore
             """Export the given spans to the file endpoint."""
 
             data = self.encoder.serialize(spans, self.local_node)
@@ -217,7 +217,7 @@ def _init_tracing(configs: List[str], config_dir: str):
         # Create a tracer provider with the given resource attributes
         provider = TracerProvider(
             resource=Resource.create(
-                W3CBaggagePropagator().extract({}, otel_resource_attrs)
+                W3CBaggagePropagator().extract({}, otel_resource_attrs)  # type: ignore[arg-type]
             )
         )
 
@@ -226,7 +226,7 @@ def _init_tracing(configs: List[str], config_dir: str):
             processor_file_zipkin = BatchSpanProcessor(
                 FileZipkinExporter(
                     filename_callback=bugtool_filenamer,
-                    trace_log_dir=trace_log_dir
+                    trace_log_dir=trace_log_dir,
                 )
             )
             provider.add_span_processor(processor_file_zipkin)
@@ -319,13 +319,16 @@ def _init_tracing(configs: List[str], config_dir: str):
                         if method_name in ["__getattr__", "__call__", "__init__"]:
                             continue
                         try:
-                            setattr(aclass, method_name, instrument_function(method))
+                            setattr(
+                                aclass,
+                                method_name,
+                                instrument_function(method),  # pyright: ignore
+                            )
                         except Exception:
                             debug(
                                 "setattr.instrument_function: Exception %s",
                                 traceback.format_exc(),
                             )
-
 
         def autoinstrument_module(amodule):
             """Autoinstrument the classes and functions in a module."""
@@ -339,12 +342,16 @@ def _init_tracing(configs: List[str], config_dir: str):
 
             # Instrument the module-level functions of the module
             for fname, afunction in inspect.getmembers(amodule, inspect.isfunction):
-                setattr(amodule, fname, instrument_function(afunction))
+                setattr(
+                    amodule,
+                    fname,
+                    instrument_function(afunction),  # pyright: ignore[reportCallIssue]
+                )
 
         if inspect.ismodule(wrapped):
             autoinstrument_module(wrapped)
 
-        return instrument_function(wrapped)
+        return instrument_function(wrapped)  # pyright: ignore[reportCallIssue]
 
     def _patch_module(module_name):
         wrapt.importer.discover_post_import_hooks(module_name)
