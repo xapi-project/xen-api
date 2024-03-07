@@ -45,7 +45,7 @@ class NbdDeviceNotFound(Exception):
 
     def __init__(self, nbd_device):
         super().__init__(
-            f"NBD device '{nbd_device}' does not exist"
+            "NBD device '{}' does not exist".format(nbd_device)
         )
         self.nbd_device = nbd_device
 
@@ -131,7 +131,7 @@ def _find_unused_nbd_device():
     Raises NbdDeviceNotFound if no devices are available.
     """
     for device_no in range(0, 1000):
-        nbd_device = f"/dev/nbd{device_no}"
+        nbd_device = "/dev/nbd{}".format(device_no)
         if not _is_nbd_device_connected(nbd_device=nbd_device):
             return nbd_device
     # Actually `_is_nbd_device_connected` will raise an exception
@@ -145,8 +145,8 @@ def _wait_for_nbd_device(nbd_device, connected):
     while _is_nbd_device_connected(nbd_device=nbd_device) != connected:
         if datetime.now() > deadline:
             raise NbdConnStateTimeout(
-                f"Timed out waiting for connection state of "
-                f"device {nbd_device} to be {connected}"
+                "Timed out waiting for connection state of device %s to be %s"
+                % (nbd_device, connected)
             )
 
         LOGGER.debug(
@@ -168,7 +168,7 @@ def _get_persistent_connect_info_filename(device):
     """
     matched = re.search("/dev/nbd([0-9]+)", device)
     if not matched:
-        raise NotGetNbdNumber(f"Can not get the nbd number for device: {device}")
+        raise NotGetNbdNumber("Can not get the nbd number")
     number = matched.group(1)
     return PERSISTENT_INFO_DIR + "/" + number
 

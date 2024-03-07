@@ -105,7 +105,7 @@ class TestGetPersistentConnectInfoFilename(unittest.TestCase):
     def test_get_persistent_connect_info_filename(self):
         # Test for device /dev/nbd0
         device = "/dev/nbd0"
-        expected_filename = f"{nbd_client_manager.PERSISTENT_INFO_DIR}/0"
+        expected_filename = "/var/run/nonpersistent/nbd/0"
         self.assertEqual(nbd_client_manager._get_persistent_connect_info_filename(device),
                          expected_filename)
 
