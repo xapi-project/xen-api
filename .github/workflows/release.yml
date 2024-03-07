@@ -30,7 +30,7 @@ jobs:
           make python
 
       - name: Store python distribution artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: XenAPI
           path: scripts/examples/python/dist/
@@ -47,25 +47,25 @@ jobs:
     needs: [build-python, build-sdks]
     steps:
       - name: Retrieve Python SDK distribution artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: XenAPI
           path: dist/
 
       - name: Retrieve C# SDK distribution artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Binaries_CSharp
           path: dist/
 
       - name: Retrieve PowerShell 5.x SDK distribution artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Binaries_XenServerPowerShell_NET45
           path: sdk_powershell_5x/
 
       - name: Retrieve PowerShell 7.x SDK distribution artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Binaries_XenServerPowerShell_NET6
           path: sdk_powershell_7x/
@@ -96,7 +96,7 @@ jobs:
       id-token: write
     steps:
       - name: Retrieve python distribution artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: XenAPI
           path: dist/

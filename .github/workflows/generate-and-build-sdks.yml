@@ -25,13 +25,13 @@ jobs:
         run: opam exec -- make sdk
 
       - name: Store C# SDK source
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SDK_Source_CSharp
           path: _build/install/default/xapi/sdk/csharp/*
 
       - name: Store PowerShell SDK source
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SDK_Source_PowerShell
           path: _build/install/default/xapi/sdk/powershell/*
@@ -49,7 +49,7 @@ jobs:
         run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Retrieve C# SDK source
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Source_CSharp
           path: source/
@@ -64,7 +64,7 @@ jobs:
           --verbosity=normal
 
       - name: Store C# SDK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SDK_Binaries_CSharp
           path: source/src/bin/Release/XenServer.NET.${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned.nupkg
@@ -81,13 +81,13 @@ jobs:
         run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Retrieve PowerShell SDK source
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Source_PowerShell
           path: source/
 
       - name: Retrieve C# SDK binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Binaries_CSharp
           path: csharp/
@@ -135,7 +135,7 @@ jobs:
           ForEach-Object -Process { Copy-Item -Verbose $_.FullName -Destination "output" }
 
       - name: Store PowerShell SDK (.NET Framework 4.5)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SDK_Binaries_XenServerPowerShell_NET45
           path: output/**/*
@@ -155,13 +155,13 @@ jobs:
         run: echo "XAPI_VERSION_NUMBER=$("${{ inputs.xapi_version }}".TrimStart('v'))" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Retrieve PowerShell SDK source
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Source_PowerShell
           path: source/
 
       - name: Retrieve C# SDK binaries
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: SDK_Binaries_CSharp
           path: csharp/
@@ -205,7 +205,7 @@ jobs:
           ForEach-Object -Process { Copy-Item -Verbose $_.FullName -Destination "output" }
 
       - name: Store PowerShell SDK (.NET ${{ matrix.dotnet }})
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: SDK_Binaries_XenServerPowerShell_NET${{ matrix.dotnet }}
           path: output/**/*
