@@ -1,17 +1,25 @@
 #
-# Configuration of pre-commit, a Python framework for git hooks.
-# pre-commit is run for each git push by GitHub CI. It can run
-# locally as well for early feedback and automatic formatting
-# like trailing whitespace removal (to be configured later):
+# This is the configuration file of the pre-commit framework for this repository:
+# https://pypi.org/project/pre-commit / https://pre-commit.com
 #
-## For only installing the package itself, run:
-# pip3 install pre-commit
+# It is a Python framework for managing and multi-language pre-commit hooks.
+# pre-commit runs in the GitHub Workflow of this project, and
+# it can be run locally as well for early feedback and e.g. formatting checks.
 #
-## For activating it as a pre-commit and pre-push hook (recommended):
-# pre-commit install --hook-type pre-push --hook-type pre-commit
+# For only installing the package itself, run:
+# $ pip3 install pre-commit
 #
-## For manually executing the pre-push hook:
-# pre-commit run -av --hook-stage pre-push
+# On the initial run, pre-commit downloads its checkers, subsequent runs are fast:
+#
+# $ pre-commit run    # automatically checks which checks are needed.
+# $ pre-commit run -a # runs all fixes and checks, even when not needed#
+#
+# When this works, you can enable it as the pre-commit hook for this git clone:
+# $ pre-commit install
+# $ pre-commit install --hook-type pre-push
+#
+# You can skip checks if you commit very often you don't want them to run, e.g:
+# export SKIP=pytest;git commit -m "quick save" (or for --amend)
 #
 default_stages: [commit, push]
 repos:
@@ -29,18 +37,99 @@ repos:
     -   id: check-executables-have-shebangs
         exclude: ocaml
 
-# Recommendation for a minimal git pre-push hook:
-# While using pre-commit yields great results, it
-# is "not fast". Therefore only run it pre-push,
-# (but always in GitHub CI of course):
 #
-# Calls ./pytype_reporter.py in a dedicated venv:
-# pre-commit run -av --hook-stage push
+# Improve Python formatting incrementally:
+# https://dev.to/akaihola/improving-python-code-incrementally-3f7a
+#
+# darker checks if staged python changes are formatted according using
+# the PEP8-aligned black formatter. It also checks if the imports are sorted.
+#
+# It is a good idea to run this before committing, and it is also run in the
+# GitHub Workflow.
+#
+# Note: darker only checks the changes in files ending in .py!
+# Python scripts that don't end in .py should be renamed to have the .py extension
+# when moving them to python3/bin.
+# (remove the .py extension in the Makefile when installing the file)
+#
+-   repo: https://github.com/akaihola/darker
+    rev: 1.7.3
+    hooks:
+    -   id: darker
+        files: python3/
+        name: check changes in Python3 tree using darker and isort
+        args: [--diff, --skip-string-normalization, --isort, -tpy36]
+        additional_dependencies: [isort]
+
+#
+# Run pytest and diff-cover to check that the new /python3 test suite in passes.
+# This hook uses a local venv containing the required dependencies. When adding
+# new dependencies, they should be added to the additional_dependencies below.
+#
+-   repo: local
+    hooks:
+    -   id: pytest
+        files: python3/
+        name: check that the Python3 test suite in passes
+        entry: env PYTHONDEVMODE=yes sh -c 'python3 -m pytest -vv &&
+            diff-cover --ignore-whitespace --compare-branch=origin/master
+            --show-uncovered --html-report .git/coverage-diff.html
+            --fail-under 50 .git/coverage.xml'
+        require_serial: true
+        pass_filenames: false
+        language: python
+        types: [python]
+        additional_dependencies:
+        - coverage
+        - diff-cover
+        - future
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pytest-coverage
+        - pytest-mock
+        - mock
+        - wrapt
+        - XenAPI
+
+
+-   repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.352
+    hooks:
+    -   id: pyright
+        name: check that python3 tree passes pyright/VSCode check
+        files: python3/
+        additional_dependencies:
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pytest
+        - mock
+
+
+# Check that pylint passes for the changes in new /python3 code.
+-   repo: local
+    hooks:
+    -   id: pylint
+        files: python3/
+        stages: [push]
+        name: check that changes to python3 tree pass pylint
+        entry: diff-quality --violations=pylint
+            --ignore-whitespace --compare-branch=origin/master
+        pass_filenames: false
+        language: python
+        types: [python]
+        additional_dependencies: [diff-cover, pylint, pytest]
+
+
+# pre-push hook (it only runs if you install pre-commit as a pre-push hook):
 -   repo: local
     hooks:
     -   id: pytype
-        name: pytype
-        entry: python3 pytype_reporter.py
+        # It can be manually tested using: `pre-commit run -av --hook-stage push`
+        name: '[push, may be slow] run pytype_reporter.py for errors in python3/'
+        files: python3/
+        entry: ./pytype_reporter.py
         pass_filenames: false
         types: [python]
         stages: [push]
@@ -53,4 +142,11 @@ repos:
         # developers have such version installed, it can be configured here:
         # language_version: python3.11
         require_serial: true
-        additional_dependencies: [pandas, pytype]
+        additional_dependencies:
+        - future
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pandas
+        - pytest
+        - pytype
