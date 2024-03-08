@@ -81,7 +81,12 @@ let key_of_path path =
   let* key =
     Filename.basename key_dir
     |> int_of_string_opt
-    |> Option.map Types.Tpm.deserialize_key
+    |> Option.map (fun e ->
+           Types.Tpm.deserialize_key e
+           |> Result.map_error (fun msg -> D.info "Invalid key found: %s" msg)
+           |> Result.to_option
+       )
+    |> Option.join
   in
   let* timestamp =
     Filename.basename path
