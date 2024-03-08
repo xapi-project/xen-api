@@ -47,6 +47,7 @@ disable = [
     "import-error",
     "unnecessary-pass",
     "unspecified-encoding",
+    "protected-access",
 ]
 
 [tool.mypy]

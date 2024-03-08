@@ -14,9 +14,6 @@ nbd_client_manager = get_module("nbd_client_manager", "../libexec/nbd_client_man
 # mock modules to avoid dependencies
 sys.modules["XenAPI"] = MagicMock()
 
-# pylint: disable=protected-access
-# pylint: disable=missing-function-docstring
-# pylint: disable=missing-class-docstring
 @patch('subprocess.Popen')
 class TestCallFunction(unittest.TestCase):
 
