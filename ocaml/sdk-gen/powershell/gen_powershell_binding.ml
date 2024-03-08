@@ -19,8 +19,6 @@ end)
 
 let destdir = "autogen/src"
 
-let templdir = "templates"
-
 type cmdlet = {filename: string; content: string}
 
 let api =
@@ -173,14 +171,14 @@ and gen_arg_param = function
           else
             ""
         )
-        (pascal_case_ x)
+        (pascal_case_rec x)
   | Int64_query_arg x ->
       sprintf "\n        [Parameter]\n        public long? %s { get; set; }\n"
-        (pascal_case_ x)
+        (pascal_case_rec x)
   | Bool_query_arg x ->
       let y = if x = "host" then "is_host" else x in
       sprintf "\n        [Parameter]\n        public bool? %s { get; set; }\n"
-        (pascal_case_ y)
+        (pascal_case_rec y)
   | Varargs_query_arg ->
       sprintf
         "\n\
@@ -216,12 +214,12 @@ and gen_call_arg_params args =
 
 and gen_call_arg_param = function
   | String_query_arg x ->
-      sprintf ", %s" (pascal_case_ x)
+      sprintf ", %s" (pascal_case_rec x)
   | Int64_query_arg x ->
-      sprintf ", %s" (pascal_case_ x)
+      sprintf ", %s" (pascal_case_rec x)
   | Bool_query_arg x ->
       let y = if x = "host" then "is_host" else x in
-      sprintf ", %s" (pascal_case_ y)
+      sprintf ", %s" (pascal_case_rec y)
   | Varargs_query_arg ->
       sprintf ", Args"
 
@@ -553,15 +551,6 @@ and print_methods_constructor message obj classname =
     )
     (gen_shouldprocess "New" message classname)
     (gen_csharp_api_call message classname "New" "passthru")
-
-and create_param_parse param paramName =
-  match param.param_type with
-  | Ref _ ->
-      sprintf "\n            string %s = %s.opaque_ref;\n"
-        (String.lowercase_ascii param.param_name)
-        paramName
-  | _ ->
-      ""
 
 and gen_make_record obj classname =
   sprintf
@@ -1146,37 +1135,6 @@ and print_cmdlet_methods_dynamic classname messages enum commonVerb =
         (ocaml_class_to_csharp_class classname)
         enum (cut_message_name hd) (cut_message_name hd) localVar
         (print_cmdlet_methods_dynamic classname tl enum commonVerb)
-
-and print_async_param_getter classname asyncMessages =
-  let properties =
-    List.map
-      (fun x ->
-        sprintf "                    case Xen%sProperty.%s:"
-          (ocaml_class_to_csharp_class classname)
-          x
-      )
-      asyncMessages
-  in
-  match asyncMessages with
-  | [] ->
-      ""
-  | _ ->
-      sprintf
-        "\n\
-        \        protected override bool GenerateAsyncParam\n\
-        \        {\n\
-        \            get\n\
-        \            {\n\
-        \                switch (XenProperty)\n\
-        \                {\n\
-         %s\n\
-        \                        return true;\n\
-        \                    default:\n\
-        \                        return false;\n\
-        \                }\n\
-        \            }\n\
-        \        }\n"
-        (String.concat "\n" properties)
 
 (**************************************)
 (* Common to more than one generators *)

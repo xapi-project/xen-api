@@ -1,18 +1,18 @@
 /*
  * Copyright (c) Cloud Software Group, Inc.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -29,30 +29,38 @@
 
 package com.xensource.xenapi;
 
-import java.util.Set;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
- * Class used to map the output of Event.from().
- *
- * @author Cloud Software Group, Inc.
+ * Represents the payload of a request sent to a
+ * JSON-RPC v2.0 backend.
  */
-public class EventBatch
-{
-    /**
-     * The events returned by Event.from().
-     */
-    public Set<Event.Record> events;
+public class JsonRpcRequest {
+    @JsonProperty("jsonrpc")
+    public String jsonRpc;
+    public int id;
+    public String method;
+    @JsonProperty("params")
+    public Object[] parameters;
 
-    /**
-     * The number of valid objects of all types in the database.
-     */
-    @JsonProperty("valid_ref_counts")
-    public Object validRefCounts;
+    public JsonRpcRequest(String method, Object[] parameters) {
+        this.method = method;
+        this.parameters = parameters;
+        this.jsonRpc = "2.0";
+        this.id = 1;
+    }
 
-    /**
-     * A token that can be used in subsequent calls of Event.from().
-     * It represents the point from which to generate database events.
-     */
-    public String token;
+    @Override
+    public String toString() {
+        try {
+            var mapper = new ObjectMapper();
+            mapper.enable(SerializationFeature.INDENT_OUTPUT);
+            return mapper.writeValueAsString(this);
+        } catch (JsonProcessingException ex) {
+            return "Error while processing object. Could not serialize as JSON.";
+        }
+    }
 }
