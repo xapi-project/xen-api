@@ -255,10 +255,22 @@ let is_device_underneath_same_type ~__context pif1 pif2 =
   in
   get_device_info pif1 = get_device_info pif2
 
+let get_non_link_ipv6 ~__context ~pif =
+  let valid_nonlink ipv6 =
+    let open Ipaddr.V6 in
+    ipv6
+    |> Prefix.of_string
+    |> Result.to_option
+    |> Fun.flip Option.bind @@ fun cidr ->
+       let addr = Prefix.address cidr in
+       match scope addr with Ipaddr.Link -> None | _ -> Some (to_string addr)
+  in
+  List.filter_map valid_nonlink (Db.PIF.get_IPv6 ~__context ~self:pif)
+
 let get_primary_address ~__context ~pif =
   match Db.PIF.get_primary_address_type ~__context ~self:pif with
   | `IPv4 -> (
     match Db.PIF.get_IP ~__context ~self:pif with "" -> None | ip -> Some ip
   )
   | `IPv6 ->
-      List.nth_opt (Db.PIF.get_IPv6 ~__context ~self:pif) 0
+      List.nth_opt (get_non_link_ipv6 ~__context ~pif) 0

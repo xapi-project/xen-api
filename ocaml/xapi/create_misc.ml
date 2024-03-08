@@ -567,6 +567,7 @@ let create_host_cpu ~__context host_info =
         [
           ("cpu_count", string_of_int cpu_info.cpu_count)
         ; ("socket_count", string_of_int cpu_info.socket_count)
+        ; ("threads_per_core", string_of_int cpu_info.threads_per_core)
         ; ("vendor", cpu_info.vendor)
         ; ("speed", cpu_info.speed)
         ; ("modelname", cpu_info.modelname)
@@ -592,10 +593,11 @@ let create_host_cpu ~__context host_info =
       let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
       debug
         "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, \
-         cpu_count=%d, features_hvm=%s, features_pv=%s, features_hvm_host=%s, \
-         features_pv_host=%s"
+         cpu_count=%d, threads_per_core=%d, features_hvm=%s, features_pv=%s, \
+         features_hvm_host=%s, features_pv_host=%s"
         (Map_check.getf socket_count cpu)
         (Map_check.getf cpu_count cpu)
+        (Map_check.getf threads_per_core cpu)
         (Map_check.getf features_hvm cpu |> CPU_policy.to_string)
         (Map_check.getf features_pv cpu |> CPU_policy.to_string)
         (Map_check.getf features_hvm_host cpu |> CPU_policy.to_string)

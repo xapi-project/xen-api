@@ -79,21 +79,7 @@ let rec main () =
     |> List.map gen_http_action
   in
   let all_cmdlets = cmdlets @ http_cmdlets in
-  List.iter (fun x -> write_file x.filename x.content) all_cmdlets ;
-
-  let fnames = all_cmdlets |> List.map (fun x -> x.filename) in
-  let sorted_members = List.sort String.compare fnames in
-  let json =
-    `O
-      [
-        ( "cmdlets"
-        , `A (List.map (fun x -> `O [("cmdlet", `String x)]) sorted_members)
-        )
-      ]
-  in
-  render_file
-    ("XenServerPowerShell.csproj.mustache", "XenServerPowerShell.csproj")
-    json templdir destdir
+  List.iter (fun x -> write_file x.filename x.content) all_cmdlets
 
 (****************)
 (* Http actions *)
