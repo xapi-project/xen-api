@@ -95,7 +95,7 @@ jobs:
       # Following needed for restoring packages
       # when calling dotnet add package
       - name: Set up dotnet CLI (.NET 6.0 and 8.0)
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: |
             6
@@ -167,7 +167,7 @@ jobs:
           path: csharp/
 
       - name: Set up dotnet CLI (.NET ${{ matrix.dotnet }})
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ matrix.dotnet }}
 
