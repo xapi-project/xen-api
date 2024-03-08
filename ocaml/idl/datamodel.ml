@@ -2057,7 +2057,10 @@ module Bond = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
       ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond
-      ~descr:"" ~gen_events:true ~doccomments:[]
+      ~descr:
+        "A Network bond that combines physical network interfaces, also known \
+         as link aggregation"
+      ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[create; destroy; set_mode; set_property]
       ~contents:

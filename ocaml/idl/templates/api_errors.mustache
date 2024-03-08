@@ -9,15 +9,19 @@ or RPC level, the server may send an HTTP 500 error response, or the client
 may simulate the same. The client must be prepared to handle these errors,
 though they may be treated as fatal.
 
-On the wire, these are transmitted in a form similar to this when using the
-XML-RPC protocol:
+For example, the following malformed request when using the XML-RPC protocol:
 
-```
+```sh
 $curl -D - -X POST https://server -H 'Content-Type: application/xml' \
 > -d '<?xml version="1.0"?>
 > <methodCall>
 >   <methodName>session.logout</methodName>
 > </methodCall>'
+```
+
+results to the following response:
+
+```sh
 HTTP/1.1 500 Internal Error
 content-length: 297
 content-type:text/html
@@ -32,13 +36,18 @@ t;close_tag&quot;, &quot;open_tag&quot;, _)</body></html>
 
 When using the JSON-RPC protocol:
 
-```
+```sh
 $curl -D - -X POST https://server/jsonrpc -H 'Content-Type: application/json' \
 > -d '{
 >     "jsonrpc": "2.0",
 >     "method": "session.login_with_password",
 >     "id": 0
 > }'
+```
+
+the response is:
+
+```sh
 HTTP/1.1 500 Internal Error
 content-length: 308
 content-type:text/html
@@ -52,7 +61,7 @@ d_request(&quot;{jsonrpc=...,method=...,id=...}&quot;)</body></html>
 ```
 
 All other failures are reported with a more structured error response, to
-allow better automatic response to failures, proper internationalisation of
+allow better automatic response to failures, proper internationalization of
 any error message, and easier debugging.
 
 On the wire, these are transmitted like this when using the XML-RPC protocol:

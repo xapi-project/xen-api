@@ -185,7 +185,10 @@ let generate_class cls =
                        ( "field_name"
                        , `String
                            (pad_right
-                              (escape (Datamodel_utils.wire_name_of_field field))
+                              ("`"
+                              ^ Datamodel_utils.wire_name_of_field field
+                              ^ "`"
+                              )
                               col_width_20
                            )
                        )
@@ -298,7 +301,8 @@ let generate_class cls =
                                     [
                                       ( "param_name"
                                       , `String
-                                          (pad_right (escape p.param_name)
+                                          (pad_right
+                                             ("`" ^ p.param_name ^ "`")
                                              col_width_30
                                           )
                                       )
@@ -357,7 +361,7 @@ let generate_types system =
                  | Enum (name, options) ->
                      `O
                        [
-                         ("enum", `String (pad_right name (col_width_40 - 5)))
+                         ("enum", `String name)
                        ; ( "enum_options"
                          , `A
                              (options
