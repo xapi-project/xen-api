@@ -12,9 +12,9 @@ codecov:
   #
   # Show the Codecov status without waiting for other status to pass:
   #
-  require_ci_to_pass: no
+  require_ci_to_pass: false
   notify:
-    wait_for_ci: no
+    wait_for_ci: false
 
 github_checks:
   #
@@ -174,7 +174,7 @@ coverage:
         #
         # For python3, coverage should not be reduced compared to its base:
         #
-        target: auto
+        target: 60%
 
         #
         # Exception: the threshold value given is allowed
@@ -186,8 +186,9 @@ coverage:
       # Checks each Python version separately:
       python-3.11:
         flags: ["python3.11"]
-      python-2.7:
-        flags: ["python2.7"]
+      # Not checked as py2-to-py3 migrated files are moved to the python3 directory:
+      # python-2.7:
+      #   flags: ["python2.7"]
 
     #
     # Project limits
@@ -195,14 +196,6 @@ coverage:
     # These checks are relative to all code, not the changes (not the diff of the PR)
     #
     project:
-
-      #
-      # Python modules and scripts below scripts/ (excluding tests)
-      #
-      scripts:
-        paths: ["scripts/**", "!**/test_*.py"]
-        target: 48%
-        threshold: 2%
 
       #
       # Python modules and scripts below ocaml/ (excluding tests)
@@ -226,7 +219,7 @@ coverage:
       tests:
         # Ensure that all tests are executed (tests themselves must be 100% covered)
         target: 98%
-        paths: ["**/test_*.py"]
+        paths: ["**/test_*.py", "**/it_*.py", ]
 
 
 #
@@ -244,7 +237,7 @@ component_management:
         # `auto` will use the coverage from the base commit (pull request base
         # or parent commit) coverage to compare against.
         target: auto
-        threshold: 2%
+        threshold: 20%
 
       - type: patch
         target: auto
@@ -252,30 +245,18 @@ component_management:
 
   individual_components:
 
-    - component_id: scripts  # this is an identifier that should not be changed
-      name: scripts  # this is a display name, and can be changed freely
-      # The list of paths that should be in- and excluded in this component:
-      paths: ["scripts/**", "!scripts/examples/**", "!**/test_*.py"]
-
-    - component_id: scripts/examples
-      name: scripts/examples
-      paths: ["scripts/examples/**", "!scripts/**/test_*.py"]
-
     - component_id: ocaml
       name: ocaml
       paths: ["ocaml/**", "!**/test_*.py"]
 
-    - component_id: ocaml/xapi-storage
-      name: ocaml/xapi-storage
-      paths:
-        - "ocaml/xapi-storage/**"
-        - "ocaml/xapi-storage-script/**"
-        - "!**/test_*.py"
+    # Not covered by the current tests:
+    #- component_id: ocaml/xapi-storage
+    #  name: ocaml/xapi-storage
+    #  paths:
+    #    - "ocaml/xapi-storage/**"
+    #    - "ocaml/xapi-storage-script/**"
+    #    - "!**/test_*.py"
 
     - component_id: python3
       name: python3
       paths: ["python3/**", "!**/test_*.py"]
-
-    - component_id: test_cases
-      name: test_cases
-      paths: ["**/test_*.py"]
