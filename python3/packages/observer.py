@@ -41,7 +41,7 @@ from typing import List, Sequence
 # We only want to import opentelemetry libraries if instrumentation is enabled
 # pylint: disable=import-outside-toplevel
 
-DEBUG_ENABLED = False
+DEBUG_ENABLED = os.getenv("OBSERVER_DEBUG")
 DEFAULT_MODULES = "LVHDSR,XenAPI,SR,SRCommand,util"
 FORMAT = "observer.py: %(message)s"
 handler = SysLogHandler(facility="local5", address="/dev/log")
@@ -401,18 +401,25 @@ def main():
             return 0
         except FileNotFoundError as e:
             print(
-                f"{__file__}: {' '.join(sys.argv)}\n{e.filename}: No such file",
+                f"{__file__} {' '.join(sys.argv)}:\nScript not found: {e.filename}",
                 file=sys.stderr,
             )
             return 2
-        except Exception:
-            print(
-                f"{__file__}: {' '.join(sys.argv)}\n{traceback.format_exc()}",
-                file=sys.stderr)
+        except Exception as e:
+            print(f"{__file__} {' '.join(sys.argv)}:", file=sys.stderr)  # the command
+            print("Exception in the traced script:", file=sys.stderr)
+            print(e, file=sys.stderr)  # Print the exception message
+            print(traceback.format_exc(), file=sys.stderr)  # Print the traceback
             return 139  # This is what the default SIGSEGV handler on Linux returns
 
     return run(argv0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Only use sys.exit(ret) raising SystemExit() if the return code is not 0
+    # to allow test_observer_as_script() to get the globals of observer.py:
+
+    exit_code = main()  # pylint: disable=invalid-name
+    logging.shutdown()  # Reduces the unclosed socket warnings by PYTHONDEVMODE=yes
+    if exit_code:
+        sys.exit(exit_code)
