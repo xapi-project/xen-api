@@ -22,7 +22,7 @@ jobs:
 
       - name: Load environment file
         id: dotenv
-        uses: falti/dotenv-action@v1.0.4
+        uses: falti/dotenv-action@v1
 
       - name: Update Ubuntu repositories
         run: sudo apt-get update
