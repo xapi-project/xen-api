@@ -21,14 +21,14 @@ jobs:
         python-version: ["2.7", "3.11"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0 # To check which files changed: origin/master..HEAD
       - uses: LizardByte/setup-python-action@master
         with:
           python-version: ${{matrix.python-version}}
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         name: Setup cache for running pre-commit fast
         with:
           path: ~/.cache/pre-commit
@@ -128,7 +128,7 @@ jobs:
       XAPI_VERSION: "v0.0.0"
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup XenAPI environment
         uses: ./.github/workflows/setup-xapi-environment
@@ -165,7 +165,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate empty configuration for make to be happy
         run: touch config.mk
