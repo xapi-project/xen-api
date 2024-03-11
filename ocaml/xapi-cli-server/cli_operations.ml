@@ -1329,6 +1329,11 @@ let gen_cmds rpc session_id =
           ]
           rpc session_id
       )
+    ; Client.PCI.(
+        mk get_all_records_where get_by_uuid pci_record "pci" []
+          ["uuid"; "vendor-name"; "device-name"; "pci-id"]
+          rpc session_id
+      )
     ]
 
 let message_create (_ : printer) rpc session_id params =
@@ -7471,6 +7476,26 @@ let lvhd_enable_thin_provisioning _printer rpc session_id params =
        )
        params
        ["sr-uuid"; "initial-allocation"; "allocation-quantum"]
+    )
+
+let pci_enable_dom0_access _printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  Client.PCI.enable_dom0_access ~rpc ~session_id ~self:ref
+
+let pci_disable_dom0_access _printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  Client.PCI.disable_dom0_access ~rpc ~session_id ~self:ref
+
+let is_dom0_access_enabled printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  printer
+    (Cli_printer.PMsg
+       (Bool.to_string
+          (Client.PCI.is_dom0_access_enabled ~rpc ~session_id ~self:ref)
+       )
     )
 
 module PVS_site = struct

@@ -319,3 +319,10 @@ let get_system_display_device () =
       )
       None items
   with _ -> None
+
+let disable_dom0_access ~__context ~self = Pciops.hide_pci ~__context self
+
+let enable_dom0_access ~__context ~self = Pciops.unhide_pci ~__context self
+
+let is_dom0_access_enabled ~__context ~self =
+  not (Pciops.is_pci_hidden ~__context self)

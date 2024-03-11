@@ -6519,12 +6519,39 @@ end
 (** PCI devices *)
 
 module PCI = struct
+  let disable_dom0_access =
+    call ~name:"disable_dom0_access" ~lifecycle:[]
+      ~doc:
+        "Hide a PCI device from the dom0 kernel. (Takes affect after next \
+         boot.)"
+      ~params:[(Ref _pci, "self", "The PCI to hide")]
+      ~allowed_roles:_R_POOL_OP ()
+
+  let enable_dom0_access =
+    call ~name:"enable_dom0_access" ~lifecycle:[]
+      ~doc:
+        "Unhide a PCI device from the dom0 kernel. (Takes affect after next \
+         boot.)"
+      ~params:[(Ref _pci, "self", "The PCI to unhide")]
+      ~allowed_roles:_R_POOL_OP ()
+
+  let is_dom0_access_enabled =
+    call ~name:"is_dom0_access_enabled" ~lifecycle:[]
+      ~doc:
+        "Returns whether the PCI device is accessible from the dom0 kernel on \
+         boot."
+      ~params:[(Ref _pci, "self", "The PCI")]
+      ~result:(Bool, "Whether the PCI is accessible from the dom0 kernel")
+      ~allowed_roles:_R_POOL_OP ()
+
   let t =
     create_obj ~name:_pci ~descr:"A PCI device" ~doccomments:[]
       ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
       ~lifecycle:[(Published, rel_boston, "")]
-      ~messages:[] ~messages_default_allowed_roles:_R_POOL_OP
-      ~persist:PersistEverything ~in_oss_since:None ~db_logging:Log_destroy
+      ~messages:
+        [disable_dom0_access; enable_dom0_access; is_dom0_access_enabled]
+      ~messages_default_allowed_roles:_R_POOL_OP ~persist:PersistEverything
+      ~in_oss_since:None ~db_logging:Log_destroy
       ~contents:
         [
           uid _pci ~lifecycle:[(Published, rel_boston, "")]
