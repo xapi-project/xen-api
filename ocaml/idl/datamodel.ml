@@ -2057,7 +2057,10 @@ module Bond = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
       ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond
-      ~descr:"" ~gen_events:true ~doccomments:[]
+      ~descr:
+        "A Network bond that combines physical network interfaces, also known \
+         as link aggregation"
+      ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[create; destroy; set_mode; set_property]
       ~contents:
@@ -5985,7 +5988,7 @@ module DR_task = struct
           )
         ; (Set String, "whitelist", "The devices to use for disaster recovery")
         ]
-      ~result:(Ref _dr_task, "The reference to the created task")
+      ~result:(Ref _dr_task, "The reference of the created DR_task")
       ~doc:
         "Create a disaster recovery task which will query the supplied list of \
          devices"
@@ -6202,7 +6205,7 @@ module Blob = struct
           }
         ]
       ~doc:"Create a placeholder for a binary blob" ~flags:[`Session]
-      ~result:(Ref _blob, "The reference to the created blob")
+      ~result:(Ref _blob, "The reference of the created blob")
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
@@ -6889,7 +6892,8 @@ module GPU_group = struct
           ; param_default= Some (VMap [])
           }
         ]
-      ~result:(Ref _gpu_group, "") ~allowed_roles:_R_POOL_OP ()
+      ~result:(Ref _gpu_group, "The reference of the created GPU_group")
+      ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy"
@@ -7041,7 +7045,7 @@ module VGPU = struct
           ; param_default= Some (VRef null_ref)
           }
         ]
-      ~result:(Ref _vgpu, "reference to the newly created object")
+      ~result:(Ref _vgpu, "The reference of the created VGPU object")
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
@@ -7356,7 +7360,7 @@ module PVS_proxy = struct
 
   let create =
     call ~name:"create" ~doc:"Configure a VM/VIF to use a PVS proxy"
-      ~result:(Ref _pvs_proxy, "the new PVS proxy")
+      ~result:(Ref _pvs_proxy, "The reference of the created PVS proxy")
       ~params:
         [
           (Ref _pvs_site, "site", "PVS site that we proxy for")
@@ -7626,7 +7630,8 @@ module USB_group = struct
           ; param_default= Some (VMap [])
           }
         ]
-      ~result:(Ref _usb_group, "") ~allowed_roles:_R_POOL_ADMIN ()
+      ~result:(Ref _usb_group, "The reference of the created USB_group")
+      ~allowed_roles:_R_POOL_ADMIN ()
 
   let destroy =
     call ~name:"destroy" ~lifecycle

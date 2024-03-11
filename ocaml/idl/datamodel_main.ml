@@ -86,7 +86,7 @@ let _ =
   in
 
   if !markdown_mode then
-    Markdown_backend.all api !dirname ;
+    Markdown_backend.all api ;
 
   if !dirname <> "" then Unix.chdir !dirname ;
   if !dot_mode then

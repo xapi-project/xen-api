@@ -74,15 +74,20 @@ schema:
 	dune runtest ocaml/idl
 
 doc:
-	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
+#html
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
 	mkdir -p $(XAPIDOC)/html
 	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
 	cp _build/default/ocaml/doc/branding.js $(XAPIDOC)/html
 	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css $(XAPIDOC)/html
-	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
-	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
+#markdown
+	dune build --profile=$(PROFILE) -f @ocaml/idl/markdowngen
+	mkdir -p $(XAPIDOC)/markdown
+	cp -r _build/default/ocaml/idl/autogen/*.md $(XAPIDOC)/markdown
+	cp -r _build/default/ocaml/idl/autogen/*.yml $(XAPIDOC)/markdown
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
+#other
+	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 # Build manpages, networkd generated these
 	dune build --profile=$(PROFILE) -f @man
 

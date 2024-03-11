@@ -30,11 +30,22 @@
   (modules datamodel_main dot_backend dtd_backend markdown_backend)
   (libraries
     dune-build-info
+    mustache
     xapi-datamodel
     xapi-stdext-std
     xapi-stdext-pervasives
     xapi-stdext-unix
   )
+)
+
+(rule
+  (alias markdowngen)
+  (deps
+    (:x datamodel_main.exe)
+    (source_tree templates)
+  )
+  (package xapi-datamodel)
+  (action (run %{x} -closed -markdown))
 )
 
 (test
