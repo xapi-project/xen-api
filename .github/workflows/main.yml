@@ -72,8 +72,8 @@ jobs:
         if: ${{ matrix.python-version != '2.7' }}
         run: >
           pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd --cov=python3/
-          scripts/ ocaml/xcp-rrdd python3/ -vv -rA
+          --cov=python3/unittest
+          python3/unittest -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml

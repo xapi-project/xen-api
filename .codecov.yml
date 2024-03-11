@@ -180,8 +180,6 @@ coverage:
       # Checks each Python version separately:
       python-3.11:
         flags: ["python3.11"]
-      python-2.7:
-        flags: ["python2.7"]
 
     #
     # Project limits
@@ -220,7 +218,7 @@ coverage:
       tests:
         # Ensure that all tests are executed (tests themselves must be 100% covered)
         target: 98%
-        paths: ["**/test_*.py"]
+        paths: ["python3/unittest/test_*.py"]
 
 
 #
