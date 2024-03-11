@@ -196,4 +196,3 @@ endif
 	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
 # uefi
 	mkdir -p $(DESTDIR)/etc/xapi.d/efi-clone
-
