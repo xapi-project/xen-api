@@ -62,11 +62,7 @@ let unlink_safe file =
 
 type valid_file = t * string
 
-type file =
-  | Latest of valid_file
-  | Outdated of valid_file
-  | Temporary of string
-  | Invalid of string
+type file = Latest of valid_file | Outdated of valid_file | Invalid of string
 
 let print_key (uuid, timestamp, key) =
   Uuidm.to_string uuid
@@ -96,24 +92,17 @@ let key_of_path path =
   in
   Some ((uuid, timestamp, key), path)
 
-let path_is_temp path =
-  let pathlen = String.length path in
-  String.ends_with ~suffix:".pre" path
-  && key_of_path (String.sub path 0 (pathlen - 4)) |> Option.is_some
-
-let temp_of_path path = path ^ ".pre"
+let only_latest = function
+  | Latest f ->
+      Either.Left f
+  | Outdated (_, p) | Invalid p ->
+      Right p
 
 let sort_updates contents =
   let classify elem =
     match key_of_path elem with
     | None ->
-        let file =
-          if path_is_temp elem then
-            Temporary elem
-          else
-            Invalid elem
-        in
-        Either.Right file
+        Either.Right (Invalid elem)
     | Some valid_file ->
         Either.Left valid_file
   in
@@ -158,7 +147,7 @@ let read_from ~filename =
 
 let persist_to ~filename:f_path ~contents =
   let atomic_write_to_file ~perm f =
-    let tmp_path = temp_of_path f_path in
+    let tmp_path = f_path ^ ".pre" in
     let dirname = Filename.dirname f_path in
     let flags = Unix.[O_WRONLY; O_CREAT; O_SYNC] in
     let* fd_tmp = Lwt_unix.openfile tmp_path flags perm in
@@ -291,16 +280,10 @@ end = struct
     let updates = sort_updates contents in
 
     (* 2. Pick latest *)
-    let only_latest = function
-      | Latest (_, p) ->
-          Either.Left p
-      | Temporary p | Outdated (_, p) | Invalid p ->
-          Right p
-    in
     let latest, _ = List.partition_map only_latest updates in
 
     (* 3. fall back to remote read if needed *)
-    let get_contents path =
+    let get_contents (_, path) =
       Lwt.catch (fun () -> read_from ~filename:path) (fun _ -> read_remote ())
     in
 
@@ -388,26 +371,10 @@ module Watcher : sig
 end = struct
   type push_cache = File of valid_file | Update_all | Wait
 
-  (* Outdated and invalid files can be deleted, keep temporary files just in case
-     they need to be recovered *)
-  let discarder = function
-    | Latest _ as f ->
-        Either.Left f
-    | Temporary _ as f ->
-        Left f
-    | Outdated (_, p) ->
-        Right p
-    | Invalid p ->
-        Right p
-
   let get_latest_and_delete_rest root =
     let* files = get_all_contents root in
-    let keep, to_delete = List.partition_map discarder files in
+    let latest, to_delete = List.partition_map only_latest files in
     let* () = Lwt_list.iter_p unlink_safe to_delete in
-    (* Ignore temporaty files *)
-    let latest =
-      List.filter_map (function Latest f -> Some f | _ -> None) keep
-    in
     Lwt.return latest
 
   let retry_push push (uuid, timestamp, key) contents =
@@ -554,15 +521,10 @@ end = struct
           ((uuid, timestamp, key) :: acc, Move {from; into})
         else
           ((uuid, timestamp, key) :: acc, Keep latest)
-    | Temporary _ as temp ->
-        (acc, Keep temp)
     | Invalid p | Outdated (_, p) ->
         (acc, Delete p)
 
   let commit __FUN = function
-    | Keep (Temporary p) ->
-        D.warn "%s: Found temporary file, ignoring '%s'" __FUN p ;
-        Lwt.return_unit
     | Keep _ ->
         Lwt.return_unit
     | Delete p ->
