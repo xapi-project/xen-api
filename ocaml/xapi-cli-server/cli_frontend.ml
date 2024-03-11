@@ -3683,6 +3683,33 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pci-enable-dom0-access"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Enable PCI access to dom0."
+      ; implementation= No_fd Cli_operations.pci_enable_dom0_access
+      ; flags= []
+      }
+    )
+  ; ( "pci-disable-dom0-access"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Disable PCI access to dom0."
+      ; implementation= No_fd Cli_operations.pci_disable_dom0_access
+      ; flags= []
+      }
+    )
+  ; ( "pci-get-dom0-access-status"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Return a PCI device's dom0 access status."
+      ; implementation= No_fd Cli_operations.get_dom0_access_status
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50

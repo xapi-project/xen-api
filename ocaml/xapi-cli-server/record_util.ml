@@ -737,7 +737,7 @@ let host_numa_affinity_policy_of_string = function
            ("Expected 'any', 'best_effort' or 'default_policy', got " ^ s)
         )
 
-let pgpu_dom0_access_to_string x = host_display_to_string x
+let pci_dom0_access_to_string x = host_display_to_string x
 
 let string_to_vdi_onboot s =
   match String.lowercase_ascii s with
