@@ -68,11 +68,12 @@ type file =
   | Temporary of string
   | Invalid of string
 
-let path_of_key root (uuid, timestamp, key) =
-  root
-  // Uuidm.to_string uuid
+let print_key (uuid, timestamp, key) =
+  Uuidm.to_string uuid
   // Types.Tpm.(serialize_key key |> string_of_int)
   // Mtime.(to_uint64_ns timestamp |> Int64.to_string)
+
+let path_of_key root key = root // print_key key
 
 let key_of_path path =
   let ( let* ) = Option.bind in
@@ -412,18 +413,29 @@ end = struct
   let retry_push push (uuid, timestamp, key) contents =
     let __FUN = __FUNCTION__ in
     let push' () = push (uuid, timestamp, key) contents in
-    let rec retry k =
+    let counter = Mtime_clock.counter () in
+    let rec retry is_first_try =
       let on_error e =
-        D.info "%s: Error on push, attempt %i. Reason: %s" __FUN k
-          (Printexc.to_string e) ;
+        if is_first_try then
+          D.debug "%s: Error on push, retrying. Reason: %s" __FUN
+            (Printexc.to_string e) ;
         let* () = Lwt_unix.sleep 0.1 in
-        retry (k + 1)
+        retry false
       in
       Lwt.try_bind push'
-        (function Ok () -> Lwt.return_unit | Error e -> on_error e)
+        (function
+          | Ok () -> Lwt.return (not is_first_try) | Error e -> on_error e
+          )
         on_error
     in
-    retry 1
+    let* failed = retry true in
+    ( if failed then
+        let elapsed = Mtime_clock.count counter in
+        D.debug "%s: Pushed %s after trying for %s" __FUN
+          (print_key (uuid, timestamp, key))
+          (Fmt.to_to_string Mtime.Span.pp elapsed)
+    ) ;
+    Lwt.return_unit
 
   let push_file push (key, path) =
     let __FUN = __FUNCTION__ in
