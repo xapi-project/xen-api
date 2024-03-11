@@ -38,8 +38,7 @@ install:
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
-	$(IDATA) xapi-logrotate.conf $(DESTDIR)$(ETCDIR)
-	$(IPROG) xapi-logrotate.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IDATA) xapi-logrotate.conf $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(BINDIR)
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(BINDIR)
 	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCDIR)/udhcpd.skel
@@ -140,8 +139,6 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	$(IPROG) license-check $(DESTDIR)/etc/cron.daily/
 	$(IPROG) certificate-check $(DESTDIR)/etc/cron.daily/
-	mkdir -p $(DESTDIR)/etc/cron.d
-	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
 # templates
 	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
