@@ -10,4 +10,5 @@ install:
 	mkdir -p $(DESTDIR)$(SITE3_DIR)
 
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
