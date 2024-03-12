@@ -5148,10 +5148,10 @@ let init () =
   let major, minor = look_for_xen () in
   look_for_xenctrl () ;
   if
-    major < "4" || ((major = "4" && minor < "2") && !Xenopsd.run_hotplug_scripts)
+    major < 4 || ((major = 4 && minor < 2) && !Xenopsd.run_hotplug_scripts)
   then (
     error
-      "This is xen version %s.%s. On all versions < 4.1 we must use \
+      "This is xen version %d.%d. On all versions < 4.2 we must use \
        hotplug/udev scripts"
       major minor ;
     error

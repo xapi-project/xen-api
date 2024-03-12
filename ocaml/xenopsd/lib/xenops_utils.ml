@@ -584,7 +584,7 @@ let _sys_hypervisor_version_major = "/sys/hypervisor/version/major"
 let _sys_hypervisor_version_minor = "/sys/hypervisor/version/minor"
 
 type hypervisor =
-  | Xen of string * string
+  | Xen of int * int
   (* major, minor *)
   | Other of string
 
@@ -601,7 +601,7 @@ let detect_hypervisor () =
         let minor =
           String.trim (Unixext.string_of_file _sys_hypervisor_version_minor)
         in
-        Some (Xen (major, minor))
+        Some (Xen (int_of_string major, int_of_string minor))
     | x ->
         Some (Other x)
   else
