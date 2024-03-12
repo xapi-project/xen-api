@@ -11,5 +11,6 @@ install:
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
 
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)

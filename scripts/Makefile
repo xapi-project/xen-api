@@ -127,7 +127,6 @@ install:
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
