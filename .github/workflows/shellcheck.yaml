@@ -1,0 +1,31 @@
+name: ShellCheck
+
+on:
+  pull_request:
+
+concurrency:  # On new push, cancel old workflows from the same PR, branch or tag:
+  group: sc-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # https://www.shellcheck.net/wiki/GitHub-Actions
+  # https://github.com/redhat-plumbers-in-action/differential-shellcheck?tab=readme-ov-file#usage
+  shell-test:
+    name: Differential ShellCheck
+    runs-on: ubuntu-latest
+
+    permissions:
+      security-events: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+            fetch-depth: 0
+
+# If needed severity levels can be controlled here
+#            severity: warning
+      - name: Differential ShellCheck
+        uses: redhat-plumbers-in-action/differential-shellcheck@v5
+        with:
+            token: ${{ secrets.GITHUB_TOKEN }}

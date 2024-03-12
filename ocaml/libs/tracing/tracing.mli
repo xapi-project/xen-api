@@ -153,6 +153,8 @@ module Export : sig
 
       val set_trace_log_dir : string -> unit
 
+      val get_trace_log_dir : unit -> string
+
       val set_compress_tracing_files : bool -> unit
     end
 

@@ -145,7 +145,7 @@ namespace XenAPI
 
             try
             {
-                shortError = errorDescriptions.GetString(ErrorDescription[0] + "-SHORT") ?? errorText;
+                shortError = errorDescriptions.GetString(ErrorDescription[0] + "_SHORT") ?? errorText;
             }
             catch (Exception)
             {

@@ -10,6 +10,7 @@
    rresult
    xapi-idl
    threads
+   ipaddr
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))

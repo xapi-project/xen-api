@@ -22,6 +22,7 @@ depends: [
   "domain-name"
   "ezxenstore"
   "fmt" {with-test}
+  "hex"
   "http-lib" {with-test} # the public library is only used for testing
   "ipaddr"
   "mirage-crypto" {with-test}
