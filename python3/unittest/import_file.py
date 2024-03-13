@@ -22,4 +22,4 @@ def get_module(module_name, file_path):
     """get the module from a file"""
     testdir = os.path.dirname(__file__)
     print(testdir)
-    return import_from_file(module_name, testdir + file_path)
+    return import_from_file(module_name, "{}/{}".format(testdir, file_path))

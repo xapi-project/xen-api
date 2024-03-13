@@ -60,7 +60,7 @@ jobs:
         if: ${{ matrix.python-version == '2.7' }}
         run: >
           pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd
+          --cov=ocaml/xcp-rrdd
           scripts/ ocaml/xcp-rrdd -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
