@@ -1,6 +1,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.xenserver</groupId>
     <artifactId>xen-api</artifactId>
@@ -8,16 +8,16 @@
     <packaging>jar</packaging>
     <name>XenServer Java SDK</name>
     <description>Mavenized build of the XenServer SDK for Java.</description>
-    <url>https://www.citrix.com/community/citrix-developer/citrix-hypervisor-developer</url>
+    <url>https://docs.xenserver.com/en-us/xenserver/8/developer</url>
     <organization>
         <name>Cloud Software Group, Inc.</name>
         <url>https://www.cloud.com</url>
     </organization>
     <licenses>
         <license>
-        <name>BSD 2-Clause License</name>
-        <url>http://opensource.org/licenses/BSD-2-Clause</url>
-        <distribution>repo</distribution>
+            <name>BSD 2-Clause License</name>
+            <url>http://opensource.org/licenses/BSD-2-Clause</url>
+            <distribution>repo</distribution>
         </license>
     </licenses>
     <scm>
@@ -81,7 +81,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.11.0</version>
+                    <version>3.12.1</version>
                     <configuration>
                         <release>11</release>
                         <compilerArgs>
@@ -96,7 +96,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>
@@ -109,7 +109,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>3.2.0</version>
+                <version>3.6.3</version>
                 <executions>
                     <execution>
                         <id>attach-javadocs</id>
