@@ -12,12 +12,6 @@ from collections.abc import Mapping
 import mock
 from import_file import get_module
 
-
-def nottest(obj):
-    obj.__test__ = False
-    return obj
-
-
 sys.modules["xcp"] = mock.Mock()
 sys.modules["xcp.logger"] = mock.Mock()
 sys.modules["pyudev"] = mock.Mock()
@@ -82,24 +76,23 @@ class MocContext(object):
         self.interfaces = interfaces
 
     def list_devices(self, **kwargs):
-        if kwargs.pop("subsystem") == "usb":
-            dev_type = kwargs.pop("DEVTYPE")
-            if dev_type == "usb_device":
-                return MocEnumerator(self.devices)
-            elif dev_type == "usb_interface":
-                return MocEnumerator(self.interfaces)
-        return MocEnumerator([])
+        assert kwargs.pop("subsystem") == "usb"
+        dev_type = kwargs.pop("DEVTYPE")
+        if dev_type == "usb_device":
+            return MocEnumerator(self.devices)
+        elif dev_type == "usb_interface":
+            return MocEnumerator(self.interfaces)
 
 
 def mock_setup(mod, devices, interfaces, path):
-    mod.log.error = test_log
-    mod.log.debug = test_log
+    mod.log.error = verify_log
+    mod.log.debug = verify_log
     mod.Policy._PATH = path
-    mod.pyudev.Context = mock.Mock(return_value=MocContext(devices, interfaces))
+    mod.pyudev.Context = mock.Mock(
+            return_value=MocContext(devices, interfaces))
 
 
-@nottest
-def test_log(m):
+def verify_log(_):
     pass
 
 
@@ -110,9 +103,11 @@ class TestUsbScan(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.work_dir, ignore_errors=True)
 
-    @nottest
-    def test_usb_common(
-        self, moc_devices, moc_interfaces, moc_results, path="./scripts/usb-policy.conf"
+    def verify_usb_common(
+        self, moc_devices,
+        moc_interfaces,
+        moc_results,
+        path="./scripts/usb-policy.conf"
     ):
         usb_scan = get_module("usb_scan", "../libexec/usb_scan.py")
 
@@ -128,14 +123,13 @@ class TestUsbScan(unittest.TestCase):
         # pass pusbs in json to XAPI
         self.assertEqual(sorted(pusbs), sorted(moc_results))
 
-    @nottest
-    def test_usb_exit(
+    def verify_usb_exit(
             self, devices, interfaces, results,
             path="./scripts/usb-policy.conf",
             msg=""
-            ):  # pylint: disable=too-many-arguments
+            ):
         with self.assertRaises(SystemExit) as cm:
-            self.test_usb_common(devices, interfaces, results, path)
+            self.verify_usb_common(devices, interfaces, results, path)
         if msg:
             # cm.exception.code is int type whose format
             # looks like "duplicated tag'vid' found,
@@ -183,7 +177,7 @@ class TestUsbScan(unittest.TestCase):
                 "speed": "480",
             }
         ]
-        self.test_usb_common(devices, interfaces, results)
+        self.verify_usb_common(devices, interfaces, results)
 
     def test_usb_dongle_on_hub(self):
         devices = [
@@ -226,7 +220,7 @@ class TestUsbScan(unittest.TestCase):
                 "speed": "12",
             }
         ]
-        self.test_usb_common(devices, interfaces, results)
+        self.verify_usb_common(devices, interfaces, results)
 
     def test_usb_dongle_unbinded(self):
         devices = [
@@ -246,7 +240,7 @@ class TestUsbScan(unittest.TestCase):
         ]
         interfaces = []
         results = []
-        self.test_usb_common(devices, interfaces, results)
+        self.verify_usb_common(devices, interfaces, results)
 
     def test_usb_keyboard(self):
         devices = [
@@ -285,83 +279,82 @@ class TestUsbScan(unittest.TestCase):
             },
         ]
         results = []
-        self.test_usb_common(devices, interfaces, results)
+        self.verify_usb_common(devices, interfaces, results)
 
     def test_usb_config_missing(self):
-        self.test_usb_exit([], [], [], "not_exist.conf")
+        self.verify_usb_exit([], [], [], "not_exist.conf")
 
-    @nottest
-    def test_usb_config_error_common(self, content, msg):
+    def verify_usb_config_error_common(self, content, msg):
         path = os.path.join(self.work_dir, "usb-policy.conf")
         with open(path, "w") as f:
             f.write(content)
-        self.test_usb_exit([], [], [], path, msg)
+        self.verify_usb_exit([], [], [], path, msg)
 
     def test_usb_config_error_unexpected_chars_with_comment(self):
         content = """ss# unexpected words with comment
 ALLOW:vid=056a pid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "to unpack")
+        self.verify_usb_config_error_common(content, "to unpack")
 
     def test_usb_config_error_duplicated_key(self):
         content = """# duplicated key word
 ALLOW:vid=056a vid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "duplicated tag")
+        self.verify_usb_config_error_common(content, "duplicated tag")
 
     def test_usb_config_error_invalid_key(self):
         content = """# invalid key word
 ALLOW:vid=056a psid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed policy rule, "
-                                                   "unable to parse")
+        self.verify_usb_config_error_common(
+                content, "Malformed policy rule, unable to parse")
 
     def test_usb_config_error_hex_length_4(self):
         content = """# hex length not 4
 ALLOW:vid=056a pid=031 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "length error")
+        self.verify_usb_config_error_common(content, "length error")
 
     def test_usb_config_error_hex_length_2(self):
         content = """# hex length not 2
 DENY:vid=056a pid=0314 class=035 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "length error")
+        self.verify_usb_config_error_common(content, "length error")
 
     def test_usb_config_error_action_key(self):
         content = """# wrong action key word
 ALLOWED:vid=056a pid=0314 class=03 # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed action")
+        self.verify_usb_config_error_common(content, "Malformed action")
 
     def test_usb_config_error_unexpected_chars_end(self):
         content = """# unexpected words in the end
 ALLOW:vid=056a pid=0314 class=03 kk # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed policy rule, "
-                                                   "unable to parse")
+        self.verify_usb_config_error_common(
+                content, "Malformed policy rule, unable to parse")
 
     def test_usb_config_error_unexpected_chars_beg(self):
         content = """# unexpected words at the beginning
 ii ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed action")
+        self.verify_usb_config_error_common(content, "Malformed action")
 
     def test_usb_config_error_unexpected_chars_mid(self):
         content = """# unexpected words in the middle
 ALLOW:vid=056a pid=0314 jj class=03  # Wacom Intuos tablet
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "Malformed policy rule, "
-                                                   "unable to parse")
+        self.verify_usb_config_error_common(
+                content, "Malformed policy rule, unable to parse")
 
     def test_usb_config_error_unexpected_non_empty_line(self):
         content = """# unexpected non empty line
@@ -369,11 +362,11 @@ ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 aa
 ALLOW: # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "to unpack")
+        self.verify_usb_config_error_common(content, "to unpack")
 
     def test_usb_config_error_missing_colon(self):
         content = """# missing colon after action
 ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 ALLOW # Otherwise allow everything else
 """
-        self.test_usb_config_error_common(content, "to unpack")
+        self.verify_usb_config_error_common(content, "to unpack")

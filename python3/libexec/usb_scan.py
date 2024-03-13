@@ -374,7 +374,7 @@ class Policy:
         """
         self.rule_list = []
         try:
-            with open(self._PATH) as f:
+            with open(self._PATH, encoding="utf-8", errors="backslashreplace") as f:
                 log.debug("=== policy file begin")
                 for line in f:
                     log.debug(line[0:-1])
