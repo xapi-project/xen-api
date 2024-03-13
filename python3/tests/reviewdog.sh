@@ -34,7 +34,7 @@ github_debug() {
 }
 
 git_diff_cmd() {  # Run git diff with the right range
-    GIT_DIFF_RANGE="${GITHUB_BASE_REF:-origin/master}..${GITHUB_REF:-HEAD}"
+    GIT_DIFF_RANGE="${GITHUB_BASE_REF:-origin/master}..HEAD"
     git diff --ignore-space-change "$GIT_DIFF_RANGE" >.git/diff
     EXIT_CODE=$?
     # cat .git/diff  # Uncomment to debug the diff
