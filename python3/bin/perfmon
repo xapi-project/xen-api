@@ -35,6 +35,8 @@
 # pylint: disable=too-many-branches, too-many-arguments, broad-exception-caught
 # pylint: disable=no-else-break, no-else-return, invalid-name
 
+# pylint: disable=global-statement
+
 
 import subprocess
 import gc
@@ -226,6 +228,10 @@ class RRDContentHandler(sax.ContentHandler):
         self.in_row_tag = False
         self.column_details = []
         self.row = 0
+        self.raw_text = ""
+        self.col = 0
+        self.in_t_tag = False
+        self.in_v_tag = False
 
     def startElement(self, name, attrs):
         self.raw_text = ""
