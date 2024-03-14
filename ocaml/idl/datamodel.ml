@@ -136,7 +136,7 @@ module Session = struct
     call ~flags:[`Session] ~name:"change_password"
       ~doc:
         "Change the account password; if your session is authenticated with \
-         root priviledges then the old_pwd is validated and the new_pwd is set \
+         root privileges then the old_pwd is validated and the new_pwd is set \
          regardless"
       ~params:
         [

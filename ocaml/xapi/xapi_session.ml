@@ -1149,8 +1149,8 @@ let change_password ~__context ~old_pwd ~new_pwd =
         try
           (* CP-696: only change password if session has is_local_superuser bit set *)
           (*
-  CA-13567: If you have root priviledges then we do not authenticate old_pwd; right now, since we only
-            ever have root priviledges we just comment this out.
+  CA-13567: If you have root privileges then we do not authenticate old_pwd; right now, since we only
+            ever have root privileges we just comment this out.
 
 	begin
 	  try
