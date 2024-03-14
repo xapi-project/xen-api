@@ -6,7 +6,7 @@
     <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup>
-    <!-- This propety ensures all DLLs are placed oin `bin/` at compile time -->
+    <!-- This propety ensures all DLLs are placed in `bin/` at compile time -->
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)|$(OS)' == 'Debug|AnyCPU|Windows_NT' And '$(TargetFramework)' == 'net6.0'">
