@@ -29,6 +29,12 @@
 #
 # The "cf" CGI param specfies the row.  (All rows are returned if it's missing.)
 
+# pylint: disable=too-many-lines, missing-function-docstring, missing-module-docstring
+# pylint: disable=consider-using-f-string, missing-class-docstring, too-few-public-methods
+# pylint: disable=too-many-instance-attributes, import-error, unnecessary-pass
+# pylint: disable=too-many-branches, too-many-arguments, broad-exception-caught
+# pylint: disable=no-else-break, no-else-return, invalid-name
+
 
 import subprocess
 import gc
@@ -48,7 +54,7 @@ import urllib.request
 from xml import sax
 
 # used to parse other-config:perfmon.  Efficiency is less important than reliability here
-from xml.dom import minidom
+from xml.dom import minidom # pytype: disable=pyi-error
 from xml.parsers.expat import ExpatError
 
 import XenAPI
@@ -254,7 +260,8 @@ class RRDContentHandler(sax.ContentHandler):
             or self.in_columns_tag
             or self.in_entry_tag
             or
-            # self.in_row_tag # ignore text under row tag, <row>s are just for holding <t> and <v> nodes
+            # self.in_row_tag
+            # ignore text under row tag, <row>s are just for holding <t> and <v> nodes
             self.in_t_tag
             or self.in_v_tag
         ):
@@ -292,7 +299,8 @@ class RRDContentHandler(sax.ContentHandler):
             self.in_row_tag = False
             self.row += 1
         elif name == "t":
-            # Extract start and end time from row data as it's more reliable than the values in the meta data
+            # Extract start and end time from row data
+            # as it's more reliable than the values in the meta data
             t = int(self.raw_text)
             # Last row corresponds to start time
             self.report.start_time = t
@@ -378,7 +386,10 @@ class RRDUpdates:
             return None
 
     def get_uuid_list_by_objtype(self, objtype):
-        "Return a list of uuids corresonding to the objects of this type for which we have ObjectReports"
+        '''
+        Return a list of uuids corresonding to the objects 
+        of this type for which we have ObjectReports
+        '''
         return [
             objrep.uuid
             for objrep in self.report.obj_reports.values()
@@ -403,7 +414,10 @@ def average(mylist):
 
 
 def get_percent_log_fs_usage(ignored):
-    "Get the percent usage of the host filesystem for logs partition. Input list is ignored and should be empty"
+    '''
+    Get the percent usage of the host filesystem for logs partition.
+    Input list is ignored and should be empty
+    '''
     fs_output = subprocess.getoutput("df /etc/passwd")
     log_fs_output = subprocess.getoutput("df /var/log")
     fs_output = " ".join(fs_output.splitlines()[1:])
@@ -438,7 +452,7 @@ def get_percent_mem_usage(ignored):
         memdict = [m.split(":", 1) for m in memlist]
         memdict = dict(
             [
-                (k.strip(), float(re.search("\d+", v.strip()).group(0)))
+                (k.strip(), float(re.search(r"\d+", v.strip()).group(0)))
                 for (k, v) in memdict
             ]
         )
@@ -462,7 +476,10 @@ def get_percent_mem_usage(ignored):
 
 
 def get_percent_sr_usage(mylist):
-    """Get the percent usage of the SR. Input list should be exactly two items: [physical_utilisation, size]"""
+    """
+    Get the percent usage of the SR.
+    Input list should be exactly two items: [physical_utilisation, size]
+    """
     try:
         if len(mylist) != 2:
             raise Exception(
@@ -480,13 +497,13 @@ class VariableConfig:
     """Object storing the configuration of a Variable
 
     Initialisation parameters:
-             xmldoc = dom object representing the <variable> nodes in the ObjectMonitor config strings.
-                      See VMMonitor.__doc__ and HOSTMonitor.__doc__
-             alarm_create_callback =
-                      callback called by Variable.update() to create and send an alarm
-             get_default_variable_config =
-                      a function that VariableConfig.__init__() uses to lookup default tag values
-                      by variable name
+    xmldoc = dom object representing the <variable> nodes in the ObjectMonitor config strings.
+            See VMMonitor.__doc__ and HOSTMonitor.__doc__
+    alarm_create_callback =
+            callback called by Variable.update() to create and send an alarm
+    get_default_variable_config =
+            a function that VariableConfig.__init__() uses to lookup default tag values
+            by variable name
     """
 
     def __init__(self, xmldoc, alarm_create_callback, get_default_variable_config):
@@ -753,7 +770,8 @@ class ObjectMonitor:
         params_in_obj_report = obj_report.get_var_names()
 
         for var in self.get_active_variables():
-            # find the subset of the params returned for this object that we need to consolidate into var
+            # find the subset of the params returned for this object
+            # that we need to consolidate into var
             params_to_consolidate = list(
                 filter(var.rrd_regex.match, params_in_obj_report)
             )
@@ -764,7 +782,8 @@ class ObjectMonitor:
                 ]
                 # Consolidate them
                 value = var.consolidation_fn(values_to_consolidate)
-                # Pass result on to the variable object - this may result in an alarm being generated
+                # Pass result on to the variable object
+                # This may result in an alarm being generated
                 var.update(value, session)
 
     def alarm_create(self, var, session, message):
@@ -783,7 +802,8 @@ class VMMonitor(ObjectMonitor):
     
     Configured by writing an xml string into an other-config key, e.g.
     xe vm-param-set uuid=$vmuuid other-config:perfmon=\
-       '<config><variable><name value="cpu_usage"/><alarm_trigger_level value="0.5"/></variable></config>'
+       '<config><variable><name value="cpu_usage"/>
+       <alarm_trigger_level value="0.5"/></variable></config>'
 
     Notes:
      - Multiple <variable> nodes allowed
@@ -791,12 +811,19 @@ class VMMonitor(ObjectMonitor):
        * name: what to call the variable (no default)
        * alarm_priority: the priority of the messages generated (default '3')
        * alarm_trigger_level: level of value that triggers an alarm (no default)
-       * alarm_trigger_sense: 'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
-       * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
-       * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
-       * consolidation_fn: how to combine variables from rrd_updates into one value
-         (default is 'average' for 'cpu_usage', 'get_percent_fs_usage' for 'fs_usage', 'get_percent_log_fs_usage' for 'log_fs_usage', 'get_percent_mem_usage' for 'mem_usage', & 'sum' for everything else)
-       * rrd_regex matches the names of variables from (xe vm-data-sources-list uuid=$vmuuid) used to compute value
+       * alarm_trigger_sense:
+            'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
+       * alarm_trigger_period:
+            num seconds of 'bad' values before an alarm is sent (default '60')
+       * alarm_auto_inhibit_period:
+            num seconds this alarm disabled after an alarm is sent (default '3600')
+       * consolidation_fn:
+            how to combine variables from rrd_updates into one value
+            (default is 'average' for 'cpu_usage', 'get_percent_fs_usage' for 'fs_usage',
+            'get_percent_log_fs_usage' for 'log_fs_usage',
+            'get_percent_mem_usage' for 'mem_usage', & 'sum' for everything else)
+       * rrd_regex matches the names of variables
+         from (xe vm-data-sources-list uuid=$vmuuid) used to compute value
          (only has defaults for "cpu_usage", "network_usage", and "disk_usage")
     """
 
@@ -873,7 +900,8 @@ class SRMonitor(ObjectMonitor):
 
     Configured by writing an xml string into an other-config key, e.g.
     xe sr-param-set uuid=$vmuuid other-config:perfmon=\
-       '<config><variable><name value="physical_utilisation"/><alarm_trigger_level value="0.8"/></variable></config>'
+       '<config><variable><name value="physical_utilisation"/>
+       <alarm_trigger_level value="0.8"/></variable></config>'
 
     Notes:
      - Multiple <variable> nodes allowed
@@ -881,12 +909,18 @@ class SRMonitor(ObjectMonitor):
        * name: what to call the variable (no default)
        * alarm_priority: the priority of the messages generated (default '3')
        * alarm_trigger_level: level of value that triggers an alarm (no default)
-       * alarm_trigger_sense: 'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
-       * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
-       * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
-       * consolidation_fn: how to combine variables from rrd_updates into one value
-         (default is 'get_percent_sr_usage' for 'physical_utilistation', & 'sum' for everything else)
-       * rrd_regex matches the names of variables from (xe sr-data-sources-list uuid=$sruuid) used to compute value
+       * alarm_trigger_sense:
+            'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
+       * alarm_trigger_period:
+            num seconds of 'bad' values before an alarm is sent (default '60')
+       * alarm_auto_inhibit_period:
+            num seconds this alarm disabled after an alarm is sent (default '3600')
+       * consolidation_fn:
+            how to combine variables from rrd_updates into one value
+            (default is 'get_percent_sr_usage' for 'physical_utilistation',
+            & 'sum' for everything else)
+       * rrd_regex matches the names of variables
+         from (xe sr-data-sources-list uuid=$sruuid) used to compute value
          (has default for "physical_utilistaion")
     """
 
@@ -906,7 +940,8 @@ class SRMonitor(ObjectMonitor):
             if variable_name == "physical_utilisation":
                 return "physical_utilisation|size"
             elif variable_name == "sr_io_throughput_total_per_host":
-                return "_$_DUMMY__"  # (these are to drive Host RRDs and so are handled by the HOSTMonitor)
+                # (these are to drive Host RRDs and so are handled by the HOSTMonitor)
+                return "_$_DUMMY__"
             else:
                 raise XmlConfigException(
                     "variable %s: no default rrd_regex - please specify one"
@@ -940,7 +975,8 @@ class HOSTMonitor(ObjectMonitor):
     
     Configured by writing an xml string into an other-config key, e.g.
     xe host-param-set uuid=$hostuuid other-config:perfmon=\
-       '<config><variable><name value="cpu_usage"/><alarm_trigger_level value="0.5"/></variable></config>'
+       '<config><variable><name value="cpu_usage"/>
+       <alarm_trigger_level value="0.5"/></variable></config>'
 
     Notes:
      - Multiple <variable> nodes allowed
@@ -948,22 +984,30 @@ class HOSTMonitor(ObjectMonitor):
        * name: what to call the variable (no default)
        * alarm_priority: the priority of the messages generated (default '3')
        * alarm_trigger_level: level of value that triggers an alarm (no default)
-       * alarm_trigger_sense: 'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
-       * alarm_trigger_period: num seconds of 'bad' values before an alarm is sent (default '60')
-       * alarm_auto_inhibit_period: num seconds this alarm disabled after an alarm is sent (default '3600')
+       * alarm_trigger_sense:
+            'high' if alarm_trigger_level is a max, otherwise 'low'. (default 'high')
+       * alarm_trigger_period:
+            num seconds of 'bad' values before an alarm is sent (default '60')
+       * alarm_auto_inhibit_period:
+            num seconds this alarm disabled after an alarm is sent (default '3600')
        * consolidation_fn: how to combine variables from rrd_updates into one value
-         (default is 'average' for 'cpu_usage' & 'sum' for everything else)
-       * rrd_regex matches the names of variables from (xe host-data-source-list uuid=$hostuuid) used to compute value
-         (only has defaults for "cpu_usage", "network_usage", "memory_free_kib" and "sr_io_throughput_total_xxxxxxxx"
+            (default is 'average' for 'cpu_usage' & 'sum' for everything else)
+       * rrd_regex matches the names of variables
+         from (xe host-data-source-list uuid=$hostuuid) used to compute value
+         (only has defaults for "cpu_usage", "network_usage", "memory_free_kib"
+         and "sr_io_throughput_total_xxxxxxxx"
          where that last one ends with the first eight characters of the SR uuid)
 
     Also, as a special case for SR throughput, it is possible to configure a Host by
     writing xml into the other-config key of an SR connected to it, e.g.
     xe sr-param-set uuid=$sruuid other-config:perfmon=\
-       '<config><variable><name value="sr_io_throughput_total_per_host"/><alarm_trigger_level value="0.01"/></variable></config>
+       '<config><variable><name value="sr_io_throughput_total_per_host"/>
+       <alarm_trigger_level value="0.01"/></variable></config>
        
-    This only works for that one specific variable-name, and rrd_regex must not be specified.
-    Configuration done on the host directly (variable-name sr_io_throughput_total_xxxxxxxx) takes priority.
+    This only works for that one specific variable-name,
+    and rrd_regex must not be specified.
+    Configuration done on the host directly
+    (variable-name sr_io_throughput_total_xxxxxxxx) takes priority.
     """
 
     def __init__(self, *args):
@@ -1042,7 +1086,8 @@ class HOSTMonitor(ObjectMonitor):
             for sruuid in sruuids_by_hostuuid[self.uuid]:
                 sr_xmlconfig = all_xmlconfigs[sruuid]
                 # As an optimisation, if xml unchanged then do not re-parse.
-                # Otherwise we would create Variables which would turn out to be same as existing ones so we would ignore them.
+                # Otherwise we would create Variables which would
+                # turn out to be same as existing ones so we would ignore them.
                 if (
                     sruuid in self.secondary_xmlconfigs
                     and self.secondary_xmlconfigs[sruuid] == sr_xmlconfig
@@ -1072,7 +1117,8 @@ class HOSTMonitor(ObjectMonitor):
                 )
 
         if main_changed or secondary_changed:
-            # Calculate which secondary variables are active, i.e. not overridden by ones configured on the host rather than the SR.
+            # Calculate which secondary variables are active,
+            # i.e. not overridden by ones configured on the host rather than the SR.
             main_names = {v.name for v in self.variables}
             for v in self.secondary_variables:
                 v.set_active(v.name not in main_names)
@@ -1106,7 +1152,8 @@ class HOSTMonitor(ObjectMonitor):
                     continue  # Do nothing unless the variable is meant for the host
                 if len(vn.getElementsByTagName("rrd_regex")) > 0:
                     log_err(
-                        "Configuration error: rrd_regex must not be specified in config on SR meant for each host"
+                        "Configuration error:" \
+                        "rrd_regex must not be specified in config on SR meant for each host"
                     )
                     continue  # perhaps another node is valid
                 if found:
@@ -1114,7 +1161,8 @@ class HOSTMonitor(ObjectMonitor):
                         "Configuration error: duplicate variable %s on SR %s"
                         % (name, sruuid)
                     )
-                    # A host can only have one Variable from a given SR since we only accept one kind (one name).
+                    # A host can only have one Variable from a given SR
+                    # since we only accept one kind (one name).
                     break
                 found = True
                 name_override = "sr_io_throughput_total_%s" % sruuid[0:8]
@@ -1228,7 +1276,8 @@ debug = False
 # rate to call update_all_xmlconfigs()
 config_update_period = 1800
 
-cmdsockname = "\0perfmon"  # an af_unix socket name (the "\0" stops socket.bind() creating a fs node)
+# an af_unix socket name (the "\0" stops socket.bind() creating a fs node)
+cmdsockname = "\0perfmon"
 cmdmaxlen = 256
 
 
@@ -1322,7 +1371,8 @@ def main():
             # Should we update all_xmlconfigs
             if time.time() >= next_config_update:
                 print_debug("Updating all_xmlconfigs")
-                # yes - update all the xml configs: this generates a few LARGE xapi messages from the master
+                # yes - update all the xml configs:
+                # this generates a few LARGE xapi messages from the master
                 update_all_xmlconfigs(session)
 
                 # Set time when to do this next
@@ -1384,7 +1434,8 @@ def main():
                 else:
                     sr_mon_lookup[uuid].refresh_config()
 
-            # Go through each vm_mon and update it using the rrd_udpates - this may generate alarms
+            # Go through each vm_mon and update it using the rrd_udpates
+            # this may generate alarms
             for vm_mon in vm_mon_lookup.values():
                 vm_mon.process_rrd_updates(rrd_updates, session)
 
@@ -1398,7 +1449,8 @@ def main():
 
         except socket.error as e:
             if e.args[0] == 111:
-                # "Connection refused" - this happens when we try to restart session and *that* fails
+                # "Connection refused"
+                # this happens when we try to restart session and *that* fails
                 time.sleep(2)
                 pass
 
@@ -1413,7 +1465,8 @@ def main():
                 # Error getting rrd_updates: 401=Unauthorised, 500=Internal - start new session
                 pass
             elif e.args[0] == "socket error":
-                # This happens if we send messages or read other-config:perfmon after xapi is restarted
+                # This happens if we send messages or
+                # read other-config:perfmon after xapi is restarted
                 pass
             else:
                 # Don't know why we got this error - crash, die and look at logs later
@@ -1494,16 +1547,20 @@ if __name__ == "__main__":
     except UsageException as e:
         # Print the usage
         log_err(
-            "usage: %s [-i <interval> -n <loops> -d -s <rrd_step> -c <config_update_period> -D <interval_percent_dither>] \\\n"
+            "usage: %s [-i <interval> -n <loops> -d -s <rrd_step> -c" \
+                "<config_update_period> -D <interval_percent_dither>] \\\n"
             "\t[--interval=<interval> --numloops=<loops> --debug \\\n"
             "\t --rrdstep=<rrd_step> --daemon]\n"
             "\t --config_update_period=<config_update_period>\n"
             "\t --interval_percent_dither=<interval_percent_dither>\n"
             "  interval:\tseconds between reads of http://localhost/rrd_updates?...\n"
             "  loops:\tnumber of times to run before exiting\n"
-            "  rrd_step:\tseconds between samples provided by rrd_updates.  Valid values are 5 or 60\n"
-            "  config_update_period:\tseconds between getting updates of all VM/host records from master\n"
-            "  interval_percent_dither:\tmax percent dither in each loop - prevents stampede on master\n"
+            "  rrd_step:\tseconds between samples provided by rrd_updates." \
+                "  Valid values are 5 or 60\n"
+            "  config_update_period:\tseconds between getting updates" \
+                " of all VM/host records from master\n"
+            "  interval_percent_dither:\tmax percent dither in each loop" \
+                " - prevents stampede on master\n"
             % (sys.argv[0])
         )
         rc = 1
@@ -1527,7 +1584,7 @@ if __name__ == "__main__":
             log_err(errmsg)
         except Exception as ignored:
             try:
-                errmsg = "\n".join([str(x) for x in e.details])
+                errmsg = "\n".join([str(x) for x in e.details]) # pytype: disable=attribute-error
                 # print the exception args nicely
                 log_err(errmsg)
             except Exception as ignored:
