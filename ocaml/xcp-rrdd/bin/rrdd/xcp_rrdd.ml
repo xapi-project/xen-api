@@ -361,9 +361,11 @@ let dss_loadavg () =
     )
   ]
 
-let count_running_domain domains =
+let count_power_state_running_domains domains =
   List.fold_left
-    (fun count (dom, _, _) -> if dom.Xenctrl.running then count + 1 else count)
+    (fun count (dom, _, _) ->
+      if not dom.Xenctrl.paused then count + 1 else count
+    )
     0 domains
 
 let dss_hostload xc domains =
@@ -386,7 +388,7 @@ let dss_hostload xc domains =
       )
       0 domains
   in
-  let running_domains = count_running_domain domains in
+  let running_domains = count_power_state_running_domains domains in
 
   let load_per_cpu = float_of_int load /. float_of_int pcpus in
   [
