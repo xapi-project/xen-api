@@ -425,8 +425,6 @@ let supported_api_versions = [pvs_version; "5.0"]
 
 let api_max = List.fold_left Base.String.max "" supported_api_versions
 
-let id x = x
-
 (** A function that changes the input to make it compatible with an older
     script *)
 type compat_in = R.t -> R.t
@@ -527,7 +525,7 @@ end = struct
           return (add_param_to_input [("uri", R.String uri)])
     )
     | _ ->
-        return id
+        return Fun.id
 
   let sr_create device_config =
     compat_uri device_config >>>= fun compat_in ->
@@ -543,7 +541,7 @@ end = struct
               rpc
         )
       | _ ->
-          id
+          Fun.id
     in
     return (device_config, compat_in, compat_out)
 
@@ -687,7 +685,7 @@ let fork_exec_rpc :
     -> ?dbg:string
     -> R.call
     -> R.response Lwt.t =
- fun ~script_dir ?missing ?(compat_in = id) ?(compat_out = id) ?dbg ->
+ fun ~script_dir ?missing ?(compat_in = Fun.id) ?(compat_out = Fun.id) ?dbg ->
   let invoke_script call script_name :
       (R.response, Storage_interface.Errors.error) Lwt_result.t =
     let traceparent = Option.bind dbg Debug_info.traceparent_of_dbg in
@@ -987,7 +985,7 @@ let vdi_of_volume x =
     | Some v ->
         v |> of_string
   in
-  let find_string = find ~of_string:id in
+  let find_string = find ~of_string:Fun.id in
   let open Storage_interface in
   {
     vdi= Vdi.of_string x.Xapi_storage.Control.key
