@@ -47,6 +47,7 @@ disable = [
     "import-error",
     "unnecessary-pass",
     "unspecified-encoding",
+    "protected-access",
 ]
 
 [tool.mypy]
@@ -89,7 +90,6 @@ expected_to_fail = [
     "scripts/hatests",
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
-    "scripts/nbd_client_manager.py",
     # SSLSocket.send() only accepts bytes, not unicode string as argument:
     "scripts/examples/python/exportimport.py",
     # Other fixes needed:
@@ -123,7 +123,8 @@ inputs = [
 
     # Python 3
     "python3/bin/hfx_filename",
-    "python3/*.py",
+    "python3/bin/*.py",
+    "python3/libexec/*.py",
 
     # To be added later,
     # when converted to Python3-compatible syntax:
