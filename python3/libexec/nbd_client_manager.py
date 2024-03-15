@@ -134,10 +134,9 @@ def _find_unused_nbd_device():
         nbd_device = "/dev/nbd{}".format(device_no)
         if not _is_nbd_device_connected(nbd_device=nbd_device):
             return nbd_device
-    # Actually `_is_nbd_device_connected` will raise an exception
-    # if no unused device
-    # Add this return for pylint check
-    return None
+
+    # If there are 1000 nbd devices (unlikely) and all are connected
+    raise NbdDeviceNotFound(nbd_device)
 
 def _wait_for_nbd_device(nbd_device, connected):
     deadline = datetime.now() + timedelta(minutes=MAX_DEVICE_WAIT_MINUTES)
