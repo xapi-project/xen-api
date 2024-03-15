@@ -25,9 +25,9 @@ LOCK_FILE = "/var/run/nonpersistent/nbd_client_manager"
 MAX_DEVICE_WAIT_MINUTES = 10
 
 
-class NotGetNbdNumber(Exception):
+class InvalidNbdDevName(Exception):
     """
-    The NBD device should be in this format: nbd{0-100}
+    The NBD device should be in this format: nbd{0-1000}
     If we cannot match this pattern, raise this exception
     """
 
@@ -168,7 +168,7 @@ def _get_persistent_connect_info_filename(device):
     """
     matched = re.search("/dev/nbd([0-9]+)", device)
     if not matched:
-        raise NotGetNbdNumber("Can not get the nbd number")
+        raise InvalidNbdDevName("Can not get the nbd number")
     number = matched.group(1)
     return PERSISTENT_INFO_DIR + "/" + number
 
