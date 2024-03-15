@@ -424,6 +424,7 @@ def get_percent_log_fs_usage(ignored):
     Get the percent usage of the host filesystem for logs partition.
     Input list is ignored and should be empty
     '''
+    _ = ignored  # unused: not sure if it'll be used later, passing pylint
     fs_output = subprocess.getoutput("df /etc/passwd")
     log_fs_output = subprocess.getoutput("df /var/log")
     fs_output = " ".join(fs_output.splitlines()[1:])
@@ -438,7 +439,12 @@ def get_percent_log_fs_usage(ignored):
 
 
 def get_percent_fs_usage(ignored):
-    "Get the percent usage of the host filesystem.  Input list is ignored and should be empty"
+    '''
+    Get the percent usage of the host filesystem.
+    Input list is ignored and should be empty
+    '''
+    _ = ignored  # unused: not sure if it'll be used later, passing pylint
+    
     # this file is on the filesystem of interest in both OEM and Retail
     output = subprocess.getoutput("df /etc/passwd")
     output = " ".join(
@@ -450,7 +456,11 @@ def get_percent_fs_usage(ignored):
 
 
 def get_percent_mem_usage(ignored):
-    "Get the percent usage of Dom0 memory/swap. Input list is ignored and should be empty"
+    '''
+    Get the percent usage of Dom0 memory/swap.
+    Input list is ignored and should be empty
+    '''
+    _ = ignored  # unused: not sure if it'll be used later, passing pylint
     try:
         memfd = open("/proc/meminfo", "r")
         memlist = memfd.readlines()
@@ -1514,6 +1524,7 @@ def main():
 
 
 def sigterm_handler(sig, stack_frame):
+    _ = stack_frame  # unused: not sure if it'll be used later, passing pylint
     log_err("Caught signal %d - exiting" % sig)
     sys.exit(1)
 
