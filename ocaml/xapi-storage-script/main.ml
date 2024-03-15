@@ -575,15 +575,9 @@ module RRD = struct
   open Message_switch_lwt.Protocol_lwt
 
   let ( >>|= ) m f =
-    m >>= function
-    | Ok x ->
-        f x
-    | Error y ->
-        let b = Buffer.create 16 in
-        let fmt = Format.formatter_of_buffer b in
-        Client.pp_error fmt y ;
-        Format.pp_print_flush fmt () ;
-        raise (Failure (Buffer.contents b))
+    m >>= fun x ->
+    Client.error_to_msg x
+    |> Result.fold ~ok:f ~error:(function `Msg err -> failwith err)
 
   let switch_rpc queue_name string_of_call response_of_string call =
     Client.connect ~switch:queue_name () >>|= fun t ->
@@ -2025,15 +2019,9 @@ let process_smapiv2_requests server txt =
 let servers = Base.Hashtbl.create ~size:4 (module Base.String)
 
 (* XXX: need a better error-handling strategy *)
-let get_ok = function
-  | Ok x ->
-      x
-  | Error e ->
-      let b = Buffer.create 16 in
-      let fmt = Format.formatter_of_buffer b in
-      Message_switch_unix.Protocol_unix.Server.pp_error fmt e ;
-      Format.pp_print_flush fmt () ;
-      failwith (Buffer.contents b)
+let get_ok x =
+  Message_switch_unix.Protocol_unix.Server.error_to_msg x
+  |> Result.fold ~ok:Fun.id ~error:(function `Msg err -> failwith err)
 
 let rec diff a b =
   match a with
