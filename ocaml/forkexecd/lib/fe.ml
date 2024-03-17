@@ -20,7 +20,6 @@ type process_result = WEXITED of int | WSIGNALED of int | WSTOPPED of int
 type ferpc =
   | Setup of setup_cmd
   | Setup_response of setup_response
-  | Cancel
   | Exec
   | Execed of int
   | Finished of process_result
