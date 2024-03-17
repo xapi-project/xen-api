@@ -150,6 +150,7 @@ let test_exitcode () =
   in
   run_expect "/bin/false" 1 ;
   run_expect "/bin/xe-fe-test-no-command" 127 ;
+  run_expect "/bin/xe-fe-no-path/xe-fe-test-no-command" 127 ;
   run_expect "/etc/hosts" 126 ;
   Printf.printf "\nCompleted exitcode tests\n"
 
