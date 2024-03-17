@@ -24,7 +24,6 @@ type ferpc =
   | Exec
   | Execed of int
   | Finished of process_result
-  | Log_reopen
   | Dontwaitpid
 [@@deriving rpc]
 
