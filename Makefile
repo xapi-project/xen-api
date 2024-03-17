@@ -15,6 +15,7 @@ build:
 	dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
 	dune build @install -j $(JOBS) --profile=$(PROFILE)
 	dune build @python --profile=$(PROFILE)
+	$(MAKE) -C ocaml/forkexecd/helper
 
 # Quickly verify that the code compiles, without actually building it
 check:
@@ -246,6 +247,8 @@ install: build doc sdk doc-json
 	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
 # wsproxy
 	install -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
+# forkexecd
+	install -m 755 ocaml/forkexecd/helper/syslogger $(DESTDIR)/usr/libexec/xapi/syslogger
 # dune can install libraries and several other files into the right locations
 	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
 		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \

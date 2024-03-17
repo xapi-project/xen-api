@@ -42,12 +42,51 @@ let _with_tracing ?tracing ~name f =
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-type pidty = Unix.file_descr * int
+type syslog_stdout =
+  | NoSyslogging
+  | Syslog_DefaultKey
+  | Syslog_WithKey of string
+
+let use_daemon = ref false
+
+module FEStubs = struct
+  type pidwaiter
+
+  external safe_exec :
+       string array
+    -> Unix.file_descr option
+    -> Unix.file_descr option
+    -> Unix.file_descr option
+    -> (string * Unix.file_descr) list
+    -> ?syslog_stdout:syslog_stdout
+    -> ?redirect_stderr_to_stdout:bool
+    -> string list
+    -> pidwaiter * int = "caml_safe_exec_byte" "caml_safe_exec_nat"
+
+  (* timeout <= 0 wait infinite *)
+  external pidwaiter_waitpid :
+    ?timeout:float -> pidwaiter -> int * Unix.process_status
+    = "caml_pidwaiter_waitpid"
+
+  external pidwaiter_waitpid_nohang : pidwaiter -> int * Unix.process_status
+    = "caml_pidwaiter_waitpid_nohang"
+
+  (* do not wait for a process, release it, it won't generate a zombie process *)
+  external pidwaiter_dontwait : pidwaiter -> unit = "caml_pidwaiter_dontwait"
+end
+
+type waiter = Pidwaiter of FEStubs.pidwaiter | Sock of Unix.file_descr
+
+type pidty = waiter * int
 
 (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
 
-let string_of_pidty (fd, pid) =
-  Printf.sprintf "(FEFork (%d,%d))" (Fd_send_recv.int_of_fd fd) pid
+let string_of_pidty (waiter, pid) =
+  match waiter with
+  | Pidwaiter _ ->
+      Printf.sprintf "(FEFork (%d))" pid
+  | Sock fd ->
+      Printf.sprintf "(FEFork (%d,%d))" (Fd_send_recv.int_of_fd fd) pid
 
 exception Subprocess_failed of int
 
@@ -55,7 +94,7 @@ exception Subprocess_killed of int
 
 exception Subprocess_timeout
 
-let waitpid (sock, pid) =
+let waitpid_daemon sock pid =
   let status = Fecomms.read_raw_rpc sock in
   Unix.close sock ;
   match status with
@@ -81,7 +120,7 @@ let waitpid (sock, pid) =
 (* [waitpid_nohang] reports the status of a socket to a process. The
    intention is to make this non-blocking. If the process is finished,
    the socket is closed and not otherwise. *)
-let waitpid_nohang (sock, pid) =
+let waitpid_nohang_daemon sock pid =
   let verbose = false in
   if verbose then D.debug "%s pid=%d" __FUNCTION__ pid ;
   let fail fmt = Printf.kprintf failwith fmt in
@@ -120,7 +159,7 @@ let waitpid_nohang (sock, pid) =
       fail "%s: error happened when trying to read the status. %s" __FUNCTION__
         (Printexc.to_string exn)
 
-let dontwaitpid (sock, _pid) =
+let dontwaitpid_daemon sock _pid =
   ( try
       (* Try to tell the child fe that we're not going to wait for it. If the
          other end of the pipe has been closed then this doesn't matter, as this
@@ -129,6 +168,27 @@ let dontwaitpid (sock, _pid) =
     with Unix.Unix_error (Unix.EPIPE, _, _) -> ()
   ) ;
   Unix.close sock
+
+let waitpid (waiter, pid) =
+  match waiter with
+  | Pidwaiter waiter ->
+      FEStubs.pidwaiter_waitpid waiter
+  | Sock sock ->
+      waitpid_daemon sock pid
+
+let waitpid_nohang (waiter, pid) =
+  match waiter with
+  | Pidwaiter waiter ->
+      FEStubs.pidwaiter_waitpid_nohang waiter
+  | Sock sock ->
+      waitpid_nohang_daemon sock pid
+
+let dontwaitpid (waiter, pid) =
+  match waiter with
+  | Pidwaiter waiter ->
+      FEStubs.pidwaiter_dontwait waiter
+  | Sock sock ->
+      dontwaitpid_daemon sock pid
 
 let waitpid_fail_if_bad_exit ty =
   let _, status = waitpid ty in
@@ -142,7 +202,7 @@ let waitpid_fail_if_bad_exit ty =
   | Unix.WSTOPPED n ->
       raise (Subprocess_killed n)
 
-let getpid (_sock, pid) = pid
+let getpid (_waiter, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
@@ -175,16 +235,9 @@ let with_logfile_fd ?(delete = true) prefix f =
 
 exception Spawn_internal_error of string * string * Unix.process_status
 
-type syslog_stdout =
-  | NoSyslogging
-  | Syslog_DefaultKey
-  | Syslog_WithKey of string
-
-(** Safe function which forks a command, closing all fds except a whitelist and
-    having performed some fd operations in the child *)
-let safe_close_and_exec ?env stdin stdout stderr
+let safe_close_and_exec_daemon env stdin stdout stderr
     (fds : (string * Unix.file_descr) list) ?(syslog_stdout = NoSyslogging)
-    ?(redirect_stderr_to_stdout = false) (cmd : string) (args : string list) =
+    ?(redirect_stderr_to_stdout = false) (args : string list) =
   let sock =
     Fecomms.open_unix_domain_sock_client (runtime_path ^ "/xapi/forker/main")
   in
@@ -195,8 +248,12 @@ let safe_close_and_exec ?env stdin stdout stderr
   let fds_to_close = ref [] in
 
   let add_fd_to_close_list fd = fds_to_close := fd :: !fds_to_close in
-  (* let remove_fd_from_close_list fd = fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close in *)
+  let remove_fd_from_close_list fd =
+    fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close
+  in
   let close_fds () = List.iter (fun fd -> Unix.close fd) !fds_to_close in
+
+  add_fd_to_close_list sock ;
 
   finally
     (fun () ->
@@ -223,7 +280,6 @@ let safe_close_and_exec ?env stdin stdout stderr
         List.fold_left maybe_add_id_to_fd_map dest_named_fds predefined_fds
       in
 
-      let env = Option.value ~default:default_path_env_pair env in
       let syslog_stdout =
         match syslog_stdout with
         | NoSyslogging ->
@@ -236,7 +292,7 @@ let safe_close_and_exec ?env stdin stdout stderr
       Fecomms.write_raw_rpc sock
         (Fe.Setup
            {
-             Fe.cmdargs= cmd :: args
+             Fe.cmdargs= args
            ; env= Array.to_list env
            ; id_to_fd_map
            ; syslog_stdout
@@ -285,7 +341,8 @@ let safe_close_and_exec ?env stdin stdout stderr
       Fecomms.write_raw_rpc sock Fe.Exec ;
       match Fecomms.read_raw_rpc sock with
       | Ok (Fe.Execed pid) ->
-          (sock, pid)
+          remove_fd_from_close_list sock ;
+          (Sock sock, pid)
       | Ok status ->
           let msg =
             Printf.sprintf
@@ -303,6 +360,24 @@ let safe_close_and_exec ?env stdin stdout stderr
           failwith msg
     )
     close_fds
+
+(** Safe function which forks a command, closing all fds except a whitelist and
+    having performed some fd operations in the child *)
+let safe_close_and_exec ?env stdin stdout stderr
+    (fds : (string * Unix.file_descr) list) ?(syslog_stdout = NoSyslogging)
+    ?(redirect_stderr_to_stdout = false) (cmd : string) (args : string list) =
+  let args = cmd :: args in
+  let env = Option.value ~default:default_path_env_pair env in
+
+  if not !use_daemon then
+    let waiter, pid =
+      FEStubs.safe_exec env stdin stdout stderr fds ~syslog_stdout
+        ~redirect_stderr_to_stdout args
+    in
+    (Pidwaiter waiter, pid)
+  else
+    safe_close_and_exec_daemon env stdin stdout stderr fds ~syslog_stdout
+      ~redirect_stderr_to_stdout args
 
 let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
     ?(redirect_stderr_to_stdout = false) ?(timeout = -1.0) cmd args =
@@ -327,7 +402,7 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
       match
         with_logfile_fd "execute_command_get_out" (fun out_fd ->
             with_logfile_fd "execute_command_get_err" (fun err_fd ->
-                let sock, pid =
+                let waiter, pid =
                   safe_close_and_exec ?env
                     (Option.map (fun (_, fd, _) -> fd) stdinandpipes)
                     (Some out_fd) (Some err_fd) [] ~syslog_stdout
@@ -339,13 +414,21 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
                     close wr
                   )
                   stdinandpipes ;
-                if timeout > 0. then
-                  Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
-                try waitpid (sock, pid)
-                with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
-                  Unix.kill pid Sys.sigkill ;
-                  ignore (waitpid (sock, pid)) ;
-                  raise Subprocess_timeout
+                match waiter with
+                | Pidwaiter waiter -> (
+                  try FEStubs.pidwaiter_waitpid ~timeout waiter
+                  with Unix.(Unix_error (ETIMEDOUT, _, _)) ->
+                    raise Subprocess_timeout
+                )
+                | Sock sock -> (
+                    if timeout > 0. then
+                      Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
+                    try waitpid_daemon sock pid
+                    with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
+                      Unix.kill pid Sys.sigkill ;
+                      ignore (waitpid_daemon sock pid) ;
+                      raise Subprocess_timeout
+                  )
             )
         )
       with

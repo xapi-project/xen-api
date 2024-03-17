@@ -14,5 +14,10 @@
    xapi-stdext-unix
    xapi-tracing
  )
+ (foreign_stubs
+  (language c)
+  (names fe_stubs close_from logs)
+  (flags :standard -Wall -Werror)
+ )
  (preprocess
   (pps ppx_deriving_rpc)))
