@@ -1,0 +1,21 @@
+(rule
+ (targets vfork_helper)
+ (package forkexec)
+ (deps
+  close_from.h
+  close_from.c
+  logs.h
+  logs.c
+  syslog.h
+  syslog.c
+  redirect_algo.h
+  vfork_helper.h
+  vfork_helper.c
+  Makefile)
+ (action
+  (run make)))
+
+(rule
+ (alias install)
+ (deps vfork_helper)
+ (action (run true)))
