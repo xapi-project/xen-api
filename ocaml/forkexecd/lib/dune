@@ -18,4 +18,10 @@
    xapi-stdext-date
    xapi-tracing
  )
- (preprocess (per_module ((pps ppx_deriving_rpc) Fe))))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Fe)))
+ (foreign_stubs
+  (language c)
+  (names fe_stubs)
+  (include_dirs ../helper)
+  (flags :standard -Wall -Werror)
+ ))

@@ -1,0 +1,21 @@
+(data_only_dirs helper)
+
+(rule
+  (deps (source_tree helper))
+  (targets vfork_helper)
+  (package forkexec)
+  (action
+    (no-infer
+      (progn
+        (chdir helper (run make))
+        (copy helper/vfork_helper vfork_helper)
+      )
+    )
+  )
+)
+
+(install
+  (package forkexec)
+  (section libexec_root)
+  (files (vfork_helper as xapi/vfork_helper))
+)
