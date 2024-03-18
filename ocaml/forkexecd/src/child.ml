@@ -49,8 +49,6 @@ let handle_fd_sock fd_sock state =
 let handle_comms_sock comms_sock state =
   let call = Fecomms.read_raw_rpc comms_sock in
   match call with
-  | Ok Fe.Cancel ->
-      debug "Cancel" ; raise Cancelled
   | Ok Fe.Exec ->
       debug "Exec" ;
       {state with finished= true}
