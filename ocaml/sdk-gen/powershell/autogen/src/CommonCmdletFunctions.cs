@@ -42,8 +42,10 @@ namespace Citrix.XenServer
     class CommonCmdletFunctions
     {
         private const string SessionsVariable = "global:Citrix.XenServer.Sessions";
+
         private const string DefaultSessionVariable = "global:XenServer_Default_Session";
-        private static string CertificatePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), @"WindowsPowerShell\XenServer_Known_Certificates.xml");
+
+        private const string KnownServerCertificatesFilePathVariable = "global:KnownServerCertificatesFilePath";
 
         static CommonCmdletFunctions()
         {
@@ -68,8 +70,7 @@ namespace Citrix.XenServer
 
         internal static Session GetDefaultXenSession(PSCmdlet cmdlet)
         {
-            object obj = cmdlet.SessionState.PSVariable.GetValue(DefaultSessionVariable);
-            return obj as Session;
+            return cmdlet.SessionState.PSVariable.GetValue(DefaultSessionVariable) as Session;
         }
 
         internal static void SetDefaultXenSession(PSCmdlet cmdlet, Session session)
@@ -77,19 +78,28 @@ namespace Citrix.XenServer
             cmdlet.SessionState.PSVariable.Set(DefaultSessionVariable, session);
         }
 
+        internal static string GetKnownServerCertificatesFilePathVariable(PSCmdlet cmdlet)
+        {
+            var knownCertificatesFilePathObject = cmdlet.SessionState.PSVariable.GetValue(KnownServerCertificatesFilePathVariable);
+            if (knownCertificatesFilePathObject is PSObject psObject)
+                return psObject.BaseObject as string;
+            return knownCertificatesFilePathObject?.ToString() ?? string.Empty;
+        }
+
         internal static string GetUrl(string hostname, int port)
         {
             return string.Format("{0}://{1}:{2}", port == 80 ? "http" : "https", hostname, port);
         }
 
-        public static Dictionary<string, string> LoadCertificates()
+        public static Dictionary<string, string> LoadCertificates(PSCmdlet cmdlet)
         {
             Dictionary<string, string> certificates = new Dictionary<string, string>();
+            var knownServerCertificatesFilePath = GetKnownServerCertificatesFilePathVariable(cmdlet);
 
-            if (File.Exists(CertificatePath))
+            if (File.Exists(knownServerCertificatesFilePath))
             {
                 XmlDocument doc = new XmlDocument();
-                doc.Load(CertificatePath);
+                doc.Load(knownServerCertificatesFilePath);
 
                 foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
                 {
@@ -104,9 +114,10 @@ namespace Citrix.XenServer
             return certificates;
         }
 
-        public static void SaveCertificates(Dictionary<string, string> certificates)
+        public static void SaveCertificates(PSCmdlet cmdlet, Dictionary<string, string> certificates)
         {
-            string dirName = Path.GetDirectoryName(CertificatePath);
+            var knownServerCertificatesFilePath = GetKnownServerCertificatesFilePathVariable(cmdlet);
+            string dirName = Path.GetDirectoryName(knownServerCertificatesFilePath);
 
             if (!Directory.Exists(dirName))
                 Directory.CreateDirectory(dirName);
@@ -129,7 +140,7 @@ namespace Citrix.XenServer
             }
 
             doc.AppendChild(node);
-            doc.Save(CertificatePath);
+            doc.Save(knownServerCertificatesFilePath);
         }
 
         public static string FingerprintPrettyString(string fingerprint)
