@@ -261,19 +261,19 @@ class RRDContentHandler(sax.ContentHandler):
                 self.in_v_tag = True
 
     def characters(self, chars):
-        if (
-            self.in_start_tag
-            or self.in_step_tag
-            or self.in_end_tag
-            or self.in_rows_tag
-            or self.in_columns_tag
-            or self.in_entry_tag
-            or
+        conditions = [
+            self.in_start_tag,
+            self.in_step_tag,
+            self.in_end_tag,
+            self.in_rows_tag,
+            self.in_columns_tag,
+            self.in_entry_tag,
+            self.in_t_tag,
+            self.in_v_tag
             # self.in_row_tag
             # ignore text under row tag, <row>s are just for holding <t> and <v> nodes
-            self.in_t_tag
-            or self.in_v_tag
-        ):
+        ]
+        if any(conditions):
             self.raw_text += chars
 
     def endElement(self, name):

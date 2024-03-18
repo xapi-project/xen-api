@@ -38,6 +38,7 @@ ensure_newline_before_comments = false
 disable = [
     "missing-function-docstring",
     "missing-module-docstring",
+    "missing-class-docstring",
     "consider-using-f-string",
     "too-many-branches",
     "too-many-arguments",
@@ -50,6 +51,9 @@ disable = [
     "unspecified-encoding",
     "protected-access",
     "no-member",  # Some mutiple inheritance classes may have this issue
+    "too-many-locals",  # Long functions. Need to refine the code
+    "too-many-statements",
+    "too-many-return-statements"
 ]
 
 [tool.mypy]
