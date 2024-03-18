@@ -115,6 +115,10 @@ class UsageException(Exception):
 class NotGetValueException(Exception):
     pass
 
+
+class IncorrectInputException(Exception):
+    pass
+
 # Start a session with the master of a pool.
 # Note: when calling http://localhost/rrd_update we must pass the session
 # ID as a param.  The host then uses this to verify our validity with
@@ -508,7 +512,7 @@ def get_percent_sr_usage(mylist):
     """
     try:
         if len(mylist) != 2:
-            raise Exception(
+            raise IncorrectInputException(
                 "Incorrect number of values to consolidate: %d (exactly 2 values)"
                 % len(mylist)
             )
@@ -568,6 +572,8 @@ class VariableConfig:
                 "variable %s: consolidation function %s not supported"
                 % (name, consolidation_fn)
             )
+        # It's fine to use eval here
+        # pylint: disable=eval-used
         self.consolidation_fn = eval(consolidation_fn)
 
         try:
@@ -702,14 +708,12 @@ class ObjectMonitor:
             try:
                 self.__parse_xmlconfig()
             except XmlConfigException as e:
-                errmsg = "\n".join([str(x) for x in e.args])
                 log_err(
-                    "%s %s config error: %s" % (self.monitortype, self.uuid, errmsg)
+                    "%s %s config error: %s" % (self.monitortype, self.uuid, str(e))
                 )
             except ExpatError as e:
-                errmsg = "\n".join([str(x) for x in e.args])
                 log_err(
-                    "%s %s XML parse error: %s" % (self.monitortype, self.uuid, errmsg)
+                    "%s %s XML parse error: %s" % (self.monitortype, self.uuid, str(e))
                 )
             return True
         else:
@@ -1130,16 +1134,14 @@ class HOSTMonitor(ObjectMonitor):
             try:
                 self.__parse_secondary_xmlconfigs()
             except XmlConfigException as e:
-                errmsg = "\n".join([str(x) for x in e.args])
                 log_err(
                     "%s %s secondary config error: %s"
-                    % (self.monitortype, self.uuid, errmsg)
+                    % (self.monitortype, self.uuid, str(e))
                 )
             except ExpatError as e:
-                errmsg = "\n".join([str(x) for x in e.args])
                 log_err(
                     "%s %s secondary XML parse error: %s"
-                    % (self.monitortype, self.uuid, errmsg)
+                    % (self.monitortype, self.uuid, str(e))
                 )
 
         if main_changed or secondary_changed:
@@ -1253,6 +1255,8 @@ def update_all_xmlconfigs(session):
     (SR, host or VM) to the xml config string in other-config:perfmon keys
     and update sruuids_by_hostuuid which together with all_xmlconfigs allows
     lookup of the other-config:perfmon xml of the SRs connected to a host"""
+    # `all_xmlconfigs` and `sruuids_by_hostuuid` are updated by clear() and update()
+    # pylint: disable=global-variable-not-assigned
     global all_xmlconfigs
     global sruuids_by_hostuuid
 
@@ -1472,35 +1476,28 @@ def main():
             for sr_mon in sr_mon_lookup.values():
                 sr_mon.process_rrd_updates(rrd_updates, session)
 
-        except socket.error as e:
-            if e.args[0] == 111:
-                # "Connection refused"
-                # this happens when we try to restart session and *that* fails
-                time.sleep(2)
-                pass
-
+        except ConnectionRefusedError as e:
+            # "Connection refused[111]"
+            # this happens when we try to restart session and *that* fails
+            time.sleep(2)
             log_err(
-                "caught socket.error: (%s) - restarting XAPI session"
-                % " ".join([str(x) for x in e.args])
+                "caught connection refused error: (%s) - restarting XAPI session"
+                % str(e)
             )
             restart_session = True
-
-        except IOError as e:
-            if e.args[0] == "http error" and e.args[1] in (401, 500):
-                # Error getting rrd_updates: 401=Unauthorised, 500=Internal - start new session
-                pass
-            elif e.args[0] == "socket error":
-                # This happens if we send messages or
-                # read other-config:perfmon after xapi is restarted
-                pass
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 500):
+                # Error getting rrd_updates: 401=Unauthorised, 500=Internal
+                # start new session
+                log_err("caught http.error: (%s) - restarting XAPI session" % str(e))
+                restart_session = True
             else:
                 # Don't know why we got this error - crash, die and look at logs later
                 raise
-
-            log_err(
-                "caught IOError: (%s) - restarting XAPI session"
-                % " ".join([str(x) for x in e.args])
-            )
+        except OSError as e:
+            # This happens if we send messages or
+            # read other-config:perfmon after xapi is restarted
+            log_err("caught connection error: (%s) - restarting XAPI session" % str(e))
             restart_session = True
 
         runs += 1
@@ -1608,9 +1605,8 @@ if __name__ == "__main__":
         # Python built-in Exception has args,
         # but XenAPI.Failure has details instead. Sigh.
         try:
-            err_msg = "\n".join([str(x) for x in exp.args])
             # print the exception args nicely
-            log_err(err_msg)
+            log_err(str(exp))
         except Exception:
             try:
                 err_msg = "\n".join([str(x) for x in exp.details]) # pytype: disable=attribute-error
