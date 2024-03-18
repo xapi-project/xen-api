@@ -112,6 +112,9 @@ class UsageException(Exception):
     pass
 
 
+class NotGetValueException(Exception):
+    pass
+
 # Start a session with the master of a pool.
 # Note: when calling http://localhost/rrd_update we must pass the session
 # ID as a param.  The host then uses this to verify our validity with
@@ -153,7 +156,7 @@ class ObjectReport:
     def get_value(self, var_name, row):
         try:
             return (self.vars[var_name])[row]
-        except:
+        except NotGetValueException:
             return 0.0
 
     def insert_value(self, var_name, index, value):
@@ -388,7 +391,7 @@ class RRDUpdates:
         "Return an ObjectReport for the object with this uuid"
         try:
             return self.report.obj_reports[uuid]
-        except:
+        except NotGetValueException:
             return None
 
     def get_uuid_list_by_objtype(self, objtype):
@@ -530,7 +533,7 @@ class VariableConfig:
         def get_value(tag):
             try:
                 return xmldoc.getElementsByTagName(tag)[0].getAttribute("value")
-            except:
+            except NotGetValueException:
                 return get_default_variable_config(name, tag)
 
         rrd_regex = get_value("rrd_regex")
@@ -1415,7 +1418,7 @@ def main():
                 host_uuid = rrd_updates.get_uuid_list_by_objtype("host")[
                     0
                 ]  # should only ever be one of these
-            except:
+            except NotGetValueException:
                 # list may be empty!
                 host_uuid = None
 
