@@ -362,9 +362,9 @@ class RRDUpdates:
         paramstr = "&".join(["%s=%s" % (k, params[k]) for k in params])
         print_debug("Calling http://localhost/rrd_updates?%s" % paramstr)
 
-        sock = urllib.request.urlopen("http://localhost/rrd_updates?%s" % paramstr)
-        xmlsource = sock.read().decode("utf-8")
-        sock.close()
+        url = "http://localhost/rrd_updates?%s" % paramstr
+        with urllib.request.urlopen(url) as sock:
+            xmlsource = sock.read().decode("utf-8")
 
         # Use sax rather than minidom and save Vvvast amounts of time and memory.
         self.report.reset()
@@ -462,9 +462,8 @@ def get_percent_mem_usage(ignored):
     '''
     _ = ignored  # unused: not sure if it'll be used later, passing pylint
     try:
-        memfd = open("/proc/meminfo", "r", encoding="utf-8")
-        memlist = memfd.readlines()
-        memfd.close()
+        with open("/proc/meminfo", "r", encoding="utf-8") as memfd:
+            memlist = memfd.readlines()
         memdict = [m.split(":", 1) for m in memlist]
         memdict = dict(
             [
@@ -1540,23 +1539,25 @@ if __name__ == "__main__":
         if os.fork() != 0:
             sys.exit(0)
         os.setsid()
-        # For /dev/null, encoding is not needed
-        sys.stdout = open("/dev/null", "w") # pylint: disable=unspecified-encoding
-        sys.stdin = open("/dev/null", "r") # pylint: disable=unspecified-encoding
+        # For /dev/null, `encoding` and `with` is not needed
+        # pylint: disable=unspecified-encoding, consider-using-with
+        sys.stdout = open("/dev/null", "w")
+        sys.stdin = open("/dev/null", "r")
         sys.stderr = sys.stdout
 
     # Exit if perfmon already running
     if os.path.exists(pidfile):
-        pid = open(pidfile, encoding="utf-8").read()
+        with open(pidfile, encoding="utf-8") as file:
+            pid = file.read()
+
         if os.path.exists("/proc/%s" % pid):
             log_err("perfmon already running - exiting")
             sys.exit(3)
 
     try:
         # Write out pidfile
-        fd = open(pidfile, "w", encoding="utf-8")
-        fd.write("%d" % os.getpid())
-        fd.close()
+        with open(pidfile, "w", encoding="utf-8") as fd:
+            fd.write("%d" % os.getpid())
 
         # run the main loop
         rc = main()

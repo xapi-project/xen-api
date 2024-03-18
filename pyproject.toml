@@ -47,6 +47,9 @@ disable = [
     "invalid-name",
     "import-error",
     "unnecessary-pass",
+    "unspecified-encoding",
+    "protected-access",
+    "no-member",  # Some mutiple inheritance classes may have this issue
 ]
 
 [tool.mypy]
