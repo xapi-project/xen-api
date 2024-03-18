@@ -1322,19 +1322,19 @@ def main():
         raise UsageException
 
     for opt, arg in opts:
-        if opt == "-i" or opt == "--interval":
+        if opt in ("-i", "--interval"):
             interval = int(arg)
-        elif opt == "-n" or opt == "--numloops":
+        elif opt in ("-n", "--numloops"):
             maxruns = int(arg)
-        elif opt == "-d" or opt == "--debug":
+        elif opt in ("-d", "--debug"):
             debug = True
-        elif opt == "-s" or opt == "--rrdstep":
+        elif opt in ("-s", "--rrdstep"):
             rrd_step = int(arg)
-            if rrd_step != 5 and rrd_step != 60:
+            if rrd_step not in (5, 60):
                 raise UsageException
-        elif opt == "-c" or opt == "--config_update_period":
+        elif opt in ("-c", "--config_update_period"):
             config_update_period = int(arg)
-        elif opt == "-D" or opt == "--interval_percent_dither":
+        elif opt in ("-D", "--interval_percent_dither"):
             interval_percent_dither = int(arg)
         else:
             raise UsageException
