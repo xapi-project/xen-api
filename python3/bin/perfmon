@@ -1270,7 +1270,7 @@ def update_all_xmlconfigs(session):
 
     # Rebuild another map
     sruuids_by_hostuuid.clear()
-    for sr, rec in all_sr_recs.items():
+    for _, rec in all_sr_recs.items():
         if "perfmon" in rec["other_config"]:
             sruuid = rec["uuid"]
             # If we hadn't done SR.get_all_records we would now do SR.get_PBDs.
@@ -1306,7 +1306,7 @@ def main():
     maxruns = None
     try:
         argv = sys.argv[1:]
-        opts, args = getopt.getopt(
+        opts, _ = getopt.getopt(
             argv,
             "i:n:ds:c:D:",
             [
@@ -1321,7 +1321,6 @@ def main():
     except getopt.GetoptError:
         raise UsageException
 
-    configfname = None
     for opt, arg in opts:
         if opt == "-i" or opt == "--interval":
             interval = int(arg)
