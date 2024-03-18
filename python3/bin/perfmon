@@ -444,7 +444,7 @@ def get_percent_fs_usage(ignored):
     Input list is ignored and should be empty
     '''
     _ = ignored  # unused: not sure if it'll be used later, passing pylint
-    
+
     # this file is on the filesystem of interest in both OEM and Retail
     output = subprocess.getoutput("df /etc/passwd")
     output = " ".join(
@@ -462,7 +462,7 @@ def get_percent_mem_usage(ignored):
     '''
     _ = ignored  # unused: not sure if it'll be used later, passing pylint
     try:
-        memfd = open("/proc/meminfo", "r")
+        memfd = open("/proc/meminfo", "r", encoding="utf-8")
         memlist = memfd.readlines()
         memfd.close()
         memdict = [m.split(":", 1) for m in memlist]
@@ -1541,20 +1541,21 @@ if __name__ == "__main__":
         if os.fork() != 0:
             sys.exit(0)
         os.setsid()
-        sys.stdout = open("/dev/null", "w")
-        sys.stdin = open("/dev/null", "r")
+        # For /dev/null, encoding is not needed
+        sys.stdout = open("/dev/null", "w") # pylint: disable=unspecified-encoding
+        sys.stdin = open("/dev/null", "r") # pylint: disable=unspecified-encoding
         sys.stderr = sys.stdout
 
     # Exit if perfmon already running
     if os.path.exists(pidfile):
-        pid = open(pidfile).read()
+        pid = open(pidfile, encoding="utf-8").read()
         if os.path.exists("/proc/%s" % pid):
             log_err("perfmon already running - exiting")
             sys.exit(3)
 
     try:
         # Write out pidfile
-        fd = open(pidfile, "w")
+        fd = open(pidfile, "w", encoding="utf-8")
         fd.write("%d" % os.getpid())
         fd.close()
 
