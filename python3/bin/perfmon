@@ -525,7 +525,7 @@ class VariableConfig:
         try:
             name = xmldoc.getElementsByTagName("name")[0].getAttribute("value")
         except IndexError:
-            raise XmlConfigException("variable missing 'name' tag")
+            raise XmlConfigException("variable missing 'name' tag") from None
 
         def get_value(tag):
             try:
@@ -550,7 +550,7 @@ class VariableConfig:
         except:
             raise XmlConfigException(
                 "variable %s: regex %s does not compile" % (name, rrd_regex)
-            )
+            ) from None
 
         if consolidation_fn not in supported_consolidation_functions:
             raise XmlConfigException(
@@ -565,7 +565,7 @@ class VariableConfig:
             raise XmlConfigException(
                 "variable %s: alarm_trigger_period %s not an int"
                 % (name, alarm_trigger_period)
-            )
+            ) from None
 
         try:
             self.alarm_auto_inhibit_period = int(alarm_auto_inhibit_period)
@@ -573,14 +573,14 @@ class VariableConfig:
             raise XmlConfigException(
                 "variable %s: alarm_auto_inhibit_period %s not an int"
                 % (name, alarm_auto_inhibit_period)
-            )
+            ) from None
         try:
             trigger_level = float(alarm_trigger_level)
         except:
             raise XmlConfigException(
                 "variable %s: alarm_trigger_level %s not a float"
                 % (name, alarm_trigger_level)
-            )
+            ) from None
 
         self.alarm_priority = alarm_priority
 
@@ -1318,7 +1318,7 @@ def main():
             ],
         )
     except getopt.GetoptError:
-        raise UsageException
+        raise UsageException from None
 
     for opt, arg in opts:
         if opt in ("-i", "--interval"):
