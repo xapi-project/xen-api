@@ -95,8 +95,8 @@ def debug_mem():
             objCount[name] = 1
 
         output = []
-        for name in objCount:
-            output.append("%s :%s" % (name, objCount[name]))
+        for name, cnt in objCount.items():
+            output.append("%s :%s" % (name, cnt))
     log_info("\n".join(output))
 
 
@@ -219,9 +219,12 @@ class RRDContentHandler(sax.ContentHandler):
     """
 
     def __init__(self, report):
-        "report is saved and later updated by this object. report should contain defaults already"
+        '''
+        report is saved and later updated by this object.
+        report should contain defaults already
+        '''
+        super().__init__()
         self.report = report
-
         self.in_start_tag = False
         self.in_step_tag = False
         self.in_end_tag = False
@@ -260,7 +263,7 @@ class RRDContentHandler(sax.ContentHandler):
             elif name == "v":
                 self.in_v_tag = True
 
-    def characters(self, chars):
+    def characters(self, content):
         conditions = [
             self.in_start_tag,
             self.in_step_tag,
@@ -274,7 +277,7 @@ class RRDContentHandler(sax.ContentHandler):
             # ignore text under row tag, <row>s are just for holding <t> and <v> nodes
         ]
         if any(conditions):
-            self.raw_text += chars
+            self.raw_text += content
 
     def endElement(self, name):
         if name == "start":
@@ -344,7 +347,7 @@ class RRDUpdates:
 
     def __init__(self):
         # params are what get passed to the CGI executable in the URL
-        self.params = dict()
+        self.params = {}
         self.params["start"] = int(time.time()) - interval  # interval seconds ago
         self.params["host"] = "true"  # include data for host (as well as for VMs)
         self.params["sr_uuid"] = "all"  # include data for all SRs attached to this host
@@ -357,8 +360,10 @@ class RRDUpdates:
     def __repr__(self):
         return "<RRDUpdates object: params=%s>" % str(self.params)
 
-    def refresh(self, session, override_params={}):
+    def refresh(self, session, override_params=None):
         "reread the rrd_updates over CGI and parse"
+        if override_params is None:
+            override_params = {}
         params = override_params
         params["session_id"] = session.id()
         params.update(self.params)
@@ -467,13 +472,16 @@ def get_percent_mem_usage(ignored):
     try:
         with open("/proc/meminfo", "r", encoding="utf-8") as memfd:
             memlist = memfd.readlines()
-        memdict = [m.split(":", 1) for m in memlist]
-        memdict = dict(
-            [
-                (k.strip(), float(re.search(r"\d+", v.strip()).group(0)))
-                for (k, v) in memdict
-            ]
-        )
+        # memorylists is a list of lists, each list contains two parts: memtype and size
+        memorylists = [m.split(":", 1) for m in memlist]
+        memdict = {}
+        for item in memorylists:
+            memtype = item[0].strip()
+            size = item[1].strip()
+            match = re.search(r"\d+", size.strip())
+            if match is None:
+                raise NotGetValueException
+            memdict[memtype] = float(match.group(0))
         # We consider the sum of res memory and swap in use as the hard demand
         # of mem usage, it is bad if this number is beyond the physical mem, as
         # in such case swapping is obligatory rather than voluntary, hence
