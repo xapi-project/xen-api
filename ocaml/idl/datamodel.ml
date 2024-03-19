@@ -8177,6 +8177,7 @@ let http_actions =
         ; Bool_query_arg "include_dom0"
         ; Bool_query_arg "include_vhd_parents"
         ; Bool_query_arg "export_snapshots"
+        ; String_query_arg "excluded_device_types"
         ]
       , _R_VM_ADMIN
       , []
