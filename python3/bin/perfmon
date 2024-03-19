@@ -29,14 +29,7 @@
 #
 # The "cf" CGI param specfies the row.  (All rows are returned if it's missing.)
 
-# pylint: disable=too-many-lines, missing-function-docstring, missing-module-docstring
-# pylint: disable=consider-using-f-string, missing-class-docstring, too-few-public-methods
-# pylint: disable=too-many-instance-attributes, import-error, unnecessary-pass
-# pylint: disable=too-many-branches, too-many-arguments, broad-exception-caught
-# pylint: disable=no-else-break, no-else-return, invalid-name
-
-# pylint: disable=global-statement
-
+# pylint: disable=too-many-lines, missing-class-docstring
 
 import subprocess
 import gc
@@ -169,6 +162,7 @@ class ObjectReport:
         self.vars[var_name].insert(index, value)
 
 
+# pylint: disable=too-few-public-methods
 class RRDReport:
     "This is just a data structure passed that is completed by RRDContentHandler"
 
@@ -192,6 +186,7 @@ class RRDColumn:
         self.obj_report = obj_report
 
 
+# pylint: disable=too-many-instance-attributes
 class RRDContentHandler(sax.ContentHandler):
     """Handles data in this format:
     <xport>
@@ -523,6 +518,7 @@ def get_percent_sr_usage(mylist):
         return 0.0
 
 
+# pylint: disable=too-few-public-methods
 class VariableConfig:
     """Object storing the configuration of a Variable
 
@@ -1310,7 +1306,7 @@ config_update_period = 1800
 cmdsockname = "\0perfmon"
 cmdmaxlen = 256
 
-
+# pylint: disable=global-statement
 def main():
     global interval
     global interval_percent_dither
