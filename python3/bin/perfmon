@@ -30,6 +30,7 @@
 # The "cf" CGI param specfies the row.  (All rows are returned if it's missing.)
 
 # pylint: disable=too-many-lines, missing-class-docstring
+# pytype: disable=attribute-error
 
 import subprocess
 import gc
@@ -105,10 +106,6 @@ class UsageException(Exception):
     pass
 
 
-class NotGetValueException(Exception):
-    pass
-
-
 class IncorrectInputException(Exception):
     pass
 
@@ -153,7 +150,7 @@ class ObjectReport:
     def get_value(self, var_name, row):
         try:
             return (self.vars[var_name])[row]
-        except NotGetValueException:
+        except Exception:
             return 0.0
 
     def insert_value(self, var_name, index, value):
@@ -395,7 +392,7 @@ class RRDUpdates:
         "Return an ObjectReport for the object with this uuid"
         try:
             return self.report.obj_reports[uuid]
-        except NotGetValueException:
+        except Exception:
             return None
 
     def get_uuid_list_by_objtype(self, objtype):
@@ -473,14 +470,12 @@ def get_percent_mem_usage(ignored):
             memlist = memfd.readlines()
         # memorylists is a list of lists, each list contains two parts: memtype and size
         memorylists = [m.split(":", 1) for m in memlist]
-        memdict = {}
-        for item in memorylists:
-            memtype = item[0].strip()
-            size = item[1].strip()
-            match = re.search(r"\d+", size.strip())
-            if match is None:
-                raise NotGetValueException
-            memdict[memtype] = float(match.group(0))
+        memdict = {
+            # pytype complained that No attribute 'group' on None
+            # Let Exception catch the `not matched` issue and return 0.0
+            k.strip(): float(re.search(r"\d+", v.strip()).group(0))
+            for (k, v) in memorylists
+        }
         # We consider the sum of res memory and swap in use as the hard demand
         # of mem usage, it is bad if this number is beyond the physical mem, as
         # in such case swapping is obligatory rather than voluntary, hence
@@ -541,7 +536,7 @@ class VariableConfig:
         def get_value(tag):
             try:
                 return xmldoc.getElementsByTagName(tag)[0].getAttribute("value")
-            except NotGetValueException:
+            except Exception:
                 return get_default_variable_config(name, tag)
 
         rrd_regex = get_value("rrd_regex")
@@ -617,7 +612,6 @@ class VariableState:
         # Attributes `alarm_auto_inhibit_period` and `alarm_trigger_period` are defined
         # in VariableConfig, and Class Varialbe multiple inherit from
         # VariableConfig and VariableState
-        # pytype: disable=attribute-error
         self.timeof_last_alarm = time.time() - self.alarm_auto_inhibit_period
         self.trigger_down_counter = self.alarm_trigger_period
 
@@ -1430,7 +1424,7 @@ def main():
                 host_uuid = rrd_updates.get_uuid_list_by_objtype("host")[
                     0
                 ]  # should only ever be one of these
-            except NotGetValueException:
+            except Exception:
                 # list may be empty!
                 host_uuid = None
 
@@ -1609,8 +1603,6 @@ if __name__ == "__main__":
             log_err(str(exp))
         except Exception:
             try:
-                # As the comment above said, the XenAPI.Failure has `details`
-                # pytype: disable=attribute-error
                 err_msg = "\n".join([str(x) for x in exp.details])
                 # print the exception args nicely
                 log_err(err_msg)
