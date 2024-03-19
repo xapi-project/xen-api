@@ -614,6 +614,10 @@ class VariableState:
 
     def __init__(self):
         self.value = None
+        # Attributes `alarm_auto_inhibit_period` and `alarm_trigger_period` are defined
+        # in VariableConfig, and Class Varialbe multiple inherit from
+        # VariableConfig and VariableState
+        # pytype: disable=attribute-error
         self.timeof_last_alarm = time.time() - self.alarm_auto_inhibit_period
         self.trigger_down_counter = self.alarm_trigger_period
 
@@ -1605,7 +1609,9 @@ if __name__ == "__main__":
             log_err(str(exp))
         except Exception:
             try:
-                err_msg = "\n".join([str(x) for x in exp.details]) # pytype: disable=attribute-error
+                # As the comment above said, the XenAPI.Failure has `details`
+                # pytype: disable=attribute-error
+                err_msg = "\n".join([str(x) for x in exp.details])
                 # print the exception args nicely
                 log_err(err_msg)
             except Exception:
