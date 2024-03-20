@@ -953,12 +953,17 @@ let cluster_host_operation_to_string op =
 
 let bool_of_string s =
   match String.lowercase_ascii s with
-  | "true" | "yes" ->
+  | "true" | "t" | "yes" | "y" | "1" ->
       true
-  | "false" | "no" ->
+  | "false" | "f" | "no" | "n" | "0" ->
       false
   | _ ->
-      raise (Record_failure ("Expected 'true','yes','false','no', got " ^ s))
+      raise
+        (Record_failure
+           ("Expected 'true','t','yes','y','1','false','f','no','n','0' got "
+           ^ s
+           )
+        )
 
 let sdn_protocol_of_string s =
   match String.lowercase_ascii s with
