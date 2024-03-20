@@ -225,15 +225,15 @@ module Sysfs = struct
 
   let get_pci_ids name =
     let read_id_from path =
-      try
-        let l = read_one_line path in
-        (* trim 0x *)
-        String.sub l 2 (String.length l - 2)
-      with _ -> ""
+      let l = path |> Unixext.string_of_file |> String.trim in
+      (* trim 0x *)
+      String.sub l 2 (String.length l - 2)
     in
-    ( read_id_from (getpath name "device/vendor")
-    , read_id_from (getpath name "device/device")
-    )
+    try
+      ( read_id_from (getpath name "device/vendor")
+      , read_id_from (getpath name "device/device")
+      )
+    with _ -> ("", "")
 
   (** Returns the name of the driver for network device [dev] *)
   let get_driver_name dev =

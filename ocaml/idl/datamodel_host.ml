@@ -1369,7 +1369,7 @@ let set_power_on_mode =
       ; (Changed, rel_stockholm, "Removed iLO script")
       ]
     ~in_product_since:rel_midnight_ride
-    ~doc:"Set the power-on-mode, host, user and password "
+    ~doc:"Set the power-on-mode, host, user and password"
     ~params:
       [
         (Ref _host, "self", "The host")

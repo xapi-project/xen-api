@@ -37,7 +37,7 @@ GUID = 'D695A8B9-039A-443C-99A4-0D48D7C6AD76'
 #Copyright
 Author = ''
 CompanyName = 'Cloud Software Group, Inc'
-Copyright = 'Copyright (c) 2013-2023 Cloud Software Group, Inc. All rights reserved.'
+Copyright = 'Copyright (c) 2013-2024 Cloud Software Group, Inc. All rights reserved.'
 
 # Requirements
 PowerShellVersion = '@PS_VERSION@'
@@ -49,17 +49,16 @@ ProcessorArchitecture = 'None'
 RootModule = 'XenServerPowerShell.dll'
 RequiredModules = @()
 NestedModules = @()
-RequiredAssemblies = @('Newtonsoft.Json.CH.dll',
+RequiredAssemblies = @('Newtonsoft.Json.dll',
                        'XenServer.dll')
 ScriptsToProcess = @('Initialize-Environment.ps1')
 TypesToProcess = @('XenServer.types.ps1xml')
 FormatsToProcess = @('XenServer.format.ps1xml')
 FileList = @('about_XenServer.help.txt',
-             'Newtonsoft.Json.CH.dll',
+             'Newtonsoft.Json.dll',
              'Initialize-Environment.ps1',
-             'LICENSE.Newtonsoft.Json.txt',
-             'LICENSE.txt',
-             'README.txt',
+             'LICENSE',
+             'README.md',
              'XenServer.dll',
              'XenServer.format.ps1xml',
              'XenServer.types.ps1xml',

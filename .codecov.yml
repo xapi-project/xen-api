@@ -1,0 +1,281 @@
+# For more configuration details:
+# https://docs.codecov.io/docs/codecov-yaml
+
+# After making edits, check if this file is valid by running:
+# curl -X POST --data-binary @.codecov.yml https://codecov.io/validate
+
+#
+# Coverage configuration
+# ----------------------
+#
+codecov:
+  #
+  # Show the Codecov status without waiting for other status to pass:
+  #
+  require_ci_to_pass: no
+  notify:
+    wait_for_ci: no
+
+github_checks:
+  #
+  # Disable adding coverage annotations to the code in the GitHub
+  # Code Review for now:
+  #
+  # - The annotations consume a lot of space in the PR code review,
+  #   and can make it hard to review files that are not covered yet.
+  #
+  # - The coverage can be visited using the Codecov link at all times.
+  #   https://app.codecov.io/gh/xapi-project/xen-api/pulls
+  #
+  # - The annotations can be hidden in GitHub PR code review by
+  #   pressing the "a" key or by deselecting the "Show comments"
+  #   checkbox but they are shown by default.
+  #
+  # - The Codecov Chrome and Firefox extension is a much nicer
+  #   way to indicate coverage:
+  #
+  #   Link: https://github.com/codecov/codecov-browser-extension
+  #
+  #   - How to enable: You need to log in to Codecov using Github.
+  #     For Firefox, enable the needed permissions:
+  #     https://github.com/codecov/codecov-browser-extension/issues/50
+  #
+  # Reference:
+  # http://docs.codecov.com/docs/common-recipe-list#disable-github-check-run-annotations
+  #
+  annotations: false
+
+
+#
+# Pull request comments:
+# ----------------------
+# This feature adds the code coverage summary as a comment on each PR.
+# See https://docs.codecov.io/docs/pull-request-comments
+# This same information is available from the Codecov checks in the PR's
+# "Checks" tab in GitHub even when this feature is disabled.
+#
+comment:
+  #
+  # Legend:
+  # "diff" is the Coverage Diff of the pull request.
+  # "files" are the files impacted by the pull request
+  # "flags" are the coverage status of the pull request
+  #
+  # For an even shorter layout, this may be used:
+  # layout: "condensed_header, diff, files, flags"
+  #
+  layout: "header, diff, files, flags"
+
+  #
+  # Only add the Codecov comment to the PR when coverage changes
+  #
+  require_changes: true
+  #
+  # The overall project coverage is secondary to the individual coverage
+  # and it is always shown in the repository at:
+  # - https://app.codecov.io/gh/xapi-project/xen-api
+  #
+  hide_project_coverage: true
+
+
+#
+# Coverage limits and display details:
+# ------------------------------------
+#
+coverage:
+
+  #
+  # Number of precision digits when showing coverage percentage e.g. 82.1%:
+  #
+  precision: 1
+
+  #
+  # Commit status checks and display:
+  # ---------------------------------
+  # https://docs.codecov.io/docs/commit-status
+  #
+  # target: Fail the PR if coverage is below that
+  # threshold: Allow reducing coverage by this amount
+  #
+  # - The values added are a very generous, friendly limit to not block most PRs
+  #
+  # - XAPI maintainers may tighten these screws more to require better tests
+  #
+  status: # global coverage status and limits
+
+    #
+    # Patch limits
+    # ------------
+    # These checks look at only the diff of the PR as basis for them.
+    #
+    patch:
+      scripts:
+
+        #
+        # The scripts limit applies to:
+        # -----------------------------
+        #
+        # - scripts/**
+        # - excluding: **/test_*.py
+        #
+        paths: ["scripts/**", "!**/test_*.py"]
+
+        #
+        # For scripts/** (excluding tests):
+        #
+        # For scripts, coverage should not be reduced compared to its base:
+        #
+        target: auto
+
+        #
+        # Exception: the threshold value given is allowed
+        #
+        # Allows for not covering 20% if the changed lines of the PR:
+        #
+        threshold: 20%
+
+      ocaml:
+        #
+        # The ocaml limit applies to:
+        # -----------------------------
+        #
+        # - ocaml/**
+        # - excluding: **/test_*.py
+        #
+        paths: ["ocaml/**", "!**/test_*.py"]
+
+        #
+        # For scripts/** (excluding tests):
+        #
+        # For scripts, coverage should not be reduced compared to its base:
+        #
+        target: auto
+
+        #
+        # Exception: the threshold value given is allowed
+        #
+        # Allows for not covering 20% if the changed lines of the PR:
+        #
+        threshold: 20%
+
+      python3:
+
+        #
+        # The python3 limit applies to:
+        # -----------------------------
+        #
+        # - python3/**
+        # - excluding: **/test_*.py
+        #
+        paths: ["python3/**", "!**/test_*.py"]
+
+        #
+        # For python3/** (excluding tests):
+        #
+        # For python3, coverage should not be reduced compared to its base:
+        #
+        target: auto
+
+        #
+        # Exception: the threshold value given is allowed
+        #
+        # Allows for not covering 20% if the changed lines of the PR:
+        #
+        threshold: 20%
+
+      # Checks each Python version separately:
+      python-3.11:
+        flags: ["python3.11"]
+      python-2.7:
+        flags: ["python2.7"]
+
+    #
+    # Project limits
+    # --------------
+    # These checks are relative to all code, not the changes (not the diff of the PR)
+    #
+    project:
+
+      #
+      # Python modules and scripts below scripts/ (excluding tests)
+      #
+      scripts:
+        paths: ["scripts/**", "!**/test_*.py"]
+        target: 48%
+        threshold: 2%
+
+      #
+      # Python modules and scripts below ocaml/ (excluding tests)
+      #
+      ocaml:
+        paths: ["ocaml/**", "!**/test_*.py"]
+        target: 51%
+        threshold: 3%
+
+      #
+      # Python modules and scripts below python3/ (excluding tests)
+      #
+      python3:
+        paths: ["python3/**", "!**/test_*.py"]
+        target: 48%
+        threshold: 2%
+
+      #
+      # Test files
+      #
+      tests:
+        # Ensure that all tests are executed (tests themselves must be 100% covered)
+        target: 98%
+        paths: ["**/test_*.py"]
+
+
+#
+# Components:
+# -----------
+# Components can be selected in the Codecov Web interface then looking at one PR:
+# https://app.codecov.io/gh/xapi-project/xen-api/pulls
+#
+component_management:
+
+  default_rules:  # default rules that will be inherited by all components
+    statuses:
+
+      - type: project
+        # `auto` will use the coverage from the base commit (pull request base
+        # or parent commit) coverage to compare against.
+        target: auto
+        threshold: 2%
+
+      - type: patch
+        target: auto
+        threshold: 10%
+
+  individual_components:
+
+    - component_id: scripts  # this is an identifier that should not be changed
+      name: scripts  # this is a display name, and can be changed freely
+      # The list of paths that should be in- and excluded in this component:
+      paths: ["scripts/**", "!scripts/examples/**", "!**/test_*.py"]
+
+    - component_id: scripts/examples
+      name: scripts/examples
+      paths: ["scripts/examples/**", "!scripts/**/test_*.py"]
+
+    - component_id: ocaml
+      name: ocaml
+      paths: ["ocaml/**", "!**/test_*.py"]
+
+    - component_id: ocaml/xapi-storage
+      name: ocaml/xapi-storage
+      paths:
+        - "ocaml/xapi-storage/**"
+        - "ocaml/xapi-storage-script/**"
+        - "!**/test_*.py"
+
+    - component_id: python3
+      name: python3
+      paths: ["python3/**", "!**/test_*.py"]
+
+    - component_id: test_cases
+      name: test_cases
+      paths: ["**/test_*.py"]

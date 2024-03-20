@@ -160,3 +160,5 @@ let int_seed name : int option =
 let exchange_certificates_in_pool () : int option =
   let name = "exchange_certificates_in_pool" in
   int_seed name
+
+let disable_xapi_guard_cache () = fistpoint "disable_xapi_guard_cache"

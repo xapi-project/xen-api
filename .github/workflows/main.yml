@@ -5,9 +5,9 @@ on:
   pull_request:
   schedule:
     # run daily, this refreshes the cache
-    - cron: '13 2 * * *'
+    - cron: "13 2 * * *"
 
-concurrency:  # On new push, cancel old workflows from the same PR, branch or tag:
+concurrency: # On new push, cancel old workflows from the same PR, branch or tag:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
@@ -18,21 +18,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['2.7', '3.11']
+        python-version: ["2.7", "3.11"]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # To check which files changed: origin/master..HEAD
+          fetch-depth: 0 # To check which files changed: origin/master..HEAD
       - uses: LizardByte/setup-python-action@master
         with:
           python-version: ${{matrix.python-version}}
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         name: Setup cache for running pre-commit fast
         with:
-            path: ~/.cache/pre-commit
-            key: pre-commit|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+          path: ~/.cache/pre-commit
+          key: pre-commit|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
 
       - run: echo "::add-matcher::.github/workflows/python-warning-matcher.json"
         name: "Setup GitHub for reporting Python warnings as annotations in pull request code review"
@@ -51,16 +51,29 @@ jobs:
 
       - name: Install dependencies only needed for python 3
         if: ${{ matrix.python-version != '2.7' }}
-        run: pip install pandas pytype toml
+        run: pip install pandas pytype toml wrapt
 
       - name: Install common dependencies for Python ${{matrix.python-version}}
         run: pip install future mock pytest-coverage pytest-mock
 
-      - name: Run Pytest and get code coverage for Codecov
+      - name: Run Pytest for python 2 and get code coverage for Codecov
+        if: ${{ matrix.python-version == '2.7' }}
         run: >
           pytest
           --cov=scripts --cov=ocaml/xcp-rrdd
           scripts/ ocaml/xcp-rrdd -vv -rA
+          --junitxml=.git/pytest${{matrix.python-version}}.xml
+          --cov-report term-missing
+          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+        env:
+          PYTHONDEVMODE: yes
+
+      - name: Run Pytest for python 3 and get code coverage for Codecov
+        if: ${{ matrix.python-version != '2.7' }}
+        run: >
+          pytest
+          --cov=scripts --cov=ocaml/xcp-rrdd --cov=python3/
+          scripts/ ocaml/xcp-rrdd python3/ -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
@@ -103,55 +116,24 @@ jobs:
         # Fails for user workflows without permissions(fork-based pull requests):
         continue-on-error: true
         with:
-          message-path: .git/pytype-summary.md  # Add the content of it as comment
+          message-path: .git/pytype-summary.md # Add the content of it as comment
 
-  ocaml-test:
-    name: Ocaml tests
+  ocaml-tests:
+    name: Run OCaml tests
     runs-on: ubuntu-20.04
     env:
+      # Ensure you also update test-sdk-builds
+      # when changing this value, to keep builds
+      # consistent
       XAPI_VERSION: "v0.0.0"
-
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Free space
-        run: sudo rm -rf /usr/local/lib/android
-
-      - name: Pull configuration from xs-opam
-        run: |
-          curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
-
-      - name: Load environment file
-        id: dotenv
-        uses: falti/dotenv-action@v1.0.4
-
-      - name: Update Ubuntu repositories
-        run: sudo apt-get update
-
-      - name: Use disk with more space for TMPDIR and XDG_CACHE_HOME
-        run: |
-          df -h || true
-          export TMPDIR="/mnt/build/tmp"
-          export XDG_CACHE_HOME="/mnt/build/cache"
-          sudo mkdir -p "${TMPDIR}" "${XDG_CACHE_HOME}"
-          sudo chown "$(id -u):$(id -g)" "${TMPDIR}" "${XDG_CACHE_HOME}"
-          echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
-          echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
-
-      - name: Use ocaml
-        uses: ocaml/setup-ocaml@v2
+      - name: Setup XenAPI environment
+        uses: ./.github/workflows/setup-xapi-environment
         with:
-          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
-          opam-repositories: |
-            xs-opam: ${{ steps.dotenv.outputs.repository }}
-          dune-cache: true
-
-      - name: Install dependencies
-        run: opam install . --deps-only --with-test -v
-
-      - name: Configure
-        run: opam exec -- ./configure --xapi_version="$XAPI_VERSION"
+          xapi_version: ${{ env.XAPI_VERSION }}
 
       - name: Build
         run: opam exec -- make
@@ -166,30 +148,16 @@ jobs:
         run: opam exec -- make stresstest
         if: ${{ github.event_name == 'schedule' }}
 
-      - name: Build SDK
-        run: |
-          mkdir -p /opt/xensource/sm
-          wget -O /opt/xensource/sm/XE_SR_ERRORCODES.xml https://raw.githubusercontent.com/xapi-project/sm/master/drivers/XE_SR_ERRORCODES.xml
-          opam exec -- make sdk
-
       - name: Make install smoketest
         run: |
           opam exec -- make install DESTDIR=$(mktemp -d)
           opam exec -- make install DESTDIR=$(mktemp -d) BUILD_PY2=NO
 
-      - name: Sanity test SDK
-        run: |
-          opam exec -- make sdksanity
-
       - name: Check disk space
         run: df -h || true
 
-      - name: Uninstall unversioned packages and remove pins
-        # This should purge them from the cache, unversioned package have
-        # 'master' as its version
-        run: |
-          opam list | awk -F " " '$2 == "master" { print $1 }' |  xargs opam uninstall
-          opam pin list | cut -f1 -d "." | xargs opam unpin
+      - name: Cleanup XenAPI environment
+        uses: ./.github/workflows/cleanup-xapi-environment
 
   deprecation-test:
     name: Deprecation tests
@@ -197,7 +165,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Generate empty configuration for make to be happy
         run: touch config.mk
@@ -211,3 +179,12 @@ jobs:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
           level: error
+
+  test-sdk-builds:
+    name: Test SDK builds
+    uses: ./.github/workflows/generate-and-build-sdks.yml
+    with:
+      # Ensure you also update ocaml-tests
+      # when changing this value, to keep builds
+      # consistent
+      xapi_version: "v0.0.0"

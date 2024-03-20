@@ -1455,7 +1455,7 @@ let _ =
     ~doc:
       "The requested update could not be found. Please upload the update \
        again. This can occur when you run xe update-pool-clean before xe \
-       update-apply. "
+       update-apply."
     () ;
   error Api_errors.update_pool_apply_failed ["hosts"]
     ~doc:"The update cannot be applied for the following host(s)." () ;

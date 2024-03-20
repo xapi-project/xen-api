@@ -187,29 +187,34 @@ module KernelLivePatch = struct
 end
 
 module XenLivePatch = struct
-  let get_regexp status =
-    Re.Posix.compile_pat
-      (Printf.sprintf {|^[ ]*lp_([^- ]+)-([^- ]+)-([^- ]+)-([^- ]+).+%s.*$|}
-         status
-      )
+  let drop x = Astring.Char.Ascii.(is_control x || is_white x)
 
-  let get_livepatches pattern s =
+  let get_livepatches state s =
+    let pattern =
+      Re.Posix.compile_pat {|^lp_([^- ]+)-([^- ]+)-([^- ]+)-([^- ]+)$|}
+    in
     Astring.String.cuts ~sep:"\n" s
     |> List.filter_map (fun line ->
-           match Re.exec_opt pattern line with
-           | Some groups ->
-               let base_version = Re.Group.get groups 1 in
-               let base_release = Re.Group.get groups 2 in
-               let to_version = Re.Group.get groups 3 in
-               let to_release = Re.Group.get groups 4 in
-               Some (base_version, base_release, to_version, to_release)
-           | None ->
+           Astring.String.cuts ~sep:"|" line
+           |> List.map (Astring.String.trim ~drop)
+           |> function
+           | name :: state' :: _ when state' = state -> (
+             match Re.exec_opt pattern name with
+             | Some groups ->
+                 let base_version = Re.Group.get groups 1 in
+                 let base_release = Re.Group.get groups 2 in
+                 let to_version = Re.Group.get groups 3 in
+                 let to_release = Re.Group.get groups 4 in
+                 Some (base_version, base_release, to_version, to_release)
+             | None ->
+                 None
+           )
+           | _ ->
                None
        )
 
   let get_running_livepatch' s =
-    let r = get_regexp "APPLIED" in
-    get_livepatches r s |> get_latest_livepatch
+    get_livepatches "APPLIED" s |> get_latest_livepatch
 
   let get_running_livepatch () =
     Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
@@ -217,13 +222,9 @@ module XenLivePatch = struct
 
   let get_checked_livepatches () =
     Helpers.call_script !Xapi_globs.xen_livepatch_cmd ["list"]
-    |> get_livepatches (get_regexp "CHECKED")
+    |> get_livepatches "CHECKED"
 
   let get_base_build_id () =
-    let drop x =
-      let open Astring.Char.Ascii in
-      is_control x || is_blank x || is_white x
-    in
     Helpers.call_script !Xapi_globs.xl_cmd ["info"; "build_id"]
     |> Astring.String.trim ~drop
     |> function

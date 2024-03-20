@@ -45,8 +45,7 @@ install:
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
-	$(IDATA) xapi-logrotate.conf $(DESTDIR)$(ETCXENDIR)
-	$(IPROG) xapi-logrotate.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IDATA) xapi-logrotate.conf $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-tracing-log-trim.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
@@ -158,7 +157,6 @@ install:
 	$(IPROG) certificate-check $(DESTDIR)/etc/cron.daily/
 	$(IPROG) certificate-refresh $(DESTDIR)/etc/cron.hourly/
 	mkdir -p $(DESTDIR)/etc/cron.d
-	$(IDATA) xapi-logrotate.cron $(DESTDIR)/etc/cron.d/xapi-logrotate.cron
 	$(IDATA) xapi-tracing-log-trim.cron $(DESTDIR)/etc/cron.d/xapi-tracing-log-trim.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
 # templates
@@ -177,7 +175,6 @@ endif
 	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
 	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE3_DIR)/
-	$(IDATA) observer.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 # poweron
