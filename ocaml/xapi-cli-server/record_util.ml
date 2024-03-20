@@ -1027,10 +1027,6 @@ let network_sriov_configuration_mode_to_string = function
   | `unknown ->
       "unknown"
 
-(* string_to_string_map_to_string *)
-let s2sm_to_string sep x =
-  String.concat sep (List.map (fun (a, b) -> a ^ ": " ^ b) x)
-
 (* string to blob ref map to string *)
 let s2brm_to_string get_uuid_from_ref sep x =
   String.concat sep (List.map (fun (n, r) -> n ^ ": " ^ get_uuid_from_ref r) x)
