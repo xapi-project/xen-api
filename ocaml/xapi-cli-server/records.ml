@@ -186,6 +186,10 @@ let get_from_map rs =
   let make_kv (a, b) = Printf.sprintf "%s: %s" a b in
   map_and_concat make_kv rs
 
+let get_uuid_map_from_ref_map rs =
+  let make_kv (a, b) = Printf.sprintf "%s: %s" a (get_uuid_from_ref b) in
+  map_and_concat make_kv rs
+
 (** If the given list is of length 1, get a ref for the PBD's host,
     otherwise return Ref.null *)
 let get_pbds_host rpc session_id pbds =
@@ -1046,10 +1050,7 @@ let net_record rpc session_id net =
           ~get_map:(fun () -> (x ()).API.network_other_config)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.network_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.network_blobs)
           ()
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.network_tags)
@@ -1244,10 +1245,7 @@ let pool_record rpc session_id pool =
           ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.pool_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.pool_blobs)
           ()
       ; make_field ~name:"wlb-url" ~get:(fun () -> (x ()).API.pool_wlb_url) ()
       ; make_field ~name:"wlb-username"
@@ -2258,10 +2256,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.vM_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.vM_blobs)
           ()
       ; make_field ~name:"start-time"
           ~get:(fun () ->
@@ -3015,10 +3010,7 @@ let host_record rpc session_id host =
           ~get_set:(fun () -> (x ()).API.host_supported_bootloaders)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.host_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.host_blobs)
           ()
       ; make_field ~name:"memory-overhead"
           ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead)
@@ -3807,10 +3799,7 @@ let sr_record rpc session_id sr =
           ~get_map:(fun () -> (x ()).API.sR_sm_config)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.sR_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.sR_blobs)
           ()
       ; make_field ~name:"local-cache-enabled"
           ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled)

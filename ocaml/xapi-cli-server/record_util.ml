@@ -1027,10 +1027,6 @@ let network_sriov_configuration_mode_to_string = function
   | `unknown ->
       "unknown"
 
-(* string to blob ref map to string *)
-let s2brm_to_string get_uuid_from_ref sep x =
-  String.concat sep (List.map (fun (n, r) -> n ^ ": " ^ get_uuid_from_ref r) x)
-
 let on_boot_to_string onboot =
   match onboot with `reset -> "reset" | `persist -> "persist"
 
