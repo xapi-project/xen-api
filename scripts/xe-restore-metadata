@@ -171,7 +171,7 @@ fi
 trap cleanup SIGINT ERR
 
 for vdi_uuid in ${vdis}; do
-   if [ "${vdi_uuid}" != "${backup_vdi}" ]; then
+   if [ "${vdi_uuid}" != "${backup_vdi}" ] && [ "$yes" -eq 0 ]; then
       echo "Probing VDI ${vdi_uuid}."
       echo "This VDI was created with a prior version of this code."
       echo "Its validity can't be checked without mounting it first."
