@@ -334,7 +334,7 @@ class RRDContentHandler(sax.ContentHandler):
             # Update position in row
             self.col += 1
 
-            self.in_t_tag = False
+            self.in_v_tag = False
 
 
 # An object of this class should persist the lifetime of the program
