@@ -5867,7 +5867,13 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
     else
       vm_metadata_only
   in
-  let vm_metadata_only = get_bool_param params "metadata" in
+  let extra_args =
+    if vm_metadata_only then
+      Printf.sprintf "&excluded_device_types=%s"
+        (get_param params ~default:"" "excluded-device-types")
+    else
+      ""
+  in
   let vm_record = vm.record () in
   let exporttask, task_destroy_fn =
     match task_uuid with
@@ -5893,7 +5899,7 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
       let f = if !num > 1 then filename ^ string_of_int !num else filename in
       download_file rpc session_id exporttask fd f
         (Printf.sprintf
-           "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b"
+           "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b%s"
            ( if vm_metadata_only then
                Constants.export_metadata_uri
              else
@@ -5903,7 +5909,7 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
            (Ref.string_of (vm.getref ()))
            Constants.use_compression
            (Compression_algorithms.to_string compression)
-           preserve_power_state export_snapshots
+           preserve_power_state export_snapshots extra_args
         )
         "Export" ;
       num := !num + 1
@@ -5939,6 +5945,7 @@ let vm_export fd printer rpc session_id params =
        ; "compress"
        ; "preserve-power-state"
        ; "include-snapshots"
+       ; "excluded-device-types"
        ]
     )
 
