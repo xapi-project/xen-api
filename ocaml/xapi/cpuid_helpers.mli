@@ -28,6 +28,8 @@ val cpu_count : int Map_check.field
 
 val socket_count : int Map_check.field
 
+val threads_per_core : int Map_check.field
+
 val features : [`vm] Xenops_interface.CPU_policy.t Map_check.field
 
 val features_pv : [`host] Xenops_interface.CPU_policy.t Map_check.field

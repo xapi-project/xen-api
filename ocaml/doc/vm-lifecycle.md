@@ -1,3 +1,7 @@
+---
+ layout: doc
+---
+
 # VM Lifecycle
 
 The following diagram shows the states that a VM can be in

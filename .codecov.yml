@@ -158,6 +158,31 @@ coverage:
         #
         threshold: 20%
 
+      python3:
+
+        #
+        # The python3 limit applies to:
+        # -----------------------------
+        #
+        # - python3/**
+        # - excluding: **/test_*.py
+        #
+        paths: ["python3/**", "!**/test_*.py"]
+
+        #
+        # For python3/** (excluding tests):
+        #
+        # For python3, coverage should not be reduced compared to its base:
+        #
+        target: auto
+
+        #
+        # Exception: the threshold value given is allowed
+        #
+        # Allows for not covering 20% if the changed lines of the PR:
+        #
+        threshold: 20%
+
       # Checks each Python version separately:
       python-3.11:
         flags: ["python3.11"]
@@ -175,17 +200,25 @@ coverage:
       # Python modules and scripts below scripts/ (excluding tests)
       #
       scripts:
+        paths: ["scripts/**", "!**/test_*.py"]
         target: 48%
         threshold: 2%
-        paths: ["scripts/**", "!**/test_*.py"]
 
       #
-      # Python modules and scripts below ocaml/
+      # Python modules and scripts below ocaml/ (excluding tests)
       #
       ocaml:
         paths: ["ocaml/**", "!**/test_*.py"]
         target: 51%
         threshold: 3%
+
+      #
+      # Python modules and scripts below python3/ (excluding tests)
+      #
+      python3:
+        paths: ["python3/**", "!**/test_*.py"]
+        target: 48%
+        threshold: 2%
 
       #
       # Test files
@@ -238,6 +271,10 @@ component_management:
         - "ocaml/xapi-storage/**"
         - "ocaml/xapi-storage-script/**"
         - "!**/test_*.py"
+
+    - component_id: python3
+      name: python3
+      paths: ["python3/**", "!**/test_*.py"]
 
     - component_id: test_cases
       name: test_cases

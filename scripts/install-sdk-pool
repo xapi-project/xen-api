@@ -49,7 +49,7 @@ echo "* starting VMS"
 echo "	starting: template ${VMTEMPLATE}"
 ${XE} vm-start uuid=${VMTEMPLATE}
 
-for vm in ${vms[@]}
+for vm in "${vms[@]}"
 do
 	VM=${vms[$i]}
 	echo "	starting: $vm"
@@ -69,11 +69,11 @@ ${XEBIN} -s ${masterip} -p ${port} -u root -pw "xensource" ${NOSSL} \
 	host-license-add license-file="${license}"
 
 # get all ips and update a license to it
-for vm in ${vms[@]}
+for vm in "${vms[@]}"
 do
 	ip=`${XE} vm-param-get --minimal uuid="${vm}" param-name=networks | awk '{print $2}'`
 	echo "	Applying license to ${vm} at IP (${ip})"
-	
+
 	${XEBIN} -s ${ip} -p ${port} -u root -pw "xensource" ${NOSSL} \
 		host-license-add license-file="${license}"
 done
@@ -82,13 +82,13 @@ sleep 40
 
 echo "* Pooling all VMs to $masterip"
 
-for vm in ${vms[@]}
+for vm in "${vms[@]}"
 do
 	ip=`${XE} vm-param-get --minimal uuid="${vm}" param-name=networks | awk '{print $2}'`
 	echo "	Pooling slave VM ${vm} to (${masterip})"
 
 	${XEBIN} -s ${ip} -p ${port} -u root -pw "xensource" ${NOSSL} \
 		pool-join master-address=${masterip} \
-		master-username=root master-password=xensource master		
+		master-username=root master-password=xensource master
 
 done

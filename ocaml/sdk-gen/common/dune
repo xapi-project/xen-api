@@ -6,5 +6,6 @@
     xapi-datamodel
     mustache
   )
+  (modules_without_implementation license)
 )
 
