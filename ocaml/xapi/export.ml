@@ -607,23 +607,22 @@ let string_of_vm ~__context vm =
 (** Export a VM's metadata only *)
 let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
     ~include_vhd_parents ~vms ~excluded_devices s =
+  let infomsg vm =
+    info
+      "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; \
+       include_vhd_parents = '%b'; preserve_power_state = '%s'; \
+       excluded_devices = '%s'"
+      vm with_snapshot_metadata include_vhd_parents
+      (string_of_bool preserve_power_state)
+      (String.concat ", " (List.map Devicetype.to_string excluded_devices))
+  in
   ( match vms with
   | [] ->
       failwith "need to specify at least one VM"
   | [vm] ->
-      info
-        "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; \
-         include_vhd_parents = '%b'; preserve_power_state = '%s"
-        (string_of_vm ~__context vm)
-        with_snapshot_metadata include_vhd_parents
-        (string_of_bool preserve_power_state)
+      infomsg (string_of_vm ~__context vm)
   | vms ->
-      info
-        "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; \
-         preserve_power_state = '%s"
-        (String.concat ", " (List.map (string_of_vm ~__context) vms))
-        with_snapshot_metadata
-        (string_of_bool preserve_power_state)
+      infomsg (String.concat ", " (List.map (string_of_vm ~__context) vms))
   ) ;
   let _, ova_xml =
     vm_metadata ~with_snapshot_metadata ~preserve_power_state
