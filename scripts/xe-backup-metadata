@@ -39,6 +39,7 @@ function usage {
     echo " -k: Number of older backups to preserve (default: ${history_kept})"
     echo " -n: Just try to find a backup VDI and stop the script after that"
     echo " -f  Force backup even when less than 10% free capacity is left on the backup VDI"
+    echo " -y: Assume non-interactive mode and yes to all questions"
     echo " -v: Verbose output"
     echo 
     echo
@@ -86,7 +87,8 @@ just_find_vdi=0
 fs_uninitialised=0
 usage_alert=90
 force_backup=0
-while getopts "hvink:u:dcf" opt ; do
+yes=0
+while getopts "yhvink:u:dcf" opt ; do
     case $opt in
     h) usage ;;
     c) create_vdi=1 ; fs_uninitialised=1 ;;
@@ -96,6 +98,7 @@ while getopts "hvink:u:dcf" opt ; do
     d) leave_mounted=1 ;;
     n) just_find_vdi=1 ;;
     v) debug="" ;;
+    y) yes=1 ;;
     f) force_backup=1 ;;
     *) echo "Invalid option"; usage ;;
     esac
@@ -159,7 +162,7 @@ function cleanup {
 
 # if we can't validate the UUID of the VDI, prompt the user
 if [ -n "${vdi_uuid}" ]; then
-    if ! validate_vdi_uuid "${sr_uuid}" "${vdi_uuid}"; then
+    if ! validate_vdi_uuid "${sr_uuid}" "${vdi_uuid}" && [ "$yes" -eq 0 ]; then
         echo "Backup VDI $vdi_uuid was most likley create by an earlier"
         echo "version of this code. Make sure this is a VDI that you"
         echo "created as we can't validate it without mounting it."
