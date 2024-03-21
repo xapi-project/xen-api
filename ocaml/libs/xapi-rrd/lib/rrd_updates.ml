@@ -194,9 +194,9 @@ let json_of_t t =
             ; ("rows", int (Array.length t.data))
             ; ("columns", int (Array.length t.legend))
             ; ("legend", array (map_to_list string t.legend))
-            ; ("data", array (map_to_list data_record t.data))
             ]
         )
+      ; ("data", array (map_to_list data_record t.data))
       ]
   in
   Yojson.to_string meta

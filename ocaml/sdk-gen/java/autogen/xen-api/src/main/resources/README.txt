@@ -39,5 +39,6 @@ https://discussions.citrix.com/forum/101-hypervisor-formerly-xenserver/
 Dependencies
 ------------
 
-XenServerJava is dependent upon Apache XML-RPC by the Apache Software Foundation,
-licensed under the Apache Software License 2.0.
+XenServerJava is dependent upon:
+- The jackson-databind (https://github.com/FasterXML/jackson-databind) package by the Jackson Project (https://github.com/FasterXML/jackson), licensed under the Apache Software License 2.0.
+- The Apache HttpClient (https://hc.apache.org/httpcomponents-client/) package by the Apache Software Foundation (https://www.apache.org/), licensed under the Apache Software License 2.0.

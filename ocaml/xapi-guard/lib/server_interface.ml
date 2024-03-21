@@ -18,6 +18,7 @@ open Lwt.Syntax
 module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
+module Tpm = Xapi_guard.Types.Tpm
 
 type rpc_t = Rpc.t
 
@@ -50,8 +51,8 @@ let () =
    * this is only needed for syscalls that would otherwise block *)
   Lwt_unix.set_pool_size 16
 
-let with_xapi ~cache f =
-  Lwt_unix.with_timeout 120. (fun () -> SessionCache.with_session cache f)
+let with_xapi ~cache ?(timeout = 120.) f =
+  Lwt_unix.with_timeout timeout (fun () -> SessionCache.with_session cache f)
 
 let serve_forever_lwt path callback =
   let conn_closed _ = () in
@@ -99,109 +100,70 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
       in
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
-(* The TPM has 3 kinds of states *)
-type state = {
-    permall: string  (** permanent storage *)
-  ; savestate: string  (** for ACPI S3 *)
-  ; volatilestate: string  (** for snapshot/migration/etc. *)
-}
-
-let split_char = ' '
-
-let join_string = String.make 1 split_char
-
-let deserialize t =
-  match String.split_on_char split_char t with
-  | [permall] ->
-      (* backwards compat with reading tpm2-00.permall *)
-      {permall; savestate= ""; volatilestate= ""}
-  | [permall; savestate; volatilestate] ->
-      {permall; savestate; volatilestate}
-  | splits ->
-      Fmt.failwith "Invalid state: too many splits %d" (List.length splits)
-
-let serialize t =
-  (* it is assumed that swtpm has already base64 encoded this *)
-  String.concat join_string [t.permall; t.savestate; t.volatilestate]
-
-let lookup_key key t =
-  match key with
-  | "/tpm2-00.permall" ->
-      t.permall
-  | "/tpm2-00.savestate" ->
-      t.savestate
-  | "/tpm2-00.volatilestate" ->
-      t.volatilestate
-  | s ->
-      Fmt.invalid_arg "Unknown TPM state key: %s" s
-
-let update_key key state t =
-  if String.contains state split_char then
-    Fmt.invalid_arg
-      "State to be stored (%d bytes) contained forbidden separator: %c"
-      (String.length state) split_char ;
-  match key with
-  | "/tpm2-00.permall" ->
-      {t with permall= state}
-  | "/tpm2-00.savestate" ->
-      {t with savestate= state}
-  | "/tpm2-00.volatilestate" ->
-      {t with volatilestate= state}
-  | s ->
-      Fmt.invalid_arg "Unknown TPM state key: %s" s
-
-let empty = ""
-
-let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
-  let get_vtpm_ref () =
-    let* vm =
-      with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid
-    in
-    let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
-    match vTPMs with
-    | [] ->
-        D.warn
-          "%s: received a request from a VM that has no VTPM associated, \
-           ignoring request"
-          __FUNCTION__ ;
-        let msg =
-          Printf.sprintf "No VTPM associated with VM %s, nothing to do" vm_uuid
-        in
-        raise (Failure msg)
-    | self :: _ ->
-        let* uuid = with_xapi ~cache @@ Xen_api_lwt_unix.VTPM.get_uuid ~self in
-        with_xapi ~cache @@ VTPM.get_by_uuid ~uuid
+let with_xapi_vtpm ~cache vm_uuid =
+  let vm_uuid_str = Uuidm.to_string vm_uuid in
+  let* vm =
+    with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid_str
   in
+  let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
+  match vTPMs with
+  | [] ->
+      D.warn
+        "%s: received a request from a VM that has no VTPM associated, \
+         ignoring request"
+        __FUNCTION__ ;
+      let msg =
+        Printf.sprintf "No VTPM associated with VM %s, nothing to do"
+          vm_uuid_str
+      in
+      raise (Failure msg)
+  | self :: _ ->
+      Lwt.return self
+
+let push_vtpm ~cache (vm_uuid, _timestamp, key) contents =
+  let* self = with_xapi_vtpm ~cache vm_uuid in
+  let* old_contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+  let contents =
+    Tpm.(old_contents |> deserialize |> update key contents |> serialize)
+  in
+  let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
+  Lwt_result.return ()
+
+let read_vtpm ~cache (vm_uuid, _timestamp, key) =
+  let* self = with_xapi_vtpm ~cache vm_uuid in
+  let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+  let body = Tpm.(contents |> deserialize |> lookup ~key) in
+  Lwt_result.return body
+
+let serve_forever_lwt_callback_vtpm ~cache mutex (read, persist) vm_uuid _ req
+    body =
   let uri = Cohttp.Request.uri req in
+  let timestamp = Mtime_clock.now () in
   (* in case the connection is interrupted/etc. we may still have pending operations,
      so use a per vTPM mutex to ensure we really only have 1 pending operation at a time for a vTPM
   *)
   Lwt_mutex.with_lock mutex @@ fun () ->
   (* TODO: some logging *)
   match (Cohttp.Request.meth req, Uri.path uri) with
-  | `GET, key when key <> "/" ->
-      let* self = get_vtpm_ref () in
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
-      let body = contents |> deserialize |> lookup_key key in
+  | `GET, path when path <> "/" ->
+      let key = Tpm.key_of_swtpm path in
+      let* body = read (vm_uuid, timestamp, key) in
       let headers =
         Cohttp.Header.of_list [("Content-Type", "application/octet-stream")]
       in
       Cohttp_lwt_unix.Server.respond_string ~headers ~status:`OK ~body ()
-  | `PUT, key when key <> "/" ->
+  | `PUT, path when path <> "/" ->
       let* body = Cohttp_lwt.Body.to_string body in
-      let* self = get_vtpm_ref () in
-      let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
-      let contents =
-        contents |> deserialize |> update_key key body |> serialize
-      in
-      let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
+      let key = Tpm.key_of_swtpm path in
+      let* () = persist (vm_uuid, timestamp, key) body in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
         ~body:Cohttp_lwt.Body.empty ()
-  | `DELETE, key when key <> "/" ->
-      let* self = get_vtpm_ref () in
+  | `DELETE, path when path <> "/" ->
+      let* self = with_xapi_vtpm ~cache vm_uuid in
       let* contents = with_xapi ~cache @@ VTPM.get_contents ~self in
+      let key = Tpm.key_of_swtpm path in
       let contents =
-        contents |> deserialize |> update_key key empty |> serialize
+        Tpm.(contents |> deserialize |> update key empty_state |> serialize)
       in
       let* () = with_xapi ~cache @@ VTPM.set_contents ~self ~contents in
       Cohttp_lwt_unix.Server.respond ~status:`No_content
@@ -211,10 +173,11 @@ let serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid _ req body =
       Cohttp_lwt_unix.Server.respond_string ~status:`Method_not_allowed ~body ()
 
 (* Create a restricted RPC function and socket for a specific VM *)
-let make_server_varstored ~cache path vm_uuid =
+let make_server_varstored _persist ~cache path vm_uuid =
+  let vm_uuid_str = Uuidm.to_string vm_uuid in
   let module Server =
     Xapi_idl_guard_varstored.Interface.RPC_API (Rpc_lwt.GenServer ()) in
-  let get_vm_ref () = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid in
+  let get_vm_ref () = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid_str in
   let ret v =
     (* TODO: maybe map XAPI exceptions *)
     Lwt.bind v Lwt.return_ok |> Rpc_lwt.T.put
@@ -236,7 +199,7 @@ let make_server_varstored ~cache path vm_uuid =
       (let* (_ : _ Ref.t) =
          with_xapi ~cache
          @@ Message.create ~name:"VM_SECURE_BOOT_FAILED" ~priority ~cls:`VM
-              ~obj_uuid:vm_uuid ~body
+              ~obj_uuid:vm_uuid_str ~body
        in
        Lwt.return_unit
       )
@@ -253,7 +216,9 @@ let make_server_varstored ~cache path vm_uuid =
   serve_forever_lwt_callback (Rpc_lwt.server Server.implementation) path
   |> serve_forever_lwt path
 
-let make_server_vtpm_rest ~cache path vm_uuid =
+let make_server_vtpm_rest read_write ~cache path vm_uuid =
   let mutex = Lwt_mutex.create () in
-  let callback = serve_forever_lwt_callback_vtpm ~cache mutex vm_uuid in
+  let callback =
+    serve_forever_lwt_callback_vtpm ~cache mutex read_write vm_uuid
+  in
   serve_forever_lwt path callback

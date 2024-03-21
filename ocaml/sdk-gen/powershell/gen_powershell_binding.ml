@@ -69,31 +69,38 @@ let generated x =
   not (List.mem x.name ["blob"; "session"; "debug"; "event"; "vtpm"])
 
 let rec main () =
-  gen_xenref_converters classes ;
-  let cmdlets =
-    classes |> List.filter generated |> List.map gen_cmdlets |> List.concat
-  in
-  let http_cmdlets =
-    http_actions
-    |> List.filter (fun (_, (_, _, sdk, _, _, _)) -> sdk)
-    |> List.map gen_http_action
-  in
-  let all_cmdlets = cmdlets @ http_cmdlets in
-  List.iter (fun x -> write_file x.filename x.content) all_cmdlets ;
-
-  let fnames = all_cmdlets |> List.map (fun x -> x.filename) in
-  let sorted_members = List.sort String.compare fnames in
   let json =
     `O
       [
-        ( "cmdlets"
-        , `A (List.map (fun x -> `O [("cmdlet", `String x)]) sorted_members)
+        ( "all_classes"
+        , `A
+            (List.map
+               (fun x ->
+                 `O
+                   [
+                     ("exposed_name", `String (exposed_class_name x.name))
+                   ; ( "var_name"
+                     , `String (ocaml_class_to_csharp_local_var x.name)
+                     )
+                   ]
+               )
+               classes
+            )
         )
       ]
   in
   render_file
-    ("XenServerPowerShell.csproj.mustache", "XenServerPowerShell.csproj")
-    json templdir destdir
+    ("ConvertTo-XenRef.mustache", "ConvertTo-XenRef.cs")
+    json templdir destdir ;
+
+  http_actions
+  |> List.filter (fun (_, (_, _, sdk, _, _, _)) -> sdk)
+  |> List.iter gen_http_action ;
+
+  let cmdlets =
+    classes |> List.filter generated |> List.map gen_cmdlets |> List.concat
+  in
+  List.iter (fun x -> write_file x.filename x.content) cmdlets
 
 (****************)
 (* Http actions *)
@@ -103,196 +110,58 @@ and gen_http_action action =
   let commonVerb = get_http_action_verb name meth in
   let verbCategory = get_common_verb_category commonVerb in
   let stem = get_http_action_stem name in
-  let content =
-    sprintf
-      "%s\n\n\
-       using System;\n\
-       using System.Collections;\n\
-       using System.Collections.Generic;\n\
-       using System.Management.Automation;\n\
-       using XenAPI;\n\n\
-       namespace Citrix.XenServer.Commands\n\
-       {\n\
-      \    [Cmdlet(%s.%s, \"Xen%s\"%s)]\n\
-      \    [OutputType(typeof(void))]\n\
-      \    public class %sXen%sCommand : XenServerHttpCmdlet\n\
-      \    {\n\
-      \        #region Cmdlet Parameters\n\
-       %s%s\n\
-      \        #endregion\n\n\
-      \        #region Cmdlet Methods\n\n\
-      \        protected override void ProcessRecord()\n\
-      \        {\n\
-      \            GetSession();\n\
-       %s\n\
-      \            RunApiCall(() => %s);\n\
-      \        }\n\n\
-      \        #endregion\n\
-      \    }\n\
-       }\n"
-      Licence.bsd_two_clause verbCategory commonVerb stem
-      (gen_should_process_http_decl meth)
-      commonVerb stem
-      (gen_progress_tracker meth)
-      (gen_arg_params args)
-      (gen_should_process_http meth uri)
-      (gen_http_action_call action)
+  let arg_name = function
+    | String_query_arg x | Int64_query_arg x ->
+        pascal_case_rec x
+    | Bool_query_arg x ->
+        if String.lowercase_ascii x = "host" then
+          "IsHost"
+        else
+          pascal_case_rec x
+    | Varargs_query_arg ->
+        "Args"
   in
-  {filename= sprintf "%s-Xen%s.cs" commonVerb stem; content}
-
-and gen_should_process_http_decl meth =
-  match meth with
-  | Put ->
-      ", SupportsShouldProcess = true"
-  | Get ->
-      ", SupportsShouldProcess = false"
-  | _ ->
-      assert false
-
-and gen_should_process_http meth uri =
-  match meth with
-  | Put ->
-      sprintf
-        "\n            if (!ShouldProcess(\"%s\"))\n                return;\n"
-        uri
-  | _ ->
-      ""
-
-and gen_progress_tracker meth =
-  match meth with
-  | Get ->
-      "\n\
-      \        [Parameter]\n\
-      \        public HTTP.DataCopiedDelegate DataCopiedDelegate { get; set; }\n"
-  | Put ->
-      "\n\
-      \        [Parameter]\n\
-      \        public HTTP.UpdateProgressDelegate ProgressDelegate { get; set; }\n"
-  | _ ->
-      assert false
-
-and gen_arg_params args =
-  match args with
-  | [] ->
-      ""
-  | hd :: tl ->
-      sprintf "%s%s" (gen_arg_param hd) (gen_arg_params tl)
-
-and gen_arg_param = function
-  | String_query_arg x ->
-      sprintf
-        "\n        [Parameter%s]\n        public string %s { get; set; }\n"
-        ( if String.lowercase_ascii x = "uuid" then
-            "(ValueFromPipelineByPropertyName = true)"
-          else
-            ""
+  let arg_type = function
+    | String_query_arg _ ->
+        "string"
+    | Int64_query_arg _ ->
+        "long?"
+    | Bool_query_arg _ ->
+        "bool?"
+    | Varargs_query_arg ->
+        "string[]"
+  in
+  let json =
+    `O
+      [
+        ("verb_category", `String verbCategory)
+      ; ("common_verb", `String commonVerb)
+      ; ("stem", `String stem)
+      ; ("isPut", `Bool (meth == Put))
+      ; ("isGet", `Bool (meth == Get))
+      ; ("uri", `String uri)
+      ; ("action_name", `String name)
+      ; ( "args"
+        , `A
+            (List.map
+               (fun x ->
+                 `O
+                   [
+                     ("arg_type", `String (arg_type x))
+                   ; ("arg_name", `String (arg_name x))
+                   ; ( "from_pipeline"
+                     , `Bool (String.lowercase_ascii (arg_name x) = "uuid")
+                     )
+                   ]
+               )
+               args
+            )
         )
-        (pascal_case_ x)
-  | Int64_query_arg x ->
-      sprintf "\n        [Parameter]\n        public long? %s { get; set; }\n"
-        (pascal_case_ x)
-  | Bool_query_arg x ->
-      let y = if x = "host" then "is_host" else x in
-      sprintf "\n        [Parameter]\n        public bool? %s { get; set; }\n"
-        (pascal_case_ y)
-  | Varargs_query_arg ->
-      sprintf
-        "\n\
-        \        ///<summary>\n\
-        \        /// Alternate names and values\n\
-        \        ///</summary>\n\
-        \        [Parameter]\n\
-        \        public string[] Args { get; set; }\n"
-
-and gen_http_action_call (name, (meth, _, _, args, _, _)) =
-  let progressTracker =
-    match meth with
-    | Get ->
-        "DataCopiedDelegate"
-    | Put ->
-        "ProgressDelegate"
-    | _ ->
-        assert false
+      ]
   in
-  sprintf
-    "XenAPI.HTTP_actions.%s(%s,\n\
-    \                CancellingDelegate, TimeoutMs, XenHost, Proxy, Path, \
-     TaskRef,\n\
-    \                session.opaque_ref%s)" name progressTracker
-    (gen_call_arg_params args)
-
-and gen_call_arg_params args =
-  match args with
-  | [] ->
-      ""
-  | hd :: tl ->
-      sprintf "%s%s" (gen_call_arg_param hd) (gen_call_arg_params tl)
-
-and gen_call_arg_param = function
-  | String_query_arg x ->
-      sprintf ", %s" (pascal_case_ x)
-  | Int64_query_arg x ->
-      sprintf ", %s" (pascal_case_ x)
-  | Bool_query_arg x ->
-      let y = if x = "host" then "is_host" else x in
-      sprintf ", %s" (pascal_case_ y)
-  | Varargs_query_arg ->
-      sprintf ", Args"
-
-(***********************************)
-(* Utility cmdlet ConvertTo-XenRef *)
-(***********************************)
-and gen_xenref_converters classes =
-  write_file "ConvertTo-XenRef.cs" (gen_body_xenref_converters classes)
-
-and gen_body_xenref_converters classes =
-  sprintf
-    "%s\n\n\
-     using System;\n\
-     using System.Collections;\n\
-     using System.Collections.Generic;\n\
-     using System.Management.Automation;\n\
-     using XenAPI;\n\n\
-     namespace Citrix.XenServer.Commands\n\
-     {\n\
-    \    [Cmdlet(VerbsData.ConvertTo, \"XenRef\")]\n\
-    \    [OutputType(typeof(IXenObject))]\n\
-    \    public class ConvertToXenRefCommand : PSCmdlet\n\
-    \    {\n\
-    \        #region Cmdlet Parameters\n\n\
-    \        [Parameter(Mandatory = true, ValueFromPipeline = true, Position = \
-     0)]\n\
-    \        public IXenObject XenObject { get; set; }\n\n\
-    \        #endregion\n\n\
-    \        #region Cmdlet Methods\n\n\
-    \        protected override void ProcessRecord()\n\
-    \        {%s\n\
-    \        }\n\n\
-    \        #endregion\n\n\
-    \    }\n\
-     }\n"
-    Licence.bsd_two_clause (print_converters classes)
-
-and print_converters classes =
-  match classes with
-  | [] ->
-      ""
-  | hd :: tl ->
-      sprintf
-        "\n\
-        \            %s %s = XenObject as %s;\n\
-        \            if (%s != null)\n\
-        \            {\n\
-        \                WriteObject(new XenRef<%s>(%s));\n\
-        \                return;\n\
-        \            }%s"
-        (qualified_class_name hd.name)
-        (ocaml_class_to_csharp_local_var hd.name)
-        (qualified_class_name hd.name)
-        (ocaml_class_to_csharp_local_var hd.name)
-        (qualified_class_name hd.name)
-        (ocaml_class_to_csharp_local_var hd.name)
-        (print_converters tl)
+  render_file
+    ("HttpAction.mustache", sprintf "%s-Xen%s.cs" commonVerb stem)
+    json templdir destdir
 
 (*************************)
 (* Autogenerated cmdlets *)
@@ -567,15 +436,6 @@ and print_methods_constructor message obj classname =
     )
     (gen_shouldprocess "New" message classname)
     (gen_csharp_api_call message classname "New" "passthru")
-
-and create_param_parse param paramName =
-  match param.param_type with
-  | Ref _ ->
-      sprintf "\n            string %s = %s.opaque_ref;\n"
-        (String.lowercase_ascii param.param_name)
-        paramName
-  | _ ->
-      ""
 
 and gen_make_record obj classname =
   sprintf
@@ -1160,37 +1020,6 @@ and print_cmdlet_methods_dynamic classname messages enum commonVerb =
         (ocaml_class_to_csharp_class classname)
         enum (cut_message_name hd) (cut_message_name hd) localVar
         (print_cmdlet_methods_dynamic classname tl enum commonVerb)
-
-and print_async_param_getter classname asyncMessages =
-  let properties =
-    List.map
-      (fun x ->
-        sprintf "                    case Xen%sProperty.%s:"
-          (ocaml_class_to_csharp_class classname)
-          x
-      )
-      asyncMessages
-  in
-  match asyncMessages with
-  | [] ->
-      ""
-  | _ ->
-      sprintf
-        "\n\
-        \        protected override bool GenerateAsyncParam\n\
-        \        {\n\
-        \            get\n\
-        \            {\n\
-        \                switch (XenProperty)\n\
-        \                {\n\
-         %s\n\
-        \                        return true;\n\
-        \                    default:\n\
-        \                        return false;\n\
-        \                }\n\
-        \            }\n\
-        \        }\n"
-        (String.concat "\n" properties)
 
 (**************************************)
 (* Common to more than one generators *)

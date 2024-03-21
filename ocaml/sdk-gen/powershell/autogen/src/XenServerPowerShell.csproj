@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <Version>0.0.0</Version>
+    <TargetFrameworks>net8.0;net6.0;net45</TargetFrameworks>
+    <OutputType>Library</OutputType>
+    <GenerateAssemblyInfo>True</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <PropertyGroup>
+    <!-- This propety ensures all DLLs are placed in `bin/` at compile time -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)|$(OS)' == 'Debug|AnyCPU|Windows_NT' And '$(TargetFramework)' == 'net6.0'">
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Program Files\PowerShell\7\pwsh.exe</StartProgram>
+    <StartArguments>-NoLogo -NoExit -Command "Import-Module '.\XenServerPowerShell.dll'"</StartArguments>
+  </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)|$(Platform)|$(OS)' == 'Debug|AnyCPU|Windows_NT' And '$(TargetFramework)' == 'net45'">
+    <TreatWarningsAsErrors>True</TreatWarningsAsErrors>
+    <StartAction>Program</StartAction>
+    <StartProgram>C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe</StartProgram>
+    <StartArguments>-NoLogo -NoExit -Command "Import-Module '.\XenServerPowerShell.dll'"</StartArguments>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+    <PackageReference Include="System.Management.Automation" Version="7.4.1" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net6.0'">
+    <PackageReference Include="System.Management.Automation" Version="7.2.18" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net45'">
+    <Reference Include="System.Management.Automation, Version=3.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>$(MSBuildProgramFiles32)\Reference Assemblies\Microsoft\WindowsPowerShell\3.0\System.Management.Automation.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <ItemGroup>
+  <!-- The version number here is a placeholder, remember to update it using the correct XenServer.NET version-->
+    <PackageReference Include="XenServer.NET" Version="0.0.0" />
+  </ItemGroup>
+</Project>

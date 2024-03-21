@@ -70,7 +70,7 @@ handle_promiscuous()
     if [ $? -eq 0 -a -n "${arg}" ] ; then
         case $NETWORK_MODE in
             bridge)
-                case "${arg}" in 
+                case "${arg}" in
                     true|on) echo 1 > /sys/class/net/${dev}/brport/promisc ;;
                     *) echo 0 > /sys/class/net/${dev}/brport/promisc ;;
                 esac
@@ -198,7 +198,7 @@ PRIVATE=/xapi/${DOMUUID}/private/vif/${DEVID}
 HOTPLUG_STATUS="${XENBUS_PATH}/hotplug-status"
 HOTPLUG_ERROR="${XENBUS_PATH}/hotplug-error"
 
-NETWORK_MODE=bridge 
+NETWORK_MODE=bridge
 if [ -e /sys/module/openvswitch ]; then
     NETWORK_MODE=openvswitch
 fi
@@ -221,7 +221,7 @@ if [ -n "${UDEV_CALL}" ] && \
     exit 0
 fi
 
-logger -t scripts-vif "Called as \"$@\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
+logger -t scripts-vif "Called as \"$*\" domid:$DOMID devid:$DEVID mode:$NETWORK_MODE"
 case "${ACTION}" in
 online)
     if [ "${TYPE}" = "vif" ] ; then

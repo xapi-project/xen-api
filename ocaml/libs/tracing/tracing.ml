@@ -143,7 +143,7 @@ end
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
-  let to_traceparent t = Printf.sprintf "00-%s-%s-00" t.trace_id t.span_id
+  let to_traceparent t = Printf.sprintf "00-%s-%s-01" t.trace_id t.span_id
 
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
@@ -721,6 +721,8 @@ module Export = struct
       let compress_tracing_files = ref true
 
       let set_trace_log_dir dir = trace_log_dir := dir
+
+      let get_trace_log_dir () = !trace_log_dir
 
       let set_max_file_size size = max_file_size := size
 

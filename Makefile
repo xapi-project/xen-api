@@ -74,15 +74,20 @@ schema:
 	dune runtest ocaml/idl
 
 doc:
-	dune build --profile=$(PROFILE) ocaml/idl/datamodel_main.exe
+#html
 	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
 	mkdir -p $(XAPIDOC)/html
 	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
 	cp _build/default/ocaml/doc/branding.js $(XAPIDOC)/html
 	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css $(XAPIDOC)/html
-	dune exec --profile=$(PROFILE) -- ocaml/idl/datamodel_main.exe -closed -markdown $(XAPIDOC)/markdown
-	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
+#markdown
+	dune build --profile=$(PROFILE) -f @ocaml/idl/markdowngen
+	mkdir -p $(XAPIDOC)/markdown
+	cp -r _build/default/ocaml/idl/autogen/*.md $(XAPIDOC)/markdown
+	cp -r _build/default/ocaml/idl/autogen/*.yml $(XAPIDOC)/markdown
 	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
+#other
+	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
 # Build manpages, networkd generated these
 	dune build --profile=$(PROFILE) -f @man
 
@@ -112,15 +117,10 @@ sdk:
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
-.PHONY: sdk-build-c sdk sdksanity
+.PHONY: sdk-build-c sdk
 
 sdk-build-c: sdk
 	cd _build/install/default/xapi/sdk/c && make -j $(JOBS)
-
-# workaround for no .resx generation, just for compilation testing
-sdksanity: sdk
-	sed -i 's/FriendlyErrorNames.ResourceManager/null/g' ./_build/install/default/xapi/sdk/csharp/src/Failure.cs
-	cd _build/install/default/xapi/sdk/csharp/src && dotnet add package Newtonsoft.Json && dotnet build -f netstandard2.0
 
 .PHONY: sdk-build-java
 
@@ -152,6 +152,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
 	make -C scripts install
+	make -C python3 install
 	cp -f _build/install/default/bin/xapi $(DESTDIR)$(OPTDIR)/bin/xapi
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
 	cp -f _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin

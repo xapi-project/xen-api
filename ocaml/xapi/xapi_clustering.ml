@@ -420,10 +420,11 @@ let on_corosync_update ~__context ~cluster updates =
         List.map
           (fun ch ->
             let pIF = Db.Cluster_host.get_PIF ~__context ~self:ch in
-            let (Cluster_interface.IPv4 ip) =
+            let ipstr =
               ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF)
+              |> ipstr_of_address
             in
-            (ip, ch)
+            (ipstr, ch)
           )
           all_cluster_hosts
       in
@@ -440,13 +441,14 @@ let on_corosync_update ~__context ~cluster updates =
       | Some nodel ->
           let quorum_hosts =
             List.filter_map
-              (fun {addr= IPv4 addr; _} ->
-                match List.assoc_opt addr ip_ch with
+              (fun {addr; _} ->
+                let ipstr = ipstr_of_address addr in
+                match List.assoc_opt ipstr ip_ch with
                 | None ->
                     error
                       "%s: cannot find cluster host with network address %s, \
                        ignoring this host"
-                      __FUNCTION__ addr ;
+                      __FUNCTION__ ipstr ;
                     None
                 | Some ch ->
                     Some ch

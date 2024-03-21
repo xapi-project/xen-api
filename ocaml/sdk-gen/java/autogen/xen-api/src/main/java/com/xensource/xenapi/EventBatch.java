@@ -30,6 +30,7 @@
 package com.xensource.xenapi;
 
 import java.util.Set;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  * Class used to map the output of Event.from().
@@ -46,6 +47,7 @@ public class EventBatch
     /**
      * The number of valid objects of all types in the database.
      */
+    @JsonProperty("valid_ref_counts")
     public Object validRefCounts;
 
     /**

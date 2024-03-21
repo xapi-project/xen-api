@@ -46,4 +46,6 @@ if (Test-Path $perUserXsProfile) {
 Remove-Item variable:systemWideXsProfile
 Remove-Item variable:perUserXsProfile
 
+$global:KnownServerCertificatesFilePath = Join-Path -Path (Split-Path $PROFILE) -ChildPath "XenServer_Known_Certificates.xml"
+
 $XenServer_Environment_Initialized = $true
