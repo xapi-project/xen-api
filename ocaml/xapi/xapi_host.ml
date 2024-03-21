@@ -20,6 +20,7 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
+open Xapi_pif_helpers
 open Db_filter_types
 open Workload_balancing
 
@@ -2555,14 +2556,10 @@ let migrate_receive ~__context ~host ~network ~options:_ =
         let configuration_mode =
           Db.PIF.get_ipv6_configuration_mode ~__context ~self:pif
         in
-        match Db.PIF.get_IPv6 ~__context ~self:pif with
+        match Xapi_pif_helpers.get_non_link_ipv6 ~__context ~pif with
         | [] ->
             ("", configuration_mode)
-        | ip :: _ ->
-            (* The CIDR is also stored in the IPv6 field of a PIF. *)
-            let ipv6 =
-              match String.split_on_char '/' ip with hd :: _ -> hd | _ -> ""
-            in
+        | ipv6 :: _ ->
             (ipv6, configuration_mode)
       )
   in

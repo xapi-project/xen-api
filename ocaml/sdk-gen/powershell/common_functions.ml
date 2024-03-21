@@ -8,7 +8,7 @@ open Datamodel_types
 open CommonFunctions
 module DU = Datamodel_utils
 
-let rec pascal_case_ s =
+let rec pascal_case_rec s =
   let ss =
     Astring.String.cuts ~sep:"_" ~empty:true s
     |> List.map String.capitalize_ascii
@@ -30,7 +30,7 @@ let rec pascal_case_ s =
       h' ^ String.concat "" tl
 
 and pascal_case s =
-  let str = pascal_case_ s in
+  let str = pascal_case_rec s in
   if
     String.starts_with ~prefix:"set" (String.lowercase_ascii str)
     || String.starts_with ~prefix:"get" (String.lowercase_ascii str)
@@ -59,9 +59,6 @@ and ocaml_class_to_csharp_local_var classname =
   else
     String.lowercase_ascii (exposed_class_name classname)
 
-and ocaml_field_to_csharp_local_var field =
-  String.lowercase_ascii (full_name field)
-
 and ocaml_field_to_csharp_property field =
   ocaml_class_to_csharp_property (full_name field)
 
@@ -86,38 +83,9 @@ and exposed_class_name classname =
 
 and qualified_class_name classname = "XenAPI." ^ exposed_class_name classname
 
-and type_default ty =
-  match ty with
-  | Int ->
-      ""
-  | SecretString | String ->
-      ""
-  | Float ->
-      ""
-  | Bool ->
-      ""
-  | Enum _ ->
-      ""
-  | Record _ ->
-      ""
-  | Ref _ ->
-      ""
-  | Map (_, _) ->
-      " = new Hashtable()"
-  | Set String ->
-      " = new string[0]"
-  | _ ->
-      sprintf " = new %s()" (exposed_type ty)
-
 and escaped = function "params" -> "paramz" | s -> s
 
 and full_name field = escaped (String.concat "_" field.full_name)
-
-and exposed_type_opt = function
-  | Some (typ, _) ->
-      exposed_type typ
-  | None ->
-      "void"
 
 and exposed_type = function
   | SecretString | String ->
@@ -176,7 +144,7 @@ and is_invoke message =
   && (not (is_constructor message))
   && not (is_destructor message)
 
-(* Some adders/removers are just prefixed by Add or RemoveFrom
+(* Some adders/removers are just prefixed by Add or Remove
    and some are prefixed by AddTo or RemoveFrom *)
 and cut_msg_name message_name fn_type =
   let name_len = String.length message_name in
@@ -197,7 +165,6 @@ and cut_msg_name message_name fn_type =
   else
     message_name
 
-(* True if an object has a uuid (and therefore should have a get_by_uuid message *)
 and has_uuid x =
   let all_fields = DU.fields_of_obj x in
   List.filter (fun fld -> fld.full_name = ["uuid"]) all_fields <> []
@@ -230,7 +197,7 @@ and get_http_action_stem name =
   let parts = Astring.String.cuts ~sep:"_" name in
   let filtered = List.filter trim_http_action_stem parts in
   let trimmed = String.concat "_" filtered in
-  match trimmed with "" -> pascal_case_ "vm" | _ -> pascal_case_ trimmed
+  match trimmed with "" -> pascal_case_rec "vm" | _ -> pascal_case_rec trimmed
 
 and trim_http_action_stem x =
   match x with

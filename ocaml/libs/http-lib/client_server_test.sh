@@ -1,3 +1,5 @@
+#!/bin/bash
+
 set -eux
 
 trap 'kill $(jobs -p)' EXIT

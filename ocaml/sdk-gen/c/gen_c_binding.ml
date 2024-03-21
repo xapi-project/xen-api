@@ -83,11 +83,7 @@ let rec main () =
 
   all_headers := List.map (fun x -> x.name) filtered_classes ;
 
-  TypeSet.iter (gen_enum write_enum_decl decl_filename include_dir) !enums ;
-  TypeSet.iter (gen_enum write_enum_impl impl_filename src_dir) !enums ;
-  TypeSet.iter
-    (gen_enum write_enum_internal_decl internal_decl_filename include_dir)
-    !enums ;
+  TypeSet.iter render_enum !enums ;
 
   maps := TypeSet.add (Map (String, Int)) !maps ;
   maps := TypeSet.add (Map (Int, Int)) !maps ;
@@ -138,16 +134,7 @@ let rec main () =
 
 and gen_class f g clas targetdir =
   let out_chan = open_out (Filename.concat targetdir (g clas.name)) in
-  finally (fun () -> f clas out_chan) ~always:(fun () -> close_out out_chan)
-
-and gen_enum f g targetdir = function
-  | Enum (name, _) as x ->
-      if not (List.mem name !all_headers) then
-        all_headers := name :: !all_headers ;
-      let out_chan = open_out (Filename.concat targetdir (g name)) in
-      finally (fun () -> f x out_chan) ~always:(fun () -> close_out out_chan)
-  | _ ->
-      assert false
+  Fun.protect (fun () -> f clas out_chan) ~finally:(fun () -> close_out out_chan)
 
 and gen_map f g targetdir = function
   | Map (l, r) ->
@@ -155,9 +142,9 @@ and gen_map f g targetdir = function
       if not (List.mem name !all_headers) then
         all_headers := name :: !all_headers ;
       let out_chan = open_out (Filename.concat targetdir (g name)) in
-      finally
+      Fun.protect
         (fun () -> f name l r out_chan)
-        ~always:(fun () -> close_out out_chan)
+        ~finally:(fun () -> close_out out_chan)
   | _ ->
       assert false
 
@@ -667,174 +654,49 @@ and hash_include n =
   else
     sprintf "#include <%s>" (decl_filename n)
 
-and write_enum_decl x out_chan =
+and replace_dashes x =
+  Astring.String.map (fun y -> match y with '-' -> '_' | _ -> y) x
+
+and render_enum x =
   match x with
   | Enum (name, contents) ->
-      let print format = fprintf out_chan format in
-      let protect = protector name in
-      let tn = typename name in
-
-      print_h_header out_chan protect ;
-
-      print
-        "\n\
-         %s\n\n\n\
-         enum %s\n\
-         {\n\
-         %s\n\
-         };\n\n\n\
-         typedef struct %s_set\n\
-         {\n\
-        \    size_t size;\n\
-        \    enum %s contents[];\n\
-         } %s_set;\n\n\
-         %s\n\
-         extern %s_set *\n\
-         %s_set_alloc(size_t size);\n\n\
-         %s\n\n\n\
-         %s\n\
-         extern const char *\n\
-         %s_to_string(enum %s val);\n\n\n\
-         %s\n\
-         extern enum %s\n\
-         %s_from_string(xen_session *session, const char *str);\n\n"
-        (hash_include "common") tn
-        (joined ",\n\n" (enum_entry name)
-           (contents
-           @ [("undefined", "Unknown to this version of the bindings.")]
-           )
-        )
-        tn tn tn
-        (Helper.comment true (sprintf "Allocate a %s_set of the given size." tn))
-        tn tn
-        (decl_free (sprintf "%s_set" tn) "*set" false "set")
-        (Helper.comment true
-           "Return the name corresponding to the given code.  This string must \
-            not be modified or freed."
-        )
-        tn tn
-        (Helper.comment true
-           "Return the correct code for the given string, or set the session \
-            object to failure and return an undefined value if the given \
-            string does not match a known code."
-        )
-        tn tn ;
-
-      print_h_footer out_chan
-  | _ ->
-      ()
-
-and enum_entry enum_name = function
-  | n, c ->
-      sprintf "%s\n    XEN_%s_%s"
-        (Helper.comment true ~indent:4 c)
-        (String.uppercase_ascii enum_name)
-        (Astring.String.map
-           (fun x -> match x with '-' -> '_' | _ -> x)
-           (String.uppercase_ascii n)
-        )
-
-and write_enum_impl x out_chan =
-  match x with
-  | Enum (name, contents) ->
-      let print format = fprintf out_chan format in
-      let tn = typename name in
-
-      print
-        "%s\n\n\
-         #include <string.h>\n\n\
-         %s\n\
-         %s\n\
-         %s\n\n\n\
-         /*\n\
-        \ * Maintain this in the same order as the enum declaration!\n\
-        \ */\n\
-         static const char *lookup_table[] =\n\
-         {\n\
-         %s\n\
-         };\n\n\n\
-         extern %s_set *\n\
-         %s_set_alloc(size_t size)\n\
-         {\n\
-        \    return calloc(1, sizeof(%s_set) +\n\
-        \                  size * sizeof(enum %s));\n\
-         }\n\n\n\
-         extern void\n\
-         %s_set_free(%s_set *set)\n\
-         {\n\
-        \    free(set);\n\
-         }\n\n\n\
-         const char *\n\
-         %s_to_string(enum %s val)\n\
-         {\n\
-        \    return lookup_table[val];\n\
-         }\n\n\n\
-         extern enum %s\n\
-         %s_from_string(xen_session *session, const char *str)\n\
-         {\n\
-        \    (void)session;\n\
-        \    return ENUM_LOOKUP(str, lookup_table);\n\
-         }\n\n\n\
-         const abstract_type %s_abstract_type_ =\n\
-        \    {\n\
-        \        .XEN_API_TYPE = ENUM,\n\
-        \        .enum_marshaller =\n\
-        \             (const char *(*)(int))&%s_to_string,\n\
-        \        .enum_demarshaller =\n\
-        \             (int (*)(xen_session *, const char *))&%s_from_string\n\
-        \    };\n\n\n"
-        Licence.bsd_two_clause (hash_include "internal") (hash_include name)
-        (hash_include (name ^ "_internal"))
-        (enum_lookup_entries (contents @ [("undefined", "")]))
-        tn tn tn tn tn tn tn tn tn tn tn tn tn ;
-
-      if name <> "event_operation" then
-        print
-          "const abstract_type %s_set_abstract_type_ =\n\
-          \    {\n\
-          \        .XEN_API_TYPE = SET,\n\
-          \        .child = &%s_abstract_type_\n\
-          \    };\n\n\n"
-          tn tn
-  | _ ->
-      ()
-
-and enum_lookup_entries contents = joined ",\n" enum_lookup_entry contents
-
-and enum_lookup_entry = function n, _ -> sprintf "    \"%s\"" n
-
-and write_enum_internal_decl x out_chan =
-  match x with
-  | Enum (name, _) ->
-      let print format = fprintf out_chan format in
-      let protect = protector (sprintf "%s_internal" name) in
-      let tn = typename name in
-
-      let set_abstract_type =
-        if name = "event_operations" then
-          ""
-        else
-          sprintf "extern const abstract_type %s_set_abstract_type_;\n" tn
+      if not (List.mem name !all_headers) then
+        all_headers := name :: !all_headers ;
+      let json =
+        `O
+          [
+            ("enum_name", `String name)
+          ; ("enum_name_upper", `String (String.uppercase_ascii name))
+          ; ("event_operations", `Bool (name = "event_operation"))
+          ; ( "enum_values"
+            , `A
+                (List.map
+                   (fun (n, c) ->
+                     `O
+                       [
+                         ("enum_value", `String n)
+                       ; ("enum_value_doc", `String c)
+                       ; ( "enum_value_upper"
+                         , `String (replace_dashes (String.uppercase_ascii n))
+                         )
+                       ]
+                   )
+                   contents
+                )
+            )
+          ]
       in
-
-      print
-        "%s\n\n\n\
-         %s\n\n\n\
-         #ifndef %s\n\
-         #define %s\n\n\n\
-         %s\n\n\n\
-         extern const abstract_type %s_abstract_type_;\n\
-         %s\n\n\
-         #endif\n"
-        Licence.bsd_two_clause
-        (Helper.comment false
-           (sprintf
-              "Declarations of the abstract types used during demarshalling of \
-               enum %s.  Internal to this library -- do not use from outside."
-              tn
-           )
+      render_file
+        ( "xen_enum_internal.h.mustache"
+        , sprintf "include/xen_%s_internal.h" name
         )
-        protect protect (hash_include "internal") tn set_abstract_type
+        json templates_dir destdir ;
+      render_file
+        ("xen_enum.h.mustache", sprintf "include/xen/api/xen_%s.h" name)
+        json templates_dir destdir ;
+      render_file
+        ("xen_enum.c.mustache", sprintf "src/xen_%s.c" name)
+        json templates_dir destdir
   | _ ->
       ()
 
@@ -972,14 +834,14 @@ and gen_failure_h () =
   let out_chan =
     open_out (Filename.concat destdir "include/xen/api/xen_api_failure.h")
   in
-  finally
+  Fun.protect
     (fun () ->
       print_h_header out_chan protect ;
       gen_failure_enum out_chan ;
       gen_failure_funcs out_chan ;
       print_h_footer out_chan
     )
-    ~always:(fun () -> close_out out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 and gen_failure_enum out_chan =
   let print format = fprintf out_chan format in
@@ -1029,7 +891,7 @@ and gen_failure_funcs out_chan =
 and gen_failure_c () =
   let out_chan = open_out (Filename.concat destdir "src/xen_api_failure.c") in
   let print format = fprintf out_chan format in
-  finally
+  Fun.protect
     (fun () ->
       print
         "%s\n\n\
@@ -1055,7 +917,7 @@ and gen_failure_c () =
         Licence.bsd_two_clause
         (String.concat ",\n    " (failure_lookup_entries ()))
     )
-    ~always:(fun () -> close_out out_chan)
+    ~finally:(fun () -> close_out out_chan)
 
 and failure_lookup_entries () =
   List.sort String.compare
@@ -1412,14 +1274,9 @@ and internal_decl_filename name =
 
 and impl_filename name = sprintf "xen_%s.c" (String.lowercase_ascii name)
 
-and internal_impl_filename name =
-  sprintf "xen_%s_internal.c" (String.lowercase_ascii name)
-
 and protector classname = sprintf "XEN_%s_H" (String.uppercase_ascii classname)
 
 and typename classname = sprintf "xen_%s" (String.lowercase_ascii classname)
-
-and variablename classname = sprintf "%s" (String.lowercase_ascii classname)
 
 and record_typename classname = sprintf "%s_record" (typename classname)
 
