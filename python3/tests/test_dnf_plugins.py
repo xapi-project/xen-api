@@ -13,7 +13,6 @@ sys.modules["urlgrabber"] = MagicMock()
 #pylint: disable=unused-argument
 
 # Some test case does not use self
-#pylint: disable=no-self-use
 
 from dnf_plugins import accesstoken
 from dnf_plugins import ptoken
@@ -52,6 +51,7 @@ class TestAccesstoken(unittest.TestCase):
         """If repo has not accestoken, it should not be blocked"""
         mock_repo = _mock_repo()
         accesstoken.AccessToken(mock_repo.base, MagicMock()).config()
+        mock_repo.set_http_headers.assert_not_called()
 
     def test_ignore_invalid_token_url(self, mock_grabber):
         """If repo provided an invalid token url, it should be ignored"""
@@ -66,12 +66,18 @@ class TestAccesstoken(unittest.TestCase):
         mock_grabber.urlopen.return_value.read.return_value = json.dumps({
             "bad_token": "I am bad guy"
         })
-        with self.assertRaises(Exception):
+        with self.assertRaises(accesstoken.InvalidToken):
             accesstoken.AccessToken(mock_repo.base, MagicMock()).config()
 
 
 class TestPtoken(unittest.TestCase):
     """Test class for ptoken dnf plugin"""
+    def test_failed_to_open_ptoken_file(self):
+        """Exception should raised if the system does not have PTOKEN_PATH"""
+        ptoken.PTOKEN_PATH = "/some/not/exist/path"
+        with self.assertRaises(Exception):
+            ptoken.Ptoken(MagicMock(), MagicMock()).config()
+
     @patch("builtins.open")
     def test_set_ptoken_to_http_header(self, mock_open):
         """Local repo with ptoken enabled should set the ptoken to its http header"""
