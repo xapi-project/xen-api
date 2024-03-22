@@ -20,6 +20,7 @@ from dnf_plugins import ptoken
 
 REPO_NAME = "testrepo"
 
+
 def _mock_repo(a_token=None, p_token=None, baseurl=None):
     mock_repo = MagicMock()
     mock_repo.accesstoken = a_token
