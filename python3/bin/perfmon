@@ -56,7 +56,7 @@ from xml.parsers.expat import ExpatError
 import XenAPI
 
 
-def print_debug(string):
+def print_debug(string): # pragma: no cover
     if debug:
         print("DEBUG:", string, file=sys.stderr)
         syslog.syslog(syslog.LOG_USER | syslog.LOG_INFO, "PERFMON(DEBUG): %s" % string)
@@ -68,13 +68,13 @@ def log_err(string):
     pass
 
 
-def log_info(string):
+def log_info(string): # pragma: no cover
     print(string, file=sys.stderr)
     syslog.syslog(syslog.LOG_INFO | syslog.LOG_INFO, "PERFMON: %s" % string)
     pass
 
 
-def debug_mem():
+def debug_mem(): # pragma: no cover
     objCount = {}
     gc.collect()
     objList = gc.get_objects()
@@ -114,7 +114,7 @@ class IncorrectInputException(Exception):
 # ID as a param.  The host then uses this to verify our validity with
 # the master before responding.
 # If the verification fails we should get a 401 response
-class XapiSession(XenAPI.Session):
+class XapiSession(XenAPI.Session): # pragma: no cover
     """Object that represents a XenAPI session with the pool master
     One of these is needed to refresh a VMMonitor or HOSTMonitor config, or
     to refresh an RRDUpdates object
@@ -420,6 +420,9 @@ supported_consolidation_functions = [
 
 
 def average(mylist):
+    if not mylist:
+        log_err("Error in average, no input data, return 0.0 instead")
+        return 0.0
     return sum(mylist) / float(len(mylist))
 
 
@@ -1305,7 +1308,7 @@ cmdsockname = "\0perfmon"
 cmdmaxlen = 256
 
 # pylint: disable=global-statement
-def main():
+def main(): # pragma: no cover
     global interval
     global interval_percent_dither
     global rrd_step
@@ -1523,7 +1526,7 @@ def main():
     return 0
 
 
-def sigterm_handler(sig, stack_frame):
+def sigterm_handler(sig, stack_frame): # pragma: no cover
     _ = stack_frame  # unused: not sure if it'll be used later, passing pylint
     log_err("Caught signal %d - exiting" % sig)
     sys.exit(1)
@@ -1531,7 +1534,7 @@ def sigterm_handler(sig, stack_frame):
 
 pidfile = "/var/run/perfmon.pid"
 
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
 
     # setup signal handler to print out notice when killed
     signal.signal(signal.SIGTERM, sigterm_handler)
