@@ -1,17 +1,30 @@
-(executable
-  (name main)
+(library
+  (name private)
+  (modules lib)
   (libraries
-    base
-    dune-build-info
     fmt
     inotify
     inotify.lwt
+    lwt
+    lwt.unix
+    rpclib.core
+    )
+  (preprocess (pps ppx_deriving_rpc))
+  )
+
+(executable
+  (name main)
+  (modules main)
+  (libraries
+    base
+    dune-build-info
     logs
     logs.lwt
     lwt
     lwt.unix
     message-switch-lwt
     message-switch-unix
+    private
     result
     rpclib.core
     rpclib.json
@@ -30,7 +43,7 @@
     xapi-stdext-date
     xapi-storage
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (pps ppx_sexp_conv))
 )
 
 (install
