@@ -1,11 +1,24 @@
+(library
+  (name private)
+  (modules lib)
+  (libraries
+    fmt
+    inotify
+    inotify.lwt
+    lwt
+    lwt.unix
+    rpclib.core
+    )
+  (preprocess (pps ppx_deriving_rpc))
+  )
+
 (executable
   (name main)
+  (modules main)
   (libraries
     base
 
     fmt
-    inotify
-    inotify.lwt
     logs
     logs.lwt
     lwt
@@ -13,6 +26,7 @@
     message-switch-lwt
     message-switch-unix
     ppx_deriving.runtime
+    private
     result
     rpclib.core
     rpclib.json
@@ -32,7 +46,7 @@
     xapi-stdext-date
     xapi-storage
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (pps ppx_sexp_conv))
 )
 
 (install
