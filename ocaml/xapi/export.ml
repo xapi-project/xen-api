@@ -616,6 +616,7 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
       (string_of_bool preserve_power_state)
       (String.concat ", " (List.map Devicetype.to_string excluded_devices))
   in
+  let now = Date.now () |> Date.to_unix_time |> Int64.of_float in
   ( match vms with
   | [] ->
       failwith "need to specify at least one VM"
@@ -629,7 +630,7 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
       ~include_vhd_parents ~__context ~vms ~excluded_devices
   in
   let hdr =
-    Tar.Header.make Xapi_globs.ova_xml_filename
+    Tar.Header.make ~mod_time:now Xapi_globs.ova_xml_filename
       (Int64.of_int @@ String.length ova_xml)
   in
   Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
@@ -637,6 +638,7 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
 
 let export refresh_session __context rpc session_id s vm_ref
     preserve_power_state =
+  let now = Date.now () |> Date.to_unix_time |> Int64.of_float in
   info "VM.export: VM = %s; preserve_power_state = '%s'"
     (string_of_vm ~__context vm_ref)
     (string_of_bool preserve_power_state) ;
@@ -646,7 +648,7 @@ let export refresh_session __context rpc session_id s vm_ref
   in
   debug "Outputting ova.xml" ;
   let hdr =
-    Tar.Header.make Xapi_globs.ova_xml_filename
+    Tar.Header.make ~mod_time:now Xapi_globs.ova_xml_filename
       (Int64.of_int @@ String.length ova_xml)
   in
   Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
