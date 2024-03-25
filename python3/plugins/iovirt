@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # THIS IS AN EXPERIMENTAL, UNSUPPORTED PLUGIN FOR DEMONSTRATION AND TEST ONLY.
 # PLEASE DO NOT USE IT FOR PRODUCTION ENVIRONMENTS.
@@ -17,12 +17,10 @@ import os.path
 import random
 import re
 import stat
-import subprocess
 import syslog
 import xml.dom.minidom
 
 import inventory
-import XenAPI
 import XenAPIPlugin
 
 ipcmd = "/sbin/ip"
@@ -383,7 +381,7 @@ def assign_free_vf(session, args):
         rvf, rdev = vfs[vfid]
         rkey = "%08u%s" % (int(rvf), rdev)
         revdict[rkey] = vfid
-    revdictkeys = revdict.keys()
+    revdictkeys = list(revdict.keys())
     revdictkeys.sort()
     vfidlist = [revdict[x] for x in revdictkeys]
     myid = None
@@ -488,7 +486,8 @@ def unassign_vf(session, args, genericpci=False):
     if pciid:
         if not pciid in [x[0] for x in current.values()]:
             raise "VM %s does not have %s assigned" % (vmuuid, vfdisplay)
-        for i in current.keys():
+        # Use list due to we changed `current` in the for loop
+        for i in list(current.keys()):
             if current[i][0] == pciid:
                 del current[i]
     else:
@@ -534,7 +533,7 @@ def assign_free_pci_device(session, args):
             i = i + 1
 
     # Choose a suitable device. Preference is for lower numbered PCIIDs
-    pciids = devices.keys()
+    pciids = list(devices.keys())
     pciids.sort()
     myid = None
     if len(pciids) > 0:
@@ -588,7 +587,7 @@ def show_summary(session, args):
     """Return a textual summary of SR-IOV configuarion of this host."""
     assigned = _get_assignments(session)
     vfs = _get_vfs()
-    vfids = vfs.keys()
+    vfids = list(vfs.keys())
     vfids.sort()
     dom = xml.dom.minidom.Document()
     element = dom.createElement("iovirt")
@@ -649,7 +648,7 @@ def list_pci_devices(session, args):
     deviceid = args["deviceid"]
     devices = _get_devices(vendorid, deviceid)
     assigned = _get_assignments(session)
-    pciids = devices.keys()
+    pciids = list(devices.keys())
     pciids.sort()
     dom = xml.dom.minidom.Document()
     element = dom.createElement("iovirt")
@@ -702,7 +701,7 @@ def get_vm(session, args):
     vmuuid = args["uuid"]
     vfs = _get_vfs()
     current = _get_vm_assignments(session, vmuuid)
-    indexlist = current.keys()
+    indexlist = list(current.keys())
     indexlist.sort()
     dom = xml.dom.minidom.Document()
     element = dom.createElement("iovirt")
