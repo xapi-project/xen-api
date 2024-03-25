@@ -172,3 +172,36 @@ let get_host_pcis () =
 let igd_is_whitelisted ~__context pci =
   let vendor_id = Db.PCI.get_vendor_id ~__context ~self:pci in
   List.mem vendor_id !Xapi_globs.igd_passthru_vendor_whitelist
+
+let update_dom0_access ~__context ~pci ~action =
+  let db_new =
+    ref
+      ( match action with
+      | `enable ->
+          Pciops.unhide_pci ~__context pci ;
+          `enabled
+      | `disable ->
+          Pciops.hide_pci ~__context pci ;
+          `disabled
+      )
+  in
+  let expr = Printf.sprintf "field \"PCI\"=\"%s\"" (Ref.string_of pci) in
+  let pgpus = Db.PGPU.get_all_records_where ~__context ~expr in
+  List.iter
+    (fun (pgpu_ref, _) ->
+      let db_current = Db.PGPU.get_dom0_access ~__context ~self:pgpu_ref in
+      (db_new :=
+         match (db_current, action) with
+         | `enabled, `enable | `disable_on_reboot, `enable ->
+             `enabled
+         | `disabled, `enable | `enable_on_reboot, `enable ->
+             `enable_on_reboot
+         | `enabled, `disable | `disable_on_reboot, `disable ->
+             `disable_on_reboot
+         | `disabled, `disable | `enable_on_reboot, `disable ->
+             `disabled
+      ) ;
+      Db.PGPU.set_dom0_access ~__context ~self:pgpu_ref ~value:!db_new
+    )
+    pgpus ;
+  !db_new
