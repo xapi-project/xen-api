@@ -9,6 +9,7 @@ install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(SITE3_DIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	mkdir -p $(DESTDIR)$(PLUGINDIR)
 
 	
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
@@ -18,3 +19,5 @@ install:
 	
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
+	
+	$(IPROG) plugins/iovirt $(DESTDIR)$(PLUGINDIR)
