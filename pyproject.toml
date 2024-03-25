@@ -40,14 +40,13 @@ disable = [
     "missing-module-docstring",
     "consider-using-f-string",
     "too-many-branches",
+    "too-many-arguments",
     "broad-exception-caught",
     "no-else-break",
     "no-else-return",
     "invalid-name",
     "import-error",
     "unnecessary-pass",
-    "unspecified-encoding",
-    "protected-access",
 ]
 
 [tool.mypy]
