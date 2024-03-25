@@ -185,7 +185,7 @@ let update_dom0_access ~__context ~pci ~action =
           `disabled
       )
   in
-  let expr = Printf.sprintf "field \"PCI\"=\"%s\"" (Ref.string_of pci) in
+  let expr = Printf.sprintf {|field "PCI"="%s"|} (Ref.string_of pci) in
   let pgpus = Db.PGPU.get_all_records_where ~__context ~expr in
   List.iter
     (fun (pgpu_ref, _) ->
