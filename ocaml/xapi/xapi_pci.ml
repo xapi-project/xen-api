@@ -320,9 +320,38 @@ let get_system_display_device () =
       None items
   with _ -> None
 
-let disable_dom0_access ~__context ~self = Pciops.hide_pci ~__context self
+let update_dom0_access ~__context ~self ~action =
+  let expr = Printf.sprintf "field \"PCI\"=\"%s\"" (Ref.string_of self) in
+  let pgpus = Db.PGPU.get_all_records_where ~__context ~expr in
+  List.iter (
+    fun (pgpu_ref, _) -> (
+      let db_current = Db.PGPU.get_dom0_access ~__context ~self in
+      let db_new =
+        match (db_current, action) with
+        | `enabled, `enable | `disable_on_reboot, `enable ->
+            `enabled
+        | `disabled, `enable | `enable_on_reboot, `enable ->
+            `enable_on_reboot
+        | `enabled, `disable | `disable_on_reboot, `disable ->
+            `disable_on_reboot
+        | `disabled, `disable | `enable_on_reboot, `disable ->
+            `disabled
+      in
+      Db.PGPU.set_dom0_access ~__context ~self:pgpu_ref ~value:db_new
+    )
+  ) pgpus ;
+  ( match action with
+  | `enable ->
+      Pciops.unhide_pci ~__context self
+  | `disable ->
+      Pciops.hide_pci ~__context self
+  )
 
-let enable_dom0_access ~__context ~self = Pciops.unhide_pci ~__context self
+let disable_dom0_access ~__context ~self =
+  update_dom0_access ~__context ~self ~action:`disable
+
+let enable_dom0_access ~__context ~self =
+  update_dom0_access ~__context ~self ~action:`enable
 
 let is_dom0_access_enabled ~__context ~self =
   not (Pciops.is_pci_hidden ~__context self)
