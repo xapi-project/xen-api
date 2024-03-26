@@ -227,8 +227,36 @@ let parent_of_origin (origin : origin) span_name =
   | _ ->
       None
 
+let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v
+
+let attr_of_req (req : Http.Request.t) =
+  [
+    [
+      ("xs.xapi.task.origin", "http")
+    ; ("http.request.header.method", Http.string_of_method_t req.m)
+    ]
+  ; attribute_helper_fn
+      (fun user_agent -> [("http.request.header.user-agent", user_agent)])
+      req.user_agent
+  ; attribute_helper_fn
+      (fun content_type -> [("http.request.header.content-type", content_type)])
+      req.content_type
+  ; attribute_helper_fn
+      (fun content_length ->
+        [("http.request.body.size", Printf.sprintf "%Li" content_length)]
+      )
+      req.content_length
+  ; List.map
+      (fun (h, v) ->
+        ( h |> String.lowercase_ascii |> Printf.sprintf "http.request.header.%s"
+        , v
+        )
+      )
+      req.additional_headers
+  ]
+  |> List.concat
+
 let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
-  let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v in
   [
     attribute_helper_fn
       (fun task_name -> [("xs.xapi.task.name", task_name)])
@@ -249,8 +277,8 @@ let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
         match origin with
         | Internal ->
             [("xs.xapi.task.origin", "internal")]
-        | Http _ ->
-            [("xs.xapi.task.origin", "http")]
+        | Http (req, _) ->
+            attr_of_req req
       )
       origin
   ]
