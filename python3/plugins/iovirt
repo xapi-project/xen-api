@@ -29,10 +29,13 @@ hookscripts = [
     "/etc/xapi.d/vm-pre-reboot/vm-pre-reboot-iovirt",
 ]
 
-re_virtfn = re.compile("virtfn(\d+)$")
-re_netdev = re.compile("(eth\d+)$")
+re_virtfn = re.compile(r"virtfn(\d+)$")
+re_netdev = re.compile(r"(eth\d+)$")
 re_hex16 = re.compile("^[0-9a-f]{4}$")
 re_hex16x = re.compile("^0x([0-9a-f]{4})$")
+
+class IovirtException(Exception):
+    pass
 
 
 def _install_hook_script():
@@ -95,14 +98,14 @@ def _get_vfs():
         vfpciid = os.path.basename(os.readlink(vfnode))
         r = re_virtfn.search(vfnode)
         if not r:
-            raise "Failed to parse VF number for %s" % (vfnode)
+            raise IovirtException("Failed to parse VF number for %s" % (vfnode))
         vfnum = r.group(1)
         netdevs = glob.glob("%s/physfn/net/eth*" % (vfnode))
         if len(netdevs) != 1:
-            raise "Unexpected length of netdev list for %s: %s" % (vfnode, str(netdevs))
+            raise IovirtException("Unexpected length of netdev list for %s: %s" % (vfnode, str(netdevs)))
         r = re_netdev.search(netdevs[0])
         if not r:
-            raise "Error parsing %s for net device" % (netdevs[0])
+            raise IovirtException("Error parsing %s for net device" % (netdevs[0]))
         netdev = r.group(1)
         vflist[vfpciid] = (vfnum, netdev)
     return vflist
@@ -113,9 +116,9 @@ def _get_devices(vendorid, deviceid):
     # Returns a dictionary of pciid => (vendorid, deviceid)
     # Used for managing the assignment of non-SRIOV pools of devices.
     if not re_hex16.match(vendorid):
-        raise "PCI vendor ID '%s' not in expected format" % (vendorid)
+        raise IovirtException("PCI vendor ID '%s' not in expected format" % (vendorid))
     if not re_hex16.match(deviceid):
-        raise "PCI device ID '%s' not in expected format" % (deviceid)
+        raise IovirtException("PCI device ID '%s' not in expected format" % (deviceid))
     devices = {}
     devnodes = glob.glob("/sys/bus/pci/devices/*")
     for devnode in devnodes:
@@ -193,9 +196,9 @@ def _get_vm_assignments(session, vmuuid):
     # for assignments for the specified VM.
     # This includes SR-IOV NIC VFs and other PCI pass through
     # devices. (MAC and VLAN only includes for the former)
-    re_pci = re.compile("^(\d+)/([0-9a-f:\.]+)$")
-    re_vlan = re.compile("^(\d+)/([0-9]+)$")
-    re_mac = re.compile("^(\d+)/([0-9a-fA-F:]+)$")
+    re_pci = re.compile(r"^(\d+)/([0-9a-f:\.]+)$")
+    re_vlan = re.compile(r"^(\d+)/([0-9]+)$")
+    re_mac = re.compile(r"^(\d+)/([0-9a-fA-F:]+)$")
 
     vmref = session.xenapi.VM.get_by_uuid(vmuuid)
     vm = session.xenapi.VM.get_record(vmref)
@@ -207,7 +210,7 @@ def _get_vm_assignments(session, vmuuid):
         for x in vm['other_config']['sriovmacs'].split(","):
             r = re_mac.search(x)
             if not r:
-                raise Exception(
+                raise IovirtException(
                     "Failed to parse MAC config '%s' for VM %s" % (x, vmuuid)
                 )
             macs[int(r.group(1))] = r.group(2)
@@ -218,7 +221,7 @@ def _get_vm_assignments(session, vmuuid):
         for x in vm['other_config']['sriovvlans'].split(","):
             r = re_vlan.search(x)
             if not r:
-                raise Exception(
+                raise IovirtException(
                     "Failed to parse VLAN config '%s' for VM %s" % (x, vmuuid)
                 )
             vlans[int(r.group(1))] = r.group(2)
@@ -228,7 +231,7 @@ def _get_vm_assignments(session, vmuuid):
         for x in vm['other_config']['pci'].split(","):
             r = re_pci.search(x)
             if not r:
-                raise Exception(
+                raise IovirtException(
                     "Failed to parse PCI config '%s' for VM %s" % (x, vmuuid)
                 )
             vendorid, deviceid = _get_vendor_and_device_ids(r.group(2))
@@ -308,7 +311,7 @@ def assign_free_vf(session, args):
         if vfid in vfs:
             del vfs[vfid]
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
     ethdev = None
     vlan = None
@@ -333,7 +336,7 @@ def assign_free_vf(session, args):
                 pifref = pref
                 break
         if not pifref:
-            raise "Could not find PIF record for network %s on this host" % (nwuuid)
+            raise IovirtException("Could not find PIF record for network %s on this host" % (nwuuid))
 
     # Specify by PIF UUID. If this is a VLAN PIF then this forces the
     # specification of a VLAN tag for the VF.
@@ -349,7 +352,7 @@ def assign_free_vf(session, args):
 
     # If no ethdev, PIF or network is specified then reject
     if not ethdev:
-        raise "Must specify eth device by device, PIF or network."
+        raise IovirtException("Must specify eth device by device, PIF or network.")
 
     # If the caller specified a pass through index use that otherwise
     # find the first one not currently configured.
@@ -372,7 +375,7 @@ def assign_free_vf(session, args):
 
     if "vlan" in args:
         if vlan and args["vlan"] != vlan:
-            raise "Cannot override PIF VLAN %s" % (vlan)
+            raise IovirtException("Cannot override PIF VLAN %s" % (vlan))
         vlan = args["vlan"]
 
     # Choose a suitable VF. Preference is for lower numbered VFs
@@ -394,8 +397,8 @@ def assign_free_vf(session, args):
             break
     if not myid:
         if ethdev:
-            raise "No spare VF on %s" % (ethdev)
-        raise "No spare VF"
+            raise IovirtException("No spare VF on %s" % (ethdev))
+        raise IovirtException("No spare VF")
 
     # Set up the config for the VM. No need to fill out the vendor and
     # device id fields for this.
@@ -449,7 +452,7 @@ def assign_free_vf(session, args):
 def unassign_vf(session, args, genericpci=False):
     """Unassign a VF/device from a VM."""
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
 
     # Specify the VF/device by either PCI ID, index, or ethX+VFn
@@ -471,13 +474,13 @@ def unassign_vf(session, args, genericpci=False):
                 pciid = vfpciid
                 break
         if not pciid:
-            raise "Unable to find PCI ID for " + vfdisplay
+            raise IovirtException("Unable to find PCI ID for " + vfdisplay)
 
     if not pciid and index == None:
         if genericpci:
-            raise "Need to specify either a pciid or index"
+            raise IovirtException("Need to specify either a pciid or index")
         else:
-            raise "Need to specify either a pciid, index or ethdev and vf"
+            raise IovirtException("Need to specify either a pciid, index or ethdev and vf")
 
     # Current assignments
     current = _get_vm_assignments(session, vmuuid)
@@ -485,14 +488,14 @@ def unassign_vf(session, args, genericpci=False):
     # Remove the specified ID
     if pciid:
         if not pciid in [x[0] for x in current.values()]:
-            raise "VM %s does not have %s assigned" % (vmuuid, vfdisplay)
+            raise IovirtException("VM %s does not have %s assigned" % (vmuuid, vfdisplay))
         # Use list due to we changed `current` in the for loop
         for i in list(current.keys()):
             if current[i][0] == pciid:
                 del current[i]
     else:
         if index not in current:
-            raise "VM %s does not have PCI passthrough index %u" % (index)
+            raise IovirtException("VM %s does not have PCI passthrough index %u" % (index))
         del current[index]
 
     # Update the config
@@ -504,9 +507,9 @@ def assign_free_pci_device(session, args):
     """Assign a free PCI device on this host to the specified VM."""
     assigned = _get_assignments(session)
     if "vendorid" not in args:
-        raise "No vendor ID specified, please use the 'vendorid' argument"
+        raise IovirtException("No vendor ID specified, please use the 'vendorid' argument")
     if "deviceid" not in args:
-        raise "No device ID specified, please use the 'deviceid' argument"
+        raise IovirtException("No device ID specified, please use the 'deviceid' argument")
     # _get_devices will check syntax of the args
     vendorid = args["vendorid"]
     deviceid = args["deviceid"]
@@ -516,7 +519,7 @@ def assign_free_pci_device(session, args):
         if pciid in devices:
             del devices[pciid]
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
 
     # If the caller specified a pass through index use that otherwise
@@ -539,7 +542,7 @@ def assign_free_pci_device(session, args):
     if len(pciids) > 0:
         myid = pciids[0]
     if not myid:
-        raise "No spare %s:%s device" % (vendorid, deviceid)
+        raise IovirtException("No spare %s:%s device" % (vendorid, deviceid))
 
     # Set up the config for the VM. No need to fill out the vendor and
     # device id fields for this.
@@ -640,9 +643,9 @@ def show_summary(session, args):
 def list_pci_devices(session, args):
     """Return a list of PCI devices of the specified vendorid:deviceid and their assignments."""
     if "vendorid" not in args:
-        raise "No vendor ID specified, please use the 'vendorid' argument"
+        raise IovirtException("No vendor ID specified, please use the 'vendorid' argument")
     if "deviceid" not in args:
-        raise "No device ID specified, please use the 'deviceid' argument"
+        raise IovirtException("No device ID specified, please use the 'deviceid' argument")
     # _get_devices will check syntax of the args
     vendorid = args["vendorid"]
     deviceid = args["deviceid"]
@@ -697,7 +700,7 @@ def list_pci_devices(session, args):
 def get_vm(session, args):
     """Return a description of the SR-IOV config for the specified VM."""
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
     vfs = _get_vfs()
     current = _get_vm_assignments(session, vmuuid)
@@ -757,7 +760,7 @@ def get_vm(session, args):
 
 def prep_for_vm(session, args):
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
     current = _get_vm_assignments(session, vmuuid)
     vfs = _get_vfs()
@@ -777,7 +780,7 @@ def prep_for_vm(session, args):
         if mac:
             # Check MAC really is a MAC
             if not re.match("^([0-9a-fA-F:]+)$", mac):
-                raise "Unexpected MAC text '%s' for VM %s" % (mac, vmuuid)
+                raise IovirtException("Unexpected MAC text '%s' for VM %s" % (mac, vmuuid))
             cmd = "%s link set %s vf %s mac %s" % (ipcmd, ethdev, vfnum, mac)
             reply.append(cmd)
             syslog.syslog("Setting VF MAC with '%s' for VM %s" % (cmd, vmuuid))
@@ -786,8 +789,8 @@ def prep_for_vm(session, args):
             # No VLAN may need explicit clearly of previously assigned VLAN
             vlan = "0"
         # Check VLAN really is an integer
-        if not re.match("^\d+$", vlan):
-            raise "Unexpected VLAN text '%s' for VM %s" % (vlan, vmuuid)
+        if not re.match(r"^\d+$", vlan):
+            raise IovirtException("Unexpected VLAN text '%s' for VM %s" % (vlan, vmuuid))
         cmd2 = "%s link set %s vf %s vlan %s" % (ipcmd, ethdev, vfnum, vlan)
         reply.append(cmd2)
         syslog.syslog("Setting VF VLAN with '%s' for VM %s" % (cmd, vmuuid))
@@ -798,7 +801,7 @@ def prep_for_vm(session, args):
 def unassign_all(session, args):
     """Clear all SR-IOV and PCI passthrough devices from a VM."""
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
 
     # Update the config
@@ -810,16 +813,16 @@ def change_vf_mac(session, args):
     """Change the MAC address for a VF already assigned to a VM."""
 
     if "mac" not in args:
-        raise "Need to specify a new MAC address"
+        raise IovirtException("Need to specify a new MAC address")
     mac = args["mac"]
 
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
 
     # Specify the VF by index
     if "index" not in args:
-        raise "Need to specify the VF index"
+        raise IovirtException("Need to specify the VF index")
     index = int(args["index"])
 
     # Current assignments
@@ -827,7 +830,7 @@ def change_vf_mac(session, args):
 
     # Update the MAC
     if index not in current:
-        raise "VF index %u not found for VM %s" % (index, vmuuid)
+        raise IovirtException("VF index %u not found for VM %s" % (index, vmuuid))
     c = current[index]
     current[index] = (c[0], c[1], c[2], mac, c[4])
 
@@ -842,18 +845,18 @@ def change_vf_vlan(session, args):
     Use vlan=None to remove VLAN tagging."""
 
     if "vlan" not in args:
-        raise "Need to specify a new VLAN"
+        raise IovirtException("Need to specify a new VLAN")
     vlan = args["vlan"]
     if vlan.lower() == "none":
         vlan = None
 
     if "uuid" not in args:
-        raise "No VM UUID specified, please use the 'uuid' argument"
+        raise IovirtException("No VM UUID specified, please use the 'uuid' argument")
     vmuuid = args["uuid"]
 
     # Specify the VF by index
     if "index" not in args:
-        raise "Need to specify the VF index"
+        raise IovirtException("Need to specify the VF index")
     index = int(args["index"])
 
     # Current assignments
@@ -861,7 +864,7 @@ def change_vf_vlan(session, args):
 
     # Update the MAC
     if index not in current:
-        raise "VF index %u not found for VM %s" % (index, vmuuid)
+        raise IovirtException("VF index %u not found for VM %s" % (index, vmuuid))
     c = current[index]
     current[index] = (c[0], c[1], c[2], c[3], vlan)
 
