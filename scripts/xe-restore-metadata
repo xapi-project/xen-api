@@ -47,9 +47,16 @@ function usage {
 function test_sr {
   sr_uuid_found=$(${XE} sr-list uuid="$1" --minimal)
   if [ "${sr_uuid_found}" != "$1" ]; then
-     echo Invalid SR UUID specified: $1
+     echo "Invalid SR UUID specified: $1"
      usage
   fi
+}
+
+# name space to hash SRs for a deterministic VDI UUID
+NS="e93e0639-2bdb-4a59-8b46-352b3f408c19"
+function uuid5 {
+  # could use a modern uuidgen but it's not on XS 8
+  python -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
 }
 
 dry_run=0
@@ -94,35 +101,42 @@ fi
 # determine if the SR UUID is vaid
 if [  -z "${sr_uuid}" ]; then
   # use the default-SR from the pool
-  sr_uuid=$(${XE} pool-param-get uuid=${pool_uuid} param-name=default-SR)
+  sr_uuid=$(${XE} pool-param-get uuid="${pool_uuid}" param-name=default-SR)
 fi
 test_sr "${sr_uuid}"
 
-sr_name=$(${XE} sr-param-get uuid=${sr_uuid} param-name=name-label)
+sr_name=$(${XE} sr-param-get uuid="${sr_uuid}" param-name=name-label)
+
+# probe first for a VDI with known UUID derived from the SR to avoid
+# scanning for a VDI
+backup_vdi=$(uuid5 "${NS}" "${sr_uuid}")
+if [ -z "${vdis}" ]; then
+  vdis=$(${XE} vdi-list uuid="${backup_vdi}" sr-uuid="${sr_uuid}" read-only=false --minimal)
+fi
 
 # get a list of all VDIs if an override has not been provided on the cmd line
 if [ -z "${vdis}" ]; then
-  vdis=$(${XE} vdi-list params=uuid sr-uuid=${sr_uuid} read-only=false --minimal)
+  vdis=$(${XE} vdi-list params=uuid sr-uuid="${sr_uuid}" read-only=false --minimal)
 fi
 
 mnt=
 function cleanup {
    cd /
    if [ ! -z "${mnt}" ]; then
-      umount ${mnt} >/dev/null 2>&1
-      rmdir ${mnt}
+      umount "${mnt}" >/dev/null 2>&1
+      rmdir "${mnt}"
       mnt=""
    fi
 
    if [ ! -z "${vbd_uuid}" ]; then
       ${debug} echo -n "Unplugging VBD: " >&2
-      ${XE} vbd-unplug uuid=${vbd_uuid} timeout=20
+      ${XE} vbd-unplug uuid="${vbd_uuid}" timeout=20
       # poll for the device to go away if we know its name
       if [ "${device}" != "" ]; then
           device_gone=0
           for ((i=0; i<10; i++)); do
               ${debug} echo -n "." >&2
-              if [ ! -b ${device} ]; then
+              if [ ! -b "${device}" ]; then
                   ${debug} echo " done" >&2
                   device_gone=1
                   break
@@ -131,9 +145,9 @@ function cleanup {
           done
           if [ ${device_gone} -eq 0 ]; then
               ${debug} echo " failed" >&2
-              ${debug} echo Please destroy VBD ${vbd_uuid} manually. >&2
+              ${debug} echo "Please destroy VBD ${vbd_uuid} manually." >&2
           else
-              ${XE} vbd-destroy uuid=${vbd_uuid}
+              ${XE} vbd-destroy uuid="${vbd_uuid}"
               vbd_uuid=""
           fi
       fi
@@ -142,88 +156,96 @@ function cleanup {
 }
 
 if [ -z "${vdis}" ]; then
-   echo No VDIs found on SR. >&2
+   echo "No VDIs found on SR." >&2
    exit 0
 fi
 
 trap cleanup SIGINT ERR
 
 for vdi_uuid in ${vdis}; do
+   if [ "${vdi_uuid}" != "${backup_vdi}" ] && [ "$yes" -eq 0 ]; then
+      echo "Probing VDI ${vdi_uuid}."
+      echo "This VDI was created with a prior version of this code."
+      echo "Its validity can't be checked without mounting it first."
+      read -p "Continue? [Y/N]" -n 1 -r; echo
+      if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit 1; fi
+   fi
+
    ${debug} echo -n "Creating VBD: " >&2
-   vbd_uuid=$(${XE} vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${vdi_uuid} device=autodetect 2>/dev/null)
+   vbd_uuid=$(${XE} vbd-create vm-uuid="${CONTROL_DOMAIN_UUID}" vdi-uuid="${vdi_uuid}" device=autodetect 2>/dev/null)
 
    if [ $? -ne 0 -o -z "${vbd_uuid}" ]; then
-      ${debug} echo error creating VBD for VDI ${vdi_uuid} >&2
+      ${debug} echo "error creating VBD for VDI ${vdi_uuid}" >&2
       cleanup
       continue
    fi
 
-   ${debug} echo ${vbd_uuid} >&2
+   ${debug} echo "${vbd_uuid}" >&2
 
    ${debug} echo -n "Plugging VBD: " >&2
-   ${XE} vbd-plug uuid=${vbd_uuid}
-   device=/dev/$(${XE} vbd-param-get uuid=${vbd_uuid} param-name=device)
+   ${XE} vbd-plug uuid="${vbd_uuid}"
+   device=/dev/$(${XE} vbd-param-get uuid="${vbd_uuid}" param-name=device)
 
-   if [ ! -b ${device} ]; then
-     ${debug} echo ${device}: not a block special >&2
+   if [ ! -b "${device}" ]; then
+     ${debug} echo "${device}: not a block special" >&2
      cleanup
      continue
    fi
 
-   ${debug} echo ${device} >&2
+   ${debug} echo "${device}" >&2
 
    ${debug} echo -n "Probing device: " >&2
    probecmd="@LIBEXECDIR@/probe-device-for-file"
    metadata_stamp="/.ctxs-metadata-backup"
    mnt=
-   ${probecmd} ${device} ${metadata_stamp}
+   ${probecmd} "${device}" "${metadata_stamp}"
    if [ $? -eq 0 ]; then
-     ${debug} echo found metadata backup >&2
+     ${debug} echo "found metadata backup" >&2
      ${debug} echo -n "Mounting filesystem: " >&2
-     mnt=/var/run/pool-backup-${vdi_uuid}
-     mkdir -p ${mnt}
-     /sbin/fsck -a ${device} >/dev/null 2>&1
+     mnt="/var/run/pool-backup-${vdi_uuid}"
+     mkdir -p "${mnt}"
+     /sbin/fsck -a "${device}" >/dev/null 2>&1
      if [ $? -ne 0 ]; then
-        echo File system integrity error.  Please correct manually. >&2
+        echo "File system integrity error.  Please correct manually." >&2
         cleanup
         continue
      fi
-     mount ${device} ${mnt} >/dev/null 2>&1
+     mount "${device}" "${mnt}" >/dev/null 2>&1
      if [ $? -ne 0 ]; then
        ${debug} echo failed >&2
        cleanup
      else
        if [ -e "${mnt}/.ctxs-metadata-backup" ]; then
-          ${debug} echo Found backup metadata on VDI: ${vdi_uuid} >&2
-          xe vdi-param-set uuid=${vdi_uuid} other-config:ctxs-pool-backup=true
+          ${debug} echo "Found backup metadata on VDI: ${vdi_uuid}" >&2
+          xe vdi-param-set uuid="${vdi_uuid}" other-config:ctxs-pool-backup=true
           break
        fi
      fi
    else
-     ${debug} echo backup metadata not found >&2
+     ${debug} echo "backup metadata not found" >&2
    fi
    cleanup
 done
 
 if [ $just_probe -gt 0 ]; then
-   echo ${vdi_uuid}
+   echo "${vdi_uuid}"
    cleanup
    exit 0
 fi
 
-cd ${mnt}
+cd "${mnt}"
 ${debug} echo "" >&2
 
-if [ ! -d ${mnt}/metadata ]; then
-   echo Metadata backups not found. >&2
+if [ ! -d "${mnt}/metadata" ]; then
+   echo "Metadata backups not found." >&2
    cleanup
    exit 1
 fi
 
-cd ${mnt}/metadata
+cd "${mnt}/metadata"
 
-if [ $just_list_dates -gt 0 ]; then
-    ls -1r ${mnt}/metadata
+if [ "$just_list_dates" -gt 0 ]; then
+    ls -1r "${mnt}/metadata"
     cleanup
     exit 0
 fi
@@ -231,54 +253,54 @@ fi
 if [ -z "${chosen_date}" ]; then
     chosen_metadata_dir=$(ls | sort -n | tail -1)
     if [ -z "${chosen_metadata_dir}" ]; then
-       echo No VM metadata backups found in ${mnt}/metadata >&2
+       echo "No VM metadata backups found in ${mnt}/metadata" >&2
        cleanup
        exit 1
     fi
 else
-    if [ ! -d ${mnt}/metadata/${chosen_date} ]; then
-       echo Date directory "${chosen_date}" not found >&2
+    if [ ! -d "${mnt}/metadata/${chosen_date}" ]; then
+       echo "Date directory ${chosen_date} not found" >&2
        cleanup
        exit 1
     fi
-    chosen_metadata_dir=${chosen_date}
+    chosen_metadata_dir="${chosen_date}"
 fi
 
 case ${restore_mode} in
 sr)
-    full_dir=${mnt}/metadata/${chosen_metadata_dir}/by-sr/${sr_uuid}
+    full_dir="${mnt}/metadata/${chosen_metadata_dir}/by-sr/${sr_uuid}"
     ;;
 all)
-    full_dir=${mnt}/metadata/${chosen_metadata_dir}/all
+    full_dir="${mnt}/metadata/${chosen_metadata_dir}/all"
     ;;
 esac
 
-if [ ! -d ${full_dir} ]; then
-    echo No VM metadata exports were found for the selected SR >&2
+if [ ! -d "${full_dir}" ]; then
+    echo "No VM metadata exports were found for the selected SR" >&2
     cleanup
     exit 1
 fi
 
-${debug} echo Selected: ${full_dir}
+${debug} echo "Selected: ${full_dir}"
 
-cd ${full_dir}
+cd "${full_dir}"
 ${debug} echo "" >&2
-${debug} echo Latest VM metadata found is: >&2
+${debug} echo "Latest VM metadata found is": >&2
 ${debug} ls >&2
 
-if [ $yes -eq 0 ]; then
+if [ "$yes" -eq 0 ]; then
    echo "Do you wish to reimport all VM metadata?" 
-   echo "Please type in "yes" and <enter> to continue." 
+   echo "Please type in 'yes' and <enter> to continue."
    read response
    if [ "$response" != "yes" ]; then
-     echo Aborting metadata restore.
+     echo "Aborting metadata restore."
      cleanup
      exit 1
    fi
 fi
 
 ${debug} echo "" >&2
-${debug} echo Restoring VM metadata: >&2
+${debug} echo "Restoring VM metadata:" >&2
 
 trap - ERR
 
@@ -297,8 +319,8 @@ else
 fi
 shopt -s nullglob
 for meta in *.vmmeta; do
-   echo xe vm-import filename=${meta} sr-uuid=${sr_uuid} --metadata --preserve${force_flag}${dry_run_flag}
-   "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid=${sr_uuid} --metadata --preserve${force_flag}${dry_run_flag}
+   echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
+   "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
    if [ $? -gt 0 ]; then
       error_count=$(( $error_count + 1 ))
    else
@@ -306,16 +328,16 @@ for meta in *.vmmeta; do
    fi
 done
 
-smmeta_file=${mnt}/metadata/${chosen_metadata_dir}/SRMETA.xml
+smmeta_file="${mnt}/metadata/${chosen_metadata_dir}/SRMETA.xml"
 if [ "$restore_mode" == "all" ]; then
    cmd="@LIBEXECDIR@/restore-sr-metadata.py -f ${smmeta_file}"
 else
    cmd="@LIBEXECDIR@/restore-sr-metadata.py -u ${sr_uuid} -f ${smmeta_file}"
 fi
 
-if [ -e ${smmeta_file} ]; then
-    if [ ${dry_run} -gt 0 ]; then
-        echo ${cmd}
+if [ -e "${smmeta_file}" ]; then
+    if [ "${dry_run}" -gt 0 ]; then
+        echo "${cmd}"
     else
         ${cmd}
     fi
@@ -323,4 +345,4 @@ fi
 
 echo "Restored ${good_count} VM(s), and ${error_count} error(s)"
 cleanup
-exit ${error_count}
+exit "${error_count}"

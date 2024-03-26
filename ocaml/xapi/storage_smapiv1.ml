@@ -691,19 +691,33 @@ module SMAPIv1 : Server_impl = struct
       let uuid = require_uuid vi in
       vdi_info_from_db ~__context (Db.VDI.get_by_uuid ~__context ~uuid)
 
-    let create _context ~dbg ~sr ~vdi_info =
+    let create _context ~dbg ~sr ~(vdi_info : Storage_interface.vdi_info) =
       with_dbg ~name:"VDI.create" ~dbg @@ fun di ->
       let dbg = Debuginfo.to_string di in
       try
         Server_helpers.exec_with_new_task "VDI.create"
           ~subtask_of:(Ref.of_string dbg) (fun __context ->
-            let sr = Db.SR.get_by_uuid ~__context ~uuid:(s_of_sr sr) in
+            let sr_uuid = s_of_sr sr in
+            let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
             let vi =
+              (* we want to set vdi_uuid when creating a backup VDI with
+                 a specific UUID. SM picks up vdi_uuid instead of creating
+                 a new random UUID; Cf. Xapi_vdi.create *)
+              let vdi_uuid =
+                match vdi_info.uuid with
+                | Some uuid when uuid = Uuidx.(Hash.string sr_uuid |> to_string)
+                  ->
+                    info "%s: creating a backup VDI %s" __FUNCTION__ uuid ;
+                    vdi_info.uuid
+                | _ ->
+                    None
+              in
               Sm.call_sm_functions ~__context ~sR:sr (fun device_config _type ->
-                  Sm.vdi_create ~dbg device_config _type sr vdi_info.sm_config
-                    vdi_info.ty vdi_info.virtual_size vdi_info.name_label
-                    vdi_info.name_description vdi_info.metadata_of_pool
-                    vdi_info.is_a_snapshot vdi_info.snapshot_time
+                  Sm.vdi_create ~dbg ?vdi_uuid device_config _type sr
+                    vdi_info.sm_config vdi_info.ty vdi_info.virtual_size
+                    vdi_info.name_label vdi_info.name_description
+                    vdi_info.metadata_of_pool vdi_info.is_a_snapshot
+                    vdi_info.snapshot_time
                     (s_of_vdi vdi_info.snapshot_of)
                     vdi_info.read_only
               )
