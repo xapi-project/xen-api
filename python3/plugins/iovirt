@@ -52,8 +52,8 @@ def _install_hook_script():
         hookdir = os.path.dirname(hookscript)
         if not os.path.exists(hookdir):
             os.makedirs(hookdir)
-        f = file(hookscript, "w")
-        f.write(
+        with open(hookscript, "w", encoding="utf-8") as f:
+            f.write(
 """#!/bin/bash
 #
 # Call the iovirt plugin to set up SR-IOV VF MAC and VLAN config
@@ -81,8 +81,7 @@ fi
 
 xe host-call-plugin plugin=$PLUGIN fn=$FN host-uuid=$INSTALLATION_UUID args:uuid=$VMUUID
 """
-        )
-        f.close()
+            )
         os.chmod(
             hookscript,
             stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
@@ -102,7 +101,9 @@ def _get_vfs():
         vfnum = r.group(1)
         netdevs = glob.glob("%s/physfn/net/eth*" % (vfnode))
         if len(netdevs) != 1:
-            raise IovirtException("Unexpected length of netdev list for %s: %s" % (vfnode, str(netdevs)))
+            raise IovirtException(
+                "Unexpected length of netdev list for %s: %s" % (vfnode, str(netdevs))
+                )
         r = re_netdev.search(netdevs[0])
         if not r:
             raise IovirtException("Error parsing %s for net device" % (netdevs[0]))
@@ -133,20 +134,22 @@ def _get_vendor_and_device_ids(pciid):
     devnode = "/sys/bus/pci/devices/%s" % (pciid)
     vendor = None
     device = None
-    if os.path.exists("%s/vendor" % (devnode)):
-        f = file("%s/vendor" % (devnode))
-        d = f.read()
-        f.close()
+    file_vendor = devnode + "/vendor"
+    if os.path.exists(file_vendor):
+        with open(file_vendor, "r", encoding="utf-8") as f:
+            d = f.read()
         vendorid = re_hex16x.search(d)
         if vendorid:
             vendor = vendorid.group(1)
-    if os.path.exists("%s/device" % (devnode)):
-        f = file("%s/device" % (devnode))
-        d = f.read()
-        f.close()
+
+    file_device = devnode + "/device"
+    if os.path.exists(file_device):
+        with open(file_device, "r", encoding="utf-8") as f:
+            d = f.read()
         deviceid = re_hex16x.search(d)
         if deviceid:
             device = deviceid.group(1)
+
     return vendor, device
 
 
@@ -336,7 +339,9 @@ def assign_free_vf(session, args):
                 pifref = pref
                 break
         if not pifref:
-            raise IovirtException("Could not find PIF record for network %s on this host" % (nwuuid))
+            raise IovirtException(
+                "Could not find PIF record for network %s on this host" % (nwuuid)
+                )
 
     # Specify by PIF UUID. If this is a VLAN PIF then this forces the
     # specification of a VLAN tag for the VF.
