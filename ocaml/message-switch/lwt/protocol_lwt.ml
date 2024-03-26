@@ -27,6 +27,8 @@ module M = struct
 
     let iter = Lwt_list.iter_s
 
+    let iter_dontwait f lst = Lwt.async (fun () -> Lwt_list.iter_p f lst)
+
     let any = Lwt.choose
 
     let is_determined t = Lwt.state t <> Lwt.Sleep

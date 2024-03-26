@@ -23,6 +23,8 @@ let path = ref "/var/run/message-switch/sock"
 
 let name = ref "server"
 
+let concurrent = ref false
+
 let shutdown = Ivar.create ()
 
 let process = function
@@ -33,7 +35,10 @@ let process = function
 
 let main () =
   let (_ : 'a Deferred.t) =
-    Server.listen ~process ~switch:!path ~queue:!name ()
+    if !concurrent then
+      Server.listen_p ~process ~switch:!path ~queue:!name ()
+    else
+      Server.listen ~process ~switch:!path ~queue:!name ()
   in
   Ivar.read shutdown >>= fun () ->
   Clock.after (Time.Span.of_sec 1.) >>= fun () -> exit 0
@@ -48,6 +53,11 @@ let _ =
     ; ( "-name"
       , Arg.Set_string name
       , Printf.sprintf "name to send message to (default %s)" !name
+      )
+    ; ( "-concurrent"
+      , Arg.Set concurrent
+      , Printf.sprintf "set concurrent processing of messages (default %b)"
+          !concurrent
       )
     ]
     (fun x -> P.fprintf stderr "Ignoring unexpected argument: %s" x)
