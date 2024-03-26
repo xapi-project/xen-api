@@ -147,7 +147,7 @@ class Session(xmlrpclib.ServerProxy):
         self._session = None
         self.last_login_method = None
         self.last_login_params = None
-        self.API_version = API_VERSION_1_1
+        self._API_version = API_VERSION_1_1
 
 
     def xenapi_request(self, methodname, params):
@@ -184,7 +184,12 @@ class Session(xmlrpclib.ServerProxy):
             self._session = result
             self.last_login_method = method
             self.last_login_params = params
-            self.API_version = self._get_api_version()
+
+            # This was initialized to 1.1 in the constructor.
+            # Now that we are logged in, the next time API_version() is run
+            # it can fetch the real version.
+            # However nothing in this script actually needs that, so don't call it immediately.
+            self._API_version = None
         except socket.error as e:
             # pytype false positive: there is a socket.errno in both py2 and py3
             if e.errno == socket.errno.ETIMEDOUT: # pytype: disable=module-attr
@@ -203,7 +208,7 @@ class Session(xmlrpclib.ServerProxy):
             self._session = None
             self.last_login_method = None
             self.last_login_params = None
-            self.API_version = API_VERSION_1_1
+            self._API_version = API_VERSION_1_1
 
     def _get_api_version(self):
         pool = self.xenapi.pool.get_all()[0]
@@ -211,6 +216,12 @@ class Session(xmlrpclib.ServerProxy):
         major = self.xenapi.host.get_API_version_major(host)
         minor = self.xenapi.host.get_API_version_minor(host)
         return "%s.%s"%(major,minor)
+
+    @property
+    def API_version(self):
+        if not self._API_version:
+            self._API_version = self._get_api_version()
+        return self._API_version
 
     def __getattr__(self, name):
         if name == 'handle':
