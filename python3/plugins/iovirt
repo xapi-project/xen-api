@@ -183,7 +183,7 @@ def _get_assignments(session):
     return devices
 
 
-def enable_iommu(session, args):
+def enable_iommu(session, args): # pylint: disable=unused-argument
     rc = os.system("@OPTDIR@/libexec/xen-cmdline --set-xen iommu=1")
     return str(rc == 0)
 
@@ -593,6 +593,7 @@ def unassign_pci_device(session, args):
 
 def show_summary(session, args):
     """Return a textual summary of SR-IOV configuarion of this host."""
+    _ = args # unused argument, may use it in the future
     assigned = _get_assignments(session)
     vfs = _get_vfs()
     vfids = list(vfs.keys())
@@ -620,7 +621,7 @@ def show_summary(session, args):
         subentry.appendChild(dom.createTextNode(vfnum))
 
         if vfid in assigned:
-            vmuuid, vmnum, vendorid, deviceid, mac, vlan = assigned[vfid]
+            vmuuid, vmnum, _, _, mac, vlan = assigned[vfid]
             aentry = dom.createElement("assigned")
             entry.appendChild(aentry)
 
@@ -771,7 +772,7 @@ def prep_for_vm(session, args):
     vfs = _get_vfs()
     reply = []
     for i in current.keys():
-        pciid, vendorid, deviceid, mac, vlan = current[i]
+        pciid, _, _, mac, vlan = current[i]
         if not pciid in vfs.keys():
             # This is probably a non SR-IOV PCI device being passed
             # through. Log that we cannot find details and carry on
