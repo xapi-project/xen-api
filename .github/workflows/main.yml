@@ -37,86 +37,44 @@ jobs:
       - run: echo "::add-matcher::.github/workflows/python-warning-matcher.json"
         name: "Setup GitHub for reporting Python warnings as annotations in pull request code review"
 
+      - name: Install dependencies for the static analysis
+        if: ${{ matrix.python-version != '2.7' }}
+        run: >
+          pip install opentelemetry-api opentelemetry-exporter-zipkin-json
+          opentelemetry-sdk pytest types-mock mock wrapt pandas
+
       - uses: pre-commit/action@v3.0.0
-        name: Run pre-commit checks (no spaces at end of lines, etc)
+        name: Run pre-commit hooks with pylint and pytest
         if: ${{ matrix.python-version != '2.7' }}
         with:
-          extra_args: --all-files --verbose --hook-stage commit
-        env:
-          SKIP: no-commit-to-branch
-
-      - name: Install dependencies only needed for python 2
-        if: ${{ matrix.python-version == '2.7' }}
-        run: pip install enum
-
-      - name: Install dependencies only needed for python 3
-        if: ${{ matrix.python-version != '2.7' }}
-        run: pip install pandas pytype toml wrapt
-
-      - name: Install common dependencies for Python ${{matrix.python-version}}
-        run: pip install future mock pytest-coverage pytest-mock
+          # The --hook-stage manual only runs the stages that add the manual keyword in
+          # .pre-commit-config.yaml. Currently that's simple white space checks and pytest:
+          extra_args: --all-files --verbose --hook-stage manual
 
       - name: Run Pytest for python 2 and get code coverage for Codecov
         if: ${{ matrix.python-version == '2.7' }}
         run: >
-          pytest
+          pip install enum future mock pytest-coverage pytest-mock &&
+          pytest --cov-fail-under=10
           --cov=scripts --cov=ocaml/xcp-rrdd
-          scripts/ ocaml/xcp-rrdd -vv -rA
-          --junitxml=.git/pytest${{matrix.python-version}}.xml
-          --cov-report term-missing
-          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
-        env:
-          PYTHONDEVMODE: yes
-
-      - name: Run Pytest for python 3 and get code coverage for Codecov
-        if: ${{ matrix.python-version != '2.7' }}
-        run: >
-          pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd --cov=python3/
-          scripts/ ocaml/xcp-rrdd python3/ -vv -rA
-          --junitxml=.git/pytest${{matrix.python-version}}.xml
-          --cov-report term-missing
-          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+          scripts/ ocaml/xcp-rrdd -vv -ra
+          --cov-report xml:.git/coverage.xml
         env:
           PYTHONDEVMODE: yes
 
       - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
         uses: codecov/codecov-action@v3
+        # Upload the .git/coverage.xml file created by --cov-report xml:.git/coverage.xml
+        # created by pytest --cov-report xml:.git/coverage.xml above and the pytest config
+        # in xen-api.git/pyproject.toml and .pre-commit-config.yaml in the pre-commit hook.
         with:
           directory: .git
-          files: coverage${{matrix.python-version}}.xml
+          files: coverage.xml
           env_vars: OS,PYTHON
           fail_ci_if_error: false
           flags: python${{matrix.python-version}}
           name: coverage${{matrix.python-version}}
           verbose: true
-
-      - uses: dciborow/action-pylint@0.1.0
-        if: ${{ matrix.python-version != '2.7' }}
-        with:
-          reporter: github-pr-review
-          level: warning
-          # To be customized to cover remaining Python scripts:
-          glob_pattern: "**/*.py"
-
-      - name: Run pytype checks
-        if: ${{ matrix.python-version != '2.7' }}
-        run: ./pytype_reporter.py
-        env:
-          PR_NUMBER: ${{ github.event.number }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PYTYPE_REPORTER_DEBUG: True
-
-      # Try to add pytype_report.py's summary file as a comment to the PR:
-      # Documentation: https://github.com/marketplace/actions/add-pr-comment
-      - name: Add the pytype summary as a comment to the PR (if permitted)
-        uses: mshick/add-pr-comment@v2
-        # Depends on pytype checks, which are not run for python 2.7:
-        if: ${{ matrix.python-version != '2.7' }}
-        # Fails for user workflows without permissions(fork-based pull requests):
-        continue-on-error: true
-        with:
-          message-path: .git/pytype-summary.md # Add the content of it as comment
 
   ocaml-tests:
     name: Run OCaml tests

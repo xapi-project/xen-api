@@ -1,19 +1,28 @@
 #
-# Configuration of pre-commit, a Python framework for git hooks.
-# pre-commit is run for each git push by GitHub CI. It can run
-# locally as well for early feedback and automatic formatting
-# like trailing whitespace removal (to be configured later):
+# This is the configuration file of the pre-commit framework for this repository:
+# https://pypi.org/project/pre-commit / https://pre-commit.com
 #
-## For only installing the package itself, run:
-# pip3 install pre-commit
+# It is a Python framework for managing and multi-language pre-commit hooks.
+# pre-commit runs in the GitHub Workflow of this project, and
+# it can be run locally as well for early feedback and e.g. formatting checks.
 #
-## For activating it as a pre-commit and pre-push hook (recommended):
-# pre-commit install --hook-type pre-push --hook-type pre-commit
+# For only installing the package itself, run:
+# $ pip3 install pre-commit
 #
-## For manually executing the pre-push hook:
-# pre-commit run -av --hook-stage pre-push
+# On the initial run, pre-commit downloads its checkers, subsequent runs are fast:
 #
-default_stages: [commit, push]
+# $ pre-commit run    # automatically checks which checks are needed.
+# $ pre-commit run -a # runs all fixes and checks, even when not needed#
+#
+# When this works, you can enable it as the pre-commit hook for this git clone:
+# $ pre-commit install
+# $ pre-commit install --hook-type pre-push
+#
+# You can skip checks if you commit very often you don't want them to run, e.g:
+# export SKIP=pytest;git commit -m "quick save" (or for --amend)
+#
+# Hooks that do do not specify the `stages:` field, get these default stages assigned:
+default_stages: [commit, push, manual]
 repos:
 # Recommendation for a minimal git pre-commit hook:
 # https://github.com/pre-commit/pre-commit-hooks/blob/main/README.md:
@@ -29,28 +38,109 @@ repos:
     -   id: check-executables-have-shebangs
         exclude: ocaml
 
-# Recommendation for a minimal git pre-push hook:
-# While using pre-commit yields great results, it
-# is "not fast". Therefore only run it pre-push,
-# (but always in GitHub CI of course):
 #
-# Calls ./pytype_reporter.py in a dedicated venv:
-# pre-commit run -av --hook-stage push
+# Run pytest and diff-cover to check that the new /python3 test suite passes.
+# This hook uses a local venv containing the required dependencies. When adding
+# new dependencies, they should be added to the additional_dependencies below.
+#
+-   repo: local
+    hooks:
+    -   id: pytest
+        files: python3/
+        name: check that the Python3 test suite in passes
+        entry: env PYTHONDEVMODE=yes sh -c 'pytest --cov
+            --cov-report=term-missing --cov-report=xml --cov-report=html &&
+            diff-cover --ignore-whitespace --compare-branch=origin/master
+            --show-uncovered --html-report .git/coverage-diff.html
+            --fail-under 60 .git/coverage.xml'
+        require_serial: true  # Only one at a time, don't parallelize.
+        pass_filenames: false
+        language: python
+        types: [python]
+        additional_dependencies:
+        - coverage
+        - diff-cover
+        - future
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pytest-coverage
+        - pytest-mock
+        - mock
+        - wrapt
+
+
+    -   id: mypy-reviewdog
+        name: run mypy with reviewdog to check for type errors
+        additional_dependencies:
+        - mypy
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pytest
+        - types-mock
+        - wrapt
+        language: python
+        files: python3/
+        entry: sh -c 'python3/tests/reviewdog.sh mypy || echo mypy diff review failed!'
+        verbose: true
+        require_serial: true  # Only one at a time, don't parallelize.
+
+
+-   repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.353
+    hooks:
+    -   id: pyright
+        name: check that python3 tree passes pyright/VSCode check
+        files: python3/
+        additional_dependencies:
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pytest
+        - mock
+
+
+# Check that pylint passes for the changes in new /python3 code.
+-   repo: local
+    hooks:
+    -   id: pylint
+        files: python3/
+        name: check that changes to python3 tree pass pylint
+        entry: env PYTHONPATH=scripts/examples/python
+            diff-quality --violations=pylint
+            --ignore-whitespace --compare-branch=origin/master
+        pass_filenames: false
+        types: [python]
+        language: python
+        additional_dependencies: [diff-cover, pylint, pytest]
+
+
+# pre-push hook (it only runs if you install pre-commit as a pre-push hook):
 -   repo: local
     hooks:
     -   id: pytype
-        name: pytype
-        entry: python3 pytype_reporter.py
-        pass_filenames: false
+        # It can be manually tested using: `pre-commit run -av --hook-stage push`
+        name: pytype with reviewdog filter for local and GitHub PR review
+        files: python3/
+        entry: python3/tests/reviewdog.sh pytype
+        stages: [push,manual]
+        pass_filenames: true
         types: [python]
-        stages: [push]
         verbose: true
         # This hook runs locally only when Python files change:
         language: python
+        require_serial: true  # Only one at a time, don't parallelize.
         # Pytype supports running on Python 3.8 to Python3.11 currently:
         # https://google.github.io/pytype/support.html
         # If a dev's default python3 interpreter is outside that range, but
         # developers have such version installed, it can be configured here:
         # language_version: python3.11
-        require_serial: true
-        additional_dependencies: [pandas, pytype]
+        additional_dependencies:
+        - future
+        - opentelemetry-api
+        - opentelemetry-exporter-zipkin-json
+        - opentelemetry-sdk
+        - pandas
+        - pytest
+        - pytype

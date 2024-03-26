@@ -9,16 +9,13 @@ from os import environ as env, getcwd
 from os.path import basename
 from subprocess import check_output, PIPE, Popen  # nosec:B404
 from sys import argv, exit as sys_exit, stderr, stdout
-from typing import Dict, List, TextIO, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, TextIO, Tuple
 from urllib import request
 from warnings import catch_warnings, simplefilter
 
 import toml
 
-if TYPE_CHECKING:
-    from typing import FileDescriptorLike
-
-Config = dict[str, str]
+Config = Dict[str, str]
 Info = List[dict]
 Ret = Tuple[int, Info]
 
@@ -207,11 +204,11 @@ def report_on(config: Config, log: TextIO, command: List[str], results: Info) ->
         return (popen.returncode or 0), output
 
 
-def readline(fileobj):
-    # type: (FileDescriptorLike) -> str
+def readline(fileobj: Any) -> str:
     """Convince pytype that fileobj is of type FileDescriptorLike"""
 
-    return fileobj.readline()
+    ret = fileobj.readline()  # type: str
+    return ret
 
 
 def handle_grouping(filename: str, last_filename: str, log: TextIO):
@@ -280,9 +277,20 @@ def parse_annotations(c: Config, popen: Popen[str], log: TextIO, results: Info) 
                 if line == "":
                     continue
                 if line[0] == " " or line.startswith(MORE) or line.startswith(TRACE):
-                    log_message += extend_error_description(line, error_dict)
+                    # __dunder__ variables and strings are quoted as code:
+                    error_line = re.sub(r"(__\w+__)", r"`\1`", line)
+                    error_line = re.sub(r"'(\w+)'", r"(`\1`)", line)
+                    # Expected: (self, __data: Buffer, ...)
+                    # Actually passed: (self, __data: str)
+                    error_line = re.sub(r"\((.*?)\)", r"(`\1`)", error_line)
+                    # In Union[None, str]
+                    error_line = re.sub(r"([Ii]n )(.*)", r"\1`\2`", error_line)
+                    log_message += extend_error_description(error_line, error_dict)
                     continue
-                print(log_message, file=log)
+
+                # Only generate GitHub annotations for changed files:
+                if last_filename in c.get("changed_files", []):
+                    print(log_message, file=log)
                 results.append(error_dict)
             log_message, error_dict, filename = github_error(config=c, line=line)
             # Grouping of log lines:
@@ -599,13 +607,15 @@ def main():
     config_file = "pyproject.toml"
     config = load_config(config_file, basename(__file__))
     config.setdefault("expected_to_fail", [])
-    debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
+    changed_but_in_expected_to_fail = []
+    if config["expected_to_fail"]:
+        debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
 
-    changed_but_in_expected_to_fail = git_diff(
-        "--name-only",
-        find_branch_point(config),
-        *config["expected_to_fail"],
-    ).splitlines()
+        changed_but_in_expected_to_fail = git_diff(
+            "--name-only",
+            find_branch_point(config),
+            *config["expected_to_fail"],
+        ).splitlines()
 
     if check_only_reverts_from_branch_point(config, changed_but_in_expected_to_fail):
         return run_pytype_and_generate_summary(config)
