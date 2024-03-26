@@ -216,11 +216,11 @@ class Session(xmlrpclib.ServerProxy):
         if name == 'handle':
             return self._session
         elif name == 'xenapi':
-            return _Dispatcher(self.API_version, self.xenapi_request, None)
+            return _Dispatcher(self.xenapi_request, None)
         elif name.startswith('login') or name.startswith('slave_local'):
             return lambda *params: self._login(name, params)
         elif name == 'logout':
-            return _Dispatcher(self.API_version, self.xenapi_request, "logout")
+            return _Dispatcher(self.xenapi_request, "logout")
         elif name.startswith('__') and name.endswith('__'):
             return lambda *args, **kwargs: notimplemented(name, args, kwargs)
         else:
@@ -251,8 +251,7 @@ def _parse_result(result):
 
 # Based upon _Method from xmlrpclib.
 class _Dispatcher:
-    def __init__(self, API_version, send, name):
-        self.__API_version = API_version
+    def __init__(self, send, name):
         self.__send = send
         self.__name = name
 
@@ -264,9 +263,9 @@ class _Dispatcher:
 
     def __getattr__(self, name):
         if self.__name is None:
-            return _Dispatcher(self.__API_version, self.__send, name)
+            return _Dispatcher(self.__send, name)
         else:
-            return _Dispatcher(self.__API_version, self.__send, "%s.%s" % (self.__name, name))
+            return _Dispatcher(self.__send, "%s.%s" % (self.__name, name))
 
     def __call__(self, *args):
         return self.__send(self.__name, args)
