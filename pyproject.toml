@@ -48,7 +48,6 @@ disable = [
     "invalid-name",
     "import-error",
     "unnecessary-pass",
-    "unspecified-encoding",
     "protected-access",
     "no-member",  # Some mutiple inheritance classes may have this issue
     "too-many-locals",  # Long functions. Need to refine the code
@@ -130,6 +129,7 @@ inputs = [
     "python3/bin/perfmon",
     "python3/bin/*.py",
     "python3/libexec/*.py",
+    "python3/plugins/iovirt",
 
     # To be added later,
     # when converted to Python3-compatible syntax:
