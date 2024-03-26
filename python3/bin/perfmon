@@ -533,8 +533,8 @@ class VariableConfig:
     def __init__(self, xmldoc, alarm_create_callback, get_default_variable_config):
         try:
             name = xmldoc.getElementsByTagName("name")[0].getAttribute("value")
-        except IndexError:
-            raise XmlConfigException("variable missing 'name' tag") from None
+        except IndexError as e:
+            raise XmlConfigException("variable missing 'name' tag") from e
 
         def get_value(tag):
             try:
@@ -556,10 +556,10 @@ class VariableConfig:
         self.name = name
         try:
             self.rrd_regex = re.compile("^%s$" % rrd_regex)
-        except:
+        except Exception as e:
             raise XmlConfigException(
                 "variable %s: regex %s does not compile" % (name, rrd_regex)
-            ) from None
+            ) from e
 
         if consolidation_fn not in supported_consolidation_functions:
             raise XmlConfigException(
@@ -572,26 +572,26 @@ class VariableConfig:
 
         try:
             self.alarm_trigger_period = int(alarm_trigger_period)
-        except:
+        except Exception as e:
             raise XmlConfigException(
                 "variable %s: alarm_trigger_period %s not an int"
                 % (name, alarm_trigger_period)
-            ) from None
+            ) from e
 
         try:
             self.alarm_auto_inhibit_period = int(alarm_auto_inhibit_period)
-        except:
+        except Exception as e:
             raise XmlConfigException(
                 "variable %s: alarm_auto_inhibit_period %s not an int"
                 % (name, alarm_auto_inhibit_period)
-            ) from None
+            ) from e
         try:
             trigger_level = float(alarm_trigger_level)
-        except:
+        except Exception as e:
             raise XmlConfigException(
                 "variable %s: alarm_trigger_level %s not a float"
                 % (name, alarm_trigger_level)
-            ) from None
+            ) from e
 
         self.alarm_priority = alarm_priority
 
@@ -1329,8 +1329,8 @@ def main(): # pragma: no cover
                 "interval_percent_dither=",
             ],
         )
-    except getopt.GetoptError:
-        raise UsageException from None
+    except getopt.GetoptError as e:
+        raise UsageException from e
 
     for opt, arg in opts:
         if opt in ("-i", "--interval"):
@@ -1599,8 +1599,7 @@ if __name__ == "__main__": # pragma: no cover
         ex = sys.exc_info()
         err = traceback.format_exception(*ex)
 
-        # Python built-in Exception has args,
-        # but XenAPI.Failure has details instead. Sigh.
+        # XenAPI.Failure has `details`.
         try:
             # print the exception args nicely
             log_err(str(exp))
