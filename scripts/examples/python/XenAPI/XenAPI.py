@@ -102,7 +102,12 @@ class UDSTransport(xmlrpclib.Transport):
     def add_extra_header(self, key, value):
         self._extra_headers += [ (key,value) ]
     def make_connection(self, host):
-        return UDSHTTPConnection(host)
+        # compatibility with parent xmlrpclib.Transport HTTP/1.1 support
+        if self._connection and host == self._connection[0]:
+            return self._connection[1]
+
+        self._connection = host, UDSHTTPConnection(host)
+        return self._connection[1]
 
 def notimplemented(name, *args, **kwargs):
     raise NotImplementedError("XMLRPC proxies do not support python magic methods", name, *args, **kwargs)
