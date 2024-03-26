@@ -229,6 +229,34 @@ let parent_of_origin (origin : origin) span_name =
 
 let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v
 
+let addr_port_of_sock s =
+  match s with
+  | Unix.ADDR_UNIX "" ->
+      (None, None)
+  | Unix.ADDR_UNIX soket_name ->
+      (Some soket_name, None)
+  | Unix.ADDR_INET (addr, port) ->
+      (Some (Unix.string_of_inet_addr addr), Some (string_of_int port))
+
+let attr_of_fd s =
+  let peer_addr = s |> Unix.getpeername |> addr_port_of_sock in
+  let local_addr = s |> Unix.getsockname |> addr_port_of_sock in
+  [
+    attribute_helper_fn
+      (fun addr -> [("network.local.address", addr)])
+      (fst local_addr)
+  ; attribute_helper_fn
+      (fun port -> [("network.local.port", port)])
+      (snd local_addr)
+  ; attribute_helper_fn
+      (fun addr -> [("network.peer.address", addr)])
+      (fst peer_addr)
+  ; attribute_helper_fn
+      (fun peer_addr -> [("network.peer.port", peer_addr)])
+      (snd peer_addr)
+  ]
+  |> List.concat
+
 let attr_of_req (req : Http.Request.t) =
   [
     [
@@ -277,8 +305,8 @@ let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
         match origin with
         | Internal ->
             [("xs.xapi.task.origin", "internal")]
-        | Http (req, _) ->
-            attr_of_req req
+        | Http (req, s) ->
+            [attr_of_req req; attr_of_fd s] |> List.concat
       )
       origin
   ]
