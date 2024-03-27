@@ -233,27 +233,21 @@ let addr_port_of_sock s =
   match s with
   | Unix.ADDR_UNIX "" ->
       (None, None)
-  | Unix.ADDR_UNIX soket_name ->
-      (Some soket_name, None)
+  | Unix.ADDR_UNIX socket_name ->
+      (Some socket_name, None)
   | Unix.ADDR_INET (addr, port) ->
       (Some (Unix.string_of_inet_addr addr), Some (string_of_int port))
 
 let attr_of_fd s =
-  let peer_addr = s |> Unix.getpeername |> addr_port_of_sock in
-  let local_addr = s |> Unix.getsockname |> addr_port_of_sock in
+  let peer_addr, peer_port = s |> Unix.getpeername |> addr_port_of_sock in
+  let local_addr, local_port = s |> Unix.getsockname |> addr_port_of_sock in
   [
     attribute_helper_fn
       (fun addr -> [("network.local.address", addr)])
-      (fst local_addr)
-  ; attribute_helper_fn
-      (fun port -> [("network.local.port", port)])
-      (snd local_addr)
-  ; attribute_helper_fn
-      (fun addr -> [("network.peer.address", addr)])
-      (fst peer_addr)
-  ; attribute_helper_fn
-      (fun peer_addr -> [("network.peer.port", peer_addr)])
-      (snd peer_addr)
+      local_addr
+  ; attribute_helper_fn (fun port -> [("network.local.port", port)]) local_port
+  ; attribute_helper_fn (fun addr -> [("network.peer.address", addr)]) peer_addr
+  ; attribute_helper_fn (fun port -> [("network.peer.port", port)]) peer_port
   ]
   |> List.concat
 
