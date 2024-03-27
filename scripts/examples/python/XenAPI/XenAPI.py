@@ -122,6 +122,11 @@ class Session(xmlrpclib.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1, ignore_ssl=False):
 
+        if sys.version_info[0] > 2:
+            # this changed to be a 'bool' in Python3
+            verbose = bool(verbose)
+            allow_none = bool(allow_none)
+
         # Fix for CA-172901 (+ Python 2.4 compatibility)
         # Fix for context=ctx ( < Python 2.7.9 compatibility)
         if not (sys.version_info[0] <= 2 and sys.version_info[1] <= 7 and sys.version_info[2] <= 9 ) \
