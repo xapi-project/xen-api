@@ -395,7 +395,7 @@ def assign_free_vf(session, args):
     vfidlist = [revdict[x] for x in revdictkeys]
     myid = None
     for vfid in vfidlist:
-        if not ethdev:
+        if not ethdev: # seems never run as already raised exception
             myid = vfid
             break
         if ethdev == vfs[vfid][1]:
@@ -592,9 +592,8 @@ def unassign_pci_device(session, args):
     return unassign_vf(session, args, genericpci=True)
 
 
-def show_summary(session, args):
+def show_summary(session, _):
     """Return a textual summary of SR-IOV configuarion of this host."""
-    _ = args # unused argument, may use it in the future
     assigned = _get_assignments(session)
     vfs = _get_vfs()
     vfids = list(vfs.keys())

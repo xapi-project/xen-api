@@ -107,6 +107,7 @@ expected_to_fail = [
 ]
 
 
+
 [tool.pytype]
 inputs = [
     "scripts/static-vdis",
