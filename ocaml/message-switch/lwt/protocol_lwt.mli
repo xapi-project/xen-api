@@ -19,3 +19,5 @@ open Message_switch_core
 module Client : S.CLIENT with type 'a io = 'a Lwt.t
 
 module Server : S.SERVER with type 'a io = 'a Lwt.t
+
+module Mtest : Mtest.MTEST with type 'a io = 'a Lwt.t
