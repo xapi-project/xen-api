@@ -642,7 +642,8 @@ let startup log =
           ) ;
           match !(log.device) with
           | None ->
-              D.info "Could not find block device"
+              D.info "Could not find block device" ;
+              broken log
           | Some device ->
               D.info "Using block device at %s" device ;
               (* Check that the block device exists *)
