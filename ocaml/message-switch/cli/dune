@@ -5,6 +5,7 @@
     cmdliner
     message-switch-core
     message-switch-unix
+    mtime
     rpclib.core
     rpclib.json
     threads.posix

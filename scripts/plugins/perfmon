@@ -14,16 +14,17 @@ def send_perfmon_cmd(cmd):
     "Return True for success, or ERROR_%d: <msg> otherwise"
     if len(cmd) >= cmdmaxlen:
         return "ERROR_0: command too long"
+    cmd_bytes = cmd.encode()
     try:
         sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-        rc = sock.sendto(cmd, cmdsockname)
+        rc = sock.sendto(cmd_bytes, cmdsockname)
     except socket.error as e:
         err, msg = e.args
         return "ERROR_%d: %s" % (err, msg)
     except Exception:
         return "ERROR_1: unknown error"
 
-    return str(rc == len(cmd))
+    return str(rc == len(cmd_bytes))
 
 
 def stop(session, args):

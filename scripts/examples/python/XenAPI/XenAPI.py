@@ -102,7 +102,12 @@ class UDSTransport(xmlrpclib.Transport):
     def add_extra_header(self, key, value):
         self._extra_headers += [ (key,value) ]
     def make_connection(self, host):
-        return UDSHTTPConnection(host)
+        # compatibility with parent xmlrpclib.Transport HTTP/1.1 support
+        if self._connection and host == self._connection[0]:
+            return self._connection[1]
+
+        self._connection = host, UDSHTTPConnection(host)
+        return self._connection[1]
 
 def notimplemented(name, *args, **kwargs):
     raise NotImplementedError("XMLRPC proxies do not support python magic methods", name, *args, **kwargs)
@@ -122,6 +127,11 @@ class Session(xmlrpclib.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1, ignore_ssl=False):
 
+        if sys.version_info[0] > 2:
+            # this changed to be a 'bool' in Python3
+            verbose = bool(verbose)
+            allow_none = bool(allow_none)
+
         # Fix for CA-172901 (+ Python 2.4 compatibility)
         # Fix for context=ctx ( < Python 2.7.9 compatibility)
         if not (sys.version_info[0] <= 2 and sys.version_info[1] <= 7 and sys.version_info[2] <= 9 ) \
@@ -137,7 +147,7 @@ class Session(xmlrpclib.ServerProxy):
         self._session = None
         self.last_login_method = None
         self.last_login_params = None
-        self.API_version = API_VERSION_1_1
+        self._API_version = API_VERSION_1_1
 
 
     def xenapi_request(self, methodname, params):
@@ -174,9 +184,15 @@ class Session(xmlrpclib.ServerProxy):
             self._session = result
             self.last_login_method = method
             self.last_login_params = params
-            self.API_version = self._get_api_version()
+
+            # This was initialized to 1.1 in the constructor.
+            # Now that we are logged in, the next time API_version() is run
+            # it can fetch the real version.
+            # However nothing in this script actually needs that, so don't call it immediately.
+            self._API_version = None
         except socket.error as e:
-            if e.errno == socket.errno.ETIMEDOUT:
+            # pytype false positive: there is a socket.errno in both py2 and py3
+            if e.errno == socket.errno.ETIMEDOUT: # pytype: disable=module-attr
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
                 raise e
@@ -184,14 +200,15 @@ class Session(xmlrpclib.ServerProxy):
     def _logout(self):
         try:
             if self.last_login_method.startswith("slave_local"):
-                return _parse_result(self.session.local_logout(self._session))
+                # Proxied function, pytype can't see it
+                return _parse_result(self.session.local_logout(self._session)) # pytype: disable=attribute-error
             else:
                 return _parse_result(self.session.logout(self._session))
         finally:
             self._session = None
             self.last_login_method = None
             self.last_login_params = None
-            self.API_version = API_VERSION_1_1
+            self._API_version = API_VERSION_1_1
 
     def _get_api_version(self):
         pool = self.xenapi.pool.get_all()[0]
@@ -200,15 +217,21 @@ class Session(xmlrpclib.ServerProxy):
         minor = self.xenapi.host.get_API_version_minor(host)
         return "%s.%s"%(major,minor)
 
+    @property
+    def API_version(self):
+        if not self._API_version:
+            self._API_version = self._get_api_version()
+        return self._API_version
+
     def __getattr__(self, name):
         if name == 'handle':
             return self._session
         elif name == 'xenapi':
-            return _Dispatcher(self.API_version, self.xenapi_request, None)
+            return _Dispatcher(self.xenapi_request, None)
         elif name.startswith('login') or name.startswith('slave_local'):
             return lambda *params: self._login(name, params)
         elif name == 'logout':
-            return _Dispatcher(self.API_version, self.xenapi_request, "logout")
+            return _Dispatcher(self.xenapi_request, "logout")
         elif name.startswith('__') and name.endswith('__'):
             return lambda *args, **kwargs: notimplemented(name, args, kwargs)
         else:
@@ -239,8 +262,7 @@ def _parse_result(result):
 
 # Based upon _Method from xmlrpclib.
 class _Dispatcher:
-    def __init__(self, API_version, send, name):
-        self.__API_version = API_version
+    def __init__(self, send, name):
         self.__send = send
         self.__name = name
 
@@ -252,9 +274,9 @@ class _Dispatcher:
 
     def __getattr__(self, name):
         if self.__name is None:
-            return _Dispatcher(self.__API_version, self.__send, name)
+            return _Dispatcher(self.__send, name)
         else:
-            return _Dispatcher(self.__API_version, self.__send, "%s.%s" % (self.__name, name))
+            return _Dispatcher(self.__send, "%s.%s" % (self.__name, name))
 
     def __call__(self, *args):
         return self.__send(self.__name, args)

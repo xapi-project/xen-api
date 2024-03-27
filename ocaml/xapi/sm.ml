@@ -152,7 +152,7 @@ let sr_update ~dbg dconf driver sr =
   let call = Sm_exec.make_call ~sr_ref:sr dconf "sr_update" [] in
   Sm_exec.parse_unit (Sm_exec.exec_xmlrpc ~dbg (driver_filename driver) call)
 
-let vdi_create ~dbg dconf driver sr sm_config vdi_type size name_label
+let vdi_create ~dbg ?vdi_uuid dconf driver sr sm_config vdi_type size name_label
     name_description metadata_of_pool is_a_snapshot snapshot_time snapshot_of
     read_only =
   with_dbg ~dbg ~name:"vdi_create" @@ fun di ->
@@ -164,8 +164,8 @@ let vdi_create ~dbg dconf driver sr sm_config vdi_type size name_label
     ) ;
   srmaster_only dconf ;
   let call =
-    Sm_exec.make_call ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type dconf
-      "vdi_create"
+    Sm_exec.make_call ?vdi_uuid ~sr_ref:sr ~vdi_sm_config:sm_config ~vdi_type
+      dconf "vdi_create"
       [
         sprintf "%Lu" size
       ; name_label
