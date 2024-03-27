@@ -181,7 +181,8 @@ class Session(xmlrpclib.ServerProxy):
             self.last_login_params = params
             self.API_version = self._get_api_version()
         except socket.error as e:
-            if e.errno == socket.errno.ETIMEDOUT:
+            # pytype false positive: there is a socket.errno in both py2 and py3
+            if e.errno == socket.errno.ETIMEDOUT: # pytype: disable=module-attr
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
                 raise e
@@ -189,7 +190,8 @@ class Session(xmlrpclib.ServerProxy):
     def _logout(self):
         try:
             if self.last_login_method.startswith("slave_local"):
-                return _parse_result(self.session.local_logout(self._session))
+                # Proxied function, pytype can't see it
+                return _parse_result(self.session.local_logout(self._session)) # pytype: disable=attribute-error
             else:
                 return _parse_result(self.session.logout(self._session))
         finally:
