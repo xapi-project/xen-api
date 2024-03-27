@@ -358,9 +358,9 @@ class RRDUpdates:
 
     def refresh(self, session, override_params=None):
         "reread the rrd_updates over CGI and parse"
-        if override_params is None:
-            override_params = {}
-        params = override_params
+        params = {}
+        if override_params is not None:
+            params = override_params
         params["session_id"] = session.id()
         params.update(self.params)
         paramstr = "&".join(["%s=%s" % (k, params[k]) for k in params])
@@ -426,12 +426,11 @@ def average(mylist):
     return sum(mylist) / float(len(mylist))
 
 
-def get_percent_log_fs_usage(ignored):
+def get_percent_log_fs_usage(_):
     '''
     Get the percent usage of the host filesystem for logs partition.
     Input list is ignored and should be empty
     '''
-    _ = ignored  # unused: not sure if it'll be used later, passing pylint
     fs_output = subprocess.getoutput("df /etc/passwd")
     log_fs_output = subprocess.getoutput("df /var/log")
     fs_output = " ".join(fs_output.splitlines()[1:])
@@ -445,13 +444,11 @@ def get_percent_log_fs_usage(ignored):
         return float("NaN")
 
 
-def get_percent_fs_usage(ignored):
+def get_percent_fs_usage(_):
     '''
     Get the percent usage of the host filesystem.
     Input list is ignored and should be empty
     '''
-    _ = ignored  # unused: not sure if it'll be used later, passing pylint
-
     # this file is on the filesystem of interest in both OEM and Retail
     output = subprocess.getoutput("df /etc/passwd")
     output = " ".join(
@@ -462,12 +459,11 @@ def get_percent_fs_usage(ignored):
     return float(percentage[0:-1]) / 100.0
 
 
-def get_percent_mem_usage(ignored):
+def get_percent_mem_usage(_):
     '''
     Get the percent usage of Dom0 memory/swap.
     Input list is ignored and should be empty
     '''
-    _ = ignored  # unused: not sure if it'll be used later, passing pylint
     try:
         with open("/proc/meminfo", "r", encoding="utf-8") as memfd:
             memlist = memfd.readlines()
@@ -1509,7 +1505,7 @@ def main(): # pragma: no cover
         timeout = rand(interval, interval + dither)
         cmdsock.settimeout(timeout)
         try:
-            cmd = cmdsock.recv(cmdmaxlen)
+            cmd = cmdsock.recv(cmdmaxlen).decode()
         except socket.timeout:
             pass
         else:
@@ -1526,8 +1522,7 @@ def main(): # pragma: no cover
     return 0
 
 
-def sigterm_handler(sig, stack_frame): # pragma: no cover
-    _ = stack_frame  # unused: not sure if it'll be used later, passing pylint
+def sigterm_handler(sig, _): # pragma: no cover
     log_err("Caught signal %d - exiting" % sig)
     sys.exit(1)
 
