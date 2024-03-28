@@ -5500,3 +5500,80 @@ let observer_record rpc session_id observer =
           ()
       ]
   }
+
+let pci_record rpc session_id pci =
+  let _ref = ref pci in
+  let empty_record =
+    ToGet (fun () -> Client.PCI.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  let pci_record p =
+    ref (ToGet (fun () -> Client.PCI.get_record ~rpc ~session_id ~self:p))
+  in
+  let xp0 p = lzy_get (pci_record p) in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pCI_uuid) ()
+      ; make_field ~name:"vendor-name"
+          ~get:(fun () -> try (x ()).API.pCI_vendor_name with _ -> nid)
+          ()
+      ; make_field ~name:"device-name"
+          ~get:(fun () -> try (x ()).API.pCI_device_name with _ -> nid)
+          ()
+      ; make_field ~name:"driver-name"
+          ~get:(fun () -> try (x ()).API.pCI_driver_name with _ -> nid)
+          ()
+      ; make_field ~name:"host-uuid"
+          ~get:(fun () ->
+            try get_uuid_from_ref (x ()).API.pCI_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"host-name-label"
+          ~get:(fun () ->
+            try get_name_from_ref (x ()).API.pCI_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"pci-id"
+          ~get:(fun () -> try (x ()).API.pCI_pci_id with _ -> nid)
+          ()
+      ; make_field ~name:"dependencies"
+          ~get:(fun () ->
+            map_and_concat
+              (fun pci -> (xp0 pci).API.pCI_pci_id)
+              (x ()).API.pCI_dependencies
+          )
+          ~get_set:(fun () ->
+            List.map
+              (fun pci -> (xp0 pci).API.pCI_pci_id)
+              (x ()).API.pCI_dependencies
+          )
+          ()
+      ; make_field ~name:"other-config"
+          ~get:(fun () ->
+            Record_util.s2sm_to_string "; " (x ()).API.pCI_other_config
+          )
+          ~add_to_map:(fun key value ->
+            Client.PCI.add_to_other_config ~rpc ~session_id ~self:pci ~key
+              ~value
+          )
+          ~remove_from_map:(fun key ->
+            Client.PCI.remove_from_other_config ~rpc ~session_id ~self:pci ~key
+          )
+          ~get_map:(fun () -> (x ()).API.pCI_other_config)
+          ()
+      ]
+  }
