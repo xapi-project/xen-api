@@ -2,5 +2,5 @@
   (name main)
   (package ezxenstore)
   (deps main.exe)
-  (libraries cmdliner ezxenstore xenstore_transport)
+  (libraries cmdliner ezxenstore ezxenstore.core xenstore xenstore_transport)
 )

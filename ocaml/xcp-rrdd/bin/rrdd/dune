@@ -31,6 +31,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xmlm
+    yojson
   )
   (preprocess (pps ppx_deriving_rpc))
 )
@@ -47,7 +48,8 @@
     ezxenstore.core
     ezxenstore.watch
     forkexec
-    http_lib
+    http-lib
+    httpsvr
     inotify
     rpclib.core
     rpclib.json

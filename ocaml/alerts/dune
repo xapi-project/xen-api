@@ -3,6 +3,7 @@
   (public_name xapi-expiry-alerts)
   (libraries
     astring
+    rpclib.core
     xapi-client
     xapi-consts
     xapi-types

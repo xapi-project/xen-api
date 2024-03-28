@@ -3,6 +3,7 @@
   (modules certificate_check)
   (libraries
     astring
+    rpclib.core
     xapi-expiry-alerts
     xapi-client
     xapi-consts

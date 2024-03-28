@@ -20,6 +20,7 @@
    xapi-idl.guard.privileged
    xapi-log
    xapi-types
+   xapi-consts.xapi_version
    xen-api-client-lwt)
  (preprocess (pps ppx_deriving_rpc)))
 

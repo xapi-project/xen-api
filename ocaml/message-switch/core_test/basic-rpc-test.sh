@@ -24,15 +24,9 @@ lwt/server_main.exe -path $SPATH &
 lwt/client_main.exe -path $SPATH -secs 5
 sleep 2
 
-echo Performance test of Async to Lwt
+echo Performance test of Lwt to Unix
 lwt/server_main.exe -path $SPATH &
-async/client_async_main.exe -path $SPATH -secs 5
-sleep 2
-
-echo Performance test of Async to Async
-async/server_async_main.exe -path $SPATH &
-async/client_async_main.exe -path $SPATH -secs 5
-sleep 2
+./client_unix_main.exe -path $SPATH -secs 5
 
 ../cli/main.exe shutdown --path $SPATH
 sleep 2

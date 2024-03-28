@@ -15,8 +15,6 @@
   (deps
     client_unix_main.exe
     server_unix_main.exe
-    async/client_async_main.exe
-    async/server_async_main.exe
     lwt/client_main.exe
     lwt/server_main.exe
     lwt/link_test_main.exe
