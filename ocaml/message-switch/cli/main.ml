@@ -76,23 +76,36 @@ let help =
   ; `P (Printf.sprintf "Check bug reports at %s" project_url)
   ]
 
+(* Durations, in nanoseconds *)
+let second = 1_000_000_000L
+
+let minute = 60_000_000_000L
+
+let hour = 3600_000_000_000L
+
+let day = 86400_000_000_000L
+
 (* Commands *)
 
 let diagnostics common_opts =
   Client.connect ~switch:common_opts.Common.path () >>|= fun t ->
   Client.diagnostics ~t () >>|= fun d ->
   let open Message_switch_core.Protocol in
-  let in_the_past = Int64.sub d.Diagnostics.current_time in
+  let in_the_past ts =
+    if d.Diagnostics.current_time < ts then
+      0L
+    else
+      Int64.sub d.Diagnostics.current_time ts
+  in
   let time f x =
-    let open Int64 in
-    let secs = div (f x) 1_000_000_000L in
-    let secs' = rem secs 60L in
-    let mins = div secs 60L in
-    let mins' = rem mins 60L in
-    let hours = div mins 60L in
-    let hours' = rem hours 24L in
-    let days = div hours 24L in
-    let fragment name = function
+    let timespan = f x in
+    let ( // ) = Int64.div in
+    let ( %% ) = Int64.rem in
+    let secs = timespan %% minute // second in
+    let mins = timespan %% hour // minute in
+    let hours = timespan %% day // hour in
+    let days = timespan // day in
+    let format name = function
       | 0L ->
           []
       | 1L ->
@@ -101,11 +114,10 @@ let diagnostics common_opts =
           [Printf.sprintf "%Ld %ss" n name]
     in
     let bits =
-      fragment "day" days
-      @ fragment "hour" hours'
-      @ fragment "min" mins'
-      @ fragment "second" secs'
-      @ []
+      format "day" days
+      @ format "hour" hours
+      @ format "min" mins
+      @ format "second" secs
     in
     let length = List.length bits in
     let _, rev_bits =
@@ -122,7 +134,16 @@ let diagnostics common_opts =
         )
         (0, []) bits
     in
-    String.concat "" (List.rev rev_bits) ^ "ago"
+    let format_secs ts =
+      Mtime.Span.(Format.asprintf "%a " pp (of_uint64_ns ts))
+    in
+    let timestrings =
+      if rev_bits = [] then
+        [format_secs (timespan %% minute)]
+      else
+        List.rev rev_bits
+    in
+    String.concat "" timestrings ^ "ago"
   in
   let origin = function
     | Anonymous id ->

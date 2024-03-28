@@ -50,7 +50,12 @@ module VM : sig
   end
 
   val with_new :
-    rpc -> API.ref_session -> template:API.ref_VM -> (API.ref_VM -> 'a) -> 'a
+       rpc
+    -> API.ref_session
+    -> template:API.ref_VM
+    -> ?sr:API.ref_SR
+    -> (API.ref_VM -> 'a)
+    -> 'a
 
   val dom0_of_host : rpc -> API.ref_session -> API.ref_host -> API.ref_VM
   (** Return a host's domain zero *)
