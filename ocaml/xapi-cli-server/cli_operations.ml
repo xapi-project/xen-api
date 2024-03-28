@@ -4583,52 +4583,56 @@ let vm_migrate printer rpc session_id params =
     let remote f = f ~rpc:remote_rpc ~session_id:remote_session in
     finally
       (fun () ->
-        let host, host_record =
-          let all = remote Client.Host.get_all_records in
-          if List.mem_assoc "host" params then
-            let x = List.assoc "host" params in
-            try
-              List.find
-                (fun (_, h) ->
-                  h.API.host_hostname = x
-                  || h.API.host_name_label = x
-                  || h.API.host_uuid = x
-                )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find host: %s" x)
-          else
-            List.hd all
+        let host =
+          let expr_match x =
+            Printf.sprintf
+              {|(field "hostname"="%s") or (field "name__label"="%s") or (field "uuid"="%s")|}
+              x x x
+          in
+          let expr, fail_msg =
+            match List.assoc_opt "host" params with
+            | Some x ->
+                (expr_match x, Printf.sprintf "Failed to find host: %s" x)
+            | None ->
+                ("true", Printf.sprintf "Failed to find a suitable host")
+          in
+          match remote Client.Host.get_all_where ~expr with
+          | host :: _ ->
+              host
+          | [] ->
+              failwith fail_msg
         in
-        let network, network_record =
-          let all = remote Client.Network.get_all_records in
-          if List.mem_assoc "remote-network" params then
-            let x = List.assoc "remote-network" params in
-            try
-              List.find
-                (fun (_, net) ->
-                  net.API.network_bridge = x
-                  || net.API.network_name_label = x
-                  || net.API.network_uuid = x
-                )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find network: %s" x)
-          else
-            let pifs = host_record.API.host_PIFs in
-            let management_pifs =
-              List.filter
-                (fun self -> remote Client.PIF.get_management ~self)
-                pifs
-            in
-            if management_pifs = [] then
-              failwith
-                (Printf.sprintf "Could not find management PIF on host %s"
-                   host_record.API.host_uuid
-                ) ;
-            let pif = List.hd management_pifs in
-            let net = remote Client.PIF.get_network ~self:pif in
-            (net, remote Client.Network.get_record ~self:net)
+        let network =
+          let expr x =
+            Printf.sprintf
+              {|(field "bridge"="%s") or (field "name__label"="%s") or (field "uuid"="%s")|}
+              x x x
+          in
+          match List.assoc_opt "remote-network" params with
+          | Some x -> (
+            match remote Client.Network.get_all_where ~expr:(expr x) with
+            | network :: _ ->
+                network
+            | [] ->
+                failwith (Printf.sprintf "Failed to find network: %s" x)
+          )
+          | None -> (
+              let expr =
+                Printf.sprintf
+                  {|(field "host"="%s") and (field "management"="true")|}
+                  Ref.(string_of host)
+              in
+              let management_pifs = remote Client.PIF.get_all_where ~expr in
+              match management_pifs with
+              | [] ->
+                  let host_uuid = remote Client.Host.get_uuid ~self:host in
+                  failwith
+                    (Printf.sprintf "Could not find management PIF on host %s"
+                       host_uuid
+                    )
+              | pif :: _ ->
+                  remote Client.PIF.get_network ~self:pif
+            )
         in
         let vif_map =
           List.map
@@ -4675,15 +4679,12 @@ let vm_migrate printer rpc session_id params =
                 {|(field "host"="%s") and (field "currently_attached"="true")|}
                 (Ref.string_of host)
             in
-            let host_pbds = remote Client.PBD.get_all_records_where ~expr in
             let srs =
-              List.map
-                (fun (_, pbd_rec) ->
-                  ( pbd_rec.API.pBD_SR
-                  , remote Client.SR.get_record ~self:pbd_rec.API.pBD_SR
-                  )
-                )
-                host_pbds
+              remote Client.PBD.get_all_where ~expr
+              |> List.map (fun pbd ->
+                     let sr = remote Client.PBD.get_SR ~self:pbd in
+                     (sr, remote Client.SR.get_record ~self:sr)
+                 )
             in
             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
                first if it is an ISO type, then pass this one for selection, then the only shared one from this and
@@ -4782,13 +4783,20 @@ let vm_migrate printer rpc session_id params =
             )
             params
         in
+        let host_name_label =
+          Client.Host.get_name_label ~rpc:remote_rpc ~session_id:remote_session
+            ~self:host
+        in
+        let network_name_label =
+          Client.Network.get_name_label ~rpc:remote_rpc
+            ~session_id:remote_session ~self:network
+        in
         printer
           (Cli_printer.PMsg
              (Printf.sprintf
                 "Will migrate to remote host: %s, using remote network: %s. \
                  Here is the VDI mapping:"
-                host_record.API.host_name_label
-                network_record.API.network_name_label
+                host_name_label network_name_label
              )
           ) ;
         List.iter
