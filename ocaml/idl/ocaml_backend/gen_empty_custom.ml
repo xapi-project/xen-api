@@ -69,6 +69,7 @@ let operation_requires_side_effect ({msg_tag= tag; _} as msg) =
       | GetByUuid
       | GetByLabel
       | GetAll
+      | GetAllWhere
       | GetAllRecordsWhere
       | GetAllRecords ) ->
       false
