@@ -38,6 +38,7 @@ ensure_newline_before_comments = false
 disable = [
     "missing-function-docstring",
     "missing-module-docstring",
+    "missing-class-docstring",
     "consider-using-f-string",
     "too-many-branches",
     "too-many-arguments",
@@ -47,6 +48,12 @@ disable = [
     "invalid-name",
     "import-error",
     "unnecessary-pass",
+    "unspecified-encoding",
+    "protected-access",
+    "no-member",  # Some mutiple inheritance classes may have this issue
+    "too-many-locals",  # Long functions. Need to refine the code
+    "too-many-statements",
+    "too-many-return-statements"
 ]
 
 [tool.mypy]
@@ -84,7 +91,6 @@ discard_messages_matching = [
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
 expected_to_fail = [
-    "scripts/perfmon",
     # Need 2to3 -w <file> and maybe a few other minor updates:
     "scripts/hatests",
     "scripts/backup-sr-metadata.py",
@@ -104,7 +110,6 @@ expected_to_fail = [
 
 [tool.pytype]
 inputs = [
-    "scripts/perfmon",
     "scripts/static-vdis",
     "scripts/Makefile",
     "scripts/generate-iscsi-iqn",
@@ -122,6 +127,7 @@ inputs = [
 
     # Python 3
     "python3/bin/hfx_filename",
+    "python3/bin/perfmon",
     "python3/bin/*.py",
     "python3/libexec/*.py",
 

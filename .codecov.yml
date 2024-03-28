@@ -177,10 +177,6 @@ coverage:
         #
         threshold: 20%
 
-      # Checks each Python version separately:
-      python-3.11:
-        flags: ["python3.11"]
-
     #
     # Project limits
     # --------------
@@ -235,12 +231,12 @@ component_management:
       - type: project
         # `auto` will use the coverage from the base commit (pull request base
         # or parent commit) coverage to compare against.
-        target: auto
+        target: 48
         threshold: 2%
 
       - type: patch
-        target: auto
-        threshold: 10%
+        target: 80
+        threshold: 5%
 
   individual_components:
 

@@ -11,9 +11,6 @@ from import_file import get_module
 
 nbd_client_manager = get_module("nbd_client_manager", "../libexec/nbd_client_manager.py")
 
-# mock modules to avoid dependencies
-sys.modules["XenAPI"] = MagicMock()
-
 @patch('subprocess.Popen')
 class TestCallFunction(unittest.TestCase):
 
