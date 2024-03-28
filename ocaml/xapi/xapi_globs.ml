@@ -909,6 +909,8 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
+let dnf_cmd = ref "/usr/bin/dnf"
+
 let kpatch_cmd = ref "/usr/sbin/kpatch"
 
 let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
