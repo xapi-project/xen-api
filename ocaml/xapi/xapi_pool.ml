@@ -3406,7 +3406,10 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
          sync ~__context ~self:repo ~token ~token_id ;
-         create_pool_repository ~__context ~self:repo
+         (* Dnf sync all the metadata including updateinfo,
+          * Thus no need to re-create pool repository *)
+         if Pkg_mgr.(active () = Yum) then
+           create_pool_repository ~__context ~self:repo
      ) ;
   let checksum = set_available_updates ~__context in
   Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;

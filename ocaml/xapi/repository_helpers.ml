@@ -24,6 +24,8 @@ module RpmFullNameSet = Set.Make (String)
 
 let exposing_pool_repo_mutex = Mutex.create ()
 
+module Pkgs = (val Pkg_mgr.get_pkg_mgr)
+
 module Update = struct
   type t = {
       name: string
@@ -273,10 +275,8 @@ let with_updateinfo_xml gz_path f =
 
 let clean_yum_cache name =
   try
-    let params =
-      ["--disablerepo=*"; Printf.sprintf "--enablerepo=%s" name; "clean"; "all"]
-    in
-    ignore (Helpers.call_script !Xapi_globs.yum_cmd params)
+    let cmd, params = Pkgs.clean_cache ~repo_name:name in
+    ignore (Helpers.call_script cmd params)
   with e ->
     warn "Unable to clean YUM cache for %s: %s" name (ExnHelper.string_of_exn e)
 
@@ -349,8 +349,8 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
   )
 
 let get_repo_config repo_name config_name =
-  let config_params = [repo_name] in
-  Helpers.call_script !Xapi_globs.yum_config_manager_cmd config_params
+  let cmd, params = Pkgs.get_repo_config ~repo_name in
+  Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.filter_map (fun kv ->
          let prefix = Printf.sprintf "%s = " config_name in
@@ -424,7 +424,7 @@ let with_local_repositories ~__context f =
             write_yum_config ~source_url:None ~binary_url ~repo_gpgcheck:false
               ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
-            let config_params =
+            let cmd, params =
               [
                 "--save"
               ; Printf.sprintf "--setopt=%s.sslverify=false" repo_name
@@ -432,14 +432,10 @@ let with_local_repositories ~__context f =
               ; Printf.sprintf "--setopt=%s.ptoken=true" repo_name
                 (* makes yum include the pool secret as a cookie in all requests
                    (only to access the repo mirror in the coordinator!) *)
-              ; repo_name
               ]
+              |> fun config -> Pkgs.config_repo ~repo_name ~config
             in
-            ignore
-              (Helpers.call_script
-                 !Xapi_globs.yum_config_manager_cmd
-                 config_params
-              ) ;
+            ignore (Helpers.call_script cmd params) ;
             repo_name
           )
           enabled
@@ -484,21 +480,9 @@ let parse_updateinfo_list acc line =
       acc
 
 let is_obsoleted pkg_name repositories =
-  let params =
-    [
-      "-a"
-    ; "--plugins"
-    ; "--disablerepo=*"
-    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "--whatobsoletes"
-    ; pkg_name
-    ; "--qf"
-    ; "%{name}"
-    ]
-  in
+  let cmd, params = Pkgs.is_obsoleted ~pkg_name ~repositories in
   match
-    Helpers.call_script !Xapi_globs.repoquery_cmd params
-    |> Astring.String.cuts ~sep:"\n" ~empty:false
+    Helpers.call_script cmd params |> Astring.String.cuts ~sep:"\n" ~empty:false
   with
   | [] ->
       false
@@ -513,17 +497,8 @@ let is_obsoleted pkg_name repositories =
       false
 
 let get_pkgs_from_yum_updateinfo_list sub_command repositories =
-  let params =
-    [
-      "-q"
-    ; "--disablerepo=*"
-    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "updateinfo"
-    ; "list"
-    ; sub_command
-    ]
-  in
-  Helpers.call_script !Xapi_globs.yum_cmd params
+  let cmd, params = Pkgs.get_pkgs_from_updateinfo ~sub_command ~repositories in
+  Helpers.call_script cmd params
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
@@ -674,15 +649,8 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches =
      )
   |> GuidanceSet.resort
 
-let repoquery_sep = ":|"
-
-let get_repoquery_fmt () =
-  ["name"; "epoch"; "version"; "release"; "arch"; "repoid"]
-  |> List.map (fun field -> "%{" ^ field ^ "}")
-  |> String.concat repoquery_sep
-
 let parse_line_of_repoquery acc line =
-  match Astring.String.cuts ~sep:repoquery_sep line with
+  match Astring.String.cuts ~sep:Pkg_mgr.repoquery_sep line with
   | [name; epoch'; version; release; arch; repo] -> (
     try
       let epoch = Epoch.of_string epoch' in
@@ -698,9 +666,8 @@ let parse_line_of_repoquery acc line =
       acc
 
 let get_installed_pkgs () =
-  let fmt = get_repoquery_fmt () in
-  let params = ["-a"; "--pkgnarrow=installed"; "--qf"; fmt] in
-  Helpers.call_script !Xapi_globs.repoquery_cmd params
+  let cmd, params = Pkgs.repoquery_installed () in
+  Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
          debug "repoquery installed: %s" x ;
@@ -710,19 +677,8 @@ let get_installed_pkgs () =
   |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
 
 let get_pkgs_from_repoquery pkg_narrow repositories =
-  let fmt = get_repoquery_fmt () in
-  let params =
-    [
-      "-a"
-    ; "--plugins"
-    ; "--disablerepo=*"
-    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; Printf.sprintf "--pkgnarrow=%s" pkg_narrow
-    ; "--qf"
-    ; fmt
-    ]
-  in
-  Helpers.call_script !Xapi_globs.repoquery_cmd params
+  let cmd, params = Pkgs.get_pkgs_from_repoquery ~pkg_narrow ~repositories in
+  Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
          debug "repoquery available: %s" x ;
@@ -733,7 +689,11 @@ let get_pkgs_from_repoquery pkg_narrow repositories =
 let get_updates_from_repoquery repositories =
   List.iter (fun r -> clean_yum_cache r) repositories ;
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
-  let updates = get_pkgs_from_repoquery "updates" repositories in
+  let open Pkg_mgr in
+  let updates_arg =
+    match active () with Yum -> "updates" | Dnf -> "upgrades"
+  in
+  let updates = get_pkgs_from_repoquery updates_arg repositories in
   (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
   let new_updates =
     get_pkgs_from_repoquery "available" repositories
@@ -936,20 +896,17 @@ module YumUpgradeOutput = struct
 end
 
 let get_updates_from_yum_upgrade_dry_run repositories =
-  let params =
-    [
-      "--disablerepo=*"
-    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "--assumeno"
-    ; "--quiet"
-    ; "upgrade"
-    ]
-  in
-  match Forkhelpers.execute_command_get_output !Xapi_globs.yum_cmd params with
+  let cmd, params = Pkgs.get_updates_from_upgrade_dry_run ~repositories in
+  match Forkhelpers.execute_command_get_output cmd params with
   | _, _ ->
       Some []
-  | exception Forkhelpers.Spawn_internal_error (stderr, _, Unix.WEXITED 1) -> (
-      stderr |> YumUpgradeOutput.parse_output_of_dry_run |> function
+  | exception Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED 1)
+    -> (
+      let open Pkg_mgr in
+      (*Yum put the details to stderr while dnf to stdout*)
+      (match active () with Yum -> stderr | Dnf -> stdout)
+      |> YumUpgradeOutput.parse_output_of_dry_run
+      |> function
       | Ok (pkgs, Some txn_file) ->
           Unixext.unlink_safe txn_file ;
           Some pkgs

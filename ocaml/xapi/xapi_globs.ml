@@ -909,6 +909,8 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
+let dnf_cmd = ref "/usr/bin/dnf"
+
 let kpatch_cmd = ref "/usr/sbin/kpatch"
 
 let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
@@ -1714,6 +1716,7 @@ module Resources = struct
       , "Executed to manage SQlite Database, like PBIS database"
       )
     ; ("yum-cmd", yum_cmd, "Path to yum command")
+    ; ("dnf-cmd", dnf_cmd, "Path to dnf command")
     ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
     ; ( "yum-config-manager-cmd"
       , yum_config_manager_cmd
