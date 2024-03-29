@@ -126,7 +126,10 @@ module Json = struct
           concated
     in
     List.fold_left
-      (fun (fields, enums) field ->
+      (fun (fields, enums, has_time_type) field ->
+        let is_time_type =
+          match field.ty with DateTime -> true | _ -> false
+        in
         let ty, e = string_of_ty_with_enums field.ty in
         ( `O
             [
@@ -136,9 +139,11 @@ module Json = struct
             ]
           :: fields
         , StringMap.union choose_enum enums e
+        , if is_time_type then true else has_time_type
         )
       )
-      ([], StringMap.empty) fields
+      ([], StringMap.empty, false)
+      fields
 
   let enums_from_result obj msg =
     match msg.msg_result with
@@ -186,6 +191,23 @@ module Json = struct
       )
       StringMap.empty obj.messages
 
+  let get_modules messages has_time_type =
+    match messages with
+    | [] ->
+        `Null
+    | _ ->
+        let items =
+          match has_time_type with
+          | true ->
+              [
+                `O [("name", `String "fmt"); ("sname", `Null)]
+              ; `O [("name", `String "time"); ("sname", `Null)]
+              ]
+          | false ->
+              [`O [("name", `String "fmt"); ("sname", `Null)]]
+        in
+        `O [("import", `Bool true); ("items", `A items)]
+
   let xenapi objs =
     let enums_acc = ref StringMap.empty in
     let erase_existed enums =
@@ -225,6 +247,7 @@ module Json = struct
             []
         in
         let obj_name = snake_to_camel obj.name in
+        let modules = get_modules obj.messages has_time_type in
         let event_session_value = function
           | "event" ->
               [("event", `Bool true); ("session", `Null)]
@@ -239,6 +262,7 @@ module Json = struct
           ; ("description", `String (String.trim obj.description))
           ; ("fields", `A (event_snapshot @ fields))
           ; ("enums", `A enums)
+          ; ("modules", modules)
           ]
         in
         let assoc_list = event_session_value obj.name @ base_assoc_list in

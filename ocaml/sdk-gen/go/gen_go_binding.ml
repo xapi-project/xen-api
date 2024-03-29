@@ -17,9 +17,10 @@ let main () =
   let objects = Json.xenapi objects in
   List.iter
     (fun (name, obj) ->
+      let header_rendered = render_template "FileHeader.mustache" obj ^ "\n" in
       let enums_rendered = render_template "Enum.mustache" obj in
       let record_rendered = render_template "Record.mustache" obj in
-      let rendered = enums_rendered ^ record_rendered in
+      let rendered = header_rendered ^ enums_rendered ^ record_rendered in
       let output_file = name ^ ".go" in
       generate_file rendered output_file
     )

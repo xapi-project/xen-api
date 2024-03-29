@@ -157,6 +157,24 @@ let record : Mustache.Json.t =
       )
     ]
 
+let header : Mustache.Json.t =
+  `O
+    [
+      ( "modules"
+      , `O
+          [
+            ("import", `Bool true)
+          ; ( "items"
+            , `A
+                [
+                  `O [("name", `String "fmt"); ("sname", `Null)]
+                ; `O [("name", `String "time"); ("sname", `String "time1")]
+                ]
+            )
+          ]
+      )
+    ]
+
 let enums : Mustache.Json.t =
   `O
     [
@@ -204,6 +222,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let transform (template, json) = render_template template json |> String.trim
 
+  let file_header_rendered = string_of_file "file_header.go"
+
   let record_rendered = string_of_file "record.go"
 
   let enums_rendered = string_of_file "enum.go"
@@ -211,7 +231,8 @@ module TemplatesTest = Generic.MakeStateless (struct
   let tests =
     `QuickAndAutoDocumented
       [
-        (("Record.mustache", record), record_rendered)
+        (("FileHeader.mustache", header), file_header_rendered)
+      ; (("Record.mustache", record), record_rendered)
       ; (("Enum.mustache", enums), enums_rendered)
       ]
 end)
@@ -225,12 +246,12 @@ let generated_json_tests =
         `O []
   in
   let jsons () =
-    let json = merge record enums in
+    let json = enums |> merge record |> merge header in
     let objects = Json.xenapi objects in
     check_true "Mustache.Json of records has right structure"
     @@ List.for_all (fun (_, obj) -> is_same_struct obj json) objects
   in
-  [("records", `Quick, jsons)]
+  [("jsons", `Quick, jsons)]
 
 let tests =
   make_suite "gen_go_binding_"
