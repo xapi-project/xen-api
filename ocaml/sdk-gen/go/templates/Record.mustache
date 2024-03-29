@@ -1,0 +1,41 @@
+type {{name}}Record struct {
+{{#fields}}
+	//{{#description}} {{.}}{{/description}}
+	{{name}} {{type}}
+{{/fields}}
+}
+
+type {{name}}Ref string
+
+{{#event}}
+type RecordInterface interface{}
+
+type EventBatch struct {
+	Token          string
+	ValidRefCounts map[string]int
+	Events         []EventRecord
+}
+
+{{/event}}
+{{#description}}
+// {{.}}
+{{/description}}
+{{#session}}
+type {{name}}Class struct {
+	client *rpcClient
+	ref    SessionRef
+}
+
+func NewSession(opts *ClientOpts) *SessionClass {
+	client := NewJsonRPCClient(opts)
+	var session SessionClass
+	session.client = client
+
+	return &session
+}
+{{/session}}
+{{^session}}
+type {{name}}Class struct{}
+
+var {{name}} *{{name}}Class
+{{/session}}
