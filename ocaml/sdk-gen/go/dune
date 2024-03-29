@@ -1,0 +1,10 @@
+(executable
+  (modes exe)
+  (name gen_go_binding)
+  (modules gen_go_binding)
+  (libraries
+    CommonFunctions
+    mustache
+    xapi-datamodel
+  )
+)

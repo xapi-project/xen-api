@@ -97,22 +97,26 @@ sdk:
 		ocaml/sdk-gen/c/gen_c_binding.exe \
 		ocaml/sdk-gen/csharp/gen_csharp_binding.exe \
 		ocaml/sdk-gen/java/main.exe \
-		ocaml/sdk-gen/powershell/gen_powershell_binding.exe
+		ocaml/sdk-gen/powershell/gen_powershell_binding.exe \
+		ocaml/sdk-gen/go/gen_go_binding.exe
 	dune build --profile=$(PROFILE) -f\
 		@ocaml/sdk-gen/c/generate \
 		@ocaml/sdk-gen/csharp/generate \
 		@ocaml/sdk-gen/java/generate \
-		@ocaml/sdk-gen/powershell/generate
+		@ocaml/sdk-gen/powershell/generate \
+		@ocaml/sdk-gen/go/generate
 	rm -rf $(XAPISDK)
 	mkdir -p $(XAPISDK)/c
 	mkdir -p $(XAPISDK)/csharp
 	mkdir -p $(XAPISDK)/java
 	mkdir -p $(XAPISDK)/powershell
 	mkdir -p $(XAPISDK)/python
+	mkdir -p $(XAPISDK)/go
 	cp -r _build/default/ocaml/sdk-gen/c/autogen/* $(XAPISDK)/c
 	cp -r _build/default/ocaml/sdk-gen/csharp/autogen/* $(XAPISDK)/csharp
 	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
 	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
+	cp -r _build/default/ocaml/sdk-gen/go/autogen/* $(XAPISDK)/go
 	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
