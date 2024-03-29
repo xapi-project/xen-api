@@ -11,16 +11,18 @@
    GNU Lesser General Public License for more details.
 *)
 
-open Gen_go_helper
+open Datamodel_types
 
-let main () =
-  let objects = Json.xenapi objects in
-  List.iter
-    (fun (name, obj) ->
-      let record_rendered = render_template "Record.mustache" obj in
-      let output_file = name ^ ".go" in
-      generate_file record_rendered output_file
-    )
-    objects
+val ( // ) : string -> string -> string
 
-let _ = main ()
+val snake_to_camel : string -> string
+
+val objects : obj list
+
+val render_template : string -> Mustache.Json.t -> string
+
+val generate_file : string -> string -> unit
+
+module Json : sig
+  val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list
+end

@@ -10,17 +10,3 @@
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU Lesser General Public License for more details.
 *)
-
-open Gen_go_helper
-
-let main () =
-  let objects = Json.xenapi objects in
-  List.iter
-    (fun (name, obj) ->
-      let record_rendered = render_template "Record.mustache" obj in
-      let output_file = name ^ ".go" in
-      generate_file record_rendered output_file
-    )
-    objects
-
-let _ = main ()
