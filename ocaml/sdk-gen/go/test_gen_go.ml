@@ -157,6 +157,39 @@ let record : Mustache.Json.t =
       )
     ]
 
+let enums : Mustache.Json.t =
+  `O
+    [
+      ( "enums"
+      , `A
+          [
+            `O
+              [
+                ("name", `String "VMTelemetryFrequency")
+              ; ( "values"
+                , `A
+                    [
+                      `O
+                        [
+                          ("value", `String "daily")
+                        ; ("doc", `String "Run telemetry task daily")
+                        ; ("name", `String "VMTelemetryFrequencyDaily")
+                        ; ("type", `String "VMTelemetryFrequency")
+                        ]
+                    ; `O
+                        [
+                          ("value", `String "weekly")
+                        ; ("doc", `String "Run telemetry task weekly")
+                        ; ("name", `String "VMTelemetryFrequencyWeekly")
+                        ; ("type", `String "VMTelemetryFrequency")
+                        ]
+                    ]
+                )
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -173,17 +206,31 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let record_rendered = string_of_file "record.go"
 
+  let enums_rendered = string_of_file "enum.go"
+
   let tests =
-    `QuickAndAutoDocumented [(("Record.mustache", record), record_rendered)]
+    `QuickAndAutoDocumented
+      [
+        (("Record.mustache", record), record_rendered)
+      ; (("Enum.mustache", enums), enums_rendered)
+      ]
 end)
 
 let generated_json_tests =
-  let records () =
+  let merge (obj1 : Mustache.Json.t) (obj2 : Mustache.Json.t) =
+    match (obj1, obj2) with
+    | `O list1, `O list2 ->
+        `O (list1 @ list2)
+    | _ ->
+        `O []
+  in
+  let jsons () =
+    let json = merge record enums in
     let objects = Json.xenapi objects in
     check_true "Mustache.Json of records has right structure"
-    @@ List.for_all (fun (_, obj) -> is_same_struct obj record) objects
+    @@ List.for_all (fun (_, obj) -> is_same_struct obj json) objects
   in
-  [("records", `Quick, records)]
+  [("records", `Quick, jsons)]
 
 let tests =
   make_suite "gen_go_binding_"
