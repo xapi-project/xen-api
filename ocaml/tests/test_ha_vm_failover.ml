@@ -27,6 +27,8 @@ type vbd = {agile: bool}
 
 type vif = {agile: bool}
 
+type group = {name_label: string; placement: string}
+
 type vm = {
     ha_always_run: bool
   ; ha_restart_priority: string
@@ -34,6 +36,7 @@ type vm = {
   ; name_label: string
   ; vbds: vbd list
   ; vifs: vif list
+  ; groups: group list
 }
 
 let basic_vm =
@@ -44,6 +47,7 @@ let basic_vm =
   ; name_label= "vm"
   ; vbds= [{agile= true}]
   ; vifs= [{agile= true}]
+  ; groups= []
   }
 
 type host = {memory_total: int64; name_label: string; vms: vm list}
@@ -55,8 +59,13 @@ type pool = {
   ; cluster: int
 }
 
-let string_of_vm {memory; name_label; _} =
-  Printf.sprintf "{memory = %Ld; name_label = %S}" memory name_label
+let string_of_group {name_label; placement} =
+  Printf.sprintf "{name_label = %S; placement = %S}" name_label placement
+
+let string_of_vm {memory; name_label; groups; _} =
+  Printf.sprintf "{memory = %Ld; name_label = %S; groups = [%s]}" memory
+    name_label
+    (Test_printers.list string_of_group groups)
 
 let string_of_host {memory_total; name_label; vms} =
   Printf.sprintf "{memory_total = %Ld; name_label = %S; vms = [%s]}"
@@ -70,6 +79,26 @@ let string_of_pool {master; slaves; ha_host_failures_to_tolerate; cluster} =
     (string_of_host master)
     (Test_printers.list string_of_host slaves)
     ha_host_failures_to_tolerate cluster
+
+let load_group ~__context ~group =
+  let placement =
+    match group.placement with
+    | "anti_affinity" ->
+        `anti_affinity
+    | _ ->
+        `normal
+  in
+  match
+    Db.VM_group.get_all ~__context
+    |> List.find_opt (fun g ->
+           Db.VM_group.get_name_label ~__context ~self:g = group.name_label
+           && Db.VM_group.get_placement ~__context ~self:g = placement
+       )
+  with
+  | None ->
+      make_vm_group ~__context ~name_label:group.name_label ~placement ()
+  | Some g ->
+      g
 
 let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
   let vm_ref =
@@ -98,6 +127,12 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
       )
       vm.vbds
   in
+  let groups =
+    List.fold_left
+      (fun acc group -> load_group ~__context ~group :: acc)
+      [] vm.groups
+  in
+  Db.VM.set_groups ~__context ~self:vm_ref ~value:groups ;
   vm_ref
 
 let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
