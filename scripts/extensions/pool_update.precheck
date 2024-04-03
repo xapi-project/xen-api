@@ -48,6 +48,9 @@ ERRORCODE = 'errorcode'
 ERROR = 'error'
 FOUND = 'found'
 REQUIRED = 'required'
+YUM_CMD = '/usr/bin/yum'
+DNF_CMD = '/usr/bin/dnf'
+PKG_MGR = DNF_CMD if os.path.exists(DNF_CMD) else YUM_CMD
 
 class EnvironmentFailure(Exception):
     pass
@@ -130,7 +133,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
 
-    cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
+    cmd = [PKG_MGR, 'clean', 'all', '--noplugins', '-c', yum_conf_file]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     for line in output.split('\n'):
@@ -138,7 +141,7 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     if p.returncode != 0:
         raise EnvironmentFailure("Error cleaning yum cache")
 
-    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
+    cmd = [PKG_MGR, 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.precheck %r returncode=%r output:', cmd, p.returncode)

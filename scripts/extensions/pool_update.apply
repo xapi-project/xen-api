@@ -25,6 +25,9 @@ INVALID_UPDATE = 'INVALID_UPDATE'
 ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
 ERROR_MESSAGE_START = 'Error: '
 ERROR_MESSAGE_END = 'You could try '
+YUM_CMD = '/usr/bin/yum'
+DNF_CMD = '/usr/bin/dnf'
+PKG_MGR = DNF_CMD if os.path.exists(DNF_CMD) else YUM_CMD
 
 class EnvironmentFailure(Exception):
     pass
@@ -50,7 +53,7 @@ def execute_apply(session, update_package, yum_conf_file):
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
 
-    cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
+    cmd = [PKG_MGR, 'clean', 'all', '--noplugins', '-c', yum_conf_file]
     p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     for line in output.split('\n'):
@@ -58,8 +61,12 @@ def execute_apply(session, update_package, yum_conf_file):
     if p.returncode != 0:
         raise EnvironmentFailure("Error cleaning yum cache")
 
-    cmd = ['yum', 'upgrade', '-y', '--noplugins', '-c', yum_conf_file, update_package]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
+    # dnf reject to upgrade group if it is not installed,
+    # `dnf install` upgrade the group if it is already installed
+    sub_cmd = 'upgrade' if PKG_MGR == YUM_CMD else 'install'
+    cmd = [PKG_MGR, sub_cmd, '-y', '--noplugins', '-c', yum_conf_file, update_package]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output:', cmd, p.returncode)
     for line in output.split('\n'):
