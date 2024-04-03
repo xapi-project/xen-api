@@ -21,6 +21,8 @@ open Updateinfo
 open Repository_helpers
 module UpdateIdSet = Set.Make (String)
 
+module Pkgs = (val Pkg_mgr.get_pkg_mgr)
+
 let capacity_in_parallel = 16
 
 (* The cache below is protected by pool's current_operations locking mechanism *)
@@ -128,7 +130,8 @@ let sync ~__context ~self ~token ~token_id =
     write_initial_yum_config () ;
     clean_yum_cache repo_name ;
     (* Remove imported YUM repository GPG key *)
-    Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
+    if Pkgs.manager = Yum then
+      Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         with_access_token ~token ~token_id @@ fun token_path ->
@@ -143,49 +146,27 @@ let sync ~__context ~self ~token ~token_id =
         let proxy_url_param, proxy_username_param, proxy_password_param =
           get_proxy_params ~__context repo_name
         in
-        let config_params =
+        let Pkg_mgr.{cmd; params} =
           [
             "--save"
           ; proxy_url_param
           ; proxy_username_param
           ; proxy_password_param
           ; token_param
-          ; repo_name
           ]
+          |> fun config -> Pkgs.config_repo ~repo_name ~config
         in
-        ignore
-          (Helpers.call_script ~log_output:Helpers.On_failure
-             !Xapi_globs.yum_config_manager_cmd
-             config_params
-          ) ;
+        ignore (Helpers.call_script ~log_output:Helpers.On_failure cmd params) ;
 
         (* Import YUM repository GPG key to check metadata in reposync *)
-        let makecache_params =
-          [
-            "--disablerepo=*"
-          ; Printf.sprintf "--enablerepo=%s" repo_name
-          ; "-y"
-          ; "makecache"
-          ]
-        in
-        ignore (Helpers.call_script !Xapi_globs.yum_cmd makecache_params) ;
+        let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
+        ignore (Helpers.call_script cmd params) ;
 
         (* Sync with remote repository *)
-        let sync_params =
-          [
-            "-p"
-          ; !Xapi_globs.local_pool_repo_dir
-          ; "--downloadcomps"
-          ; "--download-metadata"
-          ; "--delete"
-          ; "--plugins"
-          ; "--newest-only"
-          ; Printf.sprintf "--repoid=%s" repo_name
-          ]
-        in
+        let Pkg_mgr.{cmd; params} = Pkgs.sync_repo ~repo_name in
         Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
         clean_yum_cache repo_name ;
-        ignore (Helpers.call_script !Xapi_globs.reposync_cmd sync_params)
+        ignore (Helpers.call_script cmd params)
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential related info,
@@ -587,15 +568,8 @@ let get_pool_updates_in_json ~__context ~hosts =
 let apply ~__context ~host =
   (* This function runs on member host *)
   with_local_repositories ~__context (fun repositories ->
-      let params =
-        [
-          "-y"
-        ; "--disablerepo=*"
-        ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-        ; "upgrade"
-        ]
-      in
-      try ignore (Helpers.call_script !Xapi_globs.yum_cmd params)
+      let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
+      try ignore (Helpers.call_script cmd params)
       with e ->
         let host' = Ref.string_of host in
         error "Failed to apply updates on host ref='%s': %s" host'
