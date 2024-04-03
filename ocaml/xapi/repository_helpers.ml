@@ -275,7 +275,7 @@ let with_updateinfo_xml gz_path f =
 
 let clean_yum_cache name =
   try
-    let cmd, params = Pkgs.clean_cache ~repo_name:name in
+    let Pkg_mgr.{cmd; params} = Pkgs.clean_cache ~repo_name:name in
     ignore (Helpers.call_script cmd params)
   with e ->
     warn "Unable to clean YUM cache for %s: %s" name (ExnHelper.string_of_exn e)
@@ -349,7 +349,7 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
   )
 
 let get_repo_config repo_name config_name =
-  let cmd, params = Pkgs.get_repo_config ~repo_name in
+  let Pkg_mgr.{cmd; params} = Pkgs.get_repo_config ~repo_name in
   Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.filter_map (fun kv ->
@@ -424,7 +424,7 @@ let with_local_repositories ~__context f =
             write_yum_config ~source_url:None ~binary_url ~repo_gpgcheck:false
               ~gpgkey_path ~repo_name ;
             clean_yum_cache repo_name ;
-            let cmd, params =
+            let Pkg_mgr.{cmd; params} =
               [
                 "--save"
               ; Printf.sprintf "--setopt=%s.sslverify=false" repo_name
@@ -480,7 +480,7 @@ let parse_updateinfo_list acc line =
       acc
 
 let is_obsoleted pkg_name repositories =
-  let cmd, params = Pkgs.is_obsoleted ~pkg_name ~repositories in
+  let Pkg_mgr.{cmd; params} = Pkgs.is_obsoleted ~pkg_name ~repositories in
   match
     Helpers.call_script cmd params |> Astring.String.cuts ~sep:"\n" ~empty:false
   with
@@ -497,7 +497,9 @@ let is_obsoleted pkg_name repositories =
       false
 
 let get_pkgs_from_yum_updateinfo_list sub_command repositories =
-  let cmd, params = Pkgs.get_pkgs_from_updateinfo ~sub_command ~repositories in
+  let Pkg_mgr.{cmd; params} =
+    Pkgs.get_pkgs_from_updateinfo ~sub_command ~repositories
+  in
   Helpers.call_script cmd params
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
@@ -666,7 +668,7 @@ let parse_line_of_repoquery acc line =
       acc
 
 let get_installed_pkgs () =
-  let cmd, params = Pkgs.repoquery_installed () in
+  let Pkg_mgr.{cmd; params} = Pkgs.repoquery_installed () in
   Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
@@ -676,8 +678,7 @@ let get_installed_pkgs () =
   |> List.fold_left parse_line_of_repoquery []
   |> List.map (fun (pkg, _) -> (Pkg.to_name_arch_string pkg, pkg))
 
-let get_pkgs_from_repoquery pkg_narrow repositories =
-  let cmd, params = Pkgs.get_pkgs_from_repoquery ~pkg_narrow ~repositories in
+let get_pkgs_from_repoquery cmd params =
   Helpers.call_script cmd params
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
@@ -689,14 +690,12 @@ let get_pkgs_from_repoquery pkg_narrow repositories =
 let get_updates_from_repoquery repositories =
   List.iter (fun r -> clean_yum_cache r) repositories ;
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
-  let open Pkg_mgr in
-  let updates_arg =
-    match active () with Yum -> "updates" | Dnf -> "upgrades"
-  in
-  let updates = get_pkgs_from_repoquery updates_arg repositories in
+  let Pkg_mgr.{cmd; params} = Pkgs.repoquery_updates ~repositories in
+  let updates = get_pkgs_from_repoquery cmd params in
   (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
+  let Pkg_mgr.{cmd; params} = Pkgs.repoquery_available ~repositories in
   let new_updates =
-    get_pkgs_from_repoquery "available" repositories
+    get_pkgs_from_repoquery cmd params
     |> List.filter (fun x -> not (List.mem x updates))
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
@@ -896,15 +895,16 @@ module YumUpgradeOutput = struct
 end
 
 let get_updates_from_yum_upgrade_dry_run repositories =
-  let cmd, params = Pkgs.get_updates_from_upgrade_dry_run ~repositories in
+  let Pkg_mgr.{cmd; params} =
+    Pkgs.get_updates_from_upgrade_dry_run ~repositories
+  in
   match Forkhelpers.execute_command_get_output cmd params with
   | _, _ ->
       Some []
   | exception Forkhelpers.Spawn_internal_error (stderr, stdout, Unix.WEXITED 1)
     -> (
-      let open Pkg_mgr in
       (*Yum put the details to stderr while dnf to stdout*)
-      (match active () with Yum -> stderr | Dnf -> stdout)
+      (match Pkgs.manager with Yum -> stderr | Dnf -> stdout)
       |> YumUpgradeOutput.parse_output_of_dry_run
       |> function
       | Ok (pkgs, Some txn_file) ->

@@ -18,6 +18,8 @@ module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
 module Xstringext = Xapi_stdext_std.Xstringext
 
+module Pkgs = (val Pkg_mgr.get_pkg_mgr)
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -3408,7 +3410,7 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
          sync ~__context ~self:repo ~token ~token_id ;
          (* Dnf sync all the metadata including updateinfo,
           * Thus no need to re-create pool repository *)
-         if Pkg_mgr.(active () = Yum) then
+         if Pkgs.manager = Yum then
            create_pool_repository ~__context ~self:repo
      ) ;
   let checksum = set_available_updates ~__context in

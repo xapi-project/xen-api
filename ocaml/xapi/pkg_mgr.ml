@@ -1,5 +1,5 @@
 (*
- * Copyright (C) Citrix Systems Inc.
+ * Copyright (c) Cloud Software Group, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -14,36 +14,38 @@
 
 type mgr = Yum | Dnf
 
+type cmd_line = {cmd: string; params: string list}
+
 let active () =
   match Sys.file_exists !Xapi_globs.dnf_cmd with true -> Dnf | false -> Yum
 
 module type S = sig
-  val repoquery_installed : unit -> string * string list
+  val manager : mgr
 
-  val clean_cache : repo_name:string -> string * string list
+  val repoquery_installed : unit -> cmd_line
+
+  val clean_cache : repo_name:string -> cmd_line
 
   val get_pkgs_from_updateinfo :
-    sub_command:string -> repositories:string list -> string * string list
+    sub_command:string -> repositories:string list -> cmd_line
 
-  val get_updates_from_upgrade_dry_run :
-    repositories:string list -> string * string list
+  val get_updates_from_upgrade_dry_run : repositories:string list -> cmd_line
 
-  val is_obsoleted :
-    pkg_name:string -> repositories:string list -> string * string list
+  val is_obsoleted : pkg_name:string -> repositories:string list -> cmd_line
 
-  val get_pkgs_from_repoquery :
-    pkg_narrow:string -> repositories:string list -> string * string list
+  val repoquery_updates : repositories:string list -> cmd_line
 
-  val config_repo :
-    repo_name:string -> config:string list -> string * string list
+  val repoquery_available : repositories:string list -> cmd_line
 
-  val get_repo_config : repo_name:string -> string * string list
+  val config_repo : repo_name:string -> config:string list -> cmd_line
 
-  val make_cache : repo_name:string -> string * string list
+  val get_repo_config : repo_name:string -> cmd_line
 
-  val sync_repo : repo_name:string -> string * string list
+  val make_cache : repo_name:string -> cmd_line
 
-  val apply_upgrade : repositories:string list -> string * string list
+  val sync_repo : repo_name:string -> cmd_line
+
+  val apply_upgrade : repositories:string list -> cmd_line
 end
 
 module type Args = sig
@@ -65,7 +67,9 @@ module type Args = sig
 
   val is_obsoleted : string -> string list -> string list
 
-  val get_pkgs_from_repoquery : string -> string list -> string list
+  val repoquery_updates : string list -> string list
+
+  val repoquery_available : string list -> string list
 
   val config_repo : string -> string list -> string list
 
@@ -82,7 +86,7 @@ let repoquery_sep = ":|"
 
 let fmt =
   ["name"; "epoch"; "version"; "release"; "arch"; "repoid"]
-  |> List.map (fun field -> "%{" ^ field ^ "}")
+  |> List.map (fun field -> Printf.sprintf "%%{%s}" field) (* %{field} *)
   |> String.concat repoquery_sep
 
 module Common_args = struct
@@ -126,7 +130,7 @@ module Common_args = struct
     ; "upgrade"
     ]
 
-  let get_pkgs_from_repoquery repositories =
+  let repoquery repositories =
     [
       "-a"
     ; "--disablerepo=*"
@@ -184,9 +188,12 @@ module Yum_args : Args = struct
   let is_obsoleted pkg_name repositories =
     Common_args.is_obsoleted pkg_name repositories @ ["--plugins"]
 
-  let get_pkgs_from_repoquery pkg_narrow repositories =
-    Common_args.get_pkgs_from_repoquery repositories
-    @ [Printf.sprintf "--pkgnarrow=%s" pkg_narrow; "--plugins"]
+  let repoquery_available repositories =
+    Common_args.repoquery repositories
+    @ ["--pkgnarrow"; "available"; "--plugins"]
+
+  let repoquery_updates repositories =
+    Common_args.repoquery repositories @ ["--pkgnarrow"; "updates"; "--plugins"]
 
   let sync_repo repo_name = Common_args.sync_repo repo_name @ ["--plugins"]
 
@@ -222,10 +229,12 @@ module Dnf_args : Args = struct
   let is_obsoleted pkg_name repositories =
     Common_args.is_obsoleted pkg_name repositories |> add_sub_cmd Repoquery
 
-  let get_pkgs_from_repoquery pkg_narrow repositories =
-    Common_args.get_pkgs_from_repoquery repositories
-    @ [Printf.sprintf "--%s" pkg_narrow]
+  let repoquery_available repositories =
+    Common_args.repoquery repositories @ ["--available"]
     |> add_sub_cmd Repoquery
+
+  let repoquery_updates repositories =
+    Common_args.repoquery repositories @ ["--upgrades"] |> add_sub_cmd Repoquery
 
   let config_repo repo_name config =
     Common_args.config_repo repo_name config |> add_sub_cmd Repoconfig
@@ -238,34 +247,46 @@ module Dnf_args : Args = struct
 end
 
 module Cmd_line (M : Args) : S = struct
-  (* functor to construct comand line and arguments *)
-  let repoquery_installed () = (M.repoquery_cmd, M.repoquery_installed ())
+  let manager =
+    match M.pkg_cmd with cmd when cmd = !Xapi_globs.dnf_cmd -> Dnf | _ -> Yum
 
-  let clean_cache ~repo_name = (M.pkg_cmd, M.clean_cache repo_name)
+  (* functor to construct comand line and arguments *)
+  let repoquery_installed () =
+    {cmd= M.repoquery_cmd; params= M.repoquery_installed ()}
+
+  let clean_cache ~repo_name = {cmd= M.pkg_cmd; params= M.clean_cache repo_name}
 
   let get_pkgs_from_updateinfo ~sub_command ~repositories =
-    (M.pkg_cmd, M.get_pkgs_from_updateinfo sub_command repositories)
+    {
+      cmd= M.pkg_cmd
+    ; params= M.get_pkgs_from_updateinfo sub_command repositories
+    }
 
   let get_updates_from_upgrade_dry_run ~repositories =
-    (M.pkg_cmd, M.get_updates_from_upgrade_dry_run repositories)
+    {cmd= M.pkg_cmd; params= M.get_updates_from_upgrade_dry_run repositories}
 
   let is_obsoleted ~pkg_name ~repositories =
-    (M.repoquery_cmd, M.is_obsoleted pkg_name repositories)
+    {cmd= M.repoquery_cmd; params= M.is_obsoleted pkg_name repositories}
 
-  let get_pkgs_from_repoquery ~pkg_narrow ~repositories =
-    (M.repoquery_cmd, M.get_pkgs_from_repoquery pkg_narrow repositories)
+  let repoquery_updates ~repositories =
+    {cmd= M.repoquery_cmd; params= M.repoquery_updates repositories}
+
+  let repoquery_available ~repositories =
+    {cmd= M.repoquery_cmd; params= M.repoquery_available repositories}
 
   let config_repo ~repo_name ~config =
-    (M.repoconfig_cmd, M.config_repo repo_name config)
+    {cmd= M.repoconfig_cmd; params= M.config_repo repo_name config}
 
   let get_repo_config ~repo_name =
-    (M.repoconfig_cmd, M.get_repo_config repo_name)
+    {cmd= M.repoconfig_cmd; params= M.get_repo_config repo_name}
 
-  let make_cache ~repo_name = (M.pkg_cmd, M.make_cache repo_name)
+  let make_cache ~repo_name = {cmd= M.pkg_cmd; params= M.make_cache repo_name}
 
-  let sync_repo ~repo_name = (M.reposync_cmd, M.sync_repo repo_name)
+  let sync_repo ~repo_name =
+    {cmd= M.reposync_cmd; params= M.sync_repo repo_name}
 
-  let apply_upgrade ~repositories = (M.pkg_cmd, M.apply_upgrade repositories)
+  let apply_upgrade ~repositories =
+    {cmd= M.pkg_cmd; params= M.apply_upgrade repositories}
 end
 
 module Yum_cmd = Cmd_line (Yum_args)

@@ -130,7 +130,7 @@ let sync ~__context ~self ~token ~token_id =
     write_initial_yum_config () ;
     clean_yum_cache repo_name ;
     (* Remove imported YUM repository GPG key *)
-    if Pkg_mgr.(active () = Yum) then
+    if Pkgs.manager = Yum then
       Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
@@ -146,7 +146,7 @@ let sync ~__context ~self ~token ~token_id =
         let proxy_url_param, proxy_username_param, proxy_password_param =
           get_proxy_params ~__context repo_name
         in
-        let cmd, params =
+        let Pkg_mgr.{cmd; params} =
           [
             "--save"
           ; proxy_url_param
@@ -159,11 +159,11 @@ let sync ~__context ~self ~token ~token_id =
         ignore (Helpers.call_script ~log_output:Helpers.On_failure cmd params) ;
 
         (* Import YUM repository GPG key to check metadata in reposync *)
-        let cmd, params = Pkgs.make_cache ~repo_name in
+        let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
         ignore (Helpers.call_script cmd params) ;
 
         (* Sync with remote repository *)
-        let cmd, params = Pkgs.sync_repo ~repo_name in
+        let Pkg_mgr.{cmd; params} = Pkgs.sync_repo ~repo_name in
         Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
         clean_yum_cache repo_name ;
         ignore (Helpers.call_script cmd params)
@@ -568,7 +568,7 @@ let get_pool_updates_in_json ~__context ~hosts =
 let apply ~__context ~host =
   (* This function runs on member host *)
   with_local_repositories ~__context (fun repositories ->
-      let cmd, params = Pkgs.apply_upgrade ~repositories in
+      let Pkg_mgr.{cmd; params} = Pkgs.apply_upgrade ~repositories in
       try ignore (Helpers.call_script cmd params)
       with e ->
         let host' = Ref.string_of host in
