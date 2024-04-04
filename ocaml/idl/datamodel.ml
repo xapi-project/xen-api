@@ -6070,7 +6070,7 @@ module Event = struct
       ~doc:
         "Blocking call which returns a (possibly empty) batch of events. This \
          method is only recommended for legacy use. New development should use \
-         event.from which supercedes this method."
+         event.from which supersedes this method."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:(Set (Record _event), "A set of events")
       ~errs:[Api_errors.session_not_registered; Api_errors.events_lost]
