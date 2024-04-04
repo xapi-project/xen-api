@@ -145,7 +145,9 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
   let (_ : API.ref_VM list) =
     List.map
       (fun vm ->
-        load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net
+        let vm_ref = load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+        Db.VM.set_resident_on ~__context ~self:vm_ref ~value:host_ref ;
+        vm_ref
       )
       host.vms
   in
