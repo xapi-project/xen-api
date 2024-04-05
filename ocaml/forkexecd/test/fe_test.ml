@@ -168,6 +168,16 @@ let test_output () =
   expect expected_err err ;
   print_endline "Completed output tests"
 
+let test_input () =
+  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
+  let input = "input string" in
+  let args = ["replay"] in
+  let out, _ =
+    Forkhelpers.execute_command_get_output_send_stdin exe args input
+  in
+  expect input out ;
+  print_endline "Completed input tests"
+
 let master fds =
   Printf.printf "\nPerforming timeout tests\n%!" ;
   test_delay () ;
@@ -176,6 +186,7 @@ let master fds =
   test_exitcode () ;
   Printf.printf "\nPerforming input/output tests\n%!" ;
   test_output () ;
+  test_input () ;
   let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n%!" (List.length combinations) ;
   let i = ref 0 in
@@ -256,6 +267,10 @@ let echo out err =
   if out <> "" then print_endline out ;
   if err <> "" then prerr_endline err
 
+let replay () =
+  let line = read_line () in
+  print_endline line
+
 let usage () =
   Printf.printf "Usage:\n" ;
   Printf.printf
@@ -276,6 +291,8 @@ let _ =
       slave rest
   | _ :: "echo" :: out :: err :: _ ->
       echo out err
+  | _ :: "replay" :: _ ->
+      replay ()
   | [_] ->
       master max_fds
   | [_; fds] -> (
