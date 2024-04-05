@@ -140,6 +140,10 @@ let fail x =
   Printf.fprintf stderr "%s\n" x ;
   assert false
 
+let expect expected s =
+  if s <> expected ^ "\n" then
+    fail (Printf.sprintf "output %s expected %s" s expected)
+
 let test_exitcode () =
   let run_expect cmd expected =
     try Forkhelpers.execute_command_get_output cmd [] |> ignore
@@ -154,12 +158,24 @@ let test_exitcode () =
   run_expect "/etc/hosts" 126 ;
   Printf.printf "\nCompleted exitcode tests\n"
 
+let test_output () =
+  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
+  let expected_out = "output string" in
+  let expected_err = "error string" in
+  let args = ["echo"; expected_out; expected_err] in
+  let out, err = Forkhelpers.execute_command_get_output exe args in
+  expect expected_out out ;
+  expect expected_err err ;
+  print_endline "Completed output tests"
+
 let master fds =
   Printf.printf "\nPerforming timeout tests\n%!" ;
   test_delay () ;
   test_notimeout () ;
   Printf.printf "\nCompleted timeout test\n%!" ;
   test_exitcode () ;
+  Printf.printf "\nPerforming input/output tests\n%!" ;
+  test_output () ;
   let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n%!" (List.length combinations) ;
   let i = ref 0 in
@@ -236,6 +252,10 @@ let slave = function
 
 let sleep () = Unix.sleep 5 ; Printf.printf "Ok\n"
 
+let echo out err =
+  if out <> "" then print_endline out ;
+  if err <> "" then prerr_endline err
+
 let usage () =
   Printf.printf "Usage:\n" ;
   Printf.printf
@@ -254,6 +274,8 @@ let _ =
       sleep ()
   | _ :: "slave" :: rest ->
       slave rest
+  | _ :: "echo" :: out :: err :: _ ->
+      echo out err
   | [_] ->
       master max_fds
   | [_; fds] -> (
