@@ -29,7 +29,9 @@
 
 DESTDIR=/usr/local
 
-ifeq ($(CYGWIN), 1)
+UNAME_S := $(shell uname -s)
+
+ifeq ($(findstring CYGWIN,$(UNAME_S)),CYGWIN)
 	CYGWIN_LIBXML = -L/bin -lxml2-2
 	POS_FLAG = -U__STRICT_ANSI__
 else
@@ -80,7 +82,7 @@ install: build
 	$(INSTALL_DATA) libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib
 	ln -sf libxenserver.so.{{API_VERSION_MAJOR}}.{{API_VERSION_MINOR}} $(DESTDIR)/lib/libxenserver.so.{{API_VERSION_MAJOR}}
 	ln -sf libxenserver.so.{{API_VERSION_MAJOR}} $(DESTDIR)/lib/libxenserver.so
-ifeq ($(CYGWIN), 1)
+ifeq ($(findstring CYGWIN,$(UNAME_S)),CYGWIN)
 	ln -sf libxenserver.so $(DESTDIR)/lib/libxenserver.dll
 endif
 	$(INSTALL_DATA) libxenserver.a $(DESTDIR)/lib
