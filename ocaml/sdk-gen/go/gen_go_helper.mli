@@ -25,4 +25,8 @@ val generate_file : string -> string -> unit
 
 module Json : sig
   val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list
+
+  val api_messages : Mustache.Json.value list
+
+  val api_errors : Mustache.Json.value list
 end

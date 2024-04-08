@@ -208,6 +208,30 @@ let enums : Mustache.Json.t =
       )
     ]
 
+let api_errors : Mustache.Json.t =
+  `O
+    [
+      ( "api_errors"
+      , `A
+          [
+            `O [("name", `String "MESSAGE_DEPRECATED")]
+          ; `O [("name", `String "MESSAGE_REMOVED")]
+          ]
+      )
+    ]
+
+let api_messages : Mustache.Json.t =
+  `O
+    [
+      ( "api_messages"
+      , `A
+          [
+            `O [("name", `String "HA_STATEFILE_LOST")]
+          ; `O [("name", `String "METADATA_LUN_HEALTHY")]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -228,12 +252,18 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let enums_rendered = string_of_file "enum.go"
 
+  let api_errors_rendered = string_of_file "api_errors.go"
+
+  let api_messages_rendered = string_of_file "api_messages.go"
+
   let tests =
     `QuickAndAutoDocumented
       [
         (("FileHeader.mustache", header), file_header_rendered)
       ; (("Record.mustache", record), record_rendered)
       ; (("Enum.mustache", enums), enums_rendered)
+      ; (("APIErrors.mustache", api_errors), api_errors_rendered)
+      ; (("APIMessages.mustache", api_messages), api_messages_rendered)
       ]
 end)
 
@@ -251,7 +281,16 @@ let generated_json_tests =
     check_true "Mustache.Json of records has right structure"
     @@ List.for_all (fun (_, obj) -> is_same_struct obj json) objects
   in
-  [("jsons", `Quick, jsons)]
+  let errors_and_messages () =
+    let errors = `O [("api_errors", `A Json.api_errors)] in
+    let messages = `O [("api_messages", `A Json.api_messages)] in
+    check_true "Mustache.Json of errors and messages has right structure"
+    @@ (is_same_struct errors api_errors && is_same_struct messages api_messages)
+  in
+  [
+    ("jsons", `Quick, jsons)
+  ; ("errors_and_messages", `Quick, errors_and_messages)
+  ]
 
 let tests =
   make_suite "gen_go_binding_"

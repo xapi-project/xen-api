@@ -35,5 +35,6 @@
   (libraries alcotest xapi-test-utils gen_go_helper)
   (deps
     (source_tree test_data)
+    (source_tree templates)
   )
 )

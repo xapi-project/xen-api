@@ -13,7 +13,27 @@
 
 open Gen_go_helper
 
+let render_api_messages_and_errors () =
+  let obj =
+    `O
+      [
+        ("api_errors", `A Json.api_errors)
+      ; ("api_messages", `A Json.api_messages)
+      ; ("modules", `Null)
+      ]
+  in
+  let header = render_template "FileHeader.mustache" obj ^ "\n" in
+  let error_rendered =
+    header ^ render_template "APIErrors.mustache" obj ^ "\n"
+  in
+  let messages_rendered =
+    header ^ render_template "APIMessages.mustache" obj ^ "\n"
+  in
+  generate_file error_rendered "api_errors.go" ;
+  generate_file messages_rendered "api_messages.go"
+
 let main () =
+  render_api_messages_and_errors () ;
   let objects = Json.xenapi objects in
   List.iter
     (fun (name, obj) ->

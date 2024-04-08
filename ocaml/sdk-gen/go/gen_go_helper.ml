@@ -269,6 +269,12 @@ module Json = struct
         (String.lowercase_ascii obj.name, `O assoc_list)
       )
       objs
+
+  let api_messages =
+    List.map (fun (msg, _) -> `O [("name", `String msg)]) !Api_messages.msgList
+
+  let api_errors =
+    List.map (fun error -> `O [("name", `String error)]) !Api_errors.errors
 end
 
 let objects =
