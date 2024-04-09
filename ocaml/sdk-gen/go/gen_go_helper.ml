@@ -14,8 +14,6 @@
 (* Generator of Go bindings from the datamodel *)
 
 open Datamodel_types
-open Datamodel_utils
-open Dm_api
 open CommonFunctions
 
 let dest_dir = "autogen"
@@ -165,15 +163,6 @@ module Json = struct
       )
       StringMap.empty ps
 
-  let session_id =
-    {
-      param_type= Ref Datamodel_common._session
-    ; param_name= "session_id"
-    ; param_doc= "Reference to a valid session"
-    ; param_release= Datamodel_common.rio_release
-    ; param_default= None
-    }
-
   let enums_in_messages_of_obj obj =
     List.fold_left
       (fun enums msg ->
@@ -208,6 +197,31 @@ module Json = struct
         in
         `O [("import", `Bool true); ("items", `A items)]
 
+  let get_event_snapshot name =
+    if String.lowercase_ascii name = "event" then
+      [
+        `O
+          [
+            ("name", `String "Snapshot")
+          ; ( "description"
+            , `String
+                "The record of the database object that was added, changed or \
+                 deleted"
+            )
+          ; ("type", `String "RecordInterface")
+          ]
+      ]
+    else
+      []
+
+  let get_event_session_value = function
+    | "event" ->
+        [("event", `Bool true); ("session", `Null)]
+    | "session" ->
+        [("event", `Null); ("session", `Bool true)]
+    | _ ->
+        [("event", `Null); ("session", `Null)]
+
   let xenapi objs =
     let enums_acc = ref StringMap.empty in
     let erase_existed enums =
@@ -229,43 +243,18 @@ module Json = struct
           in
           StringMap.fold (fun k v acc -> of_enum k v :: acc) enums []
         in
-        let event_snapshot =
-          if String.lowercase_ascii obj.name = "event" then
-            [
-              `O
-                [
-                  ("name", `String "Snapshot")
-                ; ( "description"
-                  , `String
-                      "The record of the database object that was added, \
-                       changed or deleted"
-                  )
-                ; ("type", `String "RecordInterface")
-                ]
-            ]
-          else
-            []
-        in
         let obj_name = snake_to_camel obj.name in
         let modules = get_modules obj.messages has_time_type in
-        let event_session_value = function
-          | "event" ->
-              [("event", `Bool true); ("session", `Null)]
-          | "session" ->
-              [("event", `Null); ("session", `Bool true)]
-          | _ ->
-              [("event", `Null); ("session", `Null)]
-        in
         let base_assoc_list =
           [
             ("name", `String obj_name)
           ; ("description", `String (String.trim obj.description))
-          ; ("fields", `A (event_snapshot @ fields))
           ; ("enums", `A enums)
+          ; ("fields", `A (get_event_snapshot obj.name @ fields))
           ; ("modules", modules)
           ]
         in
-        let assoc_list = event_session_value obj.name @ base_assoc_list in
+        let assoc_list = get_event_session_value obj.name @ base_assoc_list in
         (String.lowercase_ascii obj.name, `O assoc_list)
       )
       objs
@@ -276,19 +265,3 @@ module Json = struct
   let api_errors =
     List.map (fun error -> `O [("name", `String error)]) !Api_errors.errors
 end
-
-let objects =
-  let api = Datamodel.all_api in
-  (* Add all implicit messages *)
-  let api = add_implicit_messages api in
-  (* Only include messages that are visible to a XenAPI client *)
-  let api = filter (fun _ -> true) (fun _ -> true) on_client_side api in
-  (* And only messages marked as not hidden from the docs, and non-internal fields *)
-  let api =
-    filter
-      (fun _ -> true)
-      (fun f -> not f.internal_only)
-      (fun m -> not m.msg_hide_from_docs)
-      api
-  in
-  objects_of_api api

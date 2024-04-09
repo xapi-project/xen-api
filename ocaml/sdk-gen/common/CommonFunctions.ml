@@ -4,6 +4,8 @@
 
 open Printf
 open Datamodel_types
+open Datamodel_utils
+open Dm_api
 
 exception Unknown_wire_protocol
 
@@ -328,3 +330,28 @@ let json_releases =
       , `Float (float_of_int (List.length unique_version_bumps))
       )
     ]
+
+let session_id =
+  {
+    param_type= Ref Datamodel_common._session
+  ; param_name= "session_id"
+  ; param_doc= "Reference to a valid session"
+  ; param_release= Datamodel_common.rio_release
+  ; param_default= None
+  }
+
+let objects =
+  let api = Datamodel.all_api in
+  (* Add all implicit messages *)
+  let api = add_implicit_messages api in
+  (* Only include messages that are visible to a XenAPI client *)
+  let api = filter (fun _ -> true) (fun _ -> true) on_client_side api in
+  (* And only messages marked as not hidden from the docs, and non-internal fields *)
+  let api =
+    filter
+      (fun _ -> true)
+      (fun f -> not f.internal_only)
+      (fun m -> not m.msg_hide_from_docs)
+      api
+  in
+  objects_of_api api

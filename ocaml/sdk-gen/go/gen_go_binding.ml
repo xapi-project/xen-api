@@ -11,6 +11,7 @@
    GNU Lesser General Public License for more details.
 *)
 
+open CommonFunctions
 open Gen_go_helper
 
 let render_api_messages_and_errors () =

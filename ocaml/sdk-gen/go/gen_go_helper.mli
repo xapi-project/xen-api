@@ -11,13 +11,9 @@
    GNU Lesser General Public License for more details.
 *)
 
-open Datamodel_types
-
 val ( // ) : string -> string -> string
 
 val snake_to_camel : string -> string
-
-val objects : obj list
 
 val render_template : string -> Mustache.Json.t -> string
 
