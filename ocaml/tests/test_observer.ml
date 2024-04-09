@@ -71,9 +71,7 @@ module TracerProvider = struct
   let find_provider_exn ~name =
     let providers = get_tracer_providers () in
     match
-      List.find_opt
-        (fun x -> TracerProvider.get_name_label x = name)
-        providers
+      List.find_opt (fun x -> TracerProvider.get_name_label x = name) providers
     with
     | Some provider ->
         provider

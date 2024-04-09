@@ -36,6 +36,10 @@ let test_path =
 
 let runtime_path = Option.value ~default:"/var" test_path
 
+let _with_tracing ?tracing ~name f =
+  let name = Printf.sprintf "forkhelpers.%s" name in
+  Tracing.with_tracing ?parent:tracing ~name f
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type pidty = Unix.file_descr * int
