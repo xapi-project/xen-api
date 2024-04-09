@@ -30,6 +30,9 @@
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.1" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Update="FriendlyErrorNames.Designer.cs">
       <DesignTime>True</DesignTime>
