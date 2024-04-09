@@ -20,8 +20,6 @@ let test_data_dir = "test_data"
 let string_of_file filename =
   string_of_file (test_data_dir // filename) |> String.trim
 
-let check_true str = Alcotest.(check bool) str true
-
 module SnakeToCamelTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string
@@ -267,37 +265,47 @@ module TemplatesTest = Generic.MakeStateless (struct
       ]
 end)
 
-let generated_json_tests =
+module TestGeneratedJson = struct
   let merge (obj1 : Mustache.Json.t) (obj2 : Mustache.Json.t) =
     match (obj1, obj2) with
     | `O list1, `O list2 ->
         `O (list1 @ list2)
     | _ ->
         `O []
-  in
-  let jsons () =
-    let json = enums |> merge record |> merge header in
-    let objects = Json.xenapi objects in
-    check_true "Mustache.Json of records has right structure"
-    @@ List.for_all (fun (_, obj) -> is_same_struct obj json) objects
-  in
-  let errors_and_messages () =
+
+  let pp_json = Fmt.of_to_string string_of_json
+
+  let generated_json = Alcotest.testable pp_json is_same_struct
+
+  let verify description actual expected =
+    Alcotest.(check @@ generated_json) description expected actual
+
+  let json = enums |> merge record |> merge header
+
+  let testing (name, obj) expected () = verify name obj expected
+
+  let test_case ((name, _) as test_case) expected =
+    (name, `Quick, testing test_case expected)
+
+  let errors_and_messages_tests =
     let errors = `O [("api_errors", `A Json.api_errors)] in
     let messages = `O [("api_messages", `A Json.api_messages)] in
-    check_true "Mustache.Json of errors and messages has right structure"
-    @@ (is_same_struct errors api_errors && is_same_struct messages api_messages)
-  in
-  [
-    ("jsons", `Quick, jsons)
-  ; ("errors_and_messages", `Quick, errors_and_messages)
-  ]
+    [
+      test_case ("api_errors", errors) api_errors
+    ; test_case ("api_messages", messages) api_messages
+    ]
+
+  let tests =
+    (objects |> Json.xenapi |> List.map (fun obj -> test_case obj json))
+    @ errors_and_messages_tests
+end
 
 let tests =
   make_suite "gen_go_binding_"
     [
       ("snake_to_camel", SnakeToCamelTest.tests)
     ; ("templates", TemplatesTest.tests)
-    ; ("generated_mustache_jsons", generated_json_tests)
+    ; ("generated_mustache_jsons", TestGeneratedJson.tests)
     ]
 
 let () = Alcotest.run "Gen go binding" tests
