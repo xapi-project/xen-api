@@ -82,15 +82,15 @@ module Observer : ObserverInterface = struct
 
   let init ~__context =
     debug "Observer.init" ;
-    ignore @@ Tracing.main ()
+    ignore @@ Tracing_export.main ()
 
   let set_trace_log_dir ~__context ~dir =
     debug "Observer.set_trace_log_dir" ;
-    Tracing.Export.Destination.File.set_trace_log_dir dir
+    Tracing_export.Destination.File.set_trace_log_dir dir
 
   let set_export_interval ~__context ~interval =
     debug "Observer.set_export_interval" ;
-    Tracing.Export.set_export_interval interval
+    Tracing_export.set_export_interval interval
 
   let set_max_spans ~__context ~spans =
     debug "Observer.set_max_spans" ;
@@ -102,15 +102,15 @@ module Observer : ObserverInterface = struct
 
   let set_max_file_size ~__context ~file_size =
     debug "Observer.set_max_file_size" ;
-    Tracing.Export.Destination.File.set_max_file_size file_size
+    Tracing_export.Destination.File.set_max_file_size file_size
 
   let set_host_id ~__context ~host_id =
     debug "Observer.set_host_id" ;
-    Tracing.Export.set_host_id host_id
+    Tracing_export.set_host_id host_id
 
   let set_compress_tracing_files ~__context ~enabled =
     debug "Observer.set_compress_tracing_files" ;
-    Tracing.Export.Destination.File.set_compress_tracing_files enabled
+    Tracing_export.Destination.File.set_compress_tracing_files enabled
 end
 
 module Xapi_cluster = struct
@@ -248,7 +248,7 @@ module ObserverConfig = struct
   let rec bugtool_endpoint endpoints =
     match endpoints with
     | x :: _ when x = Tracing.bugtool_name ->
-        Some (Tracing.Export.Destination.File.get_trace_log_dir ())
+        Some (Tracing_export.Destination.File.get_trace_log_dir ())
     | _ :: t ->
         bugtool_endpoint t
     | [] ->
@@ -570,7 +570,7 @@ let initialise ~__context =
          |> observed_components_of
          |> List.iter (initialise_observer_component ~__context)
      ) ;
-  Tracing.Export.set_service_name "xapi"
+  Tracing_export.set_service_name "xapi"
 
 let set_hosts ~__context ~self ~value =
   assert_valid_hosts ~__context value ;

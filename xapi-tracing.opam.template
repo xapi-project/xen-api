@@ -9,15 +9,11 @@ build: [[ "dune" "build" "-p" name "-j" jobs ]]
 available: [ os = "linux" ]
 depends: [
   "ocaml"
-  "cohttp-posix"
   "dune"
-  "cohttp"
-  "rpclib"
+  "re"
+  "uri"
   "xapi-log"
-  "xapi-open-uri"
   "xapi-stdext-threads"
-  "xapi-stdext-unix"
-  "zstd"
 ]
 synopsis: "Library required by xapi"
 description: """
