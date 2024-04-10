@@ -17,7 +17,8 @@ val snake_to_camel : string -> string
 
 val render_template : string -> Mustache.Json.t -> string
 
-val generate_file : string -> string -> unit
+val generate_file :
+  rendered:string -> destdir:string -> output_file:string -> unit
 
 module Json : sig
   val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list

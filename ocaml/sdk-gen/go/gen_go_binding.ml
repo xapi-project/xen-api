@@ -14,7 +14,7 @@
 open CommonFunctions
 open Gen_go_helper
 
-let render_api_messages_and_errors () =
+let render_api_messages_and_errors destdir =
   let obj =
     `O
       [
@@ -30,11 +30,12 @@ let render_api_messages_and_errors () =
   let messages_rendered =
     header ^ render_template "APIMessages.mustache" obj ^ "\n"
   in
-  generate_file error_rendered "api_errors.go" ;
-  generate_file messages_rendered "api_messages.go"
+  generate_file ~rendered:error_rendered ~destdir ~output_file:"api_errors.go" ;
+  generate_file ~rendered:messages_rendered ~destdir
+    ~output_file:"api_messages.go"
 
-let main () =
-  render_api_messages_and_errors () ;
+let main destdir =
+  render_api_messages_and_errors destdir ;
   let objects = Json.xenapi objects in
   List.iter
     (fun (name, obj) ->
@@ -43,8 +44,21 @@ let main () =
       let record_rendered = render_template "Record.mustache" obj in
       let rendered = header_rendered ^ enums_rendered ^ record_rendered in
       let output_file = name ^ ".go" in
-      generate_file rendered output_file
+      generate_file ~rendered ~destdir ~output_file
     )
     objects
 
-let _ = main ()
+let _ =
+  let destdir = ref "." in
+  Arg.parse
+    [
+      ( "--destdir"
+      , Arg.Set_string destdir
+      , "the destination directory for the generated files"
+      )
+    ]
+    (fun x -> Printf.fprintf stderr "Ignoring unknown parameter: %s\n%!" x)
+    "Generates Go SDK." ;
+  let destdir = !destdir // "src" in
+  Xapi_stdext_unix.Unixext.mkdir_rec destdir 0o755 ;
+  main destdir

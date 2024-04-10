@@ -6,6 +6,7 @@
     CommonFunctions
     mustache
     xapi-datamodel
+    xapi-stdext-unix
     gen_go_helper
   )
 )
@@ -26,7 +27,7 @@
     (:x gen_go_binding.exe)
     (source_tree templates)
   )
-  (action (run %{x}))
+  (action (run %{x} --destdir autogen))
 )
 
 (test

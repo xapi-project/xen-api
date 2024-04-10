@@ -16,13 +16,9 @@
 open Datamodel_types
 open CommonFunctions
 
-let dest_dir = "autogen"
-
 let templates_dir = "templates"
 
 let ( // ) = Filename.concat
-
-let src_dir = dest_dir // "src"
 
 let snake_to_camel (s : string) : string =
   Astring.String.cuts ~sep:"_" s
@@ -37,8 +33,8 @@ let render_template template_file json =
   in
   Mustache.render templ json
 
-let generate_file rendered output_file =
-  let out_chan = open_out (src_dir // output_file) in
+let generate_file ~rendered ~destdir ~output_file =
+  let out_chan = open_out (destdir // output_file) in
   Fun.protect
     (fun () -> output_string out_chan rendered)
     ~finally:(fun () -> close_out out_chan)
