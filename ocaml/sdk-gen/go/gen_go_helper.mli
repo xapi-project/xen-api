@@ -21,7 +21,9 @@ val generate_file :
   rendered:string -> destdir:string -> output_file:string -> unit
 
 module Json : sig
-  val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list
+  val xenapi :
+       Datamodel_types.obj list
+    -> (string * Mustache.Json.t) list * Mustache.Json.t
 
   val api_messages : Mustache.Json.value list
 

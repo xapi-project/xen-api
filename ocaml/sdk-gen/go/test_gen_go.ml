@@ -280,24 +280,25 @@ module TestGeneratedJson = struct
   let verify description actual expected =
     Alcotest.(check @@ generated_json) description expected actual
 
-  let json = enums |> merge record |> merge header
+  let json = merge record header
 
   let testing (name, obj) expected () = verify name obj expected
 
   let test_case ((name, _) as test_case) expected =
     (name, `Quick, testing test_case expected)
 
-  let errors_and_messages_tests =
+  let objects, enums_actual = Json.xenapi objects
+
+  let other_tests =
     let errors = `O [("api_errors", `A Json.api_errors)] in
     let messages = `O [("api_messages", `A Json.api_messages)] in
     [
       test_case ("api_errors", errors) api_errors
     ; test_case ("api_messages", messages) api_messages
+    ; test_case ("enums", enums_actual) enums
     ]
 
-  let tests =
-    (objects |> Json.xenapi |> List.map (fun obj -> test_case obj json))
-    @ errors_and_messages_tests
+  let tests = List.map (fun obj -> test_case obj json) objects @ other_tests
 end
 
 let tests =

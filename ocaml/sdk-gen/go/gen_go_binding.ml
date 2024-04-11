@@ -14,6 +14,14 @@
 open CommonFunctions
 open Gen_go_helper
 
+let render_enums enums destdir =
+  let header =
+    render_template "FileHeader.mustache" (`O [("modules", `Null)])
+  in
+  let enums = render_template "Enum.mustache" enums |> String.trim in
+  let rendered = header ^ "\n" ^ enums ^ "\n" in
+  generate_file ~rendered ~destdir ~output_file:"enums.go"
+
 let render_api_messages_and_errors destdir =
   let obj =
     `O
@@ -36,13 +44,13 @@ let render_api_messages_and_errors destdir =
 
 let main destdir =
   render_api_messages_and_errors destdir ;
-  let objects = Json.xenapi objects in
+  let objects, enums = Json.xenapi objects in
+  render_enums enums destdir ;
   List.iter
     (fun (name, obj) ->
       let header_rendered = render_template "FileHeader.mustache" obj ^ "\n" in
-      let enums_rendered = render_template "Enum.mustache" obj in
       let record_rendered = render_template "Record.mustache" obj in
-      let rendered = header_rendered ^ enums_rendered ^ record_rendered in
+      let rendered = header_rendered ^ record_rendered in
       let output_file = name ^ ".go" in
       generate_file ~rendered ~destdir ~output_file
     )

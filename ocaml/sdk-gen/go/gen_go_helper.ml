@@ -39,12 +39,6 @@ let generate_file ~rendered ~destdir ~output_file =
     (fun () -> output_string out_chan rendered)
     ~finally:(fun () -> close_out out_chan)
 
-module EnumSet = Set.Make (struct
-  type t = string * (string * string) list
-
-  let compare (x0, _y0) (x1, _y1) = String.compare x0 x1
-end)
-
 module Json = struct
   type enum = (string * string) list
 
@@ -219,41 +213,42 @@ module Json = struct
         [("event", `Null); ("session", `Null)]
 
   let xenapi objs =
-    let enums_acc = ref StringMap.empty in
-    let erase_existed enums =
-      let enums =
-        StringMap.filter (fun k _ -> not (StringMap.mem k !enums_acc)) enums
-      in
-      enums_acc := StringMap.union choose_enum !enums_acc enums ;
-      enums
-    in
-    List.map
-      (fun obj ->
-        let fields, enums_in_fields = fields_of_obj_with_enums obj in
-        let enums_in_msgs = enums_in_messages_of_obj obj in
-        let enums =
-          let enums =
-            enums_in_fields
-            |> StringMap.union choose_enum enums_in_msgs
-            |> erase_existed
+    let objs, enums =
+      List.fold_left
+        (fun (objs_acc, enums_acc) obj ->
+          let fields, enums_in_fields, has_time_type =
+            fields_of_obj_with_enums obj
           in
-          StringMap.fold (fun k v acc -> of_enum k v :: acc) enums []
-        in
-        let obj_name = snake_to_camel obj.name in
-        let modules = get_modules obj.messages has_time_type in
-        let base_assoc_list =
-          [
-            ("name", `String obj_name)
-          ; ("description", `String (String.trim obj.description))
-          ; ("enums", `A enums)
-          ; ("fields", `A (get_event_snapshot obj.name @ fields))
-          ; ("modules", modules)
-          ]
-        in
-        let assoc_list = get_event_session_value obj.name @ base_assoc_list in
-        (String.lowercase_ascii obj.name, `O assoc_list)
-      )
-      objs
+          let enums_in_msgs = enums_in_messages_of_obj obj in
+          let enums =
+            enums_acc
+            |> StringMap.union choose_enum enums_in_msgs
+            |> StringMap.union choose_enum enums_in_fields
+          in
+          let obj_name = snake_to_camel obj.name in
+          let modules = get_modules obj.messages has_time_type in
+          let base_assoc_list =
+            [
+              ("name", `String obj_name)
+            ; ("description", `String (String.trim obj.description))
+            ; ("fields", `A (get_event_snapshot obj.name @ fields))
+            ; ("modules", modules)
+            ]
+          in
+          let assoc_list = get_event_session_value obj.name @ base_assoc_list in
+          ((String.lowercase_ascii obj.name, `O assoc_list) :: objs_acc, enums)
+        )
+        ([], StringMap.empty) objs
+    in
+    let enums =
+      `O
+        [
+          ( "enums"
+          , `A (StringMap.fold (fun k v acc -> of_enum k v :: acc) enums [])
+          )
+        ]
+    in
+    (objs, enums)
 
   let api_messages =
     List.map (fun (msg, _) -> `O [("name", `String msg)]) !Api_messages.msgList
