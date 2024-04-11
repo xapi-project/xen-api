@@ -1,0 +1,6 @@
+name: 'Continuous Integration for SDKs'
+runs:
+  using: 'composite'
+  steps:
+  - name: Golang Lint
+    uses: ./.github/workflows/golang-lint
