@@ -1,0 +1,14 @@
+name: 'Golang Lint'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.22.1
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: v1.57.2
+        working-directory: ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src
+        args: --config=${{ github.workspace }}/.golangci.yml
