@@ -1756,7 +1756,13 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vm-export"
     , {
         reqd= ["filename"]
-      ; optn= ["preserve-power-state"; "compress"]
+      ; optn=
+          [
+            "preserve-power-state"
+          ; "compress"
+          ; "metadata"
+          ; "excluded-device-types"
+          ]
       ; help= "Export a VM to <filename>."
       ; implementation= With_fd Cli_operations.vm_export
       ; flags= [Standard; Vm_selectors]
@@ -1798,7 +1804,13 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "snapshot-export-to-template"
     , {
         reqd= ["filename"; "snapshot-uuid"]
-      ; optn= ["preserve-power-state"]
+      ; optn=
+          [
+            "preserve-power-state"
+          ; "compress"
+          ; "metadata"
+          ; "excluded-device-types"
+          ]
       ; help= "Export a snapshot to <filename>."
       ; implementation= With_fd Cli_operations.snapshot_export
       ; flags= [Standard]
@@ -1863,7 +1875,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "template-export"
     , {
         reqd= ["filename"; "template-uuid"]
-      ; optn= []
+      ; optn= ["compress"; "metadata"; "excluded-device-types"]
       ; help= "Export a template to <filename>."
       ; implementation= With_fd Cli_operations.template_export
       ; flags= [Standard]
