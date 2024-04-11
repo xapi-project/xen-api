@@ -163,6 +163,31 @@ let get_nbd_device path =
   else
     None
 
+(* Copied from vhd-tool/src/image.ml.
+ * Just keep the situation of xapi doesn't depend on vhd-tool OCaml module.
+ *)
+let image_behind_nbd_device = function
+  | Some (path, _exportname) as image ->
+      (* The nbd server path exposed by tapdisk can lead us to the actual image
+         file below. Following the symlink gives a path like
+            `/run/blktap-control/nbd<pid>.<minor>`,
+         containing the tapdisk pid and minor number. Using this information,
+         we can get the file path from tap-ctl.
+      *)
+      let default _ _ = image in
+      let filename = Unix.realpath path |> Filename.basename in
+      Scanf.ksscanf filename default "nbd%d.%d" (fun pid minor ->
+          match Tapctl.find (Tapctl.create ()) ~pid ~minor with
+          | _, _, Some ("vhd", vhd) ->
+              Some ("vhd", vhd)
+          | _, _, Some ("aio", vhd) ->
+              Some ("raw", vhd)
+          | _, _, _ | (exception _) ->
+              None
+      )
+  | _ ->
+      None
+
 type extent = {flags: int32; length: int64} [@@deriving rpc]
 
 type extent_list = extent list [@@deriving rpc]

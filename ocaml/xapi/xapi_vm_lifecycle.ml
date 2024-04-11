@@ -790,6 +790,7 @@ let update_allowed_operations ~__context ~self =
       ; `changing_dynamic_range
       ; `changing_NVRAM
       ; `create_vtpm
+      ; `metadata_export
       ]
   in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
