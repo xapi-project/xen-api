@@ -29,6 +29,9 @@
 
 using System;
 using System.Collections.Generic;
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+using System.Diagnostics;
+#endif
 using System.IO;
 using System.Net;
 using System.Net.Security;
@@ -292,6 +295,23 @@ namespace XenAPI
                 foreach (var header in RequestHeaders)
                     webRequest.Headers.Add(header.Key, header.Value);
             }
+
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+            // propagate W3C traceparent and tracestate
+            // HttpClient would do this automatically on .NET 5,
+            // and .NET 6 would provide even more control over this: https://blog.ladeak.net/posts/opentelemetry-net6-httpclient
+            // the caller must ensure that the activity is in W3C format (by inheritance or direct setting)
+            var activity = Activity.Current;
+            if (activity != null && activity.IdFormat == ActivityIdFormat.W3C)
+            {
+                webRequest.Headers.Add("traceparent", activity.Id);
+                var state = activity.TraceStateString;
+                if (state?.Length > 0)
+                {
+                    webRequest.Headers.Add("tracestate", state);
+                }
+            }
+#endif
 
             using (var str = webRequest.GetRequestStream())
             {
