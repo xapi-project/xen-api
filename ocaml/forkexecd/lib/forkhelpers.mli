@@ -34,7 +34,7 @@
 
 (** {2 High-level interface } *)
 
-type syslog_stdout_t =
+type syslog_stdout =
   | NoSyslogging
   | Syslog_DefaultKey
   | Syslog_WithKey of string
@@ -45,7 +45,7 @@ val default_path_env_pair : string array
 
 val execute_command_get_output :
      ?env:string array
-  -> ?syslog_stdout:syslog_stdout_t
+  -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
   -> string
@@ -57,7 +57,7 @@ val execute_command_get_output :
 
 val execute_command_get_output_send_stdin :
      ?env:string array
-  -> ?syslog_stdout:syslog_stdout_t
+  -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
   -> string
@@ -97,7 +97,7 @@ val safe_close_and_exec :
   -> Unix.file_descr option
   -> Unix.file_descr option
   -> (string * Unix.file_descr) list
-  -> ?syslog_stdout:syslog_stdout_t
+  -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> string
   -> string list
