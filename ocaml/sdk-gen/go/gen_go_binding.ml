@@ -44,8 +44,9 @@ let render_api_messages_and_errors destdir =
 
 let main destdir =
   render_api_messages_and_errors destdir ;
-  let objects, enums = Json.xenapi objects in
+  let enums = Json.all_enums objects in
   render_enums enums destdir ;
+  let objects = Json.xenapi objects in
   List.iter
     (fun (name, obj) ->
       let header_rendered = render_template "FileHeader.mustache" obj ^ "\n" in

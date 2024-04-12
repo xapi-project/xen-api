@@ -287,16 +287,17 @@ module TestGeneratedJson = struct
   let test_case ((name, _) as test_case) expected =
     (name, `Quick, testing test_case expected)
 
-  let objects, enums_actual = Json.xenapi objects
-
   let other_tests =
+    let enums_all = Json.all_enums objects in
     let errors = `O [("api_errors", `A Json.api_errors)] in
     let messages = `O [("api_messages", `A Json.api_messages)] in
     [
       test_case ("api_errors", errors) api_errors
     ; test_case ("api_messages", messages) api_messages
-    ; test_case ("enums", enums_actual) enums
+    ; test_case ("enums", enums_all) enums
     ]
+
+  let objects = Json.xenapi objects
 
   let tests = List.map (fun obj -> test_case obj json) objects @ other_tests
 end

@@ -15,6 +15,7 @@
 
 open Datamodel_types
 open CommonFunctions
+module Types = Datamodel_utils.Types
 
 let templates_dir = "templates"
 
@@ -47,6 +48,9 @@ module Json = struct
   type enums = enum StringMap.t
 
   let choose_enum _key a _b = Some a
+
+  let merge_maps m maps =
+    List.fold_left (fun acc map -> StringMap.union choose_enum acc map) m maps
 
   let rec string_of_ty_with_enums ty : string * enums =
     match ty with
@@ -91,18 +95,7 @@ module Json = struct
     in
     `O [("name", `String name); ("values", `A (List.map of_value vs))]
 
-  let fields_of_obj_with_enums obj =
-    let rec flatten_contents contents =
-      List.fold_left
-        (fun l -> function
-          | Field f ->
-              f :: l
-          | Namespace (_name, contents) ->
-              flatten_contents contents @ l
-        )
-        [] contents
-    in
-    let fields = flatten_contents obj.contents in
+  let of_field field =
     let concat_and_convert field =
       let concated =
         String.concat "" (List.map snake_to_camel field.full_name)
@@ -113,79 +106,42 @@ module Json = struct
       | _ ->
           concated
     in
-    List.fold_left
-      (fun (fields, enums, has_time_type) field ->
-        let is_time_type =
-          match field.ty with DateTime -> true | _ -> false
-        in
-        let ty, e = string_of_ty_with_enums field.ty in
-        ( `O
-            [
-              ("name", `String (concat_and_convert field))
-            ; ("description", `String (String.trim field.field_description))
-            ; ("type", `String ty)
-            ]
-          :: fields
-        , StringMap.union choose_enum enums e
-        , if is_time_type then true else has_time_type
-        )
-      )
-      ([], StringMap.empty, false)
-      fields
+    let ty, _e = string_of_ty_with_enums field.ty in
+    `O
+      [
+        ("name", `String (concat_and_convert field))
+      ; ("description", `String (String.trim field.field_description))
+      ; ("type", `String ty)
+      ]
 
-  let enums_from_result obj msg =
-    match msg.msg_result with
-    | None ->
-        StringMap.empty
-    | Some (t, _d) ->
-        if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from"
-        then
-          StringMap.empty
-        else
-          let _, enums = string_of_ty_with_enums t in
-          enums
-
-  let enums_from_params ps =
-    List.fold_left
-      (fun enums p ->
-        let _t, e = string_of_ty_with_enums p.param_type in
-        StringMap.union choose_enum enums e
-      )
-      StringMap.empty ps
-
-  let enums_in_messages_of_obj obj =
-    List.fold_left
-      (fun enums msg ->
-        let params =
-          if msg.msg_session then
-            session_id :: msg.msg_params
-          else
-            msg.msg_params
-        in
-        let enums1 = enums_from_result obj msg in
-        let enums2 = enums_from_params params in
-        enums
-        |> StringMap.union choose_enum enums1
-        |> StringMap.union choose_enum enums2
-      )
-      StringMap.empty obj.messages
-
-  let get_modules messages has_time_type =
-    match messages with
-    | [] ->
-        `Null
+  let modules_of_type = function
+    | DateTime ->
+        [`O [("name", `String "time"); ("sname", `Null)]]
     | _ ->
-        let items =
-          match has_time_type with
-          | true ->
-              [
-                `O [("name", `String "fmt"); ("sname", `Null)]
-              ; `O [("name", `String "time"); ("sname", `Null)]
-              ]
-          | false ->
-              [`O [("name", `String "fmt"); ("sname", `Null)]]
-        in
-        `O [("import", `Bool true); ("items", `A items)]
+        []
+
+  let modules_of_types types =
+    let common = [`O [("name", `String "fmt"); ("sname", `Null)]] in
+    let items =
+      List.map modules_of_type types |> List.concat |> List.append common
+    in
+    `O [("import", `Bool true); ("items", `A items)]
+
+  let all_enums objs =
+    let enums =
+      Types.of_objects objs
+      |> List.map (fun ty ->
+             let _, e = string_of_ty_with_enums ty in
+             e
+         )
+      |> merge_maps StringMap.empty
+    in
+    `O
+      [
+        ( "enums"
+        , `A (StringMap.fold (fun k v acc -> of_enum k v :: acc) enums [])
+        )
+      ]
 
   let get_event_snapshot name =
     if String.lowercase_ascii name = "event" then
@@ -213,42 +169,27 @@ module Json = struct
         [("event", `Null); ("session", `Null)]
 
   let xenapi objs =
-    let objs, enums =
-      List.fold_left
-        (fun (objs_acc, enums_acc) obj ->
-          let fields, enums_in_fields, has_time_type =
-            fields_of_obj_with_enums obj
-          in
-          let enums_in_msgs = enums_in_messages_of_obj obj in
-          let enums =
-            enums_acc
-            |> StringMap.union choose_enum enums_in_msgs
-            |> StringMap.union choose_enum enums_in_fields
-          in
-          let obj_name = snake_to_camel obj.name in
-          let modules = get_modules obj.messages has_time_type in
-          let base_assoc_list =
-            [
-              ("name", `String obj_name)
-            ; ("description", `String (String.trim obj.description))
-            ; ("fields", `A (get_event_snapshot obj.name @ fields))
-            ; ("modules", modules)
-            ]
-          in
-          let assoc_list = get_event_session_value obj.name @ base_assoc_list in
-          ((String.lowercase_ascii obj.name, `O assoc_list) :: objs_acc, enums)
-        )
-        ([], StringMap.empty) objs
-    in
-    let enums =
-      `O
-        [
-          ( "enums"
-          , `A (StringMap.fold (fun k v acc -> of_enum k v :: acc) enums [])
-          )
-        ]
-    in
-    (objs, enums)
+    List.map
+      (fun obj ->
+        let fields = Datamodel_utils.fields_of_obj obj in
+        let types = List.map (fun field -> field.ty) fields in
+        let modules =
+          match obj.messages with [] -> `Null | _ -> modules_of_types types
+        in
+        let base_assoc_list =
+          [
+            ("name", `String (snake_to_camel obj.name))
+          ; ("description", `String (String.trim obj.description))
+          ; ( "fields"
+            , `A (get_event_snapshot obj.name @ List.map of_field fields)
+            )
+          ; ("modules", modules)
+          ]
+        in
+        let assoc_list = get_event_session_value obj.name @ base_assoc_list in
+        (String.lowercase_ascii obj.name, `O assoc_list)
+      )
+      objs
 
   let api_messages =
     List.map (fun (msg, _) -> `O [("name", `String msg)]) !Api_messages.msgList
