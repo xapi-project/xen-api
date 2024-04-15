@@ -28,21 +28,16 @@ let host_id = ref "localhost"
 
 let set_host_id id = host_id := id
 
-let service_name = ref None
+let service_name = ref "unknown"
 
-let set_service_name name = service_name := Some name
+let set_service_name name = service_name := name
 
-let get_service_name () =
-  match !service_name with
-  | None ->
-      warn "service name not yet set!" ;
-      "unknown"
-  | Some name ->
-      name
+let get_service_name () = !service_name
 
 module Content = struct
   module Json = struct
-    module Zipkinv2 = struct
+    module ZipkinV2 = struct
+      (* Module that helps export spans under Zipkin protocol, version 2. *)
       module ZipkinSpan = struct
         type zipkinEndpoint = {serviceName: string} [@@deriving rpcty]
 
@@ -140,7 +135,7 @@ module Destination = struct
 
     let lock = Mutex.create ()
 
-    let new_file_name () =
+    let make_file_name () =
       let date = Ptime_clock.now () |> Ptime.to_rfc3339 ~frac_s:6 in
       let ( // ) = Filename.concat in
       let name =
@@ -163,7 +158,7 @@ module Destination = struct
     let export json =
       try
         let file_name =
-          match !file_name with None -> new_file_name () | Some x -> x
+          match !file_name with None -> make_file_name () | Some x -> x
         in
         Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname file_name) 0o700 ;
         let@ fd = file_name |> with_fd in
@@ -173,7 +168,7 @@ module Destination = struct
           if !compress_tracing_files then
             Zstd.Fast.compress_file Zstd.Fast.compress ~file_path:file_name
               ~file_ext:"zst" ;
-          ignore @@ new_file_name ()
+          ignore @@ make_file_name ()
         ) ;
         Ok ()
       with e -> Error e
@@ -189,31 +184,36 @@ module Destination = struct
     let export ~url json =
       try
         let body = json in
-        let headers =
-          Cohttp.Header.of_list
-            ([
-               ("Content-Type", "application/json")
-             ; ("Content-Length", string_of_int (String.length body))
-             ]
-            @
-            match Uri.host url with
-            | None ->
-                []
-            | Some h ->
-                let port =
-                  match Uri.port url with
-                  | Some p ->
-                      ":" ^ string_of_int p
-                  | None ->
-                      ""
-                in
-                [("Host", h ^ port)]
-            )
+        let content_headers =
+          [
+            ("Content-Type", "application/json")
+          ; ("Content-Length", string_of_int (String.length body))
+          ]
         in
+        let host =
+          match (Uri.host url, Uri.port url) with
+          | None, _ ->
+              None
+          | Some host, None ->
+              Some host
+          | Some host, Some port ->
+              Some (Printf.sprintf "%s:%d" host port)
+        in
+        let host_headers =
+          Option.fold ~none:[] ~some:(fun h -> [("Host", h)]) host
+        in
+        let headers =
+          List.concat [content_headers; host_headers] |> Cohttp.Header.of_list
+        in
+
         Open_uri.with_open_uri url (fun fd ->
             let request =
               Cohttp.Request.make ~meth:`POST ~version:`HTTP_1_1 ~headers url
             in
+            (* `with_open_uri` already closes the `fd`. And therefore
+               according to the documentation of `in_channel_of_descr` and
+               `out_channel_of_descr` we should not close the channels on top of
+               `fd`. *)
             let ic = Unix.in_channel_of_descr fd in
             let oc = Unix.out_channel_of_descr fd in
             Request.write
@@ -231,19 +231,8 @@ module Destination = struct
               when Cohttp.Code.(response.status |> code_of_status |> is_error)
               ->
                 Error (Failure (Cohttp.Code.string_of_status response.status))
-            | `Ok response ->
-                let body = Buffer.create 128 in
-                let reader = Response.make_body_reader response ic in
-                let rec loop () =
-                  match Response.read_body_chunk reader with
-                  | Cohttp.Transfer.Chunk x ->
-                      Buffer.add_string body x ; loop ()
-                  | Cohttp.Transfer.Final_chunk x ->
-                      Buffer.add_string body x
-                  | Cohttp.Transfer.Done ->
-                      ()
-                in
-                loop () ; Ok ()
+            | `Ok _ ->
+                Ok ()
         )
       with e -> Error e
   end
@@ -276,7 +265,7 @@ module Destination = struct
           in
           let@ _ = with_tracing ~parent ~attributes ~name in
           all_spans
-          |> Content.Json.Zipkinv2.content_of
+          |> Content.Json.ZipkinV2.content_of
           |> export
           |> Result.iter_error raise
       )
