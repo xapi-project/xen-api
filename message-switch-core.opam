@@ -22,6 +22,7 @@ depends: [
   "ppx_sexp_conv"
   "rpclib"
   "sexplib"
+  "xapi-log"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """
