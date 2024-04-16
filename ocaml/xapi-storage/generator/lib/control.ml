@@ -30,6 +30,12 @@ type health =
       (** Storage is busy recovering, e.g. rebuilding mirrors *)
 [@@deriving rpcty]
 
+type volume_type =
+  | Data  (** Normal data volume *)
+  | CBT_Metadata  (** CBT Metadata only, data destroyed *)
+  | Data_and_CBT_Metadata  (** Both Data and CBT Metadata *)
+[@@deriving rpcty]
+
 (** Primary key for a specific Storage Repository. This can be any string
     which is meaningful to the implementation. For example this could be an
     NFS directory name, an LVM VG name or even a URI. This string is
@@ -116,6 +122,11 @@ type volume = {
   ; keys: (string * string) list
         (** A list of key=value pairs which have been stored in the Volume
       metadata. These should not be interpreted by the Volume plugin. *)
+  ; volume_type: volume_type option [@default Some Data]
+        (** The content type of this volume *)
+  ; cbt_enabled: bool option [@default Some false]
+        (** True means that the storage datapath will track changed dirty blocks
+      while writing and will be able to provide CBT Metadata when requested *)
 }
 [@@deriving rpcty]
 
