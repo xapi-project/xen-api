@@ -38,6 +38,8 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
   let cluster_stack_version =
     if Xapi_fist.allow_corosync2 () then
       2L
+    else if not (Xapi_cluster_helpers.corosync3_enabled ~__context) then
+      2L
     else
       3L
   in
