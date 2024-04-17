@@ -183,11 +183,8 @@ def execute_precheck(control_package, yum_conf_file, update_precheck_file):
                 regex = (ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)'
                          + ERROR_MESSAGE_CONFLICTS + '(.+?)\n')
                 conflict_tuples = re.findall(regex, output)
-                if len(conflict_tuples) > 0:
-                    conflict_updates = ''
-                    for tup in conflict_tuples:
-                        conflict_updates += tup[1] + ' '
-                    raise ConflictPresent(conflict_updates.rstrip())
+                if conflict_tuples:
+                    raise ConflictPresent(' '.join([tup[1] for tup in conflict_tuples]))
                 raise PrecheckFailure(errmsg)
             if (ERROR_MESSAGE_VERSION_REQUIRED in errmsg and
                 (ERROR_MESSAGE_VERSION_INSTALLED in errmsg
