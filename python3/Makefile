@@ -13,6 +13,7 @@ install:
 	
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 
+	$(IPROG) libexec/usb_reset.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
 	
