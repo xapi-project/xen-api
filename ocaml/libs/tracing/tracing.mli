@@ -177,3 +177,34 @@ val with_tracing :
 val set_observe : bool -> unit
 
 val validate_attribute : string * string -> bool
+
+(** [EnvHelpers] module is a helper module for the tracing library to easily 
+    transition back and forth between a string list of environment variables to 
+    a traceparent. 
+    *)
+module EnvHelpers : sig
+  val traceparent_key : string
+  (** [traceparent_key] is a constant the represents the key of the traceparent
+      environment variable. 
+      *)
+
+  val of_traceparent : string option -> string list
+  (** [of_traceparent traceparent_opt] returns a singleton list consisting of a
+      envirentment variable with the key [traceparent_key] and value [v] if 
+      [traceparent_opt] is [Some v]. Otherwise, returns an empty list. *)
+
+  val to_traceparent : string list -> string option
+  (** [to_traceparent env_var_lst] returns [Some v] where v is the value of the 
+      environmental variable coresponding to the key [traceparent_key] from a 
+      string list of environmental variables [env_var_lst]. If there is no such
+      evironmental variable in the list, it returns [None].
+      *)
+
+  val of_span : Span.t option -> string list
+  (** [of_span span] returns a singleton list consisting of a
+      envirentment variable with the key [traceparent_key] and value [v], where
+      [v] is traceparent representation of span [s] (if [span] is [Some s]).
+        
+      If [span] is [None], it returns an empty list.
+      *)
+end
