@@ -35,7 +35,12 @@ let validate_params ~token_timeout ~token_timeout_coefficient =
 let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
     ~token_timeout_coefficient =
   assert_cluster_stack_valid ~cluster_stack ;
-  let cluster_stack_version = 3L in
+  let cluster_stack_version =
+    if Xapi_fist.allow_corosync2 () then
+      2L
+    else
+      3L
+  in
   (* needed here in addtion to cluster_host.create_internal since the
      Xapi_clustering.daemon.enable relies on the correct corosync verion *)
   (* Currently we only support corosync. If we support more cluster stacks, this
