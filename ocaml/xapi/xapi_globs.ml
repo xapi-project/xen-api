@@ -857,6 +857,8 @@ let nbd_client_manager_script =
 
 let varstore_rm = ref "/usr/bin/varstore-rm"
 
+let varstore_sb_state = ref "/usr/bin/varstore-sb-state"
+
 let varstore_dir = ref "/var/lib/varstored"
 
 let default_auth_dir = ref "/usr/share/varstored"
@@ -1699,6 +1701,10 @@ module Resources = struct
     ; ( "varstore-rm"
       , varstore_rm
       , "Executed to clear certain UEFI variables during clone"
+      )
+    ; ( "varstore-sb-state"
+      , varstore_sb_state
+      , "Executed to edit the SecureBoot state of a VM"
       )
     ; ("varstore_dir", varstore_dir, "Path to local varstored directory")
     ; ( "nvidia-sriov-manage"

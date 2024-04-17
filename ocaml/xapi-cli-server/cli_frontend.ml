@@ -2659,6 +2659,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-set-uefi-mode"
+    , {
+        reqd= ["uuid"; "mode"]
+      ; optn= []
+      ; help= "Set a VM in UEFI 'setup' or 'user' mode."
+      ; implementation= No_fd Cli_operations.vm_set_uefi_mode
+      ; flags= []
+      }
+    )
   ; ( "diagnostic-vm-status"
     , {
         reqd= ["uuid"]

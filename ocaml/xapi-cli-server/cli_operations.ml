@@ -6068,6 +6068,13 @@ let vm_assert_can_be_recovered _printer rpc session_id params =
         ~self:vm ~session_to:session_id
   )
 
+let vm_set_uefi_mode printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let mode = Record_util.vm_uefi_mode_of_string (List.assoc "mode" params) in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.VM.set_uefi_mode ~rpc ~session_id ~self:vm ~mode in
+  printer (Cli_printer.PMsg result)
+
 let cd_list printer rpc session_id params =
   let srs = Client.SR.get_all_records_where ~rpc ~session_id ~expr:"true" in
   let cd_srs =

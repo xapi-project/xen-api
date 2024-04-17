@@ -3053,6 +3053,15 @@ functor
       let restart_device_models ~__context ~self =
         info "VM.restart_device_models: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.restart_device_models ~__context ~self
+
+      let set_uefi_mode ~__context ~self ~mode =
+        info "VM.set_uefi_mode: self = '%s'; mode = '%s'"
+          (vm_uuid ~__context self)
+          (Helpers.uefi_mode_to_string mode) ;
+        (* The redirection to another host is done by the `varstored-sb-state`
+           script which uses xmlrpc to make XAPI calls.
+        *)
+        Local.VM.set_uefi_mode ~__context ~self ~mode
     end
 
     module VM_metrics = struct end

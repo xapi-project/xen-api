@@ -150,6 +150,14 @@ let string_to_vm_operation x =
   else
     List.assoc x table
 
+let vm_uefi_mode_of_string = function
+  | "setup" ->
+      `setup
+  | "user" ->
+      `user
+  | s ->
+      raise (Record_failure ("Expected 'user','setup', got " ^ s))
+
 let pool_operation_to_string = function
   | `ha_enable ->
       "ha_enable"

@@ -1620,3 +1620,8 @@ let restart_device_models ~__context ~self =
       Client.VM.pool_migrate ~rpc ~session_id ~vm:self ~host
         ~options:[("live", "true")]
   )
+
+let set_uefi_mode ~__context ~self ~mode =
+  let id = Db.VM.get_uuid ~__context ~self in
+  let args = [id; Helpers.uefi_mode_to_string mode] in
+  Helpers.call_script !Xapi_globs.varstore_sb_state args

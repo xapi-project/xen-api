@@ -419,3 +419,6 @@ val set_NVRAM_EFI_variables :
   __context:Context.t -> self:API.ref_VM -> value:string -> unit
 
 val restart_device_models : __context:Context.t -> self:API.ref_VM -> unit
+
+val set_uefi_mode :
+  __context:Context.t -> self:API.ref_VM -> mode:API.vm_uefi_mode -> string
