@@ -72,6 +72,23 @@ let overrides =
     )
   ]
 
+(** Generate enum__all and enum_to_string bindings for all enums *)
+let gen_enum_helpers tys =
+  let gen_string_and_all = function
+    | DT.Set (DT.Enum (_, elist) as e) ->
+        let nlist = List.map fst elist in
+        [
+          Printf.sprintf "let %s__all = %s" (OU.alias_of_ty e)
+            (OU.ocaml_list_of_enum nlist)
+        ; (Printf.sprintf "let %s_to_string = %s")
+            (OU.alias_of_ty e)
+            (OU.ocaml_to_string_of_enum nlist)
+        ]
+    | _ ->
+        []
+  in
+  List.concat_map gen_string_and_all tys
+
 (** Generate a single type declaration for simple types (eg not containing references to record objects) *)
 let gen_non_record_type tys =
   let rec aux accu = function
@@ -382,6 +399,7 @@ let gen_client_types highapi =
        ; gen_non_record_type all_types
        ; gen_record_type ~with_module:true highapi
            (toposort_types highapi all_types)
+       ; gen_enum_helpers all_types
        ; O.Signature.strings_of (Gen_client.gen_signature highapi)
        ]
     )
