@@ -239,7 +239,7 @@ def execute_precheck(control_package, yum_conf_file, update_precheck_file):
             raise PrecheckFailure(precheck_output)
         if '\n' in precheck_output:
             msg = precheck_output.split()[0]
-            if msg in list(livepatch_messages):
+            if msg in livepatch_messages:
                 return livepatch_messages[msg]
     return 'ok'
 
