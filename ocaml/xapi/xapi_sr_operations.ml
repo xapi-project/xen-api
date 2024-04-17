@@ -26,29 +26,7 @@ open Client
 
 open Record_util
 
-let all_ops : API.storage_operations_set =
-  [
-    `scan
-  ; `destroy
-  ; `forget
-  ; `plug
-  ; `unplug
-  ; `vdi_create
-  ; `vdi_destroy
-  ; `vdi_resize
-  ; `vdi_clone
-  ; `vdi_snapshot
-  ; `vdi_mirror
-  ; `vdi_enable_cbt
-  ; `vdi_disable_cbt
-  ; `vdi_data_destroy
-  ; `vdi_list_changed_blocks
-  ; `vdi_set_on_boot
-  ; `vdi_introduce
-  ; `update
-  ; `pbd_create
-  ; `pbd_destroy
-  ]
+let all_ops = API.storage_operations__all
 
 (* This list comes from https://github.com/xenserver/xen-api/blob/tampa-bugfix/ocaml/xapi/xapi_sr_operations.ml#L36-L38 *)
 let all_rpu_ops : API.storage_operations_set =

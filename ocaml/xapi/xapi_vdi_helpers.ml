@@ -26,26 +26,7 @@ module D = Debug.Make (struct let name = "xapi_vdi_helpers" end)
 
 open D
 
-let all_ops : API.vdi_operations_set =
-  [
-    `blocked
-  ; `clone
-  ; `copy
-  ; `data_destroy
-  ; `destroy
-  ; `disable_cbt
-  ; `enable_cbt
-  ; `force_unlock
-  ; `forget
-  ; `generate_config
-  ; `list_changed_blocks
-  ; `mirror
-  ; `resize
-  ; `resize_online
-  ; `set_on_boot
-  ; `snapshot
-  ; `update
-  ]
+let all_ops = API.vdi_operations__all
 
 (* CA-26514: Block operations on 'unmanaged' VDIs *)
 let assert_managed ~__context ~vdi =
