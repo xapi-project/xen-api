@@ -202,11 +202,8 @@ def execute_precheck(control_package, yum_conf_file, update_precheck_file):
             if ERROR_MESSAGE_PREREQUISITE in errmsg:
                 regex = ERROR_MESSAGE_PREREQUISITE + '(.+?)\n'
                 prerequisite_list = re.findall(regex, errmsg)
-                if len(prerequisite_list) > 0:
-                    prerequisite_updates = ''
-                    for prerequisite in prerequisite_list:
-                        prerequisite_updates += prerequisite + ' '
-                    raise PrerequisiteMissing(prerequisite_updates.rstrip())
+                if prerequisite_list:
+                    raise PrerequisiteMissing(' '.join(prerequisite_list))
                 raise PrecheckFailure(errmsg)
             raise PrecheckFailure(errmsg)
 
