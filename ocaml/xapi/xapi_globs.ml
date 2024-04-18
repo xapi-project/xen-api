@@ -500,6 +500,16 @@ let rpu_allowed_vm_operations =
   ; `update_allowed_operations
   ]
 
+module Vdi_operations = struct
+  type t = API.vdi_operations
+
+  (* this is more efficient than just 'let compare = Stdlib.compare',
+     because the compiler can specialize it to [t] without calling any runtime functions *)
+  let compare (a : t) (b : t) = Stdlib.compare a b
+end
+
+module Vdi_operations_set = Set.Make (Vdi_operations)
+
 (* Until the Ely release, the vdi_operations enum had stayed unchanged
  * since 2009 or earlier, but then Ely and some subsequent releases
  * added new members to the enum. *)
@@ -517,6 +527,7 @@ let pre_ely_vdi_operations =
   ; `generate_config
   ; `blocked
   ]
+  |> Vdi_operations_set.of_list
 
 (* We might consider restricting this further. *)
 let rpu_allowed_vdi_operations = pre_ely_vdi_operations

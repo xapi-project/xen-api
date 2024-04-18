@@ -86,7 +86,10 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
   let* () =
     if
       Helpers.rolling_upgrade_in_progress ~__context
-      && not (List.mem op Xapi_globs.rpu_allowed_vdi_operations)
+      && not
+           (Xapi_globs.Vdi_operations_set.mem op
+              Xapi_globs.rpu_allowed_vdi_operations
+           )
     then
       Error (Api_errors.not_supported_during_upgrade, [])
     else
@@ -463,7 +466,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
    *)
   let all_ops =
     Xapi_globs.pre_ely_vdi_operations
-    |> List.filter (function
+    |> Xapi_globs.Vdi_operations_set.filter (function
          | `blocked ->
              false (* CA-260245 *)
          | `force_unlock ->
@@ -480,18 +483,20 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
           ha_enabled all self x
       with
       | Ok () ->
-          [x]
+          true
       | _ ->
-          []
+          false
     in
-    List.fold_left (fun accu op -> check op @ accu) [] all_ops
+    all_ops |> Xapi_globs.Vdi_operations_set.filter check
   in
   let allowed =
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      Xapi_stdext_std.Listext.List.intersect allowed
-        Xapi_globs.rpu_allowed_vdi_operations
-    else
-      allowed
+    ( if Helpers.rolling_upgrade_in_progress ~__context then
+        Xapi_globs.Vdi_operations_set.inter allowed
+          Xapi_globs.rpu_allowed_vdi_operations
+      else
+        allowed
+    )
+    |> Xapi_globs.Vdi_operations_set.elements
   in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 
