@@ -186,7 +186,7 @@ module Json = struct
           ; ("modules", modules)
           ]
         in
-        let assoc_list = get_event_session_value obj.name @ base_assoc_list in
+        let assoc_list = base_assoc_list @ get_event_session_value obj.name in
         (String.lowercase_ascii obj.name, `O assoc_list)
       )
       objs

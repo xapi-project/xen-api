@@ -42,58 +42,131 @@ module SnakeToCamelTest = Generic.MakeStateless (struct
       ]
 end)
 
-let rec is_same_struct_of_value (value1 : Mustache.Json.value)
-    (value2 : Mustache.Json.value) =
-  match (value1, value2) with
-  | `Null, _ | _, `Null ->
+let schema_check keys checker members =
+  let compare_keys lst1 lst2 =
+    let sorted_lst1 = List.sort String.compare lst1 in
+    let sorted_lst2 = List.sort String.compare lst2 in
+    List.compare String.compare sorted_lst1 sorted_lst2 = 0
+  in
+  let keys' = List.map (fun (k, _) -> k) members in
+  compare_keys keys keys' && List.for_all checker members
+
+(* field *)
+let verify_field_member = function
+  | "name", `String _ | "description", `String _ | "type", `String _ ->
       true
-  | `Bool _, `Bool _ ->
-      true
-  | `String _, `String _ ->
-      true
-  | `Float _, `Float _ ->
-      true
-  | `O o1, `O o2 ->
-      let keys1 = List.sort compare (List.map fst o1) in
-      let keys2 = List.sort compare (List.map fst o2) in
-      if keys1 <> keys2 then
-        false
-      else
-        List.for_all
-          (fun key ->
-            is_same_struct_of_value (List.assoc key o1) (List.assoc key o2)
-          )
-          keys1
-  | `A [], `A [] ->
-      true
-  | `A [], `A (x :: xs) ->
-      List.for_all (fun obj -> is_same_struct_of_value x obj) xs
-  | `A (x :: xs), `A ys ->
-      List.for_all (fun obj -> is_same_struct_of_value x obj) (xs @ ys)
   | _ ->
       false
 
-let is_same_struct (obj1 : Mustache.Json.t) (obj2 : Mustache.Json.t) =
-  match (obj1, obj2) with
-  | `O o1, `O o2 ->
-      let keys1 = List.sort compare (List.map fst o1) in
-      let keys2 = List.sort compare (List.map fst o2) in
-      if keys1 <> keys2 then
-        false
-      else
-        List.for_all
-          (fun key ->
-            is_same_struct_of_value (List.assoc key o1) (List.assoc key o2)
-          )
-          keys1
-  | `A [], `A [] ->
-      true
-  | `A [], `A (x :: xs) ->
-      List.for_all (fun obj -> is_same_struct_of_value x obj) xs
-  | `A (x :: xs), `A ys ->
-      List.for_all (fun obj -> is_same_struct_of_value x obj) (xs @ ys)
+let field_keys = ["name"; "description"; "type"]
+
+let verify_field = function
+  | `O members ->
+      schema_check field_keys verify_field_member members
   | _ ->
       false
+
+(* module *)
+let verify_module_member = function
+  | "name", `String _ ->
+      true
+  | "sname", `Null ->
+      true
+  | _ ->
+      false
+
+let module_keys = ["name"; "sname"]
+
+let verify_modules_item = function
+  | `O members ->
+      schema_check module_keys verify_module_member members
+  | _ ->
+      false
+
+(* modules *)
+let modules_keys = ["import"; "items"]
+
+let verify_modules_member = function
+  | "import", `Bool _ ->
+      true
+  | "items", `A items ->
+      List.for_all verify_modules_item items
+  | _ ->
+      false
+
+let enum_values_keys = ["value"; "doc"; "name"; "type"]
+
+(* enums *)
+let verify_enum_values_member = function
+  | "value", `String _
+  | "doc", `String _
+  | "name", `String _
+  | "type", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_enum_values : Mustache.Json.value -> bool = function
+  | `O values ->
+      schema_check enum_values_keys verify_enum_values_member values
+  | _ ->
+      false
+
+let enum_keys = ["name"; "values"]
+
+let verify_enum_content : string * Mustache.Json.value -> bool = function
+  | "name", `String _ ->
+      true
+  | "values", `A values ->
+      List.for_all verify_enum_values values
+  | _ ->
+      false
+
+let verify_enum : Mustache.Json.value -> bool = function
+  | `O values ->
+      schema_check enum_keys verify_enum_content values
+  | _ ->
+      false
+
+let verify_enums : Mustache.Json.t -> bool = function
+  | `O [("enums", `A enums)] ->
+      List.for_all verify_enum enums
+  | _ ->
+      false
+
+(* obj *)
+let verify_obj_member = function
+  | "name", `String _ | "description", `String _ ->
+      true
+  | "event", `Bool _ | "event", `Null ->
+      true
+  | "session", `Bool _ | "session", `Null ->
+      true
+  | "fields", `A fields ->
+      List.for_all verify_field fields
+  | "modules", `Null ->
+      true
+  | "modules", `O members ->
+      schema_check modules_keys verify_modules_member members
+  | _ ->
+      false
+
+let obj_keys = ["name"; "description"; "fields"; "modules"; "event"; "session"]
+
+let verify_obj = function
+  | `O members ->
+      schema_check obj_keys verify_obj_member members
+  | _ ->
+      false
+
+let verify_msgs_or_errors lst =
+  let verify_msg_or_error = function
+    | `O [("name", `String _)] ->
+        true
+    | _ ->
+        false
+  in
+  List.for_all verify_msg_or_error lst
 
 let rec string_of_json_value (value : Mustache.Json.value) : string =
   match value with
@@ -266,40 +339,27 @@ module TemplatesTest = Generic.MakeStateless (struct
 end)
 
 module TestGeneratedJson = struct
-  let merge (obj1 : Mustache.Json.t) (obj2 : Mustache.Json.t) =
-    match (obj1, obj2) with
-    | `O list1, `O list2 ->
-        `O (list1 @ list2)
-    | _ ->
-        `O []
+  let verify description verify_func actual =
+    Alcotest.(check bool) description true (verify_func actual)
 
-  let pp_json = Fmt.of_to_string string_of_json
+  let test_enums () =
+    let enums = Json.all_enums objects in
+    verify "enums" verify_enums enums
 
-  let generated_json = Alcotest.testable pp_json is_same_struct
+  let test_obj () =
+    Json.xenapi objects
+    |> List.iter (fun (name, obj) -> verify name verify_obj obj)
 
-  let verify description actual expected =
-    Alcotest.(check @@ generated_json) description expected actual
+  let test_errors_and_msgs () =
+    verify "errors_and_msgs" verify_msgs_or_errors
+      (Json.api_errors @ Json.api_messages)
 
-  let json = merge record header
-
-  let testing (name, obj) expected () = verify name obj expected
-
-  let test_case ((name, _) as test_case) expected =
-    (name, `Quick, testing test_case expected)
-
-  let other_tests =
-    let enums_all = Json.all_enums objects in
-    let errors = `O [("api_errors", `A Json.api_errors)] in
-    let messages = `O [("api_messages", `A Json.api_messages)] in
+  let tests =
     [
-      test_case ("api_errors", errors) api_errors
-    ; test_case ("api_messages", messages) api_messages
-    ; test_case ("enums", enums_all) enums
+      ("enums", `Quick, test_enums)
+    ; ("objs", `Quick, test_obj)
+    ; ("errors_and_msgs", `Quick, test_errors_and_msgs)
     ]
-
-  let objects = Json.xenapi objects
-
-  let tests = List.map (fun obj -> test_case obj json) objects @ other_tests
 end
 
 let tests =
