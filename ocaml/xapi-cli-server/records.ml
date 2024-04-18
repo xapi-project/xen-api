@@ -2504,6 +2504,21 @@ let vm_record rpc session_id vm =
                 ~value:(Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid:x)
           )
           ()
+      ; make_field ~name:"groups"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_groups)
+          ~set:(fun x ->
+            if x = "" then
+              Client.VM.set_groups ~rpc ~session_id ~self:vm ~value:[]
+            else
+              let value =
+                get_words ',' x
+                |> List.map (fun uuid ->
+                       Client.VM_group.get_by_uuid ~rpc ~session_id ~uuid
+                   )
+              in
+              Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
+          )
+          ()
       ; make_field ~name:"snapshot-schedule"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_snapshot_schedule)
           ~set:(fun x ->
@@ -4066,6 +4081,55 @@ let vm_appliance_record rpc session_id vm_appliance =
               (fun (_, b) -> Record_util.vm_appliance_operation_to_string b)
               (x ()).API.vM_appliance_current_operations
           )
+          ()
+      ]
+  }
+
+let vm_group_record rpc session_id vm_group =
+  let _ref = ref vm_group in
+  let empty_record =
+    ToGet (fun () -> Client.VM_group.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_group_uuid) ()
+      ; make_field ~name:"name-label"
+          ~get:(fun () -> (x ()).API.vM_group_name_label)
+          ~set:(fun value ->
+            Client.VM_group.set_name_label ~rpc ~session_id ~self:!_ref ~value
+          )
+          ()
+      ; make_field ~name:"name-description"
+          ~get:(fun () -> (x ()).API.vM_group_name_description)
+          ~set:(fun value ->
+            Client.VM_group.set_name_description ~rpc ~session_id ~self:!_ref
+              ~value
+          )
+          ()
+      ; make_field ~name:"placement"
+          ~get:(fun () ->
+            Record_util.vm_placement_policy_to_string
+              (x ()).API.vM_group_placement
+          )
+          ()
+      ; make_field ~name:"vm-uuids"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_group_VMs)
+          ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_group_VMs)
           ()
       ]
   }

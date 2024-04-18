@@ -674,3 +674,10 @@ let make_observer ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
   Db.Observer.create ~__context ~ref ~uuid ~name_label ~name_description ~hosts
     ~attributes ~endpoints ~components ~enabled ;
   ref
+
+let make_vm_group ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
+    ?(name_label = "vm_group") ?(name_description = "") ?(placement = `normal)
+    () =
+  Db.VM_group.create ~__context ~ref ~uuid ~name_label ~name_description
+    ~placement ;
+  ref
