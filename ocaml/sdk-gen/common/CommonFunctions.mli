@@ -1,3 +1,5 @@
+open Datamodel_types
+
 (** Exception for unknown wire protocol. *)
 exception Unknown_wire_protocol
 
@@ -129,3 +131,9 @@ val render_file : string * string -> Mustache.Json.t -> string -> string -> unit
 
 val json_releases : Mustache.Json.t
 (** JSON structure representing release information. *)
+
+val session_id : param
+(** Param of session_id. *)
+
+val objects : obj list
+(** Objects of api that generate SDKs. *)
