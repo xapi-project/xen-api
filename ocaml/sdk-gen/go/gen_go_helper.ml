@@ -28,11 +28,12 @@ let snake_to_camel (s : string) : string =
   |> List.map String.capitalize_ascii
   |> String.concat ""
 
-let render_template template_file json =
+let render_template template_file json ?(newline = false) () =
   let templ =
     string_of_file (templates_dir // template_file) |> Mustache.of_string
   in
-  Mustache.render templ json
+  let renndered = Mustache.render templ json in
+  if newline then renndered ^ "\n" else renndered
 
 let generate_file ~rendered ~destdir ~output_file =
   let out_chan = open_out (destdir // output_file) in

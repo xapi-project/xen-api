@@ -16,10 +16,12 @@ open Gen_go_helper
 
 let render_enums enums destdir =
   let header =
-    render_template "FileHeader.mustache" (`O [("modules", `Null)])
+    render_template "FileHeader.mustache"
+      (`O [("modules", `Null)])
+      ~newline:true ()
   in
-  let enums = render_template "Enum.mustache" enums |> String.trim in
-  let rendered = header ^ "\n" ^ enums ^ "\n" in
+  let enums = render_template "Enum.mustache" enums () |> String.trim in
+  let rendered = header ^ enums ^ "\n" in
   generate_file ~rendered ~destdir ~output_file:"enums.go"
 
 let render_api_messages_and_errors destdir =
@@ -31,12 +33,12 @@ let render_api_messages_and_errors destdir =
       ; ("modules", `Null)
       ]
   in
-  let header = render_template "FileHeader.mustache" obj ^ "\n" in
+  let header = render_template "FileHeader.mustache" obj ~newline:true () in
   let error_rendered =
-    header ^ render_template "APIErrors.mustache" obj ^ "\n"
+    header ^ render_template "APIErrors.mustache" obj ~newline:true ()
   in
   let messages_rendered =
-    header ^ render_template "APIMessages.mustache" obj ^ "\n"
+    header ^ render_template "APIMessages.mustache" obj ~newline:true ()
   in
   generate_file ~rendered:error_rendered ~destdir ~output_file:"api_errors.go" ;
   generate_file ~rendered:messages_rendered ~destdir
@@ -49,8 +51,10 @@ let main destdir =
   let objects = Json.xenapi objects in
   List.iter
     (fun (name, obj) ->
-      let header_rendered = render_template "FileHeader.mustache" obj ^ "\n" in
-      let record_rendered = render_template "Record.mustache" obj in
+      let header_rendered =
+        render_template "FileHeader.mustache" obj ~newline:true ()
+      in
+      let record_rendered = render_template "Record.mustache" obj () in
       let rendered = header_rendered ^ record_rendered in
       let output_file = name ^ ".go" in
       generate_file ~rendered ~destdir ~output_file

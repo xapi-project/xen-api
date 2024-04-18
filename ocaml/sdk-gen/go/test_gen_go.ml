@@ -315,7 +315,8 @@ module TemplatesTest = Generic.MakeStateless (struct
     let string_of_output_t = Test_printers.string
   end
 
-  let transform (template, json) = render_template template json |> String.trim
+  let transform (template, json) =
+    render_template template json () |> String.trim
 
   let file_header_rendered = string_of_file "file_header.go"
 

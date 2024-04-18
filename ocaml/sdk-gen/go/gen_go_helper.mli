@@ -15,7 +15,8 @@ val ( // ) : string -> string -> string
 
 val snake_to_camel : string -> string
 
-val render_template : string -> Mustache.Json.t -> string
+val render_template :
+  string -> Mustache.Json.t -> ?newline:bool -> unit -> string
 
 val generate_file :
   rendered:string -> destdir:string -> output_file:string -> unit
