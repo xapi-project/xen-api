@@ -1,0 +1,6 @@
+name: 'Continuous Integration for SDKs'
+runs:
+  using: 'composite'
+  steps:
+  - name: golang-ct
+    uses: ./.github/workflows/golang-ct
