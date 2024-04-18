@@ -35,7 +35,11 @@ module M = struct
 
     let any = Deferred.any
 
+    let all = Deferred.all
+
     let is_determined = Deferred.is_determined
+
+    let return_unit = Deferred.unit
   end
 
   let connect path =
@@ -98,6 +102,20 @@ module M = struct
       )
   end
 
+  module Condition = struct
+    open Async_kernel
+
+    type 'a t = 'a Condition.t
+
+    let create = Condition.create
+
+    let wait = Condition.wait
+
+    let broadcast = Condition.broadcast
+
+    let signal = Condition.signal
+  end
+
   module Clock = struct
     type timer = {cancel: unit Ivar.t}
 
@@ -120,3 +138,4 @@ end
 
 module Client = Message_switch_core.Make.Client (M)
 module Server = Message_switch_core.Make.Server (M)
+module Mtest = Message_switch_core.Mtest.Make (M)
