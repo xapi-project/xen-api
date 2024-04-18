@@ -37,6 +37,7 @@ type vm = {
   ; vbds: vbd list
   ; vifs: vif list
   ; groups: group list
+  ; power_state: string
 }
 
 let basic_vm =
@@ -48,6 +49,7 @@ let basic_vm =
   ; vbds= [{agile= true}]
   ; vifs= [{agile= true}]
   ; groups= []
+  ; power_state= "running"
   }
 
 type host = {memory_total: int64; name_label: string; vms: vm list}
@@ -133,6 +135,8 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
       [] vm.groups
   in
   Db.VM.set_groups ~__context ~self:vm_ref ~value:groups ;
+  if "running" = vm.power_state then
+    Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running ;
   vm_ref
 
 let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
