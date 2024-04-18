@@ -506,7 +506,7 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
-let from_inner __context session subs from from_t deadline =
+let from_inner __context session subs from from_t deadline batching =
   let open Xapi_database in
   let open From in
   (* The database tables involved in our subscription *)
@@ -594,7 +594,8 @@ let from_inner __context session subs from from_t deadline =
   (* Each event.from should have an independent subscription record *)
   let msg_gen, messages, tableset, (creates, mods, deletes, last) =
     with_call session subs (fun sub ->
-        let rec grab_nonempty_range () =
+        let grab_nonempty_range =
+          Throttle.Batching.with_recursive batching @@ fun self () ->
           let ( (msg_gen, messages, _tableset, (creates, mods, deletes, last))
                 as result
               ) =
@@ -613,8 +614,7 @@ let from_inner __context session subs from from_t deadline =
             (* last id the client got is equivalent to the current one *)
             last_msg_gen := msg_gen ;
             wait2 sub last deadline ;
-            Thread.delay 0.05 ;
-            grab_nonempty_range ()
+            (self [@tailcall]) ()
           ) else
             result
         in
@@ -693,6 +693,7 @@ let from_inner __context session subs from from_t deadline =
   {events; valid_ref_counts; token= Token.to_string (last, msg_gen)}
 
 let from ~__context ~classes ~token ~timeout =
+  let batching = Throttle.Batching.make ~delay_before:0. ~delay_between:0.05 in
   let session = Context.get_session_id __context in
   let from, from_t =
     try Token.of_string token
@@ -711,7 +712,9 @@ let from ~__context ~classes ~token ~timeout =
      	   miss the Delete event and fail to generate the Modify because the
      	   snapshot can't be taken. *)
   let rec loop () =
-    let event_from = from_inner __context session subs from from_t deadline in
+    let event_from =
+      from_inner __context session subs from from_t deadline batching
+    in
     if event_from.events = [] && Unix.gettimeofday () < deadline then (
       debug "suppressing empty event.from" ;
       loop ()
