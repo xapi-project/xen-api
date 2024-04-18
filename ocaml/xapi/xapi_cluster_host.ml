@@ -390,7 +390,8 @@ let enable ~__context ~self =
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
-        ; cluster_stack= Cluster_stack.of_version (cluster_stack,cluster_stack_version)
+        ; cluster_stack=
+            Cluster_stack.of_version (cluster_stack, cluster_stack_version)
         }
       in
       let result =
