@@ -1,6 +1,20 @@
-name: Continuous Integration for SDKs
+name: 'Run CI for Go SDK'
 runs:
-  using: composite
+  using: 'composite'
   steps:
-  - name: Lint for Go SDK
-    uses: ./.github/workflows/go-lint
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '^3.12'
+
+    - name: Install dependencies for JsonRPC Server
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        cd ./ocaml/sdk-gen/component-test/jsonrpc-server
+        pip install -r requirements.txt
+
+    - name: Run CI for Go SDK
+      uses: ./.github/workflows/go-ci
+
+    # Run other tests here

@@ -1,0 +1,21 @@
+name: 'Run CI for Go SDK'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22.2'
+    
+    - name: Lint for Go SDK
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: v1.57.2
+        working-directory: ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src
+        args: --config=${{ github.workspace }}/.golangci.yml
+
+    - name: Run CI for Go SDK
+      shell: bash
+      run: |
+        cd ./ocaml/sdk-gen/component-test/
+        bash run-tests.sh
