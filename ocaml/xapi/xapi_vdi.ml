@@ -476,6 +476,15 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
          )
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
+  let vbd_records =
+    match vbd_records with
+    | None when Pool_role.is_master () ->
+        all.Db_actions.vDI_VBDs
+        |> List.rev_map (fun self -> Db.VBD.get_record_internal ~__context ~self)
+        |> Option.some
+    | v ->
+        v
+  in
   let allowed =
     let check x =
       match
