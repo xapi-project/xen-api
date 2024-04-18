@@ -171,7 +171,7 @@ let with_logfile_fd ?(delete = true) prefix f =
 
 exception Spawn_internal_error of string * string * Unix.process_status
 
-type syslog_stdout_t =
+type syslog_stdout =
   | NoSyslogging
   | Syslog_DefaultKey
   | Syslog_WithKey of string

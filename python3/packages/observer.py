@@ -71,7 +71,7 @@ def _get_configs_list(config_dir):
 def read_config(config_path, header):
     """Read a config file and return a dictionary of key-value pairs."""
 
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     with open(config_path, encoding="utf-8") as config_file:
         try:
             parser.read_string(f"[{header}]\n{config_file.read()}")
