@@ -22,3 +22,33 @@ module Make (_ : SIZE) : sig
 
   val execute : (unit -> 'a) -> 'a
 end
+
+module Batching : sig
+  (** batching delay configuration *)
+  type t
+
+  val make : delay_before:float -> delay_between:float -> t
+  (** [make ~delay_before ~delay_between] creates a configuration,
+    where we delay the API call by [delay_before] once,
+    and then with [delay_between] between each recursive call.
+   *)
+
+  val with_recursive : t -> (('a -> 'b) -> 'a -> 'b) -> 'a -> 'b
+  (** [with_recursive config f arg] calls [f self arg], where [self] can be used
+    for recursive calls.
+
+    A [delay_before] amount of seconds is inserted once, and [delay_between] is inserted between recursive calls:
+    {v
+      delay_before
+      f ...
+        self ...
+         delay_between
+         f ...
+          self ...
+          delay_between
+          f ...
+     v}
+
+    The delays are determined by [config]
+   *)
+end
