@@ -1726,6 +1726,42 @@ let set_uefi_mode =
     ~result:(String, "Result from the varstore-sb-state call")
     ~doc:"Set the UEFI mode of a VM" ~allowed_roles:_R_POOL_ADMIN ()
 
+let vm_secureboot_readiness =
+  Enum
+    ( "vm_secureboot_readiness"
+    , [
+        ("not_supported", "VM's firmware is not UEFI")
+      ; ("disabled", "Secureboot is disabled on this VM")
+      ; ( "first_boot"
+        , "Secured boot is enabled on this VM and its NVRAM.EFI-variables is \
+           empty"
+        )
+      ; ( "ready"
+        , "Secured boot is enabled on this VM and PK, KEK, db and dbx are \
+           defined in its EFI variables"
+        )
+      ; ( "ready_no_dbx"
+        , "Secured boot is enabled on this VM and PK, KEK, db but not dbx are \
+           defined in its EFI variables"
+        )
+      ; ( "setup_mode"
+        , "Secured boot is enabled on this VM and PK is not defined in its EFI \
+           variables"
+        )
+      ; ( "certs_incomplete"
+        , "Secured boot is enabled on this VM and the certificates defines in \
+           its EFI variables are incomplete"
+        )
+      ]
+    )
+
+let get_secureboot_readiness =
+  call ~name:"get_secureboot_readiness" ~lifecycle:[]
+    ~params:[(Ref _vm, "self", "The VM")]
+    ~result:(vm_secureboot_readiness, "The secureboot readiness of the VM")
+    ~doc:"Return the secureboot readiness of the VM"
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -1861,6 +1897,7 @@ let t =
       ; set_NVRAM_EFI_variables
       ; restart_device_models
       ; set_uefi_mode
+      ; get_secureboot_readiness
       ]
     ~contents:
       ([uid _vm]

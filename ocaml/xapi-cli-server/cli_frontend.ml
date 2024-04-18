@@ -2668,6 +2668,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-get-secureboot-readiness"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Return the secureboot readiness of the VM."
+      ; implementation= No_fd Cli_operations.vm_get_secureboot_readiness
+      ; flags= []
+      }
+    )
   ; ( "diagnostic-vm-status"
     , {
         reqd= ["uuid"]

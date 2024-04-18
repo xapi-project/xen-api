@@ -6075,6 +6075,13 @@ let vm_set_uefi_mode printer rpc session_id params =
   let result = Client.VM.set_uefi_mode ~rpc ~session_id ~self:vm ~mode in
   printer (Cli_printer.PMsg result)
 
+let vm_get_secureboot_readiness printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.VM.get_secureboot_readiness ~rpc ~session_id ~self:vm in
+  printer
+    (Cli_printer.PMsg (Record_util.vm_secureboot_readiness_to_string result))
+
 let cd_list printer rpc session_id params =
   let srs = Client.SR.get_all_records_where ~rpc ~session_id ~expr:"true" in
   let cd_srs =

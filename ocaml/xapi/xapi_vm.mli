@@ -422,3 +422,6 @@ val restart_device_models : __context:Context.t -> self:API.ref_VM -> unit
 
 val set_uefi_mode :
   __context:Context.t -> self:API.ref_VM -> mode:API.vm_uefi_mode -> string
+
+val get_secureboot_readiness :
+  __context:Context.t -> self:API.ref_VM -> API.vm_secureboot_readiness

@@ -3062,6 +3062,10 @@ functor
            script which uses xmlrpc to make XAPI calls.
         *)
         Local.VM.set_uefi_mode ~__context ~self ~mode
+
+      let get_secureboot_readiness ~__context ~self =
+        info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.get_secureboot_readiness ~__context ~self
     end
 
     module VM_metrics = struct end
