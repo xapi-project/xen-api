@@ -1444,6 +1444,11 @@ let set_appliance ~__context ~self ~value =
   (* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
   update_allowed_operations ~__context ~self
 
+let set_groups ~__context ~self ~value =
+  if List.length value > 1 then
+    raise Api_errors.(Server_error (Api_errors.too_many_groups, [])) ;
+  Db.VM.set_groups ~__context ~self ~value
+
 let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   let open Vpx in
   let print_jobInstance (j : Vpx.jobInstance) =

@@ -416,6 +416,17 @@ functor
           Ref.string_of vm_appliance
       with _ -> "invalid"
 
+    let vm_group_uuid ~__context vm_group =
+      try
+        if Pool_role.is_master () then
+          let name = Db.VM_group.get_name_label ~__context ~self:vm_group in
+          Printf.sprintf "%s%s"
+            (Db.VM_group.get_uuid ~__context ~self:vm_group)
+            (add_brackets name)
+        else
+          Ref.string_of vm_group
+      with _ -> "invalid"
+
     let sr_uuid ~__context sr =
       try
         if Pool_role.is_master () then
@@ -2995,6 +3006,12 @@ functor
           (vm_uuid ~__context self)
           (vm_appliance_uuid ~__context value) ;
         Local.VM.set_appliance ~__context ~self ~value
+
+      let set_groups ~__context ~self ~value =
+        info "VM.set_groups : self = '%s'; value = [ %s ]"
+          (vm_uuid ~__context self)
+          (String.concat "; " (List.map (vm_group_uuid ~__context) value)) ;
+        Local.VM.set_groups ~__context ~self ~value
 
       let import_convert ~__context ~_type ~username ~password ~sr
           ~remote_config =
@@ -6509,6 +6526,21 @@ functor
             Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
               ~base_build_id ~base_version ~base_release ~to_version ~to_release
         )
+    end
+
+    module VM_group = struct
+      let create ~__context ~name_label ~name_description ~placement =
+        info
+          "VM_group.create: name_label = '%s'; name_description = '%s'; \
+           placement = '%s'"
+          name_label name_description
+          (Record_util.vm_placement_policy_to_string placement) ;
+        Local.VM_group.create ~__context ~name_label ~name_description
+          ~placement
+
+      let destroy ~__context ~self =
+        info "VM_group.destroy: self = '%s'" (vm_group_uuid ~__context self) ;
+        Local.VM_group.destroy ~__context ~self
     end
 
     module Observer = struct

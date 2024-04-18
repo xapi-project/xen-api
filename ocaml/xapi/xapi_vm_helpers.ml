@@ -117,7 +117,9 @@ let set_is_a_template ~__context ~self ~value =
          )
       |> List.rev
       |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p) ;
-      (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
+      (* Remove from any VM groups when we templatize it *)
+      Db.VM.set_groups ~__context ~self ~value:[] ;
+      (* Delete the vm metrics associated with the vm if it exists, when we templatize it *)
       finally
         (fun () -> Db.VM_metrics.destroy ~__context ~self:m)
         (fun () -> Db.VM.set_metrics ~__context ~self ~value:Ref.null)

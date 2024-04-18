@@ -1968,6 +1968,8 @@ let _ =
   error Api_errors.host_evacuation_is_required ["host"]
     ~doc:"Host evacuation is required before applying updates." () ;
 
+  error Api_errors.too_many_groups [] ~doc:"VM can only belong to one group." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

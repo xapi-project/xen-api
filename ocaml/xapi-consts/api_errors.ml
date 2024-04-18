@@ -1299,3 +1299,5 @@ let telemetry_next_collection_too_late = "TELEMETRY_NEXT_COLLECTION_TOO_LATE"
 
 (* FIPS/CC_PREPARATIONS *)
 let illegal_in_fips_mode = "ILLEGAL_IN_FIPS_MODE"
+
+let too_many_groups = "TOO_MANY_GROUPS"
