@@ -99,7 +99,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     (* Don't fail with other_operation_in_progress if VDI mirroring is in
        progress and destroy is called as part of VDI mirroring *)
     let is_vdi_mirroring_in_progress =
-      List.exists (fun (_, op) -> op = `mirror) current_ops && op = `destroy
+      op = `destroy && List.exists (fun (_, op) -> op = `mirror) current_ops
     in
     if
       List.exists (fun (_, op) -> op <> `copy) current_ops
@@ -133,7 +133,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
           pbd_records
   in
   let* () =
-    if pbds_attached = [] && List.mem op [`resize] then
+    if pbds_attached = [] && op = `resize then
       Error (Api_errors.sr_no_pbds, [Ref.string_of sr])
     else
       Ok ()
