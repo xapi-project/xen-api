@@ -174,7 +174,7 @@ jobs:
         run: make quality-gate
 
       - name: pyflakes
-        uses: Vincnet-lau/action-pyflakes@master
+        uses: Vincent-lau/action-pyflakes@master
         with:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
