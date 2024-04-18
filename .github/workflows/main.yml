@@ -179,6 +179,7 @@ jobs:
           github_token: ${{ secrets.github_token }}
           reporter: github-pr-review
           level: error
+          diff: git diff ${{ github.base_ref }} -- . :^ocaml/xapi-idl/lib_test/test_data
 
   test-sdk-builds:
     name: Test SDK builds
