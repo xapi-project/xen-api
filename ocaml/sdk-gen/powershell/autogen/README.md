@@ -51,9 +51,9 @@ The XenServer PowerShell Module is dependent upon the following libraries:
 
 This archive contains the following folders that are relevant to PowerShell users:
 
-- `XenServerPowerShell\XenServerPSModule`: this is the XenServer PowerShell
+- `XenServerPowerShell\PowerShell_7\XenServerPSModule`: this is the XenServer PowerShell
   Module
-- `XenServerPowerShell\src`: contains the C# source code for the XenServer
+- `XenServerPowerShell\PowerShell_7\src`: contains the C# source code for the XenServer
   cmdlets shipped as a Visual Studio project.
 
 ## Getting Started

@@ -20,6 +20,8 @@ let path = ref "/var/run/message-switch/sock"
 
 let name = ref "server"
 
+let concurrent = ref false
+
 let t, u = Lwt.task ()
 
 let process = function
@@ -29,8 +31,13 @@ let process = function
       return x
 
 let main () =
-  Message_switch_lwt.Protocol_lwt.Server.listen ~process ~switch:!path
-    ~queue:!name ()
+  ( if !concurrent then
+      Message_switch_lwt.Protocol_lwt.Server.listen_p ~process ~switch:!path
+        ~queue:!name ()
+    else
+      Message_switch_lwt.Protocol_lwt.Server.listen ~process ~switch:!path
+        ~queue:!name ()
+  )
   >>= fun _ ->
   t >>= fun () -> Lwt_unix.sleep 1.
 
@@ -44,6 +51,11 @@ let _ =
     ; ( "-name"
       , Arg.Set_string name
       , Printf.sprintf "name to send message to (default %s)" !name
+      )
+    ; ( "-concurrent"
+      , Arg.Set concurrent
+      , Printf.sprintf "set concurrent processing of messages (default %b)"
+          !concurrent
       )
     ]
     (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s" x)

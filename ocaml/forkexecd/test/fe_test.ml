@@ -109,14 +109,23 @@ let test_delay () =
   let start = Unix.gettimeofday () in
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let args = ["sleep"] in
+  (* Need to have fractional part because some internal usage split integer
+     and fractional and do computation.
+     Better to have a high fractional part (> 0.5) to more probably exceed
+     the unit.
+  *)
+  let timeout = 1.7 in
   try
-    Forkhelpers.execute_command_get_output ~timeout:4.0 exe args |> ignore ;
+    Forkhelpers.execute_command_get_output ~timeout exe args |> ignore ;
     failwith "Failed to timeout"
   with
   | Forkhelpers.Subprocess_timeout ->
-      Printf.printf "Caught timeout exception after %f seconds\n%!"
-        (Unix.gettimeofday () -. start) ;
-      ()
+      let elapsed = Unix.gettimeofday () -. start in
+      Printf.printf "Caught timeout exception after %f seconds\n%!" elapsed ;
+      if elapsed < timeout then
+        failwith "Process exited too soon" ;
+      if elapsed > timeout +. 0.2 then
+        failwith "Excessive time elapsed"
   | e ->
       failwith
         (Printf.sprintf "Failed with unexpected exception: %s"
@@ -261,7 +270,7 @@ let slave = function
              pid (List.length filtered) ls
           )
 
-let sleep () = Unix.sleep 5 ; Printf.printf "Ok\n"
+let sleep () = Unix.sleep 3 ; Printf.printf "Ok\n"
 
 let echo out err =
   if out <> "" then print_endline out ;

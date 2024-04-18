@@ -29,6 +29,8 @@ module type BACKEND = sig
 
     val iter : ('a -> unit t) -> 'a list -> unit t
 
+    val iter_dontwait : ('a -> unit t) -> 'a list -> unit
+
     val any : 'a t list -> 'a t
 
     val is_determined : 'a t -> bool
@@ -88,6 +90,14 @@ module type SERVER = sig
     -> t result io
   (** Connect to [switch] and start processing messages on [queue] via function
       [process] *)
+
+  val listen_p :
+       process:(string -> string io)
+    -> switch:string
+    -> queue:string
+    -> unit
+    -> t result io
+  (** same as above, but processes requests concurrently *)
 
   val shutdown : t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)

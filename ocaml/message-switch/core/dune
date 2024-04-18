@@ -9,6 +9,7 @@
     sexplib
     sexplib0
     uri
+    xapi-log
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
