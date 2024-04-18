@@ -155,16 +155,14 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
                )
           )
     | Some records ->
-        List.map snd
-          (List.filter
-             (fun (_, vbd_record) ->
-               vbd_record.Db_actions.vBD_VDI = _ref'
-               && (vbd_record.Db_actions.vBD_currently_attached
-                  || vbd_record.Db_actions.vBD_reserved
-                  )
-             )
-             records
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && (vbd_record.Db_actions.vBD_currently_attached
+               || vbd_record.Db_actions.vBD_reserved
+               )
           )
+          records
   in
   let my_active_rw_vbd_records =
     List.filter (fun vbd -> vbd.Db_actions.vBD_mode = `RW) my_active_vbd_records
@@ -183,14 +181,12 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
                )
           )
     | Some records ->
-        List.map snd
-          (List.filter
-             (fun (_, vbd_record) ->
-               vbd_record.Db_actions.vBD_VDI = _ref'
-               && vbd_record.Db_actions.vBD_current_operations <> []
-             )
-             records
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && vbd_record.Db_actions.vBD_current_operations <> []
           )
+          records
   in
   (* If the VBD is currently_attached then some operations can still be
      performed ie: VDI.clone (if the VM is suspended we have to have the
