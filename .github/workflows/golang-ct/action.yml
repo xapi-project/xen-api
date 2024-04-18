@@ -1,0 +1,12 @@
+name: 'Run Component Test for Golang SDK'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build and run Docker Compose
+      run: |
+        cd ${{ github.workspace }}/ocaml/sdk-gen/tests
+        docker-compose up --build --exit-code-from test-go-client
+      shell: bash

@@ -1,0 +1,29 @@
+{
+  "test_id1": {
+    "method": "login_session",
+    "params": {
+      "username": "admin",
+      "password": "secret"
+    },
+    "expected_result": {
+      "result": "login successfully with username: admin"
+    }
+  },
+  "test_id2": {
+    "method": "login_session",
+    "params": {
+      "username": "admin",
+      "password": "invalid"
+    },
+    "expected_result": {
+      "error": "login failed with username: admin"
+    }
+  },
+  "test_id3": {
+    "method": "logout_session",
+    "params": {},
+    "expected_result": {
+      "result": "logout successfully"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+version: '3'
+services:
+  jsonrpc-server:
+    build:
+      context: .
+      target: jsonrpc-server
+      dockerfile: Dockerfile
+    ports:
+    - 5000:5000
+
+  test-go-client:
+    build:
+      context: .
+      target: test-go-client
+      dockerfile: Dockerfile
+    depends_on:
+    - jsonrpc-server
