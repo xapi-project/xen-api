@@ -10,6 +10,7 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
+  "ocaml" {>= "4.09"}
   "alcotest" {with-test}
   "angstrom"
   "astring"
