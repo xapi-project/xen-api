@@ -53,6 +53,7 @@ let test_clusterd_rpc ~__context call =
         ; config_version= 1L
         ; cluster_token_timeout_ms= 20000L
         ; cluster_token_coefficient_ms= 1000L
+        ; cluster_stack= Cluster_stack.Corosync3
         }
       in
       let diag =

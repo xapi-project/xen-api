@@ -35,6 +35,9 @@ let validate_params ~token_timeout ~token_timeout_coefficient =
 let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
     ~token_timeout_coefficient =
   assert_cluster_stack_valid ~cluster_stack ;
+  let cluster_stack_version = 3L in
+  (* needed here in addtion to cluster_host.create_internal since the
+     Xapi_clustering.daemon.enable relies on the correct corosync verion *)
   (* Currently we only support corosync. If we support more cluster stacks, this
    * should be replaced by a general function that checks the given cluster_stack *)
   Pool_features.assert_enabled ~__context ~f:Features.Corosync ;
@@ -50,21 +53,20 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let host = Helpers.get_master ~__context in
       let pifrec = Db.PIF.get_record ~__context ~self:pIF in
       assert_pif_prerequisites (pIF, pifrec) ;
+      let open Cluster_interface in
       let ip_addr = ip_of_pif (pIF, pifrec) in
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
         if Xapi_cluster_helpers.cluster_health_enabled ~__context then
-          Cluster_interface.(
-            Extended
-              {
-                ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-              ; hostuuid
-              ; hostname
-              }
-          )
+          Extended
+            {
+              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+            ; hostuuid
+            ; hostname
+            }
         else
-          Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
+          IPv4 (ipstr_of_address ip_addr)
       in
       let token_timeout_ms = Int64.of_float (token_timeout *. 1000.0) in
       let token_timeout_coefficient_ms =
@@ -72,13 +74,18 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       in
       let init_config =
         {
-          Cluster_interface.member
+          member
         ; token_timeout_ms= Some token_timeout_ms
         ; token_coefficient_ms= Some token_timeout_coefficient_ms
         ; name= None
+        ; cluster_stack=
+            Cluster_stack.of_version (cluster_stack, cluster_stack_version)
         }
       in
       Xapi_clustering.Daemon.enable ~__context ;
+      maybe_switch_cluster_stack_version ~__context ~self:cluster_host_ref
+        ~cluster_stack:
+          (Cluster_stack.of_version (cluster_stack, cluster_stack_version)) ;
       let result =
         Cluster_client.LocalClient.create (rpc ~__context) dbg init_config
       in
@@ -86,8 +93,9 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       | Ok cluster_token ->
           D.debug "Got OK from LocalClient.create" ;
           Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid
-            ~cluster_token ~cluster_stack ~pending_forget:[] ~pool_auto_join
-            ~token_timeout ~token_timeout_coefficient ~current_operations:[]
+            ~cluster_token ~cluster_stack ~cluster_stack_version
+            ~pending_forget:[] ~pool_auto_join ~token_timeout
+            ~token_timeout_coefficient ~current_operations:[]
             ~allowed_operations:[] ~cluster_config:[] ~other_config:[]
             ~is_quorate:false ~quorum:0L ~live_hosts:0L ;
           Db.Cluster_host.create ~__context ~ref:cluster_host_ref

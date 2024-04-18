@@ -122,6 +122,7 @@ let set_tls_config ~__context ~self ~verify =
 
 (* Helper function atomically enables clusterd and joins the cluster_host *)
 let join_internal ~__context ~self =
+  let open Cluster_interface in
   with_clustering_lock __LOC__ (fun () ->
       let pIF = Db.Cluster_host.get_PIF ~__context ~self in
       fix_pif_prerequisites ~__context pIF ;
@@ -130,22 +131,26 @@ let join_internal ~__context ~self =
       let cluster_token =
         Db.Cluster.get_cluster_token ~__context ~self:cluster
       in
+      let cluster_stack =
+        Cluster_stack.of_version
+          ( Db.Cluster.get_cluster_stack ~__context ~self:cluster
+          , Db.Cluster.get_cluster_stack_version ~__context ~self:cluster
+          )
+      in
       let ip_addr = ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF) in
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let host = Db.Cluster_host.get_host ~__context ~self in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
         if Xapi_cluster_helpers.cluster_health_enabled ~__context then
-          Cluster_interface.(
-            Extended
-              {
-                ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-              ; hostuuid
-              ; hostname
-              }
-          )
+          Extended
+            {
+              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+            ; hostuuid
+            ; hostname
+            }
         else
-          Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
+          IPv4 (ipstr_of_address ip_addr)
       in
       let ip_list =
         List.filter_map
@@ -170,6 +175,7 @@ let join_internal ~__context ~self =
           ) ;
       debug "Enabling clusterd and joining cluster_host %s" (Ref.string_of self) ;
       Xapi_clustering.Daemon.enable ~__context ;
+      maybe_switch_cluster_stack_version ~__context ~self ~cluster_stack ;
       let verify = Stunnel_client.get_verify_by_default () in
       let tls_config = build_tls_config ~__context ~verify in
       let result =
@@ -212,6 +218,14 @@ let resync_host ~__context ~host =
           (Db.Host.get_name_label ~__context ~self:host)
       in
       let obj_uuid = Db.Host.get_uuid ~__context ~self:host in
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
+      let cluster_stack =
+        Cluster_interface.Cluster_stack.of_version
+          ( Db.Cluster.get_cluster_stack ~__context ~self:cluster
+          , Db.Cluster.get_cluster_stack_version ~__context ~self:cluster
+          )
+      in
+
       call_api_function_with_alert ~__context
         ~msg:Api_messages.cluster_host_enable_failed ~cls:`Host ~obj_uuid ~body
         ~api_func:(fun rpc session_id ->
@@ -224,6 +238,7 @@ let resync_host ~__context ~host =
             debug "Cluster_host %s is enabled, starting up xapi-clusterd"
               (Ref.string_of self) ;
             Xapi_clustering.Daemon.enable ~__context ;
+            maybe_switch_cluster_stack_version ~__context ~self ~cluster_stack ;
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable ~rpc ~session_id ~self
           ) ;
@@ -349,6 +364,14 @@ let enable ~__context ~self =
         else
           Cluster_interface.(IPv4 (ipstr_of_address ip_addr))
       in
+      let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self in
+      let cluster_stack =
+        Db.Cluster.get_cluster_stack ~__context ~self:cluster_ref
+      in
+      let cluster_stack_version =
+        Db.Cluster.get_cluster_stack_version ~__context ~self:cluster_ref
+      in
+
       (* TODO: Pass these through from CLI *)
       if not !Xapi_clustering.Daemon.enabled then (
         D.debug
@@ -360,12 +383,14 @@ let enable ~__context ~self =
         Xapi_observer_components.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
       set_tls_config ~__context ~self ~verify ;
+      let open Cluster_interface in
       let init_config =
         {
-          Cluster_interface.member
+          member
         ; token_timeout_ms= None
         ; token_coefficient_ms= None
         ; name= None
+        ; cluster_stack= Cluster_stack.of_version (cluster_stack,cluster_stack_version)
         }
       in
       let result =

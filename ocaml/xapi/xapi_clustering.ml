@@ -326,6 +326,22 @@ let rpc ~__context =
             "Can only communicate with xapi-clusterd through message-switch"
       )
 
+let maybe_switch_cluster_stack_version ~__context ~self ~cluster_stack =
+  if Xapi_cluster_helpers.corosync3_enabled ~__context then
+    let dbg = Context.string_of_task_and_tracing __context in
+    let result =
+      Cluster_client.LocalClient.switch_cluster_stack (rpc ~__context) dbg
+        cluster_stack
+    in
+    match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+    | Ok () ->
+        debug "cluster stack switching was successful for cluster_host: %s"
+          (Ref.string_of self)
+    | Error error ->
+        warn "Error encountered when switching cluster stack cluster_host %s"
+          (Ref.string_of self) ;
+        handle_error error
+
 let assert_cluster_host_quorate ~__context ~self =
   (* With the latest kernel GFS2 would hang on mount if clustering is not working yet,
    * whereas previously we got a 'Transport endpoint not connected' error.
