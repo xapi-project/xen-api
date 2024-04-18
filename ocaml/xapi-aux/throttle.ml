@@ -52,18 +52,25 @@ module Batching = struct
     To avoid issues with floating-point rounding, we consider everything smaller than {!val:Float.epsilon} equivalent to 0.
     Thread.delay 0 provides no fairness guarantees, the current thread may actually be the one that gets the global lock again.
     Instead {!val:Thread.yield} could be used, which does provide fairness guarantees, but it may also introduce large latencies
-    when there are lots of threads waiting for the OCaml runtime lock.
+    when there are lots of threads waiting for the OCaml runtime lock. Only invoke this once, in the [delay_before] section.
    *)
-  let perform_delay delay =
+  let perform_delay ~yield delay =
     if delay > Float.epsilon then
       Thread.delay delay
+    else if yield then
+      (* this is a low-priority thread, if there are any other threads waiting, then run them now.
+         If there are no threads waiting then this a noop.
+         Requires OCaml >= 4.09 (older versions had fairness issues in Thread.yield)
+      *)
+      Thread.yield ()
 
   let with_recursive config f () =
     let rec self arg =
       let arg = Float.min config.delay_between (arg *. 2.) in
-      perform_delay arg ; (f [@tailcall]) self arg
+      perform_delay ~yield:false arg ;
+      (f [@tailcall]) self arg
     in
     let self0 arg = (f [@tailcall]) self arg in
-    perform_delay config.delay_before ;
+    perform_delay ~yield:true config.delay_before ;
     f self0 (config.delay_between /. 16.)
 end
