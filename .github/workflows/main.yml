@@ -107,17 +107,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTYPE_REPORTER_DEBUG: True
 
-      # Try to add pytype_report.py's summary file as a comment to the PR:
-      # Documentation: https://github.com/marketplace/actions/add-pr-comment
-      - name: Add the pytype summary as a comment to the PR (if permitted)
-        uses: mshick/add-pr-comment@v2
-        # Depends on pytype checks, which are not run for python 2.7:
-        if: ${{ matrix.python-version != '2.7' }}
-        # Fails for user workflows without permissions(fork-based pull requests):
-        continue-on-error: true
-        with:
-          message-path: .git/pytype-summary.md # Add the content of it as comment
-
   ocaml-tests:
     name: Run OCaml tests
     runs-on: ubuntu-20.04
