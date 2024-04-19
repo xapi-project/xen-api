@@ -58,8 +58,11 @@ let escape s =
     s
 
 let unescape s =
-  let buf = Buffer.create (String.length s) in
-  unescape_buf buf s ; Buffer.contents buf
+  if String.contains s '\\' then (
+    let buf = Buffer.create (String.length s) in
+    unescape_buf buf s ; Buffer.contents buf
+  ) else
+    s
 
 let mkstring x = String (unescape x)
 
