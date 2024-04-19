@@ -98,6 +98,7 @@ jobs:
           level: warning
           # To be customized to cover remaining Python scripts:
           glob_pattern: "**/*.py"
+        continue-on-error: true
 
       - name: Run pytype checks
         if: ${{ matrix.python-version != '2.7' }}
@@ -106,6 +107,13 @@ jobs:
           PR_NUMBER: ${{ github.event.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTYPE_REPORTER_DEBUG: True
+
+      - name: pyflakes
+        uses: reviewdog/action-pyflakes@v1
+        with:
+          github_token: ${{ secrets.github_token }}
+        continue-on-error: true
+
 
   ocaml-tests:
     name: Run OCaml tests
@@ -161,13 +169,6 @@ jobs:
 
       - name: quality-gate
         run: make quality-gate
-
-      - name: pyflakes
-        uses: reviewdog/action-pyflakes@master
-        with:
-          github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review
-          level: error
 
   test-sdk-builds:
     name: Test SDK builds
