@@ -28,25 +28,20 @@
  */
 
 
-#ifndef XEN_API_VERSION_H
-#define XEN_API_VERSION_H
+#ifndef XEN_{{{class_upper}}}_DECL_H
+#define XEN_{{{class_upper}}}_DECL_H
 
-#include <stdint.h>
+{{^is_event}}
+typedef void *xen_{{{class_lower}}};
 
-typedef enum xen_api_version
-{
-{{#releases}}
-    xen_api_version_{{version_major}}_{{version_minor}} = {{version_index}},
-{{/releases}}
-    xen_api_latest_version = {{latest_version_index}},
-    xen_api_unknown_version = 99,
-} xen_api_version;
-
-extern const char *
-xen_api_version_to_string(xen_api_version version);
-
-extern xen_api_version
-xen_api_version_from_int(int64_t major_version, int64_t minor_version);
+struct xen_{{{class_lower}}}_set;
+{{/is_event}}
+struct xen_{{{class_lower}}}_record;
+struct xen_{{{class_lower}}}_record_set;
+{{^is_event}}
+struct xen_{{{class_lower}}}_record_opt;
+struct xen_{{{class_lower}}}_record_opt_set;
+{{/is_event}}
 
 #endif
 

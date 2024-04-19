@@ -58,4 +58,3 @@ Compiling from source
 ---------------------
 
 To build, simply type "make" in the libxenserver/src directory.
-To build on Windows with cygwin type "make CYGWIN=1".

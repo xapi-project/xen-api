@@ -28,25 +28,31 @@
  */
 
 
-#ifndef XEN_API_VERSION_H
-#define XEN_API_VERSION_H
+#include "xen_internal.h"
+#include <xen/api/xen_api_failure.h>
 
-#include <stdint.h>
 
-typedef enum xen_api_version
+/*
+ * Maintain this in the same order as the enum declaration!
+ */
+static const char *lookup_table[] =
 {
-{{#releases}}
-    xen_api_version_{{version_major}}_{{version_minor}} = {{version_index}},
-{{/releases}}
-    xen_api_latest_version = {{latest_version_index}},
-    xen_api_unknown_version = 99,
-} xen_api_version;
+{{#api_errors}}
+    "{{api_error}}",
+{{/api_errors}}
+};
 
-extern const char *
-xen_api_version_to_string(xen_api_version version);
 
-extern xen_api_version
-xen_api_version_from_int(int64_t major_version, int64_t minor_version);
+const char *
+xen_api_failure_to_string(enum xen_api_failure val)
+{
+    return lookup_table[val];
+}
 
-#endif
+
+extern enum xen_api_failure
+xen_api_failure_from_string(const char *str)
+{
+    return ENUM_LOOKUP(str, lookup_table);
+}
 
