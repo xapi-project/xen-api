@@ -1144,7 +1144,7 @@ let gen_cmds rpc session_id =
       )
     ; Client.PGPU.(
         mk get_all_records_where get_by_uuid pgpu_record "pgpu" []
-          ["uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
+          ["uuid"; "pci-uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
           rpc session_id
       )
     ; Client.GPU_group.(
@@ -1329,6 +1329,11 @@ let gen_cmds rpc session_id =
           ; "endpoints"
           ; "enabled"
           ]
+          rpc session_id
+      )
+    ; Client.PCI.(
+        mk get_all_records_where get_by_uuid pci_record "pci" []
+          ["uuid"; "vendor-name"; "device-name"; "pci-id"]
           rpc session_id
       )
     ]
@@ -7483,13 +7488,13 @@ let pgpu_enable_dom0_access printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid in
   let result = Client.PGPU.enable_dom0_access ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 let pgpu_disable_dom0_access printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid in
   let result = Client.PGPU.disable_dom0_access ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 let lvhd_enable_thin_provisioning _printer rpc session_id params =
   let sr_uuid = List.assoc "sr-uuid" params in
@@ -7512,6 +7517,24 @@ let lvhd_enable_thin_provisioning _printer rpc session_id params =
        params
        ["sr-uuid"; "initial-allocation"; "allocation-quantum"]
     )
+
+let pci_enable_dom0_access printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.enable_dom0_access ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
+
+let pci_disable_dom0_access printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.disable_dom0_access ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
+
+let get_dom0_access_status printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.get_dom0_access_status ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 module PVS_site = struct
   let introduce printer rpc session_id params =

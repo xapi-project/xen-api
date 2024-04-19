@@ -51,3 +51,21 @@ val disable_system_display_device : unit -> unit
 
 val dequarantine : __context:Context.t -> Xenops_interface.Pci.address -> unit
 (** dequarantine a PCI device. This is idempotent. *)
+
+val disable_dom0_access :
+     __context:Context.t
+  -> self:API.ref_PCI
+  -> [`disable_on_reboot | `disabled | `enable_on_reboot | `enabled]
+(** Hide a PCI device from the dom0 kernel. (Takes affect after next boot.) *)
+
+val enable_dom0_access :
+     __context:Context.t
+  -> self:API.ref_PCI
+  -> [`disable_on_reboot | `disabled | `enable_on_reboot | `enabled]
+(** Unhide a PCI device from the dom0 kernel. (Takes affect after next boot.) *)
+
+val get_dom0_access_status :
+     __context:Context.t
+  -> self:API.ref_PCI
+  -> [`disable_on_reboot | `disabled | `enable_on_reboot | `enabled]
+(** Return a PCI device dom0 access status. *)
