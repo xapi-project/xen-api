@@ -39,18 +39,15 @@ let escape s =
   let escaped = Buffer.create (String.length s + 10) in
   String.iter
     (fun c ->
-      let c' =
-        match c with
-        | '\\' ->
-            "\\\\"
-        | '"' ->
-            "\\\""
-        | '\'' ->
-            "\\\'"
-        | _ ->
-            Astring.String.of_char c
-      in
-      Buffer.add_string escaped c'
+      match c with
+      | '\\' ->
+          Buffer.add_string escaped "\\\\"
+      | '"' ->
+          Buffer.add_string escaped "\\\""
+      | '\'' ->
+          Buffer.add_string escaped "\\\'"
+      | _ ->
+          Buffer.add_char escaped c
     )
     s ;
   Buffer.contents escaped
