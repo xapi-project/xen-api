@@ -37,7 +37,7 @@ jobs:
       - run: echo "::add-matcher::.github/workflows/python-warning-matcher.json"
         name: "Setup GitHub for reporting Python warnings as annotations in pull request code review"
 
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3.0.1
         name: Run pre-commit checks (no spaces at end of lines, etc)
         if: ${{ matrix.python-version != '2.7' }}
         with:
