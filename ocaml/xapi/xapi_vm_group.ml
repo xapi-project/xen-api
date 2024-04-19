@@ -21,4 +21,8 @@ let create ~__context ~name_label ~name_description ~placement =
     ~name_description ~placement ;
   ref
 
-let destroy ~__context ~self = Db.VM_group.destroy ~__context ~self
+let destroy ~__context ~self =
+  List.iter
+    (fun vm -> Db.VM.remove_groups ~__context ~self:vm ~value:self)
+    (Db.VM_group.get_VMs ~__context ~self) ;
+  Db.VM_group.destroy ~__context ~self
