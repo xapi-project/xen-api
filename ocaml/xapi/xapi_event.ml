@@ -56,6 +56,12 @@ let is_lowercase str = String.for_all is_lowercase_char str
 module Subscription = struct
   type t = Class of string | Object of string * string | All
 
+  let is_task_only = function
+    | Class "task" | Object ("task", _) ->
+        true
+    | Class _ | Object _ | All ->
+        false
+
   let of_string x =
     if x = "*" then
       All
@@ -465,7 +471,7 @@ let unregister ~__context ~classes =
 
 (** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
-  let batching = Throttle.Batching.make ~delay_before:0. ~delay_between:0.05 in
+  let batching = !Xapi_globs.event_next_delay in
   let session = Context.get_session_id __context in
   let open Next in
   assert_subscribed session ;
@@ -695,7 +701,14 @@ let from_inner __context session subs from from_t deadline batching =
   {events; valid_ref_counts; token= Token.to_string (last, msg_gen)}
 
 let from ~__context ~classes ~token ~timeout =
-  let batching = Throttle.Batching.make ~delay_before:0. ~delay_between:0.05 in
+  let deadline = Unix.gettimeofday () +. timeout in
+  let subs = List.map Subscription.of_string classes in
+  let batching =
+    if List.for_all Subscription.is_task_only subs then
+      !Xapi_globs.event_from_task_delay
+    else
+      !Xapi_globs.event_from_delay
+  in
   let session = Context.get_session_id __context in
   let from, from_t =
     try Token.of_string token
@@ -707,8 +720,6 @@ let from ~__context ~classes ~token ~timeout =
            (Api_errors.event_from_token_parse_failure, [token])
         )
   in
-  let subs = List.map Subscription.of_string classes in
-  let deadline = Unix.gettimeofday () +. timeout in
   (* We need to iterate because it's possible for an empty event set
      	   to be generated if we peek in-between a Modify and a Delete; we'll
      	   miss the Delete event and fail to generate the Modify because the
