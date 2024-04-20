@@ -497,11 +497,11 @@ let rec next ~__context =
   in
   (* Like grab_range () only guarantees to return a non-empty range by blocking if necessary *)
   let grab_nonempty_range =
-    Throttle.Batching.with_recursive_loop batching @@ fun self () ->
+    Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
     let last_id, end_id = grab_range () in
     if last_id = end_id then
       let (_ : int64) = wait subscription end_id in
-      (self [@tailcall]) ()
+      (self [@tailcall]) arg
     else
       (last_id, end_id)
   in
@@ -608,7 +608,7 @@ let from_inner __context session subs from from_t timer batching =
   let msg_gen, messages, tableset, (creates, mods, deletes, last) =
     with_call session subs (fun sub ->
         let grab_nonempty_range =
-          Throttle.Batching.with_recursive_loop batching @@ fun self () ->
+          Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
           let ( (msg_gen, messages, _tableset, (creates, mods, deletes, last))
                 as result
               ) =
@@ -627,7 +627,7 @@ let from_inner __context session subs from from_t timer batching =
             (* last id the client got is equivalent to the current one *)
             last_msg_gen := msg_gen ;
             wait2 sub last timer ;
-            (self [@tailcall]) ()
+            (self [@tailcall]) arg
           ) else
             result
         in

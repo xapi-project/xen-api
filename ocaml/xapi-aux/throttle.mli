@@ -37,18 +37,24 @@ module Batching : sig
   (** [with_recursive_loop config f arg] calls [f self arg], where [self] can be used
     for recursive calls.
 
-    A [delay_before] amount of seconds is inserted once, and [delay_between] is inserted between recursive calls:
+    [arg] is an argument that the implementation of [f] can change between recursive calls for its own purposes,
+    otherwise [()] can be used.
+
+    A [delay_before] amount of seconds is inserted once, and [delay_between/8] is inserted between recursive calls,
+    except the first one, and delays increase exponentially until [delay_between] is reached
     {v
       delay_before
       f ...
         (self[@tailcall]) ...
-         delay_between
          f ...
           (self[@tailcall]) ...
-          delay_between
+          delay_between/8
           f ...
+            (self[@tailcall]) ...
+            delay_between/4
+            f ...
      v}
 
-    The delays are determined by [config]
+    The delays are determined by [config], and [delay_between] uses an exponential backoff, up to [config.delay_between] delay.
    *)
 end

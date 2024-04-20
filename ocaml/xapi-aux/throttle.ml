@@ -41,9 +41,20 @@ module Make (Size : SIZE) = struct
 end
 
 module Batching = struct
-  type t = {delay_before: Mtime.span; delay_between: Mtime.span}
+  type t = {
+      delay_initial: Mtime.span
+    ; delay_before: Mtime.span
+    ; delay_between: Mtime.span
+  }
 
-  let make ~delay_before ~delay_between = {delay_before; delay_between}
+  let make ~delay_before ~delay_between =
+    (* we are dividing, cannot overflow *)
+    let delay_initial =
+      Mtime.Span.to_float_ns delay_between /. 16.
+      |> Mtime.Span.of_float_ns
+      |> Option.get
+    in
+    {delay_initial; delay_before; delay_between}
 
   (** [perform_delay delay] calls {!val:Thread.delay} when [delay] is non-zero.
 
@@ -55,11 +66,15 @@ module Batching = struct
     if Mtime.Span.is_longer delay ~than:Mtime.Span.zero then
       Thread.delay (Clock.Timer.span_to_s delay)
 
-  let with_recursive_loop config f arg =
-    let rec self arg =
-      perform_delay config.delay_between ;
-      (f [@tailcall]) self arg
+  let span_min a b = if Mtime.Span.is_shorter a ~than:b then a else b
+
+  let with_recursive_loop config f =
+    let rec self arg input =
+      let arg = span_min config.delay_between Mtime.Span.(2 * arg) in
+      perform_delay arg ;
+      (f [@tailcall]) (self arg) input
     in
+    let self0 arg input = (f [@tailcall]) (self arg) input in
     perform_delay config.delay_before ;
-    f self arg
+    f (self0 config.delay_initial)
 end
