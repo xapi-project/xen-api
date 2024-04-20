@@ -43,6 +43,8 @@ end
 module Batching = struct
   type t = {delay_before: float; delay_between: float}
 
+  type arg = float
+
   let make ~delay_before ~delay_between = {delay_before; delay_between}
 
   (** [perform_delay delay] calls {!val:Thread.delay} when [delay] is non-zero.
@@ -56,11 +58,12 @@ module Batching = struct
     if delay > Float.epsilon then
       Thread.delay delay
 
-  let with_recursive config f arg =
+  let with_recursive config f () =
     let rec self arg =
-      perform_delay config.delay_between ;
-      (f [@tailcall]) self arg
+      let arg = Float.min config.delay_between (arg *. 2.) in
+      perform_delay arg ; (f [@tailcall]) self arg
     in
+    let self0 arg = (f [@tailcall]) self arg in
     perform_delay config.delay_before ;
-    f self arg
+    f self0 (config.delay_between /. 16.)
 end
