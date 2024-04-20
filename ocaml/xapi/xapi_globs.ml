@@ -1105,7 +1105,8 @@ let event_from_task_delay, event_from_task_entry =
     ~delay_between:Mtime.Span.(50 * ms)
 
 let event_next_delay, event_next_entry =
-  make_batching "event_next" ~delay_before:Mtime.Span.zero
+  make_batching "event_next"
+    ~delay_before:Mtime.Span.(200 * ms)
     ~delay_between:Mtime.Span.(50 * ms)
 
 let xapi_globs_spec =
