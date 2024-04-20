@@ -1068,6 +1068,46 @@ let tgroups_enabled = ref false
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
 
+(* Event.{from,next} batching delays *)
+let make_batching name ~delay_before ~delay_between =
+  let name = Printf.sprintf "%s_delay" name in
+  let config = ref (Throttle.Batching.make ~delay_before ~delay_between)
+  and config_vals = ref (delay_before, delay_between) in
+  let set str =
+    Scanf.sscanf str "%f,%f" @@ fun delay_before delay_between ->
+    match
+      (Clock.Timer.s_to_span delay_before, Clock.Timer.s_to_span delay_between)
+    with
+    | Some delay_before, Some delay_between ->
+        config_vals := (delay_before, delay_between) ;
+        config := Throttle.Batching.make ~delay_before ~delay_between
+    | _ ->
+        D.warn
+          "Ignoring argument '%s'. (it only allows durations of less than 104 \
+           days)"
+          str
+  and get () =
+    let d1, d2 = !config_vals in
+    Printf.sprintf "%f,%f" (Clock.Timer.span_to_s d1) (Clock.Timer.span_to_s d2)
+  and desc =
+    Printf.sprintf
+      "delays in seconds before the API call, and between internal recursive \
+       calls, separated with a comma"
+  in
+  (config, (name, Arg.String set, get, desc))
+
+let event_from_delay, event_from_entry =
+  make_batching "event_from" ~delay_before:Mtime.Span.zero
+    ~delay_between:Mtime.Span.(50 * ms)
+
+let event_from_task_delay, event_from_task_entry =
+  make_batching "event_from_task" ~delay_before:Mtime.Span.zero
+    ~delay_between:Mtime.Span.(50 * ms)
+
+let event_next_delay, event_next_entry =
+  make_batching "event_next" ~delay_before:Mtime.Span.zero
+    ~delay_between:Mtime.Span.(50 * ms)
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1644,6 +1684,9 @@ let other_options =
     , (fun () -> string_of_bool !tgroups_enabled)
     , "Turn on tgroups classification"
     )
+  ; event_from_entry
+  ; event_from_task_entry
+  ; event_next_entry
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
