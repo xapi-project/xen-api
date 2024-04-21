@@ -544,11 +544,7 @@ let from_inner __context session subs from from_t deadline =
             Db_cache_types.Table.fold_over_recent !last_generation
               (fun objref {Db_cache_types.Stat.created; modified; deleted} _
                    (creates, mods, deletes, last) ->
-                if
-                  Subscription.object_matches subs
-                    (String.lowercase_ascii table)
-                    objref
-                then
+                if Subscription.object_matches subs table objref then
                   let last = max last (max modified deleted) in
                   (* mtime guaranteed to always be larger than ctime *)
                   ( ( if created > !last_generation then
@@ -578,11 +574,7 @@ let from_inner __context session subs from from_t deadline =
           Db_cache_types.Table.fold_over_deleted !last_generation
             (fun objref {Db_cache_types.Stat.created; modified; deleted}
                  (creates, mods, deletes, last) ->
-              if
-                Subscription.object_matches subs
-                  (String.lowercase_ascii table)
-                  objref
-              then
+              if Subscription.object_matches subs table objref then
                 let last = max last (max modified deleted) in
                 (* mtime guaranteed to always be larger than ctime *)
                 if created > !last_generation then
