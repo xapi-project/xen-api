@@ -49,6 +49,10 @@ module Token = struct
     Printf.sprintf "%020Ld,%020Ld" last last_t
 end
 
+let is_lowercase_char c = Char.equal (Char.lowercase_ascii c) c
+
+let is_lowercase str = String.for_all is_lowercase_char str
+
 module Subscription = struct
   type t = Class of string | Object of string * string | All
 
@@ -71,7 +75,7 @@ module Subscription = struct
 
   (** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
   let table_matches subs tbl =
-    let tbl = String.lowercase_ascii tbl in
+    let tbl = if is_lowercase tbl then tbl else String.lowercase_ascii tbl in
     let matches = function
       | All ->
           true
@@ -84,7 +88,7 @@ module Subscription = struct
 
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for specified class and object *)
   let object_matches subs ty _ref =
-    let tbl = String.lowercase_ascii ty in
+    let tbl = if is_lowercase ty then ty else String.lowercase_ascii ty in
     let matches = function
       | All ->
           true
