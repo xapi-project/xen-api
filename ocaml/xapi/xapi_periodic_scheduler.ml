@@ -58,6 +58,22 @@ let remove_from_queue name =
   if index > -1 then
     Ipq.remove queue index
 
+let wait_next sleep =
+  try ignore (Delay.wait delay sleep)
+  with e ->
+    let detailed_msg =
+      match e with
+      | Unix.Unix_error (code, _, _) ->
+          Unix.error_message code
+      | _ ->
+          "unknown error"
+    in
+    error
+      "Could not schedule interruptable delay (%s). Falling back to normal \
+       delay. New events may be missed."
+      detailed_msg ;
+    Thread.delay sleep
+
 let loop () =
   debug "Periodic scheduler started" ;
   try
@@ -85,20 +101,7 @@ let loop () =
             |> Mtime.Span.add (Clock.span 0.001)
             |> Scheduler.span_to_s
           in
-          try ignore (Delay.wait delay sleep)
-          with e ->
-            let detailed_msg =
-              match e with
-              | Unix.Unix_error (code, _, _) ->
-                  Unix.error_message code
-              | _ ->
-                  "unknown error"
-            in
-            error
-              "Could not schedule interruptable delay (%s). Falling back to \
-               normal delay. New events may be missed."
-              detailed_msg ;
-            Thread.delay sleep
+          wait_next sleep
     done
   with _ ->
     error
