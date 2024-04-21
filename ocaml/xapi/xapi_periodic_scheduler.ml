@@ -80,7 +80,7 @@ let loop () =
     while true do
       let empty = with_lock lock (fun () -> Ipq.is_empty queue) in
       if empty then
-        Thread.delay 10.0
+        wait_next 10.0
       (* Doesn't happen often - the queue isn't usually empty *)
       else
         let next = with_lock lock (fun () -> Ipq.maximum queue) in
