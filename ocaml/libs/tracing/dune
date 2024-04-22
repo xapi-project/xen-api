@@ -7,7 +7,7 @@
 (library
  (name tracing_export)
  (modules tracing_export)
- (public_name xapi-tracing.export)
+ (public_name xapi-tracing-export)
  (libraries
   cohttp
   cohttp-posix
