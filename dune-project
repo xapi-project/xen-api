@@ -67,6 +67,10 @@
 )
 
 (package
+  (name xapi-tracing-export)
+)
+
+(package
   (name xapi-storage-script)
 )
 
