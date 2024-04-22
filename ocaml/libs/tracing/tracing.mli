@@ -34,10 +34,22 @@ module SpanKind : sig
   val to_string : t -> string
 end
 
+module Attributes : sig
+  include Map.S with type key := String.t
+
+  val of_list : (string * 'a) list -> 'a t
+
+  val to_assoc_list : 'a t -> (string * 'a) list
+end
+
 module Status : sig
   type status_code
 
   type t
+end
+
+module SpanEvent : sig
+  type t = {name: string; time: float; attributes: string Attributes.t}
 end
 
 module SpanContext : sig
@@ -48,6 +60,8 @@ module SpanContext : sig
   val of_traceparent : string -> t option
 
   val trace_id_of_span_context : t -> string
+
+  val span_id_of_span_context : t -> string
 end
 
 module Span : sig
@@ -61,15 +75,33 @@ module Span : sig
 
   val add_event : t -> string -> (string * string) list -> t
 
+  val get_events : t -> SpanEvent.t list
+
   val set_span_kind : t -> SpanKind.t -> t
 
+  val get_span_kind : t -> SpanKind.t
+
   val get_tag : t -> string -> string
+
+  val get_name : t -> string
+
+  val get_parent : t -> t option
+
+  val get_begin_time : t -> float
+
+  val get_end_time : t -> float option
+
+  val get_attributes : t -> (string * string) list
 end
 
 module Spans : sig
   val set_max_spans : int -> unit
 
   val set_max_traces : int -> unit
+
+  val span_count : unit -> int
+
+  val since : unit -> (string, Span.t list) Hashtbl.t
 
   val dump :
     unit -> (string, Span.t list) Hashtbl.t * (string, Span.t list) Hashtbl.t
@@ -133,6 +165,8 @@ val get_tracer_providers : unit -> TracerProvider.t list
 
 val get_tracer : name:string -> Tracer.t
 
+val enable_span_garbage_collector : ?timeout:float -> unit -> unit
+
 val with_tracing :
      ?attributes:(string * string) list
   -> ?parent:Span.t option
@@ -140,36 +174,6 @@ val with_tracing :
   -> (Span.t option -> 'a)
   -> 'a
 
-module Export : sig
-  val set_export_interval : float -> unit
-
-  val set_host_id : string -> unit
-
-  val set_service_name : string -> unit
-
-  module Destination : sig
-    module File : sig
-      val set_max_file_size : int -> unit
-
-      val set_trace_log_dir : string -> unit
-
-      val get_trace_log_dir : unit -> string
-
-      val set_compress_tracing_files : bool -> unit
-    end
-
-    val flush_spans : unit -> unit
-
-    module Http : sig
-      val export : url:Uri.t -> string -> (unit, exn) result
-    end
-  end
-end
-
 val set_observe : bool -> unit
 
 val validate_attribute : string * string -> bool
-
-val flush_and_exit : unit -> unit
-
-val main : unit -> Thread.t
