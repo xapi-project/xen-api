@@ -1733,7 +1733,7 @@ let vm_secureboot_readiness =
         ("not_supported", "VM's firmware is not UEFI")
       ; ("disabled", "Secureboot is disabled on this VM")
       ; ( "first_boot"
-        , "Secured boot is enabled on this VM and its NVRAM.EFI-variables is \
+        , "Secured boot is enabled on this VM and its NVRAM.EFI-variables are \
            empty"
         )
       ; ( "ready"
@@ -1749,7 +1749,7 @@ let vm_secureboot_readiness =
            variables"
         )
       ; ( "certs_incomplete"
-        , "Secured boot is enabled on this VM and the certificates defines in \
+        , "Secured boot is enabled on this VM and the certificates defined in \
            its EFI variables are incomplete"
         )
       ]

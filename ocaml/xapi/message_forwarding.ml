@@ -1152,6 +1152,10 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ext_auth_max_threads ~__context ~self ~value
+
+      let get_guest_secureboot_readiness ~__context ~self =
+        info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.get_guest_secureboot_readiness ~__context ~self
     end
 
     module VM = struct

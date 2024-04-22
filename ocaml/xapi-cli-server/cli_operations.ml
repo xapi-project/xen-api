@@ -6766,6 +6766,16 @@ let pool_disable_external_auth _printer rpc session_id params =
   let config = read_map_params "config" params in
   Client.Pool.disable_external_auth ~rpc ~session_id ~pool ~config
 
+let pool_get_guest_secureboot_readiness printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let result =
+    Client.Pool.get_guest_secureboot_readiness ~rpc ~session_id ~self:pool
+  in
+  printer
+    (Cli_printer.PMsg
+       (Record_util.pool_guest_secureboot_readiness_to_string result)
+    )
+
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let op _ host =

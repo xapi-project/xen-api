@@ -174,6 +174,14 @@ let vm_secureboot_readiness_to_string = function
   | `certs_incomplete ->
       "certs_incomplete"
 
+let pool_guest_secureboot_readiness_to_string = function
+  | `ready ->
+      "ready"
+  | `ready_no_dbx ->
+      "ready_no_dbx"
+  | `not_ready ->
+      "not_ready"
+
 let pool_operation_to_string = function
   | `ha_enable ->
       "ha_enable"

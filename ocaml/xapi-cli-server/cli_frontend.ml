@@ -523,6 +523,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-get-guest-secureboot-readiness"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Return the readiness of a pool for guest SecureBoot."
+      ; implementation= No_fd Cli_operations.pool_get_guest_secureboot_readiness
+      ; flags= []
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
