@@ -3,12 +3,42 @@
   (names
     client_unix_main
     server_unix_main
+    lock_test_async
+    lock_test_lwt
+  )
+  (modules 
+    client_unix_main
+    server_unix_main   
+    lock_test_async
+    lock_test_lwt
   )
   (libraries
     message-switch-unix
+    message-switch-core
+    message-switch-async
+    message-switch-lwt
     threads.posix
   )
 )
+
+(rule
+  (alias runtest)
+  (deps
+    lock_test_async.exe
+  )
+  (action (run ./lock_test_async.exe))
+  (package message-switch)
+)
+
+(rule
+  (alias runtest)
+  (deps
+    lock_test_lwt.exe
+  )
+  (action (run ./lock_test_lwt.exe))
+  (package message-switch)
+)
+
 
 (rule
   (alias runtest)
@@ -24,6 +54,23 @@
     ../cli/main.exe
   )
   (action (run ./basic-rpc-test.sh))
+  (package message-switch)
+)
+
+(rule
+  (alias runtest)
+  (deps
+    client_unix_main.exe
+    server_unix_main.exe
+    async/client_async_main.exe
+    async/server_async_main.exe
+    lwt/client_main.exe
+    lwt/server_main.exe
+    lwt/link_test_main.exe
+    ../switch/switch_main.exe
+    ../cli/main.exe
+  )
+  (action (run ./concur-rpc-test.sh))
   (package message-switch)
 )
 

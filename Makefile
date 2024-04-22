@@ -117,10 +117,10 @@ sdk:
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
-.PHONY: sdk-build-c sdk
+.PHONY: sdk-build-c
 
 sdk-build-c: sdk
-	cd _build/install/default/xapi/sdk/c && make -j $(JOBS)
+	cd _build/install/default/xapi/sdk/c && make clean && make -j $(JOBS)
 
 .PHONY: sdk-build-java
 

@@ -227,8 +227,64 @@ let parent_of_origin (origin : origin) span_name =
   | _ ->
       None
 
+let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v
+
+let addr_port_of_sock s =
+  match s with
+  | None ->
+      (None, None)
+  | Some (Unix.ADDR_UNIX "") ->
+      (None, None)
+  | Some (Unix.ADDR_UNIX socket_name) ->
+      (Some socket_name, None)
+  | Some (Unix.ADDR_INET (addr, port)) ->
+      (Some (Unix.string_of_inet_addr addr), Some (string_of_int port))
+
+let with_try_get_addr f s =
+  (try Some (f s) with Unix.Unix_error (Unix.ENOTSOCK, _, _) -> None)
+  |> addr_port_of_sock
+
+let attr_of_fd s =
+  let peer_addr, peer_port = s |> with_try_get_addr Unix.getpeername in
+  let local_addr, local_port = s |> with_try_get_addr Unix.getsockname in
+  [
+    attribute_helper_fn
+      (fun addr -> [("network.local.address", addr)])
+      local_addr
+  ; attribute_helper_fn (fun port -> [("network.local.port", port)]) local_port
+  ; attribute_helper_fn (fun addr -> [("network.peer.address", addr)]) peer_addr
+  ; attribute_helper_fn (fun port -> [("network.peer.port", port)]) peer_port
+  ]
+  |> List.concat
+
+let attr_of_req (req : Http.Request.t) =
+  [
+    [
+      ("xs.xapi.task.origin", "http")
+    ; ("http.request.header.method", Http.string_of_method_t req.m)
+    ]
+  ; attribute_helper_fn
+      (fun user_agent -> [("http.request.header.user-agent", user_agent)])
+      req.user_agent
+  ; attribute_helper_fn
+      (fun content_type -> [("http.request.header.content-type", content_type)])
+      req.content_type
+  ; attribute_helper_fn
+      (fun content_length ->
+        [("http.request.body.size", Printf.sprintf "%Li" content_length)]
+      )
+      req.content_length
+  ; List.map
+      (fun (h, v) ->
+        ( h |> String.lowercase_ascii |> Printf.sprintf "http.request.header.%s"
+        , v
+        )
+      )
+      req.additional_headers
+  ]
+  |> List.concat
+
 let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
-  let attribute_helper_fn f v = Option.fold ~none:[] ~some:f v in
   [
     attribute_helper_fn
       (fun task_name -> [("xs.xapi.task.name", task_name)])
@@ -249,8 +305,8 @@ let make_attributes ?task_name ?task_id ?task_uuid ?session_id ?origin () =
         match origin with
         | Internal ->
             [("xs.xapi.task.origin", "internal")]
-        | Http _ ->
-            [("xs.xapi.task.origin", "http")]
+        | Http (req, s) ->
+            [attr_of_req req; attr_of_fd s] |> List.concat
       )
       origin
   ]

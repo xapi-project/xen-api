@@ -28,13 +28,13 @@ module Tpm = struct
 
   let deserialize_key = function
     | 0 ->
-        Perm
+        Ok Perm
     | 1 ->
-        Save
+        Ok Save
     | 2 ->
-        Volatile
+        Ok Volatile
     | s ->
-        Fmt.invalid_arg "Unknown TPM state key: %i" s
+        Error Printf.(sprintf "Unknown TPM state key: %i" s)
 
   let empty_state = ""
 

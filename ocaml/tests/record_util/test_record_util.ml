@@ -177,7 +177,7 @@ let tests =
       , N.host_numa_affinity_policy_to_string
       )
   ; mk __LINE__ None all_pgpu_dom0_access
-      (O.pgpu_dom0_access_to_string, N.pgpu_dom0_access_to_string)
+      (O.pci_dom0_access_to_string, N.pci_dom0_access_to_string)
   ; mk __LINE__ None all_vbd_mode (O.vbd_mode_to_string, N.vbd_mode_to_string)
     (*; mk __LINE__ None all_power (O.power_to_string, N.power_to_string)*)
   ; mk __LINE__ None all_vdi_type (O.vdi_type_to_string, N.vdi_type_to_string)
