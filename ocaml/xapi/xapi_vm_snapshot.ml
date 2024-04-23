@@ -553,11 +553,16 @@ let create_vm_from_snapshot ~__context ~snapshot =
     let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
     let vm_uuid = List.assoc Db_names.uuid snap_metadata in
     let snap_record = Db.VM.get_record ~__context ~self:snapshot in
+    let snap_record =
+      {
+        snap_record with
+        API.vM_suspend_VDI= Ref.null
+      ; API.vM_power_state= `Halted
+      }
+    in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         let new_vm =
-          Xapi_vm_helpers
-          .create_from_record_without_checking_licence_feature_for_vendor_device
-            ~__context rpc session_id snap_record
+          Client.VM.create_from_record ~rpc ~session_id ~value:snap_record
         in
         try
           Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid ;
