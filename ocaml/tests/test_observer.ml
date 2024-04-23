@@ -40,8 +40,7 @@ let trace_log_dir ?(test_name = "") () =
 
 let () =
   Destination.File.set_trace_log_dir (trace_log_dir ()) ;
-  set_service_name "unit_tests" ;
-  set_observe false
+  set_service_name "unit_tests"
 
 module Xapi_DB = struct
   let assert_num_observers ~__context x =
@@ -405,6 +404,13 @@ let test_hashtbl_leaks () =
   let test_trace_log_dir = trace_log_dir ~test_name:"test_hashtbl_leaks" () in
   let __context = Test_common.make_test_database () in
   let self = test_create ~__context ~enabled:true () in
+  let filter_export_spans span =
+    match Span.get_name span with
+    | "Tracing.flush_spans" | "Tracing.File.export" | "Tracing.Http.export" ->
+        false
+    | _ ->
+        true
+  in
   let span = start_test_span () in
   ( match span with
   | Ok x ->
@@ -424,10 +430,23 @@ let test_hashtbl_leaks () =
         false ;
 
       Destination.flush_spans () ;
-      Alcotest.(check bool)
-        "Span export clears finished_spans hashtable"
-        (Tracer.finished_span_hashtbl_is_empty ())
-        true
+
+      (* Flushing the spans always creates two spans if there are tracer providers enabled.
+         - Tracing.flush_spans;
+         - Tracing.File.export/Tracing.Http.export.
+
+         Therefore, the finished spans table is not always empty after flushing.
+      *)
+      let _, finished_spans = Spans.dump () in
+      let filtered_spans_count =
+        finished_spans
+        |> Hashtbl.to_seq_values
+        |> Seq.concat_map List.to_seq
+        |> Seq.filter filter_export_spans
+        |> Seq.length
+      in
+      Alcotest.(check int)
+        "Span export clears finished_spans hash table" filtered_spans_count 0
   | Error e ->
       Alcotest.failf "Span start failed with %s" (Printexc.to_string e)
   ) ;

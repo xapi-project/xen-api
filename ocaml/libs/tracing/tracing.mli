@@ -174,7 +174,7 @@ val with_tracing :
   -> (Span.t option -> 'a)
   -> 'a
 
-val set_observe : bool -> unit
+val get_observe : unit -> bool
 
 val validate_attribute : string * string -> bool
 
