@@ -107,8 +107,6 @@ end = struct
         Printf.sprintf "{%s}" (String.concat ", " (List.map string_of_default x))
     | VRef x ->
         if x = "" then "Null" else x
-    | VCustom (_, y) ->
-        string_of_default y
 
   let of_lifecycle lc =
     `Assoc

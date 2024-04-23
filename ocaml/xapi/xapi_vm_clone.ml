@@ -245,7 +245,7 @@ let snapshot_metadata ~__context ~vm ~is_a_snapshot =
     ""
 
 (* return a new VM record, in appropriate power state and having the
-   good metrics.  *)
+   good metrics. *)
 let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~new_power_state () =
   let all = Db.VM.get_record_internal ~__context ~self:vm in

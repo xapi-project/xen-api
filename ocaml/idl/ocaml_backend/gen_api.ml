@@ -188,8 +188,7 @@ let gen_record_type ~with_module highapi tys =
           | None ->
               "None"
           | Some default ->
-              sprintf "(Some (%s))"
-                (Datamodel_values.to_ocaml_string ~v2:true default)
+              sprintf "(Some (%s))" (Datamodel_values.to_ocaml_string default)
         in
         let make_to_field fld =
           let rpc_field = rpc_field fld in
