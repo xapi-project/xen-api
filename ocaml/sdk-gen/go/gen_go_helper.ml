@@ -172,6 +172,8 @@ module Json = struct
   let xenapi objs =
     List.map
       (fun obj ->
+        let obj_name = snake_to_camel obj.name in
+        let name_internal = String.uncapitalize_ascii obj_name in
         let fields = Datamodel_utils.fields_of_obj obj in
         let types = List.map (fun field -> field.ty) fields in
         let modules =
@@ -179,7 +181,8 @@ module Json = struct
         in
         let base_assoc_list =
           [
-            ("name", `String (snake_to_camel obj.name))
+            ("name", `String obj_name)
+          ; ("name_internal", `String name_internal)
           ; ("description", `String (String.trim obj.description))
           ; ( "fields"
             , `A (get_event_snapshot obj.name @ List.map of_field fields)
@@ -192,9 +195,32 @@ module Json = struct
       )
       objs
 
-  let api_messages =
-    List.map (fun (msg, _) -> `O [("name", `String msg)]) !Api_messages.msgList
+  let of_api_message_or_error info =
+    let snake_to_camel (s : string) : string =
+      String.split_on_char '_' s
+      |> List.map (fun seg ->
+             let lower = String.lowercase_ascii seg in
+             match lower with
+             | "vm"
+             | "cpu"
+             | "tls"
+             | "xml"
+             | "url"
+             | "id"
+             | "uuid"
+             | "ip"
+             | "api"
+             | "eof" ->
+                 String.uppercase_ascii lower
+             | _ ->
+                 String.capitalize_ascii lower
+         )
+      |> String.concat ""
+    in
+    `O [("name", `String (snake_to_camel info)); ("value", `String info)]
 
-  let api_errors =
-    List.map (fun error -> `O [("name", `String error)]) !Api_errors.errors
+  let api_messages =
+    List.map (fun (msg, _) -> of_api_message_or_error msg) !Api_messages.msgList
+
+  let api_errors = List.map of_api_message_or_error !Api_errors.errors
 end

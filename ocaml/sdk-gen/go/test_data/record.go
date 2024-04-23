@@ -8,14 +8,16 @@ type SessionRecord struct {
 type SessionRef string
 
 // A session
-type SessionClass struct {
-	client *rpcClient
-	ref    SessionRef
+type Session struct {
+	APIVersion  APIVersion
+	client      *rpcClient
+	ref         SessionRef
+	XAPIVersion string
 }
 
-func NewSession(opts *ClientOpts) *SessionClass {
-	client := NewJsonRPCClient(opts)
-	var session SessionClass
+func NewSession(opts *ClientOpts) *Session {
+	client := newJSONRPCClient(opts)
+	var session Session
 	session.client = client
 
 	return &session

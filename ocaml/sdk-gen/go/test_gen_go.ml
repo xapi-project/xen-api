@@ -151,7 +151,16 @@ let verify_obj_member = function
   | _ ->
       false
 
-let obj_keys = ["name"; "description"; "fields"; "modules"; "event"; "session"]
+let obj_keys =
+  [
+    "name"
+  ; "name_internal"
+  ; "description"
+  ; "fields"
+  ; "modules"
+  ; "event"
+  ; "session"
+  ]
 
 let verify_obj = function
   | `O members ->
@@ -159,10 +168,18 @@ let verify_obj = function
   | _ ->
       false
 
+let verify_msg_or_error_member = function
+  | "name", `String _ | "value", `String _ ->
+      true
+  | _ ->
+      false
+
+let keys_in_error_or_msg = ["name"; "value"]
+
 let verify_msgs_or_errors lst =
   let verify_msg_or_error = function
-    | `O [("name", `String _)] ->
-        true
+    | `O members ->
+        schema_check keys_in_error_or_msg verify_msg_or_error_member members
     | _ ->
         false
   in
@@ -285,8 +302,16 @@ let api_errors : Mustache.Json.t =
       ( "api_errors"
       , `A
           [
-            `O [("name", `String "MESSAGE_DEPRECATED")]
-          ; `O [("name", `String "MESSAGE_REMOVED")]
+            `O
+              [
+                ("name", `String "MessageDeprecated")
+              ; ("value", `String "MESSAGE_DEPRECATED")
+              ]
+          ; `O
+              [
+                ("name", `String "MessageRemoved")
+              ; ("value", `String "MESSAGE_REMOVED")
+              ]
           ]
       )
     ]
@@ -297,8 +322,16 @@ let api_messages : Mustache.Json.t =
       ( "api_messages"
       , `A
           [
-            `O [("name", `String "HA_STATEFILE_LOST")]
-          ; `O [("name", `String "METADATA_LUN_HEALTHY")]
+            `O
+              [
+                ("name", `String "HaStatefileLost")
+              ; ("value", `String "HA_STATEFILE_LOST")
+              ]
+          ; `O
+              [
+                ("name", `String "MetadataLunHealthy")
+              ; ("value", `String "METADATA_LUN_HEALTHY")
+              ]
           ]
       )
     ]
