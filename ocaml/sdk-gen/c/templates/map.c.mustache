@@ -1,0 +1,92 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+{{#internal_headers}}
+#include "xen_{{{header}}}.h"
+{{/internal_headers}}
+{{#headers}}
+#include <xen/api/xen_{{{header}}}.h>
+{{/headers}}
+
+
+xen_{{{map_lower}}} *
+xen_{{{map_lower}}}_alloc(size_t size)
+{
+    xen_{{{map_lower}}} *result =
+        calloc(1, sizeof(xen_{{{map_lower}}}) +
+            size * sizeof(struct xen_{{{map_lower}}}_contents));
+    result->size = size;
+    return result;
+}
+
+
+void
+xen_{{{map_lower}}}_free(xen_{{{map_lower}}} *map)
+{
+{{#can_free}}
+    if (map == NULL)
+        return;
+
+    size_t n = map->size;
+    for (size_t i = 0; i < n; i++)
+    {
+{{#can_free_key}}
+        {{{free_key}}}
+{{/can_free_key}}
+{{#can_free_val}}
+        {{{free_val}}}
+{{/can_free_val}}
+    }
+
+{{/can_free}}
+    free(map);
+}
+{{#enum_map}}
+
+
+static const struct_member {{{map_lower}}}_struct_members[] =
+    {
+        { .type = &{{{abstract_type_key}}},
+          .offset = offsetof(xen_{{{map_lower}}}_contents, key) },
+        { .type = &{{{abstract_type_val}}},
+          .offset = offsetof(xen_{{{map_lower}}}_contents, val) },
+    };
+
+
+const abstract_type {{{map_lower}}}_abstract_type_ =
+    {
+       .XEN_API_TYPE = MAP,
+       .struct_size = sizeof({{{map_lower}}}_struct_members),
+       .member_count =
+           sizeof({{{map_lower}}}_struct_members) / sizeof(struct_member),
+       .members = {{{map_lower}}}_struct_members
+    };
+{{/enum_map}}
+

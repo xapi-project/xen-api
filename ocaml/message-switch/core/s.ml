@@ -29,9 +29,15 @@ module type BACKEND = sig
 
     val iter : ('a -> unit t) -> 'a list -> unit t
 
+    val iter_dontwait : ('a -> unit t) -> 'a list -> unit
+
     val any : 'a t list -> 'a t
 
+    val all : 'a t list -> 'a list t
+
     val is_determined : 'a t -> bool
+
+    val return_unit : unit t
   end
 
   val connect : string -> (IO.ic * IO.oc) IO.t
@@ -54,6 +60,18 @@ module type BACKEND = sig
     val create : unit -> t
 
     val with_lock : t -> (unit -> 'a IO.t) -> 'a IO.t
+  end
+
+  module Condition : sig
+    type 'a t
+
+    val create : unit -> 'a t
+
+    val wait : 'a t -> 'a IO.t
+
+    val broadcast : 'a t -> 'a -> unit
+
+    val signal : 'a t -> 'a -> unit
   end
 
   module Clock : sig
@@ -88,6 +106,14 @@ module type SERVER = sig
     -> t result io
   (** Connect to [switch] and start processing messages on [queue] via function
       [process] *)
+
+  val listen_p :
+       process:(string -> string io)
+    -> switch:string
+    -> queue:string
+    -> unit
+    -> t result io
+  (** same as above, but processes requests concurrently *)
 
   val shutdown : t:t -> unit -> unit io
   (** [shutdown t] shutdown a server *)

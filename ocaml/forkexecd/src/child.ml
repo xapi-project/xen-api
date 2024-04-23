@@ -3,13 +3,13 @@ let debug (fmt : ('a, unit, string, unit) format4) =
 
 exception Cancelled
 
-type syslog_stdout_t = {enabled: bool; key: string option}
+type syslog_stdout = {enabled: bool; key: string option}
 
 type state_t = {
     cmdargs: string list
   ; env: string list
   ; id_to_fd_map: (string * int option) list
-  ; syslog_stdout: syslog_stdout_t
+  ; syslog_stdout: syslog_stdout
   ; redirect_stderr_to_stdout: bool
   ; ids_received: (string * Unix.file_descr) list
   ; fd_sock2: Unix.file_descr option

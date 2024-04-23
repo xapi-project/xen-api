@@ -52,6 +52,12 @@ jobs:
           name: XenAPI
           path: dist/
 
+      - name: Retrieve C SDK distribution binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Artifacts_C
+          path: libxenserver/usr/local/
+
       - name: Retrieve C# SDK distribution artifacts
         uses: actions/download-artifact@v4
         with:
@@ -70,10 +76,19 @@ jobs:
           name: SDK_Binaries_XenServerPowerShell_NET6
           path: sdk_powershell_7x/
 
+      - name: Package C SDK artifacts for deployment
+        shell: bash
+        run: |
+          mkdir -p libxenserver/usr/local/lib
+          mv libxenserver/usr/local/libxenserver.* libxenserver/usr/local/lib/
+          tar -zcvf libxenserver-prerelease.tar.gz -C ./libxenserver usr/local/lib/ usr/local/include/xen/api
+          rm -rf libxenserver/usr/local/lib/
+          tar -zcvf libxenserver-prerelease.src.tar.gz -C ./libxenserver/usr/local .
+
       - name: Zip PowerShell 5.x SDK artifacts for deployment
         shell: bash
         run: zip PowerShell-SDK-5.x-prerelease-unsigned.zip ./sdk_powershell_5x -r
-      
+
       - name: Zip PowerShell 7.x SDK artifacts for deployment
         shell: bash
         run: zip PowerShell-SDK-7.x-prerelease-unsigned.zip ./sdk_powershell_7x -r
@@ -83,7 +98,8 @@ jobs:
         run: |
           gh release create ${{ github.ref_name }} --repo ${{ github.repository }} --generate-notes dist/* \
           PowerShell-SDK-5.x-prerelease-unsigned.zip \
-          PowerShell-SDK-7.x-prerelease-unsigned.zip
+          PowerShell-SDK-7.x-prerelease-unsigned.zip \
+          libxenserver-prerelease.tar.gz libxenserver-prerelease.src.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -11,6 +11,8 @@
                                                          <member><name>physical_utilisation</name><value>0</value></member>
                                                          <member><name>uri</name><value><array><data><value>uri1</value></data></array></value></member>
                                                          <member><name>keys</name><value><struct></struct></value></member>
+                                                         <member><name>volume_type</name><value>Data</value></member>
+                                                         <member><name>cbt_enabled</name><value>false</value></member>
                                          </struct>
                                  </value></member>
    </struct></value></param>

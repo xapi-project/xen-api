@@ -1,54 +1,6 @@
-let all_vm_operations =
-  [
-    `assert_operation_valid
-  ; `awaiting_memory_live
-  ; `call_plugin
-  ; `changing_VCPUs
-  ; `changing_VCPUs_live
-  ; `changing_dynamic_range
-  ; `changing_memory_limits
-  ; `changing_memory_live
-  ; `changing_shadow_memory
-  ; `changing_shadow_memory_live
-  ; `changing_static_range
-  ; `changing_NVRAM
-  ; `checkpoint
-  ; `clean_reboot
-  ; `clean_shutdown
-  ; `clone
-  ; `copy
-  ; `create_template
-  ; `csvm
-  ; `data_source_op
-  ; `destroy
-  ; `export
-  ; `get_boot_record
-  ; `hard_reboot
-  ; `hard_shutdown
-  ; `import
-  ; `make_into_template
-  ; `metadata_export
-  ; `migrate_send
-  ; `pause
-  ; `pool_migrate
-  ; `power_state_reset
-  ; `provision
-  ; `query_services
-  ; `resume
-  ; `resume_on
-  ; `revert
-  ; `reverting
-  ; `send_sysrq
-  ; `send_trigger
-  ; `shutdown
-  ; `snapshot
-  ; `snapshot_with_quiesce
-  ; `start
-  ; `start_on
-  ; `suspend
-  ; `unpause
-  ; `update_allowed_operations
-  ]
+let vm_op_to_string = API.vm_operations_to_string
+
+let pp_vm_op () = Fmt.(str "%a" (of_to_string vm_op_to_string))
 
 let with_test_vm f =
   let __context = Mock.make_context_with_new_db "Mock context" in
@@ -75,7 +27,7 @@ let test_null_vdi () =
                ~strict:true
             )
         )
-        all_vm_operations
+        API.vm_operations__all
   )
 
 let test_vm_set_nvram_running () =
@@ -155,6 +107,71 @@ let test_sxm_allowed_when_rum () =
         )
   )
 
+let test_is_allowed_concurrently (expected, (op, current_ops)) =
+  let ops_to_str ops =
+    String.concat "," (List.map (fun (_, op) -> vm_op_to_string op) ops)
+  in
+  let name =
+    match current_ops with
+    | [] ->
+        vm_op_to_string op
+    | lst ->
+        Printf.sprintf "%a when %s" pp_vm_op op (ops_to_str lst)
+  in
+
+  let test () =
+    let actual = Xapi_vm_lifecycle.is_allowed_concurrently ~op ~current_ops in
+    let name =
+      Printf.sprintf "%a allowed in [%s]" pp_vm_op op (ops_to_str current_ops)
+    in
+    Alcotest.(check bool) name expected actual
+  in
+  (name, `Quick, test)
+
+let allowed_specs =
+  let current_of op = ((), op) in
+  let allow_hard_shutdown =
+    List.map
+      (fun op ->
+        let allowed = match op with `hard_shutdown -> false | _ -> true in
+        (allowed, (`hard_shutdown, [current_of op]))
+      )
+      API.vm_operations__all
+  in
+  let allow_hard_reboot =
+    List.map
+      (fun op ->
+        let allowed =
+          match op with `hard_shutdown | `hard_reboot -> false | _ -> true
+        in
+        (allowed, (`hard_reboot, [current_of op]))
+      )
+      API.vm_operations__all
+  in
+  let allow_clean_shutdown =
+    List.map
+      (fun op ->
+        let allowed = match op with `migrate_send -> true | _ -> false in
+        (allowed, (`clean_shutdown, [current_of op]))
+      )
+      API.vm_operations__all
+  in
+  List.concat
+    [
+      [
+        (true, (`snapshot, []))
+      ; (true, (`snapshot, [current_of `checkpoint]))
+      ; (false, (`migrate_send, [current_of `clean_reboot]))
+      ; (true, (`clean_reboot, [current_of `migrate_send]))
+      ]
+    ; allow_hard_shutdown
+    ; allow_clean_shutdown
+    ; allow_hard_reboot
+    ]
+
+let test_allow_concurrently =
+  List.map test_is_allowed_concurrently allowed_specs
+
 let test =
   [
     ("test_null_vdi", `Quick, test_null_vdi)
@@ -166,3 +183,7 @@ let test =
   ; ("test_sxm_allowed_when_rum", `Quick, test_sxm_allowed_when_rum)
   ; ("test_vm_set_nvram when VM is running", `Quick, test_vm_set_nvram_running)
   ]
+
+let () =
+  Alcotest.run "Xapi_vm_lifecycle"
+    [("is_allowed_concurrently", test_allow_concurrently)]

@@ -1899,7 +1899,7 @@ let t =
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs"
             "virtual block devices"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vusb)) "VUSBs"
-            "vitual usb devices"
+            "virtual usb devices"
         ; field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO
             ~ty:(Set (Ref _crashdump)) "crash_dumps"
             "crash dumps associated with this VM"
