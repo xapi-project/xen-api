@@ -1,0 +1,36 @@
+{{#time}}
+var timeFormats = []string{time.RFC3339, "20060102T15:04:05Z", "20060102T15:04:05"}
+
+{{#serialize}}
+//nolint:unparam
+func serialize{{func_partial_type}}(context string, value {{type}}) (string, error) {
+	_ = context
+	return value.Format(time.RFC3339), nil
+}
+
+{{/serialize}}
+{{#deserialize}}
+func deserialize{{func_partial_type}}(context string, input interface{}) (value {{type}}, err error) {
+	_ = context
+	if input == nil {
+		return
+	}
+	strValue := fmt.Sprintf("%v", input)
+	floatValue, err := strconv.ParseFloat(strValue, 64)
+	if err != nil {
+		for _, timeFormat := range timeFormats {
+			value, err = time.Parse(timeFormat, strValue)
+			if err == nil {
+				return value, nil
+			}
+		}
+		return
+	}
+	unixTimestamp, err := strconv.ParseInt(strconv.Itoa(int(floatValue)), 10, 64)
+	value = time.Unix(unixTimestamp, 0)
+
+	return
+}
+
+{{/deserialize}}
+{{/time}}

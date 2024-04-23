@@ -1,0 +1,37 @@
+{{#set}}
+{{#serialize}}
+func serialize{{func_partial_type}}(context string, slice []{{type}}) (set []interface{}, err error) {
+	set = make([]interface{}, len(slice))
+	for index, item := range slice {
+		itemContext := fmt.Sprintf("%s[%d]", context, index)
+		itemValue, err := serialize{{item_func_partial_type}}(itemContext, item)
+		if err != nil {
+			return set, err
+		}
+		set[index] = itemValue
+	}
+	return
+}
+
+{{/serialize}}
+{{#deserialize}}
+func deserialize{{func_partial_type}}(context string, input interface{}) (slice []{{type}}, err error) {
+	set, ok := input.([]interface{})
+	if !ok {
+		err = fmt.Errorf("failed to parse XenAPI response: expected Go type %s at %s but got Go type %s with value %v", "[]interface{}", context, reflect.TypeOf(input), input)
+		return
+	}
+	slice = make([]{{type}}, len(set))
+	for index, item := range set {
+		itemContext := fmt.Sprintf("%s[%d]", context, index)
+		itemValue, err := deserialize{{item_func_partial_type}}(itemContext, item)
+		if err != nil {
+			return slice, err
+		}
+		slice[index] = itemValue
+	}
+	return
+}
+
+{{/deserialize}}
+{{/set}}

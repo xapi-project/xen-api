@@ -1,0 +1,27 @@
+{{#enum}}
+{{#serialize}}
+func serialize{{func_partial_type}}(context string, value {{type}}) (string, error) {
+	_ = context
+	return string(value), nil
+}
+
+{{/serialize}}
+{{#deserialize}}
+func deserialize{{func_partial_type}}(context string, input interface{}) (value {{type}}, err error) {
+	strValue, err := deserializeString(context, input)
+	if err != nil {
+		return
+	}
+	switch strValue {
+{{#items}}
+	case "{{value}}":
+		value = {{name}}
+{{/items}}
+	default:
+		err = fmt.Errorf("unable to parse XenAPI response: got value %q for enum %s at %s, but this is not any of the known values", strValue, "{{type}}", context)
+	}
+	return
+}
+
+{{/deserialize}}
+{{/enum}}

@@ -1,0 +1,20 @@
+{{#ref}}
+{{#serialize}}
+func serialize{{func_partial_type}}(context string, ref {{type}}) (string, error) {
+	_ = context
+	return string(ref), nil
+}
+
+{{/serialize}}
+{{#deserialize}}
+func deserialize{{func_partial_type}}(context string, input interface{}) ({{type}}, error) {
+	var ref {{type}}
+	value, ok := input.(string)
+	if !ok {
+		return ref, fmt.Errorf("failed to parse XenAPI response: expected Go type %s at %s but got Go type %s with value %v", "string", context, reflect.TypeOf(input), input)
+	}
+	return {{type}}(value), nil
+}
+
+{{/deserialize}}
+{{/ref}}

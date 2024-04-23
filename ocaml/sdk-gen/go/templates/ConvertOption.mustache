@@ -1,0 +1,29 @@
+{{#option}}
+{{#serialize}}
+func serializeOption{{func_partial_type}}(context string, input Option{{func_partial_type}}) (option interface{}, err error) {
+	if input == nil {
+		return
+	}
+	option, err = serialize{{func_partial_type}}(context, *input)
+	if err != nil {
+		return
+	}
+	return
+}
+
+{{/serialize}}
+{{#deserialize}}
+func deserializeOption{{func_partial_type}}(context string, input interface{}) (option Option{{func_partial_type}}, err error) {
+	if input == nil {
+		return
+	}
+	value, err := deserialize{{func_partial_type}}(context, input)
+	if err != nil {
+		return
+	}
+	option = &value
+	return
+}
+
+{{/deserialize}}
+{{/option}}

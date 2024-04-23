@@ -34,7 +34,7 @@ To network with other developers using XenServer visit
 
 ## Prerequisites
 
-This library requires Go 1.22 or greater.
+This library requires Go 1.22.2 or greater.
 
 ## Folder Structure
 

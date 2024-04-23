@@ -1,0 +1,64 @@
+{{#messages}}
+// {{method_name_exported}}:{{#description}} {{.}}{{/description}}
+{{#has_error}}
+//
+// Errors:
+{{/has_error}}
+{{#errors}}
+// {{name}} - {{doc}}
+{{/errors}}
+func ({{#session_class}}class *Session{{/session_class}}{{^session_class}}{{name_internal}}{{/session_class}}) {{method_name_exported}}({{#params}}{{^param_ignore}}{{^first}}, {{/first}}{{#session}}session *Session{{/session}}{{^session}}{{name_internal}} {{type}}{{/session}}{{/param_ignore}}{{/params}}) ({{#result}}retval {{type}}, {{/result}}err error) {
+	method := "{{class_name}}.{{method_name}}"
+{{#params}}
+	{{name_internal}}Arg, err := serialize{{func_partial_type}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{#session}}{{#session_class}}class{{/session_class}}{{^session_class}}session{{/session_class}}.ref{{/session}}{{^session}}{{name_internal}}{{/session}})
+	if err != nil {
+		return
+	}
+{{/params}}
+	{{#result}}result, err := {{/result}}{{^result}}_, err = {{/result}}{{#session_class}}class{{/session_class}}{{^session_class}}session{{/session_class}}.client.sentCall(method{{#params}}, {{name_internal}}Arg{{/params}})
+{{#result}}
+	if err != nil {
+		return
+	}
+	retval, err = deserialize{{func_partial_type}}(method+" -> ", result)
+{{/result}}
+{{#session_login}}
+	if err != nil {
+		return
+	}
+	class.ref = retval
+	err = setSessionDetails(class)
+{{/session_login}}
+{{#session_logout}}
+	class.ref = ""
+{{/session_logout}}
+	return
+}
+
+{{#async}}
+// Async{{method_name_exported}}:{{#description}} {{.}}{{/description}}
+{{#has_error}}
+//
+// Errors:
+{{/has_error}}
+{{#errors}}
+// {{name}} - {{doc}}
+{{/errors}}
+func ({{#session_class}}class *Session{{/session_class}}{{^session_class}}{{name_internal}}{{/session_class}}) Async{{method_name_exported}}({{#params}}{{^param_ignore}}{{^first}}, {{/first}}{{#session}}session *Session{{/session}}{{^session}}{{name_internal}} {{type}}{{/session}}{{/param_ignore}}{{/params}}) (retval TaskRef, err error) {
+	method := "Async.{{class_name}}.{{method_name}}"
+{{#params}}
+	{{name_internal}}Arg, err := serialize{{func_partial_type}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{#session}}{{#session_class}}class{{/session_class}}{{^session_class}}session{{/session_class}}.ref{{/session}}{{^session}}{{name_internal}}{{/session}})
+	if err != nil {
+		return
+	}
+{{/params}}
+	result, err := {{#session_class}}class{{/session_class}}{{^session_class}}session{{/session_class}}.client.sentCall(method{{#params}}, {{name_internal}}Arg{{/params}})
+	if err != nil {
+		return
+	}
+	retval, err = deserializeTaskRef(method+" -> ", result)
+	return
+}
+
+{{/async}}
+{{/messages}}

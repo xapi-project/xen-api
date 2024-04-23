@@ -1,0 +1,22 @@
+{{#batch}}
+{{#deserialize}}
+func deserialize{{func_partial_type}}(context string, input interface{}) (batch {{type}}, err error) {
+	rpcStruct, ok := input.(map[string]interface{})
+	if !ok {
+		err = fmt.Errorf("failed to parse XenAPI response: expected Go type %s at %s but got Go type %s with value %v", "map[string]interface{}", context, reflect.TypeOf(input), input)
+		return
+	}
+{{#elements}}
+	{{name_internal}}Value, ok := rpcStruct["{{name}}"]
+	if ok && {{name_internal}}Value != nil {
+		batch.{{name_exported}}, err = deserialize{{func_partial_type}}(fmt.Sprintf("%s.%s", context, "{{name}}"), {{name_internal}}Value)
+		if err != nil {
+			return
+		}
+	}
+{{/elements}}
+	return
+}
+
+{{/deserialize}}
+{{/batch}}
