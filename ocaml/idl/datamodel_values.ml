@@ -49,12 +49,10 @@ let rec to_rpc v =
       Rpc.Enum (List.map (fun v -> to_rpc v) vl)
   | VRef r ->
       Rpc.String r
-  | VCustom (_, _) ->
-      failwith "Can't RPC up a custom value"
 
 open Printf
 
-let to_ocaml_string ?(v2 = false) v =
+let to_ocaml_string v =
   let rec aux = function
     | Rpc.Null ->
         "Rpc.Null"
@@ -80,18 +78,7 @@ let to_ocaml_string ?(v2 = false) v =
     | Rpc.Base64 t ->
         sprintf "Rpc.Base64 %s" t
   in
-  match v with
-  | VCustom (s, v') ->
-      if v2 then
-        (* s can contain stringified body of ocaml functions, and will break
-         * the aPI.ml code, we need to use the v' in that case. The version
-         * switch allows us to use this other version in gen_api.ml without
-         * having to duplicate lots of code *)
-        aux (to_rpc v')
-      else
-        s
-  | _ ->
-      aux (to_rpc v)
+  aux (to_rpc v)
 
 let rec to_db v =
   let open Schema.Value in
@@ -116,8 +103,6 @@ let rec to_db v =
       Set (List.map to_string vl)
   | VRef r ->
       String r
-  | VCustom (_, y) ->
-      to_db y
 
 (* Generate suitable "empty" database value of specified type *)
 let gen_empty_db_val t =
