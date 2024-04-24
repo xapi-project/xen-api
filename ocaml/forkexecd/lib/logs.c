@@ -53,7 +53,7 @@ mapped_logs mapped_logs_open(void)
 
     // create a mapped file with a given size, will write header as structure
     // and update using memory
-    mkdir("/tmp/fe_repl", 0777);
+    mkdir("/tmp/fe_repl", 0755);
 
     char tmpl[] = "/tmp/fe_repl/logXXXXXX";
     int fd = mkstemp(tmpl);
@@ -81,7 +81,7 @@ mapped_logs mapped_logs_open(void)
     return (mapped_logs){l};
 }
 
-#define RANGE \
+#define DEFINE_RANGE(start, end) \
     char *start = (char*) logs.priv + sizeof(priv_mapped_logs); \
     char *const end = (char*) logs.priv + FILE_SIZE
 
@@ -89,7 +89,7 @@ void mapped_logs_close(mapped_logs logs)
 {
     if (!logs.priv)
         return;
-    RANGE;
+    DEFINE_RANGE(start, end);
     bool written = false;
     bool success = logs.priv->flags[FAILURE] == '_' && logs.priv->flags[SUCCESS] != '_';
     if (!success) {
@@ -125,7 +125,7 @@ void mapped_logs_add(mapped_logs logs, const char *fmt, ...)
     if (!logs.priv)
         return;
     int save_errno = errno;
-    RANGE;
+    DEFINE_RANGE(start, end);
     start += strlen(start);
     if (start >= end -1) {
         errno = save_errno;

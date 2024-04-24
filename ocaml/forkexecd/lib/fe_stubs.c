@@ -52,7 +52,9 @@ typedef struct {
     // pid of the process we wait, never changed
     pid_t pid;
 
-    // protects the rest of this structure
+    // Protects reaped flag below.
+    // This lock is used while Ocaml is in unblocking state so no
+    // blocking calls should be made.
     pthread_mutex_t mtx;
 
     // if pid was reaped, we need to reap only once
@@ -156,9 +158,9 @@ caml_safe_exec_nat(value environment,
 {
     // We need to retain all paramters, they are either array,
     // list or options.
-    value waiter = Val_unit;
-    CAMLparam5(environment, stdin_fd, stdout_fd, stderr_fd, waiter);
+    CAMLparam4(environment, stdin_fd, stdout_fd, stderr_fd);
     CAMLxparam4(id_mapping, syslog_stdout, redirect, args);
+    CAMLlocal1(waiter);
 
     value res;
     unsigned num_args = 0, num_mappings = 0;
@@ -254,8 +256,9 @@ caml_safe_exec_nat(value environment,
         sizeof(char*) * (num_args + 1 + num_environment + 1) +
         sizeof(mapping) * num_mappings +
         strings_size;
-    exec_info *info = (exec_info *) caml_stat_alloc(total_size);
-    memset(info, 0, total_size);
+    exec_info *info = (exec_info *) calloc(total_size, 1);
+    if (!info)
+        caml_raise_out_of_memory();
 
     log("copying");
 
@@ -315,7 +318,7 @@ caml_safe_exec_nat(value environment,
             || initial_mappings != (mapping*) ptrs
             || initial_strings != (char*) mappings) {
             log_fail("internal error copying");
-            caml_stat_free(info);
+            free(info);
             mapped_logs_close(logs);
             unix_error(EACCES, "safe_exec", Nothing);
         }
@@ -374,8 +377,9 @@ caml_safe_exec_nat(value environment,
         int err = errno;
         // error, notify with an exception
         log_fail("vfork %d", err);
-        caml_stat_free(info);
+        free(info);
         mapped_logs_close(logs);
+        caml_leave_blocking_section();
         unix_error(err, "safe_exec", Nothing);
     }
 
@@ -491,8 +495,10 @@ caml_safe_exec_nat(value environment,
     // Handle errors from child.
     int err = info->err;
     const char *err_func = info->err_func;
-    caml_stat_free(info);
+    free(info);
     if (err != 0 && err_func != NULL) {
+        // Here we are reaping a zombie process, no
+        // blocking is possible.
         while (waitpid(pid, NULL, 0) < 0 && errno == EINTR)
             continue;
         unix_error(err, err_func, Nothing);
@@ -513,6 +519,9 @@ caml_safe_exec_byte(value *argv)
     return caml_safe_exec_nat(argv[0], argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], argv[7]);
 }
 
+// Helper function to return syslog key.
+// Note that pointer will point to Ocaml memory so particular attention has to
+// be taken to avoid GC to start.
 static const char *
 get_syslog_key(value syslog_stdout, value args)
 {
