@@ -613,8 +613,8 @@ module Version = struct
     try Scanf.sscanf name "%d.%d.%d%s" of_chunks
     with _ ->
       failwith
-        (Printf.sprintf "Version schema changed, please change this code %s"
-           __LOC__
+        (Printf.sprintf "Version schema changed, please change this code %s: %s"
+           name __LOC__
         )
 
   let to_name_date (lst, str) =
