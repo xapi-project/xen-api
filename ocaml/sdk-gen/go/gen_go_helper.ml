@@ -216,7 +216,50 @@ module Json = struct
             ; ("func_partial_type", `String (get_fp_type t))
             ]
 
-  let of_param class_name params =
+  let group_params params =
+    List.fold_left
+      (fun groups (param_release, info) ->
+        match groups with
+        | [] ->
+            [(param_release, [info])]
+        | group :: tl -> (
+          match group with
+          | pr, infos when pr = param_release ->
+              (pr, info :: infos) :: tl
+          | _ ->
+              (param_release, [info]) :: groups
+        )
+      )
+      [] params
+
+  let scan_left func init list =
+    let rec aux func init list result =
+      match list with
+      | [] ->
+          result
+      | x :: xs ->
+          let init = func init x in
+          aux func init xs (init :: result)
+    in
+    List.rev @@ aux func init list []
+
+  let combine_groups groups =
+    let scans =
+      scan_left
+        (fun (len, group) (_, infos) -> (len + List.length infos, group @ infos))
+        (0, []) groups
+    in
+    match scans with [] -> [] | [x] -> [x] | _ :: xs -> xs
+
+  let rec get_last = function
+    | [] ->
+        failwith "empty list"
+    | [x] ->
+        x
+    | _ :: tl ->
+        get_last tl
+
+  let of_param_groups class_name params =
     let name_internal name =
       let name = name |> snake_to_camel |> String.uncapitalize_ascii in
       match name with "type" -> "typeKey" | "interface" -> "inter" | _ -> name
@@ -244,13 +287,13 @@ module Json = struct
       let fields, could_ignore = deal_with_logout name in
       (fields @ base_assoc_list (t, name, doc, type_name), could_ignore)
     in
-    let rec aux = function
+    let rec add_first = function
       | head :: rest ->
           let assoc_list, could_ignore = get_assoc_list head in
           let assoc_list = ("first", `Bool (not could_ignore)) :: assoc_list in
           let others =
             if could_ignore then
-              aux rest
+              add_first rest
             else
               List.map
                 (fun item ->
@@ -263,13 +306,22 @@ module Json = struct
       | [] ->
           []
     in
-    params
-    |> List.map (fun p ->
-           let fp_type = get_fp_type p.param_type in
-           let t, _e = string_of_ty_with_enums p.param_type in
-           (t, p.param_name, p.param_doc, fp_type)
-       )
-    |> fun params -> `A (aux params)
+    let groups =
+      params
+      |> List.rev_map (fun p ->
+             let fp_type = get_fp_type p.param_type in
+             let t, _e = string_of_ty_with_enums p.param_type in
+             (p.param_release, (t, p.param_name, p.param_doc, fp_type))
+         )
+      |> group_params
+      |> combine_groups
+      |> List.map (fun (num, params) -> (num, `A (add_first params)))
+    in
+    match get_last groups with
+    | 0, _ ->
+        groups
+    | _, last ->
+        groups @ [(0, last)]
 
   let of_error e = `O [("name", `String e.err_name); ("doc", `String e.err_doc)]
 
@@ -337,32 +389,49 @@ module Json = struct
 
   let messages_of_obj obj =
     let ctor_fields = ctor_fields_of_obj obj in
+    let method_name_exported obj msg num =
+      let method_name = snake_to_camel msg.msg_name in
+      let not_ends_with str suffix = not (String.ends_with str ~suffix) in
+      let num =
+        match (obj.name, msg.msg_name) with
+        | "session", method_name
+          when not_ends_with method_name "login_with_password" && num > 0 ->
+            num - 1
+        | _ ->
+            num
+      in
+      match num with 0 -> method_name | _ -> method_name ^ string_of_int num
+    in
     let params_in_msg msg =
       if msg.msg_session then
         session_id :: msg.msg_params
       else
         msg.msg_params
     in
-    List.map
-      (fun msg ->
-        let params = params_in_msg msg |> of_param obj.name in
-        let base_assoc_list =
-          [
-            ("method_name", `String msg.msg_name)
-          ; ("class_name", `String obj.name)
-          ; ("class_name_exported", `String (snake_to_camel obj.name))
-          ; ("method_name_exported", `String (snake_to_camel msg.msg_name))
-          ; ("description", desc_of_msg msg ctor_fields)
-          ; ("result", of_result obj msg)
-          ; ("params", params)
-          ; ("errors", of_errors msg.msg_errors)
-          ; ("has_error", `Bool (msg.msg_errors <> []))
-          ; ("async", `Bool msg.msg_async)
-          ]
-        in
-        `O (add_session_info obj.name msg.msg_name @ base_assoc_list)
-      )
-      obj.messages
+    obj.messages
+    |> List.rev_map (fun msg ->
+           let of_message (num, params) =
+             let base_assoc_list =
+               [
+                 ("method_name", `String msg.msg_name)
+               ; ("class_name", `String obj.name)
+               ; ("class_name_exported", `String (snake_to_camel obj.name))
+               ; ( "method_name_exported"
+                 , `String (method_name_exported obj msg num)
+                 )
+               ; ("description", desc_of_msg msg ctor_fields)
+               ; ("result", of_result obj msg)
+               ; ("params", params)
+               ; ("errors", of_errors msg.msg_errors)
+               ; ("has_error", `Bool (msg.msg_errors <> []))
+               ; ("async", `Bool msg.msg_async)
+               ]
+             in
+             `O (add_session_info obj.name msg.msg_name @ base_assoc_list)
+           in
+           params_in_msg msg |> of_param_groups obj.name |> List.map of_message
+       )
+    |> List.concat
 
   let xenapi objs =
     List.map
