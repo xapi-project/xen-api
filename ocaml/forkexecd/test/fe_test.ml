@@ -77,6 +77,8 @@ let shuffle x =
 
 let irrelevant_strings = ["irrelevant"; "not"; "important"]
 
+let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ())
+
 let one fds x =
   (*Printf.fprintf stderr "named_fds = %d\n" x.named_fds;
     Printf.fprintf stderr "extra = %d\n" x.extra;*)
@@ -89,7 +91,6 @@ let one fds x =
   let number_of_extra = x.extra in
   let other_names = make_names number_of_extra in
 
-  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let table =
     (fun x -> List.combine x (List.map (fun _ -> fd) x)) (names @ other_names)
   in
@@ -114,7 +115,6 @@ let one fds x =
 
 let test_delay () =
   let start = Unix.gettimeofday () in
-  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let args = ["sleep"] in
   (* Need to have fractional part because some internal usage split integer
      and fractional and do computation.
@@ -137,7 +137,6 @@ let test_delay () =
       fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
 let test_notimeout () =
-  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let args = ["sleep"] in
   try
     Forkhelpers.execute_command_get_output exe args |> ignore ;
@@ -162,7 +161,6 @@ let test_exitcode () =
   Printf.printf "\nCompleted exitcode tests\n"
 
 let test_output () =
-  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let expected_out = "output string" in
   let expected_err = "error string" in
   let args = ["echo"; expected_out; expected_err] in
@@ -172,7 +170,6 @@ let test_output () =
   print_endline "Completed output tests"
 
 let test_input () =
-  let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
   let input = "input string" in
   let args = ["replay"] in
   let out, _ =
