@@ -7,12 +7,12 @@ This module provides unittest for hfx_filename
 import sys
 import unittest
 from mock import MagicMock, patch, call
-from import_file import get_module
+from python3.tests.import_helper import import_file_as_module
 
 # mock modules to avoid dependencies
 sys.modules["XenAPI"] = MagicMock()
 
-hfx_filename = get_module("hfx_filename", "../bin/hfx_filename")
+hfx_filename = import_file_as_module("python3/bin/hfx_filename")
 
 
 @patch("socket.socket")
@@ -82,7 +82,7 @@ class TestRpc(unittest.TestCase):
 
     def test_db_get_uuid(self, mock_socket):
         """
-        Tests db_get_uuid 
+        Tests db_get_uuid
         """
         mock_connected_socket = MagicMock()
         mock_socket.return_value = mock_connected_socket
@@ -100,7 +100,7 @@ class TestRpc(unittest.TestCase):
 
     def test_read_field(self, mock_socket):
         """
-        Tests read_field 
+        Tests read_field
         """
         mock_connected_socket = MagicMock()
         mock_socket.return_value = mock_connected_socket

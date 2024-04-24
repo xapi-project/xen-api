@@ -8,9 +8,11 @@ import sys
 import tempfile
 import unittest
 from collections.abc import Mapping
+from typing import cast
 
 import mock
-from import_file import get_module
+
+from python3.tests.import_helper import import_file_as_module
 
 sys.modules["xcp"] = mock.Mock()
 sys.modules["xcp.logger"] = mock.Mock()
@@ -107,9 +109,10 @@ class TestUsbScan(unittest.TestCase):
         self, moc_devices,
         moc_interfaces,
         moc_results,
-        path="./scripts/usb-policy.conf"
+        # Use relative path to allow tests to be started in subdirectories
+        path = os.path.dirname(__file__) + "/../../scripts/usb-policy.conf"
     ):
-        usb_scan = get_module("usb_scan", "../libexec/usb_scan.py")
+        usb_scan = import_file_as_module("python3/libexec/usb_scan.py")
 
         mock_setup(usb_scan, moc_devices, moc_interfaces, path)
 
@@ -134,7 +137,7 @@ class TestUsbScan(unittest.TestCase):
             # cm.exception.code is int type whose format
             # looks like "duplicated tag'vid' found,
             # malformed line ALLOW:vid=056a vid=0314 class=03"
-            self.assertIn(msg, cm.exception.code)  # pytype: disable=wrong-arg-types
+            self.assertIn(msg, cast(str, cm.exception.code))  # code is a str
 
     def test_usb_dongle(self):
         devices = [

@@ -3,13 +3,12 @@
 This module provides unittest for nbd_client_manager.py
 """
 
-import sys
 import unittest
 import subprocess
 from mock import MagicMock, patch, mock_open, call
-from import_file import get_module
+from python3.tests.import_helper import import_file_as_module
 
-nbd_client_manager = get_module("nbd_client_manager", "../libexec/nbd_client_manager.py")
+nbd_client_manager = import_file_as_module("python3/libexec/nbd_client_manager.py")
 
 @patch('subprocess.Popen')
 class TestCallFunction(unittest.TestCase):

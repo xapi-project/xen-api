@@ -1,7 +1,7 @@
 """scripts/unit_test/test_usb_reset_mount.py: Test usb_reset.mount and .umount"""
 from __future__ import print_function
 
-from .import_helper import import_file_as_module, mocked_modules
+from python3.tests.import_helper import import_file_as_module, mocked_modules
 
 
 def test_usb_reset_mount_umount(private_mount_namespace):
