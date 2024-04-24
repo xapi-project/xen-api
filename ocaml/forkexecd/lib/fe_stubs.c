@@ -410,7 +410,7 @@ caml_safe_exec_nat(value environment,
         // Redirect file descriptors.
         int err = 0;
         const char *err_func = NULL;
-        for (int i = 0; i < num_operations; ++i) {
+        for (int i = 0; i < num_operations && err == 0; ++i) {
             const fd_operation* const op = &info->operations[i];
             log("op %d %d %d", op->fd_from, op->fd_to, op->operation);
             switch (op->operation) {
