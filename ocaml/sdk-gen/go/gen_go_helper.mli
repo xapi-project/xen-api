@@ -22,6 +22,16 @@ val generate_file :
   rendered:string -> destdir:string -> output_file:string -> unit
 
 module Json : sig
+  type enum = (string * string) list
+
+  module StringMap : Map.S with type key = string
+
+  type enums = enum StringMap.t
+
+  val suffix_of_type : Datamodel_types.ty -> string
+
+  val string_of_ty_with_enums : Datamodel_types.ty -> string * enums
+
   val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list
 
   val all_enums : Datamodel_types.obj list -> Mustache.Json.t

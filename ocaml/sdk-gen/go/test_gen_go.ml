@@ -51,7 +51,6 @@ let schema_check keys checker members =
   let keys' = List.map (fun (k, _) -> k) members in
   compare_keys keys keys' && List.for_all checker members
 
-(* field *)
 let verify_field_member = function
   | "name", `String _ | "description", `String _ | "type", `String _ ->
       true
@@ -66,7 +65,134 @@ let verify_field = function
   | _ ->
       false
 
-(* module *)
+let result_keys = ["type"; "func_partial_type"]
+
+let verify_result_member = function
+  | "type", `String _ | "func_partial_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let error_keys = ["name"; "doc"]
+
+let verify_error_member = function
+  | "name", `String _ | "doc", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_error = function
+  | `O error ->
+      schema_check error_keys verify_error_member error
+  | _ ->
+      false
+
+let param_keys =
+  [
+    "is_session_id"
+  ; "type"
+  ; "name"
+  ; "name_internal"
+  ; "doc"
+  ; "func_partial_type"
+  ; "first"
+  ]
+
+let verify_param_member = function
+  | "is_session_id", `Bool _
+  | "first", `Bool _
+  | "type", `String _
+  | "name", `String _
+  | "name_internal", `String _
+  | "doc", `String _
+  | "func_partial_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_param = function
+  | `O param ->
+      schema_check param_keys verify_param_member param
+  | _ ->
+      false
+
+let verify_message_member = function
+  | "method_name", `String _
+  | "class_name", `String _
+  | "class_name_exported", `String _
+  | "method_name_exported", `String _ ->
+      true
+  | "description", `String _ | "description", `Null ->
+      true
+  | "result", `Null ->
+      true
+  | "result", `O result ->
+      schema_check result_keys verify_result_member result
+  | "params", `A params ->
+      List.for_all verify_param params
+  | "errors", `A errors ->
+      List.for_all verify_error errors
+  | "async", `Bool _ | "has_error", `Bool _ | "errors", `Null ->
+      true
+  | _ ->
+      false
+
+let verify_sesseion_message_member = function
+  | "method_name", `String _
+  | "class_name", `String _
+  | "class_name_exported", `String _
+  | "method_name_exported", `String _ ->
+      true
+  | "description", `String _ | "description", `Null ->
+      true
+  | "result", `Null ->
+      true
+  | "result", `O result ->
+      schema_check result_keys verify_result_member result
+  | "params", `A params ->
+      List.for_all verify_param params
+  | "header_params", `A params ->
+      List.for_all verify_param params
+  | "errors", `A errors ->
+      List.for_all verify_error errors
+  | "async", `Bool _
+  | "has_error", `Bool _
+  | "session_login", `Bool _
+  | "session_logout", `Bool _
+  | "errors", `Null ->
+      true
+  | _ ->
+      false
+
+let message_keys =
+  [
+    "method_name"
+  ; "class_name"
+  ; "class_name_exported"
+  ; "method_name_exported"
+  ; "description"
+  ; "result"
+  ; "params"
+  ; "errors"
+  ; "has_error"
+  ; "async"
+  ]
+
+let session_message_keys =
+  ["session_login"; "session_logout"; "header_params"] @ message_keys
+
+let verify_message = function
+  | `O members ->
+      let class_name =
+        List.assoc_opt "class_name" members |> Option.value ~default:`Null
+      in
+      if class_name <> `String "session" then
+        schema_check message_keys verify_message_member members
+      else
+        schema_check session_message_keys verify_sesseion_message_member members
+  | _ ->
+      false
+
 let verify_module_member = function
   | "name", `String _ ->
       true
@@ -83,7 +209,6 @@ let verify_modules_item = function
   | _ ->
       false
 
-(* modules *)
 let modules_keys = ["import"; "items"]
 
 let verify_modules_member = function
@@ -96,7 +221,6 @@ let verify_modules_member = function
 
 let enum_values_keys = ["value"; "doc"; "name"; "type"]
 
-(* enums *)
 let verify_enum_values_member = function
   | "value", `String _
   | "doc", `String _
@@ -136,7 +260,7 @@ let verify_enums : Mustache.Json.t -> bool = function
 
 (* obj *)
 let verify_obj_member = function
-  | "name", `String _ | "description", `String _ ->
+  | "name", `String _ | "description", `String _ | "name_internal", `String _ ->
       true
   | "event", `Bool _ | "event", `Null ->
       true
@@ -144,6 +268,8 @@ let verify_obj_member = function
       true
   | "fields", `A fields ->
       List.for_all verify_field fields
+  | "messages", `A messages ->
+      List.for_all verify_message messages
   | "modules", `Null ->
       true
   | "modules", `O members ->
@@ -151,7 +277,17 @@ let verify_obj_member = function
   | _ ->
       false
 
-let obj_keys = ["name"; "description"; "fields"; "modules"; "event"; "session"]
+let obj_keys =
+  [
+    "name"
+  ; "description"
+  ; "name_internal"
+  ; "fields"
+  ; "messages"
+  ; "modules"
+  ; "event"
+  ; "session"
+  ]
 
 let verify_obj = function
   | `O members ->
@@ -574,6 +710,173 @@ let option_convert : Mustache.Json.t =
   let array = [`O [("func_name_suffix", `String "SrStatRecord")]] in
   `O [("serialize", `A array); ("deserialize", `A array)]
 
+let session_messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("session_login", `Bool true)
+              ; ("session_logout", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("name_internal", `String "")
+              ; ("method_name", `String "login_with_password")
+              ; ("method_name_exported", `String "LoginWithPassword")
+              ; ( "description"
+                , `String
+                    "Attempt to authenticate the user); returning a session \
+                     reference if successful"
+                )
+              ; ("async", `Bool false)
+              ; ( "header_params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_partial_type", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_partial_type", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "SessionRef")
+                    ; ("func_partial_type", `String "SessionRef")
+                    ]
+                )
+              ; ("has_error", `Bool true)
+              ; ( "errors"
+                , `A
+                    [
+                      `O
+                        [
+                          ("name", `String "SESSION_AUTHENTICATION_FAILED")
+                        ; ( "doc"
+                          , `String
+                              "The credentials given by the user are incorrect"
+                          )
+                        ]
+                    ]
+                )
+              ]
+          ; `O
+              [
+                ("session_logout", `Bool true)
+              ; ("session_login", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("class_name_exported", `String "Session")
+              ; ("method_name", `String "logout")
+              ; ("method_name_exported", `String "Logout")
+              ; ("description", `String "Logout Log out of a session")
+              ; ("async", `Bool false)
+              ; ("func_params", `A [])
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_name_suffix", `String "SessionRef")
+                        ; ("is_session_id", `Bool true)
+                        ]
+                    ]
+                )
+              ; ("result", `Null)
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
+
+let messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("class_name", `String "host")
+              ; ("name_internal", `String "host")
+              ; ("method_name", `String "get_log")
+              ; ("method_name_exported", `String "GetLog")
+              ; ("description", `String "GetLog Get the host log file")
+              ; ("async", `Bool true)
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_name_suffix", `String "SessionRef")
+                        ; ("first", `Bool true)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "HostRef")
+                        ; ("name", `String "host")
+                        ; ("name_internal", `String "host")
+                        ; ("func_name_suffix", `String "HostRef")
+                        ; ("first", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "string")
+                    ; ("func_partial_type", `String "String")
+                    ]
+                )
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -594,6 +897,10 @@ module TemplatesTest = Generic.MakeStateless (struct
   let record_rendered = string_of_file "record.go"
 
   let enums_rendered = string_of_file "enum.go"
+
+  let methods_rendered = string_of_file "methods.go"
+
+  let session_method_rendered = string_of_file "session_method.go"
 
   let api_errors_rendered = string_of_file "api_errors.go"
 
@@ -629,6 +936,8 @@ module TemplatesTest = Generic.MakeStateless (struct
         (("FileHeader.mustache", header), file_header_rendered)
       ; (("Record.mustache", record), record_rendered)
       ; (("Enum.mustache", enums), enums_rendered)
+      ; (("Methods.mustache", messages), methods_rendered)
+      ; (("SessionMethod.mustache", session_messages), session_method_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
       ; ( ("ConvertSimpleType.mustache", simple_type_convert)

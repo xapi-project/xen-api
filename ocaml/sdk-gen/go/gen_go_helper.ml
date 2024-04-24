@@ -39,7 +39,7 @@ let render_template template_file json ?(newline = false) () =
   let templ =
     string_of_file (templates_dir // template_file) |> Mustache.of_string
   in
-  let renndered = Mustache.render templ json in
+  let renndered = Mustache.render ~strict:true templ json in
   if newline then renndered ^ "\n" else renndered
 
 let generate_file ~rendered ~destdir ~output_file =
@@ -60,7 +60,7 @@ module Json = struct
   let merge_maps m maps =
     List.fold_left (fun acc map -> StringMap.union choose_enum acc map) m maps
 
-  let rec func_name_suffix ty =
+  let rec suffix_of_type ty =
     match ty with
     | SecretString | String ->
         "String"
@@ -75,17 +75,17 @@ module Json = struct
     | Enum (name, _) ->
         "Enum" ^ snake_to_camel name
     | Set ty ->
-        func_name_suffix ty ^ "Set"
+        suffix_of_type ty ^ "Set"
     | Map (ty1, ty2) ->
-        let k_suffix = func_name_suffix ty1 in
-        let v_suffix = func_name_suffix ty2 in
+        let k_suffix = suffix_of_type ty1 in
+        let v_suffix = suffix_of_type ty2 in
         k_suffix ^ "To" ^ v_suffix ^ "Map"
     | Ref r ->
         snake_to_camel r ^ "Ref"
     | Record r ->
         snake_to_camel r ^ "Record"
     | Option ty ->
-        func_name_suffix ty
+        suffix_of_type ty
 
   let rec string_of_ty_with_enums ty : string * enums =
     match ty with
@@ -203,9 +203,149 @@ module Json = struct
     | _ ->
         [("event", `Null); ("session", `Null)]
 
+  let of_result obj msg =
+    match msg.msg_result with
+    | None ->
+        `Null
+    | Some (t, _d) ->
+        if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from"
+        then
+          `O
+            [
+              ("type", `String "EventBatch")
+            ; ("func_name_suffix", `String "EventBatch")
+            ]
+        else
+          let t', _ = string_of_ty_with_enums t in
+          `O
+            [
+              ("type", `String t')
+            ; ("func_name_suffix", `String (suffix_of_type t))
+            ]
+
+  let of_params params =
+    let name_internal name =
+      let name = name |> snake_to_camel |> String.uncapitalize_ascii in
+      match name with "type" -> "typeKey" | "interface" -> "inter" | _ -> name
+    in
+    let of_param param =
+      let suffix_of_type = suffix_of_type param.param_type in
+      let t, _e = string_of_ty_with_enums param.param_type in
+      let name = param.param_name in
+      [
+        ("is_session_id", `Bool (name = "session_id"))
+      ; ("type", `String t)
+      ; ("name", `String name)
+      ; ("name_internal", `String (name_internal name))
+      ; ("doc", `String param.param_doc)
+      ; ("func_name_suffix", `String suffix_of_type)
+      ]
+    in
+    (* We use ',' to seprate params in Go function, we should ignore ',' before first param,
+       for example `func(a type1, b type2)` is wanted rather than `func(, a type1, b type2)`.
+    *)
+    let add_first = function
+      | head :: rest ->
+          let head = `O (("first", `Bool true) :: of_param head) in
+          let rest =
+            List.map
+              (fun item -> `O (("first", `Bool false) :: of_param item))
+              rest
+          in
+          head :: rest
+      | [] ->
+          []
+    in
+    `A (add_first params)
+
+  let of_error e = `O [("name", `String e.err_name); ("doc", `String e.err_doc)]
+
+  let of_errors = function
+    | [] ->
+        `Null
+    | errors ->
+        `A (List.map of_error errors)
+
+  let add_session_info class_name method_name =
+    match (class_name, method_name) with
+    | "session", "login_with_password"
+    | "session", "slave_local_login_with_password" ->
+        [("session_login", `Bool true); ("session_logout", `Bool false)]
+    | "session", "logout" | "session", "local_logout" ->
+        [("session_login", `Bool false); ("session_logout", `Bool true)]
+    | _ ->
+        [("session_login", `Bool false); ("session_logout", `Bool false)]
+
+  let desc_of_msg msg ctor_fields =
+    let ctor =
+      if msg.msg_tag = FromObject Make then
+        Printf.sprintf " The constructor args are: %s (* = non-optional)."
+          ctor_fields
+      else
+        ""
+    in
+    match msg.msg_doc ^ ctor with
+    | "" ->
+        `Null
+    | desc ->
+        `String (String.trim desc)
+
+  let ctor_fields_of_obj obj =
+    Datamodel_utils.fields_of_obj obj
+    |> List.filter (function
+         | {qualifier= StaticRO | RW; _} ->
+             true
+         | _ ->
+             false
+         )
+    |> List.map (fun f ->
+           String.concat "_" f.full_name
+           ^ if f.default_value = None then "*" else ""
+       )
+    |> String.concat ", "
+
+  let messages_of_obj obj =
+    let ctor_fields = ctor_fields_of_obj obj in
+    let params_in_msg msg =
+      if msg.msg_session then
+        session_id :: msg.msg_params
+      else
+        msg.msg_params
+    in
+    List.map
+      (fun msg ->
+        let params = params_in_msg msg |> of_params in
+        let base_assoc_list =
+          [
+            ("method_name", `String msg.msg_name)
+          ; ("class_name", `String obj.name)
+          ; ("class_name_exported", `String (snake_to_camel obj.name))
+          ; ("method_name_exported", `String (snake_to_camel msg.msg_name))
+          ; ("description", desc_of_msg msg ctor_fields)
+          ; ("result", of_result obj msg)
+          ; ("params", params)
+          ; ("errors", of_errors msg.msg_errors)
+          ; ("has_error", `Bool (msg.msg_errors <> []))
+          ; ("async", `Bool msg.msg_async)
+          ]
+        in
+        (* Since the param of `session *Session` isn't needed in functions of session object,
+           we add a special "func_params" field for session object to ignore `session *Session`.*)
+        if obj.name = "session" then
+          `O
+            (("func_params", msg.msg_params |> of_params)
+            :: (add_session_info obj.name msg.msg_name @ base_assoc_list)
+            )
+        else
+          `O base_assoc_list
+      )
+      obj.messages
+
   let xenapi objs =
     List.map
       (fun obj ->
+        let obj_name = snake_to_camel obj.name in
+        let name_internal = String.uncapitalize_ascii obj_name in
         let fields = Datamodel_utils.fields_of_obj obj in
         let types = List.map (fun field -> field.ty) fields in
         let modules =
@@ -213,12 +353,14 @@ module Json = struct
         in
         let base_assoc_list =
           [
-            ("name", `String (snake_to_camel obj.name))
+            ("name", `String obj_name)
+          ; ("name_internal", `String name_internal)
           ; ("description", `String (String.trim obj.description))
           ; ( "fields"
             , `A (get_event_snapshot obj.name @ List.map of_field fields)
             )
           ; ("modules", modules)
+          ; ("messages", `A (messages_of_obj obj))
           ]
         in
         let assoc_list = base_assoc_list @ get_event_session_value obj.name in
@@ -369,7 +511,7 @@ module Convert = struct
       |> Option.value ~default:[]
       |> List.rev_map (fun field ->
              ( String.concat "_" field.full_name
-             , Json.func_name_suffix field.ty
+             , Json.suffix_of_type field.ty
              , match field.ty with Option _ -> true | _ -> false
              )
          )
@@ -395,13 +537,13 @@ module Convert = struct
         let items =
           List.map (fun (k, _) -> {value= k; name= name ^ snake_to_camel k}) kv
         in
-        Enum {func_suffix= Json.func_name_suffix ty; value_ty= name; items}
+        Enum {func_suffix= Json.suffix_of_type ty; value_ty= name; items}
     | Set ty as set ->
-        let fp_ty = Json.func_name_suffix ty in
+        let fp_ty = Json.suffix_of_type ty in
         let ty, _ = Json.string_of_ty_with_enums ty in
         Set
           {
-            func_suffix= Json.func_name_suffix set
+            func_suffix= Json.suffix_of_type set
           ; value_ty= ty
           ; item_fp_type= fp_ty
           }
@@ -409,13 +551,13 @@ module Convert = struct
         let name, _ = Json.string_of_ty_with_enums ty in
         Map
           {
-            func_suffix= Json.func_name_suffix ty
+            func_suffix= Json.suffix_of_type ty
           ; value_ty= name
-          ; key_ty= Json.func_name_suffix ty1
-          ; val_ty= Json.func_name_suffix ty2
+          ; key_ty= Json.suffix_of_type ty1
+          ; val_ty= Json.suffix_of_type ty2
           }
     | Ref _ as ty ->
-        let name = Json.func_name_suffix ty in
+        let name = Json.suffix_of_type ty in
         Ref {func_suffix= name; value_ty= name}
     | Record r ->
         let name = snake_to_camel r ^ "Record" in
@@ -435,7 +577,7 @@ module Convert = struct
         in
         Record {func_suffix= name; value_ty= name; fields}
     | Option ty ->
-        Option {func_suffix= Json.func_name_suffix ty}
+        Option {func_suffix= Json.suffix_of_type ty}
 
   let of_serialize params =
     `O [("serialize", `A [to_json params]); ("deserialize", `Null)]
