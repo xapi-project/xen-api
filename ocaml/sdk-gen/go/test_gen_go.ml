@@ -698,178 +698,6 @@ let option =
       )
     ]
 
-let session_messages : Mustache.Json.t =
-  `O
-    [
-      ( "messages"
-      , `A
-          [
-            `O
-              [
-                ("session_login", `Bool true)
-              ; ("session_logout", `Bool false)
-              ; ("class_name", `String "session")
-              ; ("name_internal", `String "")
-              ; ("method_name", `String "login_with_password")
-              ; ("method_name_exported", `String "LoginWithPassword")
-              ; ( "description"
-                , `String
-                    "Attempt to authenticate the user); returning a session \
-                     reference if successful"
-                )
-              ; ("async", `Bool false)
-              ; ("version", `String "miami")
-              ; ( "func_params"
-                , `A
-                    [
-                      `O
-                        [
-                          ("type", `String "string")
-                        ; ("name", `String "uname")
-                        ; ("name_internal", `String "uname")
-                        ; ("func_name_suffix", `String "String")
-                        ; ("first", `Bool true)
-                        ; ("is_session_id", `Bool false)
-                        ]
-                    ; `O
-                        [
-                          ("type", `String "string")
-                        ; ("name", `String "pwd")
-                        ; ("name_internal", `String "pwd")
-                        ; ("func_name_suffix", `String "String")
-                        ; ("is_session_id", `Bool false)
-                        ]
-                    ]
-                )
-              ; ( "params"
-                , `A
-                    [
-                      `O
-                        [
-                          ("type", `String "string")
-                        ; ("name", `String "uname")
-                        ; ("name_internal", `String "uname")
-                        ; ("func_name_suffix", `String "String")
-                        ; ("first", `Bool true)
-                        ; ("is_session_id", `Bool false)
-                        ]
-                    ; `O
-                        [
-                          ("type", `String "string")
-                        ; ("name", `String "pwd")
-                        ; ("name_internal", `String "pwd")
-                        ; ("func_name_suffix", `String "String")
-                        ; ("is_session_id", `Bool false)
-                        ]
-                    ]
-                )
-              ; ( "result"
-                , `O
-                    [
-                      ("type", `String "SessionRef")
-                    ; ("func_name_suffix", `String "SessionRef")
-                    ]
-                )
-              ; ("has_error", `Bool true)
-              ; ( "errors"
-                , `A
-                    [
-                      `O
-                        [
-                          ("name", `String "SESSION_AUTHENTICATION_FAILED")
-                        ; ( "doc"
-                          , `String
-                              "The credentials given by the user are incorrect"
-                          )
-                        ]
-                    ]
-                )
-              ]
-          ; `O
-              [
-                ("session_logout", `Bool true)
-              ; ("session_login", `Bool false)
-              ; ("class_name", `String "session")
-              ; ("class_name_exported", `String "Session")
-              ; ("method_name", `String "logout")
-              ; ("method_name_exported", `String "Logout")
-              ; ("description", `String "Logout Log out of a session")
-              ; ("async", `Bool false)
-              ; ("func_params", `A [])
-              ; ("version", `String "miami")
-              ; ( "params"
-                , `A
-                    [
-                      `O
-                        [
-                          ("type", `String "SessionRef")
-                        ; ("name", `String "session_id")
-                        ; ("name_internal", `String "sessionID")
-                        ; ("func_name_suffix", `String "SessionRef")
-                        ; ("is_session_id", `Bool true)
-                        ]
-                    ]
-                )
-              ; ("result", `Null)
-              ; ("has_error", `Bool false)
-              ; ("errors", `A [])
-              ]
-          ]
-      )
-    ]
-
-let messages : Mustache.Json.t =
-  `O
-    [
-      ( "messages"
-      , `A
-          [
-            `O
-              [
-                ("class_name", `String "host")
-              ; ("name_internal", `String "host")
-              ; ("method_name", `String "get_log")
-              ; ("method_name_exported", `String "GetLog")
-              ; ("description", `String "GetLog Get the host log file")
-              ; ("async", `Bool true)
-              ; ("version", `String "miami")
-              ; ( "params"
-                , `A
-                    [
-                      `O
-                        [
-                          ("type", `String "SessionRef")
-                        ; ("name", `String "session_id")
-                        ; ("name_internal", `String "sessionID")
-                        ; ("func_name_suffix", `String "SessionRef")
-                        ; ("session", `Bool true)
-                        ; ("session_class", `Bool false)
-                        ; ("first", `Bool true)
-                        ]
-                    ; `O
-                        [
-                          ("type", `String "HostRef")
-                        ; ("name", `String "host")
-                        ; ("name_internal", `String "host")
-                        ; ("func_name_suffix", `String "HostRef")
-                        ; ("first", `Bool false)
-                        ]
-                    ]
-                )
-              ; ( "result"
-                , `O
-                    [
-                      ("type", `String "string")
-                    ; ("func_name_suffix", `String "String")
-                    ]
-                )
-              ; ("has_error", `Bool false)
-              ; ("errors", `A [])
-              ]
-          ]
-      )
-    ]
-
 let simple_type_convert : Mustache.Json.t =
   let array =
     [
@@ -1014,6 +842,176 @@ let enum_convert : Mustache.Json.t =
 let option_convert : Mustache.Json.t =
   let array = [`O [("func_name_suffix", `String "SrStatRecord")]] in
   `O [("serialize", `A array); ("deserialize", `A array)]
+
+let session_messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("session_login", `Bool true)
+              ; ("session_logout", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("name_internal", `String "")
+              ; ("method_name", `String "login_with_password")
+              ; ("method_name_exported", `String "LoginWithPassword")
+              ; ( "description"
+                , `String
+                    "Attempt to authenticate the user); returning a session \
+                     reference if successful"
+                )
+              ; ("async", `Bool false)
+              ; ("version", `String "miami")
+              ; ( "func_params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "SessionRef")
+                    ; ("func_name_suffix", `String "SessionRef")
+                    ]
+                )
+              ; ("has_error", `Bool true)
+              ; ( "errors"
+                , `A
+                    [
+                      `O
+                        [
+                          ("name", `String "SESSION_AUTHENTICATION_FAILED")
+                        ; ( "doc"
+                          , `String
+                              "The credentials given by the user are incorrect"
+                          )
+                        ]
+                    ]
+                )
+              ]
+          ; `O
+              [
+                ("session_logout", `Bool true)
+              ; ("session_login", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("class_name_exported", `String "Session")
+              ; ("method_name", `String "logout")
+              ; ("method_name_exported", `String "Logout")
+              ; ("description", `String "Logout Log out of a session")
+              ; ("async", `Bool false)
+              ; ("func_params", `A [])
+              ; ("version", `String "miami")
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_name_suffix", `String "SessionRef")
+                        ; ("is_session_id", `Bool true)
+                        ]
+                    ]
+                )
+              ; ("result", `Null)
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
+
+let messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("class_name", `String "host")
+              ; ("name_internal", `String "host")
+              ; ("method_name", `String "get_log")
+              ; ("method_name_exported", `String "GetLog")
+              ; ("description", `String "GetLog Get the host log file")
+              ; ("async", `Bool true)
+              ; ("version", `String "miami")
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_name_suffix", `String "SessionRef")
+                        ; ("first", `Bool true)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "HostRef")
+                        ; ("name", `String "host")
+                        ; ("name_internal", `String "host")
+                        ; ("func_name_suffix", `String "HostRef")
+                        ; ("first", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "string")
+                    ; ("func_name_suffix", `String "String")
+                    ]
+                )
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
 
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
