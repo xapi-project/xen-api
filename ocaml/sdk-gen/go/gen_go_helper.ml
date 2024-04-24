@@ -53,6 +53,33 @@ module Json = struct
   let merge_maps m maps =
     List.fold_left (fun acc map -> StringMap.union choose_enum acc map) m maps
 
+  let rec get_fp_type ty =
+    match ty with
+    | SecretString | String ->
+        "String"
+    | Int ->
+        "Int"
+    | Float ->
+        "Float"
+    | Bool ->
+        "Bool"
+    | DateTime ->
+        "Time"
+    | Enum (name, _) ->
+        "Enum" ^ snake_to_camel name
+    | Set ty ->
+        get_fp_type ty ^ "Set"
+    | Map (ty1, ty2) ->
+        let fp_type1 = get_fp_type ty1 in
+        let fp_type2 = get_fp_type ty2 in
+        fp_type1 ^ "To" ^ fp_type2 ^ "Map"
+    | Ref r ->
+        snake_to_camel r ^ "Ref"
+    | Record r ->
+        snake_to_camel r ^ "Record"
+    | Option ty ->
+        get_fp_type ty
+
   let rec string_of_ty_with_enums ty : string * enums =
     match ty with
     | SecretString | String ->
@@ -169,6 +196,174 @@ module Json = struct
     | _ ->
         [("event", `Null); ("session", `Null)]
 
+  let of_result obj msg =
+    match msg.msg_result with
+    | None ->
+        `Null
+    | Some (t, _d) ->
+        if obj.name = "event" && String.lowercase_ascii msg.msg_name = "from"
+        then
+          `O
+            [
+              ("type", `String "EventBatch")
+            ; ("func_partial_type", `String "EventBatch")
+            ]
+        else
+          let t', _ = string_of_ty_with_enums t in
+          `O
+            [
+              ("type", `String t')
+            ; ("func_partial_type", `String (get_fp_type t))
+            ]
+
+  let of_param class_name params =
+    let name_internal name =
+      let name = name |> snake_to_camel |> String.uncapitalize_ascii in
+      match name with "type" -> "typeKey" | "interface" -> "inter" | _ -> name
+    in
+    let base_assoc_list (t, name, doc, type_name) =
+      [
+        ("session", `Bool (name = "session_id"))
+      ; ("type", `String t)
+      ; ("name", `String name)
+      ; ("name_internal", `String (name_internal name))
+      ; ("doc", `String doc)
+      ; ("func_partial_type", `String type_name)
+      ]
+    in
+    let deal_with_logout name =
+      match (class_name, name) with
+      | "session", "session_id" ->
+          ([("param_ignore", `Bool true); ("session_class", `Bool true)], true)
+      | "session", _ ->
+          ([("param_ignore", `Bool false); ("session_class", `Bool true)], false)
+      | _ ->
+          ([("param_ignore", `Null); ("session_class", `Null)], false)
+    in
+    let get_assoc_list (t, name, doc, type_name) =
+      let fields, could_ignore = deal_with_logout name in
+      (fields @ base_assoc_list (t, name, doc, type_name), could_ignore)
+    in
+    let rec aux = function
+      | head :: rest ->
+          let assoc_list, could_ignore = get_assoc_list head in
+          let assoc_list = ("first", `Bool (not could_ignore)) :: assoc_list in
+          let others =
+            if could_ignore then
+              aux rest
+            else
+              List.map
+                (fun item ->
+                  let assoc_list, _ = get_assoc_list item in
+                  `O (("first", `Bool false) :: assoc_list)
+                )
+                rest
+          in
+          `O assoc_list :: others
+      | [] ->
+          []
+    in
+    params
+    |> List.map (fun p ->
+           let fp_type = get_fp_type p.param_type in
+           let t, _e = string_of_ty_with_enums p.param_type in
+           (t, p.param_name, p.param_doc, fp_type)
+       )
+    |> fun params -> `A (aux params)
+
+  let of_error e = `O [("name", `String e.err_name); ("doc", `String e.err_doc)]
+
+  let of_errors = function
+    | [] ->
+        `Null
+    | errors ->
+        `A (List.map of_error errors)
+
+  let add_session_info class_name method_name =
+    match (class_name, method_name) with
+    | "session", "login_with_password"
+    | "session", "slave_local_login_with_password" ->
+        [
+          ("session_class", `Bool true)
+        ; ("session_login", `Bool true)
+        ; ("session_logout", `Bool false)
+        ]
+    | "session", "logout" | "session", "local_logout" ->
+        [
+          ("session_class", `Bool true)
+        ; ("session_login", `Bool false)
+        ; ("session_logout", `Bool true)
+        ]
+    | "session", _ ->
+        [
+          ("session_class", `Bool true)
+        ; ("session_login", `Bool false)
+        ; ("session_logout", `Bool false)
+        ]
+    | _ ->
+        [
+          ("session_class", `Bool false)
+        ; ("session_login", `Bool false)
+        ; ("session_logout", `Bool false)
+        ]
+
+  let desc_of_msg msg ctor_fields =
+    let ctor =
+      if msg.msg_tag = FromObject Make then
+        Printf.sprintf " The constructor args are: %s (* = non-optional)."
+          ctor_fields
+      else
+        ""
+    in
+    match msg.msg_doc ^ ctor with
+    | "" ->
+        `Null
+    | desc ->
+        `String (String.trim desc)
+
+  let ctor_fields_of_obj obj =
+    Datamodel_utils.fields_of_obj obj
+    |> List.filter (function
+         | {qualifier= StaticRO | RW; _} ->
+             true
+         | _ ->
+             false
+         )
+    |> List.map (fun f ->
+           String.concat "_" f.full_name
+           ^ if f.default_value = None then "*" else ""
+       )
+    |> String.concat ", "
+
+  let messages_of_obj obj =
+    let ctor_fields = ctor_fields_of_obj obj in
+    let params_in_msg msg =
+      if msg.msg_session then
+        session_id :: msg.msg_params
+      else
+        msg.msg_params
+    in
+    List.map
+      (fun msg ->
+        let params = params_in_msg msg |> of_param obj.name in
+        let base_assoc_list =
+          [
+            ("method_name", `String msg.msg_name)
+          ; ("class_name", `String obj.name)
+          ; ("class_name_exported", `String (snake_to_camel obj.name))
+          ; ("method_name_exported", `String (snake_to_camel msg.msg_name))
+          ; ("description", desc_of_msg msg ctor_fields)
+          ; ("result", of_result obj msg)
+          ; ("params", params)
+          ; ("errors", of_errors msg.msg_errors)
+          ; ("has_error", `Bool (msg.msg_errors <> []))
+          ; ("async", `Bool msg.msg_async)
+          ]
+        in
+        `O (add_session_info obj.name msg.msg_name @ base_assoc_list)
+      )
+      obj.messages
+
   let xenapi objs =
     List.map
       (fun obj ->
@@ -188,6 +383,7 @@ module Json = struct
             , `A (get_event_snapshot obj.name @ List.map of_field fields)
             )
           ; ("modules", modules)
+          ; ("messages", `A (messages_of_obj obj))
           ]
         in
         let assoc_list = base_assoc_list @ get_event_session_value obj.name in

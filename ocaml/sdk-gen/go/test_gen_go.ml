@@ -66,6 +66,113 @@ let verify_field = function
   | _ ->
       false
 
+let result_keys = ["type"; "func_partial_type"]
+
+let verify_result_member = function
+  | "type", `String _ | "func_partial_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let error_keys = ["name"; "doc"]
+
+let verify_error_member = function
+  | "name", `String _ | "doc", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_error = function
+  | `O error ->
+      schema_check error_keys verify_error_member error
+  | _ ->
+      false
+
+let param_keys =
+  [
+    "session"
+  ; "type"
+  ; "name"
+  ; "name_internal"
+  ; "doc"
+  ; "func_partial_type"
+  ; "param_ignore"
+  ; "session_class"
+  ; "first"
+  ]
+
+let verify_param_member = function
+  | "session", `Bool _
+  | "first", `Bool _
+  | "type", `String _
+  | "name", `String _
+  | "name_internal", `String _
+  | "doc", `String _
+  | "func_partial_type", `String _ ->
+      true
+  | "param_ignore", `Bool _ | "param_ignore", `Null ->
+      true
+  | "session_class", `Bool _ | "session_class", `Null ->
+      true
+  | _ ->
+      false
+
+let verify_param = function
+  | `O param ->
+      schema_check param_keys verify_param_member param
+  | _ ->
+      false
+
+let verify_message_member = function
+  | "method_name", `String _
+  | "class_name", `String _
+  | "class_name_exported", `String _
+  | "method_name_exported", `String _ ->
+      true
+  | "description", `String _ | "description", `Null ->
+      true
+  | "result", `Null ->
+      true
+  | "result", `O result ->
+      schema_check result_keys verify_result_member result
+  | "params", `A params ->
+      List.for_all verify_param params
+  | "errors", `A errors ->
+      List.for_all verify_error errors
+  | "async", `Bool _
+  | "has_error", `Bool _
+  | "session_class", `Bool _
+  | "session_login", `Bool _
+  | "session_logout", `Bool _ ->
+      true
+  | "errors", `Null ->
+      true
+  | _ ->
+      false
+
+let message_keys =
+  [
+    "method_name"
+  ; "class_name"
+  ; "class_name_exported"
+  ; "method_name_exported"
+  ; "description"
+  ; "result"
+  ; "params"
+  ; "errors"
+  ; "session_class"
+  ; "session_login"
+  ; "session_logout"
+  ; "has_error"
+  ; "async"
+  ]
+
+let verify_message = function
+  | `O members ->
+      schema_check message_keys verify_message_member members
+  | _ ->
+      false
+
 (* module *)
 let verify_module_member = function
   | "name", `String _ ->
@@ -136,7 +243,7 @@ let verify_enums : Mustache.Json.t -> bool = function
 
 (* obj *)
 let verify_obj_member = function
-  | "name", `String _ | "description", `String _ ->
+  | "name", `String _ | "description", `String _ | "name_internal", `String _ ->
       true
   | "event", `Bool _ | "event", `Null ->
       true
@@ -144,6 +251,8 @@ let verify_obj_member = function
       true
   | "fields", `A fields ->
       List.for_all verify_field fields
+  | "messages", `A messages ->
+      List.for_all verify_message messages
   | "modules", `Null ->
       true
   | "modules", `O members ->
@@ -160,6 +269,7 @@ let obj_keys =
   ; "modules"
   ; "event"
   ; "session"
+  ; "messages"
   ]
 
 let verify_obj = function
@@ -336,6 +446,162 @@ let api_messages : Mustache.Json.t =
       )
     ]
 
+let messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("session_class", `Bool false)
+              ; ("session_login", `Bool false)
+              ; ("session_logout", `Bool false)
+              ; ("class_name", `String "host")
+              ; ("name_internal", `String "host")
+              ; ("method_name", `String "get_log")
+              ; ("method_name_exported", `String "GetLog")
+              ; ("description", `String "GetLog Get the host log file")
+              ; ("async", `Bool true)
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_partial_type", `String "SessionRef")
+                        ; ("session", `Bool true)
+                        ; ("session_class", `Bool false)
+                        ; ("first", `Bool true)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "HostRef")
+                        ; ("name", `String "host")
+                        ; ("name_internal", `String "host")
+                        ; ("func_partial_type", `String "HostRef")
+                        ; ("session_class", `Bool false)
+                        ; ("session", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "string")
+                    ; ("func_partial_type", `String "String")
+                    ]
+                )
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ; `O
+              [
+                ("session_class", `Bool true)
+              ; ("session_login", `Bool true)
+              ; ("session_logout", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("name_internal", `String "")
+              ; ("method_name", `String "login_with_password")
+              ; ("method_name_exported", `String "LoginWithPassword")
+              ; ( "description"
+                , `String
+                    "Attempt to authenticate the user); returning a session \
+                     reference if successful"
+                )
+              ; ("async", `Bool false)
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_partial_type", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("session_class", `Bool true)
+                        ; ("session", `Bool true)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_partial_type", `String "String")
+                        ; ("session_class", `Bool true)
+                        ; ("session", `Bool true)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "SessionRef")
+                    ; ("func_partial_type", `String "SessionRef")
+                    ]
+                )
+              ; ("has_error", `Bool true)
+              ; ( "errors"
+                , `A
+                    [
+                      `O
+                        [
+                          ("name", `String "SESSION_AUTHENTICATION_FAILED")
+                        ; ( "doc"
+                          , `String
+                              "The credentials given by the user are incorrect"
+                          )
+                        ]
+                    ]
+                )
+              ]
+          ; `O
+              [
+                ("session_class", `Bool true)
+              ; ("session_logout", `Bool true)
+              ; ("session_login", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("class_name_exported", `String "Session")
+              ; ("method_name", `String "logout")
+              ; ("method_name_exported", `String "Logout")
+              ; ("description", `String "Logout Log out of a session")
+              ; ("async", `Bool false)
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_partial_type", `String "SessionRef")
+                        ; ("param_ignore", `Bool true)
+                        ; ("session_class", `Bool true)
+                        ; ("session", `Bool true)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "test_param")
+                        ; ("name_internal", `String "testParam")
+                        ; ("func_partial_type", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("session_class", `Bool true)
+                        ; ("session", `Bool true)
+                        ]
+                    ]
+                )
+              ; ("result", `Null)
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -357,6 +623,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let enums_rendered = string_of_file "enum.go"
 
+  let methods_rendered = string_of_file "methods.go"
+
   let api_errors_rendered = string_of_file "api_errors.go"
 
   let api_messages_rendered = string_of_file "api_messages.go"
@@ -367,6 +635,7 @@ module TemplatesTest = Generic.MakeStateless (struct
         (("FileHeader.mustache", header), file_header_rendered)
       ; (("Record.mustache", record), record_rendered)
       ; (("Enum.mustache", enums), enums_rendered)
+      ; (("Methods.mustache", messages), methods_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
       ]
