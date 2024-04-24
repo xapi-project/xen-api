@@ -38,26 +38,20 @@ let is_uuid str = match of_string str with None -> false | Some _ -> true
 
 let dev_urandom = "/dev/urandom"
 
-let read_bytes dev n =
-  let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
-  let finally body_f clean_f =
-    try
-      let ret = body_f () in
-      clean_f () ; ret
-    with e -> clean_f () ; raise e
-  in
-  finally
-    (fun () ->
-      let buf = Bytes.create n in
-      let read = Unix.read fd buf 0 n in
-      if read <> n then
-        raise End_of_file
-      else
-        Bytes.to_string buf
-    )
-    (fun () -> Unix.close fd)
+let dev_urandom_fd = Unix.openfile dev_urandom [Unix.O_RDONLY] 0o640
+(* we can't close this in at_exit, because Crowbar runs at_exit, and
+   it'll fail because this FD will then be closed
+*)
 
-let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
+let read_bytes dev n =
+  let buf = Bytes.create n in
+  let read = Unix.read dev buf 0 n in
+  if read <> n then
+    raise End_of_file
+  else
+    Bytes.to_string buf
+
+let make_uuid_urnd () = of_bytes (read_bytes dev_urandom_fd 16) |> Option.get
 
 (* Use the CSPRNG-backed urandom *)
 let make = make_uuid_urnd
@@ -65,7 +59,7 @@ let make = make_uuid_urnd
 type cookie = string
 
 let make_cookie () =
-  read_bytes dev_urandom 64
+  read_bytes dev_urandom_fd 64
   |> String.to_seq
   |> Seq.map (fun c -> Printf.sprintf "%1x" (int_of_char c))
   |> List.of_seq
