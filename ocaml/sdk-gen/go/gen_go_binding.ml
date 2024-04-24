@@ -55,7 +55,20 @@ let main destdir =
         render_template "FileHeader.mustache" obj ~newline:true ()
       in
       let record_rendered = render_template "Record.mustache" obj () in
-      let rendered = header_rendered ^ record_rendered in
+      let methods_rendered =
+        if name = "session" then
+          render_template "SessionMethod.mustache" obj ()
+        else
+          render_template "Methods.mustache" obj ()
+      in
+      let rendered =
+        let first_half = header_rendered ^ record_rendered in
+        match methods_rendered with
+        | "" ->
+            first_half
+        | _ ->
+            first_half ^ "\n" ^ methods_rendered
+      in
       let output_file = name ^ ".go" in
       generate_file ~rendered ~destdir ~output_file
     )
