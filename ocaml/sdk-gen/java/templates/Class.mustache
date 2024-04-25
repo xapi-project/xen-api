@@ -56,28 +56,28 @@ public class {{class_name}} extends XenAPIObject {
     {{/is_empty_class}}
     {{^is_empty_class}}
     /**
-    * The XenAPI reference (OpaqueRef) to this object.
-    */
+     * The XenAPI reference (OpaqueRef) to this object.
+     */
     protected final String ref;
 
     /**
-    * For internal use only.
-    */
+     * For internal use only.
+     */
     {{{class_name}}}(String ref) {
         this.ref = ref;
     }
 
     /**
-    * @return The XenAPI reference (OpaqueRef) to this object.
-    */
+     * @return The XenAPI reference (OpaqueRef) to this object.
+     */
     @JsonValue
     public String toWireString() {
         return this.ref;
     }
 
     /**
-    * If obj is a {{{class_name}}}, compares XenAPI references for equality.
-    */
+     * If obj is a {{{class_name}}}, compares XenAPI references for equality.
+     */
     @Override
     public boolean equals(Object obj)
     {
@@ -105,25 +105,22 @@ public class {{class_name}} extends XenAPIObject {
             StringWriter writer = new StringWriter();
             PrintWriter print = new PrintWriter(writer);
             {{#fields}}
-                print.printf("%1$20s: %2$s\n", "{{{name_camel}}}", this.{{{name_camel}}});
+            print.printf("%1$20s: %2$s\n", "{{{name_camel}}}", this.{{{name_camel}}});
             {{/fields}}
             {{#is_event_class}}
-                print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
+            print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
             {{/is_event_class}}
             return writer.toString();
         }
 
         /**
-        * Convert a {{{class_name}}}.Record to a Map
-        */
+         * Convert a {{{class_name}}}.Record to a Map
+         */
         public Map<String,Object> toMap() {
             var map = new HashMap<String,Object>();
             {{#fields}}
             map.put("{{{name}}}", this.{{{name_camel}}} == null ? {{{default_value}}} : this.{{{name_camel}}});
             {{/fields}}
-            {{#is_event_class}}
-                print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
-            {{/is_event_class}}
             return map;
         }
 
@@ -149,30 +146,30 @@ public class {{class_name}} extends XenAPIObject {
     {{/is_empty_class}}
     {{#methods}}
     /**
-    * {{{description}}}
-    * Minimum allowed role: {{{minimum_allowed_role}}}
-    * {{{publish_info}}}{{#is_deprecated}}
-    * @deprecated since {{{deprecated_release}}}{{/is_deprecated}}
-    *
-    * @param c The connection the call is made on{{#parameters}}
-    * @param {{{name_camel}}} {{^description}}No description{{/description}}{{#description}}{{{.}}}{{/description}} {{{publish_info}}}{{/parameters}}{{^returns_void}}
-    * @return {{#is_async}}Task{{/is_async}}{{^is_async}}{{{return_description}}}{{/is_async}}{{/returns_void}}
-    * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
-    * @throws XenAPIException if the call failed.
-    * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.{{#errors}}
-    * @throws {{{name}}} {{{description}}}{{/errors}}
-    */{{#is_deprecated}}
+     * {{{description}}}
+     * Minimum allowed role: {{{minimum_allowed_role}}}
+     * {{{publish_info}}}{{#is_deprecated}}
+     * @deprecated since {{{deprecated_release}}}{{/is_deprecated}}
+     *
+     * @param c The connection the call is made on{{#parameters}}
+     * @param {{{name_camel}}} {{{description}}} {{{publish_info}}}{{/parameters}}{{^returns_void}}
+     * @return {{#is_async}}Task{{/is_async}}{{^is_async}}{{{return_description}}}{{/is_async}}{{/returns_void}}
+     * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
+     * @throws XenAPIException if the call failed.
+     * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.{{#errors}}
+     * @throws {{{name}}} {{{description}}}{{/errors}}
+     */{{#is_deprecated}}
     @Deprecated(since = "{{{deprecated_release}}}"){{/is_deprecated}}
     public{{#is_static}} static{{/is_static}} {{#is_async}}Task{{/is_async}}{{^is_async}}{{{return_type}}}{{/is_async}} {{name_camel}}{{#is_async}}Async{{/is_async}}(Connection c{{#parameters}}, {{{type}}} {{{name_camel}}}{{/parameters}}) throws
-    BadServerResponse,
-    XenAPIException,
-    IOException{{#errors}},
+            BadServerResponse,
+            XenAPIException,
+            IOException{{#errors}},
     {{name}}{{/errors}} {
-        String methodCall = "{{#is_async}}Async.{{/is_async}}{{{object_name}}}.{{{name}}}";
-        {{#supports_session}}String sessionReference = c.getSessionReference();{{/supports_session}}{{#method_parameters}}{{#is_record}}
+        String methodCall = "{{#is_async}}Async.{{/is_async}}{{{object_name}}}.{{{name}}}";{{#supports_session}}
+        String sessionReference = c.getSessionReference();{{/supports_session}}{{#method_parameters}}{{#is_record}}
         var {{{name_camel}}}_map = {{{name_camel}}}.toMap();{{/is_record}}{{/method_parameters}}
         Object[] methodParameters = { {{#method_parameters}}{{{name_camel}}}{{#is_record}}_map{{/is_record}}{{^is_last}}, {{/is_last}}{{/method_parameters}} };{{#type_reference}}
-        var typeReference = new TypeReference<{{{type_reference}}}>(){};{{/type_reference}}
+        var typeReference = new TypeReference<{{{.}}}>(){};{{/type_reference}}
         {{^returns_void}}return {{/returns_void}}c.dispatch(methodCall, methodParameters{{#type_reference}}, typeReference{{/type_reference}});
     }
 

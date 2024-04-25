@@ -101,7 +101,6 @@ public class Types
            super(String.valueOf(responseError));
        }
    }
-
    /**
    * Checks the provided server response was successful. If the call
    * failed, throws a XenAPIException. If the server
@@ -117,13 +116,12 @@ public class Types
         var errorName = response.message;
 
         {{#errors}}
-        if (errorName.equals("{{class_name}}")){
+        if (errorName.equals("{{{name}}}")){
             {{#err_params}}
-            String p{{index}} = errorData.length > {{index}} ? errorData[{{index}}] : "";
+            String p{{{index}}} = errorData.length > {{{index}}} ? errorData[{{{index}}}] : "";
             {{/err_params}}
-            throw new Types.{{class_name}}({{#err_params}}p{{index}}{{^last}}, {{/last}}{{/err_params}});
+            throw new Types.{{{class_name}}}({{#err_params}}p{{{index}}}{{^last}}, {{/last}}{{/err_params}});
         }
-        
         {{/errors}}
 
         // An unknown error occurred
@@ -131,7 +129,7 @@ public class Types
     }
 
     {{#enums}}
-    public enum {{class_name}} {
+    public enum {{{class_name}}} {
         /**
          * The value does not belong to this enumeration
          */
@@ -139,62 +137,60 @@ public class Types
         UNRECOGNIZED,
         {{#values}}
         /**
-         * {{description}}
+         * {{{description}}}
          */
-        @JsonProperty("{{name}}")
-        {{name_uppercase}};
+        @JsonProperty("{{{name}}}")
+        {{{name_uppercase}}}{{^is_last}},{{/is_last}}{{#is_last}};{{/is_last}}
         {{/values}}
         
         public String toString() {
-            if (this == UNRECOGNIZED) return "UNRECOGNIZED";
-            {{#values}}
-            if (this == {{name_uppercase}}) return "{{name}}";
-            {{/values}}
-
+            if (this == UNRECOGNIZED) return "UNRECOGNIZED";{{#values}}
+            if (this == {{{name_uppercase}}}) return "{{{name}}}";{{/values}}
             /* This can never be reached */
             return "illegal enum";
         }
+
     }
 
     {{/enums}}
-
     {{#errors}}
     /**
-     * {{description}}
+     * {{{description}}}
      */
-    public static class {{class_name}} extends XenAPIException {
-        public final String proxies;
+    public static class {{{class_name}}} extends XenAPIException {
+        {{#err_params}}
+        public final String {{{name}}};
+        {{/err_params}}
 
         /**
-         * Create a new {{class_name}}
+         * Create a new {{{class_name}}}
          */
-        public {{class_name}}({{#err_params}}String {{name}}{{^last}}, {{/last}}{{/err_params}}) {
-            super("The PVS site contains running proxies.");#
+        public {{{class_name}}}({{#err_params}}String {{{name}}}{{^last}}, {{/last}}{{/err_params}}) {
+            super("{{{description}}}");
             {{#err_params}}
-            this.{{name}} = {{name}};
+            this.{{{name}}} = {{{name}}};
             {{/err_params}}
         }
     }
-
     {{/errors}}
 
     {{#types}}
     /**
     * Converts an {@link Object} to a {@link {{{name}}}} object.
     * <br />
-    * This method takes an {@link Object} as input and attempts to convert it into a {@link name} object.
-    * If the input object is null, the method returns null. Otherwise, it creates a new {@link name}
+    * This method takes an {@link Object} as input and attempts to convert it into a {@link {{{name}}}} object.
+    * If the input object is null, the method returns null. Otherwise, it creates a new {@link {{{name}}}}
     * object using the input object's {@link String} representation.
     * <br />
-    * @param object The {@link Object} to be converted to a {@link name} object.
-    * @return A {@link name} object created from the input {@link Object}'s {@link String} representation,
+    * @param object The {@link Object} to be converted to a {@link {{{name}}}} object.
+    * @return A {@link {{{name}}}} object created from the input {@link Object}'s {@link String} representation,
     *         or null if the input object is null.
     * @deprecated this method will not be publicly exposed in future releases of this package.
     */
     @Deprecated{{#suppress_unchecked_warning}}
     @SuppressWarnings("unchecked"){{/suppress_unchecked_warning}}
-    public static {{{name}}} {{method_name}}(Object object) {
-        if(object == null){
+    public static {{{name}}} {{{method_name}}}(Object object) {
+        if (object == null) {
             return null;
         }
         {{{method_body}}}
