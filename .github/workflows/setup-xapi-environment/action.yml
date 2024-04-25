@@ -46,6 +46,8 @@ runs:
         echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
         echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
 
+    # We set DUNE_CACHE_STORAGE_MODE, it is required for dune cache to work inside opam for now,
+    # otherwise it gets EXDEV and considers it a cache miss
     - name: Use ocaml
       uses: ocaml/setup-ocaml@v2
       with:
@@ -54,6 +56,8 @@ runs:
           xs-opam: ${{ steps.dotenv.outputs.repository }}
         opam-pin: false
         dune-cache: true
+      env:
+        DUNE_CACHE_STORAGE_MODE: copy
 
     - name: Install dependencies
       shell: bash
