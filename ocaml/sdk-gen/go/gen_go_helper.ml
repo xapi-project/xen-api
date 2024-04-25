@@ -23,11 +23,33 @@ let templates_dir = "templates"
 
 let ( // ) = Filename.concat
 
+let special_words =
+  [
+    "id"
+  ; "ip"
+  ; "vm"
+  ; "api"
+  ; "uuid"
+  ; "cpu"
+  ; "tls"
+  ; "https"
+  ; "url"
+  ; "db"
+  ; "xml"
+  ; "eof"
+  ]
+
 let snake_to_camel (s : string) : string =
-  Astring.String.cuts ~sep:"_" s
-  |> List.map (fun s -> Astring.String.cuts ~sep:"-" s)
+  String.split_on_char '_' s
+  |> List.map (fun s -> String.split_on_char '-' s)
   |> List.concat
-  |> List.map String.capitalize_ascii
+  |> List.map (fun s ->
+         match s with
+         | s when List.mem s special_words ->
+             String.uppercase_ascii s
+         | _ ->
+             String.capitalize_ascii s
+     )
   |> String.concat ""
 
 let render_template template_file json ?(newline = false) () =
@@ -544,16 +566,7 @@ module Json = struct
       |> List.map (fun seg ->
              let lower = String.lowercase_ascii seg in
              match lower with
-             | "vm"
-             | "cpu"
-             | "tls"
-             | "xml"
-             | "url"
-             | "id"
-             | "uuid"
-             | "ip"
-             | "api"
-             | "eof" ->
+             | s when List.mem s special_words ->
                  String.uppercase_ascii lower
              | _ ->
                  String.capitalize_ascii lower
