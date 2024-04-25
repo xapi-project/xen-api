@@ -44,28 +44,84 @@ let render_api_messages_and_errors destdir =
   generate_file ~rendered:messages_rendered ~destdir
     ~output_file:"api_messages.go"
 
+let render_convert_header () =
+  let obj =
+    `O
+      [
+        ("name", `String "convert")
+      ; ( "modules"
+        , `O
+            [
+              ("import", `Bool true)
+            ; ( "items"
+              , `A
+                  [
+                    `O [("name", `String "fmt"); ("sname", `Null)]
+                  ; `O [("name", `String "math"); ("sname", `Null)]
+                  ; `O [("name", `String "reflect"); ("sname", `Null)]
+                  ; `O [("name", `String "strconv"); ("sname", `Null)]
+                  ; `O [("name", `String "time"); ("sname", `Null)]
+                  ]
+              )
+            ]
+        )
+      ]
+  in
+  render_template "FileHeader.mustache" obj ~newline:true ()
+
+let render_converts converts destdir =
+  let templates =
+    [
+      "ConvertSimpleType.mustache"
+    ; "ConvertInt.mustache"
+    ; "ConvertFloat.mustache"
+    ; "ConvertTime.mustache"
+    ; "ConvertRef.mustache"
+    ; "ConvertSet.mustache"
+    ; "ConvertRecord.mustache"
+    ; "ConvertInterface.mustache"
+    ; "ConvertMap.mustache"
+    ; "ConvertEnum.mustache"
+    ; "ConvertBatch.mustache"
+    ; "ConvertOption.mustache"
+    ]
+  in
+  let rendered =
+    let rendered =
+      templates
+      |> List.map (fun template -> render_template template converts ())
+      |> String.concat ""
+      |> String.trim
+    in
+    render_convert_header () ^ rendered ^ "\n"
+  in
+  generate_file ~rendered ~destdir ~output_file:"convert.go"
+
 let main destdir =
   render_api_messages_and_errors destdir ;
   let enums = Json.all_enums objects in
   render_enums enums destdir ;
-  let objects = Json.xenapi objects in
+  let objects, converts = objs_and_convert_functions objects in
+  render_converts converts destdir ;
   List.iter
     (fun (name, obj) ->
       let header_rendered =
         render_template "FileHeader.mustache" obj ~newline:true ()
       in
-      let record_rendered = render_template "Record.mustache" obj () in
+      let options_rendered = render_template "Option.mustache" obj () in
+      let record_rendered =
+        render_template "Record.mustache" obj ~newline:true ()
+      in
       let methods_rendered = render_template "Methods.mustache" obj () in
       let rendered =
-        let first_half = header_rendered ^ record_rendered in
-        match methods_rendered with
-        | "" ->
-            first_half
-        | _ ->
-            first_half ^ "\n" ^ methods_rendered
+        let rendered =
+          [header_rendered; options_rendered; record_rendered; methods_rendered]
+          |> String.concat ""
+          |> String.trim
+        in
+        rendered ^ "\n"
       in
-      let output_file = name ^ ".go" in
-      generate_file ~rendered ~destdir ~output_file
+      generate_file ~rendered ~destdir ~output_file:(name ^ ".go")
     )
     objects
 

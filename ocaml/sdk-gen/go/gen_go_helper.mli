@@ -15,14 +15,20 @@ val ( // ) : string -> string -> string
 
 val snake_to_camel : string -> string
 
+type fields = string * Datamodel_types.field list
+
 val render_template :
   string -> Mustache.Json.t -> ?newline:bool -> unit -> string
 
 val generate_file :
   rendered:string -> destdir:string -> output_file:string -> unit
 
+val objs_and_convert_functions :
+  Datamodel_types.obj list -> (string * Mustache.Json.t) list * Mustache.Json.t
+
 module Json : sig
-  val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list
+  val xenapi :
+    Datamodel_types.obj list -> (string * Mustache.Json.t) list * fields list
 
   val all_enums : Datamodel_types.obj list -> Mustache.Json.t
 

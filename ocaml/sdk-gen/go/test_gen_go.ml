@@ -51,7 +51,6 @@ let schema_check keys checker members =
   let keys' = List.map (fun (k, _) -> k) members in
   compare_keys keys keys' && List.for_all checker members
 
-(* field *)
 let verify_field_member = function
   | "name", `String _ | "description", `String _ | "type", `String _ ->
       true
@@ -71,6 +70,12 @@ let result_keys = ["type"; "func_partial_type"]
 let verify_result_member = function
   | "type", `String _ | "func_partial_type", `String _ ->
       true
+  | _ ->
+      false
+
+let verify_option = function
+  | `O members ->
+      schema_check result_keys verify_result_member members
   | _ ->
       false
 
@@ -251,6 +256,8 @@ let verify_obj_member = function
       true
   | "fields", `A fields ->
       List.for_all verify_field fields
+  | "option", `A options ->
+      List.for_all verify_option options
   | "messages", `A messages ->
       List.for_all verify_message messages
   | "modules", `Null ->
@@ -270,6 +277,7 @@ let obj_keys =
   ; "event"
   ; "session"
   ; "messages"
+  ; "option"
   ]
 
 let verify_obj = function
@@ -294,6 +302,289 @@ let verify_msgs_or_errors lst =
         false
   in
   List.for_all verify_msg_or_error lst
+
+let verify_serialize_member = function
+  | "func_partial_type", `String _ | "type", `String _ ->
+      true
+  | _ ->
+      false
+
+let serialize_keys = ["func_partial_type"; "type"]
+
+let verify_serialize = function
+  | `O items ->
+      schema_check serialize_keys verify_serialize_member items
+  | _ ->
+      false
+
+let type_keys = ["serialize"; "deserialize"]
+
+let verify_simple_type_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_serialize deserializes
+  | _ ->
+      false
+
+let verify_option_serialize_member = function
+  | "func_partial_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let option_serialize_keys = ["func_partial_type"]
+
+let verify_option_serialize = function
+  | `O items ->
+      schema_check option_serialize_keys verify_option_serialize_member items
+  | _ ->
+      false
+
+let verify_option_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_option_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_option_serialize deserializes
+  | _ ->
+      false
+
+let time_keys = ["serialize"; "deserialize"; "time_format"]
+
+let verify_time_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_serialize deserializes
+  | "time_format", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_set_serialize_member = function
+  | "func_partial_type", `String _
+  | "type", `String _
+  | "item_func_partial_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let serialize_set_keys = ["func_partial_type"; "type"; "item_func_partial_type"]
+
+let verify_set_serialize = function
+  | `O items ->
+      schema_check serialize_set_keys verify_set_serialize_member items
+  | _ ->
+      false
+
+let verify_set_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_set_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_set_serialize deserializes
+  | _ ->
+      false
+
+let record_field_keys =
+  ["name"; "name_internal"; "name_exported"; "func_partial_type"; "type_option"]
+
+let verify_record_field_member = function
+  | "name", `String _
+  | "name_internal", `String _
+  | "func_partial_type", `String _
+  | "type_option", `Bool _
+  | "name_exported", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_record_field = function
+  | `O items ->
+      schema_check record_field_keys verify_record_field_member items
+  | _ ->
+      false
+
+let verify_record_serialize_member = function
+  | "func_partial_type", `String _ | "type", `String _ ->
+      true
+  | "fields", `A fields ->
+      List.for_all verify_record_field fields
+  | _ ->
+      false
+
+let serialize_record_keys = ["func_partial_type"; "type"; "fields"]
+
+let verify_record_serialize = function
+  | `O items ->
+      schema_check serialize_record_keys verify_record_serialize_member items
+  | _ ->
+      false
+
+let verify_record_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_record_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_record_serialize deserializes
+  | _ ->
+      false
+
+let deserialize_keys = ["deserialize"]
+
+let verify_interface_member = function
+  | "deserialize", `A deserializes ->
+      List.for_all verify_serialize deserializes
+  | _ ->
+      false
+
+let batch_element_keys =
+  ["name"; "name_internal"; "name_exported"; "func_partial_type"]
+
+let verify_batch_element_member = function
+  | "func_partial_type", `String _
+  | "name", `String _
+  | "name_internal", `String _
+  | "name_exported", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_batch_element = function
+  | `O items ->
+      schema_check batch_element_keys verify_batch_element_member items
+  | _ ->
+      false
+
+let batch_deserialize_keys = ["func_partial_type"; "type"; "elements"]
+
+let verify_batch_deserialize_member = function
+  | "func_partial_type", `String _ | "type", `String _ ->
+      true
+  | "elements", `A elements ->
+      List.for_all verify_batch_element elements
+  | _ ->
+      false
+
+let verify_batch_deserialize = function
+  | `O items ->
+      schema_check batch_deserialize_keys verify_batch_deserialize_member items
+  | _ ->
+      false
+
+let verify_batch_member = function
+  | "deserialize", `A deserializes ->
+      List.for_all verify_batch_deserialize deserializes
+  | _ ->
+      false
+
+let map_serialize_keys = ["func_partial_type"; "type"; "key_type"; "value_type"]
+
+let verify_map_serialize_member = function
+  | "type", `String _
+  | "key_type", `String _
+  | "func_partial_type", `String _
+  | "value_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_map_serialize = function
+  | `O items ->
+      schema_check map_serialize_keys verify_map_serialize_member items
+  | _ ->
+      false
+
+let verify_map_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_map_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_map_serialize deserializes
+  | _ ->
+      false
+
+let enum_item_keys = ["value"; "name"]
+
+let verify_enum_item_member = function
+  | "name", `String _ | "value", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_enum_item = function
+  | `O members ->
+      schema_check enum_item_keys verify_enum_item_member members
+  | _ ->
+      false
+
+let enum_serialize_keys = ["func_partial_type"; "type"; "items"]
+
+let verify_enum_serialize_member = function
+  | "func_partial_type", `String _ | "type", `String _ ->
+      true
+  | "items", `A items ->
+      List.for_all verify_enum_item items
+  | _ ->
+      false
+
+let verify_enum_serialize = function
+  | `O items ->
+      schema_check enum_serialize_keys verify_enum_serialize_member items
+  | _ ->
+      false
+
+let verify_enum_member = function
+  | "serialize", `A serializes ->
+      List.for_all verify_enum_serialize serializes
+  | "deserialize", `A deserializes ->
+      List.for_all verify_enum_serialize deserializes
+  | _ ->
+      false
+
+let verify_convert_member = function
+  | "simple_type", `O members
+  | "int", `O members
+  | "float", `O members
+  | "ref", `O members ->
+      schema_check type_keys verify_simple_type_member members
+  | "time", `O members ->
+      schema_check time_keys verify_time_member members
+  | "set", `O members ->
+      schema_check type_keys verify_set_member members
+  | "record", `O members ->
+      schema_check type_keys verify_record_member members
+  | "interface", `O members ->
+      schema_check deserialize_keys verify_interface_member members
+  | "map", `O members ->
+      schema_check type_keys verify_map_member members
+  | "enum", `O members ->
+      schema_check type_keys verify_enum_member members
+  | "batch", `O members ->
+      schema_check deserialize_keys verify_batch_member members
+  | "option", `O members ->
+      schema_check type_keys verify_option_member members
+  | _ ->
+      false
+
+let convert_keys =
+  [
+    "simple_type"
+  ; "int"
+  ; "float"
+  ; "time"
+  ; "ref"
+  ; "set"
+  ; "record"
+  ; "interface"
+  ; "map"
+  ; "enum"
+  ; "batch"
+  ; "option"
+  ]
+
+let verify_converts = function
+  | `O members ->
+      schema_check convert_keys verify_convert_member members
+  | _ ->
+      false
 
 let rec string_of_json_value (value : Mustache.Json.value) : string =
   match value with
@@ -602,6 +893,196 @@ let messages : Mustache.Json.t =
       )
     ]
 
+let simple_type_convert : Mustache.Json.t =
+  let array =
+    [
+      `O [("func_partial_type", `String "String"); ("type", `String "string")]
+    ; `O [("func_partial_type", `String "Bool"); ("type", `String "bool")]
+    ]
+  in
+  `O [("simple_type", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let int_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_partial_type", `String "Int"); ("type", `String "int")]]
+  in
+  `O [("int", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let float_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_partial_type", `String "Float"); ("type", `String "float64")]]
+  in
+  `O [("float", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let time_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_partial_type", `String "Time"); ("type", `String "time.Time")]]
+  in
+  `O [("time", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let ref_string_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_partial_type", `String "VMRef"); ("type", `String "VMRef")]]
+  in
+  `O [("ref", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let set_convert : Mustache.Json.t =
+  let serialize =
+    [
+      `O
+        [
+          ("func_partial_type", `String "SRRefSet")
+        ; ("type", `String "SRRef")
+        ; ("item_func_partial_type", `String "SRRef")
+        ]
+    ]
+  in
+  let deserialize =
+    [
+      `O
+        [
+          ("func_partial_type", `String "StringSet")
+        ; ("type", `String "string")
+        ; ("item_func_partial_type", `String "String")
+        ]
+    ]
+  in
+  `O
+    [("set", `O [("serialize", `A serialize); ("deserialize", `A deserialize)])]
+
+let record_convert : Mustache.Json.t =
+  let array =
+    [
+      `O
+        [
+          ("func_partial_type", `String "VBDRecord")
+        ; ("type", `String "VBDRecord")
+        ; ( "fields"
+          , `A
+              [
+                `O
+                  [
+                    ("name", `String "uuid")
+                  ; ("name_internal", `String "uuid")
+                  ; ("name_exported", `String "UUID")
+                  ; ("func_partial_type", `String "String")
+                  ; ("type_option", `Bool false)
+                  ]
+              ; `O
+                  [
+                    ("name", `String "allowed_operations")
+                  ; ("name_internal", `String "allowedOperations")
+                  ; ("name_exported", `String "AllowedOperations")
+                  ; ("func_partial_type", `String "EnumVbdOperationsSet")
+                  ; ("type_option", `Bool false)
+                  ]
+              ]
+          )
+        ]
+    ]
+  in
+  `O [("record", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let interface_convert : Mustache.Json.t =
+  let array =
+    [
+      `O
+        [
+          ("func_partial_type", `String "RecordInterface")
+        ; ("type", `String "RecordInterface")
+        ]
+    ]
+  in
+  `O [("interface", `O [("deserialize", `A array)])]
+
+let map_convert : Mustache.Json.t =
+  let deserialize =
+    [
+      `O
+        [
+          ("func_partial_type", `String "PBDRefToPBDRecordMap")
+        ; ("type", `String "map[PBDRef]PBDRecord")
+        ; ("key_type", `String "PBDRef")
+        ; ("value_type", `String "PBDRecord")
+        ]
+    ]
+  in
+  let serialize =
+    [
+      `O
+        [
+          ("func_partial_type", `String "VIFRefToStringMap")
+        ; ("type", `String "map[VIFRef]string")
+        ; ("key_type", `String "VIFRef")
+        ; ("value_type", `String "String")
+        ]
+    ]
+  in
+  `O
+    [("map", `O [("serialize", `A serialize); ("deserialize", `A deserialize)])]
+
+let enum_convert : Mustache.Json.t =
+  let array =
+    [
+      `O
+        [
+          ("func_partial_type", `String "EnumTaskStatusType")
+        ; ("type", `String "TaskStatusType")
+        ; ( "items"
+          , `A
+              [
+                `O
+                  [
+                    ("name", `String "TaskStatusTypePending")
+                  ; ("value", `String "pending")
+                  ]
+              ; `O
+                  [
+                    ("name", `String "TaskStatusTypeSuccess")
+                  ; ("value", `String "success")
+                  ]
+              ]
+          )
+        ]
+    ]
+  in
+  `O [("enum", `O [("serialize", `A array); ("deserialize", `A array)])]
+
+let batch_convert : Mustache.Json.t =
+  let array =
+    [
+      `O
+        [
+          ("func_partial_type", `String "EventBatch")
+        ; ("type", `String "EventBatch")
+        ; ( "elements"
+          , `A
+              [
+                `O
+                  [
+                    ("name", `String "token")
+                  ; ("name_internal", `String "token")
+                  ; ("name_exported", `String "Token")
+                  ; ("func_partial_type", `String "String")
+                  ]
+              ; `O
+                  [
+                    ("name", `String "valid_ref_counts")
+                  ; ("name_internal", `String "validRefCounts")
+                  ; ("name_exported", `String "ValidRefCounts")
+                  ; ("func_partial_type", `String "StringToIntMap")
+                  ]
+              ]
+          )
+        ]
+    ]
+  in
+  `O [("batch", `O [("deserialize", `A array)])]
+
+let option_convert : Mustache.Json.t =
+  let array = [`O [("func_partial_type", `String "SrStatRecord")]] in
+  `O [("option", `O [("serialize", `A array); ("deserialize", `A array)])]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -629,6 +1110,30 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let api_messages_rendered = string_of_file "api_messages.go"
 
+  let simple_type_rendered = string_of_file "simple_type.go"
+
+  let int_rendered = string_of_file "int.go"
+
+  let float_rendered = string_of_file "float.go"
+
+  let time_rendered = string_of_file "time.go"
+
+  let string_ref_rendered = string_of_file "ref.go"
+
+  let set_rendered = string_of_file "set.go"
+
+  let record_convert_rendered = string_of_file "record_convert.go"
+
+  let interface_rendered = string_of_file "interface.go"
+
+  let map_rendered = string_of_file "map.go"
+
+  let enum_rendered = string_of_file "enum_convert.go"
+
+  let batch_rendered = string_of_file "batch.go"
+
+  let option_rendered = string_of_file "option.go"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -638,6 +1143,20 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("Methods.mustache", messages), methods_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
+      ; ( ("ConvertSimpleType.mustache", simple_type_convert)
+        , simple_type_rendered
+        )
+      ; (("ConvertInt.mustache", int_convert), int_rendered)
+      ; (("ConvertFloat.mustache", float_convert), float_rendered)
+      ; (("ConvertTime.mustache", time_convert), time_rendered)
+      ; (("ConvertRef.mustache", ref_string_convert), string_ref_rendered)
+      ; (("ConvertSet.mustache", set_convert), set_rendered)
+      ; (("ConvertRecord.mustache", record_convert), record_convert_rendered)
+      ; (("ConvertInterface.mustache", interface_convert), interface_rendered)
+      ; (("ConvertMap.mustache", map_convert), map_rendered)
+      ; (("ConvertEnum.mustache", enum_convert), enum_rendered)
+      ; (("ConvertBatch.mustache", batch_convert), batch_rendered)
+      ; (("ConvertOption.mustache", option_convert), option_rendered)
       ]
 end)
 
@@ -649,9 +1168,12 @@ module TestGeneratedJson = struct
     let enums = Json.all_enums objects in
     verify "enums" verify_enums enums
 
+  let objs, converts = objs_and_convert_functions objects
+
   let test_obj () =
-    Json.xenapi objects
-    |> List.iter (fun (name, obj) -> verify name verify_obj obj)
+    List.iter (fun (name, obj) -> verify name verify_obj obj) objs
+
+  let test_converts () = verify "schema" verify_converts converts
 
   let test_errors_and_msgs () =
     verify "errors_and_msgs" verify_msgs_or_errors
@@ -661,6 +1183,7 @@ module TestGeneratedJson = struct
     [
       ("enums", `Quick, test_enums)
     ; ("objs", `Quick, test_obj)
+    ; ("converts", `Quick, test_converts)
     ; ("errors_and_msgs", `Quick, test_errors_and_msgs)
     ]
 end

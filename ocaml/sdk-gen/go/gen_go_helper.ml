@@ -17,6 +17,8 @@ open Datamodel_types
 open CommonFunctions
 module Types = Datamodel_utils.Types
 
+type fields = string * field list
+
 let templates_dir = "templates"
 
 let ( // ) = Filename.concat
@@ -41,7 +43,38 @@ let generate_file ~rendered ~destdir ~output_file =
     (fun () -> output_string out_chan rendered)
     ~finally:(fun () -> close_out out_chan)
 
+module StringSet = Set.Make (String)
+
+module TypeSet = Set.Make (struct
+  type t = ty
+
+  let compare = compare
+end)
+
+type string_record = {
+    mutable serializes: StringSet.t
+  ; mutable deserializes: StringSet.t
+}
+
+type tys_record = {mutable serials: TypeSet.t; mutable deserials: TypeSet.t}
+
 module Json = struct
+  type action = Serialize | Deserialize | Nothing
+
+  let ref_types = {serializes= StringSet.empty; deserializes= StringSet.empty}
+
+  let option_types =
+    {serializes= StringSet.empty; deserializes= StringSet.empty}
+
+  let record_types =
+    {serializes= StringSet.empty; deserializes= StringSet.empty}
+
+  let map_types = {serials= TypeSet.empty; deserials= TypeSet.empty}
+
+  let set_types = {serials= TypeSet.empty; deserials= TypeSet.empty}
+
+  let enum_types = {serials= TypeSet.empty; deserials= TypeSet.empty}
+
   type enum = (string * string) list
 
   module StringMap = Map.Make (String)
@@ -52,6 +85,24 @@ module Json = struct
 
   let merge_maps m maps =
     List.fold_left (fun acc map -> StringMap.union choose_enum acc map) m maps
+
+  let record_ty action ty tys =
+    match action with
+    | Deserialize ->
+        tys.deserials <- TypeSet.add ty tys.deserials
+    | Serialize ->
+        tys.serials <- TypeSet.add ty tys.serials
+    | _ ->
+        ()
+
+  let record_str action str strings =
+    match action with
+    | Deserialize ->
+        strings.deserializes <- StringSet.add str strings.deserializes
+    | Serialize ->
+        strings.serializes <- StringSet.add str strings.serializes
+    | _ ->
+        ()
 
   let rec get_fp_type ty =
     match ty with
@@ -80,7 +131,7 @@ module Json = struct
     | Option ty ->
         get_fp_type ty
 
-  let rec string_of_ty_with_enums ty : string * enums =
+  let rec string_of_ty_with_enums ty ?(action = Nothing) () : string * enums =
     match ty with
     | SecretString | String ->
         ("string", StringMap.empty)
@@ -92,23 +143,33 @@ module Json = struct
         ("bool", StringMap.empty)
     | DateTime ->
         ("time.Time", StringMap.empty)
-    | Enum (name, kv) ->
+    | Enum (name, kv) as ty ->
         let name = snake_to_camel name in
+        record_ty action ty enum_types ;
         (name, StringMap.singleton name kv)
-    | Set ty ->
-        let s, e = string_of_ty_with_enums ty in
-        ("[]" ^ s, e)
-    | Map (ty1, ty2) ->
-        let s1, e1 = string_of_ty_with_enums ty1 in
-        let s2, e2 = string_of_ty_with_enums ty2 in
-        let ty = "map[" ^ s1 ^ "]" ^ s2 in
-        (ty, StringMap.union choose_enum e1 e2)
+    | Set ty as s ->
+        let name, e = string_of_ty_with_enums ty ~action () in
+        record_ty action s set_types ;
+        ("[]" ^ name, e)
+    | Map (ty1, ty2) as ty ->
+        let s1, e1 = string_of_ty_with_enums ty1 ~action () in
+        let s2, e2 = string_of_ty_with_enums ty2 ~action () in
+        let name = "map[" ^ s1 ^ "]" ^ s2 in
+        record_ty action ty map_types ;
+        (name, StringMap.union choose_enum e1 e2)
     | Ref r ->
-        (snake_to_camel r ^ "Ref", StringMap.empty)
+        let name = snake_to_camel r ^ "Ref" in
+        record_str action name ref_types ;
+        (name, StringMap.empty)
     | Record r ->
-        (snake_to_camel r ^ "Record", StringMap.empty)
+        let name = snake_to_camel r ^ "Record" in
+        record_str action name record_types ;
+        (name, StringMap.empty)
     | Option ty ->
-        string_of_ty_with_enums ty
+        let _, e = string_of_ty_with_enums ty ~action () in
+        let name = get_fp_type ty in
+        record_str action name option_types ;
+        ("Option" ^ name, e)
 
   let of_enum name vs =
     let name = snake_to_camel name in
@@ -134,7 +195,7 @@ module Json = struct
       | _ ->
           concated
     in
-    let ty, _e = string_of_ty_with_enums field.ty in
+    let ty, _e = string_of_ty_with_enums field.ty () in
     `O
       [
         ("name", `String (concat_and_convert field))
@@ -159,7 +220,7 @@ module Json = struct
     let enums =
       Types.of_objects objs
       |> List.map (fun ty ->
-             let _, e = string_of_ty_with_enums ty in
+             let _, e = string_of_ty_with_enums ty () in
              e
          )
       |> merge_maps StringMap.empty
@@ -209,7 +270,7 @@ module Json = struct
             ; ("func_partial_type", `String "EventBatch")
             ]
         else
-          let t', _ = string_of_ty_with_enums t in
+          let t', _ = string_of_ty_with_enums t ~action:Deserialize () in
           `O
             [
               ("type", `String t')
@@ -310,7 +371,9 @@ module Json = struct
       params
       |> List.rev_map (fun p ->
              let fp_type = get_fp_type p.param_type in
-             let t, _e = string_of_ty_with_enums p.param_type in
+             let t, _e =
+               string_of_ty_with_enums p.param_type ~action:Serialize ()
+             in
              (p.param_release, (t, p.param_name, p.param_doc, fp_type))
          )
       |> group_params
@@ -433,6 +496,17 @@ module Json = struct
        )
     |> List.concat
 
+  let of_option ty =
+    let name, _ = string_of_ty_with_enums ty () in
+    `O [("type", `String name); ("func_partial_type", `String (get_fp_type ty))]
+
+  let of_options types =
+    types
+    |> List.filter_map (fun ty ->
+           match ty with Option ty -> Some ty | _ -> None
+       )
+    |> List.map of_option
+
   let xenapi objs =
     List.map
       (fun obj ->
@@ -453,12 +527,16 @@ module Json = struct
             )
           ; ("modules", modules)
           ; ("messages", `A (messages_of_obj obj))
+          ; ("option", `A (of_options types))
           ]
         in
         let assoc_list = base_assoc_list @ get_event_session_value obj.name in
-        (String.lowercase_ascii obj.name, `O assoc_list)
+        ( (String.lowercase_ascii obj.name, `O assoc_list)
+        , (obj_name ^ "Record", fields)
+        )
       )
       objs
+    |> List.split
 
   let of_api_message_or_error info =
     let snake_to_camel (s : string) : string =
@@ -488,4 +566,298 @@ module Json = struct
     List.map (fun (msg, _) -> of_api_message_or_error msg) !Api_messages.msgList
 
   let api_errors = List.map of_api_message_or_error !Api_errors.errors
+
+  let categorize_records records =
+    let iter action set =
+      let rec aux record_name =
+        match List.assoc_opt record_name records with
+        | Some fields ->
+            List.iter
+              (fun field ->
+                let _ = string_of_ty_with_enums field.ty ~action () in
+                match get_fp_type field.ty with
+                | name when String.ends_with ~suffix:"Record" name ->
+                    record_str action name record_types ;
+                    aux name
+                | _ ->
+                    ()
+              )
+              fields
+        | None ->
+            ()
+      in
+      StringSet.iter aux set
+    in
+    iter Serialize record_types.serializes ;
+    iter Deserialize record_types.deserializes
 end
+
+module JsonForConvertFunction = struct
+  let to_json serializes deserializes =
+    `O [("serialize", `A serializes); ("deserialize", `A deserializes)]
+
+  let simple_types =
+    let arr =
+      [
+        `O [("func_partial_type", `String "String"); ("type", `String "string")]
+      ; `O [("func_partial_type", `String "Bool"); ("type", `String "bool")]
+      ]
+    in
+    to_json arr arr
+
+  let of_int =
+    let arr =
+      [`O [("func_partial_type", `String "Int"); ("type", `String "int")]]
+    in
+    to_json arr arr
+
+  let of_float =
+    let arr =
+      [`O [("func_partial_type", `String "Float"); ("type", `String "float64")]]
+    in
+    to_json arr arr
+
+  let time : Mustache.Json.value =
+    let arr =
+      `A
+        [
+          `O
+            [
+              ("func_partial_type", `String "Time")
+            ; ("type", `String "time.Time")
+            ]
+        ]
+    in
+    `O
+      [
+        ("time_format", `String "20060102T15:04:05Z")
+      ; ("serialize", arr)
+      ; ("deserialize", arr)
+      ]
+
+  let event_batch =
+    `O
+      [
+        ( "deserialize"
+        , `A
+            [
+              `O
+                [
+                  ("func_partial_type", `String "EventBatch")
+                ; ("type", `String "EventBatch")
+                ; ( "elements"
+                  , `A
+                      [
+                        `O
+                          [
+                            ("name", `String "token")
+                          ; ("name_internal", `String "token")
+                          ; ("name_exported", `String "Token")
+                          ; ("func_partial_type", `String "String")
+                          ]
+                      ; `O
+                          [
+                            ("name", `String "validRefCounts")
+                          ; ("name_internal", `String "validRefCounts")
+                          ; ("name_exported", `String "ValidRefCounts")
+                          ; ("func_partial_type", `String "StringToIntMap")
+                          ]
+                      ; `O
+                          [
+                            ("name", `String "events")
+                          ; ("name_internal", `String "events")
+                          ; ("name_exported", `String "Events")
+                          ; ("func_partial_type", `String "EventRecordSet")
+                          ]
+                      ]
+                  )
+                ]
+            ]
+        )
+      ]
+
+  let interface =
+    `O
+      [
+        ( "deserialize"
+        , `A
+            [
+              `O
+                [
+                  ("func_partial_type", `String "RecordInterface")
+                ; ("type", `String "RecordInterface")
+                ]
+            ]
+        )
+      ]
+
+  let of_convert_record (ty_name, fields) =
+    let fields =
+      List.map
+        (fun (name, fp_type, is_option_type) ->
+          let camel_name = snake_to_camel name in
+          `O
+            [
+              ("name", `String name)
+            ; ("name_internal", `String (String.uncapitalize_ascii camel_name))
+            ; ("name_exported", `String camel_name)
+            ; ("func_partial_type", `String fp_type)
+            ; ("type_option", `Bool is_option_type)
+            ]
+        )
+        fields
+    in
+    `O
+      [
+        ("func_partial_type", `String ty_name)
+      ; ("type", `String ty_name)
+      ; ("fields", `A fields)
+      ]
+
+  let of_records records set =
+    let trans type_name fields =
+      let fields =
+        List.rev_map
+          (fun field ->
+            ( String.concat "_" field.full_name
+            , Json.get_fp_type field.ty
+            , match field.ty with Option _ -> true | _ -> false
+            )
+          )
+          fields
+      in
+      if type_name = "EventRecord" then
+        ("snapshot", "RecordInterface", false) :: fields
+      else
+        fields
+    in
+    records
+    |> List.filter (fun (ty_name, _) -> StringSet.mem ty_name set)
+    |> List.map (fun (name, fields) ->
+           of_convert_record (name, trans name fields)
+       )
+
+  let of_enum (name, vs) =
+    let name = snake_to_camel name in
+    let of_value (v, _) =
+      `O [("value", `String v); ("name", `String (name ^ snake_to_camel v))]
+    in
+    `O
+      [
+        ("type", `String name)
+      ; ("func_partial_type", `String ("Enum" ^ name))
+      ; ("items", `A (List.map of_value vs))
+      ]
+
+  let of_enums set =
+    set
+    |> TypeSet.elements
+    |> List.map (function Enum (name, kv) -> of_enum (name, kv) | _ -> `Null)
+
+  let of_refs set =
+    set
+    |> StringSet.elements
+    |> List.map (fun ref ->
+           `O [("func_partial_type", `String ref); ("type", `String ref)]
+       )
+
+  let of_options set =
+    set
+    |> StringSet.elements
+    |> List.map (fun option -> `O [("func_partial_type", `String option)])
+
+  let of_map (k, v, ty) =
+    `O
+      [
+        ("func_partial_type", `String (k ^ "To" ^ v ^ "Map"))
+      ; ("type", `String ty)
+      ; ("key_type", `String k)
+      ; ("value_type", `String v)
+      ]
+
+  let of_maps set =
+    set
+    |> TypeSet.elements
+    |> List.map (function
+         | Map (ty1, ty2) ->
+             let s1, _ = Json.string_of_ty_with_enums ty1 () in
+             let s2, _ = Json.string_of_ty_with_enums ty2 () in
+             let name = "map[" ^ s1 ^ "]" ^ s2 in
+             of_map (Json.get_fp_type ty1, Json.get_fp_type ty2, name)
+         | _ ->
+             `Null
+         )
+
+  let of_set (ty, fp_ty) =
+    `O
+      [
+        ("func_partial_type", `String (fp_ty ^ "Set"))
+      ; ("type", `String ty)
+      ; ("item_func_partial_type", `String fp_ty)
+      ]
+
+  let of_sets set =
+    set
+    |> TypeSet.elements
+    |> List.map (function
+         | Set ty ->
+             let fp_ty = Json.get_fp_type ty in
+             let ty, _ = Json.string_of_ty_with_enums ty () in
+             of_set (ty, fp_ty)
+         | _ ->
+             `Null
+         )
+
+  let convert_functions records : Mustache.Json.t =
+    let enums =
+      let serializes = of_enums Json.enum_types.serials in
+      let deserializes = of_enums Json.enum_types.deserials in
+      to_json serializes deserializes
+    in
+    let records =
+      let serializes = of_records records Json.record_types.serializes in
+      let deserializes = of_records records Json.record_types.deserializes in
+      to_json serializes deserializes
+    in
+    let options =
+      let serializes = of_options Json.option_types.serializes in
+      let deserializes = of_options Json.option_types.deserializes in
+      to_json serializes deserializes
+    in
+    let ref_types =
+      let serializes = of_refs Json.ref_types.serializes in
+      let deserializes = of_refs Json.ref_types.deserializes in
+      to_json serializes deserializes
+    in
+    let set_types =
+      let serializes = of_sets Json.set_types.serials in
+      let deserializes = of_sets Json.set_types.deserials in
+      to_json serializes deserializes
+    in
+    let maps =
+      let deserializes = of_maps Json.map_types.deserials in
+      let serializes = of_maps Json.map_types.serials in
+      to_json serializes deserializes
+    in
+    `O
+      [
+        ("simple_type", simple_types)
+      ; ("int", of_int)
+      ; ("float", of_float)
+      ; ("time", time)
+      ; ("ref", ref_types)
+      ; ("set", set_types)
+      ; ("record", records)
+      ; ("interface", interface)
+      ; ("map", maps)
+      ; ("enum", enums)
+      ; ("batch", event_batch)
+      ; ("option", options)
+      ]
+end
+
+let objs_and_convert_functions objs =
+  let objs, records = Json.xenapi objs in
+  Json.categorize_records records ;
+  let converts = JsonForConvertFunction.convert_functions records in
+  (objs, converts)
