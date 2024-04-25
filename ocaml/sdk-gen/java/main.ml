@@ -95,6 +95,15 @@ let camel_case s =
   in
   keyword_map result
 
+let rec set_is_last params acc =
+  match params with
+  | [] ->
+      []
+  | `O last :: [] ->
+      `O (("is_last", `Bool true) :: last) :: acc
+  | `O h :: tail ->
+      `O (("is_last", `Bool false) :: h) :: set_is_last tail acc
+
 let exception_class_case x =
   String.concat ""
     (List.map
@@ -109,11 +118,49 @@ let enums = Hashtbl.create 10
 
 let records = Hashtbl.create 10
 
-(*We want an empty mutable set to keep the types in.*)
+(** Module Ty: Representation an empty mutable set to keep the types in. *)
 module Ty = struct
   type t = DT.ty
 
-  let compare = compare
+  (** [stringify_type ty] converts a type [ty] into its string representation.
+    This aids in comparisons for the [compare] function. For generating string types
+    please use [get_java_type] instead.
+    @param ty The type to convert into a string representation.
+    @return A string representing the type [ty]. *)
+  let rec stringify_type ty =
+    match ty with
+    | SecretString | String ->
+        "String"
+    | Int ->
+        "Long"
+    | Float ->
+        "Double"
+    | Bool ->
+        "Boolean"
+    | DateTime ->
+        "Date"
+    | Enum (name, _) ->
+        sprintf "Types.%s" name
+    | Set t1 ->
+        sprintf "Set<%s>" (stringify_type t1)
+    | Map (t1, t2) ->
+        sprintf "Map<%s, %s>" (stringify_type t1) (stringify_type t2)
+    | Ref x ->
+        x
+    | Record x ->
+        sprintf "%s.Record" x
+    | Option x ->
+        stringify_type x
+
+  (** [compare a1 a2] compares two types [a1] and [a2] based on their string representations.
+      It first converts the types into strings using [stringify_type], then compares the strings.
+      @param a1 The first type to compare.
+      @param a2 The second type to compare.
+      @return An integer representing the result of the comparison:
+              - 0 if [a1] is equal to [a2].
+              - a negative integer if [a1] is less than [a2].
+              - a positive integer if [a1] is greater than [a2]. *)
+  let compare a1 a2 = String.compare (stringify_type a1) (stringify_type a2)
 end
 
 module TypeSet = Set.Make (Ty)
@@ -254,7 +301,7 @@ let gen_marshall_record_field prefix field =
   let ty = get_marshall_function field.ty in
   let name = String.concat "_" (List.rev (field.field_name :: prefix)) in
   let name' = camel_case name in
-  "        record." ^ name ^ " = " ^ ty ^ "(map.get(\"" ^ name' ^ "\"));\n"
+  "        record." ^ name' ^ " = " ^ ty ^ "(map.get(\"" ^ name ^ "\"));"
 
 let rec gen_marshall_record_namespace prefix (name, contents) =
   String.concat "\n"
@@ -270,13 +317,13 @@ and gen_marshall_record_contents prefix = function
 
 let rec gen_marshall_body = function
   | SecretString | String ->
-      "return (String) object;\n"
+      "return (String) object;"
   | Int ->
-      "return Long.valueOf((String) object);\n"
+      "return Long.valueOf((String) object);"
   | Float ->
-      "return (Double) object;\n"
+      "return (Double) object;"
   | Bool ->
-      "return (Boolean) object;\n"
+      "return (Boolean) object;"
   | DateTime ->
       {|
       try {
@@ -287,13 +334,13 @@ let rec gen_marshall_body = function
         return (new Date((long) (1000*Double.parseDouble((String) object))));
     }|}
   | Ref ty ->
-      "return new" ^ class_case ty ^ "((String) object);\n"
+      "return new " ^ class_case ty ^ "((String) object);"
   | Enum (name, _) ->
       {|try {
             return |}
       ^ class_case name
       ^ {|.valueOf(((String) object).toUpperCase().replace('-','_'));
-        } catch (IllegalArgumentException ex) { 
+        } catch (IllegalArgumentException ex) {
             return |}
       ^ class_case name
       ^ {|.UNRECOGNIZED;
@@ -304,13 +351,13 @@ let rec gen_marshall_body = function
       {|Object[] items = (Object[]) object;
         Set<|}
       ^ ty_name
-      ^ {|> result = new LinkedHashSet<>(); 
+      ^ {|> result = new LinkedHashSet<>();
         for(Object item: items) {
           |}
       ^ ty_name
       ^ {| typed = |}
       ^ marshall_fn
-      ^ {|(item); 
+      ^ {|(item);
           result.add(typed);
         }
         return result;|}
@@ -324,7 +371,7 @@ let rec gen_marshall_body = function
       ^ ty_name
       ^ {|,|}
       ^ ty_name'
-      ^ {|>(); 
+      ^ {|>();
         for(var entry: map.entrySet()) {
           var key = |}
       ^ marshall_fn
@@ -338,18 +385,22 @@ let rec gen_marshall_body = function
   | Record ty ->
       let contents = Hashtbl.find records ty in
       let cls_name = class_case ty in
-      {|Map<String,Object> map = (Map<String,Object>) object;|}
+      "Map<String,Object> map = (Map<String,Object>) object;\n"
+      ^ "        "
       ^ cls_name
       ^ {|.Record record = new |}
       ^ cls_name
-      ^ {| .Record(); |}
-      ^ String.concat "" (List.map (gen_marshall_record_contents []) contents)
-      ^
-      (*Event.Record needs a special case to handle snapshots*)
-      if ty = "event" then
-        generate_snapshot_hack
-      else
-        "        return record;"
+      ^ ".Record();\n"
+      ^ String.concat "\n" (List.map (gen_marshall_record_contents []) contents)
+      ^ ( if
+            (*Event.Record needs a special case to handle snapshots*)
+            ty = "event"
+          then
+            generate_snapshot_hack
+          else
+            ""
+        )
+      ^ "        \n        return record;"
   | Option ty ->
       gen_marshall_body ty
 
@@ -377,7 +428,7 @@ let get_types_errors_json =
             `O
               [
                 ("name", `String (gen_error_field_name value))
-              ; ("index", `Float (Int.to_float index))
+              ; ("index", `Float (Int.to_float (index + 1)))
               ; ("last", `Bool (index == List.length error.err_params - 1))
               ]
           )
@@ -385,17 +436,18 @@ let get_types_errors_json =
       in
       `O
         [
-          ("description", `String (escape_xml error.err_doc))
+          ("name", `String error.err_name)
+        ; ("description", `String (escape_xml error.err_doc))
         ; ("class_name", `String class_name)
         ; ("err_params", `A err_params)
         ]
     )
     list_errors
+  |> List.rev
 
-let get_types_enums_json =
-  let list_enums = Hashtbl.fold (fun k v acc -> (k, v) :: acc) enums [] in
+let get_types_enums_json types =
   List.map
-    (fun (enum_name, enum_values) ->
+    (fun (_, enum_name, enum_values) ->
       let class_name = class_case enum_name in
       let mapped_values =
         List.map
@@ -416,12 +468,16 @@ let get_types_enums_json =
           )
           enum_values
       in
-      `O [("class_name", `String class_name); ("values", `A mapped_values)]
+      let mapped_values_with_is_last = set_is_last mapped_values [] in
+      `O
+        [
+          ("class_name", `String class_name)
+        ; ("values", `A mapped_values_with_is_last)
+        ]
     )
-    list_enums
+    types
 
 let get_types_json types =
-  let list_types = TypeSet.fold (fun t acc -> t :: acc) !types [] in
   List.map
     (fun t ->
       let type_string = get_java_type t in
@@ -443,7 +499,13 @@ let get_types_json types =
         ; ("class_name", `String class_name)
         ; ("method_name", `String method_name)
         ; ( "suppress_unchecked_warning"
-          , `Bool (match t with Map _ | Record _ -> true | _ -> false)
+          , `Bool
+              ( match t with
+              | Map _ | Record _ | Option (Record _) | Option (Map _) ->
+                  true
+              | _ ->
+                  false
+              )
           )
         ; ( "generate_reference_task_result_func"
           , `Bool generate_reference_task_result_func
@@ -451,14 +513,23 @@ let get_types_json types =
         ; ("method_body", `String (gen_marshall_body t))
         ]
     )
-    list_types
+    types
 
 let populate_types types templdir class_dir =
+  (* we manually add switch_enum here so it's added as an enum in Types.java *)
+  let list_types = TypeSet.fold (fun t acc -> t :: acc) !types [switch_enum] in
+  let sort_types ty1 ty2 = Ty.compare ty1 ty2 in
+  let list_sorted_types = List.sort sort_types list_types in
+  let list_sorted_enums =
+    List.filter_map
+      (fun x -> match x with Enum (name, ls) -> Some (x, name, ls) | _ -> None)
+      list_sorted_types
+  in
+  let types_json = get_types_json list_sorted_types in
   let errors = get_types_errors_json in
-  let enums = get_types_enums_json in
-  let types = get_types_json types in
+  let enums = get_types_enums_json list_sorted_enums in
   let json =
-    `O [("errors", `A errors); ("enums", `A enums); ("types", `A types)]
+    `O [("errors", `A errors); ("enums", `A enums); ("types", `A types_json)]
   in
   render_file ("Types.mustache", "Types.java") json templdir class_dir
 
@@ -532,7 +603,9 @@ let get_message_formatted_parameters parameters message =
               (match parameter.param_type with Record _ -> true | _ -> false)
           )
         ; ("name_camel", `String name_camel)
-        ; ("description", `String description)
+        ; ( "description"
+          , `String (if description = "" then "No description" else description)
+          )
         ; ("publish_info", `String publish_info)
         ]
     )
@@ -584,15 +657,6 @@ let get_message_method_parameters parameters is_static message =
         []
     | false, false ->
         [non_static_reference_parameter]
-  in
-  let rec set_is_last params acc =
-    match params with
-    | [] ->
-        []
-    | `O last :: [] ->
-        `O (("is_last", `Bool true) :: last) :: acc
-    | `O h :: tail ->
-        `O (("is_last", `Bool false) :: h) :: set_is_last tail acc
   in
   set_is_last (extra_method_parameters @ parameters) []
 
@@ -728,9 +792,6 @@ let get_class_methods_json cls =
 (* Populate JSON object for the class template *)
 (***********************************************)
 let populate_class cls templdir class_dir =
-  (*todo: is this still neeeded?!*)
-  Hashtbl.replace records cls.name cls.contents ;
-
   let class_name = class_case cls.name in
   let fields = get_class_fields_json cls in
   let methods = get_class_methods_json cls in
@@ -752,8 +813,8 @@ let _ =
   let templdir = "templates" in
   let class_dir = "autogen/xen-api/src/main/java/com/xensource/xenapi" in
   populate_releases templdir class_dir ;
-  populate_types types templdir class_dir ;
   List.iter (fun cls -> populate_class cls templdir class_dir) classes ;
+  populate_types types templdir class_dir ;
 
   let uncommented_license = string_of_file "LICENSE" in
   let class_license = open_out "autogen/xen-api/src/main/resources/LICENSE" in

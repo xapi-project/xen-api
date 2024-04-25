@@ -105,10 +105,10 @@ public class {{class_name}} extends XenAPIObject {
             StringWriter writer = new StringWriter();
             PrintWriter print = new PrintWriter(writer);
             {{#fields}}
-                print.printf("%1$20s: %2$s\n", "{{{name_camel}}}", this.{{{name_camel}}});
+            print.printf("%1$20s: %2$s\n", "{{{name_camel}}}", this.{{{name_camel}}});
             {{/fields}}
             {{#is_event_class}}
-                print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
+            print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
             {{/is_event_class}}
             return writer.toString();
         }
@@ -121,9 +121,6 @@ public class {{class_name}} extends XenAPIObject {
             {{#fields}}
             map.put("{{{name}}}", this.{{{name_camel}}} == null ? {{{default_value}}} : this.{{{name_camel}}});
             {{/fields}}
-            {{#is_event_class}}
-                print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
-            {{/is_event_class}}
             return map;
         }
 
@@ -155,7 +152,7 @@ public class {{class_name}} extends XenAPIObject {
     * @deprecated since {{{deprecated_release}}}{{/is_deprecated}}
     *
     * @param c The connection the call is made on{{#parameters}}
-    * @param {{{name_camel}}} {{^description}}No description{{/description}}{{#description}}{{{.}}}{{/description}} {{{publish_info}}}{{/parameters}}{{^returns_void}}
+    * @param {{{name_camel}}} {{{description}}} {{{publish_info}}}{{/parameters}}{{^returns_void}}
     * @return {{#is_async}}Task{{/is_async}}{{^is_async}}{{{return_description}}}{{/is_async}}{{/returns_void}}
     * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
     * @throws XenAPIException if the call failed.
@@ -172,7 +169,7 @@ public class {{class_name}} extends XenAPIObject {
         {{#supports_session}}String sessionReference = c.getSessionReference();{{/supports_session}}{{#method_parameters}}{{#is_record}}
         var {{{name_camel}}}_map = {{{name_camel}}}.toMap();{{/is_record}}{{/method_parameters}}
         Object[] methodParameters = { {{#method_parameters}}{{{name_camel}}}{{#is_record}}_map{{/is_record}}{{^is_last}}, {{/is_last}}{{/method_parameters}} };{{#type_reference}}
-        var typeReference = new TypeReference<{{{type_reference}}}>(){};{{/type_reference}}
+        var typeReference = new TypeReference<{{{.}}}>(){};{{/type_reference}}
         {{^returns_void}}return {{/returns_void}}c.dispatch(methodCall, methodParameters{{#type_reference}}, typeReference{{/type_reference}});
     }
 
