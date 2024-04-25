@@ -8,10 +8,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Free space
-      shell: bash
-      run: sudo rm -rf /usr/local/lib/android
-
     - name: Pull configuration from xs-opam
       shell: bash
       run: |
