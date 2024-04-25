@@ -58,6 +58,12 @@ jobs:
           name: SDK_Artifacts_C
           path: libxenserver/usr/local/
 
+      - name: Retrieve Java SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Artifacts_Java
+          path: dist/
+
       - name: Retrieve C# SDK distribution artifacts
         uses: actions/download-artifact@v4
         with:
