@@ -31,6 +31,10 @@ runs:
       shell: bash
       run: sudo apt-get update
 
+    - name: Install python2
+      shell: bash
+      run: sudo apt-get install python2
+
     - name: Use disk with more space for TMPDIR and XDG_CACHE_HOME
       shell: bash
       run: |
