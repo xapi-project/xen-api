@@ -120,7 +120,9 @@ module TypeSet = Set.Make (Ty)
 
 let types = ref TypeSet.empty
 
-(* Helper functions for types *)
+(***************************************)
+(* Helpers for generating Types.java   *)
+(***************************************)
 let rec get_java_type ty =
   types := TypeSet.add ty !types ;
   match ty with
@@ -148,12 +150,9 @@ let rec get_java_type ty =
   | Option x ->
       get_java_type x
 
-(*We'd like the list of XenAPI objects to appear as an enumeration so we can*)
-(* switch on them, so add it using this mechanism*)
 let switch_enum =
   Enum ("XenAPIObjects", List.map (fun x -> (x.name, x.description)) classes)
 
-(*Helper function for get_marshall_function*)
 let rec get_marshall_function_rec = function
   | SecretString | String ->
       "String"
@@ -222,8 +221,6 @@ let field_default = function
       "null"
 
 let class_is_empty cls = cls.contents = []
-
-(*This generates the special case code for marshalling the snapshot field in an Event.Record*)
 
 let generate_snapshot_hack =
   {|
@@ -364,9 +361,9 @@ let populate_releases templdir class_dir =
     ("APIVersion.mustache", "APIVersion.java")
     json_releases templdir class_dir
 
-(*
-  Populate JSON object for the Types.java template     
-*)
+(****************************************************)
+(* Populate JSON object for the Types.java template *)
+(****************************************************)
 let get_types_errors_json =
   let list_errors =
     Hashtbl.fold (fun k v acc -> (k, v) :: acc) Datamodel.errors []
@@ -465,37 +462,38 @@ let populate_types types templdir class_dir =
   in
   render_file ("Types.mustache", "Types.java") json templdir class_dir
 
-let get_message_object cls message async_version params =
-  let is_method_async = async_version in
-  let return_type =
-    if is_method_async then
-      "Task"
-    else if
-      String.lowercase_ascii cls.name = "event"
-      && String.lowercase_ascii message.msg_name = "from"
-    then
-      "EventBatch"
-    else
+(***************************************)
+(* Helpers for generating class methods *)
+(***************************************)
+let get_message_return_type cls message is_method_async =
+  if is_method_async then
+    "Task"
+  else if
+    String.lowercase_ascii cls.name = "event"
+    && String.lowercase_ascii message.msg_name = "from"
+  then
+    "EventBatch"
+  else
+    get_java_type_or_void message.msg_result
+
+let get_message_return_description message =
+  match message.msg_result with
+  | None ->
       get_java_type_or_void message.msg_result
-  in
-  let return_description =
-    match message.msg_result with
-    | None ->
-        get_java_type_or_void message.msg_result
-    | Some (_, description) ->
-        description
-  in
-  let returns_void = message.msg_result = None && not async_version in
-  let record_parameters =
-    List.map
-      (fun parameter ->
-        `O [("name_camel", `String (camel_case parameter.param_name))]
-      )
-      (List.filter
-         (function {param_type= Record _; _} -> true | _ -> false)
-         message.msg_params
-      )
-  in
+  | Some (_, description) ->
+      description
+
+let get_message_return_parameters message =
+  List.map
+    (fun parameter ->
+      `O [("name_camel", `String (camel_case parameter.param_name))]
+    )
+    (List.filter
+       (function {param_type= Record _; _} -> true | _ -> false)
+       message.msg_params
+    )
+
+let get_message_deprecation_info message =
   let is_deprecated =
     match message.msg_release.internal_deprecated_since with
     | Some _ ->
@@ -510,34 +508,37 @@ let get_message_object cls message async_version params =
     | None ->
         ""
   in
-  let type_reference =
-    if is_method_async then
-      "Task"
-    else if message.msg_result != None then
-      return_type
-    else
-      ""
-  in
-  let parameters =
-    List.map
-      (fun parameter ->
-        let publish_info = get_published_info_param message parameter in
-        let name_camel = camel_case parameter.param_name in
-        let description = escape_xml parameter.param_doc in
-        `O
-          [
-            ("type", `String (get_java_type parameter.param_type))
-          ; ( "is_record"
-            , `Bool
-                (match parameter.param_type with Record _ -> true | _ -> false)
-            )
-          ; ("name_camel", `String name_camel)
-          ; ("description", `String description)
-          ; ("publish_info", `String publish_info)
-          ]
-      )
-      params
-  in
+  (is_deprecated, deprecated_release)
+
+let get_message_type_reference is_method_async message return_type =
+  if is_method_async then
+    "Task"
+  else if message.msg_result != None then
+    return_type
+  else
+    ""
+
+let get_message_formatted_parameters parameters message =
+  List.map
+    (fun parameter ->
+      let publish_info = get_published_info_param message parameter in
+      let name_camel = camel_case parameter.param_name in
+      let description = escape_xml parameter.param_doc in
+      `O
+        [
+          ("type", `String (get_java_type parameter.param_type))
+        ; ( "is_record"
+          , `Bool
+              (match parameter.param_type with Record _ -> true | _ -> false)
+          )
+        ; ("name_camel", `String name_camel)
+        ; ("description", `String description)
+        ; ("publish_info", `String publish_info)
+        ]
+    )
+    parameters
+
+let get_message_errors message =
   let error_definitions =
     List.map
       (fun error ->
@@ -546,14 +547,13 @@ let get_message_object cls message async_version params =
       )
       message.msg_errors
   in
-  let errors =
-    List.map
-      (fun (name, description) ->
-        `O [("name", `String name); ("description", `String description)]
-      )
-      error_definitions
-  in
-  let is_static = is_method_static message in
+  List.map
+    (fun (name, description) ->
+      `O [("name", `String name); ("description", `String description)]
+    )
+    error_definitions
+
+let get_message_method_parameters parameters is_static message =
   let session_parameter =
     `O
       [
@@ -594,8 +594,25 @@ let get_message_object cls message async_version params =
     | `O h :: tail ->
         `O (("is_last", `Bool false) :: h) :: set_is_last tail acc
   in
+  set_is_last (extra_method_parameters @ parameters) []
+
+let get_class_message_json cls message async_version params =
+  let is_method_async = async_version in
+  let return_type = get_message_return_type cls message is_method_async in
+  let return_description = get_message_return_description message in
+  let returns_void = message.msg_result = None && not async_version in
+  let record_parameters = get_message_return_parameters message in
+  let is_deprecated, deprecated_release =
+    get_message_deprecation_info message
+  in
+  let type_reference =
+    get_message_type_reference is_method_async message return_type
+  in
+  let parameters = get_message_formatted_parameters params message in
+  let errors = get_message_errors message in
+  let is_static = is_method_static message in
   let method_parameters =
-    set_is_last (extra_method_parameters @ parameters) []
+    get_message_method_parameters parameters is_static message
   in
   `O
     [
@@ -620,9 +637,8 @@ let get_message_object cls message async_version params =
     ; ("errors", `A errors)
     ]
 
-let populate_class cls templdir class_dir =
+let get_class_fields_json cls =
   Hashtbl.replace records cls.name cls.contents ;
-  let class_name = class_case cls.name in
   let rec content_fields content namespace_name =
     match content with
     | Field f ->
@@ -659,44 +675,65 @@ let populate_class cls templdir class_dir =
     | Namespace (name, contents) ->
         List.flatten (List.map (fun c -> content_fields c name) contents)
   in
-  let fields =
-    List.flatten (List.map (fun c -> content_fields c "") cls.contents)
-  in
-  let rec get_async_and_sync_methods methods acc =
-    match methods with
-    | [] ->
-        acc
-    | h :: tail ->
-        let get_variants messages =
-          (* we get the param groups outside of the mapping because we know it's always the same message *)
-          let params = gen_param_groups h h.msg_params in
-          match params with
-          | [] ->
-              List.map
-                (fun (message, is_async) -> (message, is_async, []))
-                messages
-          | _ ->
-              List.map
-                (fun (message, is_async) ->
-                  List.map (fun param -> (message, is_async, param)) params
-                )
-                messages
-              |> List.flatten
-        in
-        if h.msg_async then
-          get_variants [(h, true); (h, false)]
-          @ get_async_and_sync_methods tail acc
-        else
-          get_variants [(h, false)] @ get_async_and_sync_methods tail acc
-  in
-  let async_and_sync_methods = get_async_and_sync_methods cls.messages [] in
-  let methods =
-    List.map
-      (fun (message, async_version, params) ->
-        get_message_object cls message async_version params
-      )
-      async_and_sync_methods
-  in
+  List.flatten (List.map (fun c -> content_fields c "") cls.contents)
+
+(** [get_all_message_variants messages acc] takes a list of messages [messages] and an accumulator [acc],
+    and recursively constructs a list of tuples representing both asynchronous and synchronous variants of each message,
+    along with their associated parameters. If a message does not have an asynchronous version, this function simply returns
+    its synchronous version, with parameter information.
+
+    For each message, if it has parameter information, the function generates all possible combinations of parameters
+    and pairs them with the message, marking each combination as either asynchronous or synchronous. Then, it constructs
+    a list of tuples containing each combination along with its associated message and its asynchronous/synchronous flag.
+
+    @param messages a list of messages to process
+    @param acc an accumulator for collecting the constructed tuples
+    @return a list of tuples representing both asynchronous and synchronous variants of each message,
+    along with their associated parameters *)
+let rec get_all_message_variants messages acc =
+  match messages with
+  | [] ->
+      acc
+  | h :: tail ->
+      let get_variants messages =
+        (* we get the param groups outside of the mapping because we know it's always the same message *)
+        let params = gen_param_groups h h.msg_params in
+        match params with
+        | [] ->
+            List.map
+              (fun (message, is_async) -> (message, is_async, []))
+              messages
+        | _ ->
+            List.map
+              (fun (message, is_async) ->
+                List.map (fun param -> (message, is_async, param)) params
+              )
+              messages
+            |> List.flatten
+      in
+      if h.msg_async then
+        get_variants [(h, true); (h, false)] @ get_all_message_variants tail acc
+      else
+        get_variants [(h, false)] @ get_all_message_variants tail acc
+
+let get_class_methods_json cls =
+  let messages = get_all_message_variants cls.messages [] in
+  List.map
+    (fun (message, async_version, params) ->
+      get_class_message_json cls message async_version params
+    )
+    messages
+
+(***********************************************)
+(* Populate JSON object for the class template *)
+(***********************************************)
+let populate_class cls templdir class_dir =
+  (*todo: is this still neeeded?!*)
+  Hashtbl.replace records cls.name cls.contents ;
+
+  let class_name = class_case cls.name in
+  let fields = get_class_fields_json cls in
+  let methods = get_class_methods_json cls in
   let json =
     `O
       [
