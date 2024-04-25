@@ -221,11 +221,7 @@ let field_default = function
   | Option _ ->
       "null"
 
-(* Generate the class *)
-
 let class_is_empty cls = cls.contents = []
-
-
 
 (*This generates the special case code for marshalling the snapshot field in an Event.Record*)
 
@@ -363,310 +359,107 @@ let rec gen_marshall_body = function
 let gen_error_field_name field =
   camel_case (String.concat "_" (Astring.String.cuts ~sep:" " field))
 
-let gen_error_field_names fields = List.map gen_error_field_name fields
-
-let gen_error_fields file field =
-  fprintf file "        public final String %s;\n" field
-
-let gen_error file name params =
-  let name = exception_class_case name in
-  let fields = gen_error_field_names params.err_params in
-  let constructor_params =
-    String.concat ", " (List.map (fun field -> "String " ^ field) fields)
-  in
-
-  fprintf file "    /**\n" ;
-  fprintf file "     * %s\n" (escape_xml params.err_doc) ;
-  fprintf file "     */\n" ;
-  fprintf file "    public static class %s extends XenAPIException {\n" name ;
-
-  List.iter (gen_error_fields file) fields ;
-
-  fprintf file "\n        /**\n" ;
-  fprintf file "         * Create a new %s\n" name ;
-  fprintf file "         */\n" ;
-  fprintf file "        public %s(%s) {\n" name constructor_params ;
-  fprintf file "            super(\"%s\");\n" (escape_xml params.err_doc) ;
-
-  List.iter (fun s -> fprintf file "            this.%s = %s;\n" s s) fields ;
-
-  fprintf file "        }\n\n" ;
-  fprintf file "    }\n\n"
-
-let gen_method_error_throw file name error =
-  let class_name = exception_class_case name in
-  let paramsStr =
-    String.concat ", "
-      (List.map
-         (fun i -> sprintf "p%i" i)
-         (range (List.length error.err_params))
-      )
-  in
-
-  fprintf file "       if (errorName.equals(\"%s\")){\n" name ;
-
-  (* Prepare the parameters to the Exception constructor *)
-  List.iter
-    (fun i ->
-      fprintf file
-        "           String p%i = errorData.length > %i ? errorData[%i] : \"\";\n"
-        i i i
-    )
-    (range (List.length error.err_params)) ;
-
-  fprintf file "           throw new Types.%s(%s);\n" class_name paramsStr ;
-  fprintf file "       }\n"
-
-let gen_types_class folder =
-  let class_name = "Types" in
-  let file = open_out (Filename.concat folder class_name ^ ".java") in
-  print_license file ;
-  fprintf file
-    {|package com.xensource.xenapi;
-import java.util.*;
-import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import java.io.IOException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-/**
- * This class holds enum types and exceptions.
- */
-public class Types
-{
-   /**
-    * Interface for all Record classes
-    */
-   public interface Record
-   {
-       /**
-        * Convert a Record to a Map
-        */
-       Map<String, Object> toMap();
-   }
-   /**
-    * Base class for all XenAPI Exceptions
-    */
-   public static class XenAPIException extends IOException {
-       public final String shortDescription;
-       public final String[] errorDescription;
-       XenAPIException(String shortDescription)
-       {
-           this.shortDescription = shortDescription;
-           this.errorDescription = null;
-       }
-       XenAPIException(String[] errorDescription)
-       {
-           this.errorDescription = errorDescription;
-           if (errorDescription.length > 0)
-           {
-               shortDescription = errorDescription[0];
-           } else
-           {
-               shortDescription = "";
-           }
-       }
-       public String toString()
-       {
-           if (errorDescription == null)
-           {
-               return shortDescription;
-           } else if (errorDescription.length == 0)
-           {
-               return "";
-           }
-           StringBuilder sb = new StringBuilder();
-           for (int i = 0; i < errorDescription.length - 1; i++)
-           {
-               sb.append(errorDescription[i]);
-           }
-           sb.append(errorDescription[errorDescription.length - 1]);
-           return sb.toString();
-       }
-   }
-
-   /**
-    * Thrown if the response from the server contains an invalid status.
-    */
-   public static class BadServerResponse extends XenAPIException
-   {
-       public BadServerResponse(JsonRpcResponseError responseError)
-       {
-           super(String.valueOf(responseError));
-       }
-   }
-|} ;
-
-  fprintf file
-    {|   /**
-   * Checks the provided server response was successful. If the call
-   * failed, throws a XenAPIException. If the server
-   * returned an invalid response, throws a BadServerResponse.
-   * Otherwise, returns the server response as passed in.
-   */
-   public static void checkError(JsonRpcResponseError response) throws XenAPIException, BadServerResponse
-   {
-       var errorData = response.data;
-       if(errorData.length == 0){
-           throw new BadServerResponse(response);
-       }
-       var errorName = response.message;
-|} ;
-
-  Hashtbl.iter (gen_method_error_throw file) Datamodel.errors ;
-
-  fprintf file
-    {|
-    // An unknown error occurred
-    throw new Types.XenAPIException(errorData);
-}
-
-|} ;
-
-  gen_enums file ;
-  fprintf file "\n" ;
-  Hashtbl.iter (gen_error file) Datamodel.errors ;
-  fprintf file "\n" ;
-  TypeSet.iter (gen_marshall_func file) !types ;
-  fprintf file "\n" ;
-  TypeSet.iter (gen_task_result_func file) !types ;
-  fprintf file
-    {|
-    
-    public static class BadAsyncResult extends XenAPIException
-    {
-        public final String result;
-
-        public BadAsyncResult(String result)
-        {
-            super(result);
-            this.result = result;
-        }
-    }
-
-    private static String parseResult(String result) throws BadAsyncResult
-    {
-        Pattern pattern = Pattern.compile("<value>(.*)</value>");
-        Matcher matcher = pattern.matcher(result);
-        if (!matcher.find() || matcher.groupCount() != 1) {
-            throw new Types.BadAsyncResult("Can't interpret: " + result);
-        }
-
-        return matcher.group(1);
-    }
-
-    public static EventBatch toEventBatch(Object object) {
-      if (object == null) {
-          return null;
-      }
-      Map map = (Map) object;
-      EventBatch batch = new EventBatch();
-      batch.token = toString(map.get("token"));
-      batch.validRefCounts = map.get("valid_ref_counts");
-      batch.events = toSetOfEventRecord(map.get("events"));
-      return batch;
-    }
-}
-|}
-
-(* Now run it *)
-
 let populate_releases templdir class_dir =
   render_file
     ("APIVersion.mustache", "APIVersion.java")
     json_releases templdir class_dir
 
-let populate_types templdir class_dir =
+(*
+  Populate JSON object for the Types.java template     
+*)
+let get_types_errors_json =
   let list_errors =
     Hashtbl.fold (fun k v acc -> (k, v) :: acc) Datamodel.errors []
   in
-  let errors =
-    List.map
-      (fun (_, error) ->
-        let class_name = exception_class_case error.err_name in
-        let err_params =
-          List.mapi
-            (fun index value ->
-              `O
-                [
-                  ("name", `String (gen_error_field_name value))
-                ; ("index", `Float (Int.to_float index))
-                ; ("last", `Bool (index == List.length error.err_params - 1))
-                ]
-            )
-            error.err_params
-        in
-        `O
-          [
-            ("description", `String (escape_xml error.err_doc))
-          ; ("class_name", `String class_name)
-          ; ("err_params", `A err_params)
-          ]
-      )
-      list_errors
-  in
+  List.map
+    (fun (_, error) ->
+      let class_name = exception_class_case error.err_name in
+      let err_params =
+        List.mapi
+          (fun index value ->
+            `O
+              [
+                ("name", `String (gen_error_field_name value))
+              ; ("index", `Float (Int.to_float index))
+              ; ("last", `Bool (index == List.length error.err_params - 1))
+              ]
+          )
+          error.err_params
+      in
+      `O
+        [
+          ("description", `String (escape_xml error.err_doc))
+        ; ("class_name", `String class_name)
+        ; ("err_params", `A err_params)
+        ]
+    )
+    list_errors
+
+let get_types_enums_json =
   let list_enums = Hashtbl.fold (fun k v acc -> (k, v) :: acc) enums [] in
-  let enums =
-    List.map
-      (fun (enum_name, enum_values) ->
-        let class_name = class_case enum_name in
-        let mapped_values =
-          List.map
-            (fun (name, description) ->
-              let escaped_description =
-                global_replace (regexp_string "*/") "* /" description
-              in
-              let final_description =
-                global_replace (regexp_string "\n") "\n         * "
-                  escaped_description
-              in
-              `O
-                [
-                  ("name", `String name)
-                ; ("name_uppercase", `String (enum_of_wire name))
-                ; ("description", `String final_description)
-                ]
-            )
-            enum_values
-        in
-        `O [("class_name", `String class_name); ("values", `A mapped_values)]
-      )
-      list_enums
-  in
+  List.map
+    (fun (enum_name, enum_values) ->
+      let class_name = class_case enum_name in
+      let mapped_values =
+        List.map
+          (fun (name, description) ->
+            let escaped_description =
+              global_replace (regexp_string "*/") "* /" description
+            in
+            let final_description =
+              global_replace (regexp_string "\n") "\n         * "
+                escaped_description
+            in
+            `O
+              [
+                ("name", `String name)
+              ; ("name_uppercase", `String (enum_of_wire name))
+              ; ("description", `String final_description)
+              ]
+          )
+          enum_values
+      in
+      `O [("class_name", `String class_name); ("values", `A mapped_values)]
+    )
+    list_enums
+
+let get_types_json types =
   let list_types = TypeSet.fold (fun t acc -> t :: acc) !types [] in
-  let types =
-    List.map
-      (fun t ->
-        let type_string = get_java_type t in
-        let class_name = class_case type_string in
-        let method_name = get_marshall_function t in
-        (*Every type which may be returned by a function may also be the result of the*)
-        (* corresponding asynchronous task. We therefore need to generate corresponding*)
-        (* marshalling functions which can take the raw xml of the tasks result field*)
-        (* and turn it into the corresponding type. Luckily, the only things returned by*)
-        (* asynchronous tasks are object references and strings, so rather than implementing*)
-        (* the general recursive structure we'll just make one for each of the classes*)
-        (* that's been registered as a marshall-needing type*)
-        let generate_reference_task_result_func =
-          match t with Ref _ -> true | _ -> false
-        in
-        `O
-          [
-            ("name", `String type_string)
-          ; ("class_name", `String class_name)
-          ; ("method_name", `String method_name)
-          ; ( "suppress_unchecked_warning"
-            , `Bool (match t with Map _ | Record _ -> true | _ -> false)
-            )
-          ; ( "generate_reference_task_result_func"
-            , `Bool generate_reference_task_result_func
-            )
-          ; ("method_body", `String (gen_marshall_body t))
-          ]
-      )
-      list_types
-  in
+  List.map
+    (fun t ->
+      let type_string = get_java_type t in
+      let class_name = class_case type_string in
+      let method_name = get_marshall_function t in
+      (*Every type which may be returned by a function may also be the result of the*)
+      (* corresponding asynchronous task. We therefore need to generate corresponding*)
+      (* marshalling functions which can take the raw xml of the tasks result field*)
+      (* and turn it into the corresponding type. Luckily, the only things returned by*)
+      (* asynchronous tasks are object references and strings, so rather than implementing*)
+      (* the general recursive structure we'll just make one for each of the classes*)
+      (* that's been registered as a marshall-needing type*)
+      let generate_reference_task_result_func =
+        match t with Ref _ -> true | _ -> false
+      in
+      `O
+        [
+          ("name", `String type_string)
+        ; ("class_name", `String class_name)
+        ; ("method_name", `String method_name)
+        ; ( "suppress_unchecked_warning"
+          , `Bool (match t with Map _ | Record _ -> true | _ -> false)
+          )
+        ; ( "generate_reference_task_result_func"
+          , `Bool generate_reference_task_result_func
+          )
+        ; ("method_body", `String (gen_marshall_body t))
+        ]
+    )
+    list_types
+
+let populate_types types templdir class_dir =
+  let errors = get_types_errors_json in
+  let enums = get_types_enums_json in
+  let types = get_types_json types in
   let json =
     `O [("errors", `A errors); ("enums", `A enums); ("types", `A types)]
   in
@@ -922,7 +715,7 @@ let _ =
   let templdir = "templates" in
   let class_dir = "autogen/xen-api/src/main/java/com/xensource/xenapi" in
   populate_releases templdir class_dir ;
-  populate_types templdir class_dir ;
+  populate_types types templdir class_dir ;
   List.iter (fun cls -> populate_class cls templdir class_dir) classes ;
 
   let uncommented_license = string_of_file "LICENSE" in
