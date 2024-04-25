@@ -163,7 +163,9 @@ module Tracer : sig
   *)
 
   val finish :
-    ?error:exn * string -> Span.t option -> (Span.t option, exn) result
+       ?error:exn * Printexc.raw_backtrace
+    -> Span.t option
+    -> (Span.t option, exn) result
 
   val span_hashtbl_is_empty : unit -> bool
 

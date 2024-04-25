@@ -517,7 +517,7 @@ let with_tracing ?originator ~__context name f =
       result
     with exn ->
       let backtrace = Printexc.get_raw_backtrace () in
-      let error = (exn, Printexc.raw_backtrace_to_string backtrace) in
+      let error = (exn, backtrace) in
       ignore @@ Tracer.finish span ~error ;
       Printexc.raise_with_backtrace exn backtrace
   )
