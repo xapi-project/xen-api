@@ -2,7 +2,6 @@
 authors: ["xen-api@lists.xen.org"]
 license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 opam-version: "2.0"
-author: "dave.scott@eu.citrix.com"
 maintainer: "xen-api@lists.xen.org"
 homepage: "https://github.com/xapi-project/xen-api"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"

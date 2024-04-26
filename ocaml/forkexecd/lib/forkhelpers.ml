@@ -36,6 +36,10 @@ let test_path =
 
 let runtime_path = Option.value ~default:"/var" test_path
 
+let _with_tracing ?tracing ~name f =
+  let name = Printf.sprintf "forkhelpers.%s" name in
+  Tracing.with_tracing ?parent:tracing ~name f
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 type pidty = Unix.file_descr * int
@@ -171,7 +175,7 @@ let with_logfile_fd ?(delete = true) prefix f =
 
 exception Spawn_internal_error of string * string * Unix.process_status
 
-type syslog_stdout_t =
+type syslog_stdout =
   | NoSyslogging
   | Syslog_DefaultKey
   | Syslog_WithKey of string

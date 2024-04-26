@@ -1,0 +1,192 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+#include <stddef.h>
+#include <stdlib.h>
+
+{{#internal_headers}}
+#include "xen_{{header}}.h"
+{{/internal_headers}}
+{{#headers}}
+#include <xen/api/xen_{{{header}}}.h>
+{{/headers}}
+
+
+{{^is_event}}
+XEN_FREE(xen_{{{class_lower}}})
+XEN_SET_ALLOC_FREE(xen_{{{class_lower}}})
+{{/is_event}}
+XEN_ALLOC(xen_{{{class_lower}}}_record)
+XEN_SET_ALLOC_FREE(xen_{{{class_lower}}}_record)
+{{^is_event}}
+XEN_ALLOC(xen_{{{class_lower}}}_record_opt)
+XEN_RECORD_OPT_FREE(xen_{{{class_lower}}})
+XEN_SET_ALLOC_FREE(xen_{{{class_lower}}}_record_opt)
+{{/is_event}}
+
+
+static const struct_member xen_{{{class_lower}}}_record_struct_members[] =
+    {
+{{#fields}}
+        { .key = "{{{field_name}}}",
+          .type = &{{{abstract_field_type}}},
+          .offset = offsetof(xen_{{{class_lower}}}_record, {{{field_name_lower}}}) }{{^is_last}},{{/is_last}}
+{{/fields}}
+    };
+
+
+const abstract_type xen_{{{class_lower}}}_record_abstract_type_ =
+    {
+       .XEN_API_TYPE = STRUCT,
+       .struct_size = sizeof(xen_{{{class_lower}}}_record),
+       .member_count =
+           sizeof(xen_{{{class_lower}}}_record_struct_members) / sizeof(struct_member),
+       .members = xen_{{{class_lower}}}_record_struct_members
+    };
+
+
+const abstract_type xen_{{{class_lower}}}_record_set_abstract_type_ =
+    {
+       .XEN_API_TYPE = SET,
+        .child = &xen_{{{class_lower}}}_record_abstract_type_
+    };
+{{#has_all_records}}
+
+
+static const struct struct_member xen_{{{class_lower}}}_xen_{{{class_lower}}}_record_members[] =
+{
+    {
+        .type = &abstract_type_string,
+        .offset = offsetof(xen_{{{class_lower}}}_xen_{{{class_lower}}}_record_map_contents, key)
+    },
+    {
+        .type = &xen_{{{class_lower}}}_record_abstract_type_,
+        .offset = offsetof(xen_{{{class_lower}}}_xen_{{{class_lower}}}_record_map_contents, val)
+    }
+};
+
+
+const abstract_type abstract_type_string_xen_{{{class_lower}}}_record_map =
+{
+    .XEN_API_TYPE = MAP,
+    .struct_size = sizeof(xen_{{{class_lower}}}_xen_{{{class_lower}}}_record_map_contents),
+    .members = xen_{{{class_lower}}}_xen_{{{class_lower}}}_record_members
+};
+{{/has_all_records}}
+
+
+void
+xen_{{{class_lower}}}_record_free(xen_{{{class_lower}}}_record *record)
+{
+    if (record == NULL)
+        return;
+
+{{^is_event}}
+    free(record->handle);
+{{/is_event}}
+{{#fields}}
+{{#can_free}}
+    {{{free_record_field}}}
+{{/can_free}}
+{{/fields}}
+    free(record);
+}
+{{#messages}}
+
+
+bool
+xen_{{{class_lower}}}_{{{msg_name_lower}}}(xen_session *session{{#sync_params}}, {{{param_type}}}{{{param_name}}}{{/sync_params}})
+{
+{{#has_params}}
+    abstract_value param_values[] =
+        {
+{{#msg_params}}
+            { .type = &{{{abstract_param_type}}},
+              .u.{{{abstract_member}}}_val = {{{abstract_member_conv}}} }{{^is_last}},{{/is_last}}
+{{/msg_params}}
+        };
+{{/has_params}}
+{{#has_result}}
+
+    abstract_type result_type = {{{abstract_result_type}}};
+{{/has_result}}
+
+{{#init_result}}
+    *result = NULL;
+{{/init_result}}
+{{#has_result}}
+{{#has_params}}
+    XEN_CALL_("{{{class_name}}}.{{{msg_name}}}");
+{{/has_params}}
+{{^has_params}}
+    xen_call_(session, "{{{class_name}}}.{{{msg_name}}}", NULL, 0, &result_type, result);
+{{/has_params}}
+{{/has_result}}
+{{^has_result}}
+    xen_call_(session, "{{{class_name}}}.{{{msg_name}}}", {{#has_params}}param_values{{/has_params}}{{^has_params}}NULL{{/has_params}}, {{param_count}}, NULL, NULL);
+{{/has_result}}
+{{#is_result_record}}
+
+    if (session->ok)
+       (*result)->handle = xen_strdup_((*result)->uuid);
+
+{{/is_result_record}}
+    return session->ok;
+}
+{{#is_async}}
+
+
+bool
+xen_{{{class_lower}}}_{{{msg_name_lower}}}_async(xen_session *session{{#async_params}}, {{{param_type}}}{{{param_name}}}{{/async_params}})
+{
+{{#has_params}}
+    abstract_value param_values[] =
+        {
+{{#msg_params}}
+            { .type = &{{{abstract_param_type}}},
+              .u.{{{abstract_member}}}_val = {{{abstract_member_conv}}} }{{^is_last}},{{/is_last}}
+{{/msg_params}}
+        };
+{{/has_params}}
+
+    abstract_type result_type = abstract_type_string;
+
+    *result = NULL;
+{{#has_params}}
+    XEN_CALL_("Async.{{{class_name}}}.{{{msg_name}}}");
+{{/has_params}}
+{{^has_params}}
+    xen_call_(session, "Async.{{{class_name}}}.{{{msg_name}}}", NULL, 0, &result_type, result);
+{{/has_params}}
+    return session->ok;
+}
+{{/is_async}}
+{{/messages}}
+

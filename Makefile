@@ -117,6 +117,11 @@ sdk:
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
+.PHONY: sdk-build-c
+
+sdk-build-c: sdk
+	cd _build/install/default/xapi/sdk/c && make clean && make -j $(JOBS)
+
 .PHONY: sdk-build-java
 
 sdk-build-java: sdk
@@ -250,7 +255,7 @@ install: build doc sdk doc-json
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
 		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix \
 		xapi-rrd xapi-inventory \
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-stdext
+		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
@@ -272,7 +277,7 @@ uninstall:
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
 		xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix \
 		xapi-rrd xapi-inventory \
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-stdext
+		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\
