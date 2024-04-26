@@ -195,8 +195,12 @@ let safe_close_and_exec ?env stdin stdout stderr
   let fds_to_close = ref [] in
 
   let add_fd_to_close_list fd = fds_to_close := fd :: !fds_to_close in
-  (* let remove_fd_from_close_list fd = fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close in *)
+  let remove_fd_from_close_list fd =
+    fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close
+  in
   let close_fds () = List.iter (fun fd -> Unix.close fd) !fds_to_close in
+
+  add_fd_to_close_list sock ;
 
   finally
     (fun () ->
@@ -285,6 +289,7 @@ let safe_close_and_exec ?env stdin stdout stderr
       Fecomms.write_raw_rpc sock Fe.Exec ;
       match Fecomms.read_raw_rpc sock with
       | Ok (Fe.Execed pid) ->
+          remove_fd_from_close_list sock ;
           (sock, pid)
       | Ok status ->
           let msg =

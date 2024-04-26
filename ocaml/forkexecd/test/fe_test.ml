@@ -75,6 +75,20 @@ let shuffle x =
   done ;
   Array.to_list arr
 
+let fd_list () =
+  let pid = Unix.getpid () in
+  let path = Printf.sprintf "/proc/%d/fd" pid in
+  List.filter (* get rid of the fd used to read the directory *)
+    (fun x ->
+      try
+        ignore (Unix.readlink (Filename.concat path x)) ;
+        true
+      with _ -> false
+    )
+    (Array.to_list (Sys.readdir path))
+
+let fd_count () = List.length (fd_list ())
+
 let irrelevant_strings = ["irrelevant"; "not"; "important"]
 
 let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ())
@@ -178,6 +192,38 @@ let test_input () =
   expect input out ;
   print_endline "Completed input tests"
 
+(* This test tests a failure inside Forkhelpers.safe_close_and_exec.
+   Although the exact way of this reproduction is never supposed to
+   happen in the real world, an internal failure could happen for instance
+   if forkexecd daemon is restarted for a moment, so make sure we are
+   able to detect and handle these cases *)
+let test_internal_failure_error () =
+  let initial_fd_count = fd_count () in
+  let leak_fd_detect () =
+    let current_fd_count = fd_count () in
+    if current_fd_count <> initial_fd_count then
+      fail "File descriptor leak detected initially %d files, now %d"
+        initial_fd_count current_fd_count
+  in
+  (* this weird function will open and close "num" file descriptors
+     and returns the last (now closed) of them, mainly to get an invalid
+     file descriptor with some closed one before *)
+  let rec waste_fds num =
+    let fd = Unix.openfile "/dev/null" [Unix.O_WRONLY] 0o0 in
+    let ret = if num = 0 then fd else waste_fds (num - 1) in
+    Unix.close fd ; ret
+  in
+  let fd = waste_fds 20 in
+  let args = ["sleep"] in
+  try
+    Forkhelpers.safe_close_and_exec None (Some fd) None [] exe args |> ignore ;
+    fail "Expected an exception"
+  with
+  | Fd_send_recv.Unix_error _ ->
+      leak_fd_detect ()
+  | e ->
+      fail "Failed with unexpected exception: %s" (Printexc.to_string e)
+
 let master fds =
   Printf.printf "\nPerforming timeout tests\n%!" ;
   test_delay () ;
@@ -187,6 +233,8 @@ let master fds =
   Printf.printf "\nPerforming input/output tests\n%!" ;
   test_output () ;
   test_input () ;
+  Printf.printf "\nPerforming internal failure test\n%!" ;
+  test_internal_failure_error () ;
   let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n%!" (List.length combinations) ;
   let i = ref 0 in
@@ -215,16 +263,7 @@ let slave = function
       (* Check that these fds are present *)
       let pid = Unix.getpid () in
       let path = Printf.sprintf "/proc/%d/fd" pid in
-      let raw =
-        List.filter (* get rid of the fd used to read the directory *)
-          (fun x ->
-            try
-              ignore (Unix.readlink (Filename.concat path x)) ;
-              true
-            with _ -> false
-          )
-          (Array.to_list (Sys.readdir path))
-      in
+      let raw = fd_list () in
       let pairs =
         List.map (fun x -> (x, Unix.readlink (Filename.concat path x))) raw
       in
