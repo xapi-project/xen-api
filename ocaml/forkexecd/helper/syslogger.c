@@ -61,6 +61,8 @@ static void syslog_line(const char *line)
 	syslog(LOG_DAEMON|LOG_INFO, "%s[%d]: %s", key, child_pid, line);
 }
 
+// Quote and forward every line from "fd" to the syslog.
+// "fd" will be closed.
 static bool forward_to_syslog(int fd)
 {
 	FILE *f = fdopen(fd, "r");
@@ -75,8 +77,11 @@ static bool forward_to_syslog(int fd)
 			syslog_line(quoted_buf);
 		}
 
-		if (ch == EOF)
-			return !!feof(f);
+		if (ch == EOF) {
+			bool res = !!feof(f);
+			fclose(f);
+			return res;
+		}
 
 		if (ch == '\n') {
 			overflowed = false;
