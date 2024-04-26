@@ -764,22 +764,23 @@ module Plugin = struct
         )
 
       (* Read, parse, and combine metrics from all registered plugins. *)
-      let read_stats () : (Rrd.ds_owner * Ds.ds) list =
+      let read_stats () : (Rrd.ds_owner * Ds.ds) Seq.t =
         let plugins =
           with_lock registered_m (fun _ ->
               List.of_seq (Hashtbl.to_seq registered)
           )
         in
-        let process_plugin acc (uid, plugin) =
+        let process_plugin (uid, plugin) =
           try
             let payload = get_payload ~uid plugin in
-            List.rev_append payload.Rrd_protocol.datasources acc
-          with _ -> acc
+            List.to_seq payload.Rrd_protocol.datasources
+          with _ -> Seq.empty
         in
         List.iter decr_skip_count plugins ;
         plugins
-        |> List.filter (Fun.negate skip)
-        |> List.fold_left process_plugin []
+        |> List.to_seq
+        |> Seq.filter (Fun.negate skip)
+        |> Seq.flat_map process_plugin
     end
 
   module Local = Make (struct
@@ -805,7 +806,7 @@ module Plugin = struct
   let deregister = Local.deregister
 
   (* Read, parse, and combine metrics from all registered plugins. *)
-  let read_stats () : (Rrd.ds_owner * Ds.ds) list = Local.read_stats ()
+  let read_stats () : (Rrd.ds_owner * Ds.ds) Seq.t = Local.read_stats ()
 end
 
 module HA = struct

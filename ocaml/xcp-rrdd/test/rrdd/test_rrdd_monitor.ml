@@ -53,7 +53,7 @@ let update_rrds_test ~dss ~uuid_domids ~paused_vms ~expected_vm_rrds
     ~expected_sr_rrds ~expected_host_dss =
   let test () =
     reset_rrdd_shared_state () ;
-    Rrdd_monitor.update_rrds 12345.0 dss uuid_domids paused_vms ;
+    Rrdd_monitor.update_rrds 12345.0 (List.to_seq dss) uuid_domids paused_vms ;
     check_datasources "VM" (Some Rrdd_shared.vm_rrds) expected_vm_rrds ;
     check_datasources "SR" (Some Rrdd_shared.sr_rrds) expected_sr_rrds ;
     check_datasources "Host" (host_rrds !Rrdd_shared.host_rrd) expected_host_dss

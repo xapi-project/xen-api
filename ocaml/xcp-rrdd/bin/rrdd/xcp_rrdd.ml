@@ -508,9 +508,13 @@ let do_monitor_write xc writers =
       let timestamp, domains, my_paused_vms = domain_snapshot xc in
       let tagged_dom0_stats = generate_all_dom0_stats xc timestamp domains in
       write_dom0_stats writers (Int64.of_float timestamp) tagged_dom0_stats ;
-      let dom0_stats = List.concat_map snd tagged_dom0_stats in
+      let dom0_stats =
+        tagged_dom0_stats
+        |> List.to_seq
+        |> Seq.flat_map (fun l -> l |> snd |> List.to_seq)
+      in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
-      let stats = List.rev_append plugins_stats dom0_stats in
+      let stats = Seq.append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
       Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms ;

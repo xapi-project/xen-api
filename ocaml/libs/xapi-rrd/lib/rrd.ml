@@ -459,7 +459,7 @@ let ds_update rrd timestamp values transforms new_domid =
 (** Update the rrd with named values rather than just an ordered array *)
 let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
   let valuesandtransforms =
-    valuesandtransforms |> List.to_seq |> StringMap.of_seq
+    valuesandtransforms |> StringMap.of_seq
   in
   let get_value_and_transform {ds_name; _} =
     Option.value ~default:(VT_Unknown, Identity)
