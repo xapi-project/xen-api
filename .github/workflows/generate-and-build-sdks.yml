@@ -42,6 +42,9 @@ jobs:
           name: SDK_Source_PowerShell
           path: _build/install/default/xapi/sdk/powershell/*
 
+      - name: Trim dune cache
+        run: opam exec -- dune cache trim --size=2GiB
+
   build-c-sdk:
     name: Build C SDK
     runs-on: ubuntu-latest
