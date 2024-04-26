@@ -52,7 +52,7 @@ let make_id =
     "Ref:" ^ string_of_int this
 
 let rec update_table ~__context ~include_snapshots ~preserve_power_state
-    ~include_vhd_parents ~table vm =
+    ~include_vhd_parents ~table ~excluded_devices vm =
   let add r =
     if not (Hashtbl.mem table (Ref.string_of r)) then
       Hashtbl.add table (Ref.string_of r) (make_id ())
@@ -77,38 +77,40 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
   then (
     add vm ;
     let vm = Db.VM.get_record ~__context ~self:vm in
-    List.iter
-      (fun vif ->
-        if Db.is_valid_ref __context vif then (
-          add vif ;
-          let vif = Db.VIF.get_record ~__context ~self:vif in
-          add vif.API.vIF_network
+    if not (List.mem Devicetype.VIF excluded_devices) then
+      List.iter
+        (fun vif ->
+          if Db.is_valid_ref __context vif then (
+            add vif ;
+            let vif = Db.VIF.get_record ~__context ~self:vif in
+            add vif.API.vIF_network
+          )
         )
-      )
-      vm.API.vM_VIFs ;
-    List.iter
-      (fun vbd ->
-        if Db.is_valid_ref __context vbd then (
-          add vbd ;
-          let vbd = Db.VBD.get_record ~__context ~self:vbd in
-          if not vbd.API.vBD_empty then
-            add_vdi vbd.API.vBD_VDI
+        vm.API.vM_VIFs ;
+    if not (List.mem Devicetype.VBD excluded_devices) then
+      List.iter
+        (fun vbd ->
+          if Db.is_valid_ref __context vbd then (
+            add vbd ;
+            let vbd = Db.VBD.get_record ~__context ~self:vbd in
+            if not vbd.API.vBD_empty then
+              add_vdi vbd.API.vBD_VDI
+          )
         )
-      )
-      vm.API.vM_VBDs ;
-    List.iter
-      (fun vgpu ->
-        if Db.is_valid_ref __context vgpu then (
-          add vgpu ;
-          let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
-          add vgpu.API.vGPU_type ;
-          add vgpu.API.vGPU_GPU_group
+        vm.API.vM_VBDs ;
+    if not (List.mem Devicetype.VGPU excluded_devices) then
+      List.iter
+        (fun vgpu ->
+          if Db.is_valid_ref __context vgpu then (
+            add vgpu ;
+            let vgpu = Db.VGPU.get_record ~__context ~self:vgpu in
+            add vgpu.API.vGPU_type ;
+            add vgpu.API.vGPU_GPU_group
+          )
         )
-      )
-      vm.API.vM_VGPUs ;
+        vm.API.vM_VGPUs ;
     (* add all PVS proxies that have a VIF belonging to this VM, add their
-       		 * PVS sites as well
-    *)
+       PVS sites as well *)
     Db.PVS_proxy.get_all_records ~__context
     |> List.filter (fun (_, p) -> List.mem p.API.pVS_proxy_VIF vm.API.vM_VIFs)
     |> List.iter (fun (ref, proxy) ->
@@ -118,15 +120,16 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
            )
        ) ;
     (* add VTPMs that belong to this VM *)
-    vm.API.vM_VTPMs
-    |> List.iter (fun ref -> if Db.is_valid_ref __context ref then add ref) ;
+    if not (List.mem Devicetype.VTPM excluded_devices) then
+      vm.API.vM_VTPMs
+      |> List.iter (fun ref -> if Db.is_valid_ref __context ref then add ref) ;
 
     (* If we need to include snapshots, update the table for VMs in the 'snapshots' field *)
     if include_snapshots then
       List.iter
         (fun snap ->
           update_table ~__context ~include_snapshots:false ~preserve_power_state
-            ~include_vhd_parents ~table snap
+            ~include_vhd_parents ~table ~excluded_devices snap
         )
         vm.API.vM_snapshots ;
     (* If VM is suspended then add the suspend_VDI *)
@@ -145,7 +148,7 @@ let rec update_table ~__context ~include_snapshots ~preserve_power_state
     (* Add the parent VM *)
     if include_snapshots && Db.is_valid_ref __context vm.API.vM_parent then
       update_table ~__context ~include_snapshots:false ~preserve_power_state
-        ~include_vhd_parents ~table vm.API.vM_parent
+        ~include_vhd_parents ~table ~excluded_devices vm.API.vM_parent
   )
 
 (** Walk the graph of objects and update the table of Ref -> ids for each object we wish
@@ -580,11 +583,11 @@ let make_all ~with_snapshot_metadata ~preserve_power_state table __context =
    on metadata-export, include snapshots fields of the exported VM as well as the VM records of VMs
    which are snapshots of the exported VM. *)
 let vm_metadata ~with_snapshot_metadata ~preserve_power_state
-    ~include_vhd_parents ~__context ~vms =
+    ~include_vhd_parents ~__context ~vms ~excluded_devices =
   let table = create_table () in
   List.iter
     (update_table ~__context ~include_snapshots:with_snapshot_metadata
-       ~preserve_power_state ~include_vhd_parents ~table
+       ~preserve_power_state ~include_vhd_parents ~table ~excluded_devices
     )
     vms ;
   let objects =
@@ -603,31 +606,31 @@ let string_of_vm ~__context vm =
 
 (** Export a VM's metadata only *)
 let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
-    ~include_vhd_parents ~vms s =
+    ~include_vhd_parents ~vms ~excluded_devices s =
+  let infomsg vm =
+    info
+      "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; \
+       include_vhd_parents = '%b'; preserve_power_state = '%s'; \
+       excluded_devices = '%s'"
+      vm with_snapshot_metadata include_vhd_parents
+      (string_of_bool preserve_power_state)
+      (String.concat ", " (List.map Devicetype.to_string excluded_devices))
+  in
+  let now = Date.now () |> Date.to_unix_time |> Int64.of_float in
   ( match vms with
   | [] ->
       failwith "need to specify at least one VM"
   | [vm] ->
-      info
-        "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; \
-         include_vhd_parents = '%b'; preserve_power_state = '%s"
-        (string_of_vm ~__context vm)
-        with_snapshot_metadata include_vhd_parents
-        (string_of_bool preserve_power_state)
+      infomsg (string_of_vm ~__context vm)
   | vms ->
-      info
-        "VM.export_metadata: VM = %s; with_snapshot_metadata = '%b'; \
-         preserve_power_state = '%s"
-        (String.concat ", " (List.map (string_of_vm ~__context) vms))
-        with_snapshot_metadata
-        (string_of_bool preserve_power_state)
+      infomsg (String.concat ", " (List.map (string_of_vm ~__context) vms))
   ) ;
   let _, ova_xml =
     vm_metadata ~with_snapshot_metadata ~preserve_power_state
-      ~include_vhd_parents ~__context ~vms
+      ~include_vhd_parents ~__context ~vms ~excluded_devices
   in
   let hdr =
-    Tar.Header.make Xapi_globs.ova_xml_filename
+    Tar.Header.make ~mod_time:now Xapi_globs.ova_xml_filename
       (Int64.of_int @@ String.length ova_xml)
   in
   Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
@@ -635,16 +638,17 @@ let export_metadata ~__context ~with_snapshot_metadata ~preserve_power_state
 
 let export refresh_session __context rpc session_id s vm_ref
     preserve_power_state =
+  let now = Date.now () |> Date.to_unix_time |> Int64.of_float in
   info "VM.export: VM = %s; preserve_power_state = '%s'"
     (string_of_vm ~__context vm_ref)
     (string_of_bool preserve_power_state) ;
   let table, ova_xml =
     vm_metadata ~with_snapshot_metadata:false ~preserve_power_state
-      ~include_vhd_parents:false ~__context ~vms:[vm_ref]
+      ~include_vhd_parents:false ~__context ~vms:[vm_ref] ~excluded_devices:[]
   in
   debug "Outputting ova.xml" ;
   let hdr =
-    Tar.Header.make Xapi_globs.ova_xml_filename
+    Tar.Header.make ~mod_time:now Xapi_globs.ova_xml_filename
       (Int64.of_int @@ String.length ova_xml)
   in
   Tar_helpers.write_block hdr (fun s -> Unixext.really_write_string s ova_xml) s ;
@@ -716,35 +720,43 @@ let vm_from_request ~__context (req : Request.t) =
         Client.VM.get_by_uuid ~rpc ~session_id ~uuid
     )
 
-let bool_from_request ~__context (req : Request.t) default k =
-  if List.mem_assoc k req.Request.query then
-    bool_of_string (List.assoc k req.Request.query)
-  else
-    default
+let arg_from_request (req : Request.t) k = List.assoc_opt k req.Request.query
 
-let export_all_vms_from_request ~__context (req : Request.t) =
-  bool_from_request ~__context req false "all"
+let bool_from_request req default k =
+  arg_from_request req k |> Option.fold ~none:default ~some:bool_of_string
 
-let include_vhd_parents_from_request ~__context (req : Request.t) =
-  bool_from_request ~__context req false "include_vhd_parents"
+let devicetypelist_from_request req default k =
+  let to_list = function
+    | "" ->
+        []
+    | x ->
+        String.split_on_char ',' x |> List.map Devicetype.of_string
+  in
+  arg_from_request req k |> Option.fold ~none:default ~some:to_list
 
-let export_snapshots_from_request ~__context (req : Request.t) =
-  bool_from_request ~__context req true "export_snapshots"
+let export_all_vms_from_request req = bool_from_request req false "all"
 
-let include_dom0_from_request ~__context (req : Request.t) =
-  bool_from_request ~__context req true "include_dom0"
+let include_vhd_parents_from_request req =
+  bool_from_request req false "include_vhd_parents"
+
+let export_snapshots_from_request req =
+  bool_from_request req true "export_snapshots"
+
+let include_dom0_from_request req = bool_from_request req true "include_dom0"
+
+let excluded_devices_from_request req =
+  devicetypelist_from_request req [] "excluded_device_types"
 
 let metadata_handler (req : Request.t) s _ =
   debug "metadata_handler called" ;
   req.Request.close <- true ;
   (* Xapi_http.with_context always completes the task at the end *)
   Xapi_http.with_context "VM.export_metadata" req s (fun __context ->
-      let include_vhd_parents =
-        include_vhd_parents_from_request ~__context req
-      in
-      let export_all = export_all_vms_from_request ~__context req in
-      let export_snapshots = export_snapshots_from_request ~__context req in
-      let include_dom0 = include_dom0_from_request ~__context req in
+      let include_vhd_parents = include_vhd_parents_from_request req in
+      let export_all = export_all_vms_from_request req in
+      let export_snapshots = export_snapshots_from_request req in
+      let include_dom0 = include_dom0_from_request req in
+      let excluded_devices = excluded_devices_from_request req in
       (* Get the VM refs. In case of exporting the metadata of a particular VM, return a singleton list containing the vm ref.  *)
       (* In case of exporting all the VMs metadata, get all the VM records which are not default templates. *)
       let vm_refs =
@@ -771,16 +783,6 @@ let metadata_handler (req : Request.t) s _ =
         else
           [vm_from_request ~__context req]
       in
-      if
-        (not export_all)
-        && Db.VM.get_is_a_snapshot ~__context ~self:(List.hd vm_refs)
-      then
-        raise
-          (Api_errors.Server_error
-             ( Api_errors.operation_not_allowed
-             , ["Exporting metadata of a snapshot is not allowed"]
-             )
-          ) ;
       let task_id = Ref.string_of (Context.get_task_id __context) in
       let read_fd, write_fd = Unix.pipe () in
       let export_error = ref None in
@@ -800,7 +802,7 @@ let metadata_handler (req : Request.t) s _ =
                        vm_refs ;
                      export_metadata ~with_snapshot_metadata:export_snapshots
                        ~preserve_power_state:true ~include_vhd_parents
-                       ~__context ~vms:vm_refs write_fd
+                       ~excluded_devices ~__context ~vms:vm_refs write_fd
                    )
                    (fun () ->
                      Unix.close write_fd ;

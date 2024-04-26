@@ -51,10 +51,14 @@ val assert_can_run_VGPU :
 (** Check whether a VGPU can run on a particular PGPU. *)
 
 val enable_dom0_access :
-  __context:Context.t -> self:API.ref_PGPU -> API.pgpu_dom0_access
+     __context:Context.t
+  -> self:API.ref_PGPU
+  -> [`disable_on_reboot | `disabled | `enable_on_reboot | `enabled]
 
 val disable_dom0_access :
-  __context:Context.t -> self:API.ref_PGPU -> API.pgpu_dom0_access
+     __context:Context.t
+  -> self:API.ref_PGPU
+  -> [`disable_on_reboot | `disabled | `enable_on_reboot | `enabled]
 
 (* For AMD MxGPU. Acts on the local host only.
  * Ensures that the "gim" kernel module is loaded on localhost,

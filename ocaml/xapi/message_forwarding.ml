@@ -5884,7 +5884,31 @@ functor
 
     module Secret = Local.Secret
 
-    module PCI = struct end
+    module PCI = struct
+      let disable_dom0_access ~__context ~self =
+        info "PCI.disable_dom0_access: pci = '%s'" (pci_uuid ~__context self) ;
+        let host = Db.PCI.get_host ~__context ~self in
+        let local_fn = Local.PCI.disable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.PCI.disable_dom0_access ~rpc ~session_id ~self
+        )
+
+      let enable_dom0_access ~__context ~self =
+        info "PCI.enable_dom0_access: pci = '%s'" (pci_uuid ~__context self) ;
+        let host = Db.PCI.get_host ~__context ~self in
+        let local_fn = Local.PCI.enable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.PCI.enable_dom0_access ~rpc ~session_id ~self
+        )
+
+      let get_dom0_access_status ~__context ~self =
+        info "PCI.get_dom0_access_status: pci = '%s'" (pci_uuid ~__context self) ;
+        let host = Db.PCI.get_host ~__context ~self in
+        let local_fn = Local.PCI.get_dom0_access_status ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.PCI.get_dom0_access_status ~rpc ~session_id ~self
+        )
+    end
 
     module VTPM = struct
       let create ~__context ~vM ~is_unique =

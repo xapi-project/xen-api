@@ -4049,18 +4049,20 @@ module Observer = struct
 
   let init _ dbg =
     debug "Observer.init : dbg=%s" dbg ;
-    Debug.with_thread_associated dbg (fun () -> ignore @@ Tracing.main ()) ()
+    Debug.with_thread_associated dbg
+      (fun () -> ignore @@ Tracing_export.main ())
+      ()
 
   let set_trace_log_dir _ dbg dir =
     debug "Observer.set_trace_log_dir : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.Destination.File.set_trace_log_dir dir)
+      (fun () -> Tracing_export.Destination.File.set_trace_log_dir dir)
       ()
 
   let set_export_interval _ dbg interval =
     debug "Observer.set_export_interval : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.set_export_interval interval)
+      (fun () -> Tracing_export.set_export_interval interval)
       ()
 
   let set_max_spans _ dbg spans =
@@ -4078,20 +4080,20 @@ module Observer = struct
   let set_max_file_size _ dbg file_size =
     debug "Observer.set_max_file_size : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.Destination.File.set_max_file_size file_size)
+      (fun () -> Tracing_export.Destination.File.set_max_file_size file_size)
       ()
 
   let set_host_id _ dbg host_id =
     debug "Observer.set_host_id : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.set_host_id host_id)
+      (fun () -> Tracing_export.set_host_id host_id)
       ()
 
   let set_compress_tracing_files _ dbg enabled =
     debug "Observer.set_compress_tracing_files : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
       (fun () ->
-        Tracing.Export.Destination.File.set_compress_tracing_files enabled
+        Tracing_export.Destination.File.set_compress_tracing_files enabled
       )
       ()
 end

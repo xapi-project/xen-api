@@ -37,7 +37,7 @@ jobs:
       - run: echo "::add-matcher::.github/workflows/python-warning-matcher.json"
         name: "Setup GitHub for reporting Python warnings as annotations in pull request code review"
 
-      - uses: pre-commit/action@v3.0.0
+      - uses: pre-commit/action@v3.0.1
         name: Run pre-commit checks (no spaces at end of lines, etc)
         if: ${{ matrix.python-version != '2.7' }}
         with:
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies only needed for python 3
         if: ${{ matrix.python-version != '2.7' }}
-        run: pip install pandas pytype toml wrapt
+        run: pip install opentelemetry-api opentelemetry-exporter-zipkin-json opentelemetry-sdk pandas pytype toml wrapt
 
       - name: Install common dependencies for Python ${{matrix.python-version}}
         run: pip install future mock pytest-coverage pytest-mock
@@ -98,6 +98,7 @@ jobs:
           level: warning
           # To be customized to cover remaining Python scripts:
           glob_pattern: "**/*.py"
+        continue-on-error: true
 
       - name: Run pytype checks
         if: ${{ matrix.python-version != '2.7' }}
@@ -107,16 +108,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTYPE_REPORTER_DEBUG: True
 
-      # Try to add pytype_report.py's summary file as a comment to the PR:
-      # Documentation: https://github.com/marketplace/actions/add-pr-comment
-      - name: Add the pytype summary as a comment to the PR (if permitted)
-        uses: mshick/add-pr-comment@v2
-        # Depends on pytype checks, which are not run for python 2.7:
-        if: ${{ matrix.python-version != '2.7' }}
-        # Fails for user workflows without permissions(fork-based pull requests):
-        continue-on-error: true
+      - name: pyflakes
+        uses: reviewdog/action-pyflakes@v1
         with:
-          message-path: .git/pytype-summary.md # Add the content of it as comment
+          github_token: ${{ secrets.github_token }}
+        continue-on-error: true
+
 
   ocaml-tests:
     name: Run OCaml tests
@@ -172,13 +169,6 @@ jobs:
 
       - name: quality-gate
         run: make quality-gate
-
-      - name: pyflakes
-        uses: reviewdog/action-pyflakes@master
-        with:
-          github_token: ${{ secrets.github_token }}
-          reporter: github-pr-review
-          level: error
 
   test-sdk-builds:
     name: Test SDK builds

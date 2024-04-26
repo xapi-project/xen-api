@@ -21,6 +21,7 @@ depends: [
   "xapi-log"
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
+  "xapi-tracing"
 ]
 synopsis: "Sub-process control service for xapi"
 description:
