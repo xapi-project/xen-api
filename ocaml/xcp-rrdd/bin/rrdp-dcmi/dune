@@ -1,0 +1,16 @@
+(executable
+  (modes exe)
+  (name rrdp_dcmi)
+  (package rrdd-plugins)
+  (public_name xcp-rrdd-dcmi)
+  (libraries
+    dune-build-info
+    rrdd-plugin
+    rrdd-plugins.libs
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    astring
+  )
+)
+
