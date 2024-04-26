@@ -10,7 +10,7 @@ from mock import MagicMock, mock_open, patch
 with patch("os.listdir") as mock_listdir:
     # Prevent it finding an observer.conf
     mock_listdir.return_value = []
-    from packages import observer
+    from python3.packages import observer
 
 # mock modules to avoid dependencies
 sys.modules["opentelemetry"] = MagicMock()
@@ -29,7 +29,7 @@ TEST_CONFIG = """
     OTEL_RESOURCE_ATTRIBUTES='service.name=sm'
     """
 TEST_OBSERVER_CONF = "test-observer.conf"
-OBSERVER_OPEN = "packages.observer.open"
+OBSERVER_OPEN = "python3.packages.observer.open"
 
 
 # pylint: disable=missing-function-docstring,protected-access
