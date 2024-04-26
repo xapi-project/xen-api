@@ -149,17 +149,18 @@ let fail x =
   Printf.fprintf stderr "%s\n" x ;
   assert false
 
+let fail fmt = Format.ksprintf fail fmt
+
 let expect expected s =
   if s <> expected ^ "\n" then
-    fail (Printf.sprintf "output %s expected %s" s expected)
+    fail "output %s expected %s" s expected
 
 let test_exitcode () =
   let run_expect cmd expected =
     try Forkhelpers.execute_command_get_output cmd [] |> ignore
     with Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
       if n <> expected then
-        fail
-          (Printf.sprintf "%s exited with code %d, expected %d" cmd n expected)
+        fail "%s exited with code %d, expected %d" cmd n expected
   in
   run_expect "/bin/false" 1 ;
   run_expect "/bin/xe-fe-test-no-command" 127 ;
@@ -257,7 +258,7 @@ let slave = function
       List.iter
         (fun fd ->
           if not (List.mem fd (List.map fst filtered)) then
-            fail (Printf.sprintf "fd %s not in /proc/%d/fd [ %s ]" fd pid ls)
+            fail "fd %s not in /proc/%d/fd [ %s ]" fd pid ls
         )
         fds ;
       (* Check that we have the expected number *)
@@ -265,10 +266,8 @@ let slave = function
 		  Printf.fprintf stderr "%s %d\n" total_fds (List.length present - 1)
 		*)
       if total_fds <> List.length filtered then
-        fail
-          (Printf.sprintf "Expected %d fds; /proc/%d/fd has %d: %s" total_fds
-             pid (List.length filtered) ls
-          )
+        fail "Expected %d fds; /proc/%d/fd has %d: %s" total_fds pid
+          (List.length filtered) ls
 
 let sleep () = Unix.sleep 3 ; Printf.printf "Ok\n"
 
