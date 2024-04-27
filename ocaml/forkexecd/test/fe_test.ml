@@ -20,6 +20,13 @@ let min_fds = 7
 
 let max_fds = 1024 - 13 (* fe daemon has a bunch for its own use *)
 
+let fail x =
+  Xapi_stdext_unix.Unixext.write_string_to_file "/tmp/fe-test.log" x ;
+  Printf.fprintf stderr "%s\n" x ;
+  assert false
+
+let fail fmt = Format.ksprintf fail fmt
+
 let all_combinations fds =
   let y =
     {
@@ -117,7 +124,7 @@ let test_delay () =
   let timeout = 1.7 in
   try
     Forkhelpers.execute_command_get_output ~timeout exe args |> ignore ;
-    failwith "Failed to timeout"
+    fail "Failed to timeout"
   with
   | Forkhelpers.Subprocess_timeout ->
       let elapsed = Unix.gettimeofday () -. start in
@@ -127,10 +134,7 @@ let test_delay () =
       if elapsed > timeout +. 0.2 then
         failwith "Excessive time elapsed"
   | e ->
-      failwith
-        (Printf.sprintf "Failed with unexpected exception: %s"
-           (Printexc.to_string e)
-        )
+      fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
 let test_notimeout () =
   let exe = Printf.sprintf "/proc/%d/exe" (Unix.getpid ()) in
@@ -138,18 +142,7 @@ let test_notimeout () =
   try
     Forkhelpers.execute_command_get_output exe args |> ignore ;
     ()
-  with e ->
-    failwith
-      (Printf.sprintf "Failed with unexpected exception: %s"
-         (Printexc.to_string e)
-      )
-
-let fail x =
-  Xapi_stdext_unix.Unixext.write_string_to_file "/tmp/fe-test.log" x ;
-  Printf.fprintf stderr "%s\n" x ;
-  assert false
-
-let fail fmt = Format.ksprintf fail fmt
+  with e -> fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
 let expect expected s =
   if s <> expected ^ "\n" then
@@ -216,7 +209,7 @@ let master fds =
 
 let slave = function
   | [] ->
-      failwith "Error, at least one fd expected"
+      fail "Error, at least one fd expected"
   | total_fds :: rest ->
       let total_fds = int_of_string total_fds in
       let fds =
