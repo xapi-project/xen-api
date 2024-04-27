@@ -76,8 +76,7 @@ let shuffle x =
   Array.to_list arr
 
 let fd_list () =
-  let pid = Unix.getpid () in
-  let path = Printf.sprintf "/proc/%d/fd" pid in
+  let path = "/proc/self/fd" in
   List.filter (* get rid of the fd used to read the directory *)
     (fun x ->
       try
@@ -261,8 +260,7 @@ let slave = function
         List.filter (fun x -> not (List.mem x irrelevant_strings)) rest
       in
       (* Check that these fds are present *)
-      let pid = Unix.getpid () in
-      let path = Printf.sprintf "/proc/%d/fd" pid in
+      let path = "/proc/self/fd" in
       let raw = fd_list () in
       let pairs =
         List.map (fun x -> (x, Unix.readlink (Filename.concat path x))) raw
@@ -287,7 +285,7 @@ let slave = function
       List.iter
         (fun fd ->
           if not (List.mem fd (List.map fst filtered)) then
-            fail "fd %s not in /proc/%d/fd [ %s ]" fd pid ls
+            fail "fd %s not in /proc/self/fd [ %s ]" fd ls
         )
         fds ;
       (* Check that we have the expected number *)
@@ -295,7 +293,7 @@ let slave = function
 		  Printf.fprintf stderr "%s %d\n" total_fds (List.length present - 1)
 		*)
       if total_fds <> List.length filtered then
-        fail "Expected %d fds; /proc/%d/fd has %d: %s" total_fds pid
+        fail "Expected %d fds; /proc/self/fd has %d: %s" total_fds
           (List.length filtered) ls
 
 let sleep () = Unix.sleep 3 ; Printf.printf "Ok\n"
