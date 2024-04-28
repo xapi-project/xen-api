@@ -214,7 +214,7 @@ coverage:
       tests:
         # Ensure that all tests are executed (tests themselves must be 100% covered)
         target: 98%
-        paths: ["python3/unittest/test_*.py"]
+        paths: ["python3/tests/test_*.py"]
 
 
 #
@@ -266,5 +266,5 @@ component_management:
 
     - component_id: test_cases
       name: test_cases
-      paths: ["python3/unittest/test_*.py"]
+      paths: ["python3/tests/test_*.py"]
 

@@ -13,10 +13,11 @@ from typing import cast
 import mock
 
 from python3.tests.import_helper import import_file_as_module
-
+# mock modules to avoid dependencies
 sys.modules["xcp"] = mock.Mock()
 sys.modules["xcp.logger"] = mock.Mock()
 sys.modules["pyudev"] = mock.Mock()
+usb_scan = import_file_as_module("python3/libexec/usb_scan.py")
 
 
 class MocDeviceAttrs(Mapping):
@@ -112,7 +113,6 @@ class TestUsbScan(unittest.TestCase):
         # Use relative path to allow tests to be started in subdirectories
         path = os.path.dirname(__file__) + "/../../scripts/usb-policy.conf"
     ):
-        usb_scan = import_file_as_module("python3/libexec/usb_scan.py")
 
         mock_setup(usb_scan, moc_devices, moc_interfaces, path)
 
