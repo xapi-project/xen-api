@@ -75,18 +75,21 @@ let shuffle x =
   done ;
   Array.to_list arr
 
-let fd_list () =
+let fds_fold f init =
   let path = "/proc/self/fd" in
-  List.filter (* get rid of the fd used to read the directory *)
-    (fun x ->
+  (* get rid of the fd used to read the directory *)
+  Array.fold_right
+    (fun fd_num acc ->
       try
-        ignore (Unix.readlink (Filename.concat path x)) ;
-        true
-      with _ -> false
+        let link = Unix.readlink (Filename.concat path fd_num) in
+        f fd_num link acc
+      with _ -> acc
     )
-    (Array.to_list (Sys.readdir path))
+    (Sys.readdir path) init
 
-let fd_count () = List.length (fd_list ())
+let fd_list () = fds_fold (fun fd_num link l -> (fd_num, link) :: l) []
+
+let fd_count () = fds_fold (fun _ _ n -> n + 1) 0
 
 let irrelevant_strings = ["irrelevant"; "not"; "important"]
 
@@ -260,11 +263,7 @@ let slave = function
         List.filter (fun x -> not (List.mem x irrelevant_strings)) rest
       in
       (* Check that these fds are present *)
-      let path = "/proc/self/fd" in
-      let raw = fd_list () in
-      let pairs =
-        List.map (fun x -> (x, Unix.readlink (Filename.concat path x))) raw
-      in
+      let pairs = fd_list () in
       (* Filter any of stdin,stdout,stderr which have been mapped to /dev/null *)
       let filtered =
         List.filter
