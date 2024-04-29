@@ -1583,19 +1583,17 @@ let install_server_certificate ~__context ~host ~certificate ~private_key
   replace_host_certificate ~__context ~type':`host ~host write_cert_fs
 
 let _new_host_cert ~dbg ~path : X509.Certificate.t =
-  let ip_as_string, ip =
-    match Networking_info.get_management_ip_addr ~dbg with
-    | None ->
+  let name, dns_names, ips =
+    match Networking_info.get_host_certificate_subjects ~dbg with
+    | Error cause ->
+        let msg = Networking_info.management_ip_error_to_string cause in
         Helpers.internal_error ~log_err:true ~err_fun:D.error
-          "%s: failed to get management IP" __LOC__
-    | Some ip ->
-        ip
+          "%s: failed to generate certificate subjects because %s" __LOC__ msg
+    | Ok (name, dns_names, ips) ->
+        (name, dns_names, ips)
   in
-  let dns_names = Networking_info.dns_names () in
-  let cn = match dns_names with [] -> ip_as_string | dns :: _ -> dns in
-  let ips = [ip] in
   let valid_for_days = !Xapi_globs.cert_expiration_days in
-  Gencertlib.Selfcert.host ~name:cn ~dns_names ~ips ~valid_for_days path
+  Gencertlib.Selfcert.host ~name ~dns_names ~ips ~valid_for_days path
     !Xapi_globs.server_cert_group_id
 
 let reset_server_certificate ~__context ~host =
