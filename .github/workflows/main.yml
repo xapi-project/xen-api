@@ -73,7 +73,7 @@ jobs:
         run: >
           pytest
           --cov=python3/
-          python3/unittest python3/tests -vv -rA
+          python3/tests -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
