@@ -2092,7 +2092,14 @@ let t =
             "hardware_platform_version"
             "The host virtual hardware platform version the VM can run on"
         ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_dundee, "")]
+            ~lifecycle:
+              [
+                (Published, rel_dundee, "")
+              ; ( Changed
+                , "24.14.0"
+                , "New default and not consulting Pool.policy_no_vendor_device"
+                )
+              ]
             ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool
             "has_vendor_device"
             "When an HVM guest starts, this controls the presence of the \
