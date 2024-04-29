@@ -3,6 +3,8 @@
 This module provides unittest for perfmon
 """
 
+# pyright: reportAttributeAccessIssue=false
+
 import sys
 import math
 import unittest

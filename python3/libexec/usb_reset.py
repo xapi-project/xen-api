@@ -132,7 +132,7 @@ def load_device_ids(device):
         # ignore and continue
         log.warning("Failed to remove device ids: {}".format(str(e)))
 
-    return uid, gid
+    return uid, gid  # pyright: ignore[reportPossiblyUnboundVariable] # pragma: no cover
 
 
 # throw IOError, ValueError

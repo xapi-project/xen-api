@@ -46,6 +46,11 @@ class TestObserver(unittest.TestCase):
         with patch(OBSERVER_OPEN, mock_open(read_data=read_data)):
             span, _ = observer._init_tracing([TEST_OBSERVER_CONF], ".")
 
+        # If packages are not installed, raise a helpful error message
+        if span == observer._span_noop:
+            err = "Look for: missing opentelemetry dependencies: No module named <pkg>"
+            raise AssertionError("Dependency of observer.py is not installed: " + err)
+
         simple_method = span(self.simple_method)
         self.assertEqual(simple_method(), 5)
 
