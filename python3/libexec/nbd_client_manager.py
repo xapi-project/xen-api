@@ -136,7 +136,7 @@ def _find_unused_nbd_device():
             return nbd_device
 
     # If there are 1000 nbd devices (unlikely) and all are connected
-    raise NbdDeviceNotFound(nbd_device)
+    raise NbdDeviceNotFound(nbd_device)  # pyright:ignore[reportPossiblyUnboundVariable]
 
 def _wait_for_nbd_device(nbd_device, connected):
     deadline = datetime.now() + timedelta(minutes=MAX_DEVICE_WAIT_MINUTES)
