@@ -59,7 +59,18 @@ type pool = {
   ; slaves: host list
   ; ha_host_failures_to_tolerate: int64
   ; cluster: int
+  ; keep_localhost: bool
+        (* true to get a Features.Pool_size enabled pool which can have more than 3 hosts *)
 }
+
+let basic_pool =
+  {
+    master= {memory_total= gib 256L; name_label= "master"; vms= []}
+  ; slaves= []
+  ; ha_host_failures_to_tolerate= 0L
+  ; cluster= 0
+  ; keep_localhost= false
+  }
 
 let string_of_group {name_label; placement} =
   Printf.sprintf "{name_label = %S; placement = %S}" name_label placement
@@ -74,13 +85,14 @@ let string_of_host {memory_total; name_label; vms} =
     memory_total name_label
     (Test_printers.list string_of_vm vms)
 
-let string_of_pool {master; slaves; ha_host_failures_to_tolerate; cluster} =
+let string_of_pool
+    {master; slaves; ha_host_failures_to_tolerate; cluster; keep_localhost} =
   Printf.sprintf
     "{master = %s; slaves = %s; ha_host_failures_to_tolerate = %Ld; cluster = \
-     %d}"
+     %d; keep_localhost = %B}"
     (string_of_host master)
     (Test_printers.list string_of_host slaves)
-    ha_host_failures_to_tolerate cluster
+    ha_host_failures_to_tolerate cluster keep_localhost
 
 let load_group ~__context ~group =
   let placement =
@@ -157,13 +169,14 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
   in
   host_ref
 
-let setup ~__context {master; slaves; ha_host_failures_to_tolerate; cluster} =
+let setup ~__context
+    {master; slaves; ha_host_failures_to_tolerate; cluster; keep_localhost} =
   let shared_sr = make_sr ~__context ~shared:true () in
   let shared_net = make_network ~__context ~bridge:"xenbr0" () in
-  (* Remove all hosts added by make_test_database *)
-  List.iter
-    (fun host -> Db.Host.destroy ~__context ~self:host)
-    (Db.Host.get_all ~__context) ;
+  if not keep_localhost then (* Remove all hosts added by make_test_database *)
+    List.iter
+      (fun host -> Db.Host.destroy ~__context ~self:host)
+      (Db.Host.get_all ~__context) ;
   let load_host_and_local_resources host =
     let local_sr = make_sr ~__context ~shared:false () in
     let local_net = make_network ~__context ~bridge:"xapi0" () in
@@ -225,15 +238,15 @@ module AllProtectedVms = Generic.MakeStateful (struct
       [
         (* No VMs and a single host. *)
         ( {
+            basic_pool with
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
           ; slaves= []
-          ; ha_host_failures_to_tolerate= 0L
-          ; cluster= 0
           }
         , []
         )
       ; (* One unprotected VM. *)
         ( {
+            basic_pool with
             master=
               {
                 memory_total= gib 256L
@@ -244,13 +257,12 @@ module AllProtectedVms = Generic.MakeStateful (struct
                   ]
               }
           ; slaves= []
-          ; ha_host_failures_to_tolerate= 0L
-          ; cluster= 0
           }
         , []
         )
       ; (* One VM which would be protected if it was running. *)
         ( {
+            basic_pool with
             master=
               {
                 memory_total= gib 256L
@@ -258,23 +270,21 @@ module AllProtectedVms = Generic.MakeStateful (struct
               ; vms= [{basic_vm with ha_always_run= false}]
               }
           ; slaves= []
-          ; ha_host_failures_to_tolerate= 0L
-          ; cluster= 0
           }
         , []
         )
       ; (* One protected VM. *)
         ( {
+            basic_pool with
             master=
               {memory_total= gib 256L; name_label= "master"; vms= [basic_vm]}
           ; slaves= []
-          ; ha_host_failures_to_tolerate= 0L
-          ; cluster= 0
           }
         , ["vm"]
         )
       ; (* One protected VM and one unprotected VM. *)
         ( {
+            basic_pool with
             master=
               {
                 memory_total= gib 256L
@@ -291,8 +301,6 @@ module AllProtectedVms = Generic.MakeStateful (struct
                   ]
               }
           ; slaves= []
-          ; ha_host_failures_to_tolerate= 0L
-          ; cluster= 0
           }
         , ["vm1"]
         )
@@ -334,16 +342,17 @@ module PlanForNFailures = Generic.MakeStateful (struct
       [
         (* Two host pool with no VMs. *)
         ( {
+            basic_pool with
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
           ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
           ; ha_host_failures_to_tolerate= 1L
-          ; cluster= 0
           }
         , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
         )
       ; (* Two host pool, with one VM taking up just under half of one host's
                 * memory. *)
         ( {
+            basic_pool with
             master=
               {
                 memory_total= gib 256L
@@ -352,12 +361,12 @@ module PlanForNFailures = Generic.MakeStateful (struct
               }
           ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
           ; ha_host_failures_to_tolerate= 1L
-          ; cluster= 0
           }
         , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
         )
       ; (* Two host pool, with two VMs taking up almost all of one host's memory. *)
         ( {
+            basic_pool with
             master=
               {
                 memory_total= gib 256L
@@ -370,12 +379,12 @@ module PlanForNFailures = Generic.MakeStateful (struct
               }
           ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
           ; ha_host_failures_to_tolerate= 1L
-          ; cluster= 0
           }
         , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
         )
       ; (* Two host pool, overcommitted. *)
         ( {
+            basic_pool with
             master=
               {
                 memory_total= gib 256L
@@ -399,7 +408,6 @@ module PlanForNFailures = Generic.MakeStateful (struct
                 }
               ]
           ; ha_host_failures_to_tolerate= 1L
-          ; cluster= 0
           }
         , Xapi_ha_vm_failover.No_plan_exists
         )
@@ -460,6 +468,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
         (* 2 host pool, one VM using just under half of one host's memory;
                 * test that another VM can be added. *)
         ( ( {
+              basic_pool with
               master=
                 {
                   memory_total= gib 256L
@@ -468,7 +477,6 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
                 }
             ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
             ; ha_host_failures_to_tolerate= 1L
-            ; cluster= 0
             }
           , {
               basic_vm with
@@ -483,6 +491,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
       ; (* 2 host pool, two VMs using almost all of one host's memory;
                 * test that another VM cannot be added. *)
         ( ( {
+              basic_pool with
               master=
                 {
                   memory_total= gib 256L
@@ -495,7 +504,6 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
                 }
             ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
             ; ha_host_failures_to_tolerate= 1L
-            ; cluster= 0
             }
           , {
               basic_vm with
@@ -513,6 +521,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
       ; (* 2 host pool which is already overcommitted. Attempting to add another VM
                 * should not throw an exception. *)
         ( ( {
+              basic_pool with
               master=
                 {
                   memory_total= gib 256L
@@ -532,7 +541,6 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
                   }
                 ]
             ; ha_host_failures_to_tolerate= 1L
-            ; cluster= 0
             }
           , {
               basic_vm with
@@ -574,6 +582,7 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
       [
         (* Three host pool with no VMs. *)
         ( {
+            basic_pool with
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
           ; slaves=
               [
@@ -589,6 +598,7 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
         )
       ; (* Two hosts pool with no VMs  *)
         ( {
+            basic_pool with
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
           ; slaves= [{memory_total= gib 256L; name_label= "slave1"; vms= []}]
           ; ha_host_failures_to_tolerate= 2L
@@ -599,6 +609,7 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
         )
       ; (* Two host pool with one down  *)
         ( {
+            basic_pool with
             master= {memory_total= gib 256L; name_label= "master"; vms= []}
           ; slaves= [{memory_total= gib 256L; name_label= "slave1"; vms= []}]
           ; ha_host_failures_to_tolerate= 2L
