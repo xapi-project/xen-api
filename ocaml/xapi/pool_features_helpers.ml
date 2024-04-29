@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2024 Cloud Software Group
+ * Copyright (c) 2024 Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -102,7 +102,7 @@ let update_pool_features ~__context =
     info "Old pool features enabled: %s" (to_compact_string old_core_features) ;
     info "New pool features enabled: %s" (to_compact_string new_core_features) ;
     Db.Pool.set_restrictions ~__context ~self:pool ~value:new_restrictions ;
-    Xapi_vm_group_helpers.update_vm_placement_alert_when_restriction_change
-      ~__context ~old_restrictions ~new_restrictions ;
+    Xapi_vm_group_helpers.maybe_update_alerts_on_feature_change ~__context
+      ~old_restrictions ~new_restrictions ;
     Xapi_pool_helpers.apply_guest_agent_config ~__context
   )

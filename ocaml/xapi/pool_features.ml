@@ -13,8 +13,6 @@
 
 open Features
 
-module D = Debug.Make (struct let name = "pool_features" end)
-
 (*
 	Terminology:
 	- (Feature) flags: The keys in pool.restriction and host.license_params. Strings like "restrict_dmc".
