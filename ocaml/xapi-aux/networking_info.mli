@@ -24,10 +24,6 @@ val management_ip_error_to_string : management_ip_error -> string
 (** [management_ip_error err] returns a string representation of [err], useful
     only for logging. *)
 
-val dns_names : unit -> string list
-(** [dns_names ()] returns a list of the hostnames that the host may have.
-    Ignores empty names as well as "localhost" *)
-
 val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
 (** [get_management_ip_addr ~dbg] returns the preferred IP of the management
     network, or None. The address is returned in two formats: a human-readable
