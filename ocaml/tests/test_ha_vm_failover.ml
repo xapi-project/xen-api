@@ -27,13 +27,15 @@ type vbd = {agile: bool}
 
 type vif = {agile: bool}
 
-type group = {name_label: string; placement: string}
+type placement_policy = AntiAffinity | Normal
+
+type group = {name_label: string; placement: placement_policy}
 
 type vm = {
     ha_always_run: bool
   ; ha_restart_priority: string
   ; memory: int64
-  ; name_label: string
+  ; vm_name_label: string
   ; vbds: vbd list
   ; vifs: vif list
   ; groups: group list
@@ -45,7 +47,7 @@ let basic_vm =
     ha_always_run= true
   ; ha_restart_priority= "restart"
   ; memory= gib 1L
-  ; name_label= "vm"
+  ; vm_name_label= "vm"
   ; vbds= [{agile= true}]
   ; vifs= [{agile= true}]
   ; groups= []
@@ -63,9 +65,62 @@ type pool = {
         (* true to get a Features.Pool_size enabled pool which can have more than 3 hosts *)
 }
 
+let master = "master"
+
+let slave = "slave"
+
+let slave1 = "slave1"
+
+let slave2 = "slave2"
+
+let slave3 = "slave3"
+
+let grp1 = "grp1"
+
+let grp2 = "grp2"
+
+(** vmX_grpY: in test case for anti_affinity, the VM is the Xth smallest of slave1's VMs of
+    the same placement type in terms of VM's memory size, and it belows to VM group: grpY. *)
+let vm1_grp1 = "vm1_grp1"
+
+let vm2_grp1 = "vm2_grp1"
+
+let vm3_grp1 = "vm3_grp1"
+
+let vm4_grp1 = "vm4_grp1"
+
+let vm5_grp1 = "vm5_grp1"
+
+let vm6_grp1 = "vm6_grp1"
+
+let vm8_grp1 = "vm8_grp1"
+
+let vm2_grp2 = "vm2_grp2"
+
+let vm3_grp2 = "vm3_grp2"
+
+let vm4_grp2 = "vm4_grp2"
+
+let vm5_grp2 = "vm5_grp2"
+
+let vm7_grp2 = "vm7_grp2"
+
+(** In test case for anti_affinity, it is a VM resident on host other than slave1 *)
+let vm_grp1 = "vm_grp1"
+
+(** vmX: in test case for anti_affinity, it is a VM not in any VM group, and it is the Xth
+    largest of slave1's VMs not in any VM group in terms of VM's memory size. *)
+let vm1 = "vm1"
+
+let vm2 = "vm2"
+
+let vm3 = "vm3"
+
+let vm4 = "vm4"
+
 let basic_pool =
   {
-    master= {memory_total= gib 256L; name_label= "master"; vms= []}
+    master= {memory_total= gib 256L; name_label= master; vms= []}
   ; slaves= []
   ; ha_host_failures_to_tolerate= 0L
   ; cluster= 0
@@ -73,11 +128,12 @@ let basic_pool =
   }
 
 let string_of_group {name_label; placement} =
-  Printf.sprintf "{name_label = %S; placement = %S}" name_label placement
+  Printf.sprintf "{name_label = %S; placement = %S}" name_label
+    (match placement with AntiAffinity -> "anti_affinity" | Normal -> "normal")
 
-let string_of_vm {memory; name_label; groups; _} =
+let string_of_vm {memory; vm_name_label; groups; _} =
   Printf.sprintf "{memory = %Ld; name_label = %S; groups = [%s]}" memory
-    name_label
+    vm_name_label
     (Test_printers.list string_of_group groups)
 
 let string_of_host {memory_total; name_label; vms} =
@@ -97,9 +153,9 @@ let string_of_pool
 let load_group ~__context ~group =
   let placement =
     match group.placement with
-    | "anti_affinity" ->
+    | AntiAffinity ->
         `anti_affinity
-    | _ ->
+    | Normal ->
         `normal
   in
   match
@@ -119,7 +175,7 @@ let load_vm ~__context ~(vm : vm) ~local_sr ~shared_sr ~local_net ~shared_net =
     make_vm ~__context ~ha_always_run:vm.ha_always_run
       ~ha_restart_priority:vm.ha_restart_priority ~memory_static_min:vm.memory
       ~memory_dynamic_min:vm.memory ~memory_dynamic_max:vm.memory
-      ~memory_static_max:vm.memory ~name_label:vm.name_label ()
+      ~memory_static_max:vm.memory ~name_label:vm.vm_name_label ()
   in
   let (_ : API.ref_VIF list) =
     List.mapi
@@ -161,7 +217,9 @@ let load_host ~__context ~host ~local_sr ~shared_sr ~local_net ~shared_net =
   let (_ : API.ref_VM list) =
     List.map
       (fun vm ->
-        let vm_ref = load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net in
+        let vm_ref =
+          load_vm ~__context ~vm ~local_sr ~shared_sr ~local_net ~shared_net
+        in
         Db.VM.set_resident_on ~__context ~self:vm_ref ~value:host_ref ;
         vm_ref
       )
@@ -239,7 +297,7 @@ module AllProtectedVms = Generic.MakeStateful (struct
         (* No VMs and a single host. *)
         ( {
             basic_pool with
-            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+            master= {memory_total= gib 256L; name_label= master; vms= []}
           ; slaves= []
           }
         , []
@@ -250,7 +308,7 @@ module AllProtectedVms = Generic.MakeStateful (struct
             master=
               {
                 memory_total= gib 256L
-              ; name_label= "master"
+              ; name_label= master
               ; vms=
                   [
                     {basic_vm with ha_always_run= false; ha_restart_priority= ""}
@@ -266,7 +324,7 @@ module AllProtectedVms = Generic.MakeStateful (struct
             master=
               {
                 memory_total= gib 256L
-              ; name_label= "master"
+              ; name_label= master
               ; vms= [{basic_vm with ha_always_run= false}]
               }
           ; slaves= []
@@ -277,7 +335,7 @@ module AllProtectedVms = Generic.MakeStateful (struct
         ( {
             basic_pool with
             master=
-              {memory_total= gib 256L; name_label= "master"; vms= [basic_vm]}
+              {memory_total= gib 256L; name_label= master; vms= [basic_vm]}
           ; slaves= []
           }
         , ["vm"]
@@ -288,21 +346,21 @@ module AllProtectedVms = Generic.MakeStateful (struct
             master=
               {
                 memory_total= gib 256L
-              ; name_label= "master"
+              ; name_label= master
               ; vms=
                   [
-                    {basic_vm with name_label= "vm1"}
+                    {basic_vm with vm_name_label= vm1}
                   ; {
                       basic_vm with
                       ha_always_run= false
                     ; ha_restart_priority= ""
-                    ; name_label= "vm2"
+                    ; vm_name_label= vm2
                     }
                   ]
               }
           ; slaves= []
           }
-        , ["vm1"]
+        , [vm1]
         )
       ]
 end)
@@ -343,8 +401,8 @@ module PlanForNFailures = Generic.MakeStateful (struct
         (* Two host pool with no VMs. *)
         ( {
             basic_pool with
-            master= {memory_total= gib 256L; name_label= "master"; vms= []}
-          ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+            master= {memory_total= gib 256L; name_label= master; vms= []}
+          ; slaves= [{memory_total= gib 256L; name_label= slave; vms= []}]
           ; ha_host_failures_to_tolerate= 1L
           }
         , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
@@ -356,10 +414,10 @@ module PlanForNFailures = Generic.MakeStateful (struct
             master=
               {
                 memory_total= gib 256L
-              ; name_label= "master"
-              ; vms= [{basic_vm with memory= gib 120L; name_label= "vm1"}]
+              ; name_label= master
+              ; vms= [{basic_vm with memory= gib 120L; vm_name_label= vm1}]
               }
-          ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+          ; slaves= [{memory_total= gib 256L; name_label= slave; vms= []}]
           ; ha_host_failures_to_tolerate= 1L
           }
         , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
@@ -370,14 +428,14 @@ module PlanForNFailures = Generic.MakeStateful (struct
             master=
               {
                 memory_total= gib 256L
-              ; name_label= "master"
+              ; name_label= master
               ; vms=
                   [
-                    {basic_vm with memory= gib 120L; name_label= "vm1"}
-                  ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                    {basic_vm with memory= gib 120L; vm_name_label= vm1}
+                  ; {basic_vm with memory= gib 120L; vm_name_label= vm2}
                   ]
               }
-          ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+          ; slaves= [{memory_total= gib 256L; name_label= slave; vms= []}]
           ; ha_host_failures_to_tolerate= 1L
           }
         , Xapi_ha_vm_failover.Plan_exists_for_all_VMs
@@ -388,22 +446,22 @@ module PlanForNFailures = Generic.MakeStateful (struct
             master=
               {
                 memory_total= gib 256L
-              ; name_label= "master"
+              ; name_label= master
               ; vms=
                   [
-                    {basic_vm with memory= gib 120L; name_label= "vm1"}
-                  ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                    {basic_vm with memory= gib 120L; vm_name_label= vm1}
+                  ; {basic_vm with memory= gib 120L; vm_name_label= vm2}
                   ]
               }
           ; slaves=
               [
                 {
                   memory_total= gib 256L
-                ; name_label= "slave"
+                ; name_label= slave
                 ; vms=
                     [
-                      {basic_vm with memory= gib 120L; name_label= "vm3"}
-                    ; {basic_vm with memory= gib 120L; name_label= "vm4"}
+                      {basic_vm with memory= gib 120L; vm_name_label= vm3}
+                    ; {basic_vm with memory= gib 120L; vm_name_label= vm4}
                     ]
                 }
               ]
@@ -472,10 +530,10 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
               master=
                 {
                   memory_total= gib 256L
-                ; name_label= "master"
-                ; vms= [{basic_vm with memory= gib 120L; name_label= "vm1"}]
+                ; name_label= master
+                ; vms= [{basic_vm with memory= gib 120L; vm_name_label= vm1}]
                 }
-            ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+            ; slaves= [{memory_total= gib 256L; name_label= slave; vms= []}]
             ; ha_host_failures_to_tolerate= 1L
             }
           , {
@@ -483,7 +541,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
               ha_always_run= false
             ; ha_restart_priority= "restart"
             ; memory= gib 120L
-            ; name_label= "vm2"
+            ; vm_name_label= vm2
             }
           )
         , Ok ()
@@ -495,14 +553,14 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
               master=
                 {
                   memory_total= gib 256L
-                ; name_label= "master"
+                ; name_label= master
                 ; vms=
                     [
-                      {basic_vm with memory= gib 120L; name_label= "vm1"}
-                    ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                      {basic_vm with memory= gib 120L; vm_name_label= vm1}
+                    ; {basic_vm with memory= gib 120L; vm_name_label= vm2}
                     ]
                 }
-            ; slaves= [{memory_total= gib 256L; name_label= "slave"; vms= []}]
+            ; slaves= [{memory_total= gib 256L; name_label= slave; vms= []}]
             ; ha_host_failures_to_tolerate= 1L
             }
           , {
@@ -510,7 +568,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
               ha_always_run= false
             ; ha_restart_priority= "restart"
             ; memory= gib 120L
-            ; name_label= "vm2"
+            ; vm_name_label= vm2
             }
           )
         , Error
@@ -525,19 +583,19 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
               master=
                 {
                   memory_total= gib 256L
-                ; name_label= "master"
+                ; name_label= master
                 ; vms=
                     [
-                      {basic_vm with memory= gib 120L; name_label= "vm1"}
-                    ; {basic_vm with memory= gib 120L; name_label= "vm2"}
+                      {basic_vm with memory= gib 120L; vm_name_label= vm1}
+                    ; {basic_vm with memory= gib 120L; vm_name_label= vm2}
                     ]
                 }
             ; slaves=
                 [
                   {
                     memory_total= gib 256L
-                  ; name_label= "slave"
-                  ; vms= [{basic_vm with memory= gib 120L; name_label= "vm1"}]
+                  ; name_label= slave
+                  ; vms= [{basic_vm with memory= gib 120L; vm_name_label= vm1}]
                   }
                 ]
             ; ha_host_failures_to_tolerate= 1L
@@ -547,7 +605,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
               ha_always_run= false
             ; ha_restart_priority= "restart"
             ; memory= gib 120L
-            ; name_label= "vm2"
+            ; vm_name_label= vm2
             }
           )
         , Ok ()
@@ -583,11 +641,11 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
         (* Three host pool with no VMs. *)
         ( {
             basic_pool with
-            master= {memory_total= gib 256L; name_label= "master"; vms= []}
+            master= {memory_total= gib 256L; name_label= master; vms= []}
           ; slaves=
               [
-                {memory_total= gib 256L; name_label= "slave1"; vms= []}
-              ; {memory_total= gib 256L; name_label= "slave2"; vms= []}
+                {memory_total= gib 256L; name_label= slave1; vms= []}
+              ; {memory_total= gib 256L; name_label= slave2; vms= []}
               ]
           ; (* Placeholder value that is overridden when we call the compute function *)
             ha_host_failures_to_tolerate= 3L
@@ -599,8 +657,8 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
       ; (* Two hosts pool with no VMs  *)
         ( {
             basic_pool with
-            master= {memory_total= gib 256L; name_label= "master"; vms= []}
-          ; slaves= [{memory_total= gib 256L; name_label= "slave1"; vms= []}]
+            master= {memory_total= gib 256L; name_label= master; vms= []}
+          ; slaves= [{memory_total= gib 256L; name_label= slave1; vms= []}]
           ; ha_host_failures_to_tolerate= 2L
           ; cluster= 2
           }
@@ -610,8 +668,8 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
       ; (* Two host pool with one down  *)
         ( {
             basic_pool with
-            master= {memory_total= gib 256L; name_label= "master"; vms= []}
-          ; slaves= [{memory_total= gib 256L; name_label= "slave1"; vms= []}]
+            master= {memory_total= gib 256L; name_label= master; vms= []}
+          ; slaves= [{memory_total= gib 256L; name_label= slave1; vms= []}]
           ; ha_host_failures_to_tolerate= 2L
           ; cluster= 1
           }
@@ -621,4 +679,731 @@ module ComputeMaxFailures = Generic.MakeStateful (struct
       ]
 end)
 
-let tests = [("plan_for_n_failures", PlanForNFailures.tests)]
+let extract_output_for_anti_affinity_plan __context anti_affinity_plan =
+  let slv1 =
+    Db.Host.get_all ~__context
+    |> List.find (fun self -> Db.Host.get_name_label ~__context ~self = slave1)
+  in
+  let slave1_anti_affinity_vms =
+    Db.Host.get_resident_VMs ~__context ~self:slv1
+    |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
+    |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
+    |> List.map (fun (self, record) ->
+           (self, Xapi_ha_vm_failover.vm_memory ~__context record)
+       )
+    |> Xapi_ha_vm_failover.anti_affinity_vms_increasing ~__context
+  in
+  try
+    anti_affinity_plan ~__context slave1_anti_affinity_vms []
+    |> List.map (fun (vm, host) ->
+           ( Db.VM.get_name_label ~__context ~self:vm
+           , Db.Host.get_name_label ~__context ~self:host
+           )
+       )
+  with Api_errors.Server_error ("NO_HOSTS_AVAILABLE", []) as e ->
+    [("Anti-affinity VMs plan failed", Printexc.to_string e)]
+
+let anti_affinity_grp1 = {name_label= grp1; placement= AntiAffinity}
+
+let anti_affinity_plan_test_cases =
+  [
+    (* Test 0: No VMs in slave1 to be evacuated. *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 256L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {memory_total= gib 256L; name_label= slave1; vms= []}
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      []
+    , (* Assert that no_breach_plan returns as expected *)
+      []
+    )
+  ; (* Test 1: No anti-affinity VMs in slave1 to be evacuated *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 256L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {basic_vm with memory= gib 120L; vm_name_label= vm1}
+                ; {basic_vm with memory= gib 120L; vm_name_label= vm2}
+                ]
+            }
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      []
+    , (* Assert that no_breach_plan returns as expected *)
+      []
+    )
+  ; (* Test 2: One anti-affinity VM in slave1 to be evacuated *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 512L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {basic_vm with memory= gib 120L; vm_name_label= vm1}
+                ]
+            }
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [(vm1_grp1, slave2)]
+    , (* Assert that no_breach_plan returns as expected *)
+      [(vm1_grp1, slave2)]
+    )
+  ; (* Test 3: One anti-affinity VM in slave1 to be evacuated, the smallest host already has anti-affinity VM in the same group *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 512L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {basic_vm with memory= gib 120L; vm_name_label= "vm2"}
+                ]
+            }
+          ; {
+              memory_total= gib 256L
+            ; name_label= slave2
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ]
+            }
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [(vm1_grp1, master)]
+    , (* Assert that no_breach_plan returns as expected *)
+      [(vm1_grp1, master)]
+    )
+  ; (* Test 4: Two anti-affinity VMs belong to one group in slave1 to be evacuated *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 512L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 130L
+                  ; vm_name_label= vm2_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ]
+            }
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [(vm2_grp1, master); (vm1_grp1, slave2)]
+    , (* Assert that no_breach_plan returns as expected *)
+      [(vm2_grp1, master); (vm1_grp1, slave2)]
+    )
+  ; (* Test 5: Two anti-affinity VMs belong to one group in slave1 to be evacuated, only 1 can be planed *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 512L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 513L
+                  ; vm_name_label= vm2_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ]
+            }
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [
+        ( "Anti-affinity VMs plan failed"
+        , "Server_error(NO_HOSTS_AVAILABLE, [  ])"
+        )
+      ]
+    , (* Assert that no_breach_plan returns as expected *)
+      [(vm1_grp1, slave2)]
+    )
+  ; (* Test 6: 6 anti-affinity VMs belong to one group in slave1 to be evacuated, only 5 can be planned *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 640L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm2_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 60L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 400L
+                  ; vm_name_label= vm6_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 250L
+                  ; vm_name_label= vm4_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 260L
+                  ; vm_name_label= vm5_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 130L
+                  ; vm_name_label= vm3_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ]
+            }
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [
+        ( "Anti-affinity VMs plan failed"
+        , "Server_error(NO_HOSTS_AVAILABLE, [  ])"
+        )
+      ]
+    , (* Assert that no_breach_plan returns as expected *)
+      [(vm2_grp1, master); (vm1_grp1, slave2)]
+    )
+  ; (* Test 7: Two groups anti-affinity VMs in slave1 to be evacuated *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 512L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm6_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 60L
+                  ; vm_name_label= vm5_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 130L
+                  ; vm_name_label= vm7_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 1L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 2L
+                  ; vm_name_label= vm2_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 3L
+                  ; vm_name_label= vm3_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 4L
+                  ; vm_name_label= vm4_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ]
+            }
+          ; {memory_total= gib 256L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [
+        (vm7_grp2, master)
+      ; (vm6_grp1, slave2)
+      ; (vm5_grp2, slave2)
+      ; (vm4_grp2, master)
+      ; (vm3_grp1, master)
+      ; (vm2_grp2, slave2)
+      ; (vm1_grp1, slave2)
+      ]
+    , (* Assert that no_breach_plan returns as expected *)
+      [
+        (vm4_grp2, master)
+      ; (vm3_grp1, master)
+      ; (vm2_grp2, slave2)
+      ; (vm1_grp1, slave2)
+      ]
+    )
+  ; (* Test 8: Two groups anti-affinity VMs in slave1 to be evacuated, master is bigger than slave2 in size when started, but becomes smaller during planning *)
+    ( {
+        basic_pool with
+        master= {memory_total= gib 512L; name_label= master; vms= []}
+      ; slaves=
+          [
+            {
+              memory_total= gib 256L
+            ; name_label= slave1
+            ; vms=
+                [
+                  {
+                    basic_vm with
+                    memory= gib 120L
+                  ; vm_name_label= vm6_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 60L
+                  ; vm_name_label= vm5_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 130L
+                  ; vm_name_label= vm7_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 1L
+                  ; vm_name_label= vm1_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 6L
+                  ; vm_name_label= vm3_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 5L
+                  ; vm_name_label= vm2_grp1
+                  ; groups= [anti_affinity_grp1]
+                  }
+                ; {
+                    basic_vm with
+                    memory= gib 7L
+                  ; vm_name_label= vm4_grp2
+                  ; groups= [{name_label= grp2; placement= AntiAffinity}]
+                  }
+                ]
+            }
+          ; {memory_total= gib 510L; name_label= slave2; vms= []}
+          ]
+      }
+    , (* Assert that spread_evenly_plan returns as expected *)
+      [
+        (vm7_grp2, slave2)
+      ; (vm6_grp1, master)
+      ; (vm5_grp2, master)
+      ; (vm4_grp2, slave2)
+      ; (vm3_grp2, master)
+      ; (vm2_grp1, master)
+      ; (vm1_grp1, slave2)
+      ]
+    , (* Assert that no_breach_plan returns as expected *)
+      [
+        (vm4_grp2, slave2)
+      ; (vm3_grp2, master)
+      ; (vm2_grp1, master)
+      ; (vm1_grp1, slave2)
+      ]
+    )
+  ]
+
+module Slave1EvacuationVMAntiAffinitySpreadEvenlyPlan =
+Generic.MakeStateful (struct
+  module Io = struct
+    type input_t = pool
+
+    type output_t = (string * string) list
+
+    let string_of_input_t = string_of_pool
+
+    let string_of_output_t = Test_printers.(list (pair string string))
+  end
+
+  module State = Test_state.XapiDb
+
+  let load_input __context = setup ~__context
+
+  let extract_output __context _ =
+    let slv1 =
+      Db.Host.get_all ~__context
+      |> List.find (fun self -> Db.Host.get_name_label ~__context ~self = slave1)
+    in
+    let hosts =
+      Db.Host.get_all ~__context
+      |> List.filter (fun h ->
+             h <> slv1
+             && Db.Host.get_name_label ~__context ~self:h <> "localhost"
+         )
+      |> List.map (fun host ->
+             (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
+         )
+    in
+    let pool_state =
+      Xapi_ha_vm_failover.init_spread_evenly_plan_pool_state ~__context hosts
+    in
+    extract_output_for_anti_affinity_plan __context
+      (Xapi_ha_vm_failover.compute_spread_evenly_plan pool_state)
+
+  let tests =
+    `QuickAndAutoDocumented
+      (anti_affinity_plan_test_cases
+      |> List.map (fun (pool, spread_evenly_plan, _no_breach_plan) ->
+             (pool, spread_evenly_plan)
+         )
+      )
+end)
+
+module Slave1EvacuationVMAntiAffinityNoBreachPlan = Generic.MakeStateful (struct
+  module Io = struct
+    type input_t = pool
+
+    type output_t = (string * string) list
+
+    let string_of_input_t = string_of_pool
+
+    let string_of_output_t = Test_printers.(list (pair string string))
+  end
+
+  module State = Test_state.XapiDb
+
+  let load_input __context = setup ~__context
+
+  let extract_output __context _ =
+    let total_hosts =
+      Db.Host.get_all ~__context
+      |> List.filter (fun h ->
+             Db.Host.get_name_label ~__context ~self:h <> "localhost"
+         )
+      |> List.length
+    in
+    let slv1 =
+      Db.Host.get_all ~__context
+      |> List.find (fun self -> Db.Host.get_name_label ~__context ~self = slave1)
+    in
+    let hosts =
+      Db.Host.get_all ~__context
+      |> List.filter (fun h ->
+             h <> slv1
+             && Db.Host.get_name_label ~__context ~self:h <> "localhost"
+         )
+      |> List.map (fun host ->
+             (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
+         )
+    in
+    let pool_state =
+      Xapi_ha_vm_failover.init_spread_evenly_plan_pool_state ~__context hosts
+      |> Xapi_ha_vm_failover.init_no_breach_plan_pool_state
+    in
+    extract_output_for_anti_affinity_plan __context
+      (Xapi_ha_vm_failover.compute_no_breach_plan total_hosts pool_state)
+
+  let tests =
+    `QuickAndAutoDocumented
+      (anti_affinity_plan_test_cases
+      |> List.map (fun (pool, _spread_evenly_plan, no_breach_plan) ->
+             (pool, no_breach_plan)
+         )
+      )
+end)
+
+module Slave1EvacuationPlan = Generic.MakeStateful (struct
+  module Io = struct
+    type input_t = pool
+
+    type output_t = (string * string) list
+
+    let string_of_input_t = string_of_pool
+
+    let string_of_output_t = Test_printers.(list (pair string string))
+  end
+
+  module State = Test_state.XapiDb
+
+  let load_input __context = setup ~__context
+
+  let extract_output __context _ =
+    let all_hosts =
+      Db.Host.get_all ~__context
+      |> List.filter (fun h ->
+             Db.Host.get_name_label ~__context ~self:h <> "localhost"
+         )
+    in
+    let slv1 =
+      Db.Host.get_all ~__context
+      |> List.find (fun self -> Db.Host.get_name_label ~__context ~self = slave1)
+    in
+    let slave1_vms =
+      Db.Host.get_resident_VMs ~__context ~self:slv1
+      |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
+      |> List.filter (fun (_, record) -> not record.API.vM_is_control_domain)
+      |> List.map (fun (self, record) ->
+             (self, Xapi_ha_vm_failover.vm_memory ~__context record)
+         )
+    in
+    let hosts =
+      all_hosts
+      |> List.filter (( <> ) slv1)
+      |> List.map (fun host ->
+             (host, Xapi_ha_vm_failover.host_free_memory ~__context ~host)
+         )
+    in
+    Xapi_ha_vm_failover.compute_anti_affinity_evacuation_plan ~__context
+      (List.length all_hosts) hosts slave1_vms
+    |> List.map (fun (vm, host) ->
+           ( Db.VM.get_name_label ~__context ~self:vm
+           , Db.Host.get_name_label ~__context ~self:host
+           )
+       )
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* Test 0: Spread evenly plan is taken. *)
+        ( {
+            basic_pool with
+            master= {memory_total= gib 200L; name_label= master; vms= []}
+          ; slaves=
+              [
+                {
+                  memory_total= gib 256L
+                ; name_label= slave1
+                ; vms=
+                    [
+                      {
+                        basic_vm with
+                        memory= gib 24L
+                      ; vm_name_label= vm4_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 23L
+                      ; vm_name_label= vm3_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 22L
+                      ; vm_name_label= vm2_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 21L
+                      ; vm_name_label= vm1_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ]
+                }
+              ; {memory_total= gib 60L; name_label= slave2; vms= []}
+              ]
+          }
+        , (* Assert that spread_evenly_plan is taken. *)
+          [
+            (vm4_grp1, master)
+          ; (vm3_grp1, slave2)
+          ; (vm2_grp1, master)
+          ; (vm1_grp1, slave2)
+          ]
+        )
+        (* Test 1: No breach plan is taken. *)
+      ; ( {
+            basic_pool with
+            master= {memory_total= gib 100L; name_label= master; vms= []}
+          ; slaves=
+              [
+                {
+                  memory_total= gib 256L
+                ; name_label= slave1
+                ; vms=
+                    [
+                      {basic_vm with memory= gib 85L; vm_name_label= vm1}
+                    ; {basic_vm with memory= gib 65L; vm_name_label= vm2}
+                    ; {
+                        basic_vm with
+                        memory= gib 30L
+                      ; vm_name_label= vm3_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 20L
+                      ; vm_name_label= vm2_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 10L
+                      ; vm_name_label= vm1_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ]
+                }
+              ; {memory_total= gib 90L; name_label= slave2; vms= []}
+              ; {memory_total= gib 70L; name_label= slave3; vms= []}
+              ]
+          ; keep_localhost= true
+          }
+        , (* Assert that no-breach-plan is taken *)
+          [
+            (vm2_grp1, slave2)
+          ; (vm1_grp1, slave3)
+          ; (vm3_grp1, slave3)
+          ; (vm2, slave2)
+          ; (vm1, master)
+          ]
+        )
+        (* Test 2: Fallback to binpack plan. *)
+      ; ( {
+            basic_pool with
+            master= {memory_total= gib 100L; name_label= master; vms= []}
+          ; slaves=
+              [
+                {
+                  memory_total= gib 256L
+                ; name_label= slave1
+                ; vms=
+                    [
+                      {basic_vm with memory= gib 95L; vm_name_label= vm1}
+                    ; {basic_vm with memory= gib 75L; vm_name_label= vm2}
+                    ; {
+                        basic_vm with
+                        memory= gib 30L
+                      ; vm_name_label= vm3_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 20L
+                      ; vm_name_label= vm2_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ; {
+                        basic_vm with
+                        memory= gib 10L
+                      ; vm_name_label= vm1_grp1
+                      ; groups= [anti_affinity_grp1]
+                      }
+                    ]
+                }
+              ; {memory_total= gib 80L; name_label= slave2; vms= []}
+              ; {memory_total= gib 70L; name_label= slave3; vms= []}
+              ]
+          ; keep_localhost= true
+          }
+        , (* Assert that binpack-plan is taken *)
+          [
+            (vm1_grp1, slave3)
+          ; (vm2_grp1, slave3)
+          ; (vm3_grp1, slave3)
+          ; (vm2, slave2)
+          ; (vm1, master)
+          ]
+        )
+      ]
+end)
+
+let tests =
+  [
+    ("plan_for_n_failures", PlanForNFailures.tests)
+  ; ( "anti-affinity spread evenly plan"
+    , Slave1EvacuationVMAntiAffinitySpreadEvenlyPlan.tests
+    )
+  ; ( "anti-affinity no breach plan"
+    , Slave1EvacuationVMAntiAffinityNoBreachPlan.tests
+    )
+  ; ( "3 phases plan: spread evenly plan, no breach plan, binpacking plan"
+    , Slave1EvacuationPlan.tests
+    )
+  ]

@@ -86,3 +86,61 @@ val assert_nfailures_change_preserves_ha_plan :
   __context:Context.t -> int -> unit
 
 val assert_new_vm_preserves_ha_plan : __context:Context.t -> API.ref_VM -> unit
+
+(* Below exposed only for ease of testing *)
+
+module VMGroupMap : Map.S with type key = [`VM_group] Ref.t
+
+module HostKey : sig
+  type t = [`host] Ref.t
+end
+
+module AntiAffinityEvacuationPlanHostQueue : Psq.S with type k = HostKey.t
+
+type spread_evenly_plan_pool_state =
+  AntiAffinityEvacuationPlanHostQueue.t VMGroupMap.t
+
+type no_breach_plan_pool_state = {
+    grp_no_resident_hosts_queue:
+      AntiAffinityEvacuationPlanHostQueue.t VMGroupMap.t
+  ; grp_resident_hosts_count_map: int VMGroupMap.t
+}
+
+val compute_spread_evenly_plan :
+     __context:Context.t
+  -> AntiAffinityEvacuationPlanHostQueue.t VMGroupMap.t
+  -> (API.ref_VM * int64 * API.ref_VM_group) list
+  -> (API.ref_VM * API.ref_host) list
+  -> (API.ref_VM * API.ref_host) list
+
+val compute_no_breach_plan :
+     __context:Context.t
+  -> int
+  -> no_breach_plan_pool_state
+  -> (API.ref_VM * int64 * API.ref_VM_group) list
+  -> (API.ref_VM * API.ref_host) list
+  -> (API.ref_VM * API.ref_host) list
+
+val compute_anti_affinity_evacuation_plan :
+     __context:Context.t
+  -> int
+  -> (API.ref_host * int64) list
+  -> (API.ref_VM * int64) list
+  -> (API.ref_VM * API.ref_host) list
+
+val host_free_memory : __context:Context.t -> host:[`host] Ref.t -> int64
+
+val vm_memory : __context:Context.t -> API.vM_t -> int64
+
+val anti_affinity_vms_increasing :
+     __context:Context.t
+  -> (API.ref_VM * 'a) list
+  -> (API.ref_VM * 'a * API.ref_VM_group) list
+
+val init_spread_evenly_plan_pool_state :
+     __context:Context.t
+  -> (API.ref_host * int64) list
+  -> AntiAffinityEvacuationPlanHostQueue.t VMGroupMap.t
+
+val init_no_breach_plan_pool_state :
+  spread_evenly_plan_pool_state -> no_breach_plan_pool_state
