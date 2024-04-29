@@ -84,9 +84,9 @@ let validate_attribute (key, value) =
   && Re.execp attribute_key_regex key
   && W3CBaggage.Key.is_valid_key key
 
-let observe = ref true
+let observe = Atomic.make true
 
-let set_observe mode = observe := mode
+let set_observe mode = Atomic.set observe mode
 
 module SpanKind = struct
   type t = Server | Consumer | Client | Producer | Internal [@@deriving rpcty]
@@ -301,13 +301,13 @@ module Spans = struct
         Hashtbl.length spans
     )
 
-  let max_spans = ref 1000
+  let max_spans = Atomic.make 1000
 
-  let set_max_spans x = max_spans := x
+  let set_max_spans x = Atomic.set max_spans x
 
-  let max_traces = ref 1000
+  let max_traces = Atomic.make 1000
 
-  let set_max_traces x = max_traces := x
+  let set_max_traces x = Atomic.set max_traces x
 
   let finished_spans = Hashtbl.create 100
 
@@ -326,13 +326,13 @@ module Spans = struct
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         match Hashtbl.find_opt spans key with
         | None ->
-            if Hashtbl.length spans < !max_traces then
+            if Hashtbl.length spans < Atomic.get max_traces then
               Hashtbl.add spans key [span]
             else
               debug "%s exceeded max traces when adding to span table"
                 __FUNCTION__
         | Some span_list ->
-            if List.length span_list < !max_spans then
+            if List.length span_list < Atomic.get max_spans then
               Hashtbl.replace spans key (span :: span_list)
             else
               debug "%s exceeded max traces when adding to span table"
@@ -363,13 +363,13 @@ module Spans = struct
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         match Hashtbl.find_opt finished_spans key with
         | None ->
-            if Hashtbl.length finished_spans < !max_traces then
+            if Hashtbl.length finished_spans < Atomic.get max_traces then
               Hashtbl.add finished_spans key [span]
             else
               debug "%s exceeded max traces when adding to finished span table"
                 __FUNCTION__
         | Some span_list ->
-            if List.length span_list < !max_spans then
+            if List.length span_list < Atomic.get max_spans then
               Hashtbl.replace finished_spans key (span :: span_list)
             else
               debug "%s exceeded max traces when adding to finished span table"
@@ -407,7 +407,7 @@ module Spans = struct
   module GC = struct
     let lock = Mutex.create ()
 
-    let span_timeout = ref 86400.
+    let span_timeout = Atomic.make 86400.
 
     let span_timeout_thread = ref None
 
@@ -421,7 +421,7 @@ module Spans = struct
                     let elapsed =
                       Unix.gettimeofday () -. span.Span.begin_time
                     in
-                    if elapsed > !span_timeout *. 1000000. then (
+                    if elapsed > Atomic.get span_timeout *. 1000000. then (
                       debug "Tracing: Span %s timed out, forcibly finishing now"
                         span.Span.context.span_id ;
                       let span =
@@ -444,14 +444,14 @@ module Spans = struct
       )
 
     let initialise_thread ~timeout =
-      span_timeout := timeout ;
+      Atomic.set span_timeout timeout ;
       span_timeout_thread :=
         Some
           (Thread.create
              (fun () ->
                while true do
                  debug "Tracing: Span garbage collector" ;
-                 Thread.delay !span_timeout ;
+                 Thread.delay (Atomic.get span_timeout) ;
                  gc_inactive_spans ()
                done
              )
@@ -631,7 +631,7 @@ let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
 let with_tracing ?(attributes = []) ?(parent = None) ~name f =
-  if not !observe then
+  if not (Atomic.get observe) then
     f None
   else
     let tracer = get_tracer ~name in
