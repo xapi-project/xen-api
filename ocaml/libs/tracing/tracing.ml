@@ -296,7 +296,10 @@ module Spans = struct
 
   let spans = Hashtbl.create 100
 
-  let span_count () = Hashtbl.length spans
+  let span_count () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        Hashtbl.length spans
+    )
 
   let max_spans = ref 1000
 
@@ -308,9 +311,15 @@ module Spans = struct
 
   let finished_spans = Hashtbl.create 100
 
-  let span_hashtbl_is_empty () = Hashtbl.length spans = 0
+  let span_hashtbl_is_empty () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        Hashtbl.length spans = 0
+    )
 
-  let finished_span_hashtbl_is_empty () = Hashtbl.length finished_spans = 0
+  let finished_span_hashtbl_is_empty () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        Hashtbl.length finished_spans = 0
+    )
 
   let add_to_spans ~(span : Span.t) =
     let key = span.context.trace_id in
@@ -373,13 +382,14 @@ module Spans = struct
     match x with
     | None ->
         false
-    | Some (span : Span.t) -> (
-      match Hashtbl.find_opt finished_spans span.context.trace_id with
-      | None ->
-          false
-      | Some span_list ->
-          List.exists (fun x -> x = span) span_list
-    )
+    | Some (span : Span.t) ->
+        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+            match Hashtbl.find_opt finished_spans span.context.trace_id with
+            | None ->
+                false
+            | Some span_list ->
+                List.exists (fun x -> x = span) span_list
+        )
 
   (** since copies the existing finished spans and then clears the existing spans as to only export them once  *)
   let since () =
@@ -389,7 +399,10 @@ module Spans = struct
         copy
     )
 
-  let dump () = Hashtbl.(copy spans, Hashtbl.copy finished_spans)
+  let dump () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        Hashtbl.(copy spans, Hashtbl.copy finished_spans)
+    )
 
   module GC = struct
     let lock = Mutex.create ()
@@ -538,8 +551,11 @@ let lock = Mutex.create ()
 
 let tracer_providers = Hashtbl.create 100
 
-let get_tracer_providers () =
+let get_tracer_providers_unlocked () =
   Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
+
+let get_tracer_providers () =
+  Xapi_stdext_threads.Threadext.Mutex.execute lock get_tracer_providers_unlocked
 
 let set ?enabled ?attributes ?endpoints ~uuid () =
   Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -561,17 +577,17 @@ let set ?enabled ?attributes ?endpoints ~uuid () =
             failwith
               (Printf.sprintf "The TracerProvider : %s does not exist" uuid)
       in
-      Hashtbl.replace tracer_providers uuid provider
-  ) ;
-  if
-    List.for_all
-      (fun provider -> not provider.TracerProvider.enabled)
-      (get_tracer_providers ())
-  then
-    Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
-        Hashtbl.clear Spans.spans ;
-        Hashtbl.clear Spans.finished_spans
-    )
+      Hashtbl.replace tracer_providers uuid provider ;
+      if
+        List.for_all
+          (fun provider -> not provider.TracerProvider.enabled)
+          (get_tracer_providers_unlocked ())
+      then
+        Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
+            Hashtbl.clear Spans.spans ;
+            Hashtbl.clear Spans.finished_spans
+        )
+  )
 
 let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
   let endpoints = List.map endpoint_of_string endpoints in
