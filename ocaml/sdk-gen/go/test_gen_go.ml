@@ -335,6 +335,18 @@ let verify_simple_convert_member = function
   | _ ->
       false
 
+let verify_release_member = function
+  | "branding", `String _ | "code_name", `String _ ->
+      true
+  | "first", `Bool _ ->
+      true
+  | "version_index", `Float _
+  | "version_major", `Float _
+  | "version_minor", `Float _ ->
+      true
+  | _ ->
+      false
+
 let verify_simple_convert_keys = ["func_name_suffix"; "type"]
 
 let verify_simple_convert = function
@@ -452,6 +464,41 @@ let verify_map_convert_member = function
 let verify_map_convert = function
   | `O items ->
       schema_check map_convert_keys verify_map_convert_member items
+  | _ ->
+      false
+
+let release_keys =
+  [
+    "branding"
+  ; "code_name"
+  ; "version_major"
+  ; "version_minor"
+  ; "first"
+  ; "version_index"
+  ]
+
+let verify_release = function
+  | `O members ->
+      schema_check release_keys verify_release_member members
+  | _ ->
+      false
+
+let version_keys =
+  ["API_VERSION_MAJOR"; "API_VERSION_MINOR"; "latest_version_index"; "releases"]
+
+let verify_version_member = function
+  | "latest_version_index", `Float _
+  | "API_VERSION_MAJOR", `Float _
+  | "API_VERSION_MINOR", `Float _ ->
+      true
+  | "releases", `A releases ->
+      List.for_all verify_release releases
+  | _ ->
+      false
+
+let verify_version = function
+  | `O members ->
+      schema_check version_keys verify_version_member members
   | _ ->
       false
 
@@ -920,6 +967,33 @@ let messages : Mustache.Json.t =
       )
     ]
 
+let api_versions : Mustache.Json.t =
+  `O
+    [
+      ("latest_version_index", `Float 2.)
+    ; ( "releases"
+      , `A
+          [
+            `O
+              [
+                ("branding", `String "XenServer 4.0")
+              ; ("code_name", `String "rio")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 1.)
+              ; ("first", `Bool true)
+              ]
+          ; `O
+              [
+                ("branding", `String "XenServer 4.1")
+              ; ("code_name", `String "miami")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 2.)
+              ; ("first", `Bool false)
+              ]
+          ]
+      )
+    ]
+
 let option =
   `O
     [
@@ -988,6 +1062,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let option_convert_rendered = string_of_file "option_convert.go"
 
+  let api_versions_rendered = string_of_file "api_versions.go"
+
   let option_rendered = "type OptionString *string"
 
   let tests =
@@ -1016,6 +1092,7 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("ConvertEnum.mustache", enum_convert), enum_convert_rendered)
       ; (("ConvertBatch.mustache", Convert.event_batch), batch_convert_rendered)
       ; (("ConvertOption.mustache", option_convert), option_convert_rendered)
+      ; (("APIVersions.mustache", api_versions), api_versions_rendered)
       ; (("Option.mustache", option), option_rendered)
       ]
 end)
@@ -1036,11 +1113,14 @@ module TestGeneratedJson = struct
     verify "errors_and_msgs" verify_msgs_or_errors
       (Json.api_errors @ Json.api_messages)
 
+  let test_versions () = verify "versions" verify_version json_releases
+
   let tests =
     [
       ("enums", `Quick, test_enums)
     ; ("objs", `Quick, test_obj)
     ; ("errors_and_msgs", `Quick, test_errors_and_msgs)
+    ; ("versions", `Quick, test_versions)
     ]
 end
 
@@ -1201,7 +1281,7 @@ module StringOfTyWithEnumsTest = struct
 
   let test_option () =
     let ty, enums = Json.string_of_ty_with_enums (Option String) in
-    verify "option" verify_string (ty, enums)
+    verify "option" verify_option (ty, enums)
 
   let verify_map (ty, enums) =
     ty = "map[int]UpdateSync"

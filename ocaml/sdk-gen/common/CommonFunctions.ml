@@ -308,24 +308,32 @@ let json_releases =
     in
     try index_rec 0 list with Not_found -> -1
   in
-  let json_of_rel x =
+  let of_rel x =
     let y = version_index_of x unique_version_bumps + 1 in
-    `O
-      [
-        ( "code_name"
-        , `String (match x.code_name with Some r -> r | None -> "")
-        )
-      ; ("version_major", `Float (float_of_int x.version_major))
-      ; ("version_minor", `Float (float_of_int x.version_minor))
-      ; ("branding", `String x.branding)
-      ; ("version_index", `Float (float_of_int y))
-      ]
+    [
+      ("code_name", `String (Option.value x.code_name ~default:""))
+    ; ("version_major", `Float (float_of_int x.version_major))
+    ; ("version_minor", `Float (float_of_int x.version_minor))
+    ; ("branding", `String x.branding)
+    ; ("version_index", `Float (float_of_int y))
+    ]
+  in
+  let of_rels releases =
+    match releases with
+    | [] ->
+        `A []
+    | head :: tail ->
+        let head' = `O (("first", `Bool true) :: of_rel head) in
+        let tail' =
+          List.map (fun rel -> `O (("first", `Bool false) :: of_rel rel)) tail
+        in
+        `A (head' :: tail')
   in
   `O
     [
       ("API_VERSION_MAJOR", `Float (Int64.to_float Datamodel.api_version_major))
     ; ("API_VERSION_MINOR", `Float (Int64.to_float Datamodel.api_version_minor))
-    ; ("releases", `A (List.map (fun x -> json_of_rel x) unique_version_bumps))
+    ; ("releases", of_rels unique_version_bumps)
     ; ( "latest_version_index"
       , `Float (float_of_int (List.length unique_version_bumps))
       )

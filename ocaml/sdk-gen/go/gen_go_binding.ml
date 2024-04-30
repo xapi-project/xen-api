@@ -24,6 +24,30 @@ let render_enums enums destdir =
   let rendered = header ^ enums ^ "\n" in
   generate_file ~rendered ~destdir ~output_file:"enums.go"
 
+let render_api_versions destdir =
+  let header_json =
+    let name s = `O [("name", `String s); ("sname", `Null)] in
+    `O
+      [
+        ( "modules"
+        , `O
+            [
+              ("import", `Bool true)
+            ; ("items", `A (List.map name ["errors"; "fmt"]))
+            ]
+        )
+      ]
+  in
+  let rendered =
+    let header =
+      render_template "FileHeader.mustache" header_json ~newline:true ()
+    in
+    header
+    ^ render_template "APIVersions.mustache" CommonFunctions.json_releases
+        ~newline:true ()
+  in
+  generate_file ~rendered ~destdir ~output_file:"api_versions.go"
+
 let render_api_messages_and_errors destdir =
   let obj =
     `O
@@ -93,6 +117,7 @@ let render_converts destdir =
   generate_file ~rendered ~destdir ~output_file:"convert.go"
 
 let main destdir =
+  render_api_versions destdir ;
   render_api_messages_and_errors destdir ;
   let enums = Json.all_enums objects in
   render_enums enums destdir ;
@@ -104,7 +129,9 @@ let main destdir =
         render_template "FileHeader.mustache" obj ~newline:true ()
       in
       let options_rendered = render_template "Option.mustache" obj () in
-      let record_rendered = render_template "Record.mustache" obj () in
+      let record_rendered =
+        render_template "Record.mustache" obj () ~newline:true
+      in
       let methods_rendered =
         if name = "session" then
           render_template "SessionMethod.mustache" obj ()
@@ -112,15 +139,14 @@ let main destdir =
           render_template "Methods.mustache" obj ()
       in
       let rendered =
-        let first_half = header_rendered ^ options_rendered ^ record_rendered in
-        match methods_rendered with
-        | "" ->
-            first_half
-        | _ ->
-            first_half ^ "\n" ^ methods_rendered
+        let rendered =
+          [header_rendered; options_rendered; record_rendered; methods_rendered]
+          |> String.concat ""
+          |> String.trim
+        in
+        rendered ^ "\n"
       in
-      let output_file = name ^ ".go" in
-      generate_file ~rendered ~destdir ~output_file
+      generate_file ~rendered ~destdir ~output_file:(name ^ ".go")
     )
     objects
 
