@@ -183,7 +183,4 @@ let test =
   ; ("test_sxm_allowed_when_rum", `Quick, test_sxm_allowed_when_rum)
   ; ("test_vm_set_nvram when VM is running", `Quick, test_vm_set_nvram_running)
   ]
-
-let () =
-  Alcotest.run "Xapi_vm_lifecycle"
-    [("is_allowed_concurrently", test_allow_concurrently)]
+  @ test_allow_concurrently
