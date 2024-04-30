@@ -913,18 +913,24 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
   with _ -> false
 
 let vm_has_anti_affinity ~__context ~vm =
-  List.find_opt
-    (fun g -> Db.VM_group.get_placement ~__context ~self:g = `anti_affinity)
-    (Db.VM.get_groups ~__context ~self:vm)
-  |> Option.map (fun group ->
-         debug
-           "The VM (uuid %s) is associated with an anti-affinity group (uuid: \
-            %s, name: %s)"
-           (Db.VM.get_uuid ~__context ~self:vm)
-           (Db.VM_group.get_uuid ~__context ~self:group)
-           (Db.VM_group.get_name_label ~__context ~self:group) ;
-         `AntiAffinity group
-     )
+  if Pool_features.is_enabled ~__context Features.VM_group then
+    List.find_opt
+      (fun g -> Db.VM_group.get_placement ~__context ~self:g = `anti_affinity)
+      (Db.VM.get_groups ~__context ~self:vm)
+    |> Option.map (fun group ->
+           debug
+             "The VM (uuid %s) is associated with an anti-affinity group \
+              (uuid: %s, name: %s)"
+             (Db.VM.get_uuid ~__context ~self:vm)
+             (Db.VM_group.get_uuid ~__context ~self:group)
+             (Db.VM_group.get_name_label ~__context ~self:group) ;
+           `AntiAffinity group
+       )
+  else (
+    debug
+      "VM group feature is disabled, ignore VM anti-affinity during VM start" ;
+    None
+  )
 
 let vm_has_vgpu ~__context ~vm =
   match Db.VM.get_VGPUs ~__context ~self:vm with

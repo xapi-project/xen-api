@@ -1442,6 +1442,7 @@ let set_appliance ~__context ~self ~value =
   update_allowed_operations ~__context ~self
 
 let set_groups ~__context ~self ~value =
+  Pool_features.assert_enabled ~__context ~f:Features.VM_group ;
   if List.length value > 1 then
     raise Api_errors.(Server_error (Api_errors.too_many_groups, [])) ;
   Db.VM.set_groups ~__context ~self ~value

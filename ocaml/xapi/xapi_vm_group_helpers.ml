@@ -16,9 +16,11 @@ module D = Debug.Make (struct let name = "xapi_vm_group_helpers" end)
 
 open D
 
-(** Check the breach state of a group.
- When there are no VMs or only one VM in the group, it is not considered a breach.
- when there are two or more VMs and all of them are on the same host, it is considered a breach, and the specific host is returned.
+(* Check the breach state of a group.
+   When there are no VMs or only one VM in the group, it is not considered a
+   breach.
+   when there are two or more VMs and all of them are on the same host, it is
+   considered a breach, and the specific host is returned.
 *)
 let check_breach_on_vm_anti_affinity_rules ~__context ~group =
   Db.VM_group.get_VMs ~__context ~self:group
@@ -103,8 +105,8 @@ let filter_alerts_with_host ~__context ~host ~alerts =
   let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   List.filter (alert_matched ~__context ~label_name:"host" ~id:host_uuid) alerts
 
-(** If it is a breach and no alerts exist, generate one,
-    If it is not a breach and alerts exist, dismiss the existing alert *)
+(* If it is a breach and no alerts exist, generate one,
+   If it is not a breach and alerts exist, dismiss the existing alert *)
 let update_vm_anti_affinity_alert_for_group ~__context ~group ~alerts =
   let breach_on_host =
     check_breach_on_vm_anti_affinity_rules ~__context ~group
@@ -137,22 +139,25 @@ let update_vm_anti_affinity_alert_for_group ~__context ~group ~alerts =
       ()
 
 let maybe_update_vm_anti_affinity_alert_for_vm ~__context ~vm =
-  try
-    Db.VM.get_groups ~__context ~self:vm
-    |> List.filter (fun g ->
-           Db.VM_group.get_placement ~__context ~self:g = `anti_affinity
-       )
-    |> function
-    | [] ->
-        ()
-    | group :: _ ->
-        let alerts = get_anti_affinity_alerts ~__context in
-        let alerts_of_group =
-          filter_alerts_with_group ~__context ~group ~alerts
-        in
-        update_vm_anti_affinity_alert_for_group ~__context ~group
-          ~alerts:alerts_of_group
-  with e -> error "%s" (Printexc.to_string e)
+  if Pool_features.is_enabled ~__context Features.VM_group then
+    try
+      Db.VM.get_groups ~__context ~self:vm
+      |> List.filter (fun g ->
+             Db.VM_group.get_placement ~__context ~self:g = `anti_affinity
+         )
+      |> function
+      | [] ->
+          ()
+      | group :: _ ->
+          let alerts = get_anti_affinity_alerts ~__context in
+          let alerts_of_group =
+            filter_alerts_with_group ~__context ~group ~alerts
+          in
+          update_vm_anti_affinity_alert_for_group ~__context ~group
+            ~alerts:alerts_of_group
+    with e -> error "%s" (Printexc.to_string e)
+  else
+    debug "VM group feature is disabled, alert will not be updated"
 
 let remove_vm_anti_affinity_alert_for_group ~__context ~group ~alerts =
   debug "[Anti-affinity] remove alert for group:%s"
@@ -181,8 +186,11 @@ let update_alert ~__context ~groups ~action =
   with e -> error "%s" (Printexc.to_string e)
 
 let update_vm_anti_affinity_alert ~__context ~groups =
-  update_alert ~__context ~groups
-    ~action:update_vm_anti_affinity_alert_for_group
+  if Pool_features.is_enabled ~__context Features.VM_group then
+    update_alert ~__context ~groups
+      ~action:update_vm_anti_affinity_alert_for_group
+  else
+    debug "VM group feature is disabled, alert will not be updated"
 
 let remove_vm_anti_affinity_alert ~__context ~groups =
   update_alert ~__context ~groups
@@ -192,7 +200,7 @@ let maybe_update_alerts_on_feature_change ~__context ~old_restrictions
     ~new_restrictions =
   try
     let is_enabled restrictions =
-      List.mem Features.VM_anti_affinity (Features.of_assoc_list restrictions)
+      List.mem Features.VM_group (Features.of_assoc_list restrictions)
     in
     let groups = Db.VM_group.get_all ~__context in
     match (is_enabled old_restrictions, is_enabled new_restrictions) with
