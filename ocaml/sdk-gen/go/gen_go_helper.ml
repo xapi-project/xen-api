@@ -52,6 +52,14 @@ let snake_to_camel (s : string) : string =
        )
   |> String.concat ""
 
+let records =
+  List.map
+    (fun obj ->
+      let obj_name = snake_to_camel obj.name ^ "Record" in
+      (obj_name, Datamodel_utils.fields_of_obj obj)
+    )
+    objects
+
 let render_template template_file json ?(newline = false) () =
   let templ =
     string_of_file (templates_dir // template_file) |> Mustache.of_string
@@ -183,7 +191,7 @@ module Json = struct
 
   let all_enums objs =
     let enums =
-      Types.of_objects objs
+      Datamodel_utils.Types.of_objects objs
       |> List.map (fun ty ->
              let _, e = string_of_ty_with_enums ty in
              e
@@ -492,4 +500,271 @@ module Json = struct
     List.map (fun (msg, _) -> of_api_message_or_error msg) !Api_messages.msgList
 
   let api_errors = List.map of_api_message_or_error !Api_errors.errors
+end
+
+module Convert = struct
+  type params = {func_suffix: string; value_ty: string}
+
+  type params_of_option = {func_suffix: string}
+
+  type params_of_set = {
+      func_suffix: string
+    ; value_ty: string
+    ; item_fp_type: string
+  }
+
+  type params_of_record_field = {
+      name: string
+    ; name_internal: string
+    ; name_exported: string
+    ; func_suffix: string
+    ; type_option: bool
+  }
+
+  type params_of_record = {
+      func_suffix: string
+    ; value_ty: string
+    ; fields: params_of_record_field list
+  }
+
+  type params_of_enum_item = {value: string; name: string}
+
+  type params_of_enum = {
+      func_suffix: string
+    ; value_ty: string
+    ; items: params_of_enum_item list
+  }
+
+  type params_of_map = {
+      func_suffix: string
+    ; value_ty: string
+    ; key_ty: string
+    ; val_ty: string
+  }
+
+  type convert_params =
+    | Simple of params
+    | Int of params
+    | Float of params
+    | Time of params
+    | Ref of params
+    | Option of params_of_option
+    | Set of params_of_set
+    | Enum of params_of_enum
+    | Record of params_of_record
+    | Map of params_of_map
+
+  let template_of_convert : convert_params -> string = function
+    | Simple _ ->
+        "ConvertSimpleType.mustache"
+    | Int _ ->
+        "ConvertInt.mustache"
+    | Float _ ->
+        "ConvertFloat.mustache"
+    | Time _ ->
+        "ConvertTime.mustache"
+    | Ref _ ->
+        "ConvertRef.mustache"
+    | Set _ ->
+        "ConvertSet.mustache"
+    | Record _ ->
+        "ConvertRecord.mustache"
+    | Map _ ->
+        "ConvertMap.mustache"
+    | Enum _ ->
+        "ConvertEnum.mustache"
+    | Option _ ->
+        "ConvertOption.mustache"
+
+  let to_json : convert_params -> Mustache.Json.value = function
+    | Simple params | Int params | Float params | Time params | Ref params ->
+        `O
+          [
+            ("func_name_suffix", `String params.func_suffix)
+          ; ("type", `String params.value_ty)
+          ]
+    | Option params ->
+        `O [("func_name_suffix", `String params.func_suffix)]
+    | Set params ->
+        `O
+          [
+            ("func_name_suffix", `String params.func_suffix)
+          ; ("type", `String params.value_ty)
+          ; ("item_func_suffix", `String params.item_fp_type)
+          ]
+    | Record params ->
+        let fields =
+          List.rev_map
+            (fun (field : params_of_record_field) ->
+              `O
+                [
+                  ("name", `String field.name)
+                ; ("name_internal", `String field.name_internal)
+                ; ("name_exported", `String field.name_exported)
+                ; ("func_name_suffix", `String field.func_suffix)
+                ; ("type_option", `Bool field.type_option)
+                ]
+            )
+            params.fields
+        in
+        `O
+          [
+            ("func_name_suffix", `String params.func_suffix)
+          ; ("type", `String params.value_ty)
+          ; ("fields", `A fields)
+          ]
+    | Enum params ->
+        let of_value item =
+          `O [("value", `String item.value); ("name", `String item.name)]
+        in
+        `O
+          [
+            ("type", `String params.value_ty)
+          ; ("func_name_suffix", `String params.func_suffix)
+          ; ("items", `A (List.map of_value params.items))
+          ]
+    | Map params ->
+        `O
+          [
+            ("func_name_suffix", `String params.func_suffix)
+          ; ("type", `String params.value_ty)
+          ; ("key_type", `String params.key_ty)
+          ; ("value_type", `String params.val_ty)
+          ]
+
+  let fields record_name =
+    let fields =
+      List.assoc_opt record_name records
+      |> Option.value ~default:[]
+      |> List.rev_map (fun field ->
+             ( String.concat "_" field.full_name
+             , Json.suffix_of_type field.ty
+             , match field.ty with Option _ -> true | _ -> false
+             )
+         )
+    in
+    if record_name = "EventRecord" then
+      ("snapshot", "RecordInterface", false) :: fields
+    else
+      fields
+
+  let of_ty = function
+    | SecretString | String ->
+        Simple {func_suffix= "String"; value_ty= "string"}
+    | Int ->
+        Int {func_suffix= "Int"; value_ty= "int"}
+    | Float ->
+        Float {func_suffix= "Float"; value_ty= "float64"}
+    | Bool ->
+        Simple {func_suffix= "Bool"; value_ty= "bool"}
+    | DateTime ->
+        Time {func_suffix= "Time"; value_ty= "time.Time"}
+    | Enum (name, kv) as ty ->
+        let name = snake_to_camel name in
+        let items =
+          List.map (fun (k, _) -> {value= k; name= name ^ snake_to_camel k}) kv
+        in
+        Enum {func_suffix= Json.suffix_of_type ty; value_ty= name; items}
+    | Set ty as set ->
+        let fp_ty = Json.suffix_of_type ty in
+        let ty, _ = Json.string_of_ty_with_enums ty in
+        Set
+          {
+            func_suffix= Json.suffix_of_type set
+          ; value_ty= ty
+          ; item_fp_type= fp_ty
+          }
+    | Map (ty1, ty2) as ty ->
+        let name, _ = Json.string_of_ty_with_enums ty in
+        Map
+          {
+            func_suffix= Json.suffix_of_type ty
+          ; value_ty= name
+          ; key_ty= Json.suffix_of_type ty1
+          ; val_ty= Json.suffix_of_type ty2
+          }
+    | Ref _ as ty ->
+        let name = Json.suffix_of_type ty in
+        Ref {func_suffix= name; value_ty= name}
+    | Record r ->
+        let name = snake_to_camel r ^ "Record" in
+        let fields =
+          List.map
+            (fun (name, func_suffix, is_option_type) ->
+              let camel_name = snake_to_camel name in
+              {
+                name
+              ; name_internal= String.uncapitalize_ascii camel_name
+              ; name_exported= camel_name
+              ; func_suffix
+              ; type_option= is_option_type
+              }
+            )
+            (fields name)
+        in
+        Record {func_suffix= name; value_ty= name; fields}
+    | Option ty ->
+        Option {func_suffix= Json.suffix_of_type ty}
+
+  let of_serialize params =
+    `O [("serialize", `A [to_json params]); ("deserialize", `Null)]
+
+  let of_deserialize params =
+    `O [("serialize", `Null); ("deserialize", `A [to_json params])]
+
+  let event_batch : Mustache.Json.t =
+    `O
+      [
+        ( "deserialize"
+        , `A
+            [
+              `O
+                [
+                  ("func_name_suffix", `String "EventBatch")
+                ; ("type", `String "EventBatch")
+                ; ( "elements"
+                  , `A
+                      [
+                        `O
+                          [
+                            ("name", `String "token")
+                          ; ("name_internal", `String "token")
+                          ; ("name_exported", `String "Token")
+                          ; ("func_name_suffix", `String "String")
+                          ]
+                      ; `O
+                          [
+                            ("name", `String "validRefCounts")
+                          ; ("name_internal", `String "validRefCounts")
+                          ; ("name_exported", `String "ValidRefCounts")
+                          ; ("func_name_suffix", `String "StringToIntMap")
+                          ]
+                      ; `O
+                          [
+                            ("name", `String "events")
+                          ; ("name_internal", `String "events")
+                          ; ("name_exported", `String "Events")
+                          ; ("func_name_suffix", `String "EventRecordSet")
+                          ]
+                      ]
+                  )
+                ]
+            ]
+        )
+      ]
+
+  let interface : Mustache.Json.t =
+    `O
+      [
+        ( "deserialize"
+        , `A
+            [
+              `O
+                [
+                  ("func_name_suffix", `String "RecordInterface")
+                ; ("type", `String "RecordInterface")
+                ]
+            ]
+        )
+      ]
 end

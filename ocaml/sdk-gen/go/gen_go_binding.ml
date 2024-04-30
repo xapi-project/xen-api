@@ -68,11 +68,60 @@ let render_api_messages_and_errors destdir =
   generate_file ~rendered:messages_rendered ~destdir
     ~output_file:"api_messages.go"
 
+let render_convert_header () =
+  let name s = `O [("name", `String s); ("sname", `Null)] in
+  let obj =
+    `O
+      [
+        ("name", `String "convert")
+      ; ( "modules"
+        , `O
+            [
+              ("import", `Bool true)
+            ; ( "items"
+              , `A (List.map name ["fmt"; "math"; "reflect"; "strconv"; "time"])
+              )
+            ]
+        )
+      ]
+  in
+  render_template "FileHeader.mustache" obj ~newline:true ()
+
+let render_converts destdir =
+  let event = render_template "ConvertBatch.mustache" Convert.event_batch () in
+  let interface =
+    render_template "ConvertInterface.mustache" Convert.interface ()
+  in
+  let param_types = TypesOfMessages.of_params objects in
+  let result_types = TypesOfMessages.of_results objects in
+  let generate types of_json =
+    types
+    |> List.map (fun ty ->
+           let params = Convert.of_ty ty in
+           let template = Convert.template_of_convert params in
+           let json : Mustache.Json.t = of_json params in
+           render_template template json ()
+       )
+    |> String.concat ""
+  in
+  let rendered =
+    let serializes_rendered = generate param_types Convert.of_serialize in
+    let deserializes_rendered = generate result_types Convert.of_deserialize in
+    render_convert_header ()
+    ^ serializes_rendered
+    ^ deserializes_rendered
+    ^ event
+    ^ String.trim interface
+    ^ "\n"
+  in
+  generate_file ~rendered ~destdir ~output_file:"convert.go"
+
 let main destdir =
   render_api_versions destdir ;
   render_api_messages_and_errors destdir ;
   let enums = Json.all_enums objects in
   render_enums enums destdir ;
+  render_converts destdir ;
   let objects = Json.xenapi objects in
   List.iter
     (fun (name, obj) ->
