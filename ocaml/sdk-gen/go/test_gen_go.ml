@@ -344,6 +344,12 @@ let verify_release_member = function
   | _ ->
       false
 
+let verify_simple_convert_member = function
+  | "func_name_suffix", `String _ | "type", `String _ ->
+      true
+  | _ ->
+      false
+
 let release_keys =
   [
     "branding"
@@ -376,6 +382,126 @@ let verify_version_member = function
 let verify_version = function
   | `O members ->
       schema_check version_keys verify_version_member members
+  | _ ->
+      false
+
+let verify_simple_convert_keys = ["func_name_suffix"; "type"]
+
+let verify_simple_convert = function
+  | `O items ->
+      schema_check verify_simple_convert_keys verify_simple_convert_member items
+  | _ ->
+      false
+
+let verify_option_convert_member = function
+  | "func_name_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let option_convert_keys = ["func_name_suffix"]
+
+let verify_option_convert = function
+  | `O items ->
+      schema_check option_convert_keys verify_option_convert_member items
+  | _ ->
+      false
+
+let verify_set_convert_member = function
+  | "func_name_suffix", `String _
+  | "type", `String _
+  | "item_func_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let convert_set_keys = ["func_name_suffix"; "type"; "item_func_suffix"]
+
+let verify_set_convert = function
+  | `O items ->
+      schema_check convert_set_keys verify_set_convert_member items
+  | _ ->
+      false
+
+let record_field_keys =
+  ["name"; "name_internal"; "name_exported"; "func_name_suffix"; "type_option"]
+
+let verify_record_field_member = function
+  | "name", `String _
+  | "name_internal", `String _
+  | "func_name_suffix", `String _
+  | "type_option", `Bool _
+  | "name_exported", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_record_field = function
+  | `O items ->
+      schema_check record_field_keys verify_record_field_member items
+  | _ ->
+      false
+
+let verify_record_convert_member = function
+  | "func_name_suffix", `String _ | "type", `String _ ->
+      true
+  | "fields", `A fields ->
+      List.for_all verify_record_field fields
+  | _ ->
+      false
+
+let convert_record_keys = ["func_name_suffix"; "type"; "fields"]
+
+let verify_record_convert = function
+  | `O items ->
+      schema_check convert_record_keys verify_record_convert_member items
+  | _ ->
+      false
+
+let enum_item_keys = ["value"; "name"]
+
+let verify_enum_item_member = function
+  | "name", `String _ | "value", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_enum_item = function
+  | `O members ->
+      schema_check enum_item_keys verify_enum_item_member members
+  | _ ->
+      false
+
+let enum_convert_keys = ["func_name_suffix"; "type"; "items"]
+
+let verify_enum_convert_member = function
+  | "func_name_suffix", `String _ | "type", `String _ ->
+      true
+  | "items", `A items ->
+      List.for_all verify_enum_item items
+  | _ ->
+      false
+
+let verify_enum_convert = function
+  | `O items ->
+      schema_check enum_convert_keys verify_enum_convert_member items
+  | _ ->
+      false
+
+let map_convert_keys = ["func_name_suffix"; "type"; "key_type"; "value_type"]
+
+let verify_map_convert_member = function
+  | "type", `String _
+  | "key_type", `String _
+  | "func_name_suffix", `String _
+  | "value_type", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_map_convert = function
+  | `O items ->
+      schema_check map_convert_keys verify_map_convert_member items
   | _ ->
       false
 
@@ -744,6 +870,151 @@ let messages : Mustache.Json.t =
       )
     ]
 
+let simple_type_convert : Mustache.Json.t =
+  let array =
+    [
+      `O [("func_name_suffix", `String "String"); ("type", `String "string")]
+    ; `O [("func_name_suffix", `String "Bool"); ("type", `String "bool")]
+    ]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let int_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_name_suffix", `String "Int"); ("type", `String "int")]]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let float_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_name_suffix", `String "Float"); ("type", `String "float64")]]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let time_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_name_suffix", `String "Time"); ("type", `String "time.Time")]]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let ref_string_convert : Mustache.Json.t =
+  let array =
+    [`O [("func_name_suffix", `String "VMRef"); ("type", `String "VMRef")]]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let set_convert : Mustache.Json.t =
+  let serialize =
+    [
+      `O
+        [
+          ("func_name_suffix", `String "SRRefSet")
+        ; ("type", `String "SRRef")
+        ; ("item_func_suffix", `String "SRRef")
+        ]
+    ]
+  in
+  let deserialize =
+    [
+      `O
+        [
+          ("func_name_suffix", `String "StringSet")
+        ; ("type", `String "string")
+        ; ("item_func_suffix", `String "String")
+        ]
+    ]
+  in
+  `O [("serialize", `A serialize); ("deserialize", `A deserialize)]
+
+let record_convert : Mustache.Json.t =
+  let array =
+    [
+      `O
+        [
+          ("func_name_suffix", `String "VBDRecord")
+        ; ("type", `String "VBDRecord")
+        ; ( "fields"
+          , `A
+              [
+                `O
+                  [
+                    ("name", `String "uuid")
+                  ; ("name_internal", `String "uuid")
+                  ; ("name_exported", `String "UUID")
+                  ; ("func_name_suffix", `String "String")
+                  ; ("type_option", `Bool false)
+                  ]
+              ; `O
+                  [
+                    ("name", `String "allowed_operations")
+                  ; ("name_internal", `String "allowedOperations")
+                  ; ("name_exported", `String "AllowedOperations")
+                  ; ("func_name_suffix", `String "EnumVbdOperationsSet")
+                  ; ("type_option", `Bool false)
+                  ]
+              ]
+          )
+        ]
+    ]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let map_convert : Mustache.Json.t =
+  let deserialize =
+    [
+      `O
+        [
+          ("func_name_suffix", `String "PBDRefToPBDRecordMap")
+        ; ("type", `String "map[PBDRef]PBDRecord")
+        ; ("key_type", `String "PBDRef")
+        ; ("value_type", `String "PBDRecord")
+        ]
+    ]
+  in
+  let serialize =
+    [
+      `O
+        [
+          ("func_name_suffix", `String "VIFRefToStringMap")
+        ; ("type", `String "map[VIFRef]string")
+        ; ("key_type", `String "VIFRef")
+        ; ("value_type", `String "String")
+        ]
+    ]
+  in
+  `O [("serialize", `A serialize); ("deserialize", `A deserialize)]
+
+let enum_convert : Mustache.Json.t =
+  let array =
+    [
+      `O
+        [
+          ("func_name_suffix", `String "EnumTaskStatusType")
+        ; ("type", `String "TaskStatusType")
+        ; ( "items"
+          , `A
+              [
+                `O
+                  [
+                    ("name", `String "TaskStatusTypePending")
+                  ; ("value", `String "pending")
+                  ]
+              ; `O
+                  [
+                    ("name", `String "TaskStatusTypeSuccess")
+                  ; ("value", `String "success")
+                  ]
+              ]
+          )
+        ]
+    ]
+  in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
+let option_convert : Mustache.Json.t =
+  let array = [`O [("func_name_suffix", `String "SrStatRecord")]] in
+  `O [("serialize", `A array); ("deserialize", `A array)]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -777,6 +1048,30 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let option_rendered = "type OptionString *string"
 
+  let simple_type_rendered = string_of_file "simple_type_convert.go"
+
+  let int_convert_rendered = string_of_file "int_convert.go"
+
+  let float_convert_rendered = string_of_file "float_convert.go"
+
+  let time_convert_rendered = string_of_file "time_convert.go"
+
+  let string_ref_rendered = string_of_file "ref_convert.go"
+
+  let set_convert_rendered = string_of_file "set_convert.go"
+
+  let record_convert_rendered = string_of_file "record_convert.go"
+
+  let interface_convert_rendered = string_of_file "interface_convert.go"
+
+  let map_convert_rendered = string_of_file "map_convert.go"
+
+  let enum_convert_rendered = string_of_file "enum_convert.go"
+
+  let batch_convert_rendered = string_of_file "batch_convert.go"
+
+  let option_convert_rendered = string_of_file "option_convert.go"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -789,6 +1084,22 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
       ; (("APIVersions.mustache", api_versions), api_versions_rendered)
       ; (("Option.mustache", option), option_rendered)
+      ; ( ("ConvertSimpleType.mustache", simple_type_convert)
+        , simple_type_rendered
+        )
+      ; (("ConvertInt.mustache", int_convert), int_convert_rendered)
+      ; (("ConvertFloat.mustache", float_convert), float_convert_rendered)
+      ; (("ConvertTime.mustache", time_convert), time_convert_rendered)
+      ; (("ConvertRef.mustache", ref_string_convert), string_ref_rendered)
+      ; (("ConvertSet.mustache", set_convert), set_convert_rendered)
+      ; (("ConvertRecord.mustache", record_convert), record_convert_rendered)
+      ; ( ("ConvertInterface.mustache", Convert.interface)
+        , interface_convert_rendered
+        )
+      ; (("ConvertMap.mustache", map_convert), map_convert_rendered)
+      ; (("ConvertEnum.mustache", enum_convert), enum_convert_rendered)
+      ; (("ConvertBatch.mustache", Convert.event_batch), batch_convert_rendered)
+      ; (("ConvertOption.mustache", option_convert), option_convert_rendered)
       ]
 end)
 
@@ -1161,6 +1472,69 @@ module GroupParamsTest = Generic.MakeStateless (struct
       ]
 end)
 
+module TestConvertGeneratedJson = struct
+  open Convert
+
+  let verify description verify_func actual =
+    Alcotest.(check bool) description true (verify_func actual)
+
+  let param_types = TypesOfMessages.of_params objects
+
+  let result_types = TypesOfMessages.of_results objects
+
+  let verify_func = function
+    | Simple _ | Int _ | Float _ | Time _ | Ref _ ->
+        verify_simple_convert
+    | Option _ ->
+        verify_option_convert
+    | Set _ ->
+        verify_set_convert
+    | Record _ ->
+        verify_record_convert
+    | Enum _ ->
+        verify_enum_convert
+    | Map _ ->
+        verify_map_convert
+
+  let convert_param_name = function
+    | Simple _ ->
+        "simple"
+    | Int _ ->
+        "int"
+    | Float _ ->
+        "float"
+    | Time _ ->
+        "time"
+    | Ref _ ->
+        "ref"
+    | Option _ ->
+        "option"
+    | Set _ ->
+        "set"
+    | Record _ ->
+        "record"
+    | Enum _ ->
+        "enum"
+    | Map _ ->
+        "map"
+
+  let test types () =
+    List.iter
+      (fun ty ->
+        let param = Convert.of_ty ty in
+        let obj = Convert.to_json param in
+        let verify_func = verify_func param in
+        verify (convert_param_name param) verify_func obj
+      )
+      types
+
+  let tests =
+    [
+      ("serialize", `Quick, test param_types)
+    ; ("deserialize", `Quick, test result_types)
+    ]
+end
+
 let tests =
   make_suite "gen_go_binding_"
     [
@@ -1170,6 +1544,7 @@ let tests =
     ; ("templates", TemplatesTest.tests)
     ; ("generated_mustache_jsons", TestGeneratedJson.tests)
     ; ("group_params", GroupParamsTest.tests)
+    ; ("generated_convert_jsons", TestConvertGeneratedJson.tests)
     ]
 
 let () = Alcotest.run "Gen go binding" tests
