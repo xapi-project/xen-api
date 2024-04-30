@@ -137,3 +137,11 @@ val session_id : param
 
 val objects : obj list
 (** Objects of api that generate SDKs. *)
+
+module TypesOfMessages : sig
+  val of_params : Datamodel_types.obj list -> Datamodel_types.ty list
+  (** All the types in the params of messages*)
+
+  val of_results : Datamodel_types.obj list -> Datamodel_types.ty list
+  (** All the types in the results of messages*)
+end
