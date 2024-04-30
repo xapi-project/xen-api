@@ -42,6 +42,8 @@ let generate_file ~rendered ~destdir ~output_file =
     ~finally:(fun () -> close_out out_chan)
 
 module Json = struct
+  open Xapi_stdext_std
+
   type enum = (string * string) list
 
   module StringMap = Map.Make (String)
@@ -52,6 +54,32 @@ module Json = struct
 
   let merge_maps m maps =
     List.fold_left (fun acc map -> StringMap.union choose_enum acc map) m maps
+
+  let rec func_name_suffix = function
+    | SecretString | String ->
+        "String"
+    | Int ->
+        "Int"
+    | Float ->
+        "Float"
+    | Bool ->
+        "Bool"
+    | DateTime ->
+        "Time"
+    | Enum (name, _) ->
+        "Enum" ^ snake_to_camel name
+    | Set ty ->
+        func_name_suffix ty ^ "Set"
+    | Map (ty1, ty2) ->
+        let k_suffix = func_name_suffix ty1 in
+        let v_suffix = func_name_suffix ty2 in
+        k_suffix ^ "To" ^ v_suffix ^ "Map"
+    | Ref r ->
+        snake_to_camel r ^ "Ref"
+    | Record r ->
+        snake_to_camel r ^ "Record"
+    | Option ty ->
+        func_name_suffix ty
 
   let rec string_of_ty_with_enums ty : string * enums =
     match ty with
@@ -81,7 +109,9 @@ module Json = struct
     | Record r ->
         (snake_to_camel r ^ "Record", StringMap.empty)
     | Option ty ->
-        string_of_ty_with_enums ty
+        let _, e = string_of_ty_with_enums ty in
+        let name = func_name_suffix ty in
+        ("Option" ^ name, e)
 
   let of_enum name vs =
     let name = snake_to_camel name in
@@ -123,9 +153,7 @@ module Json = struct
 
   let modules_of_types types =
     let common = [`O [("name", `String "fmt"); ("sname", `Null)]] in
-    let items =
-      List.map modules_of_type types |> List.concat |> List.append common
-    in
+    let items = List.concat_map modules_of_type types |> List.append common in
     `O [("import", `Bool true); ("items", `A items)]
 
   let all_enums objs =
@@ -169,13 +197,28 @@ module Json = struct
     | _ ->
         [("event", `Null); ("session", `Null)]
 
+  let of_option ty =
+    let name, _ = string_of_ty_with_enums ty in
+    `O
+      [
+        ("type", `String name)
+      ; ("type_name_suffix", `String (func_name_suffix ty))
+      ]
+
+  let of_options types =
+    types
+    |> List.filter_map (function Option ty -> Some ty | _ -> None)
+    |> List.map of_option
+
   let xenapi objs =
     List.map
       (fun obj ->
         let obj_name = snake_to_camel obj.name in
         let name_internal = String.uncapitalize_ascii obj_name in
         let fields = Datamodel_utils.fields_of_obj obj in
-        let types = List.map (fun field -> field.ty) fields in
+        let types =
+          List.map (fun field -> field.ty) fields |> Listext.List.setify
+        in
         let modules =
           match obj.messages with [] -> `Null | _ -> modules_of_types types
         in
@@ -188,6 +231,7 @@ module Json = struct
             , `A (get_event_snapshot obj.name @ List.map of_field fields)
             )
           ; ("modules", modules)
+          ; ("option", `A (of_options types))
           ]
         in
         let assoc_list = base_assoc_list @ get_event_session_value obj.name in

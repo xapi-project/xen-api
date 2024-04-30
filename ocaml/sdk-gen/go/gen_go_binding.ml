@@ -54,8 +54,9 @@ let main destdir =
       let header_rendered =
         render_template "FileHeader.mustache" obj ~newline:true ()
       in
+      let options_rendered = render_template "Option.mustache" obj () in
       let record_rendered = render_template "Record.mustache" obj () in
-      let rendered = header_rendered ^ record_rendered in
+      let rendered = header_rendered ^ options_rendered ^ record_rendered in
       let output_file = name ^ ".go" in
       generate_file ~rendered ~destdir ~output_file
     )

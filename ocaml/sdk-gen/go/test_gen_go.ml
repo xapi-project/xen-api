@@ -134,6 +134,20 @@ let verify_enums : Mustache.Json.t -> bool = function
   | _ ->
       false
 
+let option_keys = ["type"; "type_name_suffix"]
+
+let verify_option_member = function
+  | "type", `String _ | "type_name_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_option = function
+  | `O members ->
+      schema_check option_keys verify_option_member members
+  | _ ->
+      false
+
 (* obj *)
 let verify_obj_member = function
   | "name", `String _ | "description", `String _ | "name_internal", `String _ ->
@@ -144,6 +158,8 @@ let verify_obj_member = function
       true
   | "fields", `A fields ->
       List.for_all verify_field fields
+  | "option", `A options ->
+      List.for_all verify_option options
   | "modules", `Null ->
       true
   | "modules", `O members ->
@@ -160,6 +176,7 @@ let obj_keys =
   ; "modules"
   ; "event"
   ; "session"
+  ; "option"
   ]
 
 let verify_obj = function
@@ -336,6 +353,21 @@ let api_messages : Mustache.Json.t =
       )
     ]
 
+let option =
+  `O
+    [
+      ( "option"
+      , `A
+          [
+            `O
+              [
+                ("type", `String "string")
+              ; ("type_name_suffix", `String "String")
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -361,6 +393,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let api_messages_rendered = string_of_file "api_messages.go"
 
+  let option_rendered = "type OptionString *string"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -369,6 +403,7 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("Enum.mustache", enums), enums_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
+      ; (("Option.mustache", option), option_rendered)
       ]
 end)
 
