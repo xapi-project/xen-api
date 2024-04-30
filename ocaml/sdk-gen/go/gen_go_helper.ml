@@ -448,18 +448,6 @@ module Json = struct
     |> List.filter_map (function Option ty -> Some ty | _ -> None)
     |> List.map of_option
 
-  let of_option ty =
-    let name, _ = string_of_ty_with_enums ty in
-    `O
-      [
-        ("type", `String name); ("type_name_suffix", `String (suffix_of_type ty))
-      ]
-
-  let of_options types =
-    types
-    |> List.filter_map (function Option ty -> Some ty | _ -> None)
-    |> List.map of_option
-
   let xenapi objs =
     List.map
       (fun obj ->
