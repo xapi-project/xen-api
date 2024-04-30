@@ -1015,6 +1015,21 @@ let messages : Mustache.Json.t =
       )
     ]
 
+let option =
+  `O
+    [
+      ( "option"
+      , `A
+          [
+            `O
+              [
+                ("type", `String "string")
+              ; ("type_name_suffix", `String "String")
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -1072,6 +1087,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let option_convert_rendered = string_of_file "option_convert.go"
 
+  let option_rendered = "type OptionString *string"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -1100,6 +1117,7 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("ConvertEnum.mustache", enum_convert), enum_convert_rendered)
       ; (("ConvertBatch.mustache", Convert.event_batch), batch_convert_rendered)
       ; (("ConvertOption.mustache", option_convert), option_convert_rendered)
+      ; (("Option.mustache", option), option_rendered)
       ]
 end)
 
@@ -1532,6 +1550,95 @@ module TestConvertGeneratedJson = struct
     [
       ("serialize", `Quick, test param_types)
     ; ("deserialize", `Quick, test result_types)
+    ]
+end
+
+module StringOfTyWithEnumsTest = struct
+  open Datamodel_types
+  module StringMap = Json.StringMap
+
+  let verify description verify_func actual =
+    Alcotest.(check bool) description true (verify_func actual)
+
+  let verify_string (ty, enums) = ty = "string" && enums = StringMap.empty
+
+  let test_string () =
+    let ty, enums = Json.string_of_ty_with_enums String in
+    verify "String" verify_string (ty, enums)
+
+  let test_secret_string () =
+    let ty, enums = Json.string_of_ty_with_enums SecretString in
+    verify "SecretString" verify_string (ty, enums)
+
+  let verify_float (ty, enums) = ty = "float64" && enums = StringMap.empty
+
+  let test_float () =
+    let ty, enums = Json.string_of_ty_with_enums Float in
+    verify "Float" verify_float (ty, enums)
+
+  let verify_bool (ty, enums) = ty = "bool" && enums = StringMap.empty
+
+  let test_bool () =
+    let ty, enums = Json.string_of_ty_with_enums Bool in
+    verify "bool" verify_bool (ty, enums)
+
+  let verify_datetime (ty, enums) = ty = "time.Time" && enums = StringMap.empty
+
+  let test_datetime () =
+    let ty, enums = Json.string_of_ty_with_enums DateTime in
+    verify "datetime" verify_datetime (ty, enums)
+
+  let enum_lst = [("a", "b"); ("c", "d")]
+
+  let verify_enum (ty, enums) =
+    ty = "UpdateSync" && enums = StringMap.singleton "UpdateSync" enum_lst
+
+  let test_enum () =
+    let ty, enums =
+      Json.string_of_ty_with_enums (Enum ("update_sync", enum_lst))
+    in
+    verify "enum" verify_enum (ty, enums)
+
+  let verify_ref (ty, enums) = ty = "PoolRef" && enums = StringMap.empty
+
+  let test_ref () =
+    let ty, enums = Json.string_of_ty_with_enums (Ref "pool") in
+    verify "ref" verify_ref (ty, enums)
+
+  let verify_record (ty, enums) = ty = "PoolRecord" && enums = StringMap.empty
+
+  let test_record () =
+    let ty, enums = Json.string_of_ty_with_enums (Record "pool") in
+    verify "record" verify_record (ty, enums)
+
+  let verify_option (ty, enums) = ty = "OptionString" && enums = StringMap.empty
+
+  let test_option () =
+    let ty, enums = Json.string_of_ty_with_enums (Option String) in
+    verify "option" verify_string (ty, enums)
+
+  let verify_map (ty, enums) =
+    ty = "map[int]UpdateSync"
+    && enums = StringMap.singleton "UpdateSync" enum_lst
+
+  let test_map () =
+    let ty, enums =
+      Json.string_of_ty_with_enums (Map (Int, Enum ("update_sync", enum_lst)))
+    in
+    verify "map" verify_map (ty, enums)
+
+  let tests =
+    [
+      ("String", `Quick, test_string)
+    ; ("SecretString", `Quick, test_secret_string)
+    ; ("Float", `Quick, test_float)
+    ; ("Bool", `Quick, test_bool)
+    ; ("DateTime", `Quick, test_datetime)
+    ; ("Enum", `Quick, test_enum)
+    ; ("Ref", `Quick, test_ref)
+    ; ("Record", `Quick, test_record)
+    ; ("Option", `Quick, test_option)
+    ; ("Map", `Quick, test_map)
     ]
 end
 
