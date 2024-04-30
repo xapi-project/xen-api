@@ -103,6 +103,7 @@ let main destdir =
       let header_rendered =
         render_template "FileHeader.mustache" obj ~newline:true ()
       in
+      let options_rendered = render_template "Option.mustache" obj () in
       let record_rendered = render_template "Record.mustache" obj () in
       let methods_rendered =
         if name = "session" then
@@ -111,7 +112,7 @@ let main destdir =
           render_template "Methods.mustache" obj ()
       in
       let rendered =
-        let first_half = header_rendered ^ record_rendered in
+        let first_half = header_rendered ^ options_rendered ^ record_rendered in
         match methods_rendered with
         | "" ->
             first_half

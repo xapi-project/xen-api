@@ -258,6 +258,20 @@ let verify_enums : Mustache.Json.t -> bool = function
   | _ ->
       false
 
+let option_keys = ["type"; "type_name_suffix"]
+
+let verify_option_member = function
+  | "type", `String _ | "type_name_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_option = function
+  | `O members ->
+      schema_check option_keys verify_option_member members
+  | _ ->
+      false
+
 (* obj *)
 let verify_obj_member = function
   | "name", `String _ | "description", `String _ | "name_internal", `String _ ->
@@ -270,6 +284,8 @@ let verify_obj_member = function
       List.for_all verify_field fields
   | "messages", `A messages ->
       List.for_all verify_message messages
+  | "option", `A options ->
+      List.for_all verify_option options
   | "modules", `Null ->
       true
   | "modules", `O members ->
@@ -287,6 +303,7 @@ let obj_keys =
   ; "modules"
   ; "event"
   ; "session"
+  ; "option"
   ]
 
 let verify_obj = function
@@ -903,6 +920,21 @@ let messages : Mustache.Json.t =
       )
     ]
 
+let option =
+  `O
+    [
+      ( "option"
+      , `A
+          [
+            `O
+              [
+                ("type", `String "string")
+              ; ("type_name_suffix", `String "String")
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -956,6 +988,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let option_convert_rendered = string_of_file "option_convert.go"
 
+  let option_rendered = "type OptionString *string"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -982,6 +1016,7 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("ConvertEnum.mustache", enum_convert), enum_convert_rendered)
       ; (("ConvertBatch.mustache", Convert.event_batch), batch_convert_rendered)
       ; (("ConvertOption.mustache", option_convert), option_convert_rendered)
+      ; (("Option.mustache", option), option_rendered)
       ]
 end)
 
@@ -1160,11 +1195,13 @@ module StringOfTyWithEnumsTest = struct
 
   let test_record () =
     let ty, enums = Json.string_of_ty_with_enums (Record "pool") in
-    verify "datetime" verify_record (ty, enums)
+    verify "record" verify_record (ty, enums)
+
+  let verify_option (ty, enums) = ty = "OptionString" && enums = StringMap.empty
 
   let test_option () =
     let ty, enums = Json.string_of_ty_with_enums (Option String) in
-    verify "datetime" verify_string (ty, enums)
+    verify "option" verify_string (ty, enums)
 
   let verify_map (ty, enums) =
     ty = "map[int]UpdateSync"
