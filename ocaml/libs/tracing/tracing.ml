@@ -608,7 +608,7 @@ let get_tracer ~name =
   | Some provider ->
       Tracer.create ~name ~provider
   | None ->
-      warn "No provider found for tracing %s" name ;
+      (* warn "No provider found for tracing %s" name ; *)
       Tracer.no_op
 
 let enable_span_garbage_collector ?(timeout = 86400.) () =
