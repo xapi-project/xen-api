@@ -368,11 +368,34 @@ module Json = struct
       )
       objs
 
-  let api_messages =
-    List.map (fun (msg, _) -> `O [("name", `String msg)]) !Api_messages.msgList
+  let of_api_message_or_error info =
+    let snake_to_camel (s : string) : string =
+      String.split_on_char '_' s
+      |> List.map (fun seg ->
+             let lower = String.lowercase_ascii seg in
+             match lower with
+             | "vm"
+             | "cpu"
+             | "tls"
+             | "xml"
+             | "url"
+             | "id"
+             | "uuid"
+             | "ip"
+             | "api"
+             | "eof" ->
+                 String.uppercase_ascii lower
+             | _ ->
+                 String.capitalize_ascii lower
+         )
+      |> String.concat ""
+    in
+    `O [("name", `String (snake_to_camel info)); ("value", `String info)]
 
-  let api_errors =
-    List.map (fun error -> `O [("name", `String error)]) !Api_errors.errors
+  let api_messages =
+    List.map (fun (msg, _) -> of_api_message_or_error msg) !Api_messages.msgList
+
+  let api_errors = List.map of_api_message_or_error !Api_errors.errors
 end
 
 module Convert = struct

@@ -1,6 +1,7 @@
+//nolint:gosec
 const (
 	//
-	ERR_MESSAGE_DEPRECATED = "MESSAGE_DEPRECATED"
+	ErrorMessageDeprecated = "MESSAGE_DEPRECATED"
 	//
-	ERR_MESSAGE_REMOVED = "MESSAGE_REMOVED"
+	ErrorMessageRemoved = "MESSAGE_REMOVED"
 )
