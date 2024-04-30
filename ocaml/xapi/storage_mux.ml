@@ -18,26 +18,8 @@ module D = Debug.Make (struct let name = "mux" end)
 
 open D
 
-(* Sets the logging context based on `dbg`.
-   Also adds a new tracing span, linked to the parent span from `dbg`, if available. *)
 let with_dbg ~name ~dbg f =
-  let open Debuginfo in
-  let di = of_string dbg in
-  Debug.with_thread_associated di.log
-    (fun () ->
-      let name = "SMAPIv2." ^ name in
-      let tracer = Tracing.get_tracer ~name in
-      let span = Tracing.Tracer.start ~tracer ~name ~parent:di.tracing () in
-      match span with
-      | Ok span_context ->
-          let result = f {di with tracing= span_context} in
-          let _ = Tracing.Tracer.finish span_context in
-          result
-      | Error e ->
-          D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-          f di
-    )
-    ()
+  Debuginfo.with_dbg ~with_thread:true ~module_name:"SMAPIv2" ~name ~dbg f
 
 type processor = Rpc.call -> Rpc.response
 

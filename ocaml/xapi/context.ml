@@ -211,10 +211,6 @@ let make_dbg http_other_config task_name task_id =
       (if task_name = "" then "" else " ")
       (Ref.really_pretty_and_small task_id)
 
-let span_kind_of_parent parent =
-  let open Tracing in
-  Option.fold ~none:SpanKind.Internal ~some:(fun _ -> SpanKind.Server) parent
-
 let parent_of_origin (origin : origin) span_name =
   let open Tracing in
   let ( let* ) = Option.bind in
@@ -328,17 +324,9 @@ let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
   in
   let span_name, span_attributes = span_details_from_task_name task_name in
   let parent = parent_fn span_name in
-  let span_kind = span_kind_of_parent parent in
-  let tracer = get_tracer ~name:span_name in
-  match
-    Tracer.start ~span_kind ~tracer ~attributes:span_attributes ~name:span_name
-      ~parent ()
-  with
-  | Ok x ->
-      x
-  | Error e ->
-      R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-      None
+
+  Tracing.with_tracing ~attributes:span_attributes ~parent ~name:span_name
+    Fun.id
 
 (** constructors *)
 
