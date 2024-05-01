@@ -269,9 +269,8 @@ functor
                     let row = Db_cache_types.Table.find r table in
                     let s =
                       Db_cache_types.Row.fold_over_recent g
-                        (fun k _ v acc ->
-                          Printf.sprintf "%s %s=%s" acc k
-                            (Schema.Value.marshal v)
+                        (fun k _ (_, cached) acc ->
+                          Printf.sprintf "%s %s=%s" acc k cached
                         )
                         row ""
                     in

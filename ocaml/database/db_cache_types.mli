@@ -82,6 +82,12 @@ end
 module Row : sig
   include MAP with type value = Schema.Value.t
 
+  val fold : (string -> Stat.t -> value * string -> 'b -> 'b) -> t -> 'b -> 'b
+  (** [fold f t initial] folds [f key stats value acc] over the items in [t] *)
+
+  val fold_over_recent :
+    Time.t -> (string -> Stat.t -> value * string -> 'b -> 'b) -> t -> 'b -> 'b
+
   val add_defaults : Time.t -> Schema.Table.t -> t -> t
   (** [add_defaults now schema t]: returns a row which is [t] extended to contain
       all the columns specified in the schema, with default values set if not already
