@@ -1093,18 +1093,8 @@ functor
         else
           local_fn ~__context
 
-      (* Clear scheduled_to_be_resident_on for a VM and all its vGPUs. *)
-      let clear_scheduled_to_be_resident_on ~__context ~vm =
-        Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
-          ~value:Ref.null ;
-        List.iter
-          (fun vgpu ->
-            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
-              ~value:Ref.null
-          )
-          (Db.VM.get_VGPUs ~__context ~self:vm)
-
-      let clear_reserved_netsriov_vfs_on ~__context ~vm =
+      let clear_vif_reservations ~__context ~vm =
+        debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
         Db.VM.get_VIFs ~__context ~self:vm
         |> List.iter (fun vif ->
                let vf = Db.VIF.get_reserved_pci ~__context ~self:vif in
@@ -1113,6 +1103,32 @@ functor
                  Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf
                    ~value:Ref.null
            )
+
+      let clear_reservations ~__context ~vm =
+        debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
+        (* host *)
+        Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
+          ~value:Ref.null ;
+        (* vgpu *)
+        Db.VM.get_VGPUs ~__context ~self:vm
+        |> List.iter (fun vgpu ->
+               Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
+                 ~value:Ref.null
+           ) ;
+        (* pcis *)
+        Db.PCI.get_refs_where ~__context
+          ~expr:
+            (Eq (Field "scheduled_to_be_attached_to", Literal (Ref.string_of vm))
+            )
+        |> List.iter (function
+             | pci when pci <> Ref.null ->
+                 debug "%s: clearing reservation of PCI %s for VM %s"
+                   __FUNCTION__ (Ref.string_of pci) (Ref.string_of vm) ;
+                 Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci
+                   ~value:Ref.null
+             | _ ->
+                 ()
+             )
 
       (* Notes on memory checking/reservation logic:
          When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1145,8 +1161,8 @@ functor
             (Helpers.will_have_qemu ~__context ~self:vm) ;
           Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
         with e ->
-          clear_scheduled_to_be_resident_on ~__context ~vm ;
-          clear_reserved_netsriov_vfs_on ~__context ~vm ;
+          clear_vif_reservations ~__context ~vm ;
+          clear_reservations ~__context ~vm ;
           raise e
 
       (* For start/start_on/resume/resume_on/migrate *)
@@ -1215,7 +1231,7 @@ functor
                   ?host_op () ;
                 (* In certain cases, VM might have been destroyed as a consequence of operation *)
                 if Db.is_valid_ref __context vm then
-                  clear_scheduled_to_be_resident_on ~__context ~vm
+                  clear_reservations ~__context ~vm
             )
           )
 
@@ -1234,7 +1250,7 @@ functor
         finally f (fun () ->
             Helpers.with_global_lock (fun () ->
                 finally_clear_host_operation ~__context ~host ?host_op () ;
-                clear_scheduled_to_be_resident_on ~__context ~vm
+                clear_reservations ~__context ~vm
             )
         )
 
@@ -2286,7 +2302,7 @@ functor
                 Helpers.with_global_lock (fun () ->
                     finally_clear_host_operation ~__context ~host
                       ~host_op:`vm_migrate () ;
-                    clear_scheduled_to_be_resident_on ~__context ~vm
+                    clear_reservations ~__context ~vm
                 )
               in
               finally
