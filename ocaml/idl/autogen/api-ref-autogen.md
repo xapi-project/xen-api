@@ -1,7 +1,3 @@
----
- layout: doc
----
-
 # API Reference
 
 Version **@xapi-version@**

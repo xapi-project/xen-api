@@ -2102,35 +2102,16 @@ let t =
             "hardware_platform_version"
             "The host virtual hardware platform version the VM can run on"
         ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_dundee, "")]
-            ~doc_tags:[Windows]
-            ~default_value:
-              (Some
-                 (VCustom
-                    ( String.concat "\n"
-                        [
-                          "(try Rpc.Bool ("
-                        ; "let pool = List.hd \
-                           (Db_actions.DB_Action.Pool.get_all ~__context) in"
-                        ; "let restrictions = \
-                           Db_actions.DB_Action.Pool.get_restrictions \
-                           ~__context ~self:pool in "
-                        ; "let vendor_device_allowed = try List.assoc \
-                           \"restrict_pci_device_for_auto_update\" \
-                           restrictions = \"false\" with _ -> false in"
-                        ; "let policy_says_its_ok = not \
-                           (Db_actions.DB_Action.Pool.get_policy_no_vendor_device \
-                           ~__context ~self:pool) in"
-                        ; "vendor_device_allowed && policy_says_its_ok) with e \
-                           -> D.error \"Failure when defaulting \
-                           has_vendor_device field: %s\" (Printexc.to_string \
-                           e); Rpc.Bool false)"
-                        ]
-                    , VBool false
-                    )
-                 )
-              )
-            ~ty:Bool "has_vendor_device"
+            ~lifecycle:
+              [
+                (Published, rel_dundee, "")
+              ; ( Changed
+                , "24.14.0"
+                , "New default and not consulting Pool.policy_no_vendor_device"
+                )
+              ]
+            ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool
+            "has_vendor_device"
             "When an HVM guest starts, this controls the presence of the \
              emulated C000 PCI device which triggers Windows Update to fetch \
              or update PV drivers."

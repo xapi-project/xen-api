@@ -333,6 +333,11 @@ namespace XenAPI
 
         #endregion
 
+        public string[] GetSystemMethods()
+        {
+            return JsonRpcClient.system_list_methods();
+        }
+
         public static Session get_record(Session session, string _session)
         {
             Session newSession = new Session(session.Url) { opaque_ref = _session };

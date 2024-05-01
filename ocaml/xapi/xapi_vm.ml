@@ -592,9 +592,6 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
     ~nVRAM : API.ref_VM =
-  if has_vendor_device then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
   (* Add random mac_seed if there isn't one specified already *)
   let other_config =
     let gen_mac_seed () = Uuidx.to_string (Uuidx.make ()) in
@@ -1576,19 +1573,9 @@ let import ~__context ~url ~sr ~full_restore ~force =
 let query_services ~__context ~self:_ =
   raise Api_errors.(Server_error (not_implemented, ["query_services"]))
 
-let assert_can_set_has_vendor_device ~__context ~self ~value =
-  if
-    value
-    (* Do the check even for templates, because snapshots are templates and
-       	 * we allow restoration of a VM from a snapshot. *)
-  then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
-    ~expected:`Halted
-
 let set_has_vendor_device ~__context ~self ~value =
-  assert_can_set_has_vendor_device ~__context ~self ~value ;
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
+    ~expected:`Halted ;
   Db.VM.set_has_vendor_device ~__context ~self ~value ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:self
 
