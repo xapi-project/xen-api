@@ -412,6 +412,7 @@ module Spans = struct
     let lock = Mutex.create ()
 
     let span_timeout = Atomic.make 86400.
+    (* one day in seconds *)
 
     let span_timeout_thread = ref None
 
@@ -479,6 +480,81 @@ module TracerProvider = struct
   let get_endpoints t = t.endpoints
 
   let get_enabled t = t.enabled
+
+  let lock = Mutex.create ()
+
+  let tracer_providers = Hashtbl.create 100
+
+  let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
+    let provider : t =
+      let endpoints = List.map endpoint_of_string endpoints in
+      let attributes = Attributes.of_list attributes in
+      {name_label; attributes; endpoints; enabled}
+    in
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        ( match Hashtbl.find_opt tracer_providers uuid with
+        | None ->
+            Hashtbl.add tracer_providers uuid provider
+        | Some _ ->
+            (* CP-45469: It is ok not to have an exception here since it is unlikely that the
+               user has caused the issue, so no need to propagate back. It is also
+               handy to not change the control flow since calls like cluster_pool_resync
+               might not be aware that a TracerProvider has already been created.*)
+            error "Tracing : TracerProvider %s already exists" name_label
+        ) ;
+        if enabled then set_observe true
+    )
+
+  let get_tracer_providers_unlocked () =
+    Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
+
+  let get_tracer_providers () =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock
+      get_tracer_providers_unlocked
+
+  let set ?enabled ?attributes ?endpoints ~uuid () =
+    let update_provider (provider : t) enabled attributes endpoints =
+      let enabled = Option.value ~default:provider.enabled enabled in
+      let attributes : string Attributes.t =
+        Option.fold ~none:provider.attributes ~some:Attributes.of_list
+          attributes
+      in
+      let endpoints =
+        Option.fold ~none:provider.endpoints
+          ~some:(List.map endpoint_of_string)
+          endpoints
+      in
+      {provider with enabled; attributes; endpoints}
+    in
+
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let provider =
+          match Hashtbl.find_opt tracer_providers uuid with
+          | Some (provider : t) ->
+              update_provider provider enabled attributes endpoints
+          | None ->
+              fail "The TracerProvider : %s does not exist" uuid
+        in
+        Hashtbl.replace tracer_providers uuid provider ;
+        if
+          List.for_all
+            (fun provider -> not provider.enabled)
+            (get_tracer_providers_unlocked ())
+        then (
+          set_observe false ;
+          Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
+              Hashtbl.clear Spans.spans ;
+              Hashtbl.clear Spans.finished_spans
+          )
+        ) else
+          set_observe true
+    )
+
+  let destroy ~uuid =
+    Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
+        let _ = Hashtbl.remove tracer_providers uuid in
+        if Hashtbl.length tracer_providers = 0 then set_observe false else ()
+    )
 end
 
 module Tracer = struct
@@ -496,6 +572,22 @@ module Tracer = struct
       }
     in
     {name= ""; provider}
+
+  let get_tracer ~name =
+    if Atomic.get observe then (
+      let providers =
+        Xapi_stdext_threads.Threadext.Mutex.execute TracerProvider.lock
+          TracerProvider.get_tracer_providers_unlocked
+      in
+
+      match List.find_opt TracerProvider.get_enabled providers with
+      | Some provider ->
+          create ~name ~provider
+      | None ->
+          warn "No provider found for tracing %s" name ;
+          no_op
+    ) else
+      no_op
 
   let span_of_span_context context name : Span.t =
     {
@@ -551,102 +643,12 @@ module Tracer = struct
     Spans.finished_span_hashtbl_is_empty ()
 end
 
-let lock = Mutex.create ()
-
-let tracer_providers = Hashtbl.create 100
-
-let get_tracer_providers_unlocked () =
-  Hashtbl.fold (fun _ provider acc -> provider :: acc) tracer_providers []
-
-let get_tracer_providers () =
-  Xapi_stdext_threads.Threadext.Mutex.execute lock get_tracer_providers_unlocked
-
-let set ?enabled ?attributes ?endpoints ~uuid () =
-  let update_provider (provider : TracerProvider.t) enabled attributes endpoints
-      =
-    let enabled = Option.value ~default:provider.enabled enabled in
-    let attributes : string Attributes.t =
-      Option.fold ~none:provider.attributes ~some:Attributes.of_list attributes
-    in
-    let endpoints =
-      Option.fold ~none:provider.endpoints
-        ~some:(List.map endpoint_of_string)
-        endpoints
-    in
-    {provider with enabled; attributes; endpoints}
-  in
-
-  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-      let provider =
-        match Hashtbl.find_opt tracer_providers uuid with
-        | Some (provider : TracerProvider.t) ->
-            update_provider provider enabled attributes endpoints
-        | None ->
-            fail "The TracerProvider : %s does not exist" uuid
-      in
-      Hashtbl.replace tracer_providers uuid provider ;
-      if
-        List.for_all
-          (fun provider -> not provider.TracerProvider.enabled)
-          (get_tracer_providers_unlocked ())
-      then (
-        set_observe false ;
-        Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
-            Hashtbl.clear Spans.spans ;
-            Hashtbl.clear Spans.finished_spans
-        )
-      ) else
-        set_observe true
-  )
-
-let create ~enabled ~attributes ~endpoints ~name_label ~uuid =
-  let provider : TracerProvider.t =
-    let endpoints = List.map endpoint_of_string endpoints in
-    let attributes = Attributes.of_list attributes in
-    {name_label; attributes; endpoints; enabled}
-  in
-  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-      ( match Hashtbl.find_opt tracer_providers uuid with
-      | None ->
-          Hashtbl.add tracer_providers uuid provider
-      | Some _ ->
-          (* CP-45469: It is ok not to have an exception here since it is unlikely that the
-             user has caused the issue, so no need to propagate back. It is also
-             handy to not change the control flow since calls like cluster_pool_resync
-             might not be aware that a TracerProvider has already been created.*)
-          error "Tracing : TracerProvider %s already exists" name_label
-      ) ;
-      if enabled then set_observe true
-  )
-
-let destroy ~uuid =
-  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-      let _ = Hashtbl.remove tracer_providers uuid in
-      if Hashtbl.length tracer_providers = 0 then set_observe false else ()
-  )
-
-let get_tracer ~name =
-  if Atomic.get observe then (
-    let providers =
-      Xapi_stdext_threads.Threadext.Mutex.execute lock
-        get_tracer_providers_unlocked
-    in
-
-    match List.find_opt TracerProvider.get_enabled providers with
-    | Some provider ->
-        Tracer.create ~name ~provider
-    | None ->
-        warn "No provider found for tracing %s" name ;
-        Tracer.no_op
-  ) else
-    Tracer.no_op
-
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
 let with_tracing ?(attributes = []) ?(parent = None) ~name f =
   if Atomic.get observe then (
-    let tracer = get_tracer ~name in
+    let tracer = Tracer.get_tracer ~name in
     match Tracer.start ~tracer ~attributes ~name ~parent () with
     | Ok span -> (
       try
