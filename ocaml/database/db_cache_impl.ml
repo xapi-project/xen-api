@@ -36,9 +36,9 @@ open Db_ref
 
 let fist_delay_read_records_where = ref false
 
-type field_in = string
+type field_in = Schema.Value.t
 
-type field_out = string
+type field_out = Schema.maybe_cached_value
 
 (* Only needed by the DB_ACCESS signature *)
 let initialise () = ()
@@ -53,14 +53,13 @@ let is_valid_ref t objref =
 
 let read_field_internal _ tblname fldname objref db =
   try
-    Row.find fldname
+    Row.find' fldname
       (Table.find objref (TableSet.find tblname (Database.tableset db)))
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
 (* Read field from cache *)
 let read_field t tblname fldname objref =
-  Schema.Value.marshal
-    (read_field_internal t tblname fldname objref (get_database t))
+  read_field_internal t tblname fldname objref (get_database t)
 
 (** Finds the longest XML-compatible UTF-8 prefix of the given
     string, by truncating the string at the first incompatible
@@ -75,6 +74,8 @@ let ensure_utf8_xml string =
     warn "string truncated to: '%s'." prefix ;
   prefix
 
+let ensure_utf8_xml_and_share string = string |> ensure_utf8_xml |> Share.merge
+
 (* Write field in cache *)
 let write_field_locked t tblname objref fldname newval =
   let current_val = get_field tblname objref fldname (get_database t) in
@@ -86,10 +87,6 @@ let write_field_locked t tblname objref fldname newval =
   )
 
 let write_field t tblname objref fldname newval =
-  let schema = Database.schema (get_database t) in
-  let schema = Schema.table tblname schema in
-  let column = Schema.Table.find fldname schema in
-  let newval = Schema.Value.unmarshal column.Schema.Column.ty newval in
   let newval =
     match newval with
     | Schema.Value.String s ->
@@ -114,7 +111,7 @@ let touch_row t tblname objref =
    and iterates through set-refs [returning (fieldname, ref list) list; where fieldname is the
    name of the Set Ref field in tbl; and ref list is the list of foreign keys from related
    table with remote-fieldname=objref] *)
-let read_record_internal db tblname objref =
+let read_record_internal conv db tblname objref =
   try
     let tbl = TableSet.find tblname (Database.tableset db) in
     let row = Table.find objref tbl in
@@ -138,15 +135,14 @@ let read_record_internal db tblname objref =
           | None ->
               accum_setref
         in
-        let accum_fvlist =
-          (k, Schema.CachedValue.string_of cached) :: accum_fvlist
-        in
+        let accum_fvlist = (k, conv cached) :: accum_fvlist in
         (accum_fvlist, accum_setref)
       )
       row ([], [])
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
-let read_record t = read_record_internal (get_database t)
+let read_record t =
+  read_record_internal Schema.CachedValue.open_present (get_database t)
 
 (* Delete row from tbl *)
 let delete_row_locked t tblname objref =
@@ -177,7 +173,7 @@ let create_row_locked t tblname kvs' new_objref =
   let db = get_database t in
   let g = Manifest.generation (Database.manifest db) in
   let row =
-    List.fold_left (fun row (k, v) -> Row.add g k v row) Row.empty kvs'
+    List.fold_left (fun row (k, v) -> Row.add' g k v row) Row.empty kvs'
   in
   let schema = Schema.table tblname (Database.schema db) in
   (* fill in default values if kv pairs for these are not supplied already *)
@@ -195,31 +191,13 @@ let create_row_locked t tblname kvs' new_objref =
     (get_database t)
 
 let fld_check t tblname objref (fldname, value) =
-  let v = read_field_internal t tblname fldname objref (get_database t) in
-  (v = value, fldname, v)
-
-let create_row t tblname kvs' new_objref =
-  let schema = Database.schema (get_database t) in
-  let schema = Schema.table tblname schema in
-  let kvs' =
-    List.map
-      (fun (key, value) ->
-        let value = ensure_utf8_xml value in
-        let column = Schema.Table.find key schema in
-        let newval =
-          match Schema.Value.unmarshal column.Schema.Column.ty value with
-          | Schema.Value.String x ->
-              Schema.Value.String (Share.merge x)
-          | Schema.Value.Pairs ps ->
-              Schema.Value.Pairs
-                (List.map (fun (x, y) -> (Share.merge x, Share.merge y)) ps)
-          | Schema.Value.Set xs ->
-              Schema.Value.Set (List.map Share.merge xs)
-        in
-        (key, newval)
-      )
-      kvs'
+  let v =
+    Schema.CachedValue.string_of
+      (read_field_internal t tblname fldname objref (get_database t))
   in
+  (v = Schema.CachedValue.string_of value, fldname, v)
+
+let create_row' t tblname kvs' new_objref =
   with_lock (fun () ->
       if is_valid_ref t new_objref then
         let uniq_check_list = List.map (fld_check t tblname new_objref) kvs' in
@@ -228,13 +206,16 @@ let create_row t tblname kvs' new_objref =
         in
         match failure_opt with
         | Some (_, f, v) ->
-            raise (Integrity_violation (tblname, f, Schema.Value.marshal v))
+            raise (Integrity_violation (tblname, f, v))
         | _ ->
             ()
       else
         (* we add the reference to the row itself so callers can use read_field_where to
            	   return the reference: awkward if it is just the key *)
-        let kvs' = (Db_names.ref, Schema.Value.string new_objref) :: kvs' in
+        let kvs' =
+          (Db_names.ref, Schema.Value.string new_objref |> Schema.CachedValue.v)
+          :: kvs'
+        in
         W.debug "create_row %s (%s) [%s]" tblname new_objref
           (String.concat ","
              (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')
@@ -242,23 +223,52 @@ let create_row t tblname kvs' new_objref =
         create_row_locked t tblname kvs' new_objref
   )
 
+let create_row t tblname kvs' new_objref =
+  let kvs' =
+    List.map
+      (fun (key, value) ->
+        let value =
+          match value with
+          | Schema.Value.String x ->
+              Schema.Value.String (ensure_utf8_xml_and_share x)
+          | Schema.Value.Pairs ps ->
+              Schema.Value.Pairs
+                (List.map
+                   (fun (x, y) ->
+                     (ensure_utf8_xml_and_share x, ensure_utf8_xml_and_share y)
+                   )
+                   ps
+                )
+          | Schema.Value.Set xs ->
+              Schema.Value.Set (List.map ensure_utf8_xml_and_share xs)
+        in
+        (key, Schema.CachedValue.v value)
+      )
+      kvs'
+  in
+  create_row' t tblname kvs' new_objref
+
 (* Do linear scan to find field values which match where clause *)
-let read_field_where t rcd =
+let read_field_where' conv t rcd =
   let db = get_database t in
   let tbl = TableSet.find rcd.table (Database.tableset db) in
   Table.fold
     (fun _ _ row acc ->
-      let field = Schema.Value.marshal (Row.find rcd.where_field row) in
+      let field =
+        Schema.CachedValue.string_of (Row.find' rcd.where_field row)
+      in
       if field = rcd.where_value then
-        Schema.Value.marshal (Row.find rcd.return row) :: acc
+        conv (Row.find' rcd.return row) :: acc
       else
         acc
     )
     tbl []
 
+let read_field_where t rcd = read_field_where' Fun.id t rcd
+
 let db_get_by_uuid t tbl uuid_val =
   match
-    read_field_where t
+    read_field_where' Schema.CachedValue.string_of t
       {
         table= tbl
       ; return= Db_names.ref
@@ -275,7 +285,7 @@ let db_get_by_uuid t tbl uuid_val =
 
 let db_get_by_uuid_opt t tbl uuid_val =
   match
-    read_field_where t
+    read_field_where' Schema.CachedValue.string_of t
       {
         table= tbl
       ; return= Db_names.ref
@@ -290,7 +300,7 @@ let db_get_by_uuid_opt t tbl uuid_val =
 
 (** Return reference fields from tbl that matches specified name_label field *)
 let db_get_by_name_label t tbl label =
-  read_field_where t
+  read_field_where' Schema.CachedValue.string_of t
     {
       table= tbl
     ; return= Db_names.ref
@@ -324,11 +334,14 @@ let find_refs_with_filter_internal db (tblname : Db_interface.table)
 
 let find_refs_with_filter t = find_refs_with_filter_internal (get_database t)
 
-let read_records_where t tbl expr =
+let read_records_where' conv t tbl expr =
   let db = get_database t in
   let reqd_refs = find_refs_with_filter_internal db tbl expr in
   if !fist_delay_read_records_where then Thread.delay 0.5 ;
-  List.map (fun ref -> (ref, read_record_internal db tbl ref)) reqd_refs
+  List.map (fun ref -> (ref, read_record_internal conv db tbl ref)) reqd_refs
+
+let read_records_where t tbl expr =
+  read_records_where' Schema.CachedValue.open_present t tbl expr
 
 let process_structured_field_locked t (key, value) tblname fld objref
     proc_fn_selector =
@@ -369,8 +382,8 @@ let process_structured_field_locked t (key, value) tblname fld objref
 let process_structured_field t (key, value) tblname fld objref proc_fn_selector
     =
   (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
-  let key = ensure_utf8_xml key |> Share.merge in
-  let value = ensure_utf8_xml value |> Share.merge in
+  let key = ensure_utf8_xml_and_share key in
+  let value = ensure_utf8_xml_and_share value in
   with_lock (fun () ->
       process_structured_field_locked t (key, value) tblname fld objref
         proc_fn_selector
@@ -530,3 +543,41 @@ let stats t =
     )
     (Database.tableset (get_database t))
     []
+
+module Compat = struct
+  type field_in = string
+
+  type field_out = string
+
+  let read_field_where t rcd =
+    read_field_where' Schema.CachedValue.string_of t rcd
+
+  let read_field t tblname fldname objref =
+    read_field t tblname fldname objref |> Schema.CachedValue.string_of
+
+  let write_field t tblname objref fldname newval =
+    let db = get_database t in
+    let schema = Schema.table tblname (Database.schema db) in
+    let column = Schema.Table.find fldname schema in
+    let newval = Schema.Value.unmarshal column.Schema.Column.ty newval in
+    write_field t tblname objref fldname newval
+
+  let read_record t =
+    read_record_internal Schema.CachedValue.string_of (get_database t)
+
+  let read_records_where t tbl expr =
+    read_records_where' Schema.CachedValue.string_of t tbl expr
+
+  let create_row t tblname kvs' new_objref =
+    let db = get_database t in
+    let schema = Schema.table tblname (Database.schema db) in
+    let kvs' =
+      List.map
+        (fun (key, value) ->
+          let column = Schema.Table.find key schema in
+          (key, Schema.CachedValue.of_typed_string column.Schema.Column.ty value)
+        )
+        kvs'
+    in
+    create_row' t tblname kvs' new_objref
+end

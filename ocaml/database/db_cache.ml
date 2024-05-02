@@ -19,7 +19,7 @@ module D = Debug.Make (struct let name = "db_cache" end)
 open D
 
 (** Masters will use this to modify the in-memory cache directly *)
-module Local_db : DB_ACCESS = Db_cache_impl
+module Local_db : DB_ACCESS = Db_interface_compat.OfCached (Db_cache_impl)
 
 (** Slaves will use this to call the master by XMLRPC *)
 module Remote_db : DB_ACCESS = Db_rpc_client_v1.Make (struct

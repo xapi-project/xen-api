@@ -115,6 +115,18 @@ module CachedValue = struct
         v
     | `Absent ->
         Value.unmarshal ty t.marshalled
+
+  let of_typed_string ty marshalled =
+    let v = Value.unmarshal ty marshalled in
+    {v= `Present v; marshalled}
+
+  let maybe_unmarshal ty = function
+    | {v= `Present _; _} as p ->
+        p
+    | {v= `Absent; marshalled} ->
+        of_typed_string ty marshalled
+
+  let open_present ({v= `Present _; _} as t) = t
 end
 
 type cached_value = present CachedValue.t
