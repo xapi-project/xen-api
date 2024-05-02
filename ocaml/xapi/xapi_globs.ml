@@ -1025,6 +1025,8 @@ let python3_path = ref "/usr/bin/python3"
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
 
+let disable_webserver = ref false
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1543,6 +1545,11 @@ let other_options =
         |> String.concat ","
       )
     , "Comma-separated list of experimental observer components"
+    )
+  ; ( "disable-webserver"
+    , Arg.Set disable_webserver
+    , (fun () -> string_of_bool !disable_webserver)
+    , "Disable the host webserver"
     )
   ]
 
