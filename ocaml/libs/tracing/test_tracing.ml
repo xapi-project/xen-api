@@ -45,7 +45,7 @@ let http_endpoint = "http://example.com:9411/api/v2/spans"
 let with_observe_mode_check flag f = f () ; assert_observe_mode flag
 
 let get_provider name_label =
-  Tracing.get_tracer_providers ()
+  Tracing.TracerProvider.get_tracer_providers ()
   |> List.filter (fun provider ->
          String.equal
            (Tracing.TracerProvider.get_name_label provider)
@@ -54,11 +54,14 @@ let get_provider name_label =
   |> List.hd
 
 let create_with (enabled, attributes, endpoints, name_label, uuid) =
-  let () = Tracing.create ~enabled ~attributes ~endpoints ~name_label ~uuid in
+  let () =
+    Tracing.TracerProvider.create ~enabled ~attributes ~endpoints ~name_label
+      ~uuid
+  in
   get_provider name_label
 
 let test_destroy_all_providers uuids =
-  let () = List.iter (fun uuid -> Tracing.destroy ~uuid) uuids in
+  let () = List.iter (fun uuid -> Tracing.TracerProvider.destroy ~uuid) uuids in
   assert_observe_mode false
 
 let test_create_and_destroy () =
@@ -139,7 +142,7 @@ let test_create_and_destroy () =
 
 let test_set_tracer_provider () =
   let test_set_with provider (enabled, attributes, endpoints, uuid) =
-    Tracing.set ~enabled ~attributes ~endpoints ~uuid () ;
+    Tracing.TracerProvider.set ~enabled ~attributes ~endpoints ~uuid () ;
     let updated_provider =
       provider |> Tracing.TracerProvider.get_name_label |> get_provider
     in

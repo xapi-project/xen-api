@@ -62,13 +62,13 @@ end
 
 module TracerProvider = struct
   let assert_num_observers ~__context x =
-    let providers = get_tracer_providers () in
+    let providers = TracerProvider.get_tracer_providers () in
     Alcotest.(check int)
       (Printf.sprintf "%d provider(s) exists in lib " x)
       x (List.length providers)
 
   let find_provider_exn ~name =
-    let providers = get_tracer_providers () in
+    let providers = TracerProvider.get_tracer_providers () in
     match
       List.find_opt (fun x -> TracerProvider.get_name_label x = name) providers
     with
@@ -135,12 +135,12 @@ let test_create ~__context ?(name_label = "test-observer") ?(enabled = false) ()
   self
 
 let start_test_span () =
-  let tracer = get_tracer ~name:"test-observer" in
+  let tracer = Tracer.get_tracer ~name:"test-observer" in
   let span = Tracer.start ~tracer ~name:"test_task" ~parent:None () in
   span
 
 let start_test_trace () =
-  let tracer = get_tracer ~name:"test-observer" in
+  let tracer = Tracer.get_tracer ~name:"test-observer" in
   let root =
     Tracer.start ~tracer ~name:"test_task" ~parent:None ()
     |> Result.value ~default:None
