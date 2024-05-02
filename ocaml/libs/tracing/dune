@@ -24,3 +24,8 @@
   zstd)
  (preprocess
   (pps ppx_deriving_rpc)))
+
+(test
+ (name test_tracing)
+ (modules test_tracing)
+ (libraries tracing alcotest uuid))
