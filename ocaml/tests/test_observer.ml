@@ -405,8 +405,8 @@ let test_hashtbl_leaks () =
   let __context = Test_common.make_test_database () in
   let self = test_create ~__context ~enabled:true () in
   let filter_export_spans span =
-    match Span.get_name span with
-    | "Tracing.flush_spans" | "Tracing.File.export" | "Tracing.Http.export" ->
+    match String.lowercase_ascii (Span.get_name span) with
+    | "tracing.flush_spans" | "tracing.file.export" | "tracing.http.export" ->
         false
     | _ ->
         true
