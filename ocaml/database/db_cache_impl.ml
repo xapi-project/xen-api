@@ -36,6 +36,10 @@ open Db_ref
 
 let fist_delay_read_records_where = ref false
 
+type field_in = string
+
+type field_out = string
+
 (* Only needed by the DB_ACCESS signature *)
 let initialise () = ()
 
