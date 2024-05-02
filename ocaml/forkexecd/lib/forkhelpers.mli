@@ -44,7 +44,8 @@ val default_path : string list
 val default_path_env_pair : string array
 
 val execute_command_get_output :
-     ?env:string array
+     ?tracing:Tracing.Span.t
+  -> ?env:string array
   -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
@@ -56,7 +57,8 @@ val execute_command_get_output :
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 
 val execute_command_get_output_send_stdin :
-     ?env:string array
+     ?tracing:Tracing.Span.t
+  -> ?env:string array
   -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
@@ -92,7 +94,8 @@ exception Subprocess_killed of int
 exception Subprocess_timeout
 
 val safe_close_and_exec :
-     ?env:string array
+     ?tracing:Tracing.Span.t
+  -> ?env:string array
   -> Unix.file_descr option
   -> Unix.file_descr option
   -> Unix.file_descr option
