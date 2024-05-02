@@ -166,7 +166,9 @@ module Row = struct
 
   include Make (CachedValue)
 
-  let add gen key v = add gen key @@ CachedValue.v v
+  let add' = add
+
+  let add gen key v = add' gen key @@ CachedValue.v v
 
   type t = map_t
 
@@ -182,7 +184,7 @@ module Row = struct
     update gen key (CachedValue.v default) f row
 
   let find' key t =
-    try find key t
+    try find key t |> Schema.CachedValue.open_present
     with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
 
   let find key t = find' key t |> Schema.CachedValue.value_of

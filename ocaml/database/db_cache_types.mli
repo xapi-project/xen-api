@@ -93,6 +93,14 @@ end
 module Row : sig
   include MAP with type value = Schema.Value.t
 
+  val add' : Time.t -> string -> Schema.cached_value -> t -> t
+  (** [add now key value map] returns a new map with [key] associated with [value],
+      with creation time [now] *)
+
+  val find' : string -> t -> [> Schema.present] Schema.CachedValue.t
+  (** [find key t] returns the value associated with [key] in [t] or raises
+      [DBCache_NotFound] *)
+
   val fold :
     (string -> Stat.t -> Schema.cached_value -> 'b -> 'b) -> t -> 'b -> 'b
   (** [fold f t initial] folds [f key stats value acc] over the items in [t] *)

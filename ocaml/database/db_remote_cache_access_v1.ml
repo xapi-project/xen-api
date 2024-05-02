@@ -26,7 +26,8 @@ module DBCacheRemoteListener = struct
     (* update_lengths xml resp; *)
     resp
 
-  module DBCache : Db_interface.DB_ACCESS = Db_cache_impl
+  module DBCache : Db_interface.DB_ACCESS =
+    Db_interface_compat.OfCached (Db_cache_impl)
 
   (** Unmarshals the request, calls the DBCache function and marshals the result.
       		Note that, although the messages still contain the pool_secret for historical reasons,
