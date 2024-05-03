@@ -3,6 +3,7 @@
 
 (generate_opam_files true)
 
+(name "xapi")
 (source (github xapi-project/xen-api))
 (license "LGPL-2.1-only WITH OCaml-LGPL-linking-exception")
 (authors "xen-api@lists.xen.org")
