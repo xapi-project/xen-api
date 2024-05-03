@@ -1094,6 +1094,7 @@ functor
           local_fn ~__context
 
       let clear_vif_reservations ~__context ~vm =
+        let __FUNCTION__ = "clear_vif_reservations" in
         debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
         Db.VM.get_VIFs ~__context ~self:vm
         |> List.iter (fun vif ->
@@ -1105,6 +1106,7 @@ functor
            )
 
       let clear_reservations ~__context ~vm =
+        let __FUNCTION__ = "clear_reservations" in
         debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
         (* host *)
         Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
