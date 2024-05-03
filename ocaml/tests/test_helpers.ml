@@ -62,7 +62,7 @@ module DetermineGateway = Generic.MakeStateful (struct
     let management_interface =
       Option.map
         (fun device ->
-          let open Db_filter_types in
+          let open Xapi_database.Db_filter_types in
           let pifs =
             Db.PIF.get_refs_where ~__context
               ~expr:(Eq (Field "device", Literal device))

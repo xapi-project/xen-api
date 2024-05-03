@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = "nm" end)
 open D
 open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext.List
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Network
 open Network_interface
 
@@ -725,7 +725,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
             (* The master_connection would otherwise try to take a broken stunnel from the cache *)
             Stunnel_cache.flush () ;
             warn "About to forcibly reset the master connection" ;
-            Master_connection.force_connection_reset ()
+            Xapi_database.Master_connection.force_connection_reset ()
           ) ;
           if rc.API.pIF_currently_attached = false || management_interface then (
             if management_interface then (

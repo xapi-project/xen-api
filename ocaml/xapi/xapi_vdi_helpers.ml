@@ -16,7 +16,8 @@
 *)
 
 open Client
-open Db_cache_types
+open Xapi_database.Db_cache_types
+module Redo_log = Xapi_database.Redo_log
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -125,7 +126,7 @@ let enable_database_replication ~__context ~get_vdi_callback =
         let device = Db.VBD.get_device ~__context ~self:vbd in
         try
           Redo_log.enable_block_and_flush
-            (Context.database_of __context |> Db_ref.get_database)
+            (Context.database_of __context |> Xapi_database.Db_ref.get_database)
             log ("/dev/" ^ device) ;
           Hashtbl.add metadata_replication vdi (vbd, log) ;
           let vbd_uuid = Db.VBD.get_uuid ~__context ~self:vbd in
@@ -183,18 +184,20 @@ let database_ref_of_vdi ~__context ~vdi =
     debug "Enabling redo_log with device reason [%s]" device ;
     Redo_log.enable_block_existing log device ;
     let db = Database.make (Datamodel_schema.of_datamodel ()) in
-    let db_ref = Db_ref.in_memory (ref (ref db)) in
+    let db_ref = Xapi_database.Db_ref.in_memory (ref (ref db)) in
     Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref ;
     Redo_log.delete log ;
     (* Upgrade database to the local schema. *)
     (* Reindex database to make sure is_valid_ref works. *)
     let ( ++ ) f g x = f (g x) in
-    Db_ref.update_database db_ref
-      (Db_upgrade.generic_database_upgrade
-      ++ Database.reindex
-      ++ Db_backend.blow_away_non_persistent_fields
-           (Datamodel_schema.of_datamodel ())
-      ) ;
+    Xapi_database.(
+      Db_ref.update_database db_ref
+        (Db_upgrade.generic_database_upgrade
+        ++ Database.reindex
+        ++ Db_backend.blow_away_non_persistent_fields
+             (Datamodel_schema.of_datamodel ())
+        )
+    ) ;
     db_ref
   in
   with_lock database_open_mutex (fun () ->

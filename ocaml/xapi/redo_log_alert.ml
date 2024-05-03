@@ -52,7 +52,7 @@ let loop () =
     (fun () ->
       while true do
         let name, accessible =
-          Event.sync (Event.receive Redo_log.redo_log_events)
+          Event.sync (Event.receive Xapi_database.Redo_log.redo_log_events)
         in
         let alert_body = Printf.sprintf "Redo log [%s]" name in
         if accessible then (

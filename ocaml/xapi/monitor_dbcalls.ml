@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Monitor_types
 open Monitor_dbcalls_cache
 

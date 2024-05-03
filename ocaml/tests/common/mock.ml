@@ -13,6 +13,8 @@
  *)
 
 module Database = struct
+  open Xapi_database
+
   let _schema = Datamodel_schema.of_datamodel ()
 
   let conn = [Parse_db_conf.make "./xapi-db.xml"]

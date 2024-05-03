@@ -14,7 +14,7 @@
 
 module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
-open Xenstore
+open Ezxenstore_core.Xenstore
 
 (** Command-line tool for sampling host and guest memory usage. *)
 

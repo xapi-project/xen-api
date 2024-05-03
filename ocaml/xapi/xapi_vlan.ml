@@ -91,17 +91,12 @@ let create ~__context ~tagged_PIF ~tag ~network =
       ) ;
   let device = pif_rec.API.pIF_device in
   let vlans =
+    let open Xapi_database.Db_filter_types in
     Db.VLAN.get_records_where ~__context
       ~expr:
-        (Db_filter_types.And
-           ( Db_filter_types.Eq
-               ( Db_filter_types.Field "tagged_PIF"
-               , Db_filter_types.Literal (Ref.string_of tagged_PIF)
-               )
-           , Db_filter_types.Eq
-               ( Db_filter_types.Field "tag"
-               , Db_filter_types.Literal (Int64.to_string tag)
-               )
+        (And
+           ( Eq (Field "tagged_PIF", Literal (Ref.string_of tagged_PIF))
+           , Eq (Field "tag", Literal (Int64.to_string tag))
            )
         )
   in

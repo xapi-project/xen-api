@@ -795,7 +795,7 @@ let domain_snapshot xc =
        the original and the final uuid to xenstore *)
     let uuid_from_key key =
       let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Xenstore.(with_xs (fun xs -> xs.read path))
+      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
       with Xs_protocol.Enoent _hint ->
         info "Couldn't read path %s; falling back to actual uuid" path ;
         uuid

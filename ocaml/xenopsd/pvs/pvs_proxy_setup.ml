@@ -27,7 +27,7 @@ module D = Debug.Make (struct
 end)
 (* using __MODULE__ leads to a convoluted long name, so avoiding it *)
 
-module XS = Xenstore
+module XS = Ezxenstore_core.Xenstore
 
 let error fmt =
   Printf.kprintf

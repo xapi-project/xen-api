@@ -13,8 +13,10 @@
  *)
 
 open Lwt
-open Xen_api_lwt_unix
+open Xen_api_client_lwt.Xen_api_lwt_unix
 open Lwt.Syntax
+module Disk = Xen_api_client_lwt.Disk
+module Data_channel = Xen_api_client_lwt.Data_channel
 
 let uri = ref "http://127.0.0.1/jsonrpc"
 

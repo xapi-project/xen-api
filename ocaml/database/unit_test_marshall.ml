@@ -11,9 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Db_rpc_common_v1
-open Db_cache_types
-open Db_filter_types
+open Xapi_database.Db_rpc_common_v1
+open Xapi_database.Db_cache_types
+open Xapi_database.Db_filter_types
 
 (* Check, for randomly chosen x's, that (unmarshall (marshall x)) = x *)
 

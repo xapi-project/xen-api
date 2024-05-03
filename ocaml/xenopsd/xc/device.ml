@@ -16,7 +16,7 @@ open Printf
 open Xenops_utils
 open Xenops_interface
 open Device_common
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Cancel_utils
 open Xenops_task
 module Unixext = Xapi_stdext_unix.Unixext
@@ -1893,7 +1893,8 @@ module Vusb = struct
 end
 
 module Serial : sig
-  val update_xenstore : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+  val update_xenstore :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 end = struct
   let tty_prefix = "pty:"
 
@@ -2372,35 +2373,40 @@ module Backend = struct
         profile backends *)
     module Vbd : sig
       val qemu_media_change :
-        xs:Xenstore.Xs.xsh -> device -> string -> string -> unit
+        xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string -> string -> unit
     end
 
     (** Vcpu functions that use the dispatcher to choose between different
         profile backends *)
     module Vcpu : sig
-      val add : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+      val add :
+        xs:Ezxenstore_core.Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
 
-      val set : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
+      val set :
+        xs:Ezxenstore_core.Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
 
-      val del : xs:Xenstore.Xs.xsh -> devid:int -> int -> unit
+      val del : xs:Ezxenstore_core.Xenstore.Xs.xsh -> devid:int -> int -> unit
 
-      val status : xs:Xenstore.Xs.xsh -> devid:int -> int -> bool
+      val status :
+        xs:Ezxenstore_core.Xenstore.Xs.xsh -> devid:int -> int -> bool
     end
 
     (** Dm functions that use the dispatcher to choose between different profile
         backends *)
     module Dm : sig
-      val get_vnc_port : xs:Xenstore.Xs.xsh -> int -> Socket.t option
+      val get_vnc_port :
+        xs:Ezxenstore_core.Xenstore.Xs.xsh -> int -> Socket.t option
       (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the
           vnc server for [domid] can be found *)
 
-      val assert_can_suspend : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+      val assert_can_suspend :
+        xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
       (** [assert_can_suspend xenstore xc] checks whether suspending is
           prevented by QEMU *)
 
       val suspend :
            Xenops_task.task_handle
-        -> xs:Xenstore.Xs.xsh
+        -> xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> qemu_domid:int
         -> Xenctrl.domid
         -> unit
@@ -2411,7 +2417,7 @@ module Backend = struct
         -> path:string
         -> args:string list
         -> domid:int
-        -> xs:Xenstore.Xs.xsh
+        -> xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> ready_path:Watch.path
         -> timeout:float
         -> cancel:Cancel_utils.key
@@ -2422,7 +2428,7 @@ module Backend = struct
           returns a forkhelper pid after starting the qemu daemon in dom0 *)
 
       val stop :
-           xs:Xenstore.Xs.xsh
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> qemu_domid:int
         -> vtpm:Xenops_interface.Vm.tpm option
         -> int
@@ -2430,7 +2436,7 @@ module Backend = struct
       (** [stop xenstore qemu_domid domid] stops a domain *)
 
       val qemu_args :
-           xs:Xenstore.Xs.xsh
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> dm:Profile.t
         -> Dm_Common.info
         -> bool
@@ -2440,7 +2446,7 @@ module Backend = struct
           arguments to pass to the qemu wrapper script *)
 
       val after_suspend_image :
-           xs:Xenstore.Xs.xsh
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> qemu_domid:int
         -> vtpm:Xenops_interface.Vm.tpm option
         -> int
@@ -2449,7 +2455,7 @@ module Backend = struct
           after the suspend image has been created *)
 
       val pci_assign_guest :
-           xs:Xenstore.Xs.xsh
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> index:int
         -> host:Pci.address
         -> Pci.address option
@@ -2548,7 +2554,7 @@ module Backend = struct
 
     module XenPV : sig
       val addr :
-           xs:Xenstore.Xs.xsh
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> domid:int
         -> Dm_Common.info
         -> nics:(string * string * int) list
@@ -2557,7 +2563,10 @@ module Backend = struct
 
     module XenPlatform : sig
       val device :
-        xs:Xenstore.Xs.xsh -> domid:int -> info:Dm_Common.info -> string list
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
+        -> domid:int
+        -> info:Dm_Common.info
+        -> string list
     end
 
     module VGPU : sig
@@ -2566,7 +2575,7 @@ module Backend = struct
 
     module PCI : sig
       val assign_guest :
-           xs:Xenstore.Xs.xsh
+           xs:Ezxenstore_core.Xenstore.Xs.xsh
         -> index:int
         -> host:Pci.address
         -> Pci.address option

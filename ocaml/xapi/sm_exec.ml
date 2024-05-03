@@ -33,7 +33,7 @@ let cmd_name driver = sprintf "%s/%sSR" !Xapi_globs.sm_dir driver
 let sm_username = "__sm__backend"
 
 let with_dbg ~name ~dbg f =
-  Debuginfo.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
+  Debug_info.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
 
 (*********************************************************************************************)
 (* Random utility functions *)
@@ -345,7 +345,7 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     let xml = xmlrpc_of_call call in
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
     let xml, stderr =
-      Stats.time_this name (fun () ->
+      Xapi_database.Stats.time_this name (fun () ->
           let exe = cmd_name driver in
           (* Logging call.cmd is safe, but call.args could contain a password. *)
           try
@@ -579,7 +579,7 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
 
 let sr_get_driver_info ~dbg driver =
   with_dbg ~name:"sr_get_driver_info" ~dbg @@ fun di ->
-  let dbg = Debuginfo.to_string di in
+  let dbg = Debug_info.to_string di in
   let call = make_call (None, []) "sr_get_driver_info" [] in
   parse_sr_get_driver_info driver
     (exec_xmlrpc ~dbg ~needs_session:false driver call)
@@ -588,7 +588,7 @@ let sr_get_driver_info ~dbg driver =
  * backend and daemon found. *)
 let get_supported ~dbg add_fn =
   with_dbg ~name:"get_supported" ~dbg @@ fun di ->
-  let dbg = Debuginfo.to_string di in
+  let dbg = Debug_info.to_string di in
   let check_driver entry =
     if Astring.String.is_suffix ~affix:"SR" entry then
       let driver = String.sub entry 0 (String.length entry - 2) in

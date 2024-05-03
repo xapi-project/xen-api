@@ -14,7 +14,7 @@
 module D = Debug.Make (struct let name = "xapi_bond" end)
 
 open D
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 (* Returns the name of a new bond device, which is the string "bond" followed
  * by the smallest integer > 0 that does not yet appear in a bond name on this host. *)

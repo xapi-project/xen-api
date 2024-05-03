@@ -15,7 +15,7 @@
 open Printf
 open Xenops_task
 open Device_common
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Cancel_utils
 open Xenops_utils
 

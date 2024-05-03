@@ -17,7 +17,7 @@ let c = Condition.create ()
 
 (** Handler for the remote database access URL *)
 let remote_database_access_handler_v1 req bio =
-  try Db_remote_cache_access_v1.handler req bio
+  try Xapi_database.Db_remote_cache_access_v1.handler req bio
   with e ->
     Printf.printf "Caught: %s\n" (Printexc.to_string e) ;
     Printexc.print_backtrace stdout ;
@@ -26,14 +26,15 @@ let remote_database_access_handler_v1 req bio =
 
 (** Handler for the remote database access URL *)
 let remote_database_access_handler_v2 req bio =
-  try Db_remote_cache_access_v2.handler req bio
+  try Xapi_database.Db_remote_cache_access_v2.handler req bio
   with e ->
     Printf.printf "Caught: %s\n" (Printexc.to_string e) ;
     Printexc.print_backtrace stdout ;
     flush stdout ;
     raise e
 
-module Local_tests = Database_test.Tests (Db_cache_impl)
+module Local_tests =
+  Xapi_database.Database_test.Tests (Xapi_database.Db_cache_impl)
 
 let schema = Test_schemas.schema
 
@@ -67,6 +68,7 @@ let _ =
     | Slave _ ->
         failwith "unimplemented"
     | Master db_filename ->
+        let open Xapi_database in
         Printf.printf "Database path: %s\n%!" db_filename ;
         let db = Parse_db_conf.make db_filename in
         Db_conn_store.initialise_db_connections [db] ;

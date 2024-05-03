@@ -5351,15 +5351,14 @@ functor
 
       let pool_migrate ~__context ~vdi ~sr ~options =
         let vbds =
-          Db.VBD.get_records_where ~__context
-            ~expr:
-              (Db_filter_types.Eq
-                 ( Db_filter_types.Field "VDI"
-                 , Db_filter_types.Literal (Ref.string_of vdi)
-                 )
-              )
+          let expr =
+            Xapi_database.Db_filter_types.(
+              Eq (Field "VDI", Literal (Ref.string_of vdi))
+            )
+          in
+          Db.VBD.get_records_where ~__context ~expr
         in
-        if List.length vbds < 1 then
+        if vbds = [] then
           raise
             (Api_errors.Server_error
                (Api_errors.vdi_needs_vm_for_migrate, [Ref.string_of vdi])

@@ -128,7 +128,7 @@ type host_memory_summary = {
         (** list of VMs which are in the process of having a domain created here *)
 }
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 (** Return a host's memory summary from live database contents. *)
 let get_host_memory_summary ~__context ~host =

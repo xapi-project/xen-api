@@ -287,7 +287,7 @@ let assert_can_live_import_vgpu ~__context vgpu_record =
   let local_pgpus =
     Db.PGPU.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq
                 ( Field "GPU_group"
