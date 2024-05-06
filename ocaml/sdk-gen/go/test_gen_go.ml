@@ -987,6 +987,8 @@ let messages : Mustache.Json.t =
                         ; ("name", `String "session_id")
                         ; ("name_internal", `String "sessionID")
                         ; ("func_name_suffix", `String "SessionRef")
+                        ; ("session", `Bool true)
+                        ; ("session_class", `Bool false)
                         ; ("first", `Bool true)
                         ]
                     ; `O
