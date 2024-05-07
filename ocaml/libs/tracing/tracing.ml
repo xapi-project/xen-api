@@ -132,6 +132,12 @@ module Attributes = struct
   let of_list list = List.to_seq list |> of_seq
 
   let to_assoc_list attr = to_seq attr |> List.of_seq
+
+  let attr_of_originator = function
+    | None ->
+        []
+    | Some originator ->
+        [("xs.xapi.session.originator", originator)]
 end
 
 module SpanEvent = struct
