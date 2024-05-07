@@ -30,7 +30,6 @@ install:
 	$(IPROG) xn_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) thread_diagnostics $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) list_plugins $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xapi
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/xenopsd
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/bugtool/observer
@@ -108,8 +107,6 @@ install:
 	$(IPROG) pam.d-xapi $(DESTDIR)/etc/pam.d/xapi
 	$(IPROG) upload-wrapper logs-download $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) usb-policy.conf $(DESTDIR)$(ETCXENDIR)
-	$(IPROG) usb_reset.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/iso #omg XXX
 	$(IPROG) xapi-rolling-upgrade-miami $(DESTDIR)$(LIBEXECDIR)/xapi-rolling-upgrade
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
@@ -127,7 +124,6 @@ install:
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
-	$(IPROG) perfmon $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
@@ -149,7 +145,6 @@ install:
 	$(IPROG) xe-syslog-reconfigure $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-install-supplemental-pack $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-enable-ipv6 $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) pv2hvm $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)/etc/cron.daily
 	mkdir -p $(DESTDIR)/etc/cron.hourly
@@ -194,4 +189,3 @@ endif
 	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
 # uefi
 	mkdir -p $(DESTDIR)/etc/xapi.d/efi-clone
-

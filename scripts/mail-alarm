@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # mail-alarm: uses ssmtp to send a mail message, to pool:other_config:mail-destination
 #
@@ -11,18 +11,19 @@
 # the only thing that needs be set is pool:other-config:ssmtp-mailhub
 
 from __future__ import print_function
-import XenAPI
-import sys
+
+import json
 import os
+import re
+import subprocess
+import sys
+import syslog
 import tempfile
 import traceback
-import syslog
-import json
-import re
-from xml.dom import minidom
-from xml.sax.saxutils import unescape
-from xml.parsers.expat import ExpatError
 from socket import getfqdn
+from xml.dom import minidom
+
+import XenAPI
 from xcp import branding
 
 # Go read man ssmtp.conf
@@ -107,18 +108,27 @@ def get_mail_language(other_config):
 
 def get_config_file():
     try:
-        return open("/etc/mail-alarm.conf").read()
+        with open("/etc/mail-alarm.conf", "r") as file:
+            return file.read()
     except:
         return default_config
 
 
 def load_mail_language(mail_language):
+    mail_language_file = ""
     try:
         mail_language_file = os.path.join(
             mail_language_pack_path, mail_language + ".json"
         )
-        with open(mail_language_file, "r") as fileh:
-            return json.load(fileh, encoding="utf-8")
+
+        # this conditional branch won't be executed, it's solely for the purpose of ensuring pass in python2 ut.
+        if sys.version_info.major == 2:
+            with open(mail_language_file, "r") as fileh:
+                return json.load(fileh, encoding="utf-8")
+
+        with open(mail_language_file, encoding="utf-8") as fileh:
+            return json.load(fileh)
+
     except IOError:
         log_err('Read mail language pack error:["%s"]' % (mail_language_file))
         return None
@@ -241,7 +251,9 @@ class CpuUsageAlarmETG(EmailTextGenerator):
             period="%d" % self.alarm_trigger_period,
             level="%.1f" % (self.alarm_trigger_level * 100.0),
             brand_console=branding.BRAND_CONSOLE,
-            cls_name=(self.cls == "Host" or self.params["is_control_domain"]) and "Server" or "VM",
+            cls_name=(self.cls == "Host" or self.params["is_control_domain"])
+            and "Server"
+            or "VM",
         )
 
 
@@ -365,7 +377,9 @@ class MemoryUsageAlarmETG(EmailTextGenerator):
             period="%d" % self.alarm_trigger_period,
             level="%d" % self.alarm_trigger_level,
             brand_console=branding.BRAND_CONSOLE,
-            cls_name=(self.cls == "Host" or self.params["is_control_domain"]) and "Server" or "VM",
+            cls_name=(self.cls == "Host" or self.params["is_control_domain"])
+            and "Server"
+            or "VM",
         )
 
 
@@ -723,7 +737,10 @@ class XapiMessage:
             xmldoc = minidom.parseString(xml)
 
             def get_text(tag):
-                return xmldoc.getElementsByTagName(tag)[0].firstChild.toxml()
+                text = xmldoc.getElementsByTagName(tag)[0].firstChild
+                if text is None:
+                    raise ValueError("Get text failed with tag <{}>".format(tag))
+                return text.toxml()
 
             self.name = get_text("name")
             self.priority = get_text("priority")
@@ -797,7 +814,6 @@ class XapiMessage:
             return self.cached_etg
 
         if self.name == "ALARM":
-
             (
                 value,
                 name,
@@ -827,8 +843,10 @@ class XapiMessage:
                     self.mail_language,
                     self.session,
                 )
-            elif name in ["memory_free_kib", # for Host
-                          "memory_internal_free"]: # for VM
+            elif name in [
+                "memory_free_kib",  # for Host
+                "memory_internal_free",  # for VM
+            ]:
                 etg = MemoryUsageAlarmETG(
                     self.cls,
                     self.obj_uuid,
@@ -875,7 +893,7 @@ class XapiMessage:
                     self.mail_language,
                     self.session,
                 )
-            elif re.match("sr_io_throughput_total_[0-9a-f]{8}$", name):
+            elif name and re.match("sr_io_throughput_total_[0-9a-f]{8}$", name):
                 etg = SRIOThroughputTotalAlertETG(
                     self.cls,
                     self.obj_uuid,
@@ -980,7 +998,7 @@ def main():
             'Expected at least 1 argument but got none: ["%s"].' % (" ".join(sys.argv))
         )
         raise Exception("Insufficient arguments")
-    
+
     session = XenAPI.xapi_local()
     ma_username = "__dom0__mail_alarm"
     session.xenapi.login_with_password(
@@ -988,8 +1006,6 @@ def main():
     )
 
     try:
-        
-
         other_config = get_pool_other_config(session)
         if "mail-min-priority" in other_config:
             min_priority = int(other_config["mail-min-priority"])
@@ -1015,36 +1031,44 @@ def main():
             return 1
 
         if not sender:
-            sender = "noreply@%s" % getfqdn().encode(charset)
+            sender = "noreply@%s" % getfqdn()
 
         # Replace macros in config file using search_replace list
         for s, r in search_replace:
             config = config.replace(s, r)
 
         # Write out a temporary file containing the new config
-        fd, fname = tempfile.mkstemp(prefix="mail-", dir="/tmp")
+        temp_file_path = ""
         try:
-            os.write(fd, config)
-            os.close(fd)
+            with tempfile.NamedTemporaryFile(
+                prefix="mail-", dir="/tmp", delete=False
+            ) as temp_file:
+                temp_file.write(config.encode())
+                temp_file_path = temp_file.name
 
             # Run ssmtp to send mail
-            chld_stdin, chld_stdout = os.popen2(
-                ["/usr/sbin/ssmtp", "-C%s" % fname, destination]
-            )
-            chld_stdin.write("From: %s\n" % sender)
-            chld_stdin.write('Content-Type: text/plain; charset="%s"\n' % charset)
-            chld_stdin.write("To: %s\n" % destination.encode(charset))
-            chld_stdin.write(
-                "Subject: %s\n" % msg.generate_email_subject().encode(charset)
-            )
-            chld_stdin.write("\n")
-            chld_stdin.write(msg.generate_email_body().encode(charset))
-            chld_stdin.close()
-            chld_stdout.close()
-            os.wait()
-
+            with subprocess.Popen(
+                ["/usr/sbin/ssmtp", "-C%s" % temp_file_path, destination],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+            ) as proc:
+                input_data = (
+                    "From: %s\n"
+                    'Content-Type: text/plain; charset="%s"\n'
+                    "To: %s\n"
+                    "Subject: %s\n"
+                    "\n"
+                    "%s"
+                ) % (
+                    sender,
+                    charset,
+                    destination,
+                    msg.generate_email_subject(),
+                    msg.generate_email_body(),
+                )
+                proc.communicate(input=input_data.encode(charset))
         finally:
-            os.unlink(fname)
+            os.remove(temp_file_path)
     finally:
         session.xenapi.session.logout()
 
