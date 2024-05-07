@@ -901,11 +901,13 @@ module StringOfTyWithEnumsTest = struct
 
   let test_record () =
     let ty, enums = Json.string_of_ty_with_enums (Record "pool") in
-    verify "datetime" verify_record (ty, enums)
+    verify "record" verify_record (ty, enums)
+
+  let verify_option (ty, enums) = ty = "OptionString" && enums = StringMap.empty
 
   let test_option () =
     let ty, enums = Json.string_of_ty_with_enums (Option String) in
-    verify "datetime" verify_string (ty, enums)
+    verify "option" verify_option (ty, enums)
 
   let verify_map (ty, enums) =
     ty = "map[int]UpdateSync"
