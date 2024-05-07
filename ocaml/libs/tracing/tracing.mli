@@ -40,6 +40,8 @@ module Attributes : sig
   val of_list : (string * 'a) list -> 'a t
 
   val to_assoc_list : 'a t -> (string * 'a) list
+
+  val attr_of_originator : string option -> (string * string) list
 end
 
 module Status : sig

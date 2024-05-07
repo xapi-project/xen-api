@@ -500,14 +500,15 @@ let get_client_ip context =
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
 
-let with_tracing context name f =
+let with_tracing ?originator ~__context name f =
   let open Tracing in
-  let parent = context.tracing in
-  match start_tracing_helper (fun _ -> parent) name with
+  let parent = __context.tracing in
+  let span_attributes = Attributes.attr_of_originator originator in
+  match start_tracing_helper ~span_attributes (fun _ -> parent) name with
   | Some _ as span ->
-      let new_context = {context with tracing= span} in
+      let new_context = {__context with tracing= span} in
       let result = f new_context in
       let _ = Tracer.finish span in
       result
   | None ->
-      f context
+      f __context
