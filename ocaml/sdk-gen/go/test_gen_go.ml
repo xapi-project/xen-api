@@ -258,6 +258,20 @@ let verify_enums : Mustache.Json.t -> bool = function
   | _ ->
       false
 
+let option_keys = ["type"; "type_name_suffix"]
+
+let verify_option_member = function
+  | "type", `String _ | "type_name_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_option = function
+  | `O members ->
+      schema_check option_keys verify_option_member members
+  | _ ->
+      false
+
 (* obj *)
 let verify_obj_member = function
   | "name", `String _ | "description", `String _ | "name_internal", `String _ ->
@@ -270,6 +284,8 @@ let verify_obj_member = function
       List.for_all verify_field fields
   | "messages", `A messages ->
       List.for_all verify_message messages
+  | "option", `A options ->
+      List.for_all verify_option options
   | "modules", `Null ->
       true
   | "modules", `O members ->
@@ -287,6 +303,7 @@ let obj_keys =
   ; "modules"
   ; "event"
   ; "session"
+  ; "option"
   ]
 
 let verify_obj = function
@@ -295,14 +312,69 @@ let verify_obj = function
   | _ ->
       false
 
+let verify_msg_or_error_member = function
+  | "name", `String _ | "value", `String _ ->
+      true
+  | _ ->
+      false
+
+let keys_in_error_or_msg = ["name"; "value"]
+
 let verify_msgs_or_errors lst =
   let verify_msg_or_error = function
-    | `O [("name", `String _)] ->
-        true
+    | `O members ->
+        schema_check keys_in_error_or_msg verify_msg_or_error_member members
     | _ ->
         false
   in
   List.for_all verify_msg_or_error lst
+
+let verify_release_member = function
+  | "branding", `String _ | "code_name", `String _ ->
+      true
+  | "first", `Bool _ ->
+      true
+  | "version_index", `Float _
+  | "version_major", `Float _
+  | "version_minor", `Float _ ->
+      true
+  | _ ->
+      false
+
+let release_keys =
+  [
+    "branding"
+  ; "code_name"
+  ; "version_major"
+  ; "version_minor"
+  ; "first"
+  ; "version_index"
+  ]
+
+let verify_release = function
+  | `O members ->
+      schema_check release_keys verify_release_member members
+  | _ ->
+      false
+
+let version_keys =
+  ["API_VERSION_MAJOR"; "API_VERSION_MINOR"; "latest_version_index"; "releases"]
+
+let verify_version_member = function
+  | "latest_version_index", `Float _
+  | "API_VERSION_MAJOR", `Float _
+  | "API_VERSION_MINOR", `Float _ ->
+      true
+  | "releases", `A releases ->
+      List.for_all verify_release releases
+  | _ ->
+      false
+
+let verify_version = function
+  | `O members ->
+      schema_check version_keys verify_version_member members
+  | _ ->
+      false
 
 let rec string_of_json_value (value : Mustache.Json.value) : string =
   match value with
@@ -421,8 +493,16 @@ let api_errors : Mustache.Json.t =
       ( "api_errors"
       , `A
           [
-            `O [("name", `String "MESSAGE_DEPRECATED")]
-          ; `O [("name", `String "MESSAGE_REMOVED")]
+            `O
+              [
+                ("name", `String "MessageDeprecated")
+              ; ("value", `String "MESSAGE_DEPRECATED")
+              ]
+          ; `O
+              [
+                ("name", `String "MessageRemoved")
+              ; ("value", `String "MESSAGE_REMOVED")
+              ]
           ]
       )
     ]
@@ -433,8 +513,58 @@ let api_messages : Mustache.Json.t =
       ( "api_messages"
       , `A
           [
-            `O [("name", `String "HA_STATEFILE_LOST")]
-          ; `O [("name", `String "METADATA_LUN_HEALTHY")]
+            `O
+              [
+                ("name", `String "HaStatefileLost")
+              ; ("value", `String "HA_STATEFILE_LOST")
+              ]
+          ; `O
+              [
+                ("name", `String "MetadataLunHealthy")
+              ; ("value", `String "METADATA_LUN_HEALTHY")
+              ]
+          ]
+      )
+    ]
+
+let api_versions : Mustache.Json.t =
+  `O
+    [
+      ("latest_version_index", `Float 2.)
+    ; ( "releases"
+      , `A
+          [
+            `O
+              [
+                ("branding", `String "XenServer 4.0")
+              ; ("code_name", `String "rio")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 1.)
+              ; ("first", `Bool true)
+              ]
+          ; `O
+              [
+                ("branding", `String "XenServer 4.1")
+              ; ("code_name", `String "miami")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 2.)
+              ; ("first", `Bool false)
+              ]
+          ]
+      )
+    ]
+
+let option =
+  `O
+    [
+      ( "option"
+      , `A
+          [
+            `O
+              [
+                ("type", `String "string")
+              ; ("type_name_suffix", `String "String")
+              ]
           ]
       )
     ]
@@ -637,6 +767,10 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let api_messages_rendered = string_of_file "api_messages.go"
 
+  let api_versions_rendered = string_of_file "api_versions.go"
+
+  let option_rendered = "type OptionString *string"
+
   let tests =
     `QuickAndAutoDocumented
       [
@@ -647,6 +781,8 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("SessionMethod.mustache", session_messages), session_method_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
+      ; (("APIVersions.mustache", api_versions), api_versions_rendered)
+      ; (("Option.mustache", option), option_rendered)
       ]
 end)
 
@@ -666,11 +802,14 @@ module TestGeneratedJson = struct
     verify "errors_and_msgs" verify_msgs_or_errors
       (Json.api_errors @ Json.api_messages)
 
+  let test_versions () = verify "versions" verify_version json_releases
+
   let tests =
     [
       ("enums", `Quick, test_enums)
     ; ("objs", `Quick, test_obj)
     ; ("errors_and_msgs", `Quick, test_errors_and_msgs)
+    ; ("versions", `Quick, test_versions)
     ]
 end
 

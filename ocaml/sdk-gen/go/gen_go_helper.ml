@@ -16,16 +16,40 @@
 open Datamodel_types
 open CommonFunctions
 module Types = Datamodel_utils.Types
+module StringSet = Set.Make (String)
 
 let templates_dir = "templates"
 
 let ( // ) = Filename.concat
 
+let acronyms =
+  [
+    "id"
+  ; "ip"
+  ; "vm"
+  ; "api"
+  ; "uuid"
+  ; "cpu"
+  ; "tls"
+  ; "https"
+  ; "url"
+  ; "db"
+  ; "xml"
+  ; "eof"
+  ]
+  |> StringSet.of_list
+
+let is_acronym word = StringSet.mem word acronyms
+
 let snake_to_camel (s : string) : string =
   Astring.String.cuts ~sep:"_" s
-  |> List.map (fun s -> Astring.String.cuts ~sep:"-" s)
-  |> List.concat
-  |> List.map String.capitalize_ascii
+  |> List.concat_map (fun s -> Astring.String.cuts ~sep:"-" s)
+  |> List.map (function
+       | s when is_acronym s ->
+           String.uppercase_ascii s
+       | s ->
+           String.capitalize_ascii s
+       )
   |> String.concat ""
 
 let render_template template_file json ?(newline = false) () =
@@ -42,6 +66,8 @@ let generate_file ~rendered ~destdir ~output_file =
     ~finally:(fun () -> close_out out_chan)
 
 module Json = struct
+  open Xapi_stdext_std
+
   type enum = (string * string) list
 
   module StringMap = Map.Make (String)
@@ -108,7 +134,9 @@ module Json = struct
     | Record r ->
         (snake_to_camel r ^ "Record", StringMap.empty)
     | Option ty ->
-        string_of_ty_with_enums ty
+        let _, e = string_of_ty_with_enums ty in
+        let name = suffix_of_type ty in
+        ("Option" ^ name, e)
 
   let of_enum name vs =
     let name = snake_to_camel name in
@@ -150,9 +178,7 @@ module Json = struct
 
   let modules_of_types types =
     let common = [`O [("name", `String "fmt"); ("sname", `Null)]] in
-    let items =
-      List.map modules_of_type types |> List.concat |> List.append common
-    in
+    let items = List.concat_map modules_of_type types |> List.append common in
     `O [("import", `Bool true); ("items", `A items)]
 
   let all_enums objs =
@@ -334,13 +360,27 @@ module Json = struct
       )
       obj.messages
 
+  let of_option ty =
+    let name, _ = string_of_ty_with_enums ty in
+    `O
+      [
+        ("type", `String name); ("type_name_suffix", `String (suffix_of_type ty))
+      ]
+
+  let of_options types =
+    types
+    |> List.filter_map (function Option ty -> Some ty | _ -> None)
+    |> List.map of_option
+
   let xenapi objs =
     List.map
       (fun obj ->
         let obj_name = snake_to_camel obj.name in
         let name_internal = String.uncapitalize_ascii obj_name in
         let fields = Datamodel_utils.fields_of_obj obj in
-        let types = List.map (fun field -> field.ty) fields in
+        let types =
+          List.map (fun field -> field.ty) fields |> Listext.List.setify
+        in
         let modules =
           match obj.messages with [] -> `Null | _ -> modules_of_types types
         in
@@ -354,6 +394,7 @@ module Json = struct
             )
           ; ("modules", modules)
           ; ("messages", `A (messages_of_obj obj))
+          ; ("option", `A (of_options types))
           ]
         in
         let assoc_list = base_assoc_list @ get_event_session_value obj.name in
@@ -361,9 +402,26 @@ module Json = struct
       )
       objs
 
-  let api_messages =
-    List.map (fun (msg, _) -> `O [("name", `String msg)]) !Api_messages.msgList
+  let of_api_message_or_error info =
+    let xapi_constants_renaming (s : string) : string =
+      String.split_on_char '_' s
+      |> List.map (fun seg ->
+             let lower = String.lowercase_ascii seg in
+             match lower with
+             | s when is_acronym s ->
+                 String.uppercase_ascii lower
+             | _ ->
+                 String.capitalize_ascii lower
+         )
+      |> String.concat ""
+    in
+    `O
+      [
+        ("name", `String (xapi_constants_renaming info)); ("value", `String info)
+      ]
 
-  let api_errors =
-    List.map (fun error -> `O [("name", `String error)]) !Api_errors.errors
+  let api_messages =
+    List.map (fun (msg, _) -> of_api_message_or_error msg) !Api_messages.msgList
+
+  let api_errors = List.map of_api_message_or_error !Api_errors.errors
 end
