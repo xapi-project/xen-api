@@ -1,6 +1,6 @@
 const (
 	//
-	MSG_HA_STATEFILE_LOST = "HA_STATEFILE_LOST"
+	MessageHaStatefileLost = "HA_STATEFILE_LOST"
 	//
-	MSG_METADATA_LUN_HEALTHY = "METADATA_LUN_HEALTHY"
+	MessageMetadataLunHealthy = "METADATA_LUN_HEALTHY"
 )
