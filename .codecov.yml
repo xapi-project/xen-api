@@ -185,14 +185,6 @@ coverage:
     project:
 
       #
-      # Python modules and scripts below scripts/ (excluding tests)
-      #
-      scripts:
-        paths: ["scripts/**", "!**/test_*.py"]
-        target: 48%
-        threshold: 2%
-
-      #
       # Python modules and scripts below ocaml/ (excluding tests)
       #
       ocaml:
@@ -239,15 +231,6 @@ component_management:
         threshold: 5%
 
   individual_components:
-
-    - component_id: scripts  # this is an identifier that should not be changed
-      name: scripts  # this is a display name, and can be changed freely
-      # The list of paths that should be in- and excluded in this component:
-      paths: ["scripts/**", "!scripts/examples/**", "!**/test_*.py"]
-
-    - component_id: scripts/examples
-      name: scripts/examples
-      paths: ["scripts/examples/**", "!scripts/**/test_*.py"]
 
     - component_id: ocaml
       name: ocaml
