@@ -246,6 +246,12 @@ inputs = [
     "ocaml/xcp-rrdd",
 ]
 disable = [
+    "import-error",  # xenfsimage, xcp.bootloader. xcp.cmd, import_helper
+    "ignored-abstractmethod",
+    "ignored-metaclass",
+    # https://github.com/google/pytype/issues/1130,
+    # https://github.com/google/pytype/issues/1485:
+    "pyi-error",
 ]
 platform = "linux"
 # Allow pytype to find the XenAPI module, the rrdd module and python3 modules:
