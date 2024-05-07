@@ -88,27 +88,6 @@ profile = "black"
 combine_as_imports = true
 ensure_newline_before_comments = false
 
-[tool.pylint.messages_control]
-disable = [
-    "missing-function-docstring",
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "consider-using-f-string",
-    "too-many-branches",
-    "too-many-arguments",
-    "broad-exception-caught",
-    "no-else-break",
-    "no-else-return",
-    "invalid-name",
-    "import-error",
-    "unnecessary-pass",
-    "unspecified-encoding",
-    "protected-access",
-    "no-member",  # Some mutiple inheritance classes may have this issue
-    "too-many-locals",  # Long functions. Need to refine the code
-    "too-many-statements",
-    "too-many-return-statements"
-]
 
 # -----------------------------------------------------------------------------
 # Mypy static analysis - https://mypy.readthedocs.io/en/stable/config_file.html
@@ -183,6 +162,7 @@ disable = [
     "too-many-statements",         # Likewise, not part of porting
     "unnecessary-pass",            # Cosmetic, best done during the code cleanup phase
     "useless-object-inheritance",  # Useless object inheritance from object, likewise
+    "too-many-return-statements",
 ]
 
 

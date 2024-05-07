@@ -51,7 +51,7 @@ jobs:
 
       - name: Install dependencies only needed for python 3
         if: ${{ matrix.python-version != '2.7' }}
-        run: pip install opentelemetry-api opentelemetry-exporter-zipkin-json opentelemetry-sdk pandas pytype toml wrapt
+        run: pip install pandas pytype toml wrapt
 
       - name: Install common dependencies for Python ${{matrix.python-version}}
         run: pip install future mock pytest-coverage pytest-mock
@@ -60,7 +60,7 @@ jobs:
         if: ${{ matrix.python-version == '2.7' }}
         run: >
           pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd
+          --cov=ocaml/xcp-rrdd
           scripts/ ocaml/xcp-rrdd -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
@@ -72,8 +72,8 @@ jobs:
         if: ${{ matrix.python-version != '2.7' }}
         run: >
           pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd --cov=python3/
-          scripts/ ocaml/xcp-rrdd python3/ -vv -rA
+          --cov=python3/
+          python3/tests -vv -rA
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
