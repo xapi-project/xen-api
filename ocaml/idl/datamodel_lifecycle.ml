@@ -110,11 +110,11 @@ let prototyped_of_message = function
   | "Repository", "set_gpgkey_path" ->
       Some "22.12.0"
   | "PCI", "get_dom0_access_status" ->
-      Some "24.13.0-next"
+      Some "24.14.0"
   | "PCI", "enable_dom0_access" ->
-      Some "24.13.0-next"
+      Some "24.14.0"
   | "PCI", "disable_dom0_access" ->
-      Some "24.13.0-next"
+      Some "24.14.0"
   | "message", "destroy_many" ->
       Some "22.19.0"
   | "VTPM", "set_contents" ->
