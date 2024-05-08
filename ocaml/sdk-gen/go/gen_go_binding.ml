@@ -80,7 +80,9 @@ let main destdir =
         render_template "FileHeader.mustache" obj ~newline:true ()
       in
       let options_rendered = render_template "Option.mustache" obj () in
-      let record_rendered = render_template "Record.mustache" obj () in
+      let record_rendered =
+        render_template "Record.mustache" obj () ~newline:true
+      in
       let methods_rendered =
         if name = "session" then
           render_template "SessionMethod.mustache" obj ()
@@ -88,15 +90,14 @@ let main destdir =
           render_template "Methods.mustache" obj ()
       in
       let rendered =
-        let first_half = header_rendered ^ options_rendered ^ record_rendered in
-        match methods_rendered with
-        | "" ->
-            first_half
-        | _ ->
-            first_half ^ "\n" ^ methods_rendered
+        let rendered =
+          [header_rendered; options_rendered; record_rendered; methods_rendered]
+          |> String.concat ""
+          |> String.trim
+        in
+        rendered ^ "\n"
       in
-      let output_file = name ^ ".go" in
-      generate_file ~rendered ~destdir ~output_file
+      generate_file ~rendered ~destdir ~output_file:(name ^ ".go")
     )
     objects
 
