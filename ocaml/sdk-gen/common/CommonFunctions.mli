@@ -137,3 +137,12 @@ val session_id : param
 
 val objects : obj list
 (** Objects of api that generate SDKs. *)
+
+val published_release_for_param : string list -> string
+
+val compare_versions : string -> string -> int
+(** Compare two published releases.
+    @param published release r1.
+    @param published release r2.
+    @return the order diff between r1 and r2.
+*)
