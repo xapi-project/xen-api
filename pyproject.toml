@@ -27,6 +27,25 @@ repository = "https://github.com/xapi-project/xen-api"
 [tool.black]
 line-length = 88
 
+
+# -----------------------------------------------------------------------------
+# Coverage.py - https://coverage.readthedocs.io/en/coverage-5.5/config.html
+# -----------------------------------------------------------------------------
+
+[tool.coverage.report]
+# fail_under:    minimum code coverage percentage
+# skip_covered:  if fully covered files should be reported
+# exclude_lines: lines to not require to be covered
+fail_under = 50
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "pass",
+    "raise NbdDeviceNotFound",  # python3/libexec/usb_scan.py
+]
+
+
 [tool.isort]
 line_length = 88
 py_version = 27
@@ -40,6 +59,8 @@ disable = [
     "missing-module-docstring",
     "missing-class-docstring",
     "consider-using-f-string",
+    "too-few-public-methods",
+    "too-many-public-methods",
     "too-many-branches",
     "too-many-arguments",
     "broad-exception-caught",
@@ -82,54 +103,94 @@ disallow_any_unimported = true
 disallow_subclassing_any = true
 
 
+# -----------------------------------------------------------------------------
+# Pyright static analysis and Pylance IDE language plugin of VSCode
+# https://microsoft.github.io/pyright/#/configuration
+# -----------------------------------------------------------------------------
+
+[tool.pyright]
+# include:          directories to include in checking
+# strict:           paths for which strict checking works
+# typeCheckingMode: set the standard type checking mode
+include              = ["python3", "ocaml/xcp-rrdd"]
+strict               = ["python3/tests/observer"]
+pythonPlatform       = "Linux"
+typeCheckingMode     = "standard"
+reportMissingImports = false
+pythonVersion        = "3.6"
+exclude              = [
+    "ocaml/xcp-rrdd/scripts/rrdd/rrdd.py",
+    "ocaml/xcp-rrdd/scripts/rrdd/rrdd-example.py",
+    "python3/packages/observer.py",
+]
+
+
+# -----------------------------------------------------------------------------
+# pytest: helps you write better programs - https://docs.pytest.org
+# -----------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+# -----------------------------------------------------------------------------
+# Options to enable for pytest by default:
+# -v                           show what happens
+# -rA                          show summary after running tests
+# --cov=python3                measure coverage of the python3 directory
+# --cov-fail-under             minimum coverage percentage
+# --cov-report=term-missing    show missing lines in the coverage report
+# --cov-report=html:<filename> generate an HTML coverage report(for viewing)
+# --cov-report=xml:<filename>  generate an XML coverage report(for upload)
+# -----------------------------------------------------------------------------
+addopts = """
+-v -rA --cov=python3 --cov=scripts --cov-fail-under=50
+--cov-report=html:.git/coverage --cov-report=term-missing
+--cov-report=xml:.git/coverage3.11.xml
+"""
+
+# -----------------------------------------------------------------------------
+# Other pytest config options:
+# log_cli:          show logger messages
+# log_cli_level:    log level to show
+# python_files:     pattern for test files
+# python_functions: pattern for test functions
+# testpaths:        directories to search for tests
+# minversion:       this config requires pytest>=7 to configure pythonpath
+# pythonpath:       path to stub files and typing stubs for tests
+# xfail_strict:     require to remove pytext.xfail marker when test is fixed
+# required_plugins: require that these plugins are installed before testing
+# -----------------------------------------------------------------------------
+testpaths = ["python3", "scripts", "ocaml/xcp-rrdd"]
+required_plugins = ["pytest-cov", "pytest-mock"]
+log_cli_level = "INFO"
+log_cli = true
+minversion = "7.0"
+pythonpath = "python3/stubs"
+python_files = ["test_*.py", "it_*.py"]
+python_functions = ["test_", "it_", "when_"]
+xfail_strict = true
+
+
 [tool.pytype_reporter]
-default_branch = "master"
+default_branch = "feature/py3"
 discard_messages_matching = [
     "Couldn't import pyi for 'xml.dom.minidom'",
     "No attribute '.*' on RRDContentHandler",
     "No attribute 'group' on None",
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
-expected_to_fail = [
-    # Need 2to3 -w <file> and maybe a few other minor updates:
-    "scripts/hatests",
-    "scripts/backup-sr-metadata.py",
-    "scripts/restore-sr-metadata.py",
-    # SSLSocket.send() only accepts bytes, not unicode string as argument:
-    "scripts/examples/python/exportimport.py",
-    # Other fixes needed:
-    "scripts/examples/python/mini-xenrt.py",
-    "scripts/examples/python/XenAPI/XenAPI.py",
-    "scripts/examples/python/monitor-unwanted-domains.py",
-    "scripts/examples/python/shell.py",
-    "scripts/examples/smapiv2.py",
-    "scripts/static-vdis",
-    "scripts/plugins/extauth-hook-AD.py",
-]
+expected_to_fail = []
 
+
+# -----------------------------------------------------------------------------
+# pytype: Google's static type analyzer - https://google.github.io/pytype/
+# -----------------------------------------------------------------------------
 
 [tool.pytype]
 inputs = [
-    "scripts/static-vdis",
-    "scripts/Makefile",
-    "scripts/generate-iscsi-iqn",
-    "scripts/hatests",
-    "scripts/host-display",
-    "scripts/mail-alarm",
-    "scripts/print-custom-templates",
-    "scripts/probe-device-for-file",
-    "scripts/xe-reset-networking",
-    "scripts/xe-scsi-dev-map",
-    "scripts/examples/python",
-    "scripts/yum-plugins",
-    "scripts/*.py",
-    "python3/packages/*.py",
-
-    # Python 3
     "python3/bin/hfx_filename",
     "python3/bin/perfmon",
     "python3/bin/*.py",
     "python3/libexec/*.py",
+    "python3/packages/*.py",
 
     # To be added later,
     # when converted to Python3-compatible syntax:
@@ -138,12 +199,8 @@ inputs = [
     # "ocaml/xapi-storage/python",
 ]
 disable = [
-    "import-error",  # xenfsimage, xcp.bootloader. xcp.cmd
-    "ignored-abstractmethod",
+    "import-error",      # opentelemetry packages
     "ignored-metaclass",
-    # https://github.com/google/pytype/issues/1130,
-    # https://github.com/google/pytype/issues/1485:
-    "pyi-error",
 ]
 platform = "linux"
-pythonpath = "scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
+pythonpath = "python3/stubs:."
