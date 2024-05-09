@@ -9,7 +9,7 @@ from mock import Mock
 
 
 @contextmanager
-def mocked_modules(*module_names):  # type:(str) -> Generator[None, None, None]
+def mocked_modules(*module_names: str) -> Generator[None, None, None]:
     """Context manager that temporarily mocks the specified modules.
 
     :param module_names: Variable number of names of the modules to be mocked.

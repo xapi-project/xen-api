@@ -4,7 +4,7 @@ import os
 import sys
 import unittest
 
-from mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 # Ensure observer is initialised as noop
 with patch("os.listdir") as mock_listdir:

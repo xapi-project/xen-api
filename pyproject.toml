@@ -88,28 +88,6 @@ profile = "black"
 combine_as_imports = true
 ensure_newline_before_comments = false
 
-[tool.pylint.messages_control]
-disable = [
-    "missing-function-docstring",
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "consider-using-f-string",
-    "too-many-branches",
-    "too-many-arguments",
-    "broad-exception-caught",
-    "no-else-break",
-    "no-else-return",
-    "invalid-name",
-    "import-error",
-    "unnecessary-pass",
-    "unspecified-encoding",
-    "protected-access",
-    "no-member",  # Some mutiple inheritance classes may have this issue
-    "too-many-locals",  # Long functions. Need to refine the code
-    "too-many-statements",
-    "too-many-return-statements"
-]
-
 # -----------------------------------------------------------------------------
 # Mypy static analysis - https://mypy.readthedocs.io/en/stable/config_file.html
 # -----------------------------------------------------------------------------
@@ -257,16 +235,52 @@ discard_messages_matching = [
     "No attribute 'group' on None",
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
-expected_to_fail = []
-
+expected_to_fail = [
+    # Need 2to3 -w <file> and maybe a few other minor updates:
+    "scripts/hatests",
+    "scripts/backup-sr-metadata.py",
+    "scripts/restore-sr-metadata.py",
+    # SSLSocket.send() only accepts bytes, not unicode string as argument:
+    "scripts/examples/python/exportimport.py",
+    # Other fixes needed:
+    "scripts/examples/python/mini-xenrt.py",
+    "scripts/examples/python/XenAPI/XenAPI.py",
+    "scripts/examples/python/monitor-unwanted-domains.py",
+    "scripts/examples/python/shell.py",
+    "scripts/examples/smapiv2.py",
+    "scripts/static-vdis",
+    "scripts/plugins/extauth-hook-AD.py",
+]
 
 [tool.pytype]
 inputs = [
+    # Python 3
     "python3/",
     "ocaml/xcp-rrdd",
+    # Python2: These will generate warnings that need to be fixed:
+    "scripts/static-vdis",
+    "scripts/generate-iscsi-iqn",
+    "scripts/hatests",
+    "scripts/host-display",
+    "scripts/mail-alarm",
+    "scripts/print-custom-templates",
+    "scripts/probe-device-for-file",
+    "scripts/xe-reset-networking",
+    "scripts/xe-scsi-dev-map",
+    "scripts/examples/python",
+    "scripts/yum-plugins",
+    "scripts/*.py",
+
+    # To be added later,
+    # when converted to Python3-compatible syntax:
+    # "ocaml/message-switch/python",
+    # "ocaml/idl/ocaml_backend/python",
+    # "ocaml/xapi-storage/python",
 ]
 disable = [
+    # Reduce noise from python2 scripts(import yum, xenfsimage, xcp, urlgrabber)
+    "import-error",
 ]
 platform = "linux"
 # Allow pytype to find the XenAPI module, the rrdd module and python3 modules:
-pythonpath = "python3:scripts/examples/python:ocaml/xcp-rrdd/scripts/rrdd"
+pythonpath = "scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
