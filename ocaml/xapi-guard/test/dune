@@ -32,6 +32,8 @@
    lwt.unix
    mtime
    mtime.clock.os
+   result
    uuidm
+   xapi-log
    xapi_guard)
  (preprocess (pps ppx_deriving_rpc)))

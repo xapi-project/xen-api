@@ -32,26 +32,10 @@ let failwith str = raise (Cli_util.Cli_failure str)
 exception ExitWithError of int
 
 let bool_of_string param string =
-  let s = String.lowercase_ascii string in
-  match s with
-  | "true" ->
-      true
-  | "t" ->
-      true
-  | "1" ->
-      true
-  | "false" ->
-      false
-  | "f" ->
-      false
-  | "0" ->
-      false
-  | _ ->
-      failwith
-        ("Failed to parse parameter '"
-        ^ param
-        ^ "': expecting 'true' or 'false'"
-        )
+  try Record_util.bool_of_string string
+  with Record_util.Record_failure msg ->
+    let msg = Printf.sprintf "Failed to parse parameter '%s': %s" param msg in
+    raise (Record_util.Record_failure msg)
 
 let get_bool_param params ?(default = false) param =
   List.assoc_opt param params
@@ -65,6 +49,24 @@ let get_float_param params param ~default =
 
 let get_param params param ~default =
   Option.value ~default (List.assoc_opt param params)
+
+let get_set_param params ?(default = []) param =
+  List.assoc_opt param params
+  |> Option.map (String.split_on_char ',')
+  |> Option.value ~default
+
+let get_map_param params ?(default = []) param =
+  let get_map x =
+    String.split_on_char ',' x
+    |> List.filter_map (fun x ->
+           match String.split_on_char ':' x with
+           | [k; v] ->
+               Some (k, v)
+           | _ ->
+               None
+       )
+  in
+  List.assoc_opt param params |> Option.map get_map |> Option.value ~default
 
 (** [get_unique_param param params] is intended to replace [List.assoc_opt] in
     the cases where a parameter can only exist once, as repeating it might
@@ -1142,7 +1144,7 @@ let gen_cmds rpc session_id =
       )
     ; Client.PGPU.(
         mk get_all_records_where get_by_uuid pgpu_record "pgpu" []
-          ["uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
+          ["uuid"; "pci-uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
           rpc session_id
       )
     ; Client.GPU_group.(
@@ -1327,6 +1329,11 @@ let gen_cmds rpc session_id =
           ; "endpoints"
           ; "enabled"
           ]
+          rpc session_id
+      )
+    ; Client.PCI.(
+        mk get_all_records_where get_by_uuid pci_record "pci" []
+          ["uuid"; "vendor-name"; "device-name"; "pci-id"]
           rpc session_id
       )
     ]
@@ -1520,16 +1527,15 @@ let pool_management_reconfigure (_ : printer) rpc session_id params =
 let pool_join printer rpc session_id params =
   try
     let force = get_bool_param params "force" in
+    let master_address = List.assoc "master-address" params in
+    let master_username = List.assoc "master-username" params in
+    let master_password = List.assoc "master-password" params in
     if force then
-      Client.Pool.join_force ~rpc ~session_id
-        ~master_address:(List.assoc "master-address" params)
-        ~master_username:(List.assoc "master-username" params)
-        ~master_password:(List.assoc "master-password" params)
+      Client.Pool.join_force ~rpc ~session_id ~master_address ~master_username
+        ~master_password
     else
-      Client.Pool.join ~rpc ~session_id
-        ~master_address:(List.assoc "master-address" params)
-        ~master_username:(List.assoc "master-username" params)
-        ~master_password:(List.assoc "master-password" params) ;
+      Client.Pool.join ~rpc ~session_id ~master_address ~master_username
+        ~master_password ;
     printer
       (Cli_printer.PList
          [
@@ -3264,11 +3270,11 @@ let do_vm_op ?(include_control_vms = false) ?(include_template_vms = false)
       select_vms ~include_control_vms ~include_template_vms rpc session_id
         params ignore_params
     in
-    match List.length vms with
-    | 0 ->
+    match vms with
+    | [] ->
         failwith "No matching VMs found"
-    | 1 ->
-        [op (List.hd vms)]
+    | [vm] ->
+        [op vm]
     | _ ->
         if multiple && get_bool_param params "multiple" then
           do_multiple op vms
@@ -3310,11 +3316,11 @@ let do_host_op rpc session_id op params ?(multiple = true) ignore_params =
 
 let do_sr_op rpc session_id op params ?(multiple = true) ignore_params =
   let srs = select_srs rpc session_id params ignore_params in
-  match List.length srs with
-  | 0 ->
+  match srs with
+  | [] ->
       failwith "No matching hosts found"
-  | 1 ->
-      [op (List.hd srs)]
+  | [sr] ->
+      [op sr]
   | _ ->
       if multiple && get_bool_param params "multiple" then
         do_multiple op srs
@@ -5575,12 +5581,7 @@ let vm_import fd _printer rpc session_id params =
           raise
             (Cli_util.Cli_failure "No SR specified and Pool default SR is null")
   in
-  let _type =
-    if List.mem_assoc "type" params then
-      List.assoc "type" params
-    else
-      "default"
-  in
+  let _type = get_param ~default:"default" params "type" in
   let full_restore = get_bool_param params "preserve" in
   let vm_metadata_only = get_bool_param params "metadata" in
   let force = get_bool_param params "force" in
@@ -5806,9 +5807,7 @@ let blob_put fd _printer rpc session_id params =
 let blob_create printer rpc session_id params =
   let name = List.assoc "name" params in
   let mime_type = Listext.assoc_default "mime-type" params "" in
-  let public =
-    try bool_of_string "public" (List.assoc "public" params) with _ -> false
-  in
+  let public = get_bool_param params "public" in
   if List.mem_assoc "vm-uuid" params then
     let uuid = List.assoc "vm-uuid" params in
     let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
@@ -5860,14 +5859,17 @@ let blob_create printer rpc session_id params =
 
 let export_common fd _printer rpc session_id params filename num ?task_uuid
     compression preserve_power_state vm =
-  let vm_metadata_only : bool = get_bool_param params "metadata" in
-  let export_snapshots : bool =
-    if List.mem_assoc "include-snapshots" params then
-      bool_of_string "include-snapshots" (List.assoc "include-snapshots" params)
-    else
-      vm_metadata_only
-  in
   let vm_metadata_only = get_bool_param params "metadata" in
+  let export_snapshots = get_bool_param params "include-snapshots" in
+  let uri, extra_args =
+    if vm_metadata_only then
+      ( Constants.export_metadata_uri
+      , Printf.sprintf "&excluded_device_types=%s"
+          (get_param params ~default:"" "excluded-device-types")
+      )
+    else
+      (Constants.export_uri, "")
+  in
   let vm_record = vm.record () in
   let exporttask, task_destroy_fn =
     match task_uuid with
@@ -5884,49 +5886,40 @@ let export_common fd _printer rpc session_id params filename num ?task_uuid
         (* do not destroy the task that has been received *)
         (Client.Task.get_by_uuid ~rpc ~session_id ~uuid:task_uuid, fun () -> ())
   in
-  (* Initially mark the task progress as -1.0. The first thing the export handler does it to mark it as zero *)
-  (* This is used as a flag to show that the 'ownership' of the task has been passed to the handler, and it's *)
-  (* not our responsibility any more to mark the task as completed/failed/etc. *)
+  (* Initially mark the task progress as -1.0. The first thing the export
+     handler does it to mark it as zero. This is used as a flag to show that
+     the 'ownership' of the task has been passed to the handler, and it's
+     not our responsibility any more to mark the task as completed/failed/etc.
+  *)
   Client.Task.set_progress ~rpc ~session_id ~self:exporttask ~value:(-1.0) ;
   finally
     (fun () ->
-      let f = if !num > 1 then filename ^ string_of_int !num else filename in
+      let num = Atomic.fetch_and_add num 1 in
+      let f = if num > 1 then filename ^ string_of_int num else filename in
       download_file rpc session_id exporttask fd f
         (Printf.sprintf
-           "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b"
-           ( if vm_metadata_only then
-               Constants.export_metadata_uri
-             else
-               Constants.export_uri
-           )
-           (Ref.string_of session_id) (Ref.string_of exporttask)
+           "%s?session_id=%s&task_id=%s&ref=%s&%s=%s&preserve_power_state=%b&export_snapshots=%b%s"
+           uri (Ref.string_of session_id) (Ref.string_of exporttask)
            (Ref.string_of (vm.getref ()))
            Constants.use_compression
            (Compression_algorithms.to_string compression)
-           preserve_power_state export_snapshots
+           preserve_power_state export_snapshots extra_args
         )
-        "Export" ;
-      num := !num + 1
+        "Export"
     )
     (fun () -> task_destroy_fn ())
 
 let get_compression_algorithm params =
-  if List.mem_assoc "compress" params then
-    Compression_algorithms.of_string (List.assoc "compress" params)
-  else
-    None
+  Option.bind
+    (List.assoc_opt "compress" params)
+    Compression_algorithms.of_string
 
 let vm_export fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
   let compression = get_compression_algorithm params in
   let preserve_power_state = get_bool_param params "preserve-power-state" in
-  let task_uuid =
-    if List.mem_assoc "task-uuid" params then
-      Some (List.assoc "task-uuid" params)
-    else
-      None
-  in
-  let num = ref 1 in
+  let task_uuid = List.assoc_opt "task-uuid" params in
+  let num = Atomic.make 1 in
   let op vm =
     export_common fd printer rpc session_id params filename num ?task_uuid
       compression preserve_power_state vm
@@ -5939,6 +5932,7 @@ let vm_export fd printer rpc session_id params =
        ; "compress"
        ; "preserve-power-state"
        ; "include-snapshots"
+       ; "excluded-device-types"
        ]
     )
 
@@ -5946,32 +5940,23 @@ let vm_export_aux obj_type fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
   let compression = get_compression_algorithm params in
   let preserve_power_state = get_bool_param params "preserve-power-state" in
-  let num = ref 1 in
   let uuid = List.assoc (obj_type ^ "-uuid") params in
-  let ref = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
-  if
-    obj_type = "template"
-    && not (Client.VM.get_is_a_template ~rpc ~session_id ~self:ref)
-  then
-    failwith
-      (Printf.sprintf
-         "This operation can only be performed on a VM template. %s is not a \
-          VM template."
-         uuid
-      ) ;
-  if
-    obj_type = "snapshot"
-    && not (Client.VM.get_is_a_snapshot ~rpc ~session_id ~self:ref)
-  then
-    failwith
-      (Printf.sprintf
-         "This operation can only be performed on a VM snapshot. %s is not a \
-          VM snapshot."
-         uuid
-      ) ;
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let is_template () = Client.VM.get_is_a_template ~rpc ~session_id ~self:vm in
+  let is_snapshot () = Client.VM.get_is_a_snapshot ~rpc ~session_id ~self:vm in
+  let msg () =
+    Printf.sprintf
+      "This operation can only be performed on a VM %s. %s is not a VM %s."
+      obj_type uuid obj_type
+  in
+  if obj_type = "template" && not (is_template ()) then
+    failwith (msg ()) ;
+  if obj_type = "snapshot" && not (is_snapshot ()) then
+    failwith (msg ()) ;
+  let num = Atomic.make 1 in
   export_common fd printer rpc session_id params filename num compression
     preserve_power_state
-    (vm_record rpc session_id ref)
+    (vm_record rpc session_id vm)
 
 let vm_copy_bios_strings printer rpc session_id params =
   let host =
@@ -7349,7 +7334,7 @@ let vmss_create printer rpc session_id params =
   let schedule = read_map_params "schedule" params in
   (* optional parameters with default values *)
   let name_description = get "name-description" ~default:"" in
-  let enabled = Record_util.bool_of_string (get "enabled" ~default:"true") in
+  let enabled = get_bool_param ~default:true params "enabled" in
   let retained_snapshots =
     Int64.of_string (get "retained-snapshots" ~default:"7")
   in
@@ -7503,13 +7488,13 @@ let pgpu_enable_dom0_access printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid in
   let result = Client.PGPU.enable_dom0_access ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 let pgpu_disable_dom0_access printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid in
   let result = Client.PGPU.disable_dom0_access ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 let lvhd_enable_thin_provisioning _printer rpc session_id params =
   let sr_uuid = List.assoc "sr-uuid" params in
@@ -7532,6 +7517,24 @@ let lvhd_enable_thin_provisioning _printer rpc session_id params =
        params
        ["sr-uuid"; "initial-allocation"; "allocation-quantum"]
     )
+
+let pci_enable_dom0_access printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.enable_dom0_access ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
+
+let pci_disable_dom0_access printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.disable_dom0_access ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
+
+let get_dom0_access_status printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.get_dom0_access_status ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 module PVS_site = struct
   let introduce printer rpc session_id params =
@@ -7918,13 +7921,7 @@ module VTPM = struct
   let create printer rpc session_id params =
     let vm_uuid = List.assoc "vm-uuid" params in
     let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
-    let is_unique =
-      match List.assoc_opt "is_unique" params with
-      | Some value ->
-          bool_of_string "is_unique" value
-      | None ->
-          false
-    in
+    let is_unique = get_bool_param params "is_unique" in
     let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique in
     let uuid = Client.VTPM.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
@@ -7940,33 +7937,12 @@ module Observer = struct
   let create printer rpc session_id params =
     let name_label = List.assoc "name-label" params in
     let hosts =
-      List.assoc_opt "host-uuids" params
-      |> Option.fold ~none:[] ~some:(fun host_uuids ->
-             List.map
-               (fun uuid -> Client.Host.get_by_uuid ~rpc ~session_id ~uuid)
-               (String.split_on_char ',' host_uuids)
-         )
+      get_set_param params "host-uuids"
+      |> List.map (fun uuid -> Client.Host.get_by_uuid ~rpc ~session_id ~uuid)
     in
-    let name_description =
-      List.assoc_opt "name-description" params |> Option.value ~default:""
-    in
-    let enabled =
-      List.assoc_opt "enabled" params
-      |> Option.fold ~none:false ~some:(fun s ->
-             try Stdlib.bool_of_string s with _ -> false
-         )
-    in
-    let attributes =
-      List.assoc_opt "attributes" params
-      |> Option.fold ~none:[] ~some:(String.split_on_char ',')
-      |> List.filter_map (fun kv ->
-             match String.split_on_char ':' kv with
-             | [k; v] ->
-                 Some (k, v)
-             | _ ->
-                 None
-         )
-    in
+    let name_description = get_param ~default:"" params "name-description" in
+    let enabled = get_bool_param params "enabled" in
+    let attributes = get_map_param params "attributes" in
     let endpoints =
       List.assoc_opt "endpoints" params
       |> Option.fold ~none:[Tracing.bugtool_name]

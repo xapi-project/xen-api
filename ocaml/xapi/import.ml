@@ -2158,11 +2158,18 @@ let complete_import ~__context vmrefs =
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
       )
       vmrefs ;
-    (* We only keep VMs which are not snapshot *)
+    (* When only snapshots have been imported, return all of them.
+       Otherwise, only keep VMs which are not snapshots *)
     let vmrefs =
-      List.filter
-        (fun vmref -> not (Db.VM.get_is_a_snapshot ~__context ~self:vmref))
+      let non_snapshots =
+        List.filter
+          (fun x -> not (Db.VM.get_is_a_snapshot ~__context ~self:x))
+          vmrefs
+      in
+      if non_snapshots = [] then
         vmrefs
+      else
+        non_snapshots
     in
     (* We only set the result on the task since it is officially completed later. *)
     TaskHelper.set_result ~__context (Some (API.rpc_of_ref_VM_set vmrefs))

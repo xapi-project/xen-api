@@ -738,7 +738,7 @@ let host_numa_affinity_policy_of_string a =
            ("Expected 'any', 'best_effort' or 'default_policy', got " ^ s)
         )
 
-let pgpu_dom0_access_to_string x = host_display_to_string x
+let pci_dom0_access_to_string x = host_display_to_string x
 
 let string_to_vdi_onboot s =
   match String.lowercase_ascii s with
@@ -954,12 +954,17 @@ let cluster_host_operation_to_string op =
 
 let bool_of_string s =
   match String.lowercase_ascii s with
-  | "true" | "yes" ->
+  | "true" | "t" | "yes" | "y" | "1" ->
       true
-  | "false" | "no" ->
+  | "false" | "f" | "no" | "n" | "0" ->
       false
   | _ ->
-      raise (Record_failure ("Expected 'true','yes','false','no', got " ^ s))
+      raise
+        (Record_failure
+           ("Expected 'true','t','yes','y','1','false','f','no','n','0' got "
+           ^ s
+           )
+        )
 
 let sdn_protocol_of_string s =
   match String.lowercase_ascii s with

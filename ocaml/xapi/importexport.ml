@@ -469,6 +469,37 @@ module Format = struct
   (* default *)
 end
 
+module Devicetype = struct
+  type t = VIF | VBD | VGPU | VTPM
+
+  let all = [VIF; VBD; VGPU; VTPM]
+
+  let to_string = function
+    | VIF ->
+        "vif"
+    | VBD ->
+        "vbd"
+    | VGPU ->
+        "vgpu"
+    | VTPM ->
+        "vtpm"
+
+  let of_string x =
+    match String.lowercase_ascii x with
+    | "vif" ->
+        VIF
+    | "vbd" ->
+        VBD
+    | "vgpu" ->
+        VGPU
+    | "vtpm" ->
+        VTPM
+    | other ->
+        let fail fmt = Printf.kprintf failwith fmt in
+        fail "%s: Type '%s' not one of [%s]" __FUNCTION__ other
+          (String.concat "; " (List.map to_string all))
+end
+
 let return_302_redirect (req : Http.Request.t) s address =
   let address = Http.Url.maybe_wrap_IPv6_literal address in
   let url =

@@ -43,6 +43,7 @@
    xapi-stdext-threads
    xapi-stdext-unix
    xapi-tracing
+   xapi-tracing.export
    xmlm
  )
  (preprocess

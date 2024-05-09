@@ -12,7 +12,7 @@ module TPMs = struct
   let request_persist uuid write =
     let __FUN = __FUNCTION__ in
 
-    let key = Tpm.deserialize_key (Random.int 3) in
+    let key = Tpm.deserialize_key (Random.int 3) |> Result.get_ok in
 
     let time = Mtime_clock.now () in
     let serial_n = Atomic.fetch_and_add writes_created 1 in
@@ -31,7 +31,7 @@ module TPMs = struct
   let request_read uuid read =
     let __FUN = __FUNCTION__ in
 
-    let key = Tpm.deserialize_key (Random.int 3) in
+    let key = Tpm.deserialize_key (Random.int 3) |> Result.get_ok in
 
     let time = Mtime_clock.now () in
     let serial_n = Atomic.fetch_and_add reads_created 1 in
@@ -200,5 +200,6 @@ let main () =
   Lwt.return_unit
 
 let () =
+  Debug.log_to_stdout () ;
   setup_log @@ Some Logs.Debug ;
   Lwt_main.run (main ())

@@ -8,7 +8,10 @@
     rpclib.json
     sexplib
     sexplib0
+    threads.posix
     uri
+    xapi-log
+    xapi-stdext-threads
   )
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
