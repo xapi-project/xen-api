@@ -72,7 +72,7 @@ echo -n "Waiting for Survival Rule 1: "
 wait_for_sr 1
 echo OK
 
-while [ /bin/true ]; do
+while true; do
     # Block statefile everywhere
     remote_exec_all "iptables -I OUTPUT -p tcp --dport 3260 -j DROP"
 

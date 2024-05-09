@@ -111,7 +111,7 @@ let get_obj_names_of_refs (obj_ref_list : SExpr.t list) : SExpr.t list =
     (function
       | SExpr.(Node [String name; String ""; String ""; String ref_value]) ->
           let obj_name, uuid =
-            match Ref_index.lookup ref_value with
+            match Xapi_database.Ref_index.lookup ref_value with
             | None ->
                 ("", "")
             | Some {name_label= None; uuid; _} ->
@@ -312,7 +312,7 @@ let rec sexpr_args_of __context name rpc_value action =
   else (* heuristic 2: print uuid/refs arguments in the xapi call *)
     match rpc_value with
     | Rpc.String value -> (
-      match Ref_index.lookup value with
+      match Xapi_database.Ref_index.lookup value with
       | None when Ref.(is_real (of_string value)) ->
           (* it's a ref, just not in the db cache *)
           Some

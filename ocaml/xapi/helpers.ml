@@ -23,7 +23,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Xapi_globs
-open Db_filter_types
+open Xapi_database.Db_filter_types
 include Helper_process
 open Network
 
@@ -1292,7 +1292,9 @@ let vm_to_string __context vm =
   if not (Db.is_valid_ref __context vm) then
     raise (Api_errors.Server_error (Api_errors.invalid_value, [str])) ;
   let t = Context.database_of __context in
-  let module DB = (val Db_cache.get t : Db_interface.DB_ACCESS) in
+  let module DB =
+    (val Xapi_database.Db_cache.get t : Xapi_database.Db_interface.DB_ACCESS)
+  in
   let fields = fst (DB.read_record t Db_names.vm str) in
   let sexpr =
     SExpr.Node
@@ -1966,7 +1968,7 @@ end = struct
     in
     Xapi_globs.pool_secrets := [ps] ;
     Db_globs.pool_secret :=
-      ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
+      ps |> SecretString.rpc_of_t |> Xapi_database.Db_secret_string.t_of_rpc ;
     SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
     Xapi_psr_util.load_psr_pool_secrets ()
 end

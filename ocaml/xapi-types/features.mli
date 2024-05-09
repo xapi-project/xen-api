@@ -72,6 +72,7 @@ type feature =
   | Internal_repo_access
       (** Enable restriction on repository access to pool members only *)
   | VTPM  (** Support VTPM device required by Win11 guests *)
+  | VM_anti_affinity  (** Enable use of VM anti-affinity placement *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)

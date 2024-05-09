@@ -15,7 +15,7 @@
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_helpers
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Xenops_utils
 open Xenops_task
 open Cancel_utils
@@ -5147,11 +5147,10 @@ let init () =
   look_for_forkexec () ;
   let major, minor = look_for_xen () in
   look_for_xenctrl () ;
-  if
-    major < "4" || ((major = "4" && minor < "2") && !Xenopsd.run_hotplug_scripts)
+  if major < 4 || ((major = 4 && minor < 2) && !Xenopsd.run_hotplug_scripts)
   then (
     error
-      "This is xen version %s.%s. On all versions < 4.1 we must use \
+      "This is xen version %d.%d. On all versions < 4.2 we must use \
        hotplug/udev scripts"
       major minor ;
     error

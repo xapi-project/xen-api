@@ -43,7 +43,7 @@ let xenstore_test xs =
     Printf.printf "%s: success: watch cancelled successfully" __MODULE__
 
 let () =
-  try Xenstore.with_xs xenstore_test
+  try Ezxenstore_core.Xenstore.with_xs xenstore_test
   with Xs_transport.Could_not_find_xenstore ->
     Printf.printf
       "%s: Xenstore not found, cannot test cancellable watches, are you \

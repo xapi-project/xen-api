@@ -15,7 +15,7 @@
 open Lwt.Infix
 
 (* Xapi external interfaces: *)
-module Xen_api = Xen_api_lwt_unix
+module Xen_api = Xen_api_client_lwt.Xen_api_lwt_unix
 
 let ignore_exn_delayed t () = Lwt.catch t (fun _ -> Lwt.return_unit)
 

@@ -15,6 +15,7 @@
 module D = Debug.Make (struct let name = "xapi_pci_helpers" end)
 
 open D
+module Unixext = Xapi_stdext_unix.Unixext
 
 type pci_property = {id: int; name: string}
 
@@ -172,3 +173,68 @@ let get_host_pcis () =
 let igd_is_whitelisted ~__context pci =
   let vendor_id = Db.PCI.get_vendor_id ~__context ~self:pci in
   List.mem vendor_id !Xapi_globs.igd_passthru_vendor_whitelist
+
+let is_pci_hidden_cmdline ~__context ~self =
+  let cmdline =
+    match Unixext.read_lines ~path:"/proc/cmdline" with
+    | [x] ->
+        x
+    | _ ->
+        failwith "Unable to read cmdline"
+  in
+  let device = Db.PCI.get_pci_id ~__context ~self in
+  let elems = String.split_on_char ' ' cmdline in
+  let xen_hide_param = "xen-pciback.hide=" in
+  let xen_hide_param_length = String.length xen_hide_param in
+  let pciback =
+    List.find_map
+      (fun s ->
+        if String.starts_with ~prefix:xen_hide_param s then
+          Some
+            (String.sub s xen_hide_param_length
+               (String.length s - xen_hide_param_length)
+            )
+        else
+          None
+      )
+      elems
+  in
+  (* Look for the device id in the list of hidden devices
+   * pciback looks like: "xen-pciback.hide=(<id1>)(<id2>)..." *)
+  let contains str substr = Astring.String.is_infix ~affix:substr str in
+  match pciback with None -> false | Some value -> contains value device
+
+let determine_dom0_access_status ~__context ~self =
+  (* Current hidden status *)
+  let is_hidden_cmdline = is_pci_hidden_cmdline ~__context ~self in
+  (* Hidden status after reboot *)
+  let is_hidden = Pciops.is_pci_hidden ~__context self in
+  match (is_hidden_cmdline, is_hidden) with
+  | true, true ->
+      `disabled
+  | false, true ->
+      `disable_on_reboot
+  | false, false ->
+      `enabled
+  | true, false ->
+      `enable_on_reboot
+
+let update_dom0_access ~__context ~self ~action =
+  ( match action with
+  | `enable ->
+      Pciops.unhide_pci ~__context self
+  | `disable ->
+      Pciops.hide_pci ~__context self
+  ) ;
+
+  let new_access = determine_dom0_access_status ~__context ~self in
+  (* Keep up to date deprecated PGPU DB field, to be removed eventually. *)
+  let expr = Printf.sprintf {|field "PCI"="%s"|} (Ref.string_of self) in
+  let pgpus = Db.PGPU.get_all_records_where ~__context ~expr in
+  List.iter
+    (fun (pgpu_ref, _) ->
+      Db.PGPU.set_dom0_access ~__context ~self:pgpu_ref ~value:new_access
+    )
+    pgpus ;
+
+  new_access

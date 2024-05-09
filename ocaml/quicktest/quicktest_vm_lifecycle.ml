@@ -91,12 +91,18 @@ let one rpc session_id vm test =
   | Halted ->
       wait_for_domid (fun domid' -> domid' = -1L)
 
-let test rpc session_id vm_template () =
-  Qt.VM.with_new rpc session_id ~template:vm_template (fun vm ->
+let test rpc session_id sr_info vm_template () =
+  let sr = sr_info.Qt.sr in
+  Qt.VM.with_new rpc session_id ~template:vm_template ~sr (fun vm ->
       List.iter (one rpc session_id vm) all_possible_tests
   )
 
 let tests () =
   let open Qt_filter in
-  [[("VM lifecycle tests", `Slow, test)] |> conn |> vm_template "CoreOS"]
+  [
+    [("VM lifecycle tests", `Slow, test)]
+    |> conn
+    |> sr SR.(all |> allowed_operations [`vdi_create])
+    |> vm_template "CoreOS"
+  ]
   |> List.concat

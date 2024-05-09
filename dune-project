@@ -3,6 +3,7 @@
 
 (generate_opam_files true)
 
+(name "xapi")
 (source (github xapi-project/xen-api))
 (license "LGPL-2.1-only WITH OCaml-LGPL-linking-exception")
 (authors "xen-api@lists.xen.org")
@@ -64,6 +65,10 @@
 
 (package
   (name xapi-tracing)
+)
+
+(package
+  (name xapi-tracing-export)
 )
 
 (package
@@ -260,21 +265,6 @@
 
 (package
   (name xapi-inventory)
-)
-
-(package
-  (name xapi-stdext)
-  (synopsis "Xapi's standard library extension")
-  (description "Dummy package that enables the usage of dune-release")
-  (depends
-    (xapi-stdext-date (= :version))
-    (xapi-stdext-encodings (= :version))
-    (xapi-stdext-pervasives (= :version))
-    (xapi-stdext-std (= :version))
-    (xapi-stdext-threads (= :version))
-    (xapi-stdext-unix (= :version))
-    (xapi-stdext-zerocheck (= :version))
-  )
 )
 
 (package

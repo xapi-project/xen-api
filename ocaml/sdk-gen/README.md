@@ -12,9 +12,7 @@ The Python module is not auto-generated, it can be found at
 [XenAPI.py](../../scripts/examples/python/XenAPI/XenAPI.py).
 
 To compile the generated source code, follow the instructions in the corresponding
-README files. The (patched) third party libraries required for the compilation
-of the C# and PowerShell source code can be obtained from
-[xenserver/dotnet-packages](https://github.com/xenserver/dotnet-packages)
+`README` files.
 
 The repository [xenserver/xenserver-samples](https://github.com/xenserver/xenserver-samples)
 contains a number of examples for each of the five programming languages to help

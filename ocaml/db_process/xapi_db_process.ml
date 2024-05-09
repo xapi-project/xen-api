@@ -14,7 +14,8 @@
 module D = Debug.Make (struct let name = "xapi-db-process" end)
 
 open D
-open Db_cache_types
+open Xapi_database
+open Xapi_database.Db_cache_types
 
 let compress = ref false
 

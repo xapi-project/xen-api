@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Db_cache_types
+open Xapi_database.Db_cache_types
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -25,7 +25,8 @@ open D
 (* Keep track of foreign metadata VDIs and their database generations and pool UUIDs. *)
 (* The generation count is used to keep track of metadata_latest of all foreign database VDIs. *)
 (* The pool uuid is cached so that "xe pool-param-get param-name=metadata-of-pool" can be called without opening the database. *)
-let db_vdi_cache : (API.ref_VDI, Generation.t * string) Hashtbl.t =
+let db_vdi_cache : (API.ref_VDI, Xapi_database.Generation.t * string) Hashtbl.t
+    =
   Hashtbl.create 10
 
 let db_vdi_cache_mutex = Mutex.create ()
@@ -101,7 +102,7 @@ let update_metadata_latest ~__context =
     vdis_grouped_by_pool
 
 let read_database_generation ~db_ref =
-  let db = Db_ref.get_database db_ref in
+  let db = Xapi_database.Db_ref.get_database db_ref in
   let manifest = Database.manifest db in
   Manifest.generation manifest
 
@@ -245,6 +246,7 @@ let create_import_objects ~__context ~vms =
   List.iter
     (Export.update_table ~__context ~include_snapshots:true
        ~preserve_power_state:true ~include_vhd_parents:false ~table
+       ~excluded_devices:[]
     )
     vms ;
   Export.make_all ~with_snapshot_metadata:true ~preserve_power_state:true table

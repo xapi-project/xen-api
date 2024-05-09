@@ -85,6 +85,7 @@ let become_master () =
     This code runs on the new master. *)
 let attempt_two_phase_commit_of_new_master ~__context (manual : bool)
     (peer_addresses : string list) (my_address : string) =
+  let open Xapi_database in
   debug
     "attempting %s two-phase commit of new master. My address = %s; peer \
      addresses = [ %s ]"

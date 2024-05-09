@@ -253,9 +253,9 @@ namespace Citrix.XenServer.Commands
 
         private void AddCertificate(string hostname, string fingerprint)
         {
-            var certificates = CommonCmdletFunctions.LoadCertificates();
+            var certificates = CommonCmdletFunctions.LoadCertificates(this);
             certificates[hostname] = fingerprint;
-            CommonCmdletFunctions.SaveCertificates(certificates);
+            CommonCmdletFunctions.SaveCertificates(this, certificates);
         }
 
         private bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
@@ -274,7 +274,7 @@ namespace Citrix.XenServer.Commands
 
                 bool trusted = VerifyInAllStores(new X509Certificate2(certificate));
 
-                var certificates = CommonCmdletFunctions.LoadCertificates();
+                var certificates = CommonCmdletFunctions.LoadCertificates(this);
 
                 if (certificates.ContainsKey(hostname))
                 {
@@ -292,7 +292,7 @@ namespace Citrix.XenServer.Commands
                 }
 
                 certificates[hostname] = fingerprint;
-                CommonCmdletFunctions.SaveCertificates(certificates);
+                CommonCmdletFunctions.SaveCertificates(this, certificates);
                 return true;
             }
         }

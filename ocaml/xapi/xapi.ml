@@ -25,7 +25,9 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 open Auth_signature
 open Extauth
-open Db_filter_types
+open Xapi_database
+open Xapi_database.Db_filter_types
+open Xapi_database.Db_cache_types
 
 module D = Debug.Make (struct let name = "xapi" end)
 
@@ -61,8 +63,6 @@ let database_ready_for_clients_m = Mutex.create ()
 let database_ready_for_clients = ref false
 
 (* while this is false, client calls will be blocked *)
-
-open Db_cache_types
 
 (** Populate the database from the default connections or the restore db file
     (if it is present). Perform an initial flush to the database connections

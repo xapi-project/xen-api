@@ -1,7 +1,6 @@
 (library
   (name ezxenstore_core)
   (public_name ezxenstore.core)
-  (wrapped false)
   (libraries
     cmdliner
     logs

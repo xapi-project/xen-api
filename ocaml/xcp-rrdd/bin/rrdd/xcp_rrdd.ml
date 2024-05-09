@@ -361,9 +361,11 @@ let dss_loadavg () =
     )
   ]
 
-let count_running_domain domains =
+let count_power_state_running_domains domains =
   List.fold_left
-    (fun count (dom, _, _) -> if dom.Xenctrl.running then count + 1 else count)
+    (fun count (dom, _, _) ->
+      if not dom.Xenctrl.paused then count + 1 else count
+    )
     0 domains
 
 let dss_hostload xc domains =
@@ -386,7 +388,7 @@ let dss_hostload xc domains =
       )
       0 domains
   in
-  let running_domains = count_running_domain domains in
+  let running_domains = count_power_state_running_domains domains in
 
   let load_per_cpu = float_of_int load /. float_of_int pcpus in
   [
@@ -793,7 +795,7 @@ let domain_snapshot xc =
        the original and the final uuid to xenstore *)
     let uuid_from_key key =
       let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Xenstore.(with_xs (fun xs -> xs.read path))
+      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
       with Xs_protocol.Enoent _hint ->
         info "Couldn't read path %s; falling back to actual uuid" path ;
         uuid

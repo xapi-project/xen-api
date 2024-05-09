@@ -104,7 +104,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       let sr_type = Db.SR.get_type ~__context ~self:sr in
       let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
       (* Check to see if any PBDs are attached *)
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let pbds_attached =
         match pbd_records with
         | [] ->
@@ -560,7 +560,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let expr =
     And
       ( Eq
@@ -625,13 +625,27 @@ let create ~__context ~name_label ~name_description ~sR ~virtual_size ~_type
     | `cbt_metadata ->
         "cbt_metadata"
   in
+  (* special case: we want to use a specific UUID for Pool Meta Data
+     Backup *)
+  let uuid_ =
+    match (_type, name_label) with
+    | `user, "Pool Metadata Backup" ->
+        let sr = Db.SR.get_uuid ~__context ~self:sR in
+        let uuid = Uuidx.(Hash.string sr |> to_string) in
+        info "%s: using deterministic UUID for '%s' VDI: %s" __FUNCTION__
+          name_label uuid ;
+        Some uuid
+    | _ ->
+        None
+  in
   let open Storage_access in
   let task = Context.get_task_id __context in
   let open Storage_interface in
   let vdi_info =
     {
       Storage_interface.default_vdi_info with
-      name_label
+      uuid= uuid_
+    ; name_label
     ; name_description
     ; ty= vdi_type
     ; read_only
@@ -1017,7 +1031,7 @@ let destroy_and_data_destroy_common ~__context ~self
       )
       vbds ;
     (* If VDI destroyed is suspend VDI of VM then set the suspend_VDI field as null ref *)
-    let open Db_filter_types in
+    let open Xapi_database.Db_filter_types in
     Db.VM.get_refs_where ~__context
       ~expr:(Eq (Field "suspend_VDI", Literal (Ref.string_of self)))
     |> List.iter (fun self ->
@@ -1427,7 +1441,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let hosts_with_attached_pbds =
     Db.PBD.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq (Field "SR", Literal (Ref.string_of sr))
             , Eq (Field "currently_attached", Literal "true")
@@ -1455,7 +1469,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
     let attached_pifs =
       Db.PIF.get_refs_where ~__context
         ~expr:
-          Db_filter_types.(
+          Xapi_database.Db_filter_types.(
             And
               ( Eq (Field "host", Literal (Ref.string_of host))
               , Eq (Field "currently_attached", Literal "true")

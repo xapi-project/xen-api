@@ -1,12 +1,12 @@
 # API Basics
 
 This document defines the XenServer Management API - an interface for remotely
-configuring and controlling virtualised guests running on a Xen-enabled host.
+configuring and controlling virtualized guests running on a Xen-enabled host.
 
 The API is presented here as a set of Remote Procedure Calls (RPCs). There are
 two supported wire formats, one based upon [XML-RPC](http://xmlrpc.scripting.com/spec.html)
 and one based upon [JSON-RPC](http://www.jsonrpc.org) (v1.0 and v2.0 are both
-recognised). No specific language bindings are prescribed, although examples
+recognized). No specific language bindings are prescribed, although examples
 will be given in the python programming language.
 
 Although we adopt some terminology from object-oriented programming,

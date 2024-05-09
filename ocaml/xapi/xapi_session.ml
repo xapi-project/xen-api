@@ -431,7 +431,7 @@ let revalidate_external_session ~__context ~session =
     if
       not
         (Db.Session.get_is_local_superuser ~__context ~self:session
-        || Db_backend.is_session_registered (Ref.string_of session)
+        || Xapi_database.Db_backend.is_session_registered (Ref.string_of session)
         )
     then (
       (* 1. is the external authentication disabled in the pool? *)
@@ -653,7 +653,8 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     Ref.of_string
       ( match db_ref with
       | Some db_ref ->
-          Db_backend.create_registered_session create_session db_ref
+          Xapi_database.Db_backend.create_registered_session create_session
+            db_ref
       | None ->
           create_session ()
       )
@@ -1149,8 +1150,8 @@ let change_password ~__context ~old_pwd ~new_pwd =
         try
           (* CP-696: only change password if session has is_local_superuser bit set *)
           (*
-  CA-13567: If you have root priviledges then we do not authenticate old_pwd; right now, since we only
-            ever have root priviledges we just comment this out.
+  CA-13567: If you have root privileges then we do not authenticate old_pwd; right now, since we only
+            ever have root privileges we just comment this out.
 
 	begin
 	  try
@@ -1347,8 +1348,8 @@ let create_readonly_session ~__context ~uname ~db_ref =
 (* Create a database reference from a DB dump, and register it with a new readonly session. *)
 let create_from_db_file ~__context ~filename =
   let db =
-    Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename
-    |> Db_upgrade.generic_database_upgrade
+    Xapi_database.Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename
+    |> Xapi_database.Db_upgrade.generic_database_upgrade
   in
-  let db_ref = Some (Db_ref.in_memory (ref (ref db))) in
+  let db_ref = Some (Xapi_database.Db_ref.in_memory (ref (ref db))) in
   create_readonly_session ~__context ~uname:"db-from-file" ~db_ref

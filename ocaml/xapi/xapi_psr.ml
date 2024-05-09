@@ -461,8 +461,10 @@ let notify_send ~__context ~old_ps ~new_ps =
         )
       in
       Xapi_globs.pool_secrets := [priority_2_ps; priority_1_ps] ;
-      Db_globs.pool_secret :=
-        priority_2_ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc
+      Xapi_database.Db_globs.pool_secret :=
+        priority_2_ps
+        |> SecretString.rpc_of_t
+        |> Xapi_database.Db_secret_string.t_of_rpc
   | [priority_1_ps; priority_2_ps]
     when SecretString.(equal priority_1_ps new_ps && equal priority_2_ps old_ps)
     ->

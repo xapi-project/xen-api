@@ -12,17 +12,6 @@ with patch("os.listdir") as mock_listdir:
     mock_listdir.return_value = []
     from python3.packages import observer
 
-# mock modules to avoid dependencies
-sys.modules["opentelemetry"] = MagicMock()
-sys.modules["opentelemetry.sdk.resources"] = MagicMock()
-sys.modules["opentelemetry.sdk.trace"] = MagicMock()
-sys.modules["opentelemetry.sdk.trace.export"] = MagicMock()
-sys.modules["opentelemetry.exporter.zipkin.json"] = MagicMock()
-sys.modules["opentelemetry.baggage.propagation"] = MagicMock()
-sys.modules["opentelemetry.trace.propagation.tracecontext"] = MagicMock()
-sys.modules["opentelemetry.context"] = MagicMock()
-sys.modules["opentelemetry.trace"] = MagicMock()
-
 TEST_CONFIG = """
     XS_EXPORTER_BUGTOOL_ENDPOINT='/var/log/dt/test'
     OTEL_SERVICE_NAME='test-observer'
@@ -31,10 +20,43 @@ TEST_CONFIG = """
 TEST_OBSERVER_CONF = "test-observer.conf"
 OBSERVER_OPEN = "python3.packages.observer.open"
 
+#
+# These are the modules that are mocked to avoid dependencies.
+# Note: wrapt is not mocked: It is used to wrap the traced script.
+# These modules are not imported at the top of observer.py, but are
+# imported inside the observer._init_tracing(). This is why they are mocked
+# in the test class before calling observer._init_tracing() and then deleted
+# in the tearDown of the test class to avoid affecting other tests.
+#
+MOCKED_MODULES = [
+    "opentelemetry",
+    "opentelemetry.sdk.resources",
+    "opentelemetry.sdk.trace",
+    "opentelemetry.sdk.trace.export",
+    "opentelemetry.exporter.zipkin.json",
+    "opentelemetry.baggage.propagation",
+    "opentelemetry.trace.propagation.tracecontext",
+    "opentelemetry.context",
+    "opentelemetry.trace",
+]
+
 
 # pylint: disable=missing-function-docstring,protected-access
 class TestObserver(unittest.TestCase):
     """Test python3/packages/observer.py"""
+
+    def setUp(self) -> None:
+        # As setup for this class, mock modules to avoid dependencies
+        for mock in MOCKED_MODULES:
+            sys.modules[mock] = MagicMock()
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        # On teardown, delete mocks so they do not affect other tests
+        # Otherwise, the mocks will be used in other tests and cause errors
+        for mock in MOCKED_MODULES:
+            del sys.modules[mock]
+        return super().tearDown()
 
     def simple_method(self):
         """A simple helper method for tests to wrap using observer.span"""

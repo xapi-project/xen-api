@@ -34,7 +34,8 @@ let certificate_type =
     )
 
 let t =
-  create_obj ~name:_certificate ~descr:"Description" ~doccomments:[]
+  create_obj ~name:_certificate
+    ~descr:"An X509 certificate used for TLS connections" ~doccomments:[]
     ~gen_constructor_destructor:false ~gen_events:true ~in_db:true ~lifecycle
     ~persist:PersistEverything ~in_oss_since:None
     ~messages_default_allowed_roles:_R_READ_ONLY
