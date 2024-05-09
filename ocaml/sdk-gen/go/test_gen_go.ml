@@ -51,7 +51,6 @@ let schema_check keys checker members =
   let keys' = List.map (fun (k, _) -> k) members in
   compare_keys keys keys' && List.for_all checker members
 
-(* field *)
 let verify_field_member = function
   | "name", `String _ | "description", `String _ | "type", `String _ ->
       true
@@ -66,7 +65,134 @@ let verify_field = function
   | _ ->
       false
 
-(* module *)
+let result_keys = ["type"; "func_name_suffix"]
+
+let verify_result_member = function
+  | "type", `String _ | "func_name_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let error_keys = ["name"; "doc"]
+
+let verify_error_member = function
+  | "name", `String _ | "doc", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_error = function
+  | `O error ->
+      schema_check error_keys verify_error_member error
+  | _ ->
+      false
+
+let param_keys =
+  [
+    "is_session_id"
+  ; "type"
+  ; "name"
+  ; "name_internal"
+  ; "doc"
+  ; "func_name_suffix"
+  ; "first"
+  ]
+
+let verify_param_member = function
+  | "is_session_id", `Bool _
+  | "first", `Bool _
+  | "type", `String _
+  | "name", `String _
+  | "name_internal", `String _
+  | "doc", `String _
+  | "func_name_suffix", `String _ ->
+      true
+  | _ ->
+      false
+
+let verify_param = function
+  | `O param ->
+      schema_check param_keys verify_param_member param
+  | _ ->
+      false
+
+let verify_message_member = function
+  | "method_name", `String _
+  | "class_name", `String _
+  | "class_name_exported", `String _
+  | "method_name_exported", `String _ ->
+      true
+  | "description", `String _ | "description", `Null ->
+      true
+  | "result", `Null ->
+      true
+  | "result", `O result ->
+      schema_check result_keys verify_result_member result
+  | "params", `A params ->
+      List.for_all verify_param params
+  | "errors", `A errors ->
+      List.for_all verify_error errors
+  | "async", `Bool _ | "has_error", `Bool _ | "errors", `Null ->
+      true
+  | _ ->
+      false
+
+let verify_sesseion_message_member = function
+  | "method_name", `String _
+  | "class_name", `String _
+  | "class_name_exported", `String _
+  | "method_name_exported", `String _ ->
+      true
+  | "description", `String _ | "description", `Null ->
+      true
+  | "result", `Null ->
+      true
+  | "result", `O result ->
+      schema_check result_keys verify_result_member result
+  | "params", `A params ->
+      List.for_all verify_param params
+  | "func_params", `A params ->
+      List.for_all verify_param params
+  | "errors", `A errors ->
+      List.for_all verify_error errors
+  | "async", `Bool _
+  | "has_error", `Bool _
+  | "session_login", `Bool _
+  | "session_logout", `Bool _
+  | "errors", `Null ->
+      true
+  | _ ->
+      false
+
+let message_keys =
+  [
+    "method_name"
+  ; "class_name"
+  ; "class_name_exported"
+  ; "method_name_exported"
+  ; "description"
+  ; "result"
+  ; "params"
+  ; "errors"
+  ; "has_error"
+  ; "async"
+  ]
+
+let session_message_keys =
+  ["session_login"; "session_logout"; "func_params"] @ message_keys
+
+let verify_message = function
+  | `O members ->
+      let class_name =
+        List.assoc_opt "class_name" members |> Option.value ~default:`Null
+      in
+      if class_name <> `String "session" then
+        schema_check message_keys verify_message_member members
+      else
+        schema_check session_message_keys verify_sesseion_message_member members
+  | _ ->
+      false
+
 let verify_module_member = function
   | "name", `String _ ->
       true
@@ -83,7 +209,6 @@ let verify_modules_item = function
   | _ ->
       false
 
-(* modules *)
 let modules_keys = ["import"; "items"]
 
 let verify_modules_member = function
@@ -96,7 +221,6 @@ let verify_modules_member = function
 
 let enum_values_keys = ["value"; "doc"; "name"; "type"]
 
-(* enums *)
 let verify_enum_values_member = function
   | "value", `String _
   | "doc", `String _
@@ -158,6 +282,8 @@ let verify_obj_member = function
       true
   | "fields", `A fields ->
       List.for_all verify_field fields
+  | "messages", `A messages ->
+      List.for_all verify_message messages
   | "option", `A options ->
       List.for_all verify_option options
   | "modules", `Null ->
@@ -170,9 +296,10 @@ let verify_obj_member = function
 let obj_keys =
   [
     "name"
-  ; "name_internal"
   ; "description"
+  ; "name_internal"
   ; "fields"
+  ; "messages"
   ; "modules"
   ; "event"
   ; "session"
@@ -442,6 +569,175 @@ let option =
       )
     ]
 
+let session_messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("session_login", `Bool true)
+              ; ("session_logout", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("name_internal", `String "")
+              ; ("method_name", `String "login_with_password")
+              ; ("method_name_exported", `String "LoginWithPassword")
+              ; ( "description"
+                , `String
+                    "Attempt to authenticate the user); returning a session \
+                     reference if successful"
+                )
+              ; ("async", `Bool false)
+              ; ( "func_params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "uname")
+                        ; ("name_internal", `String "uname")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("first", `Bool true)
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "string")
+                        ; ("name", `String "pwd")
+                        ; ("name_internal", `String "pwd")
+                        ; ("func_name_suffix", `String "String")
+                        ; ("is_session_id", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "SessionRef")
+                    ; ("func_name_suffix", `String "SessionRef")
+                    ]
+                )
+              ; ("has_error", `Bool true)
+              ; ( "errors"
+                , `A
+                    [
+                      `O
+                        [
+                          ("name", `String "SESSION_AUTHENTICATION_FAILED")
+                        ; ( "doc"
+                          , `String
+                              "The credentials given by the user are incorrect"
+                          )
+                        ]
+                    ]
+                )
+              ]
+          ; `O
+              [
+                ("session_logout", `Bool true)
+              ; ("session_login", `Bool false)
+              ; ("class_name", `String "session")
+              ; ("class_name_exported", `String "Session")
+              ; ("method_name", `String "logout")
+              ; ("method_name_exported", `String "Logout")
+              ; ("description", `String "Logout Log out of a session")
+              ; ("async", `Bool false)
+              ; ("func_params", `A [])
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_name_suffix", `String "SessionRef")
+                        ; ("is_session_id", `Bool true)
+                        ]
+                    ]
+                )
+              ; ("result", `Null)
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
+
+let messages : Mustache.Json.t =
+  `O
+    [
+      ( "messages"
+      , `A
+          [
+            `O
+              [
+                ("class_name", `String "host")
+              ; ("name_internal", `String "host")
+              ; ("method_name", `String "get_log")
+              ; ("method_name_exported", `String "GetLog")
+              ; ("description", `String "GetLog Get the host log file")
+              ; ("async", `Bool true)
+              ; ( "params"
+                , `A
+                    [
+                      `O
+                        [
+                          ("type", `String "SessionRef")
+                        ; ("name", `String "session_id")
+                        ; ("name_internal", `String "sessionID")
+                        ; ("func_name_suffix", `String "SessionRef")
+                        ; ("session", `Bool true)
+                        ; ("session_class", `Bool false)
+                        ; ("first", `Bool true)
+                        ]
+                    ; `O
+                        [
+                          ("type", `String "HostRef")
+                        ; ("name", `String "host")
+                        ; ("name_internal", `String "host")
+                        ; ("func_name_suffix", `String "HostRef")
+                        ; ("first", `Bool false)
+                        ]
+                    ]
+                )
+              ; ( "result"
+                , `O
+                    [
+                      ("type", `String "string")
+                    ; ("func_name_suffix", `String "String")
+                    ]
+                )
+              ; ("has_error", `Bool false)
+              ; ("errors", `A [])
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -463,6 +759,10 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let enums_rendered = string_of_file "enum.go"
 
+  let methods_rendered = string_of_file "methods.go"
+
+  let session_method_rendered = string_of_file "session_method.go"
+
   let api_errors_rendered = string_of_file "api_errors.go"
 
   let api_messages_rendered = string_of_file "api_messages.go"
@@ -477,6 +777,8 @@ module TemplatesTest = Generic.MakeStateless (struct
         (("FileHeader.mustache", header), file_header_rendered)
       ; (("Record.mustache", record), record_rendered)
       ; (("Enum.mustache", enums), enums_rendered)
+      ; (("Methods.mustache", messages), methods_rendered)
+      ; (("SessionMethod.mustache", session_messages), session_method_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
       ; (("APIVersions.mustache", api_versions), api_versions_rendered)
@@ -511,10 +813,133 @@ module TestGeneratedJson = struct
     ]
 end
 
+module SuffixOfTypeTest = Generic.MakeStateless (struct
+  open Datamodel_types
+
+  module Io = struct
+    type input_t = ty
+
+    type output_t = string
+
+    let string_of_input_t = Json.suffix_of_type
+
+    let string_of_output_t = Test_printers.string
+  end
+
+  let transform = Json.suffix_of_type
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (SecretString, "String")
+      ; (String, "String")
+      ; (Int, "Int")
+      ; (Float, "Float")
+      ; (Bool, "Bool")
+      ; (Enum ("update_sync", [("a", "b"); ("c", "d")]), "EnumUpdateSync")
+      ; (Set String, "StringSet")
+      ; (Map (Int, String), "IntToStringMap")
+      ; (Ref "pool", "PoolRef")
+      ; (Record "pool", "PoolRecord")
+      ; (Option String, "String")
+      ]
+end)
+
+module StringOfTyWithEnumsTest = struct
+  open Datamodel_types
+  module StringMap = Json.StringMap
+
+  let verify description verify_func actual =
+    Alcotest.(check bool) description true (verify_func actual)
+
+  let verify_string (ty, enums) = ty = "string" && enums = StringMap.empty
+
+  let test_string () =
+    let ty, enums = Json.string_of_ty_with_enums String in
+    verify "String" verify_string (ty, enums)
+
+  let test_secret_string () =
+    let ty, enums = Json.string_of_ty_with_enums SecretString in
+    verify "SecretString" verify_string (ty, enums)
+
+  let verify_float (ty, enums) = ty = "float64" && enums = StringMap.empty
+
+  let test_float () =
+    let ty, enums = Json.string_of_ty_with_enums Float in
+    verify "Float" verify_float (ty, enums)
+
+  let verify_bool (ty, enums) = ty = "bool" && enums = StringMap.empty
+
+  let test_bool () =
+    let ty, enums = Json.string_of_ty_with_enums Bool in
+    verify "bool" verify_bool (ty, enums)
+
+  let verify_datetime (ty, enums) = ty = "time.Time" && enums = StringMap.empty
+
+  let test_datetime () =
+    let ty, enums = Json.string_of_ty_with_enums DateTime in
+    verify "datetime" verify_datetime (ty, enums)
+
+  let enum_lst = [("a", "b"); ("c", "d")]
+
+  let verify_enum (ty, enums) =
+    ty = "UpdateSync" && enums = StringMap.singleton "UpdateSync" enum_lst
+
+  let test_enum () =
+    let ty, enums =
+      Json.string_of_ty_with_enums (Enum ("update_sync", enum_lst))
+    in
+    verify "enum" verify_enum (ty, enums)
+
+  let verify_ref (ty, enums) = ty = "PoolRef" && enums = StringMap.empty
+
+  let test_ref () =
+    let ty, enums = Json.string_of_ty_with_enums (Ref "pool") in
+    verify "ref" verify_ref (ty, enums)
+
+  let verify_record (ty, enums) = ty = "PoolRecord" && enums = StringMap.empty
+
+  let test_record () =
+    let ty, enums = Json.string_of_ty_with_enums (Record "pool") in
+    verify "record" verify_record (ty, enums)
+
+  let verify_option (ty, enums) = ty = "OptionString" && enums = StringMap.empty
+
+  let test_option () =
+    let ty, enums = Json.string_of_ty_with_enums (Option String) in
+    verify "option" verify_option (ty, enums)
+
+  let verify_map (ty, enums) =
+    ty = "map[int]UpdateSync"
+    && enums = StringMap.singleton "UpdateSync" enum_lst
+
+  let test_map () =
+    let ty, enums =
+      Json.string_of_ty_with_enums (Map (Int, Enum ("update_sync", enum_lst)))
+    in
+    verify "map" verify_map (ty, enums)
+
+  let tests =
+    [
+      ("String", `Quick, test_string)
+    ; ("SecretString", `Quick, test_secret_string)
+    ; ("Float", `Quick, test_float)
+    ; ("Bool", `Quick, test_bool)
+    ; ("DateTime", `Quick, test_datetime)
+    ; ("Enum", `Quick, test_enum)
+    ; ("Ref", `Quick, test_ref)
+    ; ("Record", `Quick, test_record)
+    ; ("Option", `Quick, test_option)
+    ; ("Map", `Quick, test_map)
+    ]
+end
+
 let tests =
   make_suite "gen_go_binding_"
     [
       ("snake_to_camel", SnakeToCamelTest.tests)
+    ; ("suffix_of_type", SuffixOfTypeTest.tests)
+    ; ("string_of_ty_with_enums", StringOfTyWithEnumsTest.tests)
     ; ("templates", TemplatesTest.tests)
     ; ("generated_mustache_jsons", TestGeneratedJson.tests)
     ]
