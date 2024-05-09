@@ -573,6 +573,7 @@ let gen_class cls folder =
   fprintf file
     {|package com.xensource.xenapi;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.xensource.xenapi.Types.BadServerResponse;
 import com.xensource.xenapi.Types.XenAPIException;
@@ -592,7 +593,10 @@ import java.io.IOException;
 
   if class_is_empty cls then
     fprintf file
-      "\n    public String toWireString() {\n        return null;\n    }\n\n"
+      "    @JsonValue\n\
+      \    public String toWireString() {\n\
+      \        return null;\n\
+      \    }\n\n"
   else (
     fprintf file "    /**\n" ;
     fprintf file "     * The XenAPI reference (OpaqueRef) to this object.\n" ;
@@ -608,6 +612,7 @@ import java.io.IOException;
     fprintf file
       "     * @return The XenAPI reference (OpaqueRef) to this object.\n" ;
     fprintf file "     */\n" ;
+    fprintf file "    @JsonValue\n" ;
     fprintf file "    public String toWireString() {\n" ;
     fprintf file "       return this.ref;\n" ;
     fprintf file "    }\n\n"
@@ -719,7 +724,9 @@ let generate_reference_task_result_func file clstr =
     "    public static %s to%s(Task task, Connection connection) throws \
      IOException {\n"
     clstr clstr ;
-  fprintf file "        return Types.to%s(task.getResult(connection));\n" clstr ;
+  fprintf file
+    "        return Types.to%s(parseResult(task.getResult(connection)));\n"
+    clstr ;
   fprintf file "    }\n" ;
   fprintf file "\n"
 
@@ -948,6 +955,8 @@ import java.util.*;
 import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class holds enum types and exceptions.
@@ -1030,7 +1039,7 @@ public class Types
        if(errorData.length == 0){
            throw new BadServerResponse(response);
        }
-       var errorName = errorData[0];
+       var errorName = response.message;
 |} ;
 
   Hashtbl.iter (gen_method_error_throw file) Datamodel.errors ;
@@ -1052,6 +1061,29 @@ public class Types
   TypeSet.iter (gen_task_result_func file) !types ;
   fprintf file
     {|
+    
+    public static class BadAsyncResult extends XenAPIException
+    {
+        public final String result;
+
+        public BadAsyncResult(String result)
+        {
+            super(result);
+            this.result = result;
+        }
+    }
+
+    private static String parseResult(String result) throws BadAsyncResult
+    {
+        Pattern pattern = Pattern.compile("<value>(.*)</value>");
+        Matcher matcher = pattern.matcher(result);
+        if (!matcher.find() || matcher.groupCount() != 1) {
+            throw new Types.BadAsyncResult("Can't interpret: " + result);
+        }
+
+        return matcher.group(1);
+    }
+
     public static EventBatch toEventBatch(Object object) {
       if (object == null) {
           return null;
