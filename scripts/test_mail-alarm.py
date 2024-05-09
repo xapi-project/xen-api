@@ -8,6 +8,10 @@ import shutil
 import sys
 import unittest
 import mock
+import pytest
+
+if sys.version_info > (2, ):
+    pytest.skip(allow_module_level=True)
 
 def nottest(obj):
     obj.__test__ = False
