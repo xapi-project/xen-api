@@ -14,8 +14,14 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+# pylint: disable=redefined-outer-name
+# pyright: reportFunctionMemberAccess=false
+# pyright: reportOptionalMemberAccess=false, reportAttributeAccessIssue=false
 
-import sys, socket, urllib.request, XenAPI
+import sys
+import socket
+
+import XenAPI
 
 db_url = "/remote_db_access"
 

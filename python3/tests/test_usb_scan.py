@@ -25,8 +25,7 @@ class MocDeviceAttrs(Mapping):
         self.d = device.get_attr()
 
     def __iter__(self):  # pragma: no cover
-        for name in self.d:
-            yield name
+        yield from self.d
 
     def __len__(self):  # pragma: no cover
         return len(self.d)
@@ -54,8 +53,7 @@ class MocDevice(Mapping):
         return MocDeviceAttrs(self)
 
     def __iter__(self):  # pragma: no cover
-        for name in self.get_prop():
-            yield name
+        yield from self.get_prop()
 
     def __len__(self):  # pragma: no cover
         return len(self.get_prop())
@@ -64,7 +62,7 @@ class MocDevice(Mapping):
         return self.get_prop().get(name)
 
 
-class MocEnumerator(object):
+class MocEnumerator():
     def __init__(self, ds):
         self.ds = ds
 
@@ -73,7 +71,7 @@ class MocEnumerator(object):
             yield MocDevice(d)
 
 
-class MocContext(object):
+class MocContext():
     def __init__(self, devices, interfaces):
         self.devices = devices
         self.interfaces = interfaces
@@ -85,6 +83,7 @@ class MocContext(object):
             return MocEnumerator(self.devices)
         elif dev_type == "usb_interface":
             return MocEnumerator(self.interfaces)
+        raise AssertionError(f"unexpected {dev_type}")  # pragma: no cover
 
 
 def mock_setup(mod, devices, interfaces, path):
