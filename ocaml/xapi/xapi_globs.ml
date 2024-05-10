@@ -1093,17 +1093,23 @@ let xapi_globs_spec =
     , Float Db_globs.permanent_master_failure_retry_interval
     )
   ; ( "redo_log_max_block_time_empty"
-    , Float Db_globs.redo_log_max_block_time_empty
+    , ShortDurationFromSeconds Db_globs.redo_log_max_block_time_empty
     )
-  ; ("redo_log_max_block_time_read", Float Db_globs.redo_log_max_block_time_read)
+  ; ( "redo_log_max_block_time_read"
+    , ShortDurationFromSeconds Db_globs.redo_log_max_block_time_read
+    )
   ; ( "redo_log_max_block_time_writedelta"
-    , Float Db_globs.redo_log_max_block_time_writedelta
+    , ShortDurationFromSeconds Db_globs.redo_log_max_block_time_writedelta
     )
   ; ( "redo_log_max_block_time_writedb"
-    , Float Db_globs.redo_log_max_block_time_writedb
+    , ShortDurationFromSeconds Db_globs.redo_log_max_block_time_writedb
     )
-  ; ("redo_log_max_startup_time", Float Db_globs.redo_log_max_startup_time)
-  ; ("redo_log_connect_delay", Float Db_globs.redo_log_connect_delay)
+  ; ( "redo_log_max_startup_time"
+    , ShortDurationFromSeconds Db_globs.redo_log_max_startup_time
+    )
+  ; ( "redo_log_connect_delay"
+    , ShortDurationFromSeconds Db_globs.redo_log_connect_delay
+    )
   ; ("default-vbd3-polling-duration", Int default_vbd3_polling_duration)
   ; ( "default-vbd3-polling-idle-threshold"
     , Int default_vbd3_polling_idle_threshold

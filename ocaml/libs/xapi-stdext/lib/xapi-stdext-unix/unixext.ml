@@ -547,7 +547,17 @@ let really_read_string fd length =
 
 exception Timeout
 
-let to_milliseconds ms = ms *. 1000. |> ceil |> int_of_float
+(* Need to round up when converting to milliseconds:
+   The span will have the amount of time already elapsed subtracted, so if we are asked to wait
+   for 1ms, the span will be slightly smaller than that.
+   If we truncate then all waits of 1ms will be 0ms instead, which would be wrong, as we wouldn't wait at all.
+   If we round to nearest rather than up, then waits of 1ms will be ~0.5ms instead, since values below 0.5ms will get
+   rounded to 0.
+   Rounding up works correctly, and makes the tests pass.
+*)
+let to_milliseconds span =
+  Int64.div (Int64.add 999_999L @@ Mtime.Span.to_uint64_ns span) 1_000_000L
+  |> Int64.to_int
 
 (* Allocating a new polly and waiting like this results in at least 3 syscalls.
    An alternative for sockets would be to use [setsockopt],
@@ -570,19 +580,17 @@ let with_polly_wait kind fd f =
          and check the timeout after each chunk.
          select() would've silently succeeded here, whereas epoll() is stricted and returns EPERM
       *)
-      let wait remaining_time = if remaining_time < 0. then raise Timeout in
-      f wait fd
+      f (fun _ -> true) fd
   | S_CHR | S_FIFO | S_SOCK ->
       with_polly @@ fun polly ->
       Polly.add polly fd kind ;
       let wait remaining_time =
         let milliseconds = to_milliseconds remaining_time in
-        if milliseconds <= 0 then raise Timeout ;
         let ready =
           Polly.wait polly 1 milliseconds @@ fun _ event_on_fd _ ->
           assert (event_on_fd = fd)
         in
-        if ready = 0 then raise Timeout
+        ready > 0
       in
       f wait fd
 
@@ -595,22 +603,23 @@ let time_limited_write_internal
   with_polly_wait Polly.Events.out filedesc @@ fun wait filedesc ->
   let total_bytes_to_write = length in
   let bytes_written = ref 0 in
-  let now = ref (Unix.gettimeofday ()) in
-  while !bytes_written < total_bytes_to_write && !now < target_response_time do
-    let remaining_time = target_response_time -. !now in
-    wait remaining_time ;
-    let bytes_to_write = total_bytes_to_write - !bytes_written in
-    let bytes =
-      try write filedesc data !bytes_written bytes_to_write
-      with
-      | Unix.Unix_error (Unix.EAGAIN, _, _)
-      | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-      ->
-        0
-    in
-    (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
-    bytes_written := bytes + !bytes_written ;
-    now := Unix.gettimeofday ()
+  while !bytes_written < total_bytes_to_write do
+    match Clock.Timer.remaining target_response_time with
+    | Expired _ ->
+        raise Timeout
+    | Remaining remaining_time ->
+        if not (wait remaining_time) then raise Timeout ;
+        let bytes_to_write = total_bytes_to_write - !bytes_written in
+        let bytes =
+          try write filedesc data !bytes_written bytes_to_write
+          with
+          | Unix.Unix_error (Unix.EAGAIN, _, _)
+          | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+          ->
+            0
+        in
+        (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
+        bytes_written := bytes + !bytes_written
   done ;
   if !bytes_written = total_bytes_to_write then
     ()
@@ -633,44 +642,57 @@ let time_limited_read filedesc length target_response_time =
   let total_bytes_to_read = length in
   let bytes_read = ref 0 in
   let buf = Bytes.make total_bytes_to_read '\000' in
-  let now = ref (Unix.gettimeofday ()) in
-  while !bytes_read < total_bytes_to_read && !now < target_response_time do
-    let remaining_time = target_response_time -. !now in
-    wait remaining_time ;
-    let bytes_to_read = total_bytes_to_read - !bytes_read in
-    let bytes =
-      try Unix.read filedesc buf !bytes_read bytes_to_read
-      with
-      | Unix.Unix_error (Unix.EAGAIN, _, _)
-      | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-      ->
-        0
-    in
-    (* read into buffer=buf from offset=bytes_read, length=bytes_to_read *)
-    if bytes = 0 then
-      raise End_of_file (* End of file has been reached *)
-    else
-      bytes_read := bytes + !bytes_read ;
-    now := Unix.gettimeofday ()
+  while !bytes_read < total_bytes_to_read do
+    match Clock.Timer.remaining target_response_time with
+    | Expired _ ->
+        raise Timeout
+    | Remaining remaining_time ->
+        if not (wait remaining_time) then raise Timeout ;
+        let bytes_to_read = total_bytes_to_read - !bytes_read in
+        let bytes =
+          try Unix.read filedesc buf !bytes_read bytes_to_read
+          with
+          | Unix.Unix_error (Unix.EAGAIN, _, _)
+          | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+          ->
+            0
+        in
+        (* read into buffer=buf from offset=bytes_read, length=bytes_to_read *)
+        if bytes = 0 then
+          raise End_of_file (* End of file has been reached *)
+        else
+          bytes_read := bytes + !bytes_read
   done ;
   if !bytes_read = total_bytes_to_read then
     Bytes.unsafe_to_string buf
   else (* we ran out of time *)
     raise Timeout
 
-let time_limited_single_read filedesc length ~max_wait =
+let wait_timed_read filedesc span =
+  with_polly_wait Polly.Events.inp filedesc @@ fun wait _filedesc -> wait span
+
+let time_limited_single_read filedesc length target_response_time =
   let buf = Bytes.make length '\000' in
-  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
-  wait max_wait ;
-  let bytes =
-    try Unix.read filedesc buf 0 length
-    with
-    | Unix.Unix_error (Unix.EAGAIN, _, _)
-    | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-    ->
-      0
-  in
-  Bytes.sub_string buf 0 bytes
+  match Clock.Timer.remaining target_response_time with
+  | Expired _ ->
+      raise Timeout
+  | Remaining remaining_time ->
+      if not (wait_timed_read filedesc remaining_time) then raise Timeout ;
+      let bytes =
+        try Unix.read filedesc buf 0 length
+        with
+        | Unix.Unix_error (Unix.EAGAIN, _, _)
+        | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+        ->
+          0
+      in
+      Bytes.sub_string buf 0 bytes
+
+let wait_timed_read filedesc target_response_time =
+  with_polly_wait Polly.Events.inp filedesc @@ fun wait _fd ->
+  wait target_response_time
+
+let delay_span span = span |> Clock.Timer.span_to_s |> Unix.sleepf
 
 (* --------------------------------------------------------------------------------------- *)
 

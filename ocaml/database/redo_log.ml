@@ -244,9 +244,7 @@ let generation_size = 16
 
 let length_size = 16
 
-let get_latest_response_time block_time =
-  let now = Unix.gettimeofday () in
-  now +. block_time
+let get_latest_response_time block_time = Clock.Timer.start ~duration:block_time
 
 (* Returns the PID of the process *)
 let start_io_process block_dev ctrlsockpath datasockpath =
@@ -265,26 +263,29 @@ let connect sockpath latest_response_time =
       Unix.connect s (Unix.ADDR_UNIX sockpath) ;
       D.debug "Connected to I/O process via socket %s" sockpath ;
       s
-    with Unix.Unix_error (a, b, _) ->
+    with Unix.Unix_error (a, b, _) -> (
       (* It's probably the case that the process hasn't started yet. *)
       (* See if we can afford to wait and try again *)
       Unix.close s ;
       let attempt_delay = !Db_globs.redo_log_connect_delay in
-      let now = Unix.gettimeofday () in
-      let remaining = latest_response_time -. now in
-      if attempt_delay < remaining then (
-        (* Wait for a while then try again *)
-        D.debug
-          "Waiting to connect to I/O process via socket %s (error was %s: \
-           %s)..."
-          sockpath b (Unix.error_message a) ;
-        D.debug "Remaining time for retries: %f" remaining ;
-        Thread.delay attempt_delay ;
-        attempt ()
-      ) else (
-        D.debug "%s timeout reached" __FUNCTION__ ;
-        raise Unixext.Timeout
-      )
+      match
+        Clock.Timer.remaining
+          (Clock.Timer.shorten_by attempt_delay latest_response_time)
+      with
+      | Remaining remaining ->
+          (* Wait for a while then try again *)
+          D.debug
+            "Waiting to connect to I/O process via socket %s (error was %s: \
+             %s)..."
+            sockpath b (Unix.error_message a) ;
+          D.debug "Remaining time for retries: %a" Debug.Pp.mtime_span remaining ;
+          Unixext.delay_span attempt_delay ;
+          attempt ()
+      | Expired overrun ->
+          D.debug "%s timeout reached (%a overrun)" __FUNCTION__
+            Debug.Pp.mtime_span overrun ;
+          raise Unixext.Timeout
+    )
   in
   attempt ()
 

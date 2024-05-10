@@ -28,7 +28,11 @@
       test_schemas unit_test_marshall unit_test_sql))
   (libraries
     forkexec
+    fmt
     gzip
+    mtime
+    mtime.clock
+    mtime.clock.os
     rpclib.core
     rpclib.json
     safe-resources
@@ -61,6 +65,9 @@
   (modules block_device_io)
   (libraries
     dune-build-info
+    mtime
+    mtime.clock
+    mtime.clock.os
     xapi_database
     xapi-log
     xapi-stdext-pervasives

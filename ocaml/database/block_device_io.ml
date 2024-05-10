@@ -325,16 +325,20 @@ let listen_on sock =
   s
 
 let accept_conn s latest_response_time =
-  let now = Unix.gettimeofday () in
-  let timeout = latest_response_time -. now in
-  (* Await an incoming connection... *)
-  let ready_to_read, _, _ = Unix.select [s] [] [] timeout in
-  R.info "Finished selecting" ;
-  if List.mem s ready_to_read then
-    (* We've received a connection. Accept it and return the socket. *)
-    fst (Unix.accept s)
-  else (* We must have timed out *)
-    raise Unixext.Timeout
+  match Clock.Timer.remaining latest_response_time with
+  | Expired _ ->
+      raise Unixext.Timeout
+  | Remaining timeout ->
+      (* Await an incoming connection... *)
+      let ready_to_read, _, _ =
+        Unix.select [s] [] [] (Clock.Timer.span_to_s timeout)
+      in
+      R.info "Finished selecting" ;
+      if List.mem s ready_to_read then
+        (* We've received a connection. Accept it and return the socket. *)
+        fst (Unix.accept s)
+      else (* We must have timed out *)
+        raise Unixext.Timeout
 
 (* Listen on a given socket. Accept a single connection and transfer all the data from it to dest_fd, or raise Timeout if target_response_time happens first. *)
 (* Raises NotEnoughSpace if the next write would exceed the available_space. *)
@@ -731,6 +735,8 @@ let dump = ref false
 
 let empty = ref false
 
+let target_response_time delta = Clock.Timer.start ~duration:delta
+
 let _ =
   (* Initialise debug logging *)
   initialise_logging () ;
@@ -770,11 +776,12 @@ let _ =
     (* Open the block device *)
     let block_dev_fd =
       open_block_device !block_dev
-        (Unix.gettimeofday () +. !Db_globs.redo_log_max_startup_time)
+        (target_response_time !Db_globs.redo_log_max_startup_time)
     in
     R.info "Opened block device." ;
-    let target_response_time = Unix.gettimeofday () +. 3600. in
-    (* Read the validity byte *)
+    let target_response_time =
+      target_response_time !Db_globs.redo_log_max_connect_time
+    in
     try
       let validity = read_validity_byte block_dev_fd target_response_time in
       Printf.printf "*** Validity byte: [%s]\n" validity ;
@@ -841,10 +848,12 @@ let _ =
     (* Open the block device *)
     let block_dev_fd =
       open_block_device !block_dev
-        (Unix.gettimeofday () +. !Db_globs.redo_log_max_startup_time)
+        (target_response_time !Db_globs.redo_log_max_startup_time)
     in
     R.info "Opened block device." ;
-    let target_response_time = Unix.gettimeofday () +. 3600. in
+    let target_response_time =
+      target_response_time !Db_globs.redo_log_max_connect_time
+    in
     initialise_redo_log block_dev_fd target_response_time ;
     Printf.printf "Block device initialised.\n"
   ) ;
@@ -855,9 +864,8 @@ let _ =
     let s = listen_on !ctrlsock in
     (* Main loop: accept a new client, communicate with it until it stops sending commands, repeat. *)
     while true do
-      let start_of_startup = Unix.gettimeofday () in
       let target_startup_response_time =
-        start_of_startup +. !Db_globs.redo_log_max_startup_time
+        target_response_time !Db_globs.redo_log_max_startup_time
       in
       R.info "Awaiting incoming connections on %s..." !ctrlsock ;
       let client = accept_conn s target_startup_response_time in
@@ -898,11 +906,11 @@ let _ =
                           send_failure client (str ^ "|nack")
                             ("Unknown command " ^ str)
                         )
-                      , 0.
+                      , Mtime.Span.zero
                       )
                 in
                 (* "Start the clock!" -- set the latest time by which we need to have responded to the client. *)
-                let target_response_time = Unix.gettimeofday () +. block_time in
+                let target_response_time = target_response_time block_time in
                 action_fn block_dev_fd client !datasock target_response_time
               with
               (* this must be an exception in Unixext.really_read because action_fn doesn't throw exceptions *)
