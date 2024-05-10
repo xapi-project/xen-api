@@ -1,7 +1,7 @@
 open QCheck2
 open Xapi_fd_test
 
-let print_timeout = string_of_float
+let print_timeout = Fmt.to_to_string Mtime.Span.pp
 
 let expect_string ~expected ~actual =
   if not (String.equal expected actual) then
@@ -20,7 +20,7 @@ let test_buf_io =
   let timeouts = Generate.timeouts in
   let gen = Gen.tup2 Generate.t timeouts
   and print = Print.tup2 Generate.print print_timeout in
-  Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
+  Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout_span) ->
   let every_bytes =
     Int.min
       (Option.map Observations.Delay.every_bytes behaviour.delay_read
@@ -38,11 +38,8 @@ let test_buf_io =
      timeout_span remains the span for the entire function,
      and timeout the per operation timeout that we'll pass to the function under test.
   *)
-  let timeout_span = Mtime.Span.of_float_ns (timeout *. 1e9) |> Option.get in
-  let timeout = timeout /. float operations in
-  let timeout_operation_span =
-    Mtime.Span.of_float_ns (timeout *. 1e9) |> Option.get
-  in
+  let timeout = Clock.Timer.span_to_s timeout_span /. float operations in
+  let timeout_operation_span = Clock.Timer.s_to_span timeout |> Option.get in
   (* timeout < 1us would get truncated to 0 *)
   QCheck2.assume (timeout > 1e-6) ;
   (* Format.eprintf "Testing %s@." (print (behaviour, timeout)); *)

@@ -3,19 +3,22 @@
 let redo_log_block_device_io = ref "block_device_io"
 
 (** The delay between each attempt to connect to the block device I/O process *)
-let redo_log_connect_delay = ref 0.1
+let redo_log_connect_delay = ref Mtime.Span.(100 * ms)
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while emptying *)
-let redo_log_max_block_time_empty = ref 2.
+let redo_log_max_block_time_empty = ref Mtime.Span.(2 * s)
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while reading *)
-let redo_log_max_block_time_read = ref 30.
+let redo_log_max_block_time_read = ref Mtime.Span.(30 * s)
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a delta *)
-let redo_log_max_block_time_writedelta = ref 2.
+let redo_log_max_block_time_writedelta = ref Mtime.Span.(2 * s)
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while writing a database *)
-let redo_log_max_block_time_writedb = ref 30.
+let redo_log_max_block_time_writedb = ref Mtime.Span.(30 * s)
+
+(** The maximum amount of time to wait for a connection (used to be hardcoded to 3600s) *)
+let redo_log_max_connect_time = ref Mtime.Span.(1 * hour)
 
 (** {3 Settings related to the exponential back-off of repeated attempts to reconnect after failure} *)
 
@@ -35,7 +38,7 @@ let redo_log_max_dying_processes = 2
 let redo_log_comms_socket_stem = "sock-blkdev-io"
 
 (** The maximum time, in seconds, for which we are prepared to wait for a response from the block device I/O process before assuming that it has died while initially connecting to it *)
-let redo_log_max_startup_time = ref 5.
+let redo_log_max_startup_time = ref Mtime.Span.(5 * s)
 
 (** The length, in bytes, of one redo log which constitutes half of the VDI *)
 let redo_log_length_of_half = 60 * 1024 * 1024

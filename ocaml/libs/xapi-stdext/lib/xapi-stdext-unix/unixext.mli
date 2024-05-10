@@ -148,15 +148,22 @@ exception Timeout
 
 val with_socket_timeout : Unix.file_descr -> float option -> (unit -> 'a) -> 'a
 
-val time_limited_write : Unix.file_descr -> int -> bytes -> float -> unit
+val time_limited_write :
+  Unix.file_descr -> int -> bytes -> Clock.Timer.t -> unit
 
 val time_limited_write_substring :
-  Unix.file_descr -> int -> string -> float -> unit
+  Unix.file_descr -> int -> string -> Clock.Timer.t -> unit
 
-val time_limited_read : Unix.file_descr -> int -> float -> string
+val time_limited_read : Unix.file_descr -> int -> Clock.Timer.t -> string
 
-val time_limited_single_read :
-  Unix.file_descr -> int -> max_wait:float -> string
+val time_limited_single_read : Unix.file_descr -> int -> Clock.Timer.t -> string
+
+val delay_span : Mtime.Span.t -> unit
+
+val wait_timed_read : Unix.file_descr -> Mtime.Span.t -> bool
+(** [wait_timed_read fd span] waits at most [span] seconds until [fd] contains at least one byte to read,
+  or and EOF. Returns [true] if the [fd] is ready, or [false] if the timeout has expired.
+  See {!Thread.wait_timed_read}. *)
 
 val read_data_in_string_chunks :
      (string -> int -> unit)

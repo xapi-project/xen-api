@@ -39,9 +39,12 @@ let pp_pair =
   )
 *)
 
+let print_timeout = Fmt.to_to_string Mtime.Span.pp
+
 let test_time_limited_write =
-  let gen = Gen.tup2 Generate.t Generate.timeouts
-  and print = Print.tup2 Generate.print Print.float in
+  let timeouts = Generate.timeouts in
+  let gen = Gen.tup2 Generate.t timeouts
+  and print = Print.tup2 Generate.print print_timeout in
   Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
   skip_blk behaviour.kind ;
   skip_dirlnk behaviour.kind ;
@@ -53,7 +56,7 @@ let test_time_limited_write =
       let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in
       Unix.set_nonblock fd ;
       let dt = Mtime_clock.counter () in
-      let deadline = Unix.gettimeofday () +. timeout in
+      let deadline = Clock.Timer.start ~duration:timeout in
       let finally () = test_elapsed := Mtime_clock.count dt in
       Fun.protect ~finally (fun () ->
           Unixext.time_limited_write_substring fd len buf deadline
@@ -64,11 +67,14 @@ let test_time_limited_write =
     let observations, result = Generate.run_wo behaviour ~f:test in
     let () =
       let open Observations in
-      let elapsed_s = Mtime.Span.to_float_ns !test_elapsed *. 1e-9 in
-      if elapsed_s > timeout +. 0.5 then
+      let elapsed = !test_elapsed in
+      let timeout_extra =
+        Mtime.Span.(add (timeout :> Mtime.Span.t) @@ (500 * ms))
+      in
+      if Mtime.Span.compare elapsed timeout_extra > 0 then
         Test.fail_reportf
-          "Function duration significantly exceeds timeout: %f > %f; %s"
-          elapsed_s timeout
+          "Function duration significantly exceeds timeout: %a > %a; %s"
+          Mtime.Span.pp elapsed Mtime.Span.pp timeout
           (Fmt.to_to_string Fmt.(option pp) observations.Observations.read) ;
       match (observations, result) with
       | {read= Some read; _}, Ok expected ->
@@ -76,10 +82,10 @@ let test_time_limited_write =
           expect_amount ~expected:(String.length expected) read ;
           expect_string ~expected ~actual:read.data
       | {read= Some read; _}, Error (`Exn_trap (Unixext.Timeout, _)) ->
-          let elapsed_s = Mtime.Span.to_float_ns !test_elapsed *. 1e-9 in
-          if elapsed_s < timeout then
-            Test.fail_reportf "Timed out earlier than requested: %f < %f"
-              elapsed_s timeout ;
+          let elapsed = !test_elapsed in
+          if Mtime.Span.compare elapsed timeout < 0 then
+            Test.fail_reportf "Timed out earlier than requested: %a < %a"
+              Mtime.Span.pp elapsed Mtime.Span.pp timeout ;
           let actual = String.length read.data in
           if actual >= behaviour.size then
             Test.fail_reportf "Timed out, but transferred enough data: %d >= %d"
@@ -103,7 +109,7 @@ let test_time_limited_write =
 
 let test_time_limited_read =
   let gen = Gen.tup2 Generate.t Generate.timeouts
-  and print = Print.tup2 Generate.print Print.float in
+  and print = Print.tup2 Generate.print print_timeout in
   Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
   (* Format.eprintf "Testing %s@." (print (behaviour, timeout)); *)
   skip_blk behaviour.kind ;
@@ -113,7 +119,7 @@ let test_time_limited_read =
     let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in
     Unix.set_nonblock fd ;
     let dt = Mtime_clock.counter () in
-    let deadline = Unix.gettimeofday () +. timeout in
+    let deadline = Clock.Timer.start ~duration:timeout in
     let finally () = test_elapsed := Mtime_clock.count dt in
     Fun.protect ~finally (fun () ->
         Unixext.time_limited_read fd behaviour.size deadline
@@ -126,11 +132,14 @@ let test_time_limited_read =
   in
   let () =
     let open Observations in
-    let elapsed_s = Mtime.Span.to_float_ns !test_elapsed *. 1e-9 in
-    if elapsed_s > timeout +. 0.5 then
+    let elapsed = !test_elapsed in
+    let timeout_extra =
+      Mtime.Span.(add (timeout :> Mtime.Span.t) @@ (500 * ms))
+    in
+    if Mtime.Span.compare elapsed timeout_extra > 0 then
       Test.fail_reportf
-        "Function duration significantly exceeds timeout: %f > %f; %s" elapsed_s
-        timeout
+        "Function duration significantly exceeds timeout: %a > %a; %s"
+        Mtime.Span.pp elapsed Mtime.Span.pp timeout
         (Fmt.to_to_string Fmt.(option pp) observations.Observations.write) ;
     (* Format.eprintf "Result: %a@." (Fmt.option Observations.pp) observations.write;*)
     match (observations, result) with
@@ -138,10 +147,10 @@ let test_time_limited_read =
         expect_amount ~expected:(String.length actual) write ;
         expect_string ~expected:write.data ~actual
     | {write= Some _; _}, Error (`Exn_trap (Unixext.Timeout, _)) ->
-        let elapsed_s = Mtime.Span.to_float_ns !test_elapsed *. 1e-9 in
-        if elapsed_s < timeout then
-          Test.fail_reportf "Timed out earlier than requested: %f < %f"
-            elapsed_s timeout
+        let elapsed = !test_elapsed in
+        if Mtime.Span.compare elapsed timeout < 0 then
+          Test.fail_reportf "Timed out earlier than requested: %a < %a"
+            Mtime.Span.pp elapsed Mtime.Span.pp timeout
     | ( {write= Some write; _}
       , Error (`Exn_trap (Unix.Unix_error (Unix.EPIPE, _, _), _)) ) ->
         if String.length write.data = behaviour.size then

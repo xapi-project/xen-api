@@ -2,6 +2,7 @@
   (name xapi_stdext_unix)
   (public_name xapi-stdext-unix)
   (libraries
+    (re_export clock)
     fd-send-recv
     integers
     fmt

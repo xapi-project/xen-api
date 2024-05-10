@@ -62,6 +62,13 @@ module Delay = struct
   exception Pre_signalled
 
   let wait (x : t) (seconds : float) =
+    let max_wait =
+      match Mtime.Span.of_float_ns (seconds *. 1e9) with
+      | None ->
+          invalid_arg (Printf.sprintf "wait %g" seconds)
+      | Some max_wait ->
+          max_wait
+    in
     let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let to_close = ref [] in
     let close' fd =
@@ -90,7 +97,8 @@ module Delay = struct
           (* flush the single byte from the pipe *)
           try
             let (_ : string) =
-              time_limited_single_read pipe_out 1 ~max_wait:seconds
+              time_limited_single_read pipe_out 1
+                (Clock.Timer.start ~duration:max_wait)
             in
             false
           with Timeout -> true
