@@ -19,6 +19,7 @@ depends: [
   "base-threads"
   "message-switch-core"
   "ppx_deriving_rpc"
+  "xapi-stdext-unix"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """
