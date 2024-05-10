@@ -18,11 +18,11 @@ exception Read_error
 
 val json_rpc_max_len : int ref
 
-val json_rpc_read_timeout : int64 ref
+val json_rpc_read_timeout : Mtime.Span.t ref
 
-val json_rpc_write_timeout : int64 ref
+val json_rpc_write_timeout : Mtime.Span.t ref
 
-val timeout_read : Unix.file_descr -> int64 -> string
+val timeout_read : Unix.file_descr -> Mtime.Span.t -> string
 
 val with_rpc :
      ?version:Jsonrpc.version
