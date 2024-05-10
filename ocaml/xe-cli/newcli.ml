@@ -463,14 +463,6 @@ let main_loop ifd ofd permitted_filenames =
   marshal_protocol ofd ;
   let exit_code = ref None in
   while !exit_code = None do
-    (* Wait for input asynchronously so that we can check the status
-       of Stunnel every now and then, for better debug/dignosis.
-    *)
-    while
-      match Unix.select [ifd] [] [] 5.0 with _ :: _, _, _ -> false | _ -> true
-    do
-      ()
-    done ;
     let cmd = try unmarshal ifd with e -> handle_unmarshal_failure e ifd in
     debug "Read: %s\n%!" (string_of_message cmd) ;
     flush stderr ;
