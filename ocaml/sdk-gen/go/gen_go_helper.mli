@@ -40,3 +40,72 @@ module Json : sig
 
   val api_errors : Mustache.Json.value list
 end
+
+module Convert : sig
+  type params = {func_suffix: string; value_ty: string}
+
+  type params_of_option = {func_suffix: string}
+
+  type params_of_set = {
+      func_suffix: string
+    ; value_ty: string
+    ; item_fp_type: string
+  }
+
+  type params_of_record_field = {
+      name: string
+    ; name_internal: string
+    ; name_exported: string
+    ; func_suffix: string
+    ; type_option: bool
+  }
+
+  type params_of_record = {
+      func_suffix: string
+    ; value_ty: string
+    ; fields: params_of_record_field list
+  }
+
+  type params_of_enum_item = {value: string; name: string}
+
+  type params_of_enum = {
+      func_suffix: string
+    ; value_ty: string
+    ; items: params_of_enum_item list
+  }
+
+  type params_of_map = {
+      func_suffix: string
+    ; value_ty: string
+    ; key_ty: string
+    ; val_ty: string
+  }
+
+  type convert_params =
+    | Simple of params
+    | Int of params
+    | Float of params
+    | Time of params
+    | Ref of params
+    | Option of params_of_option
+    | Set of params_of_set
+    | Enum of params_of_enum
+    | Record of params_of_record
+    | Map of params_of_map
+
+  val template_of_convert : convert_params -> string
+
+  val to_json : convert_params -> Mustache.Json.value
+
+  val fields : string -> (string * string * bool) list
+
+  val of_ty : Datamodel_types.ty -> convert_params
+
+  val of_serialize : convert_params -> Mustache.Json.t
+
+  val of_deserialize : convert_params -> Mustache.Json.t
+
+  val event_batch : Mustache.Json.t
+
+  val interface : Mustache.Json.t
+end

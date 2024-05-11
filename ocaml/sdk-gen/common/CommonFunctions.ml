@@ -363,3 +363,56 @@ let objects =
       api
   in
   objects_of_api api
+
+module TypesOfMessages = struct
+  open Xapi_stdext_std
+
+  let records =
+    List.map
+      (fun obj ->
+        let obj_name = String.lowercase_ascii obj.name in
+        (obj_name, Datamodel_utils.fields_of_obj obj)
+      )
+      objects
+
+  let rec decompose = function
+    | Set x as y ->
+        y :: decompose x
+    | Map (a, b) as y ->
+        (y :: decompose a) @ decompose b
+    | Option x as y ->
+        y :: decompose x
+    | Record r as y ->
+        let name = String.lowercase_ascii r in
+        let types_in_field =
+          List.assoc_opt name records
+          |> Option.value ~default:[]
+          |> List.concat_map (fun field -> decompose field.ty)
+        in
+        y :: types_in_field
+    | (SecretString | String | Int | Float | DateTime | Enum _ | Bool | Ref _)
+      as x ->
+        [x]
+
+  let mesages objects = objects |> List.concat_map (fun x -> x.messages)
+
+  (** All types of params in a list of objects (automatically decomposes) *)
+  let of_params objects =
+    let param_types =
+      mesages objects
+      |> List.concat_map (fun x -> x.msg_params)
+      |> List.map (fun p -> p.param_type)
+      |> Listext.List.setify
+    in
+    List.concat_map decompose param_types |> Listext.List.setify
+
+  (** All types of results in a list of objects (automatically decomposes) *)
+  let of_results objects =
+    let return_types =
+      let aux accu msg =
+        match msg.msg_result with None -> accu | Some (ty, _) -> ty :: accu
+      in
+      mesages objects |> List.fold_left aux [] |> Listext.List.setify
+    in
+    List.concat_map decompose return_types |> Listext.List.setify
+end
