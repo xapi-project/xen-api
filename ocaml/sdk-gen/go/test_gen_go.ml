@@ -798,6 +798,48 @@ let option_convert : Mustache.Json.t =
   let array = [`O [("func_name_suffix", `String "SrStatRecord")]] in
   `O [("serialize", `A array); ("deserialize", `A array)]
 
+let api_versions : Mustache.Json.t =
+  `O
+    [
+      ("latest_version_index", `Float 2.)
+    ; ( "releases"
+      , `A
+          [
+            `O
+              [
+                ("branding", `String "XenServer 4.0")
+              ; ("code_name", `String "rio")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 1.)
+              ; ("first", `Bool true)
+              ]
+          ; `O
+              [
+                ("branding", `String "XenServer 4.1")
+              ; ("code_name", `String "miami")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 2.)
+              ; ("first", `Bool false)
+              ]
+          ]
+      )
+    ]
+
+let option =
+  `O
+    [
+      ( "option"
+      , `A
+          [
+            `O
+              [
+                ("type", `String "string")
+              ; ("type_name_suffix", `String "String")
+              ]
+          ]
+      )
+    ]
+
 let session_messages : Mustache.Json.t =
   `O
     [
@@ -962,48 +1004,6 @@ let messages : Mustache.Json.t =
                 )
               ; ("has_error", `Bool false)
               ; ("errors", `A [])
-              ]
-          ]
-      )
-    ]
-
-let api_versions : Mustache.Json.t =
-  `O
-    [
-      ("latest_version_index", `Float 2.)
-    ; ( "releases"
-      , `A
-          [
-            `O
-              [
-                ("branding", `String "XenServer 4.0")
-              ; ("code_name", `String "rio")
-              ; ("version_major", `Float 1.)
-              ; ("version_minor", `Float 1.)
-              ; ("first", `Bool true)
-              ]
-          ; `O
-              [
-                ("branding", `String "XenServer 4.1")
-              ; ("code_name", `String "miami")
-              ; ("version_major", `Float 1.)
-              ; ("version_minor", `Float 2.)
-              ; ("first", `Bool false)
-              ]
-          ]
-      )
-    ]
-
-let option =
-  `O
-    [
-      ( "option"
-      , `A
-          [
-            `O
-              [
-                ("type", `String "string")
-              ; ("type_name_suffix", `String "String")
               ]
           ]
       )
