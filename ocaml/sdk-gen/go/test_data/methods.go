@@ -1,4 +1,5 @@
 // GetLog: GetLog Get the host log file
+// Version: miami
 func (host) GetLog(session *Session, host HostRef) (retval string, err error) {
 	method := "host.get_log"
 	sessionIDArg, err := serializeSessionRef(fmt.Sprintf("%s(%s)", method, "session_id"), session.ref)
@@ -18,6 +19,7 @@ func (host) GetLog(session *Session, host HostRef) (retval string, err error) {
 }
 
 // AsyncGetLog: GetLog Get the host log file
+// Version: miami
 func (host) AsyncGetLog(session *Session, host HostRef) (retval TaskRef, err error) {
 	method := "Async.host.get_log"
 	sessionIDArg, err := serializeSessionRef(fmt.Sprintf("%s(%s)", method, "session_id"), session.ref)
