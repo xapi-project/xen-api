@@ -15,16 +15,41 @@
 
 open Datamodel_types
 open CommonFunctions
+module Types = Datamodel_utils.Types
+module StringSet = Set.Make (String)
 
 let templates_dir = "templates"
 
 let ( // ) = Filename.concat
 
+let acronyms =
+  [
+    "id"
+  ; "ip"
+  ; "vm"
+  ; "api"
+  ; "uuid"
+  ; "cpu"
+  ; "tls"
+  ; "https"
+  ; "url"
+  ; "db"
+  ; "xml"
+  ; "eof"
+  ]
+  |> StringSet.of_list
+
+let is_acronym word = StringSet.mem word acronyms
+
 let snake_to_camel (s : string) : string =
   Astring.String.cuts ~sep:"_" s
-  |> List.map (fun s -> Astring.String.cuts ~sep:"-" s)
-  |> List.concat
-  |> List.map String.capitalize_ascii
+  |> List.concat_map (fun s -> Astring.String.cuts ~sep:"-" s)
+  |> List.map (function
+       | s when is_acronym s ->
+           String.uppercase_ascii s
+       | s ->
+           String.capitalize_ascii s
+       )
   |> String.concat ""
 
 let records =
@@ -386,28 +411,22 @@ module Json = struct
       objs
 
   let of_api_message_or_error info =
-    let snake_to_camel (s : string) : string =
+    let xapi_constants_renaming (s : string) : string =
       String.split_on_char '_' s
       |> List.map (fun seg ->
              let lower = String.lowercase_ascii seg in
              match lower with
-             | "vm"
-             | "cpu"
-             | "tls"
-             | "xml"
-             | "url"
-             | "id"
-             | "uuid"
-             | "ip"
-             | "api"
-             | "eof" ->
+             | s when is_acronym s ->
                  String.uppercase_ascii lower
              | _ ->
                  String.capitalize_ascii lower
          )
       |> String.concat ""
     in
-    `O [("name", `String (snake_to_camel info)); ("value", `String info)]
+    `O
+      [
+        ("name", `String (xapi_constants_renaming info)); ("value", `String info)
+      ]
 
   let api_messages =
     List.map (fun (msg, _) -> of_api_message_or_error msg) !Api_messages.msgList
