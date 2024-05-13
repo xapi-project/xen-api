@@ -3011,7 +3011,10 @@ functor
         info "VM.set_groups : self = '%s'; value = [ %s ]"
           (vm_uuid ~__context self)
           (String.concat "; " (List.map (vm_group_uuid ~__context) value)) ;
-        Local.VM.set_groups ~__context ~self ~value
+        let original_groups = Db.VM.get_groups ~__context ~self in
+        Local.VM.set_groups ~__context ~self ~value ;
+        Xapi_vm_group_helpers.update_vm_anti_affinity_alert ~__context
+          ~groups:(original_groups @ value)
 
       let import_convert ~__context ~_type ~username ~password ~sr
           ~remote_config =
@@ -6564,6 +6567,8 @@ functor
 
       let destroy ~__context ~self =
         info "VM_group.destroy: self = '%s'" (vm_group_uuid ~__context self) ;
+        Xapi_vm_group_helpers.remove_vm_anti_affinity_alert ~__context
+          ~groups:[self] ;
         Local.VM_group.destroy ~__context ~self
     end
 
