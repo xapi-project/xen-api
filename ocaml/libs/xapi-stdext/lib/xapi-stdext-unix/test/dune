@@ -2,7 +2,7 @@
   (name unixext_test)
   (package xapi-stdext-unix)
   (modules unixext_test)
-  (libraries xapi_stdext_unix qcheck-core mtime.clock.os qcheck-core.runner fmt xapi_fd_test mtime threads.posix rresult)
+  (libraries xapi_stdext_unix qcheck-core mtime.clock.os qcheck-core.runner fmt xapi_fd_test mtime threads.posix rresult clock)
   ; use fixed seed to avoid causing random failures in CI and package builds
   (action (run %{test} -v -bt --seed 42))
 )

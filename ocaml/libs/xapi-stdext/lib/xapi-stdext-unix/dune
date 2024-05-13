@@ -4,6 +4,10 @@
   (libraries
     fd-send-recv
     integers
+    fmt
+    mtime
+    mtime.clock
+    mtime.clock.os
     polly
     unix
     xapi-backtrace

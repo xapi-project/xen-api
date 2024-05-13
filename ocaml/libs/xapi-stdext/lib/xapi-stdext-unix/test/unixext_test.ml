@@ -187,7 +187,63 @@ let test_proxy =
       expect_string ~expected:write.data ~actual:read.data ;
       true
 
-let tests = [test_proxy; test_time_limited_write; test_time_limited_read]
+let mtime_span_gen =
+  let open Gen in
+  (* We can't use Mtime.Span.max_span, because that is too big for float,
+     only works for int64 conversion, and there is no Mtime.Span.max_span_float.
+     The documentation says that 2^53 is the maximum though, so use that.
+     Otherwise we'll fail later when converting to string and back goes through float.
+
+     Use microseconds instead of nanoseconds, because nanoseconds have rounding
+     errors during conversion.
+  *)
+  let+ usval = 0 -- (((1 lsl 53) - 1) / 1_000_000) in
+  Mtime.Span.(usval * us)
+
+let test_timeout_string_conv =
+  let gen = mtime_span_gen and print = Fmt.to_to_string Mtime.Span.pp in
+  Test.make ~name:__FUNCTION__ ~print gen @@ fun timeout ->
+  let str = Clock.Timer.span_to_s timeout |> Printf.sprintf "%.6f" in
+  let timeout' =
+    str |> Float.of_string |> Clock.Timer.s_to_span |> Option.get
+  in
+  if not (Mtime.Span.equal timeout timeout') then
+    Test.fail_reportf
+      "timeout not equal after round-trip through %S: %Lu (%a) <> %Lu (%a)" str
+      (Mtime.Span.to_uint64_ns (timeout :> Mtime.Span.t))
+      Mtime.Span.pp timeout
+      (Mtime.Span.to_uint64_ns (timeout' :> Mtime.Span.t))
+      Mtime.Span.pp timeout' ;
+  true
+
+let delays =
+  Gen.oneofa ([|10; 100; 300|] |> Array.map (fun v -> Mtime.Span.(v * ms)))
+
+let test_delay =
+  let gen = delays and print = Fmt.to_to_string Mtime.Span.pp in
+  Test.make ~count:5 ~name:__FUNCTION__ ~print gen @@ fun timeout ->
+  let counter = Mtime_clock.counter () in
+  Unixext.delay_span timeout ;
+  let actual = Mtime_clock.count counter in
+  let expected_min =
+    Int64.div (timeout |> Mtime.Span.to_uint64_ns) 2L |> Mtime.Span.of_uint64_ns
+  and expected_max = Mtime.Span.(2 * timeout) in
+  if Clock.Timer.span_is_shorter ~than:expected_min actual then
+    Test.fail_reportf "Actual delay shorter than half expected: %a << %a"
+      Mtime.Span.pp actual Mtime.Span.pp timeout ;
+  if Clock.Timer.span_is_longer ~than:expected_max actual then
+    Test.fail_reportf "Actual delay longer than twice expected: %a >> %a"
+      Mtime.Span.pp actual Mtime.Span.pp timeout ;
+  true
+
+let tests =
+  [
+    test_delay
+  ; test_timeout_string_conv
+  ; test_proxy
+  ; test_time_limited_write
+  ; test_time_limited_read
+  ]
 
 let () =
   (* avoid SIGPIPE *)
