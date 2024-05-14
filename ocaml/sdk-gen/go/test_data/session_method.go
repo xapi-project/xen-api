@@ -1,4 +1,5 @@
 // LoginWithPassword: Attempt to authenticate the user); returning a session reference if successful
+// Version: miami
 //
 // Errors:
 // SESSION_AUTHENTICATION_FAILED - The credentials given by the user are incorrect
@@ -26,6 +27,7 @@ func (class *Session) LoginWithPassword(uname string, pwd string) (retval Sessio
 }
 
 // Logout: Logout Log out of a session
+// Version: miami
 func (class *Session) Logout() (err error) {
 	method := "session.logout"
 	sessionIDArg, err := serializeSessionRef(fmt.Sprintf("%s(%s)", method, "session_id"), class.ref)

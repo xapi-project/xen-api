@@ -32,6 +32,9 @@ module Json : sig
 
   val string_of_ty_with_enums : Datamodel_types.ty -> string * enums
 
+  val group_params :
+    Datamodel_types.message -> (bool * Datamodel_types.param list * string) list
+
   val xenapi : Datamodel_types.obj list -> (string * Mustache.Json.t) list
 
   val all_enums : Datamodel_types.obj list -> Mustache.Json.t

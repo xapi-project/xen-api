@@ -110,7 +110,7 @@ let rec lifecycle_matcher milestone lifecycle =
       else
         lifecycle_matcher milestone tl
 
-let get_published_release_for_param releases =
+let published_release_for_param releases =
   let filtered =
     List.filter
       (fun x -> x <> "closed" && x <> "3.0.3" && x <> "debug")
@@ -138,8 +138,8 @@ let get_release_branding codename =
 let group_params_per_release params =
   let same_release p1 p2 =
     compare_versions
-      (get_published_release_for_param p1.param_release.internal)
-      (get_published_release_for_param p2.param_release.internal)
+      (published_release_for_param p1.param_release.internal)
+      (published_release_for_param p2.param_release.internal)
     = 0
   in
   let rec groupByRelease acc = function
@@ -240,9 +240,7 @@ and get_deprecated_info_message message =
 
 and get_published_info_param message param =
   let msgRelease = get_published_release message.msg_lifecycle.transitions in
-  let paramRelease =
-    get_published_release_for_param param.param_release.internal
-  in
+  let paramRelease = published_release_for_param param.param_release.internal in
   if compare_versions paramRelease msgRelease > 0 then
     sprintf "First published in %s." (get_release_branding paramRelease)
   else

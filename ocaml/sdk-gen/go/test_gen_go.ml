@@ -120,7 +120,8 @@ let verify_message_member = function
   | "method_name", `String _
   | "class_name", `String _
   | "class_name_exported", `String _
-  | "method_name_exported", `String _ ->
+  | "method_name_exported", `String _
+  | "version", `String _ ->
       true
   | "description", `String _ | "description", `Null ->
       true
@@ -141,7 +142,8 @@ let verify_sesseion_message_member = function
   | "method_name", `String _
   | "class_name", `String _
   | "class_name_exported", `String _
-  | "method_name_exported", `String _ ->
+  | "method_name_exported", `String _
+  | "version", `String _ ->
       true
   | "description", `String _ | "description", `Null ->
       true
@@ -176,6 +178,7 @@ let message_keys =
   ; "errors"
   ; "has_error"
   ; "async"
+  ; "version"
   ]
 
 let session_message_keys =
@@ -798,48 +801,6 @@ let option_convert : Mustache.Json.t =
   let array = [`O [("func_name_suffix", `String "SrStatRecord")]] in
   `O [("serialize", `A array); ("deserialize", `A array)]
 
-let api_versions : Mustache.Json.t =
-  `O
-    [
-      ("latest_version_index", `Float 2.)
-    ; ( "releases"
-      , `A
-          [
-            `O
-              [
-                ("branding", `String "XenServer 4.0")
-              ; ("code_name", `String "rio")
-              ; ("version_major", `Float 1.)
-              ; ("version_minor", `Float 1.)
-              ; ("first", `Bool true)
-              ]
-          ; `O
-              [
-                ("branding", `String "XenServer 4.1")
-              ; ("code_name", `String "miami")
-              ; ("version_major", `Float 1.)
-              ; ("version_minor", `Float 2.)
-              ; ("first", `Bool false)
-              ]
-          ]
-      )
-    ]
-
-let option =
-  `O
-    [
-      ( "option"
-      , `A
-          [
-            `O
-              [
-                ("type", `String "string")
-              ; ("type_name_suffix", `String "String")
-              ]
-          ]
-      )
-    ]
-
 let session_messages : Mustache.Json.t =
   `O
     [
@@ -860,6 +821,7 @@ let session_messages : Mustache.Json.t =
                      reference if successful"
                 )
               ; ("async", `Bool false)
+              ; ("version", `String "miami")
               ; ( "func_params"
                 , `A
                     [
@@ -937,6 +899,7 @@ let session_messages : Mustache.Json.t =
               ; ("description", `String "Logout Log out of a session")
               ; ("async", `Bool false)
               ; ("func_params", `A [])
+              ; ("version", `String "miami")
               ; ( "params"
                 , `A
                     [
@@ -972,6 +935,7 @@ let messages : Mustache.Json.t =
               ; ("method_name_exported", `String "GetLog")
               ; ("description", `String "GetLog Get the host log file")
               ; ("async", `Bool true)
+              ; ("version", `String "miami")
               ; ( "params"
                 , `A
                     [
@@ -1009,6 +973,48 @@ let messages : Mustache.Json.t =
       )
     ]
 
+let api_versions : Mustache.Json.t =
+  `O
+    [
+      ("latest_version_index", `Float 2.)
+    ; ( "releases"
+      , `A
+          [
+            `O
+              [
+                ("branding", `String "XenServer 4.0")
+              ; ("code_name", `String "rio")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 1.)
+              ; ("first", `Bool true)
+              ]
+          ; `O
+              [
+                ("branding", `String "XenServer 4.1")
+              ; ("code_name", `String "miami")
+              ; ("version_major", `Float 1.)
+              ; ("version_minor", `Float 2.)
+              ; ("first", `Bool false)
+              ]
+          ]
+      )
+    ]
+
+let option =
+  `O
+    [
+      ( "option"
+      , `A
+          [
+            `O
+              [
+                ("type", `String "string")
+              ; ("type_name_suffix", `String "String")
+              ]
+          ]
+      )
+    ]
+
 module TemplatesTest = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string * Mustache.Json.t
@@ -1038,13 +1044,17 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let api_messages_rendered = string_of_file "api_messages.go"
 
-  let simple_type_rendered = string_of_file "simple_type_convert.go"
-
-  let int_convert_rendered = string_of_file "int_convert.go"
-
   let float_convert_rendered = string_of_file "float_convert.go"
 
   let time_convert_rendered = string_of_file "time_convert.go"
+
+  let api_versions_rendered = string_of_file "api_versions.go"
+
+  let option_rendered = "type OptionString *string"
+
+  let simple_type_rendered = string_of_file "simple_type_convert.go"
+
+  let int_convert_rendered = string_of_file "int_convert.go"
 
   let string_ref_rendered = string_of_file "ref_convert.go"
 
@@ -1061,10 +1071,6 @@ module TemplatesTest = Generic.MakeStateless (struct
   let batch_convert_rendered = string_of_file "batch_convert.go"
 
   let option_convert_rendered = string_of_file "option_convert.go"
-
-  let api_versions_rendered = string_of_file "api_versions.go"
-
-  let option_rendered = "type OptionString *string"
 
   let tests =
     `QuickAndAutoDocumented
@@ -1153,6 +1159,227 @@ module SuffixOfTypeTest = Generic.MakeStateless (struct
       ; (Ref "pool", "PoolRef")
       ; (Record "pool", "PoolRecord")
       ; (Option String, "String")
+      ]
+end)
+
+module GroupParamsTest = Generic.MakeStateless (struct
+  open Datamodel_types
+  open Datamodel_common
+
+  let string_of_message msg = msg.msg_obj_name ^ "." ^ msg.msg_name
+
+  let string_of_param param = param.param_name ^ ":" ^ param.param_doc
+
+  let string_of_group (latest, params, rel_version) =
+    Printf.sprintf "(latest = %b, release_version = %s, params = [%s])" latest
+      rel_version
+      (Test_printers.list string_of_param params)
+
+  let string_of_groups groups =
+    Printf.sprintf "param_groups : [%s]}"
+      (Test_printers.list string_of_group groups)
+
+  module Io = struct
+    type input_t = message
+
+    type output_t = ((bool * param list * string) list, string) result
+
+    let string_of_input_t = string_of_message
+
+    let string_of_output_t = function
+      | Ok groups ->
+          Fmt.(str "%a" Dump.string) (string_of_groups groups)
+      | Error e ->
+          Fmt.(str "%a" Dump.string) e
+  end
+
+  let transform message =
+    try Ok (Json.group_params message) with Failure e -> Error e
+
+  let network =
+    {
+      param_type= Ref _network
+    ; param_name= "network"
+    ; param_doc= "Network to add the bonded PIF to"
+    ; param_release= miami_release
+    ; param_default= None
+    }
+
+  let members =
+    {
+      param_type= Set (Ref _pif)
+    ; param_name= "members"
+    ; param_doc= "PIFs to add to this bond"
+    ; param_release= miami_release
+    ; param_default= None
+    }
+
+  let mac =
+    {
+      param_type= String
+    ; param_name= "MAC"
+    ; param_doc= "The MAC address to use on the bond itself."
+    ; param_release= miami_release
+    ; param_default= None
+    }
+
+  let mode =
+    {
+      param_type= Enum ("bond_mode", [("balance-slb", "Source-level balancing")])
+    ; param_name= "mode"
+    ; param_doc= "Bonding mode to use for the new bond"
+    ; param_release= boston_release
+    ; param_default= Some (VEnum "balance-slb")
+    }
+
+  let properties =
+    {
+      param_type= Map (String, String)
+    ; param_name= "properties"
+    ; param_doc= "Additional configuration parameters specific to the bond mode"
+    ; param_release= tampa_release
+    ; param_default= Some (VMap [])
+    }
+
+  let num_release = numbered_release "1.250.0"
+
+  let numbered_release_param =
+    {
+      param_type= String
+    ; param_name= "param"
+    ; param_doc= "A parm for testing"
+    ; param_release= num_release
+    ; param_default= None
+    }
+
+  let group1 = [network; members; mac]
+
+  let group2 = group1 @ [mode]
+
+  let group3 = group2 @ [properties]
+
+  let group4 = group3 @ [numbered_release_param]
+
+  let msg_with_session =
+    {
+      msg_name= "create"
+    ; msg_params= group4
+    ; msg_result= Some (Ref "Bond", "The reference of the created Bond object")
+    ; msg_errors= []
+    ; msg_doc= "Create an interface bond"
+    ; msg_async= true
+    ; msg_session= true
+    ; msg_secret= false
+    ; msg_pool_internal= false
+    ; msg_db_only= false
+    ; msg_release= miami_release
+    ; msg_lifecycle= Lifecycle.from []
+    ; msg_has_effect= true
+    ; msg_force_custom= None
+    ; msg_no_current_operations= false
+    ; msg_tag= Custom
+    ; msg_obj_name= "Bond"
+    ; msg_custom_marshaller= false
+    ; msg_hide_from_docs= false
+    ; msg_allowed_roles= Some ["pool-admin"; "pool-operator"]
+    ; msg_map_keys_roles= []
+    ; msg_doc_tags= []
+    ; msg_forward_to= None
+    }
+
+  let num_version = published_release_for_param num_release.internal
+
+  let msg_with_session_expected =
+    [
+      (true, session_id :: group4, num_version)
+    ; (false, session_id :: group4, num_version)
+    ; (false, session_id :: group3, rel_tampa)
+    ; (false, session_id :: group2, rel_boston)
+    ; (false, session_id :: group1, rel_miami)
+    ]
+
+  let msg_with_session_with_only_param =
+    {msg_with_session with msg_params= [network]}
+
+  let msg_with_session_with_only_param_expected =
+    [
+      (true, [session_id; network], rel_miami)
+    ; (false, [session_id; network], rel_miami)
+    ]
+
+  let msg_without_session = {msg_with_session with msg_session= false}
+
+  let msg_without_session_expected =
+    [
+      (true, group4, num_version)
+    ; (false, group4, num_version)
+    ; (false, group3, rel_tampa)
+    ; (false, group2, rel_boston)
+    ; (false, group1, rel_miami)
+    ]
+
+  let msg_without_session_with_only_param =
+    {msg_with_session with msg_session= false; msg_params= [network]}
+
+  let msg_without_session_with_only_param_expected =
+    [(true, [network], rel_miami); (false, [network], rel_miami)]
+
+  (*Message has session param, but has no other params.*)
+  let msg_with_session_without_param = {msg_with_session with msg_params= []}
+
+  let msg_with_session_without_param_expected =
+    let version =
+      published_release_for_param
+        msg_with_session_without_param.msg_release.internal
+    in
+    [(true, [session_id], version); (false, [session_id], version)]
+
+  let msg_without_session_without_param =
+    {msg_with_session with msg_params= []; msg_session= false}
+
+  (*Message which in session object has not session param and has no other params.*)
+  let msg_with_session_without_param_in_session_object =
+    {msg_with_session with msg_params= []; msg_obj_name= "Session"}
+
+  let msg_with_session_without_param_in_session_object_expected =
+    let version =
+      published_release_for_param
+        msg_with_session_without_param_in_session_object.msg_release.internal
+    in
+    [(true, [session_id], version); (false, [session_id], version)]
+
+  (*Message which in session object has not session param and has no other params.*)
+  let msg_without_session_without_param_in_session_object =
+    {
+      msg_with_session with
+      msg_params= []
+    ; msg_obj_name= "Session"
+    ; msg_session= false
+    }
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (msg_with_session, Ok msg_with_session_expected)
+      ; ( msg_with_session_with_only_param
+        , Ok msg_with_session_with_only_param_expected
+        )
+      ; (msg_without_session, Ok msg_without_session_expected)
+      ; ( msg_without_session_with_only_param
+        , Ok msg_without_session_with_only_param_expected
+        )
+      ; ( msg_with_session_without_param
+        , Ok msg_with_session_without_param_expected
+        )
+      ; ( msg_without_session_without_param
+        , Error "Empty params group should not exist."
+        )
+      ; ( msg_with_session_without_param_in_session_object
+        , Ok msg_with_session_without_param_in_session_object_expected
+        )
+      ; ( msg_without_session_without_param_in_session_object
+        , Error "Empty params group should not exist."
+        )
       ]
 end)
 
@@ -1316,6 +1543,7 @@ let tests =
     ; ("string_of_ty_with_enums", StringOfTyWithEnumsTest.tests)
     ; ("templates", TemplatesTest.tests)
     ; ("generated_mustache_jsons", TestGeneratedJson.tests)
+    ; ("group_params", GroupParamsTest.tests)
     ; ("generated_convert_jsons", TestConvertGeneratedJson.tests)
     ]
 

@@ -250,40 +250,95 @@ module Json = struct
             ; ("func_name_suffix", `String (suffix_of_type t))
             ]
 
-  let of_params params =
+  let group_params msg =
+    let published_release releases =
+      match (published_release_for_param releases, releases) with
+      | "", [rel] ->
+          rel
+      | rel, _ ->
+          rel
+    in
+    let do_group params =
+      let params =
+        List.map
+          (fun p -> (published_release p.param_release.internal, p))
+          params
+      in
+      let uniq_sorted_rels =
+        List.map fst params
+        |> Listext.List.setify
+        |> List.fast_sort compare_versions
+      in
+      List.map
+        (fun rel ->
+          let params =
+            List.filter_map
+              (fun (r, param) ->
+                match compare_versions r rel with
+                | n when n > 0 ->
+                    None
+                | _ ->
+                    Some param
+              )
+              params
+          in
+          (params, rel)
+        )
+        uniq_sorted_rels
+    in
+    let only_session_group =
+      [([session_id], published_release msg.msg_release.internal)]
+    in
+    let groups =
+      match (msg.msg_session, do_group msg.msg_params) with
+      | true, [] ->
+          only_session_group
+      | true, groups ->
+          List.map (fun (params, rel) -> (session_id :: params, rel)) groups
+      | false, groups ->
+          groups
+    in
+    (* The bool label in the tuple below is tagged to distinguish whether it is the latest parameters group.
+       If it's the latest parameters group, then we should not add the number of parameters to the method's name.
+    *)
+    match List.rev groups with
+    | (params, rel) :: _ as groups ->
+        (true, params, rel)
+        :: List.map (fun (params, rel) -> (false, params, rel)) groups
+    | [] ->
+        failwith "Empty params group should not exist."
+
+  let of_param param =
     let name_internal name =
       let name = name |> snake_to_camel |> String.uncapitalize_ascii in
       match name with "type" -> "typeKey" | "interface" -> "inter" | _ -> name
     in
-    let of_param param =
-      let suffix_of_type = suffix_of_type param.param_type in
-      let t, _e = string_of_ty_with_enums param.param_type in
-      let name = param.param_name in
-      [
-        ("is_session_id", `Bool (name = "session_id"))
-      ; ("type", `String t)
-      ; ("name", `String name)
-      ; ("name_internal", `String (name_internal name))
-      ; ("doc", `String param.param_doc)
-      ; ("func_name_suffix", `String suffix_of_type)
-      ]
-    in
-    (* We use ',' to seprate params in Go function, we should ignore ',' before first param,
-       for example `func(a type1, b type2)` is wanted rather than `func(, a type1, b type2)`.
-    *)
-    let add_first = function
-      | head :: rest ->
-          let head = `O (("first", `Bool true) :: of_param head) in
-          let rest =
-            List.map
-              (fun item -> `O (("first", `Bool false) :: of_param item))
-              rest
-          in
-          head :: rest
-      | [] ->
-          []
-    in
-    `A (add_first params)
+    let suffix_of_type = suffix_of_type param.param_type in
+    let t, _e = string_of_ty_with_enums param.param_type in
+    let name = param.param_name in
+    [
+      ("is_session_id", `Bool (name = "session_id"))
+    ; ("type", `String t)
+    ; ("name", `String name)
+    ; ("name_internal", `String (name_internal name))
+    ; ("doc", `String param.param_doc)
+    ; ("func_name_suffix", `String suffix_of_type)
+    ]
+
+  (* We use ',' to seprate params in Go function, we should ignore ',' before first param,
+     for example `func(a type1, b type2)` is wanted rather than `func(, a type1, b type2)`.
+  *)
+  let of_params = function
+    | head :: rest ->
+        let head = `O (("first", `Bool true) :: of_param head) in
+        let rest =
+          List.map
+            (fun item -> `O (("first", `Bool false) :: of_param item))
+            rest
+        in
+        head :: rest
+    | [] ->
+        []
 
   let of_error e = `O [("name", `String e.err_name); ("doc", `String e.err_doc)]
 
@@ -292,16 +347,6 @@ module Json = struct
         `Null
     | errors ->
         `A (List.map of_error errors)
-
-  let add_session_info class_name method_name =
-    match (class_name, method_name) with
-    | "session", "login_with_password"
-    | "session", "slave_local_login_with_password" ->
-        [("session_login", `Bool true); ("session_logout", `Bool false)]
-    | "session", "logout" | "session", "local_logout" ->
-        [("session_login", `Bool false); ("session_logout", `Bool true)]
-    | _ ->
-        [("session_login", `Bool false); ("session_logout", `Bool false)]
 
   let desc_of_msg msg ctor_fields =
     let ctor =
@@ -331,42 +376,65 @@ module Json = struct
        )
     |> String.concat ", "
 
+  let method_name_exported method_name params latest =
+    let method_name = snake_to_camel method_name in
+    if latest then
+      method_name
+    else
+      method_name ^ string_of_int (List.length params)
+
+  (* Since the param of `session *Session` isn't needed in functions of session object,
+     we add a special "func_params" field for session object to ignore `session *Session`.*)
+  let addtion_info_of_session method_name params latest =
+    let add_session_info method_name =
+      match method_name with
+      | "login_with_password" | "slave_local_login_with_password" ->
+          [("session_login", `Bool true); ("session_logout", `Bool false)]
+      | "logout" | "local_logout" ->
+          [("session_login", `Bool false); ("session_logout", `Bool true)]
+      | _ ->
+          [("session_login", `Bool false); ("session_logout", `Bool false)]
+    in
+    let name = method_name_exported method_name params latest in
+    ("func_params", `A (of_params params))
+    :: ("method_name_exported", `String name)
+    :: add_session_info method_name
+
+  let addtion_info msg params latest =
+    let method_name = msg.msg_name in
+    match (String.lowercase_ascii msg.msg_obj_name, msg.msg_session) with
+    | "session", true ->
+        addtion_info_of_session method_name (List.tl params) latest
+    | "session", false ->
+        addtion_info_of_session method_name params latest
+    | _ ->
+        let name = method_name_exported method_name params latest in
+        [("method_name_exported", `String name)]
+
   let messages_of_obj obj =
     let ctor_fields = ctor_fields_of_obj obj in
-    let params_in_msg msg =
-      if msg.msg_session then
-        session_id :: msg.msg_params
-      else
-        msg.msg_params
-    in
-    List.map
-      (fun msg ->
-        let params = params_in_msg msg |> of_params in
-        let base_assoc_list =
-          [
-            ("method_name", `String msg.msg_name)
-          ; ("class_name", `String obj.name)
-          ; ("class_name_exported", `String (snake_to_camel obj.name))
-          ; ("method_name_exported", `String (snake_to_camel msg.msg_name))
-          ; ("description", desc_of_msg msg ctor_fields)
-          ; ("result", of_result obj msg)
-          ; ("params", params)
-          ; ("errors", of_errors msg.msg_errors)
-          ; ("has_error", `Bool (msg.msg_errors <> []))
-          ; ("async", `Bool msg.msg_async)
-          ]
-        in
-        (* Since the param of `session *Session` isn't needed in functions of session object,
-           we add a special "func_params" field for session object to ignore `session *Session`.*)
-        if obj.name = "session" then
-          `O
-            (("func_params", msg.msg_params |> of_params)
-            :: (add_session_info obj.name msg.msg_name @ base_assoc_list)
-            )
-        else
-          `O base_assoc_list
-      )
-      obj.messages
+    obj.messages
+    |> List.rev_map (fun msg ->
+           let of_message (latest, params, rel_version) =
+             let base_assoc_list =
+               [
+                 ("method_name", `String msg.msg_name)
+               ; ("class_name", `String obj.name)
+               ; ("class_name_exported", `String (snake_to_camel obj.name))
+               ; ("description", desc_of_msg msg ctor_fields)
+               ; ("result", of_result obj msg)
+               ; ("params", `A (of_params params))
+               ; ("errors", of_errors msg.msg_errors)
+               ; ("has_error", `Bool (msg.msg_errors <> []))
+               ; ("async", `Bool msg.msg_async)
+               ; ("version", `String rel_version)
+               ]
+             in
+             `O (base_assoc_list @ addtion_info msg params latest)
+           in
+           msg |> group_params |> List.map of_message
+       )
+    |> List.concat
 
   let of_option ty =
     let name, _ = string_of_ty_with_enums ty in

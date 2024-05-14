@@ -1,5 +1,6 @@
 {{#messages}}
 // {{method_name_exported}}:{{#description}} {{.}}{{/description}}
+{{#version}}// Version: {{.}}{{/version}}
 {{#has_error}}
 //
 // Errors:
@@ -27,6 +28,7 @@ func ({{name_internal}}) {{method_name_exported}}({{#params}}{{#first}}session *
 
 {{#async}}
 // Async{{method_name_exported}}:{{#description}} {{.}}{{/description}}
+{{#version}}// Version: {{.}}{{/version}}
 {{#has_error}}
 //
 // Errors:
