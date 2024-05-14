@@ -2,4 +2,4 @@
  (name disk_to_ocaml)
  (public_name disk_to_ocaml)
  (package vhd-format-lwt)
- (libraries disk lwt))
+ (libraries disk lwt lwt.unix))

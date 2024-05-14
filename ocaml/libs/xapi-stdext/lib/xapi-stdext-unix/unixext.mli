@@ -153,6 +153,9 @@ val time_limited_write_substring :
 
 val time_limited_read : Unix.file_descr -> int -> float -> string
 
+val time_limited_single_read :
+  Unix.file_descr -> int -> max_wait:float -> string
+
 val read_data_in_string_chunks :
      (string -> int -> unit)
   -> ?block_size:int

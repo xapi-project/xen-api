@@ -2,7 +2,7 @@
   (name test_lib)
   (modules idl_test_common)
   (libraries
-    alcotest xapi-idl)
+    (re_export alcotest) xapi-idl (re_export rpclib.core) rpclib.json rpclib.xml result)
   (wrapped false)
 )
 
@@ -26,6 +26,7 @@
  (deps (source_tree test_data))
  (libraries
    alcotest
+   cohttp_posix
    fmt
    result
    rpclib.core
@@ -34,6 +35,7 @@
    rpclib.xml
    test_lib
    threads.posix
+   xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd
    xapi-idl.memory
