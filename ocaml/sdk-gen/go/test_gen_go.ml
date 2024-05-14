@@ -1044,6 +1044,10 @@ module TemplatesTest = Generic.MakeStateless (struct
 
   let api_messages_rendered = string_of_file "api_messages.go"
 
+  let float_convert_rendered = string_of_file "float_convert.go"
+
+  let time_convert_rendered = string_of_file "time_convert.go"
+
   let api_versions_rendered = string_of_file "api_versions.go"
 
   let option_rendered = "type OptionString *string"
@@ -1051,10 +1055,6 @@ module TemplatesTest = Generic.MakeStateless (struct
   let simple_type_rendered = string_of_file "simple_type_convert.go"
 
   let int_convert_rendered = string_of_file "int_convert.go"
-
-  let float_convert_rendered = string_of_file "float_convert.go"
-
-  let time_convert_rendered = string_of_file "time_convert.go"
 
   let string_ref_rendered = string_of_file "ref_convert.go"
 
@@ -1082,8 +1082,6 @@ module TemplatesTest = Generic.MakeStateless (struct
       ; (("SessionMethod.mustache", session_messages), session_method_rendered)
       ; (("APIErrors.mustache", api_errors), api_errors_rendered)
       ; (("APIMessages.mustache", api_messages), api_messages_rendered)
-      ; (("APIVersions.mustache", api_versions), api_versions_rendered)
-      ; (("Option.mustache", option), option_rendered)
       ; ( ("ConvertSimpleType.mustache", simple_type_convert)
         , simple_type_rendered
         )
