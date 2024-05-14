@@ -40,7 +40,7 @@ let assert_VGPU_type_enabled ~__context ~self ~vgpu_type =
       )
 
 let get_scheduled_VGPUs ~__context ~self =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   Db.VGPU.get_refs_where ~__context
     ~expr:
       (Eq (Field "scheduled_to_be_resident_on", Literal (Ref.string_of self)))
@@ -85,7 +85,7 @@ let assert_VGPU_type_allowed ~__context ~self ~vgpu_type =
       )
 
 let assert_no_resident_VGPUs_of_type ~__context ~self ~vgpu_type =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   match
     Db.VGPU.get_records_where ~__context
       ~expr:

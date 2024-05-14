@@ -15,7 +15,7 @@
 (** Functions for implementing 'High Availability' (HA).
     @group High Availability (HA) *)
 
-val ha_redo_log : [`RW] Redo_log.redo_log
+val ha_redo_log : [`RW] Xapi_database.Redo_log.redo_log
 (** The redo log instance used for HA *)
 
 (******************************************************************************)

@@ -36,7 +36,7 @@ let check_domain0_uuid () =
     ; (Printf.sprintf "/vm/%s/domains/0/create-time" uuid, "0")
     ]
   in
-  let open Xenstore in
+  let open Ezxenstore_core.Xenstore in
   with_xs (fun xs -> List.iter (fun (k, v) -> xs.Xs.write k v) kvs) ;
   if !Xcp_service.daemon then
     (* before daemonizing we need to forget the xenstore client because the

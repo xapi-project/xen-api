@@ -15,7 +15,7 @@
  * @group XenAPI functions
 *)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open API
 open Client
 
@@ -70,7 +70,6 @@ let sm_cap_table : (API.storage_operations * _) list =
 type table = (API.storage_operations, (string * string list) option) Hashtbl.t
 
 let features_of_sr_internal ~__context ~_type =
-  let open Db_filter_types in
   match
     Db.SM.get_internal_records_where ~__context
       ~expr:(Eq (Field "type", Literal _type))

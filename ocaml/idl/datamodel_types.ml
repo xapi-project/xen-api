@@ -423,7 +423,6 @@ type api_value =
   | VMap of (api_value * api_value) list
   | VSet of api_value list
   | VRef of string
-  | VCustom of string * api_value
 [@@deriving rpc]
 
 (* For convenience, we use the same value here as is defined in the Ref module in
@@ -766,7 +765,5 @@ let rec type_checks v t =
       all_true (List.map (fun v -> type_checks v t) vl)
   | VRef _, Ref _ ->
       true
-  | VCustom _, _ ->
-      true (* Type checks defered to phase-2 compile time *)
   | _, _ ->
       false

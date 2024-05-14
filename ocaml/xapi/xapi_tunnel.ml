@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 let choose_tunnel_device_name ~__context ~host =
   (* list all the tunnel access PIFs on this host *)

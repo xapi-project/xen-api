@@ -1240,8 +1240,6 @@ and get_default_value_opt field =
         List.map (fun x -> String.concat ", " (get_default_value x)) y
     | VRef y ->
         if y = "" then ["Helper.NullOpaqueRef"] else [sprintf "\"%s\"" y]
-    | VCustom (_, y) ->
-        get_default_value y
   in
   match field.default_value with
   | Some y ->

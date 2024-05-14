@@ -150,7 +150,7 @@
     xapi-stdext-unix
     xapi-stdext-zerocheck
     xapi-tracing
-    xapi-tracing.export
+    xapi-tracing-export
     xapi-xenopsd
     xenstore_transport.unix
     xml-light2

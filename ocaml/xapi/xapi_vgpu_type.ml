@@ -162,7 +162,7 @@ let find_and_update ~__context vgpu_type =
   let fail () =
     failwith "Error: Multiple vGPU types exist with the same configuration."
   in
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let new_expr = Eq (Field "identifier", Literal identifier_string) in
   let old_expr =
     And
@@ -1041,7 +1041,7 @@ module Nvidia_compat = struct
 
   let create_compat_config_file __context =
     try
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let host_driver_version = Vendor_nvidia.get_host_driver_version () in
       let host_driver_supports_multiple =
         Vendor_nvidia.host_driver_supports_multi_vgpu ~host_driver_version

@@ -42,7 +42,7 @@ type t = {
   ; task_id: API.ref_task
   ; forwarded_task: bool
   ; origin: origin
-  ; database: Db_ref.t
+  ; database: Xapi_database.Db_ref.t
   ; dbg: string
   ; mutable tracing: Tracing.Span.t option
   ; client: Http_svr.client option
@@ -99,9 +99,9 @@ let is_unix_socket s =
 
 let default_database () =
   if Pool_role.is_master () then
-    Db_backend.make ()
+    Xapi_database.Db_backend.make ()
   else
-    Db_ref.Remote
+    Xapi_database.Db_ref.Remote
 
 let preauth ~__context =
   match __context.origin with
@@ -154,17 +154,19 @@ let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
 let string_of_task __context = __context.dbg
 
 let string_of_task_and_tracing __context =
-  Debuginfo.make ~log:__context.dbg ~tracing:__context.tracing
-  |> Debuginfo.to_string
+  Debug_info.make ~log:__context.dbg ~tracing:__context.tracing
+  |> Debug_info.to_string
 
 let tracing_of_dbg s =
-  let dbg = Debuginfo.of_string s in
+  let dbg = Debug_info.of_string s in
   (dbg.log, dbg.tracing)
 
 let check_for_foreign_database ~__context =
   match __context.session_id with
   | Some sid -> (
-    match Db_backend.get_registered_database (Ref.string_of sid) with
+    match
+      Xapi_database.Db_backend.get_registered_database (Ref.string_of sid)
+    with
     | Some database ->
         {__context with database}
     | None ->

@@ -417,7 +417,7 @@ let sync_required ~__context ~host =
       None
   | [(cluster_ref, cluster_rec)] -> (
       let expr =
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq (Field "host", Literal (Ref.string_of host))
             , Eq (Field "cluster", Literal (Ref.string_of cluster_ref))

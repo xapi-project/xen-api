@@ -27,7 +27,9 @@ let valid_ref x = Db.is_valid_ref x
 let gc_connector ~__context get_all get_record valid_ref1 valid_ref2
     delete_record =
   let db = Context.database_of __context in
-  let module DB = (val Db_cache.get db : Db_interface.DB_ACCESS) in
+  let module DB =
+    (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS)
+  in
   let all_refs = get_all ~__context in
   let do_gc ref =
     let print_valid b = if b then "valid" else "INVALID" in
@@ -188,7 +190,7 @@ let gc_PGPUs ~__context =
 let gc_VGPU_types ~__context =
   (* We delete a VGPU_type iff it does not appear in the supported_VGPU_types
      of any PGPU _and_ there doesn't exist a VGPU with this VGPU_type *)
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let garbage =
     Db.VGPU_type.get_records_where ~__context
       ~expr:
@@ -272,7 +274,8 @@ let probation_pending_tasks = Hashtbl.create 53
 
 let timeout_tasks ~__context =
   let all_tasks =
-    Db.Task.get_internal_records_where ~__context ~expr:Db_filter_types.True
+    Db.Task.get_internal_records_where ~__context
+      ~expr:Xapi_database.Db_filter_types.True
   in
   let oldest_completed_time =
     Unix.time () -. !Xapi_globs.completed_task_timeout
@@ -474,7 +477,8 @@ let last_session_log_time = ref None
 
 let timeout_sessions ~__context =
   let all_sessions =
-    Db.Session.get_internal_records_where ~__context ~expr:Db_filter_types.True
+    Db.Session.get_internal_records_where ~__context
+      ~expr:Xapi_database.Db_filter_types.True
   in
   let pool_sessions, nonpool_sessions =
     List.partition (fun (_, s) -> s.Db_actions.session_pool) all_sessions

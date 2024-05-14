@@ -6,7 +6,7 @@ let set_socket_path path = Xs_transport.xenstored_socket := path
 
 let test socket =
   set_socket_path socket ;
-  let open Xenstore in
+  let open Ezxenstore_core.Xenstore in
   if Unix.geteuid () <> 0 then (* non-root won't have access to xenstore *)
     `Ok 0
   else

@@ -92,8 +92,8 @@ let events_of_other_tbl_refs other_tbl_refs =
        other_tbl_refs
     )
 
-open Db_cache_types
-open Db_action_helper
+open Xapi_database.Db_cache_types
+open Xapi_database.Db_action_helper
 
 let database_callback_inner event db context =
   let other_tbl_refs tblname = follow_references tblname in

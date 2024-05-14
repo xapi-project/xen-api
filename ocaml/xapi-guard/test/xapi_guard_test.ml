@@ -1,8 +1,8 @@
 open Xapi_guard_server
-module SessionCache = Xen_api_lwt_unix.SessionCache
+module SessionCache = Xen_api_client_lwt.Xen_api_lwt_unix.SessionCache
 open Alcotest_lwt
 open Lwt.Syntax
-open Xen_api_lwt_unix
+open Xen_api_client_lwt.Xen_api_lwt_unix
 
 module D = Debug.Make (struct let name = "xapi-guard-test" end)
 
@@ -88,7 +88,7 @@ let with_rpc f switch () =
   (* rpc simulates what varstored would do *)
   let uri = Uri.make ~scheme:"file" ~path () |> Uri.to_string in
   D.debug "Connecting to %s" uri ;
-  let rpc = Xen_api_lwt_unix.make uri in
+  let rpc = make uri in
   Lwt.finalize
     (fun () ->
       (* not strictly necessary to login/logout here - since we only get dummy sessions *)

@@ -142,7 +142,7 @@ val build_info : build_info Rpc.Types.def
 
 val make :
      xc:Xenctrl.handle
-  -> xs:Xenstore.Xs.xsh
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> create_info
   -> int
   -> arch_domainconfig
@@ -176,7 +176,11 @@ val hard_shutdown : xc:Xenctrl.handle -> domid -> shutdown_reason -> unit
 exception Domain_does_not_exist
 
 val shutdown :
-  xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> shutdown_reason -> unit
+     xc:Xenctrl.handle
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> domid
+  -> shutdown_reason
+  -> unit
 (** Tell the domain to shutdown with reason 'shutdown_reason'. Don't wait for an
     ack *)
 
@@ -184,7 +188,7 @@ val shutdown_wait_for_ack :
      Xenops_task.Xenops_task.task_handle
   -> timeout:float
   -> xc:Xenctrl.handle
-  -> xs:Xenstore.Xs.xsh
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> domid
   -> [`hvm | `pv | `pvh]
   -> shutdown_reason
@@ -192,13 +196,13 @@ val shutdown_wait_for_ack :
 (** Tell the domain to shutdown with reason 'shutdown_reason', waiting for an
     ack *)
 
-val sysrq : xs:Xenstore.Xs.xsh -> domid -> char -> unit
+val sysrq : xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid -> char -> unit
 (** send a domain a sysrq *)
 
 val destroy :
      Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
-  -> xs:Xenstore.Xs.xsh
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> qemu_domid:int
   -> vtpm:Xenops_interface.Vm.tpm option
   -> dm:Device.Profile.t
@@ -212,16 +216,18 @@ val pause : xc:Xenctrl.handle -> domid -> unit
 val unpause : xc:Xenctrl.handle -> domid -> unit
 (** Unpause a domain *)
 
-val set_action_request : xs:Xenstore.Xs.xsh -> domid -> string option -> unit
+val set_action_request :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid -> string option -> unit
 (** [set_action_request xs domid None] declares this domain is fully intact. Any
     other string is a hint to the toolstack that the domain is still broken. *)
 
-val get_action_request : xs:Xenstore.Xs.xsh -> domid -> string option
+val get_action_request :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid -> string option
 
 val build :
      Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
-  -> xs:Xenstore.Xs.xsh
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> store_domid:int
   -> console_domid:int
   -> timeoffset:string
@@ -237,7 +243,7 @@ val build :
 val restore :
      Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
-  -> xs:Xenstore.Xs.xsh
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> dm:Device.Profile.t
   -> store_domid:int
   -> console_domid:int
@@ -258,7 +264,7 @@ type suspend_flag = Live | Debug
 val suspend :
      Xenops_task.Xenops_task.task_handle
   -> xc:Xenctrl.handle
-  -> xs:Xenstore.Xs.xsh
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> domain_type:[`hvm | `pv | `pvh]
   -> is_uefi:bool
   -> dm:Device.Profile.t
@@ -281,7 +287,8 @@ val send_s3resume : xc:Xenctrl.handle -> domid -> unit
 val vcpu_affinity_set : xc:Xenctrl.handle -> domid -> int -> bool array -> unit
 (** Set cpu affinity of some vcpus of a domain using an boolean array *)
 
-val soft_reset : xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> domid -> unit
+val soft_reset :
+  xc:Xenctrl.handle -> xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid -> unit
 (** Perform soft reset of a domain *)
 
 val vcpu_affinity_get : xc:Xenctrl.handle -> domid -> int -> bool array
@@ -291,7 +298,12 @@ val get_uuid : xc:Xenctrl.handle -> Xenctrl.domid -> [`Vm] Uuidx.t
 (** Get the uuid from a specific domain *)
 
 val set_memory_dynamic_range :
-  xc:Xenctrl.handle -> xs:Xenstore.Xs.xsh -> min:int -> max:int -> domid -> unit
+     xc:Xenctrl.handle
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> min:int
+  -> max:int
+  -> domid
+  -> unit
 (** Write the min,max values of memory/target to xenstore for use by a memory
     policy agent *)
 
@@ -313,15 +325,21 @@ val add_irq : xc:Xenctrl.handle -> domid -> int -> unit
 val del_irq : xc:Xenctrl.handle -> domid -> int -> unit
 (** Revoke a domain's access to a physical IRQ *)
 
-val set_memory_target : xs:Xenstore.Xs.xsh -> Xenstore.Xs.domid -> int64 -> unit
+val set_memory_target :
+     xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> Ezxenstore_core.Xenstore.Xs.domid
+  -> int64
+  -> unit
 
 val wait_xen_free_mem :
   xc:Xenctrl.handle -> ?maximum_wait_time_seconds:int -> int64 -> bool
 
 val allowed_xsdata_prefixes : string list
 
-val set_xsdata : xs:Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
+val set_xsdata :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid -> (string * string) list -> unit
 
-val move_xstree : xs:Xenstore.Xs.xsh -> domid -> string -> string -> unit
+val move_xstree :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid -> string -> string -> unit
 
 val numa_init : unit -> unit

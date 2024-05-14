@@ -50,7 +50,6 @@
     xml-light2
     xmlm
   )
-  (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
 )
 

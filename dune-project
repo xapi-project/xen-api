@@ -5,6 +5,7 @@
 (implicit_transitive_deps false)
 (generate_opam_files true)
 
+(name "xapi")
 (source (github xapi-project/xen-api))
 (license "LGPL-2.1-only WITH OCaml-LGPL-linking-exception")
 (authors "xen-api@lists.xen.org")
@@ -66,6 +67,10 @@
 
 (package
   (name xapi-tracing)
+)
+
+(package
+  (name xapi-tracing-export)
 )
 
 (package
@@ -265,22 +270,6 @@
 )
 
 (package
-  (name xapi-stdext)
-  (synopsis "Xapi's standard library extension")
-  (description "Dummy package that enables the usage of dune-release")
-  (depends
-    (xapi-stdext-date (= :version))
-    (xapi-stdext-encodings (= :version))
-    (xapi-stdext-pervasives (= :version))
-    (xapi-stdext-std (= :version))
-    (xapi-stdext-threads (= :version))
-    (xapi-stdext-unix (= :version))
-    (xapi-stdext-zerocheck (= :version))
-    (xapi-fdcaps (= :version))
-  )
-)
-
-(package
   (name xapi-stdext-date)
   (synopsis "Xapi's standard library extension, Dates")
   (depends
@@ -346,8 +335,14 @@
   (synopsis "Xapi's standard library extension, Unix")
   (depends
     (ocaml (>= 4.12.0))
+    (alcotest :with-test)
     base-unix
+    (bisect_ppx :with-test)
     (fd-send-recv (>= 2.0.0))
+    fmt
+    (mtime (and (>= 2.0.0) :with-test))
+    (logs :with-test)
+    (qcheck-core (and (>= 0.21.2) :with-test))
     (odoc :with-doc)
     xapi-backtrace
     (xapi-stdext-pervasives (= :version))
@@ -361,29 +356,5 @@
   (depends
     ocaml
     (odoc :with-doc)
-  )
-)
-
-(package
-  (name xapi-fdcaps)
-  (synopsis "Static capabilities for file descriptor operations")
-  (depends
-    (alcotest :with-test)
-    base-unix
-    fmt
-    (bisect_ppx :with-test)
-  )
-)
-
-(package
-  (name xapi-fd-test)
-  (synopsis "Test framework for file descriptor operations")
-  (depends
-    (alcotest :with-test)
-    base-unix
-    fmt
-    (mtime (>= 2.0.0))
-    logs
-    (qcheck-core (>= 0.21.2))
   )
 )

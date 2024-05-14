@@ -13,7 +13,7 @@
  *)
 
 open Lwt.Infix
-module Xen_api = Xen_api_lwt_unix
+module Xen_api = Xen_api_client_lwt.Xen_api_lwt_unix
 
 let ignore_exn_log_error msg t =
   Lwt.catch t (fun e -> Lwt_log.error (msg ^ ": " ^ Printexc.to_string e))
