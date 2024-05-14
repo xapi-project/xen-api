@@ -11,8 +11,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 )
@@ -37,30 +37,6 @@ type Response struct {
 	ID      int            `json:"id"`
 }
 
-func paramsParse(params ...interface{}) interface{} {
-	var finalParams interface{}
-	finalParams = params
-	if len(params) == 1 {
-		if params[0] != nil {
-			var typeOf reflect.Type
-			typeOf = reflect.TypeOf(params[0])
-			for typeOf != nil && typeOf.Kind() == reflect.Ptr {
-				typeOf = typeOf.Elem()
-			}
-			typeArr := []reflect.Kind{reflect.Struct, reflect.Array, reflect.Slice, reflect.Interface, reflect.Map}
-			if typeOf != nil {
-				for _, value := range typeArr {
-					if value == typeOf.Kind() {
-						finalParams = params[0]
-						break
-					}
-				}
-			}
-		}
-	}
-	return finalParams
-}
-
 type rpcClient struct {
 	endpoint   string
 	httpClient *http.Client
@@ -80,7 +56,7 @@ func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http
 
 	request.Header.Set("Content-Type", "application/json; charset=utf-8")
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("User-Agent", "XenAPI/" + APIVersionLatest.String())
+	request.Header.Set("User-Agent", "XenAPI/"+APIVersionLatest.String())
 	for k, v := range client.headers {
 		request.Header.Set(k, v)
 	}
@@ -101,7 +77,7 @@ func (client *rpcClient) call(ctx context.Context, methodName string, params ...
 	request := &Request{
 		ID:      0,
 		Method:  methodName,
-		Params:  paramsParse(params...),
+		Params:  params,
 		JSONRPC: "2.0",
 	}
 
@@ -173,25 +149,32 @@ func newJSONRPCClient(opts *ClientOpts) *rpcClient {
 		headers:    make(map[string]string),
 	}
 
-	if strings.HasPrefix(opts.URL, "https://") {
+	u, err := url.Parse(opts.URL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if strings.Compare(u.Scheme, "https") == 0 {
 		skipVerify := true
 		caCertPool := x509.NewCertPool()
 		certs := []tls.Certificate{}
 		if opts.SecureOpts != nil {
-			skipVerify = false
 			if opts.SecureOpts.ServerCert != "" {
+				skipVerify = false
 				caCert, err := os.ReadFile(opts.SecureOpts.ServerCert)
 				if err != nil {
 					log.Fatal(err)
 				}
-				caCertPool.AppendCertsFromPEM(caCert)
+				ok := caCertPool.AppendCertsFromPEM(caCert)
+				if !ok {
+					log.Fatal("failed to parse CA certificate")
+				}
 			}
 			if opts.SecureOpts.ClientCert != "" || opts.SecureOpts.ClientKey != "" {
 				if opts.SecureOpts.ClientCert == "" {
-					log.Fatal(errors.New("missing client certificate"))
+					log.Fatal("missing client certificate")
 				}
 				if opts.SecureOpts.ClientKey == "" {
-					log.Fatal(errors.New("missing client private key"))
+					log.Fatal("missing client private key")
 				}
 				cert, err := tls.LoadX509KeyPair(opts.SecureOpts.ClientCert, opts.SecureOpts.ClientKey)
 				if err != nil {
@@ -204,6 +187,12 @@ func newJSONRPCClient(opts *ClientOpts) *rpcClient {
 			RootCAs:            caCertPool,
 			Certificates:       certs,
 			InsecureSkipVerify: skipVerify, // #nosec
+			CipherSuites: []uint16{
+				tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+				tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+			},
+			MinVersion:               tls.VersionTLS12,
+			PreferServerCipherSuites: true,
 		}
 		transport := &http.Transport{
 			TLSClientConfig: tlsConfig,
