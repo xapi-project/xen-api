@@ -13,7 +13,7 @@
 
 val ( // ) : string -> string -> string
 
-val snake_to_camel : string -> string
+val snake_to_camel : ?internal:bool -> string -> string
 
 val render_template :
   string -> Mustache.Json.t -> ?newline:bool -> unit -> string

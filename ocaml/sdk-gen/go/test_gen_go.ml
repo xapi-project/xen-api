@@ -22,23 +22,29 @@ let string_of_file filename =
 
 module SnakeToCamelTest = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = string
+    type input_t = bool * string
 
     type output_t = string
 
-    let string_of_input_t = Test_printers.string
+    let string_of_input_t = Fmt.(str "%a" Dump.(pair bool string))
 
     let string_of_output_t = Test_printers.string
   end
 
-  let transform = snake_to_camel
+  let transform (internal, str) = snake_to_camel ~internal str
 
   let tests =
     `QuickAndAutoDocumented
       [
-        ("ni_hao-Nanjin", "NiHaoNanjin")
-      ; ("ni_hao", "NiHao")
-      ; ("nanjing", "Nanjing")
+        ((false, "ni_hao-Nanjin"), "NiHaoNanjin")
+      ; ((false, "ni_hao"), "NiHao")
+      ; ((false, "nanjing"), "Nanjing")
+      ; ((false, "uuid"), "UUID")
+      ; ((false, "get_by_uuid"), "GetByUUID")
+      ; ((true, "uuid"), "uuid")
+      ; ((true, "PIF_Metrics"), "pifMetrics")
+      ; ((true, "VM_guest_metrics"), "vmGuestMetrics")
+      ; ((true, "Network"), "network")
       ]
 end)
 
