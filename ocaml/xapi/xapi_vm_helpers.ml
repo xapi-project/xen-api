@@ -35,7 +35,7 @@ module SRSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
-module RefMap = Map.Make (struct
+module HostMap = Map.Make (struct
   type t = [`host] Ref.t
 
   let compare = Ref.compare
@@ -997,6 +997,46 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
         hosts
       |> List.map (fun g -> List.map fst g)
 
+let host_to_vm_count_map ~__context group =
+  let host_of_vm vm =
+    let vm_rec = Db.VM.get_record ~__context ~self:vm in
+    (* 1. When a VM starts migrating, it's 'scheduled_to_be_resident_on' will be set,
+          while its 'resident_on' is not cleared. In this case,
+          'scheduled_to_be_resident_on' should be treated as its running host.
+       2. For paused VM, its 'resident_on' has value, but it will not be considered
+          while computing the amount of VMs. *)
+    match
+      ( vm_rec.API.vM_scheduled_to_be_resident_on
+      , vm_rec.API.vM_resident_on
+      , vm_rec.API.vM_power_state
+      )
+    with
+    | sh, _, _ when sh <> Ref.null ->
+        Some sh
+    | _, h, `Running when h <> Ref.null ->
+        Some h
+    | _ ->
+        None
+  in
+  Db.VM_group.get_VMs ~__context ~self:group
+  |> List.fold_left
+       (fun m vm ->
+         match host_of_vm vm with
+         | Some h ->
+             HostMap.update h
+               (fun c -> Option.(value ~default:0 c |> succ |> some))
+               m
+         | None ->
+             m
+       )
+       HostMap.empty
+
+let rank_hosts_by_vm_cnt_in_group ~__context group hosts =
+  let host_map = host_to_vm_count_map ~__context group in
+  Helpers.group_by ~ordering:`ascending
+    (fun h -> HostMap.find_opt h host_map |> Option.value ~default:0)
+    hosts
+
 (* Group all hosts to 2 parts:
    1. A list of affinity host (only one host).
    2. A list of lists, each list contains hosts with the same number of
@@ -1065,6 +1105,27 @@ let rank_hosts_by_placement ~__context ~vm ~group =
   in
   affinity_host :: sorted_hosts |> List.filter (( <> ) [])
 
+let rec select_host_from_ranked_lists ~vm ~host_selector ~ranked_host_lists =
+  match ranked_host_lists with
+  | [] ->
+      raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+  | hosts :: less_optimal_groups_of_hosts -> (
+      debug
+        "Attempting to select host for VM (%s) in a group of equally optimal \
+         hosts [ %s ]"
+        (Ref.string_of vm)
+        (String.concat ";" (List.map Ref.string_of hosts)) ;
+      try host_selector hosts
+      with _ ->
+        info
+          "Failed to select host for VM (%s) in any of [ %s ], continue to \
+           select from less optimal hosts"
+          (Ref.string_of vm)
+          (String.concat ";" (List.map Ref.string_of hosts)) ;
+        select_host_from_ranked_lists ~vm ~host_selector
+          ~ranked_host_lists:less_optimal_groups_of_hosts
+    )
+
 (* Selects a single host from the set of all hosts on which the given [vm] can boot.
    Raises [Api_errors.no_hosts_available] if no such host exists.
    1.Take anti-affinity, or VGPU, or Network SR-IOV as a group_key for group all hosts into host list list
@@ -1109,22 +1170,12 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
                )
             )
   in
-  let rec select_host_from = function
-    | [] ->
-        raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
-    | hosts :: less_optimal_groups_of_hosts -> (
-        debug
-          "Attempting to start VM (%s) on one of equally optimal hosts [ %s ]"
-          (Ref.string_of vm)
-          (String.concat ";" (List.map Ref.string_of hosts)) ;
-        try Xapi_vm_placement.select_host __context vm validate_host hosts
-        with _ ->
-          info "Failed to start VM (%s) on any of [ %s ]" (Ref.string_of vm)
-            (String.concat ";" (List.map Ref.string_of hosts)) ;
-          select_host_from less_optimal_groups_of_hosts
-      )
+  let host_selector =
+    Xapi_vm_placement.select_host __context vm validate_host
   in
-  try select_host_from host_lists
+  try
+    select_host_from_ranked_lists ~vm ~host_selector
+      ~ranked_host_lists:host_lists
   with
   | Api_errors.Server_error (x, []) when x = Api_errors.no_hosts_available ->
     debug
