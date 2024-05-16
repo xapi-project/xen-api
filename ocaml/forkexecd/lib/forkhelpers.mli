@@ -34,7 +34,7 @@
 
 (** {2 High-level interface } *)
 
-type syslog_stdout_t =
+type syslog_stdout =
   | NoSyslogging
   | Syslog_DefaultKey
   | Syslog_WithKey of string
@@ -44,8 +44,9 @@ val default_path : string list
 val default_path_env_pair : string array
 
 val execute_command_get_output :
-     ?env:string array
-  -> ?syslog_stdout:syslog_stdout_t
+     ?tracing:Tracing.Span.t
+  -> ?env:string array
+  -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
   -> string
@@ -56,8 +57,9 @@ val execute_command_get_output :
     [Spawn_internal_error(stderr, stdout, Unix.process_status)] *)
 
 val execute_command_get_output_send_stdin :
-     ?env:string array
-  -> ?syslog_stdout:syslog_stdout_t
+     ?tracing:Tracing.Span.t
+  -> ?env:string array
+  -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> ?timeout:float
   -> string
@@ -92,12 +94,13 @@ exception Subprocess_killed of int
 exception Subprocess_timeout
 
 val safe_close_and_exec :
-     ?env:string array
+     ?tracing:Tracing.Span.t
+  -> ?env:string array
   -> Unix.file_descr option
   -> Unix.file_descr option
   -> Unix.file_descr option
   -> (string * Unix.file_descr) list
-  -> ?syslog_stdout:syslog_stdout_t
+  -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
   -> string
   -> string list
@@ -111,8 +114,10 @@ val waitpid : pidty -> int * Unix.process_status
 (** [waitpid p] returns the (pid, Unix.process_status) *)
 
 val waitpid_nohang : pidty -> int * Unix.process_status
-(** [waitpid_nohang p] returns the (pid, Unix.process_status) if the process has already
-    	quit or (0, Unix.WEXITTED 0) if the process is still running. *)
+(** [waitpid_nohang p] returns the (pid, Unix.process_status) if the
+    process has already quit or (0, Unix.WEXITTED 0) if the process is
+    still running.  If the process is finished, the socket is closed
+    and not otherwise. *)
 
 val dontwaitpid : pidty -> unit
 (** [dontwaitpid p]: signals the caller's desire to never call waitpid. Note that the final

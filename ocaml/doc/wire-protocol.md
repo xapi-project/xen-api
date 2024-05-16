@@ -1,7 +1,3 @@
----
- layout: doc
----
-
 # Wire Protocol for Remote API Calls
 
 API calls are sent over a network to a Xen-enabled host using an RPC protocol.

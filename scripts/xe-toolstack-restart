@@ -27,10 +27,10 @@ echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCXENDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
-SERVICES="perfmon v6d xenopsd xenopsd-xc xenopsd-xenlight
+SERVICES="message-switch perfmon v6d xenopsd xenopsd-xc xenopsd-xenlight
   xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed
   xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd
-  $MPATHALERT xapi-storage-script xapi-clusterd varstored-guard message-switch"
+  $MPATHALERT xapi-storage-script xapi-clusterd varstored-guard"
 
 tmp_file=$(mktemp --suffix="xe-toolstack-restart")
 systemctl stop stunnel@xapi > $tmp_file 2>&1

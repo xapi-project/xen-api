@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Xenops_task
 open Device_common
 
@@ -88,8 +88,8 @@ let cleanup_for_domain ~xs domid =
 
 let watches_of key =
   [
-    Watch.key_to_disappear (cancel_path_of key)
-  ; Watch.value_to_become (shutdown_path_of key) ""
+    Ezxenstore_core.Watch.key_to_disappear (cancel_path_of key)
+  ; Ezxenstore_core.Watch.value_to_become (shutdown_path_of key) ""
   ]
 
 let cancel ~xs key =
@@ -144,6 +144,8 @@ let with_path ~xs key f =
         ()
     )
 
+module Watch = Ezxenstore_core.Watch
+
 let cancellable_watch key good_watches error_watches
     (task : Xenops_task.task_handle) ~xs ~timeout () =
   with_path ~xs key (fun () ->
@@ -161,9 +163,7 @@ let cancellable_watch key good_watches error_watches
                    )
                 )
             in
-            let any_have_fired ws =
-              List.fold_left ( || ) false (List.map (Watch.has_fired ~xs) ws)
-            in
+            let any_have_fired ws = List.exists (Watch.has_fired ~xs) ws in
             (* If multiple conditions are true simultaneously then we apply the
                policy: if the success condition is met then any error or
                cancellation is ignored if the error condition is met then any

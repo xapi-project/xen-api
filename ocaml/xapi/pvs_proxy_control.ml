@@ -26,7 +26,7 @@ let proxy_port_name vif =
 
 (** [proxies] returns all currently attached proxies *)
 let get_running_proxies ~__context ~site =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   Db.PVS_proxy.get_refs_where ~__context
     ~expr:
       (And
@@ -39,7 +39,7 @@ let get_running_proxies ~__context ~site =
 module State = struct
   type t = Starting | Started | Stopping | Failed
 
-  open Xenstore
+  open Ezxenstore_core.Xenstore
 
   let of_string = function
     | "starting" ->
@@ -192,7 +192,7 @@ let remove_site_on_localhost ~__context ~site =
 exception No_cache_sr_available
 
 let find_cache_vdi ~__context ~host ~site =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   (* There should be at most one matching PVS_cache_storage object *)
   let pcs' =
     Db.PVS_cache_storage.get_refs_where ~__context
@@ -376,7 +376,7 @@ let clear_proxy_state ~__context _vif proxy =
   Db.PVS_proxy.set_status ~__context ~self:proxy ~value:`stopped
 
 let find_proxy_for_vif ~__context ~vif =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let proxies =
     Db.PVS_proxy.get_refs_where ~__context
       ~expr:(Eq (Field "VIF", Literal (Ref.string_of vif)))

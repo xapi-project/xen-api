@@ -28,10 +28,9 @@
  */
 
 
-
 /*
  * Declarations of the abstract types used during demarshalling of enum
- * xen_{{{enum_name}}}.  Internal to this library -- do not use from outside.
+ * xen_{{{enum_name}}}.
  */
 
 
@@ -43,9 +42,8 @@
 
 
 extern const abstract_type xen_{{{enum_name}}}_abstract_type_;
-{{^event_operations}}
 extern const abstract_type xen_{{{enum_name}}}_set_abstract_type_;
-{{/event_operations}}
 
 
 #endif
+

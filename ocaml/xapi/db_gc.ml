@@ -270,10 +270,10 @@ let tickle_heartbeat ~__context host stuff =
 
 let single_pass () =
   Server_helpers.exec_with_new_task "DB GC" (fun __context ->
-      Db_lock.with_lock (fun () ->
+      Xapi_database.Db_lock.with_lock (fun () ->
           let time_one (name, f) =
-            Stats.time_this (Printf.sprintf "Db_gc: %s" name) (fun () ->
-                f ~__context
+            Xapi_database.Stats.time_this (Printf.sprintf "Db_gc: %s" name)
+              (fun () -> f ~__context
             )
           in
           List.iter time_one Db_gc_util.gc_subtask_list

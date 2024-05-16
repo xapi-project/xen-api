@@ -128,7 +128,7 @@ let internal_host_dead_hook __context host =
   info "Running host dead hook for %s" (Ref.string_of host) ;
   (* reverse lookup host from metrics id; don't have backedge here... *)
   let forwarded_tasks =
-    let open Db_filter_types in
+    let open Xapi_database.Db_filter_types in
     Db.Task.get_refs_where ~__context
       ~expr:(Eq (Field "forwarded_to", Literal (Ref.string_of host)))
   in

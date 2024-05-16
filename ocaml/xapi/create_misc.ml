@@ -20,7 +20,7 @@ module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Network
 module XenAPI = Client.Client
 

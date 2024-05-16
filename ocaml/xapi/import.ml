@@ -287,7 +287,7 @@ let assert_can_live_import_vgpu ~__context vgpu_record =
   let local_pgpus =
     Db.PGPU.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq
                 ( Field "GPU_group"
@@ -629,17 +629,15 @@ module VM : HandlerTools = struct
               ~domain_type:vm_record.API.vM_domain_type
               ~is_a_template:vm_record.API.vM_is_a_template
               vm_record.API.vM_platform
+        ; API.vM_suspend_VDI= Ref.null
+        ; API.vM_power_state= `Halted
         }
       in
       let vm =
         log_reraise
           ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
           (fun value ->
-            let vm =
-              Xapi_vm_helpers
-              .create_from_record_without_checking_licence_feature_for_vendor_device
-                ~__context rpc session_id value
-            in
+            let vm = Client.VM.create_from_record ~rpc ~session_id ~value in
             if config.full_restore then
               Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid ;
             vm
@@ -2158,11 +2156,18 @@ let complete_import ~__context vmrefs =
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm
       )
       vmrefs ;
-    (* We only keep VMs which are not snapshot *)
+    (* When only snapshots have been imported, return all of them.
+       Otherwise, only keep VMs which are not snapshots *)
     let vmrefs =
-      List.filter
-        (fun vmref -> not (Db.VM.get_is_a_snapshot ~__context ~self:vmref))
+      let non_snapshots =
+        List.filter
+          (fun x -> not (Db.VM.get_is_a_snapshot ~__context ~self:x))
+          vmrefs
+      in
+      if non_snapshots = [] then
         vmrefs
+      else
+        non_snapshots
     in
     (* We only set the result on the task since it is officially completed later. *)
     TaskHelper.set_result ~__context (Some (API.rpc_of_ref_VM_set vmrefs))
