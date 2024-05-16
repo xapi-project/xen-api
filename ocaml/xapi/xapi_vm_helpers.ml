@@ -1043,6 +1043,13 @@ let rank_hosts_by_vm_cnt_in_group ~__context group hosts =
     (fun h -> HostMap.find_opt h host_map |> Option.value ~default:0)
     hosts
 
+let get_affinity_host ~__context ~vm =
+  match Db.VM.get_affinity ~__context ~self:vm with
+  | ref when Db.is_valid_ref __context ref ->
+      Some ref
+  | _ ->
+      None
+
 (* Group all hosts to 2 parts:
    1. A list of affinity host (only one host).
    2. A list of lists, each list contains hosts with the same number of
@@ -1057,77 +1064,40 @@ let rank_hosts_by_vm_cnt_in_group ~__context group hosts =
    ]
 *)
 let rank_hosts_by_placement ~__context ~vm ~group =
-  let affinity_host =
-    match Db.VM.get_affinity ~__context ~self:vm with
-    | ref when Db.is_valid_ref __context ref ->
-        [ref]
-    | _ ->
-        []
+  let hosts = Db.Host.get_all ~__context in
+  let affinity_host = get_affinity_host ~__context ~vm in
+  let hosts_without_affinity =
+    Option.fold ~none:hosts
+      ~some:(fun host -> List.filter (( <> ) host) hosts)
+      affinity_host
   in
   let sorted_hosts =
-    let host_without_affinity_host =
-      Db.Host.get_all ~__context
-      |> List.filter (fun host -> not (List.mem host affinity_host))
-    in
-    let host_of_vm vm =
-      let vm_rec = Db.VM.get_record ~__context ~self:vm in
-      (* 1. When a VM starts migrating, it's 'scheduled_to_be_resident_on' will be set,
-            while its 'resident_on' is not cleared. In this case,
-            'scheduled_to_be_resident_on' should be treated as its running host.
-         2. For paused VM, its 'resident_on' has value, but it will not be considered
-            while computing the amount of VMs. *)
-      match
-        ( vm_rec.API.vM_scheduled_to_be_resident_on
-        , vm_rec.API.vM_resident_on
-        , vm_rec.API.vM_power_state
-        )
-      with
-      | sh, _, _ when sh <> Ref.null ->
-          Some sh
-      | _, h, `Running when h <> Ref.null ->
-          Some h
-      | _ ->
-          None
-    in
-    let host_map =
-      Db.VM_group.get_VMs ~__context ~self:group
-      |> List.fold_left
-           (fun m vm ->
-             match host_of_vm vm with
-             | Some h ->
-                 HostMap.update h
-                   (fun c -> Option.(value ~default:0 c |> succ |> some))
-                   m
-             | None ->
-                 m
-           )
-           HostMap.empty
-    in
-    host_without_affinity_host
-    |> Helpers.group_by ~ordering:`ascending (fun h ->
-           HostMap.find_opt h host_map |> Option.value ~default:0
-       )
-    |> List.map (fun g -> List.map fst g)
+    hosts_without_affinity
+    |> rank_hosts_by_vm_cnt_in_group ~__context group
+    |> List.(map (map fst))
   in
-  affinity_host :: sorted_hosts |> List.filter (( <> ) [])
+  match affinity_host with
+  | Some host ->
+      [host] :: sorted_hosts
+  | None ->
+      sorted_hosts
 
 let rec select_host_from_ranked_lists ~vm ~host_selector ~ranked_host_lists =
   match ranked_host_lists with
   | [] ->
       raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
   | hosts :: less_optimal_groups_of_hosts -> (
+      let hosts_str = String.concat ";" (List.map Ref.string_of hosts) in
       debug
         "Attempting to select host for VM (%s) in a group of equally optimal \
          hosts [ %s ]"
-        (Ref.string_of vm)
-        (String.concat ";" (List.map Ref.string_of hosts)) ;
+        (Ref.string_of vm) hosts_str ;
       try host_selector hosts
       with _ ->
         info
           "Failed to select host for VM (%s) in any of [ %s ], continue to \
            select from less optimal hosts"
-          (Ref.string_of vm)
-          (String.concat ";" (List.map Ref.string_of hosts)) ;
+          (Ref.string_of vm) hosts_str ;
         select_host_from_ranked_lists ~vm ~host_selector
           ~ranked_host_lists:less_optimal_groups_of_hosts
     )
