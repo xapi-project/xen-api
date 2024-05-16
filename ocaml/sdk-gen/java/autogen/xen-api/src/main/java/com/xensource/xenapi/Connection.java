@@ -259,10 +259,8 @@ public class Connection {
     public <T> T dispatch(String methodCall, Object[] methodParameters, TypeReference<T> responseTypeReference) throws XenAPIException, IOException {
         var result = client.sendRequest(methodCall, methodParameters, responseTypeReference);
         if (result.error != null) {
-            throw new XenAPIException(String.valueOf(result.error));
-        }
-
-        if (methodCall.equals("session.login_with_password")) {
+            Types.checkError(result.error);
+        } else if (methodCall.equals("session.login_with_password")) {
             var session = ((Session) result.result);
             sessionReference = session.ref;
             setAPIVersion();

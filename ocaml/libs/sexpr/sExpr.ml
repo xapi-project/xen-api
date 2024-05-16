@@ -27,6 +27,8 @@ let unescape_buf buf s =
   if Astring.String.fold_left aux false s then
     Buffer.add_char buf '\\'
 
+let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
+
 (* XXX: This escapes "'c'" and "\'c\'" to "\\'c\\'".
  * They are both unescaped as "'c'". They have been ported
  * to make sure that this corner case is left unchanged.
@@ -36,28 +38,31 @@ let unescape_buf buf s =
  * that have guaranteed invariants and optimised performances *)
 let escape s =
   let open Astring in
-  let escaped = Buffer.create (String.length s + 10) in
-  String.iter
-    (fun c ->
-      let c' =
+  if String.exists is_escape_char s then (
+    let escaped = Buffer.create (String.length s + 10) in
+    String.iter
+      (fun c ->
         match c with
         | '\\' ->
-            "\\\\"
+            Buffer.add_string escaped "\\\\"
         | '"' ->
-            "\\\""
+            Buffer.add_string escaped "\\\""
         | '\'' ->
-            "\\\'"
+            Buffer.add_string escaped "\\\'"
         | _ ->
-            Astring.String.of_char c
-      in
-      Buffer.add_string escaped c'
-    )
-    s ;
-  Buffer.contents escaped
+            Buffer.add_char escaped c
+      )
+      s ;
+    Buffer.contents escaped
+  ) else
+    s
 
 let unescape s =
-  let buf = Buffer.create (String.length s) in
-  unescape_buf buf s ; Buffer.contents buf
+  if String.contains s '\\' then (
+    let buf = Buffer.create (String.length s) in
+    unescape_buf buf s ; Buffer.contents buf
+  ) else
+    s
 
 let mkstring x = String (unescape x)
 

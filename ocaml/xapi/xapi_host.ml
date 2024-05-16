@@ -21,7 +21,7 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
 open Xapi_pif_helpers
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Workload_balancing
 
 module D = Debug.Make (struct let name = "xapi_host" end)
@@ -1196,6 +1196,7 @@ let request_backup ~__context ~host ~generation ~force =
   if Helpers.get_localhost ~__context <> host then
     failwith "Forwarded to the wrong host" ;
   if Pool_role.is_master () then (
+    let open Xapi_database in
     debug "Requesting database backup on master: Using direct sync" ;
     let connections = Db_conn_store.read_db_connections () in
     Db_cache_impl.sync connections (Db_ref.get_database (Db_backend.make ()))
@@ -1331,7 +1332,8 @@ let get_thread_diagnostics ~__context ~host:_ =
 let sm_dp_destroy ~__context ~host:_ ~dp ~allow_leak =
   Storage_access.dp_destroy ~__context dp allow_leak
 
-let get_diagnostic_timing_stats ~__context ~host:_ = Stats.summarise ()
+let get_diagnostic_timing_stats ~__context ~host:_ =
+  Xapi_database.Stats.summarise ()
 
 (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
 (* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
@@ -1965,6 +1967,8 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
 let disable_external_auth ~__context ~host ~config =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ()
+
+module Static_vdis_list = Xapi_database.Static_vdis_list
 
 let attach_static_vdis ~__context ~host:_ ~vdi_reason_map =
   (* We throw an exception immediately if any of the VDIs in vdi_reason_map is

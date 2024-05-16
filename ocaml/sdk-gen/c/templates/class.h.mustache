@@ -1,0 +1,179 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+#ifndef XEN_{{{class_upper}}}_H
+#define XEN_{{{class_upper}}}_H
+
+{{#headers}}
+#include <xen/api/xen_{{{header}}}.h>
+{{/headers}}
+
+
+{{{class_doc}}}
+
+
+{{^is_event}}
+/**
+ * Free the given xen_{{{class_lower}}}.  The given handle must have been
+ * allocated by this library.
+ */
+extern void
+xen_{{{class_lower}}}_free(xen_{{{class_lower}}} {{{class_lower}}});
+
+
+typedef struct xen_{{{class_lower}}}_set
+{
+    size_t size;
+    xen_{{{class_lower}}} *contents[];
+} xen_{{{class_lower}}}_set;
+
+/**
+ * Allocate a xen_{{{class_lower}}}_set of the given size.
+ */
+extern xen_{{{class_lower}}}_set *
+xen_{{{class_lower}}}_set_alloc(size_t size);
+
+/**
+ * Free the given xen_{{{class_lower}}}_set.  The given set must have been
+ * allocated by this library.
+ */
+extern void
+xen_{{{class_lower}}}_set_free(xen_{{{class_lower}}}_set *set);
+
+
+{{/is_event}}
+typedef struct xen_{{{class_lower}}}_record
+{
+{{^is_event}}
+    xen_{{{class_lower}}} handle;
+{{/is_event}}
+{{#fields}}
+    {{{field_type}}}{{{field_name_lower}}};
+{{/fields}}
+} xen_{{{class_lower}}}_record;
+
+/**
+ * Allocate a xen_{{{class_lower}}}_record.
+ */
+extern xen_{{{class_lower}}}_record *
+xen_{{{class_lower}}}_record_alloc(void);
+
+/**
+ * Free the given xen_{{{class_lower}}}_record, and all referenced values.
+ * The given record must have been allocated by this library.
+ */
+extern void
+xen_{{{class_lower}}}_record_free(xen_{{{class_lower}}}_record *record);
+
+
+{{^is_event}}
+typedef struct xen_{{{class_lower}}}_record_opt
+{
+    bool is_record;
+    union
+    {
+        xen_{{{class_lower}}} handle;
+        xen_{{{class_lower}}}_record *record;
+    } u;
+} xen_{{{class_lower}}}_record_opt;
+
+/**
+ * Allocate a xen_{{{class_lower}}}_record_opt.
+ */
+extern xen_{{{class_lower}}}_record_opt *
+xen_{{{class_lower}}}_record_opt_alloc(void);
+
+/**
+ * Free the given xen_{{{class_lower}}}_record_opt, and all referenced values.
+ * The given record_opt must have been allocated by this library.
+ */
+extern void
+xen_{{{class_lower}}}_record_opt_free(xen_{{{class_lower}}}_record_opt *record_opt);
+
+
+{{/is_event}}
+typedef struct xen_{{{class_lower}}}_record_set
+{
+    size_t size;
+    xen_{{{class_lower}}}_record *contents[];
+} xen_{{{class_lower}}}_record_set;
+
+/**
+ * Allocate a xen_{{{class_lower}}}_record_set of the given size.
+ */
+extern xen_{{{class_lower}}}_record_set *
+xen_{{{class_lower}}}_record_set_alloc(size_t size);
+
+/**
+ * Free the given xen_{{{class_lower}}}_record_set, and all referenced values.
+ * The given set must have been allocated by this library.
+ */
+extern void
+xen_{{{class_lower}}}_record_set_free(xen_{{{class_lower}}}_record_set *set);
+
+
+{{^is_event}}
+typedef struct xen_{{{class_lower}}}_record_opt_set
+{
+    size_t size;
+    xen_{{{class_lower}}}_record_opt *contents[];
+} xen_{{{class_lower}}}_record_opt_set;
+
+/**
+ * Allocate a xen_{{{class_lower}}}_record_opt_set of the given size.
+ */
+extern xen_{{{class_lower}}}_record_opt_set *
+xen_{{{class_lower}}}_record_opt_set_alloc(size_t size);
+
+/**
+ * Free the given xen_{{{class_lower}}}_record_opt_set, and all referenced
+ * values. The given set must have been allocated by this library.
+ */
+extern void
+xen_{{{class_lower}}}_record_opt_set_free(xen_{{{class_lower}}}_record_opt_set *set);
+
+
+{{/is_event}}
+{{#messages}}
+{{{msg_doc}}}
+extern bool
+xen_{{{class_lower}}}_{{{msg_name_lower}}}(xen_session *session{{#sync_params}}, {{{param_type}}}{{{param_name}}}{{/sync_params}});
+
+
+{{#is_async}}
+{{{msg_doc}}}
+extern bool
+xen_{{{class_lower}}}_{{{msg_name_lower}}}_async(xen_session *session{{#async_params}}, {{{param_type}}}{{{param_name}}}{{/async_params}});
+
+
+{{/is_async}}
+{{/messages}}
+#endif
+

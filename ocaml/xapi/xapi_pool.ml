@@ -1719,6 +1719,7 @@ let unplug_pbds ~__context host =
 
 (* This means eject me, since will have been forwarded from master  *)
 let eject_self ~__context ~host =
+  let open Xapi_database in
   (* If HA is enabled then refuse *)
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
@@ -1998,7 +1999,7 @@ let eject ~__context ~host =
 (* Prohibit parallel flushes since they're so expensive *)
 let sync_m = Mutex.create ()
 
-open Db_cache_types
+open Xapi_database.Db_cache_types
 
 let sync_database ~__context =
   with_lock sync_m (fun () ->
@@ -2006,7 +2007,7 @@ let sync_database ~__context =
       let pool = Helpers.get_pool ~__context in
       let flushed_to_vdi =
         Db.Pool.get_ha_enabled ~__context ~self:pool
-        && Db_lock.with_lock (fun () ->
+        && Xapi_database.Db_lock.with_lock (fun () ->
                Xha_metadata_vdi.flush_database ~__context Xapi_ha.ha_redo_log
            )
       in
@@ -2015,10 +2016,12 @@ let sync_database ~__context =
       else (
         debug "flushing database to all online nodes" ;
         let generation =
-          Db_lock.with_lock (fun () ->
+          Xapi_database.Db_lock.with_lock (fun () ->
               Manifest.generation
                 (Database.manifest
-                   (Db_ref.get_database (Context.database_of __context))
+                   (Xapi_database.Db_ref.get_database
+                      (Context.database_of __context)
+                   )
                 )
           )
         in
@@ -2133,7 +2136,7 @@ let is_slave ~__context ~host:_ =
   debug
     "About to kick the database connection to make sure it's still working..." ;
   let (_ : bool) =
-    Scheduler.PipeDelay.signal Master_connection.delay ;
+    Scheduler.PipeDelay.signal Xapi_database.Master_connection.delay ;
     Db.is_valid_ref __context
       (Ref.of_string
          "Pool.is_slave checking to see if the database connection is up"
@@ -2861,6 +2864,8 @@ let detect_nonhomogeneous_external_auth () =
 let detect_nonhomogeneous_external_auth ~__context ~pool:_ =
   detect_nonhomogeneous_external_auth ()
 
+module Redo_log = Xapi_database.Redo_log
+
 let create_redo_log_vdi ~__context ~sr =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
       Client.VDI.create ~rpc ~session_id ~name_label:"Metadata redo-log"
@@ -2936,7 +2941,7 @@ let enable_redo_log ~__context ~sr =
      	 * is already in use) *)
   if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then (
     Redo_log.enable_and_flush
-      (Context.database_of __context |> Db_ref.get_database)
+      (Context.database_of __context |> Xapi_database.Db_ref.get_database)
       Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason ;
     Localdb.put Constants.redo_log_enabled "true"
   ) ;

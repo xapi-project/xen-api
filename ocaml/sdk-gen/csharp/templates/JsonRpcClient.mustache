@@ -38,6 +38,13 @@ namespace XenAPI
 {
     public partial class JsonRpcClient
     {
+        public string[] system_list_methods()
+        {
+            var converters = new List<JsonConverter> { };
+            var serializer = CreateSerializer(converters);
+            return Rpc<string[]>("system.listMethods", new JArray(), serializer);
+        }
+
         public Event event_get_record(string session, string _event)
         {
             var converters = new List<JsonConverter> {};

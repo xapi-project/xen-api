@@ -218,7 +218,7 @@ let set_passthrough_enabled ~__context ~self ~value =
              we want to re-display the vdi records. But in udevSR.py we will handle this, as
              if passthrough_enabled = true, we will not re-introduce the vdi.
           *)
-          let open Db_filter_types in
+          let open Xapi_database.Db_filter_types in
           Db.SR.get_refs_where ~__context
             ~expr:(Eq (Field "type", Literal "udev"))
           |> List.iter (fun sr ->

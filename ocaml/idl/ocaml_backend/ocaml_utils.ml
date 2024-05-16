@@ -58,9 +58,15 @@ let ocaml_of_record_field = function
 
 let ocaml_of_module_name x = String.capitalize_ascii x
 
+let ocaml_map_enum_ sep f list = String.concat sep (List.map f list)
+
 (** Convert an IDL enum into a polymorhic variant. *)
 let ocaml_of_enum list =
-  "[ " ^ String.concat " | " (List.map constructor_of list) ^ " ]"
+  Printf.sprintf "[%s]" (ocaml_map_enum_ " | " constructor_of list)
+
+(* Create a to_string function for a polymorphic variant. *)
+let ocaml_list_of_enum list =
+  Printf.sprintf "[%s]" (ocaml_map_enum_ "; " constructor_of list)
 
 (** Convert an IDL type to a function name; we need to generate functions to
     marshal/unmarshal from XML for each unique IDL type *)
@@ -89,6 +95,11 @@ let rec alias_of_ty = function
       sprintf "%s_t" (ocaml_of_record_name x)
   | Option x ->
       sprintf "%s_option" (alias_of_ty x)
+
+(** Create the body of a to_string function for an enum *)
+let ocaml_to_string_of_enum list =
+  let single name = Printf.sprintf {|%s -> "%s"|} (constructor_of name) name in
+  Printf.sprintf "function %s" (ocaml_map_enum_ " | " single list)
 
 (** Convert an IDL type into a string containing OCaml code representing the
     type. *)

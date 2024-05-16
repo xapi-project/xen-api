@@ -428,7 +428,7 @@ let main backend =
   Printexc.record_backtrace true ;
   Printexc.set_uncaught_exception_handler log_uncaught_exception ;
   (* Set service name for Tracing *)
-  Tracing.Export.set_service_name "xenopsd" ;
+  Tracing_export.set_service_name "xenopsd" ;
   (* Listen for transferred file descriptors *)
   let forwarded_server =
     Xcp_service.make_socket_server (forwarded_path ()) handle_received_fd

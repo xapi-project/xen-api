@@ -119,7 +119,7 @@ let disk_of_vdi ~__context ~self =
 let vdi_of_disk ~__context x =
   match String.split ~limit:2 '/' x with
   | [sr_uuid; location] -> (
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
       match
         Db.VDI.get_records_where ~__context
@@ -3278,7 +3278,7 @@ let events_from_xapi () =
                 let timeout =
                   30.
                   +. api_timeout
-                  +. !Db_globs.master_connection_reset_timeout
+                  +. !Xapi_database.Db_globs.master_connection_reset_timeout
                 in
                 let timebox_rpc =
                   Helpers.make_timeboxed_rpc ~__context timeout

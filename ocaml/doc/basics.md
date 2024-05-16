@@ -1,7 +1,3 @@
----
- layout: doc
----
-
 # API Basics
 
 This document defines the XenServer Management API - an interface for remotely

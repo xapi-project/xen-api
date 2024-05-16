@@ -6070,7 +6070,7 @@ module Event = struct
       ~doc:
         "Blocking call which returns a (possibly empty) batch of events. This \
          method is only recommended for legacy use. New development should use \
-         event.from which supercedes this method."
+         event.from which supersedes this method."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:(Set (Record _event), "A set of events")
       ~errs:[Api_errors.session_not_registered; Api_errors.events_lost]
@@ -6520,14 +6520,55 @@ module Network_sriov = struct
 end
 
 (** PCI devices *)
+let pci_dom0_access =
+  Enum
+    ( "pci_dom0_access"
+    , [
+        ("enabled", "dom0 can access this device as normal")
+      ; ( "disable_on_reboot"
+        , "On host reboot dom0 will be blocked from accessing this device"
+        )
+      ; ("disabled", "dom0 cannot access this device")
+      ; ( "enable_on_reboot"
+        , "On host reboot dom0 will be allowed to access this device"
+        )
+      ]
+    )
 
 module PCI = struct
+  let disable_dom0_access =
+    call ~name:"disable_dom0_access" ~lifecycle:[]
+      ~doc:
+        "Hide a PCI device from the dom0 kernel. (Takes affect after next \
+         boot.)"
+      ~params:[(Ref _pci, "self", "The PCI to hide")]
+      ~result:(pci_dom0_access, "The accessibility of this PCI from dom0")
+      ~allowed_roles:_R_POOL_OP ()
+
+  let enable_dom0_access =
+    call ~name:"enable_dom0_access" ~lifecycle:[]
+      ~doc:
+        "Unhide a PCI device from the dom0 kernel. (Takes affect after next \
+         boot.)"
+      ~params:[(Ref _pci, "self", "The PCI to unhide")]
+      ~result:(pci_dom0_access, "The accessibility of this PCI from dom0")
+      ~allowed_roles:_R_POOL_OP ()
+
+  let get_dom0_access_status =
+    call ~name:"get_dom0_access_status" ~lifecycle:[]
+      ~doc:"Return a PCI device dom0 access status."
+      ~params:[(Ref _pci, "self", "The PCI")]
+      ~result:(pci_dom0_access, "The accessibility of this PCI from dom0")
+      ~allowed_roles:_R_POOL_OP ()
+
   let t =
     create_obj ~name:_pci ~descr:"A PCI device" ~doccomments:[]
       ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
       ~lifecycle:[(Published, rel_boston, "")]
-      ~messages:[] ~messages_default_allowed_roles:_R_POOL_OP
-      ~persist:PersistEverything ~in_oss_since:None ~db_logging:Log_destroy
+      ~messages:
+        [disable_dom0_access; enable_dom0_access; get_dom0_access_status]
+      ~messages_default_allowed_roles:_R_POOL_OP ~persist:PersistEverything
+      ~in_oss_since:None ~db_logging:Log_destroy
       ~contents:
         [
           uid _pci ~lifecycle:[(Published, rel_boston, "")]
@@ -6621,21 +6662,6 @@ end
 (** Physical GPUs (pGPU) *)
 
 module PGPU = struct
-  let dom0_access =
-    Enum
-      ( "pgpu_dom0_access"
-      , [
-          ("enabled", "dom0 can access this device as normal")
-        ; ( "disable_on_reboot"
-          , "On host reboot dom0 will be blocked from accessing this device"
-          )
-        ; ("disabled", "dom0 cannot access this device")
-        ; ( "enable_on_reboot"
-          , "On host reboot dom0 will be allowed to access this device"
-          )
-        ]
-      )
-
   let add_enabled_VGPU_types =
     call ~name:"add_enabled_VGPU_types"
       ~lifecycle:[(Published, rel_vgpu_tech_preview, "")]
@@ -6756,7 +6782,11 @@ module PGPU = struct
 
   let enable_dom0_access =
     call ~name:"enable_dom0_access"
-      ~lifecycle:[(Published, rel_cream, "")]
+      ~lifecycle:
+        [
+          (Published, rel_cream, "")
+        ; (Deprecated, "24.14.0", "Use PCI.enable_dom0_access instead.")
+        ]
       ~versioned_params:
         [
           {
@@ -6767,12 +6797,16 @@ module PGPU = struct
           ; param_default= None
           }
         ]
-      ~result:(dom0_access, "The accessibility of this PGPU from dom0")
+      ~result:(pci_dom0_access, "The accessibility of this PGPU from dom0")
       ~allowed_roles:_R_POOL_OP ()
 
   let disable_dom0_access =
     call ~name:"disable_dom0_access"
-      ~lifecycle:[(Published, rel_cream, "")]
+      ~lifecycle:
+        [
+          (Published, rel_cream, "")
+        ; (Deprecated, "24.14.0", "Use PCI.disable_dom0_access instead.")
+        ]
       ~versioned_params:
         [
           {
@@ -6783,7 +6817,7 @@ module PGPU = struct
           ; param_default= None
           }
         ]
-      ~result:(dom0_access, "The accessibility of this PGPU from dom0")
+      ~result:(pci_dom0_access, "The accessibility of this PGPU from dom0")
       ~allowed_roles:_R_POOL_OP ()
 
   let t =
@@ -6844,8 +6878,15 @@ module PGPU = struct
             "A map relating each VGPU type supported on this GPU to the \
              maximum number of VGPUs of that type which can run simultaneously \
              on this GPU"
-        ; field ~qualifier:DynamicRO ~ty:dom0_access
-            ~lifecycle:[(Published, rel_cream, "")]
+        ; field ~qualifier:DynamicRO ~ty:pci_dom0_access
+            ~lifecycle:
+              [
+                (Published, rel_cream, "")
+              ; ( Deprecated
+                , "24.14.0"
+                , "Use PCI.get_dom0_access_status instead."
+                )
+              ]
             ~default_value:(Some (VEnum "enabled")) "dom0_access"
             "The accessibility of this device from dom0"
         ; field ~qualifier:DynamicRO ~ty:Bool
@@ -8177,6 +8218,7 @@ let http_actions =
         ; Bool_query_arg "include_dom0"
         ; Bool_query_arg "include_vhd_parents"
         ; Bool_query_arg "export_snapshots"
+        ; String_query_arg "excluded_device_types"
         ]
       , _R_VM_ADMIN
       , []

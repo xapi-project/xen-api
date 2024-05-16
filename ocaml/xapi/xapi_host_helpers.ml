@@ -19,26 +19,14 @@ module D = Debug.Make (struct let name = "xapi_host_helpers" end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Record_util (* for host_operation_to_string *)
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let all_operations =
-  [
-    `provision
-  ; `evacuate
-  ; `reboot
-  ; `shutdown
-  ; `vm_start
-  ; `vm_resume
-  ; `vm_migrate
-  ; `power_on
-  ; `apply_updates
-  ; `enable
-  ]
+let all_operations = API.host_allowed_operations__all
 
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' =

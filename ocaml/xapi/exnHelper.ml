@@ -68,7 +68,7 @@ let error_of_exn e =
       )
   | Invalid_argument x ->
       (internal_error, [Printf.sprintf "Invalid argument: %s" x])
-  | Db_filter.Expression_error (expr, exc) ->
+  | Xapi_database.Db_filter.Expression_error (expr, exc) ->
       (invalid_value, [expr; Printexc.to_string exc])
   | Forkhelpers.Subprocess_failed n ->
       ( internal_error

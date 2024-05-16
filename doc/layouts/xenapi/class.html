@@ -1,0 +1,201 @@
+{{- partial "header.html" . }}
+<span id="sidebar-toggle-span">
+<a href="#" id="sidebar-toggle" data-sidebar-toggle=""><i class="fas fa-bars"></i> navigation</a>
+</span>
+
+<script type="text/javascript">
+   function showhide(obj) {
+    if (obj.style.display == 'none')
+      obj.style.display = 'inherit';
+    else
+      obj.style.display = 'none';
+  }
+
+  function toggle_implicit(button) {
+    var elements = document.querySelectorAll(".implicit");
+    for (var i=0; i < elements.length; i++)
+      showhide(elements[i]);
+
+    if (button.textContent == 'Hide implicit')
+      button.textContent = 'Show implicit';
+    else
+      button.textContent ='Hide implicit';
+  }
+</script>
+
+{{ $style := resources.Get "css/xenapi.css" }}
+<link rel="stylesheet" href="{{ $style.Permalink }}">
+
+{{ .Content }}
+{{ $c := .Page.Params.class }}
+{{ with index (where $.Site.Data.xenapi "name" $c) 0 }}
+
+{{ with .lifecycle }}
+<div class="lifecycle">
+  {{ if eq .state "Prototyped_s" }}
+    Prototype
+  {{ else if eq .state "Deprecated_s" }}
+    Deprecated
+  {{ else if eq .state "Removed_s" }}
+    Removed
+  {{ end }}
+</div>
+{{ end }}
+
+<h2 class="title" onclick="showhide(document.getElementById('class_{{$c}}_details'))" style="cursor: pointer">
+Class: {{ $c }}
+</h2>
+
+<div class="description">
+{{ .description | htmlEscape }}
+</div>
+
+<div id="class_{{$c}}_details" style="display: none">
+  <table class="field-table">
+    {{ range .lifecycle.transitions }}
+    <tr>
+      <td style="white-space: nowrap"><span class="field-head">{{ .transition | humanize }}  in:</span></td>
+      <td style="white-space: nowrap">{{ index $.Site.Data.releases .release }} ({{ .release }})</td>
+      <td>{{ .description | htmlEscape }}</td>
+    </tr>
+    {{ end }}
+  </table>
+</div>
+
+{{ if gt (len .enums) 0 }}
+  <h3>Enums</h3>
+
+  {{ range $i, $x := .enums }}
+  <div id="enum_{{$x.name}}" class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" onclick="showhide(document.getElementById('enum_{{$x.name}}_details'))">
+    <div class="field-name">{{ $x.name }}</div>
+    <div id="enum_{{$x.name}}_details" style="display: none">
+
+    <table class="field-table">
+      {{ range $i, $v := $x.values }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">{{ if eq $i 0 }}Values:{{ end }}</span></td>
+        <td style="white-space: nowrap">{{ .name }}</td>
+        <td>{{ .doc | htmlEscape }}</td>
+      </tr>
+      {{ end }}
+    </table>
+    </div>
+  </div>
+  {{ end }}
+{{ end }}
+
+<h3>Fields</h3>
+
+{{ range $i, $x := sort .fields "name" }}
+<div class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" onclick="showhide(document.getElementById('{{$x.name}}_details'))">
+  {{ with $x.lifecycle }}
+  <div class="lifecycle">
+    {{ if eq .state "Prototyped_s" }}
+      Prototype
+    {{ else if eq .state "Deprecated_s" }}
+      Deprecated
+    {{ else if eq .state "Removed_s" }}
+      Removed
+    {{ end }}
+  </div>
+  {{ end }}
+  <div>
+    <span class="inline-type">{{replace $x.type "->" "→"}}</span>
+    <span class="field-name">{{$x.name}}</span>
+    <span class="inline-qualifier">[{{$x.qualifier}}]</span>
+  </div>
+  <div id="{{$x.name}}_details" style="display: none">
+    <div class="field-description">
+      {{ $x.description | htmlEscape }}
+    </div>
+    <table class="field-table">
+      {{ if $x.default }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">Default value:</span></td>
+        <td colspan="2">{{$x.default}}</td>
+      </tr>
+      {{ end }}
+      {{ range $x.lifecycle.transitions }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">{{ .transition | humanize }}  in:</span></td>
+        <td style="white-space: nowrap">{{ index $.Site.Data.releases .release }} ({{ .release }})</td>
+        <td>{{ .description | htmlEscape }}</td>
+      </tr>
+      {{ end }}
+    </table>
+  </div>
+</div>
+{{ end }}
+
+<h3 style="padding-right: 0">
+  Messages
+  <button onclick="toggle_implicit(this)" type="button" class="button">Hide implicit</button>
+</h3>
+
+{{ range $i, $x := sort .messages "name" }}
+<div class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }} {{ if $x.implicit }}implicit{{ end }}"
+  onclick="showhide(document.getElementById('{{$x.name}}_details'))">
+  {{ with $x.lifecycle }}
+  <div class="lifecycle">
+    {{ if eq .state "Prototyped_s" }}
+      Prototype
+    {{ else if eq .state "Deprecated_s" }}
+      Deprecated
+    {{ else if eq .state "Removed_s" }}
+      Removed
+    {{ end }}
+  </div>
+  {{ end }}
+  <div>
+    <span class="inline-type">{{replace (index $x.result 0) "->" "→"}}</span>
+    <span class="field-name">{{$x.name}}</span>
+    {{ $ptypes := slice }}
+    {{ range $x.params }}
+      {{ $ptypes = $ptypes | append (replace .type "->" "→") }}
+    {{ end }}
+    <span class="inline-params">({{ delimit $ptypes ", " }})</span>
+  </div>
+  <div id="{{$x.name}}_details" style="display: none">
+    <div class="field-description">
+      {{ $x.description | htmlEscape }}
+    </div>
+    <table class="field-table">
+      {{ range $i,$p := $x.params }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">{{ if eq $i 0 }}Parameters:{{ end }}</span></td>
+        <td style="white-space: nowrap">{{ replace $p.type "->" "→" }} {{ $p.name }}</td>
+        <td>{{ $p.doc | htmlEscape }}</td>
+      </tr>
+      {{ end }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">Minimum role:</span></td>
+        <td colspan="2">{{ index $x.roles (sub (len $x.roles) 1)}}</td>
+      </tr>
+      {{ if ne (index $x.result 0) "void" }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">Result:</span></td>
+        <td colspan="2">{{index $x.result 1}}</td>
+      </tr>
+      {{ end }}
+      {{ range $i,$e := $x.errors }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">{{ if eq $i 0 }}Errors:{{ end }}</span></td>
+        <td style="white-space: nowrap">{{ $e.name }}</td>
+        <td>{{ $e.doc }}</td>
+      </tr>
+      {{ end }}
+      {{ range $x.lifecycle.transitions }}
+      <tr>
+        <td style="white-space: nowrap"><span class="field-head">{{ .transition | humanize }}  in:</span></td>
+        <td style="white-space: nowrap">{{ index $.Site.Data.releases .release }} ({{ .release }})</td>
+        <td>{{ .description | htmlEscape }}</td>
+      </tr>
+      {{ end }}
+    </table>
+  </div>
+</div>
+{{ end }}
+
+{{ end }}
+
+{{- partial "footer.html" . }}

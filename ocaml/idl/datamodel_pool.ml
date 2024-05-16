@@ -1374,13 +1374,16 @@ let t =
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on the pool"
-        ; field ~qualifier:RW ~in_product_since:rel_dundee
-            ~default_value:(Some (VBool false)) ~ty:Bool
+        ; field ~qualifier:RW ~default_value:(Some (VBool false)) ~ty:Bool
+            ~lifecycle:
+              [
+                (Published, rel_dundee, "")
+              ; (Deprecated, "24.14.0", "No longer considered by VM.create")
+              ]
             "policy_no_vendor_device"
-            "The pool-wide policy for clients on whether to use the vendor \
-             device or not on newly created VMs. This field will also be \
-             consulted if the 'has_vendor_device' field is not specified in \
-             the VM.create call."
+            "This field was consulted when VM.create did not specify a value \
+             for 'has_vendor_device'; VM.create now uses a simple default and \
+             no longer consults this value."
         ; field ~qualifier:RW ~in_product_since:rel_ely
             ~default_value:(Some (VBool false)) ~ty:Bool
             "live_patching_disabled"
