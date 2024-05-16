@@ -41,16 +41,22 @@ let acronyms =
 
 let is_acronym word = StringSet.mem word acronyms
 
-let snake_to_camel (s : string) : string =
-  Astring.String.cuts ~sep:"_" s
-  |> List.concat_map (fun s -> Astring.String.cuts ~sep:"-" s)
-  |> List.map (function
-       | s when is_acronym s ->
-           String.uppercase_ascii s
-       | s ->
-           String.capitalize_ascii s
-       )
-  |> String.concat ""
+let amend_acronym = function
+  | s when is_acronym s ->
+      String.uppercase_ascii s
+  | s ->
+      String.capitalize_ascii s
+
+let snake_to_camel ?(internal = false) (s : string) : string =
+  let words =
+    Astring.String.cuts ~sep:"_" s
+    |> List.concat_map (fun s -> Astring.String.cuts ~sep:"-" s)
+  in
+  match (internal, words) with
+  | true, hd :: tl ->
+      String.lowercase_ascii hd :: List.map amend_acronym tl |> String.concat ""
+  | _ ->
+      words |> List.map amend_acronym |> String.concat ""
 
 let records =
   List.map
@@ -310,7 +316,7 @@ module Json = struct
 
   let of_param param =
     let name_internal name =
-      let name = name |> snake_to_camel |> String.uncapitalize_ascii in
+      let name = snake_to_camel ~internal:true name in
       match name with "type" -> "typeKey" | "interface" -> "inter" | _ -> name
     in
     let suffix_of_type = suffix_of_type param.param_type in
@@ -452,7 +458,7 @@ module Json = struct
     List.map
       (fun obj ->
         let obj_name = snake_to_camel obj.name in
-        let name_internal = String.uncapitalize_ascii obj_name in
+        let name_internal = snake_to_camel ~internal:true obj.name in
         let fields = Datamodel_utils.fields_of_obj obj in
         let types =
           List.map (fun field -> field.ty) fields |> Listext.List.setify
@@ -481,14 +487,7 @@ module Json = struct
   let of_api_message_or_error info =
     let xapi_constants_renaming (s : string) : string =
       String.split_on_char '_' s
-      |> List.map (fun seg ->
-             let lower = String.lowercase_ascii seg in
-             match lower with
-             | s when is_acronym s ->
-                 String.uppercase_ascii lower
-             | _ ->
-                 String.capitalize_ascii lower
-         )
+      |> List.map (fun seg -> String.lowercase_ascii seg |> amend_acronym)
       |> String.concat ""
     in
     `O
