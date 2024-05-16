@@ -175,9 +175,6 @@ let order_f (_, vm_rec) =
 
 let ( $ ) x y = x y
 
-(*****************************************************************************************************)
-(* Planning code follows                                                                             *)
-
 (* Compute the total memory required of a VM (Running or not) *)
 let total_memory_of_vm ~__context policy snapshot =
   let main, shadow =
@@ -185,50 +182,440 @@ let total_memory_of_vm ~__context policy snapshot =
   in
   Int64.add main shadow
 
-(** Return a VM -> Host plan for the Host.evacuate code. We assume the VMs are all agile. The returned plan may
-    be incomplete if there was not enough memory. *)
-let compute_evacuation_plan ~__context total_hosts remaining_hosts
-    vms_and_snapshots =
-  let hosts =
-    List.map
-      (fun host ->
-        ( host
-        , Memory_check.host_compute_free_memory_with_maximum_compression
-            ~__context ~host None
-        )
-      )
-      remaining_hosts
+let host_free_memory ~__context ~host =
+  Memory_check.host_compute_free_memory_with_maximum_compression ~__context
+    ~host None
+
+let vm_memory ~__context snapshot =
+  let policy =
+    match Helpers.check_domain_type snapshot.API.vM_domain_type with
+    | `hvm | `pv ->
+        Memory_check.Dynamic_min
+    | `pv_in_pvh | `pvh ->
+        Memory_check.Static_max
   in
-  let vms =
-    List.map
-      (fun (vm, snapshot) ->
-        let policy =
-          match Helpers.check_domain_type snapshot.API.vM_domain_type with
-          | `hvm | `pv ->
-              Memory_check.Dynamic_min
-          | `pv_in_pvh | `pvh ->
-              Memory_check.Static_max
-        in
-        (vm, total_memory_of_vm ~__context policy snapshot)
-      )
-      vms_and_snapshots
+  total_memory_of_vm ~__context policy snapshot
+
+module VMGroupMap = Map.Make (struct
+  type t = [`VM_group] Ref.t
+
+  let compare = Ref.compare
+end)
+
+module HostKey = struct
+  type t = [`host] Ref.t
+
+  let compare = Ref.compare
+end
+
+(* For some VM anti-affinity group, the state of a host which determines
+   evacuation planning for anti-affinity VMs in that group:
+   1. vm_cnt: the number of running VMs in that group resident on the host
+   2. h_size: the amount of free memory of the host *)
+module AntiAffinityEvacuationPlanHostState = struct
+  type t = int * int64
+
+  (* During evacuation planning for anti-affintiy VMs, "vm_cnt" is the first
+     factor considered, "h_size" is the second factor considered:
+     Let's say the next anti-affinity VM to be planned belongs to group A, the
+     host to be selected should be the one which has minimal "vm_cnt" of group
+     A, for hosts with the same "vm_cnt", pick the one with the minimal
+     "h_size" which can hold the VM(h_size >= vm_size). *)
+  let compare (vm_cnt_0, h_size_0) (vm_cnt_1, h_size_1) =
+    match Int.compare vm_cnt_0 vm_cnt_1 with
+    | 0 ->
+        Int64.compare h_size_0 h_size_1
+    | c ->
+        c
+end
+
+(* A Psq of hosts for an anti-affinity group, which is used for evacuation
+   planning for anti-affinity VMs in that group: the minimal host in this Psq
+   is the first one to be considered to plan a VM from that group.
+   When several hosts share the minimal "AntiAffinityEvacuationPlanHostState",
+   the minimal host is the host with the smallest ref. *)
+module AntiAffinityEvacuationPlanHostQueue =
+  Psq.Make (HostKey) (AntiAffinityEvacuationPlanHostState)
+
+(* The pool state which determines the spread evenly evacuation planning for
+   anti-affinity VMs: a VMGroupMap which contains a Psq -
+   AntiAffinityEvacuationPlanHostQueue for each group, and each Psq contains
+   all the available hosts in the pool.
+   Let's say the next anti-affinity VM to be planned belongs to anti-affinity
+   group A. To get a spread evenly evacuation plan, the most suitable host to
+   plan the VM would be the host which has the minimal number of running VMs
+   from group A resident on it, for the hosts with the same number of running
+   VMs from group A, the one with the minimal free memory will be checked
+   first, which is just the minimal host returned from
+   "AntiAffinityEvacuationPlanHostQueue.min" on the Psq of group A. *)
+type spread_evenly_plan_pool_state =
+  AntiAffinityEvacuationPlanHostQueue.t VMGroupMap.t
+
+(* The pool state which determines the no breach evacuation planning for anti-
+   affinity VMs:
+   grp_no_resident_hosts_queue: a VMGroupMap which contains a Psq -
+   AntiAffinityEvacuationPlanHostQueue for each group, and each Psq contains
+   "no_resident" hosts for that group. (A "no_resident" host for a group is a
+   host which has no running VMs from that group resident on it.)
+   grp_resident_hosts_count_map: a VMGroupMap which contains the number of
+   "resident" hosts for each group. (A "resident" host for a group is a host
+   which has at least one running VM from that group resident on it.)
+   Let's say the next anti-affinity VM to be planned belongs to anti-affinity
+   group A. If for group A, "resident_hosts_count" is already 2 or
+   greater than 2, we don't need to plan the VM on any host, if not, we will
+   need to check the host with the minimal free memory from the no resident
+   hosts queue, which is just the minimal host returned from
+   "AntiAffinityEvacuationPlanHostQueue.min" on the "no_resident" hosts queue
+   of group A. *)
+type no_breach_plan_pool_state = {
+    grp_no_resident_hosts_queue:
+      AntiAffinityEvacuationPlanHostQueue.t VMGroupMap.t
+  ; grp_resident_hosts_count_map: int VMGroupMap.t
+}
+
+let init_spread_evenly_plan_pool_state ~__context hosts =
+  Db.VM_group.get_all ~__context
+  |> List.filter (fun group ->
+         Db.VM_group.get_placement ~__context ~self:group = `anti_affinity
+     )
+  |> List.fold_left
+       (fun grp_to_psq_map grp ->
+         let host_vm_cnt_map =
+           Xapi_vm_helpers.host_to_vm_count_map ~__context grp
+         in
+         VMGroupMap.add grp
+           (List.fold_left
+              (fun q (h, h_size) ->
+                let vm_cnt =
+                  Xapi_vm_helpers.HostMap.find_opt h host_vm_cnt_map
+                  |> Option.value ~default:0
+                in
+                AntiAffinityEvacuationPlanHostQueue.add h (vm_cnt, h_size) q
+              )
+              AntiAffinityEvacuationPlanHostQueue.empty hosts
+           )
+           grp_to_psq_map
+       )
+       VMGroupMap.empty
+
+(* Update "spread_evenly_plan_pool_state" after a VM from anti-affinity "group" with
+   memory size: "vm_size" is planned on the "host":
+   1. For the "group", increase "vm_cnt" of the "host" by 1.
+   2. For each group, updates the host's size by substracting "vm_size". *)
+let update_spread_evenly_plan_pool_state vm_size group host pool_state =
+  VMGroupMap.mapi
+    (fun grp hosts_q ->
+      match grp = group with
+      | true ->
+          AntiAffinityEvacuationPlanHostQueue.adjust host
+            (fun (vm_cnt, h_size) -> (vm_cnt + 1, Int64.sub h_size vm_size))
+            hosts_q
+      | false ->
+          AntiAffinityEvacuationPlanHostQueue.adjust host
+            (fun (vm_cnt, h_size) -> (vm_cnt, Int64.sub h_size vm_size))
+            hosts_q
+    )
+    pool_state
+
+let init_no_breach_plan_pool_state spread_evenly_plan_pool_state =
+  let grp_no_resident_hosts_queue =
+    spread_evenly_plan_pool_state
+    |> VMGroupMap.map
+         (AntiAffinityEvacuationPlanHostQueue.filter
+            (fun _h (vm_cnt, _h_size) -> vm_cnt = 0
+          )
+         )
   in
+  let grp_resident_hosts_count_map =
+    spread_evenly_plan_pool_state
+    |> VMGroupMap.map (fun hosts_q ->
+           hosts_q
+           |> AntiAffinityEvacuationPlanHostQueue.filter
+                (fun _h (vm_cnt, _size) -> vm_cnt > 0
+              )
+           |> AntiAffinityEvacuationPlanHostQueue.size
+       )
+  in
+  {grp_no_resident_hosts_queue; grp_resident_hosts_count_map}
+
+let update_grp_no_resident_hosts_queue vm_size group host
+    grp_no_resident_hosts_queue =
+  VMGroupMap.mapi
+    (fun grp hosts_q ->
+      match grp = group with
+      | true ->
+          hosts_q |> AntiAffinityEvacuationPlanHostQueue.remove host
+      | false ->
+          hosts_q
+          |> AntiAffinityEvacuationPlanHostQueue.update host
+               (Option.map (fun (_vm_cnt, h_size) ->
+                    (_vm_cnt, Int64.sub h_size vm_size)
+                )
+               )
+    )
+    grp_no_resident_hosts_queue
+
+(* Update "no_breach_plan_pool_state" after a VM from anti-affinity "group" with
+   memory size: "vm_size" is planned on the "host":
+   1. For the "group", the "host" is removed from its "no_resident" hosts queue, and increase its
+      "resident_hosts_count" by 1.
+   2. For other groups, updates the host's size by substracting "vm_size" if the host is in that
+      group's "no_resident" hosts queue. *)
+let update_no_breach_plan_pool_state vm_size group host pool_state =
+  {
+    grp_no_resident_hosts_queue=
+      pool_state.grp_no_resident_hosts_queue
+      |> update_grp_no_resident_hosts_queue vm_size group host
+  ; grp_resident_hosts_count_map=
+      pool_state.grp_resident_hosts_count_map
+      |> VMGroupMap.update group (Option.map succ)
+  }
+
+(*****************************************************************************************************)
+(* Planning code follows                                                                             *)
+
+let rec select_host_for_spread_evenly_plan vm vm_size hosts_queue =
+  match AntiAffinityEvacuationPlanHostQueue.min hosts_queue with
+  | None ->
+      None
+  | Some (host, (_vm_cnt, h_size)) -> (
+    match vm_size <= h_size with
+    | true ->
+        Some host
+    | _ ->
+        hosts_queue
+        |> AntiAffinityEvacuationPlanHostQueue.remove host
+        |> select_host_for_spread_evenly_plan vm vm_size
+  )
+
+let rec select_host_for_no_breach_plan vm vm_size hosts_queue =
+  match AntiAffinityEvacuationPlanHostQueue.min hosts_queue with
+  | Some (host, (0, h_size)) -> (
+    match vm_size <= h_size with
+    | true ->
+        Some host
+    | _ ->
+        hosts_queue
+        |> AntiAffinityEvacuationPlanHostQueue.remove host
+        |> select_host_for_no_breach_plan vm vm_size
+  )
+  | _ ->
+      None
+
+(* Try to get a spread evenly plan for anti-affinity VMs (for each anti-affinity group, the number of
+   running VMs from that group are spread evenly in all the rest hosts in the pool):
+   1. For all the anti-affinity VMs which sorted in an increasing order in terms of the VM's memory
+      size, do host selection as below step 2.
+   2. For each anti-affinity VM, select a host which can run it, and which has the minimal number of
+      VMs in the same anti-affinity group running on it, for the hosts with the same number of running
+      VMs in that group, pick the one with the minimal free memory. *)
+let rec compute_spread_evenly_plan ~__context pool_state anti_affinity_vms
+    mapping =
+  info "compute_spread_evenly_plan" ;
+  match anti_affinity_vms with
+  | [] ->
+      mapping
+  | (vm, vm_size, group) :: remaining_vms -> (
+      debug
+        "Spread evenly plan: try to plan for the anti-affinity VM (%s %s %s)."
+        (Ref.string_of vm)
+        (Db.VM.get_name_label ~__context ~self:vm)
+        (Db.VM_group.get_name_label ~__context ~self:group) ;
+      match
+        VMGroupMap.find group pool_state
+        |> select_host_for_spread_evenly_plan vm vm_size
+      with
+      | None ->
+          debug
+            "Spread evenly plan: no host can run this anti-affinity VM. Stop \
+             the planning as there won't be a valid plan for this VM." ;
+          raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+      | Some h ->
+          debug
+            "Spread evenly plan: choose the host with the minimal free memory \
+             which can run the vm: (%s %s)."
+            (Ref.string_of h)
+            (Db.Host.get_name_label ~__context ~self:h) ;
+          compute_spread_evenly_plan ~__context
+            (pool_state |> update_spread_evenly_plan_pool_state vm_size group h)
+            remaining_vms ((vm, h) :: mapping)
+    )
+
+(* Try to get a no breach plan for anti-affinity VMs (for each anti-affinity group, there are at least
+   2 hosts having running VMs in the group):
+   1. For all the anti-affinity VMs which sorted in an increasing order in terms of the VM's memory
+      size, do host selection as below step 2.
+   2. For each anti-affinity VM, try to select a host for it so that there are at least 2 hosts which
+      has running VMs in the same anti-affinity group. If there are already 2 hosts having running VMs
+      in that group, skip planning for the VM. *)
+let rec compute_no_breach_plan ~__context total_hosts pool_state
+    anti_affinity_vms mapping =
+  info "compute_no_breach_plan" ;
+  match (total_hosts, anti_affinity_vms) with
+  | not_enough, _ when not_enough < 3 ->
+      debug
+        "There are less than 2 available hosts to migrate VMs to, \
+         anti-affinity breach is inevitable" ;
+      raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+  | _, [] ->
+      mapping
+  | _, (vm, vm_size, group) :: remaining_vms ->
+      debug "No breach plan: try to plan for VM (%s %s %s)." (Ref.string_of vm)
+        (Db.VM.get_name_label ~__context ~self:vm)
+        (Db.VM_group.get_name_label ~__context ~self:group) ;
+      let no_resident_hosts =
+        VMGroupMap.find group pool_state.grp_no_resident_hosts_queue
+      in
+
+      let resident_hosts_cnt =
+        VMGroupMap.find group pool_state.grp_resident_hosts_count_map
+      in
+      info "No breach plan: total_hosts: %d, resident_hosts_cnt: %d."
+        total_hosts resident_hosts_cnt ;
+
+      if resident_hosts_cnt < 2 then (
+        debug
+          "No breach plan: there are less than 2 hosts has running VM in the \
+           same anti-affinity group, and there are still host(s) which has 0 \
+           running VMs, try to plan for it." ;
+        match select_host_for_no_breach_plan vm vm_size no_resident_hosts with
+        | None ->
+            info
+              "No breach plan: failed to select host on any of the no resident \
+               hosts, skip it, continue with the next VM." ;
+            compute_no_breach_plan ~__context total_hosts pool_state
+              remaining_vms mapping
+        | Some h ->
+            debug
+              "No breach plan: choose the no resident host with the minimal \
+               free memory which can run the vm: (%s)."
+              (Db.Host.get_name_label ~__context ~self:h) ;
+            compute_no_breach_plan ~__context total_hosts
+              (pool_state |> update_no_breach_plan_pool_state vm_size group h)
+              remaining_vms ((vm, h) :: mapping)
+      ) else (
+        debug
+          "No breach plan: no need to plan for the VM as the number of hosts \
+           which has running VMs from the same group is no less than 2, \
+           continue to plan for the next one." ;
+        compute_no_breach_plan ~__context total_hosts pool_state remaining_vms
+          mapping
+      )
+
+let anti_affinity_vms_increasing ~__context vms =
+  vms
+  |> List.filter_map (fun (vm, vm_size) ->
+         match Xapi_vm_helpers.vm_has_anti_affinity ~__context ~vm with
+         | Some (`AntiAffinity group) ->
+             Some (vm, vm_size, group)
+         | _ ->
+             None
+     )
+  |> List.sort (fun (_, a, _) (_, b, _) -> compare a b)
+
+(* Return an evacuation plan respecting VM anti-affinity rules: it is done in 3 phases:
+   1. Try to get a "spread evenly" plan for anti-affinity VMs, and then a binpack plan for
+      the rest of VMs. Done if every VM got planned, otherwise continue.
+   2. Try to get a "no breach" plan for anti-affinity VMs, and then a binpack plan for the
+      rest of VMs. Done if every VM got planned, otherwise continue.
+   3. Carry out a binpack plan ignoring VM anti-affinity. *)
+let compute_anti_affinity_evacuation_plan ~__context total_hosts hosts vms =
   let config =
     {Binpack.hosts; vms; placement= []; total_hosts; num_failures= 1}
   in
   Binpack.check_configuration config ;
-  debug "Planning configuration for offline agile VMs = %s"
-    (Binpack.string_of_configuration
-       (fun x ->
-         Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-           (Db.Host.get_hostname ~__context ~self:x)
-       )
-       (fun x ->
-         Printf.sprintf "%s (%s)" (Ref.short_string_of x)
-           (Db.VM.get_name_label ~__context ~self:x)
-       )
-       config
-    ) ;
+
+  let anti_affinity_vms = vms |> anti_affinity_vms_increasing ~__context in
+
+  let spread_evenly_plan_pool_state =
+    init_spread_evenly_plan_pool_state ~__context hosts
+  in
+
+  let no_breach_plan_pool_state =
+    init_no_breach_plan_pool_state spread_evenly_plan_pool_state
+  in
+
+  let binpack_plan ~__context config vms =
+    debug "Binpack planning configuration = %s"
+      (Binpack.string_of_configuration
+         (fun x ->
+           Printf.sprintf "%s (%s)" (Ref.short_string_of x)
+             (Db.Host.get_name_label ~__context ~self:x)
+         )
+         (fun x ->
+           Printf.sprintf "%s (%s)" (Ref.short_string_of x)
+             (Db.VM.get_name_label ~__context ~self:x)
+         )
+         config
+      ) ;
+    debug "VMs to attempt to evacuate: [ %s ]"
+      (String.concat "; "
+         (vms
+         |> List.map (fun (self, _) ->
+                Printf.sprintf "%s (%s)" (Ref.short_string_of self)
+                  (Db.VM.get_name_label ~__context ~self)
+            )
+         )
+      ) ;
+    let h = Binpack.choose_heuristic config in
+    h.Binpack.get_specific_plan config (List.map fst vms)
+  in
+
+  let try_to_binpack_with_plan_applied_first plan =
+    debug "Try to binpack for the rest VMs" ;
+    let config_after_plan_applied = Binpack.apply_plan config plan in
+    let vms_to_plan =
+      let planned_vm = List.map fst plan in
+      vms |> List.filter (fun (vm, _) -> not (List.mem vm planned_vm))
+    in
+    let config_after_plan_applied =
+      {config_after_plan_applied with vms= vms_to_plan}
+    in
+    let b_plan =
+      binpack_plan ~__context config_after_plan_applied vms_to_plan
+    in
+    match List.length b_plan = List.length vms_to_plan with
+    | true ->
+        debug "Got final plan with plan applied first." ;
+        Some (plan @ b_plan)
+    | false ->
+        debug
+          "Failed to get final plan as failed to binpack for all the rest VMs." ;
+        None
+  in
+
+  let rec plan_in_steps ~__context plan_steps =
+    match plan_steps with
+    | [] ->
+        debug "Fallback to binpack plan..." ;
+        binpack_plan ~__context config vms
+    | plan_func :: plan_funcs -> (
+      match plan_func ~__context |> try_to_binpack_with_plan_applied_first with
+      | exception Api_errors.Server_error (error_code, [])
+        when error_code = Api_errors.no_hosts_available ->
+          debug
+            "Anti-affinity VMs plan failed, continue to try next step \
+             planning..." ;
+          plan_in_steps ~__context plan_funcs
+      | None ->
+          debug "Plan failed, continue to try next step planning..." ;
+          plan_in_steps ~__context plan_funcs
+      | Some plan ->
+          debug "Plan OK" ; plan
+    )
+  in
+  plan_in_steps ~__context
+    [
+      compute_spread_evenly_plan spread_evenly_plan_pool_state anti_affinity_vms
+        []
+    ; compute_no_breach_plan total_hosts no_breach_plan_pool_state
+        anti_affinity_vms []
+    ]
+
+(** Return a VM -> Host plan for the Host.evacuate code. We assume the VMs are all agile. The returned plan may
+    be incomplete if there was not enough memory. *)
+let compute_evacuation_plan ~__context total_hosts remaining_hosts
+    vms_and_snapshots =
   debug "VMs to attempt to evacuate: [ %s ]"
     (String.concat "; "
        (List.map
@@ -239,8 +626,20 @@ let compute_evacuation_plan ~__context total_hosts remaining_hosts
           vms_and_snapshots
        )
     ) ;
-  let h = Binpack.choose_heuristic config in
-  h.Binpack.get_specific_plan config (List.map fst vms_and_snapshots)
+  let hosts =
+    List.map
+      (fun host -> (host, host_free_memory ~__context ~host))
+      remaining_hosts
+  in
+  let vms =
+    List.map
+      (fun (vm, snapshot) -> (vm, vm_memory ~__context snapshot))
+      vms_and_snapshots
+  in
+  try compute_anti_affinity_evacuation_plan ~__context total_hosts hosts vms
+  with Not_found ->
+    error "Data conrupted during compute_anti_affinity_evacuation_plan." ;
+    raise (Api_errors.Server_error (Api_errors.internal_error, []))
 
 (** Passed to the planner to reason about other possible configurations, used to block operations which would
     destroy the HA VM restart plan. *)
