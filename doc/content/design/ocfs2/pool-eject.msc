@@ -1,0 +1,13 @@
+Participant Plugin\nMaster
+Participant Xapi\nMaster
+Xapi\nMaster->Xapi\nSlave:Pool.eject
+Xapi\nSlave->Plugin\nSlave:Membership.destroy
+Xapi\nSlave->Plugin\nSlave:Membership.destroy
+Xapi\nSlave->Plugin\nSlave:Cluster.disable
+Note over Plugin\nSlave:chkconfig o2cb off\nreboot
+Note over Xapi\nMaster:remove Host metadata
+Note over Xapi\nMaster:set Membership.left to NOW()
+Xapi\nMaster->Plugin\nMaster:Membership.destroy
+Xapi\nMaster->Plugin\nMaster:Cluster.query
+Note over Xapi\nMaster:Cluster.requires_maintenance=true
+

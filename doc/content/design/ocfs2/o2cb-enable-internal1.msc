@@ -1,0 +1,14 @@
+Participant Plugin\nSlave
+Participant Xapi\nSlave
+Participant Xapi\nMaster
+Xapi\nSlave->Xapi\nMaster: events.from
+Note over Xapi\nMaster: Create Cluster\nMemberships in DB
+Xapi\nMaster-->Xapi\nSlave: events.from OK
+Xapi\nMaster->Plugin\nMaster: Membership.create
+Note over Plugin\nMaster: edit cluster.conf
+Xapi\nMaster->Plugin\nMaster: Cluster.query
+Plugin\nMaster->Xapi\nMaster: requires_maintenance=true
+Xapi\nSlave->Plugin\nSlave: Membership.create
+Note over Plugin\nSlave: edit cluster.conf
+Xapi\nSlave->Plugin\nSlave: Cluster.query
+Plugin\nSlave->Xapi\nSlave: requires_maintenance=true
