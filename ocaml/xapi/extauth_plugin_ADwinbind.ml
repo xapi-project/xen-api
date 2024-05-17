@@ -82,12 +82,70 @@ type domain_info = {
   ; machine_pwd_last_change_time: float option
 }
 
-let hd msg = function
-  | [] ->
-      error "%s" msg ;
-      raise (Auth_service_error (E_GENERIC, msg))
-  | h :: _ ->
-      h
+let generic_error msg =
+  error "%s" msg ;
+  raise (Auth_service_error (E_GENERIC, msg))
+
+let fail fmt = Printf.ksprintf generic_error fmt
+
+(** Kerberos Domain Controller. The current implementation does not
+    work with non-standard ports *)
+module KDC : sig
+  type t
+
+  val server : t -> string
+  (** IP address *)
+
+  val _port : t -> int
+  (** port number *)
+
+  val from_lookup : string -> t
+  (** parses net(1) command output format *)
+
+  val from_db : string -> t
+  (** parse xapi DB entry *)
+
+  val to_db : t -> string
+  (** create xapi DB entry *)
+
+  val to_msg : t -> string
+  (** format for logging *)
+end = struct
+  type t = {ip: Ipaddr.t  (** IPv4/v6 of domain controller *); port: int}
+
+  let default_port = 88
+
+  let server t = Ipaddr.to_string t.ip
+
+  let _port t = t.port
+
+  let from_lookup str =
+    (* examples for IPv4 str returned by "net lookup kdc": 10.71.212.25:88
+       10.62.1.25:88 *)
+    match Astring.String.cut ~rev:true ~sep:":" str with
+    | Some (ip, "88") -> (
+      try {ip= Ipaddr.of_string ip |> Result.get_ok; port= default_port}
+      with _ -> fail "%s: can't parse %s as address:port" __FUNCTION__ str
+    )
+    | Some (ip, port) ->
+        fail "%s: KDC %s uses non-default port %s" __FUNCTION__ ip port
+    | None ->
+        fail "%s: can't parse %s as address:port" __FUNCTION__ str
+
+  let from_db str =
+    try {ip= Ipaddr.of_string str |> Result.get_ok; port= default_port}
+    with _ -> fail "%s: can't parse %s" __FUNCTION__ str
+
+  let to_db t =
+    (* we could create and write a URI that includes the port but we
+       would have to be sure that only this code is reading the URI back
+    *)
+    Ipaddr.to_string t.ip (* not writing port *)
+
+  let to_msg t = Printf.sprintf "%s (port %d)" (Ipaddr.to_string t.ip) t.port
+end
+
+let hd msg = function [] -> generic_error msg | h :: _ -> h
 
 let max_netbios_name_length = 15
 
@@ -334,7 +392,7 @@ module Ldap = struct
           ; "-d"
           ; debug_level ()
           ; "--server"
-          ; kdc
+          ; KDC.server kdc
           ; "--machine-pass"
           ; "--kerberos"
           ]
@@ -361,7 +419,7 @@ module Ldap = struct
       ; "-d"
       ; debug_level ()
       ; "--server"
-      ; kdc
+      ; KDC.server kdc
       ; "--machine-pass"
       ; "--kerberos"
       ; query
@@ -702,23 +760,24 @@ let kdcs_of_domain domain =
     (* Result like 10.71.212.25:88\n10.62.1.25:88\n*)
     |> String.split_on_char '\n'
     |> List.filter (fun x -> String.trim x <> "") (* Remove empty lines *)
-    |> List.map (fun r ->
-           String.split_on_char ':' r |> hd (Printf.sprintf "Invalid kdc %s" r)
-       )
-  with _ -> raise (generic_ex "Failed to lookup kdcs of domain %s" domain)
+    |> List.map KDC.from_lookup
+  with _ -> fail "%s: failed to lookup kdcs of domain %s" __FUNCTION__ domain
 
 let workgroup_from_server kdc =
   let err_msg =
-    Printf.sprintf "Failed to lookup workgroup from server %s" kdc
+    Printf.sprintf "Failed to lookup workgroup from server %s" (KDC.server kdc)
   in
   let key = "Pre-Win2k Domain" in
   try
     Helpers.call_script ~log_output:On_failure net_cmd
-      ["ads"; "lookup"; "-S"; kdc; "-d"; debug_level (); "--kerberos"]
+      [
+        "ads"; "lookup"; "-S"; KDC.server kdc; "-d"; debug_level (); "--kerberos"
+      ]
     |> Xapi_cmd_result.of_output ~sep:':' ~key
     |> Result.ok
   with _ ->
-    debug "Unable to query info from kdc %s, probably is broken down" kdc ;
+    debug "Unable to query info from kdc %s, probably is broken down"
+      (KDC.to_msg kdc) ;
     Error (Auth_service_error (E_LOOKUP, err_msg))
 
 let kdc_of_domain domain =
@@ -1035,7 +1094,8 @@ module ClosestKdc = struct
 
   let update_db ~domain ~kdc =
     Server_helpers.exec_with_new_task "update domain closest kdc"
-    @@ fun __context -> update_extauth_configuration ~__context ~k:domain ~v:kdc
+    @@ fun __context ->
+    update_extauth_configuration ~__context ~k:domain ~v:(KDC.to_db kdc)
 
   let from_db domain =
     Server_helpers.exec_with_new_task "query domain closest kdc"
@@ -1043,6 +1103,7 @@ module ClosestKdc = struct
     let self = Helpers.get_localhost ~__context in
     Db.Host.get_external_auth_configuration ~__context ~self
     |> List.assoc_opt domain
+    |> Option.map KDC.from_db
 
   let lookup domain =
     try
@@ -1061,7 +1122,7 @@ module ClosestKdc = struct
       in
       kdcs_of_domain domain
       |> List.map (fun kdc ->
-             debug "Got domain '%s' kdc '%s'" domain kdc ;
+             debug "Got domain '%s' kdc '%s'" domain (KDC.to_msg kdc) ;
              kdc
          )
       |> List.map (fun kdc ->
@@ -1113,7 +1174,15 @@ module RotateMachinePassword = struct
 
   let kdc_fqdn_of_ip kdc =
     let args =
-      ["ads"; "lookup"; "--server"; kdc; "--kerberos"; "-d"; debug_level ()]
+      [
+        "ads"
+      ; "lookup"
+      ; "--server"
+      ; KDC.server kdc
+      ; "--kerberos"
+      ; "-d"
+      ; debug_level ()
+      ]
     in
     Helpers.call_script !Xapi_globs.net_cmd args ~log_output:On_failure
     |> Xapi_cmd_result.of_output ~sep:':' ~key:"Domain Controller"
