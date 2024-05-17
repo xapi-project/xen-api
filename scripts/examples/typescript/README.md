@@ -1,14 +1,10 @@
-# A Typescript bindings for XenAPI
-A Typescript bindings for XenAPI, which is inspired by [Python XenAPI](https://xapi-project.github.io/xen-api/usage.html).
+# Typescript bindings for XenAPI
+Typescript module for XenAPI, which is inspired by [Python XenAPI](https://xapi-project.github.io/xen-api/usage.html).
 
 ## Usage
-Install lib from npm repository
-```
-$ npm install xen-api-ts
-```
+The usage of Typescript XenAPI npm library is almost identical to the Python XenAPI library, except it's asynchronous and requires async/await.
 
-The usage of Typescript XenAPI is almost identical to the Python XenAPI, except it's asynchronous and requires async/await.
-```
+```js
 import { xapi_client } from "xen-api-ts";
 
 async function main() {
@@ -25,17 +21,17 @@ async function main() {
 main();
 ```
 
-For more example usage, please find in tests folder.
-```
-$ git clone git@github.com:acefei/xen-api-ts.git
-$ npm install
-$ echo "HOST_URL=xxx" >> .env
-$ echo "USERNAME=xxx" >> .env
-$ echo "PASSWORD=xxx" >> .env
-$ npm test tests/getXapiVersion.ts
+More examples can be found in the [tests](tests) folder.
+```sh
+git clone git@github.com:acefei/xen-api-ts.git
+npm install
+echo "HOST_URL=xxx" >> .env
+echo "USERNAME=xxx" >> .env
+echo "PASSWORD=xxx" >> .env
+npm test tests/getXapiVersion.ts
 ```
 
-And please find the all of Classes and its Fields in [XenAPI Reference](https://xapi-project.github.io/xen-api)
+Documentation for all the API classes and their fields can be found in the [XenAPI Reference](https://xapi-project.github.io/xen-api).
 
 ## License
 This repository is licensed under the MIT License.

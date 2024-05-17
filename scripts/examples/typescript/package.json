@@ -1,6 +1,6 @@
 {
-  "name": "xen-api-ts",
-  "version": "1.0.0",
+  "name": "xen-api-lib",
+  "version": "0.0.1",
   "description": "A typescript library for Xen API",
   "main": "dist/XenAPI.js",
   "types": "dist/XenAPI.d.ts",
@@ -12,7 +12,8 @@
     "build": "tsc"
   },
   "keywords": [
-    "xenserve",
+    "xenserver",
+    "hypervisor",
     "xen-api",
     "typescript"
   ],
