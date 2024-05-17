@@ -18,4 +18,5 @@ runs:
       shell: bash
       run: |
         cd ./ocaml/sdk-gen/component-test/
+        cp -r ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src jsonrpc-client/go/goSDK
         bash run-tests.sh

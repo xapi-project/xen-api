@@ -1,7 +1,9 @@
 ## How Component Testing Works
 
 #### jsonrpc-server
-The jsonrpc-server is a mock HTTP server created to emulate the XAPI (eXtensible Application Programming Interface) environment. It operates by executing the method specified within incoming requests and subsequently providing a response that includes the outcome of that execution. To facilitate comprehensive testing, the server extracts test data from JSON files located in the spec/ directory. To enhance the organization and scalability of test cases, especially when simulating various API versions for the purpose of ensuring backwards compatibility, the following structure is recommended:
+The jsonrpc-server is a mock HTTP server which aligns with [jsonrpc 2.0 specification](https://www.jsonrpc.org/specification) and to emulate the xen-api server. It parses the test data from JSON files located in the spec/ directory, executes the method and parameters specified in spec files with incoming requests and then sends back a jsonrpc response that includes the expect_result.
+
+For the purpose of backwards and forwards compatibility, the following structure is recommended:
 
 - Base Directory: All test cases should be housed within a dedicated directory, conventionally named spec/.
 
@@ -18,9 +20,8 @@ spec/
 │   └── ...
 └── ...
 ```
-- Test Case Files: Each test case is represented by a JSON file. These files should be named uniquely, often corresponding to a test ID, to avoid conflicts and to make it easier to reference specific test cases.
 
-- JSON Object Structure: Within each JSON file, the test data should be structured to include essential fields such as test_id, method, params, and expect_result. This structure allows for clear definition and expectation of each test case.
+- Test Data Specification: Within each JSON file, the test data should be structured to include essential fields such as test_id, method, params, and expect_result. This structure allows for clear definition and expectation of each test case.
 ```json
 {
       "test_id": "test_id_1",
@@ -36,25 +37,31 @@ spec/
 
 }
 ```
-- Test Execution: The jsonrpc-server should be designed to iterate through the spec/ directory and its sub-directories, executing each test case and comparing the actual results against the expect_result as defined in the JSON files.
-
-- Compatiblity: When organizing test cases for multiple API versions, ensure that the sub-directory structure reflects these versions. This allows for running version-specific tests or comprehensive tests that cover multiple versions.
-
-- Maintenance and Evolution: As the API evolves, the test cases should be updated or extended to reflect new methods, parameters, or expected results. The directory structure should facilitate easy updates and additions to the test cases.
 
 #### jsonrpc-client
-
 jsonrpc-client is a client that imports the SDK and runs the functions, following these important details:
 
-1. Add test_id as the user agent in the request header.
+1. Add test_id as a customize request header.
 
 2. Ensure that the function and params are aligned with the data defined in spec/ directory.
 
-3. The test results/reports need to be collected from the client side.
+3. In order to support test reports, practitioners should use the specific test framework to test SDK, eg: pytest, gotest, junit, xUnit and so on.
+
+4. To support the SDK component test, it recommended to move the SDK generated to a sub directory as a local module for import purposes, eg:
+```
+cp -r ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src jsonrpc-client/go/goSDK
+```
+then, import the local module.
+```
+module github.com/xapi-project/xen-api/sdk-gen/component-test/jsonrpc-client/go
+
+go 1.22.2
+
+replace xenapi => ./goSDK
+```
 
 #### github actions
-For a ci step in the generate sdk sources job, it should involve performing lint, component testing. For instance, in the case of the go sdk, there is a docker compose which launches a jsonrpc server and client and executes the testing procedure in the go-ct step.
-
+For a CI step in the generate sdk sources job, it should involve performing lint and component testing after sdk generation.
 
 ## Run test locally
 Install python 3.11+ with requirements and go 1.22+ and go to ocaml/sdk-gen/component-test and run `bash run-tests.sh`

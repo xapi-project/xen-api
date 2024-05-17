@@ -1,7 +1,7 @@
 #!/bin/bash
-set -e
+set -ex
 
-ROOT_PATH=$(cd "$(dirname "$0")" && pwd)
+SCRIPT_PATH=$(cd "$(dirname "$0")" && pwd)
 
 start_jsonrpc_server() {
     echo "Starting JSONRPC server"
@@ -12,15 +12,19 @@ start_jsonrpc_server() {
 
 start_jsonrpc_go_client() {
     echo "Starting JSONRPC Go client"
+
+    cd jsonrpc-client/go
+    # ensure that all dependencies are satisfied
+    go mod tidy
     # build client.go and run it
-    go run jsonrpc-client/go/client.go &
+    go test main_test.go -v &
     JSONRPC_GO_CLIENT_PID=$!
 }
 
 trap 'kill $JSONRPC_SERVER_PID $JSONRPC_GO_CLIENT_PID 2>/dev/null' EXIT
 
 main() {
-    cd "$ROOT_PATH"
+    cd "$SCRIPT_PATH"
     start_jsonrpc_server
     start_jsonrpc_go_client
 

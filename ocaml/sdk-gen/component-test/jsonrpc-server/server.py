@@ -39,26 +39,34 @@ async def handle(request):
         aiohttp.web.Response: The HTTP response containing the JSON-RPC result.
     """
     spec = load_json_files()
-    test_id = request.headers.get("User-Agent")
-    if not test_id:
-        raise ValueError("Failed to get test_id in User-Agent.")
+    test_id = request.headers.get("Test-ID")
     test_data = spec.get(test_id, {})
     data = await request.json()
 
-    assert test_data.get("method") == data.get("method")
-    assert test_data.get("params") == data.get("params")
-
-    response = {
-        "jsonrpc": "2.0",
-        "id": data.get("id"),
-        **test_data.get("expected_result", {}),
-    }
-
+    try:
+        assert data.get("method") in test_data.get("method")
+        assert test_data.get("params")[data.get("method")] == data.get("params")
+    except Exception:
+        response = {
+            "jsonrpc": "2.0",
+            "id": data.get("id"),
+            "error": {
+                "code": 500,
+                "message": "Rpc server failed to handle the client request!",
+                "data": str(data),
+            }
+        }
+    else:
+        response = {
+            "jsonrpc": "2.0",
+            "id": data.get("id"),
+            **test_data.get("expected_result")[data.get("method")],
+        }
     return web.json_response(response)
 
 
 app = web.Application()
-app.router.add_post("/", handle)
+app.router.add_post("/jsonrpc", handle)
 
 if __name__ == "__main__":
     web.run_app(app, port=5000)
