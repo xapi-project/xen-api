@@ -1,0 +1,16 @@
+{
+  "profiles": {
+    "PS-51": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+      "commandLineArgs": "-NoLogo -NoExit -Command \"Import-Module '.\\XenServerPowerShell.dll'\"",
+      "workingDirectory": "$(OutDir)"
+    },
+    "PS-7": {
+        "commandName": "Executable",
+        "executablePath": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
+        "commandLineArgs": "-NoLogo -NoExit -Command \"Import-Module '.\\XenServerPowerShell.dll'\"",
+        "workingDirectory": "$(OutDir)"
+      }
+  }
+}
