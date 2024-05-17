@@ -39,6 +39,10 @@ module Sys : sig
        string
     -> (unit, [> `missing of string | `not_executable of string * exn]) result
        Lwt.t
+  (** [assert_is_executable path] returns [Ok ()] when [path] is an executable
+      regular file, [Error `not_executable] when the file is a non-executable
+      regular file, and [Error `missing] otherwise. The [Errors] return the
+      queried path as a string. *)
 
   val read_file_contents : string -> string Lwt.t
 

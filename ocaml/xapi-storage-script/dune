@@ -12,6 +12,12 @@
   (preprocess (pps ppx_deriving_rpc))
   )
 
+(test
+  (name test_lib)
+  (modules test_lib)
+  (libraries alcotest alcotest-lwt lwt fmt private)
+  )
+
 (executable
   (name main)
   (modules main)
