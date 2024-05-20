@@ -437,7 +437,7 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
 let minor_of_tapdev_unsafe tapdev =
   int_of_string
     (Unixext.file_lines_fold
-       (fun acc l -> acc ^ List.nth (Xstringext.String.split ':' l) 1)
+       (fun acc l -> acc ^ List.nth (Xstringext.String.split_on_char ':' l) 1)
        ""
        ("/sys/block/" ^ tapdev ^ "/dev")
     )
