@@ -12,21 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module String : sig
-  val of_char : char -> string
-
-  val rev_map : (char -> char) -> string -> string
-  (** Map a string to a string, applying the given function in reverse
-      order. *)
-
-  val rev_iter : (char -> unit) -> string -> unit
-  (** Iterate over the characters in a string in reverse order. *)
-
-  val fold_left : ('a -> char -> 'a) -> 'a -> string -> 'a
-  (** Fold over the characters in a string. *)
-
-  val fold_right : (char -> 'a -> 'a) -> string -> 'a -> 'a
-  (** Iterate over the characters in a string in reverse order. *)
-
   val isspace : char -> bool
   (** True if the character is whitespace *)
 
@@ -49,9 +34,6 @@ module String : sig
   val has_substr : string -> string -> bool
   (** True if sub is a substr of str *)
 
-  val find_all : string -> string -> int list
-  (** find all occurences of needle in haystack and return all their respective index *)
-
   val replace : string -> string -> string -> string
   (** replace all [f] substring in [s] by [t] *)
 
@@ -63,10 +45,4 @@ module String : sig
 
   val sub_to_end : string -> int -> string
   (** a substring from the specified position to the end of the string *)
-
-  val sub_before : char -> string -> string
-  (** a substring from the start of the string to the first occurrence of a given character, excluding the character *)
-
-  val sub_after : char -> string -> string
-  (** a substring from  the first occurrence of a given character to the end of the string, excluding the character *)
 end

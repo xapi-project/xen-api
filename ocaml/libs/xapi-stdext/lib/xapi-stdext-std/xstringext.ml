@@ -12,31 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module String = struct
-  let of_char c = String.make 1 c
-
-  let rev_map f string =
-    let n = String.length string in
-    String.init n (fun i -> f string.[n - i - 1])
-
-  let rev_iter f string =
-    for i = String.length string - 1 downto 0 do
-      f string.[i]
-    done
-
-  let fold_left f accu string =
-    let accu = ref accu in
-    for i = 0 to String.length string - 1 do
-      accu := f !accu string.[i]
-    done ;
-    !accu
-
-  let fold_right f string accu =
-    let accu = ref accu in
-    for i = String.length string - 1 downto 0 do
-      accu := f string.[i] !accu
-    done ;
-    !accu
-
   (** Returns true for whitespace characters, false otherwise *)
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
@@ -174,8 +149,4 @@ module String = struct
         String.escaped s
     | Some rules ->
         map_unlikely s (fun c -> List.assoc_opt c rules)
-
-  let sub_before c s = String.sub s 0 (String.index s c)
-
-  let sub_after c s = sub_to_end s (String.index s c + 1)
 end

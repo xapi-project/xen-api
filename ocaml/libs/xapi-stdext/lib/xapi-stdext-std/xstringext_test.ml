@@ -27,22 +27,6 @@ let test_list tested_f (name, case, expected) =
   in
   (name, `Quick, check)
 
-let test_rev_map =
-  let spec_rev = [("", ""); ("foo bar", "rab oof")] in
-  let spec_func = [("id", Fun.id); ("uppercase_ascii", Char.uppercase_ascii)] in
-  let test (f_name, f) (case, expected) =
-    let expected = String.map f expected in
-    let name =
-      Printf.sprintf {|"%s" produces "%s" (%s)|} case expected f_name
-    in
-    test_string (XString.rev_map f) (name, case, expected)
-  in
-  let tests =
-    (* Generate the product of the two lists to generate the tests *)
-    List.concat_map (fun func -> List.map (test func) spec_rev) spec_func
-  in
-  ("rev_map", tests)
-
 let test_split =
   let test limit (splitter, splitted, expected) =
     let split = XString.split ~limit in
@@ -168,11 +152,4 @@ let test_escaped =
 
 let () =
   Alcotest.run "Xstringext"
-    [
-      test_rev_map
-    ; test_split
-    ; test_split_f
-    ; test_has_substr
-    ; test_rtrim
-    ; test_escaped
-    ]
+    [test_split; test_split_f; test_has_substr; test_rtrim; test_escaped]
