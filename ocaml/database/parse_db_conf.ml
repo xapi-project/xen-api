@@ -13,7 +13,6 @@
  *)
 (* !!! This needs to be moved out of xapi and into the database directory; probably being merged with db_connections !!! *)
 
-open Xapi_stdext_std.Xstringext
 open Xapi_stdext_unix
 
 module D = Debug.Make (struct let name = "parse_db_conf" end)
