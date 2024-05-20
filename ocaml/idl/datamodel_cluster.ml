@@ -194,6 +194,12 @@ let t =
              (Some (VString Constants.default_smapiv3_cluster_stack))
            "Simply the string 'corosync'. No other cluster stacks are \
             currently supported"
+       ; field ~qualifier:StaticRO ~lifecycle ~ty:Int "cluster_stack_version"
+           ~default_value:(Some (VInt 2L))
+           "Version of cluster stack, not writable via the API. Defaulting to \
+            2 for backwards compatibility when upgrading from a cluster \
+            without this field, which means it is necessarily running version \
+            2 of corosync, the only cluster stack supported so far."
        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool "is_quorate"
            ~default_value:(Some (VBool false))
            "Whether the cluster stack thinks the cluster is quorate"

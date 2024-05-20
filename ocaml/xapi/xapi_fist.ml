@@ -66,6 +66,9 @@ let fail_healthcheck () = fistpoint "fail_healthcheck"
 
 let reconfigure_host () = fistpoint "reconfigure_host"
 
+(** allow starting up a corosync2 cluster *)
+let allow_corosync2 () = fistpoint "allow_corosync2"
+
 (** Raise MTC_EXIT_CAN_NOT_ACCESS_STATEFILE *)
 let ha_cannot_access_statefile () = fistpoint "ha_cannot_access_statefile"
 
