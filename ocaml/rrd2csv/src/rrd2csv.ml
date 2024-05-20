@@ -149,10 +149,10 @@ module Ds_selector = struct
 
   let of_string str =
     let open Rrd in
-    let splitted = Xstringext.String.split ',' str in
+    let splitted = String.split_on_char ',' str in
     match splitted with
     | without_trailing_comma :: _ -> (
-        let splitted = Xstringext.String.split ':' without_trailing_comma in
+        let splitted = String.split_on_char ':' without_trailing_comma in
         match splitted with
         | [cf; owner; uuid; metric] ->
             {
