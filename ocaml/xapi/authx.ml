@@ -311,9 +311,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     | _ ->
         raise Not_found
 
-  (*
-	In addition, there are some event hooks that auth modules implement as follows:
-*)
+  (* In addition, there are some event hooks that auth modules implement as
+     follows: *)
 
   (* unit on_enable(((string*string) list) config_params)
 

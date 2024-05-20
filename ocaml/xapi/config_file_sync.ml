@@ -15,7 +15,6 @@
 module D = Debug.Make (struct let name = "config_file_sync" end)
 
 open D
-open Xapi_stdext_std.Xstringext
 
 let superuser = "root"
 
