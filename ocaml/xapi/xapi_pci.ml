@@ -63,7 +63,9 @@ let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 let get_local ~__context getter =
   let localhost = Helpers.get_localhost ~__context in
   let expr =
-    Db_filter_types.(Eq (Field "host", Literal (Ref.string_of localhost)))
+    Xapi_database.Db_filter_types.(
+      Eq (Field "host", Literal (Ref.string_of localhost))
+    )
   in
   getter ~__context ~expr
 

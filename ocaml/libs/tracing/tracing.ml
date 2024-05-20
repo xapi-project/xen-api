@@ -608,7 +608,7 @@ let get_tracer ~name =
   | Some provider ->
       Tracer.create ~name ~provider
   | None ->
-      warn "No provider found for tracing %s" name ;
+      (* warn "No provider found for tracing %s" name ; *)
       Tracer.no_op
 
 let enable_span_garbage_collector ?(timeout = 86400.) () =
@@ -634,3 +634,34 @@ let with_tracing ?(attributes = []) ?(parent = None) ~name f =
     | Error e ->
         warn "Failed to start tracing: %s" (Printexc.to_string e) ;
         f None
+
+module EnvHelpers = struct
+  let traceparent_key = "TRACEPARENT"
+
+  let of_traceparent traceparent =
+    match traceparent with
+    | None ->
+        []
+    | Some traceparent ->
+        [String.concat "=" [traceparent_key; traceparent]]
+
+  let to_traceparent env =
+    let env_opt =
+      List.find_opt (String.starts_with ~prefix:traceparent_key) env
+    in
+    Option.bind env_opt (fun key_value ->
+        match String.split_on_char '=' key_value with
+        | [key; traceparent] when String.equal key traceparent_key ->
+            Some traceparent
+        | _ ->
+            None
+    )
+
+  let of_span span =
+    match span with
+    | None ->
+        []
+    | Some span ->
+        Some (span |> Span.get_context |> SpanContext.to_traceparent)
+        |> of_traceparent
+end

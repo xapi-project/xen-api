@@ -1,0 +1,115 @@
+/*
+ * Copyright (C) 2006-2011 Citrix Systems Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation; version 2.1 only. with the special
+ * exception on linking described in file LICENSE.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ */
+
+#content a {
+  color: #35383d
+}
+
+table {
+  font-size: 100%;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+tr {
+  background-color: inherit;
+}
+
+td {
+  vertical-align: top;
+  padding: 3px 1em 3px 0;
+}
+
+th { text-align: left;
+  border-bottom: 1px solid black;
+}
+
+.description {
+  margin-bottom: 1em;
+}
+
+.field, .field2 {
+  margin: 0em 0;
+  padding: .5em .7em .7em;
+  background-color: #dddddd;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.field2 {
+  background-color: #e8e8e8;
+}
+
+.field-type {
+  font-size: 80%;
+}
+
+.field-name {
+  font-weight: bold;
+}
+
+.field-head {
+  font-style: italic;
+}
+
+.field-description {
+  margin: .7em 0;
+}
+
+.field-table {
+  border: 0;
+  background-color: transparent;
+}
+
+.field-table td {
+  padding: .3em 1.5em .3em 0;
+  border: 0;
+}
+
+.inline-type {
+  margin-right: .5em;
+}
+
+.inline-qualifier {
+  font-size: 70%;
+  vertical-align: top;
+  margin-left: .5em;
+}
+
+.inline-params {
+  margin-left: .5em;
+}
+
+.lifecycle {
+  font-size: 12px;
+  float: right;
+  font-variant:small-caps;
+  color: #306580;
+  margin: auto 0.5em;
+}
+
+.button {
+  float: right;
+  color: #fff;
+  background-color: #337ab7;
+  border-color: #2e6da4;
+  padding: 1px 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  border-radius: 3px;
+  display: inline-block;
+  font-weight: 400;
+  margin: 0;
+  vertical-align: middle;
+}

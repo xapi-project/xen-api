@@ -366,10 +366,10 @@ let copy ~__context ~vm ~preserve_mac_address vif =
       ~ipv6_addresses:all.API.vIF_ipv6_addresses
       ~ipv6_gateway:all.API.vIF_ipv6_gateway
   in
-  let proxies =
-    Db.PVS_proxy.get_records_where ~__context
-      ~expr:Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vif)))
+  let expr =
+    Xapi_database.Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vif)))
   in
+  let proxies = Db.PVS_proxy.get_records_where ~__context ~expr in
   List.iter
     (fun (_, proxy) ->
       try

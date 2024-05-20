@@ -25,14 +25,16 @@ jobs:
   ocaml-test:
     name: Ocaml tests
     runs-on: ubuntu-20.04
-    env:
-      package: "xapi-cli-protocol xapi-client xapi-consts xapi-database xapi-datamodel xapi-types xapi xe"
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           ref: '1.249-lcm'
+
+      - name: Free space
+        shell: bash
+        run: sudo rm -rf /usr/local/lib/android
 
       - name: Pull configuration from xs-opam
         run: |
@@ -42,37 +44,24 @@ jobs:
         id: dotenv
         uses: falti/dotenv-action@v1
 
-      - name: Retrieve date for cache key (year-week)
-        id: cache-key
-        run: echo "date=$(/bin/date -u "+%Y%W")" >> $GITHUB_OUTPUT
-        shell: bash
-
-      - name: Restore opam cache
-        id: opam-cache
-        uses: actions/cache@v4
-        with:
-          path: "~/.opam"
-          # invalidate cache every week, gets built using a scheduled job
-          key: ${{ steps.cache-key.outputs.date }}-1.249
-
       - name: Update Ubuntu repositories
+        shell: bash
         run: sudo apt-get update
 
       - name: Use ocaml
-        uses: avsm/setup-ocaml@v1
+        uses: ocaml/setup-ocaml@v2
         with:
-          ocaml-version: ${{ steps.dotenv.outputs.ocaml_version_full }}
-          opam-repository: ${{ steps.dotenv.outputs.repository }}
+          ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+          opam-repositories: |
+            xs-opam: ${{ steps.dotenv.outputs.repository }}
+          dune-cache: true
 
       - name: Install dependencies
-        run: |
-          opam update
-          opam pin add . --no-action
-          opam depext -u ${{ env.package }}
-          opam upgrade
-          opam install ${{ env.package }} --deps-only --with-test -v
+        shell: bash
+        run: opam install . --deps-only --with-test -v
 
-      - name: Build
+      - name: Configure and build
+        shell: bash
         run: |
           opam exec -- ./configure
           opam exec -- make
@@ -85,4 +74,4 @@ jobs:
       - name: Avoid built packages to appear in the cache
         # only packages in this repository follow a branch, the rest point
         # to a tag
-        run: opam uninstall ${{ env.package }}
+        run: opam pin list --short | xargs opam unpin

@@ -71,9 +71,6 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
   (* We define a 'set_is_a_template false' as 'install time' *)
   info "VM.set_is_a_template('%b')" value ;
-  if Db.VM.get_has_vendor_device ~__context ~self then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
   let m = Db.VM.get_metrics ~__context ~self in
   ( if not value then
       try
@@ -151,28 +148,6 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
   if visibly_required_version > current_version then
     Db.VM.set_hardware_platform_version ~__context ~self:vm
       ~value:visibly_required_version
-
-let create_from_record_without_checking_licence_feature_for_vendor_device
-    ~__context rpc session_id vm_record =
-  let mk_vm r =
-    Client.Client.VM.create_from_record ~rpc ~session_id
-      ~value:{r with API.vM_suspend_VDI= Ref.null; API.vM_power_state= `Halted}
-  in
-  let has_vendor_device = vm_record.API.vM_has_vendor_device in
-  if
-    has_vendor_device
-    && not
-         (Pool_features.is_enabled ~__context
-            Features.PCI_device_for_auto_update
-         )
-  then (
-    (* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
-    let vm = mk_vm {vm_record with API.vM_has_vendor_device= false} in
-    Db.VM.set_has_vendor_device ~__context ~self:vm ~value:true ;
-    update_vm_virtual_hardware_platform_version ~__context ~vm ;
-    vm
-  ) else
-    mk_vm vm_record
 
 let destroy ~__context ~self =
   (* Used to be a call to hard shutdown here, but this will be redundant *)

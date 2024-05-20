@@ -1,5 +1,6 @@
 (library
   (name xapi_cli_server)
+  (modes best)
   (libraries
     astring
     base64

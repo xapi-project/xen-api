@@ -36,7 +36,6 @@ let blocking_ops =
   ; (`tls_verification_enable, Api_errors.tls_verification_enable_in_progress)
   ; (`configure_repositories, Api_errors.configure_repositories_in_progress)
   ; (`sync_updates, Api_errors.sync_updates_in_progress)
-  ; (`get_updates, Api_errors.get_updates_in_progress)
   ; (`apply_updates, Api_errors.apply_updates_in_progress)
   ]
 
@@ -52,6 +51,7 @@ let wait_ops =
   ; `exchange_ca_certificates_on_join
   ; `copy_primary_host_certs
   ; `eject
+  ; `get_updates
   ]
 
 let all_operations = blocking_ops |> List.map fst |> List.append wait_ops

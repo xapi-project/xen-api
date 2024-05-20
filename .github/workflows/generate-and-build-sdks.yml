@@ -28,7 +28,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Source_C
-          path: _build/install/default/xapi/sdk/c/*
+          path: |
+            _build/install/default/xapi/sdk/c/*
+            !_build/install/default/xapi/sdk/c/dune
 
       - name: Store C# SDK source
         uses: actions/upload-artifact@v4
@@ -42,8 +44,8 @@ jobs:
           name: SDK_Source_PowerShell
           path: _build/install/default/xapi/sdk/powershell/*
 
-      - name: Cleanup XenAPI environment
-        uses: ./.github/workflows/cleanup-xapi-environment
+      - name: Trim dune cache
+        run: opam exec -- dune cache trim --size=2GiB
 
   build-c-sdk:
     name: Build C SDK
@@ -67,7 +69,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Artifacts_C
-          path: source/*
+          path: |
+            source/*
+            !source/src/*.o
 
   build-csharp-sdk:
     name: Build C# SDK
