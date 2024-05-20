@@ -14,7 +14,7 @@
 module D = Debug.Make (struct let name = "nm" end)
 
 open D
-open Xapi_stdext_std.Xstringext
+module Stringext = Xapi_stdext_std.Xstringext.String
 module Listext = Xapi_stdext_std.Listext.List
 open Xapi_database.Db_filter_types
 open Network
@@ -216,7 +216,7 @@ let create_bond ~__context bond mtu persistent =
         List.filter_map
           (fun (k, v) ->
             if String.starts_with ~prefix:"bond-" k then
-              Some (String.sub_to_end k 5, v)
+              Some (Stringext.sub_to_end k 5, v)
             else
               None
           )

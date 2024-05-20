@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module String : sig
-  include module type of String
-
   val of_char : char -> string
 
   val rev_map : (char -> char) -> string -> string

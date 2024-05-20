@@ -17,9 +17,9 @@ module D = Debug.Make (struct let name = "xenops" end)
 open D
 module StringSet = Set.Make (String)
 open Network
-open Xapi_stdext_std.Xstringext
 module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext.List
+module Stringext = Xapi_stdext_std.Xstringext.String
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -129,7 +129,7 @@ let disk_of_vdi ~__context ~self =
 
 let vdi_of_disk ~__context x =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
-  match String.split ~limit:2 '/' x with
+  match Stringext.split ~limit:2 '/' x with
   | [sr_uuid; location] -> (
       let open Xapi_database.Db_filter_types in
       let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
