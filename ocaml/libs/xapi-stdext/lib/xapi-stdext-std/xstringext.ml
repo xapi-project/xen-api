@@ -12,29 +12,27 @@
  * GNU Lesser General Public License for more details.
  *)
 module String = struct
-  include String
-
   let of_char c = String.make 1 c
 
   let rev_map f string =
-    let n = length string in
+    let n = String.length string in
     String.init n (fun i -> f string.[n - i - 1])
 
   let rev_iter f string =
-    for i = length string - 1 downto 0 do
+    for i = String.length string - 1 downto 0 do
       f string.[i]
     done
 
   let fold_left f accu string =
     let accu = ref accu in
-    for i = 0 to length string - 1 do
+    for i = 0 to String.length string - 1 do
       accu := f !accu string.[i]
     done ;
     !accu
 
   let fold_right f string accu =
     let accu = ref accu in
-    for i = length string - 1 downto 0 do
+    for i = String.length string - 1 downto 0 do
       accu := f string.[i] !accu
     done ;
     !accu
@@ -64,17 +62,6 @@ module String = struct
     |> Seq.map String.of_seq
     |> List.of_seq
     |> List.rev
-
-  let index_opt s c =
-    let rec loop i =
-      if String.length s = i then
-        None
-      else if s.[i] = c then
-        Some i
-      else
-        loop (i + 1)
-    in
-    loop 0
 
   let sub_to_end s start =
     let length = String.length s in

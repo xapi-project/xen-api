@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std.Xstringext
+module Stringext = Xapi_stdext_std.Xstringext.String
 module Unixext = Xapi_stdext_unix.Unixext
 open Http
 open Helpers
@@ -770,9 +770,10 @@ let resync_host ~__context ~host =
 let path_and_host_from_uri uri =
   (* remove any dodgy use of "." or ".." NB we don't prevent the use of symlinks *)
   let host_and_path =
-    String.sub_to_end uri (String.length Constants.get_pool_update_download_uri)
+    Stringext.sub_to_end uri
+      (String.length Constants.get_pool_update_download_uri)
   in
-  match String.split ~limit:2 '/' host_and_path with
+  match Stringext.split ~limit:2 '/' host_and_path with
   | [host; untrusted_path] ->
       let resolved_path =
         untrusted_path

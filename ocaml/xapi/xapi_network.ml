@@ -14,7 +14,6 @@
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Client
-open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "xapi_network" end)
 

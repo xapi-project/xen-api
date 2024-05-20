@@ -19,7 +19,7 @@ module L = Debug.Make (struct let name = "license" end)
 
 open Xapi_database.Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
-open Xapi_stdext_std.Xstringext
+module Stringext = Xapi_stdext_std.Xstringext.String
 module Date = Clock.Date
 open Network
 
@@ -724,9 +724,9 @@ let scan ~__context ~host =
             debug "No boot from SAN interface found" ;
             ([], [])
         | m :: u :: _ ->
-            (String.split_f String.isspace m, String.split_f String.isspace u)
+            Stringext.(split_f isspace m, split_f isspace u)
         | m :: _ ->
-            (String.split_f String.isspace m, [])
+            Stringext.(split_f isspace m, [])
       with e ->
         warn "Error when executing script %s: %s; ignoring"
           !Xapi_globs.non_managed_pifs

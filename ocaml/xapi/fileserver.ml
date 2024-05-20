@@ -16,14 +16,14 @@
  *)
 
 open Http
-open Xapi_stdext_std.Xstringext
+module Xstringext = Xapi_stdext_std.Xstringext.String
 
 module D = Debug.Make (struct let name = "fileserver" end)
 
 open D
 
 let escape uri =
-  String.escaped
+  Xstringext.escaped
     ~rules:
       [
         ('<', "&lt;")

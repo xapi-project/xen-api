@@ -104,7 +104,7 @@ let assert_value ~field ~key ~attr ~value =
   )
   | EnumSet range ->
       (* enumset is a comma-separated string *)
-      let vs = Xapi_stdext_std.Xstringext.String.split_on_char ',' value in
+      let vs = String.split_on_char ',' value in
       List.fold_right
         (fun v acc ->
           match mem v range with

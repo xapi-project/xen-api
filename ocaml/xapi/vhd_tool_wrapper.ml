@@ -18,7 +18,6 @@
 module D = Debug.Make (struct let name = "vhd_tool_wrapper" end)
 
 open D
-open Xapi_stdext_std.Xstringext
 
 (* .vhds on XenServer are sometimes found via /dev/mapper *)
 let vhd_search_path = "/dev/mapper:."

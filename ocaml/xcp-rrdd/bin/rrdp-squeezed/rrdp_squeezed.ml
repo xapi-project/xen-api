@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_stdext_std
 open Rrdd_plugin
 
 module Process = Process (struct let name = "xcp-rrdd-squeezed" end)
@@ -81,9 +80,7 @@ module MemoryActions = struct
             path domid ;
           current_memory_values := IntMap.remove domid !current_memory_values
     in
-    match
-      List.filter (fun x -> x <> "") (Xstringext.String.split_on_char '/' path)
-    with
+    match List.filter (fun x -> x <> "") (String.split_on_char '/' path) with
     | ["local"; "domain"; domid; "memory"; "dynamic-max"] ->
         read_new_value domid current_dynamic_max_values
     | ["local"; "domain"; domid; "memory"; "dynamic-min"] ->

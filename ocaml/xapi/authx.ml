@@ -65,9 +65,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
             | [] ->
                 raise Not_found
             | line :: lines -> (
-                let recs =
-                  Xapi_stdext_std.Xstringext.String.split_on_char ':' line
-                in
+                let recs = String.split_on_char ':' line in
                 let username = List.nth recs 0 in
                 let uid = List.nth recs 2 in
                 match fn username uid recs with
@@ -293,9 +291,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
     | _ ->
         raise Not_found
 
-  (*
-	In addition, there are some event hooks that auth modules implement as follows:
-*)
+  (* In addition, there are some event hooks that auth modules implement as
+     follows: *)
 
   (* unit on_enable(((string*string) list) config_params)
 
