@@ -81,7 +81,9 @@ module MemoryActions = struct
             path domid ;
           current_memory_values := IntMap.remove domid !current_memory_values
     in
-    match List.filter (fun x -> x <> "") (Xstringext.String.split '/' path) with
+    match
+      List.filter (fun x -> x <> "") (Xstringext.String.split_on_char '/' path)
+    with
     | ["local"; "domain"; domid; "memory"; "dynamic-max"] ->
         read_new_value domid current_dynamic_max_values
     | ["local"; "domain"; domid; "memory"; "dynamic-min"] ->

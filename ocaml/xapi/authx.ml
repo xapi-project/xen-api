@@ -65,7 +65,9 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
             | [] ->
                 raise Not_found
             | line :: lines -> (
-                let recs = Xapi_stdext_std.Xstringext.String.split ':' line in
+                let recs =
+                  Xapi_stdext_std.Xstringext.String.split_on_char ':' line
+                in
                 let username = List.nth recs 0 in
                 let uid = List.nth recs 2 in
                 match fn username uid recs with

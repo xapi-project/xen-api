@@ -42,7 +42,7 @@ module String : sig
       runs of characters where the predicate was true. Avoid if possible, it's
       very costly to execute. *)
 
-  val split : ?limit:int -> char -> string -> string list
+  val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)
 
   val rtrim : string -> string

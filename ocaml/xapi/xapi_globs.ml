@@ -1466,7 +1466,7 @@ let other_options =
       (fun s -> s)
       disable_dbsync_for
   ; ( "xenopsd-queues"
-    , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
+    , Arg.String (fun x -> xenopsd_queues := String.split_on_char ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
     , "list of xenopsd instances to manage"
     )
@@ -1553,7 +1553,8 @@ let other_options =
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
-          nvidia_multi_vgpu_enabled_driver_versions := String.split ',' x
+          nvidia_multi_vgpu_enabled_driver_versions :=
+            String.split_on_char ',' x
         )
     , (fun () -> String.concat "," !nvidia_multi_vgpu_enabled_driver_versions)
     , "list of nvidia host driver versions with multiple vGPU supported.\n\

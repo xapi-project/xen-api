@@ -1182,8 +1182,8 @@ module MD = struct
       let affinity =
         try
           List.map
-            (fun x -> List.map int_of_string (String.split ',' x))
-            (String.split ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
+            (fun x -> List.map int_of_string (String.split_on_char ',' x))
+            (String.split_on_char ';' (List.assoc "mask" vm.API.vM_VCPUs_params))
         with _ -> []
       in
       let localhost = Helpers.get_localhost ~__context in
@@ -1193,7 +1193,9 @@ module MD = struct
       let host_cpu_mask =
         try
           List.map int_of_string
-            (String.split ',' (List.assoc "mask" host_guest_VCPUs_params))
+            (String.split_on_char ','
+               (List.assoc "mask" host_guest_VCPUs_params)
+            )
         with _ -> []
       in
       let affinity =
@@ -1981,7 +1983,9 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
               String.sub path (String.length dir)
                 (String.length path - String.length dir)
             in
-            match List.filter (fun x -> x <> "") (String.split '/' rest) with
+            match
+              List.filter (fun x -> x <> "") (String.split_on_char '/' rest)
+            with
             | x :: _ ->
                 Some x
             | _ ->

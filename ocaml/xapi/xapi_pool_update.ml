@@ -376,7 +376,7 @@ let parse_update_info xml =
           | "" ->
               []
           | s ->
-              List.map guidance_from_string (String.split ',' s)
+              List.map guidance_from_string (String.split_on_char ',' s)
         with _ -> []
       in
       let enforce_homogeneity =
