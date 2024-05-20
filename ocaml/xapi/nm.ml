@@ -470,7 +470,7 @@ let determine_static_routes net_rc =
   if List.mem_assoc "static-routes" net_rc.API.network_other_config then
     try
       let routes =
-        String.split ','
+        String.split_on_char ','
           (List.assoc "static-routes" net_rc.API.network_other_config)
       in
       List.map
