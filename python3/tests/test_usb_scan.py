@@ -61,7 +61,7 @@ class MocDevice(Mapping):
     def __getitem__(self, name):
         return self.get_prop().get(name)
 
-
+# pylint: disable=too-few-public-methods
 class MocEnumerator():
     def __init__(self, ds):
         self.ds = ds
@@ -70,7 +70,7 @@ class MocEnumerator():
         for d in self.ds:
             yield MocDevice(d)
 
-
+# pylint: disable=too-few-public-methods
 class MocContext():
     def __init__(self, devices, interfaces):
         self.devices = devices
