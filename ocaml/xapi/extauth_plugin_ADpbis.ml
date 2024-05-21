@@ -1052,6 +1052,14 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
   let on_disable config_params =
     (* but in the ldap plugin, we should 'leave the AD/kerberos domain', i.e. we should *)
     (* (1) remove the machine account from the kerberos realm, (2) remove the keytab locally *)
+
+    (* Clean pbis cache as we are disabling external auth and will leave domain *)
+    ( try pbis_common "/opt/pbis/bin/ad-cache" ["--delete-all"] |> ignore
+      with e ->
+        Printexc.to_string e
+        |> debug "Got error cleaning pbis cache, ignore the error %s"
+    ) ;
+
     let pbis_failure =
       try
         ( if
