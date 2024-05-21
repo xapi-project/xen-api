@@ -1,0 +1,15 @@
+{
+  "xapi-24/http_error_10": {
+    "method": [
+      "VM.get_record"
+    ],
+    "params": {
+      "VM.get_record": ["", ""]
+    },
+    "expected_result": {
+      "VM.get_record": {
+        "result": {}
+      }
+    }
+  }
+}

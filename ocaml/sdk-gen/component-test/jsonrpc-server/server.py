@@ -20,10 +20,13 @@ def load_json_files():
         dict: A dictionary containing the merged contents of all JSON files.
     """
     data = {}
-    for filename in os.listdir("spec/"):
-        if filename.endswith(".json"):
-            with open(f"spec/{filename}", "r", encoding="utf-8") as f:
-                data.update(json.load(f))
+    for path, _, files in os.walk("spec/"):
+        for name in files:
+            filepath = os.path.join(path, name)
+            if filepath.endswith(".json"):
+                with open(filepath, "r", encoding="utf-8") as f:
+                    data.update(json.load(f))
+
     return data
 
 
@@ -53,7 +56,7 @@ async def handle(request):
             "error": {
                 "code": 500,
                 "message": "Rpc server failed to handle the client request!",
-                "data": str(data),
+                "data": test_id,
             }
         }
     else:

@@ -17,7 +17,7 @@ start_jsonrpc_go_client() {
     # ensure that all dependencies are satisfied
     go mod tidy
     # build client.go and run it
-    go test main_test.go -v &
+    go test -v &
     JSONRPC_GO_CLIENT_PID=$!
 }
 

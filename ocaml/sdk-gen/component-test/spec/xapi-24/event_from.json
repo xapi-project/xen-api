@@ -1,0 +1,33 @@
+{
+    "xapi-24/event_from_11": {
+      "method": [
+        "event.from"
+      ],
+      "params": {
+        "event.from": ["", ["vm"], "token0", 600.0]
+      },
+      "expected_result": {
+        "event.from": {
+          "result": { 
+            "token": "token0",
+            "validRefCounts": {
+              "OpaqueRef:5event01-7b62-f571-d38b-754341a973e5": 6
+            },
+            "events": [
+                {
+                  "obj_uuid": "cevnet08-3e97-53bb-4f97-bd039ca8c217",
+                  "ref": "OpaqueRef:5event01-7b62-f571-d38b-754341a973e5",
+                  "class": "vm",
+                  "operation": "add",
+                  "id": 10,
+                  "snapshot": {
+                    "NameLabel": "snapshot0"
+                  },
+                  "timestamp": "2024-01-01T13:20:11Z"
+                }
+              ]
+          }
+        }
+      }
+    }
+}
