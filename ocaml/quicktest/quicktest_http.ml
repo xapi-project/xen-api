@@ -99,7 +99,7 @@ module Cookies = struct
       match body with
       | first_line :: _ ->
           D.warn "expected = [%s]; received = [%s]" expected first_line ;
-          Xapi_stdext_std.Xstringext.String.has_substr first_line expected
+          Astring.String.is_infix ~affix:first_line expected
       | _ ->
           false
     in
@@ -210,9 +210,7 @@ module HTML_Escaping = struct
   let bad_command_exp = "&lt;&gt;&apos;\\&quot;&amp;"
 
   let html_escaping expected cmd =
-    let check_result b =
-      Xapi_stdext_std.Xstringext.String.has_substr b expected
-    in
+    let check_result = Astring.String.is_infix ~affix:expected in
     let _, _, _, body = Uds.http_command Xapi_globs.unix_domain_socket cmd in
     match body with
     | first_line :: _ ->

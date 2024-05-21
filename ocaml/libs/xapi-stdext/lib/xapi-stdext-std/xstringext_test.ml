@@ -13,10 +13,6 @@
 
 module XString = Xapi_stdext_std.Xstringext.String
 
-let test_boolean tested_f (name, case, expected) =
-  let check () = Alcotest.(check bool) name expected (tested_f case) in
-  (name, `Quick, check)
-
 let test_string tested_f (name, case, expected) =
   let check () = Alcotest.(check string) name expected (tested_f case) in
   (name, `Quick, check)
@@ -74,26 +70,6 @@ let test_split_f =
   let tests = List.map test specs in
   ("split_f", tests)
 
-let test_has_substr =
-  let spec =
-    [
-      ("", "", true)
-    ; ("", "foo bar", true)
-    ; ("f", "foof", true)
-    ; ("foofo", "foof", false)
-    ; ("foof", "foof", true)
-    ; ("f", "foof", true)
-    ; ("fo", "foof", true)
-    ; ("of", "foof", true)
-    ; ("ff", "foof", false)
-    ]
-  in
-  let test (contained, container, expected) =
-    let name = Printf.sprintf {|"%s" in "%s"|} contained container in
-    test_boolean (XString.has_substr container) (name, contained, expected)
-  in
-  ("has_substr", List.map test spec)
-
 let test_rtrim =
   let spec =
     [
@@ -115,5 +91,4 @@ let test_rtrim =
   ("rtrim", List.map test spec)
 
 let () =
-  Alcotest.run "Xstringext"
-    [test_split; test_split_f; test_has_substr; test_rtrim]
+  Alcotest.run "Xstringext" [test_split; test_split_f; test_rtrim]

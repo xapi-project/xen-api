@@ -362,8 +362,7 @@ and
 
 let has_to_audit action =
   let has_side_effect action =
-    not (Xapi_stdext_std.Xstringext.String.has_substr action ".get")
-    (* TODO: a bit slow? *)
+    not (Astring.String.is_infix ~affix:".get" action)
   in
   (!Xapi_globs.log_getter || has_side_effect action)
   && not
@@ -471,7 +470,7 @@ let allowed_pre_fn ~__context ~action ?args () =
     if
       has_to_audit action
       (* for now, we only cache arg results for destroy actions *)
-      && Xapi_stdext_std.Xstringext.String.has_substr action ".destroy"
+      && Astring.String.is_infix ~affix:".destroy" action
     then
       let args' = add_dummy_args __context action args in
       Some (sexpr_of_parameters __context action args')
