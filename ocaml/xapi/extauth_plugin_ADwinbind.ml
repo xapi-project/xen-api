@@ -115,13 +115,19 @@ end = struct
 
   let default_port = 88
 
+  (** the custom URI scheme we use to store the KDC in the xapi database *)
+  let scheme = "kdc"
+
   let server t = Ipaddr.to_string t.ip
 
+  (** currently not used by client code *)
   let _port t = t.port
 
   let from_lookup str =
-    (* examples for IPv4 str returned by "net lookup kdc": 10.71.212.25:88
-       10.62.1.25:88 *)
+    (* examples for IPv4 str returned by "net lookup kdc":
+       10.71.212.25:88 10.62.1.25:88. Based on experiments I believe
+       this is also true for IPv6 although the colon is used inside an
+       IPv6 address. So we split off the last number as port *)
     match Astring.String.cut ~rev:true ~sep:":" str with
     | Some (ip, "88") -> (
       try {ip= Ipaddr.of_string ip |> Result.get_ok; port= default_port}
@@ -132,16 +138,26 @@ end = struct
     | None ->
         fail "%s: can't parse %s as address:port" __FUNCTION__ str
 
+  (** Read IP from XAPI. The legacy format is just the IP address; the
+     new format uses a URI, which includes the port *)
   let from_db str =
-    try {ip= Ipaddr.of_string str |> Result.get_ok; port= default_port}
+    let ip host = Ipaddr.of_string host |> Result.get_ok in
+    try
+      let uri = Uri.of_string str in
+      match Uri.(scheme uri, host uri, port uri) with
+      | Some s, Some host, Some port when s = scheme ->
+          {ip= ip host; port}
+      | _ ->
+          (* we try to parse the legacy format *)
+          {ip= ip str; port= default_port}
     with _ -> fail "%s: can't parse %s" __FUNCTION__ str
 
+  (** store host and port as a custom URI *)
   let to_db t =
-    (* we could create and write a URI that includes the port but we
-       would have to be sure that only this code is reading the URI back
-    *)
-    Ipaddr.to_string t.ip (* not writing port *)
+    Uri.make ~scheme ~host:(Ipaddr.to_string t.ip) ~port:t.port ()
+    |> Uri.to_string
 
+  (** this format is only used for logging *)
   let to_msg t = Printf.sprintf "%s (port %d)" (Ipaddr.to_string t.ip) t.port
 end
 
