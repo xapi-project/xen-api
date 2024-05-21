@@ -34,9 +34,6 @@ module String : sig
   val replace : string -> string -> string -> string
   (** replace all [f] substring in [s] by [t] *)
 
-  val filter_chars : string -> (char -> bool) -> string
-  (** filter chars from a string *)
-
   val map_unlikely : string -> (char -> string option) -> string
   (** map a string trying to fill the buffer by chunk *)
 
