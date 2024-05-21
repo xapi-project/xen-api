@@ -246,7 +246,7 @@ let print_memory_field_values xc xs =
   flush stdout
 
 (** Sleeps for the given time period in seconds. *)
-let sleep time_period_seconds = ignore (Unix.select [] [] [] time_period_seconds)
+let sleep time_period_seconds = Unix.sleepf time_period_seconds
 
 (** Prints a header line of memory field names, and then periodically prints a
     line of memory field values. *)
