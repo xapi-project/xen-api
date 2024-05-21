@@ -98,20 +98,6 @@ module String = struct
     ) else
       s
 
-  let filter_chars s valid =
-    let badchars = ref false in
-    let buf = Buffer.create 0 in
-    for i = 0 to String.length s - 1 do
-      if !badchars then (
-        if valid s.[i] then
-          Buffer.add_char buf s.[i]
-      ) else if not (valid s.[i]) then (
-        Buffer.add_substring buf s 0 i ;
-        badchars := true
-      )
-    done ;
-    if !badchars then Buffer.contents buf else s
-
   let map_unlikely s f =
     let changed = ref false in
     let m = ref 0 in

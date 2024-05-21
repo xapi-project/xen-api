@@ -13,7 +13,6 @@
  *)
 (* New cli talking to the in-server cli interface *)
 
-module Stringext = Xapi_stdext_std.Xstringext.String
 open Xapi_stdext_pervasives
 open Cli_protocol
 
@@ -306,7 +305,7 @@ let parse_args =
             || (extra_args.[!i] = ',' && extra_args.[!i - 1] <> '\\')
           then (
           let seg = String.sub extra_args !pos (!i - !pos) in
-          l := Stringext.filter_chars seg (( <> ) '\\') :: !l ;
+          l := Astring.String.filter (( <> ) '\\') seg :: !l ;
           incr i ;
           pos := !i
         ) else
