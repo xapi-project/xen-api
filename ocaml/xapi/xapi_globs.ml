@@ -1364,12 +1364,12 @@ let citrix_patch_key =
 
 let trusted_patch_key = ref citrix_patch_key
 
+let fields_of = Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
+
 let gen_list_option name desc of_string string_of opt =
   let parse s =
     opt := [] ;
-    try
-      Xapi_stdext_std.Xstringext.String.(split_f isspace s)
-      |> List.iter (fun x -> opt := of_string x :: !opt)
+    try fields_of s |> List.iter (fun x -> opt := of_string x :: !opt)
     with e ->
       D.error "Unable to parse %s=%s (expected space-separated list) error: %s"
         name s (Printexc.to_string e)

@@ -92,6 +92,8 @@ module Lwsmd = struct
     )
 end
 
+let is_word_sep = function '(' | ')' | ' ' | '\t' | '.' -> true | _ -> false
+
 let match_error_tag (lines : string list) =
   let err_catch_list =
     [
@@ -105,8 +107,7 @@ let match_error_tag (lines : string list) =
     ]
   in
   let split_to_words str =
-    let seps = ['('; ')'; ' '; '\t'; '.'] in
-    Stringext.split_f (fun s -> List.exists (fun sep -> sep = s) seps) str
+    Astring.String.fields ~empty:false ~is_sep:is_word_sep str
   in
   let rec has_err lines err_pattern =
     match lines with
@@ -133,7 +134,7 @@ let extract_sid_from_group_list group_list =
     (fun (_, v) ->
       let v = Stringext.replace ")" "" v in
       let v = Stringext.replace "sid =" "|" v in
-      let vs = Stringext.split_f (fun c -> c = '|') v in
+      let vs = Astring.String.cuts ~empty:false ~sep:"|" v in
       let sid = String.trim (List.nth vs 1) in
       debug "extract_sid_from_group_list get sid=[%s]" sid ;
       sid
@@ -166,7 +167,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     Locking_helpers.Named_mutex.create "IS_SERVER_AVAILABLE"
 
   let splitlines s =
-    Stringext.split_f (fun c -> c = '\n') (Stringext.replace "#012" "\n" s)
+    Astring.String.cuts ~empty:false ~sep:"\n" (Stringext.replace "#012" "\n" s)
 
   let pbis_common_with_password (password : string) (pbis_cmd : string)
       (pbis_args : string list) =
@@ -350,9 +351,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             !exited_code
             (Stringext.replace "\n" ";" !output) ;
           let split_to_words s =
-            Stringext.split_f
-              (fun c -> c = '(' || c = ')' || c = '.' || c = ' ')
-              s
+            Astring.String.fields ~empty:false ~is_sep:is_word_sep s
           in
           let revlines =
             List.rev
@@ -621,7 +620,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     (* first, we try to authenticated user against our external user database *)
     (* pbis_common will raise an Auth_failure if external authentication fails *)
     let domain, user =
-      match Stringext.split_f (fun c -> c = '\\') username with
+      match Astring.String.cuts ~empty:false ~sep:"\\" username with
       | [domain; user] ->
           (domain, user)
       | [user] ->
@@ -978,7 +977,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
             | "" ->
                 []
             | disabled_modules_string ->
-                Stringext.split_f (fun c -> c = ',') disabled_modules_string
+                Astring.String.cuts ~empty:false ~sep:","
+                  disabled_modules_string
           with Not_found -> []
         in
         let disabled_module_params =

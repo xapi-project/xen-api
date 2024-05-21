@@ -12,32 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 module String = struct
-  (** Returns true for whitespace characters, false otherwise *)
-  let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
-
-  let split_f p str =
-    let split_one seq =
-      let not_p c = not (p c) in
-      let a = Seq.take_while not_p seq in
-      let b = Seq.drop_while not_p seq in
-      (a, b)
-    in
-    let drop seq = Seq.drop_while p seq in
-    let rec split acc chars =
-      if Seq.is_empty chars then
-        acc
-      else
-        let a, b = split_one chars in
-        let b = drop b in
-        let acc = if Seq.is_empty a then acc else Seq.cons a acc in
-        split acc b
-    in
-    String.to_seq str
-    |> split Seq.empty
-    |> Seq.map String.of_seq
-    |> List.of_seq
-    |> List.rev
-
   let sub_to_end s start =
     let length = String.length s in
     String.sub s start (length - start)
