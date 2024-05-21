@@ -522,6 +522,8 @@ module Watcher = struct
 
   let cluster_change_watcher : Thread.t option ref = ref None
 
+  let cluster_stack_watcher : Thread.t option ref = ref None
+
   let mu = Mutex.create ()
 
   open Xapi_stdext_threads.Threadext
@@ -554,12 +556,51 @@ module Watcher = struct
     done ;
     Mutex.execute mu (fun () -> cluster_change_watcher := None)
 
+  let watch_cluster_stack_version ~__context ~host =
+    while !Daemon.enabled do
+      ( match find_cluster_host ~__context ~host with
+      | Some ch ->
+          let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self:ch in
+          let cluster_rec =
+            Db.Cluster.get_record ~__context ~self:cluster_ref
+          in
+          if
+            Cluster_stack.of_version
+              ( cluster_rec.API.cluster_cluster_stack
+              , cluster_rec.API.cluster_cluster_stack_version
+              )
+            = Cluster_stack.Corosync2
+          then
+            debug "%s: Detected corosync 2 running as cluster stack"
+              __FUNCTION__ ;
+          let body =
+            "The current cluster stack version of Corosync 2 is out of date, \
+             consider updating to Corosync 3"
+          in
+          let name, priority = Api_messages.cluster_stack_out_of_date in
+          let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              ignore
+              @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
+                   ~cls:`Host ~obj_uuid:host_uuid ~body
+          )
+      | None ->
+          debug "%s: No cluster host, no need to watch" __FUNCTION__
+      ) ;
+      Ptime.Span.of_d_ps (7, 0L)
+      |> Option.get
+      |> Ptime.Span.to_float_s
+      |> Thread.delay
+    done ;
+    Mutex.execute mu (fun () -> cluster_stack_watcher := None)
+
   (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
       already created. 
       There is no need to destroy them: once the clustering daemon is disabled, 
       these threads will exit as well. *)
   let create_as_necessary ~__context ~host =
-    if Helpers.is_pool_master ~__context ~host then
+    if Helpers.is_pool_master ~__context ~host then (
       if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
         debug "%s: create watcher for corosync-notifyd on coordinator"
           __FUNCTION__ ;
@@ -575,5 +616,23 @@ module Watcher = struct
             | Some _ ->
                 ()
         )
+      ) ;
+
+      if Xapi_cluster_helpers.corosync3_enabled ~__context then (
+        debug "%s: create watcher for cluster stack version on coordinator"
+          __FUNCTION__ ;
+
+        Mutex.execute mu (fun () ->
+            match !cluster_stack_watcher with
+            | None ->
+                cluster_stack_watcher :=
+                  Thread.create
+                    (fun () -> watch_cluster_stack_version ~__context ~host)
+                    ()
+                  |> Option.some
+            | Some _ ->
+                ()
+        )
       )
+    )
 end
