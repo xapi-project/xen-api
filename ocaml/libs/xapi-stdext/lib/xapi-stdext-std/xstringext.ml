@@ -58,17 +58,6 @@ module String = struct
     else
       s
 
-  (** has_substr str sub returns true if sub is a substring of str. Simple, naive, slow. *)
-  let has_substr str sub =
-    if String.length sub > String.length str then
-      false
-    else
-      let result = ref false in
-      for start = 0 to String.length str - String.length sub do
-        if String.sub str start (String.length sub) = sub then result := true
-      done ;
-      !result
-
   (** find all occurences of needle in haystack and return all their respective index *)
   let find_all needle haystack =
     let m = String.length needle and n = String.length haystack in

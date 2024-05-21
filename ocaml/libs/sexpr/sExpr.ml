@@ -28,7 +28,7 @@ let is_escape_char = function '\\' | '\'' -> true | _ -> false
 (* XXX: This escapes "'c'" and "\'c\'" to "\\'c\\'".
  * They are both unescaped as "'c'". They have been ported
  * to make sure that this corner case is left unchanged.
- * It is worth investigating the use of 
+ * It is worth investigating the use of
  * - Astring.String.Ascii.escape_string
  * - Astring.String.Ascii.unescape
  * that have guaranteed invariants and optimised performances *)

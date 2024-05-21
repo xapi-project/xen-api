@@ -238,7 +238,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       pbis_cmd ^ " " ^ List.fold_left (fun p pp -> p ^ " " ^ pp) " " pbis_args
     in
     let debug_cmd =
-      if Stringext.has_substr debug_cmd "--password" then
+      if Astring.String.is_infix ~affix:"--password" debug_cmd then
         "(omitted for security)"
       else
         debug_cmd

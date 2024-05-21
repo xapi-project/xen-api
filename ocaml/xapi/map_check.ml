@@ -113,7 +113,7 @@ let assert_value ~field ~key ~attr ~value =
           | Some v ->
               if acc = "" then
                 v
-              else if Xapi_stdext_std.Xstringext.String.has_substr acc v then
+              else if Astring.String.is_infix ~affix:v acc then
                 err value
               else
                 v ^ "," ^ acc
