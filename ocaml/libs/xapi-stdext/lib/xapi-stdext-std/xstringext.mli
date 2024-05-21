@@ -12,18 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 module String : sig
-  val isspace : char -> bool
-  (** True if the character is whitespace *)
-
   val replaced : replace:(char -> string option) -> string -> string
   (** [replaced ~replacement str] applies [replace] to all characters in [str]
       and when it returns [Some rep] the character is replaced with [rep] in
       the resulting string *)
-
-  val split_f : (char -> bool) -> string -> string list
-  (** Take a predicate and a string, return a list of strings separated by
-      runs of characters where the predicate was true. Avoid if possible, it's
-      very costly to execute. *)
 
   val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)

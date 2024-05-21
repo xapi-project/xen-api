@@ -349,9 +349,10 @@ module LiveSetInformation = struct
             | Some u ->
                 u
           in
-          let set f x =
-            List.map f Xapi_stdext_std.Xstringext.String.(split_f isspace x)
+          let fields_of =
+            Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
           in
+          let set f x = List.map f (fields_of x) in
           Some
             {
               id= uuid (find "HostID")

@@ -52,24 +52,6 @@ let test_split =
   in
   ("split", tests)
 
-let test_split_f =
-  let specs =
-    [
-      (XString.isspace, "foo bar", ["foo"; "bar"])
-    ; (XString.isspace, "foo  bar", ["foo"; "bar"])
-    ; (XString.isspace, "foo \n\t\r bar", ["foo"; "bar"])
-    ; (XString.isspace, " foo bar ", ["foo"; "bar"])
-    ; (XString.isspace, "", [])
-    ; (XString.isspace, " ", [])
-    ]
-  in
-  let test (splitter, splitted, expected) =
-    let name = Printf.sprintf {|"%s"|} (String.escaped splitted) in
-    test_list (XString.split_f splitter) (name, splitted, expected)
-  in
-  let tests = List.map test specs in
-  ("split_f", tests)
-
 let test_rtrim =
   let spec =
     [
@@ -90,5 +72,4 @@ let test_rtrim =
   in
   ("rtrim", List.map test spec)
 
-let () =
-  Alcotest.run "Xstringext" [test_split; test_split_f; test_rtrim]
+let () = Alcotest.run "Xstringext" [test_split; test_rtrim]

@@ -74,26 +74,12 @@ let raise_internal_error args =
   raise (Api_errors.Server_error (Api_errors.wlb_internal_error, args))
 
 let split_host_port url =
-  try
-    if url.[0] = '[' then (
-      (* IPv6 *)
-      let host_end = String.rindex url ']' in
-      if url.[host_end + 1] <> ':' then
-        raise_url_invalid url ;
-      let host = String.sub url 1 (host_end - 1) in
-      let port =
-        String.sub url (host_end + 2) (String.length url - host_end - 2)
-      in
-      (host, int_of_string port)
-    ) else
-      match
-        Xapi_stdext_std.Xstringext.String.split_f (fun a -> a = ':') url
-      with
-      | [host; port] ->
-          (host, int_of_string port)
-      | _ ->
-          raise_url_invalid url
-  with _ -> raise_url_invalid url
+  let uri = Uri.of_string ("//" ^ url) in
+  match (Uri.host uri, Uri.port uri) with
+  | None, _ | _, None ->
+      raise_url_invalid url
+  | Some host, Some port ->
+      (host, port)
 
 let wlb_host_port ~__context =
   let pool = Helpers.get_pool ~__context in
