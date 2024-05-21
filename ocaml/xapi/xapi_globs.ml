@@ -1023,6 +1023,8 @@ let python3_path = ref "/usr/bin/python3"
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
 
+let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1802,6 +1804,10 @@ module Resources = struct
     ; ( "trace-log-dir"
       , trace_log_dir
       , "Directory for storing traces exported to logs"
+      )
+    ; ( "pool-recommendations-dir"
+      , pool_recommendations_dir
+      , "Directory containing files with recommendations in key=value format"
       )
     ]
 
