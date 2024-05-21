@@ -1493,6 +1493,12 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"update-sync-enabled"
           ~get:(fun () -> (x ()).API.pool_update_sync_enabled |> string_of_bool)
           ()
+      ; make_field ~name:"recommendations"
+          ~get:(fun () ->
+            Record_util.s2sm_to_string "; " (x ()).API.pool_recommendations
+          )
+          ~get_map:(fun () -> (x ()).API.pool_recommendations)
+          ()
       ]
   }
 
