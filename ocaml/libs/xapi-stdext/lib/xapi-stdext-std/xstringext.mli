@@ -31,9 +31,6 @@ module String : sig
   val rtrim : string -> string
   (** FIXME document me|remove me if similar to strip *)
 
-  val has_substr : string -> string -> bool
-  (** True if sub is a substr of str *)
-
   val replace : string -> string -> string -> string
   (** replace all [f] substring in [s] by [t] *)
 
