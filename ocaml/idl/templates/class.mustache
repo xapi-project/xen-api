@@ -1,0 +1,89 @@
+---
+ layout: doc
+---
+
+# Class: {{{class_name}}}
+{{#class_deprecated}}
+
+**This class is deprecated.**
+{{/class_deprecated}}
+{{#class_removed}}
+
+**This class is removed.**
+{{/class_removed}}
+{{#has_descr}}
+
+{{{class_descr}}}
+{{/has_descr}}
+
+## Fields for class: {{{class_name}}}
+{{#has_fields}}
+
+|Field               |Type                |Qualifier      |Description                             |
+|:-------------------|:-------------------|:--------------|:---------------------------------------|
+{{/has_fields}}
+{{#fields}}
+|{{{field_name}}}|{{{field_type}}}|{{{field_ctor}}}|{{#field_deprecated}}**Deprecated.** {{/field_deprecated}}{{#field_removed}}**Removed.** {{/field_removed}}{{{field_descr}}}|
+{{/fields}}
+{{#is_event}}
+|snapshot            |object record       |_RO/runtime_   |The record of the database object that was added, changed or deleted|
+{{/is_event}}
+{{^has_fields}}
+
+Class {{{class_name}}} has no fields.
+{{/has_fields}}
+
+## RPCs associated with class: {{{class_name}}}
+{{#all_rpcs}}
+
+### RPC name: {{{rpc_name_escaped}}}
+{{#rpc_deprecated}}
+
+**This message is deprecated.**
+{{/rpc_deprecated}}
+{{#rpc_removed}}
+
+**This message is removed.**
+{{/rpc_removed}}
+
+_Overview:_
+{{#rpc_has_descr}}
+
+{{{rpc_descr}}}
+{{/rpc_has_descr}}
+
+_Signature:_
+
+```
+{{{return_type}}} {{{rpc_name}}} ({{#session}}session ref session_ref{{#has_rpc_params}}, {{/has_rpc_params}}{{/session}}{{{rpc_param_csv}}})
+```
+
+_Arguments:_
+
+|Type                          |Name                          |Description                             |
+|:-----------------------------|:-----------------------------|:---------------------------------------|
+{{#session}}
+|`session ref`                 |`session_ref`                 |Reference to a valid session            |
+{{/session}}
+{{#rpc_params}}
+|{{{param_type}}}|{{{param_name}}}|{{{param_descr}}}|
+{{/rpc_params}}
+
+{{#has_rbac}}
+_Minimum Role:_ {{min_role}}
+
+{{/has_rbac}}
+_Return Type:_ `{{{return_type}}}`
+{{^returns_void}}
+
+{{{return_descr}}}
+{{/returns_void}}
+{{#has_error_codes}}
+
+_Possible Error Codes:_ {{{error_codes_csv}}}
+{{/has_error_codes}}
+{{/all_rpcs}}
+{{^has_rpcs}}
+
+Class {{{class_name}}} has no RPCs associated with it.
+{{/has_rpcs}}

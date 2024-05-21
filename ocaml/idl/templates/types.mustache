@@ -1,0 +1,42 @@
+---
+ layout: doc
+---
+
+# Types
+
+## Primitives
+
+The following primitive types are used to specify methods and fields in
+the API Reference:
+
+|Type      |Description                                 |
+|:---------|:-------------------------------------------|
+|`string`  |text strings                                |
+|`int`     |64-bit integers                             |
+|`float`   |IEEE double-precision floating-point numbers|
+|`bool`    |boolean                                     |
+|`datetime`|date and timestamp                          |
+
+## Higher-order types
+
+The following type constructors are used:
+
+|Type          |Description                                             |
+|:-------------|:-------------------------------------------------------|
+|`c ref`       |reference to an object of class `c`                     |
+|`t set`       |a set of elements of type `t`                           |
+|`(a -> b) map`|a table mapping values of type `a` to values of type `b`|
+
+## Enumeration types
+
+The following enumeration types are used:
+{{#enums}}
+
+### Enum {{{enum}}}
+
+|Named value                             |Description                                          |
+|:---------------------------------------|:----------------------------------------------------|
+{{#enum_options}}
+|{{{option_name}}}|{{{option_descr}}}|
+{{/enum_options}}
+{{/enums}}

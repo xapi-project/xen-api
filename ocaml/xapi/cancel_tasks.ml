@@ -26,7 +26,7 @@ let safe_wrapper n f x =
     Debug.log_backtrace e (Backtrace.get e)
 
 let update_all_allowed_operations ~__context =
-  let open Stats in
+  let time_this = Xapi_database.Stats.time_this in
   let all_vms = Db.VM.get_all ~__context
   and all_vbds = Db.VBD.get_all ~__context
   and all_vifs = Db.VIF.get_all ~__context

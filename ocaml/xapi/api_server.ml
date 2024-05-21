@@ -320,7 +320,8 @@ let jsoncallback req bio _ =
   let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =
-    Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio
+    Http_svr.read_body ~limit:Xapi_database.Db_globs.http_limit_max_rpc_size req
+      bio
   in
   try
     let json_rpc_version, id, rpc =

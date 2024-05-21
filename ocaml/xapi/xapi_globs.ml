@@ -20,6 +20,8 @@ module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
 
+module Db_globs = Xapi_database.Db_globs
+
 (* set this to true to enable XSM to out-of-pool SRs with matching UUID *)
 let relax_xsm_sr_check = ref true
 

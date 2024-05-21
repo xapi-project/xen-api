@@ -178,7 +178,7 @@ following manner:
 
 * our `void` type is transmitted as an empty string.
 
-Both versions 1.0 and 2.0 of the JSON-RPC wire format are recognised and,
+Both versions 1.0 and 2.0 of the JSON-RPC wire format are recognized and,
 depending on your client library, you can use either of them.
 
 ### JSON-RPC v1.0
@@ -486,7 +486,7 @@ session reference is returned under the key `Value` in the resulting dictionary
 ...                                           "version", "originator")['Value']
 ```
 
-This is what the call looks like when serialised
+This is what the call looks like when serialized
 
 ```xml
 <?xml version='1.0'?>
@@ -530,7 +530,7 @@ Once a reference to a VM has been acquired, a lifecycle operation may be invoked
 In this case the `start` message has been rejected, because the VM is
 a template, and so an error response has been returned.  These high-level
 errors are returned as structured data (rather than as XML-RPC faults),
-allowing them to be internationalised.
+allowing them to be internationalized.
 
 Rather than querying fields individually, whole _records_ may be returned at once.
 To retrieve the record of a single object as a python dictionary:
@@ -575,7 +575,7 @@ reference:
 ...                       "user", "passwd", "version", "originator")
 ```
 
-`pyjsonrpc` uses the JSON-RPC protocol v2.0, so this is what the serialised
+`pyjsonrpc` uses the JSON-RPC protocol v2.0, so this is what the serialized
 request looks like:
 
 ```json
@@ -623,7 +623,7 @@ Once a reference to a VM has been acquired, a lifecycle operation may be invoked
 
 In this case the `start` message has been rejected because the VM is
 a template, hence an error response has been returned. These high-level
-errors are returned as structured data, allowing them to be internationalised.
+errors are returned as structured data, allowing them to be internationalized.
 
 Rather than querying fields individually, whole _records_ may be returned at once.
 To retrieve the record of a single object as a python dictionary:

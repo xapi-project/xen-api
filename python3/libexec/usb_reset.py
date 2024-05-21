@@ -47,7 +47,7 @@ import ctypes.util
 import errno
 import fcntl
 import grp
-import xcp.logger as log
+import xcp.logger as log  # pytype: disable=import-error
 import logging
 import os
 import pwd

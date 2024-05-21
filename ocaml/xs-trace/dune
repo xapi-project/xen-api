@@ -4,7 +4,7 @@
   (public_name xs-trace)
   (package xapi)
   (libraries
-    tracing
+    tracing_export
     xapi-stdext-unix
   )
 )

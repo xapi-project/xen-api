@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Xenstore
+open Ezxenstore_core.Xenstore
 
 type kind = Vif | Tap | Pci | Vfs | Vfb | Vkbd | Vbd of string | NetSriovVf
 [@@deriving rpcty]

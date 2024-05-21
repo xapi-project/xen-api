@@ -21,7 +21,7 @@ import syslog
 import tempfile
 import traceback
 from socket import getfqdn
-from xml.dom import minidom
+from xml.dom import minidom  # pytype: disable=pyi-error
 
 import XenAPI
 from xcp import branding

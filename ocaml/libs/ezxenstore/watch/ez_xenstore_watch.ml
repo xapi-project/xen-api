@@ -19,7 +19,7 @@ end
 
 module Make (Debug : DEBUG) = struct
   open Debug
-  open Xenstore
+  open Ezxenstore_core.Xenstore
 
   exception Watch_overflow
 
@@ -46,7 +46,7 @@ module Make (Debug : DEBUG) = struct
 
     val watch_fired :
          Xenctrl.handle
-      -> Xenstore.Xs.xsh
+      -> Ezxenstore_core.Xenstore.Xs.xsh
       -> string
       -> Xenctrl.domaininfo IntMap.t
       -> IntSet.t
@@ -56,9 +56,11 @@ module Make (Debug : DEBUG) = struct
 
     val found_running_domain : int -> string -> unit
 
-    val domain_appeared : Xenctrl.handle -> Xenstore.Xs.xsh -> int -> unit
+    val domain_appeared :
+      Xenctrl.handle -> Ezxenstore_core.Xenstore.Xs.xsh -> int -> unit
 
-    val domain_disappeared : Xenctrl.handle -> Xenstore.Xs.xsh -> int -> unit
+    val domain_disappeared :
+      Xenctrl.handle -> Ezxenstore_core.Xenstore.Xs.xsh -> int -> unit
   end
 
   let watch ~xs token path =

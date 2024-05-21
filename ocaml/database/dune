@@ -21,6 +21,7 @@
 
 (library
   (name xapi_database)
+  (modes best)
   (modules
     (:standard \ database_server_main db_cache_test db_names db_exn
       block_device_io string_marshall_helper string_unmarshall_helper schema
@@ -48,7 +49,6 @@
     xml-light2
     xmlm
   )
-  (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
 )
 

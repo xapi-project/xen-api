@@ -1,0 +1,18 @@
+---
+ layout: doc
+---
+
+# Relationships Between Classes
+
+Fields that are bound together are shown in the following table:
+
+|_object.field_                        |_object.field_                        |_relationship_ |
+|:-------------------------------------|:-------------------------------------|:--------------|
+{{#relationships}}
+|{{{a_field}}}|{{{b_field}}}|{{relationship}}|
+{{/relationships}}
+
+The following figure represents bound fields (as specified above) using crow's
+foot notation to specify one-to-one, one-to-many, or many-to-many relationships:
+
+![Class relationships](classes.png 'Class relationships')

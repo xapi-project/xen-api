@@ -57,6 +57,7 @@
 (library
   (name xapi_internal)
   (wrapped false)
+  (modes best)
   (modules (:standard \ xapi_main))
   (libraries
     angstrom
@@ -73,6 +74,7 @@
     hex
     http_lib
     ipaddr
+    magic-mime
     message-switch-core
     message-switch-unix
     mirage-crypto

@@ -33,7 +33,7 @@ let cmd_name driver = sprintf "%s/%sSR" !Xapi_globs.sm_dir driver
 let sm_username = "__sm__backend"
 
 let with_dbg ~name ~dbg f =
-  Debuginfo.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
+  Debug_info.with_dbg ~module_name:"Sm_exec" ~name ~dbg f
 
 (*********************************************************************************************)
 (* Random utility functions *)
@@ -69,8 +69,8 @@ type call = {
 }
 
 let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
-    ?vdi_location ?new_uuid ?sr_ref ?vdi_ref (subtask_of, device_config) cmd
-    args =
+    ?vdi_location ?new_uuid ?sr_ref ?vdi_ref ?vdi_uuid
+    (subtask_of, device_config) cmd args =
   Server_helpers.exec_with_new_task "sm_exec" (fun __context ->
       (* Only allow a subset of calls if the SR has been introduced by a DR task. *)
       Option.iter
@@ -117,7 +117,22 @@ let make_call ?driver_params ?sr_sm_config ?vdi_sm_config ?vdi_type
           Option.map (fun self -> Db.VDI.get_location ~__context ~self) vdi_ref
       in
       let vdi_uuid =
-        Option.map (fun self -> Db.VDI.get_uuid ~__context ~self) vdi_ref
+        match (cmd, vdi_ref, vdi_uuid) with
+        | "vdi_create", None, (Some x as uuid) ->
+            debug "%s: cmd=%s vdi_uuid=%s" __FUNCTION__ cmd x ;
+            uuid
+            (* when creating a VDI we sometimes want to provide the UUID
+               rather than letting the backend pick one. This is to
+               support backup VDIs CP-46179. So in that case, use the
+               provided UUID but not for other commands *)
+        | _, None, Some uuid ->
+            warn "%s: cmd=%s vdi_uuid=%s - should not happen" __FUNCTION__ cmd
+              uuid ;
+            None
+        | _, Some self, _ ->
+            Db.VDI.get_uuid ~__context ~self |> Option.some
+        | _, None, None ->
+            None
       in
       let vdi_on_boot =
         Option.map
@@ -326,12 +341,11 @@ let with_session sr f =
 let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
     (call : call) =
   with_dbg ~name:call.cmd ~dbg @@ fun di ->
-  let dbg = Debuginfo.to_string di in
   let do_call call =
     let xml = xmlrpc_of_call call in
     let name = Printf.sprintf "sm_exec: %s" call.cmd in
     let xml, stderr =
-      Stats.time_this name (fun () ->
+      Xapi_database.Stats.time_this name (fun () ->
           let exe = cmd_name driver in
           (* Logging call.cmd is safe, but call.args could contain a password. *)
           try
@@ -343,12 +357,11 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
                 | false ->
                     (None, exe, args)
                 | true ->
-                    let traceparent = Debuginfo.traceparent_of_dbg dbg in
                     Xapi_observer_components.env_exe_args_of
-                      ~component:Xapi_observer_components.SMApi ~traceparent
-                      ~exe ~args
+                      ~component:Xapi_observer_components.SMApi ~exe ~args
               in
-              Forkhelpers.execute_command_get_output ?env exe args
+              Forkhelpers.execute_command_get_output ?tracing:di.tracing ?env
+                exe args
             in
             try (Xml.parse_string output, stderr)
             with e ->
@@ -566,7 +579,7 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
 
 let sr_get_driver_info ~dbg driver =
   with_dbg ~name:"sr_get_driver_info" ~dbg @@ fun di ->
-  let dbg = Debuginfo.to_string di in
+  let dbg = Debug_info.to_string di in
   let call = make_call (None, []) "sr_get_driver_info" [] in
   parse_sr_get_driver_info driver
     (exec_xmlrpc ~dbg ~needs_session:false driver call)
@@ -575,7 +588,7 @@ let sr_get_driver_info ~dbg driver =
  * backend and daemon found. *)
 let get_supported ~dbg add_fn =
   with_dbg ~name:"get_supported" ~dbg @@ fun di ->
-  let dbg = Debuginfo.to_string di in
+  let dbg = Debug_info.to_string di in
   let check_driver entry =
     if Astring.String.is_suffix ~affix:"SR" entry then
       let driver = String.sub entry 0 (String.length entry - 2) in

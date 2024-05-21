@@ -136,7 +136,7 @@ module Session = struct
     call ~flags:[`Session] ~name:"change_password"
       ~doc:
         "Change the account password; if your session is authenticated with \
-         root priviledges then the old_pwd is validated and the new_pwd is set \
+         root privileges then the old_pwd is validated and the new_pwd is set \
          regardless"
       ~params:
         [
@@ -2057,7 +2057,10 @@ module Bond = struct
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
       ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_bond
-      ~descr:"" ~gen_events:true ~doccomments:[]
+      ~descr:
+        "A Network bond that combines physical network interfaces, also known \
+         as link aggregation"
+      ~gen_events:true ~doccomments:[]
       ~messages_default_allowed_roles:_R_POOL_OP ~doc_tags:[Networking]
       ~messages:[create; destroy; set_mode; set_property]
       ~contents:
@@ -5985,7 +5988,7 @@ module DR_task = struct
           )
         ; (Set String, "whitelist", "The devices to use for disaster recovery")
         ]
-      ~result:(Ref _dr_task, "The reference to the created task")
+      ~result:(Ref _dr_task, "The reference of the created DR_task")
       ~doc:
         "Create a disaster recovery task which will query the supplied list of \
          devices"
@@ -6067,7 +6070,7 @@ module Event = struct
       ~doc:
         "Blocking call which returns a (possibly empty) batch of events. This \
          method is only recommended for legacy use. New development should use \
-         event.from which supercedes this method."
+         event.from which supersedes this method."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:(Set (Record _event), "A set of events")
       ~errs:[Api_errors.session_not_registered; Api_errors.events_lost]
@@ -6202,7 +6205,7 @@ module Blob = struct
           }
         ]
       ~doc:"Create a placeholder for a binary blob" ~flags:[`Session]
-      ~result:(Ref _blob, "The reference to the created blob")
+      ~result:(Ref _blob, "The reference of the created blob")
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
@@ -6517,14 +6520,55 @@ module Network_sriov = struct
 end
 
 (** PCI devices *)
+let pci_dom0_access =
+  Enum
+    ( "pci_dom0_access"
+    , [
+        ("enabled", "dom0 can access this device as normal")
+      ; ( "disable_on_reboot"
+        , "On host reboot dom0 will be blocked from accessing this device"
+        )
+      ; ("disabled", "dom0 cannot access this device")
+      ; ( "enable_on_reboot"
+        , "On host reboot dom0 will be allowed to access this device"
+        )
+      ]
+    )
 
 module PCI = struct
+  let disable_dom0_access =
+    call ~name:"disable_dom0_access" ~lifecycle:[]
+      ~doc:
+        "Hide a PCI device from the dom0 kernel. (Takes affect after next \
+         boot.)"
+      ~params:[(Ref _pci, "self", "The PCI to hide")]
+      ~result:(pci_dom0_access, "The accessibility of this PCI from dom0")
+      ~allowed_roles:_R_POOL_OP ()
+
+  let enable_dom0_access =
+    call ~name:"enable_dom0_access" ~lifecycle:[]
+      ~doc:
+        "Unhide a PCI device from the dom0 kernel. (Takes affect after next \
+         boot.)"
+      ~params:[(Ref _pci, "self", "The PCI to unhide")]
+      ~result:(pci_dom0_access, "The accessibility of this PCI from dom0")
+      ~allowed_roles:_R_POOL_OP ()
+
+  let get_dom0_access_status =
+    call ~name:"get_dom0_access_status" ~lifecycle:[]
+      ~doc:"Return a PCI device dom0 access status."
+      ~params:[(Ref _pci, "self", "The PCI")]
+      ~result:(pci_dom0_access, "The accessibility of this PCI from dom0")
+      ~allowed_roles:_R_POOL_OP ()
+
   let t =
     create_obj ~name:_pci ~descr:"A PCI device" ~doccomments:[]
       ~gen_constructor_destructor:false ~gen_events:true ~in_db:true
       ~lifecycle:[(Published, rel_boston, "")]
-      ~messages:[] ~messages_default_allowed_roles:_R_POOL_OP
-      ~persist:PersistEverything ~in_oss_since:None ~db_logging:Log_destroy
+      ~messages:
+        [disable_dom0_access; enable_dom0_access; get_dom0_access_status]
+      ~messages_default_allowed_roles:_R_POOL_OP ~persist:PersistEverything
+      ~in_oss_since:None ~db_logging:Log_destroy
       ~contents:
         [
           uid _pci ~lifecycle:[(Published, rel_boston, "")]
@@ -6618,21 +6662,6 @@ end
 (** Physical GPUs (pGPU) *)
 
 module PGPU = struct
-  let dom0_access =
-    Enum
-      ( "pgpu_dom0_access"
-      , [
-          ("enabled", "dom0 can access this device as normal")
-        ; ( "disable_on_reboot"
-          , "On host reboot dom0 will be blocked from accessing this device"
-          )
-        ; ("disabled", "dom0 cannot access this device")
-        ; ( "enable_on_reboot"
-          , "On host reboot dom0 will be allowed to access this device"
-          )
-        ]
-      )
-
   let add_enabled_VGPU_types =
     call ~name:"add_enabled_VGPU_types"
       ~lifecycle:[(Published, rel_vgpu_tech_preview, "")]
@@ -6753,7 +6782,11 @@ module PGPU = struct
 
   let enable_dom0_access =
     call ~name:"enable_dom0_access"
-      ~lifecycle:[(Published, rel_cream, "")]
+      ~lifecycle:
+        [
+          (Published, rel_cream, "")
+        ; (Deprecated, "24.14.0", "Use PCI.enable_dom0_access instead.")
+        ]
       ~versioned_params:
         [
           {
@@ -6764,12 +6797,16 @@ module PGPU = struct
           ; param_default= None
           }
         ]
-      ~result:(dom0_access, "The accessibility of this PGPU from dom0")
+      ~result:(pci_dom0_access, "The accessibility of this PGPU from dom0")
       ~allowed_roles:_R_POOL_OP ()
 
   let disable_dom0_access =
     call ~name:"disable_dom0_access"
-      ~lifecycle:[(Published, rel_cream, "")]
+      ~lifecycle:
+        [
+          (Published, rel_cream, "")
+        ; (Deprecated, "24.14.0", "Use PCI.disable_dom0_access instead.")
+        ]
       ~versioned_params:
         [
           {
@@ -6780,7 +6817,7 @@ module PGPU = struct
           ; param_default= None
           }
         ]
-      ~result:(dom0_access, "The accessibility of this PGPU from dom0")
+      ~result:(pci_dom0_access, "The accessibility of this PGPU from dom0")
       ~allowed_roles:_R_POOL_OP ()
 
   let t =
@@ -6841,8 +6878,15 @@ module PGPU = struct
             "A map relating each VGPU type supported on this GPU to the \
              maximum number of VGPUs of that type which can run simultaneously \
              on this GPU"
-        ; field ~qualifier:DynamicRO ~ty:dom0_access
-            ~lifecycle:[(Published, rel_cream, "")]
+        ; field ~qualifier:DynamicRO ~ty:pci_dom0_access
+            ~lifecycle:
+              [
+                (Published, rel_cream, "")
+              ; ( Deprecated
+                , "24.14.0"
+                , "Use PCI.get_dom0_access_status instead."
+                )
+              ]
             ~default_value:(Some (VEnum "enabled")) "dom0_access"
             "The accessibility of this device from dom0"
         ; field ~qualifier:DynamicRO ~ty:Bool
@@ -6889,7 +6933,8 @@ module GPU_group = struct
           ; param_default= Some (VMap [])
           }
         ]
-      ~result:(Ref _gpu_group, "") ~allowed_roles:_R_POOL_OP ()
+      ~result:(Ref _gpu_group, "The reference of the created GPU_group")
+      ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy"
@@ -7041,7 +7086,7 @@ module VGPU = struct
           ; param_default= Some (VRef null_ref)
           }
         ]
-      ~result:(Ref _vgpu, "reference to the newly created object")
+      ~result:(Ref _vgpu, "The reference of the created VGPU object")
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
@@ -7356,7 +7401,7 @@ module PVS_proxy = struct
 
   let create =
     call ~name:"create" ~doc:"Configure a VM/VIF to use a PVS proxy"
-      ~result:(Ref _pvs_proxy, "the new PVS proxy")
+      ~result:(Ref _pvs_proxy, "The reference of the created PVS proxy")
       ~params:
         [
           (Ref _pvs_site, "site", "PVS site that we proxy for")
@@ -7626,7 +7671,8 @@ module USB_group = struct
           ; param_default= Some (VMap [])
           }
         ]
-      ~result:(Ref _usb_group, "") ~allowed_roles:_R_POOL_ADMIN ()
+      ~result:(Ref _usb_group, "The reference of the created USB_group")
+      ~allowed_roles:_R_POOL_ADMIN ()
 
   let destroy =
     call ~name:"destroy" ~lifecycle
@@ -8172,6 +8218,7 @@ let http_actions =
         ; Bool_query_arg "include_dom0"
         ; Bool_query_arg "include_vhd_parents"
         ; Bool_query_arg "export_snapshots"
+        ; String_query_arg "excluded_device_types"
         ]
       , _R_VM_ADMIN
       , []

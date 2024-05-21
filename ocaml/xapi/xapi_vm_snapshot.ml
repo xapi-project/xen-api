@@ -20,6 +20,7 @@ module Listext = Xapi_stdext_std.Listext.List
 
 module D = Debug.Make (struct let name = "xapi_vm_snapshot" end)
 
+module Xs = Ezxenstore_core.Xenstore
 open D
 
 (*************************************************************************************************)
@@ -39,21 +40,20 @@ let snapshot ~__context ~vm ~new_name ~ignore_vdis =
 (* Quiesced snapshot                                                                             *)
 (*************************************************************************************************)
 (* xenstore paths *)
-let control_path ~xs ~domid x =
-  xs.Xenstore.Xs.getdomainpath domid ^ "/control/" ^ x
+let control_path ~xs ~domid x = xs.Xs.getdomainpath domid ^ "/control/" ^ x
 
 let snapshot_path ~xs ~domid x =
-  xs.Xenstore.Xs.getdomainpath domid ^ "/control/snapshot/" ^ x
+  xs.Xs.getdomainpath domid ^ "/control/snapshot/" ^ x
 
 let snapshot_cleanup_path ~xs ~domid =
-  xs.Xenstore.Xs.getdomainpath domid ^ "/control/snapshot"
+  xs.Xs.getdomainpath domid ^ "/control/snapshot"
 
 (* check if [flag] is set in the control_path of the VM [vm]. This looks like this code is a kind  *)
 (* of duplicate of the one in {!xal.ml}, {!events.ml} and {!xapi_guest_agent.ml} which are looking *)
 (* dynamically if there is a change in this part of the VM's xenstore tree. However, at the moment *)
 (* always allowing the operation and checking if it is enabled when it is triggered is sufficient. *)
 let is_flag_set ~xs ~flag ~domid ~vm =
-  try xs.Xenstore.Xs.read (control_path ~xs ~domid flag) = "1"
+  try xs.Xs.read (control_path ~xs ~domid flag) = "1"
   with e ->
     debug "Exception while reading %s flag of VM %s (domain %i): %s" flag
       (Ref.string_of vm) domid (Printexc.to_string e) ;
@@ -167,7 +167,9 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
   ) ;
   debug "copying metadata into %s" (Ref.string_of dst) ;
   let db = Context.database_of __context in
-  let module DB = (val Db_cache.get db : Db_interface.DB_ACCESS) in
+  let module DB =
+    (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS)
+  in
   List.iter
     (fun (key, value) ->
       let value = Option.value ~default:value (List.assoc_opt key overrides) in
@@ -267,7 +269,7 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
              2) Find all snapshots with the same snapshot_of
              3) Update each of these snapshots so that their snapshot_of points
                 to the new cloned disk. *)
-          let open Db_filter_types in
+          let open Xapi_database.Db_filter_types in
           let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snap_disk in
           let all_snaps_in_tree =
             Db.VDI.get_refs_where ~__context
@@ -541,23 +543,27 @@ let create_vm_from_snapshot ~__context ~snapshot =
   let old_vm = Db.VM.get_snapshot_of ~__context ~self:snapshot in
   try
     let snapshots =
-      Db.VM.get_records_where ~__context
-        ~expr:
-          (Db_filter_types.Eq
-             ( Db_filter_types.Field "snapshot_of"
-             , Db_filter_types.Literal (Ref.string_of old_vm)
-             )
-          )
+      let expr =
+        Xapi_database.Db_filter_types.(
+          Eq (Field "snapshot_of", Literal (Ref.string_of old_vm))
+        )
+      in
+      Db.VM.get_records_where ~__context ~expr
     in
     let snap_metadata = Db.VM.get_snapshot_metadata ~__context ~self:snapshot in
     let snap_metadata = Helpers.vm_string_to_assoc snap_metadata in
     let vm_uuid = List.assoc Db_names.uuid snap_metadata in
     let snap_record = Db.VM.get_record ~__context ~self:snapshot in
+    let snap_record =
+      {
+        snap_record with
+        API.vM_suspend_VDI= Ref.null
+      ; API.vM_power_state= `Halted
+      }
+    in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         let new_vm =
-          Xapi_vm_helpers
-          .create_from_record_without_checking_licence_feature_for_vendor_device
-            ~__context rpc session_id snap_record
+          Client.VM.create_from_record ~rpc ~session_id ~value:snap_record
         in
         try
           Db.VM.set_uuid ~__context ~self:new_vm ~value:vm_uuid ;

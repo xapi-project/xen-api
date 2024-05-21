@@ -15,7 +15,7 @@
 module Rrdd = Rrd_client.Client
 module Date = Xapi_stdext_date.Date
 open Monitor_types
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Network
 
 module D = Debug.Make (struct let name = "monitor_master" end)
@@ -128,12 +128,10 @@ let update_pifs ~__context host pifs =
                 in
                 let set_carrier (domid, devid) =
                   let expr =
-                    Db_filter_types.(
-                      And
-                        ( Eq (Field "resident_on", Literal (Ref.string_of host))
-                        , Eq (Field "domid", Literal (string_of_int domid))
-                        )
-                    )
+                    And
+                      ( Eq (Field "resident_on", Literal (Ref.string_of host))
+                      , Eq (Field "domid", Literal (string_of_int domid))
+                      )
                   in
                   match Db.VM.get_refs_where ~__context ~expr with
                   | [] ->

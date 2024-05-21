@@ -71,7 +71,7 @@ def _get_configs_list(config_dir):
 def read_config(config_path, header):
     """Read a config file and return a dictionary of key-value pairs."""
 
-    parser = configparser.ConfigParser()
+    parser = configparser.ConfigParser(interpolation=None)
     with open(config_path, encoding="utf-8") as config_file:
         try:
             parser.read_string(f"[{header}]\n{config_file.read()}")
@@ -401,18 +401,25 @@ def main():
             return 0
         except FileNotFoundError as e:
             print(
-                f"{__file__}: {' '.join(sys.argv)}\n{e.filename}: No such file",
+                f"{__file__} {' '.join(sys.argv)}:\nScript not found: {e.filename}",
                 file=sys.stderr,
             )
             return 2
-        except Exception:
-            print(
-                f"{__file__}: {' '.join(sys.argv)}\n{traceback.format_exc()}",
-                file=sys.stderr)
+        except Exception as e:
+            print(f"{__file__} {' '.join(sys.argv)}:", file=sys.stderr)  # the command
+            print("Exception in the traced script:", file=sys.stderr)
+            print(e, file=sys.stderr)  # Print the exception message
+            print(traceback.format_exc(), file=sys.stderr)  # Print the traceback
             return 139  # This is what the default SIGSEGV handler on Linux returns
 
     return run(argv0)
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Only use sys.exit(ret) raising SystemExit() if the return code is not 0
+    # to allow test_observer_as_script() to get the globals of observer.py:
+
+    exit_code = main()  # pylint: disable=invalid-name
+    logging.shutdown()  # Reduces the unclosed socket warnings by PYTHONDEVMODE=yes
+    if exit_code:
+        sys.exit(exit_code)

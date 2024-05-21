@@ -30,7 +30,7 @@ import re
 import sys
 
 import pyudev
-import xcp.logger as log
+import xcp.logger as log  # pytype: disable=import-error
 
 
 def log_list(l):
@@ -56,7 +56,7 @@ def hex_equal(h1, h2):
         return False
 
 
-class UsbObject(dict):
+class UsbObject(dict):  # pytype: disable=ignored-metaclass
     """Base class of USB classes, save USB properties in dict
 
     node(str): the key, device node

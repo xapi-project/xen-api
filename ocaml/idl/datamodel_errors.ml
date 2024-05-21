@@ -1455,7 +1455,7 @@ let _ =
     ~doc:
       "The requested update could not be found. Please upload the update \
        again. This can occur when you run xe update-pool-clean before xe \
-       update-apply. "
+       update-apply."
     () ;
   error Api_errors.update_pool_apply_failed ["hosts"]
     ~doc:"The update cannot be applied for the following host(s)." () ;
@@ -1913,11 +1913,6 @@ let _ =
     ~doc:"Failed to get available updates from a host." () ;
   error Api_errors.get_updates_failed []
     ~doc:"Failed to get available updates from the pool." () ;
-  error Api_errors.get_updates_in_progress []
-    ~doc:
-      "The operation could not be performed because getting updates is in \
-       progress."
-    () ;
   error Api_errors.apply_updates_in_progress []
     ~doc:
       "The operation could not be performed because applying updates is in \

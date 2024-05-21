@@ -57,6 +57,8 @@ let test_volume =
     ; physical_utilisation= 0L
     ; uri= ["uri1"]
     ; keys= []
+    ; cbt_enabled= Some false
+    ; volume_type= Some Data
     }
 
 (** Check that we successfully parse the responses and

@@ -21,7 +21,9 @@ open D
 let create ~__context ~site ~vIF =
   Pool_features.assert_enabled ~__context ~f:Features.PVS_proxy ;
   Helpers.assert_using_vswitch ~__context ;
-  let expr = Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vIF))) in
+  let expr =
+    Xapi_database.Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vIF)))
+  in
   let proxies = Db.PVS_proxy.get_refs_where ~__context ~expr in
   if List.length proxies > 0 then
     raise

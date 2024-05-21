@@ -384,7 +384,7 @@ module AssertNewVMPreservesHAPlan = Generic.MakeStateful (struct
   let load_input __context (pool, _) = setup ~__context pool
 
   let extract_output __context (_pool, vm) =
-    let open Db_filter_types in
+    let open Xapi_database.Db_filter_types in
     let local_sr =
       Db.SR.get_refs_where ~__context
         ~expr:(Eq (Field "shared", Literal "false"))

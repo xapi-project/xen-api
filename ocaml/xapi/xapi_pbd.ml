@@ -15,7 +15,7 @@
  * @group XenAPI functions
 *)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 module D = Debug.Make (struct let name = "xapi_pbd" end)
 
@@ -292,11 +292,10 @@ let get_locally_attached ~__context =
   let host = Helpers.get_localhost ~__context in
   Db.PBD.get_refs_where ~__context
     ~expr:
-      Db_filter_types.(
-        And
-          ( Eq (Field "host", Literal (Ref.string_of host))
-          , Eq (Field "currently_attached", Literal "true")
-          )
+      (And
+         ( Eq (Field "host", Literal (Ref.string_of host))
+         , Eq (Field "currently_attached", Literal "true")
+         )
       )
 
 (* Host calls unplug_all_pbds on shutdown,

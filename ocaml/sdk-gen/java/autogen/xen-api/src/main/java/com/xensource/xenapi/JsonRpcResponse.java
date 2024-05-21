@@ -1,18 +1,18 @@
 /*
  * Copyright (c) Cloud Software Group, Inc.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -29,48 +29,31 @@
 
 package com.xensource.xenapi;
 
-import java.util.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 /**
- * Marshalls Java types onto the wire.
- * Does not cope with records.  Use individual record.toMap()
+ * Represents the payload of responses returned from a
+ * JSON-RPC v2.0 backend.
+ * @param <T> The type of the response's result
  */
-public final class Marshalling {
-    /**
-     * Converts Integers to Strings
-     * and Sets to Lists recursively.
-     */
-    public static Object toXMLRPC(Object o) {
-        if (o instanceof String ||
-            o instanceof Boolean ||
-            o instanceof Double ||
-            o instanceof Date) {
-            return o;
-	} else if (o instanceof Long) {
-	    return o.toString();
-        } else if (o instanceof Map) {
-            Map<Object, Object> result = new HashMap<Object, Object>();
-            Map m = (Map)o;
-            for (Object k : m.keySet())
-            {
-                result.put(toXMLRPC(k), toXMLRPC(m.get(k)));
-            }
-            return result;
-        } else if (o instanceof Set) {
-            List<Object> result = new ArrayList<Object>();
-            for (Object e : ((Set)o))
-            {
-                result.add(toXMLRPC(e));
-            }
-            return result;
-	} else if (o instanceof XenAPIObject) {
-	    return ((XenAPIObject) o).toWireString();
-	} else if (o instanceof Enum) {
-	    return o.toString();
-	}else if (o == null){
-	    return "";
-        } else {
-		throw new RuntimeException ("=============don't know how to marshall:({[" + o + "]})");
+public class JsonRpcResponse<T> {
+    @JsonProperty("jsonrpc")
+    public String jsonRpc;
+    public int id;
+    public T result;
+    public JsonRpcResponseError error;
+
+    @Override
+    public String toString() {
+        try {
+            var mapper = new ObjectMapper();
+            mapper.enable(SerializationFeature.INDENT_OUTPUT);
+            return mapper.writeValueAsString(this);
+        } catch (JsonProcessingException ex) {
+            return "Error while processing object. Could not serialize as JSON";
         }
     }
 }

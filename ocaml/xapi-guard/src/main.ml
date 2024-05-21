@@ -16,7 +16,7 @@
 open Lwt.Syntax
 open Xapi_guard_server
 module Types = Xapi_guard.Types
-module SessionCache = Xen_api_lwt_unix.SessionCache
+module SessionCache = Xen_api_client_lwt.Xen_api_lwt_unix.SessionCache
 
 let ( let@ ) f x = f x
 
@@ -87,16 +87,15 @@ let safe_unlink path =
       )
 
 let cache =
-  Xen_api_lwt_unix.(
-    SessionCache.create_uri ~switch:Server_interface.shutdown
-      ~target:uri_local_json ~uname:"root" ~pwd:"" ~version:Xapi_version.version
-      ~originator:Server_interface.originator ()
-  )
+  let target = Xen_api_client_lwt.Xen_api_lwt_unix.uri_local_json in
+  SessionCache.create_uri ~switch:Server_interface.shutdown ~target
+    ~uname:"root" ~pwd:"" ~version:Xapi_version.version
+    ~originator:Server_interface.originator ()
 
 let () =
   Lwt_switch.add_hook (Some Server_interface.shutdown) (fun () ->
       D.debug "Cleaning up cache at exit" ;
-      Xen_api_lwt_unix.SessionCache.destroy cache
+      SessionCache.destroy cache
   )
 
 let listen_for_vm read_write {Persistent.vm_uuid; path; gid; typ} =
@@ -214,7 +213,7 @@ let depriv_swtpm_destroy dbg gid path =
    it's OK to assume it's available. *)
 
 let vtpm_set_contents dbg vtpm_uuid contents =
-  let open Xen_api_lwt_unix in
+  let open Xen_api_client_lwt.Xen_api_lwt_unix in
   let open Lwt.Syntax in
   let uuid = Uuidm.to_string vtpm_uuid in
   D.debug "[%s] saving vTPM contents for %s" dbg uuid ;
@@ -223,7 +222,7 @@ let vtpm_set_contents dbg vtpm_uuid contents =
      Server_interface.with_xapi ~cache @@ VTPM.set_contents ~self ~contents
 
 let vtpm_get_contents _dbg vtpm_uuid =
-  let open Xen_api_lwt_unix in
+  let open Xen_api_client_lwt.Xen_api_lwt_unix in
   let open Lwt.Syntax in
   let uuid = Uuidm.to_string vtpm_uuid in
   ret

@@ -39,6 +39,7 @@ function usage {
     echo " -k: Number of older backups to preserve (default: ${history_kept})"
     echo " -n: Just try to find a backup VDI and stop the script after that"
     echo " -f  Force backup even when less than 10% free capacity is left on the backup VDI"
+    echo " -y: Assume non-interactive mode and yes to all questions"
     echo " -v: Verbose output"
     echo 
     echo
@@ -48,10 +49,33 @@ function usage {
     exit 1
 }
 
+function uuid5 {
+  # could use a modern uuidgen but it's not on XS 8
+  # should work with Python 2 and 3
+  python -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
+}
+
+function validate_vdi_uuid {
+  # we check that vdi has the expected UUID which depends on the UUID of
+  # the SR. This is a deterministic hash of the SR UUID and the
+  # namespace UUID $NS. This UUID must match what Xapi's Uuidx module is using.
+  local NS="e93e0639-2bdb-4a59-8b46-352b3f408c19"
+  local sr="$1"
+  local vdi="$2"
+  local uuid
+
+  uuid=$(uuid5 "$NS" "$sr")
+  if [ "$vdi" != "$uuid" ]; then
+    return 1
+  else
+    return 0
+  fi
+}
+
 function test_sr {
   sr_uuid_found=$(${XE} sr-list uuid="$1" --minimal)
   if [ "${sr_uuid_found}" != "$1" ]; then
-     echo Invalid SR UUID specified: $1
+     echo "Invalid SR UUID specified: $1"
      usage
   fi
 }
@@ -63,7 +87,8 @@ just_find_vdi=0
 fs_uninitialised=0
 usage_alert=90
 force_backup=0
-while getopts "hvink:u:dcf" opt ; do
+yes=0
+while getopts "yhvink:u:dcf" opt ; do
     case $opt in
     h) usage ;;
     c) create_vdi=1 ; fs_uninitialised=1 ;;
@@ -73,6 +98,7 @@ while getopts "hvink:u:dcf" opt ; do
     d) leave_mounted=1 ;;
     n) just_find_vdi=1 ;;
     v) debug="" ;;
+    y) yes=1 ;;
     f) force_backup=1 ;;
     *) echo "Invalid option"; usage ;;
     esac
@@ -89,32 +115,32 @@ fi
 # determine if the SR UUID is vaid
 if [  -z "${sr_uuid}" ]; then
   # use the default-SR from the pool
-  sr_uuid=$(${XE} pool-param-get uuid=${pool_uuid} param-name=default-SR)
+  sr_uuid=$(${XE} pool-param-get uuid="${pool_uuid}" param-name=default-SR)
 fi
 test_sr "${sr_uuid}"
 
-sr_name=$(${XE} sr-param-get uuid=${sr_uuid} param-name=name-label)
+sr_name=$(${XE} sr-param-get uuid="${sr_uuid}" param-name=name-label)
 # see if a backup VDI already exists on the selected SR
-vdi_uuid=$(${XE} vdi-list other-config:ctxs-pool-backup=true sr-uuid=${sr_uuid} params=uuid --minimal)
+vdi_uuid=$(${XE} vdi-list other-config:ctxs-pool-backup=true sr-uuid="${sr_uuid}" params=uuid --minimal)
 
 mnt=
 function cleanup {
    trap "" TERM INT
    cd /
    if [ ! -z "${mnt}" ]; then
-      umount ${mnt} >/dev/null 2>&1
-      rmdir ${mnt}
+      umount "${mnt}" >/dev/null 2>&1
+      rmdir "${mnt}"
    fi
 
    if [ ! -z "${vbd_uuid}" ]; then
       ${debug} echo -n "Unplugging VBD: "
-      ${XE} vbd-unplug uuid=${vbd_uuid} timeout=20
+      ${XE} vbd-unplug uuid="${vbd_uuid}" timeout=20
       # poll for the device to go away if we know its name
       if [ "${device}" != "" ]; then
           device_gone=0
           for ((i=0; i<10; i++)); do
               ${debug} echo -n "."
-              if [ ! -b ${device} ]; then
+              if [ ! -b "${device}" ]; then
                   ${debug} echo " done"
                   device_gone=1
                   break
@@ -123,22 +149,35 @@ function cleanup {
           done
           if [ ${device_gone} -eq 0 ]; then
               ${debug} echo " failed"
-              echo Please destroy VBD ${vbd_uuid} manually.
+              echo "Please destroy VBD ${vbd_uuid} manually."
           else
-              ${XE} vbd-destroy uuid=${vbd_uuid}
+              ${XE} vbd-destroy uuid="${vbd_uuid}"
           fi
       fi
    fi
    if [ ${fs_uninitialised} -eq 1 -a -n "${vdi_uuid}" ] ; then
-      ${XE} vdi-destroy uuid=${vdi_uuid}
+      ${XE} vdi-destroy uuid="${vdi_uuid}"
    fi
 }
 
-echo Using SR: ${sr_name}
+# if we can't validate the UUID of the VDI, prompt the user
+if [ -n "${vdi_uuid}" ]; then
+    if ! validate_vdi_uuid "${sr_uuid}" "${vdi_uuid}" && [ "$yes" -eq 0 ]; then
+        echo "Backup VDI $vdi_uuid was most likley create by an earlier"
+        echo "version of this code. Make sure this is a VDI that you"
+        echo "created as we can't validate it without mounting it."
+        read -p "Continue? [Y/N]" -n 1 -r; echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit 1; fi
+    fi
+fi
+
+echo "Using SR: ${sr_name}"
 if [ -z "${vdi_uuid}" ]; then
   if [ "${create_vdi}" -gt 0 ]; then
     echo -n "Creating new backup VDI: "
-    vdi_uuid=$(${XE} vdi-create virtual-size=500MiB sr-uuid=${sr_uuid} type=user name-label="Pool Metadata Backup")
+    label="Pool Metadata Backup"
+    # the label must match what xapi_vdi.ml is using for backup VDIs
+    vdi_uuid=$(${XE} vdi-create virtual-size=500MiB sr-uuid="${sr_uuid}" type=user name-label="${label}")
     init_fs=1
     if [ $? -ne 0 ]; then
        echo failed
@@ -148,8 +187,8 @@ if [ -z "${vdi_uuid}" ]; then
     echo "Backup VDI not found, aborting.  You can initialise one using the '-c' flag."
     exit 3
   fi
-  echo ${vdi_uuid}
-  ${XE} vdi-param-set uuid=${vdi_uuid} other-config:ctxs-pool-backup=true
+  echo "${vdi_uuid}"
+  ${XE} vdi-param-set uuid="${vdi_uuid}" other-config:ctxs-pool-backup=true
 else
   ${debug} echo "Using existing backup VDI: ${vdi_uuid}"
   fs_uninitialised=0
@@ -160,110 +199,110 @@ if [ ${just_find_vdi} -gt 0 ]; then
 fi
 
 ${debug} echo -n "Creating VBD: "
-vbd_uuid=$(${XE} vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${vdi_uuid} device=autodetect)
-${debug} echo ${vbd_uuid}
+vbd_uuid=$(${XE} vbd-create vm-uuid="${CONTROL_DOMAIN_UUID}" vdi-uuid="${vdi_uuid}" device=autodetect)
+${debug} echo "${vbd_uuid}"
 
 
 if [ $? -ne 0 -o -z "${vbd_uuid}" ]; then
-  echo error creating VBD
+  echo "error creating VBD"
   cleanup
   exit 1
 fi
 
 ${debug} echo -n "Plugging VBD: "
-${XE} vbd-plug uuid=${vbd_uuid}
-device=/dev/$(${XE} vbd-param-get uuid=${vbd_uuid} param-name=device)
+${XE} vbd-plug uuid="${vbd_uuid}"
+device=/dev/$(${XE} vbd-param-get uuid="${vbd_uuid}" param-name=device)
 
-if [ ! -b ${device} ]; then
-  ${debug} echo ${device}: not a block special
+if [ ! -b "${device}" ]; then
+  ${debug} echo "${device}: not a block special"
   cleanup
   exit 1
 fi
 
-${debug} echo ${device}
+${debug} echo "${device}"
 
-if [ $init_fs -eq 1 ]; then
+if [ "$init_fs" -eq 1 ]; then
   ${debug} echo -n "Creating filesystem: "
-  mkfs.ext3 -j -F ${device} > /dev/null 2>&1
+  mkfs.ext3 -j -F "${device}" > /dev/null 2>&1
   ${debug} echo "done"
   fs_uninitialised=0
 fi
 
 ${debug} echo -n "Mounting filesystem: "
-mnt=/var/run/pool-backup-${vdi_uuid}
-mkdir -p ${mnt}
+mnt="/var/run/pool-backup-${vdi_uuid}"
+mkdir -p "${mnt}"
 
-/sbin/fsck -a ${device} >/dev/null 2>&1
+/sbin/fsck -a "${device}" >/dev/null 2>&1
 if [ $? -ne 0 ]; then
   ${debug} fsck failed.  Please correct manually
   cleanup 
   exit 1
 fi
 
-mount ${device} ${mnt} > /dev/null 2>&1
+mount "${device}" "${mnt}" > /dev/null 2>&1
 if [ $? -ne 0 ]; then
   ${debug} echo failed
   cleanup
   exit 1
 fi
-${debug} echo ${mnt}
+${debug} echo "${mnt}"
 
 if [ ${leave_mounted} -eq 0 ]; then
-  lrconf=${mnt}/conf/${vdi_uuid}
-  if [ ! -f ${lrconf} ]; then
+  lrconf="${mnt}/conf/${vdi_uuid}"
+  if [ ! -f "${lrconf}" ]; then
      ${debug} echo -n "Initialising rotation: "
-     mkdir -p ${mnt}/conf/ 
-     echo "${mnt}/${pool_uuid}.db {" >> ${lrconf}
-     echo "    rotate ${history_kept}" >> ${lrconf}
-     echo "    missingok" >> ${lrconf}
-     echo "}" >> ${lrconf}
-     echo done
-     echo ${metadata_version} >> ${mnt}/.ctxs-metadata-backup
+     mkdir -p "${mnt}/conf/"
+     echo "${mnt}/${pool_uuid}.db {" >> "${lrconf}"
+     echo "    rotate ${history_kept}" >> "${lrconf}"
+     echo "    missingok" >> "${lrconf}"
+     echo "}" >> "${lrconf}"
+     echo "done"
+     echo "${metadata_version}" >> "${mnt}/.ctxs-metadata-backup"
   fi
 
   # check the usage of the backup VDI
-  usage=`cd ${mnt} && df . | sed -n "2p" | awk '{ print $5 }' | tr -d '%'`
+  usage=`cd "${mnt}" && df . | sed -n "2p" | awk '{ print $5 }' | tr -d '%'`
   echo "Checking backup VDI space usage: $usage%"
-  if [ $usage -gt $usage_alert ] && [ ${force_backup} -eq 0 ]; then
-    echo "Running out of space, you can use "-d" option to attach VDI and free more space, exit now."
+  if [ "$usage" -gt "$usage_alert" ] && [ "${force_backup}" -eq 0 ]; then
+    echo "Running out of space, you can use '-d' option to attach VDI and free more space, exit now."
     cleanup
     exit 1
   fi
 
   # invoke logrotate to rotate over old pool db backups
   echo -n "Rotating old backups: "
-  logrotate -f ${lrconf}
-  num_found=$(find ${mnt} -name \*.db\.* | wc -l)
-  echo found ${num_found}
+  logrotate -f "${lrconf}"
+  num_found=$(find "${mnt}" -name '*.db.*' | wc -l)
+  echo "found ${num_found}"
   
   # perform the pool database dump
   echo -n "Backing up pool database: "
-  ${XE} pool-dump-database file-name=${mnt}/${pool_uuid}.db
+  ${XE} pool-dump-database file-name="${mnt}/${pool_uuid}.db"
   echo done
 
   # backup the VM metadata for each VM in the pool into a dated directory
   datetime=$(date +%F-%H-%M-%S)
-  metadir=${mnt}/metadata/${datetime}
-  mkdir -p ${metadir}
+  metadir="${mnt}/metadata/${datetime}"
+  mkdir -p "${metadir}"
   echo -n "Cleaning old VM metadata: "
   IFS=" "
-  todelete=$(cd ${mnt}/metadata && ls -1 |sort -n | head -n -${history_kept} | xargs echo)
+  todelete=$(cd "${mnt}/metadata" && ls -1 |sort -n | head -n -${history_kept} | xargs echo)
   for dir in ${todelete}; do
-    rm -rf ${mnt}/metadata/${dir}
+    rm -rf "${mnt}/metadata/${dir}"
   done
   echo done
   IFS=","
   echo -n "Backing up SR metadata: "
-  mkdir -p ${metadir}
-  "@LIBEXECDIR@/backup-sr-metadata.py" -f ${metadir}/SRMETA.xml
+  mkdir -p "${metadir}"
+  "@LIBEXECDIR@/backup-sr-metadata.py" -f "${metadir}/SRMETA.xml"
   echo "done"
 
   echo -n "Backing up VM metadata: "
   ${debug} echo ""
-  mkdir -p ${metadir}/all
+  mkdir -p "${metadir}/all"
   for vmuuid in $(${XE} vm-list params=uuid is-control-domain=false --minimal); do
     ${debug} echo -n .
-    ${XE} vm-export --metadata uuid=${vmuuid} filename=${metadir}/all/${vmuuid}.vmmeta >/dev/null 2>&1
+    ${XE} vm-export --metadata uuid="${vmuuid}" filename="${metadir}/all/${vmuuid}.vmmeta" >/dev/null 2>&1
   done
   echo "done"
   echo -n "Backing up Template metadata: "
@@ -271,13 +310,13 @@ if [ ${leave_mounted} -eq 0 ]; then
   template_uuids=$("@LIBEXECDIR@/print-custom-templates")
   if [ $? -eq 0 ]; then
       for tmpl_uuid in ${template_uuids}; do
-          ${XE} template-export --metadata template-uuid=${tmpl_uuid} filename=${metadir}/all/${tmpl_uuid}.vmmeta >/dev/null 2>&1
+          ${XE} template-export --metadata template-uuid="${tmpl_uuid}" filename="${metadir}/all/${tmpl_uuid}.vmmeta" >/dev/null 2>&1
       done
   fi
   echo "done"
-  "@LIBEXECDIR@/link-vms-by-sr.py" -d ${metadir}
+  "@LIBEXECDIR@/link-vms-by-sr.py" -d "${metadir}"
 else
-  cd ${mnt}
+  cd "${mnt}"
   env PS1="Mounted backup VDI on: ${mnt}\nPress ^D to exit shell and safely detach it.\n\n[\u@\h \W]\$ " bash
 fi
 

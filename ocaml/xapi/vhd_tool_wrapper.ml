@@ -117,7 +117,7 @@ let receive progress_cb format protocol (s : Unix.file_descr)
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
   try
-    let open Xenstore in
+    let open Ezxenstore_core.Xenstore in
     (* If we're looking at a xen frontend device, see if the backend
        is in the same domain. If so check if it looks like a .vhd *)
     let rdev = (Unix.stat path).Unix.st_rdev in
@@ -170,9 +170,16 @@ let vhd_of_device path =
       | _, _, _ ->
           raise Not_found
     with
-    | Tapctl.Not_blktap ->
+    | Tapctl.Not_blktap -> (
         debug "Device %s is not controlled by blktap" path ;
-        None
+        (* Check if it is a VHD behind a NBD deivce *)
+        Stream_vdi.(get_nbd_device path |> image_behind_nbd_device) |> function
+        | Some ("vhd", vhd) ->
+            debug "%s is a VHD behind NBD device %s" vhd path ;
+            Some vhd
+        | _ ->
+            None
+      )
     | Tapctl.Not_a_device ->
         debug "%s is not a device" path ;
         None
@@ -186,15 +193,18 @@ let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
   let s' = Uuidx.(to_string (make ())) in
   let source_format, source =
-    match (Stream_vdi.get_nbd_device path, vhd_of_device path) with
-    | Some (nbd_server, exportname), _ ->
+    match (Stream_vdi.get_nbd_device path, vhd_of_device path, relative_to) with
+    | Some (nbd_server, exportname), _, None ->
         ( "nbdhybrid"
         , Printf.sprintf "%s:%s:%s:%Ld" path nbd_server exportname size
         )
-    | None, Some vhd ->
+    | Some _, Some vhd, Some _ | None, Some vhd, _ ->
         ("hybrid", path ^ ":" ^ vhd)
-    | None, None ->
+    | None, None, None ->
         ("raw", path)
+    | _, None, Some _ ->
+        let msg = "Cannot compute differences on non-VHD images" in
+        error "%s" msg ; failwith msg
   in
   let relative_to =
     match relative_to with
