@@ -599,10 +599,11 @@ def main():
     config_file = "pyproject.toml"
     config = load_config(config_file, basename(__file__))
     config.setdefault("expected_to_fail", [])
-    debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
 
     changed_but_in_expected_to_fail = []
-    if config["expected_to_fail"] != []:
+    if config["expected_to_fail"]:
+        debug("Expected to fail: %s", ", ".join(config["expected_to_fail"]))
+
         changed_but_in_expected_to_fail = git_diff(
             "--name-only",
             find_branch_point(config),
