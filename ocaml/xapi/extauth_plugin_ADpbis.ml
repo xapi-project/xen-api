@@ -132,9 +132,11 @@ let match_error_tag (lines : string list) =
 let extract_sid_from_group_list group_list =
   List.map
     (fun (_, v) ->
-      let v = Stringext.replace ")" "" v in
-      let v = Stringext.replace "sid =" "|" v in
-      let vs = Astring.String.cuts ~empty:false ~sep:"|" v in
+      let vs =
+        Astring.String.filter (function ')' -> false | _ -> true) v
+        |> Astring.String.cuts ~empty:false ~sep:"sid ="
+        |> List.concat_map (Astring.String.cuts ~empty:false ~sep:"|")
+      in
       let sid = String.trim (List.nth vs 1) in
       debug "extract_sid_from_group_list get sid=[%s]" sid ;
       sid
@@ -167,7 +169,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     Locking_helpers.Named_mutex.create "IS_SERVER_AVAILABLE"
 
   let splitlines s =
-    Astring.String.cuts ~empty:false ~sep:"\n" (Stringext.replace "#012" "\n" s)
+    Astring.String.cuts ~empty:false ~sep:"#012" s
+    |> List.concat_map (Astring.String.cuts ~empty:false ~sep:"\n")
 
   let pbis_common_with_password (password : string) (pbis_cmd : string)
       (pbis_args : string list) =
@@ -349,7 +352,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         if !exited_code <> 0 then (
           error "execute '%s': exit_code=[%d] output=[%s]" debug_cmd
             !exited_code
-            (Stringext.replace "\n" ";" !output) ;
+            (Stringext.replace '\n' ~by:";" !output) ;
           let split_to_words s =
             Astring.String.fields ~empty:false ~is_sep:is_word_sep s
           in
@@ -1115,8 +1118,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
         in
         debug "execute %s: stdout=[%s],stderr=[%s]"
           pbis_force_domain_leave_script
-          (Stringext.replace "\n" ";" output)
-          (Stringext.replace "\n" ";" stderr)
+          (Stringext.replace '\n' ~by:";" output)
+          (Stringext.replace '\n' ~by:";" stderr)
       with e ->
         debug "exception executing %s: %s" pbis_force_domain_leave_script
           (ExnHelper.string_of_exn e)

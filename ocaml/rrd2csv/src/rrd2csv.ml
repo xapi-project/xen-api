@@ -185,14 +185,7 @@ module Ds_selector = struct
   let escape_metric s =
     let quote s = Printf.sprintf "\"%s\"" s in
     if String.contains s '"' then
-      quote
-        (Xstringext.String.map_unlikely s (function
-          | '\"' ->
-              Some "\"\""
-          | _ ->
-              None
-          )
-          )
+      quote (Xstringext.String.replace '"' ~by:{|""|} s)
     else if String.contains s ',' || String.contains s '\n' then
       quote s
     else

@@ -32,46 +32,6 @@ module String = struct
     else
       s
 
-  (** find all occurences of needle in haystack and return all their respective index *)
-  let find_all needle haystack =
-    let m = String.length needle and n = String.length haystack in
-    if m > n then
-      []
-    else
-      let i = ref 0 and found = ref [] in
-      while !i < n - m + 1 do
-        if String.sub haystack !i m = needle then (
-          found := !i :: !found ;
-          i := !i + m
-        ) else
-          incr i
-      done ;
-      List.rev !found
-
-  (* replace all @f substring in @s by @t *)
-  let replace f t s =
-    let indexes = find_all f s in
-    let n = List.length indexes in
-    if n > 0 then (
-      let len_f = String.length f and len_t = String.length t in
-      let new_len = String.length s + (n * len_t) - (n * len_f) in
-      let new_b = Bytes.make new_len '\000' in
-      let orig_offset = ref 0 and dest_offset = ref 0 in
-      List.iter
-        (fun h ->
-          let len = h - !orig_offset in
-          Bytes.blit_string s !orig_offset new_b !dest_offset len ;
-          Bytes.blit_string t 0 new_b (!dest_offset + len) len_t ;
-          orig_offset := !orig_offset + len + len_f ;
-          dest_offset := !dest_offset + len + len_t
-        )
-        indexes ;
-      Bytes.blit_string s !orig_offset new_b !dest_offset
-        (String.length s - !orig_offset) ;
-      Bytes.unsafe_to_string new_b
-    ) else
-      s
-
   let map_unlikely s f =
     let changed = ref false in
     let m = ref 0 in
@@ -91,6 +51,11 @@ module String = struct
       Buffer.contents buf
     ) else
       s
+
+  let replace char ~by s =
+    let replaceable = Stdlib.Char.equal char in
+    let get_replacement c = if replaceable c then Some by else None in
+    map_unlikely s get_replacement
 
   let replaced ~replace s = map_unlikely s replace
 end

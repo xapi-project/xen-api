@@ -453,9 +453,9 @@ let audit_line_of __context session_id allowed_denied ok_error result_error
          ?sexpr_of_args action permission
       )
   in
-  let line = Xapi_stdext_std.Xstringext.String.replace "\n" " " _line in
+  let line = Xapi_stdext_std.Xstringext.String.replace '\n' ~by:" " _line in
   (* no \n in line *)
-  let line = Xapi_stdext_std.Xstringext.String.replace "\r" " " line in
+  let line = Xapi_stdext_std.Xstringext.String.replace '\r' ~by:" " line in
   (* no \r in line *)
   let audit_line = append_line "%s" line in
   (*D.debug "line=%s, audit_line=%s" line audit_line;*)
