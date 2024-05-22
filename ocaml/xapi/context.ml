@@ -331,7 +331,7 @@ let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
   let span_name, span_attributes = span_details_from_task_name task_name in
   let parent = parent_fn span_name in
   let span_kind = span_kind_of_parent parent in
-  let tracer = get_tracer ~name:span_name in
+  let tracer = Tracer.get_tracer ~name:span_name in
   match
     Tracer.start ~span_kind ~tracer ~attributes:span_attributes ~name:span_name
       ~parent ()
