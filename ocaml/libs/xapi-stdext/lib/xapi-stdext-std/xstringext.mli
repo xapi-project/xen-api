@@ -17,17 +17,15 @@ module String : sig
       and when it returns [Some rep] the character is replaced with [rep] in
       the resulting string *)
 
+  val replace : char -> by:string -> string -> string
+  (** [replace ch ~by s] replaces all the occurrences of [ch] in [s] by [~by]
+    *)
+
   val split : limit:int -> char -> string -> string list
   (** split a string on a single char *)
 
   val rtrim : string -> string
   (** FIXME document me|remove me if similar to strip *)
-
-  val replace : string -> string -> string -> string
-  (** replace all [f] substring in [s] by [t] *)
-
-  val map_unlikely : string -> (char -> string option) -> string
-  (** map a string trying to fill the buffer by chunk *)
 
   val sub_to_end : string -> int -> string
   (** a substring from the specified position to the end of the string *)

@@ -97,7 +97,8 @@ module Mux = struct
 
     let m = Mutex.create ()
 
-    let filename_of dp = Xapi_stdext_std.Xstringext.String.replace "/" "-" dp
+    let filename_of dp =
+      Xapi_stdext_std.Xstringext.String.replace '/' ~by:"-" dp
 
     let write dp info =
       let filename = filename_of dp in

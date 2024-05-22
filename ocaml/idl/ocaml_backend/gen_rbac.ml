@@ -72,7 +72,7 @@ let permission_description = "A basic permission"
 let permission_name wire_name =
   let s1 = replace_char (Printf.sprintf "permission_%s" wire_name) '.' '_' in
   let s2 = replace_char s1 '/' '_' in
-  let s3 = Xapi_stdext_std.Xstringext.String.replace "*" "WILDCHAR" s2 in
+  let s3 = Xapi_stdext_std.Xstringext.String.replace '*' ~by:"WILDCHAR" s2 in
   replace_char s3 ':' '_'
 
 let permission_index = ref 0
