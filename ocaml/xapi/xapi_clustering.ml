@@ -520,6 +520,8 @@ module Watcher = struct
            performing update"
           __FUNCTION__ (Printexc.to_string exn)
 
+  let cluster_change_watcher : bool Atomic.t = Atomic.make false
+
   let watch_cluster_change ~__context ~host =
     while !Daemon.enabled do
       let m =
@@ -545,7 +547,8 @@ module Watcher = struct
           warn "%s: Got exception %s while query cluster host updates, retrying"
             __FUNCTION__ (Printexc.to_string exn) ;
           Thread.delay 3.
-    done
+    done ;
+    Atomic.set cluster_change_watcher false
 
   (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
       already created. 
@@ -553,11 +556,16 @@ module Watcher = struct
       these threads will exit as well. *)
   let create_as_necessary ~__context ~host =
     if Helpers.is_pool_master ~__context ~host then
-      if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
-        debug "%s: create watcher for corosync-notifyd on coordinator"
-          __FUNCTION__ ;
-
-        ignore
-        @@ Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
-      )
+      if Xapi_cluster_helpers.cluster_health_enabled ~__context then
+        if Atomic.compare_and_set cluster_change_watcher false true then (
+          debug "%s: create watcher for corosync-notifyd on coordinator"
+            __FUNCTION__ ;
+          ignore
+          @@ Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+        ) else
+          (* someone else must have gone into the if branch above and created the thread
+             before us, leave it to them *)
+          debug
+            "%s: not create watcher for corosync-notifyd as it already exists"
+            __FUNCTION__
 end
