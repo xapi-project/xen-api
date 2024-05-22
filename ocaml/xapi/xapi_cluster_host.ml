@@ -232,7 +232,7 @@ let resync_host ~__context ~host =
           (* If we have just joined, enable will prevent concurrent clustering ops *)
           if not (Db.Cluster_host.get_joined ~__context ~self) then (
             join_internal ~__context ~self ;
-            create_cluster_watcher_on_master ~__context ~host ;
+            Watcher.create_as_necessary ~__context ~host ;
             Xapi_observer.initialise_observer ~__context
               Xapi_observer_components.Xapi_clusterd
           ) else if Db.Cluster_host.get_enabled ~__context ~self then (
@@ -375,7 +375,7 @@ let enable ~__context ~self =
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context
       ) ;
-      create_cluster_watcher_on_master ~__context ~host ;
+      Watcher.create_as_necessary ~__context ~host ;
       Xapi_observer.initialise_observer ~__context
         Xapi_observer_components.Xapi_clusterd ;
       let verify = Stunnel_client.get_verify_by_default () in
