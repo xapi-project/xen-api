@@ -520,6 +520,12 @@ module Watcher = struct
            performing update"
           __FUNCTION__ (Printexc.to_string exn)
 
+  let cluster_change_watcher : Thread.t option ref = ref None
+
+  let mu = Mutex.create ()
+
+  open Xapi_stdext_threads.Threadext
+
   let watch_cluster_change ~__context ~host =
     while !Daemon.enabled do
       let m =
@@ -545,7 +551,8 @@ module Watcher = struct
           warn "%s: Got exception %s while query cluster host updates, retrying"
             __FUNCTION__ (Printexc.to_string exn) ;
           Thread.delay 3.
-    done
+    done ;
+    Mutex.execute mu (fun () -> cluster_change_watcher := None)
 
   (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
       already created. 
@@ -557,7 +564,16 @@ module Watcher = struct
         debug "%s: create watcher for corosync-notifyd on coordinator"
           __FUNCTION__ ;
 
-        ignore
-        @@ Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+        Mutex.execute mu (fun () ->
+            match !cluster_change_watcher with
+            | None ->
+                cluster_change_watcher :=
+                  Thread.create
+                    (fun () -> watch_cluster_change ~__context ~host)
+                    ()
+                  |> Option.some
+            | Some _ ->
+                ()
+        )
       )
 end
