@@ -83,6 +83,7 @@
     pam
     pciutil
     pci
+    psq
     ptime
     rpclib.core
     rpclib.json
