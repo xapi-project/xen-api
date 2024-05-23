@@ -9,5 +9,6 @@
     (re_export xenstore)
     (re_export xenstore_transport)
     threads.posix
+    xapi-stdext-threads
     (re_export xenstore.unix))
 )
