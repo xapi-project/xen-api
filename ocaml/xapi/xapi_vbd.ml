@@ -215,24 +215,23 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
                      )
                   )
           in
-          if
-            (not (valid_device userdevice ~_type))
-            || (userdevice = "autodetect" && possibilities = [])
-          then
-            raise
-              (Api_errors.Server_error (Api_errors.invalid_device, [userdevice])) ;
+          let raise_invalid_device () =
+            raise Api_errors.(Server_error (invalid_device, [userdevice]))
+          in
+          if not (valid_device userdevice ~_type) then
+            raise_invalid_device () ;
           (* Resolve the "autodetect" into a fixed device name now *)
           let userdevice =
-            if userdevice = "autodetect" then
-              match _type with
-              (* already checked for [] above *)
-              | `Floppy ->
-                  Device_number.to_linux_device (List.hd possibilities)
-              | `CD | `Disk ->
-                  string_of_int
-                    (Device_number.to_disk_number (List.hd possibilities))
-            else
+            if userdevice <> "autodetect" then
               userdevice
+            else
+              match (_type, possibilities) with
+              | _, [] ->
+                  raise_invalid_device ()
+              | `Floppy, dev :: _ ->
+                  Device_number.to_linux_device dev
+              | (`CD | `Disk), dev :: _ ->
+                  string_of_int (Device_number.disk dev)
           in
           let uuid = Uuidx.make () in
           let ref = Ref.make () in

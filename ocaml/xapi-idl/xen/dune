@@ -3,6 +3,7 @@
  (public_name xapi-idl.xen.interface.types)
  (modules xenops_types device_number)
  (libraries
+   astring
    result
    rpclib.core
    rresult
