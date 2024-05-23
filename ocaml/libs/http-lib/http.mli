@@ -264,9 +264,6 @@ module Url : sig
 
   val of_string : string -> t
 
-  val maybe_wrap_IPv6_literal : string -> string
-  (** Wrap a literal IPv6 address in square brackets; otherwise pass through *)
-
   val to_string : t -> string
 
   val get_uri : t -> string
