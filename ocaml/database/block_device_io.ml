@@ -328,17 +328,16 @@ let accept_conn s latest_response_time =
   match Clock.Timer.remaining latest_response_time with
   | Expired _ ->
       raise Unixext.Timeout
-  | Remaining timeout ->
+  | Remaining timeout -> (
       (* Await an incoming connection... *)
-      let ready_to_read, _, _ =
-        Unix.select [s] [] [] (Clock.Timer.span_to_s timeout)
-      in
-      R.info "Finished selecting" ;
-      if List.mem s ready_to_read then
+      let timeout = Float.max 1e-6 @@ Clock.Timer.span_to_s timeout in
+      Unixext.with_socket_timeout s (Some timeout) @@ fun () ->
+      try
         (* We've received a connection. Accept it and return the socket. *)
         fst (Unix.accept s)
-      else (* We must have timed out *)
+      with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
         raise Unixext.Timeout
+    )
 
 (* Listen on a given socket. Accept a single connection and transfer all the data from it to dest_fd, or raise Timeout if target_response_time happens first. *)
 (* Raises NotEnoughSpace if the next write would exceed the available_space. *)
