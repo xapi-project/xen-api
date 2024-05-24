@@ -65,7 +65,8 @@ repos:
     -   id: pytest
         files: python3/
         name: check that the Python3 test suite in passes
-        entry: env PYTHONDEVMODE=yes sh -c 'python3 -m pytest -vv &&
+        entry: env PYTHONDEVMODE=yes sh -c 'coverage run && coverage xml &&
+            coverage html && coverage report &&
             diff-cover --ignore-whitespace --compare-branch=origin/feature/py3
             --show-uncovered --html-report .git/coverage-diff.html
             --fail-under 50 .git/coverage3.11.xml'
