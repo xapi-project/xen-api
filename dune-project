@@ -142,6 +142,13 @@
 
 (package
   (name xapi-rrd-transport-utils)
+  (synopsis "Shared-memory protocols for exposing performance counters")
+  (description "VMs running on a Xen host can use this library to expose performance counters which can be sampled by the xapi performance monitoring daemon.")
+  (authors "John Else")
+  (depends
+   ocaml
+   cmdliner
+  )
 )
 
 (package
