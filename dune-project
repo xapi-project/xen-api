@@ -120,6 +120,20 @@
 
 (package
   (name rrdd-plugin)
+  (synopsis "A plugin library for the xapi performance monitoring daemon")
+  (description "This library allows one to expose a datasource which can then be sampled by the performance monitoring daemon.")
+  (depends
+   ocaml
+   astring
+   rpclib
+   (xapi-forkexecd :version)
+   (xapi-stdext-pervasives :version)
+   (xapi-stdext-std :version)
+   (xapi-stdext-threads :version)
+   (xapi-stdext-unix :version)
+   (xapi-idl :version)
+   xenstore_transport
+  )
 )
 
 (package
