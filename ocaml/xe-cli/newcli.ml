@@ -131,15 +131,23 @@ let rec read_rest_of_headers ic =
       []
 
 let parse_url url =
-  if String.startswith "https://" url then
-    let stripped = end_of_string url (String.length "https://") in
-    let host, rest =
-      let l = String.split '/' stripped in
-      (List.hd l, List.tl l)
-    in
-    (host, "/" ^ String.concat "/" rest)
-  else
-    (!xapiserver, url)
+  let parse uri =
+    let ( let* ) = Option.bind in
+    let* scheme = Uri.scheme uri in
+    let* host = Uri.host uri in
+    let path = Uri.path_and_query uri in
+    Some (scheme, host, path)
+  in
+  match parse (Uri.of_string url) with
+  | Some ("https", host, path) ->
+      (host, path)
+  | _ ->
+      debug "%s: could not parse '%s'" __FUNCTION__ url ;
+      (!xapiserver, url)
+  | exception e ->
+      debug "%s: could not parse '%s': %s" __FUNCTION__ url
+        (Printexc.to_string e) ;
+      (!xapiserver, url)
 
 (* Read the password file *)
 let read_pwf () =
