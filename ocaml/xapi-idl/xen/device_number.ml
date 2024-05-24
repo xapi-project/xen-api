@@ -17,18 +17,13 @@ let to_debug_string (bus, disk, partition) =
 
 let ( let* ) = Option.bind
 
-(* ocamlp4-friendly operators *)
-let ( <| ) = ( lsl )
-
-let ( >| ) = ( lsr )
-
 (* If this is true then we will use the deprecated (linux-specific) IDE
    encodings for disks > 3 *)
 let use_deprecated_ide_encoding = true
 
 let max_of = function
   | Xen ->
-      ((1 <| 20) - 1, 15)
+      ((1 lsl 20) - 1, 15)
   | Scsi ->
       (15, 15)
   | Floppy ->
@@ -55,31 +50,30 @@ let deprecated_ide_table = standard_ide_table @ [33; 34; 56; 57; 88; 89; 90; 91]
 
 let to_xenstore_int = function
   | Xen, disk, partition when disk < 16 ->
-      202 <| 8 || disk <| 4 || partition
+      (202 lsl 8) || (disk lsl 4) || partition
   | Xen, disk, partition ->
-      1 <| 28 || disk <| 8 || partition
+      (1 lsl 28) || (disk lsl 8) || partition
   | Scsi, disk, partition ->
-      8 <| 8 || disk <| 4 || partition
+      (8 lsl 8) || (disk lsl 4) || partition
   | Floppy, disk, partition ->
-      203 <| 8 || disk <| 4 || partition
+      (203 lsl 8) || (disk lsl 4) || partition
   | Ide, disk, partition ->
       let m = List.nth deprecated_ide_table (disk / 2) in
       let n = disk - (disk / 2 * 2) in
       (* NB integers behave differently to reals *)
-      m <| 8 || n <| 6 || partition
+      (m lsl 8) || (n lsl 6) || partition
 
 let of_xenstore_int x =
-  let ( && ) = ( land ) in
-  if (x && 1 <| 28) <> 0 then
-    (Xen, x >| 8 && ((1 <| 20) - 1), x && ((1 <| 8) - 1))
+  if x land (1 lsl 28) <> 0 then
+    (Xen, (x lsr 8) land ((1 lsl 20) - 1), x land ((1 lsl 8) - 1))
   else
-    match x >| 8 with
+    match x lsr 8 with
     | 202 ->
-        (Xen, x >| 4 && ((1 <| 4) - 1), x && ((1 <| 4) - 1))
+        (Xen, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | 8 ->
-        (Scsi, x >| 4 && ((1 <| 4) - 1), x && ((1 <| 4) - 1))
+        (Scsi, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | 203 ->
-        (Floppy, x >| 4 && ((1 <| 4) - 1), x && ((1 <| 4) - 1))
+        (Floppy, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | n ->
         let idx =
           snd
@@ -88,8 +82,9 @@ let of_xenstore_int x =
                (0, -1) deprecated_ide_table
             )
         in
-        if idx < 0 then failwith (Printf.sprintf "Unknown device number: %d" x) ;
-        (Ide, (x >| 6 && ((1 <| 2) - 1)) + (idx * 2), x && ((1 <| 6) - 1))
+        let disk = ((x lsr 6) land ((1 lsl 2) - 1)) + (idx * 2) in
+        let partition = x land ((1 lsl 6) - 1) in
+        (Ide, disk, partition)
 
 let to_xenstore_key x = to_xenstore_int x
 
