@@ -65,6 +65,18 @@
 
 (package
   (name xapi-tracing)
+  (depends
+   ocaml
+   dune
+   (alcotest :with-test)
+   re
+   uri
+   (uuid :with-test)
+   (xapi-log :version)
+   (xapi-stdext-threads :version)
+  )
+  (synopsis "Allows to instrument code to generate tracing information")
+  (description "This library provides modules to allow gathering runtime traces.")
 )
 
 (package
