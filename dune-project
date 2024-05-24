@@ -23,10 +23,6 @@
 )
 
 (package
-  (name xen-api-sdk)
-)
-
-(package
   (name xen-api-client-lwt)
 )
 
