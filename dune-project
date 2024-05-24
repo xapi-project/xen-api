@@ -81,6 +81,21 @@
 
 (package
   (name xapi-tracing-export)
+  (depends
+   ocaml
+   cohttp-posix
+   dune
+   cohttp
+   rpclib
+   (xapi-log :version)
+   (xapi-open-uri :version)
+   (xapi-stdext-threads :version)
+   (xapi-stdext-unix :version)
+   (xapi-tracing :version)
+   (zstd :version)
+  )
+  (synopsis "Export traces in multiple protocols and formats")
+  (description "This library export traces is able to push traces to http endpoints or generate compressed tarballs in the filesystem.")
 )
 
 (package
