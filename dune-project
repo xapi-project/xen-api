@@ -173,10 +173,6 @@
 )
 
 (package
-  (name xapi-rrd-transport)
-)
-
-(package
   (name xapi-open-uri)
 )
 
