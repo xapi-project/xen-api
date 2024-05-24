@@ -1,3 +1,5 @@
+module Listext = Xapi_stdext_std.Listext.List
+
 type bus_type = Xen | Scsi | Floppy | Ide [@@deriving rpcty]
 
 type t = bus_type * int * int [@@deriving rpcty]
@@ -76,11 +78,11 @@ let of_xenstore_int x =
         (Floppy, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | n ->
         let idx =
-          snd
-            (List.fold_left
-               (fun (i, res) e -> (i + 1, if e = n then i else res))
-               (0, -1) deprecated_ide_table
-            )
+          match Listext.find_index (Int.equal n) deprecated_ide_table with
+          | Some idx ->
+              idx
+          | None ->
+              failwith (Printf.sprintf "Unknown device number: %d" x)
         in
         let disk = ((x lsr 6) land ((1 lsl 2) - 1)) + (idx * 2) in
         let partition = x land ((1 lsl 6) - 1) in
