@@ -28,4 +28,5 @@
 (test
  (name test_tracing)
  (modules test_tracing)
+ (package xapi-tracing)
  (libraries tracing alcotest uuid))
