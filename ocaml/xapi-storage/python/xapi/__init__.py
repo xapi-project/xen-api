@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
-Copyright (c) 2013-2018, Citrix Inc.
+Copyright (c) 2013-2024, Cloud Software Group,Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -72,7 +72,7 @@ class XenAPIException(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        if not isinstance(code, str) and not isinstance(code, unicode):
+        if not isinstance(code, str) and not isinstance(code, str):
             raise TypeError("string", repr(code))
         if not isinstance(params, list):
             raise TypeError("list", repr(params))
@@ -139,7 +139,7 @@ class UnknownMethod(InternalError):
 
 def is_long(x):
     try:
-        long(x)
+        int(x)
         return True
     except ValueError:
         return False
