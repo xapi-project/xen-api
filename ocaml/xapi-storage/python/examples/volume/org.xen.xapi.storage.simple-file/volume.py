@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
-# Copyright (C) Citrix Systems Inc.
+# Copyright (C) Cloud Software Group, Inc.
 #
 # This program is free software; you can redistribute it and/or modify 
 # it under the terms of the GNU Lesser General Public License as published 
@@ -21,8 +21,8 @@ import json
 import os
 import sys
 import uuid
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 
 import xapi.storage.api.v5.volume
 from xapi.storage import log
@@ -31,8 +31,8 @@ from xapi.storage import log
 class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
 
     def parse_sr(self, sr_uri):
-        parsed_url = urlparse.urlparse(sr_uri)
-        config = urlparse.parse_qs(parsed_url.query)
+        parsed_url = urllib.parse.urlparse(sr_uri)
+        config = urllib.parse.parse_qs(parsed_url.query)
         return parsed_url, config
 
     def create_volume_data(self, name, description, size, uris, uuid):
@@ -50,8 +50,8 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         }
 
     def volume_uris(self, sr_path, name, size):
-        query = urllib.urlencode({'size': size}, True)
-        return [urlparse.urlunparse(
+        query = urllib.parse.urlencode({'size': size}, True)
+        return [urllib.parse.urlunparse(
             ('loop+blkback', None, os.path.join(sr_path, name),
              None, query, None))]
 
@@ -187,7 +187,7 @@ class Implementation(xapi.storage.api.v5.volume.Volume_skeleton):
         """
         [ls sr] lists the volumes from [sr]
         """
-        parsed_url = urlparse.urlparse(sr)
+        parsed_url = urllib.parse.urlparse(sr)
         sr_path = parsed_url.path
         files = glob.glob(os.path.join(sr_path, '*.inf'))
         log.debug('files to list {}'.format(files))
