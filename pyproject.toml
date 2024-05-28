@@ -245,7 +245,6 @@ discard_messages_matching = [
 ]
 expected_to_fail = [
     # Need 2to3 -w <file> and maybe a few other minor updates:
-    "scripts/hatests",
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
     # SSLSocket.send() only accepts bytes, not unicode string as argument:
