@@ -27,9 +27,9 @@ runs:
       shell: bash
       run: sudo apt-get update
 
-    - name: Install python2
+    - name: Install python3
       shell: bash
-      run: sudo apt-get install python2
+      run: sudo apt-get install python3
 
     - name: Use disk with more space for TMPDIR and XDG_CACHE_HOME
       shell: bash
