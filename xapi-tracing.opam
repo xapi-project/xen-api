@@ -15,8 +15,8 @@ depends: [
   "re"
   "uri"
   "uuid" {with-test}
-  "xapi-log" {version}
-  "xapi-stdext-threads" {version}
+  "xapi-log" {= version}
+  "xapi-stdext-threads" {= version}
 ]
 build: [
   ["dune" "subst"] {pinned}

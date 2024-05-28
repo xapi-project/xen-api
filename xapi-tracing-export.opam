@@ -14,12 +14,13 @@ depends: [
   "dune"
   "cohttp"
   "rpclib"
-  "xapi-log" {version}
-  "xapi-open-uri" {version}
-  "xapi-stdext-threads" {version}
-  "xapi-stdext-unix" {version}
-  "xapi-tracing" {version}
-  "zstd" {version}
+  "ppx_deriving_rpc"
+  "xapi-log" {= version}
+  "xapi-open-uri" {= version}
+  "xapi-stdext-threads" {= version}
+  "xapi-stdext-unix" {= version}
+  "xapi-tracing" {= version}
+  "zstd" {= version}
 ]
 build: [
   ["dune" "subst"] {pinned}

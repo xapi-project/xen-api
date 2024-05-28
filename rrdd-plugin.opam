@@ -13,12 +13,13 @@ depends: [
   "ocaml"
   "astring"
   "rpclib"
-  "xapi-forkexecd" {version}
-  "xapi-stdext-pervasives" {version}
-  "xapi-stdext-std" {version}
-  "xapi-stdext-threads" {version}
-  "xapi-stdext-unix" {version}
-  "xapi-idl" {version}
+  "rrd-transport" {= version}
+  "xapi-forkexecd" {= version}
+  "xapi-stdext-pervasives" {= version}
+  "xapi-stdext-std" {= version}
+  "xapi-stdext-threads" {= version}
+  "xapi-stdext-unix" {= version}
+  "xapi-idl" {= version}
   "xenstore_transport"
 ]
 build: [

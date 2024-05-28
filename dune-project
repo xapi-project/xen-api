@@ -68,8 +68,8 @@
    re
    uri
    (uuid :with-test)
-   (xapi-log :version)
-   (xapi-stdext-threads :version)
+   (xapi-log (= :version))
+   (xapi-stdext-threads (= :version))
   )
   (synopsis "Allows to instrument code to generate tracing information")
   (description "This library provides modules to allow gathering runtime traces.")
@@ -83,12 +83,13 @@
    dune
    cohttp
    rpclib
-   (xapi-log :version)
-   (xapi-open-uri :version)
-   (xapi-stdext-threads :version)
-   (xapi-stdext-unix :version)
-   (xapi-tracing :version)
-   (zstd :version)
+   ppx_deriving_rpc
+   (xapi-log (= :version))
+   (xapi-open-uri (= :version))
+   (xapi-stdext-threads (= :version))
+   (xapi-stdext-unix (= :version))
+   (xapi-tracing (= :version))
+   (zstd (= :version))
   )
   (synopsis "Export traces in multiple protocols and formats")
   (description "This library export traces is able to push traces to http endpoints or generate compressed tarballs in the filesystem.")
@@ -122,12 +123,13 @@
    ocaml
    astring
    rpclib
-   (xapi-forkexecd :version)
-   (xapi-stdext-pervasives :version)
-   (xapi-stdext-std :version)
-   (xapi-stdext-threads :version)
-   (xapi-stdext-unix :version)
-   (xapi-idl :version)
+   (rrd-transport (= :version))
+   (xapi-forkexecd (= :version))
+   (xapi-stdext-pervasives (= :version))
+   (xapi-stdext-std (= :version))
+   (xapi-stdext-threads (= :version))
+   (xapi-stdext-unix (= :version))
+   (xapi-idl (= :version))
    xenstore_transport
   )
 )
@@ -140,20 +142,21 @@
    (ocaml (>= "4.02.0"))
    dune-build-info
    astring
-   (gzip :version)
-   (http-lib :version)
+   (gzip (= :version))
+   (http-lib (= :version))
    inotify
    io-page
    mtime
    ppx_deriving_rpc
    rpclib
    systemd
-   (ezxenstore :version)
-   (uuid :version)
-   (xapi-backtrace :version)
-   (xapi-idl :version)
-   (xapi-rrd :version)
-   (xapi-stdext-threads :version)
+   (ezxenstore (= :version))
+   (uuid (= :version))
+   xapi-backtrace
+   (xapi-idl (= :version))
+   (xapi-rrd (= :version))
+   (xapi-stdext-threads (= :version))
+   (xapi-stdext-unix (= :version))
   )
 )
 
@@ -165,6 +168,9 @@
   (depends
    ocaml
    cmdliner
+   (rrd-transport (= :version))
+   (xapi-idl (= :version))
+   (xapi-rrd (= :version))
   )
 )
 

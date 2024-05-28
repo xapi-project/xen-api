@@ -13,20 +13,21 @@ depends: [
   "ocaml" {>= "4.02.0"}
   "dune-build-info"
   "astring"
-  "gzip" {version}
-  "http-lib" {version}
+  "gzip" {= version}
+  "http-lib" {= version}
   "inotify"
   "io-page"
   "mtime"
   "ppx_deriving_rpc"
   "rpclib"
   "systemd"
-  "ezxenstore" {version}
-  "uuid" {version}
-  "xapi-backtrace" {version}
-  "xapi-idl" {version}
-  "xapi-rrd" {version}
-  "xapi-stdext-threads" {version}
+  "ezxenstore" {= version}
+  "uuid" {= version}
+  "xapi-backtrace"
+  "xapi-idl" {= version}
+  "xapi-rrd" {= version}
+  "xapi-stdext-threads" {= version}
+  "xapi-stdext-unix" {= version}
 ]
 build: [
   ["dune" "subst"] {pinned}

@@ -12,6 +12,9 @@ depends: [
   "dune" {>= "2.0"}
   "ocaml"
   "cmdliner"
+  "rrd-transport" {= version}
+  "xapi-idl" {= version}
+  "xapi-rrd" {= version}
 ]
 build: [
   ["dune" "subst"] {pinned}
