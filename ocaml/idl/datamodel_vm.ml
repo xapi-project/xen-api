@@ -1521,6 +1521,7 @@ let set_groups =
         (Ref _vm, "self", "The VM")
       ; (Set (Ref _vm_group), "value", "The VM groups to set")
       ]
+    ~errs:[Api_errors.operation_not_allowed]
     ~allowed_roles:_R_VM_ADMIN ()
 
 let call_plugin =
