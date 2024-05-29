@@ -292,6 +292,19 @@
 
 (package
   (name message-switch-core)
+  (synopsis "A simple store-and-forward message switch")
+  (description "The switch stores messages in queues with well-known names. Clients use a simple HTTP protocol to enqueue and dequeue messages.")
+  (depends
+    astring
+    (cohttp (>= "0.21.1"))
+    ppx_deriving_rpc
+    ppx_sexp_conv
+    rpclib
+    sexplib
+    (xapi-log (= :version))
+    (xapi-stdext-threads (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package
