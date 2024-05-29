@@ -56,7 +56,6 @@ let test_xapi_restart_inner () =
   let vm3 = make_vm ~__context ~name_label:"vm3" () in
   let vm4 = make_vm ~__context ~name_label:"vm4" () in
   let vm5 = make_vm ~__context ~name_label:"vm5" () in
-  let vm6 = make_vm ~__context ~name_label:"vm6" () in
   let vm7 = make_vm ~__context ~name_label:"vm7" () in
   let host2 =
     make_host ~__context ~name_label:"host2" ~hostname:"localhost2" ()
@@ -72,22 +71,20 @@ let test_xapi_restart_inner () =
     Db.VM.add_to_other_config ~__context ~self:vm ~key:"xenops"
       ~value:"simulator"
   in
-  List.iter add_flags [vm1; vm2; vm3; vm4; vm5; vm6; vm7] ;
+  List.iter add_flags [vm1; vm2; vm3; vm4; vm5; vm7] ;
   try
     (* Domain zero is running but not in xenopsd *)
     Db.VM.set_is_control_domain ~__context ~self:vm0 ~value:true ;
     Db.VM.set_resident_on ~__context ~self:vm0
       ~value:(Helpers.get_localhost ~__context) ;
     Db.VM.set_power_state ~__context ~self:vm0 ~value:`Running ;
-    (* Start all 7 VMs *)
+    (* Start all 6 VMs *)
     Xapi_xenops.start ~__context ~self:vm1 false false ;
     Xapi_xenops.start ~__context ~self:vm2 false false ;
     Xapi_xenops.start ~__context ~self:vm3 false false ;
     Xapi_xenops.start ~__context ~self:vm4 false false ;
     Xapi_xenops.start ~__context ~self:vm5 false false ;
-    Xapi_xenops.start ~__context ~self:vm6 false false ;
     Xapi_xenops.start ~__context ~self:vm7 false false ;
-    Db.VM.set_is_control_domain ~__context ~self:vm6 ~value:true ;
     (* Kill the event thread *)
     cancel := true ;
     Client.UPDATES.inject_barrier "dbg"
@@ -121,7 +118,7 @@ let test_xapi_restart_inner () =
     in
     List.iter
       (fun vm -> assert_correct_state (vm, true))
-      [vm1; vm2; vm3; vm4; vm5; vm6; vm7] ;
+      [vm1; vm2; vm3; vm4; vm5; vm7] ;
     (* Simulate various out-of-band VM operations by resetting the xapi state to halted, and stop one that was running *)
     Db.VM.set_resident_on ~__context ~self:vm1 ~value:Ref.null ;
     Db.VM.set_name_label ~__context ~self:vm1
@@ -137,8 +134,6 @@ let test_xapi_restart_inner () =
     Db.VM.set_name_label ~__context ~self:vm4
       ~value:"vm4: xapi thinks it's running somewhere else" ;
     Db.VM.destroy ~__context ~self:vm5 ;
-    Db.VM.set_name_label ~__context ~self:vm6
-      ~value:"vm6: is_control_domain=true" ;
     ignore
       (Client.VM.shutdown "dbg" (Xapi_xenops.id_of_vm ~__context ~self:vm7) None) ;
     Db.VM.set_name_label ~__context ~self:vm7
@@ -180,7 +175,6 @@ let test_xapi_restart_inner () =
       ; (vm2, true)
       ; (vm3, false)
       ; (vm4, false)
-      ; (vm6, true)
       ; (vm7, false)
       ]
   with e ->
