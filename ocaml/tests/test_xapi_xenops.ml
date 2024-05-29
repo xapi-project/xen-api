@@ -170,13 +170,7 @@ let test_xapi_restart_inner () =
     debug "Elapsed time for thread death: %f\n%!" (after -. before) ;
     (* And check that the right thing has happened *)
     List.iter assert_correct_state
-      [
-        (vm1, true)
-      ; (vm2, true)
-      ; (vm3, false)
-      ; (vm4, false)
-      ; (vm6, false)
-      ]
+      [(vm1, true); (vm2, true); (vm3, false); (vm4, false); (vm6, false)]
   with e ->
     Printf.printf "Caught: %s\n" (Printexc.to_string e) ;
     Printf.printf "Backtrace: %s\n%!" (Backtrace.to_string_hum (Backtrace.get e)) ;
