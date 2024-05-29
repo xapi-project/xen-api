@@ -87,7 +87,6 @@ let test_xapi_restart_inner () =
     Xapi_xenops.start ~__context ~self:vm5 false false ;
     Xapi_xenops.start ~__context ~self:vm6 false false ;
     Xapi_xenops.start ~__context ~self:vm7 false false ;
-    (* vm6 is a ntnx CVM *)
     Db.VM.set_is_control_domain ~__context ~self:vm6 ~value:true ;
     (* Kill the event thread *)
     cancel := true ;

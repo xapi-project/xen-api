@@ -116,18 +116,7 @@ let assert_safe_to_reenable ~__context ~self =
 
 (* The maximum pool size allowed must be restricted to 3 hosts for the pool which does not have Pool_size feature *)
 let pool_size_is_restricted ~__context =
-  let cvm_exception =
-    let dom0 = Helpers.get_domain_zero ~__context in
-    Db.VM.get_records_where ~__context
-      ~expr:(Eq (Field "is_control_domain", Literal "true"))
-    |> List.exists (fun (vmref, vmrec) ->
-           vmref <> dom0
-           && Xapi_stdext_std.Xstringext.String.endswith "-CVM"
-                vmrec.API.vM_name_label
-       )
-  in
-  (not cvm_exception)
-  && not (Pool_features.is_enabled ~__context Features.Pool_size)
+  not (Pool_features.is_enabled ~__context Features.Pool_size)
 
 let bugreport_upload ~__context ~host:_ ~url ~options =
   let proxy =
