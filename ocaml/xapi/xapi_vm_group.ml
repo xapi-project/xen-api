@@ -15,6 +15,7 @@
 module D = Debug.Make (struct let name = "xapi_vm_group" end)
 
 let create ~__context ~name_label ~name_description ~placement =
+  Pool_features.assert_enabled ~__context ~f:Features.VM_group ;
   let uuid = Uuidx.make () in
   let ref = Ref.make () in
   Db.VM_group.create ~__context ~ref ~uuid:(Uuidx.to_string uuid) ~name_label
