@@ -25,12 +25,6 @@ let start = ref 0
 
 let interval = ref 5
 
-let exn_to_string = function
-  | Api_errors.Server_error (code, params) ->
-      Printf.sprintf "%s %s" code (String.concat " " params)
-  | e ->
-      Printexc.to_string e
-
 let main () =
   Lwt_switch.with_switch @@ fun switch ->
   let t =

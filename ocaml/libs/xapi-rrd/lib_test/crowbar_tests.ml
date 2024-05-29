@@ -37,18 +37,6 @@ let test_ranges rrd =
   let in_range_rra dss rra = Array.iter2 in_range_fring dss rra.rra_data in
   Array.iter (in_range_rra rrd.rrd_dss) rrd.rrd_rras
 
-let same_input_type vf vf' =
-  let open Rrd in
-  match vf vf' with
-  | VT_Unknown, VT_Unknown ->
-      true
-  | VT_Int64 _, VT_Int64 _ ->
-      true
-  | VT_Float _, VT_Float _ ->
-      true
-  | _ ->
-      false
-
 let cf =
   Cb.choose
     [
