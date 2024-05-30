@@ -1,7 +1,7 @@
 type {{name}}Record struct {
 {{#fields}}
 	//{{#description}} {{.}}{{/description}}
-	{{name}} {{type}}
+	{{name}} {{type}} `json:"{{json_name}},omitempty"`
 {{/fields}}
 }
 
