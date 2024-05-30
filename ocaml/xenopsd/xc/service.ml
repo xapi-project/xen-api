@@ -18,7 +18,7 @@ module Unixext = Xapi_stdext_unix.Unixext
 module Xenops_task = Xenops_task.Xenops_task
 module Chroot = Xenops_sandbox.Chroot
 module Path = Chroot.Path
-module Xs = Xenstore.Xs
+module Xs = Ezxenstore_core.Xenstore.Xs
 module Socket = Xenops_utils.Socket
 
 let defer f g = Xapi_stdext_pervasives.Pervasiveext.finally g f
@@ -191,14 +191,16 @@ let start_and_wait_for_readyness ~task ~service =
    an exception is raised *)
 let wait_path ~pidalive ~task ~name ~domid ~xs ~ready_path ~timeout ~cancel _ =
   let syslog_key = Printf.sprintf "%s-%d" name domid in
-  let watch = Watch.value_to_appear ready_path |> Watch.map (fun _ -> ()) in
+  let watch =
+    Ezxenstore_core.Watch.(value_to_appear ready_path |> map (fun _ -> ()))
+  in
   Xenops_task.check_cancelling task ;
   ( try
       let (_ : bool) =
         Cancel_utils.cancellable_watch cancel [watch] [] task ~xs ~timeout ()
       in
       ()
-    with Watch.Timeout _ ->
+    with Ezxenstore_core.Watch.Timeout _ ->
       if pidalive name then
         raise (Service_failed (name, "Timeout reached while starting daemon")) ;
       raise (Service_failed (name, "Daemon exited unexpectedly"))

@@ -15,7 +15,7 @@
  * @group Virtual-Machine Management
 *)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Vm_placement
 
 (* === Snapshot constructors ================================================ *)

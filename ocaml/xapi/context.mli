@@ -25,7 +25,7 @@ val make :
   -> ?quiet:bool
   -> ?subtask_of:API.ref_task
   -> ?session_id:API.ref_session
-  -> ?database:Db_ref.t
+  -> ?database:Xapi_database.Db_ref.t
   -> ?task_in_database:bool
   -> ?task_description:string
   -> ?origin:origin
@@ -87,7 +87,7 @@ val task_in_database : t -> bool
 val get_origin : t -> string
 (** [get_origin __context] returns a string containing the origin of [__context]. *)
 
-val database_of : t -> Db_ref.t
+val database_of : t -> Xapi_database.Db_ref.t
 (** [database_of __context] returns a database handle, which can be used by Db.* *)
 
 (** {6 Destructors} *)
@@ -146,6 +146,7 @@ val complete_tracing : ?error:exn * string -> t -> unit
 
 val tracing_of : t -> Tracing.Span.t option
 
-val with_tracing : t -> string -> (t -> 'a) -> 'a
+val with_tracing :
+  ?originator:string -> __context:t -> string -> (t -> 'a) -> 'a
 
 val set_client_span : t -> Tracing.Span.t option

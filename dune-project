@@ -3,6 +3,7 @@
 
 (generate_opam_files true)
 
+(name "xapi")
 (source (github xapi-project/xen-api))
 (license "LGPL-2.1-only WITH OCaml-LGPL-linking-exception")
 (authors "xen-api@lists.xen.org")
@@ -19,10 +20,6 @@
 
 (package
   (name xml-light2)
-)
-
-(package
-  (name xen-api-sdk)
 )
 
 (package
@@ -64,10 +61,37 @@
 
 (package
   (name xapi-tracing)
+  (depends
+   ocaml
+   dune
+   (alcotest :with-test)
+   re
+   uri
+   (uuid :with-test)
+   (xapi-log :version)
+   (xapi-stdext-threads :version)
+  )
+  (synopsis "Allows to instrument code to generate tracing information")
+  (description "This library provides modules to allow gathering runtime traces.")
 )
 
 (package
   (name xapi-tracing-export)
+  (depends
+   ocaml
+   cohttp-posix
+   dune
+   cohttp
+   rpclib
+   (xapi-log :version)
+   (xapi-open-uri :version)
+   (xapi-stdext-threads :version)
+   (xapi-stdext-unix :version)
+   (xapi-tracing :version)
+   (zstd :version)
+  )
+  (synopsis "Export traces in multiple protocols and formats")
+  (description "This library export traces is able to push traces to http endpoints or generate compressed tarballs in the filesystem.")
 )
 
 (package
@@ -92,18 +116,56 @@
 
 (package
   (name rrdd-plugin)
+  (synopsis "A plugin library for the xapi performance monitoring daemon")
+  (description "This library allows one to expose a datasource which can then be sampled by the performance monitoring daemon.")
+  (depends
+   ocaml
+   astring
+   rpclib
+   (xapi-forkexecd :version)
+   (xapi-stdext-pervasives :version)
+   (xapi-stdext-std :version)
+   (xapi-stdext-threads :version)
+   (xapi-stdext-unix :version)
+   (xapi-idl :version)
+   xenstore_transport
+  )
 )
 
 (package
   (name xapi-rrdd)
+  (synopsis "Performance monitoring daemon for xapi")
+  (description "This daemon monitors 'datasources' i.e. time-varying values such as performance counters and records the samples in RRD archives. These archives can be used to examine historical performance trends.")
+  (depends
+   (ocaml (>= "4.02.0"))
+   dune-build-info
+   astring
+   (gzip :version)
+   (http-lib :version)
+   inotify
+   io-page
+   mtime
+   ppx_deriving_rpc
+   rpclib
+   systemd
+   (ezxenstore :version)
+   (uuid :version)
+   (xapi-backtrace :version)
+   (xapi-idl :version)
+   (xapi-rrd :version)
+   (xapi-stdext-threads :version)
+  )
 )
 
 (package
   (name xapi-rrd-transport-utils)
-)
-
-(package
-  (name xapi-rrd-transport)
+  (synopsis "Shared-memory protocols for exposing performance counters")
+  (description "VMs running on a Xen host can use this library to expose performance counters which can be sampled by the xapi performance monitoring daemon.")
+  (authors "John Else")
+  (depends
+   ocaml
+   cmdliner
+  )
 )
 
 (package

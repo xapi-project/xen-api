@@ -19,6 +19,7 @@ module D = Debug.Make (struct let name = "xha_metadata_vdi" end)
 
 open D
 open Client
+module Redo_log = Xapi_database.Redo_log
 
 let create ~__context ~sr =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -82,6 +83,7 @@ let deactivate_and_detach_existing ~__context =
 
 (** Attempt to flush the database to the metadata VDI *)
 let flush_database ~__context log =
+  let open Xapi_database in
   try
     Redo_log.flush_db_to_redo_log (Db_ref.get_database (Db_backend.make ())) log
   with _ -> false

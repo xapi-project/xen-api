@@ -179,7 +179,7 @@ end = struct
 
   let get_ca_certs ~__context name =
     let expr =
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let type' = Eq (Field "type", Literal "ca") in
       let name' = Eq (Field "name", Literal name) in
       And (type', name')
@@ -187,7 +187,7 @@ end = struct
     Db.Certificate.get_refs_where ~__context ~expr
 
   let get_host_certs ~__context ~type' ~host =
-    let open Db_filter_types in
+    let open Xapi_database.Db_filter_types in
     let type' =
       Eq (Field "type", Literal (Record_util.certificate_type_to_string type'))
     in
@@ -251,7 +251,7 @@ end = struct
 
   let get_ca_certs ~__context =
     let expr =
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       Eq (Field "type", Literal "ca")
     in
     Db.Certificate.get_refs_where ~__context ~expr

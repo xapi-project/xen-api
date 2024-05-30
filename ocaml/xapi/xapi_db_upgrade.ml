@@ -488,7 +488,7 @@ let remove_vmpp =
       (fun ~__context ->
         let vmpps = Db.VMPP.get_all ~__context in
         List.iter (fun self -> Db.VMPP.destroy ~__context ~self) vmpps ;
-        let open Db_filter_types in
+        let open Xapi_database.Db_filter_types in
         let vms =
           Db.VM.get_refs_where ~__context
             ~expr:
@@ -938,9 +938,10 @@ let rules =
 (* Maybe upgrade most recent db *)
 let maybe_upgrade ~__context =
   let db_ref = Context.database_of __context in
+  let open Xapi_database in
   let db = Db_ref.get_database db_ref in
   let ((previous_major_vsn, previous_minor_vsn) as previous_vsn) =
-    Db_cache_types.Manifest.schema (Db_cache_types.Database.manifest db)
+    Db_cache_types.(Manifest.schema (Database.manifest db))
   in
   let ((latest_major_vsn, latest_minor_vsn) as latest_vsn) =
     (Datamodel_common.schema_major_vsn, Datamodel_common.schema_minor_vsn)

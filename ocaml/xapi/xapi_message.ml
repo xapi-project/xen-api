@@ -331,6 +331,7 @@ let write ~__context ~_ref ~message =
     gen
   in
   let gen = ref 0L in
+  let open Xapi_database in
   Db_lock.with_lock (fun () ->
       let t = Context.database_of __context in
       Db_ref.update_database t (fun db ->
@@ -450,7 +451,8 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   (* Return the message ref, or Ref.null if the message wasn't written *)
   match gen with Some _ -> _ref | None -> Ref.null
 
-let deleted : (Generation.t * API.ref_message) list ref = ref [(0L, Ref.null)]
+let deleted : (Xapi_database.Generation.t * API.ref_message) list ref =
+  ref [(0L, Ref.null)]
 
 let ndeleted = ref 1
 
@@ -469,6 +471,7 @@ let destroy_real __context basefilename =
   Unixext.unlink_safe filename ;
   let rpc = API.rpc_of_message_t message in
   let gen = ref 0L in
+  let open Xapi_database in
   Db_lock.with_lock (fun () ->
       let t = Context.database_of __context in
       Db_ref.update_database t (fun db ->

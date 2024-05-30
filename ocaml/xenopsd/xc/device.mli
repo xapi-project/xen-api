@@ -59,11 +59,12 @@ module Profile : sig
 end
 
 module Generic : sig
-  val rm_device_state : xs:Xenstore.Xs.xsh -> device -> unit
+  val rm_device_state : xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> unit
 
-  val exists : xs:Xenstore.Xs.xsh -> device -> bool
+  val exists : xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> bool
 
-  val get_private_key : xs:Xenstore.Xs.xsh -> device -> string -> string
+  val get_private_key :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string -> string
 end
 
 module Vbd : sig
@@ -104,7 +105,7 @@ module Vbd : sig
   val add :
        Xenops_task.task_handle
     -> xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> hvm:bool
     -> t
     -> Xenctrl.domid
@@ -113,39 +114,43 @@ module Vbd : sig
   val release :
        Xenops_task.task_handle
     -> xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> device
     -> unit
 
-  val media_eject : xs:Xenstore.Xs.xsh -> dm:Profile.t -> device -> unit
+  val media_eject :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> dm:Profile.t -> device -> unit
 
   val media_insert :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> phystype:physty
     -> params:string
     -> device
     -> unit
 
-  val media_is_ejected : xs:Xenstore.Xs.xsh -> device -> bool
+  val media_is_ejected : xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> bool
 
-  val clean_shutdown_async : xs:Xenstore.Xs.xsh -> device -> unit
+  val clean_shutdown_async :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> unit
 
   val clean_shutdown_wait :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> ignore_transients:bool
     -> device
     -> unit
 
   (* For migration: *)
-  val hard_shutdown_request : xs:Xenstore.Xs.xsh -> device -> unit
+  val hard_shutdown_request :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> unit
 
-  val hard_shutdown_complete : xs:Xenstore.Xs.xsh -> device -> unit Watch.t
+  val hard_shutdown_complete :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> unit Ezxenstore_core.Watch.t
 
   val hard_shutdown_wait :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> timeout:float
     -> device
     -> unit
@@ -153,7 +158,7 @@ end
 
 module Vif : sig
   val add :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> devid:int
     -> mac:string
     -> ?mtu:int
@@ -169,21 +174,21 @@ module Vif : sig
     -> Xenctrl.domid
     -> device
 
-  val set_carrier : xs:Xenstore.Xs.xsh -> device -> bool -> unit
+  val set_carrier : xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> bool -> unit
 
   val release :
        Xenops_task.task_handle
     -> xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> device
     -> unit
 
-  val move : xs:Xenstore.Xs.xsh -> device -> string -> unit
+  val move : xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string -> unit
 end
 
 module NetSriovVf : sig
   val add :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> devid:int
     -> mac:string
     -> ?mtu:int
@@ -201,23 +206,49 @@ module NetSriovVf : sig
 end
 
 val clean_shutdown :
-  Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> device -> unit
+     Xenops_task.task_handle
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> device
+  -> unit
 
 val hard_shutdown :
-  Xenops_task.task_handle -> xs:Xenstore.Xs.xsh -> device -> unit
+     Xenops_task.task_handle
+  -> xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> device
+  -> unit
 
-val can_surprise_remove : xs:Xenstore.Xs.xsh -> device -> bool
+val can_surprise_remove : xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> bool
 
 module Vcpu : sig
   val add :
-    xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool -> unit
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> devid:int
+    -> int
+    -> bool
+    -> unit
 
-  val del : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> unit
+  val del :
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> devid:int
+    -> int
+    -> unit
 
   val set :
-    xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool -> unit
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> devid:int
+    -> int
+    -> bool
+    -> unit
 
-  val status : xs:Xenstore.Xs.xsh -> dm:Profile.t -> devid:int -> int -> bool
+  val status :
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
+    -> dm:Profile.t
+    -> devid:int
+    -> int
+    -> bool
 end
 
 module PCI : sig
@@ -242,7 +273,7 @@ module PCI : sig
 
   val add :
        xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> hvm:bool
     -> device' list
     -> Xenctrl.domid
@@ -250,11 +281,12 @@ module PCI : sig
 
   val release : address list -> Xenctrl.domid -> unit
 
-  val reset : xs:Xenstore.Xs.xsh -> address -> unit
+  val reset : xs:Ezxenstore_core.Xenstore.Xs.xsh -> address -> unit
 
   val bind : address list -> supported_driver -> unit
 
-  val list : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
+  val list :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> (int * address) list
 
   val dequarantine : Xenops_interface.Pci.address -> bool
 end
@@ -262,7 +294,7 @@ end
 module Vfs : sig
   val add :
        xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> ?backend_domid:int
     -> Xenctrl.domid
     -> unit
@@ -271,7 +303,7 @@ end
 module Vfb : sig
   val add :
        xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> ?backend_domid:int
     -> ?protocol:protocol
     -> Xenctrl.domid
@@ -281,7 +313,7 @@ end
 module Vkbd : sig
   val add :
        xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> ?backend_domid:int
     -> ?protocol:protocol
     -> Xenctrl.domid
@@ -338,16 +370,17 @@ module Dm : sig
   }
 
   val get_vnc_port :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> Xenctrl.domid
     -> Xenops_utils.Socket.t option
 
-  val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+  val get_tc_port :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> int option
 
   val signal :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> qemu_domid:int
     -> domid:Xenctrl.domid
     -> ?wait_for:string
@@ -356,7 +389,7 @@ module Dm : sig
     -> unit
 
   val qemu_args :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> info
     -> bool (** true = restore *)
@@ -367,7 +400,7 @@ module Dm : sig
   val start :
        Xenops_task.task_handle
     -> xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> ?timeout:float
     -> info
@@ -377,7 +410,7 @@ module Dm : sig
   val restore :
        Xenops_task.task_handle
     -> xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> ?timeout:float
     -> info
@@ -385,11 +418,11 @@ module Dm : sig
     -> unit
 
   val assert_can_suspend :
-    xs:Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> unit
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> dm:Profile.t -> Xenctrl.domid -> unit
 
   val suspend :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> qemu_domid:int
     -> dm:Profile.t
     -> Xenctrl.domid
@@ -397,13 +430,13 @@ module Dm : sig
 
   val resume :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> qemu_domid:int
     -> Xenctrl.domid
     -> unit
 
   val stop :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> qemu_domid:int
     -> vtpm:Xenops_interface.Vm.tpm option
     -> dm:Profile.t
@@ -413,7 +446,7 @@ module Dm : sig
   val restore_vgpu :
        Xenops_task.task_handle
     -> xc:Xenctrl.handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> Xenctrl.domid
     -> Xenops_interface.Vgpu.t list
     -> int
@@ -422,35 +455,35 @@ module Dm : sig
 
   val suspend_varstored :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> Xenctrl.domid
     -> vm_uuid:string
     -> string
 
   val restore_varstored :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> efivars:string
     -> Xenctrl.domid
     -> unit
 
   val suspend_vtpm :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> Xenctrl.domid
     -> vtpm:Xenops_interface.Vm.tpm option
     -> string list
 
   val restore_vtpm :
        Xenops_task.task_handle
-    -> xs:Xenstore.Xs.xsh
+    -> xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> contents:string
     -> vtpm:Xenops_interface.Vm.tpm option
     -> Xenctrl.domid
     -> unit
 
   val after_suspend_image :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> qemu_domid:int
     -> vtpm:Xenops_interface.Vm.tpm option
@@ -458,7 +491,7 @@ module Dm : sig
     -> unit
 
   val pci_assign_guest :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> dm:Profile.t
     -> index:int
     -> host:Xenops_interface.Pci.address
@@ -470,12 +503,13 @@ module Backend : sig
 end
 
 module Serial : sig
-  val update_xenstore : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> unit
+  val update_xenstore :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
 end
 
 module Vusb : sig
   val vusb_plug :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> privileged:bool
     -> domid:Xenctrl.domid
     -> id:string
@@ -486,7 +520,7 @@ module Vusb : sig
     -> unit
 
   val vusb_unplug :
-       xs:Xenstore.Xs.xsh
+       xs:Ezxenstore_core.Xenstore.Xs.xsh
     -> privileged:bool
     -> domid:Xenctrl.domid
     -> id:string
@@ -494,13 +528,15 @@ module Vusb : sig
     -> hostport:string
     -> unit
 
-  val qom_list : xs:Xenstore.Xs.xsh -> domid:Xenctrl.domid -> string list
+  val qom_list :
+    xs:Ezxenstore_core.Xenstore.Xs.xsh -> domid:Xenctrl.domid -> string list
 end
 
 val get_vnc_port :
-     xs:Xenstore.Xs.xsh
+     xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> dm:Profile.t
   -> Xenctrl.domid
   -> Xenops_utils.Socket.t option
 
-val get_tc_port : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> int option
+val get_tc_port :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> int option

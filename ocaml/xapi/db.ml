@@ -16,6 +16,7 @@
 *)
 
 include Db_actions.DB_Action
+open Xapi_database
 
 let is_valid_ref __context r =
   if r = Ref.null then

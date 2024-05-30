@@ -15,7 +15,7 @@
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_helpers
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Xenops_utils
 open Xenops_task
 open Cancel_utils

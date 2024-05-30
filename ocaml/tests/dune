@@ -1,6 +1,6 @@
 (test
   (name suite_alcotest)
-  (modes exe)
+  (modes (best exe))
   (package xapi)
   (modules
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
@@ -121,6 +121,7 @@
 (name test_observer)
 (package xapi)
 (modules test_observer)
+(modes (best exe))
 (libraries alcotest tracing xapi_internal tests_common yojson))
 
 (rule

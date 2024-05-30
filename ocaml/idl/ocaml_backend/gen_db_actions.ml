@@ -271,13 +271,14 @@ let ocaml_of_tbl_fields xs =
 let open_db_module =
   [
     "let __t = Context.database_of __context in"
-  ; "let module DB = (val (Db_cache.get __t) : Db_interface.DB_ACCESS) in"
+  ; "let module DB = (val (Xapi_database.Db_cache.get __t) : \
+     Xapi_database.Db_interface.DB_ACCESS) in"
   ]
 
 let db_action api : O.Module.t =
   let api = make_db_api api in
   let expr = "expr" in
-  let expr_arg = O.Named (expr, "Db_filter_types.expr") in
+  let expr_arg = O.Named (expr, "Xapi_database.Db_filter_types.expr") in
   let get_refs_where (obj : obj) =
     let tbl = Escaping.escape_obj obj.DT.name in
     let body =
@@ -526,13 +527,13 @@ let db_action api : O.Module.t =
       | FromObject GetAllRecords ->
           String.concat "\n"
             [
-              "let expr' = Db_filter_types.True in"
+              "let expr' = Xapi_database.Db_filter_types.True in"
             ; "get_records_where ~" ^ Gen_common.context ^ " ~expr:expr'"
             ]
       | FromObject GetAllRecordsWhere ->
           String.concat "\n"
             [
-              "let expr' = Db_filter.expr_of_string expr in"
+              "let expr' = Xapi_database.Db_filter.expr_of_string expr in"
             ; "get_records_where ~" ^ Gen_common.context ^ " ~expr:expr'"
             ]
       | _ ->
@@ -577,7 +578,7 @@ let db_action api : O.Module.t =
   O.Module.make ~name:_db_action
     ~preamble:
       [
-        "open Db_cache_types"
+        "open Xapi_database.Db_cache_types"
       ; "module D=Debug.Make(struct let name=\"db\" end)"
       ; "open D"
       ]

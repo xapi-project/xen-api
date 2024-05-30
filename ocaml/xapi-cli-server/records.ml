@@ -139,6 +139,8 @@ let safe_get_field x =
   | e ->
       raise e
 
+module Ref_index = Xapi_database.Ref_index
+
 let get_uuid_from_ref r =
   try
     match Ref_index.lookup (Ref.string_of r) with
