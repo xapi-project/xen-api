@@ -180,6 +180,7 @@ module Json = struct
     `O
       [
         ("name", `String (concat_and_convert field))
+      ; ("json_name", `String (String.concat "_" field.full_name))
       ; ("description", `String (String.trim field.field_description))
       ; ("type", `String ty)
       ]
@@ -217,6 +218,7 @@ module Json = struct
         `O
           [
             ("name", `String "Snapshot")
+          ; ("json_name", `String "snapshot")
           ; ( "description"
             , `String
                 "The record of the database object that was added, changed or \

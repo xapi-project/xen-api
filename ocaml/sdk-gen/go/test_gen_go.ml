@@ -58,12 +58,15 @@ let schema_check keys checker members =
   compare_keys keys keys' && List.for_all checker members
 
 let verify_field_member = function
-  | "name", `String _ | "description", `String _ | "type", `String _ ->
+  | "name", `String _
+  | "description", `String _
+  | "type", `String _
+  | "json_name", `String _ ->
       true
   | _ ->
       false
 
-let field_keys = ["name"; "description"; "type"]
+let field_keys = ["name"; "description"; "type"; "json_name"]
 
 let verify_field = function
   | `O members ->
@@ -558,12 +561,14 @@ let record : Mustache.Json.t =
             `O
               [
                 ("name", `String "UUID")
+              ; ("json_name", `String "uuid")
               ; ("description", `String "Unique identifier/object reference")
               ; ("type", `String "string")
               ]
           ; `O
               [
                 ("name", `String "ThisHost")
+              ; ("json_name", `String "thishost")
               ; ("description", `String "Currently connected host")
               ; ("type", `String "HostRef")
               ]

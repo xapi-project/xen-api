@@ -1,7 +1,7 @@
 type {{name}}Record struct {
 {{#fields}}
 	//{{#description}} {{.}}{{/description}}
-	{{name}} {{type}}
+	{{name}} {{type}} `json:"{{json_name}},omitempty"`
 {{/fields}}
 }
 
@@ -11,9 +11,9 @@ type {{name}}Ref string
 type RecordInterface interface{}
 
 type EventBatch struct {
-	Token          string
-	ValidRefCounts map[string]int
-	Events         []EventRecord
+	Token          string         `json:"token,omitempty"`
+	ValidRefCounts map[string]int `json:"validRefCounts,omitempty"`
+	Events         []EventRecord  `json:"events,omitempty"`
 }
 
 {{/event}}

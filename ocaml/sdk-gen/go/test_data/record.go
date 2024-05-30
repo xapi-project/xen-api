@@ -1,8 +1,8 @@
 type SessionRecord struct {
 	// Unique identifier/object reference
-	UUID string
+	UUID string `json:"uuid,omitempty"`
 	// Currently connected host
-	ThisHost HostRef
+	ThisHost HostRef `json:"thishost,omitempty"`
 }
 
 type SessionRef string
