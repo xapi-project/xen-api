@@ -10,16 +10,17 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.0"}
   "alcotest" {with-test}
   "re"
   "uri"
   "uuid" {with-test}
   "xapi-log" {= version}
   "xapi-stdext-threads" {= version}
+  "odoc" {with-doc}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"
