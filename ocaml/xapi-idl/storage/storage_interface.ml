@@ -232,11 +232,7 @@ let default_vdi_info =
   | Error (`Msg m) ->
       failwith (Printf.sprintf "Error creating default_vdi_info: %s" m)
 
-type sr_health =
-  | Healthy
-  | Recovering
-  | Unreachable
-  | Unavailable
+type sr_health = Healthy | Recovering | Unreachable | Unavailable
 [@@deriving rpcty]
 
 type sr_info = {
