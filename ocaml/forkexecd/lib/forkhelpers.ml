@@ -36,9 +36,7 @@ let test_path =
 
 let runtime_path = Option.value ~default:"/var" test_path
 
-let _with_tracing ?tracing ~name f =
-  let name = Printf.sprintf "forkhelpers.%s" name in
-  Tracing.with_tracing ?parent:tracing ~name f
+let with_tracing ~tracing ~name f = Tracing.with_tracing ~parent:tracing ~name f
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -146,7 +144,8 @@ let getpid (_sock, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
-let temp_dir_server = runtime_path ^ "/run/nonpersistent/forkexecd/"
+let temp_dir_server =
+  Filename.concat runtime_path "/run/nonpersistent/forkexecd/"
 
 let temp_dir =
   try
@@ -182,11 +181,13 @@ type syslog_stdout =
 
 (** Safe function which forks a command, closing all fds except a whitelist and
     having performed some fd operations in the child *)
-let safe_close_and_exec ?env stdin stdout stderr
+let safe_close_and_exec ?tracing ?env stdin stdout stderr
     (fds : (string * Unix.file_descr) list) ?(syslog_stdout = NoSyslogging)
     ?(redirect_stderr_to_stdout = false) (cmd : string) (args : string list) =
+  with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
   let sock =
-    Fecomms.open_unix_domain_sock_client (runtime_path ^ "/xapi/forker/main")
+    Fecomms.open_unix_domain_sock_client ?tracing
+      (Filename.concat runtime_path "/xapi/forker/main")
   in
   let stdinuuid = Uuidx.(to_string (make ())) in
   let stdoutuuid = Uuidx.(to_string (make ())) in
@@ -195,8 +196,12 @@ let safe_close_and_exec ?env stdin stdout stderr
   let fds_to_close = ref [] in
 
   let add_fd_to_close_list fd = fds_to_close := fd :: !fds_to_close in
-  (* let remove_fd_from_close_list fd = fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close in *)
+  let remove_fd_from_close_list fd =
+    fds_to_close := List.filter (fun fd' -> fd' <> fd) !fds_to_close
+  in
   let close_fds () = List.iter (fun fd -> Unix.close fd) !fds_to_close in
+
+  add_fd_to_close_list sock ;
 
   finally
     (fun () ->
@@ -233,7 +238,7 @@ let safe_close_and_exec ?env stdin stdout stderr
         | Syslog_WithKey k ->
             {Fe.enabled= true; Fe.key= Some k}
       in
-      Fecomms.write_raw_rpc sock
+      Fecomms.write_raw_rpc ?tracing sock
         (Fe.Setup
            {
              Fe.cmdargs= cmd :: args
@@ -244,7 +249,7 @@ let safe_close_and_exec ?env stdin stdout stderr
            }
         ) ;
 
-      let response = Fecomms.read_raw_rpc sock in
+      let response = Fecomms.read_raw_rpc ?tracing sock in
 
       let s =
         match response with
@@ -267,10 +272,14 @@ let safe_close_and_exec ?env stdin stdout stderr
             failwith msg
       in
 
-      let fd_sock = Fecomms.open_unix_domain_sock_client s.Fe.fd_sock_path in
+      let fd_sock =
+        Fecomms.open_unix_domain_sock_client ?tracing s.Fe.fd_sock_path
+      in
       add_fd_to_close_list fd_sock ;
 
-      let send_named_fd uuid fd = Fecomms.send_named_fd fd_sock uuid fd in
+      let send_named_fd uuid fd =
+        Fecomms.send_named_fd ?tracing fd_sock uuid fd
+      in
 
       List.iter
         (fun (uuid, _, srcfdo) ->
@@ -282,9 +291,10 @@ let safe_close_and_exec ?env stdin stdout stderr
         )
         predefined_fds ;
       List.iter (fun (uuid, srcfd) -> send_named_fd uuid srcfd) fds ;
-      Fecomms.write_raw_rpc sock Fe.Exec ;
-      match Fecomms.read_raw_rpc sock with
+      Fecomms.write_raw_rpc ?tracing sock Fe.Exec ;
+      match Fecomms.read_raw_rpc ?tracing sock with
       | Ok (Fe.Execed pid) ->
+          remove_fd_from_close_list sock ;
           (sock, pid)
       | Ok status ->
           let msg =
@@ -304,8 +314,9 @@ let safe_close_and_exec ?env stdin stdout stderr
     )
     close_fds
 
-let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
-    ?(redirect_stderr_to_stdout = false) ?(timeout = -1.0) cmd args =
+let execute_command_get_output_inner ?tracing ?env ?stdin
+    ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
+    ?(timeout = -1.0) cmd args =
   let to_close = ref [] in
   let close fd =
     if List.mem fd !to_close then (
@@ -325,10 +336,14 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
   finally
     (fun () ->
       match
+        with_tracing ~tracing ~name:"Forkhelpers.with_logfile_out_fd"
+        @@ fun tracing ->
         with_logfile_fd "execute_command_get_out" (fun out_fd ->
+            with_tracing ~tracing ~name:"Forkhelpers.with_logfile_err_fd"
+            @@ fun tracing ->
             with_logfile_fd "execute_command_get_err" (fun err_fd ->
                 let sock, pid =
-                  safe_close_and_exec ?env
+                  safe_close_and_exec ?tracing ?env
                     (Option.map (fun (_, fd, _) -> fd) stdinandpipes)
                     (Some out_fd) (Some err_fd) [] ~syslog_stdout
                     ~redirect_stderr_to_stdout cmd args
@@ -341,6 +356,7 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
                   stdinandpipes ;
                 if timeout > 0. then
                   Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
+                with_tracing ~tracing ~name:"Forkhelpers.waitpid" @@ fun _ ->
                 try waitpid (sock, pid)
                 with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
                   Unix.kill pid Sys.sigkill ;
@@ -361,12 +377,15 @@ let execute_command_get_output_inner ?env ?stdin ?(syslog_stdout = NoSyslogging)
     )
     (fun () -> List.iter Unix.close !to_close)
 
-let execute_command_get_output ?env ?(syslog_stdout = NoSyslogging)
+let execute_command_get_output ?tracing ?env ?(syslog_stdout = NoSyslogging)
     ?(redirect_stderr_to_stdout = false) ?timeout cmd args =
-  execute_command_get_output_inner ?env ?stdin:None ?timeout ~syslog_stdout
-    ~redirect_stderr_to_stdout cmd args
+  with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
+  execute_command_get_output_inner ?tracing ?env ?stdin:None ?timeout
+    ~syslog_stdout ~redirect_stderr_to_stdout cmd args
 
-let execute_command_get_output_send_stdin ?env ?(syslog_stdout = NoSyslogging)
-    ?(redirect_stderr_to_stdout = false) ?timeout cmd args stdin =
-  execute_command_get_output_inner ?env ~stdin ~syslog_stdout
+let execute_command_get_output_send_stdin ?tracing ?env
+    ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
+    ?timeout cmd args stdin =
+  with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
+  execute_command_get_output_inner ?tracing ?env ~stdin ~syslog_stdout
     ~redirect_stderr_to_stdout ?timeout cmd args

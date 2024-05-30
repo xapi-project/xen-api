@@ -21,6 +21,8 @@
 *)
 type write_entry = {period_start_time: float; writes_this_period: int}
 
+module Parse_db_conf = Xapi_database.Parse_db_conf
+
 let backup_write_table : (Parse_db_conf.db_connection, write_entry) Hashtbl.t =
   Hashtbl.create 20
 
@@ -93,7 +95,9 @@ let notify_write dbconn =
 let determine_backup_connections generation_count =
   tick_backup_write_table () ;
   (* reset existing write_entries if any periods expire *)
-  let dbconns_and_gen_counts = Db_connections.get_dbs_and_gen_counts () in
+  let dbconns_and_gen_counts =
+    Xapi_database.Db_connections.get_dbs_and_gen_counts ()
+  in
   (* throw out dbconns that are up-to-date *)
   let dbconns_and_gen_counts =
     List.filter (fun (gen, _) -> gen <> generation_count) dbconns_and_gen_counts

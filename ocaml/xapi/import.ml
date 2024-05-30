@@ -287,7 +287,7 @@ let assert_can_live_import_vgpu ~__context vgpu_record =
   let local_pgpus =
     Db.PGPU.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq
                 ( Field "GPU_group"
@@ -629,8 +629,6 @@ module VM : HandlerTools = struct
               ~domain_type:vm_record.API.vM_domain_type
               ~is_a_template:vm_record.API.vM_is_a_template
               vm_record.API.vM_platform
-        ; API.vM_suspend_VDI= Ref.null
-        ; API.vM_power_state= `Halted
         }
       in
       let vm =
@@ -642,7 +640,11 @@ module VM : HandlerTools = struct
               Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid ;
             vm
           )
-          vm_record
+          {
+            vm_record with
+            API.vM_suspend_VDI= Ref.null
+          ; API.vM_power_state= `Halted
+          }
       in
       state.cleanup <-
         (fun __context rpc session_id ->

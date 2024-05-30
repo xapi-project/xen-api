@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://web.resource.org/cc/"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="673.7616"
+   height="323.52072"
+   id="svg3594"
+   sodipodi:version="0.32"
+   inkscape:version="0.45.1"
+   sodipodi:docbase="/home/vhanquez/work/docsource.hg/images"
+   sodipodi:docname="dia_vm_sr.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   version="1.0">
+  <defs
+     id="defs3596" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.98994949"
+     inkscape:cx="537.56029"
+     inkscape:cy="228.63815"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showguides="true"
+     inkscape:guide-bbox="true"
+     inkscape:window-width="1232"
+     inkscape:window-height="958"
+     inkscape:window-x="0"
+     inkscape:window-y="25"
+     showborder="false"
+     inkscape:showpageshadow="false" />
+  <metadata
+     id="metadata3599">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-23.743662,-339.05855)">
+    <rect
+       style="fill:#daffff;fill-opacity:1;stroke:#1e5be5;stroke-width:2.46772957;stroke-miterlimit:4;stroke-dasharray:4.93545991, 2.46772995;stroke-dashoffset:0;stroke-opacity:0.7430168"
+       id="rect2160"
+       width="304.60849"
+       height="321.05298"
+       x="391.6629"
+       y="340.29242"
+       rx="4.5033083"
+       ry="11.615936" />
+    <rect
+       style="fill:#003e3e;fill-opacity:1;stroke:#1e5be5;stroke-width:1.16814387;stroke-miterlimit:4;stroke-dasharray:2.33628784, 1.16814392;stroke-dashoffset:0;stroke-opacity:0.7430168"
+       id="rect3301"
+       width="205.90297"
+       height="66.501923"
+       x="438.49026"
+       y="359.48163"
+       rx="13.680104"
+       ry="9.9747801" />
+    <text
+       xml:space="preserve"
+       style="font-size:48px;font-style:normal;font-weight:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="498.40347"
+       y="407.19821"
+       id="text3303"><tspan
+         sodipodi:role="line"
+         x="498.40347"
+         y="407.19821"
+         id="tspan3305">VDI</tspan></text>
+    <rect
+       style="fill:#003e3e;fill-opacity:1;stroke:#1e5be5;stroke-width:1.16814387;stroke-miterlimit:4;stroke-dasharray:2.33628784, 1.16814392;stroke-dashoffset:0;stroke-opacity:0.7430168"
+       id="rect4600"
+       width="205.90297"
+       height="66.501923"
+       x="441.52072"
+       y="516.05524"
+       rx="13.680104"
+       ry="9.9747801" />
+    <text
+       xml:space="preserve"
+       style="font-size:48px;font-style:normal;font-weight:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="507.49484"
+       y="565.79218"
+       id="text4602"><tspan
+         sodipodi:role="line"
+         x="507.49484"
+         y="565.79218"
+         id="tspan4604">VDI</tspan></text>
+    <rect
+       transform="scale(-1,1)"
+       y="441.23355"
+       x="-551.55695"
+       height="58.56155"
+       width="0.027292641"
+       id="rect4606"
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:0;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-size:24px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="402.04071"
+       y="634.15906"
+       id="text4596"><tspan
+         sodipodi:role="line"
+         id="tspan4598"
+         x="402.04071"
+         y="634.15906">Storage Repository (SR)</tspan></text>
+    <rect
+       ry="9.9747801"
+       rx="13.680104"
+       y="439.28363"
+       x="24.327734"
+       height="66.501923"
+       width="205.90297"
+       id="rect4610"
+       style="opacity:1;fill:#003e3e;fill-opacity:1;stroke:#1e5be5;stroke-width:1.16814387;stroke-miterlimit:4;stroke-dasharray:2.33628784, 1.16814392;stroke-dashoffset:0;stroke-opacity:0.7430168" />
+    <rect
+       ry="9.5568724"
+       rx="8.9312325"
+       y="360.36963"
+       x="226.2361"
+       height="63.715733"
+       width="134.42639"
+       id="rect4616"
+       style="opacity:1;fill:#003e3e;fill-opacity:1;stroke:#1e5be5;stroke-width:0.92387581;stroke-miterlimit:4;stroke-dasharray:1.84775157, 0.92387578;stroke-dashoffset:0;stroke-opacity:0.7430168" />
+    <text
+       id="text4618"
+       y="409.21854"
+       x="244.85519"
+       style="font-size:48px;font-style:normal;font-weight:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       xml:space="preserve"><tspan
+         id="tspan4620"
+         y="409.21854"
+         x="244.85519"
+         sodipodi:role="line">VBD</tspan></text>
+    <rect
+       ry="9.5568724"
+       rx="8.9312325"
+       y="519.46869"
+       x="225.73105"
+       height="63.715733"
+       width="134.42639"
+       id="rect4622"
+       style="opacity:1;fill:#003e3e;fill-opacity:1;stroke:#1e5be5;stroke-width:0.92387581;stroke-miterlimit:4;stroke-dasharray:1.84775157, 0.92387578;stroke-dashoffset:0;stroke-opacity:0.7430168" />
+    <text
+       id="text4624"
+       y="568.31763"
+       x="243.33998"
+       style="font-size:48px;font-style:normal;font-weight:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       xml:space="preserve"><tspan
+         id="tspan4626"
+         y="568.31763"
+         x="243.33998"
+         sodipodi:role="line">VBD</tspan></text>
+    <text
+       id="text4628"
+       y="490.03073"
+       x="92.322128"
+       style="font-size:48px;font-style:normal;font-weight:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       xml:space="preserve"><tspan
+         id="tspan4630"
+         y="490.03073"
+         x="92.322128"
+         sodipodi:role="line">VM</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 197.29009,438.69956 L 226.57371,424.5473"
+       id="path4632"
+       inkscape:connector-type="polyline"
+       inkscape:connection-start="#rect4610"
+       inkscape:connection-end="#rect4616" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 360.61938,550.78297 L 440.93665,550.13783"
+       id="path4645"
+       inkscape:connector-type="polyline"
+       inkscape:connection-start="#rect4622"
+       inkscape:connection-end="#rect4600" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 361.12443,392.36533 L 437.90619,392.52172"
+       id="path4647"
+       inkscape:connector-type="polyline"
+       inkscape:connection-start="#rect4616"
+       inkscape:connection-end="#rect3301" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 198.41949,506.36962 L 225.26911,519.13958"
+       id="path4649"
+       inkscape:connector-type="polyline"
+       inkscape:connection-start="#rect4610"
+       inkscape:connection-end="#rect4622" />
+  </g>
+</svg>

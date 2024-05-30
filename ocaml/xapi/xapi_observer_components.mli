@@ -64,7 +64,6 @@ val dir_name_of_component : t -> string
 
 val env_exe_args_of :
      component:t
-  -> traceparent:string option
   -> exe:string
   -> args:string list
   -> string array option * string * string list

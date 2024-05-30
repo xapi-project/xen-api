@@ -15,7 +15,7 @@
 module D = Debug.Make (struct let name = "pvs_cache_vdi" end)
 
 open D
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 let create_vdi ~__context ~sR ~size =
   info "Creating new PVS-cache VDI" ;

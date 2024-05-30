@@ -90,6 +90,8 @@
 
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
+module Db_globs = Xapi_database.Db_globs
+module Block_device_io_errors = Xapi_database.Block_device_io_errors
 
 let name = "block_device_io"
 

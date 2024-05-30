@@ -1974,7 +1974,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
   let management_if =
     Xapi_inventory.lookup Xapi_inventory._management_interface
   in
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let networks =
     Db.Network.get_records_where ~__context
       ~expr:(Eq (Field "bridge", Literal management_if))

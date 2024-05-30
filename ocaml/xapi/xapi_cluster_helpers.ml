@@ -109,6 +109,11 @@ let cluster_health_enabled ~__context =
   let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
   List.assoc_opt "restrict_cluster_health" restrictions = Some "false"
 
+let corosync3_enabled ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+  List.assoc_opt "restrict_corosync3" restrictions = Some "false"
+
 let maybe_generate_alert ~__context ~num_hosts ~missing_hosts ~new_hosts ~quorum
     =
   let generate_alert join cluster_host =

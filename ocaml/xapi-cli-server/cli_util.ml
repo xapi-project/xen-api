@@ -242,6 +242,7 @@ let get_default_sr_uuid rpc session_id =
 
 (* Given a string that might be a ref, lookup ref in cache and print uuid/name-label where possible *)
 let ref_convert x =
+  let module Ref_index = Xapi_database.Ref_index in
   match Ref_index.lookup x with
   | None ->
       x

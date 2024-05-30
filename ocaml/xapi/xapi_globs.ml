@@ -20,6 +20,8 @@ module StringSet = Set.Make (String)
 
 module D = Debug.Make (struct let name = "xapi_globs" end)
 
+module Db_globs = Xapi_database.Db_globs
+
 (* set this to true to enable XSM to out-of-pool SRs with matching UUID *)
 let relax_xsm_sr_check = ref true
 
@@ -1025,6 +1027,8 @@ let observer_experimental_components =
 
 let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 
+let disable_webserver = ref false
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1543,6 +1547,11 @@ let other_options =
         |> String.concat ","
       )
     , "Comma-separated list of experimental observer components"
+    )
+  ; ( "disable-webserver"
+    , Arg.Set disable_webserver
+    , (fun () -> string_of_bool !disable_webserver)
+    , "Disable the host webserver"
     )
   ]
 

@@ -53,6 +53,7 @@ let test_clusterd_rpc ~__context call =
         ; config_version= 1L
         ; cluster_token_timeout_ms= 20000L
         ; cluster_token_coefficient_ms= 1000L
+        ; cluster_stack= Cluster_stack.Corosync3
         }
       in
       let diag =
@@ -140,16 +141,18 @@ let test_invalid_parameters () =
     "Cluster.create should fail upon receiving an invalid cluster stack"
     Api_errors.(Server_error (invalid_cluster_stack, [cluster_stack]))
     (fun () -> create_cluster ~__context ~cluster_stack () |> ignore) ;
-  Alcotest.check_raises "token_timeout < minimum threshold"
-    Api_errors.(Server_error (invalid_value, ["token_timeout"; "0.5"]))
-    (fun () -> create_cluster ~__context ~token_timeout:0.5 () |> ignore) ;
-  Alcotest.check_raises "token_timeout_coefficient < minimum threshold"
-    Api_errors.(
-      Server_error (invalid_value, ["token_timeout_coefficient"; "0.6"])
-    )
-    (fun () ->
-      create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore
-    )
+  if not (Xapi_fist.allow_corosync2 ()) then (
+    Alcotest.check_raises "token_timeout < minimum threshold"
+      Api_errors.(Server_error (invalid_value, ["token_timeout"; "0.5"]))
+      (fun () -> create_cluster ~__context ~token_timeout:0.5 () |> ignore) ;
+    Alcotest.check_raises "token_timeout_coefficient < minimum threshold"
+      Api_errors.(
+        Server_error (invalid_value, ["token_timeout_coefficient"; "0.6"])
+      )
+      (fun () ->
+        create_cluster ~__context ~token_timeout_coefficient:0.6 () |> ignore
+      )
+  )
 
 let test_create_cleanup () =
   let __context = Test_common.make_test_database () in

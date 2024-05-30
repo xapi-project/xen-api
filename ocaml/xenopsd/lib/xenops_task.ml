@@ -71,12 +71,12 @@ let is_task task = function
       None
 
 let parallel_id_with_tracing parallel_id t =
-  Debuginfo.make ~log:parallel_id ~tracing:(Xenops_task.tracing t)
-  |> Debuginfo.to_string
+  Debug_info.make ~log:parallel_id ~tracing:(Xenops_task.tracing t)
+  |> Debug_info.to_string
 
 let dbg_with_traceparent_of_task t =
-  Debuginfo.make ~log:(Xenops_task.get_dbg t) ~tracing:(Xenops_task.tracing t)
-  |> Debuginfo.to_string
+  Debug_info.make ~log:(Xenops_task.get_dbg t) ~tracing:(Xenops_task.tracing t)
+  |> Debug_info.to_string
 
 let traceparent_header_of_task t =
   Option.map

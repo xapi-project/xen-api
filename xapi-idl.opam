@@ -17,7 +17,9 @@ depends: [
   "astring"
   "cmdliner"
   "cohttp"
+  "cohttp-posix"
   "fd-send-recv"
+  "ipaddr"
   "logs"
   "lwt" {>= "5.0.0"}
   "message-switch-async" {with-test}

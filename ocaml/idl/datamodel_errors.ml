@@ -1913,11 +1913,6 @@ let _ =
     ~doc:"Failed to get available updates from a host." () ;
   error Api_errors.get_updates_failed []
     ~doc:"Failed to get available updates from the pool." () ;
-  error Api_errors.get_updates_in_progress []
-    ~doc:
-      "The operation could not be performed because getting updates is in \
-       progress."
-    () ;
   error Api_errors.apply_updates_in_progress []
     ~doc:
       "The operation could not be performed because applying updates is in \
