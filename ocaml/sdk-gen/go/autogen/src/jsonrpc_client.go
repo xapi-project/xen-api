@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -66,9 +67,12 @@ func (client *rpcClient) newRequest(ctx context.Context, req interface{}) (*http
 
 func convertUnhandledJSONData(jsonBytes []byte) []byte {
 	jsonString := string(jsonBytes)
-	jsonString = strings.ReplaceAll(jsonString, ":Infinity", ":\"+Inf\"")
-	jsonString = strings.ReplaceAll(jsonString, ":-Infinity", ":\"-Inf\"")
-	jsonString = strings.ReplaceAll(jsonString, ":NaN", ":\"NaN\"")
+	re := regexp.MustCompile(`:[ ]*-Infinity`)
+	jsonString = re.ReplaceAllString(jsonString, `:"-Inf"`)
+	re = regexp.MustCompile(`:[ +]*Infinity`)
+	jsonString = re.ReplaceAllString(jsonString, `:"+Inf"`)
+	re = regexp.MustCompile(`:[ ]*NaN`)
+	jsonString = re.ReplaceAllString(jsonString, `:"NaN"`)
 
 	return []byte(jsonString)
 }
