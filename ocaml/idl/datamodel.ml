@@ -2798,7 +2798,14 @@ module Sr_stat = struct
 
   let t =
     let lifecycle =
-      [(Prototyped, rel_kolkata, ""); (Published, rel_lima, "")]
+      [
+        (Prototyped, rel_kolkata, "")
+      ; (Published, rel_lima, "")
+      ; ( Extended
+        , "24.16.0"
+        , "Enum extended with 'unreachable' and 'unavailable' values"
+        )
+      ]
     in
     create_obj ~in_db:false ~persist:PersistNothing
       ~gen_constructor_destructor:false ~lifecycle ~in_oss_since:None
