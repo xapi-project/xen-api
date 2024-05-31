@@ -2566,6 +2566,10 @@ let sr_probe_ext printer rpc session_id params =
           "healthy"
       | `recovering ->
           "recovering"
+      | `unreachable ->
+          "unreachable"
+      | `unavailable ->
+          "unavailable"
     in
     (match x.API.sr_stat_uuid with Some uuid -> [("uuid", uuid)] | None -> [])
     @ [
