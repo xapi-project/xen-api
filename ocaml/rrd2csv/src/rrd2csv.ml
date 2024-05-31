@@ -146,18 +146,6 @@ module Ds_selector = struct
 
   let empty = {cf= None; owner= None; uuid= ""; metric= ""; enabled= true}
 
-  let make ?cf ?owner ?(uuid = "") ?(enabled = true) metric =
-    {cf; owner; uuid; metric; enabled}
-
-  let of_datasource ?(uuid = "") ?owner (ds : Data_source.t) =
-    {
-      empty with
-      owner
-    ; uuid
-    ; metric= ds.Data_source.name
-    ; enabled= ds.Data_source.enabled
-    }
-
   let of_string str =
     let open Rrd in
     let splitted = Xstringext.String.split ':' str in
@@ -283,9 +271,6 @@ module Ds_selector = struct
         ds_s.metric
     in
     if escaped then escape_metric string_repr else string_repr
-
-  let to_metric ?(escaped = false) ds_s =
-    if escaped then escape_metric ds_s.metric else ds_s.metric
 
   (* Returns true if d "passes" the filter f, i.e. if fields of d
      match the non-null fields of f *)
@@ -492,23 +477,6 @@ module Xport = struct
   (* Data sources filtering *)
   let filter_sources filter (update : t) =
     Ds_selector.filter filter update.header.entries
-
-  (* CSV converting operations *)
-
-  let to_csv_headers (update : t) =
-    String.concat ", " (List.map Ds_selector.to_string update.header.entries)
-
-  let to_csv (update : t) =
-    let last_update = List.hd update.data in
-    Xstringext.String.sub_to_end
-      (Array.fold_left
-         (fun acc v ->
-           let strv = Stdout.string_of_float v in
-           acc ^ ", " ^ strv
-         )
-         "" last_update.values
-      )
-      2
 
   (* Association list operations *)
 
