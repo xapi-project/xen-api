@@ -3,4 +3,4 @@ title = "Design Documents"
 menuTitle = "Designs"
 +++
 
-{{% children %}}
+{{< design_docs_list >}}
