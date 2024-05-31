@@ -331,7 +331,7 @@ let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
   let span_name, span_attributes = span_details_from_task_name task_name in
   let parent = parent_fn span_name in
   let span_kind = span_kind_of_parent parent in
-  let tracer = get_tracer ~name:span_name in
+  let tracer = Tracer.get_tracer ~name:span_name in
   match
     Tracer.start ~span_kind ~tracer ~attributes:span_attributes ~name:span_name
       ~parent ()
@@ -500,14 +500,15 @@ let get_client_ip context =
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
 
-let with_tracing context name f =
+let with_tracing ?originator ~__context name f =
   let open Tracing in
-  let parent = context.tracing in
-  match start_tracing_helper (fun _ -> parent) name with
+  let parent = __context.tracing in
+  let span_attributes = Attributes.attr_of_originator originator in
+  match start_tracing_helper ~span_attributes (fun _ -> parent) name with
   | Some _ as span ->
-      let new_context = {context with tracing= span} in
+      let new_context = {__context with tracing= span} in
       let result = f new_context in
       let _ = Tracer.finish span in
       result
   | None ->
-      f context
+      f __context

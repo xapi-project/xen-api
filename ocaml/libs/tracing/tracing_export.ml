@@ -280,7 +280,7 @@ module Destination = struct
     let@ parent =
       with_tracing ~parent:None ~attributes ~name:"Tracing.flush_spans"
     in
-    get_tracer_providers ()
+    TracerProvider.get_tracer_providers ()
     |> List.filter TracerProvider.get_enabled
     |> List.concat_map TracerProvider.get_endpoints
     |> List.iter (export_to_endpoint parent span_list)
