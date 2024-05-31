@@ -150,6 +150,38 @@ let string_to_vm_operation x =
   else
     List.assoc x table
 
+let vm_uefi_mode_of_string = function
+  | "setup" ->
+      `setup
+  | "user" ->
+      `user
+  | s ->
+      raise (Record_failure ("Expected 'user','setup', got " ^ s))
+
+let vm_secureboot_readiness_to_string = function
+  | `not_supported ->
+      "not_supported"
+  | `disabled ->
+      "disabled"
+  | `first_boot ->
+      "first_boot"
+  | `ready ->
+      "ready"
+  | `ready_no_dbx ->
+      "ready_no_dbx"
+  | `setup_mode ->
+      "setup_mode"
+  | `certs_incomplete ->
+      "certs_incomplete"
+
+let pool_guest_secureboot_readiness_to_string = function
+  | `ready ->
+      "ready"
+  | `ready_no_dbx ->
+      "ready_no_dbx"
+  | `not_ready ->
+      "not_ready"
+
 let pool_operation_to_string = function
   | `ha_enable ->
       "ha_enable"
