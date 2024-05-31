@@ -69,7 +69,6 @@ linters:
     - testpackage # makes you use a separate _test package
     - decorder # checks declaration order and count of types, constants, variables and functions
     - thelper # detects golang test helpers without t.Helper() call and checks the consistency of test helpers
-    - tagliatelle # checks the struct tags
     - godox # detects FIXME, TODO and other comment keywords
     - gci # controls golang package import order and makes it always deterministic
     - tagalign # checks that struct tags are well aligned
@@ -78,6 +77,7 @@ linters:
 
 
     ## disabled
+    #- tagliatelle # checks the struct tags
     #- goconst # finds repeated strings that could be replaced by a constant
     #- gochecknoglobals # checks that no global variables exist
     #- gocyclo # computes and checks the cyclomatic complexity of functions

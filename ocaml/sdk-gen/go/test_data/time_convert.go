@@ -23,7 +23,7 @@ func deserializeTime(context string, input interface{}) (value time.Time, err er
 		return
 	}
 	unixTimestamp, err := strconv.ParseInt(strconv.Itoa(int(floatValue)), 10, 64)
-	value = time.Unix(unixTimestamp, 0)
+	value = time.Unix(unixTimestamp, 0).UTC()
 
 	return
 }
