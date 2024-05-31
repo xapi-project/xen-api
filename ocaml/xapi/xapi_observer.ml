@@ -62,23 +62,24 @@ end
 module Observer : ObserverInterface = struct
   let create ~__context ~uuid ~name_label ~attributes ~endpoints ~enabled =
     debug "Observer.create %s" uuid ;
-    Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
+    Tracing.TracerProvider.create ~uuid ~name_label ~attributes ~endpoints
+      ~enabled
 
   let destroy ~__context ~uuid =
     debug "Observer.destroy %s" uuid ;
-    Tracing.destroy ~uuid
+    Tracing.TracerProvider.destroy ~uuid
 
   let set_enabled ~__context ~uuid ~enabled =
     debug "Observer.set_enabled %s" uuid ;
-    Tracing.set ~uuid ~enabled ()
+    Tracing.TracerProvider.set ~uuid ~enabled ()
 
   let set_attributes ~__context ~uuid ~attributes =
     debug "Observer.set_attributes %s" uuid ;
-    Tracing.set ~uuid ~attributes ()
+    Tracing.TracerProvider.set ~uuid ~attributes ()
 
   let set_endpoints ~__context ~uuid ~endpoints =
     debug "Observer.set_endpoints %s" uuid ;
-    Tracing.set ~uuid ~endpoints ()
+    Tracing.TracerProvider.set ~uuid ~endpoints ()
 
   let init ~__context =
     debug "Observer.init" ;
