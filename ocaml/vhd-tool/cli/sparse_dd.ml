@@ -5,8 +5,6 @@ module D = Debug.Make (struct let name = "sparse_dd" end)
 
 open D
 
-let config_file = "/etc/sparse_dd.conf"
-
 let vhd_search_path = "/dev/mapper"
 
 let ionice_cmd = "/usr/bin/ionice"
@@ -54,8 +52,6 @@ let dest = ref None
 let size = ref (-1L)
 
 let prezeroed = ref false
-
-let set_machine_logging = ref false
 
 let experimental_reads_bypass_tapdisk = ref false
 
@@ -164,32 +160,11 @@ let options =
     )
   ]
 
-let ( +* ) = Int64.add
-
-let ( -* ) = Int64.sub
-
-let ( ** ) = Int64.mul
-
-let kib = 1024L
-
-let mib = kib ** kib
-
 let startswith prefix x =
   let prefix' = String.length prefix and x' = String.length x in
   prefix' <= x' && String.sub x 0 prefix' = prefix
 
 module Opt = struct let default d = function None -> d | Some x -> x end
-
-module Mutex = struct
-  include Mutex
-
-  let execute m f =
-    Mutex.lock m ;
-    try
-      let result = f () in
-      Mutex.unlock m ; result
-    with e -> Mutex.unlock m ; raise e
-end
 
 module Progress = struct
   let header = Cstruct.create Chunked.sizeof
@@ -264,17 +239,6 @@ let with_paused_tapdisk path f =
       )
   | _, _, _ ->
       failwith (Printf.sprintf "Failed to pause tapdisk for %s" path)
-
-let deref_symlinks path =
-  let rec inner seen_already path =
-    if List.mem path seen_already then failwith "Circular symlink" ;
-    let stats = Unix.LargeFile.lstat path in
-    if stats.Unix.LargeFile.st_kind = Unix.S_LNK then
-      inner (path :: seen_already) (Unix.readlink path)
-    else
-      path
-  in
-  inner [] path
 
 (* Record when the binary started for performance measuring *)
 let start = Unix.gettimeofday ()

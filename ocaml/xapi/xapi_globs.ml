@@ -857,6 +857,10 @@ let nbd_client_manager_script =
 
 let varstore_rm = ref "/usr/bin/varstore-rm"
 
+let varstore_sb_state = ref "/usr/bin/varstore-sb-state"
+
+let varstore_ls = ref "/usr/bin/varstore-ls"
+
 let varstore_dir = ref "/var/lib/varstored"
 
 let default_auth_dir = ref "/usr/share/varstored"
@@ -1024,6 +1028,8 @@ let python3_path = ref "/usr/bin/python3"
 
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
+
+let disable_webserver = ref false
 
 let xapi_globs_spec =
   [
@@ -1544,6 +1550,11 @@ let other_options =
       )
     , "Comma-separated list of experimental observer components"
     )
+  ; ( "disable-webserver"
+    , Arg.Set disable_webserver
+    , (fun () -> string_of_bool !disable_webserver)
+    , "Disable the host webserver"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1693,6 +1704,11 @@ module Resources = struct
       , varstore_rm
       , "Executed to clear certain UEFI variables during clone"
       )
+    ; ( "varstore-sb-state"
+      , varstore_sb_state
+      , "Executed to edit the SecureBoot state of a VM"
+      )
+    ; ("varstore-ls", varstore_ls, "Executed to list the UEFI variables of a VM")
     ; ("varstore_dir", varstore_dir, "Path to local varstored directory")
     ; ( "nvidia-sriov-manage"
       , nvidia_sriov_manage_script

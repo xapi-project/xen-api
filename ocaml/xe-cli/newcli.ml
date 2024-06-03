@@ -381,15 +381,11 @@ let copy_with_heartbeat ?(block = 65536) in_ch out_ch heartbeat_fun =
     )
   done
 
-exception Http_failure
-
 exception Connect_failure
 
 exception Protocol_version_mismatch of string
 
 exception ClientSideError of string
-
-exception Stunnel_exit of int * Unix.process_status
 
 exception Unexpected_msg of message
 
@@ -842,16 +838,6 @@ let main () =
         error "Unexpected message from server: %s" (string_of_message m)
     | Server_internal_error ->
         error "Server internal error.\n"
-    | Stunnel_exit (i, e) ->
-        error "Stunnel process %d %s.\n" i
-          ( match e with
-          | Unix.WEXITED c ->
-              "existed with exit code " ^ string_of_int c
-          | Unix.WSIGNALED c ->
-              "killed by signal " ^ Xapi_stdext_unix.Unixext.string_of_signal c
-          | Unix.WSTOPPED c ->
-              "stopped by signal " ^ string_of_int c
-          )
     | Filename_not_permitted e ->
         error "File not permitted: %s.\n" e
     | ClientSideError e ->

@@ -20,7 +20,7 @@ let create_cluster ~__context pool_auto_join =
   Db.Cluster.create ~__context ~ref:cluster_ref ~uuid:cluster_uuid
     ~cluster_token:"token"
     ~cluster_stack:Constants.default_smapiv3_cluster_stack
-    ~token_timeout:Constants.default_token_timeout_s
+    ~cluster_stack_version:3L ~token_timeout:Constants.default_token_timeout_s
     ~token_timeout_coefficient:Constants.default_token_timeout_coefficient_s
     ~allowed_operations:[] ~current_operations:[] ~pool_auto_join
     ~cluster_config:[] ~other_config:[] ~pending_forget:[] ~is_quorate:false

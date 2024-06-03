@@ -8,8 +8,6 @@ exception Short_write of int * int
 
 exception End_of_file
 
-exception No_useful_protocol
-
 let copy_all src dst =
   let buffer = Bytes.make 16384 '\000' in
   let rec loop () =
@@ -47,8 +45,6 @@ module Common = struct
   type t = {verbose: bool; debug: bool; port: int} [@@deriving rpc]
 
   let make verbose debug port = {verbose; debug; port}
-
-  let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
 
 let _common_options = "COMMON OPTIONS"

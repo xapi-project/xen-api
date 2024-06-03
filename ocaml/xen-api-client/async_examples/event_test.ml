@@ -36,12 +36,6 @@ let error fmt = Printf.ksprintf (fun txt -> eprintf "Error: %s\n%!" txt) fmt
 
 let info fmt = Printf.ksprintf (fun txt -> eprintf "%s\n%!" txt) fmt
 
-let exn_to_string = function
-  | Api_errors.Server_error (code, params) ->
-      Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
-  | e ->
-      failwith (Printf.sprintf "Unexpected error: %s" (Exn.to_string e))
-
 let watch_events rpc session_id =
   let open Event_types in
   let module StringMap = Map.Make (String) in
