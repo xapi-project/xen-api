@@ -139,7 +139,7 @@ let update_vm_anti_affinity_alert_for_group ~__context ~group ~alerts =
       ()
 
 let maybe_update_vm_anti_affinity_alert_for_vm ~__context ~vm =
-  if Pool_features.is_enabled ~__context Features.VM_group then
+  if Pool_features.is_enabled ~__context Features.VM_groups then
     try
       Db.VM.get_groups ~__context ~self:vm
       |> List.filter (fun g ->
@@ -186,7 +186,7 @@ let update_alert ~__context ~groups ~action =
   with e -> error "%s" (Printexc.to_string e)
 
 let update_vm_anti_affinity_alert ~__context ~groups =
-  if Pool_features.is_enabled ~__context Features.VM_group then
+  if Pool_features.is_enabled ~__context Features.VM_groups then
     update_alert ~__context ~groups
       ~action:update_vm_anti_affinity_alert_for_group
   else
@@ -200,7 +200,7 @@ let maybe_update_alerts_on_feature_change ~__context ~old_restrictions
     ~new_restrictions =
   try
     let is_enabled restrictions =
-      List.mem Features.VM_group (Features.of_assoc_list restrictions)
+      List.mem Features.VM_groups (Features.of_assoc_list restrictions)
     in
     let groups = Db.VM_group.get_all ~__context in
     match (is_enabled old_restrictions, is_enabled new_restrictions) with

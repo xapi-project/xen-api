@@ -1442,7 +1442,7 @@ let set_appliance ~__context ~self ~value =
   update_allowed_operations ~__context ~self
 
 let set_groups ~__context ~self ~value =
-  Pool_features.assert_enabled ~__context ~f:Features.VM_group ;
+  Pool_features.assert_enabled ~__context ~f:Features.VM_groups ;
   if
     Db.VM.get_is_control_domain ~__context ~self
     || Db.VM.get_is_a_template ~__context ~self

@@ -29,7 +29,7 @@ val maybe_update_alerts_on_feature_change :
   -> old_restrictions:(string * string) list
   -> new_restrictions:(string * string) list
   -> unit
-(** Updates the VM anti-affinity alert only when Features.VM_group changes.
+(** Updates the VM anti-affinity alert only when Features.VM_groups changes.
 
     @param __context The context information.
     @param old_restrictions The old feature restrictions represented as an association list.

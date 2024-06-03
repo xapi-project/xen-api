@@ -548,13 +548,20 @@ let compute_anti_aff_evac_plan ~__context total_hosts hosts vms =
       )
   in
 
-  match total_hosts with
-  | h when h < 3 ->
+  match
+    (Pool_features.is_enabled ~__context Features.VM_groups, total_hosts)
+  with
+  | _, h when h < 3 ->
       debug
         "There are less than 2 available hosts to migrate VMs to, \
          anti-affinity evacuation plan is not needed." ;
       binpack_plan ~__context config vms
-  | _ ->
+  | false, _ ->
+      debug
+        "VM groups feature is disabled, ignore VM anti-affinity during host \
+         evacuation" ;
+      binpack_plan ~__context config vms
+  | true, _ ->
       let anti_aff_vms, non_anti_aff_vms = vms |> vms_partition ~__context in
       let spread_evenly_plan_pool_state =
         init_spread_evenly_plan_pool_state ~__context anti_aff_vms hosts
