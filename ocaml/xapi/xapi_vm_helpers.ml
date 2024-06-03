@@ -913,7 +913,7 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
   with _ -> false
 
 let vm_has_anti_affinity ~__context ~vm =
-  if Pool_features.is_enabled ~__context Features.VM_group then
+  if Pool_features.is_enabled ~__context Features.VM_groups then
     List.find_opt
       (fun g -> Db.VM_group.get_placement ~__context ~self:g = `anti_affinity)
       (Db.VM.get_groups ~__context ~self:vm)
