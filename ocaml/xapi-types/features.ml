@@ -64,7 +64,6 @@ type feature =
   | Updates
   | Internal_repo_access
   | VTPM
-  | VM_anti_affinity
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -133,9 +132,6 @@ let keys_of_features =
     , ("restrict_internal_repo_access", Negative, "Internal_repo_access")
     )
   ; (VTPM, ("restrict_vtpm", Negative, "VTPM"))
-  ; ( VM_anti_affinity
-    , ("restrict_vm_anti_affinity", Negative, "VM_anti_affinity")
-    )
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`

@@ -36,8 +36,6 @@ module Common = struct
   type t = {verbose: bool; debug: bool; path: string} [@@deriving rpc]
 
   let make verbose debug path = {verbose; debug; path}
-
-  let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
 
 let _common_options = "COMMON OPTIONS"

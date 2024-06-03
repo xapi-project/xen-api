@@ -30,7 +30,9 @@ ocaml/xenopsd/xentoollog_flags
 
 ocaml/idl/gen_lifecycle.exe
 
+# hugo
 .hugo_build.lock
 go.sum
+doc/public
 
 .DS_Store

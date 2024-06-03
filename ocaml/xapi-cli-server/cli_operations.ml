@@ -2566,6 +2566,10 @@ let sr_probe_ext printer rpc session_id params =
           "healthy"
       | `recovering ->
           "recovering"
+      | `unreachable ->
+          "unreachable"
+      | `unavailable ->
+          "unavailable"
     in
     (match x.API.sr_stat_uuid with Some uuid -> [("uuid", uuid)] | None -> [])
     @ [
@@ -6068,6 +6072,20 @@ let vm_assert_can_be_recovered _printer rpc session_id params =
         ~self:vm ~session_to:session_id
   )
 
+let vm_set_uefi_mode printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let mode = Record_util.vm_uefi_mode_of_string (List.assoc "mode" params) in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.VM.set_uefi_mode ~rpc ~session_id ~self:vm ~mode in
+  printer (Cli_printer.PMsg result)
+
+let vm_get_secureboot_readiness printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.VM.get_secureboot_readiness ~rpc ~session_id ~self:vm in
+  printer
+    (Cli_printer.PMsg (Record_util.vm_secureboot_readiness_to_string result))
+
 let cd_list printer rpc session_id params =
   let srs = Client.SR.get_all_records_where ~rpc ~session_id ~expr:"true" in
   let cd_srs =
@@ -6751,6 +6769,16 @@ let pool_disable_external_auth _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let config = read_map_params "config" params in
   Client.Pool.disable_external_auth ~rpc ~session_id ~pool ~config
+
+let pool_get_guest_secureboot_readiness printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let result =
+    Client.Pool.get_guest_secureboot_readiness ~rpc ~session_id ~self:pool
+  in
+  printer
+    (Cli_printer.PMsg
+       (Record_util.pool_guest_secureboot_readiness_to_string result)
+    )
 
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
