@@ -41,13 +41,15 @@ spec/
 #### jsonrpc-client
 jsonrpc-client is a client that imports the SDK and runs the functions, following these important details:
 
-1. Add test_id as a customize request header.
+1. Single test case in single test spec file
+ 
+2. Add test_id as a customize request header.
 
-2. Ensure that the function and params are aligned with the data defined in spec/ directory.
+3. Ensure that the function and params are aligned with the data defined in spec/ directory.
 
-3. In order to support test reports, practitioners should use the specific test framework to test SDK, eg: pytest, gotest, junit, xUnit and so on.
+4. In order to support test reports, practitioners should use the specific test framework to test SDK, eg: pytest, gotest, junit, xUnit and so on.
 
-4. To support the SDK component test, it recommended to move the SDK generated to a sub directory as a local module for import purposes, eg:
+5. To support the SDK component test, it recommended to move the SDK generated to a sub directory as a local module for import purposes, eg:
 ```
 cp -r ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src jsonrpc-client/go/goSDK
 ```

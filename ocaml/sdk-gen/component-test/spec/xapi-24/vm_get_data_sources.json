@@ -1,0 +1,26 @@
+{
+    "xapi-24/vm_get_data_sources_06": {
+      "method": [
+        "VM.get_data_sources"
+      ],
+      "params": {
+        "VM.get_data_sources": ["", "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13"]
+      },
+      "expected_result": {
+        "VM.get_data_sources": {
+          "result": [
+            {
+              "enabled": true, 
+              "max": 2.6,
+              "min": 0.0, 
+              "name_description": "Memory currently allocated to VM", 
+              "name_label": "memory", 
+              "standard": true, 
+              "units": "B", 
+              "value": 0.0
+            }
+          ]
+        }
+      }
+    }
+}

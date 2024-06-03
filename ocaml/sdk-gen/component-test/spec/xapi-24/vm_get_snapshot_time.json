@@ -1,0 +1,18 @@
+{
+    "xapi-24/vm_get_snapshot_time_07": {
+      "method": [
+        "VM.get_snapshot_time"
+      ],
+      "params": {
+        "VM.get_snapshot_time": ["", "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13"]
+      },
+      "expected_result": {
+        "VM.get_snapshot_time": {
+          "result": "2024-04-20T12:00:00Z"
+        },
+        "session.logout": {
+          "result": ""
+        }
+      }
+    }
+}
