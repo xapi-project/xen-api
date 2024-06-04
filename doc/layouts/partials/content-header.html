@@ -25,6 +25,14 @@
     </span></td>
     {{ end }}
   </tr>
+  {{ with $.Page.Params.design_review }}
+  <tr>
+    <td>Review</td>
+    <td>
+      <a href="http://github.com/xapi-project/xapi-project.github.io/issues/{{.}}">#{{.}}</a>
+    </td>
+  </tr>
+  {{ end }}
   {{ with $.Page.Params.revision_history }}
   <tr>
     <th colspan="2">Revision history</th>
