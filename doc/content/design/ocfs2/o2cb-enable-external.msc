@@ -1,0 +1,13 @@
+Client->Xapi: Pool.enable_o2cb
+Xapi->LVHD: vdi_create
+LVHD-->Xapi: OK
+Note left of LVHD: VDI will be used for\nO2CB global heartbeat
+Xapi-->Client: OK
+Note right of Xapi: DB objects initialised\nbut cluster is offline
+Client->Xapi: Cluster.enable
+Xapi-->Client: OK
+Note right of Xapi: O2CB cluster is online\non all hosts
+Client->Xapi: SR.create
+Xapi->OCFS2: sr_create
+OCFS2-->Xapi: OK
+Xapi-->Client: OK
