@@ -62,20 +62,20 @@ The function strings are named with "request" (rather than, say, "enable_rdp" or
 
 Note that the current behaviour depends on some global options: "Enable Remote Desktop console scanning" and "Automatically switch to the Remote Desktop console when it becomes available".
 
-1.    When tools are not installed:
-  *       As of XenCenter 6.5, the RDP button is absent.
-2.    When tools are installed but RDP is not switched on in the guest:
-  1.      If "Enable Remote Desktop console scanning" is on:
-    *         The RDP button is present but greyed out. (It seems to sometimes read "Switch to Remote Desktop" and sometimes read "Looking for guest console...": I haven't yet worked out the difference).
-    *         We scan the RDP port to detect when RDP is turned on
-  2.      If "Enable Remote Desktop console scanning" is off:
-    *         The RDP button is enabled and reads "Switch to Remote Desktop"
-3.    When tools are installed and RDP is switched on in the guest:
-  1.      If  "Enable Remote Desktop console scanning" is on:
-    *         The RDP button is enabled and reads "Switch to Remote Desktop"
-    *         If "Automatically switch" is on, we switch to RDP immediately we detect it
-  2.      If "Enable Remote Desktop console scanning" is off:
-    *         As above, the RDP button is enabled and reads "Switch to Remote Desktop"
+1. When tools are not installed:
+   * As of XenCenter 6.5, the RDP button is absent.
+2. When tools are installed but RDP is not switched on in the guest:
+   1. If "Enable Remote Desktop console scanning" is on:
+      * The RDP button is present but greyed out. (It seems to sometimes read "Switch to Remote Desktop" and sometimes read "Looking for guest console...": I haven't yet worked out the difference).
+      * We scan the RDP port to detect when RDP is turned on
+   2. If "Enable Remote Desktop console scanning" is off:
+      * The RDP button is enabled and reads "Switch to Remote Desktop"
+3. When tools are installed and RDP is switched on in the guest:
+   1. If  "Enable Remote Desktop console scanning" is on:
+      * The RDP button is enabled and reads "Switch to Remote Desktop"
+      * If "Automatically switch" is on, we switch to RDP immediately we detect it
+   2. If "Enable Remote Desktop console scanning" is off:
+      * As above, the RDP button is enabled and reads "Switch to Remote Desktop"
 
 #### New behaviour on XenServer versions that support RDP control
 
@@ -85,14 +85,14 @@ Note that the current behaviour depends on some global options: "Enable Remote D
 4. The XenCenter option "Enable Remote Desktop console scanning" should change to read "Enable Remote Desktop console scanning (XenServer 6.5 and earlier)"
 5. The XenCenter option "Automatically switch to the Remote Desktop console when it becomes available" should be enabled even when "Enable Remote Desktop console scanning" is off.
 6. When tools are not installed:
-  * As above, the RDP button should be absent.
+   * As above, the RDP button should be absent.
 7. When tools are installed but RDP is not switched on in the guest:
-  * The RDP button should be enabled and read "Turn on Remote Desktop"
-  * If pressed, it should launch a dialog with the following wording: "Would you like to turn on Remote Desktop in this VM, and then connect to it over Remote Desktop?   [Yes] [No]"
-  * That button should turn on RDP, wait for RDP to become enabled, and switch to an RDP connection. It should do this even if "Automatically switch" is off.
+   * The RDP button should be enabled and read "Turn on Remote Desktop"
+   * If pressed, it should launch a dialog with the following wording: "Would you like to turn on Remote Desktop in this VM, and then connect to it over Remote Desktop?   [Yes] [No]"
+   * That button should turn on RDP, wait for RDP to become enabled, and switch to an RDP connection. It should do this even if "Automatically switch" is off.
 8. When tools are installed and RDP is switched on in the guest:
-  * The RDP button should be enabled and read "Switch to Remote Desktop"
-  * If "Automatically switch" is on, we should switch to RDP immediately
-  * There is no need for us to provide UI to switch RDP off again
+   * The RDP button should be enabled and read "Switch to Remote Desktop"
+   * If "Automatically switch" is on, we should switch to RDP immediately
+   * There is no need for us to provide UI to switch RDP off again
 9. We should also test the case where RDP has been switched on in the guest before the tools are installed.
 
