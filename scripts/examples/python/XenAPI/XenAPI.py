@@ -55,6 +55,7 @@
 # --------------------------------------------------------------------
 
 import gettext
+import os
 import socket
 import sys
 
@@ -65,6 +66,15 @@ else:
     import http.client as httplib
     import xmlrpc.client as xmlrpclib
 
+otel = False
+try:
+    if os.environ["OTEL_SDK_DISABLED"] == "false":
+        from opentelemetry import propagate
+        from opentelemetry.trace.propagation import set_span_in_context, get_current_span
+        otel = True
+
+except Exception:
+    pass
 
 translation = gettext.translation('xen-xm', fallback = True)
 
@@ -101,7 +111,19 @@ class UDSHTTPConnection(httplib.HTTPConnection):
 class UDSTransport(xmlrpclib.Transport):
     def add_extra_header(self, key, value):
         self._extra_headers += [ (key,value) ]
+    def with_tracecontext(self):
+        if otel:
+            headers = {}
+            # pylint: disable=possibly-used-before-assignment
+            ctx = set_span_in_context(get_current_span())
+            # pylint: disable=possibly-used-before-assignment
+            propagators = propagate.get_global_textmap()
+            propagators.inject(headers, ctx)
+            self._extra_headers = []
+            for k, v in headers.items():
+                self.add_extra_header(k, v)
     def make_connection(self, host):
+        self.with_tracecontext()
         return UDSHTTPConnection(host)
 
 def notimplemented(name, *args, **kwargs):
