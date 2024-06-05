@@ -11,7 +11,7 @@ equally well to Go. In particular, the SDK Guide and the Management API Guide
 are ideal for developers wishing to use XenServer SDK for Go.
 
 XenServer SDK for Go is free software. You can redistribute and modify it under the
-terms of the BSD 2-Clause license. See LICENSE.txt for details.
+terms of the BSD 2-Clause license. See LICENSE for details.
 
 ## Reference
 
@@ -40,35 +40,28 @@ This library requires Go 1.22 or greater.
 
 This archive contains the following folders that are relevant to Go developers:
 
-- `XenServerGo\src`: contains the Go source files can be used as the local module in a Go project.
+- `XenServerGo\src`: contains all Go source files which can be used as a local module for other Go projects. Every API object is associated with one Go file.
 
 ## Getting Started
 
 Extract the contents of this archive.
 
-A. To set up the local go module:
+A. Navigate to the extracted `XenServer-SDK\XenServerGo\src` directory and copy the whole folder `src` into your Go project directory.
 
-  1. Create a new folder in your Go project, eg. `XenServerGo`
-  2. Copy all files in `XenServerGo\src` to the new folder
+B. To use XenServer Go SDK as a local Go module, update one line into the `go.mod` file under your Go project:
 
-B. To use the XenServer module for Go in your Go project:
+```
+replace xenapi => ./src
+```
+You can then import this XenServer SDK Go module with the following command:
 
-  1. Add the following lines to your go.mod file:
+```
+import "xenapi"
+```
 
-  ```
-  replace <project-package-name>/XenServerGo => ./XenServerGo
-  ```
+C. Before building your project, run the following Go commands.
 
-  2. Run the command: 
-
-  ```
-  go mod tidy
-  ```
-
-  3. Use the XenServer module for Go in file as follows: 
-
-  ```
-  import (
-	xenapi "<project-package-name>/XenServerGo"
-   )
-  ```
+```
+go get -u all
+go mod tidy
+ ```
