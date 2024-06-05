@@ -1824,6 +1824,8 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
   let open Suspend_image in
   let open Suspend_image.M in
   (* Suspend image signature *)
+  let dom_path = xs.Xs.getdomainpath domid in
+  xs.Xs.write (Filename.concat dom_path "/control/suspend_initiate") "1" ;
   debug "Writing save signature: %s" save_signature ;
   Io.write main_fd save_signature ;
   (* CA-248130: originally, [xs_subtree] contained [xenstore_read_dir t
