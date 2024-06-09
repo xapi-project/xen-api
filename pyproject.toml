@@ -52,7 +52,8 @@ skip_covered = true
 
 [tool.coverage.run]
 # Default command line for "coverage run": Run pytest in non-verbose mode
-command_line = "-m pytest -p no:logging -p no:warnings"
+command_line = "-m pytest -v -ra"
+
 # Default data file for "coverage run": Store coverage data in .git/.coverage
 data_file = ".git/.coverage"
 # Default context for "coverage run": Use the name of the test function
@@ -75,7 +76,7 @@ relative_files = true
 # Default output when writing "coveragle xml" data. This needs to match what
 # diff-cover and coverage upload to Codecov expect
 [tool.coverage.xml]
-output = ".git/coverage.xml"
+output = ".git/coverage3.11.xml"
 
 
 # Default output directory for writing "coverage html" data.
@@ -199,18 +200,22 @@ exclude              = [
 # -----------------------------------------------------------------------------
 # Options to enable for pytest by default:
 # -v                           show what happens
-# -rA                          show summary after running tests
-# --cov=python3                measure coverage of the python3 directory
-# --cov-fail-under             minimum coverage percentage
-# --cov-report=term-missing    show missing lines in the coverage report
-# --cov-report=html:<filename> generate an HTML coverage report(for viewing)
-# --cov-report=xml:<filename>  generate an XML coverage report(for upload)
+# -ra                          show short summary after running tests
+# Other options should not be passed using addopts, as addopts forces those
+# options to be used every time pytest is run, which is very restrictive.
+# Instead, use `coverage run` to configure coverage options, and support
+# running specific tests by passing them as arguments to pytest:
+# For example:
+# coverage run -m pytest python3/tests/test_xenapi.py
+# Adding specific --cov options using addopts is not recommended as it would
+# require to use the pytest-cov plugin, which would conflict with the use of
+# `coverage run`. Instead, use `coverage` to configure coverage options.
+# Specifying directories to test is better done using the testpaths option,
+# as testpaths sets the default directories to search for tests, but does not
+# force them to be run, so you can still run specific tests files by just
+# passing them as arguments to pytest: pytest python3/tests/test_xenapi.py
 # -----------------------------------------------------------------------------
-addopts = """
--v -rA --cov=python3 --cov=scripts --cov-fail-under=50
---cov-report=html:.git/coverage --cov-report=term-missing
---cov-report=xml:.git/coverage3.11.xml
-"""
+addopts = "-v -ra"
 
 # -----------------------------------------------------------------------------
 # Other pytest config options:
