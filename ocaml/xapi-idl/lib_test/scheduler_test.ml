@@ -25,7 +25,8 @@ let test_delay_cancel () =
   let elapsed = after -. before in
   assert_bool "elapsed_time1" (elapsed < 0.4)
 
-let timed_wait_callback ~msg ?(time_min = 0.) ?(eps = 0.1) ?(time_max = 60.) f =
+let timed_wait_callback ~msg ?(time_min = 0.) ?(eps = 0.1)
+    ?(time_max = Mtime.Span.(60 * s)) f =
   let rd, wr = Unix.pipe () in
   let finally () = Unix.close rd ; Unix.close wr in
   Fun.protect ~finally (fun () ->
@@ -37,13 +38,13 @@ let timed_wait_callback ~msg ?(time_min = 0.) ?(eps = 0.1) ?(time_max = 60.) f =
         ()
       in
       f callback ;
-      let ready = Thread.wait_timed_read rd time_max in
+      let ready = Xapi_stdext_unix.Unixext.wait_timed_read rd time_max in
       match (ready, !after) with
       | true, None ->
           Alcotest.fail "pipe ready to read, but after is not set"
       | false, None ->
-          Alcotest.fail
-            (Printf.sprintf "%s: callback not invoked within %gs" msg time_max)
+          Alcotest.failf "%s: callback not invoked within %a" msg Mtime.Span.pp
+            time_max
       | _, Some t ->
           let actual_minimum = min (t -. before) time_min in
           Alcotest.(check (float eps))
