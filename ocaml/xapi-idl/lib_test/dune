@@ -35,6 +35,7 @@
    rpclib.xml
    test_lib
    threads.posix
+   xapi-stdext-unix
    xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd
