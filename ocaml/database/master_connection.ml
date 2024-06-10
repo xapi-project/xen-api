@@ -171,7 +171,11 @@ let open_secure_connection () =
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x)
     ~verify_cert host port
   @@ fun st_proc ->
-  let fd_closed = Thread.wait_timed_read Unixfd.(!(st_proc.Stunnel.fd)) 5. in
+  let fd_closed =
+    Xapi_stdext_unix.Unixext.wait_timed_read
+      Unixfd.(!(st_proc.Stunnel.fd))
+      Mtime.Span.(5 * s)
+  in
   let proc_quit =
     try
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0 ;
