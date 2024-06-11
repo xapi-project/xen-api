@@ -30,6 +30,7 @@ module Test = struct
     QCheck.Gen.(map (Array.get labels) (int_bound (Array.length labels - 1)))
 
   let tree_gen =
+    (*Alternatively, this can use QCheck.Gen.fix.*)
     let open QCheck.Gen in
     let node l xs = Tree.Node (l, xs) in
     let lo, hi = (2, 6) in
@@ -48,6 +49,21 @@ module Test = struct
     | Excepted of exn * Printexc.raw_backtrace
 
   let is_exceptional = function Excepted _ -> true | _ -> false
+
+  let assert_exceptional outcomes =
+    outcomes
+    |> Array.iter (fun outcome ->
+           let exceptional = is_exceptional outcome in
+           let msg =
+             match (exceptional, outcome) with
+             | true, Excepted (_, trace) ->
+                 Printf.sprintf "Exception found when parsing Sexpr: %s"
+                   (Printexc.raw_backtrace_to_string trace)
+             | _ ->
+                 ""
+           in
+           Alcotest.(check bool) msg false exceptional
+       )
 
   let go n =
     Printexc.record_backtrace true ;
@@ -77,11 +93,11 @@ module Test = struct
       fst (List.fold_left launch ([], 0) trees)
     in
     List.iter Thread.join tids ;
-    match Array.find_opt is_exceptional outcomes with
-    | Some (Excepted (_, trace)) ->
-        Printexc.print_raw_backtrace Out_channel.stdout trace
-    | _ ->
-        ()
+    assert_exceptional outcomes
 end
 
-let () = Test.go 10
+let test_parsing () = Test.go 10
+
+let test = [("Parallel Parsing", `Quick, test_parsing)]
+
+let () = Alcotest.run "Sexpr parser" [("parallel parsing", test)]
