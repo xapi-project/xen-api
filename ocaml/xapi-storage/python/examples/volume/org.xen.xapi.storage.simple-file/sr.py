@@ -18,8 +18,9 @@
 from __future__ import print_function
 import os
 import sys
-import urllib.request, urllib.parse, urllib.error
+import urllib.request
 import urllib.parse
+import urllib.error
 
 import xapi.storage.api.v5.volume
 from xapi import InternalError
