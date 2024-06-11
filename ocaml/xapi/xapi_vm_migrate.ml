@@ -399,10 +399,14 @@ let pool_migrate ~__context ~vm ~host ~options =
     use_compression ~__context options (Helpers.get_localhost ~__context) host
   in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
-  let ip = Http.Url.maybe_wrap_IPv6_literal address in
-  let scheme = if !Xapi_globs.migration_https_only then "https" else "http" in
+  let http = if !Xapi_globs.migration_https_only then "https" else "http" in
   let xenops_url =
-    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme ip session_id
+    Uri.(
+      make ~scheme:http ~host:address ~path:"/services/xenops"
+        ~query:[("session_id", [session_id])]
+        ()
+      |> to_string
+    )
   in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let xenops_vgpu_map = infer_vgpu_map ~__context vm in

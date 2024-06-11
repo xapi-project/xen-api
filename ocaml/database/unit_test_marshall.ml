@@ -197,6 +197,7 @@ let tests =
   ; (test_ivr_response, "test_ivr_response")
   ; (test_rr_args, "test_rr_args")
   ; (test_rr_response, "test_rr_response")
+  ; (test_rfw_args, "test_rfw_args")
   ; (test_cra_args, "test_cra_args")
   ; (test_cra_response, "test_cra_response")
   ; (test_dr_args, "test_dr_args")

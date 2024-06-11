@@ -22,12 +22,6 @@ let username = ref "root"
 
 let password = ref "password"
 
-let exn_to_string = function
-  | Api_errors.Server_error (code, params) ->
-      Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
-  | e ->
-      failwith (Printf.sprintf "Unhandled exception: %s" (Exn.to_string e))
-
 let main () =
   let rpc = make !uri in
   Session.login_with_password ~rpc ~uname:!username ~pwd:!password

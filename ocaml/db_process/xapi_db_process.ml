@@ -74,9 +74,6 @@ let write_out_databases () =
     (Db_conn_store.read_db_connections ())
     (Db_ref.get_database (Db_backend.make ()))
 
-(* should never be thrown due to checking argument at start *)
-exception UnknownFormat
-
 let write_out_database filename =
   print_string ("Dumping database to: " ^ filename ^ "\n") ;
   Db_cache_impl.sync
