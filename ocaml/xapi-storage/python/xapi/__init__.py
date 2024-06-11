@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
-Copyright (c) 2013-2018, Citrix Inc.
+Copyright (c) 2013-2024, Cloud Software Group,Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
