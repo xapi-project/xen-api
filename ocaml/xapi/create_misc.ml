@@ -302,12 +302,15 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
     ~dom0_console_protocol =
   let console_ref = Ref.make () in
   let address =
-    Http.Url.maybe_wrap_IPv6_literal
-      (Db.Host.get_address ~__context ~self:(Helpers.get_localhost ~__context))
+    Db.Host.get_address ~__context ~self:(Helpers.get_localhost ~__context)
   in
   let location =
-    Printf.sprintf "https://%s%s?ref=%s" address Constants.console_uri
-      (Ref.string_of domain_zero_ref)
+    Uri.(
+      make ~scheme:"https" ~host:address ~path:Constants.console_uri
+        ~query:[("ref", [Ref.string_of domain_zero_ref])]
+        ()
+      |> to_string
+    )
   in
   let port =
     match dom0_console_protocol with

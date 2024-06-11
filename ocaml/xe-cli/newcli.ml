@@ -31,6 +31,8 @@ let xapipasswordfile = ref ""
 
 let xapiport = ref None
 
+let traceparent = ref None
+
 let get_xapiport ssl =
   match !xapiport with None -> if ssl then 443 else 80 | Some p -> p
 
@@ -66,7 +68,7 @@ exception Usage
 let usage () =
   error
     "Usage: %s <cmd> [-s server] [-p port] ([-u username] [-pw password] or \
-     [-pwf <password file>]) <other arguments>\n"
+     [-pwf <password file>]) [--traceparent traceparent] <other arguments>\n"
     Sys.argv.(0) ;
   error
     "\n\
@@ -208,6 +210,8 @@ let parse_args =
       | "debugonfail" -> (
           xedebugonfail := try bool_of_string v with _ -> false
         )
+      | "traceparent" ->
+          traceparent := Some v
       | _ ->
           raise Not_found
       ) ;
@@ -234,6 +238,8 @@ let parse_args =
         Some ("debugonfail", "true", xs)
     | "-h" :: h :: xs ->
         Some ("server", h, xs)
+    | "--traceparent" :: h :: xs ->
+        Some ("traceparent", h, xs)
     | _ ->
         None
   in
@@ -286,6 +292,10 @@ let parse_args =
       List.rev !l
     in
     let extras_rest = process_args extras in
+    (*if traceparent is set as env var update it after we process the extras.*)
+    Option.iter
+      (fun tp -> traceparent := Some tp)
+      (Sys.getenv_opt Tracing.EnvHelpers.traceparent_key) ;
     let help = ref false in
     let args' = List.filter (fun s -> s <> "-help" && s <> "--help") args in
     if List.length args' < List.length args then help := true ;
@@ -300,7 +310,7 @@ let parse_args =
         debug_channel := Some tmpch
       )
     in
-    args_rest @ extras_rest @ rcs_rest @ !reserve_args
+    (args_rest @ extras_rest @ rcs_rest @ !reserve_args, !traceparent)
 
 let exit_status = ref 1
 
@@ -381,15 +391,11 @@ let copy_with_heartbeat ?(block = 65536) in_ch out_ch heartbeat_fun =
     )
   done
 
-exception Http_failure
-
 exception Connect_failure
 
 exception Protocol_version_mismatch of string
 
 exception ClientSideError of string
-
-exception Stunnel_exit of int * Unix.process_status
 
 exception Unexpected_msg of message
 
@@ -794,7 +800,7 @@ let main () =
         Printf.printf "ThinCLI protocol: %d.%d\n" major minor ;
         exit 0
       ) ;
-      let args = parse_args args in
+      let args, traceparent = parse_args args in
       (* All the named args are taken as permitted filename to be uploaded *)
       let permitted_filenames = get_permit_filenames args in
       if List.length args < 1 then
@@ -807,6 +813,7 @@ let main () =
         in
         let args = String.concat "\n" args in
         Printf.fprintf oc "User-agent: xe-cli/Unix/%d.%d\r\n" major minor ;
+        Option.iter (Printf.fprintf oc "traceparent: %s\r\n") traceparent ;
         Printf.fprintf oc "content-length: %d\r\n\r\n" (String.length args) ;
         Printf.fprintf oc "%s" args ;
         flush_all () ;
@@ -842,16 +849,6 @@ let main () =
         error "Unexpected message from server: %s" (string_of_message m)
     | Server_internal_error ->
         error "Server internal error.\n"
-    | Stunnel_exit (i, e) ->
-        error "Stunnel process %d %s.\n" i
-          ( match e with
-          | Unix.WEXITED c ->
-              "existed with exit code " ^ string_of_int c
-          | Unix.WSIGNALED c ->
-              "killed by signal " ^ Xapi_stdext_unix.Unixext.string_of_signal c
-          | Unix.WSTOPPED c ->
-              "stopped by signal " ^ string_of_int c
-          )
     | Filename_not_permitted e ->
         error "File not permitted: %s.\n" e
     | ClientSideError e ->

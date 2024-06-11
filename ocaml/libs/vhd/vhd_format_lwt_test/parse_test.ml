@@ -25,10 +25,6 @@ let create () =
   let _ = Create_vhd.disk in
   ()
 
-let diff () =
-  let _ = Diff_vhd.disk in
-  ()
-
 let tmp_file_dir = Filename.get_temp_dir_name ()
 
 let disk_name_stem = tmp_file_dir ^ "/parse_test."
@@ -173,8 +169,6 @@ let absolute_sector_of vhd {block; sector} =
           (mul (of_int block) (of_int sectors_per_block))
           (of_int relative_sector)
       )
-
-let cstruct_to_string c = String.escaped (Cstruct.to_string c)
 
 type state = {
     to_close: fd Vhd.t list

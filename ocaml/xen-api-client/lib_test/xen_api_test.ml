@@ -13,11 +13,6 @@
  *)
 
 open OUnit
-
-let ( |> ) a b = b a
-
-let id x = x
-
 open Xen_api
 
 module Fake_IO = struct
@@ -26,14 +21,6 @@ module Fake_IO = struct
   let return x = T x
 
   let ( >>= ) t f = match t with T x -> f x
-
-  let ( >> ) m n = m >>= fun _ -> n
-
-  let rec iter f = function
-    | [] ->
-        return ()
-    | x :: xs ->
-        f x >>= fun () -> iter f xs
 
   type ic = string Queue.t
 
@@ -55,24 +42,6 @@ module Fake_IO = struct
     (*		Printf.fprintf stderr "read %d\n%!" n;*)
     assert (String.length chunk <= n) ;
     return chunk
-
-  let read_exactly ic buf off len =
-    return
-      ( if Queue.is_empty ic then
-          false
-        else
-          let chunk = Queue.pop ic in
-          String.blit chunk 0 buf off len ;
-          true
-      )
-
-  let read_exactly ic len =
-    let buf = Bytes.create len in
-    read_exactly ic buf 0 len >>= function
-    | true ->
-        return (Some buf)
-    | false ->
-        return None
 
   let write oc string = Queue.push string oc ; return ()
 

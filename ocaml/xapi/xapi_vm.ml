@@ -1620,3 +1620,60 @@ let restart_device_models ~__context ~self =
       Client.VM.pool_migrate ~rpc ~session_id ~vm:self ~host
         ~options:[("live", "true")]
   )
+
+let set_uefi_mode ~__context ~self ~mode =
+  let id = Db.VM.get_uuid ~__context ~self in
+  let args = [id; Helpers.uefi_mode_to_string mode] in
+  Helpers.call_script !Xapi_globs.varstore_sb_state args
+
+let get_secureboot_readiness ~__context ~self =
+  let vmr = Db.VM.get_record ~__context ~self in
+  match Xapi_xenops.firmware_of_vm vmr with
+  | Bios ->
+      (* VM is not UEFI *)
+      `not_supported
+  | Uefi _ -> (
+      let platformdata = Db.VM.get_platform ~__context ~self in
+      match
+        Vm_platform.is_true ~key:"secureboot" ~platformdata ~default:false
+      with
+      | false ->
+          `disabled (* Secure boot is disabled *)
+      | true -> (
+        (* Secureboot is enabled *)
+        match
+          List.assoc_opt "EFI-variables" (Db.VM.get_NVRAM ~__context ~self)
+        with
+        | None ->
+            `first_boot
+        | Some _ -> (
+            let varstore_ls =
+              Helpers.call_script !Xapi_globs.varstore_ls
+                [Db.VM.get_uuid ~__context ~self]
+            in
+            let ls_lines = String.split_on_char '\n' varstore_ls in
+            let ls_keys =
+              List.filter_map
+                (fun elem ->
+                  (* Lines follow this pattern: <GUID> <KEY>*)
+                  let splitted = String.split_on_char ' ' elem in
+                  List.nth_opt splitted 1
+                )
+                ls_lines
+            in
+            let pk_present = List.mem "PK" ls_keys in
+            let kek_present = List.mem "KEK" ls_keys in
+            let db_present = List.mem "db" ls_keys in
+            let dbx_present = List.mem "dbx" ls_keys in
+            match (pk_present, kek_present, db_present, dbx_present) with
+            | true, true, true, true ->
+                `ready
+            | true, true, true, false ->
+                `ready_no_dbx
+            | false, _, _, _ ->
+                `setup_mode
+            | _, _, _, _ ->
+                `certs_incomplete
+          )
+      )
+    )

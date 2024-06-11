@@ -1152,6 +1152,10 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ext_auth_max_threads ~__context ~self ~value
+
+      let get_guest_secureboot_readiness ~__context ~self =
+        info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.get_guest_secureboot_readiness ~__context ~self
     end
 
     module VM = struct
@@ -3053,6 +3057,19 @@ functor
       let restart_device_models ~__context ~self =
         info "VM.restart_device_models: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.restart_device_models ~__context ~self
+
+      let set_uefi_mode ~__context ~self ~mode =
+        info "VM.set_uefi_mode: self = '%s'; mode = '%s'"
+          (vm_uuid ~__context self)
+          (Helpers.uefi_mode_to_string mode) ;
+        (* The redirection to another host is done by the `varstored-sb-state`
+           script which uses xmlrpc to make XAPI calls.
+        *)
+        Local.VM.set_uefi_mode ~__context ~self ~mode
+
+      let get_secureboot_readiness ~__context ~self =
+        info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.get_secureboot_readiness ~__context ~self
     end
 
     module VM_metrics = struct end
