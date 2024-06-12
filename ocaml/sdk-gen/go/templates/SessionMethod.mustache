@@ -8,10 +8,10 @@
 {{#errors}}
 // {{name}} - {{doc}}
 {{/errors}}
-func (class *Session) {{method_name_exported}}({{#func_params}}{{^first}}, {{/first}}{{name_internal}} {{type}}{{/func_params}}) ({{#result}}retval {{type}}, {{/result}}err error) {
+func (class *Session) {{method_name_exported}}({{func_params}}) ({{#result}}retval {{type}}, {{/result}}err error) {
 	method := "{{class_name}}.{{method_name}}"
 {{#params}}
-	{{name_internal}}Arg, err := serialize{{func_name_suffix}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{#is_session_id}}class.ref{{/is_session_id}}{{^is_session_id}}{{name_internal}}{{/is_session_id}})
+	{{name_internal}}Arg, err := serialize{{func_name_suffix}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{name_in_serialize_call}})
 	if err != nil {
 		return
 	}
@@ -46,10 +46,10 @@ func (class *Session) {{method_name_exported}}({{#func_params}}{{^first}}, {{/fi
 {{#errors}}
 // {{name}} - {{doc}}
 {{/errors}}
-func (class *Session) Async{{method_name_exported}}({{#func_params}}{{^first}}, {{/first}}{{name_internal}} {{type}}{{/func_params}}) (retval TaskRef, err error) {
+func (class *Session) Async{{method_name_exported}}({{func_params}}) (retval TaskRef, err error) {
 	method := "Async.{{class_name}}.{{method_name}}"
 {{#params}}
-	{{name_internal}}Arg, err := serialize{{func_name_suffix}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{#is_session_id}}class.ref{{/is_session_id}}{{^is_session_id}}{{name_internal}}{{/is_session_id}})
+	{{name_internal}}Arg, err := serialize{{func_name_suffix}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{name_in_serialize_call}})
 	if err != nil {
 		return
 	}
