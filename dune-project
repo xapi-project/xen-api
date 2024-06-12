@@ -336,6 +336,27 @@
 
 (package
   (name http-lib)
+  (synopsis "An HTTP required used by xapi")
+  (description "This library allows xapi to perform varios activities related to the HTTP protocol.")
+  (depends
+    (alcotest :with-test)
+    astring
+    (base64 (>= "3.1.0"))
+    rpclib
+    (safe-resources(= :version))
+    sha
+    (stunnel (= :version))
+    (uuid (= :version))
+    xapi-backtrace
+    (xapi-idl (= :version))
+    (xapi-log (= :version))
+    (xapi-stdext-date (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-tracing (= :version))
+    (xml-light2 (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package
