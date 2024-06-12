@@ -98,21 +98,19 @@ let verify_error = function
 
 let param_keys =
   [
-    "is_session_id"
-  ; "type"
+    "type"
   ; "name"
   ; "name_internal"
+  ; "name_in_serialize_call"
   ; "doc"
   ; "func_name_suffix"
-  ; "first"
   ]
 
 let verify_param_member = function
-  | "is_session_id", `Bool _
-  | "first", `Bool _
   | "type", `String _
   | "name", `String _
   | "name_internal", `String _
+  | "name_in_serialize_call", `String _
   | "doc", `String _
   | "func_name_suffix", `String _ ->
       true
@@ -140,6 +138,8 @@ let verify_message_member = function
       schema_check result_keys verify_result_member result
   | "params", `A params ->
       List.for_all verify_param params
+  | "func_params", `String _ ->
+      true
   | "errors", `A errors ->
       List.for_all verify_error errors
   | "async", `Bool _ | "has_error", `Bool _ | "errors", `Null ->
@@ -147,7 +147,7 @@ let verify_message_member = function
   | _ ->
       false
 
-let verify_sesseion_message_member = function
+let verify_session_message_member = function
   | "method_name", `String _
   | "class_name", `String _
   | "class_name_exported", `String _
@@ -162,8 +162,8 @@ let verify_sesseion_message_member = function
       schema_check result_keys verify_result_member result
   | "params", `A params ->
       List.for_all verify_param params
-  | "func_params", `A params ->
-      List.for_all verify_param params
+  | "func_params", `String _ ->
+      true
   | "errors", `A errors ->
       List.for_all verify_error errors
   | "async", `Bool _
@@ -184,14 +184,14 @@ let message_keys =
   ; "description"
   ; "result"
   ; "params"
+  ; "func_params"
   ; "errors"
   ; "has_error"
   ; "async"
   ; "version"
   ]
 
-let session_message_keys =
-  ["session_login"; "session_logout"; "func_params"] @ message_keys
+let session_message_keys = ["session_login"; "session_logout"] @ message_keys
 
 let verify_message = function
   | `O members ->
@@ -201,7 +201,7 @@ let verify_message = function
       if class_name <> `String "session" then
         schema_check message_keys verify_message_member members
       else
-        schema_check session_message_keys verify_sesseion_message_member members
+        schema_check session_message_keys verify_session_message_member members
   | _ ->
       false
 
@@ -302,6 +302,8 @@ let verify_obj_member = function
       true
   | "modules", `O members ->
       schema_check modules_keys verify_modules_member members
+  | "licence", `String _ ->
+      true
   | _ ->
       false
 
@@ -316,6 +318,7 @@ let obj_keys =
   ; "event"
   ; "session"
   ; "option"
+  ; "licence"
   ]
 
 let verify_obj = function
@@ -834,28 +837,7 @@ let session_messages : Mustache.Json.t =
                 )
               ; ("async", `Bool false)
               ; ("version", `String "miami")
-              ; ( "func_params"
-                , `A
-                    [
-                      `O
-                        [
-                          ("type", `String "string")
-                        ; ("name", `String "uname")
-                        ; ("name_internal", `String "uname")
-                        ; ("func_name_suffix", `String "String")
-                        ; ("first", `Bool true)
-                        ; ("is_session_id", `Bool false)
-                        ]
-                    ; `O
-                        [
-                          ("type", `String "string")
-                        ; ("name", `String "pwd")
-                        ; ("name_internal", `String "pwd")
-                        ; ("func_name_suffix", `String "String")
-                        ; ("is_session_id", `Bool false)
-                        ]
-                    ]
-                )
+              ; ("func_params", `String "uname string, pwd string")
               ; ( "params"
                 , `A
                     [
@@ -864,17 +846,16 @@ let session_messages : Mustache.Json.t =
                           ("type", `String "string")
                         ; ("name", `String "uname")
                         ; ("name_internal", `String "uname")
+                        ; ("name_in_serialize_call", `String "uname")
                         ; ("func_name_suffix", `String "String")
-                        ; ("first", `Bool true)
-                        ; ("is_session_id", `Bool false)
                         ]
                     ; `O
                         [
                           ("type", `String "string")
                         ; ("name", `String "pwd")
                         ; ("name_internal", `String "pwd")
+                        ; ("name_in_serialize_call", `String "pwd")
                         ; ("func_name_suffix", `String "String")
-                        ; ("is_session_id", `Bool false)
                         ]
                     ]
                 )
@@ -910,7 +891,7 @@ let session_messages : Mustache.Json.t =
               ; ("method_name_exported", `String "Logout")
               ; ("description", `String "Logout Log out of a session")
               ; ("async", `Bool false)
-              ; ("func_params", `A [])
+              ; ("func_params", `String "")
               ; ("version", `String "miami")
               ; ( "params"
                 , `A
@@ -920,8 +901,8 @@ let session_messages : Mustache.Json.t =
                           ("type", `String "SessionRef")
                         ; ("name", `String "session_id")
                         ; ("name_internal", `String "sessionID")
+                        ; ("name_in_serialize_call", `String "class.ref")
                         ; ("func_name_suffix", `String "SessionRef")
-                        ; ("is_session_id", `Bool true)
                         ]
                     ]
                 )
@@ -948,6 +929,7 @@ let messages : Mustache.Json.t =
               ; ("description", `String "GetLog Get the host log file")
               ; ("async", `Bool true)
               ; ("version", `String "miami")
+              ; ("func_params", `String "session *Session, host HostRef")
               ; ( "params"
                 , `A
                     [
@@ -956,18 +938,18 @@ let messages : Mustache.Json.t =
                           ("type", `String "SessionRef")
                         ; ("name", `String "session_id")
                         ; ("name_internal", `String "sessionID")
+                        ; ("name_in_serialize_call", `String "session.ref")
                         ; ("func_name_suffix", `String "SessionRef")
                         ; ("session", `Bool true)
                         ; ("session_class", `Bool false)
-                        ; ("first", `Bool true)
                         ]
                     ; `O
                         [
                           ("type", `String "HostRef")
                         ; ("name", `String "host")
                         ; ("name_internal", `String "host")
+                        ; ("name_in_serialize_call", `String "host")
                         ; ("func_name_suffix", `String "HostRef")
-                        ; ("first", `Bool false)
                         ]
                     ]
                 )
@@ -1116,7 +1098,8 @@ module TemplatesTest = Generic.MakeStateless (struct
 end)
 
 module TestGeneratedJson = struct
-  let verify description verify_func actual =
+  let verify name verify_func actual =
+    let description = Printf.sprintf "Object name: %s" name in
     Alcotest.(check bool) description true (verify_func actual)
 
   let test_enums () =
