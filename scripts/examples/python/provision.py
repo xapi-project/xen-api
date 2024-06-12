@@ -107,5 +107,5 @@ if __name__ == "__main__":
     txt2 = printProvisionSpec(ps)
     print(txt2)
     if txt != txt2:
-        raise AssertionError("Sanity-check failed: print(parse(print(x))) <> print(x)")
+        raise AssertionError("Sanity-check failed: print(parse(print(x))) != print(x)")
     print("* OK: print(parse(print(x))) == print(x)")
