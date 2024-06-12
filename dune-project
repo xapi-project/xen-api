@@ -278,6 +278,19 @@
 
 (package
   (name rrd-transport)
+  (synopsis "Shared-memory protocols for exposing system metrics")
+  (description "VMs running on a Xen host can use this library to expose performance counters which can be sampled by xapi's metric daemon.")
+  (authors "John Else")
+  (depends
+    (alcotest :with-test)
+    astring
+    cstruct
+    crc
+    yojson
+    (xapi-idl (= :version))
+    (xapi-rrd (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package
