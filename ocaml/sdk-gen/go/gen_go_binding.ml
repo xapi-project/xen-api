@@ -17,7 +17,7 @@ open Gen_go_helper
 let render_enums enums destdir =
   let header =
     render_template "FileHeader.mustache"
-      (`O [("modules", `Null)])
+      (`O [("modules", `Null); licence])
       ~newline:true ()
   in
   let enums = render_template "Enum.mustache" enums () |> String.trim in
@@ -36,6 +36,7 @@ let render_api_versions destdir =
             ; ("items", `A (List.map name ["errors"; "fmt"]))
             ]
         )
+      ; licence
       ]
   in
   let rendered =
@@ -55,6 +56,7 @@ let render_api_messages_and_errors destdir =
         ("api_errors", `A Json.api_errors)
       ; ("api_messages", `A Json.api_messages)
       ; ("modules", `Null)
+      ; licence
       ]
   in
   let header = render_template "FileHeader.mustache" obj ~newline:true () in
@@ -83,6 +85,7 @@ let render_convert_header () =
               )
             ]
         )
+      ; licence
       ]
   in
   render_template "FileHeader.mustache" obj ~newline:true ()

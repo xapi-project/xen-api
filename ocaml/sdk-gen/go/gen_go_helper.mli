@@ -13,6 +13,8 @@
 
 val ( // ) : string -> string -> string
 
+val licence : string * Mustache.Json.value
+
 val snake_to_camel : ?internal:bool -> string -> string
 
 val render_template :
