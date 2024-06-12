@@ -1,0 +1,4 @@
+(test
+ (name test_sexpr)
+ (modules test_sexpr)
+ (libraries sexpr astring rresult qcheck alcotest threads))

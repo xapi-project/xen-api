@@ -1,4 +1,4 @@
-(ocamlyacc xn_cfg_parser)
+(menhir (modules xn_cfg_parser))
 (ocamllex xn_cfg_lexer)
 
 (executable
