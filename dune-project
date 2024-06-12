@@ -142,6 +142,7 @@
   (depends
    (ocaml (>= "4.02.0"))
    dune-build-info
+   (alcotest :with-test)
    astring
    (gzip (= :version))
    (http-lib (= :version))

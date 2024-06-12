@@ -11,9 +11,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-
-open OUnit
 open Test_common
+
+let bracket setup test teardown () =
+  let a = setup () in
+  Fun.protect ~finally:(fun () -> teardown a) (fun () -> test a)
 
 let test_file_io protocol =
   bracket
@@ -29,7 +31,7 @@ let test_file_io protocol =
     )
     (fun (writer, reader) ->
       (* Check that writing then reading the shared file gives the expected
-         			 * timestamp and datasources. *)
+         timestamp and datasources. *)
       writer.Rrd_writer.write_payload test_payload ;
       let received_payload = reader.Rrd_reader.read_payload () in
       assert_payloads_equal test_payload received_payload
@@ -49,16 +51,16 @@ let test_writer_cleanup protocol =
   in
   writer.Rrd_writer.write_payload test_payload ;
   writer.Rrd_writer.cleanup () ;
-  assert_equal ~msg:"Shared file was not cleaned up"
+  Alcotest.(check bool)
+    "Shared file was not cleaned up"
     (Sys.file_exists shared_file)
     false ;
-  assert_raises ~msg:"write_payload should fail after cleanup"
+  Alcotest.check_raises "write_payload should fail after cleanup"
     Rrd_io.Resource_closed (fun () ->
       writer.Rrd_writer.write_payload test_payload
   ) ;
-  assert_raises ~msg:"cleanup should fail after cleanup" Rrd_io.Resource_closed
-    (fun () -> writer.Rrd_writer.cleanup ()
-  )
+  Alcotest.check_raises "Cleanup should fail after cleanup"
+    Rrd_io.Resource_closed writer.Rrd_writer.cleanup
 
 let test_reader_cleanup protocol =
   bracket
@@ -76,12 +78,13 @@ let test_reader_cleanup protocol =
       let reader = Rrd_reader.FileReader.create shared_file protocol in
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
       reader.Rrd_reader.cleanup () ;
-      assert_raises ~msg:"read_payload should fail after cleanup"
-        Rrd_io.Resource_closed (fun () -> reader.Rrd_reader.read_payload ()
+      Alcotest.check_raises "Read_payload should fail after cleanup"
+        Rrd_io.Resource_closed (fun () ->
+          let _ = reader.Rrd_reader.read_payload () in
+          ()
       ) ;
-      assert_raises ~msg:"cleanup should fail after cleanup"
-        Rrd_io.Resource_closed (fun () -> reader.Rrd_reader.cleanup ()
-      )
+      Alcotest.check_raises "Cleanup should fail after cleanup"
+        Rrd_io.Resource_closed reader.Rrd_reader.cleanup
     )
     (fun (_, writer) -> writer.Rrd_writer.cleanup ())
     ()
@@ -101,12 +104,14 @@ let test_reader_state protocol =
     (fun (writer, reader) ->
       writer.Rrd_writer.write_payload test_payload ;
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
-      assert_raises
-        ~msg:"read_payload should raise No_update if there has been no update"
-        Rrd_protocol.No_update (fun () -> reader.Rrd_reader.read_payload ()
+      Alcotest.check_raises
+        "read_payload should raise No_update if there has been no update"
+        Rrd_protocol.No_update (fun () ->
+          let _ = reader.Rrd_reader.read_payload () in
+          ()
       ) ;
       (* After the timestamp has been updated, we should be able to read the
-         			 * payload again. *)
+         payload again. *)
       let open Rrd_protocol in
       writer.Rrd_writer.write_payload
         {test_payload with timestamp= Int64.add test_payload.timestamp 5L} ;
@@ -119,19 +124,13 @@ let test_reader_state protocol =
     )
     ()
 
-let with_each_protocol prefix_string test_fn =
-  [
-    (prefix_string ^ "_v1" >:: fun () -> test_fn Rrd_protocol_v1.protocol)
-  ; (prefix_string ^ "_v2" >:: fun () -> test_fn Rrd_protocol_v2.protocol)
-  ]
+let tests =
+  Test_common.tests_for_all_protos
+    [
+      ("File I/O", test_file_io)
+    ; ("Writer cleanup", test_writer_cleanup)
+    ; ("Reader cleanup", test_reader_cleanup)
+    ; ("Reader state", test_reader_state)
+    ]
 
-let base_suite =
-  "test_suite"
-  >::: with_each_protocol "test_file_io" test_file_io
-       @ with_each_protocol "test_writer_cleanup" test_writer_cleanup
-       @ with_each_protocol "test_reader_cleanup" test_reader_cleanup
-       @ with_each_protocol "test_reader_state" test_reader_state
-
-let () =
-  print_endline "------ Unit tests ------" ;
-  ounit2_of_ounit1 base_suite |> OUnit2.run_test_tt_main
+let () = Alcotest.run "Metrics transport" tests
