@@ -48,12 +48,12 @@ Extract the contents of this archive.
 
 A. Navigate to the extracted `XenServer-SDK\XenServerGo\src` directory and copy the whole folder `src` into your Go project directory.
 
-B. To use XenServer Go SDK as a local Go module, update one line into the `go.mod` file under your Go project:
+B. To use the XenServer SDK for Go as a local Go module, include the following line into the `go.mod` file under your Go project:
 
 ```
 replace xenapi => ./src
 ```
-You can then import this XenServer SDK Go module with the following command:
+You can then import the XenServer SDK for Go with the following command:
 
 ```
 import "xenapi"
