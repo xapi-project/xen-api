@@ -318,38 +318,6 @@ module Json = struct
     | [] ->
         failwith "Empty params group should not exist."
 
-  let of_param param =
-    let name_internal name =
-      let name = snake_to_camel ~internal:true name in
-      match name with "type" -> "typeKey" | "interface" -> "inter" | _ -> name
-    in
-    let suffix_of_type = suffix_of_type param.param_type in
-    let t, _e = string_of_ty_with_enums param.param_type in
-    let name = param.param_name in
-    [
-      ("is_session_id", `Bool (name = "session_id"))
-    ; ("type", `String t)
-    ; ("name", `String name)
-    ; ("name_internal", `String (name_internal name))
-    ; ("doc", `String param.param_doc)
-    ; ("func_name_suffix", `String suffix_of_type)
-    ]
-
-  (* We use ',' to seprate params in Go function, we should ignore ',' before first param,
-     for example `func(a type1, b type2)` is wanted rather than `func(, a type1, b type2)`.
-  *)
-  let of_params = function
-    | head :: rest ->
-        let head = `O (("first", `Bool true) :: of_param head) in
-        let rest =
-          List.map
-            (fun item -> `O (("first", `Bool false) :: of_param item))
-            rest
-        in
-        head :: rest
-    | [] ->
-        []
-
   let of_error e = `O [("name", `String e.err_name); ("doc", `String e.err_doc)]
 
   let of_errors = function
@@ -393,10 +361,81 @@ module Json = struct
     else
       method_name ^ string_of_int (List.length params)
 
-  (* Since the param of `session *Session` isn't needed in functions of session object,
-     we add a special "func_params" field for session object to ignore `session *Session`.*)
-  let addtion_info_of_session method_name params latest =
-    let add_session_info method_name =
+  module ParamInfo = struct
+    type param_info = {
+        typ: string
+      ; func_param: string
+      ; name: string
+      ; name_internal: string
+      ; name_in_serialize_call: string
+      ; doc: string
+      ; func_name_suffix: string
+    }
+
+    let to_param_info ~is_sess_func param =
+      let suffix_of_type = suffix_of_type param.param_type in
+      let t, _e = string_of_ty_with_enums param.param_type in
+      let name = param.param_name in
+      let is_session_id = name = "session_id" in
+      let internal_name =
+        let name' = snake_to_camel ~internal:true name in
+        match name' with
+        | "type" ->
+            "typeKey"
+        | "interface" ->
+            "inter"
+        | _ ->
+            name'
+      in
+      let func_param =
+        match (is_sess_func, is_session_id) with
+        | true, _ | false, false ->
+            Printf.sprintf "%s %s" internal_name t
+        | false, true ->
+            "session *Session"
+      in
+      let name_in_serialize_call =
+        match (is_sess_func, is_session_id) with
+        | false, false | true, false ->
+            internal_name
+        | true, true ->
+            "class.ref"
+        | false, true ->
+            "session.ref"
+      in
+      {
+        typ= t
+      ; func_param
+      ; name
+      ; name_internal= internal_name
+      ; name_in_serialize_call
+      ; doc= param.param_doc
+      ; func_name_suffix= suffix_of_type
+      }
+  end
+
+  let of_param_info param_info =
+    let open ParamInfo in
+    let p = param_info in
+    `O
+      [
+        ("type", `String p.typ)
+      ; ("name", `String p.name)
+      ; ("name_internal", `String p.name_internal)
+      ; ("name_in_serialize_call", `String p.name_in_serialize_call)
+      ; ("doc", `String p.doc)
+      ; ("func_name_suffix", `String p.func_name_suffix)
+      ]
+
+  let of_param ~is_sess_func param =
+    ParamInfo.to_param_info ~is_sess_func param |> of_param_info
+
+  let to_func_params params =
+    List.map (fun p -> p.ParamInfo.func_param) params |> String.concat ", "
+
+  let diverse_info_of_session method_name params msg_session latest =
+    let is_sess_func = true in
+    let session_info method_name =
       match method_name with
       | "login_with_password" | "slave_local_login_with_password" ->
           [("session_login", `Bool true); ("session_logout", `Bool false)]
@@ -405,21 +444,35 @@ module Json = struct
       | _ ->
           [("session_login", `Bool false); ("session_logout", `Bool false)]
     in
-    let name = method_name_exported method_name params latest in
-    ("func_params", `A (of_params params))
+    (* In a session function, the session is from the instance rather than parameter list *)
+    let params' = if msg_session then List.tl params else params in
+    let name = method_name_exported method_name params' latest in
+    let func_params =
+      List.map (ParamInfo.to_param_info ~is_sess_func) params' |> to_func_params
+    in
+    ("func_params", `String func_params)
+    :: ("params", `A (List.map (of_param ~is_sess_func) params))
     :: ("method_name_exported", `String name)
-    :: add_session_info method_name
+    :: session_info method_name
 
-  let addtion_info msg params latest =
+  (* This is for the variables which are diverse for different messages *)
+  let diverse_info msg params latest =
     let method_name = msg.msg_name in
-    match (String.lowercase_ascii msg.msg_obj_name, msg.msg_session) with
-    | "session", true ->
-        addtion_info_of_session method_name (List.tl params) latest
-    | "session", false ->
-        addtion_info_of_session method_name params latest
+    match String.lowercase_ascii msg.msg_obj_name with
+    | "session" ->
+        diverse_info_of_session method_name params msg.msg_session latest
     | _ ->
+        let is_sess_func = false in
+        let func_params =
+          List.map (ParamInfo.to_param_info ~is_sess_func) params
+          |> to_func_params
+        in
         let name = method_name_exported method_name params latest in
-        [("method_name_exported", `String name)]
+        [
+          ("func_params", `String func_params)
+        ; ("params", `A (List.map (of_param ~is_sess_func) params))
+        ; ("method_name_exported", `String name)
+        ]
 
   let messages_of_obj obj =
     let ctor_fields = ctor_fields_of_obj obj in
@@ -433,14 +486,13 @@ module Json = struct
                ; ("class_name_exported", `String (snake_to_camel obj.name))
                ; ("description", desc_of_msg msg ctor_fields)
                ; ("result", of_result obj msg)
-               ; ("params", `A (of_params params))
                ; ("errors", of_errors msg.msg_errors)
                ; ("has_error", `Bool (msg.msg_errors <> []))
                ; ("async", `Bool msg.msg_async)
                ; ("version", `String rel_version)
                ]
              in
-             `O (base_assoc_list @ addtion_info msg params latest)
+             `O (base_assoc_list @ diverse_info msg params latest)
            in
            msg |> group_params |> List.map of_message
        )
