@@ -592,6 +592,7 @@ let header : Mustache.Json.t =
             )
           ]
       )
+    ; ("licence", `String Licence.bsd_two_clause)
     ]
 
 let enums : Mustache.Json.t =
