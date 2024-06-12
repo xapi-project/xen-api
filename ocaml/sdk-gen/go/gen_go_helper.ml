@@ -22,6 +22,8 @@ let templates_dir = "templates"
 
 let ( // ) = Filename.concat
 
+let licence = ("licence", `String Licence.bsd_two_clause)
+
 let acronyms =
   [
     "id"
@@ -479,6 +481,7 @@ module Json = struct
           ; ("modules", modules)
           ; ("messages", `A (messages_of_obj obj))
           ; ("option", `A (of_options types))
+          ; licence
           ]
         in
         let assoc_list = base_assoc_list @ get_event_session_value obj.name in
