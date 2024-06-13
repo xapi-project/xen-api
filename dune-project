@@ -34,6 +34,23 @@
 
 (package
   (name xen-api-client)
+  (synopsis "Xen-API client library for remotely-controlling a xapi host")
+  (authors "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg")
+  (depends
+   dune-build-info
+   (alcotest :with-test)
+   astring
+   (cohttp (>= "0.22.0"))
+   re
+   rpclib
+   uri
+   (uuid (= :version))
+   (xapi-client (= :version))
+   (xapi-idl (= :version))
+   (xapi-rrd (= :version))
+   (xapi-types (= :version))
+   xmlm
+  )
 )
 
 (package
