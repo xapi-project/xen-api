@@ -255,6 +255,29 @@
 
 (package
   (name vhd-format-lwt)
+  (synopsis "Lwt interface to read/write VHD format data")
+  (description "A pure OCaml library to read and write
+[vhd](http://en.wikipedia.org/wiki/VHD_(file_format)) format data, plus a
+simple command-line tool which allows vhd files to be interrogated,
+manipulated, format-converted and streamed to and from files and remote
+servers.
+
+This package provides an Lwt compatible interface to the library.")
+  (authors "Jon Ludlam" "Dave Scott")
+  (maintainers "Dave Scott <dave@recoil.org>")
+  (tags ("org:mirage" "org:xapi-project"))
+  (homepage "https://github.com/mirage/ocaml-vhd")
+  (source (github mirage/ocaml-vhd))
+  (depends
+    (ocaml (and (>= "4.02.3") (< "5.0.0")))
+    (alcotest :with-test)
+    (alcotest-lwt :with-test)
+    (cstruct (< "6.1.0"))
+    (lwt (>= "3.2.0"))
+    (mirage-block (>= "2.0.1"))
+    (vhd-format (= :version))
+    (io-page (and :with-test (>= "2.4.0")))
+  )
 )
 
 (package
