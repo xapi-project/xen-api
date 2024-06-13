@@ -59,7 +59,7 @@ test:
 	ulimit -S -t $(TEST_TIMEOUT); \
 	 (sleep $(TEST_TIMEOUT) && ps -ewwlyF --forest)& \
 	 PSTREE_SLEEP_PID=$$!; \
-	 trap "kill $${PSTREE_SLEEP_PID}" SIGINT SIGTERM EXIT; \
+	 trap "kill $${PSTREE_SLEEP_PID}" INT TERM EXIT; \
 	 timeout --foreground $(TEST_TIMEOUT2) \
 		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
 ifneq ($(PY_TEST), NO)
