@@ -230,6 +230,19 @@
 
 (package
   (name wsproxy)
+  (synopsis "Websockets proxy for VNC traffic")
+  (authors "Jon Ludlam" "Marcello Seri")
+  (license "LGPL-2.0-only WITH OCaml-LGPL-linking-exception")
+  (depends
+    (alcotest :with-test)
+    (base64 (>= "3.1.0"))
+    fmt
+    logs
+    (lwt (>= "3.0.0"))
+    re
+    uuid
+    (qcheck-core :with-test)
+  )
 )
 
 (package
