@@ -90,7 +90,6 @@ install:
 	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
-	$(IPROG) xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-toolstack-restart $(DESTDIR)$(OPTDIR)/bin
