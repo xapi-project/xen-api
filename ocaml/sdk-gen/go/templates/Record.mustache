@@ -1,0 +1,43 @@
+type {{name}}Record struct {
+{{#fields}}
+	//{{#description}} {{.}}{{/description}}
+	{{name}} {{type}} `json:"{{json_name}},omitempty"`
+{{/fields}}
+}
+
+type {{name}}Ref string
+
+{{#event}}
+type RecordInterface interface{}
+
+type EventBatch struct {
+	Token          string         `json:"token,omitempty"`
+	ValidRefCounts map[string]int `json:"validRefCounts,omitempty"`
+	Events         []EventRecord  `json:"events,omitempty"`
+}
+
+{{/event}}
+{{#description}}
+// {{.}}
+{{/description}}
+{{#session}}
+type {{name}} struct {
+	APIVersion  APIVersion
+	client      *rpcClient
+	ref         SessionRef
+	XAPIVersion string
+}
+
+func NewSession(opts *ClientOpts) *Session {
+	client := newJSONRPCClient(opts)
+	var session Session
+	session.client = client
+
+	return &session
+}
+{{/session}}
+{{^session}}
+type {{name_internal}} struct{}
+
+var {{name}} {{name_internal}}
+{{/session}}
