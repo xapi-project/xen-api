@@ -50,7 +50,6 @@ runs:
         ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
-        opam-pin: false
         dune-cache: true
       env:
         DUNE_CACHE_STORAGE_MODE: copy
