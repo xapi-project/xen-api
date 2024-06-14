@@ -17,8 +17,6 @@
 (executable
   (modes exe)
   (name sexprpp)
-  (public_name sexprpp)
-  (package sexpr)
   (modules sexprpp)
   (libraries
     sexpr
