@@ -55,6 +55,7 @@ jobs:
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
 
       - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
+        if: ${{ matrix.python-version != '2.7' }}
         uses: codecov/codecov-action@v3
         with:
           directory: .git
