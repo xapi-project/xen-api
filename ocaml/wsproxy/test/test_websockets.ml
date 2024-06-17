@@ -12,7 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
 open Wslib
 module TestWsIteratee = Websockets.Wsprotocol (Test.StringMonad)
 module I = Iteratees.Iteratee (Test.StringMonad)
@@ -49,7 +48,7 @@ let test_wsframe () =
          let x =
            enum_1chunk (Test.StringMonad.getstr (enum_1chunk str frame)) unframe
          in
-         assert_equal str (Test.StringMonad.getstr x) ;
+         Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr x) ;
          (* Test with enum_nchunk *)
          for i = 1 to 10 do
            let z =
@@ -57,7 +56,7 @@ let test_wsframe () =
                (Test.StringMonad.getstr (enum_nchunk str i frame))
                i unframe
            in
-           assert_equal str (Test.StringMonad.getstr z)
+           Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr z)
          done
      )
 
@@ -70,7 +69,7 @@ let test_wsframe_old () =
          let x =
            enum_1chunk (Test.StringMonad.getstr (enum_1chunk str frame)) unframe
          in
-         assert_equal str (Test.StringMonad.getstr x) ;
+         Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr x) ;
          (* Test with enum_nchunk *)
          for i = 1 to 10 do
            let z =
@@ -78,37 +77,42 @@ let test_wsframe_old () =
                (Test.StringMonad.getstr (enum_nchunk str i frame))
                i unframe
            in
-           assert_equal str (Test.StringMonad.getstr z)
+           Alcotest.(check string) __LOC__ str (Test.StringMonad.getstr z)
          done
      )
 
 let test_wsunframe () =
   let unframe = wsunframe (writer Test.StringMonad.strwr "foo") in
   (* Test with enum_1chunk *)
-  assert_equal "Hello"
+  Alcotest.(check string)
+    __LOC__ "Hello"
     (Test.StringMonad.getstr (enum_1chunk test_mask_str unframe)) ;
   (* Test with enum_nchunk *)
   for i = 1 to 10 do
-    assert_equal "Hello"
+    Alcotest.(check string)
+      __LOC__ "Hello"
       (Test.StringMonad.getstr (enum_nchunk test_mask_str i unframe))
   done
 
 let test_wsunframe_old () =
   let unframe = wsunframe_old (writer Test.StringMonad.strwr "foo") in
   (* Test with enum_1chunk *)
-  assert_equal "HelloThere"
+  Alcotest.(check string)
+    __LOC__ "HelloThere"
     (Test.StringMonad.getstr (enum_1chunk test_old_str unframe)) ;
   (* Test with enum_nchunk *)
   for i = 1 to 10 do
-    assert_equal "HelloThere"
+    Alcotest.(check string)
+      __LOC__ "HelloThere"
       (Test.StringMonad.getstr (enum_nchunk test_old_str i unframe))
   done
 
-let test =
-  "test_websockets"
-  >::: [
-         "test_wsframe" >:: test_wsframe
-       ; "test_wsunframe" >:: test_wsunframe
-       ; "test_wsframe_old" >:: test_wsframe_old
-       ; "test_wsunframe_old" >:: test_wsunframe_old
-       ]
+let tests =
+  ( "websockets"
+  , [
+      ("wsframe", `Quick, test_wsframe)
+    ; ("wsunframe", `Quick, test_wsunframe)
+    ; ("wsframe_old", `Quick, test_wsframe_old)
+    ; ("wsunframe_old", `Quick, test_wsunframe_old)
+    ]
+  )

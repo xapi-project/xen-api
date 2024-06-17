@@ -1,5 +1,3 @@
-open OUnit
-
 let test_payload =
   Rrd_protocol.
     {
@@ -24,17 +22,7 @@ let test_payload =
         ]
     }
 
-let make_list make_one count =
-  let rec make_list make_one acc = function
-    | count when count <= 0 ->
-        acc
-    | count ->
-        let thing = make_one () in
-        make_list make_one (thing :: acc) (count - 1)
-  in
-  make_list make_one [] count
-
-let make_random_datasource () =
+let make_random_datasource _ =
   let owner =
     if Random.bool () then
       Rrd.Host
@@ -64,19 +52,37 @@ let make_random_datasource () =
   )
 
 let make_random_payload timestamp datasource_count =
-  let datasources = make_list make_random_datasource datasource_count in
+  let datasources = List.init datasource_count make_random_datasource in
   Rrd_protocol.{timestamp; datasources}
 
-let are_value_types_equal value1 value2 =
-  match (value1, value2) with
+(* pick between absolute or relative tolerance of a number *)
+let tolerance x = max 1e-4 (abs_float x *. 1e-12)
+
+let compare_float message x y =
+  Alcotest.(check @@ float @@ tolerance x) message x y
+
+let equal_value eps a b =
+  match (a, b) with
   | Rrd.VT_Int64 a, Rrd.VT_Int64 b ->
-      a = b
+      Int64.equal a b
   | Rrd.VT_Unknown, Rrd.VT_Unknown ->
       true
   | Rrd.VT_Float a, Rrd.VT_Float b ->
-      let diff = abs_float (a -. b) in
-      diff <= 0.01
+      let isnan f = FP_nan = classify_float f in
+      (isnan a && isnan b)
+      (* compare infinities *)
+      || a = b
+      || abs_float (a -. b) <= eps
   | _, _ ->
+      false
+
+let equal_owner a b =
+  match (a, b) with
+  | Rrd.Host, Rrd.Host ->
+      true
+  | Rrd.VM a, Rrd.VM b | Rrd.SR a, Rrd.SR b ->
+      String.equal a b
+  | _ ->
       false
 
 let print_owner = function
@@ -86,6 +92,8 @@ let print_owner = function
       "VM " ^ vm
   | Rrd.SR sr ->
       "SR " ^ sr
+
+let owner = Alcotest.testable (Fmt.of_to_string print_owner) equal_owner
 
 let print_string x = x
 
@@ -97,37 +105,52 @@ let print_type = function
   | Rrd.Gauge ->
       "Gauge"
 
-let print_value_type = function
+let print_value = function
   | Rrd.VT_Float x ->
       "Float " ^ string_of_float x
   | Rrd.VT_Int64 x ->
-      "Float " ^ Int64.to_string x
+      "Int64 " ^ Int64.to_string x
   | Rrd.VT_Unknown ->
       "Unknown"
 
-let assert_ds_equal (owner1, ds1) (owner2, ds2) =
-  assert_equal ~printer:print_owner owner1 owner2 ;
+let value e = Alcotest.testable (Fmt.of_to_string print_value) (equal_value e)
+
+let assert_ds_equal d1 d2 =
   let open Ds in
-  assert_equal ~printer:print_string ds1.ds_name ds2.ds_name ;
-  assert_equal ~printer:print_string ds1.ds_description ds2.ds_description ;
-  assert_equal ~cmp:are_value_types_equal ~printer:print_value_type ds1.ds_value
-    ds2.ds_value ;
-  assert_equal ~printer:print_type ds1.ds_type ds2.ds_type ;
-  assert_equal ~printer:string_of_bool ds1.ds_default ds2.ds_default ;
-  assert_equal ~printer:string_of_float ds1.ds_min ds2.ds_min ;
-  assert_equal ~printer:string_of_float ds1.ds_max ds2.ds_max ;
-  assert_equal ~printer:print_string ds1.ds_units ds2.ds_units
+  Alcotest.(check string) "Names match" d1.ds_name d2.ds_name ;
+  Alcotest.(check string)
+    "Descriptions match" d1.ds_description d2.ds_description ;
+  Alcotest.check (value 0.01) "Values match" d1.ds_value d2.ds_value ;
+  assert (d1.ds_type = d2.ds_type) ;
+  Alcotest.(check bool) "Defaults match" d1.ds_default d2.ds_default ;
+  compare_float "Minimums match" d1.ds_min d2.ds_min ;
+  compare_float "Maximums match" d1.ds_max d2.ds_max ;
+  Alcotest.(check string) "Units match" d1.ds_units d2.ds_units
+
+let assert_ds_equal (owner1, ds1) (owner2, ds2) =
+  Alcotest.check owner "Owners match" owner1 owner2 ;
+  assert_ds_equal ds1 ds2
 
 let assert_payloads_equal payload1 payload2 =
-  Rrd_protocol.(
-    assert_equal ~msg:"Incorrect timestamp read" ~printer:Int64.to_string
-      payload1.timestamp payload2.timestamp ;
-    assert_equal ~msg:"Incorrect number of datasources read"
-      ~printer:string_of_int
-      (List.length payload1.datasources)
-      (List.length payload2.datasources) ;
-    List.iter2 assert_ds_equal payload1.datasources payload2.datasources
-  )
+  let open Rrd_protocol in
+  Alcotest.(check int64)
+    "Timestamps match" payload1.timestamp payload2.timestamp ;
+  Alcotest.(check int)
+    "Number of datasources read matches written ones"
+    (List.length payload1.datasources)
+    (List.length payload2.datasources) ;
+  List.iter2 assert_ds_equal payload1.datasources payload2.datasources
 
-let make_shared_file () =
-  Filename.temp_file ~temp_dir:"/dev/shm" "test-metrics" ".tmp"
+let make_shared_file ?(k = 0) () =
+  Filename.temp_file ~temp_dir:"/dev/shm"
+    (string_of_int k ^ "-test-metrics")
+    ".tmp"
+
+let tests_for_all_protos t =
+  let on_proto name proto tests =
+    (name, List.map (fun (name, t) -> (name, `Quick, fun () -> t proto)) tests)
+  in
+  [
+    on_proto "V1" Rrd_protocol_v1.protocol t
+  ; on_proto "V2" Rrd_protocol_v2.protocol t
+  ]
