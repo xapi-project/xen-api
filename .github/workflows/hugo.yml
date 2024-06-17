@@ -2,12 +2,19 @@ name: Generate and upload Hugo docs
 
 on:
   push:
-    branches: master
+
+# Set permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages for doc reviews
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  ocaml:
+  hugo:
     name: Docs
     runs-on: ubuntu-22.04
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
 
     steps:
       - name: Checkout code
@@ -18,13 +25,19 @@ jobs:
         with:
           hugo-version: '0.127.0'
 
-      - name: Build
+      - name: Build with defaults from doc/hugo.yml for the xapi-project/xen-api master
+        if: |
+          github.repository == 'xapi-project/xen-api' &&
+          github.ref == 'refs/heads/master'
         run: |
           cd doc
           hugo --minify
 
-      - name: Deploy
+      - name: Deploy xapi-project/xen-api master to https://xapi-project.github.io/new-docs
         uses: peaceiris/actions-gh-pages@v4
+        if: |
+          github.repository == 'xapi-project/xen-api' &&
+          github.ref == 'refs/heads/master'
         with:
           deploy_key: ${{ secrets.ACTIONS_DOCS_DEPLOY_KEY }}
           publish_dir: ./doc/public
@@ -35,3 +48,29 @@ jobs:
           destination_dir: new-docs # temporary staging branch
           allow_empty_commit: false
           enable_jekyll: true # do not create .nojekyll file
+
+      - name: Build to deploy to a clone's GitHub Pages for documentation update reviews
+        if: github.repository != 'xapi-project/xen-api'
+        env:
+          # Override the Hugo baseUrl in doc/hugo.toml with the repo name for doc reviews:
+          HUGO_BASEURL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+        run: cd doc;hugo --minify
+
+      - name: Upload Hugo static site as an artifact for documentation update reviews
+        if: github.repository != 'xapi-project/xen-api'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./doc/public
+
+  # When pushed to other repositories, deploy to the repository's GitHub Pages
+  deploy:
+    needs: hugo
+    if: github.repository != 'xapi-project/xen-api'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy uploaded artifact to GitHub Pages for documentation update reviews
+        id: deployment
+        uses: actions/deploy-pages@v4
