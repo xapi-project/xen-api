@@ -299,7 +299,15 @@ let probe =
 let probe_ext =
   let to_xenapi_sr_health =
     let open Storage_interface in
-    function Healthy -> `healthy | Recovering -> `recovering
+    function
+    | Healthy ->
+        `healthy
+    | Recovering ->
+        `recovering
+    | Unreachable ->
+        `unreachable
+    | Unavailable ->
+        `unavailable
   in
   let to_xenapi_sr_stat
       Storage_interface.

@@ -4,25 +4,6 @@ open Old_enum_all
 open Printf
 open Alcotest
 
-let test_compat enum old_conv new_conv testable () =
-  let expected = old_conv enum and actual = new_conv enum in
-  V1.(check' ~msg:"compatible" ~expected ~actual) testable
-
-let make_conv_test ~desc all conv_opt line testable =
-  conv_opt
-  |> Option.map (fun (old_conv, new_conv) ->
-         let name = sprintf "line%d:%s" line desc in
-         [
-           ( name
-           , all
-             |> List.map @@ fun enum ->
-                V1.test_case enum `Quick
-                @@ test_compat enum old_conv new_conv testable
-           )
-         ]
-     )
-  |> Option.value ~default:[]
-
 let test_to_string ~name all_enum (old_to_string, new_to_string) =
   ( name ^ "to_string"
   , all_enum

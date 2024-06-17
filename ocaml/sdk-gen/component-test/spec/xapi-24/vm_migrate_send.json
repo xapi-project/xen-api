@@ -1,0 +1,24 @@
+{
+    "xapi-24/vm_migrate_send_05": {
+        "method": [
+        "VM.migrate_send"
+        ],
+        "params": {
+            "VM.migrate_send": [
+                "", 
+                "OpaqueRef:5vm2d621-7b62-f571-vm00-754341a973e5", 
+                {"name_label": "host1"}, 
+                true, 
+                {"OpaqueRef:5vdid621-7b62-f571-vdi8-754341a973e5": "OpaqueRef:5sr2d621-7b62-f571-s38r-754341a973e5"}, 
+                {"OpaqueRef:9vifb8a9-f6a3-69d2-vifb-7a7b7c81c49e": "OpaqueRef:9network-f6a3-69d2-netw-7a7b7c81c49e"}, 
+                {}, 
+                {"OpaqueRef:9vgpu8a9-f6a3-69d2-vgpu-7a7b7c81c49e": "OpaqueRef:9gpugroup-f6a3-69d2-grou-7a7b7c81c49e"}
+            ]
+        },
+        "expected_result": {
+            "VM.migrate_send": {
+                "result": "OpaqueRef:5vm2d621-7b62-f571-vm01-754341a973e5"
+            }
+        }
+    }
+}

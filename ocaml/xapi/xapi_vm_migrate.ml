@@ -380,6 +380,9 @@ let infer_vgpu_map ~__context ?remote vm =
 let pool_migrate ~__context ~vm ~host ~options =
   Pool_features.assert_enabled ~__context ~f:Features.Xen_motion ;
   let dbg = Context.string_of_task __context in
+  let localhost = Helpers.get_localhost ~__context in
+  if host = localhost then
+    info "This is a localhost migration" ;
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module XenopsAPI = (val make_client queue_name : XENOPS) in
@@ -395,14 +398,21 @@ let pool_migrate ~__context ~vm ~host ~options =
         .assert_valid_ip_configuration_on_network_for_host ~__context
           ~self:network ~host
   in
-  let compress =
-    use_compression ~__context options (Helpers.get_localhost ~__context) host
-  in
+  let compress = use_compression ~__context options localhost host in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
-  let ip = Http.Url.maybe_wrap_IPv6_literal address in
-  let scheme = if !Xapi_globs.migration_https_only then "https" else "http" in
+  let http =
+    if !Xapi_globs.migration_https_only && host <> localhost then
+      "https"
+    else
+      "http"
+  in
   let xenops_url =
-    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme ip session_id
+    Uri.(
+      make ~scheme:http ~host:address ~path:"/services/xenops"
+        ~query:[("session_id", [session_id])]
+        ()
+      |> to_string
+    )
   in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let xenops_vgpu_map = infer_vgpu_map ~__context vm in

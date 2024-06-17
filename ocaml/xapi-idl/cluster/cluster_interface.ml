@@ -71,6 +71,45 @@ type node = {addr: address; id: nodeid} [@@deriving rpcty]
 
 type all_members = node list [@@deriving rpcty]
 
+module Cluster_stack = struct
+  exception Unsupported_Cluster_stack of {cluster_stack: string; version: int64}
+
+  exception Unsupported_transport of string
+
+  type t = Corosync2 | Corosync3 [@@deriving rpcty]
+
+  type transport = Udpu | Knet [@@deriving rpcty]
+
+  let transport_to_stack = function Udpu -> Corosync2 | Knet -> Corosync3
+
+  let transport_of_string = function
+    | "udpu" ->
+        Udpu
+    | "knet" ->
+        Knet
+    | s ->
+        raise (Unsupported_transport s)
+
+  let transport_to_string = function Udpu -> "udpu" | Knet -> "knet"
+
+  let cluster_stack_to_transport = function
+    | Corosync2 ->
+        Udpu
+    | Corosync3 ->
+        Knet
+
+  let cluster_stack_of_transport ts =
+    ts |> transport_of_string |> transport_to_stack
+
+  let of_version = function
+    | "corosync", 2L ->
+        Corosync2
+    | "corosync", 3L ->
+        Corosync3
+    | cluster_stack, version ->
+        raise (Unsupported_Cluster_stack {cluster_stack; version})
+end
+
 (** This type contains all of the information required to initialise the
     cluster. All optional params will have the recommended defaults if None. *)
 type init_config = {
@@ -78,6 +117,7 @@ type init_config = {
   ; token_timeout_ms: int64 option
   ; token_coefficient_ms: int64 option
   ; name: string option
+  ; cluster_stack: Cluster_stack.t
 }
 [@@deriving rpcty]
 
@@ -92,6 +132,7 @@ type cluster_config = {
   ; config_version: int64
   ; cluster_token_timeout_ms: int64
   ; cluster_token_coefficient_ms: int64
+  ; cluster_stack: Cluster_stack.t [@default Corosync2]
 }
 [@@deriving rpcty]
 
@@ -317,6 +358,12 @@ module LocalAPI (R : RPC) = struct
       @-> enabled_p
       @-> returning unit_p err
       )
+
+  let switch_cluster_stack =
+    let cluster_stack_p = Param.mk ~name:"cluster_stack" Cluster_stack.t in
+    declare "switch-cluster-stack"
+      ["Switch cluster stack version to the target"]
+      (debug_info_p @-> cluster_stack_p @-> returning unit_p err)
 
   module UPDATES = struct
     open TypeCombinators

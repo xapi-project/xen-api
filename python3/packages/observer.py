@@ -28,6 +28,7 @@ import os
 import runpy
 import sys
 import traceback
+import types
 from datetime import datetime, timezone
 from logging.handlers import SysLogHandler
 from typing import List, Sequence
@@ -288,7 +289,9 @@ def _init_tracing(configs: List[str], config_dir: str):
                     # class or classmethod
                     aspan.set_attribute("xs.span.args.str", str(args))
                     aspan.set_attribute("xs.span.kwargs.str", str(kwargs))
-                else:
+                elif isinstance(wrapped, wrapt.PartialCallableObjectProxy):
+                    pass
+                elif isinstance(wrapped, (types.FunctionType, types.MethodType)):
                     # function, staticmethod or instancemethod
                     bound_args = inspect.signature(wrapped).bind(*args, **kwargs)
                     bound_args.apply_defaults()
@@ -368,6 +371,11 @@ try:
     # If there are no configs, or an exception is raised, span and patch_module
     # are not overridden and will be the defined no-op functions.
     span, patch_module = _init_tracing(observer_configs, observer_config_dir)
+
+    # If tracing is now operational, explicity set "OTEL_SDK_DISABLED" to "false".
+    # In our case, different from the standard, we want the tracing disabled by
+    # default, so if the env variable is not set the noop implementation is used.
+    os.environ["OTEL_SDK_DISABLED"] = "false"
 except Exception as exc:
     syslog.error("Exception while setting up tracing, running script untraced: %s", exc)
     span, patch_module = _span_noop, _patch_module_noop

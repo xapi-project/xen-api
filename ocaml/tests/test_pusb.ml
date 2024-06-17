@@ -12,11 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let create_base_environment () =
-  let __context = Test_common.make_test_database () in
-  let pusb = Test_common.make_sr ~__context () in
-  (__context, pusb)
-
 let start_thread ~__context info =
   let usbs = Xapi_pusb_helpers.get_usbs info in
   let f () = Xapi_pusb.scan_start ~__context usbs in

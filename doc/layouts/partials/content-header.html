@@ -1,0 +1,48 @@
+{{ if eq $.Page.Params.design_doc true }}
+<table class="revision-table">
+  <tr>
+    <th colspan="2">Design document</th>
+  </tr>
+  <tr style="background-color: white">
+    <td>Revision</td>
+    <td><span class="label label-default">v{{$.Page.Params.revision}}</span></td>
+  </tr>
+  <tr style="background-color: white">
+    <td>Status</td>
+    {{ with $.Page.Params.status | lower }}
+    <td><span class="label
+      {{ if or (eq . "proposed") (eq . "submitted") }}
+        label-danger
+      {{ else if or (eq . "confirmed") (eq . "accepted") }}
+        label-warning
+      {{ else if (strings.Contains . "released") }}
+        label-success
+      {{ else }}
+        label-info
+      {{ end }}
+      ">
+      {{.}}
+    </span></td>
+    {{ end }}
+  </tr>
+  {{ with $.Page.Params.design_review }}
+  <tr>
+    <td>Review</td>
+    <td>
+      <a href="http://github.com/xapi-project/xapi-project.github.io/issues/{{.}}">#{{.}}</a>
+    </td>
+  </tr>
+  {{ end }}
+  {{ with $.Page.Params.revision_history }}
+  <tr>
+    <th colspan="2">Revision history</th>
+  </tr>
+    {{ range . }}
+  <tr>
+    <td><span class="label label-default">v{{.revision_number}}</span></td>
+    <td>{{.description}}</td>
+  </tr>
+    {{ end }}
+  {{ end }}
+</table>
+{{ end }}

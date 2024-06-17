@@ -1,7 +1,7 @@
 (executable
  (modes exe)
  (name fe_test)
- (libraries forkexec uuid xapi-stdext-unix))
+ (libraries forkexec uuid xapi-stdext-unix fd-send-recv))
 
 (rule
  (alias runtest)

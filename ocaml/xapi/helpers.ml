@@ -2084,3 +2084,5 @@ let get_active_uefi_certificates ~__context ~self =
       Db.Pool.get_uefi_certificates ~__context ~self
   | true, _ ->
       custom_uefi_certs
+
+let uefi_mode_to_string = function `setup -> "setup" | `user -> "user"

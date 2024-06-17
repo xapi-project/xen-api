@@ -11,6 +11,7 @@ depends: [
   "ocaml"
   "dune"
   "astring"
+  "qcheck-core" {with-test}
   "xapi-stdext-threads"
 ]
 synopsis: "Library required by xapi"
