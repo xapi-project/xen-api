@@ -6713,13 +6713,20 @@ let pool_dump_db fd _printer rpc session_id params =
     let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
     let master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
     let master_address =
-      Http.Url.maybe_wrap_IPv6_literal
-        (Client.Host.get_address ~rpc ~session_id ~self:master)
+      Client.Host.get_address ~rpc ~session_id ~self:master
     in
     let uri =
-      Printf.sprintf "https://%s%s?session_id=%s&task_id=%s" master_address
-        Constants.pool_xml_db_sync (Ref.string_of session_id)
-        (Ref.string_of task_id)
+      Uri.(
+        make ~scheme:"https" ~host:master_address
+          ~path:Constants.pool_xml_db_sync
+          ~query:
+            [
+              ("session_id", [Ref.string_of session_id])
+            ; ("task_id", [Ref.string_of task_id])
+            ]
+          ()
+        |> to_string
+      )
     in
     debug "%s" uri ;
     HttpGet (filename, uri)

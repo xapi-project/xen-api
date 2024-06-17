@@ -1,0 +1,20 @@
+{
+    "xapi-24/rpc_error_09": {
+      "method": [
+        "VM.get_record"
+      ],
+      "params": {
+        "VM.get_record": ["", "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13"]
+      },
+      "expected_result": {
+        "VM.get_record": {
+          "result": {},
+          "error": {
+            "code": "abcd",
+            "message": 123456,
+            "data": 2.0
+          }
+        }
+      }
+    }
+}

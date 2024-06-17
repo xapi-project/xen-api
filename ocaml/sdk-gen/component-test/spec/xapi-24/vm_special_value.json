@@ -1,0 +1,32 @@
+{
+    "xapi-24/vm_special_value_13": {
+      "method": [
+        "VM.get_all_records"
+      ],
+      "params": {
+        "VM.get_all_records": [""]
+      },
+      "expected_result": {
+        "VM.get_all_records": {
+          "result": {
+            "OpaqueRef:vmref009-7e0e-411f-1b6c-4308fd33b164": {
+                "HVM_shadow_multiplier": Infinity,
+                "snapshot_time": "1627478400."
+            },
+            "OpaqueRef:vmref010-7e0e-411f-1b6c-4308fd33b164": {
+                "HVM_shadow_multiplier": "+Infinity",
+                "snapshot_time": "20240420T12:00:00"
+            },
+            "OpaqueRef:vmref011-7e0e-411f-1b6c-4308fd33b164": {
+                "HVM_shadow_multiplier": "-Infinity",
+                "snapshot_time": "20240420T12:00:00Z"
+            },
+            "OpaqueRef:vmref012-7e0e-411f-1b6c-4308fd33b164": {
+              "HVM_shadow_multiplier":"-Infinity",
+              "snapshot_time": "2024-04-20T12:00:00Z"
+            }
+          }
+        }
+      }
+    }
+}

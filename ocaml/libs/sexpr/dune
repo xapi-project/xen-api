@@ -1,4 +1,4 @@
-(ocamlyacc sExprParser)
+(menhir (modules sExprParser))
 
 (ocamllex sExprLexer)
 
@@ -22,4 +22,3 @@
     sexpr
   )
 )
-

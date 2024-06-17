@@ -371,6 +371,11 @@ try:
     # If there are no configs, or an exception is raised, span and patch_module
     # are not overridden and will be the defined no-op functions.
     span, patch_module = _init_tracing(observer_configs, observer_config_dir)
+
+    # If tracing is now operational, explicity set "OTEL_SDK_DISABLED" to "false".
+    # In our case, different from the standard, we want the tracing disabled by
+    # default, so if the env variable is not set the noop implementation is used.
+    os.environ["OTEL_SDK_DISABLED"] = "false"
 except Exception as exc:
     syslog.error("Exception while setting up tracing, running script untraced: %s", exc)
     span, patch_module = _span_noop, _patch_module_noop
