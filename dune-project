@@ -517,6 +517,7 @@ This package provides an Lwt compatible interface to the library.")
     (fd-send-recv (>= 2.0.0))
     (odoc :with-doc)
     xapi-backtrace
+    unix-errno
     (xapi-stdext-pervasives (= :version))
   )
 )
