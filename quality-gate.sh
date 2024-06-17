@@ -82,10 +82,22 @@ vtpm-fields () {
   esac
 }
 
+ocamlyacc () {
+  N=0
+  OCAMLYACC=$(git grep -r -o --count "ocamlyacc" '**/dune' | wc -l)
+  if [ "$OCAMLYACC" -eq "$N" ]; then
+    echo "OK found $OCAMLYACC usages of ocamlyacc usages in dune files."
+  else
+    echo "ERROR expected $N usages of ocamlyacc in dune files, got $OCAMLYACC." 1>&2
+    exit 1
+  fi
+}
+
 list-hd
 verify-cert
 mli-files
 structural-equality
 vtpm-unimplemented
 vtpm-fields
+ocamlyacc
 

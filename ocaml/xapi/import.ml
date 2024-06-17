@@ -2472,15 +2472,14 @@ let handler (req : Request.t) s _ =
           if not (check_sr_availability ~__context sr) then (
             debug "sr not available - redirecting" ;
             let host = find_host_for_sr ~__context sr in
-            let address =
-              Http.Url.maybe_wrap_IPv6_literal
-                (Db.Host.get_address ~__context ~self:host)
-            in
+            let address = Db.Host.get_address ~__context ~self:host in
             let url =
-              Printf.sprintf "https://%s%s?%s" address req.Request.uri
-                (String.concat "&"
-                   (List.map (fun (a, b) -> a ^ "=" ^ b) req.Request.query)
-                )
+              Uri.(
+                make ~scheme:"https" ~host:address ~path:req.Request.uri
+                  ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
+                  ()
+                |> to_string
+              )
             in
             let headers = Http.http_302_redirect url in
             debug "new location: %s" url ;

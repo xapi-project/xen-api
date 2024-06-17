@@ -255,7 +255,6 @@ expected_to_fail = [
     # SSLSocket.send() only accepts bytes, not unicode string as argument:
     "scripts/examples/python/exportimport.py",
     # Other fixes needed:
-    "scripts/examples/python/XenAPI/XenAPI.py",
     "scripts/examples/python/monitor-unwanted-domains.py",
     "scripts/examples/python/shell.py",
     "scripts/static-vdis",

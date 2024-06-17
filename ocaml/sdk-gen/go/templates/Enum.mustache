@@ -1,0 +1,11 @@
+{{#enums}}
+type {{name}} string
+
+const (
+{{#values}}
+	//{{#doc}} {{.}}{{/doc}}
+	{{name}} {{type}} = "{{value}}"
+{{/values}}
+)
+
+{{/enums}}

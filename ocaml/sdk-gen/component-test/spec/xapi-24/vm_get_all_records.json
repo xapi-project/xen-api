@@ -1,0 +1,231 @@
+{
+    "xapi-24/vm_get_all_records_02": {
+      "method": [
+        "VM.get_all_records"
+      ],
+      "params": {
+        "VM.get_all_records": [""]
+      },
+      "expected_result": {
+        "VM.get_all_records": {
+          "result": {
+            "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13": {
+              "HVM_boot_params": {
+                  "firmware": "uefi", 
+                  "order": "cd"
+              }, 
+              "HVM_boot_policy": "BIOS order", 
+              "HVM_shadow_multiplier": 1.0, 
+              "NVRAM": {
+                  "EFI-variables": "VkFSUwIAAAAsAAAAA"
+              }, 
+              "PCI_bus": "", 
+              "PV_args": "", 
+              "PV_bootloader": "", 
+              "PV_bootloader_args": "", 
+              "PV_kernel": "", 
+              "PV_legacy_args": "", 
+              "PV_ramdisk": "", 
+              "VBDs": [
+                  "OpaqueRef:f7ef1069-2538-089a-2a77-e42e3b9e336c", 
+                  "OpaqueRef:c92a38a8-87aa-2d04-622f-84a788d9f9ef", 
+                  "OpaqueRef:e3e47cc5-5752-df57-b3a3-89bcc7336397"
+              ], 
+              "VCPUs_at_startup": 2, 
+              "VCPUs_max": 2, 
+              "VCPUs_params": {
+                  "weight": "256"
+              }, 
+              "VGPUs": [], 
+              "VIFs": [
+                  "OpaqueRef:5f1d3810-45d1-0762-81f6-18b198b52e0c"
+              ], 
+              "VTPMs": [
+                  "OpaqueRef:60f5a19e-773b-f831-c9c2-35f07b632603"
+              ], 
+              "VUSBs": [], 
+              "actions_after_crash": "preserve", 
+              "actions_after_reboot": "restart", 
+              "actions_after_shutdown": "destroy", 
+              "actions_after_softreboot": "soft_reboot", 
+              "affinity": "OpaqueRef:NULL", 
+              "allowed_operations": [
+                  "changing_dynamic_range", 
+                  "migrate_send", 
+                  "pool_migrate", 
+                  "changing_VCPUs_live", 
+                  "suspend", 
+                  "hard_reboot", 
+                  "hard_shutdown", 
+                  "clean_reboot", 
+                  "clean_shutdown", 
+                  "pause", 
+                  "checkpoint", 
+                  "snapshot"
+              ], 
+              "appliance": "OpaqueRef:NULL", 
+              "attached_PCIs": [], 
+              "bios_strings": {
+                  "baseboard-asset-tag": "", 
+                  "baseboard-location-in-chassis": "", 
+                  "baseboard-manufacturer": "", 
+                  "baseboard-product-name": "", 
+                  "baseboard-serial-number": "", 
+                  "baseboard-version": "", 
+                  "bios-vendor": "Xen", 
+                  "bios-version": "", 
+                  "enclosure-asset-tag": "", 
+                  "hp-rombios": "", 
+                  "oem-1": "Xen", 
+                  "oem-2": "MS_VM_CERT/SHA1/bdbeb6e0a816d43fa6d3fe8aaef04c2bad9d3e3d", 
+                  "system-manufacturer": "Xen", 
+                  "system-product-name": "HVM domU", 
+                  "system-serial-number": "", 
+                  "system-version": ""
+              }, 
+              "blobs": {}, 
+              "blocked_operations": {}, 
+              "children": [], 
+              "consoles": [
+                  "OpaqueRef:87122f55-ce67-7a33-5d93-0d25206e83a0"
+              ], 
+              "crash_dumps": [], 
+              "current_operations": {}, 
+              "domain_type": "hvm", 
+              "domarch": "", 
+              "domid": 50, 
+              "generation_id": "209202393574174067:5365773919542227445", 
+              "guest_metrics": "OpaqueRef:60d05d5e-4888-ebeb-f070-c57f90410417", 
+              "ha_always_run": false, 
+              "ha_restart_priority": "", 
+              "hardware_platform_version": 2, 
+              "has_vendor_device": false, 
+              "is_a_snapshot": false, 
+              "is_a_template": false, 
+              "is_control_domain": false, 
+              "is_default_template": false, 
+              "is_snapshot_from_vmpp": false, 
+              "is_vmss_snapshot": false, 
+              "last_boot_CPU_flags": {
+                  "features": "1fcbfbff-f7fa3203-2c100800-00000021-00000001-000007ab-00000000-00000000-00101000-bc000400-00000000-00000000-00000000-00000000-00000000-00000000-04000000-00000000-00000000-00000000-00000000-00000000", 
+                  "vendor": "GenuineIntel"
+              }, 
+              "last_booted_record": "", 
+              "memory_dynamic_max": 8589934592, 
+              "memory_dynamic_min": 8589934592, 
+              "memory_overhead": 71303168, 
+              "memory_static_max": 8589934592, 
+              "memory_static_min": 4294967296, 
+              "memory_target": 8589934592, 
+              "metrics": "OpaqueRef:29a46db3-9b13-7df1-788c-638c194d8cf1", 
+              "name_description": "win11-x64", 
+              "name_label": "win11-x64", 
+              "order": 0, 
+              "other_config": {
+                  "base_template_name": "Windows 11", 
+                  "import_task": "OpaqueRef:06641b68-0695-5bfa-2fce-ec2c1c914097", 
+                  "install-methods": "cdrom", 
+                  "mac_seed": "8414a948-97f5-2a8b-2070-c26b95e5d578", 
+                  "xenrt-distro": "win11-x64"
+              }, 
+              "parent": "OpaqueRef:NULL", 
+              "pending_guidances": [], 
+              "pending_guidances_full": [], 
+              "pending_guidances_recommended": [], 
+              "platform": {
+                  "acpi": "1", 
+                  "acpi_laptop_slate": "1", 
+                  "apic": "true", 
+                  "cores-per-socket": "2", 
+                  "device-model": "qemu-upstream-uefi", 
+                  "device_id": "0002", 
+                  "hpet": "true", 
+                  "nx": "true", 
+                  "pae": "true", 
+                  "secureboot": "true", 
+                  "timeoffset": "0", 
+                  "vga": "std", 
+                  "videoram": "8", 
+                  "viridian": "true", 
+                  "viridian_apic_assist": "true", 
+                  "viridian_crash_ctl": "true", 
+                  "viridian_reference_tsc": "true", 
+                  "viridian_stimer": "true", 
+                  "viridian_time_ref_count": "true", 
+                  "vtpm": "true"
+              }, 
+              "power_state": "Running", 
+              "protection_policy": "OpaqueRef:NULL", 
+              "recommendations": "<restrictions><restriction field=\"memory-static-max\" max=\"1649267441664\"/><restriction field=\"vcpus-min\" min=\"2\"/><restriction field=\"vcpus-max\" max=\"64\"/><restriction field=\"has-vendor-device\" value=\"true\"/><restriction field=\"supports-bios\" value=\"no\"/><restriction field=\"supports-uefi\" value=\"yes\"/><restriction field=\"supports-secure-boot\" value=\"yes\"/><restriction max=\"255\" property=\"number-of-vbds\"/><restriction max=\"7\" property=\"number-of-vifs\"/></restrictions>", 
+              "reference_label": "windows-11", 
+              "requires_reboot": false, 
+              "resident_on": "OpaqueRef:4a0fde9c-5709-4f66-9968-64fb6162bd97", 
+              "scheduled_to_be_resident_on": "OpaqueRef:NULL", 
+              "shutdown_delay": 0, 
+              "snapshot_info": {}, 
+              "snapshot_metadata": "", 
+              "snapshot_of": "OpaqueRef:NULL", 
+              "snapshot_schedule": "OpaqueRef:NULL", 
+              "snapshot_time": "2023-07-29T13:20:01Z",
+              "snapshots": [], 
+              "start_delay": 0, 
+              "suspend_SR": "OpaqueRef:5ec2d621-7b62-f571-d38b-754341a973e5", 
+              "suspend_VDI": "OpaqueRef:NULL", 
+              "tags": [], 
+              "transportable_snapshot_id": "", 
+              "user_version": 1, 
+              "uuid": "c5db1298-3e97-53bb-4f97-bd039ca8c217", 
+              "version": 0, 
+              "xenstore_data": {
+                  "vm-data": "", 
+                  "vm-data/mmio-hole-size": "268435456"
+              }
+            },
+            "OpaqueRef:7cdfad16-7e0e-411f-1b6c-4308fd33b164": {
+                "HVM_shadow_multiplier": 1.0, 
+                "VBDs": [
+                    "OpaqueRef:4a54632c-a6b1-5535-4ef4-0d36d85e07df", 
+                    "OpaqueRef:56d316f7-e8d0-54f0-2492-a0952c6946c4"
+                ], 
+                "allowed_operations": [
+                    "changing_dynamic_range", 
+                    "migrate_send", 
+                    "pool_migrate", 
+                    "changing_VCPUs_live", 
+                    "suspend", 
+                    "hard_reboot", 
+                    "hard_shutdown", 
+                    "clean_reboot", 
+                    "clean_shutdown", 
+                    "pause", 
+                    "checkpoint", 
+                    "snapshot"
+                ], 
+                "current_operations": {}, 
+                "domid": 45, 
+                "is_a_template": false, 
+                "memory_static_max": 4294967296, 
+                "name_label": "ubuntu2204", 
+                "platform": {
+                    "acpi": "1", 
+                    "apic": "true", 
+                    "device-model": "qemu-upstream-compat", 
+                    "device_id": "0001", 
+                    "hpet": "true", 
+                    "nx": "true", 
+                    "pae": "true", 
+                    "timeoffset": "0", 
+                    "vga": "std", 
+                    "videoram": "8", 
+                    "viridian": "false"
+                }, 
+                "snapshot_time": "2006-01-02T15:04:05Z", 
+                "suspend_VDI": "OpaqueRef:NULL",
+                "resident_on": "OpaqueRef:4a0fde9c-5709-4f66-9968-64fb6162bd97", 
+                "uuid": "060aee48-7ded-d2bd-6f0f-f224bd99c960"
+            }
+          }
+        }
+      }
+    }
+}

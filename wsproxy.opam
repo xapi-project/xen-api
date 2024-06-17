@@ -22,7 +22,7 @@ depends: [
   "re"
   "uuid"
   "ounit2" {with-test}
-  "qcheck" {with-test}
+  "qcheck-core" {with-test}
 ]
 tags: [ "org:xapi-project" ]
 synopsis: "Websockets proxy for VNC traffic"

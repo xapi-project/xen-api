@@ -787,12 +787,14 @@ let handler (req : Http.Request.t) fd _ =
         (* Redirect if we're not master *)
         if not (Pool_role.is_master ()) then
           let url =
-            Printf.sprintf "https://%s%s?%s"
-              (Http.Url.maybe_wrap_IPv6_literal
-                 (Pool_role.get_master_address ())
-              )
-              req.Http.Request.uri
-              (String.concat "&" (List.map (fun (a, b) -> a ^ "=" ^ b) query))
+            Uri.(
+              make ~scheme:"https"
+                ~host:(Pool_role.get_master_address ())
+                ~path:req.Http.Request.uri
+                ~query:(List.map (fun (k, v) -> (k, [v])) req.Http.Request.query)
+                ()
+              |> to_string
+            )
           in
           Http_svr.headers fd (Http.http_302_redirect url)
         else (* Get and check query parameters *)
