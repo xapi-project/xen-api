@@ -570,20 +570,21 @@ module Watcher = struct
               , cluster_rec.API.cluster_cluster_stack_version
               )
             = Cluster_stack.Corosync2
-          then
+          then (
             debug "%s: Detected corosync 2 running as cluster stack"
               __FUNCTION__ ;
-          let body =
-            "The current cluster stack version of Corosync 2 is out of date, \
-             consider updating to Corosync 3"
-          in
-          let name, priority = Api_messages.cluster_stack_out_of_date in
-          let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+            let body =
+              "The current cluster stack version of Corosync 2 is out of date, \
+               consider updating to Corosync 3"
+            in
+            let name, priority = Api_messages.cluster_stack_out_of_date in
+            let host_uuid = Db.Host.get_uuid ~__context ~self:host in
 
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              ignore
-              @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                   ~cls:`Host ~obj_uuid:host_uuid ~body
+            Helpers.call_api_functions ~__context (fun rpc session_id ->
+                ignore
+                @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
+                     ~cls:`Host ~obj_uuid:host_uuid ~body
+            )
           )
       | None ->
           debug "%s: No cluster host, no need to watch" __FUNCTION__
