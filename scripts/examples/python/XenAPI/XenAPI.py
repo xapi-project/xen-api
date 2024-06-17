@@ -54,6 +54,7 @@
 # OF THIS SOFTWARE.
 # --------------------------------------------------------------------
 
+import errno
 import gettext
 import os
 import socket
@@ -141,8 +142,8 @@ class Session(xmlrpclib.ServerProxy):
     session.xenapi.session.logout()
     """
 
-    def __init__(self, uri, transport=None, encoding=None, verbose=0,
-                 allow_none=1, ignore_ssl=False):
+    def __init__(self, uri, transport=None, encoding=None, verbose=False,
+                 allow_none=True, ignore_ssl=False):
 
         # Fix for CA-172901 (+ Python 2.4 compatibility)
         # Fix for context=ctx ( < Python 2.7.9 compatibility)
@@ -198,7 +199,7 @@ class Session(xmlrpclib.ServerProxy):
             self.last_login_params = params
             self.API_version = self._get_api_version()
         except socket.error as e:
-            if e.errno == socket.errno.ETIMEDOUT:
+            if e.errno == errno.ETIMEDOUT:
                 raise xmlrpclib.Fault(504, 'The connection timed out')
             else:
                 raise e
@@ -206,7 +207,7 @@ class Session(xmlrpclib.ServerProxy):
     def _logout(self):
         try:
             if self.last_login_method.startswith("slave_local"):
-                return _parse_result(self.session.local_logout(self._session))
+                return _parse_result(self.session.local_logout(self._session)) # pytype: disable=attribute-error
             else:
                 return _parse_result(self.session.logout(self._session))
         finally:
