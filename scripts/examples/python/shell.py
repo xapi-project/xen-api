@@ -66,16 +66,18 @@ class Shell(cmd.Cmd):
         print()
         sys.exit(0)
 
-def munge_types (str):
-    if str == "True":
+
+def munge_types(var):
+    if var == "True":
         return True
-    elif str == "False":
+    if var == "False":
         return False
 
     try:
-        return int(str)
+        return int(var)
     except:
-        return str
+        return var
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
