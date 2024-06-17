@@ -324,7 +324,7 @@ let rec uri_of_someone rpc session_id = function
         uri_of_someone rpc session_id Master
       else
         let address = Client.Host.get_address ~rpc ~session_id ~self:h in
-        "https://" ^ address
+        Uri.(make ~scheme:"https" ~host:address () |> to_string)
 
 let error_of_exn e =
   match e with

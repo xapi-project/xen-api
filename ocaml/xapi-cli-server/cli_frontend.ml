@@ -523,6 +523,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-get-guest-secureboot-readiness"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Return the readiness of a pool for guest SecureBoot."
+      ; implementation= No_fd Cli_operations.pool_get_guest_secureboot_readiness
+      ; flags= []
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
@@ -2656,6 +2665,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["database:"]
       ; help= "Test whether storage is available to recover this VM."
       ; implementation= No_fd Cli_operations.vm_assert_can_be_recovered
+      ; flags= []
+      }
+    )
+  ; ( "vm-set-uefi-mode"
+    , {
+        reqd= ["uuid"; "mode"]
+      ; optn= []
+      ; help= "Set a VM in UEFI 'setup' or 'user' mode."
+      ; implementation= No_fd Cli_operations.vm_set_uefi_mode
+      ; flags= []
+      }
+    )
+  ; ( "vm-get-secureboot-readiness"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Return the secureboot readiness of the VM."
+      ; implementation= No_fd Cli_operations.vm_get_secureboot_readiness
       ; flags= []
       }
     )

@@ -1,0 +1,66 @@
+{{#messages}}
+// {{method_name_exported}}:{{#description}} {{.}}{{/description}}
+{{#version}}// Version: {{.}}{{/version}}
+{{#has_error}}
+//
+// Errors:
+{{/has_error}}
+{{#errors}}
+// {{name}} - {{doc}}
+{{/errors}}
+func (class *Session) {{method_name_exported}}({{func_params}}) ({{#result}}retval {{type}}, {{/result}}err error) {
+	method := "{{class_name}}.{{method_name}}"
+{{#params}}
+	{{name_internal}}Arg, err := serialize{{func_name_suffix}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{name_in_serialize_call}})
+	if err != nil {
+		return
+	}
+{{/params}}
+	{{#result}}result, err := {{/result}}{{^result}}_, err = {{/result}}class.client.sendCall(method{{#params}}, {{name_internal}}Arg{{/params}})
+{{#result}}
+	if err != nil {
+		return
+	}
+	retval, err = deserialize{{func_name_suffix}}(method+" -> ", result)
+{{/result}}
+{{#session_login}}
+	if err != nil {
+		return
+	}
+	class.ref = retval
+	err = setSessionDetails(class)
+{{/session_login}}
+{{#session_logout}}
+	class.ref = ""
+{{/session_logout}}
+	return
+}
+
+{{#async}}
+// Async{{method_name_exported}}:{{#description}} {{.}}{{/description}}
+{{#version}}// Version: {{.}}{{/version}}
+{{#has_error}}
+//
+// Errors:
+{{/has_error}}
+{{#errors}}
+// {{name}} - {{doc}}
+{{/errors}}
+func (class *Session) Async{{method_name_exported}}({{func_params}}) (retval TaskRef, err error) {
+	method := "Async.{{class_name}}.{{method_name}}"
+{{#params}}
+	{{name_internal}}Arg, err := serialize{{func_name_suffix}}(fmt.Sprintf("%s(%s)", method, "{{name}}"), {{name_in_serialize_call}})
+	if err != nil {
+		return
+	}
+{{/params}}
+	result, err := class.client.sendCall(method{{#params}}, {{name_internal}}Arg{{/params}})
+	if err != nil {
+		return
+	}
+	retval, err = deserializeTaskRef(method+" -> ", result)
+	return
+}
+
+{{/async}}
+{{/messages}}

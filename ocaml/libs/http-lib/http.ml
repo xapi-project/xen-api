@@ -1018,32 +1018,27 @@ module Url = struct
     let params = if params = [] then "" else "?" ^ kvpairs params in
     uri ^ params
 
-  (* Wrap a literal IPv6 address in square brackets; otherwise pass through *)
-  let maybe_wrap_IPv6_literal addr =
-    if Unixext.domain_of_addr addr = Some Unix.PF_INET6 then
-      "[" ^ addr ^ "]"
-    else
-      addr
-
   let to_string = function
     | File {path}, data ->
-        Printf.sprintf "file:%s%s" path (data_to_string data) (* XXX *)
-    | Http h, data ->
-        let userpassat =
+        (* this should have file:// *)
+        Printf.sprintf "file:%s%s" path (data_to_string data)
+        (* XXX *)
+    | Http h, {uri; query_params= params} ->
+        let auth =
           match h.auth with
           | Some (Basic (username, password)) ->
-              Printf.sprintf "%s:%s@" username password
+              Printf.sprintf "%s:%s" username password |> Option.some
           | _ ->
-              ""
+              Option.none
         in
-        let colonport =
-          match h.port with Some x -> Printf.sprintf ":%d" x | _ -> ""
-        in
-        Printf.sprintf "http%s://%s%s%s%s"
-          (if h.ssl then "s" else "")
-          userpassat
-          (maybe_wrap_IPv6_literal h.host)
-          colonport (data_to_string data)
+        Uri.(
+          make
+            ~scheme:(if h.ssl then "https" else "http")
+            ~host:h.host ?port:h.port ?userinfo:auth ~path:uri
+            ~query:(List.map (fun (k, v) -> (k, [v])) params)
+            ()
+          |> to_string
+        )
 
   let get_uri (_scheme, data) = data.uri
 

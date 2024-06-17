@@ -17,8 +17,6 @@ module D = Debug.Make (struct let name = Memory_interface.service_name end)
 
 open D
 
-let name = "squeezed"
-
 let balance_check_interval = ref 10.
 
 let options =

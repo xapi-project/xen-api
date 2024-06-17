@@ -1,0 +1,44 @@
+(executable
+  (modes exe)
+  (name gen_go_binding)
+  (modules gen_go_binding)
+  (libraries
+    CommonFunctions
+    mustache
+    xapi-datamodel
+    xapi-stdext-unix
+    gen_go_helper
+  )
+)
+
+(library
+  (name gen_go_helper)
+  (modules gen_go_helper)
+  (libraries
+    CommonFunctions
+    astring
+    (re_export mustache)
+    (re_export xapi-consts)
+    (re_export xapi-datamodel)
+    xapi-stdext-std
+  )
+)
+
+(rule
+  (alias generate)
+  (deps
+    (:x gen_go_binding.exe)
+    (source_tree templates)
+  )
+  (action (run %{x} --destdir autogen))
+)
+
+(test
+  (name test_gen_go)
+  (modules test_gen_go)
+  (libraries CommonFunctions alcotest fmt xapi-test-utils gen_go_helper)
+  (deps
+    (source_tree test_data)
+    (source_tree templates)
+  )
+)

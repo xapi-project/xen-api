@@ -133,8 +133,14 @@ let prototyped_of_message = function
       Some "22.27.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
+  | "VM", "get_secureboot_readiness" ->
+      Some "24.15.0-next"
+  | "VM", "set_uefi_mode" ->
+      Some "24.15.0-next"
   | "VM", "restart_device_models" ->
       Some "23.30.0"
+  | "pool", "get_guest_secureboot_readiness" ->
+      Some "24.15.0-next"
   | "pool", "set_ext_auth_max_threads" ->
       Some "23.27.0"
   | "pool", "set_local_auth_max_threads" ->

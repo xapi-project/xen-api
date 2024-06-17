@@ -1133,6 +1133,26 @@ let set_ext_auth_max_threads =
     ~params:[(Ref _pool, "self", "The pool"); (Int, "value", "The new maximum")]
     ~allowed_roles:_R_POOL_OP ()
 
+let pool_guest_secureboot_readiness =
+  Enum
+    ( "pool_guest_secureboot_readiness"
+    , [
+        ("ready", "Pool is ready for SecureBoot, all auth files are present")
+      ; ( "ready_no_dbx"
+        , "Pool is ready for SecureBoot, but there is no dbx auth file"
+        )
+      ; ( "not_ready"
+        , "Pool is not ready for SecureBoot, mandatory auth files are missing"
+        )
+      ]
+    )
+
+let get_guest_secureboot_readiness =
+  call ~flags:[`Session] ~name:"get_guest_secureboot_readiness" ~lifecycle:[]
+    ~params:[(Ref _pool, "self", "The pool")]
+    ~result:(pool_guest_secureboot_readiness, "The readiness of the pool")
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1222,6 +1242,7 @@ let t =
       ; set_update_sync_enabled
       ; set_local_auth_max_threads
       ; set_ext_auth_max_threads
+      ; get_guest_secureboot_readiness
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]

@@ -1822,7 +1822,7 @@ let rec atomics_of_operation = function
 let with_tracing ~name ~task f =
   let open Tracing in
   let parent = Xenops_task.tracing task in
-  let tracer = get_tracer ~name in
+  let tracer = Tracer.get_tracer ~name in
   match Tracer.start ~tracer ~name ~parent () with
   | Ok span -> (
       Xenops_task.set_tracing task span ;
@@ -4021,30 +4021,33 @@ module Observer = struct
     debug "Observer.create : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
       (fun () ->
-        Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
+        Tracing.TracerProvider.create ~uuid ~name_label ~attributes ~endpoints
+          ~enabled
       )
       ()
 
   let destroy _ dbg uuid =
     debug "Observer.destroy : dbg=%s" dbg ;
-    Debug.with_thread_associated dbg (fun () -> Tracing.destroy ~uuid) ()
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.TracerProvider.destroy ~uuid)
+      ()
 
   let set_enabled _ dbg uuid enabled =
     debug "Observer.set_enabled : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~enabled ())
+      (fun () -> Tracing.TracerProvider.set ~uuid ~enabled ())
       ()
 
   let set_attributes _ dbg uuid attributes =
     debug "Observer.set_attributes : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~attributes ())
+      (fun () -> Tracing.TracerProvider.set ~uuid ~attributes ())
       ()
 
   let set_endpoints _ dbg uuid endpoints =
     debug "Observer.set_endpoint : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~endpoints ())
+      (fun () -> Tracing.TracerProvider.set ~uuid ~endpoints ())
       ()
 
   let init _ dbg =

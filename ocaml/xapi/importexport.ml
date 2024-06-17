@@ -501,12 +501,13 @@ module Devicetype = struct
 end
 
 let return_302_redirect (req : Http.Request.t) s address =
-  let address = Http.Url.maybe_wrap_IPv6_literal address in
   let url =
-    Printf.sprintf "https://%s%s?%s" address req.Http.Request.uri
-      (String.concat "&"
-         (List.map (fun (a, b) -> a ^ "=" ^ b) req.Http.Request.query)
-      )
+    Uri.(
+      make ~scheme:"https" ~host:address ~path:req.Http.Request.uri
+        ~query:(List.map (fun (a, b) -> (a, [b])) req.Http.Request.query)
+        ()
+      |> to_string
+    )
   in
   let headers = Http.http_302_redirect url in
   debug "HTTP 302 redirect to: %s" url ;

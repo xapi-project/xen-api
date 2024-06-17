@@ -1,6 +1,6 @@
 (ocamllex db_filter_lex)
 
-(ocamlyacc db_filter_parse)
+(menhir (modules db_filter_parse))
 
 (library
   (name xapi_schema)

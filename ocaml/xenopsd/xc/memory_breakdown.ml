@@ -47,10 +47,6 @@ let cli_arguments_named =
 
 let cli_arguments_extra x = Printf.fprintf stderr "Ignoring argument: %s" x
 
-(** {2 Helper functions} *)
-
-let flip f x y = f y x
-
 (** Merges two sorted lists into a single sorted list that contains the union of
     all elements found in both lists. *)
 let merge xs ys =

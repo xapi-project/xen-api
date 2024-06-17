@@ -146,6 +146,7 @@ val complete_tracing : ?error:exn * string -> t -> unit
 
 val tracing_of : t -> Tracing.Span.t option
 
-val with_tracing : t -> string -> (t -> 'a) -> 'a
+val with_tracing :
+  ?originator:string -> __context:t -> string -> (t -> 'a) -> 'a
 
 val set_client_span : t -> Tracing.Span.t option

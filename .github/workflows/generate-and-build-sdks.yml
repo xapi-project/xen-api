@@ -24,6 +24,9 @@ jobs:
         shell: bash
         run: opam exec -- make sdk
 
+      - name: Run CI for SDKs
+        uses: ./.github/workflows/sdk-ci
+
       - name: Store C SDK source
         uses: actions/upload-artifact@v4
         with:

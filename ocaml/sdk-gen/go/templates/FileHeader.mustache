@@ -1,0 +1,12 @@
+{{{licence}}}
+package xenapi
+{{#modules}}
+{{#import}}
+
+import (
+{{#items}}
+	{{#sname}}{{.}} {{/sname}}"{{name}}"
+{{/items}}
+)
+{{/import}}
+{{/modules}}
