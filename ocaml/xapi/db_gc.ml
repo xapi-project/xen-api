@@ -30,7 +30,7 @@ let use_host_heartbeat_for_liveness = ref true
 
 let use_host_heartbeat_for_liveness_m = Mutex.create ()
 
-let host_heartbeat_table : (API.ref_host, float) Hashtbl.t = Hashtbl.create 16
+let host_heartbeat_table : (API.ref_host, Mtime.t) Hashtbl.t = Hashtbl.create 16
 
 let host_skew_table : (API.ref_host, float) Hashtbl.t = Hashtbl.create 16
 
@@ -77,46 +77,23 @@ let detect_clock_skew ~__context host skew =
 (* Master compares the database with the in-memory host heartbeat table and sets the live flag accordingly.
    Called with the use_host_heartbeat_for_liveness_m and use_host_heartbeat_for_liveness is true (ie non-HA mode) *)
 let check_host_liveness ~__context =
-  (* Check for rolling upgrade mode - if so, use host metrics for liveness else use hashtbl *)
-  let rum =
-    try Helpers.rolling_upgrade_in_progress ~__context with _ -> false
-  in
   (* CA-16351: when performing the initial GC pass on first boot there won't be a localhost *)
   let localhost = try Helpers.get_localhost ~__context with _ -> Ref.null in
-  (* Look for "true->false" transition on Host_metrics.live *)
+  let n = int_of_float !Xapi_globs.host_assumed_dead_interval in
+  let assumed = Mtime.Span.(n * s) in
   let check_host host =
     if host <> localhost then
       try
         let hmetric = Db.Host.get_metrics ~__context ~self:host in
         let live = Db.Host_metrics.get_live ~__context ~self:hmetric in
-        (* See if the host is using the new HB mechanism, if so we'll use that *)
-        let new_heartbeat_time =
-          try
-            with_lock host_table_m (fun () ->
-                Hashtbl.find host_heartbeat_table host
-            )
-          with _ -> 0.0
-          (* never *)
+        let last_seen =
+          with_lock host_table_m (fun () ->
+              Hashtbl.find_opt host_heartbeat_table host
+              |> Option.value ~default:Mtime.min_stamp
+          )
         in
-        let old_heartbeat_time =
-          if
-            rum
-            && Xapi_version.platform_version ()
-               <> Helpers.version_string_of ~__context (Helpers.LocalObject host)
-          then (
-            debug
-              "Host %s considering using metrics last update time as heartbeat"
-              (Ref.string_of host) ;
-            Date.to_float
-              (Db.Host_metrics.get_last_updated ~__context ~self:hmetric)
-          ) else
-            0.0
-        in
-        (* Use whichever value is the most recent to determine host liveness *)
-        let host_time = max old_heartbeat_time new_heartbeat_time in
-        let now = Unix.gettimeofday () in
-        (* we can now compare 'host_time' with 'now' *)
-        if now -. host_time < !Xapi_globs.host_assumed_dead_interval then
+        let elapsed = Mtime.span (Mtime_clock.now ()) last_seen in
+        if Mtime.Span.compare elapsed assumed < 0 then
           (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
              	     avoid toggling the host back to live if it has been marked as shutting_down. *)
           with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
@@ -133,9 +110,10 @@ let check_host_liveness ~__context =
           )
         else if live then (
           debug
-            "Assuming host is offline since the heartbeat/metrics haven't been \
+            "Assuming host %s is offline since the heartbeat hasn't been \
              updated for %.2f seconds; setting live to false"
-            (now -. host_time) ;
+            (Ref.string_of host)
+            (Scheduler.span_to_s elapsed) ;
           Db.Host_metrics.set_live ~__context ~self:hmetric ~value:false ;
           Xapi_host_helpers.update_allowed_operations ~__context ~self:host
         ) ;
@@ -255,9 +233,9 @@ let tickle_heartbeat ~__context host stuff =
         let reason = Xapi_hooks.reason__clean_shutdown in
         if use_host_heartbeat_for_liveness then
           Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason
-      ) else
+      ) else (
+        Hashtbl.replace host_heartbeat_table host (Mtime_clock.now ()) ;
         let now = Unix.gettimeofday () in
-        Hashtbl.replace host_heartbeat_table host now ;
         (* compute the clock skew for later analysis *)
         if List.mem_assoc _time stuff then
           try
@@ -265,6 +243,7 @@ let tickle_heartbeat ~__context host stuff =
             let skew = abs_float (now -. slave) in
             Hashtbl.replace host_skew_table host skew
           with _ -> ()
+      )
   ) ;
   []
 
