@@ -3,6 +3,7 @@
 # Example script which shows how to use the XenAPI to find a particular Host's management interface
 # and send it a wake-on-LAN packet.
 
+import sys
 import syslog
 import time
 
@@ -26,8 +27,8 @@ def waitForXapi(session, host):
         metrics = session.xenapi.host.get_metrics(host)
         try:
             finished = session.xenapi.host_metrics.get_live(metrics)
-        except:
-            pass
+        except Exception as e:
+            print(type(e).__name__, "occurred:", e, file=sys.stderr)
     return str(finished)
 
 
