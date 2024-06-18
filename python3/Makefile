@@ -20,3 +20,5 @@ install:
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
+	install -d -m  755  $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
