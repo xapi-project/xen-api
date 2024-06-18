@@ -99,7 +99,12 @@ type t =
       represents the write to the field with name [fldname] of a row in table [tblname] with key [objref], overwriting its value with [newval]. *)
 
 val apply :
-     (Generation.t -> Unix.file_descr -> int -> float -> unit)
+     (   Generation.t
+      -> Unix.file_descr
+      -> int
+      -> Xapi_stdext_unix.Unixext.Timer.t
+      -> unit
+     )
   -> (Generation.t -> t -> unit)
   -> [< `RO | `RW] redo_log
   -> unit

@@ -34,71 +34,7 @@ module Int64Map = Map.Make (struct
   let compare = compare
 end)
 
-module Delay = struct
-  (* Concrete type is the ends of a pipe *)
-  type t = {
-      (* A pipe is used to wake up a thread blocked in wait: *)
-      mutable pipe_out: Unix.file_descr option
-    ; mutable pipe_in: Unix.file_descr option
-    ; (* Indicates that a signal arrived before a wait: *)
-      mutable signalled: bool
-    ; m: Mutex.t
-  }
-
-  let make () =
-    {pipe_out= None; pipe_in= None; signalled= false; m= Mutex.create ()}
-
-  exception Pre_signalled
-
-  let wait (x : t) (seconds : float) =
-    let to_close = ref [] in
-    let close' fd =
-      if List.mem fd !to_close then Unix.close fd ;
-      to_close := List.filter (fun x -> fd <> x) !to_close
-    in
-    finally'
-      (fun () ->
-        try
-          let pipe_out =
-            Mutex.execute x.m (fun () ->
-                if x.signalled then (
-                  x.signalled <- false ;
-                  raise Pre_signalled
-                ) ;
-                let pipe_out, pipe_in = Unix.pipe () in
-                (* these will be unconditionally closed on exit *)
-                to_close := [pipe_out; pipe_in] ;
-                x.pipe_out <- Some pipe_out ;
-                x.pipe_in <- Some pipe_in ;
-                x.signalled <- false ;
-                pipe_out
-            )
-          in
-          let r, _, _ = Unix.select [pipe_out] [] [] seconds in
-          (* flush the single byte from the pipe *)
-          if r <> [] then ignore (Unix.read pipe_out (Bytes.create 1) 0 1) ;
-          (* return true if we waited the full length of time, false if we were woken *)
-          r = []
-        with Pre_signalled -> false
-      )
-      (fun () ->
-        Mutex.execute x.m (fun () ->
-            x.pipe_out <- None ;
-            x.pipe_in <- None ;
-            List.iter close' !to_close
-        )
-      )
-
-  let signal (x : t) =
-    Mutex.execute x.m (fun () ->
-        match x.pipe_in with
-        | Some fd ->
-            ignore (Unix.write fd (Bytes.of_string "X") 0 1)
-        | None ->
-            x.signalled <- true
-        (* If the wait hasn't happened yet then store up the signal *)
-    )
-end
+module Delay = Xapi_stdext_threads.Threadext.Delay
 
 type item = {id: int; name: string; fn: unit -> unit}
 

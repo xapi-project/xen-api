@@ -3,6 +3,10 @@
   (public_name xapi-stdext-unix)
   (libraries
     fd-send-recv
+    fmt
+    mtime
+    mtime.clock
+    mtime.clock.os
     polly
     unix
     xapi-backtrace

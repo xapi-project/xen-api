@@ -37,7 +37,13 @@ let timed_wait_callback ~msg ?(time_min = 0.) ?(eps = 0.1) ?(time_max = 60.) f =
         ()
       in
       f callback ;
-      let ready = Thread.wait_timed_read rd time_max in
+      let polly = Polly.create () in
+      let finally () = Polly.close polly in
+      Fun.protect ~finally @@ fun () ->
+      let ready =
+        Polly.wait polly 1 (time_max *. 1000. |> int_of_float) (fun _ _ _ -> ())
+        > 0
+      in
       match (ready, !after) with
       | true, None ->
           Alcotest.fail "pipe ready to read, but after is not set"

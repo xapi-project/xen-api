@@ -951,7 +951,11 @@ let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
 
-type xapi_globs_spec_ty = Float of float ref | Int of int ref
+type xapi_globs_spec_ty =
+  | Float of float ref
+  | Int of int ref
+  | Timeout of Xapi_stdext_unix.Unixext.Timeout.t ref
+  | Span of Mtime.Span.t ref
 
 let extauth_ad_backend = ref "winbind"
 
@@ -1031,6 +1035,8 @@ let observer_experimental_components =
 
 let disable_webserver = ref false
 
+let test_open = ref 0
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1080,17 +1086,19 @@ let xapi_globs_spec =
     , Float Db_globs.permanent_master_failure_retry_interval
     )
   ; ( "redo_log_max_block_time_empty"
-    , Float Db_globs.redo_log_max_block_time_empty
+    , Timeout Db_globs.redo_log_max_block_time_empty
     )
-  ; ("redo_log_max_block_time_read", Float Db_globs.redo_log_max_block_time_read)
+  ; ( "redo_log_max_block_time_read"
+    , Timeout Db_globs.redo_log_max_block_time_read
+    )
   ; ( "redo_log_max_block_time_writedelta"
-    , Float Db_globs.redo_log_max_block_time_writedelta
+    , Timeout Db_globs.redo_log_max_block_time_writedelta
     )
   ; ( "redo_log_max_block_time_writedb"
-    , Float Db_globs.redo_log_max_block_time_writedb
+    , Timeout Db_globs.redo_log_max_block_time_writedb
     )
-  ; ("redo_log_max_startup_time", Float Db_globs.redo_log_max_startup_time)
-  ; ("redo_log_connect_delay", Float Db_globs.redo_log_connect_delay)
+  ; ("redo_log_max_startup_time", Timeout Db_globs.redo_log_max_startup_time)
+  ; ("redo_log_connect_delay", Span Db_globs.redo_log_connect_delay)
   ; ("default-vbd3-polling-duration", Int default_vbd3_polling_duration)
   ; ( "default-vbd3-polling-idle-threshold"
     , Int default_vbd3_polling_idle_threshold
@@ -1114,19 +1122,38 @@ let xapi_globs_spec =
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
+  ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ]
+
+let timeout ref str = ref := Xapi_stdext_unix.Unixext.Timeout.of_string str
+
+let span ref str =
+  ref := (Xapi_stdext_unix.Unixext.Timeout.(of_string str) :> Mtime.Span.t)
 
 let options_of_xapi_globs_spec =
   List.map
     (fun (name, ty) ->
       ( name
-      , (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x)
+      , ( match ty with
+        | Float x ->
+            Arg.Set_float x
+        | Int x ->
+            Arg.Set_int x
+        | Timeout x ->
+            Arg.String (timeout x)
+        | Span x ->
+            Arg.String (span x)
+        )
       , (fun () ->
           match ty with
           | Float x ->
               string_of_float !x
           | Int x ->
               string_of_int !x
+          | Timeout x ->
+              Xapi_stdext_unix.Unixext.Timeout.to_string !x
+          | Span x ->
+              Xapi_stdext_unix.Unixext.Timeout.(!x |> of_span |> to_string)
         )
       , Printf.sprintf "Set the value of '%s'" name
       )

@@ -24,7 +24,7 @@ type t = {
   ; kind: Unix.file_kind
 }
 
-val timeouts : float QCheck2.Gen.t
+val timeouts : Mtime.Span.t QCheck2.Gen.t
 (** [timeouts] is a generator for small timeouts *)
 
 val make :

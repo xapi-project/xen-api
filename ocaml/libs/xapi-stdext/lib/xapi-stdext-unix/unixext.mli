@@ -146,15 +146,54 @@ val try_read_string : ?limit:int -> Unix.file_descr -> string
 
 exception Timeout
 
-val time_limited_write : Unix.file_descr -> int -> bytes -> float -> unit
+module Timeout : sig
+  type t = private Mtime.Span.t
+
+  val of_string : string -> t
+  (** [of_string str] parses [str] as a floating point number in seconds.  *)
+
+  val of_span : Mtime.Span.t -> t
+  (** [of_span span] converts [span] to a timeout.
+    This is a no-op, but ensures we don't accidentally use a time difference computed elsewhere as a timeout.
+   *)
+
+  val to_string : t -> string
+  (** [to_string t] converts the timeout [t] to a floating pointer number in seconds.
+    [t |> to_string |> of_string] will be equal to [t], but we are not the other way around:
+    [str |> of_string |> to_string] may not result in the exact same representation as the original one.
+   *)
+
+  val pp : t Fmt.t
+end
+
+module Timer : sig
+  val delay : Mtime.Span.t -> unit
+  (** [delay dt] delays the execution of the current thread for [dt]. *)
+
+  type t
+
+  type remaining = Spare of Mtime.Span.t | Excess of Mtime.Span.t
+
+  val start : timeout:Timeout.t -> t
+  (** [start ~timeout] *)
+
+  val remaining : ?attempt_delay:Mtime.Span.t -> t -> remaining
+  (** [remaining ?attempt_delay deadline] calculates the time remaining until the given [deadline].
+    If [attempt_delay] is specified, then it is added to the elapsed time (i.e. subtracted from remaining time).
+   *)
+
+  val pp : Format.formatter -> t -> unit
+  (** [pp formatter t] pretty prints [t] on [formatter]. *)
+end
+
+val time_limited_write : Unix.file_descr -> int -> bytes -> Timer.t -> unit
 
 val time_limited_write_substring :
-  Unix.file_descr -> int -> string -> float -> unit
+  Unix.file_descr -> int -> string -> Timer.t -> unit
 
-val time_limited_read : Unix.file_descr -> int -> float -> string
+val time_limited_read : Unix.file_descr -> int -> Timer.t -> string
 
-val time_limited_single_read :
-  Unix.file_descr -> int -> max_wait:float -> string
+val time_limited_single_read : Unix.file_descr -> int -> Timer.t -> string
 
 val read_data_in_string_chunks :
      (string -> int -> unit)
