@@ -118,6 +118,7 @@ let vm_operation_table =
   ; (`changing_NVRAM, "changing_NVRAM")
   ; (`start, "start")
   ; (`start_on, "start_on")
+  ; (`shutdown, "shutdown")
   ; (`suspend, "suspend")
   ; (`unpause, "unpause")
   ; (`update_allowed_operations, "update_allowed_operations")
