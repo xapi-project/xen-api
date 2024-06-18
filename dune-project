@@ -181,7 +181,6 @@
    mtime
    ppx_deriving_rpc
    rpclib
-   systemd
    (ezxenstore (= :version))
    (uuid (= :version))
    xapi-backtrace

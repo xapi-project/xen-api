@@ -1133,7 +1133,12 @@ let _ =
     try Watcher.create_watcher_thread ()
     with _ -> error "xenstore-watching thread has failed"
   in
-  ignore (Daemon.notify Daemon.State.Ready) ;
+  let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
+  if Daemon.systemd_booted () then
+    if Daemon.systemd_notify Daemon.State.Ready then
+      ()
+    else
+      warn "Sending systemd notification failed at %s" __LOC__ ;
   debug "Creating monitoring loop thread .." ;
   let () =
     try Debug.with_thread_associated "main" monitor_write_loop writers
