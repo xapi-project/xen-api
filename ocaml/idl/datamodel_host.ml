@@ -1375,7 +1375,7 @@ let set_power_on_mode =
         (Ref _host, "self", "The host")
       ; ( String
         , "power_on_mode"
-        , "power-on-mode can be empty, wake-on-lan, DRAC or other"
+        , "power-on-mode can be empty, wake-on-lan, IPMI or other"
         )
       ; (Map (String, String), "power_on_config", "Power on config")
       ]
