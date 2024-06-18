@@ -57,7 +57,6 @@ let rbac_assert_permission_fn = ref None
 (* required to break dep-cycle with rbac.ml *)
 
 let are_auth_user_ids_of_sessions_equal ~__context s1 s2 =
-  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let s1_auth_user_sid =
     Db_actions.DB_Action.Session.get_auth_user_sid ~__context ~self:s1
   in
