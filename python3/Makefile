@@ -22,3 +22,5 @@ install:
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
 	install -d -m  755  $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
+	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan

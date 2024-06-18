@@ -65,6 +65,10 @@ def get_physical_pif(session, pif_ref):
 
 
 def wake_on_lan(session, host, remote_host_uuid):
+    """
+     Attempt to wake up a machine by sending Wake-On-Lan packets encapsulated within UDP datagrams
+     sent to the broadcast_addr.
+     """
     # Find this Host's management interface:
     this_pif = find_host_mgmt_pif(session, inventory.get_localhost_uuid())
     # Find the name of the bridge to which it is connected:
@@ -79,9 +83,6 @@ def wake_on_lan(session, host, remote_host_uuid):
     remote_pif = get_physical_pif(session, mgmt_pif)
     # Find the MAC address of the management interface:
     mac = session.xenapi.PIF.get_MAC(remote_pif)
-
-    """Attempt to wake up a machine by sending Wake-On-Lan packets encapsulated within UDP datagrams
-    sent to the broadcast_addr."""
     # A Wake-On-LAN packet contains FF:FF:FF:FF:FF:FF followed by 16 repetitions of the target MAC address
     bin_payload = bytes.fromhex("F" * 12 + mac.replace(":", "") * 16)
 
