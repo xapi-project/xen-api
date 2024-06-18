@@ -20,6 +20,7 @@ After=stunnel@xapi.service
 Conflicts=shutdown.target
 
 [Service]
+LimitNOFILE=4096
 User=root
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.1"
 Environment="MALLOC_CONF=narenas:1,tcache:true,lg_dirty_mult:22"

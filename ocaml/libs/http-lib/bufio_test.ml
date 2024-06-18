@@ -1,7 +1,7 @@
 open QCheck2
 open Xapi_fd_test
 
-let print_timeout = string_of_float
+let print_timeout = Fmt.to_to_string Mtime.Span.pp
 
 let expect_string ~expected ~actual =
   if not (String.equal expected actual) then
@@ -20,8 +20,8 @@ let test_buf_io =
   let timeouts = Generate.timeouts in
   let gen = Gen.tup2 Generate.t timeouts
   and print = Print.tup2 Generate.print print_timeout in
-  Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
-  let timeout_span = Mtime.Span.of_float_ns (timeout *. 1e9) |> Option.get in
+  Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout_span) ->
+  let timeout = 1e-9 *. Mtime.Span.to_float_ns timeout_span in
   (* Format.eprintf "Testing %s@." (print (behaviour, timeout)); *)
   if behaviour.kind <> Unix.S_SOCK then
     QCheck2.assume_fail () ;

@@ -44,7 +44,7 @@ module Input_json_object = Generic.MakeStateless (struct
         let json =
           Jsonrpc_client.timeout_read
             (Unix.descr_of_in_channel fin)
-            5_000_000_000L
+            (Mtime.Span.(5 * s) |> Xapi_stdext_unix.Unixext.Timeout.of_span)
         in
         let rpc = Jsonrpc.of_string ~strict:false json in
         Ok rpc

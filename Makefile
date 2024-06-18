@@ -62,6 +62,7 @@ TEST_TIMEOUT=600
 TEST_TIMEOUT2=1200
 test:
 	ulimit -S -t $(TEST_TIMEOUT); \
+	 ulimit -n 2048; \
 	 (sleep $(TEST_TIMEOUT) && ps -ewwlyF --forest)& \
 	 PSTREE_SLEEP_PID=$$!; \
 	 trap "kill $${PSTREE_SLEEP_PID}" INT TERM EXIT; \

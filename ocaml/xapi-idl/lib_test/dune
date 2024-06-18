@@ -28,6 +28,7 @@
    alcotest
    cohttp_posix
    fmt
+   polly
    result
    rpclib.core
    rpclib.json

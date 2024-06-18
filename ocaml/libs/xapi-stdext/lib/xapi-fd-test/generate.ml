@@ -56,7 +56,7 @@ let total_delays = Gen.oneofa [|0.001; 0.01; 0.1; 0.4|]
 let span_of_s s = s *. 1e9 |> Mtime.Span.of_float_ns |> Option.get
 
 (* keep these short *)
-let timeouts = Gen.oneofa [|0.0; 0.001; 0.1; 0.3|]
+let timeouts = Gen.oneofa Mtime.Span.[|zero; 1 * ms; 100 * ms; 300 * ms|]
 
 let delay_of_size total_delay size =
   let open Gen in

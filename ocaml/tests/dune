@@ -144,3 +144,41 @@
 )
 
 (env (_ (env-vars (XAPI_TEST 1))))
+
+; disassemble, but without sources
+; (source lookup doesn't work for all dependencies, and is very slow on a large binary)
+; To make debugging easier the disassembly is saved to a file instead of piping
+(rule
+  (deps ../xapi/xapi_main.exe)
+  (target xapi.disasm)
+  (package xapi)
+  (action
+    (with-stdout-to %{target}
+      (run objdump %{deps} --show-all-symbols --wide -d --no-show-raw-insn)
+    )
+  )
+)
+
+(rule
+  (deps ../xenopsd/xc/xenops_xc_main.exe)
+  (target xenops_xc_main.disasm)
+  (package xapi-xenopsd-xc)
+  (action
+    (with-stdout-to %{target}
+      (run objdump %{deps} --show-all-symbols --wide -d --no-show-raw-insn)
+    )
+  )
+)
+
+(rule
+  (alias runtest)
+  (package xapi)
+  (deps (:script ./unix_select.gawk) (:disasm xapi.disasm))
+  (action (run gawk -f ./%{script} %{disasm}))
+)
+(rule
+  (alias runtest)
+  (package xapi-xenopsd-xc)
+  (deps (:script ./unix_select.gawk) (:disasm xenops_xc_main.disasm))
+  (action (run gawk -f ./%{script} %{disasm}))
+)

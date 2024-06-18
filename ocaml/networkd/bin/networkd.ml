@@ -122,10 +122,15 @@ let options =
   ; ( "json-rpc-read-timeout"
     , Arg.Int
         (fun x ->
-          Jsonrpc_client.json_rpc_read_timeout := Int64.(mul 1000000L (of_int x))
+          Jsonrpc_client.json_rpc_read_timeout :=
+            Mtime.Span.(x * ms) |> Xapi_stdext_unix.Unixext.Timeout.of_span
         )
     , (fun () ->
-        Int64.(to_string (div !Jsonrpc_client.json_rpc_read_timeout 1000000L))
+        Mtime.Span.to_float_ns
+          (!Jsonrpc_client.json_rpc_read_timeout :> Mtime.Span.t)
+        *. 1e-6
+        |> int_of_float
+        |> string_of_int
       )
     , "JSON RPC response read timeout value in ms"
     )
@@ -133,10 +138,14 @@ let options =
     , Arg.Int
         (fun x ->
           Jsonrpc_client.json_rpc_write_timeout :=
-            Int64.(mul 1000000L (of_int x))
+            Mtime.Span.(x * ms) |> Xapi_stdext_unix.Unixext.Timeout.of_span
         )
     , (fun () ->
-        Int64.(to_string (div !Jsonrpc_client.json_rpc_write_timeout 1000000L))
+        Mtime.Span.to_float_ns
+          (!Jsonrpc_client.json_rpc_read_timeout :> Mtime.Span.t)
+        *. 1e-6
+        |> int_of_float
+        |> string_of_int
       )
     , "JSON RPC write timeout value in ms"
     )

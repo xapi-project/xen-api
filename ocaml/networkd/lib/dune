@@ -3,7 +3,7 @@
  (libraries
   astring
   forkexec
-  mtime
+  (re_export mtime)
   mtime.clock.os
   re
   re.perl
@@ -17,7 +17,7 @@
   xapi-stdext-pervasives
   xapi-stdext-std
   xapi-stdext-threads
-  xapi-stdext-unix
+  (re_export xapi-stdext-unix)
   xapi-inventory
   xapi-idl.network
   xapi-log
