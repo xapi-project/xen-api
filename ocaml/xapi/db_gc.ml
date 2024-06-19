@@ -30,7 +30,8 @@ let use_host_heartbeat_for_liveness = ref true
 
 let use_host_heartbeat_for_liveness_m = Mutex.create ()
 
-let host_heartbeat_table : (API.ref_host, Mtime.t) Hashtbl.t = Hashtbl.create 16
+let host_heartbeat_table : (API.ref_host, Mtime_clock.counter) Hashtbl.t =
+  Hashtbl.create 16
 
 let host_skew_table : (API.ref_host, float) Hashtbl.t = Hashtbl.create 16
 
@@ -88,11 +89,14 @@ let check_host_liveness ~__context =
         let live = Db.Host_metrics.get_live ~__context ~self:hmetric in
         let last_seen =
           with_lock host_table_m (fun () ->
-              Hashtbl.find_opt host_heartbeat_table host
-              |> Option.value ~default:Mtime.min_stamp
+              match Hashtbl.find_opt host_heartbeat_table host with
+              | Some x ->
+                  x
+              | None ->
+                  Mtime_clock.counter ()
           )
         in
-        let elapsed = Mtime.span (Mtime_clock.now ()) last_seen in
+        let elapsed = Mtime_clock.count last_seen in
         if Mtime.Span.compare elapsed assumed < 0 then
           (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
              	     avoid toggling the host back to live if it has been marked as shutting_down. *)
@@ -234,7 +238,7 @@ let tickle_heartbeat ~__context host stuff =
         if use_host_heartbeat_for_liveness then
           Xapi_host_helpers.mark_host_as_dead ~__context ~host ~reason
       ) else (
-        Hashtbl.replace host_heartbeat_table host (Mtime_clock.now ()) ;
+        Hashtbl.replace host_heartbeat_table host (Mtime_clock.counter ()) ;
         let now = Unix.gettimeofday () in
         (* compute the clock skew for later analysis *)
         if List.mem_assoc _time stuff then
