@@ -364,7 +364,9 @@ let canonicalise x =
   if not (Filename.is_relative x) then
     x
   else (* Search the PATH and XCP_PATH for the executable *)
-    let paths = split_c ':' (Sys.getenv "PATH") in
+    let paths =
+      split_c ':' (Option.value (Sys.getenv_opt "PATH") ~default:"")
+    in
     let first_hit =
       List.fold_left
         (fun found path ->
@@ -381,7 +383,8 @@ let canonicalise x =
     match first_hit with
     | None ->
         warn "Failed to find %s on $PATH ( = %s) or search_path option ( = %s)"
-          x (Sys.getenv "PATH")
+          x
+          (Option.value (Sys.getenv_opt "PATH") ~default:"unset")
           (String.concat ":" !extra_search_path) ;
         x
     | Some hit ->

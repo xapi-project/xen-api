@@ -85,7 +85,11 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
     let env =
-      match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
+      match env with
+      | None ->
+          [|"PATH=" ^ Option.value (Sys.getenv_opt "PATH") ~default:""|]
+      | Some env ->
+          env
     in
     let output, _ =
       match stdin with

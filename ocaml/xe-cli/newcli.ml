@@ -280,7 +280,9 @@ let parse_args =
         (List.filter (fun (k, v) -> not (set_keyword (k, v))) rcs)
     in
     let extras =
-      let extra_args = try Sys.getenv "XE_EXTRA_ARGS" with Not_found -> "" in
+      let extra_args =
+        Option.value (Sys.getenv_opt "XE_EXTRA_ARGS") ~default:""
+      in
       let l = ref [] and pos = ref 0 and i = ref 0 in
       while !pos < String.length extra_args do
         if extra_args.[!pos] = ',' then (
