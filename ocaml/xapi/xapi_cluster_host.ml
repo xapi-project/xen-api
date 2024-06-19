@@ -13,7 +13,6 @@
  *)
 
 open Xapi_clustering
-open Xapi_cluster_helpers
 open Ipaddr_rpc_type
 
 module D = Debug.Make (struct let name = "xapi_cluster_host" end)
@@ -55,20 +54,6 @@ let call_api_function_with_alert ~__context ~msg ~cls ~obj_uuid ~body
         raise err
   )
 
-let alert_for_cluster_host ~__context ~cluster_host ~missing_hosts ~new_hosts =
-  let num_hosts = Db.Cluster_host.get_all ~__context |> List.length in
-  let cluster = Db.Cluster_host.get_cluster ~__context ~self:cluster_host in
-  let quorum = Db.Cluster.get_quorum ~__context ~self:cluster |> Int64.to_int in
-  maybe_generate_alert ~__context ~missing_hosts ~new_hosts ~num_hosts ~quorum
-
-let alert_for_cluster_host_leave ~__context ~cluster_host =
-  alert_for_cluster_host ~__context ~cluster_host ~missing_hosts:[cluster_host]
-    ~new_hosts:[]
-
-let alert_for_cluster_host_join ~__context ~cluster_host =
-  alert_for_cluster_host ~__context ~cluster_host ~missing_hosts:[]
-    ~new_hosts:[cluster_host]
-
 (* Create xapi db object for cluster_host, resync_host calls clusterd *)
 let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
   with_clustering_lock __LOC__ (fun () ->
@@ -81,7 +66,6 @@ let create_internal ~__context ~cluster ~host ~pIF : API.ref_Cluster_host =
         ~enabled:false ~current_operations:[] ~allowed_operations:[]
         ~other_config:[] ~joined:false ~live:false
         ~last_update_live:API.Date.epoch ;
-      alert_for_cluster_host_join ~__context ~cluster_host:ref ;
       ref
   )
 
@@ -269,16 +253,21 @@ let destroy_op ~__context ~self ~force =
           (Cluster_client.LocalClient.leave, "destroy")
       in
       let result = local_fn (rpc ~__context) dbg in
+      let cluster = Db.Cluster_host.get_cluster ~__context ~self in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
       | Ok () ->
-          alert_for_cluster_host_leave ~__context ~cluster_host:self ;
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              Client.Client.Cluster.cstack_sync ~rpc ~session_id ~self:cluster
+          ) ;
           Db.Cluster_host.destroy ~__context ~self ;
           debug "Cluster_host.%s was successful" fn_str ;
           Xapi_clustering.Daemon.disable ~__context
       | Error error ->
           warn "Error occurred during Cluster_host.%s" fn_str ;
           if force then (
-            alert_for_cluster_host_leave ~__context ~cluster_host:self ;
+            Helpers.call_api_functions ~__context (fun rpc session_id ->
+                Client.Client.Cluster.cstack_sync ~rpc ~session_id ~self:cluster
+            ) ;
             let ref_str = Ref.string_of self in
             Db.Cluster_host.destroy ~__context ~self ;
             debug "Cluster_host %s force destroyed." ref_str
@@ -326,7 +315,9 @@ let forget ~__context ~self =
           Db.Cluster.set_pending_forget ~__context ~self:cluster ~value:[] ;
           (* must not disable the daemon here, because we declared another unreachable node dead,
            * not the current one *)
-          alert_for_cluster_host_leave ~__context ~cluster_host:self ;
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              Client.Client.Cluster.cstack_sync ~rpc ~session_id ~self:cluster
+          ) ;
           Db.Cluster_host.destroy ~__context ~self ;
           debug "Cluster_host.forget was successful"
       | Error error ->

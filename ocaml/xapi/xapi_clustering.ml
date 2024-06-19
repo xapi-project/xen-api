@@ -438,74 +438,87 @@ module Watcher = struct
     in
     match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
     | Ok diag ->
-        Db.Cluster.set_is_quorate ~__context ~self:cluster
-          ~value:diag.is_quorate ;
-        let all_cluster_hosts = Db.Cluster_host.get_all ~__context in
-        let ip_ch =
-          List.map
-            (fun ch ->
-              let pIF = Db.Cluster_host.get_PIF ~__context ~self:ch in
-              let ipstr =
-                ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF)
-                |> ipstr_of_address
-              in
-              (ipstr, ch)
-            )
-            all_cluster_hosts
-        in
-        let current_time = API.Date.now () in
-        ( match diag.quorum_members with
-        | None ->
-            List.iter
-              (fun self ->
-                Db.Cluster_host.set_live ~__context ~self ~value:false ;
-                Db.Cluster_host.set_last_update_live ~__context ~self
-                  ~value:current_time
+        ( Db.Cluster.set_is_quorate ~__context ~self:cluster
+            ~value:diag.is_quorate ;
+          let all_cluster_hosts = Db.Cluster_host.get_all ~__context in
+          let live_hosts =
+            Db.Cluster_host.get_refs_where ~__context
+              ~expr:(Eq (Field "live", Literal "true"))
+          in
+          let dead_hosts =
+            List.filter (fun h -> not (List.mem h live_hosts)) all_cluster_hosts
+          in
+          let ip_ch =
+            List.map
+              (fun ch ->
+                let pIF = Db.Cluster_host.get_PIF ~__context ~self:ch in
+                let ipstr =
+                  ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF)
+                  |> ipstr_of_address
+                in
+                (ipstr, ch)
               )
               all_cluster_hosts
-        | Some nodel ->
-            let quorum_hosts =
-              List.filter_map
-                (fun {addr; _} ->
-                  let ipstr = ipstr_of_address addr in
-                  match List.assoc_opt ipstr ip_ch with
-                  | None ->
-                      error
-                        "%s: cannot find cluster host with network address %s, \
-                         ignoring this host"
-                        __FUNCTION__ ipstr ;
-                      None
-                  | Some ch ->
-                      Some ch
+          in
+          let current_time = API.Date.now () in
+          match diag.quorum_members with
+          | None ->
+              List.iter
+                (fun self ->
+                  Db.Cluster_host.set_live ~__context ~self ~value:false ;
+                  Db.Cluster_host.set_last_update_live ~__context ~self
+                    ~value:current_time
                 )
-                nodel
-            in
-            let missing_hosts =
+                all_cluster_hosts
+          | Some nodel ->
+              (* nodel contains the current members of the cluster, according to corosync *)
+              let quorum_hosts =
+                List.filter_map
+                  (fun {addr; _} ->
+                    let ipstr = ipstr_of_address addr in
+                    match List.assoc_opt ipstr ip_ch with
+                    | None ->
+                        error
+                          "%s: cannot find cluster host with network address \
+                           %s, ignoring this host"
+                          __FUNCTION__ ipstr ;
+                        None
+                    | Some ch ->
+                        Some ch
+                  )
+                  nodel
+              in
+
+              (* hosts_left contains the hosts that were live, but not in the list
+                 of live hosts according to the cluster stack *)
+              let hosts_left =
+                List.filter (fun h -> not (List.mem h quorum_hosts)) live_hosts
+              in
+              (* hosts_joined contains the hosts that were dead but exists in the db,
+                 and is now viewed as a member of the cluster by the cluster stack *)
+              let hosts_joined =
+                List.filter (fun h -> List.mem h quorum_hosts) dead_hosts
+              in
+              debug "%s: there are %d hosts joined and %d hosts left"
+                __FUNCTION__ (List.length hosts_joined) (List.length hosts_left) ;
+
+              List.iter
+                (fun self ->
+                  Db.Cluster_host.set_live ~__context ~self ~value:true ;
+                  Db.Cluster_host.set_last_update_live ~__context ~self
+                    ~value:current_time
+                )
+                quorum_hosts ;
               List.filter
                 (fun h -> not (List.mem h quorum_hosts))
                 all_cluster_hosts
-            in
-            let new_hosts =
-              List.filter
-                (fun h -> not (Db.Cluster_host.get_live ~__context ~self:h))
-                quorum_hosts
-            in
-            List.iter
-              (fun self ->
-                Db.Cluster_host.set_live ~__context ~self ~value:true ;
-                Db.Cluster_host.set_last_update_live ~__context ~self
-                  ~value:current_time
-              )
-              new_hosts ;
-            List.iter
-              (fun self ->
-                Db.Cluster_host.set_live ~__context ~self ~value:false ;
-                Db.Cluster_host.set_last_update_live ~__context ~self
-                  ~value:current_time
-              )
-              missing_hosts ;
-            maybe_generate_alert ~__context ~missing_hosts ~new_hosts
-              ~num_hosts:(List.length quorum_hosts) ~quorum:diag.quorum
+              |> List.iter (fun self ->
+                     Db.Cluster_host.set_live ~__context ~self ~value:false ;
+                     Db.Cluster_host.set_last_update_live ~__context ~self
+                       ~value:current_time
+                 ) ;
+              maybe_generate_alert ~__context ~hosts_left ~hosts_joined
+                ~num_hosts:(List.length quorum_hosts) ~quorum:diag.quorum
         ) ;
         Db.Cluster.set_quorum ~__context ~self:cluster
           ~value:(Int64.of_int diag.quorum) ;
@@ -527,6 +540,10 @@ module Watcher = struct
      is an update *)
   let cluster_change_interval = Mtime.Span.min
 
+  (* we handle unclean hosts join and leave in the watcher, i.e. hosts joining and leaving
+     due to network problems, power cut, etc. Join and leave initiated by the
+     API will be handled in the API call themselves, but they share the same code
+     as the watcher. *)
   let watch_cluster_change ~__context ~host =
     while !Daemon.enabled do
       let m =
