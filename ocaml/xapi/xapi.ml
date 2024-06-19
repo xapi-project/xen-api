@@ -1541,12 +1541,11 @@ let delay_on_eintr f =
       Backtrace.is_important e ; raise e
 
 let watchdog f =
-  if !Xapi_globs.nowatchdog then (
-    try
-      ignore (Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigint]) ;
-      delay_on_eintr f ;
-      exit 127
-    with e ->
-      Debug.log_backtrace e (Backtrace.get e) ;
-      exit 2
-  )
+  let run () =
+    ignore (Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigint]) ;
+    delay_on_eintr f ;
+    exit 127
+  in
+  if !Xapi_globs.nowatchdog then
+    (* backtrace already logged by the Debug module, so ignore the exception here *)
+    try Debug.with_thread_associated __FUNCTION__ run () with _ -> exit 2
