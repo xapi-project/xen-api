@@ -6,9 +6,10 @@ IDATA=install -m 644
 SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
 install:
-	mkdir -p $(DESTDIR)$(OPTDIR)/bin
-	mkdir -p $(DESTDIR)$(SITE3_DIR)
-	mkdir -p $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) -d $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) -d $(DESTDIR)$(SITE3_DIR)
+	$(IPROG) -d $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) -d $(DESTDIR)$(PLUGINDIR)
 
 	
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
@@ -20,7 +21,6 @@ install:
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
-	install -d -m  755  $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
