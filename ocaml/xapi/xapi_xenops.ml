@@ -2118,12 +2118,14 @@ let update_vm ~__context id =
                   (fun (_, state) ->
                     let localhost = Helpers.get_localhost ~__context in
                     let address =
-                      Http.Url.maybe_wrap_IPv6_literal
-                        (Db.Host.get_address ~__context ~self:localhost)
+                      Db.Host.get_address ~__context ~self:localhost
                     in
                     let uri =
-                      Printf.sprintf "https://%s%s" address
-                        Constants.console_uri
+                      Uri.(
+                        make ~scheme:"https" ~host:address
+                          ~path:Constants.console_uri ()
+                        |> to_string
+                      )
                     in
                     let get_uri_from_location loc =
                       try

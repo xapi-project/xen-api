@@ -1,0 +1,34 @@
+<div>
+<strong>Key: </strong>
+<span class="label label-default">Revision</span>
+<span class="label label-danger">Proposed</span>
+<span class="label label-warning">Confirmed</span>
+<span class="label label-success">Released (vA.B)</span>
+<span class="label label-info">Unrecognised status</span>
+</div>
+
+<table class="table table-striped table-condensed">
+<tbody>
+{{ range sort $.Page.Pages "Params.status"}}
+  <tr><td>
+    <a href={{ .RelPermalink }} class="btn btn-link">{{ .Title }}</a>
+    <span class="label label-default">v{{.Params.revision}}</span>
+    {{ with .Params.status | lower }}
+    <span class="label
+      {{ if or (eq . "proposed") (eq . "submitted") }}
+        label-danger
+      {{ else if or (eq . "confirmed") (eq . "accepted") }}
+        label-warning
+      {{ else if (strings.Contains . "released") }}
+        label-success
+      {{ else }}
+        label-info
+      {{ end }}
+      ">
+      {{.}}
+    </span>
+    {{ end }}
+  </td></tr>
+{{ end }}
+</tbody>
+</table>

@@ -106,31 +106,6 @@ let test_marshall_unmarshall rrd () =
   let rrd' = Rrd.from_xml xml in
   assert_rrds_equal rrd rrd'
 
-let test_export rrd () =
-  let check_same_as_rras (updates : Rrd_updates.row array) (rras : Rrd.rra array)
-      =
-    let cf_count = Array.length rras in
-    for i = 0 to cf_count - 1 do
-      (* consolidation functions *)
-      for j = 0 to Array.length rras.(0).Rrd.rra_data - 1 do
-        (* datasources *)
-        for k = 0 to Rrd_fring.length rras.(0).Rrd.rra_data.(0) - 1 do
-          (* time datapoints *)
-          let update_value =
-            updates.(k).Rrd_updates.row_data.(i + (j * cf_count))
-          in
-          let rra_value = Rrd_fring.peek rras.(i).Rrd.rra_data.(j) k in
-          compare_float
-            (Printf.sprintf "CF: %d Datasource: %d datapoint: %d " i j k)
-            update_value rra_value
-        done
-      done
-    done
-  in
-
-  let updates = Rrd_updates.(of_string @@ export [("", rrd)] 0L 5L None) in
-  check_same_as_rras updates.Rrd_updates.data rrd.rrd_rras
-
 let test_length_invariants rrd () =
   let check_length_of_fring dss (frings : Rrd_fring.t array) =
     Alcotest.(check int)
@@ -172,9 +147,9 @@ let of_file filename =
   let input = Xmlm.make_input (`String (0, body)) in
   Rrd.from_xml input
 
-(* Used to generate flip_flop.xml for test_ca_325844,
- * then gets edited manually to set min to 0 *)
-let deserialize_verify_rrd =
+(* Used to generate flip_flop.xml for test_ca_325844, then gets edited manually
+   to set min to 0 *)
+let _deserialize_verify_rrd =
   let init_time = 0. in
 
   let rra1 = rra_create CF_Average 100 1 0.5 in

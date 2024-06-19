@@ -17,8 +17,6 @@ let str = Xml.to_string_fmt xml
 
 let parse () = ignore (Xml.parse_string str)
 
-let to_string () = ignore (Xml.to_string_fmt xml)
-
 let rec repeat f i () =
   if i = 0 then
     ()

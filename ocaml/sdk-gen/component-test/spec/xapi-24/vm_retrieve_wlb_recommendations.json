@@ -1,0 +1,17 @@
+{
+  "xapi-24/vm_retrieve_wlb_recommendations_04": {
+    "method": [
+      "VM.retrieve_wlb_recommendations"
+    ],
+    "params": {
+      "VM.retrieve_wlb_recommendations": ["", "OpaqueRef:5ec2d621-7b62-f571-v38m-754341a973e5"]
+    },
+    "expected_result": {
+      "VM.retrieve_wlb_recommendations": {
+        "result": {
+          "OpaqueRef:4a0fde9c-5709-4f66-9968-64fb6162bd97": ["host0"]
+        }
+      }
+    }
+  }
+}
