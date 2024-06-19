@@ -49,7 +49,7 @@ def DRAC(power_on_ip, user, password):
 
 def main():
     if len(sys.argv) < 3:
-        exit(0)
+        sys.exit(0)
     ip = sys.argv[1]
     user = sys.argv[2]
     password = sys.argv[3]

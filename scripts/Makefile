@@ -169,7 +169,6 @@ endif
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 # poweron
-	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
 # YUM plugins
 	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)
