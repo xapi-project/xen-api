@@ -1,0 +1,7 @@
+(executable
+ (modes exe)
+ (name test_systemd)
+ (libraries xapi-stdext-unix))
+
+(cram
+ (deps test_systemd.exe))
