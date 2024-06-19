@@ -522,11 +522,16 @@ module Watcher = struct
 
   let cluster_change_watcher : bool Atomic.t = Atomic.make false
 
+  (* this is the time it takes for the update request to time out. It is ok to set
+     it to a relatively long value since the call will return immediately if there
+     is an update *)
+  let cluster_change_interval = Mtime.Span.min
+
   let watch_cluster_change ~__context ~host =
     while !Daemon.enabled do
       let m =
         Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
-          "call cluster watcher" 3.
+          "call cluster watcher" (Clock.Timer.span_to_s cluster_change_interval)
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
       | Ok updates -> (
@@ -546,7 +551,7 @@ module Watcher = struct
       | exception exn ->
           warn "%s: Got exception %s while query cluster host updates, retrying"
             __FUNCTION__ (Printexc.to_string exn) ;
-          Thread.delay 3.
+          Thread.delay (Clock.Timer.span_to_s cluster_change_interval)
     done ;
     Atomic.set cluster_change_watcher false
 
