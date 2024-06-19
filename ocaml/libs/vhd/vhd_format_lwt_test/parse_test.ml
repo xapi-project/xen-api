@@ -11,23 +11,15 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open OUnit
 open Vhd_format.Patterns
 module Impl = Vhd_format.F.From_file (Vhd_format_lwt.IO)
 open Impl
 open Vhd_format.F
 open Vhd_format_lwt.IO
-open Patterns_lwt
 
-let cstruct_to_string c = String.escaped (Cstruct.to_string c)
-
-let create () =
+let create _ () =
   let _ = Create_vhd.disk in
-  ()
-
-let diff () =
-  let _ = Diff_vhd.disk in
-  ()
+  Lwt.return ()
 
 let tmp_file_dir = Filename.get_temp_dir_name ()
 
@@ -59,10 +51,9 @@ let check_empty_disk size =
   let filename = make_new_filename () in
   Vhd_IO.create_dynamic ~filename ~size () >>= fun vhd ->
   Vhd_IO.openchain filename false >>= fun vhd' ->
-  assert_equal ~printer:Header.to_string ~cmp:Header.equal vhd.Vhd.header
-    vhd'.Vhd.header ;
-  assert_equal ~printer:Footer.to_string vhd.Vhd.footer vhd'.Vhd.footer ;
-  assert_equal ~printer:BAT.to_string ~cmp:BAT.equal vhd.Vhd.bat vhd'.Vhd.bat ;
+  Alcotest.check Lib.header __LOC__ vhd.Vhd.header vhd'.Vhd.header ;
+  Alcotest.check Lib.footer __LOC__ vhd.Vhd.footer vhd'.Vhd.footer ;
+  Alcotest.check Lib.bat __LOC__ vhd.Vhd.bat vhd'.Vhd.bat ;
   Vhd_IO.close vhd' >>= fun () -> Vhd_IO.close vhd
 
 (* Create a disk, resize it, check headers *)
@@ -73,8 +64,7 @@ let check_resize size =
   let vhd = Vhd.resize vhd newsize in
   Vhd_IO.close vhd >>= fun () ->
   Vhd_IO.openchain filename false >>= fun vhd' ->
-  assert_equal ~printer:Int64.to_string newsize
-    vhd.Vhd.footer.Footer.current_size ;
+  Alcotest.(check int64) __LOC__ newsize vhd.Vhd.footer.Footer.current_size ;
   Vhd_IO.close vhd'
 
 (* Create a snapshot, check headers *)
@@ -84,10 +74,9 @@ let check_empty_snapshot size =
   let filename = make_new_filename () in
   Vhd_IO.create_difference ~filename ~parent:vhd () >>= fun vhd' ->
   Vhd_IO.openchain filename false >>= fun vhd'' ->
-  assert_equal ~printer:Header.to_string ~cmp:Header.equal vhd'.Vhd.header
-    vhd''.Vhd.header ;
-  assert_equal ~printer:Footer.to_string vhd'.Vhd.footer vhd''.Vhd.footer ;
-  assert_equal ~printer:BAT.to_string ~cmp:BAT.equal vhd'.Vhd.bat vhd''.Vhd.bat ;
+  Alcotest.check Lib.header __LOC__ vhd'.Vhd.header vhd''.Vhd.header ;
+  Alcotest.check Lib.footer __LOC__ vhd'.Vhd.footer vhd''.Vhd.footer ;
+  Alcotest.check Lib.bat __LOC__ vhd'.Vhd.bat vhd''.Vhd.bat ;
   Vhd_IO.close vhd'' >>= fun () ->
   Vhd_IO.close vhd' >>= fun () -> Vhd_IO.close vhd
 
@@ -109,10 +98,9 @@ let check_reparent () =
   let l = make_new_filename () in
   Vhd_IO.openchain p1 false >>= fun vhd ->
   Vhd_IO.create_difference ~filename:l ~parent:vhd () >>= fun vhd' ->
-  (* Verify block 0 has '1' *)
   let sector = fill_sector_with "0" in
   Vhd_IO.read_sector vhd' 0L sector >>= fun _ ->
-  assert_equal ~printer:cstruct_to_string ~cmp:cstruct_equal all_ones sector ;
+  Alcotest.check Lib.cstruct "Block 0 has '1'" all_ones sector ;
   Vhd_IO.close vhd' >>= fun () ->
   Vhd_IO.close vhd >>= fun () ->
   (* Flip the parent locator *)
@@ -121,10 +109,9 @@ let check_reparent () =
   let vhd' = {vhd' with Vhd.header} in
   Vhd_IO.close vhd' >>= fun () ->
   Vhd_IO.openchain l false >>= fun vhd ->
-  (* Verify block 0 has '2' *)
   let sector = fill_sector_with "0" in
   Vhd_IO.read_sector vhd 0L sector >>= fun _ ->
-  assert_equal ~printer:cstruct_to_string ~cmp:cstruct_equal all_twos sector ;
+  Alcotest.check Lib.cstruct "Block 0 has '2'" all_twos sector ;
   Vhd_IO.close vhd
 
 (* Check ../ works in parent locator *)
@@ -173,8 +160,6 @@ let absolute_sector_of vhd {block; sector} =
           (mul (of_int block) (of_int sectors_per_block))
           (of_int relative_sector)
       )
-
-let cstruct_to_string c = String.escaped (Cstruct.to_string c)
 
 type state = {
     to_close: fd Vhd.t list
@@ -245,7 +230,11 @@ let execute state = function
     )
 
 let verify state =
-  match state.child with None -> return () | Some t -> verify t state.contents
+  match state.child with
+  | None ->
+      return ()
+  | Some t ->
+      Lib.verify t state.contents
 
 module In = From_input (Input)
 open In
@@ -296,25 +285,28 @@ let run program =
     )
   >>= fun () -> cleanup final_state
 
+let test = Alcotest_lwt.test_case
+
 let all_program_tests =
   List.map
-    (fun p -> string_of_program p >:: fun () -> Lwt_main.run (run p))
+    (fun p -> test (string_of_program p) `Slow (fun _ () -> run p))
     programs
 
-let _ =
+let () =
   let check_empty_disk size =
-    Printf.sprintf "check_empty_disk_%Ld" size >:: fun () ->
-    Lwt_main.run (check_empty_disk size)
+    test (Printf.sprintf "size %Ld" size) `Quick (fun _ () ->
+        check_empty_disk size
+    )
   in
 
   let check_resize size =
-    Printf.sprintf "check_resize_%Ld" size >:: fun () ->
-    Lwt_main.run (check_resize size)
+    test (Printf.sprintf "size %Ld" size) `Quick (fun _ () -> check_resize size)
   in
 
   let check_empty_snapshot size =
-    Printf.sprintf "check_empty_snapshot_%Ld" size >:: fun () ->
-    Lwt_main.run (check_empty_snapshot size)
+    test (Printf.sprintf "size %Ld" size) `Quick (fun _ () ->
+        check_empty_snapshot size
+    )
   in
 
   (* Switch to the 'nobody' user so we can test file permissions *)
@@ -328,18 +320,19 @@ let _ =
         (Printexc.to_string e)
   ) ;
   let suite =
-    "vhd"
-    >::: [
-           "create" >:: create
-         ; ( "check_parent_parent_dir" >:: fun () ->
-             Lwt_main.run (check_parent_parent_dir ())
-           )
-         ; ("check_readonly" >:: fun () -> Lwt_main.run (check_readonly ()))
-         ; ("check_reparent" >:: fun () -> Lwt_main.run (check_reparent ()))
-         ]
-         @ List.map check_empty_disk sizes
-         @ List.map check_resize sizes
-         @ List.map check_empty_snapshot sizes
-         @ all_program_tests
+    [
+      ( "Simple"
+      , [
+          test "create" `Quick create
+        ; test "parent_parent_dir" `Quick (fun _ -> check_parent_parent_dir)
+        ; test "readonly" `Quick (fun _ () -> check_readonly ())
+        ; test "reparent" `Quick (fun _ () -> check_reparent ())
+        ]
+      )
+    ; ("Empty disk", List.map check_empty_disk sizes)
+    ; ("Resize", List.map check_resize sizes)
+    ; ("Empty snapshots", List.map check_empty_snapshot sizes)
+    ; ("All program test", all_program_tests)
+    ]
   in
-  run_test_tt_main suite
+  Lwt_main.run @@ Alcotest_lwt.run "vhd_format_lwt" suite

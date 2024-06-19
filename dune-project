@@ -1,5 +1,6 @@
-(lang dune 2.0)
+(lang dune 3.0)
 (formatting (enabled_for ocaml))
+(using menhir 2.0)
 
 (generate_opam_files true)
 
@@ -23,6 +24,19 @@
 )
 
 (package
+  (name xapi-sdk)
+  (license "BSD-2-Clause")
+  (synopsis "Xen API SDK generation code")
+  (depends
+   (alcotest :with-test)
+   astring
+   mustache
+   (xapi-datamodel (= :version))
+   (xapi-stdext-unix (and (= :version) :with-test))
+  )
+  (allow_empty)
+)
+(package
   (name xen-api-client-lwt)
 )
 
@@ -33,6 +47,23 @@
 
 (package
   (name xen-api-client)
+  (synopsis "Xen-API client library for remotely-controlling a xapi host")
+  (authors "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg")
+  (depends
+   dune-build-info
+   (alcotest :with-test)
+   astring
+   (cohttp (>= "0.22.0"))
+   re
+   rpclib
+   uri
+   (uuid (= :version))
+   (xapi-client (= :version))
+   (xapi-idl (= :version))
+   (xapi-rrd (= :version))
+   (xapi-types (= :version))
+   xmlm
+  )
 )
 
 (package
@@ -68,8 +99,8 @@
    re
    uri
    (uuid :with-test)
-   (xapi-log :version)
-   (xapi-stdext-threads :version)
+   (xapi-log (= :version))
+   (xapi-stdext-threads (= :version))
   )
   (synopsis "Allows to instrument code to generate tracing information")
   (description "This library provides modules to allow gathering runtime traces.")
@@ -83,12 +114,13 @@
    dune
    cohttp
    rpclib
-   (xapi-log :version)
-   (xapi-open-uri :version)
-   (xapi-stdext-threads :version)
-   (xapi-stdext-unix :version)
-   (xapi-tracing :version)
-   (zstd :version)
+   ppx_deriving_rpc
+   (xapi-log (= :version))
+   (xapi-open-uri (= :version))
+   (xapi-stdext-threads (= :version))
+   (xapi-stdext-unix (= :version))
+   (xapi-tracing (= :version))
+   (zstd (= :version))
   )
   (synopsis "Export traces in multiple protocols and formats")
   (description "This library export traces is able to push traces to http endpoints or generate compressed tarballs in the filesystem.")
@@ -122,12 +154,13 @@
    ocaml
    astring
    rpclib
-   (xapi-forkexecd :version)
-   (xapi-stdext-pervasives :version)
-   (xapi-stdext-std :version)
-   (xapi-stdext-threads :version)
-   (xapi-stdext-unix :version)
-   (xapi-idl :version)
+   (rrd-transport (= :version))
+   (xapi-forkexecd (= :version))
+   (xapi-stdext-pervasives (= :version))
+   (xapi-stdext-std (= :version))
+   (xapi-stdext-threads (= :version))
+   (xapi-stdext-unix (= :version))
+   (xapi-idl (= :version))
    xenstore_transport
   )
 )
@@ -139,21 +172,23 @@
   (depends
    (ocaml (>= "4.02.0"))
    dune-build-info
+   (alcotest :with-test)
    astring
-   (gzip :version)
-   (http-lib :version)
+   (gzip (= :version))
+   (http-lib (= :version))
    inotify
    io-page
    mtime
    ppx_deriving_rpc
    rpclib
    systemd
-   (ezxenstore :version)
-   (uuid :version)
-   (xapi-backtrace :version)
-   (xapi-idl :version)
-   (xapi-rrd :version)
-   (xapi-stdext-threads :version)
+   (ezxenstore (= :version))
+   (uuid (= :version))
+   xapi-backtrace
+   (xapi-idl (= :version))
+   (xapi-rrd (= :version))
+   (xapi-stdext-threads (= :version))
+   (xapi-stdext-unix (= :version))
   )
 )
 
@@ -165,6 +200,9 @@
   (depends
    ocaml
    cmdliner
+   (rrd-transport (= :version))
+   (xapi-idl (= :version))
+   (xapi-rrd (= :version))
   )
 )
 
@@ -222,6 +260,19 @@
 
 (package
   (name wsproxy)
+  (synopsis "Websockets proxy for VNC traffic")
+  (authors "Jon Ludlam" "Marcello Seri")
+  (license "LGPL-2.0-only WITH OCaml-LGPL-linking-exception")
+  (depends
+    (alcotest :with-test)
+    (base64 (>= "3.1.0"))
+    fmt
+    logs
+    (lwt (>= "3.0.0"))
+    re
+    uuid
+    (qcheck-core :with-test)
+  )
 )
 
 (package
@@ -234,6 +285,29 @@
 
 (package
   (name vhd-format-lwt)
+  (synopsis "Lwt interface to read/write VHD format data")
+  (description "A pure OCaml library to read and write
+[vhd](http://en.wikipedia.org/wiki/VHD_(file_format)) format data, plus a
+simple command-line tool which allows vhd files to be interrogated,
+manipulated, format-converted and streamed to and from files and remote
+servers.
+
+This package provides an Lwt compatible interface to the library.")
+  (authors "Jon Ludlam" "Dave Scott")
+  (maintainers "Dave Scott <dave@recoil.org>")
+  (tags ("org:mirage" "org:xapi-project"))
+  (homepage "https://github.com/mirage/ocaml-vhd")
+  (source (github mirage/ocaml-vhd))
+  (depends
+    (ocaml (and (>= "4.02.3") (< "5.0.0")))
+    (alcotest :with-test)
+    (alcotest-lwt :with-test)
+    (cstruct (< "6.1.0"))
+    (lwt (>= "3.2.0"))
+    (mirage-block (>= "2.0.1"))
+    (vhd-format (= :version))
+    (io-page (and :with-test (>= "2.4.0")))
+  )
 )
 
 (package
@@ -270,6 +344,19 @@
 
 (package
   (name rrd-transport)
+  (synopsis "Shared-memory protocols for exposing system metrics")
+  (description "VMs running on a Xen host can use this library to expose performance counters which can be sampled by xapi's metric daemon.")
+  (authors "John Else")
+  (depends
+    (alcotest :with-test)
+    astring
+    cstruct
+    crc
+    yojson
+    (xapi-idl (= :version))
+    (xapi-rrd (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package
@@ -286,6 +373,19 @@
 
 (package
   (name message-switch-core)
+  (synopsis "A simple store-and-forward message switch")
+  (description "The switch stores messages in queues with well-known names. Clients use a simple HTTP protocol to enqueue and dequeue messages.")
+  (depends
+    astring
+    (cohttp (>= "0.21.1"))
+    ppx_deriving_rpc
+    ppx_sexp_conv
+    rpclib
+    sexplib
+    (xapi-log (= :version))
+    (xapi-stdext-threads (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package
@@ -302,6 +402,27 @@
 
 (package
   (name http-lib)
+  (synopsis "An HTTP required used by xapi")
+  (description "This library allows xapi to perform varios activities related to the HTTP protocol.")
+  (depends
+    (alcotest :with-test)
+    astring
+    (base64 (>= "3.1.0"))
+    rpclib
+    (safe-resources(= :version))
+    sha
+    (stunnel (= :version))
+    (uuid (= :version))
+    xapi-backtrace
+    (xapi-idl (= :version))
+    (xapi-log (= :version))
+    (xapi-stdext-date (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-tracing (= :version))
+    (xml-light2 (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package

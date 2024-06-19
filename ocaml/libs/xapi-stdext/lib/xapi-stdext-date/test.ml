@@ -2,8 +2,6 @@ open Xapi_stdext_date.Date
 
 let check_float = Alcotest.(check @@ float 1e-2)
 
-let check_float_neq = Alcotest.(check @@ neg @@ float 1e-2)
-
 let check_string = Alcotest.(check string)
 
 let check_true str = Alcotest.(check bool) str true

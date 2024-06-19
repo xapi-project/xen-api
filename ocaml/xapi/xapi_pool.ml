@@ -3703,3 +3703,17 @@ let set_local_auth_max_threads ~__context:_ ~self:_ ~value =
 
 let set_ext_auth_max_threads ~__context:_ ~self:_ ~value =
   Xapi_session.set_ext_auth_max_threads value
+
+let get_guest_secureboot_readiness ~__context ~self:_ =
+  let auth_files = Sys.readdir !Xapi_globs.varstore_dir in
+  let pk_present = Array.mem "PK.auth" auth_files in
+  let kek_present = Array.mem "KEK.auth" auth_files in
+  let db_present = Array.mem "db.auth" auth_files in
+  let dbx_present = Array.mem "dbx.auth" auth_files in
+  match (pk_present, kek_present, db_present, dbx_present) with
+  | true, true, true, true ->
+      `ready
+  | true, true, true, false ->
+      `ready_no_dbx
+  | _, _, _, _ ->
+      `not_ready

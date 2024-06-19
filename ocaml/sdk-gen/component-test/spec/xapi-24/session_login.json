@@ -1,0 +1,44 @@
+{
+    "xapi-24/session_login_01": {
+      "method": [
+        "session.login_with_password",
+        "pool.get_all",
+        "pool.get_record",
+        "host.get_record",
+        "session.logout"
+      ],
+      "params": {
+        "session.login_with_password": ["", "", "1.0", "Go SDK component test"],
+        "pool.get_all":  ["OpaqueRef:12345678-4d8a-e4a9-a241-1ea05c1d6707"],
+        "pool.get_record": ["OpaqueRef:12345678-4d8a-e4a9-a241-1ea05c1d6707", "OpaqueRef:9c81868a-4d8a-e4a9-a241-1ea05c1d6707"],
+        "host.get_record": ["OpaqueRef:12345678-4d8a-e4a9-a241-1ea05c1d6707", "OpaqueRef:4a0fde9c-5709-4f66-9968-64fb6162bd97"],
+        "session.logout": ["OpaqueRef:12345678-4d8a-e4a9-a241-1ea05c1d6707"]
+      },
+      "expected_result": {
+        "session.login_with_password": {
+          "result": "OpaqueRef:12345678-4d8a-e4a9-a241-1ea05c1d6707"
+        },
+        "pool.get_all": {
+          "result": ["OpaqueRef:9c81868a-4d8a-e4a9-a241-1ea05c1d6707"]
+        },
+        "pool.get_record": {
+          "result": {
+            "master" :"OpaqueRef:4a0fde9c-5709-4f66-9968-64fb6162bd97"
+          }
+        },
+        "host.get_record": {
+          "result": {
+            "name_label": "host0",
+            "software_version": {
+              "xapi": "24.11"
+            },
+            "API_version_minor": 21,
+            "API_version_major": 2
+          }
+        },
+        "session.logout": {
+          "result": ""
+        }
+      }
+    }
+}

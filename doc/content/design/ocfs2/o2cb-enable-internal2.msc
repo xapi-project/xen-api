@@ -1,0 +1,16 @@
+Participant Plugin\nMaster
+Xapi\nMaster->Xapi\nSlave: Membership.enable
+Xapi\nMaster->Xapi\nMaster: Membership.enable
+Xapi\nSlave->Plugin\nSlave: Membership.enable
+Xapi\nMaster->Plugin\nMaster: Membership.enable
+Note over Plugin\nSlave: chkconfig o2cb on
+Note over Plugin\nMaster: chkconfig o2cb on
+Xapi\nSlave->Plugin\nSlave: Cluster.query
+Plugin\nSlave->Xapi\nSlave: not enabled yet
+Xapi\nSlave->Plugin\nSlave: Cluster.query
+Plugin\nSlave->Xapi\nSlave: enabled
+Note over Xapi\nSlave: requires_maintenance=false
+Xapi\nMaster->Plugin\nMaster: Cluster.query
+Plugin\nMaster->Xapi\nMaster: enabled
+Note over Xapi\nMaster: requires_maintenance=false
+Note over Xapi\nMaster: enabled=true

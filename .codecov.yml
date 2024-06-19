@@ -197,14 +197,6 @@ coverage:
     project:
 
       #
-      # Python modules and scripts below scripts/ (excluding tests)
-      #
-      scripts:
-        paths: ["scripts/**", "!**/test_*.py"]
-        target: 48%
-        threshold: 2%
-
-      #
       # Python modules and scripts below ocaml/ (excluding tests)
       #
       ocaml:

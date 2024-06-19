@@ -11,18 +11,20 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "ocaml"
   "cohttp-posix"
-  "dune"
+  "dune" {>= "3.0"}
   "cohttp"
   "rpclib"
-  "xapi-log" {version}
-  "xapi-open-uri" {version}
-  "xapi-stdext-threads" {version}
-  "xapi-stdext-unix" {version}
-  "xapi-tracing" {version}
-  "zstd" {version}
+  "ppx_deriving_rpc"
+  "xapi-log" {= version}
+  "xapi-open-uri" {= version}
+  "xapi-stdext-threads" {= version}
+  "xapi-stdext-unix" {= version}
+  "xapi-tracing" {= version}
+  "zstd" {= version}
+  "odoc" {with-doc}
 ]
 build: [
-  ["dune" "subst"] {pinned}
+  ["dune" "subst"] {dev}
   [
     "dune"
     "build"

@@ -2574,24 +2574,23 @@ let migrate_receive ~__context ~host ~network ~options:_ =
      able to do HTTPS migrations yet. *)
   let scheme = "http" in
   let sm_url =
-    Printf.sprintf "%s://%s/services/SM?session_id=%s" scheme
-      (Http.Url.maybe_wrap_IPv6_literal ip)
-      new_session_id
+    Uri.make ~scheme ~host:ip ~path:"services/SM"
+      ~query:[("session_id", [new_session_id])]
+      ()
+    |> Uri.to_string
   in
   let xenops_url =
-    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme
-      (Http.Url.maybe_wrap_IPv6_literal ip)
-      new_session_id
+    Uri.make ~scheme ~host:ip ~path:"services/xenops"
+      ~query:[("session_id", [new_session_id])]
+      ()
+    |> Uri.to_string
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_url =
-    Printf.sprintf "%s://%s/" scheme
-      (Http.Url.maybe_wrap_IPv6_literal master_address)
-  in
+  let master_url = Uri.make ~scheme ~host:master_address () |> Uri.to_string in
   [
     (Xapi_vm_migrate._sm, sm_url)
   ; (Xapi_vm_migrate._host, Ref.string_of host)

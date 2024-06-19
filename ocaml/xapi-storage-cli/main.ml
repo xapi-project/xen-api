@@ -18,8 +18,6 @@ open Storage_client
 
 let dbg = "sm-cli"
 
-let s_of_sr = Storage_interface.Sr.string_of
-
 let s_of_vdi = Storage_interface.Vdi.string_of
 
 let string_of_mirror id {Mirror.source_vdi; dest_vdi; state; failed} =
@@ -56,8 +54,6 @@ module Common = struct
         Xcp_client.use_switch := true
     ) ;
     {verbose; debug; socket}
-
-  let to_string x = Jsonrpc.to_string (rpc_of_t x)
 end
 
 let _common_options = "COMMON OPTIONS"

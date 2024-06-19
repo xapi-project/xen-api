@@ -21,13 +21,6 @@ let ( --- ), ( +++ ), ( <<< ) = (Int.sub, Int.add, Int.shift_left)
 (** Simulates a decoding error. *)
 exception Decode_error
 
-(* === Mock types ===========================================================*)
-
-(** Generates mock character widths, in bytes. *)
-module type WIDTH_GENERATOR = sig
-  val next : unit -> int
-end
-
 (* === Mock UCS validators ================================================= *)
 
 (** A validator that always succeeds. *)
@@ -58,8 +51,6 @@ end
 let assert_true = Alcotest.(check bool) "true" true
 
 let assert_false = Alcotest.(check bool) "false" false
-
-let check_indices = Alcotest.(check (list int)) "indices"
 
 let assert_raises_match exception_match fn =
   try
@@ -428,71 +419,6 @@ module UTF8_codec = struct
           width
       )
       valid_ucs_value_widths
-
-  (** A list of valid header byte decodings, represented by
-      tuples of the form (b, (v, w)), where:
-      b = a valid header byte;
-      v = the (partial) value contained within the byte; and
-      w = the total width of the encoded character, in bytes. *)
-  let valid_header_byte_decodings =
-    [
-      (0b00000000, (0b00000000, 1))
-    ; (0b00000001, (0b00000001, 1))
-    ; (0b01111111, (0b01111111, 1))
-    ; (0b11000000, (0b00000000, 2))
-    ; (0b11000001, (0b00000001, 2))
-    ; (0b11011111, (0b00011111, 2))
-    ; (0b11100000, (0b00000000, 3))
-    ; (0b11100001, (0b00000001, 3))
-    ; (0b11101111, (0b00001111, 3))
-    ; (0b11110000, (0b00000000, 4))
-    ; (0b11110001, (0b00000001, 4))
-    ; (0b11110111, (0b00000111, 4))
-    ]
-
-  (** A list of invalid header bytes that should not be decodable. *)
-  let invalid_header_bytes =
-    [
-      0b10000000
-    ; 0b10111111
-    ; 0b11111000
-    ; 0b11111011
-    ; 0b11111100
-    ; 0b11111101
-    ; 0b11111110
-    ; 0b11111111
-    ]
-
-  (** A list of valid continuation byte decodings, represented
-      by tuples of the form (b, v), where:
-      b = a valid continuation byte; and
-      v = the partial value contained within the byte. *)
-  let valid_continuation_byte_decodings =
-    [
-      (0b10000000, 0b00000000)
-    ; (0b10000001, 0b00000001)
-    ; (0b10111110, 0b00111110)
-    ; (0b10111111, 0b00111111)
-    ]
-
-  (** A list of invalid continuation bytes that should not be decodable. *)
-  let invalid_continuation_bytes =
-    [
-      0b00000000
-    ; 0b01111111
-    ; 0b11000000
-    ; 0b11011111
-    ; 0b11100000
-    ; 0b11101111
-    ; 0b11110000
-    ; 0b11110111
-    ; 0b11111000
-    ; 0b11111011
-    ; 0b11111100
-    ; 0b11111101
-    ; 0b11111111
-    ; 0b11111110
-    ]
 
   (** A list of valid character decodings represented by
       tuples of the form (s, (v, w)), where:
