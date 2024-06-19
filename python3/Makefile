@@ -24,3 +24,4 @@ install:
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
+	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
