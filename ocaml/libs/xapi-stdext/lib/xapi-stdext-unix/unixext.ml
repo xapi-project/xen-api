@@ -858,6 +858,23 @@ let domain_of_addr str =
     Some (Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, 1)))
   with _ -> None
 
+let test_open_called = Atomic.make false
+
+let test_open n =
+  if not (Atomic.compare_and_set test_open_called false true) then
+    invalid_arg "test_open can only be called once" ;
+  (* we could make this conditional on whether ulimit was increased or not,
+     but that could hide bugs if we think the CI has tested this, but due to ulimit it hasn't.
+  *)
+  if n > 0 then (
+    let socket = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+    at_exit (fun () -> Unix.close socket) ;
+    for _ = 2 to n do
+      let fd = Unix.dup socket in
+      at_exit (fun () -> Unix.close fd)
+    done
+  )
+
 module Direct = struct
   type t = Unix.file_descr
 

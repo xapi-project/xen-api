@@ -1031,6 +1031,8 @@ let observer_experimental_components =
 
 let disable_webserver = ref false
 
+let test_open = ref 0
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1114,6 +1116,7 @@ let xapi_globs_spec =
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
+  ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ]
 
 let options_of_xapi_globs_spec =
