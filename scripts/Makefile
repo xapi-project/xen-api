@@ -117,7 +117,6 @@ install:
 	$(IPROG) print-custom-templates $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) probe-device-for-file $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)/etc/sysconfig
