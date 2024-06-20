@@ -294,3 +294,8 @@ let pool_resync ~__context ~self:_ =
       )
 (* If host.clustering_enabled then resync_host should successfully
    find or create a matching cluster_host which is also enabled *)
+
+let cstack_sync ~__context ~self =
+  debug "%s: sync db data with cluster stack" __FUNCTION__ ;
+  Watcher.on_corosync_update ~__context ~cluster:self
+    ["Updates due to cluster api calls"]
