@@ -4314,61 +4314,90 @@ let vm_migrate printer rpc session_id params =
     finally
       (fun () ->
         let host =
-          let host_matches x self =
-            let hostname () = remote (Client.Host.get_hostname ~self) in
-            let uuid () = remote (Client.Host.get_uuid ~self) in
-            let name_label () = remote (Client.Host.get_name_label ~self) in
-            hostname () = x || uuid () = x || name_label () = x
+          let get_host_by_hostname x =
+            let host_matches self =
+              let hostname = remote (Client.Host.get_hostname ~self) in
+              hostname = x
+            in
+            let all_hosts = remote Client.Host.get_all in
+            List.find_opt host_matches all_hosts
           in
-          let matches, fail_msg =
+          let get_host_with x =
+            let ref =
+              if Uuidm.of_string x |> Option.is_some then
+                remote (Client.Host.get_by_uuid ~uuid:x)
+              else
+                let hosts = remote (Client.Host.get_by_name_label ~label:x) in
+                Option.fold ~none:Ref.null ~some:Fun.id (List.nth_opt hosts 0)
+            in
+            if ref <> Ref.null then
+              Some ref
+            else
+              get_host_by_hostname x
+          in
+
+          let search, fail_msg =
             match List.assoc_opt "host" params with
             | Some x ->
-                (host_matches x, Printf.sprintf "Failed to find host: %s" x)
+                (get_host_with x, Printf.sprintf "Failed to find host: %s" x)
             | None ->
-                ( (fun _ -> true)
+                ( List.nth_opt (remote Client.Host.get_all) 0
                 , Printf.sprintf "Failed to find a suitable host"
                 )
           in
-          let all_hosts = remote Client.Host.get_all in
-          match List.find_opt matches all_hosts with
-          | Some host ->
-              host
-          | None ->
-              failwith fail_msg
+          match search with Some ref -> ref | None -> failwith fail_msg
         in
         let network =
-          let network_matches x self =
-            let bridge () = remote (Client.Network.get_bridge ~self) in
-            let uuid () = remote (Client.Network.get_uuid ~self) in
-            let name_label () = remote (Client.Network.get_name_label ~self) in
-            bridge () = x || uuid () = x || name_label () = x
+          let host_networks () =
+            remote (Client.Host.get_PIFs ~self:host)
+            |> List.map (fun pif -> remote (Client.PIF.get_network ~self:pif))
           in
-          match List.assoc_opt "remote-network" params with
-          | Some x -> (
-              let all_networks = remote Client.Network.get_all in
-              match List.find_opt (network_matches x) all_networks with
-              | Some network ->
-                  network
-              | None ->
-                  failwith (Printf.sprintf "Failed to find network: %s" x)
-            )
-          | None -> (
-              let pifs = remote (Client.Host.get_PIFs ~self:host) in
-              let management_pif =
-                List.find_opt
-                  (fun self -> remote (Client.PIF.get_management ~self))
-                  pifs
-              in
-              match management_pif with
-              | None ->
+
+          let get_network_by_bridge x =
+            let network_matches self =
+              let bridge = remote (Client.Network.get_bridge ~self) in
+              bridge = x
+            in
+            let host_nets = host_networks () in
+            List.find_opt network_matches host_nets
+          in
+          let get_network_with x =
+            let ref =
+              if Uuidm.of_string x |> Option.is_some then
+                remote (Client.Network.get_by_uuid ~uuid:x)
+              else
+                let nets = remote (Client.Network.get_by_name_label ~label:x) in
+                Option.fold ~none:Ref.null ~some:Fun.id (List.nth_opt nets 0)
+            in
+            if ref <> Ref.null then
+              Some ref
+            else
+              get_network_by_bridge x
+          in
+          let search, fail_msg =
+            match List.assoc_opt "remote-network" params with
+            | Some x ->
+                ( get_network_with x
+                , failwith (Printf.sprintf "Failed to find network: %s" x)
+                )
+            | None ->
+                let search =
+                  remote (Client.Host.get_PIFs ~self:host)
+                  |> List.find_opt (fun pif ->
+                         remote (Client.PIF.get_management ~self:pif)
+                     )
+                  |> Option.map (fun pif ->
+                         remote (Client.PIF.get_network ~self:pif)
+                     )
+                in
+                let fail_msg =
                   let host_uuid = remote (Client.Host.get_uuid ~self:host) in
-                  failwith
-                    (Printf.sprintf "Could not find management PIF on host %s"
-                       host_uuid
-                    )
-              | Some pif ->
-                  remote (Client.PIF.get_network ~self:pif)
-            )
+                  Printf.sprintf "Could not find management PIF on host %s"
+                    host_uuid
+                in
+                (search, fail_msg)
+          in
+          match search with Some ref -> ref | None -> failwith fail_msg
         in
         let vif_map =
           List.map
