@@ -531,7 +531,8 @@ module Watcher = struct
     while !Daemon.enabled do
       let m =
         Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
-          "call cluster watcher" (Clock.Timer.span_to_s cluster_change_interval)
+          "call cluster watcher"
+          (Clock.Timer.span_to_s cluster_change_interval)
       in
       match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
       | Ok updates -> (

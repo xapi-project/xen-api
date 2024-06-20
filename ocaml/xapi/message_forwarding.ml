@@ -6419,6 +6419,14 @@ functor
                ) ;
                debug "Cluster.pool_resync for host %s" (Ref.string_of host)
            )
+
+      let cstack_sync ~__context ~self =
+        info "Cluster.cstack_sync cluster %s" (Ref.string_of self) ;
+        let local_fn = Local.Cluster.cstack_sync ~self in
+        let coor = Helpers.get_master ~__context in
+        do_op_on ~local_fn ~__context ~host:coor (fun session_id rpc ->
+            Client.Cluster.cstack_sync ~rpc ~session_id ~self
+        )
     end
 
     module Cluster_host = struct
