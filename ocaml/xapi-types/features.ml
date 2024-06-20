@@ -65,6 +65,7 @@ type feature =
   | Internal_repo_access
   | VTPM
   | VM_groups
+  | VM_start
 [@@deriving rpc]
 
 type orientation = Positive | Negative
@@ -134,13 +135,14 @@ let keys_of_features =
     )
   ; (VTPM, ("restrict_vtpm", Negative, "VTPM"))
   ; (VM_groups, ("restrict_vm_groups", Negative, "VM_groups"))
+  ; (VM_start, ("restrict_vm_start", Negative, "Start"))
   ]
 
 (* A list of features that must be considered "enabled" by `of_assoc_list`
    if the feature string is missing from the list. These are existing features
    that have been recently restricted, and which we want to remain enabled during
    a rolling pool upgrade. *)
-let enabled_when_unknown = [Xen_motion; AD; Updates]
+let enabled_when_unknown = [Xen_motion; AD; Updates; VM_start]
 
 let name_of_feature f = rpc_of_feature f |> Rpc.string_of_rpc
 
