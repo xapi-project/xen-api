@@ -113,11 +113,13 @@ let check_host_liveness ~__context =
               )
           )
         else if live then (
+          let host_name_label = Db.Host.get_name_label ~__context ~self:host in
+          let host_uuid = Db.Host.get_uuid ~__context ~self:host in
           debug
-            "Assuming host %s is offline since the heartbeat hasn't been \
-             updated for %.2f seconds; setting live to false"
-            (Ref.string_of host)
-            (Scheduler.span_to_s elapsed) ;
+            "Assuming host '%s' (%s) is offline since the heartbeat hasn't \
+             been updated for %s; setting live to false"
+            host_name_label host_uuid
+            (Fmt.to_to_string Mtime.Span.pp elapsed) ;
           Db.Host_metrics.set_live ~__context ~self:hmetric ~value:false ;
           Xapi_host_helpers.update_allowed_operations ~__context ~self:host
         ) ;
