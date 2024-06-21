@@ -4,9 +4,8 @@
   (modules date)
   (libraries
     astring
-    ptime
+    (re_export ptime)
     ptime.clock.os
-    xapi-stdext-date
   )
 )
 

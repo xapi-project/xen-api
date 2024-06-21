@@ -26,8 +26,7 @@ let tests =
     (* UTC is valid *)
     let non_utc = "2020-12-20T18:10:19+02:00" in
     let exn =
-      Invalid_argument
-        "Xapi_stdext_date__Date.of_iso8601: 2020-12-20T18:10:19+02:00"
+      Invalid_argument "Clock__Date.of_iso8601: 2020-12-20T18:10:19+02:00"
     in
     Alcotest.check_raises "only UTC is accepted" exn (fun () ->
         of_iso8601 non_utc |> ignore

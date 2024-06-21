@@ -8,9 +8,10 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.0"}
+  "ocaml" {>= "4.12"}
   "alcotest" {with-test}
-  "ptime" {with-test}
-  "xapi-stdext-date"
+  "astring"
+  "ptime"
   "odoc" {with-doc}
 ]
 build: [

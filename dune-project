@@ -21,9 +21,10 @@
   (synopsis "Xapi's library for managing time")
   (authors "Jonathan Ludlam")
   (depends
+    (ocaml (>= 4.12))
     (alcotest :with-test)
-    (ptime :with-test)
-    xapi-stdext-date
+    astring
+    ptime
   )
 )
 
@@ -465,12 +466,8 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Dates")
   (authors "Jonathan Ludlam")
   (depends
-    (ocaml (>= 4.12))
-    (alcotest :with-test)
-    astring
-    base-unix
+    (clock (= :version))
     ptime
-    (odoc :with-doc)
   )
 )
 
