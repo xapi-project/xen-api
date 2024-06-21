@@ -15,6 +15,18 @@
   (name zstd)
 )
 
+
+(package
+  (name clock)
+  (synopsis "Xapi's library for managing time")
+  (authors "Jonathan Ludlam")
+  (depends
+    (alcotest :with-test)
+    (ptime :with-test)
+    xapi-stdext-date
+  )
+)
+
 (package
   (name xapi-rrdd-plugin)
 )

@@ -1,0 +1,18 @@
+(library
+  (name clock)
+  (public_name clock)
+  (modules date)
+  (libraries
+    astring
+    ptime
+    ptime.clock.os
+    xapi-stdext-date
+  )
+)
+
+(test
+  (name test_date)
+  (package clock)
+  (modules test_date)
+  (libraries alcotest clock ptime)
+)
