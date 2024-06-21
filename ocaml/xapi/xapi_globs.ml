@@ -707,7 +707,7 @@ let snapshot_with_quiesce_timeout = ref 600.
 let host_heartbeat_interval = ref 30.
 
 (* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
-let host_assumed_dead_interval = ref 600.0
+let host_assumed_dead_interval = ref Mtime.Span.(10 * min)
 
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *)
@@ -951,7 +951,10 @@ let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
 
-type xapi_globs_spec_ty = Float of float ref | Int of int ref
+type xapi_globs_spec_ty =
+  | Float of float ref
+  | Int of int ref
+  | TimeSpanOfFloat of Mtime.Span.t ref
 
 let extauth_ad_backend = ref "winbind"
 
@@ -1061,7 +1064,7 @@ let xapi_globs_spec =
   ; ("wait_memory_target_timeout", Float wait_memory_target_timeout)
   ; ("snapshot_with_quiesce_timeout", Float snapshot_with_quiesce_timeout)
   ; ("host_heartbeat_interval", Float host_heartbeat_interval)
-  ; ("host_assumed_dead_interval", Float host_assumed_dead_interval)
+  ; ("host_assumed_dead_interval", TimeSpanOfFloat host_assumed_dead_interval)
   ; ("fuse_time", Float Constants.fuse_time)
   ; ("db_restore_fuse_time", Float Constants.db_restore_fuse_time)
   ; ("inactive_session_timeout", Float inactive_session_timeout)
@@ -1120,13 +1123,26 @@ let options_of_xapi_globs_spec =
   List.map
     (fun (name, ty) ->
       ( name
-      , (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x)
+      , ( match ty with
+        | Float x ->
+            Arg.Set_float x
+        | Int x ->
+            Arg.Set_int x
+        | TimeSpanOfFloat x ->
+            Arg.Float
+              (fun y ->
+                let y' = Float.to_int (1000. *. y) in
+                x := Mtime.Span.(y' * ms)
+              )
+        )
       , (fun () ->
           match ty with
           | Float x ->
               string_of_float !x
           | Int x ->
               string_of_int !x
+          | TimeSpanOfFloat x ->
+              Fmt.to_to_string Mtime.Span.pp !x
         )
       , Printf.sprintf "Set the value of '%s'" name
       )

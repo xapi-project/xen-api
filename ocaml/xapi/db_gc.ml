@@ -80,8 +80,6 @@ let detect_clock_skew ~__context host skew =
 let check_host_liveness ~__context =
   (* CA-16351: when performing the initial GC pass on first boot there won't be a localhost *)
   let localhost = try Helpers.get_localhost ~__context with _ -> Ref.null in
-  let n = int_of_float !Xapi_globs.host_assumed_dead_interval in
-  let assumed = Mtime.Span.(n * s) in
   let check_host host =
     if host <> localhost then
       try
@@ -97,7 +95,8 @@ let check_host_liveness ~__context =
           )
         in
         let elapsed = Mtime_clock.count last_seen in
-        if Mtime.Span.compare elapsed assumed < 0 then
+        if Mtime.Span.compare elapsed !Xapi_globs.host_assumed_dead_interval < 0
+        then
           (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
              	     avoid toggling the host back to live if it has been marked as shutting_down. *)
           with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
