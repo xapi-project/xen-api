@@ -19,11 +19,12 @@
 (package
   (name clock)
   (synopsis "Xapi's library for managing time")
-  (authors "Jonathan Ludlam")
+  (authors "Jonathan Ludlam" "Pau Ruiz Safont")
   (depends
     (ocaml (>= 4.12))
     (alcotest :with-test)
     astring
+    mtime
     ptime
   )
 )

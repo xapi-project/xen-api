@@ -2,7 +2,7 @@
 opam-version: "2.0"
 synopsis: "Xapi's library for managing time"
 maintainer: ["Xapi project maintainers"]
-authors: ["Jonathan Ludlam"]
+authors: ["Jonathan Ludlam" "Pau Ruiz Safont"]
 license: "LGPL-2.1-only WITH OCaml-LGPL-linking-exception"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
@@ -11,6 +11,7 @@ depends: [
   "ocaml" {>= "4.12"}
   "alcotest" {with-test}
   "astring"
+  "mtime"
   "ptime"
   "odoc" {with-doc}
 ]
