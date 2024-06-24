@@ -817,3 +817,91 @@ module Direct = struct
 
   let lseek fd x cmd = Unix.LargeFile.lseek fd x cmd
 end
+
+(* --------------------------------------------------------------------------------------- *)
+
+module Daemon = struct
+  module State = struct
+    type t =
+      | Ready
+      | Reloading
+      | Stopping
+      | Status of string
+      | Error of Unix.error
+      | Buserror of string
+      | MainPID of int
+      | Watchdog
+  end
+
+  let systemd_notify state =
+    let open State in
+    let ( let* ) = Option.bind in
+    let msg_status =
+      let* msg =
+        match state with
+        | Ready ->
+            Some "READY=1"
+        | Reloading ->
+            Some "RELOADING=1"
+        | Stopping ->
+            Some "STOPPING=1"
+        | Status s ->
+            Some ("STATUS=" ^ s)
+        | Error e ->
+            Option.map
+              (fun x -> "ERRNO=" ^ x)
+              ( match Errno_unix.of_unix e with
+              | h :: _ ->
+                  Option.map
+                    (fun x -> Signed.SInt.to_string x)
+                    (Errno.to_code ~host:Errno_unix.host h)
+              | [] ->
+                  None
+                  (* If empty, then couldn't map the Unix.error to an
+                      integer - a requirement of systemd's protocol *)
+              )
+        | Buserror s ->
+            Some ("BUSERROR=" ^ s)
+        | MainPID i ->
+            Some ("MAINPID=" ^ string_of_int i)
+        | Watchdog ->
+            Some "WATCHDOG=1"
+      in
+      let* env_socket = Sys.getenv_opt "NOTIFY_SOCKET" in
+      (* If the variable is not set, the protocol is a noop *)
+      let* socket_path =
+        if String.starts_with ~prefix:"/" env_socket then
+          Some env_socket
+        else if String.starts_with ~prefix:"@" env_socket then
+          Some ("\x00" ^ Astring.String.with_range ~first:1 env_socket)
+        (* Handle abstract socket - replaces '@' with the null character *)
+        else
+          None
+        (* Only AF_UNIX is supported, with path or abstract sockets *)
+      in
+      Unix.(
+        let sock = socket PF_UNIX SOCK_DGRAM 0 ~cloexec:true in
+        Xapi_stdext_pervasives.Pervasiveext.finally
+          (fun _ ->
+            let res =
+              sendto_substring sock msg 0 (String.length msg) []
+                (ADDR_UNIX socket_path)
+            in
+            if res >= 0 then Some () else None
+          )
+          (fun _ -> close sock)
+      )
+    in
+    Option.is_some msg_status
+
+  (** We test whether the runtime unit file directory has been
+      created. Systemd guarantees this to happen very early
+      during boot.
+      Note: libsystemd uses faccessat instead to avoid following
+      symlinks. It is not, however, present in the OCaml Unix module. *)
+  let systemd_booted () =
+    try
+      Unix.(access "/run/systemd/system" [F_OK]) ;
+      true
+    with Unix.Unix_error _ -> false
+end

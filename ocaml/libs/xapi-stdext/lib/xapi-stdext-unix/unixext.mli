@@ -274,3 +274,50 @@ module Direct : sig
   val lseek : t -> int64 -> Unix.seek_command -> int64
   (** [lseek t offset command]: see Unix.LargeFile.lseek *)
 end
+
+module Daemon : sig
+  (** OCaml interface to libsystemd.
+
+      Standalone reimplementation of parts of `ocaml-systemd` and `libsystemd` to
+      avoid linking libsystemd and its dependencies. Follows similar changes
+      in the hypervisor in 78510f3a1522f2856330ffa429e0e35f8aab4277
+      and caf864482689a5dd6a945759b6372bb260d49665 *)
+  module State : sig
+    type t =
+      | Ready
+          (** Tells the service manager that service startup is finished,
+              or the service finished loading its configuration.
+              Since there is little value in signaling non-readiness, the only value
+              services should send is "READY=1" (i.e. "READY=0" is not defined). *)
+      | Reloading
+        (* Tells the service manager that the service is reloading its configuration. *)
+      | Stopping
+        (* Tells the service manager that the service is beginning its shutdown. *)
+      | Status of string
+        (* Passes a single-line UTF-8 status string back to the service
+           manager that describes the service state. *)
+      | Error of Unix.error
+        (* If a service fails, the errno-style error code, formatted as string. *)
+      | Buserror of string
+        (* If a service fails, the D-Bus error-style error code. *)
+      | MainPID of int
+        (* The main process ID (PID) of the service, in case the service
+           manager did not fork off the process itself. *)
+      | Watchdog
+    (* Tells the service manager to update the watchdog timestamp. *)
+  end
+
+  val systemd_notify : State.t -> bool
+  (** [systemd_notify state] informs systemd about changed
+      daemon state.
+      If the notification was sent successfully, returns true.
+      Otherwise returns false.
+
+      See sd_notify(3) for more information *)
+
+  val systemd_booted : unit -> bool
+  (** [systemd_booted] returns true if the system was booted with systemd,
+      and false otherwise.
+
+      See sd_booted(3) for more information. *)
+end
