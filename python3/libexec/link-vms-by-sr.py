@@ -106,7 +106,7 @@ def main():
 
         try:
             Path(linkdir).mkdir(parents=True)
-        except:
+        except OSError:
             print("Failed to create directory: %s" % linkdir, file=sys.stderr)
 
         for vmuuid in list(vms_in_sr[sruuid].keys()):
@@ -114,7 +114,7 @@ def main():
             targ = "{}/{}.vmmeta".format(linkdir, vmuuid)
             try:
                 os.symlink(src, targ)
-            except:
+            except OSError:
                 print("Failed to create symlink: %s -> %s" % (src, targ), file=sys.stderr)
 
     session.xenapi.logout()
