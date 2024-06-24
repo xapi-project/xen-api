@@ -86,9 +86,9 @@ def main():
             print("Failed to create directory: %s" % linkdir, file=sys.stderr)
 
         for vmuuid in list(vms_in_sr[sruuid].keys()):
+            src = "../../all/{}.vmmeta".format(vmuuid)
+            targ = "{}/{}.vmmeta".format(linkdir, vmuuid)
             try:
-                src = "../../all/{}.vmmeta".format(vmuuid)
-                targ = "{}/{}.vmmeta".format(linkdir, vmuuid)
                 os.symlink(src, targ)
             except:
                 print("Failed to create symlink: %s -> %s" % (src, targ), file=sys.stderr)

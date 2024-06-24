@@ -87,7 +87,7 @@ def read_field(session_id, table, fld, rf):
 
 if __name__ == "__main__":
     xapi = XenAPI.xapi_local()
-    xapi.xenapi.login_with_password('root', '')
+    xapi.xenapi.login_with_password("root", "", "1.0", "hfx_filename")
     session_id = xapi._session
     try:
         rf = db_get_by_uuid(session_id, "pool_patch", sys.argv[1])

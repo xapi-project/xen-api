@@ -194,9 +194,11 @@ disable = [
 # typeCheckingMode: set the standard type checking mode
 include              = ["python3", "ocaml/xcp-rrdd"]
 strict               = ["python3/tests/observer"]
+stubPath             = "python3/stubs"
 pythonPlatform       = "Linux"
 typeCheckingMode     = "standard"
 reportMissingImports = false
+reportMissingModuleSource = false
 pythonVersion        = "3.6"
 exclude              = [
     "ocaml/xcp-rrdd/scripts/rrdd/rrdd.py",
