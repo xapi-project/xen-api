@@ -24,12 +24,6 @@ val remaining : t -> countdown
 (** [remaining timer] returns the amount of time left until [timer] expires or
     the amount of time since it expired. *)
 
-val deadline_of : t -> float
-(** [deadline_of timer] returns the posix timestamp when the timer expires.
-      This is an approximation as the timer doesn't take leap seconds into
-      account when waiting. The use of this function is discouraged and it's
-      only provided for backwards-compatible reasons. *)
-
 val shorten_by : Mtime.Span.t -> t -> t
 (** [shorten_by amount timer] creates a new timer with the duration of [timer]
     shortened by [amount]. The starting time doesn't change. The duration of a
