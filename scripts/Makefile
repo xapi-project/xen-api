@@ -131,7 +131,6 @@ install:
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
-	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/firewall-port $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/openvswitch-config-update $(DESTDIR)$(PLUGINDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
@@ -170,9 +169,6 @@ endif
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 # poweron
-	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
-	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
-	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
 # YUM plugins
 	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)

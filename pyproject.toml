@@ -30,6 +30,20 @@ line-length = 88
 
 # -----------------------------------------------------------------------------
 # Coverage.py - https://coverage.readthedocs.io/en/coverage-5.5/config.html
+#
+# [tool.coverage.run] and [tool.coverage.report] configure these commands:
+# coverage run && coverage report
+#
+# These work in conjunction with [tool.pytest.ini_options] to set defaults
+# for running pytest (on its own) and for running Coverage.py with pytest:
+#
+# Examples for Python test development with Coverage.py:
+#
+# Run the default tests and check coverage:
+#   coverage run && coverage report
+#
+# Run a custom set of tests and check coverage:
+#   coverage run -m pytest python3/tests/test_*.py && coverage report
 # -----------------------------------------------------------------------------
 
 [tool.coverage.report]
@@ -198,22 +212,12 @@ exclude              = [
 
 [tool.pytest.ini_options]
 # -----------------------------------------------------------------------------
-# Options to enable for pytest by default:
+# addopts: Options to add to all pytest calls:
 # -v                           show what happens
 # -ra                          show short summary after running tests
-# Other options should not be passed using addopts, as addopts forces those
-# options to be used every time pytest is run, which is very restrictive.
-# Instead, use `coverage run` to configure coverage options, and support
-# running specific tests by passing them as arguments to pytest:
-# For example:
-# coverage run -m pytest python3/tests/test_xenapi.py
-# Adding specific --cov options using addopts is not recommended as it would
-# require to use the pytest-cov plugin, which would conflict with the use of
-# `coverage run`. Instead, use `coverage` to configure coverage options.
-# Specifying directories to test is better done using the testpaths option,
-# as testpaths sets the default directories to search for tests, but does not
-# force them to be run, so you can still run specific tests files by just
-# passing them as arguments to pytest: pytest python3/tests/test_xenapi.py
+#
+# addopts are added to all pytest calls. We don't add options that would force
+# testing specific paths. To be flexible, we use use testpaths instead(see below)
 # -----------------------------------------------------------------------------
 addopts = "-v -ra"
 
@@ -223,7 +227,9 @@ addopts = "-v -ra"
 # log_cli_level:    log level to show
 # python_files:     pattern for test files
 # python_functions: pattern for test functions
-# testpaths:        directories to search for tests
+# testpaths:        directories to search for tests(by default, used for CI)
+#                   For development, developers can test only specific files:
+#                   Example: pytest python3/tests/test_perfmon.py
 # minversion:       this config requires pytest>=7 to configure pythonpath
 # pythonpath:       path to stub files and typing stubs for tests
 # xfail_strict:     require to remove pytext.xfail marker when test is fixed
@@ -252,10 +258,7 @@ expected_to_fail = [
     # Need 2to3 -w <file> and maybe a few other minor updates:
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
-    # SSLSocket.send() only accepts bytes, not unicode string as argument:
-    "scripts/examples/python/exportimport.py",
     # Other fixes needed:
-    "scripts/examples/python/monitor-unwanted-domains.py",
     "scripts/static-vdis",
     "scripts/plugins/extauth-hook-AD.py",
 ]
