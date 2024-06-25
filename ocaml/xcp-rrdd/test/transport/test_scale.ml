@@ -1,5 +1,7 @@
 open Test_common
 
+let shared_file_count = ref 4096
+
 let sync_string = "ready"
 
 let send_ready sock =
@@ -79,14 +81,12 @@ let run_tests shared_file_count protocol =
   Random.self_init () ;
   let timestamp = Int64.of_float (Unix.gettimeofday ()) in
   let deliveries =
-    make_list
-      (fun () ->
+    List.init shared_file_count (fun k ->
         {
-          shared_file= make_shared_file ()
+          shared_file= make_shared_file ~k ()
         ; payload= make_random_payload timestamp (Random.int 4)
         }
-      )
-      shared_file_count
+    )
   in
   let reader_sock, writer_sock = Unix.(socketpair PF_UNIX SOCK_STREAM 0) in
   match Unix.fork () with
@@ -99,38 +99,8 @@ let run_tests shared_file_count protocol =
       Unix.close writer_sock ;
       read_payloads deliveries protocol reader_sock
 
-let () =
-  let open Rrd_interface in
-  let shared_file_count = ref 4096 in
-  let protocol = ref V2 in
-  Arg.parse
-    [
-      ("-n", Arg.Set_int shared_file_count, "Number of shared files to use")
-    ; ( "-p"
-      , Arg.Int
-          (function
-          | 1 ->
-              protocol := V1
-          | 2 ->
-              protocol := V2
-          | _ ->
-              failwith "Unrecognised protocol"
-          )
-      , "Protocol to use"
-      )
-    ]
-    (fun _ -> ())
-    (Filename.basename Sys.executable_name ^ " [-n <shared-file-count>]") ;
-  if !shared_file_count < 0 then
-    failwith "I cannot use fewer than 0 shared files!" ;
-  print_endline "------ Scale tests ------" ;
-  Printf.printf "Shared files: %d\n" !shared_file_count ;
-  Printf.printf "Protocol: V%d\n" (match !protocol with V1 -> 1 | V2 -> 2) ;
-  print_newline () ;
-  run_tests !shared_file_count
-    ( match !protocol with
-    | V1 ->
-        Rrd_protocol_v1.protocol
-    | V2 ->
-        Rrd_protocol_v2.protocol
-    )
+let tests =
+  Test_common.tests_for_all_protos
+    [("Write and read", run_tests !shared_file_count)]
+
+let () = Alcotest.run "Metrics scalability" tests

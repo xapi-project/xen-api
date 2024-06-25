@@ -35,6 +35,7 @@
 
 (test
   (name test_gen_go)
+  (package xapi-sdk)
   (modules test_gen_go)
   (libraries CommonFunctions alcotest fmt xapi-test-utils gen_go_helper)
   (deps

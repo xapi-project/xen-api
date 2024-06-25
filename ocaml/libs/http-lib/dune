@@ -98,7 +98,6 @@
   (libraries
     dune-build-info
     http_lib
-    ounit2
     safe-resources
     stunnel
     threads.posix
@@ -115,7 +114,6 @@
     dune-build-info
     http_lib
     httpsvr
-    ounit2
     safe-resources
     threads.posix
     xapi-stdext-threads

@@ -26,7 +26,6 @@
   rpclib.json
   result
   rresult
-  systemd
   threads.posix
   xapi-client
   xapi-consts
