@@ -57,6 +57,7 @@ exclude_lines = [
     "pass",
     # Other specific lines that do not need to be covered, comment in which file:
     "raise NbdDeviceNotFound",  # python3/libexec/usb_scan.py
+    "params = xmlrpc.client.loads",  # static-vdis
 ]
 # precision digits to use when reporting coverage (sub-percent-digits are not reported):
 precision = 0
@@ -261,7 +262,6 @@ expected_to_fail = [
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
     # Other fixes needed:
-    "scripts/static-vdis",
     "scripts/plugins/extauth-hook-AD.py",
 ]
 
