@@ -2,12 +2,15 @@
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 # Checks for the existence of a file on a device
 
-import os, sys
+import os
+import sys
+
 try:
-   import xenfsimage
+    import xenfsimage
 except ImportError:
-   import fsimage as xenfsimage
+    import fsimage as xenfsimage
 from contextlib import contextmanager
+
 
 # https://stackoverflow.com/a/17954769
 @contextmanager
@@ -33,7 +36,7 @@ def stderr_redirected(to=os.devnull):
         with open(to, 'w') as file:
             _redirect_stderr(to=file)
         try:
-            yield # allow code to be run with the redirected stderr
+            yield  # allow code to be run with the redirected stderr
         finally:
             _redirect_stderr(to=old_stderr) # restore stderr.
                                             # buffering and flags such as
@@ -41,8 +44,8 @@ def stderr_redirected(to=os.devnull):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-       print("Usage: %s <device> <file>" % sys.argv[0])
-       sys.exit(2)
+        print("Usage: %s <device> <file>" % sys.argv[0])
+        sys.exit(2)
     device = sys.argv[1]
     file = sys.argv[2]
     try:
