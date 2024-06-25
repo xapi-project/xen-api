@@ -27,6 +27,8 @@ install:
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
+
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
