@@ -110,7 +110,6 @@ install:
 	$(IPROG) set-hostname $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) update-mh-info $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-bugreport-upload $(DESTDIR)$(LIBEXECDIR)/host-bugreport-upload
-	$(IPROG) host-display $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) print-custom-templates $(DESTDIR)$(LIBEXECDIR)

@@ -15,6 +15,7 @@ install:
 	
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 
+	$(IPROG) libexec/host-display $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/link-vms-by-sr.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/usb_reset.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)
