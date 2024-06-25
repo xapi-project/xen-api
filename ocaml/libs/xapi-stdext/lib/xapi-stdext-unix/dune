@@ -5,6 +5,9 @@
     fd-send-recv
     unix
     xapi-backtrace
+    unix-errno
+    unix-errno.unix
+    astring
     xapi-stdext-pervasives)
   (foreign_stubs
     (language c)
