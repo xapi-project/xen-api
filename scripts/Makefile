@@ -113,7 +113,6 @@ install:
 	$(IPROG) host-display $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) print-custom-templates $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)

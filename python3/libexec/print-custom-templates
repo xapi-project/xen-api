@@ -20,8 +20,8 @@ def main(argv):
         atexit.register(logout, session)
 
         templates = session.xenapi.VM.get_all_records_where('field "is_a_template" = "true" and field "is_a_snapshot" = "false"' )
-    except:
-        print("Error retrieving template list", file=sys.stderr)
+    except Exception as e:
+        print(type(e).__name__, "retrieving template list:", e, file=sys.stderr)
         sys.exit(1)
 
     output=[]
