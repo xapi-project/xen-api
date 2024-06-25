@@ -66,27 +66,29 @@ class Shell(cmd.Cmd):
         print()
         sys.exit(0)
 
-def munge_types (str):
-    if str == "True":
+
+def munge_types(var):
+    if var == "True":
         return True
-    elif str == "False":
+    if var == "False":
         return False
-    
+
     try:
-        return int(str)
+        return int(var)
     except:
-        return str
+        return var
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage:")
         print(sys.argv[0], " <url> <username> <password>")
-        sys.exit(1) 
+        sys.exit(1)
 
     if sys.argv[1] != "-" and len(sys.argv) < 4:
         print("Usage:")
         print(sys.argv[0], " <url> <username> <password>")
-        sys.exit(1) 
+        sys.exit(1)
 
     if sys.argv[1] != "-":
         url = sys.argv[1]
@@ -103,10 +105,10 @@ if __name__ == "__main__":
     # We want to support directly executing the cmd line,
     # where appropriate
     if len(sys.argv) > cmdAt:
-        cmd = sys.argv[cmdAt]
+        command = sys.argv[cmdAt]
         params = [munge_types(x) for x in sys.argv[(cmdAt + 1):]]
         try:
-            print(session.xenapi_request(cmd, tuple(params)), file=sys.stdout)
+            print(session.xenapi_request(command, tuple(params)), file=sys.stdout)
         except XenAPI.Failure as x:
             print(x, file=sys.stderr)
             sys.exit(2)

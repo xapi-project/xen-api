@@ -261,7 +261,6 @@ expected_to_fail = [
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
     # Other fixes needed:
-    "scripts/examples/python/shell.py",
     "scripts/static-vdis",
     "scripts/plugins/extauth-hook-AD.py",
 ]
