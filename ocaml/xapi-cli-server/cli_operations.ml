@@ -4310,56 +4310,95 @@ let vm_migrate printer rpc session_id params =
       Client.Session.login_with_password remote_rpc username password "1.3"
         Constants.xapi_user_agent
     in
+    let remote f = f ~rpc:remote_rpc ~session_id:remote_session in
     finally
       (fun () ->
-        let host, host_record =
-          let all = Client.Host.get_all_records remote_rpc remote_session in
-          if List.mem_assoc "host" params then
-            let x = List.assoc "host" params in
-            try
-              List.find
-                (fun (_, h) ->
-                  h.API.host_hostname = x
-                  || h.API.host_name_label = x
-                  || h.API.host_uuid = x
-                )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find host: %s" x)
-          else
-            List.hd all
-        in
-        let network, network_record =
-          let all = Client.Network.get_all_records remote_rpc remote_session in
-          if List.mem_assoc "remote-network" params then
-            let x = List.assoc "remote-network" params in
-            try
-              List.find
-                (fun (_, net) ->
-                  net.API.network_bridge = x
-                  || net.API.network_name_label = x
-                  || net.API.network_uuid = x
-                )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find network: %s" x)
-          else
-            let pifs = host_record.API.host_PIFs in
-            let management_pifs =
-              List.filter
-                (fun pif ->
-                  Client.PIF.get_management remote_rpc remote_session pif
-                )
-                pifs
+        let host =
+          let get_host_by_hostname x =
+            let host_matches self =
+              let hostname = remote (Client.Host.get_hostname ~self) in
+              hostname = x
             in
-            if List.length management_pifs = 0 then
-              failwith
-                (Printf.sprintf "Could not find management PIF on host %s"
-                   host_record.API.host_uuid
-                ) ;
-            let pif = List.hd management_pifs in
-            let net = Client.PIF.get_network remote_rpc remote_session pif in
-            (net, Client.Network.get_record remote_rpc remote_session net)
+            let all_hosts = remote Client.Host.get_all in
+            List.find_opt host_matches all_hosts
+          in
+          let get_host_with x =
+            let ref =
+              if Uuidm.of_string x |> Option.is_some then
+                remote (Client.Host.get_by_uuid ~uuid:x)
+              else
+                let hosts = remote (Client.Host.get_by_name_label ~label:x) in
+                Option.fold ~none:Ref.null ~some:Fun.id (List.nth_opt hosts 0)
+            in
+            if ref <> Ref.null then
+              Some ref
+            else
+              get_host_by_hostname x
+          in
+
+          let search, fail_msg =
+            match List.assoc_opt "host" params with
+            | Some x ->
+                (get_host_with x, Printf.sprintf "Failed to find host: %s" x)
+            | None ->
+                ( List.nth_opt (remote Client.Host.get_all) 0
+                , Printf.sprintf "Failed to find a suitable host"
+                )
+          in
+          match search with Some ref -> ref | None -> failwith fail_msg
+        in
+        let network =
+          let host_networks () =
+            remote (Client.Host.get_PIFs ~self:host)
+            |> List.map (fun pif -> remote (Client.PIF.get_network ~self:pif))
+          in
+
+          let get_network_by_bridge x =
+            let network_matches self =
+              let bridge = remote (Client.Network.get_bridge ~self) in
+              bridge = x
+            in
+            let host_nets = host_networks () in
+            List.find_opt network_matches host_nets
+          in
+          let get_network_with x =
+            let ref =
+              if Uuidm.of_string x |> Option.is_some then
+                remote (Client.Network.get_by_uuid ~uuid:x)
+              else
+                let nets = remote (Client.Network.get_by_name_label ~label:x) in
+                Option.fold ~none:Ref.null ~some:Fun.id (List.nth_opt nets 0)
+            in
+            if ref <> Ref.null then
+              Some ref
+            else
+              get_network_by_bridge x
+          in
+          let search, fail_msg =
+            match List.assoc_opt "remote-network" params with
+            | Some x ->
+                ( get_network_with x
+                , failwith
+                    (Printf.sprintf "Failed to find network '%s' on host" x)
+                )
+            | None ->
+                let search =
+                  remote (Client.Host.get_PIFs ~self:host)
+                  |> List.find_opt (fun pif ->
+                         remote (Client.PIF.get_management ~self:pif)
+                     )
+                  |> Option.map (fun pif ->
+                         remote (Client.PIF.get_network ~self:pif)
+                     )
+                in
+                let fail_msg =
+                  let host_uuid = remote (Client.Host.get_uuid ~self:host) in
+                  Printf.sprintf "Could not find management PIF on host %s"
+                    host_uuid
+                in
+                (search, fail_msg)
+          in
+          match search with Some ref -> ref | None -> failwith fail_msg
         in
         let vif_map =
           List.map
@@ -4396,61 +4435,64 @@ let vm_migrate printer rpc session_id params =
             (read_map_params "vgpu" params)
         in
         let preferred_sr =
-          (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
-             and among the choices of that the shared is preferred first(as it is recommended to have shared storage
-             in pool to host VMs), and then the one with the maximum available space *)
+          (* The preferred SR is determined to be as the SR that the
+             destination host has a PDB attached to it, and among the choices
+             of that the shared is preferred first (as it is recommended to
+             have shared storage in pool to host VMs), and then the one with
+             the maximum available space *)
           try
-            let query =
-              Printf.sprintf
-                {|(field "host"="%s") and (field "currently_attached"="true")|}
-                (Ref.string_of host)
-            in
-            let host_pbds =
-              Client.PBD.get_all_records_where remote_rpc remote_session query
+            let pbd_attached self =
+              remote (Client.PBD.get_currently_attached ~self)
             in
             let srs =
-              List.map
-                (fun (pbd_ref, pbd_rec) ->
-                  ( pbd_rec.API.pBD_SR
-                  , Client.SR.get_record remote_rpc remote_session
-                      pbd_rec.API.pBD_SR
-                  )
-                )
-                host_pbds
+              remote Client.Host.get_PBDs ~self:host
+              |> List.filter pbd_attached
+              |> List.map (fun self -> remote (Client.PBD.get_SR ~self))
             in
             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
                first if it is an ISO type, then pass this one for selection, then the only shared one from this and
                previous one will be valued, and if not that case (both shared or none shared), choose the one with
                more space available *)
-            let sr, _ =
+            let is_iso self =
+              let typ = remote (Client.SR.get_content_type ~self) in
+              typ = "iso"
+            in
+            let physical_size self =
+              remote (Client.SR.get_physical_size ~self)
+            in
+            let physical_utilisation self =
+              remote (Client.SR.get_physical_utilisation ~self)
+            in
+            let shared self = remote (Client.SR.get_shared ~self) in
+            let sr, _, _ =
               List.fold_left
-                (fun (sr, free_space) ((_, sr_rec') as sr') ->
-                  if sr_rec'.API.sR_content_type = "iso" then
-                    (sr, free_space)
+                (fun (sr, sr_shared, free_space) sr' ->
+                  if is_iso sr' then
+                    (sr, sr_shared, free_space)
                   else
                     let free_space' =
-                      Int64.sub sr_rec'.API.sR_physical_size
-                        sr_rec'.API.sR_physical_utilisation
+                      Int64.sub (physical_size sr') (physical_utilisation sr')
                     in
                     match sr with
                     | None ->
-                        (Some sr', free_space')
-                    | Some ((_, sr_rec) as sr) -> (
-                      match (sr_rec.API.sR_shared, sr_rec'.API.sR_shared) with
+                        let shared' = shared sr' in
+                        (Some sr', shared', free_space')
+                    | Some sr -> (
+                      match (sr_shared, shared sr') with
                       | true, false ->
-                          (Some sr, free_space)
+                          (Some sr, true, free_space)
                       | false, true ->
-                          (Some sr', free_space')
-                      | _ ->
+                          (Some sr', true, free_space')
+                      | shared, _ ->
                           if free_space' > free_space then
-                            (Some sr', free_space')
+                            (Some sr', shared, free_space')
                           else
-                            (Some sr, free_space)
+                            (Some sr, shared, free_space)
                     )
                 )
-                (None, Int64.zero) srs
+                (None, false, Int64.zero) srs
             in
-            match sr with Some (sr_ref, _) -> Some sr_ref | _ -> None
+            sr
           with _ -> None
         in
         let vdi_map =
@@ -4509,13 +4551,16 @@ let vm_migrate printer rpc session_id params =
             )
             params
         in
+        let host_name_label = remote (Client.Host.get_name_label ~self:host) in
+        let network_name_label =
+          remote (Client.Network.get_name_label ~self:network)
+        in
         printer
           (Cli_printer.PMsg
              (Printf.sprintf
                 "Will migrate to remote host: %s, using remote network: %s. \
                  Here is the VDI mapping:"
-                host_record.API.host_name_label
-                network_record.API.network_name_label
+                host_name_label network_name_label
              )
           ) ;
         List.iter
