@@ -66,7 +66,7 @@ let update_ca_bundle () = Helpers.update_ca_bundle ()
 let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
 
 (** {pp_hash hash} outputs the hexadecimal representation of the {hash}
-    adding a semicolon between every octet, in uppercase.
+    adding a colon between every octet, in uppercase.
  *)
 let pp_hash hash =
   let hex = Hex.(show @@ of_cstruct hash) in
@@ -218,13 +218,17 @@ end = struct
     let not_before, not_after =
       dates_of_ptimes (X509.Certificate.validity certificate)
     in
-    let fingerprint =
+    let fingerprint_sha256 =
       X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
+    in
+    let fingerprint_sha1 =
+      X509.Certificate.fingerprint `SHA1 certificate |> pp_hash
     in
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
-      ~not_after ~fingerprint ~name ~_type ;
+      ~not_after ~fingerprint:fingerprint_sha256 ~fingerprint_sha256
+      ~fingerprint_sha1 ~name ~_type ;
     debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
     post_action () ;
     ref'
