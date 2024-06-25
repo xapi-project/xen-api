@@ -6,6 +6,7 @@ IDATA=install -m 644
 SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 
 install:
+	# Create destination directories using install -m 755 -d:
 	$(IPROG) -d $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) -d $(DESTDIR)$(SITE3_DIR)
 	$(IPROG) -d $(DESTDIR)$(LIBEXECDIR)
@@ -14,6 +15,7 @@ install:
 	
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 
+	$(IPROG) libexec/link-vms-by-sr.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/usb_reset.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
