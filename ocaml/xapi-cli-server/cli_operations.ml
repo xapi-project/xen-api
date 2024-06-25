@@ -4464,32 +4464,33 @@ let vm_migrate printer rpc session_id params =
               remote (Client.SR.get_physical_utilisation ~self)
             in
             let shared self = remote (Client.SR.get_shared ~self) in
-            let sr, _ =
+            let sr, _, _ =
               List.fold_left
-                (fun (sr, free_space) sr' ->
+                (fun (sr, sr_shared, free_space) sr' ->
                   if is_iso sr' then
-                    (sr, free_space)
+                    (sr, sr_shared, free_space)
                   else
                     let free_space' =
                       Int64.sub (physical_size sr') (physical_utilisation sr')
                     in
                     match sr with
                     | None ->
-                        (Some sr', free_space')
+                        let shared' = shared sr' in
+                        (Some sr', shared', free_space')
                     | Some sr -> (
-                      match (shared sr, shared sr') with
+                      match (sr_shared, shared sr') with
                       | true, false ->
-                          (Some sr, free_space)
+                          (Some sr, true, free_space)
                       | false, true ->
-                          (Some sr', free_space')
-                      | _ ->
+                          (Some sr', true, free_space')
+                      | shared, _ ->
                           if free_space' > free_space then
-                            (Some sr', free_space')
+                            (Some sr', shared, free_space')
                           else
-                            (Some sr, free_space)
+                            (Some sr, shared, free_space)
                     )
                 )
-                (None, Int64.zero) srs
+                (None, false, Int64.zero) srs
             in
             sr
           with _ -> None
