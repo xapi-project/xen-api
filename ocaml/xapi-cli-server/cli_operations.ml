@@ -4378,7 +4378,8 @@ let vm_migrate printer rpc session_id params =
             match List.assoc_opt "remote-network" params with
             | Some x ->
                 ( get_network_with x
-                , failwith (Printf.sprintf "Failed to find network: %s" x)
+                , failwith
+                    (Printf.sprintf "Failed to find network '%s' on host" x)
                 )
             | None ->
                 let search =
@@ -4434,20 +4435,18 @@ let vm_migrate printer rpc session_id params =
             (read_map_params "vgpu" params)
         in
         let preferred_sr =
-          (* The preferred SR is determined to be as the SR that the destine host has a PDB attached to it,
-             and among the choices of that the shared is preferred first(as it is recommended to have shared storage
-             in pool to host VMs), and then the one with the maximum available space *)
+          (* The preferred SR is determined to be as the SR that the
+             destination host has a PDB attached to it, and among the choices
+             of that the shared is preferred first (as it is recommended to
+             have shared storage in pool to host VMs), and then the one with
+             the maximum available space *)
           try
-            let pbd_in_host self =
-              let host_of () = remote (Client.PBD.get_host ~self) in
-              let attached () =
-                remote (Client.PBD.get_currently_attached ~self)
-              in
-              host_of () = host && attached ()
+            let pbd_attached self =
+              remote (Client.PBD.get_currently_attached ~self)
             in
             let srs =
-              remote Client.PBD.get_all
-              |> List.filter pbd_in_host
+              remote Client.Host.get_PBDs ~self:host
+              |> List.filter pbd_attached
               |> List.map (fun self -> remote (Client.PBD.get_SR ~self))
             in
             (* In the following loop, the current SR:sr' will be compared with previous checked ones,
