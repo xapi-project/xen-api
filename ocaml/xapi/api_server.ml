@@ -346,7 +346,7 @@ let jsoncallback req bio _ =
     Http_svr.response_str req
       ~hdrs:[(Http.Hdr.content_type, "application/json")]
       fd
-      (Jsonrpc.string_of_response
+      (Jsonrpc.string_of_response ~version:Jsonrpc.V2
          (Rpc.failure
             (Rpc.Enum (List.map (fun s -> Rpc.String s) (err :: params)))
          )
