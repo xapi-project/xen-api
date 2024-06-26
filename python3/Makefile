@@ -21,7 +21,8 @@ install:
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/probe-device-for-file $(DESTDIR)$(LIBEXECDIR)
-	
+	$(IPROG) libexec/print-custom-templates $(DESTDIR)$(LIBEXECDIR)
+
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
