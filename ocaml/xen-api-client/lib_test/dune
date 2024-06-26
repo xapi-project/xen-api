@@ -3,8 +3,8 @@
   (package xen-api-client)
   (libraries
     dune-build-info
+    alcotest
     rpclib.xml
-    ounit2
     uri
     xapi-client
     xapi-types

@@ -2802,7 +2802,7 @@ module Sr_stat = struct
         (Prototyped, rel_kolkata, "")
       ; (Published, rel_lima, "")
       ; ( Extended
-        , "24.16.0"
+        , "24.17.0"
         , "Enum extended with 'unreachable' and 'unavailable' values"
         )
       ]

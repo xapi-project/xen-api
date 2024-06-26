@@ -12,9 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
+let tests = [Test_helpers.tests; Test_iteratees.tests; Test_websockets.tests]
 
-let tests =
-  "tests" >::: [Test_helpers.test; Test_iteratees.test; Test_websockets.test]
-
-let () = ounit2_of_ounit1 tests |> OUnit2.run_test_tt_main
+let () = Alcotest.run "Wsproxy" tests

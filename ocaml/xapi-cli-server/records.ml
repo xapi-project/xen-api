@@ -5044,6 +5044,11 @@ let cluster_record rpc session_id cluster =
       ; make_field ~name:"cluster-stack"
           ~get:(fun () -> (x ()).API.cluster_cluster_stack)
           ()
+      ; make_field ~name:"cluster-stack-version"
+          ~get:(fun () ->
+            (x ()).API.cluster_cluster_stack_version |> Int64.to_string
+          )
+          ()
       ; make_field ~name:"token-timeout"
           ~get:(fun () -> string_of_float (x ()).API.cluster_token_timeout)
           ()

@@ -11,13 +11,24 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open OUnit
 open Lwt
 module IO = Vhd_format_lwt.IO
 module Impl = Vhd_format.F.From_file (IO)
 module F = Vhd_format.F
 module Field = F.Vhd.Field
 open Impl
+
+let header =
+  Alcotest.testable (Fmt.of_to_string F.Header.to_string) F.Header.equal
+
+let footer = Alcotest.testable (Fmt.of_to_string F.Footer.to_string) ( = )
+
+let bat = Alcotest.testable (Fmt.of_to_string F.BAT.to_string) F.BAT.equal
+
+let cstruct_to_string c = String.escaped (Cstruct.to_string c)
+
+let cstruct =
+  Alcotest.testable (Fmt.of_to_string cstruct_to_string) F.cstruct_equal
 
 module Memory = struct
   let alloc bytes =
@@ -76,8 +87,6 @@ let _absolute_sector_of vhd _position {Vhd_format.Patterns.block; sector} =
           (of_int relative_sector)
       )
 
-let cstruct_to_string c = String.escaped (Cstruct.to_string c)
-
 (* Verify that vhd [t] contains the sectors [expected] *)
 let check_written_sectors t expected =
   let y = Memory.alloc 512 in
@@ -90,7 +99,7 @@ let check_written_sectors t expected =
         | false ->
             fail (Failure "read empty sector, expected data")
         | true ->
-            assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal data y ;
+            Alcotest.check cstruct __LOC__ data y ;
             return ()
         )
         >>= fun () -> loop xs
@@ -130,12 +139,10 @@ let check_raw_stream_contents t expected =
               let actual = Cstruct.sub data (i * 512) 512 in
 
               ( if not (List.mem_assoc sector expected) then
-                  assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal
-                    empty_sector actual
+                  Alcotest.check cstruct __LOC__ empty_sector actual
                 else
                   let expected = List.assoc sector expected in
-                  assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal
-                    expected actual
+                  Alcotest.check cstruct __LOC__ expected actual
               ) ;
               check (i + 1)
           in
@@ -156,8 +163,7 @@ let check_raw_stream_contents t expected =
             else
               let expected = List.assoc offset expected in
               let actual = Cstruct.sub remaining 0 F.sector_size in
-              assert_equal ~printer:cstruct_to_string ~cmp:F.cstruct_equal
-                expected actual ;
+              Alcotest.check cstruct __LOC__ expected actual ;
               loop Int64.(add offset 1L) (Cstruct.shift remaining F.sector_size)
           in
           loop offset data
