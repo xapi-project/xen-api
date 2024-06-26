@@ -5,8 +5,8 @@ import time
 
 import XenAPIPlugin
 
-
-def main(session, args):
+# The 1st argument is the session. This plugin does not use it, hence use _:
+def main(_, args):
     if "sleep" in args:
         secs = int(args["sleep"])
         time.sleep(secs)
