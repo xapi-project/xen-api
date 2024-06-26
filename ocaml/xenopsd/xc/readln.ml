@@ -23,25 +23,26 @@ let read fd =
              (Bytes.to_string pending)
           )
   | n ->
-      let data = Bytes.sub buffer 0 n in
-      let inpt = try Hashtbl.find input fd with Not_found -> Bytes.empty in
-      Hashtbl.replace input fd (Bytes.cat inpt data) ;
-      let rec loop msgs =
-        let data = Hashtbl.find input fd in
-        (* never fails *)
-        match Bytes.index data '\n' with
-        | exception Not_found ->
-            Ok (List.rev msgs)
-        | index ->
+      let rec loop msgs data =
+        match Bytes.index_opt data '\n' with
+        | None ->
+            (List.rev msgs, data)
+        | Some index ->
             let remain =
               Bytes.sub data (index + 1) (Bytes.length data - index - 1)
             in
-            Hashtbl.replace input fd remain ;
-            (* reset input *)
-            loop (Bytes.sub_string data 0 index :: msgs)
-        (* store msg *)
+            loop
+              (Bytes.sub_string data 0 index :: msgs)
+              remain (* reset input *)
       in
-      loop []
+      let data = Bytes.sub buffer 0 n in
+      let inpt =
+        Option.value (Hashtbl.find_opt input fd) ~default:Bytes.empty
+      in
+      let inp_data = Bytes.cat inpt data in
+      let res, data = loop [] inp_data in
+      Hashtbl.replace input fd data ;
+      Ok res
   | exception Unix.Unix_error (error, _, _) ->
       Error (Unix.error_message error)
 
