@@ -5,7 +5,7 @@ import time
 
 import XenAPIPlugin
 
-#First argument passed in session which is not used ,using _ to ignore
+# The 1st argument is the session. This plugin does not use it, hence use _:
 def main(_, args):
     if "sleep" in args:
         secs = int(args["sleep"])
