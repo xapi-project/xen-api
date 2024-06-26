@@ -1046,6 +1046,10 @@ let bind ~volume_script_dir =
                            Healthy
                        | Xapi_storage.Control.Recovering _ ->
                            Recovering
+                       | Xapi_storage.Control.Unreachable _ ->
+                           Unreachable
+                       | Xapi_storage.Control.Unavailable _ ->
+                           Unavailable
                        )
                    }
                  in
@@ -1405,6 +1409,10 @@ let bind ~volume_script_dir =
                      Healthy
                  | Xapi_storage.Control.Recovering _ ->
                      Recovering
+                 | Xapi_storage.Control.Unreachable _ ->
+                     Unreachable
+                 | Xapi_storage.Control.Unavailable _ ->
+                     Unavailable
                  )
              }
          )
