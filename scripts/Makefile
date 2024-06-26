@@ -164,8 +164,6 @@ endif
 	$(IDATA) examples/python/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IPROG) examples/python/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
-# poweron
-	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
 # YUM plugins
 	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)
 	$(IDATA) yum-plugins/accesstoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
