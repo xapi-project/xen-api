@@ -151,25 +151,25 @@ let disable_database_replication ~__context ~vdi =
       debug "Attempting to disable metadata replication on VDI [%s:%s]."
         (Db.VDI.get_name_label ~__context ~self:vdi)
         (Db.VDI.get_uuid ~__context ~self:vdi) ;
-      if not (Hashtbl.mem metadata_replication vdi) then
-        debug "Metadata is not being replicated to this VDI."
-      else
-        let vbd, log = Hashtbl.find metadata_replication vdi in
-        Redo_log.shutdown log ;
-        Redo_log.disable log ;
-        (* Check the recorded VBD still exists before trying to unplug and destroy it. *)
-        if Db.is_valid_ref __context vbd then
-          Helpers.call_api_functions ~__context (fun rpc session_id ->
-              try
-                Attach_helpers.safe_unplug rpc session_id vbd ;
-                Client.VBD.destroy ~rpc ~session_id ~self:vbd
-              with e ->
-                debug "Caught %s while trying to dispose of VBD %s."
-                  (Printexc.to_string e) (Ref.string_of vbd)
-          ) ;
-        Hashtbl.remove metadata_replication vdi ;
-        Redo_log.delete log ;
-        Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
+      match Hashtbl.find_opt metadata_replication vdi with
+      | None ->
+          debug "Metadata is not being replicated to this VDI."
+      | Some (vbd, log) ->
+          Redo_log.shutdown log ;
+          Redo_log.disable log ;
+          (* Check the recorded VBD still exists before trying to unplug and destroy it. *)
+          if Db.is_valid_ref __context vbd then
+            Helpers.call_api_functions ~__context (fun rpc session_id ->
+                try
+                  Attach_helpers.safe_unplug rpc session_id vbd ;
+                  Client.VBD.destroy ~rpc ~session_id ~self:vbd
+                with e ->
+                  debug "Caught %s while trying to dispose of VBD %s."
+                    (Printexc.to_string e) (Ref.string_of vbd)
+            ) ;
+          Hashtbl.remove metadata_replication vdi ;
+          Redo_log.delete log ;
+          Db.VDI.set_metadata_latest ~__context ~self:vdi ~value:false
   )
 
 let database_open_mutex = Mutex.create ()

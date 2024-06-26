@@ -50,10 +50,11 @@ let register ~__context () =
 
 let info_of_driver (name : string) =
   let name = String.lowercase_ascii name in
-  if not (Hashtbl.mem driver_info_cache name) then
-    raise (Unknown_driver name)
-  else
-    Hashtbl.find driver_info_cache name
+  match Hashtbl.find_opt driver_info_cache name with
+  | Some x ->
+      x
+  | None ->
+      raise (Unknown_driver name)
 
 let features_of_driver (name : string) =
   (info_of_driver name).sr_driver_features

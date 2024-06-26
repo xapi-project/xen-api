@@ -250,10 +250,7 @@ module Sr = struct
 
   let m = Mutex.create ()
 
-  let find vdi sr =
-    with_lock m (fun () ->
-        try Some (Hashtbl.find sr.vdis vdi) with Not_found -> None
-    )
+  let find vdi sr = with_lock m (fun () -> Hashtbl.find_opt sr.vdis vdi)
 
   let add_or_replace vdi vdi_t sr =
     with_lock m (fun () -> Hashtbl.replace sr.vdis vdi vdi_t)
@@ -289,10 +286,7 @@ module Host = struct
 
   let m = Mutex.create ()
 
-  let find sr h =
-    with_lock m (fun () ->
-        try Some (Hashtbl.find h.srs sr) with Not_found -> None
-    )
+  let find sr h = with_lock m (fun () -> Hashtbl.find_opt h.srs sr)
 
   let remove sr h = with_lock m (fun () -> Hashtbl.remove h.srs sr)
 
@@ -388,12 +382,13 @@ functor
       let locks_find sr =
         let sr_key = s_of_sr sr in
         with_lock locks_m (fun () ->
-            if not (Hashtbl.mem locks sr_key) then (
-              let result = Storage_locks.make () in
-              Hashtbl.replace locks sr_key result ;
-              result
-            ) else
-              Hashtbl.find locks sr_key
+            match Hashtbl.find_opt locks sr_key with
+            | Some x ->
+                x
+            | None ->
+                let result = Storage_locks.make () in
+                Hashtbl.replace locks sr_key result ;
+                result
         )
 
       let locks_remove sr =

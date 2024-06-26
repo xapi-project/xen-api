@@ -187,12 +187,7 @@ let add (x : Stunnel.t) =
         ; verified= x.Stunnel.verified
         }
       in
-      let existing =
-        if Hashtbl.mem !index ep then
-          Hashtbl.find !index ep
-        else
-          []
-      in
+      let existing = Option.value (Hashtbl.find_opt !index ep) ~default:[] in
       Hashtbl.replace !index ep (idx :: existing) ;
       debug "Adding stunnel id %s (idle %.2f) to the cache" (id_of_stunnel x) 0. ;
       unlocked_gc ()

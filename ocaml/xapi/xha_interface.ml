@@ -276,10 +276,12 @@ module LiveSetInformation = struct
       | Xml.Element ("host", _, children) ->
           let table = hash_table_of_leaf_xml_element_list children in
           let find x =
-            try Hashtbl.find table x
-            with Not_found ->
-              invalid_arg
-                (Printf.sprintf "Missig entry '%s' within 'host' element" x)
+            match Hashtbl.find_opt table x with
+            | Some x ->
+                x
+            | None ->
+                invalid_arg
+                  (Printf.sprintf "Missig entry '%s' within 'host' element" x)
           in
           let bool s =
             try bool_of_string (String.lowercase_ascii s)
@@ -326,12 +328,14 @@ module LiveSetInformation = struct
       | Xml.Element ("host_raw_data", _, children) ->
           let table = hash_table_of_leaf_xml_element_list children in
           let find x =
-            try Hashtbl.find table x
-            with Not_found ->
-              invalid_arg
-                (Printf.sprintf
-                   "Missing entry '%s' within 'host_raw_data' element" x
-                )
+            match Hashtbl.find_opt table x with
+            | Some x ->
+                x
+            | None ->
+                invalid_arg
+                  (Printf.sprintf
+                     "Missing entry '%s' within 'host_raw_data' element" x
+                  )
           in
           let int s =
             try int_of_string (String.lowercase_ascii s)
@@ -382,12 +386,15 @@ module LiveSetInformation = struct
       | Xml.Element ("warning_on_local_host", _, children) ->
           let table = hash_table_of_leaf_xml_element_list children in
           let find x =
-            try Hashtbl.find table x
-            with Not_found ->
-              invalid_arg
-                (Printf.sprintf
-                   "Missing entry '%s' within 'warning_on_local_host' element" x
-                )
+            match Hashtbl.find_opt table x with
+            | Some x ->
+                x
+            | None ->
+                invalid_arg
+                  (Printf.sprintf
+                     "Missing entry '%s' within 'warning_on_local_host' element"
+                     x
+                  )
           in
           let bool x = find x = "TRUE" in
           Some
@@ -423,14 +430,16 @@ module LiveSetInformation = struct
       | Xml.Element ("raw_status_on_local_host", _, children) ->
           let table = hash_table_of_leaf_xml_element_list children in
           let find x =
-            try Hashtbl.find table x
-            with Not_found ->
-              invalid_arg
-                (Printf.sprintf
-                   "Missing entry '%s' within 'raw_status_on_local_host' \
-                    element"
-                   x
-                )
+            match Hashtbl.find_opt table x with
+            | Some x ->
+                x
+            | None ->
+                invalid_arg
+                  (Printf.sprintf
+                     "Missing entry '%s' within 'raw_status_on_local_host' \
+                      element"
+                     x
+                  )
           in
           let int s =
             try int_of_string (String.lowercase_ascii s)

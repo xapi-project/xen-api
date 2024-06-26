@@ -189,14 +189,14 @@ functor
                     (fun (i, m) ->
                       M.Mutex.with_lock requests_m (fun () ->
                           match m.Message.kind with
-                          | Message.Response j ->
-                              if Hashtbl.mem wakener j then
+                          | Message.Response j -> (
+                            match Hashtbl.find_opt wakener j with
+                            | Some x ->
                                 let rec loop events_conn =
                                   Connection.rpc events_conn (In.Ack i)
                                   >>= function
                                   | Ok (_ : string) ->
-                                      M.Ivar.fill (Hashtbl.find wakener j) (Ok m) ;
-                                      return (Ok ())
+                                      M.Ivar.fill x (Ok m) ; return (Ok ())
                                   | Error _ ->
                                       reconnect ()
                                       >>|= fun (requests_conn, events_conn) ->
@@ -205,7 +205,7 @@ functor
                                       loop events_conn
                                 in
                                 loop events_conn
-                              else (
+                            | None ->
                                 Printf.printf "no wakener for id %s, %Ld\n%!"
                                   (fst i) (snd i) ;
                                 Hashtbl.iter
@@ -216,7 +216,7 @@ functor
                                   )
                                   wakener ;
                                 return (Ok ())
-                              )
+                          )
                           | Message.Request _ ->
                               return (Ok ())
                       )

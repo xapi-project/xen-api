@@ -110,30 +110,32 @@ let vm_uuid_to_name_label_map = Hashtbl.create 20
 let host_uuid_to_name_label_map = Hashtbl.create 10
 
 let get_vm_name_label vm_uuid =
-  if Hashtbl.mem vm_uuid_to_name_label_map vm_uuid then
-    Hashtbl.find vm_uuid_to_name_label_map vm_uuid
-  else
-    let name_label, _session_id =
-      XAPI.retry_with_session
-        (fun session_id () -> XAPI.get_vm_name_label ~session_id ~uuid:vm_uuid)
-        ()
-    in
-    Hashtbl.replace vm_uuid_to_name_label_map vm_uuid name_label ;
-    name_label
+  match Hashtbl.find_opt vm_uuid_to_name_label_map vm_uuid with
+  | Some x ->
+      x
+  | None ->
+      let name_label, _session_id =
+        XAPI.retry_with_session
+          (fun session_id () -> XAPI.get_vm_name_label ~session_id ~uuid:vm_uuid)
+          ()
+      in
+      Hashtbl.replace vm_uuid_to_name_label_map vm_uuid name_label ;
+      name_label
 
 let get_host_name_label host_uuid =
-  if Hashtbl.mem host_uuid_to_name_label_map host_uuid then
-    Hashtbl.find host_uuid_to_name_label_map host_uuid
-  else
-    let name_label, _session_id =
-      XAPI.retry_with_session
-        (fun session_id () ->
-          XAPI.get_host_name_label ~session_id ~uuid:host_uuid
-        )
-        ()
-    in
-    Hashtbl.replace host_uuid_to_name_label_map host_uuid name_label ;
-    name_label
+  match Hashtbl.find_opt host_uuid_to_name_label_map host_uuid with
+  | Some x ->
+      x
+  | None ->
+      let name_label, _session_id =
+        XAPI.retry_with_session
+          (fun session_id () ->
+            XAPI.get_host_name_label ~session_id ~uuid:host_uuid
+          )
+          ()
+      in
+      Hashtbl.replace host_uuid_to_name_label_map host_uuid name_label ;
+      name_label
 
 module Ds_selector = struct
   type t = {

@@ -75,10 +75,12 @@ end = struct
   let make () = Hashtbl.create 100
 
   let is_virtual t addr =
-    try Hashtbl.find t addr
-    with Not_found ->
-      let v = is_virtual addr in
-      Hashtbl.replace t addr v ; v
+    match Hashtbl.find_opt t addr with
+    | Some x ->
+        x
+    | None ->
+        let v = is_virtual addr in
+        Hashtbl.replace t addr v ; v
 end
 
 (** [is_related_to x y] is true, if two non-virtual PCI devices

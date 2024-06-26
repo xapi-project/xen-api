@@ -409,7 +409,7 @@ let remove_from_progress_map id =
 
 let get_progress_map id =
   with_lock progress_map_m (fun () ->
-      try Hashtbl.find progress_map_tbl id with _ -> fun x -> x
+      Option.value (Hashtbl.find_opt progress_map_tbl id) ~default:Fun.id
   )
 
 let register_mirror __context mid =

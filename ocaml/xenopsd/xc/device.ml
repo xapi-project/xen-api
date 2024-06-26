@@ -2786,10 +2786,9 @@ module Backend = struct
         Hashtbl.remove ftod (Qmp_protocol.to_fd c) ;
         Hashtbl.remove dtoc domid
 
-      let domid_of fd = try Some (Hashtbl.find ftod fd) with Not_found -> None
+      let domid_of fd = Hashtbl.find_opt ftod fd
 
-      let channel_of domid =
-        try Some (Hashtbl.find dtoc domid) with Not_found -> None
+      let channel_of domid = Hashtbl.find_opt dtoc domid
     end
 
     (** File-descriptor event monitor implementation for the epoll library *)

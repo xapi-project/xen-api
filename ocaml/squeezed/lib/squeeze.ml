@@ -171,16 +171,23 @@ module Stuckness_monitor = struct
           direction_of_actual domain.inaccuracy_kib domain.memory_actual_kib
             domain.target_kib
         in
-        if not (Hashtbl.mem x.per_domain domain.domid) then
-          Hashtbl.replace x.per_domain domain.domid
-            (* new domains are considered to be making progress now and not
-               stuck *)
-            {
-              last_actual_kib= domain.memory_actual_kib
-            ; last_makingprogress_time= now
-            ; stuck= false
-            } ;
-        let state = Hashtbl.find x.per_domain domain.domid in
+        let state =
+          match Hashtbl.find_opt x.per_domain domain.domid with
+          | Some x ->
+              x
+          | None ->
+              (* new domains are considered to be making
+                 progress now and not stuck *)
+              let new_data =
+                {
+                  last_actual_kib= domain.memory_actual_kib
+                ; last_makingprogress_time= now
+                ; stuck= false
+                }
+              in
+              Hashtbl.replace x.per_domain domain.domid new_data ;
+              new_data
+        in
         let delta_actual = domain.memory_actual_kib -* state.last_actual_kib in
         state.last_actual_kib <- domain.memory_actual_kib ;
         (* If memory_actual is moving towards the target then we say we are
@@ -229,10 +236,11 @@ module Stuckness_monitor = struct
       progress. If it is not making progress it may have either hit its target
       or it may have failed. *)
   let domid_is_active (x : t) domid (_ : float) =
-    if not (Hashtbl.mem x.per_domain domid) then
-      false (* it must have been destroyed *)
-    else
-      not (Hashtbl.find x.per_domain domid).stuck
+    match Hashtbl.find_opt x.per_domain domid with
+    | Some x ->
+        not x.stuck
+    | None ->
+        false (* it must have been destroyed *)
 end
 
 type fistpoint =

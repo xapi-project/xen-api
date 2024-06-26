@@ -1572,9 +1572,12 @@ module Early_wakeup = struct
   let signal key =
     (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
     with_lock table_m (fun () ->
-        if Hashtbl.mem table key then
-          (*debug "Signalling thread blocked on (%s,%s)" a b;*)
-          Delay.signal (Hashtbl.find table key)
+        Option.iter
+          (fun x ->
+            (*debug "Signalling thread blocked on (%s,%s)" a b;*)
+            Delay.signal x
+          )
+          (Hashtbl.find_opt table key)
     )
 end
 

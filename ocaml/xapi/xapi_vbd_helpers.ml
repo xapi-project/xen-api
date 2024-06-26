@@ -60,6 +60,9 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       (ops : API.vbd_operations_set) =
     List.iter
       (fun op ->
+        (* Exception can't be raised since the hash table is
+           pre-filled for all_ops, and set_errors is applied
+           to a subset of all_ops *)
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
       )
@@ -296,21 +299,21 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   table
 
 let throw_error (table : table) op =
-  if not (Hashtbl.mem table op) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.internal_error
-         , [
-             Printf.sprintf
-               "xapi_vbd_helpers.assert_operation_valid unknown operation: %s"
-               (vbd_operation_to_string op)
-           ]
-         )
-      ) ;
-  match Hashtbl.find table op with
-  | Some (code, params) ->
-      raise (Api_errors.Server_error (code, params))
+  match Hashtbl.find_opt table op with
   | None ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.internal_error
+           , [
+               Printf.sprintf
+                 "xapi_vbd_helpers.assert_operation_valid unknown operation: %s"
+                 (vbd_operation_to_string op)
+             ]
+           )
+        )
+  | Some (Some (code, params)) ->
+      raise (Api_errors.Server_error (code, params))
+  | Some None ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.vbd_operations) =

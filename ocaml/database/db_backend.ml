@@ -104,8 +104,5 @@ let is_session_registered session =
 
 let get_registered_database session =
   with_lock db_registration_mutex (fun () ->
-      if Hashtbl.mem foreign_databases session then
-        Some (Hashtbl.find foreign_databases session)
-      else
-        None
+      Hashtbl.find_opt foreign_databases session
   )

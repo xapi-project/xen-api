@@ -91,11 +91,11 @@ let check_host_liveness ~__context =
         let live = Db.Host_metrics.get_live ~__context ~self:hmetric in
         (* See if the host is using the new HB mechanism, if so we'll use that *)
         let new_heartbeat_time =
-          try
-            with_lock host_table_m (fun () ->
-                Hashtbl.find host_heartbeat_table host
-            )
-          with _ -> 0.0
+          with_lock host_table_m (fun () ->
+              Option.value
+                (Hashtbl.find_opt host_heartbeat_table host)
+                ~default:0.0
+          )
           (* never *)
         in
         let old_heartbeat_time =
@@ -141,11 +141,9 @@ let check_host_liveness ~__context =
         ) ;
         (* Check for clock skew *)
         detect_clock_skew ~__context host
-          ( try
-              with_lock host_table_m (fun () ->
-                  Hashtbl.find host_skew_table host
-              )
-            with _ -> 0.
+          (with_lock host_table_m (fun () ->
+               Option.value (Hashtbl.find_opt host_skew_table host) ~default:0.
+           )
           )
       with exn ->
         debug "Ignoring exception inspecting metrics of host %s: %s"

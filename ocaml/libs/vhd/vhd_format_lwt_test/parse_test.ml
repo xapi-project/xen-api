@@ -173,12 +173,13 @@ let initial = {to_close= []; to_unlink= []; child= None; contents= []}
 let sectors = Hashtbl.create 16
 
 let sector_lookup message =
-  if Hashtbl.mem sectors message then
-    Hashtbl.find sectors message
-  else
-    let data = fill_sector_with message in
-    Hashtbl.replace sectors message data ;
-    data
+  match Hashtbl.find_opt sectors message with
+  | Some x ->
+      x
+  | None ->
+      let data = fill_sector_with message in
+      Hashtbl.replace sectors message data ;
+      data
 
 let execute state = function
   | Create size ->

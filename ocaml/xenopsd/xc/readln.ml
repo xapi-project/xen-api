@@ -11,7 +11,9 @@ let read fd =
   let buffer = Bytes.make buffer_size '\000' in
   match Unix.read fd buffer 0 buffer_size with
   | 0 ->
-      let pending = try Hashtbl.find input fd with Not_found -> Bytes.empty in
+      let pending =
+        Option.value (Hashtbl.find_opt input fd) ~default:Bytes.empty
+      in
       Hashtbl.remove input fd ;
       if pending = Bytes.empty then
         EOF

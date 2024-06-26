@@ -136,8 +136,8 @@ and gen_relations () =
 
 and process_relations ((oneClass, oneField), (manyClass, manyField)) =
   let value =
-    try (manyField, oneClass, oneField) :: Hashtbl.find relations manyClass
-    with Not_found -> [(manyField, oneClass, oneField)]
+    (manyField, oneClass, oneField)
+    :: Option.value (Hashtbl.find_opt relations manyClass) ~default:[]
   in
   Hashtbl.replace relations manyClass value
 

@@ -150,12 +150,7 @@ let remove_vdis_from_cache ~__context ~vdis =
   )
 
 let read_vdi_cache_record ~vdi =
-  with_lock db_vdi_cache_mutex (fun () ->
-      if Hashtbl.mem db_vdi_cache vdi then
-        Some (Hashtbl.find db_vdi_cache vdi)
-      else
-        None
-  )
+  with_lock db_vdi_cache_mutex (fun () -> Hashtbl.find_opt db_vdi_cache vdi)
 
 let handle_metadata_vdis ~__context ~sr =
   let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in

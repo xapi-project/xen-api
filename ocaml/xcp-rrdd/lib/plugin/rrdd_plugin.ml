@@ -50,8 +50,9 @@ let signal_name signum =
     List.iter (fun (str, key) -> Hashtbl.add t key str) map ;
     t
   in
-  try Hashtbl.find signals signum
-  with Not_found -> Printf.sprintf "unknown signal (%d)" signum
+  Option.value
+    (Hashtbl.find_opt signals signum)
+    ~default:(Printf.sprintf "unknown signal (%d)" signum)
 
 module Utils = Utils
 

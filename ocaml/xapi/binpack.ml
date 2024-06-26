@@ -51,11 +51,12 @@ let biggest_fit_decreasing (things : ('a * int64) list)
 let memoise f =
   let table = Hashtbl.create 10 in
   let rec lookup x =
-    if Hashtbl.mem table x then
-      Hashtbl.find table x
-    else
-      let result = f lookup x in
-      Hashtbl.add table x result ; result
+    match Hashtbl.find_opt table x with
+    | Some x ->
+        x
+    | None ->
+        let result = f lookup x in
+        Hashtbl.add table x result ; result
   in
   lookup
 
