@@ -80,8 +80,16 @@ jobs:
         env:
           PYTHONDEVMODE: yes
 
-      - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
+      - name: Upload Python ${{matrix.python-version}} coverage report to Codecov using v4
         uses: codecov/codecov-action@v4
+        id: codecov4
+        # v4 fixes coverage upload failures by not using tokenless uploads.
+        # It needs secrets.CODECOV_TOKEN(from master/repo or org) to be set up.
+        # With CODECOV_TOKEN, the coverage upload is not victim to GitHub's API
+        # rate limiting and it works for PRs, pushes, forks and builds on master.
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        if: env.CODECOV_TOKEN
         with:
           directory: .git
           fail_ci_if_error: false
@@ -89,8 +97,49 @@ jobs:
           files: coverage${{matrix.python-version}}.xml
           flags: python${{matrix.python-version}}
           name: coverage${{matrix.python-version}}
+
+      - name: Upload Python ${{matrix.python-version}} coverage report to Codecov using OpenID Connect
+        uses: codecov/codecov-action@v4
+        id: codecov_openid
+        # If the user has OpenID Connect, use it. Does not work on branches(e.g. on master after merges)
+        continue-on-error: true  # When OpenID Connect (OIDC) is not available(non-PRs), fall back to v3
+        if: steps.codecov4.outcome != 'success'
+        with:
+          directory: .git
+          env_vars: OS,PYTHON
+          files: coverage${{matrix.python-version}}.xml
+          flags: python${{matrix.python-version}}
+          name: coverage${{matrix.python-version}}
           use_oidc: true
+
+      - name: Upload Python ${{matrix.python-version}} coverage report to Codecov using v3
+        uses: codecov/codecov-action@v3
+        id: codecov3
+        # When v4 was not possible, we have no other option but to fall back to v3.
+        # The drawback of v3 is that it is victim to GitHub's API rate limiting, which
+        # can cause the coverage upload to fail. Only the owner of the repo (or the org)
+        # can fix this situation by adding the CODECOV_TOKEN secret to the repo (or org).
+        # This requires manual action and trust in the Codecov service to not impersonate
+        # the owner of the repo (or the org) beyond API access for coverage uploads:
+        # https://docs.codecov.com/docs/adding-the-codecov-token
+        if: steps.codecov4.outcome != 'success' && steps.codecov_openid.outcome != 'success'
+        with:
+          directory: .git
+          fail_ci_if_error: false
+          env_vars: OS,PYTHON
+          files: coverage${{matrix.python-version}}.xml
+          flags: python${{matrix.python-version}}
+          name: coverage${{matrix.python-version}}
           verbose: true
+
+      - name: Upload coverage report to Coveralls (alternative to Codecov - was used earlier)
+        uses: coverallsapp/github-action@v2
+        if: ${{ matrix.python-version != '2.7' }}
+        continue-on-error: true
+        with:
+          format: cobertura
+          files: .git/coverage${{matrix.python-version}}.xml
+          flag-name: python${{matrix.python-version}}
 
       - uses: dciborow/action-pylint@0.1.0
         if: ${{ matrix.python-version != '2.7' }}
