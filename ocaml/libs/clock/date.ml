@@ -85,6 +85,7 @@ let to_rfc3339 ((y, mon, d), ((h, min, s), _), print_type) =
   | Empty ->
       Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i" y mon d h min s
 
+(* Extracted from tondering.dk/claus/cal/chrweek.php#calcdow *)
 let weekday ~year ~mon ~day =
   let a = (14 - mon) / 12 in
   let y = year - a in
