@@ -53,6 +53,16 @@ let rbac_assert_permission_fn = ref None
 
 (* required to break dep-cycle with rbac.ml *)
 
+let are_auth_user_ids_of_sessions_equal ~__context s1 s2 =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
+  let s1_auth_user_sid =
+    Db_actions.DB_Action.Session.get_auth_user_sid ~__context ~self:s1
+  in
+  let s2_auth_user_sid =
+    Db_actions.DB_Action.Session.get_auth_user_sid ~__context ~self:s2
+  in
+  s1_auth_user_sid = s2_auth_user_sid
+
 let assert_op_valid ?(ok_if_no_session_in_context = false) ~__context task_id =
   let assert_permission_task_op_any () =
     match !rbac_assert_permission_fn with
@@ -77,19 +87,14 @@ let assert_op_valid ?(ok_if_no_session_in_context = false) ~__context task_id =
   | Some context_session ->
       let is_own_task =
         try
-          let task_session =
-            Db_actions.DB_Action.Task.get_session ~__context ~self:task_id
-          in
-          let task_auth_user_sid =
-            Db_actions.DB_Action.Session.get_auth_user_sid ~__context
-              ~self:task_session
-          in
-          let context_auth_user_sid =
-            Db_actions.DB_Action.Session.get_auth_user_sid ~__context
-              ~self:context_session
-          in
-          (*debug "task_auth_user_sid=%s,context_auth_user_sid=%s" task_auth_user_sid context_auth_user_sid;*)
-          task_auth_user_sid = context_auth_user_sid
+          (* If the task id is the same as the context's task id, we don't need
+             to go theough their respective sessions.*)
+          match Context.get_task_id __context = task_id with
+          | true ->
+              true
+          | false ->
+              are_auth_user_ids_of_sessions_equal ~__context context_session
+                (Db_actions.DB_Action.Task.get_session ~__context ~self:task_id)
         with e ->
           debug "assert_op_valid: %s" (ExnHelper.string_of_exn e) ;
           false

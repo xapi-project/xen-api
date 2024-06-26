@@ -525,7 +525,7 @@ let generate_errors () =
       ]
   in
   render_file
-    ("api_errors.mustache", "api-ref-autogen-errors.md")
+    ("api_errors.mustache", "api-errors.md")
     error_json templatesdir destdir
 
 let all api =

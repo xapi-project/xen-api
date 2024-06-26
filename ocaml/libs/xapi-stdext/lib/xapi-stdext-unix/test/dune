@@ -11,3 +11,13 @@
   ; use default random seed on stresstests
   (action (run %{dep:unixext_test.exe} -v -bt))
 )
+
+(executable
+ (modes exe)
+ (name test_systemd)
+ (modules test_systemd)
+ (libraries xapi-stdext-unix))
+
+(cram
+ (package xapi-stdext-unix)
+ (deps test_systemd.exe))

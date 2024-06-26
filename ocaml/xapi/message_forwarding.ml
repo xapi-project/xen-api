@@ -2126,6 +2126,7 @@ functor
                 ; `hard_reboot
                 ; `pool_migrate
                 ; `call_plugin
+                ; `shutdown
                 ; `suspend
                 ] ;
             (* If VM is actually suspended and we ask to hard_shutdown, we need to

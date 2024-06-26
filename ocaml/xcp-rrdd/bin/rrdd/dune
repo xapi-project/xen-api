@@ -17,7 +17,6 @@
     rrd-transport
     rrd-transport.lib
     stunnel
-    systemd
     threads.posix
     uuid
     xapi-backtrace
@@ -57,7 +56,6 @@
     rpclib.xml
     rrdd_libs_internal
     rrd-transport
-    systemd
     threads.posix
     uuid
     xapi-backtrace
