@@ -365,6 +365,9 @@ let canonicalise x =
     x
   else (* Search the PATH and XCP_PATH for the executable *)
     let paths =
+      (* Might be worth eliminating split_c function (used in a few
+         more places in this module and replacing it with
+         Astring.String.cuts since it's already imported in this module *)
       split_c ':' (Option.value (Sys.getenv_opt "PATH") ~default:"")
     in
     let first_hit =

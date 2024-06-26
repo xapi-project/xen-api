@@ -322,12 +322,13 @@ let timeout_tasks ~__context =
   let pending_old_run, pending_old_hung =
     List.partition
       (fun (_, t) ->
-        try
-          let pre_progress =
-            Hashtbl.find probation_pending_tasks t.Db_actions.task_uuid
-          in
-          t.Db_actions.task_progress -. pre_progress > min_float
-        with Not_found -> true
+        match
+          Hashtbl.find_opt probation_pending_tasks t.Db_actions.task_uuid
+        with
+        | Some pre_progress ->
+            t.Db_actions.task_progress -. pre_progress > min_float
+        | None ->
+            true
       )
       pending_old
   in
@@ -505,7 +506,7 @@ let timeout_sessions ~__context =
               `Name s.Db_actions.session_auth_user_name
           in
           let current_sessions =
-            try Hashtbl.find session_groups key with Not_found -> []
+            Option.value (Hashtbl.find_opt session_groups key) ~default:[]
           in
           Hashtbl.replace session_groups key (rs :: current_sessions)
       )

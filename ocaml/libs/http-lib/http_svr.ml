@@ -651,8 +651,11 @@ exception Socket_not_found
 (* Stop an HTTP server running on a socket *)
 let stop (socket, _name) =
   let server =
-    try Hashtbl.find socket_table socket
-    with Not_found -> raise Socket_not_found
+    match Hashtbl.find_opt socket_table socket with
+    | Some x ->
+        x
+    | None ->
+        raise Socket_not_found
   in
   Hashtbl.remove socket_table socket ;
   server.Server_io.shutdown ()

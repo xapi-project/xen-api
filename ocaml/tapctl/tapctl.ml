@@ -339,10 +339,9 @@ let canonicalise x =
     let path_env_var = Option.value (Sys.getenv_opt "PATH") ~default:"" in
     let paths = Astring.String.cuts ~sep:":" ~empty:false path_env_var in
     let xen_paths =
-      try
-        Astring.String.cuts ~sep:":" ~empty:false
-          (Option.value (Sys.getenv_opt "XCP_PATH") ~default:"")
-      with _ -> []
+      (* Can't raise an exception since the separator string isn't empty *)
+      Astring.String.cuts ~sep:":" ~empty:false
+        (Option.value (Sys.getenv_opt "XCP_PATH") ~default:"")
     in
     let first_hit =
       List.fold_left
