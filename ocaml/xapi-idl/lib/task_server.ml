@@ -112,10 +112,8 @@ functor
 
     (* [next_task_id ()] returns a fresh task id *)
     let next_task_id =
-      let counter = ref 0 in
-      fun () ->
-        let result = string_of_int !counter in
-        incr counter ; result
+      let counter = Atomic.make 0 in
+      fun () -> Atomic.fetch_and_add counter 1 |> string_of_int
 
     let set_cancel_trigger tasks dbg n =
       with_lock tasks.m (fun () -> tasks.test_cancel_trigger <- Some (dbg, n))
