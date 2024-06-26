@@ -36,8 +36,8 @@ def install(session, args):
     vdi_ref = None
     try:
         vdi_ref = session.xenapi.VDI.get_by_uuid(vdi)
-    except:
-        raise ArgumentError("VDI parameter invalid")
+    except Exception as exc:
+        raise ArgumentError("VDI parameter invalid") from exc
 
     inventory = xcp.environ.readInventory()
     this_host_uuid = inventory["INSTALLATION_UUID"]
@@ -46,8 +46,8 @@ def install(session, args):
     update_ref = None
     try:
         update_ref = session.xenapi.pool_update.introduce(vdi_ref)
-    except:
-        raise ArgumentError("VDI contains invalid update package")
+    except Exception as exc:
+        raise ArgumentError("VDI contains invalid update package") from exc
 
     try:
         session.xenapi.pool_update.apply(update_ref, this_host_ref)
@@ -57,9 +57,9 @@ def install(session, args):
             # "['ERRORCODE', 'error_message']"
             # fetch the error_message and display it.
             error = json.loads(str(e))[1].encode("utf8")
-        except:
+        except Exception:
             error = str(e)
-        raise InstallFailure("Failed to install the supplemental pack", error)
+        raise InstallFailure("Failed to install the supplemental pack", error) from e
 
     return "OK"
 
