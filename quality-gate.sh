@@ -104,6 +104,19 @@ unixgetenv () {
   fi
 }
 
+hashtblfind () {
+  N=36
+  # Looks for all .ml files except the ones using Core.Hashtbl.find,
+  # which already returns Option
+  HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
+  if [ "$HASHTBLFIND" -eq "$N" ]; then
+    echo "OK counted $HASHTBLFIND usages of exception-raising Hashtbl.find"
+  else
+    echo "ERROR expected $N usages of exception-raising Hashtbl.find, got $HASHTBLFIND" 1>&2
+    exit 1
+  fi
+}
+
 list-hd
 verify-cert
 mli-files
@@ -112,4 +125,5 @@ vtpm-unimplemented
 vtpm-fields
 ocamlyacc
 unixgetenv
+hashtblfind
 
