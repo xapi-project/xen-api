@@ -111,6 +111,18 @@ jobs:
           github_token: ${{ secrets.github_token }}
         continue-on-error: true
 
+  # For coverage of 2.7 and 3.11 we upload to Coveralls in parallel mode.
+  # To view the Coveralls results of the PR, click on the "Details" link to the right
+  # of the Coveralls Logo in the Checks section of the PR.
+  finish-parallel-coveralls-upload:
+    needs: python-test  # run after the python-test has completed uploading coverages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finish the parallel coverage upload to Coveralls
+        uses: coverallsapp/github-action@v1
+        with:
+          parallel-finished: true
+
   deprecation-test:
     name: Deprecation tests
     runs-on: ubuntu-22.04
