@@ -13,6 +13,7 @@ install:
 	$(IPROG) -d $(DESTDIR)$(PLUGINDIR)
 
 	
+	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 
 	$(IPROG) libexec/host-display $(DESTDIR)$(LIBEXECDIR)
