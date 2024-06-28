@@ -193,7 +193,7 @@ let get_is_internal ~__context ~self =
 let get_permissions_common ~__context ~role ~ret_value_fn =
   let rec rec_get_permissions_of_role ~__context ~role =
     let subroles = get_subroles ~__context ~self:role in
-    if List.length subroles = 0 then
+    if subroles = [] then
       (* base case = leaf node = permission is role itself *)
       [ret_value_fn role]
     else (* step = go recursively down composite roles *)
@@ -233,7 +233,7 @@ let get_by_permission ~__context ~permission =
 let get_by_permission_name_label ~__context ~label =
   let permission =
     let ps = get_by_name_label ~__context ~label in
-    if List.length ps > 0 then
+    if ps <> [] then
       List.hd ps (* names are unique, there's either 0 or 1*)
     else
       Ref.null

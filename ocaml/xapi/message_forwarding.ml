@@ -4527,7 +4527,7 @@ functor
         info "Bond.create: network = '%s'; members = [ %s ]"
           (network_uuid ~__context network)
           (String.concat "; " (List.map (pif_uuid ~__context) members)) ;
-        if List.length members = 0 then
+        if members = [] then
           raise
             (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, [])
             ) ;

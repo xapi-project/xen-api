@@ -811,7 +811,7 @@ let main () =
       let args, traceparent = parse_args args in
       (* All the named args are taken as permitted filename to be uploaded *)
       let permitted_filenames = get_permit_filenames args in
-      if List.length args < 1 then
+      if args = [] then
         raise Usage
       else
         with_open_channels @@ fun (ic, oc) ->
