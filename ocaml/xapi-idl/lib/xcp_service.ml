@@ -371,16 +371,11 @@ let canonicalise x =
       split_c ':' (Option.value (Sys.getenv_opt "PATH") ~default:"")
     in
     let first_hit =
-      List.fold_left
-        (fun found path ->
-          match found with
-          | Some _hit ->
-              found
-          | None ->
-              let possibility = Filename.concat path x in
-              if Sys.file_exists possibility then Some possibility else None
+      List.find_opt
+        (fun path ->
+          let possibility = Filename.concat path x in
+          Sys.file_exists possibility
         )
-        None
         (paths @ !extra_search_path)
     in
     match first_hit with
