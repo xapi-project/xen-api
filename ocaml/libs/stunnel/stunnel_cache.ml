@@ -80,7 +80,7 @@ let unlocked_gc () =
               (id_of_stunnel stunnel) (now -. stunnel_id)
               (now -. stunnel.Stunnel.connected_time)
         | _ ->
-            Printf.sprintf "(Invalid ID)"
+            Printf.sprintf "%s: found no entry for id=%d" __FUNCTION__ id
       in
       let string_of_endpoint ep = Printf.sprintf "%s:%d" ep.host ep.port in
       let string_of_index ep xs =
@@ -144,7 +144,8 @@ let unlocked_gc () =
                (limit is %d)"
               (id_of_stunnel stunnel) max_stunnel
         | None ->
-            debug "Couldn't find an expiring stunnel in the table"
+            debug "%s: Couldn't find an expiring stunnel (id=%d) in the table"
+              __FUNCTION__ x
       )
       oldest_ids ;
     to_gc := !to_gc @ oldest_ids
