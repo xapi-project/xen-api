@@ -56,7 +56,8 @@ let memoise f =
         x
     | None ->
         let result = f lookup x in
-        Hashtbl.add table x result ; result
+        Hashtbl.replace table x result ;
+        result
   in
   lookup
 
