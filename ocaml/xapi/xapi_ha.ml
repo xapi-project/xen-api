@@ -1777,7 +1777,7 @@ let enable __context heartbeat_srs configuration =
            )
         )
   in
-  if List.length unplugged_ununpluggable_pifs > 0 then
+  if unplugged_ununpluggable_pifs <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.required_pif_is_unplugged
@@ -1804,7 +1804,7 @@ let enable __context heartbeat_srs configuration =
       )
       not_bond_slaves
   in
-  if List.length without_disallow_unplug > 0 then (
+  if without_disallow_unplug <> [] then (
     let pifinfo =
       List.map
         (fun (pif, pifr) ->
@@ -1874,7 +1874,7 @@ let enable __context heartbeat_srs configuration =
       else
         heartbeat_srs
     in
-    if List.length possible_srs = 0 then
+    if possible_srs = [] then
       raise (Api_errors.Server_error (Api_errors.cannot_create_state_file, [])) ;
     (* For the moment we'll create a state file in one compatible SR since the xHA component only handles one *)
     let srs = [List.hd possible_srs] in

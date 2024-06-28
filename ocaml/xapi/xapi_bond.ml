@@ -98,7 +98,7 @@ let get_local_vifs ~__context host networks =
       false
     else
       let hosts = Xapi_vm.get_possible_hosts ~__context ~vm in
-      (List.mem host hosts && List.length hosts = 1) || List.length hosts = 0
+      (List.mem host hosts && List.length hosts = 1) || hosts = []
   in
   (* Make a list of the VIFs for local VMs *)
   let vms = Hashtbl.to_seq_keys vms_with_vifs |> List.of_seq in

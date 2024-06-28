@@ -41,7 +41,7 @@ let is_element = function Element (_, _, _) -> true | _ -> false
 let string_of_attribute = function
   | Attribute (n, options, default) ->
       let opt_string =
-        if List.length options = 0 then
+        if options = [] then
           "CDATA"
         else
           "(" ^ String.concat " | " options ^ ")"
@@ -59,7 +59,7 @@ let string_of_attribute = function
       sprintf "%s %s %s" n opt_string def_string
 
 let strings_of_attributes parent atts =
-  if List.length atts > 0 then
+  if atts <> [] then
     let prefix = sprintf "<!ATTLIST %s " parent in
     let body = List.map string_of_attribute atts in
     (prefix :: body) @ [">"]

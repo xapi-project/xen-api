@@ -121,7 +121,7 @@ let esc_pcdata data =
 
 let str_of_attrs attrs =
   let fmt s = Printf.sprintf s in
-  if List.length attrs > 0 then
+  if attrs <> [] then
     " "
     ^ String.concat " "
         (List.map (fun (k, v) -> fmt "%s=\"%s\"" k (esc_pcdata v)) attrs)

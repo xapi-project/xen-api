@@ -522,7 +522,7 @@ let revalidate_external_session ~__context ~session =
               in
               debug "verified intersection for session %s, sid %s "
                 (trackid session) authenticated_user_sid ;
-              let in_intersection = List.length intersection > 0 in
+              let in_intersection = intersection <> [] in
               if not in_intersection then (
                 (* empty intersection: externally-authenticated subject no longer has login rights in the pool *)
                 let msg =
@@ -1012,7 +1012,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                       intersect reflexive_membership_closure subject_ids_in_db
                     in
                     (* 2.3. finally, we create the session for the authenticated subject if any membership intersection was found *)
-                    let in_intersection = List.length intersection > 0 in
+                    let in_intersection = intersection <> [] in
                     if not in_intersection then (
                       (* empty intersection: externally-authenticated subject has no login rights in the pool *)
                       let msg =
@@ -1053,7 +1053,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                         get_permissions ~__context ~subject_membership
                       in
                       (* CP-1260: If a subject has no roles assigned, then authentication will fail with an error such as PERMISSION_DENIED.*)
-                      if List.length rbac_permissions < 1 then (
+                      if rbac_permissions = [] then (
                         let msg =
                           Printf.sprintf
                             "Subject %s (identifier %s) has no roles in this \

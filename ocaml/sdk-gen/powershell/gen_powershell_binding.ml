@@ -644,14 +644,14 @@ and gen_destructor obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
+        ( if asyncMessages <> [] then
             "\n    [OutputType(typeof(XenAPI.Task))]"
           else
             ""
         )
         (ocaml_class_to_csharp_class classname)
         (print_xenobject_params obj classname true true true)
-        ( if List.length asyncMessages > 0 then
+        ( if asyncMessages <> [] then
             sprintf
               "\n\
               \        protected override bool GenerateAsyncParam\n\
@@ -725,7 +725,7 @@ and gen_remover obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
+        ( if asyncMessages <> [] then
             "\n    [OutputType(typeof(XenAPI.Task))]"
           else
             ""
@@ -790,7 +790,7 @@ and gen_setter obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
+        ( if asyncMessages <> [] then
             "\n    [OutputType(typeof(XenAPI.Task))]"
           else
             ""
@@ -855,7 +855,7 @@ and gen_adder obj classname messages =
         Licence.bsd_two_clause
         (ocaml_class_to_csharp_class classname)
         (qualified_class_name classname)
-        ( if List.length asyncMessages > 0 then
+        ( if asyncMessages <> [] then
             "\n    [OutputType(typeof(XenAPI.Task))]"
           else
             ""
@@ -1060,7 +1060,7 @@ and is_message_with_dynamic_params classname message =
   let nonClassParams =
     List.filter (fun x -> not (is_class x classname)) message.msg_params
   in
-  if List.length nonClassParams > 0 || message.msg_async then
+  if nonClassParams <> [] || message.msg_async then
     true
   else
     false

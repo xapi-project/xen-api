@@ -108,7 +108,7 @@ let attach_internal ?(management_interface = false) ?(force_bringup = false)
   ) else (
     (* Ensure internal bridge exists and is up. external bridges will be
        brought up through Nm.bring_pif_up. *)
-    if List.length local_pifs = 0 then
+    if local_pifs = [] then
       create_internal_bridge ~__context ~bridge:net.API.network_bridge
         ~uuid:net.API.network_uuid ~persist ;
     (* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
