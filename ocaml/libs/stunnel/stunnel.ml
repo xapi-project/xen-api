@@ -50,13 +50,19 @@ let init_stunnel_path () =
             ; "/usr/bin/stunnel"
             ]
           in
-          let rec choose l =
-            match l with
-            | [] ->
+
+          let choose l =
+            match
+              List.find_opt
+                (fun el ->
+                  try Unix.access el [Unix.X_OK] ; true with _ -> false
+                )
+                l
+            with
+            | Some p ->
+                p
+            | None ->
                 raise Stunnel_binary_missing
-            | p :: ps -> (
-              try Unix.access p [Unix.X_OK] ; p with _ -> choose ps
-            )
           in
           let path = choose choices in
           path
