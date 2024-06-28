@@ -31,7 +31,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let internal_error fmt =
-  Printf.kprintf
+  Printf.ksprintf
     (fun str ->
       error "%s" str ;
       raise (Xenopsd_error (Internal_error str))

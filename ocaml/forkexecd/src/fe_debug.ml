@@ -18,7 +18,7 @@ let gettimestring () =
 let reset () = debug_log := []
 
 let debug (fmt : ('a, unit, string, unit) format4) =
-  Printf.kprintf
+  Printf.ksprintf
     (fun s ->
       debug_log :=
         Printf.sprintf "%s|%d|%s\n" (gettimestring ()) (Unix.getpid ()) s
