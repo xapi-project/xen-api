@@ -100,7 +100,7 @@ def list_vdis():
     files = []
     try:
         files = os.listdir(main_dir)
-    except:
+    except OSError:  # All possible errors are subclasses of OSError
         pass
     return list(map(load, files))
 
@@ -112,7 +112,7 @@ def fresh_name():
             i = str(i)
             if i not in files:
                 return i
-    except:
+    except OSError:  # All possible errors are subclasses of OSError
         # Directory doesn't exist
         os.mkdir(main_dir)
     return "0"  # Always return a string, fixes pyright error by not returning None
