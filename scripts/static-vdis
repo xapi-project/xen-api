@@ -97,20 +97,20 @@ def sr_attach(ty, device_config):
     return call_volume_plugin(ty, "SR.attach", args)
 
 def list_vdis():
-    all = []
+    files = []
     try:
-        all = os.listdir(main_dir)
+        files = os.listdir(main_dir)
     except:
         pass
-    return list(map(load, all))
+    return list(map(load, files))
 
 def fresh_name():
     """Return a unique name for a new static VDI configuration directory"""
     try:
-        all = os.listdir(main_dir)
-        for i in range(0, len(all) + 1): # guarantees to find a unique number
+        files = os.listdir(main_dir)
+        for i in range(0, len(files) + 1):  # guarantees to find a unique number
             i = str(i)
-            if i not in all:
+            if i not in files:
                 return i
     except:
         # Directory doesn't exist
