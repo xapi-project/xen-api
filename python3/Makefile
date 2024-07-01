@@ -29,6 +29,9 @@ install:
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/echo.py $(DESTDIR)$(PLUGINDIR)/echo
+# templates
+	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
+	$(IPROG) templates/debug $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
