@@ -145,9 +145,6 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-tracing-log-trim.cron $(DESTDIR)/etc/cron.d/xapi-tracing-log-trim.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
-# templates
-	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
-	$(IPROG) templates/debug $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 # host-backup-restore
 	$(IPROG) host-backup-restore/host-backup $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)
