@@ -222,7 +222,9 @@ class Session(xmlrpclib.ServerProxy):
         try:
             if self.last_login_method.startswith("slave_local"):
                 # Proxied function, pytype can't see it
-                return _parse_result(self.session.local_logout(self._session)) # pytype: disable=attribute-error
+                # pytype: disable=attribute-error
+                return _parse_result(self.session.local_logout(self._session))
+                # pytype: enable=attribute-error
             else:
                 return _parse_result(self.session.logout(self._session))
         finally:
