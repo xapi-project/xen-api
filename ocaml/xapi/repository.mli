@@ -20,6 +20,7 @@ val introduce :
   -> source_url:string
   -> update:bool
   -> gpgkey_path:string
+  -> origin:API.origin
   -> [`Repository] API.Ref.t
 
 val forget : __context:Context.t -> self:[`Repository] API.Ref.t -> unit

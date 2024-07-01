@@ -18,6 +18,15 @@ open Datamodel_roles
 
 let lifecycle = [(Lifecycle.Published, "1.301.0", "")]
 
+let origin =
+  Enum
+    ( "origin"
+    , [
+        ("remote", "The origin of the repository is a remote one")
+      ; ("bundle", "The origin of the repository is a local bundle file")
+      ]
+    )
+
 let introduce =
   call ~name:"introduce" ~in_oss_since:None
     ~lifecycle:[(Published, "1.301.0", "")]
@@ -67,6 +76,16 @@ let introduce =
         ; param_doc= "The GPG public key file name"
         ; param_release= numbered_release "1.301.0"
         ; param_default= Some (VString "")
+        }
+      ; {
+          param_type= origin
+        ; param_name= "origin"
+        ; param_doc=
+            "The origin of the repository. 'remote' if the origin of the \
+             repository is a remote one, 'bundle' if the origin of the \
+             repository is a local bundle file."
+        ; param_release= numbered_release "24.18.0-next"
+        ; param_default= Some (VEnum "remote")
         }
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
@@ -187,5 +206,10 @@ let t =
       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String
           ~default_value:(Some (VString "")) "gpgkey_path"
           "The file name of the GPG public key of this repository"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:origin "origin"
+          ~default_value:(Some (VEnum "remote"))
+          "The origin of the repository. 'remote' if the origin of the \
+           repository is a remote one, 'bundle' if the origin of the \
+           repository is a local bundle file."
       ]
     ()

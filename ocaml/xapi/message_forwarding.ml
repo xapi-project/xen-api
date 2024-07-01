@@ -6522,7 +6522,7 @@ functor
 
     module Repository = struct
       let introduce ~__context ~name_label ~name_description ~binary_url
-          ~source_url ~update ~gpgkey_path =
+          ~source_url ~update ~gpgkey_path ~origin =
         info
           "Repository.introduce: name = '%s'; name_description = '%s'; \
            binary_url = '%s'; source_url = '%s'; update = '%s'; gpgkey_path = \
@@ -6530,7 +6530,7 @@ functor
           name_label name_description binary_url source_url
           (string_of_bool update) gpgkey_path ;
         Local.Repository.introduce ~__context ~name_label ~name_description
-          ~binary_url ~source_url ~update ~gpgkey_path
+          ~binary_url ~source_url ~update ~gpgkey_path ~origin
 
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self) ;

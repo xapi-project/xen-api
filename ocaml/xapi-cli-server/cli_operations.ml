@@ -1311,6 +1311,7 @@ let gen_cmds rpc session_id =
           ; "hash"
           ; "up-to-date"
           ; "gpgkey-path"
+          ; "origin"
           ]
           rpc session_id
       )
@@ -7922,16 +7923,18 @@ end
 module Repository = struct
   let introduce printer rpc session_id params =
     let name_label = List.assoc "name-label" params in
-    let name_description =
-      try List.assoc "name-description" params with Not_found -> ""
-    in
-    let binary_url = List.assoc "binary-url" params in
-    let source_url = List.assoc "source-url" params in
+    let name_description = get_param params "name-description" ~default:"" in
+    let binary_url = get_param params "binary-url" ~default:"" in
+    let source_url = get_param params "source-url" ~default:"" in
     let update = get_bool_param params "update" in
     let gpgkey_path = get_param params "gpgkey-path" ~default:"" in
+    let origin =
+      Record_util.repo_origin_of_string
+        (get_param params "origin" ~default:"remote")
+    in
     let ref =
       Client.Repository.introduce ~rpc ~session_id ~name_label ~name_description
-        ~binary_url ~source_url ~update ~gpgkey_path
+        ~binary_url ~source_url ~update ~gpgkey_path ~origin
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])

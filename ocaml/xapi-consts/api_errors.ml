@@ -1309,7 +1309,13 @@ let invalid_base_url = add_error "INVALID_BASE_URL"
 
 let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
+let bundle_repo_url_should_be_empty =
+  add_error "BUNDLE_REPO_URL_SHOULD_BE_EMPTY"
+
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"
+
+let bundle_repo_update_should_be_true =
+  add_error "BUNDLE_REPO_UPDATE_SHOULD_BE_TRUE"
 
 let repository_is_in_use = add_error "REPOSITORY_IS_IN_USE"
 
