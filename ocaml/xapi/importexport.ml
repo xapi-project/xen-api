@@ -495,7 +495,7 @@ module Devicetype = struct
     | "vtpm" ->
         VTPM
     | other ->
-        let fail fmt = Printf.kprintf failwith fmt in
+        let fail fmt = Printf.ksprintf failwith fmt in
         fail "%s: Type '%s' not one of [%s]" __FUNCTION__ other
           (String.concat "; " (List.map to_string all))
 end

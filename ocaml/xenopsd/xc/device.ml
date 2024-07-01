@@ -38,7 +38,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let internal_error fmt =
-  Printf.kprintf
+  Printf.ksprintf
     (fun str ->
       error "%s" str ;
       raise (Xenopsd_error (Internal_error str))
@@ -3628,7 +3628,7 @@ module Dm = struct
     Q.Dm.pci_assign_guest ~xs ~index ~host
 
   let ioemu_failed emu fmt =
-    Printf.kprintf (fun msg -> raise (Ioemu_failed (emu, msg))) fmt
+    Printf.ksprintf (fun msg -> raise (Ioemu_failed (emu, msg))) fmt
 
   let wait_for_vgpu_state states ~timeout ~xs ~domid ~task vgpus =
     let open Xenops_interface.Vgpu in
