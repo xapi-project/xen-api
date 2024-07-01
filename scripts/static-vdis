@@ -115,7 +115,7 @@ def fresh_name():
     except:
         # Directory doesn't exist
         os.mkdir(main_dir)
-        return "0"
+    return "0"  # Always return a string, fixes pyright error by not returning None
         
 
 def to_string_list(d):
