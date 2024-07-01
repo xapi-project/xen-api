@@ -42,7 +42,6 @@ install:
 	$(IPROG) fence $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xha-lc $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) xapi-health-check $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IDATA) xapi-logrotate.conf $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-tracing-log-trim.sh $(DESTDIR)$(LIBEXECDIR)
