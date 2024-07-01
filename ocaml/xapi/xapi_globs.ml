@@ -1160,15 +1160,8 @@ let options_of_xapi_globs_spec =
               string_of_float !x
           | Int x ->
               string_of_int !x
-          | ShortDurationFromSeconds x ->
-              let literal =
-                Mtime.Span.to_uint64_ns !x |> fun ns ->
-                Int64.div ns 1_000_000_000L |> Int64.to_int |> string_of_int
-              in
-              Fmt.str "%s (%a)" literal Mtime.Span.pp !x
-          | LongDurationFromSeconds x ->
-              let literal = Clock.Timer.span_to_s !x |> string_of_float in
-              Fmt.str "%s (%a)" literal Mtime.Span.pp !x
+          | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
+              Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
         )
       , Printf.sprintf "Set the value of '%s'" name
       )
