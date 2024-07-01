@@ -216,8 +216,7 @@ class Session(xmlrpclib.ServerProxy):
             # pytype false positive: there is a socket.errno in both py2 and py3
             if e.errno == socket.errno.ETIMEDOUT: # pytype: disable=module-attr
                 raise xmlrpclib.Fault(504, 'The connection timed out')
-            else:
-                raise e
+            raise e
 
     def _logout(self):
         try:
