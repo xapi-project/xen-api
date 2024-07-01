@@ -58,6 +58,7 @@ import gettext
 import os
 import socket
 import sys
+import types
 
 if sys.version_info[0] == 2:
     import httplib as httplib
@@ -70,11 +71,41 @@ otel = False
 try:
     if os.environ["OTEL_SDK_DISABLED"] == "false":
         from opentelemetry import propagate
-        from opentelemetry.trace.propagation import set_span_in_context, get_current_span
+        from opentelemetry.trace.propagation import (
+            set_span_in_context,
+            get_current_span
+        )
         otel = True
 
 except Exception:
     pass
+
+def patch_transport(transport):
+    if otel and transport:
+        try:
+            original_make_connection = transport.make_connection
+
+            def with_tracecontext(self):
+                headers = {}
+                # pylint: disable=possibly-used-before-assignment
+                ctx = set_span_in_context(get_current_span())
+                # pylint: disable=possibly-used-before-assignment
+                propagators = propagate.get_global_textmap()
+                propagators.inject(headers, ctx)
+                self._extra_headers = []
+                for k, v in headers.items():
+                    self._extra_headers += [(k, v)]
+
+            def make_connection_with_tracecontext(self, host):
+                with_tracecontext(self)
+                return original_make_connection(host)
+
+            transport.make_connection = types.MethodType(
+                make_connection_with_tracecontext, transport
+                )
+
+        except Exception:
+            pass
 
 translation = gettext.translation('xen-xm', fallback = True)
 
@@ -97,7 +128,6 @@ class Failure(Exception):
         return dict([(str(i), self.details[i])
                      for i in range(len(self.details))])
 
-
 # Just a "constant" that we use to decide whether to retry the RPC
 _RECONNECT_AND_RETRY = object()
 
@@ -110,20 +140,8 @@ class UDSHTTPConnection(httplib.HTTPConnection):
 
 class UDSTransport(xmlrpclib.Transport):
     def add_extra_header(self, key, value):
-        self._extra_headers += [ (key,value) ]
-    def with_tracecontext(self):
-        if otel:
-            headers = {}
-            # pylint: disable=possibly-used-before-assignment
-            ctx = set_span_in_context(get_current_span())
-            # pylint: disable=possibly-used-before-assignment
-            propagators = propagate.get_global_textmap()
-            propagators.inject(headers, ctx)
-            self._extra_headers = []
-            for k, v in headers.items():
-                self.add_extra_header(k, v)
+        self._extra_headers += [(key, value)]
     def make_connection(self, host):
-        self.with_tracecontext()
         return UDSHTTPConnection(host)
 
 def notimplemented(name, *args, **kwargs):
@@ -143,7 +161,6 @@ class Session(xmlrpclib.ServerProxy):
 
     def __init__(self, uri, transport=None, encoding=None, verbose=0,
                  allow_none=1, ignore_ssl=False):
-
         # Fix for CA-172901 (+ Python 2.4 compatibility)
         # Fix for context=ctx ( < Python 2.7.9 compatibility)
         if not (sys.version_info[0] <= 2 and sys.version_info[1] <= 7 and sys.version_info[2] <= 9 ) \
@@ -155,6 +172,8 @@ class Session(xmlrpclib.ServerProxy):
         else:
             xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,
                                            verbose, allow_none)
+        #patch the transport created by xmlrpclib.ServerProxy
+        patch_transport(self._ServerProxy__transport)
         self.transport = transport
         self._session = None
         self.last_login_method = None
