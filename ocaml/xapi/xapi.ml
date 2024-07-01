@@ -1097,9 +1097,11 @@ let server_init () =
             , fun () ->
                 List.iter Xapi_http.add_handler master_only_http_handlers
             )
-          ; ( "Listening unix socket"
+          ; ( "Listening unix sockets"
             , []
-            , fun () -> listen_unix_socket Xapi_globs.unix_domain_socket
+            , fun () ->
+                let () = listen_unix_socket Xapi_globs.unix_domain_socket in
+                listen_unix_socket Xapi_globs.unix_domain_socket_sm
             )
           ; ( "Metadata VDI liveness monitor"
             , [Startup.OnlyMaster; Startup.OnThread]

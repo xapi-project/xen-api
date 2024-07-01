@@ -94,6 +94,8 @@ let is_unix_socket s =
   match Unix.getsockname s with
   | Unix.ADDR_UNIX path when path = Xapi_globs.unix_domain_socket ->
       true
+  | Unix.ADDR_UNIX path when path = Xapi_globs.unix_domain_socket_sm ->
+      true
   | Unix.ADDR_INET _ | Unix.ADDR_UNIX _ ->
       false
 
