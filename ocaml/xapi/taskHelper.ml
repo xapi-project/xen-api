@@ -43,8 +43,7 @@ let make ~__context ~http_other_config ?(description = "") ?session_id
         Ref.null
   in
   let (_ : unit) =
-    Db_actions.DB_Action.Task.create ~ref ~__context
-      ~created:(Date.of_float (Unix.time ()))
+    Db_actions.DB_Action.Task.create ~ref ~__context ~created:(Date.now ())
       ~finished:(Date.of_float 0.0) ~current_operations:[] ~_type:"<none/>"
       ~session:(Option.value ~default:Ref.null session_id)
       ~resident_on:!Xapi_globs.localhost_ref ~status:`pending ~result:""
@@ -203,7 +202,7 @@ let complete ~__context result =
         Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
           ~value:[] ;
         Db_actions.DB_Action.Task.set_finished ~__context ~self
-          ~value:(Date.of_float (Unix.time ())) ;
+          ~value:(Date.now ()) ;
         Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
         set_result_on_task ~__context self result ;
         Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`success
@@ -253,8 +252,7 @@ let cancel_this ~__context ~self =
   let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
   if status = `pending then (
     Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
-    Db_actions.DB_Action.Task.set_finished ~__context ~self
-      ~value:(Date.of_float (Unix.time ())) ;
+    Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.now ()) ;
     Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled ;
     Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
   ) else
@@ -279,7 +277,7 @@ let failed ~__context exn =
         Db_actions.DB_Action.Task.set_backtrace ~__context ~self
           ~value:(Sexplib.Sexp.to_string Backtrace.(sexp_of_t (get exn))) ;
         Db_actions.DB_Action.Task.set_finished ~__context ~self
-          ~value:(Date.of_float (Unix.time ())) ;
+          ~value:(Date.now ()) ;
         Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
           ~value:[] ;
         if code = Api_errors.task_cancelled then
