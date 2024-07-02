@@ -862,7 +862,6 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         ]
       in
       let ops =
-        (* If length > 0 *)
         if settable <> [] then
           ( cli_name "param-set"
           , ["uuid"]
@@ -878,7 +877,6 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           ops
       in
       let ops =
-        (* If length > 0 *)
         if addable <> [] then
           ops
           @ [
@@ -904,7 +902,6 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           ops
       in
       let ops =
-        (* If length > 0 *)
         if clearable <> [] then
           ops
           @ [
@@ -2935,7 +2932,7 @@ let event_wait_gen rpc session_id classname record_matches =
     (* true if anything matches now *)
     let find_any_match recs =
       let ls = List.map record_matches recs in
-      Option.is_some (List.find_opt (fun x -> x) ls)
+      List.exists Fun.id ls
     in
     find_any_match all_recs
   in
@@ -4068,7 +4065,7 @@ let vm_install printer rpc session_id params =
             failwith "No templates matched"
         | [x] ->
             x.getref ()
-        | _ :: _ ->
+        | _ :: _ :: _ ->
             failwith "More than one matching template found"
       in
       if
@@ -4119,7 +4116,7 @@ let console fd _printer rpc session_id params =
     | [] ->
         marshal fd (Command (PrintStderr "No VM found\n")) ;
         raise (ExitWithError 1)
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         marshal fd
           (Command
              (PrintStderr
@@ -4161,7 +4158,7 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
         ( match r.API.vDI_VBDs with
         | [] | [_] ->
             ""
-        | _ :: _ ->
+        | _ :: _ :: _ ->
             " ** WARNING: disk is shared by other VMs"
         )
     in
@@ -4491,7 +4488,7 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
           (Cli_printer.PTable
              [("Host(Uuid)", "Stars, RecID, ZeroScoreReason") :: table x]
           )
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         failwith
           "Multiple VMs found. Operation can only be performed on one VM at a \
            time"
@@ -5102,7 +5099,7 @@ let vm_cd_eject printer rpc session_id params =
         failwith "No CDs found"
     | [_] ->
         ()
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         failwith "Two or more CDs found. Please use vbd-eject"
     ) ;
     let cd = List.hd cdvbds in
@@ -5126,7 +5123,7 @@ let vm_cd_insert printer rpc session_id params =
       failwith ("CD " ^ cd_name ^ " not found")
   | [_] ->
       ()
-  | _ :: _ ->
+  | _ :: _ :: _ ->
       failwith
         ("Multiple CDs named "
         ^ cd_name
@@ -5152,7 +5149,7 @@ let vm_cd_insert printer rpc session_id params =
           )
     | [cd] ->
         Client.VBD.insert ~rpc ~session_id ~vbd:cd ~vdi:(List.hd vdis)
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         failwith "Two or more empty CD devices found. Please use vbd-insert"
   in
   ignore (do_vm_op printer rpc session_id op params ["cd-name"])

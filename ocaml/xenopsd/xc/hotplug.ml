@@ -289,7 +289,7 @@ let release (task : Xenops_task.task_handle) ~xc ~xs (x : device) =
     match domains_of_vm with
     | [] | [_] ->
         Some (get_private_data_path_of_device x)
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         None
   in
   let extra_xenserver_path = extra_xenserver_path_of_device ~xs x in
