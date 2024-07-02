@@ -42,7 +42,7 @@ let default_mime = "text/plain"
 
 (** Map a file extension to a MIME type *)
 let mime_of_ext mime ext =
-  try Hashtbl.find mime (lowercase ext) with Not_found -> default_mime
+  Option.value (Hashtbl.find_opt mime (lowercase ext)) ~default:default_mime
 
 (** Figure out a mime type from a full filename *)
 let mime_of_file_name mime fname =

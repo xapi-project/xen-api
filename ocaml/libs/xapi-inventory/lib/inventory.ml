@@ -116,14 +116,16 @@ exception Missing_inventory_key of string
 let lookup ?default key =
   M.execute inventory_m (fun () ->
       if not !loaded_inventory then read_inventory_contents () ;
-      if Hashtbl.mem inventory key then
-        Hashtbl.find inventory key
-      else
+      match Hashtbl.find_opt inventory key with
+      | Some x ->
+          x
+      | None -> (
         match default with
         | None ->
             raise (Missing_inventory_key key)
         | Some v ->
             v
+      )
   )
 
 let flush_to_disk_locked () =

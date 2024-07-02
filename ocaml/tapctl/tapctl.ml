@@ -336,10 +336,12 @@ let canonicalise x =
   if not (Filename.is_relative x) then
     x
   else (* Search the PATH and XCP_PATH for the executable *)
-    let paths = Astring.String.cuts ~sep:":" ~empty:false (Sys.getenv "PATH") in
+    let path_env_var = Option.value (Sys.getenv_opt "PATH") ~default:"" in
+    let paths = Astring.String.cuts ~sep:":" ~empty:false path_env_var in
     let xen_paths =
-      try Astring.String.cuts ~sep:":" ~empty:false (Sys.getenv "XCP_PATH")
-      with _ -> []
+      (* Can't raise an exception since the separator string isn't empty *)
+      Astring.String.cuts ~sep:":" ~empty:false
+        (Option.value (Sys.getenv_opt "XCP_PATH") ~default:"")
     in
     let first_hit =
       List.fold_left
@@ -361,7 +363,9 @@ let canonicalise x =
 let tap_ctl = canonicalise "tap-ctl"
 
 let invoke_tap_ctl _ cmd args =
-  let find x = try [x ^ "=" ^ Sys.getenv x] with _ -> [] in
+  let find x =
+    match Sys.getenv_opt x with Some v -> [x ^ "=" ^ v] | None -> []
+  in
   let env = Array.of_list (find "PATH" @ find "TAPDISK" @ find "TAPDISK2") in
   let stdout, _ = execute_command_get_output ~env tap_ctl (cmd :: args) in
   stdout

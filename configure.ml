@@ -84,11 +84,12 @@ let () =
   in
   List.iter print_endline lines ;
   (* Expand @LIBEXEC@ in udev rules *)
-  try
-    let xenopsd_libexecdir = Hashtbl.find config "XENOPSD_LIBEXECDIR" in
-    expand "@LIBEXEC@" xenopsd_libexecdir "ocaml/xenopsd/scripts/vif.in"
-      "ocaml/xenopsd/scripts/vif" ;
-    expand "@LIBEXEC@" xenopsd_libexecdir
-      "ocaml/xenopsd/scripts/xen-backend.rules.in"
-      "ocaml/xenopsd/scripts/xen-backend.rules"
-  with Not_found -> failwith "xenopsd_libexecdir not set"
+  match Hashtbl.find_opt config "XENOPSD_LIBEXECDIR" with
+  | Some xenopsd_libexecdir ->
+      expand "@LIBEXEC@" xenopsd_libexecdir "ocaml/xenopsd/scripts/vif.in"
+        "ocaml/xenopsd/scripts/vif" ;
+      expand "@LIBEXEC@" xenopsd_libexecdir
+        "ocaml/xenopsd/scripts/xen-backend.rules.in"
+        "ocaml/xenopsd/scripts/xen-backend.rules"
+  | None ->
+      failwith "xenopsd_libexecdir not set"

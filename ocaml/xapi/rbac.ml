@@ -149,10 +149,12 @@ let is_permission_in_session ~session_id ~permission ~session =
   let find_linear elem set = List.exists (fun e -> e = elem) set in
   let find_log elem set = Permission_set.mem elem set in
   let permission_tree =
-    try Some (Hashtbl.find session_permissions_tbl session_id)
-    with Not_found ->
-      create_session_permissions_tbl ~session_id
-        ~rbac_permissions:session.API.session_rbac_permissions
+    match Hashtbl.find_opt session_permissions_tbl session_id with
+    | None ->
+        create_session_permissions_tbl ~session_id
+          ~rbac_permissions:session.API.session_rbac_permissions
+    | x ->
+        x
   in
   match permission_tree with
   | Some permission_tree ->

@@ -65,10 +65,7 @@ end
 let next_transfer_expected : (string, int64) Hashtbl.t = Hashtbl.create 128
 
 let get_next_transfer_expected name =
-  if Hashtbl.mem next_transfer_expected name then
-    Some (Hashtbl.find next_transfer_expected name)
-  else
-    None
+  Hashtbl.find_opt next_transfer_expected name
 
 let record_transfer time name = Hashtbl.replace next_transfer_expected name time
 

@@ -63,43 +63,41 @@ let send_bond_change_alert _dev interfaces message =
 let check_for_changes ~(dev : string) ~(stat : Network_monitor.iface_stats) =
   let open Network_monitor in
   match Astring.String.is_prefix ~affix:"vif" dev with
-  | true ->
-      ()
-  | false ->
-      if stat.nb_links > 1 then
-        if (* It is a bond. *)
-           Hashtbl.mem bonds_status dev then (
-          (* Seen before. *)
-          let nb_links_old, links_up_old = Hashtbl.find bonds_status dev in
-          if links_up_old <> stat.links_up then (
-            info "Bonds status changed: %s nb_links %d up %d up_old %d" dev
-              stat.nb_links stat.links_up links_up_old ;
-            Hashtbl.replace bonds_status dev (stat.nb_links, stat.links_up) ;
-            let msg =
-              Printf.sprintf "changed: %d/%d up (was %d/%d)" stat.links_up
-                stat.nb_links links_up_old nb_links_old
-            in
-            try send_bond_change_alert dev stat.interfaces msg
-            with e ->
-              debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
-                (Printexc.to_string e)
-                (Printexc.get_backtrace ())
-          )
-        ) else (
-          (* Seen for the first time. *)
-          Hashtbl.add bonds_status dev (stat.nb_links, stat.links_up) ;
-          info "New bonds status: %s nb_links %d up %d" dev stat.nb_links
-            stat.links_up ;
-          if stat.links_up <> stat.nb_links then
-            let msg =
-              Printf.sprintf "is: %d/%d up" stat.links_up stat.nb_links
-            in
-            try send_bond_change_alert dev stat.interfaces msg
-            with e ->
-              debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
-                (Printexc.to_string e)
-                (Printexc.get_backtrace ())
+  | false when stat.nb_links > 1 -> (
+    (* It is a bond. *)
+    match Hashtbl.find_opt bonds_status dev with
+    | Some (nb_links_old, links_up_old) ->
+        (* Seen before. *)
+        if links_up_old <> stat.links_up then (
+          info "Bonds status changed: %s nb_links %d up %d up_old %d" dev
+            stat.nb_links stat.links_up links_up_old ;
+          Hashtbl.replace bonds_status dev (stat.nb_links, stat.links_up) ;
+          let msg =
+            Printf.sprintf "changed: %d/%d up (was %d/%d)" stat.links_up
+              stat.nb_links links_up_old nb_links_old
+          in
+          try send_bond_change_alert dev stat.interfaces msg
+          with e ->
+            debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
+              (Printexc.to_string e)
+              (Printexc.get_backtrace ())
         )
+    | None -> (
+        (* Seen for the first time. *)
+        Hashtbl.add bonds_status dev (stat.nb_links, stat.links_up) ;
+        info "New bonds status: %s nb_links %d up %d" dev stat.nb_links
+          stat.links_up ;
+        if stat.links_up <> stat.nb_links then
+          let msg = Printf.sprintf "is: %d/%d up" stat.links_up stat.nb_links in
+          try send_bond_change_alert dev stat.interfaces msg
+          with e ->
+            debug "Error while sending alert BONDS_STATUS_CHANGED: %s\n%s"
+              (Printexc.to_string e)
+              (Printexc.get_backtrace ())
+      )
+  )
+  | _ ->
+      ()
 
 let failed_again = ref false
 

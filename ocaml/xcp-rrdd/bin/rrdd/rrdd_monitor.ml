@@ -138,31 +138,31 @@ let update_rrds timestamp dss uuid_domids paused_vms =
         in
         let dss = StringMap.to_seq dss |> Seq.map snd |> List.of_seq in
 
-        try
-          let domid = StringMap.find vm_uuid uuid_domids in
+        match StringMap.find_opt vm_uuid uuid_domids with
+        | Some domid -> (
           (* First, potentially update the rrd with any new default dss *)
-          try
-            let rrdi = Hashtbl.find vm_rrds vm_uuid in
-            let rrd = merge_new_dss rrdi.rrd dss in
-            Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid} ;
-            (* CA-34383: Memory updates from paused domains serve no useful
-               purpose. During a migrate such updates can also cause undesirable
-               discontinuities in the observed value of memory_actual. Hence, we
-               ignore changes from paused domains: *)
-            if not (StringSet.mem vm_uuid paused_vms) then (
-              Rrd.ds_update_named rrd timestamp ~new_domid:(domid <> rrdi.domid)
-                named_updates ;
-              rrdi.dss <- dss ;
-              rrdi.domid <- domid
-            )
-          with
-          | Not_found ->
+          match Hashtbl.find_opt vm_rrds vm_uuid with
+          | Some rrdi ->
+              let rrd = merge_new_dss rrdi.rrd dss in
+              Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid} ;
+              (* CA-34383: Memory updates from paused domains serve no useful
+                 purpose. During a migrate such updates can also cause undesirable
+                 discontinuities in the observed value of memory_actual. Hence, we
+                 ignore changes from paused domains: *)
+              if not (StringSet.mem vm_uuid paused_vms) then (
+                Rrd.ds_update_named rrd timestamp
+                  ~new_domid:(domid <> rrdi.domid) named_updates ;
+                rrdi.dss <- dss ;
+                rrdi.domid <- domid
+              )
+          | None ->
               debug "%s: Creating fresh RRD for VM uuid=%s" __FUNCTION__ vm_uuid ;
               let rrd = create_fresh_rrd !use_min_max dss in
               Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid}
-          | e ->
-              raise e
-        with _ -> log_backtrace ()
+        )
+        | None ->
+            info "%s: VM uuid=%s is not resident in this host, ignoring rrds"
+              __FUNCTION__ vm_uuid
       in
       let process_sr sr_uuid dss =
         let named_updates =
@@ -171,20 +171,17 @@ let update_rrds timestamp dss uuid_domids paused_vms =
         let dss = StringMap.to_seq dss |> Seq.map snd |> List.of_seq in
         try
           (* First, potentially update the rrd with any new default dss *)
-          try
-            let rrdi = Hashtbl.find sr_rrds sr_uuid in
-            let rrd = merge_new_dss rrdi.rrd dss in
-            Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid= 0} ;
-            Rrd.ds_update_named rrd timestamp ~new_domid:false named_updates ;
-            rrdi.dss <- dss ;
-            rrdi.domid <- 0
-          with
-          | Not_found ->
+          match Hashtbl.find_opt sr_rrds sr_uuid with
+          | Some rrdi ->
+              let rrd = merge_new_dss rrdi.rrd dss in
+              Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid= 0} ;
+              Rrd.ds_update_named rrd timestamp ~new_domid:false named_updates ;
+              rrdi.dss <- dss ;
+              rrdi.domid <- 0
+          | None ->
               debug "%s: Creating fresh RRD for SR uuid=%s" __FUNCTION__ sr_uuid ;
               let rrd = create_fresh_rrd !use_min_max dss in
               Hashtbl.replace sr_rrds sr_uuid {rrd; dss; domid= 0}
-          | e ->
-              raise e
         with _ -> log_backtrace ()
       in
       let process_host dss =

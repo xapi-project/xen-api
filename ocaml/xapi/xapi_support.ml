@@ -29,7 +29,7 @@ let do_upload label file url options =
     if List.mem_assoc "http_proxy" options then
       List.assoc "http_proxy" options
     else
-      try Unix.getenv "http_proxy" with _ -> ""
+      Option.value (Sys.getenv_opt "http_proxy") ~default:""
   in
   let env = Helpers.env_with_path [("URL", url); ("PROXY", proxy)] in
   match

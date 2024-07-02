@@ -112,13 +112,13 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
           List.iter
             (fun task ->
               if List.mem task !active_tasks then (
-                ( if not (Hashtbl.mem tasks_to_vm task) then
+                ( match Hashtbl.find_opt tasks_to_vm task with
+                | None ->
                     debug ~out:stderr
                       "Ignoring completed task which doesn't correspond to a \
                        VM %s"
                       opname
-                  else
-                    let uuid = Hashtbl.find tasks_to_vm task in
+                | Some uuid ->
                     let started = Hashtbl.find vm_to_start_time uuid in
                     let time_taken = Unix.gettimeofday () -. started in
                     results := time_taken :: !results ;

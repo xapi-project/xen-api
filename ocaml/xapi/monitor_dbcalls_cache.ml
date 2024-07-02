@@ -96,8 +96,11 @@ let clear_cache () =
 let transfer_map ?(except = []) ~source ~target () =
   List.iter
     (fun ex ->
-      try Hashtbl.replace source ex (Hashtbl.find target ex)
-      with Not_found -> Hashtbl.remove source ex
+      match Hashtbl.find_opt target ex with
+      | Some elem ->
+          Hashtbl.replace source ex elem
+      | None ->
+          Hashtbl.remove source ex
     )
     except ;
   Hashtbl.clear target ;
@@ -107,10 +110,11 @@ let transfer_map ?(except = []) ~source ~target () =
 let get_updates ~before ~after ~f =
   Hashtbl.fold
     (fun k v acc ->
-      if try v <> Hashtbl.find before k with Not_found -> true then
-        f k v acc
-      else
-        acc
+      match Hashtbl.find_opt before k with
+      | Some x when v = x ->
+          acc
+      | _ ->
+          f k v acc
     )
     after []
 

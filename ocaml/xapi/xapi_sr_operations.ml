@@ -98,6 +98,9 @@ let valid_operations ~__context ?op record _ref' : table =
       (ops : API.storage_operations_set) =
     List.iter
       (fun op ->
+        (* Exception can't be raised since the hash table is
+           pre-filled for all_ops, and set_errors is applied
+           to a subset of all_ops (disallowed_during_rpu) *)
         if Hashtbl.find table op = None then
           Hashtbl.replace table op (Some (code, params))
       )
@@ -221,21 +224,21 @@ let valid_operations ~__context ?op record _ref' : table =
   table
 
 let throw_error (table : table) op =
-  if not (Hashtbl.mem table op) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.internal_error
-         , [
-             Printf.sprintf
-               "xapi_sr.assert_operation_valid unknown operation: %s"
-               (sr_operation_to_string op)
-           ]
-         )
-      ) ;
-  match Hashtbl.find table op with
-  | Some (code, params) ->
-      raise (Api_errors.Server_error (code, params))
+  match Hashtbl.find_opt table op with
   | None ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.internal_error
+           , [
+               Printf.sprintf
+                 "xapi_sr.assert_operation_valid unknown operation: %s"
+                 (sr_operation_to_string op)
+             ]
+           )
+        )
+  | Some (Some (code, params)) ->
+      raise (Api_errors.Server_error (code, params))
+  | Some None ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.storage_operations) =

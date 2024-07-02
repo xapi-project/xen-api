@@ -9,7 +9,13 @@ module Bisect = struct
   let bisect_file = "BISECT_FILE"
 
   let dump jobid =
-    let bisect_prefix = Unix.getenv bisect_file in
+    let bisect_prefix =
+      match Sys.getenv_opt bisect_file with
+      | Some x ->
+          x
+      | None ->
+          D.warn "No $BISECT_FILE default set: %s" __LOC__
+    in
     (* dump coverage information in same location as it would normally get
        dumped on exit, except also embed the jobid to make it easier to group.
        Relies on [open_temp_file] generating a unique filename given a
@@ -39,8 +45,7 @@ module Bisect = struct
   let init_env name =
     let ( // ) = Filename.concat in
     let tmpdir = Filename.get_temp_dir_name () in
-    try ignore (Sys.getenv bisect_file)
-    with Not_found ->
+    if Option.is_none (Sys.getenv_opt bisect_file) then
       Unix.putenv bisect_file (tmpdir // Printf.sprintf "bisect-%s-" name)
 
   let process body =

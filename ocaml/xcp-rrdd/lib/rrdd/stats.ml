@@ -74,10 +74,9 @@ let sample (name : string) (x : float) : unit =
   let x' = log x in
   with_lock timings_m (fun () ->
       let p =
-        if Hashtbl.mem timings name then
-          Hashtbl.find timings name
-        else
-          Normal_population.empty
+        Option.value
+          (Hashtbl.find_opt timings name)
+          ~default:Normal_population.empty
       in
       let p' = Normal_population.sample p x' in
       Hashtbl.replace timings name p'
@@ -143,17 +142,19 @@ let log_db_call task_opt dbcall ty =
               dbstats_drop_dbcalls
         in
         Hashtbl.replace hashtbl dbcall
-          (1 + try Hashtbl.find hashtbl dbcall with _ -> 0) ;
+          (1 + Option.value (Hashtbl.find_opt hashtbl dbcall) ~default:0) ;
         let threadid = Thread.id (Thread.self ()) in
         Hashtbl.replace dbstats_threads threadid
           ((dbcall, ty)
-          :: (try Hashtbl.find dbstats_threads threadid with _ -> [])
+          :: Option.value
+               (Hashtbl.find_opt dbstats_threads threadid)
+               ~default:[]
           ) ;
         match task_opt with
         | Some task ->
             Hashtbl.replace dbstats_task task
               ((dbcall, ty)
-              :: (try Hashtbl.find dbstats_task task with _ -> [])
+              :: Option.value (Hashtbl.find_opt dbstats_task task) ~default:[]
               )
         | None ->
             ()
