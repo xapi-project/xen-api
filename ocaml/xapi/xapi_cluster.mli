@@ -74,3 +74,13 @@ val pool_resync : __context:Context.t -> self:API.ref_Cluster -> unit
     Cluster_host objects (ie., one for each host in the pool if the Cluster
     has [pool_auto_join] set. If there is a failure, this function must return
     an error that enables the administrator to fix the problem. *)
+
+val cstack_sync : __context:Context.t -> self:API.ref_Cluster -> unit
+(** [cstack_sync ~__context ~self] is the implementation of the internal XenAPI method,
+which synchronously performs a diagnostics call to xapi-clusterd and updates the
+xapi db according to the call. This is used internally by cluster-host-create/destroy
+to generate the correct alert as a result of the API call. The other part of the
+alerts generated due to network failure (e.g. a host left as its network is down)
+is handled by the cluster watcher. This call only happens on the coordinator as that
+is where the cluster watcher performs the updates, which shares the code with
+this function.  *)
