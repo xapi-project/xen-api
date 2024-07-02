@@ -46,8 +46,6 @@ let setup sock cmdargs id_to_fd_map syslog_stdout redirect_stderr_to_stdout env
     Some {Fe.fd_sock_path}
   )
 
-let systemd_managed () = try Daemon.booted () with Unix.Unix_error _ -> false
-
 let _ =
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
 
@@ -63,8 +61,10 @@ let _ =
   in
   Xapi_stdext_unix.Unixext.mkdir_rec Forkhelpers.temp_dir_server 0o755 ;
 
-  if systemd_managed () then
-    Daemon.notify Daemon.State.Ready |> ignore ;
+  let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
+  if Daemon.systemd_booted () && not (Daemon.systemd_notify Daemon.State.Ready)
+  then
+    warn "Sending systemd notification failed at %s" __LOC__ ;
 
   (* At this point the init.d script should return and we are listening on our socket. *)
   while true do

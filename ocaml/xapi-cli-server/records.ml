@@ -5114,6 +5114,11 @@ let cluster_record rpc session_id cluster =
       ; make_field ~name:"cluster-stack"
           ~get:(fun () -> (x ()).API.cluster_cluster_stack)
           ()
+      ; make_field ~name:"cluster-stack-version"
+          ~get:(fun () ->
+            (x ()).API.cluster_cluster_stack_version |> Int64.to_string
+          )
+          ()
       ; make_field ~name:"token-timeout"
           ~get:(fun () -> string_of_float (x ()).API.cluster_token_timeout)
           ()
@@ -5301,6 +5306,12 @@ let certificate_record rpc session_id certificate =
           ()
       ; make_field ~name:"fingerprint"
           ~get:(fun () -> (x ()).API.certificate_fingerprint)
+          ()
+      ; make_field ~name:"fingerprint_sha256"
+          ~get:(fun () -> (x ()).API.certificate_fingerprint_sha256)
+          ()
+      ; make_field ~name:"fingerprint_sha1"
+          ~get:(fun () -> (x ()).API.certificate_fingerprint_sha1)
           ()
       ]
   }

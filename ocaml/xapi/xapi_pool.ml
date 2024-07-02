@@ -775,7 +775,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       list
       |> List.to_seq
       |> Seq.map (fun (_, record) ->
-             (record.API.certificate_name, record.API.certificate_fingerprint)
+             ( record.API.certificate_name
+             , record.API.certificate_fingerprint_sha256
+             )
          )
       |> CertMap.of_seq
     in
