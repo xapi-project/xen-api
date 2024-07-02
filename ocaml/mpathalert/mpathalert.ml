@@ -37,7 +37,7 @@ let stdout_m = Mutex.create ()
 let debug (fmt : ('a, unit, string, unit) format4) =
   if !print_debug then
     with_lock stdout_m (fun () ->
-        Printf.kprintf
+        Printf.ksprintf
           (fun s ->
             Printf.printf "%s [%d] %s\n"
               (time_of_float (Unix.gettimeofday ()))
@@ -48,7 +48,7 @@ let debug (fmt : ('a, unit, string, unit) format4) =
           fmt
     )
   else
-    Printf.kprintf (Fun.const ()) fmt
+    Printf.ksprintf (Fun.const ()) fmt
 
 type t = {
     host: [`host] Uuidx.t

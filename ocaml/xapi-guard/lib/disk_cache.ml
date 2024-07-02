@@ -398,9 +398,9 @@ end = struct
     let* failed = retry true in
     ( if failed then
         let elapsed = Mtime_clock.count counter in
-        D.debug "%s: Pushed %s after trying for %s" __FUN
+        D.debug "%s: Pushed %s after trying for %a" __FUN
           (print_key (uuid, timestamp, key))
-          (Fmt.to_to_string Mtime.Span.pp elapsed)
+          Debug.Pp.mtime_span elapsed
     ) ;
     Lwt.return_unit
 

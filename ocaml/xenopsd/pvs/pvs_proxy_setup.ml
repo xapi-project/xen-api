@@ -30,7 +30,7 @@ end)
 module XS = Ezxenstore_core.Xenstore
 
 let error fmt =
-  Printf.kprintf
+  Printf.ksprintf
     (fun msg ->
       D.error "%s" msg ;
       Result.error (`Msg msg)

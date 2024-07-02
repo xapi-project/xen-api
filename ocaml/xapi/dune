@@ -64,6 +64,7 @@
     astring
     cstruct
     base64
+    clock
     cohttp
     cohttp_posix
     domain-name

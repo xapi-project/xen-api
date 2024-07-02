@@ -48,7 +48,7 @@ end
 (* === UCS Validators === *)
 
 module type UCS_VALIDATOR = sig
-  val validate : Uchar.t -> unit [@@inline]
+  val validate : Uchar.t -> unit
 end
 
 module UTF8_UCS_validator = struct
