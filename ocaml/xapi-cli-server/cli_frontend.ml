@@ -3639,8 +3639,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
     )
   ; ( "repository-introduce"
     , {
-        reqd= ["name-label"; "binary-url"; "source-url"; "update"]
-      ; optn= ["name-description"; "gpgkey-path"]
+        reqd= ["name-label"; "update"; "origin"]
+      ; optn= ["name-description"; "binary-url"; "source-url"; "gpgkey-path"]
       ; help= "Add the configuration for a new repository."
       ; implementation= No_fd Cli_operations.Repository.introduce
       ; flags= []

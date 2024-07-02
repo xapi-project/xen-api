@@ -28,23 +28,37 @@ let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
   Hashtbl.create 64
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
-    ~update ~gpgkey_path =
-  assert_url_is_valid ~url:binary_url ;
-  assert_url_is_valid ~url:source_url ;
-  assert_gpgkey_path_is_valid gpgkey_path ;
+    ~update ~gpgkey_path ~origin =
+  ( match origin with
+  | `remote ->
+      assert_url_is_valid ~url:binary_url ;
+      assert_url_is_valid ~url:source_url
+  | `bundle ->
+      if binary_url <> "" || source_url <> "" then
+        raise Api_errors.(Server_error (bundle_repo_url_should_be_empty, [])) ;
+      if not update then
+        raise Api_errors.(Server_error (bundle_repo_update_should_be_true, []))
+  ) ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
-         then
-           raise
-             Api_errors.(
-               Server_error (repository_already_exists, [Ref.string_of ref])
-             )
+         match
+           ( origin
+           , origin = Db.Repository.get_origin ~__context ~self:ref
+           , binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+           , name_label = Db.Repository.get_name_label ~__context ~self:ref
+           )
+         with
+         | `bundle, true, _, _ | `remote, _, true, _ | _, _, _, true ->
+             raise
+               Api_errors.(
+                 Server_error (repository_already_exists, [Ref.string_of ref])
+               )
+         | _ ->
+             ()
      ) ;
+  assert_gpgkey_path_is_valid gpgkey_path ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
-    ~source_url ~update ~gpgkey_path
+    ~source_url ~update ~gpgkey_path ~origin
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
@@ -112,8 +126,15 @@ let sync ~__context ~self ~token ~token_id =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
     remove_repo_conf_file repo_name ;
-    let binary_url = Db.Repository.get_binary_url ~__context ~self in
-    let source_url = Db.Repository.get_source_url ~__context ~self in
+    let binary_url, source_url =
+      match Db.Repository.get_origin ~__context ~self with
+      | `remote ->
+          ( Db.Repository.get_binary_url ~__context ~self
+          , Some (Db.Repository.get_source_url ~__context ~self)
+          )
+      | `bundle ->
+          ("file://" ^ !Xapi_globs.bundle_dir, None)
+    in
     let gpgkey_path =
       match Db.Repository.get_gpgkey_path ~__context ~self with
       | "" ->
@@ -122,8 +143,8 @@ let sync ~__context ~self ~token ~token_id =
           s
     in
     let write_initial_yum_config () =
-      write_yum_config ~source_url:(Some source_url) ~binary_url
-        ~repo_gpgcheck:true ~gpgkey_path ~repo_name
+      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
+        ~repo_name
     in
     write_initial_yum_config () ;
     clean_yum_cache repo_name ;

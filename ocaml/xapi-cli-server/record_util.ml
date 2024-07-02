@@ -1226,3 +1226,16 @@ let update_sync_frequency_of_string s =
       `weekly
   | _ ->
       raise (Record_failure ("Expected 'daily', 'weekly', got " ^ s))
+
+let repo_origin_to_string = function `remote -> "remote" | `bundle -> "bundle"
+
+let repo_origin_of_string = function
+  | "remote" ->
+      `remote
+  | "bundle" ->
+      `bundle
+  | s ->
+      raise
+        (Record_failure
+           ("Invalid repository origin. Expected 'remote', 'bundle', got " ^ s)
+        )
