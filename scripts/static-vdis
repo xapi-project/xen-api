@@ -11,7 +11,7 @@ import sys
 import time
 import urllib.parse
 import xmlrpc.client
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import XenAPI
 
@@ -166,6 +166,7 @@ def add(session, vdi_uuid, reason):
 
     sm = None
     all_sm = session.xenapi.SM.get_all_records()
+    sm_ref = ""  # pragma: no cover
     for sm_ref in all_sm:
         if all_sm[sm_ref]['type'] == ty:
             sm = all_sm[sm_ref]
@@ -183,6 +184,7 @@ def add(session, vdi_uuid, reason):
     if "VDI_ATTACH_OFFLINE" in sm["features"]:
         data["volume-plugin"] = ty
         data[smapiv3_config] = json.dumps(device_config)
+        assert device_config  # must not be None
         sr = sr_attach(ty, device_config)
         location = session.xenapi.VDI.get_location(vdi)
         stat = call_volume_plugin(ty, "Volume.stat", [ sr, location ])
@@ -238,7 +240,7 @@ def call_backend_attach(driver, config):
     xml = doexec(args)
     if xml[0] != 0:
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
-    xml_rpc = xmlrpc.client.loads(xml[1])
+    xml_rpc = xmlrpc.client.loads(xml[1])  # type: Any # pragma: no cover
 
     if 'params_nbd' in xml_rpc[0][0]:
         # Prefer NBD if available
@@ -259,8 +261,8 @@ def call_backend_detach(driver, config):
         raise Exception("SM_BACKEND_FAILURE(%d, %s, %s)" % xml)
     xml_rpc = xmlrpc.client.loads(xml[1])
     try:
-        res = xml_rpc[0][0]['params']
-    except:
+        res = cast(dict, xml_rpc[0][0])['params']  # pragma: no cover
+    except Exception:
         res = xml_rpc[0][0]
     return res
 
@@ -301,7 +303,7 @@ def attach(vdi_uuid):
                     os.unlink(d + "/disk")
                 except:
                     pass
-                path = None
+                path = None  # Raise TypeError if path is not set at the end
                 if not (os.path.exists(d + "/" + smapiv3_config)):
                     # SMAPIv1
                     config = read_whole_file(d + "/config")
@@ -333,10 +335,13 @@ def attach(vdi_uuid):
                         (path, exportname) = parse_nbd_uri(uri)
                         path = connect_nbd(path=path, exportname=exportname)
 
+                if path is None:
+                    raise TypeError("static-vdis: attach(): path was not set")
                 os.symlink(path, d + "/disk")
                 return d + "/disk"
     if not found:
         raise Exception("Disk configuration not found")
+    return None
 
 def detach(vdi_uuid):
     found = False
@@ -396,8 +401,8 @@ def main():
     elif sys.argv[1] == "del" and len(sys.argv) == 3:
         delete(sys.argv[2])
     elif sys.argv[1] == "attach" and len(sys.argv) == 3:
-        path = attach(sys.argv[2])
-        print(path)
+        disk_path = attach(sys.argv[2])
+        print(disk_path)
     elif sys.argv[1] == "detach" and len(sys.argv) == 3:
         detach(sys.argv[2])
     else:
