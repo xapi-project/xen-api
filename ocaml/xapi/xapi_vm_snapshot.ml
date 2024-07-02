@@ -385,6 +385,7 @@ let do_not_copy =
     "snapshots"
   ; "tags"
   ; "affinity"
+  ; "groups"
   ; (* Current fields should remain to get destroyed during revert process *)
     "consoles"
   ; "VBDs"

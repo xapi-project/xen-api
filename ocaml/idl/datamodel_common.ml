@@ -205,6 +205,8 @@ let _vm_guest_metrics = "VM_guest_metrics"
 
 let _vm_appliance = "VM_appliance"
 
+let _vm_group = "VM_group"
+
 let _dr_task = "DR_task"
 
 let _vmpp = "VMPP"

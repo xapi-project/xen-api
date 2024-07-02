@@ -114,6 +114,7 @@ _xe()
                     pvs-site-*|\
                     sdn-controller-*|\
                     network-sriov-*|\
+                    vm-group-*|\
                     cluster-host-*)
                         # Chop off at the second '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
@@ -384,6 +385,12 @@ _xe()
             update-sync-frequency) # for pool-configure-update-sync
                 IFS=$'\n,'
                 set_completions 'daily,weekly' "$value"
+                return 0
+                ;;
+
+            placement) # for vm-group-create
+                IFS=$'\n,'
+                set_completions 'normal,anti-affinity' "$value"
                 return 0
                 ;;
 

@@ -1994,7 +1994,7 @@ let eject ~__context ~host =
       Create_misc.create_pool_cpuinfo ~__context ;
       (* Update pool features, in case this host had a different license to the
        * rest of the pool. *)
-      Pool_features.update_pool_features ~__context
+      Pool_features_helpers.update_pool_features ~__context
   | true, true ->
       raise Cannot_eject_master
 

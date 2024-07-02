@@ -372,6 +372,9 @@ val set_suspend_VDI :
 val set_appliance :
   __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_appliance -> unit
 
+val set_groups :
+  __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_group_set -> unit
+
 val import_convert :
      __context:Context.t
   -> _type:string

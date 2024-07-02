@@ -19,6 +19,7 @@ module D = Debug.Make (struct let name = "dbsync" end)
 
 open D
 open Client
+open Recommendations
 
 (* Synchronising code which is specific to the master *)
 
@@ -53,7 +54,7 @@ let create_pool_record ~__context =
       ~last_update_sync:Xapi_stdext_date.Date.epoch
       ~update_sync_frequency:`weekly ~update_sync_day:0L
       ~update_sync_enabled:false ~local_auth_max_threads:8L
-      ~ext_auth_max_threads:1L
+      ~ext_auth_max_threads:1L ~recommendations:[]
 
 let set_master_ip ~__context =
   let ip =
@@ -339,6 +340,18 @@ let setup_telemetry ~__context =
       )
       ()
 
+let update_pool_recommendations_noexn ~__context =
+  Helpers.log_exn_continue "update pool recommendations"
+    (fun () ->
+      let pool = Helpers.get_pool ~__context in
+      let recommendations =
+        Recommendations.load ~path:!Xapi_globs.pool_recommendations_dir
+        |> StringMap.bindings
+      in
+      Db.Pool.set_recommendations ~__context ~self:pool ~value:recommendations
+    )
+    ()
+
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
@@ -363,4 +376,5 @@ let update_env __context =
   Storage_access.on_xapi_start ~__context ;
   if !Xapi_globs.create_tools_sr then
     create_tools_sr_noexn __context ;
-  ensure_vm_metrics_records_exist_noexn __context
+  ensure_vm_metrics_records_exist_noexn __context ;
+  update_pool_recommendations_noexn ~__context

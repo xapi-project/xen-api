@@ -159,7 +159,7 @@ let rec assert_equivalent expected_grouping actual_grouping =
       assert_host_groups_equal e g ;
       assert_equivalent es gs
 
-let assert_host_groups_equal_for_vgpu g g' =
+let assert_host_groups_equal g g' =
   match g' with
   | [] ->
       ()
@@ -170,7 +170,7 @@ let assert_host_groups_equal_for_vgpu g g' =
       Alcotest.(check (slist string String.compare))
         "check host strings" (extract_host_strings g) (extract_host_strings g')
 
-let rec assert_equivalent_for_vgpu expected_grouping actual_grouping =
+let rec assert_equivalent_for_grouping expected_grouping actual_grouping =
   match (expected_grouping, actual_grouping) with
   | [], [] ->
       ()
@@ -181,13 +181,13 @@ let rec assert_equivalent_for_vgpu expected_grouping actual_grouping =
       Alcotest.fail
         (Printf.sprintf "%d fewer groups than expected." (List.length xx))
   | e :: es, g :: gs ->
-      assert_host_groups_equal_for_vgpu e g ;
-      assert_equivalent_for_vgpu es gs
+      assert_host_groups_equal e g ;
+      assert_equivalent_for_grouping es gs
 
 let assert_grouping ~__context gpu_group ~visible_hosts vgpu_type g =
   let vgpu = VGPU_T.make_vgpu ~__context ~gPU_group:gpu_group vgpu_type in
   let host_lists = rank_hosts_by_best_vgpu ~__context vgpu visible_hosts in
-  assert_equivalent_for_vgpu g host_lists
+  assert_equivalent_for_grouping g host_lists
 
 let check_expectations ~__context gpu_group visible_hosts vgpu_type
     expected_grouping =
@@ -524,6 +524,44 @@ let test_group_hosts_netsriov_with_allocated () =
             "Test-failure: Unexpected number of sriov network in test"
   )
 
+let on_pool_of_anti_affinity placement
+    (f : Context.t -> API.ref_host -> API.ref_host -> API.ref_host -> 'a) =
+  let __context = T.make_test_database () in
+  let h1 =
+    match Db.Host.get_all ~__context with
+    | h :: _ ->
+        h
+    | [] ->
+        T.make_host ~__context ()
+  in
+  (* Make two more hosts *)
+  let h2 = T.make_host ~__context () in
+  let h3 = T.make_host ~__context () in
+  let g = T.make_vm_group ~__context ~placement () in
+  f __context h1 h2 h3 g
+
+let test_get_group_key_anti_affinity () =
+  on_pool_of_anti_affinity `anti_affinity (fun __context _ _ _ g ->
+      let vm = T.make_vm ~__context () in
+      Db.VM.set_groups ~__context ~self:vm ~value:[g] ;
+      match Xapi_vm_helpers.get_group_key ~__context ~vm with
+      | `AntiAffinity _ ->
+          ()
+      | _ ->
+          Alcotest.fail "Test-failure: Unexpected Group Key in test"
+  )
+
+let test_get_group_key_normal_group () =
+  on_pool_of_anti_affinity `normal (fun __context _ _ _ g ->
+      let vm = T.make_vm ~__context () in
+      Db.VM.set_groups ~__context ~self:vm ~value:[g] ;
+      match Xapi_vm_helpers.get_group_key ~__context ~vm with
+      | `Other ->
+          ()
+      | _ ->
+          Alcotest.fail "Test-failure: Unexpected Group Key in test"
+  )
+
 let test_get_group_key_vgpu () =
   on_pool_of_intel_i350 (fun __context _ _ _ ->
       let group = List.hd (Db.GPU_group.get_all ~__context) in
@@ -573,6 +611,461 @@ let test_get_group_key_vgpu_and_netsriov () =
           Alcotest.fail "Test-failure: Unexpected Group Key in test"
   )
 
+let test_get_group_key_anti_affinity_and_vgpu_and_netsriov () =
+  on_pool_of_intel_i350 (fun __context _ _ _ ->
+      let group =
+        match Db.GPU_group.get_all ~__context with
+        | g :: _ ->
+            g
+        | [] ->
+            Alcotest.fail "Can not find any GPU_group"
+      in
+      let vm = make_vm_with_vgpu_in_group ~__context VGPU_T.k100 group in
+      let sriov_network =
+        List.find
+          (fun network ->
+            Xapi_network_sriov_helpers.is_sriov_network ~__context ~self:network
+          )
+          (Db.Network.get_all ~__context)
+      in
+      let (_ : API.ref_VIF) =
+        T.make_vif ~__context ~vM:vm ~network:sriov_network ()
+      in
+      let anti_affinity_group =
+        T.make_vm_group ~__context ~placement:`anti_affinity ()
+      in
+      Db.VM.set_groups ~__context ~self:vm ~value:[anti_affinity_group] ;
+      match Xapi_vm_helpers.get_group_key ~__context ~vm with
+      | `AntiAffinity _ ->
+          ()
+      | _ ->
+          Alcotest.fail "Test-failure: Unexpected Group Key in test"
+  )
+
+module VMAntiAffinityRankedGrpTest = struct
+  type vm_state = Running | Starting | Migrating | Suspended | Paused | Halted
+
+  type vm_info = {
+      name: string option
+    ; host: string option
+    ; group: string option
+    ; state: vm_state
+  }
+
+  type test_case = {
+      description: string
+    ; vm_to_start: vm_info
+    ; other_vms: vm_info list
+    ; hosts: string option list
+    ; affinity_host: string option
+    ; expected: string option list list
+  }
+
+  let vm_to_start = Some "vm"
+
+  let vm1 = Some "vm1"
+
+  let vm2 = Some "vm2"
+
+  let vm3 = Some "vm3"
+
+  let vm4 = Some "vm4"
+
+  let vm5 = Some "vm5"
+
+  let vm6 = Some "vm6"
+
+  let h1 = Some "h1"
+
+  let h2 = Some "h2"
+
+  let h3 = Some "h3"
+
+  let anti_affinity = Some "anti-affinity"
+
+  let other_group = Some "other-group"
+
+  let test_cases =
+    [
+      {
+        description= "No other VM"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms= []
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "VMs not in group"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h2; group= None; state= Running}
+          ; {name= vm2; host= h3; group= None; state= Running}
+          ; {name= vm3; host= h3; group= None; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "VMs in other group"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h2; group= other_group; state= Running}
+          ; {name= vm2; host= h3; group= other_group; state= Running}
+          ; {name= vm3; host= h3; group= other_group; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "3 running VMs (h1(0) h2(1) h3(2))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Running}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1]; [h2]; [h3]]
+      }
+    ; {
+        description= "3 running VMs (h1(1) h2(1) h3(1))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h1; group= anti_affinity; state= Running}
+          ; {name= vm2; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "3 running VMs (h1(0) h2(0) h3(3))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h3; group= anti_affinity; state= Running}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Running}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2]; [h3]]
+      }
+    ; {
+        description= "3 starting VMs (h1(0) h2(1) h3(2))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h2; group= anti_affinity; state= Starting}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Starting}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Starting}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1]; [h2]; [h3]]
+      }
+    ; {
+        description= "3 starting VMs (h1(1) h2(1) h3(1))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h1; group= anti_affinity; state= Starting}
+          ; {name= vm2; host= h2; group= anti_affinity; state= Starting}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Starting}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "3 starting VMs (h1(0) h2(0) h3(3))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h3; group= anti_affinity; state= Starting}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Starting}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Starting}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2]; [h3]]
+      }
+    ; {
+        description= "3 migrating VMs (h1(0) h2(1) h3(2))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h2; group= anti_affinity; state= Migrating}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Migrating}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Migrating}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1]; [h2]; [h3]]
+      }
+    ; {
+        description= "3 migrating VMs (h1(0) h2(0) h3(3))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h3; group= anti_affinity; state= Migrating}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Migrating}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Migrating}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2]; [h3]]
+      }
+    ; {
+        description= "3 stopped VMs"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= None; group= anti_affinity; state= Halted}
+          ; {name= vm2; host= None; group= anti_affinity; state= Halted}
+          ; {name= vm3; host= None; group= anti_affinity; state= Halted}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "3 suspended VMs"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= None; group= anti_affinity; state= Suspended}
+          ; {name= vm2; host= None; group= anti_affinity; state= Suspended}
+          ; {name= vm3; host= None; group= anti_affinity; state= Suspended}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "3 paused VMs (h1(0) h2(1) h3(2))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h2; group= anti_affinity; state= Paused}
+          ; {name= vm2; host= h3; group= anti_affinity; state= Paused}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Paused}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ; {
+        description= "3 running VMs with affinity-host"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h1; group= anti_affinity; state= Running}
+          ; {name= vm2; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm3; host= h3; group= anti_affinity; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= h1
+      ; expected= [[h1]; [h2; h3]]
+      }
+    ; {
+        description= "6 running VMs (h1(1) h2(2) h3(3))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h1; group= anti_affinity; state= Running}
+          ; {name= vm2; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm3; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm4; host= h3; group= anti_affinity; state= Running}
+          ; {name= vm5; host= h3; group= anti_affinity; state= Running}
+          ; {name= vm6; host= h3; group= anti_affinity; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1]; [h2]; [h3]]
+      }
+    ; {
+        description= "6 running VMs (h1(2) h2(2) h3(2))"
+      ; vm_to_start=
+          {name= vm_to_start; host= None; group= anti_affinity; state= Halted}
+      ; other_vms=
+          [
+            {name= vm1; host= h1; group= anti_affinity; state= Running}
+          ; {name= vm2; host= h1; group= anti_affinity; state= Running}
+          ; {name= vm3; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm4; host= h2; group= anti_affinity; state= Running}
+          ; {name= vm5; host= h3; group= anti_affinity; state= Running}
+          ; {name= vm6; host= h3; group= anti_affinity; state= Running}
+          ]
+      ; hosts= [h1; h2; h3]
+      ; affinity_host= None
+      ; expected= [[h1; h2; h3]]
+      }
+    ]
+
+  let make_hosts ~__context ~hosts =
+    match hosts with
+    | fst :: others ->
+        let host1 =
+          match Db.Host.get_all ~__context with
+          | h :: _ ->
+              h
+          | _ ->
+              T.make_host ~__context ()
+        in
+        Db.Host.set_name_label ~__context ~self:host1 ~value:(Option.get fst) ;
+        List.iter
+          (fun h ->
+            let _ = T.make_host ~__context ~name_label:(Option.get h) () in
+            ()
+          )
+          others
+    | [] ->
+        ()
+
+  let make_vm_based_on_vm_info ~__context ~vm_info =
+    let vm =
+      T.make_vm ~__context
+        ~name_label:(Option.value vm_info.name ~default:(Option.get vm_to_start))
+        ()
+    in
+    ( match vm_info.group with
+    | None ->
+        ()
+    | Some group_name ->
+        let group =
+          match Db.VM_group.get_by_name_label ~__context ~label:group_name with
+          | g :: _ ->
+              g
+          | [] ->
+              T.make_vm_group ~__context ~placement:`anti_affinity
+                ~name_label:group_name ()
+        in
+        Db.VM.set_groups ~__context ~self:vm ~value:[group]
+    ) ;
+    ( match vm_info.host with
+    | None ->
+        ()
+    | Some host_name -> (
+        let host =
+          match Db.Host.get_by_name_label ~__context ~label:host_name with
+          | h :: _ ->
+              h
+          | [] ->
+              Alcotest.fail "Can not find any host by name_label"
+        in
+        match vm_info.state with
+        | Running ->
+            Db.VM.set_power_state ~__context ~self:vm ~value:`Running ;
+            Db.VM.set_resident_on ~__context ~self:vm ~value:host
+        | Starting ->
+            Db.VM.set_power_state ~__context ~self:vm ~value:`Halted ;
+            Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
+              ~value:host
+        | Migrating ->
+            Db.VM.set_power_state ~__context ~self:vm ~value:`Running ;
+            Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
+              ~value:host ;
+            let other_hosts =
+              Db.Host.get_all ~__context
+              |> List.filter (fun h ->
+                     Db.Host.get_name_label ~__context ~self:h <> host_name
+                 )
+            in
+            let other = match other_hosts with h :: _ -> h | [] -> Ref.null in
+            Db.VM.set_resident_on ~__context ~self:vm ~value:other
+        | Suspended ->
+            Db.VM.set_power_state ~__context ~self:vm ~value:`Suspended
+        | Paused ->
+            Db.VM.set_power_state ~__context ~self:vm ~value:`Paused ;
+            Db.VM.set_resident_on ~__context ~self:vm ~value:host
+        | Halted ->
+            Db.VM.set_power_state ~__context ~self:vm ~value:`Halted
+      )
+    ) ;
+    vm
+
+  let check_anti_affinity_grouping ~__context ~vm ~group expected_grouping =
+    let host_lists = rank_hosts_by_placement ~__context ~vm ~group in
+    assert_equivalent_for_grouping expected_grouping host_lists
+
+  let test {vm_to_start; other_vms; hosts; affinity_host; expected; _} () =
+    let __context = T.make_test_database () in
+    make_hosts ~__context ~hosts ;
+    let vm = make_vm_based_on_vm_info ~__context ~vm_info:vm_to_start in
+    let _ =
+      List.map
+        (fun vm -> make_vm_based_on_vm_info ~__context ~vm_info:vm)
+        other_vms
+    in
+    Db.VM.set_affinity ~__context ~self:vm
+      ~value:
+        ( match affinity_host with
+        | None ->
+            Ref.null
+        | Some host_name -> (
+          match Db.Host.get_by_name_label ~__context ~label:host_name with
+          | h :: _ ->
+              h
+          | [] ->
+              Alcotest.fail "Can not find any host by name_label"
+        )
+        ) ;
+    let group =
+      match Db.VM.get_groups ~__context ~self:vm with
+      | g :: _ ->
+          g
+      | [] ->
+          Alcotest.fail "The VM is not associated with any group"
+    in
+    check_anti_affinity_grouping ~__context ~vm ~group
+      (List.map
+         (fun list ->
+           List.map
+             (fun h ->
+               match
+                 Db.Host.get_by_name_label ~__context ~label:(Option.get h)
+               with
+               | h :: _ ->
+                   h
+               | [] ->
+                   Alcotest.fail "Can not find any host by name_label"
+             )
+             list
+         )
+         expected
+      )
+
+  let generate_tests case = (case.description, `Quick, test case)
+
+  let tests = List.map generate_tests test_cases
+end
+
 let test =
   [
     ("test_gpus_available_succeeds", `Quick, test_gpus_available_succeeds)
@@ -612,14 +1105,24 @@ let test =
     , `Quick
     , test_group_hosts_netsriov_with_allocated
     )
+  ; ( "test_get_group_key_anti_affinity"
+    , `Quick
+    , test_get_group_key_anti_affinity
+    )
+  ; ("test_get_group_key_normal_group", `Quick, test_get_group_key_normal_group)
   ; ("test_get_group_key_vgpu", `Quick, test_get_group_key_vgpu)
   ; ("test_get_group_key_netsriov", `Quick, test_get_group_key_netsriov)
   ; ( "test_get_group_key_vgpu_and_netsriov"
     , `Quick
     , test_get_group_key_vgpu_and_netsriov
     )
+  ; ( "test_get_group_key_anti_affinity_and_vgpu_and_netsriov"
+    , `Quick
+    , test_get_group_key_anti_affinity_and_vgpu_and_netsriov
+    )
   ]
 
 let () =
   Suite_init.harness_init () ;
-  Alcotest.run "Test VM Helpers suite" [("Test_vm_helpers", test)]
+  Alcotest.run "Test VM Helpers suite"
+    [("Test_vm_helpers", test @ VMAntiAffinityRankedGrpTest.tests)]

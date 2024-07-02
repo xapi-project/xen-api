@@ -1109,7 +1109,7 @@ let destroy ~__context ~self =
   Db.Host.destroy ~__context ~self ;
   Create_misc.create_pool_cpuinfo ~__context ;
   List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains ;
-  Pool_features.update_pool_features ~__context
+  Pool_features_helpers.update_pool_features ~__context
 
 let declare_dead ~__context ~host =
   precheck_destroy_declare_dead ~__context ~self:host "declare_dead" ;
@@ -2025,7 +2025,7 @@ let copy_license_to_db ~__context ~host:_ ~features ~additional =
 
 let set_license_params ~__context ~self ~value =
   Db.Host.set_license_params ~__context ~self ~value ;
-  Pool_features.update_pool_features ~__context
+  Pool_features_helpers.update_pool_features ~__context
 
 let apply_edition_internal ~__context ~host ~edition ~additional =
   (* Get localhost's current license state. *)

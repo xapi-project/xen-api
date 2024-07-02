@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) 2024 Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,12 +11,5 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-(** Module that controls feature restriction.
- * @group Licensing
-*)
 
-val is_enabled : __context:Context.t -> Features.feature -> bool
-(** Check whether a given feature is currently enabled on the pool. *)
-
-val assert_enabled : __context:Context.t -> f:Features.feature -> unit
-(** Raise appropriate exception if feature is not enabled. *)
+val update_pool_features : __context:Context.t -> unit

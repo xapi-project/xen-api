@@ -365,3 +365,6 @@ let periodic_update_sync_failed = addMessage "PERIODIC_UPDATE_SYNC_FAILED" 3L
 
 let xapi_startup_blocked_as_version_higher_than_coordinator =
   addMessage "XAPI_STARTUP_BLOCKED_AS_VERSION_HIGHER_THAN_COORDINATOR" 2L
+
+let all_running_vms_in_anti_affinity_grp_on_single_host =
+  addMessage "ALL_RUNNING_VMS_IN_ANTI_AFFINITY_GRP_ON_SINGLE_HOST" 3L
