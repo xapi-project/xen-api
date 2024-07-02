@@ -3402,7 +3402,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
       Backtrace.reraise e e'
     in
     let internal fmt =
-      Printf.kprintf (fun x -> reraise Api_errors.internal_error [x]) fmt
+      Printf.ksprintf (fun x -> reraise Api_errors.internal_error [x]) fmt
     in
     match e with
     | Xenopsd_error e' -> (

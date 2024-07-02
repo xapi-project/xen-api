@@ -60,7 +60,7 @@ let debug fmt =
   let printer s =
     match !debug_channel with Some c -> output_string c s | None -> ()
   in
-  Printf.kprintf printer fmt
+  Printf.ksprintf printer fmt
 
 (* usage message *)
 exception Usage

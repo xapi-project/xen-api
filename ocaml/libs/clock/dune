@@ -1,0 +1,20 @@
+(library
+  (name clock)
+  (public_name clock)
+  (modules date timer)
+  (libraries
+    astring
+    fmt
+    (re_export mtime)
+    mtime.clock.os
+    (re_export ptime)
+    ptime.clock.os
+  )
+)
+
+(tests
+  (names test_date test_timer)
+  (package clock)
+  (modules test_date test_timer)
+  (libraries alcotest clock fmt mtime mtime.clock.os ptime qcheck-core qcheck-core.runner)
+)

@@ -318,7 +318,7 @@ functor
   ->
   struct
     let output level priority (fmt : ('a, unit, string, 'b) format4) =
-      Printf.kprintf
+      Printf.ksprintf
         (fun s ->
           if not (is_disabled Brand.name level) then
             output_log Brand.name level priority s
@@ -336,7 +336,7 @@ functor
     let critical fmt = output Syslog.Crit "critical" fmt
 
     let audit ?(raw = false) (fmt : ('a, unit, string, 'b) format4) =
-      Printf.kprintf
+      Printf.ksprintf
         (fun s ->
           let msg = if raw then s else format true Brand.name "audit" s in
           Syslog.log Syslog.Local6 Syslog.Info (escape msg) ;
@@ -352,3 +352,5 @@ functor
       try f ()
       with e -> log_backtrace_internal ~level:Syslog.Debug ~msg:"debug" e ()
   end
+
+module Pp = struct let mtime_span () = Fmt.str "%a" Mtime.Span.pp end

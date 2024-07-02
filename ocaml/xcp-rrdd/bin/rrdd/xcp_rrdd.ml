@@ -580,7 +580,7 @@ let bytes_per_mem_vm = 1024
 
 let mem_vm_writer_pages = ((max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
 
-let res_error fmt = Printf.kprintf Result.error fmt
+let res_error fmt = Printf.ksprintf Result.error fmt
 
 let ok x = Result.ok x
 

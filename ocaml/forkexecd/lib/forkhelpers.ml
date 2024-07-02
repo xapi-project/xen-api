@@ -82,7 +82,7 @@ let waitpid (sock, pid) =
 let waitpid_nohang (sock, pid) =
   let verbose = false in
   if verbose then D.debug "%s pid=%d" __FUNCTION__ pid ;
-  let fail fmt = Printf.kprintf failwith fmt in
+  let fail fmt = Printf.ksprintf failwith fmt in
   Unix.set_nonblock sock ;
   match Fecomms.read_raw_rpc sock with
   | Ok Fe.(Finished (WEXITED n)) ->

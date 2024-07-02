@@ -1,16 +1,6 @@
 (library
   (name xapi_stdext_date)
   (public_name xapi-stdext-date)
-  (modules :standard \ test)
-  (libraries astring
-             ptime
-             ptime.clock.os
-             unix)
-)
-
-(test
-  (name test)
-  (package xapi-stdext-date)
-  (modules test)
-  (libraries alcotest xapi-stdext-date ptime)
+  (modules :standard)
+  (libraries clock ptime)
 )

@@ -1529,7 +1529,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
             in
             (th, ch)
           in
-          let receive_thread_status threads_and_channels =
+          let[@inline never] receive_thread_status threads_and_channels =
             (* Receive the status from all reader threads and let them exit.
                This happens in two steps to make sure that we are unblocking and
                closing all threads also in case of errors. *)
@@ -1549,9 +1549,7 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
           (* Handle results returned by emu-manager *)
           let emu_manager_results = handle_results () in
           (* Wait for reader threads to complete *)
-          let[@inlined never] thread_status =
-            receive_thread_status threads_and_channels
-          in
+          let thread_status = receive_thread_status threads_and_channels in
           (* Chain all together, and we are done! *)
           let res =
             emu_manager_results >>= fun result ->

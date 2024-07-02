@@ -100,7 +100,7 @@ let update ~__context =
 
 let internal_error fmt =
   fmt
-  |> Printf.kprintf @@ fun msg ->
+  |> Printf.ksprintf @@ fun msg ->
      error "%s" msg ;
      raise Api_errors.(Server_error (internal_error, [msg]))
 

@@ -32,6 +32,7 @@ package com.xensource.xenapi;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.json.JsonReadFeature;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -214,6 +215,7 @@ public class JsonRpcClient {
         var dateHandlerModule = new SimpleModule("DateHandler");
         dateHandlerModule.addDeserializer(Date.class, new CustomDateDeserializer());
         this.objectMapper.enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS.mappedFeature());
+        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.objectMapper.registerModule(dateHandlerModule);
     }
 

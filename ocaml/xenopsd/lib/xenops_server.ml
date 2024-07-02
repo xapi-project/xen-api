@@ -24,7 +24,7 @@ module D = Debug.Make (struct let name = "xenops_server" end)
 open D
 
 let internal_error fmt =
-  Printf.kprintf
+  Printf.ksprintf
     (fun str ->
       error "%s" str ;
       raise (Xenopsd_error (Internal_error str))

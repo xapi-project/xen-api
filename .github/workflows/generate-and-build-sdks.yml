@@ -47,6 +47,14 @@ jobs:
           name: SDK_Source_PowerShell
           path: _build/install/default/xapi/sdk/powershell/*
 
+      - name: Store Go SDK Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Artifacts_Go
+          path: |
+            _build/install/default/xapi/sdk/go/*
+            !_build/install/default/xapi/sdk/go/dune
+
       - name: Trim dune cache
         run: opam exec -- dune cache trim --size=2GiB
 

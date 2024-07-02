@@ -1832,7 +1832,7 @@ module VTPM : HandlerTools = struct
   type precheck_t = Import of vtpm'
 
   let fail fmt =
-    Printf.kprintf
+    Printf.ksprintf
       (fun msg -> raise Api_errors.(Server_error (import_error_generic, [msg])))
       fmt
 

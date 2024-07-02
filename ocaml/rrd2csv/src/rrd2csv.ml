@@ -37,7 +37,7 @@ module Stdout = struct
   let debug (fmt : ('a, unit, string, unit) format4) =
     if !print_debug then
       Xapi_stdext_threads.Threadext.Mutex.execute stdout_m (fun () ->
-          Printf.kprintf
+          Printf.ksprintf
             (fun s ->
               Printf.printf "%s [%d] %s\n"
                 (time_of_float (Unix.gettimeofday ()))
@@ -48,7 +48,7 @@ module Stdout = struct
             fmt
       )
     else
-      Printf.kprintf (fun _ -> ()) fmt
+      Printf.ksprintf (fun _ -> ()) fmt
 
   let string_of_float flt =
     if fst (modf flt) = 0. then

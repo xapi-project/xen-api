@@ -168,13 +168,7 @@ coverage:
         # - excluding: **/test_*.py
         #
         paths: ["python3/**", "!**/test_*.py"]
-
-        #
-        # For python3/** (excluding tests):
-        #
-        # For python3, coverage should not be reduced compared to its base:
-        #
-        target: auto
+        target: 80%
 
         #
         # Exception: the threshold value given is allowed
@@ -182,12 +176,6 @@ coverage:
         # Allows for not covering 20% if the changed lines of the PR:
         #
         threshold: 20%
-
-      # Checks each Python version separately:
-      python-3.11:
-        flags: ["python3.11"]
-      python-2.7:
-        flags: ["python2.7"]
 
     #
     # Project limits
@@ -218,7 +206,7 @@ coverage:
       tests:
         # Ensure that all tests are executed (tests themselves must be 100% covered)
         target: 98%
-        paths: ["**/test_*.py"]
+        paths: ["python3/tests/test_*.py"]
 
 
 #
@@ -235,23 +223,14 @@ component_management:
       - type: project
         # `auto` will use the coverage from the base commit (pull request base
         # or parent commit) coverage to compare against.
-        target: auto
+        target: 48
         threshold: 2%
 
       - type: patch
-        target: auto
-        threshold: 10%
+        target: 80
+        threshold: 5%
 
   individual_components:
-
-    - component_id: scripts  # this is an identifier that should not be changed
-      name: scripts  # this is a display name, and can be changed freely
-      # The list of paths that should be in- and excluded in this component:
-      paths: ["scripts/**", "!scripts/examples/**", "!**/test_*.py"]
-
-    - component_id: scripts/examples
-      name: scripts/examples
-      paths: ["scripts/examples/**", "!scripts/**/test_*.py"]
 
     - component_id: ocaml
       name: ocaml
@@ -270,4 +249,5 @@ component_management:
 
     - component_id: test_cases
       name: test_cases
-      paths: ["**/test_*.py"]
+      paths: ["python3/tests/test_*.py"]
+

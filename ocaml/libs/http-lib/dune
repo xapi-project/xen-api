@@ -45,6 +45,7 @@
     ipaddr
     polly
     threads.posix
+    uri
     xapi-log
     xapi-stdext-pervasives
     xapi-stdext-threads

@@ -1,5 +1,5 @@
 let debug (fmt : ('a, unit, string, unit) format4) =
-  Printf.kprintf (fun s -> Printf.fprintf stderr "%s\n" s) fmt
+  Printf.ksprintf (fun s -> Printf.fprintf stderr "%s\n" s) fmt
 
 exception Cancelled
 

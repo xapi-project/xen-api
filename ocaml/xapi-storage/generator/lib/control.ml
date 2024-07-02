@@ -28,6 +28,10 @@ type health =
   | Healthy of string  (** Storage is fully available *)
   | Recovering of string
       (** Storage is busy recovering, e.g. rebuilding mirrors *)
+  | Unreachable of string
+      (** Storage is unreachable but may be recoverable with admin intervention *)
+  | Unavailable of string
+      (** Storage is unavailable, a host reboot will be required *)
 [@@deriving rpcty]
 
 type volume_type =

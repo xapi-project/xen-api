@@ -6,6 +6,8 @@
    (names syslog_stubs))
  (libraries
    astring
+   fmt
+   mtime
    logs
    threads.posix
    xapi-backtrace
