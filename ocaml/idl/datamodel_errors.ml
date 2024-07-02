@@ -916,7 +916,10 @@ let _ =
   error Api_errors.wlb_timeout ["configured_timeout"]
     ~doc:"The communication with the WLB server timed out." () ;
   error Api_errors.wlb_authentication_failed []
-    ~doc:"WLB rejected our configured authentication details." () ;
+    ~doc:
+      "Failed to authenticate with the WLB server, the provided credentials \
+       are invalid."
+    () ;
   error Api_errors.wlb_malformed_request []
     ~doc:"WLB rejected the server's request as malformed." () ;
   error Api_errors.wlb_malformed_response
