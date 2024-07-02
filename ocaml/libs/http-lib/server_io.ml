@@ -26,13 +26,22 @@ type handler = {
   ; lock: Xapi_stdext_threads.Semaphore.t
 }
 
-let handler_by_thread (h : handler) (s : Unix.file_descr)
+let handler_by_thread ?nice (h : handler) (s : Unix.file_descr)
     (caller : Unix.sockaddr) =
   Thread.create
     (fun () ->
       Fun.protect
         ~finally:(fun () -> Xapi_stdext_threads.Semaphore.release h.lock 1)
-        (Debug.with_thread_named h.name (fun () -> h.body caller s))
+        (Debug.with_thread_named h.name (fun () ->
+             Option.iter
+               (fun nice ->
+                 let n = Unix.nice nice in
+                 debug "New nice level for thread %s is %d" h.name n
+               )
+               nice ;
+             h.body caller s
+         )
+        )
     )
     ()
 
@@ -78,7 +87,7 @@ let establish_server ?(signal_fds = []) forker handler sock =
 
 type server = {shutdown: unit -> unit}
 
-let server handler sock =
+let server ?nice handler sock =
   let status_out, status_in = Unix.pipe () in
   let toclose = ref [sock; status_in; status_out] in
   let close' fd =
@@ -96,8 +105,14 @@ let server handler sock =
         Debug.with_thread_named handler.name
           (fun () ->
             try
-              establish_server ~signal_fds:[status_out] handler_by_thread
-                handler sock
+              Option.iter
+                (fun nice ->
+                  let n = Unix.nice nice in
+                  debug "New nice level for thread %s is %d" handler.name n
+                )
+                nice ;
+              establish_server ~signal_fds:[status_out]
+                (handler_by_thread ?nice) handler sock
             with PleaseClose -> debug "Server thread exiting"
           )
           ()
