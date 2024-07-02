@@ -161,7 +161,8 @@ let update_rrds timestamp dss uuid_domids paused_vms =
               Hashtbl.replace vm_rrds vm_uuid {rrd; dss; domid}
         )
         | None ->
-            log_backtrace ()
+            info "%s: VM uuid=%s is not resident in this host, ignoring rrds"
+              __FUNCTION__ vm_uuid
       in
       let process_sr sr_uuid dss =
         let named_updates =

@@ -94,9 +94,8 @@ let check_host_liveness ~__context =
           with_lock host_table_m (fun () ->
               Option.value
                 (Hashtbl.find_opt host_heartbeat_table host)
-                ~default:0.0
+                ~default:Clock.Date.(epoch |> to_unix_time)
           )
-          (* never *)
         in
         let old_heartbeat_time =
           if
