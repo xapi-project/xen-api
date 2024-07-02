@@ -546,6 +546,7 @@ let call_api_functions_internal ~__context f =
     )
 
 let call_api_functions ~__context f =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   match Context.get_test_rpc __context with
   | Some rpc ->
       f rpc (Ref.of_string "fake_session")
@@ -1733,6 +1734,7 @@ module Task : sig
 end = struct
   (* can't place these functions in task helpers due to circular dependencies *)
   let wait_for_ ~__context ~tasks ~propagate_cancel cb =
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
     let our_task = Context.get_task_id __context in
     let classes =
       List.map
@@ -1819,6 +1821,7 @@ end = struct
     wait_for_ ~__context ~tasks:[t] mirror
 
   let to_result ~__context ~of_rpc ~t =
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
     wait_for_mirror ~__context ~propagate_cancel:true ~t ;
     let fail msg =
       raise

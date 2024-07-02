@@ -688,6 +688,7 @@ functor
       include Local.Task
 
       let cancel ~__context ~task =
+        Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
         TaskHelper.assert_op_valid ~__context task ;
         let local_fn = cancel ~task in
         let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
@@ -1185,6 +1186,7 @@ functor
         with _ -> ()
 
       let cancel ~__context ~vm ~ops =
+        Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
         let cancelled =
           List.filter_map
             (fun (task, op) ->

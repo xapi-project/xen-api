@@ -20,6 +20,7 @@ module D = Debug.Make (struct let name = "xapi_task" end)
 open D
 
 let create ~__context ~label ~description =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   (* This call will have a dummy task ID already but we need to make a fresh one *)
   let subtask_of = Context.get_task_id __context in
   let session_id =
@@ -34,6 +35,7 @@ let create ~__context ~label ~description =
   t
 
 let destroy ~__context ~self =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   TaskHelper.assert_op_valid ~__context self ;
   if TaskHelper.status_is_completed (Db.Task.get_status ~__context ~self) then
     Db.Task.destroy ~__context ~self
@@ -42,6 +44,7 @@ let destroy ~__context ~self =
       ~value:`destroy
 
 let cancel ~__context ~task =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let localhost = Helpers.get_localhost ~__context in
   let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
   if Db.is_valid_ref __context forwarded_to && localhost <> forwarded_to then
@@ -62,21 +65,26 @@ let cancel ~__context ~task =
     info "Task.cancel is falling back to polling"
 
 let set_status ~__context ~self ~value =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   TaskHelper.assert_op_valid ~__context self ;
   Db.Task.set_status ~__context ~self ~value
 
 let set_progress ~__context ~self ~value =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   TaskHelper.assert_op_valid ~__context self ;
   Db.Task.set_progress ~__context ~self ~value
 
 let set_result ~__context ~self ~value =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   TaskHelper.assert_op_valid ~__context self ;
   Db.Task.set_result ~__context ~self ~value
 
 let set_error_info ~__context ~self ~value =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   TaskHelper.assert_op_valid ~__context self ;
   Db.Task.set_error_info ~__context ~self ~value
 
 let set_resident_on ~__context ~self ~value =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   TaskHelper.assert_op_valid ~__context self ;
   Db.Task.set_resident_on ~__context ~self ~value
