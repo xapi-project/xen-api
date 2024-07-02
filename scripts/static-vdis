@@ -3,10 +3,22 @@
 # Common functions for managing statically-attached (ie onboot, without xapi) VDIs
 
 
-import sys, os, subprocess, json, urllib.parse
+import json
+import os
 import os.path
+import subprocess
+import sys
 import time
-import XenAPI, inventory, xmlrpc.client
+import urllib.parse
+import xmlrpc.client
+from typing import TYPE_CHECKING
+
+import XenAPI
+
+import inventory
+
+if TYPE_CHECKING:
+    from typing import Any, Dict
 
 main_dir = "/etc/xensource/static-vdis"
 
@@ -77,6 +89,7 @@ def check_clusterstack(ty):
         wait_for_corosync_quorum()
 
 def sr_attach(ty, device_config):
+    # type: (str, Dict[str, object]) -> str
     check_clusterstack(ty)
 
     args = [arg for (k,v) in device_config.items()
@@ -238,7 +251,7 @@ def call_backend_attach(driver, config):
     return path
 
 def call_backend_detach(driver, config):
-    params = xmlrpc.client.loads(config)[0][0]
+    params = xmlrpc.client.loads(config)[0][0]  # type: Any
     params['command'] = 'vdi_detach_from_config'
     config = xmlrpc.client.dumps(tuple([params]), params['command'])
     xml = doexec([ driver, config ])
@@ -388,4 +401,3 @@ if  __name__ == "__main__":
         detach(sys.argv[2])
     else:
         usage()
-    
