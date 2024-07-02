@@ -2,6 +2,6 @@
  (name pvs_proxy_setup)
  (public_name pvs-proxy-ovs-setup)
  (package xapi-xenopsd-xc)
- (libraries ezxenstore.core bos xapi-consts.xapi_version xapi-idl cmdliner)
+ (libraries ezxenstore.core bos xapi-consts.xapi_version xapi-idl cmdliner log rresult)
 )
 

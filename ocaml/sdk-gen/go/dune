@@ -16,8 +16,11 @@
   (modules gen_go_helper)
   (libraries
     CommonFunctions
-    mustache
-    xapi-datamodel
+    astring
+    (re_export mustache)
+    (re_export xapi-consts)
+    (re_export xapi-datamodel)
+    xapi-stdext-std
   )
 )
 
@@ -34,7 +37,7 @@
   (name test_gen_go)
   (package xapi-sdk)
   (modules test_gen_go)
-  (libraries alcotest xapi-test-utils gen_go_helper)
+  (libraries CommonFunctions alcotest fmt xapi-test-utils gen_go_helper)
   (deps
     (source_tree test_data)
     (source_tree templates)

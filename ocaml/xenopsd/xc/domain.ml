@@ -351,7 +351,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
   if iommu then
     assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
   let nested_virt =
-    get_platform_key ~key:"nested_virt" ~default:false require_hvm
+    get_platform_key ~key:"nested-virt" ~default:false require_hvm
   in
   let vpmu = get_platform_key ~key:"vpmu" ~default:false (fun _ -> Ok ()) in
 

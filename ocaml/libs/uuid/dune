@@ -3,7 +3,7 @@
   (public_name uuid)
   (modules uuidx)
   (libraries
-    unix uuidm
+    unix (re_export uuidm)
   )
   (wrapped false)
 )

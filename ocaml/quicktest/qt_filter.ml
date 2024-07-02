@@ -76,10 +76,20 @@ let cleanup () =
   Client.Client.Session.logout ~rpc:!A.rpc ~session_id:!session_id
 
 let wrap f =
-  init () ;
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> f () ; finish ())
-    cleanup
+  if !Quicktest_args.skip_xapi then
+    f ()
+  else (
+    init () ;
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () -> f () ; finish ())
+      cleanup
+  )
+
+let with_xapi_query f =
+  if !Quicktest_args.skip_xapi then
+    []
+  else
+    f ()
 
 let conn tcs =
   for_each
@@ -317,7 +327,7 @@ module SR = struct
     let test = test sr_info in
     (name, speed, test)
 
-  let list_srs srs = srs ()
+  let list_srs srs = with_xapi_query srs
 
   let f srs tcs =
     for_each
@@ -329,6 +339,7 @@ let sr = SR.f
 
 let vm_template template_name =
   for_each (fun (name, speed, test) ->
+      with_xapi_query @@ fun () ->
       match Qt.VM.Template.find !A.rpc !session_id template_name with
       | None ->
           []

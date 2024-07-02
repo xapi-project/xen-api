@@ -4,5 +4,8 @@
   (wrapped false)
   (libraries
     ezxenstore_core
-    xenctrl)
+    xenctrl
+    uuidm
+    threads.posix
+   )
 )

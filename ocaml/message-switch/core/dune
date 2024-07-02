@@ -8,6 +8,7 @@
     rpclib.json
     sexplib
     sexplib0
+    threads.posix
     uri
     xapi-log
     xapi-stdext-threads

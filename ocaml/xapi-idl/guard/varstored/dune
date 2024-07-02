@@ -3,7 +3,7 @@
  (public_name xapi-idl.guard.varstored)
  (modules (:standard \ varstored_cli))
  (libraries
-   rpclib.core
+   (re_export rpclib.core)
    threads
    xapi-idl.xen
    xapi-idl.xen.interface

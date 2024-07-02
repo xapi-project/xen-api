@@ -4,8 +4,8 @@
   (libraries
     cohttp-lwt-unix
     message-switch-core
-    lwt
-    lwt.unix
+    (re_export lwt)
+    (re_export lwt.unix)
   )
 )
 

@@ -6,6 +6,7 @@
    astring
    c_stubs
    cohttp
+   cohttp_posix
    fd-send-recv
    fmt
    forkexec

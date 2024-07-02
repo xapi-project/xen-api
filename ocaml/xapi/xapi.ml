@@ -930,12 +930,20 @@ let report_tls_verification ~__context =
   let value = Stunnel_client.get_verify_by_default () in
   Db.Host.set_tls_verification_enabled ~__context ~self ~value
 
+let test_open count =
+  if count > 0 then (
+    debug "%s: opening %d file descriptors" __FUNCTION__ count ;
+    Xapi_stdext_unix.Unixext.test_open count ;
+    debug "%s: opened %d files" __FUNCTION__ count
+  )
+
 let server_init () =
   let print_server_starting_message () =
     debug "(Re)starting xapi, pid: %d" (Unix.getpid ()) ;
     debug "on_system_boot=%b pool_role=%s" !Xapi_globs.on_system_boot
       (Pool_role.string_of (Pool_role.get_role ()))
   in
+  test_open !Xapi_globs.test_open ;
   Unixext.unlink_safe "/etc/xensource/boot_time_info_updated" ;
   (* Record the initial value of Master_connection.connection_timeout and set it to 'never'. When we are a slave who
      has just started up we want to wait forever for the master to appear. (See CA-25481) *)
@@ -1533,12 +1541,11 @@ let delay_on_eintr f =
       Backtrace.is_important e ; raise e
 
 let watchdog f =
-  if !Xapi_globs.nowatchdog then (
-    try
-      ignore (Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigint]) ;
-      delay_on_eintr f ;
-      exit 127
-    with e ->
-      Debug.log_backtrace e (Backtrace.get e) ;
-      exit 2
-  )
+  let run () =
+    ignore (Unix.sigprocmask Unix.SIG_UNBLOCK [Sys.sigint]) ;
+    delay_on_eintr f ;
+    exit 127
+  in
+  if !Xapi_globs.nowatchdog then
+    (* backtrace already logged by the Debug module, so ignore the exception here *)
+    try Debug.with_thread_associated __FUNCTION__ run () with _ -> exit 2
