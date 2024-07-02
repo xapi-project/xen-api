@@ -11,6 +11,8 @@ install:
 	$(IPROG) -d $(DESTDIR)$(SITE3_DIR)
 	$(IPROG) -d $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) -d $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) -d $(DESTDIR)/etc/sysconfig
+	$(IPROG) -d $(DESTDIR)/usr/lib/systemd/system
 
 	
 	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
@@ -32,6 +34,11 @@ install:
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/echo.py $(DESTDIR)$(PLUGINDIR)/echo
+
+	$(IPROG) perfmon/perfmon $(DESTDIR)$(PLUGINDIR)
+	$(IDATA) perfmon/perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
+	$(IPROG) perfmon/sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
+
 # templates
 	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
 	$(IPROG) templates/debug $(DESTDIR)$(OPTDIR)/packages/post-install-scripts

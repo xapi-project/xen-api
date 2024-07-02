@@ -2,9 +2,9 @@
 #
 # A plugin for requesting perfmon actions via the xe host-call-plugin mechanism
 
-import XenAPIPlugin
 import os
 import socket
+import XenAPIPlugin
 
 # TODO: put this info plus all the supported cmds in a shared file
 cmdsockname = "\0perfmon"  # an af_unix socket name (the "\0" stops socket.bind() creating a fs node)

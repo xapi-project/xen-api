@@ -61,7 +61,6 @@ install:
 	$(IDATA) cdrommon@.service $(DESTDIR)/usr/lib/systemd/system/cdrommon@.service
 	$(IDATA) gencert.service $(DESTDIR)/usr/lib/systemd/system/gencert.service
 	$(IDATA) xapi-domains.service $(DESTDIR)/usr/lib/systemd/system/xapi-domains.service
-	$(IDATA) perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IDATA) generate-iscsi-iqn.service $(DESTDIR)/usr/lib/systemd/system/generate-iscsi-iqn.service
 	$(IDATA) xapi.service $(DESTDIR)/usr/lib/systemd/system/xapi.service
 	$(IDATA) attach-static-vdis.service $(DESTDIR)/usr/lib/systemd/system/attach-static-vdis.service
@@ -115,14 +114,11 @@ install:
 	$(IPROG) restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
-	mkdir -p $(DESTDIR)/etc/sysconfig
-	$(IPROG) sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
-	$(IPROG) plugins/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/firewall-port $(DESTDIR)$(PLUGINDIR)
