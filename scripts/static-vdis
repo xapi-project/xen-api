@@ -375,8 +375,9 @@ def usage():
     print(" %s attach <uuid>        -- attach the VDI immediately" % sys.argv[0])    
     print(" %s detach <uuid>        -- detach the VDI immediately" % sys.argv[0])
     sys.exit(1)
-    
-if  __name__ == "__main__":
+
+
+def main():
     if len(sys.argv) < 2:
         usage()
         
@@ -401,3 +402,7 @@ if  __name__ == "__main__":
         detach(sys.argv[2])
     else:
         usage()
+
+
+if  __name__ == "__main__":  # pragma: no cover
+    main()
