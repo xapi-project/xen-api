@@ -230,9 +230,12 @@ let resync_host ~__context ~host =
         ~msg:Api_messages.cluster_host_enable_failed ~cls:`Host ~obj_uuid ~body
         ~api_func:(fun rpc session_id ->
           (* If we have just joined, enable will prevent concurrent clustering ops *)
-          if not (Db.Cluster_host.get_joined ~__context ~self) then
-            join_internal ~__context ~self
-          else if Db.Cluster_host.get_enabled ~__context ~self then (
+          if not (Db.Cluster_host.get_joined ~__context ~self) then (
+            join_internal ~__context ~self ;
+            create_cluster_watcher_on_master ~__context ~host ;
+            Xapi_observer.initialise_observer ~__context
+              Xapi_observer_components.Xapi_clusterd
+          ) else if Db.Cluster_host.get_enabled ~__context ~self then (
             (* [enable] unconditionally invokes low-level enable operations and is idempotent.
                RPU reformats partition, losing service status, never re-enables clusterd *)
             debug "Cluster_host %s is enabled, starting up xapi-clusterd"
@@ -241,13 +244,7 @@ let resync_host ~__context ~host =
             maybe_switch_cluster_stack_version ~__context ~self ~cluster_stack ;
             (* Note that join_internal and enable both use the clustering lock *)
             Client.Client.Cluster_host.enable ~rpc ~session_id ~self
-          ) ;
-          (* create the watcher here so that the watcher exists after toolstack restart *)
-          create_cluster_watcher_on_master ~__context ~host ;
-          Xapi_observer.initialise_observer ~__context
-            Xapi_observer_components.Xapi_clusterd ;
-          let verify = Stunnel_client.get_verify_by_default () in
-          set_tls_config ~__context ~self ~verify
+          )
       )
 
 (* API call split into separate functions to create in db and enable in client layer *)
