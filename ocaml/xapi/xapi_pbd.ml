@@ -234,7 +234,7 @@ let unplug ~__context ~self =
             (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata)
             vdis
         in
-        if List.length non_metadata_vdis > 0 then
+        if non_metadata_vdis <> [] then
           raise
             (Api_errors.Server_error
                (Api_errors.vdi_in_use, List.map Ref.string_of non_metadata_vdis)

@@ -132,7 +132,7 @@ let with_ks ~kss ~fn =
   let corrected_values =
     List.filter (fun cv -> cv <> None) (List.map (fun ks -> fn field ks) kss)
   in
-  if List.length corrected_values < 1 then
+  if corrected_values = [] then
     []
   else
     match List.hd corrected_values with None -> [] | Some cv -> cv

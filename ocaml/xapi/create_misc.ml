@@ -71,7 +71,7 @@ let make_xen_livepatch_list () =
       )
       [] lines
   in
-  if List.length patches > 0 then Some (String.concat ", " patches) else None
+  if patches <> [] then Some (String.concat ", " patches) else None
 
 (** The format of the response looks like
  *  # kpatch list
@@ -104,7 +104,7 @@ let make_kpatch_list () =
           loop acc started rest
   in
   let patches = loop [] false lines in
-  if List.length patches > 0 then Some (String.concat ", " patches) else None
+  if patches <> [] then Some (String.concat ", " patches) else None
 
 (** [count_cpus] returns the number of CPUs found in /proc/cpuinfo *)
 let count_cpus () =

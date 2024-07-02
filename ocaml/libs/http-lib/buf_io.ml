@@ -80,7 +80,7 @@ let fill_buf ~buffered ic timeout =
   let buf_size = Bytes.length ic.buf in
   let fill_no_exc timeout len =
     let l, _, _ = Unix.select [ic.fd] [] [] timeout in
-    if List.length l <> 0 then (
+    if l <> [] then (
       let n = Unix.read ic.fd ic.buf ic.max len in
       ic.max <- n + ic.max ;
       if n = 0 && len <> 0 then raise Eof ;

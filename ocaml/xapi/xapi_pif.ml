@@ -704,7 +704,7 @@ let create_VLAN ~__context ~device ~network ~host ~vLAN =
       )
       other_pifs
   in
-  if List.length base_pifs = 0 then
+  if base_pifs = [] then
     raise
       (Api_errors.Server_error (Api_errors.invalid_value, ["device"; device])) ;
   let tagged_PIF = List.hd base_pifs in

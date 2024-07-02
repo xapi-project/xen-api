@@ -123,7 +123,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
               )
               pbd_records
       in
-      if List.length pbds_attached = 0 && List.mem op [`resize] then
+      if pbds_attached = [] && List.mem op [`resize] then
         Some (Api_errors.sr_no_pbds, [Ref.string_of sr])
       else
         (* check to see whether VBDs exist which are using this VDI *)

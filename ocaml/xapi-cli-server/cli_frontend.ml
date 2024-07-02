@@ -3918,7 +3918,7 @@ let rio_help printer minimal cmd =
       )
       cmd.params
   in
-  if List.length cmds > 0 then
+  if cmds <> [] then
     List.iter docmd (List.map fst cmds)
   else
     let cmds =

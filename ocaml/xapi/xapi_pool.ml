@@ -356,7 +356,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
         my_vms
     in
-    if List.length my_running_vms > 0 then (
+    if my_running_vms <> [] then (
       error
         "The current host has running or suspended VMs: it cannot join a new \
          pool" ;
@@ -369,11 +369,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   let assert_no_vms_with_current_ops () =
     let my_vms = Db.VM.get_all_records ~__context in
     let vms_with_current_ops =
-      List.filter
-        (fun (_, vmr) -> List.length vmr.API.vM_current_operations > 0)
-        my_vms
+      List.filter (fun (_, vmr) -> vmr.API.vM_current_operations <> []) my_vms
     in
-    if List.length vms_with_current_ops > 0 then (
+    if vms_with_current_ops <> [] then (
       error
         "The current host has VMs with current operations: it cannot join a \
          new pool" ;
@@ -2682,7 +2680,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
             !_rollback_list
           in
           (* 3. if any failed, then do a best-effort rollback, disabling any host that has been just enabled *)
-          if List.length rollback_list > 0 then (* FAILED *)
+          if rollback_list <> [] then (* FAILED *)
             let failed_host =
               (* the failed host is the first item in the rollback list *)
               List.hd rollback_list
@@ -2805,7 +2803,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
       let failedhosts_list =
         List.filter (fun (_, err, _) -> err <> "") host_msgs_list
       in
-      if List.length failedhosts_list > 0 then ((* FAILED *)
+      if failedhosts_list <> [] then ((* FAILED *)
         match List.hd failedhosts_list with
         | host, err, msg ->
             debug
@@ -3075,7 +3073,7 @@ let enable_local_storage_caching ~__context ~self:_ =
         failed
     )
   in
-  if List.length failed_hosts > 0 then
+  if failed_hosts <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.hosts_failed_to_enable_caching
@@ -3099,7 +3097,7 @@ let disable_local_storage_caching ~__context ~self:_ =
           hosts
     )
   in
-  if List.length failed_hosts > 0 then
+  if failed_hosts <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.hosts_failed_to_disable_caching

@@ -51,7 +51,7 @@ let wait_for ~xs ?(timeout = 300.) (x : 'a t) =
         Thread.create
           (fun () ->
             let r, _, _ = Unix.select [p1] [] [] timeout in
-            if List.length r > 0 then
+            if r <> [] then
               ()
             else
               try Xs_client_unix.Task.cancel task with _ -> ()

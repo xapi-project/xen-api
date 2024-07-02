@@ -90,7 +90,7 @@ let maybe_create_pbd rpc session_id sr device_config me =
     ) else
       pbds
   in
-  if List.length pbds = 0 (* If there's no PBD, create it *) then
+  if pbds = [] (* If there's no PBD, create it *) then
     Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr ~device_config
       ~other_config:[]
   else
