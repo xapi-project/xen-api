@@ -3,7 +3,12 @@
   (public_name uuid)
   (modules uuidx)
   (libraries
-    unix (re_export uuidm)
+    mtime
+    mtime.clock.os
+    ptime
+    ptime.clock.os
+    unix
+    (re_export uuidm)
   )
   (wrapped false)
 )
@@ -12,5 +17,5 @@
   (name uuid_test)
   (package uuid)
   (modules uuid_test)
-  (libraries alcotest fmt uuid)
+  (libraries alcotest fmt ptime uuid)
   )
