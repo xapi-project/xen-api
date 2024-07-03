@@ -4580,13 +4580,11 @@ let vm_migrate printer rpc session_id params =
       Client.Session.login_with_password ~rpc:remote_rpc ~uname ~pwd
         ~version:"1.3" ~originator:Constants.xapi_user_agent
     in
+    let remote f = f ~rpc:remote_rpc ~session_id:remote_session in
     finally
       (fun () ->
         let host, host_record =
-          let all =
-            Client.Host.get_all_records ~rpc:remote_rpc
-              ~session_id:remote_session
-          in
+          let all = remote Client.Host.get_all_records in
           if List.mem_assoc "host" params then
             let x = List.assoc "host" params in
             try
@@ -4603,10 +4601,7 @@ let vm_migrate printer rpc session_id params =
             List.hd all
         in
         let network, network_record =
-          let all =
-            Client.Network.get_all_records ~rpc:remote_rpc
-              ~session_id:remote_session
-          in
+          let all = remote Client.Network.get_all_records in
           if List.mem_assoc "remote-network" params then
             let x = List.assoc "remote-network" params in
             try
@@ -4623,10 +4618,7 @@ let vm_migrate printer rpc session_id params =
             let pifs = host_record.API.host_PIFs in
             let management_pifs =
               List.filter
-                (fun self ->
-                  Client.PIF.get_management ~rpc:remote_rpc
-                    ~session_id:remote_session ~self
-                )
+                (fun self -> remote Client.PIF.get_management ~self)
                 pifs
             in
             if management_pifs = [] then
@@ -4635,14 +4627,8 @@ let vm_migrate printer rpc session_id params =
                    host_record.API.host_uuid
                 ) ;
             let pif = List.hd management_pifs in
-            let net =
-              Client.PIF.get_network ~rpc:remote_rpc ~session_id:remote_session
-                ~self:pif
-            in
-            ( net
-            , Client.Network.get_record ~rpc:remote_rpc
-                ~session_id:remote_session ~self:net
-            )
+            let net = remote Client.PIF.get_network ~self:pif in
+            (net, remote Client.Network.get_record ~self:net)
         in
         let vif_map =
           List.map
@@ -4650,10 +4636,7 @@ let vm_migrate printer rpc session_id params =
               let vif =
                 Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_uuid
               in
-              let net =
-                Client.Network.get_by_uuid ~rpc:remote_rpc
-                  ~session_id:remote_session ~uuid:net_uuid
-              in
+              let net = remote Client.Network.get_by_uuid ~uuid:net_uuid in
               (vif, net)
             )
             (read_map_params "vif" params)
@@ -4664,10 +4647,7 @@ let vm_migrate printer rpc session_id params =
               let vdi =
                 Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
               in
-              let sr =
-                Client.SR.get_by_uuid ~rpc:remote_rpc ~session_id:remote_session
-                  ~uuid:sr_uuid
-              in
+              let sr = remote Client.SR.get_by_uuid ~uuid:sr_uuid in
               (vdi, sr)
             )
             (read_map_params "vdi" params)
@@ -4679,8 +4659,7 @@ let vm_migrate printer rpc session_id params =
                 Client.VGPU.get_by_uuid ~rpc ~session_id ~uuid:vgpu_uuid
               in
               let gpu_group =
-                Client.GPU_group.get_by_uuid ~rpc:remote_rpc
-                  ~session_id:remote_session ~uuid:gpu_group_uuid
+                remote Client.GPU_group.get_by_uuid ~uuid:gpu_group_uuid
               in
               (vgpu, gpu_group)
             )
@@ -4696,16 +4675,12 @@ let vm_migrate printer rpc session_id params =
                 {|(field "host"="%s") and (field "currently_attached"="true")|}
                 (Ref.string_of host)
             in
-            let host_pbds =
-              Client.PBD.get_all_records_where ~rpc:remote_rpc
-                ~session_id:remote_session ~expr
-            in
+            let host_pbds = remote Client.PBD.get_all_records_where ~expr in
             let srs =
               List.map
                 (fun (_, pbd_rec) ->
                   ( pbd_rec.API.pBD_SR
-                  , Client.SR.get_record ~rpc:remote_rpc
-                      ~session_id:remote_session ~self:pbd_rec.API.pBD_SR
+                  , remote Client.SR.get_record ~self:pbd_rec.API.pBD_SR
                   )
                 )
                 host_pbds
@@ -4822,16 +4797,13 @@ let vm_migrate printer rpc session_id params =
               (Cli_printer.PMsg
                  (Printf.sprintf "VDI %s -> SR %s"
                     (Client.VDI.get_uuid ~rpc ~session_id ~self:vdi)
-                    (Client.SR.get_uuid ~rpc:remote_rpc
-                       ~session_id:remote_session ~self:sr
-                    )
+                    (remote Client.SR.get_uuid ~self:sr)
                  )
               )
           )
           vdi_map ;
         let token =
-          Client.Host.migrate_receive ~rpc:remote_rpc ~session_id:remote_session
-            ~host ~network ~options
+          remote Client.Host.migrate_receive ~host ~network ~options
         in
         let new_vm =
           do_vm_op ~include_control_vms:false ~include_template_vms:true printer
@@ -4847,13 +4819,7 @@ let vm_migrate printer rpc session_id params =
           |> List.hd
         in
         if get_bool_param params "copy" then
-          printer
-            (Cli_printer.PList
-               [
-                 Client.VM.get_uuid ~rpc:remote_rpc ~session_id:remote_session
-                   ~self:new_vm
-               ]
-            )
+          printer (Cli_printer.PList [remote Client.VM.get_uuid ~self:new_vm])
       )
       (fun () ->
         Client.Session.logout ~rpc:remote_rpc ~session_id:remote_session
