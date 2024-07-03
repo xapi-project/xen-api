@@ -1020,7 +1020,9 @@ let max_observer_file_size = ref (1 lsl 20)
 let cert_thumbprint_header_request =
   ref "x-xenapi-request-host-certificate-thumbprint"
 
-let cert_thumbprint_header_value = ref "sha-256:master"
+let cert_thumbprint_header_value_sha256 = ref "sha-256:master"
+
+let cert_thumbprint_header_value_sha1 = ref "sha-1:master"
 
 let cert_thumbprint_header_response =
   ref "x-xenapi-response-host-certificate-thumbprint"

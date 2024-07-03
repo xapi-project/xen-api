@@ -115,13 +115,15 @@ jobs:
   # To view the Coveralls results of the PR, click on the "Details" link to the right
   # of the Coveralls Logo in the Checks section of the PR.
   finish-parallel-coveralls-upload:
+    name: Finish coverage upload
     needs: python-test  # run after the python-test has completed uploading coverages
     runs-on: ubuntu-latest
     steps:
       - name: Finish the parallel coverage upload to Coveralls
-        uses: coverallsapp/github-action@v1
+        uses: coverallsapp/github-action@v2
         with:
           parallel-finished: true
+        continue-on-error: true  # Do not fail CI if this step fails
 
   deprecation-test:
     name: Deprecation tests

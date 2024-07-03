@@ -208,6 +208,15 @@ let parse_keyvalpairs xs =
       )
     kvpairs
 
+let parse_uri x =
+  match Astring.String.cuts ~sep:"?" x with
+  | [uri] ->
+      (uri, [])
+  | [uri; params] ->
+      (uri, parse_keyvalpairs params)
+  | _ ->
+      raise Http_parse_failure
+
 type authorization = Basic of string * string | UnknownAuth of string
 [@@deriving rpc]
 
@@ -619,6 +628,42 @@ module Request = struct
     }
 
   let get_version x = x.version
+
+  let of_request_line x =
+    match Astring.String.fields ~empty:false x with
+    | [m; uri; version] -> (
+        (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
+        let uri, query = parse_uri uri in
+        (* strip the "HTTP/" prefix from the version string *)
+        match Astring.String.cut ~sep:"/" version with
+        | Some (_, version) ->
+            {
+              m= method_t_of_string m
+            ; frame= false
+            ; uri
+            ; query
+            ; content_length= None
+            ; transfer_encoding= None
+            ; accept= None
+            ; version
+            ; cookie= []
+            ; auth= None
+            ; task= None
+            ; subtask_of= None
+            ; content_type= None
+            ; host= None
+            ; user_agent= None
+            ; close= false
+            ; additional_headers= []
+            ; body= None
+            ; traceparent= None
+            }
+        | None ->
+            error "Failed to parse: %s" x ;
+            raise Http_parse_failure
+      )
+    | _ ->
+        raise Http_parse_failure
 
   let to_string x =
     let kvpairs x =

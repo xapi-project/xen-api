@@ -359,12 +359,6 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
     proxy |> Option.fold ~none:[] ~some:(fun p -> [("STUNNEL_PROXY", p)])
   in
   let open Http.Request in
-  (* Below transformation only keeps one value per key, whereas
-     a fully compliant implementation following Uri's interface
-     would operate on list of values for each key instead *)
-  let kvlist_flatten ls =
-    List.map (function k, v :: _ -> (k, v) | k, [] -> (k, "")) ls
-  in
   let request =
     Astring.String.cuts ~sep:"\n" headers
     |> List.fold_left
@@ -373,10 +367,7 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
              match Astring.String.fields ~empty:false header with
              | [meth; uri; version] ->
                  (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
-                 let uri_t = Uri.of_string uri in
-                 if uri_t = Uri.empty then raise Http_parse_failure ;
-                 let uri = Uri.path uri_t in
-                 let query = Uri.query uri_t |> kvlist_flatten in
+                 let uri, query = Http.parse_uri uri in
                  let m = Http.method_t_of_string meth in
                  let version =
                    let x = String.trim version in

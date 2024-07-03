@@ -5237,6 +5237,12 @@ let certificate_record rpc session_id certificate =
       ; make_field ~name:"fingerprint"
           ~get:(fun () -> (x ()).API.certificate_fingerprint)
           ()
+      ; make_field ~name:"fingerprint_sha256"
+          ~get:(fun () -> (x ()).API.certificate_fingerprint_sha256)
+          ()
+      ; make_field ~name:"fingerprint_sha1"
+          ~get:(fun () -> (x ()).API.certificate_fingerprint_sha1)
+          ()
       ]
   }
 
