@@ -45,26 +45,26 @@ jobs:
         env:
           SKIP: no-commit-to-branch
 
-      - name: Run Pytest for python 2 and get code coverage for Codecov
+      - name: Run Pytest for python 3 and get code coverage
         if: ${{ matrix.python-version == '2.7' }}
         run: >
           pip install enum future mock pytest-coverage pytest-mock &&
           pytest
-          --cov=scripts scripts --cov-fail-under 45 -vv -rA
+          --cov=scripts --cov=ocaml/xcp-rrdd
+          scripts/ ocaml/xcp-rrdd -vv -rA
+          --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+        env:
+          PYTHONDEVMODE: yes
 
-      - name: Upload Python ${{matrix.python-version}} coverage report to Codecov
-        if: ${{ matrix.python-version != '2.7' }}
-        uses: codecov/codecov-action@v3
+      - name: Upload coverage report to Coveralls
+        uses: coverallsapp/github-action@v2
         with:
-          directory: .git
-          files: coverage${{matrix.python-version}}.xml
-          env_vars: OS,PYTHON
-          fail_ci_if_error: false
-          flags: python${{matrix.python-version}}
-          name: coverage${{matrix.python-version}}
-          verbose: true
+          format: cobertura
+          files: .git/coverage${{matrix.python-version}}.xml
+          flag-name: python${{matrix.python-version}}
+          parallel: true
 
       - uses: dciborow/action-pylint@0.1.0
         if: ${{ matrix.python-version != '2.7' }}
@@ -88,6 +88,20 @@ jobs:
         with:
           github_token: ${{ secrets.github_token }}
         continue-on-error: true
+
+  # For coverage of 2.7 and 3.11 we upload to Coveralls in parallel mode.
+  # To view the Coveralls results of the PR, click on the "Details" link to the right
+  # of the Coveralls Logo in the Checks section of the PR.
+  finish-parallel-coveralls-upload:
+    name: Finish coverage upload
+    needs: python-test  # run after the python-test has completed uploading coverages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Finish the parallel coverage upload to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true
+        continue-on-error: true  # Do not fail CI if this step fails
 
   deprecation-test:
     name: Deprecation tests
