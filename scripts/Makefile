@@ -115,7 +115,6 @@ install:
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
-	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
