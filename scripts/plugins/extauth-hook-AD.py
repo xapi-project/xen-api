@@ -29,7 +29,8 @@ import XenAPI
 # - /etc/pam.d/hcp_users
 # - /etc/ssh/ssh_config
 
-# pylint: disable=super-with-arguments
+# pylint: disable=too-few-public-methods
+# pytype: disable=ignored-abstractmethod
 
 
 HCP_USERS = "/etc/security/hcp_ad_users.conf"
@@ -81,10 +82,8 @@ class ADBackend(Enum):
     BD_WINBIND = 1
 
 
-# pylint: disable=useless-object-inheritance, too-few-public-methods
-class ADConfig(object):
+class ADConfig():
     """Base class for AD configuration"""
-    #pylint: disable=too-many-arguments
 
     def __init__(self, path, session, args, ad_enabled=True, load_existing=True, file_mode=0o644):
         self._file_path = path
@@ -257,6 +256,7 @@ class UsersList(DynamicPam):
 
     def _add_upn(self, subject_rec):
         sep = "@"
+        upn = ""
         try:
             upn = subject_rec["other_config"]["subject-upn"]
             user, domain = upn.split(sep)

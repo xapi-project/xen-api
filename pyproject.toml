@@ -263,8 +263,6 @@ expected_to_fail = [
     # Need 2to3 -w <file> and maybe a few other minor updates:
     "scripts/backup-sr-metadata.py",
     "scripts/restore-sr-metadata.py",
-    # Other fixes needed:
-    "scripts/plugins/extauth-hook-AD.py",
 ]
 
 # -----------------------------------------------------------------------------
