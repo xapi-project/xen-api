@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 778
+let schema_minor_vsn = 779
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -204,6 +204,8 @@ let _vm_metrics = "VM_metrics"
 let _vm_guest_metrics = "VM_guest_metrics"
 
 let _vm_appliance = "VM_appliance"
+
+let _vm_group = "VM_group"
 
 let _dr_task = "DR_task"
 

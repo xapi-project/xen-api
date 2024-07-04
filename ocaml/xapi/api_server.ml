@@ -39,6 +39,7 @@ module Actions = struct
   module VMPP = Xapi_vmpp
   module VMSS = Xapi_vmss
   module VM_appliance = Xapi_vm_appliance
+  module VM_group = Xapi_vm_group
   module DR_task = Xapi_dr_task
 
   module LVHD = struct end
@@ -250,24 +251,28 @@ let is_host_is_slave_error (response : Rpc.response) =
       false
 
 let create_thumbprint_header req response =
-  let include_thumbprint =
+  let hash_type_opt =
     match
       List.assoc_opt
         !Xapi_globs.cert_thumbprint_header_request
         req.Http.Request.additional_headers
     with
-    | Some x when x = !Xapi_globs.cert_thumbprint_header_value ->
-        true
+    | Some x when x = !Xapi_globs.cert_thumbprint_header_value_sha256 ->
+        Some `Sha256
+    | Some x when x = !Xapi_globs.cert_thumbprint_header_value_sha1 ->
+        Some `Sha1
     | _ ->
-        false
+        None
   in
-  if include_thumbprint && is_host_is_slave_error response then
-    Helpers.external_certificate_thumbprint_of_master ()
-    |> Option.fold ~none:[] ~some:(fun x ->
-           [(!Xapi_globs.cert_thumbprint_header_response, x)]
-       )
-  else
-    []
+  Option.bind hash_type_opt (fun hash_type ->
+      if is_host_is_slave_error response then
+        Helpers.external_certificate_thumbprint_of_master ~hash_type
+      else
+        None
+  )
+  |> Option.fold ~none:[] ~some:(fun x ->
+         [(!Xapi_globs.cert_thumbprint_header_response, x)]
+     )
 
 module Unixext = Xapi_stdext_unix.Unixext
 

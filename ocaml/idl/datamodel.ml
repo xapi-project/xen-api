@@ -7866,6 +7866,7 @@ let all_system =
   ; Datamodel_diagnostics.t
   ; Datamodel_repository.t
   ; Datamodel_observer.t
+  ; Datamodel_vm_group.t
   ]
 
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
@@ -7946,6 +7947,7 @@ let all_relations =
   ; ((_network_sriov, "physical_PIF"), (_pif, "sriov_physical_PIF_of"))
   ; ((_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of"))
   ; ((_certificate, "host"), (_host, "certificates"))
+  ; ((_vm, "groups"), (_vm_group, "VMs"))
   ]
 
 let update_lifecycles =
@@ -8077,6 +8079,7 @@ let expose_get_all_messages_for =
   ; _vmpp
   ; _vmss
   ; _vm_appliance
+  ; _vm_group
   ; _pci
   ; _pgpu
   ; _gpu_group

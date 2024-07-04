@@ -15,7 +15,7 @@ let stdout_m = Mutex.create ()
 
 let debug ?(out = stdout) (fmt : ('a, unit, string, unit) format4) =
   Xapi_stdext_threads.Threadext.Mutex.execute stdout_m (fun () ->
-      Printf.kprintf
+      Printf.ksprintf
         (fun s ->
           Printf.fprintf out "%s\n" s ;
           flush stdout

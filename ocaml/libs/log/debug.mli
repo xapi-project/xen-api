@@ -88,3 +88,7 @@ module Make : functor (_ : BRAND) -> DEBUG
 val is_disabled : string -> Syslog.level -> bool
 (** [is_disabled brand level] returns [true] if logging for [brand] at [level]
     is disabled, * otherwise returns [false]. *)
+
+module Pp : sig
+  val mtime_span : unit -> Mtime.Span.t -> string
+end

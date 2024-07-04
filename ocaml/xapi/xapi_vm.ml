@@ -1441,6 +1441,26 @@ let set_appliance ~__context ~self ~value =
   (* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
   update_allowed_operations ~__context ~self
 
+let set_groups ~__context ~self ~value =
+  Pool_features.assert_enabled ~__context ~f:Features.VM_groups ;
+  if
+    Db.VM.get_is_control_domain ~__context ~self
+    || Db.VM.get_is_a_template ~__context ~self
+    || Db.VM.get_is_a_snapshot ~__context ~self
+  then
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.operation_not_allowed
+         , [
+             "Control domains, templates, and snapshots cannot be added to VM \
+              groups."
+           ]
+         )
+      ) ;
+  if List.length value > 1 then
+    raise Api_errors.(Server_error (Api_errors.too_many_groups, [])) ;
+  Db.VM.set_groups ~__context ~self ~value
+
 let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   let open Vpx in
   let print_jobInstance (j : Vpx.jobInstance) =

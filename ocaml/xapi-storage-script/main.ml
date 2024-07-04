@@ -684,7 +684,7 @@ let vdi_of_volume x =
   ; snapshot_time= find_string _snapshot_time_key ~default:"19700101T00:00:00Z"
   ; snapshot_of= Vdi.of_string (find_string _snapshot_of_key ~default:"")
   ; read_only= not x.Xapi_storage.Control.read_write
-  ; cbt_enabled= false
+  ; cbt_enabled= Option.value x.Xapi_storage.Control.cbt_enabled ~default:false
   ; virtual_size= x.Xapi_storage.Control.virtual_size
   ; physical_utilisation= x.Xapi_storage.Control.physical_utilisation
   ; sm_config= []
@@ -1046,6 +1046,10 @@ let bind ~volume_script_dir =
                            Healthy
                        | Xapi_storage.Control.Recovering _ ->
                            Recovering
+                       | Xapi_storage.Control.Unreachable _ ->
+                           Unreachable
+                       | Xapi_storage.Control.Unavailable _ ->
+                           Unavailable
                        )
                    }
                  in
@@ -1405,6 +1409,10 @@ let bind ~volume_script_dir =
                      Healthy
                  | Xapi_storage.Control.Recovering _ ->
                      Recovering
+                 | Xapi_storage.Control.Unreachable _ ->
+                     Unreachable
+                 | Xapi_storage.Control.Unavailable _ ->
+                     Unavailable
                  )
              }
          )
@@ -1545,9 +1553,13 @@ let bind ~volume_script_dir =
     @@
     let* sr = Attached_SRs.find sr in
     let vdi = Storage_interface.Vdi.string_of vdi in
-    return_volume_rpc (fun () ->
-        Volume_client.data_destroy volume_rpc dbg sr vdi
-    )
+    let* response =
+      return_volume_rpc (fun () ->
+          Volume_client.data_destroy volume_rpc dbg sr vdi
+      )
+    in
+    let* () = set ~dbg ~sr ~vdi ~key:_vdi_type_key ~value:"cbt_metadata" in
+    Deferred.Result.return response
   in
   S.VDI.data_destroy vdi_data_destroy_impl ;
   let u name _ = failwith ("Unimplemented: " ^ name) in
