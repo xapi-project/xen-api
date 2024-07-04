@@ -43,7 +43,7 @@ module Add = struct
   let each f xs = xs |> List.map f |> List.concat |> many
 
   let fmt fmt =
-    Printf.kprintf (fun str s -> ((), {s with argv= str :: s.argv})) fmt
+    Printf.ksprintf (fun str s -> ((), {s with argv= str :: s.argv})) fmt
 
   let file_descr uuid fd s = ((), {s with fds= (uuid, fd) :: s.fds})
 

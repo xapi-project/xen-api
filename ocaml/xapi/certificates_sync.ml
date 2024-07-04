@@ -32,7 +32,9 @@ let install ~__context ~host:_ ~type' cert =
 (** determine if the database is up to date by comparing the fingerprint
   of xapi-ssl.pem with the entry in the database *)
 let is_unchanged ~__context cert_ref cert =
-  let ref_hash = Db.Certificate.get_fingerprint ~__context ~self:cert_ref in
+  let ref_hash =
+    Db.Certificate.get_fingerprint_sha256 ~__context ~self:cert_ref
+  in
   let cert_hash =
     X509.Certificate.fingerprint `SHA256 cert |> Certificates.pp_hash
   in
@@ -100,7 +102,7 @@ let update ~__context =
 
 let internal_error fmt =
   fmt
-  |> Printf.kprintf @@ fun msg ->
+  |> Printf.ksprintf @@ fun msg ->
      error "%s" msg ;
      raise Api_errors.(Server_error (internal_error, [msg]))
 

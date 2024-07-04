@@ -15,6 +15,20 @@
   (name zstd)
 )
 
+
+(package
+  (name clock)
+  (synopsis "Xapi's library for managing time")
+  (authors "Jonathan Ludlam" "Pau Ruiz Safont")
+  (depends
+    (ocaml (>= 4.12))
+    (alcotest :with-test)
+    astring
+    mtime
+    ptime
+  )
+)
+
 (package
   (name xapi-rrdd-plugin)
 )
@@ -451,19 +465,17 @@ This package provides an Lwt compatible interface to the library.")
 (package
   (name xapi-stdext-date)
   (synopsis "Xapi's standard library extension, Dates")
+  (authors "Jonathan Ludlam")
   (depends
-    (ocaml (>= 4.12))
-    (alcotest :with-test)
-    astring
-    base-unix
+    (clock (= :version))
     ptime
-    (odoc :with-doc)
   )
 )
 
 (package
   (name xapi-stdext-encodings)
   (synopsis "Xapi's standard library extension, Encodings")
+  (authors "Jonathan Ludlam")
   (depends
     (ocaml (>= 4.13.0))
     (alcotest (and (>= 0.6.0) :with-test))
@@ -477,6 +489,7 @@ This package provides an Lwt compatible interface to the library.")
 (package
   (name xapi-stdext-pervasives)
   (synopsis "Xapi's standard library extension, Pervasives")
+  (authors "Jonathan Ludlam")
   (depends
     (ocaml (>= 4.08))
     logs
@@ -498,6 +511,7 @@ This package provides an Lwt compatible interface to the library.")
 (package
   (name xapi-stdext-threads)
   (synopsis "Xapi's standard library extension, Threads")
+  (authors "Jonathan Ludlam")
   (depends
     ocaml
     base-threads
@@ -510,6 +524,7 @@ This package provides an Lwt compatible interface to the library.")
 (package
   (name xapi-stdext-unix)
   (synopsis "Xapi's standard library extension, Unix")
+  (authors "Jonathan Ludlam")
   (depends
     (ocaml (>= 4.12.0))
     base-unix
@@ -524,6 +539,7 @@ This package provides an Lwt compatible interface to the library.")
 (package
   (name xapi-stdext-zerocheck)
   (synopsis "Xapi's standard library extension, Zerocheck")
+  (authors "Jonathan Ludlam")
   (depends
     ocaml
     (odoc :with-doc)
