@@ -442,7 +442,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string
 
-    type output_t = ((string * UpdateInfo.t) list, exn) result
+    type output_t = (string option * (string * UpdateInfo.t) list, exn) result
 
     let string_of_input_t s = s
 
@@ -451,7 +451,10 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
         str "%a"
           Dump.(
             result
-              ~ok:(list (pair string (record @@ fields_of_updateinfo)))
+              ~ok:
+                (pair (option string)
+                   (list (pair string (record @@ fields_of_updateinfo)))
+                )
               ~error:exn
           )
       )
@@ -472,13 +475,22 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
         , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
         )
       ; (* No update in updateinfo.xml *)
-        ({|
-            <updates>
-            </updates>
-          |}, Ok [])
-      ; (* Missing update_type *)
         ( {|
             <updates>
+            </updates>
+          |}
+        , Ok (None, [])
+        )
+      ; (* No update in updateinfo.xml, but with xapi-api-version *)
+        ( {|
+            <updates xapi-api-version="2.23">
+            </updates>
+          |}
+        , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        )
+      ; (* Missing update_type *)
+        ( {|
+            <updates xapi-api-version="2.23">
               <update type="">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -494,7 +506,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
         )
       ; (* Missing id *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <title>title</title>
                 <summary>summary</summary>
@@ -509,7 +521,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
         )
       ; (* Missing summary *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -524,7 +536,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
         )
       ; (* Missing description *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -537,35 +549,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= ""
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= ""
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Duplicate update ID *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -588,7 +602,7 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
           |}
         , Error Api_errors.(Server_error (invalid_updateinfo_xml, []))
         )
-      ; (* Single update *)
+      ; (* Single update, without xapi-api-version *)
         ( {|
             <updates>
               <update type="security">
@@ -605,34 +619,82 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
-                  ; severity= Severity.High
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( None
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
-      ; (* Two updates *)
+      ; (* Single update *)
+        ( {|
+            <updates xapi-api-version="2.23">
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <issued date="2023-05-12 08:37:49"/>
+                <severity>High</severity>
+              </update>
+            </updates>
+          |}
+        , Ok
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
+        )
+      ; (* Two updates, without xapi-api-version *)
         ( {|
             <updates>
               <update type="security">
@@ -660,60 +722,143 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
-                  ; severity= Severity.High
-                  ; title= "title"
-                  }
-              )
-            ; ( "UPDATE-0001"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0001"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:50Z"
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( None
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:50Z"
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
+        )
+      ; (* Two updates *)
+        ( {|
+            <updates xapi-api-version="2.23">
+              <update type="security">
+                <id>UPDATE-0000</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <issued date="2023-05-12 08:37:49"/>
+                <severity>High</severity>
+              </update>
+              <update type="security">
+                <id>UPDATE-0001</id>
+                <title>title</title>
+                <summary>summary</summary>
+                <description>description</description>
+                <special_info>special information</special_info>
+                <url>https://update.details.info</url>
+                <guidance_applicabilities/>
+                <issued date="2023-05-12 08:37:50"/>
+                <severity>None</severity>
+              </update>
+            </updates>
+          |}
+        , Ok
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ; ( "UPDATE-0001"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0001"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:50Z"
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with deprecated guidances only *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -747,56 +892,58 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality= Some Gte
-                          ; epoch= None
-                          ; version= "10.1.0"
-                          ; release= "25"
-                          }
-                      ; Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality= Some Lt
-                          ; epoch= None
-                          ; version= "10.1.0"
-                          ; release= "25"
-                          }
-                      ]
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
-                  ; severity= Severity.High
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality= Some Gte
+                            ; epoch= None
+                            ; version= "10.1.0"
+                            ; release= "25"
+                            }
+                        ; Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality= Some Lt
+                            ; epoch= None
+                            ; version= "10.1.0"
+                            ; release= "25"
+                            }
+                        ]
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with unknown guidance *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -842,56 +989,58 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Recommended, [RebootHost])
-                      ; (Full, [RebootHost; RestartVM])
-                      ; (Mandatory, [RebootHost])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities=
-                      [
-                        Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality= Some Gte
-                          ; epoch= None
-                          ; version= "10.1.0"
-                          ; release= "25"
-                          }
-                      ; Applicability.
-                          {
-                            name= "xsconsole"
-                          ; arch= "x86_64"
-                          ; inequality= Some Lt
-                          ; epoch= None
-                          ; version= "10.1.0"
-                          ; release= "25"
-                          }
-                      ]
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
-                  ; severity= Severity.High
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Recommended, [RebootHost])
+                        ; (Full, [RebootHost; RestartVM])
+                        ; (Mandatory, [RebootHost])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities=
+                        [
+                          Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality= Some Gte
+                            ; epoch= None
+                            ; version= "10.1.0"
+                            ; release= "25"
+                            }
+                        ; Applicability.
+                            {
+                              name= "xsconsole"
+                            ; arch= "x86_64"
+                            ; inequality= Some Lt
+                            ; epoch= None
+                            ; version= "10.1.0"
+                            ; release= "25"
+                            }
+                        ]
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with livepatches and livepatch guidance *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -916,58 +1065,60 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Livepatch, [RestartToolstack])
-                      ; (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches=
-                      [
-                        LivePatch.
-                          {
-                            component= Kernel
-                          ; base_build_id=
-                              "8346194f2e98a228f5a595b13ecabd43a99fada0"
-                          ; base_version= "4.19.19"
-                          ; base_release= "8.0.19.xs8"
-                          ; to_version= "4.19.19"
-                          ; to_release= "8.0.21.xs8"
-                          }
-                      ; LivePatch.
-                          {
-                            component= Kernel
-                          ; base_build_id=
-                              "9346194f2e98a228f5a595b13ecabd43a99fada0"
-                          ; base_version= "4.19.19"
-                          ; base_release= "8.0.20.xs8"
-                          ; to_version= "4.19.19"
-                          ; to_release= "8.0.21.xs8"
-                          }
-                      ]
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
-                  ; severity= Severity.High
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Livepatch, [RestartToolstack])
+                        ; (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Kernel
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.19.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                        ; LivePatch.
+                            {
+                              component= Kernel
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                        ]
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with livepatches and unknown livepatch guidance *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -992,58 +1143,60 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Livepatch, [RebootHost])
-                      ; (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches=
-                      [
-                        LivePatch.
-                          {
-                            component= Kernel
-                          ; base_build_id=
-                              "8346194f2e98a228f5a595b13ecabd43a99fada0"
-                          ; base_version= "4.19.19"
-                          ; base_release= "8.0.19.xs8"
-                          ; to_version= "4.19.19"
-                          ; to_release= "8.0.21.xs8"
-                          }
-                      ; LivePatch.
-                          {
-                            component= Kernel
-                          ; base_build_id=
-                              "9346194f2e98a228f5a595b13ecabd43a99fada0"
-                          ; base_version= "4.19.19"
-                          ; base_release= "8.0.20.xs8"
-                          ; to_version= "4.19.19"
-                          ; to_release= "8.0.21.xs8"
-                          }
-                      ]
-                  ; issued=
-                      Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
-                  ; severity= Severity.High
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Livepatch, [RebootHost])
+                        ; (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Kernel
+                            ; base_build_id=
+                                "8346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.19.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                        ; LivePatch.
+                            {
+                              component= Kernel
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                        ]
+                    ; issued=
+                        Xapi_stdext_date.Date.of_string "2023-05-12T08:37:49Z"
+                    ; severity= Severity.High
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with livepatch guidance but empty livepatch *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1064,35 +1217,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Livepatch, [RestartDeviceModel])
-                      ; (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Livepatch, [RestartDeviceModel])
+                        ; (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with valid livepatches *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1115,47 +1270,49 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Livepatch, [RestartToolstack])
-                      ; (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches=
-                      [
-                        LivePatch.
-                          {
-                            component= Kernel
-                          ; base_build_id=
-                              "9346194f2e98a228f5a595b13ecabd43a99fada0"
-                          ; base_version= "4.19.19"
-                          ; base_release= "8.0.20.xs8"
-                          ; to_version= "4.19.19"
-                          ; to_release= "8.0.21.xs8"
-                          }
-                      ]
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Livepatch, [RestartToolstack])
+                        ; (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches=
+                        [
+                          LivePatch.
+                            {
+                              component= Kernel
+                            ; base_build_id=
+                                "9346194f2e98a228f5a595b13ecabd43a99fada0"
+                            ; base_version= "4.19.19"
+                            ; base_release= "8.0.20.xs8"
+                            ; to_version= "4.19.19"
+                            ; to_release= "8.0.21.xs8"
+                            }
+                        ]
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* Single update with invalid livepatches *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1178,35 +1335,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "description"
-                  ; guidance=
-                      [
-                        (Livepatch, [RestartToolstack])
-                      ; (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "description"
+                    ; guidance=
+                        [
+                          (Livepatch, [RestartToolstack])
+                        ; (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* guidance in new format: empty guidance *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1227,35 +1386,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "empty guidance"
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "empty guidance"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* guidance in new format only: empty guidance *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1273,35 +1434,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "guidance in new format only: empty guidance"
-                  ; guidance=
-                      [
-                        (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "guidance in new format only: empty guidance"
+                    ; guidance=
+                        [
+                          (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* guidance in new format: empty mandatory and full *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1326,35 +1489,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "empty mandatory and full"
-                  ; guidance=
-                      [
-                        (Full, [])
-                      ; (Mandatory, [])
-                      ; (Recommended, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "empty mandatory and full"
+                    ; guidance=
+                        [
+                          (Full, [])
+                        ; (Mandatory, [])
+                        ; (Recommended, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* guidance in new format: mandatory only *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1381,37 +1546,39 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "mandatory only"
-                  ; guidance=
-                      [
-                        ( Mandatory
-                        , [RestartDeviceModel; EvacuateHost; RestartToolstack]
-                        )
-                      ; (Recommended, [])
-                      ; (Full, [])
-                      ; (Livepatch, [])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "mandatory only"
+                    ; guidance=
+                        [
+                          ( Mandatory
+                          , [RestartDeviceModel; EvacuateHost; RestartToolstack]
+                          )
+                        ; (Recommended, [])
+                        ; (Full, [])
+                        ; (Livepatch, [])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* guidance in new format: mandatory, recommended, full and livepatch *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1445,35 +1612,37 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "mandatory, recommended, full and livepatch"
-                  ; guidance=
-                      [
-                        (Full, [RebootHost])
-                      ; (Livepatch, [RestartDeviceModel])
-                      ; (Recommended, [EvacuateHost])
-                      ; (Mandatory, [RestartToolstack])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "mandatory, recommended, full and livepatch"
+                    ; guidance=
+                        [
+                          (Full, [RebootHost])
+                        ; (Livepatch, [RestartDeviceModel])
+                        ; (Recommended, [EvacuateHost])
+                        ; (Mandatory, [RestartToolstack])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ; (* guidance in new format: mandatory, recommended, full and livepatch *)
         ( {|
-            <updates>
+            <updates xapi-api-version="2.23">
               <update type="security">
                 <id>UPDATE-0000</id>
                 <title>title</title>
@@ -1507,31 +1676,33 @@ module UpdateInfoOfXml = Generic.MakeStateless (struct
             </updates>
           |}
         , Ok
-            [
-              ( "UPDATE-0000"
-              , UpdateInfo.
-                  {
-                    id= "UPDATE-0000"
-                  ; summary= "summary"
-                  ; description= "RestartVM in mandatory"
-                  ; guidance=
-                      [
-                        (Full, [RebootHost])
-                      ; (Livepatch, [RestartDeviceModel])
-                      ; (Recommended, [EvacuateHost])
-                      ; (Mandatory, [RestartVM])
-                      ]
-                  ; guidance_applicabilities= []
-                  ; spec_info= "special information"
-                  ; url= "https://update.details.info"
-                  ; update_type= "security"
-                  ; livepatches= []
-                  ; issued= Xapi_stdext_date.Date.epoch
-                  ; severity= Severity.None
-                  ; title= "title"
-                  }
-              )
-            ]
+            ( Some "2.23"
+            , [
+                ( "UPDATE-0000"
+                , UpdateInfo.
+                    {
+                      id= "UPDATE-0000"
+                    ; summary= "summary"
+                    ; description= "RestartVM in mandatory"
+                    ; guidance=
+                        [
+                          (Full, [RebootHost])
+                        ; (Livepatch, [RestartDeviceModel])
+                        ; (Recommended, [EvacuateHost])
+                        ; (Mandatory, [RestartVM])
+                        ]
+                    ; guidance_applicabilities= []
+                    ; spec_info= "special information"
+                    ; url= "https://update.details.info"
+                    ; update_type= "security"
+                    ; livepatches= []
+                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; severity= Severity.None
+                    ; title= "title"
+                    }
+                )
+              ]
+            )
         )
       ]
 end)

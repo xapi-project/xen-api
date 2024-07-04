@@ -162,9 +162,9 @@ module UpdateInfo : sig
 
   val guidance_to_string : Guidance.t option -> string
 
-  val of_xml : Xml.xml -> (string * t) list
+  val of_xml : Xml.xml -> string option * (string * t) list
 
-  val of_xml_file : string -> (string * t) list
+  val of_xml_file : string -> string option * (string * t) list
 
   val get_guidances_of_kind : kind:Guidance.kind -> t -> Guidance.t list
 end

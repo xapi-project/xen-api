@@ -605,94 +605,103 @@ module UpdateInfo = struct
     Option.value (List.assoc_opt kind updateinfo.guidance) ~default:[]
 
   let of_xml = function
-    | Xml.Element ("updates", _, children) ->
-        List.filter_map
-          (fun n ->
-            match n with
-            | Xml.Element ("update", attr, update_nodes) ->
-                let ty =
-                  match List.assoc_opt "type" attr with
-                  | Some ty ->
-                      ty
-                  | None ->
-                      ""
-                in
-                let ui =
-                  List.fold_left
-                    (fun acc node ->
-                      match node with
-                      | Xml.Element ("id", _, [Xml.PCData v]) ->
-                          {acc with id= v}
-                      | Xml.Element ("url", _, [Xml.PCData v]) ->
-                          {acc with url= v}
-                      | Xml.Element ("special_info", _, [Xml.PCData v]) ->
-                          {acc with spec_info= v}
-                      | Xml.Element ("summary", _, [Xml.PCData v]) ->
-                          {acc with summary= v}
-                      | Xml.Element ("description", _, [Xml.PCData v]) ->
-                          {acc with description= v}
-                      | Xml.Element ("guidance", _, guidance_blocks) ->
-                          {
-                            acc with
-                            guidance=
-                              GuidanceInUpdateInfo.of_xml guidance_blocks
-                          }
-                      | Xml.Element ("guidance_applicabilities", _, apps) ->
-                          {
-                            acc with
-                            guidance_applicabilities=
-                              List.filter_map Applicability.of_xml apps
-                          }
-                      | Xml.Element ("livepatches", _, livepatches) ->
-                          {acc with livepatches= LivePatch.of_xml livepatches}
-                      | Xml.Element ("issued", attr, _) ->
-                          let issued =
-                            match List.assoc_opt "date" attr with
-                            | Some date -> (
-                              try
-                                Xapi_stdext_date.Date.of_string
-                                  (Scanf.sscanf date
-                                     "%04d-%02d-%02d %02d:%02d:%02d"
-                                     (fun y mon d h m s ->
-                                       Printf.sprintf
-                                         "%04i%02i%02iT%02i:%02i:%02iZ" y mon d
-                                         h m s
-                                   )
-                                  )
-                              with e ->
-                                (* The error should not block update. Ingore it
-                                   and set "issued" as epoch. *)
-                                warn "%s" (ExnHelper.string_of_exn e) ;
-                                Xapi_stdext_date.Date.epoch
-                            )
-                            | None ->
-                                Xapi_stdext_date.Date.epoch
-                          in
-                          {acc with issued}
-                      | Xml.Element ("severity", _, [Xml.PCData v]) -> (
-                        try {acc with severity= Severity.of_string v}
-                        with e ->
-                          (* The error should not block update. Ingore it. *)
-                          warn "%s" (ExnHelper.string_of_exn e) ;
-                          acc
+    | Xml.Element ("updates", attr, children) -> (
+        let api_ver = List.assoc_opt "xapi-api-version" attr in
+        let uis =
+          List.filter_map
+            (fun n ->
+              match n with
+              | Xml.Element ("update", attr, update_nodes) ->
+                  let ty =
+                    match List.assoc_opt "type" attr with
+                    | Some ty ->
+                        ty
+                    | None ->
+                        ""
+                  in
+                  let ui =
+                    List.fold_left
+                      (fun acc node ->
+                        match node with
+                        | Xml.Element ("id", _, [Xml.PCData v]) ->
+                            {acc with id= v}
+                        | Xml.Element ("url", _, [Xml.PCData v]) ->
+                            {acc with url= v}
+                        | Xml.Element ("special_info", _, [Xml.PCData v]) ->
+                            {acc with spec_info= v}
+                        | Xml.Element ("summary", _, [Xml.PCData v]) ->
+                            {acc with summary= v}
+                        | Xml.Element ("description", _, [Xml.PCData v]) ->
+                            {acc with description= v}
+                        | Xml.Element ("guidance", _, guidance_blocks) ->
+                            {
+                              acc with
+                              guidance=
+                                GuidanceInUpdateInfo.of_xml guidance_blocks
+                            }
+                        | Xml.Element ("guidance_applicabilities", _, apps) ->
+                            {
+                              acc with
+                              guidance_applicabilities=
+                                List.filter_map Applicability.of_xml apps
+                            }
+                        | Xml.Element ("livepatches", _, livepatches) ->
+                            {acc with livepatches= LivePatch.of_xml livepatches}
+                        | Xml.Element ("issued", attr, _) ->
+                            let issued =
+                              match List.assoc_opt "date" attr with
+                              | Some date -> (
+                                try
+                                  Xapi_stdext_date.Date.of_string
+                                    (Scanf.sscanf date
+                                       "%04d-%02d-%02d %02d:%02d:%02d"
+                                       (fun y mon d h m s ->
+                                         Printf.sprintf
+                                           "%04i%02i%02iT%02i:%02i:%02iZ" y mon
+                                           d h m s
+                                     )
+                                    )
+                                with e ->
+                                  (* The error should not block update. Ingore it
+                                     and set "issued" as epoch. *)
+                                  warn "%s" (ExnHelper.string_of_exn e) ;
+                                  Xapi_stdext_date.Date.epoch
+                              )
+                              | None ->
+                                  Xapi_stdext_date.Date.epoch
+                            in
+                            {acc with issued}
+                        | Xml.Element ("severity", _, [Xml.PCData v]) -> (
+                          try {acc with severity= Severity.of_string v}
+                          with e ->
+                            (* The error should not block update. Ingore it. *)
+                            warn "%s" (ExnHelper.string_of_exn e) ;
+                            acc
+                        )
+                        | Xml.Element ("title", _, [Xml.PCData v]) ->
+                            {acc with title= v}
+                        | _ ->
+                            acc
                       )
-                      | Xml.Element ("title", _, [Xml.PCData v]) ->
-                          {acc with title= v}
-                      | _ ->
-                          acc
-                    )
-                    {default with update_type= ty}
-                    update_nodes
-                  |> assert_valid_updateinfo
-                in
-                debug "updateinfo: %s" (to_string ui) ;
-                Some ui
-            | _ ->
-                None
-          )
-          children
-        |> assert_no_dup_update_id
-        |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
+                      {default with update_type= ty}
+                      update_nodes
+                    |> assert_valid_updateinfo
+                  in
+                  debug "updateinfo: %s" (to_string ui) ;
+                  Some ui
+              | _ ->
+                  None
+            )
+            children
+          |> assert_no_dup_update_id
+          |> List.map (fun updateinfo -> (updateinfo.id, updateinfo))
+        in
+        match (api_ver, uis) with
+        | Some _v, [] ->
+            raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
+        | _, _ ->
+            (api_ver, uis)
+      )
     | _ ->
         error "Failed to parse updateinfo.xml: missing <updates>" ;
         raise Api_errors.(Server_error (invalid_updateinfo_xml, []))
