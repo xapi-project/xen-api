@@ -2686,6 +2686,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-group-create"
+    , {
+        reqd= ["name-label"; "placement"]
+      ; optn= ["name-description"]
+      ; help= "Create a VM group."
+      ; implementation= No_fd Cli_operations.VM_group.create
+      ; flags= []
+      }
+    )
+  ; ( "vm-group-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy a VM group."
+      ; implementation= No_fd Cli_operations.VM_group.destroy
+      ; flags= []
+      }
+    )
   ; ( "diagnostic-vm-status"
     , {
         reqd= ["uuid"]
