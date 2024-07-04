@@ -270,7 +270,7 @@ let get_applied_livepatches_of_host updates_of_host =
 
 let is_livepatchable ~__context repository applied_livepatches_of_host =
   let updates_info =
-    parse_updateinfo ~__context ~self:repository ~check:false
+    parse_updateinfo ~__context ~self:repository ~check:false |> snd
   in
   List.exists
     (fun lp ->
@@ -534,7 +534,7 @@ let get_pool_updates_in_json ~__context ~hosts =
       set_available_updates ~__context |> ignore ;
 
     let repository_name = get_repository_name ~__context ~self:repository in
-    let updates_info =
+    let api_ver, updates_info =
       parse_updateinfo ~__context ~self:repository ~check:true
     in
     let updates_of_hosts, ids_of_updates =
@@ -551,12 +551,17 @@ let get_pool_updates_in_json ~__context ~hosts =
       |> List.map (fun upd_id -> List.assoc upd_id updates_info)
       |> List.map (prune_updateinfo_for_livepatches lps)
     in
-    `Assoc
-      [
-        ("hosts", `List (List.map HostUpdates.to_json updates_of_hosts))
-      ; ("updates", `List (List.map UpdateInfo.to_json updateinfo_list))
-      ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
-      ]
+    let f x =
+      Option.fold ~none:x
+        ~some:(fun api_ver -> ("xapi-api-version", `String api_ver) :: x)
+        api_ver
+    in
+    [
+      ("hosts", `List (List.map HostUpdates.to_json updates_of_hosts))
+    ; ("updates", `List (List.map UpdateInfo.to_json updateinfo_list))
+    ; ("hash", `String (Db.Repository.get_hash ~__context ~self:repository))
+    ]
+    |> fun x -> `Assoc (f x)
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->
@@ -759,7 +764,7 @@ let apply_updates ~__context ~host ~hash =
       raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
     with_pool_repositories (fun () ->
         let updates_info =
-          parse_updateinfo ~__context ~self:repository ~check:true
+          parse_updateinfo ~__context ~self:repository ~check:true |> snd
         in
         let updates_of_hosts =
           if Helpers.is_pool_master ~__context ~host then (
