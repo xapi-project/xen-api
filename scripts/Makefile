@@ -122,7 +122,6 @@ install:
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/firewall-port $(DESTDIR)$(PLUGINDIR)
-	$(IPROG) plugins/openvswitch-config-update $(DESTDIR)$(PLUGINDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	$(IPROG) 10resetvdis $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
 	mkdir -p $(DESTDIR)/etc/bash_completion.d

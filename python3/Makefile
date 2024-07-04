@@ -34,6 +34,7 @@ install:
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/echo.py $(DESTDIR)$(PLUGINDIR)/echo
+	$(IPROG) plugins/openvswitch-config-update $(DESTDIR)$(PLUGINDIR)
 
 	$(IPROG) perfmon/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IDATA) perfmon/perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
