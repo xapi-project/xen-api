@@ -1514,6 +1514,16 @@ let set_appliance =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let set_groups =
+  call ~name:"set_groups" ~lifecycle:[] ~doc:"Associate this VM with VM groups."
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (Set (Ref _vm_group), "value", "The VM groups to set")
+      ]
+    ~errs:[Api_errors.operation_not_allowed]
+    ~allowed_roles:_R_VM_ADMIN ()
+
 let call_plugin =
   call ~name:"call_plugin" ~in_product_since:rel_cream
     ~doc:"Call an API plugin on this vm"
@@ -1887,6 +1897,7 @@ let t =
       ; recover
       ; import_convert
       ; set_appliance
+      ; set_groups
       ; query_services
       ; call_plugin
       ; set_has_vendor_device
@@ -2218,6 +2229,8 @@ let t =
              user should follow to make some updates, e.g. specific hardware \
              drivers or CPU features, fully effective, but the 'average user' \
              doesn't need to"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vm_group))
+            "groups" "VM groups associated with the VM"
         ]
       )
     ()

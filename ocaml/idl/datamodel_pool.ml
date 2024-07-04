@@ -1511,6 +1511,11 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
             "Whether periodic update synchronization is enabled or not"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:(Map (String, String))
+            ~default_value:(Some (VMap [])) "recommendations"
+            "The recommended pool properties for clients to respect for \
+             optimal performance. e.g. max-vm-group=5"
         ]
       )
     ()

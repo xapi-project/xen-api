@@ -87,6 +87,7 @@
     pam
     pciutil
     pci
+    psq
     ptime
     ptime.clock.os
     rpclib.core

@@ -1036,6 +1036,8 @@ let python3_path = ref "/usr/bin/python3"
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
 
+let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
+
 let disable_webserver = ref false
 
 let test_open = ref 0
@@ -1858,6 +1860,10 @@ module Resources = struct
     ; ( "trace-log-dir"
       , trace_log_dir
       , "Directory for storing traces exported to logs"
+      )
+    ; ( "pool-recommendations-dir"
+      , pool_recommendations_dir
+      , "Directory containing files with recommendations in key=value format"
       )
     ]
 
