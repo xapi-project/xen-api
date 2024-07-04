@@ -949,9 +949,8 @@ module PV_Vnc = struct
     | None ->
         ()
 
-  let start ?statefile ~xs ?ip domid =
+  let start ?statefile ~xs ?(ip = "127.0.0.1") domid =
     debug "In PV_Vnc.start" ;
-    let ip = Option.value ~default:"127.0.0.1" ip in
     let l =
       [
         "-x"
