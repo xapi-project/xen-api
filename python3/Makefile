@@ -14,6 +14,8 @@ install:
 	$(IPROG) -d $(DESTDIR)/etc/sysconfig
 	$(IPROG) -d $(DESTDIR)/usr/lib/systemd/system
 
+	$(IPROG) -d $(DESTDIR)$(EXTENSIONDIR)
+
 	
 	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
@@ -31,6 +33,8 @@ install:
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
+
+	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/echo.py $(DESTDIR)$(PLUGINDIR)/echo
