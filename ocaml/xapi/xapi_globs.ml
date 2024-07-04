@@ -951,7 +951,12 @@ let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
 
-type xapi_globs_spec_ty = Float of float ref | Int of int ref
+type xapi_globs_spec =
+  | Float of float ref
+  | Int of int ref
+  | ShortDurationFromSeconds of Mtime.Span.t ref
+      (** From float, max of 104 days *)
+  | LongDurationFromSeconds of Mtime.Span.t ref  (** From int *)
 
 let extauth_ad_backend = ref "winbind"
 
@@ -1015,7 +1020,9 @@ let max_observer_file_size = ref (1 lsl 20)
 let cert_thumbprint_header_request =
   ref "x-xenapi-request-host-certificate-thumbprint"
 
-let cert_thumbprint_header_value = ref "sha-256:master"
+let cert_thumbprint_header_value_sha256 = ref "sha-256:master"
+
+let cert_thumbprint_header_value_sha1 = ref "sha-1:master"
 
 let cert_thumbprint_header_response =
   ref "x-xenapi-response-host-certificate-thumbprint"
@@ -1028,6 +1035,8 @@ let python3_path = ref "/usr/bin/python3"
 
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
+
+let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 
 let disable_webserver = ref false
 
@@ -1123,13 +1132,41 @@ let options_of_xapi_globs_spec =
   List.map
     (fun (name, ty) ->
       ( name
-      , (match ty with Float x -> Arg.Set_float x | Int x -> Arg.Set_int x)
+      , ( match ty with
+        | Float x ->
+            Arg.Set_float x
+        | Int x ->
+            Arg.Set_int x
+        | ShortDurationFromSeconds x ->
+            Arg.Float
+              (fun y ->
+                match Clock.Timer.s_to_span y with
+                | Some y ->
+                    x := y
+                | None ->
+                    D.warn
+                      "Ignoring argument '%s', invalid float being used: %f. \
+                       (it only allows durations of less than 104 days)"
+                      name y
+              )
+        | LongDurationFromSeconds x ->
+            Arg.Int (fun y -> x := Mtime.Span.(y * s))
+        )
       , (fun () ->
           match ty with
           | Float x ->
               string_of_float !x
           | Int x ->
               string_of_int !x
+          | ShortDurationFromSeconds x ->
+              let literal =
+                Mtime.Span.to_uint64_ns !x |> fun ns ->
+                Int64.div ns 1_000_000_000L |> Int64.to_int |> string_of_int
+              in
+              Fmt.str "%s (%a)" literal Mtime.Span.pp !x
+          | LongDurationFromSeconds x ->
+              let literal = Clock.Timer.span_to_s !x |> string_of_float in
+              Fmt.str "%s (%a)" literal Mtime.Span.pp !x
         )
       , Printf.sprintf "Set the value of '%s'" name
       )
@@ -1823,6 +1860,10 @@ module Resources = struct
     ; ( "trace-log-dir"
       , trace_log_dir
       , "Directory for storing traces exported to logs"
+      )
+    ; ( "pool-recommendations-dir"
+      , pool_recommendations_dir
+      , "Directory containing files with recommendations in key=value format"
       )
     ]
 

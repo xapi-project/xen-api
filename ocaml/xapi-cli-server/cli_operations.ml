@@ -1142,6 +1142,11 @@ let gen_cmds rpc session_id =
         mk get_all_records_where get_by_uuid vm_appliance_record "appliance" []
           [] rpc session_id
       )
+    ; Client.VM_group.(
+        mk get_all_records_where get_by_uuid vm_group_record "vm-group" []
+          ["uuid"; "name-label"; "name-description"; "placement"; "vm-uuids"]
+          rpc session_id
+      )
     ; Client.PGPU.(
         mk get_all_records_where get_by_uuid pgpu_record "pgpu" []
           ["uuid"; "pci-uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
@@ -7999,4 +8004,28 @@ module Observer = struct
     let uuid = List.assoc "uuid" params in
     let self = Client.Observer.get_by_uuid ~rpc ~session_id ~uuid in
     Client.Observer.destroy ~rpc ~session_id ~self
+end
+
+module VM_group = struct
+  let create printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let name_description =
+      List.assoc_opt "name-description" params |> Option.value ~default:""
+    in
+    let placement =
+      Record_util.vm_placement_policy_of_string (List.assoc "placement" params)
+    in
+    let ref =
+      Client.VM_group.create ~rpc ~session_id ~name_label ~name_description
+        ~placement
+    in
+    let uuid = Client.VM_group.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy _printer rpc session_id params =
+    let ref =
+      Client.VM_group.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    Client.VM_group.destroy ~rpc ~session_id ~self:ref
 end

@@ -850,6 +850,7 @@ let remove_pending_guidance ~__context ~self ~value =
     2. Called on update VM when the power state changes *)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   (* First update the power_state. Some operations below indirectly rely on this. *)
+  let old_state = Db.VM.get_power_state ~__context ~self in
   Db.VM.set_power_state ~__context ~self ~value:state ;
   if state = `Suspended then
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
@@ -941,6 +942,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (Db.PCI.get_all ~__context)
   ) ;
   update_allowed_operations ~__context ~self ;
+  if old_state <> state && (old_state = `Running || state = `Running) then
+    Xapi_vm_group_helpers.maybe_update_vm_anti_affinity_alert_for_vm ~__context
+      ~vm:self ;
   if state = `Halted then (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
     let master_address = Pool_role.get_master_address_opt () in
