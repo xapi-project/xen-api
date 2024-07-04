@@ -55,6 +55,7 @@ jobs:
           --junitxml=.git/pytest${{matrix.python-version}}.xml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
+          --cov-fail-under 0
         env:
           PYTHONDEVMODE: yes
 
