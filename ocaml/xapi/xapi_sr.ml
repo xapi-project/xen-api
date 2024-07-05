@@ -151,7 +151,7 @@ let scan_all ~__context =
       )
       srs
   in
-  if List.length scannable_srs > 0 then
+  if scannable_srs <> [] then
     debug "Automatically scanning SRs = [ %s ]"
       (String.concat ";" (List.map Ref.string_of scannable_srs)) ;
   List.iter (scan_one ~__context) scannable_srs

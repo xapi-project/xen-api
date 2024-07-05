@@ -1117,11 +1117,11 @@ let record_call_plugin_latest vm =
       List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
       (* Then calculate the schedule *)
       let to_wait =
-        if Hashtbl.mem call_plugin_latest vm then
-          let t = Hashtbl.find call_plugin_latest vm in
-          Int64.sub (Int64.add t interval) now
-        else
-          0L
+        match Hashtbl.find_opt call_plugin_latest vm with
+        | Some t ->
+            Int64.sub (Int64.add t interval) now
+        | None ->
+            0L
       in
       if to_wait > 0L then
         raise

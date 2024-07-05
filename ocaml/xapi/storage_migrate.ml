@@ -258,7 +258,7 @@ module State = struct
 
   let find id table =
     access_table ~save_after:false
-      (fun table -> try Some (Hashtbl.find table id) with Not_found -> None)
+      (fun table -> Hashtbl.find_opt table id)
       table
 
   let remove id table =
