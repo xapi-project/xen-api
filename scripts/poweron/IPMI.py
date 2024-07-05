@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 
-import os.path
 import sys
-
-import xcp.cmd as cmd
-
+from xcp import cmd
 
 class IPMI_POWERON_FAILED(Exception):
     """IPMI Poweron exception"""
@@ -35,7 +32,7 @@ def IPMI(power_on_ip, user, password):
 
 def main():
     if len(sys.argv) < 3:
-        exit(0)
+        sys.exit(1)
     ip = sys.argv[1]
     user = sys.argv[2]
     password = sys.argv[3]
