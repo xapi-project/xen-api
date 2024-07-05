@@ -149,7 +149,6 @@ endif
 	$(IDATA) examples/python/XenAPIPlugin.py $(DESTDIR)$(SITE3_DIR)/
 	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
 	$(IDATA) examples/python/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
-	$(IPROG) examples/python/shell.py $(DESTDIR)$(LIBEXECDIR)/shell.py
 # YUM plugins
 	$(IPROG) yum-plugins/accesstoken.py $(DESTDIR)$(YUMPLUGINDIR)
 	$(IDATA) yum-plugins/accesstoken.conf $(DESTDIR)$(YUMPLUGINCONFDIR)
