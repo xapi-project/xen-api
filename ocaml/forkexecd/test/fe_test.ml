@@ -224,7 +224,7 @@ let test_internal_failure_error () =
   | Fd_send_recv.Unix_error _ | Unix.Unix_error (Unix.EBADF, _, _) ->
       leak_fd_detect ()
   | e ->
-      Printexc.print_backtrace stderr;
+      Printexc.print_backtrace stderr ;
       fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
 let master fds =
