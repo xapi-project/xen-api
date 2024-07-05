@@ -225,6 +225,27 @@
 
 (package
   (name xapi-networkd)
+  (authors "Jon Ludlam")
+  (synopsis "The XCP networking daemon")
+  (depends
+    (alcotest :with-test)
+    astring
+    base-threads
+    (forkexec (= :version))
+    (http-lib (= :version))
+    mtime
+    netlink
+    re
+    rpclib
+    (xapi-idl (= :version))
+    xapi-inventory
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-std (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-stdext-unix (= :version))
+    xapi-test-utils
+    (xen-api-client (= :version))
+  )
 )
 
 (package
@@ -241,6 +262,14 @@
 
 (package
   (name xapi-forkexecd)
+  (synopsis "Sub-process control service for xapi")
+  (description "This daemon creates and manages sub-processes on behalf of xapi.")
+  (depends
+   astring
+   (forkexec (= :version))
+   (uuid (= :version))
+   (xapi-stdext-unix (= :version))
+  )
 )
 
 (package
@@ -444,6 +473,19 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name forkexec)
+  (synopsis "Process-spawning library")
+  (description "Client and server library to spawn processes.")
+  (depends
+    base-threads
+    (fd-send-recv (>= "2.0.0"))
+    ppx_deriving_rpc
+    rpclib
+    (uuid (= :version))
+    (xapi-log (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-unix (= :version))
+    (xapi-tracing (= :version))
+  )
 )
 
 (package
@@ -513,7 +555,6 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Threads")
   (authors "Jonathan Ludlam")
   (depends
-    ocaml
     base-threads
     base-unix
     (odoc :with-doc)
@@ -541,7 +582,6 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Zerocheck")
   (authors "Jonathan Ludlam")
   (depends
-    ocaml
     (odoc :with-doc)
   )
 )
