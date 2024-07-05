@@ -364,33 +364,19 @@ let check api emergency_calls =
   in
   (* Sanity check 7: message parameters must be in increasing order of in_product_since *)
   let are_in_vsn_order ps =
-    let rec getlast l =
-      (* TODO: move to standard library *)
-      match l with
-      | [x] ->
-          x
-      | _ :: xs ->
-          getlast xs
-      | [] ->
-          raise (Invalid_argument "getlast")
-    in
     let release_lt x y = release_leq x y && x <> y in
     let in_since releases =
       (* been in since the lowest of releases *)
-      let rec find_smallest sofar l =
-        match l with
-        | [] ->
-            sofar
-        | "closed" :: xs ->
-            find_smallest sofar xs
-            (* closed is not a real release, so skip it *)
-        | x :: xs ->
-            if release_lt x sofar then
-              find_smallest x xs
-            else
-              find_smallest sofar xs
-      in
-      find_smallest (getlast release_order |> code_name_of_release) releases
+      List.fold_left
+        (fun sofar r ->
+          match r with
+          | "closed" ->
+              sofar (* closed is not a real release, so skip it *)
+          | r ->
+              if release_lt r sofar then r else sofar
+        )
+        (Xapi_stdext_std.Listext.List.last release_order |> code_name_of_release)
+        releases
     in
     let rec check_vsns max_release_sofar ps =
       match ps with
