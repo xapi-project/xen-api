@@ -430,4 +430,35 @@ let check api emergency_calls =
       )
       system
   in
+  (* Sanity check 9: New parameters must have a default value: we partially check
+     this by checking in the list of parameters, after we have seen a parameter with
+     a default value, other parameters after it must have defaults as well. Unfortunately
+     checking parameters with newer releases does not work well as there are existing
+     parameters with new releases but no default. *)
+  let _ =
+    let new_param_has_default obj_name msg_name ps =
+      let _ : bool =
+        List.fold_left
+          (fun seen_default p ->
+            if seen_default && Option.is_none p.param_default then
+              Printf.sprintf
+                "Obj %s Msg %s parameters %s does not have default values"
+                obj_name msg_name p.param_name
+              |> failwith ;
+
+            Option.is_some p.param_default
+          )
+          false ps
+      in
+      ()
+    in
+
+    List.iter
+      (fun obj ->
+        List.iter
+          (fun msg -> new_param_has_default obj.name msg.msg_name msg.msg_params)
+          obj.messages
+      )
+      system
+  in
   ()
