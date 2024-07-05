@@ -534,7 +534,6 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Threads")
   (authors "Jonathan Ludlam")
   (depends
-    ocaml
     base-threads
     base-unix
     (odoc :with-doc)
@@ -562,7 +561,6 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Zerocheck")
   (authors "Jonathan Ludlam")
   (depends
-    ocaml
     (odoc :with-doc)
   )
 )
