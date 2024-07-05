@@ -43,7 +43,7 @@ let valid_from' date =
 
 (** initialize the random number generator at program startup when this
 module is loaded. *)
-let () = Mirage_crypto_rng_unix.initialize ()
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
 (** [write_cert] writes a PKCS12 file to [path]. The typical file
  extension would be ".pem". It attempts to do that atomically by

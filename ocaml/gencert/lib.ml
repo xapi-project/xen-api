@@ -19,7 +19,7 @@ open Rresult
 
 type t_certificate = Leaf | Chain
 
-let () = Mirage_crypto_rng_unix.initialize ()
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
 let validate_private_key pkcs8_private_key =
   let ensure_rsa_key_length = function

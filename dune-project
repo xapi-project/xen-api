@@ -301,6 +301,68 @@
 
 (package
   (name xapi)
+  (synopsis "The toolstack daemon which implements the XenAPI")
+  (description "This daemon exposes the XenAPI and is used by clients such as 'xe' and 'XenCenter' to manage clusters of Xen-enabled hosts.")
+  (depends
+    alcotest ; needed for the quicktest binary
+    angstrom
+    base-threads
+    base64
+    cdrom
+    conf-pam
+    (crowbar :with-test)
+    ctypes
+    ctypes-foreign
+    domain-name
+    (ezxenstore (= :version))
+    (fmt :with-test)
+    hex
+    (http-lib (and :with-test (= :version))) ; the public library is only used for testing
+    ipaddr
+    mirage-crypto
+    mirage-crypto-pk
+    (mirage-crypto-rng (>= "0.11.0"))
+    (message-switch-unix (= :version))
+    mtime
+    opentelemetry-client-ocurl
+    pci
+    (pciutil (= :version))
+    ppx_deriving_rpc
+    ppx_sexp_conv
+    ppx_deriving
+    psq
+    rpclib
+    (rrdd-plugin (= :version))
+    rresult
+    sexpr
+    sha
+    (stunnel (= :version))
+    tar
+    tar-unix
+    (uuid (= :version))
+    x509
+    (xapi-client (= :version))
+    (xapi-cli-protocol (= :version))
+    (xapi-consts (= :version))
+    (xapi-datamodel (= :version))
+    (xapi-expiry-alerts (= :version))
+    (xapi-idl (= :version))
+    (xapi-inventory (= :version))
+    (xapi-log (= :version))
+    (xapi-stdext-date (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-std (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-stdext-unix (= :version))
+    (xapi-stdext-zerocheck (= :version))
+    (xapi-test-utils :with-test)
+    (xapi-tracing (= :version))
+    (xapi-types (= :version))
+    (xapi-xenopsd (= :version))
+    (xml-light2 (= :version))
+    yojson
+    (zstd (= :version))
+  )
 )
 
 (package

@@ -10,6 +10,7 @@
     forkexec
     mirage-crypto
     mirage-crypto-pk
+    mirage-crypto-rng
     mirage-crypto-rng.unix
     ptime
     ptime.clock.os
@@ -52,6 +53,7 @@
     gencertlib
     mirage-crypto
     mirage-crypto-pk
+    mirage-crypto-rng
     mirage-crypto-rng.unix
     ptime
     result

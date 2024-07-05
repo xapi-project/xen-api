@@ -19,7 +19,7 @@ module D = Debug.Make (struct let name = "certificates" end)
 
 open D
 
-let () = Mirage_crypto_rng_unix.initialize ()
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
 (* Certificate locations:
    * a) stunnel external             = /etc/xensource/xapi-ssl.pem
