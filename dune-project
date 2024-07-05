@@ -225,6 +225,27 @@
 
 (package
   (name xapi-networkd)
+  (authors "Jon Ludlam")
+  (synopsis "The XCP networking daemon")
+  (depends
+    (alcotest :with-test)
+    astring
+    base-threads
+    (forkexec (= :version))
+    (http-lib (= :version))
+    mtime
+    netlink
+    re
+    rpclib
+    (xapi-idl (= :version))
+    xapi-inventory
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-std (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-stdext-unix (= :version))
+    xapi-test-utils
+    (xen-api-client (= :version))
+  )
 )
 
 (package
