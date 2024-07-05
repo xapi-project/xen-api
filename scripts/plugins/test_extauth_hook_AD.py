@@ -6,12 +6,19 @@ import sys
 import os
 from unittest import TestCase
 from mock import MagicMock, patch
+
+import pytest
+
 # mock modules to avoid dependencies
 sys.modules["XenAPIPlugin"] = MagicMock()
 sys.modules["XenAPI"] = MagicMock()
 # pylint: disable=wrong-import-position
 # Import must after mock modules
 from extauth_hook_ad import StaticSSHPam, NssConfig, SshdConfig, UsersList, GroupsList
+
+
+if sys.version_info < (3, ):  # pragma: no cover
+    pytest.skip(allow_module_level=True)
 
 
 def line_exists_in_config(lines, line):
