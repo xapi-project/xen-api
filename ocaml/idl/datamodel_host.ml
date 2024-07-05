@@ -1367,6 +1367,7 @@ let set_power_on_mode =
       [
         (Published, rel_cowley, "")
       ; (Changed, rel_stockholm, "Removed iLO script")
+      ; (Changed, "24.19.0", "Replaced DRAC mode with IPMI")
       ]
     ~in_product_since:rel_midnight_ride
     ~doc:"Set the power-on-mode, host, user and password"
