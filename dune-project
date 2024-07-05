@@ -241,6 +241,14 @@
 
 (package
   (name xapi-forkexecd)
+  (synopsis "Sub-process control service for xapi")
+  (description "This daemon creates and manages sub-processes on behalf of xapi.")
+  (depends
+   astring
+   (forkexec (= :version))
+   (uuid (= :version))
+   (xapi-stdext-unix (= :version))
+  )
 )
 
 (package
@@ -444,6 +452,19 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name forkexec)
+  (synopsis "Process-spawning library")
+  (description "Client and server library to spawn processes.")
+  (depends
+    base-threads
+    (fd-send-recv (>= "2.0.0"))
+    ppx_deriving_rpc
+    rpclib
+    (uuid (= :version))
+    (xapi-log (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-unix (= :version))
+    (xapi-tracing (= :version))
+  )
 )
 
 (package
