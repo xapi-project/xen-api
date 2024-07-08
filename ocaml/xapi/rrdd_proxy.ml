@@ -118,7 +118,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
               unarchive_at_master ()
           | Broken, _, _ ->
               info "%s: host is broken, VM's metrics are not available"
-                __FUNCTION__ ;
+                "get_vm_rrd_forwarder" ;
               unavailable ()
     )
 
