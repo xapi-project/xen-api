@@ -1137,6 +1137,8 @@ and json_converter typ =
         (exposed_class_name u)
   | Map (String, Ref v) ->
       sprintf "new StringXenRefMapConverter<%s>()" (exposed_class_name v)
+  | Map (Int, Ref v) ->
+      sprintf "new LongXenRefMapConverter<%s>()" (exposed_class_name v)
   | Map (String, String) ->
       sprintf "new StringStringMapConverter()"
   | Map (Ref _, _) | Map (_, Ref _) ->
@@ -1178,6 +1180,9 @@ and json_serialization_attr fr =
   | Map (Ref u, Int) ->
       sprintf "\n        [JsonConverter(typeof(XenRefLongMapConverter<%s>))]"
         (exposed_class_name u)
+  | Map (Int, Ref v) ->
+      sprintf "\n        [JsonConverter(typeof(LongXenrefMapConverter<%s>))]"
+        (exposed_class_name v)
   | Map (Ref u, String) ->
       sprintf "\n        [JsonConverter(typeof(XenRefStringMapConverter<%s>))]"
         (exposed_class_name u)
