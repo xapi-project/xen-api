@@ -77,6 +77,7 @@
     http_lib
     httpsvr
     ipaddr
+    ipaddr.unix
     magic-mime
     message-switch-core
     message-switch-unix
