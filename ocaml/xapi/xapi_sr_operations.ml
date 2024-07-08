@@ -149,10 +149,10 @@ let valid_operations ~__context ?op record _ref' : table =
              )
           )
     in
-    if List.length all_pbds_attached_to_this_sr > 0 then
-      set_errors Api_errors.sr_has_pbd [_ref] [`destroy; `forget]
-    else
+    if all_pbds_attached_to_this_sr = [] then
       ()
+    else
+      set_errors Api_errors.sr_has_pbd [_ref] [`destroy; `forget]
   in
   let check_no_pbds ~__context _record =
     (* If the SR has no PBDs, destroy is not allowed. *)

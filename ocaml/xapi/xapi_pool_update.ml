@@ -612,7 +612,7 @@ let pool_apply ~__context ~self =
         )
         unapplied_hosts []
     in
-    if List.length failed_hosts > 0 then
+    if failed_hosts <> [] then
       raise
         (Api_errors.Server_error
            (Api_errors.update_pool_apply_failed, failed_hosts)

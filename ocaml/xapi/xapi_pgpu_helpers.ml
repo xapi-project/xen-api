@@ -133,7 +133,7 @@ let get_remaining_capacity_internal ~__context ~self ~vgpu_type
         List.exists (fun (_, pgpu) -> pgpu = self) pre_allocate_list
       in
       let pci = Db.PGPU.get_PCI ~__context ~self in
-      let scheduled = List.length (get_scheduled_VGPUs ~__context ~self) > 0 in
+      let scheduled = get_scheduled_VGPUs ~__context ~self <> [] in
       let attached = Db.PCI.get_attached_VMs ~__context ~self:pci <> [] in
       convert_capacity
         (if scheduled || attached || pre_allocated then 0L else 1L)

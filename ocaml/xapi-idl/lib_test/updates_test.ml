@@ -35,7 +35,7 @@ let test_add () =
 let test_noadd () =
   let u = M.empty scheduler in
   let _barriers, updates, _id = M.get "dbg" None (Some 0) u in
-  assert_bool "Update returned" (List.length updates = 0)
+  assert_bool "Update returned" (updates = [])
 
 (* Tests that we can remove an update, and that it's not then returned by 'get' *)
 let test_remove () =
@@ -43,7 +43,7 @@ let test_remove () =
   M.add update_a u ;
   M.remove update_a u ;
   let _barriers, updates, _id = M.get "dbg" None (Some 0) u in
-  assert_bool "Update returned" (List.length updates = 0)
+  assert_bool "Update returned" (updates = [])
 
 (* Tests that, if we specify a timeout, the 'get' call returns the empty list
    after that timeout. *)
@@ -53,7 +53,7 @@ let test_timeout () =
   let _, l, _ = M.get "dbg" None (Some 1) u in
   let duration = Unix.gettimeofday () -. before in
   assert_bool "Duration greater than 1 sec" (duration > 1.0 && duration < 2.0) ;
-  assert_bool "Returned list was empty" (List.length l = 0)
+  assert_bool "Returned list was empty" (l = [])
 
 (* Checks that if we add an event after a blocking 'get' call that the call is
    unblocked. Verifies that the call returns immediately and that the correct
@@ -112,7 +112,7 @@ let test_remove_barrier () =
   M.add update_c u ;
   M.remove_barrier 1 u ;
   let barriers, updates, _id = M.get "dbg" None (Some 1) u in
-  assert_bool "Barrier returned" (List.length barriers = 0) ;
+  assert_bool "Barrier returned" (barriers = []) ;
   assert_bool "Updates contain all updates"
     (List.nth updates 0 = update_b
     && List.nth updates 1 = update_a

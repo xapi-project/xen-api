@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=312
+  N=308
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -93,6 +93,7 @@ ocamlyacc () {
   fi
 }
 
+
 unixgetenv () {
   N=1
   UNIXGETENV=$(git grep -P -r -o --count 'getenv(?!_opt)' -- **/*.ml | wc -l)
@@ -117,6 +118,26 @@ hashtblfind () {
   fi
 }
 
+unnecessary-length () {
+  N=0
+  local_grep () {
+          git grep -r -o --count "$1" -- '**/*.ml' | wc -l
+  }
+  UNNECESSARY_LENGTH=$(local_grep "List.length.*=+\s*0")
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*=+\s*List.length")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s>\s*0")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*<\s*List.length")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s<\s*1")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "1\s*>\s*List.length")))
+  if [ "$UNNECESSARY_LENGTH" -eq "$N" ]; then
+    echo "OK found $UNNECESSARY_LENGTH unnecessary usages of List.length in OCaml files."
+  else
+    echo "ERROR expected $N unnecessary usages of List.length in OCaml files,
+        got $UNNECESSARY_LENGTH. Use lst =/<> [] or match statements instead." 1>&2
+    exit 1
+  fi
+}
+
 list-hd
 verify-cert
 mli-files
@@ -126,4 +147,5 @@ vtpm-fields
 ocamlyacc
 unixgetenv
 hashtblfind
+unnecessary-length
 
