@@ -229,7 +229,7 @@ let get_hosts_by_name_or_id rpc session_id name =
 
 let get_host_by_name_or_id rpc session_id name =
   let hosts = get_hosts_by_name_or_id rpc session_id name in
-  if List.length hosts = 0 then failwith ("Host " ^ name ^ " not found") ;
+  if hosts = [] then failwith ("Host " ^ name ^ " not found") ;
   List.nth hosts 0
 
 let get_host_from_session rpc session_id =
@@ -862,7 +862,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         ]
       in
       let ops =
-        if List.length settable > 0 then
+        if settable <> [] then
           ( cli_name "param-set"
           , ["uuid"]
           , settable
@@ -877,7 +877,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           ops
       in
       let ops =
-        if List.length addable > 0 then
+        if addable <> [] then
           ops
           @ [
               ( cli_name "param-add"
@@ -902,7 +902,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           ops
       in
       let ops =
-        if List.length clearable > 0 then
+        if clearable <> [] then
           ops
           @ [
               ( cli_name "param-clear"
@@ -2933,13 +2933,7 @@ let event_wait_gen rpc session_id classname record_matches =
         (List.map (fun r -> (r.name, fun () -> safe_get_field r)))
         current_tbls
     in
-    debug "Got %d records" (List.length all_recs) ;
-    (* true if anything matches now *)
-    let find_any_match recs =
-      let ls = List.map record_matches recs in
-      List.length (List.filter (fun x -> x) ls) > 0
-    in
-    find_any_match all_recs
+    List.exists record_matches all_recs
   in
   finally
     (fun () ->
@@ -3310,9 +3304,9 @@ let do_host_op rpc session_id op params ?(multiple = true) ignore_params =
       failwith "No matching hosts found"
   | 1 ->
       [op 1 (List.hd hosts)]
-  | _ ->
+  | len ->
       if multiple && get_bool_param params "multiple" then
-        do_multiple (op (List.length hosts)) hosts
+        do_multiple (op len) hosts
       else
         failwith
           ( if not multiple then
@@ -3922,11 +3916,13 @@ let vm_install_real printer rpc session_id template name description params =
               failwith
                 "SR specified via sr-uuid doesn't have the name specified via \
                  sr-name-label"
-        | None ->
-            if List.length sr_list > 1 then
+        | None -> (
+          match sr_list with
+          | [x] ->
+              Some x
+          | _ ->
               failwith "Multiple SRs with that name-label found"
-            else
-              Some (List.hd sr_list)
+        )
       )
     else
       sr_ref
@@ -4063,12 +4059,12 @@ let vm_install printer rpc session_id params =
           List.fold_left filter_records_on_fields all_recs
             (("name-label", name) :: filter_params)
         in
-        match List.length templates with
-        | 0 ->
+        match templates with
+        | [] ->
             failwith "No templates matched"
-        | 1 ->
-            (List.hd templates).getref ()
-        | _ ->
+        | [x] ->
+            x.getref ()
+        | _ :: _ :: _ ->
             failwith "More than one matching template found"
       in
       if
@@ -4119,7 +4115,7 @@ let console fd _printer rpc session_id params =
     | [] ->
         marshal fd (Command (PrintStderr "No VM found\n")) ;
         raise (ExitWithError 1)
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         marshal fd
           (Command
              (PrintStderr
@@ -4158,9 +4154,10 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
       (* add extra text if the VDI is being shared *)
       let r = Client.VDI.get_record ~rpc ~session_id ~self:vdi in
       Printf.sprintf "VDI: %s (%s) %s" r.API.vDI_uuid r.API.vDI_name_label
-        ( if List.length r.API.vDI_VBDs <= 1 then
+        ( match r.API.vDI_VBDs with
+        | [] | [_] ->
             ""
-          else
+        | _ :: _ :: _ ->
             " ** WARNING: disk is shared by other VMs"
         )
     in
@@ -4482,18 +4479,15 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
   in
   try
     let vms = select_vms rpc session_id params [] in
-    match List.length vms with
-    | 0 ->
+    match vms with
+    | [] ->
         failwith "No matching VMs found"
-    | 1 ->
+    | [x] ->
         printer
           (Cli_printer.PTable
-             [
-               ("Host(Uuid)", "Stars, RecID, ZeroScoreReason")
-               :: table (List.hd vms)
-             ]
+             [("Host(Uuid)", "Stars, RecID, ZeroScoreReason") :: table x]
           )
-    | _ ->
+    | _ :: _ :: _ ->
         failwith
           "Multiple VMs found. Operation can only be performed on one VM at a \
            time"
@@ -4633,7 +4627,7 @@ let vm_migrate printer rpc session_id params =
                 )
                 pifs
             in
-            if List.length management_pifs = 0 then
+            if management_pifs = [] then
               failwith
                 (Printf.sprintf "Could not find management PIF on host %s"
                    host_record.API.host_uuid
@@ -5031,7 +5025,7 @@ let vm_disk_remove printer rpc session_id params =
         (fun x -> device = Client.VBD.get_userdevice ~rpc ~session_id ~self:x)
         vm_record.API.vM_VBDs
     in
-    if List.length vbd_to_remove < 1 then
+    if vbd_to_remove = [] then
       failwith "Disk not found"
     else
       let vbd = List.nth vbd_to_remove 0 in
@@ -5057,7 +5051,7 @@ let vm_cd_remove printer rpc session_id params =
         )
         vm_record.API.vM_VBDs
     in
-    if List.length vbd_to_remove < 1 then
+    if vbd_to_remove = [] then
       raise (failwith "Disk not found")
     else
       let vbd = List.nth vbd_to_remove 0 in
@@ -5076,7 +5070,7 @@ let vm_cd_add printer rpc session_id params =
       )
       vdis
   in
-  if List.length vdis = 0 then failwith ("CD " ^ cd_name ^ " not found!") ;
+  if vdis = [] then failwith ("CD " ^ cd_name ^ " not found!") ;
   let vdi = List.nth vdis 0 in
   let op vm =
     create_vbd_and_plug rpc session_id (vm.getref ()) vdi
@@ -5099,9 +5093,14 @@ let vm_cd_eject printer rpc session_id params =
         (fun vbd -> Client.VBD.get_type ~rpc ~session_id ~self:vbd = `CD)
         vbds
     in
-    if List.length cdvbds = 0 then failwith "No CDs found" ;
-    if List.length cdvbds > 1 then
-      failwith "Two or more CDs found. Please use vbd-eject" ;
+    ( match cdvbds with
+    | [] ->
+        failwith "No CDs found"
+    | [_] ->
+        ()
+    | _ :: _ :: _ ->
+        failwith "Two or more CDs found. Please use vbd-eject"
+    ) ;
     let cd = List.hd cdvbds in
     Client.VBD.eject ~rpc ~session_id ~vbd:cd
   in
@@ -5118,13 +5117,18 @@ let vm_cd_insert printer rpc session_id params =
       )
       vdis
   in
-  if List.length vdis = 0 then failwith ("CD " ^ cd_name ^ " not found") ;
-  if List.length vdis > 1 then
-    failwith
-      ("Multiple CDs named "
-      ^ cd_name
-      ^ " found. Please use vbd-insert and specify uuids"
-      ) ;
+  ( match vdis with
+  | [] ->
+      failwith ("CD " ^ cd_name ^ " not found")
+  | [_] ->
+      ()
+  | _ :: _ :: _ ->
+      failwith
+        ("Multiple CDs named "
+        ^ cd_name
+        ^ " found. Please use vbd-insert and specify uuids"
+        )
+  ) ;
   let op vm =
     let vm_record = vm.record () in
     let vbds = vm_record.API.vM_VBDs in
@@ -5136,15 +5140,16 @@ let vm_cd_insert printer rpc session_id params =
         )
         vbds
     in
-    if List.length cdvbds = 0 then
-      raise
-        (Api_errors.Server_error
-           (Api_errors.vm_no_empty_cd_vbd, [Ref.string_of (vm.getref ())])
-        ) ;
-    if List.length cdvbds > 1 then
-      failwith "Two or more empty CD devices found. Please use vbd-insert" ;
-    let cd = List.hd cdvbds in
-    Client.VBD.insert ~rpc ~session_id ~vbd:cd ~vdi:(List.hd vdis)
+    match cdvbds with
+    | [] ->
+        raise
+          (Api_errors.Server_error
+             (Api_errors.vm_no_empty_cd_vbd, [Ref.string_of (vm.getref ())])
+          )
+    | [cd] ->
+        Client.VBD.insert ~rpc ~session_id ~vbd:cd ~vdi:(List.hd vdis)
+    | _ :: _ :: _ ->
+        failwith "Two or more empty CD devices found. Please use vbd-insert"
   in
   ignore (do_vm_op printer rpc session_id op params ["cd-name"])
 
@@ -5560,7 +5565,7 @@ let pool_retrieve_wlb_report fd _printer rpc session_id params =
   in
   download_file_with_task fd rpc session_id filename Constants.wlb_report_uri
     (Printf.sprintf "report=%s%s%s" (Http.urlencode report)
-       (if List.length other_params = 0 then "" else "&")
+       (if other_params = [] then "" else "&")
        (String.concat "&"
           (List.map
              (fun (k, v) ->
@@ -5983,7 +5988,7 @@ let vm_is_bios_customized printer rpc session_id params =
     let bios_strings =
       Client.VM.get_bios_strings ~rpc ~session_id ~self:(vm.getref ())
     in
-    if List.length bios_strings = 0 then
+    if bios_strings = [] then
       printer
         (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
     else if bios_strings = Constants.generic_bios_strings then
@@ -7264,7 +7269,7 @@ let subject_role_common rpc session_id params =
         let roles =
           Client.Role.get_by_name_label ~rpc ~session_id ~label:role_name
         in
-        if List.length roles > 0 then
+        if roles <> [] then
           List.hd roles (* names are unique, there's either 0 or 1*)
         else
           Ref.null

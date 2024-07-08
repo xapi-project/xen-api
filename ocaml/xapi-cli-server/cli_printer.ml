@@ -56,7 +56,8 @@ let make_printer sock minimal =
   let multi_line_xapi_minimal pval =
     match pval with
     | PTable rs ->
-        if List.length rs > 0 && List.length (List.hd rs) > 0 then
+        (* Check that all the sublists aren't empty before calling List.hd *)
+        if rs <> [] && List.for_all (fun r -> r <> []) rs then
           let names = List.map (fun r -> snd (List.hd r)) rs in
           let escaped_names = List.map escape_commas names in
           buffer := String.concat "," escaped_names :: !buffer

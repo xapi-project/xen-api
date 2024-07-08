@@ -199,7 +199,7 @@ let assert_bacon_mode ~__context ~host =
     |> List.flatten
     |> List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
   in
-  if List.length control_domain_vbds > 0 then
+  if control_domain_vbds <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.host_in_use
@@ -1093,7 +1093,7 @@ let destroy ~__context ~self =
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
   let my_control_domains, my_regular_vms = get_resident_vms ~__context ~self in
-  if List.length my_regular_vms > 0 then
+  if my_regular_vms <> [] then
     raise
       (Api_errors.Server_error
          (Api_errors.host_has_resident_vms, [Ref.string_of self])
