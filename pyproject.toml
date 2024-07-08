@@ -260,8 +260,6 @@ discard_messages_matching = [
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
 expected_to_fail = [
-    # Need 2to3 -w <file> and maybe a few other minor updates:
-    "scripts/restore-sr-metadata.py",
 ]
 
 # -----------------------------------------------------------------------------
