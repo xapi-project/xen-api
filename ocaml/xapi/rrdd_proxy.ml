@@ -75,17 +75,19 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           Http_svr.headers s (Http.http_302_redirect url)
         in
         let unarchive () =
-          let req = {req with uri= Constants.rrd_unarchive_uri} in
+          let req = {req with m= Post; uri= Constants.rrd_unarchive_uri} in
           ignore
             (Xapi_services.hand_over_connection req s
                !Rrd_interface.forwarded_path
             )
         in
+        let unavailable () =
+          Http_svr.headers s (Http.http_503_service_unavailable ())
+        in
         (* List of conditions involved. *)
         let is_unarchive_request =
           List.mem_assoc Constants.rrd_unarchive query
         in
-        let is_master = Pool_role.is_master () in
         let is_owner_online owner = Db.is_valid_ref __context owner in
         let is_xapi_initialising = List.mem_assoc "dbsync" query in
         (* The logic. *)
@@ -97,15 +99,25 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           let owner = Db.VM.get_resident_on ~__context ~self:vm_ref in
           let owner_uuid = Db.Host.get_uuid ~__context ~self:owner in
           let is_owner_localhost = owner_uuid = localhost_uuid in
-          if is_owner_localhost then
-            if is_master then
+          let owner_is_available =
+            is_owner_online owner && not is_xapi_initialising
+          in
+          match
+            (Pool_role.get_role (), is_owner_localhost, owner_is_available)
+          with
+          | (Master | Slave _), false, true ->
+              (* VM is running elsewhere *)
+              read_at_owner owner
+          | Master, true, _ | Master, false, false ->
+              (* VM running on node, or not running at all. *)
               unarchive ()
-            else
+          | Slave _, true, _ | Slave _, _, false ->
+              (* Coordinator knows best *)
               unarchive_at_master ()
-          else if is_owner_online owner && not is_xapi_initialising then
-            read_at_owner owner
-          else
-            unarchive_at_master ()
+          | Broken, _, _ ->
+              info "%s: host is broken, VM's metrics are not available"
+                __FUNCTION__ ;
+              unavailable ()
     )
 
 (* Forward the request for host RRD data to the RRDD HTTP handler. If the host
