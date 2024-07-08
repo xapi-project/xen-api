@@ -10,7 +10,6 @@
 # Alternatively, the extauth-hook module can be called, which will
 # dispatch to the correct extauth-hook-<type>.py module automatically.
 import abc
-import sys
 import subprocess
 import os
 import shutil
@@ -20,7 +19,6 @@ import logging.handlers
 from collections import OrderedDict
 from enum import Enum
 import XenAPIPlugin
-import XenAPI
 
 
 # this plugin manage following configuration files for external auth
