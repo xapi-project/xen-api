@@ -1812,12 +1812,12 @@ module Events_from_xenopsd = struct
     Client.UPDATES.remove_barrier dbg id ;
     let t =
       with_lock active_m @@ fun () ->
-      if not (Hashtbl.mem active id) then (
-        warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
-        None
-      ) else
-        let t = Hashtbl.find active id in
-        Hashtbl.remove active id ; Some t
+      match Hashtbl.find_opt active id with
+      | Some t ->
+          Hashtbl.remove active id ; Some t
+      | None ->
+          warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
+          None
     in
     Option.iter
       (fun t ->

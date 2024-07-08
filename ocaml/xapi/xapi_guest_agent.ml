@@ -354,30 +354,32 @@ let all (lookup : string -> string option) (list : string -> string list)
   let self = Db.VM.get_by_uuid ~__context ~uuid in
   let guest_metrics_cached =
     with_lock mutex (fun () ->
-        try Hashtbl.find cache domid
-        with _ ->
-          (* Make sure our cached idea of whether the domain is live or not is correct *)
-          let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
-          let live =
-            true
-            && Db.is_valid_ref __context vm_guest_metrics
-            && Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics
-          in
-          if live then
-            dead_domains := IntSet.remove domid !dead_domains
-          else
-            dead_domains := IntSet.add domid !dead_domains ;
-          {
-            pv_drivers_version= []
-          ; os_version= []
-          ; networks= []
-          ; other= []
-          ; memory= []
-          ; device_id= []
-          ; last_updated= 0.0
-          ; can_use_hotplug_vbd= `unspecified
-          ; can_use_hotplug_vif= `unspecified
-          }
+        match Hashtbl.find_opt cache domid with
+        | Some x ->
+            x
+        | None ->
+            (* Make sure our cached idea of whether the domain is live or not is correct *)
+            let vm_guest_metrics = Db.VM.get_guest_metrics ~__context ~self in
+            let live =
+              true
+              && Db.is_valid_ref __context vm_guest_metrics
+              && Db.VM_guest_metrics.get_live ~__context ~self:vm_guest_metrics
+            in
+            if live then
+              dead_domains := IntSet.remove domid !dead_domains
+            else
+              dead_domains := IntSet.add domid !dead_domains ;
+            {
+              pv_drivers_version= []
+            ; os_version= []
+            ; networks= []
+            ; other= []
+            ; memory= []
+            ; device_id= []
+            ; last_updated= 0.0
+            ; can_use_hotplug_vbd= `unspecified
+            ; can_use_hotplug_vif= `unspecified
+            }
     )
   in
   (* Only if the data is valid, cache it (CA-20353) *)

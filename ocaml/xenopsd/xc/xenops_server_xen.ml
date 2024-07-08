@@ -961,10 +961,7 @@ module HOST = struct
       get_lines () ;
       close_in in_chan ;
       let find key =
-        if Hashtbl.mem tbl key then
-          Hashtbl.find tbl key
-        else
-          "unknown"
+        Option.value (Hashtbl.find_opt tbl key) ~default:"unknown"
       in
       ( find "vendor_id"
       , find "model name"

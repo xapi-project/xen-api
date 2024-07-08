@@ -110,14 +110,13 @@ let rec strings_of_dtd_element known_els = function
 
 let element known_els name children atts =
   let existing_children =
-    if Hashtbl.mem known_els name then
-      match Hashtbl.find known_els name with
-      | Element (_, c, att) ->
-          (c, att)
-      | _ ->
-          assert false
-    else
-      ([], [])
+    match Hashtbl.find_opt known_els name with
+    | Some (Element (_, c, att)) ->
+        (c, att)
+    | None ->
+        ([], [])
+    | _ ->
+        assert false
   in
   let open Xapi_stdext_std.Listext in
   let el =

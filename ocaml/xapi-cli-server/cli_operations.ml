@@ -650,7 +650,9 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
               set_in_map key v
           | None, Some set_map ->
               let existing_params =
-                try Hashtbl.find set_map_table set_map with Not_found -> []
+                Option.value
+                  (Hashtbl.find_opt set_map_table set_map)
+                  ~default:[]
               in
               Hashtbl.replace set_map_table set_map ((key, v) :: existing_params)
           | None, None ->

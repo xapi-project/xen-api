@@ -93,6 +93,31 @@ ocamlyacc () {
   fi
 }
 
+
+unixgetenv () {
+  N=1
+  UNIXGETENV=$(git grep -P -r -o --count 'getenv(?!_opt)' -- **/*.ml | wc -l)
+  if [ "$UNIXGETENV" -eq "$N" ]; then
+    echo "OK found $UNIXGETENV usages of exception-raising Unix.getenv in OCaml files."
+  else
+    echo "ERROR expected $N usages of exception-raising Unix.getenv in OCaml files, got $UNIXGETENV" 1>&2
+    exit 1
+  fi
+}
+
+hashtblfind () {
+  N=36
+  # Looks for all .ml files except the ones using Core.Hashtbl.find,
+  # which already returns Option
+  HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
+  if [ "$HASHTBLFIND" -eq "$N" ]; then
+    echo "OK counted $HASHTBLFIND usages of exception-raising Hashtbl.find"
+  else
+    echo "ERROR expected $N usages of exception-raising Hashtbl.find, got $HASHTBLFIND" 1>&2
+    exit 1
+  fi
+}
+
 unnecessary-length () {
   N=0
   local_grep () {
@@ -120,5 +145,7 @@ structural-equality
 vtpm-unimplemented
 vtpm-fields
 ocamlyacc
+unixgetenv
+hashtblfind
 unnecessary-length
 
