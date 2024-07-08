@@ -280,7 +280,9 @@ let parse_args =
         (List.filter (fun (k, v) -> not (set_keyword (k, v))) rcs)
     in
     let extras =
-      let extra_args = try Sys.getenv "XE_EXTRA_ARGS" with Not_found -> "" in
+      let extra_args =
+        Option.value (Sys.getenv_opt "XE_EXTRA_ARGS") ~default:""
+      in
       let l = ref [] and pos = ref 0 and i = ref 0 in
       while !pos < String.length extra_args do
         if extra_args.[!pos] = ',' then (
@@ -811,7 +813,7 @@ let main () =
       let args, traceparent = parse_args args in
       (* All the named args are taken as permitted filename to be uploaded *)
       let permitted_filenames = get_permit_filenames args in
-      if List.length args < 1 then
+      if args = [] then
         raise Usage
       else
         with_open_channels @@ fun (ic, oc) ->

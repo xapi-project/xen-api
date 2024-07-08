@@ -152,21 +152,22 @@ let valid_operations ~__context record _ref' =
   table
 
 let throw_error table op =
-  if not (Hashtbl.mem table op) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.internal_error
-         , [
-             Printf.sprintf
-               "xapi_host_helpers.assert_operation_valid unknown operation: %s"
-               (host_operation_to_string op)
-           ]
-         )
-      ) ;
-  match Hashtbl.find table op with
-  | Some (code, params) ->
-      raise (Api_errors.Server_error (code, params))
+  match Hashtbl.find_opt table op with
   | None ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.internal_error
+           , [
+               Printf.sprintf
+                 "xapi_host_helpers.assert_operation_valid unknown operation: \
+                  %s"
+                 (host_operation_to_string op)
+             ]
+           )
+        )
+  | Some (Some (code, params)) ->
+      raise (Api_errors.Server_error (code, params))
+  | Some None ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.host_allowed_operations)

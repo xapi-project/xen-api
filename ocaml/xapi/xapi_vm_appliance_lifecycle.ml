@@ -18,11 +18,11 @@ let check_operation_error ~__context record self op =
   let _ref = Ref.string_of self in
   let current_ops = record.Db_actions.vM_appliance_current_operations in
   (* Only allow one operation of [`start | `clean_shutdown | `hard_shutdown | `shutdown ] at a time. *)
-  if List.length current_ops > 0 then
+  if current_ops <> [] then
     Some (Api_errors.other_operation_in_progress, ["VM_appliance"; _ref])
   else
     let vms = Db.VM_appliance.get_VMs ~__context ~self in
-    if List.length vms = 0 then
+    if vms = [] then
       Some (Api_errors.operation_not_allowed, ["Appliance has no VMs."])
     else (* Allow the op if any VMs are in a state where the op makes sense. *)
       let power_states =
