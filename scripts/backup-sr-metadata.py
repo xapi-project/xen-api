@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Back up the SR metadata and VDI list into an XML file
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
@@ -7,7 +7,7 @@ import XenAPI
 import sys
 import getopt
 import codecs
-from xml.dom.minidom import Document
+from xml.dom.minidom import Document  # pytype: disable=pyi-error
 
 def logout():
     try:
@@ -17,11 +17,11 @@ def logout():
 atexit.register(logout)
 
 def usage():
-    print >> sys.stderr, "%s [-f <output file>]" % sys.argv[0]
+    print("%s [-f <output file>]" % sys.argv[0], file=sys.stderr)
     sys.exit(1)
 
 def set_if_exists(xml, record, key):
-    if record.has_key(key):
+    if key in record:
         xml.setAttribute(key, record[key])
     else:
         xml.setAttribute(key, "")
@@ -32,8 +32,8 @@ def main(argv):
 
     try:
         opts, args = getopt.getopt(argv, "hf:", [])
-    except getopt.GetoptError, err:
-        print str(err)
+    except getopt.GetoptError as err:
+        print(str(err))
         usage()
 
     outfile = None
@@ -60,18 +60,18 @@ def main(argv):
         set_if_exists(srxml, srrec, 'uuid')
         set_if_exists(srxml, srrec, 'name_label')
         set_if_exists(srxml, srrec, 'name_description')
- 
+
         for vdiref in srrec['VDIs']:
-            try: 
+            try:
                 vdirec = session.xenapi.VDI.get_record(vdiref)
                 vdixml = doc.createElement("vdi")
                 set_if_exists(vdixml, vdirec, 'uuid')
                 set_if_exists(vdixml, vdirec, 'name_label')
                 set_if_exists(vdixml, vdirec, 'name_description')
                 srxml.appendChild(vdixml)
-            except:
-                print >> sys.stderr, "Failed to get VDI record for: %s" % vdiref
- 
+            except Exception:
+                print("Failed to get VDI record for: %s" % vdiref, file=sys.stderr)
+
         metaxml.appendChild(srxml)
 
     doc.writexml(f, encoding="utf-8")
