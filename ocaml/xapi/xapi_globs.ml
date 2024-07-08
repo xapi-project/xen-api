@@ -945,7 +945,7 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
-let observer_config_dir = "/etc/xensource/observer"
+let observer_config_dir = Constants.observer_config_dir
 
 let ignore_vtpm_unimplemented = ref false
 

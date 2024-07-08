@@ -24,6 +24,10 @@ module Datapath_client = Xapi_storage.Data.Datapath (Rpc_async.GenClient ())
 
 let ( >>>= ) = Deferred.Result.( >>= )
 
+type config = {mutable use_observer: bool}
+
+let config = {use_observer= false}
+
 (** Functions for returning SMAPIv2 errors *)
 
 (** Exception returned by fork_exec_rpc when the script invocation fails *)
@@ -348,6 +352,27 @@ module Script = struct
     | Error _ ->
         update_mapping ~script_dir >>= fun () -> find ()
 end
+
+let observer_config_dir =
+  let ( // ) = Filename.concat in
+  let dir, component =
+    Constants.(observer_config_dir, observer_component_smapi)
+  in
+  dir // component // "enabled"
+
+(** Determine if SM API observation is enabled from the
+    filesystem. Ordinarily, determining if a component is enabled
+    would consist of querying the 'components' field of an observer
+    from the xapi database. *)
+let observer_is_component_enabled () =
+  let ( let* ) = ( >>= ) in
+  let is_enabled () =
+    let is_config_file path = Filename.check_suffix path ".observer.conf" in
+    let* files = Sys.readdir observer_config_dir in
+    return (Array.exists files ~f:is_config_file)
+  in
+  let* result = Monitor.try_with ~extract_exn:true is_enabled in
+  return (Option.value (Result.ok result) ~default:false)
 
 (** Call the script named after the RPC method in the [script_dir]
     directory. The arguments (not the whole JSON-RPC call) are passed as JSON
@@ -1897,7 +1922,10 @@ let _ =
     use_syslog := true ;
     info "Daemonisation successful."
   ) ;
-  let (_ : unit Deferred.t) =
+  let run () =
+    let ( let* ) = ( >>= ) in
+    let* observer_enabled = observer_is_component_enabled () in
+    config.use_observer <- observer_enabled ;
     let rec loop () =
       Monitor.try_with (fun () ->
           if !self_test_only then
@@ -1916,4 +1944,5 @@ let _ =
     in
     loop ()
   in
+  ignore (run ()) ;
   never_returns (Scheduler.go ())
