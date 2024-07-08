@@ -1031,7 +1031,7 @@ let observer_endpoint_http_enabled = ref false
 
 let observer_endpoint_https_enabled = ref false
 
-let python3_path = ref "/usr/bin/python3"
+let python3_path = Constants.python3_path
 
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)

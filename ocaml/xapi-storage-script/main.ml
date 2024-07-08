@@ -392,12 +392,29 @@ let fork_exec_rpc :
     -> ?missing:R.t
     -> ?compat_in:compat_in
     -> ?compat_out:compat_out
+    -> ?dbg:string
     -> R.call
     -> R.response Deferred.t =
- fun ~script_dir ?missing ?(compat_in = id) ?(compat_out = id) ->
+ fun ~script_dir ?missing ?(compat_in = id) ?(compat_out = id) ?dbg ->
   let invoke_script call script_name :
       (R.response, Storage_interface.Errors.error) Deferred.Result.t =
-    Process.create ~prog:script_name ~args:["--json"] () >>= function
+    let traceparent = Option.bind dbg ~f:Debug_info.traceparent_of_dbg in
+    let args = ["--json"] in
+    let script_name, args, env =
+      match (traceparent, config.use_observer) with
+      | Some traceparent, true ->
+          ( "/usr/bin/python3"
+          , "-m" :: "observer" :: script_name :: args
+          , [
+              ("TRACEPARENT", traceparent)
+            ; ("OBSERVER_CONFIG_DIR", observer_config_dir)
+            ; ("PYTHONPATH", Filename.dirname script_name)
+            ]
+          )
+      | _ ->
+          (script_name, args, [])
+    in
+    Process.create ~env:(`Extend env) ~prog:script_name ~args () >>= function
     | Error e ->
         error "%s failed: %s" script_name (Error.to_string_hum e) ;
         return
