@@ -34,19 +34,27 @@ let comp f g x = f (g x)
 let ( ++ ) f g x = comp f g x
 
 let netmask_to_prefixlen netmask =
-  Scanf.sscanf netmask "%d.%d.%d.%d" (fun a b c d ->
-      let rec length l x = if x > 0 then length (succ l) (x lsr 1) else l in
-      let masks = List.map (( - ) 255) [a; b; c; d] in
-      32 - List.fold_left length 0 masks
+  let raise_on_ipaddr_err = function
+    | `Msg str ->
+        failwith
+          (Printf.sprintf "%s: Failed to parse the netmask %s (%s)" __FUNCTION__
+             netmask str
+          )
+  in
+  Ipaddr.V4.(
+    match of_string netmask with
+    | Ok ip_t -> (
+      match Prefix.of_netmask ~address:ip_t ~netmask:ip_t with
+      | Ok x ->
+          Prefix.bits x
+      | Error e ->
+          raise_on_ipaddr_err e
+    )
+    | Error e ->
+        raise_on_ipaddr_err e
   )
 
-let prefixlen_to_netmask len =
-  let mask l =
-    if l <= 0 then 0 else if l > 8 then 255 else 256 - (1 lsl (8 - l))
-  in
-  let lens = [len; len - 8; len - 16; len - 24] in
-  let masks = List.map (string_of_int ++ mask) lens in
-  String.concat "." masks
+let prefixlen_to_netmask len = Ipaddr.V4.(Prefix.mask len |> to_string)
 
 module Unix = struct
   include Unix

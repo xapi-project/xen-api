@@ -74,6 +74,7 @@
     hex
     http_lib
     ipaddr
+    ipaddr.unix
     magic-mime
     message-switch-core
     message-switch-unix
