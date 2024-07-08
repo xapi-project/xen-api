@@ -51,6 +51,7 @@ let fail_req_with (s : Unix.file_descr) msg (http_err : unit -> string list) =
  *)
 let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
   debug "put_rrd_forwarder: start" ;
+  let __FUNCTION__ = "get_vm_rrd_forwarder" in
   let query = req.Http.Request.query in
   req.Http.Request.close <- true ;
   let vm_uuid = List.assoc "uuid" query in
@@ -65,8 +66,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
     Xapi_http.with_context ~dummy:true "Get VM RRD." req s (fun __context ->
         let open Http.Request in
         (* List of possible actions. *)
-        let read_at_owner owner =
-          let address = Db.Host.get_address ~__context ~self:owner in
+        let read_at address =
           let url = make_url ~address ~req in
           Http_svr.headers s (Http.http_302_redirect url)
         in
@@ -89,35 +89,40 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
         let is_unarchive_request =
           List.mem_assoc Constants.rrd_unarchive query
         in
-        let is_owner_online owner = Db.is_valid_ref __context owner in
-        let is_xapi_initialising = List.mem_assoc "dbsync" query in
+        let metrics_at () =
+          let ( let* ) = Option.bind in
+          let owner_of vm =
+            let owner = Db.VM.get_resident_on ~__context ~self:vm in
+            let is_xapi_initialising = List.mem_assoc "dbsync" query in
+            let is_available = not is_xapi_initialising in
+            if Db.is_valid_ref __context owner && is_available then
+              Some owner
+            else
+              None
+          in
+          let* owner = owner_of (Db.VM.get_by_uuid ~__context ~uuid:vm_uuid) in
+          let owner_uuid = Db.Host.get_uuid ~__context ~self:owner in
+          if owner_uuid = Helpers.get_localhost_uuid () then
+            (* VM is local but metrics aren't available *)
+            None
+          else
+            let address = Db.Host.get_address ~__context ~self:owner in
+            Some address
+        in
         (* The logic. *)
         if is_unarchive_request then
           unarchive ()
         else
-          let localhost_uuid = Helpers.get_localhost_uuid () in
-          let vm_ref = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
-          let owner = Db.VM.get_resident_on ~__context ~self:vm_ref in
-          let owner_uuid = Ref.string_of owner in
-          let is_owner_localhost = owner_uuid = localhost_uuid in
-          let owner_is_available =
-            is_owner_online owner && not is_xapi_initialising
-          in
-          match
-            (Pool_role.get_role (), is_owner_localhost, owner_is_available)
-          with
-          | (Master | Slave _), false, true ->
-              (* VM is running elsewhere *)
-              read_at_owner owner
-          | Master, true, _ | Master, false, false ->
-              (* VM running on node, or not running at all. *)
+          match (Pool_role.get_role (), metrics_at ()) with
+          | (Master | Slave _), Some owner ->
+              read_at owner
+          | Master, None ->
               unarchive ()
-          | Slave coordinator, true, _ | Slave coordinator, _, false ->
-              (* Coordinator knows best *)
+          | Slave coordinator, None ->
               unarchive_at coordinator
-          | Broken, _, _ ->
+          | Broken, _ ->
               info "%s: host is broken, VM's metrics are not available"
-                "get_vm_rrd_forwarder" ;
+                __FUNCTION__ ;
               unavailable ()
     )
 
