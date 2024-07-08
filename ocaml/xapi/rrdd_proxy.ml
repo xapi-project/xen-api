@@ -70,8 +70,7 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           let url = make_url ~address ~req in
           Http_svr.headers s (Http.http_302_redirect url)
         in
-        let unarchive_at_master () =
-          let address = Pool_role.get_master_address () in
+        let unarchive_at address =
           let query = (Constants.rrd_unarchive, "") :: query in
           let url = make_url_from_query ~address ~uri:req.uri ~query in
           Http_svr.headers s (Http.http_302_redirect url)
@@ -113,9 +112,9 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
           | Master, true, _ | Master, false, false ->
               (* VM running on node, or not running at all. *)
               unarchive ()
-          | Slave _, true, _ | Slave _, _, false ->
+          | Slave coordinator, true, _ | Slave coordinator, _, false ->
               (* Coordinator knows best *)
-              unarchive_at_master ()
+              unarchive_at coordinator
           | Broken, _, _ ->
               info "%s: host is broken, VM's metrics are not available"
                 "get_vm_rrd_forwarder" ;
