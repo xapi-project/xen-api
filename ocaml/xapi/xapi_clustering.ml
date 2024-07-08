@@ -79,6 +79,17 @@ let ip_of_pif (ref, record) =
       ) ;
   Cluster_interface.IPv4 ip
 
+let assert_pif_disallow_unplug (pif_ref, record) =
+  if not record.API.pIF_disallow_unplug then
+    raise Api_errors.(Server_error (pif_allows_unplug, [Ref.string_of pif_ref]))
+
+let assert_pif_currently_attached (pif_ref, record) =
+  if not record.API.pIF_currently_attached then
+    raise
+      Api_errors.(
+        Server_error (required_pif_is_unplugged, [Ref.string_of pif_ref])
+      )
+
 (** [assert_pif_prerequisites (pif_ref,pif_rec)] raises an exception if any of
     the prerequisites of using a PIF for clustering are unmet. These
     prerequisites are:
@@ -89,19 +100,34 @@ let ip_of_pif (ref, record) =
     }*)
 let assert_pif_prerequisites pif =
   let pif_ref, record = pif in
-  let assert_pif_permaplugged (pif_ref, record) =
-    if not record.API.pIF_disallow_unplug then
-      raise
-        Api_errors.(Server_error (pif_allows_unplug, [Ref.string_of pif_ref])) ;
-    if not record.pIF_currently_attached then
-      raise
-        Api_errors.(
-          Server_error (required_pif_is_unplugged, [Ref.string_of pif_ref])
-        )
-  in
-  assert_pif_permaplugged pif ;
+  assert_pif_disallow_unplug pif ;
+  assert_pif_currently_attached pif ;
   ignore (ip_of_pif pif) ;
   debug "Got IP %s for PIF %s" record.API.pIF_IP (Ref.string_of pif_ref)
+
+let assert_other_pif_prerequisites other_PIF =
+  let other_pIF_ref, other_pIF_record = other_PIF in
+  assert_pif_currently_attached other_PIF ;
+  ignore (ip_of_pif other_PIF) ;
+  debug "Got IP %s for PIF %s" other_pIF_record.API.pIF_IP
+    (Ref.string_of other_pIF_ref)
+
+let common_network ~__context = function
+  | [] ->
+      None
+  | pIF :: pIFs ->
+      let net = Db.PIF.get_network ~__context ~self:pIF in
+      let nets =
+        List.map (fun pIF -> Db.PIF.get_network ~__context ~self:pIF) pIFs
+      in
+      if List.for_all (( = ) net) nets then
+        Some net
+      else (
+        debug
+          "%s: Did not find common network, the first PIF belongs to network %s"
+          __FUNCTION__ (Ref.string_of net) ;
+        None
+      )
 
 let assert_pif_attached_to ~__context ~host ~pIF =
   if not (List.mem pIF (Db.Host.get_PIFs ~__context ~self:host)) then
@@ -110,6 +136,70 @@ let assert_pif_attached_to ~__context ~host ~pIF =
         Server_error
           (pif_not_attached_to_host, [Ref.string_of pIF; Ref.string_of host])
       )
+
+(* This checks whether the given PIF and extra_PIFs share the same network with
+   existing cluster hosts according to their indices *)
+let assert_pif_share_network ~__context ~cluster ~host ~pIF ~extra_PIFs =
+  match Db.Cluster.get_cluster_hosts ~__context ~self:cluster with
+  | [] ->
+      debug "%s: This is the first cluster_host being created, so valid PIF"
+        __FUNCTION__
+  | chs ->
+      let all_PIFs =
+        pIF
+        :: List.map (fun ch -> Db.Cluster_host.get_PIF ~__context ~self:ch) chs
+      in
+      if common_network ~__context all_PIFs |> Option.is_none then
+        raise
+          Api_errors.(
+            Server_error
+              ( pif_not_in_cluster_network
+              , [Ref.string_of pIF; Ref.string_of host; Int64.to_string 0L]
+              )
+          ) ;
+
+      (* list of maps of extra_PIFs for each cluster host *)
+      let all_extra_PIFs_by_chs =
+        List.map
+          (fun ch -> Db.Cluster_host.get_extra_PIFs ~__context ~self:ch)
+          chs
+      in
+
+      let get_nth_PIF idx pIFs =
+        match List.assoc_opt idx pIFs with
+        | None ->
+            Printf.sprintf
+              "Missing PIF %Ld in one of the cluster hosts in the cluster" idx
+            |> failwith
+        | Some pIF ->
+            pIF
+      in
+
+      (* nth cannot fail here since the previous pattern matching has already
+         concluded we have at least one cluster host *)
+      List.nth all_extra_PIFs_by_chs 0
+      |> List.map fst (* get all the indices *)
+      |> List.map (fun idx ->
+             ( idx
+             , List.map (get_nth_PIF idx) (extra_PIFs :: all_extra_PIFs_by_chs)
+             )
+         )
+      |> List.iter (fun (index, nth_PIFs) ->
+             if common_network ~__context nth_PIFs |> Option.is_none then
+               raise
+                 Api_errors.(
+                   Server_error
+                     ( pif_not_in_cluster_network
+                     , [
+                         List.map snd extra_PIFs
+                         |> List.map Ref.string_of
+                         |> String.concat ","
+                       ; Ref.string_of host
+                       ; Int64.to_string index
+                       ]
+                     )
+                 )
+         )
 
 let handle_error = function
   | InternalError message ->
@@ -201,6 +291,27 @@ let get_network_internal ~__context ~self =
   | _ ->
       failwith ("No common network found for cluster " ^ Ref.string_of self)
 
+let get_other_networks_internal ~__context ~cluster =
+  (* [all_pifs] stores a list of extra_PIFs on all cluster hosts,
+     [extract_pifs index all_pifs] will find the pif with [index] in each of the
+     extra_PIFs map on each host *)
+  let extract_pIFs ~index all_pIFs =
+    List.map (fun pIFs -> List.assoc index pIFs) all_pIFs
+  in
+
+  Db.Cluster.get_cluster_hosts ~__context ~self:cluster
+  |> List.map (fun ch -> Db.Cluster_host.get_extra_PIFs ~__context ~self:ch)
+  |> function
+  | [] ->
+      []
+  | host0_other_pifs :: _hosts_other_pifs as all_PIFs ->
+      List.filter_map
+        (fun (index, _pIFs) ->
+          let pIFs = extract_pIFs ~index all_PIFs in
+          common_network ~__context pIFs |> Option.map (fun net -> (index, net))
+        )
+        host0_other_pifs
+
 let assert_cluster_host_enabled ~__context ~self ~expected =
   let actual = Db.Cluster_host.get_enabled ~__context ~self in
   if actual <> expected then
@@ -274,6 +385,11 @@ module Daemon = struct
         maybe_call_script ~__context
           !Xapi_globs.firewall_port_config_script
           ["open"; port] ;
+        (* Open port for dlm to communicate through sctp. This is needed for dlm
+           to do multihoming. *)
+        maybe_call_script ~__context
+          !Xapi_globs.firewall_port_config_script
+          ["open"; "21064"; "sctp"] ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["enable"; service] ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["start"; service]
       with _ ->

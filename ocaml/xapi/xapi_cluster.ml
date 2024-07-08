@@ -33,7 +33,7 @@ let validate_params ~token_timeout ~token_timeout_coefficient =
     invalid_value "token_timeout_coefficient" token_timeout_coefficient
 
 let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
-    ~token_timeout_coefficient =
+    ~token_timeout_coefficient ~extra_PIFs =
   assert_cluster_stack_valid ~cluster_stack ;
   let cluster_stack_version =
     if Xapi_fist.allow_corosync2 () then
@@ -61,14 +61,43 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let pifrec = Db.PIF.get_record ~__context ~self:pIF in
       assert_pif_prerequisites (pIF, pifrec) ;
       let open Cluster_interface in
+      let other_pifrecs =
+        List.map
+          (fun (i, self) -> (i, Db.PIF.get_record ~__context ~self))
+          extra_PIFs
+      in
+      let other_pIF_index = List.map fst extra_PIFs in
+      let other_pif_and_rec =
+        List.combine (List.map snd extra_PIFs) (List.map snd other_pifrecs)
+      in
+      List.iter assert_other_pif_prerequisites other_pif_and_rec ;
       let ip_addr = ip_of_pif (pIF, pifrec) in
+      let other_ip_addrs = List.map ip_of_pif other_pif_and_rec in
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
+      let extra_ips =
+        if Xapi_cluster_helpers.multihoming_enabled ~__context then
+          List.map
+            (fun ip_addr -> ipstr_of_address ip_addr |> Ipaddr.of_string_exn)
+            other_ip_addrs
+          |> List.combine other_pIF_index
+        else
+          []
+      in
       let member =
         if Xapi_cluster_helpers.cluster_health_enabled ~__context then
           Extended
             {
               ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+            ; extra_ips
+            ; hostuuid
+            ; hostname
+            }
+        else if Xapi_cluster_helpers.corosync3_enabled ~__context then
+          Extended
+            {
+              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+            ; extra_ips
             ; hostuuid
             ; hostname
             }
@@ -107,8 +136,9 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
             ~is_quorate:false ~quorum:0L ~live_hosts:0L ;
           Db.Cluster_host.create ~__context ~ref:cluster_host_ref
             ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
-            ~pIF ~current_operations:[] ~allowed_operations:[] ~other_config:[]
-            ~joined:true ~live:true ~last_update_live:API.Date.epoch ;
+            ~pIF ~extra_PIFs ~current_operations:[] ~allowed_operations:[]
+            ~other_config:[] ~joined:true ~live:true
+            ~last_update_live:API.Date.epoch ;
 
           let verify = Stunnel_client.get_verify_by_default () in
           Xapi_cluster_host.set_tls_config ~__context ~self:cluster_host_ref
@@ -242,15 +272,27 @@ let pool_destroy ~__context ~self =
   )
 
 let pool_create ~__context ~network ~cluster_stack ~token_timeout
-    ~token_timeout_coefficient =
+    ~token_timeout_coefficient ~extra_networks =
   validate_params ~token_timeout ~token_timeout_coefficient ;
   let master = Helpers.get_master ~__context in
   let slave_hosts = Xapi_pool_helpers.get_slaves_list ~__context in
   let pIF, _ = pif_of_host ~__context network master in
+  let extra_networks =
+    List.filter (fun (i, _net) -> i > 0L && i < 8L) extra_networks
+  in
+  let extra_PIFs =
+    if Xapi_cluster_helpers.multihoming_enabled ~__context then
+      List.map
+        (fun (i, net) -> (i, pif_of_host ~__context net master |> fst))
+        extra_networks
+    else
+      []
+  in
   let cluster =
     Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Client.Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack
-          ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient
+        Client.Client.Cluster.create ~rpc ~session_id ~pIF ~extra_PIFs
+          ~cluster_stack ~pool_auto_join:true ~token_timeout
+          ~token_timeout_coefficient
     )
   in
   try
@@ -259,9 +301,28 @@ let pool_create ~__context ~network ~cluster_stack ~token_timeout
         (* Cluster.create already created cluster_host on master, so we only iterate through slaves *)
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             let pif, _ = pif_of_host ~__context network host in
+            let extra_PIFs =
+              if Xapi_cluster_helpers.multihoming_enabled ~__context then
+                List.map
+                  (fun (i, net) ->
+                    let pIF, pIF_rec = pif_of_host ~__context net host in
+                    let hostname =
+                      Db.Host.get_name_label ~__context ~self:host
+                    in
+                    let netname =
+                      Db.Network.get_name_label ~__context ~self:net
+                    in
+                    debug "%s: Found pif with ip %s for host %s and network %s"
+                      __FUNCTION__ pIF_rec.API.pIF_IP hostname netname ;
+                    (i, pIF)
+                  )
+                  extra_networks
+              else
+                []
+            in
             let cluster_host_ref =
               Client.Client.Cluster_host.create ~rpc ~session_id ~cluster ~host
-                ~pif
+                ~pif ~extra_PIFs
             in
             D.debug "Created Cluster_host: %s" (Ref.string_of cluster_host_ref)
         )

@@ -25,6 +25,7 @@ val create :
   -> pool_auto_join:bool
   -> token_timeout:float
   -> token_timeout_coefficient:float
+  -> extra_PIFs:(int64 * API.ref_PIF) list
   -> API.ref_Cluster
 (** [create ~__context ~cluster_stack ~pool_auto_join ~token_timeout
  *   ~token_timeout_coefficient] is the implementation of the XenAPI method
@@ -39,12 +40,23 @@ val get_network : __context:Context.t -> self:API.ref_Cluster -> API.ref_network
     as well as logging whether all the cluster hosts in the pool have
     PIFs on the same network *)
 
+val add_extra_network :
+     __context:Context.t
+  -> self:API.ref_Cluster
+  -> index:int64
+  -> network:API.ref_network
+  -> unit
+
+val remove_extra_network :
+  __context:Context.t -> self:API.ref_Cluster -> index:int64 -> unit
+
 val pool_create :
      __context:Context.t
   -> network:API.ref_network
   -> cluster_stack:string
   -> token_timeout:float
   -> token_timeout_coefficient:float
+  -> extra_networks:(int64 * API.ref_network) list
   -> API.ref_Cluster
 (** [pool_create ~__context ~network ~cluster_stack ~token_timeout
     ~token_timeout_coefficient] is the implementation of the XenAPI

@@ -115,8 +115,8 @@ let create_cluster ~__context
   Db.PIF.set_IP ~__context ~self:pIF ~value:"192.0.2.1" ;
   Db.PIF.set_currently_attached ~__context ~self:pIF ~value:true ;
   Db.PIF.set_disallow_unplug ~__context ~self:pIF ~value:true ;
-  Xapi_cluster.create ~__context ~pIF ~cluster_stack ~pool_auto_join:true
-    ~token_timeout ~token_timeout_coefficient
+  Xapi_cluster.create ~__context ~pIF ~extra_PIFs:[] ~cluster_stack
+    ~pool_auto_join:true ~token_timeout ~token_timeout_coefficient
 
 let test_create_destroy_status () =
   let __context = Test_common.make_test_database () in

@@ -25,9 +25,19 @@ let create =
         (Ref _cluster, "cluster", "Cluster to join")
       ; (Ref _host, "host", "new cluster member")
       ; (Ref _pif, "pif", "Network interface to use for communication")
+      ; ( Map (Int, Ref _pif)
+        , "extra_PIFs"
+        , "Additional network interface for multi-homing"
+        )
       ]
     ~lifecycle ~allowed_roles:_R_POOL_OP
-    ~errs:Api_errors.[pif_not_attached_to_host; no_cluster_hosts_reachable]
+    ~errs:
+      Api_errors.
+        [
+          pif_not_attached_to_host
+        ; no_cluster_hosts_reachable
+        ; pif_not_in_cluster_network
+        ]
     ()
 
 let destroy =
@@ -116,6 +126,13 @@ let t =
             re-enabled by the user."
        ; field ~qualifier:StaticRO ~lifecycle ~ty:(Ref _pif) "PIF"
            ~default_value:(Some (VRef null_ref)) "Reference to the PIF object"
+       ; field ~qualifier:StaticRO ~lifecycle:[]
+           ~ty:(Map (Int, Ref _pif))
+           ~ignore_foreign_key:true "extra_PIFs" ~default_value:(Some (VMap []))
+           "Reference to the list of other PIF objects, using a map to enforce \
+            the ordering of PIFs. This is used for multi-homing purposes. The \
+            key of the map represents the priority of the PIF, ranging from \
+            1-7. Keys outside of 1-7 will be ignored."
        ; field ~qualifier:DynamicRO ~lifecycle ~ty:Bool "joined"
            ~default_value:(Some (VBool true))
            "Whether the cluster host has joined the cluster. Contrary to \

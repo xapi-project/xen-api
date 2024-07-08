@@ -80,6 +80,15 @@ let create =
          }
        ]
       @ timeout_params
+      @ [
+          {
+            param_type= Map (Int, Ref _pif)
+          ; param_name= "extra_PIFs"
+          ; param_doc= ""
+          ; param_release= numbered_release "24.18.0-next"
+          ; param_default= Some (VMap [])
+          }
+        ]
       )
     ~lifecycle ~allowed_roles:_R_POOL_OP
     ~errs:
@@ -136,6 +145,19 @@ let pool_create =
          }
        ]
       @ timeout_params
+      @ [
+          {
+            param_type= Map (Int, Ref _network)
+          ; param_name= "extra_networks"
+          ; param_doc=
+              "Additional networks, used for multi-homing. Input as a map, \
+               with the key representing the priority of the network, and \
+               value the uuid of the network. Key should range from 1-7, and \
+               keys outside of 1-7 will be ignored."
+          ; param_release= numbered_release "24.18.0-next"
+          ; param_default= Some (VMap [])
+          }
+        ]
       )
     ~lifecycle ~allowed_roles:_R_POOL_OP ()
 

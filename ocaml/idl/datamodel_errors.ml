@@ -1865,6 +1865,14 @@ let _ =
       "Cluster_host creation failed as the PIF provided is not attached to the \
        host."
     () ;
+  error Api_errors.pif_not_in_cluster_network ["pif"; "host"; "index"]
+    ~doc:
+      "PIF(s) on the cluster host is not in the same network as other PIFs \
+       with the same index on other cluster hosts"
+    () ;
+  error Api_errors.pif_index_exists_on_cluster_host ["index"; "cluster_host"]
+    ~doc:"Adding a new network to a cluster failed as the index already exists"
+    () ;
   error Api_errors.cluster_host_not_joined ["cluster_host"]
     ~doc:
       "Cluster_host operation failed as the cluster_host has not joined the \

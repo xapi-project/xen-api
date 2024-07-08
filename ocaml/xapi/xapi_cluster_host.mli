@@ -45,6 +45,7 @@ val create :
   -> cluster:API.ref_Cluster
   -> host:API.ref_host
   -> pif:API.ref_PIF
+  -> extra_PIFs:(int64 * API.ref_PIF) list
   -> API.ref_Cluster_host
 (** [create ~__context ~cluster ~host] is implementation of the XenAPI call
     'Cluster_host.create'. It is the Cluster_host object constructor, and creates

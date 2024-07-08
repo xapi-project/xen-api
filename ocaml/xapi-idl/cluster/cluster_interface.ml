@@ -24,7 +24,12 @@ let string_of_ip = Ipaddr.to_string
   this is done to maintain backwards compatability, and should be combined with
   the other variant in the future.
   *)
-type extended_addr = {ip: Ipaddr.t; hostuuid: string; hostname: string}
+type extended_addr = {
+    ip: Ipaddr.t
+  ; extra_ips: (int64 * Ipaddr.t) list [@default []]
+  ; hostuuid: string
+  ; hostname: string
+}
 [@@deriving rpcty]
 
 type address = IPv4 of string | Extended of extended_addr [@@deriving rpcty]
@@ -33,7 +38,14 @@ let ipstr_of_address = function
   | IPv4 a ->
       a
   | Extended {ip; _} ->
+      (* ignore the extra_ips as they are used by corosync only*)
       string_of_ip ip
+
+let ipstr_of_other_addr = function
+  | IPv4 _ ->
+      []
+  | Extended {extra_ips; _} ->
+      List.map (fun (i, other_ip) -> (i, string_of_ip other_ip)) extra_ips
 
 let ipaddr_of_address = function
   | IPv4 _ as ip ->
@@ -46,15 +58,32 @@ let ipaddr_of_address = function
 let fullstr_of_address = function
   | IPv4 a ->
       a
-  | Extended {ip; hostuuid; hostname} ->
-      Printf.sprintf "(%s, %s, %s)" (string_of_ip ip) hostuuid hostname
+  | Extended {ip; extra_ips; hostuuid; hostname} ->
+      let other_ip_addrs =
+        List.map
+          (fun (idx, ip) ->
+            Printf.sprintf "(%s:%s)" (Int64.to_string idx) (string_of_ip ip)
+          )
+          extra_ips
+        |> String.concat ","
+      in
+      Printf.sprintf "(%s, %s, %s, %s)" (string_of_ip ip) other_ip_addrs
+        hostuuid hostname
 
 let printaddr () = function
   | IPv4 s ->
       Printf.sprintf "IPv4(%s)" s
-  | Extended {ip; hostuuid; hostname} ->
-      Printf.sprintf "IP(%s) hostuuid (%s) hostname(%s)" (string_of_ip ip)
-        hostuuid hostname
+  | Extended {ip; extra_ips; hostuuid; hostname} ->
+      let other_ip_addrs =
+        List.map
+          (fun (idx, ip) ->
+            Printf.sprintf "(%s:%s)" (Int64.to_string idx) (string_of_ip ip)
+          )
+          extra_ips
+        |> String.concat ","
+      in
+      Printf.sprintf "IP(%s) extra_ips (%s) hostuuid (%s) hostname(%s)"
+        (string_of_ip ip) other_ip_addrs hostuuid hostname
 
 type addresslist = address list [@@deriving rpcty]
 
@@ -364,6 +393,18 @@ module LocalAPI (R : RPC) = struct
     declare "switch-cluster-stack"
       ["Switch cluster stack version to the target"]
       (debug_info_p @-> cluster_stack_p @-> returning unit_p err)
+
+  let add_extra_network =
+    let all_members_p = Param.mk ~name:"all_members" all_members in
+    declare "add-extra-network"
+      ["add the network config in the node list"]
+      (debug_info_p @-> all_members_p @-> returning unit_p err)
+
+  let remove_extra_network =
+    let index_p = Param.mk ~name:"a" Types.int64 in
+    declare "remove-extra-network"
+      ["remove the extra network"]
+      (debug_info_p @-> index_p @-> returning unit_p err)
 
   module UPDATES = struct
     open TypeCombinators

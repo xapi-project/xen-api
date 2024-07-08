@@ -7789,12 +7789,23 @@ end
 module Cluster = struct
   let pool_create printer rpc session_id params =
     let network_uuid = List.assoc "network-uuid" params in
+    let extra_network_uuids =
+      get_map_param params "extra-network-uuids"
+      |> List.map (fun (i, n) ->
+             (Records.safe_i64_of_string "extra-network-uuids" i, n)
+         )
+    in
     let cluster_stack =
       get_param params "cluster-stack"
         ~default:Constants.default_smapiv3_cluster_stack
     in
     let network =
       Client.Network.get_by_uuid ~rpc ~session_id ~uuid:network_uuid
+    in
+    let extra_networks =
+      List.map
+        (fun (i, uuid) -> (i, Client.Network.get_by_uuid ~rpc ~session_id ~uuid))
+        extra_network_uuids
     in
     let token_timeout =
       get_float_param params "token-timeout"
@@ -7804,10 +7815,21 @@ module Cluster = struct
       get_float_param params "token-timeout-coefficient"
         ~default:Constants.default_token_timeout_coefficient_s
     in
+
+    let open API in
+    let o = rpc_of_int64_to_ref_network_map extra_networks in
+    debug "getting rpc value of network map %s" (Rpc.to_string o) ;
+    ( match extra_networks with
+    | [] ->
+        debug "send empty extra_networks"
+    | (i, _n) :: _ ->
+        debug "send other netowrks with index %Ld" i
+    ) ;
     let cluster =
       Client.Cluster.pool_create ~rpc ~session_id ~network ~cluster_stack
-        ~token_timeout ~token_timeout_coefficient
+        ~token_timeout ~token_timeout_coefficient ~extra_networks
     in
+
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
     printer (Cli_printer.PList [uuid])
 
@@ -7834,7 +7856,18 @@ module Cluster = struct
 
   let create printer rpc session_id params =
     let pif_uuid = List.assoc "pif-uuid" params in
+    let extra_pif_uuids =
+      get_map_param params "extra-pif-uuids"
+      |> List.map (fun (i, n) ->
+             (Records.safe_i64_of_string "extra-pif-uuids" i, n)
+         )
+    in
     let pIF = Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:pif_uuid in
+    let extra_PIFs =
+      List.map
+        (fun (i, uuid) -> (i, Client.PIF.get_by_uuid ~rpc ~session_id ~uuid))
+        extra_pif_uuids
+    in
     let cluster_stack =
       get_param params "cluster-stack"
         ~default:Constants.default_smapiv3_cluster_stack
@@ -7850,7 +7883,7 @@ module Cluster = struct
     in
     let cluster =
       Client.Cluster.create ~rpc ~session_id ~pIF ~cluster_stack ~pool_auto_join
-        ~token_timeout ~token_timeout_coefficient
+        ~token_timeout ~token_timeout_coefficient ~extra_PIFs
     in
     let uuid = Client.Cluster.get_uuid ~rpc ~session_id ~self:cluster in
     printer (Cli_printer.PList [uuid])
@@ -7859,6 +7892,23 @@ module Cluster = struct
     let uuid = List.assoc "uuid" params in
     let ref = Client.Cluster.get_by_uuid ~rpc ~session_id ~uuid in
     Client.Cluster.destroy ~rpc ~session_id ~self:ref
+
+  let add_extra_network _printer rpc session_id params =
+    let uuid = List.assoc "cluster-uuid" params in
+    let ref = Client.Cluster.get_by_uuid ~rpc ~session_id ~uuid in
+    let network_uuid = List.assoc "network-uuid" params in
+    let network_ref =
+      Client.Network.get_by_uuid ~rpc ~session_id ~uuid:network_uuid
+    in
+    let index = List.assoc "network-index" params |> Int64.of_string in
+    Client.Cluster.add_extra_network ~rpc ~session_id ~self:ref ~index
+      ~network:network_ref
+
+  let remove_extra_network _printer rpc session_id params =
+    let uuid = List.assoc "cluster-uuid" params in
+    let ref = Client.Cluster.get_by_uuid ~rpc ~session_id ~uuid in
+    let index = List.assoc "network-index" params |> Int64.of_string in
+    Client.Cluster.remove_extra_network ~rpc ~session_id ~self:ref ~index
 end
 
 module Cluster_host = struct
@@ -7866,13 +7916,25 @@ module Cluster_host = struct
     let cluster_uuid = List.assoc "cluster-uuid" params in
     let host_uuid = List.assoc "host-uuid" params in
     let pif_uuid = List.assoc "pif-uuid" params in
+    let extra_pif_uuids =
+      get_map_param params "extra-pif-uuids"
+      |> List.map (fun (i, n) ->
+             (Records.safe_i64_of_string "extra-pif-uuids" i, n)
+         )
+    in
     let cluster =
       Client.Cluster.get_by_uuid ~rpc ~session_id ~uuid:cluster_uuid
     in
     let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
     let pif = Client.PIF.get_by_uuid ~rpc ~session_id ~uuid:pif_uuid in
+    let extra_PIFs =
+      List.map
+        (fun (i, uuid) -> (i, Client.PIF.get_by_uuid ~rpc ~session_id ~uuid))
+        extra_pif_uuids
+    in
     let cluster_host =
       Client.Cluster_host.create ~rpc ~session_id ~cluster ~host ~pif
+        ~extra_PIFs
     in
     let uuid =
       Client.Cluster_host.get_uuid ~rpc ~session_id ~self:cluster_host

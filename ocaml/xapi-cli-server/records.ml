@@ -5089,6 +5089,17 @@ let cluster_host_record rpc session_id cluster_host =
       ; make_field ~name:"PIF"
           ~get:(fun () -> (x ()).API.cluster_host_PIF |> get_uuid_from_ref)
           ()
+      ; make_field ~name:"extra_PIFs"
+          ~get:(fun () ->
+            Record_util.i2brm_to_string get_uuid_from_ref "; "
+              (x ()).API.cluster_host_extra_PIFs
+          )
+          ~get_map:(fun () ->
+            List.map
+              (fun (a, b) -> (Int64.to_string a, get_uuid_from_ref b))
+              (x ()).API.cluster_host_extra_PIFs
+          )
+          ()
       ; make_field ~name:"host"
           ~get:(fun () -> (x ()).API.cluster_host_host |> get_uuid_from_ref)
           ()
