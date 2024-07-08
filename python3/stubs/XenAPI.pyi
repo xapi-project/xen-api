@@ -42,9 +42,12 @@ class _Dispatcher:
         """Authenticate the session with the XenAPI server."""
     def logout(self) -> None:
         """End the session with the XenAPI server."""
+
+    # Dynamic attributes that type checkers like pytype and pyright cannot check:
     session: Incomplete
     secret: Incomplete
     SR: Incomplete
+    VDI: Incomplete
     PBD: Incomplete
     pool: Incomplete
     VM: Incomplete
