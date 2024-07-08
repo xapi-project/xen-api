@@ -6,7 +6,7 @@ import os
 import socket
 import XenAPIPlugin
 
-# TODO: put this info plus all the supported cmds in a shared file
+# TODO: Document this information and all supported commands
 cmdsockname = "\0perfmon"  # an af_unix socket name (the "\0" stops socket.bind() creating a fs node)
 cmdmaxlen = 256
 
