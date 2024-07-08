@@ -13,7 +13,6 @@ install:
 	$(IPROG) -d $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) -d $(DESTDIR)/etc/sysconfig
 	$(IPROG) -d $(DESTDIR)/usr/lib/systemd/system
-
 	$(IPROG) -d $(DESTDIR)$(EXTENSIONDIR)
 
 	
@@ -33,6 +32,7 @@ install:
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) plugins/disk-space $(DESTDIR)$(PLUGINDIR)

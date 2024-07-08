@@ -116,7 +116,6 @@ install:
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
-	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
