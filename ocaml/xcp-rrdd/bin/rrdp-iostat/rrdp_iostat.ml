@@ -192,11 +192,9 @@ module Iostat = struct
     (* Now read the values out of dev_values_map for devices for which we have data *)
     List.filter_map
       (fun dev ->
-        if not (Hashtbl.mem dev_values_map dev) then
-          None
-        else
-          let values = Hashtbl.find dev_values_map dev in
-          Some (dev, values)
+        Option.map
+          (fun values -> (dev, values))
+          (Hashtbl.find_opt dev_values_map dev)
       )
       devs
 end
@@ -371,13 +369,13 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
     (* Look up SR and VDI uuids from the physical path *)
     if not (Hashtbl.mem phypath_to_sr_vdi phypath) then
       refresh_phypath_to_sr_vdi () ;
-    if not (Hashtbl.mem phypath_to_sr_vdi phypath) then (
-      (* Odd: tap-ctl mentions a device that's not linked from /dev/sm/phy *)
-      D.error "Could not find device with physical path %s" phypath ;
-      None
-    ) else
-      let sr, vdi = Hashtbl.find phypath_to_sr_vdi phypath in
-      Some (pid, (minor, (sr, vdi)))
+    match Hashtbl.find_opt phypath_to_sr_vdi phypath with
+    | Some (sr, vdi) ->
+        Some (pid, (minor, (sr, vdi)))
+    | None ->
+        (* Odd: tap-ctl mentions a device that's not linked from /dev/sm/phy *)
+        D.error "Could not find device with physical path %s" phypath ;
+        None
   in
   let process_line str =
     try Scanf.sscanf str "pid=%d minor=%d state=%s args=%s@:%s" extract_vdis

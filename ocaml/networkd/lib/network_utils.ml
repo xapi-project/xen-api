@@ -112,7 +112,11 @@ let check_n_run ?(on_error = default_error_handler) ?(log = true) run_func
   try
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
-    let env = [|"PATH=" ^ Sys.getenv "PATH"|] in
+    let env =
+      Option.fold ~none:[||]
+        ~some:(fun p -> [|"PATH=" ^ p|])
+        (Sys.getenv_opt "PATH")
+    in
     if log then
       info "%s %s" script (String.concat " " args) ;
     run_func env script args

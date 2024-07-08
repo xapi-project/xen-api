@@ -3887,44 +3887,44 @@ let make_list l =
 
 let rio_help printer minimal cmd =
   let docmd cmd =
-    try
-      let cmd_spec = Hashtbl.find cmdtable cmd in
-      let vm_selectors = List.mem Vm_selectors cmd_spec.flags in
-      let host_selectors = List.mem Host_selectors cmd_spec.flags in
-      let sr_selectors = List.mem Sr_selectors cmd_spec.flags in
-      let optional =
-        cmd_spec.optn
-        @ (if vm_selectors then vmselectors else [])
-        @ (if sr_selectors then srselectors else [])
-        @ if host_selectors then hostselectors else []
-      in
-      let desc =
-        match (vm_selectors, host_selectors, sr_selectors) with
-        | false, false, false ->
-            cmd_spec.help
-        | true, false, false ->
-            cmd_spec.help ^ vmselectorsinfo
-        | false, true, false ->
-            cmd_spec.help ^ hostselectorsinfo
-        | false, false, true ->
-            cmd_spec.help ^ srselectorsinfo
-        | _ ->
-            cmd_spec.help
-        (* never happens currently *)
-      in
-      let recs =
-        [
-          ("command name        ", cmd)
-        ; ("reqd params     ", String.concat ", " cmd_spec.reqd)
-        ; ("optional params ", String.concat ", " optional)
-        ; ("description     ", desc)
-        ]
-      in
-      printer (Cli_printer.PTable [recs])
-    with Not_found as e ->
-      Debug.log_backtrace e (Backtrace.get e) ;
-      error "Responding with Unknown command %s" cmd ;
-      printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
+    match Hashtbl.find_opt cmdtable cmd with
+    | Some cmd_spec ->
+        let vm_selectors = List.mem Vm_selectors cmd_spec.flags in
+        let host_selectors = List.mem Host_selectors cmd_spec.flags in
+        let sr_selectors = List.mem Sr_selectors cmd_spec.flags in
+        let optional =
+          cmd_spec.optn
+          @ (if vm_selectors then vmselectors else [])
+          @ (if sr_selectors then srselectors else [])
+          @ if host_selectors then hostselectors else []
+        in
+        let desc =
+          match (vm_selectors, host_selectors, sr_selectors) with
+          | false, false, false ->
+              cmd_spec.help
+          | true, false, false ->
+              cmd_spec.help ^ vmselectorsinfo
+          | false, true, false ->
+              cmd_spec.help ^ hostselectorsinfo
+          | false, false, true ->
+              cmd_spec.help ^ srselectorsinfo
+          | _ ->
+              cmd_spec.help
+          (* never happens currently *)
+        in
+        let recs =
+          [
+            ("command name        ", cmd)
+          ; ("reqd params     ", String.concat ", " cmd_spec.reqd)
+          ; ("optional params ", String.concat ", " optional)
+          ; ("description     ", desc)
+          ]
+        in
+        printer (Cli_printer.PTable [recs])
+    | None ->
+        D.log_backtrace () ;
+        error "Responding with Unknown command %s" cmd ;
+        printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
   in
   let cmds =
     List.filter
@@ -3936,7 +3936,7 @@ let rio_help printer minimal cmd =
       )
       cmd.params
   in
-  if List.length cmds > 0 then
+  if cmds <> [] then
     List.iter docmd (List.map fst cmds)
   else
     let cmds =

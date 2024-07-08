@@ -1608,7 +1608,7 @@ let assert_valid_bios_strings ~__context ~value =
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)
   let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-  if List.length current_strings > 0 then
+  if current_strings <> [] then
     raise (Api_errors.Server_error (Api_errors.vm_bios_strings_already_set, []))
   else
     let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in
