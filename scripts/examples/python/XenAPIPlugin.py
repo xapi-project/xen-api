@@ -16,7 +16,7 @@ else:
     import xmlrpc.client as xmlrpclib
 
 class Failure(Exception):
-    """Provide compatibilty with plugins written against XenServer 5.5 API"""
+    """Provide compatibility with plugins written against the XenServer 5.5 API"""
 
     def __init__(self, code, params):
         Exception.__init__(self)

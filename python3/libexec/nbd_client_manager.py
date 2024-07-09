@@ -96,7 +96,7 @@ def _call(cmd_args, error=True):
 
     if error and proc.returncode != 0:
         LOGGER.error(
-            "%s exitted with code %d: %s", " ".join(cmd_args), proc.returncode, stderr
+            "%s exited with code %d: %s", " ".join(cmd_args), proc.returncode, stderr
         )
 
         raise subprocess.CalledProcessError(

@@ -275,7 +275,7 @@ class UsersList(DynamicPam):
             logger.debug("Permit user %s, Current sid is %s",
                          formatted_name, sid)
             self._lines.append(formatted_name)
-            # If ssh key is permittd in authorized_keys,
+            # If the ssh key is permitted in the authorized_keys file,
             # The original name is compared, add UPN and original name
             if self._backend == ADBackend.BD_PBIS and name != formatted_name:
                 self._lines.append(name)
@@ -309,7 +309,7 @@ class GroupsList(DynamicPam):
 
 class KeyValueConfig(ADConfig):
     """
-     Only support configure files with key value in each line, seperated by sep
+     Only support configure files with key value in each line, separated by sep
      Otherwise, it will be just copied and un-configurable
      If multiple lines with the same key exists, only the first line will be configured
     """
@@ -473,7 +473,7 @@ def after_extauth_enable(session, args):
 
 
 def after_xapi_initialize(session, args):
-    """Callback afer xapi initialize"""
+    """Callback after xapi initialization"""
     return refresh_all_configurations(session, args, "after_xapi_initialize")
 
 
@@ -483,7 +483,7 @@ def after_subject_add(session, args):
 
 
 def after_subject_remove(session, args):
-    """Callbackk after remove subject"""
+    """Callback after remove subject"""
     return refresh_dynamic_pam(session, args, "after_subject_remove")
 
 

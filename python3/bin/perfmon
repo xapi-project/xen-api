@@ -27,7 +27,7 @@
 # based on the "start" CGI param.  It will return the highest level of granularity
 # available for the period requested.
 #
-# The "cf" CGI param specfies the row.  (All rows are returned if it's missing.)
+# The "cf" CGI param specifies the row. If it is not set, all rows are returned.
 
 # pylint: disable=too-many-lines, missing-class-docstring
 # pytype: disable=attribute-error
