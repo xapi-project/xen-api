@@ -15,7 +15,6 @@ install:
 	$(IPROG) -d $(DESTDIR)/usr/lib/systemd/system
 	$(IPROG) -d $(DESTDIR)$(EXTENSIONDIR)
 
-	
 	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
 
@@ -39,6 +38,8 @@ install:
 	$(IPROG) plugins/install-supp-pack $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/echo.py $(DESTDIR)$(PLUGINDIR)/echo
 	$(IPROG) plugins/openvswitch-config-update $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/extauth-hook $(DESTDIR)$(PLUGINDIR)
+	$(IPROG) plugins/extauth-hook-AD.py $(DESTDIR)$(PLUGINDIR)
 
 	$(IPROG) perfmon/perfmon $(DESTDIR)$(PLUGINDIR)
 	$(IDATA) perfmon/perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service

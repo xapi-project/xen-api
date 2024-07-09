@@ -2,6 +2,12 @@
 #
 # extauth-hook-AD.py
 #
+# This plugin manages the following configuration files for external authentication
+# - /etc/nsswitch.conf
+# - /etc/pam.d/sshd
+# - /etc/pam.d/hcp_users
+# - /etc/ssh/ssh_config
+#
 # This module can be called directly as a plugin.  It handles
 # Active Directory being enabled or disabled as the hosts external_auth_type,
 # or subjects being added or removed while AD is the external_auth_type,
@@ -20,12 +26,6 @@ from collections import OrderedDict
 from enum import Enum
 import XenAPIPlugin
 
-
-# this plugin manage following configuration files for external auth
-# - /etc/nsswitch.conf
-# - /etc/pam.d/sshd
-# - /etc/pam.d/hcp_users
-# - /etc/ssh/ssh_config
 
 # pylint: disable=too-few-public-methods
 # pytype: disable=ignored-abstractmethod
