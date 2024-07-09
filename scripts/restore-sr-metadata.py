@@ -4,19 +4,19 @@
 
 import atexit
 import contextlib
-import XenAPI
-import os, sys, time
 import getopt
+import io
+import sys
 from xml.dom.minidom import parse  # pytype: disable=pyi-error
-import codecs
 
-sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
-sys.stderr = codecs.getwriter("utf-8")(sys.stderr)
+import XenAPI
+
+sys.stdout = io.open(sys.stdout.fileno(), "w", encoding="utf-8")
+sys.stderr = io.open(sys.stderr.fileno(), "w", encoding="utf-8")
 
 
 def usage():
     print("%s -f <input file> -u <sr uuid>" % sys.argv[0], file=sys.stderr)
-    sys.exit(1)
 
 def main(argv):
     session = XenAPI.xapi_local()
@@ -34,6 +34,7 @@ def main(argv):
     except getopt.GetoptError as err:
         print(str(err))
         usage()
+        sys.exit(1)
 
     infile = None
     sruuid = None
@@ -45,6 +46,7 @@ def main(argv):
 
     if infile == None:
         usage()
+        sys.exit(1)
 
     try:
         doc = parse(infile)
@@ -93,10 +95,12 @@ def main(argv):
                     session.xenapi.VDI.set_name_description(vdiref, vdi_descr)
                     print("  Description: %s" % vdi_descr)
                 except:
-                    print("Error setting VDI data for: %s (%s)" % (vdi_uuid, name_label), file=sys.stderr)
+                    print(
+                        "Error setting VDI data for: %s (%s)" % (vdi_uuid, name_label),
+                        file=sys.stderr,
+                    )
                     continue
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
-
-
