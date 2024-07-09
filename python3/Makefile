@@ -44,9 +44,6 @@ install:
 	$(IDATA) perfmon/perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IPROG) perfmon/sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
 
-# templates
-	$(IPROG) templates/debian $(DESTDIR)$(OPTDIR)/packages/post-install-scripts/debian-etch
-	$(IPROG) templates/debug $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
 
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
