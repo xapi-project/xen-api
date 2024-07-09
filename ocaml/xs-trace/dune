@@ -4,7 +4,20 @@
   (public_name xs-trace)
   (package xapi)
   (libraries
+    cmdliner
     tracing_export
     xapi-stdext-unix
   )
+)
+
+(rule
+  (targets xs-trace.1)
+  (deps (:exe xs_trace.exe))
+  (action (with-stdout-to %{targets} (run %{exe} --help=groff)))
+)
+
+(install
+  (section man)
+  (package xapi)
+  (files (xs-trace.1 as man1/xs-trace.1))
 )
