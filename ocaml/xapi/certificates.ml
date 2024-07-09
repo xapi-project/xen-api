@@ -80,6 +80,9 @@ let pp_hash hash =
   in
   String.init length value_of
 
+let pp_fingerprint ~hash_type cert =
+  X509.Certificate.fingerprint hash_type cert |> pp_hash
+
 let safe_char c =
   match c with
   | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '.' | '_' | '-' ->
@@ -218,12 +221,8 @@ end = struct
     let not_before, not_after =
       dates_of_ptimes (X509.Certificate.validity certificate)
     in
-    let fingerprint_sha256 =
-      X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
-    in
-    let fingerprint_sha1 =
-      X509.Certificate.fingerprint `SHA1 certificate |> pp_hash
-    in
+    let fingerprint_sha256 = pp_fingerprint ~hash_type:`SHA256 certificate in
+    let fingerprint_sha1 = pp_fingerprint ~hash_type:`SHA1 certificate in
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before

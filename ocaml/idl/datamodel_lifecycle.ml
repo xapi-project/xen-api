@@ -27,6 +27,10 @@ let prototyped_of_field = function
       Some "23.14.0"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
+  | "Certificate", "fingerprint_sha1" ->
+      Some "24.19.1-next"
+  | "Certificate", "fingerprint_sha256" ->
+      Some "24.19.1-next"
   | "Cluster_host", "last_update_live" ->
       Some "24.3.0"
   | "Cluster_host", "live" ->
