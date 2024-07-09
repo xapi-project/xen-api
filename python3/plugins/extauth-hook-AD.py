@@ -44,7 +44,7 @@ def setup_logger():
     log = logging.getLogger()
 
     if not os.path.exists(addr):
-        log.warning("{} not available, logs are not redirected".format(addr))
+        log.warning("%s not available, logs are not redirected", addr)
         return
 
     # Send to syslog local5, which will be redirected to xapi log /var/log/xensource.log
@@ -92,7 +92,7 @@ class ADConfig():
         self._ad_enabled = ad_enabled
         self._file_mode = file_mode
         if load_existing and os.path.exists(self._file_path):
-            with open(self._file_path, 'r') as file:
+            with open(self._file_path, "r", encoding="utf-8") as file:
                 lines = file.readlines()
                 self._lines = [l.strip() for l in lines]
 
@@ -237,9 +237,8 @@ class DynamicPam(ADConfig):
     def _install(self):
         if self._ad_enabled:
             super(DynamicPam, self)._install()
-        else:
-            if os.path.exists(self._file_path):
-                os.remove(self._file_path)
+        elif os.path.exists(self._file_path):
+            os.remove(self._file_path)
 
 
 class UsersList(DynamicPam):
@@ -261,7 +260,7 @@ class UsersList(DynamicPam):
             if self._backend == ADBackend.BD_PBIS:
                 # PBIS convert domain to UPPER case, we revert it back
                 domain = domain.lower()
-            self._lines.append(u"{}{}{}".format(user, sep, domain))
+            self._lines.append("{}{}{}".format(user, sep, domain))
         except KeyError:
             logger.info("subject does not have upn %s", subject_rec)
         except ValueError:
@@ -362,7 +361,7 @@ class KeyValueConfig(ADConfig):
         if self._is_special_line(key):
             line = value
         else:  # normal line, construct the key value pair
-            sep = self._sep if self._sep else " "
+            sep = self._sep or " "
             line = "{}{}{}".format(key, sep, value)
         self._lines.append(line)
 
