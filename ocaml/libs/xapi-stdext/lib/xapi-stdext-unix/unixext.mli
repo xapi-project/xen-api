@@ -153,6 +153,9 @@ val time_limited_write_substring :
 
 val time_limited_read : Unix.file_descr -> int -> float -> string
 
+val time_limited_single_read :
+  Unix.file_descr -> int -> max_wait:float -> string
+
 val read_data_in_string_chunks :
      (string -> int -> unit)
   -> ?block_size:int
@@ -244,6 +247,17 @@ val statvfs : string -> statvfs_t
 
 val domain_of_addr : string -> Unix.socket_domain option
 (** Returns Some Unix.PF_INET or Some Unix.PF_INET6 if passed a valid IP address, otherwise returns None. *)
+
+val test_open : int -> unit
+(** [test_open n] opens n file descriptors. This is useful for testing that the application makes no calls
+  to [Unix.select] that use file descriptors, because such calls will then immediately fail.
+
+  This assumes that [ulimit -n] has been suitably increased in the test environment.
+  
+  Can only be called once in a program, and will raise an exception otherwise.
+
+  The file descriptors will stay open until the program exits.
+ *)
 
 module Direct : sig
   (** Perform I/O in O_DIRECT mode using 4KiB page-aligned buffers *)
