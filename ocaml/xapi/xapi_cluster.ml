@@ -296,6 +296,8 @@ let pool_resync ~__context ~self:_ =
    find or create a matching cluster_host which is also enabled *)
 
 let cstack_sync ~__context ~self =
-  debug "%s: sync db data with cluster stack" __FUNCTION__ ;
-  Watcher.on_corosync_update ~__context ~cluster:self
-    ["Updates due to cluster api calls"]
+  if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
+    debug "%s: sync db data with cluster stack" __FUNCTION__ ;
+    Watcher.on_corosync_update ~__context ~cluster:self
+      ["Updates due to cluster api calls"]
+  )
