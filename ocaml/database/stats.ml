@@ -77,10 +77,9 @@ let sample (name : string) (x : float) : unit =
   let x' = log x in
   with_lock timings_m (fun () ->
       let p =
-        if Hashtbl.mem timings name then
-          Hashtbl.find timings name
-        else
-          Normal_population.empty
+        Option.value
+          (Hashtbl.find_opt timings name)
+          ~default:Normal_population.empty
       in
       let p' = Normal_population.sample p x' in
       Hashtbl.replace timings name p'

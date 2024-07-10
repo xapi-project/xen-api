@@ -125,7 +125,9 @@ let with_dec_refcount ~__context ~uuid ~vdi f =
   with_lock updates_to_attach_count_tbl_mutex (fun () ->
       assert_update_vbds_attached ~__context ~vdi ;
       let count =
-        try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0
+        Option.value
+          (Hashtbl.find_opt updates_to_attach_count_tbl uuid)
+          ~default:0
       in
       debug "pool_update.detach_helper '%s' count=%d" uuid count ;
       if count <= 1 then
@@ -139,7 +141,9 @@ let with_dec_refcount ~__context ~uuid ~vdi f =
 let with_inc_refcount ~__context ~uuid ~vdi f =
   with_lock updates_to_attach_count_tbl_mutex (fun () ->
       let count =
-        try Hashtbl.find updates_to_attach_count_tbl uuid with _ -> 0
+        Option.value
+          (Hashtbl.find_opt updates_to_attach_count_tbl uuid)
+          ~default:0
       in
       debug "pool_update.attach_helper refcount='%d'" count ;
       if count = 0 then
@@ -608,7 +612,7 @@ let pool_apply ~__context ~self =
         )
         unapplied_hosts []
     in
-    if List.length failed_hosts > 0 then
+    if failed_hosts <> [] then
       raise
         (Api_errors.Server_error
            (Api_errors.update_pool_apply_failed, failed_hosts)

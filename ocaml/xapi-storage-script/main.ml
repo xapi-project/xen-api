@@ -1644,13 +1644,13 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   in
   let destroy volume_plugin_name =
     info "Removing %s" volume_plugin_name ;
-    if Hashtbl.mem servers volume_plugin_name then (
-      let t = Hashtbl.find_exn servers volume_plugin_name in
-      Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
-      Hashtbl.remove servers volume_plugin_name ;
-      return ()
-    ) else
-      return ()
+    match Hashtbl.find servers volume_plugin_name with
+    | Some t ->
+        Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
+        Hashtbl.remove servers volume_plugin_name ;
+        return ()
+    | None ->
+        return ()
   in
   let sync () =
     Sys.readdir volume_root >>= fun names ->

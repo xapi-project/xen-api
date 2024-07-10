@@ -1423,10 +1423,11 @@ let restart_auto_run_vms ~__context live_set n =
           ) ;
           (* If we tried before and failed, don't retry again within 2 minutes *)
           let attempt_restart =
-            if Hashtbl.mem last_start_attempt vm then
-              Unix.gettimeofday () -. Hashtbl.find last_start_attempt vm > 120.
-            else
-              true
+            match Hashtbl.find_opt last_start_attempt vm with
+            | Some x ->
+                Unix.gettimeofday () -. x > 120.
+            | None ->
+                true
           in
           if attempt_restart then (
             Hashtbl.replace last_start_attempt vm (Unix.gettimeofday ()) ;

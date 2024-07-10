@@ -45,25 +45,25 @@
 
 CAMLprim value stub_sockopt_set_sock_keepalives(value fd, value count, value idle, value interval)
 {
-    CAMLparam4(fd, count, idle, interval);
+	CAMLparam4(fd, count, idle, interval);
 
 	int c_fd = Int_val(fd);
 	int optval;
-	socklen_t optlen=sizeof(optval);
+	socklen_t optlen = sizeof(optval);
 
 	optval = Int_val(count);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPCNT, &optval, optlen) < 0) {
-	  uerror("setsockopt(TCP_KEEPCNT)", Nothing);
+		uerror("setsockopt(TCP_KEEPCNT)", Nothing);
 	}
 #if defined(__linux__)
 	optval = Int_val(idle);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPIDLE, &optval, optlen) < 0) {
-	  uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
+		uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
 	}
 #endif
 	optval = Int_val(interval);
 	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPINTVL, &optval, optlen) < 0) {
-	  uerror("setsockopt(TCP_KEEPINTVL)", Nothing);
+		uerror("setsockopt(TCP_KEEPINTVL)", Nothing);
 	}
 
 	CAMLreturn(Val_unit);

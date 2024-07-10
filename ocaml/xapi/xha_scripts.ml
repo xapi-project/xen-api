@@ -60,7 +60,13 @@ let ha_script_m = Mutex.create ()
 let call_script ?log_output script args =
   let path = ha_dir () in
   let script' = Filename.concat path script in
-  let env = [|Printf.sprintf "PATH=%s:%s" (Sys.getenv "PATH") path|] in
+  let env =
+    [|
+       Printf.sprintf "PATH=%s:%s"
+         (Option.value (Sys.getenv_opt "PATH") ~default:"")
+         path
+    |]
+  in
   try
     Xapi_stdext_threads.Threadext.Mutex.execute ha_script_m (fun () ->
         Helpers.call_script ?log_output ~env script' args

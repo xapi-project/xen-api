@@ -258,7 +258,7 @@ let unregister_service service =
 
 let get_service service =
   with_lock service_to_queue_m (fun () ->
-      try Some (Hashtbl.find service_to_queue service) with Not_found -> None
+      Hashtbl.find_opt service_to_queue service
   )
 
 let list_services () =
