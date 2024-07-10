@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 
 
-import xmlrpc.client
-import sys
-import XenAPI
-import json
-import urllib.request, urllib.error, urllib.parse
-import xml.dom.minidom
-import traceback
-import subprocess
-import os
+import configparser
 import errno
+import io
+import logging
+import os
 import re
 import shutil
-import io
-import configparser
-import logging
-import xcp.logger
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+import xml.dom.minidom
+import xmlrpc.client
 
+import xcp.logger
+import XenAPI
 
 TMP_DIR = '/tmp/'
 UPDATE_DIR = '/var/update/'
@@ -234,6 +234,9 @@ if __name__ == '__main__':
 
     update_vdi_valid = False
     session = None
+    update_package = None
+    update = None
+    yum_conf_file = ""
     try:
         session = XenAPI.xapi_local()
         session.xenapi.login_with_password('root', '', '', 'Pool_update')
