@@ -224,21 +224,22 @@ module Next = struct
      	   one if one doesn't exist already *)
   let get_subscription session =
     with_lock m (fun () ->
-        if Hashtbl.mem subscriptions session then
-          Hashtbl.find subscriptions session
-        else
-          let subscription =
-            {
-              last_id= !id
-            ; subs= []
-            ; m= Mutex.create ()
-            ; session
-            ; session_invalid= false
-            ; timeout= 0.0
-            }
-          in
-          Hashtbl.replace subscriptions session subscription ;
-          subscription
+        match Hashtbl.find_opt subscriptions session with
+        | Some x ->
+            x
+        | None ->
+            let subscription =
+              {
+                last_id= !id
+              ; subs= []
+              ; m= Mutex.create ()
+              ; session
+              ; session_invalid= false
+              ; timeout= 0.0
+              }
+            in
+            Hashtbl.replace subscriptions session subscription ;
+            subscription
     )
 
   let on_session_deleted session_id =
@@ -248,11 +249,12 @@ module Next = struct
           with_lock sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
-        if Hashtbl.mem subscriptions session_id then (
-          let sub = Hashtbl.find subscriptions session_id in
-          mark_invalid sub ;
-          Hashtbl.remove subscriptions session_id
-        )
+        Option.iter
+          (fun sub ->
+            mark_invalid sub ;
+            Hashtbl.remove subscriptions session_id
+          )
+          (Hashtbl.find_opt subscriptions session_id)
     )
 
   let session_is_invalid sub = with_lock sub.m (fun () -> sub.session_invalid)
@@ -381,10 +383,7 @@ module From = struct
     in
     with_lock m (fun () ->
         let existing =
-          if Hashtbl.mem calls session then
-            Hashtbl.find calls session
-          else
-            []
+          Option.value (Hashtbl.find_opt calls session) ~default:[]
         in
         Hashtbl.replace calls session (fresh :: existing)
     ) ;
@@ -392,15 +391,17 @@ module From = struct
       (fun () -> f fresh)
       (fun () ->
         with_lock m (fun () ->
-            if Hashtbl.mem calls session then
-              let existing = Hashtbl.find calls session in
-              let remaining =
-                List.filter (fun x -> not (x.index = fresh.index)) existing
-              in
-              if remaining = [] then
-                Hashtbl.remove calls session
-              else
-                Hashtbl.replace calls session remaining
+            Option.iter
+              (fun existing ->
+                let remaining =
+                  List.filter (fun x -> not (x.index = fresh.index)) existing
+                in
+                if remaining = [] then
+                  Hashtbl.remove calls session
+                else
+                  Hashtbl.replace calls session remaining
+              )
+              (Hashtbl.find_opt calls session)
         )
       )
 
@@ -412,10 +413,12 @@ module From = struct
           with_lock sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
-        if Hashtbl.mem calls session_id then (
-          List.iter mark_invalid (Hashtbl.find calls session_id) ;
-          Hashtbl.remove calls session_id
-        )
+        Option.iter
+          (fun x ->
+            List.iter mark_invalid x ;
+            Hashtbl.remove calls session_id
+          )
+          (Hashtbl.find_opt calls session_id)
     )
 
   let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)

@@ -99,9 +99,11 @@ let hashtbl_of_domaininfo x : (string, string) Hashtbl.t =
 let select table keys =
   List.map
     (fun key ->
-      if not (Hashtbl.mem table key) then
-        failwith (Printf.sprintf "Failed to find key: %s" key) ;
-      Hashtbl.find table key
+      match Hashtbl.find_opt table key with
+      | Some x ->
+          x
+      | None ->
+          failwith (Printf.sprintf "Failed to find key: %s" key)
     )
     keys
 

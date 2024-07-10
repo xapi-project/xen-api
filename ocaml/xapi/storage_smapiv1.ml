@@ -590,10 +590,13 @@ module SMAPIv1 : Server_impl = struct
       try
         let read_write =
           with_lock vdi_read_write_m (fun () ->
-              if not (Hashtbl.mem vdi_read_write (sr, vdi)) then
-                error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW"
-                  (s_of_sr sr) (s_of_vdi vdi) ;
-              Hashtbl.find vdi_read_write (sr, vdi)
+              match Hashtbl.find_opt vdi_read_write (sr, vdi) with
+              | Some x ->
+                  x
+              | None ->
+                  error "VDI.activate: doesn't know if sr:%s vdi:%s is RO or RW"
+                    (s_of_sr sr) (s_of_vdi vdi) ;
+                  false
           )
         in
         for_vdi ~dbg ~sr ~vdi "VDI.activate" (fun device_config _type sr self ->

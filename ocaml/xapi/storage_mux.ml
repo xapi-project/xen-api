@@ -77,29 +77,35 @@ let unregister sr =
         )
   )
 
+(* This function is entirely unused, but I am not sure if it should be
+   deleted or not *)
 let query_result_of_sr sr =
-  try with_lock m (fun () -> Some (Hashtbl.find plugins sr).query_result)
-  with _ -> None
+  with_lock m (fun () ->
+      Option.map (fun x -> x.query_result) (Hashtbl.find_opt plugins sr)
+  )
 
 let sr_has_capability sr capability =
-  try
-    with_lock m (fun () ->
-        Smint.has_capability capability (Hashtbl.find plugins sr).features
-    )
-  with _ -> false
+  with_lock m (fun () ->
+      match Hashtbl.find_opt plugins sr with
+      | Some x ->
+          Smint.has_capability capability x.features
+      | None ->
+          false
+  )
 
 (* This is the policy: *)
 let of_sr sr =
   with_lock m (fun () ->
-      if not (Hashtbl.mem plugins sr) then (
-        error "No storage plugin for SR: %s (currently-registered = [ %s ])"
-          (s_of_sr sr)
-          (String.concat ", "
-             (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
-          ) ;
-        raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
-      ) else
-        (Hashtbl.find plugins sr).processor
+      match Hashtbl.find_opt plugins sr with
+      | Some x ->
+          x.processor
+      | None ->
+          error "No storage plugin for SR: %s (currently-registered = [ %s ])"
+            (s_of_sr sr)
+            (String.concat ", "
+               (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
+            ) ;
+          raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
   )
 
 type 'a sm_result = SMSuccess of 'a | SMFailure of exn
@@ -848,11 +854,12 @@ module Mux = struct
 
   module Policy = struct
     let get_backend_vm () ~dbg:_ ~vm:_ ~sr ~vdi:_ =
-      if not (Hashtbl.mem plugins sr) then (
-        error "No registered plugin for sr = %s" (s_of_sr sr) ;
-        raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
-      ) else
-        (Hashtbl.find plugins sr).backend_domain
+      match Hashtbl.find_opt plugins sr with
+      | Some x ->
+          x.backend_domain
+      | None ->
+          error "No registered plugin for sr = %s" (s_of_sr sr) ;
+          raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
   end
 
   module TASK = Storage_smapiv1_wrapper.Impl.TASK

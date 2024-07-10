@@ -619,11 +619,9 @@ let dss_mem_vms doms =
         )
       in
       let memory_target_opt =
-        try
-          with_lock Rrdd_shared.memory_targets_m (fun _ ->
-              Some (Hashtbl.find Rrdd_shared.memory_targets domid)
-          )
-        with Not_found -> None
+        with_lock Rrdd_shared.memory_targets_m (fun _ ->
+            Hashtbl.find_opt Rrdd_shared.memory_targets domid
+        )
       in
       let mem_target_ds =
         Option.map

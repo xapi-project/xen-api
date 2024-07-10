@@ -34,13 +34,15 @@ let with_backup_lock f = Xapi_stdext_threads.Threadext.Mutex.execute backup_m f
    log it in table and return that *)
 (* IMPORTANT: must be holding backup_m mutex when you call this function.. *)
 let lookup_write_entry dbconn =
-  try Hashtbl.find backup_write_table dbconn
-  with _ ->
-    let new_write_entry =
-      {period_start_time= Unix.gettimeofday (); writes_this_period= 0}
-    in
-    Hashtbl.replace backup_write_table dbconn new_write_entry ;
-    new_write_entry
+  match Hashtbl.find_opt backup_write_table dbconn with
+  | Some x ->
+      x
+  | None ->
+      let new_write_entry =
+        {period_start_time= Unix.gettimeofday (); writes_this_period= 0}
+      in
+      Hashtbl.replace backup_write_table dbconn new_write_entry ;
+      new_write_entry
 
 (* Reset period_start_time, writes_this_period if period has expired *)
 let tick_backup_write_table () =

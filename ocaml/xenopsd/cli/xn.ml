@@ -1061,7 +1061,8 @@ let xenconsoles =
 let vncviewer_binary =
   let n = "vncviewer" in
   let dirs =
-    Re.Str.split_delim (Re.Str.regexp_string ":") (Unix.getenv "PATH")
+    Re.Str.split_delim (Re.Str.regexp_string ":")
+      (Option.value (Sys.getenv_opt "PATH") ~default:"")
   in
   List.fold_left
     (fun result dir ->

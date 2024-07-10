@@ -157,10 +157,11 @@ let create_table () = Hashtbl.create 10
 
 (** Convert an internal reference into an external one or NULL *)
 let lookup table r =
-  if not (Hashtbl.mem table r) then
-    Ref.null
-  else
-    Ref.of_string (Hashtbl.find table r)
+  match Hashtbl.find_opt table r with
+  | Some x ->
+      Ref.of_string x
+  | None ->
+      Ref.null
 
 (** Convert a list of internal references into external references, filtering out NULLs *)
 let filter table rs =
