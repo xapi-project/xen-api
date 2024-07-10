@@ -23,6 +23,7 @@ let test_message_get_since rpc session_id () =
   ; "%Y-%m-%dT%H:%M:%S"
   ; "%Y%m%dT%H:%M:%SZ"
   ; "%Y%m%dT%H:%M:%S"
+  ; "%Y%m%dT%H:%M:%S-12:00"
   ]
   |> List.iter test_with_format
 

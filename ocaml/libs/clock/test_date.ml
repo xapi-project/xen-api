@@ -20,17 +20,21 @@ let tests =
     @@ eq (time |> of_unix_time)
          (time |> of_unix_time |> to_unix_time |> of_unix_time)
   in
-  let test_only_utc () =
+  let test_iso8601 () =
     let utc = "2020-12-20T18:10:19Z" in
     let _ = of_iso8601 utc in
     (* UTC is valid *)
     let non_utc = "2020-12-20T18:10:19+02:00" in
-    let exn =
-      Invalid_argument "Clock__Date.of_iso8601: 2020-12-20T18:10:19+02:00"
+    let _ = of_iso8601 non_utc in
+    ()
+  in
+  let test_roundtrip_conversion () =
+    let non_utc = ["20201220T18:10:19+02:00"; "20201220T18:10:19-08:45"] in
+    let test spec =
+      let result = spec |> of_iso8601 |> to_rfc3339 in
+      Alcotest.(check string) "Roundtrip conversion be consistent" spec result
     in
-    Alcotest.check_raises "only UTC is accepted" exn (fun () ->
-        of_iso8601 non_utc |> ignore
-    )
+    List.iter test non_utc
   in
   let test_ca333908 () =
     check_float "dash time and no dash time represent the same unix timestamp"
@@ -113,7 +117,8 @@ let tests =
   in
   [
     ("test_of_unix_time_invertible", `Quick, test_of_unix_time_invertible)
-  ; ("test_only_utc", `Quick, test_only_utc)
+  ; ("test_only_utc", `Quick, test_iso8601)
+  ; ("Roundtrip conversion", `Quick, test_roundtrip_conversion)
   ; ("test_ca333908", `Quick, test_ca333908)
   ; ( "test_of_iso8601_invertible_when_no_dashes"
     , `Quick
