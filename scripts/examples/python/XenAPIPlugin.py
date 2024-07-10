@@ -44,9 +44,6 @@ def dispatch(fn_table):
         try:
             result = fn_table[methodname](x, args)
             print(success_message(result))
-        except SystemExit:
-            # SystemExit should not be caught, as it is handled elsewhere in the plugin system.
-            raise
         except Failure as e:
             print(failure_message(e.params))
         except Exception as e:
