@@ -16,7 +16,7 @@ from python3.tests.import_helper import import_file_as_module, mocked_modules
 def static_vdis() -> ModuleType:
     """Test fixture to return the static-vdis module, mocked to avoid dependencies."""
     with mocked_modules("XenAPI", "inventory"):
-        return import_file_as_module("scripts/static-vdis")
+        return import_file_as_module("python3/bin/static-vdis")
 
 
 # Hide pylint warnings for redefined-outer-name from using the static_vdis fixture:
