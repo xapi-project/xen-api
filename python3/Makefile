@@ -27,7 +27,7 @@ install:
 	$(IPROG) libexec/print-custom-templates $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
-
+	$(IPROG) libexec/restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
