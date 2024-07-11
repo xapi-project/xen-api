@@ -1,13 +1,12 @@
 """
 Test module for extauth_hook_ad
 """
-#pylint: disable=invalid-name
-import sys
-import os
-from unittest import TestCase
-from mock import MagicMock, patch
 
-import pytest
+import logging
+import os
+import sys
+from unittest import TestCase
+from unittest.mock import MagicMock, patch
 
 # mock modules to avoid dependencies
 sys.modules["XenAPIPlugin"] = MagicMock()
@@ -15,11 +14,23 @@ sys.modules["XenAPI"] = MagicMock()
 # pylint: disable=wrong-import-position
 # Import must after mock modules
 from extauth_hook_ad import StaticSSHPam, NssConfig, SshdConfig, UsersList, GroupsList
+from extauth_hook_ad import run_cmd
 
+def test_run_cmd(caplog):
+    """Assert the current buggy behavior of the run_cmd function after py3 migration"""
+    cmd = ["echo", " Hello World! "]
 
-if sys.version_info < (3, ):  # pragma: no cover
-    pytest.skip(allow_module_level=True)
+    # Call the function under test, check the return value and capture the log message
+    with caplog.at_level(logging.DEBUG):
+        # Bug in the current code, the result is a byte string:
+        assert run_cmd(cmd) == cmd[1].strip().encode()
 
+    # Bug in the current code after not fully tested py3 migration:
+    # The logged message contains a byte string that is not stripped:
+    assert caplog.records[0].message == "%s -> b' Hello World! \\n'" % (cmd)
+    # Test the case where the command fails:
+    assert run_cmd(["bad command"]) is None
+    assert caplog.records[1].message == "Failed to run command ['bad command']"
 
 def line_exists_in_config(lines, line):
     """
