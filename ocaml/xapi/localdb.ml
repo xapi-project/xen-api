@@ -66,7 +66,11 @@ let m = Mutex.create ()
 let get (key : string) =
   with_lock m (fun () ->
       assert_loaded () ;
-      try Hashtbl.find db key with Not_found -> raise (Missing_key key)
+      match Hashtbl.find_opt db key with
+      | Some x ->
+          x
+      | None ->
+          raise (Missing_key key)
   )
 
 let get_with_default (key : string) (default : string) =
@@ -74,11 +78,11 @@ let get_with_default (key : string) (default : string) =
 
 (* Returns true if a change was made and should be flushed *)
 let put_one (key : string) (v : string) =
-  if Hashtbl.mem db key && Hashtbl.find db key = v then
-    false (* no change necessary *)
-  else (
-    Hashtbl.replace db key v ; true
-  )
+  match Hashtbl.find_opt db key with
+  | Some x when x = v ->
+      false (* no change necessary *)
+  | _ ->
+      Hashtbl.replace db key v ; true
 
 let flush () =
   let b = Buffer.create 256 in

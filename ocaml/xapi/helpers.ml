@@ -85,7 +85,11 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
     let env =
-      match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
+      match env with
+      | None ->
+          [|"PATH=" ^ Option.value (Sys.getenv_opt "PATH") ~default:""|]
+      | Some env ->
+          env
     in
     let output, _ =
       match stdin with
@@ -1192,7 +1196,7 @@ let gethostbyname_family host family =
     Unix.getaddrinfo host ""
       [Unix.AI_SOCKTYPE Unix.SOCK_STREAM; Unix.AI_FAMILY family]
   in
-  if List.length he = 0 then
+  if he = [] then
     throw_resolve_error () ;
   Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
 
@@ -1568,9 +1572,12 @@ module Early_wakeup = struct
   let signal key =
     (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
     with_lock table_m (fun () ->
-        if Hashtbl.mem table key then
-          (*debug "Signalling thread blocked on (%s,%s)" a b;*)
-          Delay.signal (Hashtbl.find table key)
+        Option.iter
+          (fun x ->
+            (*debug "Signalling thread blocked on (%s,%s)" a b;*)
+            Delay.signal x
+          )
+          (Hashtbl.find_opt table key)
     )
 end
 
@@ -2041,30 +2048,35 @@ let update_ca_bundle =
           )
     )
 
-let external_certificate_thumbprint_of_master ?(hash_type = `Sha256) () =
-  match hash_type with
-  | `Sha256 ->
-      Server_helpers.exec_with_new_task
-        "Get master's external certificate thumbprint" (fun __context ->
-          let master_ref = get_master ~__context in
-          let certs =
-            Db.Certificate.get_records_where ~__context
-              ~expr:
-                (And
-                   ( Eq (Field "host", Literal (Ref.string_of master_ref))
-                   , Eq (Field "type", Literal "host")
-                   )
-                )
-          in
-          match certs with
-          | [] ->
-              debug "Failed to fetch master's external certificate" ;
-              None
-          | (_, cert_record) :: _ ->
-              Some cert_record.certificate_fingerprint
-      )
-  | _ ->
-      None
+let external_certificate_thumbprint_of_master ~hash_type =
+  if List.mem hash_type [`Sha256; `Sha1] then
+    Server_helpers.exec_with_new_task
+      "Get master's external certificate thumbprint" (fun __context ->
+        let master_ref = get_master ~__context in
+        let certs =
+          Db.Certificate.get_records_where ~__context
+            ~expr:
+              (And
+                 ( Eq (Field "host", Literal (Ref.string_of master_ref))
+                 , Eq (Field "type", Literal "host")
+                 )
+              )
+        in
+        match certs with
+        | [] ->
+            debug "%s: Failed to fetch master's external certificate"
+              __FUNCTION__ ;
+            None
+        | (_, cert_record) :: _ -> (
+          match hash_type with
+          | `Sha256 ->
+              Some cert_record.certificate_fingerprint_sha256
+          | `Sha1 ->
+              Some cert_record.certificate_fingerprint_sha1
+        )
+    )
+  else
+    None
 
 let unit_test ~__context : bool =
   Pool_role.is_unit_test ()

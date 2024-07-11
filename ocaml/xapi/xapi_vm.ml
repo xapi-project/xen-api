@@ -1117,11 +1117,11 @@ let record_call_plugin_latest vm =
       List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
       (* Then calculate the schedule *)
       let to_wait =
-        if Hashtbl.mem call_plugin_latest vm then
-          let t = Hashtbl.find call_plugin_latest vm in
-          Int64.sub (Int64.add t interval) now
-        else
-          0L
+        match Hashtbl.find_opt call_plugin_latest vm with
+        | Some t ->
+            Int64.sub (Int64.add t interval) now
+        | None ->
+            0L
       in
       if to_wait > 0L then
         raise
@@ -1440,6 +1440,26 @@ let set_appliance ~__context ~self ~value =
     Xapi_vm_appliance.update_allowed_operations ~__context ~self:previous_value ;
   (* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
   update_allowed_operations ~__context ~self
+
+let set_groups ~__context ~self ~value =
+  Pool_features.assert_enabled ~__context ~f:Features.VM_groups ;
+  if
+    Db.VM.get_is_control_domain ~__context ~self
+    || Db.VM.get_is_a_template ~__context ~self
+    || Db.VM.get_is_a_snapshot ~__context ~self
+  then
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.operation_not_allowed
+         , [
+             "Control domains, templates, and snapshots cannot be added to VM \
+              groups."
+           ]
+         )
+      ) ;
+  if List.length value > 1 then
+    raise Api_errors.(Server_error (Api_errors.too_many_groups, [])) ;
+  Db.VM.set_groups ~__context ~self ~value
 
 let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   let open Vpx in

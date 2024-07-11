@@ -96,8 +96,11 @@ let get_sr_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   let rrd =
     with_lock mutex (fun () ->
         let rrdi =
-          try Hashtbl.find sr_rrds sr_uuid
-          with Not_found -> failwith "No SR RRD available!"
+          match Hashtbl.find_opt sr_rrds sr_uuid with
+          | Some x ->
+              x
+          | None ->
+              failwith "No SR RRD available!"
         in
         Rrd.copy_rrd rrdi.rrd
     )

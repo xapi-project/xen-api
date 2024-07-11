@@ -1812,12 +1812,12 @@ module Events_from_xenopsd = struct
     Client.UPDATES.remove_barrier dbg id ;
     let t =
       with_lock active_m @@ fun () ->
-      if not (Hashtbl.mem active id) then (
-        warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
-        None
-      ) else
-        let t = Hashtbl.find active id in
-        Hashtbl.remove active id ; Some t
+      match Hashtbl.find_opt active id with
+      | Some t ->
+          Hashtbl.remove active id ; Some t
+      | None ->
+          warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
+          None
     in
     Option.iter
       (fun t ->
@@ -3049,7 +3049,7 @@ let resync_resident_on ~__context =
   in
   (* Log the state before we do anything *)
   let maybe_log_em msg prefix l =
-    if List.length l > 0 then (
+    if l <> [] then (
       debug "%s" msg ;
       List.iter (fun ((id, _), queue) -> debug "%s %s (%s)" prefix id queue) l
     )
@@ -3067,7 +3067,7 @@ let resync_resident_on ~__context =
      nowhere."
     "In xenopsd but resident nowhere: " xapi_thinks_are_nowhere ;
   (* This is pretty bad! *)
-  if List.length xapi_vms_not_in_xenopsd > 0 then (
+  if xapi_vms_not_in_xenopsd <> [] then (
     debug
       "The following VMs are not known to xenopsd, but xapi thought they \
        should have been" ;

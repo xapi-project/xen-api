@@ -85,7 +85,7 @@ let wait_for_tasks id =
         (List.length deltas) ;
       flush stderr
     ) ;
-    if List.length deltas = 0 then
+    if deltas = [] then
       failwith (Printf.sprintf "no deltas, next_id = %d" next_id) ;
     event_id := Some next_id ;
     List.iter

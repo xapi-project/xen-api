@@ -375,7 +375,7 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
                  (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
                  let uri_t = Uri.of_string uri in
                  if uri_t = Uri.empty then raise Http_parse_failure ;
-                 let uri = Uri.path uri_t in
+                 let uri = Uri.path uri_t |> Uri.pct_decode in
                  let query = Uri.query uri_t |> kvlist_flatten in
                  let m = Http.method_t_of_string meth in
                  let version =
@@ -660,8 +660,11 @@ exception Socket_not_found
 (* Stop an HTTP server running on a socket *)
 let stop (socket, _name) =
   let server =
-    try Hashtbl.find socket_table socket
-    with Not_found -> raise Socket_not_found
+    match Hashtbl.find_opt socket_table socket with
+    | Some x ->
+        x
+    | None ->
+        raise Socket_not_found
   in
   Hashtbl.remove socket_table socket ;
   server.Server_io.shutdown ()

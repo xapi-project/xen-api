@@ -34,7 +34,7 @@ let parse_lines ls =
 
 let read_rc () =
   try
-    let home = Sys.getenv "HOME" in
+    let home = Option.value (Sys.getenv_opt "HOME") ~default:"" in
     let rc_file = open_in (home ^ "/.xe") in
     let rec getlines cur =
       try

@@ -294,17 +294,17 @@ module Client = struct
                       (* If the Ack doesn't belong to us then assume it's another thread *)
                       IO.Mutex.with_lock requests_m (fun () ->
                           match m.Message.kind with
-                          | Message.Response j ->
-                              if Hashtbl.mem wakener j then (
+                          | Message.Response j -> (
+                            match Hashtbl.find_opt wakener j with
+                            | Some x ->
                                 do_rpc t.events_conn (In.Ack i)
                                 >>|= fun (_ : string) ->
-                                IO.Ivar.fill (Hashtbl.find wakener j) (Ok m) ;
-                                Ok ()
-                              ) else (
+                                IO.Ivar.fill x (Ok m) ; Ok ()
+                            | None ->
                                 Printf.printf "no wakener for id %s,%Ld\n%!"
                                   (fst i) (snd i) ;
                                 Ok ()
-                              )
+                          )
                           | Message.Request _ ->
                               Ok ()
                       )

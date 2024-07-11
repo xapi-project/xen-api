@@ -20,6 +20,3 @@ val is_enabled : __context:Context.t -> Features.feature -> bool
 
 val assert_enabled : __context:Context.t -> f:Features.feature -> unit
 (** Raise appropriate exception if feature is not enabled. *)
-
-val update_pool_features : __context:Context.t -> unit
-(** Update the pool-level restrictions list in the database. *)
