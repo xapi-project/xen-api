@@ -110,8 +110,6 @@ install:
 	$(IPROG) host-bugreport-upload $(DESTDIR)$(LIBEXECDIR)/host-bugreport-upload
 	$(IPROG) xe-backup-metadata $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-restore-metadata $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
