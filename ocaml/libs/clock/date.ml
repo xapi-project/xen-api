@@ -10,6 +10,8 @@
    GNU Lesser General Public License for more details.
 *)
 
+module L = Debug.Make (struct let name = __MODULE__ end)
+
 let months =
   [|
      "Jan"
@@ -35,15 +37,9 @@ let days = [|"Sun"; "Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"|]
    avoided yet again. *)
 type tz = int option
 
-type t = Ptime.date * Ptime.time * tz
+type t = {t: Ptime.t; tz: tz}
 
 let utc = Some 0
-
-let of_dt tz dt =
-  let date, time = dt in
-  (date, time, tz)
-
-let to_dt (date, time, _) = (date, time)
 
 let best_effort_iso8601_to_rfc3339 x =
   let x =
@@ -72,10 +68,8 @@ let of_iso8601 x =
   match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
   | Error _ ->
       invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
-  | Ok (t, None, _) ->
-      Ptime.to_date_time t |> of_dt None
-  | Ok (t, Some tz, _) ->
-      Ptime.to_date_time ~tz_offset_s:tz t |> of_dt (Some tz)
+  | Ok (t, tz, _) ->
+      {t; tz}
 
 let print_tz tz_s =
   match tz_s with
@@ -90,10 +84,11 @@ let print_tz tz_s =
       let tz_min = all_tz_minutes mod 60 in
       Printf.sprintf "%c%02d:%02d" tz_sign tz_h tz_min
 
-let to_rfc3339 ((y, mon, d), ((h, min, s), _), tz) =
+let to_rfc3339 {t; tz} =
   (* Must be compatible with iso8601 as well. Because some client limitations,
      the hyphens between year, month and day have to be absent
   *)
+  let (y, mon, d), ((h, min, s), _) = Ptime.to_date_time ?tz_offset_s:tz t in
   let tz = print_tz tz in
   Printf.sprintf "%04i%02i%02iT%02i:%02i:%02i%s" y mon d h min s tz
 
@@ -104,27 +99,25 @@ let weekday ~year ~mon ~day =
   let m = mon + (12 * a) - 2 in
   (day + y + (y / 4) - (y / 100) + (y / 400) + (31 * m / 12)) mod 7
 
-let to_rfc822 ((year, mon, day), ((h, min, s), _), tz) =
+let to_rfc822 {t; tz} =
+  let (year, mon, day), ((h, min, s), _) =
+    Ptime.to_date_time ?tz_offset_s:tz t
+  in
   let timezone = match print_tz tz with "Z" -> "GMT" | tz -> tz in
   let weekday = weekday ~year ~mon ~day in
   Printf.sprintf "%s, %d %s %d %02d:%02d:%02d %s" days.(weekday) day
     months.(mon - 1)
     year h min s timezone
 
-let to_ptime_t t =
-  match to_dt t |> Ptime.of_date_time with
-  | Some t ->
+let to_ptime = function
+  | {t; tz= None} as d ->
+      L.warn "%s: Date %s converted to POSIX time, but timezone is missing"
+        __FUNCTION__ (to_rfc3339 d) ;
       t
-  | None ->
-      let _, (_, offset), _ = t in
-      invalid_arg
-        (Printf.sprintf "%s: dt='%s', offset='%i' is invalid" __FUNCTION__
-           (to_rfc3339 t) offset
-        )
+  | {t; tz= Some _} ->
+      t
 
-let to_ptime = to_ptime_t
-
-let of_ptime t = Ptime.to_date_time t |> of_dt utc
+let of_ptime t = {t; tz= utc}
 
 let of_unix_time s =
   match Ptime.of_float_s s with
@@ -133,24 +126,22 @@ let of_unix_time s =
   | Some t ->
       of_ptime t
 
-let to_unix_time t = to_ptime_t t |> Ptime.to_float_s
+let to_unix_time t = to_ptime t |> Ptime.to_float_s
 
-let _localtime current_tz_offset t =
-  let tz_offset_s = current_tz_offset |> Option.value ~default:0 in
-  let localtime = t |> Ptime.to_date_time ~tz_offset_s |> of_dt None in
-  let _, (_, localtime_offset), _ = localtime in
-  if localtime_offset <> tz_offset_s then
-    invalid_arg
-      (Printf.sprintf "%s: offsets don't match. offset='%i', t='%s'"
-         __FUNCTION__ tz_offset_s (Ptime.to_rfc3339 t)
-      ) ;
-  localtime
+let strip_tz tz t =
+  let t =
+    match tz with
+    | None ->
+        t
+    | Some tz ->
+        Ptime.Span.of_int_s tz |> Ptime.add_span t |> Option.value ~default:t
+  in
+  {t; tz= None}
 
-let _localtime_string current_tz_offset t =
-  _localtime current_tz_offset t |> to_rfc3339
+let _localtime_string tz t = strip_tz tz t |> to_rfc3339
 
 let localtime () =
-  _localtime (Ptime_clock.current_tz_offset_s ()) (Ptime_clock.now ())
+  strip_tz (Ptime_clock.current_tz_offset_s ()) (Ptime_clock.now ())
 
 let now () = of_ptime (Ptime_clock.now ())
 
@@ -173,8 +164,8 @@ let compare_tz a b =
   | Some _, None ->
       1
 
-let compare ((_, _, a_z) as a) ((_, _, b_z) as b) =
+let compare a b =
   let ( <?> ) a b = if a = 0 then b else a in
-  Ptime.compare (to_ptime a) (to_ptime b) <?> compare_tz a_z b_z
+  Ptime.compare (to_ptime a) (to_ptime b) <?> compare_tz a.tz b.tz
 
-let eq x y = compare x y = 0
+let equal x y = if x == y then true else compare x y = 0

@@ -28,6 +28,8 @@ let rfc822_of_float = of_unix_time
 
 let rfc822_to_string = to_rfc822
 
+let eq = equal
+
 type iso8601 = t
 
 type rfc822 = t

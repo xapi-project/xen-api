@@ -17,7 +17,7 @@ let tests =
     check_float "to_unix_time inverts of_unix_time" time
       (time |> of_unix_time |> to_unix_time) ;
     check_true "of_unix_time inverts to_unix_time"
-    @@ eq (time |> of_unix_time)
+    @@ equal (time |> of_unix_time)
          (time |> of_unix_time |> to_unix_time |> of_unix_time)
   in
   let test_iso8601 () =
@@ -45,7 +45,7 @@ let tests =
     check_string "to_rfc3339 inverts of_iso8601" no_dash_utc_time_str
       (no_dash_utc_time_str |> of_iso8601 |> to_rfc3339) ;
     check_true "of_iso8601 inverts to_rfc3339"
-      (eq
+      (equal
          (no_dash_utc_time_str |> of_iso8601)
          (no_dash_utc_time_str |> of_iso8601 |> to_rfc3339 |> of_iso8601)
       )
@@ -93,8 +93,6 @@ let tests =
     check_string "can process missing tz with dashes, but return without dashes"
       missing_tz_no_dash
       (missing_tz_dash |> of_iso8601 |> to_rfc3339) ;
-    check_float "to_unix_time assumes UTC" 1607620760.
-      (missing_tz_no_dash |> of_iso8601 |> to_unix_time) ;
     let localtime' = localtime () in
     check_string "to_rfc3339 inverts of_iso8601 for localtime"
       (localtime' |> to_rfc3339)
@@ -103,6 +101,15 @@ let tests =
   let test_email_date (unix_timestamp, expected) =
     let formatted = of_unix_time unix_timestamp |> to_rfc822 in
     check_string "String is properly RFC-822-formatted" expected formatted
+  in
+  let test_no_timezone_to_unix () =
+    (* this is allowed, but it will print a warning to stdout *)
+    let missing_tz_no_dash = "20201210T17:19:20" in
+    let with_tz_no_dash = "20201210T17:19:20Z" in
+    let to_unix_time dt = dt |> of_iso8601 |> to_unix_time in
+    check_float "Datetime without timezone assumes it's in UTC"
+      (to_unix_time with_tz_no_dash)
+      (to_unix_time missing_tz_no_dash)
   in
   let test_email_dates () =
     let dates =
@@ -131,6 +138,10 @@ let tests =
   ; ("test_localtime_string", `Quick, test_localtime_string)
   ; ("test_ca342171", `Quick, test_ca342171)
   ; ("test_xsi894", `Quick, test_xsi894)
+  ; ( "Date w/o timezone to POSIX time conversion"
+    , `Quick
+    , test_no_timezone_to_unix
+    )
   ; ("RFC 822 formatting", `Quick, test_email_dates)
   ]
 

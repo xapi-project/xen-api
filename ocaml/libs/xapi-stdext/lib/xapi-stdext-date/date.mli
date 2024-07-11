@@ -57,8 +57,8 @@ val localtime : unit -> t
 
 (** Comparisons *)
 
-val eq : t -> t -> bool
-(** [eq a b] returns whether [a] and [b] are equal *)
+val equal : t -> t -> bool
+(** [equal a b] returns whether [a] and [b] are equal *)
 
 val compare : t -> t -> int
 (** [compare a b] returns -1 if [a] is earlier than [b], 1 if [a] is later than
@@ -76,6 +76,10 @@ val diff : t -> t -> Ptime.Span.t
 (** [diff a b] returns the span of time corresponding to [a - b] *)
 
 (** Deprecated bindings, these will be removed in a future release: *)
+
+val eq : t -> t -> bool
+[@@deprecated "Use Date.equal"]
+(** [eq a b] returns whether [a] and [b] are equal *)
 
 val rfc822_to_string : t -> string
 [@@deprecated "Use Date.to_rfc822"]
