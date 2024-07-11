@@ -90,7 +90,7 @@ let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
 let indent x = "    " ^ x
 
-let string_of_date x = Date.to_string (Date.of_float x)
+let string_of_date x = Date.to_rfc3339 (Date.of_unix_time x)
 
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~with_thread:true ~module_name:"SMAPIv1-Wrapper" ~name

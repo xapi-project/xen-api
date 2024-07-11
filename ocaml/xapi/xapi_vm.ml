@@ -617,8 +617,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
   let current_domain_type = if suspended then domain_type else `unspecified in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:0L ~vCPUs_number:0L ~vCPUs_utilisation ~vCPUs_CPU:[]
-    ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.never
-    ~install_time:Date.never ~last_updated:Date.never ~other_config:[]
+    ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch
+    ~install_time:Date.epoch ~last_updated:Date.epoch ~other_config:[]
     ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type ;
   let domain_type =
     if domain_type = `unspecified then
@@ -652,7 +652,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~power_state:_power_state ~allowed_operations:[] ~current_operations:[]
     ~blocked_operations:[] ~name_label ~name_description ~user_version
     ~is_a_template ~is_default_template:false ~transportable_snapshot_id:""
-    ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+    ~is_a_snapshot:false ~snapshot_time:Date.epoch ~snapshot_of:Ref.null
     ~parent:Ref.null ~snapshot_info:[] ~snapshot_metadata:"" ~resident_on
     ~scheduled_to_be_resident_on ~affinity ~memory_overhead:0L
     ~memory_static_max ~memory_dynamic_max ~memory_target ~memory_dynamic_min

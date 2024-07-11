@@ -128,7 +128,7 @@ let rec ocaml_of_ty = function
   | Bool ->
       "bool"
   | DateTime ->
-      "Date.iso8601"
+      "Date.t"
   | Set (Record x) ->
       alias_of_ty (Record x) ^ " list"
   | Set x ->

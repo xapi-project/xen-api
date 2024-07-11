@@ -1206,7 +1206,7 @@ and get_default_value_opt field =
           Printf.sprintf
             "DateTime.ParseExact(\"%s\", \"yyyyMMddTHH:mm:ssZ\", \
              CultureInfo.InvariantCulture)"
-            (Date.to_string y)
+            (Date.to_rfc3339 y)
         ]
     | VEnum y ->
         [enum_of_wire y]

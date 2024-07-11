@@ -14,7 +14,7 @@
 
 open Certificate_check
 
-let date_of = Xapi_stdext_date.Date.of_string
+let date_of = Xapi_stdext_date.Date.of_iso8601
 
 let check_time = date_of "20200201T02:00:00Z"
 

@@ -79,9 +79,7 @@ let set_is_a_template ~__context ~self ~value =
   info "VM.set_is_a_template('%b')" value ;
   let m = Db.VM.get_metrics ~__context ~self in
   ( if not value then
-      try
-        Db.VM_metrics.set_install_time ~__context ~self:m
-          ~value:(Date.of_float (Unix.gettimeofday ()))
+      try Db.VM_metrics.set_install_time ~__context ~self:m ~value:(Date.now ())
       with _ ->
         warn
           "Could not update VM install time because metrics object was missing"
@@ -1413,19 +1411,19 @@ let copy_metrics ~__context ~vm =
          m
       )
     ~start_time:
-      (Option.fold ~none:Date.never
+      (Option.fold ~none:Date.epoch
          ~some:(fun x -> x.Db_actions.vM_metrics_start_time)
          m
       )
     ~install_time:
-      (Option.fold ~none:Date.never
+      (Option.fold ~none:Date.epoch
          ~some:(fun x -> x.Db_actions.vM_metrics_install_time)
          m
       )
     ~state:
       (Option.fold ~none:[] ~some:(fun x -> x.Db_actions.vM_metrics_state) m)
     ~last_updated:
-      (Option.fold ~none:Date.never
+      (Option.fold ~none:Date.epoch
          ~some:(fun x -> x.Db_actions.vM_metrics_last_updated)
          m
       )

@@ -682,7 +682,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
           ~current_operations:[] ~allowed_operations:[]
           ~is_a_snapshot:vdi.is_a_snapshot
           ~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of)
-          ~snapshot_time:(Date.of_string vdi.snapshot_time)
+          ~snapshot_time:(Date.of_iso8601 vdi.snapshot_time)
           ~sR:sr ~virtual_size:vdi.virtual_size
           ~physical_utilisation:vdi.physical_utilisation
           ~_type:(try Storage_utils.vdi_type_of_string vdi.ty with _ -> `user)
@@ -735,10 +735,10 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
         debug "%s is_a_snapshot <- %b" (Ref.string_of r) vi.is_a_snapshot ;
         Db.VDI.set_is_a_snapshot ~__context ~self:r ~value:vi.is_a_snapshot
       ) ;
-      if v.API.vDI_snapshot_time <> Date.of_string vi.snapshot_time then (
+      if v.API.vDI_snapshot_time <> Date.of_iso8601 vi.snapshot_time then (
         debug "%s snapshot_time <- %s" (Ref.string_of r) vi.snapshot_time ;
         Db.VDI.set_snapshot_time ~__context ~self:r
-          ~value:(Date.of_string vi.snapshot_time)
+          ~value:(Date.of_iso8601 vi.snapshot_time)
       ) ;
       let snapshot_of = find_vdi db_vdi_map vi.snapshot_of in
       if v.API.vDI_snapshot_of <> snapshot_of then (

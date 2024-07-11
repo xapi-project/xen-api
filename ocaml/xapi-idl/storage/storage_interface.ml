@@ -206,8 +206,7 @@ type vdi_info = {
   ; (* sm_config: workaround via XenAPI *)
     metadata_of_pool: string [@default ""]
   ; is_a_snapshot: bool [@default false]
-  ; snapshot_time: string
-        [@default Xapi_stdext_date.Date.to_string Xapi_stdext_date.Date.never]
+  ; snapshot_time: string [@default Xapi_stdext_date.Date.(to_rfc3339 epoch)]
   ; snapshot_of: Vdi.t [@default Vdi.of_string ""]
   ; (* managed: workaround via XenAPI *)
     read_only: bool [@default false]

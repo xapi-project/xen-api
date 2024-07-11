@@ -34,7 +34,7 @@ module Time : sig
 
   val now : unit -> t
 
-  val of_field : Xapi_stdext_date.Date.iso8601 -> t
+  val of_field : Xapi_stdext_date.Date.t -> t
 
   val pp : t -> string
 

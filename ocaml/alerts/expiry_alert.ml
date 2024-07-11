@@ -50,7 +50,7 @@ let all_messages rpc session_id =
 
 let message_body msg expiry =
   Printf.sprintf "<body><message>%s</message><date>%s</date></body>" msg
-    (Date.to_string expiry)
+    (Date.to_rfc3339 expiry)
 
 let expired_message obj = Printf.sprintf "%s has expired." obj
 
@@ -58,7 +58,7 @@ let expiring_message obj = Printf.sprintf "%s is expiring soon." obj
 
 let maybe_generate_alert now obj_description alert_conditions expiry =
   let remaining_days =
-    days_until_expiry (Date.to_float now) (Date.to_float expiry)
+    days_until_expiry (Date.to_unix_time now) (Date.to_unix_time expiry)
   in
   alert_conditions
   |> List.sort (fun (a, _) (b, _) -> compare a b)

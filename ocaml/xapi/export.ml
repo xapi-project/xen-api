@@ -241,7 +241,7 @@ let make_vm ?(with_snapshot_metadata = false) ~preserve_power_state table
     ; API.vM_snapshots=
         (if with_snapshot_metadata then vm.API.vM_snapshots else [])
     ; API.vM_snapshot_time=
-        (if with_snapshot_metadata then vm.API.vM_snapshot_time else Date.never)
+        (if with_snapshot_metadata then vm.API.vM_snapshot_time else Date.epoch)
     ; API.vM_transportable_snapshot_id=
         ( if with_snapshot_metadata then
             vm.API.vM_transportable_snapshot_id

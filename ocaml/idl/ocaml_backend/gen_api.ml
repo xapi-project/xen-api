@@ -413,9 +413,9 @@ let gen_client_types highapi =
            "module Date = struct"
          ; "  open Xapi_stdext_date"
          ; "  include Date"
-         ; "  let rpc_of_iso8601 x = DateTime (Date.to_string x)"
-         ; "  let iso8601_of_rpc = function String x | DateTime x -> \
-            Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\""
+         ; "  let rpc_of_t x = DateTime (Date.to_rfc3339 x)"
+         ; "  let t_of_rpc = function String x | DateTime x -> Date.of_iso8601 \
+            x | _ -> failwith \"Date.t_of_rpc\""
          ; "end"
          ]
        ; [

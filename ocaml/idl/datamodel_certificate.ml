@@ -59,10 +59,10 @@ let t =
           ~default_value:(Some (VRef null_ref))
           "The host where the certificate is installed"
       ; field ~qualifier:StaticRO ~lifecycle ~ty:DateTime "not_before"
-          ~default_value:(Some (VDateTime Date.never))
+          ~default_value:(Some (VDateTime Date.epoch))
           "Date after which the certificate is valid"
       ; field ~qualifier:StaticRO ~lifecycle ~ty:DateTime "not_after"
-          ~default_value:(Some (VDateTime Date.never))
+          ~default_value:(Some (VDateTime Date.epoch))
           "Date before which the certificate is valid"
       ; field ~qualifier:StaticRO
           ~lifecycle:

@@ -2072,7 +2072,7 @@ let t =
             "List pointing to all the VM snapshots."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
             ~in_product_since:rel_orlando
-            ~default_value:(Some (VDateTime Date.never)) ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
             "snapshot_time" "Date/time when this snapshot was created."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
             ~in_product_since:rel_orlando ~default_value:(Some (VString ""))

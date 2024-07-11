@@ -2282,14 +2282,16 @@ let update_vm ~__context id =
                 Option.iter
                   (fun (_, state) ->
                     let metrics = Db.VM.get_metrics ~__context ~self in
-                    let start_time = Date.of_float state.Vm.last_start_time in
+                    let start_time =
+                      Date.of_unix_time state.Vm.last_start_time
+                    in
                     if
                       start_time
                       <> Db.VM_metrics.get_start_time ~__context ~self:metrics
                     then (
                       debug
                         "xenopsd event: Updating VM %s last_start_time <- %s" id
-                        (Date.to_string (Date.of_float state.Vm.last_start_time)) ;
+                        Date.(to_rfc3339 (of_unix_time state.Vm.last_start_time)) ;
                       Db.VM_metrics.set_start_time ~__context ~self:metrics
                         ~value:start_time ;
                       if
@@ -2313,8 +2315,8 @@ let update_vm ~__context id =
                         "VM %s guest metrics update time (%s) < VM start time \
                          (%s): deleting"
                         id
-                        (Date.to_string update_time)
-                        (Date.to_string start_time) ;
+                        (Date.to_rfc3339 update_time)
+                        (Date.to_rfc3339 start_time) ;
                       Xapi_vm_helpers.delete_guest_metrics ~__context ~self ;
                       check_guest_agent ()
                     )

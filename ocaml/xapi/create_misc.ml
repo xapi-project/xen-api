@@ -280,7 +280,7 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
     ~scheduled_to_be_resident_on:Ref.null ~affinity:localhost
     ~suspend_VDI:Ref.null ~domid:0L ~domarch ~is_control_domain:true
     ~is_a_template:false ~is_default_template:false ~is_a_snapshot:false
-    ~snapshot_time:Date.never ~snapshot_of:Ref.null
+    ~snapshot_time:Date.epoch ~snapshot_of:Ref.null
     ~transportable_snapshot_id:"" ~snapshot_info:[] ~snapshot_metadata:""
     ~parent:Ref.null ~other_config:[] ~blobs:[] ~xenstore_data:[] ~tags:[]
     ~user_version:1L ~ha_restart_priority:"" ~ha_always_run:false
@@ -348,8 +348,8 @@ and create_domain_zero_metrics_record ~__context ~domain_zero_metrics_ref
     ~memory_actual:memory_constraints.target
     ~vCPUs_utilisation:(List.map (fun x -> (Int64.of_int x, 0.)) (mkints vcpus))
     ~vCPUs_number:(Int64.of_int vcpus) ~vCPUs_CPU:[] ~vCPUs_params:[]
-    ~vCPUs_flags:[] ~state:[] ~start_time:Date.never ~install_time:Date.never
-    ~last_updated:Date.never ~other_config:[] ~hvm:false ~nomigrate:false
+    ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch ~install_time:Date.epoch
+    ~last_updated:Date.epoch ~other_config:[] ~hvm:false ~nomigrate:false
     ~nested_virt:false ~current_domain_type:Xapi_globs.domain_zero_domain_type
 
 and update_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info)

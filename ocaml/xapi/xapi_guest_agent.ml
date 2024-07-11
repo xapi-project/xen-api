@@ -329,7 +329,7 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     ~pV_drivers_version:initial_gm.pv_drivers_version
     ~pV_drivers_up_to_date:pV_drivers_detected ~memory:[] ~disks:[]
     ~networks:initial_gm.networks ~pV_drivers_detected ~other:initial_gm.other
-    ~last_updated:(Date.of_float initial_gm.last_updated)
+    ~last_updated:(Date.of_unix_time initial_gm.last_updated)
     ~other_config:[] ~live:true
     ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
     ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ;
@@ -469,7 +469,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     (* if(guest_metrics_cached.memory <> memory) then
          Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
     Db.VM_guest_metrics.set_last_updated ~__context ~self:gm
-      ~value:(Date.of_float last_updated) ;
+      ~value:(Date.of_unix_time last_updated) ;
     if guest_metrics_cached.device_id <> device_id then
       if List.mem_assoc Xapi_globs.device_id_key_name device_id then (
         let value = List.assoc Xapi_globs.device_id_key_name device_id in

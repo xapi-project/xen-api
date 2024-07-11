@@ -1463,7 +1463,7 @@ let rec propose_new_master_internal ~__context ~address ~manual =
           (Printf.sprintf
              "Already agreed to commit host address '%s' at %s ('%f' secs ago)"
              x
-             (Date.to_string (Date.of_float !proposed_master_time))
+             (Date.to_rfc3339 (Date.of_unix_time !proposed_master_time))
              diff
           )
   | None ->

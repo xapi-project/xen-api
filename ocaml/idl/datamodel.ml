@@ -217,9 +217,8 @@ module Session = struct
              session instance has is_local_superuser set, then the value of \
              this field is undefined."
         ; field ~in_product_since:rel_george ~qualifier:DynamicRO
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
-            ~ty:DateTime "validation_time"
-            "time when session was last validated"
+            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
+            "validation_time" "time when session was last validated"
         ; field ~in_product_since:rel_george ~qualifier:DynamicRO
             ~default_value:(Some (VString "")) ~ty:String "auth_user_sid"
             "the subject identifier of the user that was externally \
@@ -3897,7 +3896,7 @@ module VDI = struct
       ; param_name= "snapshot_time"
       ; param_doc= "Storage-specific config"
       ; param_release= tampa_release
-      ; param_default= Some (VDateTime Date.never)
+      ; param_default= Some (VDateTime Date.epoch)
       }
     ; {
         param_type= Ref _vdi
@@ -4468,7 +4467,7 @@ module VDI = struct
               ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots] "snapshots"
               "List pointing to all the VDIs snapshots."
           ; field ~in_product_since:rel_orlando
-              ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO
+              ~default_value:(Some (VDateTime Date.epoch)) ~qualifier:DynamicRO
               ~ty:DateTime ~doc_tags:[Snapshots] "snapshot_time"
               "Date/time when this snapshot was created."
           ; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando
@@ -4752,7 +4751,7 @@ module VBD_metrics = struct
           uid _vbd_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
         ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~default_value:(Some (VDateTime Date.never))
+            ~default_value:(Some (VDateTime Date.epoch))
             ~lifecycle:
               [
                 (Published, rel_rio, "")
@@ -5669,7 +5668,7 @@ module VMPP = struct
             "true if this protection policy's backup is running"
         ; field ~lifecycle:removed ~qualifier:DynamicRO ~ty:DateTime
             "backup_last_run_time" "time of the last backup"
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
+            ~default_value:(Some (VDateTime Date.epoch))
         ; field ~lifecycle:removed ~qualifier:StaticRO ~ty:archive_target_type
             "archive_target_type" "type of the archive target config"
             ~default_value:(Some (VEnum "none"))
@@ -5693,7 +5692,7 @@ module VMPP = struct
             "true if this protection policy's archive is running"
         ; field ~lifecycle:removed ~qualifier:DynamicRO ~ty:DateTime
             "archive_last_run_time" "time of the last archive"
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
+            ~default_value:(Some (VDateTime Date.epoch))
         ; field ~lifecycle:removed ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
             "VMs" "all VMs attached to this protection policy"
         ; field ~lifecycle:removed ~qualifier:StaticRO ~ty:Bool
@@ -5856,7 +5855,7 @@ module VMSS = struct
             ~default_value:(Some (VMap []))
         ; field ~qualifier:DynamicRO ~ty:DateTime "last_run_time"
             "time of the last snapshot"
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
+            ~default_value:(Some (VDateTime Date.epoch))
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs"
             "all VMs attached to this snapshot schedule"
         ]

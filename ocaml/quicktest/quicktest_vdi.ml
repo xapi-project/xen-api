@@ -139,7 +139,7 @@ let vdi_bad_introduce rpc session_id sr_info () =
               ~location:(Ref.string_of (Ref.make ()))
               ~xenstore_data:[] ~sm_config:[] ~managed:true ~virtual_size:0L
               ~physical_utilisation:0L ~metadata_of_pool:Ref.null
-              ~is_a_snapshot:false ~snapshot_time:Xapi_stdext_date.Date.never
+              ~is_a_snapshot:false ~snapshot_time:Xapi_stdext_date.Date.epoch
               ~snapshot_of:Ref.null
           in
           Alcotest.fail
@@ -161,7 +161,7 @@ let vdi_bad_introduce rpc session_id sr_info () =
             ~other_config:[] ~location:vdir.API.vDI_location ~xenstore_data:[]
             ~sm_config:[] ~managed:true ~virtual_size:0L
             ~physical_utilisation:0L ~metadata_of_pool:Ref.null
-            ~is_a_snapshot:false ~snapshot_time:Xapi_stdext_date.Date.never
+            ~is_a_snapshot:false ~snapshot_time:Xapi_stdext_date.Date.epoch
             ~snapshot_of:Ref.null
         in
         Alcotest.fail

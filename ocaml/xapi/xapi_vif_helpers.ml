@@ -298,8 +298,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
       Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
         ~io_read_kbs:0. ~io_write_kbs:0.
-        ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
-        ~other_config:[] ;
+        ~last_updated:Xapi_stdext_date.Date.epoch ~other_config:[] ;
       let (_ : unit) =
         Db.VIF.create ~__context ~ref ~uuid:(Uuidx.to_string uuid)
           ~current_operations:[] ~allowed_operations:[] ~reserved:false ~device
