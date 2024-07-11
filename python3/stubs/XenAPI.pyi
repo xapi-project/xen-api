@@ -50,6 +50,8 @@ class _Dispatcher:
     VDI: Incomplete
     PBD: Incomplete
     pool: Incomplete
+    host: Incomplete
+    pool_update: Incomplete
     VM: Incomplete
 
 

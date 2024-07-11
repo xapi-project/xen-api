@@ -115,7 +115,6 @@ install:
 	$(IPROG) backup-metadata-cron $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) pbis-force-domain-leave $(DESTDIR)$(LIBEXECDIR)
 	mkdir -p $(DESTDIR)$(EXTENSIONDIR)
-	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
 	mkdir -p $(DESTDIR)$(PLUGINDIR)
 	$(IPROG) plugins/firewall-port $(DESTDIR)$(PLUGINDIR)
 	mkdir -p $(DESTDIR)$(HOOKSDIR)/host-post-declare-dead
