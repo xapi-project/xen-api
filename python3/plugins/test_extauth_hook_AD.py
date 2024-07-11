@@ -22,12 +22,11 @@ def test_run_cmd(caplog):
 
     # Call the function under test, check the return value and capture the log message
     with caplog.at_level(logging.DEBUG):
-        # Bug in the current code, the result is a byte string:
-        assert run_cmd(cmd) == cmd[1].strip().encode()
+        assert run_cmd(cmd) is None  # The return value is None (not used in the code)
 
-    # Bug in the current code after not fully tested py3 migration:
-    # The logged message contains a byte string that is not stripped:
-    assert caplog.records[0].message == "%s -> b' Hello World! \\n'" % (cmd)
+    # Assert the log message
+    assert caplog.records[0].message == "%s -> Hello World!" % (cmd)
+
     # Test the case where the command fails:
     assert run_cmd(["bad command"]) is None
     assert caplog.records[1].message == "Failed to run command ['bad command']"

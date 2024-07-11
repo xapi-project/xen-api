@@ -61,17 +61,14 @@ setup_logger()
 logger = logging.getLogger(__name__)
 
 
-def run_cmd(cmd, log_cmd=True):
-    """Helper function to run command"""
+def run_cmd(command: "list[str]"):
+    """Helper function to run a command and log the output"""
     try:
-        result = subprocess.check_output(cmd)
-        if log_cmd:
-            msg = "{} -> {}".format(cmd, result)
-            logger.debug(msg)
-        return result.strip()
-    except Exception:  # pylint: disable=broad-except
-        logger.exception("Failed to run command %s", cmd)
-        return None
+        output = subprocess.check_output(command, universal_newlines=True)
+        logger.debug("%s -> %s", command, output.strip())
+
+    except OSError:
+        logger.exception("Failed to run command %s", command)
 
 
 class ADBackend(Enum):
