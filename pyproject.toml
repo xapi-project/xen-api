@@ -1,7 +1,7 @@
 # https://packaging.python.org/en/latest/specifications/pyproject-toml/
 [project]
 name = "xen-api"
-requires-python = ">=3.6.*"
+requires-python = ">=3.6.0"
 license = {file = "LICENSE"}
 keywords = ["xen-project", "Xen", "hypervisor", "libraries"]
 maintainers = [
@@ -119,10 +119,19 @@ ensure_newline_before_comments = false
 # PYTHONPATH="scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
 files = [
     "python3",
-    "scripts/usb_reset.py",
+    "scripts/examples/python",
+]
+exclude = [
+    "python3/packages",
+    "python3/stubs",
+    "python3/tests",
 ]
 pretty = true
+mypy_path = "python3/packages:python3/stubs:scripts/examples/python"
 error_summary = true
+# default_return = false sets the default return type of functions to 'Any'.
+# It makes mypy less noisy on untyped code makes it more usable now:
+default_return = false
 strict_equality = true
 show_error_codes = true
 show_error_context = true
@@ -138,7 +147,16 @@ disallow_any_explicit = false
 disallow_any_generics = true
 disallow_any_unimported = true
 disallow_subclassing_any = true
-disable_error_code = ["import-untyped"]  # XenAPI is not typed yet
+disable_error_code = [
+    "explicit-override",
+    "misc",
+    "no-any-decorated",
+    "no-any-expr",
+    "no-untyped-call",
+    "no-untyped-def",
+    "no-untyped-usage",
+    "import-untyped",  # XenAPI is not typed yet
+]
 
 
 [[tool.mypy.overrides]]
