@@ -95,7 +95,6 @@ install:
 	$(IPROG) xe-edit-bootloader $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-get-network-backend $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-enable-all-plugin-metrics $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) static-vdis $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) with-vdi $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) import-update-key $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) pool.conf $(DESTDIR)$(ETCXENDIR)

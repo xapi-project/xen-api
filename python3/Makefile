@@ -32,6 +32,7 @@ install:
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) bin/static-vdis $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) extensions/pool_update.apply $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/pool_update.precheck $(DESTDIR)$(EXTENSIONDIR)
 	$(IPROG) extensions/Test.test $(DESTDIR)$(EXTENSIONDIR)
