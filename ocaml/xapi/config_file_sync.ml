@@ -48,23 +48,6 @@ let write_to_fd s msg =
 let transmit_config_files s =
   read_config_file () |> rpc_of_config |> Jsonrpc.to_string |> write_to_fd s
 
-(* We still need to respect older XenServer hosts which are expecting
-   the entire /etc/password file. We need to make sure we send the
-   "un-shadowed" passwd file, so that slaves don't overwrite root's
-   password with an 'x'. *)
-
-(* This was introduced in 8c4d3d93f8c0e069b8b0de9c2e2df02a391aa2ef xapi
- * version 1.9.41 and can be removed when during rolling pool
- * upgrade the config_sync_version is always passed from slave to
- * master. We believe that Dundee is the first version where this code
- * shipped. Hence, it can be removed once RPU from pre-Dundee is no
- * longer supported.
- *)
-
-let legacy_transmit_passwd s =
-  debug "Updating /etc/passwd (%s)" __LOC__ ;
-  Unixpwd.unshadow () |> write_to_fd s
-
 (** URL used by slaves to fetch dom0 config files (currently just root's password) *)
 let config_file_sync_handler (req : Http.Request.t) s _ =
   let current version =
@@ -86,9 +69,8 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
           transmit_config_files s ;
           debug "finished writing dom0 config files"
       | _ ->
-          debug "writing legacy dom0 config files" ;
-          legacy_transmit_passwd s ;
-          debug "finished writing legacy dom0 config files"
+          write_to_fd s "Warning: legacy dom0 config files not supported" ;
+          warn "legacy dom0 config files not supported"
   )
 
 let fetch_config_files_internal ~master_address =
