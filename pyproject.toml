@@ -241,7 +241,7 @@ addopts = "-v -ra"
 # required_plugins: require that these plugins are installed before testing
 # -----------------------------------------------------------------------------
 testpaths = ["python3", "scripts", "ocaml/xcp-rrdd"]
-required_plugins = ["pytest-cov", "pytest-mock"]
+required_plugins = ["pytest-mock"]
 log_cli_level = "INFO"
 log_cli = true
 minversion = "7.0"

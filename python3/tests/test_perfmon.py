@@ -5,16 +5,14 @@ This module provides unittest for perfmon
 
 # pyright: reportAttributeAccessIssue=false
 
-import sys
 import math
 import unittest
-from mock import MagicMock, patch, mock_open
-from python3.tests.import_helper import import_file_as_module
+from unittest.mock import MagicMock, mock_open, patch
 
-# mock modules to avoid dependencies
-sys.modules["XenAPI"] = MagicMock()
+from python3.tests.import_helper import import_file_as_module, mocked_modules
 
-perfmon = import_file_as_module("python3/bin/perfmon")
+with mocked_modules("XenAPI"):
+    perfmon = import_file_as_module("python3/bin/perfmon")
 
 
 @patch("subprocess.getoutput")

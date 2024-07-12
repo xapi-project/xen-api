@@ -3,9 +3,10 @@
 This module provides unittest for nbd_client_manager.py
 """
 
-import unittest
 import subprocess
-from mock import MagicMock, patch, mock_open, call
+import unittest
+from unittest.mock import MagicMock, call, mock_open, patch
+
 from python3.tests.import_helper import import_file_as_module
 
 nbd_client_manager = import_file_as_module("python3/libexec/nbd_client_manager.py")

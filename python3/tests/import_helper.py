@@ -3,9 +3,8 @@ import os
 import sys
 from contextlib import contextmanager
 from types import ModuleType
-
 from typing import Generator
-from mock import Mock
+from unittest.mock import Mock
 
 
 @contextmanager

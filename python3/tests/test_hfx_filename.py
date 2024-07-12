@@ -4,15 +4,13 @@
 This module provides unittest for hfx_filename
 """
 
-import sys
 import unittest
-from mock import MagicMock, patch, call
-from python3.tests.import_helper import import_file_as_module
+from unittest.mock import MagicMock, call, patch
 
-# mock modules to avoid dependencies
-sys.modules["XenAPI"] = MagicMock()
+from python3.tests.import_helper import import_file_as_module, mocked_modules
 
-hfx_filename = import_file_as_module("python3/bin/hfx_filename")
+with mocked_modules("XenAPI"):
+    hfx_filename = import_file_as_module("python3/bin/hfx_filename")
 
 
 @patch("socket.socket")

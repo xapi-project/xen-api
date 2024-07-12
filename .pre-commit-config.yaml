@@ -81,9 +81,7 @@ repos:
         - opentelemetry-api
         - opentelemetry-exporter-zipkin-json
         - opentelemetry-sdk
-        - pytest-coverage
         - pytest-mock
-        - mock
         - wrapt
         - XenAPI
 
