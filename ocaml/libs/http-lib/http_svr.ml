@@ -400,7 +400,7 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
                    | k when k = Http.Hdr.content_length ->
                        {req with content_length= Some (Int64.of_string v)}
                    | k when k = Http.Hdr.cookie ->
-                       {req with cookie= Http.parse_keyvalpairs v}
+                       {req with cookie= Http.parse_cookies v}
                    | k when k = Http.Hdr.transfer_encoding ->
                        {req with transfer_encoding= Some v}
                    | k when k = Http.Hdr.accept ->
