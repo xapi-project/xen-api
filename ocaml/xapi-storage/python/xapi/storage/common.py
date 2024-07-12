@@ -11,11 +11,17 @@ import subprocess
 
 
 def call(dbg, cmd_args, error=True, simple=True, expRc=0):
+    """
+    Used by
+    xapi-storage/python/examples/datapath/loop+blkback/datapath.py to run losetup
+    """
+
     log.debug('{}: Running cmd {}'.format(dbg, cmd_args))
     proc = subprocess.Popen(
         cmd_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        universal_newlines=True,
         close_fds=True)
     stdout, stderr = proc.communicate()
     if error and proc.returncode != expRc:
