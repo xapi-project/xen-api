@@ -34,32 +34,41 @@ module OfAssocList = Generic.MakeStateless (struct
   let tests =
     `QuickAndAutoDocumented
       [
-        ([], [Xen_motion; AD; Updates; VM_start])
+        ([], [Xen_motion; AD; Updates; VM_start; VM_appliance_start])
       ; ( [
             ("restrict_xen_motion", "true")
           ; ("restrict_ad", "true")
           ; ("restrict_updates", "true")
           ; ("restrict_vm_start", "true")
+          ; ("restrict_vm_appliance_start", "true")
           ]
         , []
         )
-      ; ([("restrict_xen_motion", "true")], [AD; Updates; VM_start])
-      ; ([("restrict_xen_motion", "false")], [Xen_motion; AD; Updates; VM_start])
+      ; ( [("restrict_xen_motion", "true")]
+        , [AD; Updates; VM_start; VM_appliance_start]
+        )
+      ; ( [("restrict_xen_motion", "false")]
+        , [Xen_motion; AD; Updates; VM_start; VM_appliance_start]
+        )
       ; ( [("restrict_xen_motion", "false"); ("restrict_dmc", "false")]
-        , [DMC; Xen_motion; AD; Updates; VM_start]
+        , [DMC; Xen_motion; AD; Updates; VM_start; VM_appliance_start]
         )
       ; ( [
             ("restrict_xen_motion", "false")
           ; ("restrict_ad", "true")
           ; ("restrict_dmc", "false")
           ]
-        , [DMC; Xen_motion; Updates; VM_start]
+        , [DMC; Xen_motion; Updates; VM_start; VM_appliance_start]
         )
       ; ( [("enable_xha", "true"); ("restrict_xen_motion", "true")]
-        , [HA; AD; Updates; VM_start]
+        , [HA; AD; Updates; VM_start; VM_appliance_start]
         )
-      ; ([("restrict_updates", "true")], [Xen_motion; AD; VM_start])
-      ; ([("restrict_vm_start", "true")], [Xen_motion; AD; Updates])
+      ; ( [("restrict_updates", "true")]
+        , [Xen_motion; AD; VM_start; VM_appliance_start]
+        )
+      ; ( [("restrict_vm_start", "true")]
+        , [Xen_motion; AD; Updates; VM_appliance_start]
+        )
       ]
 end)
 

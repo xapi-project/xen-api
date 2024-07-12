@@ -743,6 +743,7 @@ functor
       let start ~__context ~self ~paused =
         info "VM_appliance.start: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
+        Pool_features.assert_enabled ~__context ~f:Features.VM_appliance_start ;
         with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.start"
           ~op:`start (fun () ->
             Local.VM_appliance.start ~__context ~self ~paused
