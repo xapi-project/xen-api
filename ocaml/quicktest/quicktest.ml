@@ -47,7 +47,7 @@ let () =
       (* Only list tests if asked, without running them *)
       if !Quicktest_args.list_tests then
         Printf.printf "%s\n"
-          (Astring.String.concat ~sep:"," (List.map (fun (k, _) -> k) suite))
+          (Astring.String.concat ~sep:"," (List.map fst suite))
       else
         (* If -run-only parameter supplied, run specific suites from the list *)
         let suite =
