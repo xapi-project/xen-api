@@ -1075,91 +1075,37 @@ let domain_type_of_string x =
 let vtpm_operation_to_string (op : API.vtpm_operations) =
   match op with `destroy -> "destroy"
 
+(** parse [0-9]*(b|bytes|kib|mib|gib|tib)* to bytes *)
+let bytes_of_string str =
+  let ( ** ) a b = Int64.mul a b in
+  let invalid msg = raise (Invalid_argument msg) in
+  try
+    Scanf.sscanf str "%Ld%s" @@ fun size suffix ->
+    match String.lowercase_ascii suffix with
+    | _ when size < 0L ->
+        invalid str
+    | "bytes" | "b" | "" ->
+        size
+    | "kib" | "kb" | "k" ->
+        size ** 1024L
+    | "mib" | "mb" | "m" ->
+        size ** 1024L ** 1024L
+    | "gib" | "gb" | "g" ->
+        size ** 1024L ** 1024L ** 1024L
+    | "tib" | "tb" | "t" ->
+        size ** 1024L ** 1024L ** 1024L ** 1024L
+    | _ ->
+        invalid suffix
+  with _ -> invalid str
+
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
-  let ( ** ) a b = Int64.mul a b in
-  let max_size_TiB =
-    Int64.div Int64.max_int (1024L ** 1024L ** 1024L ** 1024L)
-  in
-  (* detect big number that cannot be represented by Int64. *)
-  let int64_of_string s =
-    try Int64.of_string s
-    with _ ->
-      if s = "" then
-        record_failure
-          "Failed to parse field '%s': expecting an integer (possibly with \
-           suffix)"
-          field ;
-
-      let alldigit = ref true and i = ref (String.length s - 1) in
-      while !alldigit && !i > 0 do
-        alldigit := Astring.Char.Ascii.is_digit s.[!i] ;
-        decr i
-      done ;
-      if !alldigit then
-        record_failure
-          "Failed to parse field '%s': number too big (maximum = %Ld TiB)" field
-          max_size_TiB
-      else
-        record_failure
-          "Failed to parse field '%s': expecting an integer (possibly with \
-           suffix)"
-          field
-  in
-  match
-    Astring.(
-      String.fields ~empty:false ~is_sep:(fun c ->
-          Char.Ascii.(is_white c || is_digit c)
-      )
-    )
-      x
-  with
-  | [] ->
-      (* no suffix on the end *)
-      int64_of_string x
-  | [suffix] ->
-      let number =
-        match
-          Astring.(
-            String.fields ~empty:false ~is_sep:(Fun.negate Char.Ascii.is_digit)
-          )
-            x
-        with
-        | [number] ->
-            int64_of_string number
-        | _ ->
-            record_failure
-              "Failed to parse field '%s': expecting an integer (possibly with \
-               suffix)"
-              field
-      in
-      let multiplier =
-        match suffix with
-        | "bytes" ->
-            1L
-        | "KiB" ->
-            1024L
-        | "MiB" ->
-            1024L ** 1024L
-        | "GiB" ->
-            1024L ** 1024L ** 1024L
-        | "TiB" ->
-            1024L ** 1024L ** 1024L ** 1024L
-        | x ->
-            record_failure
-              "Failed to parse field '%s': Unknown suffix: '%s' (try KiB, MiB, \
-               GiB or TiB)"
-              field x
-      in
-      (* FIXME: detect overflow *)
-      number ** multiplier
-  | _ ->
-      record_failure
-        "Failed to parse field '%s': expecting an integer (possibly with \
-         suffix)"
-        field
-
-(* Vincent's random mac utils *)
+  try bytes_of_string x
+  with Invalid_argument _ ->
+    record_failure
+      "Failed to parse field '%s': expecting an integer (possibly with suffix \
+       KiB, MiB, GiB, TiB), got '%s'"
+      field x
 
 let mac_from_int_array macs =
   (* make sure bit 1 (local) is set and bit 0 (unicast) is clear *)
