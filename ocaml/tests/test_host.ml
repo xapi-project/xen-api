@@ -65,27 +65,4 @@ let test_host_join_restriction () =
     (Xapi_globs.restricted_pool_size + 1)
     (Db.Host.get_all ~__context |> List.length)
 
-let test_cvm_exception () =
-  let __context = setup_test () in
-  (* Check adding one more is a failure *)
-  Alcotest.check_raises "Should fail"
-    (Api_errors.Server_error
-       ( Api_errors.license_restriction
-       , [Features.name_of_feature Features.Pool_size]
-       )
-    )
-    (fun () -> ignore (add_host __context "badhost")) ;
-  let new_vm = Test_common.make_vm ~__context ~name_label:"My test VM-CVM" () in
-  Db.VM.set_is_control_domain ~__context ~self:new_vm ~value:true ;
-  (* Adding hosts should now work *)
-  add_host __context "goodhost" ;
-  Alcotest.(check int)
-    "one added OK"
-    (Xapi_globs.restricted_pool_size + 1)
-    (Db.Host.get_all ~__context |> List.length)
-
-let test =
-  [
-    ("test_host_join_restriction", `Quick, test_host_join_restriction)
-  ; ("test_host_join_cvm_exception", `Quick, test_cvm_exception)
-  ]
+let test = [("test_host_join_restriction", `Quick, test_host_join_restriction)]

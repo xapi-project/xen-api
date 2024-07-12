@@ -233,7 +233,11 @@ let () =
       Debug.with_thread_associated "main" start server
     )
     () ;
-  ignore (Daemon.notify Daemon.State.Ready) ;
+  let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
+  if Daemon.systemd_notify Daemon.State.Ready then
+    ()
+  else
+    D.warn "Sending systemd notification failed at %s" __LOC__ ;
   while true do
     Thread.delay 300. ; Network_server.on_timer ()
   done

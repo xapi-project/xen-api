@@ -15,7 +15,7 @@
 open Xenops_interface
 open Xenops_server_plugin
 open Xenops_helpers
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Xenops_utils
 open Xenops_task
 open Cancel_utils
@@ -31,7 +31,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let internal_error fmt =
-  Printf.kprintf
+  Printf.ksprintf
     (fun str ->
       error "%s" str ;
       raise (Xenopsd_error (Internal_error str))
@@ -961,10 +961,7 @@ module HOST = struct
       get_lines () ;
       close_in in_chan ;
       let find key =
-        if Hashtbl.mem tbl key then
-          Hashtbl.find tbl key
-        else
-          "unknown"
+        Option.value (Hashtbl.find_opt tbl key) ~default:"unknown"
       in
       ( find "vendor_id"
       , find "model name"

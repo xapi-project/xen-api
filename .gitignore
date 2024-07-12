@@ -2,6 +2,7 @@ _build/
 *.bak
 *.native
 .merlin
+_coverage/
 *.install
 *.swp
 compile_flags.txt
@@ -30,7 +31,9 @@ ocaml/xenopsd/xentoollog_flags
 
 ocaml/idl/gen_lifecycle.exe
 
+# hugo
 .hugo_build.lock
 go.sum
+doc/public
 
 .DS_Store

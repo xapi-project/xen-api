@@ -18,6 +18,7 @@
 module D = Debug.Make (struct let name = "xha_statefile" end)
 
 open D
+module Redo_log = Xapi_database.Redo_log
 
 (** Reason associated with the static VDI attach, to help identify these later *)
 let reason = "HA statefile"
@@ -108,7 +109,7 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   Cluster_stack_constraints.assert_sr_compatible ~__context ~cluster_stack ~sr ;
   (* Check the exported capabilities of the SR's SM plugin *)
   let srtype = Db.SR.get_type ~__context ~self:sr in
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   match
     Db.SM.get_internal_records_where ~__context
       ~expr:(Eq (Field "type", Literal srtype))

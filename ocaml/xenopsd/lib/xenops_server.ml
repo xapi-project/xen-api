@@ -24,7 +24,7 @@ module D = Debug.Make (struct let name = "xenops_server" end)
 open D
 
 let internal_error fmt =
-  Printf.kprintf
+  Printf.ksprintf
     (fun str ->
       error "%s" str ;
       raise (Xenopsd_error (Internal_error str))
@@ -1822,7 +1822,7 @@ let rec atomics_of_operation = function
 let with_tracing ~name ~task f =
   let open Tracing in
   let parent = Xenops_task.tracing task in
-  let tracer = get_tracer ~name in
+  let tracer = Tracer.get_tracer ~name in
   match Tracer.start ~tracer ~name ~parent () with
   | Ok span -> (
       Xenops_task.set_tracing task span ;
@@ -4021,46 +4021,51 @@ module Observer = struct
     debug "Observer.create : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
       (fun () ->
-        Tracing.create ~uuid ~name_label ~attributes ~endpoints ~enabled
+        Tracing.TracerProvider.create ~uuid ~name_label ~attributes ~endpoints
+          ~enabled
       )
       ()
 
   let destroy _ dbg uuid =
     debug "Observer.destroy : dbg=%s" dbg ;
-    Debug.with_thread_associated dbg (fun () -> Tracing.destroy ~uuid) ()
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.TracerProvider.destroy ~uuid)
+      ()
 
   let set_enabled _ dbg uuid enabled =
     debug "Observer.set_enabled : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~enabled ())
+      (fun () -> Tracing.TracerProvider.set ~uuid ~enabled ())
       ()
 
   let set_attributes _ dbg uuid attributes =
     debug "Observer.set_attributes : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~attributes ())
+      (fun () -> Tracing.TracerProvider.set ~uuid ~attributes ())
       ()
 
   let set_endpoints _ dbg uuid endpoints =
     debug "Observer.set_endpoint : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.set ~uuid ~endpoints ())
+      (fun () -> Tracing.TracerProvider.set ~uuid ~endpoints ())
       ()
 
   let init _ dbg =
     debug "Observer.init : dbg=%s" dbg ;
-    Debug.with_thread_associated dbg (fun () -> ignore @@ Tracing.main ()) ()
+    Debug.with_thread_associated dbg
+      (fun () -> ignore @@ Tracing_export.main ())
+      ()
 
   let set_trace_log_dir _ dbg dir =
     debug "Observer.set_trace_log_dir : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.Destination.File.set_trace_log_dir dir)
+      (fun () -> Tracing_export.Destination.File.set_trace_log_dir dir)
       ()
 
   let set_export_interval _ dbg interval =
     debug "Observer.set_export_interval : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.set_export_interval interval)
+      (fun () -> Tracing_export.set_export_interval interval)
       ()
 
   let set_max_spans _ dbg spans =
@@ -4078,20 +4083,20 @@ module Observer = struct
   let set_max_file_size _ dbg file_size =
     debug "Observer.set_max_file_size : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.Destination.File.set_max_file_size file_size)
+      (fun () -> Tracing_export.Destination.File.set_max_file_size file_size)
       ()
 
   let set_host_id _ dbg host_id =
     debug "Observer.set_host_id : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
-      (fun () -> Tracing.Export.set_host_id host_id)
+      (fun () -> Tracing_export.set_host_id host_id)
       ()
 
   let set_compress_tracing_files _ dbg enabled =
     debug "Observer.set_compress_tracing_files : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
       (fun () ->
-        Tracing.Export.Destination.File.set_compress_tracing_files enabled
+        Tracing_export.Destination.File.set_compress_tracing_files enabled
       )
       ()
 end

@@ -42,7 +42,7 @@ type t = {
   ; task_id: API.ref_task
   ; forwarded_task: bool
   ; origin: origin
-  ; database: Db_ref.t
+  ; database: Xapi_database.Db_ref.t
   ; dbg: string
   ; mutable tracing: Tracing.Span.t option
   ; client: Http_svr.client option
@@ -99,9 +99,9 @@ let is_unix_socket s =
 
 let default_database () =
   if Pool_role.is_master () then
-    Db_backend.make ()
+    Xapi_database.Db_backend.make ()
   else
-    Db_ref.Remote
+    Xapi_database.Db_ref.Remote
 
 let preauth ~__context =
   match __context.origin with
@@ -154,17 +154,19 @@ let __destroy_task : (__context:t -> API.ref_task -> unit) ref =
 let string_of_task __context = __context.dbg
 
 let string_of_task_and_tracing __context =
-  Debuginfo.make ~log:__context.dbg ~tracing:__context.tracing
-  |> Debuginfo.to_string
+  Debug_info.make ~log:__context.dbg ~tracing:__context.tracing
+  |> Debug_info.to_string
 
 let tracing_of_dbg s =
-  let dbg = Debuginfo.of_string s in
+  let dbg = Debug_info.of_string s in
   (dbg.log, dbg.tracing)
 
 let check_for_foreign_database ~__context =
   match __context.session_id with
   | Some sid -> (
-    match Db_backend.get_registered_database (Ref.string_of sid) with
+    match
+      Xapi_database.Db_backend.get_registered_database (Ref.string_of sid)
+    with
     | Some database ->
         {__context with database}
     | None ->
@@ -329,7 +331,7 @@ let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
   let span_name, span_attributes = span_details_from_task_name task_name in
   let parent = parent_fn span_name in
   let span_kind = span_kind_of_parent parent in
-  let tracer = get_tracer ~name:span_name in
+  let tracer = Tracer.get_tracer ~name:span_name in
   match
     Tracer.start ~span_kind ~tracer ~attributes:span_attributes ~name:span_name
       ~parent ()
@@ -498,14 +500,15 @@ let get_client_ip context =
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
 
-let with_tracing context name f =
+let with_tracing ?originator ~__context name f =
   let open Tracing in
-  let parent = context.tracing in
-  match start_tracing_helper (fun _ -> parent) name with
+  let parent = __context.tracing in
+  let span_attributes = Attributes.attr_of_originator originator in
+  match start_tracing_helper ~span_attributes (fun _ -> parent) name with
   | Some _ as span ->
-      let new_context = {context with tracing= span} in
+      let new_context = {__context with tracing= span} in
       let result = f new_context in
       let _ = Tracer.finish span in
       result
   | None ->
-      f context
+      f __context

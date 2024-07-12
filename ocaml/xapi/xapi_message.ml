@@ -331,6 +331,7 @@ let write ~__context ~_ref ~message =
     gen
   in
   let gen = ref 0L in
+  let open Xapi_database in
   Db_lock.with_lock (fun () ->
       let t = Context.database_of __context in
       Db_ref.update_database t (fun db ->
@@ -450,7 +451,8 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   (* Return the message ref, or Ref.null if the message wasn't written *)
   match gen with Some _ -> _ref | None -> Ref.null
 
-let deleted : (Generation.t * API.ref_message) list ref = ref [(0L, Ref.null)]
+let deleted : (Xapi_database.Generation.t * API.ref_message) list ref =
+  ref [(0L, Ref.null)]
 
 let ndeleted = ref 1
 
@@ -469,6 +471,7 @@ let destroy_real __context basefilename =
   Unixext.unlink_safe filename ;
   let rpc = API.rpc_of_message_t message in
   let gen = ref 0L in
+  let open Xapi_database in
   Db_lock.with_lock (fun () ->
       let t = Context.database_of __context in
       Db_ref.update_database t (fun db ->
@@ -784,12 +787,14 @@ let handler (req : Http.Request.t) fd _ =
         (* Redirect if we're not master *)
         if not (Pool_role.is_master ()) then
           let url =
-            Printf.sprintf "https://%s%s?%s"
-              (Http.Url.maybe_wrap_IPv6_literal
-                 (Pool_role.get_master_address ())
-              )
-              req.Http.Request.uri
-              (String.concat "&" (List.map (fun (a, b) -> a ^ "=" ^ b) query))
+            Uri.(
+              make ~scheme:"https"
+                ~host:(Pool_role.get_master_address ())
+                ~path:req.Http.Request.uri
+                ~query:(List.map (fun (k, v) -> (k, [v])) req.Http.Request.query)
+                ()
+              |> to_string
+            )
           in
           Http_svr.headers fd (Http.http_302_redirect url)
         else (* Get and check query parameters *)

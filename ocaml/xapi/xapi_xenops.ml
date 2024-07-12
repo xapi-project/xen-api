@@ -119,7 +119,7 @@ let disk_of_vdi ~__context ~self =
 let vdi_of_disk ~__context x =
   match String.split ~limit:2 '/' x with
   | [sr_uuid; location] -> (
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let sr = Db.SR.get_by_uuid ~__context ~uuid:sr_uuid in
       match
         Db.VDI.get_records_where ~__context
@@ -1812,12 +1812,12 @@ module Events_from_xenopsd = struct
     Client.UPDATES.remove_barrier dbg id ;
     let t =
       with_lock active_m @@ fun () ->
-      if not (Hashtbl.mem active id) then (
-        warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
-        None
-      ) else
-        let t = Hashtbl.find active id in
-        Hashtbl.remove active id ; Some t
+      match Hashtbl.find_opt active id with
+      | Some t ->
+          Hashtbl.remove active id ; Some t
+      | None ->
+          warn "Events_from_xenopsd.wakeup: unknown id %d" id ;
+          None
     in
     Option.iter
       (fun t ->
@@ -2118,12 +2118,14 @@ let update_vm ~__context id =
                   (fun (_, state) ->
                     let localhost = Helpers.get_localhost ~__context in
                     let address =
-                      Http.Url.maybe_wrap_IPv6_literal
-                        (Db.Host.get_address ~__context ~self:localhost)
+                      Db.Host.get_address ~__context ~self:localhost
                     in
                     let uri =
-                      Printf.sprintf "https://%s%s" address
-                        Constants.console_uri
+                      Uri.(
+                        make ~scheme:"https" ~host:address
+                          ~path:Constants.console_uri ()
+                        |> to_string
+                      )
                     in
                     let get_uri_from_location loc =
                       try
@@ -3047,7 +3049,7 @@ let resync_resident_on ~__context =
   in
   (* Log the state before we do anything *)
   let maybe_log_em msg prefix l =
-    if List.length l > 0 then (
+    if l <> [] then (
       debug "%s" msg ;
       List.iter (fun ((id, _), queue) -> debug "%s %s (%s)" prefix id queue) l
     )
@@ -3065,7 +3067,7 @@ let resync_resident_on ~__context =
      nowhere."
     "In xenopsd but resident nowhere: " xapi_thinks_are_nowhere ;
   (* This is pretty bad! *)
-  if List.length xapi_vms_not_in_xenopsd > 0 then (
+  if xapi_vms_not_in_xenopsd <> [] then (
     debug
       "The following VMs are not known to xenopsd, but xapi thought they \
        should have been" ;
@@ -3278,7 +3280,7 @@ let events_from_xapi () =
                 let timeout =
                   30.
                   +. api_timeout
-                  +. !Db_globs.master_connection_reset_timeout
+                  +. !Xapi_database.Db_globs.master_connection_reset_timeout
                 in
                 let timebox_rpc =
                   Helpers.make_timeboxed_rpc ~__context timeout
@@ -3400,7 +3402,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
       Backtrace.reraise e e'
     in
     let internal fmt =
-      Printf.kprintf (fun x -> reraise Api_errors.internal_error [x]) fmt
+      Printf.ksprintf (fun x -> reraise Api_errors.internal_error [x]) fmt
     in
     match e with
     | Xenopsd_error e' -> (

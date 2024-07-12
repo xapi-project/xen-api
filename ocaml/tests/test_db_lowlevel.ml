@@ -13,6 +13,7 @@
  *)
 
 open Test_common
+open Xapi_database
 
 (* If we delete a record after making a Db.get_all_records call, but before the
  * call returns, then Db.get_all_records should return successfully (not throw

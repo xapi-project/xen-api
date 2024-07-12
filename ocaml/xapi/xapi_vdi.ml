@@ -104,7 +104,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       let sr_type = Db.SR.get_type ~__context ~self:sr in
       let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
       (* Check to see if any PBDs are attached *)
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let pbds_attached =
         match pbd_records with
         | [] ->
@@ -123,7 +123,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
               )
               pbd_records
       in
-      if List.length pbds_attached = 0 && List.mem op [`resize] then
+      if pbds_attached = [] && List.mem op [`resize] then
         Some (Api_errors.sr_no_pbds, [Ref.string_of sr])
       else
         (* check to see whether VBDs exist which are using this VDI *)
@@ -560,7 +560,7 @@ let cancel_tasks ~__context ~self ~all_tasks_in_db ~task_ids =
 
 (* This function updates xapi's database for a single VDI. The row will be created if it doesn't exist *)
 let update_vdi_db ~__context ~sr newvdi =
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let expr =
     And
       ( Eq
@@ -1031,7 +1031,7 @@ let destroy_and_data_destroy_common ~__context ~self
       )
       vbds ;
     (* If VDI destroyed is suspend VDI of VM then set the suspend_VDI field as null ref *)
-    let open Db_filter_types in
+    let open Xapi_database.Db_filter_types in
     Db.VM.get_refs_where ~__context
       ~expr:(Eq (Field "suspend_VDI", Literal (Ref.string_of self)))
     |> List.iter (fun self ->
@@ -1441,7 +1441,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
   let hosts_with_attached_pbds =
     Db.PBD.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq (Field "SR", Literal (Ref.string_of sr))
             , Eq (Field "currently_attached", Literal "true")
@@ -1469,7 +1469,7 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
     let attached_pifs =
       Db.PIF.get_refs_where ~__context
         ~expr:
-          Db_filter_types.(
+          Xapi_database.Db_filter_types.(
             And
               ( Eq (Field "host", Literal (Ref.string_of host))
               , Eq (Field "currently_attached", Literal "true")

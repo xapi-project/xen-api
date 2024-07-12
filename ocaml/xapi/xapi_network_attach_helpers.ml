@@ -15,7 +15,7 @@
 module D = Debug.Make (struct let name = "xapi_network_attach_helpers" end)
 
 open D
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 let assert_network_has_no_vifs_in_use_on_me ~__context ~host ~network =
   (* Check if there are any active VIFs on VMs resident on me *)

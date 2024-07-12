@@ -1,6 +1,6 @@
 (ocamllex db_filter_lex)
 
-(ocamlyacc db_filter_parse)
+(menhir (modules db_filter_parse))
 
 (library
   (name xapi_schema)
@@ -21,6 +21,7 @@
 
 (library
   (name xapi_database)
+  (modes best)
   (modules
     (:standard \ database_server_main db_cache_test db_names db_exn
       block_device_io string_marshall_helper string_unmarshall_helper schema
@@ -40,6 +41,7 @@
     xapi-datamodel
     xapi-log
     (re_export xapi-schema)
+    xapi-idl.updates
     xapi-stdext-encodings
     xapi-stdext-pervasives
     xapi-stdext-std
@@ -48,7 +50,6 @@
     xml-light2
     xmlm
   )
-  (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
 )
 

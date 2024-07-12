@@ -298,7 +298,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(telemetry_uuid = Ref.null) ?(telemetry_frequency = `weekly)
     ?(telemetry_next_collection = API.Date.never)
     ?(last_update_sync = API.Date.epoch) ?(update_sync_frequency = `daily)
-    ?(update_sync_day = 0L) ?(update_sync_enabled = false) () =
+    ?(update_sync_day = 0L) ?(update_sync_enabled = false)
+    ?(recommendations = []) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -316,7 +317,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~migration_compression ~coordinator_bias ~telemetry_uuid
     ~telemetry_frequency ~telemetry_next_collection ~last_update_sync
     ~local_auth_max_threads:8L ~ext_auth_max_threads:8L ~update_sync_frequency
-    ~update_sync_day ~update_sync_enabled ;
+    ~update_sync_day ~update_sync_enabled ~recommendations ;
   pool_ref
 
 let default_sm_features =
@@ -635,16 +636,17 @@ let make_cluster_host ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
 let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
     ?(uuid = make_uuid ()) ?(cluster_token = "") ?(pIF = Ref.null)
     ?(cluster_stack = Constants.default_smapiv3_cluster_stack)
-    ?(allowed_operations = []) ?(current_operations = [])
-    ?(pool_auto_join = true)
+    ?(cluster_stack_version = 3L) ?(allowed_operations = [])
+    ?(current_operations = []) ?(pool_auto_join = true)
     ?(token_timeout = Constants.default_token_timeout_s)
     ?(token_timeout_coefficient = Constants.default_token_timeout_coefficient_s)
     ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null)
     ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L) () =
   Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
-    ~cluster_stack ~allowed_operations ~current_operations ~pool_auto_join
-    ~token_timeout ~token_timeout_coefficient ~cluster_config ~other_config
-    ~is_quorate ~quorum ~live_hosts ;
+    ~cluster_stack ~cluster_stack_version ~allowed_operations
+    ~current_operations ~pool_auto_join ~token_timeout
+    ~token_timeout_coefficient ~cluster_config ~other_config ~is_quorate ~quorum
+    ~live_hosts ;
   let cluster_host_ref =
     make_cluster_host ~__context ~cluster:ref ~host ~pIF ()
   in
@@ -673,4 +675,11 @@ let make_observer ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(attributes = []) ?(endpoints = []) ?(components = []) () =
   Db.Observer.create ~__context ~ref ~uuid ~name_label ~name_description ~hosts
     ~attributes ~endpoints ~components ~enabled ;
+  ref
+
+let make_vm_group ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
+    ?(name_label = "vm_group") ?(name_description = "") ?(placement = `normal)
+    () =
+  Db.VM_group.create ~__context ~ref ~uuid ~name_label ~name_description
+    ~placement ;
   ref

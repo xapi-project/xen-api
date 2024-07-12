@@ -242,6 +242,7 @@ let get_default_sr_uuid rpc session_id =
 
 (* Given a string that might be a ref, lookup ref in cache and print uuid/name-label where possible *)
 let ref_convert x =
+  let module Ref_index = Xapi_database.Ref_index in
   match Ref_index.lookup x with
   | None ->
       x
@@ -253,31 +254,30 @@ let ref_convert x =
 
 (* Marshal an API-style server-error *)
 let get_server_error code params =
-  try
-    let error = Hashtbl.find Datamodel.errors code in
-    (* There ought to be a bijection between parameters mentioned in
-       datamodel.ml and those in the exception but this is unchecked and
-       false in some cases, defined here. *)
-    let required =
-      if code = Api_errors.vms_failed_to_cooperate then
-        List.map (fun _ -> "VM") params
-      else
-        error.Datamodel_types.err_params
-    in
-    (* For the rest we attempt to pretty-print the list even when it's short/long *)
-    let rec pp_params = function
-      | t :: ts, v :: vs ->
-          (t ^ ": " ^ v) :: pp_params (ts, vs)
-      | [], v :: vs ->
-          ("<extra>: " ^ v) :: pp_params ([], vs)
-      | t :: ts, [] ->
-          (t ^ ": <unknown>") :: pp_params (ts, [])
-      | [], [] ->
-          []
-    in
-    let errparams = pp_params (required, List.map ref_convert params) in
-    Some (error.Datamodel_types.err_doc, errparams)
-  with _ -> None
+  let ( let* ) = Option.bind in
+  let* error = Hashtbl.find_opt Datamodel.errors code in
+  (* There ought to be a bijection between parameters mentioned in
+     datamodel.ml and those in the exception but this is unchecked and
+     false in some cases, defined here. *)
+  let required =
+    if code = Api_errors.vms_failed_to_cooperate then
+      List.map (fun _ -> "VM") params
+    else
+      error.Datamodel_types.err_params
+  in
+  (* For the rest we attempt to pretty-print the list even when it's short/long *)
+  let rec pp_params = function
+    | t :: ts, v :: vs ->
+        (t ^ ": " ^ v) :: pp_params (ts, vs)
+    | [], v :: vs ->
+        ("<extra>: " ^ v) :: pp_params ([], vs)
+    | t :: ts, [] ->
+        (t ^ ": <unknown>") :: pp_params (ts, [])
+    | [], [] ->
+        []
+  in
+  let errparams = pp_params (required, List.map ref_convert params) in
+  Some (error.Datamodel_types.err_doc, errparams)
 
 let server_error (code : string) (params : string list) sock =
   match get_server_error code params with
@@ -323,7 +323,7 @@ let rec uri_of_someone rpc session_id = function
         uri_of_someone rpc session_id Master
       else
         let address = Client.Host.get_address ~rpc ~session_id ~self:h in
-        "https://" ^ address
+        Uri.(make ~scheme:"https" ~host:address () |> to_string)
 
 let error_of_exn e =
   match e with

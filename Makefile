@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall
+.PHONY: build clean test doc python format install uninstall coverage
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -19,6 +19,11 @@ build:
 # Quickly verify that the code compiles, without actually building it
 check:
 	dune build @check -j $(JOBS)
+
+coverage:
+	dune runtest --instrument-with bisect_ppx --force --profile=$(RELEASE) -j $(JOBS)
+	bisect-ppx-report html
+	bisect-ppx-report summary --per-file
 
 clean:
 	dune clean
@@ -57,9 +62,10 @@ TEST_TIMEOUT=600
 TEST_TIMEOUT2=1200
 test:
 	ulimit -S -t $(TEST_TIMEOUT); \
+	ulimit -n 2048; \
 	 (sleep $(TEST_TIMEOUT) && ps -ewwlyF --forest)& \
 	 PSTREE_SLEEP_PID=$$!; \
-	 trap "kill $${PSTREE_SLEEP_PID}" SIGINT SIGTERM EXIT; \
+	 trap "kill $${PSTREE_SLEEP_PID}" INT TERM EXIT; \
 	 timeout --foreground $(TEST_TIMEOUT2) \
 		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
 ifneq ($(PY_TEST), NO)
@@ -97,35 +103,34 @@ sdk:
 		ocaml/sdk-gen/c/gen_c_binding.exe \
 		ocaml/sdk-gen/csharp/gen_csharp_binding.exe \
 		ocaml/sdk-gen/java/main.exe \
-		ocaml/sdk-gen/powershell/gen_powershell_binding.exe
+		ocaml/sdk-gen/powershell/gen_powershell_binding.exe \
+		ocaml/sdk-gen/go/gen_go_binding.exe
 	dune build --profile=$(PROFILE) -f\
 		@ocaml/sdk-gen/c/generate \
 		@ocaml/sdk-gen/csharp/generate \
 		@ocaml/sdk-gen/java/generate \
-		@ocaml/sdk-gen/powershell/generate
+		@ocaml/sdk-gen/powershell/generate \
+		@ocaml/sdk-gen/go/generate
 	rm -rf $(XAPISDK)
 	mkdir -p $(XAPISDK)/c
 	mkdir -p $(XAPISDK)/csharp
 	mkdir -p $(XAPISDK)/java
 	mkdir -p $(XAPISDK)/powershell
 	mkdir -p $(XAPISDK)/python
+	mkdir -p $(XAPISDK)/go
 	cp -r _build/default/ocaml/sdk-gen/c/autogen/* $(XAPISDK)/c
 	cp -r _build/default/ocaml/sdk-gen/csharp/autogen/* $(XAPISDK)/csharp
 	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
 	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
+	cp -r _build/default/ocaml/sdk-gen/go/autogen/* $(XAPISDK)/go
 	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
-.PHONY: sdk-build-c sdk sdksanity
+.PHONY: sdk-build-c
 
 sdk-build-c: sdk
-	cd _build/install/default/xapi/sdk/c && make -j $(JOBS)
-
-# workaround for no .resx generation, just for compilation testing
-sdksanity: sdk
-	sed -i 's/FriendlyErrorNames.ResourceManager/null/g' ./_build/install/default/xapi/sdk/csharp/src/Failure.cs
-	cd _build/install/default/xapi/sdk/csharp/src && dotnet add package Newtonsoft.Json && dotnet build -f netstandard2.0
+	cd _build/install/default/xapi/sdk/c && make clean && make -j $(JOBS)
 
 .PHONY: sdk-build-java
 
@@ -207,6 +212,7 @@ install: build doc sdk doc-json
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-xenpm $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
+	install -D -m 755 _build/install/default/bin/xcp-rrdd-dcmi $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-dcmi
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins.xml
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
 	install -D -m 755 ocaml/xcp-rrdd/bin/rrdp-scripts/sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
@@ -258,9 +264,9 @@ install: build doc sdk doc-json
 		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
-		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory \
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-stdext
+		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
+		xapi-rrd xapi-inventory clock \
+		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
 # docs
 	mkdir -p $(DESTDIR)$(DOCDIR)
 	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
@@ -280,9 +286,9 @@ uninstall:
 		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
-		xapi-open-uri xapi-tracing xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory \
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-stdext
+		xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
+		xapi-rrd xapi-inventory clock \
+		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\

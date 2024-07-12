@@ -1133,6 +1133,26 @@ let set_ext_auth_max_threads =
     ~params:[(Ref _pool, "self", "The pool"); (Int, "value", "The new maximum")]
     ~allowed_roles:_R_POOL_OP ()
 
+let pool_guest_secureboot_readiness =
+  Enum
+    ( "pool_guest_secureboot_readiness"
+    , [
+        ("ready", "Pool is ready for SecureBoot, all auth files are present")
+      ; ( "ready_no_dbx"
+        , "Pool is ready for SecureBoot, but there is no dbx auth file"
+        )
+      ; ( "not_ready"
+        , "Pool is not ready for SecureBoot, mandatory auth files are missing"
+        )
+      ]
+    )
+
+let get_guest_secureboot_readiness =
+  call ~flags:[`Session] ~name:"get_guest_secureboot_readiness" ~lifecycle:[]
+    ~params:[(Ref _pool, "self", "The pool")]
+    ~result:(pool_guest_secureboot_readiness, "The readiness of the pool")
+    ~allowed_roles:_R_POOL_OP ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1222,6 +1242,7 @@ let t =
       ; set_update_sync_enabled
       ; set_local_auth_max_threads
       ; set_ext_auth_max_threads
+      ; get_guest_secureboot_readiness
       ]
     ~contents:
       ([uid ~in_oss_since:None _pool]
@@ -1374,13 +1395,16 @@ let t =
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on the pool"
-        ; field ~qualifier:RW ~in_product_since:rel_dundee
-            ~default_value:(Some (VBool false)) ~ty:Bool
+        ; field ~qualifier:RW ~default_value:(Some (VBool false)) ~ty:Bool
+            ~lifecycle:
+              [
+                (Published, rel_dundee, "")
+              ; (Deprecated, "24.14.0", "No longer considered by VM.create")
+              ]
             "policy_no_vendor_device"
-            "The pool-wide policy for clients on whether to use the vendor \
-             device or not on newly created VMs. This field will also be \
-             consulted if the 'has_vendor_device' field is not specified in \
-             the VM.create call."
+            "This field was consulted when VM.create did not specify a value \
+             for 'has_vendor_device'; VM.create now uses a simple default and \
+             no longer consults this value."
         ; field ~qualifier:RW ~in_product_since:rel_ely
             ~default_value:(Some (VBool false)) ~ty:Bool
             "live_patching_disabled"
@@ -1487,6 +1511,11 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "update_sync_enabled"
             "Whether periodic update synchronization is enabled or not"
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:(Map (String, String))
+            ~default_value:(Some (VMap [])) "recommendations"
+            "The recommended pool properties for clients to respect for \
+             optimal performance. e.g. max-vm-group=5"
         ]
       )
     ()

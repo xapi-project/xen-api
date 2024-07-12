@@ -21,6 +21,8 @@
 *)
 type write_entry = {period_start_time: float; writes_this_period: int}
 
+module Parse_db_conf = Xapi_database.Parse_db_conf
+
 let backup_write_table : (Parse_db_conf.db_connection, write_entry) Hashtbl.t =
   Hashtbl.create 20
 
@@ -32,13 +34,15 @@ let with_backup_lock f = Xapi_stdext_threads.Threadext.Mutex.execute backup_m f
    log it in table and return that *)
 (* IMPORTANT: must be holding backup_m mutex when you call this function.. *)
 let lookup_write_entry dbconn =
-  try Hashtbl.find backup_write_table dbconn
-  with _ ->
-    let new_write_entry =
-      {period_start_time= Unix.gettimeofday (); writes_this_period= 0}
-    in
-    Hashtbl.replace backup_write_table dbconn new_write_entry ;
-    new_write_entry
+  match Hashtbl.find_opt backup_write_table dbconn with
+  | Some x ->
+      x
+  | None ->
+      let new_write_entry =
+        {period_start_time= Unix.gettimeofday (); writes_this_period= 0}
+      in
+      Hashtbl.replace backup_write_table dbconn new_write_entry ;
+      new_write_entry
 
 (* Reset period_start_time, writes_this_period if period has expired *)
 let tick_backup_write_table () =
@@ -93,7 +97,9 @@ let notify_write dbconn =
 let determine_backup_connections generation_count =
   tick_backup_write_table () ;
   (* reset existing write_entries if any periods expire *)
-  let dbconns_and_gen_counts = Db_connections.get_dbs_and_gen_counts () in
+  let dbconns_and_gen_counts =
+    Xapi_database.Db_connections.get_dbs_and_gen_counts ()
+  in
   (* throw out dbconns that are up-to-date *)
   let dbconns_and_gen_counts =
     List.filter (fun (gen, _) -> gen <> generation_count) dbconns_and_gen_counts

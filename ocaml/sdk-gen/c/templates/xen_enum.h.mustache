@@ -38,14 +38,12 @@
 enum xen_{{{enum_name}}}
 {
 {{#enum_values}}
-    /**
-     * {{{enum_value_doc}}}
-     */
+{{{enum_value_doc}}}
     XEN_{{{enum_name_upper}}}_{{{enum_value_upper}}},
 
 {{/enum_values}}
     /**
-     * Unknown to this version of the bindings.
+     * Unknown to this SDK version.
      */
     XEN_{{{enum_name_upper}}}_UNDEFINED
 };
@@ -64,8 +62,8 @@ extern xen_{{{enum_name}}}_set *
 xen_{{{enum_name}}}_set_alloc(size_t size);
 
 /**
- * Free the given xen_{{{enum_name}}}_set.  The given set must have been
- * allocated by this library.
+ * Free the given xen_{{{enum_name}}}_set.  The given set must
+ * have been allocated by this library.
  */
 extern void
 xen_{{{enum_name}}}_set_free(xen_{{{enum_name}}}_set *set);
@@ -89,3 +87,4 @@ xen_{{{enum_name}}}_from_string(xen_session *session, const char *str);
 
 
 #endif
+

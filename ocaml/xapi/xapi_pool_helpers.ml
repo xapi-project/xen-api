@@ -36,7 +36,6 @@ let blocking_ops =
   ; (`tls_verification_enable, Api_errors.tls_verification_enable_in_progress)
   ; (`configure_repositories, Api_errors.configure_repositories_in_progress)
   ; (`sync_updates, Api_errors.sync_updates_in_progress)
-  ; (`get_updates, Api_errors.get_updates_in_progress)
   ; (`apply_updates, Api_errors.apply_updates_in_progress)
   ]
 
@@ -52,6 +51,7 @@ let wait_ops =
   ; `exchange_ca_certificates_on_join
   ; `copy_primary_host_certs
   ; `eject
+  ; `get_updates
   ]
 
 let all_operations = blocking_ops |> List.map fst |> List.append wait_ops
@@ -128,21 +128,22 @@ let valid_operations ~__context record (pool : API.ref_pool) =
   table
 
 let throw_error table op =
-  if not (Hashtbl.mem table op) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.internal_error
-         , [
-             Printf.sprintf
-               "xapi_pool_helpers.assert_operation_valid unknown operation: %s"
-               (pool_operation_to_string op)
-           ]
-         )
-      ) ;
-  match Hashtbl.find table op with
-  | Some (code, params) ->
-      raise (Api_errors.Server_error (code, params))
+  match Hashtbl.find_opt table op with
   | None ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.internal_error
+           , [
+               Printf.sprintf
+                 "xapi_pool_helpers.assert_operation_valid unknown operation: \
+                  %s"
+                 (pool_operation_to_string op)
+             ]
+           )
+        )
+  | Some (Some (code, params)) ->
+      raise (Api_errors.Server_error (code, params))
+  | Some None ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.pool_allowed_operations)

@@ -1,0 +1,15 @@
+{
+    "xapi-24/vm_query_data_source_08": {
+      "method": [
+        "VM.query_data_source"
+      ],
+      "params": {
+        "VM.query_data_source": ["", "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13", "CPU0 usage"]
+      },
+      "expected_result": {
+        "VM.query_data_source": {
+          "result": "NaN"
+        }
+      }
+    }
+}

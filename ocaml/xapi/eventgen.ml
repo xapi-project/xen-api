@@ -22,10 +22,9 @@ let get_record_table :
   Hashtbl.create 20
 
 let find_get_record x ~__context ~self () : Rpc.t option =
-  if Hashtbl.mem get_record_table x then
-    Some (Hashtbl.find get_record_table x ~__context ~self ())
-  else
-    None
+  Option.map
+    (fun x -> x ~__context ~self ())
+    (Hashtbl.find_opt get_record_table x)
 
 (* If a record is created or destroyed, then
    for any (Ref _) field which is one end of a relationship, need to send
@@ -92,8 +91,8 @@ let events_of_other_tbl_refs other_tbl_refs =
        other_tbl_refs
     )
 
-open Db_cache_types
-open Db_action_helper
+open Xapi_database.Db_cache_types
+open Xapi_database.Db_action_helper
 
 let database_callback_inner event db context =
   let other_tbl_refs tblname = follow_references tblname in

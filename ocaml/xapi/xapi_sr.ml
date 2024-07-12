@@ -25,7 +25,8 @@ module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-open Db_filter_types
+module Redo_log = Xapi_database.Redo_log
+open Xapi_database.Db_filter_types
 open API
 open Client
 
@@ -150,7 +151,7 @@ let scan_all ~__context =
       )
       srs
   in
-  if List.length scannable_srs > 0 then
+  if scannable_srs <> [] then
     debug "Automatically scanning SRs = [ %s ]"
       (String.concat ";" (List.map Ref.string_of scannable_srs)) ;
   List.iter (scan_one ~__context) scannable_srs
@@ -298,7 +299,15 @@ let probe =
 let probe_ext =
   let to_xenapi_sr_health =
     let open Storage_interface in
-    function Healthy -> `healthy | Recovering -> `recovering
+    function
+    | Healthy ->
+        `healthy
+    | Recovering ->
+        `recovering
+    | Unreachable ->
+        `unreachable
+    | Unavailable ->
+        `unavailable
   in
   let to_xenapi_sr_stat
       Storage_interface.
@@ -461,7 +470,6 @@ let assert_sr_not_local_cache ~__context ~sr =
       ()
 
 let find_or_create_rrd_vdi ~__context ~sr =
-  let open Db_filter_types in
   match
     Db.VDI.get_refs_where ~__context
       ~expr:

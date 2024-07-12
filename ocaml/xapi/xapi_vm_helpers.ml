@@ -35,6 +35,12 @@ module SRSet = Set.Make (struct
   let compare = Stdlib.compare
 end)
 
+module HostMap = Map.Make (struct
+  type t = [`host] Ref.t
+
+  let compare = Ref.compare
+end)
+
 let compute_memory_overhead ~__context ~vm =
   let vm_record = Db.VM.get_record ~__context ~self:vm in
   Memory_check.vm_compute_memory_overhead ~vm_record
@@ -71,9 +77,6 @@ let set_actions_after_crash ~__context ~self ~value =
 let set_is_a_template ~__context ~self ~value =
   (* We define a 'set_is_a_template false' as 'install time' *)
   info "VM.set_is_a_template('%b')" value ;
-  if Db.VM.get_has_vendor_device ~__context ~self then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
   let m = Db.VM.get_metrics ~__context ~self in
   ( if not value then
       try
@@ -117,7 +120,9 @@ let set_is_a_template ~__context ~self ~value =
          )
       |> List.rev
       |> List.iter (fun p -> Db.PVS_proxy.destroy ~__context ~self:p) ;
-      (* delete the vm metrics associated with the vm if it exists, when we templat'ize it *)
+      (* Remove from any VM groups when we templatize it *)
+      Db.VM.set_groups ~__context ~self ~value:[] ;
+      (* Delete the vm metrics associated with the vm if it exists, when we templatize it *)
       finally
         (fun () -> Db.VM_metrics.destroy ~__context ~self:m)
         (fun () -> Db.VM.set_metrics ~__context ~self ~value:Ref.null)
@@ -151,28 +156,6 @@ let update_vm_virtual_hardware_platform_version ~__context ~vm =
   if visibly_required_version > current_version then
     Db.VM.set_hardware_platform_version ~__context ~self:vm
       ~value:visibly_required_version
-
-let create_from_record_without_checking_licence_feature_for_vendor_device
-    ~__context rpc session_id vm_record =
-  let mk_vm r =
-    Client.Client.VM.create_from_record ~rpc ~session_id
-      ~value:{r with API.vM_suspend_VDI= Ref.null; API.vM_power_state= `Halted}
-  in
-  let has_vendor_device = vm_record.API.vM_has_vendor_device in
-  if
-    has_vendor_device
-    && not
-         (Pool_features.is_enabled ~__context
-            Features.PCI_device_for_auto_update
-         )
-  then (
-    (* Avoid the licence feature check which is enforced in VM.create (and create_from_record). *)
-    let vm = mk_vm {vm_record with API.vM_has_vendor_device= false} in
-    Db.VM.set_has_vendor_device ~__context ~self:vm ~value:true ;
-    update_vm_virtual_hardware_platform_version ~__context ~vm ;
-    vm
-  ) else
-    mk_vm vm_record
 
 let destroy ~__context ~self =
   (* Used to be a call to hard shutdown here, but this will be redundant *)
@@ -929,6 +912,26 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
     && host_evacuate_in_progress
   with _ -> false
 
+let vm_has_anti_affinity ~__context ~vm =
+  if Pool_features.is_enabled ~__context Features.VM_groups then
+    List.find_opt
+      (fun g -> Db.VM_group.get_placement ~__context ~self:g = `anti_affinity)
+      (Db.VM.get_groups ~__context ~self:vm)
+    |> Option.map (fun group ->
+           debug
+             "The VM (uuid %s) is associated with an anti-affinity group \
+              (uuid: %s, name: %s)"
+             (Db.VM.get_uuid ~__context ~self:vm)
+             (Db.VM_group.get_uuid ~__context ~self:group)
+             (Db.VM_group.get_name_label ~__context ~self:group) ;
+           `AntiAffinity group
+       )
+  else (
+    debug
+      "VM group feature is disabled, ignore VM anti-affinity during VM start" ;
+    None
+  )
+
 let vm_has_vgpu ~__context ~vm =
   match Db.VM.get_VGPUs ~__context ~self:vm with
   | [] ->
@@ -948,7 +951,11 @@ let vm_has_sriov ~__context ~vm =
 let ( >>= ) opt f = match opt with Some _ as v -> v | None -> f
 
 let get_group_key ~__context ~vm =
-  match None >>= vm_has_vgpu ~__context ~vm >>= vm_has_sriov ~__context ~vm with
+  match
+    vm_has_anti_affinity ~__context ~vm
+    >>= vm_has_vgpu ~__context ~vm
+    >>= vm_has_sriov ~__context ~vm
+  with
   | Some x ->
       x
   | None ->
@@ -994,12 +1001,112 @@ let rank_hosts_by_best_vgpu ~__context vgpu visible_hosts =
                0L
         )
         hosts
-      |> List.map (fun g -> List.map (fun (h, _) -> h) g)
+      |> List.map (fun g -> List.map fst g)
+
+let host_to_vm_count_map ~__context group =
+  let host_of_vm vm =
+    let vm_rec = Db.VM.get_record ~__context ~self:vm in
+    (* 1. When a VM starts migrating, it's 'scheduled_to_be_resident_on' will be set,
+          while its 'resident_on' is not cleared. In this case,
+          'scheduled_to_be_resident_on' should be treated as its running host.
+       2. For paused VM, its 'resident_on' has value, but it will not be considered
+          while computing the amount of VMs. *)
+    match
+      ( vm_rec.API.vM_scheduled_to_be_resident_on
+      , vm_rec.API.vM_resident_on
+      , vm_rec.API.vM_power_state
+      )
+    with
+    | sh, _, _ when sh <> Ref.null ->
+        Some sh
+    | _, h, `Running when h <> Ref.null ->
+        Some h
+    | _ ->
+        None
+  in
+  Db.VM_group.get_VMs ~__context ~self:group
+  |> List.fold_left
+       (fun m vm ->
+         match host_of_vm vm with
+         | Some h ->
+             HostMap.update h
+               (fun c -> Option.(value ~default:0 c |> succ |> some))
+               m
+         | None ->
+             m
+       )
+       HostMap.empty
+
+let rank_hosts_by_vm_cnt_in_group ~__context group hosts =
+  let host_map = host_to_vm_count_map ~__context group in
+  Helpers.group_by ~ordering:`ascending
+    (fun h -> HostMap.find_opt h host_map |> Option.value ~default:0)
+    hosts
+
+let get_affinity_host ~__context ~vm =
+  match Db.VM.get_affinity ~__context ~self:vm with
+  | ref when Db.is_valid_ref __context ref ->
+      Some ref
+  | _ ->
+      None
+
+(* Group all hosts to 2 parts:
+   1. A list of affinity host (only one host).
+   2. A list of lists, each list contains hosts with the same number of
+      running VM in that anti-affinity group.
+      These lists are sorted by VM's count.
+   Combine these lists into one list. The list is like below:
+   [ [host1] (affinity host)
+   , [host2, host3] (no VM running)
+   , [host4, host5] (one VM running)
+   , [host6, host7] (more VMs running)
+   , ...
+   ]
+*)
+let rank_hosts_by_placement ~__context ~vm ~group =
+  let hosts = Db.Host.get_all ~__context in
+  let affinity_host = get_affinity_host ~__context ~vm in
+  let hosts_without_affinity =
+    Option.fold ~none:hosts
+      ~some:(fun host -> List.filter (( <> ) host) hosts)
+      affinity_host
+  in
+  let sorted_hosts =
+    hosts_without_affinity
+    |> rank_hosts_by_vm_cnt_in_group ~__context group
+    |> List.(map (map fst))
+  in
+  match affinity_host with
+  | Some host ->
+      [host] :: sorted_hosts
+  | None ->
+      sorted_hosts
+
+let rec select_host_from_ranked_lists ~vm ~host_selector ~ranked_host_lists =
+  match ranked_host_lists with
+  | [] ->
+      raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
+  | hosts :: less_optimal_groups_of_hosts -> (
+      let hosts_str = String.concat ";" (List.map Ref.string_of hosts) in
+      debug
+        "Attempting to select host for VM (%s) in a group of equally optimal \
+         hosts [ %s ]"
+        (Ref.string_of vm) hosts_str ;
+      try host_selector hosts
+      with _ ->
+        info
+          "Failed to select host for VM (%s) in any of [ %s ], continue to \
+           select from less optimal hosts"
+          (Ref.string_of vm) hosts_str ;
+        select_host_from_ranked_lists ~vm ~host_selector
+          ~ranked_host_lists:less_optimal_groups_of_hosts
+    )
 
 (* Selects a single host from the set of all hosts on which the given [vm] can boot.
    Raises [Api_errors.no_hosts_available] if no such host exists.
-   1.Take Vgpu or Network SR-IOV as a group_key for group all hosts into host list list
-   2.helper function's order determine the priority of resources,now vgpu has higher priority than Network SR-IOV
+   1.Take anti-affinity, or VGPU, or Network SR-IOV as a group_key for group all hosts into host list list
+   2.helper function's order determine the priority of resources,now anti-affinity has the highest priority,
+     VGPU is the second, Network SR-IOV is the lowest
    3.If no key found in VM,then host_lists will be [all_hosts] *)
 let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
   let validate_host =
@@ -1011,6 +1118,8 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
     match group_key with
     | `Other ->
         [all_hosts]
+    | `AntiAffinity group ->
+        rank_hosts_by_placement ~__context ~vm ~group
     | `VGPU vgpu ->
         let can_host_vm ~__context host vm =
           try
@@ -1025,7 +1134,7 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
         let host_group =
           Xapi_network_sriov_helpers.group_hosts_by_best_sriov ~__context
             ~network
-          |> List.map (fun g -> List.map (fun (h, _) -> h) g)
+          |> List.map (fun g -> List.map fst g)
         in
         if host_group <> [] then
           host_group
@@ -1037,22 +1146,12 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
                )
             )
   in
-  let rec select_host_from = function
-    | [] ->
-        raise (Api_errors.Server_error (Api_errors.no_hosts_available, []))
-    | hosts :: less_optimal_groups_of_hosts -> (
-        debug
-          "Attempting to start VM (%s) on one of equally optimal hosts [ %s ]"
-          (Ref.string_of vm)
-          (String.concat ";" (List.map Ref.string_of hosts)) ;
-        try Xapi_vm_placement.select_host __context vm validate_host hosts
-        with _ ->
-          info "Failed to start VM (%s) on any of [ %s ]" (Ref.string_of vm)
-            (String.concat ";" (List.map Ref.string_of hosts)) ;
-          select_host_from less_optimal_groups_of_hosts
-      )
+  let host_selector =
+    Xapi_vm_placement.select_host __context vm validate_host
   in
-  try select_host_from host_lists
+  try
+    select_host_from_ranked_lists ~vm ~host_selector
+      ~ranked_host_lists:host_lists
   with
   | Api_errors.Server_error (x, []) when x = Api_errors.no_hosts_available ->
     debug
@@ -1509,7 +1608,7 @@ let assert_valid_bios_strings ~__context ~value =
 let copy_bios_strings ~__context ~vm ~host =
   (* only allow to fill in BIOS strings if they are not yet set *)
   let current_strings = Db.VM.get_bios_strings ~__context ~self:vm in
-  if List.length current_strings > 0 then
+  if current_strings <> [] then
     raise (Api_errors.Server_error (Api_errors.vm_bios_strings_already_set, []))
   else
     let bios_strings = Db.Host.get_bios_strings ~__context ~self:host in

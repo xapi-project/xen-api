@@ -1,0 +1,7 @@
+//nolint:gosec
+const (
+{{#api_errors}}
+	//
+	Error{{name}} = "{{value}}"
+{{/api_errors}}
+)

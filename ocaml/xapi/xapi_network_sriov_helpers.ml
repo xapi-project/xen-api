@@ -13,7 +13,7 @@
  *)
 
 open Network
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Xapi_stdext_std
 
 module D = Debug.Make (struct let name = "xapi_network_sriov" end)

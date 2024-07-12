@@ -3,7 +3,8 @@ import json
 import logging
 # Disable the error, it can be import in production env
 # and mocked out in unitttest
-#pylint: disable=import-error
+# pylint: disable=import-
+# pytype: disable=import-error
 import dnf
 import urlgrabber
 

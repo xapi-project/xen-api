@@ -287,7 +287,7 @@ let assert_can_live_import_vgpu ~__context vgpu_record =
   let local_pgpus =
     Db.PGPU.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq
                 ( Field "GPU_group"
@@ -635,16 +635,16 @@ module VM : HandlerTools = struct
         log_reraise
           ("failed to create VM with name-label " ^ vm_record.API.vM_name_label)
           (fun value ->
-            let vm =
-              Xapi_vm_helpers
-              .create_from_record_without_checking_licence_feature_for_vendor_device
-                ~__context rpc session_id value
-            in
+            let vm = Client.VM.create_from_record ~rpc ~session_id ~value in
             if config.full_restore then
               Db.VM.set_uuid ~__context ~self:vm ~value:value.API.vM_uuid ;
             vm
           )
-          vm_record
+          {
+            vm_record with
+            API.vM_suspend_VDI= Ref.null
+          ; API.vM_power_state= `Halted
+          }
       in
       state.cleanup <-
         (fun __context rpc session_id ->
@@ -1832,7 +1832,7 @@ module VTPM : HandlerTools = struct
   type precheck_t = Import of vtpm'
 
   let fail fmt =
-    Printf.kprintf
+    Printf.ksprintf
       (fun msg -> raise Api_errors.(Server_error (import_error_generic, [msg])))
       fmt
 
@@ -2472,15 +2472,14 @@ let handler (req : Request.t) s _ =
           if not (check_sr_availability ~__context sr) then (
             debug "sr not available - redirecting" ;
             let host = find_host_for_sr ~__context sr in
-            let address =
-              Http.Url.maybe_wrap_IPv6_literal
-                (Db.Host.get_address ~__context ~self:host)
-            in
+            let address = Db.Host.get_address ~__context ~self:host in
             let url =
-              Printf.sprintf "https://%s%s?%s" address req.Request.uri
-                (String.concat "&"
-                   (List.map (fun (a, b) -> a ^ "=" ^ b) req.Request.query)
-                )
+              Uri.(
+                make ~scheme:"https" ~host:address ~path:req.Request.uri
+                  ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
+                  ()
+                |> to_string
+              )
             in
             let headers = Http.http_302_redirect url in
             debug "new location: %s" url ;

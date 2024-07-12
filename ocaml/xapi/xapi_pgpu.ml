@@ -357,27 +357,8 @@ let assert_can_run_VGPU ~__context ~self ~vgpu =
     ~vgpu_type
 
 let update_dom0_access ~__context ~self ~action =
-  let db_current = Db.PGPU.get_dom0_access ~__context ~self in
-  let db_new =
-    match (db_current, action) with
-    | `enabled, `enable | `disable_on_reboot, `enable ->
-        `enabled
-    | `disabled, `enable | `enable_on_reboot, `enable ->
-        `enable_on_reboot
-    | `enabled, `disable | `disable_on_reboot, `disable ->
-        `disable_on_reboot
-    | `disabled, `disable | `enable_on_reboot, `disable ->
-        `disabled
-  in
   let pci = Db.PGPU.get_PCI ~__context ~self in
-  ( match db_new with
-  | `enabled | `enable_on_reboot ->
-      Pciops.unhide_pci ~__context pci
-  | `disabled | `disable_on_reboot ->
-      Pciops.hide_pci ~__context pci
-  ) ;
-  Db.PGPU.set_dom0_access ~__context ~self ~value:db_new ;
-  db_new
+  Xapi_pci_helpers.update_dom0_access ~__context ~self:pci ~action
 
 let enable_dom0_access ~__context ~self =
   update_dom0_access ~__context ~self ~action:`enable

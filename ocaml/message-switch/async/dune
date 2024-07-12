@@ -2,14 +2,15 @@
   (name message_switch_async)
   (public_name message-switch-async)
   (libraries
-    async
-    async_unix
+    (re_export async)
+    (re_export async_unix)
     async_kernel
     base
     cohttp-async
-    core
+    (re_export core)
     core_unix
     core_kernel
+    core_unix.time_unix
     message-switch-core
   )
 )

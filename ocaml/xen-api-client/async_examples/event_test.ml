@@ -36,12 +36,6 @@ let error fmt = Printf.ksprintf (fun txt -> eprintf "Error: %s\n%!" txt) fmt
 
 let info fmt = Printf.ksprintf (fun txt -> eprintf "%s\n%!" txt) fmt
 
-let exn_to_string = function
-  | Api_errors.Server_error (code, params) ->
-      Printf.sprintf "%s %s" code (String.concat ~sep:" " params)
-  | e ->
-      failwith (Printf.sprintf "Unexpected error: %s" (Exn.to_string e))
-
 let watch_events rpc session_id =
   let open Event_types in
   let module StringMap = Map.Make (String) in
@@ -80,7 +74,7 @@ let watch_events rpc session_id =
     Event.from ~rpc ~session_id ~classes:["*"] ~token:"" ~timeout:0.
     >>= fun rpc ->
     let e = event_from_of_rpc rpc in
-    if List.length e.events = 0 then error "Empty list of events" ;
+    if List.is_empty e.events then error "Empty list of events" ;
     let current = List.fold_left ~init:StringMap.empty ~f:update e.events in
     Sequence.iter
       ~f:(fun (key, diff) ->

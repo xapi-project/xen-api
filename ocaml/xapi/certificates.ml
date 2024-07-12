@@ -66,7 +66,7 @@ let update_ca_bundle () = Helpers.update_ca_bundle ()
 let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
 
 (** {pp_hash hash} outputs the hexadecimal representation of the {hash}
-    adding a semicolon between every octet, in uppercase.
+    adding a colon between every octet, in uppercase.
  *)
 let pp_hash hash =
   let hex = Hex.(show @@ of_cstruct hash) in
@@ -79,6 +79,9 @@ let pp_hash hash =
         Char.uppercase_ascii hex.[i - ((i + 1) / 3)]
   in
   String.init length value_of
+
+let pp_fingerprint ~hash_type cert =
+  X509.Certificate.fingerprint hash_type cert |> pp_hash
 
 let safe_char c =
   match c with
@@ -179,7 +182,7 @@ end = struct
 
   let get_ca_certs ~__context name =
     let expr =
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       let type' = Eq (Field "type", Literal "ca") in
       let name' = Eq (Field "name", Literal name) in
       And (type', name')
@@ -187,7 +190,7 @@ end = struct
     Db.Certificate.get_refs_where ~__context ~expr
 
   let get_host_certs ~__context ~type' ~host =
-    let open Db_filter_types in
+    let open Xapi_database.Db_filter_types in
     let type' =
       Eq (Field "type", Literal (Record_util.certificate_type_to_string type'))
     in
@@ -218,13 +221,13 @@ end = struct
     let not_before, not_after =
       dates_of_ptimes (X509.Certificate.validity certificate)
     in
-    let fingerprint =
-      X509.Certificate.fingerprint `SHA256 certificate |> pp_hash
-    in
+    let fingerprint_sha256 = pp_fingerprint ~hash_type:`SHA256 certificate in
+    let fingerprint_sha1 = pp_fingerprint ~hash_type:`SHA1 certificate in
     let uuid = Uuidx.(to_string (make ())) in
     let ref' = Ref.make () in
     Db.Certificate.create ~__context ~ref:ref' ~uuid ~host ~not_before
-      ~not_after ~fingerprint ~name ~_type ;
+      ~not_after ~fingerprint:fingerprint_sha256 ~fingerprint_sha256
+      ~fingerprint_sha1 ~name ~_type ;
     debug "added cert %s under uuid=%s ref=%s" name uuid (Ref.string_of ref') ;
     post_action () ;
     ref'
@@ -251,7 +254,7 @@ end = struct
 
   let get_ca_certs ~__context =
     let expr =
-      let open Db_filter_types in
+      let open Xapi_database.Db_filter_types in
       Eq (Field "type", Literal "ca")
     in
     Db.Certificate.get_refs_where ~__context ~expr

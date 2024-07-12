@@ -13,18 +13,7 @@
  *)
 
 open Test_highlevel
-open Rpm
 open Updateinfo
-
-let fields_of_pkg =
-  Fmt.Dump.
-    [
-      field "name" (fun (r : Pkg.t) -> r.name) string
-    ; field "epoch" (fun (r : Pkg.t) -> Epoch.to_string r.epoch) string
-    ; field "version" (fun (r : Pkg.t) -> r.version) string
-    ; field "release" (fun (r : Pkg.t) -> r.release) string
-    ; field "arch" (fun (r : Pkg.t) -> r.arch) string
-    ]
 
 module ApplicabilityEval = Generic.MakeStateless (struct
   module Io = struct

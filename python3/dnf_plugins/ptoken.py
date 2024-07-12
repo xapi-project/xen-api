@@ -1,4 +1,5 @@
 """dnf plugin to add ptoken for repos"""
+# pytype: disable=import-error
 import logging
 import dnf
 

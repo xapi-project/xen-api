@@ -31,8 +31,9 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Client
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Xha_scripts
+module Redo_log = Xapi_database.Redo_log
 
 (* Create a redo_log instance to use for HA. *)
 let ha_redo_log =
@@ -926,7 +927,7 @@ let redo_log_ha_enabled_during_runtime __context =
   ) else (
     info "Switching on HA redo log." ;
     Redo_log.enable_and_flush
-      (Context.database_of __context |> Db_ref.get_database)
+      (Context.database_of __context |> Xapi_database.Db_ref.get_database)
       ha_redo_log Xapi_globs.ha_metadata_vdi_reason
     (* upon the first attempt to write a delta, it will realise that a DB flush
      * is necessary as the I/O process will not be running *)
@@ -958,8 +959,9 @@ let redo_log_ha_enabled_at_startup () =
     debug
       "This node is a master; attempting to extract a database from a metadata \
        VDI" ;
-    let db_ref = Db_backend.make () in
-    Redo_log_usage.read_from_redo_log ha_redo_log Db_globs.ha_metadata_db db_ref
+    let db_ref = Xapi_database.Db_backend.make () in
+    Redo_log_usage.read_from_redo_log ha_redo_log
+      Xapi_database.Db_globs.ha_metadata_db db_ref
     (* best effort only: does not raise any exceptions *)
   )
 
@@ -1759,8 +1761,6 @@ let disable __context =
     raise (Api_errors.Server_error (Api_errors.ha_not_enabled, [])) ;
   disable_internal __context
 
-open Db_cache_types (* for the Manifest. Database. functions below *)
-
 let enable __context heartbeat_srs configuration =
   debug "Enabling HA on the Pool." ;
   let pool = Helpers.get_pool ~__context in
@@ -1777,7 +1777,7 @@ let enable __context heartbeat_srs configuration =
            )
         )
   in
-  if List.length unplugged_ununpluggable_pifs > 0 then
+  if unplugged_ununpluggable_pifs <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.required_pif_is_unplugged
@@ -1804,7 +1804,7 @@ let enable __context heartbeat_srs configuration =
       )
       not_bond_slaves
   in
-  if List.length without_disallow_unplug > 0 then (
+  if without_disallow_unplug <> [] then (
     let pifinfo =
       List.map
         (fun (pif, pifr) ->
@@ -1874,7 +1874,7 @@ let enable __context heartbeat_srs configuration =
       else
         heartbeat_srs
     in
-    if List.length possible_srs = 0 then
+    if possible_srs = [] then
       raise (Api_errors.Server_error (Api_errors.cannot_create_state_file, [])) ;
     (* For the moment we'll create a state file in one compatible SR since the xHA component only handles one *)
     let srs = [List.hd possible_srs] in
@@ -1984,6 +1984,8 @@ let enable __context heartbeat_srs configuration =
         (* ... *)
         (* Make sure everyone's got a fresh database *)
         let generation =
+          let open Xapi_database in
+          let open Xapi_database.Db_cache_types in
           Db_lock.with_lock (fun () ->
               Manifest.generation
                 (Database.manifest (Db_ref.get_database (Db_backend.make ())))

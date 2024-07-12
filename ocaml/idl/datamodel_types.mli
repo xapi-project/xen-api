@@ -120,7 +120,6 @@ type api_value =
   | VMap of (api_value * api_value) list
   | VSet of api_value list
   | VRef of string
-  | VCustom of string * api_value
 
 val rpc_of_api_value : api_value -> Rpc.t
 

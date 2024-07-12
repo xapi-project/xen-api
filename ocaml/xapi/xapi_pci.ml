@@ -63,7 +63,9 @@ let create ~__context ~class_id ~class_name ~vendor_id ~vendor_name ~device_id
 let get_local ~__context getter =
   let localhost = Helpers.get_localhost ~__context in
   let expr =
-    Db_filter_types.(Eq (Field "host", Literal (Ref.string_of localhost)))
+    Xapi_database.Db_filter_types.(
+      Eq (Field "host", Literal (Ref.string_of localhost))
+    )
   in
   getter ~__context ~expr
 
@@ -319,3 +321,12 @@ let get_system_display_device () =
       )
       None items
   with _ -> None
+
+let disable_dom0_access ~__context ~self =
+  Xapi_pci_helpers.update_dom0_access ~__context ~self ~action:`disable
+
+let enable_dom0_access ~__context ~self =
+  Xapi_pci_helpers.update_dom0_access ~__context ~self ~action:`enable
+
+let get_dom0_access_status ~__context ~self =
+  Xapi_pci_helpers.determine_dom0_access_status ~__context ~self

@@ -6,6 +6,7 @@
   (libraries
     bigarray
     rpclib.json
+    rpclib.core
     xmlm
     yojson
   )

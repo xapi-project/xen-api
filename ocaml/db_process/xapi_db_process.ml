@@ -14,7 +14,8 @@
 module D = Debug.Make (struct let name = "xapi-db-process" end)
 
 open D
-open Db_cache_types
+open Xapi_database
+open Xapi_database.Db_cache_types
 
 let compress = ref false
 
@@ -72,9 +73,6 @@ let write_out_databases () =
   Db_cache_impl.sync
     (Db_conn_store.read_db_connections ())
     (Db_ref.get_database (Db_backend.make ()))
-
-(* should never be thrown due to checking argument at start *)
-exception UnknownFormat
 
 let write_out_database filename =
   print_string ("Dumping database to: " ^ filename ^ "\n") ;

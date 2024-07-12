@@ -95,7 +95,7 @@ let set_components =
   call ~name:"set_components" ~in_oss_since:None ~lifecycle:[]
     ~doc:
       "Set the components on which the observer will broadcast to. i.e. xapi, \
-       xenopsd, networkd, etc"
+       xenopsd, networkd, etc."
     ~params:
       [
         (Ref _observer, "self", "The observer")
@@ -106,7 +106,7 @@ let set_components =
 let t =
   create_obj ~name:_observer
     ~descr:
-      "Describes a observer which will control observability activity in the \
+      "Describes an observer which will control observability activity in the \
        Toolstack"
     ~doccomments:[] ~gen_constructor_destructor:true ~gen_events:true
     ~in_db:true ~lifecycle:[] ~persist:PersistEverything ~in_oss_since:None

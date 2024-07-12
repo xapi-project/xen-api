@@ -10,10 +10,14 @@
 # The VDI has the other_config:xentrace flag set to 1, so these can be
 # identified later on as xentrace records.
 # The VDI contains a ext3 fs (no partition table) and single file "trace.bz2"
-
+set -euo pipefail
 TIME=5
 SIZE_GB=1
-while getopts "ht:s:" opt ; do
+CIRCULAR=0
+MEMORY_MB=400 # 400 MiB
+DUMP_ON_CPUAVG=
+
+while getopts "hct:s:M:p:r:" opt ; do
     case $opt in
     h)
        echo "Usage: $0 [-t time (sec)] [-s size (GB)]"
@@ -23,12 +27,28 @@ while getopts "ht:s:" opt ; do
     ;;
     s) SIZE_GB=$OPTARG
     ;;
+
+    c) CIRCULAR=1
+    ;;
+
+    M) MEMORY_MB=$OPTARG
+    ;;
+
+    p) CIRCULAR=1
+       DUMP_ON_CPUAVG=$OPTARG
+       REPEAT=6
+    ;;
+
+    r) REPEAT=$OPTARG
+    ;;
+
     *) echo "Invalid option"; exit 1
     ;;
     esac
 done
 
-SIZE=$((${SIZE_GB} * 1024 * 1024 * 1024))
+SIZE=$((SIZE_GB * 1024 * 1024 * 1024))
+MEMORY=$((MEMORY_MB * 1024 * 1024))
 
 if [ ! -e @INVENTORY@ ]; then
   echo Must run on a XAPI host.
@@ -39,7 +59,7 @@ fi
 
 XE="@OPTDIR@/bin/xe"
 
-crashdump_sr=$(${XE} host-list params=crash-dump-sr-uuid --minimal uuid=${INSTALLATION_UUID})
+crashdump_sr=$(${XE} host-list params=crash-dump-sr-uuid --minimal "uuid=${INSTALLATION_UUID}")
 
 if [ -z "${crashdump_sr}" ]; then
   echo No crashdump storage repository defined for the host.
@@ -50,81 +70,112 @@ vdi_date=$(date +%c)
 vdi_name="Xentrace results at ${vdi_date}"
 
 echo -n "Creating VDI: "
-vdi_uuid=$(${XE} vdi-create sr-uuid=${crashdump_sr} name-label="${vdi_name}" type=system virtual-size=${SIZE})
-echo ${vdi_uuid}
-
-if [ $? -ne 0 -o -z "${vdi_uuid}" ]; then
+if ! vdi_uuid=$(${XE} vdi-create "sr-uuid=${crashdump_sr}" name-label="${vdi_name}" type=system "virtual-size=${SIZE}") || [ -z "${vdi_uuid}" ]; then
   echo error creating VDI in the crashdump storage repository
   exit 1
 fi
 
-${XE} vdi-param-set uuid=${vdi_uuid} other-config:xentrace=1
+echo "${vdi_uuid}"
+
+${XE} vdi-param-set "uuid=${vdi_uuid}" other-config:xentrace=1
 
 mnt=
 function cleanup {
-   if [ ! -z "${vdi_uuid}" ]; then
-      ${XE} vdi-destroy uuid=${vdi_uuid}
+   killall xentrace
+
+   if [ -n "${vdi_uuid}" ]; then
+      ${XE} vdi-destroy "uuid=${vdi_uuid}"
    fi
 
-   if [ ! -z "${mnt}" ]; then
-      umount ${mnt}
-      rmdir ${mnt}
+   if [ -n "${mnt}" ]; then
+      umount "${mnt}"
+      rmdir "${mnt}"
    fi
 
-   if [ ! -z "${vbd_uuid}" ]; then
-      ${XE} vbd-unplug uuid=${vbd_uuid}
-      ${XE} vbd-destroy uuid=${vbd_uuid}
+   if [ -n "${vbd_uuid}" ]; then
+      ${XE} vbd-unplug "uuid=${vbd_uuid}"
+      ${XE} vbd-destroy "uuid=${vbd_uuid}"
    fi
 }
 
 echo -n "Creating VBD: "
-vbd_uuid=$(${XE} vbd-create vm-uuid=${CONTROL_DOMAIN_UUID} vdi-uuid=${vdi_uuid} device=autodetect)
-echo ${vbd_uuid}
-
-if [ $? -ne 0 -o -z "${vbd_uuid}" ]; then
+if ! vbd_uuid=$(${XE} vbd-create "vm-uuid=${CONTROL_DOMAIN_UUID}" "vdi-uuid=${vdi_uuid}" device=autodetect) || [ -z "${vbd_uuid}" ]; then
   echo error creating VBD
   cleanup
   exit 1
 fi
 
-echo -n "Plugging VBD: "
-${XE} vbd-plug uuid=${vbd_uuid}
-device=/dev/$(${XE} vbd-param-get uuid=${vbd_uuid} param-name=device)
+echo "${vbd_uuid}"
 
-if [ ! -b ${device} ]; then
-  echo ${device}: not a block special
+echo -n "Plugging VBD: "
+${XE} vbd-plug "uuid=${vbd_uuid}"
+device=/dev/$(${XE} vbd-param-get "uuid=${vbd_uuid}" param-name=device)
+
+if [ ! -b "${device}" ]; then
+  echo "${device}: not a block special"
   cleanup
   exit 1
 fi
 
-echo ${device}
+echo "${device}"
 
 echo -n "Creating filesystem: "
-mkfs.ext3 -j -F ${device} > /dev/null 2>&1
+mkfs.ext3 -j -F "${device}" > /dev/null 2>&1
 echo "done"
 
 echo -n "Mounting filesystem: "
 mnt=/var/run/crashdump-${vdi_uuid}
-mkdir -p ${mnt}
+mkdir -p "${mnt}"
 
-mount ${device} ${mnt}
-
-if [ $? -ne 0 ]; then
-  echo mount to ${mnt} failed
+if ! mount "${device}" "${mnt}"; then
+  echo "mount to ${mnt} failed"
   cleanup
   exit 1
 fi
 
 echo "done"
+echo "Trace recording to VDI: ${vdi_uuid}"
+trap cleanup EXIT
 
-echo "Xentrace: starting"
-/usr/bin/xentrace -D -e all -r 1 ${mnt}/trace -T ${TIME}
+if [ -n "${DUMP_ON_CPUAVG}" ]; then
+    echo "Xentrace: will dump when host cpu usage >= ${DUMP_ON_CPUAVG}"
+    echo "Xentrace: will dump when triggered for ${REPEAT}*5s intervals in a row"
+    (rrd2csv "AVERAGE:host:${INSTALLATION_UUID}:cpu_avg" \
+        | (TRIGGER=0
+            read -r _IGNORE
+            while IFS=, read -r _time value; do
+                if (( $(echo "${value} > ${DUMP_ON_CPUAVG}/100" | bc -l) )); then
+                    TRIGGER=$((TRIGGER + 1))
+                else
+                    TRIGGER=0
+                fi
+                if [ "${TRIGGER}" -gt "${REPEAT}" ]; then
+                    TRIGGER=0
+                    echo "Killing xentrace to dump trace"
+                    killall xentrace || true
+                    echo "Waiting for 1m"
+                    sleep 60
+                fi
+            done))&
+fi
 
-echo "Xentrace: compressing"
-bzip2 -9 ${mnt}/trace
+while : ; do
+    echo "Xentrace: starting"
+    TRACE="${mnt}/trace.$(date +%s)"
+    if [ "${CIRCULAR}" = 1 ]; then
+        echo "Xentrace: in circular mode, waiting for 'killall xentrace'"
+        /usr/sbin/xentrace -D -e all -r 1 "${TRACE}" -M "${MEMORY}"
+    else
+        /usr/sbin/xentrace -D -e all -r 1 "${TRACE}" -T "${TIME}"
+    fi
+
+    # do not destroy the VDI anymore, we've got useful data on it
+    vdi_uuid=""
+
+    echo "Xentrace: compressing ${TRACE}"
+    bzip2 -9 "${TRACE}"
+
+    [ "${CIRCULAR}" = 1 ] || break
+done
 
 echo "Xentrace: done"
-echo "Trace recorded to VDI: ${vdi_uuid}"
-
-vdi_uuid=""
-cleanup

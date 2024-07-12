@@ -41,7 +41,7 @@ struct
         Hashtbl.remove t k
     )
 
-  let find (t, m) k = with_lock m (fun () -> Hashtbl.find t k)
+  let find (t, m) k = with_lock m (fun () -> Hashtbl.find_opt t k)
 
   let with_find_moved_exn (t, m) k =
     let v =

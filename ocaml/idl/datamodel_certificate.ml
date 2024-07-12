@@ -64,8 +64,16 @@ let t =
       ; field ~qualifier:StaticRO ~lifecycle ~ty:DateTime "not_after"
           ~default_value:(Some (VDateTime Date.never))
           "Date before which the certificate is valid"
-      ; field ~qualifier:StaticRO ~lifecycle ~ty:String "fingerprint"
+      ; field ~qualifier:StaticRO
+          ~lifecycle:
+            [(Published, rel_stockholm, ""); (Deprecated, "24.19.0", "")]
+          ~ty:String "fingerprint" ~default_value:(Some (VString ""))
+          "Use fingerprint_sha256 instead"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String "fingerprint_sha256"
           ~default_value:(Some (VString ""))
           "The certificate's SHA256 fingerprint / hash"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String "fingerprint_sha1"
+          ~default_value:(Some (VString ""))
+          "The certificate's SHA1 fingerprint / hash"
       ]
     ~messages:[] ()
