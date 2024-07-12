@@ -5,5 +5,6 @@
 )
 
 (cram
+	(package xapi-stdext-unix)
 	(deps (package xapi-stdext-unix))
 )
