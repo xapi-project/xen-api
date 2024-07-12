@@ -1080,7 +1080,7 @@ let bytes_of_string str =
   let ( ** ) a b = Int64.mul a b in
   let invalid msg = raise (Invalid_argument msg) in
   try
-    Scanf.sscanf str "%Ld%s" @@ fun size suffix ->
+    Scanf.sscanf str "%Ld %s" @@ fun size suffix ->
     match String.lowercase_ascii suffix with
     | _ when size < 0L ->
         invalid str
