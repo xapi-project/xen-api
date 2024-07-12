@@ -23,7 +23,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Xapi_globs
-open Db_filter_types
+open Xapi_database.Db_filter_types
 include Helper_process
 open Network
 
@@ -85,7 +85,11 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
     Unix.access script [Unix.X_OK] ;
     (* Use the same $PATH as xapi *)
     let env =
-      match env with None -> [|"PATH=" ^ Sys.getenv "PATH"|] | Some env -> env
+      match env with
+      | None ->
+          [|"PATH=" ^ Option.value (Sys.getenv_opt "PATH") ~default:""|]
+      | Some env ->
+          env
     in
     let output, _ =
       match stdin with
@@ -1110,31 +1114,55 @@ let assert_is_valid_ip kind field address =
   if not (is_valid_ip kind address) then
     raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
 
+module type AbstractIpaddr = sig
+  type t
+
+  module Prefix : sig
+    type addr = t
+
+    type t
+
+    val of_string : string -> (t, [> `Msg of string]) result
+
+    val address : t -> addr
+
+    val bits : t -> int
+  end
+
+  val to_string : t -> string
+end
+
 let parse_cidr kind cidr =
-  try
-    let address, prefixlen = Scanf.sscanf cidr "%s@/%d" (fun a p -> (a, p)) in
-    if not (is_valid_ip kind address) then (
-      error "Invalid address in CIDR (%s)" address ;
-      None
-    ) else if
-        prefixlen < 0
-        || (kind = `ipv4 && prefixlen > 32)
-        || (kind = `ipv6 && prefixlen > 128)
-      then (
-      error "Invalid prefix length in CIDR (%d)" prefixlen ;
-      None
-    ) else
+  let select_ip_family = function
+    | `ipv4 ->
+        (module Ipaddr.V4 : AbstractIpaddr)
+    | `ipv6 ->
+        (module Ipaddr.V6)
+  in
+  let module AddrParse = (val select_ip_family kind) in
+  match AddrParse.Prefix.of_string cidr with
+  | Ok ip_t ->
+      let address = AddrParse.Prefix.address ip_t |> AddrParse.to_string in
+      let prefixlen = AddrParse.Prefix.bits ip_t in
       Some (address, prefixlen)
-  with _ ->
-    error "Invalid CIDR format (%s)" cidr ;
-    None
+  | Error e ->
+      let msg = match e with `Msg str -> str in
+      error "Invalid address in CIDR (%s). %s" cidr msg ;
+      None
+
+let valid_cidr_aux kind cidr =
+  match kind with
+  | `ipv4or6 ->
+      parse_cidr `ipv4 cidr = None && parse_cidr `ipv6 cidr = None
+  | (`ipv4 | `ipv6) as kind ->
+      parse_cidr kind cidr = None
 
 let assert_is_valid_cidr kind field cidr =
-  if parse_cidr kind cidr = None then
+  if valid_cidr_aux kind cidr then
     raise Api_errors.(Server_error (invalid_cidr_address_specified, [field]))
 
 let assert_is_valid_ip_addr kind field address =
-  if (not (is_valid_ip kind address)) && parse_cidr kind address = None then
+  if (not (is_valid_ip kind address)) && valid_cidr_aux kind address then
     raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
@@ -1192,7 +1220,7 @@ let gethostbyname_family host family =
     Unix.getaddrinfo host ""
       [Unix.AI_SOCKTYPE Unix.SOCK_STREAM; Unix.AI_FAMILY family]
   in
-  if List.length he = 0 then
+  if he = [] then
     throw_resolve_error () ;
   Unix.string_of_inet_addr (getaddr (List.hd he).Unix.ai_addr)
 
@@ -1292,7 +1320,9 @@ let vm_to_string __context vm =
   if not (Db.is_valid_ref __context vm) then
     raise (Api_errors.Server_error (Api_errors.invalid_value, [str])) ;
   let t = Context.database_of __context in
-  let module DB = (val Db_cache.get t : Db_interface.DB_ACCESS) in
+  let module DB =
+    (val Xapi_database.Db_cache.get t : Xapi_database.Db_interface.DB_ACCESS)
+  in
   let fields = fst (DB.read_record t Db_names.vm str) in
   let sexpr =
     SExpr.Node
@@ -1566,9 +1596,12 @@ module Early_wakeup = struct
   let signal key =
     (*debug "Early_wakeup signal key = (%s, %s)" a b;*)
     with_lock table_m (fun () ->
-        if Hashtbl.mem table key then
-          (*debug "Signalling thread blocked on (%s,%s)" a b;*)
-          Delay.signal (Hashtbl.find table key)
+        Option.iter
+          (fun x ->
+            (*debug "Signalling thread blocked on (%s,%s)" a b;*)
+            Delay.signal x
+          )
+          (Hashtbl.find_opt table key)
     )
 end
 
@@ -1966,7 +1999,7 @@ end = struct
     in
     Xapi_globs.pool_secrets := [ps] ;
     Db_globs.pool_secret :=
-      ps |> SecretString.rpc_of_t |> Db_secret_string.t_of_rpc ;
+      ps |> SecretString.rpc_of_t |> Xapi_database.Db_secret_string.t_of_rpc ;
     SecretString.write_to_file !Xapi_globs.pool_secret_path ps ;
     Xapi_psr_util.load_psr_pool_secrets ()
 end
@@ -2039,30 +2072,35 @@ let update_ca_bundle =
           )
     )
 
-let external_certificate_thumbprint_of_master ?(hash_type = `Sha256) () =
-  match hash_type with
-  | `Sha256 ->
-      Server_helpers.exec_with_new_task
-        "Get master's external certificate thumbprint" (fun __context ->
-          let master_ref = get_master ~__context in
-          let certs =
-            Db.Certificate.get_records_where ~__context
-              ~expr:
-                (And
-                   ( Eq (Field "host", Literal (Ref.string_of master_ref))
-                   , Eq (Field "type", Literal "host")
-                   )
-                )
-          in
-          match certs with
-          | [] ->
-              debug "Failed to fetch master's external certificate" ;
-              None
-          | (_, cert_record) :: _ ->
-              Some cert_record.certificate_fingerprint
-      )
-  | _ ->
-      None
+let external_certificate_thumbprint_of_master ~hash_type =
+  if List.mem hash_type [`Sha256; `Sha1] then
+    Server_helpers.exec_with_new_task
+      "Get master's external certificate thumbprint" (fun __context ->
+        let master_ref = get_master ~__context in
+        let certs =
+          Db.Certificate.get_records_where ~__context
+            ~expr:
+              (And
+                 ( Eq (Field "host", Literal (Ref.string_of master_ref))
+                 , Eq (Field "type", Literal "host")
+                 )
+              )
+        in
+        match certs with
+        | [] ->
+            debug "%s: Failed to fetch master's external certificate"
+              __FUNCTION__ ;
+            None
+        | (_, cert_record) :: _ -> (
+          match hash_type with
+          | `Sha256 ->
+              Some cert_record.certificate_fingerprint_sha256
+          | `Sha1 ->
+              Some cert_record.certificate_fingerprint_sha1
+        )
+    )
+  else
+    None
 
 let unit_test ~__context : bool =
   Pool_role.is_unit_test ()
@@ -2082,3 +2120,5 @@ let get_active_uefi_certificates ~__context ~self =
       Db.Pool.get_uefi_certificates ~__context ~self
   | true, _ ->
       custom_uefi_certs
+
+let uefi_mode_to_string = function `setup -> "setup" | `user -> "user"

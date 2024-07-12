@@ -580,7 +580,7 @@ let bytes_per_mem_vm = 1024
 
 let mem_vm_writer_pages = ((max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
 
-let res_error fmt = Printf.kprintf Result.error fmt
+let res_error fmt = Printf.ksprintf Result.error fmt
 
 let ok x = Result.ok x
 
@@ -619,11 +619,9 @@ let dss_mem_vms doms =
         )
       in
       let memory_target_opt =
-        try
-          with_lock Rrdd_shared.memory_targets_m (fun _ ->
-              Some (Hashtbl.find Rrdd_shared.memory_targets domid)
-          )
-        with Not_found -> None
+        with_lock Rrdd_shared.memory_targets_m (fun _ ->
+            Hashtbl.find_opt Rrdd_shared.memory_targets domid
+        )
       in
       let mem_target_ds =
         Option.map
@@ -795,7 +793,7 @@ let domain_snapshot xc =
        the original and the final uuid to xenstore *)
     let uuid_from_key key =
       let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Xenstore.(with_xs (fun xs -> xs.read path))
+      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
       with Xs_protocol.Enoent _hint ->
         info "Couldn't read path %s; falling back to actual uuid" path ;
         uuid
@@ -1133,7 +1131,12 @@ let _ =
     try Watcher.create_watcher_thread ()
     with _ -> error "xenstore-watching thread has failed"
   in
-  ignore (Daemon.notify Daemon.State.Ready) ;
+  let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
+  if Daemon.systemd_booted () then
+    if Daemon.systemd_notify Daemon.State.Ready then
+      ()
+    else
+      warn "Sending systemd notification failed at %s" __LOC__ ;
   debug "Creating monitoring loop thread .." ;
   let () =
     try Debug.with_thread_associated "main" monitor_write_loop writers

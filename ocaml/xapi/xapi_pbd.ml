@@ -15,7 +15,7 @@
  * @group XenAPI functions
 *)
 
-open Db_filter_types
+open Xapi_database.Db_filter_types
 
 module D = Debug.Make (struct let name = "xapi_pbd" end)
 
@@ -234,7 +234,7 @@ let unplug ~__context ~self =
             (fun vdi -> Db.VDI.get_type ~__context ~self:vdi <> `metadata)
             vdis
         in
-        if List.length non_metadata_vdis > 0 then
+        if non_metadata_vdis <> [] then
           raise
             (Api_errors.Server_error
                (Api_errors.vdi_in_use, List.map Ref.string_of non_metadata_vdis)
@@ -292,11 +292,10 @@ let get_locally_attached ~__context =
   let host = Helpers.get_localhost ~__context in
   Db.PBD.get_refs_where ~__context
     ~expr:
-      Db_filter_types.(
-        And
-          ( Eq (Field "host", Literal (Ref.string_of host))
-          , Eq (Field "currently_attached", Literal "true")
-          )
+      (And
+         ( Eq (Field "host", Literal (Ref.string_of host))
+         , Eq (Field "currently_attached", Literal "true")
+         )
       )
 
 (* Host calls unplug_all_pbds on shutdown,

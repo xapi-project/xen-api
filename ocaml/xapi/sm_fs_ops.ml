@@ -43,12 +43,18 @@ let import_vdi_url ~__context ?(prefer_slaves = false) _rpc session_id task_id
   (* Find a suitable host for the SR containing the VDI *)
   let sr = Db.VDI.get_SR ~__context ~self:vdi in
   let host = Importexport.find_host_for_sr ~__context ~prefer_slaves sr in
-  let address =
-    Http.Url.maybe_wrap_IPv6_literal (Db.Host.get_address ~__context ~self:host)
-  in
-  Printf.sprintf "https://%s%s?vdi=%s&session_id=%s&task_id=%s" address
-    Constants.import_raw_vdi_uri (Ref.string_of vdi) (Ref.string_of session_id)
-    (Ref.string_of task_id)
+  let address = Db.Host.get_address ~__context ~self:host in
+  Uri.(
+    make ~scheme:"https" ~host:address ~path:Constants.import_raw_vdi_uri
+      ~query:
+        [
+          ("vdi", [Ref.string_of vdi])
+        ; ("session_id", [Ref.string_of session_id])
+        ; ("task_id", [Ref.string_of task_id])
+        ]
+      ()
+    |> to_string
+  )
 
 (* SCTX-286: thin provisioning is thrown away over VDI.copy, VM.import(VM.export).
    Return true if the newly created vdi must have zeroes written into it; default to false

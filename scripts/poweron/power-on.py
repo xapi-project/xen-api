@@ -41,14 +41,14 @@ def main(session, args):
 
     power_on_config = session.xenapi.host.get_power_on_config(remote_host)
 
-    if mode == "DRAC":
+    if mode == "IPMI":
         ip = power_on_config["power_on_ip"]
         user = power_on_config["power_on_user"]
         secret = power_on_config["power_on_password_secret"]
         secretref = session.xenapi.secret.get_by_uuid(secret)
         password = session.xenapi.secret.get_value(secretref)
-        modu = __import__("DRAC")
-        modu.DRAC(ip, user, password)
+        modu = __import__("IPMI")
+        modu.IPMI(ip, user, password)
         return waitForXapi(session, remote_host)
     elif mode == "wake-on-lan":
         modu = __import__("wlan")
@@ -60,8 +60,8 @@ def main(session, args):
             modu = __import__(mode)
         except ModuleNotFoundError as e:
             # iLO.py was removed as part of REQ-811, so tell user why they are receiving this error
-            if mode == "iLO":
-                syslog.syslog(syslog.LOG_ERR, "iLO script was removed")
+            if mode in ["iLO", "DRAC"]:
+                syslog.syslog(syslog.LOG_ERR, f"{mode} script has been removed")
             raise e
 
         modu.custom(session, remote_host, power_on_config)

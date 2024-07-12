@@ -208,15 +208,6 @@ let parse_keyvalpairs xs =
       )
     kvpairs
 
-let parse_uri x =
-  match Astring.String.cuts ~sep:"?" x with
-  | [uri] ->
-      (uri, [])
-  | [uri; params] ->
-      (uri, parse_keyvalpairs params)
-  | _ ->
-      raise Http_parse_failure
-
 type authorization = Basic of string * string | UnknownAuth of string
 [@@deriving rpc]
 
@@ -629,42 +620,6 @@ module Request = struct
 
   let get_version x = x.version
 
-  let of_request_line x =
-    match Astring.String.fields ~empty:false x with
-    | [m; uri; version] -> (
-        (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
-        let uri, query = parse_uri uri in
-        (* strip the "HTTP/" prefix from the version string *)
-        match Astring.String.cut ~sep:"/" version with
-        | Some (_, version) ->
-            {
-              m= method_t_of_string m
-            ; frame= false
-            ; uri
-            ; query
-            ; content_length= None
-            ; transfer_encoding= None
-            ; accept= None
-            ; version
-            ; cookie= []
-            ; auth= None
-            ; task= None
-            ; subtask_of= None
-            ; content_type= None
-            ; host= None
-            ; user_agent= None
-            ; close= false
-            ; additional_headers= []
-            ; body= None
-            ; traceparent= None
-            }
-        | None ->
-            error "Failed to parse: %s" x ;
-            raise Http_parse_failure
-      )
-    | _ ->
-        raise Http_parse_failure
-
   let to_string x =
     let kvpairs x =
       String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x)
@@ -934,81 +889,42 @@ module Url = struct
     scheme_equal a_scheme b_scheme && data_equal a_data b_data
 
   let of_string url =
-    let sub_before c s = String.sub s 0 (String.index s c) in
-    let sub_after c s =
-      let length = String.length s in
-      let start = String.index s c + 1 in
-      String.sub s start (length - start)
-    in
-    let host x =
-      try x |> sub_after '[' |> sub_before ']'
-      with Not_found -> (
-        try (* [<ipv6-literal>]... *)
-            x |> sub_before ':'
-        with Not_found -> (* <hostname|ipv4-literal>:... *)
-                          x
-      )
-    in
-    (* <hostname|ipv4-literal> *)
-    let port x =
-      let port_part =
-        try x |> sub_after ']' |> sub_after ':'
-        with Not_found -> (
-          try (* ...]:port *)
-              x |> sub_after ']'
-          with Not_found -> (
-            try (* ...] *)
-                x |> sub_after ':'
-            with Not_found -> (* ...:port *)
-                              ""
-          )
-        )
-      in
-      (* no port *)
-      try Some (int_of_string port_part) with _ -> None
-    in
-    let uname_password_host_port x =
-      match Astring.String.cuts ~sep:"@" x with
-      | [_] ->
-          (None, host x, port x)
-      | [uname_password; host_port] -> (
-        match Astring.String.cuts ~sep:":" uname_password with
-        | [uname; password] ->
-            (Some (Basic (uname, password)), host host_port, port host_port)
+    debug "%s: %s" __FUNCTION__ url ;
+    let fail fmt = Printf.ksprintf failwith fmt in
+    let query = function k, v :: _ -> (k, v) | k, [] -> (k, "") in
+    try
+      let uri = Uri.of_string url in
+      debug "%s: %s" __FUNCTION__ (Uri.to_string uri) ;
+      let auth =
+        match (Uri.user uri, Uri.password uri) with
+        | Some user, Some pw ->
+            Some (Basic (user, pw))
+        | Some user, None ->
+            Some (Basic (user, ""))
         | _ ->
-            failwith
-              (Printf.sprintf "Failed to parse authentication substring: %s"
-                 uname_password
-              )
-      )
+            None
+      in
+      let data =
+        {
+          uri= (match Uri.path uri with "" -> "/" | path -> path)
+        ; query_params= Uri.query uri |> List.map query
+        }
+      in
+      let scheme ~ssl =
+        Http {host= Uri.host uri |> Option.get; auth; port= Uri.port uri; ssl}
+      in
+      match Uri.scheme uri with
+      | Some "http" ->
+          (scheme ~ssl:false, data)
+      | Some "https" ->
+          (scheme ~ssl:true, data)
+      | Some "file" ->
+          let scheme = File {path= Uri.path uri} in
+          (scheme, {data with uri= "/"})
       | _ ->
-          failwith
-            (Printf.sprintf
-               "Failed to parse username password host and port: %s" x
-            )
-    in
-    let reconstruct_uri uri = "/" ^ String.concat "/" uri in
-    let data_of_uri uri =
-      let uri, params = parse_uri (reconstruct_uri uri) in
-      {uri; query_params= params}
-    in
-    let http_or_https ssl x =
-      let uname_password, host, port = uname_password_host_port x in
-      let scheme = Http {host; port; auth= uname_password; ssl} in
-      scheme
-    in
-    match Astring.String.cuts ~sep:"/" url with
-    | "http:" :: "" :: x :: uri ->
-        (http_or_https false x, data_of_uri uri)
-    | "https:" :: "" :: x :: uri ->
-        (http_or_https true x, data_of_uri uri)
-    | "file:" :: uri ->
-        let uri, params = parse_uri (reconstruct_uri uri) in
-        (File {path= uri}, {uri= "/"; query_params= params})
-    | x :: _ ->
-        failwith (Printf.sprintf "Unknown scheme %s" x)
-    | _ ->
-        failwith (Printf.sprintf "Failed to parse URL: %s" url)
+          failwith "unsupported URI scheme"
+    with e ->
+      fail "%s: can't parse '%s': %s" __FUNCTION__ url (Printexc.to_string e)
 
   let data_to_string {uri; query_params= params} =
     let kvpairs x =
@@ -1018,32 +934,31 @@ module Url = struct
     let params = if params = [] then "" else "?" ^ kvpairs params in
     uri ^ params
 
-  (* Wrap a literal IPv6 address in square brackets; otherwise pass through *)
-  let maybe_wrap_IPv6_literal addr =
-    if Unixext.domain_of_addr addr = Some Unix.PF_INET6 then
-      "[" ^ addr ^ "]"
-    else
-      addr
-
-  let to_string = function
-    | File {path}, data ->
-        Printf.sprintf "file:%s%s" path (data_to_string data) (* XXX *)
-    | Http h, data ->
-        let userpassat =
-          match h.auth with
-          | Some (Basic (username, password)) ->
-              Printf.sprintf "%s:%s@" username password
-          | _ ->
-              ""
-        in
-        let colonport =
-          match h.port with Some x -> Printf.sprintf ":%d" x | _ -> ""
-        in
-        Printf.sprintf "http%s://%s%s%s%s"
-          (if h.ssl then "s" else "")
-          userpassat
-          (maybe_wrap_IPv6_literal h.host)
-          colonport (data_to_string data)
+  let to_string scheme =
+    let query (k, v) = (k, [v]) in
+    let str =
+      match scheme with
+      | File {path}, {query_params= params; _} ->
+          Uri.make ~scheme:"file" ~path ~query:(List.map query params) ()
+          |> Uri.to_string
+      | Http h, {uri; query_params= params} ->
+          let auth =
+            match h.auth with
+            | Some (Basic (username, password)) ->
+                Printf.sprintf "%s:%s" username password
+                |> Uri.pct_encode
+                |> Option.some
+            | _ ->
+                Option.none
+          in
+          Uri.make
+            ~scheme:(if h.ssl then "https" else "http")
+            ~host:h.host ?port:h.port ?userinfo:auth ~path:uri
+            ~query:(List.map query params) ()
+          |> Uri.to_string
+    in
+    debug "%s: %s" __FUNCTION__ str ;
+    str
 
   let get_uri (_scheme, data) = data.uri
 

@@ -12,6 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 open Tracing
+open Tracing_export
 
 module D = Debug.Make (struct let name = "test_observer" end)
 
@@ -38,9 +39,8 @@ let trace_log_dir ?(test_name = "") () =
     (Printf.sprintf "%s/var/log/dt/zipkinv2/json/" test_name)
 
 let () =
-  Export.Destination.File.set_trace_log_dir (trace_log_dir ()) ;
-  Export.set_service_name "unit_tests" ;
-  set_observe false
+  Destination.File.set_trace_log_dir (trace_log_dir ()) ;
+  set_service_name "unit_tests"
 
 module Xapi_DB = struct
   let assert_num_observers ~__context x =
@@ -62,17 +62,15 @@ end
 
 module TracerProvider = struct
   let assert_num_observers ~__context x =
-    let providers = Tracing.get_tracer_providers () in
+    let providers = TracerProvider.get_tracer_providers () in
     Alcotest.(check int)
       (Printf.sprintf "%d provider(s) exists in lib " x)
       x (List.length providers)
 
   let find_provider_exn ~name =
-    let providers = Tracing.get_tracer_providers () in
+    let providers = TracerProvider.get_tracer_providers () in
     match
-      List.find_opt
-        (fun x -> Tracing.TracerProvider.get_name_label x = name)
-        providers
+      List.find_opt (fun x -> TracerProvider.get_name_label x = name) providers
     with
     | Some provider ->
         provider
@@ -83,11 +81,11 @@ module TracerProvider = struct
     let provider = find_provider_exn ~name in
     Alcotest.(check bool)
       "Provider disabled" false
-      (Tracing.TracerProvider.get_enabled provider)
+      (TracerProvider.get_enabled provider)
 
   let assert_mandatory_attributes ~name =
     let provider = find_provider_exn ~name in
-    let tags = Tracing.TracerProvider.get_attributes provider in
+    let tags = TracerProvider.get_attributes provider in
     List.iter
       (fun x ->
         try
@@ -106,7 +104,7 @@ module TracerProvider = struct
   let check_endpoints ~name ~endpoints =
     let provider = find_provider_exn ~name in
     let provider_endpoints =
-      Tracing.TracerProvider.get_endpoints provider
+      TracerProvider.get_endpoints provider
       |> List.map (fun endpoint ->
              match endpoint with
              | Bugtool ->
@@ -137,12 +135,12 @@ let test_create ~__context ?(name_label = "test-observer") ?(enabled = false) ()
   self
 
 let start_test_span () =
-  let tracer = get_tracer ~name:"test-observer" in
+  let tracer = Tracer.get_tracer ~name:"test-observer" in
   let span = Tracer.start ~tracer ~name:"test_task" ~parent:None () in
   span
 
 let start_test_trace () =
-  let tracer = get_tracer ~name:"test-observer" in
+  let tracer = Tracer.get_tracer ~name:"test-observer" in
   let root =
     Tracer.start ~tracer ~name:"test_task" ~parent:None ()
     |> Result.value ~default:None
@@ -338,7 +336,7 @@ let test_file_export_writes () =
   let test_trace_log_dir =
     trace_log_dir ~test_name:"test_file_export_writes" ()
   in
-  Export.Destination.File.set_trace_log_dir test_trace_log_dir ;
+  Destination.File.set_trace_log_dir test_trace_log_dir ;
   let __context = Test_common.make_test_database () in
   let self = test_create ~__context ~enabled:true () in
   clear_dir ~test_trace_log_dir () ;
@@ -347,7 +345,7 @@ let test_file_export_writes () =
       match span with
       | Ok x -> (
           let _ = Tracer.finish x in
-          Tracing.Export.Destination.flush_spans () ;
+          Destination.flush_spans () ;
           Alcotest.(check bool)
             "tracing files written to disk when tracing enabled by default"
             false
@@ -365,7 +363,7 @@ let test_file_export_writes () =
           match span with
           | Ok x ->
               let _ = Tracer.finish x in
-              Tracing.Export.Destination.flush_spans () ;
+              Destination.flush_spans () ;
               Alcotest.(check bool)
                 "tracing files not written when tracing disabled" true
                 (is_dir_empty ~test_trace_log_dir)
@@ -406,6 +404,13 @@ let test_hashtbl_leaks () =
   let test_trace_log_dir = trace_log_dir ~test_name:"test_hashtbl_leaks" () in
   let __context = Test_common.make_test_database () in
   let self = test_create ~__context ~enabled:true () in
+  let filter_export_spans span =
+    match String.lowercase_ascii (Span.get_name span) with
+    | "tracing.flush_spans" | "tracing.file.export" | "tracing.http.export" ->
+        false
+    | _ ->
+        true
+  in
   let span = start_test_span () in
   ( match span with
   | Ok x ->
@@ -424,11 +429,24 @@ let test_hashtbl_leaks () =
         (Tracer.finished_span_hashtbl_is_empty ())
         false ;
 
-      Tracing.Export.Destination.flush_spans () ;
-      Alcotest.(check bool)
-        "Span export clears finished_spans hashtable"
-        (Tracer.finished_span_hashtbl_is_empty ())
-        true
+      Destination.flush_spans () ;
+
+      (* Flushing the spans always creates two spans if there are tracer providers enabled.
+         - Tracing.flush_spans;
+         - Tracing.File.export/Tracing.Http.export.
+
+         Therefore, the finished spans table is not always empty after flushing.
+      *)
+      let _, finished_spans = Spans.dump () in
+      let filtered_spans_count =
+        finished_spans
+        |> Hashtbl.to_seq_values
+        |> Seq.concat_map List.to_seq
+        |> Seq.filter filter_export_spans
+        |> Seq.length
+      in
+      Alcotest.(check int)
+        "Span export clears finished_spans hash table" filtered_spans_count 0
   | Error e ->
       Alcotest.failf "Span start failed with %s" (Printexc.to_string e)
   ) ;
@@ -515,14 +533,14 @@ let test_attribute_validation () =
     Alcotest.(check bool)
       ("Good key, value pair with " ^ key ^ ":" ^ value)
       true
-      (Tracing.validate_attribute (key, value))
+      (validate_attribute (key, value))
   in
 
   let test_bad_attribute (key, value) =
     Alcotest.(check bool)
       ("Bad key, value pair with " ^ key ^ ":" ^ value)
       false
-      (Tracing.validate_attribute (key, value))
+      (validate_attribute (key, value))
   in
 
   List.iter test_good_attribute good_attributes ;

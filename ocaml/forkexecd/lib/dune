@@ -7,11 +7,13 @@
    fd-send-recv
    rpclib.core
    rpclib.json
+   rpclib.xml
    uuid
    xapi-backtrace
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-unix
+   xapi-tracing
  )
  (preprocess
   (pps ppx_deriving_rpc)))

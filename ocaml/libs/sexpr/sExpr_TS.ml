@@ -12,11 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let lock = Mutex.create ()
-
-let of_string s =
-  Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-      SExprParser.expr SExprLexer.token (Lexing.from_string s)
-  )
+let of_string s = SExprParser.expr SExprLexer.token (Lexing.from_string s)
 
 let string_of = SExpr.string_of

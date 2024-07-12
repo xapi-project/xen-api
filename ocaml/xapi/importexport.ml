@@ -495,18 +495,19 @@ module Devicetype = struct
     | "vtpm" ->
         VTPM
     | other ->
-        let fail fmt = Printf.kprintf failwith fmt in
+        let fail fmt = Printf.ksprintf failwith fmt in
         fail "%s: Type '%s' not one of [%s]" __FUNCTION__ other
           (String.concat "; " (List.map to_string all))
 end
 
 let return_302_redirect (req : Http.Request.t) s address =
-  let address = Http.Url.maybe_wrap_IPv6_literal address in
   let url =
-    Printf.sprintf "https://%s%s?%s" address req.Http.Request.uri
-      (String.concat "&"
-         (List.map (fun (a, b) -> a ^ "=" ^ b) req.Http.Request.query)
-      )
+    Uri.(
+      make ~scheme:"https" ~host:address ~path:req.Http.Request.uri
+        ~query:(List.map (fun (a, b) -> (a, [b])) req.Http.Request.query)
+        ()
+      |> to_string
+    )
   in
   let headers = Http.http_302_redirect url in
   debug "HTTP 302 redirect to: %s" url ;

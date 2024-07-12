@@ -108,7 +108,7 @@ let attach_internal ?(management_interface = false) ?(force_bringup = false)
   ) else (
     (* Ensure internal bridge exists and is up. external bridges will be
        brought up through Nm.bring_pif_up. *)
-    if List.length local_pifs = 0 then
+    if local_pifs = [] then
       create_internal_bridge ~__context ~bridge:net.API.network_bridge
         ~uuid:net.API.network_uuid ~persist ;
     (* Check if we're a Host-Internal Management Network (HIMN) (a.k.a. guest-installer network) *)
@@ -327,7 +327,7 @@ let create_new_blob ~__context ~network ~name ~mime_type ~public =
 
 let set_default_locking_mode ~__context ~network ~value =
   (* Get all VIFs which are attached and associated with this network. *)
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   match
     Db.VIF.get_records_where ~__context
       ~expr:

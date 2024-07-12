@@ -112,10 +112,8 @@ functor
 
     (* [next_task_id ()] returns a fresh task id *)
     let next_task_id =
-      let counter = ref 0 in
-      fun () ->
-        let result = string_of_int !counter in
-        incr counter ; result
+      let counter = Atomic.make 0 in
+      fun () -> Atomic.fetch_and_add counter 1 |> string_of_int
 
     let set_cancel_trigger tasks dbg n =
       with_lock tasks.m (fun () -> tasks.test_cancel_trigger <- Some (dbg, n))
@@ -128,16 +126,16 @@ functor
     (* [add dbg f] creates a fresh [t], registers and returns it *)
     let add ?traceparent tasks dbg
         (f : task_handle -> Interface.Task.async_result option) =
-      let dbg' = Debuginfo.of_string dbg in
+      let dbg' = Debug_info.of_string dbg in
       let tracing =
-        match (dbg'.Debuginfo.tracing, traceparent) with
+        match (dbg'.Debug_info.tracing, traceparent) with
         | Some t, _ ->
             Some t
         | None, Some traceparent ->
             let spancontext = Tracing.SpanContext.of_traceparent traceparent in
             Option.map
               (fun tp ->
-                Tracing.Tracer.span_of_span_context tp dbg'.Debuginfo.log
+                Tracing.Tracer.span_of_span_context tp dbg'.Debug_info.log
               )
               spancontext
         | _ ->
@@ -148,7 +146,7 @@ functor
           tasks
         ; id= next_task_id ()
         ; ctime= Unix.gettimeofday ()
-        ; dbg= dbg'.Debuginfo.log
+        ; dbg= dbg'.Debug_info.log
         ; tracing
         ; state= Interface.Task.Pending 0.
         ; subtasks= []

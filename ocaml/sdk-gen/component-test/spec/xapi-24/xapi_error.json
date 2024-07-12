@@ -1,0 +1,19 @@
+{
+  "xapi-24/xapi_error_13": {
+    "method": [
+      "VM.get_record"
+    ],
+    "params": {
+      "VM.get_record": ["", "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13"]
+    },
+    "expected_result": {
+      "VM.get_record": {
+        "error": {
+          "code": 1,
+          "message": "HANDLE_INVALID",
+          "data": "OpaqueRef:6ef08bce-0bf0-30ff-804f-5f0ee4bbdd13"
+        }
+      }
+    }
+  }
+}

@@ -592,9 +592,6 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
     ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
     ~nVRAM : API.ref_VM =
-  if has_vendor_device then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
   (* Add random mac_seed if there isn't one specified already *)
   let other_config =
     let gen_mac_seed () = Uuidx.to_string (Uuidx.make ()) in
@@ -1120,11 +1117,11 @@ let record_call_plugin_latest vm =
       List.iter (Hashtbl.remove call_plugin_latest) !to_gc ;
       (* Then calculate the schedule *)
       let to_wait =
-        if Hashtbl.mem call_plugin_latest vm then
-          let t = Hashtbl.find call_plugin_latest vm in
-          Int64.sub (Int64.add t interval) now
-        else
-          0L
+        match Hashtbl.find_opt call_plugin_latest vm with
+        | Some t ->
+            Int64.sub (Int64.add t interval) now
+        | None ->
+            0L
       in
       if to_wait > 0L then
         raise
@@ -1444,6 +1441,26 @@ let set_appliance ~__context ~self ~value =
   (* Update the VM's allowed operations - this will update the new appliance's operations, if valid. *)
   update_allowed_operations ~__context ~self
 
+let set_groups ~__context ~self ~value =
+  Pool_features.assert_enabled ~__context ~f:Features.VM_groups ;
+  if
+    Db.VM.get_is_control_domain ~__context ~self
+    || Db.VM.get_is_a_template ~__context ~self
+    || Db.VM.get_is_a_snapshot ~__context ~self
+  then
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.operation_not_allowed
+         , [
+             "Control domains, templates, and snapshots cannot be added to VM \
+              groups."
+           ]
+         )
+      ) ;
+  if List.length value > 1 then
+    raise Api_errors.(Server_error (Api_errors.too_many_groups, [])) ;
+  Db.VM.set_groups ~__context ~self ~value
+
 let import_convert ~__context ~_type ~username ~password ~sr ~remote_config =
   let open Vpx in
   let print_jobInstance (j : Vpx.jobInstance) =
@@ -1571,19 +1588,9 @@ let import ~__context ~url ~sr ~full_restore ~force =
 let query_services ~__context ~self:_ =
   raise Api_errors.(Server_error (not_implemented, ["query_services"]))
 
-let assert_can_set_has_vendor_device ~__context ~self ~value =
-  if
-    value
-    (* Do the check even for templates, because snapshots are templates and
-       	 * we allow restoration of a VM from a snapshot. *)
-  then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
-    ~expected:`Halted
-
 let set_has_vendor_device ~__context ~self ~value =
-  assert_can_set_has_vendor_device ~__context ~self ~value ;
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
+    ~expected:`Halted ;
   Db.VM.set_has_vendor_device ~__context ~self ~value ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:self
 
@@ -1633,3 +1640,60 @@ let restart_device_models ~__context ~self =
       Client.VM.pool_migrate ~rpc ~session_id ~vm:self ~host
         ~options:[("live", "true")]
   )
+
+let set_uefi_mode ~__context ~self ~mode =
+  let id = Db.VM.get_uuid ~__context ~self in
+  let args = [id; Helpers.uefi_mode_to_string mode] in
+  Helpers.call_script !Xapi_globs.varstore_sb_state args
+
+let get_secureboot_readiness ~__context ~self =
+  let vmr = Db.VM.get_record ~__context ~self in
+  match Xapi_xenops.firmware_of_vm vmr with
+  | Bios ->
+      (* VM is not UEFI *)
+      `not_supported
+  | Uefi _ -> (
+      let platformdata = Db.VM.get_platform ~__context ~self in
+      match
+        Vm_platform.is_true ~key:"secureboot" ~platformdata ~default:false
+      with
+      | false ->
+          `disabled (* Secure boot is disabled *)
+      | true -> (
+        (* Secureboot is enabled *)
+        match
+          List.assoc_opt "EFI-variables" (Db.VM.get_NVRAM ~__context ~self)
+        with
+        | None ->
+            `first_boot
+        | Some _ -> (
+            let varstore_ls =
+              Helpers.call_script !Xapi_globs.varstore_ls
+                [Db.VM.get_uuid ~__context ~self]
+            in
+            let ls_lines = String.split_on_char '\n' varstore_ls in
+            let ls_keys =
+              List.filter_map
+                (fun elem ->
+                  (* Lines follow this pattern: <GUID> <KEY>*)
+                  let splitted = String.split_on_char ' ' elem in
+                  List.nth_opt splitted 1
+                )
+                ls_lines
+            in
+            let pk_present = List.mem "PK" ls_keys in
+            let kek_present = List.mem "KEK" ls_keys in
+            let db_present = List.mem "db" ls_keys in
+            let dbx_present = List.mem "dbx" ls_keys in
+            match (pk_present, kek_present, db_present, dbx_present) with
+            | true, true, true, true ->
+                `ready
+            | true, true, true, false ->
+                `ready_no_dbx
+            | false, _, _, _ ->
+                `setup_mode
+            | _, _, _, _ ->
+                `certs_incomplete
+          )
+      )
+    )

@@ -684,7 +684,7 @@ let vdi_of_volume x =
   ; snapshot_time= find_string _snapshot_time_key ~default:"19700101T00:00:00Z"
   ; snapshot_of= Vdi.of_string (find_string _snapshot_of_key ~default:"")
   ; read_only= not x.Xapi_storage.Control.read_write
-  ; cbt_enabled= false
+  ; cbt_enabled= Option.value x.Xapi_storage.Control.cbt_enabled ~default:false
   ; virtual_size= x.Xapi_storage.Control.virtual_size
   ; physical_utilisation= x.Xapi_storage.Control.physical_utilisation
   ; sm_config= []
@@ -1046,6 +1046,10 @@ let bind ~volume_script_dir =
                            Healthy
                        | Xapi_storage.Control.Recovering _ ->
                            Recovering
+                       | Xapi_storage.Control.Unreachable _ ->
+                           Unreachable
+                       | Xapi_storage.Control.Unavailable _ ->
+                           Unavailable
                        )
                    }
                  in
@@ -1405,6 +1409,10 @@ let bind ~volume_script_dir =
                      Healthy
                  | Xapi_storage.Control.Recovering _ ->
                      Recovering
+                 | Xapi_storage.Control.Unreachable _ ->
+                     Unreachable
+                 | Xapi_storage.Control.Unavailable _ ->
+                     Unavailable
                  )
              }
          )
@@ -1507,6 +1515,53 @@ let bind ~volume_script_dir =
   S.SR.list sr_list ;
   (* SR.reset is a no op in SMAPIv3 *)
   S.SR.reset (fun _ _ -> Deferred.Result.return () |> wrap) ;
+  let ( let* ) = ( >>>= ) in
+  let vdi_enable_cbt_impl dbg sr vdi =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    return_volume_rpc (fun () -> Volume_client.enable_cbt volume_rpc dbg sr vdi)
+  in
+  S.VDI.enable_cbt vdi_enable_cbt_impl ;
+  let vdi_disable_cbt_impl dbg sr vdi =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    return_volume_rpc (fun () -> Volume_client.disable_cbt volume_rpc dbg sr vdi)
+  in
+  S.VDI.disable_cbt vdi_disable_cbt_impl ;
+  let vdi_list_changed_blocks_impl dbg sr vdi vdi' =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi, vdi' = Storage_interface.Vdi.(string_of vdi, string_of vdi') in
+    let ( let* ) = ( >>= ) in
+    let* result =
+      return_volume_rpc (fun () ->
+          (* Negative lengths indicate that we want the full length. *)
+          Volume_client.list_changed_blocks volume_rpc dbg sr vdi vdi' 0L (-1)
+      )
+    in
+    let proj_bitmap r = r.Xapi_storage.Control.bitmap in
+    return (Result.map ~f:proj_bitmap result)
+  in
+  S.VDI.list_changed_blocks vdi_list_changed_blocks_impl ;
+  let vdi_data_destroy_impl dbg sr vdi =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    let* response =
+      return_volume_rpc (fun () ->
+          Volume_client.data_destroy volume_rpc dbg sr vdi
+      )
+    in
+    let* () = set ~dbg ~sr ~vdi ~key:_vdi_type_key ~value:"cbt_metadata" in
+    Deferred.Result.return response
+  in
+  S.VDI.data_destroy vdi_data_destroy_impl ;
   let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
   S.VDI.compose (u "VDI.compose") ;
@@ -1514,13 +1569,11 @@ let bind ~volume_script_dir =
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
   S.UPDATES.get (u "UPDATES.get") ;
   S.SR.update_snapshot_info_dest (u "SR.update_snapshot_info_dest") ;
-  S.VDI.data_destroy (u "VDI.data_destroy") ;
   S.DATA.MIRROR.list (u "DATA.MIRROR.list") ;
   S.TASK.stat (u "TASK.stat") ;
   S.VDI.remove_from_sm_config (u "VDI.remove_from_sm_config") ;
   S.DP.diagnostics (u "DP.diagnostics") ;
   S.TASK.destroy (u "TASK.destroy") ;
-  S.VDI.list_changed_blocks (u "VDI.list_changed_blocks") ;
   S.DP.destroy (u "DP.destroy") ;
   S.VDI.add_to_sm_config (u "VDI.add_to_sm_config") ;
   S.VDI.similar_content (u "VDI.similar_content") ;
@@ -1529,7 +1582,6 @@ let bind ~volume_script_dir =
   S.DATA.MIRROR.receive_finalize (u "DATA.MIRROR.receive_finalize") ;
   S.DP.create (u "DP.create") ;
   S.VDI.set_content_id (u "VDI.set_content_id") ;
-  S.VDI.disable_cbt (u "VDI.disable_cbt") ;
   S.DP.attach_info (u "DP.attach_info") ;
   S.TASK.cancel (u "TASK.cancel") ;
   S.VDI.attach (u "VDI.attach") ;
@@ -1538,7 +1590,6 @@ let bind ~volume_script_dir =
   S.DATA.MIRROR.stat (u "DATA.MIRROR.stat") ;
   S.TASK.list (u "TASK.list") ;
   S.VDI.get_url (u "VDI.get_url") ;
-  S.VDI.enable_cbt (u "VDI.enable_cbt") ;
   S.DATA.MIRROR.start (u "DATA.MIRROR.start") ;
   S.Policy.get_backend_vm (u "Policy.get_backend_vm") ;
   S.DATA.copy_into (u "DATA.copy_into") ;
@@ -1593,13 +1644,13 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   in
   let destroy volume_plugin_name =
     info "Removing %s" volume_plugin_name ;
-    if Hashtbl.mem servers volume_plugin_name then (
-      let t = Hashtbl.find_exn servers volume_plugin_name in
-      Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
-      Hashtbl.remove servers volume_plugin_name ;
-      return ()
-    ) else
-      return ()
+    match Hashtbl.find servers volume_plugin_name with
+    | Some t ->
+        Message_switch_async.Protocol_async.Server.shutdown ~t () >>= fun () ->
+        Hashtbl.remove servers volume_plugin_name ;
+        return ()
+    | None ->
+        return ()
   in
   let sync () =
     Sys.readdir volume_root >>= fun names ->

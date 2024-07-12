@@ -224,21 +224,22 @@ module Next = struct
      	   one if one doesn't exist already *)
   let get_subscription session =
     with_lock m (fun () ->
-        if Hashtbl.mem subscriptions session then
-          Hashtbl.find subscriptions session
-        else
-          let subscription =
-            {
-              last_id= !id
-            ; subs= []
-            ; m= Mutex.create ()
-            ; session
-            ; session_invalid= false
-            ; timeout= 0.0
-            }
-          in
-          Hashtbl.replace subscriptions session subscription ;
-          subscription
+        match Hashtbl.find_opt subscriptions session with
+        | Some x ->
+            x
+        | None ->
+            let subscription =
+              {
+                last_id= !id
+              ; subs= []
+              ; m= Mutex.create ()
+              ; session
+              ; session_invalid= false
+              ; timeout= 0.0
+              }
+            in
+            Hashtbl.replace subscriptions session subscription ;
+            subscription
     )
 
   let on_session_deleted session_id =
@@ -248,11 +249,12 @@ module Next = struct
           with_lock sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
-        if Hashtbl.mem subscriptions session_id then (
-          let sub = Hashtbl.find subscriptions session_id in
-          mark_invalid sub ;
-          Hashtbl.remove subscriptions session_id
-        )
+        Option.iter
+          (fun sub ->
+            mark_invalid sub ;
+            Hashtbl.remove subscriptions session_id
+          )
+          (Hashtbl.find_opt subscriptions session_id)
     )
 
   let session_is_invalid sub = with_lock sub.m (fun () -> sub.session_invalid)
@@ -338,6 +340,7 @@ module From = struct
   let calls : (API.ref_session, call list) Hashtbl.t = Hashtbl.create 10
 
   let get_current_event_number () =
+    let open Xapi_database in
     Db_cache_types.Manifest.generation
       (Db_cache_types.Database.manifest
          (Db_ref.get_database (Db_backend.make ()))
@@ -380,10 +383,7 @@ module From = struct
     in
     with_lock m (fun () ->
         let existing =
-          if Hashtbl.mem calls session then
-            Hashtbl.find calls session
-          else
-            []
+          Option.value (Hashtbl.find_opt calls session) ~default:[]
         in
         Hashtbl.replace calls session (fresh :: existing)
     ) ;
@@ -391,15 +391,17 @@ module From = struct
       (fun () -> f fresh)
       (fun () ->
         with_lock m (fun () ->
-            if Hashtbl.mem calls session then
-              let existing = Hashtbl.find calls session in
-              let remaining =
-                List.filter (fun x -> not (x.index = fresh.index)) existing
-              in
-              if remaining = [] then
-                Hashtbl.remove calls session
-              else
-                Hashtbl.replace calls session remaining
+            Option.iter
+              (fun existing ->
+                let remaining =
+                  List.filter (fun x -> not (x.index = fresh.index)) existing
+                in
+                if remaining = [] then
+                  Hashtbl.remove calls session
+                else
+                  Hashtbl.replace calls session remaining
+              )
+              (Hashtbl.find_opt calls session)
         )
       )
 
@@ -411,10 +413,12 @@ module From = struct
           with_lock sub.m (fun () -> sub.session_invalid <- true) ;
           Condition.broadcast c
         in
-        if Hashtbl.mem calls session_id then (
-          List.iter mark_invalid (Hashtbl.find calls session_id) ;
-          Hashtbl.remove calls session_id
-        )
+        Option.iter
+          (fun x ->
+            List.iter mark_invalid x ;
+            Hashtbl.remove calls session_id
+          )
+          (Hashtbl.find_opt calls session_id)
     )
 
   let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)
@@ -507,6 +511,7 @@ let rec next ~__context =
     rpc_of_events relevant
 
 let from_inner __context session subs from from_t deadline =
+  let open Xapi_database in
   let open From in
   (* The database tables involved in our subscription *)
   let tables =
@@ -730,7 +735,8 @@ let from ~__context ~classes ~token ~timeout =
 let get_current_id ~__context = with_lock Next.m (fun () -> !Next.id)
 
 let inject ~__context ~_class ~_ref =
-  let open Db_cache_types in
+  let open Xapi_database in
+  let open Xapi_database.Db_cache_types in
   let generation : int64 =
     Db_lock.with_lock (fun () ->
         let db_ref = Db_backend.make () in
@@ -780,13 +786,13 @@ let event_add ?snapshot ty op reference =
     From.add ev ; Next.add ev
   )
 
-let register_hooks () = Db_action_helper.events_register event_add
+let register_hooks () = Xapi_database.Db_action_helper.events_register event_add
 
 (* Called whenever a session is being destroyed i.e. by Session.logout and db_gc *)
 let on_session_deleted session_id =
   (* Unregister this session if is associated with in imported DB. *)
   (* FIXME: this doesn't logically belong in the event code *)
-  Db_backend.unregister_session (Ref.string_of session_id) ;
+  Xapi_database.Db_backend.unregister_session (Ref.string_of session_id) ;
   Next.on_session_deleted session_id ;
   From.on_session_deleted session_id
 
@@ -795,7 +801,7 @@ let on_session_deleted session_id =
     2. allow the server to detect when a client has failed *)
 let heartbeat ~__context =
   try
-    Db_lock.with_lock (fun () ->
+    Xapi_database.Db_lock.with_lock (fun () ->
         (* We must hold the database lock since we are sending an update for a real object
            			   and we don't want to accidentally transmit an older snapshot. *)
         let pool = try Some (Helpers.get_pool ~__context) with _ -> None in

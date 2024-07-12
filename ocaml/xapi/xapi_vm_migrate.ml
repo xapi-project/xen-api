@@ -380,6 +380,9 @@ let infer_vgpu_map ~__context ?remote vm =
 let pool_migrate ~__context ~vm ~host ~options =
   Pool_features.assert_enabled ~__context ~f:Features.Xen_motion ;
   let dbg = Context.string_of_task __context in
+  let localhost = Helpers.get_localhost ~__context in
+  if host = localhost then
+    info "This is a localhost migration" ;
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
   let module XenopsAPI = (val make_client queue_name : XENOPS) in
@@ -395,14 +398,21 @@ let pool_migrate ~__context ~vm ~host ~options =
         .assert_valid_ip_configuration_on_network_for_host ~__context
           ~self:network ~host
   in
-  let compress =
-    use_compression ~__context options (Helpers.get_localhost ~__context) host
-  in
+  let compress = use_compression ~__context options localhost host in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
-  let ip = Http.Url.maybe_wrap_IPv6_literal address in
-  let scheme = if !Xapi_globs.migration_https_only then "https" else "http" in
+  let http =
+    if !Xapi_globs.migration_https_only && host <> localhost then
+      "https"
+    else
+      "http"
+  in
   let xenops_url =
-    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme ip session_id
+    Uri.(
+      make ~scheme:http ~host:address ~path:"/services/xenops"
+        ~query:[("session_id", [session_id])]
+        ()
+      |> to_string
+    )
   in
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let xenops_vgpu_map = infer_vgpu_map ~__context vm in
@@ -490,7 +500,9 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
     Xapi_xenops.add_caches id ;
     Xapi_xenops.refresh_vm ~__context ~self:vm ;
     Monitor_dbcalls_cache.clear_cache_for_vm ~vm_uuid:id
-  )
+  ) ;
+  Xapi_vm_group_helpers.maybe_update_vm_anti_affinity_alert_for_vm ~__context
+    ~vm
 
 type mirror_record = {
     mr_mirrored: bool
@@ -1720,9 +1732,6 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     try bool_of_string (List.assoc "force" options) with _ -> false
   in
   let copy = try bool_of_string (List.assoc "copy" options) with _ -> false in
-  if copy && Db.VM.get_has_vendor_device ~__context ~self:vm then
-    Pool_features.assert_enabled ~__context
-      ~f:Features.PCI_device_for_auto_update ;
   let source_host_ref =
     let host = Db.VM.get_resident_on ~__context ~self:vm in
     if host <> Ref.null then
@@ -1975,7 +1984,7 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~options =
   let management_if =
     Xapi_inventory.lookup Xapi_inventory._management_interface
   in
-  let open Db_filter_types in
+  let open Xapi_database.Db_filter_types in
   let networks =
     Db.Network.get_records_where ~__context
       ~expr:(Eq (Field "bridge", Literal management_if))

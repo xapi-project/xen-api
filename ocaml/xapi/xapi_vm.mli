@@ -372,6 +372,9 @@ val set_suspend_VDI :
 val set_appliance :
   __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_appliance -> unit
 
+val set_groups :
+  __context:Context.t -> self:API.ref_VM -> value:API.ref_VM_group_set -> unit
+
 val import_convert :
      __context:Context.t
   -> _type:string
@@ -401,9 +404,6 @@ val call_plugin :
 val set_has_vendor_device :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
 
-val assert_can_set_has_vendor_device :
-  __context:Context.t -> self:API.ref_VM -> value:bool -> unit
-
 val import :
      __context:Context.t
   -> url:string
@@ -422,3 +422,9 @@ val set_NVRAM_EFI_variables :
   __context:Context.t -> self:API.ref_VM -> value:string -> unit
 
 val restart_device_models : __context:Context.t -> self:API.ref_VM -> unit
+
+val set_uefi_mode :
+  __context:Context.t -> self:API.ref_VM -> mode:API.vm_uefi_mode -> string
+
+val get_secureboot_readiness :
+  __context:Context.t -> self:API.ref_VM -> API.vm_secureboot_readiness

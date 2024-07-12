@@ -18,7 +18,8 @@
 module D = Debug.Make (struct let name = "static_vdis" end)
 
 open D
-include Static_vdis_list (* include the vdi type and the list() function *)
+include Xapi_database.Static_vdis_list
+(* include the vdi type and the list() function *)
 
 (** Generate the static configuration and attach the VDI now *)
 let permanent_vdi_attach ~__context ~vdi ~reason =

@@ -30,8 +30,19 @@ if [ $1 = "enable" ]; then
 	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
 	chkconfig ip6tables on
 
-	echo "net.ipv6.conf.all.disable_ipv6=0" > /etc/sysctl.d/91-net-ipv6.conf
-	echo "net.ipv6.conf.default.disable_ipv6=0" >> /etc/sysctl.d/91-net-ipv6.conf
+	cat > /etc/sysctl.d/91-net-ipv6.conf <<- EOF
+	net.ipv6.conf.all.disable_ipv6=0
+	net.ipv6.conf.default.disable_ipv6=0
+
+	# Defines how link-local and autoconf addresses are generated.
+	# A value of 1 does the following:
+	#   - do not generate a link-local address
+	#   - use EUI64 for addresses generated from autoconf
+	# "all" only affects the current state of all interfaces
+	# "default" affect all interfaces that are created in the future
+	net.ipv6.conf.all.addr_gen_mode=1
+	net.ipv6.conf.default.addr_gen_mode=1
+EOF
 
 	echo "IPv6 enabled.  You may now need to reboot the host"
 elif [ $1 = "disable" ]; then
@@ -49,8 +60,10 @@ elif [ $1 = "disable" ]; then
 	echo "NETWORKING_IPV6=NO" >> /etc/sysconfig/network
 	echo "IPV6_AUTOCONF=NO" >> /etc/sysconfig/network
 
-	echo "net.ipv6.conf.all.disable_ipv6=1" > /etc/sysctl.d/91-net-ipv6.conf
-	echo "net.ipv6.conf.default.disable_ipv6=1" >> /etc/sysctl.d/91-net-ipv6.conf
+	cat > /etc/sysctl.d/91-net-ipv6.conf <<- EOF
+	net.ipv6.conf.all.disable_ipv6=1
+	net.ipv6.conf.default.disable_ipv6=1
+EOF
 
 	echo "IPv6 disabled.  You may now need to reboot the host"
 else

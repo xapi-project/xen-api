@@ -13,7 +13,6 @@
  *)
 
 open Client
-open Db_filter_types
 
 module D = Debug.Make (struct let name = "sync_networking" end)
 

@@ -1,0 +1,15 @@
+{
+    "xapi-24/async_vm_import_12": {
+      "method": [
+        "Async.VM.import"
+      ],
+      "params": {
+        "Async.VM.import": ["", "http://vm_import_url", "OpaqueRef:5ec2d621-7b62-f571-d38b-754341a973e5", false, false]
+      },
+      "expected_result": {
+        "Async.VM.import": {
+          "result": "OpaqueRef:5task621-7b62-f571-d38b-754341a973e5"
+        }
+      }
+    }
+}

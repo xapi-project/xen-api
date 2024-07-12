@@ -35,7 +35,7 @@ let pool_patch_of_update ~__context update_ref =
   match
     Db.Pool_patch.get_refs_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           Eq (Field "pool_update", Literal (Ref.string_of update_ref))
         )
   with
@@ -124,7 +124,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
    returns [Some (ref, false)] if it's on the host but isn't applied yet or the application is in progress. *)
 let get_patch_applied_to ~__context ~patch ~host =
   let expr =
-    Db_filter_types.(
+    Xapi_database.Db_filter_types.(
       And
         ( Eq (Field "pool_patch", Literal (Ref.string_of patch))
         , Eq (Field "host", Literal (Ref.string_of host))

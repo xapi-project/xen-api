@@ -416,6 +416,17 @@ functor
           Ref.string_of vm_appliance
       with _ -> "invalid"
 
+    let vm_group_uuid ~__context vm_group =
+      try
+        if Pool_role.is_master () then
+          let name = Db.VM_group.get_name_label ~__context ~self:vm_group in
+          Printf.sprintf "%s%s"
+            (Db.VM_group.get_uuid ~__context ~self:vm_group)
+            (add_brackets name)
+        else
+          Ref.string_of vm_group
+      with _ -> "invalid"
+
     let sr_uuid ~__context sr =
       try
         if Pool_role.is_master () then
@@ -1152,6 +1163,10 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_ext_auth_max_threads ~__context ~self ~value
+
+      let get_guest_secureboot_readiness ~__context ~self =
+        info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.get_guest_secureboot_readiness ~__context ~self
     end
 
     module VM = struct
@@ -1346,18 +1361,8 @@ functor
         else
           local_fn ~__context
 
-      (* Clear scheduled_to_be_resident_on for a VM and all its vGPUs. *)
-      let clear_scheduled_to_be_resident_on ~__context ~vm =
-        Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
-          ~value:Ref.null ;
-        List.iter
-          (fun vgpu ->
-            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
-              ~value:Ref.null
-          )
-          (Db.VM.get_VGPUs ~__context ~self:vm)
-
-      let clear_reserved_netsriov_vfs_on ~__context ~vm =
+      let clear_vif_reservations ~__context ~vm =
+        debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
         Db.VM.get_VIFs ~__context ~self:vm
         |> List.iter (fun vif ->
                let vf = Db.VIF.get_reserved_pci ~__context ~self:vif in
@@ -1366,6 +1371,32 @@ functor
                  Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:vf
                    ~value:Ref.null
            )
+
+      let clear_reservations ~__context ~vm =
+        debug "%s VM=%s" __FUNCTION__ (Ref.string_of vm) ;
+        (* host *)
+        Db.VM.set_scheduled_to_be_resident_on ~__context ~self:vm
+          ~value:Ref.null ;
+        (* vgpu *)
+        Db.VM.get_VGPUs ~__context ~self:vm
+        |> List.iter (fun vgpu ->
+               Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
+                 ~value:Ref.null
+           ) ;
+        (* pcis *)
+        Db.PCI.get_refs_where ~__context
+          ~expr:
+            (Eq (Field "scheduled_to_be_attached_to", Literal (Ref.string_of vm))
+            )
+        |> List.iter (function
+             | pci when pci <> Ref.null ->
+                 debug "%s: clearing reservation of PCI %s for VM %s"
+                   __FUNCTION__ (Ref.string_of pci) (Ref.string_of vm) ;
+                 Db.PCI.set_scheduled_to_be_attached_to ~__context ~self:pci
+                   ~value:Ref.null
+             | _ ->
+                 ()
+             )
 
       (* Notes on memory checking/reservation logic:
          When computing the hosts free memory we consider all VMs resident_on (ie running
@@ -1399,8 +1430,8 @@ functor
             (Helpers.will_have_qemu ~__context ~self:vm) ;
           Xapi_network_sriov_helpers.reserve_sriov_vfs ~__context ~host ~vm
         with e ->
-          clear_scheduled_to_be_resident_on ~__context ~vm ;
-          clear_reserved_netsriov_vfs_on ~__context ~vm ;
+          clear_vif_reservations ~__context ~vm ;
+          clear_reservations ~__context ~vm ;
           raise e
 
       (* For start/start_on/resume/resume_on/migrate *)
@@ -1469,7 +1500,7 @@ functor
                   ?host_op () ;
                 (* In certain cases, VM might have been destroyed as a consequence of operation *)
                 if Db.is_valid_ref __context vm then
-                  clear_scheduled_to_be_resident_on ~__context ~vm
+                  clear_reservations ~__context ~vm
             )
           )
 
@@ -1488,7 +1519,7 @@ functor
         finally f (fun () ->
             Helpers.with_global_lock (fun () ->
                 finally_clear_host_operation ~__context ~host ?host_op () ;
-                clear_scheduled_to_be_resident_on ~__context ~vm
+                clear_reservations ~__context ~vm
             )
         )
 
@@ -2106,6 +2137,7 @@ functor
                 ; `hard_reboot
                 ; `pool_migrate
                 ; `call_plugin
+                ; `shutdown
                 ; `suspend
                 ] ;
             (* If VM is actually suspended and we ask to hard_shutdown, we need to
@@ -2544,7 +2576,7 @@ functor
                 Helpers.with_global_lock (fun () ->
                     finally_clear_host_operation ~__context ~host
                       ~host_op:`vm_migrate () ;
-                    clear_scheduled_to_be_resident_on ~__context ~vm
+                    clear_reservations ~__context ~vm
                 )
               in
               finally
@@ -2996,6 +3028,15 @@ functor
           (vm_appliance_uuid ~__context value) ;
         Local.VM.set_appliance ~__context ~self ~value
 
+      let set_groups ~__context ~self ~value =
+        info "VM.set_groups : self = '%s'; value = [ %s ]"
+          (vm_uuid ~__context self)
+          (String.concat "; " (List.map (vm_group_uuid ~__context) value)) ;
+        let original_groups = Db.VM.get_groups ~__context ~self in
+        Local.VM.set_groups ~__context ~self ~value ;
+        Xapi_vm_group_helpers.update_vm_anti_affinity_alert ~__context
+          ~groups:(original_groups @ value)
+
       let import_convert ~__context ~_type ~username ~password ~sr
           ~remote_config =
         info "VM.import_convert: type = '%s'; remote_config = '%s;'" _type
@@ -3037,6 +3078,19 @@ functor
       let restart_device_models ~__context ~self =
         info "VM.restart_device_models: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.restart_device_models ~__context ~self
+
+      let set_uefi_mode ~__context ~self ~mode =
+        info "VM.set_uefi_mode: self = '%s'; mode = '%s'"
+          (vm_uuid ~__context self)
+          (Helpers.uefi_mode_to_string mode) ;
+        (* The redirection to another host is done by the `varstored-sb-state`
+           script which uses xmlrpc to make XAPI calls.
+        *)
+        Local.VM.set_uefi_mode ~__context ~self ~mode
+
+      let get_secureboot_readiness ~__context ~self =
+        info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.get_secureboot_readiness ~__context ~self
     end
 
     module VM_metrics = struct end
@@ -4493,7 +4547,7 @@ functor
         info "Bond.create: network = '%s'; members = [ %s ]"
           (network_uuid ~__context network)
           (String.concat "; " (List.map (pif_uuid ~__context) members)) ;
-        if List.length members = 0 then
+        if members = [] then
           raise
             (Api_errors.Server_error (Api_errors.pif_bond_needs_more_members, [])
             ) ;
@@ -5351,15 +5405,14 @@ functor
 
       let pool_migrate ~__context ~vdi ~sr ~options =
         let vbds =
-          Db.VBD.get_records_where ~__context
-            ~expr:
-              (Db_filter_types.Eq
-                 ( Db_filter_types.Field "VDI"
-                 , Db_filter_types.Literal (Ref.string_of vdi)
-                 )
-              )
+          let expr =
+            Xapi_database.Db_filter_types.(
+              Eq (Field "VDI", Literal (Ref.string_of vdi))
+            )
+          in
+          Db.VBD.get_records_where ~__context ~expr
         in
-        if List.length vbds < 1 then
+        if vbds = [] then
           raise
             (Api_errors.Server_error
                (Api_errors.vdi_needs_vm_for_migrate, [Ref.string_of vdi])
@@ -5867,7 +5920,31 @@ functor
 
     module Secret = Local.Secret
 
-    module PCI = struct end
+    module PCI = struct
+      let disable_dom0_access ~__context ~self =
+        info "PCI.disable_dom0_access: pci = '%s'" (pci_uuid ~__context self) ;
+        let host = Db.PCI.get_host ~__context ~self in
+        let local_fn = Local.PCI.disable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.PCI.disable_dom0_access ~rpc ~session_id ~self
+        )
+
+      let enable_dom0_access ~__context ~self =
+        info "PCI.enable_dom0_access: pci = '%s'" (pci_uuid ~__context self) ;
+        let host = Db.PCI.get_host ~__context ~self in
+        let local_fn = Local.PCI.enable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.PCI.enable_dom0_access ~rpc ~session_id ~self
+        )
+
+      let get_dom0_access_status ~__context ~self =
+        info "PCI.get_dom0_access_status: pci = '%s'" (pci_uuid ~__context self) ;
+        let host = Db.PCI.get_host ~__context ~self in
+        let local_fn = Local.PCI.get_dom0_access_status ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.PCI.get_dom0_access_status ~rpc ~session_id ~self
+        )
+    end
 
     module VTPM = struct
       let create ~__context ~vM ~is_unique =
@@ -6342,6 +6419,14 @@ functor
                ) ;
                debug "Cluster.pool_resync for host %s" (Ref.string_of host)
            )
+
+      let cstack_sync ~__context ~self =
+        info "Cluster.cstack_sync cluster %s" (Ref.string_of self) ;
+        let local_fn = Local.Cluster.cstack_sync ~self in
+        let coor = Helpers.get_master ~__context in
+        do_op_on ~local_fn ~__context ~host:coor (fun session_id rpc ->
+            Client.Cluster.cstack_sync ~rpc ~session_id ~self
+        )
     end
 
     module Cluster_host = struct
@@ -6509,6 +6594,23 @@ functor
             Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
               ~base_build_id ~base_version ~base_release ~to_version ~to_release
         )
+    end
+
+    module VM_group = struct
+      let create ~__context ~name_label ~name_description ~placement =
+        info
+          "VM_group.create: name_label = '%s'; name_description = '%s'; \
+           placement = '%s'"
+          name_label name_description
+          (Record_util.vm_placement_policy_to_string placement) ;
+        Local.VM_group.create ~__context ~name_label ~name_description
+          ~placement
+
+      let destroy ~__context ~self =
+        info "VM_group.destroy: self = '%s'" (vm_group_uuid ~__context self) ;
+        Xapi_vm_group_helpers.remove_vm_anti_affinity_alert ~__context
+          ~groups:[self] ;
+        Local.VM_group.destroy ~__context ~self
     end
 
     module Observer = struct

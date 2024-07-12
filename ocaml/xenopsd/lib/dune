@@ -6,6 +6,7 @@
    astring
    c_stubs
    cohttp
+   cohttp_posix
    fd-send-recv
    fmt
    forkexec
@@ -42,6 +43,7 @@
    xapi-stdext-threads
    xapi-stdext-unix
    xapi-tracing
+   xapi-tracing-export
    xmlm
  )
  (preprocess

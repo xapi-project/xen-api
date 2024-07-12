@@ -125,9 +125,8 @@ module Domain = struct
   (* get_per_domain can return None if the domain is deleted by someone else
      while we are processing some other event handlers *)
   let get_per_domain xc domid =
-    if Hashtbl.mem cache domid then
-      Some (Hashtbl.find cache domid)
-    else
+    match Hashtbl.find_opt cache domid with
+    | None -> (
       try
         let path = Printf.sprintf "/local/domain/%d" domid in
         let di = Xenctrl.domain_getinfo xc domid in
@@ -143,6 +142,9 @@ module Domain = struct
         Hashtbl.replace cache domid d ;
         Some d
       with Xenctrl.Error _ -> Hashtbl.remove cache domid ; None
+    )
+    | x ->
+        x
 
   let remove_gone_domains_cache xc =
     let current_domains = Xenctrl.domain_getinfolist xc 0 in
@@ -385,10 +387,11 @@ module Domain = struct
           match get_per_domain xc domid with
           | None ->
               None
-          | Some per_domain ->
-              if Hashtbl.mem per_domain.keys key then
-                Hashtbl.find per_domain.keys key
-              else
+          | Some per_domain -> (
+            match Hashtbl.find_opt per_domain.keys key with
+            | Some x ->
+                x
+            | None ->
                 let x =
                   try
                     Some
@@ -400,6 +403,7 @@ module Domain = struct
                 in
                 Hashtbl.replace per_domain.keys key x ;
                 x
+          )
       )
     in
     match x with Some y -> y | None -> raise (Xs_protocol.Enoent key)
@@ -412,10 +416,8 @@ module Domain = struct
     | None ->
         ()
     | Some per_domain -> (
-        if
-          (not (Hashtbl.mem per_domain.keys key))
-          || Hashtbl.find per_domain.keys key <> Some value
-        then
+        if Option.join (Hashtbl.find_opt per_domain.keys key) <> Some value then
+          (* Don't update if there is the same value bound already *)
           try
             Client.transaction (get_client ()) (fun t ->
                 (* Fail if the directory has been deleted *)
@@ -581,7 +583,7 @@ let make_host ~verbose ~xc =
       1024L
     <> 0L
   do
-    ignore (Unix.select [] [] [] 0.25)
+    Thread.delay 0.25
   done ;
 
   (* Some VMs are considered by us (but not by xen) to have an
@@ -857,7 +859,7 @@ let io ~xc ~verbose =
       (fun domid kib ->
         execute_action ~xc {Squeeze.action_domid= domid; new_target_kib= kib}
       )
-  ; wait= (fun delay -> ignore (Unix.select [] [] [] delay))
+  ; wait= (fun delay -> Thread.delay delay)
   ; execute_action= (fun action -> execute_action ~xc action)
   ; target_host_free_mem_kib
   ; free_memory_tolerance_kib

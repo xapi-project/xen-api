@@ -246,6 +246,7 @@ let _record_login_failure ~__context ~now ~uname ~originator ~record f =
       on_fail e
 
 let record_login_failure ~__context ~uname ~originator ~record f =
+  Context.with_tracing ?originator ~__context __FUNCTION__ @@ fun __context ->
   let now = Unix.time () |> Date.of_float in
   _record_login_failure ~__context ~now ~uname ~originator ~record f
 
@@ -305,6 +306,7 @@ let trackid session_id = Context.trackid_of_session (Some session_id)
 (* finds the intersection between group_membership_closure and pool's table of subject_ids *)
 let get_intersection ~__context subject_ids_in_db subject_identifier
     group_membership_closure =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let reflexive_membership_closure =
     subject_identifier :: group_membership_closure
   in
@@ -314,6 +316,7 @@ let get_intersection ~__context subject_ids_in_db subject_identifier
   intersection
 
 let get_subject_in_intersection ~__context subjects_in_db intersection =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   List.find
     (fun subj ->
       (* is this the subject ref that returned the non-empty intersection?*)
@@ -323,6 +326,7 @@ let get_subject_in_intersection ~__context subjects_in_db intersection =
     subjects_in_db
 
 let get_permissions ~__context ~subject_membership =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   (* see also rbac.ml *)
   let get_union_of_subsets ~get_subset_fn ~set =
     Listext.List.setify
@@ -351,6 +355,7 @@ let get_permissions ~__context ~subject_membership =
 
 (* CP-827: finds out if the subject was suspended (ie. disabled,expired,locked-out) *)
 let is_subject_suspended ~__context ~cache subject_identifier =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   (* obtains the subject's info containing suspension information *)
   let info =
     try
@@ -409,6 +414,7 @@ let is_subject_suspended ~__context ~cache subject_identifier =
   (is_suspended, subject_name)
 
 let destroy_db_session ~__context ~self =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   Xapi_event.on_session_deleted self ;
   (* unregister from the event system *)
   (* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
@@ -425,13 +431,14 @@ let destroy_db_session ~__context ~self =
 (* in response to external authentication/directory services updates, such as *)
 (* e.g. group membership changes, or even account disabled *)
 let revalidate_external_session ~__context ~session =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   try
     (* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
     (* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
     if
       not
         (Db.Session.get_is_local_superuser ~__context ~self:session
-        || Db_backend.is_session_registered (Ref.string_of session)
+        || Xapi_database.Db_backend.is_session_registered (Ref.string_of session)
         )
     then (
       (* 1. is the external authentication disabled in the pool? *)
@@ -515,7 +522,7 @@ let revalidate_external_session ~__context ~session =
               in
               debug "verified intersection for session %s, sid %s "
                 (trackid session) authenticated_user_sid ;
-              let in_intersection = List.length intersection > 0 in
+              let in_intersection = intersection <> [] in
               if not in_intersection then (
                 (* empty intersection: externally-authenticated subject no longer has login rights in the pool *)
                 let msg =
@@ -592,6 +599,7 @@ let revalidate_external_session ~__context ~session =
 (* in response to external authentication/directory services updates, such as *)
 (* e.g. group membership changes, or even account disabled *)
 let revalidate_all_sessions ~__context =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   try
     debug "revalidating all external sessions in the local host" ;
     (* obtain all sessions in the pool *)
@@ -618,6 +626,7 @@ let revalidate_all_sessions ~__context =
 let login_no_password_common ~__context ~uname ~originator ~host ~pool
     ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
     ~rbac_permissions ~db_ref ~client_certificate =
+  Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
   let create_session () =
     let session_id = Ref.make () in
     let uuid = Uuidx.to_string (Uuidx.make ()) in
@@ -653,7 +662,8 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     Ref.of_string
       ( match db_ref with
       | Some db_ref ->
-          Db_backend.create_registered_session create_session db_ref
+          Xapi_database.Db_backend.create_registered_session create_session
+            db_ref
       | None ->
           create_session ()
       )
@@ -669,6 +679,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
    Needs to be protected by a proper access control system *)
 let login_no_password ~__context ~uname ~host ~pool ~is_local_superuser ~subject
     ~auth_user_sid ~auth_user_name ~rbac_permissions =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   login_no_password_common ~__context ~uname
     ~originator:xapi_internal_originator ~host ~pool ~is_local_superuser
     ~subject ~auth_user_sid ~auth_user_name ~rbac_permissions ~db_ref:None
@@ -688,6 +699,7 @@ let consider_touching_session rpc session_id =
 
 (* Make sure the pool secret matches *)
 let slave_login_common ~__context ~host_str ~psecret =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   if not (Helpers.PoolSecret.is_authorized psecret) then (
     let msg = "Pool credentials invalid" in
     debug "Failed to authenticate slave %s: %s" host_str msg ;
@@ -697,6 +709,7 @@ let slave_login_common ~__context ~host_str ~psecret =
 
 (* Normal login, uses the master's database *)
 let slave_login ~__context ~host ~psecret =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   slave_login_common ~__context ~host_str:(Ref.string_of host) ~psecret ;
   login_no_password ~__context ~uname:None ~host ~pool:true
     ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
@@ -704,12 +717,14 @@ let slave_login ~__context ~host ~psecret =
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login ~__context ~psecret =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   slave_login_common ~__context ~host_str:"localhost" ~psecret ;
   debug "Add session to local storage" ;
   Xapi_local_session.create ~__context ~pool:true
 
 (* Emergency mode login, uses local storage *)
 let slave_local_login_with_password ~__context ~uname ~pwd =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let pwd = Bytes.of_string pwd in
   wipe_params_after_fn [pwd] (fun () ->
       if Context.preauth ~__context <> Some `root then (
@@ -741,6 +756,7 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
       against the local superuser credentials
 *)
 let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
+  Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
   let pwd = Bytes.of_string pwd in
   wipe_params_after_fn [pwd] (fun () ->
       (* !!! Do something with the version number *)
@@ -996,7 +1012,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                       intersect reflexive_membership_closure subject_ids_in_db
                     in
                     (* 2.3. finally, we create the session for the authenticated subject if any membership intersection was found *)
-                    let in_intersection = List.length intersection > 0 in
+                    let in_intersection = intersection <> [] in
                     if not in_intersection then (
                       (* empty intersection: externally-authenticated subject has no login rights in the pool *)
                       let msg =
@@ -1037,7 +1053,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                         get_permissions ~__context ~subject_membership
                       in
                       (* CP-1260: If a subject has no roles assigned, then authentication will fail with an error such as PERMISSION_DENIED.*)
-                      if List.length rbac_permissions < 1 then (
+                      if rbac_permissions = [] then (
                         let msg =
                           Printf.sprintf
                             "Subject %s (identifier %s) has no roles in this \
@@ -1137,6 +1153,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
   )
 
 let change_password ~__context ~old_pwd ~new_pwd =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let old_pwd = Bytes.of_string old_pwd in
   let new_pwd = Bytes.of_string new_pwd in
   wipe_params_after_fn [old_pwd; new_pwd] (fun () ->
@@ -1203,14 +1220,17 @@ let change_password ~__context ~old_pwd ~new_pwd =
   )
 
 let logout ~__context =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let session_id = Context.get_session_id __context in
   destroy_db_session ~__context ~self:session_id
 
 let local_logout ~__context =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let session_id = Context.get_session_id __context in
   Xapi_local_session.destroy ~__context ~self:session_id
 
 let get_group_subject_identifier_from_session ~__context ~session =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let subj = Db.Session.get_subject ~__context ~self:session in
   try Db.Subject.get_subject_identifier ~__context ~self:subj with
   | Db_exn.DBCache_NotFound ("missing row", _, _) ->
@@ -1224,6 +1244,7 @@ let get_group_subject_identifier_from_session ~__context ~session =
       ""
 
 let get_all_subject_identifiers ~__context =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let all_sessions = Db.Session.get_all ~__context in
   let all_extauth_sessions =
     List.filter
@@ -1255,6 +1276,7 @@ let get_all_subject_identifiers ~__context =
     (all_auth_user_sids_in_sessions @ all_subject_list_sids_in_sessions)
 
 let logout_subject_identifier ~__context ~subject_identifier =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let all_sessions = Db.Session.get_all ~__context in
   let current_session = Context.get_session_id __context in
   (* we filter the sessions to be destroyed *)
@@ -1328,6 +1350,7 @@ let get_top ~__context ~self =
 
 (* This function should only be called from inside XAPI. *)
 let create_readonly_session ~__context ~uname ~db_ref =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   debug "Creating readonly session." ;
   let role =
     List.hd
@@ -1346,9 +1369,10 @@ let create_readonly_session ~__context ~uname ~db_ref =
 
 (* Create a database reference from a DB dump, and register it with a new readonly session. *)
 let create_from_db_file ~__context ~filename =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   let db =
-    Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename
-    |> Db_upgrade.generic_database_upgrade
+    Xapi_database.Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename
+    |> Xapi_database.Db_upgrade.generic_database_upgrade
   in
-  let db_ref = Some (Db_ref.in_memory (ref (ref db))) in
+  let db_ref = Some (Xapi_database.Db_ref.in_memory (ref (ref db))) in
   create_readonly_session ~__context ~uname:"db-from-file" ~db_ref

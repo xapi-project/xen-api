@@ -155,21 +155,21 @@ let valid_operations ~__context record _ref' : table =
   table
 
 let throw_error (table : table) op =
-  if not (Hashtbl.mem table op) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.internal_error
-         , [
-             Printf.sprintf
-               "xapi_vif_helpers.assert_operation_valid unknown operation: %s"
-               (vif_operation_to_string op)
-           ]
-         )
-      ) ;
-  match Hashtbl.find table op with
-  | Some (code, params) ->
-      raise (Api_errors.Server_error (code, params))
+  match Hashtbl.find_opt table op with
   | None ->
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.internal_error
+           , [
+               Printf.sprintf
+                 "xapi_vif_helpers.assert_operation_valid unknown operation: %s"
+                 (vif_operation_to_string op)
+             ]
+           )
+        )
+  | Some (Some (code, params)) ->
+      raise (Api_errors.Server_error (code, params))
+  | Some None ->
       ()
 
 let assert_operation_valid ~__context ~self ~(op : API.vif_operations) =
@@ -366,10 +366,10 @@ let copy ~__context ~vm ~preserve_mac_address vif =
       ~ipv6_addresses:all.API.vIF_ipv6_addresses
       ~ipv6_gateway:all.API.vIF_ipv6_gateway
   in
-  let proxies =
-    Db.PVS_proxy.get_records_where ~__context
-      ~expr:Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vif)))
+  let expr =
+    Xapi_database.Db_filter_types.(Eq (Field "VIF", Literal (Ref.string_of vif)))
   in
+  let proxies = Db.PVS_proxy.get_records_where ~__context ~expr in
   List.iter
     (fun (_, proxy) ->
       try

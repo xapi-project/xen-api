@@ -55,6 +55,7 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
   ignore
     (Thread.create
        (fun () ->
+         let open Xapi_database in
          Thread.delay new_fuse_length ;
          debug "light_fuse_and_run: calling flush and exit" ;
          (* CA-16368: If the database hasn't been initialised *at all* we can exit immediately.
@@ -112,6 +113,7 @@ let light_fuse_and_dont_restart ?(fuse_length = !Constants.fuse_time) () =
   ignore
     (Thread.create
        (fun () ->
+         let open Xapi_database in
          debug
            "light_fuse_and_dont_restart: calling Rrdd.backup_rrds to save \
             current RRDs locally" ;

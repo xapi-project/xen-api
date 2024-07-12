@@ -749,50 +749,41 @@ let vtpm_update_allowed_operations ~__context ~self =
   let allowed = match state with `Halted -> ops | _ -> [] in
   Db.VTPM.set_allowed_operations ~__context ~self ~value:allowed
 
+let ignored_ops =
+  [
+    `create_template
+  ; `power_state_reset
+  ; `csvm
+  ; `get_boot_record
+  ; `send_sysrq
+  ; `send_trigger
+  ; `query_services
+  ; `shutdown
+  ; `call_plugin
+  ; `changing_memory_live
+  ; `awaiting_memory_live
+  ; `changing_memory_limits
+  ; `changing_shadow_memory_live
+  ; `changing_VCPUs
+  ; `assert_operation_valid
+  ; `data_source_op
+  ; `update_allowed_operations
+  ; `import
+  ; `reverting
+  ]
+
+let allowable_ops =
+  List.filter (fun op -> not (List.mem op ignored_ops)) API.vm_operations__all
+
 let update_allowed_operations ~__context ~self =
-  let check_operation_error = check_operation_error ~__context ~ref:self in
   let check accu op =
-    match check_operation_error ~op ~strict:true with
+    match check_operation_error ~__context ~ref:self ~op ~strict:true with
     | None ->
         op :: accu
-    | _ ->
+    | Some _err ->
         accu
   in
-  let allowed =
-    List.fold_left check []
-      [
-        `snapshot
-      ; `copy
-      ; `clone
-      ; `revert
-      ; `checkpoint
-      ; `snapshot_with_quiesce
-      ; `start
-      ; `start_on
-      ; `pause
-      ; `unpause
-      ; `clean_shutdown
-      ; `clean_reboot
-      ; `hard_shutdown
-      ; `hard_reboot
-      ; `suspend
-      ; `resume
-      ; `resume_on
-      ; `export
-      ; `destroy
-      ; `provision
-      ; `changing_VCPUs_live
-      ; `pool_migrate
-      ; `migrate_send
-      ; `make_into_template
-      ; `changing_static_range
-      ; `changing_shadow_memory
-      ; `changing_dynamic_range
-      ; `changing_NVRAM
-      ; `create_vtpm
-      ; `metadata_export
-      ]
-  in
+  let allowed = List.fold_left check [] allowable_ops in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
   let allowed =
     if Helpers.rolling_upgrade_in_progress ~__context then
@@ -859,6 +850,7 @@ let remove_pending_guidance ~__context ~self ~value =
     2. Called on update VM when the power state changes *)
 let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   (* First update the power_state. Some operations below indirectly rely on this. *)
+  let old_state = Db.VM.get_power_state ~__context ~self in
   Db.VM.set_power_state ~__context ~self ~value:state ;
   if state = `Suspended then
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
@@ -950,6 +942,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       (Db.PCI.get_all ~__context)
   ) ;
   update_allowed_operations ~__context ~self ;
+  if old_state <> state && (old_state = `Running || state = `Running) then
+    Xapi_vm_group_helpers.maybe_update_vm_anti_affinity_alert_for_vm ~__context
+      ~vm:self ;
   if state = `Halted then (* archive the rrd for this vm *)
     let vm_uuid = Db.VM.get_uuid ~__context ~self in
     let master_address = Pool_role.get_master_address_opt () in

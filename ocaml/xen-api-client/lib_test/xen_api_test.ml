@@ -12,12 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open OUnit
-
-let ( |> ) a b = b a
-
-let id x = x
-
 open Xen_api
 
 module Fake_IO = struct
@@ -26,14 +20,6 @@ module Fake_IO = struct
   let return x = T x
 
   let ( >>= ) t f = match t with T x -> f x
-
-  let ( >> ) m n = m >>= fun _ -> n
-
-  let rec iter f = function
-    | [] ->
-        return ()
-    | x :: xs ->
-        f x >>= fun () -> iter f xs
 
   type ic = string Queue.t
 
@@ -55,24 +41,6 @@ module Fake_IO = struct
     (*		Printf.fprintf stderr "read %d\n%!" n;*)
     assert (String.length chunk <= n) ;
     return chunk
-
-  let read_exactly ic buf off len =
-    return
-      ( if Queue.is_empty ic then
-          false
-        else
-          let chunk = Queue.pop ic in
-          String.blit chunk 0 buf off len ;
-          true
-      )
-
-  let read_exactly ic len =
-    let buf = Bytes.create len in
-    read_exactly ic buf 0 len >>= function
-    | true ->
-        return (Some buf)
-    | false ->
-        return None
 
   let write oc string = Queue.push string oc ; return ()
 
@@ -108,7 +76,7 @@ end
 
 module C = Client.Client
 
-let test_login_fail _ =
+let test_login_fail () =
   let module M = Xen_api.Make (Fake_IO) in
   let open Fake_IO in
   let rpc req =
@@ -129,11 +97,11 @@ let test_login_fail _ =
       ()
     with Xen_api.No_response -> ()
   ) ;
-  assert_equal ~printer:string_of_float ~msg:"timeofday" 31. !timeofday ;
-  assert_equal ~printer:string_of_int ~msg:"num_sleeps" 31 !num_sleeps ;
+  Alcotest.(check @@ float Float.epsilon) "timeofday" 31. !timeofday ;
+  Alcotest.(check int) "num_sleeps" 31 !num_sleeps ;
   ()
 
-let test_login_success _ =
+let test_login_success () =
   let session_id = "OpaqueRef:9e9cf047-76d7-9f3a-62ca-cb7bacf5a4e1" in
   let result =
     Printf.sprintf
@@ -169,20 +137,15 @@ let test_login_success _ =
     C.Session.login_with_password ~rpc ~uname:"root" ~pwd:"password"
       ~version:"1.0" ~originator:"xen-api test"
   in
-  assert_equal ~msg:"session_id" session_id (API.Ref.string_of session_id')
+  Alcotest.(check string) "session_id" session_id (API.Ref.string_of session_id')
 
-let _ =
-  let verbose = ref false in
-  Arg.parse
-    [("-verbose", Arg.Unit (fun _ -> verbose := true), "Run in verbose mode")]
-    (fun x -> Printf.fprintf stderr "Ignoring argument: %s" x)
-    "Test xen-api protocol code" ;
-
-  let suite =
-    "xen-api"
-    >::: [
-           "login_fail" >:: test_login_fail
-         ; "login_success" >:: test_login_success
-         ]
-  in
-  run_test_tt ~verbose:!verbose suite
+let () =
+  Alcotest.run "xen-api-client"
+    [
+      ( "login"
+      , [
+          ("fail", `Quick, test_login_fail)
+        ; ("success", `Quick, test_login_success)
+        ]
+      )
+    ]

@@ -245,14 +245,10 @@ let remove_from_roles ~__context ~self ~role =
   )
 
 let query_subject_information_from_db ~__context identifier =
+  let open Xapi_database.Db_filter_types in
   match
     Db.Subject.get_records_where ~__context
-      ~expr:
-        (Db_filter_types.Eq
-           ( Db_filter_types.Field "subject_identifier"
-           , Db_filter_types.Literal identifier
-           )
-        )
+      ~expr:(Eq (Field "subject_identifier", Literal identifier))
   with
   | [] ->
       raise Auth_signature.Subject_cannot_be_resolved

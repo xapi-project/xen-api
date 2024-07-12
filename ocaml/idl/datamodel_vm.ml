@@ -1514,6 +1514,16 @@ let set_appliance =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let set_groups =
+  call ~name:"set_groups" ~lifecycle:[] ~doc:"Associate this VM with VM groups."
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (Set (Ref _vm_group), "value", "The VM groups to set")
+      ]
+    ~errs:[Api_errors.operation_not_allowed]
+    ~allowed_roles:_R_VM_ADMIN ()
+
 let call_plugin =
   call ~name:"call_plugin" ~in_product_since:rel_cream
     ~doc:"Call an API plugin on this vm"
@@ -1701,6 +1711,67 @@ let restart_device_models =
     ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
     ()
 
+let vm_uefi_mode =
+  Enum
+    ( "vm_uefi_mode"
+    , [
+        ( "setup"
+        , "clears a VM's EFI variables related to Secure Boot and places it \
+           into Setup Mode"
+        )
+      ; ( "user"
+        , "resets a VM's EFI variables related to Secure Boot to the defaults, \
+           placing it into User Mode"
+        )
+      ]
+    )
+
+let set_uefi_mode =
+  call ~name:"set_uefi_mode" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (vm_uefi_mode, "mode", "The UEFI mode to set")
+      ]
+    ~result:(String, "Result from the varstore-sb-state call")
+    ~doc:"Set the UEFI mode of a VM" ~allowed_roles:_R_POOL_ADMIN ()
+
+let vm_secureboot_readiness =
+  Enum
+    ( "vm_secureboot_readiness"
+    , [
+        ("not_supported", "VM's firmware is not UEFI")
+      ; ("disabled", "Secureboot is disabled on this VM")
+      ; ( "first_boot"
+        , "Secured boot is enabled on this VM and its NVRAM.EFI-variables are \
+           empty"
+        )
+      ; ( "ready"
+        , "Secured boot is enabled on this VM and PK, KEK, db and dbx are \
+           defined in its EFI variables"
+        )
+      ; ( "ready_no_dbx"
+        , "Secured boot is enabled on this VM and PK, KEK, db but not dbx are \
+           defined in its EFI variables"
+        )
+      ; ( "setup_mode"
+        , "Secured boot is enabled on this VM and PK is not defined in its EFI \
+           variables"
+        )
+      ; ( "certs_incomplete"
+        , "Secured boot is enabled on this VM and the certificates defined in \
+           its EFI variables are incomplete"
+        )
+      ]
+    )
+
+let get_secureboot_readiness =
+  call ~name:"get_secureboot_readiness" ~lifecycle:[]
+    ~params:[(Ref _vm, "self", "The VM")]
+    ~result:(vm_secureboot_readiness, "The secureboot readiness of the VM")
+    ~doc:"Return the secureboot readiness of the VM"
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** VM (or 'guest') configuration: *)
 let t =
   create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -1826,6 +1897,7 @@ let t =
       ; recover
       ; import_convert
       ; set_appliance
+      ; set_groups
       ; query_services
       ; call_plugin
       ; set_has_vendor_device
@@ -1835,6 +1907,8 @@ let t =
       ; set_HVM_boot_policy
       ; set_NVRAM_EFI_variables
       ; restart_device_models
+      ; set_uefi_mode
+      ; get_secureboot_readiness
       ]
     ~contents:
       ([uid _vm]
@@ -2092,35 +2166,16 @@ let t =
             "hardware_platform_version"
             "The host virtual hardware platform version the VM can run on"
         ; field ~qualifier:StaticRO
-            ~lifecycle:[(Published, rel_dundee, "")]
-            ~doc_tags:[Windows]
-            ~default_value:
-              (Some
-                 (VCustom
-                    ( String.concat "\n"
-                        [
-                          "(try Rpc.Bool ("
-                        ; "let pool = List.hd \
-                           (Db_actions.DB_Action.Pool.get_all ~__context) in"
-                        ; "let restrictions = \
-                           Db_actions.DB_Action.Pool.get_restrictions \
-                           ~__context ~self:pool in "
-                        ; "let vendor_device_allowed = try List.assoc \
-                           \"restrict_pci_device_for_auto_update\" \
-                           restrictions = \"false\" with _ -> false in"
-                        ; "let policy_says_its_ok = not \
-                           (Db_actions.DB_Action.Pool.get_policy_no_vendor_device \
-                           ~__context ~self:pool) in"
-                        ; "vendor_device_allowed && policy_says_its_ok) with e \
-                           -> D.error \"Failure when defaulting \
-                           has_vendor_device field: %s\" (Printexc.to_string \
-                           e); Rpc.Bool false)"
-                        ]
-                    , VBool false
-                    )
-                 )
-              )
-            ~ty:Bool "has_vendor_device"
+            ~lifecycle:
+              [
+                (Published, rel_dundee, "")
+              ; ( Changed
+                , "24.14.0"
+                , "New default and not consulting Pool.policy_no_vendor_device"
+                )
+              ]
+            ~doc_tags:[Windows] ~default_value:(Some (VBool true)) ~ty:Bool
+            "has_vendor_device"
             "When an HVM guest starts, this controls the presence of the \
              emulated C000 PCI device which triggers Windows Update to fetch \
              or update PV drivers."
@@ -2174,6 +2229,8 @@ let t =
              user should follow to make some updates, e.g. specific hardware \
              drivers or CPU features, fully effective, but the 'average user' \
              doesn't need to"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set (Ref _vm_group))
+            "groups" "VM groups associated with the VM"
         ]
       )
     ()

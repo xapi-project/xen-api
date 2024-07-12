@@ -207,7 +207,10 @@ namespace Citrix.XenServer.Commands
                     }
                     catch (WebException e)
                     {
-                        if (e.InnerException?.InnerException is CertificateValidationException ex)
+                        var inner = e.InnerException?.InnerException ?? //.NET case
+                                    e.InnerException; //.NET Framework case
+
+                        if (inner is CertificateValidationException ex)
                         {
                             if (ShouldContinue(ex.Message, ex.Caption))
                             {

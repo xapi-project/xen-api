@@ -35,27 +35,38 @@ let stunnel_logger = ref ignore
 let timeoutidle = ref None
 
 let init_stunnel_path () =
-  try cached_stunnel_path := Some (Unix.getenv "XE_STUNNEL")
-  with Not_found ->
-    let choices =
-      [
-        "/opt/xensource/libexec/stunnel/stunnel"
-      ; "/usr/sbin/stunnel4"
-      ; "/usr/sbin/stunnel"
-      ; "/usr/bin/stunnel4"
-      ; "/usr/bin/stunnel"
-      ]
-    in
-    let rec choose l =
-      match l with
-      | [] ->
-          raise Stunnel_binary_missing
-      | p :: ps -> (
-        try Unix.access p [Unix.X_OK] ; p with _ -> choose ps
+  cached_stunnel_path :=
+    Some
+      ( match Sys.getenv_opt "XE_STUNNEL" with
+      | Some x ->
+          x
+      | None ->
+          let choices =
+            [
+              "/opt/xensource/libexec/stunnel/stunnel"
+            ; "/usr/sbin/stunnel4"
+            ; "/usr/sbin/stunnel"
+            ; "/usr/bin/stunnel4"
+            ; "/usr/bin/stunnel"
+            ]
+          in
+
+          let choose l =
+            match
+              List.find_opt
+                (fun el ->
+                  try Unix.access el [Unix.X_OK] ; true with _ -> false
+                )
+                l
+            with
+            | Some p ->
+                p
+            | None ->
+                raise Stunnel_binary_missing
+          in
+          let path = choose choices in
+          path
       )
-    in
-    let path = choose choices in
-    cached_stunnel_path := Some path
 
 let stunnel_path () =
   if Option.is_none !cached_stunnel_path then
@@ -150,7 +161,8 @@ let debug_conf_of_bool verbose : string =
   if verbose then "debug=authpriv.7" else "debug=authpriv.5"
 
 let debug_conf_of_env () : string =
-  (try Unix.getenv "debug_stunnel" with _ -> "") |> String.lowercase_ascii
+  Option.value (Sys.getenv_opt "debug_stunnel") ~default:""
+  |> String.lowercase_ascii
   |> fun x -> List.mem x ["yes"; "true"; "1"] |> debug_conf_of_bool
 
 let config_file ?(accept = None) config host port =
@@ -391,7 +403,7 @@ let rec retry f = function
     try f ()
     with Stunnel_initialisation_failed ->
       (* Leave a few seconds between each attempt *)
-      ignore (Unix.select [] [] [] 3.) ;
+      Thread.delay 3. ;
       retry f (n - 1)
   )
 

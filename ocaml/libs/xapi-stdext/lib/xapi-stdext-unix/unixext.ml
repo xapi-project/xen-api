@@ -383,7 +383,7 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout = 10.) pid =
       let cmdline = readcmdline pid in
       if cmdline = reference then (
         (* still up, let's sleep a bit *)
-        ignore (Unix.select [] [] [] loop_time_waiting) ;
+        Thread.delay loop_time_waiting ;
         left := !left -. loop_time_waiting
       ) else (* not the same, it's gone ! *)
         quit := true
@@ -422,6 +422,11 @@ let string_of_signal x =
   else
     Printf.sprintf "(ocaml signal %d with an unknown name)" x
 
+let with_polly f =
+  let polly = Polly.create () in
+  let finally () = Polly.close polly in
+  Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f polly) finally
+
 let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
   let size = 64 * 1024 in
   (* [a'] is read from [a] and will be written to [b] *)
@@ -429,24 +434,38 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
   let a' = CBuf.empty size and b' = CBuf.empty size in
   Unix.set_nonblock a ;
   Unix.set_nonblock b ;
+  with_polly @@ fun polly ->
+  Polly.add polly a Polly.Events.empty ;
+  Polly.add polly b Polly.Events.empty ;
   try
     while true do
-      let r =
-        (if CBuf.should_read a' then [a] else [])
-        @ if CBuf.should_read b' then [b] else []
-      in
-      let w =
-        (if CBuf.should_write a' then [b] else [])
-        @ if CBuf.should_write b' then [a] else []
+      (* use oneshot notification so that we can use Polly.mod as needed to reenable,
+         but it will disable itself each turn *)
+      let a_events =
+        Polly.Events.(
+          (if CBuf.should_read a' then inp lor oneshot else empty)
+          lor if CBuf.should_write b' then out lor oneshot else empty
+        )
+      and b_events =
+        Polly.Events.(
+          (if CBuf.should_read b' then inp lor oneshot else empty)
+          lor if CBuf.should_write a' then out lor oneshot else empty
+        )
       in
       (* If we can't make any progress (because fds have been closed), then stop *)
-      if r = [] && w = [] then raise End_of_file ;
-      let r, w, _ = Unix.select r w [] (-1.0) in
-      (* Do the writing before the reading *)
-      List.iter
-        (fun fd -> if a = fd then CBuf.write b' a else CBuf.write a' b)
-        w ;
-      List.iter (fun fd -> if a = fd then CBuf.read a' a else CBuf.read b' b) r ;
+      if Polly.Events.(a_events lor b_events = empty) then raise End_of_file ;
+
+      if Polly.Events.(a_events <> empty) then
+        Polly.upd polly a a_events ;
+      if Polly.Events.(b_events <> empty) then
+        Polly.upd polly b b_events ;
+      Polly.wait_fold polly 4 (-1) () (fun _polly fd events () ->
+          (* Do the writing before the reading *)
+          if Polly.Events.(test out events) then
+            if a = fd then CBuf.write b' a else CBuf.write a' b ;
+          if Polly.Events.(test inp events) then
+            if a = fd then CBuf.read a' a else CBuf.read b' b
+      ) ;
       (* If there's nothing else to read or write then signal the other end *)
       List.iter
         (fun (buf, fd) ->
@@ -528,32 +547,69 @@ let really_read_string fd length =
 
 exception Timeout
 
+let to_milliseconds ms = ms *. 1000. |> ceil |> int_of_float
+
+(* Allocating a new polly and waiting like this results in at least 3 syscalls.
+   An alternative for sockets would be to use [setsockopt],
+   but that would need 3 system calls too:
+
+   [fstat] to check that it is not a pipe
+    (you'd risk getting stuck forever without [select/poll/epoll] there)
+   [setsockopt_float] to set the timeout
+   [clear_nonblock] to ensure the socket is non-blocking
+*)
+let with_polly_wait kind fd f =
+  match Unix.(LargeFile.fstat fd).st_kind with
+  | S_DIR ->
+      failwith "File descriptor cannot be a directory for read/write"
+  | S_LNK ->
+      (* should never happen, the file is already open and OCaml doesn't support O_SYMLINK to open the link itself *)
+      failwith "cannot read/write into a symbolic link"
+  | S_REG | S_BLK ->
+      (* the best we can do is to split up the read/write operation into 64KiB chunks,
+         and check the timeout after each chunk.
+         select() would've silently succeeded here, whereas epoll() is stricted and returns EPERM
+      *)
+      let wait remaining_time = if remaining_time < 0. then raise Timeout in
+      f wait fd
+  | S_CHR | S_FIFO | S_SOCK ->
+      with_polly @@ fun polly ->
+      Polly.add polly fd kind ;
+      let wait remaining_time =
+        let milliseconds = to_milliseconds remaining_time in
+        if milliseconds <= 0 then raise Timeout ;
+        let ready =
+          Polly.wait polly 1 milliseconds @@ fun _ event_on_fd _ ->
+          assert (event_on_fd = fd)
+        in
+        if ready = 0 then raise Timeout
+      in
+      f wait fd
+
 (* Write as many bytes to a file descriptor as possible from data before a given clock time. *)
 (* Raises Timeout exception if the number of bytes written is less than the specified length. *)
 (* Writes into the file descriptor at the current cursor position. *)
 let time_limited_write_internal
     (write : Unix.file_descr -> 'a -> int -> int -> int) filedesc length data
     target_response_time =
+  with_polly_wait Polly.Events.out filedesc @@ fun wait filedesc ->
   let total_bytes_to_write = length in
   let bytes_written = ref 0 in
   let now = ref (Unix.gettimeofday ()) in
   while !bytes_written < total_bytes_to_write && !now < target_response_time do
     let remaining_time = target_response_time -. !now in
-    let _, ready_to_write, _ = Unix.select [] [filedesc] [] remaining_time in
-    (* Note: there is a possibility that the storage could go away after the select and before the write, so the write would block. *)
-    ( if List.mem filedesc ready_to_write then
-        let bytes_to_write = total_bytes_to_write - !bytes_written in
-        let bytes =
-          try write filedesc data !bytes_written bytes_to_write
-          with
-          | Unix.Unix_error (Unix.EAGAIN, _, _)
-          | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-          ->
-            0
-        in
-        (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
-        bytes_written := bytes + !bytes_written
-    ) ;
+    wait remaining_time ;
+    let bytes_to_write = total_bytes_to_write - !bytes_written in
+    let bytes =
+      try write filedesc data !bytes_written bytes_to_write
+      with
+      | Unix.Unix_error (Unix.EAGAIN, _, _)
+      | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+      ->
+        0
+    in
+    (* write from buffer=data from offset=bytes_written, length=bytes_to_write *)
+    bytes_written := bytes + !bytes_written ;
     now := Unix.gettimeofday ()
   done ;
   if !bytes_written = total_bytes_to_write then
@@ -562,46 +618,59 @@ let time_limited_write_internal
     raise Timeout
 
 let time_limited_write filedesc length data target_response_time =
-  time_limited_write_internal Unix.write filedesc length data
+  time_limited_write_internal Unix.single_write filedesc length data
     target_response_time
 
 let time_limited_write_substring filedesc length data target_response_time =
-  time_limited_write_internal Unix.write_substring filedesc length data
+  time_limited_write_internal Unix.single_write_substring filedesc length data
     target_response_time
 
 (* Read as many bytes to a file descriptor as possible before a given clock time. *)
 (* Raises Timeout exception if the number of bytes read is less than the desired number. *)
 (* Reads from the file descriptor at the current cursor position. *)
 let time_limited_read filedesc length target_response_time =
+  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
   let total_bytes_to_read = length in
   let bytes_read = ref 0 in
   let buf = Bytes.make total_bytes_to_read '\000' in
   let now = ref (Unix.gettimeofday ()) in
   while !bytes_read < total_bytes_to_read && !now < target_response_time do
     let remaining_time = target_response_time -. !now in
-    let ready_to_read, _, _ = Unix.select [filedesc] [] [] remaining_time in
-    ( if List.mem filedesc ready_to_read then
-        let bytes_to_read = total_bytes_to_read - !bytes_read in
-        let bytes =
-          try Unix.read filedesc buf !bytes_read bytes_to_read
-          with
-          | Unix.Unix_error (Unix.EAGAIN, _, _)
-          | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
-          ->
-            0
-        in
-        (* read into buffer=buf from offset=bytes_read, length=bytes_to_read *)
-        if bytes = 0 then
-          raise End_of_file (* End of file has been reached *)
-        else
-          bytes_read := bytes + !bytes_read
-    ) ;
+    wait remaining_time ;
+    let bytes_to_read = total_bytes_to_read - !bytes_read in
+    let bytes =
+      try Unix.read filedesc buf !bytes_read bytes_to_read
+      with
+      | Unix.Unix_error (Unix.EAGAIN, _, _)
+      | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+      ->
+        0
+    in
+    (* read into buffer=buf from offset=bytes_read, length=bytes_to_read *)
+    if bytes = 0 then
+      raise End_of_file (* End of file has been reached *)
+    else
+      bytes_read := bytes + !bytes_read ;
     now := Unix.gettimeofday ()
   done ;
   if !bytes_read = total_bytes_to_read then
     Bytes.unsafe_to_string buf
   else (* we ran out of time *)
     raise Timeout
+
+let time_limited_single_read filedesc length ~max_wait =
+  let buf = Bytes.make length '\000' in
+  with_polly_wait Polly.Events.inp filedesc @@ fun wait filedesc ->
+  wait max_wait ;
+  let bytes =
+    try Unix.read filedesc buf 0 length
+    with
+    | Unix.Unix_error (Unix.EAGAIN, _, _)
+    | Unix.Unix_error (Unix.EWOULDBLOCK, _, _)
+    ->
+      0
+  in
+  Bytes.sub_string buf 0 bytes
 
 (* --------------------------------------------------------------------------------------- *)
 
@@ -789,6 +858,23 @@ let domain_of_addr str =
     Some (Unix.domain_of_sockaddr (Unix.ADDR_INET (addr, 1)))
   with _ -> None
 
+let test_open_called = Atomic.make false
+
+let test_open n =
+  if not (Atomic.compare_and_set test_open_called false true) then
+    invalid_arg "test_open can only be called once" ;
+  (* we could make this conditional on whether ulimit was increased or not,
+     but that could hide bugs if we think the CI has tested this, but due to ulimit it hasn't.
+  *)
+  if n > 0 then (
+    let socket = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+    at_exit (fun () -> Unix.close socket) ;
+    for _ = 2 to n do
+      let fd = Unix.dup socket in
+      at_exit (fun () -> Unix.close fd)
+    done
+  )
+
 module Direct = struct
   type t = Unix.file_descr
 
@@ -816,4 +902,92 @@ module Direct = struct
   let fsync x = fsync x
 
   let lseek fd x cmd = Unix.LargeFile.lseek fd x cmd
+end
+
+(* --------------------------------------------------------------------------------------- *)
+
+module Daemon = struct
+  module State = struct
+    type t =
+      | Ready
+      | Reloading
+      | Stopping
+      | Status of string
+      | Error of Unix.error
+      | Buserror of string
+      | MainPID of int
+      | Watchdog
+  end
+
+  let systemd_notify state =
+    let open State in
+    let ( let* ) = Option.bind in
+    let msg_status =
+      let* msg =
+        match state with
+        | Ready ->
+            Some "READY=1"
+        | Reloading ->
+            Some "RELOADING=1"
+        | Stopping ->
+            Some "STOPPING=1"
+        | Status s ->
+            Some ("STATUS=" ^ s)
+        | Error e ->
+            Option.map
+              (fun x -> "ERRNO=" ^ x)
+              ( match Errno_unix.of_unix e with
+              | h :: _ ->
+                  Option.map
+                    (fun x -> Signed.SInt.to_string x)
+                    (Errno.to_code ~host:Errno_unix.host h)
+              | [] ->
+                  None
+                  (* If empty, then couldn't map the Unix.error to an
+                      integer - a requirement of systemd's protocol *)
+              )
+        | Buserror s ->
+            Some ("BUSERROR=" ^ s)
+        | MainPID i ->
+            Some ("MAINPID=" ^ string_of_int i)
+        | Watchdog ->
+            Some "WATCHDOG=1"
+      in
+      let* env_socket = Sys.getenv_opt "NOTIFY_SOCKET" in
+      (* If the variable is not set, the protocol is a noop *)
+      let* socket_path =
+        if String.starts_with ~prefix:"/" env_socket then
+          Some env_socket
+        else if String.starts_with ~prefix:"@" env_socket then
+          Some ("\x00" ^ Astring.String.with_range ~first:1 env_socket)
+        (* Handle abstract socket - replaces '@' with the null character *)
+        else
+          None
+        (* Only AF_UNIX is supported, with path or abstract sockets *)
+      in
+      Unix.(
+        let sock = socket PF_UNIX SOCK_DGRAM 0 ~cloexec:true in
+        Xapi_stdext_pervasives.Pervasiveext.finally
+          (fun _ ->
+            let res =
+              sendto_substring sock msg 0 (String.length msg) []
+                (ADDR_UNIX socket_path)
+            in
+            if res >= 0 then Some () else None
+          )
+          (fun _ -> close sock)
+      )
+    in
+    Option.is_some msg_status
+
+  (** We test whether the runtime unit file directory has been
+      created. Systemd guarantees this to happen very early
+      during boot.
+      Note: libsystemd uses faccessat instead to avoid following
+      symlinks. It is not, however, present in the OCaml Unix module. *)
+  let systemd_booted () =
+    try
+      Unix.(access "/run/systemd/system" [F_OK]) ;
+      true
+    with Unix.Unix_error _ -> false
 end

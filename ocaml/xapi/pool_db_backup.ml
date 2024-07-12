@@ -20,7 +20,8 @@ module Unixext = Xapi_stdext_unix.Unixext
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 open Client
-open Db_cache_types
+open Xapi_database
+open Xapi_database.Db_cache_types
 
 module D = Debug.Make (struct let name = "pool_db_sync" end)
 

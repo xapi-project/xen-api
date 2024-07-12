@@ -21,7 +21,7 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 module Unixext = Xapi_stdext_unix.Unixext
 open Xapi_host_helpers
 open Xapi_pif_helpers
-open Db_filter_types
+open Xapi_database.Db_filter_types
 open Workload_balancing
 
 module D = Debug.Make (struct let name = "xapi_host" end)
@@ -116,25 +116,14 @@ let assert_safe_to_reenable ~__context ~self =
 
 (* The maximum pool size allowed must be restricted to 3 hosts for the pool which does not have Pool_size feature *)
 let pool_size_is_restricted ~__context =
-  let cvm_exception =
-    let dom0 = Helpers.get_domain_zero ~__context in
-    Db.VM.get_records_where ~__context
-      ~expr:(Eq (Field "is_control_domain", Literal "true"))
-    |> List.exists (fun (vmref, vmrec) ->
-           vmref <> dom0
-           && Xapi_stdext_std.Xstringext.String.endswith "-CVM"
-                vmrec.API.vM_name_label
-       )
-  in
-  (not cvm_exception)
-  && not (Pool_features.is_enabled ~__context Features.Pool_size)
+  not (Pool_features.is_enabled ~__context Features.Pool_size)
 
 let bugreport_upload ~__context ~host:_ ~url ~options =
   let proxy =
     if List.mem_assoc "http_proxy" options then
       List.assoc "http_proxy" options
     else
-      try Unix.getenv "http_proxy" with _ -> ""
+      Option.value (Sys.getenv_opt "http_proxy") ~default:""
   in
   let cmd =
     Printf.sprintf "%s %s %s"
@@ -210,7 +199,7 @@ let assert_bacon_mode ~__context ~host =
     |> List.flatten
     |> List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
   in
-  if List.length control_domain_vbds > 0 then
+  if control_domain_vbds <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.host_in_use
@@ -1104,7 +1093,7 @@ let destroy ~__context ~self =
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
     raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
   let my_control_domains, my_regular_vms = get_resident_vms ~__context ~self in
-  if List.length my_regular_vms > 0 then
+  if my_regular_vms <> [] then
     raise
       (Api_errors.Server_error
          (Api_errors.host_has_resident_vms, [Ref.string_of self])
@@ -1120,7 +1109,7 @@ let destroy ~__context ~self =
   Db.Host.destroy ~__context ~self ;
   Create_misc.create_pool_cpuinfo ~__context ;
   List.iter (fun vm -> Db.VM.destroy ~__context ~self:vm) my_control_domains ;
-  Pool_features.update_pool_features ~__context
+  Pool_features_helpers.update_pool_features ~__context
 
 let declare_dead ~__context ~host =
   precheck_destroy_declare_dead ~__context ~self:host "declare_dead" ;
@@ -1196,6 +1185,7 @@ let request_backup ~__context ~host ~generation ~force =
   if Helpers.get_localhost ~__context <> host then
     failwith "Forwarded to the wrong host" ;
   if Pool_role.is_master () then (
+    let open Xapi_database in
     debug "Requesting database backup on master: Using direct sync" ;
     let connections = Db_conn_store.read_db_connections () in
     Db_cache_impl.sync connections (Db_ref.get_database (Db_backend.make ()))
@@ -1331,7 +1321,8 @@ let get_thread_diagnostics ~__context ~host:_ =
 let sm_dp_destroy ~__context ~host:_ ~dp ~allow_leak =
   Storage_access.dp_destroy ~__context dp allow_leak
 
-let get_diagnostic_timing_stats ~__context ~host:_ = Stats.summarise ()
+let get_diagnostic_timing_stats ~__context ~host:_ =
+  Xapi_database.Stats.summarise ()
 
 (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
 (* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
@@ -1966,6 +1957,8 @@ let disable_external_auth ~__context ~host ~config =
   disable_external_auth_common ~during_pool_eject:false ~__context ~host ~config
     ()
 
+module Static_vdis_list = Xapi_database.Static_vdis_list
+
 let attach_static_vdis ~__context ~host:_ ~vdi_reason_map =
   (* We throw an exception immediately if any of the VDIs in vdi_reason_map is
      a changed block tracking metadata VDI. *)
@@ -2032,7 +2025,7 @@ let copy_license_to_db ~__context ~host:_ ~features ~additional =
 
 let set_license_params ~__context ~self ~value =
   Db.Host.set_license_params ~__context ~self ~value ;
-  Pool_features.update_pool_features ~__context
+  Pool_features_helpers.update_pool_features ~__context
 
 let apply_edition_internal ~__context ~host ~edition ~additional =
   (* Get localhost's current license state. *)
@@ -2581,24 +2574,23 @@ let migrate_receive ~__context ~host ~network ~options:_ =
      able to do HTTPS migrations yet. *)
   let scheme = "http" in
   let sm_url =
-    Printf.sprintf "%s://%s/services/SM?session_id=%s" scheme
-      (Http.Url.maybe_wrap_IPv6_literal ip)
-      new_session_id
+    Uri.make ~scheme ~host:ip ~path:"services/SM"
+      ~query:[("session_id", [new_session_id])]
+      ()
+    |> Uri.to_string
   in
   let xenops_url =
-    Printf.sprintf "%s://%s/services/xenops?session_id=%s" scheme
-      (Http.Url.maybe_wrap_IPv6_literal ip)
-      new_session_id
+    Uri.make ~scheme ~host:ip ~path:"services/xenops"
+      ~query:[("session_id", [new_session_id])]
+      ()
+    |> Uri.to_string
   in
   let master_address =
     try Pool_role.get_master_address ()
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  let master_url =
-    Printf.sprintf "%s://%s/" scheme
-      (Http.Url.maybe_wrap_IPv6_literal master_address)
-  in
+  let master_url = Uri.make ~scheme ~host:master_address () |> Uri.to_string in
   [
     (Xapi_vm_migrate._sm, sm_url)
   ; (Xapi_vm_migrate._host, Ref.string_of host)

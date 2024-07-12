@@ -157,10 +157,11 @@ let create_table () = Hashtbl.create 10
 
 (** Convert an internal reference into an external one or NULL *)
 let lookup table r =
-  if not (Hashtbl.mem table r) then
-    Ref.null
-  else
-    Ref.of_string (Hashtbl.find table r)
+  match Hashtbl.find_opt table r with
+  | Some x ->
+      Ref.of_string x
+  | None ->
+      Ref.null
 
 (** Convert a list of internal references into external references, filtering out NULLs *)
 let filter table rs =
@@ -883,15 +884,14 @@ let handler (req : Request.t) s _ =
         (* task when it exits, and we don't want to do that *)
         try
           let host = find_host_for_VM ~__context vm_ref in
-          let address =
-            Http.Url.maybe_wrap_IPv6_literal
-              (Db.Host.get_address ~__context ~self:host)
-          in
+          let address = Db.Host.get_address ~__context ~self:host in
           let url =
-            Printf.sprintf "https://%s%s?%s" address req.Request.uri
-              (String.concat "&"
-                 (List.map (fun (a, b) -> a ^ "=" ^ b) req.Request.query)
-              )
+            Uri.(
+              make ~scheme:"https" ~host:address ~path:req.Request.uri
+                ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
+                ()
+              |> to_string
+            )
           in
           info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url ;
           let headers = Http.http_302_redirect url in

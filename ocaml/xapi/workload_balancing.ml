@@ -142,7 +142,7 @@ let is_childless elem =
   | Xml.Element (_, _, [Xml.PCData _]) ->
       true
   | Xml.Element (_, _, children) ->
-      List.length children = 0
+      children = []
   | Xml.PCData _ ->
       true
 

@@ -916,7 +916,10 @@ let _ =
   error Api_errors.wlb_timeout ["configured_timeout"]
     ~doc:"The communication with the WLB server timed out." () ;
   error Api_errors.wlb_authentication_failed []
-    ~doc:"WLB rejected our configured authentication details." () ;
+    ~doc:
+      "Failed to authenticate with the WLB server, the provided credentials \
+       are invalid."
+    () ;
   error Api_errors.wlb_malformed_request []
     ~doc:"WLB rejected the server's request as malformed." () ;
   error Api_errors.wlb_malformed_response
@@ -1913,11 +1916,6 @@ let _ =
     ~doc:"Failed to get available updates from a host." () ;
   error Api_errors.get_updates_failed []
     ~doc:"Failed to get available updates from the pool." () ;
-  error Api_errors.get_updates_in_progress []
-    ~doc:
-      "The operation could not be performed because getting updates is in \
-       progress."
-    () ;
   error Api_errors.apply_updates_in_progress []
     ~doc:
       "The operation could not be performed because applying updates is in \
@@ -1967,6 +1965,8 @@ let _ =
 
   error Api_errors.host_evacuation_is_required ["host"]
     ~doc:"Host evacuation is required before applying updates." () ;
+
+  error Api_errors.too_many_groups [] ~doc:"VM can only belong to one group." () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

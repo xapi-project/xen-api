@@ -52,7 +52,7 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   let pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
-        Db_filter_types.(
+        Xapi_database.Db_filter_types.(
           And
             ( Eq (Literal (Ref.string_of host), Field "host")
             , Eq (Literal (Ref.string_of network), Field "network")
@@ -118,10 +118,12 @@ let handle_error = function
       failwith ("Unix Error: " ^ message)
 
 let assert_cluster_host_can_be_created ~__context ~host =
-  match
-    Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq (Literal (Ref.string_of host), Field "host"))
-  with
+  let expr =
+    Xapi_database.Db_filter_types.(
+      Eq (Literal (Ref.string_of host), Field "host")
+    )
+  in
+  match Db.Cluster_host.get_refs_where ~__context ~expr with
   | [] ->
       ()
   | _ ->
@@ -137,10 +139,10 @@ let assert_cluster_host_can_be_created ~__context ~host =
     [get_required_cluster_stacks context sr_sm_type]
     should be configured and running for SRs of type [sr_sm_type] to work. *)
 let get_required_cluster_stacks ~__context ~sr_sm_type =
-  let sms_matching_sr_type =
-    Db.SM.get_records_where ~__context
-      ~expr:Db_filter_types.(Eq (Field "type", Literal sr_sm_type))
+  let expr =
+    Xapi_database.Db_filter_types.(Eq (Field "type", Literal sr_sm_type))
   in
+  let sms_matching_sr_type = Db.SM.get_records_where ~__context ~expr in
   sms_matching_sr_type
   |> List.map (fun (_sm_ref, sm_rec) -> sm_rec.API.sM_required_cluster_stack)
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
@@ -166,10 +168,12 @@ let with_clustering_lock_if_cluster_exists ~__context where f =
       with_clustering_lock where f
 
 let find_cluster_host ~__context ~host =
-  match
-    Db.Cluster_host.get_refs_where ~__context
-      ~expr:Db_filter_types.(Eq (Field "host", Literal (Ref.string_of host)))
-  with
+  let expr =
+    Xapi_database.Db_filter_types.(
+      Eq (Field "host", Literal (Ref.string_of host))
+    )
+  in
+  match Db.Cluster_host.get_refs_where ~__context ~expr with
   | [ref] ->
       Some ref
   | _ :: _ ->
@@ -322,6 +326,25 @@ let rpc ~__context =
             "Can only communicate with xapi-clusterd through message-switch"
       )
 
+let maybe_switch_cluster_stack_version ~__context ~self ~cluster_stack =
+  if Xapi_cluster_helpers.corosync3_enabled ~__context then
+    if Xapi_fist.fail_corosync_upgrade () then
+      handle_error (InternalError "simulated corosync upgrade failure")
+    else
+      let dbg = Context.string_of_task_and_tracing __context in
+      let result =
+        Cluster_client.LocalClient.switch_cluster_stack (rpc ~__context) dbg
+          cluster_stack
+      in
+      match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+      | Ok () ->
+          debug "cluster stack switching was successful for cluster_host: %s"
+            (Ref.string_of self)
+      | Error error ->
+          warn "Error encountered when switching cluster stack cluster_host %s"
+            (Ref.string_of self) ;
+          handle_error error
+
 let assert_cluster_host_quorate ~__context ~self =
   (* With the latest kernel GFS2 would hang on mount if clustering is not working yet,
    * whereas previously we got a 'Transport endpoint not connected' error.
@@ -403,133 +426,169 @@ let compute_corosync_max_host_failures ~__context =
   in
   corosync_ha_max_hosts
 
-let on_corosync_update ~__context ~cluster updates =
-  debug
-    "%s: Received %d updates from corosync_notifyd , run diagnostics to get \
-     new state"
-    __FUNCTION__ (List.length updates) ;
-  let m =
-    Cluster_client.LocalClient.diagnostics (rpc ~__context)
-      "update quorum api fields with diagnostics"
-  in
-  match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
-  | Ok diag ->
-      Db.Cluster.set_is_quorate ~__context ~self:cluster ~value:diag.is_quorate ;
-      let all_cluster_hosts = Db.Cluster_host.get_all ~__context in
-      let ip_ch =
-        List.map
-          (fun ch ->
-            let pIF = Db.Cluster_host.get_PIF ~__context ~self:ch in
-            let ipstr =
-              ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF)
-              |> ipstr_of_address
-            in
-            (ipstr, ch)
-          )
-          all_cluster_hosts
-      in
-      let current_time = API.Date.now () in
-      ( match diag.quorum_members with
-      | None ->
-          List.iter
-            (fun self ->
-              Db.Cluster_host.set_live ~__context ~self ~value:false ;
-              Db.Cluster_host.set_last_update_live ~__context ~self
-                ~value:current_time
-            )
-            all_cluster_hosts
-      | Some nodel ->
-          let quorum_hosts =
-            List.filter_map
-              (fun {addr; _} ->
-                let ipstr = ipstr_of_address addr in
-                match List.assoc_opt ipstr ip_ch with
-                | None ->
-                    error
-                      "%s: cannot find cluster host with network address %s, \
-                       ignoring this host"
-                      __FUNCTION__ ipstr ;
-                    None
-                | Some ch ->
-                    Some ch
-              )
-              nodel
+module Watcher = struct
+  let on_corosync_update ~__context ~cluster updates =
+    debug
+      "%s: Received %d updates from corosync_notifyd, run diagnostics to get \
+       new state"
+      __FUNCTION__ (List.length updates) ;
+    let m =
+      Cluster_client.LocalClient.diagnostics (rpc ~__context)
+        "update quorum api fields with diagnostics"
+    in
+    match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
+    | Ok diag ->
+        ( Db.Cluster.set_is_quorate ~__context ~self:cluster
+            ~value:diag.is_quorate ;
+          let all_cluster_hosts = Db.Cluster_host.get_all ~__context in
+          let live_hosts =
+            Db.Cluster_host.get_refs_where ~__context
+              ~expr:(Eq (Field "live", Literal "true"))
           in
-          let missing_hosts =
-            List.filter
-              (fun h -> not (List.mem h quorum_hosts))
+          let dead_hosts =
+            List.filter (fun h -> not (List.mem h live_hosts)) all_cluster_hosts
+          in
+          let ip_ch =
+            List.map
+              (fun ch ->
+                let pIF = Db.Cluster_host.get_PIF ~__context ~self:ch in
+                let ipstr =
+                  ip_of_pif (pIF, Db.PIF.get_record ~__context ~self:pIF)
+                  |> ipstr_of_address
+                in
+                (ipstr, ch)
+              )
               all_cluster_hosts
           in
-          let new_hosts =
-            List.filter
-              (fun h -> not (Db.Cluster_host.get_live ~__context ~self:h))
-              quorum_hosts
-          in
-          List.iter
-            (fun self ->
-              Db.Cluster_host.set_live ~__context ~self ~value:true ;
-              Db.Cluster_host.set_last_update_live ~__context ~self
-                ~value:current_time
-            )
-            new_hosts ;
-          List.iter
-            (fun self ->
-              Db.Cluster_host.set_live ~__context ~self ~value:false ;
-              Db.Cluster_host.set_last_update_live ~__context ~self
-                ~value:current_time
-            )
-            missing_hosts ;
-          maybe_generate_alert ~__context ~missing_hosts ~new_hosts
-            ~num_hosts:(List.length quorum_hosts) ~quorum:diag.quorum
-      ) ;
-      Db.Cluster.set_quorum ~__context ~self:cluster
-        ~value:(Int64.of_int diag.quorum) ;
-      Db.Cluster.set_live_hosts ~__context ~self:cluster
-        ~value:(Int64.of_int diag.total_votes)
-  | Error (InternalError message) | Error (Unix_error message) ->
-      warn "%s Cannot query diagnostics due to %s, not performing update"
-        __FUNCTION__ message
-  | exception exn ->
-      warn
-        "%s: Got exception %s while retrieving diagnostics info, not \
-         performing update"
-        __FUNCTION__ (Printexc.to_string exn)
-
-let create_cluster_watcher_on_master ~__context ~host =
-  if Helpers.is_pool_master ~__context ~host then
-    let watch () =
-      while !Daemon.enabled do
-        let m =
-          Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
-            "call cluster watcher" 3.
-        in
-        match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
-        | Ok updates -> (
-          match find_cluster_host ~__context ~host with
-          | Some ch ->
-              let cluster = Db.Cluster_host.get_cluster ~__context ~self:ch in
-              on_corosync_update ~__context ~cluster updates
+          let current_time = API.Date.now () in
+          match diag.quorum_members with
           | None ->
-              ()
-        )
-        | Error (InternalError "UPDATES.Timeout") ->
-            (* UPDATES.get timed out, this is normal, now retry *)
+              List.iter
+                (fun self ->
+                  Db.Cluster_host.set_live ~__context ~self ~value:false ;
+                  Db.Cluster_host.set_last_update_live ~__context ~self
+                    ~value:current_time
+                )
+                all_cluster_hosts
+          | Some nodel ->
+              (* nodel contains the current members of the cluster, according to corosync *)
+              let quorum_hosts =
+                List.filter_map
+                  (fun {addr; _} ->
+                    let ipstr = ipstr_of_address addr in
+                    match List.assoc_opt ipstr ip_ch with
+                    | None ->
+                        error
+                          "%s: cannot find cluster host with network address \
+                           %s, ignoring this host"
+                          __FUNCTION__ ipstr ;
+                        None
+                    | Some ch ->
+                        Some ch
+                  )
+                  nodel
+              in
+
+              (* hosts_left contains the hosts that were live, but not in the list
+                 of live hosts according to the cluster stack *)
+              let hosts_left =
+                List.filter (fun h -> not (List.mem h quorum_hosts)) live_hosts
+              in
+              (* hosts_joined contains the hosts that were dead but exists in the db,
+                 and is now viewed as a member of the cluster by the cluster stack *)
+              let hosts_joined =
+                List.filter (fun h -> List.mem h quorum_hosts) dead_hosts
+              in
+              debug "%s: there are %d hosts joined and %d hosts left"
+                __FUNCTION__ (List.length hosts_joined) (List.length hosts_left) ;
+
+              List.iter
+                (fun self ->
+                  Db.Cluster_host.set_live ~__context ~self ~value:true ;
+                  Db.Cluster_host.set_last_update_live ~__context ~self
+                    ~value:current_time
+                )
+                quorum_hosts ;
+              List.filter
+                (fun h -> not (List.mem h quorum_hosts))
+                all_cluster_hosts
+              |> List.iter (fun self ->
+                     Db.Cluster_host.set_live ~__context ~self ~value:false ;
+                     Db.Cluster_host.set_last_update_live ~__context ~self
+                       ~value:current_time
+                 ) ;
+              maybe_generate_alert ~__context ~hosts_left ~hosts_joined
+                ~num_hosts:(List.length quorum_hosts) ~quorum:diag.quorum
+        ) ;
+        Db.Cluster.set_quorum ~__context ~self:cluster
+          ~value:(Int64.of_int diag.quorum) ;
+        Db.Cluster.set_live_hosts ~__context ~self:cluster
+          ~value:(Int64.of_int diag.total_votes)
+    | Error (InternalError message) | Error (Unix_error message) ->
+        warn "%s Cannot query diagnostics due to %s, not performing update"
+          __FUNCTION__ message
+    | exception exn ->
+        warn
+          "%s: Got exception %s while retrieving diagnostics info, not \
+           performing update"
+          __FUNCTION__ (Printexc.to_string exn)
+
+  let cluster_change_watcher : bool Atomic.t = Atomic.make false
+
+  (* this is the time it takes for the update request to time out. It is ok to set
+     it to a relatively long value since the call will return immediately if there
+     is an update *)
+  let cluster_change_interval = Mtime.Span.min
+
+  (* we handle unclean hosts join and leave in the watcher, i.e. hosts joining and leaving
+     due to network problems, power cut, etc. Join and leave initiated by the
+     API will be handled in the API call themselves, but they share the same code
+     as the watcher. *)
+  let watch_cluster_change ~__context ~host =
+    while !Daemon.enabled do
+      let m =
+        Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
+          "call cluster watcher"
+          (Clock.Timer.span_to_s cluster_change_interval)
+      in
+      match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
+      | Ok updates -> (
+        match find_cluster_host ~__context ~host with
+        | Some ch ->
+            let cluster = Db.Cluster_host.get_cluster ~__context ~self:ch in
+            on_corosync_update ~__context ~cluster updates
+        | None ->
             ()
-        | Error (InternalError message) | Error (Unix_error message) ->
-            warn "%s: Cannot query cluster host updates with error %s"
-              __FUNCTION__ message
-        | exception exn ->
-            warn
-              "%s: Got exception %s while query cluster host updates, retrying"
-              __FUNCTION__ (Printexc.to_string exn) ;
-            Thread.delay 3.
-      done
-    in
-    if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
-      debug "%s: create watcher for corosync-notifyd on master" __FUNCTION__ ;
-      ignore @@ Thread.create watch ()
-    ) else
-      debug
-        "%s: not creating watcher for corosync-notifyd: feature cluster_health \
-         not enabled"
-        __FUNCTION__
+      )
+      | Error (InternalError "UPDATES.Timeout") ->
+          (* UPDATES.get timed out, this is normal, now retry *)
+          ()
+      | Error (InternalError message) | Error (Unix_error message) ->
+          warn "%s: Cannot query cluster host updates with error %s"
+            __FUNCTION__ message
+      | exception exn ->
+          warn "%s: Got exception %s while query cluster host updates, retrying"
+            __FUNCTION__ (Printexc.to_string exn) ;
+          Thread.delay (Clock.Timer.span_to_s cluster_change_interval)
+    done ;
+    Atomic.set cluster_change_watcher false
+
+  (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
+      already created. 
+      There is no need to destroy them: once the clustering daemon is disabled, 
+      these threads will exit as well. *)
+  let create_as_necessary ~__context ~host =
+    if Helpers.is_pool_master ~__context ~host then
+      if Xapi_cluster_helpers.cluster_health_enabled ~__context then
+        if Atomic.compare_and_set cluster_change_watcher false true then (
+          debug "%s: create watcher for corosync-notifyd on coordinator"
+            __FUNCTION__ ;
+          ignore
+          @@ Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+        ) else
+          (* someone else must have gone into the if branch above and created the thread
+             before us, leave it to them *)
+          debug
+            "%s: not create watcher for corosync-notifyd as it already exists"
+            __FUNCTION__
+end

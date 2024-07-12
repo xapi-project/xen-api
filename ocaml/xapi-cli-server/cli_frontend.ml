@@ -523,6 +523,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-get-guest-secureboot-readiness"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Return the readiness of a pool for guest SecureBoot."
+      ; implementation= No_fd Cli_operations.pool_get_guest_secureboot_readiness
+      ; flags= []
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
@@ -2659,6 +2668,42 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-set-uefi-mode"
+    , {
+        reqd= ["uuid"; "mode"]
+      ; optn= []
+      ; help= "Set a VM in UEFI 'setup' or 'user' mode."
+      ; implementation= No_fd Cli_operations.vm_set_uefi_mode
+      ; flags= []
+      }
+    )
+  ; ( "vm-get-secureboot-readiness"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Return the secureboot readiness of the VM."
+      ; implementation= No_fd Cli_operations.vm_get_secureboot_readiness
+      ; flags= []
+      }
+    )
+  ; ( "vm-group-create"
+    , {
+        reqd= ["name-label"; "placement"]
+      ; optn= ["name-description"]
+      ; help= "Create a VM group."
+      ; implementation= No_fd Cli_operations.VM_group.create
+      ; flags= []
+      }
+    )
+  ; ( "vm-group-destroy"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Destroy a VM group."
+      ; implementation= No_fd Cli_operations.VM_group.destroy
+      ; flags= []
+      }
+    )
   ; ( "diagnostic-vm-status"
     , {
         reqd= ["uuid"]
@@ -3683,6 +3728,33 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pci-enable-dom0-access"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Enable PCI access to dom0."
+      ; implementation= No_fd Cli_operations.pci_enable_dom0_access
+      ; flags= []
+      }
+    )
+  ; ( "pci-disable-dom0-access"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Disable PCI access to dom0."
+      ; implementation= No_fd Cli_operations.pci_disable_dom0_access
+      ; flags= []
+      }
+    )
+  ; ( "pci-get-dom0-access-status"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help= "Return a PCI device's dom0 access status."
+      ; implementation= No_fd Cli_operations.get_dom0_access_status
+      ; flags= []
+      }
+    )
   ]
 
 let cmdtable : (string, cmd_spec) Hashtbl.t = Hashtbl.create 50
@@ -3815,44 +3887,44 @@ let make_list l =
 
 let rio_help printer minimal cmd =
   let docmd cmd =
-    try
-      let cmd_spec = Hashtbl.find cmdtable cmd in
-      let vm_selectors = List.mem Vm_selectors cmd_spec.flags in
-      let host_selectors = List.mem Host_selectors cmd_spec.flags in
-      let sr_selectors = List.mem Sr_selectors cmd_spec.flags in
-      let optional =
-        cmd_spec.optn
-        @ (if vm_selectors then vmselectors else [])
-        @ (if sr_selectors then srselectors else [])
-        @ if host_selectors then hostselectors else []
-      in
-      let desc =
-        match (vm_selectors, host_selectors, sr_selectors) with
-        | false, false, false ->
-            cmd_spec.help
-        | true, false, false ->
-            cmd_spec.help ^ vmselectorsinfo
-        | false, true, false ->
-            cmd_spec.help ^ hostselectorsinfo
-        | false, false, true ->
-            cmd_spec.help ^ srselectorsinfo
-        | _ ->
-            cmd_spec.help
-        (* never happens currently *)
-      in
-      let recs =
-        [
-          ("command name        ", cmd)
-        ; ("reqd params     ", String.concat ", " cmd_spec.reqd)
-        ; ("optional params ", String.concat ", " optional)
-        ; ("description     ", desc)
-        ]
-      in
-      printer (Cli_printer.PTable [recs])
-    with Not_found as e ->
-      Debug.log_backtrace e (Backtrace.get e) ;
-      error "Responding with Unknown command %s" cmd ;
-      printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
+    match Hashtbl.find_opt cmdtable cmd with
+    | Some cmd_spec ->
+        let vm_selectors = List.mem Vm_selectors cmd_spec.flags in
+        let host_selectors = List.mem Host_selectors cmd_spec.flags in
+        let sr_selectors = List.mem Sr_selectors cmd_spec.flags in
+        let optional =
+          cmd_spec.optn
+          @ (if vm_selectors then vmselectors else [])
+          @ (if sr_selectors then srselectors else [])
+          @ if host_selectors then hostselectors else []
+        in
+        let desc =
+          match (vm_selectors, host_selectors, sr_selectors) with
+          | false, false, false ->
+              cmd_spec.help
+          | true, false, false ->
+              cmd_spec.help ^ vmselectorsinfo
+          | false, true, false ->
+              cmd_spec.help ^ hostselectorsinfo
+          | false, false, true ->
+              cmd_spec.help ^ srselectorsinfo
+          | _ ->
+              cmd_spec.help
+          (* never happens currently *)
+        in
+        let recs =
+          [
+            ("command name        ", cmd)
+          ; ("reqd params     ", String.concat ", " cmd_spec.reqd)
+          ; ("optional params ", String.concat ", " optional)
+          ; ("description     ", desc)
+          ]
+        in
+        printer (Cli_printer.PTable [recs])
+    | None ->
+        D.log_backtrace () ;
+        error "Responding with Unknown command %s" cmd ;
+        printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
   in
   let cmds =
     List.filter
@@ -3864,7 +3936,7 @@ let rio_help printer minimal cmd =
       )
       cmd.params
   in
-  if List.length cmds > 0 then
+  if cmds <> [] then
     List.iter docmd (List.map fst cmds)
   else
     let cmds =

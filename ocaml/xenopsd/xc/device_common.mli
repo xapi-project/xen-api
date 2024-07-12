@@ -47,36 +47,47 @@ exception QMP_connection_error of int * string
 
 val block_device_of_device : device -> string
 
-val backend_path : xs:Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
+val backend_path :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> endpoint -> Xenctrl.domid -> string
 
-val backend_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val frontend_rw_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val frontend_rw_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val frontend_ro_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val frontend_ro_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val disconnect_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val disconnect_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val kthread_pid_paths_of_device : xs:Xenstore.Xs.xsh -> device -> string list
+val kthread_pid_paths_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string list
 
-val error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val error_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val backend_error_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_error_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
 val backend_shutdown_request_path_of_device :
-  xs:Xenstore.Xs.xsh -> device -> string
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
 val backend_shutdown_done_path_of_device :
-  xs:Xenstore.Xs.xsh -> device -> string
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
 val backend_pause_request_path_of_device :
-  xs:Xenstore.Xs.xsh -> device -> string
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val backend_pause_token_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_pause_token_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val backend_pause_done_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_pause_done_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
-val backend_state_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val backend_state_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
 val get_private_path : Xenctrl.domid -> string
 
@@ -84,7 +95,8 @@ val get_private_path_by_uuid : 'a Uuidx.t -> string
 
 val get_private_data_path_of_device : device -> string
 
-val extra_xenserver_path_of_device : xs:Xenstore.Xs.xsh -> device -> string
+val extra_xenserver_path_of_device :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string
 
 val string_of_endpoint : endpoint -> string
 
@@ -94,28 +106,39 @@ val string_of_kind : kind -> string
 
 val kind_of_string : string -> kind
 
-val list_backends : xs:Xenstore.Xs.xsh -> Xenctrl.domid -> device list
+val list_backends :
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> device list
 (** [list_backends xs domid] returns a list of devices where there is a backend
     in [domid]. This function only reads data stored in the backend directory.*)
 
 val list_frontends :
-  xs:Xenstore.Xs.xsh -> ?for_devids:int list -> Xenctrl.domid -> device list
+     xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> ?for_devids:int list
+  -> Xenctrl.domid
+  -> device list
 (** [list_frontends xs domid] returns a list of devices where there is a
     frontend in [domid]. This function only reads data stored in the frontend
     directory.*)
 
 val list_devices_between :
-  xs:Xenstore.Xs.xsh -> Xenctrl.domid -> Xenctrl.domid -> device list
+     xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> Xenctrl.domid
+  -> Xenctrl.domid
+  -> device list
 (** Return a list of devices connecting two domains. Ignore those whose kind we
     don't recognise *)
 
 val device_of_backend : endpoint -> Xenctrl.domid -> device
 
 val add_backend_keys :
-  xs:Xenstore.Xs.xsh -> device -> string -> (string * string) list -> unit
+     xs:Ezxenstore_core.Xenstore.Xs.xsh
+  -> device
+  -> string
+  -> (string * string) list
+  -> unit
 
 val remove_backend_keys :
-  xs:Xenstore.Xs.xsh -> device -> string -> string list -> unit
+  xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string -> string list -> unit
 
 type protocol = Protocol_Native | Protocol_X86_32 | Protocol_X86_64
 

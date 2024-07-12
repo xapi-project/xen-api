@@ -13,19 +13,12 @@
  *)
 (** @group Storage *)
 
-let default_path = "/var/xapi/xenopsd"
-
 open Xenops_interface
 open Xenops_utils
 
 module Client = Xenops_interface.XenopsAPI (Idl.Exn.GenClient (struct
   let rpc = Xenopsd.rpc_fn
 end))
-
-let usage_and_exit () =
-  Printf.fprintf stderr "Usage:\n" ;
-  Printf.fprintf stderr "  %s" Sys.argv.(0) ;
-  exit 1
 
 let dbg = "test"
 
@@ -44,9 +37,6 @@ let fail_running f =
   expect_exception
     (function Bad_power_state (Running, Halted) -> true | _ -> false)
     f
-
-let fail_not_built f =
-  expect_exception (function Domain_not_built -> true | _ -> false) f
 
 let fail_connected f =
   expect_exception (function Device_is_connected -> true | _ -> false) f
@@ -95,13 +85,15 @@ let wait_for_tasks id =
         (List.length deltas) ;
       flush stderr
     ) ;
-    if List.length deltas = 0 then
+    if deltas = [] then
       failwith (Printf.sprintf "no deltas, next_id = %d" next_id) ;
     event_id := Some next_id ;
     List.iter
       (function
         | Dynamic.Task id' ->
-            if task_ended dbg id' then ids := StringSet.remove id' !ids
+            (* ignore events on tasks that are not ours, they may have been deleted *)
+            if StringSet.mem id' !ids && task_ended dbg id' then
+              ids := StringSet.remove id' !ids
         | _ ->
             ()
         )
@@ -110,6 +102,7 @@ let wait_for_tasks id =
 
 let success_task id =
   let t = Client.TASK.stat dbg id in
+  D.debug "%s: destroying task %s" __FUNCTION__ id ;
   Client.TASK.destroy dbg id ;
   match t.Task.state with
   | Task.Completed _ ->
@@ -129,6 +122,7 @@ let success_task id =
 
 let fail_not_built_task id =
   let t = Client.TASK.stat dbg id in
+  D.debug "%s: destroying task %s" __FUNCTION__ id ;
   Client.TASK.destroy dbg id ;
   match t.Task.state with
   | Task.Completed _ ->
@@ -150,6 +144,7 @@ let fail_not_built_task id =
 
 let fail_invalid_vcpus_task id =
   let t = Client.TASK.stat dbg id in
+  D.debug "%s: destroying task %s" __FUNCTION__ id ;
   Client.TASK.destroy dbg id ;
   match t.Task.state with
   | Task.Completed _ ->
@@ -509,10 +504,7 @@ let vm_test_start_shutdown _ =
   )
 
 let vm_test_parallel_start_shutdown _ =
-  let rec ints start finish =
-    if start > finish then [] else start :: ints (start + 1) finish
-  in
-  let ints = ints 0 1000 |> List.map string_of_int in
+  let ints = List.init (1000 + 1) string_of_int in
   let t = Unix.gettimeofday () in
   let ids =
     List.map
@@ -527,14 +519,8 @@ let vm_test_parallel_start_shutdown _ =
     flush stderr
   ) ;
   let t = Unix.gettimeofday () in
-  let tasks =
-    List.map
-      (fun id ->
-        let id = Client.VM.start dbg id false in
-        (* Printf.fprintf stderr "%s\n" id; flush stderr; *) id
-      )
-      ids
-  in
+  let tasks = List.map (fun id -> Client.VM.start dbg id false) ids in
+  D.debug "Waiting for tasks: %s" (String.concat ", " tasks) ;
   wait_for_tasks tasks ;
   if !verbose_timings then (
     Printf.fprintf stderr "Cleaning up tasks\n" ;
@@ -1005,10 +991,11 @@ let _ =
       ; ("vm_test_add_list_remove", `Quick, vm_test_add_list_remove)
       ; ("vm_remove_running", `Quick, vm_remove_running)
       ; ("vm_test_start_shutdown", `Quick, vm_test_start_shutdown)
-      ; (* This unit test seems to be non-deterministic, sometimes fails to find tasks
-         * "vm_test_parallel_start_shutdown" , `Quick, vm_test_parallel_start_shutdown;
-         * *)
-        ("vm_test_consoles", `Quick, vm_test_consoles)
+      ; ( "vm_test_parallel_start_shutdown"
+        , `Slow
+        , vm_test_parallel_start_shutdown
+        )
+      ; ("vm_test_consoles", `Quick, vm_test_consoles)
       ; ("vm_test_reboot", `Quick, vm_test_reboot)
       ; ("vm_test_halt", `Quick, vm_test_halt)
       ; ("vbd_test_add_remove", `Quick, VbdDeviceTests.add_remove)

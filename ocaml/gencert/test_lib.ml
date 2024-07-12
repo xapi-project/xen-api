@@ -123,8 +123,6 @@ let corrupt_chain_certificates =
     )
   ]
 
-let server_error err reason = Server_error (err, reason)
-
 let test_valid_key key_name () =
   match validate_private_key (load_test_data key_name) with
   | Ok _ ->

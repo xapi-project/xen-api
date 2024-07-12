@@ -358,7 +358,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
         my_vms
     in
-    if List.length my_running_vms > 0 then (
+    if my_running_vms <> [] then (
       error
         "The current host has running or suspended VMs: it cannot join a new \
          pool" ;
@@ -371,11 +371,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   let assert_no_vms_with_current_ops () =
     let my_vms = Db.VM.get_all_records ~__context in
     let vms_with_current_ops =
-      List.filter
-        (fun (_, vmr) -> List.length vmr.API.vM_current_operations > 0)
-        my_vms
+      List.filter (fun (_, vmr) -> vmr.API.vM_current_operations <> []) my_vms
     in
-    if List.length vms_with_current_ops > 0 then (
+    if vms_with_current_ops <> [] then (
       error
         "The current host has VMs with current operations: it cannot join a \
          new pool" ;
@@ -777,7 +775,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       list
       |> List.to_seq
       |> Seq.map (fun (_, record) ->
-             (record.API.certificate_name, record.API.certificate_fingerprint)
+             ( record.API.certificate_name
+             , record.API.certificate_fingerprint_sha256
+             )
          )
       |> CertMap.of_seq
     in
@@ -1721,6 +1721,7 @@ let unplug_pbds ~__context host =
 
 (* This means eject me, since will have been forwarded from master  *)
 let eject_self ~__context ~host =
+  let open Xapi_database in
   (* If HA is enabled then refuse *)
   let pool = Helpers.get_pool ~__context in
   if Db.Pool.get_ha_enabled ~__context ~self:pool then
@@ -1993,14 +1994,14 @@ let eject ~__context ~host =
       Create_misc.create_pool_cpuinfo ~__context ;
       (* Update pool features, in case this host had a different license to the
        * rest of the pool. *)
-      Pool_features.update_pool_features ~__context
+      Pool_features_helpers.update_pool_features ~__context
   | true, true ->
       raise Cannot_eject_master
 
 (* Prohibit parallel flushes since they're so expensive *)
 let sync_m = Mutex.create ()
 
-open Db_cache_types
+open Xapi_database.Db_cache_types
 
 let sync_database ~__context =
   with_lock sync_m (fun () ->
@@ -2008,7 +2009,7 @@ let sync_database ~__context =
       let pool = Helpers.get_pool ~__context in
       let flushed_to_vdi =
         Db.Pool.get_ha_enabled ~__context ~self:pool
-        && Db_lock.with_lock (fun () ->
+        && Xapi_database.Db_lock.with_lock (fun () ->
                Xha_metadata_vdi.flush_database ~__context Xapi_ha.ha_redo_log
            )
       in
@@ -2017,10 +2018,12 @@ let sync_database ~__context =
       else (
         debug "flushing database to all online nodes" ;
         let generation =
-          Db_lock.with_lock (fun () ->
+          Xapi_database.Db_lock.with_lock (fun () ->
               Manifest.generation
                 (Database.manifest
-                   (Db_ref.get_database (Context.database_of __context))
+                   (Xapi_database.Db_ref.get_database
+                      (Context.database_of __context)
+                   )
                 )
           )
         in
@@ -2135,7 +2138,7 @@ let is_slave ~__context ~host:_ =
   debug
     "About to kick the database connection to make sure it's still working..." ;
   let (_ : bool) =
-    Scheduler.PipeDelay.signal Master_connection.delay ;
+    Scheduler.PipeDelay.signal Xapi_database.Master_connection.delay ;
     Db.is_valid_ref __context
       (Ref.of_string
          "Pool.is_slave checking to see if the database connection is up"
@@ -2679,7 +2682,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
             !_rollback_list
           in
           (* 3. if any failed, then do a best-effort rollback, disabling any host that has been just enabled *)
-          if List.length rollback_list > 0 then (* FAILED *)
+          if rollback_list <> [] then (* FAILED *)
             let failed_host =
               (* the failed host is the first item in the rollback list *)
               List.hd rollback_list
@@ -2802,7 +2805,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
       let failedhosts_list =
         List.filter (fun (_, err, _) -> err <> "") host_msgs_list
       in
-      if List.length failedhosts_list > 0 then ((* FAILED *)
+      if failedhosts_list <> [] then ((* FAILED *)
         match List.hd failedhosts_list with
         | host, err, msg ->
             debug
@@ -2862,6 +2865,8 @@ let detect_nonhomogeneous_external_auth () =
 (* CA-24856: API call to detect non-homogeneous external-authentication config in pool *)
 let detect_nonhomogeneous_external_auth ~__context ~pool:_ =
   detect_nonhomogeneous_external_auth ()
+
+module Redo_log = Xapi_database.Redo_log
 
 let create_redo_log_vdi ~__context ~sr =
   Helpers.call_api_functions ~__context (fun rpc session_id ->
@@ -2938,7 +2943,7 @@ let enable_redo_log ~__context ~sr =
      	 * is already in use) *)
   if not (Db.Pool.get_ha_enabled ~__context ~self:pool) then (
     Redo_log.enable_and_flush
-      (Context.database_of __context |> Db_ref.get_database)
+      (Context.database_of __context |> Xapi_database.Db_ref.get_database)
       Xapi_ha.ha_redo_log Xapi_globs.gen_metadata_vdi_reason ;
     Localdb.put Constants.redo_log_enabled "true"
   ) ;
@@ -3070,7 +3075,7 @@ let enable_local_storage_caching ~__context ~self:_ =
         failed
     )
   in
-  if List.length failed_hosts > 0 then
+  if failed_hosts <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.hosts_failed_to_enable_caching
@@ -3094,7 +3099,7 @@ let disable_local_storage_caching ~__context ~self:_ =
           hosts
     )
   in
-  if List.length failed_hosts > 0 then
+  if failed_hosts <> [] then
     raise
       (Api_errors.Server_error
          ( Api_errors.hosts_failed_to_disable_caching
@@ -3703,3 +3708,17 @@ let set_local_auth_max_threads ~__context:_ ~self:_ ~value =
 
 let set_ext_auth_max_threads ~__context:_ ~self:_ ~value =
   Xapi_session.set_ext_auth_max_threads value
+
+let get_guest_secureboot_readiness ~__context ~self:_ =
+  let auth_files = Sys.readdir !Xapi_globs.varstore_dir in
+  let pk_present = Array.mem "PK.auth" auth_files in
+  let kek_present = Array.mem "KEK.auth" auth_files in
+  let db_present = Array.mem "db.auth" auth_files in
+  let dbx_present = Array.mem "dbx.auth" auth_files in
+  match (pk_present, kek_present, db_present, dbx_present) with
+  | true, true, true, true ->
+      `ready
+  | true, true, true, false ->
+      `ready_no_dbx
+  | _, _, _, _ ->
+      `not_ready

@@ -229,7 +229,7 @@ let get_hosts_by_name_or_id rpc session_id name =
 
 let get_host_by_name_or_id rpc session_id name =
   let hosts = get_hosts_by_name_or_id rpc session_id name in
-  if List.length hosts = 0 then failwith ("Host " ^ name ^ " not found") ;
+  if hosts = [] then failwith ("Host " ^ name ^ " not found") ;
   List.nth hosts 0
 
 let get_host_from_session rpc session_id =
@@ -650,7 +650,9 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
               set_in_map key v
           | None, Some set_map ->
               let existing_params =
-                try Hashtbl.find set_map_table set_map with Not_found -> []
+                Option.value
+                  (Hashtbl.find_opt set_map_table set_map)
+                  ~default:[]
               in
               Hashtbl.replace set_map_table set_map ((key, v) :: existing_params)
           | None, None ->
@@ -862,7 +864,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
         ]
       in
       let ops =
-        if List.length settable > 0 then
+        if settable <> [] then
           ( cli_name "param-set"
           , ["uuid"]
           , settable
@@ -877,7 +879,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           ops
       in
       let ops =
-        if List.length addable > 0 then
+        if addable <> [] then
           ops
           @ [
               ( cli_name "param-add"
@@ -902,7 +904,7 @@ let make_param_funs getallrecs getbyuuid record class_name def_filters
           ops
       in
       let ops =
-        if List.length clearable > 0 then
+        if clearable <> [] then
           ops
           @ [
               ( cli_name "param-clear"
@@ -1142,9 +1144,14 @@ let gen_cmds rpc session_id =
         mk get_all_records_where get_by_uuid vm_appliance_record "appliance" []
           [] rpc session_id
       )
+    ; Client.VM_group.(
+        mk get_all_records_where get_by_uuid vm_group_record "vm-group" []
+          ["uuid"; "name-label"; "name-description"; "placement"; "vm-uuids"]
+          rpc session_id
+      )
     ; Client.PGPU.(
         mk get_all_records_where get_by_uuid pgpu_record "pgpu" []
-          ["uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
+          ["uuid"; "pci-uuid"; "vendor-name"; "device-name"; "gpu-group-uuid"]
           rpc session_id
       )
     ; Client.GPU_group.(
@@ -1329,6 +1336,11 @@ let gen_cmds rpc session_id =
           ; "endpoints"
           ; "enabled"
           ]
+          rpc session_id
+      )
+    ; Client.PCI.(
+        mk get_all_records_where get_by_uuid pci_record "pci" []
+          ["uuid"; "vendor-name"; "device-name"; "pci-id"]
           rpc session_id
       )
     ]
@@ -2561,6 +2573,10 @@ let sr_probe_ext printer rpc session_id params =
           "healthy"
       | `recovering ->
           "recovering"
+      | `unreachable ->
+          "unreachable"
+      | `unavailable ->
+          "unavailable"
     in
     (match x.API.sr_stat_uuid with Some uuid -> [("uuid", uuid)] | None -> [])
     @ [
@@ -2919,13 +2935,7 @@ let event_wait_gen rpc session_id classname record_matches =
         (List.map (fun r -> (r.name, fun () -> safe_get_field r)))
         current_tbls
     in
-    debug "Got %d records" (List.length all_recs) ;
-    (* true if anything matches now *)
-    let find_any_match recs =
-      let ls = List.map record_matches recs in
-      List.length (List.filter (fun x -> x) ls) > 0
-    in
-    find_any_match all_recs
+    List.exists record_matches all_recs
   in
   finally
     (fun () ->
@@ -3296,9 +3306,9 @@ let do_host_op rpc session_id op params ?(multiple = true) ignore_params =
       failwith "No matching hosts found"
   | 1 ->
       [op 1 (List.hd hosts)]
-  | _ ->
+  | len ->
       if multiple && get_bool_param params "multiple" then
-        do_multiple (op (List.length hosts)) hosts
+        do_multiple (op len) hosts
       else
         failwith
           ( if not multiple then
@@ -3908,11 +3918,13 @@ let vm_install_real printer rpc session_id template name description params =
               failwith
                 "SR specified via sr-uuid doesn't have the name specified via \
                  sr-name-label"
-        | None ->
-            if List.length sr_list > 1 then
+        | None -> (
+          match sr_list with
+          | [x] ->
+              Some x
+          | _ ->
               failwith "Multiple SRs with that name-label found"
-            else
-              Some (List.hd sr_list)
+        )
       )
     else
       sr_ref
@@ -3988,6 +4000,7 @@ let vm_install_real printer rpc session_id template name description params =
         Client.VM.set_has_vendor_device ~rpc ~session_id ~self:new_vm
           ~value:want_dev
       with e when e = licerr ->
+        (* No longer licensed, this should not happen. CA-371529 *)
         let msg =
           Printf.sprintf
             "Note: the VM template recommends setting has-vendor-device=true \
@@ -4048,12 +4061,12 @@ let vm_install printer rpc session_id params =
           List.fold_left filter_records_on_fields all_recs
             (("name-label", name) :: filter_params)
         in
-        match List.length templates with
-        | 0 ->
+        match templates with
+        | [] ->
             failwith "No templates matched"
-        | 1 ->
-            (List.hd templates).getref ()
-        | _ ->
+        | [x] ->
+            x.getref ()
+        | _ :: _ :: _ ->
             failwith "More than one matching template found"
       in
       if
@@ -4104,7 +4117,7 @@ let console fd _printer rpc session_id params =
     | [] ->
         marshal fd (Command (PrintStderr "No VM found\n")) ;
         raise (ExitWithError 1)
-    | _ :: _ ->
+    | _ :: _ :: _ ->
         marshal fd
           (Command
              (PrintStderr
@@ -4143,9 +4156,10 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
       (* add extra text if the VDI is being shared *)
       let r = Client.VDI.get_record ~rpc ~session_id ~self:vdi in
       Printf.sprintf "VDI: %s (%s) %s" r.API.vDI_uuid r.API.vDI_name_label
-        ( if List.length r.API.vDI_VBDs <= 1 then
+        ( match r.API.vDI_VBDs with
+        | [] | [_] ->
             ""
-          else
+        | _ :: _ :: _ ->
             " ** WARNING: disk is shared by other VMs"
         )
     in
@@ -4467,18 +4481,15 @@ let vm_retrieve_wlb_recommendations printer rpc session_id params =
   in
   try
     let vms = select_vms rpc session_id params [] in
-    match List.length vms with
-    | 0 ->
+    match vms with
+    | [] ->
         failwith "No matching VMs found"
-    | 1 ->
+    | [x] ->
         printer
           (Cli_printer.PTable
-             [
-               ("Host(Uuid)", "Stars, RecID, ZeroScoreReason")
-               :: table (List.hd vms)
-             ]
+             [("Host(Uuid)", "Stars, RecID, ZeroScoreReason") :: table x]
           )
-    | _ ->
+    | _ :: _ :: _ ->
         failwith
           "Multiple VMs found. Operation can only be performed on one VM at a \
            time"
@@ -4618,7 +4629,7 @@ let vm_migrate printer rpc session_id params =
                 )
                 pifs
             in
-            if List.length management_pifs = 0 then
+            if management_pifs = [] then
               failwith
                 (Printf.sprintf "Could not find management PIF on host %s"
                    host_record.API.host_uuid
@@ -5016,7 +5027,7 @@ let vm_disk_remove printer rpc session_id params =
         (fun x -> device = Client.VBD.get_userdevice ~rpc ~session_id ~self:x)
         vm_record.API.vM_VBDs
     in
-    if List.length vbd_to_remove < 1 then
+    if vbd_to_remove = [] then
       failwith "Disk not found"
     else
       let vbd = List.nth vbd_to_remove 0 in
@@ -5042,7 +5053,7 @@ let vm_cd_remove printer rpc session_id params =
         )
         vm_record.API.vM_VBDs
     in
-    if List.length vbd_to_remove < 1 then
+    if vbd_to_remove = [] then
       raise (failwith "Disk not found")
     else
       let vbd = List.nth vbd_to_remove 0 in
@@ -5061,7 +5072,7 @@ let vm_cd_add printer rpc session_id params =
       )
       vdis
   in
-  if List.length vdis = 0 then failwith ("CD " ^ cd_name ^ " not found!") ;
+  if vdis = [] then failwith ("CD " ^ cd_name ^ " not found!") ;
   let vdi = List.nth vdis 0 in
   let op vm =
     create_vbd_and_plug rpc session_id (vm.getref ()) vdi
@@ -5084,9 +5095,14 @@ let vm_cd_eject printer rpc session_id params =
         (fun vbd -> Client.VBD.get_type ~rpc ~session_id ~self:vbd = `CD)
         vbds
     in
-    if List.length cdvbds = 0 then failwith "No CDs found" ;
-    if List.length cdvbds > 1 then
-      failwith "Two or more CDs found. Please use vbd-eject" ;
+    ( match cdvbds with
+    | [] ->
+        failwith "No CDs found"
+    | [_] ->
+        ()
+    | _ :: _ :: _ ->
+        failwith "Two or more CDs found. Please use vbd-eject"
+    ) ;
     let cd = List.hd cdvbds in
     Client.VBD.eject ~rpc ~session_id ~vbd:cd
   in
@@ -5103,13 +5119,18 @@ let vm_cd_insert printer rpc session_id params =
       )
       vdis
   in
-  if List.length vdis = 0 then failwith ("CD " ^ cd_name ^ " not found") ;
-  if List.length vdis > 1 then
-    failwith
-      ("Multiple CDs named "
-      ^ cd_name
-      ^ " found. Please use vbd-insert and specify uuids"
-      ) ;
+  ( match vdis with
+  | [] ->
+      failwith ("CD " ^ cd_name ^ " not found")
+  | [_] ->
+      ()
+  | _ :: _ :: _ ->
+      failwith
+        ("Multiple CDs named "
+        ^ cd_name
+        ^ " found. Please use vbd-insert and specify uuids"
+        )
+  ) ;
   let op vm =
     let vm_record = vm.record () in
     let vbds = vm_record.API.vM_VBDs in
@@ -5121,15 +5142,16 @@ let vm_cd_insert printer rpc session_id params =
         )
         vbds
     in
-    if List.length cdvbds = 0 then
-      raise
-        (Api_errors.Server_error
-           (Api_errors.vm_no_empty_cd_vbd, [Ref.string_of (vm.getref ())])
-        ) ;
-    if List.length cdvbds > 1 then
-      failwith "Two or more empty CD devices found. Please use vbd-insert" ;
-    let cd = List.hd cdvbds in
-    Client.VBD.insert ~rpc ~session_id ~vbd:cd ~vdi:(List.hd vdis)
+    match cdvbds with
+    | [] ->
+        raise
+          (Api_errors.Server_error
+             (Api_errors.vm_no_empty_cd_vbd, [Ref.string_of (vm.getref ())])
+          )
+    | [cd] ->
+        Client.VBD.insert ~rpc ~session_id ~vbd:cd ~vdi:(List.hd vdis)
+    | _ :: _ :: _ ->
+        failwith "Two or more empty CD devices found. Please use vbd-insert"
   in
   ignore (do_vm_op printer rpc session_id op params ["cd-name"])
 
@@ -5545,7 +5567,7 @@ let pool_retrieve_wlb_report fd _printer rpc session_id params =
   in
   download_file_with_task fd rpc session_id filename Constants.wlb_report_uri
     (Printf.sprintf "report=%s%s%s" (Http.urlencode report)
-       (if List.length other_params = 0 then "" else "&")
+       (if other_params = [] then "" else "&")
        (String.concat "&"
           (List.map
              (fun (k, v) ->
@@ -5968,7 +5990,7 @@ let vm_is_bios_customized printer rpc session_id params =
     let bios_strings =
       Client.VM.get_bios_strings ~rpc ~session_id ~self:(vm.getref ())
     in
-    if List.length bios_strings = 0 then
+    if bios_strings = [] then
       printer
         (Cli_printer.PMsg "The BIOS strings of this VM have not yet been set.")
     else if bios_strings = Constants.generic_bios_strings then
@@ -6061,6 +6083,20 @@ let vm_assert_can_be_recovered _printer rpc session_id params =
       Client.VM.assert_can_be_recovered ~rpc ~session_id:database_session
         ~self:vm ~session_to:session_id
   )
+
+let vm_set_uefi_mode printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let mode = Record_util.vm_uefi_mode_of_string (List.assoc "mode" params) in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.VM.set_uefi_mode ~rpc ~session_id ~self:vm ~mode in
+  printer (Cli_printer.PMsg result)
+
+let vm_get_secureboot_readiness printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.VM.get_secureboot_readiness ~rpc ~session_id ~self:vm in
+  printer
+    (Cli_printer.PMsg (Record_util.vm_secureboot_readiness_to_string result))
 
 let cd_list printer rpc session_id params =
   let srs = Client.SR.get_all_records_where ~rpc ~session_id ~expr:"true" in
@@ -6689,13 +6725,20 @@ let pool_dump_db fd _printer rpc session_id params =
     let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
     let master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
     let master_address =
-      Http.Url.maybe_wrap_IPv6_literal
-        (Client.Host.get_address ~rpc ~session_id ~self:master)
+      Client.Host.get_address ~rpc ~session_id ~self:master
     in
     let uri =
-      Printf.sprintf "https://%s%s?session_id=%s&task_id=%s" master_address
-        Constants.pool_xml_db_sync (Ref.string_of session_id)
-        (Ref.string_of task_id)
+      Uri.(
+        make ~scheme:"https" ~host:master_address
+          ~path:Constants.pool_xml_db_sync
+          ~query:
+            [
+              ("session_id", [Ref.string_of session_id])
+            ; ("task_id", [Ref.string_of task_id])
+            ]
+          ()
+        |> to_string
+      )
     in
     debug "%s" uri ;
     HttpGet (filename, uri)
@@ -6745,6 +6788,16 @@ let pool_disable_external_auth _printer rpc session_id params =
   let pool = get_pool_with_default rpc session_id params "uuid" in
   let config = read_map_params "config" params in
   Client.Pool.disable_external_auth ~rpc ~session_id ~pool ~config
+
+let pool_get_guest_secureboot_readiness printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let result =
+    Client.Pool.get_guest_secureboot_readiness ~rpc ~session_id ~self:pool
+  in
+  printer
+    (Cli_printer.PMsg
+       (Record_util.pool_guest_secureboot_readiness_to_string result)
+    )
 
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
@@ -7218,7 +7271,7 @@ let subject_role_common rpc session_id params =
         let roles =
           Client.Role.get_by_name_label ~rpc ~session_id ~label:role_name
         in
-        if List.length roles > 0 then
+        if roles <> [] then
           List.hd roles (* names are unique, there's either 0 or 1*)
         else
           Ref.null
@@ -7483,13 +7536,13 @@ let pgpu_enable_dom0_access printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid in
   let result = Client.PGPU.enable_dom0_access ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 let pgpu_disable_dom0_access printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let ref = Client.PGPU.get_by_uuid ~rpc ~session_id ~uuid in
   let result = Client.PGPU.disable_dom0_access ~rpc ~session_id ~self:ref in
-  printer (Cli_printer.PMsg (Record_util.pgpu_dom0_access_to_string result))
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 let lvhd_enable_thin_provisioning _printer rpc session_id params =
   let sr_uuid = List.assoc "sr-uuid" params in
@@ -7512,6 +7565,24 @@ let lvhd_enable_thin_provisioning _printer rpc session_id params =
        params
        ["sr-uuid"; "initial-allocation"; "allocation-quantum"]
     )
+
+let pci_enable_dom0_access printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.enable_dom0_access ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
+
+let pci_disable_dom0_access printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.disable_dom0_access ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
+
+let get_dom0_access_status printer rpc session_id params =
+  let uuid = List.assoc "uuid" params in
+  let ref = Client.PCI.get_by_uuid ~rpc ~session_id ~uuid in
+  let result = Client.PCI.get_dom0_access_status ~rpc ~session_id ~self:ref in
+  printer (Cli_printer.PMsg (Record_util.pci_dom0_access_to_string result))
 
 module PVS_site = struct
   let introduce printer rpc session_id params =
@@ -7940,4 +8011,28 @@ module Observer = struct
     let uuid = List.assoc "uuid" params in
     let self = Client.Observer.get_by_uuid ~rpc ~session_id ~uuid in
     Client.Observer.destroy ~rpc ~session_id ~self
+end
+
+module VM_group = struct
+  let create printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let name_description =
+      List.assoc_opt "name-description" params |> Option.value ~default:""
+    in
+    let placement =
+      Record_util.vm_placement_policy_of_string (List.assoc "placement" params)
+    in
+    let ref =
+      Client.VM_group.create ~rpc ~session_id ~name_label ~name_description
+        ~placement
+    in
+    let uuid = Client.VM_group.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let destroy _printer rpc session_id params =
+    let ref =
+      Client.VM_group.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    Client.VM_group.destroy ~rpc ~session_id ~self:ref
 end

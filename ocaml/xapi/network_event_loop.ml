@@ -26,7 +26,9 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
   let allowed_interfaces = None in
   let api_timeout = 60. in
   let timeout =
-    30. +. api_timeout +. !Db_globs.master_connection_reset_timeout
+    30.
+    +. api_timeout
+    +. !Xapi_database.Db_globs.master_connection_reset_timeout
   in
   let wait_for_network_change ~token =
     let from =

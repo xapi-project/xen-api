@@ -1,6 +1,7 @@
 (library
   (name rrdd_libs_internal)
   (wrapped false)
+  (modes best)
   (modules (:standard \ xcp_rrdd))
   (libraries
     astring
@@ -16,7 +17,6 @@
     rrd-transport
     rrd-transport.lib
     stunnel
-    systemd
     threads.posix
     uuid
     xapi-backtrace
@@ -31,6 +31,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xmlm
+    yojson
   )
   (preprocess (pps ppx_deriving_rpc))
 )
@@ -48,13 +49,13 @@
     ezxenstore.watch
     forkexec
     http_lib
+    httpsvr
     inotify
     rpclib.core
     rpclib.json
     rpclib.xml
     rrdd_libs_internal
     rrd-transport
-    systemd
     threads.posix
     uuid
     xapi-backtrace

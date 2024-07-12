@@ -32,7 +32,7 @@ type session = [`session] Ref.t
 
 type rpc = call -> response Lwt.t
 
-open Xen_api_lwt_unix
+open Xen_api_client_lwt.Xen_api_lwt_unix
 
 let shutdown = Lwt_switch.create ()
 
@@ -102,10 +102,8 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
 
 let with_xapi_vtpm ~cache vm_uuid =
   let vm_uuid_str = Uuidm.to_string vm_uuid in
-  let* vm =
-    with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_by_uuid ~uuid:vm_uuid_str
-  in
-  let* vTPMs = with_xapi ~cache @@ Xen_api_lwt_unix.VM.get_VTPMs ~self:vm in
+  let* vm = with_xapi ~cache @@ VM.get_by_uuid ~uuid:vm_uuid_str in
+  let* vTPMs = with_xapi ~cache @@ VM.get_VTPMs ~self:vm in
   match vTPMs with
   | [] ->
       D.warn

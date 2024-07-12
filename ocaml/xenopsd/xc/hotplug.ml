@@ -15,7 +15,7 @@
 open Printf
 open Xenops_task
 open Device_common
-open Xenstore
+open Ezxenstore_core.Xenstore
 open Cancel_utils
 open Xenops_utils
 
@@ -286,10 +286,11 @@ let release (task : Xenops_task.task_handle) ~xc ~xs (x : device) =
        and the private path is indexed by UUID, not domid. *)
     let vm_uuid = Xenops_helpers.uuid_of_domid ~xs x.frontend.domid in
     let domains_of_vm = Xenops_helpers.domains_of_uuid ~xc vm_uuid in
-    if List.length domains_of_vm <= 1 then
-      Some (get_private_data_path_of_device x)
-    else
-      None
+    match domains_of_vm with
+    | [] | [_] ->
+        Some (get_private_data_path_of_device x)
+    | _ :: _ :: _ ->
+        None
   in
   let extra_xenserver_path = extra_xenserver_path_of_device ~xs x in
   Xs.transaction xs (fun t ->

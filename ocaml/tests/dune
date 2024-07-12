@@ -1,6 +1,6 @@
 (test
   (name suite_alcotest)
-  (modes exe)
+  (modes (best exe))
   (package xapi)
   (modules
     (:standard \ test_daemon_manager test_vdi_cbt test_event test_clustering
@@ -17,6 +17,7 @@
     dune-build-info
     fmt
     http_lib
+    httpsvr
     ipaddr
     mirage-crypto
     pam
@@ -70,6 +71,7 @@
   (libraries
     alcotest
     fmt
+    ptime
     result
     rpclib.core
     rpclib.json
@@ -90,7 +92,9 @@
     xapi-test-utils
     xapi-tracing
     xapi-types
+    xapi-stdext-date
     xapi-stdext-threads
+    xapi-stdext-unix
     xml-light2
     yojson
   )
@@ -101,27 +105,34 @@
 (modes exe)
 (package xapi)
 (modules test_storage_smapiv1_wrapper)
-(libraries alcotest xapi_internal fmt))
+(libraries alcotest xapi_internal fmt xapi-idl.storage.interface xapi-idl.storage.interface.types))
 
 (test
 (name test_storage_quicktest)
 (modes exe)
 (package xapi)
 (modules test_storage_quicktest)
-(libraries xapi_internal crowbar))
+(libraries xapi_internal crowbar xapi-idl.storage.interface.types))
 
 (test
 (name test_ref)
 (modes exe)
 (package xapi)
 (modules test_ref)
-(libraries xapi_internal crowbar))
+(libraries
+   crowbar
+   fmt
+   uuidm
+   xapi-types
+   xapi_internal
+))
 
 (test
 (name test_observer)
 (package xapi)
+(modes (best exe))
 (modules test_observer)
-(libraries alcotest tracing xapi_internal tests_common yojson))
+(libraries alcotest fmt tracing xapi_internal tests_common yojson log uri xapi-stdext-unix re ppx_deriving.runtime xapi-stdext-std xapi-tracing-export))
 
 (rule
   (alias runtest)

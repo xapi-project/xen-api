@@ -139,6 +139,8 @@ let safe_get_field x =
   | e ->
       raise e
 
+module Ref_index = Xapi_database.Ref_index
+
 let get_uuid_from_ref r =
   try
     match Ref_index.lookup (Ref.string_of r) with
@@ -1493,6 +1495,12 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"update-sync-enabled"
           ~get:(fun () -> (x ()).API.pool_update_sync_enabled |> string_of_bool)
           ()
+      ; make_field ~name:"recommendations"
+          ~get:(fun () ->
+            Record_util.s2sm_to_string "; " (x ()).API.pool_recommendations
+          )
+          ~get_map:(fun () -> (x ()).API.pool_recommendations)
+          ()
       ]
   }
 
@@ -2502,6 +2510,21 @@ let vm_record rpc session_id vm =
             else
               Client.VM.set_appliance ~rpc ~session_id ~self:vm
                 ~value:(Client.VM_appliance.get_by_uuid ~rpc ~session_id ~uuid:x)
+          )
+          ()
+      ; make_field ~name:"groups"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_groups)
+          ~set:(fun x ->
+            if x = "" then
+              Client.VM.set_groups ~rpc ~session_id ~self:vm ~value:[]
+            else
+              let value =
+                get_words ',' x
+                |> List.map (fun uuid ->
+                       Client.VM_group.get_by_uuid ~rpc ~session_id ~uuid
+                   )
+              in
+              Client.VM.set_groups ~rpc ~session_id ~self:vm ~value
           )
           ()
       ; make_field ~name:"snapshot-schedule"
@@ -4070,6 +4093,55 @@ let vm_appliance_record rpc session_id vm_appliance =
       ]
   }
 
+let vm_group_record rpc session_id vm_group =
+  let _ref = ref vm_group in
+  let empty_record =
+    ToGet (fun () -> Client.VM_group.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.vM_group_uuid) ()
+      ; make_field ~name:"name-label"
+          ~get:(fun () -> (x ()).API.vM_group_name_label)
+          ~set:(fun value ->
+            Client.VM_group.set_name_label ~rpc ~session_id ~self:!_ref ~value
+          )
+          ()
+      ; make_field ~name:"name-description"
+          ~get:(fun () -> (x ()).API.vM_group_name_description)
+          ~set:(fun value ->
+            Client.VM_group.set_name_description ~rpc ~session_id ~self:!_ref
+              ~value
+          )
+          ()
+      ; make_field ~name:"placement"
+          ~get:(fun () ->
+            Record_util.vm_placement_policy_to_string
+              (x ()).API.vM_group_placement
+          )
+          ()
+      ; make_field ~name:"vm-uuids"
+          ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_group_VMs)
+          ~get_set:(fun () -> List.map get_uuid_from_ref (x ()).API.vM_group_VMs)
+          ()
+      ]
+  }
+
 let dr_task_record rpc session_id dr_task =
   let _ref = ref dr_task in
   let empty_record =
@@ -4127,6 +4199,9 @@ let pgpu_record rpc session_id pgpu =
   ; fields=
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pGPU_uuid) ()
+      ; make_field ~name:"pci-uuid"
+          ~get:(fun () -> try (xp ()).API.pCI_uuid with _ -> nid)
+          ()
       ; make_field ~name:"vendor-name"
           ~get:(fun () -> try (xp ()).API.pCI_vendor_name with _ -> nid)
           ()
@@ -4135,7 +4210,7 @@ let pgpu_record rpc session_id pgpu =
           ()
       ; make_field ~name:"dom0-access"
           ~get:(fun () ->
-            Record_util.pgpu_dom0_access_to_string (x ()).API.pGPU_dom0_access
+            Record_util.pci_dom0_access_to_string (x ()).API.pGPU_dom0_access
           )
           ()
       ; make_field ~name:"is-system-display-device"
@@ -5039,6 +5114,11 @@ let cluster_record rpc session_id cluster =
       ; make_field ~name:"cluster-stack"
           ~get:(fun () -> (x ()).API.cluster_cluster_stack)
           ()
+      ; make_field ~name:"cluster-stack-version"
+          ~get:(fun () ->
+            (x ()).API.cluster_cluster_stack_version |> Int64.to_string
+          )
+          ()
       ; make_field ~name:"token-timeout"
           ~get:(fun () -> string_of_float (x ()).API.cluster_token_timeout)
           ()
@@ -5226,6 +5306,12 @@ let certificate_record rpc session_id certificate =
           ()
       ; make_field ~name:"fingerprint"
           ~get:(fun () -> (x ()).API.certificate_fingerprint)
+          ()
+      ; make_field ~name:"fingerprint_sha256"
+          ~get:(fun () -> (x ()).API.certificate_fingerprint_sha256)
+          ()
+      ; make_field ~name:"fingerprint_sha1"
+          ~get:(fun () -> (x ()).API.certificate_fingerprint_sha1)
           ()
       ]
   }
@@ -5497,6 +5583,83 @@ let observer_record rpc session_id observer =
             Client.Observer.set_enabled ~rpc ~session_id ~self:observer
               ~value:(safe_bool_of_string "enabled" s)
           )
+          ()
+      ]
+  }
+
+let pci_record rpc session_id pci =
+  let _ref = ref pci in
+  let empty_record =
+    ToGet (fun () -> Client.PCI.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  let pci_record p =
+    ref (ToGet (fun () -> Client.PCI.get_record ~rpc ~session_id ~self:p))
+  in
+  let xp0 p = lzy_get (pci_record p) in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.pCI_uuid) ()
+      ; make_field ~name:"vendor-name"
+          ~get:(fun () -> try (x ()).API.pCI_vendor_name with _ -> nid)
+          ()
+      ; make_field ~name:"device-name"
+          ~get:(fun () -> try (x ()).API.pCI_device_name with _ -> nid)
+          ()
+      ; make_field ~name:"driver-name"
+          ~get:(fun () -> try (x ()).API.pCI_driver_name with _ -> nid)
+          ()
+      ; make_field ~name:"host-uuid"
+          ~get:(fun () ->
+            try get_uuid_from_ref (x ()).API.pCI_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"host-name-label"
+          ~get:(fun () ->
+            try get_name_from_ref (x ()).API.pCI_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"pci-id"
+          ~get:(fun () -> try (x ()).API.pCI_pci_id with _ -> nid)
+          ()
+      ; make_field ~name:"dependencies"
+          ~get:(fun () ->
+            map_and_concat
+              (fun pci -> (xp0 pci).API.pCI_pci_id)
+              (x ()).API.pCI_dependencies
+          )
+          ~get_set:(fun () ->
+            List.map
+              (fun pci -> (xp0 pci).API.pCI_pci_id)
+              (x ()).API.pCI_dependencies
+          )
+          ()
+      ; make_field ~name:"other-config"
+          ~get:(fun () ->
+            Record_util.s2sm_to_string "; " (x ()).API.pCI_other_config
+          )
+          ~add_to_map:(fun key value ->
+            Client.PCI.add_to_other_config ~rpc ~session_id ~self:pci ~key
+              ~value
+          )
+          ~remove_from_map:(fun key ->
+            Client.PCI.remove_from_other_config ~rpc ~session_id ~self:pci ~key
+          )
+          ~get_map:(fun () -> (x ()).API.pCI_other_config)
           ()
       ]
   }

@@ -3,11 +3,12 @@
   (public_name http-lib)
   (modes best)
   (wrapped false)
-  (modules (:standard \ http_svr http_proxy server_io http_test radix_tree_test test_client test_server))
+  (modules (:standard \ http_svr http_proxy server_io http_test radix_tree_test test_client test_server bufio_test))
   (preprocess (per_module ((pps ppx_deriving_rpc) Http)))
   (libraries
     astring
     base64
+    fmt
     ipaddr
     mtime
     mtime.clock.os
@@ -19,6 +20,7 @@
     stunnel
     threads.posix
     uuid
+    uri
     xapi-backtrace
     xapi-consts.xapi_version
     xapi-idl.updates
@@ -35,12 +37,15 @@
 (library
   (name httpsvr)
   (wrapped false)
+  (modes best)
   (modules http_svr http_proxy server_io)
   (libraries
     astring
     http_lib
+    ipaddr
     polly
     threads.posix
+    uri
     xapi-log
     xapi-stdext-pervasives
     xapi-stdext-threads
@@ -51,12 +56,40 @@
 (tests
   (names http_test radix_tree_test)
   (package http-lib)
+  (modes (best exe))
   (modules http_test radix_tree_test)
   (libraries
     alcotest
     dune-build-info
+    fmt
     http_lib
   )
+)
+
+(test
+  (name bufio_test)
+  (package http-lib)
+  (modes (best exe))
+  (modules bufio_test)
+  (libraries
+    fmt
+    mtime
+    mtime.clock
+    mtime.clock.os
+    rresult
+    http_lib
+    qcheck-core
+    qcheck-core.runner
+    xapi_fd_test
+  )
+  ; use fixed seed to avoid causing random failures in CI and package builds
+  (action (run %{test} -v -bt --seed 42))
+)
+
+(rule
+  (alias stresstest)
+  ; use default random seed on stresstests
+  (action (run %{dep:bufio_test.exe} -v -bt))
 )
 
 (executable
@@ -66,7 +99,6 @@
   (libraries
     dune-build-info
     http_lib
-    ounit2
     safe-resources
     stunnel
     threads.posix
@@ -83,7 +115,6 @@
     dune-build-info
     http_lib
     httpsvr
-    ounit2
     safe-resources
     threads.posix
     xapi-stdext-threads

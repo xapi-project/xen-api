@@ -20,6 +20,10 @@
 val wrap : (unit -> unit) -> unit
 (** This has to wrap the quicktest run *)
 
+val with_xapi_query : (unit -> 'a list) -> 'a list
+(** [with_xapi_query get_list] calls [get_list ()] unless [-skip-xapi] CLI
+    argument was used. *)
+
 (** A slightly different definition of Alcotest.test_case, to ensure we can
     reason about the entire type of the test function *)
 type 'a test_case = string * Alcotest.speed_level * 'a

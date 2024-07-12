@@ -14,7 +14,7 @@
 
 module Unixext = Xapi_stdext_unix.Unixext
 module Date = Xapi_stdext_date.Date
-open Xenstore
+open Ezxenstore_core.Xenstore
 
 (** Command-line tool for sampling host and guest memory usage. *)
 
@@ -46,10 +46,6 @@ let cli_arguments_named =
   ]
 
 let cli_arguments_extra x = Printf.fprintf stderr "Ignoring argument: %s" x
-
-(** {2 Helper functions} *)
-
-let flip f x y = f y x
 
 (** Merges two sorted lists into a single sorted list that contains the union of
     all elements found in both lists. *)
@@ -246,7 +242,7 @@ let print_memory_field_values xc xs =
   flush stdout
 
 (** Sleeps for the given time period in seconds. *)
-let sleep time_period_seconds = ignore (Unix.select [] [] [] time_period_seconds)
+let sleep time_period_seconds = Unix.sleepf time_period_seconds
 
 (** Prints a header line of memory field names, and then periodically prints a
     line of memory field values. *)

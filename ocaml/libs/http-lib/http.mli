@@ -119,10 +119,6 @@ module Request : sig
   val get_version : t -> string
   (** [get_version t] returns the HTTP protocol version *)
 
-  val of_request_line : string -> t
-  (** [of_request_line l] parses [l] of the form "METHOD HTTP/VERSION" and
-      		returns the corresponding [t] *)
-
   val to_string : t -> string
   (** [to_string t] returns a short string summarising [t] *)
 
@@ -175,8 +171,6 @@ module Response : sig
 end
 
 val authorization_of_string : string -> authorization
-
-val parse_uri : string -> string * (string * string) list
 
 val http_403_forbidden : ?version:string -> unit -> string list
 
@@ -263,9 +257,6 @@ module Url : sig
   val equal : t -> t -> bool
 
   val of_string : string -> t
-
-  val maybe_wrap_IPv6_literal : string -> string
-  (** Wrap a literal IPv6 address in square brackets; otherwise pass through *)
 
   val to_string : t -> string
 

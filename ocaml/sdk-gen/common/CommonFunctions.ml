@@ -4,6 +4,8 @@
 
 open Printf
 open Datamodel_types
+open Datamodel_utils
+open Dm_api
 
 exception Unknown_wire_protocol
 
@@ -108,7 +110,7 @@ let rec lifecycle_matcher milestone lifecycle =
       else
         lifecycle_matcher milestone tl
 
-let get_published_release_for_param releases =
+let published_release_for_param releases =
   let filtered =
     List.filter
       (fun x -> x <> "closed" && x <> "3.0.3" && x <> "debug")
@@ -136,8 +138,8 @@ let get_release_branding codename =
 let group_params_per_release params =
   let same_release p1 p2 =
     compare_versions
-      (get_published_release_for_param p1.param_release.internal)
-      (get_published_release_for_param p2.param_release.internal)
+      (published_release_for_param p1.param_release.internal)
+      (published_release_for_param p2.param_release.internal)
     = 0
   in
   let rec groupByRelease acc = function
@@ -238,9 +240,7 @@ and get_deprecated_info_message message =
 
 and get_published_info_param message param =
   let msgRelease = get_published_release message.msg_lifecycle.transitions in
-  let paramRelease =
-    get_published_release_for_param param.param_release.internal
-  in
+  let paramRelease = published_release_for_param param.param_release.internal in
   if compare_versions paramRelease msgRelease > 0 then
     sprintf "First published in %s." (get_release_branding paramRelease)
   else
@@ -306,25 +306,111 @@ let json_releases =
     in
     try index_rec 0 list with Not_found -> -1
   in
-  let json_of_rel x =
+  let of_rel x =
     let y = version_index_of x unique_version_bumps + 1 in
-    `O
-      [
-        ( "code_name"
-        , `String (match x.code_name with Some r -> r | None -> "")
-        )
-      ; ("version_major", `Float (float_of_int x.version_major))
-      ; ("version_minor", `Float (float_of_int x.version_minor))
-      ; ("branding", `String x.branding)
-      ; ("version_index", `Float (float_of_int y))
-      ]
+    [
+      ("code_name", `String (Option.value x.code_name ~default:""))
+    ; ("version_major", `Float (float_of_int x.version_major))
+    ; ("version_minor", `Float (float_of_int x.version_minor))
+    ; ("branding", `String x.branding)
+    ; ("version_index", `Float (float_of_int y))
+    ]
+  in
+  let of_rels releases =
+    match releases with
+    | [] ->
+        `A []
+    | head :: tail ->
+        let head' = `O (("first", `Bool true) :: of_rel head) in
+        let tail' =
+          List.map (fun rel -> `O (("first", `Bool false) :: of_rel rel)) tail
+        in
+        `A (head' :: tail')
   in
   `O
     [
       ("API_VERSION_MAJOR", `Float (Int64.to_float Datamodel.api_version_major))
     ; ("API_VERSION_MINOR", `Float (Int64.to_float Datamodel.api_version_minor))
-    ; ("releases", `A (List.map (fun x -> json_of_rel x) unique_version_bumps))
+    ; ("releases", of_rels unique_version_bumps)
     ; ( "latest_version_index"
       , `Float (float_of_int (List.length unique_version_bumps))
       )
     ]
+
+let session_id =
+  {
+    param_type= Ref Datamodel_common._session
+  ; param_name= "session_id"
+  ; param_doc= "Reference to a valid session"
+  ; param_release= Datamodel_common.rio_release
+  ; param_default= None
+  }
+
+let objects =
+  let api = Datamodel.all_api in
+  (* Add all implicit messages *)
+  let api = add_implicit_messages api in
+  (* Only include messages that are visible to a XenAPI client *)
+  let api = filter (fun _ -> true) (fun _ -> true) on_client_side api in
+  (* And only messages marked as not hidden from the docs, and non-internal fields *)
+  let api =
+    filter
+      (fun _ -> true)
+      (fun f -> not f.internal_only)
+      (fun m -> not m.msg_hide_from_docs)
+      api
+  in
+  objects_of_api api
+
+module TypesOfMessages = struct
+  open Xapi_stdext_std
+
+  let records =
+    List.map
+      (fun obj ->
+        let obj_name = String.lowercase_ascii obj.name in
+        (obj_name, Datamodel_utils.fields_of_obj obj)
+      )
+      objects
+
+  let rec decompose = function
+    | Set x as y ->
+        y :: decompose x
+    | Map (a, b) as y ->
+        (y :: decompose a) @ decompose b
+    | Option x as y ->
+        y :: decompose x
+    | Record r as y ->
+        let name = String.lowercase_ascii r in
+        let types_in_field =
+          List.assoc_opt name records
+          |> Option.value ~default:[]
+          |> List.concat_map (fun field -> decompose field.ty)
+        in
+        y :: types_in_field
+    | (SecretString | String | Int | Float | DateTime | Enum _ | Bool | Ref _)
+      as x ->
+        [x]
+
+  let mesages objects = objects |> List.concat_map (fun x -> x.messages)
+
+  (** All types of params in a list of objects (automatically decomposes) *)
+  let of_params objects =
+    let param_types =
+      mesages objects
+      |> List.concat_map (fun x -> x.msg_params)
+      |> List.map (fun p -> p.param_type)
+      |> Listext.List.setify
+    in
+    List.concat_map decompose param_types |> Listext.List.setify
+
+  (** All types of results in a list of objects (automatically decomposes) *)
+  let of_results objects =
+    let return_types =
+      let aux accu msg =
+        match msg.msg_result with None -> accu | Some (ty, _) -> ty :: accu
+      in
+      mesages objects |> List.fold_left aux [] |> Listext.List.setify
+    in
+    List.concat_map decompose return_types |> Listext.List.setify
+end

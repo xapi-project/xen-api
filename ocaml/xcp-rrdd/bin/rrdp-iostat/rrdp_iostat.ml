@@ -20,7 +20,7 @@ open Blktap3_stats
 module Process = Process (struct let name = "xcp-rrdd-iostat" end)
 
 open Process
-open Xenstore
+open Ezxenstore_core.Xenstore
 
 let with_xc_and_xs f = Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
@@ -124,7 +124,7 @@ let update_vdi_to_vm_map () =
                       xs.Xs.read (Printf.sprintf "%s/sm-data/vdi-uuid" vbd)
                     in
                     let device = xs.Xs.read (Printf.sprintf "%s/dev" vbd) in
-                    D.info "Found VDI %s at device %s in VM %s, device id %d"
+                    D.debug "Found VDI %s at device %s in VM %s, device id %d"
                       vdi device vm devid ;
                     Some (vdi, (vm, device, devid))
                   with Xs_protocol.Enoent _ ->
@@ -192,11 +192,9 @@ module Iostat = struct
     (* Now read the values out of dev_values_map for devices for which we have data *)
     List.filter_map
       (fun dev ->
-        if not (Hashtbl.mem dev_values_map dev) then
-          None
-        else
-          let values = Hashtbl.find dev_values_map dev in
-          Some (dev, values)
+        Option.map
+          (fun values -> (dev, values))
+          (Hashtbl.find_opt dev_values_map dev)
       )
       devs
 end
@@ -371,13 +369,13 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
     (* Look up SR and VDI uuids from the physical path *)
     if not (Hashtbl.mem phypath_to_sr_vdi phypath) then
       refresh_phypath_to_sr_vdi () ;
-    if not (Hashtbl.mem phypath_to_sr_vdi phypath) then (
-      (* Odd: tap-ctl mentions a device that's not linked from /dev/sm/phy *)
-      D.error "Could not find device with physical path %s" phypath ;
-      None
-    ) else
-      let sr, vdi = Hashtbl.find phypath_to_sr_vdi phypath in
-      Some (pid, (minor, (sr, vdi)))
+    match Hashtbl.find_opt phypath_to_sr_vdi phypath with
+    | Some (sr, vdi) ->
+        Some (pid, (minor, (sr, vdi)))
+    | None ->
+        (* Odd: tap-ctl mentions a device that's not linked from /dev/sm/phy *)
+        D.error "Could not find device with physical path %s" phypath ;
+        None
   in
   let process_line str =
     try Scanf.sscanf str "pid=%d minor=%d state=%s args=%s@:%s" extract_vdis
@@ -456,7 +454,7 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
    | None ->
        ()
    | Some reason ->
-       D.info "Updating VDI-to-VM map because %s" reason ;
+       D.debug "Updating VDI-to-VM map because %s" reason ;
        update_vdi_to_vm_map ()
   ) ;
   previous_map := pid_and_minor_to_sr_and_vdi ;
