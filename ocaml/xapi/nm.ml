@@ -613,18 +613,18 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     let addresses =
                       List.filter_map
                         (fun addr_and_prefixlen ->
-                          try
-                            let n = String.index addr_and_prefixlen '/' in
+                          let ( let* ) = Option.bind in
+                          Ipaddr.V6.(
+                            let* ip_t =
+                              Result.to_option
+                                (Prefix.of_string addr_and_prefixlen)
+                            in
                             let addr =
-                              Unix.inet_addr_of_string
-                                (String.sub addr_and_prefixlen 0 n)
+                              Prefix.address ip_t |> Ipaddr_unix.V6.to_inet_addr
                             in
-                            let prefixlen =
-                              int_of_string
-                                (String.sub_to_end addr_and_prefixlen (n + 1))
-                            in
+                            let prefixlen = Prefix.bits ip_t in
                             Some (addr, prefixlen)
-                          with _ -> None
+                          )
                         )
                         rc.API.pIF_IPv6
                     in
@@ -714,9 +714,16 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               | [] ->
                   ""
               | hd :: _ -> (
-                (* IPv6 addresses are stored with this format: <ipv6>/<cidr> *)
-                match String.split_on_char '/' hd with [ip; _] -> ip | _ -> ""
-              )
+                  (* IPv6 addresses are stored with this format: <ipv6>/<cidr> *)
+                  Ipaddr.V6.(
+                    match Prefix.of_string hd with
+                    | Ok ip_t ->
+                        Prefix.address ip_t |> to_string
+                    | _ ->
+                        debug "%s not an IPv6 prefix: %s" __FUNCTION__ hd ;
+                        ""
+                  )
+                )
             )
           in
           if new_ip <> pif_ip then (

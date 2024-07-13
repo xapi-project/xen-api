@@ -2,6 +2,7 @@ _build/
 *.bak
 *.native
 .merlin
+_coverage/
 *.install
 *.swp
 compile_flags.txt

@@ -4,9 +4,12 @@
   (public_name xs-trace)
   (package xapi)
   (libraries
+    uri
+    tracing
     cmdliner
     tracing_export
     xapi-stdext-unix
+    zstd
   )
 )
 

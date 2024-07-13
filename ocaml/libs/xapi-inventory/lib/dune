@@ -7,6 +7,6 @@
     astring
     xapi-stdext-unix
     xapi-stdext-threads
-    threads
+    threads.posix
   )
 )

@@ -2,6 +2,8 @@
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
 
+(cram enable)
+(implicit_transitive_deps false)
 (generate_opam_files true)
 
 (name "xapi")
@@ -559,6 +561,8 @@ This package provides an Lwt compatible interface to the library.")
     base-unix
     (odoc :with-doc)
     (xapi-stdext-pervasives (= :version))
+    (mtime :with-test)
+    (xapi-stdext-unix (= :version))
   )
 )
 
@@ -568,12 +572,19 @@ This package provides an Lwt compatible interface to the library.")
   (authors "Jonathan Ludlam")
   (depends
     (ocaml (>= 4.12.0))
+    (alcotest :with-test)
     base-unix
+    (bisect_ppx :with-test)
     (fd-send-recv (>= 2.0.0))
+    fmt
+    (mtime (and (>= 2.0.0) :with-test))
+    (logs :with-test)
+    (qcheck-core (and (>= 0.21.2) :with-test))
     (odoc :with-doc)
     xapi-backtrace
     unix-errno
     (xapi-stdext-pervasives (= :version))
+    polly
   )
 )
 

@@ -169,6 +169,16 @@ let pool_resync =
     ~params:[(Ref _cluster, "self", "The cluster to resync")]
     ~lifecycle ~allowed_roles:_R_POOL_OP ~errs:[] ()
 
+let cstack_sync =
+  call ~name:"cstack_sync"
+    ~doc:
+      "Sync xapi db with the cluster stack synchronously, and generate alerts \
+       as needed. Only happens on the coordinator as this is where the cluster \
+       watcher performs updates."
+    ~params:[(Ref _cluster, "self", "The cluster to sync")]
+    ~hide_from_docs:true ~pool_internal:true ~lifecycle
+    ~allowed_roles:_R_POOL_OP ~errs:[] ()
+
 let t =
   create_obj ~name:_cluster ~descr:"Cluster-wide Cluster metadata"
     ~doccomments:[] ~gen_constructor_destructor:false ~gen_events:true
@@ -245,5 +255,6 @@ let t =
       ; pool_force_destroy
       ; pool_destroy
       ; pool_resync
+      ; cstack_sync
       ]
     ()
