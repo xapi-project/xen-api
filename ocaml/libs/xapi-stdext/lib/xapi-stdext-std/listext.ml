@@ -76,6 +76,14 @@ module List = struct
     in
     loop 0 list
 
+  let rec last = function
+    | [] ->
+        invalid_arg "last: empty list"
+    | [x] ->
+        x
+    | _ :: xs ->
+        last xs
+
   let sub i j l = drop i l |> take (j - max i 0)
 
   let rec chop i l =
