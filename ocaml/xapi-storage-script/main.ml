@@ -24,6 +24,10 @@ module Datapath_client = Xapi_storage.Data.Datapath (Rpc_async.GenClient ())
 
 let ( >>>= ) = Deferred.Result.( >>= )
 
+type config = {mutable use_observer: bool}
+
+let config = {use_observer= false}
+
 (** Functions for returning SMAPIv2 errors *)
 
 (** Exception returned by fork_exec_rpc when the script invocation fails *)
@@ -349,6 +353,27 @@ module Script = struct
         update_mapping ~script_dir >>= fun () -> find ()
 end
 
+let observer_config_dir =
+  let ( // ) = Filename.concat in
+  let dir, component =
+    Constants.(observer_config_dir, observer_component_smapi)
+  in
+  dir // component // "enabled"
+
+(** Determine if SM API observation is enabled from the
+    filesystem. Ordinarily, determining if a component is enabled
+    would consist of querying the 'components' field of an observer
+    from the xapi database. *)
+let observer_is_component_enabled () =
+  let ( let* ) = ( >>= ) in
+  let is_enabled () =
+    let is_config_file path = Filename.check_suffix path ".observer.conf" in
+    let* files = Sys.readdir observer_config_dir in
+    return (Array.exists files ~f:is_config_file)
+  in
+  let* result = Monitor.try_with ~extract_exn:true is_enabled in
+  return (Option.value (Result.ok result) ~default:false)
+
 (** Call the script named after the RPC method in the [script_dir]
     directory. The arguments (not the whole JSON-RPC call) are passed as JSON
     to its stdin, and stdout is returned. In case of a non-zero exit code,
@@ -367,12 +392,29 @@ let fork_exec_rpc :
     -> ?missing:R.t
     -> ?compat_in:compat_in
     -> ?compat_out:compat_out
+    -> ?dbg:string
     -> R.call
     -> R.response Deferred.t =
- fun ~script_dir ?missing ?(compat_in = id) ?(compat_out = id) ->
+ fun ~script_dir ?missing ?(compat_in = id) ?(compat_out = id) ?dbg ->
   let invoke_script call script_name :
       (R.response, Storage_interface.Errors.error) Deferred.Result.t =
-    Process.create ~prog:script_name ~args:["--json"] () >>= function
+    let traceparent = Option.bind dbg ~f:Debug_info.traceparent_of_dbg in
+    let args = ["--json"] in
+    let script_name, args, env =
+      match (traceparent, config.use_observer) with
+      | Some traceparent, true ->
+          ( Constants.python3_path
+          , "-m" :: "observer" :: script_name :: args
+          , [
+              ("TRACEPARENT", traceparent)
+            ; ("OBSERVER_CONFIG_DIR", observer_config_dir)
+            ; ("PYTHONPATH", Filename.dirname script_name)
+            ]
+          )
+      | _ ->
+          (script_name, args, [])
+    in
+    Process.create ~env:(`Extend env) ~prog:script_name ~args () >>= function
     | Error e ->
         error "%s failed: %s" script_name (Error.to_string_hum e) ;
         return
@@ -751,15 +793,19 @@ let bind ~volume_script_dir =
     (* TODO add default value to sharable? *)
     return_volume_rpc (fun () ->
         Volume_client.stat
-          (volume_rpc ~compat_out:Compat.compat_out_volume)
+          (volume_rpc ~dbg ~compat_out:Compat.compat_out_volume)
           dbg sr vdi
     )
   in
   let clone ~dbg ~sr ~vdi =
-    return_volume_rpc (fun () -> Volume_client.clone volume_rpc dbg sr vdi)
+    return_volume_rpc (fun () ->
+        Volume_client.clone (volume_rpc ~dbg) dbg sr vdi
+    )
   in
   let destroy ~dbg ~sr ~vdi =
-    return_volume_rpc (fun () -> Volume_client.destroy volume_rpc dbg sr vdi)
+    return_volume_rpc (fun () ->
+        Volume_client.destroy (volume_rpc ~dbg) dbg sr vdi
+    )
   in
   let set ~dbg ~sr ~vdi ~key ~value =
     (* this is wrong, we loose the VDI type, but old pvsproxy didn't have
@@ -771,7 +817,7 @@ let bind ~volume_script_dir =
       )
     in
     return_volume_rpc (fun () ->
-        Volume_client.set (volume_rpc ?missing) dbg sr vdi key value
+        Volume_client.set (volume_rpc ~dbg ?missing) dbg sr vdi key value
     )
   in
   let unset ~dbg ~sr ~vdi ~key =
@@ -781,7 +827,7 @@ let bind ~volume_script_dir =
       )
     in
     return_volume_rpc (fun () ->
-        Volume_client.unset (volume_rpc ?missing) dbg sr vdi key
+        Volume_client.unset (volume_rpc ~dbg ?missing) dbg sr vdi key
     )
   in
   let update_keys ~dbg ~sr ~key ~value response =
@@ -812,13 +858,13 @@ let bind ~volume_script_dir =
     )
     >>= fun response ->
     choose_datapath domain response >>= fun (rpc, _datapath, uri, domain) ->
-    return_data_rpc (fun () -> Datapath_client.attach rpc dbg uri domain)
+    return_data_rpc (fun () -> Datapath_client.attach (rpc ~dbg) dbg uri domain)
   in
   let wrap th = Rpc_async.T.put th in
   (* the actual API call for this plugin, sharing same version ref across all calls *)
   let query_impl dbg =
     let th =
-      return_plugin_rpc (fun () -> Plugin_client.query volume_rpc dbg)
+      return_plugin_rpc (fun () -> Plugin_client.query (volume_rpc ~dbg) dbg)
       >>>= fun response ->
       let required_api_version =
         response.Xapi_storage.Plugin.required_api_version
@@ -903,7 +949,9 @@ let bind ~volume_script_dir =
   let query_diagnostics_impl dbg =
     let th =
       let open Deferred.Result.Monad_infix in
-      return_plugin_rpc (fun () -> Plugin_client.diagnostics volume_rpc dbg)
+      return_plugin_rpc (fun () ->
+          Plugin_client.diagnostics (volume_rpc ~dbg) dbg
+      )
       >>= fun response -> Deferred.Result.return response
     in
     wrap th
@@ -913,12 +961,14 @@ let bind ~volume_script_dir =
     let th =
       Compat.sr_attach device_config >>>= fun compat_in ->
       return_volume_rpc (fun () ->
-          Sr_client.attach (volume_rpc ~compat_in) dbg device_config
+          Sr_client.attach (volume_rpc ~dbg ~compat_in) dbg device_config
       )
       >>>= fun attach_response ->
       (* Stat the SR to look for datasources *)
       (* SR.stat should take the attached URI *)
-      return_volume_rpc (fun () -> Sr_client.stat volume_rpc dbg attach_response)
+      return_volume_rpc (fun () ->
+          Sr_client.stat (volume_rpc ~dbg) dbg attach_response
+      )
       >>>= fun stat ->
       let rec loop acc = function
         | [] ->
@@ -962,7 +1012,9 @@ let bind ~volume_script_dir =
           (* ensure SR.detach is idempotent *)
           Deferred.Result.return ()
       | Ok sr' ->
-          return_volume_rpc (fun () -> Sr_client.detach volume_rpc dbg sr')
+          return_volume_rpc (fun () ->
+              Sr_client.detach (volume_rpc ~dbg) dbg sr'
+          )
           >>>= fun response ->
           Attached_SRs.get_uids sr >>>= fun uids ->
           let rec loop = function
@@ -1000,7 +1052,9 @@ let bind ~volume_script_dir =
   S.SR.detach sr_detach_impl ;
   let sr_probe_impl dbg _queue device_config _sm_config =
     let th =
-      return_volume_rpc (fun () -> Sr_client.probe volume_rpc dbg device_config)
+      return_volume_rpc (fun () ->
+          Sr_client.probe (volume_rpc ~dbg) dbg device_config
+      )
       >>>= fun response ->
       let pp_probe_result () probe_result =
         Rpcmarshal.marshal Xapi_storage.Control.typ_of_probe_result probe_result
@@ -1079,7 +1133,7 @@ let bind ~volume_script_dir =
       >>>= fun (device_config, compat_in, compat_out) ->
       return_volume_rpc (fun () ->
           Sr_client.create
-            (volume_rpc ~compat_in ~compat_out)
+            (volume_rpc ~dbg ~compat_in ~compat_out)
             dbg uuid device_config name_label description
       )
       >>>= fun new_device_config -> Deferred.Result.return new_device_config
@@ -1091,7 +1145,7 @@ let bind ~volume_script_dir =
     Attached_SRs.find sr
     >>>= (fun sr ->
            return_volume_rpc (fun () ->
-               Sr_client.set_name volume_rpc dbg sr new_name_label
+               Sr_client.set_name (volume_rpc ~dbg) dbg sr new_name_label
            )
          )
     |> wrap
@@ -1101,7 +1155,8 @@ let bind ~volume_script_dir =
     Attached_SRs.find sr
     >>>= (fun sr ->
            return_volume_rpc (fun () ->
-               Sr_client.set_description volume_rpc dbg sr new_name_description
+               Sr_client.set_description (volume_rpc ~dbg) dbg sr
+                 new_name_description
            )
          )
     |> wrap
@@ -1110,7 +1165,9 @@ let bind ~volume_script_dir =
   let sr_destroy_impl dbg sr =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () -> Sr_client.destroy volume_rpc dbg sr)
+           return_volume_rpc (fun () ->
+               Sr_client.destroy (volume_rpc ~dbg) dbg sr
+           )
          )
     |> wrap
   in
@@ -1120,7 +1177,7 @@ let bind ~volume_script_dir =
     >>>= (fun sr ->
            return_volume_rpc (fun () ->
                Sr_client.ls
-                 (volume_rpc ~compat_out:Compat.compat_out_volumes)
+                 (volume_rpc ~dbg ~compat_out:Compat.compat_out_volumes)
                  dbg sr
            )
            >>>= fun response ->
@@ -1155,7 +1212,7 @@ let bind ~volume_script_dir =
     >>>= (fun sr ->
            return_volume_rpc (fun () ->
                Volume_client.create
-                 (volume_rpc ~compat_out:Compat.compat_out_volume)
+                 (volume_rpc ~dbg ~compat_out:Compat.compat_out_volume)
                  dbg sr vdi_info.Storage_interface.name_label
                  vdi_info.name_description vdi_info.virtual_size
                  vdi_info.sharable
@@ -1194,7 +1251,7 @@ let bind ~volume_script_dir =
              Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi
            in
            return_volume_rpc (fun () ->
-               Volume_client.snapshot volume_rpc dbg sr vdi
+               Volume_client.snapshot (volume_rpc ~dbg) dbg sr vdi
            )
            >>>= fun response ->
            let now =
@@ -1237,7 +1294,7 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
      return_volume_rpc (fun () ->
-         Volume_client.set_name volume_rpc dbg sr vdi new_name_label
+         Volume_client.set_name (volume_rpc ~dbg) dbg sr vdi new_name_label
      )
     )
     |> wrap
@@ -1247,7 +1304,7 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
      return_volume_rpc (fun () ->
-         Volume_client.set_description volume_rpc dbg sr vdi
+         Volume_client.set_description (volume_rpc ~dbg) dbg sr vdi
            new_name_description
      )
     )
@@ -1258,7 +1315,7 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      Attached_SRs.find sr >>>= fun sr ->
      return_volume_rpc (fun () ->
-         Volume_client.resize volume_rpc dbg sr vdi new_size
+         Volume_client.resize (volume_rpc ~dbg) dbg sr vdi new_size
      )
      >>>= fun () ->
      (* Now call Volume.stat to discover the size *)
@@ -1330,6 +1387,7 @@ let bind ~volume_script_dir =
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
      return_data_rpc (fun () ->
+         let rpc = rpc ~dbg in
          if readonly then
            Datapath_client.activate_readonly rpc dbg uri domain
          else
@@ -1363,7 +1421,9 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain)
+     return_data_rpc (fun () ->
+         Datapath_client.deactivate (rpc ~dbg) dbg uri domain
+     )
     )
     |> wrap
   in
@@ -1385,7 +1445,7 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain)
+     return_data_rpc (fun () -> Datapath_client.detach (rpc ~dbg) dbg uri domain)
     )
     |> wrap
   in
@@ -1393,7 +1453,7 @@ let bind ~volume_script_dir =
   let sr_stat_impl dbg sr =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () -> Sr_client.stat volume_rpc dbg sr)
+           return_volume_rpc (fun () -> Sr_client.stat (volume_rpc ~dbg) dbg sr)
            >>>= fun response ->
            Deferred.Result.return
              {
@@ -1432,7 +1492,9 @@ let bind ~volume_script_dir =
         make a temporary clone now and attach/detach etc this file. *)
      if Datapath_plugins.supports_feature datapath _nonpersistent then
        (* We delegate handling non-persistent disks to the datapath plugin. *)
-       return_data_rpc (fun () -> Datapath_client.open_ rpc dbg uri persistent)
+       return_data_rpc (fun () ->
+           Datapath_client.open_ (rpc ~dbg) dbg uri persistent
+       )
      else if not persistent then
        (* We create a non-persistent disk here with Volume.clone, and store
           the name of the cloned disk in the metadata of the original. *)
@@ -1464,7 +1526,7 @@ let bind ~volume_script_dir =
      stat ~dbg ~sr ~vdi >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, datapath, uri, _domain) ->
      if Datapath_plugins.supports_feature datapath _nonpersistent then
-       return_data_rpc (fun () -> Datapath_client.close rpc dbg uri)
+       return_data_rpc (fun () -> Datapath_client.close (rpc ~dbg) dbg uri)
      else
        match
          List.Assoc.find response.Xapi_storage.Control.keys _clone_on_boot_key
@@ -1502,9 +1564,11 @@ let bind ~volume_script_dir =
      )
      >>>= fun response ->
      choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-     return_data_rpc (fun () -> Datapath_client.deactivate rpc dbg uri domain)
+     return_data_rpc (fun () ->
+         Datapath_client.deactivate (rpc ~dbg) dbg uri domain
+     )
      >>>= fun () ->
-     return_data_rpc (fun () -> Datapath_client.detach rpc dbg uri domain)
+     return_data_rpc (fun () -> Datapath_client.detach (rpc ~dbg) dbg uri domain)
     )
     |> wrap
   in
@@ -1521,7 +1585,9 @@ let bind ~volume_script_dir =
     @@
     let* sr = Attached_SRs.find sr in
     let vdi = Storage_interface.Vdi.string_of vdi in
-    return_volume_rpc (fun () -> Volume_client.enable_cbt volume_rpc dbg sr vdi)
+    return_volume_rpc (fun () ->
+        Volume_client.enable_cbt (volume_rpc ~dbg) dbg sr vdi
+    )
   in
   S.VDI.enable_cbt vdi_enable_cbt_impl ;
   let vdi_disable_cbt_impl dbg sr vdi =
@@ -1529,7 +1595,9 @@ let bind ~volume_script_dir =
     @@
     let* sr = Attached_SRs.find sr in
     let vdi = Storage_interface.Vdi.string_of vdi in
-    return_volume_rpc (fun () -> Volume_client.disable_cbt volume_rpc dbg sr vdi)
+    return_volume_rpc (fun () ->
+        Volume_client.disable_cbt (volume_rpc ~dbg) dbg sr vdi
+    )
   in
   S.VDI.disable_cbt vdi_disable_cbt_impl ;
   let vdi_list_changed_blocks_impl dbg sr vdi vdi' =
@@ -1541,7 +1609,8 @@ let bind ~volume_script_dir =
     let* result =
       return_volume_rpc (fun () ->
           (* Negative lengths indicate that we want the full length. *)
-          Volume_client.list_changed_blocks volume_rpc dbg sr vdi vdi' 0L (-1)
+          Volume_client.list_changed_blocks (volume_rpc ~dbg) dbg sr vdi vdi' 0L
+            (-1)
       )
     in
     let proj_bitmap r = r.Xapi_storage.Control.bitmap in
@@ -1555,7 +1624,7 @@ let bind ~volume_script_dir =
     let vdi = Storage_interface.Vdi.string_of vdi in
     let* response =
       return_volume_rpc (fun () ->
-          Volume_client.data_destroy volume_rpc dbg sr vdi
+          Volume_client.data_destroy (volume_rpc ~dbg) dbg sr vdi
       )
     in
     let* () = set ~dbg ~sr ~vdi ~key:_vdi_type_key ~value:"cbt_metadata" in
@@ -1897,7 +1966,10 @@ let _ =
     use_syslog := true ;
     info "Daemonisation successful."
   ) ;
-  let (_ : unit Deferred.t) =
+  let run () =
+    let ( let* ) = ( >>= ) in
+    let* observer_enabled = observer_is_component_enabled () in
+    config.use_observer <- observer_enabled ;
     let rec loop () =
       Monitor.try_with (fun () ->
           if !self_test_only then
@@ -1916,4 +1988,5 @@ let _ =
     in
     loop ()
   in
+  ignore (run ()) ;
   never_returns (Scheduler.go ())
