@@ -43,6 +43,25 @@ let one ~use_fastpath ~use_framing keep_alive s =
           failwith "Need a content length"
   )
 
+let query ~use_fastpath ~use_framing keep_alive s =
+  let query_string = "v1,v2,v3,<>`" in
+  Http_client.rpc ~use_fastpath s
+    (Http.Request.make ~frame:use_framing ~version:"1.1" ~keep_alive ~user_agent
+       ~query:[("k1", query_string)]
+       Http.Get "/query"
+    )
+    (fun response s ->
+      match response.Http.Response.content_length with
+      | Some l ->
+          let s = Unixext.really_read_string s (Int64.to_int l) in
+          if s <> query_string then
+            failwith "Incorrectly parsed query string"
+          else
+            ()
+      | None ->
+          failwith "Need a content length"
+    )
+
 module Normal_population = struct
   (** Stats on a normally-distributed population *)
   type t = {sigma_x: float; sigma_xx: float; n: int}
@@ -122,6 +141,16 @@ let _ =
     )
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent) ;
+  Printf.printf "1 thread non-persistent connections (query):        " ;
+  let nonpersistent_query =
+    sample 1 (fun () ->
+        per_nsec 1. (fun () ->
+            transport !ip !port (query ~use_fastpath ~use_framing false)
+        )
+    )
+  in
+  Printf.printf "%s RPCs/sec\n%!"
+    (Normal_population.to_string nonpersistent_query) ;
   Printf.printf "10 threads non-persistent connections: " ;
   let thread_nonpersistent =
     sample 1 (fun () ->
