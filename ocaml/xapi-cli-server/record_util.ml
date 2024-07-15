@@ -1145,3 +1145,5 @@ let vm_placement_policy_of_string a =
       `anti_affinity
   | s ->
       record_failure "Invalid VM placement policy, got %s" s
+
+let repo_origin_to_string = function `remote -> "remote" | `bundle -> "bundle"

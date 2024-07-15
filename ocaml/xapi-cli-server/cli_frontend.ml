@@ -3659,8 +3659,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= ["name-label"; "binary-url"; "source-url"; "update"]
       ; optn= ["name-description"; "gpgkey-path"]
-      ; help= "Add the configuration for a new repository."
+      ; help= "Add the configuration for a new remote repository."
       ; implementation= No_fd Cli_operations.Repository.introduce
+      ; flags= []
+      }
+    )
+  ; ( "repository-introduce-bundle"
+    , {
+        reqd= ["name-label"]
+      ; optn= ["name-description"]
+      ; help= "Add the configuration for a new bundle repository."
+      ; implementation= No_fd Cli_operations.Repository.introduce_bundle
       ; flags= []
       }
     )
