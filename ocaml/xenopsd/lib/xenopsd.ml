@@ -128,6 +128,8 @@ let max_bytes_of_xenstore_entries entries =
 
 let vm_guest_agent_xenstore_quota_bytes = ref (25 * 1024 * 1024)
 
+let test_open = ref 0
+
 let options =
   [
     ( "queue"
@@ -275,6 +277,11 @@ let options =
     , (fun () -> string_of_int !vm_guest_agent_xenstore_quota_bytes)
     , "Maximum size in bytes of VM xenstore-data field, and guest metrics \
        copied from guest's vm-data/ and data/ xenstore tree"
+    )
+  ; ( "test-open"
+    , Arg.Set_int test_open
+    , (fun () -> string_of_int !test_open)
+    , "TESTING only: open N file descriptors"
     )
   ]
 
@@ -424,9 +431,18 @@ let log_uncaught_exception e bt =
   error "xenopsd exitted with an uncaught exception: %s" (Printexc.to_string e) ;
   log_raw_backtrace bt
 
+let test_open () =
+  let count = !test_open in
+  if count > 0 then (
+    debug "TEST: opening %d file descriptors" count ;
+    Xapi_stdext_unix.Unixext.test_open count ;
+    debug "TEST: opened %d file descriptors" count
+  )
+
 let main backend =
   Printexc.record_backtrace true ;
   Printexc.set_uncaught_exception_handler log_uncaught_exception ;
+  test_open () ;
   (* Set service name for Tracing *)
   Tracing_export.set_service_name "xenopsd" ;
   (* Listen for transferred file descriptors *)

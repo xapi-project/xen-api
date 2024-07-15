@@ -115,7 +115,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
             ~verify ;
           (* Create the watcher here in addition to resync_host since pool_create
              in resync_host only calls cluster_host.create for pool member nodes *)
-          create_cluster_watcher_on_master ~__context ~host ;
+          Watcher.create_as_necessary ~__context ~host ;
           Xapi_cluster_host_helpers.update_allowed_operations ~__context
             ~self:cluster_host_ref ;
           D.debug "Created Cluster: %s and Cluster_host: %s"
@@ -294,3 +294,10 @@ let pool_resync ~__context ~self:_ =
       )
 (* If host.clustering_enabled then resync_host should successfully
    find or create a matching cluster_host which is also enabled *)
+
+let cstack_sync ~__context ~self =
+  if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
+    debug "%s: sync db data with cluster stack" __FUNCTION__ ;
+    Watcher.on_corosync_update ~__context ~cluster:self
+      ["Updates due to cluster api calls"]
+  )

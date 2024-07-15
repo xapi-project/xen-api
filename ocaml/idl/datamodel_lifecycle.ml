@@ -1,6 +1,6 @@
 let prototyped_of_class = function
   | "VM_group" ->
-      Some "24.18.0-next"
+      Some "24.19.1"
   | "Observer" ->
       Some "23.14.0"
   | "VTPM" ->
@@ -10,9 +10,9 @@ let prototyped_of_class = function
 
 let prototyped_of_field = function
   | "VM_group", "VMs" ->
-      Some "24.18.0-next"
+      Some "24.19.1"
   | "VM_group", "placement" ->
-      Some "24.18.0-next"
+      Some "24.19.1"
   | "Observer", "enabled" ->
       Some "23.14.0"
   | "Observer", "components" ->
@@ -27,6 +27,10 @@ let prototyped_of_field = function
       Some "23.14.0"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
+  | "Certificate", "fingerprint_sha1" ->
+      Some "24.19.1-next"
+  | "Certificate", "fingerprint_sha256" ->
+      Some "24.19.1-next"
   | "Cluster_host", "last_update_live" ->
       Some "24.3.0"
   | "Cluster_host", "live" ->
@@ -62,7 +66,7 @@ let prototyped_of_field = function
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "VM", "groups" ->
-      Some "24.18.0-next"
+      Some "24.19.1"
   | "VM", "pending_guidances_full" ->
       Some "24.10.0"
   | "VM", "pending_guidances_recommended" ->
@@ -72,7 +76,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "recommendations" ->
-      Some "24.18.0-next"
+      Some "24.19.1"
   | "pool", "update_sync_enabled" ->
       Some "23.18.0"
   | "pool", "update_sync_day" ->
@@ -150,7 +154,7 @@ let prototyped_of_message = function
   | "VM", "restart_device_models" ->
       Some "23.30.0"
   | "VM", "set_groups" ->
-      Some "24.18.0-next"
+      Some "24.19.1"
   | "pool", "get_guest_secureboot_readiness" ->
       Some "24.17.0"
   | "pool", "set_ext_auth_max_threads" ->

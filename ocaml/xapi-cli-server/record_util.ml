@@ -15,6 +15,9 @@
 
 exception Record_failure of string
 
+let record_failure fmt =
+  Printf.ksprintf (fun msg -> raise (Record_failure msg)) fmt
+
 let to_str = function Rpc.String x -> x | _ -> failwith "Invalid"
 
 let certificate_type_to_string = function
@@ -157,7 +160,7 @@ let vm_uefi_mode_of_string = function
   | "user" ->
       `user
   | s ->
-      raise (Record_failure ("Expected 'user','setup', got " ^ s))
+      record_failure "Expected 'user','setup', got %s" s
 
 let vm_secureboot_readiness_to_string = function
   | `not_supported ->
@@ -385,12 +388,8 @@ let string_to_vif_locking_mode = function
   | "disabled" ->
       `disabled
   | s ->
-      raise
-        (Record_failure
-           ("Expected 'network_default', 'locked', 'unlocked', 'disabled', got "
-           ^ s
-           )
-        )
+      record_failure
+        "Expected 'network_default', 'locked', 'unlocked', 'disabled', got %s" s
 
 let vmss_type_to_string = function
   | `snapshot ->
@@ -408,12 +407,8 @@ let string_to_vmss_type = function
   | "snapshot_with_quiesce" ->
       `snapshot_with_quiesce
   | s ->
-      raise
-        (Record_failure
-           ("Expected 'snapshot', 'checkpoint', 'snapshot_with_quiesce', got "
-           ^ s
-           )
-        )
+      record_failure
+        "Expected 'snapshot', 'checkpoint', 'snapshot_with_quiesce', got %s" s
 
 let vmss_frequency_to_string = function
   | `hourly ->
@@ -431,7 +426,7 @@ let string_to_vmss_frequency = function
   | "weekly" ->
       `weekly
   | s ->
-      raise (Record_failure ("Expected 'hourly', 'daily', 'weekly', got " ^ s))
+      record_failure "Expected 'hourly', 'daily', 'weekly', got %s" s
 
 let network_default_locking_mode_to_string = function
   | `unlocked ->
@@ -445,7 +440,7 @@ let string_to_network_default_locking_mode = function
   | "disabled" ->
       `disabled
   | s ->
-      raise (Record_failure ("Expected 'unlocked' or 'disabled', got " ^ s))
+      record_failure "Expected 'unlocked' or 'disabled', got %s" s
 
 let network_purpose_to_string : API.network_purpose -> string = function
   | `nbd ->
@@ -459,7 +454,7 @@ let string_to_network_purpose : string -> API.network_purpose = function
   | "insecure_nbd" ->
       `insecure_nbd
   | s ->
-      raise (Record_failure ("Expected a network purpose string; got " ^ s))
+      record_failure "Expected a network purpose string; got %s" s
 
 let vm_appliance_operation_to_string = function
   | `start ->
@@ -647,7 +642,7 @@ let string_to_on_normal_exit s =
   | "restart" ->
       `restart
   | _ ->
-      raise (Record_failure ("Expected 'destroy' or 'restart', got " ^ s))
+      record_failure "Expected 'destroy' or 'restart', got %s" s
 
 let on_crash_behaviour_to_string x =
   match x with
@@ -679,14 +674,11 @@ let string_to_on_crash_behaviour s =
   | "rename_restart" ->
       `rename_restart
   | _ ->
-      raise
-        (Record_failure
-           ("Expected 'destroy', 'coredump_and_destroy',"
-           ^ "'restart', 'coredump_and_restart', 'preserve' or \
-              'rename_restart', got "
-           ^ s
-           )
-        )
+      record_failure
+        "Expected 'destroy', 'coredump_and_destroy', \
+         'restart','coredump_and_restart', 'preserve' or 'rename_restart', got \
+         %s"
+        s
 
 let on_softreboot_behaviour_to_string x =
   match x with
@@ -710,14 +702,11 @@ let string_to_on_softreboot_behaviour s =
   | "soft_reboot" ->
       `soft_reboot
   | _ ->
-      raise
-        (Record_failure
-           ("Expected 'destroy', 'coredump_and_destroy',"
-           ^ "'restart', 'coredump_and_restart', 'preserve', 'soft_reboot' or \
-              'rename_restart', got "
-           ^ s
-           )
-        )
+      record_failure
+        "Expected 'destroy', 'coredump_and_destroy', 'restart', \
+         'coredump_and_restart', 'preserve', 'soft_reboot' or \
+         'rename_restart', got %s"
+        s
 
 let host_display_to_string h =
   match h with
@@ -739,7 +728,7 @@ let host_sched_gran_of_string s =
   | "socket" ->
       `socket
   | _ ->
-      raise (Record_failure ("Expected 'core','cpu', 'socket', got " ^ s))
+      record_failure "Expected 'core','cpu', 'socket', got %s" s
 
 let host_sched_gran_to_string = function
   | `core ->
@@ -757,7 +746,8 @@ let host_numa_affinity_policy_to_string = function
   | `default_policy ->
       "default_policy"
 
-let host_numa_affinity_policy_of_string = function
+let host_numa_affinity_policy_of_string a =
+  match String.lowercase_ascii a with
   | "any" ->
       `any
   | "best_effort" ->
@@ -765,10 +755,8 @@ let host_numa_affinity_policy_of_string = function
   | "default_policy" ->
       `default_policy
   | s ->
-      raise
-        (Record_failure
-           ("Expected 'any', 'best_effort' or 'default_policy', got " ^ s)
-        )
+      record_failure "Expected 'any', 'best_effort' or 'default_policy', got %s"
+        s
 
 let pci_dom0_access_to_string x = host_display_to_string x
 
@@ -779,7 +767,7 @@ let string_to_vdi_onboot s =
   | "reset" ->
       `reset
   | _ ->
-      raise (Record_failure ("Expected 'persist' or 'reset', got " ^ s))
+      record_failure "Expected 'persist' or 'reset', got %s" s
 
 let string_to_vbd_mode s =
   match String.lowercase_ascii s with
@@ -788,7 +776,7 @@ let string_to_vbd_mode s =
   | "rw" ->
       `RW
   | _ ->
-      raise (Record_failure ("Expected 'RO' or 'RW', got " ^ s))
+      record_failure "Expected 'RO' or 'RW', got %s" s
 
 let vbd_mode_to_string = function `RO -> "ro" | `RW -> "rw"
 
@@ -801,7 +789,7 @@ let string_to_vbd_type s =
   | "floppy" ->
       `Floppy
   | _ ->
-      raise (Record_failure ("Expected 'CD' or 'Disk', got " ^ s))
+      record_failure "Expected 'CD' or 'Disk', got %s" s
 
 let power_to_string h =
   match h with
@@ -860,7 +848,7 @@ let ip_configuration_mode_of_string m =
   | "static" ->
       `Static
   | s ->
-      raise (Record_failure ("Expected 'dhcp','none' or 'static', got " ^ s))
+      record_failure "Expected 'dhcp','none' or 'static', got %s" s
 
 let vif_ipv4_configuration_mode_to_string = function
   | `None ->
@@ -875,7 +863,7 @@ let vif_ipv4_configuration_mode_of_string m =
   | "static" ->
       `Static
   | s ->
-      raise (Record_failure ("Expected 'none' or 'static', got " ^ s))
+      record_failure "Expected 'none' or 'static', got %s" s
 
 let ipv6_configuration_mode_to_string = function
   | `None ->
@@ -898,10 +886,7 @@ let ipv6_configuration_mode_of_string m =
   | "autoconf" ->
       `Autoconf
   | s ->
-      raise
-        (Record_failure
-           ("Expected 'dhcp','none' 'autoconf' or 'static', got " ^ s)
-        )
+      record_failure "Expected 'dhcp','none' 'autoconf' or 'static', got %s" s
 
 let vif_ipv6_configuration_mode_to_string = function
   | `None ->
@@ -916,7 +901,7 @@ let vif_ipv6_configuration_mode_of_string m =
   | "static" ->
       `Static
   | s ->
-      raise (Record_failure ("Expected 'none' or 'static', got " ^ s))
+      record_failure "Expected 'none' or 'static', got %s" s
 
 let primary_address_type_to_string = function
   | `IPv4 ->
@@ -931,7 +916,7 @@ let primary_address_type_of_string m =
   | "ipv6" ->
       `IPv6
   | s ->
-      raise (Record_failure ("Expected 'ipv4' or 'ipv6', got " ^ s))
+      record_failure "Expected 'ipv4' or 'ipv6', got %s" s
 
 let bond_mode_to_string = function
   | `balanceslb ->
@@ -950,7 +935,7 @@ let bond_mode_of_string m =
   | "lacp" ->
       `lacp
   | s ->
-      raise (Record_failure ("Invalid bond mode. Got " ^ s))
+      record_failure "Invalid bond mode. Got %s" s
 
 let allocation_algorithm_to_string = function
   | `depth_first ->
@@ -965,7 +950,7 @@ let allocation_algorithm_of_string a =
   | "breadth-first" ->
       `breadth_first
   | s ->
-      raise (Record_failure ("Invalid allocation algorithm. Got " ^ s))
+      record_failure "Invalid allocation algorithm. Got %s" s
 
 let pvs_proxy_status_to_string = function
   | `stopped ->
@@ -991,12 +976,8 @@ let bool_of_string s =
   | "false" | "f" | "no" | "n" | "0" ->
       false
   | _ ->
-      raise
-        (Record_failure
-           ("Expected 'true','t','yes','y','1','false','f','no','n','0' got "
-           ^ s
-           )
-        )
+      record_failure
+        "Expected 'true','t','yes','y','1','false','f','no','n','0' got %s" s
 
 let sdn_protocol_of_string s =
   match String.lowercase_ascii s with
@@ -1005,7 +986,7 @@ let sdn_protocol_of_string s =
   | "pssl" ->
       `pssl
   | _ ->
-      raise (Record_failure ("Expected 'ssl','pssl', got " ^ s))
+      record_failure "Expected 'ssl','pssl', got %s" s
 
 let sdn_protocol_to_string = function `ssl -> "ssl" | `pssl -> "pssl"
 
@@ -1016,7 +997,7 @@ let tunnel_protocol_of_string s =
   | "vxlan" ->
       `vxlan
   | _ ->
-      raise (Record_failure ("Expected 'gre','vxlan', got " ^ s))
+      record_failure "Expected 'gre','vxlan', got %s" s
 
 let tunnel_protocol_to_string = function `gre -> "gre" | `vxlan -> "vxlan"
 
@@ -1089,119 +1070,42 @@ let domain_type_of_string x =
   | "pvh" ->
       `pvh
   | s ->
-      raise (Record_failure ("Invalid domain type. Got " ^ s))
+      record_failure "Invalid domain type. Got %s" s
 
 let vtpm_operation_to_string (op : API.vtpm_operations) =
   match op with `destroy -> "destroy"
 
+(** parse [0-9]*(b|bytes|kib|mib|gib|tib)* to bytes *)
+let bytes_of_string str =
+  let ( ** ) a b = Int64.mul a b in
+  let invalid msg = raise (Invalid_argument msg) in
+  try
+    Scanf.sscanf str "%Ld %s" @@ fun size suffix ->
+    match String.lowercase_ascii suffix with
+    | _ when size < 0L ->
+        invalid str
+    | "bytes" | "b" | "" ->
+        size
+    | "kib" | "kb" | "k" ->
+        size ** 1024L
+    | "mib" | "mb" | "m" ->
+        size ** 1024L ** 1024L
+    | "gib" | "gb" | "g" ->
+        size ** 1024L ** 1024L ** 1024L
+    | "tib" | "tb" | "t" ->
+        size ** 1024L ** 1024L ** 1024L ** 1024L
+    | _ ->
+        invalid suffix
+  with _ -> invalid str
+
 (** Parse a string which might have a units suffix on the end *)
 let bytes_of_string field x =
-  let ( ** ) a b = Int64.mul a b in
-  let max_size_TiB =
-    Int64.div Int64.max_int (1024L ** 1024L ** 1024L ** 1024L)
-  in
-  (* detect big number that cannot be represented by Int64. *)
-  let int64_of_string s =
-    try Int64.of_string s
-    with _ ->
-      if s = "" then
-        raise
-          (Record_failure
-             (Printf.sprintf
-                "Failed to parse field '%s': expecting an integer (possibly \
-                 with suffix)"
-                field
-             )
-          ) ;
-      let alldigit = ref true and i = ref (String.length s - 1) in
-      while !alldigit && !i > 0 do
-        alldigit := Astring.Char.Ascii.is_digit s.[!i] ;
-        decr i
-      done ;
-      if !alldigit then
-        raise
-          (Record_failure
-             (Printf.sprintf
-                "Failed to parse field '%s': number too big (maximum = %Ld TiB)"
-                field max_size_TiB
-             )
-          )
-      else
-        raise
-          (Record_failure
-             (Printf.sprintf
-                "Failed to parse field '%s': expecting an integer (possibly \
-                 with suffix)"
-                field
-             )
-          )
-  in
-  match
-    Astring.(
-      String.fields ~empty:false ~is_sep:(fun c ->
-          Char.Ascii.(is_white c || is_digit c)
-      )
-    )
-      x
-  with
-  | [] ->
-      (* no suffix on the end *)
-      int64_of_string x
-  | [suffix] ->
-      let number =
-        match
-          Astring.(
-            String.fields ~empty:false ~is_sep:(Fun.negate Char.Ascii.is_digit)
-          )
-            x
-        with
-        | [number] ->
-            int64_of_string number
-        | _ ->
-            raise
-              (Record_failure
-                 (Printf.sprintf
-                    "Failed to parse field '%s': expecting an integer \
-                     (possibly with suffix)"
-                    field
-                 )
-              )
-      in
-      let multiplier =
-        match suffix with
-        | "bytes" ->
-            1L
-        | "KiB" ->
-            1024L
-        | "MiB" ->
-            1024L ** 1024L
-        | "GiB" ->
-            1024L ** 1024L ** 1024L
-        | "TiB" ->
-            1024L ** 1024L ** 1024L ** 1024L
-        | x ->
-            raise
-              (Record_failure
-                 (Printf.sprintf
-                    "Failed to parse field '%s': Unknown suffix: '%s' (try \
-                     KiB, MiB, GiB or TiB)"
-                    field x
-                 )
-              )
-      in
-      (* FIXME: detect overflow *)
-      number ** multiplier
-  | _ ->
-      raise
-        (Record_failure
-           (Printf.sprintf
-              "Failed to parse field '%s': expecting an integer (possibly with \
-               suffix)"
-              field
-           )
-        )
-
-(* Vincent's random mac utils *)
+  try bytes_of_string x
+  with Invalid_argument _ ->
+    record_failure
+      "Failed to parse field '%s': expecting an integer (possibly with suffix \
+       KiB, MiB, GiB, TiB), got '%s'"
+      field x
 
 let mac_from_int_array macs =
   (* make sure bit 1 (local) is set and bit 0 (unicast) is clear *)
@@ -1225,7 +1129,7 @@ let update_sync_frequency_of_string s =
   | "weekly" ->
       `weekly
   | _ ->
-      raise (Record_failure ("Expected 'daily', 'weekly', got " ^ s))
+      record_failure "Expected 'daily', 'weekly', got %s" s
 
 let vm_placement_policy_to_string = function
   | `normal ->
@@ -1240,4 +1144,4 @@ let vm_placement_policy_of_string a =
   | "anti-affinity" ->
       `anti_affinity
   | s ->
-      raise (Record_failure ("Invalid VM placement policy, got " ^ s))
+      record_failure "Invalid VM placement policy, got %s" s

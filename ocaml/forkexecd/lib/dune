@@ -7,6 +7,7 @@
    fd-send-recv
    rpclib.core
    rpclib.json
+   rpclib.xml
    uuid
    xapi-backtrace
    xapi-log
