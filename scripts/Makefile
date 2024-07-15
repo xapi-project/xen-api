@@ -89,7 +89,6 @@ install:
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) debug_ha_query_liveset $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) xe-mount-iso-sr $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-toolstack-restart $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-xentrace $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xe-edit-bootloader $(DESTDIR)$(OPTDIR)/bin

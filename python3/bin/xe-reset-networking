@@ -14,17 +14,29 @@ GNU Lesser General Public License for more details.
 """
 from __future__ import print_function
 
-import sys
 import os
-import time
 import re
+import sys
+from contextlib import contextmanager
 from optparse import OptionParser
-#import XenAPI
 
 pool_conf = '@ETCXENDIR@/pool.conf'
 inventory_file = '@INVENTORY@'
 management_conf = '/etc/firstboot.d/data/management.conf'
 network_reset = '/tmp/network-reset'
+
+
+@contextmanager
+def fsync_write(filename):
+    """Context manager that writes to a file and fsyncs it after writing."""
+
+    with open(filename, "w", encoding="utf-8") as file:
+        try:  # Run the context, ignoring exceptions:
+            yield file
+        finally:
+            file.flush()  # Flush the file buffer to the OS
+            os.fsync(file.fileno())  # Ask the OS to write the file to disk
+
 
 def read_dict_file(fname):
     f = open(fname, 'r')
@@ -40,16 +52,15 @@ def read_inventory():
 def read_management_conf():
     return read_dict_file(management_conf)
 
-def write_inventory(inventory):
-    f = open(inventory_file, 'w')
-    for k in inventory:
-        f.write(k + "='" + inventory[k] + "'\n")
-    f.flush()
-    os.fsync(f.fileno())
-    f.close()
+
+def write_inventory(inventory_dict):
+    with fsync_write(inventory_file) as file:
+        for k in inventory_dict:
+            file.write(k + "='" + inventory_dict[k] + "'\n")
+
 
 def valid_vlan(vlan):
-    if not re.match('^\d+$', vlan):
+    if not re.match(r"^\d+$", vlan):
         return False
     if int(vlan)<0 or int(vlan)>4094:
         return False
@@ -88,8 +99,9 @@ if __name__ == "__main__":
                     address = options.address
         finally:
             f.close()
-    except:
-        pass
+    except Exception:
+        master = None
+        address = ""
 
     # Get the management device from the firstboot data if not specified by the user
     if options.device == None:
@@ -192,13 +204,8 @@ Type 'no' to cancel.
     # Update master's IP, if needed and given
     if master == False and options.address != None:
         print("Setting master's ip (" + address + ")...")
-        try:
-            f = open(pool_conf, 'w')
+        with fsync_write(pool_conf) as f:
             f.write('slave:' + address)
-        finally:
-            f.flush()
-            os.fsync(f.fileno())
-            f.close()
 
     # Construct bridge name for management interface based on convention
     if device[:3] == 'eth':
@@ -230,8 +237,7 @@ Type 'no' to cancel.
 
     # Rewrite firstboot management.conf file, which will be picked it by xcp-networkd on restart (if used)
     is_static = False
-    try:
-        f = open(management_conf, 'w')
+    with fsync_write(management_conf) as f:
         f.write("LABEL='" + device + "'\n")
         if options.mode != "none":
             f.write("MODE='" + options.mode + "'\n")
@@ -252,14 +258,9 @@ Type 'no' to cancel.
                 f.write("IPv6_GATEWAY='" + options.gateway_v6 + "'\n")
         if is_static and options.dns != '':
             f.write("DNS='" + options.dns + "'\n")
-    finally:
-        f.flush()
-        os.fsync(f.fileno())
-        f.close()
 
     # Write trigger file for XAPI to continue the network reset on startup
-    try:
-        f = open(network_reset, 'w')
+    with fsync_write(network_reset) as f:
         f.write('DEVICE=' + device + '\n')
         if options.mode != "none":
             f.write('MODE=' + options.mode + '\n')
@@ -278,10 +279,6 @@ Type 'no' to cancel.
                 f.write('GATEWAY_V6=' + options.gateway_v6 + '\n')
         if is_static and options.dns != '':
             f.write('DNS=' + options.dns + '\n')
-    finally:
-        f.flush()
-        os.fsync(f.fileno())
-        f.close()
 
     # Reset the domain 0 network interface naming configuration
     # back to a fresh-install state for the currently-installed
