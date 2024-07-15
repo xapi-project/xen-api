@@ -40,5 +40,6 @@
 
 (rule
  (alias runtest)
+ (package xapi)
  (action (run ./quicktest.exe -skip-xapi -- list))
 )
