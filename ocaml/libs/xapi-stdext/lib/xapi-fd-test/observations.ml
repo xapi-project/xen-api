@@ -175,6 +175,8 @@ end
 module Delay = struct
   type t = {duration: Mtime.span; every_bytes: int}
 
+  let every_bytes t = t.every_bytes
+
   let pp =
     Fmt.(
       record ~sep:(any ";")
