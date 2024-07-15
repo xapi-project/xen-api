@@ -30,6 +30,7 @@ install:
 	$(IPROG) libexec/restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
+	$(IPROG) bin/xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/perfmon $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-scsi-dev-map $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/static-vdis $(DESTDIR)$(OPTDIR)/bin
