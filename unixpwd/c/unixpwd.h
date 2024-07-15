@@ -23,13 +23,6 @@
 char           *unixpwd_get(const char *user);
 char           *unixpwd_getpwd(const char *user);
 char           *unixpwd_getspw(const char *user);
-/*
- * return /etc/passwd as a string but with entries from shadow passwords
- * when they exist. The returned string must be passed to free(). On
- * error, returns NULL and errno set.
- */
-
-char           *unixpwd_unshadow(void);
 
 /*
  * update password for user in /etc/passwd and /etc/shadow respectively
