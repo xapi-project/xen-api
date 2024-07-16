@@ -27,7 +27,7 @@ if sys.version_info[0] > 2:
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Datapath_server_dispatcher:
@@ -42,12 +42,12 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('persistent' in args):
             raise UnmarshalException('argument missing', 'persistent', '')
@@ -63,29 +63,29 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.attach(dbg, uri, domain)
-        if not isinstance(results['domain_uuid'], str) and not isinstance(results['domain_uuid'], unicode):
+        if not is_str(results['domain_uuid']):
             raise TypeError("string", repr(results['domain_uuid']))
         if results['implementation'][0] == 'Blkback':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
+            if not is_str(results['implementation'][1]):
                 raise TypeError("string", repr(results['implementation'][1]))
         elif results['implementation'][0] == 'Tapdisk3':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
+            if not is_str(results['implementation'][1]):
                 raise TypeError("string", repr(results['implementation'][1]))
         elif results['implementation'][0] == 'Qdisk':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
+            if not is_str(results['implementation'][1]):
                 raise TypeError("string", repr(results['implementation'][1]))
         return results
     def activate(self, args):
@@ -95,17 +95,17 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.activate(dbg, uri, domain)
         return results
@@ -116,17 +116,17 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.deactivate(dbg, uri, domain)
         return results
@@ -137,17 +137,17 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.detach(dbg, uri, domain)
         return results
@@ -158,12 +158,12 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         results = self._impl.close(dbg, uri)
         return results
