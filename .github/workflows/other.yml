@@ -49,13 +49,10 @@ jobs:
         if: ${{ matrix.python-version == '2.7' }}
         run: >
           pip install enum future mock pytest-coverage pytest-mock &&
-          pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd
-          scripts/ ocaml/xcp-rrdd -vv -rA
-          --junitxml=.git/pytest${{matrix.python-version}}.xml
+          pytest -vv -rA --cov=ocaml ocaml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
-          --cov-fail-under 0
+          --cov-fail-under 60
         env:
           PYTHONDEVMODE: yes
 
