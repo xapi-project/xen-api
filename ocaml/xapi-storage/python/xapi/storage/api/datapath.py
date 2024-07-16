@@ -205,7 +205,11 @@ class Datapath_skeleton:
         """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
         raise Unimplemented("Datapath.close")
 class Datapath_test:
-    """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
+    """
+    Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate.
+    Every function is idempotent. Every function takes a domain parameter which allows
+    the implementation to track how many domains are currently using the volume.
+    """
     def __init__(self):
         pass
     def open(self, dbg, uri, persistent):
@@ -213,10 +217,27 @@ class Datapath_test:
         result = {}
         return result
     def attach(self, dbg, uri, domain):
-        """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
-        result = {}
-        result["backend"] = { "domain_uuid": "string", "implementation": None }
+        # type:(str, str, str) -> dict[str, tuple[str, Any] | str]
+        """
+        Return a valid results dictionary to Datapath_server_dispatcher.attach()
+
+        The returned dict must contain the "domain_uuid" key with a string value.
+        The returned dict must contain the "implementation" key with two elements:
+        If the first element is one of "Blkback", "Tapdisk3" or "Qdisk",
+        the second element must be a string. Else, the dispatcher returns an error.
+
+        See Datapath_server_dispatcher.attach() for the implementation details.
+        """
+        # Fixed to not raise an internal error in Datapath_server_dispatcher.attach():
+        result = { "domain_uuid": domain, "implementation": (uri, dbg) }
+        if not domain:  # Provoke an internal error in the dispatcher to cover its code
+            result.pop("domain_uuid")  # by removing the required "domain_uuid" key.
+        if domain == "5":
+            result["domain_uuid"] = 5  # Return an integer to provoke a type error.
+        if dbg == "inject_error" and uri in ["Blkback", "Tapdisk3", "Qdisk"]:
+            result["implementation"] = (uri, False)
         return result
+
     def activate(self, dbg, uri, domain):
         """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
         result = {}

@@ -42,6 +42,26 @@ def assert_type_checks(testee, methods, template_args, bad_args, caplog):
             assert_error(testee, caplog, bad_args, method, error_msg)
 
 
+def assert_attach_type_check(testee, caplog, args, uri):
+    """Assert that the result of the testee matches the expected result"""
+    a = args.copy()
+    a["uri"] = uri
+    assert testee._dispatch("Datapath.attach", [a]) == {
+        "Status": "Success",
+        "Value": {"domain_uuid": a["domain"], "implementation": (uri, a["dbg"])},
+    }
+    if uri == "other":
+        return
+    a["dbg"] = "inject_error"
+    assert_error(testee, caplog, a, "attach", "TypeError expected=string actual=False")
+
+
+def assert_attach_type_checks(testee, caplog, args):
+    """Assert type checks when attach() returns Blkback, Tapdisk3, Qdisk and others"""
+    for uri in ["Blkback", "Tapdisk3", "Qdisk", "other"]:
+        assert_attach_type_check(testee, caplog, args, uri)
+
+
 def test_dispatcher(caplog, capsys):
     """
     Test the dispatcher of the Xapi storage API datapath interface
@@ -79,25 +99,16 @@ def test_dispatcher(caplog, capsys):
     methods = ["open"]
     assert_type_checks(testee, methods, args, missing, caplog)
 
-    # BUG: Datapath_test.attach() currently returns an mismatching dictionary:
-    # The dispatcher expects a dict with a "domain_uuid" key, but the implementation
-    # Datapath_test.attach() returns a dict with a "backend" key instead.
-    # Changing the implementation of Datapath_test.attach() will fix this issue.
+    # Assert the dispatcher returns the example results of Datapath_test.attach():
+    assert_attach_type_checks(testee, caplog, args)
 
-    # This WOULD be an example expected result, BUT the implementation of
-    # Datapath_test.attach() returns an invalid dictionary to the dispatcher:
-    assert testee._dispatch("Datapath.attach", [args]) != {
-        "Status": "Success",
-        "Value": {"domain_uuid": "uuid", "implementation": ("uri", "dbg")},
-    }
-
-    # BUG: This is the internal error that Datapath_test.attach() currently triggers:
-    assert testee._dispatch("Datapath.attach", [args]) == {
-        "ErrorDescription": ["Internal_error", "'domain_uuid'"],
-        "Status": "Failure",
-    }
-    assert caplog.messages[0] == "caught 'domain_uuid'"
-    caplog.clear()
+    # Assert the internal error to cover the check by removing the domain argument:
+    bad = args.copy()
+    bad["domain"] = ""
+    assert_error(testee, caplog, bad, "attach", "'domain_uuid'")
+    # Assert the type check on the domain_uuid return value:
+    bad["domain"] = "5"
+    assert_error(testee, caplog, bad, "attach", "TypeError expected=string actual=5")
 
     # The other methods work as expected. Setup, Call, Assert:
     success = {"Status": "Success", "Value": {}}
