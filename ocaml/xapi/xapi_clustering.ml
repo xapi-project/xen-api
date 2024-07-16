@@ -535,10 +535,10 @@ module Watcher = struct
 
   let cluster_change_watcher : bool Atomic.t = Atomic.make false
 
-  (* this is the time it takes for the update request to time out. It is ok to set
+  (* This is the time it takes for the update request to time out. It is ok to set
      it to a relatively long value since the call will return immediately if there
-     is an update *)
-  let cluster_change_interval = Mtime.Span.min
+     is an update. *)
+  let cluster_change_interval = Mtime.Span.(5 * min)
 
   let cluster_stack_watcher : bool Atomic.t = Atomic.make false
 
@@ -550,21 +550,27 @@ module Watcher = struct
     while !Daemon.enabled do
       let m =
         Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
-          "call cluster watcher"
+          "cluster change watcher call"
           (Clock.Timer.span_to_s cluster_change_interval)
       in
-      match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
-      | Ok updates -> (
+      let find_cluster_and_update updates =
         match find_cluster_host ~__context ~host with
         | Some ch ->
             let cluster = Db.Cluster_host.get_cluster ~__context ~self:ch in
             on_corosync_update ~__context ~cluster updates
         | None ->
             ()
-      )
+      in
+      match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
+      | Ok updates ->
+          (* Received updates from corosync-notifyd *)
+          find_cluster_and_update updates
       | Error (InternalError "UPDATES.Timeout") ->
-          (* UPDATES.get timed out, this is normal, now retry *)
-          ()
+          (* UPDATES.get timed out, this is normal.  *)
+          (* CA-395789: We send a query to xapi-clusterd to fetch the latest state
+             anyway in case there is a race and the previous update did not give the
+             most up-to-date information *)
+          find_cluster_and_update ["routine updates"]
       | Error (InternalError message) | Error (Unix_error message) ->
           warn "%s: Cannot query cluster host updates with error %s"
             __FUNCTION__ message
