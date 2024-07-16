@@ -925,6 +925,8 @@ let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
 
+let bundle_repository_prefix = ref "bundle"
+
 let local_repository_prefix = ref "local"
 
 let yum_config_manager_cmd = ref "/usr/bin/yum-config-manager"
@@ -944,6 +946,8 @@ let rpm_gpgkey_dir = ref "/etc/pki/rpm-gpg"
 let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
+
+let bundle_repository_dir = ref "/var/xapi/bundle-repo"
 
 let observer_config_dir = "/etc/xensource/observer"
 
