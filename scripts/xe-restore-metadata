@@ -131,26 +131,9 @@ function cleanup {
    if [ ! -z "${vbd_uuid}" ]; then
       ${debug} echo -n "Unplugging VBD: " >&2
       ${XE} vbd-unplug uuid="${vbd_uuid}" timeout=20
-      # poll for the device to go away if we know its name
-      if [ "${device}" != "" ]; then
-          device_gone=0
-          for ((i=0; i<10; i++)); do
-              ${debug} echo -n "." >&2
-              if [ ! -b "${device}" ]; then
-                  ${debug} echo " done" >&2
-                  device_gone=1
-                  break
-              fi
-              sleep 1
-          done
-          if [ ${device_gone} -eq 0 ]; then
-              ${debug} echo " failed" >&2
-              ${debug} echo "Please destroy VBD ${vbd_uuid} manually." >&2
-          else
-              ${XE} vbd-destroy uuid="${vbd_uuid}"
-              vbd_uuid=""
-          fi
-      fi
+      ${debug} echo -n "Destroying VBD: " >&2
+      ${XE} vbd-destroy uuid="${vbd_uuid}"
+      vbd_uuid=""
       device=""
    fi
 }
