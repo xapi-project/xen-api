@@ -1,11 +1,21 @@
 from __future__ import print_function
-from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
-import xapi
-import sys
-import json
+
 import argparse
-import traceback
+import json
 import logging
+import sys
+import traceback
+
+import xapi
+from xapi import (
+    InternalError,
+    Rpc_light_failure,
+    TypeError,
+    UnknownMethod,
+    UnmarshalException,
+    is_str,
+    success,
+)
 
 # pylint: disable=invalid-name,redefined-builtin,undefined-variable
 # pyright: reportUndefinedVariable=false
