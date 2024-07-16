@@ -85,7 +85,8 @@ let create =
             param_type= Map (Int, Ref _pif)
           ; param_name= "extra_PIFs"
           ; param_doc= ""
-          ; param_release= numbered_release "24.18.0-next"
+          ; param_release=
+              numbered_release "24.19.2-next" (* TODO update this *)
           ; param_default= Some (VMap [])
           }
         ]
@@ -118,6 +119,33 @@ let get_network =
     ~result:(Ref _network, "network of cluster")
     ~params:[(Ref _cluster, "self", "the Cluster with the network")]
     ~lifecycle ~allowed_roles:_R_READ_ONLY ()
+
+let add_extra_network =
+  call ~name:"add_extra_network"
+    ~doc:
+      "Add network for cluster. This allows the underlying cluster stack to \
+       utilise multihoming."
+    ~params:
+      [
+        (Ref _cluster, "self", "the Cluster to which network is added")
+      ; (Int, "index", "the index of the network, representing its priority")
+      ; (Ref _network, "network", "the network to be added")
+      ]
+    ~lifecycle:[] ~allowed_roles:_R_POOL_OP
+    ~errs:Api_errors.[pif_index_exists_on_cluster_host]
+    ()
+
+let remove_extra_network =
+  call ~name:"remove_extra_network"
+    ~doc:
+      "Remove network from cluster. Counterpart of add_extra_network. If an \
+       index is not present in the current cluster, this call has no effect."
+    ~params:
+      [
+        (Ref _cluster, "self", "the Cluster from which network is removed")
+      ; (Int, "index", "the network index to be removed")
+      ]
+    ~lifecycle:[] ~allowed_roles:_R_POOL_OP ()
 
 let pool_create =
   call ~name:"pool_create"
@@ -273,6 +301,8 @@ let t =
         create
       ; destroy
       ; get_network
+      ; add_extra_network
+      ; remove_extra_network
       ; pool_create
       ; pool_force_destroy
       ; pool_destroy

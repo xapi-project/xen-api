@@ -3615,6 +3615,26 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "cluster-add-extra-network"
+    , {
+        reqd= ["cluster-uuid"; "network-index"; "network-uuid"]
+      ; optn= []
+      ; help=
+          "Add extra network to the cluster, to be used by the cluster stack \
+           for multi-homing. Index represents the priority of this network."
+      ; implementation= No_fd Cli_operations.Cluster.add_extra_network
+      ; flags= []
+      }
+    )
+  ; ( "cluster-remove-extra-network"
+    , {
+        reqd= ["cluster-uuid"; "network-index"]
+      ; optn= []
+      ; help= "Remove extra network to the cluster, based on its index"
+      ; implementation= No_fd Cli_operations.Cluster.remove_extra_network
+      ; flags= []
+      }
+    )
   ; ( "cluster-host-create"
     , {
         reqd= ["cluster-uuid"; "host-uuid"; "pif-uuid"]

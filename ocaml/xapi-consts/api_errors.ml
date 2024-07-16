@@ -1285,6 +1285,9 @@ let pif_not_attached_to_host = add_error "PIF_NOT_ATTACHED_TO_HOST"
 
 let pif_not_in_cluster_network = add_error "PIF_NOT_IN_CLUSTER_NETWORK"
 
+let pif_index_exists_on_cluster_host =
+  add_error "PIF_INDEX_EXISTS_ON_CLUSTER_HOST"
+
 let cluster_host_not_joined = add_error "CLUSTER_HOST_NOT_JOINED"
 
 let no_cluster_hosts_reachable = add_error "NO_CLUSTER_HOSTS_REACHABLE"

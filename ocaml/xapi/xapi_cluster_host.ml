@@ -83,7 +83,7 @@ let create_internal ~__context ~cluster ~host ~pIF ~extra_PIFs :
       Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF
         ~extra_PIFs ~enabled:false ~current_operations:[] ~allowed_operations:[]
         ~other_config:[] ~joined:false ~live:false
-        ~last_update_live:API.Date.epoch ;
+        ~last_update_live:API.Date.epoch ~nodeid:0L ;
       ref
   )
 

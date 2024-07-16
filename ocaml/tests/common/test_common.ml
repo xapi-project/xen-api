@@ -626,11 +626,11 @@ let make_vfs_on_pf ~__context ~pf ~num =
 let make_cluster_host ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(cluster = Ref.null) ?(host = Ref.null) ?(pIF = Ref.null)
     ?(extra_PIFs = []) ?(enabled = true) ?(joined = true) ?(live = true)
-    ?(last_update_live = Date.epoch) ?(allowed_operations = [])
+    ?(last_update_live = Date.epoch) ?(nodeid = 0L) ?(allowed_operations = [])
     ?(current_operations = []) ?(other_config = []) () =
   Db.Cluster_host.create ~__context ~ref ~uuid ~cluster ~host ~pIF ~extra_PIFs
     ~enabled ~allowed_operations ~current_operations ~other_config ~joined ~live
-    ~last_update_live ;
+    ~last_update_live ~nodeid ;
   ref
 
 let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())

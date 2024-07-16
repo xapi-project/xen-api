@@ -148,6 +148,9 @@ let t =
            "last_update_live" ~default_value:(Some (VDateTime Date.epoch))
            "Time when the live field was last updated based on information \
             from the cluster stack"
+       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:Int "nodeid"
+           ~default_value:(Some (VInt 0L))
+           "Unique node id used by the cluster stack"
        ]
       @ allowed_and_current_operations cluster_host_operation
       @ [

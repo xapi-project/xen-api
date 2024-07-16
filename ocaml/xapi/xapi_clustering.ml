@@ -590,7 +590,7 @@ module Watcher = struct
               (* nodel contains the current members of the cluster, according to corosync *)
               let quorum_hosts =
                 List.filter_map
-                  (fun {addr; _} ->
+                  (fun {addr; id} ->
                     let ipstr = ipstr_of_address addr in
                     match List.assoc_opt ipstr ip_ch with
                     | None ->
@@ -600,20 +600,28 @@ module Watcher = struct
                           __FUNCTION__ ipstr ;
                         None
                     | Some ch ->
-                        Some ch
+                        Some (ch, Int64.of_int32 id)
                   )
                   nodel
               in
+              let quorum_host_refs = List.map fst quorum_hosts in
+              List.iter
+                (fun (ch, id) ->
+                  Db.Cluster_host.set_nodeid ~__context ~self:ch ~value:id
+                )
+                quorum_hosts ;
 
               (* hosts_left contains the hosts that were live, but not in the list
                  of live hosts according to the cluster stack *)
               let hosts_left =
-                List.filter (fun h -> not (List.mem h quorum_hosts)) live_hosts
+                List.filter
+                  (fun h -> not (List.mem h quorum_host_refs))
+                  live_hosts
               in
               (* hosts_joined contains the hosts that were dead but exists in the db,
                  and is now viewed as a member of the cluster by the cluster stack *)
               let hosts_joined =
-                List.filter (fun h -> List.mem h quorum_hosts) dead_hosts
+                List.filter (fun h -> List.mem h quorum_host_refs) dead_hosts
               in
               debug "%s: there are %d hosts joined and %d hosts left"
                 __FUNCTION__ (List.length hosts_joined) (List.length hosts_left) ;
@@ -624,9 +632,9 @@ module Watcher = struct
                   Db.Cluster_host.set_last_update_live ~__context ~self
                     ~value:current_time
                 )
-                quorum_hosts ;
+                quorum_host_refs ;
               List.filter
-                (fun h -> not (List.mem h quorum_hosts))
+                (fun h -> not (List.mem h quorum_host_refs))
                 all_cluster_hosts
               |> List.iter (fun self ->
                      Db.Cluster_host.set_live ~__context ~self ~value:false ;

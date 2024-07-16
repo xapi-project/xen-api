@@ -137,7 +137,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
           Db.Cluster_host.create ~__context ~ref:cluster_host_ref
             ~uuid:cluster_host_uuid ~cluster:cluster_ref ~host ~enabled:true
             ~pIF ~extra_PIFs ~current_operations:[] ~allowed_operations:[]
-            ~other_config:[] ~joined:true ~live:true
+            ~other_config:[] ~joined:true ~live:true ~nodeid:0L
             ~last_update_live:API.Date.epoch ;
 
           let verify = Stunnel_client.get_verify_by_default () in
@@ -190,6 +190,85 @@ let destroy ~__context ~self =
 
 (* Get pool master's cluster_host, return network of PIF *)
 let get_network ~__context ~self = get_network_internal ~__context ~self
+
+let add_extra_network ~__context ~self ~index ~network =
+  let chs = Db.Cluster.get_cluster_hosts ~__context ~self in
+  let open Cluster_interface in
+  let ch_pifrecs =
+    List.map
+      (fun ch ->
+        let host = Db.Cluster_host.get_host ~__context ~self:ch in
+        (ch, pif_of_host ~__context network host)
+      )
+      chs
+  in
+  let node_addr =
+    List.map2
+      (fun ch (_ch, pifrec) ->
+        let extra_PIFs = Db.Cluster_host.get_extra_PIFs ~__context ~self:ch in
+        if Option.is_some (List.assoc_opt index extra_PIFs) then
+          raise
+            Api_errors.(
+              Server_error
+                ( pif_index_exists_on_cluster_host
+                , [Int64.to_string index; Ref.string_of ch]
+                )
+            ) ;
+        let id =
+          Db.Cluster_host.get_nodeid ~__context ~self:ch |> Int64.to_int32
+        in
+        let ip = ip_of_pif pifrec |> ipstr_of_address |> Ipaddr.of_string_exn in
+        let addr =
+          (* we are only interested in the extra ips in this structure *)
+          Extended {ip; extra_ips= [(index, ip)]; hostname= ""; hostuuid= ""}
+        in
+        Cluster_interface.{addr; id}
+      )
+      chs ch_pifrecs
+  in
+
+  let dbg = Context.string_of_task_and_tracing __context in
+  let result =
+    Cluster_client.LocalClient.add_extra_network (rpc ~__context) dbg node_addr
+  in
+
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok () ->
+      D.debug "%s: add extra network successful for %s" __FUNCTION__
+        (Ref.string_of network) ;
+      List.iter
+        (fun (ch, (pifref, _rec)) ->
+          let extra_PIFs = Db.Cluster_host.get_extra_PIFs ~__context ~self:ch in
+          let new_extra_PIFs = extra_PIFs @ [(index, pifref)] in
+          Db.Cluster_host.set_extra_PIFs ~__context ~self:ch
+            ~value:new_extra_PIFs
+        )
+        ch_pifrecs
+  | Error error ->
+      D.warn "%s: add extra network failed" __FUNCTION__ ;
+      handle_error error
+
+let remove_extra_network ~__context ~self ~index =
+  let chs = Db.Cluster.get_cluster_hosts ~__context ~self in
+  let dbg = Context.string_of_task_and_tracing __context in
+  let result =
+    Cluster_client.LocalClient.remove_extra_network (rpc ~__context) dbg index
+  in
+  match Idl.IdM.run @@ Cluster_client.IDL.T.get result with
+  | Ok () ->
+      D.debug "%s: remove network ok for index %Ld" __FUNCTION__ index ;
+      List.iter
+        (fun ch ->
+          let extra_PIFs =
+            Db.Cluster_host.get_extra_PIFs ~__context ~self:ch
+            |> List.remove_assoc index
+          in
+          Db.Cluster_host.set_extra_PIFs ~__context ~self:ch ~value:extra_PIFs
+        )
+        chs
+  | Error error ->
+      D.warn "remove extra network failed" ;
+      handle_error error
 
 (** Cluster.pool* functions are convenience wrappers for iterating low-level APIs over a pool.
     Concurrency checks are done in the implementation of these calls *)
