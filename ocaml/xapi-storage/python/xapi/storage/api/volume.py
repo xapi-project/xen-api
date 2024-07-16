@@ -7,6 +7,8 @@ import sys
 import traceback
 
 import xapi
+# pylint: disable=line-too-long,superfluous-parens,unused-argument
+# pylint: disable-next=redefined-builtin  # FIXME: TypeError is a custom class in xapi
 from xapi import (
     InternalError,
     Rpc_light_failure,

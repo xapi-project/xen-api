@@ -31,8 +31,6 @@ import traceback
 import json
 import argparse
 
-# pylint: disable=invalid-name,redefined-builtin,undefined-variable
-# pyright: reportUndefinedVariable=false
 
 # is_str(): Shortcut to check if a value is an instance of a string type.
 #
@@ -138,7 +136,7 @@ class UnmarshalException(InternalError):
             "UnmarshalException thing=%s ty=%s desc=%s" % (thing, ty, desc))
 
 
-class TypeError(InternalError):
+class TypeError(InternalError):  # pylint: disable=redefined-builtin
 
     def __init__(self, expected, actual):
         InternalError.__init__(
