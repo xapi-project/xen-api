@@ -231,14 +231,13 @@ for vdi_uuid in ${vdis}; do
    if [ "$(file_exists "${device}" "/.ctxs-metadata-backup")" = y ]; then
      ${debug} echo "found metadata backup" >&2
      ${debug} echo -n "Mounting filesystem: " >&2
-     mountvbd
-     if [ $? -ne 0 ]; then
+     if ! mountvbd; then
         continue
      fi
 
      if [ -e "${mnt}/.ctxs-metadata-backup" ]; then
         ${debug} echo "Found backup metadata on VDI: ${vdi_uuid}" >&2
-       matched_vdis+=( ${vdi_uuid} )
+       matched_vdis+=( "${vdi_uuid}" )
      fi
    else
      ${debug} echo "backup metadata not found" >&2
@@ -265,13 +264,11 @@ fi
 
 vdi_uuid=${matched_vdis[0]}
 xe vdi-param-set uuid="${vdi_uuid}" other-config:ctxs-pool-backup=true
-createvbd
-if [ $? -ne 0 ]; then
+if ! createvbd; then
   echo "Failure creating VBD for backup VDI ${vdi_uuid}" >&2
   exit 1
 fi
-mountvbd
-if [ $? -ne 0 ]; then
+if ! mountvbd; then
   echo "Failure mounting backup VDI ${vdi_uuid}" >&2
   exit 1
 fi
@@ -362,9 +359,10 @@ else
 fi
 shopt -s nullglob
 for meta in *.vmmeta; do
+   # shellcheck disable=SC2086
    echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}
-   "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}
-   if [ $? -gt 0 ]; then
+   # shellcheck disable=SC2086
+   if ! "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}; then
       error_count=$(( $error_count + 1 ))
    else
       good_count=$(( $good_count + 1 ))
