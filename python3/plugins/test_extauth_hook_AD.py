@@ -8,13 +8,21 @@ import sys
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-# mock modules to avoid dependencies
-sys.modules["XenAPIPlugin"] = MagicMock()
-sys.modules["XenAPI"] = MagicMock()
-# pylint: disable=wrong-import-position
-# Import must after mock modules
-from extauth_hook_ad import StaticSSHPam, NssConfig, SshdConfig, UsersList, GroupsList
-from extauth_hook_ad import run_cmd
+from python3.tests.import_helper import import_file_as_module, mocked_modules
+
+
+with mocked_modules("XenAPIPlugin", "XenAPI"):
+    testee = import_file_as_module("python3/plugins/extauth-hook-AD.py")
+    # Will be replaced by updating the patch decorators
+    sys.modules["extauth_hook_ad"] = testee
+    # Will be replaced by updating the tests to call testee.function_name()
+    run_cmd = testee.run_cmd
+    NssConfig = testee.NssConfig
+    UsersList = testee.UsersList
+    GroupsList = testee.GroupsList
+    SshdConfig = testee.SshdConfig
+    StaticSSHPam = testee.StaticSSHPam
+
 
 def test_run_cmd(caplog):
     """Assert the current buggy behavior of the run_cmd function after py3 migration"""
