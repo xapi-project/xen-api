@@ -319,8 +319,8 @@ else
 fi
 shopt -s nullglob
 for meta in *.vmmeta; do
-   echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
-   "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
+   echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}
+   "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}
    if [ $? -gt 0 ]; then
       error_count=$(( $error_count + 1 ))
    else
