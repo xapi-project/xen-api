@@ -170,7 +170,6 @@ session    required     pam_loginuid.so"""
 
 
 class DynamicPam(ADConfig):
-    #pylint: disable=too-few-public-methods
     """Base class to manage AD users and groups configure which permit pool admin ssh"""
 
     def __init__(self, path, session, args, ad_enabled=True):
@@ -239,7 +238,6 @@ class DynamicPam(ADConfig):
 
 
 class UsersList(DynamicPam):
-    #pylint: disable=too-few-public-methods
     """Class manage users which permit pool admin ssh"""
 
     def __init__(self, session, arg, ad_enabled=True):
@@ -282,7 +280,6 @@ class UsersList(DynamicPam):
 
 
 class GroupsList(DynamicPam):
-    #pylint: disable=too-few-public-methods
     """Class manage groups which permit pool admin ssh"""
 
     def __init__(self, session, arg, ad_enabled=True):
@@ -313,7 +310,6 @@ class KeyValueConfig(ADConfig):
     _special_line_prefix = "__key_value_config_sp_line_prefix_"
     _empty_value = ""
 
-    #pylint: disable=too-many-arguments
     def __init__(self, path, session, args, ad_enabled=True, load_existing=True,
                  file_mode=0o644, sep=": ", comment="#"):
         super(KeyValueConfig, self).__init__(path, session,
