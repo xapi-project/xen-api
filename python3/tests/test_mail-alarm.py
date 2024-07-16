@@ -2,26 +2,13 @@
 # test_mail-alarm.py: uses unittest to test script "mail-alarm"
 #
 
-import tempfile
-import os
-import shutil
 import sys
 import unittest
-import mock
-import pytest
+from unittest import mock
 
-if sys.version_info > (2, ):
-    pytest.skip(allow_module_level=True)
+from python3.tests.import_helper import import_file_as_module, mocked_modules
 
-def nottest(obj):
-    obj.__test__ = False
-    return obj
-
-sys.path.append("./scripts/examples/python")
-sys.modules["xcp"] = mock.Mock()
-
-log_file_global = None
-
+log_strs = ""
 XML_MESSAGE_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <message><generation>63102</generation><ref>OpaqueRef:46be74f4-3a26-31a8-a629-d52584fe6ed3</ref><name>{alarm}</name><priority>3</priority><cls>{cls}</cls><obj_uuid>2e00443d-ac29-4940-8433-a15dda1e8f8e</obj_uuid><timestamp>20170516T16:30:00Z</timestamp><uuid>0d985f5e-6d91-3410-f853-040d0906a4b9</uuid><body>{body}</body></message>"""
 
@@ -56,28 +43,16 @@ def get_alarm_xml(xmlalarm_str, xmlcls_str, xmlname_str, xmlbody_str):
 
 
 def log_err(err):
-    global log_file_global
-    with open(log_file_global, "a+") as fileh:
-        fileh.write("%s: %s\n" % (sys.argv[0], err))
+    global log_strs  # pylint: disable=global-statement
+    log_strs = log_strs + "%s: %s\n" % (sys.argv[0], err)
+
+
+with mocked_modules("xcp"):
+    mailalarm = import_file_as_module("python3/libexec/mail-alarm")
+    mock_setup(mailalarm)
 
 
 class TestXapiMessage(unittest.TestCase):
-    def setUp(self):
-        global log_file_global
-        try:
-            self.work_dir = tempfile.mkdtemp(prefix="test-mail-alarm-")
-            log_file_global = os.path.join(self.work_dir, "user.log")
-            src_file = "./scripts/mail-alarm"
-            dst_file = os.path.join(self.work_dir, "mailalarm.py")
-            shutil.copyfile(src_file, dst_file)
-            sys.path.append(self.work_dir)
-        except:
-            raise
-
-    def tearDown(self):
-        shutil.rmtree(self.work_dir, ignore_errors=True)
-
-    @nottest
     def common_test_good_input(
         self,
         xmlalarm_str,
@@ -87,11 +62,6 @@ class TestXapiMessage(unittest.TestCase):
         body_str,
         xmlbody_str=XML_BODY_COMMON,
     ):
-        import mailalarm
-
-        # Emulate functions with Mock
-        mock_setup(mailalarm)
-
         session = mock.Mock()
 
         tst_xml = get_alarm_xml(xmlalarm_str, xmlcls_str, xmlname_str, xmlbody_str)
@@ -104,7 +74,6 @@ class TestXapiMessage(unittest.TestCase):
         self.assertIn(subject_str, mail_subject)
         self.assertIn(body_str, mail_body)
 
-    @nottest
     def common_test_bad_input(
         self,
         xmlalarm_str,
@@ -114,12 +83,6 @@ class TestXapiMessage(unittest.TestCase):
         subtitle_str,
         xmlbody_str=XML_BODY_COMMON,
     ):
-        global log_file_global
-        import mailalarm
-
-        # Emulate functions with Mock
-        mock_setup(mailalarm)
-
         session = mock.Mock()
 
         tst_xml = get_alarm_xml(xmlalarm_str, xmlcls_str, xmlname_str, xmlbody_str)
@@ -128,9 +91,11 @@ class TestXapiMessage(unittest.TestCase):
 
         mail_subject = obj_XapiMessage.generate_email_subject()
         mail_body = obj_XapiMessage.generate_email_body()
+        assert mail_subject and mail_body  # They're tested by test_good_mail_language()
 
-        with open(log_file_global, "r") as fileh:
-            log_strs = fileh.read()
+        # Assert the logged error messages for the bad language pack that are
+        # recorded in `log_str` by `log_err()` when the language pack is not found
+        # by `generate_email_subject()` and `generate_email_body()`:
 
         self.assertIn("Read mail language pack error", log_strs)
         self.assertIn(
@@ -146,7 +111,6 @@ class TestXapiMessage(unittest.TestCase):
             log_strs,
         )
 
-        os.remove(log_file_global)
 
     def test_good_mail_language(self):
         ## Test cpu_usage alarm
