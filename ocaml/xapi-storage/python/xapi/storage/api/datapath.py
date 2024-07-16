@@ -63,19 +63,22 @@ class Datapath_server_dispatcher:
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
             raise TypeError("string", repr(domain))
+
+        # Dispatch the checked call to the implementation's the attach() method
         results = self._impl.attach(dbg, uri, domain)
+
+        # Type-check returned domain_uuid to be a string
         if not isinstance(results['domain_uuid'], str) and not isinstance(results['domain_uuid'], unicode):
             raise TypeError("string", repr(results['domain_uuid']))
-        if results['implementation'][0] == 'Blkback':
+
+        # When the implementation returned Blkback, Tapdisk3 or Qdisk:
+        if results['implementation'][0] in ['Blkback', 'Tapdisk3', 'Qdisk']:
+            # Type-check the returned implementation value to be a string
             if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
                 raise TypeError("string", repr(results['implementation'][1]))
-        elif results['implementation'][0] == 'Tapdisk3':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
-                raise TypeError("string", repr(results['implementation'][1]))
-        elif results['implementation'][0] == 'Qdisk':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
-                raise TypeError("string", repr(results['implementation'][1]))
+
         return results
+
     def activate(self, args):
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
