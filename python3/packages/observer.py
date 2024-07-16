@@ -314,7 +314,7 @@ def _init_tracing(configs: List[str], config_dir: str):
                         continue
 
                     with t.start_as_current_span(
-                        f"class.instrument:{module_name}.{method_name}={method}"
+                        f"class.instrument:{module_name}.{method_name}"
                     ):
                         # Avoid RecursionError:
                         # 'maximum recursion depth exceeded in comparison'
