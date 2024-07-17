@@ -28,7 +28,6 @@ import XenAPIPlugin
 
 
 # pylint: disable=too-few-public-methods
-# pytype: disable=ignored-abstractmethod
 
 
 HCP_USERS = "/etc/security/hcp_ad_users.conf"
@@ -77,7 +76,7 @@ class ADBackend(Enum):
     BD_WINBIND = 1
 
 
-class ADConfig():
+class ADConfig(abc.ABC):
     """Base class for AD configuration"""
 
     def __init__(self, path, session, args, ad_enabled=True, load_existing=True, file_mode=0o644):
@@ -103,8 +102,7 @@ class ADConfig():
         return ADBackend.BD_WINBIND
 
     @abc.abstractmethod
-    def _apply_to_cache(self):
-        pass
+    def _apply_to_cache(self): ...
 
     def apply(self):
         """Apply configuration"""
@@ -223,12 +221,10 @@ class DynamicPam(ADConfig):
             return False
 
     @abc.abstractmethod
-    def _match_subject(self, subject_rec):
-        pass
+    def _match_subject(self, subject_rec): ...
 
     @abc.abstractmethod
-    def _add_subject(self, subject_rec):
-        pass
+    def _add_subject(self, subject_rec): ...
 
     def _install(self):
         if self._ad_enabled:
