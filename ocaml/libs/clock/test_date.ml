@@ -10,6 +10,28 @@ let dash_time_str = "2020-04-07T08:28:32Z"
 
 let no_dash_utc_time_str = "20200407T08:28:32Z"
 
+let best_effort_iso8601_to_rfc3339 x =
+  let x =
+    try
+      Scanf.sscanf x "%04d%02d%02dT%s" (fun y mon d rest ->
+          Printf.sprintf "%04d-%02d-%02dT%s" y mon d rest
+      )
+    with _ -> x
+  in
+  let tz =
+    try
+      Scanf.sscanf x "%04d-%02d-%02dT%02d:%02d:%02d%s" (fun _ _ _ _ _ _ tz ->
+          Some tz
+      )
+    with _ -> None
+  in
+  match tz with
+  | None | Some "" ->
+      (* the caller didn't specify a tz, use the Unqualified Local Time *)
+      Printf.sprintf "%s-00:00" x
+  | Some _ ->
+      x
+
 let tests =
   let test_of_unix_time_invertible () =
     let non_int_time = 1586245987.70200706 in
@@ -55,6 +77,21 @@ let tests =
     check_string "to_rfc3339 is backwards compatible" no_dash_utc_time_str
       (dash_time_str |> of_iso8601 |> to_rfc3339)
   in
+  let test_localtime () =
+    let time = localtime () in
+    match
+      time
+      |> to_rfc3339
+      |> best_effort_iso8601_to_rfc3339
+      |> Ptime.of_rfc3339
+      |> Ptime.rfc3339_error_to_msg
+    with
+    | Ok (_, tz, _) ->
+        Alcotest.(check @@ option int)
+          "localtime generates a timestamp without timezone" None tz
+    | Error (`Msg msg) ->
+        Alcotest.failf "Unexpected error: %s" msg
+  in
   let test_localtime_string () =
     let[@warning "-8"] (Ok (t, _, _)) =
       Ptime.of_rfc3339 "2020-04-07T09:01:28Z"
@@ -86,17 +123,19 @@ let tests =
       (String.contains localtime_string 'Z')
   in
   let test_xsi894 () =
+    let canonical = "20201210T17:19:20Z" in
     let missing_tz_no_dash = "20201210T17:19:20" in
     let missing_tz_dash = "2020-12-10T17:19:20" in
-    check_string "can process missing tz no dash" missing_tz_no_dash
+    check_string
+      "Timestamp without timezones nor dashes is accepted, gets converted to \
+       UTC"
+      canonical
       (missing_tz_no_dash |> of_iso8601 |> to_rfc3339) ;
-    check_string "can process missing tz with dashes, but return without dashes"
-      missing_tz_no_dash
-      (missing_tz_dash |> of_iso8601 |> to_rfc3339) ;
-    let localtime' = localtime () in
-    check_string "to_rfc3339 inverts of_iso8601 for localtime"
-      (localtime' |> to_rfc3339)
-      (localtime' |> to_rfc3339 |> of_iso8601 |> to_rfc3339)
+    check_string
+      "Timestamp without timezones, and dashes is accepted, gets converted to \
+       UTC"
+      canonical
+      (missing_tz_dash |> of_iso8601 |> to_rfc3339)
   in
   let test_email_date (unix_timestamp, expected) =
     let formatted = of_unix_time unix_timestamp |> to_rfc822 in
@@ -135,9 +174,10 @@ let tests =
     , `Quick
     , test_to_rfc3339_backwards_compatibility
     )
+  ; ("localtime is printed without timezone", `Quick, test_localtime)
   ; ("test_localtime_string", `Quick, test_localtime_string)
   ; ("test_ca342171", `Quick, test_ca342171)
-  ; ("test_xsi894", `Quick, test_xsi894)
+  ; ("Parsing datetimes without timezones", `Quick, test_xsi894)
   ; ( "Date w/o timezone to POSIX time conversion"
     , `Quick
     , test_no_timezone_to_unix

@@ -58,8 +58,8 @@ let best_effort_iso8601_to_rfc3339 x =
   in
   match tz with
   | None | Some "" ->
-      (* the caller didn't specify a tz, use the Unqualified Local Time *)
-      Printf.sprintf "%s-00:00" x
+      (* the caller didn't specify a tz, assume Coordinatel Universal Time *)
+      Printf.sprintf "%sZ" x
   | Some _ ->
       x
 
