@@ -50,7 +50,7 @@ def import_file_as_module(relative_script_path):  # type:(str) -> ModuleType
     - import_script_as_module('scripts/mail-alarm')  # Returns the imported module.
     """
     script_path = os.path.dirname(__file__) + "/../../" + relative_script_path
-    module_name = os.path.basename(script_path.replace(".py", ""))
+    module_name = os.path.basename(script_path).replace(".py", "").replace("-", "_")
 
     # For Python 3.11+: Import Python script without the .py extension:
     # https://gist.github.com/bernhardkaindl/1aaa04ea925fdc36c40d031491957fd3:

@@ -4,17 +4,22 @@ Test module for extauth_hook_ad
 
 import logging
 import os
-import sys
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-# mock modules to avoid dependencies
-sys.modules["XenAPIPlugin"] = MagicMock()
-sys.modules["XenAPI"] = MagicMock()
-# pylint: disable=wrong-import-position
-# Import must after mock modules
-from extauth_hook_ad import StaticSSHPam, NssConfig, SshdConfig, UsersList, GroupsList
-from extauth_hook_ad import run_cmd
+from python3.tests.import_helper import import_file_as_module, mocked_modules
+
+
+with mocked_modules("XenAPIPlugin", "XenAPI"):
+    testee = import_file_as_module("python3/plugins/extauth-hook-AD.py")
+    # Will be replaced by updating the tests to call testee.function_name()
+    run_cmd = testee.run_cmd
+    NssConfig = testee.NssConfig
+    UsersList = testee.UsersList
+    GroupsList = testee.GroupsList
+    SshdConfig = testee.SshdConfig
+    StaticSSHPam = testee.StaticSSHPam
+
 
 def test_run_cmd(caplog):
     """Assert the current buggy behavior of the run_cmd function after py3 migration"""
@@ -124,9 +129,9 @@ class TestStaicPamConfig(TestCase):
         self.assertTrue(line_exists_in_config(static._lines, enabled_keyward))
 
 
-@patch("extauth_hook_ad.ADConfig._install")
+@patch("extauth_hook_AD.ADConfig._install")
 class TestUsersList(TestCase):
-    @patch("extauth_hook_ad.open")
+    @patch("extauth_hook_AD.open")
     @patch("os.path.exists")
     @patch("os.remove")
     def test_ad_not_enabled(self, mock_remove, mock_exists, mock_open, mock_install):
@@ -211,7 +216,7 @@ class TestUsersList(TestCase):
         self.assertNotIn(bad_user, dynamic._lines)
 
 
-@patch("extauth_hook_ad.ADConfig._install")
+@patch("extauth_hook_AD.ADConfig._install")
 class TestGroups(TestCase):
     def test_permit_admin_group(self, mock_install):
         # Domain group with admin role should be included in config file
@@ -241,7 +246,7 @@ class TestGroups(TestCase):
         self.assertIn(permit_group, dynamic._lines)
 
 
-@patch("extauth_hook_ad.ADConfig._install")
+@patch("extauth_hook_AD.ADConfig._install")
 class TestNssConfig(TestCase):
     def test_ad_not_enabled(self, mock_install):
         expected_config = "passwd:  files sss"
@@ -256,9 +261,9 @@ class TestNssConfig(TestCase):
         self.assertTrue(line_exists_in_config(nss._lines, expected_config))
 
 
-@patch("extauth_hook_ad.run_cmd")
-@patch("extauth_hook_ad.ADConfig._install")
-@patch("extauth_hook_ad.open")
+@patch("extauth_hook_AD.run_cmd")
+@patch("extauth_hook_AD.ADConfig._install")
+@patch("extauth_hook_AD.open")
 class TestSshdConfig(TestCase):
     def test_ad_not_enabled(self, mock_open, mock_install, mock_run_cmd):
         expected_config = "ChallengeResponseAuthentication no"
