@@ -23,7 +23,7 @@ import tempfile
 import logging
 import logging.handlers
 from collections import OrderedDict
-from enum import Enum
+
 import XenAPIPlugin
 
 
@@ -70,12 +70,6 @@ def run_cmd(command: "list[str]"):
         logger.exception("Failed to run command %s", command)
 
 
-class ADBackend(Enum):
-    """Enum for AD backend"""
-    BD_PBIS = 0
-    BD_WINBIND = 1
-
-
 class ADConfig(abc.ABC):
     """Base class for AD configuration"""
 
@@ -84,7 +78,6 @@ class ADConfig(abc.ABC):
         self._session = session
         self._args = args
         self._lines = []
-        self._backend = self._get_ad_backend()
         self._ad_enabled = ad_enabled
         self._file_mode = file_mode
         if load_existing and os.path.exists(self._file_path):
@@ -92,14 +85,6 @@ class ADConfig(abc.ABC):
                 lines = file.readlines()
                 self._lines = [l.strip() for l in lines]
 
-    def _get_ad_backend(self):
-        """Get active AD backend"""
-        if self._args.get("ad_backend", "winbind") == "pbis":
-            logger.debug("pbis is used as AD backend")
-            return ADBackend.BD_PBIS
-
-        logger.debug("winbind is used as AD backend")
-        return ADBackend.BD_WINBIND
 
     @abc.abstractmethod
     def _apply_to_cache(self): ...
@@ -156,11 +141,7 @@ session    required     pam_loginuid.so"""
 
     def _apply_to_cache(self):
         if self._ad_enabled:
-            if self._backend == ADBackend.BD_PBIS:
-                ad_pam_module = "/lib/security/pam_lsass.so"
-            else:
-                ad_pam_module = "pam_winbind.so"
-            content = self.ad_pam_format.format(ad_module=ad_pam_module,
+            content = self.ad_pam_format.format(ad_module="pam_winbind.so",
                                                 user_list=HCP_USERS, group_list=HCP_GROUPS)
         else:
             content = self.no_ad_pam
@@ -202,16 +183,6 @@ class DynamicPam(ADConfig):
             logger.warning("subject %s does not have role", subject_rec)
             return False
 
-    def _format_item(self, item):
-        space_replacement = "+"
-        if self._backend == ADBackend.BD_PBIS:
-            if space_replacement in item:
-                raise ValueError(
-                    "{} is not permitted in subject name".format(space_replacement))
-            # PBIS relace space with "+", eg "ab  cd" -> "ab++cd"
-            # PBIS pam module will reverse it back
-            return item.replace(" ", space_replacement)
-        return item
 
     def _is_responsible_for(self, subject_rec):
         try:
@@ -248,9 +219,6 @@ class UsersList(DynamicPam):
         try:
             upn = subject_rec["other_config"]["subject-upn"]
             user, domain = upn.split(sep)
-            if self._backend == ADBackend.BD_PBIS:
-                # PBIS convert domain to UPPER case, we revert it back
-                domain = domain.lower()
             self._lines.append("{}{}{}".format(user, sep, domain))
         except KeyError:
             logger.info("subject does not have upn %s", subject_rec)
@@ -260,15 +228,12 @@ class UsersList(DynamicPam):
     def _add_subject(self, subject_rec):
         try:
             sid = subject_rec['subject_identifier']
-            name = subject_rec["other_config"]["subject-name"]
-            formatted_name = self._format_item(name)
+            formatted_name = subject_rec["other_config"]["subject-name"]
             logger.debug("Permit user %s, Current sid is %s",
                          formatted_name, sid)
             self._lines.append(formatted_name)
             # If the ssh key is permitted in the authorized_keys file,
             # The original name is compared, add UPN and original name
-            if self._backend == ADBackend.BD_PBIS and name != formatted_name:
-                self._lines.append(name)
             self._add_upn(subject_rec)
         # pylint: disable=broad-except
         except Exception as exp:
@@ -287,8 +252,7 @@ class GroupsList(DynamicPam):
     def _add_subject(self, subject_rec):
         try:
             sid = subject_rec['subject_identifier']
-            name = self._format_item(
-                subject_rec["other_config"]["subject-name"])
+            name = subject_rec["other_config"]["subject-name"]
             logger.debug("Permit group %s, Current sid is %s", name, sid)
             self._lines.append(name)
        # pylint: disable=broad-except
@@ -368,10 +332,7 @@ class NssConfig(KeyValueConfig):
             "/etc/nsswitch.conf", session, args, ad_enabled)
         modules = "files sss"
         if ad_enabled:
-            if self._backend == ADBackend.BD_PBIS:
-                modules = "files sss lsass"
-            else:
-                modules = "files hcp winbind"
+            modules = "files hcp winbind"
         self._update_key_value("passwd", modules)
         self._update_key_value("group", modules)
         self._update_key_value("shadow", modules)

@@ -38,7 +38,7 @@ def test_run_cmd(caplog):
 
 def line_exists_in_config(lines, line):
     """
-    Helper function to detect whether configration match expectation
+    Helper function to check if the configuration matches the expectation
     """
     return any(line.split() == l.split() for l in lines)
 
@@ -46,8 +46,6 @@ def line_exists_in_config(lines, line):
 domain = "conappada.local"
 args_bd_winbind = {'auth_type': 'AD',
                    'service_name': domain, 'ad_backend': 'winbind'}
-args_bd_pbis = {'auth_type': 'AD',
-                'service_name': domain, 'ad_backend': 'pbis'}
 mock_session = MagicMock()
 
 subjects = ['OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda9']
@@ -56,8 +54,7 @@ admin_role = 'OpaqueRef:0165f154-ba3e-034e-6b27-5d271af109ba'
 admin_roles = [admin_role]
 mock_session.xenapi.role.get_by_name_label.return_value = admin_roles
 
-# pylint: disable=unused-argument, protected-access, redefined-outer-name, missing-function-docstring
-# pylint: disable=too-many-arguments, missing-class-docstring, no-self-use
+# pylint: disable=unused-argument, redefined-outer-name
 
 
 def build_user(domain_netbios, domain, name, is_admin=True):
@@ -120,14 +117,6 @@ class TestStaicPamConfig(TestCase):
         enabled_keyward = "auth sufficient    pam_winbind.so try_first_pass try_authtok"
         self.assertTrue(line_exists_in_config(static._lines, enabled_keyward))
 
-    def test_ad_enabled_with_pbis(self, mock_rename, mock_chmod):
-        # pam_lsass should be used
-        mock_rename.side_effect = mock_rename_to_clean
-        static = StaticSSHPam(mock_session, args_bd_pbis)
-        static.apply()
-        enabled_keyward = "auth sufficient /lib/security/pam_lsass.so try_first_pass try_authtok"
-        self.assertTrue(line_exists_in_config(static._lines, enabled_keyward))
-
 
 @patch("extauth_hook_AD.ADConfig._install")
 class TestUsersList(TestCase):
@@ -146,21 +135,12 @@ class TestUsersList(TestCase):
         # Domain user with admin role should be included in config file
         user = build_user("CONNAPP", "CONAPPADA.LOCAL", "radmin", True)
         mock_session.xenapi.subject.get_record.return_value = user
-        dynamic = UsersList(mock_session, args_bd_pbis)
+        dynamic = UsersList(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertIn(r"CONNAPP\radmin", dynamic._lines)
-        self.assertIn(r"radmin@conappada.local", dynamic._lines)
+        self.assertIn(r"radmin@CONAPPADA.LOCAL", dynamic._lines)
         mock_install.assert_called()
 
-    def test_pbis_permit_admin_user_with_space(self, mock_install):
-        # Domain user name with space should be repalced by "+" with PBIS
-        user = build_user("CONNAPP", "conappada.local", "radmin  l1", True)
-        mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"CONNAPP\radmin++l1"
-        dynamic = UsersList(mock_session, args_bd_pbis)
-        dynamic.apply()
-        self.assertIn(permit_user, dynamic._lines)
-        mock_install.assert_called()
 
     def test_winbind_permit_admin_user_with_space(self, mock_install):
         # Domain user name with space should be surrounded by [] with winbind
@@ -180,40 +160,6 @@ class TestUsersList(TestCase):
         dynamic = UsersList(mock_session, args_bd_winbind)
         dynamic.apply()
         self.assertNotIn(permit_user, dynamic._lines)
-
-    def test_pbis_not_permit_pool_admin_with_plus_in_name(self, mock_install):
-        """
-        Domain user name should not contain "+"
-        """
-        user = build_user("CONNAPP", "conappada.local", "radm+in", True)
-        mock_session.xenapi.subject.get_record.return_value = user
-        permit_user = r"CONNAPP\radm+in"
-        dynamic = UsersList(mock_session, args_bd_pbis)
-        dynamic.apply()
-        self.assertNotIn(permit_user, dynamic._lines)
-
-    def test_failed_to_add_one_admin_should_not_affact_others(self, mock_install):
-        """
-        Failed to add one bad domain users should not affact others
-        """
-        bad_user = build_user("CONNAPP", "conappada.local", "bad+in", True)
-        good_user = build_user("CONNAPP", "conappada.local", "good", True)
-
-        mock_session_with_multi_users = MagicMock()
-
-        subjects = ['OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda9',
-                    'OpaqueRef:96ae4be5-8815-4de8-a40f-d5e5c531dda1']
-        mock_session_with_multi_users.xenapi.subject.get_all.return_value = subjects
-        mock_session_with_multi_users.xenapi.subject.get_record.side_effect = [
-            bad_user, good_user]
-        mock_session_with_multi_users.xenapi.role.get_by_name_label.return_value = admin_roles
-
-        bad_user = r"CONNAPP\bad+in"
-        good_user = r"CONNAPP\good"
-        dynamic = UsersList(mock_session_with_multi_users, args_bd_pbis)
-        dynamic.apply()
-        self.assertIn(good_user, dynamic._lines)
-        self.assertNotIn(bad_user, dynamic._lines)
 
 
 @patch("extauth_hook_AD.ADConfig._install")
