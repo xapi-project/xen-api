@@ -27,17 +27,17 @@ class Datapath_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise TypeError("string", repr(uri))
-        if not('persistent' in args):
+        if "persistent" not in args:
             raise UnmarshalException('argument missing', 'persistent', '')
         persistent = args["persistent"]
         if not isinstance(persistent, bool):
@@ -48,17 +48,17 @@ class Datapath_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise TypeError("string", repr(uri))
-        if not('domain' in args):
+        if "domain" not in args:
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
@@ -80,17 +80,17 @@ class Datapath_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise TypeError("string", repr(uri))
-        if not('domain' in args):
+        if "domain" not in args:
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
@@ -101,17 +101,17 @@ class Datapath_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise TypeError("string", repr(uri))
-        if not('domain' in args):
+        if "domain" not in args:
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
@@ -122,17 +122,17 @@ class Datapath_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise TypeError("string", repr(uri))
-        if not('domain' in args):
+        if "domain" not in args:
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
         if not isinstance(domain, str) and not isinstance(domain, unicode):
@@ -143,12 +143,12 @@ class Datapath_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):

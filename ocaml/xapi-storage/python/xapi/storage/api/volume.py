@@ -53,27 +53,27 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('name' in args):
+        if "name" not in args:
             raise UnmarshalException('argument missing', 'name', '')
         name = args["name"]
         if not isinstance(name, str) and not isinstance(name, unicode):
             raise TypeError("string", repr(name))
-        if not('description' in args):
+        if "description" not in args:
             raise UnmarshalException('argument missing', 'description', '')
         description = args["description"]
         if not isinstance(description, str) and not isinstance(description, unicode):
             raise TypeError("string", repr(description))
-        if not('size' in args):
+        if "size" not in args:
             raise UnmarshalException('argument missing', 'size', '')
         size = args["size"]
         if not(is_long(size)):
@@ -112,17 +112,17 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
@@ -161,17 +161,17 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
@@ -210,17 +210,17 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
@@ -231,22 +231,22 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
             raise TypeError("string", repr(key))
-        if not('new_name' in args):
+        if "new_name" not in args:
             raise UnmarshalException('argument missing', 'new_name', '')
         new_name = args["new_name"]
         if not isinstance(new_name, str) and not isinstance(new_name, unicode):
@@ -257,22 +257,22 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
             raise TypeError("string", repr(key))
-        if not('new_description' in args):
+        if "new_description" not in args:
             raise UnmarshalException('argument missing', 'new_description', '')
         new_description = args["new_description"]
         if not isinstance(new_description, str) and not isinstance(new_description, unicode):
@@ -283,27 +283,27 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
             raise TypeError("string", repr(key))
-        if not('k' in args):
+        if "k" not in args:
             raise UnmarshalException('argument missing', 'k', '')
         k = args["k"]
         if not isinstance(k, str) and not isinstance(k, unicode):
             raise TypeError("string", repr(k))
-        if not('v' in args):
+        if "v" not in args:
             raise UnmarshalException('argument missing', 'v', '')
         v = args["v"]
         if not isinstance(v, str) and not isinstance(v, unicode):
@@ -314,22 +314,22 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
             raise TypeError("string", repr(key))
-        if not('k' in args):
+        if "k" not in args:
             raise UnmarshalException('argument missing', 'k', '')
         k = args["k"]
         if not isinstance(k, str) and not isinstance(k, unicode):
@@ -340,22 +340,22 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
             raise TypeError("string", repr(key))
-        if not('new_size' in args):
+        if "new_size" not in args:
             raise UnmarshalException('argument missing', 'new_size', '')
         new_size = args["new_size"]
         if not(is_long(new_size)):
@@ -366,17 +366,17 @@ class Volume_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('key' in args):
+        if "key" not in args:
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
         if not isinstance(key, str) and not isinstance(key, unicode):
@@ -798,12 +798,12 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
@@ -845,27 +845,27 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
             raise TypeError("string", repr(uri))
-        if not('name' in args):
+        if "name" not in args:
             raise UnmarshalException('argument missing', 'name', '')
         name = args["name"]
         if not isinstance(name, str) and not isinstance(name, unicode):
             raise TypeError("string", repr(name))
-        if not('description' in args):
+        if "description" not in args:
             raise UnmarshalException('argument missing', 'description', '')
         description = args["description"]
         if not isinstance(description, str) and not isinstance(description, unicode):
             raise TypeError("string", repr(description))
-        if not('configuration' in args):
+        if "configuration" not in args:
             raise UnmarshalException('argument missing', 'configuration', '')
         configuration = args["configuration"]
         if not isinstance(configuration, dict):
@@ -882,12 +882,12 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('uri' in args):
+        if "uri" not in args:
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
         if not isinstance(uri, str) and not isinstance(uri, unicode):
@@ -900,12 +900,12 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
@@ -916,12 +916,12 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
@@ -932,12 +932,12 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
@@ -971,17 +971,17 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('new_name' in args):
+        if "new_name" not in args:
             raise UnmarshalException('argument missing', 'new_name', '')
         new_name = args["new_name"]
         if not isinstance(new_name, str) and not isinstance(new_name, unicode):
@@ -992,17 +992,17 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):
             raise TypeError("string", repr(sr))
-        if not('new_description' in args):
+        if "new_description" not in args:
             raise UnmarshalException('argument missing', 'new_description', '')
         new_description = args["new_description"]
         if not isinstance(new_description, str) and not isinstance(new_description, unicode):
@@ -1013,12 +1013,12 @@ class SR_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
             raise TypeError("string", repr(dbg))
-        if not('sr' in args):
+        if "sr" not in args:
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
         if not isinstance(sr, str) and not isinstance(sr, unicode):

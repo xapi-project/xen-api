@@ -27,7 +27,7 @@ class Plugin_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
@@ -70,7 +70,7 @@ class Plugin_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
@@ -86,7 +86,7 @@ class Plugin_server_dispatcher:
         """type-check inputs, call implementation, type-check outputs and return"""
         if not isinstance(args, dict):
             raise UnmarshalException('arguments', 'dict', repr(args))
-        if not('dbg' in args):
+        if "dbg" not in args:
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
         if not isinstance(dbg, str) and not isinstance(dbg, unicode):
