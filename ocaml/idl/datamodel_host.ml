@@ -935,7 +935,9 @@ let create_params =
   ; {
       param_type= DateTime
     ; param_name= "last_software_update"
-    ; param_doc= "Date and time when the last software update was applied."
+    ; param_doc=
+        "Date and time when the last software update was applied. When the \
+         timezone is missing, UTC is assumed"
     ; param_release= dundee_release
     ; param_default= Some (VDateTime Date.epoch)
     }

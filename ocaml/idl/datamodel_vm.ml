@@ -339,7 +339,11 @@ let update_snapshot_metadata =
       [
         (Ref _vm, "vm", "The VM to update")
       ; (Ref _vm, "snapshot_of", "")
-      ; (DateTime, "snapshot_time", "")
+      ; ( DateTime
+        , "snapshot_time"
+        , "The timestamp the snapshot was taken. When a timezone is missing, \
+           UTC is assumed"
+        )
       ; (String, "transportable_snapshot_id", "")
       ]
     ~allowed_roles:_R_POOL_OP ()
