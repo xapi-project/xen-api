@@ -4310,24 +4310,42 @@ let vm_migrate printer rpc session_id params =
       Client.Session.login_with_password remote_rpc username password "1.3"
         Constants.xapi_user_agent
     in
+    let remote f = f ~rpc:remote_rpc ~session_id:remote_session in
     finally
       (fun () ->
-        let host, host_record =
-          let all = Client.Host.get_all_records remote_rpc remote_session in
-          if List.mem_assoc "host" params then
-            let x = List.assoc "host" params in
-            try
-              List.find
-                (fun (_, h) ->
-                  h.API.host_hostname = x
-                  || h.API.host_name_label = x
-                  || h.API.host_uuid = x
+        let host =
+          let get_host_by_hostname x =
+            let host_matches self =
+              let hostname = remote (Client.Host.get_hostname ~self) in
+              hostname = x
+            in
+            let all_hosts = remote Client.Host.get_all in
+            List.find_opt host_matches all_hosts
+          in
+          let get_host_with x =
+            let ref =
+              if Uuidm.of_string x |> Option.is_some then
+                remote (Client.Host.get_by_uuid ~uuid:x)
+              else
+                let hosts = remote (Client.Host.get_by_name_label ~label:x) in
+                Option.fold ~none:Ref.null ~some:Fun.id (List.nth_opt hosts 0)
+            in
+            if ref <> Ref.null then
+              Some ref
+            else
+              get_host_by_hostname x
+          in
+
+          let search, fail_msg =
+            match List.assoc_opt "host" params with
+            | Some x ->
+                (get_host_with x, Printf.sprintf "Failed to find host: %s" x)
+            | None ->
+                ( List.nth_opt (remote Client.Host.get_all) 0
+                , Printf.sprintf "Failed to find a suitable host"
                 )
-                all
-            with Not_found ->
-              failwith (Printf.sprintf "Failed to find host: %s" x)
-          else
-            List.hd all
+          in
+          match search with Some ref -> ref | None -> failwith fail_msg
         in
         let network, network_record =
           let all = Client.Network.get_all_records remote_rpc remote_session in
@@ -4344,7 +4362,7 @@ let vm_migrate printer rpc session_id params =
             with Not_found ->
               failwith (Printf.sprintf "Failed to find network: %s" x)
           else
-            let pifs = host_record.API.host_PIFs in
+            let pifs = remote Client.Host.get_PIFs ~self:host in
             let management_pifs =
               List.filter
                 (fun pif ->
@@ -4355,7 +4373,7 @@ let vm_migrate printer rpc session_id params =
             if List.length management_pifs = 0 then
               failwith
                 (Printf.sprintf "Could not find management PIF on host %s"
-                   host_record.API.host_uuid
+                   (remote Client.Host.get_uuid ~self:host)
                 ) ;
             let pif = List.hd management_pifs in
             let net = Client.PIF.get_network remote_rpc remote_session pif in
@@ -4509,13 +4527,13 @@ let vm_migrate printer rpc session_id params =
             )
             params
         in
+        let host_name_label = remote (Client.Host.get_name_label ~self:host) in
         printer
           (Cli_printer.PMsg
              (Printf.sprintf
                 "Will migrate to remote host: %s, using remote network: %s. \
                  Here is the VDI mapping:"
-                host_record.API.host_name_label
-                network_record.API.network_name_label
+                host_name_label network_record.API.network_name_label
              )
           ) ;
         List.iter
