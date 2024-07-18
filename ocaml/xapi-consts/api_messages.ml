@@ -311,6 +311,8 @@ let cluster_host_leaving = addMessage "CLUSTER_HOST_LEAVING" 3L
 
 let cluster_host_joining = addMessage "CLUSTER_HOST_JOINING" 4L
 
+let cluster_stack_out_of_date = addMessage "CLUSTER_STACK_OUT_OF_DATE" 3L
+
 (* Certificate expiration messages *)
 let host_server_certificate_expiring = "HOST_SERVER_CERTIFICATE_EXPIRING"
 
