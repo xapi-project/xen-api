@@ -3,7 +3,6 @@ let default_user = "unixpwd"
 let cycle user rounds n =
   let pw = Printf.sprintf "unixpwd-%06d" n in
   Unixpwd.setspw user pw ;
-  ignore (Unixpwd.unshadow () |> String.length) ;
   assert (Unixpwd.getspw user = pw) ;
   Unixpwd.setpwd user pw ;
   assert (Unixpwd.getpwd user = pw) ;

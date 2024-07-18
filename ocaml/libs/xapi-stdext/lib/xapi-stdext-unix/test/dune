@@ -1,5 +1,6 @@
 (test
   (name unixext_test)
+  (package xapi-stdext-unix)
   (modules unixext_test)
   (libraries xapi_stdext_unix qcheck-core mtime.clock.os qcheck-core.runner fmt xapi_fd_test mtime threads.posix rresult)
   ; use fixed seed to avoid causing random failures in CI and package builds
@@ -12,9 +13,10 @@
   (action (run %{dep:unixext_test.exe} -v -bt))
 )
 
-(executable
+(test
  (modes exe)
  (name test_systemd)
+ (package xapi-stdext-unix)
  (modules test_systemd)
  (libraries xapi-stdext-unix))
 

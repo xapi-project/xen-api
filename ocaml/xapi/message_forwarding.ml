@@ -699,6 +699,7 @@ functor
       include Local.Task
 
       let cancel ~__context ~task =
+        Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
         TaskHelper.assert_op_valid ~__context task ;
         let local_fn = cancel ~task in
         let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
@@ -1196,6 +1197,7 @@ functor
         with _ -> ()
 
       let cancel ~__context ~vm ~ops =
+        Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
         let cancelled =
           List.filter_map
             (fun (task, op) ->
@@ -6419,6 +6421,14 @@ functor
                ) ;
                debug "Cluster.pool_resync for host %s" (Ref.string_of host)
            )
+
+      let cstack_sync ~__context ~self =
+        info "Cluster.cstack_sync cluster %s" (Ref.string_of self) ;
+        let local_fn = Local.Cluster.cstack_sync ~self in
+        let coor = Helpers.get_master ~__context in
+        do_op_on ~local_fn ~__context ~host:coor (fun session_id rpc ->
+            Client.Cluster.cstack_sync ~rpc ~session_id ~self
+        )
     end
 
     module Cluster_host = struct

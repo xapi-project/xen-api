@@ -915,6 +915,8 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
+let dnf_cmd = ref "/usr/bin/dnf"
+
 let kpatch_cmd = ref "/usr/sbin/kpatch"
 
 let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
@@ -945,7 +947,7 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
-let observer_config_dir = "/etc/xensource/observer"
+let observer_config_dir = Constants.observer_config_dir
 
 let ignore_vtpm_unimplemented = ref false
 
@@ -1031,7 +1033,7 @@ let observer_endpoint_http_enabled = ref false
 
 let observer_endpoint_https_enabled = ref false
 
-let python3_path = ref "/usr/bin/python3"
+let python3_path = Constants.python3_path
 
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
@@ -1772,6 +1774,7 @@ module Resources = struct
       , "Executed to manage SQlite Database, like PBIS database"
       )
     ; ("yum-cmd", yum_cmd, "Path to yum command")
+    ; ("dnf-cmd", dnf_cmd, "Path to dnf command")
     ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
     ; ( "yum-config-manager-cmd"
       , yum_config_manager_cmd

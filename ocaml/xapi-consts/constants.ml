@@ -399,6 +399,10 @@ let good_ciphersuites =
 
 let verify_certificates_path = "/var/xapi/verify-certificates"
 
+let python3_path = "/usr/bin/python3"
+
+let observer_config_dir = "/etc/xensource/observer"
+
 let observer_component_xapi = "xapi"
 
 let observer_component_xenopsd = "xenopsd"

@@ -40,10 +40,3 @@ val setspw : string -> string -> unit
  * for [user] in /etc/passwd and /etc/shadow, respectively. They raise
  * [Error] on error.
  *)
-
-val unshadow : unit -> string
-
-(* [unshadow] returns the contents of /etc/passwd as a string with
- * passwords from /etc/shadow for users that have a corresponding entry.
- * Raises [Error] on error.
- *)

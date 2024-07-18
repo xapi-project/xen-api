@@ -194,10 +194,20 @@ let urlencode param =
   in
   fn chars
 
-(** Parses strings of the form a=b&c=d into ["a", "b"; "c", "d"] *)
-let parse_keyvalpairs xs =
+(** Parses strings of the form a=b;c=d (new, RFC-compliant cookie format)
+    and a=b&c=d (old, incorrect style) into [("a", "b"); ("c", "d")] *)
+let parse_cookies xs =
+  (* Determine if ';' or '&' is used as the separator.
+     Both are assumed to be illegal characters otherwise *)
+  let sep =
+    match Astring.String.find (fun c -> c = ';') xs with
+    | Some _ ->
+        ";"
+    | None ->
+        "&"
+  in
   let kvpairs =
-    List.map (Astring.String.cuts ~sep:"=") (Astring.String.cuts ~sep:"&" xs)
+    List.map (Astring.String.cuts ~sep:"=") (Astring.String.cuts ~sep xs)
   in
   List.map
     (function

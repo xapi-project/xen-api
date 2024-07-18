@@ -683,6 +683,36 @@ let messages_of_obj (x : obj) document_order : message list =
     }
   in
 
+  let get_all_where =
+    {
+      get_all_public with
+      msg_name= "get_all_where"
+    ; msg_tag= FromObject GetAllWhere
+    ; msg_params=
+        [
+          {
+            param_type= String
+          ; param_name= "expr"
+          ; param_doc= "expression matching records"
+          ; param_release= x.obj_release
+          ; param_default= None
+          }
+        ]
+    ; msg_result= Some (Set (Ref x.name), "references to all matching objects")
+    ; msg_release=
+        {
+          opensource= []
+        ; internal=
+            x.obj_release.internal
+            (* This should be the release of getallwhere, or the class'
+                introduction, whichever is last. *)
+        ; internal_deprecated_since= None
+        }
+    ; msg_allowed_roles= x.obj_implicit_msg_allowed_roles
+    ; msg_hide_from_docs= true
+    }
+  in
+
   (* And the 'get_all_records_where' semi-public function *)
   let get_all_records_where =
     {
@@ -738,7 +768,7 @@ let messages_of_obj (x : obj) document_order : message list =
   in
   let get_all_public =
     if List.mem x.name expose_get_all_messages_for then
-      [get_all_public; get_all_records_where; get_all_records]
+      [get_all_public; get_all_where; get_all_records_where; get_all_records]
     else
       []
   in

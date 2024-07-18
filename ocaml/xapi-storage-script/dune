@@ -21,6 +21,7 @@
     sexplib0
     uri
     xapi-backtrace
+    xapi-consts
     xapi-consts.xapi_version
     xapi-idl
     xapi-idl.rrd

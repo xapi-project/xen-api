@@ -90,7 +90,7 @@ let response_of_fd_exn_slow fd =
       while not !end_of_headers do
         let line = input_line_fd fd in
         (* NB input_line removes the final '\n'.
-           				   RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
+           RFC1945 says to expect a '\r\n' (- '\n' = '\r') *)
         match line with
         | "" | "\r" ->
             end_of_headers := true

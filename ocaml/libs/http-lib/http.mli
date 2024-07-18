@@ -230,7 +230,7 @@ end
 
 val output_http : Unix.file_descr -> string list -> unit
 
-val parse_keyvalpairs : string -> (string * string) list
+val parse_cookies : string -> (string * string) list
 
 val urlencode : string -> string
 

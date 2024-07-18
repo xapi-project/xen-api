@@ -158,7 +158,9 @@ module CancellableSleep = struct
       ; buf= Bytes.make 1 ' '
       }
 
-  let set_rcvtimeo sock timeo = setsockopt_float sock Unix.SO_RCVTIMEO timeo
+  let set_rcvtimeo sock timeo =
+    if timeo < 1e-6 then Fmt.invalid_arg "timeout too short: %g" timeo ;
+    setsockopt_float sock Unix.SO_RCVTIMEO timeo
 
   let sleep t dt =
     set_rcvtimeo t.wait (Mtime.Span.to_float_ns dt *. 1e-9) ;
@@ -172,6 +174,8 @@ end
 
 module Delay = struct
   type t = {duration: Mtime.span; every_bytes: int}
+
+  let every_bytes t = t.every_bytes
 
   let pp =
     Fmt.(

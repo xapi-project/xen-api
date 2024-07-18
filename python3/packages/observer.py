@@ -306,15 +306,15 @@ def _init_tracing(configs: List[str], config_dir: str):
             """Auto-instrument a class."""
 
             t = tracers[0]
-            module_name = f"{aclass.__module__}:{aclass.__qualname__}"
+            class_name = f"{aclass.__module__}:{aclass.__qualname__}"
 
-            with t.start_as_current_span(f"auto_instrumentation.add: {module_name}"):
+            with t.start_as_current_span(f"auto_instrumentation.add_class: {class_name}"):
                 for method_name, method in aclass.__dict__.items():
                     if not callable(getattr(aclass, method_name)):
                         continue
 
                     with t.start_as_current_span(
-                        f"class.instrument:{module_name}.{method_name}={method}"
+                        f"class.instrument:{class_name}.{method_name}"
                     ):
                         # Avoid RecursionError:
                         # 'maximum recursion depth exceeded in comparison'
@@ -333,16 +333,17 @@ def _init_tracing(configs: List[str], config_dir: str):
         def autoinstrument_module(amodule):
             """Autoinstrument the classes and functions in a module."""
 
-            # Instrument the methods of the classes in the module
-            for _, aclass in inspect.getmembers(amodule, inspect.isclass):
-                try:
-                    autoinstrument_class(aclass)
-                except Exception:
-                    debug("instrument_function: Exception %s", traceback.format_exc())
+            with tracers[0].start_as_current_span(f"auto_instrumentation.add_module: {amodule}"):
+                # Instrument the methods of the classes in the module
+                for _, aclass in inspect.getmembers(amodule, inspect.isclass):
+                    try:
+                        autoinstrument_class(aclass)
+                    except Exception:
+                        debug("instrument_function: Exception %s", traceback.format_exc())
 
-            # Instrument the module-level functions of the module
-            for fname, afunction in inspect.getmembers(amodule, inspect.isfunction):
-                setattr(amodule, fname, instrument_function(afunction))
+                # Instrument the module-level functions of the module
+                for fname, afunction in inspect.getmembers(amodule, inspect.isfunction):
+                    setattr(amodule, fname, instrument_function(afunction))
 
         if inspect.ismodule(wrapped):
             autoinstrument_module(wrapped)

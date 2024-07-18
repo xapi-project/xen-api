@@ -364,33 +364,19 @@ let check api emergency_calls =
   in
   (* Sanity check 7: message parameters must be in increasing order of in_product_since *)
   let are_in_vsn_order ps =
-    let rec getlast l =
-      (* TODO: move to standard library *)
-      match l with
-      | [x] ->
-          x
-      | _ :: xs ->
-          getlast xs
-      | [] ->
-          raise (Invalid_argument "getlast")
-    in
     let release_lt x y = release_leq x y && x <> y in
     let in_since releases =
       (* been in since the lowest of releases *)
-      let rec find_smallest sofar l =
-        match l with
-        | [] ->
-            sofar
-        | "closed" :: xs ->
-            find_smallest sofar xs
-            (* closed is not a real release, so skip it *)
-        | x :: xs ->
-            if release_lt x sofar then
-              find_smallest x xs
-            else
-              find_smallest sofar xs
-      in
-      find_smallest (getlast release_order |> code_name_of_release) releases
+      List.fold_left
+        (fun sofar r ->
+          match r with
+          | "closed" ->
+              sofar (* closed is not a real release, so skip it *)
+          | r ->
+              if release_lt r sofar then r else sofar
+        )
+        (Xapi_stdext_std.Listext.List.last release_order |> code_name_of_release)
+        releases
     in
     let rec check_vsns max_release_sofar ps =
       match ps with
@@ -440,6 +426,37 @@ let check api emergency_calls =
                    obj.name msg.msg_name
                 )
           )
+          obj.messages
+      )
+      system
+  in
+  (* Sanity check 9: New parameters must have a default value: we partially check
+     this by checking in the list of parameters, after we have seen a parameter with
+     a default value, other parameters after it must have defaults as well. Unfortunately
+     checking parameters with newer releases does not work well as there are existing
+     parameters with new releases but no default. *)
+  let _ =
+    let new_param_has_default obj_name msg_name ps =
+      let _ : bool =
+        List.fold_left
+          (fun seen_default p ->
+            if seen_default && Option.is_none p.param_default then
+              Printf.sprintf
+                "Obj %s Msg %s parameters %s does not have default values"
+                obj_name msg_name p.param_name
+              |> failwith ;
+
+            Option.is_some p.param_default
+          )
+          false ps
+      in
+      ()
+    in
+
+    List.iter
+      (fun obj ->
+        List.iter
+          (fun msg -> new_param_has_default obj.name msg.msg_name msg.msg_params)
           obj.messages
       )
       system
