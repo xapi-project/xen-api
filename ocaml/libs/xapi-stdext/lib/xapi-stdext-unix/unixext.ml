@@ -672,6 +672,74 @@ let time_limited_single_read filedesc length ~max_wait =
   in
   Bytes.sub_string buf 0 bytes
 
+(** see [select(2)] "Correspondence between select() and poll() notifications".
+    Note that HUP and ERR are ignored in events and returned only in revents.
+    For simplicity we use the same event mask from the manual in both cases
+ *)
+let pollin_set = Polly.Events.(rdnorm lor rdband lor inp lor hup lor err)
+
+let pollout_set = Polly.Events.(wrband lor wrnorm lor out lor err)
+
+let pollerr_set = Polly.Events.pri
+
+let to_milliseconds ms = ms *. 1e3 |> ceil |> int_of_float
+
+let readable fd (rd, wr, ex) = (fd :: rd, wr, ex)
+
+let writable fd (rd, wr, ex) = (rd, fd :: wr, ex)
+
+let error fd (rd, wr, ex) = (rd, wr, fd :: ex)
+
+let check_events fd mask event action state =
+  if Polly.Events.test mask event then
+    action fd state
+  else
+    state
+
+let no_events = ([], [], [])
+
+let fold_events _ fd event state =
+  state
+  |> check_events fd pollin_set event readable
+  |> check_events fd pollout_set event writable
+  |> check_events fd pollerr_set event error
+
+let polly_fold_add polly events action immediate fd =
+  try Polly.add polly fd events ; immediate
+  with Unix.Unix_error (Unix.EPERM, _, _) ->
+    (* matches the behaviour of select: file descriptors that cannot be watched
+       are returned as ready immediately *)
+    action fd immediate
+
+let polly_fold polly events fds action immediate =
+  List.fold_left (polly_fold_add polly events action) immediate fds
+
+let select ins outs errs timeout =
+  (* -1.0 is a special value used in forkexecd *)
+  if timeout < 0. && timeout <> -1.0 then
+    invalid_arg (Printf.sprintf "negative timeout would hang: %g" timeout) ;
+  match (ins, outs, errs) with
+  | [], [], [] ->
+      Unix.sleepf timeout ; no_events
+  | _ -> (
+      with_polly @@ fun polly ->
+      let immediate =
+        no_events
+        |> polly_fold polly pollin_set ins readable
+        |> polly_fold polly pollout_set outs writable
+        |> polly_fold polly pollerr_set errs error
+      in
+      match immediate with
+      | [], [], [] ->
+          Polly.wait_fold polly 1024 (to_milliseconds timeout) no_events
+            fold_events
+      | _ ->
+          (* we have some fds that are immediately available, but still poll the others
+             for any events that are available immediately
+          *)
+          Polly.wait_fold polly 1024 0 immediate fold_events
+    )
+
 (* --------------------------------------------------------------------------------------- *)
 
 (* Read a given number of bytes of data from the fd, or stop at EOF, whichever comes first. *)
