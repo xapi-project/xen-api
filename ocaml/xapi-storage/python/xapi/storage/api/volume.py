@@ -76,7 +76,7 @@ class Volume_server_dispatcher:
         if not('size' in args):
             raise UnmarshalException('argument missing', 'size', '')
         size = args["size"]
-        if not(is_long(size)):
+        if not is_long(size):
             raise TypeError("int64", repr(size))
         results = self._impl.create(dbg, sr, name, description, size)
         if not isinstance(results['key'], str) and not isinstance(results['key'], unicode):
@@ -90,9 +90,9 @@ class Volume_server_dispatcher:
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
-        if not(is_long(results['virtual_size'])):
+        if not is_long(results['virtual_size']):
             raise TypeError("int64", repr(results['virtual_size']))
-        if not(is_long(results['physical_utilisation'])):
+        if not is_long(results['physical_utilisation']):
             raise TypeError("int64", repr(results['physical_utilisation']))
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
@@ -139,9 +139,9 @@ class Volume_server_dispatcher:
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
-        if not(is_long(results['virtual_size'])):
+        if not is_long(results['virtual_size']):
             raise TypeError("int64", repr(results['virtual_size']))
-        if not(is_long(results['physical_utilisation'])):
+        if not is_long(results['physical_utilisation']):
             raise TypeError("int64", repr(results['physical_utilisation']))
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
@@ -188,9 +188,9 @@ class Volume_server_dispatcher:
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
-        if not(is_long(results['virtual_size'])):
+        if not is_long(results['virtual_size']):
             raise TypeError("int64", repr(results['virtual_size']))
-        if not(is_long(results['physical_utilisation'])):
+        if not is_long(results['physical_utilisation']):
             raise TypeError("int64", repr(results['physical_utilisation']))
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
@@ -358,7 +358,7 @@ class Volume_server_dispatcher:
         if not('new_size' in args):
             raise UnmarshalException('argument missing', 'new_size', '')
         new_size = args["new_size"]
-        if not(is_long(new_size)):
+        if not is_long(new_size):
             raise TypeError("int64", repr(new_size))
         results = self._impl.resize(dbg, sr, key, new_size)
         return results
@@ -393,9 +393,9 @@ class Volume_server_dispatcher:
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
-        if not(is_long(results['virtual_size'])):
+        if not is_long(results['virtual_size']):
             raise TypeError("int64", repr(results['virtual_size']))
-        if not(is_long(results['physical_utilisation'])):
+        if not is_long(results['physical_utilisation']):
             raise TypeError("int64", repr(results['physical_utilisation']))
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
@@ -818,9 +818,9 @@ class SR_server_dispatcher:
                 raise TypeError("string", repr(tmp_13['name']))
             if not isinstance(tmp_13['description'], str) and not isinstance(tmp_13['description'], unicode):
                 raise TypeError("string", repr(tmp_13['description']))
-            if not(is_long(tmp_13['free_space'])):
+            if not is_long(tmp_13['free_space']):
                 raise TypeError("int64", repr(tmp_13['free_space']))
-            if not(is_long(tmp_13['total_space'])):
+            if not is_long(tmp_13['total_space']):
                 raise TypeError("int64", repr(tmp_13['total_space']))
             if not isinstance(tmp_13['datasources'], list):
                 raise TypeError("string list", repr(tmp_13['datasources']))
@@ -949,9 +949,9 @@ class SR_server_dispatcher:
             raise TypeError("string", repr(results['name']))
         if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
             raise TypeError("string", repr(results['description']))
-        if not(is_long(results['free_space'])):
+        if not is_long(results['free_space']):
             raise TypeError("int64", repr(results['free_space']))
-        if not(is_long(results['total_space'])):
+        if not is_long(results['total_space']):
             raise TypeError("int64", repr(results['total_space']))
         if not isinstance(results['datasources'], list):
             raise TypeError("string list", repr(results['datasources']))
@@ -1038,9 +1038,9 @@ class SR_server_dispatcher:
                 raise TypeError("string", repr(tmp_18['description']))
             if not isinstance(tmp_18['read_write'], bool):
                 raise TypeError("bool", repr(tmp_18['read_write']))
-            if not(is_long(tmp_18['virtual_size'])):
+            if not is_long(tmp_18['virtual_size']):
                 raise TypeError("int64", repr(tmp_18['virtual_size']))
-            if not(is_long(tmp_18['physical_utilisation'])):
+            if not is_long(tmp_18['physical_utilisation']):
                 raise TypeError("int64", repr(tmp_18['physical_utilisation']))
             if not isinstance(tmp_18['uri'], list):
                 raise TypeError("string list", repr(tmp_18['uri']))
