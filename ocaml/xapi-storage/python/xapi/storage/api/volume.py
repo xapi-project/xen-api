@@ -1108,15 +1108,43 @@ class SR_skeleton:
     def ls(self, dbg, sr):
         """Operations which act on Storage Repositories"""
         raise Unimplemented("SR.ls")
+
+
 class SR_test:
-    """Operations which act on Storage Repositories"""
+    """SR volume implementation to test operations which act on Storage Repositories"""
     def __init__(self):
         pass
-    def probe(self, dbg, uri):
-        """Operations which act on Storage Repositories"""
-        result = {}
-        result["result"] = { "srs": [ { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None }, { "sr": "string", "name": "string", "description": "string", "free_space": long(0), "total_space": long(0), "datasources": [ "string", "string" ], "clustered": True, "health": None } ], "uris": [ "string", "string" ] }
-        return result
+
+    def probe(self, _, __):
+        """probe() method to test volume.py: Returns a list of dummy SRs"""
+        return {
+            "result": {
+                "srs": [
+                    {
+                        "sr": "string",
+                        "name": "string",
+                        "description": "string",
+                        "free_space": long(0),
+                        "total_space": long(0),
+                        "datasources": ["string", "string"],
+                        "clustered": True,
+                        "health": None,
+                    },
+                    {
+                        "sr": "string",
+                        "name": "string",
+                        "description": "string",
+                        "free_space": long(0),
+                        "total_space": long(0),
+                        "datasources": ["string", "string"],
+                        "clustered": True,
+                        "health": None,
+                    },
+                ],
+                "uris": ["string", "string"],
+            }
+        }
+
     def create(self, dbg, uri, name, description, configuration):
         """Operations which act on Storage Repositories"""
         result = {}
