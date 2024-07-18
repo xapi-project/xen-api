@@ -11,6 +11,7 @@
     cohttp
     cohttp-lwt
     cstruct
+    (re_export ezxenstore)
     io-page
     lwt
     lwt.unix
