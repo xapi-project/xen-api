@@ -1,7 +1,7 @@
 +++
 title = "Adding a field to the API"
 +++
-This page describes how to add a field to XenAPI. A field is a parameter of a class that can be used in functions and read from the API. 
+This page describes how to add a field to XenAPI. A field is a parameter of a class that can be used in functions and read from the API.
 
 Bumping the database schema version
 -----------------------------------
@@ -34,15 +34,15 @@ new API fields used for ActiveDirectory integration were added:
 
       (* IMPORTANT: Please bump schema vsn if you change/add/remove a _field_.
          You do not have to dump vsn if you change/add/remove a message *)
-    
+
       let schema_major_vsn = 5
      -let schema_minor_vsn = 55
      +let schema_minor_vsn = 56
-    
+
       (* Historical schema versions just in case this is useful later *)
       let rio_schema_major_vsn = 5
       let rio_schema_minor_vsn = 19
-    
+
      +let miami_release_schema_major_vsn = 5
      +let miami_release_schema_minor_vsn = 35
      +
@@ -95,7 +95,7 @@ See datamodel_types.ml for information about other parameters.
 Adding a field would change the constructors for the class – functions
 Db.*.create – and therefore, any references to these in the code need to be
 updated. In the example, the argument ~ha_enabled:false should be added to any
-call to Db.Pool.create. 
+call to Db.Pool.create.
 
 Examples of where these calls can be found is in `ocaml/tests/common/test_common.ml` and `ocaml/xapi/xapi_[class].ml`.
 
@@ -113,7 +113,7 @@ if you don't want this field to show up in a *_params_list call. As an example,
 here is a field that we've just added to the SM class:
 
     make_field ~name:"versioned-capabilities"
-               ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.sM_versioned_capabilities)
+               ~get:(fun () -> get_from_map (x ()).API.sM_versioned_capabilities)
                ~get_map:(fun () -> (x ()).API.sM_versioned_capabilities)
                ~hidden:true ();
 

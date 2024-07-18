@@ -351,10 +351,9 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
   | Unix.Unix_error (Unix.ECONNREFUSED, _, _) ->
       raise_connection_refused ()
 
-let perform_wlb_request ?auth ?url ?enable_log ~meth ~params ~handle_response
-    ~__context () =
+let perform_wlb_request ?auth ?url ?(enable_log = true) ~meth ~params
+    ~handle_response ~__context () =
   (* now assumes naming policy of xml repsonses is uniform Envelope->Body-> <x>Response-> <x>Result  where <x> is method name *)
-  let enable_log = match enable_log with Some b -> b | None -> true in
   let host, port =
     match url with
     | Some u ->

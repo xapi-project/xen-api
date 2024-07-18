@@ -1,8 +1,16 @@
 (library
   (public_name xapi-stdext-threads)
   (name  xapi_stdext_threads)
+  (modules :standard \ threadext_test)
   (libraries
     threads.posix
     unix
+    xapi-stdext-unix
     xapi-stdext-pervasives)
+)
+(test
+  (name threadext_test)
+  (package xapi-stdext-threads)
+  (modules threadext_test)
+  (libraries xapi_stdext_threads alcotest mtime.clock.os mtime fmt)
 )

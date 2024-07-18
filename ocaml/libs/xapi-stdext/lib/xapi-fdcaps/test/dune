@@ -1,0 +1,10 @@
+(tests
+	(package xapi-stdext-unix)
+	(names test_safefd test_properties test_operations)
+	(libraries xapi_fdcaps alcotest fmt)
+)
+
+(cram
+	(package xapi-stdext-unix)
+	(deps (package xapi-stdext-unix))
+)

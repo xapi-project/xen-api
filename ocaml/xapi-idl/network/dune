@@ -10,6 +10,7 @@
    threads.posix
    xapi-idl
    xapi-log
+   ipaddr
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))

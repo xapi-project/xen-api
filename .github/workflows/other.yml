@@ -58,6 +58,7 @@ jobs:
           --cov-fail-under 0
         env:
           PYTHONDEVMODE: yes
+          PYTHONPATH: "python3:python3/tests/stubs"
 
       - name: Upload coverage report to Coveralls
         uses: coverallsapp/github-action@v2

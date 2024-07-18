@@ -18,11 +18,19 @@ module Date = Xapi_stdext_date.Date
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let ( let@ ) f x = f x
+
+let finally_complete_tracing ?error __context f =
+  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
+      Context.complete_tracing ?error __context
+  )
+
 type t = API.ref_task
 
 (* creates a new task *)
 let make ~__context ~http_other_config ?(description = "") ?session_id
     ?subtask_of label : t * t Uuidx.t =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let uuid = Uuidx.make () in
   let uuid_str = Uuidx.to_string uuid in
   let ref = Ref.make () in
@@ -35,8 +43,7 @@ let make ~__context ~http_other_config ?(description = "") ?session_id
         Ref.null
   in
   let (_ : unit) =
-    Db_actions.DB_Action.Task.create ~ref ~__context
-      ~created:(Date.of_float (Unix.time ()))
+    Db_actions.DB_Action.Task.create ~ref ~__context ~created:(Date.now ())
       ~finished:(Date.of_float 0.0) ~current_operations:[] ~_type:"<none/>"
       ~session:(Option.value ~default:Ref.null session_id)
       ~resident_on:!Xapi_globs.localhost_ref ~status:`pending ~result:""
@@ -64,6 +71,7 @@ let are_auth_user_ids_of_sessions_equal ~__context s1 s2 =
   s1_auth_user_sid = s2_auth_user_sid
 
 let assert_op_valid ?(ok_if_no_session_in_context = false) ~__context task_id =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let assert_permission_task_op_any () =
     match !rbac_assert_permission_fn with
     | None ->
@@ -106,6 +114,7 @@ let assert_op_valid ?(ok_if_no_session_in_context = false) ~__context task_id =
         assert_permission_task_op_any ()
 
 let get_name ~__context =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let task_id = Context.get_task_id __context in
   if Ref.is_dummy task_id then
     Ref.name_of_dummy task_id
@@ -113,6 +122,7 @@ let get_name ~__context =
     Db.Task.get_name_label ~__context ~self:task_id
 
 let destroy ~__context task_id =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   if not (Ref.is_dummy task_id) then (
     assert_op_valid ~ok_if_no_session_in_context:true ~__context task_id ;
     Db_actions.DB_Action.Task.destroy ~__context ~self:task_id
@@ -128,34 +138,36 @@ let init () =
   Context.__make_task := make
 
 let operate_on_db_task ~__context f =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   if Context.task_in_database __context then
     f (Context.get_task_id __context)
 
 let set_description ~__context value =
-  operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_name_description ~__context ~self ~value
-  )
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  Db_actions.DB_Action.Task.set_name_description ~__context ~self ~value
 
 let add_to_other_config ~__context key value =
-  operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key ;
-      Db_actions.DB_Action.Task.add_to_other_config ~__context ~self ~key ~value
-  )
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  Db_actions.DB_Action.Task.remove_from_other_config ~__context ~self ~key ;
+  Db_actions.DB_Action.Task.add_to_other_config ~__context ~self ~key ~value
 
 let set_progress ~__context value =
-  operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_progress ~__context ~self ~value
-  )
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  Db_actions.DB_Action.Task.set_progress ~__context ~self ~value
 
 let set_external_pid ~__context pid =
-  operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_externalpid ~__context ~self
-        ~value:(Int64.of_int pid)
-  )
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  Db_actions.DB_Action.Task.set_externalpid ~__context ~self
+    ~value:(Int64.of_int pid)
 
 let clear_external_pid ~__context = set_external_pid ~__context (-1)
 
 let set_result_on_task ~__context task_id result =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   match result with
   | None ->
       ()
@@ -165,7 +177,9 @@ let set_result_on_task ~__context task_id result =
 
 (** Only set the result without completing the task. Useful for vm import *)
 let set_result ~__context result =
-  operate_on_db_task ~__context (fun t -> set_result_on_task ~__context t result)
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  set_result_on_task ~__context self result
 
 let status_to_string = function
   | `pending ->
@@ -183,36 +197,36 @@ let status_is_completed task_status =
   task_status = `success || task_status = `failure || task_status = `cancelled
 
 let complete ~__context result =
-  Context.complete_tracing __context ;
-  operate_on_db_task ~__context (fun self ->
-      let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
-      if status = `pending then (
-        Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
-          ~value:[] ;
-        Db_actions.DB_Action.Task.set_finished ~__context ~self
-          ~value:(Date.of_float (Unix.time ())) ;
-        Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
-        set_result_on_task ~__context self result ;
-        Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`success
-      ) else
-        debug "the status of %s is: %s; cannot set it to `success"
-          (Ref.really_pretty_and_small self)
-          (status_to_string status)
-  )
+  let@ () = finally_complete_tracing __context in
+  let@ self = operate_on_db_task ~__context in
+  let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+  match status with
+  | `pending ->
+      Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
+        ~value:[] ;
+      Db_actions.DB_Action.Task.set_finished ~__context ~self
+        ~value:(Date.now ()) ;
+      Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
+      set_result_on_task ~__context self result ;
+      Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`success
+  | _ ->
+      debug "the status of %s is: %s; cannot set it to `success"
+        (Ref.really_pretty_and_small self)
+        (status_to_string status)
 
 let set_cancellable ~__context =
-  operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
-        ~value:[`cancel]
-  )
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
+    ~value:[`cancel]
 
 let set_not_cancellable ~__context =
-  operate_on_db_task ~__context (fun self ->
-      Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
-        ~value:[]
-  )
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
 
 let is_cancelling ~__context =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   Context.task_in_database __context
   &&
   let l =
@@ -222,21 +236,22 @@ let is_cancelling ~__context =
   List.exists (fun (_, x) -> x = `cancel) l
 
 let raise_cancelled ~__context =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let task_id = Context.get_task_id __context in
   raise Api_errors.(Server_error (task_cancelled, [Ref.string_of task_id]))
 
 let exn_if_cancelling ~__context =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   if is_cancelling ~__context then
     raise_cancelled ~__context
 
 let cancel_this ~__context ~self =
-  Context.complete_tracing __context ;
+  let@ () = finally_complete_tracing __context in
   assert_op_valid ~__context self ;
   let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
   if status = `pending then (
     Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
-    Db_actions.DB_Action.Task.set_finished ~__context ~self
-      ~value:(Date.of_float (Unix.time ())) ;
+    Db_actions.DB_Action.Task.set_finished ~__context ~self ~value:(Date.now ()) ;
     Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled ;
     Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self ~value:[]
   ) else
@@ -245,35 +260,40 @@ let cancel_this ~__context ~self =
       (status_to_string status)
 
 let cancel ~__context =
-  operate_on_db_task ~__context (fun self -> cancel_this ~__context ~self)
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ self = operate_on_db_task ~__context in
+  cancel_this ~__context ~self
 
 let failed ~__context exn =
   let backtrace = Printexc.get_backtrace () in
-  Context.complete_tracing __context ~error:(exn, backtrace) ;
+  let@ () = finally_complete_tracing ~error:(exn, backtrace) __context in
   let code, params = ExnHelper.error_of_exn exn in
-  operate_on_db_task ~__context (fun self ->
-      let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
-      if status = `pending then (
-        Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
-        Db_actions.DB_Action.Task.set_error_info ~__context ~self
-          ~value:(code :: params) ;
-        Db_actions.DB_Action.Task.set_backtrace ~__context ~self
-          ~value:(Sexplib.Sexp.to_string Backtrace.(sexp_of_t (get exn))) ;
-        Db_actions.DB_Action.Task.set_finished ~__context ~self
-          ~value:(Date.of_float (Unix.time ())) ;
-        Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
-          ~value:[] ;
-        if code = Api_errors.task_cancelled then
-          Db_actions.DB_Action.Task.set_status ~__context ~self
-            ~value:`cancelled
-        else
-          Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`failure
-      ) else
-        debug "the status of %s is %s; cannot set it to %s"
-          (Ref.really_pretty_and_small self)
-          (status_to_string status)
-          (if code = Api_errors.task_cancelled then "`cancelled" else "`failure")
-  )
+  let@ self = operate_on_db_task ~__context in
+  let status = Db_actions.DB_Action.Task.get_status ~__context ~self in
+  match status with
+  | `pending ->
+      Db_actions.DB_Action.Task.set_progress ~__context ~self ~value:1. ;
+      Db_actions.DB_Action.Task.set_error_info ~__context ~self
+        ~value:(code :: params) ;
+      Db_actions.DB_Action.Task.set_backtrace ~__context ~self
+        ~value:(Sexplib.Sexp.to_string Backtrace.(sexp_of_t (get exn))) ;
+      Db_actions.DB_Action.Task.set_finished ~__context ~self
+        ~value:(Date.now ()) ;
+      Db_actions.DB_Action.Task.set_allowed_operations ~__context ~self
+        ~value:[] ;
+      if code = Api_errors.task_cancelled then
+        Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`cancelled
+      else
+        Db_actions.DB_Action.Task.set_status ~__context ~self ~value:`failure
+  | _ ->
+      debug "the status of %s is %s; cannot set it to %s"
+        (Ref.really_pretty_and_small self)
+        (status_to_string status)
+        ( if code = Api_errors.task_cancelled then
+            "`cancelled"
+          else
+            "`failure"
+        )
 
 type id = Sm of string | Xenops of string * string
 
@@ -292,6 +312,7 @@ let task_to_id_exn task =
   with_lock task_tbl_m (fun () -> Hashtbl.find task_to_id_tbl task)
 
 let register_task __context ?(cancellable = true) id =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let task = Context.get_task_id __context in
   with_lock task_tbl_m (fun () ->
       Hashtbl.replace id_to_task_tbl id task ;
@@ -307,6 +328,7 @@ let register_task __context ?(cancellable = true) id =
   ()
 
 let unregister_task __context id =
+  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   (* The rest of the XenAPI Task won't be cancellable *)
   set_not_cancellable ~__context ;
   with_lock task_tbl_m (fun () ->

@@ -550,6 +550,7 @@ let call_api_functions_internal ~__context f =
     )
 
 let call_api_functions ~__context f =
+  Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   match Context.get_test_rpc __context with
   | Some rpc ->
       f rpc (Ref.of_string "fake_session")
@@ -1114,31 +1115,55 @@ let assert_is_valid_ip kind field address =
   if not (is_valid_ip kind address) then
     raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
 
+module type AbstractIpaddr = sig
+  type t
+
+  module Prefix : sig
+    type addr = t
+
+    type t
+
+    val of_string : string -> (t, [> `Msg of string]) result
+
+    val address : t -> addr
+
+    val bits : t -> int
+  end
+
+  val to_string : t -> string
+end
+
 let parse_cidr kind cidr =
-  try
-    let address, prefixlen = Scanf.sscanf cidr "%s@/%d" (fun a p -> (a, p)) in
-    if not (is_valid_ip kind address) then (
-      error "Invalid address in CIDR (%s)" address ;
-      None
-    ) else if
-        prefixlen < 0
-        || (kind = `ipv4 && prefixlen > 32)
-        || (kind = `ipv6 && prefixlen > 128)
-      then (
-      error "Invalid prefix length in CIDR (%d)" prefixlen ;
-      None
-    ) else
+  let select_ip_family = function
+    | `ipv4 ->
+        (module Ipaddr.V4 : AbstractIpaddr)
+    | `ipv6 ->
+        (module Ipaddr.V6)
+  in
+  let module AddrParse = (val select_ip_family kind) in
+  match AddrParse.Prefix.of_string cidr with
+  | Ok ip_t ->
+      let address = AddrParse.Prefix.address ip_t |> AddrParse.to_string in
+      let prefixlen = AddrParse.Prefix.bits ip_t in
       Some (address, prefixlen)
-  with _ ->
-    error "Invalid CIDR format (%s)" cidr ;
-    None
+  | Error e ->
+      let msg = match e with `Msg str -> str in
+      error "Invalid address in CIDR (%s). %s" cidr msg ;
+      None
+
+let valid_cidr_aux kind cidr =
+  match kind with
+  | `ipv4or6 ->
+      parse_cidr `ipv4 cidr = None && parse_cidr `ipv6 cidr = None
+  | (`ipv4 | `ipv6) as kind ->
+      parse_cidr kind cidr = None
 
 let assert_is_valid_cidr kind field cidr =
-  if parse_cidr kind cidr = None then
+  if valid_cidr_aux kind cidr then
     raise Api_errors.(Server_error (invalid_cidr_address_specified, [field]))
 
 let assert_is_valid_ip_addr kind field address =
-  if (not (is_valid_ip kind address)) && parse_cidr kind address = None then
+  if (not (is_valid_ip kind address)) && valid_cidr_aux kind address then
     raise Api_errors.(Server_error (invalid_ip_address_specified, [field]))
 
 (** Return true if the MAC is in the right format XX:XX:XX:XX:XX:XX *)
@@ -1740,6 +1765,7 @@ module Task : sig
 end = struct
   (* can't place these functions in task helpers due to circular dependencies *)
   let wait_for_ ~__context ~tasks ~propagate_cancel cb =
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
     let our_task = Context.get_task_id __context in
     let classes =
       List.map
@@ -1826,6 +1852,7 @@ end = struct
     wait_for_ ~__context ~tasks:[t] mirror
 
   let to_result ~__context ~of_rpc ~t =
+    Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
     wait_for_mirror ~__context ~propagate_cancel:true ~t ;
     let fail msg =
       raise

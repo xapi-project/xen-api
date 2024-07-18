@@ -10,7 +10,6 @@
     core
     core_unix
     core_unix.time_unix
-    core_kernel
     dune-build-info
     message-switch-async
     message-switch-unix
@@ -22,6 +21,7 @@
     sexplib0
     uri
     xapi-backtrace
+    xapi-consts
     xapi-consts.xapi_version
     xapi-idl
     xapi-idl.rrd

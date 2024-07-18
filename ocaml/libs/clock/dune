@@ -16,5 +16,5 @@
   (names test_date test_timer)
   (package clock)
   (modules test_date test_timer)
-  (libraries alcotest clock fmt mtime ptime qcheck-core qcheck-core.runner)
+  (libraries alcotest clock fmt mtime mtime.clock.os ptime qcheck-core qcheck-core.runner)
 )

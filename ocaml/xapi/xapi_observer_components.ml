@@ -113,5 +113,5 @@ let env_exe_args_of ~component ~exe ~args =
       ]
   in
   let args = "-m" :: "observer" :: exe :: args in
-  let new_exe = !Xapi_globs.python3_path in
+  let new_exe = Xapi_globs.python3_path in
   (Some env_vars, new_exe, args)

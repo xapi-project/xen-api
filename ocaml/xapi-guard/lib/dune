@@ -6,13 +6,22 @@
   cohttp-lwt
   cohttp-lwt-unix
   conduit-lwt-unix
+  fmt
+  log
   lwt
   lwt.unix
+  mtime
+  mtime.clock
+  mtime.clock.os
   result
   rpclib.core
   rpclib-lwt
+  rpclib.xml
+  uuidm
+  uri
   xapi_guard
   xapi-idl.xen.interface
+  xapi-idl.guard.varstored
   xapi-log
   xapi-types
   xen-api-client-lwt
@@ -23,10 +32,18 @@
  (modules dorpc types disk_cache lwt_bounded_stream)
  (libraries
   rpclib.core
+  fmt
   inotify
   inotify.lwt
+  rresult
+  result
+  log
   lwt
   lwt.unix
+  mtime
+  mtime.clock
+  mtime.clock.os
+  uuidm
   uri
   xapi-backtrace
   xapi-consts

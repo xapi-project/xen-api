@@ -29,16 +29,26 @@ let install ~__context ~host:_ ~type' cert =
     error "certificates_sync.install exception: %s" (Printexc.to_string e) ;
     Error (`Msg ("installation of host certificate failed", []))
 
+type to_update = Certificate | Hashes of {sha256: string; sha1: string}
+
 (** determine if the database is up to date by comparing the fingerprint
   of xapi-ssl.pem with the entry in the database *)
-let is_unchanged ~__context cert_ref cert =
+let to_update ~__context cert_ref cert =
   let ref_hash =
     Db.Certificate.get_fingerprint_sha256 ~__context ~self:cert_ref
   in
-  let cert_hash =
-    X509.Certificate.fingerprint `SHA256 cert |> Certificates.pp_hash
-  in
-  cert_hash = ref_hash
+  let sha256 = Certificates.pp_fingerprint ~hash_type:`SHA256 cert in
+  if ref_hash = "" then
+    (* We must be upgrading from a version predating fingerprint_sha256, so check fingerprint instead *)
+    if sha256 = Db.Certificate.get_fingerprint ~__context ~self:cert_ref then
+      let sha1 = Certificates.pp_fingerprint ~hash_type:`SHA1 cert in
+      Some (Hashes {sha256; sha1})
+    else
+      Some Certificate
+  else if sha256 = ref_hash then
+    None
+  else
+    Some Certificate
 
 (** [get_server_cert] loads [path] from the file system and
   returns it decoded *)
@@ -76,17 +86,26 @@ let sync ~__context ~type' =
   | [] ->
       info "Host %s has no active server certificate" host_uuid ;
       install ~__context ~host ~type' cert
-  | [cert_ref] ->
-      let unchanged = is_unchanged ~__context cert_ref cert in
-      if unchanged then (
-        info "Active server certificate for host %s is unchanged" host_uuid ;
-        Ok ()
-      ) else (
+  | [cert_ref] -> (
+    match to_update ~__context cert_ref cert with
+    | Some Certificate ->
         info "Server certificate for host %s changed - updating" host_uuid ;
         let* () = install ~__context ~host ~type' cert in
         uninstall ~__context cert_ref ;
         Ok ()
-      )
+    | Some (Hashes {sha256; sha1}) ->
+        info "Active server certificate for host %s is unchanged" host_uuid ;
+        Db.Certificate.set_fingerprint_sha256 ~__context ~self:cert_ref
+          ~value:sha256 ;
+        Db.Certificate.set_fingerprint_sha1 ~__context ~self:cert_ref
+          ~value:sha1 ;
+        info "Populated new fingerprint fields: sha256= %s; sha1= %s" sha256
+          sha1 ;
+        Ok ()
+    | None ->
+        info "Active server certificate for host %s is unchanged" host_uuid ;
+        Ok ()
+  )
   | cert_refs ->
       warn "The host has more than one certificate: %s"
         (String.concat ", " (List.map Ref.string_of cert_refs)) ;

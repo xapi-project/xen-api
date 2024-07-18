@@ -371,10 +371,10 @@ let canonicalise x =
       split_c ':' (Option.value (Sys.getenv_opt "PATH") ~default:"")
     in
     let first_hit =
-      List.find_opt
+      List.find_map
         (fun path ->
           let possibility = Filename.concat path x in
-          Sys.file_exists possibility
+          if Sys.file_exists possibility then Some possibility else None
         )
         (paths @ !extra_search_path)
     in

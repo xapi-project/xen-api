@@ -11,6 +11,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+module D = Debug.Make (struct let name = __MODULE__ end)
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module Uds = struct
@@ -18,10 +21,17 @@ module Uds = struct
 
   exception Parse_error of string
 
-  let with_unix_channels filename func =
-    let fd = Xapi_stdext_unix.Unixext.open_connection_unix_fd filename in
+  let with_channel_aux fd func =
     let ic, oc = (Unix.in_channel_of_descr fd, Unix.out_channel_of_descr fd) in
     finally (fun () -> func ic oc) (fun () -> Unix.close fd)
+
+  let with_socket address func =
+    let fd = Xapi_stdext_unix.Unixext.open_connection_fd address 80 in
+    with_channel_aux fd func
+
+  let with_unix_channels filename func =
+    let fd = Xapi_stdext_unix.Unixext.open_connection_unix_fd filename in
+    with_channel_aux fd func
 
   let http_response_code d =
     match Xapi_stdext_std.Xstringext.String.split ' ' d with
@@ -43,8 +53,11 @@ module Uds = struct
       read_body ic (line :: acc)
     with End_of_file -> List.rev acc
 
-  let http_command filename cmd =
-    with_unix_channels filename (fun ic oc ->
+  let http_command ?(file_socket = true) filename cmd =
+    let with_channel =
+      if file_socket then with_unix_channels else with_socket
+    in
+    with_channel filename (fun ic oc ->
         Printf.fprintf oc "%s" cmd ;
         flush oc ;
         let result_line = input_line ic in
@@ -55,12 +68,93 @@ module Uds = struct
     )
 end
 
+module Cookies = struct
+  (* {{{1 *)
+  (* Cookies used to be accepted when delimited by '&'. Now they're also
+     accepted in the RFC-compliant way with ';' as delimiters. This test
+     verifies that both styles are parsed correctly *)
+
+  let get_config_files_cmd =
+    Printf.sprintf "GET /sync_config_files/2 HTTP/1.0\r\nCookie: %s\r\n\r\n"
+
+  let req_with_cookies secret ~sep =
+    get_config_files_cmd
+      (Printf.sprintf "k1=v1%spool_secret=%s%sk3=v3" sep secret sep)
+
+  let read_pool_secret () =
+    try
+      Unix.access Rrdd_libs.Constants.pool_secret_path [Unix.F_OK] ;
+      Xapi_stdext_unix.Unixext.string_of_file
+        Rrdd_libs.Constants.pool_secret_path
+    with _ -> failwith "Unable to read the pool secret."
+
+  let send_http_aux ~cmd f =
+    let response_code, result_line, header, body =
+      Uds.http_command "localhost" cmd ~file_socket:false
+    in
+    f (response_code, result_line, header, body)
+
+  let check_response_body_contains ~expected ~cmd =
+    let check_body (_, _, _, body) =
+      match body with
+      | first_line :: _ ->
+          D.warn "expected = [%s]; received = [%s]" expected first_line ;
+          Xapi_stdext_std.Xstringext.String.has_substr first_line expected
+      | _ ->
+          false
+    in
+    send_http_aux ~cmd check_body
+
+  let check_response_code ~expected ~cmd =
+    let check_code (code, _, _, _) =
+      D.warn "expected = [%d]; received = [%d]" expected code ;
+      expected = code
+    in
+    send_http_aux ~cmd check_code
+
+  let test_cookies_old_style_valid () =
+    Alcotest.(check bool)
+      "Cookies should be parsed properly to extract valid pool secret" true
+      (check_response_body_contains ~expected:"password"
+         ~cmd:(req_with_cookies (read_pool_secret ()) ~sep:"&")
+      )
+
+  let test_cookies_old_style_invalid () =
+    Alcotest.(check bool)
+      "Invalid pool_secret in cookies should be rejected" true
+      (check_response_code ~expected:401 (* Unauthorised *)
+         ~cmd:(req_with_cookies "whatever" ~sep:"&")
+      )
+
+  let test_cookies_new_style_valid () =
+    Alcotest.(check bool)
+      "Cookies should be parsed properly to extract valid pool secret" true
+      (check_response_body_contains ~expected:"password"
+         ~cmd:(req_with_cookies (read_pool_secret ()) ~sep:";")
+      )
+
+  let test_cookies_new_style_invalid () =
+    Alcotest.(check bool)
+      "Invalid pool_secret in cookies should be rejected" true
+      (check_response_code ~expected:401 (* Unauthorised *)
+         ~cmd:(req_with_cookies "whatever" ~sep:";")
+      )
+
+  let tests =
+    [
+      ("test_cookies_old_style_valid", `Quick, test_cookies_old_style_valid)
+    ; ("test_cookies_old_style_invalid", `Quick, test_cookies_old_style_invalid)
+    ; ("test_cookies_new_style_valid", `Quick, test_cookies_new_style_valid)
+    ; ("test_cookies_new_style_invalid", `Quick, test_cookies_new_style_invalid)
+    ]
+end
+
 module Secret_Auth_fails = struct
   (* {{{1 *)
 
   let invalid_pool_secret =
     Http.Request.make ~version:"1.0" ~user_agent:"quicktest" Http.Get
-      "/sync_config_files"
+      "/sync_config_files/2"
     |> Helpers.with_cookie (SecretString.of_string "whatever")
 
   let invalid_basicauth =
@@ -120,8 +214,12 @@ module HTML_Escaping = struct
       Xapi_stdext_std.Xstringext.String.has_substr b expected
     in
     let _, _, _, body = Uds.http_command Xapi_globs.unix_domain_socket cmd in
-    Printf.printf "expected = [%s]; received = [%s]\n%!" expected (List.hd body) ;
-    check_result (List.hd body)
+    match body with
+    | first_line :: _ ->
+        Printf.printf "expected = [%s]; received = [%s]\n%!" expected first_line ;
+        check_result first_line
+    | _ ->
+        false
 
   let test_html_escaping_non_resource () =
     Alcotest.(check bool)
@@ -151,4 +249,4 @@ module HTML_Escaping = struct
 end
 
 (* Test suite and definition of test function {{{1 *)
-let tests = Secret_Auth_fails.tests @ HTML_Escaping.tests
+let tests = Secret_Auth_fails.tests @ Cookies.tests @ HTML_Escaping.tests
