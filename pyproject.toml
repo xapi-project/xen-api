@@ -260,8 +260,8 @@ addopts = "-v -ra"
 # xfail_strict:     require to remove pytext.xfail marker when test is fixed
 # required_plugins: require that these plugins are installed before testing
 # -----------------------------------------------------------------------------
-testpaths = ["python3", "ocaml/xcp-rrdd", "ocaml/xapi-storage"]
-required_plugins = ["pytest-cov", "pytest-mock"]
+testpaths = ["python3", "ocaml/xcp-rrdd", "ocaml/xenopsd"]
+required_plugins = ["pytest-mock"]
 log_cli_level = "INFO"
 log_cli = true
 minversion = "7.0"

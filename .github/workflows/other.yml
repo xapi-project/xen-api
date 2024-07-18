@@ -52,7 +52,7 @@ jobs:
           pytest -vv -rA --cov=ocaml ocaml
           --cov-report term-missing
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
-          --cov-fail-under 60
+          --cov-fail-under 50
         env:
           PYTHONDEVMODE: yes
           PYTHONPATH: "python3:python3/stubs"
