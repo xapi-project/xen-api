@@ -156,6 +156,13 @@ val time_limited_read : Unix.file_descr -> int -> float -> string
 val time_limited_single_read :
   Unix.file_descr -> int -> max_wait:float -> string
 
+val select :
+     Unix.file_descr list
+  -> Unix.file_descr list
+  -> Unix.file_descr list
+  -> float
+  -> Unix.file_descr list * Unix.file_descr list * Unix.file_descr list
+
 val read_data_in_string_chunks :
      (string -> int -> unit)
   -> ?block_size:int
