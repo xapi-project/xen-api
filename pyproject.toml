@@ -195,8 +195,10 @@ disable = [
     "no-else-break",               # else clause following a break statement
     "protected-access",            # Best done during the code cleanup phase
     "super-with-arguments",        # Consider using Python 3 style super(no args) calls
+    "too-few-public-methods",      # Some classes only overload private methods, is fine
     "too-many-branches",           # Existing code breaches this, not part of porting
     "too-many-arguments",          # Likewise, not part of porting
+    "too-many-lines",              # Likewise, not part of porting
     "too-many-locals",             # Likewise, not part of porting
     "too-many-statements",         # Likewise, not part of porting
     "unnecessary-pass",            # Cosmetic, best done during the code cleanup phase
@@ -258,7 +260,7 @@ addopts = "-v -ra"
 # xfail_strict:     require to remove pytext.xfail marker when test is fixed
 # required_plugins: require that these plugins are installed before testing
 # -----------------------------------------------------------------------------
-testpaths = ["python3", "scripts", "ocaml/xcp-rrdd"]
+testpaths = ["python3", "ocaml/xcp-rrdd", "ocaml/xapi-storage"]
 required_plugins = ["pytest-cov", "pytest-mock"]
 log_cli_level = "INFO"
 log_cli = true

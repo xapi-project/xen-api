@@ -1,11 +1,24 @@
 from __future__ import print_function
-from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
-import xapi
-import sys
-import json
+
 import argparse
-import traceback
+import json
 import logging
+import sys
+import traceback
+
+import xapi
+# pylint: disable=line-too-long,superfluous-parens,unused-argument
+# pylint: disable-next=redefined-builtin  # FIXME: TypeError is a custom class in xapi
+from xapi import (
+    InternalError,
+    Rpc_light_failure,
+    TypeError,
+    UnknownMethod,
+    UnmarshalException,
+    is_long,
+    is_str,
+    success,
+)
 
 # pylint: disable=invalid-name,redefined-builtin,undefined-variable
 # pyright: reportUndefinedVariable=false
@@ -17,31 +30,31 @@ if sys.version_info[0] > 2:
 class Sr_not_attached(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Sr_not_attached", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class SR_does_not_exist(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "SR_does_not_exist", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Volume_does_not_exist(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Volume_does_not_exist", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Cancelled(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Cancelled", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Volume_server_dispatcher:
@@ -56,22 +69,22 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('name' in args):
             raise UnmarshalException('argument missing', 'name', '')
         name = args["name"]
-        if not isinstance(name, str) and not isinstance(name, unicode):
+        if not is_str(name):
             raise TypeError("string", repr(name))
         if not('description' in args):
             raise UnmarshalException('argument missing', 'description', '')
         description = args["description"]
-        if not isinstance(description, str) and not isinstance(description, unicode):
+        if not is_str(description):
             raise TypeError("string", repr(description))
         if not('size' in args):
             raise UnmarshalException('argument missing', 'size', '')
@@ -79,14 +92,14 @@ class Volume_server_dispatcher:
         if not(is_long(size)):
             raise TypeError("int64", repr(size))
         results = self._impl.create(dbg, sr, name, description, size)
-        if not isinstance(results['key'], str) and not isinstance(results['key'], unicode):
+        if not is_str(results['key']):
             raise TypeError("string", repr(results['key']))
         if results['uuid'] is not None:
-            if not isinstance(results['uuid'], str) and not isinstance(results['uuid'], unicode):
+            if not is_str(results['uuid']):
                 raise TypeError("string", repr(results['uuid']))
-        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
+        if not is_str(results['name']):
             raise TypeError("string", repr(results['name']))
-        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
+        if not is_str(results['description']):
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
@@ -97,15 +110,15 @@ class Volume_server_dispatcher:
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
         for tmp_5 in results['uri']:
-            if not isinstance(tmp_5, str) and not isinstance(tmp_5, unicode):
+            if not is_str(tmp_5):
                 raise TypeError("string", repr(tmp_5))
         if not isinstance(results['keys'], dict):
             raise TypeError("(string * string) list", repr(results['keys']))
         for tmp_6 in results['keys'].keys():
-            if not isinstance(tmp_6, str) and not isinstance(tmp_6, unicode):
+            if not is_str(tmp_6):
                 raise TypeError("string", repr(tmp_6))
         for tmp_6 in results['keys'].values():
-            if not isinstance(tmp_6, str) and not isinstance(tmp_6, unicode):
+            if not is_str(tmp_6):
                 raise TypeError("string", repr(tmp_6))
         return results
     def snapshot(self, args):
@@ -115,27 +128,27 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         results = self._impl.snapshot(dbg, sr, key)
-        if not isinstance(results['key'], str) and not isinstance(results['key'], unicode):
+        if not is_str(results['key']):
             raise TypeError("string", repr(results['key']))
         if results['uuid'] is not None:
-            if not isinstance(results['uuid'], str) and not isinstance(results['uuid'], unicode):
+            if not is_str(results['uuid']):
                 raise TypeError("string", repr(results['uuid']))
-        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
+        if not is_str(results['name']):
             raise TypeError("string", repr(results['name']))
-        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
+        if not is_str(results['description']):
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
@@ -146,15 +159,15 @@ class Volume_server_dispatcher:
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
         for tmp_7 in results['uri']:
-            if not isinstance(tmp_7, str) and not isinstance(tmp_7, unicode):
+            if not is_str(tmp_7):
                 raise TypeError("string", repr(tmp_7))
         if not isinstance(results['keys'], dict):
             raise TypeError("(string * string) list", repr(results['keys']))
         for tmp_8 in results['keys'].keys():
-            if not isinstance(tmp_8, str) and not isinstance(tmp_8, unicode):
+            if not is_str(tmp_8):
                 raise TypeError("string", repr(tmp_8))
         for tmp_8 in results['keys'].values():
-            if not isinstance(tmp_8, str) and not isinstance(tmp_8, unicode):
+            if not is_str(tmp_8):
                 raise TypeError("string", repr(tmp_8))
         return results
     def clone(self, args):
@@ -164,27 +177,27 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         results = self._impl.clone(dbg, sr, key)
-        if not isinstance(results['key'], str) and not isinstance(results['key'], unicode):
+        if not is_str(results['key']):
             raise TypeError("string", repr(results['key']))
         if results['uuid'] is not None:
-            if not isinstance(results['uuid'], str) and not isinstance(results['uuid'], unicode):
+            if not is_str(results['uuid']):
                 raise TypeError("string", repr(results['uuid']))
-        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
+        if not is_str(results['name']):
             raise TypeError("string", repr(results['name']))
-        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
+        if not is_str(results['description']):
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
@@ -195,15 +208,15 @@ class Volume_server_dispatcher:
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
         for tmp_9 in results['uri']:
-            if not isinstance(tmp_9, str) and not isinstance(tmp_9, unicode):
+            if not is_str(tmp_9):
                 raise TypeError("string", repr(tmp_9))
         if not isinstance(results['keys'], dict):
             raise TypeError("(string * string) list", repr(results['keys']))
         for tmp_10 in results['keys'].keys():
-            if not isinstance(tmp_10, str) and not isinstance(tmp_10, unicode):
+            if not is_str(tmp_10):
                 raise TypeError("string", repr(tmp_10))
         for tmp_10 in results['keys'].values():
-            if not isinstance(tmp_10, str) and not isinstance(tmp_10, unicode):
+            if not is_str(tmp_10):
                 raise TypeError("string", repr(tmp_10))
         return results
     def destroy(self, args):
@@ -213,17 +226,17 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         results = self._impl.destroy(dbg, sr, key)
         return results
@@ -234,22 +247,22 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         if not('new_name' in args):
             raise UnmarshalException('argument missing', 'new_name', '')
         new_name = args["new_name"]
-        if not isinstance(new_name, str) and not isinstance(new_name, unicode):
+        if not is_str(new_name):
             raise TypeError("string", repr(new_name))
         results = self._impl.set_name(dbg, sr, key, new_name)
         return results
@@ -260,22 +273,22 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         if not('new_description' in args):
             raise UnmarshalException('argument missing', 'new_description', '')
         new_description = args["new_description"]
-        if not isinstance(new_description, str) and not isinstance(new_description, unicode):
+        if not is_str(new_description):
             raise TypeError("string", repr(new_description))
         results = self._impl.set_description(dbg, sr, key, new_description)
         return results
@@ -286,27 +299,27 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         if not('k' in args):
             raise UnmarshalException('argument missing', 'k', '')
         k = args["k"]
-        if not isinstance(k, str) and not isinstance(k, unicode):
+        if not is_str(k):
             raise TypeError("string", repr(k))
         if not('v' in args):
             raise UnmarshalException('argument missing', 'v', '')
         v = args["v"]
-        if not isinstance(v, str) and not isinstance(v, unicode):
+        if not is_str(v):
             raise TypeError("string", repr(v))
         results = self._impl.set(dbg, sr, key, k, v)
         return results
@@ -317,22 +330,22 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         if not('k' in args):
             raise UnmarshalException('argument missing', 'k', '')
         k = args["k"]
-        if not isinstance(k, str) and not isinstance(k, unicode):
+        if not is_str(k):
             raise TypeError("string", repr(k))
         results = self._impl.unset(dbg, sr, key, k)
         return results
@@ -343,17 +356,17 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         if not('new_size' in args):
             raise UnmarshalException('argument missing', 'new_size', '')
@@ -369,27 +382,27 @@ class Volume_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('key' in args):
             raise UnmarshalException('argument missing', 'key', '')
         key = args["key"]
-        if not isinstance(key, str) and not isinstance(key, unicode):
+        if not is_str(key):
             raise TypeError("string", repr(key))
         results = self._impl.stat(dbg, sr, key)
-        if not isinstance(results['key'], str) and not isinstance(results['key'], unicode):
+        if not is_str(results['key']):
             raise TypeError("string", repr(results['key']))
         if results['uuid'] is not None:
-            if not isinstance(results['uuid'], str) and not isinstance(results['uuid'], unicode):
+            if not is_str(results['uuid']):
                 raise TypeError("string", repr(results['uuid']))
-        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
+        if not is_str(results['name']):
             raise TypeError("string", repr(results['name']))
-        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
+        if not is_str(results['description']):
             raise TypeError("string", repr(results['description']))
         if not isinstance(results['read_write'], bool):
             raise TypeError("bool", repr(results['read_write']))
@@ -400,15 +413,15 @@ class Volume_server_dispatcher:
         if not isinstance(results['uri'], list):
             raise TypeError("string list", repr(results['uri']))
         for tmp_11 in results['uri']:
-            if not isinstance(tmp_11, str) and not isinstance(tmp_11, unicode):
+            if not is_str(tmp_11):
                 raise TypeError("string", repr(tmp_11))
         if not isinstance(results['keys'], dict):
             raise TypeError("(string * string) list", repr(results['keys']))
         for tmp_12 in results['keys'].keys():
-            if not isinstance(tmp_12, str) and not isinstance(tmp_12, unicode):
+            if not is_str(tmp_12):
                 raise TypeError("string", repr(tmp_12))
         for tmp_12 in results['keys'].values():
-            if not isinstance(tmp_12, str) and not isinstance(tmp_12, unicode):
+            if not is_str(tmp_12):
                 raise TypeError("string", repr(tmp_12))
         return results
     def _dispatch(self, method, params):
@@ -801,22 +814,22 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         results = self._impl.probe(dbg, uri)
         if not isinstance(results['srs'], list):
             raise TypeError("7 list", repr(results['srs']))
         for tmp_13 in results['srs']:
-            if not isinstance(tmp_13['sr'], str) and not isinstance(tmp_13['sr'], unicode):
+            if not is_str(tmp_13['sr']):
                 raise TypeError("string", repr(tmp_13['sr']))
-            if not isinstance(tmp_13['name'], str) and not isinstance(tmp_13['name'], unicode):
+            if not is_str(tmp_13['name']):
                 raise TypeError("string", repr(tmp_13['name']))
-            if not isinstance(tmp_13['description'], str) and not isinstance(tmp_13['description'], unicode):
+            if not is_str(tmp_13['description']):
                 raise TypeError("string", repr(tmp_13['description']))
             if not(is_long(tmp_13['free_space'])):
                 raise TypeError("int64", repr(tmp_13['free_space']))
@@ -825,20 +838,20 @@ class SR_server_dispatcher:
             if not isinstance(tmp_13['datasources'], list):
                 raise TypeError("string list", repr(tmp_13['datasources']))
             for tmp_14 in tmp_13['datasources']:
-                if not isinstance(tmp_14, str) and not isinstance(tmp_14, unicode):
+                if not is_str(tmp_14):
                     raise TypeError("string", repr(tmp_14))
             if not isinstance(tmp_13['clustered'], bool):
                 raise TypeError("bool", repr(tmp_13['clustered']))
             if tmp_13['health'][0] == 'Healthy':
-                if not isinstance(tmp_13['health'][1], str) and not isinstance(tmp_13['health'][1], unicode):
+                if not is_str(tmp_13['health'][1]):
                     raise TypeError("string", repr(tmp_13['health'][1]))
             elif tmp_13['health'][0] == 'Recovering':
-                if not isinstance(tmp_13['health'][1], str) and not isinstance(tmp_13['health'][1], unicode):
+                if not is_str(tmp_13['health'][1]):
                     raise TypeError("string", repr(tmp_13['health'][1]))
         if not isinstance(results['uris'], list):
             raise TypeError("string list", repr(results['uris']))
         for tmp_15 in results['uris']:
-            if not isinstance(tmp_15, str) and not isinstance(tmp_15, unicode):
+            if not is_str(tmp_15):
                 raise TypeError("string", repr(tmp_15))
         return results
     def create(self, args):
@@ -848,22 +861,22 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('name' in args):
             raise UnmarshalException('argument missing', 'name', '')
         name = args["name"]
-        if not isinstance(name, str) and not isinstance(name, unicode):
+        if not is_str(name):
             raise TypeError("string", repr(name))
         if not('description' in args):
             raise UnmarshalException('argument missing', 'description', '')
         description = args["description"]
-        if not isinstance(description, str) and not isinstance(description, unicode):
+        if not is_str(description):
             raise TypeError("string", repr(description))
         if not('configuration' in args):
             raise UnmarshalException('argument missing', 'configuration', '')
@@ -871,10 +884,10 @@ class SR_server_dispatcher:
         if not isinstance(configuration, dict):
             raise TypeError("(string * string) list", repr(configuration))
         for tmp_16 in configuration.keys():
-            if not isinstance(tmp_16, str) and not isinstance(tmp_16, unicode):
+            if not is_str(tmp_16):
                 raise TypeError("string", repr(tmp_16))
         for tmp_16 in configuration.values():
-            if not isinstance(tmp_16, str) and not isinstance(tmp_16, unicode):
+            if not is_str(tmp_16):
                 raise TypeError("string", repr(tmp_16))
         results = self._impl.create(dbg, uri, name, description, configuration)
         return results
@@ -885,15 +898,15 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         results = self._impl.attach(dbg, uri)
-        if not isinstance(results, str) and not isinstance(results, unicode):
+        if not is_str(results):
             raise TypeError("string", repr(results))
         return results
     def detach(self, args):
@@ -903,12 +916,12 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         results = self._impl.detach(dbg, sr)
         return results
@@ -919,12 +932,12 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         results = self._impl.destroy(dbg, sr)
         return results
@@ -935,19 +948,19 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         results = self._impl.stat(dbg, sr)
-        if not isinstance(results['sr'], str) and not isinstance(results['sr'], unicode):
+        if not is_str(results['sr']):
             raise TypeError("string", repr(results['sr']))
-        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
+        if not is_str(results['name']):
             raise TypeError("string", repr(results['name']))
-        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
+        if not is_str(results['description']):
             raise TypeError("string", repr(results['description']))
         if not(is_long(results['free_space'])):
             raise TypeError("int64", repr(results['free_space']))
@@ -956,15 +969,15 @@ class SR_server_dispatcher:
         if not isinstance(results['datasources'], list):
             raise TypeError("string list", repr(results['datasources']))
         for tmp_17 in results['datasources']:
-            if not isinstance(tmp_17, str) and not isinstance(tmp_17, unicode):
+            if not is_str(tmp_17):
                 raise TypeError("string", repr(tmp_17))
         if not isinstance(results['clustered'], bool):
             raise TypeError("bool", repr(results['clustered']))
         if results['health'][0] == 'Healthy':
-            if not isinstance(results['health'][1], str) and not isinstance(results['health'][1], unicode):
+            if not is_str(results['health'][1]):
                 raise TypeError("string", repr(results['health'][1]))
         elif results['health'][0] == 'Recovering':
-            if not isinstance(results['health'][1], str) and not isinstance(results['health'][1], unicode):
+            if not is_str(results['health'][1]):
                 raise TypeError("string", repr(results['health'][1]))
         return results
     def set_name(self, args):
@@ -974,17 +987,17 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('new_name' in args):
             raise UnmarshalException('argument missing', 'new_name', '')
         new_name = args["new_name"]
-        if not isinstance(new_name, str) and not isinstance(new_name, unicode):
+        if not is_str(new_name):
             raise TypeError("string", repr(new_name))
         results = self._impl.set_name(dbg, sr, new_name)
         return results
@@ -995,17 +1008,17 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         if not('new_description' in args):
             raise UnmarshalException('argument missing', 'new_description', '')
         new_description = args["new_description"]
-        if not isinstance(new_description, str) and not isinstance(new_description, unicode):
+        if not is_str(new_description):
             raise TypeError("string", repr(new_description))
         results = self._impl.set_description(dbg, sr, new_description)
         return results
@@ -1016,25 +1029,25 @@ class SR_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('sr' in args):
             raise UnmarshalException('argument missing', 'sr', '')
         sr = args["sr"]
-        if not isinstance(sr, str) and not isinstance(sr, unicode):
+        if not is_str(sr):
             raise TypeError("string", repr(sr))
         results = self._impl.ls(dbg, sr)
         if not isinstance(results, list):
             raise TypeError("8 list", repr(results))
         for tmp_18 in results:
-            if not isinstance(tmp_18['key'], str) and not isinstance(tmp_18['key'], unicode):
+            if not is_str(tmp_18['key']):
                 raise TypeError("string", repr(tmp_18['key']))
             if tmp_18['uuid'] is not None:
-                if not isinstance(tmp_18['uuid'], str) and not isinstance(tmp_18['uuid'], unicode):
+                if not is_str(tmp_18['uuid']):
                     raise TypeError("string", repr(tmp_18['uuid']))
-            if not isinstance(tmp_18['name'], str) and not isinstance(tmp_18['name'], unicode):
+            if not is_str(tmp_18['name']):
                 raise TypeError("string", repr(tmp_18['name']))
-            if not isinstance(tmp_18['description'], str) and not isinstance(tmp_18['description'], unicode):
+            if not is_str(tmp_18['description']):
                 raise TypeError("string", repr(tmp_18['description']))
             if not isinstance(tmp_18['read_write'], bool):
                 raise TypeError("bool", repr(tmp_18['read_write']))
@@ -1045,15 +1058,15 @@ class SR_server_dispatcher:
             if not isinstance(tmp_18['uri'], list):
                 raise TypeError("string list", repr(tmp_18['uri']))
             for tmp_19 in tmp_18['uri']:
-                if not isinstance(tmp_19, str) and not isinstance(tmp_19, unicode):
+                if not is_str(tmp_19):
                     raise TypeError("string", repr(tmp_19))
             if not isinstance(tmp_18['keys'], dict):
                 raise TypeError("(string * string) list", repr(tmp_18['keys']))
             for tmp_20 in tmp_18['keys'].keys():
-                if not isinstance(tmp_20, str) and not isinstance(tmp_20, unicode):
+                if not is_str(tmp_20):
                     raise TypeError("string", repr(tmp_20))
             for tmp_20 in tmp_18['keys'].values():
-                if not isinstance(tmp_20, str) and not isinstance(tmp_20, unicode):
+                if not is_str(tmp_20):
                     raise TypeError("string", repr(tmp_20))
         return results
     def _dispatch(self, method, params):

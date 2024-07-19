@@ -1,11 +1,23 @@
 from __future__ import print_function
-from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
-import xapi
-import sys
-import json
+
 import argparse
-import traceback
+import json
 import logging
+import sys
+import traceback
+
+import xapi
+# pylint: disable=line-too-long,superfluous-parens,unused-argument
+# pylint: disable-next=redefined-builtin  # FIXME: TypeError is a custom class in xapi
+from xapi import (
+    InternalError,
+    Rpc_light_failure,
+    TypeError,
+    UnknownMethod,
+    UnmarshalException,
+    is_str,
+    success,
+)
 
 # pylint: disable=invalid-name,redefined-builtin,undefined-variable
 # pyright: reportUndefinedVariable=false
@@ -15,7 +27,7 @@ if sys.version_info[0] > 2:
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Datapath_server_dispatcher:
@@ -30,12 +42,12 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('persistent' in args):
             raise UnmarshalException('argument missing', 'persistent', '')
@@ -51,29 +63,29 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.attach(dbg, uri, domain)
-        if not isinstance(results['domain_uuid'], str) and not isinstance(results['domain_uuid'], unicode):
+        if not is_str(results['domain_uuid']):
             raise TypeError("string", repr(results['domain_uuid']))
         if results['implementation'][0] == 'Blkback':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
+            if not is_str(results['implementation'][1]):
                 raise TypeError("string", repr(results['implementation'][1]))
         elif results['implementation'][0] == 'Tapdisk3':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
+            if not is_str(results['implementation'][1]):
                 raise TypeError("string", repr(results['implementation'][1]))
         elif results['implementation'][0] == 'Qdisk':
-            if not isinstance(results['implementation'][1], str) and not isinstance(results['implementation'][1], unicode):
+            if not is_str(results['implementation'][1]):
                 raise TypeError("string", repr(results['implementation'][1]))
         return results
     def activate(self, args):
@@ -83,17 +95,17 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.activate(dbg, uri, domain)
         return results
@@ -104,17 +116,17 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.deactivate(dbg, uri, domain)
         return results
@@ -125,17 +137,17 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         if not('domain' in args):
             raise UnmarshalException('argument missing', 'domain', '')
         domain = args["domain"]
-        if not isinstance(domain, str) and not isinstance(domain, unicode):
+        if not is_str(domain):
             raise TypeError("string", repr(domain))
         results = self._impl.detach(dbg, uri, domain)
         return results
@@ -146,12 +158,12 @@ class Datapath_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         if not('uri' in args):
             raise UnmarshalException('argument missing', 'uri', '')
         uri = args["uri"]
-        if not isinstance(uri, str) and not isinstance(uri, unicode):
+        if not is_str(uri):
             raise TypeError("string", repr(uri))
         results = self._impl.close(dbg, uri)
         return results
@@ -193,7 +205,11 @@ class Datapath_skeleton:
         """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
         raise Unimplemented("Datapath.close")
 class Datapath_test:
-    """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
+    """
+    Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate.
+    Every function is idempotent. Every function takes a domain parameter which allows
+    the implementation to track how many domains are currently using the volume.
+    """
     def __init__(self):
         pass
     def open(self, dbg, uri, persistent):
@@ -201,10 +217,27 @@ class Datapath_test:
         result = {}
         return result
     def attach(self, dbg, uri, domain):
-        """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
-        result = {}
-        result["backend"] = { "domain_uuid": "string", "implementation": None }
+        # type:(str, str, str) -> dict[str, tuple[str, Any] | str]
+        """
+        Return a valid results dictionary to Datapath_server_dispatcher.attach()
+
+        The returned dict must contain the "domain_uuid" key with a string value.
+        The returned dict must contain the "implementation" key with two elements:
+        If the first element is one of "Blkback", "Tapdisk3" or "Qdisk",
+        the second element must be a string. Else, the dispatcher returns an error.
+
+        See Datapath_server_dispatcher.attach() for the implementation details.
+        """
+        # Fixed to not raise an internal error in Datapath_server_dispatcher.attach():
+        result = { "domain_uuid": domain, "implementation": (uri, dbg) }
+        if not domain:  # Provoke an internal error in the dispatcher to cover its code
+            result.pop("domain_uuid")  # by removing the required "domain_uuid" key.
+        if domain == "5":
+            result["domain_uuid"] = 5  # Return an integer to provoke a type error.
+        if dbg == "inject_error" and uri in ["Blkback", "Tapdisk3", "Qdisk"]:
+            result["implementation"] = (uri, False)
         return result
+
     def activate(self, dbg, uri, domain):
         """Xapi will call the functions here on VM start/shutdown/suspend/resume/migrate. Every function is idempotent. Every function takes a domain parameter which allows the implementation to track how many domains are currently using the volume."""
         result = {}

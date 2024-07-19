@@ -1,11 +1,23 @@
 from __future__ import print_function
-from xapi import success, Rpc_light_failure, InternalError, UnmarshalException, TypeError, is_long, UnknownMethod
-import xapi
-import sys
-import json
+
 import argparse
-import traceback
+import json
 import logging
+import sys
+import traceback
+
+import xapi
+# pylint: disable=line-too-long,superfluous-parens,unused-argument
+# pylint: disable-next=redefined-builtin  # FIXME: TypeError is a custom class in xapi
+from xapi import (
+    InternalError,
+    Rpc_light_failure,
+    TypeError,
+    UnknownMethod,
+    UnmarshalException,
+    is_str,
+    success,
+)
 
 # pylint: disable=invalid-name,redefined-builtin,undefined-variable
 # pyright: reportUndefinedVariable=false
@@ -15,7 +27,7 @@ if sys.version_info[0] > 2:
 class Unimplemented(Rpc_light_failure):
     def __init__(self, arg_0):
         Rpc_light_failure.__init__(self, "Unimplemented", [ arg_0 ])
-        if not isinstance(arg_0, str) and not isinstance(arg_0, unicode):
+        if not is_str(arg_0):
             raise TypeError("string", repr(arg_0))
         self.arg_0 = arg_0
 class Plugin_server_dispatcher:
@@ -30,40 +42,40 @@ class Plugin_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         results = self._impl.query(dbg)
-        if not isinstance(results['plugin'], str) and not isinstance(results['plugin'], unicode):
+        if not is_str(results['plugin']):
             raise TypeError("string", repr(results['plugin']))
-        if not isinstance(results['name'], str) and not isinstance(results['name'], unicode):
+        if not is_str(results['name']):
             raise TypeError("string", repr(results['name']))
-        if not isinstance(results['description'], str) and not isinstance(results['description'], unicode):
+        if not is_str(results['description']):
             raise TypeError("string", repr(results['description']))
-        if not isinstance(results['vendor'], str) and not isinstance(results['vendor'], unicode):
+        if not is_str(results['vendor']):
             raise TypeError("string", repr(results['vendor']))
-        if not isinstance(results['copyright'], str) and not isinstance(results['copyright'], unicode):
+        if not is_str(results['copyright']):
             raise TypeError("string", repr(results['copyright']))
-        if not isinstance(results['version'], str) and not isinstance(results['version'], unicode):
+        if not is_str(results['version']):
             raise TypeError("string", repr(results['version']))
-        if not isinstance(results['required_api_version'], str) and not isinstance(results['required_api_version'], unicode):
+        if not is_str(results['required_api_version']):
             raise TypeError("string", repr(results['required_api_version']))
         if not isinstance(results['features'], list):
             raise TypeError("string list", repr(results['features']))
         for tmp_1 in results['features']:
-            if not isinstance(tmp_1, str) and not isinstance(tmp_1, unicode):
+            if not is_str(tmp_1):
                 raise TypeError("string", repr(tmp_1))
         if not isinstance(results['configuration'], dict):
             raise TypeError("(string * string) list", repr(results['configuration']))
         for tmp_2 in results['configuration'].keys():
-            if not isinstance(tmp_2, str) and not isinstance(tmp_2, unicode):
+            if not is_str(tmp_2):
                 raise TypeError("string", repr(tmp_2))
         for tmp_2 in results['configuration'].values():
-            if not isinstance(tmp_2, str) and not isinstance(tmp_2, unicode):
+            if not is_str(tmp_2):
                 raise TypeError("string", repr(tmp_2))
         if not isinstance(results['required_cluster_stack'], list):
             raise TypeError("string list", repr(results['required_cluster_stack']))
         for tmp_3 in results['required_cluster_stack']:
-            if not isinstance(tmp_3, str) and not isinstance(tmp_3, unicode):
+            if not is_str(tmp_3):
                 raise TypeError("string", repr(tmp_3))
         return results
     def ls(self, args):
@@ -73,13 +85,13 @@ class Plugin_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         results = self._impl.ls(dbg)
         if not isinstance(results, list):
             raise TypeError("string list", repr(results))
         for tmp_4 in results:
-            if not isinstance(tmp_4, str) and not isinstance(tmp_4, unicode):
+            if not is_str(tmp_4):
                 raise TypeError("string", repr(tmp_4))
         return results
     def diagnostics(self, args):
@@ -89,10 +101,10 @@ class Plugin_server_dispatcher:
         if not('dbg' in args):
             raise UnmarshalException('argument missing', 'dbg', '')
         dbg = args["dbg"]
-        if not isinstance(dbg, str) and not isinstance(dbg, unicode):
+        if not is_str(dbg):
             raise TypeError("string", repr(dbg))
         results = self._impl.diagnostics(dbg)
-        if not isinstance(results, str) and not isinstance(results, unicode):
+        if not is_str(results):
             raise TypeError("string", repr(results))
         return results
     def _dispatch(self, method, params):

@@ -31,11 +31,23 @@ import traceback
 import json
 import argparse
 
-# pylint: disable=invalid-name,redefined-builtin,undefined-variable
-# pyright: reportUndefinedVariable=false
+
+# is_str(): Shortcut to check if a value is an instance of a string type.
+#
+# Replace:
+#     if not isinstance(code, str) and not isinstance(code, unicode):
+# with:
+#     if not is_str(code):
+#
+# This makes for much cleaner code and suits Python3 well too.
 if sys.version_info[0] > 2:
     long = int
-    unicode = str
+    def is_str(x):
+        return isinstance(x, str)  # With Python3, all strings are unicode
+else:
+    def is_str(x):  # pragma: no cover
+        return isinstance(x, (str, unicode))  # pylint: disable=undefined-variable
+
 
 def success(result):
     return {"Status": "Success", "Value": result}
@@ -72,7 +84,7 @@ class XenAPIException(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        if not isinstance(code, str) and not isinstance(code, unicode):
+        if not is_str(code):
             raise TypeError("string", repr(code))
         if not isinstance(params, list):
             raise TypeError("list", repr(params))
@@ -124,7 +136,7 @@ class UnmarshalException(InternalError):
             "UnmarshalException thing=%s ty=%s desc=%s" % (thing, ty, desc))
 
 
-class TypeError(InternalError):
+class TypeError(InternalError):  # pylint: disable=redefined-builtin
 
     def __init__(self, expected, actual):
         InternalError.__init__(
