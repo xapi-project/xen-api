@@ -6,6 +6,10 @@ let use_default_sr = ref false
 
 let use_colour = ref true
 
+let run_only = ref None
+
+let list_tests = ref false
+
 let username = ref ""
 
 let password = ref ""
@@ -35,6 +39,12 @@ let rpc_unix_domain xml =
 
 let rpc = ref rpc_unix_domain
 
+let alcotest_args = ref [||]
+
+let set_alcotest_args l = alcotest_args := Array.of_list l
+
+let skip_xapi = ref false
+
 (** Parse the legacy quicktest command line args. This is used instead of
     invoking Alcotest directly, for backwards-compatibility with clients who
     run the quicktest binary. *)
@@ -46,7 +56,7 @@ let parse () =
       , "Path to xe command line executable"
       )
     ; ( "-default-sr"
-      , Arg.Unit (fun () -> use_default_sr := true)
+      , Arg.Set use_default_sr
       , "Only run SR tests on the pool's default SR, mutually exclusive with \
          -sr"
       )
@@ -55,6 +65,17 @@ let parse () =
       , Arg.String (fun x -> sr := x)
       , "Only run SR tests on the specified SR, mutually exclusive with \
          -default-sr"
+      )
+    ; ("-skip-xapi", Arg.Set skip_xapi, "SKIP tests that require XAPI")
+    ; ("--", Arg.Rest_all set_alcotest_args, "Supply alcotest arguments")
+    ; ( "-run-only"
+      , Arg.String (fun x -> run_only := Some x)
+      , "Only run specified tests, skip all others. Several tests can be \
+         specified, separated by commas"
+      )
+    ; ( "-list-tests"
+      , Arg.Set list_tests
+      , "Lists test names as they are consumed by -run-only"
       )
     ]
     (fun x ->
@@ -82,4 +103,4 @@ let parse () =
 let get_alcotest_args () =
   let name = [|Sys.argv.(0)|] in
   let colour = if not !use_colour then [|"--color=never"|] else [||] in
-  Array.concat [name; colour]
+  Array.concat [name; colour; !alcotest_args]

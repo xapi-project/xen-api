@@ -7,6 +7,8 @@
     alcotest
     astring
     dune-build-info
+    ezxenstore
+    ezxenstore.watch
     fmt
     forkexec
     http_lib
@@ -15,6 +17,7 @@
     result
     rresult
     rpclib.core
+    rrdd_libs
     stunnel
     threads.posix
     unix
@@ -23,6 +26,7 @@
     xapi-consts
     xapi-datamodel
     xapi_internal
+    xapi-log
     xapi-types
     xapi-stdext-date
     xapi-stdext-pervasives
@@ -35,3 +39,9 @@
   (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
 )
 
+
+(rule
+ (alias runtest)
+ (package xapi)
+ (action (run ./quicktest.exe -skip-xapi -- list))
+)

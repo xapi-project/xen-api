@@ -162,57 +162,39 @@ and gen_http_actions () =
     | Varargs_query_arg ->
         "args"
   in
-  let delegate_type = function
-    | Get ->
-        "DataCopiedDelegate"
-    | Put ->
-        "UpdateProgressDelegate"
-    | _ ->
-        failwith "Unimplemented HTTP method"
-  in
-  let delegate_name = function
-    | Get ->
-        "dataCopiedDelegate"
-    | Put ->
-        "progressDelegate"
-    | _ ->
-        failwith "Unimplemented HTTP method"
-  in
-  let http_method = function
-    | Get ->
-        "Get"
-    | Put ->
-        "Put"
-    | _ ->
-        failwith "Unimplemented HTTP method"
-  in
-  let action_json (name, (meth, uri, _, sdkargs, _, _)) =
-    let enhanced_args =
-      [String_query_arg "task_id"; String_query_arg "session_id"] @ sdkargs
-    in
-    `O
-      [
-        ("name", `String name)
-      ; ("delegate_type", `String (delegate_type meth))
-      ; ("delegate_name", `String (delegate_name meth))
-      ; ("http_method", `String (http_method meth))
-      ; ("uri", `String uri)
-      ; ( "sdkargs_decl"
-        , `String
-            (enhanced_args |> List.map decl_of_sdkarg |> String.concat ", ")
-        )
-      ; ( "sdkargs"
-        , `String (enhanced_args |> List.map use_of_sdkarg |> String.concat ", ")
-        )
-      ]
-  in
   let filtered_actions =
     http_actions |> List.filter (fun (_, (_, _, sdk, _, _, _)) -> sdk)
   in
   `O
     [
-      ("licence", `String Licence.bsd_two_clause)
-    ; ("http_actions", `A (List.map action_json filtered_actions))
+      ( "http_actions"
+      , `A
+          (List.map
+             (fun (name, (meth, uri, _, sdkargs, _, _)) ->
+               `O
+                 [
+                   ("name", `String name)
+                 ; ("isPut", `Bool (meth == Put))
+                 ; ("isGet", `Bool (meth == Get))
+                 ; ("uri", `String uri)
+                 ; ( "args"
+                   , `A
+                       (List.map
+                          (fun x ->
+                            `O
+                              [
+                                ("arg_decl", `String (decl_of_sdkarg x))
+                              ; ("arg_use", `String (use_of_sdkarg x))
+                              ]
+                          )
+                          sdkargs
+                       )
+                   )
+                 ]
+             )
+             filtered_actions
+          )
+      )
     ]
 
 (* ------------------- category: classes *)

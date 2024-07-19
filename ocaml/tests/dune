@@ -8,7 +8,7 @@
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
       test_ref
       test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_observer
-      test_pool_periodic_update_sync))
+      test_pool_periodic_update_sync test_pkg_mgr))
   (libraries
     alcotest
     angstrom
@@ -17,6 +17,7 @@
     dune-build-info
     fmt
     http_lib
+    httpsvr
     ipaddr
     mirage-crypto
     pam
@@ -60,16 +61,17 @@
 (tests
   (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
     test_clustering test_pusb test_daemon_manager test_repository test_repository_helpers
-    test_livepatch test_rpm test_updateinfo test_pool_periodic_update_sync)
+    test_livepatch test_rpm test_updateinfo test_pool_periodic_update_sync test_pkg_mgr)
   (package xapi)
   (modes exe)
   (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt
     test_event test_clustering test_cluster_host test_cluster test_pusb
     test_daemon_manager test_repository test_repository_helpers test_livepatch test_rpm
-    test_updateinfo test_pool_periodic_update_sync)
+    test_updateinfo test_pool_periodic_update_sync test_pkg_mgr)
   (libraries
     alcotest
     fmt
+    ptime
     result
     rpclib.core
     rpclib.json
@@ -90,7 +92,9 @@
     xapi-test-utils
     xapi-tracing
     xapi-types
+    xapi-stdext-date
     xapi-stdext-threads
+    xapi-stdext-unix
     xml-light2
     yojson
   )
@@ -101,28 +105,34 @@
 (modes exe)
 (package xapi)
 (modules test_storage_smapiv1_wrapper)
-(libraries alcotest xapi_internal fmt))
+(libraries alcotest xapi_internal fmt xapi-idl.storage.interface xapi-idl.storage.interface.types))
 
 (test
 (name test_storage_quicktest)
 (modes exe)
 (package xapi)
 (modules test_storage_quicktest)
-(libraries xapi_internal crowbar))
+(libraries xapi_internal crowbar xapi-idl.storage.interface.types))
 
 (test
 (name test_ref)
 (modes exe)
 (package xapi)
 (modules test_ref)
-(libraries xapi_internal crowbar))
+(libraries
+   crowbar
+   fmt
+   uuidm
+   xapi-types
+   xapi_internal
+))
 
 (test
 (name test_observer)
 (package xapi)
-(modules test_observer)
 (modes (best exe))
-(libraries alcotest tracing xapi_internal tests_common yojson))
+(modules test_observer)
+(libraries alcotest fmt tracing xapi_internal tests_common yojson log uri xapi-stdext-unix re ppx_deriving.runtime xapi-stdext-std xapi-tracing-export))
 
 (rule
   (alias runtest)

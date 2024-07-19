@@ -68,7 +68,14 @@ let common ty filename signature size f =
       fds_to_close := List.filter (fun x -> x <> fd) !fds_to_close
     )
   in
-  let gpg_pub_keyring = Filename.concat !Xapi_globs.gpg_homedir "pubring.gpg" in
+  let gpg_pub_keyring =
+    (* newer version of pgp use pubring.kbx as keyring database while older one use
+     * pubring.gpg. If pubring.kbx exists use it, otherwise, fallback to pubring.gpg *)
+    let kbx_path = Filename.concat !Xapi_globs.gpg_homedir "pubring.kbx" in
+    let gpg_path = Filename.concat !Xapi_globs.gpg_homedir "pubring.gpg" in
+    match Sys.file_exists kbx_path with true -> kbx_path | false -> gpg_path
+  in
+
   let gpg_args =
     match ty with
     | `signed_cleartext ->

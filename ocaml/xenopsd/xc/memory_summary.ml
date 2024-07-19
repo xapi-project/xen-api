@@ -36,7 +36,7 @@ let _ =
   let finished = ref false in
   while not !finished do
     finished := !delay < 0. ;
-    if !delay > 0. then ignore (Unix.select [] [] [] !delay) ;
+    if !delay > 0. then Unix.sleepf !delay ;
     flush stdout ;
     let physinfo = Xenctrl.physinfo xc in
     let one_page = 4096L in

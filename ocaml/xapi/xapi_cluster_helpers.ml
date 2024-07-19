@@ -114,7 +114,7 @@ let corosync3_enabled ~__context =
   let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
   List.assoc_opt "restrict_corosync3" restrictions = Some "false"
 
-let maybe_generate_alert ~__context ~num_hosts ~missing_hosts ~new_hosts ~quorum
+let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
     =
   let generate_alert join cluster_host =
     let host = Db.Cluster_host.get_host ~__context ~self:cluster_host in
@@ -148,10 +148,10 @@ let maybe_generate_alert ~__context ~num_hosts ~missing_hosts ~new_hosts ~quorum
     )
   in
   if cluster_health_enabled ~__context then (
-    List.iter (generate_alert false) missing_hosts ;
-    List.iter (generate_alert true) new_hosts ;
+    List.iter (generate_alert false) hosts_left ;
+    List.iter (generate_alert true) hosts_joined ;
     (* only generate this alert when the number of hosts is decreasing *)
-    if missing_hosts <> [] && num_hosts <= quorum then
+    if hosts_left <> [] && num_hosts <= quorum then
       let pool = Helpers.get_pool ~__context in
       let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
       let name, priority = Api_messages.cluster_quorum_approaching_lost in

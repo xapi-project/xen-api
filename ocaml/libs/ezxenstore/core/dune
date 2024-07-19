@@ -6,6 +6,8 @@
     logs
     threads
     uuidm
-    xenstore_transport
-    xenstore.unix)
+    (re_export xenstore)
+    (re_export xenstore_transport)
+    threads.posix
+    (re_export xenstore.unix))
 )

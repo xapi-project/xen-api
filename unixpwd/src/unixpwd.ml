@@ -22,8 +22,6 @@ module Stubs = struct
   external setpwd : string -> string -> unit = "caml_unixpwd_setpwd"
 
   external setspw : string -> string -> unit = "caml_unixpwd_setspw"
-
-  external unshadow : unit -> string = "caml_unixpwd_unshadow"
 end
 
 exception Error of string
@@ -39,5 +37,3 @@ let get user = wrap (fun () -> Stubs.get user)
 let setpwd user pwd = wrap (fun () -> Stubs.setpwd user pwd)
 
 let setspw user pwd = wrap (fun () -> Stubs.setspw user pwd)
-
-let unshadow () = wrap Stubs.unshadow

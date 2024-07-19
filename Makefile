@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall
+.PHONY: build clean test doc python format install uninstall coverage
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -19,6 +19,11 @@ build:
 # Quickly verify that the code compiles, without actually building it
 check:
 	dune build @check -j $(JOBS)
+
+coverage:
+	dune runtest --instrument-with bisect_ppx --force --profile=$(RELEASE) -j $(JOBS)
+	bisect-ppx-report html
+	bisect-ppx-report summary --per-file
 
 clean:
 	dune clean
@@ -57,6 +62,7 @@ TEST_TIMEOUT=600
 TEST_TIMEOUT2=1200
 test:
 	ulimit -S -t $(TEST_TIMEOUT); \
+	ulimit -n 2048; \
 	 (sleep $(TEST_TIMEOUT) && ps -ewwlyF --forest)& \
 	 PSTREE_SLEEP_PID=$$!; \
 	 trap "kill $${PSTREE_SLEEP_PID}" INT TERM EXIT; \
@@ -204,6 +210,7 @@ install: build doc sdk doc-json
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
 	install -D -m 755 _build/install/default/bin/xcp-rrdd-xenpm $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
+	install -D -m 755 _build/install/default/bin/xcp-rrdd-dcmi $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-dcmi
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins.xml
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
 	install -D -m 755 ocaml/xcp-rrdd/bin/rrdp-scripts/sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins

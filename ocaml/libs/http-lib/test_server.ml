@@ -64,6 +64,22 @@ let _ =
          Unixext.really_write_string s r
        )
     ) ;
+  Server.add_handler server Http.Get "/query"
+    (FdIO
+       (fun request s _ ->
+         match request.Http.Request.query with
+         | (_, v) :: _ ->
+             Unixext.really_write_string s
+               (Http.Response.to_wire_string
+                  (Http.Response.make ~body:v "200" "OK")
+               )
+         | _ ->
+             Unixext.really_write_string s
+               (Http.Response.to_wire_string
+                  (Http.Response.make "404" "Query string missing")
+               )
+       )
+    ) ;
   let ip = "0.0.0.0" in
   let inet_addr = Unix.inet_addr_of_string ip in
   let addr = Unix.ADDR_INET (inet_addr, !port) in

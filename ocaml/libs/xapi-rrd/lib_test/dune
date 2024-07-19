@@ -9,6 +9,8 @@
     unix
     xapi-rrd
     xapi-stdext-unix
+    rpclib.xml
+    xmlm
   )
 )
 

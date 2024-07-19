@@ -27,6 +27,7 @@
   sexplib0
   qmp
   threads.posix
+  uri
   uuid
   uuidm
   xapi-backtrace

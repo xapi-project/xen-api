@@ -112,6 +112,19 @@ let gen_non_record_type tys =
           t
     | ty :: t ->
         let alias = OU.alias_of_ty ty in
+        let accu =
+          match ty with
+          | DT.Enum (name, cs) ->
+              sprintf "let all_%s = [%s]" name
+                (cs
+                |> List.map fst
+                |> List.map OU.constructor_of
+                |> String.concat "; "
+                )
+              :: accu
+          | _ ->
+              accu
+        in
         if List.mem_assoc alias overrides then
           aux
             (sprintf "type %s = %s\n%s\n" alias (OU.ocaml_of_ty ty)

@@ -4,6 +4,7 @@ IPROG=install -m 755
 IDATA=install -m 644
 
 SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
+DNF_PLUGIN_DIR=dnf-plugins
 
 install:
 	# Create destination directories using install -m 755 -d:
@@ -14,9 +15,12 @@ install:
 	$(IPROG) -d $(DESTDIR)/etc/sysconfig
 	$(IPROG) -d $(DESTDIR)/usr/lib/systemd/system
 	$(IPROG) -d $(DESTDIR)$(EXTENSIONDIR)
+	$(IPROG) -d $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)
 
 	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
+	$(IDATA) dnf_plugins/accesstoken.py $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)/
+	$(IDATA) dnf_plugins/ptoken.py $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)/
 
 	$(IPROG) libexec/host-display $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/link-vms-by-sr.py $(DESTDIR)$(LIBEXECDIR)
@@ -52,5 +56,5 @@ install:
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wake-on-lan
-	$(IPROG) poweron/DRAC.py $(DESTDIR)$(PLUGINDIR)/DRAC.py
 	$(IPROG) poweron/power-on.py $(DESTDIR)$(PLUGINDIR)/power-on-host
+	$(IPROG) poweron/IPMI.py $(DESTDIR)$(PLUGINDIR)/IPMI.py
