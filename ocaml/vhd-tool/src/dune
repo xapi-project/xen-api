@@ -11,6 +11,7 @@
     cohttp
     cohttp-lwt
     cstruct
+    (re_export ezxenstore)
     io-page
     lwt
     lwt.unix
@@ -30,6 +31,7 @@
     tapctl
     xapi-stdext-std
     xapi-stdext-unix
+    xen-api-client-lwt
     xenstore
     xenstore.client
     xenstore.unix
