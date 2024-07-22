@@ -154,6 +154,7 @@
     xapi-stdext-zerocheck
     xapi-tracing
     xapi-tracing-export
+    xapi_version
     xapi-xenopsd
     xenstore_transport.unix
     xml-light2
