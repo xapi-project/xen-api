@@ -9,6 +9,7 @@
     safe-resources
     xapi-consts
     xapi-log
+    xapi-stdext-unix
   )
 )
 

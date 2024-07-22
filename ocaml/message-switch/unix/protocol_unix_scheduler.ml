@@ -74,7 +74,9 @@ module Delay = struct
                 pipe_out
             )
           in
-          let r, _, _ = Unix.select [pipe_out] [] [] seconds in
+          let r, _, _ =
+            Xapi_stdext_unix.Unixext.select [pipe_out] [] [] seconds
+          in
           (* flush the single byte from the pipe *)
           if r <> [] then ignore (Unix.read pipe_out (Bytes.create 1) 0 1) ;
           (* return true if we waited the full length of time, false if we were woken *)

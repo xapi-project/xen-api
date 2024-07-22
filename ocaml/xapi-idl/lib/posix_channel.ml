@@ -80,7 +80,7 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
       in
       (* If we can't make any progress (because fds have been closed), then stop *)
       if r = [] && w = [] then raise End_of_file ;
-      let r, w, _ = Unix.select r w [] (-1.0) in
+      let r, w, _ = Xapi_stdext_unix.Unixext.select r w [] (-1.0) in
       (* Do the writing before the reading *)
       List.iter
         (fun fd -> if a = fd then CBuf.write b' a else CBuf.write a' b)
@@ -153,7 +153,9 @@ let send proxy_socket =
             in
             finally
               (fun () ->
-                let readable, _, _ = Unix.select [s_ip; s_unix] [] [] (-1.0) in
+                let readable, _, _ =
+                  Xapi_stdext_unix.Unixext.select [s_ip; s_unix] [] [] (-1.0)
+                in
                 if List.mem s_unix readable then (
                   let fd, _peer = Unix.accept s_unix in
                   to_close := fd :: !to_close ;

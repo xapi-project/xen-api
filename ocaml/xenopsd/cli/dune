@@ -22,6 +22,7 @@
       xapi-idl.xen.interface
       xapi-idl.xen.interface.types
       xapi-stdext-pervasives
+      xapi-stdext-unix
   )
   (preprocess (pps ppx_deriving_rpc))
 )

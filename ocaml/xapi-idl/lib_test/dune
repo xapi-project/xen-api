@@ -49,5 +49,7 @@
    xapi-idl.xen.interface
    xapi-idl.xen.interface.types
    xapi-log
+   xapi-stdext-unix
+   xapi-stdext-threads
  )
  (preprocess (pps ppx_deriving_rpc)))
