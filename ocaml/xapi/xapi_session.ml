@@ -268,29 +268,15 @@ let set_local_auth_max_threads n =
 let set_ext_auth_max_threads n =
   Locking_helpers.Semaphore.set_max throttle_auth_external @@ Int64.to_int n
 
-let wipe_string_contents str =
-  for i = 0 to Bytes.length str - 1 do
-    Bytes.set str i '\000'
-  done
-
-let wipe ss = List.iter (fun s -> wipe_string_contents s) ss
-
-(* wrapper that erases sensitive string parameters from functions *)
-let wipe_params_after_fn params fn =
-  try
-    let r = fn () in
-    wipe params ; r
-  with e -> wipe params ; raise e
-
 let do_external_auth uname pwd =
   with_throttle throttle_auth_external (fun () ->
       (Ext_auth.d ()).authenticate_username_password uname
-        (Bytes.unsafe_to_string pwd)
+        pwd
   )
 
 let do_local_auth uname pwd =
   with_throttle throttle_auth_internal (fun () ->
-      try Pam.authenticate uname (Bytes.unsafe_to_string pwd)
+      try Pam.authenticate uname pwd
       with Failure msg ->
         raise
           Api_errors.(Server_error (session_authentication_failed, [uname; msg]))
@@ -298,7 +284,7 @@ let do_local_auth uname pwd =
 
 let do_local_change_password uname newpwd =
   with_throttle throttle_auth_internal (fun () ->
-      Pam.change_password uname (Bytes.unsafe_to_string newpwd)
+      Pam.change_password uname newpwd
   )
 
 let trackid session_id = Context.trackid_of_session (Some session_id)
@@ -725,8 +711,6 @@ let slave_local_login ~__context ~psecret =
 (* Emergency mode login, uses local storage *)
 let slave_local_login_with_password ~__context ~uname ~pwd =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
-  let pwd = Bytes.of_string pwd in
-  wipe_params_after_fn [pwd] (fun () ->
       if Context.preauth ~__context <> Some `root then (
         try
           (* CP696 - only tries to authenticate against LOCAL superuser account *)
@@ -740,7 +724,6 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
       ) ;
       debug "Add session to local storage" ;
       Xapi_local_session.create ~__context ~pool:false
-  )
 
 (* CP-714: Modify session.login_with_password to first try local super-user
    login; and then call into external auth plugin if this is enabled
@@ -757,8 +740,6 @@ let slave_local_login_with_password ~__context ~uname ~pwd =
 *)
 let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
   Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
-  let pwd = Bytes.of_string pwd in
-  wipe_params_after_fn [pwd] (fun () ->
       (* !!! Do something with the version number *)
       match Context.preauth ~__context with
       | Some `root ->
@@ -1150,13 +1131,9 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
               )
             )
         )
-  )
 
 let change_password ~__context ~old_pwd ~new_pwd =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
-  let old_pwd = Bytes.of_string old_pwd in
-  let new_pwd = Bytes.of_string new_pwd in
-  wipe_params_after_fn [old_pwd; new_pwd] (fun () ->
       let session_id = Context.get_session_id __context in
       (*let user = Db.Session.get_this_user ~__context ~self:session_id in
         	let uname = Db.User.get_short_name ~__context ~self:user in*)
@@ -1217,7 +1194,6 @@ let change_password ~__context ~old_pwd ~new_pwd =
           (Api_errors.Server_error
              (Api_errors.user_is_not_local_superuser, [msg])
           )
-  )
 
 let logout ~__context =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
