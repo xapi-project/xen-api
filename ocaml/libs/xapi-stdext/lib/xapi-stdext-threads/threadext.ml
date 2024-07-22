@@ -115,3 +115,23 @@ module Delay = struct
         (* If the wait hasn't happened yet then store up the signal *)
     )
 end
+
+let wait_timed_read fd timeout =
+  match Xapi_stdext_unix.Unixext.select [fd] [] [] timeout with
+  | [], _, _ ->
+      false
+  | [fd'], _, _ ->
+      assert (fd' = fd) ;
+      true
+  | _ ->
+      assert false
+
+let wait_timed_write fd timeout =
+  match Xapi_stdext_unix.Unixext.select [] [fd] [] timeout with
+  | _, [], _ ->
+      false
+  | _, [fd'], _ ->
+      assert (fd' = fd) ;
+      true
+  | _ ->
+      assert false
