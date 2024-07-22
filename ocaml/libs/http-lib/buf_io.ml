@@ -74,7 +74,7 @@ let is_full ic = ic.cur = 0 && ic.max = Bytes.length ic.buf
 let fill_buf ~buffered ic timeout =
   let buf_size = Bytes.length ic.buf in
   let fill_no_exc timeout len =
-    let l, _, _ = Unix.select [ic.fd] [] [] timeout in
+    let l, _, _ = Xapi_stdext_unix.Unixext.select [ic.fd] [] [] timeout in
     if l <> [] then (
       let n = Unix.read ic.fd ic.buf ic.max len in
       ic.max <- n + ic.max ;

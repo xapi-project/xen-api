@@ -14,6 +14,7 @@ depends: [
   "cmdliner" {with-test & >= "1.1.0"}
   "logs"
   "uuidm"
+  "xapi-stdext-unix"
   "xenctrl"
   "xenstore"
   "xenstore_transport"

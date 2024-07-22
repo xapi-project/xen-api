@@ -37,7 +37,7 @@ let timed_wait_callback ~msg ?(time_min = 0.) ?(eps = 0.1) ?(time_max = 60.) f =
         ()
       in
       f callback ;
-      let ready = Thread.wait_timed_read rd time_max in
+      let ready = Xapi_stdext_threads.Threadext.wait_timed_read rd time_max in
       match (ready, !after) with
       | true, None ->
           Alcotest.fail "pipe ready to read, but after is not set"

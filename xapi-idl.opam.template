@@ -36,6 +36,7 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-threads"
+  "xapi-stdext-unix"
   "xapi-tracing"
   "xapi-inventory"
   "xmlm"
