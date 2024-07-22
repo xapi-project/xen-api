@@ -321,6 +321,32 @@
 
 (package
   (name vhd-tool)
+  (synopsis "Manipulate .vhd files")
+  (tags ("org.mirage" "org:xapi-project"))
+  (depends
+    (alcotest-lwt :with-test)
+    cohttp-lwt
+    conf-libssl
+    (cstruct (>= "3.0.0"))
+    (ezxenstore (= :version))
+    (forkexec (= :version))
+    io-page
+    lwt
+    nbd-unix
+    ppx_cstruct
+    ppx_deriving_rpc
+    re
+    rpclib
+    sha
+    tar
+    (vhd-format (= :version))
+    (vhd-format-lwt (= :version))
+    (xapi-idl (= :version))
+    (xapi-log (= :version))
+    (xen-api-client-lwt (= :version))
+    xenstore
+    xenstore_transport
+  )
 )
 
 (package
