@@ -1,5 +1,5 @@
 (executable
-  (modes exe)
+  (modes byte)
   (name gen_api_main)
   (libraries
     astring
