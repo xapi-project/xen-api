@@ -32,7 +32,6 @@
   (modules gencert)
   (libraries
     astring
-    dune-build-info
     gencertlib
     x509
     xapi-inventory
@@ -49,7 +48,6 @@
   (libraries
     alcotest
     cstruct
-    dune-build-info
     fmt
     gencertlib
     mirage-crypto

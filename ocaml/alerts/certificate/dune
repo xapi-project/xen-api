@@ -20,7 +20,7 @@
   (modules certificate_check_main)
   (libraries
     certificate_check
-    dune-build-info
+    
     http_lib
     xapi-client
     xapi-types

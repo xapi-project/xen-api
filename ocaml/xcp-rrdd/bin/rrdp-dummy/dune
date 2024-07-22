@@ -3,7 +3,7 @@
   (public_name rrdp_dummy)
   (package xapi-rrdd-plugin)
   (libraries
-    dune-build-info
+    
     rrdd-plugin
     xapi-idl.rrd
     xapi-rrd

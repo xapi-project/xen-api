@@ -16,7 +16,6 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
-  "dune-build-info"
   "alcotest" {with-test}
   "astring"
   "cohttp" {>= "0.22.0"}

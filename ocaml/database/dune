@@ -9,8 +9,6 @@
     db_names db_exn schema string_marshall_helper string_unmarshall_helper
     test_schemas)
   (libraries
-    ppx_sexp_conv.runtime-lib
-    sexplib0
     sexpr
     xapi-log
     xapi-stdext-encodings
@@ -63,7 +61,7 @@
   (package xapi)
   (modules block_device_io)
   (libraries
-    dune-build-info
+    
     xapi_database
     xapi-log
     xapi-stdext-pervasives
@@ -77,7 +75,7 @@
   (modes exe)
   (modules database_server_main)
   (libraries
-    dune-build-info
+    
     http_lib
     httpsvr
     threads.posix
@@ -93,10 +91,8 @@
   (package xapi)
   (modules db_cache_test unit_test_marshall)
   (libraries
-    alcotest
-    dune-build-info
+    alcotest    
     http_lib
-    ppx_sexp_conv.runtime-lib
     rpclib.xml
     sexplib
     sexplib0
@@ -115,7 +111,6 @@
   )
   (libraries
     alcotest
-    dune-build-info
     xapi_database
     xml-light2
   )

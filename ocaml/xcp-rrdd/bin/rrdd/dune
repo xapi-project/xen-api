@@ -5,7 +5,7 @@
   (modules (:standard \ xcp_rrdd))
   (libraries
     astring
-    dune-build-info
+    
     ezxenstore
     gzip
     http_lib
@@ -43,7 +43,7 @@
   (modules xcp_rrdd)
   (libraries
     astring
-    dune-build-info
+    
     ezxenstore.core
     ezxenstore.watch
     forkexec

@@ -5,7 +5,7 @@
  (libraries
   alcotest
   cpuid
-  dune-build-info
+  
   fmt
   result
   rpclib.core

@@ -6,7 +6,7 @@
   (libraries
     alcotest
     astring
-    dune-build-info
+    
     ezxenstore
     ezxenstore.watch
     fmt

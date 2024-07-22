@@ -8,7 +8,7 @@
   (libraries
       astring
       cmdliner
-      dune-build-info
+      
       re
       result
       rpclib.core

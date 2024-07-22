@@ -3,13 +3,10 @@
   (name gen_api_main)
   (libraries
     astring
-    dune-build-info
-    sexpr
-    uuid
+    uuidm
     xapi-consts
     xapi-datamodel
     xapi-log
-    xapi-stdext-pervasives
     xapi-stdext-std
   )
 )

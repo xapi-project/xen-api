@@ -4,7 +4,7 @@
  (libraries
   alcotest
   astring
-  dune-build-info
+  
   fmt
   networklibs
   rpclib.core

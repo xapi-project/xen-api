@@ -3,7 +3,6 @@
   (public_name clock)
   (modules date timer)
   (libraries
-    astring
     fmt
     (re_export mtime)
     mtime.clock.os

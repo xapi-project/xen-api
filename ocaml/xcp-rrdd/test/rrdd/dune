@@ -4,7 +4,7 @@
   (package xapi-rrdd)
   (libraries
     alcotest
-    dune-build-info
+    
     fmt
     rrdd_libs_internal
     xapi-idl.rrd

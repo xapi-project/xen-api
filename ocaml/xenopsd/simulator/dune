@@ -3,7 +3,7 @@
  (public_name xenopsd-simulator)
  (package xapi-xenopsd-simulator)
  (libraries
-   dune-build-info
+   
    xapi-idl.xen.interface
    xapi-xenopsd
  )

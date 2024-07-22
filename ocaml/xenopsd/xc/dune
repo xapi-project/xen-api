@@ -71,7 +71,7 @@
  (modules xenops_xc_main)
 
  (libraries
-  dune-build-info
+  
   ezxenstore.core
   uuid
   xapi-idl
@@ -92,7 +92,7 @@
  (libraries
   astring
   cmdliner
-  dune-build-info
+  
   ezxenstore.core
   uuid
   xapi-idl.memory
@@ -109,7 +109,7 @@
  (modes exe)
  (modules memory_summary)
  (libraries
-  dune-build-info
+  
   xapi-stdext-date
   xapi-stdext-unix
   xapi-xenopsd
@@ -134,7 +134,7 @@
  (modules cancel_utils_test)
  (libraries
   cmdliner
-  dune-build-info
+  
   ezxenstore.core
   threads.posix
   xapi-idl.xen.interface

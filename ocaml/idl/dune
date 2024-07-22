@@ -8,7 +8,6 @@
     datamodel_diagnostics datamodel_repository datamodel_lifecycle
     datamodel_vtpm datamodel_observer datamodel_vm_group)
   (libraries
-    ppx_sexp_conv.runtime-lib
     rpclib.core
     sexplib0
     sexpr
@@ -18,7 +17,6 @@
     xapi-schema
     xapi-stdext-date
     xapi-stdext-std
-    xapi-stdext-unix
   )
   (wrapped false)
   (preprocess (per_module ((pps ppx_deriving_rpc) Datamodel_types)))
@@ -29,7 +27,6 @@
   (name datamodel_main)
   (modules datamodel_main dot_backend dtd_backend markdown_backend)
   (libraries
-    dune-build-info
     mustache
     xapi-datamodel
     xapi-stdext-std
@@ -53,7 +50,6 @@
   (modes exe)
   (modules schematest)
   (libraries
-    dune-build-info
     rpclib.core
     rpclib.json
     xapi_datamodel
@@ -67,8 +63,7 @@
   (public_name gen_lifecycle)
   (package xapi-datamodel)
   (modules gen_lifecycle)
-  (libraries
-    dune-build-info
+  (libraries    
     xapi-datamodel
     xapi-consts.xapi_version
   )

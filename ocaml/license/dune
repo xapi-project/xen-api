@@ -19,7 +19,6 @@
   (modules daily_license_check_main)
   (libraries
     daily_license_check
-    dune-build-info
     http_lib
     xapi-client
     xapi-types
