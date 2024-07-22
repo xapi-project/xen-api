@@ -55,10 +55,49 @@
 )
 
 (library
+  (name xapi_internal_minimal)
+  (modules context custom_actions xapi_globs server_helpers session_check rbac rbac_audit db_actions taskHelper eventgen locking_helpers exnHelper rbac_static xapi_role xapi_extensions db)
+  (wrapped false)
+  (libraries
+    http_lib
+    httpsvr
+    ipaddr
+    xapi-types
+    xapi_database
+    mtime
+    tracing 
+    uuid
+    rpclib.core
+    threads.posix
+    fmt
+    clock
+    astring
+    stunnel
+    sexplib0
+    sexplib
+    sexpr
+    forkexec
+    xapi-idl
+    xapi_aux
+    xapi-stdext-std
+    xapi-stdext-date
+    xapi-stdext-pervasives
+    xapi-backtrace
+    xapi-datamodel
+    xapi-consts
+    xapi_version
+    xapi-stdext-threads
+    xapi-stdext-unix
+    rpclib.xml
+    xapi-log)
+)
+
+(library
   (name xapi_internal)
   (wrapped false)
   (modes best)
-  (modules (:standard \ xapi_main server api_server xapi))
+  (modules (:standard \
+    xapi_main server api_server xapi custom_actions context xapi_globs server_helpers session_check rbac rbac_audit rbac_static db_actions taskHelper eventgen locking_helpers exnHelper xapi_role xapi_extensions db))
   (libraries
     angstrom
     astring
@@ -140,6 +179,7 @@
     xapi-idl.memory
     xapi-idl.gpumon
     xapi-idl.updates
+    (re_export xapi_internal_minimal)
     xapi-inventory
     xapi-log
     xapi-open-uri
@@ -173,10 +213,18 @@
 )
 
 (library
+  (name xapi_internal_server_only)
+  (modes best)
+  (modules server)
+  (libraries xapi_internal_minimal http_lib rpclib.core xapi-types xapi-log xapi-stdext-encodings xapi-consts xapi-backtrace xapi-stdext-date rpclib.json)
+  (wrapped false)
+)
+
+(library
   (name xapi_internal_server)
   (modes best)
   (wrapped false)
-  (modules server api_server xapi)
+  (modules api_server xapi)
   (libraries
     forkexec
     http_lib
@@ -190,8 +238,10 @@
     xapi-client
     xapi-consts
     xapi-datamodel
+    xapi_internal_minimal
     xapi-idl
     xapi-inventory
+    (re_export xapi_internal_server_only)
     xapi-log
     xapi-stdext-date
     xapi-stdext-encodings
@@ -216,6 +266,7 @@
   (libraries
     xapi_internal
     xapi_internal_server
+    xapi_internal_minimal
     xapi-idl
     xapi-log
     xapi-stdext-unix
