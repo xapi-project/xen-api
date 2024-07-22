@@ -21,7 +21,6 @@
     xapi-consts
     xapi-stdext-date
     xapi-stdext-unix
-    xapi-idl
   )
   (wrapped false)
   (preprocess (per_module ((pps ppx_deriving_rpc) API Event_types Features SecretString)))
