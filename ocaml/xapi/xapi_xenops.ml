@@ -337,19 +337,43 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
            )
         )
 
-(* /boot/ contains potentially sensitive files like xen-initrd, so we will only*)
-(* allow directly booting guests from the subfolder /boot/guest/ *)
+(* /boot/ contains potentially sensitive files like xen-initrd, only allow
+   directly booting guests from the subfolder /boot/guest/ *)
 let allowed_dom0_directories_for_boot_files =
-  ["/boot/guest/"; "/var/lib/xcp/guest"]
+  ["/boot/guest/"; "/var/lib/xcp/guest/"]
 
-let is_boot_file_whitelisted filename =
-  let safe_str str = not (String.has_substr str "..") in
-  (* make sure the script prefix is the allowed dom0 directory *)
-  List.exists
-    (fun allowed -> String.starts_with ~prefix:allowed filename)
-    allowed_dom0_directories_for_boot_files
-  (* avoid ..-style attacks and other weird things *)
-  && safe_str filename
+let kernel_path filename =
+  let ( let* ) = Result.bind in
+  let* real_path =
+    try Ok (Unix.realpath filename) with
+    | Unix.(Unix_error (ENOENT, _, _)) ->
+        let reason = "File does not exist" in
+        Error (filename, reason)
+    | exn ->
+        let reason = Printexc.to_string exn in
+        Error (filename, reason)
+  in
+  let* () =
+    match Unix.stat real_path with
+    | {st_kind= Unix.S_REG; _} ->
+        Ok ()
+    | _ ->
+        let reason = "Is not a regular file" in
+        Error (filename, reason)
+  in
+  let allowed =
+    List.exists
+      (fun allowed -> String.starts_with ~prefix:allowed real_path)
+      allowed_dom0_directories_for_boot_files
+  in
+  if not allowed then
+    let reason =
+      Printf.sprintf "Is not in any of the allowed kernel directories: [%s]"
+        (String.concat "; " allowed_dom0_directories_for_boot_files)
+    in
+    Error (filename, reason)
+  else
+    Ok real_path
 
 let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
   let open Vm in
@@ -372,19 +396,12 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
           Cirrus
   in
   let pci_emulations =
-    let s =
-      try Some (List.assoc "mtc_pci_emulations" vm.API.vM_other_config)
-      with _ -> None
-    in
+    let s = List.assoc_opt "mtc_pci_emulations" vm.API.vM_other_config in
     match s with
     | None ->
         []
-    | Some x -> (
-      try
-        let l = String.split ',' x in
-        List.map (String.strip String.isspace) l
-      with _ -> []
-    )
+    | Some x ->
+        String.split_on_char ',' x |> List.map String.trim
   in
   let make_hvmloader_boot_record () =
     if bool vm.API.vM_platform false "qemu_stubdom" then
@@ -427,15 +444,10 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     ; acpi= bool vm.API.vM_platform true "acpi"
     ; serial=
         ((* The platform value should override the other_config value. If
-            				 * neither are set, use pty. *)
+            neither are set, use pty. *)
          let key = "hvm_serial" in
-         let other_config_value =
-           try Some (List.assoc key vm.API.vM_other_config)
-           with Not_found -> None
-         in
-         let platform_value =
-           try Some (List.assoc key vm.API.vM_platform) with Not_found -> None
-         in
+         let other_config_value = List.assoc_opt key vm.API.vM_other_config in
+         let platform_value = List.assoc_opt key vm.API.vM_platform in
          match (other_config_value, platform_value) with
          | None, None ->
              Some "pty"
@@ -444,10 +456,7 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
          | Some value, None ->
              Some value
         )
-    ; keymap=
-        ( try Some (List.assoc "keymap" vm.API.vM_platform)
-          with Not_found -> None
-        )
+    ; keymap= List.assoc_opt "keymap" vm.API.vM_platform
     ; vnc_ip= None (*None PR-1255*)
     ; pci_emulations
     ; pci_passthrough
@@ -464,30 +473,19 @@ let builder_of_vm ~__context (vmref, vm) timeoffset pci_passthrough vgpu =
     ; tpm= tpm_of_vm ()
     }
   in
-  let make_direct_boot_record
-      {Helpers.kernel= k; kernel_args= ka; ramdisk= initrd} =
-    let k =
-      if is_boot_file_whitelisted k then
-        k
-      else (
-        debug "kernel %s is not in the whitelist: ignoring" k ;
-        ""
-      )
+  let make_direct_boot_record {Helpers.kernel; kernel_args= ka; ramdisk} =
+    let resolve name ~path =
+      match kernel_path path with
+      | Ok k ->
+          k
+      | Error (file, msg) ->
+          info {|%s: refusing to load %s "%s": %s|} __FUNCTION__ name file msg ;
+          raise Api_errors.(Server_error (invalid_value, [name; file; msg]))
     in
-    let initrd =
-      Option.map
-        (fun x ->
-          if is_boot_file_whitelisted x then
-            x
-          else (
-            debug "initrd %s is not in the whitelist: ignoring" k ;
-            ""
-          )
-        )
-        initrd
-    in
+    let kernel = resolve "kernel" ~path:kernel in
+    let ramdisk = Option.map (fun k -> resolve "ramdisk" ~path:k) ramdisk in
     {
-      boot= Direct {kernel= k; cmdline= ka; ramdisk= initrd}
+      boot= Direct {kernel; cmdline= ka; ramdisk}
     ; framebuffer= bool vm.API.vM_platform false "pvfb"
     ; framebuffer_ip= None (* None PR-1255 *)
     ; vncterm= not (List.mem_assoc "disable_pv_vnc" vm.API.vM_other_config)
