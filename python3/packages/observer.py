@@ -373,7 +373,7 @@ try:
     # are not overridden and will be the defined no-op functions.
     span, patch_module = _init_tracing(observer_configs, observer_config_dir)
 
-    # If tracing is now operational, explicity set "OTEL_SDK_DISABLED" to "false".
+    # If tracing is now operational, explicitly set "OTEL_SDK_DISABLED" to "false".
     # In our case, different from the standard, we want the tracing disabled by
     # default, so if the env variable is not set the noop implementation is used.
     os.environ["OTEL_SDK_DISABLED"] = "false"
@@ -420,6 +420,13 @@ def main():
             print(e, file=sys.stderr)  # Print the exception message
             print(traceback.format_exc(), file=sys.stderr)  # Print the traceback
             return 139  # This is what the default SIGSEGV handler on Linux returns
+        except SystemExit as e: # catch SystemExit so we can close gracefully
+            _exit_code = e.code if e.code is not None else 0
+            debug("Script exited with code %i", _exit_code)
+            # Print the traceback if _exit_code is non-zero
+            if _exit_code:
+                print(traceback.format_exc(), file=sys.stderr)
+            return _exit_code
 
     return run(argv0)
 
