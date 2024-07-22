@@ -50,7 +50,7 @@ let wait_for ~xs ?(timeout = 300.) (x : 'a t) =
       let thread =
         Thread.create
           (fun () ->
-            let r, _, _ = Unix.select [p1] [] [] timeout in
+            let r, _, _ = Xapi_stdext_unix.Unixext.select [p1] [] [] timeout in
             if r <> [] then
               ()
             else

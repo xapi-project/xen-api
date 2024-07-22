@@ -257,7 +257,7 @@ val domain_of_addr : string -> Unix.socket_domain option
 
 val test_open : int -> unit
 (** [test_open n] opens n file descriptors. This is useful for testing that the application makes no calls
-  to [Unix.select] that use file descriptors, because such calls will then immediately fail.
+  to [Xapi_stdext_unix.Unixext.select] that use file descriptors, because such calls will then immediately fail.
 
   This assumes that [ulimit -n] has been suitably increased in the test environment.
   

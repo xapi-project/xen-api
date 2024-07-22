@@ -12,6 +12,7 @@
     rpclib.json
     threads.posix
     xapi-stdext-threads
+    xapi-stdext-unix
   )
   (preprocess (per_module ((pps ppx_deriving_rpc) Protocol_unix_scheduler)))
 )

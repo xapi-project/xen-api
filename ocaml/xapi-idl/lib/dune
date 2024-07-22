@@ -32,6 +32,7 @@
    xapi-open-uri
    xapi-stdext-pervasives
    xapi-stdext-threads
+   xapi-stdext-unix
    xapi-inventory
    xmlm
  )
