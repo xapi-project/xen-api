@@ -149,6 +149,7 @@
     tar
     tar-unix
     threads.posix
+    tracing
     unixpwd
     uri
     uuid
@@ -234,6 +235,7 @@
     rpclib.xml
     stunnel
     threads.posix
+    tracing
     xapi-backtrace
     xapi-client
     xapi-consts

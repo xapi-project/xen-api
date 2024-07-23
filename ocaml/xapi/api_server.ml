@@ -1,8 +1,12 @@
 open Api_server_common
 module Server = Server.Make (Actions) (Forwarder)
 
+let ( let@ ) f x = f x
+
 (* This bit is called directly by the fake_rpc callback *)
 let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
+  let parent = Http_svr.traceparent_of_request req in
+  let@ span = Tracing.with_child_trace parent ~name:__FUNCTION__ in
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
@@ -20,7 +24,10 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   then
     forward req call is_json
   else
-    let response = Server.dispatch_call req fd call in
+    let response =
+      let@ _ = Tracing.with_child_trace span ~name:"Server.dispatch_call" in
+      Server.dispatch_call req fd call
+    in
     let translated =
       if
         is_json
@@ -85,15 +92,26 @@ let create_thumbprint_header req response =
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req bio _ =
+  let parent = Http_svr.traceparent_of_request req in
+  let@ span = Tracing.with_child_trace parent ~name:__FUNCTION__ in
   let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =
     Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req bio
   in
   try
-    let rpc = Xmlrpc.call_of_string body in
+    let rpc =
+      let attributes = [("size", string_of_int (String.length body))] in
+      let@ _ =
+        Tracing.with_child_trace ~attributes ~name:"Xmlrpc.call_of_string" span
+      in
+      Xmlrpc.call_of_string body
+    in
     let response = callback1 is_json req fd rpc in
     let response_str =
+      let@ _ =
+        Tracing.with_child_trace ~name:"Xmlrpc.string_of_response" span
+      in
       if rpc.Rpc.name = "system.listMethods" then
         let inner = Xmlrpc.to_string response.Rpc.contents in
         Printf.sprintf
@@ -129,6 +147,8 @@ let callback is_json req bio _ =
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req bio _ =
+  let parent = Http_svr.traceparent_of_request req in
+  let@ _ = Tracing.with_child_trace parent ~name:__FUNCTION__ in
   let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =

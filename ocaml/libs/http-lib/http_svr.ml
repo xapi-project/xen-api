@@ -43,6 +43,8 @@ module E = Debug.Make (struct let name = "http_internal_errors" end)
 
 let ( let* ) = Option.bind
 
+let ( let@ ) f x = f x
+
 type uri_path = string
 
 module Stats = struct
@@ -99,8 +101,18 @@ let response_of_request req hdrs =
     ~headers:(connection :: cache :: hdrs)
     "200" "OK"
 
+let traceparent_of_request req =
+  let open Tracing in
+  let ( let* ) = Option.bind in
+  let* traceparent = req.Http.Request.traceparent in
+  let* span_context = SpanContext.of_traceparent traceparent in
+  let span = Tracer.span_of_span_context span_context req.uri in
+  Some span
+
 let response_fct req ?(hdrs = []) s (response_length : int64)
     (write_response_to_fd_fn : Unix.file_descr -> unit) =
+  let parent = traceparent_of_request req in
+  let@ _ = Tracing.with_child_trace parent ~name:__FUNCTION__ in
   let res =
     {
       (response_of_request req hdrs) with
@@ -486,6 +498,8 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
     (None, None)
 
 let handle_one (x : 'a Server.t) ss context req =
+  let parent = traceparent_of_request req in
+  let@ span = Tracing.with_child_trace parent ~name:__FUNCTION__ in
   let ic = Buf_io.of_fd ss in
   let finished = ref false in
   try
@@ -499,6 +513,14 @@ let handle_one (x : 'a Server.t) ss context req =
       Option.value ~default:empty
         (Radix_tree.longest_prefix req.Request.uri method_map)
     in
+    let@ _ = Tracing.with_child_trace span ~name:"handler" in
+    let traceparent =
+      let open Tracing in
+      Option.map
+        (fun span -> Span.get_context span |> SpanContext.to_traceparent)
+        span
+    in
+    let req = {req with traceparent} in
     ( match te.TE.handler with
     | BufIO handlerfn ->
         handlerfn req ic context

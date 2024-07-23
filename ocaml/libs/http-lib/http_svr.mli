@@ -143,3 +143,5 @@ val https_client_of_req : Http.Request.t -> Ipaddr.t option
 val client_of_req_and_fd : Http.Request.t -> Unix.file_descr -> client option
 
 val string_of_client : client -> string
+
+val traceparent_of_request : Http.Request.t -> Tracing.Span.t option
