@@ -337,10 +337,7 @@ let rtc_timeoffset_of_vm ~__context (vm, vm_t) vbds =
            )
         )
 
-(* /boot/ contains potentially sensitive files like xen-initrd, only allow
-   directly booting guests from the subfolder /boot/guest/ *)
-let allowed_dom0_directories_for_boot_files =
-  ["/boot/guest/"; "/var/lib/xcp/guest/"]
+let allowed_dom0_directories_for_boot_files = ["/var/lib/xcp/guest/"]
 
 let kernel_path filename =
   let ( let* ) = Result.bind in
