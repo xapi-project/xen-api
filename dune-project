@@ -464,6 +464,16 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name message-switch-unix)
+  (synopsis "A simple store-and-forward message switch")
+  (description "The switch stores messages in queues with well-known names. Clients use a simple HTTP protocol to enqueue and dequeue messages.")
+  (depends
+    base-threads
+    cohttp
+    (message-switch-core (= :version))
+    ppx_deriving_rpc
+    rpclib
+    (xapi-stdext-threads (= :version))
+  )
 )
 
 (package
