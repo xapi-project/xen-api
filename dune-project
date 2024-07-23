@@ -67,7 +67,6 @@
   (synopsis "Xen-API client library for remotely-controlling a xapi host")
   (authors "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg")
   (depends
-   
    (alcotest :with-test)
    astring
    (cohttp (>= "0.22.0"))
@@ -188,7 +187,6 @@
   (description "This daemon monitors 'datasources' i.e. time-varying values such as performance counters and records the samples in RRD archives. These archives can be used to examine historical performance trends.")
   (depends
    (ocaml (>= "4.02.0"))
-   
    (alcotest :with-test)
    astring
    (gzip (= :version))
