@@ -151,6 +151,8 @@ end
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
+  let context trace_id span_id = {trace_id; span_id}
+
   let to_traceparent t = Printf.sprintf "00-%s-%s-01" t.trace_id t.span_id
 
   let of_traceparent traceparent =
@@ -623,6 +625,30 @@ module Tracer = struct
       in
       let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
+
+  let update_span_with_parent span (parent : Span.t option) =
+    if Atomic.get observe then
+      match parent with
+      | None ->
+          Some span
+      | Some parent ->
+          span
+          |> Spans.remove_from_spans
+          |> Option.map (fun existing_span ->
+                 let old_context = Span.get_context existing_span in
+                 let new_context : SpanContext.t =
+                   SpanContext.context
+                     (SpanContext.trace_id_of_span_context parent.context)
+                     old_context.span_id
+                 in
+                 let updated_span = {existing_span with parent= Some parent} in
+                 let updated_span = {updated_span with context= new_context} in
+
+                 let () = Spans.add_to_spans ~span:updated_span in
+                 updated_span
+             )
+    else
+      Some span
 
   let finish ?error span =
     Ok
