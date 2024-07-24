@@ -3771,7 +3771,7 @@ let put_bundle_handler (req : Request.t) s _ =
       Pool_features.assert_enabled ~__context ~f:Features.Updates ;
       let pool = Helpers.get_pool ~__context in
       Xapi_pool_helpers.with_pool_operation ~__context ~self:pool
-        ~doc:"pool.sync_updates" ~op:`sync_updates
+        ~doc:"pool.sync_bundle" ~op:`sync_bundle
       @@ fun () ->
       Http_svr.headers s (Http.http_200_ok ()) ;
       let repo =

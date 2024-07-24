@@ -36,6 +36,7 @@ let blocking_ops =
   ; (`tls_verification_enable, Api_errors.tls_verification_enable_in_progress)
   ; (`configure_repositories, Api_errors.configure_repositories_in_progress)
   ; (`sync_updates, Api_errors.sync_updates_in_progress)
+  ; (`sync_bundle, Api_errors.sync_bundle_in_progress)
   ; (`apply_updates, Api_errors.apply_updates_in_progress)
   ]
 

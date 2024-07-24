@@ -1920,6 +1920,11 @@ let _ =
       "The operation could not be performed because syncing updates is in \
        progress."
     () ;
+  error Api_errors.sync_bundle_in_progress []
+    ~doc:
+      "The operation could not be performed because syncing bundle is in \
+       progress."
+    () ;
   error Api_errors.reposync_failed []
     ~doc:"Syncing with remote YUM repository failed." () ;
   error Api_errors.invalid_repomd_xml [] ~doc:"The repomd.xml is invalid." () ;

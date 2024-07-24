@@ -1334,6 +1334,8 @@ let multiple_update_repositories_enabled =
 
 let sync_updates_in_progress = add_error "SYNC_UPDATES_IN_PROGRESS"
 
+let sync_bundle_in_progress = add_error "SYNC_BUNDLE_IN_PROGRESS"
+
 let reposync_failed = add_error "REPOSYNC_FAILED"
 
 let createrepo_failed = add_error "CREATEREPO_FAILED"
