@@ -25,7 +25,7 @@ let pp_write_error = Mirage_block.pp_write_error
 
 type info = Mirage_block.info
 
-type t = {mutable vhd: IO.fd Vhd_format.F.Vhd.t option; info: info; id: string}
+type t = {mutable vhd: IO.fd Vhd_format.F.Vhd.t option; info: info}
 
 let connect path =
   Lwt_unix.LargeFile.stat path >>= fun _ ->
@@ -38,8 +38,7 @@ let connect path =
   let sector_size = 512 in
   let size_sectors = Int64.div vhd.Vhd.footer.Footer.current_size 512L in
   let info = Mirage_block.{read_write; sector_size; size_sectors} in
-  let id = path in
-  return {vhd= Some vhd; info; id}
+  return {vhd= Some vhd; info}
 
 let disconnect t =
   match t.vhd with
