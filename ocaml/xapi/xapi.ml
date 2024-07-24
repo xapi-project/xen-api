@@ -858,6 +858,7 @@ let common_http_handlers () =
       , Http_svr.FdIO Xapi_pool_update.pool_update_download_handler
       )
     ; ("get_host_updates", Http_svr.FdIO Xapi_host.get_host_updates_handler)
+    ; ("put_bundle", Http_svr.FdIO Xapi_pool.put_bundle_handler)
     ]
   in
   if !Xapi_globs.disable_webserver then

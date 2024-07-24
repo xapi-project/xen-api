@@ -25,6 +25,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 open Network
+open Http
 
 module L = Debug.Make (struct let name = "license" end)
 
@@ -3347,10 +3348,30 @@ let enable_tls_verification ~__context =
   | Some self ->
       Xapi_cluster_host.set_tls_config ~__context ~self ~verify:true
 
+let contains_bundle_repo ~__context ~repos =
+  List.exists
+    (fun repo -> Db.Repository.get_origin ~__context ~self:repo = `bundle)
+    repos
+
+let assert_single_bundle_repo_can_be_enabled ~__context ~repos =
+  if List.length repos > 1 && contains_bundle_repo ~__context ~repos then
+    raise Api_errors.(Server_error (bundle_repo_should_be_single_enabled, []))
+
+let assert_not_bundle_repo ~__context ~repos =
+  if contains_bundle_repo ~__context ~repos then
+    raise Api_errors.(Server_error (can_not_sync_updates, []))
+
+let disable_auto_update_sync_for_bundle_repo ~__context ~self ~repos =
+  if contains_bundle_repo ~__context ~repos then (
+    Pool_periodic_update_sync.set_enabled ~__context ~value:false ;
+    Db.Pool.set_update_sync_enabled ~__context ~self ~value:false
+  )
+
 let set_repositories ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.set_repositories" ~op:`configure_repositories
   @@ fun () ->
+  assert_single_bundle_repo_can_be_enabled ~__context ~repos:value ;
   let existings = Db.Pool.get_repositories ~__context ~self in
   (* To be removed *)
   List.iter
@@ -3373,7 +3394,8 @@ let set_repositories ~__context ~self ~value =
     value ;
   Db.Pool.set_repositories ~__context ~self ~value ;
   if Db.Pool.get_repositories ~__context ~self = [] then
-    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
+    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch ;
+  disable_auto_update_sync_for_bundle_repo ~__context ~self ~repos:value
 
 let add_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
@@ -3381,11 +3403,15 @@ let add_repository ~__context ~self ~value =
   @@ fun () ->
   let existings = Db.Pool.get_repositories ~__context ~self in
   if not (List.mem value existings) then (
+    assert_single_bundle_repo_can_be_enabled ~__context
+      ~repos:(value :: existings) ;
     Db.Pool.add_repositories ~__context ~self ~value ;
     Db.Repository.set_hash ~__context ~self:value ~value:"" ;
     Repository.reset_updates_in_cache () ;
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
-  )
+  ) ;
+  disable_auto_update_sync_for_bundle_repo ~__context ~self
+    ~repos:(value :: existings)
 
 let remove_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
@@ -3403,13 +3429,9 @@ let remove_repository ~__context ~self ~value =
   if Db.Pool.get_repositories ~__context ~self = [] then
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
 
-let sync_updates ~__context ~self ~force ~token ~token_id =
-  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
+let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
   let open Repository in
-  Xapi_pool_helpers.with_pool_operation ~__context ~self
-    ~doc:"pool.sync_updates" ~op:`sync_updates
-  @@ fun () ->
-  Repository_helpers.get_enabled_repositories ~__context
+  repos
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
          sync ~__context ~self:repo ~token ~token_id ;
@@ -3421,6 +3443,15 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
   let checksum = set_available_updates ~__context in
   Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
   checksum
+
+let sync_updates ~__context ~self ~force ~token ~token_id =
+  Pool_features.assert_enabled ~__context ~f:Features.Updates ;
+  Xapi_pool_helpers.with_pool_operation ~__context ~self
+    ~doc:"pool.sync_updates" ~op:`sync_updates
+  @@ fun () ->
+  let repos = Repository_helpers.get_enabled_repositories ~__context in
+  assert_not_bundle_repo ~__context ~repos ;
+  sync_repos ~__context ~self ~repos ~force ~token ~token_id
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
@@ -3696,9 +3727,15 @@ let configure_update_sync ~__context ~self ~update_sync_frequency
     Pool_periodic_update_sync.set_enabled ~__context ~value:true
 
 let set_update_sync_enabled ~__context ~self ~value =
-  if value && Db.Pool.get_repositories ~__context ~self = [] then (
-    error "Cannot enable automatic update syncing if there are no repositories." ;
-    raise Api_errors.(Server_error (no_repositories_configured, []))
+  ( if value then
+      match Db.Pool.get_repositories ~__context ~self with
+      | [] ->
+          error
+            "Cannot enable automatic update syncing if there are no \
+             repositories." ;
+          raise Api_errors.(Server_error (no_repositories_configured, []))
+      | repos ->
+          assert_not_bundle_repo ~__context ~repos
   ) ;
   Pool_periodic_update_sync.set_enabled ~__context ~value ;
   Db.Pool.set_update_sync_enabled ~__context ~self ~value
@@ -3722,3 +3759,52 @@ let get_guest_secureboot_readiness ~__context ~self:_ =
       `ready_no_dbx
   | _, _, _, _ ->
       `not_ready
+
+let put_bundle_handler (req : Request.t) s _ =
+  req.Request.close <- true ;
+  Xapi_http.with_context "Sync bundle" req s (fun __context ->
+      (* This is the signal to say we've taken responsibility from the CLI server
+         for completing the task *)
+      (* The GUI can deal with this itself, but the CLI is complicated by the thin
+         cli/cli server split *)
+      TaskHelper.set_progress ~__context 0.0 ;
+      Pool_features.assert_enabled ~__context ~f:Features.Updates ;
+      let pool = Helpers.get_pool ~__context in
+      Xapi_pool_helpers.with_pool_operation ~__context ~self:pool
+        ~doc:"pool.sync_updates" ~op:`sync_updates
+      @@ fun () ->
+      Http_svr.headers s (Http.http_200_ok ()) ;
+      let repo =
+        Repository_helpers.get_single_enabled_update_repository ~__context
+      in
+      match Db.Repository.get_origin ~__context ~self:repo with
+      | `bundle -> (
+          let result =
+            Tar_ext.unpack_tar_file
+              ~dir:!Xapi_globs.bundle_repository_dir
+              ~ifd:s
+              ~max_size_limit:!Xapi_globs.bundle_max_size_limit
+          in
+          match result with
+          | Ok () ->
+              TaskHelper.set_progress ~__context 0.8 ;
+              finally
+                (fun () ->
+                  sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
+                    ~token:"" ~token_id:""
+                  |> ignore
+                )
+                (fun () -> Unixext.rm_rec !Xapi_globs.bundle_repository_dir)
+          | Error e ->
+              error "%s: Failed to unpack bundle with error %s" __FUNCTION__
+                (Tar_ext.unpack_error_to_string e) ;
+              TaskHelper.failed ~__context
+                Api_errors.(
+                  Server_error
+                    (bundle_unpack_failed, [Tar_ext.unpack_error_to_string e])
+                ) ;
+              Http_svr.headers s (Http.http_400_badrequest ())
+        )
+      | `remote ->
+          raise Api_errors.(Server_error (bundle_repo_not_enabled, []))
+  )

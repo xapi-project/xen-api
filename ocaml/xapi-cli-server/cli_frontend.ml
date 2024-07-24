@@ -3091,6 +3091,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-sync-bundle"
+    , {
+        reqd= ["filename"]
+      ; optn= []
+      ; help=
+          "Upload and unpack a bundle file, after that, sync the bundle \
+           repository."
+      ; implementation= With_fd Cli_operations.pool_sync_bundle
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []

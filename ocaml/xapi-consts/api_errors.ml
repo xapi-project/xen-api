@@ -1311,6 +1311,18 @@ let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"
 
+let bundle_repository_already_exists =
+  add_error "BUNDLE_REPOSITORY_ALREADY_EXISTS"
+
+let bundle_unpack_failed = add_error "BUNDLE_UNPACK_FAILED"
+
+let bundle_repo_not_enabled = add_error "BUNDLE_REPO_NOT_ENABLED"
+
+let can_not_sync_updates = add_error "CAN_NOT_SYNC_UPDATES"
+
+let bundle_repo_should_be_single_enabled =
+  add_error "BUNDLE_REPO_SHOULD_BE_SINGLE_ENABLED"
+
 let repository_is_in_use = add_error "REPOSITORY_IS_IN_USE"
 
 let repository_cleanup_failed = add_error "REPOSITORY_CLEANUP_FAILED"

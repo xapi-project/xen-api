@@ -6769,6 +6769,36 @@ let pool_get_guest_secureboot_readiness printer rpc session_id params =
        (Record_util.pool_guest_secureboot_readiness_to_string result)
     )
 
+let pool_sync_bundle fd _printer rpc session_id params =
+  let filename_opt = List.assoc_opt "filename" params in
+  match filename_opt with
+  | Some filename ->
+      let make_command task_id =
+        let master = get_master ~rpc ~session_id in
+        let master_address =
+          Client.Host.get_address ~rpc ~session_id ~self:master
+        in
+        let uri =
+          Uri.(
+            make ~scheme:"http" ~host:master_address
+              ~path:Constants.put_bundle_uri
+              ~query:
+                [
+                  ("session_id", [Ref.string_of session_id])
+                ; ("task_id", [Ref.string_of task_id])
+                ]
+              ()
+            |> to_string
+          )
+        in
+        debug "%s: requesting HttpPut('%s','%s')" __FUNCTION__ filename uri ;
+        HttpPut (filename, uri)
+      in
+      ignore
+        (track_http_operation fd rpc session_id make_command "upload bundle")
+  | None ->
+      failwith "Required parameter not found: filename"
+
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let op _ host =
