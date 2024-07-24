@@ -1,21 +1,22 @@
 include ../config.mk
 
-IPROG=install -m 755
-IDATA=install -m 644
+# To replace strings in *.service like: @OPTDIR@ -> ${OPTDIR}
+IPROG=../scripts/install.sh 755
+IDATA=../scripts/install.sh 644
 
 SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
 DNF_PLUGIN_DIR=dnf-plugins
 
 install:
 	# Create destination directories using install -m 755 -d:
-	$(IPROG) -d $(DESTDIR)$(OPTDIR)/bin
-	$(IPROG) -d $(DESTDIR)$(SITE3_DIR)
-	$(IPROG) -d $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) -d $(DESTDIR)$(PLUGINDIR)
-	$(IPROG) -d $(DESTDIR)/etc/sysconfig
-	$(IPROG) -d $(DESTDIR)/usr/lib/systemd/system
-	$(IPROG) -d $(DESTDIR)$(EXTENSIONDIR)
-	$(IPROG) -d $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)
+	install -m 755 -d $(DESTDIR)$(OPTDIR)/bin
+	install -m 755 -d $(DESTDIR)$(SITE3_DIR)
+	install -m 755 -d $(DESTDIR)$(LIBEXECDIR)
+	install -m 755 -d $(DESTDIR)$(PLUGINDIR)
+	install -m 755 -d $(DESTDIR)/etc/sysconfig
+	install -m 755 -d $(DESTDIR)/usr/lib/systemd/system
+	install -m 755 -d $(DESTDIR)$(EXTENSIONDIR)
+	install -m 755 -d $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)
 
 	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
