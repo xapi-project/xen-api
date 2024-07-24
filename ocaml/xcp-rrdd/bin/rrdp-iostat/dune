@@ -6,7 +6,7 @@
   (libraries
     astring
     cstruct
-    dune-build-info
+    
     ezxenstore.core
     inotify
     mtime

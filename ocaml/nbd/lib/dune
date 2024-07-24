@@ -1,10 +1,12 @@
 (library
  (name consts)
+ (modes best)
  (modules consts)
 )
 
 (library
  (name local_xapi_session)
+ (modes best)
  (modules local_xapi_session)
  (libraries
   consts
@@ -19,6 +21,7 @@
 
 (library
  (name vbd_store)
+ (modes best)
  (libraries
   lwt
   lwt_log

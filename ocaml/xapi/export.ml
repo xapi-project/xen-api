@@ -829,7 +829,7 @@ let metadata_handler (req : Request.t) s _ =
             Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
             @ [
                 Http.Hdr.task_id ^ ": " ^ task_id
-              ; "Server: " ^ Constants.xapi_user_agent
+              ; "Server: " ^ Xapi_version.xapi_user_agent
               ; content_type
               ; "Content-Length: " ^ string_of_int content_length
               ; "Content-Disposition: attachment; filename=\"export.xva\""
@@ -944,7 +944,7 @@ let handler (req : Request.t) s _ =
                   Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
                   @ [
                       Http.Hdr.task_id ^ ": " ^ task_id
-                    ; "Server: " ^ Constants.xapi_user_agent
+                    ; "Server: " ^ Xapi_version.xapi_user_agent
                     ; content_type
                     ; "Content-Disposition: attachment; filename=\"export.xva\""
                     ]

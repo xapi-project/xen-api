@@ -16,7 +16,7 @@ module T = Test_common
 
 let test_associate_vm_with_vm_group () =
   let __context = T.make_test_database () in
-  let rpc, session_id = Test_common.make_client_params ~__context in
+  let rpc, session_id = Test_client.make_client_params ~__context in
   let vm1 = T.make_vm ~__context () in
   let vm2 = T.make_vm ~__context () in
   let vm3 = T.make_vm ~__context () in
@@ -34,7 +34,7 @@ let test_associate_vm_with_vm_group () =
 
 let test_vm_can_only_belong_to_one_group () =
   let __context = T.make_test_database () in
-  let rpc, session_id = Test_common.make_client_params ~__context in
+  let rpc, session_id = Test_client.make_client_params ~__context in
   let vm = T.make_vm ~__context () in
   let vm_group1 = T.make_vm_group ~__context ~placement:`anti_affinity () in
   let vm_group2 = T.make_vm_group ~__context ~placement:`anti_affinity () in

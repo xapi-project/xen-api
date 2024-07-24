@@ -3,7 +3,7 @@
     (ocamlopt_flags (:standard -g -p -w -39))
     (flags (:standard -w -39))
   )
-  (dev (flags (:standard -g -w -39)))
+  (dev (flags (:standard -g -w -39 -warn-error -69)))
   (release
     (flags (:standard -w -39-6@5))
     (env-vars (ALCOTEST_COMPACT 1))

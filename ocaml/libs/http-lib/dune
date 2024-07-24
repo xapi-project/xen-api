@@ -60,7 +60,7 @@
   (modules http_test radix_tree_test)
   (libraries
     alcotest
-    dune-build-info
+    
     fmt
     http_lib
   )
@@ -97,7 +97,7 @@
   (name test_client)
   (modules test_client)
   (libraries
-    dune-build-info
+    
     http_lib
     safe-resources
     stunnel
@@ -112,7 +112,7 @@
   (name test_server)
   (modules test_server)
   (libraries
-    dune-build-info
+    
     http_lib
     httpsvr
     safe-resources

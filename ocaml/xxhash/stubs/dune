@@ -10,6 +10,7 @@
 
 (library
   (name xxhash_bindings)
+  (modes best)
   (libraries
     ctypes
     ctypes.stubs
