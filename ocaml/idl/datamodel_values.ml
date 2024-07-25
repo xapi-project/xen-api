@@ -80,7 +80,7 @@ let to_ocaml_string v =
   in
   aux (to_rpc v)
 
-let rec to_db v =
+let to_db v =
   let open Schema.Value in
   match v with
   | VString s ->

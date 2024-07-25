@@ -41,7 +41,7 @@ module HandleMap = Map.Make (struct
       c
 end)
 
-type item = {id: int; name: string; fn: unit -> unit}
+type item = {name: string; fn: unit -> unit}
 
 type t = {
     mutable schedule: item HandleMap.t
@@ -88,7 +88,7 @@ let one_shot_f s dt (name : string) f =
   with_lock s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
-      let item = {id; name; fn= f} in
+      let item = {name; fn= f} in
       let handle = (time, id) in
       s.schedule <- HandleMap.add handle item s.schedule ;
       PipeDelay.signal s.delay ;

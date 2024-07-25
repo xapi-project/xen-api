@@ -28,7 +28,7 @@ val with_connect :
   -> (Stunnel.t -> 'b)
   -> 'b
 (** Connects via stunnel (optionally via an external 'fork/exec helper') to
-    a host and port. If there is a suitable stunnel in the cache then this 
+    a host and port. If there is a suitable stunnel in the cache then this
     will be used, otherwise we make a fresh one. *)
 
 val add : Stunnel.t -> unit
@@ -37,7 +37,6 @@ val add : Stunnel.t -> unit
 val with_remove :
      host:string (** host *)
   -> port:int (** port *)
-  -> Stunnel.verification_config option
   -> (Stunnel.t -> 'b)
   -> 'b option
 (** Given a host and port call a function with a cached stunnel, or return None. *)

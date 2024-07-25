@@ -19,7 +19,7 @@ open D
 type endpoint = {
     fdin: Unix.file_descr
   ; fdout: Unix.file_descr
-  ; mutable buffer: bytes
+  ; buffer: bytes
   ; mutable buffer_len: int
 }
 

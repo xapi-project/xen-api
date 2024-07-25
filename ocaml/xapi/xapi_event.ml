@@ -117,17 +117,12 @@ module Next = struct
   let highest_forgotten_id = ref (-1L)
 
   type subscription = {
-      mutable last_id: int64
-    ; (* last event ID to sent to this client *)
-      mutable subs: Subscription.t list
-    ; (* list of all the subscriptions *)
-      m: Mutex.t
-    ; (* protects access to the mutable fields in this record *)
-      session: API.ref_session
-    ; (* session which owns this subscription *)
-      mutable session_invalid: bool
-    ; (* set to true if the associated session has been deleted *)
-      mutable timeout: float (* Timeout *)
+      mutable last_id: int64  (** last event ID to sent to this client *)
+    ; mutable subs: Subscription.t list  (** all the subscriptions *)
+    ; m: Mutex.t  (** protects access to the mutable fields in this record *)
+    ; session: API.ref_session  (** session which owns this subscription *)
+    ; mutable session_invalid: bool
+          (** set to true if the associated session has been deleted *)
   }
 
   (* For Event.next, the single subscription associated with a session *)
@@ -235,7 +230,6 @@ module Next = struct
               ; m= Mutex.create ()
               ; session
               ; session_invalid= false
-              ; timeout= 0.0
               }
             in
             Hashtbl.replace subscriptions session subscription ;
