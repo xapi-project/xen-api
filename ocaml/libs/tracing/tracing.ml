@@ -519,8 +519,8 @@ module TracerProvider = struct
       get_tracer_providers_unlocked
 
   let set ?enabled ?attributes ?endpoints ~uuid () =
-    let update_provider (provider : t) ?(enabled = provider.enabled) attributes
-        endpoints =
+    let update_provider (provider : t) enabled attributes endpoints =
+      let enabled = Option.value ~default:provider.enabled enabled in
       let attributes : string Attributes.t =
         Option.fold ~none:provider.attributes ~some:Attributes.of_list
           attributes
@@ -537,7 +537,7 @@ module TracerProvider = struct
         let provider =
           match Hashtbl.find_opt tracer_providers uuid with
           | Some (provider : t) ->
-              update_provider provider ?enabled attributes endpoints
+              update_provider provider enabled attributes endpoints
           | None ->
               fail "The TracerProvider : %s does not exist" uuid
         in
@@ -672,6 +672,13 @@ let with_tracing ?(attributes = []) ?(parent = None) ~name f =
         f None
   ) else
     f None
+
+let with_child_trace ?attributes parent ~name f =
+  match parent with
+  | None ->
+      f None
+  | Some _ as parent ->
+      with_tracing ?attributes ~parent ~name f
 
 module EnvHelpers = struct
   let traceparent_key = "TRACEPARENT"

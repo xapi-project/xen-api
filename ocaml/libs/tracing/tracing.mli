@@ -199,6 +199,15 @@ val with_tracing :
   -> (Span.t option -> 'a)
   -> 'a
 
+val with_child_trace :
+     ?attributes:(string * string) list
+  -> Span.t option
+  -> name:string
+  -> (Span.t option -> 'a)
+  -> 'a
+(** [with_child_trace ?attributes ?parent ~name f] is like {!val:with_tracing}, but
+  only creates a span if the [parent] span exists. *)
+
 val get_observe : unit -> bool
 
 val validate_attribute : string * string -> bool
