@@ -1,7 +1,7 @@
 (library
   (name clock)
-  (public_name clock)
   (modules date timer)
+  (package xapi-stdext-date)
   (libraries
     fmt
     (re_export mtime)
@@ -13,7 +13,7 @@
 
 (tests
   (names test_date test_timer)
-  (package clock)
+  (package xapi-stdext-date)
   (modules test_date test_timer)
   (libraries alcotest clock fmt mtime mtime.clock.os ptime qcheck-core qcheck-core.runner)
 )

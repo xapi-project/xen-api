@@ -20,19 +20,6 @@
 
 
 (package
-  (name clock)
-  (synopsis "Xapi's library for managing time")
-  (authors "Jonathan Ludlam" "Pau Ruiz Safont")
-  (depends
-    (ocaml (>= 4.12))
-    (alcotest :with-test)
-    astring
-    mtime
-    ptime
-  )
-)
-
-(package
   (name xapi-rrdd-plugin)
 )
 
@@ -548,7 +535,6 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Dates")
   (authors "Jonathan Ludlam")
   (depends
-    (clock (= :version))
     ptime
   )
 )
