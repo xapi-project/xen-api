@@ -57,6 +57,7 @@
 (library
   (name xapi_internal_minimal)
   (modules context custom_actions xapi_globs server_helpers session_check rbac rbac_audit db_actions taskHelper eventgen locking_helpers exnHelper rbac_static xapi_role xapi_extensions db)
+  (modes best)
   (wrapped false)
   (libraries
     http_lib
@@ -65,7 +66,7 @@
     xapi-types
     xapi_database
     mtime
-    tracing 
+    tracing
     uuid
     rpclib.core
     threads.posix
