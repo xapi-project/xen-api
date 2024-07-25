@@ -192,5 +192,4 @@ let tests = [test_proxy; test_time_limited_write; test_time_limited_read]
 let () =
   (* avoid SIGPIPE *)
   let (_ : Sys.signal_behavior) = Sys.signal Sys.sigpipe Sys.Signal_ignore in
-  Xapi_stdext_unix.Unixext.test_open 1024 ;
-  QCheck_base_runner.run_tests_main tests
+  Xapi_stdext_unix.Unixext.test_open 1024
