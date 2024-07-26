@@ -29,6 +29,8 @@
     astring
     mtime
     ptime
+    (qcheck-core :with-test)
+    (qcheck-alcotest :with-test)
   )
 )
 

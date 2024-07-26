@@ -95,7 +95,7 @@ ocamlyacc () {
 
 
 unixgetenv () {
-  N=1
+  N=0
   UNIXGETENV=$(git grep -P -r -o --count 'getenv(?!_opt)' -- **/*.ml | wc -l)
   if [ "$UNIXGETENV" -eq "$N" ]; then
     echo "OK found $UNIXGETENV usages of exception-raising Unix.getenv in OCaml files."
