@@ -57,6 +57,8 @@ let args =
   ; flag "yumplugindir" ~doc:"DIR YUM plugins" ~default:"/usr/lib/yum-plugins"
   ; flag "yumpluginconfdir" ~doc:"DIR YUM plugins conf dir"
       ~default:"/etc/yum/pluginconf.d"
+  ; flag "xapi_api_version_major" ~doc:"xapi api major version" ~default:"2"
+  ; flag "xapi_api_version_minor" ~doc:"xapi api minor version" ~default:"21"
   ]
   |> Arg.align
 
@@ -84,7 +86,7 @@ let () =
   in
   List.iter print_endline lines ;
   (* Expand @LIBEXEC@ in udev rules *)
-  match Hashtbl.find_opt config "XENOPSD_LIBEXECDIR" with
+  ( match Hashtbl.find_opt config "XENOPSD_LIBEXECDIR" with
   | Some xenopsd_libexecdir ->
       expand "@LIBEXEC@" xenopsd_libexecdir "ocaml/xenopsd/scripts/vif.in"
         "ocaml/xenopsd/scripts/vif" ;
@@ -93,3 +95,17 @@ let () =
         "ocaml/xenopsd/scripts/xen-backend.rules"
   | None ->
       failwith "xenopsd_libexecdir not set"
+  ) ;
+
+  match
+    ( Hashtbl.find_opt config "XAPI_API_VERSION_MAJOR"
+    , Hashtbl.find_opt config "XAPI_API_VERSION_MINOR"
+    )
+  with
+  | Some xapi_api_version_major, Some xapi_api_version_minor ->
+      expand "@APIVERMAJ@" xapi_api_version_major "ocaml/idl/api_version.ml.in"
+        "ocaml/idl/api_version.ml.in2" ;
+      expand "@APIVERMIN@" xapi_api_version_minor "ocaml/idl/api_version.ml.in2"
+        "ocaml/idl/api_version.ml"
+  | _, _ ->
+      failwith "xapi_api_version_major or xapi_api_version_minor not set"
