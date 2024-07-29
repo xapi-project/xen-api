@@ -62,8 +62,12 @@ let delay_of_size total_delay size =
   let open Gen in
   let* every_bytes = if size = 0 then return 1 else 1 -- size in
   let chunks = max 1 (size / every_bytes) in
-  let duration = total_delay /. float_of_int chunks |> span_of_s in
-  return @@ Some (Delay.v ~every_bytes ~duration)
+  let duration = total_delay /. float_of_int chunks in
+  if duration < 1e-6 then
+    return None
+  else
+    let duration = duration |> span_of_s in
+    return @@ Some (Delay.v ~every_bytes ~duration)
 
 let t =
   let open Gen in

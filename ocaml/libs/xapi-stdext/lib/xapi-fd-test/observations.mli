@@ -109,6 +109,9 @@ module Delay : sig
     Note that the time taken to send or receive [after_bytes] is not taken into account to guarantee the insertion of the delay.
   *)
 
+  val every_bytes : t -> int
+  (** [every_bytes t] is how often delays are inserted *)
+
   val apply_read :
        CancellableSleep.t
     -> t

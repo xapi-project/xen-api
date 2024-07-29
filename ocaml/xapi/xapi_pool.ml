@@ -18,6 +18,8 @@ module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
 module Xstringext = Xapi_stdext_std.Xstringext
 
+module Pkgs = (val Pkg_mgr.get_pkg_mgr)
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -1425,7 +1427,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
       Client.Session.login_with_password ~rpc:unverified_rpc
         ~uname:master_username ~pwd:master_password
         ~version:Datamodel_common.api_version_string
-        ~originator:Constants.xapi_user_agent
+        ~originator:Xapi_version.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error
@@ -1464,7 +1466,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
     try
       Client.Session.login_with_password ~rpc ~uname:master_username
         ~pwd:master_password ~version:Datamodel_common.api_version_string
-        ~originator:Constants.xapi_user_agent
+        ~originator:Xapi_version.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error
@@ -3411,7 +3413,10 @@ let sync_updates ~__context ~self ~force ~token ~token_id =
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
          sync ~__context ~self:repo ~token ~token_id ;
-         create_pool_repository ~__context ~self:repo
+         (* Dnf sync all the metadata including updateinfo,
+          * Thus no need to re-create pool repository *)
+         if Pkgs.manager = Yum then
+           create_pool_repository ~__context ~self:repo
      ) ;
   let checksum = set_available_updates ~__context in
   Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;

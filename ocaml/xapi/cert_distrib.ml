@@ -94,13 +94,12 @@ module WireProtocol = struct
   let certificate_file_of_pair (filename, content) = {filename; content}
 end
 
-let raise_internal ?e ?details msg : 'a =
+let raise_internal ?e ?(details = "") msg : 'a =
   let e =
     Option.fold ~none:""
       ~some:(fun e -> e |> Printexc.to_string |> Printf.sprintf "exception: %s")
       e
   in
-  let details = Option.value ~default:"" details in
   [msg; details; e] |> String.concat ". " |> D.error "%s" ;
   raise Api_errors.(Server_error (internal_error, [msg]))
 

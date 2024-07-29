@@ -92,25 +92,26 @@ let get_record ~__context ~self =
     ~static_fn:(fun static_record -> get_api_record ~static_record)
     ~db_fn:(fun ~__context ~self -> Db.Role.get_record ~__context ~self)
 
-(*    val get_all_records_where : __context:Context.t -> expr:string -> ref_role_to_role_t_map*)
 let expr_no_permissions = "subroles<>[]"
 
 let expr_only_permissions = "subroles=[]"
 
-let get_all_records_where ~__context ~expr =
+let get_common_where ~__context ~expr ~f =
   if expr = expr_no_permissions then (* composite role, ie. not a permission *)
-    List.map
-      (fun r -> (ref_of_role ~role:r, get_api_record ~static_record:r))
-      Rbac_static.all_static_roles
+    List.map f Rbac_static.all_static_roles
   else if expr = expr_only_permissions then
     (* composite role, ie. a permission *)
-    List.map
-      (fun r -> (ref_of_role ~role:r, get_api_record ~static_record:r))
-      Rbac_static.all_static_permissions
+    List.map f Rbac_static.all_static_permissions
   else (* anything in this table, ie. roles+permissions *)
-    List.map
-      (fun r -> (ref_of_role ~role:r, get_api_record ~static_record:r))
-      get_all_static_roles
+    List.map f get_all_static_roles
+
+let get_all_where ~__context ~expr =
+  let f r = ref_of_role ~role:r in
+  get_common_where ~__context ~expr ~f
+
+let get_all_records_where ~__context ~expr =
+  let f r = (ref_of_role ~role:r, get_api_record ~static_record:r) in
+  get_common_where ~__context ~expr ~f
 
 (*@ (* concatenate with Db table *)
   			(* TODO: this line is crashing for some unknown reason, but not needed in RBAC 1 *)

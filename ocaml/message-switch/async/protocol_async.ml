@@ -72,7 +72,7 @@ module M = struct
       | Ok (_, reader, writer) ->
           return (reader, writer)
     in
-    retry 1.
+    retry 0.5
 
   let disconnect (_, writer) = Writer.close writer
 

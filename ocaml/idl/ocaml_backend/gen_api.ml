@@ -412,7 +412,6 @@ let gen_client_types highapi =
        ; gen_record_type ~with_module:true highapi
            (toposort_types highapi all_types)
        ; gen_enum_helpers all_types
-       ; O.Signature.strings_of (Gen_client.gen_signature highapi)
        ]
     )
 

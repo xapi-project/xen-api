@@ -1,7 +1,8 @@
 (library
  (name xapi_guard_server)
  (modules server_interface)
- (libraries
+ (modes best)
+(libraries
   cohttp
   cohttp-lwt
   cohttp-lwt-unix
@@ -51,4 +52,4 @@
   xapi-idl.guard.privileged
   xapi-idl.guard.varstored
  )
- (preprocess (pps ppx_deriving_rpc)))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Types Varstored_interface))))

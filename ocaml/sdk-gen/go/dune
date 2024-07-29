@@ -14,6 +14,7 @@
 (library
   (name gen_go_helper)
   (modules gen_go_helper)
+  (modes best)
   (libraries
     CommonFunctions
     astring

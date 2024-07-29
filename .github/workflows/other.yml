@@ -79,6 +79,7 @@ jobs:
           --cov-report xml:.git/coverage${{matrix.python-version}}.xml
         env:
           PYTHONDEVMODE: yes
+          PYTHONPATH: "python3:python3/tests/stubs"
 
       - name: Upload coverage report to Coveralls
         uses: coverallsapp/github-action@v2

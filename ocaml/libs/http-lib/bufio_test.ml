@@ -21,7 +21,30 @@ let test_buf_io =
   let gen = Gen.tup2 Generate.t timeouts
   and print = Print.tup2 Generate.print print_timeout in
   Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
+  let every_bytes =
+    Int.min
+      (Option.map Observations.Delay.every_bytes behaviour.delay_read
+      |> Option.value ~default:Int.max_int
+      )
+      (Option.map Observations.Delay.every_bytes behaviour.delay_write
+      |> Option.value ~default:Int.max_int
+      )
+  in
+  let operations = Int.max 1 (behaviour.size / every_bytes) in
+  (* Buf_io uses per-operation timeouts, not a timeout for the whole function,
+     so if we want a timeout of 0.1s and we insert some delays every 1 byte,
+     for 64KiB bytes in total, then we need 0.1/65536 timeout for individual operations.
+
+     timeout_span remains the span for the entire function,
+     and timeout the per operation timeout that we'll pass to the function under test.
+  *)
   let timeout_span = Mtime.Span.of_float_ns (timeout *. 1e9) |> Option.get in
+  let timeout = timeout /. float operations in
+  let timeout_operation_span =
+    Mtime.Span.of_float_ns (timeout *. 1e9) |> Option.get
+  in
+  (* timeout < 1us would get truncated to 0 *)
+  QCheck2.assume (timeout > 1e-6) ;
   (* Format.eprintf "Testing %s@." (print (behaviour, timeout)); *)
   if behaviour.kind <> Unix.S_SOCK then
     QCheck2.assume_fail () ;
@@ -59,7 +82,7 @@ let test_buf_io =
         expect_string ~expected:write.data ~actual
     | {write= Some _; _}, Error (`Exn_trap (Buf_io.Timeout, _)) ->
         let elapsed = !test_elapsed in
-        if Mtime.Span.compare elapsed timeout_span < 0 then
+        if Mtime.Span.compare elapsed timeout_operation_span < 0 then
           Test.fail_reportf "Timed out earlier than requested: %a < %a"
             Mtime.Span.pp elapsed Mtime.Span.pp timeout_span
     | ( {write= Some write; _}

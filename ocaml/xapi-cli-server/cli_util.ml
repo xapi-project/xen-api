@@ -165,10 +165,11 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
           debug "result was [%s]" result ;
           result
         ) else
-          let params =
-            Client.Task.get_error_info ~rpc ~session_id ~self:task_id
-          in
-          raise (Api_errors.Server_error (List.hd params, List.tl params))
+          match Client.Task.get_error_info ~rpc ~session_id ~self:task_id with
+          | [] ->
+              raise Api_errors.(Server_error (internal_error, []))
+          | err :: params ->
+              raise Api_errors.(Server_error (err, params))
       else (
         debug "client-side reports failure" ;
         (* Debug info might have been written into the task, let's see if there is some *)
@@ -180,13 +181,11 @@ let track_http_operation ?use_existing_task ?(progress_bar = false) fd rpc
         (* using this as an indicator that the handler never got the task. All handlers *)
         (* would need to use this mechanism if we want to check for it here. For now a  *)
         (* delay of 1 will do... *)
-        let params =
-          Client.Task.get_error_info ~rpc ~session_id ~self:task_id
-        in
-        if params = [] then
-          raise (Api_errors.Server_error (Api_errors.client_error, []))
-        else
-          raise (Api_errors.Server_error (List.hd params, List.tl params))
+        match Client.Task.get_error_info ~rpc ~session_id ~self:task_id with
+        | [] ->
+            raise Api_errors.(Server_error (client_error, []))
+        | err :: params ->
+            raise Api_errors.(Server_error (err, params))
       )
     )
     (fun () ->

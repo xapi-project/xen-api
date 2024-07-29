@@ -397,11 +397,9 @@ module Footer = struct
   let create ?(features = []) ~data_offset ?(time_stamp = 0l)
       ?(creator_application = default_creator_application)
       ?(creator_version = default_creator_version)
-      ?(creator_host_os = Host_OS.Other 0l) ~current_size ?original_size
-      ~disk_type ?(uid = Uuidm.v `V4) ?(saved_state = false) () =
-    let original_size =
-      match original_size with None -> current_size | Some x -> x
-    in
+      ?(creator_host_os = Host_OS.Other 0l) ~current_size
+      ?(original_size = current_size) ~disk_type ?(uid = Uuidm.v `V4)
+      ?(saved_state = false) () =
     let geometry = Geometry.of_sectors Int64.(current_size lsr sector_shift) in
     let checksum = 0l in
     {
@@ -1609,8 +1607,6 @@ module Vhd = struct
   module Field = struct
     (** Dynamically-typed field-level access *)
 
-    type 'a f = {name: string; get: 'a t -> string}
-
     let _features = "features"
 
     let _data_offset = "data-offset"
@@ -1772,8 +1768,6 @@ module Vhd = struct
         opt (fun (t, _) -> Int32.to_string t.Batmap_header.checksum) t.batmap
       else
         None
-
-    type 'a t = 'a f
   end
 end
 

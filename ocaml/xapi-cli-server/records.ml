@@ -182,6 +182,14 @@ let map_and_concat_compat f rs = concat_with_comma (List.map f rs)
 
 let get_uuids_from_refs rs = map_and_concat get_uuid_from_ref rs
 
+let get_from_map rs =
+  let make_kv (a, b) = Printf.sprintf "%s: %s" a b in
+  map_and_concat make_kv rs
+
+let get_uuid_map_from_ref_map rs =
+  let make_kv (a, b) = Printf.sprintf "%s: %s" a (get_uuid_from_ref b) in
+  map_and_concat make_kv rs
+
 (** If the given list is of length 1, get a ref for the PBD's host,
     otherwise return Ref.null *)
 let get_pbds_host rpc session_id pbds =
@@ -229,9 +237,7 @@ let bond_record rpc session_id bond =
           ~get:(fun () -> Record_util.bond_mode_to_string (x ()).API.bond_mode)
           ()
       ; make_field ~name:"properties"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.bond_properties
-          )
+          ~get:(fun () -> get_from_map (x ()).API.bond_properties)
           ~get_map:(fun () -> (x ()).API.bond_properties)
           ~set_in_map:(fun name value ->
             Client.Bond.set_property ~rpc ~session_id ~self:bond ~name ~value
@@ -314,14 +320,10 @@ let tunnel_record rpc session_id tunnel =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.tunnel_transport_PIF)
           ()
       ; make_field ~name:"status"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.tunnel_status
-          )
+          ~get:(fun () -> get_from_map (x ()).API.tunnel_status)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.tunnel_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.tunnel_other_config)
           ~add_to_map:(fun key value ->
             Client.Tunnel.add_to_other_config ~rpc ~session_id ~self:tunnel ~key
               ~value
@@ -570,9 +572,7 @@ let pif_record rpc session_id pif =
           ()
       ; make_field ~name:"DNS" ~get:(fun () -> (x ()).API.pIF_DNS) ()
       ; make_field ~name:"properties"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pIF_properties
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pIF_properties)
           ~get_map:(fun () -> (x ()).API.pIF_properties)
           ~set_in_map:(fun name value ->
             Client.PIF.set_property ~rpc ~session_id ~self:pif ~name ~value
@@ -681,9 +681,7 @@ let pif_record rpc session_id pif =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pIF_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pIF_other_config)
           ~add_to_map:(fun key value ->
             Client.PIF.add_to_other_config ~rpc ~session_id ~self:pif ~key
               ~value
@@ -773,9 +771,7 @@ let task_record rpc session_id task =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.task_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.task_other_config)
           ~add_to_map:(fun key value ->
             Client.Task.add_to_other_config ~rpc ~session_id ~self:task ~key
               ~value
@@ -860,9 +856,7 @@ let vif_record rpc session_id vif =
           )
           ()
       ; make_field ~name:"qos_algorithm_params"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vIF_qos_algorithm_params
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vIF_qos_algorithm_params)
           ~add_to_map:(fun key value ->
             Client.VIF.add_to_qos_algorithm_params ~rpc ~session_id ~self:vif
               ~key ~value
@@ -880,9 +874,7 @@ let vif_record rpc session_id vif =
           ~get_set:(fun () -> (x ()).API.vIF_qos_supported_algorithms)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vIF_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vIF_other_config)
           ~add_to_map:(fun key value ->
             Client.VIF.add_to_other_config ~rpc ~session_id ~self:vif ~key
               ~value
@@ -1046,9 +1038,7 @@ let net_record rpc session_id net =
           ~get:(fun () -> string_of_bool (x ()).API.network_managed)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.network_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.network_other_config)
           ~add_to_map:(fun key value ->
             Client.Network.add_to_other_config ~rpc ~session_id ~self:net ~key
               ~value
@@ -1060,10 +1050,7 @@ let net_record rpc session_id net =
           ~get_map:(fun () -> (x ()).API.network_other_config)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.network_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.network_blobs)
           ()
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.network_tags)
@@ -1189,9 +1176,7 @@ let pool_record rpc session_id pool =
           )
           ~expensive:true ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_other_config)
           ~add_to_map:(fun key value ->
             Client.Pool.add_to_other_config ~rpc ~session_id ~self:pool ~key
               ~value
@@ -1228,9 +1213,7 @@ let pool_record rpc session_id pool =
           ~get:(fun () -> string_of_bool (x ()).API.pool_ha_enabled)
           ()
       ; make_field ~name:"ha-configuration"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_ha_configuration
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_ha_configuration)
           ()
       ; make_field ~name:"ha-statefiles"
           ~get:(fun () ->
@@ -1262,10 +1245,7 @@ let pool_record rpc session_id pool =
           ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.pool_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.pool_blobs)
           ()
       ; make_field ~name:"wlb-url" ~get:(fun () -> (x ()).API.pool_wlb_url) ()
       ; make_field ~name:"wlb-username"
@@ -1293,9 +1273,7 @@ let pool_record rpc session_id pool =
           )
           ()
       ; make_field ~name:"gui-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_gui_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_gui_config)
           ~add_to_map:(fun key value ->
             Client.Pool.add_to_gui_config ~rpc ~session_id ~self:pool ~key
               ~value
@@ -1306,9 +1284,7 @@ let pool_record rpc session_id pool =
           ~get_map:(fun () -> (x ()).API.pool_gui_config)
           ()
       ; make_field ~name:"health-check-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_health_check_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_health_check_config)
           ~add_to_map:(fun key value ->
             Client.Pool.add_to_health_check_config ~rpc ~session_id ~self:pool
               ~key ~value
@@ -1326,9 +1302,7 @@ let pool_record rpc session_id pool =
           )
           ()
       ; make_field ~name:"restrictions"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_restrictions
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_restrictions)
           ()
       ; make_field ~name:"tags"
           ~get:(fun () -> concat_with_comma (x ()).API.pool_tags)
@@ -1342,7 +1316,7 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"license-state"
           ~get:(fun () ->
-            Record_util.s2sm_to_string "; "
+            get_from_map
               (Client.Pool.get_license_state ~rpc ~session_id ~self:pool)
           )
           ()
@@ -1350,9 +1324,7 @@ let pool_record rpc session_id pool =
           ~get:(fun () -> (x ()).API.pool_ha_cluster_stack)
           ()
       ; make_field ~name:"guest-agent-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_guest_agent_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_guest_agent_config)
           ~add_to_map:(fun key value ->
             Client.Pool.add_to_guest_agent_config ~rpc ~session_id ~self:pool
               ~key ~value
@@ -1364,9 +1336,7 @@ let pool_record rpc session_id pool =
           ~get_map:(fun () -> (x ()).API.pool_guest_agent_config)
           ()
       ; make_field ~name:"cpu_info"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_cpu_info
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_cpu_info)
           ~get_map:(fun () -> (x ()).API.pool_cpu_info)
           ()
       ; make_field ~name:"policy-no-vendor-device"
@@ -1496,9 +1466,7 @@ let pool_record rpc session_id pool =
           ~get:(fun () -> (x ()).API.pool_update_sync_enabled |> string_of_bool)
           ()
       ; make_field ~name:"recommendations"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pool_recommendations
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pool_recommendations)
           ~get_map:(fun () -> (x ()).API.pool_recommendations)
           ()
       ]
@@ -1572,9 +1540,7 @@ let vmss_record rpc session_id vmss =
           )
           ()
       ; make_field ~name:"schedule"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vMSS_schedule
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vMSS_schedule)
           ~get_map:(fun () -> (x ()).API.vMSS_schedule)
           ~add_to_map:(fun key value ->
             Client.VMSS.add_to_schedule ~rpc ~session_id ~self:vmss ~key ~value
@@ -1637,9 +1603,7 @@ let subject_record rpc session_id subject =
           ~get:(fun () -> (x ()).API.subject_subject_identifier)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.subject_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.subject_other_config)
           ~get_map:(fun () -> (x ()).API.subject_other_config)
           ()
       ; make_field ~name:"roles"
@@ -1736,9 +1700,7 @@ let console_record rpc session_id console =
           ~get:(fun () -> (x ()).API.console_location)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.console_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.console_other_config)
           ~add_to_map:(fun key value ->
             Client.Console.add_to_other_config ~rpc ~session_id ~self:console
               ~key ~value
@@ -1886,9 +1848,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> (x ()).API.vM_transportable_snapshot_id)
           ()
       ; make_field ~name:"snapshot-info"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_snapshot_info
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_snapshot_info)
           ()
       ; make_field ~name:"parent"
           ~get:(fun () -> get_uuid_from_ref (x ()).API.vM_parent)
@@ -1958,9 +1918,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"VCPUs-params"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_VCPUs_params
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_VCPUs_params)
           ~add_to_map:(fun key value ->
             match key with
             | "weight" | "cap" | "mask" ->
@@ -2060,7 +2018,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"platform"
-          ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_platform)
+          ~get:(fun () -> get_from_map (x ()).API.vM_platform)
           ~add_to_map:(fun key value ->
             Client.VM.add_to_platform ~rpc ~session_id ~self:vm ~key ~value
           )
@@ -2093,7 +2051,7 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"blocked-operations"
           ~get:(fun () ->
-            Record_util.s2sm_to_string "; "
+            get_from_map
               (List.map
                  (fun (k, v) -> (Record_util.vm_operation_to_string k, v))
                  (x ()).API.vM_blocked_operations
@@ -2173,9 +2131,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"HVM-boot-params"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_HVM_boot_params
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_HVM_boot_params)
           ~add_to_map:(fun key value ->
             Client.VM.add_to_HVM_boot_params ~rpc ~session_id ~self:vm ~key
               ~value
@@ -2193,7 +2149,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"NVRAM" ~hidden:true
-          ~get:(fun () -> Record_util.s2sm_to_string "; " (x ()).API.vM_NVRAM)
+          ~get:(fun () -> get_from_map (x ()).API.vM_NVRAM)
           ~add_to_map:(fun key value ->
             Client.VM.add_to_NVRAM ~rpc ~session_id ~self:vm ~key ~value
           )
@@ -2239,9 +2195,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"last-boot-CPU-flags"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_last_boot_CPU_flags
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_last_boot_CPU_flags)
           ()
       ; make_field ~name:"last-boot-record" ~expensive:true
           ~get:(fun () -> "'" ^ (x ()).API.vM_last_booted_record ^ "'")
@@ -2260,9 +2214,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_other_config)
           ~add_to_map:(fun key value ->
             Client.VM.add_to_other_config ~rpc ~session_id ~self:vm ~key ~value
           )
@@ -2278,9 +2230,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> (x ()).API.vM_recommendations)
           ()
       ; make_field ~name:"xenstore-data"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_xenstore_data
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_xenstore_data)
           ~add_to_map:(fun key value ->
             Client.VM.add_to_xenstore_data ~rpc ~session_id ~self:vm ~key ~value
           )
@@ -2306,10 +2256,7 @@ let vm_record rpc session_id vm =
           )
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.vM_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.vM_blobs)
           ()
       ; make_field ~name:"start-time"
           ~get:(fun () ->
@@ -2345,10 +2292,7 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"os-version"
           ~get:(fun () ->
             Option.fold ~none:nid
-              ~some:(fun m ->
-                Record_util.s2sm_to_string "; "
-                  m.API.vM_guest_metrics_os_version
-              )
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_os_version)
               (xgm ())
           )
           ~get_map:(fun () ->
@@ -2361,8 +2305,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () ->
             Option.fold ~none:nid
               ~some:(fun m ->
-                Record_util.s2sm_to_string "; "
-                  m.API.vM_guest_metrics_PV_drivers_version
+                get_from_map m.API.vM_guest_metrics_PV_drivers_version
               )
               (xgm ())
           )
@@ -2384,9 +2327,7 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"memory"
           ~get:(fun () ->
             Option.fold ~none:nid
-              ~some:(fun m ->
-                Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_memory
-              )
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_memory)
               (xgm ())
           )
           ~get_map:(fun () ->
@@ -2398,9 +2339,7 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"disks"
           ~get:(fun () ->
             Option.fold ~none:nid
-              ~some:(fun m ->
-                Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_disks
-              )
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_disks)
               (xgm ())
           )
           ~get_map:(fun () ->
@@ -2416,9 +2355,7 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"networks"
           ~get:(fun () ->
             Option.fold ~none:nid
-              ~some:(fun m ->
-                Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_networks
-              )
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_networks)
               (xgm ())
           )
           ~get_map:(fun () ->
@@ -2439,9 +2376,7 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"other"
           ~get:(fun () ->
             Option.fold ~none:nid
-              ~some:(fun m ->
-                Record_util.s2sm_to_string "; " m.API.vM_guest_metrics_other
-              )
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_other)
               (xgm ())
           )
           ~get_map:(fun () ->
@@ -2587,9 +2522,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> (x ()).API.vM_reference_label)
           ()
       ; make_field ~name:"bios-strings"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vM_bios_strings
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vM_bios_strings)
           ~get_map:(fun () -> (x ()).API.vM_bios_strings)
           ~set_map:(fun x ->
             List.iter
@@ -2997,15 +2930,12 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"API-version-vendor-implementation"
           ~get:(fun () ->
-            Record_util.s2sm_to_string "; "
-              (x ()).API.host_API_version_vendor_implementation
+            get_from_map (x ()).API.host_API_version_vendor_implementation
           )
           ~get_map:(fun () -> (x ()).API.host_API_version_vendor_implementation)
           ()
       ; make_field ~name:"logging"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_logging
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_logging)
           ~add_to_map:(fun key value ->
             Client.Host.add_to_logging ~rpc ~session_id ~self:host ~key ~value
           )
@@ -3039,9 +2969,7 @@ let host_record rpc session_id host =
           )
           ()
       ; make_field ~name:"software-version"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_software_version
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_software_version)
           ~get_map:(fun () -> (x ()).API.host_software_version)
           ()
       ; make_field ~name:"capabilities"
@@ -3049,9 +2977,7 @@ let host_record rpc session_id host =
           ~get_set:(fun () -> (x ()).API.host_capabilities)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_other_config)
           ~add_to_map:(fun key value ->
             Client.Host.add_to_other_config ~rpc ~session_id ~self:host ~key
               ~value
@@ -3063,15 +2989,11 @@ let host_record rpc session_id host =
           ~get_map:(fun () -> (x ()).API.host_other_config)
           ()
       ; make_field ~name:"cpu_info"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_cpu_info
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_cpu_info)
           ~get_map:(fun () -> (x ()).API.host_cpu_info)
           ()
       ; make_field ~name:"chipset-info"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_chipset_info
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_chipset_info)
           ~get_map:(fun () -> (x ()).API.host_chipset_info)
           ()
       ; make_field ~name:"hostname" ~get:(fun () -> (x ()).API.host_hostname) ()
@@ -3088,10 +3010,7 @@ let host_record rpc session_id host =
           ~get_set:(fun () -> (x ()).API.host_supported_bootloaders)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.host_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.host_blobs)
           ()
       ; make_field ~name:"memory-overhead"
           ~get:(fun () -> Int64.to_string (x ()).API.host_memory_overhead)
@@ -3147,25 +3066,20 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"external-auth-configuration"
           ~get:(fun () ->
-            Record_util.s2sm_to_string "; "
-              (x ()).API.host_external_auth_configuration
+            get_from_map (x ()).API.host_external_auth_configuration
           )
           ~get_map:(fun () -> (x ()).API.host_external_auth_configuration)
           ()
       ; make_field ~name:"edition" ~get:(fun () -> (x ()).API.host_edition) ()
       ; make_field ~name:"license-server"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_license_server
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_license_server)
           ~get_map:(fun () -> (x ()).API.host_license_server)
           ()
       ; make_field ~name:"power-on-mode"
           ~get:(fun () -> (x ()).API.host_power_on_mode)
           ()
       ; make_field ~name:"power-on-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_power_on_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_power_on_config)
           ~get_map:(fun () -> (x ()).API.host_power_on_config)
           ()
       ; make_field ~name:"local-cache-sr"
@@ -3189,9 +3103,7 @@ let host_record rpc session_id host =
           )
           ()
       ; make_field ~name:"guest_VCPUs_params"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.host_guest_VCPUs_params
-          )
+          ~get:(fun () -> get_from_map (x ()).API.host_guest_VCPUs_params)
           ~get_map:(fun () -> (x ()).API.host_guest_VCPUs_params)
           ~add_to_map:(fun key value ->
             Client.Host.add_to_guest_VCPUs_params ~rpc ~session_id ~self:host
@@ -3419,9 +3331,7 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () -> string_of_bool (x ()).API.vDI_is_tools_iso)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vDI_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vDI_other_config)
           ~add_to_map:(fun key value ->
             Client.VDI.add_to_other_config ~rpc ~session_id ~self:vdi ~key
               ~value
@@ -3432,18 +3342,14 @@ let vdi_record rpc session_id vdi =
           ~get_map:(fun () -> (x ()).API.vDI_other_config)
           ()
       ; make_field ~name:"xenstore-data"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vDI_xenstore_data
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vDI_xenstore_data)
           ~get_map:(fun () -> (x ()).API.vDI_xenstore_data)
           ~clear_map:(fun () ->
             Client.VDI.set_xenstore_data ~rpc ~session_id ~self:vdi ~value:[]
           )
           ()
       ; make_field ~name:"sm-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vDI_sm_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vDI_sm_config)
           ~get_map:(fun () -> (x ()).API.vDI_sm_config)
           ()
       ; make_field ~name:"on-boot"
@@ -3632,9 +3538,7 @@ let vbd_record rpc session_id vbd =
           )
           ()
       ; make_field ~name:"qos_algorithm_params"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vBD_qos_algorithm_params
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vBD_qos_algorithm_params)
           ~get_map:(fun () -> (x ()).API.vBD_qos_algorithm_params)
           ~add_to_map:(fun key value ->
             Client.VBD.add_to_qos_algorithm_params ~rpc ~session_id ~self:vbd
@@ -3652,9 +3556,7 @@ let vbd_record rpc session_id vbd =
           ~get_set:(fun () -> (x ()).API.vBD_qos_supported_algorithms)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vBD_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vBD_other_config)
           ~add_to_map:(fun key value ->
             Client.VBD.add_to_other_config ~rpc ~session_id ~self:vbd ~key
               ~value
@@ -3766,16 +3668,11 @@ let sm_record rpc session_id sm =
           ~get:(fun () -> concat_with_semi (x ()).API.sM_capabilities)
           ()
       ; make_field ~name:"features"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; "
-              (s2i64_to_string (x ()).API.sM_features)
-          )
+          ~get:(fun () -> get_from_map (s2i64_to_string (x ()).API.sM_features))
           ~get_map:(fun () -> s2i64_to_string (x ()).API.sM_features)
           ()
       ; make_field ~name:"configuration"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.sM_configuration
-          )
+          ~get:(fun () -> get_from_map (x ()).API.sM_configuration)
           ()
       ; make_field ~name:"driver-filename"
           ~get:(fun () -> (x ()).API.sM_driver_filename)
@@ -3888,9 +3785,7 @@ let sr_record rpc session_id sr =
           ~get:(fun () -> string_of_bool (x ()).API.sR_is_tools_sr)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.sR_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.sR_other_config)
           ~add_to_map:(fun key value ->
             Client.SR.add_to_other_config ~rpc ~session_id ~self:sr ~key ~value
           )
@@ -3900,16 +3795,11 @@ let sr_record rpc session_id sr =
           ~get_map:(fun () -> (x ()).API.sR_other_config)
           ()
       ; make_field ~name:"sm-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.sR_sm_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.sR_sm_config)
           ~get_map:(fun () -> (x ()).API.sR_sm_config)
           ()
       ; make_field ~name:"blobs"
-          ~get:(fun () ->
-            Record_util.s2brm_to_string get_uuid_from_ref "; "
-              (x ()).API.sR_blobs
-          )
+          ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.sR_blobs)
           ()
       ; make_field ~name:"local-cache-enabled"
           ~get:(fun () -> string_of_bool (x ()).API.sR_local_cache_enabled)
@@ -3969,18 +3859,14 @@ let pbd_record rpc session_id pbd =
           ~get:(fun () -> get_name_from_ref (x ()).API.pBD_SR)
           ()
       ; make_field ~name:"device-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pBD_device_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pBD_device_config)
           ~get_map:(fun () -> (x ()).API.pBD_device_config)
           ()
       ; make_field ~name:"currently-attached"
           ~get:(fun () -> string_of_bool (x ()).API.pBD_currently_attached)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pBD_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pBD_other_config)
           ~add_to_map:(fun key value ->
             Client.PBD.add_to_other_config ~rpc ~session_id ~self:pbd ~key
               ~value
@@ -4261,9 +4147,7 @@ let pgpu_record rpc session_id pgpu =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pGPU_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pGPU_other_config)
           ~add_to_map:(fun key value ->
             Client.PGPU.add_to_other_config ~rpc ~session_id ~self:pgpu ~key
               ~value
@@ -4365,9 +4249,7 @@ let gpu_group_record rpc session_id gpu_group =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.gPU_group_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.gPU_group_other_config)
           ~add_to_map:(fun key value ->
             Client.GPU_group.add_to_other_config ~rpc ~session_id
               ~self:gpu_group ~key ~value
@@ -4456,9 +4338,7 @@ let vgpu_record rpc session_id vgpu =
           ~get:(fun () -> string_of_bool (x ()).API.vGPU_currently_attached)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vGPU_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vGPU_other_config)
           ~add_to_map:(fun key value ->
             Client.VGPU.add_to_other_config ~rpc ~session_id ~self:vgpu ~key
               ~value
@@ -4982,9 +4862,7 @@ let usb_group_record rpc session_id usb_group =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.uSB_group_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.uSB_group_other_config)
           ~add_to_map:(fun key value ->
             Client.USB_group.add_to_other_config ~rpc ~session_id
               ~self:usb_group ~key ~value
@@ -5038,9 +4916,7 @@ let vusb_record rpc session_id vusb =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.vUSB_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.vUSB_other_config)
           ~add_to_map:(fun key value ->
             Client.VUSB.add_to_other_config ~rpc ~session_id ~self:vusb ~key
               ~value
@@ -5157,15 +5033,11 @@ let cluster_record rpc session_id cluster =
           ~get:(fun () -> (x ()).API.cluster_pool_auto_join |> string_of_bool)
           ()
       ; make_field ~name:"cluster-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.cluster_cluster_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.cluster_cluster_config)
           ~get_map:(fun () -> (x ()).API.cluster_cluster_config)
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.cluster_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.cluster_other_config)
           ~get_map:(fun () -> (x ()).API.cluster_other_config)
           ~add_to_map:(fun key value ->
             Client.Cluster.add_to_other_config ~rpc ~session_id ~self:cluster
@@ -5257,9 +5129,7 @@ let cluster_host_record rpc session_id cluster_host =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.cluster_host_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.cluster_host_other_config)
           ~get_map:(fun () -> (x ()).API.cluster_host_other_config)
           ()
       ]
@@ -5496,9 +5366,7 @@ let observer_record rpc session_id observer =
           ~get:(fun () -> (x ()).API.observer_name_description)
           ()
       ; make_field ~name:"attributes"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.observer_attributes
-          )
+          ~get:(fun () -> get_from_map (x ()).API.observer_attributes)
           ~get_map:(fun () -> (x ()).API.observer_attributes)
           ~set_map:(fun value ->
             Client.Observer.set_attributes ~rpc ~session_id ~self:observer
@@ -5654,9 +5522,7 @@ let pci_record rpc session_id pci =
           )
           ()
       ; make_field ~name:"other-config"
-          ~get:(fun () ->
-            Record_util.s2sm_to_string "; " (x ()).API.pCI_other_config
-          )
+          ~get:(fun () -> get_from_map (x ()).API.pCI_other_config)
           ~add_to_map:(fun key value ->
             Client.PCI.add_to_other_config ~rpc ~session_id ~self:pci ~key
               ~value

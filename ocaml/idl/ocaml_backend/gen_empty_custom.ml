@@ -62,20 +62,21 @@ let operation_requires_side_effect ({msg_tag= tag; _} as msg) =
   match tag with
   | FromField (Setter, fld) ->
       fld.DT.field_has_effect
+  | FromField ((Getter | Add | Remove), _) ->
+      false
   | FromObject
       ( GetRecord
       | GetByUuid
       | GetByLabel
       | GetAll
+      | GetAllWhere
       | GetAllRecordsWhere
       | GetAllRecords ) ->
       false
-  | FromObject _ ->
+  | FromObject (Make | Delete | Private _) ->
       true
   | Custom ->
       msg.DT.msg_has_effect && msg.DT.msg_forward_to = None
-  | _ ->
-      false
 
 let make_custom_api api =
   Dm_api.filter
