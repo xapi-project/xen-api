@@ -28,9 +28,28 @@ let make ~size ~delay_read ~delay_write kind =
 
 open QCheck2
 
+let all_file_kinds = Unix.[S_BLK; S_CHR; S_DIR; S_FIFO; S_LNK; S_REG; S_SOCK]
+
 let file_kind =
-  ( Gen.oneofa Unix.[|S_BLK; S_CHR; S_DIR; S_FIFO; S_LNK; S_REG; S_SOCK|]
+  (* [Gen.oneofa] should be more efficient than [Gen.oneofl] *)
+  ( all_file_kinds |> Array.of_list |> Gen.oneofa
   , Print.contramap (Fmt.to_to_string Safefd.pp_kind) Print.string
+  )
+
+let is_testable_kind = function
+  | Unix.(S_DIR | S_LNK) ->
+      (* unless you write a custom C binding, you cannot open these in OCaml *)
+      false
+  | Unix.S_BLK ->
+      Unix.geteuid () = 0
+  | Unix.(S_CHR | S_FIFO | S_REG | S_SOCK) ->
+      (* We cannot create new [S_CHR], but there are preexisting [S_CHR],
+         like [/dev/null]. *)
+      true
+
+let testable_file_kind =
+  ( all_file_kinds |> List.filter is_testable_kind |> Array.of_list |> Gen.oneofa
+  , snd file_kind
   )
 
 (* also coincidentally the pipe buffer size on Linux *)
@@ -72,8 +91,12 @@ let delay_of_size total_delay size =
 let t =
   let open Gen in
   (* order matters here for shrinking: shrink timeout first so that shrinking completes sooner! *)
-  let* total_delay = total_delays and* size = sizes and* kind = fst file_kind in
+  let* total_delay = total_delays
+  and* size = sizes
+  and* kind = fst testable_file_kind in
+  let size = if kind = Unix.S_BLK then 512 else size in
   let* delay = delay_of_size total_delay size in
+  (* see observations.ml, we can't easily change size afterwards *)
   return @@ make ~delay_read:delay ~delay_write:delay ~size kind
 
 let print t =
