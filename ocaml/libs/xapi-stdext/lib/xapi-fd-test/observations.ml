@@ -307,3 +307,18 @@ let observe_rw read write ~f ~size kind expected =
     |> Option.map @@ fun write -> {write with data= Buffer.contents written}
   in
   ({read; write; elapsed}, res)
+
+let rec with_kind_list create aux f = function
+  | [] ->
+      f (List.rev aux)
+  | kind :: tl ->
+      create kind @@ fun fd1 fd2 ->
+      with_kind_list create ((fd1, fd2) :: aux) f tl
+
+let with_kind_list g lst f = with_kind_list g [] f lst
+
+let with_kinds_ro lst = with_kind_list with_kind_ro lst
+
+let with_kinds_wo lst = with_kind_list with_kind_wo lst
+
+let with_kinds_rw lst = with_kind_list with_kind_rw lst

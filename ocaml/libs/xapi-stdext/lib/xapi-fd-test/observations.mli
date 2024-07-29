@@ -28,6 +28,12 @@ val with_kind_ro :
   For character devices it receives a {!val:null} device.
 *)
 
+val with_kinds_ro :
+     Unix.file_kind list
+  -> ((([> rdonly], kind) make * ([> writable], kind) make option) list -> 'a)
+  -> 'a
+(** [with_kinds_ro kinds f] is like {!val:with_kind_ro} but for a list of file kinds. *)
+
 val with_kind_wo :
      Unix.file_kind
   -> (([> wronly], kind) make -> ([> readable], kind) make option -> 'a)
@@ -35,9 +41,22 @@ val with_kind_wo :
 (** [with_kind_wo kind f] is like {!val:with_kind_ro} but creates a write only file.
 *)
 
+val with_kinds_wo :
+     Unix.file_kind list
+  -> ((([> wronly], kind) make * ([> readable], kind) make option) list -> 'a)
+  -> 'a
+(** [with_kinds_wo kind f] is like {!val:with_kind_wo} but for a list of file kinds. *)
+
 val with_kind_rw :
   Unix.file_kind -> (([> rdwr], kind) make -> ([> rdwr], kind) make -> 'a) -> 'a
 (** [with_kind_rw kind f] is like {!val:with_kind_ro} but creates a read-write file.
+*)
+
+val with_kinds_rw :
+     Unix.file_kind list
+  -> ((([> rdwr], kind) make * ([> rdwr], kind) make) list -> 'a)
+  -> 'a
+(** [with_kinds_rw kind f] is like {!val:with_kind_rw} but for a list of file kinds.
 *)
 
 (** {1 Observe operations} *)
