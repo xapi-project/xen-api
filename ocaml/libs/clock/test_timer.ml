@@ -60,8 +60,6 @@ let test_timer_remaining =
       Mtime.Span.pp duration Timer.pp timer ;
   true
 
-let tests_timer = List.map QCheck_alcotest.to_alcotest [test_timer_remaining]
-
 let combinations =
   let pair x y = (x, y) in
   let rec loop acc = function
@@ -154,4 +152,4 @@ let test_conversion_from_s =
 let tests_span =
   List.concat [test_conversion_to_s; test_conversion_from_s; test_span_compare]
 
-let () = Alcotest.run "Timer" [("Timer", tests_timer); ("Span", tests_span)]
+let tests = [test_timer_remaining]
