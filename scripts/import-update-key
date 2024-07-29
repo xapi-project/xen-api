@@ -1,6 +1,9 @@
 #!/bin/sh
 
+# shellcheck disable=SC2086
+# Disable this warning as we need to pass the options to cmds
 gpgopts="--homedir=/opt/xensource/gpg --batch"
+listopts="--with-fingerprint --with-colons --keyid-format LONG"
 
 set -e
 
@@ -10,11 +13,13 @@ if [ -z "$keyfile" ]; then
   exit 1
 fi
 
-keyhash=$(gpg $gpgopts --with-fingerprint $keyfile | sed -ne 's#^pub  [^ ]\+/\([^ ]\+\).*#\1#p')
-if [ ${#keyhash} -ne 8 ]; then
+keyinfo=$(gpg --show-keys $listopts "$keyfile" 2>/dev/null || gpg $listopts "$keyfile")
+# --with-colon output is stable, fifth element leading with pub is the keyhash
+keyhash=$(echo "$keyinfo" | grep -oP '^pub:([^:]+:){3}\K[^:]+')
+if [ ${#keyhash} -ne 16 ]; then
   echo "Invalid keyfile" >&2
   exit 2
 fi
-cp -p $keyfile /etc/pki/rpm-gpg
-gpg $gpgopts --import $keyfile
-echo -e "trust\n5\ny\n" | gpg $gpgopts --command-fd 0 --edit-key $keyhash
+cp -p "$keyfile" /etc/pki/rpm-gpg
+gpg $gpgopts --import "$keyfile"
+printf "trust\n5\ny\n" | gpg $gpgopts --command-fd 0 --edit-key "$keyhash"

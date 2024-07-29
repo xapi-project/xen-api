@@ -94,6 +94,13 @@ let http_501_method_not_implemented ?(version = "1.0") () =
   ; "Cache-Control: no-cache, no-store"
   ]
 
+let http_503_service_unavailable ?(version = "1.0") () =
+  [
+    Printf.sprintf "HTTP/%s 503 Service Unavailable" version
+  ; "Connection: close"
+  ; "Cache-Control: no-cache, no-store"
+  ]
+
 module Hdr = struct
   let task_id = "task-id"
 
@@ -194,10 +201,20 @@ let urlencode param =
   in
   fn chars
 
-(** Parses strings of the form a=b&c=d into ["a", "b"; "c", "d"] *)
-let parse_keyvalpairs xs =
+(** Parses strings of the form a=b;c=d (new, RFC-compliant cookie format)
+    and a=b&c=d (old, incorrect style) into [("a", "b"); ("c", "d")] *)
+let parse_cookies xs =
+  (* Determine if ';' or '&' is used as the separator.
+     Both are assumed to be illegal characters otherwise *)
+  let sep =
+    match Astring.String.find (fun c -> c = ';') xs with
+    | Some _ ->
+        ";"
+    | None ->
+        "&"
+  in
   let kvpairs =
-    List.map (Astring.String.cuts ~sep:"=") (Astring.String.cuts ~sep:"&" xs)
+    List.map (Astring.String.cuts ~sep:"=") (Astring.String.cuts ~sep xs)
   in
   List.map
     (function

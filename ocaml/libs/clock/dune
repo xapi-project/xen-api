@@ -3,7 +3,6 @@
   (public_name clock)
   (modules date timer)
   (libraries
-    astring
     fmt
     (re_export mtime)
     mtime.clock.os
@@ -16,5 +15,15 @@
   (names test_date test_timer)
   (package clock)
   (modules test_date test_timer)
-  (libraries alcotest clock fmt mtime mtime.clock.os ptime qcheck-core qcheck-core.runner)
+  (libraries
+    alcotest
+    clock
+    fmt
+    mtime
+    mtime.clock.os
+    ptime
+    qcheck-alcotest
+    qcheck-core
+    qcheck-core.runner
+  )
 )

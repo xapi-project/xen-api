@@ -707,7 +707,7 @@ let snapshot_with_quiesce_timeout = ref 600.
 let host_heartbeat_interval = ref 30.
 
 (* If we haven't heard a heartbeat from a host for this interval then the host is assumed dead *)
-let host_assumed_dead_interval = ref 600.0
+let host_assumed_dead_interval = ref Mtime.Span.(10 * min)
 
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *)
@@ -915,6 +915,8 @@ let repository_domain_name_allowlist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
+let dnf_cmd = ref "/usr/bin/dnf"
+
 let kpatch_cmd = ref "/usr/sbin/kpatch"
 
 let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
@@ -947,10 +949,8 @@ let repository_gpgkey_name = ref ""
 
 let repository_gpgcheck = ref true
 
+let observer_config_dir = Constants.observer_config_dir
 let bundle_repository_dir = ref "/var/xapi/bundle-repo"
-
-let observer_config_dir = "/etc/xensource/observer"
-
 let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
@@ -1035,7 +1035,7 @@ let observer_endpoint_http_enabled = ref false
 
 let observer_endpoint_https_enabled = ref false
 
-let python3_path = ref "/usr/bin/python3"
+let python3_path = Constants.python3_path
 
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
@@ -1076,7 +1076,9 @@ let xapi_globs_spec =
   ; ("wait_memory_target_timeout", Float wait_memory_target_timeout)
   ; ("snapshot_with_quiesce_timeout", Float snapshot_with_quiesce_timeout)
   ; ("host_heartbeat_interval", Float host_heartbeat_interval)
-  ; ("host_assumed_dead_interval", Float host_assumed_dead_interval)
+  ; ( "host_assumed_dead_interval"
+    , LongDurationFromSeconds host_assumed_dead_interval
+    )
   ; ("fuse_time", Float Constants.fuse_time)
   ; ("db_restore_fuse_time", Float Constants.db_restore_fuse_time)
   ; ("inactive_session_timeout", Float inactive_session_timeout)
@@ -1162,15 +1164,8 @@ let options_of_xapi_globs_spec =
               string_of_float !x
           | Int x ->
               string_of_int !x
-          | ShortDurationFromSeconds x ->
-              let literal =
-                Mtime.Span.to_uint64_ns !x |> fun ns ->
-                Int64.div ns 1_000_000_000L |> Int64.to_int |> string_of_int
-              in
-              Fmt.str "%s (%a)" literal Mtime.Span.pp !x
-          | LongDurationFromSeconds x ->
-              let literal = Clock.Timer.span_to_s !x |> string_of_float in
-              Fmt.str "%s (%a)" literal Mtime.Span.pp !x
+          | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
+              Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
         )
       , Printf.sprintf "Set the value of '%s'" name
       )
@@ -1776,6 +1771,7 @@ module Resources = struct
       , "Executed to manage SQlite Database, like PBIS database"
       )
     ; ("yum-cmd", yum_cmd, "Path to yum command")
+    ; ("dnf-cmd", dnf_cmd, "Path to dnf command")
     ; ("reposync-cmd", reposync_cmd, "Path to reposync command")
     ; ( "yum-config-manager-cmd"
       , yum_config_manager_cmd

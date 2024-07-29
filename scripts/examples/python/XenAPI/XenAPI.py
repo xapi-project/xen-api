@@ -123,12 +123,13 @@ class UDSTransport(xmlrpclib.Transport):
             for k, v in headers.items():
                 self.add_extra_header(k, v)
     def make_connection(self, host):
+        self.with_tracecontext()
+
         # compatibility with parent xmlrpclib.Transport HTTP/1.1 support
         if self._connection and host == self._connection[0]:
             return self._connection[1]
 
         self._connection = host, UDSHTTPConnection(host)
-        self.with_tracecontext()
         return self._connection[1]
 
 def notimplemented(name, *args, **kwargs):

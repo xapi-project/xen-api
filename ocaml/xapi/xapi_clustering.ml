@@ -540,6 +540,8 @@ module Watcher = struct
      is an update *)
   let cluster_change_interval = Mtime.Span.min
 
+  let cluster_stack_watcher : bool Atomic.t = Atomic.make false
+
   (* we handle unclean hosts join and leave in the watcher, i.e. hosts joining and leaving
      due to network problems, power cut, etc. Join and leave initiated by the
      API will be handled in the API call themselves, but they share the same code
@@ -573,22 +575,76 @@ module Watcher = struct
     done ;
     Atomic.set cluster_change_watcher false
 
+  let watch_cluster_stack_version ~__context ~host =
+    if !Daemon.enabled then
+      match find_cluster_host ~__context ~host with
+      | Some ch ->
+          let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self:ch in
+          let cluster_rec =
+            Db.Cluster.get_record ~__context ~self:cluster_ref
+          in
+          if
+            Cluster_stack.of_version
+              ( cluster_rec.API.cluster_cluster_stack
+              , cluster_rec.API.cluster_cluster_stack_version
+              )
+            = Cluster_stack.Corosync2
+          then (
+            debug "%s: Detected Corosync 2 running as cluster stack"
+              __FUNCTION__ ;
+            let body =
+              "The current cluster stack version of Corosync 2 is out of date, \
+               consider updating to Corosync 3"
+            in
+            let name, priority = Api_messages.cluster_stack_out_of_date in
+            let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+
+            Helpers.call_api_functions ~__context (fun rpc session_id ->
+                let _ : [> `message] Ref.t =
+                  Client.Client.Message.create ~rpc ~session_id ~name ~priority
+                    ~cls:`Host ~obj_uuid:host_uuid ~body
+                in
+                ()
+            )
+          )
+      | None ->
+          debug "%s: No cluster host, no need to watch" __FUNCTION__
+
   (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
       already created. 
       There is no need to destroy them: once the clustering daemon is disabled, 
       these threads will exit as well. *)
   let create_as_necessary ~__context ~host =
-    if Helpers.is_pool_master ~__context ~host then
+    if Helpers.is_pool_master ~__context ~host then (
       if Xapi_cluster_helpers.cluster_health_enabled ~__context then
         if Atomic.compare_and_set cluster_change_watcher false true then (
           debug "%s: create watcher for corosync-notifyd on coordinator"
             __FUNCTION__ ;
-          ignore
-          @@ Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+          let _ : Thread.t =
+            Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+          in
+          ()
         ) else
           (* someone else must have gone into the if branch above and created the thread
              before us, leave it to them *)
           debug
             "%s: not create watcher for corosync-notifyd as it already exists"
+            __FUNCTION__ ;
+
+      if Xapi_cluster_helpers.corosync3_enabled ~__context then
+        if Atomic.compare_and_set cluster_stack_watcher false true then (
+          debug
+            "%s: create cluster stack watcher for out-of-date cluster stack \
+             (corosync2)"
+            __FUNCTION__ ;
+          let _ : Thread.t =
+            Thread.create
+              (fun () -> watch_cluster_stack_version ~__context ~host)
+              ()
+          in
+          ()
+        ) else
+          debug "%s: not create watcher for cluster stack as it already exists"
             __FUNCTION__
+    )
 end

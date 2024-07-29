@@ -189,6 +189,8 @@ val http_500_internal_server_error : ?version:string -> unit -> string list
 
 val http_501_method_not_implemented : ?version:string -> unit -> string list
 
+val http_503_service_unavailable : ?version:string -> unit -> string list
+
 module Hdr : sig
   val task_id : string
   (** Header used for task id *)
@@ -230,7 +232,7 @@ end
 
 val output_http : Unix.file_descr -> string list -> unit
 
-val parse_keyvalpairs : string -> (string * string) list
+val parse_cookies : string -> (string * string) list
 
 val urlencode : string -> string
 
