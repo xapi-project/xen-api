@@ -20,8 +20,6 @@ open Xapi_stdext_std.Xstringext
 type vgpu_t = {
     vgpu_ref: API.ref_VGPU
   ; gpu_group_ref: API.ref_GPU_group
-  ; devid: int
-  ; other_config: (string * string) list
   ; type_ref: API.ref_VGPU_type
   ; requires_passthrough: [`PF | `VF] option
 }
@@ -31,8 +29,6 @@ let vgpu_of_ref ~__context vgpu =
   {
     vgpu_ref= vgpu
   ; gpu_group_ref= vgpu_r.API.vGPU_GPU_group
-  ; devid= int_of_string vgpu_r.API.vGPU_device
-  ; other_config= vgpu_r.API.vGPU_other_config
   ; type_ref= vgpu_r.API.vGPU_type
   ; requires_passthrough= Xapi_vgpu.requires_passthrough ~__context ~self:vgpu
   }

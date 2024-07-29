@@ -210,6 +210,7 @@ and obj_op =
   | GetByLabel
   | GetRecord
   | GetAll
+  | GetAllWhere
   | GetAllRecordsWhere
   | GetAllRecords
   | Private of private_op

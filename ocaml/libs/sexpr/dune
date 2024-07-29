@@ -9,8 +9,6 @@
   (modules (:standard \ sexprpp))
   (libraries
     astring
-    threads.posix
-    xapi-stdext-threads
   )
 )
 

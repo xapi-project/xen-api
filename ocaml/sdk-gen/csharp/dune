@@ -5,7 +5,7 @@
   (libraries
     astring
     CommonFunctions
-    dune-build-info
+    
     mustache
     xapi-consts
     xapi-datamodel
@@ -18,7 +18,7 @@
   (modules Friendly_error_names)
   (libraries
     CommonFunctions
-    dune-build-info
+    
     mustache
     xapi-datamodel
     xmllight2

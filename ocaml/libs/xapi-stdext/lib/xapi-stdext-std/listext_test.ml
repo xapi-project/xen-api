@@ -13,6 +13,10 @@
 
 module Listext = Xapi_stdext_std.Listext.List
 
+let test_last_list tested_f (name, case, expected) =
+  let check () = Alcotest.(check @@ int) name expected (tested_f case) in
+  (name, `Quick, check)
+
 let test_list tested_f (name, case, expected) =
   let check () = Alcotest.(check @@ list int) name expected (tested_f case) in
   (name, `Quick, check)
@@ -108,6 +112,28 @@ let test_drop =
   in
   let tests = List.map test specs in
   ("drop", tests)
+
+let test_last =
+  let specs = [([1], 0, 1); ([1; 2; 3], 1, 3)] in
+  let error_specs = [([], -1, Invalid_argument "last: empty list")] in
+  let test_good (whole, number, expected) =
+    let name =
+      Printf.sprintf "get last %i from [%s]" number
+        (String.concat "; " (List.map string_of_int whole))
+    in
+    test_last_list Listext.last (name, whole, expected)
+  in
+  let tests = List.map test_good specs in
+  let error_test (whole, number, error) =
+    let name =
+      Printf.sprintf "last [%s] with %i fails"
+        (String.concat "; " (List.map string_of_int whole))
+        number
+    in
+    test_error (fun ls () -> ignore (Listext.last ls)) (name, whole, error)
+  in
+  let error_tests = List.map error_test error_specs in
+  ("last", tests @ error_tests)
 
 let test_chop =
   let specs =
@@ -233,6 +259,7 @@ let () =
       test_iteri_right
     ; test_take
     ; test_drop
+    ; test_last
     ; test_chop
     ; test_sub
     ; test_find_minimum_int

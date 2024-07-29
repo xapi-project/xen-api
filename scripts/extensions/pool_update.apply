@@ -25,41 +25,55 @@ INVALID_UPDATE = 'INVALID_UPDATE'
 ERROR_MESSAGE_DOWNLOAD_PACKAGE = 'Error downloading packages:\n'
 ERROR_MESSAGE_START = 'Error: '
 ERROR_MESSAGE_END = 'You could try '
+YUM_CMD = '/usr/bin/yum'
+DNF_CMD = '/usr/bin/dnf'
+PKG_MGR = DNF_CMD if os.path.exists(DNF_CMD) else YUM_CMD
 
 class EnvironmentFailure(Exception):
-    pass
+    """Failure due to running environment"""
 
 class ApplyFailure(Exception):
-    pass
+    """Failed to apply update"""
 
 class InvalidUpdate(Exception):
-    pass
+    """Update is invalid"""
 
 def success_message():
+    """success message to return"""
     rpcparams = {'Status': 'Success', 'Value': ''}
     return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
-def failure_message(code, params):
+def failure_message(code, args):
+    """failure message to return"""
     rpcparams = {
-        'Status': 'Failure', 'ErrorDescription': [code] + params}
+        'Status': 'Failure', 'ErrorDescription': [code] + args}
     return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
-def execute_apply(session, update_package, yum_conf_file):
+#pylint: disable=redefined-outer-name
+def execute_apply(update_package, yum_conf_file):
+    """apply update"""
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
 
-    cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
+    cmd = [PKG_MGR, 'clean', 'all', '--noplugins', '-c', yum_conf_file]
+    # pylint: disable=consider-using-with
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT, close_fds=True,
+                         env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     for line in output.split('\n'):
         xcp.logger.info(line)
     if p.returncode != 0:
         raise EnvironmentFailure("Error cleaning yum cache")
 
-    cmd = ['yum', 'upgrade', '-y', '--noplugins', '-c', yum_conf_file, update_package]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
+    # dnf reject to upgrade group if it is not installed,
+    # `dnf install` upgrade the group if it is already installed
+    sub_cmd = 'upgrade' if PKG_MGR == YUM_CMD else 'install'
+    cmd = [PKG_MGR, sub_cmd, '-y', '--noplugins', '-c', yum_conf_file, update_package]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.apply %r returncode=%r output:', cmd, p.returncode)
     for line in output.split('\n'):
@@ -73,8 +87,7 @@ def execute_apply(session, update_package, yum_conf_file):
             errmsg = m.group()
             errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
             raise ApplyFailure(errmsg)
-        else:
-            raise ApplyFailure(output)
+        raise ApplyFailure(output)
 
 
 if __name__ == '__main__':
@@ -82,6 +95,8 @@ if __name__ == '__main__':
     txt = sys.stdin.read()
     params, method = xmlrpc.client.loads(txt)
 
+    #pylint: disable=invalid-name
+    #pylint: disable=broad-exception-caught
     session = None
     lock_acquired = False
     try:
@@ -113,9 +128,12 @@ if __name__ == '__main__':
         try:
             session.xenapi.pool_update.precheck(update, host)
         except Exception as e:
+            # Here catch broader exception, and try to explain it as sub concrete Exception.
+            # If failed, fallback to unknown exception
+            #pylint: disable=no-member
             try:
                 print(failure_message(e.details[0], e.details[1:]))
-            except:
+            except Exception:
                 print(failure_message(UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR, [str(e)]))
             sys.exit(0)
 
@@ -139,7 +157,7 @@ if __name__ == '__main__':
             with open (yum_conf_file, "w+") as file:
                 file.write("{0}".format(yum_conf))
 
-            execute_apply(session, '@update', yum_conf_file)
+            execute_apply('@update', yum_conf_file)
 
             session.xenapi.pool_update.resync_host(host)
             print(success_message())

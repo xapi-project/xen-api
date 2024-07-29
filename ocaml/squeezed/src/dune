@@ -10,7 +10,7 @@
     xapi-stdext-unix
     xapi_version
     astring
-    dune-build-info
+    
     rpclib.core
     squeeze
     threads.posix

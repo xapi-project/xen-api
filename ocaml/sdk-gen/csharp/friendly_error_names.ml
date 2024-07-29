@@ -16,7 +16,7 @@ let _ =
       )
     ]
     (fun x -> raise (Arg.Bad ("Found anonymous argument " ^ x)))
-    "Generates C# bindings for the XenAPI. See -help."
+    "Generates the C# SDK for the XenAPI. See -help."
 
 let sr_xml = !sr_xml'
 

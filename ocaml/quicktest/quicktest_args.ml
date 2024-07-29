@@ -6,6 +6,10 @@ let use_default_sr = ref false
 
 let use_colour = ref true
 
+let run_only = ref None
+
+let list_tests = ref false
+
 let username = ref ""
 
 let password = ref ""
@@ -52,7 +56,7 @@ let parse () =
       , "Path to xe command line executable"
       )
     ; ( "-default-sr"
-      , Arg.Unit (fun () -> use_default_sr := true)
+      , Arg.Set use_default_sr
       , "Only run SR tests on the pool's default SR, mutually exclusive with \
          -sr"
       )
@@ -64,6 +68,15 @@ let parse () =
       )
     ; ("-skip-xapi", Arg.Set skip_xapi, "SKIP tests that require XAPI")
     ; ("--", Arg.Rest_all set_alcotest_args, "Supply alcotest arguments")
+    ; ( "-run-only"
+      , Arg.String (fun x -> run_only := Some x)
+      , "Only run specified tests, skip all others. Several tests can be \
+         specified, separated by commas"
+      )
+    ; ( "-list-tests"
+      , Arg.Set list_tests
+      , "Lists test names as they are consumed by -run-only"
+      )
     ]
     (fun x ->
       match (!host, !username, !password) with

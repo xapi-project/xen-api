@@ -97,10 +97,12 @@ let rec main () =
   |> List.filter (fun (_, (_, _, sdk, _, _, _)) -> sdk)
   |> List.iter gen_http_action ;
 
-  let cmdlets =
-    classes |> List.filter generated |> List.map gen_cmdlets |> List.concat
-  in
-  List.iter (fun x -> write_file x.filename x.content) cmdlets
+  let filtered_classes = List.filter generated classes in
+  let cmdlets = List.concat_map gen_cmdlets filtered_classes in
+
+  List.iter (fun x -> write_file x.filename x.content) cmdlets ;
+
+  filtered_classes |> List.iter gen_destructor
 
 (****************)
 (* Http actions *)
@@ -177,11 +179,6 @@ and gen_cmdlets obj =
         filename= sprintf "New-Xen%s.cs" stem
       ; content=
           gen_constructor obj classname (List.filter is_constructor messages)
-      }
-    ; {
-        filename= sprintf "Remove-Xen%s.cs" stem
-      ; content=
-          gen_destructor obj classname (List.filter is_destructor messages)
       }
     ; {
         filename= sprintf "Remove-Xen%sProperty.cs" stem
@@ -598,83 +595,34 @@ and convert_from_hashtable fname ty =
 (************************************)
 (* Print function for Remove-XenFoo *)
 (************************************)
-and gen_destructor obj classname messages =
-  match messages with
+
+and gen_destructor obj =
+  let {name= classname; messages; _} = obj in
+  let destructors = List.filter is_destructor messages in
+  match destructors with
   | [] ->
-      ""
+      ()
   | [x] ->
-      let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Remove" in
-      let asyncMessages =
-        List.map cut_message_name (List.filter (fun x -> x.msg_async) messages)
+      let json =
+        `O
+          [
+            ("type", `String (qualified_class_name classname))
+          ; ("wire_class_name", `String (exposed_class_name classname))
+          ; ("class_name", `String (ocaml_class_to_csharp_class classname))
+          ; ("property", `String (ocaml_class_to_csharp_property classname))
+          ; ("type_local", `String (ocaml_class_to_csharp_local_var classname))
+          ; ("async", `Bool x.msg_async)
+          ; ("has_uuid", `Bool (has_uuid obj))
+          ; ("has_name", `Bool (has_name obj))
+          ]
       in
-      sprintf
-        "%s\n\n\
-         using System;\n\
-         using System.Collections;\n\
-         using System.Collections.Generic;\n\
-         using System.Management.Automation;\n\
-         using XenAPI;\n\n\
-         namespace Citrix.XenServer.Commands\n\
-         {\n\
-        \    [Cmdlet(VerbsCommon.Remove, \"Xen%s\", SupportsShouldProcess = \
-         true)]\n\
-        \    [OutputType(typeof(%s))]%s\n\
-        \    [OutputType(typeof(void))]\n\
-        \    public class RemoveXen%s : XenServerCmdlet\n\
-        \    {\n\
-        \        #region Cmdlet Parameters\n\n\
-        \        [Parameter]\n\
-        \        public SwitchParameter PassThru { get; set; }\n\
-         %s%s\n\
-        \        #endregion\n\n\
-        \        #region Cmdlet Methods\n\n\
-        \        protected override void ProcessRecord()\n\
-        \        {\n\
-        \            GetSession();\n\n\
-        \            string %s = Parse%s();\n\n\
-        \            %s\n\n\
-        \            UpdateSessions();\n\
-        \        }\n\n\
-        \        #endregion\n\n\
-        \        #region Private Methods\n\
-         %s%s\n\
-        \        #endregion\n\
-        \    }\n\
-         }\n"
-        Licence.bsd_two_clause
-        (ocaml_class_to_csharp_class classname)
-        (qualified_class_name classname)
-        ( if asyncMessages <> [] then
-            "\n    [OutputType(typeof(XenAPI.Task))]"
-          else
-            ""
+      render_file
+        ( "Remove-XenObject.mustache"
+        , sprintf "Remove-Xen%s.cs" (ocaml_class_to_csharp_class classname)
         )
-        (ocaml_class_to_csharp_class classname)
-        (print_xenobject_params obj classname true true true)
-        ( if asyncMessages <> [] then
-            sprintf
-              "\n\
-              \        protected override bool GenerateAsyncParam\n\
-              \        {\n\
-              \            get { return true; }\n\
-              \        }\n"
-          else
-            ""
-        )
-        (ocaml_class_to_csharp_local_var classname)
-        (ocaml_class_to_csharp_property classname)
-        (print_cmdlet_methods_remover classname x)
-        (print_parse_xenobject_private_method obj classname true)
-        (print_process_record_private_methods classname messages "Remove"
-           "asyncpassthru"
-        )
+        json templdir destdir
   | _ ->
       assert false
-
-and print_cmdlet_methods_remover classname message =
-  let localVar = ocaml_class_to_csharp_local_var classname in
-  let cut_message_name x = cut_msg_name (pascal_case x.msg_name) "Remove" in
-  sprintf "ProcessRecord%s(%s);" (cut_message_name message) localVar
 
 (*****************************************)
 (* Print function for Remove-XenFoo -Bar *)

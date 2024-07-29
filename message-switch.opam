@@ -31,6 +31,7 @@ depends: [
   "ppx_sexp_conv"
   "sexplib"
   "shared-block-ring" {>= "2.3.0"}
+  "xapi-stdext-unix"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """

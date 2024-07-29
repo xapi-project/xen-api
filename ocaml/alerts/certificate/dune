@@ -1,6 +1,7 @@
 (library
   (name certificate_check)
   (modules certificate_check)
+  (modes best)
   (libraries
     astring
     xapi-expiry-alerts
@@ -19,7 +20,7 @@
   (modules certificate_check_main)
   (libraries
     certificate_check
-    dune-build-info
+    
     http_lib
     xapi-client
     xapi-types

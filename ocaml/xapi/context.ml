@@ -503,12 +503,23 @@ let get_user_agent context =
 let with_tracing ?originator ~__context name f =
   let open Tracing in
   let parent = __context.tracing in
-  let span_attributes = Attributes.attr_of_originator originator in
+  let span_attributes =
+    Attributes.attr_of_originator originator
+    @ make_attributes ~task_id:__context.task_id
+        ?session_id:__context.session_id ()
+  in
   match start_tracing_helper ~span_attributes (fun _ -> parent) name with
-  | Some _ as span ->
+  | Some _ as span -> (
+    try
       let new_context = {__context with tracing= span} in
       let result = f new_context in
       let _ = Tracer.finish span in
       result
+    with exn ->
+      let backtrace = Printexc.get_raw_backtrace () in
+      let error = (exn, Printexc.raw_backtrace_to_string backtrace) in
+      ignore @@ Tracer.finish span ~error ;
+      Printexc.raise_with_backtrace exn backtrace
+  )
   | None ->
       f __context

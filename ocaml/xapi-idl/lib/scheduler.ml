@@ -18,33 +18,7 @@ open D
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-module PipeDelay = struct
-  (* Concrete type is the ends of a pipe *)
-  type t = {
-      (* A pipe is used to wake up a thread blocked in wait: *)
-      pipe_out: Unix.file_descr
-    ; pipe_in: Unix.file_descr
-  }
-
-  let make () =
-    let pipe_out, pipe_in = Unix.pipe () in
-    {pipe_out; pipe_in}
-
-  let wait (x : t) (seconds : float) =
-    let timeout = if seconds < 0.0 then 0.0 else seconds in
-    if Thread.wait_timed_read x.pipe_out timeout then
-      (* flush the single byte from the pipe *)
-      let (_ : int) = Unix.read x.pipe_out (Bytes.create 1) 0 1 in
-      (* return false if we were woken *)
-      false
-    else
-      (* return true if we waited the full length of time, false if we were woken *)
-      true
-
-  let signal (x : t) =
-    let (_ : int) = Unix.write x.pipe_in (Bytes.of_string "X") 0 1 in
-    ()
-end
+module PipeDelay = Xapi_stdext_threads.Threadext.Delay
 
 type handle = Mtime.span * int
 
@@ -67,7 +41,7 @@ module HandleMap = Map.Make (struct
       c
 end)
 
-type item = {id: int; name: string; fn: unit -> unit}
+type item = {name: string; fn: unit -> unit}
 
 type t = {
     mutable schedule: item HandleMap.t
@@ -114,7 +88,7 @@ let one_shot_f s dt (name : string) f =
   with_lock s.m (fun () ->
       let id = s.next_id in
       s.next_id <- s.next_id + 1 ;
-      let item = {id; name; fn= f} in
+      let item = {name; fn= f} in
       let handle = (time, id) in
       s.schedule <- HandleMap.add handle item s.schedule ;
       PipeDelay.signal s.delay ;

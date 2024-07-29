@@ -48,6 +48,14 @@ ERRORCODE = 'errorcode'
 ERROR = 'error'
 FOUND = 'found'
 REQUIRED = 'required'
+YUM_CMD = '/usr/bin/yum'
+DNF_CMD = '/usr/bin/dnf'
+PKG_MGR = DNF_CMD if os.path.exists(DNF_CMD) else YUM_CMD
+
+#pylint: disable=missing-class-docstring
+#pylint: disable=redefined-outer-name
+#pylint: disable=missing-function-docstring
+#pylint: disable=consider-using-f-string
 
 class EnvironmentFailure(Exception):
     pass
@@ -80,25 +88,29 @@ class VmRunning(Exception):
     pass
 
 def success_message(result):
+    """success message to return"""
     rpcparams = {'Status': 'Success', 'Value': result}
     return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
 def failure_message(code, params):
+    """failure message to return"""
     rpcparams = {
         'Status': 'Failure', 'ErrorDescription': [code] + params}
     return xmlrpc.client.dumps((rpcparams, ), '', True)
 
 
-def parse_control_package(session, yum_url):
+def parse_control_package(yum_url):
+    """ parse control package from update.xml"""
     if not yum_url.startswith('http://'):
         raise PrecheckFailure('Incorrect yum repo: %s' % yum_url)
 
     update_xml_url = yum_url + '/update.xml'
     try:
+        #pylint: disable=consider-using-with
         update_xml = urllib.request.urlopen(update_xml_url).read()
-    except:
-        raise PrecheckFailure("Couldn't fetch update.xml from '%s'" % update_xml_url)
+    except Exception as e:
+        raise PrecheckFailure("Couldn't fetch update.xml from '%s'" % update_xml_url) from e
     xmldoc = xml.dom.minidom.parse(io.StringIO(update_xml.decode('utf-8')))
 
     items = xmldoc.getElementsByTagName('update')
@@ -118,10 +130,12 @@ def parse_precheck_failure(xmldoc):
     if code in errors:
         params = [xmldoc.getElementsByTagName(a)[0].firstChild.nodeValue for a in errors[code]]
         raise PrecheckError(code, *params)
-    else:
-        raise PrecheckFailure(xmldoc.toxml())
+    raise PrecheckFailure(xmldoc.toxml())
 
-def execute_precheck(session, control_package, yum_conf_file, update_precheck_file):
+def execute_precheck(control_package, yum_conf_file, update_precheck_file):
+    #pylint: disable=too-many-locals
+    #pylint: disable=too-many-branches
+    #pylint: disable=too-many-statements
     if not control_package:
         return 'ok'
     livepatch_messages = {'PATCH_PRECHECK_LIVEPATCH_COMPLETE': 'ok_livepatch_complete',
@@ -130,16 +144,19 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
     yum_env = os.environ.copy()
     yum_env['LANG'] = 'C'
 
-    cmd = ['yum', 'clean', 'all', '--noplugins', '-c', yum_conf_file]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
+    cmd = [PKG_MGR, 'clean', 'all', '--noplugins', '-c', yum_conf_file]
+    #pylint: disable=consider-using-with
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     for line in output.split('\n'):
         xcp.logger.info(line)
     if p.returncode != 0:
         raise EnvironmentFailure("Error cleaning yum cache")
 
-    cmd = ['yum', 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
-    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, env=yum_env, universal_newlines=True)
+    cmd = [PKG_MGR, 'install', '-y', '--noplugins', '-c', yum_conf_file, control_package]
+    p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                         close_fds=True, env=yum_env, universal_newlines=True)
     output, _ = p.communicate()
     xcp.logger.info('pool_update.precheck %r returncode=%r output:', cmd, p.returncode)
     for line in output.split('\n'):
@@ -161,50 +178,45 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
         if m:
             errmsg = m.group()
             errmsg = re.sub(ERROR_MESSAGE_END + '.+', '', errmsg, flags=re.DOTALL)
-            if ERROR_MESSAGE_CONFLICTS_WITH in errmsg and ERROR_MESSAGE_PROCESSING_CONFLICT in output:
-                regex = ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)' + ERROR_MESSAGE_CONFLICTS + '(.+?)\n'
+            if (ERROR_MESSAGE_CONFLICTS_WITH in errmsg and
+                ERROR_MESSAGE_PROCESSING_CONFLICT in output):
+                regex = (ERROR_MESSAGE_PROCESSING_CONFLICT + '(.*)'
+                         + ERROR_MESSAGE_CONFLICTS + '(.+?)\n')
                 conflict_tuples = re.findall(regex, output)
-                if len(conflict_tuples) > 0:
-                    conflict_updates = ''
-                    for tuple in conflict_tuples:
-                        conflict_updates += tuple[1] + ' '
-                    raise ConflictPresent(conflict_updates.rstrip())
-                else:
-                    raise PrecheckFailure(errmsg)
-            elif ERROR_MESSAGE_VERSION_REQUIRED in errmsg and (ERROR_MESSAGE_VERSION_INSTALLED in errmsg or ERROR_MESSAGE_VERSION_UPDATED_BY in errmsg):
+                if conflict_tuples:
+                    raise ConflictPresent(' '.join([tup[1] for tup in conflict_tuples]))
+                raise PrecheckFailure(errmsg)
+            if (ERROR_MESSAGE_VERSION_REQUIRED in errmsg and
+                (ERROR_MESSAGE_VERSION_INSTALLED in errmsg
+                 or ERROR_MESSAGE_VERSION_UPDATED_BY in errmsg)):
                 regex = ERROR_MESSAGE_VERSION_REQUIRED + '(.+?)\n.+ {2,2}(.+)$'
                 match = re.search(regex, errmsg, flags=re.DOTALL)
                 if match:
                     required_version = match.group(1).rstrip()
                     installed_version = match.group(2).rstrip()
                     raise WrongServerVersion(required_version, installed_version)
-                else:
-                    raise PrecheckFailure(errmsg)
-            elif ERROR_MESSAGE_PREREQUISITE in errmsg:
+                raise PrecheckFailure(errmsg)
+            if ERROR_MESSAGE_PREREQUISITE in errmsg:
                 regex = ERROR_MESSAGE_PREREQUISITE + '(.+?)\n'
                 prerequisite_list = re.findall(regex, errmsg)
-                if len(prerequisite_list) > 0:
-                    prerequisite_updates = ''
-                    for prerequisite in prerequisite_list:
-                        prerequisite_updates += prerequisite + ' '
-                    raise PrerequisiteMissing(prerequisite_updates.rstrip())
-                else:
-                    raise PrecheckFailure(errmsg)
-            else:
+                if prerequisite_list:
+                    raise PrerequisiteMissing(' '.join(prerequisite_list))
                 raise PrecheckFailure(errmsg)
-        else:
-            regex = ERROR_XML_START + '.+' + ERROR_XML_END
-            m = re.search(regex, output, flags=re.DOTALL)
-            if m:
-                try:
-                    xmldoc = xml.dom.minidom.parseString(m.group(0))
-                except:
-                    raise PrecheckFailure(output)
-                parse_precheck_failure(xmldoc)
-            raise PrecheckFailure(output)
+            raise PrecheckFailure(errmsg)
+
+        regex = ERROR_XML_START + '.+' + ERROR_XML_END
+        m = re.search(regex, output, flags=re.DOTALL)
+        if m:
+            try:
+                xmldoc = xml.dom.minidom.parseString(m.group(0))
+            except Exception as e:
+                raise PrecheckFailure(output) from e
+            parse_precheck_failure(xmldoc)
+        raise PrecheckFailure(output)
 
     if os.path.isfile(update_precheck_file):
-        pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
+        pp = subprocess.Popen(update_precheck_file, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, close_fds=True, universal_newlines=True)
         precheck_output, _ = pp.communicate()
         xcp.logger.info('pool_update.precheck %r precheck_output:', update_precheck_file)
         for line in precheck_output.split('\n'):
@@ -215,15 +227,14 @@ def execute_precheck(session, control_package, yum_conf_file, update_precheck_fi
             if m:
                 try:
                     xmldoc = xml.dom.minidom.parseString(m.group(0))
-                except:
-                    raise PrecheckFailure(precheck_output)
+                except Exception as e:
+                    raise PrecheckFailure(precheck_output) from e
                 parse_precheck_failure(xmldoc)
             raise PrecheckFailure(precheck_output)
-        else:
-            if '\n' in precheck_output:
-                msg = precheck_output.split()[0]
-                if msg in list(livepatch_messages.keys()):
-                    return livepatch_messages[msg]
+        if '\n' in precheck_output:
+            msg = precheck_output.split()[0]
+            if msg in livepatch_messages:
+                return livepatch_messages[msg]
     return 'ok'
 
 
@@ -232,8 +243,11 @@ if __name__ == '__main__':
     txt = sys.stdin.read()
     params, method = xmlrpc.client.loads(txt)
 
+    #pylint: disable=invalid-name
     update_vdi_valid = False
     session = None
+    update_package = None
+    update = None
     try:
         session = XenAPI.xapi_local()
         session.xenapi.login_with_password('root', '', '', 'Pool_update')
@@ -249,7 +263,7 @@ if __name__ == '__main__':
         try:
             update_vdi_uuid = session.xenapi.VDI.get_uuid(update_vdi)
             update_vdi_valid = True
-        except Exception as e:
+        except Exception as e: #pylint: disable=broad-exception-caught
             print(failure_message(CANNOT_FIND_UPDATE, []))
             sys.exit(0)
 
@@ -262,7 +276,7 @@ if __name__ == '__main__':
                 print(failure_message(UPDATE_PRECHECK_FAILED_OUT_OF_SPACE,
                     [update_package, str(available_dom0_disk_size), str(required_size)]))
                 sys.exit(0)
-        except:
+        except Exception: #pylint: disable=broad-exception-caught
             print(failure_message(INVALID_UPDATE, ["Issue with <installation-size> in update.xml"]))
             sys.exit(0)
 
@@ -277,25 +291,30 @@ if __name__ == '__main__':
                 pass
             else:
                 raise
-        with open(yum_conf_file, "w+") as file:
+        with open(yum_conf_file, "w+", encoding="utf-8") as file:
             file.write(yum_conf)
 
         config = configparser.ConfigParser()
         config.read(yum_conf_file)
         yum_url = config.get(update_package, 'baseurl')
 
-        control_package = parse_control_package(session, yum_url)
+        control_package = parse_control_package(yum_url)
         update_precheck_file = os.path.join(UPDATE_DIR, update_uuid, 'precheck')
-        print(success_message(execute_precheck(session, control_package, yum_conf_file, update_precheck_file)))
+        print(success_message(execute_precheck(control_package,
+                                               yum_conf_file, update_precheck_file)))
     except PrecheckError as e:
-        print(failure_message(e.args[0], [update_package] + [a for a in e.args[1:]]))
+        print(failure_message(e.args[0], [update_package] + list(e.args[1:])))
     except PrerequisiteMissing as e:
-        print(failure_message(UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING, [update_package, str(e)]))
+        print(failure_message(UPDATE_PRECHECK_FAILED_PREREQUISITE_MISSING,
+                              [update_package, str(e)]))
     except ConflictPresent as e:
-        print(failure_message(UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT, [update_package, str(e)]))
+        print(failure_message(UPDATE_PRECHECK_FAILED_CONFLICT_PRESENT,
+                              [update_package, str(e)]))
     except WrongServerVersion as e:
+        #pylint: disable=unbalanced-tuple-unpacking
         required_version, installed_version = e.args
-        print(failure_message(UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION, [update_package, installed_version, required_version]))
+        print(failure_message(UPDATE_PRECHECK_FAILED_WRONG_SERVER_VERSION,
+                              [update_package, installed_version, required_version]))
     except InvalidUpdate as e:
         print(failure_message(INVALID_UPDATE, [update_package, str(e)]))
     except GpgkeyNotImported as e:
@@ -304,7 +323,7 @@ if __name__ == '__main__':
         print(failure_message(PATCH_PRECHECK_FAILED_ISO_MOUNTED, [update]))
     except VmRunning as e:
         print(failure_message(PATCH_PRECHECK_FAILED_VM_RUNNING, [update]))
-    except Exception as e:
+    except Exception as e: #pylint: disable=broad-exception-caught
         print(failure_message(UPDATE_PRECHECK_FAILED_UNKNOWN_ERROR, [update_package, str(e)]))
     finally:
         if session is not None and update_vdi_valid is True:
@@ -312,5 +331,5 @@ if __name__ == '__main__':
             session.xenapi.session.logout()
         try:
             shutil.rmtree(os.path.dirname(yum_conf_file))
-        except Exception as e:
+        except Exception as e: #pylint: disable=broad-exception-caught
             pass

@@ -4,7 +4,7 @@
  (package xapi-networkd)
  (modes exe)
  (libraries
-  dune-build-info
+  
   networklibs
   xapi-idl.network)
 )

@@ -119,21 +119,3 @@ caml_unixpwd_setspw(value caml_user, value caml_password)
         caml_failwith(strerror(rc));
     CAMLreturn(Val_unit);
 }
-
-CAMLprim        value
-caml_unixpwd_unshadow(value unused)
-{
-    CAMLparam1(unused);
-    char           *passwords;
-    CAMLlocal1(str);
-
-    passwords = unixpwd_unshadow();
-    if (passwords == NULL && errno != 0)
-        caml_failwith(strerror(errno));
-    if (passwords == NULL)
-        caml_failwith("unspecified error in caml_unixpwd_unshadow()");
-
-    str = caml_copy_string(passwords);
-    free(passwords);
-    CAMLreturn(str);
-}
