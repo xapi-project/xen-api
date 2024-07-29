@@ -127,7 +127,7 @@ let ok_none = Ok None
 module Status = struct
   type status_code = Unset | Ok | Error [@@deriving rpcty]
 
-  type t = {status_code: status_code; description: string option}
+  type t = {status_code: status_code; _description: string option}
 end
 
 module Attributes = struct
@@ -169,7 +169,7 @@ module SpanContext = struct
 end
 
 module SpanLink = struct
-  type t = {context: SpanContext.t; attributes: (string * string) list}
+  type t = {_context: SpanContext.t; _attributes: (string * string) list}
 end
 
 module Span = struct
@@ -210,7 +210,7 @@ module Span = struct
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
-    let status : Status.t = {status_code= Status.Unset; description= None} in
+    let status : Status.t = {status_code= Status.Unset; _description= None} in
     let links = [] in
     let events = [] in
     {
@@ -252,7 +252,7 @@ module Span = struct
   let set_span_kind span span_kind = {span with span_kind}
 
   let add_link span context attributes =
-    let link : SpanLink.t = {context; attributes} in
+    let link : SpanLink.t = {_context= context; _attributes= attributes} in
     {span with links= link :: span.links}
 
   let add_event span name attributes =
@@ -265,7 +265,7 @@ module Span = struct
     | exn, stacktrace -> (
         let msg = Printexc.to_string exn in
         let exn_type = Printexc.exn_slot_name exn in
-        let description =
+        let _description =
           Some
             (Printf.sprintf "Error: %s Type: %s Backtrace: %s" msg exn_type
                stacktrace
@@ -288,17 +288,17 @@ module Span = struct
                 span.attributes
                 (Attributes.of_list exn_attributes)
             in
-            {span with status= {status_code; description}; attributes}
+            {span with status= {status_code; _description}; attributes}
         | _ ->
             span
       )
 
   let set_ok span =
-    let description = None in
+    let _description = None in
     let status_code = Status.Ok in
     match span.status.status_code with
     | Unset ->
-        {span with status= {status_code; description}}
+        {span with status= {status_code; _description}}
     | _ ->
         span
 end
@@ -566,9 +566,9 @@ module TracerProvider = struct
 end
 
 module Tracer = struct
-  type t = {name: string; provider: TracerProvider.t}
+  type t = {_name: string; provider: TracerProvider.t}
 
-  let create ~name ~provider = {name; provider}
+  let create ~name ~provider = {_name= name; provider}
 
   let no_op =
     let provider : TracerProvider.t =
@@ -579,7 +579,7 @@ module Tracer = struct
       ; enabled= false
       }
     in
-    {name= ""; provider}
+    {_name= ""; provider}
 
   let get_tracer ~name =
     if Atomic.get observe then (
@@ -600,7 +600,7 @@ module Tracer = struct
   let span_of_span_context context name : Span.t =
     {
       context
-    ; status= {status_code= Status.Unset; description= None}
+    ; status= {status_code= Status.Unset; _description= None}
     ; name
     ; parent= None
     ; span_kind= SpanKind.Client (* This will be the span of the client call*)
