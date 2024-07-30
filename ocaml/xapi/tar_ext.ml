@@ -58,7 +58,7 @@ let unpack_error_to_string = function
         (Int64.to_string expected_size)
         (Int64.to_string actual_size)
   | File_incomplete ->
-      "File incompete"
+      "File incomplete"
   | File_corrupted ->
       "File corrupted"
   | Unpacking_failure ->

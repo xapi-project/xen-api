@@ -51,13 +51,16 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
 let introduce_bundle ~__context ~name_label ~name_description =
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
-         if
-           name_label = Db.Repository.get_name_label ~__context ~self:ref
-           || Db.Repository.get_origin ~__context ~self:ref = `bundle
-         then
+         if name_label = Db.Repository.get_name_label ~__context ~self:ref then
            raise
              Api_errors.(
                Server_error (repository_already_exists, [Ref.string_of ref])
+             ) ;
+         if Db.Repository.get_origin ~__context ~self:ref = `bundle then
+           raise
+             Api_errors.(
+               Server_error
+                 (bundle_repository_already_exists, [Ref.string_of ref])
              )
      ) ;
   create_repository_record ~__context ~name_label ~name_description

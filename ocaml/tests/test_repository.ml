@@ -101,7 +101,9 @@ let test_introduce_duplicate_bundle_repo () =
   in
 
   Alcotest.check_raises "test_introduce_duplicate_bundle_repo"
-    Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
+    Api_errors.(
+      Server_error (bundle_repository_already_exists, [Ref.string_of ref])
+    )
     (fun () ->
       Repository.introduce_bundle ~__context ~name_label:name_label_1
         ~name_description:name_description_1

@@ -201,6 +201,8 @@ let pool_operation_to_string = function
       "configure_repositories"
   | `sync_updates ->
       "sync_updates"
+  | `sync_bundle ->
+      "sync_bundle"
   | `get_updates ->
       "get_updates"
   | `apply_updates ->
