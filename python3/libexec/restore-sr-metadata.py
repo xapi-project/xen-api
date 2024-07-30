@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # Restore SR metadata and VDI names from an XML file
 # (c) Anil Madhavapeddy, Citrix Systems Inc, 2008
 
