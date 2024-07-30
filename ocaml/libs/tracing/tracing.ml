@@ -313,7 +313,7 @@ module Spans = struct
         Hashtbl.length spans
     )
 
-  let max_spans = Atomic.make 1000
+  let max_spans = Atomic.make 2500
 
   let set_max_spans x = Atomic.set max_spans x
 
