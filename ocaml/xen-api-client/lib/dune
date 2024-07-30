@@ -2,7 +2,6 @@
   (name xen_api_client)
   (public_name xen-api-client)
   (wrapped false)
-  (preprocess (pps ppx_deriving_rpc))
   (libraries
     astring
     cohttp

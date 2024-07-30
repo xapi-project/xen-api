@@ -1,8 +1,7 @@
 (executable
   (modes exe)
   (name gen_json)
-  (libraries
-    dune-build-info
+  (libraries    
     fmt
     xapi-datamodel
     xapi-consts

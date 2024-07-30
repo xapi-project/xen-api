@@ -13,6 +13,6 @@
     xapi-log
     xapi-stdext-threads
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (per_module ((pps ppx_deriving_rpc ppx_sexp_conv) Protocol)))
 )
 

@@ -14,6 +14,11 @@
 
 (** The main entry point of the quicktest executable *)
 
+let qchecks =
+  [("bufio", Bufio_test.tests); ("Timer", Test_timer.tests)]
+  |> List.map @@ fun (name, test) ->
+     (name, List.map QCheck_alcotest.(to_alcotest ~long:true) test)
+
 let () =
   Quicktest_args.parse () ;
   Qt_filter.wrap (fun () ->
@@ -43,6 +48,11 @@ let () =
           [("http", Quicktest_http.tests)]
         else
           []
+          @
+          if not !Quicktest_args.skip_stress then
+            qchecks
+          else
+            []
       in
       (* Only list tests if asked, without running them *)
       if !Quicktest_args.list_tests then

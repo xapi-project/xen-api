@@ -189,6 +189,8 @@ val http_500_internal_server_error : ?version:string -> unit -> string list
 
 val http_501_method_not_implemented : ?version:string -> unit -> string list
 
+val http_503_service_unavailable : ?version:string -> unit -> string list
+
 module Hdr : sig
   val task_id : string
   (** Header used for task id *)

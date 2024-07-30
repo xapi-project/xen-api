@@ -837,7 +837,7 @@ module Monitor = struct
                   (ExnHelper.string_of_exn e) ;
                 Thread.delay !Xapi_globs.ha_monitor_interval
             done ;
-            debug "Re-enabling old Host_metrics.live heartbeat" ;
+            debug "Re-enabling host heartbeat" ;
             with_lock Db_gc.use_host_heartbeat_for_liveness_m (fun () ->
                 Db_gc.use_host_heartbeat_for_liveness := true
             ) ;

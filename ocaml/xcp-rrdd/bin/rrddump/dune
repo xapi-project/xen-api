@@ -3,7 +3,7 @@
   (name rrddump)
   (public_name rrddump)
   (libraries
-    dune-build-info
+    
     rrd-transport
     xapi-rrd
     xapi-rrd.unix

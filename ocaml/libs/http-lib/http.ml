@@ -94,6 +94,13 @@ let http_501_method_not_implemented ?(version = "1.0") () =
   ; "Cache-Control: no-cache, no-store"
   ]
 
+let http_503_service_unavailable ?(version = "1.0") () =
+  [
+    Printf.sprintf "HTTP/%s 503 Service Unavailable" version
+  ; "Connection: close"
+  ; "Cache-Control: no-cache, no-store"
+  ]
+
 module Hdr = struct
   let task_id = "task-id"
 
