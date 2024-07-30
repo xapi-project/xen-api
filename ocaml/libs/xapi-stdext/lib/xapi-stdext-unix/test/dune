@@ -9,8 +9,9 @@
 
 (rule
   (alias stresstest)
+  (deps unixext_test.exe)
   ; use default random seed on stresstests
-  (action (run %{dep:unixext_test.exe} -v -bt))
+  (action (run %{deps} -v -bt))
 )
 
 (test
