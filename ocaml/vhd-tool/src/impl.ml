@@ -787,9 +787,9 @@ let endpoint_of_string = function
           if he = [] then raise Not_found ;
           return (Sockaddr (List.hd he).Unix.ai_addr)
       | Some "unix", _ ->
-          return (Sockaddr (Lwt_unix.ADDR_UNIX (Uri.path uri')))
+          return (Sockaddr (Lwt_unix.ADDR_UNIX (Uri.path_unencoded uri')))
       | Some "file", _ ->
-          return (File (Uri.path uri'))
+          return (File (Uri.path_unencoded uri'))
       | Some "http", _ ->
           return (Http uri')
       | Some "https", _ ->

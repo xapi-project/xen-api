@@ -923,7 +923,7 @@ module Url = struct
       in
       let data =
         {
-          uri= (match Uri.path uri with "" -> "/" | path -> path)
+          uri= (match Uri.path_unencoded uri with "" -> "/" | path -> path)
         ; query_params= Uri.query uri |> List.map query
         }
       in
@@ -936,7 +936,7 @@ module Url = struct
       | Some "https" ->
           (scheme ~ssl:true, data)
       | Some "file" ->
-          let scheme = File {path= Uri.path uri} in
+          let scheme = File {path= Uri.path_unencoded uri} in
           (scheme, {data with uri= "/"})
       | _ ->
           failwith "unsupported URI scheme"
