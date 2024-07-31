@@ -1690,15 +1690,16 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
   (* Implement the single value required for the module signature *)
   let methods =
-    {
-      Auth_signature.authenticate_username_password
-    ; Auth_signature.authenticate_ticket
-    ; Auth_signature.get_subject_identifier
-    ; Auth_signature.query_subject_information
-    ; Auth_signature.query_group_membership
-    ; Auth_signature.on_enable
-    ; Auth_signature.on_disable
-    ; Auth_signature.on_xapi_initialize
-    ; Auth_signature.on_xapi_exit
-    }
+    Auth_signature.
+      {
+        authenticate_username_password
+      ; authenticate_ticket
+      ; get_subject_identifier
+      ; query_subject_information
+      ; query_group_membership
+      ; on_enable
+      ; on_disable
+      ; on_xapi_initialize
+      ; on_xapi_exit
+      }
 end
