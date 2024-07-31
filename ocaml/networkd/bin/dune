@@ -16,7 +16,7 @@
  (modes exe)
  (libraries
   astring
-  dune-build-info
+  
   forkexec
   http_lib
   integers

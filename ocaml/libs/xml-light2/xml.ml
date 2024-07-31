@@ -22,7 +22,7 @@ type xml =
   | Element of (string * (string * string) list * xml list)
   | PCData of string
 
-type error_pos = {eline: int; eline_start: int; emin: int; emax: int}
+type error_pos = {eline: int}
 
 type error = string * error_pos
 
@@ -69,8 +69,8 @@ let _parse i =
 
 let parse i =
   try _parse i
-  with Xmlm.Error ((line, col), msg) ->
-    let pos = {eline= line; eline_start= line; emin= col; emax= col} in
+  with Xmlm.Error ((line, _), msg) ->
+    let pos = {eline= line} in
     let err = Xmlm.error_message msg in
     raise (Error (err, pos))
 

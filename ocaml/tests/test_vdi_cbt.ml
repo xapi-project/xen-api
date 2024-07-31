@@ -475,7 +475,7 @@ let test_allowed_operations_updated_when_necessary () =
       List.mem `copy ops
   ) ;
   (* Call data_destroy through the the message forwarding layer *)
-  Api_server.Forwarder.VDI.data_destroy ~__context ~self ;
+  Api_server_common.Forwarder.VDI.data_destroy ~__context ~self ;
   assert_allowed_operations
     "does not contain `copy after VDI has been data-destroyed" (fun ops ->
       not @@ List.mem `copy ops

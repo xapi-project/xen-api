@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=515
+  N=513
   # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
   MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
@@ -95,7 +95,7 @@ ocamlyacc () {
 
 
 unixgetenv () {
-  N=1
+  N=0
   UNIXGETENV=$(git grep -P -r -o --count 'getenv(?!_opt)' -- **/*.ml | wc -l)
   if [ "$UNIXGETENV" -eq "$N" ]; then
     echo "OK found $UNIXGETENV usages of exception-raising Unix.getenv in OCaml files."

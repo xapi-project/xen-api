@@ -1,5 +1,5 @@
 (executable
- (modes byte exe)
+ (modes exe)
  (name test_xs_trace)
  (libraries unix))
 

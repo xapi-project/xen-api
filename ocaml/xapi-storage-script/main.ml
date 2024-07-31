@@ -1693,6 +1693,10 @@ let rec diff a b =
   | a :: aa ->
       if List.mem b a ~equal:String.( = ) then diff aa b else a :: diff aa b
 
+(* default false due to bugs in SMAPIv3 plugins,
+   once they are fixed this should be set to true *)
+let concurrent = ref false
+
 let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   let create volume_plugin_name =
     if Hashtbl.mem servers volume_plugin_name then
@@ -1700,7 +1704,9 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe =
     else (
       info "Adding %s" volume_plugin_name ;
       let volume_script_dir = Filename.concat volume_root volume_plugin_name in
-      Message_switch_async.Protocol_async.Server.listen
+      Message_switch_async.Protocol_async.Server.(
+        if !concurrent then listen_p else listen
+      )
         ~process:(process_smapiv2_requests (bind ~volume_script_dir))
         ~switch:switch_path
         ~queue:(Filename.basename volume_plugin_name)
@@ -1953,6 +1959,11 @@ let _ =
       , Arg.Set self_test_only
       , (fun () -> string_of_bool !self_test_only)
       , "Do only a self-test and exit"
+      )
+    ; ( "concurrent"
+      , Arg.Set concurrent
+      , (fun () -> string_of_bool !concurrent)
+      , "Issue SMAPIv3 calls concurrently"
       )
     ]
   in

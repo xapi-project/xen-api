@@ -9,7 +9,7 @@
     base.caml
     core
     core_kernel
-    dune-build-info
+    
     xapi-consts
     xapi-types
     xen-api-client
@@ -27,9 +27,7 @@
     base
     base.caml
     core
-    core_kernel
-    dune-build-info
-    ppx_sexp_conv.runtime-lib
+    core_kernel    
     rpclib.json
     sexplib0
     xapi-consts

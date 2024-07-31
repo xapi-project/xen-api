@@ -28,7 +28,6 @@ install:
 	$(IPROG) libexec/usb_reset.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/usb_scan.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/nbd_client_manager.py $(DESTDIR)$(LIBEXECDIR)
-	$(IPROG) libexec/probe-device-for-file $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/print-custom-templates $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
