@@ -54,7 +54,6 @@
 # OF THIS SOFTWARE.
 # --------------------------------------------------------------------
 
-import errno
 import gettext
 import os
 import socket
