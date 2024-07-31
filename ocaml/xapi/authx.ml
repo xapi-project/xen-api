@@ -19,6 +19,8 @@ module D = Debug.Make (struct let name = "extauth_plugin_PAM_NSS" end)
 
 open D
 
+let ( let@ ) = ( @@ )
+
 module AuthX : Auth_signature.AUTH_MODULE = struct
   (*
    * External Authentication Plugin component
@@ -113,7 +115,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	auth/directory service.
      	Raises Not_found if authentication is not succesful.
   *)
-  let get_subject_identifier ~__context:_ subject_name =
+  let get_subject_identifier ~__context subject_name =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     try (* looks up list of users*)
         "u" ^ getent_idbyname "passwd" subject_name
     with Not_found ->
@@ -132,6 +135,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   *)
 
   let authenticate_username_password ~__context username password =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* we try to authenticate against our user database using PAM *)
     let () =
       try
@@ -168,7 +172,8 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	it's a string*string list anyway for possible future expansion.
      	Raises Not_found if subject_id cannot be resolved by external auth service
   *)
-  let query_subject_information ~__context:_ subject_identifier =
+  let query_subject_information ~__context subject_identifier =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* we are expecting an id such as u0, g0, u123 etc *)
     if String.length subject_identifier < 2 then raise Not_found ;
     match subject_identifier.[0] with
@@ -247,6 +252,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   (* in unix, groups cannot contain groups, so we just verify the groups a user *)
   (* belongs to and, if that fails, if some group has the required identifier *)
   let query_group_membership ~__context subject_identifier =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* 1. first we try to see if our subject identifier is a user id...*)
     let sanitized_subject_id = String.escaped subject_identifier in
     (* we are expecting an id such as u0, g0, u123 etc *)

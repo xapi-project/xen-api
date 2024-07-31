@@ -20,6 +20,8 @@ module D = Debug.Make (struct let name = "extauth_plugin_ADpbis" end)
 open D
 open Xapi_stdext_std.Xstringext
 
+let ( let@ ) = ( @@ )
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -584,7 +586,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       auth/directory service.
       Raises Not_found (*Subject_cannot_be_resolved*) if authentication is not succesful.
   *)
-  let get_subject_identifier ~__context:_ _subject_name =
+  let get_subject_identifier ~__context _subject_name =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+
     try
       (* looks up list of users*)
       let subject_name = get_full_subject_name _subject_name in
@@ -611,6 +615,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
   *)
 
   let authenticate_username_password ~__context username password =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* first, we try to authenticated user against our external user database *)
     (* pbis_common will raise an Auth_failure if external authentication fails *)
     let domain, user =
@@ -660,7 +665,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       it's a string*string list anyway for possible future expansion.
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
-  let query_subject_information ~__context:_ subject_identifier =
+  let query_subject_information ~__context subject_identifier =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     let unmap_lw_space_chars lwname =
       let defensive_copy = Bytes.of_string lwname in
       (* CA-29006: map chars in names back to original space chars in windows-names *)
@@ -730,6 +736,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       supports nested groups (as AD does for example)
   *)
   let query_group_membership ~__context subject_identifier =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+
     let subject_info =
       query_subject_information ~__context subject_identifier
     in
@@ -890,6 +898,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           does not need long-term.]
   *)
   let on_enable ~__context config_params =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* but in the ldap plugin, we should 'join the AD/kerberos domain', i.e. we should*)
     (* basically: (1) create a machine account in the kerberos realm,*)
     (* (2) store the machine account password somewhere locally (in a keytab) *)
@@ -1037,7 +1046,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       service are cleared (i.e. so you can access the config params you need from the pool metadata
       within the body of the on_disable method)
   *)
-  let on_disable ~__context:_ config_params =
+  let on_disable ~__context config_params =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* but in the ldap plugin, we should 'leave the AD/kerberos domain', i.e. we should *)
     (* (1) remove the machine account from the kerberos realm, (2) remove the keytab locally *)
     let pbis_failure =
@@ -1135,6 +1145,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       starting for the first time after a host boot
   *)
   let on_xapi_initialize ~__context _system_boot =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+
     (* the AD server is initialized outside xapi, by init.d scripts *)
 
     (* this function is called during xapi initialization in xapi.ml *)
