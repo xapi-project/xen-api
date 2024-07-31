@@ -113,7 +113,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	auth/directory service.
      	Raises Not_found if authentication is not succesful.
   *)
-  let get_subject_identifier subject_name =
+  let get_subject_identifier ~__context:_ subject_name =
     try (* looks up list of users*)
         "u" ^ getent_idbyname "passwd" subject_name
     with Not_found ->
@@ -131,7 +131,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	Raises auth_failure if authentication is not successful
   *)
 
-  let authenticate_username_password username password =
+  let authenticate_username_password ~__context username password =
     (* we try to authenticate against our user database using PAM *)
     let () =
       try
@@ -139,7 +139,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
         (* no exception raised, then authentication succeeded *)
       with Failure msg -> raise (Auth_signature.Auth_failure msg)
     in
-    try get_subject_identifier username
+    try get_subject_identifier ~__context username
     with Not_found ->
       raise
         (Auth_signature.Auth_failure
@@ -155,7 +155,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   *)
   (* not implemented now, not needed for our tests, only for a *)
   (* future single sign-on feature *)
-  let authenticate_ticket _tgt =
+  let authenticate_ticket ~__context:_ _tgt =
     failwith "authx authenticate_ticket not implemented"
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
@@ -168,7 +168,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	it's a string*string list anyway for possible future expansion.
      	Raises Not_found if subject_id cannot be resolved by external auth service
   *)
-  let query_subject_information subject_identifier =
+  let query_subject_information ~__context:_ subject_identifier =
     (* we are expecting an id such as u0, g0, u123 etc *)
     if String.length subject_identifier < 2 then raise Not_found ;
     match subject_identifier.[0] with
@@ -246,7 +246,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   *)
   (* in unix, groups cannot contain groups, so we just verify the groups a user *)
   (* belongs to and, if that fails, if some group has the required identifier *)
-  let query_group_membership subject_identifier =
+  let query_group_membership ~__context subject_identifier =
     (* 1. first we try to see if our subject identifier is a user id...*)
     let sanitized_subject_id = String.escaped subject_identifier in
     (* we are expecting an id such as u0, g0, u123 etc *)
@@ -303,7 +303,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      		explicitly filter any one-time credentials [like AD username/password for example] that it
      		does not need long-term.]
   *)
-  let on_enable _config_params =
+  let on_enable ~__context:_ _config_params =
     (* nothing to do in this unix plugin, we always have /etc/passwd and /etc/group *)
     ()
 
@@ -314,7 +314,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	service are cleared (i.e. so you can access the config params you need from the pool metadata
      	within the body of the on_disable method)
   *)
-  let on_disable _config_params =
+  let on_disable ~__context:_ _config_params =
     (* nothing to disable in this unix plugin, we should not disable /etc/passwd and /etc/group:) *)
     ()
 
@@ -323,7 +323,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
      	Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
      	starting for the first time after a host boot
   *)
-  let on_xapi_initialize _system_boot =
+  let on_xapi_initialize ~__context:_ _system_boot =
     (* again, nothing to be initialized here in this unix plugin *)
     ()
 
@@ -331,7 +331,7 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
 
      	Called internally when xapi is doing a clean exit.
   *)
-  let on_xapi_exit () =
+  let on_xapi_exit ~__context:_ () =
     (* nothing to do here in this unix plugin *)
     ()
 

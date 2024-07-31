@@ -1361,7 +1361,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       auth/directory service.
       Raises Not_found (*Subject_cannot_be_resolved*) if authentication is not succesful.
   *)
-  let get_subject_identifier subject_name =
+  let get_subject_identifier ~__context:_ subject_name =
     maybe_raise (get_subject_identifier' subject_name)
 
   (* subject_id Authenticate_username_password(string username, string password)
@@ -1375,7 +1375,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Raises auth_failure if authentication is not successful
   *)
 
-  let authenticate_username_password uname password =
+  let authenticate_username_password ~__context uname password =
     (* the `wbinfo --krb5auth` expects the username to be in either SAM or UPN format.
      * we use wbinfo to try to convert the provided [uname] into said format.
      * as a last ditch attempt, we try to auth with the provided [uname]
@@ -1415,7 +1415,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
   *)
   (* not implemented now, not needed for our tests, only for a *)
   (* future single sign-on feature *)
-  let authenticate_ticket _tgt =
+  let authenticate_ticket ~__context:_ _tgt =
     failwith "extauth_plugin authenticate_ticket not implemented"
 
   let query_subject_information_group (name : string) (gid : int) (sid : string)
@@ -1512,7 +1512,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       it's a string*string list anyway for possible future expansion.
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
-  let query_subject_information (sid : string) =
+  let query_subject_information ~__context:_ (sid : string) =
     let res =
       let* name = Wbinfo.name_of_sid sid in
       match name with
@@ -1534,7 +1534,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       _must_ be transitively closed wrt the is_member_of relation if the external directory service
       supports nested groups (as AD does for example)
   *)
-  let query_group_membership subject_identifier =
+  let query_group_membership ~__context subject_identifier =
     maybe_raise (Wbinfo.user_domgroups subject_identifier)
 
   let assert_join_domain_user_format uname =
@@ -1560,7 +1560,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
           explicitly filter any one-time credentials [like AD username/password for example] that it
           does not need long-term.]
   *)
-  let on_enable config_params =
+  let on_enable ~__context:_ config_params =
     let user =
       from_config ~name:"user" ~err_msg:"enable requires user" ~config_params
     in
@@ -1654,7 +1654,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       service are cleared (i.e. so you can access the config params you need from the pool metadata
       within the body of the on_disable method)
   *)
-  let on_disable config_params =
+  let on_disable ~__context:_ config_params =
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; _} = get_domain_info_from_db () in
@@ -1676,7 +1676,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
       starting for the first time after a host boot
   *)
-  let on_xapi_initialize _system_boot =
+  let on_xapi_initialize ~__context:_ _system_boot =
     Winbind.start ~timeout:5. ~wait_until_success:true ;
     ClosestKdc.trigger_update ~start:ClosestKdc.startup_delay ;
     RotateMachinePassword.trigger_rotate ~start:5. ;
@@ -1686,7 +1686,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
 
       Called internally when xapi is doing a clean exit.
   *)
-  let on_xapi_exit () = ()
+  let on_xapi_exit ~__context:_ () = ()
 
   (* Implement the single value required for the module signature *)
   let methods =

@@ -1778,7 +1778,7 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
 
           (* use the special 'named dispatcher' function to call an extauth plugin function even though we have *)
           (* not yet set up the external_auth_type value that will enable generic access to the extauth plugin. *)
-          (Ext_auth.nd auth_type).on_enable config ;
+          (Ext_auth.nd auth_type).on_enable ~__context config ;
 
           (* from this point on, we have successfully enabled the external authentication services. *)
 
@@ -1891,7 +1891,7 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
         (* 1. first, we try to call the external auth plugin to disable the external authentication service *)
         let plugin_disable_failure =
           try
-            (Ext_auth.d ()).on_disable config ;
+            (Ext_auth.d ()).on_disable ~__context config ;
             None (* OK, on_disable succeeded *)
           with
           | Auth_signature.Auth_service_error (errtag, msg) ->
