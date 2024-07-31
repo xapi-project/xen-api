@@ -90,7 +90,7 @@ let create_session_for_client_cert req s =
       (* Has been authenticated. Performing RBAC check only ... *)
       Xapi_session.login_with_password ~__context ~uname:"" ~pwd:""
         ~version:Datamodel_common.api_version_string
-        ~originator:Constants.xapi_user_agent
+        ~originator:Xapi_version.xapi_user_agent
   | Some `root | None ->
       raise (Http.Unauthorised "")
 
@@ -300,7 +300,7 @@ let server =
   let server = Http_svr.Server.empty () in
   server
 
-let http_request = Http.Request.make ~user_agent:Constants.xapi_user_agent
+let http_request = Http.Request.make ~user_agent:Xapi_version.xapi_user_agent
 
 let bind inetaddr =
   let description =

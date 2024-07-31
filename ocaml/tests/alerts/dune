@@ -5,7 +5,7 @@
     alcotest
     certificate_check
     daily_license_check
-    dune-build-info
+    
     expiry_alert
     fmt
     xapi-consts

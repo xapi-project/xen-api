@@ -1427,7 +1427,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
       Client.Session.login_with_password ~rpc:unverified_rpc
         ~uname:master_username ~pwd:master_password
         ~version:Datamodel_common.api_version_string
-        ~originator:Constants.xapi_user_agent
+        ~originator:Xapi_version.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error
@@ -1466,7 +1466,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
     try
       Client.Session.login_with_password ~rpc ~uname:master_username
         ~pwd:master_password ~version:Datamodel_common.api_version_string
-        ~originator:Constants.xapi_user_agent
+        ~originator:Xapi_version.xapi_user_agent
     with Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
       raise
         (Api_errors.Server_error

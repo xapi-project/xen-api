@@ -18,6 +18,7 @@
     threads.posix
     xapi-backtrace
     xapi-consts
+    xapi_version
     xapi_database
     xapi-datamodel
     xapi-log

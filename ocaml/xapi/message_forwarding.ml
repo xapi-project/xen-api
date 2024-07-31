@@ -6756,3 +6756,33 @@ functor
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end
   end
+
+(* for unit tests *)
+let register_callback_fns () =
+  let set_stunnelpid _task_opt pid =
+    Locking_helpers.Thread_state.acquired
+      (Locking_helpers.Process ("stunnel", pid))
+  in
+  let unset_stunnelpid _task_opt pid =
+    Locking_helpers.Thread_state.released
+      (Locking_helpers.Process ("stunnel", pid))
+  in
+  let stunnel_destination_is_ok addr =
+    Server_helpers.exec_with_new_task "check_stunnel_destination"
+      (fun __context ->
+        let hosts =
+          Db.Host.get_refs_where ~__context
+            ~expr:(Eq (Field "address", Literal addr))
+        in
+        match hosts with
+        | [host] -> (
+          try check_live ~__context host ; true with _ -> false
+        )
+        | _ ->
+            true
+    )
+  in
+  Xmlrpc_client.Internal.set_stunnelpid_callback := Some set_stunnelpid ;
+  Xmlrpc_client.Internal.unset_stunnelpid_callback := Some unset_stunnelpid ;
+  Xmlrpc_client.Internal.destination_is_ok := Some stunnel_destination_is_ok ;
+  TaskHelper.init ()

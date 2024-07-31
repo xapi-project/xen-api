@@ -1,9 +1,10 @@
 (executable
  (name network_test)
+ (modes exe)
  (libraries
   alcotest
   astring
-  dune-build-info
+  
   fmt
   networklibs
   rpclib.core

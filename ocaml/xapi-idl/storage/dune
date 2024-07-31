@@ -54,7 +54,7 @@
  (libraries
    alcotest
    cmdliner
-   dune-build-info
+   
    xapi-idl
    xapi-idl.storage
    xapi-idl.storage.interface
@@ -67,7 +67,7 @@
  (modules suite vdi_automaton_test)
  (libraries
    alcotest
-   dune-build-info
+   
    xapi-idl.storage.interface
    xapi-idl.storage.interface.types
  )
