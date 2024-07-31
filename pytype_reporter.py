@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """GitHub action workflow Runner for pytype which works also locally without GitHub"""
 import json
 import re
