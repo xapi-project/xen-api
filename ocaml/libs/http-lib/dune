@@ -97,7 +97,7 @@
 
 (rule
   (alias stresstest)
-  (deps bufio_test.exe)
+  (deps bufio_test_run.exe)
   ; use default random seed on stresstests
   (action (run %{deps} -v -bt))
 )
