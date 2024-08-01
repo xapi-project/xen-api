@@ -67,12 +67,13 @@ type t = {
        	 the auth module/service itself -- e.g. maybe a SID or something in the AD case).
        	 Raises auth_failure if authentication is not successful
     *)
-    authenticate_username_password: string -> string -> string
+    authenticate_username_password:
+      __context:Context.t -> string -> string -> string
   ; (* subject_id Authenticate_ticket(string ticket)
 
        	 As above but uses a ticket as credentials (i.e. for single sign-on)
     *)
-    authenticate_ticket: string -> string
+    authenticate_ticket: __context:Context.t -> string -> string
   ; (* subject_id get_subject_identifier(string subject_name)
 
        	 Takes a subject_name (as may be entered into the XenCenter UI when defining subjects --
@@ -80,7 +81,7 @@ type t = {
        	 auth/directory service.
        	 Raises Not_found if authentication is not succesful.
     *)
-    get_subject_identifier: string -> string
+    get_subject_identifier: __context:Context.t -> string -> string
   ; (* ((string*string) list) query_subject_information(string subject_identifier)
 
        	 Takes a subject_identifier and returns the user record from the directory service as
@@ -91,7 +92,8 @@ type t = {
        	 it's a string*string list anyway for possible future expansion.
        	 Raises Not_found if subject_id cannot be resolved by external auth service
     *)
-    query_subject_information: string -> (string * string) list
+    query_subject_information:
+      __context:Context.t -> string -> (string * string) list
   ; (* (string list) query_group_membership(string subject_identifier)
 
        	 Takes a subject_identifier and returns its group membership (i.e. a list of subject
@@ -99,7 +101,7 @@ type t = {
        	 _must_ be transitively closed wrt the is_member_of relation if the external directory service
        	 supports nested groups (as AD does for example)
     *)
-    query_group_membership: string -> string list
+    query_group_membership: __context:Context.t -> string -> string list
   ; (*
 	In addition, there are some event hooks that auth modules implement as follows:
       *)
@@ -118,7 +120,7 @@ type t = {
        	 explicitly filter any one-time credentials [like AD username/password for example] that it
        	 does not need long-term.]
     *)
-    on_enable: (string * string) list -> unit
+    on_enable: __context:Context.t -> (string * string) list -> unit
   ; (* unit on_disable()
 
        	 Called internally by xapi _on each host_ when a client disables an auth service via the XenAPI.
@@ -126,18 +128,18 @@ type t = {
        	 service are cleared (i.e. so you can access the config params you need from the pool metadata
        	 within the body of the on_disable method)
     *)
-    on_disable: (string * string) list -> unit
+    on_disable: __context:Context.t -> (string * string) list -> unit
   ; (* unit on_xapi_initialize(bool system_boot)
 
        	 Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
        	 starting for the first time after a host boot
     *)
-    on_xapi_initialize: bool -> unit
+    on_xapi_initialize: __context:Context.t -> bool -> unit
   ; (* unit on_xapi_exit()
 
        	 Called internally when xapi is doing a clean exit.
     *)
-    on_xapi_exit: unit -> unit
+    on_xapi_exit: __context:Context.t -> unit -> unit
 }
 
 (* Auth modules must implement this signature:*)
