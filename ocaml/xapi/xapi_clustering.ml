@@ -427,11 +427,16 @@ let compute_corosync_max_host_failures ~__context =
   corosync_ha_max_hosts
 
 module Watcher = struct
+  let routine_updates = "routine updates"
+
   let on_corosync_update ~__context ~cluster updates =
-    debug
-      "%s: Received %d updates from corosync_notifyd, run diagnostics to get \
-       new state"
-      __FUNCTION__ (List.length updates) ;
+    if updates = [routine_updates] then
+      debug "%s: Perform routine updates" __FUNCTION__
+    else
+      debug
+        "%s: Received %d updates from corosync_notifyd, run diagnostics to get \
+         new state"
+        __FUNCTION__ (List.length updates) ;
     let m =
       Cluster_client.LocalClient.diagnostics (rpc ~__context)
         "update quorum api fields with diagnostics"
@@ -570,7 +575,7 @@ module Watcher = struct
           (* CA-395789: We send a query to xapi-clusterd to fetch the latest state
              anyway in case there is a race and the previous update did not give the
              most up-to-date information *)
-          find_cluster_and_update ["routine updates"]
+          find_cluster_and_update [routine_updates]
       | Error (InternalError message) | Error (Unix_error message) ->
           warn "%s: Cannot query cluster host updates with error %s"
             __FUNCTION__ message
