@@ -52,6 +52,11 @@ install:
 	$(IDATA) perfmon/perfmon.service $(DESTDIR)/usr/lib/systemd/system/perfmon.service
 	$(IPROG) perfmon/sysconfig-perfmon $(DESTDIR)/etc/sysconfig/perfmon
 
+# example/python
+	$(IDATA) examples/XenAPIPlugin.py $(DESTDIR)$(SITE3_DIR)/
+	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
+	$(IDATA) examples/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
+
 
 # poweron
 	$(IPROG) poweron/wlan.py $(DESTDIR)$(PLUGINDIR)/wlan.py
