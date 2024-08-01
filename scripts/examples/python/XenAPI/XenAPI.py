@@ -264,7 +264,7 @@ class Session(xmlrpclib.ServerProxy):
 def xapi_local(originator=None):
     uri = "http://_var_lib_xcp_xapi/"
     if isinstance(originator, str):
-        uri = f"http://_var_lib_xcp_xapi.{originator}/"
+        uri = "http://_var_lib_xcp_xapi.%s/" % originator
     return Session(uri, transport=UDSTransport())
 
 def _parse_result(result):
