@@ -194,15 +194,8 @@ module Process = struct
         )
 end
 
-module FileWatcher = struct
-  type move = Away of string | Into of string
-
-  type event =
-    | Created of string
-    | Unlinked of string
-    | Modified of string
-    | Moved of move
-    | Queue_overflow  (** Consumer is not reading fast enough, events missed *)
+module DirWatcher = struct
+  type event = Modified of string | Changed
 
   let create path =
     Lwt_inotify.create () >>= fun desc ->
@@ -231,7 +224,7 @@ module FileWatcher = struct
     let watch_path = Hashtbl.find_opt watches wd in
     match (overflowed, watch_path) with
     | true, _ ->
-        Lwt.return [Queue_overflow]
+        Lwt.return [Changed]
     | _, None ->
         Lwt.return []
     | _, Some base_path ->
@@ -253,18 +246,11 @@ module FileWatcher = struct
             | Ignored
             | Unmount ->
                 None
-            | Create ->
-                Some (Created path)
-            | Delete | Delete_self ->
-                Some (Unlinked path)
             | Close_write | Modify | Move_self ->
                 Some (Modified path)
-            | Moved_from ->
-                Some (Moved (Away path))
-            | Moved_to ->
-                Some (Moved (Into path))
-            | Q_overflow ->
-                Some Queue_overflow
+            | Create | Delete | Delete_self | Moved_from | Moved_to | Q_overflow
+              ->
+                Some Changed
             )
           mask
         |> Lwt.return

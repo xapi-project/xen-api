@@ -1775,32 +1775,51 @@ let rec diff a b =
 (* default false due to bugs in SMAPIv3 plugins,
    once they are fixed this should be set to true *)
 let concurrent = ref false
-type action_file = Create of string | Delete of string
 
-type action_dir = Files of action_file list | Sync | Nothing
+type reload = All | Files of string list | Nothing
 
 let actions_from events =
   List.fold_left
     (fun acc event ->
       match (event, acc) with
-      | FileWatcher.Queue_overflow, _ ->
-          Sync
-      | _, Sync ->
-          Sync
-      | (Moved (Away path) | Unlinked path), Nothing ->
-          Files [Delete path]
-      | (Moved (Away path) | Unlinked path), Files files ->
-          Files (Delete path :: files)
-      | (Moved (Into path) | Created path), Nothing ->
-          Files [Create path]
-      | (Moved (Into path) | Created path), Files files ->
-          Files (Create path :: files)
-      | Modified path, Nothing ->
-          Files [Create path; Delete path]
+      | DirWatcher.Modified path, Nothing ->
+          Files [path]
       | Modified path, Files files ->
-          Files (Create path :: Delete path :: files)
+          Files (path :: files)
+      | Changed, _ | _, All ->
+          All
     )
     Nothing events
+
+let reload_all root ~create ~destroy =
+  let* needed = Sys.readdir root in
+  let got_already = Base.Hashtbl.keys servers in
+  let* () = Lwt.join (List.map create (diff needed got_already)) in
+  Lwt.join (List.map destroy (diff got_already needed))
+
+let reload_file ~create ~destroy path =
+  let name = Filename.basename path in
+  let* () = destroy name in
+  create name
+
+let reload root ~create ~destroy = function
+  | All ->
+      reload_all root ~create ~destroy
+  | Files files ->
+      Lwt_list.iter_p (reload_file ~create ~destroy) files
+  | Nothing ->
+      Lwt.return_unit
+
+let rec watch_loop pipe root ~create ~destroy =
+  let* () =
+    let* events = DirWatcher.read pipe in
+    reload root ~create ~destroy (actions_from events)
+  in
+  watch_loop pipe root ~create ~destroy
+
+let watch_plugins ~pipe ~root ~create ~destroy =
+  reload_all root ~create ~destroy >>= fun () ->
+  watch_loop pipe root ~create ~destroy
 
 let watch_volume_plugins ~volume_root ~switch_path ~pipe () =
   let create volume_plugin_name =
@@ -1831,65 +1850,12 @@ let watch_volume_plugins ~volume_root ~switch_path ~pipe () =
     | None ->
         Lwt.return_unit
   in
-  let sync () =
-    Sys.readdir volume_root >>= fun needed ->
-    let got_already : string list = Base.Hashtbl.keys servers in
-    Lwt.join (List.map create (diff needed got_already)) >>= fun () ->
-    Lwt.join (List.map destroy (diff got_already needed))
-  in
-  sync () >>= fun () ->
-  let resolve_file = function
-    | Create path ->
-        create (Filename.basename path)
-    | Delete path ->
-        destroy (Filename.basename path)
-  in
-  let resolve = function
-    | Sync ->
-        sync ()
-    | Nothing ->
-        Lwt.return_unit
-    | Files files ->
-        Lwt_list.iter_s resolve_file (List.rev files)
-  in
-  let rec loop () =
-    (FileWatcher.read pipe >>= fun events -> resolve (actions_from events))
-    >>= fun () -> loop ()
-  in
-  loop ()
+  watch_plugins ~pipe ~root:volume_root ~create ~destroy
 
 let watch_datapath_plugins ~datapath_root ~pipe () =
-  let sync () =
-    Sys.readdir datapath_root >>= fun needed ->
-    let got_already : string list = Base.Hashtbl.keys servers in
-    Lwt.join
-      (List.map
-         (Datapath_plugins.register ~datapath_root)
-         (diff needed got_already)
-      )
-    >>= fun () ->
-    Lwt.join (List.map Datapath_plugins.unregister (diff got_already needed))
-  in
-  sync () >>= fun () ->
-  let resolve_file = function
-    | Create path ->
-        Datapath_plugins.register ~datapath_root (Filename.basename path)
-    | Delete path ->
-        Datapath_plugins.unregister (Filename.basename path)
-  in
-  let resolve = function
-    | Sync ->
-        sync ()
-    | Nothing ->
-        Lwt.return_unit
-    | Files files ->
-        Lwt_list.iter_s resolve_file (List.rev files)
-  in
-  let rec loop () =
-    (FileWatcher.read pipe >>= fun events -> resolve (actions_from events))
-    >>= fun () -> loop ()
-  in
-  loop ()
+  let create = Datapath_plugins.register ~datapath_root in
+  let destroy = Datapath_plugins.unregister in
+  watch_plugins ~pipe ~root:datapath_root ~create ~destroy
 
 let self_test_plugin ~root_dir plugin =
   let volume_script_dir = Filename.(concat (concat root_dir "volume") plugin) in
@@ -1971,9 +1937,9 @@ let self_test ~root_dir =
 let main ~root_dir ~state_path ~switch_path =
   Attached_SRs.reload state_path >>= fun () ->
   let datapath_root = root_dir // "datapath" in
-  FileWatcher.create datapath_root >>= fun datapath ->
+  DirWatcher.create datapath_root >>= fun datapath ->
   let volume_root = root_dir // "volume" in
-  FileWatcher.create volume_root >>= fun volume ->
+  DirWatcher.create volume_root >>= fun volume ->
   let rec retry_loop ((name, promise) as thread) () =
     Deferred.try_with promise >>= function
     | Ok () ->

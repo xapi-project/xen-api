@@ -77,15 +77,10 @@ module Process : sig
       its stdout and stderr. *)
 end
 
-module FileWatcher : sig
-  type move = Away of string | Into of string
-
+module DirWatcher : sig
   type event =
-    | Created of string
-    | Unlinked of string
-    | Modified of string
-    | Moved of move
-    | Queue_overflow  (** Consumer is not reading fast enough, events missed *)
+    | Modified of string  (** File contents changed *)
+    | Changed  (** Something in the directory changed, read anew *)
 
   val create :
     string -> ((Inotify.watch, string) Hashtbl.t * Lwt_inotify.t) Lwt.t
