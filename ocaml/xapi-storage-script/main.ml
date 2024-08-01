@@ -1811,6 +1811,7 @@ let reload root ~create ~destroy = function
       Lwt.return_unit
 
 let rec watch_loop pipe root ~create ~destroy =
+  let* () = Lwt_unix.sleep 0.5 in
   let* () =
     let* events = DirWatcher.read pipe in
     reload root ~create ~destroy (actions_from events)
