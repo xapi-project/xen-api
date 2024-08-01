@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """XenAPI python plugin boilerplate code"""
 # pylint: disable=invalid-name
 # Module name "XenAPIPlugin" doesn't conform to snake_case naming style
@@ -9,11 +10,7 @@ from __future__ import print_function
 import sys
 
 import XenAPI
-
-if sys.version_info[0] == 2:
-    import xmlrpclib
-else:
-    import xmlrpc.client as xmlrpclib
+import xmlrpc.client as xmlrpclib
 
 class Failure(Exception):
     """Provide compatibility with plugins written against the XenServer 5.5 API"""
