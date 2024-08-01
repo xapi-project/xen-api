@@ -5,8 +5,7 @@ let ( let@ ) f x = f x
 
 (* This bit is called directly by the fake_rpc callback *)
 let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
-  let parent = Http_svr.traceparent_of_request req in
-  let@ span = Tracing.with_child_trace parent ~name:__FUNCTION__ in
+  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
@@ -25,7 +24,7 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
     forward req call is_json
   else
     let response =
-      let@ _ = Tracing.with_child_trace span ~name:"Server.dispatch_call" in
+      let@ req = Http.Request.with_tracing ~name:"Server.dispatch_call" req in
       Server.dispatch_call req fd call
     in
     let translated =
@@ -92,8 +91,8 @@ let create_thumbprint_header req response =
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req bio _ =
-  let parent = Http_svr.traceparent_of_request req in
-  let@ span = Tracing.with_child_trace parent ~name:__FUNCTION__ in
+  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
+  let span = Http.Request.traceparent_of req in
   let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =
@@ -147,8 +146,7 @@ let callback is_json req bio _ =
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req bio _ =
-  let parent = Http_svr.traceparent_of_request req in
-  let@ _ = Tracing.with_child_trace parent ~name:__FUNCTION__ in
+  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
   let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =
