@@ -51,6 +51,7 @@ runs:
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
         dune-cache: true
+        opam-pin: false
       env:
         DUNE_CACHE_STORAGE_MODE: copy
 
