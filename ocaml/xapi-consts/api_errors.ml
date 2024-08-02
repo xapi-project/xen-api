@@ -1338,6 +1338,8 @@ let sync_bundle_in_progress = add_error "SYNC_BUNDLE_IN_PROGRESS"
 
 let reposync_failed = add_error "REPOSYNC_FAILED"
 
+let bundle_sync_failed = add_error "BUNDLE_SYNC_FAILED"
+
 let createrepo_failed = add_error "CREATEREPO_FAILED"
 
 let invalid_updateinfo_xml = add_error "INVALID_UPDATEINFO_XML"

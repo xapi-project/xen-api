@@ -3800,9 +3800,12 @@ let put_bundle_handler (req : Request.t) s _ =
                 TaskHelper.set_progress ~__context 0.8 ;
                 finally
                   (fun () ->
-                    sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
-                      ~token:"" ~token_id:""
-                    |> ignore
+                    try
+                      sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
+                        ~token:"" ~token_id:""
+                      |> ignore
+                    with _ ->
+                      raise Api_errors.(Server_error (bundle_sync_failed, []))
                   )
                   (fun () -> Unixext.rm_rec !Xapi_globs.bundle_repository_dir)
             | Error e ->
