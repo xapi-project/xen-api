@@ -54,7 +54,6 @@ install:
 
 # example/python
 	$(IDATA) examples/XenAPIPlugin.py $(DESTDIR)$(SITE3_DIR)/
-	sed -i 's/#!\/usr\/bin\/python/#!\/usr\/bin\/python3/' $(DESTDIR)$(SITE3_DIR)/XenAPIPlugin.py
 	$(IDATA) examples/XenAPI/XenAPI.py $(DESTDIR)$(SITE3_DIR)/
 
 
