@@ -41,7 +41,7 @@ let xmlrpc_to_sexpr (root : xml) =
     | _, [] ->
         []
     | _, PCData text :: _ ->
-        let text = String.strip String.isspace text in
+        let text = String.trim text in
         [SExpr.String text]
     (* empty <value>s have default value '' *)
     | h, Element ("value", _, []) :: siblings ->
@@ -69,7 +69,7 @@ let xmlrpc_to_sexpr (root : xml) =
     (*ignore incorrect member*)
     (* any other element *)
     | h, Element (tag, _, children) :: siblings ->
-        let tag = String.strip String.isspace tag in
+        let tag = String.trim tag in
         let mytag = SExpr.String tag in
         let (mychildren : SExpr.t list) = visit (h + 1) children in
         let anode = SExpr.Node (mytag :: mychildren) in

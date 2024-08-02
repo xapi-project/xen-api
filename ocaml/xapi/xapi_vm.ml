@@ -1206,7 +1206,7 @@ let get_possible_hosts ~__context ~vm =
 
 let get_allowed_VBD_devices ~__context ~vm =
   List.map
-    (fun d -> string_of_int (Device_number.to_disk_number d))
+    (fun d -> string_of_int (Device_number.disk d))
     (snd @@ allowed_VBD_devices ~__context ~vm ~_type:`Disk)
 
 let get_allowed_VIF_devices = allowed_VIF_devices

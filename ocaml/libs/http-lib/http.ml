@@ -24,8 +24,6 @@ exception Forbidden
 
 exception Method_not_implemented
 
-exception Malformed_url of string
-
 exception Timeout
 
 exception Too_large
@@ -145,61 +143,8 @@ let output_http fd headers =
   |> String.concat ""
   |> Unixext.really_write_string fd
 
-let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
-
-let implode chr_list =
-  String.concat "" (List.map Astring.String.of_char chr_list)
-
-let urldecode url =
-  let chars = explode url in
-  let rec fn ac = function
-    | '+' :: tl ->
-        fn (' ' :: ac) tl
-    | '%' :: a :: b :: tl ->
-        let cs =
-          try int_of_string (implode ['0'; 'x'; a; b])
-          with _ -> raise (Malformed_url url)
-        in
-        fn (Char.chr cs :: ac) tl
-    | x :: tl ->
-        fn (x :: ac) tl
-    | [] ->
-        implode (List.rev ac)
-  in
-  fn [] chars
-
 (* Encode @param suitably for appearing in a query parameter in a URL. *)
-let urlencode param =
-  let chars = explode param in
-  let rec fn = function
-    | x :: tl ->
-        let s =
-          if x = ' ' then
-            "+"
-          else
-            match x with
-            | 'A' .. 'Z'
-            | 'a' .. 'z'
-            | '0' .. '9'
-            | '$'
-            | '-'
-            | '_'
-            | '.'
-            | '!'
-            | '*'
-            | '\''
-            | '('
-            | ')'
-            | ',' ->
-                Astring.String.of_char x
-            | _ ->
-                Printf.sprintf "%%%2x" (Char.code x)
-        in
-        s ^ fn tl
-    | [] ->
-        ""
-  in
-  fn chars
+let urlencode param = Uri.pct_encode ~component:`Query param
 
 (** Parses strings of the form a=b;c=d (new, RFC-compliant cookie format)
     and a=b&c=d (old, incorrect style) into [("a", "b"); ("c", "d")] *)
@@ -219,7 +164,7 @@ let parse_cookies xs =
   List.map
     (function
       | k :: vs ->
-          (urldecode k, urldecode (String.concat "=" vs))
+          (Uri.pct_decode k, Uri.pct_decode (String.concat "=" vs))
       | [] ->
           raise Http_parse_failure
       )

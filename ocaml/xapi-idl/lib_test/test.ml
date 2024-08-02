@@ -17,7 +17,6 @@ let () =
     ; ("Syslog tests", Syslog_test.tests)
     ; ("Cohttp_posix_io tests", Http_test.tests)
     ; ("Xenops_interface tests", Xen_test.tests)
-    ; ("Device_number tests", Device_number_test.tests)
     ; ("xcp-config-file tests", Config_file_test.tests)
       (* "xcp-channel-test", Channel_test.tests; TODO: Turn these on when the
          code works. *)
