@@ -3774,37 +3774,53 @@ let put_bundle_handler (req : Request.t) s _ =
         ~doc:"pool.sync_bundle" ~op:`sync_bundle
       @@ fun () ->
       Http_svr.headers s (Http.http_200_ok ()) ;
-      let repo =
-        Repository_helpers.get_single_enabled_update_repository ~__context
-      in
-      match Db.Repository.get_origin ~__context ~self:repo with
-      | `bundle -> (
-          let result =
-            Tar_ext.unpack_tar_file
-              ~dir:!Xapi_globs.bundle_repository_dir
-              ~ifd:s
-              ~max_size_limit:!Xapi_globs.bundle_max_size_limit
+      let repo_opt =
+        try
+          let repo =
+            Repository_helpers.get_single_enabled_update_repository ~__context
           in
-          match result with
-          | Ok () ->
-              TaskHelper.set_progress ~__context 0.8 ;
-              finally
-                (fun () ->
-                  sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
-                    ~token:"" ~token_id:""
-                  |> ignore
-                )
-                (fun () -> Unixext.rm_rec !Xapi_globs.bundle_repository_dir)
-          | Error e ->
-              error "%s: Failed to unpack bundle with error %s" __FUNCTION__
-                (Tar_ext.unpack_error_to_string e) ;
-              TaskHelper.failed ~__context
-                Api_errors.(
-                  Server_error
-                    (bundle_unpack_failed, [Tar_ext.unpack_error_to_string e])
-                ) ;
-              Http_svr.headers s (Http.http_400_badrequest ())
-        )
-      | `remote ->
-          raise Api_errors.(Server_error (bundle_repo_not_enabled, []))
+          Some repo
+        with e ->
+          TaskHelper.failed ~__context e ;
+          Http_svr.headers s (Http.http_400_badrequest ()) ;
+          None
+      in
+      match repo_opt with
+      | Some repo -> (
+        match Db.Repository.get_origin ~__context ~self:repo with
+        | `bundle -> (
+            let result =
+              Tar_ext.unpack_tar_file
+                ~dir:!Xapi_globs.bundle_repository_dir
+                ~ifd:s
+                ~max_size_limit:!Xapi_globs.bundle_max_size_limit
+            in
+            match result with
+            | Ok () ->
+                TaskHelper.set_progress ~__context 0.8 ;
+                finally
+                  (fun () ->
+                    sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
+                      ~token:"" ~token_id:""
+                    |> ignore
+                  )
+                  (fun () -> Unixext.rm_rec !Xapi_globs.bundle_repository_dir)
+            | Error e ->
+                error "%s: Failed to unpack bundle with error %s" __FUNCTION__
+                  (Tar_ext.unpack_error_to_string e) ;
+                TaskHelper.failed ~__context
+                  Api_errors.(
+                    Server_error
+                      (bundle_unpack_failed, [Tar_ext.unpack_error_to_string e])
+                  ) ;
+                Http_svr.headers s (Http.http_400_badrequest ())
+          )
+        | `remote ->
+            error "%s: Bundle repo is not enabled" __FUNCTION__ ;
+            TaskHelper.failed ~__context
+              Api_errors.(Server_error (bundle_repo_not_enabled, [])) ;
+            Http_svr.headers s (Http.http_400_badrequest ())
+      )
+      | None ->
+          ()
   )
