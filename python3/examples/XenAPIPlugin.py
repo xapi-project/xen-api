@@ -8,9 +8,8 @@
 from __future__ import print_function
 
 import sys
-
-import XenAPI
 import xmlrpc.client as xmlrpclib
+import XenAPI
 
 class Failure(Exception):
     """Provide compatibility with plugins written against the XenServer 5.5 API"""
