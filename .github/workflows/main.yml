@@ -45,7 +45,7 @@ jobs:
       - name: Make install smoketest
         run: |
           opam exec -- make install DESTDIR=$(mktemp -d)
-          opam exec -- make install DESTDIR=$(mktemp -d) BUILD_PY2=NO
+          opam exec -- make install DESTDIR=$(mktemp -d)
 
       - name: Check disk space
         run: df -h || true

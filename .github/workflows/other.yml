@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["2.7", "3.11"]
+        python-version: ["3.11"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,23 +39,10 @@ jobs:
 
       - uses: pre-commit/action@v3.0.1
         name: Run pre-commit checks (no spaces at end of lines, etc)
-        if: ${{ matrix.python-version != '2.7' }}
         with:
           extra_args: --all-files --verbose --hook-stage commit
         env:
           SKIP: no-commit-to-branch
-
-      - name: Run Pytest for python 2 and get code coverage
-        if: ${{ matrix.python-version == '2.7' }}
-        run: >
-          pip install enum future mock pytest-coverage pytest-mock &&
-          pytest -vv -rA --cov=ocaml ocaml
-          --cov-report term-missing
-          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
-          --cov-fail-under 50
-        env:
-          PYTHONDEVMODE: yes
-          PYTHONPATH: "python3:python3/stubs"
 
       - name: Upload coverage report to Coveralls
         uses: coverallsapp/github-action@v2
@@ -66,7 +53,6 @@ jobs:
           parallel: true
 
       - uses: dciborow/action-pylint@0.1.0
-        if: ${{ matrix.python-version != '2.7' }}
         with:
           reporter: github-pr-review
           level: warning
@@ -75,7 +61,6 @@ jobs:
         continue-on-error: true
 
       - name: Run pytype checks
-        if: ${{ matrix.python-version != '2.7' }}
         run: pip install pandas pytype toml && ./pytype_reporter.py
         env:
           PR_NUMBER: ${{ github.event.number }}
