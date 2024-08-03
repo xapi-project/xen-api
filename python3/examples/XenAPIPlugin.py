@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """XenAPI python plugin boilerplate code"""
 # pylint: disable=invalid-name
 # Module name "XenAPIPlugin" doesn't conform to snake_case naming style
