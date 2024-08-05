@@ -1,7 +1,7 @@
 ; This will be used to test stdext itself, so do not depend on stdext here
 (library
 	(name xapi_fd_test)
-	(libraries (re_export xapi-stdext-unix.fdcaps) unix qcheck-core logs fmt (re_export mtime) mtime.clock.os rresult threads.posix)
+	(libraries clock (re_export xapi-stdext-unix.fdcaps) unix qcheck-core logs fmt (re_export mtime) mtime.clock.os rresult threads.posix)
 
 	; off by default, enable with --instrument-with bisect_ppx
 	(instrumentation (backend bisect_ppx))
