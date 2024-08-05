@@ -98,3 +98,6 @@ val testable_file_kind :
   Unix.file_kind QCheck2.Gen.t * Unix.file_kind QCheck2.Print.t
 (** [testable_file_kind] is like {!val:file_kind}, but only generates file kinds
   that the current program can create. *)
+
+val testable_file_kinds : Unix.file_kind list QCheck2.Gen.t
+(** [testable_file_kinds] generates multiple file kinds, suitable for [select/poll/epoll]. *)
