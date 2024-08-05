@@ -198,7 +198,7 @@ let test_proxy =
 
 let run_select ro wo errs timeout =
   let dt = Mtime_clock.counter () in
-  let r = Unix.select ro wo errs timeout in
+  let r = Unixext.select ro wo errs timeout in
   (Mtime_clock.count dt, timeout, r)
 
 (* delays as long as 28.4ms were observed with epoll
@@ -286,5 +286,4 @@ let tests =
 let () =
   (* avoid SIGPIPE *)
   let (_ : Sys.signal_behavior) = Sys.signal Sys.sigpipe Sys.Signal_ignore in
-  (* Reenable this on the epoll branch: Xapi_stdext_unix.Unixext.test_open 1024 *)
-  ()
+  Xapi_stdext_unix.Unixext.test_open 1024
