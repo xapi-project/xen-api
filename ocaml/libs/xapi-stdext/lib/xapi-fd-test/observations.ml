@@ -7,6 +7,8 @@ let open_ro name = openfile_ro `reg name []
 
 let open_wo name = openfile_wo `reg name []
 
+let open_rw name = openfile_rw `reg name []
+
 let with_kind_ro kind f =
   let with2 t =
     let@ fd1, fd2 = with_fd2 t in
@@ -72,9 +74,13 @@ let with_kind_rw kind f =
   | Unix.S_SOCK ->
       let@ fd1, fd2 = with_fd2 @@ socketpair Unix.PF_UNIX Unix.SOCK_STREAM 0 in
       f fd1 fd2
-  | Unix.S_FIFO | Unix.S_DIR | Unix.S_LNK | Unix.S_BLK | Unix.S_REG | Unix.S_CHR
-    ->
-      invalid_arg "not a socket"
+  | Unix.S_REG ->
+      let@ name, _out = with_tempfile () in
+      let@ fd = with_fd @@ open_rw name in
+      let@ fd' = with_fd @@ open_rw name in
+      f fd fd'
+  | Unix.S_FIFO | Unix.S_DIR | Unix.S_LNK | Unix.S_BLK | Unix.S_CHR ->
+      invalid_arg "with_kind_rw: not a socket or reg"
 
 let observe_read observed op t dest off len =
   let amount = op t dest off len in
@@ -321,4 +327,133 @@ let with_kinds_ro lst = with_kind_list with_kind_ro lst
 
 let with_kinds_wo lst = with_kind_list with_kind_wo lst
 
-let with_kinds_rw lst = with_kind_list with_kind_rw lst
+(* compatible with [with_kind_ro] and [with_kind_wo] *)
+let with_kind_rw' kind f = with_kind_rw kind @@ fun fd1 fd2 -> f fd1 (Some fd2)
+
+let with_kinds_rw lst = with_kind_list with_kind_rw' lst
+
+type fd_set = Unix.file_descr list
+
+type select_fd_spec = {kind: Unix.file_kind; wait: float}
+
+type select_input = {
+    ro: select_fd_spec list
+  ; wo: select_fd_spec list
+  ; rw: select_fd_spec list
+  ; re: select_fd_spec list
+  ; we: select_fd_spec list
+  ; errors: select_fd_spec list
+  ; timeout: float
+}
+
+let split_combine gen lst f =
+  let fds, waits =
+    lst |> List.map (fun {kind; wait} -> (kind, wait)) |> List.split
+  in
+  gen fds @@ fun fds ->
+  let fds1, fds2 = List.split fds in
+  f (fds1, List.combine fds2 waits)
+
+let ( let@ ) f x = f x
+
+type 'a fd_safe_set = ('a, kind) make list
+
+let with_fd_inputs f (ro : rdonly fd_safe_set) (wo : wronly fd_safe_set)
+    (rw : rdwr fd_safe_set) (re : rdonly fd_safe_set) (we : wronly fd_safe_set)
+    (errs : rdwr fd_safe_set) timeout =
+  let ro = List.map For_test.unsafe_fd_exn ro
+  and wo = List.map For_test.unsafe_fd_exn wo
+  and re = List.map For_test.unsafe_fd_exn re
+  and we = List.map For_test.unsafe_fd_exn we
+  and rw = List.map For_test.unsafe_fd_exn rw
+  and errs = List.map For_test.unsafe_fd_exn errs in
+  let call timeout = f (ro @ rw @ re) (wo @ rw @ we) (errs @ re @ we) timeout in
+  let r1 = call timeout in
+  let r2 = call 0. in
+  (r1, r2)
+
+let simulate f lst lst' =
+  List.combine lst lst'
+  |> List.map @@ fun (wrapped, (wrapped', wait)) ->
+     (wait, For_test.unsafe_fd_exn wrapped, f wrapped wrapped')
+
+let large = String.make 1_000_000 'x'
+
+let buf = Bytes.make (String.length large) 'x'
+
+let simulate_ro _ro ro' () =
+  ro'
+  |> Option.iter @@ fun ro' ->
+     as_spipe_opt ro' |> Option.iter set_nonblock ;
+     let (_ : int) = Operations.single_write_substring ro' "." 0 1 in
+     ()
+
+let simulate_wo wo wo' =
+  let handle_pipe fd =
+    set_nonblock fd ;
+    (* fill buffers, to make write unavailable initially, but not on regular files/block devices,
+       to avoid ENOSPC errors
+    *)
+    let (_ : int) =
+      Operations.repeat_write Operations.single_write_substring fd large 0
+        (String.length large)
+    in
+    ()
+  in
+  as_spipe_opt wo |> Option.iter handle_pipe ;
+  fun () ->
+    wo'
+    |> Option.iter @@ fun wo' ->
+       as_spipe_opt wo' |> Option.iter set_nonblock ;
+       let (_ : int) = Operations.read wo' buf 0 (Bytes.length buf) in
+       ()
+
+let simulate_rw rw rw' =
+  let f = simulate_ro rw rw' and g = simulate_wo rw rw' in
+  fun () -> f () ; g ()
+
+let compare_wait (t1, _, _) (t2, _, _) = Float.compare t1 t2
+
+let run_simulation (stop, actions) =
+  (* TODO: measure when we actually sent, also have an atomic to when to stop exactly *)
+  List.fold_left
+    (fun (prev, fds) (curr, fd, action) ->
+      let delta = curr -. prev in
+      assert (delta >= 0.) ;
+      if not (Atomic.get stop) then
+        if delta > 0. then
+          Unix.sleepf delta ;
+      (* check again, might've been set meanwhile *)
+      ( curr
+      , if (not (Atomic.get stop)) || curr < Float.epsilon then (
+          action () ; fd :: fds
+        ) else
+          fds
+      )
+    )
+    (0., []) actions
+  |> snd
+
+let with_select_input t f =
+  let@ re, re' = split_combine with_kinds_ro t.re in
+  let@ we, we' = split_combine with_kinds_wo t.we in
+  let@ rw, rw' = split_combine with_kinds_rw t.rw in
+  let@ ro, ro' = split_combine with_kinds_ro t.ro in
+  let@ wo, wo' = split_combine with_kinds_wo t.wo in
+  let@ errs, errs' = split_combine with_kinds_rw t.errors in
+  let actions =
+    List.concat
+      [
+        simulate simulate_ro (ro @ re) (ro' @ re')
+      ; simulate simulate_wo (wo @ we) (wo' @ we')
+      ; simulate simulate_rw rw rw' (* TODO: how to simulate errors *)
+      ; simulate simulate_rw errs errs'
+      ]
+    |> List.fast_sort compare_wait
+  in
+  let stop = Atomic.make false in
+  let finally () = Atomic.set stop true in
+  let run () = with_fd_inputs f ro wo rw re we errs t.timeout in
+  let run () = Fun.protect ~finally run in
+  let r1, r2 = concurrently (run, run_simulation) ((), (stop, actions)) in
+  (unwrap_exn r1, unwrap_exn r2)

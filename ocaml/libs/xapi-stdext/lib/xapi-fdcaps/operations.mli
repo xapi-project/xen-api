@@ -45,6 +45,14 @@ val setup : unit -> unit
   By default a SIGPIPE would kill the program, this makes it return [EPIPE] instead.
  *)
 
+(** {1 Static property tests} *)
+
+val as_readable : (([< readable] as 'a), 'b) make -> ([> readable], 'b) make
+(** [as_readable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
+
+val as_writable : ([< writable], 'b) make -> ([> writable], 'b) make
+(** [as_writable_opt t] returns [Some t] when [t] is readable, and [None] otherwise. *)
+
 (** {1 Runtime property tests}  *)
 
 val as_readable_opt :
