@@ -207,7 +207,7 @@ let with_tempfile ?size () f =
     try Unix.unlink name with Unix.Unix_error (_, _, _) -> ()
   in
   let@ () = Fun.protect ~finally in
-  let t = ch |> Unix.descr_of_out_channel |> make_wo_exn `reg in
+  let t = ch |> Unix.descr_of_out_channel |> Unix.dup |> make_wo_exn `reg in
   let@ t = with_fd t in
   size |> Option.iter (fun size -> ftruncate t size) ;
   f (name, t)
