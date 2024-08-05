@@ -229,18 +229,8 @@ let check_output cmd args =
   | _ ->
       failwith (Printf.sprintf "%s exited nonzero" cmd)
 
-let with_temp_blk ?(sector_size = 512) name f =
-  let blkdev =
-    check_output "losetup"
-      [
-        "--show"
-      ; "--sector-size"
-      ; string_of_int sector_size
-      ; "--direct-io=on"
-      ; "--find"
-      ; name
-      ]
-  in
+let with_temp_blk name f =
+  let blkdev = check_output "losetup" ["--show"; "--find"; name] in
   let custom_ftruncate size =
     Unix.LargeFile.truncate name size ;
     let (_ : string) = check_output "losetup" ["--set-capacity"; name] in
