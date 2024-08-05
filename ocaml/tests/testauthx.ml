@@ -20,19 +20,22 @@ let usage () =
   exit 1
 
 let _ =
+  let __context = Context.make __MODULE__ in
   if Array.length Sys.argv <> 3 then usage () ;
   let username = Sys.argv.(1) and password = Sys.argv.(2) in
   let hr x = print_endline ("-----------------------------\n" ^ x) in
   (* should return 2037 *)
   hr ("TEST 1a. Authx.get_subject_identifier " ^ username) ;
-  let userid = AuthX.methods.get_subject_identifier username in
+  let userid = AuthX.methods.get_subject_identifier ~__context username in
   print_endline ("userid=" ^ userid) ;
   hr
     ("TEST 1b. AuthX.methods.get_subject_identifier "
     ^ username
     ^ "_werq (unknown subject)"
     ) ;
-  try print_endline (AuthX.methods.get_subject_identifier (username ^ "_werq"))
+  try
+    print_endline
+      (AuthX.methods.get_subject_identifier ~__context (username ^ "_werq"))
   with Not_found -> (
     print_endline "subject Not_found, as expected" ;
     (* should return a list of groups that subjectid 1000 (a user) belongs to *)
@@ -42,7 +45,7 @@ let _ =
       ^ " (a user subject)"
       ) ;
     let conc x y = x ^ "," ^ y in
-    let groupid_list = AuthX.methods.query_group_membership userid in
+    let groupid_list = AuthX.methods.query_group_membership ~__context userid in
     print_endline (List.fold_left conc "" groupid_list) ;
     (* should return a list of groups that subjectid 10024 (a group) belongs to *)
     let agroup = List.hd groupid_list in
@@ -52,23 +55,31 @@ let _ =
       ^ " (a group subject)"
       ) ;
     print_endline
-      (List.fold_left conc "" (AuthX.methods.query_group_membership agroup)) ;
+      (List.fold_left conc ""
+         (AuthX.methods.query_group_membership ~__context agroup)
+      ) ;
     hr "TEST 2c. AuthX.methods.query_group_membership u999 (unknown subject)" ;
     try
       print_endline
-        (List.fold_left conc "" (AuthX.methods.query_group_membership "u999"))
+        (List.fold_left conc ""
+           (AuthX.methods.query_group_membership ~__context "u999")
+        )
     with Not_found -> (
       print_endline "subject Not_found, as expected." ;
       hr "TEST 2d. AuthX.methods.query_group_membership a999 (unknown subject)" ;
       try
         print_endline
-          (List.fold_left conc "" (AuthX.methods.query_group_membership "a999"))
+          (List.fold_left conc ""
+             (AuthX.methods.query_group_membership ~__context "a999")
+          )
       with Not_found -> (
         print_endline "subject Not_found, as expected." ;
         hr "TEST 2e. AuthX.methods.query_group_membership 999 (unknown subject)" ;
         try
           print_endline
-            (List.fold_left conc "" (AuthX.methods.query_group_membership "999"))
+            (List.fold_left conc ""
+               (AuthX.methods.query_group_membership ~__context "999")
+            )
         with Not_found -> (
           print_endline "subject Not_found, as expected." ;
           (* should return a list with information about subject_id 1000 (a user)*)
@@ -77,7 +88,9 @@ let _ =
             ^ userid
             ^ " (a user)"
             ) ;
-          let infolist1 = AuthX.methods.query_subject_information userid in
+          let infolist1 =
+            AuthX.methods.query_subject_information ~__context userid
+          in
           for i = 0 to List.length infolist1 - 1 do
             let print_elems (e1, e2) = print_endline (e1 ^ ": " ^ e2) in
             print_elems (List.nth infolist1 i)
@@ -88,7 +101,9 @@ let _ =
             ^ agroup
             ^ " (a group)"
             ) ;
-          let infolist1 = AuthX.methods.query_subject_information agroup in
+          let infolist1 =
+            AuthX.methods.query_subject_information ~__context agroup
+          in
           for i = 0 to List.length infolist1 - 1 do
             let print_elems (e1, e2) = print_endline (e1 ^ ": " ^ e2) in
             print_elems (List.nth infolist1 i)
@@ -98,7 +113,9 @@ let _ =
             "TEST 3c. AuthX.methods.query_subject_information u999 (unknown \
              subject)" ;
           try
-            let infolist1 = AuthX.methods.query_subject_information "u999" in
+            let infolist1 =
+              AuthX.methods.query_subject_information ~__context "u999"
+            in
             for i = 0 to List.length infolist1 - 1 do
               let print_elems (e1, e2) = print_endline (e1 ^ ": " ^ e2) in
               print_elems (List.nth infolist1 i)
@@ -110,7 +127,9 @@ let _ =
               "TEST 3d. AuthX.methods.query_subject_information a999 (unknown \
                subject)" ;
             try
-              let infolist1 = AuthX.methods.query_subject_information "a999" in
+              let infolist1 =
+                AuthX.methods.query_subject_information ~__context "a999"
+              in
               for i = 0 to List.length infolist1 - 1 do
                 let print_elems (e1, e2) = print_endline (e1 ^ ": " ^ e2) in
                 print_elems (List.nth infolist1 i)
@@ -122,7 +141,9 @@ let _ =
                 "TEST 3e. AuthX.methods.query_subject_information 999 (unknown \
                  subject)" ;
               try
-                let infolist1 = AuthX.methods.query_subject_information "999" in
+                let infolist1 =
+                  AuthX.methods.query_subject_information ~__context "999"
+                in
                 for i = 0 to List.length infolist1 - 1 do
                   let print_elems (e1, e2) = print_endline (e1 ^ ": " ^ e2) in
                   print_elems (List.nth infolist1 i)
@@ -134,8 +155,8 @@ let _ =
                   ^ username
                   ) ;
                 print_endline
-                  (AuthX.methods.authenticate_username_password username
-                     password
+                  (AuthX.methods.authenticate_username_password ~__context
+                     username password
                   )
             )
           )

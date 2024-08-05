@@ -30,7 +30,7 @@ let deprecated =
 let examples_to_test =
   let using_deprecated_ide =
     try
-      ignore (make (Ide, 4, 0)) ;
+      ignore (make Ide ~disk:4 ~partition:0) ;
       true
     with _ -> false
   in
@@ -46,16 +46,18 @@ let equivalent =
   ; ("d536p37", "xvdtq37")
   ]
 
+let invalid = ["d0p0q"]
+
 let test_examples =
   let tests =
     List.map
-      (fun (spec, linux, xenstore) ->
-        ( "test_examples " ^ linux
+      (fun ((bus, disk, partition), linux, xenstore) ->
+        let of_spec = make bus ~disk ~partition |> Option.get in
+        let of_linux = of_linux_device linux |> Option.get in
+        let of_xenstore = of_xenstore_key xenstore in
+        ( Printf.sprintf "%s = %s = %d" (to_debug_string of_spec) linux xenstore
         , `Quick
         , fun () ->
-            let of_spec = make spec in
-            let of_linux = of_linux_device linux in
-            let of_xenstore = of_xenstore_key xenstore in
             Alcotest.check device_number "examples must be equal" of_spec
               of_linux ;
             Alcotest.check device_number "examples must be equal" of_spec
@@ -64,7 +66,7 @@ let test_examples =
       )
       examples_to_test
   in
-  tests
+  ("Compare with linux and xenstore values", tests)
 
 (* NB we always understand the deprecated linux/xenstore devices even if we
    don't generate them ourselves *)
@@ -72,40 +74,50 @@ let test_deprecated =
   let tests =
     List.map
       (fun (_, linux, xenstore) ->
-        ( "test_deprecated " ^ linux
+        ( linux
         , `Quick
         , fun () ->
-            let of_linux = of_linux_device linux in
+            let of_linux = of_linux_device linux |> Option.get in
             let of_xenstore = of_xenstore_key xenstore in
             Alcotest.check device_number "must be equal" of_linux of_xenstore
         )
       )
       deprecated
   in
-  tests
+  ("Deprecated linux device", tests)
 
 let test_equivalent =
   let tests =
     List.map
       (fun (x, y) ->
-        let test_name = Printf.sprintf "test_equivalent %s=%s" x y in
+        let test_name = Printf.sprintf "%s = %s" x y in
         ( test_name
         , `Quick
         , fun () ->
-            let x' = of_string false x in
-            let y' = of_string false y in
+            let x' = of_string ~hvm:false x |> Option.get in
+            let y' = of_string ~hvm:false y |> Option.get in
             Alcotest.check device_number "must be equal" x' y'
         )
       )
       equivalent
   in
-  tests
+  ("Equivalent devices", tests)
+
+let test_invalid =
+  let test x () =
+    if Option.is_some (of_string ~hvm:false x) then
+      Alcotest.failf "%s was not rejected" x
+  in
+  let tests = List.map (fun x -> (x, `Quick, test x)) invalid in
+  ("Reject invalid devices", tests)
 
 let test_2_way_convert =
   (* We now always convert Ide specs into xvd* linux devices, so they become Xen
      specs when converted back. *)
-  let equal_linux old_t new_t =
-    match (spec old_t, spec new_t) with
+  let equal_linux (old_t : t) (new_t : t) =
+    match
+      ((old_t, new_t) :> (bus_type * int * int) * (bus_type * int * int))
+    with
     | (Ide, disk1, partition1), (Xen, disk2, partition2)
       when disk1 = disk2 && partition1 = partition2 ->
         true
@@ -117,25 +129,36 @@ let test_2_way_convert =
       (Fmt.of_to_string Device_number.to_debug_string)
       equal_linux
   in
-  [
-    ( "test_2_way_convert"
-    , `Slow
-    , fun () ->
-        for disk_number = 0 to (1 lsl 20) - 1 do
-          List.iter
-            (fun hvm ->
-              let original = of_disk_number hvm disk_number in
-              let of_linux = of_linux_device (to_linux_device original) in
-              let of_xenstore = of_xenstore_key (to_xenstore_key original) in
-              Alcotest.check device_number_equal_linux
-                "of_linux must be equal to original" original of_linux ;
-              Alcotest.check device_number
-                "of_xenstore must be equal to original" original of_xenstore
-            )
-            [true; false]
-        done
-    )
-  ]
+  let test disk_number hvm =
+    let original = of_disk_number hvm disk_number |> Option.get in
+    let of_linux = of_linux_device (to_linux_device original) |> Option.get in
+    let of_xenstore = of_xenstore_key (to_xenstore_key original) in
+    Alcotest.check device_number_equal_linux
+      "of_linux must be equal to original" original of_linux ;
+    Alcotest.check device_number "of_xenstore must be equal to original"
+      original of_xenstore
+  in
+
+  let max_d = (1 lsl 20) - 1 in
+  ( "2-way conversion"
+  , [
+      ( Printf.sprintf "All disk numbers until %d" max_d
+      , `Slow
+      , fun () ->
+          for disk_number = 0 to max_d do
+            List.iter (test disk_number) [true; false]
+          done
+      )
+    ]
+  )
 
 let tests =
-  test_examples @ test_deprecated @ test_equivalent @ test_2_way_convert
+  [
+    test_examples
+  ; test_deprecated
+  ; test_equivalent
+  ; test_invalid
+  ; test_2_way_convert
+  ]
+
+let () = Alcotest.run "Device_number" tests

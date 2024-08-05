@@ -1,63 +1,48 @@
+module Listext = Xapi_stdext_std.Listext.List
+
 type bus_type = Xen | Scsi | Floppy | Ide [@@deriving rpcty]
 
-type spec = bus_type * int * int [@@deriving rpcty]
+type t = bus_type * int * int [@@deriving rpcty]
 
-type t = spec [@@deriving rpcty]
+let bus_type_to_string = function
+  | Xen ->
+      "Xen"
+  | Scsi ->
+      "Scsi"
+  | Floppy ->
+      "Floppy"
+  | Ide ->
+      "Ide"
 
-let to_debug_string = function
-  | Xen, disk, partition ->
-      Printf.sprintf "Xen(%d, %d)" disk partition
-  | Scsi, disk, partition ->
-      Printf.sprintf "Scsi(%d, %d)" disk partition
-  | Floppy, disk, partition ->
-      Printf.sprintf "Floppy(%d, %d)" disk partition
-  | Ide, disk, partition ->
-      Printf.sprintf "Ide(%d, %d)" disk partition
+let to_debug_string (bus, disk, partition) =
+  Printf.sprintf "%s(%d, %d)" (bus_type_to_string bus) disk partition
 
-(* ocamlp4-friendly operators *)
-let ( <| ) = ( lsl )
-
-let ( >| ) = ( lsr )
-
-let int_of_string x =
-  try int_of_string x
-  with _ -> failwith (Printf.sprintf "int_of_string [%s]" x)
+let ( let* ) = Option.bind
 
 (* If this is true then we will use the deprecated (linux-specific) IDE
    encodings for disks > 3 *)
 let use_deprecated_ide_encoding = true
 
-let make (x : spec) : t =
-  let max_xen = ((1 <| 20) - 1, 15) in
-  let max_scsi = (15, 15) in
-  let max_ide = if use_deprecated_ide_encoding then (19, 63) else (3, 63) in
-  let max_floppy = (2, 0) in
-  let assert_in_range description (disk_limit, partition_limit) (disk, partition)
-      =
-    if disk < 0 || disk > disk_limit then
-      failwith
-        (Printf.sprintf "%s disk number out of range 0 <= %d <= %d" description
-           disk disk_limit
-        ) ;
-    if partition < 0 || partition > partition_limit then
-      failwith
-        (Printf.sprintf "%s partition number out of range 0 <= %d <= %d"
-           description partition partition_limit
-        )
-  in
-  ( match x with
-  | Xen, disk, partition ->
-      assert_in_range "xen" max_xen (disk, partition)
-  | Scsi, disk, partition ->
-      assert_in_range "scsi" max_scsi (disk, partition)
-  | Floppy, disk, partition ->
-      assert_in_range "floppy" max_floppy (disk, partition)
-  | Ide, disk, partition ->
-      assert_in_range "ide" max_ide (disk, partition)
-  ) ;
-  x
+let max_of = function
+  | Xen ->
+      ((1 lsl 20) - 1, 15)
+  | Scsi ->
+      (15, 15)
+  | Floppy ->
+      (2, 0)
+  | Ide ->
+      if use_deprecated_ide_encoding then (19, 63) else (3, 63)
 
-let spec (x : t) : spec = x
+let make bus ~disk ~partition =
+  let in_range ~min ~max n = min <= n && n <= max in
+  let all_in_range (disk_max, partition_max) ~disk ~partition =
+    in_range ~min:0 ~max:disk_max disk
+    && in_range ~min:0 ~max:partition_max partition
+  in
+  if all_in_range (max_of bus) ~disk ~partition then
+    Some (bus, disk, partition)
+  else
+    None
 
 let ( || ) = ( lor )
 
@@ -67,43 +52,41 @@ let deprecated_ide_table = standard_ide_table @ [33; 34; 56; 57; 88; 89; 90; 91]
 
 let to_xenstore_int = function
   | Xen, disk, partition when disk < 16 ->
-      202 <| 8 || disk <| 4 || partition
+      (202 lsl 8) || (disk lsl 4) || partition
   | Xen, disk, partition ->
-      1 <| 28 || disk <| 8 || partition
+      (1 lsl 28) || (disk lsl 8) || partition
   | Scsi, disk, partition ->
-      8 <| 8 || disk <| 4 || partition
+      (8 lsl 8) || (disk lsl 4) || partition
   | Floppy, disk, partition ->
-      203 <| 8 || disk <| 4 || partition
+      (203 lsl 8) || (disk lsl 4) || partition
   | Ide, disk, partition ->
       let m = List.nth deprecated_ide_table (disk / 2) in
       let n = disk - (disk / 2 * 2) in
       (* NB integers behave differently to reals *)
-      m <| 8 || n <| 6 || partition
+      (m lsl 8) || (n lsl 6) || partition
 
 let of_xenstore_int x =
-  let ( && ) = ( land ) in
-  if (x && 1 <| 28) <> 0 then
-    (Xen, x >| 8 && ((1 <| 20) - 1), x && ((1 <| 8) - 1))
+  if x land (1 lsl 28) <> 0 then
+    (Xen, (x lsr 8) land ((1 lsl 20) - 1), x land ((1 lsl 8) - 1))
   else
-    match x >| 8 with
+    match x lsr 8 with
     | 202 ->
-        (Xen, x >| 4 && ((1 <| 4) - 1), x && ((1 <| 4) - 1))
+        (Xen, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | 8 ->
-        (Scsi, x >| 4 && ((1 <| 4) - 1), x && ((1 <| 4) - 1))
+        (Scsi, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | 203 ->
-        (Floppy, x >| 4 && ((1 <| 4) - 1), x && ((1 <| 4) - 1))
+        (Floppy, (x lsr 4) land ((1 lsl 4) - 1), x land ((1 lsl 4) - 1))
     | n ->
         let idx =
-          snd
-            (List.fold_left
-               (fun (i, res) e -> (i + 1, if e = n then i else res))
-               (0, -1) deprecated_ide_table
-            )
+          match Listext.find_index (Int.equal n) deprecated_ide_table with
+          | Some idx ->
+              idx
+          | None ->
+              failwith (Printf.sprintf "Unknown device number: %d" x)
         in
-        if idx < 0 then failwith (Printf.sprintf "Unknown device number: %d" x) ;
-        (Ide, (x >| 6 && ((1 <| 2) - 1)) + (idx * 2), x && ((1 <| 6) - 1))
-
-type xenstore_key = int
+        let disk = ((x lsr 6) land ((1 lsl 2) - 1)) + (idx * 2) in
+        let partition = x land ((1 lsl 6) - 1) in
+        (Ide, disk, partition)
 
 let to_xenstore_key x = to_xenstore_int x
 
@@ -119,112 +102,119 @@ let rec string_of_int26 x =
   let low' = String.make 1 (char_of_int (low + int_of_char 'a' - 1)) in
   high' ^ low'
 
-module String = struct
-  include String
+let to_linux_prefix = function
+  | Xen ->
+      "xvd"
+  | Scsi ->
+      "sd"
+  | Floppy ->
+      "fd"
+  | Ide ->
+      "xvd"
 
-  let fold_right f string accu =
-    let accu = ref accu in
-    for i = length string - 1 downto 0 do
-      accu := f string.[i] !accu
-    done ;
-    !accu
-
-  let explode string = fold_right (fun h t -> h :: t) string []
-
-  let implode list = concat "" (List.map (String.make 1) list)
-end
-
-(** Convert a linux device string back into an integer *)
-let int26_of_string x =
-  let ints =
-    List.map (fun c -> int_of_char c - int_of_char 'a' + 1) (String.explode x)
-  in
-  List.fold_left (fun acc x -> (acc * 26) + x) 0 ints - 1
-
-let to_linux_device =
+let to_linux_device (bus, disk, part) =
   let p x = if x = 0 then "" else string_of_int x in
-  function
-  | Xen, disk, part ->
-      Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
-  | Scsi, disk, part ->
-      Printf.sprintf "sd%s%s" (string_of_int26 disk) (p part)
-  | Floppy, disk, part ->
-      Printf.sprintf "fd%s%s" (string_of_int26 disk) (p part)
-  | Ide, disk, part ->
-      Printf.sprintf "xvd%s%s" (string_of_int26 disk) (p part)
+  let bus = to_linux_prefix bus in
+  Printf.sprintf "%s%s%s" bus (string_of_int26 disk) (p part)
 
 let of_linux_device x =
-  let letter c = 'a' <= c && c <= 'z' in
-  let digit c = '0' <= c && c <= '9' in
-  let take f x =
-    let rec inner f acc = function
-      | x :: xs ->
-          if f x then inner f (x :: acc) xs else (List.rev acc, x :: xs)
-      | [] ->
-          (List.rev acc, [])
+  let open Astring in
+  let b26_to_int x =
+    (* Convert a linux device string back into an integer *)
+    (* Assumes all characters are in range *)
+    let b26 =
+      String.Sub.to_string x
+      |> Stdlib.String.to_seq
+      |> Seq.map (fun c -> int_of_char c - int_of_char 'a' + 1)
+      |> Seq.fold_left (fun acc x -> (acc * 26) + x) 0
     in
-    inner f [] x
+    b26 - 1
+  in
+
+  let parse_int x =
+    match String.Sub.span ~min:1 ~sat:Char.Ascii.is_digit x with
+    | i, s ->
+        Option.map (fun i -> (i, s)) (String.Sub.to_int i)
+  in
+  let parse_b26 x =
+    match String.Sub.span ~min:1 ~sat:Char.Ascii.is_lower x with
+    | b, s ->
+        (b26_to_int b, s)
   in
   (* Parse a string "abc123" into x, y where x is "abc" interpreted as base-26
      and y is 123 *)
   let parse_b26_int x =
-    let d, p = take letter x in
-    let d' = int26_of_string (String.implode d) in
-    let p' = if p = [] then 0 else int_of_string (String.implode p) in
-    (d', p')
+    let pre, x = parse_b26 x in
+    if String.Sub.is_empty x then
+      Some (pre, 0)
+    else
+      let* post, x = parse_int x in
+      if not (String.Sub.is_empty x) then
+        None
+      else
+        Some (pre, post)
   in
   (* Parse a string "123p456" into x, y where x = 123 and y = 456 *)
   let parse_int_p_int x =
-    let d, rest = take digit x in
-    match rest with
-    | 'p' :: rest ->
-        let p, _ = take digit rest in
-        (int_of_string (String.implode d), int_of_string (String.implode p))
-    | [] ->
-        (int_of_string (String.implode d), 0)
-    | _ ->
-        failwith
-          (Printf.sprintf "expected digit+ p digit+ got: %s" (String.implode x))
+    let parse_p x =
+      match String.Sub.head x with
+      | Some 'p' ->
+          Some (String.Sub.tail x)
+      | Some _ | None ->
+          None
+    in
+    let* pre, x = parse_int x in
+    if String.Sub.is_empty x then
+      Some (pre, 0)
+    else
+      let* x = parse_p x in
+      let* post, x = parse_int x in
+      if not (String.Sub.is_empty x) then
+        None
+      else
+        Some (pre, post)
   in
-  match String.explode x with
-  | 'x' :: 'v' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Xen, disk, partition)
-  | 's' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Scsi, disk, partition)
-  | 'f' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Floppy, disk, partition)
-  | 'h' :: 'd' :: rest ->
-      let disk, partition = parse_b26_int rest in
-      (Ide, disk, partition)
-  | 'd' :: rest ->
-      let disk, partition = parse_int_p_int rest in
-      (Xen, disk, partition)
-  | _ ->
-      failwith (Printf.sprintf "Failed to parse device name: %s" x)
+  if String.is_prefix ~affix:"xvd" x then
+    let rest = String.sub_with_range ~first:3 x in
+    let* disk, partition = parse_b26_int rest in
+    Some (Xen, disk, partition)
+  else if String.is_prefix ~affix:"sd" x then
+    let rest = String.sub_with_range ~first:2 x in
+    let* disk, partition = parse_b26_int rest in
+    Some (Scsi, disk, partition)
+  else if String.is_prefix ~affix:"fd" x then
+    let rest = String.sub_with_range ~first:2 x in
+    let* disk, partition = parse_b26_int rest in
+    Some (Floppy, disk, partition)
+  else if String.is_prefix ~affix:"hd" x then
+    let rest = String.sub_with_range ~first:2 x in
+    let* disk, partition = parse_b26_int rest in
+    Some (Ide, disk, partition)
+  else if String.is_prefix ~affix:"d" x then
+    let rest = String.sub_with_range ~first:1 x in
+    let* disk, partition = parse_int_p_int rest in
+    Some (Xen, disk, partition)
+  else
+    None
 
 let upgrade_linux_device x =
-  match String.explode x with
-  | 'h' :: 'd' :: rest ->
-      "xvd" ^ String.implode rest
-  | _ ->
-      x
+  if Astring.String.is_prefix ~affix:"hd" x then
+    let rest = Astring.String.with_range ~first:2 x in
+    "xvd" ^ rest
+  else
+    x
 
-type disk_number = int
+let disk (_, disk, _) = disk
 
-let to_disk_number = function
-  | Xen, disk, _ ->
-      disk
-  | Scsi, disk, _ ->
-      disk
-  | Floppy, disk, _ ->
-      disk
-  | Ide, disk, _ ->
-      disk
+let bus (bus, _, _) = bus
 
-let of_disk_number hvm n = if hvm && n < 4 then (Ide, n, 0) else (Xen, n, 0)
+let of_disk_number hvm n =
+  let bus = if hvm && n < 4 then Ide else Xen in
+  make bus ~disk:n ~partition:0
 
-let of_string hvm name =
-  try of_disk_number hvm (int_of_string name) with _ -> of_linux_device name
+let of_string ~hvm name =
+  let maybe_disk =
+    let* n = int_of_string_opt name in
+    of_disk_number hvm n
+  in
+  match maybe_disk with None -> of_linux_device name | dev -> dev

@@ -45,12 +45,13 @@ runs:
     # We set DUNE_CACHE_STORAGE_MODE, it is required for dune cache to work inside opam for now,
     # otherwise it gets EXDEV and considers it a cache miss
     - name: Use ocaml
-      uses: ocaml/setup-ocaml@v2
+      uses: ocaml/setup-ocaml@v3
       with:
         ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
         dune-cache: true
+        opam-pin: false
       env:
         DUNE_CACHE_STORAGE_MODE: copy
 

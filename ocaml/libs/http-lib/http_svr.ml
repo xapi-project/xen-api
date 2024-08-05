@@ -41,6 +41,8 @@ open D
 
 module E = Debug.Make (struct let name = "http_internal_errors" end)
 
+let ( let* ) = Option.bind
+
 type uri_path = string
 
 module Stats = struct
@@ -296,10 +298,7 @@ module Server = struct
 
   let add_handler x ty uri handler =
     let existing =
-      if MethodMap.mem ty x.handlers then
-        MethodMap.find ty x.handlers
-      else
-        Radix_tree.empty
+      Option.value (MethodMap.find_opt ty x.handlers) ~default:Radix_tree.empty
     in
     x.handlers <-
       MethodMap.add ty
@@ -307,11 +306,9 @@ module Server = struct
         x.handlers
 
   let find_stats x m uri =
-    if not (MethodMap.mem m x.handlers) then
-      None
-    else
-      let rt = MethodMap.find m x.handlers in
-      Option.map (fun te -> te.TE.stats) (Radix_tree.longest_prefix uri rt)
+    let* rt = MethodMap.find_opt m x.handlers in
+    let* te = Radix_tree.longest_prefix uri rt in
+    Some te.TE.stats
 
   let all_stats x =
     let open Radix_tree in
@@ -377,7 +374,7 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
                  (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
                  let uri_t = Uri.of_string uri in
                  if uri_t = Uri.empty then raise Http_parse_failure ;
-                 let uri = Uri.path uri_t |> Uri.pct_decode in
+                 let uri = Uri.path_unencoded uri_t in
                  let query = Uri.query uri_t |> kvlist_flatten in
                  let m = Http.method_t_of_string meth in
                  let version =

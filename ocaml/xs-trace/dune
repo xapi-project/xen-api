@@ -1,5 +1,5 @@
 (executable
-  (modes byte exe)
+  (modes exe)
   (name xs_trace)
   (public_name xs-trace)
   (package xapi)
