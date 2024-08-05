@@ -99,5 +99,9 @@ val testable_file_kind :
 (** [testable_file_kind] is like {!val:file_kind}, but only generates file kinds
   that the current program can create. *)
 
-val testable_file_kinds : Unix.file_kind list QCheck2.Gen.t
-(** [testable_file_kinds] generates multiple file kinds, suitable for [select/poll/epoll]. *)
+val select_input :
+  Observations.select_input QCheck2.Gen.t
+  * Observations.select_input QCheck2.Print.t
+(** [select_input] generates input for [select/(e)poll].
+  See {!val:Observations.with_select_input} on how to use it to get actual file descriptors.
+ *)

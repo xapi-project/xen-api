@@ -58,6 +58,10 @@ let close t = Safefd.idempotent_close_exn t.fd
 
 let fsync t = Unix.fsync (Safefd.unsafe_to_file_descr_exn t.fd)
 
+let as_readable t = {t with props= as_readable t.props}
+
+let as_writable t = {t with props= as_writable t.props}
+
 let as_readable_opt t =
   match as_readable_opt t.props with
   | None ->
