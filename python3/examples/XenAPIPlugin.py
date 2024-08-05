@@ -7,13 +7,8 @@
 from __future__ import print_function
 
 import sys
-
+import xmlrpc.client as xmlrpclib
 import XenAPI
-
-if sys.version_info[0] == 2:
-    import xmlrpclib
-else:
-    import xmlrpc.client as xmlrpclib
 
 class Failure(Exception):
     """Provide compatibility with plugins written against the XenServer 5.5 API"""

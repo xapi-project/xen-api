@@ -121,7 +121,7 @@ sdk:
 	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
 	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
 	cp -r _build/default/ocaml/sdk-gen/go/autogen/* $(XAPISDK)/go
-	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
+	cp python3/examples/XenAPI/XenAPI.py $(XAPISDK)/python
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
@@ -136,7 +136,7 @@ sdk-build-java: sdk
 	cd _build/install/default/xapi/sdk/java && mvn -f xen-api/pom.xml -B clean package install -Drevision=0.0
 
 python:
-	$(MAKE) -C scripts/examples/python build
+	$(MAKE) -C python3/examples build
 
 doc-json:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll

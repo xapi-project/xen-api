@@ -58,13 +58,8 @@ import gettext
 import os
 import socket
 import sys
-
-if sys.version_info[0] == 2:
-    import httplib as httplib
-    import xmlrpclib as xmlrpclib
-else:
-    import http.client as httplib
-    import xmlrpc.client as xmlrpclib
+import http.client as httplib
+import xmlrpc.client as xmlrpclib
 
 otel = False
 try:
@@ -150,15 +145,10 @@ class Session(xmlrpclib.ServerProxy):
     def __init__(self, uri, transport=None, encoding=None, verbose=False,
                  allow_none=True, ignore_ssl=False):
 
-        if sys.version_info[0] > 2:
-            # this changed to be a 'bool' in Python3
-            verbose = bool(verbose)
-            allow_none = bool(allow_none)
+        verbose = bool(verbose)
+        allow_none = bool(allow_none)
 
-        # Fix for CA-172901 (+ Python 2.4 compatibility)
-        # Fix for context=ctx ( < Python 2.7.9 compatibility)
-        if not (sys.version_info[0] <= 2 and sys.version_info[1] <= 7 and sys.version_info[2] <= 9 ) \
-                and ignore_ssl:
+        if ignore_ssl:
             import ssl
             ctx = ssl._create_unverified_context()
             xmlrpclib.ServerProxy.__init__(self, uri, transport, encoding,

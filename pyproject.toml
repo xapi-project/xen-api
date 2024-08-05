@@ -227,6 +227,9 @@ exclude              = [
     "ocaml/xcp-rrdd/scripts/rrdd/rrdd.py",
     "ocaml/xcp-rrdd/scripts/rrdd/rrdd-example.py",
     "python3/packages/observer.py",
+    "python3/examples/XenAPI/XenAPI.py",
+    "python3/examples/XenAPIPlugin.py",
+
 ]
 
 

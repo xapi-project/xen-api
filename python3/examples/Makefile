@@ -8,5 +8,4 @@ build:
 	SETUPTOOLS_SCM_PRETEND_VERSION=$(XAPI_VERSION) python -m build --sdist .
 
 clean:
-	dune clean
 	rm -rf dist/ build/ XenAPI.egg-info/
