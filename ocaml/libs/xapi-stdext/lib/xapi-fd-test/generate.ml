@@ -52,6 +52,28 @@ let testable_file_kind =
   , snd file_kind
   )
 
+let testable_file_kinds =
+  let f, _ = testable_file_kind in
+  let open Gen in
+  (* make sure we generate the empty list with ~50% probability,
+     and that we generate smaller lists more frequently
+  *)
+  let* size_bound = frequencya [|(4, 0); (4, 2); (2, 10); (1, 510)|] in
+  let size_gen = int_bound size_bound in
+  let repeated_list =
+    let* size = size_gen in
+    list_repeat size f
+  in
+  (* generates 2 kinds of lists:
+     - lists that contain only a single file kind
+     - lists that contain multiple file kinds
+
+     This is important for testing [select], because a single
+       [Unix.S_REG] would cause it to return immediately,
+       making it unlikely that we're actually testing the behaviour for other file descriptors.
+  *)
+  oneof [repeated_list; list_size size_gen f]
+
 (* also coincidentally the pipe buffer size on Linux *)
 let ocaml_unix_buffer_size = 65536
 
