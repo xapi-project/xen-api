@@ -39,11 +39,23 @@ let pp_pair =
   )
 *)
 
+let skip_blk_timed behaviour =
+  let open Generate in
+  (* select/poll on block device returns immediately,
+     so we cannot apply any delays on the reads/writes:
+     they won't be reflected on the other side yet
+  *)
+  QCheck2.assume
+    (behaviour.kind <> Unix.S_BLK
+    || Option.is_none behaviour.delay_write
+       && Option.is_none behaviour.delay_read
+    )
+
 let test_time_limited_write =
   let gen = Gen.tup2 Generate.t Generate.timeouts
   and print = Print.tup2 Generate.print Print.float in
   Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
-  skip_blk behaviour.kind ;
+  skip_blk_timed behaviour ;
   skip_dirlnk behaviour.kind ;
   try
     let test_elapsed = ref Mtime.Span.zero in
@@ -108,6 +120,7 @@ let test_time_limited_read =
   (* Format.eprintf "Testing %s@." (print (behaviour, timeout)); *)
   skip_blk behaviour.kind ;
   skip_dirlnk behaviour.kind ;
+  skip_blk_timed behaviour ;
   let test_elapsed = ref Mtime.Span.zero in
   let test wrapped_fd =
     let fd = Xapi_fdcaps.Operations.For_test.unsafe_fd_exn wrapped_fd in
