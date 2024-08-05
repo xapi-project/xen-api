@@ -44,16 +44,16 @@ let () =
         ; ("Quicktest_date", Quicktest_date.tests ())
         ; ("Quicktest_crypt_r", Quicktest_crypt_r.tests ())
         ]
+        @ ( if not !Quicktest_args.using_unix_domain_socket then
+              [("http", Quicktest_http.tests)]
+            else
+              []
+          )
         @
-        if not !Quicktest_args.using_unix_domain_socket then
-          [("http", Quicktest_http.tests)]
+        if not !Quicktest_args.skip_stress then
+          qchecks
         else
           []
-          @
-          if not !Quicktest_args.skip_stress then
-            qchecks
-          else
-            []
       in
       (* Only list tests if asked, without running them *)
       if !Quicktest_args.list_tests then
