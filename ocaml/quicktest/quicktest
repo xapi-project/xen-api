@@ -1,4 +1,5 @@
 #!/bin/bash
 
+ulimit -n 2048
 # Run quicktest with support for exception backtraces.
 OCAMLRUNPARAM=b "@OPTDIR@/debug/quicktestbin" "$@"

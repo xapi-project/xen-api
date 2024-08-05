@@ -20,6 +20,7 @@
     rpclib.core
     rrdd_libs
     stunnel
+    unixext_test
     bufio_test
     test_timer
     threads.posix
