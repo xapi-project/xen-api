@@ -246,8 +246,7 @@ val with_tempfile :
 (** [with_tempfile () f] calls [f (name, outfd)] with the name of a temporary file and a file descriptor opened for writing.
   Deletes the temporary file when [f] finishes. *)
 
-val with_temp_blk :
-  ?sector_size:int -> string -> (string * ([> rdwr], [> blk]) make -> 'a) -> 'a
+val with_temp_blk : string -> (string * ([> rdwr], [> blk]) make -> 'a) -> 'a
 (** [with_temp_blk ?sector_size path f] calls [f (name, fd)] with a name and file descriptor pointing to a block device.
   The block device is temporarily created on top of [path].
 

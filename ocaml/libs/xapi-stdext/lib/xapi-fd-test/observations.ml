@@ -58,9 +58,7 @@ let with_kind_wo kind f =
   | Unix.S_LNK ->
       invalid_arg "S_LNK" (* O_NOFOLLOW not bound in OCaml *)
   | Unix.S_BLK ->
-      let@ name, out = with_tempfile () in
-      (* block device must have an initial size *)
-      ftruncate out 512L ;
+      let@ name, _out = with_tempfile ~size:512L () in
       let@ blkname, _ = with_temp_blk name in
       let@ fd_ro = with_fd @@ open_ro blkname in
       let@ fd = with_fd @@ open_wo blkname in
