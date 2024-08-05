@@ -127,12 +127,11 @@ end
 module Proc = struct
   module KV = Astring.String.Map
 
-  (** [drop_unit s] parses values of the form 'NN kB' or 'NN' and returns 'NN'. *)
-  let drop_unit s =
-    match Astring.String.cut ~sep:" " s with None -> s | Some (v, _) -> v
+  (** [parse_value_count] parses '    N'. *)
+  let parse_value_count s = Scanf.sscanf s " %Lu" Fun.id
 
-  (** [parse_value s] parses values of the form '  N kB' or '    N'. *)
-  let parse_value s = s |> Astring.String.trim |> drop_unit |> Int64.of_string
+  (** [parse_value_kib s] parses values of the form '  N kB'. *)
+  let parse_value_kib s = Scanf.sscanf s " %Lu kB" Fun.id
 
   let file_lines_filter_map f ~path =
     let fold acc line =
@@ -150,7 +149,7 @@ module Proc = struct
         match KV.find key fields with
         | None ->
             None
-        | Some ds ->
+        | Some (parse_value, ds) ->
             let v = parse_value value in
             Some (key, ds_update ds @@ ds_int64 v)
       )
@@ -168,9 +167,11 @@ module Proc = struct
 
   let unknown = ds_int64 (-1L)
 
-  let kib ?default key desc = (key, kib ?default key desc unknown)
+  let kib ?default key desc =
+    (key, (parse_value_kib, kib ?default key desc unknown))
 
-  let count ?default key desc = (key, count ?default key desc unknown)
+  let count ?default key desc =
+    (key, (parse_value_count, count ?default key desc unknown))
 
   module Fields = struct
     let vmdata = "VmData"
