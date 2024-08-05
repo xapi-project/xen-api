@@ -147,7 +147,7 @@ public class Types
             if (this == UNRECOGNIZED) return "UNRECOGNIZED";{{#values}}
             if (this == {{{name_uppercase}}}) return "{{{name}}}";{{/values}}
             /* This can never be reached */
-            return "illegal enum";
+            return "UNRECOGNIZED";
         }
 
     }
