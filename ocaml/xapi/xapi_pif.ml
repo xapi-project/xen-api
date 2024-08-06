@@ -667,6 +667,8 @@ let scan ~__context ~host =
       ([], [])
     )
   in
+  debug "non-managed devices=%s" (String.concat "," non_managed_devices) ;
+  debug "disallow-unplug devices=%s" (String.concat "," disallow_unplug_devices) ;
   Xapi_stdext_threads.Threadext.Mutex.execute scan_m (fun () ->
       let t = make_tables ~__context ~host in
       let devices_not_yet_represented_by_pifs =
@@ -681,6 +683,8 @@ let scan ~__context ~host =
           let mTU = Int64.of_int (Net.Interface.get_mtu dbg device) in
           let managed = not (List.mem device non_managed_devices) in
           let disallow_unplug = List.mem device disallow_unplug_devices in
+          debug "About to introduce %s, managed=%b, disallow-unplug=%b" device
+            managed disallow_unplug ;
           let (_ : API.ref_PIF) =
             introduce_internal ~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
               ~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug ()
