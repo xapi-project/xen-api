@@ -201,6 +201,8 @@ let pool_operation_to_string = function
       "configure_repositories"
   | `sync_updates ->
       "sync_updates"
+  | `sync_bundle ->
+      "sync_bundle"
   | `get_updates ->
       "get_updates"
   | `apply_updates ->
@@ -1137,3 +1139,5 @@ let vm_placement_policy_of_string a =
       `anti_affinity
   | s ->
       record_failure "Invalid VM placement policy, got %s" s
+
+let repo_origin_to_string = function `remote -> "remote" | `bundle -> "bundle"

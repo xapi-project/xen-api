@@ -927,6 +927,8 @@ let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
 
+let bundle_repository_prefix = ref "bundle"
+
 let local_repository_prefix = ref "local"
 
 let yum_config_manager_cmd = ref "/usr/bin/yum-config-manager"
@@ -949,9 +951,14 @@ let repository_gpgcheck = ref true
 
 let observer_config_dir = Constants.observer_config_dir
 
+let bundle_repository_dir = ref "/var/xapi/bundle-repo"
+
 let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
+
+(* Max size limit of bundle file: 1 GB*)
+let bundle_max_size_limit = ref (Int64.of_int (1024 * 1024 * 1024))
 
 type xapi_globs_spec =
   | Float of float ref

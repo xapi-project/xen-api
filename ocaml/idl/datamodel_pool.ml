@@ -21,6 +21,9 @@ let operations =
       ; ( "sync_updates"
         , "Indicates this pool is in the process of syncing updates"
         )
+      ; ( "sync_bundle"
+        , "Indicates this pool is in the process of syncing bundle"
+        )
       ; ( "get_updates"
         , "Indicates this pool is in the process of getting updates"
         )

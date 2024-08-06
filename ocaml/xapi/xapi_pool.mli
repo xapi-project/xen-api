@@ -422,3 +422,5 @@ val get_guest_secureboot_readiness :
      __context:Context.t
   -> self:API.ref_pool
   -> API.pool_guest_secureboot_readiness
+
+val put_bundle_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit

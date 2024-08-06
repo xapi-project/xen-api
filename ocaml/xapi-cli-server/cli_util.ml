@@ -26,6 +26,14 @@ open Client
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+let internal_error fmt =
+  Printf.ksprintf
+    (fun str ->
+      error "%s" str ;
+      raise Api_errors.(Server_error (internal_error, [str]))
+    )
+    fmt
+
 let log_exn_continue msg f x =
   try f x
   with e -> debug "Ignoring exception: %s while %s" (Printexc.to_string e) msg
@@ -334,3 +342,14 @@ let error_of_exn e =
 let string_of_exn exn =
   let e, l = error_of_exn exn in
   Printf.sprintf "%s: [ %s ]" e (String.concat "; " l)
+
+let get_pool ~rpc ~session_id =
+  match Client.Pool.get_all ~rpc ~session_id with
+  | [] ->
+      internal_error "Remote host does not belong to a pool."
+  | pool :: _ ->
+      pool
+
+let get_master ~rpc ~session_id =
+  let pool = get_pool ~rpc ~session_id in
+  Client.Pool.get_master ~rpc ~session_id ~self:pool

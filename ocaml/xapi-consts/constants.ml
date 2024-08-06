@@ -159,6 +159,8 @@ let get_host_updates_uri = "/host_updates" (* ocaml/xapi/repository.ml *)
 
 let get_updates_uri = "/updates" (* ocaml/xapi/repository.ml *)
 
+let put_bundle_uri = "/bundle" (* ocaml/xapi/xapi_pool.ml *)
+
 let default_usb_speed = -1.
 
 let use_compression = "use_compression"

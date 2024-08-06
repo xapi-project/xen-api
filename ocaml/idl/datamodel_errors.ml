@@ -1895,6 +1895,19 @@ let _ =
     ~doc:"The GPG public key file name in the repository is invalid." () ;
   error Api_errors.repository_already_exists ["ref"]
     ~doc:"The repository already exists." () ;
+  error Api_errors.bundle_repository_already_exists ["ref"]
+    ~doc:"The bundle repository already exists." () ;
+  error Api_errors.bundle_unpack_failed ["error"]
+    ~doc:"Failed to unpack bundle file." () ;
+  error Api_errors.bundle_repo_not_enabled []
+    ~doc:"Cannot sync bundle as the bundle repository is not enabled." () ;
+  error Api_errors.can_not_sync_updates []
+    ~doc:"Cannot sync updates as the bundle repository is enabled." () ;
+  error Api_errors.bundle_repo_should_be_single_enabled []
+    ~doc:
+      "If the bundle repository is enabled, it should be the only one enabled \
+       repository of the pool."
+    () ;
   error Api_errors.repository_is_in_use [] ~doc:"The repository is in use." () ;
   error Api_errors.repository_cleanup_failed []
     ~doc:"Failed to clean up local repository on coordinator." () ;
@@ -1907,8 +1920,15 @@ let _ =
       "The operation could not be performed because syncing updates is in \
        progress."
     () ;
+  error Api_errors.sync_bundle_in_progress []
+    ~doc:
+      "The operation could not be performed because syncing bundle is in \
+       progress."
+    () ;
   error Api_errors.reposync_failed []
     ~doc:"Syncing with remote YUM repository failed." () ;
+  error Api_errors.bundle_sync_failed []
+    ~doc:"Syncing with bundle repository failed." () ;
   error Api_errors.invalid_repomd_xml [] ~doc:"The repomd.xml is invalid." () ;
   error Api_errors.invalid_updateinfo_xml []
     ~doc:"The updateinfo.xml is invalid." () ;

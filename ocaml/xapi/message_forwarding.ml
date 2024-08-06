@@ -6562,6 +6562,12 @@ functor
         Local.Repository.introduce ~__context ~name_label ~name_description
           ~binary_url ~source_url ~update ~gpgkey_path
 
+      let introduce_bundle ~__context ~name_label ~name_description =
+        info "Repository.introduce_bundle: name = '%s'; name_description = '%s'"
+          name_label name_description ;
+        Local.Repository.introduce_bundle ~__context ~name_label
+          ~name_description
+
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self) ;
         Local.Repository.forget ~__context ~self

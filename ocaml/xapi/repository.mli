@@ -22,6 +22,12 @@ val introduce :
   -> gpgkey_path:string
   -> [`Repository] API.Ref.t
 
+val introduce_bundle :
+     __context:Context.t
+  -> name_label:string
+  -> name_description:string
+  -> [`Repository] API.Ref.t
+
 val forget : __context:Context.t -> self:[`Repository] API.Ref.t -> unit
 
 val cleanup_all_pool_repositories : unit -> unit

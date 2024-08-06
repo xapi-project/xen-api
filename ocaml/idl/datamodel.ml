@@ -8432,6 +8432,7 @@ let http_actions =
       , []
       )
     )
+  ; ("put_bundle", (Put, Constants.put_bundle_uri, true, [], _R_POOL_OP, []))
   ]
 
 (* these public http actions will NOT be checked by RBAC *)
