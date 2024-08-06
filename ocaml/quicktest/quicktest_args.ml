@@ -45,6 +45,8 @@ let set_alcotest_args l = alcotest_args := Array.of_list l
 
 let skip_xapi = ref false
 
+let skip_stress = ref false
+
 (** Parse the legacy quicktest command line args. This is used instead of
     invoking Alcotest directly, for backwards-compatibility with clients who
     run the quicktest binary. *)
@@ -67,6 +69,7 @@ let parse () =
          -default-sr"
       )
     ; ("-skip-xapi", Arg.Set skip_xapi, "SKIP tests that require XAPI")
+    ; ("-skip-stress", Arg.Set skip_stress, "SKIP randomized stress tests")
     ; ("--", Arg.Rest_all set_alcotest_args, "Supply alcotest arguments")
     ; ( "-run-only"
       , Arg.String (fun x -> run_only := Some x)

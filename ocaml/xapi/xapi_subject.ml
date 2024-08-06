@@ -261,4 +261,4 @@ let get_subject_information_from_identifier ~__context ~cache identifier =
   if cache then
     query_subject_information_from_db ~__context identifier
   else
-    (Ext_auth.d ()).query_subject_information identifier
+    (Ext_auth.d ()).query_subject_information ~__context identifier

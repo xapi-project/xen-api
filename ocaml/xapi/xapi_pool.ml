@@ -2560,7 +2560,8 @@ let revalidate_subjects ~__context =
     debug "Revalidating subject %s" subj_id ;
     try
       let open Auth_signature in
-      ignore ((Extauth.Ext_auth.d ()).query_subject_information subj_id)
+      ignore
+        ((Extauth.Ext_auth.d ()).query_subject_information ~__context subj_id)
     with Not_found ->
       debug "Destroying subject %s" subj_id ;
       Xapi_subject.destroy ~__context ~self

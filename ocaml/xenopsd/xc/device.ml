@@ -585,17 +585,18 @@ module Vbd_Common = struct
         (fun x ->
           x.frontend.devid
           |> Device_number.of_xenstore_key
-          |> Device_number.spec
-          |> function
-          | _, disk, _ ->
-              disk
+          |> Device_number.disk
         )
         (Device_common.list_frontends ~xs domid)
     in
     let next = List.fold_left max 0 disks + 1 in
     let open Device_number in
     let bus_type = if hvm && next < 4 then Ide else Xen in
-    (bus_type, next, 0)
+    match make bus_type ~disk:next ~partition:0 with
+    | Some x ->
+        x
+    | None ->
+        raise (Xenopsd_error (Internal_error "Unable to decide slot for vbd"))
 
   type t = {
       mode: mode
@@ -620,7 +621,7 @@ module Vbd_Common = struct
       | Some x ->
           x
       | None ->
-          make (free_device ~xs hvm domid)
+          free_device ~xs hvm domid
     in
     let devid = to_xenstore_key device_number in
     let device =
@@ -2986,7 +2987,11 @@ module Backend = struct
         qemu-upstream-compat backend *)
     module Vbd = struct
       let cd_of devid =
-        devid |> Device_number.of_xenstore_key |> Device_number.spec |> function
+        match
+          ( Device_number.of_xenstore_key devid
+            :> Device_number.bus_type * int * int
+            )
+        with
         | Ide, 0, _ ->
             "ide0-cd0"
         | Ide, 1, _ ->

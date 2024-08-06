@@ -1,16 +1,23 @@
-(test
+(library
   (name unixext_test)
-  (package xapi-stdext-unix)
   (modules unixext_test)
-  (libraries xapi_stdext_unix qcheck-core mtime.clock.os qcheck-core.runner fmt xapi_fd_test mtime threads.posix rresult)
+  (libraries xapi_stdext_unix qcheck-core mtime.clock.os fmt xapi_fd_test mtime threads.posix rresult)
+)
+
+(test
+  (name unixext_test_run)
+  (package xapi-stdext-unix)
+  (modules unixext_test_run)
+  (libraries unixext_test qcheck-core.runner)
   ; use fixed seed to avoid causing random failures in CI and package builds
   (action (run %{test} -v -bt --seed 42))
 )
 
 (rule
   (alias stresstest)
+  (deps unixext_test_run.exe)
   ; use default random seed on stresstests
-  (action (run %{dep:unixext_test.exe} -v -bt))
+  (action (run %{deps} -v -bt))
 )
 
 (test

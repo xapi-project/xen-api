@@ -1025,7 +1025,8 @@ let server_init () =
       while not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded do
         try
           (* try to initialize external authentication service *)
-          (Ext_auth.d ()).on_xapi_initialize !Xapi_globs.on_system_boot ;
+          (Ext_auth.d ()).on_xapi_initialize ~__context
+            !Xapi_globs.on_system_boot ;
           (* tell everybody the service initialized successfully *)
           Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
           (* 3. Now that we are sure that the external authentication service is working,*)
