@@ -458,7 +458,7 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
     ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed
     ?(disallow_unplug = false) () =
-  let bridge = bridge_naming_convention device in
+  let bridge = if managed then bridge_naming_convention device else "" in
   (* If we are not told which network to use,
      	 * apply the default convention *)
   let net_ref =
