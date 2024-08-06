@@ -957,8 +957,8 @@ let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
 
-(* Max size limit of bundle file: 500 MB*)
-let bundle_max_size_limit = ref (Int64.of_int (500 * 1024 * 1024))
+(* Max size limit of bundle file: 1 GB*)
+let bundle_max_size_limit = ref (Int64.of_int (1024 * 1024 * 1024))
 
 type xapi_globs_spec =
   | Float of float ref
