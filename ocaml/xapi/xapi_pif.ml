@@ -347,7 +347,8 @@ let assert_fcoe_not_in_use ~__context ~self =
              ()
      )
 
-let find_or_create_network (bridge : string) (device : string) ~__context =
+let find_or_create_network (bridge : string) (device : string) ~managed
+    ~__context =
   let nets =
     Db.Network.get_refs_where ~__context
       ~expr:(Eq (Field "bridge", Literal bridge))
@@ -362,7 +363,7 @@ let find_or_create_network (bridge : string) (device : string) ~__context =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
           ~name_label:(Helpers.choose_network_name_for_pif device)
-          ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed:true
+          ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed
           ~other_config:[] ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked
           ~assigned_ips:[]
       in
@@ -463,7 +464,7 @@ let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
   let net_ref =
     match network with
     | None ->
-        find_or_create_network bridge device ~__context
+        find_or_create_network bridge device ~managed ~__context
     | Some x ->
         x
   in
