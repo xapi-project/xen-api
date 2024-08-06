@@ -1,0 +1,177 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+
+package com.xensource.xenapi;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonValue;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.xensource.xenapi.Types.BadServerResponse;
+import com.xensource.xenapi.Types.XenAPIException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.*;
+import java.io.IOException;
+
+/**
+ * {{description}}{{#publish_info}}
+ * {{{publish_info}}}{{/publish_info}}
+ *
+ * @author Cloud Software Group, Inc.
+ */
+public class {{class_name}} extends XenAPIObject {
+
+    {{#is_empty_class}}
+    @JsonValue
+    public String toWireString() {
+        return null;
+    }
+
+    {{/is_empty_class}}
+    {{^is_empty_class}}
+    /**
+     * The XenAPI reference (OpaqueRef) to this object.
+     */
+    protected final String ref;
+
+    /**
+     * For internal use only.
+     */
+    {{{class_name}}}(String ref) {
+        this.ref = ref;
+    }
+
+    /**
+     * @return The XenAPI reference (OpaqueRef) to this object.
+     */
+    @JsonValue
+    public String toWireString() {
+        return this.ref;
+    }
+
+    /**
+     * If obj is a {{{class_name}}}, compares XenAPI references for equality.
+     */
+    @Override
+    public boolean equals(Object obj)
+    {
+        if (obj instanceof {{{class_name}}})
+        {
+            {{{class_name}}} other = ({{{class_name}}}) obj;
+            return other.ref.equals(this.ref);
+        } else
+        {
+            return false;
+        }
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return ref.hashCode();
+    }
+
+    /**
+     * Represents all the fields in a {{{class_name}}}
+     */
+    public static class Record implements Types.Record {
+        public String toString() {
+            StringWriter writer = new StringWriter();
+            PrintWriter print = new PrintWriter(writer);
+            {{#fields}}
+            print.printf("%1$20s: %2$s\n", "{{{name_camel}}}", this.{{{name_camel}}});
+            {{/fields}}
+            {{#is_event_class}}
+            print.printf("%1$20s: %2$s\n", "snapshot", this.snapshot);
+            {{/is_event_class}}
+            return writer.toString();
+        }
+
+        /**
+         * Convert a {{{class_name}}}.Record to a Map
+         */
+        public Map<String,Object> toMap() {
+            var map = new HashMap<String,Object>();
+            {{#fields}}
+            map.put("{{{name}}}", this.{{{name_camel}}} == null ? {{{default_value}}} : this.{{{name_camel}}});
+            {{/fields}}
+            return map;
+        }
+
+        {{#fields}}
+        /**
+         * {{{description}}}{{#publish_info}}
+         * {{{publish_info}}}{{/publish_info}}
+         */
+        @JsonProperty("{{{name}}}"){{#is_deprecated}}
+        @Deprecated(since = "{{{deprecated_release}}}"){{/is_deprecated}}
+        public {{{type}}} {{{name_camel}}};
+
+        {{/fields}}
+        {{#is_event_class}}
+            /**
+            * The record of the database object that was added, changed or deleted.
+            * The actual type will be VM.Record, VBD.Record, or similar.
+            */
+            public Object snapshot;
+        {{/is_event_class}}
+    }
+
+    {{/is_empty_class}}
+    {{#methods}}
+    /**
+     * {{{description}}}
+     * Minimum allowed role: {{{minimum_allowed_role}}}
+     * {{{publish_info}}}{{#is_deprecated}}
+     * @deprecated since {{{deprecated_release}}}{{/is_deprecated}}
+     *
+     * @param c The connection the call is made on{{#parameters}}
+     * @param {{{name_camel}}} {{{description}}} {{{publish_info}}}{{/parameters}}{{^returns_void}}
+     * @return {{#is_async}}Task{{/is_async}}{{^is_async}}{{{return_description}}}{{/is_async}}{{/returns_void}}
+     * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
+     * @throws XenAPIException if the call failed.
+     * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.{{#errors}}
+     * @throws {{{name}}} {{{description}}}{{/errors}}
+     */{{#is_deprecated}}
+    @Deprecated(since = "{{{deprecated_release}}}"){{/is_deprecated}}
+    public{{#is_static}} static{{/is_static}} {{#is_async}}Task{{/is_async}}{{^is_async}}{{{return_type}}}{{/is_async}} {{name_camel}}{{#is_async}}Async{{/is_async}}(Connection c{{#parameters}}, {{{type}}} {{{name_camel}}}{{/parameters}}) throws
+            BadServerResponse,
+            XenAPIException,
+            IOException{{#errors}},
+    {{name}}{{/errors}} {
+        String methodCall = "{{#is_async}}Async.{{/is_async}}{{{object_name}}}.{{{name}}}";{{#supports_session}}
+        String sessionReference = c.getSessionReference();{{/supports_session}}{{#method_parameters}}{{#is_record}}
+        var {{{name_camel}}}_map = {{{name_camel}}}.toMap();{{/is_record}}{{/method_parameters}}
+        Object[] methodParameters = { {{#method_parameters}}{{{name_camel}}}{{#is_record}}_map{{/is_record}}{{^is_last}}, {{/is_last}}{{/method_parameters}} };{{#type_reference}}
+        var typeReference = new TypeReference<{{{.}}}>(){};{{/type_reference}}
+        {{^returns_void}}return {{/returns_void}}c.dispatch(methodCall, methodParameters{{#type_reference}}, typeReference{{/type_reference}});
+    }
+
+    {{/methods}}
+}
