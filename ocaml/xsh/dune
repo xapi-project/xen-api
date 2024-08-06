@@ -4,11 +4,12 @@
   (public_name xsh)
   (package xapi)
   (libraries
-    dune-build-info
+    
     stunnel
     safe-resources
     xapi-consts
     xapi-log
+    xapi-stdext-unix
   )
 )
 

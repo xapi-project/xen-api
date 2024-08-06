@@ -135,7 +135,7 @@ let parse_url url =
     let ( let* ) = Option.bind in
     let* scheme = Uri.scheme uri in
     let* host = Uri.host uri in
-    let path = Uri.path_and_query uri in
+    let path = Uri.path_and_query uri |> Uri.pct_decode in
     Some (scheme, host, path)
   in
   match parse (Uri.of_string url) with
@@ -594,7 +594,8 @@ let main_loop ifd ofd permitted_filenames =
                   finished := true
                 else
                   let r, _, _ =
-                    Unix.select [Unix.stdin; fd] [] [] heartbeat_interval
+                    Xapi_stdext_unix.Unixext.select [Unix.stdin; fd] [] []
+                      heartbeat_interval
                   in
                   let now = Unix.time () in
                   if now -. !last_heartbeat >= heartbeat_interval then (

@@ -26,17 +26,12 @@ let make_task ~__context =
   ref
 
 (* A type to represent an SR record parsed from an sr_probe result. *)
-type sr_probe_sr = {
-    uuid: string
-  ; name_label: string
-  ; name_description: string
-  ; metadata_detected: bool
-}
+type sr_probe_sr = {uuid: string; name_label: string; name_description: string}
 
 (* Attempt to parse a key/value pair from XML. *)
 let parse_kv = function
   | Xml.Element (key, _, [Xml.PCData v]) ->
-      (key, String.strip String.isspace v) (* remove whitespace at both ends *)
+      (key, String.trim v)
   | Xml.Element (key, _, []) ->
       (key, "")
   | _ ->
@@ -53,8 +48,6 @@ let parse_sr_probe xml =
               uuid= List.assoc "UUID" all
             ; name_label= List.assoc "name_label" all
             ; name_description= List.assoc "name_description" all
-            ; metadata_detected=
-                List.assoc "pool_metadata_detected" all = "true"
             }
         | _ ->
             failwith "Malformed or missing <SR>"

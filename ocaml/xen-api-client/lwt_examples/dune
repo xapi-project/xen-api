@@ -3,7 +3,7 @@
   (name list_vms)
   (modules list_vms)
   (libraries
-    dune-build-info
+    
     lwt
     lwt.unix
     uri
@@ -20,7 +20,7 @@
   (modules upload_disk)
   (libraries
     cstruct
-    dune-build-info
+    
     lwt
     lwt.unix
     uri
@@ -40,7 +40,7 @@
     cohttp-lwt
     cohttp-lwt-unix
     conduit-lwt-unix
-    dune-build-info
+    
     lwt
     lwt.unix
     ssl

@@ -47,7 +47,7 @@ module M = struct
         (function
           | Unix.Unix_error
               ((Unix.ECONNREFUSED | Unix.ECONNABORTED | Unix.ENOENT), _, _) ->
-              Lwt_unix.sleep 5. >>= fun () -> connect' ()
+              Lwt_unix.sleep 0.5 >>= fun () -> connect' ()
           | e ->
               Lwt_unix.close fd >>= fun () -> fail e
           )

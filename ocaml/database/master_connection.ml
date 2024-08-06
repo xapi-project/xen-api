@@ -71,7 +71,7 @@ let force_connection_reset () =
        		   host and port are fixed values. *)
     let rec purge_stunnels verify_cert =
       match
-        Stunnel_cache.with_remove ~host ~port verify_cert @@ fun st ->
+        Stunnel_cache.with_remove ~host ~port @@ fun st ->
         try Stunnel.disconnect ~wait:false ~force:true st with _ -> ()
       with
       | None ->
@@ -171,7 +171,11 @@ let open_secure_connection () =
     ~write_to_log:(fun x -> debug "stunnel: %s\n" x)
     ~verify_cert host port
   @@ fun st_proc ->
-  let fd_closed = Thread.wait_timed_read Unixfd.(!(st_proc.Stunnel.fd)) 5. in
+  let fd_closed =
+    Xapi_stdext_threads.Threadext.wait_timed_read
+      Unixfd.(!(st_proc.Stunnel.fd))
+      5.
+  in
   let proc_quit =
     try
       Unix.kill (Stunnel.getpid st_proc.Stunnel.pid) 0 ;

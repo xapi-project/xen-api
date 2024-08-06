@@ -1,5 +1,6 @@
 (library
   (name tapctl)
+  (modes best)
   (wrapped false)
   (preprocess (pps ppx_deriving_rpc))
   (libraries

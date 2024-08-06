@@ -43,7 +43,7 @@ let timeout_read fd timeout =
   in
   let rec inner max_time max_bytes =
     let ready_to_read, _, _ =
-      try Unix.select [fd] [] [] (to_s max_time)
+      try Xapi_stdext_unix.Unixext.select [fd] [] [] (to_s max_time)
       with
       (* in case the unix.select call fails in situation like interrupt *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->
@@ -96,7 +96,7 @@ let timeout_write filedesc total_length data response_time =
   in
   let rec inner_write offset max_time =
     let _, ready_to_write, _ =
-      try Unix.select [] [filedesc] [] (to_s max_time)
+      try Xapi_stdext_unix.Unixext.select [] [filedesc] [] (to_s max_time)
       with
       (* in case the unix.select call fails in situation like interrupt *)
       | Unix.Unix_error (Unix.EINTR, _, _) ->

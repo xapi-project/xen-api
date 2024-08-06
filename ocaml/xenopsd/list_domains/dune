@@ -2,5 +2,5 @@
   (name list_domains)
   (public_name list_domains)
   (package xapi-xenopsd-xc)
-  (libraries dune-build-info xenctrl xapi-idl.memory ezxenstore.watch uuid)
+  (libraries  xenctrl xapi-idl.memory ezxenstore.watch uuid)
 )

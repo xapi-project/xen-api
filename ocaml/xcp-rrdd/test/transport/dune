@@ -3,7 +3,7 @@
   (package rrd-transport)
   (libraries
     alcotest
-    dune-build-info
+    
     fmt
     rrd-transport
     xapi-idl.rrd

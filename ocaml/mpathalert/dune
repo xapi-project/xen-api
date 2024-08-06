@@ -3,8 +3,7 @@
   (name mpathalert)
   (public_name mpathalert)
   (package xapi)
-  (libraries
-    dune-build-info
+  (libraries    
     http_lib
     threads.posix
     uuid

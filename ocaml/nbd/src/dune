@@ -4,7 +4,7 @@
  (libraries
   cmdliner
   consts
-  dune-build-info
+  
   local_xapi_session
   lwt
   lwt.unix

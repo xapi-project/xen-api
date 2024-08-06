@@ -101,14 +101,12 @@ functor
         task_map: task_handle SMap.t ref
       ; mutable test_cancel_trigger: (string * int) option
       ; m: Mutex.t
-      ; c: Condition.t
     }
 
     let empty () =
       let task_map = ref SMap.empty in
       let m = Mutex.create () in
-      let c = Condition.create () in
-      {task_map; test_cancel_trigger= None; m; c}
+      {task_map; test_cancel_trigger= None; m}
 
     (* [next_task_id ()] returns a fresh task id *)
     let next_task_id =

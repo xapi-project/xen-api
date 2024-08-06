@@ -4578,7 +4578,7 @@ let vm_migrate printer rpc session_id params =
     let pwd = List.assoc "remote-password" params in
     let remote_session =
       Client.Session.login_with_password ~rpc:remote_rpc ~uname ~pwd
-        ~version:"1.3" ~originator:Constants.xapi_user_agent
+        ~version:"1.3" ~originator:Xapi_version.xapi_user_agent
     in
     let remote f = f ~rpc:remote_rpc ~session_id:remote_session in
     finally

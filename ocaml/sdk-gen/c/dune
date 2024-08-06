@@ -4,7 +4,7 @@
   (libraries
     astring
     CommonFunctions
-    dune-build-info
+    
     mustache
     xapi-datamodel
   )

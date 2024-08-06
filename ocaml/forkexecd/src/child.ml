@@ -61,7 +61,9 @@ let handle_comms_sock comms_sock state =
 
 let handle_comms_no_fd_sock2 comms_sock fd_sock state =
   debug "Selecting in handle_comms_no_fd_sock2" ;
-  let ready, _, _ = Unix.select [comms_sock; fd_sock] [] [] (-1.0) in
+  let ready, _, _ =
+    Xapi_stdext_unix.Unixext.select [comms_sock; fd_sock] [] [] (-1.0)
+  in
   debug "Done" ;
   if List.mem fd_sock ready then (
     debug "fd sock" ;
@@ -74,7 +76,9 @@ let handle_comms_no_fd_sock2 comms_sock fd_sock state =
 
 let handle_comms_with_fd_sock2 comms_sock _fd_sock fd_sock2 state =
   debug "Selecting in handle_comms_with_fd_sock2" ;
-  let ready, _, _ = Unix.select [comms_sock; fd_sock2] [] [] (-1.0) in
+  let ready, _, _ =
+    Xapi_stdext_unix.Unixext.select [comms_sock; fd_sock2] [] [] (-1.0)
+  in
   debug "Done" ;
   if List.mem fd_sock2 ready then (
     debug "fd sock2" ;
@@ -94,14 +98,7 @@ let handle_comms comms_sock fd_sock state =
 let log_failure args child_pid reason =
   (* The commandline might be too long to clip it *)
   let cmdline = String.concat " " args in
-  let limit = 80 - 3 in
-  let cmdline' =
-    if String.length cmdline > limit then
-      String.sub cmdline 0 limit ^ "..."
-    else
-      cmdline
-  in
-  Fe_debug.error "%d (%s) %s" child_pid cmdline' reason
+  Fe_debug.error "%d (%s) %s" child_pid cmdline reason
 
 let report_child_exit comms_sock args child_pid status =
   let module Unixext = Xapi_stdext_unix.Unixext in

@@ -41,8 +41,8 @@ let rpc_of_version x =
     ; (_product_version, Rpc.String x.product_version)
     ; (_product_brand, Rpc.String x.product_brand)
     ; (_build_number, Rpc.String x.build_number)
-    ; (_xapi_major, Rpc.Int (Int64.of_int Constants.version_major))
-    ; (_xapi_minor, Rpc.Int (Int64.of_int Constants.version_minor))
+    ; (_xapi_major, Rpc.Int (Int64.of_int Xapi_version.xapi_version_major))
+    ; (_xapi_minor, Rpc.Int (Int64.of_int Xapi_version.xapi_version_minor))
     ; (_export_vsn, Rpc.Int (Int64.of_int Xapi_globs.export_vsn))
     ]
 
@@ -112,8 +112,8 @@ let this_version __context =
   ; product_version= Xapi_version.product_version ()
   ; product_brand= Xapi_version.product_brand ()
   ; build_number= Xapi_version.build_number ()
-  ; xapi_vsn_major= Constants.version_major
-  ; xapi_vsn_minor= Constants.version_minor
+  ; xapi_vsn_major= Xapi_version.xapi_version_major
+  ; xapi_vsn_minor= Xapi_version.xapi_version_minor
   ; export_vsn= Xapi_globs.export_vsn
   }
 

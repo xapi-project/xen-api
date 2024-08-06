@@ -98,7 +98,9 @@ let test_buf_io =
   in
   true
 
+let tests = [test_buf_io]
+
 let () =
   (* avoid SIGPIPE *)
   let (_ : Sys.signal_behavior) = Sys.signal Sys.sigpipe Sys.Signal_ignore in
-  QCheck_base_runner.run_tests_main [test_buf_io]
+  ()

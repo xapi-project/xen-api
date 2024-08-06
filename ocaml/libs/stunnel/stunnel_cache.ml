@@ -37,11 +37,7 @@ let ignore_log fmt = Printf.ksprintf (fun _ -> ()) fmt
 (* Use and overlay the definition from D. *)
 let debug = if debug_enabled then debug else ignore_log
 
-type endpoint = {
-    host: string
-  ; port: int
-  ; verified: Stunnel.verification_config option
-}
+type endpoint = {host: string; port: int}
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
 let max_stunnel = 70
@@ -187,13 +183,7 @@ let add (x : Stunnel.t) =
       incr counter ;
       Hashtbl.add !times idx now ;
       Tbl.move_into !stunnels idx x ;
-      let ep =
-        {
-          host= x.Stunnel.host
-        ; port= x.Stunnel.port
-        ; verified= x.Stunnel.verified
-        }
-      in
+      let ep = {host= x.Stunnel.host; port= x.Stunnel.port} in
       let existing = Option.value (Hashtbl.find_opt !index ep) ~default:[] in
       Hashtbl.replace !index ep (idx :: existing) ;
       debug "Adding stunnel id %s (idle %.2f) to the cache" (id_of_stunnel x) 0. ;
@@ -203,8 +193,8 @@ let add (x : Stunnel.t) =
 (** Returns an Stunnel.t for this endpoint (oldest first), raising Not_found
     if none can be found. First performs a garbage-collection, which discards
     expired stunnels if needed. *)
-let with_remove ~host ~port verified f =
-  let ep = {host; port; verified} in
+let with_remove ~host ~port f =
+  let ep = {host; port} in
   let get_id () =
     with_lock m (fun () ->
         unlocked_gc () ;
@@ -253,7 +243,7 @@ let flush () =
 
 let with_connect ?use_fork_exec_helper ?write_to_log ~verify_cert ~host ~port f
     =
-  match with_remove ~host ~port verify_cert f with
+  match with_remove ~host ~port f with
   | Some r ->
       r
   | None ->

@@ -2,7 +2,7 @@
   (name xen_api_test)
   (package xen-api-client)
   (libraries
-    dune-build-info
+    
     alcotest
     rpclib.xml
     uri

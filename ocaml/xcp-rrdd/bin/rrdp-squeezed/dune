@@ -4,7 +4,7 @@
   (package rrdd-plugins)
   (public_name xcp-rrdd-squeezed)
   (libraries
-    dune-build-info
+    
     rrdd-plugin
     rrdd-plugins.libs
     xapi-stdext-std

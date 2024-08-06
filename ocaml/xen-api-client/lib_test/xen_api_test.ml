@@ -46,13 +46,13 @@ module Fake_IO = struct
 
   let flush _oc = return ()
 
-  type connection = {address: Uri.t; ic: ic; oc: ic}
+  type connection = {ic: ic; oc: ic}
 
   let connections = ref []
 
-  let open_connection address =
+  let open_connection _ =
     let ic = Queue.create () and oc = Queue.create () in
-    let c = {address; ic; oc} in
+    let c = {ic; oc} in
     connections := c :: !connections ;
     return (Ok (ic, oc))
 
@@ -111,7 +111,7 @@ let test_login_success () =
   let module Fake_IO = struct
     include Fake_IO
 
-    let open_connection address =
+    let open_connection _ =
       let ic = Queue.create () and oc = Queue.create () in
       Queue.push "HTTP/1.1 200 OK\r\n" ic ;
       Queue.push
@@ -119,7 +119,7 @@ let test_login_success () =
         ic ;
       Queue.push "\r\n" ic ;
       Queue.push result ic ;
-      let c = {address; ic; oc} in
+      let c = {ic; oc} in
       connections := c :: !connections ;
       return (Ok (ic, oc))
   end in

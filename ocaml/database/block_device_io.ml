@@ -328,7 +328,7 @@ let accept_conn s latest_response_time =
   let now = Unix.gettimeofday () in
   let timeout = latest_response_time -. now in
   (* Await an incoming connection... *)
-  let ready_to_read, _, _ = Unix.select [s] [] [] timeout in
+  let ready_to_read, _, _ = Xapi_stdext_unix.Unixext.select [s] [] [] timeout in
   R.info "Finished selecting" ;
   if List.mem s ready_to_read then
     (* We've received a connection. Accept it and return the socket. *)

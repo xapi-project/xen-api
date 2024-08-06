@@ -882,7 +882,7 @@ let gen_enum file name ls =
     )
     ls ;
   fprintf file "        /* This can never be reached */\n" ;
-  fprintf file "        return \"illegal enum\";\n" ;
+  fprintf file "        return \"UNRECOGNIZED\";\n" ;
   fprintf file "        }\n" ;
   fprintf file "\n    }\n\n"
 

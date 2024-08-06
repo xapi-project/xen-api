@@ -34,7 +34,8 @@ let test_vm_set_nvram_running () =
   with_test_vm (fun __context vm_ref ->
       Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Halted ;
       let old_nvram = [("EFI-variables", "AAAA")] in
-      Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref ~value:old_nvram ;
+      Api_server_common.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref
+        ~value:old_nvram ;
       Db.VM.set_power_state ~__context ~self:vm_ref ~value:`Running ;
       Alcotest.check_raises "VM.set_NVRAM should fail when the VM is running"
         Api_errors.(
@@ -42,7 +43,7 @@ let test_vm_set_nvram_running () =
             (vm_bad_power_state, [Ref.string_of vm_ref; "halted"; "running"])
         )
         (fun () ->
-          Api_server.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref
+          Api_server_common.Forwarder.VM.set_NVRAM ~__context ~self:vm_ref
             ~value:[("EFI-variables", "BBBB")]
         ) ;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
@@ -50,8 +51,8 @@ let test_vm_set_nvram_running () =
         "NVRAM not updated" old_nvram read_nvram ;
       let new_vars = "CCCC" in
       let new_nvram = [("EFI-variables", new_vars)] in
-      Api_server.Forwarder.VM.set_NVRAM_EFI_variables ~__context ~self:vm_ref
-        ~value:new_vars ;
+      Api_server_common.Forwarder.VM.set_NVRAM_EFI_variables ~__context
+        ~self:vm_ref ~value:new_vars ;
       let read_nvram = Db.VM.get_NVRAM ~__context ~self:vm_ref in
       Alcotest.(check (list (pair string string)))
         "NVRAM updated" new_nvram read_nvram

@@ -24,8 +24,6 @@ exception Forbidden
 
 exception Method_not_implemented
 
-exception Malformed_url of string
-
 exception Timeout
 
 exception Too_large
@@ -94,6 +92,13 @@ let http_501_method_not_implemented ?(version = "1.0") () =
   ; "Cache-Control: no-cache, no-store"
   ]
 
+let http_503_service_unavailable ?(version = "1.0") () =
+  [
+    Printf.sprintf "HTTP/%s 503 Service Unavailable" version
+  ; "Connection: close"
+  ; "Cache-Control: no-cache, no-store"
+  ]
+
 module Hdr = struct
   let task_id = "task-id"
 
@@ -138,61 +143,8 @@ let output_http fd headers =
   |> String.concat ""
   |> Unixext.really_write_string fd
 
-let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
-
-let implode chr_list =
-  String.concat "" (List.map Astring.String.of_char chr_list)
-
-let urldecode url =
-  let chars = explode url in
-  let rec fn ac = function
-    | '+' :: tl ->
-        fn (' ' :: ac) tl
-    | '%' :: a :: b :: tl ->
-        let cs =
-          try int_of_string (implode ['0'; 'x'; a; b])
-          with _ -> raise (Malformed_url url)
-        in
-        fn (Char.chr cs :: ac) tl
-    | x :: tl ->
-        fn (x :: ac) tl
-    | [] ->
-        implode (List.rev ac)
-  in
-  fn [] chars
-
 (* Encode @param suitably for appearing in a query parameter in a URL. *)
-let urlencode param =
-  let chars = explode param in
-  let rec fn = function
-    | x :: tl ->
-        let s =
-          if x = ' ' then
-            "+"
-          else
-            match x with
-            | 'A' .. 'Z'
-            | 'a' .. 'z'
-            | '0' .. '9'
-            | '$'
-            | '-'
-            | '_'
-            | '.'
-            | '!'
-            | '*'
-            | '\''
-            | '('
-            | ')'
-            | ',' ->
-                Astring.String.of_char x
-            | _ ->
-                Printf.sprintf "%%%2x" (Char.code x)
-        in
-        s ^ fn tl
-    | [] ->
-        ""
-  in
-  fn chars
+let urlencode param = Uri.pct_encode ~component:`Query param
 
 (** Parses strings of the form a=b;c=d (new, RFC-compliant cookie format)
     and a=b&c=d (old, incorrect style) into [("a", "b"); ("c", "d")] *)
@@ -212,7 +164,7 @@ let parse_cookies xs =
   List.map
     (function
       | k :: vs ->
-          (urldecode k, urldecode (String.concat "=" vs))
+          (Uri.pct_decode k, Uri.pct_decode (String.concat "=" vs))
       | [] ->
           raise Http_parse_failure
       )
@@ -368,14 +320,8 @@ let read_frame_header buf =
   let prefix = Bytes.sub_string buf 0 frame_header_length in
   try Scanf.sscanf prefix "FRAME %012d" (fun x -> Some x) with _ -> None
 
-let set_socket_timeout fd t =
-  try Unix.(setsockopt_float fd SO_RCVTIMEO t)
-  with Unix.Unix_error (Unix.ENOTSOCK, _, _) ->
-    (* In the unit tests, the fd comes from a pipe... ignore *)
-    ()
-
 let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
-  Option.iter (fun t -> set_socket_timeout fd t) read_timeout ;
+  Unixext.with_socket_timeout fd read_timeout @@ fun () ->
   let buf = Bytes.create (Option.value ~default:1024 max_length) in
   let deadline =
     Option.map
@@ -420,7 +366,6 @@ let read_http_request_header ~read_timeout ~total_timeout ~max_length fd =
         check_timeout_and_read 0 length ;
         (true, length)
   in
-  set_socket_timeout fd 0. ;
   (frame, Bytes.sub_string buf 0 headers_length, proxy)
 
 let read_http_response_header buf fd =
@@ -916,7 +861,7 @@ module Url = struct
       in
       let data =
         {
-          uri= (match Uri.path uri with "" -> "/" | path -> path)
+          uri= (match Uri.path_unencoded uri with "" -> "/" | path -> path)
         ; query_params= Uri.query uri |> List.map query
         }
       in
@@ -929,7 +874,7 @@ module Url = struct
       | Some "https" ->
           (scheme ~ssl:true, data)
       | Some "file" ->
-          let scheme = File {path= Uri.path uri} in
+          let scheme = File {path= Uri.path_unencoded uri} in
           (scheme, {data with uri= "/"})
       | _ ->
           failwith "unsupported URI scheme"

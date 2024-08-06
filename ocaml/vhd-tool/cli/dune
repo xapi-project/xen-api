@@ -5,7 +5,7 @@
   (public_names vhd-tool sparse_dd get_vhd_vsize)
   (libraries
     astring
-    dune-build-info
+    
     local_lib
     cmdliner
     cstruct

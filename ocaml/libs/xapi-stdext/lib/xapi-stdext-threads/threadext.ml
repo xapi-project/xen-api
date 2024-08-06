@@ -49,15 +49,13 @@ module Delay = struct
   (* Concrete type is the ends of a pipe *)
   type t = {
       (* A pipe is used to wake up a thread blocked in wait: *)
-      mutable pipe_out: Unix.file_descr option
-    ; mutable pipe_in: Unix.file_descr option
+      mutable pipe_in: Unix.file_descr option
     ; (* Indicates that a signal arrived before a wait: *)
       mutable signalled: bool
     ; m: M.t
   }
 
-  let make () =
-    {pipe_out= None; pipe_in= None; signalled= false; m= M.create ()}
+  let make () = {pipe_in= None; signalled= false; m= M.create ()}
 
   exception Pre_signalled
 
@@ -80,7 +78,6 @@ module Delay = struct
                 let pipe_out, pipe_in = Unix.pipe () in
                 (* these will be unconditionally closed on exit *)
                 to_close := [pipe_out; pipe_in] ;
-                x.pipe_out <- Some pipe_out ;
                 x.pipe_in <- Some pipe_in ;
                 x.signalled <- false ;
                 pipe_out
@@ -99,7 +96,6 @@ module Delay = struct
       )
       (fun () ->
         Mutex.execute x.m (fun () ->
-            x.pipe_out <- None ;
             x.pipe_in <- None ;
             List.iter close' !to_close
         )
@@ -115,3 +111,23 @@ module Delay = struct
         (* If the wait hasn't happened yet then store up the signal *)
     )
 end
+
+let wait_timed_read fd timeout =
+  match Xapi_stdext_unix.Unixext.select [fd] [] [] timeout with
+  | [], _, _ ->
+      false
+  | [fd'], _, _ ->
+      assert (fd' = fd) ;
+      true
+  | _ ->
+      assert false
+
+let wait_timed_write fd timeout =
+  match Xapi_stdext_unix.Unixext.select [] [fd] [] timeout with
+  | _, [], _ ->
+      false
+  | _, [fd'], _ ->
+      assert (fd' = fd) ;
+      true
+  | _ ->
+      assert false

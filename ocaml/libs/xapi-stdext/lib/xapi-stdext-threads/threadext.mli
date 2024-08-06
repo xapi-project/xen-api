@@ -33,3 +33,7 @@ module Delay : sig
   val signal : t -> unit
   (** Sends a signal to a waiting thread. See 'wait' *)
 end
+
+val wait_timed_read : Unix.file_descr -> float -> bool
+
+val wait_timed_write : Unix.file_descr -> float -> bool
