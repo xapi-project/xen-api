@@ -1793,7 +1793,7 @@ let rec diff a b =
 
 (* default false due to bugs in SMAPIv3 plugins,
    once they are fixed this should be set to true *)
-let concurrent = ref false
+let concurrent = ref true
 
 type reload = All | Files of string list | Nothing
 
