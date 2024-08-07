@@ -79,7 +79,7 @@ let domain_of ~dp ~vm' =
   | "0" ->
       (* SM tries to use this in filesystem paths, so cannot have /,
          and systemd might be a bit unhappy with - *)
-      "u0-" ^ dp |> String.map ~f:(function '/' | '-' -> '_' | c -> c)
+      "u0-" ^ dp |> String.map (function '/' | '-' -> '_' | c -> c)
   | _ ->
       vm
 
@@ -477,6 +477,8 @@ let fork_exec_rpc :
     )
     >>>= fun input ->
     let input = compat_in input |> Jsonrpc.to_string in
+    debug (fun m -> m "Running %s" @@ Filename.quote_command script_name args)
+    >>= fun () ->
     Process.run ~env ~prog:script_name ~args ~input >>= fun output ->
     let fail_because ~cause description =
       fail
@@ -500,12 +502,13 @@ let fork_exec_rpc :
       with
       | Error _ ->
           error (fun m ->
-              m "%s failed and printed bad error json: %s" script_name
-                output.Process.Output.stdout
+              m "%s[%d] failed and printed bad error json: %s" script_name
+                output.pid output.Process.Output.stdout
           )
           >>= fun () ->
           error (fun m ->
-              m "%s failed, stderr: %s" script_name output.Process.Output.stderr
+              m "%s[%d] failed, stderr: %s" script_name output.pid
+                output.Process.Output.stderr
           )
           >>= fun () ->
           fail_because "non-zero exit and bad json on stdout"
@@ -516,12 +519,12 @@ let fork_exec_rpc :
         with
         | Error _ ->
             error (fun m ->
-                m "%s failed and printed bad error json: %s" script_name
-                  output.Process.Output.stdout
+                m "%s[%d] failed and printed bad error json: %s" script_name
+                  output.pid output.Process.Output.stdout
             )
             >>= fun () ->
             error (fun m ->
-                m "%s failed, stderr: %s" script_name
+                m "%s[%d] failed, stderr: %s" script_name output.pid
                   output.Process.Output.stderr
             )
             >>= fun () ->
@@ -532,7 +535,9 @@ let fork_exec_rpc :
       )
     )
     | Error (Signal signal) ->
-        error (fun m -> m "%s caught a signal and failed" script_name)
+        error (fun m ->
+            m "%s[%d] caught a signal and failed" script_name output.pid
+        )
         >>= fun () -> fail_because "signalled" ~cause:(Signal.to_string signal)
     | Ok () -> (
       (* Parse the json on stdout. We get back a JSON-RPC
@@ -544,8 +549,8 @@ let fork_exec_rpc :
       with
       | Error _ ->
           error (fun m ->
-              m "%s succeeded but printed bad json: %s" script_name
-                output.Process.Output.stdout
+              m "%s[%d] succeeded but printed bad json: %s" script_name
+                output.pid output.Process.Output.stdout
           )
           >>= fun () ->
           fail
@@ -554,7 +559,8 @@ let fork_exec_rpc :
             )
       | Ok response ->
           info (fun m ->
-              m "%s succeeded: %s" script_name output.Process.Output.stdout
+              m "%s[%d] succeeded: %s" script_name output.pid
+                output.Process.Output.stdout
           )
           >>= fun () ->
           let response = compat_out response in
