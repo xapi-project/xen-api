@@ -66,6 +66,8 @@ let backend_backtrace_error name args backtrace =
 let missing_uri () =
   backend_error "MISSING_URI" ["Please include a URI in the device-config"]
 
+let domain_of ~dp:_ ~vm = Storage_interface.Vm.string_of vm
+
 (** Functions to wrap calls to the above client modules and convert their
     exceptions and errors into SMAPIv2 errors of type
     [Storage_interface.Exception.exnty]. The above client modules should only
@@ -1432,9 +1434,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.introduce vdi_introduce_impl ;
-  let vdi_attach3_impl dbg _dp sr vdi' vm _readwrite =
+  let vdi_attach3_impl dbg dp sr vdi' vm _readwrite =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
+     let domain = domain_of ~dp ~vm in
      vdi_attach_common dbg sr vdi domain >>>= fun response ->
      let convert_implementation = function
        | Xapi_storage.Data.XenDisk {params; extra; backend_type} ->
@@ -1456,9 +1458,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.attach3 vdi_attach3_impl ;
-  let vdi_activate_common dbg sr vdi' vm readonly =
+  let vdi_activate_common dbg dp sr vdi' vm readonly =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
+     let domain = domain_of ~dp ~vm in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1483,17 +1485,17 @@ let bind ~volume_script_dir =
     )
     |> wrap
   in
-  let vdi_activate3_impl dbg _dp sr vdi' vm =
-    vdi_activate_common dbg sr vdi' vm false
+  let vdi_activate3_impl dbg dp sr vdi' vm =
+    vdi_activate_common dbg dp sr vdi' vm false
   in
   S.VDI.activate3 vdi_activate3_impl ;
-  let vdi_activate_readonly_impl dbg _dp sr vdi' vm =
-    vdi_activate_common dbg sr vdi' vm true
+  let vdi_activate_readonly_impl dbg dp sr vdi' vm =
+    vdi_activate_common dbg dp sr vdi' vm true
   in
   S.VDI.activate_readonly vdi_activate_readonly_impl ;
-  let vdi_deactivate_impl dbg _dp sr vdi' vm =
+  let vdi_deactivate_impl dbg dp sr vdi' vm =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
+     let domain = domain_of ~dp ~vm in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1514,9 +1516,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.deactivate vdi_deactivate_impl ;
-  let vdi_detach_impl dbg _dp sr vdi' vm =
+  let vdi_detach_impl dbg dp sr vdi' vm =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
+     let domain = domain_of ~dp ~vm in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1624,9 +1626,9 @@ let bind ~volume_script_dir =
   S.VDI.epoch_end vdi_epoch_end_impl ;
   let vdi_set_persistent_impl _dbg _sr _vdi _persistent = return () |> wrap in
   S.VDI.set_persistent vdi_set_persistent_impl ;
-  let dp_destroy2 dbg _dp sr vdi' vm _allow_leak =
+  let dp_destroy2 dbg dp sr vdi' vm _allow_leak =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
+     let domain = domain_of ~dp ~vm in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
