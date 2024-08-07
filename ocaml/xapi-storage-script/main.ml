@@ -66,7 +66,22 @@ let backend_backtrace_error name args backtrace =
 let missing_uri () =
   backend_error "MISSING_URI" ["Please include a URI in the device-config"]
 
-let domain_of ~dp:_ ~vm' = Storage_interface.Vm.string_of vm'
+(** return a unique 'domain' string for Dom0, so that we can plug disks
+  multiple times (e.g. for copy).
+
+  XAPI should give us a unique 'dp' (datapath) string, e.g. a UUID for storage migration,
+  or vbd/domid/device.
+  For regular guests keep the domain as passed by XAPI (an integer).
+ *)
+let domain_of ~dp ~vm' =
+  let vm = Storage_interface.Vm.string_of vm' in
+  match vm with
+  | "0" ->
+      (* SM tries to use this in filesystem paths, so cannot have /,
+         and systemd might be a bit unhappy with - *)
+      "u0-" ^ dp |> String.map ~f:(function '/' | '-' -> '_' | c -> c)
+  | _ ->
+      vm
 
 (** Functions to wrap calls to the above client modules and convert their
     exceptions and errors into SMAPIv2 errors of type
