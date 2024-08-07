@@ -228,17 +228,3 @@ class Interface:
         self.vif = VIF(vif_name, uuid, int(devid))
     def get_vif(self):
         return self.vif
-    def online(self):
-        v = self.get_vif()
-        mode = v.get_mode()
-        for (key, value) in v.get_ethtool():
-            set_ethtool(mode, self.name, key, value)
-        set_mtu(mode, self.name, v.get_mtu())
-        add_to_bridge(mode, self.name, v.get_bridge(), v.get_address(), v.get_external_ids())
-        add_vif_rules(self.name)
-        set_promiscuous(mode, self.name, v.get_promiscuous())
-
-#def add(mode, dev, bridge, address, external_ids):
-#    add_to_bridge(mode, dev, bridge, address, external_ids)
-
-
