@@ -154,18 +154,7 @@ class VIF:
         return network[1]
     def get_address(self):
         return "fe:ff:ff:ff:ff:ff"
-    def get_ethtool(self):
-        results = []
-        for (k, v) in self.json["other_config"]:
-            if k.startswith("ethtool-"):
-                k = k[len("ethtool-"):]
-                if v == "true" or v == "on":
-                    results.append(k, True)
-                elif v == "false" or v == "off":
-                    results.append(k, False)
-                else:
-                    send_to_syslog("VIF %s/%d: ignoring ethtool argument %s=%s (use true/false)" % (self.vm_uuid, self.devid, k, v))
-        return results
+
     def get_mac(self):
         return self.json["mac"]
     def get_mtu(self):
