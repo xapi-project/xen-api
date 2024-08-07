@@ -109,14 +109,10 @@ def test_get_ethtool(input_params, expected_results):
 
     # Act: Get the locking mode configuration for the input params from the VIF object:
     with patch("common.send_to_syslog") as send_to_syslog:
-        if expected_results:
-            with pytest.raises(TypeError) as ex:
-                MockVIF(input_params).get_ethtool()
-            # Assert the expected error message, will be fixed in the next commit:
-            assert "list.append() takes exactly one argument (2 given)" == str(ex.value)
-        else:
-            MockVIF(input_params).get_ethtool()
+        test_result = MockVIF(input_params).get_ethtool()
 
+    # Assert the expected output and the expected call to send_to_syslog():
+    assert test_result == expected_results
     if not expected_results:
         send_to_syslog.assert_called_once_with(
             "VIF vm_uuid/1: ignoring ethtool argument rx=Wrong (use true/false)"
