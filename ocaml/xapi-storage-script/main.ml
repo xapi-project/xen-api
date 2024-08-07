@@ -744,7 +744,7 @@ let vdi_of_volume x =
   ; persistent= true
   }
 
-let choose_datapath ?(persistent = true) domain response =
+let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
      to name the datapath plugin. *)
   let possible =
@@ -789,7 +789,7 @@ let choose_datapath ?(persistent = true) domain response =
   | [] ->
       fail (missing_uri ())
   | (script_dir, scheme, u) :: _us ->
-      return (fork_exec_rpc ~script_dir, scheme, u, domain)
+      return (fork_exec_rpc ~script_dir, scheme, u)
 
 (* Bind the implementations *)
 let bind ~volume_script_dir =
@@ -863,7 +863,7 @@ let bind ~volume_script_dir =
         stat ~dbg ~sr ~vdi:temporary
     )
     >>>= fun response ->
-    choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+    choose_datapath response >>>= fun (rpc, _datapath, uri) ->
     return_data_rpc (fun () -> Datapath_client.attach (rpc ~dbg) dbg uri domain)
   in
   let wrap th = Rpc_lwt.T.put th in
@@ -1472,7 +1472,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () ->
          let rpc = rpc ~dbg in
          if readonly then
@@ -1506,7 +1506,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () ->
          Datapath_client.deactivate (rpc ~dbg) dbg uri domain
      )
@@ -1529,7 +1529,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () -> Datapath_client.detach (rpc ~dbg) dbg uri domain)
     )
     |> wrap
@@ -1564,14 +1564,12 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.SR.stat sr_stat_impl ;
-  let vdi_epoch_begin_impl dbg sr vdi' vm persistent =
+  let vdi_epoch_begin_impl dbg sr vdi' _vm persistent =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     choose_datapath ~persistent domain response
-     >>>= fun (rpc, datapath, uri, _domain) ->
+     choose_datapath ~persistent response >>>= fun (rpc, datapath, uri) ->
      (* If non-persistent and the datapath plugin supports NONPERSISTENT
         then we delegate this to the datapath plugin. Otherwise we will
         make a temporary clone now and attach/detach etc this file. *)
@@ -1602,13 +1600,12 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.epoch_begin vdi_epoch_begin_impl ;
-  let vdi_epoch_end_impl dbg sr vdi' vm =
+  let vdi_epoch_end_impl dbg sr vdi' _vm =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, datapath, uri, _domain) ->
+     choose_datapath response >>>= fun (rpc, datapath, uri) ->
      if Datapath_plugins.supports_feature datapath _nonpersistent then
        return_data_rpc (fun () -> Datapath_client.close (rpc ~dbg) dbg uri)
      else
@@ -1642,7 +1639,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () ->
          Datapath_client.deactivate (rpc ~dbg) dbg uri domain
      )
