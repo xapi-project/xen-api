@@ -1709,7 +1709,7 @@ let rec diff a b =
 
 (* default false due to bugs in SMAPIv3 plugins,
    once they are fixed this should be set to true *)
-let concurrent = ref false
+let concurrent = ref true
 
 let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   let create volume_plugin_name =
