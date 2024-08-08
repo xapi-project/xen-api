@@ -95,6 +95,25 @@ void __attribute__((constructor)) stub_XA_workaround(void)
   crypt_r("", "$6$", &data);
 }
 
+/* key:string -> setting:string -> string option */
+CAMLprim value stub_XA_crypt_r(value key, value setting) {
+    CAMLparam2(key, setting);
+    CAMLlocal1(result);
+
+    struct crypt_data cd = {0};
+
+    caml_enter_blocking_section();
+    const char* const hashed =
+        crypt_r(String_val(key), String_val(setting), &cd);
+    caml_leave_blocking_section();
+
+    if (!hashed || *hashed == '*')
+      CAMLreturn(Val_none);
+
+    result = caml_copy_string(hashed);
+    CAMLreturn(caml_alloc_some(result));
+}
+
 /*
  * Local variables:
  * mode: C
