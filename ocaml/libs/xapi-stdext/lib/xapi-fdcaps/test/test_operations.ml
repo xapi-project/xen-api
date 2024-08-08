@@ -183,13 +183,13 @@ let test_sock_shutdown_all () =
   let@ () = Alcotest.check_raises "write after shutdown" exn in
   write_fd fd1
 
-let test_block sector_size =
+let test_block () =
   let with_make () f =
     let@ name, fd = with_tempfile () in
     ftruncate fd 8192L ;
     let run () =
       try
-        let@ _blkname, fd = with_temp_blk ~sector_size name in
+        let@ _blkname, fd = with_temp_blk name in
         f fd
       with Failure _ ->
         let bt = Printexc.get_raw_backtrace () in
@@ -200,19 +200,6 @@ let test_block sector_size =
     else
       Alcotest.check_raises "non-root fails to create blockdevice"
         (Failure "with_temp_blk") run
-  in
-  test_fd with_make
-    [("read", read_fd); ("write", write_fd); ("lseek", test_lseek)]
-
-let test_block_nest =
-  let with_make () f =
-    if Unix.geteuid () <> 0 then
-      Alcotest.skip () ;
-    let@ name, fd = with_tempfile () in
-    ftruncate fd 8192L ;
-    let@ blkname, _fd = with_temp_blk ~sector_size:4096 name in
-    let@ _blkname, fd = with_temp_blk ~sector_size:512 blkname in
-    f fd
   in
   test_fd with_make
     [("read", read_fd); ("write", write_fd); ("lseek", test_lseek)]
@@ -295,9 +282,7 @@ let () =
       ("pipe", test_pipe)
     ; ("socket", test_sock)
     ; ("regular", test_regular)
-    ; ("block 512", test_block 512)
-    ; ("block 4k", test_block 4096)
-    ; ("block 512 on 4k", test_block_nest)
+    ; ("block", test_block ())
     ; ("xapi_fdcaps", tests)
     ; ("no fd leaks", [Alcotest.test_case "no leaks" `Quick test_no_leaks])
     ]

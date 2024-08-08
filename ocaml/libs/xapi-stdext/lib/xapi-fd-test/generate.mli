@@ -85,3 +85,23 @@ val run_rw :
 
  @returns observations about [f]'s actions the file descriptor
 *)
+
+val file_kind : Unix.file_kind QCheck2.Gen.t * Unix.file_kind QCheck2.Print.t
+(** [file_kind] is a {!type:Unix.file_kind} generator and pretty printer.
+  It generates all file kinds, even ones that normally cannot be opened in OCaml,
+  like {!val:Unix.S_DIR}, or that require special privileges, like {!val:Unix.S_BLK}
+
+  See also {!val:testable_file_kind}.
+ *)
+
+val testable_file_kind :
+  Unix.file_kind QCheck2.Gen.t * Unix.file_kind QCheck2.Print.t
+(** [testable_file_kind] is like {!val:file_kind}, but only generates file kinds
+  that the current program can create. *)
+
+val select_input :
+  Observations.select_input QCheck2.Gen.t
+  * Observations.select_input QCheck2.Print.t
+(** [select_input] generates input for [select/(e)poll].
+  See {!val:Observations.with_select_input} on how to use it to get actual file descriptors.
+ *)
