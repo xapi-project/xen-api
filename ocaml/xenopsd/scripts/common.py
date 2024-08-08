@@ -192,28 +192,33 @@ class VIF:
             results["xs-network-uuid"] = self.json["extra_private_keys"]["network-uuid"]
         results["attached-mac"] = self.get_mac()
         return results
+
     def get_locking_mode(self):
-        def get_words(value, separator):
-            if string.strip(value) == "":
-                return []
-            else:
-               return string.split(value, separator)
+        """
+        Get the locking mode configuration for the VIF.
+
+        :returns dict: A dictionary containing the locking mode configuration with keys:
+        - mac: The MAC address
+        - locking_mode: The locking mode
+        - ipv4_allowed: List of IPv4 addresses allowed
+        - ipv6_allowed: List of IPv6 addresses allowed
+        """
         results = {
             "mac": self.get_mac(),
             "locking_mode": "",
             "ipv4_allowed": [],
-            "ipv6_allowed": []
+            "ipv6_allowed": [],
         }
         if "locking_mode" in self.json:
-            if type(self.json["locking_mode"]) is list:
-                # Must be type=locked here
+            if isinstance(self.json["locking_mode"], list):
+                # Must be type=locked and have keys for allowed ipv4 and ipv6 addresses
                 results["locking_mode"] = self.json["locking_mode"][0].lower()
-                locked_params=self.json["locking_mode"][1]
+                locked_params = self.json["locking_mode"][1]
                 results["ipv4_allowed"] = locked_params["ipv4"]
                 results["ipv6_allowed"] = locked_params["ipv6"]
             else:
                 results["locking_mode"] = self.json["locking_mode"].lower()
-        send_to_syslog("Got locking config: %s" % (repr(results)))
+        send_to_syslog("Got locking config: " + repr(results))
         return results
 
 class Interface:
