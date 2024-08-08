@@ -13,6 +13,8 @@
  *)
 
 module Pam = struct
+  include Pam
+
   let unsafe_crypt_r = Pam.unsafe_crypt_r [@@alert "-unsafe"]
   (* Suppress the alert the purpose of testing. *)
 end
@@ -124,8 +126,6 @@ let test_crypt_r_many_threads () =
       let start = now () in
       while now () -. start < 0.2 do
         let actual = unsafe_crypt_r ~key ~setting in
-        Printf.printf "thread %d computed %s\n" i actual ;
-        flush stdout ;
         if actual <> expectation then
           failwith (Printf.sprintf "%s <> %s" actual expectation)
       done
@@ -210,6 +210,57 @@ let test_c_truncation () =
   if hash <> hash' then
     failwith "Expected truncation using C-style null termination failed"
 
+(* Make following tests fail if the safe API fails to return a valid result. *)
+let crypt ~algo ~key ~salt =
+  let open struct exception CryptException of Pam.crypt_err end in
+  match Pam.crypt ~algo ~key ~salt with
+  | Ok hash ->
+      hash
+  | Error e ->
+      raise (CryptException e)
+
+(* Test trivial correspondence between safe API invocation and unsafe calls. *)
+let test_api_correspondence () =
+  let cases =
+    [
+      ("$5$salt123$", Pam.SHA256, "salt123")
+    ; ("$6$salt456$", Pam.SHA512, "salt456")
+    ]
+  in
+  let go (setting, algo, salt) =
+    let key = "password" in
+    let h = unsafe_crypt_r ~key ~setting in
+    let h' = crypt ~algo ~key ~salt in
+    if h <> h' then
+      failwith
+        "Hashes differ between invocations of safe and unsafe crypt_r APIs"
+  in
+  List.iter go cases
+
+(** Ensure the safe API fails in the way you expect. *)
+let test_safe_failures () =
+  let key = "password" in
+  let cases =
+    [
+      (* Salt exceeding maximum length. *)
+      ( (fun () ->
+          Pam.crypt ~algo:SHA256 ~key ~salt:"asaltthatexceedsthemaximumlength"
+        )
+      , Pam.SaltTooLong
+      )
+    ]
+  in
+  let test (case, expected_error) =
+    match case () with
+    | Ok _ ->
+        failwith "Expected crypt error"
+    | Error e when e <> expected_error ->
+        failwith "Actual crypt error does not match expectation"
+    | Error _ ->
+        ()
+  in
+  List.iter test cases
+
 let tests () =
   [
     ("Valid salts", `Quick, test_valid_salts)
@@ -217,5 +268,7 @@ let tests () =
   ; ("Implicit salt truncation", `Quick, test_salt_truncation)
   ; ("Increasing string length", `Quick, test_increasing_length)
   ; ("C-style termination", `Quick, test_c_truncation)
+  ; ("Safe and unsafe API", `Quick, test_api_correspondence)
+  ; ("Safe API error reporting", `Quick, test_safe_failures)
   ; ("Multiple threads", `Quick, test_crypt_r_many_threads)
   ]
