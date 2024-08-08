@@ -154,18 +154,7 @@ class VIF:
         return network[1]
     def get_address(self):
         return "fe:ff:ff:ff:ff:ff"
-    def get_ethtool(self):
-        results = []
-        for (k, v) in self.json["other_config"]:
-            if k.startswith("ethtool-"):
-                k = k[len("ethtool-"):]
-                if v == "true" or v == "on":
-                    results.append(k, True)
-                elif v == "false" or v == "off":
-                    results.append(k, False)
-                else:
-                    send_to_syslog("VIF %s/%d: ignoring ethtool argument %s=%s (use true/false)" % (self.vm_uuid, self.devid, k, v))
-        return results
+
     def get_mac(self):
         return self.json["mac"]
     def get_mtu(self):
@@ -228,17 +217,3 @@ class Interface:
         self.vif = VIF(vif_name, uuid, int(devid))
     def get_vif(self):
         return self.vif
-    def online(self):
-        v = self.get_vif()
-        mode = v.get_mode()
-        for (key, value) in v.get_ethtool():
-            set_ethtool(mode, self.name, key, value)
-        set_mtu(mode, self.name, v.get_mtu())
-        add_to_bridge(mode, self.name, v.get_bridge(), v.get_address(), v.get_external_ids())
-        add_vif_rules(self.name)
-        set_promiscuous(mode, self.name, v.get_promiscuous())
-
-#def add(mode, dev, bridge, address, external_ids):
-#    add_to_bridge(mode, dev, bridge, address, external_ids)
-
-

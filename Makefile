@@ -237,7 +237,6 @@ install: build doc sdk doc-json
 	install -D ./ocaml/xenopsd/scripts/block $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/block
 	install -D ./ocaml/xenopsd/scripts/xen-backend.rules $(DESTDIR)/$(ETCDIR)/udev/rules.d/xen-backend.rules
 	install -D ./ocaml/xenopsd/scripts/tap $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/tap
-	install -D ./ocaml/xenopsd/scripts/qemu-vif-script $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-vif-script
 	install -D ./ocaml/xenopsd/scripts/setup-vif-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-vif-rules
 	install -D ./_build/install/default/bin/pvs-proxy-ovs-setup $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/pvs-proxy-ovs-setup
 	(cd $(DESTDIR)/$(XENOPSD_LIBEXECDIR) && ln -s pvs-proxy-ovs-setup setup-pvs-proxy-rules)

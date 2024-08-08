@@ -75,20 +75,22 @@ class Implementation(xapi.storage.api.v5.datapath.Datapath_skeleton):
         call(dbg, cmd)
 
         loop = Loop.from_path(dbg, file_path)
+        if not loop:
+            return {}
 
         return {"implementations": [
             [
-                'XenDisk',
+                "XenDisk",
                 {
-                    'backend_type': 'vbd',
-                    'params': loop.block_device(),
-                    'extra': {}
+                    "backend_type": "vbd",
+                    "params": loop.block_device(),
+                    "extra": {}
                 }
             ],
             [
-                'BlockDevice',
+                "BlockDevice",
                 {
-                    'path': loop.block_device()
+                    "path": loop.block_device()
                 }
             ]
         ]}
