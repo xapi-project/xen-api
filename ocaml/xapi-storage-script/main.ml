@@ -62,7 +62,7 @@ let domain_of ~dp ~vm' =
   | "0" ->
       (* SM tries to use this in filesystem paths, so cannot have /,
          and systemd might be a bit unhappy with - *)
-      "0-" ^ dp |> String.map ~f:(function '/' | '-' -> '_' | c -> c)
+      "u0-" ^ dp |> String.map ~f:(function '/' | '-' -> '_' | c -> c)
   | _ ->
       vm
 
