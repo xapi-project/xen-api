@@ -49,6 +49,23 @@ let backend_backtrace_error name args backtrace =
 let missing_uri () =
   backend_error "MISSING_URI" ["Please include a URI in the device-config"]
 
+(** return a unique 'domain' string for Dom0, so that we can plug disks
+  multiple times (e.g. for copy).
+
+  XAPI should give us a unique 'dp' (datapath) string, e.g. a UUID for storage migration,
+  or vbd/domid/device.
+  For regular guests keep the domain as passed by XAPI (an integer).
+ *)
+let domain_of ~dp ~vm' =
+  let vm = Storage_interface.Vm.string_of vm' in
+  match vm with
+  | "0" ->
+      (* SM tries to use this in filesystem paths, so cannot have /,
+         and systemd might be a bit unhappy with - *)
+      "u0-" ^ dp |> String.map ~f:(function '/' | '-' -> '_' | c -> c)
+  | _ ->
+      vm
+
 (** Functions to wrap calls to the above client modules and convert their
     exceptions and errors into SMAPIv2 errors of type
     [Storage_interface.Exception.exnty]. The above client modules should only
@@ -734,7 +751,7 @@ let vdi_of_volume x =
   ; persistent= true
   }
 
-let choose_datapath ?(persistent = true) domain response =
+let choose_datapath ?(persistent = true) response =
   (* We can only use a URI with a valid scheme, since we use the scheme
      to name the datapath plugin. *)
   let possible =
@@ -779,7 +796,7 @@ let choose_datapath ?(persistent = true) domain response =
   | [] ->
       return (Error (missing_uri ()))
   | (script_dir, scheme, u) :: _us ->
-      return (Ok (fork_exec_rpc ~script_dir, scheme, u, domain))
+      return (Ok (fork_exec_rpc ~script_dir, scheme, u))
 
 (* Bind the implementations *)
 let bind ~volume_script_dir =
@@ -857,7 +874,7 @@ let bind ~volume_script_dir =
         stat ~dbg ~sr ~vdi:temporary
     )
     >>= fun response ->
-    choose_datapath domain response >>= fun (rpc, _datapath, uri, domain) ->
+    choose_datapath response >>= fun (rpc, _datapath, uri) ->
     return_data_rpc (fun () -> Datapath_client.attach (rpc ~dbg) dbg uri domain)
   in
   let wrap th = Rpc_async.T.put th in
@@ -1344,9 +1361,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.introduce vdi_introduce_impl ;
-  let vdi_attach3_impl dbg _dp sr vdi' vm' _readwrite =
+  let vdi_attach3_impl dbg dp sr vdi' vm' _readwrite =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      vdi_attach_common dbg sr vdi domain >>>= fun response ->
      let convert_implementation = function
        | Xapi_storage.Data.XenDisk {params; extra; backend_type} ->
@@ -1368,9 +1385,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.attach3 vdi_attach3_impl ;
-  let vdi_activate_common dbg sr vdi' vm' readonly =
+  let vdi_activate_common dbg dp sr vdi' vm' readonly =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1385,7 +1402,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () ->
          let rpc = rpc ~dbg in
          if readonly then
@@ -1396,17 +1413,17 @@ let bind ~volume_script_dir =
     )
     |> wrap
   in
-  let vdi_activate3_impl dbg _dp sr vdi' vm' =
-    vdi_activate_common dbg sr vdi' vm' false
+  let vdi_activate3_impl dbg dp sr vdi' vm' =
+    vdi_activate_common dbg dp sr vdi' vm' false
   in
   S.VDI.activate3 vdi_activate3_impl ;
-  let vdi_activate_readonly_impl dbg _dp sr vdi' vm' =
-    vdi_activate_common dbg sr vdi' vm' true
+  let vdi_activate_readonly_impl dbg dp sr vdi' vm' =
+    vdi_activate_common dbg dp sr vdi' vm' true
   in
   S.VDI.activate_readonly vdi_activate_readonly_impl ;
-  let vdi_deactivate_impl dbg _dp sr vdi' vm' =
+  let vdi_deactivate_impl dbg dp sr vdi' vm' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1420,7 +1437,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () ->
          Datapath_client.deactivate (rpc ~dbg) dbg uri domain
      )
@@ -1428,9 +1445,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.deactivate vdi_deactivate_impl ;
-  let vdi_detach_impl dbg _dp sr vdi' vm' =
+  let vdi_detach_impl dbg dp sr vdi' vm' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1444,7 +1461,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () -> Datapath_client.detach (rpc ~dbg) dbg uri domain)
     )
     |> wrap
@@ -1479,14 +1496,12 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.SR.stat sr_stat_impl ;
-  let vdi_epoch_begin_impl dbg sr vdi' vm' persistent =
+  let vdi_epoch_begin_impl dbg sr vdi' _vm' persistent =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     choose_datapath ~persistent domain response
-     >>>= fun (rpc, datapath, uri, _domain) ->
+     choose_datapath ~persistent response >>>= fun (rpc, datapath, uri) ->
      (* If non-persistent and the datapath plugin supports NONPERSISTENT
         then we delegate this to the datapath plugin. Otherwise we will
         make a temporary clone now and attach/detach etc this file. *)
@@ -1518,13 +1533,12 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.epoch_begin vdi_epoch_begin_impl ;
-  let vdi_epoch_end_impl dbg sr vdi' vm' =
+  let vdi_epoch_end_impl dbg sr vdi' _vm' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, datapath, uri, _domain) ->
+     choose_datapath response >>>= fun (rpc, datapath, uri) ->
      if Datapath_plugins.supports_feature datapath _nonpersistent then
        return_data_rpc (fun () -> Datapath_client.close (rpc ~dbg) dbg uri)
      else
@@ -1547,9 +1561,9 @@ let bind ~volume_script_dir =
     Deferred.Result.return () |> wrap
   in
   S.VDI.set_persistent vdi_set_persistent_impl ;
-  let dp_destroy2 dbg _dp sr vdi' vm' _allow_leak =
+  let dp_destroy2 dbg dp sr vdi' vm' _allow_leak =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1563,7 +1577,7 @@ let bind ~volume_script_dir =
          stat ~dbg ~sr ~vdi:temporary
      )
      >>>= fun response ->
-     choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+     choose_datapath response >>>= fun (rpc, _datapath, uri) ->
      return_data_rpc (fun () ->
          Datapath_client.deactivate (rpc ~dbg) dbg uri domain
      )
@@ -1695,7 +1709,7 @@ let rec diff a b =
 
 (* default false due to bugs in SMAPIv3 plugins,
    once they are fixed this should be set to true *)
-let concurrent = ref false
+let concurrent = ref true
 
 let watch_volume_plugins ~volume_root ~switch_path ~pipe =
   let create volume_plugin_name =
