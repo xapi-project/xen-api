@@ -20,6 +20,8 @@ module D = Debug.Make (struct let name = "extauth_plugin_ADpbis" end)
 open D
 open Xapi_stdext_std.Xstringext
 
+let ( let@ ) = ( @@ )
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -584,7 +586,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       auth/directory service.
       Raises Not_found (*Subject_cannot_be_resolved*) if authentication is not succesful.
   *)
-  let get_subject_identifier _subject_name =
+  let get_subject_identifier ~__context _subject_name =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+
     try
       (* looks up list of users*)
       let subject_name = get_full_subject_name _subject_name in
@@ -610,7 +614,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       Raises auth_failure if authentication is not successful
   *)
 
-  let authenticate_username_password username password =
+  let authenticate_username_password ~__context username password =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* first, we try to authenticated user against our external user database *)
     (* pbis_common will raise an Auth_failure if external authentication fails *)
     let domain, user =
@@ -639,7 +644,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     in
     (* no exception raised, then authentication succeeded, *)
     (* now we return the authenticated user's id *)
-    get_subject_identifier (get_full_subject_name username)
+    get_subject_identifier ~__context (get_full_subject_name username)
 
   (* subject_id Authenticate_ticket(string ticket)
 
@@ -647,7 +652,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
   *)
   (* not implemented now, not needed for our tests, only for a *)
   (* future single sign-on feature *)
-  let authenticate_ticket _tgt =
+  let authenticate_ticket ~__context:_ _tgt =
     failwith "extauth_plugin authenticate_ticket not implemented"
 
   (* ((string*string) list) query_subject_information(string subject_identifier)
@@ -660,7 +665,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       it's a string*string list anyway for possible future expansion.
       Raises Not_found (*Subject_cannot_be_resolved*) if subject_id cannot be resolved by external auth service
   *)
-  let query_subject_information subject_identifier =
+  let query_subject_information ~__context subject_identifier =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     let unmap_lw_space_chars lwname =
       let defensive_copy = Bytes.of_string lwname in
       (* CA-29006: map chars in names back to original space chars in windows-names *)
@@ -729,8 +735,12 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       _must_ be transitively closed wrt the is_member_of relation if the external directory service
       supports nested groups (as AD does for example)
   *)
-  let query_group_membership subject_identifier =
-    let subject_info = query_subject_information subject_identifier in
+  let query_group_membership ~__context subject_identifier =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+
+    let subject_info =
+      query_subject_information ~__context subject_identifier
+    in
     if
       List.assoc "subject-is-group" subject_info = "true"
       (* this field is always present *)
@@ -759,7 +769,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     In addition, there are some event hooks that auth modules implement as follows:
 *)
 
-  let _is_pbis_server_available max_tries =
+  let _is_pbis_server_available ~__context max_tries =
     (* we _need_ to use a username contained in our domain, otherwise the following tests won't work.
        Microsoft KB/Q243330 article provides the KRBTGT account as a well-known built-in SID in AD
        Microsoft KB/Q229909 article says that KRBTGT account cannot be renamed or enabled, making
@@ -793,12 +803,14 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     in
     let try_fetch_sid () =
       try
-        let sid = get_subject_identifier krbtgt in
+        let sid = get_subject_identifier ~__context krbtgt in
         debug
           "Request to external authentication server successful: user %s was \
            found"
           krbtgt ;
-        let (_ : (string * string) list) = query_subject_information sid in
+        let (_ : (string * string) list) =
+          query_subject_information ~__context sid
+        in
         debug
           "Request to external authentication server successful: sid %s was \
            found"
@@ -849,9 +861,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     in
     go 0
 
-  let is_pbis_server_available max =
+  let is_pbis_server_available ~__context max =
     Locking_helpers.Named_mutex.execute mutex_check_availability (fun () ->
-        _is_pbis_server_available max
+        _is_pbis_server_available ~__context max
     )
 
   (* converts from domain.com\user to user@domain.com, in case domain.com is present in the subject_name *)
@@ -885,7 +897,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           explicitly filter any one-time credentials [like AD username/password for example] that it
           does not need long-term.]
   *)
-  let on_enable config_params =
+  let on_enable ~__context config_params =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* but in the ldap plugin, we should 'join the AD/kerberos domain', i.e. we should*)
     (* basically: (1) create a machine account in the kerberos realm,*)
     (* (2) store the machine account password somewhere locally (in a keytab) *)
@@ -990,7 +1003,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           in
           let max_tries = 60 in
           (* tests 60 x 5.0 seconds = 300 seconds = 5minutes trying *)
-          if not (is_pbis_server_available max_tries) then (
+          if not (is_pbis_server_available ~__context max_tries) then (
             let errmsg =
               Printf.sprintf
                 "External authentication server not available after %i query \
@@ -1033,7 +1046,8 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       service are cleared (i.e. so you can access the config params you need from the pool metadata
       within the body of the on_disable method)
   *)
-  let on_disable config_params =
+  let on_disable ~__context config_params =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
     (* but in the ldap plugin, we should 'leave the AD/kerberos domain', i.e. we should *)
     (* (1) remove the machine account from the kerberos realm, (2) remove the keytab locally *)
     let pbis_failure =
@@ -1130,7 +1144,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
       Called internally by xapi whenever it starts up. The system_boot flag is true iff xapi is
       starting for the first time after a host boot
   *)
-  let on_xapi_initialize _system_boot =
+  let on_xapi_initialize ~__context _system_boot =
+    let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+
     (* the AD server is initialized outside xapi, by init.d scripts *)
 
     (* this function is called during xapi initialization in xapi.ml *)
@@ -1138,7 +1154,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
     (* make sure that the AD/LSASS server is responding before returning *)
     let max_tries = 12 in
     (* tests 12 x 5.0 seconds = 60 seconds = up to 1 minute trying *)
-    if not (is_pbis_server_available max_tries) then (
+    if not (is_pbis_server_available ~__context max_tries) then (
       let errmsg =
         Printf.sprintf
           "External authentication server not available after %i query tests"
@@ -1154,7 +1170,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
 
       Called internally when xapi is doing a clean exit.
   *)
-  let on_xapi_exit () =
+  let on_xapi_exit ~__context:_ () =
     (* nothing to do here in this unix plugin *)
 
     (* in the ldap plugin, we should remove the tgt ticket in /tmp/krb5cc_0 *)
@@ -1162,15 +1178,16 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
 
   (* Implement the single value required for the module signature *)
   let methods =
-    {
-      Auth_signature.authenticate_username_password
-    ; Auth_signature.authenticate_ticket
-    ; Auth_signature.get_subject_identifier
-    ; Auth_signature.query_subject_information
-    ; Auth_signature.query_group_membership
-    ; Auth_signature.on_enable
-    ; Auth_signature.on_disable
-    ; Auth_signature.on_xapi_initialize
-    ; Auth_signature.on_xapi_exit
-    }
+    Auth_signature.
+      {
+        authenticate_username_password
+      ; authenticate_ticket
+      ; get_subject_identifier
+      ; query_subject_information
+      ; query_group_membership
+      ; on_enable
+      ; on_disable
+      ; on_xapi_initialize
+      ; on_xapi_exit
+      }
 end

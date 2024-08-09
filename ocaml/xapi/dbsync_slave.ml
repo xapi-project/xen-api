@@ -69,7 +69,7 @@ let get_start_time () =
     debug "Calculating boot time..." ;
     let now = Unix.time () in
     let uptime = Unixext.string_of_file "/proc/uptime" in
-    let uptime = String.strip String.isspace uptime in
+    let uptime = String.trim uptime in
     let uptime = String.split ' ' uptime in
     let uptime = List.hd uptime in
     let uptime = float_of_string uptime in

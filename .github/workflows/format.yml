@@ -28,14 +28,13 @@ jobs:
         run: sudo apt-get update
 
       - name: Use ocaml
-        uses: ocaml/setup-ocaml@v2
+        uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
           opam-repositories: |
             xs-opam: ${{ steps.dotenv.outputs.repository }}
           dune-cache: true
           opam-pin: false
-          opam-depext: false
 
       - name: Install ocamlformat
         run: opam install ocamlformat

@@ -331,6 +331,7 @@
     ppx_sexp_conv
     ppx_deriving
     psq
+    qcheck-alcotest
     rpclib
     (rrdd-plugin (= :version))
     rresult

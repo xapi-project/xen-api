@@ -13,14 +13,12 @@
 
 (library
   (name test_timer)
-  (package clock)
   (modules test_timer)
   (libraries
     alcotest
     clock
     fmt
     mtime.clock.os
-    qcheck-alcotest
     qcheck-core
   )
 )

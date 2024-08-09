@@ -268,9 +268,9 @@ let set_local_auth_max_threads n =
 let set_ext_auth_max_threads n =
   Locking_helpers.Semaphore.set_max throttle_auth_external @@ Int64.to_int n
 
-let do_external_auth uname pwd =
+let do_external_auth ~__context uname pwd =
   with_throttle throttle_auth_external (fun () ->
-      (Ext_auth.d ()).authenticate_username_password uname pwd
+      (Ext_auth.d ()).authenticate_username_password ~__context uname pwd
   )
 
 let do_local_auth uname pwd =
@@ -487,7 +487,8 @@ let revalidate_external_session ~__context ~session =
             try
               (* if the user is not in the external directory service anymore, this call raises Not_found *)
               let group_membership_closure =
-                (Ext_auth.d ()).query_group_membership authenticated_user_sid
+                (Ext_auth.d ()).query_group_membership ~__context
+                  authenticated_user_sid
               in
               debug "obtained group membership for session %s, sid %s "
                 (trackid session) authenticated_user_sid ;
@@ -869,7 +870,9 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
               (* so that we know that he/she exists there *)
               let subject_identifier =
                 try
-                  let _subject_identifier = do_external_auth uname pwd in
+                  let _subject_identifier =
+                    do_external_auth ~__context uname pwd
+                  in
                   debug
                     "Successful external authentication user %s \
                      (subject_identifier, %s from %s)"
@@ -931,7 +934,8 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                 (* finds all the groups a user belongs to (non-reflexive closure of member-of relation) *)
                 let group_membership_closure =
                   try
-                    (Ext_auth.d ()).query_group_membership subject_identifier
+                    (Ext_auth.d ()).query_group_membership ~__context
+                      subject_identifier
                   with
                   | Not_found | Auth_signature.Subject_cannot_be_resolved ->
                       let msg =

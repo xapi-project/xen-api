@@ -34,10 +34,7 @@ let is_whitelisted script =
     | _ ->
         false
   in
-  let safe_str str =
-    List.fold_left ( && ) true
-      (List.map safe_char (Xapi_stdext_std.Xstringext.String.explode str))
-  in
+  let safe_str str = String.for_all safe_char str in
   (* make sure the script prefix is the allowed dom0 directory *)
   Filename.dirname script = !Xapi_globs.post_install_scripts_dir
   (* avoid ..-style attacks and other weird things *)

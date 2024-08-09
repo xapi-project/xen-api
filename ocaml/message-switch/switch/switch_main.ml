@@ -222,7 +222,7 @@ let make_server config trace_config =
     let open Message_switch_core.Protocol in
     Cohttp_lwt.Body.to_string body >>= fun body ->
     let uri = Cohttp.Request.uri req in
-    let path = Uri.path uri in
+    let path = Uri.path_unencoded uri in
     match In.of_request body (Cohttp.Request.meth req) path with
     | None ->
         error "<- [unparsable request; path = %s; body = %s]" path
