@@ -20,6 +20,17 @@ If there are no *observer.conf files or something fails, this script runs the
 passed script without any instrumentation.
 """
 
+import time
+
+def to_otel_timestamp(ts):
+    return int(ts * 1000000000)
+
+observer_ts_start = to_otel_timestamp(time.time())
+observer_mono_start = time.monotonic()
+
+def current_otel_time():
+    return observer_ts_start + to_otel_timestamp(time.monotonic() - observer_mono_start)
+
 import configparser
 import functools
 import inspect
@@ -117,6 +128,9 @@ def _init_tracing(configs: List[str], config_dir: str):
 
         # On 3.10-3.12, the import of wrapt might trigger warnings, filter them:
         simplefilter(action="ignore", category=DeprecationWarning)
+
+        import_ts_start = current_otel_time()
+
         import wrapt # type: ignore[import-untyped]
         from opentelemetry import context, trace
         from opentelemetry.baggage.propagation import W3CBaggagePropagator
@@ -127,6 +141,8 @@ def _init_tracing(configs: List[str], config_dir: str):
         from opentelemetry.trace.propagation.tracecontext import (
             TraceContextTextMapPropagator,
         )
+
+        import_ts_end = current_otel_time()
     except ImportError as err:
         syslog.error("missing opentelemetry dependencies: %s", err)
         return _span_noop, _patch_module_noop
@@ -359,6 +375,12 @@ def _init_tracing(configs: List[str], config_dir: str):
     for m in module_names:
         _patch_module(m)
 
+    # Create spans to track observer.py's setup duration
+    t = tracers[0]
+    with t.start_as_current_span("observer.py:init_tracing", start_time=observer_ts_start):
+        import_span = t.start_span("observer.py:imports", start_time=import_ts_start)
+        import_span.end(end_time=import_ts_end)
+
     return span_of_tracers, _patch_module
 
 
@@ -420,6 +442,13 @@ def main():
             print(e, file=sys.stderr)  # Print the exception message
             print(traceback.format_exc(), file=sys.stderr)  # Print the traceback
             return 139  # This is what the default SIGSEGV handler on Linux returns
+        except SystemExit as e: # catch SystemExit so we can close gracefully
+            _exit_code = e.code if e.code is not None else 0
+            debug("Script exited with code %i", _exit_code)
+            # Print the traceback if _exit_code is non-zero
+            if _exit_code:
+                print(traceback.format_exc(), file=sys.stderr)
+            return _exit_code
 
     return run(argv0)
 

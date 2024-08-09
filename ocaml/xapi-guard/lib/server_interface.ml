@@ -77,9 +77,8 @@ let serve_forever_lwt path callback =
   Lwt.return cleanup
 
 let serve_forever_lwt_callback rpc_fn path _ req body =
-  let uri = Cohttp.Request.uri req in
-  match (Cohttp.Request.meth req, Uri.path uri) with
-  | `POST, _ ->
+  match Cohttp.Request.meth req with
+  | `POST ->
       let* body = Cohttp_lwt.Body.to_string body in
       let* response =
         Xapi_guard.Dorpc.wrap_rpc err (fun () ->
@@ -91,7 +90,7 @@ let serve_forever_lwt_callback rpc_fn path _ req body =
       in
       let body = response |> Xmlrpc.string_of_response in
       Cohttp_lwt_unix.Server.respond_string ~status:`OK ~body ()
-  | _, _ ->
+  | _ ->
       let body =
         "Not allowed"
         |> Rpc.rpc_of_string
@@ -142,7 +141,7 @@ let serve_forever_lwt_callback_vtpm ~cache mutex (read, persist) vm_uuid _ req
   *)
   Lwt_mutex.with_lock mutex @@ fun () ->
   (* TODO: some logging *)
-  match (Cohttp.Request.meth req, Uri.path uri) with
+  match (Cohttp.Request.meth req, Uri.path_unencoded uri) with
   | `GET, path when path <> "/" ->
       let key = Tpm.key_of_swtpm path in
       let* body = read (vm_uuid, timestamp, key) in

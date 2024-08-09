@@ -240,12 +240,20 @@ let add_vbd (vm : Vm.id) (vbd : Vbd.t) () =
   debug "add_vbd" ;
   let d = DB.read_exn vm in
   (* there shouldn't be any None values in here anyway *)
-  let ps = List.map (fun vbd -> vbd.Vbd.position) d.Domain.vbds in
-  assert (not (List.mem None ps)) ;
-  let dns = List.map Option.get ps in
-  let indices = List.map Device_number.to_disk_number dns in
+  let dns = List.filter_map (fun vbd -> vbd.Vbd.position) d.Domain.vbds in
+  let indices = List.map Device_number.disk dns in
   let next_index = List.fold_left max (-1) indices + 1 in
   let next_dn = Device_number.of_disk_number d.Domain.hvm next_index in
+  let next_dn =
+    match next_dn with
+    | None ->
+        raise
+          (Xenopsd_error
+             (Internal_error "Ran out of available device numbers for the vbd")
+          )
+    | Some dn ->
+        dn
+  in
   let this_dn = Option.value ~default:next_dn vbd.Vbd.position in
   if List.mem this_dn dns then (
     debug "VBD.plug %s.%s: Already exists" (fst vbd.Vbd.id) (snd vbd.Vbd.id) ;

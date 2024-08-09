@@ -13,6 +13,7 @@
     http_lib
     mtime
     mtime.clock.os
+    pam
     qcheck-alcotest
     result
     rresult

@@ -36,6 +36,7 @@ depends: [
   "xapi-open-uri"
   "xapi-stdext-date"
   "xapi-stdext-pervasives"
+  "xapi-stdext-std"
   "xapi-stdext-threads"
   "xapi-tracing"
   "xapi-inventory"

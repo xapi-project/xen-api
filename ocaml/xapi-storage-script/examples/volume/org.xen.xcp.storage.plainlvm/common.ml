@@ -333,7 +333,7 @@ let vg_of_uri uri =
   let uri' = Uri.of_string uri in
   match Uri.scheme uri' with
   | Some "vg" ->
-      let vg = Uri.path uri' in
+      let vg = Uri.path_unencoded uri' in
       if vg <> "" && vg.[0] = '/' then
         String.sub vg 1 (String.length vg - 1)
       else

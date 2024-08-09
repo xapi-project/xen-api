@@ -977,7 +977,7 @@ let bind ~volume_script_dir =
             let uri = Uri.of_string datasource in
             match Uri.scheme uri with
             | Some "xeno+shm" -> (
-                let uid = Uri.path uri in
+                let uid = Uri.path_unencoded uri in
                 let uid =
                   if String.length uid > 1 then
                     String.sub uid ~pos:1 ~len:(String.length uid - 1)
@@ -1024,7 +1024,7 @@ let bind ~volume_script_dir =
                 let uri = Uri.of_string datasource in
                 match Uri.scheme uri with
                 | Some "xeno+shm" -> (
-                    let uid = Uri.path uri in
+                    let uid = Uri.path_unencoded uri in
                     let uid =
                       if String.length uid > 1 then
                         String.sub uid ~pos:1 ~len:(String.length uid - 1)

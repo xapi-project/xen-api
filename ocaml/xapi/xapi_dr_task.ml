@@ -31,7 +31,7 @@ type sr_probe_sr = {uuid: string; name_label: string; name_description: string}
 (* Attempt to parse a key/value pair from XML. *)
 let parse_kv = function
   | Xml.Element (key, _, [Xml.PCData v]) ->
-      (key, String.strip String.isspace v) (* remove whitespace at both ends *)
+      (key, String.trim v)
   | Xml.Element (key, _, []) ->
       (key, "")
   | _ ->
