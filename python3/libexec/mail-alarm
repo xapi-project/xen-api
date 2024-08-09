@@ -121,11 +121,6 @@ def load_mail_language(mail_language):
             mail_language_pack_path, mail_language + ".json"
         )
 
-        # this conditional branch won't be executed, it's solely for the purpose of ensuring pass in python2 ut.
-        if sys.version_info.major == 2:
-            with open(mail_language_file, "r") as fileh:
-                return json.load(fileh, encoding="utf-8")
-
         with open(mail_language_file, encoding="utf-8") as fileh:
             return json.load(fileh)
 
