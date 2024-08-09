@@ -68,9 +68,7 @@ test:
 	 trap "kill $${PSTREE_SLEEP_PID}" INT TERM EXIT; \
 	 timeout --foreground $(TEST_TIMEOUT2) \
 		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
-ifneq ($(PY_TEST), NO)
 	dune build @runtest-python --profile=$(PROFILE)
-endif
 
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
@@ -123,7 +121,7 @@ sdk:
 	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
 	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
 	cp -r _build/default/ocaml/sdk-gen/go/autogen/* $(XAPISDK)/go
-	cp scripts/examples/python/XenAPI/XenAPI.py $(XAPISDK)/python
+	cp python3/examples/XenAPI/XenAPI.py $(XAPISDK)/python
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
 	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
 
@@ -138,7 +136,7 @@ sdk-build-java: sdk
 	cd _build/install/default/xapi/sdk/java && mvn -f xen-api/pom.xml -B clean package install -Drevision=0.0
 
 python:
-	$(MAKE) -C scripts/examples/python build
+	$(MAKE) -C python3/examples build
 
 doc-json:
 	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
@@ -239,7 +237,6 @@ install: build doc sdk doc-json
 	install -D ./ocaml/xenopsd/scripts/block $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/block
 	install -D ./ocaml/xenopsd/scripts/xen-backend.rules $(DESTDIR)/$(ETCDIR)/udev/rules.d/xen-backend.rules
 	install -D ./ocaml/xenopsd/scripts/tap $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/tap
-	install -D ./ocaml/xenopsd/scripts/qemu-vif-script $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/qemu-vif-script
 	install -D ./ocaml/xenopsd/scripts/setup-vif-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-vif-rules
 	install -D ./_build/install/default/bin/pvs-proxy-ovs-setup $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/pvs-proxy-ovs-setup
 	(cd $(DESTDIR)/$(XENOPSD_LIBEXECDIR) && ln -s pvs-proxy-ovs-setup setup-pvs-proxy-rules)

@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
  Copyright (C) Citrix Systems, Inc.
@@ -6,15 +6,15 @@
 
 import os
 import sys
-import xapi.storage.api.plugin
+import xapi.storage.api.v5.plugin  # pylint: disable=no-name-in-module
 
 
-class Implementation(xapi.storage.api.plugin.Plugin_skeleton):
+class Implementation(xapi.storage.api.v5.plugin.Plugin_skeleton):
 
-    def diagnostics(self, dbg):
+    def diagnostics(self, dbg):  # pylint: disable=unused-argument
         return "Dummy diagnostics"
 
-    def query(self, dbg):
+    def query(self, dbg):  # pylint: disable=unused-argument
         return {
                 "plugin": "dummy",
                 "name": "dummy SR plugin",
@@ -35,11 +35,11 @@ class Implementation(xapi.storage.api.plugin.Plugin_skeleton):
 
 
 if __name__ == "__main__":
-    cmd = xapi.storage.api.plugin.Plugin_commandline(Implementation())
+    cmd = xapi.storage.api.v5.plugin.Plugin_commandline(Implementation())
     base = os.path.basename(sys.argv[0])
     if base == 'Plugin.diagnostics':
         cmd.diagnostics()
     elif base == 'Plugin.Query':
         cmd.query()
     else:
-        raise xapi.storage.api.plugin.Unimplemented(base)
+        raise xapi.storage.api.v5.plugin.Unimplemented(base)

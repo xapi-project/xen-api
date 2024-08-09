@@ -154,18 +154,7 @@ class VIF:
         return network[1]
     def get_address(self):
         return "fe:ff:ff:ff:ff:ff"
-    def get_ethtool(self):
-        results = []
-        for (k, v) in self.json["other_config"]:
-            if k.startswith("ethtool-"):
-                k = k[len("ethtool-"):]
-                if v == "true" or v == "on":
-                    results.append(k, True)
-                elif v == "false" or v == "off":
-                    results.append(k, False)
-                else:
-                    send_to_syslog("VIF %s/%d: ignoring ethtool argument %s=%s (use true/false)" % (self.vm_uuid, self.devid, k, v))
-        return results
+
     def get_mac(self):
         return self.json["mac"]
     def get_mtu(self):
@@ -192,28 +181,33 @@ class VIF:
             results["xs-network-uuid"] = self.json["extra_private_keys"]["network-uuid"]
         results["attached-mac"] = self.get_mac()
         return results
+
     def get_locking_mode(self):
-        def get_words(value, separator):
-            if string.strip(value) == "":
-                return []
-            else:
-               return string.split(value, separator)
+        """
+        Get the locking mode configuration for the VIF.
+
+        :returns dict: A dictionary containing the locking mode configuration with keys:
+        - mac: The MAC address
+        - locking_mode: The locking mode
+        - ipv4_allowed: List of IPv4 addresses allowed
+        - ipv6_allowed: List of IPv6 addresses allowed
+        """
         results = {
             "mac": self.get_mac(),
             "locking_mode": "",
             "ipv4_allowed": [],
-            "ipv6_allowed": []
+            "ipv6_allowed": [],
         }
         if "locking_mode" in self.json:
-            if type(self.json["locking_mode"]) is list:
-                # Must be type=locked here
+            if isinstance(self.json["locking_mode"], list):
+                # Must be type=locked and have keys for allowed ipv4 and ipv6 addresses
                 results["locking_mode"] = self.json["locking_mode"][0].lower()
-                locked_params=self.json["locking_mode"][1]
+                locked_params = self.json["locking_mode"][1]
                 results["ipv4_allowed"] = locked_params["ipv4"]
                 results["ipv6_allowed"] = locked_params["ipv6"]
             else:
                 results["locking_mode"] = self.json["locking_mode"].lower()
-        send_to_syslog("Got locking config: %s" % (repr(results)))
+        send_to_syslog("Got locking config: " + repr(results))
         return results
 
 class Interface:
@@ -223,17 +217,3 @@ class Interface:
         self.vif = VIF(vif_name, uuid, int(devid))
     def get_vif(self):
         return self.vif
-    def online(self):
-        v = self.get_vif()
-        mode = v.get_mode()
-        for (key, value) in v.get_ethtool():
-            set_ethtool(mode, self.name, key, value)
-        set_mtu(mode, self.name, v.get_mtu())
-        add_to_bridge(mode, self.name, v.get_bridge(), v.get_address(), v.get_external_ids())
-        add_vif_rules(self.name)
-        set_promiscuous(mode, self.name, v.get_promiscuous())
-
-#def add(mode, dev, bridge, address, external_ids):
-#    add_to_bridge(mode, dev, bridge, address, external_ids)
-
-

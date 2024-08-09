@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
-# Copyright (C) Citrix Systems Inc.
+# Copyright (C) Cloud Software Group, Inc.
 #
 # This program is free software; you can redistribute it and/or modify 
 # it under the terms of the GNU Lesser General Public License as published 
@@ -18,8 +18,9 @@
 from __future__ import print_function
 import os
 import sys
-import urllib
-import urlparse
+import urllib.request
+import urllib.parse
+import urllib.error
 
 import xapi.storage.api.v5.volume
 from xapi import InternalError
@@ -66,12 +67,12 @@ class Implementation(SR_skeleton):
         # As a simple "stateless" implementation, encode all the
         # configuration into the URI returned. This is passed back
         # into volume interface APIs and the stat and ls operations.
-        return urlparse.urlunparse((
+        return urllib.parse.urlunparse((
             'file',
             '',
             configuration['path'],
             '',
-            urllib.urlencode(configuration, True),
+            urllib.parse.urlencode(configuration, True),
             None))
 
     def detach(self, dbg, sr):
@@ -96,8 +97,8 @@ class Implementation(SR_skeleton):
         [stat sr] returns summary metadata associated with [sr]. Note this
         call does not return details of sub-volumes, see SR.ls.
         """
-        parsed_url = urlparse.urlparse(sr)
-        config = urlparse.parse_qs(parsed_url.query)
+        parsed_url = urllib.parse.urlparse(sr)
+        config = urllib.parse.parse_qs(parsed_url.query)
 
         description = (config['description'][0]
                        if 'description' in config

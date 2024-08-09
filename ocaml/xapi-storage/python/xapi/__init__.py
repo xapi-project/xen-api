@@ -1,7 +1,7 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 """
-Copyright (c) 2013-2018, Citrix Inc.
+Copyright (c) 2013-2024, Cloud Software Group,Inc.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -25,7 +25,6 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-from __future__ import print_function
 import sys
 import traceback
 import json
@@ -67,7 +66,7 @@ class XenAPIException(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        if not isinstance(code, str) and not isinstance(code, unicode):
+        if not isinstance(code, str):
             raise TypeError("string", repr(code))
         if not isinstance(params, list):
             raise TypeError("list", repr(params))
@@ -119,7 +118,7 @@ class UnmarshalException(InternalError):
             "UnmarshalException thing=%s ty=%s desc=%s" % (thing, ty, desc))
 
 
-class TypeError(InternalError):
+class TypeError(InternalError):  # pylint: disable=redefined-builtin
 
     def __init__(self, expected, actual):
         InternalError.__init__(
@@ -134,7 +133,8 @@ class UnknownMethod(InternalError):
 
 def is_long(x):
     try:
-        long(x)
+        # Python3 int is long, keep the name for interface compatibility
+        int(x)
         return True
     except ValueError:
         return False

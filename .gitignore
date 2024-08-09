@@ -16,10 +16,10 @@ config.mk
 # python packaging
 **/__pycache__/
 **/*.pyc
-scripts/examples/python/setup.py
-scripts/examples/python/XenAPI.egg-info/
-scripts/examples/python/build/
-scripts/examples/python/dist/
+python3/examples/setup.py
+python3/examples/XenAPI.egg-info/
+python3/examples/build/
+python3/examples/dist/
 
 # ignore file needed for building the SDK
 ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml

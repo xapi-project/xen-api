@@ -1,7 +1,0 @@
-#!/bin/sh
-
-
-# Script should be passed a session_id, VM reference and set of block 
-# devices via the environment
-
-set > /tmp/debug-install-script

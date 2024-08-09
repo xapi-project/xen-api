@@ -15,7 +15,7 @@ class Ptoken(dnf.Plugin):
         """ DNF plugin config hook,
         refer to https://dnf.readthedocs.io/en/latest/api_plugins.html"""
         try:
-            with open('/etc/xensource/ptoken', encoding="utf-8") as file:
+            with open(PTOKEN_PATH, encoding="utf-8") as file:
                 ptoken = file.read().strip()
         except Exception: #pylint: disable=broad-exception-caught
             logging.error("Failed to open %s", PTOKEN_PATH)

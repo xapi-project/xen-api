@@ -1,7 +1,7 @@
 # https://packaging.python.org/en/latest/specifications/pyproject-toml/
 [project]
 name = "xen-api"
-requires-python = ">=3.6.*"
+requires-python = ">=3.6.0"
 license = {file = "LICENSE"}
 keywords = ["xen-project", "Xen", "hypervisor", "libraries"]
 maintainers = [
@@ -30,15 +30,36 @@ line-length = 88
 
 # -----------------------------------------------------------------------------
 # Coverage.py - https://coverage.readthedocs.io/en/coverage-5.5/config.html
+#
+# [tool.coverage.run] and [tool.coverage.report] configure these commands:
+# coverage run && coverage report
+#
+# These work in conjunction with [tool.pytest.ini_options] to set defaults
+# for running pytest (on its own) and for running Coverage.py with pytest:
+#
+# Examples for Python test development with Coverage.py:
+#
+# Run the default tests and check coverage:
+#   coverage run && coverage report
+#
+# Run a custom set of tests and check coverage:
+#   coverage run -m pytest python3/tests/test_*.py && coverage report
 # -----------------------------------------------------------------------------
 
 [tool.coverage.report]
 # Here, developers can configure which lines do not need to be covered by tests:
+# fail_under:    minimum code coverage percentage
+fail_under = 50
+# exclude_lines: lines that are not required to be covered
 exclude_lines = [
     "pragma: no cover",  # standard pragma for not covering a line or block
     "if TYPE_CHECKING:", # imports for type checking only
     "pass",
     # Other specific lines that do not need to be covered, comment in which file:
+    "raise NbdDeviceNotFound",  # python3/libexec/usb_scan.py
+    "params = xmlrpc.client.loads",  # static-vdis
+    "assert.*# must not be None",    # static-vdis
+    "except Exception:",             # static-vdis
 ]
 # precision digits to use when reporting coverage (sub-percent-digits are not reported):
 precision = 0
@@ -48,7 +69,8 @@ skip_covered = true
 
 [tool.coverage.run]
 # Default command line for "coverage run": Run pytest in non-verbose mode
-command_line = "-m pytest -p no:logging -p no:warnings"
+command_line = "-m pytest -v -ra"
+
 # Default data file for "coverage run": Store coverage data in .git/.coverage
 data_file = ".git/.coverage"
 # Default context for "coverage run": Use the name of the test function
@@ -71,7 +93,7 @@ relative_files = true
 # Default output when writing "coveragle xml" data. This needs to match what
 # diff-cover and coverage upload to Codecov expect
 [tool.coverage.xml]
-output = ".git/coverage.xml"
+output = ".git/coverage3.11.xml"
 
 
 # Default output directory for writing "coverage html" data.
@@ -88,7 +110,6 @@ profile = "black"
 combine_as_imports = true
 ensure_newline_before_comments = false
 
-
 # -----------------------------------------------------------------------------
 # Mypy static analysis - https://mypy.readthedocs.io/en/stable/config_file.html
 # -----------------------------------------------------------------------------
@@ -98,10 +119,19 @@ ensure_newline_before_comments = false
 # PYTHONPATH="scripts/examples/python:.:scripts:scripts/plugins:scripts/examples"
 files = [
     "python3",
-    "scripts/usb_reset.py",
+    "scripts/examples/python",
+]
+exclude = [
+    "python3/packages",
+    "python3/stubs",
+    "python3/tests",
 ]
 pretty = true
+mypy_path = "python3/packages:python3/stubs:scripts/examples/python"
 error_summary = true
+# default_return = false sets the default return type of functions to 'Any'.
+# It makes mypy less noisy on untyped code makes it more usable now:
+default_return = false
 strict_equality = true
 show_error_codes = true
 show_error_context = true
@@ -117,7 +147,16 @@ disallow_any_explicit = false
 disallow_any_generics = true
 disallow_any_unimported = true
 disallow_subclassing_any = true
-disable_error_code = ["import-untyped"]  # XenAPI is not typed yet
+disable_error_code = [
+    "explicit-override",
+    "misc",
+    "no-any-decorated",
+    "no-any-expr",
+    "no-untyped-call",
+    "no-untyped-def",
+    "no-untyped-usage",
+    "import-untyped",  # XenAPI is not typed yet
+]
 
 
 [[tool.mypy.overrides]]
@@ -156,8 +195,10 @@ disable = [
     "no-else-break",               # else clause following a break statement
     "protected-access",            # Best done during the code cleanup phase
     "super-with-arguments",        # Consider using Python 3 style super(no args) calls
+    "too-few-public-methods",      # Some classes only overload private methods, is fine
     "too-many-branches",           # Existing code breaches this, not part of porting
     "too-many-arguments",          # Likewise, not part of porting
+    "too-many-lines",              # Likewise, not part of porting
     "too-many-locals",             # Likewise, not part of porting
     "too-many-statements",         # Likewise, not part of porting
     "unnecessary-pass",            # Cosmetic, best done during the code cleanup phase
@@ -167,85 +208,100 @@ disable = [
 
 # -----------------------------------------------------------------------------
 # Pyright is the static analysis behind the VSCode Python extension / Pylance
-# https://microsoft.github.io/pyright/#/configuration?id=main-configuration-options
+# https://microsoft.github.io/pyright/#/configuration
 # -----------------------------------------------------------------------------
 
 [tool.pyright]
-# Specifies the paths of directories or files that should be included in the
-# analysis. If no paths are specified, all files in the workspace are included:
-include = ["python3", "ocaml/xcp-rrdd"]
-
-# Conditionalize the stube files for type definitions based on the platform:
-pythonPlatform = "Linux"
-
-# typeCheckingMode: "off", "basic", "standard" or "strict"
-typeCheckingMode = "standard"
-
-# Specifies the version of Python that will be used to execute the source code.
-# Generate errors if the source code makes use of language features that are
-# not supported in that version. It will also tailor its use of type stub files,
-# which conditionalizes type definitions based on the version. If no version is
-# specified, pyright will use the version of the current python interpreter,
-# if one is present:
-pythonVersion = "3.6"
-
-# Paths of directories or files that should use "strict" analysis if they are
-# included. This is the same as manually adding a "# pyright: strict" comment.
-# In strict mode, most type-checking rules are enabled, and the type-checker
-# will be more aggressive in inferring types. If no paths are specified, strict
-# mode is not enabled:
-strict = ["python3/tests/test_observer.py"]
-
-#
-# Paths to exclude from analysis. If a file is excluded, it will not be
-# analyzed.
-#
-# FIXME: Some of these may have type errors, so they should be inspected and fixed:
-#
-exclude = [
+# include:          directories to include in checking
+# strict:           paths for which strict checking works
+# typeCheckingMode: set the standard type checking mode
+include              = ["python3", "ocaml/xcp-rrdd"]
+strict               = ["python3/tests/observer"]
+stubPath             = "python3/stubs"
+pythonPlatform       = "Linux"
+typeCheckingMode     = "standard"
+reportMissingImports = false
+reportMissingModuleSource = false
+pythonVersion        = "3.6"
+exclude              = [
     "ocaml/xcp-rrdd/scripts/rrdd/rrdd.py",
     "ocaml/xcp-rrdd/scripts/rrdd/rrdd-example.py",
     "python3/packages/observer.py",
-    "python3/tests/pytype_reporter.py",
+    "python3/examples/XenAPI/XenAPI.py",
+    "python3/examples/XenAPIPlugin.py",
+
 ]
 
 
 # -----------------------------------------------------------------------------
 # Pytest is the test framework, for discovering and running tests, fixtures etc
-# https://pytest.readthedocs.io/en/latest/customize.html
+# https://pytest.readthedocs.io/en/latest/customize.html, https://docs.pytest.org
 # -----------------------------------------------------------------------------
 
-
 [tool.pytest.ini_options]
-addopts = "-ra" # Show the output of all tests, including those that passed
-log_cli = true  # Capture log messages and show them in the output as well
+# -----------------------------------------------------------------------------
+# addopts: Options to add to all pytest calls:
+# -v                           show what happens
+# -ra                          show short summary after running tests
+#
+# addopts are added to all pytest calls. We don't add options that would force
+# testing specific paths. To be flexible, we use use testpaths instead(see below)
+# -----------------------------------------------------------------------------
+addopts = "-v -ra"
+
+# -----------------------------------------------------------------------------
+# Other pytest config options:
+# log_cli:          show logger messages
+# log_cli_level:    log level to show
+# python_files:     pattern for test files
+# python_functions: pattern for test functions
+# testpaths:        directories to search for tests(by default, used for CI)
+#                   For development, developers can test only specific files:
+#                   Example: pytest python3/tests/test_perfmon.py
+# minversion:       this config requires pytest>=7 to configure pythonpath
+# pythonpath:       path to stub files and typing stubs for tests
+# xfail_strict:     require to remove pytext.xfail marker when test is fixed
+# required_plugins: require that these plugins are installed before testing
+# -----------------------------------------------------------------------------
+testpaths = ["python3", "ocaml/xcp-rrdd", "ocaml/xenopsd"]
+required_plugins = ["pytest-mock"]
 log_cli_level = "INFO"
+log_cli = true
+minversion = "7.0"
+pythonpath = "python3/stubs" # Allow to import the XenAPI module
 python_files = ["test_*.py", "it_*.py"]
 python_functions = ["test_", "it_", "when_"]
-pythonpath = "scripts/examples/python"  # Allows to import the XenAPI module
-required_plugins = ["pytest-mock"]
-testpaths = ["python3", "scripts", "ocaml/xcp-rrdd"]
 xfail_strict = true  # is used to fail tests that are marked as xfail but pass(for TDD)
 
 
 [tool.pytype_reporter]
-default_branch = "master"
+default_branch = "feature/py3"
 discard_messages_matching = [
     "Couldn't import pyi for 'xml.dom.minidom'",
     "No attribute '.*' on RRDContentHandler",
     "No attribute 'group' on None",
     "No Node.TEXT_NODE in module xml.dom.minidom, referenced from 'xml.dom.expatbuilder'"
 ]
-expected_to_fail = []
+expected_to_fail = [
+]
 
+# -----------------------------------------------------------------------------
+# pytype: Google's static type analyzer - https://google.github.io/pytype/
+# -----------------------------------------------------------------------------
 
 [tool.pytype]
 inputs = [
     "python3/",
     "ocaml/xcp-rrdd",
+    "ocaml/xenopsd",
+    "ocaml/xapi-storage/python",
+    "ocaml/xapi-storage-script",
+    "ocaml/vhd-tool",
 ]
 disable = [
+    # Reduce noise from python scripts(import yum, xenfsimage, xcp, urlgrabber)
+    "import-error",
 ]
 platform = "linux"
 # Allow pytype to find the XenAPI module, the rrdd module and python3 modules:
-pythonpath = "python3:scripts/examples/python:ocaml/xcp-rrdd/scripts/rrdd"
+pythonpath = "python3/examples:."

@@ -463,7 +463,7 @@ XML-RPC and JSON-RPC client libraries.
 First, initialise python:
 
 ```bash
-$ python2.7
+$ python3
 >>>
 ```
 

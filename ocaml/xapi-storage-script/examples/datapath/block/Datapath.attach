@@ -1,15 +1,15 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import sys
 sys.path.append("/home/vagrant/djs55/dbus-test/python")
 
 import xapi, d
 
-import argparse, json, urlparse
+import argparse, json, urllib.parse
 
 class Implementation(d.Datapath_skeleton):
     def attach(self, dbg, uri, domain):
-        u = urlparse.urlparse(uri)
+        u = urllib.parse.urlparse(uri)
         return {
             'implementations': [ ['XenDisk', {"backend_type":"vbd", "extra":{}, "params":u.path}], ['BlockDevice', {"path":u.path}] ]
         }
@@ -20,10 +20,10 @@ if __name__ == "__main__":
     args = vars(parser.parse_args())
 
     if not(args['json']):
-        print "Not implemented"
+        print("Not implemented")
         sys.exit(1)
 
     dispatcher = d.Datapath_server_dispatcher(Implementation())
-    request = json.loads(sys.stdin.readline(),)
+    request = json.loads(sys.stdin.readline())
     results = dispatcher.attach(request)
-    print json.dumps(results)
+    print(json.dumps(results))

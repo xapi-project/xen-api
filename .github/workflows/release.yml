@@ -33,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: XenAPI
-          path: scripts/examples/python/dist/
+          path: python3/examples/dist/
 
   build-sdks:
     name: Build and upload SDK artifacts

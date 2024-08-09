@@ -3,6 +3,7 @@ import unittest
 import sys
 import json
 from unittest.mock import MagicMock, patch
+from python3.tests.import_helper import import_file_as_module
 
 sys.modules["urlgrabber"] = MagicMock()
 
@@ -14,8 +15,8 @@ sys.modules["urlgrabber"] = MagicMock()
 
 # Some test case does not use self
 
-from dnf_plugins import accesstoken
-from dnf_plugins import ptoken
+accesstoken = import_file_as_module("python3/dnf_plugins/accesstoken.py")
+ptoken = import_file_as_module("python3/dnf_plugins/ptoken.py")
 
 REPO_NAME = "testrepo"
 
@@ -31,7 +32,7 @@ def _mock_repo(a_token=None, p_token=None, baseurl=None):
     return mock_repo
 
 
-@patch("dnf_plugins.accesstoken.urlgrabber")
+@patch("accesstoken.urlgrabber")
 class TestAccesstoken(unittest.TestCase):
     """Test class for dnf access plugin"""
 
@@ -74,7 +75,8 @@ class TestPtoken(unittest.TestCase):
     """Test class for ptoken dnf plugin"""
     def test_failed_to_open_ptoken_file(self):
         """Exception should raised if the system does not have PTOKEN_PATH"""
-        ptoken.PTOKEN_PATH = "/some/not/exist/path"
+        # Disable pyright warning as we need to set the PTOKEN_PATH to test the exception
+        ptoken.PTOKEN_PATH = "/some/not/exist/path" # pyright: ignore[reportAttributeAccessIssue]
         with self.assertRaises(Exception):
             ptoken.Ptoken(MagicMock(), MagicMock()).config()
 
