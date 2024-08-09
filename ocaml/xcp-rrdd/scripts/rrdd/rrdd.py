@@ -283,7 +283,8 @@ class API(object):
                 self.lazy_complete_init()
                 next_reading = self.register()
                 wait_time = next_reading - neg_shift
-                if wait_time < 0: wait_time %= self.frequency_in_seconds
+                if wait_time < 0:
+                    wait_time %= self.frequency_in_seconds
                 time.sleep(wait_time)
                 return
             except socket.error:
@@ -310,19 +311,26 @@ class API(object):
         metadata_json = json.dumps(metadata, sort_keys=True).encode('utf-8')
         metadata_checksum = crc32(metadata_json) & 0xffffffff
 
-        self.dest.seek(0)
-        self.dest.write('DATASOURCES'.encode())
-        self.dest.write(pack(">LLLQ",
-                             data_checksum,
-                             metadata_checksum,
-                             len(self.datasources),
-                             timestamp))
+        # First write the updated data and metadata
+        encoded_datasource_header = 'DATASOURCES'.encode()
+        # DATASOURCES + 20 for 32 + 32 + 32 + 64
+        self.dest.seek(len(encoded_datasource_header) + 20)
         for val in data_values:
             # This is already big endian encoded
             self.dest.write(val)
 
         self.dest.write(pack(">L", len(metadata_json)))
         self.dest.write(metadata_json)
+        self.dest.flush()
+
+        # Now write the updated header
+        self.dest.seek(0)
+        self.dest.write(encoded_datasource_header)
+        self.dest.write(pack(">LLLQ",
+                             data_checksum,
+                             metadata_checksum,
+                             len(self.datasources),
+                             timestamp))
         self.dest.flush()
         self.datasources = []
         time.sleep(
