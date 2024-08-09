@@ -17,7 +17,7 @@
  (modules varstored_cli)
  (libraries
    cmdliner
-   dune-build-info
+   
    rpclib.cmdliner
    rpclib.core
    rpclib.markdown

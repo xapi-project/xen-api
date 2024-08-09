@@ -29,12 +29,6 @@ module String : sig
   val fold_right : (char -> 'a -> 'a) -> string -> 'a -> 'a
   (** Iterate over the characters in a string in reverse order. *)
 
-  val explode : string -> char list
-  (** Split a string into a list of characters. *)
-
-  val implode : char list -> string
-  (** Concatenate a list of characters into a string. *)
-
   val endswith : string -> string -> bool
   (** True if string 'x' ends with suffix 'suffix' *)
 
@@ -44,9 +38,6 @@ module String : sig
   val isspace : char -> bool
   (** True if the character is whitespace *)
 
-  val strip : (char -> bool) -> string -> string
-  (** Removes all the characters from the ends of a string for which the predicate is true *)
-
   val escaped : ?rules:(char * string) list -> string -> string
   (** Backward-compatible string escaping, defaulting to the built-in
       	OCaml string escaping but allowing an arbitrary mapping from characters
@@ -54,7 +45,8 @@ module String : sig
 
   val split_f : (char -> bool) -> string -> string list
   (** Take a predicate and a string, return a list of strings separated by
-      	runs of characters where the predicate was true *)
+      runs of characters where the predicate was true. Avoid if possible, it's
+      very costly to execute. *)
 
   val split : ?limit:int -> char -> string -> string list
   (** split a string on a single char *)

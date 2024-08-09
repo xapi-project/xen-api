@@ -28,7 +28,7 @@
     sexplib0
     uri
   )
-  (preprocess (pps ppx_sexp_conv))
+  (preprocess (per_module ((pps ppx_sexp_conv) Logging Q Switch_main)))
 )
 
 (install

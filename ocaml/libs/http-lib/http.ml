@@ -24,8 +24,6 @@ exception Forbidden
 
 exception Method_not_implemented
 
-exception Malformed_url of string
-
 exception Timeout
 
 exception Too_large
@@ -94,6 +92,13 @@ let http_501_method_not_implemented ?(version = "1.0") () =
   ; "Cache-Control: no-cache, no-store"
   ]
 
+let http_503_service_unavailable ?(version = "1.0") () =
+  [
+    Printf.sprintf "HTTP/%s 503 Service Unavailable" version
+  ; "Connection: close"
+  ; "Cache-Control: no-cache, no-store"
+  ]
+
 module Hdr = struct
   let task_id = "task-id"
 
@@ -138,61 +143,8 @@ let output_http fd headers =
   |> String.concat ""
   |> Unixext.really_write_string fd
 
-let explode str = Astring.String.fold_right (fun c acc -> c :: acc) str []
-
-let implode chr_list =
-  String.concat "" (List.map Astring.String.of_char chr_list)
-
-let urldecode url =
-  let chars = explode url in
-  let rec fn ac = function
-    | '+' :: tl ->
-        fn (' ' :: ac) tl
-    | '%' :: a :: b :: tl ->
-        let cs =
-          try int_of_string (implode ['0'; 'x'; a; b])
-          with _ -> raise (Malformed_url url)
-        in
-        fn (Char.chr cs :: ac) tl
-    | x :: tl ->
-        fn (x :: ac) tl
-    | [] ->
-        implode (List.rev ac)
-  in
-  fn [] chars
-
 (* Encode @param suitably for appearing in a query parameter in a URL. *)
-let urlencode param =
-  let chars = explode param in
-  let rec fn = function
-    | x :: tl ->
-        let s =
-          if x = ' ' then
-            "+"
-          else
-            match x with
-            | 'A' .. 'Z'
-            | 'a' .. 'z'
-            | '0' .. '9'
-            | '$'
-            | '-'
-            | '_'
-            | '.'
-            | '!'
-            | '*'
-            | '\''
-            | '('
-            | ')'
-            | ',' ->
-                Astring.String.of_char x
-            | _ ->
-                Printf.sprintf "%%%2x" (Char.code x)
-        in
-        s ^ fn tl
-    | [] ->
-        ""
-  in
-  fn chars
+let urlencode param = Uri.pct_encode ~component:`Query param
 
 (** Parses strings of the form a=b;c=d (new, RFC-compliant cookie format)
     and a=b&c=d (old, incorrect style) into [("a", "b"); ("c", "d")] *)
@@ -212,7 +164,7 @@ let parse_cookies xs =
   List.map
     (function
       | k :: vs ->
-          (urldecode k, urldecode (String.concat "=" vs))
+          (Uri.pct_decode k, Uri.pct_decode (String.concat "=" vs))
       | [] ->
           raise Http_parse_failure
       )
@@ -742,6 +694,29 @@ module Request = struct
     let headers, body = to_headers_and_body x in
     let frame_header = if x.frame then make_frame_header headers else "" in
     frame_header ^ headers ^ body
+
+  let traceparent_of req =
+    let open Tracing in
+    let ( let* ) = Option.bind in
+    let* traceparent = req.traceparent in
+    let* span_context = SpanContext.of_traceparent traceparent in
+    let span = Tracer.span_of_span_context span_context req.uri in
+    Some span
+
+  let with_tracing ?attributes ~name req f =
+    let open Tracing in
+    let parent = traceparent_of req in
+    with_child_trace ?attributes parent ~name (fun (span : Span.t option) ->
+        match span with
+        | Some span ->
+            let traceparent =
+              Some (span |> Span.get_context |> SpanContext.to_traceparent)
+            in
+            let req = {req with traceparent} in
+            f req
+        | None ->
+            f req
+    )
 end
 
 module Response = struct
@@ -916,7 +891,7 @@ module Url = struct
       in
       let data =
         {
-          uri= (match Uri.path uri with "" -> "/" | path -> path)
+          uri= (match Uri.path_unencoded uri with "" -> "/" | path -> path)
         ; query_params= Uri.query uri |> List.map query
         }
       in
@@ -929,7 +904,7 @@ module Url = struct
       | Some "https" ->
           (scheme ~ssl:true, data)
       | Some "file" ->
-          let scheme = File {path= Uri.path uri} in
+          let scheme = File {path= Uri.path_unencoded uri} in
           (scheme, {data with uri= "/"})
       | _ ->
           failwith "unsupported URI scheme"

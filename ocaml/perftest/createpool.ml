@@ -350,24 +350,20 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let pingable = Array.make (Array.length hosts) false in
   let firstboot = Array.make (Array.length hosts) false in
   let string_of_status () =
-    Xstringext.String.implode
-      (Array.to_list
-         (Array.mapi
-            (fun i ping ->
-              let boot = firstboot.(i) in
-              match (ping, boot) with
-              | false, false ->
-                  '.'
-              | true, false ->
-                  'P'
-              | true, true ->
-                  'B'
-              | _, _ ->
-                  '?'
-            )
-            pingable
-         )
-      )
+    Array.to_seq pingable
+    |> Seq.mapi (fun i ping ->
+           let boot = firstboot.(i) in
+           match (ping, boot) with
+           | false, false ->
+               '.'
+           | true, false ->
+               'P'
+           | true, true ->
+               'B'
+           | _, _ ->
+               '?'
+       )
+    |> String.of_seq
   in
   let has_guest_booted i _vm =
     let ip = Printf.sprintf "192.168.%d.%d" pool.ipbase (i + 1) in
@@ -469,24 +465,20 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
   let live = Array.make (Array.length hosts) false in
   let enabled = Array.make (Array.length hosts) false in
   let string_of_status () =
-    Xstringext.String.implode
-      (Array.to_list
-         (Array.mapi
-            (fun i live ->
-              let enabled = enabled.(i) in
-              match (live, enabled) with
-              | false, false ->
-                  '.'
-              | true, false ->
-                  'L'
-              | true, true ->
-                  'E'
-              | _, _ ->
-                  '?'
-            )
-            live
-         )
-      )
+    Array.to_seq live
+    |> Seq.mapi (fun i live ->
+           let enabled = enabled.(i) in
+           match (live, enabled) with
+           | false, false ->
+               '.'
+           | true, false ->
+               'L'
+           | true, true ->
+               'E'
+           | _, _ ->
+               '?'
+       )
+    |> String.of_seq
   in
   let has_host_booted rpc session_id i host =
     try

@@ -46,13 +46,13 @@ let complete name offset op fd buffer =
 module Fd = struct
   open Lwt
 
-  type fd = {fd: Lwt_unix.file_descr; filename: string; lock: Lwt_mutex.t}
+  type fd = {fd: Lwt_unix.file_descr; lock: Lwt_mutex.t}
 
   let openfile filename rw =
     let unix_fd = File.openfile filename rw 0o644 in
     let fd = Lwt_unix.of_unix_file_descr unix_fd in
     let lock = Lwt_mutex.create () in
-    return {fd; filename; lock}
+    return {fd; lock}
 
   let fsync {fd; _} =
     let fd' = Lwt_unix.unix_file_descr fd in

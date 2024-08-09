@@ -19,10 +19,21 @@
 )
 
 (test
+ (name device_number_test)
+ (package xapi-idl)
+ (modules device_number_test)
+ (libraries
+   alcotest
+   fmt
+   xapi-idl.xen.interface.types
+ )
+)
+
+(test
  (name test)
  (modes exe)
  (package xapi-idl)
- (modules (:standard \ idl_test_common guard_interfaces_test))
+ (modules (:standard \ idl_test_common guard_interfaces_test device_number_test))
  (deps (source_tree test_data))
  (libraries
    alcotest
@@ -47,7 +58,6 @@
    xapi-idl.v6
    xapi-idl.xen
    xapi-idl.xen.interface
-   xapi-idl.xen.interface.types
    xapi-log
  )
- (preprocess (pps ppx_deriving_rpc)))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Task_server_test Updates_test))))

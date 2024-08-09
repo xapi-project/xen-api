@@ -2,6 +2,14 @@
 # Script which restores metadata into a VDI
 # Citrix Systems Inc, 2008
 
+function file_exists() {
+	local out
+	out="$(debugfs -R "stat $2" "$1" 2>/dev/null | head -n1 | grep "Type: regular")"
+	if [ -n "${out}" ]; then
+		echo y
+	fi
+}
+
 if [ ! -e @INVENTORY@ ]; then
   echo Must run on a XAPI host.
   exit 1
@@ -27,11 +35,11 @@ default_restore_mode="all"
 debug="/bin/true"
 
 function usage {
-    echo "Usage: $0 [-h] [-v] [-y] [-n] [-p] [-f] [-x <VDI UUID>] [-u <SR UUID>] [-m all|sr]"
+    echo "Usage: $0 [-h] [-v] [-y] [-n] [-p] [-f] [-o] [-x <VDI UUID>] [-u <SR UUID>] [-m all|sr]"
     echo
     echo " -h: Display this help message"
     echo " -x: Specify the VDI UUID to override probing"
-    echo " -p: Just scan for a metadata VDI and print out its UUID to stdout"
+    echo " -p: Just scan for metadata VDI(s) and print out UUID(s) to stdout"
     echo " -u: UUID of the SR you wish to restore from"
     echo " -n: Perform a dry run of the metadata import commands (default: false)"
     echo " -l: Just list the available backup dates"
@@ -40,6 +48,7 @@ function usage {
     echo " -v: Verbose output"
     echo " -y: Assume non-interactive mode and yes to all questions"
     echo " -f: Forcibly restore VM metadata, dangerous due to its destructive nature, please always do a dry run before using this (default: false)"
+    echo " -o: Allow use of legacy backup VDIs (this should not be used with SRs with untrusted VDIs)"
     echo 
     exit 1
 }
@@ -67,7 +76,9 @@ just_probe=0
 chosen_date=""
 restore_mode=${default_restore_mode}
 force=0
-while getopts "yhpvx:d:lnu:m:f" opt ; do
+legacy=0
+specified_vdi=
+while getopts "yhpvx:d:lnu:m:fo" opt ; do
     case $opt in
     h) usage ;;
     u) sr_uuid=${OPTARG} ;;
@@ -77,9 +88,10 @@ while getopts "yhpvx:d:lnu:m:f" opt ; do
     v) debug="" ;;
     d) chosen_date=${OPTARG} ;;
     m) restore_mode=${OPTARG} ;;
-    x) vdis=${OPTARG} ;;
+    x) specified_vdi=${OPTARG} ;;
     y) yes=1 ;;
     f) force=1 ;;
+    o) legacy=1 ;;
     *) echo "Invalid option"; usage ;;
     esac
 done
@@ -110,16 +122,75 @@ sr_name=$(${XE} sr-param-get uuid="${sr_uuid}" param-name=name-label)
 # probe first for a VDI with known UUID derived from the SR to avoid
 # scanning for a VDI
 backup_vdi=$(uuid5 "${NS}" "${sr_uuid}")
-if [ -z "${vdis}" ]; then
-  vdis=$(${XE} vdi-list uuid="${backup_vdi}" sr-uuid="${sr_uuid}" read-only=false --minimal)
+
+# Only allow a specified VDI that does not match the known UUID if operating in
+# legacy mode
+if [ -n "${specified_vdi}" ]; then
+  if [ "${specified_vdi}" != "${backup_vdi}" ] && [ "$legacy" -eq 0 ]; then
+    echo "The specified VDI UUID is not permitted, if attempting to use a legacy backup VDI please use the -o flag" >&2
+    exit 1
+  fi
+  vdis=${specified_vdi}
 fi
 
-# get a list of all VDIs if an override has not been provided on the cmd line
 if [ -z "${vdis}" ]; then
-  vdis=$(${XE} vdi-list params=uuid sr-uuid="${sr_uuid}" read-only=false --minimal)
+  if [ "$legacy" -eq 0 ]; then
+    # In non-legacy mode, only use the known backup_vdi UUID
+    vdis=$(${XE} vdi-list uuid="${backup_vdi}" sr-uuid="${sr_uuid}" read-only=false --minimal)
+  else
+    # In legacy mode, scan all VDIs
+    vdis=$(${XE} vdi-list params=uuid sr-uuid="${sr_uuid}" read-only=false --minimal)
+  fi
 fi
 
 mnt=
+vdi_uuid=
+vbd_uuid=
+device=
+function createvbd {
+  ${debug} echo -n "Creating VBD: " >&2
+  vbd_uuid=$(${XE} vbd-create vm-uuid="${CONTROL_DOMAIN_UUID}" vdi-uuid="${vdi_uuid}" device=autodetect 2>/dev/null)
+
+  if [ $? -ne 0 -o -z "${vbd_uuid}" ]; then
+    ${debug} echo "error creating VBD for VDI ${vdi_uuid}" >&2
+    cleanup
+    return 1
+  fi
+
+  ${debug} echo "${vbd_uuid}" >&2
+
+  ${debug} echo -n "Plugging VBD: " >&2
+  ${XE} vbd-plug uuid="${vbd_uuid}"
+  device=/dev/$(${XE} vbd-param-get uuid="${vbd_uuid}" param-name=device)
+
+  if [ ! -b "${device}" ]; then
+     ${debug} echo "${device}: not a block special" >&2
+     cleanup
+     return 1
+  fi
+
+  ${debug} echo "${device}" >&2
+  return 0
+}
+
+function mountvbd {
+  mnt="/var/run/pool-backup-${vdi_uuid}"
+  mkdir -p "${mnt}"
+  /sbin/fsck -a "${device}" >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    echo "File system integrity error.  Please correct manually." >&2
+    cleanup
+    return 1
+  fi
+  mount "${device}" "${mnt}" >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    ${debug} echo failed >&2
+    cleanup
+    return 1
+  fi
+  return 0
+}
+
 function cleanup {
    cd /
    if [ ! -z "${mnt}" ]; then
@@ -131,95 +202,42 @@ function cleanup {
    if [ ! -z "${vbd_uuid}" ]; then
       ${debug} echo -n "Unplugging VBD: " >&2
       ${XE} vbd-unplug uuid="${vbd_uuid}" timeout=20
-      # poll for the device to go away if we know its name
-      if [ "${device}" != "" ]; then
-          device_gone=0
-          for ((i=0; i<10; i++)); do
-              ${debug} echo -n "." >&2
-              if [ ! -b "${device}" ]; then
-                  ${debug} echo " done" >&2
-                  device_gone=1
-                  break
-              fi
-              sleep 1
-          done
-          if [ ${device_gone} -eq 0 ]; then
-              ${debug} echo " failed" >&2
-              ${debug} echo "Please destroy VBD ${vbd_uuid} manually." >&2
-          else
-              ${XE} vbd-destroy uuid="${vbd_uuid}"
-              vbd_uuid=""
-          fi
-      fi
+      ${debug} echo -n "Destroying VBD: " >&2
+      ${XE} vbd-destroy uuid="${vbd_uuid}"
+      vbd_uuid=""
       device=""
    fi
 }
 
 if [ -z "${vdis}" ]; then
    echo "No VDIs found on SR." >&2
+   if [ "$legacy" -eq 0 ]; then
+      echo "If you believe there may be a legacy backup VDI present, you can use the -o flag to search for it (this should not be used with untrusted VDIs)" >&2
+   fi
    exit 0
 fi
 
 trap cleanup SIGINT ERR
 
+declare -a matched_vdis
 for vdi_uuid in ${vdis}; do
-   if [ "${vdi_uuid}" != "${backup_vdi}" ] && [ "$yes" -eq 0 ]; then
-      echo "Probing VDI ${vdi_uuid}."
-      echo "This VDI was created with a prior version of this code."
-      echo "Its validity can't be checked without mounting it first."
-      read -p "Continue? [Y/N]" -n 1 -r; echo
-      if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit 1; fi
-   fi
-
-   ${debug} echo -n "Creating VBD: " >&2
-   vbd_uuid=$(${XE} vbd-create vm-uuid="${CONTROL_DOMAIN_UUID}" vdi-uuid="${vdi_uuid}" device=autodetect 2>/dev/null)
-
-   if [ $? -ne 0 -o -z "${vbd_uuid}" ]; then
-      ${debug} echo "error creating VBD for VDI ${vdi_uuid}" >&2
-      cleanup
-      continue
-   fi
-
-   ${debug} echo "${vbd_uuid}" >&2
-
-   ${debug} echo -n "Plugging VBD: " >&2
-   ${XE} vbd-plug uuid="${vbd_uuid}"
-   device=/dev/$(${XE} vbd-param-get uuid="${vbd_uuid}" param-name=device)
-
-   if [ ! -b "${device}" ]; then
-     ${debug} echo "${device}: not a block special" >&2
-     cleanup
+   createvbd
+   if [ $? -ne 0 ]; then
      continue
    fi
 
-   ${debug} echo "${device}" >&2
-
    ${debug} echo -n "Probing device: " >&2
-   probecmd="@LIBEXECDIR@/probe-device-for-file"
-   metadata_stamp="/.ctxs-metadata-backup"
    mnt=
-   ${probecmd} "${device}" "${metadata_stamp}"
-   if [ $? -eq 0 ]; then
+   if [ "$(file_exists "${device}" "/.ctxs-metadata-backup")" = y ]; then
      ${debug} echo "found metadata backup" >&2
      ${debug} echo -n "Mounting filesystem: " >&2
-     mnt="/var/run/pool-backup-${vdi_uuid}"
-     mkdir -p "${mnt}"
-     /sbin/fsck -a "${device}" >/dev/null 2>&1
-     if [ $? -ne 0 ]; then
-        echo "File system integrity error.  Please correct manually." >&2
-        cleanup
+     if ! mountvbd; then
         continue
      fi
-     mount "${device}" "${mnt}" >/dev/null 2>&1
-     if [ $? -ne 0 ]; then
-       ${debug} echo failed >&2
-       cleanup
-     else
-       if [ -e "${mnt}/.ctxs-metadata-backup" ]; then
-          ${debug} echo "Found backup metadata on VDI: ${vdi_uuid}" >&2
-          xe vdi-param-set uuid="${vdi_uuid}" other-config:ctxs-pool-backup=true
-          break
-       fi
+
+     if [ -e "${mnt}/.ctxs-metadata-backup" ]; then
+        ${debug} echo "Found backup metadata on VDI: ${vdi_uuid}" >&2
+       matched_vdis+=( "${vdi_uuid}" )
      fi
    else
      ${debug} echo "backup metadata not found" >&2
@@ -228,9 +246,31 @@ for vdi_uuid in ${vdis}; do
 done
 
 if [ $just_probe -gt 0 ]; then
-   echo "${vdi_uuid}"
-   cleanup
+   for vdi_uuid in "${matched_vdis[@]}"; do
+      echo "${vdi_uuid}"
+   done
    exit 0
+fi
+
+if [ "${#matched_vdis[@]}" -eq 0 ]; then
+  echo "Metadata backups not found." >&2
+  exit 1
+fi
+
+if [ "${#matched_vdis[@]}" -gt 1 ]; then
+  echo "Multiple metadata backups found, please use -x to specify the VDI UUID to use" >&2
+  exit 1
+fi
+
+vdi_uuid=${matched_vdis[0]}
+xe vdi-param-set uuid="${vdi_uuid}" other-config:ctxs-pool-backup=true
+if ! createvbd; then
+  echo "Failure creating VBD for backup VDI ${vdi_uuid}" >&2
+  exit 1
+fi
+if ! mountvbd; then
+  echo "Failure mounting backup VDI ${vdi_uuid}" >&2
+  exit 1
 fi
 
 cd "${mnt}"
@@ -319,9 +359,10 @@ else
 fi
 shopt -s nullglob
 for meta in *.vmmeta; do
-   echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
-   "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve"${force_flag}""${dry_run_flag}"
-   if [ $? -gt 0 ]; then
+   # shellcheck disable=SC2086
+   echo xe vm-import filename="${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}
+   # shellcheck disable=SC2086
+   if ! "@OPTDIR@/bin/xe" vm-import filename="${full_dir}/${meta}" sr-uuid="${sr_uuid}" --metadata --preserve${force_flag}${dry_run_flag}; then
       error_count=$(( $error_count + 1 ))
    else
       good_count=$(( $good_count + 1 ))

@@ -94,14 +94,7 @@ let handle_comms comms_sock fd_sock state =
 let log_failure args child_pid reason =
   (* The commandline might be too long to clip it *)
   let cmdline = String.concat " " args in
-  let limit = 80 - 3 in
-  let cmdline' =
-    if String.length cmdline > limit then
-      String.sub cmdline 0 limit ^ "..."
-    else
-      cmdline
-  in
-  Fe_debug.error "%d (%s) %s" child_pid cmdline' reason
+  Fe_debug.error "%d (%s) %s" child_pid cmdline reason
 
 let report_child_exit comms_sock args child_pid status =
   let module Unixext = Xapi_stdext_unix.Unixext in

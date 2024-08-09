@@ -7,14 +7,12 @@
    cmdliner
    cohttp
    cohttp-posix
-   (re_export dune-build-info)
    fd-send-recv
    logs
    message-switch-core
    message-switch-unix
    mtime
    mtime.clock.os
-   ppx_sexp_conv.runtime-lib
    re
    rpclib.core
    rpclib.json
@@ -38,7 +36,10 @@
    xmlm
  )
  (wrapped false)
- (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
+ (preprocess
+   (per_module
+     ((pps ppx_deriving_rpc) Xcp_channel Xcp_channel_protocol TypeCombinators)
+     ((pps ppx_sexp_conv ppx_deriving_rpc) Xcp_pci))))
 
 (library
  (name xcp_updates)
@@ -60,4 +61,4 @@
    xapi-stdext-threads
  )
  (wrapped false)
- (preprocess (pps ppx_deriving_rpc)))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Updates Scheduler))))

@@ -4,7 +4,7 @@
   (public_name rrd2csv)
   (package rrd2csv)
   (libraries
-    dune-build-info
+    
     http_lib
     threads.posix
     xapi-idl.rrd

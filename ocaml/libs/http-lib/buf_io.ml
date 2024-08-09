@@ -13,12 +13,7 @@
  *)
 (* Buffered IO with timeouts *)
 
-type t = {
-    fd: Unix.file_descr
-  ; mutable buf: bytes
-  ; mutable cur: int
-  ; mutable max: int
-}
+type t = {fd: Unix.file_descr; buf: bytes; mutable cur: int; mutable max: int}
 
 type err =
   | (* Line input is > 1024 chars *)

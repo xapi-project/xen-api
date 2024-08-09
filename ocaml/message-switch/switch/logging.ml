@@ -20,7 +20,6 @@ type logger = {
     stream: string Lwt_stream.t
   ; push: string -> unit
   ; elements: int ref
-  ; max_elements: int
   ; dropped_elements: int ref
 }
 
@@ -35,13 +34,7 @@ let create max_elements =
       stream_push (Some line) ; incr !elements
     )
   in
-  {
-    stream
-  ; push
-  ; elements= !elements
-  ; max_elements
-  ; dropped_elements= !dropped_elements
-  }
+  {stream; push; elements= !elements; dropped_elements= !dropped_elements}
 
 let get (logger : logger) =
   let return_lines all =

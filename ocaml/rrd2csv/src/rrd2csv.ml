@@ -143,10 +143,9 @@ module Ds_selector = struct
     ; owner: Rrd.ds_owner option
     ; uuid: string
     ; metric: string
-    ; enabled: bool
   }
 
-  let empty = {cf= None; owner= None; uuid= ""; metric= ""; enabled= true}
+  let empty = {cf= None; owner= None; uuid= ""; metric= ""}
 
   let of_string str =
     let open Rrd in
@@ -154,7 +153,6 @@ module Ds_selector = struct
     match splitted with
     | [cf; owner; uuid; metric] ->
         {
-          empty with
           cf= (try Some (cf_type_of_string cf) with _ -> None)
         ; owner=
             ( match owner with
@@ -351,9 +349,7 @@ module Xport = struct
   (* Xport.t structure *)
 
   type meta = {
-      time_start: int64
-    ; time_step: int64
-    ; time_end: int64
+      time_step: int64
     ; entries: Ds_selector.t list
           (* XXX: remove when merging *)
           (* entries: Ds_selector.t list; *)
@@ -411,9 +407,7 @@ module Xport = struct
     let process_meta (elts : xml_tree list) =
       let kvs = kvs elts in
       {
-        time_start= Int64.of_string (List.assoc "start" kvs)
-      ; time_step= Int64.of_string (List.assoc "step" kvs)
-      ; time_end= Int64.of_string (List.assoc "end" kvs)
+        time_step= Int64.of_string (List.assoc "step" kvs)
       ; entries= process_legend (find_elt "legend" elts)
       }
     in

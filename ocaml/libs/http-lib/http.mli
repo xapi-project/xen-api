@@ -128,6 +128,11 @@ module Request : sig
 
   val to_wire_string : t -> string
   (** [to_wire_string t] returns a string which could be sent to a server *)
+
+  val traceparent_of : t -> Tracing.Span.t option
+
+  val with_tracing :
+    ?attributes:(string * string) list -> name:string -> t -> (t -> 'a) -> 'a
 end
 
 (** Parsed form of the HTTP response *)
@@ -189,6 +194,8 @@ val http_500_internal_server_error : ?version:string -> unit -> string list
 
 val http_501_method_not_implemented : ?version:string -> unit -> string list
 
+val http_503_service_unavailable : ?version:string -> unit -> string list
+
 module Hdr : sig
   val task_id : string
   (** Header used for task id *)
@@ -233,6 +240,7 @@ val output_http : Unix.file_descr -> string list -> unit
 val parse_cookies : string -> (string * string) list
 
 val urlencode : string -> string
+(** Encode parameter suitably for appearing in a query parameter in a URL. *)
 
 type 'a ll = End | Item of 'a * (unit -> 'a ll)
 

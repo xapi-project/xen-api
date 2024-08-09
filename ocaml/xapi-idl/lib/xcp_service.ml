@@ -501,8 +501,8 @@ let http_handler call_of_string string_of_response process s =
   | `Invalid x ->
       debug "Failed to read HTTP request. Got: '%s'" x
   | `Ok req -> (
-    match (Cohttp.Request.meth req, Uri.path (Cohttp.Request.uri req)) with
-    | `POST, _ -> (
+    match Cohttp.Request.meth req with
+    | `POST -> (
         let headers = Cohttp.Request.headers req in
         match Cohttp.Header.get headers "content-length" with
         | None ->
@@ -535,7 +535,7 @@ let http_handler call_of_string string_of_response process s =
               (fun t -> Response.write_body t response_txt)
               response oc
       )
-    | _, _ ->
+    | _ ->
         let content_length = 0 in
         let headers =
           Cohttp.Header.of_list

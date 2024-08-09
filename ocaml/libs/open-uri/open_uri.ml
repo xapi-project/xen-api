@@ -74,7 +74,7 @@ let with_open_uri ?verify_cert uri f =
             )
     )
   | Some "file" ->
-      let filename = Uri.path_and_query uri in
+      let filename = Uri.path_and_query uri |> Uri.pct_decode in
       let sockaddr = Unix.ADDR_UNIX filename in
       let s = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
       finally

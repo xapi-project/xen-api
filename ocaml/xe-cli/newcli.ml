@@ -135,7 +135,7 @@ let parse_url url =
     let ( let* ) = Option.bind in
     let* scheme = Uri.scheme uri in
     let* host = Uri.host uri in
-    let path = Uri.path_and_query uri in
+    let path = Uri.path_and_query uri |> Uri.pct_decode in
     Some (scheme, host, path)
   in
   match parse (Uri.of_string url) with

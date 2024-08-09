@@ -1,4 +1,5 @@
 (library
+  (modes best)
   (foreign_stubs
     (language c)
     (names direct_copy_stubs)
@@ -11,6 +12,7 @@
     cohttp
     cohttp-lwt
     cstruct
+    (re_export ezxenstore)
     io-page
     lwt
     lwt.unix
@@ -30,12 +32,16 @@
     tapctl
     xapi-stdext-std
     xapi-stdext-unix
+    xen-api-client-lwt
     xenstore
     xenstore.client
     xenstore.unix
     xenstore_transport
     xenstore_transport.unix
   )
-  (preprocess (pps ppx_deriving_rpc ppx_cstruct))
+  (preprocess
+    (per_module
+     ((pps ppx_deriving_rpc) Nbd_input Image)
+     ((pps ppx_cstruct) Chunked)))
 )
 

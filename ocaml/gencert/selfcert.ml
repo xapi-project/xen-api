@@ -41,9 +41,9 @@ let valid_from' date =
   | None, false ->
       Ptime_clock.now ()
 
-(** initialize the random number generator at program startup when this
-module is loaded. *)
-let () = Mirage_crypto_rng_unix.initialize ()
+(* Needed to initialize the rng to create random serial codes when signing
+   certificates *)
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
 (** [write_cert] writes a PKCS12 file to [path]. The typical file
  extension would be ".pem". It attempts to do that atomically by
@@ -158,7 +158,7 @@ let host ~name ~dns_names ~ips ?valid_from ~valid_for_days pemfile cert_gid =
   in
   R.failwith_error_msg res
 
-let serial_stamp () = Unix.gettimeofday () |> string_of_float
+let serial_stamp () = Ptime_clock.now () |> Ptime.to_float_s |> string_of_float
 
 let xapi_pool ?valid_from ~valid_for_days ~uuid pemfile cert_gid =
   let valid_from = valid_from' valid_from in

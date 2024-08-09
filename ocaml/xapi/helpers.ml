@@ -42,21 +42,15 @@ let log_exn_continue msg f x =
 type log_output = Always | Never | On_failure
 
 let filter_patterns =
-  [
-    ( Re.Str.regexp "^\\(.*proxy_\\(username\\|password\\)=\\)\\(.*\\)$"
-    , "\\1(filtered)"
-    )
-  ]
+  [(Re.Pcre.regexp "^(.*proxy_(username|password)=)(.*)$", "(filtered)")]
 
 let filter_args args =
   List.map
     (fun arg ->
       List.fold_left
         (fun acc (r, t) ->
-          if Re.Str.string_match r acc 0 then
-            Re.Str.replace_matched t acc
-          else
-            acc
+          try String.concat "" [(Re.Pcre.extract ~rex:r acc).(1); t]
+          with Not_found -> acc
         )
         arg filter_patterns
     )

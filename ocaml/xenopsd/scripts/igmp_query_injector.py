@@ -53,7 +53,8 @@ class IGMPQueryInjector(object):
         ether_part = Ether(src='00:00:00:00:00:00', dst=dst_mac)
         ip_part = IP(ttl=1, src='0.0.0.0', dst='224.0.0.1')
         igmp_part = IGMP(type=0x11)
-        igmp_part.mrcode = (self.max_resp_time / 100) & 0xff
+        # Should use integer division // in python 3
+        igmp_part.mrcode = (self.max_resp_time // 100) & 0xff
         igmp_part.igmpize()
         # Make this IGMP query packet as an unicast packet
         ether_part.dst = dst_mac

@@ -4,7 +4,7 @@
   (package rrdd-plugins)
   (public_name xcp-rrdd-dcmi)
   (libraries
-    dune-build-info
+    
     rrdd-plugin
     rrdd-plugins.libs
     xapi-idl.rrd

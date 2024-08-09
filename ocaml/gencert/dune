@@ -2,6 +2,7 @@
   (name gencertlib)
   (wrapped true)
   (modules lib selfcert pem)
+  (modes best)
   (libraries
     angstrom
     astring
@@ -9,6 +10,7 @@
     forkexec
     mirage-crypto
     mirage-crypto-pk
+    mirage-crypto-rng
     mirage-crypto-rng.unix
     ptime
     ptime.clock.os
@@ -31,7 +33,6 @@
   (modules gencert)
   (libraries
     astring
-    dune-build-info
     gencertlib
     x509
     xapi-inventory
@@ -48,11 +49,11 @@
   (libraries
     alcotest
     cstruct
-    dune-build-info
     fmt
     gencertlib
     mirage-crypto
     mirage-crypto-pk
+    mirage-crypto-rng
     mirage-crypto-rng.unix
     ptime
     result

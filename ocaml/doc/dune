@@ -1,9 +1,7 @@
 (executable
   (modes exe)
   (name jsapi)
-  (libraries
-    dune-build-info
-    gzip
+  (libraries    
     mustache
     rpclib.core
     rpclib.json

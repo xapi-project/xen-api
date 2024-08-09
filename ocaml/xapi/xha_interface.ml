@@ -40,9 +40,9 @@ let first_xml_element_with_name elements name =
     are stripped of leading and trailing whitespace. *)
 let hash_table_entry_of_leaf_xml_element = function
   | Xml.Element (name, _, Xml.PCData value :: _) ->
-      Some (String.strip String.isspace name, String.strip String.isspace value)
+      Some (String.trim name, String.trim value)
   | Xml.Element (name, _, []) ->
-      Some (String.strip String.isspace name, "")
+      Some (String.trim name, "")
   | _ ->
       None
 

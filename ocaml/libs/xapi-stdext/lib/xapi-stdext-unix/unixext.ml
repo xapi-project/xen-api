@@ -303,7 +303,7 @@ let open_connection_unix_fd filename =
 module CBuf = struct
   (** A circular buffer constructed from a string *)
   type t = {
-      mutable buffer: bytes
+      buffer: bytes
     ; mutable len: int  (** bytes of valid data in [buffer] *)
     ; mutable start: int  (** index of first valid byte in [buffer] *)
     ; mutable r_closed: bool  (** true if no more data can be read due to EOF *)

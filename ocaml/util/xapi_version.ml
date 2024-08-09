@@ -46,3 +46,9 @@ let compare_version version_a version_b =
   let maj_b, min_b, _ = parse_xapi_version version_b in
   let ( <?> ) a b = if a = 0 then b else a in
   Int.compare maj_a maj_b <?> Int.compare min_a min_b <?> 0
+
+let xapi_user_agent =
+  "xapi/"
+  ^ string_of_int xapi_version_major
+  ^ "."
+  ^ string_of_int xapi_version_minor

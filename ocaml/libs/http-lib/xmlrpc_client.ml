@@ -189,7 +189,7 @@ let with_reusable_stunnel ?use_fork_exec_helper ?write_to_log ?verify_cert host
   (* 1. First check if there is a suitable stunnel in the cache. *)
   let rec loop () =
     match
-      Stunnel_cache.with_remove ~host ~port verify_cert @@ fun x ->
+      Stunnel_cache.with_remove ~host ~port @@ fun x ->
       if check_reusable x.Stunnel.fd (Stunnel.getpid x.Stunnel.pid) then
         Ok (f x)
       else (

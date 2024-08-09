@@ -8,7 +8,7 @@ open Rresult.R.Infix
 let ( let* ) = Rresult.R.bind
 
 (* Initialize RNG for testing certificates *)
-let () = Mirage_crypto_rng_unix.initialize ()
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
 let time_of_rfc3339 date =
   match Ptime.of_rfc3339 date with

@@ -5,7 +5,7 @@
   (package xe)
   (libraries
     astring
-    dune-build-info
+    
     fpath
     safe-resources
     stunnel

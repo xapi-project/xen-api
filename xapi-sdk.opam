@@ -7,7 +7,7 @@ license: "BSD-2-Clause"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
-  "dune" {>= "3.0"}
+  "dune" {>= "3.15"}
   "alcotest" {with-test}
   "astring"
   "mustache"

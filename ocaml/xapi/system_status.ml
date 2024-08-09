@@ -52,7 +52,7 @@ let send_via_fd __context s entries output =
     let headers =
       Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
       @ [
-          "Server: " ^ Constants.xapi_user_agent
+          "Server: " ^ Xapi_version.xapi_user_agent
         ; Http.Hdr.content_type ^ ": " ^ content_type
         ; "Content-Disposition: attachment; filename=\"system_status.tgz\""
         ]

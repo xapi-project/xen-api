@@ -457,8 +457,8 @@ let query_host_ds (ds_name : string) : float =
   )
 
 (** Dump all latest data of host dss to file in json format so that any client
-    can read even if it's non-privileged user, such as NRPE. 
-    Especially, nan, infinity and neg_infinity will be converted to strings 
+    can read even if it's non-privileged user, such as NRPE.
+    Especially, nan, infinity and neg_infinity will be converted to strings
     "NaN", "infinity" and "-infinity", the client needs to handle by itself.
     *)
 let convert_value x =
@@ -651,8 +651,7 @@ module Plugin = struct
          - Can the code for backwards compatibility be expunged? *)
 
       type plugin = {
-          info: P.info
-        ; reader: Rrd_reader.reader
+          reader: Rrd_reader.reader
         ; mutable skip_init: int  (** initial value for skip after read err *)
         ; mutable skip: int  (** number of cycles to skip b/f next read *)
       }
@@ -748,7 +747,7 @@ module Plugin = struct
               let reader =
                 P.make_reader ~uid ~info ~protocol:(choose_protocol protocol)
               in
-              Hashtbl.add registered uid {info; reader; skip_init= 1; skip= 0}
+              Hashtbl.add registered uid {reader; skip_init= 1; skip= 0}
         ) ;
         next_reading uid
 

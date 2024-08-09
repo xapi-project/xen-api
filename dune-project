@@ -1,4 +1,5 @@
-(lang dune 3.0)
+(lang dune 3.15)
+
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
 
@@ -28,6 +29,8 @@
     astring
     mtime
     ptime
+    (qcheck-core :with-test)
+    (qcheck-alcotest :with-test)
   )
 )
 
@@ -66,7 +69,6 @@
   (synopsis "Xen-API client library for remotely-controlling a xapi host")
   (authors "David Scott" "Anil Madhavapeddy" "Jerome Maloberti" "John Else" "Jon Ludlam" "Thomas Sanders" "Mike McClurg")
   (depends
-   dune-build-info
    (alcotest :with-test)
    astring
    (cohttp (>= "0.22.0"))
@@ -187,7 +189,6 @@
   (description "This daemon monitors 'datasources' i.e. time-varying values such as performance counters and records the samples in RRD archives. These archives can be used to examine historical performance trends.")
   (depends
    (ocaml (>= "4.02.0"))
-   dune-build-info
    (alcotest :with-test)
    astring
    (gzip (= :version))
@@ -204,6 +205,7 @@
    (xapi-rrd (= :version))
    (xapi-stdext-threads (= :version))
    (xapi-stdext-unix (= :version))
+   xapi-tracing
   )
 )
 
@@ -300,6 +302,69 @@
 
 (package
   (name xapi)
+  (synopsis "The toolstack daemon which implements the XenAPI")
+  (description "This daemon exposes the XenAPI and is used by clients such as 'xe' and 'XenCenter' to manage clusters of Xen-enabled hosts.")
+  (depends
+    alcotest ; needed for the quicktest binary
+    angstrom
+    base-threads
+    base64
+    cdrom
+    conf-pam
+    (crowbar :with-test)
+    ctypes
+    ctypes-foreign
+    domain-name
+    (ezxenstore (= :version))
+    (fmt :with-test)
+    hex
+    (http-lib (and :with-test (= :version))) ; the public library is only used for testing
+    ipaddr
+    mirage-crypto
+    mirage-crypto-pk
+    (mirage-crypto-rng (>= "0.11.0"))
+    (message-switch-unix (= :version))
+    mtime
+    opentelemetry-client-ocurl
+    pci
+    (pciutil (= :version))
+    ppx_deriving_rpc
+    ppx_sexp_conv
+    ppx_deriving
+    psq
+    qcheck-alcotest
+    rpclib
+    (rrdd-plugin (= :version))
+    rresult
+    sexpr
+    sha
+    (stunnel (= :version))
+    tar
+    tar-unix
+    (uuid (= :version))
+    x509
+    (xapi-client (= :version))
+    (xapi-cli-protocol (= :version))
+    (xapi-consts (= :version))
+    (xapi-datamodel (= :version))
+    (xapi-expiry-alerts (= :version))
+    (xapi-idl (= :version))
+    (xapi-inventory (= :version))
+    (xapi-log (= :version))
+    (xapi-stdext-date (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-std (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-stdext-unix (= :version))
+    (xapi-stdext-zerocheck (= :version))
+    (xapi-test-utils :with-test)
+    (xapi-tracing (= :version))
+    (xapi-types (= :version))
+    (xapi-xenopsd (= :version))
+    (xml-light2 (= :version))
+    yojson
+    (zstd (= :version))
+  )
 )
 
 (package
@@ -321,6 +386,32 @@
 
 (package
   (name vhd-tool)
+  (synopsis "Manipulate .vhd files")
+  (tags ("org.mirage" "org:xapi-project"))
+  (depends
+    (alcotest-lwt :with-test)
+    cohttp-lwt
+    conf-libssl
+    (cstruct (>= "3.0.0"))
+    (ezxenstore (= :version))
+    (forkexec (= :version))
+    io-page
+    lwt
+    nbd-unix
+    ppx_cstruct
+    ppx_deriving_rpc
+    re
+    rpclib
+    sha
+    tar
+    (vhd-format (= :version))
+    (vhd-format-lwt (= :version))
+    (xapi-idl (= :version))
+    (xapi-log (= :version))
+    (xen-api-client-lwt (= :version))
+    xenstore
+    xenstore_transport
+  )
 )
 
 (package
@@ -438,6 +529,16 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name message-switch-unix)
+  (synopsis "A simple store-and-forward message switch")
+  (description "The switch stores messages in queues with well-known names. Clients use a simple HTTP protocol to enqueue and dequeue messages.")
+  (depends
+    base-threads
+    cohttp
+    (message-switch-core (= :version))
+    ppx_deriving_rpc
+    rpclib
+    (xapi-stdext-threads (= :version))
+  )
 )
 
 (package

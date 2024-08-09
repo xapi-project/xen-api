@@ -1,5 +1,6 @@
 (library
  (name xenopsd_xc)
+ (modes best)
  (modules :standard \
           xenops_xc_main
           memory_breakdown
@@ -56,7 +57,9 @@
  )
 
  (preprocess
-  (pps ppx_deriving_rpc ppx_sexp_conv)
+   (per_module
+    ((pps ppx_deriving_rpc) Device Device_common Domain Xenops_server_xen)
+   )
  )
  (wrapped false)
 )
@@ -68,7 +71,7 @@
  (modules xenops_xc_main)
 
  (libraries
-  dune-build-info
+  
   ezxenstore.core
   uuid
   xapi-idl
@@ -89,7 +92,7 @@
  (libraries
   astring
   cmdliner
-  dune-build-info
+  
   ezxenstore.core
   uuid
   xapi-idl.memory
@@ -106,7 +109,7 @@
  (modes exe)
  (modules memory_summary)
  (libraries
-  dune-build-info
+  
   xapi-stdext-date
   xapi-stdext-unix
   xapi-xenopsd
@@ -131,7 +134,7 @@
  (modules cancel_utils_test)
  (libraries
   cmdliner
-  dune-build-info
+  
   ezxenstore.core
   threads.posix
   xapi-idl.xen.interface
