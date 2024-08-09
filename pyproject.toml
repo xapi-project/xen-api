@@ -299,7 +299,7 @@ inputs = [
     "ocaml/vhd-tool",
 ]
 disable = [
-    # Reduce noise from python2 scripts(import yum, xenfsimage, xcp, urlgrabber)
+    # Reduce noise from python scripts(import yum, xenfsimage, xcp, urlgrabber)
     "import-error",
 ]
 platform = "linux"

@@ -25,28 +25,10 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 """
 
-from __future__ import print_function
 import sys
 import traceback
 import json
 import argparse
-
-
-# is_str(): Shortcut to check if a value is an instance of a string type.
-#
-# Replace:
-#     if not isinstance(code, str) and not isinstance(code, unicode):
-# with:
-#     if not is_str(code):
-#
-# This makes for much cleaner code and suits Python3 well too.
-if sys.version_info[0] > 2:
-    long = int
-    def is_str(x):
-        return isinstance(x, str)  # With Python3, all strings are unicode
-else:
-    def is_str(x):  # pragma: no cover
-        return isinstance(x, (str, unicode))  # pylint: disable=undefined-variable
 
 
 def success(result):
@@ -84,7 +66,7 @@ class XenAPIException(Exception):
 
     def __init__(self, code, params):
         Exception.__init__(self)
-        if not is_str(code):
+        if not isinstance(code, str):
             raise TypeError("string", repr(code))
         if not isinstance(params, list):
             raise TypeError("list", repr(params))
@@ -151,7 +133,8 @@ class UnknownMethod(InternalError):
 
 def is_long(x):
     try:
-        long(x)
+        # Python3 int is long, keep the name for interface compatibility
+        int(x)
         return True
     except ValueError:
         return False

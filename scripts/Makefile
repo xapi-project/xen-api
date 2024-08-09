@@ -1,8 +1,5 @@
 include ../config.mk
 
-SITE_DIR=$(shell python -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
-SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
-
 IPROG=./install.sh 755
 IDATA=./install.sh 644
 
@@ -22,8 +19,6 @@ install:
 	mkdir -p $(DESTDIR)/usr/lib/systemd/system
 	mkdir -p $(DESTDIR)/usr/lib/yum-plugins
 	mkdir -p $(DESTDIR)$(OPTDIR)/packages/post-install-scripts
-	mkdir -p $(DESTDIR)$(SITE_DIR)
-	mkdir -p $(DESTDIR)$(SITE3_DIR)
 	mkdir -p $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/
 	$(IPROG) base-path $(DESTDIR)/etc/xapi.d
 	$(IPROG) sm_diagnostics $(DESTDIR)$(LIBEXECDIR)
