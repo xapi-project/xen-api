@@ -205,6 +205,7 @@
    (xapi-rrd (= :version))
    (xapi-stdext-threads (= :version))
    (xapi-stdext-unix (= :version))
+   xapi-tracing
   )
 )
 
