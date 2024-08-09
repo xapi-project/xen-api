@@ -25,6 +25,9 @@
   rpclib.core
   rpclib.json
   rresult
+  rrdd-plugin
+  rrdd-plugin.base
+  rrdd-plugin.local
   sexplib0
   qmp
   threads.posix
