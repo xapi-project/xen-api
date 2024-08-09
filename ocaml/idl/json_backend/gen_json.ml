@@ -197,6 +197,7 @@ end = struct
                 ("type", `String t)
               ; ("name", `String p.param_name)
               ; ("doc", `String p.param_doc)
+              ; ("required", `Bool (Option.is_none p.param_default))
               ]
             :: params
           , enums @ e
