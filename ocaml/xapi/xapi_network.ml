@@ -439,6 +439,7 @@ let assert_can_add_purpose ~__context ~network:_ ~current:_ newval =
       assert_no_net_has_bad_porpoise [`nbd]
 
 let add_purpose ~__context ~self ~value =
+  assert_network_is_managed ~__context ~self ;
   let current = Db.Network.get_purpose ~__context ~self in
   if not (List.mem value current) then (
     assert_can_add_purpose ~__context ~network:self ~current value ;
