@@ -6773,7 +6773,7 @@ let pool_sync_bundle fd _printer rpc session_id params =
         in
         let uri =
           Uri.(
-            make ~scheme:"http" ~host:master_address
+            make ~scheme:"https" ~host:master_address
               ~path:Constants.put_bundle_uri
               ~query:
                 [
