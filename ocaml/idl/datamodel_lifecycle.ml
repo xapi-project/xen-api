@@ -25,6 +25,8 @@ let prototyped_of_field = function
       Some "23.14.0"
   | "Observer", "uuid" ->
       Some "23.14.0"
+  | "Repository", "origin" ->
+      Some "24.21.0-next"
   | "Repository", "gpgkey_path" ->
       Some "22.12.0"
   | "Certificate", "fingerprint_sha1" ->
@@ -123,6 +125,8 @@ let prototyped_of_message = function
       Some "22.20.0"
   | "Repository", "set_gpgkey_path" ->
       Some "22.12.0"
+  | "Repository", "introduce_bundle" ->
+      Some "24.21.0-next"
   | "PCI", "get_dom0_access_status" ->
       Some "24.14.0"
   | "PCI", "enable_dom0_access" ->
