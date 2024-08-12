@@ -18,6 +18,7 @@
     <PackageIcon>packageIcon.png</PackageIcon>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README-NuGet.md</PackageReadmeFile>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="LICENSE" />
