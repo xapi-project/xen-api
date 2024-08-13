@@ -76,8 +76,8 @@ _xe()
     __xe_debug $(__tab_delimited_newline_array ${OLDSTYLE_WORDS[@]})
     __xe_debug
 
-    if [[ $COMP_CWORD == 1 ]] ; then
-        __xe_debug "Main command completion triggered, COMP_CWORD==1"
+    if [[ $COMP_CWORD == 1 || $COMP_CWORD == 2 && ${OLDSTYLE_WORDS[1]} == "help" ]] ; then
+        __xe_debug "Main command completion triggered, COMP_CWORD==1 (or help)"
 
         # determine 'modules' (vm-, host-, pool-, etc.) that commands
         # are grouped into.
