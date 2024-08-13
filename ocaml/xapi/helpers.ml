@@ -2119,3 +2119,90 @@ let get_active_uefi_certificates ~__context ~self =
       custom_uefi_certs
 
 let uefi_mode_to_string = function `setup -> "setup" | `user -> "user"
+
+module BoundedPsq = struct
+  module type Ordered = sig
+    type t
+
+    val compare : t -> t -> int
+  end
+
+  module type S = sig
+    type t
+
+    type k
+
+    type v
+
+    val create : capacity:int -> t
+
+    val add : t -> k -> v -> unit
+    (** [add t k v] adds mapping [k] => [v] to the priority search queue. If
+        the addition of this mapping would exceed the capacity of the queue,
+        the highest priority (lowest) entry is removed to make space
+        for the newest entry.
+
+        If an entry for [k] is already present, the extant entry is
+        updated with [v]. *)
+
+    val remove : t -> k -> unit
+
+    val clear : t -> unit
+
+    val min : t -> (k * v) option
+
+    val find_opt : k -> t -> v option
+
+    val contains : t -> k -> bool
+
+    val iter : (k -> v -> unit) -> t -> unit
+
+    val size : t -> int
+  end
+
+  module Make (K : Ordered) (V : Ordered) :
+    S with type k = K.t and type v = V.t = struct
+    module Q = Psq.Make (K) (V)
+
+    type k = Q.k
+
+    type v = Q.p
+
+    type t = {capacity: int; mutable queue: Q.t}
+
+    let create ~capacity =
+      let capacity = Int.max 0 capacity in
+      {capacity; queue= Q.empty}
+
+    let remove_min ({queue; _} as t) =
+      match Q.min queue with
+      | Some (k, _) ->
+          t.queue <- Q.remove k queue
+      | _ ->
+          ()
+
+    let add t k v =
+      if t.capacity <> 0 then (
+        let n = Q.size t.queue in
+        let would_overflow = n + 1 > t.capacity in
+        let already_present = Q.mem k t.queue in
+        if would_overflow && not already_present then
+          remove_min t ;
+        t.queue <- Q.add k v t.queue
+      )
+
+    let remove t k = t.queue <- Q.remove k t.queue
+
+    let clear t = t.queue <- Q.empty
+
+    let min {queue; _} = Q.min queue
+
+    let find_opt k {queue; _} = Q.find k queue
+
+    let contains t k = Option.is_some (find_opt k t)
+
+    let iter f {queue; _} = Q.iter f queue
+
+    let size t = Q.size t.queue
+  end
+end
