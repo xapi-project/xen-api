@@ -450,6 +450,36 @@ _xe()
                 return 0
                 ;;
 
+            data-source) # for host-data-source-*
+                __xe_debug "param is 'data-source', list command is 'host-data-source-list'"
+                IFS=$','
+                if [[ "${OLDSTYLE_WORDS[1]}" == host-data-source-* ]]; then
+                    # Group data sources. Leave groups with '-' as suffix,
+                    # and unique data source names without '-'
+                    # (i.e. given input of "cpu0-foo,cpu0-bar,xapi_open_fds",
+                    # return "cpu0-,xapi_open_fds")
+                    local list_cmd="$xe host-data-source-list --minimal 2>/dev/null"
+                    local all_vals=$(eval $list_cmd)
+                    local vals_groups=$(__split_into_groups "$all_vals" "cut -d- -f 1 -s")
+                    vals_groups+=$(echo "$all_vals" | \
+                           sed -e 's/,/\n,/g' -e 's/$/\ /g' | \
+                           grep --invert-match "-")
+
+                    set_completions "$vals_groups" "$value"
+
+                    __xe_debug "completion returned $COMPLETION_SUGGESTIONS suggestions"
+                    # if the entered data-source can only refer to a single group,
+                    # then show the datasources in that group
+                    if [[ $COMPLETION_SUGGESTIONS -le 2 ]] ; then
+                        __xe_debug "only one group left, selected"
+                        all_vals=$(eval $list_cmd | \
+                               sed -e 's/,/\ ,/g' -e 's/$/\ /g')
+                        set_completions "$all_vals" "$value"
+                    fi
+                fi
+                return 0
+                ;;
+
             *)
                 snd=`echo ${param} | gawk -F- '{print $NF}'`
                 fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`
