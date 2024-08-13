@@ -1,6 +1,19 @@
 # Copy this file to /etc/bash_completion.d/xe
 # Make sure that cli is on your path, too!
 
+__xe_debug()
+{
+    # avoiding potential errors if the variable is unset with ':-' expansion
+    if [[ -n ${XE_COMPLETION_DEBUG_FILE-} ]]; then
+        echo -e "$*" >> "${XE_COMPLETION_DEBUG_FILE}"
+    fi
+}
+
+__tab_delimited_newline_array()
+{
+    printf "\n\t%s" "$@"
+}
+
 _xe()
 {
     # CA-100561 Tab completion bug when grep_options is set different then default --color=auto
@@ -42,54 +55,81 @@ _xe()
     prev="${OLDSTYLE_WORDS[COMP_CWORD-1]}"
     xe=xe
 
+    __xe_debug
+    __xe_debug "=== completion started ==="
+    __xe_debug "cur is '$cur', prev is '$prev', COMP_CWORD is '$COMP_CWORD'"
+    __xe_debug "OLDSTYLE_WORDS[*] (size ${#OLDSTYLE_WORDS[@]}) is:"
+    __xe_debug $(__tab_delimited_newline_array ${OLDSTYLE_WORDS[@]})
+    __xe_debug
+
     if [[ $COMP_CWORD == 1 ]] ; then
         opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'`
+        __xe_debug "Main command completion triggered, COMP_CWORD==1"
         set_completions "$opts" "$cur"
         return 0
     fi
 
+    __xe_debug "Parameter completion triggered, COMP_CWORD>1"
+
+    # Determine if parameter requires a value or not
     if echo ${OLDSTYLE_WORDS[COMP_CWORD]} | grep "=" > /dev/null; then
+        __xe_debug "'=' found in parameter, triggering completion for a value"
         local param value
         local IFS=""
         param=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f1`
         value=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f2`
+        __xe_debug "param is '$param', value is '$value'"
 
         local vms args
 
         case "$param" in
-            filename|file-name|license-file)
+            filename|file-name|license-file) # for patch-upload etc.
+                __xe_debug "param is one of [filename|file-name|license-file]"
                 IFS=$'\n,'
                 # Here we actually WANT file name completion, so using compgen is OK.
-                COMPREPLY=( $(compgen -f ${value}) )
+                local comp_files=$(compgen -f ${value})
+                COMPREPLY=( ${comp_files} )
+                __xe_debug "triggering filename completion for the value:"
+                __xe_debug $(__tab_delimited_newline_array "$comp_files")
                 return 0
                 ;;
 
             mode) # for pif-reconfigure-ip & vif-configure-ip(v4,v6)
+                __xe_debug "param is 'mode', triggering completion for " \
+                           "specified values given param:"
+                local suggested_modes=""
                 if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
                     IFS=$'\n,'
-                    set_completions "dhcp,static,none" "$value"
+                    suggested_modes="dhcp,static,none"
                     COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
                 elif [ "${COMP_WORDS[1]}" == "pif-reconfigure-ipv6" ]; then
                     IFS=$'\n,'
-                    set_completions "dhcp,static,none,autoconf" "$value"
+                    suggested_modes="dhcp,static,none,autoconf"
                 elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv4" ]; then
                     IFS=$'\n,'
-                    set_completions "static,none" "$value"
+                    suggested_modes="static,none"
                 elif [ "${COMP_WORDS[1]}" == "vif-configure-ipv6" ]; then
                     IFS=$'\n,'
-                    set_completions "static,none" "$value"
+                    suggested_modes="static,none"
                 elif [ "${OLDSTYLE_WORDS[1]}" == "bond-set-mode" ] || [ "${OLDSTYLE_WORDS[1]}" == "bond-create" ]; then
                     IFS=$'\n,'
-                    set_completions "balance-slb,active-backup,lacp" "$value"
+                    suggested_modes="balance-slb,active-backup,lacp"
                 fi
+                __xe_debug "\t$suggested_modes"
+                set_completions "$suggested_modes" "$value"
                 return 0
                 ;;
 
             primary_address_type)
+                __xe_debug "param is 'primary_address_type', triggering " \
+                           "completion for given param:"
+                local suggested_types=""
                 if [ "${COMP_WORDS[1]}" == "pif-set-primary-address-type" ]; then
                     IFS=$'\n,'
-                    set_completions "ipv4,ipv6" "$value"
+                    suggested_types="ipv4,ipv6"
                 fi
+                __xe_debug "\t$suggested_types"
+                set_completions "$suggested_types" "$value"
                 return 0
                 ;;
 
@@ -119,27 +159,34 @@ _xe()
                         # Chop off at the second '-' and append 'list'
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1-2)-list";;
                     *)
-                        # Chop off at the first '-' and append 'list' (works for e.g. 'pif-param-get uuid=<tab>')
+                        # Chop off at the first '-' and append 'list'
+                        # (works for e.g. 'pif-param-get uuid=<tab>', or
+                        # 'observer-param-get uuid=<tab>')
                         cmd="$(echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1)-list";;
                 esac
+                __xe_debug "triggering autocompletion for UUIDs, list command " \
+                           "for the determined class is '$cmd'"
                 IFS=$'\n,'
                 set_completions_for_names "$cmd" 'uuid' "$value"
                 return 1
                 ;;
 
             vm)
+                __xe_debug "triggering autocompletion for vm"
                 IFS=$'\n,'
                 set_completions_for_names 'vm-list' 'name-label' "$value"
                 return 0
                 ;;
 
             host)
+                __xe_debug "triggering autocompletion for host"
                 IFS=$'\n,'
                 set_completions_for_names 'host-list' 'name-label' "$value"
                 return 0
                 ;;
 
             sr)
+                __xe_debug "triggering autocompletion for sr"
                 IFS=$'\n,'
                 set_completions_for_names 'sr-list' 'name-label' "$value"
                 return 0
@@ -156,6 +203,7 @@ _xe()
                 ;;
 
             template)
+                __xe_debug "triggering autocompletion for template"
                 IFS=$'\n,'
                 set_completions_for_names 'template-list' 'name-label' "$value"
                 return 0
@@ -163,6 +211,7 @@ _xe()
 
             # param name is used by *-param-add, *-param-remove, and *-param-get
             param-name)
+                __xe_debug "triggering autocompletion for param-name"
                 if echo ${OLDSTYLE_WORDS[1]} | grep "param-add" > /dev/null; then
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-add//g`
                     paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
@@ -182,6 +231,7 @@ _xe()
                 ;;
 
             cd-name)
+                __xe_debug "triggering autocompletion for cd-name"
                 if [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-add" || "${OLDSTYLE_WORDS[1]}" == "vm-cd-insert" ]]; then
                     IFS=$'\n,'
                     set_completions_for_names 'cd-list' 'name-label' "$value"
@@ -196,30 +246,35 @@ _xe()
                 ;;
 
             on)
+                __xe_debug "triggering autocompletion for on"
                 IFS=$'\n,'
                 set_completions_for_names 'host-list' 'name-label' "$value"
                 return 0
                 ;;
 
             level)
+                __xe_debug "triggering autocompletion for level"
                 IFS=$'\n,'
                 set_completions 'debug,info,warning,error' "$value"
                 return 0
                 ;;
 
             sr-name-label) # for vm-install
+                __xe_debug "triggering autocompletion for sr-name-label"
                 IFS=$'\n,'
                 set_completions_for_names 'sr-list' 'name-label' "$value"
                 return 0
                 ;;
 
             crash-dump-SR | suspend-image-SR | default-SR)
+                __xe_debug "triggering autocompletion for [crash-dump-SR|suspend-image-SR|default-SR]"
                 IFS=$'\n,'
                 set_completions_for_names 'sr-list' 'uuid' "$value"
                 return 0
                 ;;
 
             type) # for vbd-create/vdi-create/sr-create/sr-probe
+                __xe_debug "triggering autocompletion for type"
                 IFS=$'\n,'
                 fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
 
@@ -237,18 +292,21 @@ _xe()
                 ;;
 
             locking-mode) # VIF.locking_mode
+                __xe_debug "triggering autocompletion for locking-mode"
                 IFS=$'\n,'
                 set_completions 'network_default,locked,unlocked,disabled' "$value"
                 return 0
                 ;;
 
             default-locking-mode) # network.default_locking_mode
+                __xe_debug "triggering autocompletion for default-locking-mode"
                 IFS=$'\n,'
                 set_completions 'unlocked,disabled' "$value"
                 return 0
                 ;;
 
             pif-uuids) # bond-create
+                __xe_debug "triggering autocompletion for pif-uuids"
                 val=$(final_comma_separated_param "$value")
                 pifs=`${xe} pif-list --minimal 2>/dev/null`
                 IFS=$'\n,'
@@ -257,12 +315,14 @@ _xe()
                 ;;
 
             allocation-algorithm) # GPU_group.allocation_algorithm
+                __xe_debug "triggering autocompletion for allocation-algorithm"
                 IFS=$'\n,'
                 set_completions 'depth-first,breadth-first' "$value"
                 return 0
                 ;;
 
             entries) # for host-get-system-status
+                __xe_debug "triggering autocompletion for entries"
                 val=$(final_comma_separated_param "$value")
                 master_uuid=$(xe pool-list params=master --minimal 2>/dev/null)
                 IFS=$'\n'
@@ -273,6 +333,7 @@ _xe()
                 ;;
 
             output)
+                __xe_debug "triggering autocompletion for output"
                 case "${OLDSTYLE_WORDS[1]}" in
                     host-get-system-status)
                         IFS=$'\n,'
@@ -283,7 +344,7 @@ _xe()
                 ;;
 
             copy-bios-strings-from) # for vm-install
-                # TODO: Test this really well!
+                __xe_debug "triggering autocompletion for copy-bios-strings-from"
                 set_completions_for_names 'host-list' 'uuid' "$value"
                 return 0
                 ;;
@@ -327,18 +388,21 @@ _xe()
                 ;;
 
             type) # for vmss
+                __xe_debug "triggering autocompletion for VMSS type"
                 IFS=$'\n,'
                 set_completions 'snapshot,checkpoint,snapshot_with_quiesce' "$value"
                 return 0
                 ;;
 
             frequency) # for vmss
+                __xe_debug "triggering autocompletion for VMSS frequency"
                 IFS=$'\n,'
                 set_completions 'hourly,daily,weekly' "$value"
                 return 0
                 ;;
 
             schedule:days) # for vmss
+                __xe_debug "triggering autocompletion for VMSS schedule:days"
                 IFS=$'\n,'
                 LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
                 set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
@@ -346,6 +410,7 @@ _xe()
                 ;;
 
             role-name)
+                __xe_debug "triggering autocompletion for role-name"
                 IFS=$'\n,'
                 LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
                 set_completions 'vm-power-admin,vm-admin,vm-operator,read-only,pool-operator,pool-admin' "$LAST_VALUE"
@@ -353,6 +418,7 @@ _xe()
                 ;;
 
             edition) # for host-apply-edition (licensing)
+                __xe_debug "triggering autocompletion for host's licensing edition"
                 IFS=$'\n,'
                 LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
                 EDITIONS=`${xe} host-all-editions --minimal 2>/dev/null`
@@ -361,6 +427,7 @@ _xe()
                 ;;
 
             protocol) # for sdn-controller
+                __xe_debug "triggering autocompletion for sdn's protocol"
                 case "${OLDSTYLE_WORDS[1]}" in
                     sdn-controller-introduce)
                         IFS=$'\n,'
@@ -375,6 +442,7 @@ _xe()
                 ;;
 
             ignore-vdi-uuids) # for vm-snapshot
+                __xe_debug "triggering autocompletion for vm's ignore-vdi-uuids"
                 val=$(final_comma_separated_param "$value")
                 vdis=$(${xe} vdi-list --minimal 2>/dev/null)
                 IFS=$'\n'
@@ -383,12 +451,14 @@ _xe()
                 ;;
 
             update-sync-frequency) # for pool-configure-update-sync
+                __xe_debug "triggering autocompletion for pool's update-sync-frequency"
                 IFS=$'\n,'
                 set_completions 'daily,weekly' "$value"
                 return 0
                 ;;
 
             placement) # for vm-group-create
+                __xe_debug "triggering autocompletion for vm's placement"
                 IFS=$'\n,'
                 set_completions 'normal,anti-affinity' "$value"
                 return 0
@@ -414,8 +484,10 @@ _xe()
                     set_completions "$uuids" "$value"
                     return 0
                 else
+                    __xe_debug "no uuid to autocomplete, trying to determine if 'list' could be useful"
                     fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
                     snd=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f2`
+                    __xe_debug "fst is '$fst', snd is '$snd'"
                     if [[ "${snd}" == "list" || "${fst}" == "vm" ]]; then
                         IFS=$'\n,'
                         set_completions_for_names "${fst}-list" "$param" "$value"
@@ -427,6 +499,7 @@ _xe()
     else
         local param reqd
         param=${OLDSTYLE_WORDS[COMP_CWORD]}
+        __xe_debug "valueless parameter, param is '$param'"
 
         vmselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
         hostselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
@@ -438,6 +511,10 @@ _xe()
         isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
         isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
         isvmssscheduled=`echo "${param}" | grep "schedule:"`
+        __xe_debug "vmselectors is '$vmselectors', hostselectors is '$hostselectors', " \
+                   "srselectors is '$srselectors'"
+        __xe_debug "isdeviceconfig is '$isdeviceconfig', isvcpusparams is '$isvcpuparams', " \
+                   "isvmssscheduled is '$isisvmssscheduled'"
 
         if [ "${isdeviceconfig}" ]; then
             IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
@@ -511,6 +588,9 @@ final_comma_separated_param()
 }
 
 
+# set_completions_for_names list-cmd param-name param-value
+# Gets the list of possible values for a particular parameter name given
+# a list-cmd (like vm-list, for VM UUIDs, for example)
 set_completions_for_names()
 {
     local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null)
@@ -534,16 +614,21 @@ set_completions()
     # TODO: Do not generate space suffixes, which have to be removed here.
     local words=$( echo "$1" | sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | sed -e 's/ *$//' )
     local prefix="$2"
+    __xe_debug "set_completions()"
     # TODO: Stop changing IFS.
     local IFS=$'\n'
     local word=
     COMPREPLY=()
+
+    __xe_debug "prefix is '$prefix', words[*] is:"
     for word in $words; do
         # Add a space suffix to completions which do not end in '=' or ':'.
         if [[ "$word" = "$prefix"*[=:] ]]; then
             COMPREPLY+=( $(printf '%q' "$word") )
+            __xe_debug "\t$word"
         elif [[ "$word" = "$prefix"* ]]; then
             COMPREPLY+=( $(printf '%q ' "$word") )
+            __xe_debug "\t$word"
         fi
     done
 }
