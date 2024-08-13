@@ -32,23 +32,25 @@ _xe()
     # have a particular problem with "=", so we work around by
     # regenerating the old style of array.
     j=0
+    # needs to be reset, otherwise as a global it will preserve its
+    # non-overwritten values between calls, further confusing debug output
+    OLDSTYLE_WORDS=()
     for ((i=0;i<=$COMP_CWORD;i++)); do
         if [ "${COMP_WORDS[$i]}" = "=" ]; then
-            j=$(expr $j - 1)
+            j=$((j - 1))
             OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
             # and the next one if there is one
             if [ $i -lt $COMP_CWORD ]; then
-                i=$(expr $i + 1)
+                i=$((i + 1))
                 OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
-
             fi
-            j=$(expr $j + 1)
+            j=$((j + 1))
         else
             OLDSTYLE_WORDS[$j]="${COMP_WORDS[$i]}"
-            j=$(expr $j + 1)
+            j=$((j + 1))
         fi
     done
-    OLDSTYLE_CWORD=$(expr $j - 1)
+    OLDSTYLE_CWORD=$((j - 1))
     COMP_CWORD=$OLDSTYLE_CWORD
 
     cur="${OLDSTYLE_WORDS[COMP_CWORD]}"
@@ -216,18 +218,16 @@ _xe()
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-add//g`
                     paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
                     set_completions "$paramsset" "$value"
-                    return 0
                 elif echo ${OLDSTYLE_WORDS[1]} | grep "param-remove" > /dev/null; then
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-remove//g`
                     paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
                     set_completions "$paramsset" "$value"
-                    return 0
                 elif echo ${OLDSTYLE_WORDS[1]} | grep "param-get" > /dev/null; then
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-get//g`
                     paramsset=`${xe} ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
                     set_completions "$paramsset" "$value"
-                    return 0
                 fi
+                return 0
                 ;;
 
             cd-name)
@@ -235,14 +235,13 @@ _xe()
                 if [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-add" || "${OLDSTYLE_WORDS[1]}" == "vm-cd-insert" ]]; then
                     IFS=$'\n,'
                     set_completions_for_names 'cd-list' 'name-label' "$value"
-                    return 0
                 elif [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-remove" ]]; then
                     vm=`for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^vm="; done`
                     local cds=`${xe} vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null`
                     IFS=$'\n,'
                     set_completions "$cds" "$value"
-                    return 0
                 fi
+                return 0
                 ;;
 
             on)
@@ -280,15 +279,12 @@ _xe()
 
                 if [[ "${fst}" == "vbd" ]]; then
                     set_completions 'Disk,CD' "$value"
-                    return 0
                 elif [[ "${fst}" == "vdi" ]]; then
                     set_completions 'system,user,suspend,crashdump' "$value"
-                    return 0
                 elif [[ "${fst}" == "sr" ]]; then
-                    local words=$( ${xe} sm-list params=type --minimal 2>/dev/null )
-                    set_completions "$words" "$value"
-                    return 0
+                    set_completions_for_names "sm-list" "type" "$value"
                 fi
+                return 0
                 ;;
 
             locking-mode) # VIF.locking_mode
@@ -516,6 +512,7 @@ _xe()
         __xe_debug "isdeviceconfig is '$isdeviceconfig', isvcpusparams is '$isvcpuparams', " \
                    "isvmssscheduled is '$isisvmssscheduled'"
 
+        local extraargs=""
         if [ "${isdeviceconfig}" ]; then
             IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
             extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
@@ -559,8 +556,6 @@ _xe()
             pfx=`echo ${isvmssscheduled} | cut -d ':' -f 1`
             set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
             return 0
-        else
-            extraargs=""
         fi
 
         IFS=$'\n,'
@@ -599,7 +594,9 @@ set_completions_for_names()
 
 params()
 {
-    "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
+    "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | \
+        cut -d: -f2- | egrep -v "^ $" | cut -c 2- | \
+        sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
 }
 
 set_completions_for_params()
