@@ -32,7 +32,7 @@ open D
 let vmselectors = ["<vm-selectors>"]
 
 let vmselectorsinfo =
-  "VMs can be specified by filtering the full list of VMs on the values of \
+  " VMs can be specified by filtering the full list of VMs on the values of \
    zero or more fields. For example, specifying 'uuid=<some_uuid>' will select \
    only the VM with that uuid, and 'power-state=halted' will select only VMs \
    whose 'power-state' field is equal to 'halted'. The special pseudo-field \
