@@ -302,10 +302,10 @@ def main(argv):
     # set up library preload path for qemu such that it can use jemalloc
     qemu_env = os.environ
     if "LD_PRELOAD" not in qemu_env:
-       qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1"
+       qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.2"
     else:
-       qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.1:" + qemu_env["LD_PRELOAD"]
-    qemu_env["MALLOC_CONF"] = "narenas:1,tcache:false,lg_dirty_mult:22"
+       qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.2:" + qemu_env["LD_PRELOAD"]
+    qemu_env["MALLOC_CONF"] = "narenas:1,tcache:false"
 
     sys.stdout.flush()
     sys.stderr.flush()
