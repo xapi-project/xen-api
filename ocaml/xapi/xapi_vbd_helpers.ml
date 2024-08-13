@@ -377,7 +377,7 @@ let clear_current_operations ~__context ~self =
 (** Check if the device string has the right form *)
 let valid_device dev ~_type =
   dev = "autodetect"
-  || Option.is_none (Device_number.of_string dev ~hvm:false)
+  || Option.is_some (Device_number.of_string dev ~hvm:false)
   ||
   match _type with
   | `Floppy ->
