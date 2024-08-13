@@ -732,6 +732,54 @@ module Caching = struct
     ; subject_name: string
     ; rbac_permissions: string list
   }
+
+  module type EXTERNAL_AUTH_CACHE =
+    Helpers.AuthenticationCache.S
+      with type user = string
+       and type password = string
+       and type session = external_auth_result
+
+  let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
+
+  let create_salt () =
+    (* Creates a Cstruct of length 8. *)
+    let data = Mirage_crypto_rng.generate 8 in
+    let bytes = Cstruct.to_bytes data in
+    (* Encode the salt as a hex string. Each byte becomes 2
+       hexadecimal digits, so the length is 16 (the maximum for
+       crypt_r). *)
+    let hexify char acc = Printf.sprintf "%s%02x" acc (Char.code char) in
+    Bytes.fold_right hexify bytes ""
+
+  module AuthenticatedResult = struct
+    type key = string
+
+    type salt = string
+
+    type digest = string
+
+    type secret = external_auth_result
+
+    type t = digest * salt * secret
+
+    let create digest salt secret = (digest, salt, secret)
+
+    let read ((_, _, _) as t) = t
+
+    let create_salt = create_salt
+
+    let hash key salt =
+      match Pam.(crypt ~algo:SHA512 ~key ~salt) with
+      | Ok hash ->
+          hash
+      | Error _ ->
+          failwith ("Unable to compute hash in " ^ __FUNCTION__)
+
+    let equal_digest = ( = )
+  end
+
+  module AuthenticationCache : EXTERNAL_AUTH_CACHE =
+    Helpers.AuthenticationCache.Make (String) (AuthenticatedResult)
 end
 
 (* CP-714: Modify session.login_with_password to first try local super-user
