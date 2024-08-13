@@ -14,6 +14,18 @@ __tab_delimited_newline_array()
     printf "\n\t%s" "$@"
 }
 
+# __split_into_groups input cut-cmd
+__split_into_groups()
+{
+    echo "$1" | \
+    sed -e 's/,/\n/g' -e 's/$/\ /g' | \
+    eval $2 | \
+    uniq | \
+    sed -ze 's/\n/- ,/g'
+}
+
+COMPLETION_SUGGESTIONS=0
+
 _xe()
 {
     # CA-100561 Tab completion bug when grep_options is set different then default --color=auto
@@ -65,9 +77,25 @@ _xe()
     __xe_debug
 
     if [[ $COMP_CWORD == 1 ]] ; then
-        opts=`${xe} help --minimal --all 2>/dev/null | sed -e 's/,/\ ,/g' -e 's/$/\ /g'`
         __xe_debug "Main command completion triggered, COMP_CWORD==1"
+
+        # determine 'modules' (vm-, host-, pool-, etc.) that commands
+        # are grouped into.
+        local all_cmds=$("$xe" help --minimal --all 2>/dev/null)
+        opts=$(__split_into_groups "$all_cmds" "cut -d- -f 1")
+
         set_completions "$opts" "$cur"
+        __xe_debug "completion returned $COMPLETION_SUGGESTIONS suggestions"
+
+        # if the entered command can only refer to a single group,
+        # then show the subcommands in that group
+        if [[ $COMPLETION_SUGGESTIONS -le 1 ]] ; then
+            __xe_debug "only one group left, selected"
+            opts=$("$xe" help --minimal --all 2>/dev/null | \
+                    sed -e 's/,/\ ,/g' -e 's/$/\ /g')
+            set_completions "$opts" "$cur"
+        fi
+
         return 0
     fi
 
@@ -557,6 +585,7 @@ set_completions()
     # TODO: Stop changing IFS.
     local IFS=$'\n'
     local word=
+    COMPLETION_SUGGESTIONS=0
     COMPREPLY=()
 
     __xe_debug "prefix is '$prefix', words[*] is:"
@@ -564,9 +593,11 @@ set_completions()
         # Add a space suffix to completions which do not end in '=' or ':'.
         if [[ "$word" = "$prefix"*[=:] ]]; then
             COMPREPLY+=( $(printf '%q' "$word") )
+            COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
             __xe_debug "\t$word"
         elif [[ "$word" = "$prefix"* ]]; then
             COMPREPLY+=( $(printf '%q ' "$word") )
+            COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
             __xe_debug "\t$word"
         fi
     done
