@@ -2206,3 +2206,132 @@ module BoundedPsq = struct
     let size t = Q.size t.queue
   end
 end
+
+module AuthenticationCache = struct
+  (* Associate arbitrary data with an expiry time. *)
+  module Expires (Data : sig
+    type t
+  end) =
+  struct
+    type t = Data.t with_expiration
+
+    and 'a with_expiration = {data: 'a; expires: Mtime.Span.t}
+
+    let compare {expires= e; _} {expires= e'; _} = Mtime.Span.compare e e'
+  end
+
+  module type Ordered = sig
+    type t
+
+    val compare : t -> t -> int
+  end
+
+  (* A secret associates a digest - derived from a key - with some data. *)
+  module type Secret = sig
+    (** The type of key securing the secret, e.g. a password. *)
+    type key
+
+    (** The type of a digest, derived from a [key] and [salt], e.g. a hashed password. *)
+    type digest
+
+    (** Extra data passed to the hashing routine. *)
+    type salt
+
+    (** The contents of the secret, e.g. an authenticated session. *)
+    type secret
+
+    type t
+
+    val create : digest -> salt -> secret -> t
+
+    val read : t -> digest * salt * secret
+
+    val hash : key -> salt -> digest
+
+    val create_salt : unit -> salt
+
+    val equal_digest : digest -> digest -> bool
+  end
+
+  module type S = sig
+    type t
+
+    type user
+
+    type password
+
+    type session
+
+    val create : size:int -> t
+
+    val cache : t -> user -> password -> session -> unit
+
+    val cached : t -> user -> password -> session option
+  end
+
+  module Make (User : Ordered) (Secret : Secret) :
+    S
+      with type user = User.t
+       and type password = Secret.key
+       and type session = Secret.secret = struct
+    module Q = BoundedPsq.Make (User) (Expires (Secret))
+
+    type user = User.t
+
+    type password = Secret.key
+
+    type session = Secret.secret
+
+    type t = {cache: Q.t; mutex: Mutex.t; elapsed: Mtime_clock.counter}
+
+    let create ~size =
+      {
+        cache= Q.create ~capacity:size
+      ; mutex= Mutex.create ()
+      ; elapsed= Mtime_clock.counter ()
+      }
+
+    let with_lock m f =
+      Mutex.(
+        lock m ;
+        let r = f () in
+        unlock m ; r
+      )
+
+    let ( let@ ) = ( @@ )
+
+    let cache t user password session =
+      let@ () = with_lock t.mutex in
+      let expires =
+        let elapsed = Mtime_clock.count t.elapsed in
+        let timeout = !Xapi_globs.external_authentication_expiry in
+        Mtime.Span.add elapsed timeout
+      in
+      let salt = Secret.create_salt () in
+      let digest = Secret.hash password salt in
+      let data = Secret.create digest salt session in
+      Q.add t.cache user {data; expires}
+
+    let cached t user password =
+      let@ () = with_lock t.mutex in
+      match Q.find_opt user t.cache with
+      | Some {data= secret; expires} ->
+          let elapsed = Mtime_clock.count t.elapsed in
+          if Clock.Timer.span_is_longer elapsed ~than:expires then (
+            (* Remove expired entry - regardless of whether
+               authentication would succeed. *)
+            Q.remove t.cache user ;
+            None
+          ) else
+            (* A non-expired entry exists, return the associated data
+               if the provided password matches the hashed password
+               stored inside the entry. *)
+            let digest, salt, secret = Secret.read secret in
+            if Secret.(equal_digest (hash password salt) digest) then
+              Some secret
+            else
+              None
+      | _ ->
+          None
+  end
+end
