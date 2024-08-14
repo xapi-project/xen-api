@@ -201,7 +201,11 @@ _xe()
                 __xe_debug "triggering autocompletion for UUIDs, list command " \
                            "for the determined class is '$cmd'"
                 IFS=$'\n,'
-                set_completions_for_names "$cmd" 'uuid' "$value"
+
+                SHOW_DESCRIPTION=1
+                local name_label_cmd="$xe $cmd params=name-label,number,vm-name-label,device 2>/dev/null --minimal uuid="
+                __xe_debug "name_label_cmd is '$name_label_cmd'"
+                set_completions_for_names "$cmd" 'uuid' "$value" "$name_label_cmd"
                 return 1
                 ;;
 
@@ -300,7 +304,10 @@ _xe()
             crash-dump-SR | suspend-image-SR | default-SR)
                 __xe_debug "triggering autocompletion for [crash-dump-SR|suspend-image-SR|default-SR]"
                 IFS=$'\n,'
-                set_completions_for_names 'sr-list' 'uuid' "$value"
+                SHOW_DESCRIPTION=1
+                local name_label_cmd=""$xe" sr-list params=name-label 2>/dev/null --minimal uuid="
+                __xe_debug "name_label_cmd is '$name_label_cmd'"
+                set_completions_for_names 'sr-list' 'uuid' "$value" "$name_label_cmd"
                 return 0
                 ;;
 
@@ -335,10 +342,13 @@ _xe()
 
             pif-uuids) # bond-create
                 __xe_debug "triggering autocompletion for pif-uuids"
-                val=$(final_comma_separated_param "$value")
-                pifs=`${xe} pif-list --minimal 2>/dev/null`
                 IFS=$'\n,'
-                set_completions "$pifs" "$val"
+                val=$(final_comma_separated_param "$value")
+
+                SHOW_DESCRIPTION=1
+                local name_label_cmd="$xe pif-list params=device 2>/dev/null --minimal uuid="
+                __xe_debug "name_label_cmd is '$name_label_cmd'"
+                set_completions_for_names 'pif-list' 'uuid' "$val" "$name_label_cmd"
                 return 0
                 ;;
 
@@ -373,7 +383,10 @@ _xe()
 
             copy-bios-strings-from) # for vm-install
                 __xe_debug "triggering autocompletion for copy-bios-strings-from"
-                set_completions_for_names 'host-list' 'uuid' "$value"
+                SHOW_DESCRIPTION=1
+                local name_label_cmd="$xe host-list params=name-label 2>/dev/null --minimal uuid="
+                __xe_debug "name_label_cmd is '$name_label_cmd'"
+                set_completions_for_names 'host-list' 'uuid' "$value" "$name_label_cmd"
                 return 0
                 ;;
 
@@ -432,11 +445,15 @@ _xe()
                 ;;
 
             ignore-vdi-uuids) # for vm-snapshot
+                # Note: Name labels should really be shown here as well, but there
+                # are way too many results for vdi-list and it seems like the
+                # whole thing crashes without displaying any autocompletion at
+                # all. Better keep these UUIDs alone.
                 __xe_debug "triggering autocompletion for vm's ignore-vdi-uuids"
                 val=$(final_comma_separated_param "$value")
-                vdis=$(${xe} vdi-list --minimal 2>/dev/null)
+
                 IFS=$'\n'
-                set_completions "$vdis" "$val"
+                set_completions_for_names "vdi-list" "uuid" "$val"
                 return 0
                 ;;
 
@@ -487,6 +504,8 @@ _xe()
             *)
                 snd=`echo ${param} | gawk -F- '{print $NF}'`
                 fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`
+                __xe_debug "no hardcoded case met, processing generally"
+                __xe_debug "fst is '$fst', snd is '$snd'"
 
                 if [[ "${snd}" == "uuid" ]]; then
                     if [[ "${fst}" == "snapshot" ]]; then
@@ -499,9 +518,15 @@ _xe()
                     else
                         class=${fst}
                     fi
-                    uuids=`${xe} ${class}-list ${all} params=uuid --minimal 2>/dev/null`
+
+                    # Show corresponding name labels for each UUID
+                    SHOW_DESCRIPTION=1
+                    local name_label_cmd="$xe ${class}-list params=name-label 2>/dev/null --minimal uuid="
+                    __xe_debug "triggering autocompletion for UUIDs, list command is '${class}-list'"
+                    __xe_debug "name_label_cmd is '$name_label_cmd'"
+
                     IFS=$'\n,'
-                    set_completions "$uuids" "$value"
+                    set_completions_for_names "${class}-list $all" "uuid" "$value" "$name_label_cmd"
                     return 0
                 else
                     __xe_debug "no uuid to autocomplete, trying to determine if 'list' could be useful"
@@ -587,13 +612,16 @@ final_comma_separated_param()
 }
 
 
-# set_completions_for_names list-cmd param-name param-value
+# set_completions_for_names list-cmd param-name param-value description-cmd
 # Gets the list of possible values for a particular parameter name given
 # a list-cmd (like vm-list, for VM UUIDs, for example)
 set_completions_for_names()
 {
-    local vals=$("$xe" "$1" --minimal params="$2" 2>/dev/null)
-    set_completions "$vals" "$3"
+    __xe_debug "set_completions_for_names()"
+    local cmd="$xe $1 --minimal params=$2 2>/dev/null"
+    __xe_debug "full list cmd is '$cmd'"
+    local vals=$(eval "$cmd")
+    set_completions "$vals" "$3" "$4"
 }
 
 description()
