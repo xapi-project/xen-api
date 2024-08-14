@@ -85,6 +85,34 @@ let test_ca253933_valid_operations () =
   in
   List.iter operation_is_valid valid_operations
 
+let test_valid_device () =
+  let valid_devices =
+    [
+      ("autodetect", `Floppy)
+    ; ("sda", `Disk)
+    ; ("sda0", `Disk)
+    ; ("sdp", `Disk)
+    ; ("sdp99", `Disk)
+    ; ("xvda", `Disk)
+    ; ("xvda0", `Disk)
+    ; ("xvdp", `Disk)
+    ; ("xvdp99", `Disk)
+    ; ("hda", `Disk)
+    ; ("hda0", `Disk)
+    ; ("hdp", `Disk)
+    ; ("hdp99", `Disk)
+    ; ("fda", `Disk)
+    ; ("fdb", `Disk)
+    ; ("0", `CD)
+    ; ("1", `CD)
+    ]
+  in
+  let check (dev, _type) =
+    let f = Xapi_vbd_helpers.valid_device in
+    Alcotest.(check bool) "must be equal" true (f dev ~_type)
+  in
+  List.iter check valid_devices
+
 let test =
   [
     ( "test_ca253933_invalid_operations"
@@ -92,4 +120,5 @@ let test =
     , test_ca253933_invalid_operations
     )
   ; ("test_ca253933_valid_operations", `Quick, test_ca253933_valid_operations)
+  ; ("test_valid_device", `Quick, test_valid_device)
   ]
