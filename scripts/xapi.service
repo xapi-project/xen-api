@@ -21,8 +21,8 @@ Conflicts=shutdown.target
 
 [Service]
 User=root
-Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.1"
-Environment="MALLOC_CONF=narenas:1,tcache:true,lg_dirty_mult:22"
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=narenas:1,tcache:true"
 Type=simple
 Restart=on-failure
 ExecStart=@LIBEXECDIR@/xapi-init start

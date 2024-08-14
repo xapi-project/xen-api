@@ -128,6 +128,11 @@ module Request : sig
 
   val to_wire_string : t -> string
   (** [to_wire_string t] returns a string which could be sent to a server *)
+
+  val traceparent_of : t -> Tracing.Span.t option
+
+  val with_tracing :
+    ?attributes:(string * string) list -> name:string -> t -> (t -> 'a) -> 'a
 end
 
 (** Parsed form of the HTTP response *)
