@@ -25,6 +25,7 @@ __split_into_groups()
 }
 
 COMPLETION_SUGGESTIONS=0
+SHOW_DESCRIPTION=0
 
 _xe()
 {
@@ -76,6 +77,8 @@ _xe()
     __xe_debug $(__tab_delimited_newline_array ${OLDSTYLE_WORDS[@]})
     __xe_debug
 
+    SHOW_DESCRIPTION=0
+
     if [[ $COMP_CWORD == 1 || $COMP_CWORD == 2 && ${OLDSTYLE_WORDS[1]} == "help" ]] ; then
         __xe_debug "Main command completion triggered, COMP_CWORD==1 (or help)"
 
@@ -91,9 +94,10 @@ _xe()
         # then show the subcommands in that group
         if [[ $COMPLETION_SUGGESTIONS -le 1 ]] ; then
             __xe_debug "only one group left, selected"
+            SHOW_DESCRIPTION=1
             opts=$("$xe" help --minimal --all 2>/dev/null | \
                     sed -e 's/,/\ ,/g' -e 's/$/\ /g')
-            set_completions "$opts" "$cur"
+            set_completions "$opts" "$cur" "description "
         fi
 
         return 0
@@ -592,6 +596,12 @@ set_completions_for_names()
     set_completions "$vals" "$3"
 }
 
+description()
+{
+    "$xe" help "$1" 2>/dev/null | grep '^[^:]*description' | \
+        cut -d: -f2- | cut -d. -f1
+}
+
 params()
 {
     "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | \
@@ -607,11 +617,22 @@ set_completions_for_params()
 
 set_completions()
 {
-    # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
-    # TODO: Do not generate space suffixes, which have to be removed here.
-    local words=$( echo "$1" | sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | sed -e 's/ *$//' )
     local prefix="$2"
+    local description_cmd="$3"
+    # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
+    # Only suggest words that start with the currently typed out prefix
+    # TODO: Do not generate space suffixes, which have to be removed here.
+    local words=$( echo "$1" | \
+                   sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
+                   sed -e 's/ *$//' | \
+                   grep "^${prefix}.*" )
+
     __xe_debug "set_completions()"
+    if [[ $SHOW_DESCRIPTION == 1 ]]; then
+        local max_cmd_length=$( echo "$words" | wc -L )
+        __xe_debug "max_cmd_length is '$max_cmd_length'"
+    fi
+
     # TODO: Stop changing IFS.
     local IFS=$'\n'
     local word=
@@ -620,17 +641,28 @@ set_completions()
 
     __xe_debug "prefix is '$prefix', words[*] is:"
     for word in $words; do
+        COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
+        __xe_debug "\t$word"
+
         # Add a space suffix to completions which do not end in '=' or ':'.
-        if [[ "$word" = "$prefix"*[=:] ]]; then
+        if [[ "${word:0-1}" = [=:] ]]; then
             COMPREPLY+=( $(printf '%q' "$word") )
-            COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
-            __xe_debug "\t$word"
-        elif [[ "$word" = "$prefix"* ]]; then
-            COMPREPLY+=( $(printf '%q ' "$word") )
-            COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
-            __xe_debug "\t$word"
+        else
+            local description=""
+            if [[ $SHOW_DESCRIPTION == 1 ]]; then
+                description=" - $(eval $description_cmd$word)"
+                __xe_debug "\t  showing command description - '$description'"
+            fi
+            # Right-pad the command with spaces before the help string
+            COMPREPLY+=( $(printf "%-${max_cmd_length}q %s" "$word" "$description") )
         fi
     done
+
+    # Clean up the help information to use the actual command
+    # only if one match left
+    if [[ ${#COMPREPLY[*]} -eq 1 ]]; then
+        COMPREPLY=( ${COMPREPLY[0]%% - *} )
+    fi
 }
 
 complete -F _xe -o nospace xe
