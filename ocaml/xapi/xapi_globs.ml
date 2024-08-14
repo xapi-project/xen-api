@@ -639,7 +639,7 @@ let metrics_prefix_mem_vms = "xcp-rrdd-mem_vms"
 let metrics_prefix_pvs_proxy = "pvsproxy-"
 
 (** Path to trigger file for Network Reset. *)
-let network_reset_trigger = "/tmp/network-reset"
+let network_reset_trigger = "/var/tmp/network-reset"
 
 let first_boot_dir = "/etc/firstboot.d/"
 
