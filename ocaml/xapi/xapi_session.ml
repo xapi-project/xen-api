@@ -780,6 +780,64 @@ module Caching = struct
 
   module AuthenticationCache : EXTERNAL_AUTH_CACHE =
     Helpers.AuthenticationCache.Make (String) (AuthenticatedResult)
+
+  let cache = ref None
+
+  let lock = Mutex.create ()
+
+  let ( let@ ) = ( @@ )
+
+  (* Attain the extant cache or get nothing if caching is
+     disabled. This function exists to delay the construction of the
+     cache, as Xapi_globs configuration is not guaranteed to have been
+     populated before the top-level code of this module is executed. *)
+  let get_or_init_cache () =
+    if not !Xapi_globs.external_authentication_cache_enabled then
+      None
+    else
+      let capacity = !Xapi_globs.external_authentication_cache_size in
+      let@ () = with_lock lock in
+      match !cache with
+      | Some _ as extant ->
+          extant
+      | _ ->
+          let auth_cache = AuthenticationCache.create ~size:capacity in
+          let instance = Some auth_cache in
+          cache := instance ;
+          instance
+
+  (* Try to insert into cache. The cache could have been disabled
+     during query to external authentication plugin. *)
+  let insert_into_cache username password result =
+    match get_or_init_cache () with
+    | None ->
+        ()
+    | Some cache ->
+        let@ () = with_lock lock in
+        AuthenticationCache.cache cache username password result
+
+  (* Consult the cache or rely on a provided "slow path". Each time
+     the slow path is invoked, an attempt is made to cache its result. *)
+  let memoize username password ~slow_path =
+    let slow_path () =
+      let ext_auth_result = slow_path () in
+      insert_into_cache username password ext_auth_result ;
+      ext_auth_result
+    in
+    match get_or_init_cache () with
+    | None ->
+        slow_path ()
+    | Some cache -> (
+        let result =
+          let@ () = with_lock lock in
+          AuthenticationCache.cached cache username password
+        in
+        match result with
+        | None ->
+            slow_path ()
+        | Some prev_result ->
+            prev_result
+      )
 end
 
 (* CP-714: Modify session.login_with_password to first try local super-user
@@ -1142,7 +1200,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                     ; subject_name
                     ; rbac_permissions
                     } =
-                query_external_auth ()
+                Caching.memoize uname pwd ~slow_path:query_external_auth
               in
               login_no_password_common ~__context ~uname:(Some uname)
                 ~originator
