@@ -311,10 +311,10 @@ _xe()
                 return 0
                 ;;
 
-            type) # for vbd-create/vdi-create/sr-create/sr-probe
-                __xe_debug "triggering autocompletion for type"
+            type) # for vbd-create/vdi-create/sr-create/sr-probe/vmss-create
                 IFS=$'\n,'
                 fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
+                __xe_debug "triggering autocompletion for type, class is '$fst'"
 
                 if [[ "${fst}" == "vbd" ]]; then
                     set_completions 'Disk,CD' "$value"
@@ -322,6 +322,9 @@ _xe()
                     set_completions 'system,user,suspend,crashdump' "$value"
                 elif [[ "${fst}" == "sr" ]]; then
                     set_completions_for_names "sm-list" "type" "$value"
+                elif [[ "${fst}" == "vmss" ]]; then
+                    set_completions 'snapshot,checkpoint,snapshot_with_quiesce' "$value"
+
                 fi
                 return 0
                 ;;
@@ -387,13 +390,6 @@ _xe()
                 local name_label_cmd="$xe host-list params=name-label 2>/dev/null --minimal uuid="
                 __xe_debug "name_label_cmd is '$name_label_cmd'"
                 set_completions_for_names 'host-list' 'uuid' "$value" "$name_label_cmd"
-                return 0
-                ;;
-
-            type) # for vmss
-                __xe_debug "triggering autocompletion for VMSS type"
-                IFS=$'\n,'
-                set_completions 'snapshot,checkpoint,snapshot_with_quiesce' "$value"
                 return 0
                 ;;
 
