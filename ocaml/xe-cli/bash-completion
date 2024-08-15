@@ -345,44 +345,6 @@ _xe()
                 return 0
                 ;;
 
-            backup-type) # for vmpp
-                IFS=$'\n,'
-                set_completions 'snapshot,checkpoint' "$value"
-                return 0
-                ;;
-
-            backup-frequency) # for vmpp
-                IFS=$'\n,'
-                set_completions 'hourly,daily,weekly' "$value"
-                return 0
-                ;;
-
-            archive-frequency) # for vmpp
-                IFS=$'\n,'
-                set_completions 'never,always_after_backup,daily,weekly' "$value"
-                return 0
-                ;;
-
-            archive-target-type) # for vmpp
-                IFS=$'\n,'
-                set_completions 'none,cifs,nfs' "$value"
-                return 0
-                ;;
-
-            backup-schedule:days) # for vmpp
-                IFS=$'\n,'
-                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-                set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
-                return 0
-                ;;
-
-            archive-schedule:days) # for vmpp
-                IFS=$'\n,'
-                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-                set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
-                return 0
-                ;;
-
             type) # for vmss
                 __xe_debug "triggering autocompletion for VMSS type"
                 IFS=$'\n,'
@@ -502,10 +464,6 @@ _xe()
         srselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<sr-selectors>"`
         isdeviceconfig=`echo "${param}" | grep "device-config:"`
         isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
-        isvmppbackupschedule=`echo "${param}" | grep "backup-schedule:"`
-        isvmpparchiveschedule=`echo "${param}" | grep "archive-schedule:"`
-        isvmpparchivetargetconfig=`echo "${param}" | grep "archive-target-config:"`
-        isvmppalarmconfig=`echo "${param}" | grep "alarm-config:"`
         isvmssscheduled=`echo "${param}" | grep "schedule:"`
         __xe_debug "vmselectors is '$vmselectors', hostselectors is '$hostselectors', " \
                    "srselectors is '$srselectors'"
@@ -536,22 +494,6 @@ _xe()
             else
                 extraargs=",sr="
             fi
-        elif [ "${isvmppbackupschedule}" ]; then
-            pfx=`echo ${isvmppbackupschedule} | cut -d ':' -f 1`
-            set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
-            return 0
-        elif [ "${isvmpparchiveschedule}" ]; then
-            pfx=`echo ${isvmpparchiveschedule} | cut -d ':' -f 1`
-            set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
-            return 0
-        elif [ "${isvmpparchivetargetconfig}" ]; then
-            pfx=`echo ${isvmpparchivetargetconfig} | cut -d ':' -f 1`
-            set_completions "${pfx}:location=,${pfx}:username=,${pfx}:password=" "$param"
-            return 0
-        elif [ "${isvmppalarmconfig}" ]; then
-            pfx=`echo ${isvmppalarmconfig} | cut -d ':' -f 1`
-            set_completions "${pfx}:smtp_server=,${pfx}:smtp_port=,${pfx}:email_address=" "$param"
-            return 0
         elif [ "${isvmssscheduled}" ]; then
             pfx=`echo ${isvmssscheduled} | cut -d ':' -f 1`
             set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
