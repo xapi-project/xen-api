@@ -127,7 +127,7 @@ let ok_none = Ok None
 module Status = struct
   type status_code = Unset | Ok | Error [@@deriving rpcty]
 
-  type t = {status_code: status_code; description: string option}
+  type t = {status_code: status_code; _description: string option}
 end
 
 module Attributes = struct
@@ -151,6 +151,8 @@ end
 module SpanContext = struct
   type t = {trace_id: string; span_id: string} [@@deriving rpcty]
 
+  let context trace_id span_id = {trace_id; span_id}
+
   let to_traceparent t = Printf.sprintf "00-%s-%s-01" t.trace_id t.span_id
 
   let of_traceparent traceparent =
@@ -167,7 +169,7 @@ module SpanContext = struct
 end
 
 module SpanLink = struct
-  type t = {context: SpanContext.t; attributes: (string * string) list}
+  type t = {_context: SpanContext.t; _attributes: (string * string) list}
 end
 
 module Span = struct
@@ -208,7 +210,7 @@ module Span = struct
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
-    let status : Status.t = {status_code= Status.Unset; description= None} in
+    let status : Status.t = {status_code= Status.Unset; _description= None} in
     let links = [] in
     let events = [] in
     {
@@ -250,7 +252,7 @@ module Span = struct
   let set_span_kind span span_kind = {span with span_kind}
 
   let add_link span context attributes =
-    let link : SpanLink.t = {context; attributes} in
+    let link : SpanLink.t = {_context= context; _attributes= attributes} in
     {span with links= link :: span.links}
 
   let add_event span name attributes =
@@ -263,7 +265,7 @@ module Span = struct
     | exn, stacktrace -> (
         let msg = Printexc.to_string exn in
         let exn_type = Printexc.exn_slot_name exn in
-        let description =
+        let _description =
           Some
             (Printf.sprintf "Error: %s Type: %s Backtrace: %s" msg exn_type
                stacktrace
@@ -286,17 +288,17 @@ module Span = struct
                 span.attributes
                 (Attributes.of_list exn_attributes)
             in
-            {span with status= {status_code; description}; attributes}
+            {span with status= {status_code; _description}; attributes}
         | _ ->
             span
       )
 
   let set_ok span =
-    let description = None in
+    let _description = None in
     let status_code = Status.Ok in
     match span.status.status_code with
     | Unset ->
-        {span with status= {status_code; description}}
+        {span with status= {status_code; _description}}
     | _ ->
         span
 end
@@ -311,7 +313,7 @@ module Spans = struct
         Hashtbl.length spans
     )
 
-  let max_spans = Atomic.make 1000
+  let max_spans = Atomic.make 2500
 
   let set_max_spans x = Atomic.set max_spans x
 
@@ -519,8 +521,8 @@ module TracerProvider = struct
       get_tracer_providers_unlocked
 
   let set ?enabled ?attributes ?endpoints ~uuid () =
-    let update_provider (provider : t) ?(enabled = provider.enabled) attributes
-        endpoints =
+    let update_provider (provider : t) enabled attributes endpoints =
+      let enabled = Option.value ~default:provider.enabled enabled in
       let attributes : string Attributes.t =
         Option.fold ~none:provider.attributes ~some:Attributes.of_list
           attributes
@@ -537,7 +539,7 @@ module TracerProvider = struct
         let provider =
           match Hashtbl.find_opt tracer_providers uuid with
           | Some (provider : t) ->
-              update_provider provider ?enabled attributes endpoints
+              update_provider provider enabled attributes endpoints
           | None ->
               fail "The TracerProvider : %s does not exist" uuid
         in
@@ -564,9 +566,9 @@ module TracerProvider = struct
 end
 
 module Tracer = struct
-  type t = {name: string; provider: TracerProvider.t}
+  type t = {_name: string; provider: TracerProvider.t}
 
-  let create ~name ~provider = {name; provider}
+  let create ~name ~provider = {_name= name; provider}
 
   let no_op =
     let provider : TracerProvider.t =
@@ -577,7 +579,7 @@ module Tracer = struct
       ; enabled= false
       }
     in
-    {name= ""; provider}
+    {_name= ""; provider}
 
   let get_tracer ~name =
     if Atomic.get observe then (
@@ -598,7 +600,7 @@ module Tracer = struct
   let span_of_span_context context name : Span.t =
     {
       context
-    ; status= {status_code= Status.Unset; description= None}
+    ; status= {status_code= Status.Unset; _description= None}
     ; name
     ; parent= None
     ; span_kind= SpanKind.Client (* This will be the span of the client call*)
@@ -623,6 +625,30 @@ module Tracer = struct
       in
       let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
+
+  let update_span_with_parent span (parent : Span.t option) =
+    if Atomic.get observe then
+      match parent with
+      | None ->
+          Some span
+      | Some parent ->
+          span
+          |> Spans.remove_from_spans
+          |> Option.map (fun existing_span ->
+                 let old_context = Span.get_context existing_span in
+                 let new_context : SpanContext.t =
+                   SpanContext.context
+                     (SpanContext.trace_id_of_span_context parent.context)
+                     old_context.span_id
+                 in
+                 let updated_span = {existing_span with parent= Some parent} in
+                 let updated_span = {updated_span with context= new_context} in
+
+                 let () = Spans.add_to_spans ~span:updated_span in
+                 updated_span
+             )
+    else
+      Some span
 
   let finish ?error span =
     Ok
@@ -672,6 +698,13 @@ let with_tracing ?(attributes = []) ?(parent = None) ~name f =
         f None
   ) else
     f None
+
+let with_child_trace ?attributes parent ~name f =
+  match parent with
+  | None ->
+      f None
+  | Some _ as parent ->
+      with_tracing ?attributes ~parent ~name f
 
 module EnvHelpers = struct
   let traceparent_key = "TRACEPARENT"

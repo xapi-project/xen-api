@@ -6,8 +6,8 @@ Wants=forkexecd.service message-switch.service syslog.target
 
 [Service]
 Type=notify
-Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.1"
-Environment="MALLOC_CONF=narenas:1,tcache:false,lg_dirty_mult:22"
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=narenas:1,tcache:false"
 Environment=OCAMLRUNPARAM=b
 EnvironmentFile=-/etc/sysconfig/xcp-networkd
 ExecStart=/usr/sbin/xcp-networkd $XCP_NETWORKD_OPTIONS
