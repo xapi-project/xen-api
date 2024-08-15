@@ -1,0 +1,9 @@
+from basedtyping import Untyped
+from typing import Any, IO
+
+def open_textfile(filename: str, mode: str, encoding: str = 'utf-8', **kwargs: Any) -> IO[str]: ...
+
+open_utf8: Untyped
+
+def open_with_codec_handling(filename: str, mode: str = 'r', encoding: str = 'utf-8', **kwargs: Any) -> IO[Any]: ...
+def open_defaults_for_utf8_text(args: tuple[Any, ...] | None, kwargs: Any) -> tuple[str, Any]: ...
