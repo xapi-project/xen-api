@@ -25,6 +25,7 @@ __split_into_groups()
 }
 
 SUBCOMMAND_PARAMS=""
+SUBCOMMAND_CALCULATED=""
 COMPLETION_SUGGESTIONS=0
 SHOW_DESCRIPTION=0
 
@@ -114,6 +115,21 @@ _xe()
         param=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f1`
         value=`echo ${OLDSTYLE_WORDS[COMP_CWORD]} | cut -d= -f2`
         __xe_debug "param is '$param', value is '$value'"
+
+        # Check if it's a legal parameter for the current subcommand
+        # This also avoids suggesting something for fields that only have
+        # 'get', not 'set', so some wildcards below are safe.
+        # Don't recalculate the param list if it's been determined already
+        if [[ "$SUBCOMMAND_CALCULATED" != "${OLDSTYLE_WORDS[1]}" ]]; then
+            __xe_debug "recalculating param list"
+            get_params_for_command "${OLDSTYLE_WORDS[1]}"
+        fi
+        local record_param=$(echo "$param" | cut -d: -f1)
+        if ! echo "$SUBCOMMAND_PARAMS" | grep "$record_param" > /dev/null; then
+            __xe_debug "this param is not legal for the subcommand '${OLDSTYLE_WORDS[1]}', quitting"
+            __xe_debug "legal params for this subcommand: '$SUBCOMMAND_PARAMS'"
+            return 0
+        fi
 
         local vms args
 
@@ -678,6 +694,7 @@ get_params_for_command()
 
     local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g' -e 's/<sr-selectors>=//g')
     SUBCOMMAND_PARAMS="$v$extraargs"
+    SUBCOMMAND_CALCULATED="$1"
 }
 
 set_completions()
