@@ -24,6 +24,7 @@ __split_into_groups()
     sed -ze 's/\n/- ,/g'
 }
 
+SUBCOMMAND_PARAMS=""
 COMPLETION_SUGGESTIONS=0
 SHOW_DESCRIPTION=0
 
@@ -49,7 +50,7 @@ _xe()
     # non-overwritten values between calls, further confusing debug output
     OLDSTYLE_WORDS=()
     for ((i=0;i<=$COMP_CWORD;i++)); do
-        if [ "${COMP_WORDS[$i]}" = "=" ]; then
+        if [[ "${COMP_WORDS[$i]}" = "=" || "${COMP_WORDS[$i]}" = ":" ]]; then
             j=$((j - 1))
             OLDSTYLE_WORDS[$j]="${OLDSTYLE_WORDS[$j]}${COMP_WORDS[$i]}"
             # and the next one if there is one
@@ -558,54 +559,42 @@ _xe()
                 fi
                 ;;
         esac
+    elif echo ${OLDSTYLE_WORDS[COMP_CWORD]} | grep ":" > /dev/null; then
+        local param=$(echo "${OLDSTYLE_WORDS[COMP_CWORD]}" | cut -d: -f1)
+        local sfx=$(echo "${OLDSTYLE_WORDS[COMP_CWORD]}" | cut -d: -f 2)
+        __xe_debug "':' found in parameter, triggering autocompletion for records." \
+                   "param is '$param'"
+
+        case "$param" in
+            device-config)
+                __xe_debug "triggering autocompletion for device-config:"
+                IFS=" "
+                type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | \
+                       sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
+                __xe_debug "type is '$type'"
+                local extraargs=,$(IFS=";"; for i in `xe sm-list type="$type" params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
+                set_completions "$extraargs" "$sfx"
+                return 0
+                ;;
+            VCPUs-params)
+                __xe_debug "triggering autocompletion for VCPUs-params:"
+                set_completions "weight=,cap=,mask=" "$sfx"
+                return 0
+                ;;
+            schedule)
+                __xe_debug "triggering autocompletion for schedule:"
+                set_completions "min=,hour=,days=" "$sfx"
+                return 0
+                ;;
+        esac
     else
-        local param reqd
-        param=${OLDSTYLE_WORDS[COMP_CWORD]}
-        __xe_debug "valueless parameter, param is '$param'"
-
-        vmselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
-        hostselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
-        srselectors=`${xe} help ${OLDSTYLE_WORDS[1]} 2>/dev/null | grep "optional params" | grep "<sr-selectors>"`
-        isdeviceconfig=`echo "${param}" | grep "device-config:"`
-        isvcpusparams=`echo "${param}" | grep "VCPUs-params:"`
-        isvmssscheduled=`echo "${param}" | grep "schedule:"`
-        __xe_debug "vmselectors is '$vmselectors', hostselectors is '$hostselectors', " \
-                   "srselectors is '$srselectors'"
-        __xe_debug "isdeviceconfig is '$isdeviceconfig', isvcpusparams is '$isvcpuparams', " \
-                   "isvmssscheduled is '$isisvmssscheduled'"
-
-        local extraargs=""
-        if [ "${isdeviceconfig}" ]; then
-            IFS=" " type=$(for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^type="; done | sed -e 's/^type=//' | tr "[A-Z]" "[a-z]")
-            extraargs=,$(IFS=";"; for i in `xe sm-list type=${type} params=configuration --minimal 2>/dev/null`; do echo device-config:$i | cut -d ':' -f 1-2; done | sed -e 's/ //g' -e 's/$/=/')
-        elif [ "${isvcpusparams}" ]; then
-            extraargs=,$(for i in weight cap mask; do echo "VCPUs-params:$i="; done)
-        elif [ "${vmselectors}" ]; then
-            if [ "${param}" ] ; then
-                extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
-            else
-                extraargs=",vm="
-            fi
-        elif [ "${hostselectors}" ]; then
-            if [ "${param}" ] ; then
-                extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
-            else
-                extraargs=",host="
-            fi
-        elif [ "${srselectors}" ]; then
-            if [ "${param}" ] ; then
-                extraargs=",sr=,"$(params "sr-list" | sed 's/params=//g')
-            else
-                extraargs=",sr="
-            fi
-        elif [ "${isvmssscheduled}" ]; then
-            pfx=`echo ${isvmssscheduled} | cut -d ':' -f 1`
-            set_completions "${pfx}:min=,${pfx}:hour=,${pfx}:days=" "$param"
-            return 0
-        fi
+        local param="${OLDSTYLE_WORDS[COMP_CWORD]}"
+        __xe_debug "triggering autocompletion for parameter names, param is '$param'"
 
         IFS=$'\n,'
-        set_completions_for_params "${OLDSTYLE_WORDS[1]}" "$extraargs" "$param"
+        get_params_for_command "${OLDSTYLE_WORDS[1]}"
+        set_completions "$SUBCOMMAND_PARAMS" "$param"
+
         return 0
     fi
 }
@@ -654,10 +643,41 @@ params()
         sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
 }
 
-set_completions_for_params()
+get_params_for_command()
 {
+    vmselectors=`"$xe" help $1 2>/dev/null | grep "optional params" | grep "<vm-selectors>"`
+    hostselectors=`"$xe" help $1 2>/dev/null | grep "optional params" | grep "<host-selectors>"`
+    srselectors=`"$xe" help $1 2>/dev/null | grep "optional params" | grep "<sr-selectors>"`
+    __xe_debug "get_params_for_command()"
+    __xe_debug "vmselectors is '$vmselectors', hostselectors is '$hostselectors', " \
+               "srselectors is '$srselectors'"
+
+    local extraargs=""
+    if [ "$vmselectors" ]; then
+        if [ "$param" ] ; then
+            extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
+        else
+            extraargs=",vm="
+        fi
+    elif [ "$hostselectors" ]; then
+        if [ "$param" ] ; then
+            extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
+        else
+            extraargs=",host="
+        fi
+    elif [ "$srselectors" ]; then
+        if [ "$param" ] ; then
+            extraargs=",sr=,"$(params "sr-list" | sed 's/params=//g')
+        else
+            extraargs=",sr="
+        fi
+    else
+        extraargs="$2"
+    fi
+    __xe_debug "param is '$1', extra_args is '$extraargs'"
+
     local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g' -e 's/<sr-selectors>=//g')
-    set_completions "$v$2" "$3"
+    SUBCOMMAND_PARAMS="$v$extraargs"
 }
 
 set_completions()
