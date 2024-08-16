@@ -614,7 +614,16 @@ _xe()
 
         IFS=$'\n,'
         get_params_for_command "${OLDSTYLE_WORDS[1]}"
-        set_completions "$SUBCOMMAND_PARAMS" "$param"
+
+        # Don't suggest already provided parameters
+        local params_len=$(( $COMP_CWORD - 2 ))
+        params_len=$([[ "$params_len" -lt 0 ]] && echo 0 || echo "$params_len")
+        local previous_params="${OLDSTYLE_WORDS[@]:2:$params_len}"
+        previous_params=$( echo "$previous_params" | cut -d= -f1 | \
+                           sed -r '/^\s*$/d' | cut -d: -f1 | \
+                           sed -re 's/^/-e "\\s*/g' -e 's/$/[=:]"/g' | paste -sd " ")
+
+        set_completions "$SUBCOMMAND_PARAMS" "$param" "" "$previous_params"
 
         return 0
     fi
@@ -706,6 +715,7 @@ set_completions()
 {
     local prefix="$2"
     local description_cmd="$3"
+    local excludes="$4"
     # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
     # Only suggest words that start with the currently typed out prefix
     # TODO: Do not generate space suffixes, which have to be removed here.
@@ -713,6 +723,11 @@ set_completions()
                    sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
                    sed -e 's/ *$//' | \
                    grep "^${prefix}.*" )
+
+    if [[ "$excludes" ]]; then
+        __xe_debug "Excluding previously entered parameters: '$excludes'"
+        words=$(echo "$words" | eval "grep -v $excludes")
+    fi
 
     __xe_debug "set_completions()"
     if [[ $SHOW_DESCRIPTION == 1 ]]; then
