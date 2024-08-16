@@ -24,10 +24,13 @@ __split_into_groups()
     sed -ze 's/\n/- ,/g'
 }
 
+REQD_PARAMS=""
+OPT_PARAMS=""
 SUBCOMMAND_PARAMS=""
 SUBCOMMAND_CALCULATED=""
 COMPLETION_SUGGESTIONS=0
 SHOW_DESCRIPTION=0
+REQD_OPTIONAL_PARAMS=0
 
 _xe()
 {
@@ -80,6 +83,7 @@ _xe()
     __xe_debug
 
     SHOW_DESCRIPTION=0
+    REQD_OPTIONAL_PARAMS=0
 
     if [[ $COMP_CWORD == 1 || $COMP_CWORD == 2 && ${OLDSTYLE_WORDS[1]} == "help" ]] ; then
         __xe_debug "Main command completion triggered, COMP_CWORD==1 (or help)"
@@ -613,6 +617,7 @@ _xe()
         __xe_debug "triggering autocompletion for parameter names, param is '$param'"
 
         IFS=$'\n,'
+        REQD_OPTIONAL_PARAMS=1
         get_params_for_command "${OLDSTYLE_WORDS[1]}"
 
         # Don't suggest already provided parameters
@@ -666,11 +671,27 @@ description()
         cut -d: -f2- | cut -d. -f1
 }
 
+__process_params()
+{
+    echo "$1" | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | \
+    sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
+}
+
 params()
 {
-    "$xe" help "$1" 2>/dev/null | grep '^[^:]*params' | \
-        cut -d: -f2- | egrep -v "^ $" | cut -c 2- | \
-        sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
+    local reqd_params=$("$xe" help "$1" 2>/dev/null | grep '^[^:]*reqd params')
+    local optional_params=$("$xe" help "$1" 2>/dev/null | grep '^[^:]*optional params')
+
+    REQD_PARAMS=""
+    if [[ "$reqd_params" ]]; then
+        REQD_PARAMS=$(__process_params "$reqd_params")
+    fi
+    OPT_PARAMS=""
+    if [[ "$optional_params" ]]; then
+        OPT_PARAMS=$(__process_params "$optional_params")
+    fi
+
+    SUBCOMMAND_PARAMS="$REQD_PARAMS,$OPT_PARAMS"
 }
 
 get_params_for_command()
@@ -685,19 +706,22 @@ get_params_for_command()
     local extraargs=""
     if [ "$vmselectors" ]; then
         if [ "$param" ] ; then
-            extraargs=",vm=,"$(params "vm-list" | sed 's/params=//g')
+            params "vm-list"
+            extraargs=",vm=,"$(echo "$SUBCOMMAND_PARAMS" | sed 's/params=//g')
         else
             extraargs=",vm="
         fi
     elif [ "$hostselectors" ]; then
         if [ "$param" ] ; then
-            extraargs=",host=,"$(params "host-list" | sed 's/params=//g')
+            params "host-list"
+            extraargs=",host=,"$(echo "$SUBCOMMAND_PARAMS" | sed 's/params=//g')
         else
             extraargs=",host="
         fi
     elif [ "$srselectors" ]; then
         if [ "$param" ] ; then
-            extraargs=",sr=,"$(params "sr-list" | sed 's/params=//g')
+            params "sr-list"
+            extraargs=",sr=,"$(echo "$SUBCOMMAMD_PARAMS" | sed 's/params=//g')
         else
             extraargs=",sr="
         fi
@@ -706,11 +730,56 @@ get_params_for_command()
     fi
     __xe_debug "param is '$1', extra_args is '$extraargs'"
 
-    local v=$(params "$1" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g' -e 's/<sr-selectors>=//g')
+    params "$1"
+    local v=$(echo "$SUBCOMMAND_PARAMS" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g' -e 's/<sr-selectors>=//g')
     SUBCOMMAND_PARAMS="$v$extraargs"
+    OPT_PARAMS=$(echo "$OPT_PARAMS$extraargs" | sed -e 's/<vm-selectors>=//g' -e 's/<host-selectors>=//g' -e 's/<sr-selectors>=//g')
     SUBCOMMAND_CALCULATED="$1"
 }
 
+__add_completion()
+{
+    local word="$1"
+    local description_cmd="$2"
+    local max_cmd_length="$3"
+
+    COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
+    __xe_debug "\t$word"
+
+    local description=""
+    # Add a space suffix to completions which do not end in '=' or ':'.
+    if [[ "${word:0-1}" = [=:] ]]; then
+        if [[ $REQD_OPTIONAL_PARAMS == 1 ]]; then
+            __xe_debug "\t  showing whether the param is optional or not"
+            description="$description_cmd: "
+        fi
+        COMPREPLY+=( $(printf '%s%q' "$description" "$word") )
+    else
+        if [[ $SHOW_DESCRIPTION == 1 ]]; then
+            __xe_debug "\t  showing command description - '$description'"
+            description=" - $(eval $description_cmd$word)"
+        fi
+        # Right-pad the command with spaces before the help string
+        COMPREPLY+=( $(printf "%-${max_cmd_length}q %s" "$word" "$description") )
+    fi
+}
+
+__preprocess_suggestions()
+{
+    echo "$1" | \
+    sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
+    sed -e 's/ *$//' | \
+    grep "^${prefix}.*"
+}
+
+# set_completions suggestions current_prefix description_cmd
+# if SHOW_DESCRIPTION==1, then description_cmd will be called with the given
+# suggestion to provide a description string that will be stripped before
+# getting entered into the final command line. This can be used for help
+# strings, name-labels, etc.
+# if REQD_OPTIONAL_PARAMS==1, then parameters suggested for a subcommand will be
+# divided into the required/optional classes. This helper information is
+# also stripped before being entered into the final command line.
 set_completions()
 {
     local prefix="$2"
@@ -719,10 +788,7 @@ set_completions()
     # Replace each sequence of non-escaped commas with a newline, then de-escape commas and backslashes.
     # Only suggest words that start with the currently typed out prefix
     # TODO: Do not generate space suffixes, which have to be removed here.
-    local words=$( echo "$1" | \
-                   sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
-                   sed -e 's/ *$//' | \
-                   grep "^${prefix}.*" )
+    local words=$( __preprocess_suggestions "$1" )
 
     if [[ "$excludes" ]]; then
         __xe_debug "Excluding previously entered parameters: '$excludes'"
@@ -742,28 +808,45 @@ set_completions()
     COMPREPLY=()
 
     __xe_debug "prefix is '$prefix', words[*] is:"
-    for word in $words; do
-        COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
-        __xe_debug "\t$word"
 
-        # Add a space suffix to completions which do not end in '=' or ':'.
-        if [[ "${word:0-1}" = [=:] ]]; then
-            COMPREPLY+=( $(printf '%q' "$word") )
-        else
-            local description=""
-            if [[ $SHOW_DESCRIPTION == 1 ]]; then
-                description=" - $(eval $description_cmd$word)"
-                __xe_debug "\t  showing command description - '$description'"
+    if [[ $REQD_OPTIONAL_PARAMS == 1 ]]; then
+        local reqd_params=$( __preprocess_suggestions "$REQD_PARAMS" )
+        local opt_params=$( __preprocess_suggestions "$OPT_PARAMS" )
+        if [[ "$reqd_params" && "$opt_params" ]]; then
+            __xe_debug "showing optional/required parameters"
+            SHOW_DESCRIPTION=1
+
+            if [[ "$excludes" ]]; then
+                reqd_params=$(echo "$reqd_params" | eval "grep -v $excludes")
+                opt_params=$(echo "$opt_params" | eval "grep -v $excludes")
             fi
-            # Right-pad the command with spaces before the help string
-            COMPREPLY+=( $(printf "%-${max_cmd_length}q %s" "$word" "$description") )
+
+            for word in $reqd_params; do
+                __add_completion "$word" "REQUIRED" "$max_cmd_length"
+            done
+            for word in $opt_params; do
+                __add_completion "$word" "OPTIONAL" "$max_cmd_length"
+            done
+        else
+            REQD_OPTIONAL_PARAMS=0
+            for word in $words; do
+                __add_completion "$word" "$description_cmd" "$max_cmd_length"
+            done
         fi
-    done
+    else
+        REQD_OPTIONAL_PARAMS=0
+        for word in $words; do
+            __add_completion "$word" "$description_cmd" "$max_cmd_length"
+        done
+    fi
 
     # Clean up the help information to use the actual command
     # only if one match left
     if [[ ${#COMPREPLY[*]} -eq 1 ]]; then
         COMPREPLY=( ${COMPREPLY[0]%% - *} )
+        if [[ $REQD_OPTIONAL_PARAMS == 1 ]]; then
+            COMPREPLY=( ${COMPREPLY[0]#*: } )
+        fi
     fi
 }
 
