@@ -138,8 +138,8 @@ _xe()
                 __xe_debug "param is one of [filename|file-name|license-file]"
                 IFS=$'\n,'
                 # Here we actually WANT file name completion, so using compgen is OK.
-                local comp_files=$(compgen -f ${value})
-                COMPREPLY=( ${comp_files} )
+                local comp_files=$(compgen -f "$value")
+                COMPREPLY=( "$comp_files" )
                 __xe_debug "triggering filename completion for the value:"
                 __xe_debug $(__tab_delimited_newline_array "$comp_files")
                 return 0
@@ -152,7 +152,7 @@ _xe()
                 if [ "${OLDSTYLE_WORDS[1]}" == "pif-reconfigure-ip" ]; then
                     IFS=$'\n,'
                     suggested_modes="dhcp,static,none"
-                    COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- ${value}) )
+                    COMPREPLY=( $(compgen -W "dhcp ,static ,none" -- "$value") )
                 elif [ "${COMP_WORDS[1]}" == "pif-reconfigure-ipv6" ]; then
                     IFS=$'\n,'
                     suggested_modes="dhcp,static,none,autoconf"
@@ -269,15 +269,15 @@ _xe()
                 __xe_debug "triggering autocompletion for param-name"
                 if echo ${OLDSTYLE_WORDS[1]} | grep "param-add" > /dev/null; then
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-add//g`
-                    paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
+                    paramsset=`"$xe" ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
                     set_completions "$paramsset" "$value"
                 elif echo ${OLDSTYLE_WORDS[1]} | grep "param-remove" > /dev/null; then
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-remove//g`
-                    paramsset=`${xe} ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
+                    paramsset=`"$xe" ${class}-list params=all 2>/dev/null | grep "SRW\|MRW" | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
                     set_completions "$paramsset" "$value"
                 elif echo ${OLDSTYLE_WORDS[1]} | grep "param-get" > /dev/null; then
                     class=`echo ${OLDSTYLE_WORDS[1]} | sed s/-param-get//g`
-                    paramsset=`${xe} ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
+                    paramsset=`"$xe" ${class}-list params=all 2>/dev/null | cut -d\( -f 1 | cut -d: -f1 | sed s/\ *//`
                     set_completions "$paramsset" "$value"
                 fi
                 return 0
@@ -290,7 +290,7 @@ _xe()
                     set_completions_for_names 'cd-list' 'name-label' "$value"
                 elif [[ "${OLDSTYLE_WORDS[1]}" == "vm-cd-remove" ]]; then
                     vm=`for i in ${OLDSTYLE_WORDS[@]:2}; do echo $i | grep "^vm="; done`
-                    local cds=`${xe} vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null`
+                    local cds=`"$xe" vm-cd-list "$vm" --minimal --multiple vbd-params=vdi-name-label vdi-params=none 2>/dev/null`
                     IFS=$'\n,'
                     set_completions "$cds" "$value"
                 fi
@@ -333,13 +333,13 @@ _xe()
                 fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
                 __xe_debug "triggering autocompletion for type, class is '$fst'"
 
-                if [[ "${fst}" == "vbd" ]]; then
+                if [[ "$fst" == "vbd" ]]; then
                     set_completions 'Disk,CD' "$value"
-                elif [[ "${fst}" == "vdi" ]]; then
+                elif [[ "$fst" == "vdi" ]]; then
                     set_completions 'system,user,suspend,crashdump' "$value"
-                elif [[ "${fst}" == "sr" ]]; then
+                elif [[ "$fst" == "sr" ]]; then
                     set_completions_for_names "sm-list" "type" "$value"
-                elif [[ "${fst}" == "vmss" ]]; then
+                elif [[ "$fst" == "vmss" ]]; then
                     set_completions 'snapshot,checkpoint,snapshot_with_quiesce' "$value"
 
                 fi
@@ -420,7 +420,7 @@ _xe()
             schedule:days) # for vmss
                 __xe_debug "triggering autocompletion for VMSS schedule:days"
                 IFS=$'\n,'
-                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                LAST_VALUE=`echo "$value"|gawk 'BEGIN{FS=" "}{print $NF}'`
                 set_completions 'monday,tuesday,wednesday,thursday,friday,saturday,sunday' "$LAST_VALUE"
                 return 0
                 ;;
@@ -428,7 +428,7 @@ _xe()
             role-name)
                 __xe_debug "triggering autocompletion for role-name"
                 IFS=$'\n,'
-                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
+                LAST_VALUE=`echo "$value"|gawk 'BEGIN{FS=" "}{print $NF}'`
                 set_completions 'vm-power-admin,vm-admin,vm-operator,read-only,pool-operator,pool-admin' "$LAST_VALUE"
                 return 0
                 ;;
@@ -436,8 +436,8 @@ _xe()
             edition) # for host-apply-edition (licensing)
                 __xe_debug "triggering autocompletion for host's licensing edition"
                 IFS=$'\n,'
-                LAST_VALUE=`echo ${value}|gawk 'BEGIN{FS=" "}{print $NF}'`
-                EDITIONS=`${xe} host-all-editions --minimal 2>/dev/null`
+                LAST_VALUE=`echo "$value"|gawk 'BEGIN{FS=" "}{print $NF}'`
+                EDITIONS=`"$xe" host-all-editions --minimal 2>/dev/null`
                 set_completions "$EDITIONS" "$LAST_VALUE"
                 return 0
                 ;;
@@ -536,21 +536,21 @@ _xe()
                 ;;
 
             *)
-                snd=`echo ${param} | gawk -F- '{print $NF}'`
-                fst=`echo ${param} | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`
+                snd=`echo "$param" | gawk -F- '{print $NF}'`
+                fst=`echo "$param" | gawk -F- '{printf "%s", $1; for (i=2; i<NF; i++) printf "-%s", $i}'`
                 __xe_debug "no hardcoded case met, processing generally"
                 __xe_debug "fst is '$fst', snd is '$snd'"
 
-                if [[ "${snd}" == "uuid" ]]; then
-                    if [[ "${fst}" == "snapshot" ]]; then
+                if [[ "$snd" == "uuid" ]]; then
+                    if [[ "$fst" == "snapshot" ]]; then
                         all=""
                     else
                         all="--all"
                     fi
-                    if [[ "${fst}" == "into-vdi" || "$fst" == "base-vdi" || "$fst" == "vdi-from" || "$fst" == "vdi-to" ]]; then
+                    if [[ "$fst" == "into-vdi" || "$fst" == "base-vdi" || "$fst" == "vdi-from" || "$fst" == "vdi-to" ]]; then
                         class=vdi
                     else
-                        class=${fst}
+                        class="$fst"
                     fi
 
                     # Show corresponding name labels for each UUID
@@ -567,7 +567,7 @@ _xe()
                     fst=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f1`
                     snd=`echo ${OLDSTYLE_WORDS[1]} | cut -d- -f2`
                     __xe_debug "fst is '$fst', snd is '$snd'"
-                    if [[ "${snd}" == "list" || "${fst}" == "vm" ]]; then
+                    if [[ "$snd" == "list" || "$fst" == "vm" ]]; then
                         IFS=$'\n,'
                         set_completions_for_names "${fst}-list" "$param" "$value"
                         return 0
