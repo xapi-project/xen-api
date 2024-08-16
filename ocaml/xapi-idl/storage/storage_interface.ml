@@ -361,6 +361,7 @@ module Errors = struct
     | Content_ids_do_not_match of (string * string)
     | Missing_configuration_parameter of string
     | Internal_error of string
+    | Sr_unhealthy of sr_health
     | Unknown_error
   [@@default Unknown_error] [@@deriving rpcty]
 end
