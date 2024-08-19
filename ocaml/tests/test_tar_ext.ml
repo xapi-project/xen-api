@@ -20,7 +20,11 @@ let ( // ) = Filename.concat
 
 let gen_test_file_script = "test_data" // "gen_tar_ext_test_file.sh"
 
-let max_size_limit = 2000000L
+(* The test file generating script 'gen_tar_ext_test_file.sh' will create a tar
+   file 'test_tar_ext_unpacked_exceeds_max_size.tar' of 3MB. Setting
+   'max_size_limit' to 2MB will trigger the error 'Unpacked_exceeds_max_size_limit'.
+*)
+let max_size_limit = 2 * 1024 * 1024 |> Int64.of_int
 
 let create_temp_dir () =
   let mktemp = Cmd.v "mktemp" in
@@ -74,7 +78,7 @@ let test_cases =
   ; {
       description= "Test unpacked exceeds max size limit"
     ; test_file= "test_tar_ext_unpacked_exceeds_max_size.tar"
-    ; expected= Error (Unpacked_exceeds_max_size_limit 2000000L)
+    ; expected= Error (Unpacked_exceeds_max_size_limit max_size_limit)
     }
   ; {
       description= "Test unpacked file size mismatch"
@@ -84,8 +88,8 @@ let test_cases =
           (File_size_mismatch
              {
                path= unpack_dir // "file1"
-             ; expected_size= 1048576L
-             ; actual_size= 99488L
+             ; expected_size= 1_048_576L
+             ; actual_size= 99_488L
              }
           )
     }
