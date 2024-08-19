@@ -1318,6 +1318,7 @@ let gen_cmds rpc session_id =
           ; "hash"
           ; "up-to-date"
           ; "gpgkey-path"
+          ; "origin"
           ]
           rpc session_id
       )
@@ -2461,8 +2462,7 @@ let parse_host_uuid ?(default_master = true) rpc session_id params =
     let hosts = Client.Host.get_all ~rpc ~session_id in
     let standalone = List.length hosts = 1 in
     if standalone || default_master then
-      let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
-      Client.Pool.get_master ~rpc ~session_id ~self:pool
+      get_master ~rpc ~session_id
     else
       failwith "Required parameter not found: host-uuid"
 
@@ -3988,7 +3988,7 @@ let vm_install_real printer rpc session_id template name description params =
         , [Features.name_of_feature Features.PCI_device_for_auto_update]
         )
     in
-    let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+    let pool = get_pool ~rpc ~session_id in
     let policy_vendor_device_is_ok =
       not (Client.Pool.get_policy_no_vendor_device ~rpc ~session_id ~self:pool)
     in
@@ -5132,11 +5132,6 @@ let vm_cd_insert printer rpc session_id params =
 let host_careful_op op warnings fd _printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid in
-  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
-  let _ (* unused variable 'pool_master' *) =
-    Client.Pool.get_master ~rpc ~session_id ~self:pool
-  in
-  (* if pool_master = host then failwith "Cannot forget pool master"; *)
   let force = get_bool_param params "force" in
   let go () = ignore (op ~rpc ~session_id ~self:host) in
   if force then
@@ -6604,11 +6599,11 @@ let host_disable_local_storage_caching _printer rpc session_id params =
     )
 
 let pool_enable_local_storage_caching _printer rpc session_id _params =
-  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+  let pool = get_pool ~rpc ~session_id in
   Client.Pool.enable_local_storage_caching ~rpc ~session_id ~self:pool
 
 let pool_disable_local_storage_caching _printer rpc session_id _params =
-  let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
+  let pool = get_pool ~rpc ~session_id in
   Client.Pool.disable_local_storage_caching ~rpc ~session_id ~self:pool
 
 let pool_apply_edition printer rpc session_id params =
@@ -6691,8 +6686,7 @@ let host_backup fd _printer rpc session_id params =
 let pool_dump_db fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let make_command task_id =
-    let pool = List.hd (Client.Pool.get_all ~rpc ~session_id) in
-    let master = Client.Pool.get_master ~rpc ~session_id ~self:pool in
+    let master = get_master ~rpc ~session_id in
     let master_address =
       Client.Host.get_address ~rpc ~session_id ~self:master
     in
@@ -6767,6 +6761,36 @@ let pool_get_guest_secureboot_readiness printer rpc session_id params =
     (Cli_printer.PMsg
        (Record_util.pool_guest_secureboot_readiness_to_string result)
     )
+
+let pool_sync_bundle fd _printer rpc session_id params =
+  let filename_opt = List.assoc_opt "filename" params in
+  match filename_opt with
+  | Some filename ->
+      let make_command task_id =
+        let master = get_master ~rpc ~session_id in
+        let master_address =
+          Client.Host.get_address ~rpc ~session_id ~self:master
+        in
+        let uri =
+          Uri.(
+            make ~scheme:"https" ~host:master_address
+              ~path:Constants.put_bundle_uri
+              ~query:
+                [
+                  ("session_id", [Ref.string_of session_id])
+                ; ("task_id", [Ref.string_of task_id])
+                ]
+              ()
+            |> to_string
+          )
+        in
+        debug "%s: requesting HttpPut('%s','%s')" __FUNCTION__ filename uri ;
+        HttpPut (filename, uri)
+      in
+      ignore
+        (track_http_operation fd rpc session_id make_command "upload bundle")
+  | None ->
+      failwith "Required parameter not found: filename"
 
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
@@ -7903,9 +7927,7 @@ end
 module Repository = struct
   let introduce printer rpc session_id params =
     let name_label = List.assoc "name-label" params in
-    let name_description =
-      try List.assoc "name-description" params with Not_found -> ""
-    in
+    let name_description = get_param params "name-description" ~default:"" in
     let binary_url = List.assoc "binary-url" params in
     let source_url = List.assoc "source-url" params in
     let update = get_bool_param params "update" in
@@ -7913,6 +7935,16 @@ module Repository = struct
     let ref =
       Client.Repository.introduce ~rpc ~session_id ~name_label ~name_description
         ~binary_url ~source_url ~update ~gpgkey_path
+    in
+    let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let introduce_bundle printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let name_description = get_param params "name-description" ~default:"" in
+    let ref =
+      Client.Repository.introduce_bundle ~rpc ~session_id ~name_label
+        ~name_description
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
