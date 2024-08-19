@@ -851,3 +851,16 @@ set_completions()
 }
 
 complete -F _xe -o nospace xe
+
+__autocomplete_reqd_params_names()
+{
+    local argv=( $READLINE_LINE )
+
+    local reqd_params=$(xe help "${argv[1]}" 2>/dev/null | grep '^[^:]*reqd params')
+    reqd_params=$(__process_params "$reqd_params")
+    echo "reqd params: ${reqd_params//,/ }" >> ce.debug
+    READLINE_LINE+="${reqd_params//,/ }"
+    return 0
+}
+
+bind -x '"\C-rq":"__autocomplete_reqd_params_names"'
