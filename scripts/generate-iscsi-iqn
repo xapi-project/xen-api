@@ -36,7 +36,7 @@ geniqn() {
         domain=${defaultdomain}
     fi
 
-    revdomain=$(python -c "${REVERSE_PY}" $domain)
+    revdomain=$(python3 -c "${REVERSE_PY}" $domain)
 
     uuid=$(uuidgen | cut -d- -f1)
     date=$(date +"%Y-%m")
