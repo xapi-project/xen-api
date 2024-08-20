@@ -65,7 +65,7 @@ function test_sr {
 NS="e93e0639-2bdb-4a59-8b46-352b3f408c19"
 function uuid5 {
   # could use a modern uuidgen but it's not on XS 8
-  python -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
+  python3 -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
 }
 
 dry_run=0
