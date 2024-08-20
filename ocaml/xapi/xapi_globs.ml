@@ -1132,43 +1132,52 @@ let xapi_globs_spec =
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ]
 
+let xapi_globs_spec_with_descriptions = []
+
+let option_of_xapi_globs_spec ?(description = None) (name, ty) =
+  let spec =
+    match ty with
+    | Float x ->
+        Arg.Set_float x
+    | Int x ->
+        Arg.Set_int x
+    | ShortDurationFromSeconds x ->
+        Arg.Float
+          (fun y ->
+            match Clock.Timer.s_to_span y with
+            | Some y ->
+                x := y
+            | None ->
+                D.warn
+                  "Ignoring argument '%s', invalid float being used: %f. (it \
+                   only allows durations of less than 104 days)"
+                  name y
+          )
+    | LongDurationFromSeconds x ->
+        Arg.Int (fun y -> x := Mtime.Span.(y * s))
+  in
+  let read_default () =
+    match ty with
+    | Float x ->
+        string_of_float !x
+    | Int x ->
+        string_of_int !x
+    | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
+        Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
+  in
+  let description =
+    let default = Printf.sprintf "Set the value of '%s'" name in
+    Option.value description ~default
+  in
+  (name, spec, read_default, description)
+
 let options_of_xapi_globs_spec =
-  List.map
-    (fun (name, ty) ->
-      ( name
-      , ( match ty with
-        | Float x ->
-            Arg.Set_float x
-        | Int x ->
-            Arg.Set_int x
-        | ShortDurationFromSeconds x ->
-            Arg.Float
-              (fun y ->
-                match Clock.Timer.s_to_span y with
-                | Some y ->
-                    x := y
-                | None ->
-                    D.warn
-                      "Ignoring argument '%s', invalid float being used: %f. \
-                       (it only allows durations of less than 104 days)"
-                      name y
-              )
-        | LongDurationFromSeconds x ->
-            Arg.Int (fun y -> x := Mtime.Span.(y * s))
-        )
-      , (fun () ->
-          match ty with
-          | Float x ->
-              string_of_float !x
-          | Int x ->
-              string_of_int !x
-          | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
-              Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
-        )
-      , Printf.sprintf "Set the value of '%s'" name
+  List.map option_of_xapi_globs_spec xapi_globs_spec
+  @ List.map
+      (fun (name, spec, description) ->
+        option_of_xapi_globs_spec ~description:(Some description) (name, spec)
       )
-    )
-    xapi_globs_spec
+      xapi_globs_spec_with_descriptions
 
 let xenopsd_queues =
   ref
