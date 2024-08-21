@@ -60,11 +60,11 @@ jobs:
 
   build-c-sdk:
     name: Build C SDK
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: generate-sdk-sources
     steps:
       - name: Install dependencies
-        run: sudo apt-get install libxml2-dev
+        run: sudo apt-get install libxml2-dev=2.12.7+dfsg-3
 
       - name: Retrieve C SDK source
         uses: actions/download-artifact@v4
