@@ -94,6 +94,12 @@ let tests =
       (O.power_state_to_string, N.power_state_to_string)
   ; mk __LINE__ None all_vm_operations
       (O.vm_operation_to_string, N.vm_operation_to_string)
+  ; mk __LINE__ None all_vm_secureboot_readiness
+      (O.vm_secureboot_readiness_to_string, N.vm_secureboot_readiness_to_string)
+  ; mk __LINE__ None all_pool_guest_secureboot_readiness
+      ( O.pool_guest_secureboot_readiness_to_string
+      , N.pool_guest_secureboot_readiness_to_string
+      )
   ; mk __LINE__ None all_pool_allowed_operations
       (O.pool_operation_to_string, N.pool_operation_to_string)
   ; mk __LINE__ None all_host_allowed_operations
@@ -157,7 +163,7 @@ let tests =
       ( O.host_numa_affinity_policy_to_string
       , N.host_numa_affinity_policy_to_string
       )
-  ; mk __LINE__ None all_pgpu_dom0_access
+  ; mk __LINE__ None all_pci_dom0_access
       (O.pci_dom0_access_to_string, N.pci_dom0_access_to_string)
   ; mk __LINE__ None all_vbd_mode (O.vbd_mode_to_string, N.vbd_mode_to_string)
     (*; mk __LINE__ None all_power (O.power_to_string, N.power_to_string)*)
@@ -245,6 +251,12 @@ let tests =
       )
       all_update_sync_frequency
       (O.update_sync_frequency_to_string, N.update_sync_frequency_to_string)
+  ; mk __LINE__
+      (Some (O.vm_placement_policy_of_string, N.vm_placement_policy_of_string))
+      all_placement_policy
+      (O.vm_placement_policy_to_string, N.vm_placement_policy_to_string)
+  ; mk __LINE__ None all_origin
+      (O.repo_origin_to_string, N.repo_origin_to_string)
   ]
   |> List.concat
 
