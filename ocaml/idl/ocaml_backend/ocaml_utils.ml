@@ -101,6 +101,19 @@ let ocaml_to_string_of_enum list =
   let single name = Printf.sprintf {|%s -> "%s"|} (constructor_of name) name in
   Printf.sprintf "function %s" (ocaml_map_enum_ " | " single list)
 
+(** Create the body of an of_string function for an enum *)
+let ocaml_of_string_of_enum list =
+  let single name =
+    Printf.sprintf {|"%s" -> %s|}
+      (String.lowercase_ascii name)
+      (constructor_of name)
+  in
+  let quoted name = Printf.sprintf {|'%s'|} name in
+  Printf.sprintf
+    {|match String.lowercase_ascii str with %s | s -> record_failure "Expected one of %s, got %%s" s|}
+    (ocaml_map_enum_ " | " single list)
+    (ocaml_map_enum_ ", " quoted list)
+
 (** Convert an IDL type into a string containing OCaml code representing the
     type. *)
 let rec ocaml_of_ty = function
