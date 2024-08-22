@@ -256,7 +256,7 @@ let tests =
   ; mk __LINE__ None all_pif_igmp_status
       (O.pif_igmp_status_to_string, N.pif_igmp_status_to_string)
   ; mk __LINE__ None all_vusb_operations
-      (O.vusb_operation_to_string, N.vusb_operation_to_string)
+      (O.vusb_operation_to_string, N.vusb_operations_to_string)
   ; mk __LINE__ None all_sriov_configuration_mode
       ( O.network_sriov_configuration_mode_to_string
       , N.network_sriov_configuration_mode_to_string

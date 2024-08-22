@@ -947,14 +947,6 @@ let pif_igmp_status_to_string = function
   | `unknown ->
       "unknown"
 
-let vusb_operation_to_string = function
-  | `attach ->
-      "attach"
-  | `plug ->
-      "plug"
-  | `unplug ->
-      "unplug"
-
 let network_sriov_configuration_mode_to_string = function
   | `sysfs ->
       "sysfs"

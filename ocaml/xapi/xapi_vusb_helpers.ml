@@ -52,13 +52,13 @@ let valid_operations ~__context record _ref' : table =
     debug "No operations are valid because current-operations = [ %s ]"
       (String.concat "; "
          (List.map
-            (fun (task, op) -> task ^ " -> " ^ vusb_operation_to_string op)
+            (fun (task, op) -> task ^ " -> " ^ vusb_operations_to_string op)
             current_ops
          )
       ) ;
     let concurrent_op = snd (List.hd current_ops) in
     set_errors Api_errors.other_operation_in_progress
-      ["VUSB"; _ref; vusb_operation_to_string concurrent_op]
+      ["VUSB"; _ref; vusb_operations_to_string concurrent_op]
       all_ops
   ) ;
   let vm = Db.VUSB.get_VM ~__context ~self:_ref' in
@@ -101,7 +101,7 @@ let throw_error (table : table) op =
                Printf.sprintf
                  "xapi_vusb_helpers.assert_operation_valid unknown operation: \
                   %s"
-                 (vusb_operation_to_string op)
+                 (vusb_operations_to_string op)
              ]
            )
         )
