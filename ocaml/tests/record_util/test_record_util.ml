@@ -246,9 +246,9 @@ let tests =
   ; mk __LINE__ None all_cluster_host_operation
       (O.cluster_host_operation_to_string, N.cluster_host_operation_to_string)
   ; mk __LINE__
-      (Some (O.sdn_protocol_of_string, N.sdn_protocol_of_string))
+      (Some (O.sdn_protocol_of_string, N.sdn_controller_protocol_of_string))
       all_sdn_controller_protocol
-      (O.sdn_protocol_to_string, N.sdn_protocol_to_string)
+      (O.sdn_protocol_to_string, N.sdn_controller_protocol_to_string)
   ; mk __LINE__
       (Some (O.tunnel_protocol_of_string, N.tunnel_protocol_of_string))
       all_tunnel_protocol

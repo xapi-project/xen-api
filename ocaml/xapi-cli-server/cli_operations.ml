@@ -7753,7 +7753,8 @@ module SDN_controller = struct
     in
     let protocol =
       if List.mem_assoc "protocol" params then
-        Record_util.sdn_protocol_of_string (List.assoc "protocol" params)
+        Record_util.sdn_controller_protocol_of_string
+          (List.assoc "protocol" params)
       else
         `ssl
     in

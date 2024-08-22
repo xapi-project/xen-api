@@ -4730,7 +4730,7 @@ let sdn_controller_record rpc session_id sdn_controller =
           ()
       ; make_field ~name:"protocol"
           ~get:(fun () ->
-            Record_util.sdn_protocol_to_string
+            Record_util.sdn_controller_protocol_to_string
               (x ()).API.sDN_controller_protocol
           )
           ()

@@ -928,17 +928,6 @@ let bool_of_string s =
       record_failure
         "Expected 'true','t','yes','y','1','false','f','no','n','0' got %s" s
 
-let sdn_protocol_of_string s =
-  match String.lowercase_ascii s with
-  | "ssl" ->
-      `ssl
-  | "pssl" ->
-      `pssl
-  | _ ->
-      record_failure "Expected 'ssl','pssl', got %s" s
-
-let sdn_protocol_to_string = function `ssl -> "ssl" | `pssl -> "pssl"
-
 let tunnel_protocol_of_string s =
   match String.lowercase_ascii s with
   | "gre" ->
