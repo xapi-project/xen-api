@@ -370,7 +370,7 @@ let message_record rpc session_id message =
           ~get:(fun () -> Int64.to_string (x ()).API.message_priority)
           ()
       ; make_field ~name:"class"
-          ~get:(fun () -> Record_util.class_to_string (x ()).API.message_cls)
+          ~get:(fun () -> Record_util.cls_to_string (x ()).API.message_cls)
           ()
       ; make_field ~name:"obj-uuid"
           ~get:(fun () -> (x ()).API.message_obj_uuid)

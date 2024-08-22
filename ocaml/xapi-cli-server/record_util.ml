@@ -36,52 +36,6 @@ let certificate_type_to_string = function
   | `ca ->
       "ca"
 
-let class_to_string cls =
-  match cls with
-  | `VM ->
-      "VM"
-  | `Host ->
-      "Host"
-  | `SR ->
-      "SR"
-  | `Pool ->
-      "Pool"
-  | `VMPP ->
-      "VMPP"
-  | `VMSS ->
-      "VMSS"
-  | `PVS_proxy ->
-      "PVS_proxy"
-  | `VDI ->
-      "VDI"
-  | `Certificate ->
-      "Certificate"
-  | _ ->
-      "unknown"
-
-let string_to_class str =
-  match str with
-  | "VM" ->
-      `VM
-  | "Host" ->
-      `Host
-  | "SR" ->
-      `SR
-  | "Pool" ->
-      `Pool
-  | "VMPP" ->
-      `VMPP
-  | "VMSS" ->
-      `VMSS
-  | "PVS_proxy" ->
-      `PVS_proxy
-  | "VDI" ->
-      `VDI
-  | "Certificate" ->
-      `Certificate
-  | _ ->
-      failwith "Bad type"
-
 let vm_operation_table =
   [
     (`assert_operation_valid, "assertoperationvalid")

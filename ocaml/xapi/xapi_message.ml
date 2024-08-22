@@ -71,7 +71,7 @@ let to_xml output _ref gen message =
       tag "ref" [data (Ref.string_of _ref)]
     ; tag "name" [data message.API.message_name]
     ; tag "priority" [data (Int64.to_string message.API.message_priority)]
-    ; tag "cls" [data (Record_util.class_to_string message.API.message_cls)]
+    ; tag "cls" [data (Record_util.cls_to_string message.API.message_cls)]
     ; tag "obj_uuid" [data message.API.message_obj_uuid]
     ; tag "timestamp" [data (Date.to_string message.API.message_timestamp)]
     ; tag "uuid" [data message.API.message_uuid]
@@ -119,7 +119,7 @@ let of_xml input =
             message := {!message with API.message_priority= Int64.of_string dat}
         | "cls" ->
             message :=
-              {!message with API.message_cls= Record_util.string_to_class dat}
+              {!message with API.message_cls= Record_util.cls_of_string dat}
         | "obj_uuid" ->
             message := {!message with API.message_obj_uuid= dat}
         | "timestamp" ->
@@ -188,7 +188,7 @@ let import_xml xml_in =
 (********** Symlink functions *************)
 
 let class_symlink cls obj_uuid =
-  let strcls = Record_util.class_to_string cls in
+  let strcls = Record_util.cls_to_string cls in
   Printf.sprintf "%s/%s/%s" message_dir strcls obj_uuid
 
 let uuid_symlink () = Printf.sprintf "%s/uuids" message_dir
@@ -411,14 +411,14 @@ let write ~__context ~_ref ~message =
     	if write failed, or message ref otherwise. *)
 let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   debug "Message.create %s %Ld %s %s" name priority
-    (Record_util.class_to_string cls)
+    (Record_util.cls_to_string cls)
     obj_uuid ;
   if not (Encodings.UTF8_XML.is_valid body) then
     raise (Api_errors.Server_error (Api_errors.invalid_value, ["UTF8 expected"])) ;
   if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then
     raise
       (Api_errors.Server_error
-         (Api_errors.uuid_invalid, [Record_util.class_to_string cls; obj_uuid])
+         (Api_errors.uuid_invalid, [Record_util.cls_to_string cls; obj_uuid])
       ) ;
   let _ref = Ref.make () in
   let uuid = Uuidx.to_string (Uuidx.make ()) in
@@ -800,7 +800,7 @@ let handler (req : Http.Request.t) fd _ =
         else (* Get and check query parameters *)
           let uuid = List.assoc "uuid" query and cls = List.assoc "cls" query in
           let cls =
-            try Record_util.string_to_class cls
+            try Record_util.cls_of_string cls
             with _ -> failwith ("Xapi_message.handler: Bad class " ^ cls)
           in
           if not (check_uuid ~__context ~cls ~uuid) then
@@ -829,7 +829,7 @@ let send_messages ~__context ~cls ~obj_uuid ~session_id ~remote_address
   let query =
     [
       ("session_id", Ref.string_of session_id)
-    ; ("cls", Record_util.class_to_string cls)
+    ; ("cls", Record_util.cls_to_string cls)
     ; ("uuid", obj_uuid)
     ]
   in

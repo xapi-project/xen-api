@@ -112,7 +112,10 @@ let tests =
   [
     mk __LINE__ None all_certificate_type
       (O.certificate_type_to_string, N.certificate_type_to_string)
-  ; mk __LINE__ None all_cls (O.class_to_string, N.class_to_string)
+  ; mk __LINE__
+      (Some (O.string_to_class, N.cls_of_string))
+      all_cls
+      (O.class_to_string, N.cls_to_string)
   ; mk __LINE__ None all_vm_power_state
       (O.power_state_to_string, N.vm_power_state_to_string)
   ; mk __LINE__ None all_vm_power_state
