@@ -140,7 +140,7 @@ let tests =
   ; mk __LINE__ None all_storage_operations
       (O.sr_operation_to_string, N.sr_operation_to_string)
   ; mk __LINE__ None all_vbd_operations
-      (O.vbd_operation_to_string, N.vbd_operation_to_string)
+      (O.vbd_operation_to_string, N.vbd_operations_to_string)
   ; mk __LINE__ None all_vif_operations
       (O.vif_operation_to_string, N.vif_operation_to_string)
   ; mk __LINE__ None all_vif_locking_mode

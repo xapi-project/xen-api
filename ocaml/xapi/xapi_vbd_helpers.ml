@@ -76,7 +76,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   ( if current_ops <> [] then
       let concurrent_op = List.hd current_ops in
       set_errors Api_errors.other_operation_in_progress
-        ["VBD"; _ref; vbd_operation_to_string concurrent_op]
+        ["VBD"; _ref; vbd_operations_to_string concurrent_op]
         (Listext.List.set_difference all_ops safe_to_parallelise)
   ) ;
   (* If not all operations are parallisable then preclude pause *)
@@ -88,7 +88,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
      parallelisable operations too *)
   if not all_are_parallelisable then
     set_errors Api_errors.other_operation_in_progress
-      ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
+      ["VBD"; _ref; vbd_operations_to_string (List.hd current_ops)]
       [`pause] ;
   (* If something other than `pause `unpause *and* `attach (for VM.reboot, see CA-24282) then disallow unpause *)
   if
@@ -96,7 +96,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     <> []
   then
     set_errors Api_errors.other_operation_in_progress
-      ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
+      ["VBD"; _ref; vbd_operations_to_string (List.hd current_ops)]
       [`unpause] ;
   (* Drives marked as not unpluggable cannot be unplugged *)
   if not record.Db_actions.vBD_unpluggable then
@@ -313,7 +313,7 @@ let throw_error (table : table) op =
            , [
                Printf.sprintf
                  "xapi_vbd_helpers.assert_operation_valid unknown operation: %s"
-                 (vbd_operation_to_string op)
+                 (vbd_operations_to_string op)
              ]
            )
         )

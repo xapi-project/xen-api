@@ -299,24 +299,6 @@ let sr_operation_to_string : API.storage_operations -> string = function
   | `pbd_destroy ->
       "PBD.destroy"
 
-let vbd_operation_to_string = function
-  | `attach ->
-      "attach"
-  | `eject ->
-      "eject"
-  | `insert ->
-      "insert"
-  | `plug ->
-      "plug"
-  | `unplug ->
-      "unplug"
-  | `unplug_force ->
-      "unplug_force"
-  | `pause ->
-      "pause"
-  | `unpause ->
-      "unpause"
-
 let vif_operation_to_string = function
   | `attach ->
       "attach"
