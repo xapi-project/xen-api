@@ -1189,23 +1189,23 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.pool_operation_to_string
+            map_and_concat Record_util.pool_allowed_operations_to_string
               (x ()).API.pool_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.pool_operation_to_string
+            List.map Record_util.pool_allowed_operations_to_string
               (x ()).API.pool_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.pool_operation_to_string b)
+              (fun (_, b) -> Record_util.pool_allowed_operations_to_string b)
               (x ()).API.pool_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.pool_operation_to_string b)
+              (fun (_, b) -> Record_util.pool_allowed_operations_to_string b)
               (x ()).API.pool_current_operations
           )
           ()

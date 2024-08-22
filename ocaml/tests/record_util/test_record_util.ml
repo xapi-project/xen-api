@@ -126,7 +126,7 @@ let tests =
       , N.pool_guest_secureboot_readiness_to_string
       )
   ; mk __LINE__ None all_pool_allowed_operations
-      (O.pool_operation_to_string, N.pool_operation_to_string)
+      (O.pool_operation_to_string, N.pool_allowed_operations_to_string)
   ; mk __LINE__ None all_host_allowed_operations
       (O.host_operation_to_string, N.host_operation_to_string)
   ; mk __LINE__ None all_update_guidances

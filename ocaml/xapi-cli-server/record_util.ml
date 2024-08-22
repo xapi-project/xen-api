@@ -179,38 +179,6 @@ let pool_guest_secureboot_readiness_to_string = function
   | `not_ready ->
       "not_ready"
 
-let pool_operation_to_string = function
-  | `ha_enable ->
-      "ha_enable"
-  | `ha_disable ->
-      "ha_disable"
-  | `cluster_create ->
-      "cluster_create"
-  | `designate_new_master ->
-      "designate_new_master"
-  | `tls_verification_enable ->
-      "tls_verification_enable"
-  | `configure_repositories ->
-      "configure_repositories"
-  | `sync_updates ->
-      "sync_updates"
-  | `sync_bundle ->
-      "sync_bundle"
-  | `get_updates ->
-      "get_updates"
-  | `apply_updates ->
-      "apply_updates"
-  | `cert_refresh ->
-      "cert_refresh"
-  | `exchange_certificates_on_join ->
-      "exchange_certificates_on_join"
-  | `exchange_ca_certificates_on_join ->
-      "exchange_ca_certificates_on_join"
-  | `copy_primary_host_certs ->
-      "copy_primary_host_certs"
-  | `eject ->
-      "eject"
-
 let host_operation_to_string = function
   | `provision ->
       "provision"
