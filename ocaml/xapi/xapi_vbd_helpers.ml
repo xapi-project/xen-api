@@ -235,7 +235,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
           snd (List.hd vdi_record.Db_actions.vDI_current_operations)
         in
         set_errors Api_errors.other_operation_in_progress
-          ["VDI"; Ref.string_of vdi; vdi_operation_to_string concurrent_op]
+          ["VDI"; Ref.string_of vdi; vdi_operations_to_string concurrent_op]
           [`attach; `plug; `insert]
     ) ;
     if

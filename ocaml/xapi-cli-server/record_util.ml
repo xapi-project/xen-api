@@ -257,42 +257,6 @@ let latest_synced_updates_applied_state_to_string = function
   | `unknown ->
       "unknown"
 
-let vdi_operation_to_string : API.vdi_operations -> string = function
-  | `clone ->
-      "clone"
-  | `copy ->
-      "copy"
-  | `resize ->
-      "resize"
-  | `resize_online ->
-      "resize_online"
-  | `destroy ->
-      "destroy"
-  | `force_unlock ->
-      "force_unlock"
-  | `snapshot ->
-      "snapshot"
-  | `mirror ->
-      "mirror"
-  | `forget ->
-      "forget"
-  | `update ->
-      "update"
-  | `generate_config ->
-      "generate_config"
-  | `enable_cbt ->
-      "enable_cbt"
-  | `disable_cbt ->
-      "disable_cbt"
-  | `data_destroy ->
-      "data_destroy"
-  | `list_changed_blocks ->
-      "list_changed_blocks"
-  | `set_on_boot ->
-      "set_on_boot"
-  | `blocked ->
-      "blocked"
-
 let sr_operation_to_string : API.storage_operations -> string = function
   | `scan ->
       "scan"

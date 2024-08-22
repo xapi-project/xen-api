@@ -136,7 +136,7 @@ let tests =
       , N.latest_synced_updates_applied_state_to_string
       )
   ; mk __LINE__ None all_vdi_operations
-      (O.vdi_operation_to_string, N.vdi_operation_to_string)
+      (O.vdi_operation_to_string, N.vdi_operations_to_string)
   ; mk __LINE__ None all_storage_operations
       (O.sr_operation_to_string, N.sr_operation_to_string)
   ; mk __LINE__ None all_vbd_operations
