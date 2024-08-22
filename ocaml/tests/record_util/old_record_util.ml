@@ -72,7 +72,7 @@ let string_to_class str =
   | "Certificate" ->
       `Certificate
   | _ ->
-      failwith "Bad type"
+      record_failure "Bad type"
 
 let power_state_to_string state =
   match state with
