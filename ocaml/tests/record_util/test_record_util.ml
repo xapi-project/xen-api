@@ -40,22 +40,37 @@ let exn_to_string_strip e =
   *)
   e |> Printexc.to_string |> drop_module_prefix |> drop_exn_arguments
 
-let exn_equal_strip a b =
-  String.equal (exn_to_string_strip a) (exn_to_string_strip b)
-
-let exn = V1.testable (Fmt.of_to_string exn_to_string_strip) exn_equal_strip
-
 let test_of_string ~name all_enum old_to_string of_string_opt =
+  let exn_equal_strip a b =
+    String.equal (exn_to_string_strip a) (exn_to_string_strip b)
+  in
+  (* New function is allowed to be more lenient and accept more cases *)
+  let custom_eq expected actual =
+    match (expected, actual) with
+    | Error _, Ok _ ->
+        true
+    | Error a, Error b ->
+        exn_equal_strip a b
+    | a, b ->
+        a = b
+  in
   of_string_opt
   |> Option.map (fun (old_of_string, new_of_string) ->
          let make input =
            V1.test_case input `Quick @@ fun () ->
            let expected = wrap old_of_string input in
            let actual = wrap new_of_string input in
-           let pp_enum = Fmt.of_to_string old_to_string in
+           let pp_enum_result =
+             Fmt.of_to_string (function
+               | Ok a ->
+                   old_to_string a
+               | Error b ->
+                   exn_to_string_strip b
+               )
+           in
            V1.(
              check' ~msg:"compatible" ~expected ~actual
-             @@ result (testable pp_enum ( = )) exn
+             @@ testable pp_enum_result custom_eq
            )
          in
          ( name ^ "of_string"
@@ -81,7 +96,15 @@ let mk line of_string_opt all_enum (old_to_string, new_to_string) =
 (*
 Created by:
 ```
-grep 'let.*to_string' old_record_util.ml | sed -re 's/^let ([^ ]+)_to_string.*/\1/' | while read ENUM; do if grep "${ENUM}_of_string" old_record_util.ml >/dev/null; then echo "; mk __LINE__ (Some (O.${ENUM}_of_string, N.${ENUM}_of_string)) all_${ENUM} (O.${ENUM}_to_string, N.${ENUM}_to_string)"; else echo "; mk __LINE__ None all_${ENUM} (O.${ENUM}_to_string, N.${ENUM}_to_string)"; fi; done
+grep 'let.*to_string' old_record_util.ml | \
+sed -re 's/^let ([^ ]+)_to_string.*/\1/' | \
+while read ENUM; do
+  if grep "${ENUM}_of_string" old_record_util.ml >/dev/null; then
+    echo "; mk __LINE__ (Some (O.${ENUM}_of_string, N.${ENUM}_of_string)) all_${ENUM} (O.${ENUM}_to_string, N.${ENUM}_to_string)";
+  else
+    echo "; mk __LINE__ None all_${ENUM} (O.${ENUM}_to_string, N.${ENUM}_to_string)";
+  fi;
+done
 ```
 and then tweaked to compile using LSP hints  where the names were not consistent (e.g. singular vs plural, etc.)
 *)
