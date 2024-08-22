@@ -897,16 +897,6 @@ let pif_igmp_status_to_string = function
   | `unknown ->
       "unknown"
 
-let network_sriov_configuration_mode_to_string = function
-  | `sysfs ->
-      "sysfs"
-  | `modprobe ->
-      "modprobe"
-  | `manual ->
-      "manual"
-  | `unknown ->
-      "unknown"
-
 let on_boot_to_string onboot =
   match onboot with `reset -> "reset" | `persist -> "persist"
 

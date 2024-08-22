@@ -259,7 +259,7 @@ let tests =
       (O.vusb_operation_to_string, N.vusb_operations_to_string)
   ; mk __LINE__ None all_sriov_configuration_mode
       ( O.network_sriov_configuration_mode_to_string
-      , N.network_sriov_configuration_mode_to_string
+      , N.sriov_configuration_mode_to_string
       )
   ; mk __LINE__ None all_on_boot (O.on_boot_to_string, N.on_boot_to_string)
   ; mk __LINE__ None all_tristate_type
