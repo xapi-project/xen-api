@@ -251,16 +251,6 @@ let sr_operation_to_string : API.storage_operations -> string = function
   | `pbd_destroy ->
       "PBD.destroy"
 
-let vif_operation_to_string = function
-  | `attach ->
-      "attach"
-  | `plug ->
-      "plug"
-  | `unplug ->
-      "unplug"
-  | `unplug_force ->
-      "unplug_force"
-
 let vif_locking_mode_to_string = function
   | `network_default ->
       "network_default"

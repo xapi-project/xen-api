@@ -142,7 +142,7 @@ let tests =
   ; mk __LINE__ None all_vbd_operations
       (O.vbd_operation_to_string, N.vbd_operations_to_string)
   ; mk __LINE__ None all_vif_operations
-      (O.vif_operation_to_string, N.vif_operation_to_string)
+      (O.vif_operation_to_string, N.vif_operations_to_string)
   ; mk __LINE__ None all_vif_locking_mode
       (O.vif_locking_mode_to_string, N.vif_locking_mode_to_string)
   ; mk __LINE__ None all_vmss_type (O.vmss_type_to_string, N.vmss_type_to_string)

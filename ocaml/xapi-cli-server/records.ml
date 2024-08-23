@@ -816,23 +816,23 @@ let vif_record rpc session_id vif =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vif_operation_to_string
+            map_and_concat Record_util.vif_operations_to_string
               (x ()).API.vIF_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vif_operation_to_string
+            List.map Record_util.vif_operations_to_string
               (x ()).API.vIF_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.vif_operation_to_string b)
+              (fun (_, b) -> Record_util.vif_operations_to_string b)
               (x ()).API.vIF_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.vif_operation_to_string b)
+              (fun (_, b) -> Record_util.vif_operations_to_string b)
               (x ()).API.vIF_current_operations
           )
           ()

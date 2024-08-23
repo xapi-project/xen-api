@@ -54,13 +54,13 @@ let valid_operations ~__context record _ref' : table =
     debug "No operations are valid because current-operations = [ %s ]"
       (String.concat "; "
          (List.map
-            (fun (task, op) -> task ^ " -> " ^ vif_operation_to_string op)
+            (fun (task, op) -> task ^ " -> " ^ vif_operations_to_string op)
             current_ops
          )
       ) ;
     let concurrent_op = snd (List.hd current_ops) in
     set_errors Api_errors.other_operation_in_progress
-      ["VIF"; _ref; vif_operation_to_string concurrent_op]
+      ["VIF"; _ref; vif_operations_to_string concurrent_op]
       all_ops
   ) ;
   (* No hotplug on dom0 *)
@@ -163,7 +163,7 @@ let throw_error (table : table) op =
            , [
                Printf.sprintf
                  "xapi_vif_helpers.assert_operation_valid unknown operation: %s"
-                 (vif_operation_to_string op)
+                 (vif_operations_to_string op)
              ]
            )
         )

@@ -4364,7 +4364,7 @@ functor
 
       let unplug_common ~__context ~self ~force =
         let op = `unplug in
-        let name = "VIF." ^ Record_util.vif_operation_to_string op in
+        let name = "VIF." ^ Record_util.vif_operations_to_string op in
         info "%s: VIF = '%s'" name (vif_uuid ~__context self) ;
         let local_fn, remote_fn =
           if force then
