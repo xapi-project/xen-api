@@ -28,14 +28,6 @@ include Generated_record_utils
 
 let to_str = function Rpc.String x -> x | _ -> failwith "Invalid"
 
-let certificate_type_to_string = function
-  | `host ->
-      "host"
-  | `host_internal ->
-      "host_internal"
-  | `ca ->
-      "ca"
-
 let vm_operation_table =
   [
     (`assert_operation_valid, "assertoperationvalid")
@@ -101,30 +93,6 @@ let string_to_vm_operation x =
   else
     List.assoc x table
 
-let vm_secureboot_readiness_to_string = function
-  | `not_supported ->
-      "not_supported"
-  | `disabled ->
-      "disabled"
-  | `first_boot ->
-      "first_boot"
-  | `ready ->
-      "ready"
-  | `ready_no_dbx ->
-      "ready_no_dbx"
-  | `setup_mode ->
-      "setup_mode"
-  | `certs_incomplete ->
-      "certs_incomplete"
-
-let pool_guest_secureboot_readiness_to_string = function
-  | `ready ->
-      "ready"
-  | `ready_no_dbx ->
-      "ready_no_dbx"
-  | `not_ready ->
-      "not_ready"
-
 let host_operation_to_string = function
   | `provision ->
       "provision"
@@ -146,14 +114,6 @@ let host_operation_to_string = function
       "apply_updates"
   | `enable ->
       "enable"
-
-let latest_synced_updates_applied_state_to_string = function
-  | `yes ->
-      "yes"
-  | `no ->
-      "no"
-  | `unknown ->
-      "unknown"
 
 let sr_operation_to_string : API.storage_operations -> string = function
   | `scan ->
@@ -196,16 +156,6 @@ let sr_operation_to_string : API.storage_operations -> string = function
       "PBD.create"
   | `pbd_destroy ->
       "PBD.destroy"
-
-let vm_appliance_operation_to_string = function
-  | `start ->
-      "start"
-  | `clean_shutdown ->
-      "clean_shutdown"
-  | `hard_shutdown ->
-      "hard_shutdown"
-  | `shutdown ->
-      "shutdown"
 
 let cpu_feature_to_string f =
   match f with
@@ -338,19 +288,6 @@ let cpu_feature_to_string f =
   | `VMX ->
       "VMX"
 
-let task_status_type_to_string s =
-  match s with
-  | `pending ->
-      "pending"
-  | `success ->
-      "success"
-  | `failure ->
-      "failure"
-  | `cancelling ->
-      "cancelling"
-  | `cancelled ->
-      "cancelled"
-
 let protocol_to_string = function
   | `vt100 ->
       "VT100"
@@ -358,14 +295,6 @@ let protocol_to_string = function
       "RFB"
   | `rdp ->
       "RDP"
-
-let telemetry_frequency_to_string = function
-  | `daily ->
-      "daily"
-  | `weekly ->
-      "weekly"
-  | `monthly ->
-      "monthly"
 
 let task_allowed_operations_to_string s =
   match s with `cancel -> "Cancel" | `destroy -> "Destroy"
@@ -404,56 +333,6 @@ let on_softreboot_behaviour_to_string x =
       "Preserve"
   | `soft_reboot ->
       "Soft reboot"
-
-let host_display_to_string h =
-  match h with
-  | `enabled ->
-      "enabled"
-  | `enable_on_reboot ->
-      "enable_on_reboot"
-  | `disabled ->
-      "disabled"
-  | `disable_on_reboot ->
-      "disable_on_reboot"
-
-let host_sched_gran_of_string s =
-  match String.lowercase_ascii s with
-  | "core" ->
-      `core
-  | "cpu" ->
-      `cpu
-  | "socket" ->
-      `socket
-  | _ ->
-      record_failure "Expected 'core','cpu', 'socket', got %s" s
-
-let host_sched_gran_to_string = function
-  | `core ->
-      "core"
-  | `cpu ->
-      "cpu"
-  | `socket ->
-      "socket"
-
-let host_numa_affinity_policy_to_string = function
-  | `any ->
-      "any"
-  | `best_effort ->
-      "best_effort"
-  | `default_policy ->
-      "default_policy"
-
-let host_numa_affinity_policy_of_string a =
-  match String.lowercase_ascii a with
-  | "any" ->
-      `any
-  | "best_effort" ->
-      `best_effort
-  | "default_policy" ->
-      `default_policy
-  | s ->
-      record_failure "Expected 'any', 'best_effort' or 'default_policy', got %s"
-        s
 
 let pci_dom0_access_to_string x = host_display_to_string x
 
@@ -498,93 +377,6 @@ let vdi_type_to_string t =
       "PVS cache"
   | `cbt_metadata ->
       "CBT metadata"
-
-let ip_configuration_mode_to_string = function
-  | `None ->
-      "None"
-  | `DHCP ->
-      "DHCP"
-  | `Static ->
-      "Static"
-
-let ip_configuration_mode_of_string m =
-  match String.lowercase_ascii m with
-  | "dhcp" ->
-      `DHCP
-  | "none" ->
-      `None
-  | "static" ->
-      `Static
-  | s ->
-      record_failure "Expected 'dhcp','none' or 'static', got %s" s
-
-let vif_ipv4_configuration_mode_to_string = function
-  | `None ->
-      "None"
-  | `Static ->
-      "Static"
-
-let vif_ipv4_configuration_mode_of_string m =
-  match String.lowercase_ascii m with
-  | "none" ->
-      `None
-  | "static" ->
-      `Static
-  | s ->
-      record_failure "Expected 'none' or 'static', got %s" s
-
-let ipv6_configuration_mode_to_string = function
-  | `None ->
-      "None"
-  | `DHCP ->
-      "DHCP"
-  | `Static ->
-      "Static"
-  | `Autoconf ->
-      "Autoconf"
-
-let ipv6_configuration_mode_of_string m =
-  match String.lowercase_ascii m with
-  | "dhcp" ->
-      `DHCP
-  | "none" ->
-      `None
-  | "static" ->
-      `Static
-  | "autoconf" ->
-      `Autoconf
-  | s ->
-      record_failure "Expected 'dhcp','none' 'autoconf' or 'static', got %s" s
-
-let vif_ipv6_configuration_mode_to_string = function
-  | `None ->
-      "None"
-  | `Static ->
-      "Static"
-
-let vif_ipv6_configuration_mode_of_string m =
-  match String.lowercase_ascii m with
-  | "none" ->
-      `None
-  | "static" ->
-      `Static
-  | s ->
-      record_failure "Expected 'none' or 'static', got %s" s
-
-let primary_address_type_to_string = function
-  | `IPv4 ->
-      "IPv4"
-  | `IPv6 ->
-      "IPv6"
-
-let primary_address_type_of_string m =
-  match String.lowercase_ascii m with
-  | "ipv4" ->
-      `IPv4
-  | "ipv6" ->
-      `IPv6
-  | s ->
-      record_failure "Expected 'ipv4' or 'ipv6', got %s" s
 
 let bond_mode_to_string = function
   | `balanceslb ->
@@ -646,25 +438,6 @@ let bool_of_string s =
   | _ ->
       record_failure
         "Expected 'true','t','yes','y','1','false','f','no','n','0' got %s" s
-
-let tunnel_protocol_of_string s =
-  match String.lowercase_ascii s with
-  | "gre" ->
-      `gre
-  | "vxlan" ->
-      `vxlan
-  | _ ->
-      record_failure "Expected 'gre','vxlan', got %s" s
-
-let tunnel_protocol_to_string = function `gre -> "gre" | `vxlan -> "vxlan"
-
-let pif_igmp_status_to_string = function
-  | `enabled ->
-      "enabled"
-  | `disabled ->
-      "disabled"
-  | `unknown ->
-      "unknown"
 
 let tristate_to_string tristate =
   match tristate with
@@ -740,21 +513,6 @@ let mac_from_int_array macs =
 
 (* generate a random mac that is locally administered *)
 let random_mac_local () = mac_from_int_array (Array.make 6 (Random.int 0x100))
-
-let update_sync_frequency_to_string = function
-  | `daily ->
-      "daily"
-  | `weekly ->
-      "weekly"
-
-let update_sync_frequency_of_string s =
-  match String.lowercase_ascii s with
-  | "daily" ->
-      `daily
-  | "weekly" ->
-      `weekly
-  | _ ->
-      record_failure "Expected 'daily', 'weekly', got %s" s
 
 let vm_placement_policy_to_string = function
   | `normal ->
