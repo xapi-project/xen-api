@@ -7370,8 +7370,8 @@ let vmss_create printer rpc session_id params =
           failwith ("No default value for parameter " ^ param_name)
   in
   let name_label = List.assoc "name-label" params in
-  let ty = Record_util.string_to_vmss_type (get "type") in
-  let frequency = Record_util.string_to_vmss_frequency (get "frequency") in
+  let ty = Record_util.vmss_type_of_string (get "type") in
+  let frequency = Record_util.vmss_frequency_of_string (get "frequency") in
   let schedule = read_map_params "schedule" params in
   (* optional parameters with default values *)
   let name_description = get "name-description" ~default:"" in

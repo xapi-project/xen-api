@@ -1518,7 +1518,7 @@ let vmss_record rpc session_id vmss =
           ~get:(fun () -> Record_util.vmss_type_to_string (x ()).API.vMSS_type)
           ~set:(fun x ->
             Client.VMSS.set_type ~rpc ~session_id ~self:vmss
-              ~value:(Record_util.string_to_vmss_type x)
+              ~value:(Record_util.vmss_type_of_string x)
           )
           ()
       ; make_field ~name:"retained-snapshots"
@@ -1536,7 +1536,7 @@ let vmss_record rpc session_id vmss =
           )
           ~set:(fun x ->
             Client.VMSS.set_frequency ~rpc ~session_id ~self:vmss
-              ~value:(Record_util.string_to_vmss_frequency x)
+              ~value:(Record_util.vmss_frequency_of_string x)
           )
           ()
       ; make_field ~name:"schedule"

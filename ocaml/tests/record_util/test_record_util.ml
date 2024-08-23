@@ -148,8 +148,13 @@ let tests =
       (O.vif_operation_to_string, N.vif_operations_to_string)
   ; mk __LINE__ None all_vif_locking_mode
       (O.vif_locking_mode_to_string, N.vif_locking_mode_to_string)
-  ; mk __LINE__ None all_vmss_type (O.vmss_type_to_string, N.vmss_type_to_string)
-  ; mk __LINE__ None all_vmss_frequency
+  ; mk __LINE__
+      (Some (O.string_to_vmss_type, N.vmss_type_of_string))
+      all_vmss_type
+      (O.vmss_type_to_string, N.vmss_type_to_string)
+  ; mk __LINE__
+      (Some (O.string_to_vmss_frequency, N.vmss_frequency_of_string))
+      all_vmss_frequency
       (O.vmss_frequency_to_string, N.vmss_frequency_to_string)
   ; mk __LINE__ None all_network_default_locking_mode
       ( O.network_default_locking_mode_to_string
