@@ -122,6 +122,10 @@ let tests =
       (O.power_to_string, N.vm_power_state_to_lowercase_string)
   ; mk __LINE__ None all_vm_operations
       (O.vm_operation_to_string, N.vm_operation_to_string)
+  ; mk __LINE__
+      (Some (O.vm_uefi_mode_of_string, N.vm_uefi_mode_of_string))
+      all_vm_uefi_mode
+      (N.vm_uefi_mode_to_string, N.vm_uefi_mode_to_string)
   ; mk __LINE__ None all_vm_secureboot_readiness
       (O.vm_secureboot_readiness_to_string, N.vm_secureboot_readiness_to_string)
   ; mk __LINE__ None all_pool_guest_secureboot_readiness

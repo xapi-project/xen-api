@@ -101,14 +101,6 @@ let string_to_vm_operation x =
   else
     List.assoc x table
 
-let vm_uefi_mode_of_string = function
-  | "setup" ->
-      `setup
-  | "user" ->
-      `user
-  | s ->
-      record_failure "Expected 'user','setup', got %s" s
-
 let vm_secureboot_readiness_to_string = function
   | `not_supported ->
       "not_supported"
