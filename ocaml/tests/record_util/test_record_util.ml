@@ -184,12 +184,22 @@ let tests =
   ; mk __LINE__ None all_task_allowed_operations
       (O.task_allowed_operations_to_string, N.task_allowed_operations_to_string)
     (*; mk __LINE__ None all_alert_level (O.alert_level_to_string, N.alert_level_to_string)*)
-  ; mk __LINE__ None all_on_normal_exit
+  ; mk __LINE__
+      (Some (O.string_to_on_normal_exit, N.on_normal_exit_of_string))
+      all_on_normal_exit
       (O.on_normal_exit_to_string, N.on_normal_exit_to_string)
-  ; mk __LINE__ None all_on_crash_behaviour
+  ; mk __LINE__
+      (Some (O.string_to_on_crash_behaviour, N.on_crash_behaviour_of_string))
+      all_on_crash_behaviour
       (O.on_crash_behaviour_to_string, N.on_crash_behaviour_to_string)
-  ; mk __LINE__ None all_on_softreboot_behavior
-      (O.on_softreboot_behaviour_to_string, N.on_softreboot_behaviour_to_string)
+  ; mk __LINE__
+      (Some
+         ( O.string_to_on_softreboot_behaviour
+         , N.on_softreboot_behavior_of_string
+         )
+      )
+      all_on_softreboot_behavior
+      (N.on_softreboot_behaviour_to_string, N.on_softreboot_behaviour_to_string)
   ; mk __LINE__ None all_host_display
       (O.host_display_to_string, N.host_display_to_string)
   ; mk __LINE__
@@ -286,7 +296,10 @@ let tests =
       ( O.network_sriov_configuration_mode_to_string
       , N.sriov_configuration_mode_to_string
       )
-  ; mk __LINE__ None all_on_boot (O.on_boot_to_string, N.on_boot_to_string)
+  ; mk __LINE__
+      (Some (O.string_to_vdi_onboot, N.on_boot_of_string))
+      all_on_boot
+      (O.on_boot_to_string, N.on_boot_to_string)
   ; mk __LINE__ None all_tristate_type
       (O.tristate_to_string, N.tristate_to_string)
   ; mk __LINE__

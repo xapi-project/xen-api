@@ -381,18 +381,11 @@ let task_allowed_operations_to_string s =
 let alert_level_to_string s =
   match s with `Info -> "info" | `Warn -> "warning" | `Error -> "error"
 
+(* Intentional shadowing - inconsistent capitalization *)
 let on_normal_exit_to_string x =
   match x with `destroy -> "Destroy" | `restart -> "Restart"
 
-let string_to_on_normal_exit s =
-  match String.lowercase_ascii s with
-  | "destroy" ->
-      `destroy
-  | "restart" ->
-      `restart
-  | _ ->
-      record_failure "Expected 'destroy' or 'restart', got %s" s
-
+(* Intentional shadowing - inconsistent capitalization *)
 let on_crash_behaviour_to_string x =
   match x with
   | `destroy ->
@@ -408,27 +401,7 @@ let on_crash_behaviour_to_string x =
   | `rename_restart ->
       "Rename restart"
 
-let string_to_on_crash_behaviour s =
-  match String.lowercase_ascii s with
-  | "destroy" ->
-      `destroy
-  | "coredump_and_destroy" ->
-      `coredump_and_destroy
-  | "restart" ->
-      `restart
-  | "coredump_and_restart" ->
-      `coredump_and_restart
-  | "preserve" ->
-      `preserve
-  | "rename_restart" ->
-      `rename_restart
-  | _ ->
-      record_failure
-        "Expected 'destroy', 'coredump_and_destroy', \
-         'restart','coredump_and_restart', 'preserve' or 'rename_restart', got \
-         %s"
-        s
-
+(* Intentional shadowing - inconsistent capitalization *)
 let on_softreboot_behaviour_to_string x =
   match x with
   | `destroy ->
@@ -439,23 +412,6 @@ let on_softreboot_behaviour_to_string x =
       "Preserve"
   | `soft_reboot ->
       "Soft reboot"
-
-let string_to_on_softreboot_behaviour s =
-  match String.lowercase_ascii s with
-  | "destroy" ->
-      `destroy
-  | "restart" ->
-      `restart
-  | "preserve" ->
-      `preserve
-  | "soft_reboot" ->
-      `soft_reboot
-  | _ ->
-      record_failure
-        "Expected 'destroy', 'coredump_and_destroy', 'restart', \
-         'coredump_and_restart', 'preserve', 'soft_reboot' or \
-         'rename_restart', got %s"
-        s
 
 let host_display_to_string h =
   match h with
@@ -717,9 +673,6 @@ let pif_igmp_status_to_string = function
       "disabled"
   | `unknown ->
       "unknown"
-
-let on_boot_to_string onboot =
-  match onboot with `reset -> "reset" | `persist -> "persist"
 
 let tristate_to_string tristate =
   match tristate with

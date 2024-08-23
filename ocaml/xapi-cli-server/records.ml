@@ -1962,7 +1962,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_shutdown ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_normal_exit x)
+              ~value:(Record_util.on_normal_exit_of_string x)
           )
           ()
       ; make_field ~name:"actions-after-softreboot"
@@ -1972,7 +1972,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_softreboot ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_softreboot_behaviour x)
+              ~value:(Record_util.on_softreboot_behavior_of_string x)
           )
           ()
       ; make_field ~name:"actions-after-reboot"
@@ -1982,7 +1982,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_reboot ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_normal_exit x)
+              ~value:(Record_util.on_normal_exit_of_string x)
           )
           ()
       ; make_field ~name:"actions-after-crash"
@@ -1992,7 +1992,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_crash ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_crash_behaviour x)
+              ~value:(Record_util.on_crash_behaviour_of_string x)
           )
           ()
       ; make_field ~name:"console-uuids"
@@ -3359,7 +3359,7 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot)
           ~set:(fun onboot ->
             Client.VDI.set_on_boot ~rpc ~session_id ~self:vdi
-              ~value:(Record_util.string_to_vdi_onboot onboot)
+              ~value:(Record_util.on_boot_of_string onboot)
           )
           ()
       ; make_field ~name:"allow-caching"
