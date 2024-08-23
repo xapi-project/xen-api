@@ -158,11 +158,19 @@ let tests =
       (Some (O.string_to_vmss_frequency, N.vmss_frequency_of_string))
       all_vmss_frequency
       (O.vmss_frequency_to_string, N.vmss_frequency_to_string)
-  ; mk __LINE__ None all_network_default_locking_mode
+  ; mk __LINE__
+      (Some
+         ( O.string_to_network_default_locking_mode
+         , N.network_default_locking_mode_of_string
+         )
+      )
+      all_network_default_locking_mode
       ( O.network_default_locking_mode_to_string
       , N.network_default_locking_mode_to_string
       )
-  ; mk __LINE__ None all_network_purpose
+  ; mk __LINE__
+      (Some (O.string_to_network_purpose, N.network_purpose_of_string))
+      all_network_purpose
       (O.network_purpose_to_string, N.network_purpose_to_string)
   ; mk __LINE__ None all_vm_appliance_operation
       (O.vm_appliance_operation_to_string, N.vm_appliance_operation_to_string)

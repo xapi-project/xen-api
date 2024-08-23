@@ -1070,7 +1070,7 @@ let net_record rpc session_id net =
           ~set:(fun value ->
             Client.Network.set_default_locking_mode ~rpc ~session_id
               ~network:net
-              ~value:(Record_util.string_to_network_default_locking_mode value)
+              ~value:(Record_util.network_default_locking_mode_of_string value)
           )
           ()
       ; make_field ~name:"purpose"
@@ -1084,11 +1084,11 @@ let net_record rpc session_id net =
           )
           ~add_to_set:(fun s ->
             Client.Network.add_purpose ~rpc ~session_id ~self:net
-              ~value:(Record_util.string_to_network_purpose s)
+              ~value:(Record_util.network_purpose_of_string s)
           )
           ~remove_from_set:(fun s ->
             Client.Network.remove_purpose ~rpc ~session_id ~self:net
-              ~value:(Record_util.string_to_network_purpose s)
+              ~value:(Record_util.network_purpose_of_string s)
           )
           ()
       ]
