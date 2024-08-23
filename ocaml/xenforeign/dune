@@ -1,4 +1,0 @@
-(executable
-  (name main)
-  (libraries bigarray-compat cstruct  xenctrl xenopsd_xc hex)
-  )
