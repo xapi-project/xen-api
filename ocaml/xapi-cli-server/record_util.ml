@@ -652,27 +652,8 @@ let string_to_vdi_onboot s =
   | _ ->
       record_failure "Expected 'persist' or 'reset', got %s" s
 
-let string_to_vbd_mode s =
-  match String.lowercase_ascii s with
-  | "ro" ->
-      `RO
-  | "rw" ->
-      `RW
-  | _ ->
-      record_failure "Expected 'RO' or 'RW', got %s" s
-
+(* Intentional shadowing - inconsistent capitalization *)
 let vbd_mode_to_string = function `RO -> "ro" | `RW -> "rw"
-
-let string_to_vbd_type s =
-  match String.lowercase_ascii s with
-  | "cd" ->
-      `CD
-  | "disk" ->
-      `Disk
-  | "floppy" ->
-      `Floppy
-  | _ ->
-      record_failure "Expected 'CD' or 'Disk', got %s" s
 
 (* Some usage sites rely on the output of the
    conversion function to be lowercase*)

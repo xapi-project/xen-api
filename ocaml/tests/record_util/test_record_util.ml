@@ -190,7 +190,14 @@ let tests =
       )
   ; mk __LINE__ None all_pci_dom0_access
       (O.pci_dom0_access_to_string, N.pci_dom0_access_to_string)
-  ; mk __LINE__ None all_vbd_mode (O.vbd_mode_to_string, N.vbd_mode_to_string)
+  ; mk __LINE__
+      (Some (O.string_to_vbd_mode, N.vbd_mode_of_string))
+      all_vbd_mode
+      (O.vbd_mode_to_string, N.vbd_mode_to_string)
+  ; mk __LINE__
+      (Some (O.string_to_vbd_type, N.vbd_type_of_string))
+      all_vbd_type
+      (N.vbd_type_to_string, N.vbd_type_to_string)
     (*; mk __LINE__ None all_power (O.power_to_string, N.power_to_string)*)
   ; mk __LINE__ None all_vdi_type (O.vdi_type_to_string, N.vdi_type_to_string)
   ; mk __LINE__

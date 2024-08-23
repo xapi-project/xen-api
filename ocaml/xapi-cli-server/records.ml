@@ -3489,7 +3489,7 @@ let vbd_record rpc session_id vbd =
           )
           ~set:(fun mode ->
             Client.VBD.set_mode ~rpc ~session_id ~self:vbd
-              ~value:(Record_util.string_to_vbd_mode mode)
+              ~value:(Record_util.vbd_mode_of_string mode)
           )
           ()
       ; make_field ~name:"type"
@@ -3504,7 +3504,7 @@ let vbd_record rpc session_id vbd =
           )
           ~set:(fun ty ->
             Client.VBD.set_type ~rpc ~session_id ~self:vbd
-              ~value:(Record_util.string_to_vbd_type ty)
+              ~value:(Record_util.vbd_type_of_string ty)
           )
           ()
       ; make_field ~name:"unpluggable"
