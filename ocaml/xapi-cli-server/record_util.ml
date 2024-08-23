@@ -205,29 +205,6 @@ let sr_operation_to_string : API.storage_operations -> string = function
   | `pbd_destroy ->
       "PBD.destroy"
 
-let vif_locking_mode_to_string = function
-  | `network_default ->
-      "network_default"
-  | `locked ->
-      "locked"
-  | `unlocked ->
-      "unlocked"
-  | `disabled ->
-      "disabled"
-
-let string_to_vif_locking_mode = function
-  | "network_default" ->
-      `network_default
-  | "locked" ->
-      `locked
-  | "unlocked" ->
-      `unlocked
-  | "disabled" ->
-      `disabled
-  | s ->
-      record_failure
-        "Expected 'network_default', 'locked', 'unlocked', 'disabled', got %s" s
-
 let network_default_locking_mode_to_string = function
   | `unlocked ->
       "unlocked"

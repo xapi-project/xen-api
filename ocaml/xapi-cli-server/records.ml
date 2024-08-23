@@ -920,7 +920,7 @@ let vif_record rpc session_id vif =
           )
           ~set:(fun value ->
             Client.VIF.set_locking_mode ~rpc ~session_id ~self:vif
-              ~value:(Record_util.string_to_vif_locking_mode value)
+              ~value:(Record_util.vif_locking_mode_of_string value)
           )
           ()
       ; make_field ~name:"ipv4-allowed"
