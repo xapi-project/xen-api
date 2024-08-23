@@ -269,7 +269,7 @@ let tests =
       all_domain_type
       (O.domain_type_to_string, N.domain_type_to_string)
   ; mk __LINE__ None all_vtpm_operations
-      (O.vtpm_operation_to_string, N.vtpm_operation_to_string)
+      (O.vtpm_operation_to_string, N.vtpm_operations_to_string)
   ; mk __LINE__
       (Some
          (O.update_sync_frequency_of_string, N.update_sync_frequency_of_string)

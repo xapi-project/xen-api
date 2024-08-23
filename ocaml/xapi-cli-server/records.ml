@@ -5295,11 +5295,11 @@ let vtpm_record rpc session_id vtpm =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vtpm_operation_to_string
+            map_and_concat Record_util.vtpm_operations_to_string
               (x ()).API.vTPM_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vtpm_operation_to_string
+            List.map Record_util.vtpm_operations_to_string
               (x ()).API.vTPM_allowed_operations
           )
           ()

@@ -908,9 +908,6 @@ let domain_type_of_string x =
   | s ->
       record_failure "Invalid domain type. Got %s" s
 
-let vtpm_operation_to_string (op : API.vtpm_operations) =
-  match op with `destroy -> "destroy"
-
 (** parse [0-9]*(b|bytes|kib|mib|gib|tib)* to bytes *)
 let bytes_of_string str =
   let ( ** ) a b = Int64.mul a b in
