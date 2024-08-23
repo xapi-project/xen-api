@@ -12,11 +12,19 @@
  * GNU Lesser General Public License for more details.
  *)
 (* conversion utils *)
+(* NOTE: Unless conversion requires some custom logic, no new functions should
+   be added here. Automatically-generated functions with consistent behaviour
+   and naming are generated from the datamodel and included here.
+   If the custom logic is required, these functions should be shadowed and
+   justified here.
+   See:
+    _build/default/ocaml/xapi-cli-server/generated_record_utils.ml
+   for the generated code. And:
+    ~/xen-api/ocaml/idl/ocaml_backend/gen_api.ml
+   for the code generating it.
+*)
 
-exception Record_failure of string
-
-let record_failure fmt =
-  Printf.ksprintf (fun msg -> raise (Record_failure msg)) fmt
+include Generated_record_utils
 
 let to_str = function Rpc.String x -> x | _ -> failwith "Invalid"
 
