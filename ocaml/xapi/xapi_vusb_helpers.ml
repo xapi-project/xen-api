@@ -69,8 +69,8 @@ let valid_operations ~__context record _ref' : table =
   | `Running, false ->
       set_errors Api_errors.device_already_detached [_ref] [`unplug]
   | _, _ ->
-      let actual = Record_util.power_to_string power_state in
-      let expected = Record_util.power_to_string `Running in
+      let actual = Record_util.vm_power_state_to_lowercase_string power_state in
+      let expected = Record_util.vm_power_state_to_lowercase_string `Running in
       set_errors Api_errors.vm_bad_power_state
         [Ref.string_of vm; expected; actual]
         [`plug; `unplug]

@@ -82,21 +82,6 @@ let string_to_class str =
   | _ ->
       failwith "Bad type"
 
-let power_state_to_string state =
-  match state with
-  | `Halted ->
-      "Halted"
-  | `Paused ->
-      "Paused"
-  | `Running ->
-      "Running"
-  | `Suspended ->
-      "Suspended"
-  | `ShuttingDown ->
-      "Shutting down"
-  | `Migrating ->
-      "Migrating"
-
 let vm_operation_table =
   [
     (`assert_operation_valid, "assertoperationvalid")
@@ -801,20 +786,10 @@ let string_to_vbd_type s =
   | _ ->
       record_failure "Expected 'CD' or 'Disk', got %s" s
 
-let power_to_string h =
-  match h with
-  | `Halted ->
-      "halted"
-  | `Paused ->
-      "paused"
-  | `Running ->
-      "running"
-  | `Suspended ->
-      "suspended"
-  | `ShuttingDown ->
-      "shutting down"
-  | `Migrating ->
-      "migrating"
+(* Some usage sites rely on the output of the
+   conversion function to be lowercase*)
+let vm_power_state_to_lowercase_string h =
+  vm_power_state_to_string h |> String.uncapitalize_ascii
 
 let vdi_type_to_string t =
   match t with

@@ -231,7 +231,9 @@ let quiesced = "quiesced"
 
 let snapshot_info ~power_state ~is_a_snapshot =
   let power_state_info =
-    [(power_state_at_snapshot, Record_util.power_state_to_string power_state)]
+    [
+      (power_state_at_snapshot, Record_util.vm_power_state_to_string power_state)
+    ]
   in
   if is_a_snapshot then
     (disk_snapshot_type, crash_consistent) :: power_state_info

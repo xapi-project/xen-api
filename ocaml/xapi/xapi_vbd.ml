@@ -310,10 +310,16 @@ let assert_not_suspended ~__context ~vm =
   if Db.VM.get_power_state ~__context ~self:vm = `Suspended then
     let expected =
       String.concat ", "
-        (List.map Record_util.power_to_string [`Halted; `Running])
+        (List.map Record_util.vm_power_state_to_lowercase_string
+           [`Halted; `Running]
+        )
     in
     let error_params =
-      [Ref.string_of vm; expected; Record_util.power_to_string `Suspended]
+      [
+        Ref.string_of vm
+      ; expected
+      ; Record_util.vm_power_state_to_lowercase_string `Suspended
+      ]
     in
     raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, error_params))
 

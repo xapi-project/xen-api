@@ -122,8 +122,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       set_errors Api_errors.device_already_detached [_ref]
         [`unplug; `unplug_force]
   | _, _ ->
-      let actual = Record_util.power_to_string power_state in
-      let expected = Record_util.power_to_string `Running in
+      let actual = Record_util.vm_power_state_to_lowercase_string power_state in
+      let expected = Record_util.vm_power_state_to_lowercase_string `Running in
       (* If not Running, always block these operations: *)
       let bad_ops = [`plug; `unplug; `unplug_force] in
       (* However allow VBD pause and unpause if the VM is paused: *)
@@ -199,10 +199,16 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   ( if record.Db_actions.vBD_type = `CD && power_state = `Suspended then
       let expected =
         String.concat ", "
-          (List.map Record_util.power_to_string [`Halted; `Running])
+          (List.map Record_util.vm_power_state_to_lowercase_string
+             [`Halted; `Running]
+          )
       in
       let error_params =
-        [Ref.string_of vm; expected; Record_util.power_to_string `Suspended]
+        [
+          Ref.string_of vm
+        ; expected
+        ; Record_util.vm_power_state_to_lowercase_string `Suspended
+        ]
       in
       set_errors Api_errors.vm_bad_power_state error_params [`insert; `eject]
     (* `attach required for resume *)

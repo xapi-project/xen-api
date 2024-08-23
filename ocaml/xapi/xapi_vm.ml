@@ -411,8 +411,8 @@ let hard_reboot ~__context ~vm =
            ( Api_errors.vm_bad_power_state
            , [
                Ref.string_of vm
-             ; Record_util.power_to_string `Running
-             ; Record_util.power_to_string `Suspended
+             ; Record_util.vm_power_state_to_lowercase_string `Running
+             ; Record_util.vm_power_state_to_lowercase_string `Suspended
              ]
            )
         )
@@ -643,8 +643,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
           ( vm_bad_power_state
           , [
               Ref.string_of vm_ref
-            ; Record_util.power_to_string `Halted
-            ; Record_util.power_to_string power_state
+            ; Record_util.vm_power_state_to_lowercase_string `Halted
+            ; Record_util.vm_power_state_to_lowercase_string power_state
             ]
           )
       ) ;
@@ -1627,8 +1627,8 @@ let restart_device_models ~__context ~self =
           ( vm_bad_power_state
           , [
               Ref.string_of self
-            ; Record_util.power_state_to_string `Running
-            ; Record_util.power_state_to_string power_state
+            ; Record_util.vm_power_state_to_string `Running
+            ; Record_util.vm_power_state_to_string power_state
             ]
           )
       ) ;

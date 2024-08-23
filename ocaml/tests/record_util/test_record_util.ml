@@ -114,7 +114,9 @@ let tests =
       (O.certificate_type_to_string, N.certificate_type_to_string)
   ; mk __LINE__ None all_cls (O.class_to_string, N.class_to_string)
   ; mk __LINE__ None all_vm_power_state
-      (O.power_state_to_string, N.power_state_to_string)
+      (O.power_state_to_string, N.vm_power_state_to_string)
+  ; mk __LINE__ None all_vm_power_state
+      (O.power_to_string, N.vm_power_state_to_lowercase_string)
   ; mk __LINE__ None all_vm_operations
       (O.vm_operation_to_string, N.vm_operation_to_string)
   ; mk __LINE__ None all_vm_secureboot_readiness

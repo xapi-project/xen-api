@@ -1860,7 +1860,10 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain)
           ()
       ; make_field ~name:"power-state"
-          ~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state)
+          ~get:(fun () ->
+            Record_util.vm_power_state_to_lowercase_string
+              (x ()).API.vM_power_state
+          )
           ()
       ; make_field ~name:"memory-actual"
           ~get:(fun () ->
