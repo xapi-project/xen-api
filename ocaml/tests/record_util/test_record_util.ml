@@ -280,8 +280,7 @@ let tests =
       (Some (O.vm_placement_policy_of_string, N.vm_placement_policy_of_string))
       all_placement_policy
       (O.vm_placement_policy_to_string, N.vm_placement_policy_to_string)
-  ; mk __LINE__ None all_origin
-      (O.repo_origin_to_string, N.repo_origin_to_string)
+  ; mk __LINE__ None all_origin (O.repo_origin_to_string, N.origin_to_string)
   ]
   |> List.concat
 
