@@ -2547,7 +2547,7 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"pending-guidances"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.vM_pending_guidances
           )
           ()
@@ -2556,13 +2556,13 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"pending-guidances-recommended"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.vM_pending_guidances_recommended
           )
           ()
       ; make_field ~name:"pending-guidances-full"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.vM_pending_guidances_full
           )
           ()
@@ -3181,7 +3181,7 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"pending-guidances"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.host_pending_guidances
           )
           ()
@@ -3201,13 +3201,13 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"pending-guidances-recommended"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.host_pending_guidances_recommended
           )
           ()
       ; make_field ~name:"pending-guidances-full"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.host_pending_guidances_full
           )
           ()

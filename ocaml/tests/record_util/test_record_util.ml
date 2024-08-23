@@ -130,7 +130,7 @@ let tests =
   ; mk __LINE__ None all_host_allowed_operations
       (O.host_operation_to_string, N.host_operation_to_string)
   ; mk __LINE__ None all_update_guidances
-      (O.update_guidance_to_string, N.update_guidance_to_string)
+      (O.update_guidance_to_string, N.update_guidances_to_string)
   ; mk __LINE__ None all_latest_synced_updates_applied_state
       ( O.latest_synced_updates_applied_state_to_string
       , N.latest_synced_updates_applied_state_to_string
