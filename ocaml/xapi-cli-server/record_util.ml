@@ -77,12 +77,17 @@ let vm_operation_table =
   ; (`create_vtpm, "create_vtpm")
   ]
 
+(* Intentional shadowing - data_souces_op, assertoperationinvalid,
+   changing_vcpus, changing_memory_limits, query_services, create_template
+   are inconsistent *)
 let vm_operation_to_string x =
   if not (List.mem_assoc x vm_operation_table) then
     "(unknown operation)"
   else
     List.assoc x vm_operation_table
 
+(* Intentional shadowing -
+   In addition to the above, also inconsistent exceptions *)
 let string_to_vm_operation x =
   let table = List.map (fun (a, b) -> (b, a)) vm_operation_table in
   if not (List.mem_assoc x table) then
@@ -93,6 +98,8 @@ let string_to_vm_operation x =
   else
     List.assoc x table
 
+(* Intentional shadowing - inconsistent behaviour:
+   vm_start, vm_resume, vm_migrate *)
 let host_operation_to_string = function
   | `provision ->
       "provision"
@@ -115,6 +122,7 @@ let host_operation_to_string = function
   | `enable ->
       "enable"
 
+(* Intentional shadowing - inconsistent behaviour around _/. *)
 let sr_operation_to_string : API.storage_operations -> string = function
   | `scan ->
       "scan"
@@ -157,6 +165,7 @@ let sr_operation_to_string : API.storage_operations -> string = function
   | `pbd_destroy ->
       "PBD.destroy"
 
+(* Is not defined in the datamodel - only defined here *)
 let cpu_feature_to_string f =
   match f with
   | `FPU ->
@@ -288,6 +297,7 @@ let cpu_feature_to_string f =
   | `VMX ->
       "VMX"
 
+(* Intentional shadowing - inconsistent capitalization *)
 let protocol_to_string = function
   | `vt100 ->
       "VT100"
@@ -296,9 +306,11 @@ let protocol_to_string = function
   | `rdp ->
       "RDP"
 
+(* Intentional shadowing - inconsistent capitalization *)
 let task_allowed_operations_to_string s =
   match s with `cancel -> "Cancel" | `destroy -> "Destroy"
 
+(* Is not defined in the datamodel - only defined here *)
 let alert_level_to_string s =
   match s with `Info -> "info" | `Warn -> "warning" | `Error -> "error"
 
@@ -353,6 +365,7 @@ let vbd_mode_to_string = function `RO -> "ro" | `RW -> "rw"
 let vm_power_state_to_lowercase_string h =
   vm_power_state_to_string h |> String.uncapitalize_ascii
 
+(* Intentional shadowing - inconsistent capitalization *)
 let vdi_type_to_string t =
   match t with
   | `system ->
@@ -378,6 +391,7 @@ let vdi_type_to_string t =
   | `cbt_metadata ->
       "CBT metadata"
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let bond_mode_to_string = function
   | `balanceslb ->
       "balance-slb"
@@ -386,6 +400,7 @@ let bond_mode_to_string = function
   | `lacp ->
       "lacp"
 
+(* Intentional shadowing - inconsistent underscore/dash, custom case *)
 let bond_mode_of_string m =
   match String.lowercase_ascii m with
   | "balance-slb" | "" ->
@@ -397,12 +412,14 @@ let bond_mode_of_string m =
   | s ->
       record_failure "Invalid bond mode. Got %s" s
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let allocation_algorithm_to_string = function
   | `depth_first ->
       "depth-first"
   | `breadth_first ->
       "breadth-first"
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let allocation_algorithm_of_string a =
   match String.lowercase_ascii a with
   | "depth-first" ->
@@ -412,6 +429,7 @@ let allocation_algorithm_of_string a =
   | s ->
       record_failure "Invalid allocation algorithm. Got %s" s
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let pvs_proxy_status_to_string = function
   | `stopped ->
       "stopped"
@@ -439,6 +457,7 @@ let bool_of_string s =
       record_failure
         "Expected 'true','t','yes','y','1','false','f','no','n','0' got %s" s
 
+(* Intentional shadowing - inconsistent naming *)
 let tristate_to_string tristate =
   match tristate with
   | `yes ->
@@ -448,6 +467,7 @@ let tristate_to_string tristate =
   | `unspecified ->
       "unspecified"
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let domain_type_to_string = function
   | `hvm ->
       "hvm"
@@ -460,6 +480,7 @@ let domain_type_to_string = function
   | `unspecified ->
       "unspecified"
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let domain_type_of_string x =
   match String.lowercase_ascii x with
   | "hvm" ->
@@ -514,12 +535,14 @@ let mac_from_int_array macs =
 (* generate a random mac that is locally administered *)
 let random_mac_local () = mac_from_int_array (Array.make 6 (Random.int 0x100))
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let vm_placement_policy_to_string = function
   | `normal ->
       "normal"
   | `anti_affinity ->
       "anti-affinity"
 
+(* Intentional shadowing - inconsistent underscore/dash *)
 let vm_placement_policy_of_string a =
   match String.lowercase_ascii a with
   | "normal" ->
