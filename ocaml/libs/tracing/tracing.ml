@@ -94,12 +94,6 @@ let validate_attribute (key, value) =
   && Re.execp attribute_key_regex key
   && W3CBaggage.Key.is_valid_key key
 
-let observe = Atomic.make false
-
-let set_observe mode = Atomic.set observe mode
-
-let get_observe () = Atomic.get observe
-
 module SpanKind = struct
   type t = Server | Consumer | Client | Producer | Internal [@@deriving rpcty]
 
@@ -493,6 +487,18 @@ module TracerProvider = struct
     ; enabled: bool
   }
 
+  let no_op =
+    {
+      name_label= ""
+    ; attributes= Attributes.empty
+    ; endpoints= []
+    ; enabled= false
+    }
+
+  let current = Atomic.make no_op
+
+  let get_current () = Atomic.get current
+
   let get_name_label t = t.name_label
 
   let get_attributes t = Attributes.to_assoc_list t.attributes
@@ -522,7 +528,7 @@ module TracerProvider = struct
                might not be aware that a TracerProvider has already been created.*)
             error "Tracing : TracerProvider %s already exists" name_label
         ) ;
-        if enabled then set_observe true
+        if enabled then Atomic.set current provider
     )
 
   let get_tracer_providers_unlocked () =
@@ -531,6 +537,18 @@ module TracerProvider = struct
   let get_tracer_providers () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock
       get_tracer_providers_unlocked
+
+  let update_providers_unlocked () =
+    let providers = get_tracer_providers_unlocked () in
+    match List.find_opt (fun provider -> provider.enabled) providers with
+    | None ->
+        Atomic.set current no_op ;
+        Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
+            Hashtbl.clear Spans.spans ;
+            Hashtbl.clear Spans.finished_spans
+        )
+    | Some enabled ->
+        Atomic.set current enabled
 
   let set ?enabled ?attributes ?endpoints ~uuid () =
     let update_provider (provider : t) enabled attributes endpoints =
@@ -556,54 +574,22 @@ module TracerProvider = struct
               fail "The TracerProvider : %s does not exist" uuid
         in
         Hashtbl.replace tracer_providers uuid provider ;
-        if
-          List.for_all
-            (fun provider -> not provider.enabled)
-            (get_tracer_providers_unlocked ())
-        then (
-          set_observe false ;
-          Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
-              Hashtbl.clear Spans.spans ;
-              Hashtbl.clear Spans.finished_spans
-          )
-        ) else
-          set_observe true
+        update_providers_unlocked ()
     )
 
   let destroy ~uuid =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         let _ = Hashtbl.remove tracer_providers uuid in
-        if Hashtbl.length tracer_providers = 0 then set_observe false else ()
+        update_providers_unlocked ()
     )
 end
+
+let get_observe () = TracerProvider.(get_current ()).enabled
 
 module Tracer = struct
   type t = TracerProvider.t
 
-  let no_op =
-    TracerProvider.
-      {
-        name_label= ""
-      ; attributes= Attributes.empty
-      ; endpoints= []
-      ; enabled= false
-      }
-
-  let get_tracer ~name =
-    if Atomic.get observe then (
-      let providers =
-        Xapi_stdext_threads.Threadext.Mutex.execute TracerProvider.lock
-          TracerProvider.get_tracer_providers_unlocked
-      in
-
-      match List.find_opt TracerProvider.get_enabled providers with
-      | Some provider ->
-          provider
-      | None ->
-          warn "No provider found for tracing %s" name ;
-          no_op
-    ) else
-      no_op
+  let get_tracer ~name:_ = TracerProvider.get_current ()
 
   let span_of_span_context context name : Span.t =
     {
@@ -634,7 +620,7 @@ module Tracer = struct
       Spans.add_to_spans ~span ; Ok (Some span)
 
   let update_span_with_parent span (parent : Span.t option) =
-    if Atomic.get observe then
+    if (TracerProvider.get_current ()).enabled then
       match parent with
       | None ->
           Some span
@@ -686,8 +672,8 @@ let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
 let with_tracing ?(attributes = []) ?(parent = None) ~name f =
-  if Atomic.get observe then (
-    let tracer = Tracer.get_tracer ~name in
+  let tracer = Tracer.get_tracer ~name in
+  if tracer.enabled then (
     match Tracer.start ~tracer ~attributes ~name ~parent () with
     | Ok span -> (
       try
