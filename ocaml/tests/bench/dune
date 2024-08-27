@@ -1,0 +1,4 @@
+(executable
+	(name bench_tracing)
+	(libraries tracing bechamel bechamel-notty notty.unix tracing_export threads.posix fmt notty)
+)
