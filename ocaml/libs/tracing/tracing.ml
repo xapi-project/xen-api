@@ -135,6 +135,10 @@ end
 module Attributes = struct
   include Map.Make (String)
 
+  let merge_element map (key, value) = add key value map
+
+  let merge_into into list = List.fold_left merge_element into list
+
   let of_list list = List.to_seq list |> of_seq
 
   let to_assoc_list attr = to_seq attr |> List.of_seq
@@ -646,10 +650,7 @@ module Tracer = struct
     if not t.enabled then
       ok_none
     else
-      let attributes = Attributes.of_list attributes in
-      let attributes =
-        Attributes.union (fun _k a _b -> Some a) attributes t.attributes
-      in
+      let attributes = Attributes.merge_into t.attributes attributes in
       let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
 
