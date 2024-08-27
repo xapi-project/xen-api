@@ -578,20 +578,16 @@ module TracerProvider = struct
 end
 
 module Tracer = struct
-  type t = {_name: string; provider: TracerProvider.t}
-
-  let create ~name ~provider = {_name= name; provider}
+  type t = TracerProvider.t
 
   let no_op =
-    let provider : TracerProvider.t =
+    TracerProvider.
       {
         name_label= ""
       ; attributes= Attributes.empty
       ; endpoints= []
       ; enabled= false
       }
-    in
-    {_name= ""; provider}
 
   let get_tracer ~name =
     if Atomic.get observe then (
@@ -602,7 +598,7 @@ module Tracer = struct
 
       match List.find_opt TracerProvider.get_enabled providers with
       | Some provider ->
-          create ~name ~provider
+          provider
       | None ->
           warn "No provider found for tracing %s" name ;
           no_op
@@ -625,15 +621,14 @@ module Tracer = struct
 
   let start ~tracer:t ?(attributes = []) ?(span_kind = SpanKind.Internal) ~name
       ~parent () : (Span.t option, exn) result =
-    (* Do not start span if the TracerProvider is diabled*)
-    if not t.provider.enabled then
+    let open TracerProvider in
+    (* Do not start span if the TracerProvider is disabled*)
+    if not t.enabled then
       ok_none
     else
       let attributes = Attributes.of_list attributes in
       let attributes =
-        Attributes.union
-          (fun _k a _b -> Some a)
-          attributes t.provider.attributes
+        Attributes.union (fun _k a _b -> Some a) attributes t.attributes
       in
       let span = Span.start ~attributes ~name ~parent ~span_kind () in
       Spans.add_to_spans ~span ; Ok (Some span)
