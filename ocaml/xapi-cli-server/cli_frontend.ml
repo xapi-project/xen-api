@@ -32,7 +32,7 @@ open D
 let vmselectors = ["<vm-selectors>"]
 
 let vmselectorsinfo =
-  "VMs can be specified by filtering the full list of VMs on the values of \
+  " VMs can be specified by filtering the full list of VMs on the values of \
    zero or more fields. For example, specifying 'uuid=<some_uuid>' will select \
    only the VM with that uuid, and 'power-state=halted' will select only VMs \
    whose 'power-state' field is equal to 'halted'. The special pseudo-field \
@@ -3091,6 +3091,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-sync-bundle"
+    , {
+        reqd= ["filename"]
+      ; optn= []
+      ; help=
+          "Upload and unpack a bundle file, after that, sync the bundle \
+           repository."
+      ; implementation= With_fd Cli_operations.pool_sync_bundle
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []
@@ -3659,8 +3670,17 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= ["name-label"; "binary-url"; "source-url"; "update"]
       ; optn= ["name-description"; "gpgkey-path"]
-      ; help= "Add the configuration for a new repository."
+      ; help= "Add the configuration for a new remote repository."
       ; implementation= No_fd Cli_operations.Repository.introduce
+      ; flags= []
+      }
+    )
+  ; ( "repository-introduce-bundle"
+    , {
+        reqd= ["name-label"]
+      ; optn= ["name-description"]
+      ; help= "Add the configuration for a new bundle repository."
+      ; implementation= No_fd Cli_operations.Repository.introduce_bundle
       ; flags= []
       }
     )

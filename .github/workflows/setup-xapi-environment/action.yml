@@ -12,6 +12,7 @@ runs:
       shell: bash
       run: |
         curl --fail --silent https://raw.githubusercontent.com/xapi-project/xs-opam/master/tools/xs-opam-ci.env | cut -f2 -d " " > .env
+        cat /etc/os-release
 
     - name: Download XE_SR_ERRORCODES.xml
       shell: bash
@@ -42,15 +43,21 @@ runs:
         echo "TMPDIR=${TMPDIR}" >>"$GITHUB_ENV"
         echo "XDG_CACHE_HOME=${XDG_CACHE_HOME}" >>"$GITHUB_ENV"
 
+    - name: Get runner OS info
+      uses: kenchan0130/actions-system-info@master
+      id: system-info
+
     # We set DUNE_CACHE_STORAGE_MODE, it is required for dune cache to work inside opam for now,
     # otherwise it gets EXDEV and considers it a cache miss
     - name: Use ocaml
-      uses: ocaml/setup-ocaml@v2
+      uses: ocaml/setup-ocaml@v3
       with:
         ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
         dune-cache: true
+        opam-pin: false
+        cache-prefix: v3-${{ steps.system-info.outputs.name }}-${{ steps.system-info.outputs.release }}
       env:
         DUNE_CACHE_STORAGE_MODE: copy
 

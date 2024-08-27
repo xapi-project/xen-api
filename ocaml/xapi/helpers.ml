@@ -42,21 +42,15 @@ let log_exn_continue msg f x =
 type log_output = Always | Never | On_failure
 
 let filter_patterns =
-  [
-    ( Re.Str.regexp "^\\(.*proxy_\\(username\\|password\\)=\\)\\(.*\\)$"
-    , "\\1(filtered)"
-    )
-  ]
+  [(Re.Pcre.regexp "^(.*proxy_(username|password)=)(.*)$", "(filtered)")]
 
 let filter_args args =
   List.map
     (fun arg ->
       List.fold_left
         (fun acc (r, t) ->
-          if Re.Str.string_match r acc 0 then
-            Re.Str.replace_matched t acc
-          else
-            acc
+          try String.concat "" [(Re.Pcre.extract ~rex:r acc).(1); t]
+          with Not_found -> acc
         )
         arg filter_patterns
     )
@@ -2125,3 +2119,219 @@ let get_active_uefi_certificates ~__context ~self =
       custom_uefi_certs
 
 let uefi_mode_to_string = function `setup -> "setup" | `user -> "user"
+
+module BoundedPsq = struct
+  module type Ordered = sig
+    type t
+
+    val compare : t -> t -> int
+  end
+
+  module type S = sig
+    type t
+
+    type k
+
+    type v
+
+    val create : capacity:int -> t
+
+    val add : t -> k -> v -> unit
+    (** [add t k v] adds mapping [k] => [v] to the priority search queue. If
+        the addition of this mapping would exceed the capacity of the queue,
+        the highest priority (lowest) entry is removed to make space
+        for the newest entry.
+
+        If an entry for [k] is already present, the extant entry is
+        updated with [v]. *)
+
+    val remove : t -> k -> unit
+
+    val clear : t -> unit
+
+    val min : t -> (k * v) option
+
+    val find_opt : k -> t -> v option
+
+    val contains : t -> k -> bool
+
+    val iter : (k -> v -> unit) -> t -> unit
+
+    val size : t -> int
+  end
+
+  module Make (K : Ordered) (V : Ordered) :
+    S with type k = K.t and type v = V.t = struct
+    module Q = Psq.Make (K) (V)
+
+    type k = Q.k
+
+    type v = Q.p
+
+    type t = {capacity: int; mutable queue: Q.t}
+
+    let create ~capacity =
+      let capacity = Int.max 0 capacity in
+      {capacity; queue= Q.empty}
+
+    let remove_min ({queue; _} as t) =
+      match Q.min queue with
+      | Some (k, _) ->
+          t.queue <- Q.remove k queue
+      | _ ->
+          ()
+
+    let add t k v =
+      if t.capacity <> 0 then (
+        let n = Q.size t.queue in
+        let would_overflow = n + 1 > t.capacity in
+        let already_present = Q.mem k t.queue in
+        if would_overflow && not already_present then
+          remove_min t ;
+        t.queue <- Q.add k v t.queue
+      )
+
+    let remove t k = t.queue <- Q.remove k t.queue
+
+    let clear t = t.queue <- Q.empty
+
+    let min {queue; _} = Q.min queue
+
+    let find_opt k {queue; _} = Q.find k queue
+
+    let contains t k = Option.is_some (find_opt k t)
+
+    let iter f {queue; _} = Q.iter f queue
+
+    let size t = Q.size t.queue
+  end
+end
+
+module AuthenticationCache = struct
+  (* Associate arbitrary data with an expiry time. *)
+  module Expires (Data : sig
+    type t
+  end) =
+  struct
+    type t = Data.t with_expiration
+
+    and 'a with_expiration = {data: 'a; expires: Mtime.Span.t}
+
+    let compare {expires= e; _} {expires= e'; _} = Mtime.Span.compare e e'
+  end
+
+  module type Ordered = sig
+    type t
+
+    val compare : t -> t -> int
+  end
+
+  (* A secret associates a digest - derived from a key - with some data. *)
+  module type Secret = sig
+    (** The type of key securing the secret, e.g. a password. *)
+    type key
+
+    (** The type of a digest, derived from a [key] and [salt], e.g. a hashed password. *)
+    type digest
+
+    (** Extra data passed to the hashing routine. *)
+    type salt
+
+    (** The contents of the secret, e.g. an authenticated session. *)
+    type secret
+
+    type t
+
+    val create : digest -> salt -> secret -> t
+
+    val read : t -> digest * salt * secret
+
+    val hash : key -> salt -> digest
+
+    val create_salt : unit -> salt
+
+    val equal_digest : digest -> digest -> bool
+  end
+
+  module type S = sig
+    type t
+
+    type user
+
+    type password
+
+    type session
+
+    val create : size:int -> t
+
+    val cache : t -> user -> password -> session -> unit
+
+    val cached : t -> user -> password -> session option
+  end
+
+  module Make (User : Ordered) (Secret : Secret) :
+    S
+      with type user = User.t
+       and type password = Secret.key
+       and type session = Secret.secret = struct
+    module Q = BoundedPsq.Make (User) (Expires (Secret))
+
+    type user = User.t
+
+    type password = Secret.key
+
+    type session = Secret.secret
+
+    type t = {cache: Q.t; mutex: Mutex.t; elapsed: Mtime_clock.counter}
+
+    let create ~size =
+      {
+        cache= Q.create ~capacity:size
+      ; mutex= Mutex.create ()
+      ; elapsed= Mtime_clock.counter ()
+      }
+
+    let with_lock m f =
+      Mutex.(
+        lock m ;
+        let r = f () in
+        unlock m ; r
+      )
+
+    let ( let@ ) = ( @@ )
+
+    let cache t user password session =
+      let@ () = with_lock t.mutex in
+      let expires =
+        let elapsed = Mtime_clock.count t.elapsed in
+        let timeout = !Xapi_globs.external_authentication_expiry in
+        Mtime.Span.add elapsed timeout
+      in
+      let salt = Secret.create_salt () in
+      let digest = Secret.hash password salt in
+      let data = Secret.create digest salt session in
+      Q.add t.cache user {data; expires}
+
+    let cached t user password =
+      let@ () = with_lock t.mutex in
+      match Q.find_opt user t.cache with
+      | Some {data= secret; expires} ->
+          let elapsed = Mtime_clock.count t.elapsed in
+          if Clock.Timer.span_is_longer elapsed ~than:expires then (
+            (* Remove expired entry - regardless of whether
+               authentication would succeed. *)
+            Q.remove t.cache user ;
+            None
+          ) else
+            (* A non-expired entry exists, return the associated data
+               if the provided password matches the hashed password
+               stored inside the entry. *)
+            let digest, salt, secret = Secret.read secret in
+            if Secret.(equal_digest (hash password salt) digest) then
+              Some secret
+            else
+              None
+      | _ ->
+          None
+  end
+end

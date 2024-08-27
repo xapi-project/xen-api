@@ -46,7 +46,25 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
              )
      ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
-    ~source_url ~update ~gpgkey_path
+    ~source_url ~update ~gpgkey_path ~origin:`remote
+
+let introduce_bundle ~__context ~name_label ~name_description =
+  Db.Repository.get_all ~__context
+  |> List.iter (fun ref ->
+         if name_label = Db.Repository.get_name_label ~__context ~self:ref then
+           raise
+             Api_errors.(
+               Server_error (repository_already_exists, [Ref.string_of ref])
+             ) ;
+         if Db.Repository.get_origin ~__context ~self:ref = `bundle then
+           raise
+             Api_errors.(
+               Server_error
+                 (bundle_repository_already_exists, [Ref.string_of ref])
+             )
+     ) ;
+  create_repository_record ~__context ~name_label ~name_description
+    ~binary_url:"" ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`bundle
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
@@ -114,8 +132,18 @@ let sync ~__context ~self ~token ~token_id =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
     remove_repo_conf_file repo_name ;
-    let binary_url = Db.Repository.get_binary_url ~__context ~self in
-    let source_url = Db.Repository.get_source_url ~__context ~self in
+    let binary_url, source_url =
+      match Db.Repository.get_origin ~__context ~self with
+      | `remote ->
+          ( Db.Repository.get_binary_url ~__context ~self
+          , Some (Db.Repository.get_source_url ~__context ~self)
+          )
+      | `bundle ->
+          let uri =
+            Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
+          in
+          (Uri.to_string uri, None)
+    in
     let gpgkey_path =
       match Db.Repository.get_gpgkey_path ~__context ~self with
       | "" ->
@@ -124,8 +152,8 @@ let sync ~__context ~self ~token ~token_id =
           s
     in
     let write_initial_yum_config () =
-      write_yum_config ~source_url:(Some source_url) ~binary_url
-        ~repo_gpgcheck:true ~gpgkey_path ~repo_name
+      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
+        ~repo_name
     in
     write_initial_yum_config () ;
     clean_yum_cache repo_name ;

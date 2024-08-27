@@ -60,6 +60,27 @@ let socket sockaddr =
   in
   Lwt_unix.socket family Unix.SOCK_STREAM 0
 
+module DataChannelConstrained : sig
+  type t = Data_channel.t
+
+  type reader = Cstruct.t -> unit Lwt.t
+
+  val really_read : t -> reader
+
+  val really_write : t -> reader
+end = struct
+  type t = Data_channel.t
+
+  type reader = Cstruct.t -> unit Lwt.t
+
+  let really_read x = x.Data_channel.really_read
+
+  let really_write x = x.Data_channel.really_write
+end
+
+module Cohttp_io_with_channel =
+  Cohttp_unbuffered_io.Make (DataChannelConstrained)
+
 let start_upload ~chunked ~uri =
   Uri_util.sockaddr_of_uri uri >>= fun (sockaddr, use_ssl) ->
   let sock = socket sockaddr in
@@ -74,8 +95,8 @@ let start_upload ~chunked ~uri =
       Data_channel.of_fd ~seekable:false sock
   )
   >>= fun c ->
-  let module Request = Request.Make (Cohttp_unbuffered_io) in
-  let module Response = Response.Make (Cohttp_unbuffered_io) in
+  let module Request = Request.Make (Cohttp_io_with_channel) in
+  let module Response = Response.Make (Cohttp_io_with_channel) in
   let headers = Header.init () in
   let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in
   let headers = if chunked then Header.add headers k v else headers in
@@ -101,7 +122,7 @@ let start_upload ~chunked ~uri =
     Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers uri
   in
   Request.write (fun _ -> return ()) request c >>= fun () ->
-  Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
+  Response.read (Cohttp_io_with_channel.make_input c) >>= fun r ->
   match r with
   | `Eof | `Invalid _ ->
       fail (Failure "Unable to parse HTTP response from server")

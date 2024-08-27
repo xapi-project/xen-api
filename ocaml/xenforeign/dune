@@ -1,4 +1,0 @@
-(executable
-  (name main)
-  (libraries bigarray-compat cstruct dune-build-info xenctrl xenopsd_xc hex)
-  )

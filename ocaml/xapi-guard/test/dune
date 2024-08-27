@@ -5,7 +5,7 @@
  (libraries
   alcotest
   alcotest-lwt
-  dune-build-info
+  
   fmt
   lwt
   rpclib.core

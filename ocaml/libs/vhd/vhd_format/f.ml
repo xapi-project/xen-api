@@ -1607,8 +1607,6 @@ module Vhd = struct
   module Field = struct
     (** Dynamically-typed field-level access *)
 
-    type 'a f = {name: string; get: 'a t -> string}
-
     let _features = "features"
 
     let _data_offset = "data-offset"
@@ -1770,8 +1768,6 @@ module Vhd = struct
         opt (fun (t, _) -> Int32.to_string t.Batmap_header.checksum) t.batmap
       else
         None
-
-    type 'a t = 'a f
   end
 end
 

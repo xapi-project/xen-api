@@ -59,7 +59,7 @@ let handle_connection fd tls_role =
     >>= fun session_id -> f uri rpc session_id
   in
   let serve t uri rpc session_id =
-    let path = Uri.path uri in
+    let path = Uri.path_unencoded uri in
     (* note preceeding / *)
     let vdi_uuid =
       if path <> "" then String.sub path 1 (String.length path - 1) else path

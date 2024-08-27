@@ -10,7 +10,7 @@
     core
     core_unix
     core_unix.time_unix
-    dune-build-info
+    
     message-switch-async
     message-switch-unix
     result

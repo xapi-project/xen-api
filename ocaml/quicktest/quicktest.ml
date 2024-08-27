@@ -14,6 +14,15 @@
 
 (** The main entry point of the quicktest executable *)
 
+let qchecks =
+  [
+    ("unixext", Unixext_test.tests)
+  ; ("bufio", Bufio_test.tests)
+  ; ("Timer", Test_timer.tests)
+  ]
+  |> List.map @@ fun (name, test) ->
+     (name, List.map QCheck_alcotest.(to_alcotest ~long:true) test)
+
 let () =
   Quicktest_args.parse () ;
   Qt_filter.wrap (fun () ->
@@ -37,10 +46,16 @@ let () =
         ; ("Quicktest_max_vdi_size", Quicktest_max_vdi_size.tests ())
         ; ("Quicktest_static_vdis", Quicktest_static_vdis.tests ())
         ; ("Quicktest_date", Quicktest_date.tests ())
+        ; ("Quicktest_crypt_r", Quicktest_crypt_r.tests ())
         ]
+        @ ( if not !Quicktest_args.using_unix_domain_socket then
+              [("http", Quicktest_http.tests)]
+            else
+              []
+          )
         @
-        if not !Quicktest_args.using_unix_domain_socket then
-          [("http", Quicktest_http.tests)]
+        if not !Quicktest_args.skip_stress then
+          qchecks
         else
           []
       in

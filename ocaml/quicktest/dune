@@ -6,7 +6,6 @@
   (libraries
     alcotest
     astring
-    dune-build-info
     ezxenstore
     ezxenstore.watch
     fmt
@@ -14,11 +13,16 @@
     http_lib
     mtime
     mtime.clock.os
+    pam
+    qcheck-alcotest
     result
     rresult
     rpclib.core
     rrdd_libs
     stunnel
+    unixext_test
+    bufio_test
+    test_timer
     threads.posix
     unix
     uuid

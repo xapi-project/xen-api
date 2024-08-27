@@ -39,15 +39,15 @@ let call_with_exception_handler fn =
 
 let get_subject_identifier ~__context ~subject_name =
   call_with_exception_handler (fun () ->
-      (Ext_auth.d ()).get_subject_identifier subject_name
+      (Ext_auth.d ()).get_subject_identifier ~__context subject_name
   )
 
 let get_group_membership ~__context ~subject_identifier =
   call_with_exception_handler (fun () ->
-      (Ext_auth.d ()).query_group_membership subject_identifier
+      (Ext_auth.d ()).query_group_membership ~__context subject_identifier
   )
 
 let get_subject_information_from_identifier ~__context ~subject_identifier =
   call_with_exception_handler (fun () ->
-      (Ext_auth.d ()).query_subject_information subject_identifier
+      (Ext_auth.d ()).query_subject_information ~__context subject_identifier
   )

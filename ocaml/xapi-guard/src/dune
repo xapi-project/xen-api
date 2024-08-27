@@ -4,7 +4,7 @@
  (libraries
    astring
    cmdliner
-   dune-build-info
+   
    lwt
    lwt.unix
    message-switch-lwt

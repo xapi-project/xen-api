@@ -55,10 +55,50 @@
 )
 
 (library
+  (name xapi_internal_minimal)
+  (modules context custom_actions xapi_globs server_helpers session_check rbac rbac_audit db_actions taskHelper eventgen locking_helpers exnHelper rbac_static xapi_role xapi_extensions db)
+  (modes best)
+  (wrapped false)
+  (libraries
+    http_lib
+    httpsvr
+    ipaddr
+    xapi-types
+    xapi_database
+    mtime
+    tracing
+    uuid
+    rpclib.core
+    threads.posix
+    fmt
+    clock
+    astring
+    stunnel
+    sexplib0
+    sexplib
+    sexpr
+    forkexec
+    xapi-idl
+    xapi_aux
+    xapi-stdext-std
+    xapi-stdext-date
+    xapi-stdext-pervasives
+    xapi-backtrace
+    xapi-datamodel
+    xapi-consts
+    xapi_version
+    xapi-stdext-threads
+    xapi-stdext-unix
+    rpclib.xml
+    xapi-log)
+)
+
+(library
   (name xapi_internal)
   (wrapped false)
   (modes best)
-  (modules (:standard \ xapi_main))
+  (modules (:standard \
+    xapi_main server api_server xapi custom_actions context xapi_globs server_helpers session_check rbac rbac_audit rbac_static db_actions taskHelper eventgen locking_helpers exnHelper xapi_role xapi_extensions db))
   (libraries
     angstrom
     astring
@@ -82,6 +122,7 @@
     message-switch-core
     message-switch-unix
     mirage-crypto
+    mirage-crypto-rng
     mirage-crypto-rng.unix
     mtime
     mtime.clock.os
@@ -110,6 +151,7 @@
     tar
     tar-unix
     threads.posix
+    tracing
     unixpwd
     uri
     uuid
@@ -140,6 +182,7 @@
     xapi-idl.memory
     xapi-idl.gpumon
     xapi-idl.updates
+    (re_export xapi_internal_minimal)
     xapi-inventory
     xapi-log
     xapi-open-uri
@@ -154,6 +197,7 @@
     xapi-stdext-zerocheck
     xapi-tracing
     xapi-tracing-export
+    xapi_version
     xapi-xenopsd
     xenstore_transport.unix
     xml-light2
@@ -162,7 +206,59 @@
     yojson
     zstd
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv ppx_deriving.ord))
+  (preprocess (per_module
+   ((pps ppx_sexp_conv) Cert_distrib)
+   ((pps ppx_deriving.ord) Xapi_observer_components)
+   ((pps ppx_deriving_rpc)
+    Config_file_sync Extauth_plugin_ADwinbind Importexport Sparse_dd_wrapper
+    Storage_migrate Storage_mux Storage_smapiv1_wrapper Stream_vdi
+    System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
+)
+
+(library
+  (name xapi_internal_server_only)
+  (modes best)
+  (modules server)
+  (libraries xapi_internal_minimal http_lib rpclib.core xapi-types xapi-log xapi-stdext-encodings xapi-consts xapi-backtrace xapi-stdext-date rpclib.json)
+  (wrapped false)
+)
+
+(library
+  (name xapi_internal_server)
+  (modes best)
+  (wrapped false)
+  (modules api_server xapi)
+  (libraries
+    forkexec
+    http_lib
+    httpsvr
+    rpclib.core
+    rpclib.json
+    rpclib.xml
+    stunnel
+    threads.posix
+    tracing
+    xapi-backtrace
+    xapi-client
+    xapi-consts
+    xapi-datamodel
+    xapi_internal_minimal
+    xapi-idl
+    xapi-inventory
+    (re_export xapi_internal_server_only)
+    xapi-log
+    xapi-stdext-date
+    xapi-stdext-encodings
+    xapi-stdext-pervasives
+    xapi-stdext-std
+    xapi-stdext-threads
+    xapi-stdext-unix
+    xapi-types
+    xapi_aux
+    xapi-consts.xapi_version
+    xapi_cli_server
+    xapi_database
+    xapi_internal)
 )
 
 (executable
@@ -173,6 +269,8 @@
   (modules xapi_main)
   (libraries
     xapi_internal
+    xapi_internal_server
+    xapi_internal_minimal
     xapi-idl
     xapi-log
     xapi-stdext-unix

@@ -15,5 +15,4 @@
    xapi-stdext-unix
    xapi-tracing
  )
- (preprocess
-  (pps ppx_deriving_rpc)))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Fe))))

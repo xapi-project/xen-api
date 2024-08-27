@@ -164,36 +164,7 @@ let register_callback_fns () =
     Api_server.callback1 false req sock xml
   in
   Xapi_cli.rpc_fun := Some fake_rpc ;
-  let set_stunnelpid _task_opt pid =
-    Locking_helpers.Thread_state.acquired
-      (Locking_helpers.Process ("stunnel", pid))
-  in
-  let unset_stunnelpid _task_opt pid =
-    Locking_helpers.Thread_state.released
-      (Locking_helpers.Process ("stunnel", pid))
-  in
-  let stunnel_destination_is_ok addr =
-    Server_helpers.exec_with_new_task "check_stunnel_destination"
-      (fun __context ->
-        let hosts =
-          Db.Host.get_refs_where ~__context
-            ~expr:(Eq (Field "address", Literal addr))
-        in
-        match hosts with
-        | [host] -> (
-          try
-            Message_forwarding.check_live ~__context host ;
-            true
-          with _ -> false
-        )
-        | _ ->
-            true
-    )
-  in
-  Xmlrpc_client.Internal.set_stunnelpid_callback := Some set_stunnelpid ;
-  Xmlrpc_client.Internal.unset_stunnelpid_callback := Some unset_stunnelpid ;
-  Xmlrpc_client.Internal.destination_is_ok := Some stunnel_destination_is_ok ;
-  TaskHelper.init ()
+  Message_forwarding.register_callback_fns ()
 
 let noevents = ref false
 
@@ -887,6 +858,7 @@ let common_http_handlers () =
       , Http_svr.FdIO Xapi_pool_update.pool_update_download_handler
       )
     ; ("get_host_updates", Http_svr.FdIO Xapi_host.get_host_updates_handler)
+    ; ("put_bundle", Http_svr.FdIO Xapi_pool.put_bundle_handler)
     ]
   in
   if !Xapi_globs.disable_webserver then
@@ -1053,7 +1025,8 @@ let server_init () =
       while not !Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded do
         try
           (* try to initialize external authentication service *)
-          (Ext_auth.d ()).on_xapi_initialize !Xapi_globs.on_system_boot ;
+          (Ext_auth.d ()).on_xapi_initialize ~__context
+            !Xapi_globs.on_system_boot ;
           (* tell everybody the service initialized successfully *)
           Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
           (* 3. Now that we are sure that the external authentication service is working,*)

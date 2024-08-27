@@ -787,9 +787,9 @@ let endpoint_of_string = function
           if he = [] then raise Not_found ;
           return (Sockaddr (List.hd he).Unix.ai_addr)
       | Some "unix", _ ->
-          return (Sockaddr (Lwt_unix.ADDR_UNIX (Uri.path uri')))
+          return (Sockaddr (Lwt_unix.ADDR_UNIX (Uri.path_unencoded uri')))
       | Some "file", _ ->
-          return (File (Uri.path uri'))
+          return (File (Uri.path_unencoded uri'))
       | Some "http", _ ->
           return (Http uri')
       | Some "https", _ ->
@@ -954,6 +954,27 @@ let make_stream common source relative_to source_format destination_format =
   | _, _ ->
       assert false
 
+module ChannelsConstrained : sig
+  type t = Channels.t
+
+  type reader = Cstruct.t -> unit Lwt.t
+
+  val really_read : t -> reader
+
+  val really_write : t -> reader
+end = struct
+  type t = Channels.t
+
+  type reader = Cstruct.t -> unit Lwt.t
+
+  let really_read x = x.Channels.really_read
+
+  let really_write x = x.Channels.really_write
+end
+
+module Cohttp_io_with_channels =
+  Xen_api_client_lwt.Cohttp_unbuffered_io.Make (ChannelsConstrained)
+
 (** [write_stream common s destination destination_protocol prezeroed progress
      tar_filename_prefix ssl_legacy good_ciphersuites legacy_ciphersuites]
     writes the data stream [s] to [destination], using the specified
@@ -1019,8 +1040,8 @@ let write_stream common s destination destination_protocol prezeroed progress
           Channels.of_raw_fd sock
       )
       >>= fun c ->
-      let module Request = Request.Make (Cohttp_unbuffered_io) in
-      let module Response = Response.Make (Cohttp_unbuffered_io) in
+      let module Request = Request.Make (Cohttp_io_with_channels) in
+      let module Response = Response.Make (Cohttp_io_with_channels) in
       let headers = Header.init () in
       let k, v = Cookie.Cookie_hdr.serialize [("chunked", "true")] in
       let headers = Header.add headers k v in
@@ -1044,7 +1065,7 @@ let write_stream common s destination destination_protocol prezeroed progress
         Cohttp.Request.make ~meth:`PUT ~version:`HTTP_1_1 ~headers uri'
       in
       Request.write (fun _ -> return ()) request c >>= fun () ->
-      Response.read (Cohttp_unbuffered_io.make_input c) >>= fun r ->
+      Response.read (Cohttp_io_with_channels.make_input c) >>= fun r ->
       match r with
       | `Invalid x ->
           fail (Failure (Printf.sprintf "Invalid HTTP response: %s" x))
