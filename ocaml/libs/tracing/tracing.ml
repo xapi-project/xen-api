@@ -18,6 +18,14 @@ open D
 
 let fail fmt = Printf.ksprintf failwith fmt
 
+let failures = Atomic.make 0
+
+let not_throttled () =
+  let old = Atomic.fetch_and_add failures 1 in
+  old < 2
+
+let reset_throttled () = Atomic.set failures 0
+
 module W3CBaggage = struct
   module Key = struct
     let is_valid_key str =
@@ -340,13 +348,13 @@ module Spans = struct
         | None ->
             if Hashtbl.length spans < Atomic.get max_traces then
               Hashtbl.add spans key [span]
-            else
+            else if not_throttled () then
               debug "%s exceeded max traces when adding to span table"
                 __FUNCTION__
         | Some span_list ->
             if List.length span_list < Atomic.get max_spans then
               Hashtbl.replace spans key (span :: span_list)
-            else
+            else if not_throttled () then
               debug "%s exceeded max traces when adding to span table"
                 __FUNCTION__
     )
@@ -356,7 +364,8 @@ module Spans = struct
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         match Hashtbl.find_opt spans key with
         | None ->
-            debug "%s span does not exist or already finished" __FUNCTION__ ;
+            if not_throttled () then
+              debug "%s span does not exist or already finished" __FUNCTION__ ;
             None
         | Some span_list ->
             ( match
@@ -377,13 +386,13 @@ module Spans = struct
         | None ->
             if Hashtbl.length finished_spans < Atomic.get max_traces then
               Hashtbl.add finished_spans key [span]
-            else
+            else if not_throttled () then
               debug "%s exceeded max traces when adding to finished span table"
                 __FUNCTION__
         | Some span_list ->
             if List.length span_list < Atomic.get max_spans then
               Hashtbl.replace finished_spans key (span :: span_list)
-            else
+            else if not_throttled () then
               debug "%s exceeded max traces when adding to finished span table"
                 __FUNCTION__
     )
@@ -408,6 +417,7 @@ module Spans = struct
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
         let copy = Hashtbl.copy finished_spans in
         Hashtbl.clear finished_spans ;
+        reset_throttled () ;
         copy
     )
 
@@ -435,8 +445,10 @@ module Spans = struct
                       Unix.gettimeofday () -. span.Span.begin_time
                     in
                     if elapsed > Atomic.get span_timeout *. 1000000. then (
-                      debug "Tracing: Span %s timed out, forcibly finishing now"
-                        span.Span.context.span_id ;
+                      if not_throttled () then
+                        debug
+                          "Tracing: Span %s timed out, forcibly finishing now"
+                          span.Span.context.span_id ;
                       let span =
                         Span.finish ~span
                           ~attributes:
