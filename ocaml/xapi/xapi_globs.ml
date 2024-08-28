@@ -398,7 +398,7 @@ let pbis_db_path = "/var/lib/pbis/db/registry.db"
 let on_system_boot = ref false
 
 (* Default backlog supplied to Unix.listen *)
-let listen_backlog = 128
+let listen_backlog = 768
 
 (* Xapi script hooks root *)
 let xapi_hooks_root = ref "/etc/xapi.d"
@@ -892,9 +892,9 @@ let header_total_timeout_tcp = ref 60.
 let max_header_length_tcp = ref 1024
 (* Maximum accepted size of HTTP headers in bytes (on TCP only) *)
 
-let conn_limit_tcp = ref 800
+let conn_limit_tcp = ref 250
 
-let conn_limit_unix = ref 1024
+let conn_limit_unix = ref 250
 
 let xapi_globs_spec =
   [
