@@ -386,11 +386,7 @@ let test_all_spans_finish () =
   let remaining_spans, finished_spans = Spans.dump () in
   let result =
     Hashtbl.fold
-      (fun k v acc ->
-        Option.fold ~none:0 ~some:List.length (Hashtbl.find_opt finished_spans k)
-        = List.length v
-        && acc
-      )
+      (fun _k v acc -> snd finished_spans = List.length v && acc)
       active_spans true
   in
   Alcotest.(check bool)
@@ -440,8 +436,8 @@ let test_hashtbl_leaks () =
       let _, finished_spans = Spans.dump () in
       let filtered_spans_count =
         finished_spans
-        |> Hashtbl.to_seq_values
-        |> Seq.concat_map List.to_seq
+        |> fst
+        |> List.to_seq
         |> Seq.filter filter_export_spans
         |> Seq.length
       in
@@ -587,6 +583,46 @@ let test_observed_components_of () =
   List.iter test_exp_comp expected_components_given_config_value ;
   observer_experimental_components := original_value
 
+module type Id = sig
+  type t
+
+  val compare : t -> t -> int
+
+  val to_string : t -> string
+end
+
+let testable_of_id (type a) (module I : Id with type t = a) =
+  let equal a b = I.compare a b = 0 and pp = Fmt.of_to_string I.to_string in
+  Alcotest.V1.testable pp equal
+
+let trace_id = testable_of_id (module Trace_id)
+
+let span_id = testable_of_id (module Span_id)
+
+let test_traceid () =
+  let expected = Trace_id.make () in
+  let str = expected |> Trace_id.to_string in
+  let actual = str |> Trace_id.of_string in
+  Alcotest.V1.check' trace_id ~expected ~actual ~msg:"roundtrip" ;
+  Alcotest.V1.(check' int ~expected:32 ~actual:(String.length str) ~msg:"length")
+
+let test_traceid' () =
+  let expected = "00000000000000010000000000000001" in
+  let actual = expected |> Trace_id.of_string |> Trace_id.to_string in
+  Alcotest.V1.(check' string ~expected ~actual ~msg:"roundtrip(str)")
+
+let test_spanid () =
+  let expected = Span_id.make () in
+  let str = expected |> Span_id.to_string in
+  let actual = str |> Span_id.of_string in
+  Alcotest.V1.check' span_id ~expected ~actual ~msg:"roundtrip" ;
+  Alcotest.V1.(check' int ~expected:16 ~actual:(String.length str) ~msg:"length")
+
+let test_spanid' () =
+  let expected = "0000000000000001" in
+  let actual = expected |> Span_id.of_string |> Span_id.to_string in
+  Alcotest.V1.(check' string ~expected ~actual ~msg:"roundtrip(str)")
+
 let test =
   [
     ( "test_observer_create_and_destroy"
@@ -601,6 +637,10 @@ let test =
   ; ("test_tracing_exn_backtraces", `Quick, test_tracing_exn_backtraces)
   ; ("test_attribute_validation", `Quick, test_attribute_validation)
   ; ("test_observed_components_of", `Quick, test_observed_components_of)
+  ; ("test span_id", `Quick, test_spanid)
+  ; ("test trace_id", `Quick, test_traceid)
+  ; ("test span_id", `Quick, test_spanid')
+  ; ("test trace_id", `Quick, test_traceid')
   ]
 
 let () =

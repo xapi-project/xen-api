@@ -150,18 +150,75 @@ module SpanEvent = struct
   type t = {name: string; time: float; attributes: string Attributes.t}
 end
 
+module Trace_id : sig
+  type t
+
+  val make : unit -> t
+
+  val compare : t -> t -> int
+
+  val of_string : string -> t
+
+  val to_string : t -> string
+end = struct
+  type t = int64 * int64
+
+  let make () = (Random.bits64 (), Random.bits64 ())
+
+  let of_string s =
+    try Scanf.sscanf s "%016Lx%016Lx" (fun a b -> (a, b))
+    with e ->
+      D.debug "Failed to parse trace id %s: %s" s (Printexc.to_string e) ;
+      (* don't cause XAPI to fail *)
+      (0L, 0L)
+
+  let to_string (a, b) = Printf.sprintf "%016Lx%016Lx" a b
+
+  let compare (a1, a2) (b1, b2) =
+    match Int64.compare a1 b1 with 0 -> Int64.compare a2 b2 | n -> n
+end
+
+module Span_id : sig
+  type t
+
+  val make : unit -> t
+
+  val compare : t -> t -> int
+
+  val of_string : string -> t
+
+  val to_string : t -> string
+end = struct
+  type t = int64
+
+  let make = Random.bits64
+
+  let of_string s = Scanf.sscanf s "%Lx" Fun.id
+
+  let to_string = Printf.sprintf "%016Lx"
+
+  let compare = Int64.compare
+end
+
 module SpanContext = struct
-  type t = {trace_id: string; span_id: string} [@@deriving rpcty]
+  type t = {trace_id: Trace_id.t; span_id: Span_id.t} [@@deriving rpcty]
 
   let context trace_id span_id = {trace_id; span_id}
 
-  let to_traceparent t = Printf.sprintf "00-%s-%s-01" t.trace_id t.span_id
+  let to_traceparent t =
+    Printf.sprintf "00-%s-%s-01"
+      (Trace_id.to_string t.trace_id)
+      (Span_id.to_string t.span_id)
 
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
     match elements with
     | ["00"; trace_id; span_id; _] ->
-        Some {trace_id; span_id}
+        Some
+          {
+            trace_id= Trace_id.of_string trace_id
+          ; span_id= Span_id.of_string span_id
+          }
     | _ ->
         None
 
@@ -197,17 +254,15 @@ module Span = struct
 
   let get_context t = t.context
 
-  let generate_id n = String.init n (fun _ -> "0123456789abcdef".[Random.int 16])
-
   let start ?(attributes = Attributes.empty) ~name ~parent ~span_kind () =
     let trace_id =
       match parent with
       | None ->
-          generate_id 32
+          Trace_id.make ()
       | Some span_parent ->
           span_parent.context.trace_id
     in
-    let span_id = generate_id 16 in
+    let span_id = Span_id.make () in
     let context : SpanContext.t = {trace_id; span_id} in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
@@ -323,7 +378,7 @@ module Spans = struct
 
   let set_max_traces x = Atomic.set max_traces x
 
-  let finished_spans = Hashtbl.create 100
+  let finished_spans = ref ([], 0)
 
   let span_hashtbl_is_empty () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -332,7 +387,7 @@ module Spans = struct
 
   let finished_span_hashtbl_is_empty () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        Hashtbl.length finished_spans = 0
+        snd !finished_spans = 0
     )
 
   let add_to_spans ~(span : Span.t) =
@@ -374,21 +429,13 @@ module Spans = struct
     )
 
   let add_to_finished span =
-    let key = span.Span.context.trace_id in
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        match Hashtbl.find_opt finished_spans key with
-        | None ->
-            if Hashtbl.length finished_spans < Atomic.get max_traces then
-              Hashtbl.add finished_spans key [span]
-            else if not_throttled () then
-              debug "%s exceeded max traces when adding to finished span table"
-                __FUNCTION__
-        | Some span_list ->
-            if List.length span_list < Atomic.get max_spans then
-              Hashtbl.replace finished_spans key (span :: span_list)
-            else if not_throttled () then
-              debug "%s exceeded max traces when adding to finished span table"
-                __FUNCTION__
+        let spans, n = !finished_spans in
+        if n < Atomic.get max_spans then
+          finished_spans := (span :: spans, n + 1)
+        else if not_throttled () then
+          debug "%s exceeded max traces when adding to finished span table"
+            __FUNCTION__
     )
 
   let mark_finished span = Option.iter add_to_finished (remove_from_spans span)
@@ -396,15 +443,15 @@ module Spans = struct
   (** since copies the existing finished spans and then clears the existing spans as to only export them once  *)
   let since () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        let copy = Hashtbl.copy finished_spans in
-        Hashtbl.clear finished_spans ;
+        let copy = !finished_spans in
+        finished_spans := ([], 0) ;
         reset_throttled () ;
         copy
     )
 
   let dump () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-        Hashtbl.(copy spans, Hashtbl.copy finished_spans)
+        Hashtbl.(copy spans, !finished_spans)
     )
 
   module GC = struct
@@ -429,7 +476,7 @@ module Spans = struct
                       if not_throttled () then
                         debug
                           "Tracing: Span %s timed out, forcibly finishing now"
-                          span.Span.context.span_id ;
+                          (Span_id.to_string span.Span.context.span_id) ;
                       let span =
                         Span.finish ~span
                           ~attributes:
@@ -532,7 +579,7 @@ module TracerProvider = struct
         Atomic.set current no_op ;
         Xapi_stdext_threads.Threadext.Mutex.execute Spans.lock (fun () ->
             Hashtbl.clear Spans.spans ;
-            Hashtbl.clear Spans.finished_spans
+            Spans.finished_spans := ([], 0)
         )
     | Some enabled ->
         Atomic.set current enabled

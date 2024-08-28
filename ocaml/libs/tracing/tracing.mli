@@ -54,18 +54,40 @@ module SpanEvent : sig
   type t = {name: string; time: float; attributes: string Attributes.t}
 end
 
-module SpanContext : sig
+module Span_id : sig
   type t
 
-  val context : string -> string -> t
+  val make : unit -> t
+
+  val compare : t -> t -> int
+
+  val of_string : string -> t
+
+  val to_string : t -> string
+end
+
+module Trace_id : sig
+  type t
+
+  val make : unit -> t
+
+  val compare : t -> t -> int
+
+  val of_string : string -> t
+
+  val to_string : t -> string
+end
+
+module SpanContext : sig
+  type t
 
   val to_traceparent : t -> string
 
   val of_traceparent : string -> t option
 
-  val trace_id_of_span_context : t -> string
+  val trace_id_of_span_context : t -> Trace_id.t
 
-  val span_id_of_span_context : t -> string
+  val span_id_of_span_context : t -> Span_id.t
 end
 
 module Span : sig
@@ -105,10 +127,9 @@ module Spans : sig
 
   val span_count : unit -> int
 
-  val since : unit -> (string, Span.t list) Hashtbl.t
+  val since : unit -> Span.t list * int
 
-  val dump :
-    unit -> (string, Span.t list) Hashtbl.t * (string, Span.t list) Hashtbl.t
+  val dump : unit -> (Trace_id.t, Span.t list) Hashtbl.t * (Span.t list * int)
 end
 
 module Tracer : sig
