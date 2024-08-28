@@ -743,6 +743,7 @@ functor
       let start ~__context ~self ~paused =
         info "VM_appliance.start: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
+        Pool_features.assert_enabled ~__context ~f:Features.VM_appliance_start ;
         with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.start"
           ~op:`start (fun () ->
             Local.VM_appliance.start ~__context ~self ~paused
@@ -1854,6 +1855,7 @@ functor
 
       let start ~__context ~vm ~start_paused ~force =
         info "VM.start: VM = '%s'" (vm_uuid ~__context vm) ;
+        Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         let local_fn = Local.VM.start ~vm ~start_paused ~force in
         let host =
@@ -2914,6 +2916,8 @@ functor
         info "VM.assert_can_boot_here: VM = '%s'; host = '%s'"
           (vm_uuid ~__context self)
           (host_uuid ~__context host) ;
+        if Db.VM.get_power_state ~__context ~self = `Halted then
+          Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Local.VM.assert_can_boot_here ~__context ~self ~host
 
       let retrieve_wlb_recommendations ~__context ~vm =
