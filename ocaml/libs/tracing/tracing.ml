@@ -393,19 +393,6 @@ module Spans = struct
 
   let mark_finished span = Option.iter add_to_finished (remove_from_spans span)
 
-  let span_is_finished x =
-    match x with
-    | None ->
-        false
-    | Some (span : Span.t) ->
-        Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
-            match Hashtbl.find_opt finished_spans span.context.trace_id with
-            | None ->
-                false
-            | Some span_list ->
-                List.mem span span_list
-        )
-
   (** since copies the existing finished spans and then clears the existing spans as to only export them once  *)
   let since () =
     Xapi_stdext_threads.Threadext.Mutex.execute lock (fun () ->
@@ -659,8 +646,6 @@ module Tracer = struct
          )
          span
       )
-
-  let span_is_finished x = Spans.span_is_finished x
 
   let span_hashtbl_is_empty () = Spans.span_hashtbl_is_empty ()
 

@@ -140,8 +140,6 @@ module Tracer : sig
   val finish :
     ?error:exn * string -> Span.t option -> (Span.t option, exn) result
 
-  val span_is_finished : Span.t option -> bool
-
   val span_hashtbl_is_empty : unit -> bool
 
   val finished_span_hashtbl_is_empty : unit -> bool
