@@ -187,7 +187,9 @@ let response_of_fd ?(use_fastpath = false) fd =
   with
   | Unix.Unix_error (_, _, _) as e ->
       raise e
-  | _ ->
+  | e ->
+      D.debug "%s: returning no response because of the exception: %s"
+        __FUNCTION__ (Printexc.to_string e) ;
       None
 
 (** See perftest/tests.ml *)
