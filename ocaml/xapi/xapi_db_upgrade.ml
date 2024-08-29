@@ -904,6 +904,67 @@ let upgrade_update_guidance =
       )
   }
 
+let upgrade_ca_fingerprints =
+  {
+    description= "Upgrade the fingerprint fields for ca certificates"
+  ; version= (fun x -> x < (5, 783))
+  ; (* the version where we started updating missing fingerprint_sha256
+       and fingerprint_sha1 fields for ca certs *)
+    fn=
+      (fun ~__context ->
+        let expr =
+          let open Xapi_database.Db_filter_types in
+          And
+            ( Or
+                ( Eq (Field "fingerprint_sha256", Literal "")
+                , Eq (Field "fingerprint_sha1", Literal "")
+                )
+            , Eq (Field "type", Literal "ca")
+            )
+        in
+        let empty = Db.Certificate.get_records_where ~__context ~expr in
+        List.iter
+          (fun (self, record) ->
+            let read_fingerprints filename =
+              let ( let* ) = Result.bind in
+              try
+                let* certificate =
+                  Xapi_stdext_unix.Unixext.string_of_file filename
+                  |> Cstruct.of_string
+                  |> X509.Certificate.decode_pem
+                in
+                let sha1 =
+                  Certificates.pp_fingerprint ~hash_type:`SHA1 certificate
+                in
+                let sha256 =
+                  Certificates.pp_fingerprint ~hash_type:`SHA256 certificate
+                in
+                Ok (sha1, sha256)
+              with
+              | Unix.Unix_error (Unix.ENOENT, _, _) ->
+                  Error
+                    (`Msg (Printf.sprintf "filename %s does not exist" filename))
+              | exn ->
+                  Error (`Msg (Printexc.to_string exn))
+            in
+            let filename =
+              Filename.concat
+                !Xapi_globs.trusted_certs_dir
+                record.API.certificate_name
+            in
+            match read_fingerprints filename with
+            | Ok (sha1, sha256) ->
+                Db.Certificate.set_fingerprint_sha1 ~__context ~self ~value:sha1 ;
+                Db.Certificate.set_fingerprint_sha256 ~__context ~self
+                  ~value:sha256
+            | Error (`Msg msg) ->
+                D.info "%s: ignoring error when reading CA certificate %s: %s"
+                  __FUNCTION__ record.API.certificate_name msg
+          )
+          empty
+      )
+  }
+
 let rules =
   [
     upgrade_domain_type
@@ -933,6 +994,7 @@ let rules =
   ; remove_legacy_ssl_support
   ; empty_pool_uefi_certificates
   ; upgrade_update_guidance
+  ; upgrade_ca_fingerprints
   ]
 
 (* Maybe upgrade most recent db *)
