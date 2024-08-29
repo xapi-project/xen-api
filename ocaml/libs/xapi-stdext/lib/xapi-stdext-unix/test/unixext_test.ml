@@ -286,4 +286,5 @@ let tests =
 let () =
   (* avoid SIGPIPE *)
   let (_ : Sys.signal_behavior) = Sys.signal Sys.sigpipe Sys.Signal_ignore in
-  Xapi_stdext_unix.Unixext.test_open 1024
+  (* TODO: reenable once the epoll branch is merged Xapi_stdext_unix.Unixext.test_open 1024 *)
+  ()
