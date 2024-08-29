@@ -13,6 +13,7 @@
     
     message-switch-async
     message-switch-unix
+    ppx_deriving.runtime
     result
     rpclib.core
     rpclib.json
