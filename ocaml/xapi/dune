@@ -146,6 +146,7 @@
     sexplib0
     sexpr
     sha
+    ssl
     stunnel
     tapctl
     tar

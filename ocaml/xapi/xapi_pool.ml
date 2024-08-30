@@ -2537,12 +2537,22 @@ let disable_binary_storage ~__context =
   Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context
     Client.Host.disable_binary_storage
 
+let install_wlb_cert ~__context ~wlb_url ~cert =
+  let certs = get_wlb_cert wlb_url cert in
+  install_ca_certificate ~__context ~name:"server.pem" ~cert:certs ;
+  Certificates.pool_sync ~__context ;
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.set_wlb_verify_cert ~__context ~self:pool ~value:true
+
 let initialize_wlb ~__context ~wlb_url ~wlb_username ~wlb_password
     ~xenserver_username ~xenserver_password =
+  install_wlb_cert ~__context ~wlb_url ~cert:None ;
   init_wlb ~__context ~wlb_url ~wlb_username ~wlb_password ~xenserver_username
     ~xenserver_password
 
-let deconfigure_wlb ~__context = decon_wlb ~__context
+let deconfigure_wlb ~__context =
+  uninstall_ca_certificate ~__context ~name:"server.pem" ;
+  decon_wlb ~__context
 
 let send_wlb_configuration ~__context ~config =
   send_wlb_config ~__context ~config

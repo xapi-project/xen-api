@@ -16,6 +16,7 @@
 *)
 
 open Printf
+open Result
 open Xapi_stdext_std.Xstringext
 
 module D = Debug.Make (struct let name = "workload_balancing" end)
@@ -113,6 +114,66 @@ let assert_wlb_enabled ~__context =
   assert_wlb_initialized ~__context ;
   if not (Db.Pool.get_wlb_enabled ~__context ~self:pool) then
     raise_disabled ()
+
+let read_file path =
+  let ic = open_in path in
+  Fun.protect
+    ~finally:(fun () -> close_in ic ; Sys.remove path)
+    (fun () ->
+      let length = in_channel_length ic in
+      really_input_string ic length
+    )
+
+let fetch_certificate wlb_url =
+  Ssl.init () ;
+
+  let ( >>= ) = Result.bind in
+
+  let parse_url wlb_url =
+    match String.split_on_char ':' wlb_url with
+    | [host; port] ->
+        Ok (host, int_of_string port)
+    | _ ->
+        Error "Invalid URL format"
+  in
+
+  let open_connection (host, port) =
+    let ctx = Ssl.create_context Ssl.TLSv1_2 Ssl.Client_context in
+    try
+      Ok
+        (Ssl.open_connection_with_context ctx
+           (Unix.ADDR_INET (Unix.inet_addr_of_string host, port))
+        )
+    with _ -> Error "Failed to connect to the server"
+  in
+
+  let fetch_and_validate_cert ssl_socket =
+    let cert = Ssl.get_certificate ssl_socket in
+    match (Ssl.get_issuer cert, Ssl.get_subject cert) with
+    | issuer, subject when issuer = subject ->
+        let tmp_file = Filename.temp_file "wlb_proxy_server" "client_cert" in
+        Ssl.write_certificate tmp_file cert ;
+        let cert_pem = read_file tmp_file in
+        Ok cert_pem
+    | _ ->
+        Error "Not a WLB self-signed certificate"
+  in
+
+  let result =
+    parse_url wlb_url >>= fun url_info ->
+    open_connection url_info >>= fun ssl_socket ->
+    let cert_result = fetch_and_validate_cert ssl_socket in
+    Ssl.shutdown ssl_socket ; cert_result
+  in
+  match result with Ok cert_pem -> cert_pem | Error e -> raise_verify_error e
+
+(* If a certificate is provided, use it; otherwise, fetch it via SSL connection *)
+let get_wlb_cert wlb_url cert =
+  match cert with
+  | Some provided_cert ->
+      provided_cert
+  | None ->
+      fetch_certificate wlb_url
 
 (* when other calls use wlb to enhance their decision making process they need to know if it is available or whether they should use another algorithm *)
 let check_wlb_enabled ~__context =
