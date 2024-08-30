@@ -632,39 +632,39 @@ module Watcher = struct
     done
 
   let watch_cluster_stack_version ~__context ~host =
-    if Daemon.is_enabled () then
-      match find_cluster_host ~__context ~host with
-      | Some ch ->
-          let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self:ch in
-          let cluster_rec =
-            Db.Cluster.get_record ~__context ~self:cluster_ref
-          in
-          if
-            Cluster_stack.of_version
-              ( cluster_rec.API.cluster_cluster_stack
-              , cluster_rec.API.cluster_cluster_stack_version
-              )
-            = Cluster_stack.Corosync2
-          then (
-            debug "%s: Detected Corosync 2 running as cluster stack"
-              __FUNCTION__ ;
-            let body =
-              "The current cluster stack version of Corosync 2 is out of date, \
-               consider updating to Corosync 3"
-            in
-            let name, priority = Api_messages.cluster_stack_out_of_date in
-            let host_uuid = Db.Host.get_uuid ~__context ~self:host in
-
-            Helpers.call_api_functions ~__context (fun rpc session_id ->
-                let _ : [> `message] Ref.t =
-                  Client.Client.Message.create ~rpc ~session_id ~name ~priority
-                    ~cls:`Host ~obj_uuid:host_uuid ~body
-                in
-                ()
+    match find_cluster_host ~__context ~host with
+    | Some ch ->
+        let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self:ch in
+        let cluster_rec = Db.Cluster.get_record ~__context ~self:cluster_ref in
+        if
+          Cluster_stack.of_version
+            ( cluster_rec.API.cluster_cluster_stack
+            , cluster_rec.API.cluster_cluster_stack_version
             )
+          = Cluster_stack.Corosync2
+        then (
+          debug "%s: Detected Corosync 2 running as cluster stack" __FUNCTION__ ;
+          let body =
+            "The current cluster stack version of Corosync 2 is out of date, \
+             consider updating to Corosync 3"
+          in
+          let name, priority = Api_messages.cluster_stack_out_of_date in
+          let host_uuid = Db.Host.get_uuid ~__context ~self:host in
+
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
+              let _ : [> `message] Ref.t =
+                Client.Client.Message.create ~rpc ~session_id ~name ~priority
+                  ~cls:`Host ~obj_uuid:host_uuid ~body
+              in
+              ()
           )
-      | None ->
-          debug "%s: No cluster host, no need to watch" __FUNCTION__
+        ) else
+          debug
+            "%s: Detected Corosync 3 as cluster stack, not generating a \
+             warning messsage"
+            __FUNCTION__
+    | None ->
+        debug "%s: No cluster host, no need to watch" __FUNCTION__
 
   (** [create_as_necessary] will create cluster watchers on the coordinator if they are not
       already created. 
