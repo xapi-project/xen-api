@@ -215,6 +215,8 @@ let become_another_masters_slave master_address =
   if Pool_role.get_role () = new_role then
     debug "We are already a slave of %s; nothing to do" master_address
   else (
+    if Pool_role.is_master () then (* I am the old master *)
+      Xapi_clustering.Watcher.signal_exit () ;
     debug "Setting pool.conf to point to %s" master_address ;
     set_role new_role ;
     run_external_scripts false ;

@@ -429,6 +429,8 @@ let compute_corosync_max_host_failures ~__context =
   corosync_ha_max_hosts
 
 module Watcher = struct
+  module Delay = Xapi_stdext_threads.Threadext.Delay
+
   let routine_updates = "routine updates"
 
   let on_corosync_update ~__context ~cluster updates =
@@ -554,14 +556,40 @@ module Watcher = struct
      from corosync represents a consistent snapshot of the current cluster state. *)
   let stabilising_period = Mtime.Span.(5 * s)
 
+  (* The delay on which the watcher will wait. *)
+  let delay = Delay.make ()
+
+  let finish_watch = Atomic.make false
+
   let cluster_stack_watcher : bool Atomic.t = Atomic.make false
+
+  (* This function exists to store the fact that the watcher should be destroyed,
+     to avoid the race that the cluster is destroyed, while the watcher is
+     still waiting/stabilising.
+
+     There are two cases this function shall be called: 1. when the clustering
+     is to be disabled; 2. when this host is no longer the coordinator. For the second
+     case it is only necessary to do this when there is a manual designation of a new
+     master since in the case of ha the old coordinator would have died, and so would
+     this thread on the old coordinator. *)
+  let signal_exit () =
+    D.debug "%s: Signaled to exit cluster watcher" __FUNCTION__ ;
+    Delay.signal delay ;
+    (* set the cluster change watcher back to false as soon as we are signalled
+       to prevent any race conditions *)
+    Atomic.set cluster_change_watcher false ;
+    D.debug
+      "%s: watcher for cluster change exit, reset cluster_change_watcher back \
+       to false"
+      __FUNCTION__ ;
+    Atomic.set finish_watch true
 
   (* we handle unclean hosts join and leave in the watcher, i.e. hosts joining and leaving
      due to network problems, power cut, etc. Join and leave initiated by the
      API will be handled in the API call themselves, but they share the same code
      as the watcher. *)
   let watch_cluster_change ~__context ~host =
-    while !Daemon.enabled do
+    while not (Atomic.get finish_watch) do
       let m =
         Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
           "cluster change watcher call"
@@ -571,9 +599,13 @@ module Watcher = struct
         match find_cluster_host ~__context ~host with
         | Some ch ->
             let cluster = Db.Cluster_host.get_cluster ~__context ~self:ch in
-            if wait then
-              Thread.delay (Clock.Timer.span_to_s stabilising_period) ;
-            on_corosync_update ~__context ~cluster updates
+            if not wait then
+              on_corosync_update ~__context ~cluster updates
+            else if
+              wait
+              && Clock.Timer.span_to_s stabilising_period |> Delay.wait delay
+            then
+              on_corosync_update ~__context ~cluster updates
         | None ->
             ()
       in
@@ -593,9 +625,11 @@ module Watcher = struct
       | exception exn ->
           warn "%s: Got exception %s while query cluster host updates, retrying"
             __FUNCTION__ (Printexc.to_string exn) ;
-          Thread.delay (Clock.Timer.span_to_s cluster_change_interval)
-    done ;
-    Atomic.set cluster_change_watcher false
+          let _ : bool =
+            Clock.Timer.span_to_s cluster_change_interval |> Delay.wait delay
+          in
+          ()
+    done
 
   let watch_cluster_stack_version ~__context ~host =
     if Daemon.is_enabled () then
@@ -637,11 +671,12 @@ module Watcher = struct
       There is no need to destroy them: once the clustering daemon is disabled, 
       these threads will exit as well. *)
   let create_as_necessary ~__context ~host =
-    if Helpers.is_pool_master ~__context ~host then (
+    if Helpers.is_pool_master ~__context ~host && Daemon.is_enabled () then (
       if Xapi_cluster_helpers.cluster_health_enabled ~__context then
         if Atomic.compare_and_set cluster_change_watcher false true then (
           debug "%s: create watcher for corosync-notifyd on coordinator"
             __FUNCTION__ ;
+          Atomic.set finish_watch false ;
           let _ : Thread.t =
             Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
           in

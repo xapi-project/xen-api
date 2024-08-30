@@ -261,6 +261,7 @@ let destroy_op ~__context ~self ~force =
           ) ;
           Db.Cluster_host.destroy ~__context ~self ;
           debug "Cluster_host.%s was successful" fn_str ;
+          Xapi_clustering.Watcher.signal_exit () ;
           Xapi_clustering.Daemon.disable ~__context
       | Error error ->
           warn "Error occurred during Cluster_host.%s" fn_str ;
