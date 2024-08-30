@@ -361,7 +361,7 @@ let enable ~__context ~self =
       in
 
       (* TODO: Pass these through from CLI *)
-      if not !Xapi_clustering.Daemon.enabled then (
+      if not (Xapi_clustering.Daemon.is_enabled ()) then (
         D.debug
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context

@@ -250,7 +250,9 @@ let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
     raise Api_errors.(Server_error (cluster_stack_in_use, [cluster_stack]))
 
 module Daemon = struct
-  let enabled = ref false
+  let enabled = Atomic.make false
+
+  let is_enabled () = Atomic.get enabled
 
   let maybe_call_script ~__context script params =
     match Context.get_test_clusterd_rpc __context with
@@ -283,13 +285,13 @@ module Daemon = struct
               (internal_error, [Printf.sprintf "could not start %s" service])
           )
     ) ;
-    enabled := true ;
+    Atomic.set enabled true ;
     debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
     let port = string_of_int !Xapi_globs.xapi_clusterd_port in
     debug "Disabling and stopping the clustering daemon" ;
-    enabled := false ;
+    Atomic.set enabled false ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["disable"; service] ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["stop"; service] ;
     maybe_call_script ~__context
@@ -309,7 +311,7 @@ end
  * Instead of returning an empty URL which wouldn't work just raise an
  * exception. *)
 let rpc ~__context =
-  if not !Daemon.enabled then
+  if not (Daemon.is_enabled ()) then
     raise
       Api_errors.(
         Server_error
@@ -596,7 +598,7 @@ module Watcher = struct
     Atomic.set cluster_change_watcher false
 
   let watch_cluster_stack_version ~__context ~host =
-    if !Daemon.enabled then
+    if Daemon.is_enabled () then
       match find_cluster_host ~__context ~host with
       | Some ch ->
           let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self:ch in

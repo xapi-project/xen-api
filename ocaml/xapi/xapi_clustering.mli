@@ -56,6 +56,8 @@ val assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack :
   __context:Context.t -> self:[`Cluster_host] Ref.t -> unit
 
 module Daemon : sig
+  val is_enabled : unit -> bool
+
   val enable : __context:Context.t -> unit
 
   val disable : __context:Context.t -> unit
