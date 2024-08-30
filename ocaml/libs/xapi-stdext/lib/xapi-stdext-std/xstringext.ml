@@ -39,10 +39,6 @@ module String = struct
     done ;
     !accu
 
-  let explode string = fold_right (fun h t -> h :: t) string []
-
-  let implode list = concat "" (List.map of_char list)
-
   (** True if string 'x' ends with suffix 'suffix' *)
   let endswith suffix x =
     let x_l = String.length x and suffix_l = String.length suffix in
@@ -55,16 +51,6 @@ module String = struct
 
   (** Returns true for whitespace characters, false otherwise *)
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
-
-  (** Removes all the characters from the ends of a string for which the predicate is true *)
-  let strip predicate string =
-    let rec remove = function
-      | [] ->
-          []
-      | c :: cs ->
-          if predicate c then remove cs else c :: cs
-    in
-    implode (List.rev (remove (List.rev (remove (explode string)))))
 
   let escaped ?rules string =
     match rules with
@@ -81,24 +67,28 @@ module String = struct
         in
         concat "" (fold_right aux string [])
 
-  (** Take a predicate and a string, return a list of strings separated by
-      runs of characters where the predicate was true (excluding those characters from the result) *)
   let split_f p str =
-    let not_p x = not (p x) in
-    let rec split_one p acc = function
-      | [] ->
-          (List.rev acc, [])
-      | c :: cs ->
-          if p c then split_one p (c :: acc) cs else (List.rev acc, c :: cs)
+    let split_one seq =
+      let not_p c = not (p c) in
+      let a = Seq.take_while not_p seq in
+      let b = Seq.drop_while not_p seq in
+      (a, b)
     in
-    let rec alternate acc drop chars =
-      if chars = [] then
+    let drop seq = Seq.drop_while p seq in
+    let rec split acc chars =
+      if Seq.is_empty chars then
         acc
       else
-        let a, b = split_one (if drop then p else not_p) [] chars in
-        alternate (if drop then acc else a :: acc) (not drop) b
+        let a, b = split_one chars in
+        let b = drop b in
+        let acc = if Seq.is_empty a then acc else Seq.cons a acc in
+        split acc b
     in
-    List.rev (List.map implode (alternate [] true (explode str)))
+    String.to_seq str
+    |> split Seq.empty
+    |> Seq.map String.of_seq
+    |> List.of_seq
+    |> List.rev
 
   let index_opt s c =
     let rec loop i =

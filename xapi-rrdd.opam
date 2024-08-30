@@ -27,6 +27,7 @@ depends: [
   "xapi-rrd" {= version}
   "xapi-stdext-threads" {= version}
   "xapi-stdext-unix" {= version}
+  "xapi-tracing"
   "odoc" {with-doc}
 ]
 build: [

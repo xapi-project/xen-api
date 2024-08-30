@@ -639,7 +639,7 @@ let metrics_prefix_mem_vms = "xcp-rrdd-mem_vms"
 let metrics_prefix_pvs_proxy = "pvsproxy-"
 
 (** Path to trigger file for Network Reset. *)
-let network_reset_trigger = "/tmp/network-reset"
+let network_reset_trigger = "/var/tmp/network-reset"
 
 let first_boot_dir = "/etc/firstboot.d/"
 
@@ -927,6 +927,8 @@ let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
 
+let bundle_repository_prefix = ref "bundle"
+
 let local_repository_prefix = ref "local"
 
 let yum_config_manager_cmd = ref "/usr/bin/yum-config-manager"
@@ -949,9 +951,14 @@ let repository_gpgcheck = ref true
 
 let observer_config_dir = Constants.observer_config_dir
 
+let bundle_repository_dir = ref "/var/xapi/bundle-repo"
+
 let ignore_vtpm_unimplemented = ref false
 
 let evacuation_batch_size = ref 10
+
+(* Max size limit of bundle file: 1 GB*)
+let bundle_max_size_limit = ref (Int64.of_int (1024 * 1024 * 1024))
 
 type xapi_globs_spec =
   | Float of float ref
@@ -1028,6 +1035,12 @@ let cert_thumbprint_header_value_sha1 = ref "sha-1:master"
 
 let cert_thumbprint_header_response =
   ref "x-xenapi-response-host-certificate-thumbprint"
+
+let external_authentication_expiry = ref Mtime.Span.(5 * min)
+
+let external_authentication_cache_enabled = ref false
+
+let external_authentication_cache_size = ref 50
 
 let observer_endpoint_http_enabled = ref false
 
@@ -1132,43 +1145,59 @@ let xapi_globs_spec =
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ]
 
-let options_of_xapi_globs_spec =
-  List.map
-    (fun (name, ty) ->
-      ( name
-      , ( match ty with
-        | Float x ->
-            Arg.Set_float x
-        | Int x ->
-            Arg.Set_int x
-        | ShortDurationFromSeconds x ->
-            Arg.Float
-              (fun y ->
-                match Clock.Timer.s_to_span y with
-                | Some y ->
-                    x := y
-                | None ->
-                    D.warn
-                      "Ignoring argument '%s', invalid float being used: %f. \
-                       (it only allows durations of less than 104 days)"
-                      name y
-              )
-        | LongDurationFromSeconds x ->
-            Arg.Int (fun y -> x := Mtime.Span.(y * s))
-        )
-      , (fun () ->
-          match ty with
-          | Float x ->
-              string_of_float !x
-          | Int x ->
-              string_of_int !x
-          | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
-              Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
-        )
-      , Printf.sprintf "Set the value of '%s'" name
-      )
+let xapi_globs_spec_with_descriptions =
+  [
+    ( "external-authentication-expiry"
+    , ShortDurationFromSeconds external_authentication_expiry
+    , "Specify how long externally authenticated login decisions should be \
+       cached (in seconds)"
     )
-    xapi_globs_spec
+  ]
+
+let option_of_xapi_globs_spec ?(description = None) (name, ty) =
+  let spec =
+    match ty with
+    | Float x ->
+        Arg.Set_float x
+    | Int x ->
+        Arg.Set_int x
+    | ShortDurationFromSeconds x ->
+        Arg.Float
+          (fun y ->
+            match Clock.Timer.s_to_span y with
+            | Some y ->
+                x := y
+            | None ->
+                D.warn
+                  "Ignoring argument '%s', invalid float being used: %f. (it \
+                   only allows durations of less than 104 days)"
+                  name y
+          )
+    | LongDurationFromSeconds x ->
+        Arg.Int (fun y -> x := Mtime.Span.(y * s))
+  in
+  let read_default () =
+    match ty with
+    | Float x ->
+        string_of_float !x
+    | Int x ->
+        string_of_int !x
+    | ShortDurationFromSeconds x | LongDurationFromSeconds x ->
+        Fmt.str "%Luns (%a)" (Mtime.Span.to_uint64_ns !x) Mtime.Span.pp !x
+  in
+  let description =
+    let default = Printf.sprintf "Set the value of '%s'" name in
+    Option.value description ~default
+  in
+  (name, spec, read_default, description)
+
+let options_of_xapi_globs_spec =
+  List.map option_of_xapi_globs_spec xapi_globs_spec
+  @ List.map
+      (fun (name, spec, description) ->
+        option_of_xapi_globs_spec ~description:(Some description) (name, spec)
+      )
+      xapi_globs_spec_with_descriptions
 
 let xenopsd_queues =
   ref
@@ -1591,6 +1620,16 @@ let other_options =
     , Arg.Set disable_webserver
     , (fun () -> string_of_bool !disable_webserver)
     , "Disable the host webserver"
+    )
+  ; ( "enable-external-authentication-cache"
+    , Arg.Set external_authentication_cache_enabled
+    , (fun () -> string_of_bool !external_authentication_cache_enabled)
+    , "Enable caching of external authentication decisions"
+    )
+  ; ( "external-authentication-cache-size"
+    , Arg.Int (fun sz -> external_authentication_cache_size := sz)
+    , (fun () -> string_of_int !external_authentication_cache_size)
+    , "Specify the maximum capacity of the external authentication cache"
     )
   ]
 

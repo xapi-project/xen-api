@@ -427,11 +427,16 @@ let compute_corosync_max_host_failures ~__context =
   corosync_ha_max_hosts
 
 module Watcher = struct
+  let routine_updates = "routine updates"
+
   let on_corosync_update ~__context ~cluster updates =
-    debug
-      "%s: Received %d updates from corosync_notifyd, run diagnostics to get \
-       new state"
-      __FUNCTION__ (List.length updates) ;
+    if updates = [routine_updates] then
+      debug "%s: Perform routine updates" __FUNCTION__
+    else
+      debug
+        "%s: Received %d updates from corosync_notifyd, run diagnostics to get \
+         new state"
+        __FUNCTION__ (List.length updates) ;
     let m =
       Cluster_client.LocalClient.diagnostics (rpc ~__context)
         "update quorum api fields with diagnostics"
@@ -535,10 +540,17 @@ module Watcher = struct
 
   let cluster_change_watcher : bool Atomic.t = Atomic.make false
 
-  (* this is the time it takes for the update request to time out. It is ok to set
+  (* This is the time it takes for the update request to time out. It is ok to set
      it to a relatively long value since the call will return immediately if there
-     is an update *)
-  let cluster_change_interval = Mtime.Span.min
+     is an update. *)
+  let cluster_change_interval = Mtime.Span.(5 * min)
+
+  (* CA-396635: Sometimes it takes the underlying cluster stack (corosync) some time
+     to return a consistent view of the quorum. For example, it may be that the membership
+     information correctly reflects the new members after a membership change, while the
+     quorum field is still out of date. Add a delay here to make sure that the information
+     from corosync represents a consistent snapshot of the current cluster state. *)
+  let stabilising_period = Mtime.Span.(5 * s)
 
   let cluster_stack_watcher : bool Atomic.t = Atomic.make false
 
@@ -550,21 +562,29 @@ module Watcher = struct
     while !Daemon.enabled do
       let m =
         Cluster_client.LocalClient.UPDATES.get (rpc ~__context)
-          "call cluster watcher"
+          "cluster change watcher call"
           (Clock.Timer.span_to_s cluster_change_interval)
       in
-      match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
-      | Ok updates -> (
+      let find_cluster_and_update ?(wait = false) updates =
         match find_cluster_host ~__context ~host with
         | Some ch ->
             let cluster = Db.Cluster_host.get_cluster ~__context ~self:ch in
+            if wait then
+              Thread.delay (Clock.Timer.span_to_s stabilising_period) ;
             on_corosync_update ~__context ~cluster updates
         | None ->
             ()
-      )
+      in
+      match Idl.IdM.run @@ Cluster_client.IDL.T.get m with
+      | Ok updates ->
+          (* Received updates from corosync-notifyd *)
+          find_cluster_and_update ~wait:true updates
       | Error (InternalError "UPDATES.Timeout") ->
-          (* UPDATES.get timed out, this is normal, now retry *)
-          ()
+          (* UPDATES.get timed out, this is normal.  *)
+          (* CA-395789: We send a query to xapi-clusterd to fetch the latest state
+             anyway in case there is a race and the previous update did not give the
+             most up-to-date information *)
+          find_cluster_and_update [routine_updates]
       | Error (InternalError message) | Error (Unix_error message) ->
           warn "%s: Cannot query cluster host updates with error %s"
             __FUNCTION__ message

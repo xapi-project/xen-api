@@ -45,6 +45,7 @@
     ipaddr
     polly
     threads.posix
+    tracing
     uri
     xapi-log
     xapi-stdext-pervasives
@@ -60,7 +61,7 @@
   (modules http_test radix_tree_test)
   (libraries
     alcotest
-    
+
     fmt
     http_lib
   )
@@ -97,8 +98,9 @@
 
 (rule
   (alias stresstest)
+  (deps bufio_test_run.exe)
   ; use default random seed on stresstests
-  (action (run %{dep:bufio_test.exe} -v -bt))
+  (action (run %{deps} -v -bt))
 )
 
 (executable
@@ -106,7 +108,7 @@
   (name test_client)
   (modules test_client)
   (libraries
-    
+
     http_lib
     safe-resources
     stunnel
@@ -121,7 +123,7 @@
   (name test_server)
   (modules test_server)
   (libraries
-    
+
     http_lib
     httpsvr
     safe-resources

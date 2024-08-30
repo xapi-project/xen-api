@@ -144,7 +144,7 @@ if [ -n "${DUMP_ON_CPUAVG}" ]; then
         | (TRIGGER=0
             read -r _IGNORE
             while IFS=, read -r _time value; do
-                if (( $(echo "${value} > ${DUMP_ON_CPUAVG}/100" | bc -l) )); then
+                if (( $(python3 -c "print(1 if ${value} > ${DUMP_ON_CPUAVG}/100.0 else 0)") )); then
                     TRIGGER=$((TRIGGER + 1))
                 else
                     TRIGGER=0

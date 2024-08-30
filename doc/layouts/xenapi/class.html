@@ -66,8 +66,8 @@ Class: {{ $c }}
   <h3>Enums</h3>
 
   {{ range $i, $x := .enums }}
-  <div id="enum_{{$x.name}}" class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" onclick="showhide(document.getElementById('enum_{{$x.name}}_details'))">
-    <div class="field-name">{{ $x.name }}</div>
+  <div id="enum_{{$x.name}}" class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" >
+    <div class="field-name" onclick="showhide(document.getElementById('enum_{{$x.name}}_details'))">{{ $x.name }}</div>
     <div id="enum_{{$x.name}}_details" style="display: none">
 
     <table class="field-table">
@@ -87,7 +87,7 @@ Class: {{ $c }}
 <h3>Fields</h3>
 
 {{ range $i, $x := sort .fields "name" }}
-<div class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" onclick="showhide(document.getElementById('{{$x.name}}_details'))">
+<div class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" >
   {{ with $x.lifecycle }}
   <div class="lifecycle">
     {{ if eq .state "Prototyped_s" }}
@@ -99,7 +99,7 @@ Class: {{ $c }}
     {{ end }}
   </div>
   {{ end }}
-  <div>
+  <div onclick="showhide(document.getElementById('{{$x.name}}_details'))">
     <span class="inline-type">{{replace $x.type "->" "→"}}</span>
     <span class="field-name">{{$x.name}}</span>
     <span class="inline-qualifier">[{{$x.qualifier}}]</span>
@@ -133,8 +133,7 @@ Class: {{ $c }}
 </h3>
 
 {{ range $i, $x := sort .messages "name" }}
-<div class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }} {{ if $x.implicit }}implicit{{ end }}"
-  onclick="showhide(document.getElementById('{{$x.name}}_details'))">
+<div class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }} {{ if $x.implicit }}implicit{{ end }}" >
   {{ with $x.lifecycle }}
   <div class="lifecycle">
     {{ if eq .state "Prototyped_s" }}
@@ -146,7 +145,7 @@ Class: {{ $c }}
     {{ end }}
   </div>
   {{ end }}
-  <div>
+  <div onclick="showhide(document.getElementById('{{$x.name}}_details'))">
     <span class="inline-type">{{replace (index $x.result 0) "->" "→"}}</span>
     <span class="field-name">{{$x.name}}</span>
     {{ $ptypes := slice }}

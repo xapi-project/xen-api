@@ -1,7 +1,7 @@
 (library
   (name unixext_test)
   (modules unixext_test)
-  (libraries xapi_stdext_unix qcheck-core mtime.clock.os fmt xapi_fd_test mtime threads.posix rresult)
+  (libraries clock xapi_stdext_unix qcheck-core mtime.clock.os fmt xapi_fd_test mtime threads.posix rresult)
 )
 
 (test
@@ -15,8 +15,9 @@
 
 (rule
   (alias stresstest)
+  (deps unixext_test_run.exe)
   ; use default random seed on stresstests
-  (action (run %{dep:unixext_test.exe} -v -bt))
+  (action (run %{deps} -v -bt))
 )
 
 (test

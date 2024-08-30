@@ -15,8 +15,7 @@
 
 == Use socket files
   $ export TMPDIR=${TMPDIR:-/tmp}
-  $ export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-$TMPDIR}
-  $ export NOTIFY_SOCKET="${XDG_RUNTIME_DIR}/systemd.socket"
+  $ export NOTIFY_SOCKET="${TMPDIR}/systemd.socket"
   $ rm -f "$NOTIFY_SOCKET"
   $ ./test_systemd.exe --server &
   READY=1

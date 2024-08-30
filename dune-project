@@ -205,6 +205,7 @@
    (xapi-rrd (= :version))
    (xapi-stdext-threads (= :version))
    (xapi-stdext-unix (= :version))
+   xapi-tracing
   )
 )
 
@@ -331,6 +332,7 @@
     ppx_sexp_conv
     ppx_deriving
     psq
+    qcheck-alcotest
     rpclib
     (rrdd-plugin (= :version))
     rresult
