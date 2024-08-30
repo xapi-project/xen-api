@@ -216,6 +216,7 @@ public class JsonRpcClient {
         dateHandlerModule.addDeserializer(Date.class, new CustomDateDeserializer());
         this.objectMapper.enable(JsonReadFeature.ALLOW_NON_NUMERIC_NUMBERS.mappedFeature());
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.objectMapper.configure(DeserializationFeature.READ_UNKNOWN_ENUM_VALUES_USING_DEFAULT_VALUE, true);
         this.objectMapper.registerModule(dateHandlerModule);
     }
 

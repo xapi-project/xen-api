@@ -5240,6 +5240,11 @@ let repository_record rpc session_id repository =
               ~value:x
           )
           ()
+      ; make_field ~name:"origin"
+          ~get:(fun () ->
+            Record_util.repo_origin_to_string (x ()).API.repository_origin
+          )
+          ()
       ]
   }
 

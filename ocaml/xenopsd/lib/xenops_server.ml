@@ -2629,7 +2629,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
       let make_url snippet id_str =
         Uri.make ?scheme:(Uri.scheme url) ?host:(Uri.host url)
           ?port:(Uri.port url)
-          ~path:(Uri.path url ^ snippet ^ id_str)
+          ~path:(Uri.path_unencoded url ^ snippet ^ id_str)
           ~query:(Uri.query url) ()
       in
       (* CA-78365: set the memory dynamic range to a single value to stop
@@ -3630,7 +3630,7 @@ module VM = struct
         debug "traceparent: %s" (Option.value ~default:"(none)" traceparent) ;
         let id, final_id =
           (* The URI is /service/xenops/memory/id *)
-          let bits = Astring.String.cuts ~sep:"/" (Uri.path uri) in
+          let bits = Astring.String.cuts ~sep:"/" (Uri.path_unencoded uri) in
           let id = bits |> List.rev |> List.hd in
           let final_id =
             match List.assoc_opt "final_id" cookies with
@@ -3673,7 +3673,7 @@ module VM = struct
       (fun () ->
         let vgpu_id =
           (* The URI is /service/xenops/migrate-vgpu/id *)
-          let path = Uri.path uri in
+          let path = Uri.path_unencoded uri in
           let bits = Astring.String.cut ~sep:"/" ~rev:true path in
           let vgpu_id_str =
             match bits with
@@ -3736,7 +3736,7 @@ module VM = struct
     let dbg = List.assoc "dbg" cookies in
     Debug.with_thread_associated dbg
       (fun () ->
-        let vm = basename (Uri.path uri) in
+        let vm = basename (Uri.path_unencoded uri) in
         match context.transferred_fd with
         | Some fd ->
             debug "VM.receive_mem: passed fd %d" (Obj.magic fd) ;

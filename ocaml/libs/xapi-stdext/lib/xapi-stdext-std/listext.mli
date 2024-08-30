@@ -60,6 +60,13 @@ module List : sig
       the sort order of [cmp], or [None] if the list is empty. When two ore
       more elements match the lowest value, the left-most is returned. *)
 
+  val find_index : ('a -> bool) -> 'a list -> int option
+  (** [find_index f l] returns the position of the first element in [l] that
+      satisfies [f x]. If there is no such element, returns [None].
+
+      When using OCaml compilers 5.1 or later, please use the standard library
+      instead. *)
+
   (** {1 Using indices to manipulate lists} *)
 
   val chop : int -> 'a list -> 'a list * 'a list

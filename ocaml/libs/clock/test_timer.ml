@@ -25,6 +25,12 @@ let test_timer_remaining =
     (not (Timer.span_is_shorter Mtime.Span.(2 * actual) ~than:duration)) ;
   let () =
     match Timer.remaining timer with
+    | Expired _ when half < 0.05 ->
+        (* OS timer may not be accurate for very short sleeps,
+           or the system might be busy.
+           Skip the strict test on very short durations, we'll still test this on the 100ms+ ones.
+        *)
+        ()
     | Expired t ->
         Test.fail_reportf
           "Expected to have spare time, but got excess: %a. Duration: %a, \

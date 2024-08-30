@@ -223,20 +223,30 @@ type disk_info = {
 let parse_disk_info x =
   match Re.Str.split_delim (Re.Str.regexp "[,]") x with
   | [source; device_number; rw] ->
-      let ty, device_number, device_number' =
+      let maybe_device =
         match Re.Str.split_delim (Re.Str.regexp "[:]") device_number with
         | [x] ->
-            (Vbd.Disk, x, Device_number.of_string false x)
+            Some (Vbd.Disk, x)
         | [x; "floppy"] ->
-            (Vbd.Floppy, x, Device_number.of_string false x)
+            Some (Vbd.Floppy, x)
         | [x; "cdrom"] ->
-            (Vbd.CDROM, x, Device_number.of_string false x)
+            Some (Vbd.CDROM, x)
         | _ ->
+            None
+      in
+      let get_position (ty, id) =
+        Option.map (fun x -> (ty, id, x)) (Device_number.of_string ~hvm:false id)
+      in
+      let ty, device_number, position =
+        match Option.bind maybe_device get_position with
+        | None ->
             Printf.fprintf stderr
               "Failed to understand disk name '%s'. It should be 'xvda' or \
                'hda:cdrom'\n"
               device_number ;
             exit 2
+        | Some disk ->
+            disk
       in
       let mode =
         match String.lowercase_ascii rw with
@@ -250,7 +260,7 @@ let parse_disk_info x =
             exit 2
       in
       let backend = parse_source source in
-      {id= device_number; ty; position= device_number'; mode; disk= backend}
+      {id= device_number; ty; position; mode; disk= backend}
   | _ ->
       Printf.fprintf stderr
         "I don't understand '%s'. Please use 'phy:path,xvda,w'\n" x ;

@@ -4,8 +4,8 @@ After=xapi.service message-switch.service syslog.target
 Wants=xapi.service message-switch.service syslog.target
 
 [Service]
-Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.1"
-Environment="MALLOC_CONF=narenas:1,tcache:false,lg_dirty_mult:22"
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=narenas:1,tcache:false"
 Environment=OCAMLRUNPARAM=b
 # The --certfile option must match the server-cert-path in xapi.conf
 # and the PathExists in xapi-nbd.path: any change must be made in all three files.

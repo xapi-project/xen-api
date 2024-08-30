@@ -18,10 +18,19 @@ open Datamodel_roles
 
 let lifecycle = [(Lifecycle.Published, "1.301.0", "")]
 
+let origin =
+  Enum
+    ( "origin"
+    , [
+        ("remote", "The origin of the repository is a remote one")
+      ; ("bundle", "The origin of the repository is a local bundle file")
+      ]
+    )
+
 let introduce =
   call ~name:"introduce" ~in_oss_since:None
     ~lifecycle:[(Published, "1.301.0", "")]
-    ~doc:"Add the configuration for a new repository"
+    ~doc:"Add the configuration for a new remote repository"
     ~versioned_params:
       [
         {
@@ -68,6 +77,18 @@ let introduce =
         ; param_release= numbered_release "1.301.0"
         ; param_default= Some (VString "")
         }
+      ]
+    ~result:(Ref _repository, "The ref of the created repository record.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ()
+
+let introduce_bundle =
+  call ~name:"introduce_bundle" ~in_oss_since:None ~lifecycle:[]
+    ~doc:"Add the configuration for a new bundle repository"
+    ~params:
+      [
+        (String, "name_label", "The name of the repository")
+      ; (String, "name_description", "The description of the repository")
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -148,7 +169,15 @@ let t =
     ~lifecycle:[(Published, "1.301.0", "")]
     ~persist:PersistEverything ~in_oss_since:None
     ~messages_default_allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-    ~messages:[introduce; forget; apply; set_gpgkey_path; apply_livepatch]
+    ~messages:
+      [
+        introduce
+      ; introduce_bundle
+      ; forget
+      ; apply
+      ; set_gpgkey_path
+      ; apply_livepatch
+      ]
     ~contents:
       [
         uid _repository ~lifecycle:[(Published, "1.301.0", "")]
@@ -187,5 +216,10 @@ let t =
       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String
           ~default_value:(Some (VString "")) "gpgkey_path"
           "The file name of the GPG public key of this repository"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:origin "origin"
+          ~default_value:(Some (VEnum "remote"))
+          "The origin of the repository. 'remote' if the origin of the \
+           repository is a remote one, 'bundle' if the origin of the \
+           repository is a local bundle file."
       ]
     ()

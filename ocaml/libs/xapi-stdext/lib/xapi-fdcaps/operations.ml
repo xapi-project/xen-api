@@ -58,6 +58,10 @@ let close t = Safefd.idempotent_close_exn t.fd
 
 let fsync t = Unix.fsync (Safefd.unsafe_to_file_descr_exn t.fd)
 
+let as_readable t = {t with props= as_readable t.props}
+
+let as_writable t = {t with props= as_writable t.props}
+
 let as_readable_opt t =
   match as_readable_opt t.props with
   | None ->
@@ -207,7 +211,7 @@ let with_tempfile ?size () f =
     try Unix.unlink name with Unix.Unix_error (_, _, _) -> ()
   in
   let@ () = Fun.protect ~finally in
-  let t = ch |> Unix.descr_of_out_channel |> make_wo_exn `reg in
+  let t = ch |> Unix.descr_of_out_channel |> Unix.dup |> make_wo_exn `reg in
   let@ t = with_fd t in
   size |> Option.iter (fun size -> ftruncate t size) ;
   f (name, t)
@@ -229,18 +233,8 @@ let check_output cmd args =
   | _ ->
       failwith (Printf.sprintf "%s exited nonzero" cmd)
 
-let with_temp_blk ?(sector_size = 512) name f =
-  let blkdev =
-    check_output "losetup"
-      [
-        "--show"
-      ; "--sector-size"
-      ; string_of_int sector_size
-      ; "--direct-io=on"
-      ; "--find"
-      ; name
-      ]
-  in
+let with_temp_blk name f =
+  let blkdev = check_output "losetup" ["--show"; "--find"; name] in
   let custom_ftruncate size =
     Unix.LargeFile.truncate name size ;
     let (_ : string) = check_output "losetup" ["--set-capacity"; name] in

@@ -28,6 +28,12 @@ val with_kind_ro :
   For character devices it receives a {!val:null} device.
 *)
 
+val with_kinds_ro :
+     Unix.file_kind list
+  -> ((([> rdonly], kind) make * ([> writable], kind) make option) list -> 'a)
+  -> 'a
+(** [with_kinds_ro kinds f] is like {!val:with_kind_ro} but for a list of file kinds. *)
+
 val with_kind_wo :
      Unix.file_kind
   -> (([> wronly], kind) make -> ([> readable], kind) make option -> 'a)
@@ -35,9 +41,22 @@ val with_kind_wo :
 (** [with_kind_wo kind f] is like {!val:with_kind_ro} but creates a write only file.
 *)
 
+val with_kinds_wo :
+     Unix.file_kind list
+  -> ((([> wronly], kind) make * ([> readable], kind) make option) list -> 'a)
+  -> 'a
+(** [with_kinds_wo kind f] is like {!val:with_kind_wo} but for a list of file kinds. *)
+
 val with_kind_rw :
   Unix.file_kind -> (([> rdwr], kind) make -> ([> rdwr], kind) make -> 'a) -> 'a
 (** [with_kind_rw kind f] is like {!val:with_kind_ro} but creates a read-write file.
+*)
+
+val with_kinds_rw :
+     Unix.file_kind list
+  -> ((([> rdwr], kind) make * ([> rdwr], kind) make option) list -> 'a)
+  -> 'a
+(** [with_kinds_rw kind f] is like {!val:with_kind_rw} but for a list of file kinds.
 *)
 
 (** {1 Observe operations} *)
@@ -202,4 +221,31 @@ val observe_rw :
   @param write the operation used for writing, allows insertion of delays
   @param expected the string to write to the file descriptor
   @returns an observation of [f]'s actions on the file descriptor and [f]'s result
+ *)
+
+type fd_set = Unix.file_descr list
+
+(** [select_fd_spec] defines a behaviour for a select input: a file descriptor kind and how long before any event happens on it *)
+type select_fd_spec = {kind: Unix.file_kind; wait: float}
+
+type select_input = {
+    ro: select_fd_spec list
+  ; wo: select_fd_spec list
+  ; rw: select_fd_spec list
+  ; re: select_fd_spec list
+  ; we: select_fd_spec list
+  ; errors: select_fd_spec list
+  ; timeout: float
+}
+
+val with_select_input :
+     select_input
+  -> (fd_set -> fd_set -> fd_set -> float -> 'a)
+  -> ('a * 'a) * fd_set
+(** [with_select_input behaviour f] creates file descriptors according to [behaviour] and calls [f] twice with it,
+  the 2nd time with a 0 timeout.
+  By the 2nd time it is called all the file descriptors from the available set should've been detected,
+  the 1st time you might run into a race condition where we've just sent the byte on the other end at the same time as the timeout.
+
+  @returns the return value of [f], and a list of available file descriptors.
  *)

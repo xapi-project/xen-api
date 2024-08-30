@@ -122,6 +122,8 @@
     message-switch-core
     message-switch-unix
     mirage-crypto
+    mirage-crypto-rng
+    mirage-crypto-rng.unix
     mtime
     mtime.clock.os
     pam
@@ -149,6 +151,7 @@
     tar
     tar-unix
     threads.posix
+    tracing
     unixpwd
     uri
     uuid
@@ -234,6 +237,7 @@
     rpclib.xml
     stunnel
     threads.posix
+    tracing
     xapi-backtrace
     xapi-client
     xapi-consts

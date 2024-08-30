@@ -73,6 +73,8 @@ type feature =
       (** Enable restriction on repository access to pool members only *)
   | VTPM  (** Support VTPM device required by Win11 guests *)
   | VM_groups  (** Enable use of VM groups *)
+  | VM_start  (** Allow starting of VMs (!) *)
+  | VM_appliance_start  (** Allow starting of VM appliances *)
 
 val feature_of_rpc : Rpc.t -> feature
 (** Convert RPC into {!feature}s *)

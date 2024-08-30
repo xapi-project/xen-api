@@ -1706,7 +1706,10 @@ get_val_as_string(const struct abstract_type *type, void *value)
         {
             xmlChar *encoded_value = *(xmlChar **)value;
             xmlParserCtxtPtr ctxt = xmlCreateDocParserCtxt(encoded_value);
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
             char *res = (char*)xmlStringDecodeEntities(ctxt, encoded_value, 1, 0, 0, 0);
+            #pragma GCC diagnostic pop
             xmlFreeParserCtxt(ctxt);
             return res;
         }
