@@ -1628,6 +1628,43 @@ let operations =
         ]
     )
 
+let set_blocked_operations =
+  call ~name:"set_blocked_operations"
+    ~in_product_since:rel_orlando (* but updated 2024 *)
+    ~doc:
+      "Update list of operations which have been explicitly blocked and an \
+       error code"
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (Map (operations, String), "value", "Blocked operations")
+      ]
+    ~allowed_roles:_R_VM_ADMIN ()
+
+let add_to_blocked_operations =
+  call ~name:"add_to_blocked_operations"
+    ~in_product_since:rel_orlando (* but updated 2024 *)
+    ~doc:
+      "Update list of operations which have been explicitly blocked and an \
+       error code"
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (operations, "key", "Blocked operation")
+      ; (String, "value", "Error code")
+      ]
+    ~allowed_roles:_R_VM_ADMIN ()
+
+let remove_from_blocked_operations =
+  call ~name:"remove_from_blocked_operations"
+    ~in_product_since:rel_orlando (* but updated 2024 *)
+    ~doc:
+      "Update list of operations which have been explicitly blocked and an \
+       error code"
+    ~params:
+      [(Ref _vm, "self", "The VM"); (operations, "key", "Blocked operation")]
+    ~allowed_roles:_R_VM_ADMIN ()
+
 let assert_operation_valid =
   call ~in_oss_since:None ~in_product_since:rel_rio
     ~name:"assert_operation_valid"
@@ -1909,6 +1946,9 @@ let t =
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness
+      ; set_blocked_operations
+      ; add_to_blocked_operations
+      ; remove_from_blocked_operations
       ]
     ~contents:
       ([uid _vm]
@@ -2086,7 +2126,7 @@ let t =
             ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
-            ~qualifier:RW
+            ~qualifier:StaticRO
             ~ty:(Map (operations, String))
             "blocked_operations"
             "List of operations which have been explicitly blocked and an \

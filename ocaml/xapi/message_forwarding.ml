@@ -3097,6 +3097,23 @@ functor
       let get_secureboot_readiness ~__context ~self =
         info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.get_secureboot_readiness ~__context ~self
+
+      let set_blocked_operations ~__context ~self ~value =
+        info "VM.set_blocked_operations: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.set_blocked_operations ~__context ~self ~value ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+
+      let add_to_blocked_operations ~__context ~self ~key ~value =
+        info "VM.add_to_blocked_operations: self = '%s'"
+          (vm_uuid ~__context self) ;
+        Local.VM.add_to_blocked_operations ~__context ~self ~key ~value ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+
+      let remove_from_blocked_operations ~__context ~self ~key =
+        info "VM.remove_from_blocked_operations: self = '%s'"
+          (vm_uuid ~__context self) ;
+        Local.VM.remove_from_blocked_operations ~__context ~self ~key ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
     end
 
     module VM_metrics = struct end
