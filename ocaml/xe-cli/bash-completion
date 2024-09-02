@@ -617,7 +617,9 @@ _xe()
         __xe_debug "triggering autocompletion for parameter names, param is '$param'"
 
         IFS=$'\n,'
-        REQD_OPTIONAL_PARAMS=1
+        if [ ! "$param" ]; then
+            REQD_OPTIONAL_PARAMS=1
+        fi
         get_params_for_command "${OLDSTYLE_WORDS[1]}"
 
         # Don't suggest already provided parameters
