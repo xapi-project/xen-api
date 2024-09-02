@@ -1659,6 +1659,15 @@ let set_domain_type ~__context ~self ~value =
   Db.VM.set_HVM_boot_policy ~__context ~self
     ~value:(derive_hvm_boot_policy ~domain_type:value)
 
+let set_blocked_operations ~__context ~self ~value =
+  Db.VM.set_blocked_operations ~__context ~self ~value
+
+let add_to_blocked_operations ~__context ~self ~key ~value =
+  Db.VM.add_to_blocked_operations ~__context ~self ~key ~value
+
+let remove_from_blocked_operations ~__context ~self ~key =
+  Db.VM.remove_from_blocked_operations ~__context ~self ~key
+
 let set_HVM_boot_policy ~__context ~self ~value =
   Db.VM.set_domain_type ~__context ~self
     ~value:(derive_domain_type ~hVM_boot_policy:value) ;
