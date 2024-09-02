@@ -1,5 +1,13 @@
 #!/bin/bash
 
 ulimit -n 2048
+
+# By default make the tests run 10x as many iterations as the default they
+# would've run in the CI
+# XenRT can further override this env var if desired
+# For this to have an effect tests must NOT specify a long_factor of their own.
+QCHECK_LONG_FACTOR=${QCHECK_LONG_FACTOR:=10}
+export QCHECK_LONG_FACTOR
+echo "QCHECK_LONG_FACTOR: ${QCHECK_LONG_FACTOR}"
 # Run quicktest with support for exception backtraces.
 OCAMLRUNPARAM=b "@OPTDIR@/debug/quicktestbin" "$@"

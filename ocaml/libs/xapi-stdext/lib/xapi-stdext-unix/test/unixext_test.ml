@@ -253,7 +253,7 @@ let check_subsets msg ((s1, s2, s3) as all) ((s1', s2', s3') as all') =
 
 let test_select =
   let gen, print = Generate.select_input in
-  Test.make ~long_factor:10 ~name:__FUNCTION__ ~print gen @@ fun t ->
+  Test.make ~name:__FUNCTION__ ~print gen @@ fun t ->
   (* epoll raised EEXIST, but none of the actual callers in XAPI need this,
      so skip
   *)
