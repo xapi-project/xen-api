@@ -364,10 +364,11 @@ module Span = struct
         span
 end
 
-module SpanMap = Map.Make (Trace_id)
+module TraceMap = Map.Make (Trace_id)
+module SpanMap = Map.Make (Span_id)
 
 module Spans = struct
-  let spans = Atomic.make SpanMap.empty
+  let spans = Atomic.make TraceMap.empty
 
   let rec update_spans f arg =
     let old = Atomic.get spans in
@@ -380,7 +381,7 @@ module Spans = struct
       (update_spans [@tailcall]) f arg
     )
 
-  let span_count () = SpanMap.cardinal (Atomic.get spans)
+  let span_count () = TraceMap.cardinal (Atomic.get spans)
 
   let max_spans = Atomic.make 2500
 
@@ -392,16 +393,16 @@ module Spans = struct
 
   let finished_spans = Atomic.make ([], 0)
 
-  let span_hashtbl_is_empty () = SpanMap.is_empty (Atomic.get spans)
+  let span_hashtbl_is_empty () = TraceMap.is_empty (Atomic.get spans)
 
   let finished_span_hashtbl_is_empty () = Atomic.get finished_spans |> snd = 0
 
   let add_to_spans_unlocked spans (span : Span.t) =
     let key = span.context.trace_id in
-    match SpanMap.find_opt key spans with
+    match TraceMap.find_opt key spans with
     | None ->
-        if SpanMap.cardinal spans < Atomic.get max_traces then
-          SpanMap.add key [span] spans
+        if TraceMap.cardinal spans < Atomic.get max_traces then
+          TraceMap.add key (SpanMap.singleton span.context.span_id span) spans
         else (
           if not_throttled () then
             debug "%s exceeded max traces when adding to span table"
@@ -409,8 +410,10 @@ module Spans = struct
           spans
         )
     | Some span_list ->
-        if List.length span_list < Atomic.get max_spans then
-          SpanMap.add key (span :: span_list) spans
+        if SpanMap.cardinal span_list < Atomic.get max_spans then
+          TraceMap.add key
+            (SpanMap.add span.context.span_id span span_list)
+            spans
         else (
           if not_throttled () then
             debug "%s exceeded max traces when adding to span table"
@@ -422,18 +425,17 @@ module Spans = struct
 
   let remove_from_spans_unlocked spans span =
     let key = span.Span.context.trace_id in
-    match SpanMap.find_opt key spans with
+    match TraceMap.find_opt key spans with
     | None ->
         if not_throttled () then
           debug "%s span does not exist or already finished" __FUNCTION__ ;
         spans
-    | Some span_list -> (
-      match List.filter (fun x -> x.Span.context <> span.context) span_list with
-      | [] ->
-          SpanMap.remove key spans
-      | filtered_list ->
-          SpanMap.add key filtered_list spans
-    )
+    | Some span_list ->
+        let span_list = SpanMap.remove span.Span.context.span_id span_list in
+        if SpanMap.is_empty span_list then
+          TraceMap.remove key spans
+        else
+          TraceMap.add key span_list spans
 
   let remove_from_spans span =
     update_spans remove_from_spans_unlocked span ;
@@ -445,8 +447,10 @@ module Spans = struct
       let next = (span :: spans, n + 1) in
       if Atomic.compare_and_set finished_spans old next then
         ()
-      else
+      else (
+        Thread.yield () ;
         (add_to_finished [@tailcall]) span
+      )
     else if not_throttled () then
       debug "%s exceeded max traces when adding to finished span table"
         __FUNCTION__
@@ -469,11 +473,11 @@ module Spans = struct
     let span_timeout_thread = ref None
 
     let gc_inactive_spans_unlocked spans () =
-      SpanMap.filter_map
+      TraceMap.filter_map
         (fun _ spanlist ->
           let filtered =
-            List.filter_map
-              (fun span ->
+            SpanMap.filter_map
+              (fun _ span ->
                 let elapsed = Unix.gettimeofday () -. span.Span.begin_time in
                 if elapsed > Atomic.get span_timeout *. 1000000. then (
                   if not_throttled () then
@@ -493,7 +497,7 @@ module Spans = struct
               )
               spanlist
           in
-          match filtered with [] -> None | spans -> Some spans
+          if SpanMap.is_empty filtered then None else Some filtered
         )
         spans
 
@@ -580,7 +584,7 @@ module TracerProvider = struct
     match List.find_opt (fun provider -> provider.enabled) providers with
     | None ->
         Atomic.set current no_op ;
-        Atomic.set Spans.spans SpanMap.empty ;
+        Atomic.set Spans.spans TraceMap.empty ;
         Atomic.set Spans.finished_spans Spans.empty_finished
     | Some enabled ->
         Atomic.set current enabled
