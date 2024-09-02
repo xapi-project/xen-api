@@ -120,6 +120,8 @@ module Span : sig
   val get_attributes : t -> (string * string) list
 end
 
+module SpanMap : module type of Map.Make (Trace_id)
+
 module Spans : sig
   val set_max_spans : int -> unit
 
@@ -129,7 +131,7 @@ module Spans : sig
 
   val since : unit -> Span.t list * int
 
-  val dump : unit -> (Trace_id.t, Span.t list) Hashtbl.t * (Span.t list * int)
+  val dump : unit -> Span.t list SpanMap.t * (Span.t list * int)
 end
 
 module Tracer : sig

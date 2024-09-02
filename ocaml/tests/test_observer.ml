@@ -385,7 +385,7 @@ let test_all_spans_finish () =
   let _ = List.map (fun span -> Tracer.finish span) trace_spans in
   let remaining_spans, finished_spans = Spans.dump () in
   let result =
-    Hashtbl.fold
+    SpanMap.fold
       (fun _k v acc -> snd finished_spans = List.length v && acc)
       active_spans true
   in
@@ -393,7 +393,7 @@ let test_all_spans_finish () =
     "All spans that are finished are moved to finished_spans" true result ;
   Alcotest.(check int)
     "traces with no spans are removed from the hashtable" 0
-    (Hashtbl.length remaining_spans) ;
+    (SpanMap.cardinal remaining_spans) ;
   test_destroy ~__context ~self ()
 
 let test_hashtbl_leaks () =
