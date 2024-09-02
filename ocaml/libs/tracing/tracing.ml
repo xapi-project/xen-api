@@ -197,7 +197,12 @@ end = struct
 
   let make = Random.bits64
 
-  let of_string s = Scanf.sscanf s "%Lx" Fun.id
+  let of_string s =
+    try Scanf.sscanf s "%Lx" Fun.id
+    with e ->
+      D.debug "Failed to parse span id %s: %s" s (Printexc.to_string e) ;
+      (* don't cause XAPI to fail *)
+      0L
 
   let to_string = Printf.sprintf "%016Lx"
 
