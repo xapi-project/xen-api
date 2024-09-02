@@ -1219,6 +1219,46 @@ let power_behaviour =
             ]
          )
 
+let set_blocked_operations =
+call ~name:"set_blocked_operations"
+  ~in_product_since:rel_orlando (* but updated 2024 *)
+  ~doc:
+    "Update list of operations which have been explicitly blocked and an \
+     error code"
+  ~params:
+    [
+      (Ref _vm, "self", "The VM")
+    ; (Map (operations, String), "value", "Blocked operations")
+    ]
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
+let add_to_blocked_operations =
+call ~name:"add_to_blocked_operations"
+  ~in_product_since:rel_orlando (* but updated 2024 *)
+  ~doc:
+    "Update list of operations which have been explicitly blocked and an \
+     error code"
+  ~params:
+    [
+      (Ref _vm, "self", "The VM")
+    ; (operations, "key", "Blocked operation")
+    ; (String, "value", "Error code")
+    ]
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
+let remove_from_blocked_operations =
+call ~name:"remove_from_blocked_operations"
+  ~in_product_since:rel_orlando (* but updated 2024 *)
+  ~doc:
+    "Update list of operations which have been explicitly blocked and an \
+     error code"
+  ~params:
+    [(Ref _vm, "self", "The VM"); (operations, "key", "Blocked operation")]
+  ~allowed_roles:_R_VM_ADMIN
+  ()
+
 let assert_operation_valid = call
     ~in_oss_since:None
     ~in_product_since:rel_rio
@@ -1357,6 +1397,9 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
                   set_domain_type;
                   set_HVM_boot_policy;
                   set_NVRAM_EFI_variables;
+                  set_blocked_operations;
+                  add_to_blocked_operations;
+                  remove_from_blocked_operations
                 ]
       ~contents:
         ([ uid _vm;
@@ -1414,7 +1457,8 @@ let set_NVRAM_EFI_variables = call ~flags:[`Session]
            field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_orlando ~default_value:(Some (VString ""))           ~ty:String          "transportable_snapshot_id" "Transportable ID of the snapshot VM";
            field ~qualifier:DynamicRO ~in_product_since:rel_orlando ~ty:(Map(String, Ref _blob)) ~default_value:(Some (VMap [])) "blobs" "Binary blobs associated with this VM";
            field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando ~default_value:(Some (VSet [])) ~ty:(Set String) "tags" "user-specified tags for categorization purposes";
-           field ~in_product_since:rel_orlando ~default_value:(Some (VMap [])) ~qualifier:RW ~ty:(Map(operations, String)) "blocked_operations" "List of operations which have been explicitly blocked and an error code";
+           field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
+           ~qualifier:StaticRO ~ty:(Map(operations, String)) "blocked_operations" "List of operations which have been explicitly blocked and an error code";
 
            field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VMap []))    ~ty:(Map (String, String)) "snapshot_info"     "Human-readable information concerning this snapshot";
            field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride ~default_value:(Some (VString "")) ~ty:String                 "snapshot_metadata" "Encoded information about the VM's metadata this is a snapshot of";
