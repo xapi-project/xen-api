@@ -671,7 +671,9 @@ module Watcher = struct
       There is no need to destroy them: once the clustering daemon is disabled, 
       these threads will exit as well. *)
   let create_as_necessary ~__context ~host =
-    if Helpers.is_pool_master ~__context ~host && Daemon.is_enabled () then (
+    let is_master = Helpers.is_pool_master ~__context ~host in
+    let daemon_enabled = Daemon.is_enabled () in
+    if is_master && daemon_enabled then (
       if Xapi_cluster_helpers.cluster_health_enabled ~__context then
         if Atomic.compare_and_set cluster_change_watcher false true then (
           debug "%s: create watcher for corosync-notifyd on coordinator"
@@ -703,5 +705,9 @@ module Watcher = struct
         ) else
           debug "%s: not create watcher for cluster stack as it already exists"
             __FUNCTION__
-    )
+    ) else
+      debug
+        "%s not create watcher because we are %b master and clustering is \
+         enabled %b "
+        __FUNCTION__ is_master daemon_enabled
 end
