@@ -5175,6 +5175,10 @@ module VM_guest_metrics = struct
             "os_version" "version of the OS"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
+            ~lifecycle:[] "netbios_name" "The NETBIOS name of the machine"
+            ~default_value:(Some (VMap []))
+        ; field ~qualifier:DynamicRO
+            ~ty:(Map (String, String))
             "PV_drivers_version" "version of the PV drivers"
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
             ~lifecycle:

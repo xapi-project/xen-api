@@ -788,6 +788,7 @@ module GuestMetrics : HandlerTools = struct
     Db.VM_guest_metrics.create ~__context ~ref:gm
       ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~os_version:gm_record.API.vM_guest_metrics_os_version
+      ~netbios_name:gm_record.API.vM_guest_metrics_netbios_name
       ~pV_drivers_version:gm_record.API.vM_guest_metrics_PV_drivers_version
       ~pV_drivers_up_to_date:
         gm_record.API.vM_guest_metrics_PV_drivers_up_to_date
