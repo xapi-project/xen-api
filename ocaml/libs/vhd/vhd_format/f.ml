@@ -31,11 +31,7 @@ exception Cstruct_differ
 let cstruct_equal a b =
   let check_contents a b =
     try
-      for i = 0 to Cstruct.length a - 1 do
-        let a' = Cstruct.get_char a i in
-        let b' = Cstruct.get_char b i in
-        if a' <> b' then raise Cstruct_differ
-      done ;
+      if Cstruct.compare a b <> 0 then raise Cstruct_differ ;
       true
     with _ -> false
   in
