@@ -8,16 +8,21 @@
   (wrapped false)
 )
 
-(test
+(executable
  (name guard_interfaces_test)
- (package xapi-idl)
  (modules guard_interfaces_test)
- (deps (source_tree test_data))
  (libraries
    test_lib
    xapi-idl.guard.privileged
    xapi-idl.guard.varstored
  )
+)
+
+(rule
+  (alias runtest)
+  (package xapi-idl)
+  (deps (:exe ./guard_interfaces_test.exe) (source_tree test_data/guard))
+  (action (run %{exe}))
 )
 
 (test
@@ -36,7 +41,6 @@
  (modes exe)
  (package xapi-idl)
  (modules (:standard \ idl_test_common guard_interfaces_test device_number_test))
- (deps (source_tree test_data))
  (libraries
    alcotest
    cohttp_posix
@@ -63,3 +67,10 @@
    xapi-log
  )
  (preprocess (per_module ((pps ppx_deriving_rpc) Task_server_test Updates_test))))
+
+(rule
+  (alias runtest)
+  (package xapi-idl)
+  (deps (:exe ./test.exe) (source_tree test_data/guard))
+  (action (run %{exe}))
+)
