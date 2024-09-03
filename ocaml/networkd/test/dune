@@ -25,3 +25,5 @@
   )
  )
 )
+
+(data_only_dirs jsonrpc_files)

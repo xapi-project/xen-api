@@ -1,3 +1,5 @@
+(data_only_dirs test_data)
+
 (library
   (name test_lib)
   (modules idl_test_common)

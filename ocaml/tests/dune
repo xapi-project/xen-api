@@ -168,3 +168,5 @@
 )
 
 (env (_ (env-vars (XAPI_TEST 1))))
+
+(data_only_dirs test_data tests)
