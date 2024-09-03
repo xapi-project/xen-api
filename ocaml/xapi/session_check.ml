@@ -66,7 +66,8 @@ let check ~intra_pool_only ~session_id ~action =
                 Xapi_stdext_date.Date.to_ptime last_active
               in
               match
-                Ptime.add_span last_active_ptime (Ptime.Span.of_int_s 600)
+                Ptime.add_span last_active_ptime
+                  !Xapi_globs.threshold_last_active
               with
               | None ->
                   let err_msg =
