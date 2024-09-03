@@ -531,7 +531,7 @@ type ('a, 'b) configuration = {
 Note that:
 
 - the memory required by the VMs listed in `placement` has already been
-  substracted from the total memory of the hosts; it doesn't need to be
+  substracted from the free memory of the hosts; it doesn't need to be
   subtracted again.
 - the free memory of each host has already had per-host miscellaneous
   overheads subtracted from it, including that used by unprotected VMs,
@@ -551,10 +551,10 @@ sig
 end
 ```
 
-The function `get_specific_plan` takes a configuration and a list of Hosts
-which have failed. It returns a VM restart plan represented as a VM to Host
-association list. This is the function called by the
-background HA VM restart thread on the master.
+The function `get_specific_plan` takes a configuration and a list of VMs(
+the host where they are resident on have failed). It returns a VM restart
+plan represented as a VM to Host association list. This is the function
+called by the background HA VM restart thread on the master.
 
 The function `plan_always_possible` returns true if every sequence of Host
 failures of length
