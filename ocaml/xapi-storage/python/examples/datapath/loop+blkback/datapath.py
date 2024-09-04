@@ -1,6 +1,6 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 #
-# Copyright (C) Citrix Systems Inc.
+# Copyright (C) Cloud Software Group.
 #
 # This program is free software; you can redistribute it and/or modify 
 # it under the terms of the GNU Lesser General Public License as published 
@@ -15,10 +15,10 @@
 # along with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
-from __future__ import print_function
+
 import os
 import sys
-import urlparse
+import urllib.parse
 
 import xapi.storage.api.v5.datapath
 from xapi.storage.common import call
@@ -64,8 +64,8 @@ class Implementation(xapi.storage.api.v5.datapath.Datapath_skeleton):
         pass
 
     def attach(self, dbg, uri, domain):
-        parsed_url = urlparse.urlparse(uri)
-        query = urlparse.parse_qs(parsed_url.query)
+        parsed_url = urllib.parse.urlparse(uri)
+        query = urllib.parse.parse_qs(parsed_url.query)
 
         file_path = os.path.realpath(parsed_url.path)
 
@@ -75,20 +75,22 @@ class Implementation(xapi.storage.api.v5.datapath.Datapath_skeleton):
         call(dbg, cmd)
 
         loop = Loop.from_path(dbg, file_path)
+        if not loop:
+            return {}
 
         return {"implementations": [
             [
-                'XenDisk',
+                "XenDisk",
                 {
-                    'backend_type': 'vbd',
-                    'params': loop.block_device(),
-                    'extra': {}
+                    "backend_type": "vbd",
+                    "params": loop.block_device(),
+                    "extra": {}
                 }
             ],
             [
-                'BlockDevice',
+                "BlockDevice",
                 {
-                    'path': loop.block_device()
+                    "path": loop.block_device()
                 }
             ]
         ]}
@@ -97,7 +99,7 @@ class Implementation(xapi.storage.api.v5.datapath.Datapath_skeleton):
         pass
 
     def detach(self, dbg, uri, domain):
-        parsed_url = urlparse.urlparse(uri)
+        parsed_url = urllib.parse.urlparse(uri)
 
         file_path = os.path.realpath(parsed_url.path)
 

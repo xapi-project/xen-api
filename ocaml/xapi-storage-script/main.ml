@@ -1863,10 +1863,7 @@ let self_test_plugin ~root_dir plugin =
       failwith "self test failed"
 
 let self_test ~root_dir =
-  ( self_test_plugin ~root_dir "org.xen.xapi.storage.dummy" >>>= fun () ->
-    self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv5"
-  )
-  >>= function
+  self_test_plugin ~root_dir "org.xen.xapi.storage.dummyv5" >>= function
   | Ok () ->
       info "test thread shutdown cleanly" ;
       Async_unix.exit 0

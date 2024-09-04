@@ -9,7 +9,7 @@ XenAPI's datamodel. The generation code is written in OCaml and is contained in
 this directory.
 
 The Python module is not auto-generated, it can be found at
-[XenAPI.py](../../scripts/examples/python/XenAPI/XenAPI.py).
+[XenAPI.py](../../python3/examples/XenAPI/XenAPI.py).
 
 To compile the generated source code, follow the instructions in the corresponding
 `README` files.
