@@ -67,7 +67,7 @@ repos:
         name: check that the Python3 test suite in passes
         entry: env PYTHONDEVMODE=yes sh -c 'coverage run && coverage xml &&
             coverage html && coverage report &&
-            diff-cover --ignore-whitespace --compare-branch=origin/feature/py3
+            diff-cover --ignore-whitespace --compare-branch=origin/master
             --show-uncovered --html-report .git/coverage-diff.html
             --fail-under 50 .git/coverage3.11.xml'
         require_serial: true
@@ -111,7 +111,7 @@ repos:
         stages: [push]
         name: check that changes to python3 tree pass pylint
         entry: diff-quality --violations=pylint
-            --ignore-whitespace --compare-branch=origin/feature/py3
+            --ignore-whitespace --compare-branch=origin/master
         pass_filenames: false
         language: python
         types: [python]
