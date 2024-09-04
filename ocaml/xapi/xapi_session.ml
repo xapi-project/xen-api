@@ -838,7 +838,13 @@ module Caching = struct
         | Some prev_result ->
             prev_result
       )
+
+  let clear_cache () =
+    let@ () = with_lock lock in
+    cache := None
 end
+
+let clear_external_auth_cache = Caching.clear_cache
 
 (* CP-714: Modify session.login_with_password to first try local super-user
    login; and then call into external auth plugin if this is enabled

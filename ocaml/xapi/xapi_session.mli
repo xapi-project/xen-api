@@ -110,3 +110,5 @@ val get_total_sessions : unit -> Int64.t
 val set_local_auth_max_threads : int64 -> unit
 
 val set_ext_auth_max_threads : int64 -> unit
+
+val clear_external_auth_cache : unit -> unit
