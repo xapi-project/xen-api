@@ -1928,6 +1928,11 @@ let disable_external_auth_common ?(during_pool_eject = false) ~__context ~host
 
         (* succeeds because there's no need to initialize anymore *)
 
+        (* If any cache is present, clear it in order to ensure cached
+           logins don't persist after disabling external
+           authentication. *)
+        Xapi_session.clear_external_auth_cache () ;
+
         (* 3. CP-703: we always revalidate all sessions after the external authentication has been disabled *)
         (* so that all sessions that were externally authenticated will be destroyed *)
         debug
