@@ -814,14 +814,13 @@ set_completions()
     if [[ $REQD_OPTIONAL_PARAMS == 1 ]]; then
         local reqd_params=$( __preprocess_suggestions "$REQD_PARAMS" )
         local opt_params=$( __preprocess_suggestions "$OPT_PARAMS" )
+        if [[ "$excludes" ]]; then
+            reqd_params=$(echo "$reqd_params" | eval "grep -v $excludes")
+            opt_params=$(echo "$opt_params" | eval "grep -v $excludes")
+        fi
         if [[ "$reqd_params" && "$opt_params" ]]; then
             __xe_debug "showing optional/required parameters"
             SHOW_DESCRIPTION=1
-
-            if [[ "$excludes" ]]; then
-                reqd_params=$(echo "$reqd_params" | eval "grep -v $excludes")
-                opt_params=$(echo "$opt_params" | eval "grep -v $excludes")
-            fi
 
             for word in $reqd_params; do
                 __add_completion "$word" "REQUIRED" "$max_cmd_length"
