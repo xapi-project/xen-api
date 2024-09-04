@@ -275,7 +275,7 @@ xfail_strict = true  # is used to fail tests that are marked as xfail but pass(f
 
 
 [tool.pytype_reporter]
-default_branch = "feature/py3"
+default_branch = "master"
 discard_messages_matching = [
     "Couldn't import pyi for 'xml.dom.minidom'",
     "No attribute '.*' on RRDContentHandler",
