@@ -17,3 +17,21 @@
   (wrapped false)
 )
 
+(executable
+  (modes exe)
+  (name mvd_cli)
+  (public_name mvd_cli)
+  (package xapi)
+  (modules mvd_cli)
+  (libraries
+    xapi_host_driver_helpers
+    cmdliner
+  )
+)
+
+(library
+  (name xapi_host_driver_helpers)
+  (modules xapi_host_driver_helpers)
+  (libraries yojson angstrom)
+  (wrapped false)
+)

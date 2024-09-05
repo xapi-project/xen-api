@@ -15,7 +15,7 @@
     angstrom
     astring
     cstruct
-    
+
     fmt
     http_lib
     httpsvr
@@ -32,25 +32,26 @@
     threads.posix
     uuid
     xapi-backtrace
-    xapi_cli_server
     xapi-consts
-    xapi_database
     xapi-datamodel
     xapi-idl
     xapi-idl.storage.interface
     xapi-idl.xen.interface
     xapi-idl.xen.interface.types
-    xapi_internal
     xapi-log
     xapi-stdext-date
+    xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-test-utils
     xapi-tracing
     xapi-types
-    xapi-stdext-pervasives
     xapi-xenopsd
+    xapi_cli_server
+    xapi_database
+    xapi_host_driver_helpers
+    xapi_internal
     xml-light2
   )
   (deps
@@ -104,21 +105,22 @@
     threads.posix
     uuid
     xapi-client
-    xapi_cli_server
     xapi-consts
-    xapi_database
     xapi-idl
     xapi-idl.cluster
     xapi-idl.storage
     xapi-idl.storage.interface
     xapi-idl.xen
-    xapi_internal
-    xapi-test-utils
-    xapi-tracing
-    xapi-types
     xapi-stdext-date
     xapi-stdext-threads
     xapi-stdext-unix
+    xapi-test-utils
+    xapi-tracing
+    xapi-types
+    xapi_cli_server
+    xapi_database
+    xapi_host_driver_helpers
+    xapi_internal
     xml-light2
     yojson
   )
