@@ -1210,6 +1210,20 @@ functor
                 Impl.SR.scan context ~dbg ~sr
         )
 
+      let scan2 context ~dbg ~sr =
+        with_dbg ~name:"SR.scan2" ~dbg @@ fun di ->
+        info "SR.scan2 dbg:%s sr:%s" di.log (s_of_sr sr) ;
+        let dbg = Debug_info.to_string di in
+        with_sr sr (fun () ->
+            match Host.find sr !Host.host with
+            | None ->
+                raise (Storage_error (Sr_not_attached (s_of_sr sr)))
+            | Some _ ->
+                let vs = Impl.SR.scan context ~dbg ~sr in
+                let sr_info = Impl.SR.stat context ~dbg ~sr in
+                (vs, sr_info)
+        )
+
       let create context ~dbg ~sr ~name_label ~name_description ~device_config
           ~physical_size =
         with_dbg ~name:"SR.create" ~dbg @@ fun di ->

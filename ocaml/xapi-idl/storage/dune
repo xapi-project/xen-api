@@ -28,7 +28,7 @@
    xapi-log
  )
  (wrapped false)
- (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
+ (preprocess (pps ppx_sexp_conv ppx_deriving_rpc ppx_deriving.show)))
 
 (library
  (name xcp_storage)

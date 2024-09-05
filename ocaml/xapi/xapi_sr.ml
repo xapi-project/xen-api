@@ -787,8 +787,8 @@ let scan ~__context ~sr =
   SRScanThrottle.execute (fun () ->
       transform_storage_exn (fun () ->
           let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-          let vs =
-            C.SR.scan (Ref.string_of task)
+          let vs, sr_info =
+            C.SR.scan2 (Ref.string_of task)
               (Storage_interface.Sr.of_string sr_uuid)
           in
           let db_vdis =
@@ -796,10 +796,6 @@ let scan ~__context ~sr =
               ~expr:(Eq (Field "SR", Literal sr'))
           in
           update_vdis ~__context ~sr db_vdis vs ;
-          let sr_info =
-            C.SR.stat (Ref.string_of task)
-              (Storage_interface.Sr.of_string sr_uuid)
-          in
           let virtual_allocation =
             List.fold_left Int64.add 0L
               (List.map (fun v -> v.Storage_interface.virtual_size) vs)
