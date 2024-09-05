@@ -778,6 +778,9 @@ let restart_agent ~__context ~host:_ =
 
 let shutdown_agent ~__context =
   debug "Host.restart_agent: Host agent will shutdown in 1s!!!!" ;
+  let localhost = Helpers.get_localhost ~__context in
+  Xapi_hooks.xapi_pre_shutdown ~__context ~host:localhost
+    ~reason:Xapi_hooks.reason__clean_shutdown ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
 let disable ~__context ~host =

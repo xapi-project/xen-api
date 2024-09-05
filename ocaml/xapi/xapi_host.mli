@@ -77,7 +77,7 @@ val retrieve_wlb_evacuate_recommendations :
 
 val restart_agent : __context:'a -> host:'b -> unit
 
-val shutdown_agent : __context:'a -> unit
+val shutdown_agent : __context:Context.t -> unit
 
 val disable : __context:Context.t -> host:[`host] Ref.t -> unit
 
