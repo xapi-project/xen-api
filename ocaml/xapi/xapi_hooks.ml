@@ -71,11 +71,15 @@ let execute_hook ~__context ~script_name ~args ~reason =
       try
         debug "Executing hook '%s/%s' with args [ %s ]" script_name script
           (String.concat "; " args) ;
-        ignore
-          (Forkhelpers.execute_command_get_output
-             (Filename.concat script_dir script)
-             args
-          )
+        let os, es =
+          Forkhelpers.execute_command_get_output
+            (Filename.concat script_dir script)
+            args
+        in
+        debug
+          "%s: Output of executing hook '%s/%s' with args [ %s ] is %s, err is \
+           %s"
+          __FUNCTION__ script_name script (String.concat "; " args) os es
       with
       | Forkhelpers.Spawn_internal_error (_, stdout, Unix.WEXITED i)
       (* i<>0 since that case does not generate exn *)
