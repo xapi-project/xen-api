@@ -71,6 +71,16 @@ let gc_VDIs ~__context =
     )
     (Db.VDI.get_all ~__context)
 
+let gc_Host_drivers ~__context =
+  let all_host_drivers = Db.Host_driver.get_all ~__context in
+  List.iter
+    (fun self ->
+      if not (valid_ref __context (Db.Host_driver.get_host ~__context ~self))
+      then
+        Db.Host_driver.destroy ~__context ~self
+    )
+    all_host_drivers
+
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record
     (fun x -> valid_ref __context x.pIF_host)
@@ -637,4 +647,5 @@ let gc_subtask_list =
     (* CA-29253: wake up all blocked clients *)
     ("Heartbeat", Xapi_event.heartbeat)
   ; ("Updates requiring reboot", gc_updates_requiring_reboot)
+  ; ("Host drivers", gc_Host_drivers)
   ]

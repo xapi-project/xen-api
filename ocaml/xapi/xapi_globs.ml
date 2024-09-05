@@ -927,6 +927,12 @@ let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
 
 let xl_cmd = ref "/usr/sbin/xl"
 
+let depmod = ref "/usr/sbin/depmod"
+
+let dracut = ref "/usr/sbin/dracut"
+
+let udevadm = ref "/usr/sbin/udevadm"
+
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
@@ -1743,6 +1749,9 @@ module Resources = struct
     ; ("modifyrepo-cmd", modifyrepo_cmd, "Path to modifyrepo command")
     ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
     ; ("c_rehash", c_rehash, "Path to Regenerate CA store")
+    ; ("depmod", depmod, "Path to depmod command")
+    ; ("dracut", dracut, "Path to dracut command")
+    ; ("udevadm", udevadm, "Path to udevadm command")
     ]
 
   let nonessential_executables =

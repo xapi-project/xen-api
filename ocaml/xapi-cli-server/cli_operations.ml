@@ -1322,6 +1322,18 @@ let gen_cmds rpc session_id =
           ]
           rpc session_id
       )
+    ; Client.Host_driver.(
+        mk get_all_records_where get_by_uuid host_driver_record "hostdriver" []
+          [
+            "uuid"
+          ; "name"
+          ; "versions"
+          ; "active-version"
+          ; "selected-version"
+          ; "requires-reboot"
+          ]
+          rpc session_id
+      )
     ; Client.VTPM.(
         mk get_all_records_where get_by_uuid vtpm_record "vtpm" []
           ["uuid"; "vm-uuid"; "profile"]
@@ -7965,6 +7977,25 @@ module Repository = struct
     let gpgkey_path = List.assoc "gpgkey-path" params in
     Client.Repository.set_gpgkey_path ~rpc ~session_id ~self:ref
       ~value:gpgkey_path
+end
+
+module Host_driver = struct
+  let select _ rpc session_id params =
+    let driver_uuid = List.assoc "uuid" params in
+    let driver_version = List.assoc "version" params in
+    let driver =
+      Client.Host_driver.get_by_uuid ~rpc ~session_id ~uuid:driver_uuid
+    in
+    Client.Host_driver.select ~rpc ~session_id ~self:driver
+      ~version:driver_version
+
+  let deselect _ rpc session_id params =
+    fail_without_force params ;
+    let driver_uuid = List.assoc "uuid" params in
+    let driver =
+      Client.Host_driver.get_by_uuid ~rpc ~session_id ~uuid:driver_uuid
+    in
+    Client.Host_driver.deselect ~rpc ~session_id ~self:driver
 end
 
 module VTPM = struct

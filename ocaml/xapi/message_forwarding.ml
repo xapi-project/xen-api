@@ -6554,6 +6554,26 @@ functor
 
     module Certificate = struct end
 
+    module Host_driver = struct
+      (** select needs to be executed on the host of the driver *)
+      let select ~__context ~self ~version =
+        info "%s" __FUNCTION__ ;
+        let host = Db.Host_driver.get_host ~__context ~self in
+        let local_fn = Local.Host_driver.select ~self ~version in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Host_driver.select ~rpc ~session_id ~self ~version
+        )
+
+      (** deselect needs to be executed on the host of the driver *)
+      let deselect ~__context ~self =
+        info "%s" __FUNCTION__ ;
+        let host = Db.Host_driver.get_host ~__context ~self in
+        let local_fn = Local.Host_driver.deselect ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Host_driver.deselect ~rpc ~session_id ~self
+        )
+    end
+
     module Repository = struct
       let introduce ~__context ~name_label ~name_description ~binary_url
           ~source_url ~update ~gpgkey_path =

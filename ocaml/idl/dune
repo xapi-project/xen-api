@@ -6,7 +6,8 @@
     datamodel_pool datamodel_cluster datamodel_cluster_host dm_api escaping
     datamodel_values datamodel_schema datamodel_certificate
     datamodel_diagnostics datamodel_repository datamodel_lifecycle
-    datamodel_vtpm datamodel_observer datamodel_vm_group api_version)
+    datamodel_vtpm datamodel_observer datamodel_vm_group api_version
+    datamodel_host_driver)
   (libraries
     rpclib.core
     sexplib0
@@ -63,7 +64,7 @@
   (public_name gen_lifecycle)
   (package xapi-datamodel)
   (modules gen_lifecycle)
-  (libraries    
+  (libraries
     xapi-datamodel
     xapi-consts.xapi_version
   )

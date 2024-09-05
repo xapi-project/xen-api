@@ -3702,6 +3702,32 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "hostdriver-select"
+    , {
+        reqd= ["uuid"; "version"]
+      ; optn= []
+      ; help=
+          "Select a version of the specified driver. If no versions of the \
+           driver are loaded, this version will become active. If some other \
+           version is already active, a reboot will be required to activate \
+           the new version."
+      ; implementation= No_fd Cli_operations.Host_driver.select
+      ; flags= []
+      }
+    )
+  ; ( "hostdriver-deselect"
+    , {
+        reqd= ["uuid"]
+      ; optn= ["force"]
+      ; help=
+          "Deselect the currently active version of the specified driver after \
+           reboot. No action will be taken if no version is currently active. \
+           Potentially dangerous operation, needs the '--force' flag \
+           specified."
+      ; implementation= No_fd Cli_operations.Host_driver.deselect
+      ; flags= []
+      }
+    )
   ; ( "vtpm-create"
     , {
         reqd= ["vm-uuid"]
