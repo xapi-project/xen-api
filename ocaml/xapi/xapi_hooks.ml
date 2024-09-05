@@ -20,6 +20,8 @@ let scriptname__host_pre_declare_dead = "host-pre-declare-dead"
 
 let scriptname__host_post_declare_dead = "host-post-declare-dead"
 
+let scriptname__xapi_pre_shutdown = "xapi-pre-shutdown"
+
 (* Host Script hook reason codes *)
 let reason__fenced = "fenced"
 
@@ -126,6 +128,12 @@ let host_pre_declare_dead ~__context ~host ~reason =
         | None ->
             ()
     )
+
+let xapi_pre_shutdown ~__context ~host ~reason =
+  info "%s Running xapi pre shutdown hooks for %s" __FUNCTION__
+    (Ref.string_of host) ;
+  execute_host_hook ~__context ~script_name:scriptname__xapi_pre_shutdown
+    ~reason ~host
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
 let internal_host_dead_hook __context host =
