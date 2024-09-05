@@ -138,7 +138,7 @@ let throw_error table op =
                Printf.sprintf
                  "xapi_pool_helpers.assert_operation_valid unknown operation: \
                   %s"
-                 (pool_operation_to_string op)
+                 (pool_allowed_operations_to_string op)
              ]
            )
         )
@@ -202,7 +202,7 @@ let assert_no_pool_ops ~__context =
       let err =
         ops
         |> List.map snd
-        |> List.map Record_util.pool_operation_to_string
+        |> List.map Record_util.pool_allowed_operations_to_string
         |> String.concat "; "
         |> Printf.sprintf "pool operations in progress: [ %s ]"
       in

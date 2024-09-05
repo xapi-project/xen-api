@@ -370,7 +370,7 @@ let message_record rpc session_id message =
           ~get:(fun () -> Int64.to_string (x ()).API.message_priority)
           ()
       ; make_field ~name:"class"
-          ~get:(fun () -> Record_util.class_to_string (x ()).API.message_cls)
+          ~get:(fun () -> Record_util.cls_to_string (x ()).API.message_cls)
           ()
       ; make_field ~name:"obj-uuid"
           ~get:(fun () -> (x ()).API.message_obj_uuid)
@@ -816,23 +816,23 @@ let vif_record rpc session_id vif =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vif_operation_to_string
+            map_and_concat Record_util.vif_operations_to_string
               (x ()).API.vIF_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vif_operation_to_string
+            List.map Record_util.vif_operations_to_string
               (x ()).API.vIF_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.vif_operation_to_string b)
+              (fun (_, b) -> Record_util.vif_operations_to_string b)
               (x ()).API.vIF_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.vif_operation_to_string b)
+              (fun (_, b) -> Record_util.vif_operations_to_string b)
               (x ()).API.vIF_current_operations
           )
           ()
@@ -920,7 +920,7 @@ let vif_record rpc session_id vif =
           )
           ~set:(fun value ->
             Client.VIF.set_locking_mode ~rpc ~session_id ~self:vif
-              ~value:(Record_util.string_to_vif_locking_mode value)
+              ~value:(Record_util.vif_locking_mode_of_string value)
           )
           ()
       ; make_field ~name:"ipv4-allowed"
@@ -1070,7 +1070,7 @@ let net_record rpc session_id net =
           ~set:(fun value ->
             Client.Network.set_default_locking_mode ~rpc ~session_id
               ~network:net
-              ~value:(Record_util.string_to_network_default_locking_mode value)
+              ~value:(Record_util.network_default_locking_mode_of_string value)
           )
           ()
       ; make_field ~name:"purpose"
@@ -1084,11 +1084,11 @@ let net_record rpc session_id net =
           )
           ~add_to_set:(fun s ->
             Client.Network.add_purpose ~rpc ~session_id ~self:net
-              ~value:(Record_util.string_to_network_purpose s)
+              ~value:(Record_util.network_purpose_of_string s)
           )
           ~remove_from_set:(fun s ->
             Client.Network.remove_purpose ~rpc ~session_id ~self:net
-              ~value:(Record_util.string_to_network_purpose s)
+              ~value:(Record_util.network_purpose_of_string s)
           )
           ()
       ]
@@ -1189,23 +1189,23 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.pool_operation_to_string
+            map_and_concat Record_util.pool_allowed_operations_to_string
               (x ()).API.pool_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.pool_operation_to_string
+            List.map Record_util.pool_allowed_operations_to_string
               (x ()).API.pool_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.pool_operation_to_string b)
+              (fun (_, b) -> Record_util.pool_allowed_operations_to_string b)
               (x ()).API.pool_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.pool_operation_to_string b)
+              (fun (_, b) -> Record_util.pool_allowed_operations_to_string b)
               (x ()).API.pool_current_operations
           )
           ()
@@ -1518,7 +1518,7 @@ let vmss_record rpc session_id vmss =
           ~get:(fun () -> Record_util.vmss_type_to_string (x ()).API.vMSS_type)
           ~set:(fun x ->
             Client.VMSS.set_type ~rpc ~session_id ~self:vmss
-              ~value:(Record_util.string_to_vmss_type x)
+              ~value:(Record_util.vmss_type_of_string x)
           )
           ()
       ; make_field ~name:"retained-snapshots"
@@ -1536,7 +1536,7 @@ let vmss_record rpc session_id vmss =
           )
           ~set:(fun x ->
             Client.VMSS.set_frequency ~rpc ~session_id ~self:vmss
-              ~value:(Record_util.string_to_vmss_frequency x)
+              ~value:(Record_util.vmss_frequency_of_string x)
           )
           ()
       ; make_field ~name:"schedule"
@@ -1860,7 +1860,10 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> string_of_bool (x ()).API.vM_is_control_domain)
           ()
       ; make_field ~name:"power-state"
-          ~get:(fun () -> Record_util.power_to_string (x ()).API.vM_power_state)
+          ~get:(fun () ->
+            Record_util.vm_power_state_to_lowercase_string
+              (x ()).API.vM_power_state
+          )
           ()
       ; make_field ~name:"memory-actual"
           ~get:(fun () ->
@@ -1959,7 +1962,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_shutdown ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_normal_exit x)
+              ~value:(Record_util.on_normal_exit_of_string x)
           )
           ()
       ; make_field ~name:"actions-after-softreboot"
@@ -1969,7 +1972,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_softreboot ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_softreboot_behaviour x)
+              ~value:(Record_util.on_softreboot_behavior_of_string x)
           )
           ()
       ; make_field ~name:"actions-after-reboot"
@@ -1979,7 +1982,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_reboot ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_normal_exit x)
+              ~value:(Record_util.on_normal_exit_of_string x)
           )
           ()
       ; make_field ~name:"actions-after-crash"
@@ -1989,7 +1992,7 @@ let vm_record rpc session_id vm =
           )
           ~set:(fun x ->
             Client.VM.set_actions_after_crash ~rpc ~session_id ~self:vm
-              ~value:(Record_util.string_to_on_crash_behaviour x)
+              ~value:(Record_util.on_crash_behaviour_of_string x)
           )
           ()
       ; make_field ~name:"console-uuids"
@@ -2544,7 +2547,7 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"pending-guidances"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.vM_pending_guidances
           )
           ()
@@ -2553,13 +2556,13 @@ let vm_record rpc session_id vm =
           ()
       ; make_field ~name:"pending-guidances-recommended"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.vM_pending_guidances_recommended
           )
           ()
       ; make_field ~name:"pending-guidances-full"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.vM_pending_guidances_full
           )
           ()
@@ -3178,7 +3181,7 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"pending-guidances"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.host_pending_guidances
           )
           ()
@@ -3198,13 +3201,13 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"pending-guidances-recommended"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.host_pending_guidances_recommended
           )
           ()
       ; make_field ~name:"pending-guidances-full"
           ~get:(fun () ->
-            map_and_concat Record_util.update_guidance_to_string
+            map_and_concat Record_util.update_guidances_to_string
               (x ()).API.host_pending_guidances_full
           )
           ()
@@ -3263,23 +3266,23 @@ let vdi_record rpc session_id vdi =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vdi_operation_to_string
+            map_and_concat Record_util.vdi_operations_to_string
               (x ()).API.vDI_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vdi_operation_to_string
+            List.map Record_util.vdi_operations_to_string
               (x ()).API.vDI_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.vdi_operation_to_string b)
+              (fun (_, b) -> Record_util.vdi_operations_to_string b)
               (x ()).API.vDI_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.vdi_operation_to_string b)
+              (fun (_, b) -> Record_util.vdi_operations_to_string b)
               (x ()).API.vDI_current_operations
           )
           ()
@@ -3356,7 +3359,7 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () -> Record_util.on_boot_to_string (x ()).API.vDI_on_boot)
           ~set:(fun onboot ->
             Client.VDI.set_on_boot ~rpc ~session_id ~self:vdi
-              ~value:(Record_util.string_to_vdi_onboot onboot)
+              ~value:(Record_util.on_boot_of_string onboot)
           )
           ()
       ; make_field ~name:"allow-caching"
@@ -3443,23 +3446,23 @@ let vbd_record rpc session_id vbd =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vbd_operation_to_string
+            map_and_concat Record_util.vbd_operations_to_string
               (x ()).API.vBD_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vbd_operation_to_string
+            List.map Record_util.vbd_operations_to_string
               (x ()).API.vBD_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.vbd_operation_to_string b)
+              (fun (_, b) -> Record_util.vbd_operations_to_string b)
               (x ()).API.vBD_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.vbd_operation_to_string b)
+              (fun (_, b) -> Record_util.vbd_operations_to_string b)
               (x ()).API.vBD_current_operations
           )
           ()
@@ -3486,7 +3489,7 @@ let vbd_record rpc session_id vbd =
           )
           ~set:(fun mode ->
             Client.VBD.set_mode ~rpc ~session_id ~self:vbd
-              ~value:(Record_util.string_to_vbd_mode mode)
+              ~value:(Record_util.vbd_mode_of_string mode)
           )
           ()
       ; make_field ~name:"type"
@@ -3501,7 +3504,7 @@ let vbd_record rpc session_id vbd =
           )
           ~set:(fun ty ->
             Client.VBD.set_type ~rpc ~session_id ~self:vbd
-              ~value:(Record_util.string_to_vbd_type ty)
+              ~value:(Record_util.vbd_type_of_string ty)
           )
           ()
       ; make_field ~name:"unpluggable"
@@ -4727,7 +4730,7 @@ let sdn_controller_record rpc session_id sdn_controller =
           ()
       ; make_field ~name:"protocol"
           ~get:(fun () ->
-            Record_util.sdn_protocol_to_string
+            Record_util.sdn_controller_protocol_to_string
               (x ()).API.sDN_controller_protocol
           )
           ()
@@ -4932,23 +4935,23 @@ let vusb_record rpc session_id vusb =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vusb_operation_to_string
+            map_and_concat Record_util.vusb_operations_to_string
               (x ()).API.vUSB_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vusb_operation_to_string
+            List.map Record_util.vusb_operations_to_string
               (x ()).API.vUSB_allowed_operations
           )
           ()
       ; make_field ~name:"current-operations"
           ~get:(fun () ->
             map_and_concat
-              (fun (_, b) -> Record_util.vusb_operation_to_string b)
+              (fun (_, b) -> Record_util.vusb_operations_to_string b)
               (x ()).API.vUSB_current_operations
           )
           ~get_set:(fun () ->
             List.map
-              (fun (_, b) -> Record_util.vusb_operation_to_string b)
+              (fun (_, b) -> Record_util.vusb_operations_to_string b)
               (x ()).API.vUSB_current_operations
           )
           ()
@@ -5242,7 +5245,7 @@ let repository_record rpc session_id repository =
           ()
       ; make_field ~name:"origin"
           ~get:(fun () ->
-            Record_util.repo_origin_to_string (x ()).API.repository_origin
+            Record_util.origin_to_string (x ()).API.repository_origin
           )
           ()
       ]
@@ -5292,11 +5295,11 @@ let vtpm_record rpc session_id vtpm =
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
-            map_and_concat Record_util.vtpm_operation_to_string
+            map_and_concat Record_util.vtpm_operations_to_string
               (x ()).API.vTPM_allowed_operations
           )
           ~get_set:(fun () ->
-            List.map Record_util.vtpm_operation_to_string
+            List.map Record_util.vtpm_operations_to_string
               (x ()).API.vTPM_allowed_operations
           )
           ()

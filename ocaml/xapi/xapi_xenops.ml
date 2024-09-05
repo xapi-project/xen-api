@@ -44,8 +44,8 @@ let check_power_state_is ~__context ~self ~expected =
     if actual <> expected then
       warn "Potential problem: VM %s in power state '%s' when expecting '%s'"
         (Db.VM.get_uuid ~__context ~self)
-        (Record_util.power_to_string actual)
-        (Record_util.power_to_string expected)
+        (Record_util.vm_power_state_to_lowercase_string actual)
+        (Record_util.vm_power_state_to_lowercase_string expected)
 
 let event_wait queue_name dbg ?from p =
   let finished = ref false in
@@ -2047,7 +2047,7 @@ let update_vm ~__context id =
                    changed." ;
                 should_update_allowed_operations := true ;
                 debug "xenopsd event: Updating VM %s power_state <- %s" id
-                  (Record_util.power_state_to_string power_state) ;
+                  (Record_util.vm_power_state_to_string power_state) ;
                 (* This will mark VBDs, VIFs as detached and clear resident_on
                    if the VM has permanently shutdown.  current-operations
                    should not be reset as there maybe a checkpoint is ongoing*)
@@ -3426,7 +3426,7 @@ let transform_xenops_exn ~__context ~vm queue_name f =
       | Bad_power_state (found, expected) ->
           let f x =
             xenapi_of_xenops_power_state (Some x)
-            |> Record_util.power_state_to_string
+            |> Record_util.vm_power_state_to_string
           in
           let found = f found and expected = f expected in
           reraise Api_errors.vm_bad_power_state

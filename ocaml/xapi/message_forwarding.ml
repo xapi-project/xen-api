@@ -4368,7 +4368,7 @@ functor
 
       let unplug_common ~__context ~self ~force =
         let op = `unplug in
-        let name = "VIF." ^ Record_util.vif_operation_to_string op in
+        let name = "VIF." ^ Record_util.vif_operations_to_string op in
         info "%s: VIF = '%s'" name (vif_uuid ~__context self) ;
         let local_fn, remote_fn =
           if force then
@@ -6204,7 +6204,7 @@ functor
     module SDN_controller = struct
       let introduce ~__context ~protocol ~address ~port =
         info "SDN_controller.introduce: protocol='%s', address='%s', port='%Ld'"
-          (Record_util.sdn_protocol_to_string protocol)
+          (Record_util.sdn_controller_protocol_to_string protocol)
           address port ;
         Local.SDN_controller.introduce ~__context ~protocol ~address ~port
 

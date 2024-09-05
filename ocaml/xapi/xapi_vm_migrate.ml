@@ -1805,8 +1805,8 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
              ( Api_errors.vm_bad_power_state
              , [
                  Ref.string_of vm
-               ; Record_util.power_to_string `Halted
-               ; Record_util.power_to_string power_state
+               ; Record_util.vm_power_state_to_lowercase_string `Halted
+               ; Record_util.vm_power_state_to_lowercase_string power_state
                ]
              )
           ) ;

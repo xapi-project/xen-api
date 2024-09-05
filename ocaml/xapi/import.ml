@@ -468,8 +468,8 @@ module VM : HandlerTools = struct
                      ( Api_errors.vm_bad_power_state
                      , [
                          Ref.string_of vm
-                       ; Record_util.power_state_to_string `Halted
-                       ; Record_util.power_state_to_string power_state
+                       ; Record_util.vm_power_state_to_string `Halted
+                       ; Record_util.vm_power_state_to_string power_state
                        ]
                      )
                   )
