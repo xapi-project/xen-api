@@ -7,7 +7,7 @@
       test_cluster_host test_cluster test_pusb test_network_sriov
       test_client test_valid_ref_list suite_alcotest_server
       test_vm_placement test_vm_helpers test_repository test_repository_helpers
-      test_ref test_xapi_helpers test_vm_group
+      test_ref test_xapi_helpers test_vm_group test_host_driver_helpers
       test_livepatch test_rpm test_updateinfo test_storage_smapiv1_wrapper test_storage_quicktest test_observer
       test_pool_periodic_update_sync test_pkg_mgr test_tar_ext test_pool_repository))
   (libraries
@@ -82,14 +82,14 @@
   (names test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt test_bounded_psq test_auth_cache
     test_clustering test_pusb test_daemon_manager test_repository test_repository_helpers
     test_livepatch test_rpm test_updateinfo test_pool_periodic_update_sync test_pkg_mgr
-    test_xapi_helpers test_tar_ext test_pool_repository)
+    test_xapi_helpers test_tar_ext test_pool_repository test_host_driver_helpers)
   (package xapi)
   (modes exe)
   (modules test_vm_helpers test_vm_placement test_network_sriov test_vdi_cbt test_bounded_psq test_auth_cache
     test_event test_clustering test_cluster_host test_cluster test_pusb
     test_daemon_manager test_repository test_repository_helpers test_livepatch test_rpm
     test_updateinfo test_pool_periodic_update_sync test_pkg_mgr
-    test_xapi_helpers test_tar_ext test_pool_repository)
+    test_xapi_helpers test_tar_ext test_pool_repository test_host_driver_helpers)
   (libraries
     alcotest
     bos
@@ -167,6 +167,27 @@
     (:x ../xapi/xapi_main.exe)
   )
   (action (run ./check-no-xenctrl %{x}))
+)
+
+(rule
+  (alias runtest)
+  (package xapi)
+  (targets
+    .note.XenServer
+    .note.Linux
+    .note.gnu.build-id
+    .note.XenServerTwo
+  )
+  (deps
+    (:asm
+     test_data/xenserver.s
+     test_data/xenserver_two_notes.s
+     test_data/linux.s
+     test_data/buildid.s
+    )
+    (:script test_data/gen_notes.sh)
+  )
+  (action (bash "%{script} %{asm}"))
 )
 
 (env (_ (env-vars (XAPI_TEST 1))))
