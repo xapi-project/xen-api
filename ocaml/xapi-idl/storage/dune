@@ -10,7 +10,7 @@
    xapi-idl
  )
  (wrapped false)
- (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
+ (preprocess (pps ppx_deriving_rpc)))
 
 (library
  (name xcp_storage_interface)
@@ -28,7 +28,7 @@
    xapi-log
  )
  (wrapped false)
- (preprocess (pps ppx_sexp_conv ppx_deriving_rpc ppx_deriving.show)))
+ (preprocess (pps ppx_deriving_rpc ppx_deriving.show)))
 
 (library
  (name xcp_storage)
@@ -43,8 +43,7 @@
    xapi-idl.storage.interface
    xapi-stdext-date
  )
- (wrapped false)
- (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
+ (wrapped false))
 
 (test
  (name storage_test)
@@ -58,8 +57,7 @@
    xapi-idl
    xapi-idl.storage
    xapi-idl.storage.interface
- )
- (preprocess (pps ppx_sexp_conv ppx_deriving_rpc)))
+ ))
 
 (test
  (name suite)

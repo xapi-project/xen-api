@@ -30,7 +30,7 @@
  )
  (flags (:standard -w -27))
  (wrapped false)
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv)))
+ (preprocess (pps ppx_deriving_rpc)))
 
 (library
  (name xcp_xen)
@@ -44,5 +44,4 @@
    xapi-idl
    xapi-idl.xen.interface
  )
- (wrapped false)
- (preprocess (pps ppx_deriving_rpc ppx_sexp_conv)))
+ (wrapped false))

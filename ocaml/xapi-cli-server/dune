@@ -45,7 +45,7 @@
     xmlm
     xml-light2
   )
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess (per_module ((pps ppx_deriving_rpc) Cli_operations)))
   (wrapped false)
 )
 

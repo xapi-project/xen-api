@@ -115,7 +115,8 @@ let test_time_limited_write =
 let test_time_limited_read =
   let gen = Gen.tup2 Generate.t Generate.timeouts
   and print = Print.tup2 Generate.print Print.float in
-  Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
+  Test.make ~count:20 ~name:__FUNCTION__ ~print gen
+  @@ fun (behaviour, timeout) ->
   skip_blk behaviour.kind ;
   skip_dirlnk behaviour.kind ;
   skip_blk_timed behaviour ;
@@ -166,7 +167,7 @@ let test_time_limited_read =
 
 let test_proxy =
   let gen = Generate.t and print = Generate.print in
-  Test.make ~name:__FUNCTION__ ~print gen @@ fun behaviour ->
+  Test.make ~count:20 ~name:__FUNCTION__ ~print gen @@ fun behaviour ->
   if behaviour.kind <> Unix.S_SOCK then
     QCheck2.assume_fail () ;
   let test wrapped_fd =

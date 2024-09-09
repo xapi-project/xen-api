@@ -81,3 +81,5 @@
   (alias update-dm-lifecycle)
   (action
     (diff datamodel_lifecycle.ml datamodel_lifecycle.ml.generated)))
+
+(data_only_dirs templates)

@@ -44,3 +44,5 @@
     (source_tree templates)
   )
 )
+
+(data_only_dirs test_data templates)

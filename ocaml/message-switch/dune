@@ -1,3 +1,5 @@
 (executable
   (name configure)
   (libraries dune-configurator findlib))
+
+(data_only_dirs www python)
