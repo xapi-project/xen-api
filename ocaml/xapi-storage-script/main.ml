@@ -1208,6 +1208,7 @@ let bind ~volume_script_dir =
   in
   S.SR.scan sr_scan_impl ;
   let sr_scan2_impl dbg sr =
+    let sr_uuid = Storage_interface.Sr.string_of sr in
     let get_sr_info sr =
       return_volume_rpc (fun () -> Sr_client.stat (volume_rpc ~dbg) dbg sr)
       >>>= fun response ->
@@ -1262,11 +1263,24 @@ let bind ~volume_script_dir =
       in
       Deferred.Result.return (List.map ~f:vdi_of_volume response, sr_info)
     in
-    Attached_SRs.find sr
-    >>>= (fun sr ->
-           get_sr_info sr >>>= fun sr_info -> get_volume_info sr sr_info
-         )
-    |> wrap
+    let rec stat_with_retry ?(times = 3) sr =
+      get_sr_info sr >>>= fun sr_info ->
+      match sr_info.health with
+      | Healthy ->
+          debug "%s sr %s is healthy" __FUNCTION__ sr_uuid ;
+          get_volume_info sr sr_info
+      | Unreachable when times > 0 ->
+          debug "%s: sr %s is unreachable, remaining %d retries" __FUNCTION__
+            sr_uuid times ;
+          Clock.after Time.Span.second >>= fun () ->
+          stat_with_retry ~times:(times - 1) sr
+      | health ->
+          debug "%s: sr unhealthy because it is %s" __FUNCTION__
+            (Storage_interface.show_sr_health health) ;
+          Deferred.Result.fail
+            Storage_interface.(Errors.Sr_unhealthy (sr_uuid, health))
+    in
+    Attached_SRs.find sr >>>= stat_with_retry |> wrap
   in
   S.SR.scan2 sr_scan2_impl ;
   let vdi_create_impl dbg sr (vdi_info : Storage_interface.vdi_info) =
