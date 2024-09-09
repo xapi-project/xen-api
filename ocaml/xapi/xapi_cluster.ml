@@ -126,6 +126,7 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       | Error error ->
           D.warn
             "Error occurred during Cluster.create. Shutting down cluster daemon" ;
+          Xapi_clustering.Watcher.signal_exit () ;
           Xapi_clustering.Daemon.disable ~__context ;
           handle_error error
   )
@@ -156,6 +157,7 @@ let destroy ~__context ~self =
   Db.Cluster.destroy ~__context ~self ;
   D.debug "Cluster destroyed successfully" ;
   set_ha_cluster_stack ~__context ;
+  Xapi_clustering.Watcher.signal_exit () ;
   Xapi_clustering.Daemon.disable ~__context
 
 (* Get pool master's cluster_host, return network of PIF *)
