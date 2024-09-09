@@ -2304,6 +2304,18 @@ let vm_record rpc session_id vm =
               (xgm ())
           )
           ()
+      ; make_field ~name:"netbios-name"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_netbios_name)
+              (xgm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m -> m.API.vM_guest_metrics_netbios_name)
+              (xgm ())
+          )
+          ()
       ; make_field ~name:"PV-drivers-version"
           ~get:(fun () ->
             Option.fold ~none:nid
