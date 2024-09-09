@@ -354,7 +354,7 @@ module Errors = struct
     | Cancelled of string
     | Redirect of string option
     | Sr_attached of string
-    | Sr_unhealthy of sr_health
+    | Sr_unhealthy of string * sr_health
     | Unimplemented of string
     | Activated_on_another_host of uuid
     | Duplicated_key of string
