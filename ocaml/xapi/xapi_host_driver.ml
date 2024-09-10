@@ -269,12 +269,13 @@ let discover ~__context ~host =
       filesystem_drivers
   with
   | Sys_error e ->
-      internal_error "Failed to parse drivers on host %s: %s"
-        (Ref.string_of host) e
+      D.debug "Failed to parse drivers on host %s: %s" (Ref.string_of host) e ;
+      []
   | e ->
-      internal_error "Failed to parse drivers on host %s: %s - %s"
-        (Ref.string_of host) (Printexc.to_string e)
-        (Printexc.get_backtrace ())
+      D.debug "Failed to parse drivers on host %s: %s - %s" (Ref.string_of host)
+        (Printexc.to_string e)
+        (Printexc.get_backtrace ()) ;
+      []
 
 (* Runs on the necessary host *)
 let select ~__context ~self ~version =
