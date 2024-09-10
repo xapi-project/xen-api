@@ -175,12 +175,6 @@ val assert_usable_for_management :
   -> unit
 (** Ensure the PIF can be used for management. *)
 
-val find_or_create_network :
-  string -> string -> __context:Context.t -> [`network] Ref.t
-(** If a network for the given bridge already exists, then return a reference to this network,
- *  otherwise create a new network and return its reference.
-*)
-
 (** Convenient lookup tables for scanning etc *)
 type tables
 
