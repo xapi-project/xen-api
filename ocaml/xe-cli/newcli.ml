@@ -594,7 +594,8 @@ let main_loop ifd ofd permitted_filenames =
                   finished := true
                 else
                   let r, _, _ =
-                    Unix.select [Unix.stdin; fd] [] [] heartbeat_interval
+                    Xapi_stdext_unix.Unixext.select [Unix.stdin; fd] [] []
+                      heartbeat_interval
                   in
                   let now = Unix.time () in
                   if now -. !last_heartbeat >= heartbeat_interval then (

@@ -74,21 +74,21 @@ let is_full ic = ic.cur = 0 && ic.max = Bytes.length ic.buf
 let fill_buf ~buffered ic timeout =
   let buf_size = Bytes.length ic.buf in
   let fill_no_exc timeout len =
-    let l, _, _ = Unix.select [ic.fd] [] [] timeout in
-    if l <> [] then (
+    Xapi_stdext_unix.Unixext.with_socket_timeout ic.fd timeout @@ fun () ->
+    try
       let n = Unix.read ic.fd ic.buf ic.max len in
       ic.max <- n + ic.max ;
       if n = 0 && len <> 0 then raise Eof ;
       n
-    ) else
-      -1
+    with Unix.Unix_error (Unix.(EAGAIN | EWOULDBLOCK), _, _) -> -1
   in
   (* If there's no space to read, shift *)
   if ic.max = buf_size then shift ic ;
   let space_left = buf_size - ic.max in
   (* Read byte one by one just do make sure we don't buffer too many chars *)
   let n =
-    fill_no_exc timeout (if buffered then space_left else min space_left 1)
+    fill_no_exc (Some timeout)
+      (if buffered then space_left else min space_left 1)
   in
   (* Select returned nothing to read *)
   if n = -1 then raise Timeout ;
@@ -97,7 +97,11 @@ let fill_buf ~buffered ic timeout =
     let tofillsz =
       if buffered then buf_size - ic.max else min (buf_size - ic.max) 1
     in
-    ignore (fill_no_exc 0.0 tofillsz)
+    (* cannot use 0 here, for select that'd mean timeout immediately, for
+       setsockopt it would mean no timeout.
+       So use a very short timeout instead
+    *)
+    ignore (fill_no_exc (Some 1e-6) tofillsz)
   )
 
 (** Input one line terminated by \n *)
