@@ -812,6 +812,9 @@ module Caching = struct
             |> Option.map (fun sec -> Mtime.Span.(sec * s))
             |> Option.value ~default:Mtime.Span.(5 * min)
           in
+          let span = Format.asprintf "%a" Mtime.Span.pp ttl in
+          info "Creating authentication cache of capacity %d and TTL of %s"
+            capacity span ;
           let auth_cache = AuthenticationCache.create ~size:capacity ~ttl in
           let instance = Some auth_cache in
           cache := instance ;
@@ -851,6 +854,7 @@ module Caching = struct
       )
 
   let clear_cache () =
+    info "Clearing authentication cache" ;
     let@ () = with_lock lock in
     cache := None
 end
