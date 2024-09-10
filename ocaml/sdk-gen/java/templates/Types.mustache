@@ -101,6 +101,7 @@ public class Types
            super(String.valueOf(responseError));
        }
    }
+
    /**
    * Checks the provided server response was successful. If the call
    * failed, throws a XenAPIException. If the server
@@ -149,7 +150,6 @@ public class Types
             /* This can never be reached */
             return "UNRECOGNIZED";
         }
-
     }
 
     {{/enums}}
@@ -172,8 +172,8 @@ public class Types
             {{/err_params}}
         }
     }
-    {{/errors}}
 
+    {{/errors}}
     public static class BadAsyncResult extends XenAPIException {
         public final String result;
 
