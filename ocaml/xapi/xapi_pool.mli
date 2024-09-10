@@ -418,6 +418,15 @@ val set_local_auth_max_threads :
 val set_ext_auth_max_threads :
   __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
 
+val set_ext_auth_cache_enabled :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val set_ext_auth_cache_size :
+  __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
+
+val set_ext_auth_cache_expiry :
+  __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
+
 val get_guest_secureboot_readiness :
      __context:Context.t
   -> self:API.ref_pool

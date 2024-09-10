@@ -1136,6 +1136,40 @@ let set_ext_auth_max_threads =
     ~params:[(Ref _pool, "self", "The pool"); (Int, "value", "The new maximum")]
     ~allowed_roles:_R_POOL_OP ()
 
+let set_ext_auth_cache_enabled =
+  call ~name:"set_ext_auth_cache_enabled" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "Specifies whether caching is enabled for external authentication"
+        )
+      ]
+    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+
+let set_ext_auth_cache_size =
+  call ~name:"set_ext_auth_cache_size" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; (Int, "value", "The capacity of the external authentication cache")
+      ]
+    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+
+let set_ext_auth_cache_expiry =
+  call ~name:"set_ext_auth_cache_expiry" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Int
+        , "value"
+        , "The expiry time of entries in the external authentication cache (in \
+           seconds - 300 seconds, i.e. 5 minutes, is the default value)"
+        )
+      ]
+    ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
+
 let pool_guest_secureboot_readiness =
   Enum
     ( "pool_guest_secureboot_readiness"
@@ -1245,6 +1279,9 @@ let t =
       ; set_update_sync_enabled
       ; set_local_auth_max_threads
       ; set_ext_auth_max_threads
+      ; set_ext_auth_cache_enabled
+      ; set_ext_auth_cache_size
+      ; set_ext_auth_cache_expiry
       ; get_guest_secureboot_readiness
       ]
     ~contents:
@@ -1488,6 +1525,18 @@ let t =
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 1L))
             ~lifecycle:[] "ext_auth_max_threads"
             "Maximum number of threads to use for external (AD) authentication"
+        ; field ~qualifier:DynamicRO ~ty:Bool
+            ~default_value:(Some (VBool false)) ~lifecycle:[]
+            "ext_auth_cache_enabled"
+            "Specifies whether external authentication caching is enabled for \
+             this pool or not"
+        ; field ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 50L))
+            ~lifecycle:[] "ext_auth_cache_size"
+            "Maximum capacity of external authentication cache"
+        ; field ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 300L))
+            ~lifecycle:[] "ext_auth_cache_expiry"
+            "Specifies how long external authentication entries should be \
+             cached for (seconds)"
         ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:(Ref _secret)
             ~default_value:(Some (VRef null_ref)) "telemetry_uuid"
             "The UUID of the pool for identification of telemetry data"

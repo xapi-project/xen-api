@@ -1166,6 +1166,24 @@ functor
           value ;
         Local.Pool.set_ext_auth_max_threads ~__context ~self ~value
 
+      let set_ext_auth_cache_enabled ~__context ~self ~value =
+        info "%s: pool='%s' value='%b'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ext_auth_cache_enabled ~__context ~self ~value
+
+      let set_ext_auth_cache_size ~__context ~self ~value =
+        info "%s: pool='%s' value='%Ld'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ext_auth_cache_size ~__context ~self ~value
+
+      let set_ext_auth_cache_expiry ~__context ~self ~value =
+        info "%s: pool='%s' value='%Ld'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ext_auth_cache_expiry ~__context ~self ~value
+
       let get_guest_secureboot_readiness ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.get_guest_secureboot_readiness ~__context ~self
