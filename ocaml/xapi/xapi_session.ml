@@ -788,9 +788,7 @@ module Caching = struct
   let ( let@ ) = ( @@ )
 
   (* Attain the extant cache or get nothing if caching is
-     disabled. This function exists to delay the construction of the
-     cache, as Xapi_globs configuration is not guaranteed to have been
-     populated before the top-level code of this module is executed. *)
+     disabled. *)
   let get_or_init_cache ~__context =
     let pool = Helpers.get_pool ~__context in
     let cache_enabled =
@@ -799,15 +797,22 @@ module Caching = struct
     if not cache_enabled then
       None
     else
-      let capacity =
-        Db.Pool.get_ext_auth_cache_size ~__context ~self:pool |> Int64.to_int
-      in
       let@ () = with_lock lock in
       match !cache with
       | Some _ as extant ->
           extant
       | _ ->
-          let auth_cache = AuthenticationCache.create ~size:capacity in
+          let capacity =
+            Db.Pool.get_ext_auth_cache_size ~__context ~self:pool
+            |> Int64.to_int
+          in
+          let ttl =
+            Db.Pool.get_ext_auth_cache_expiry ~__context ~self:pool
+            |> Int64.unsigned_to_int
+            |> Option.map (fun sec -> Mtime.Span.(sec * s))
+            |> Option.value ~default:Mtime.Span.(5 * min)
+          in
+          let auth_cache = AuthenticationCache.create ~size:capacity ~ttl in
           let instance = Some auth_cache in
           cache := instance ;
           instance
