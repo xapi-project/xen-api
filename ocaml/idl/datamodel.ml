@@ -2791,8 +2791,13 @@ module Sr_stat = struct
       , [
           ("healthy", "Storage is fully available")
         ; ("recovering", "Storage is busy recovering, e.g. rebuilding mirrors.")
-        ; ("unreachable", "Storage is unreachable")
-        ; ("unavailable", "Storage is unavailable")
+        ; ( "unreachable"
+          , "Storage is unreachable but may be recoverable with admin \
+             intervention"
+          )
+        ; ( "unavailable"
+          , "Storage is unavailable, a host reboot will be required"
+          )
         ]
       )
 

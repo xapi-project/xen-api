@@ -1208,71 +1208,79 @@ let bind ~volume_script_dir =
   in
   S.SR.scan sr_scan_impl ;
   let sr_scan2_impl dbg sr =
-    Attached_SRs.find sr
-    >>>= (fun sr ->
-           return_volume_rpc (fun () -> Sr_client.stat (volume_rpc ~dbg) dbg sr)
-           >>>= fun response ->
-           Deferred.Result.return
-             {
-               Storage_interface.sr_uuid= response.Xapi_storage.Control.uuid
-             ; name_label= response.Xapi_storage.Control.name
-             ; name_description= response.Xapi_storage.Control.description
-             ; total_space= response.Xapi_storage.Control.total_space
-             ; free_space= response.Xapi_storage.Control.free_space
-             ; clustered= response.Xapi_storage.Control.clustered
-             ; health=
-                 ( match response.Xapi_storage.Control.health with
-                 | Xapi_storage.Control.Healthy _ ->
-                     Healthy
-                 | Xapi_storage.Control.Recovering _ ->
-                     Recovering
-                 | Xapi_storage.Control.Unreachable _ ->
-                     Unreachable
-                 | Xapi_storage.Control.Unavailable _ ->
-                     Unavailable
-                 )
-             }
-           >>>= fun sr_info ->
-           match sr_info.health with
-           | Healthy ->
-               return_volume_rpc (fun () ->
-                   Sr_client.ls
-                     (volume_rpc ~dbg ~compat_out:Compat.compat_out_volumes)
-                     dbg sr
-               )
-               >>>= fun response ->
-               let response = Array.to_list response in
-               (* Filter out volumes which are clone-on-boot transients *)
-               let transients =
-                 List.fold
-                   ~f:(fun set x ->
-                     match
-                       List.Assoc.find x.Xapi_storage.Control.keys
-                         _clone_on_boot_key ~equal:String.equal
-                     with
-                     | None ->
-                         set
-                     | Some transient ->
-                         Set.add set transient
-                   )
-                   ~init:Core.String.Set.empty response
-               in
-               let response =
-                 List.filter
-                   ~f:(fun x ->
-                     not (Set.mem transients x.Xapi_storage.Control.key)
-                   )
-                   response
-               in
-               Deferred.Result.return
-                 (List.map ~f:vdi_of_volume response, sr_info)
-           | health ->
-               debug "%s: sr unhealthy %s" __FUNCTION__
-                 (Storage_interface.show_sr_health health) ;
-               Deferred.Result.fail
-                 Storage_interface.(Errors.Sr_unhealthy health)
-         )
-    |> wrap
+    let sr_uuid = Storage_interface.Sr.string_of sr in
+    let get_sr_info sr =
+      return_volume_rpc (fun () -> Sr_client.stat (volume_rpc ~dbg) dbg sr)
+      >>>= fun response ->
+      Deferred.Result.return
+        {
+          Storage_interface.sr_uuid= response.Xapi_storage.Control.uuid
+        ; name_label= response.Xapi_storage.Control.name
+        ; name_description= response.Xapi_storage.Control.description
+        ; total_space= response.Xapi_storage.Control.total_space
+        ; free_space= response.Xapi_storage.Control.free_space
+        ; clustered= response.Xapi_storage.Control.clustered
+        ; health=
+            ( match response.Xapi_storage.Control.health with
+            | Xapi_storage.Control.Healthy _ ->
+                Healthy
+            | Xapi_storage.Control.Recovering _ ->
+                Recovering
+            | Xapi_storage.Control.Unreachable _ ->
+                Unreachable
+            | Xapi_storage.Control.Unavailable _ ->
+                Unavailable
+            )
+        }
+    in
+    let get_volume_info sr sr_info =
+      return_volume_rpc (fun () ->
+          Sr_client.ls
+            (volume_rpc ~dbg ~compat_out:Compat.compat_out_volumes)
+            dbg sr
+      )
+      >>>= fun response ->
+      let response = Array.to_list response in
+      (* Filter out volumes which are clone-on-boot transients *)
+      let transients =
+        List.fold
+          ~f:(fun set x ->
+            match
+              List.Assoc.find x.Xapi_storage.Control.keys _clone_on_boot_key
+                ~equal:String.equal
+            with
+            | None ->
+                set
+            | Some transient ->
+                Set.add set transient
+          )
+          ~init:Core.String.Set.empty response
+      in
+      let response =
+        List.filter
+          ~f:(fun x -> not (Set.mem transients x.Xapi_storage.Control.key))
+          response
+      in
+      Deferred.Result.return (List.map ~f:vdi_of_volume response, sr_info)
+    in
+    let rec stat_with_retry ?(times = 3) sr =
+      get_sr_info sr >>>= fun sr_info ->
+      match sr_info.health with
+      | Healthy ->
+          debug "%s sr %s is healthy" __FUNCTION__ sr_uuid ;
+          get_volume_info sr sr_info
+      | Unreachable when times > 0 ->
+          debug "%s: sr %s is unreachable, remaining %d retries" __FUNCTION__
+            sr_uuid times ;
+          Clock.after Time.Span.second >>= fun () ->
+          stat_with_retry ~times:(times - 1) sr
+      | health ->
+          debug "%s: sr unhealthy because it is %s" __FUNCTION__
+            (Storage_interface.show_sr_health health) ;
+          Deferred.Result.fail
+            Storage_interface.(Errors.Sr_unhealthy (sr_uuid, health))
+    in
+    Attached_SRs.find sr >>>= stat_with_retry |> wrap
   in
   S.SR.scan2 sr_scan2_impl ;
   let vdi_create_impl dbg sr (vdi_info : Storage_interface.vdi_info) =
