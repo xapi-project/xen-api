@@ -1,7 +1,7 @@
 (executable
  (public_name suspend-image-viewer)
  (name suspend_image_viewer)
- (package xapi-xenopsd-xc)
+ (package xapi-debug)
  (libraries
   cmdliner
   forkexec

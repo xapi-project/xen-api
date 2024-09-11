@@ -14,8 +14,6 @@
 (executable
   (modes exe)
   (name daily_license_check_main)
-  (public_name daily-license-check)
-  (package xapi)
   (modules daily_license_check_main)
   (libraries
     daily_license_check
@@ -27,3 +25,8 @@
   )
 )
 
+(install
+  (files (daily_license_check_main.exe as daily-license-check))
+  (package xapi)
+  (section libexec_root)
+)

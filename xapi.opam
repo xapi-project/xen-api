@@ -10,7 +10,7 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
-  "alcotest"
+  "alcotest" {with-test}
   "angstrom"
   "astring"
   "base-threads"

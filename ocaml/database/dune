@@ -57,8 +57,6 @@
 (executable
   (modes exe)
   (name block_device_io)
-  (public_name block_device_io)
-  (package xapi)
   (modules block_device_io)
   (libraries
     
@@ -68,6 +66,12 @@
     xapi-stdext-unix
     uuid
   )
+)
+
+(install
+  (package xapi)
+  (files (block_device_io.exe as block_device_io))
+  (section libexec_root)
 )
 
 (executable

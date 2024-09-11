@@ -1,8 +1,6 @@
 (executable
   (modes exe)
   (name rrdp_dcmi)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-dcmi)
   (libraries
     
     rrdd-plugin
@@ -14,3 +12,8 @@
   )
 )
 
+(install
+  (package rrdd-plugins)
+  (files (rrdp_dcmi.exe as xcp-rrdd-plugins/xcp-rrdd-dcmi))
+  (section libexec_root)
+)

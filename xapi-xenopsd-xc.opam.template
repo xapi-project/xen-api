@@ -24,17 +24,17 @@ depends: [
   "conf-xen"
   "ezxenstore"
   "fd-send-recv"
-  "fmt"
+  "fmt" {with-test}
   "forkexec"
   "inotify"
   "mtime"
   "polly"
-  "ppx_deriving_rpc"
+  "ppx_deriving_rpc" {with-test}
   "ppx_sexp_conv"
   "qmp"
   "re"
-  "result"
-  "rpclib"
+  "result" {with-test}
+  "rpclib" {with-test}
   "rresult"
   "sexplib"
   "sexplib0"
@@ -53,7 +53,7 @@ depends: [
   "xapi-test-utils" {with-test}
   "xenctrl"
   "xenstore"
-  "xenstore_transport"
+  "xenstore_transport" {with-test}
   "xenmmap"
   "xmlm"
 ]

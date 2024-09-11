@@ -1,6 +1,10 @@
 (executable
  (name set_domain_uuid)
- (public_name set-domain-uuid)
- (package xapi-xenopsd-xc)
  (libraries xenctrl uuid cmdliner)
+)
+
+(install
+ (files (set_domain_uuid.exe as set-domain-uuid))
+ (section libexec_root)
+ (package xapi-xenopsd-xc)
 )

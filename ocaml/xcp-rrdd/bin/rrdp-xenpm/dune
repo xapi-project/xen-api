@@ -1,8 +1,6 @@
 (executable
   (modes exe)
   (name rrdp_xenpm)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-xenpm)
   (libraries
     
     rrdd-plugin
@@ -15,3 +13,8 @@
   )
 )
 
+(install
+  (package rrdd-plugins)
+  (files (rrdp_xenpm.exe as xcp-rrdd-plugins/xcp-rrdd-xenpm))
+  (section libexec_root)
+)

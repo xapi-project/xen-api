@@ -1,8 +1,6 @@
 (executable
   (modes exe)
   (name rrdp_iostat)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-iostat)
   (libraries
     astring
     cstruct
@@ -31,3 +29,8 @@
   )
 )
 
+(install
+  (package rrdd-plugins)
+  (files (rrdp_iostat.exe as xcp-rrdd-plugins/xcp-rrdd-iostat))
+  (section libexec_root)
+)

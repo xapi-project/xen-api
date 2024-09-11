@@ -2,7 +2,7 @@
   (modes exe)
   (name xs_trace)
   (public_name xs-trace)
-  (package xapi)
+  (package xapi-xenopsd-xc)
   (libraries
     uri
     tracing
@@ -19,8 +19,9 @@
   (action (with-stdout-to %{targets} (run %{exe} --help=groff)))
 )
 
-(install
-  (section man)
-  (package xapi)
-  (files (xs-trace.1 as man1/xs-trace.1))
-)
+; not expected by the specfile
+;(install
+;  (section man)
+;  (package xapi)
+;  (files (xs-trace.1 as man1/xs-trace.1))
+;)

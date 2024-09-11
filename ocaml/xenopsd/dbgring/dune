@@ -1,7 +1,7 @@
 (executable
  (name dbgring)
- (public_name dbgring)
- (package xapi-xenopsd-xc)
+; (public_name dbgring)
+; (package xapi-xenopsd-xc)
  (libraries
    
    xapi_xenopsd

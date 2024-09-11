@@ -323,11 +323,66 @@
 )
 
 (package
+  (name xapi-debug)
+  (synopsis "Debugging tools for XAPI")
+  (description "Tools installed into the non-standard /opt/xensource/debug location")
+  (depends
+    alcotest
+    angstrom
+    astring
+    base64
+    cmdliner
+    cohttp
+    cstruct
+    ctypes
+    domain-name
+    fd-send-recv
+    fmt
+    hex
+    integers
+    ipaddr
+    logs
+    magic-mime
+    mirage-crypto
+    mirage-crypto-pk
+    mirage-crypto-rng
+    mtime
+    pci
+    polly
+    ppx_deriving
+    ppx_deriving_rpc
+    ppx_sexp_conv
+    psq
+    ptime
+    qcheck-alcotest
+    qcheck-core
+    re
+    result
+    rpclib
+    rresult
+    sexplib
+    sexplib0
+    sha
+    tar
+    tar-unix
+    uri
+    uuidm
+    uutf
+    x509
+    xapi-backtrace
+    xenctrl
+    xenstore_transport
+    xmlm
+    yojson
+  )
+)
+
+(package
   (name xapi)
   (synopsis "The toolstack daemon which implements the XenAPI")
   (description "This daemon exposes the XenAPI and is used by clients such as 'xe' and 'XenCenter' to manage clusters of Xen-enabled hosts.")
   (depends
-    alcotest ; needed for the quicktest binary
+    (alcotest :with-test)
     angstrom
     astring
     base-threads
@@ -528,10 +583,6 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name rrdd-plugins)
-)
-
-(package
-  (name rrd2csv)
 )
 
 (package

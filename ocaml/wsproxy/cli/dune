@@ -1,3 +1,7 @@
+; we can't install to libexec_root, because the default for that is <prefix>/lib,
+; so a plain dune build @install would fail because now it can no longer use <prefix>/lib/wsproxy
+; so we install it and then move it in the Makefile
+
 (executable
   (name wsproxy)
   (public_name wsproxy)

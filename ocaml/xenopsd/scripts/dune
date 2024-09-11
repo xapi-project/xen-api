@@ -1,0 +1,13 @@
+(install
+	(section libexec_root)
+	(package xapi-xenopsd-xc)
+	(files 
+		(vif as vif)
+		(vif-real as vif-real)
+		(block as block)
+		(tap as tap)
+		(setup-vif-rules as setup-vif-rules)
+		(common.py as common.py)
+		(igmp_query_injector.py as igmp_query_injector.py)
+	)
+)

@@ -80,22 +80,7 @@ schema:
 	dune runtest ocaml/idl
 
 doc:
-#html
-	dune build --profile=$(PROFILE) -f @ocaml/doc/jsapigen
-	mkdir -p $(XAPIDOC)/html
-	cp -r _build/default/ocaml/doc/api $(XAPIDOC)/html
-	cp _build/default/ocaml/doc/branding.js $(XAPIDOC)/html
-	cp ocaml/doc/*.js ocaml/doc/*.html ocaml/doc/*.css $(XAPIDOC)/html
-#markdown
-	dune build --profile=$(PROFILE) -f @ocaml/idl/markdowngen
-	mkdir -p $(XAPIDOC)/markdown
-	cp -r _build/default/ocaml/idl/autogen/*.md $(XAPIDOC)/markdown
-	cp -r _build/default/ocaml/idl/autogen/*.yml $(XAPIDOC)/markdown
-	find ocaml/doc -name "*.md" -not -name "README.md" -exec cp {} $(XAPIDOC)/markdown/ \;
-#other
-	cp ocaml/doc/*.dot ocaml/doc/doc-convert.sh $(XAPIDOC)
-# Build manpages, networkd generated these
-	dune build --profile=$(PROFILE) -f @man
+	dune build --profile=$(PROFILE) @xapi-doc
 
 sdk:
 	dune build --profile=$(PROFILE)  @sdkgen xapi-sdk.install @ocaml/sdk-gen/install
@@ -113,8 +98,7 @@ sdk-build-java: sdk
 python:
 	$(MAKE) -C python3/examples build
 
-doc-json:
-	dune exec --profile=$(PROFILE) -- ocaml/idl/json_backend/gen_json.exe -destdir $(XAPIDOC)/jekyll
+doc-json: doc
 
 format:
 	dune build @fmt --auto-promote
@@ -134,120 +118,51 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)/etc
 	mkdir -p $(DESTDIR)/etc/bash_completion.d
 # ocaml/xapi
-	make -C scripts install
-	make -C python3 install
-	cp -f _build/install/default/bin/xapi $(DESTDIR)$(OPTDIR)/bin/xapi
+	$(MAKE) -C scripts install
+	$(MAKE) -C python3 install
 	scripts/install.sh 755 ocaml/quicktest/quicktest $(DESTDIR)$(OPTDIR)/debug
-	cp -f _build/install/default/bin/quicktestbin $(DESTDIR)$(OPTDIR)/debug/quicktestbin
-	scripts/install.sh 644 _build/install/default/share/xapi/rbac_static.csv $(DESTDIR)$(OPTDIR)/debug
-# ocaml/xsh
-	cp -f _build/install/default/bin/xsh $(DESTDIR)$(OPTDIR)/bin/xsh
 # ocaml/xe-cli
-	scripts/install.sh 755 _build/install/default/bin/xe $(DESTDIR)$(OPTDIR)/bin/xe
 	ln -sf $(OPTDIR)/bin/xe $(DESTDIR)/usr/bin/xe
 	scripts/install.sh 755 ocaml/xe-cli/bash-completion $(DESTDIR)/etc/bash_completion.d/xe
-# ocaml/vncproxy
-	scripts/install.sh 755 _build/install/default/bin/vncproxy $(DESTDIR)$(OPTDIR)/debug/vncproxy
-# ocaml/perftest
-	scripts/install.sh 755 _build/install/default/bin/perftest $(DESTDIR)$(OPTDIR)/debug/perftest
-# ocaml/suspend-image-viewer
-	scripts/install.sh 755 _build/install/default/bin/suspend-image-viewer $(DESTDIR)$(OPTDIR)/debug/suspend-image-viewer
-# ocaml/mpathalert
-	scripts/install.sh 755 _build/install/default/bin/mpathalert $(DESTDIR)$(OPTDIR)/bin/mpathalert
-# ocaml/license
-	scripts/install.sh 755 _build/install/default/bin/daily-license-check $(DESTDIR)$(LIBEXECDIR)/daily-license-check
-# ocaml/alerts/certificate
-	scripts/install.sh 755 _build/install/default/bin/alert-certificate-check $(DESTDIR)$(LIBEXECDIR)/alert-certificate-check
-# ocaml/events
-	scripts/install.sh 755 _build/install/default/bin/event_listen $(DESTDIR)$(OPTDIR)/debug/event_listen
-# ocaml/db_process
-	scripts/install.sh 755 _build/install/default/bin/xapi-db-process $(DESTDIR)$(OPTDIR)/bin/xapi-db-process
-# ocaml/cdrommon
-	scripts/install.sh 755 _build/install/default/bin/cdrommon $(DESTDIR)$(LIBEXECDIR)/cdrommon
-# ocaml/database
-	scripts/install.sh 755 _build/install/default/bin/block_device_io $(DESTDIR)$(LIBEXECDIR)/block_device_io
-# ocaml/gencert
-	scripts/install.sh 755 _build/install/default/bin/gencert $(DESTDIR)$(LIBEXECDIR)/gencert
-# ocaml/rrd2csv
-	scripts/install.sh 755 _build/install/default/bin/rrd2csv $(DESTDIR)$(OPTDIR)/bin/rrd2csv
+# rrd2csv
 	scripts/install.sh 644 ocaml/rrd2csv/man/rrd2csv.1.man $(DESTDIR)$(OPTMANDIR)/rrd2csv.1
-# ocaml/xs-trace
-	scripts/install.sh 755 _build/install/default/bin/xs-trace $(DESTDIR)/usr/bin/xs-trace
-# xcp-rrdd
-	install -D _build/install/default/bin/xcp-rrdd $(DESTDIR)/usr/sbin/xcp-rrdd
-	install -D _build/install/default/bin/rrddump $(DESTDIR)/usr/bin/rrddump
-# rrd-cli
-	install -D _build/install/default/bin/rrd-cli $(DESTDIR)/usr/bin/rrd-cli
-# rrd-transport
-	install -D _build/install/default/bin/rrdreader $(DESTDIR)/usr/bin/rrdreader
-	install -D _build/install/default/bin/rrdwriter $(DESTDIR)/usr/bin/rrdwriter
 # rrdd-plugins
-	install -D -m 755 _build/install/default/bin/xcp-rrdd-iostat $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-iostat
-	install -D -m 755 _build/install/default/bin/xcp-rrdd-squeezed $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-squeezed
-	install -D -m 755 _build/install/default/bin/xcp-rrdd-xenpm $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-xenpm
-	install -D -m 755 _build/install/default/bin/xcp-rrdd-dcmi $(DESTDIR)$(LIBEXECDIR)/xcp-rrdd-plugins/xcp-rrdd-dcmi
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins.xml
 	install -D -m 644 ocaml/xcp-rrdd/bugtool-plugin/rrdd-plugins/stuff.xml $(DESTDIR)$(ETCXENDIR)/bugtool/xcp-rrdd-plugins/stuff.xml
 	install -D -m 755 ocaml/xcp-rrdd/bin/rrdp-scripts/sysconfig-rrdd-plugins $(DESTDIR)/etc/sysconfig/xcp-rrdd-plugins
 	install -D -m 644 ocaml/xcp-rrdd/bin/rrdp-scripts/logrotate-rrdd-plugins $(DESTDIR)/etc/logrotate.d/xcp-rrdd-plugins
 # vhd-tool
-	install -m 755 _build/install/default/bin/sparse_dd        $(DESTDIR)/usr/libexec/xapi/sparse_dd
-	install -m 755 _build/install/default/bin/vhd-tool         $(DESTDIR)/usr/bin/vhd-tool
 	install -m 644 ocaml/vhd-tool/cli/sparse_dd.conf           $(DESTDIR)/etc/sparse_dd.conf
-	install -m 755 _build/install/default/bin/get_vhd_vsize    $(DESTDIR)/usr/libexec/xapi/get_vhd_vsize
-	install -m 755 ocaml/vhd-tool/scripts/get_nbd_extents.py   $(DESTDIR)$(LIBEXECDIR)/get_nbd_extents.py
-	install -m 644 ocaml/vhd-tool/scripts/python_nbd_client.py $(DESTDIR)$(LIBEXECDIR)/python_nbd_client.py
 # xenopsd
-	install -D _build/install/default/bin/xenopsd-simulator $(DESTDIR)/$(SBINDIR)/xenopsd-simulator
-	install -D _build/install/default/man/man1/xenopsd-simulator.1.gz $(DESTDIR)/$(MANDIR)/man1/xenopsd-simulator.1.gz
-	install -D _build/install/default/bin/xenopsd-xc $(DESTDIR)/$(SBINDIR)/xenopsd-xc
-	install -D _build/install/default/bin/fence.bin $(DESTDIR)/$(LIBEXECDIR)/fence.bin
-	install -D _build/install/default/man/man1/xenopsd-xc.1.gz $(DESTDIR)/$(MANDIR)/man1/xenopsd-xc.1.gz
-	install -D _build/install/default/bin/set-domain-uuid $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/set-domain-uuid
-	install -D _build/install/default/bin/xenops-cli $(DESTDIR)/$(SBINDIR)/xenops-cli
-	install -D _build/install/default/man/man1/xenops-cli.1.gz $(DESTDIR)/$(MANDIR)/man1/xenops-cli.1.gz
-	install -D _build/install/default/bin/list_domains $(DESTDIR)/$(BINDIR)/list_domains
-	install -D ./ocaml/xenopsd/scripts/vif $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/vif
-	install -D ./ocaml/xenopsd/scripts/vif-real $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/vif-real
-	install -D ./ocaml/xenopsd/scripts/block $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/block
 	install -D ./ocaml/xenopsd/scripts/xen-backend.rules $(DESTDIR)/$(ETCDIR)/udev/rules.d/xen-backend.rules
-	install -D ./ocaml/xenopsd/scripts/tap $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/tap
-	install -D ./ocaml/xenopsd/scripts/setup-vif-rules $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/setup-vif-rules
-	install -D ./_build/install/default/bin/pvs-proxy-ovs-setup $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/pvs-proxy-ovs-setup
-	(cd $(DESTDIR)/$(XENOPSD_LIBEXECDIR) && ln -sf pvs-proxy-ovs-setup setup-pvs-proxy-rules)
-	install -D ./ocaml/xenopsd/scripts/common.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/common.py
-	install -D ./ocaml/xenopsd/scripts/igmp_query_injector.py $(DESTDIR)/$(XENOPSD_LIBEXECDIR)/igmp_query_injector.py
 	install -D ./ocaml/xenopsd/scripts/qemu-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/qemu-wrapper
 	install -D ./ocaml/xenopsd/scripts/swtpm-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/swtpm-wrapper
 	install -D ./ocaml/xenopsd/scripts/pygrub-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/pygrub-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
-# squeezed
-	install -D _build/install/default/bin/squeezed $(DESTDIR)/$(SBINDIR)/squeezed
-# xcp-networkd
-	install -m 755 _build/install/default/bin/xapi-networkd         $(DESTDIR)/usr/sbin/xcp-networkd
-	install -m 755 _build/install/default/bin/networkd_db           $(DESTDIR)/usr/bin/networkd_db
-	install -m 644 _build/default/ocaml/networkd/bin/xcp-networkd.1 $(DESTDIR)/usr/share/man/man1/xcp-networkd.1
-# wsproxy
-	install -m 755 _build/install/default/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 # dune can install libraries and several other files into the right locations
 	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
+		--libexecdir=$(XENOPSD_LIBEXECDIR) \
 		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
 		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
 		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory clock \
+		xapi-rrd xapi-inventory clock xapi-rrdd rrddump xapi-rrd-transport-utils wsproxy xapi-networkd xapi-squeezed xapi-xenopsd-simulator xapi-xenopsd-cli xapi-xenopsd-xc\
 		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
-# docs
-	mkdir -p $(DESTDIR)$(DOCDIR)
-	cp -r $(XAPIDOC)/jekyll $(DESTDIR)$(DOCDIR)
-	cp -r $(XAPIDOC)/html $(DESTDIR)$(DOCDIR)
-	cp -r $(XAPIDOC)/markdown $(DESTDIR)$(DOCDIR)
-	cp $(XAPIDOC)/*.dot $(XAPIDOC)/doc-convert.sh $(DESTDIR)$(DOCDIR)
+	dune install --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe rrdd-plugins
+	dune install --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
+	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR) vhd-tool
+
+# wsproxy
+	mv $(DESTDIR)/usr/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
+	(cd $(DESTDIR)/$(XENOPSD_LIBEXECDIR) && ln -sf pvs-proxy-ovs-setup setup-pvs-proxy-rules)
 # sdk
 	dune install --destdir=$(DESTDIR) --datadir=$(SDKDIR) xapi-sdk
+	chmod +x $(DESTDIR)$(DOCDIR)/doc-convert.sh
+	# backward compat with existing specfile, to be removed after it is updated
 	find $(DESTDIR) -name '*.cmxs' -delete
+	for pkg in rrdd-plugins xapi-debug xapi xe xapi-networkd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc xapi-squeezed xapi-rrdd xapi-rrd-transport-utils rrddump wsproxy vhd-tool; do for f in CHANGELOG LICENSE README.markdown; do rm $(DESTDIR)$(OPTDIR)/doc/$$pkg/$$f $(DESTDIR)$(PREFIX)/doc/$$pkg/$$f -f; done; for f in META dune-package opam; do rm $(DESTDIR)$(LIBDIR)/$$pkg/$$f; done; done;
 
 uninstall:
 	# only removes what was installed with `dune install`
@@ -258,8 +173,11 @@ uninstall:
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
 		xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory clock \
+		xapi-rrd xapi-inventory clock xapi-rrdd rrddump xapi-rrd-transport-utils wsproxy xapi-networkd xapi-squeezed xapi-xenopsd-simulator xapi-xenopsd-cli\
 		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
+	dune uninstall --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR)  xapi xe rrdd-plugins
+	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(XENOPSD_LIBEXECDIR)  xapi-xenopsd-xc
+	dune uninstall --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\

@@ -1,8 +1,6 @@
 (executable
   (modes exe)
   (name rrdp_squeezed)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-squeezed)
   (libraries
     
     rrdd-plugin
@@ -20,3 +18,8 @@
   )
 )
 
+(install
+  (package rrdd-plugins)
+  (files (rrdp_squeezed.exe as xcp-rrdd-plugins/xcp-rrdd-squeezed))
+  (section libexec_root)
+)

@@ -23,7 +23,7 @@ depends: [
   "xapi-stdext-threads"
   "xapi-stdext-unix"
   "xapi-types"
-  "xenctrl" {>= "0.9.20"}
+  "xenctrl" {>= "0.9.20" & with-test}
   "xenstore"
   "xenstore_transport"
 ]

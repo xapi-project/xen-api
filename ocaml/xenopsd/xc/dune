@@ -69,8 +69,6 @@
 (executable
  (name xenops_xc_main)
  (modes exe)
- (public_name xenopsd-xc)
- (package xapi-xenopsd-xc)
  (modules xenops_xc_main)
 
  (libraries
@@ -107,6 +105,12 @@
  )
 )
 
+(install
+ (files (xenops_xc_main.exe as xenopsd-xc))
+ (section sbin)
+ (package xapi-xenopsd-xc)
+)
+ 
 (executable
  (name memory_summary)
  (modes exe)

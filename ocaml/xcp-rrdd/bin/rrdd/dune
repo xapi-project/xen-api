@@ -38,8 +38,6 @@
 (executable
   (modes exe)
   (name xcp_rrdd)
-  (public_name xcp-rrdd)
-  (package xapi-rrdd)
   (modules xcp_rrdd)
   (libraries
     astring
@@ -75,3 +73,8 @@
   )
 )
 
+(install
+  (package xapi-rrdd)
+  (files (xcp_rrdd.exe as xcp-rrdd))
+  (section sbin)
+)

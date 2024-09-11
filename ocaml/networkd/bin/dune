@@ -11,8 +11,6 @@
 
 (executable
  (name networkd)
- (public_name xapi-networkd)
- (package xapi-networkd)
  (modes exe)
  (libraries
   astring
@@ -44,4 +42,21 @@
 (alias
  (name man)
  (deps xcp-networkd.1)
+)
+
+(install
+ (package xapi-networkd)
+ (section man)
+ (files xcp-networkd.1)
+)
+
+(install
+ (package xapi-networkd)
+ (section sbin)
+ (files (networkd.exe as xcp-networkd))
+)
+
+(alias
+ (name xapi-doc)
+ (deps (alias man))
 )

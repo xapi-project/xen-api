@@ -49,10 +49,11 @@
 )
 
 (install
-  (section share)
+  (package xapi-debug)
+  (section share_root)
   (files rbac_static.csv)
-  (package xapi)
 )
+
 
 (library
   (name xapi_internal_minimal)
