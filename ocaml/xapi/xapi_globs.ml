@@ -712,6 +712,10 @@ let host_assumed_dead_interval = ref Mtime.Span.(10 * min)
 (* If a session has a last_active older than this we delete it *)
 let inactive_session_timeout = ref 86400. (* 24 hrs in seconds *)
 
+(* If a session was refreshed more recently than threshold_last_active do not refresh it again. *)
+let threshold_last_active = ref (Ptime.Span.of_int_s 600)
+(* 10 min in seconds *)
+
 let pending_task_timeout = ref 86400. (* 24 hrs in seconds *)
 
 let completed_task_timeout = ref 3900. (* 65 mins *)
@@ -1630,6 +1634,11 @@ let other_options =
     , Arg.Int (fun sz -> external_authentication_cache_size := sz)
     , (fun () -> string_of_int !external_authentication_cache_size)
     , "Specify the maximum capacity of the external authentication cache"
+    )
+  ; ( "threshold_last_active"
+    , Arg.Int (fun t -> threshold_last_active := Ptime.Span.of_int_s t)
+    , (fun () -> Format.asprintf "%a" Ptime.Span.pp !threshold_last_active)
+    , "Specify the threshold below which we do not refresh the session"
     )
   ]
 
