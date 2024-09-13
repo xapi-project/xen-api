@@ -371,9 +371,9 @@ should not assume that references generated during one session are valid for any
 future session. References do not allow objects to be compared for equality. Two
 references to the same object are not guaranteed to be textually identical.
 
-UUIDs are intended to be permanent names for objects. They are
+UUIDs are intended to be permanent identifiers for objects. They are
 guaranteed to be in the OSF DCE UUID presentation format (as output by `uuidgen`).
-Clients may store UUIDs on disk and use them to lookup objects in subsequent sessions
+Clients may store UUIDs on disk and use them to look up objects in subsequent sessions
 with the server. Clients may also test equality on objects by comparing UUID strings.
 
 The API provides mechanisms for translating between UUIDs and opaque references.
