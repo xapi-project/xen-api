@@ -97,18 +97,7 @@ doc:
 
 sdk:
 	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
-	dune build --profile=$(PROFILE) \
-		ocaml/sdk-gen/c/gen_c_binding.exe \
-		ocaml/sdk-gen/csharp/gen_csharp_binding.exe \
-		ocaml/sdk-gen/java/main.exe \
-		ocaml/sdk-gen/powershell/gen_powershell_binding.exe \
-		ocaml/sdk-gen/go/gen_go_binding.exe
-	dune build --profile=$(PROFILE) -f\
-		@ocaml/sdk-gen/c/generate \
-		@ocaml/sdk-gen/csharp/generate \
-		@ocaml/sdk-gen/java/generate \
-		@ocaml/sdk-gen/powershell/generate \
-		@ocaml/sdk-gen/go/generate
+	dune build --profile=$(PROFILE) -f @sdkgen
 	rm -rf $(XAPISDK)
 	mkdir -p $(XAPISDK)/c
 	mkdir -p $(XAPISDK)/csharp

@@ -1,1 +1,17 @@
 (data_only_dirs component-test)
+
+(alias
+	(name sdkgen)
+	(deps
+		c/gen_c_binding.exe
+		csharp/gen_csharp_binding.exe
+		java/main.exe
+		powershell/gen_powershell_binding.exe
+		go/gen_go_binding.exe
+		(alias_rec c/generate)
+		(alias_rec csharp/generate)
+		(alias_rec java/generate)
+		(alias_rec powershell/generate)
+		(alias_rec go/generate)
+	)
+)

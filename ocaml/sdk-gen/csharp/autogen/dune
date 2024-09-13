@@ -1,4 +1,5 @@
 (rule
+  (alias generate)
   (targets LICENSE)
   (deps
     ../../LICENSE
