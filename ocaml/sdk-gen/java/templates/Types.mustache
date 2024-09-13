@@ -1,0 +1,253 @@
+/*
+ * Copyright (c) Cloud Software Group, Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ *   1) Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *   2) Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials
+ *      provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+ * COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+ * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+ * OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+package com.xensource.xenapi;
+import java.util.*;
+import com.fasterxml.jackson.annotation.JsonEnumDefaultValue;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+/**
+ * This class holds enum types and exceptions.
+ */
+public class Types
+{
+   /**
+    * Interface for all Record classes
+    */
+   public interface Record
+   {
+       /**
+        * Convert a Record to a Map
+        */
+       Map<String, Object> toMap();
+   }
+   /**
+    * Base class for all XenAPI Exceptions
+    */
+   public static class XenAPIException extends IOException {
+       public final String shortDescription;
+       public final String[] errorDescription;
+       XenAPIException(String shortDescription)
+       {
+           this.shortDescription = shortDescription;
+           this.errorDescription = null;
+       }
+       XenAPIException(String[] errorDescription)
+       {
+           this.errorDescription = errorDescription;
+           if (errorDescription.length > 0)
+           {
+               shortDescription = errorDescription[0];
+           } else
+           {
+               shortDescription = "";
+           }
+       }
+       public String toString()
+       {
+           if (errorDescription == null)
+           {
+               return shortDescription;
+           } else if (errorDescription.length == 0)
+           {
+               return "";
+           }
+           StringBuilder sb = new StringBuilder();
+           for (int i = 0; i < errorDescription.length - 1; i++)
+           {
+               sb.append(errorDescription[i]);
+           }
+           sb.append(errorDescription[errorDescription.length - 1]);
+           return sb.toString();
+       }
+   }
+
+   /**
+    * Thrown if the response from the server contains an invalid status.
+    */
+   public static class BadServerResponse extends XenAPIException
+   {
+       public BadServerResponse(JsonRpcResponseError responseError)
+       {
+           super(String.valueOf(responseError));
+       }
+   }
+
+   /**
+   * Checks the provided server response was successful. If the call
+   * failed, throws a XenAPIException. If the server
+   * returned an invalid response, throws a BadServerResponse.
+   * Otherwise, returns the server response as passed in.
+   */
+   public static void checkError(JsonRpcResponseError response) throws XenAPIException, BadServerResponse
+   {
+        var errorData = response.data;
+        if(errorData.length == 0){
+            throw new BadServerResponse(response);
+        }
+        var errorName = response.message;
+
+        {{#errors}}
+        if (errorName.equals("{{{name}}}")){
+            {{#err_params}}
+            String p{{{index}}} = errorData.length > {{{index}}} ? errorData[{{{index}}}] : "";
+            {{/err_params}}
+            throw new Types.{{{class_name}}}({{#err_params}}p{{{index}}}{{^last}}, {{/last}}{{/err_params}});
+        }
+        {{/errors}}
+
+        // An unknown error occurred
+        throw new Types.XenAPIException(errorData);
+    }
+
+    {{#enums}}
+    public enum {{{class_name}}} {
+        /**
+         * The value does not belong to this enumeration
+         */
+        @JsonEnumDefaultValue
+        UNRECOGNIZED,
+        {{#values}}
+        /**
+         * {{{description}}}
+         */
+        @JsonProperty("{{{name}}}")
+        {{{name_uppercase}}}{{^is_last}},{{/is_last}}{{#is_last}};{{/is_last}}
+        {{/values}}
+        
+        public String toString() {
+            if (this == UNRECOGNIZED) return "UNRECOGNIZED";{{#values}}
+            if (this == {{{name_uppercase}}}) return "{{{name}}}";{{/values}}
+            /* This can never be reached */
+            return "UNRECOGNIZED";
+        }
+    }
+
+    {{/enums}}
+    {{#errors}}
+    /**
+     * {{{description}}}
+     */
+    public static class {{{class_name}}} extends XenAPIException {
+        {{#err_params}}
+        public final String {{{name}}};
+        {{/err_params}}
+
+        /**
+         * Create a new {{{class_name}}}
+         */
+        public {{{class_name}}}({{#err_params}}String {{{name}}}{{^last}}, {{/last}}{{/err_params}}) {
+            super("{{{description}}}");
+            {{#err_params}}
+            this.{{{name}}} = {{{name}}};
+            {{/err_params}}
+        }
+    }
+
+    {{/errors}}
+    public static class BadAsyncResult extends XenAPIException {
+        public final String result;
+
+        /**
+         * Create a new BadAsyncResult
+         */
+        public BadAsyncResult(String result)
+        {
+            super(result);
+            this.result = result;
+        }
+    }
+
+    {{#types}}
+    /**
+    * Converts an {@link Object} to a {@link {{{name}}}} object.
+    * <br />
+    * This method takes an {@link Object} as input and attempts to convert it into a {@link {{{name}}}} object.
+    * If the input object is null, the method returns null. Otherwise, it creates a new {@link {{{name}}}}
+    * object using the input object's {@link String} representation.
+    * <br />
+    * @param object The {@link Object} to be converted to a {@link {{{name}}}} object.
+    * @return A {@link {{{name}}}} object created from the input {@link Object}'s {@link String} representation,
+    *         or null if the input object is null.
+    * @deprecated this method will not be publicly exposed in future releases of this package.
+    */
+    @Deprecated{{#suppress_unchecked_warning}}
+    @SuppressWarnings("unchecked"){{/suppress_unchecked_warning}}
+    public static {{{name}}} {{{method_name}}}(Object object) {
+        if (object == null) {
+            return null;
+        }
+        {{{method_body}}}
+    }
+
+    {{/types}}
+
+    {{#types}}{{#generate_reference_task_result_func}}
+    /**
+     * Attempt to convert the {@link Task}'s result to a {@link {{{name}}}} object.
+     * Will return null if the method cannot fetch a valid value from the {@link Task} object.
+     * @param task The task from which to fetch the result.
+     * @param connection The connection
+     * @return the instantiated object if a valid value was found, null otherwise.
+     * @throws BadServerResponse Thrown if the response from the server contains an invalid status.
+     * @throws XenAPIException if the call failed.
+     * @throws IOException if an error occurs during a send or receive. This includes cases where a payload is invalid JSON.
+     */
+    public static {{class_name}} to{{class_name}}(Task task, Connection connection) throws IOException {
+        return Types.to{{class_name}}(parseResult(task.getResult(connection)));
+    }
+
+    {{/generate_reference_task_result_func}}
+    {{/types}}
+    private static String parseResult(String result) throws BadAsyncResult
+    {
+        Pattern pattern = Pattern.compile("<value>(.*)</value>");
+        Matcher matcher = pattern.matcher(result);
+        if (!matcher.find() || matcher.groupCount() != 1) {
+            throw new Types.BadAsyncResult("Can't parse: " + result);
+        }
+
+        return matcher.group(1);
+    }
+
+    public static EventBatch toEventBatch(Object object) {
+      if (object == null) {
+          return null;
+      }
+      Map map = (Map) object;
+      EventBatch batch = new EventBatch();
+      batch.token = toString(map.get("token"));
+      batch.validRefCounts = map.get("valid_ref_counts");
+      batch.events = toSetOfEventRecord(map.get("events"));
+      return batch;
+    }
+}
