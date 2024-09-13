@@ -22,12 +22,23 @@
 
 (rule
   (alias generate)
+  (targets (dir autogen-out))
   (deps
     LICENSE
     (:x main.exe)
     (source_tree templates)
+    (source_tree autogen)
   )
-  (action (run %{x}))
+  (action (concurrent
+    (bash "cp -r autogen/ autogen-out/")
+    (run %{x})
+  ))
 )
 
 (data_only_dirs templates)
+
+(install
+	(package xapi-sdk)
+	(section share_root)
+    (dirs (autogen-out as java))
+)

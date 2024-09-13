@@ -292,7 +292,7 @@ let generate_snapshot_hack =
          )
       )
   ^ {|
-        default: 
+        default:
            throw new RuntimeException("Internal error in auto-generated code whilst unmarshalling event snapshot");
       }
       record.snapshot = b;|}
@@ -811,13 +811,13 @@ let populate_class cls templdir class_dir =
 
 let _ =
   let templdir = "templates" in
-  let class_dir = "autogen/xen-api/src/main/java/com/xensource/xenapi" in
+  let class_dir = "autogen-out/xen-api/src/main/java/com/xensource/xenapi" in
   populate_releases templdir class_dir ;
   List.iter (fun cls -> populate_class cls templdir class_dir) classes ;
   populate_types types templdir class_dir ;
 
   let uncommented_license = string_of_file "LICENSE" in
-  let filename = "autogen/xen-api/src/main/resources/LICENSE" in
+  let filename = "autogen-out/xen-api/src/main/resources/LICENSE" in
   Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname filename) 0o755 ;
   let class_license = open_out filename in
   output_string class_license uncommented_license

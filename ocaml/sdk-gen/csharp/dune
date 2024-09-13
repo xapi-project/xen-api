@@ -28,22 +28,33 @@
 
 (rule
   (alias generate)
+  (targets (dir autogen-out))
   (deps
     (:x gen_csharp_binding.exe)
     (source_tree templates)
-  )
-  (action (run %{x}))
-)
-
-(rule
-  (alias generate)
-  (deps
-    (:x friendly_error_names.exe)
+    (:sh ../windows-line-endings.sh)
+    (source_tree autogen)
+    (:x2 friendly_error_names.exe)
     FriendlyErrorNames.resx
     (:y XE_SR_ERRORCODES.xml)
     (source_tree templates)
   )
-  (action (run %{x} -s %{y}))
+  (action
+    (progn
+      (concurrent
+        (bash "cp -r autogen/ autogen-out/")
+        (run %{x})
+        (run %{x2} -s %{y})
+      )
+      (bash "rm autogen-out/.gitignore")
+      (bash "%{sh} autogen-out/")
+    ))
 )
 
 (data_only_dirs templates)
+
+(install
+	(package xapi-sdk)
+	(section share_root)
+    (dirs (autogen-out as csharp))
+)

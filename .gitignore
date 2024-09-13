@@ -21,9 +21,6 @@ python3/examples/XenAPI.egg-info/
 python3/examples/build/
 python3/examples/dist/
 
-# ignore file needed for building the SDK
-ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
-
 # configure-generated files
 ocaml/xenopsd/scripts/vif
 ocaml/xenopsd/scripts/xen-backend.rules

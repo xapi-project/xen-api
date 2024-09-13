@@ -1,7 +1,7 @@
 include config.mk
 
-XAPIDOC=_build/install/default/xapi/doc
-XAPISDK=_build/install/default/xapi/sdk
+XAPIDOC=_build/install/default/usr/share/xapi/doc
+XAPISDK=_build/install/default/usr/share/xapi/sdk
 JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
@@ -12,6 +12,8 @@ OPTMANDIR ?= $(OPTDIR)/man/man1/
 # this is typically used when we're not building from a git repo
 build:
 	[ -z "${XAPI_VERSION}" ] || (sed -i '/(version.*)/d' dune-project && echo "(version ${XAPI_VERSION})" >> dune-project)
+# if available use external file, otherwise use built-in, this allows building XAPI without being root
+	! test -f $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml || cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
 	dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
 	dune build @install -j $(JOBS) --profile=$(PROFILE)
 	dune build @ocaml/xapi-storage/python/xapi/storage/api/v5/python --profile=$(PROFILE)
@@ -96,33 +98,17 @@ doc:
 	dune build --profile=$(PROFILE) -f @man
 
 sdk:
-	cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
-	dune build --profile=$(PROFILE) -f @sdkgen
-	rm -rf $(XAPISDK)
-	mkdir -p $(XAPISDK)/c
-	mkdir -p $(XAPISDK)/csharp
-	mkdir -p $(XAPISDK)/java
-	mkdir -p $(XAPISDK)/powershell
-	mkdir -p $(XAPISDK)/python
-	mkdir -p $(XAPISDK)/go
-	cp -r _build/default/ocaml/sdk-gen/c/autogen/* $(XAPISDK)/c
-	cp -r _build/default/ocaml/sdk-gen/csharp/autogen/* $(XAPISDK)/csharp
-	cp -r _build/default/ocaml/sdk-gen/java/autogen/* $(XAPISDK)/java
-	cp -r _build/default/ocaml/sdk-gen/powershell/autogen/* $(XAPISDK)/powershell
-	cp -r _build/default/ocaml/sdk-gen/go/autogen/* $(XAPISDK)/go
-	cp python3/examples/XenAPI/XenAPI.py $(XAPISDK)/python
-	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/csharp
-	sh ocaml/sdk-gen/windows-line-endings.sh $(XAPISDK)/powershell
+	dune build --profile=$(PROFILE)  @sdkgen xapi-sdk.install @ocaml/sdk-gen/install
 
 .PHONY: sdk-build-c
 
 sdk-build-c: sdk
-	cd _build/install/default/xapi/sdk/c && make clean && make -j $(JOBS)
+	cd _build/install/default/share/c && make clean && make -j $(JOBS)
 
 .PHONY: sdk-build-java
 
 sdk-build-java: sdk
-	cd _build/install/default/xapi/sdk/java && mvn -f xen-api/pom.xml -B clean package install -Drevision=0.0
+	cd _build/install/default/share/java && mvn -f xen-api/pom.xml -B clean package install -Drevision=0.0
 
 python:
 	$(MAKE) -C python3/examples build
@@ -260,9 +246,7 @@ install: build doc sdk doc-json
 	cp -r $(XAPIDOC)/markdown $(DESTDIR)$(DOCDIR)
 	cp $(XAPIDOC)/*.dot $(XAPIDOC)/doc-convert.sh $(DESTDIR)$(DOCDIR)
 # sdk
-	mkdir -p $(DESTDIR)$(SDKDIR)
-	cp -r $(XAPISDK)/* $(DESTDIR)$(SDKDIR)
-	find $(DESTDIR)$(SDKDIR) -type f -exec chmod 644 {} \;
+	dune install --destdir=$(DESTDIR) --datadir=$(SDKDIR) xapi-sdk
 	find $(DESTDIR) -name '*.cmxs' -delete
 
 uninstall:

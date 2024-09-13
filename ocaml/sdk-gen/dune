@@ -2,6 +2,7 @@
 
 (alias
 	(name sdkgen)
+	(package xapi-sdk)
 	(deps
 		c/gen_c_binding.exe
 		csharp/gen_csharp_binding.exe

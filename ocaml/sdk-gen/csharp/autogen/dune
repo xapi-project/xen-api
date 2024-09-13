@@ -7,12 +7,5 @@
   (action (copy %{deps} %{targets}))
 )
 
-(alias
-  (name generate)
-  (deps
-    LICENSE
-    (source_tree .)
-  )
-)
-
 (data_only_dirs src)
+

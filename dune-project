@@ -2,6 +2,7 @@
 
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
+(using directory-targets 0.1)
 
 (cram enable)
 (implicit_transitive_deps false)
