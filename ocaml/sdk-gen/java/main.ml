@@ -817,5 +817,7 @@ let _ =
   populate_types types templdir class_dir ;
 
   let uncommented_license = string_of_file "LICENSE" in
-  let class_license = open_out "autogen/xen-api/src/main/resources/LICENSE" in
+  let filename = "autogen/xen-api/src/main/resources/LICENSE" in
+  Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname filename) 0o755 ;
+  let class_license = open_out filename in
   output_string class_license uncommented_license
