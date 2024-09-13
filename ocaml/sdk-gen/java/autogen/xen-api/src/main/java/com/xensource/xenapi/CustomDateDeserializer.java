@@ -151,8 +151,6 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
         }
     }
 
-    private static
-
     /**
      * Deserializes a {@link Date} object from the given JSON parser.
      *
@@ -162,8 +160,8 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
      * @return The deserialized {@link Date} object
      * @throws IOException if an I/O error occurs during deserialization
      */
-    @Override public Date deserialize(JsonParser jsonParser, DeserializationContext deserializationContext)
-            throws IOException {
+    @Override
+    public Date deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
         var text = jsonParser.getText();
         for (SimpleDateFormat formatter : dateFormatsUtc) {
             try {
