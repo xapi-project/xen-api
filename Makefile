@@ -15,8 +15,7 @@ build:
 # if available use external file, otherwise use built-in, this allows building XAPI without being root
 	! test -f $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml || cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
 	dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
-	dune build @install -j $(JOBS) --profile=$(PROFILE)
-	dune build @ocaml/xapi-storage/python/xapi/storage/api/v5/python --profile=$(PROFILE)
+	dune build -j $(JOBS) --profile=$(PROFILE) @install @ocaml/xapi-storage/python/xapi/storage/api/v5/python @ocaml/xapi-doc @ocaml/sdk-gen/sdkgen
 
 # Quickly verify that the code compiles, without actually building it
 check:
@@ -69,8 +68,7 @@ test:
 	 PSTREE_SLEEP_PID=$$!; \
 	 trap "kill $${PSTREE_SLEEP_PID}" INT TERM EXIT; \
 	 timeout --foreground $(TEST_TIMEOUT2) \
-		 dune runtest --profile=$(PROFILE) --error-reporting=twice -j $(JOBS)
-	dune build @runtest-python --profile=$(PROFILE)
+		 dune build --profile=$(PROFILE) --error-reporting=twice -j $(JOBS) @runtest @runtest-python
 
 stresstest:
 	dune build @stresstest --profile=$(PROFILE) --no-buffer -j $(JOBS)
@@ -107,7 +105,7 @@ format:
 quality-gate:
 	./quality-gate.sh
 
-install: build doc sdk doc-json
+install: build doc doc-json
 	mkdir -p $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(OPTMANDIR)
 	mkdir -p $(DESTDIR)$(LIBEXECDIR)
@@ -140,29 +138,26 @@ install: build doc sdk doc-json
 	install -D ./ocaml/xenopsd/scripts/pygrub-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/pygrub-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
 # dune can install libraries and several other files into the right locations
-	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		--libexecdir=$(XENOPSD_LIBEXECDIR) \
+	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
+		--libexecdir=$(XENOPSD_LIBEXECDIR) --datadir=$(SDKDIR) \
 		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
 		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
 		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
 		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
 		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
 		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory clock xapi-rrdd rrddump xapi-rrd-transport-utils wsproxy xapi-networkd xapi-squeezed xapi-xenopsd-simulator xapi-xenopsd-cli xapi-xenopsd-xc\
+		xapi-rrd xapi-inventory clock xapi-rrdd rrddump xapi-rrd-transport-utils wsproxy xapi-networkd xapi-squeezed xapi-xenopsd-simulator xapi-xenopsd-cli xapi-xenopsd-xc xapi-sdk\
 		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck
-	dune install --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe rrdd-plugins
-	dune install --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
-	dune install --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR) vhd-tool
-
+	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe rrdd-plugins
+	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
+	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR) vhd-tool
 # wsproxy
 	mv $(DESTDIR)/usr/bin/wsproxy $(DESTDIR)$(LIBEXECDIR)/wsproxy
 	(cd $(DESTDIR)/$(XENOPSD_LIBEXECDIR) && ln -sf pvs-proxy-ovs-setup setup-pvs-proxy-rules)
-# sdk
-	dune install --destdir=$(DESTDIR) --datadir=$(SDKDIR) xapi-sdk
 	chmod +x $(DESTDIR)$(DOCDIR)/doc-convert.sh
 	# backward compat with existing specfile, to be removed after it is updated
 	find $(DESTDIR) -name '*.cmxs' -delete
-	for pkg in rrdd-plugins xapi-debug xapi xe xapi-networkd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc xapi-squeezed xapi-rrdd xapi-rrd-transport-utils rrddump wsproxy vhd-tool; do for f in CHANGELOG LICENSE README.markdown; do rm $(DESTDIR)$(OPTDIR)/doc/$$pkg/$$f $(DESTDIR)$(PREFIX)/doc/$$pkg/$$f -f; done; for f in META dune-package opam; do rm $(DESTDIR)$(LIBDIR)/$$pkg/$$f; done; done;
+	for pkg in rrdd-plugins xapi-debug xapi xe xapi-networkd xapi-xenopsd-cli xapi-xenopsd-simulator xapi-xenopsd-xc xapi-squeezed xapi-rrdd xapi-rrd-transport-utils rrddump wsproxy xapi-sdk vhd-tool; do for f in CHANGELOG LICENSE README.markdown; do rm $(DESTDIR)$(OPTDIR)/doc/$$pkg/$$f $(DESTDIR)$(PREFIX)/doc/$$pkg/$$f -f; done; for f in META dune-package opam; do rm $(DESTDIR)$(LIBDIR)/$$pkg/$$f -f; done; done;
 
 uninstall:
 	# only removes what was installed with `dune install`
