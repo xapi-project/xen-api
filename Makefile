@@ -274,6 +274,7 @@ install: build doc sdk doc-json
 	mkdir -p $(DESTDIR)$(SDKDIR)
 	cp -r $(XAPISDK)/* $(DESTDIR)$(SDKDIR)
 	find $(DESTDIR)$(SDKDIR) -type f -exec chmod 644 {} \;
+	find $(DESTDIR) -name '*.cmxs' -delete
 
 uninstall:
 	# only removes what was installed with `dune install`
