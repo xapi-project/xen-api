@@ -30,6 +30,7 @@ ocaml/xenopsd/scripts/xen-backend.rules
 ocaml/xenopsd/xentoollog_flags
 
 ocaml/idl/gen_lifecycle.exe
+ocaml/idl/api_version.ml.in2
 
 # hugo
 .hugo_build.lock
