@@ -1,7 +1,7 @@
 (test
  (name test)
  (modes exe)
- (package xapi-xenopsd)
+ (package xapi-xenopsd-xc)
  (libraries
   alcotest
   cpuid
@@ -16,21 +16,12 @@
   xapi-log
   xapi-stdext-pervasives
   xapi-test-utils
-  xapi-xenopsd
+  xapi_xenopsd
   xenstore_transport.unix
  )
  (preprocess
   (per_module ((pps ppx_deriving_rpc) Test))
  )
-)
-
-(rule
-  (alias runtest)
-  (package xapi-xenopsd)
-  (deps
-    (:x ../lib/xenopsd.cmxs)
-  )
-  (action (run ./check-no-xenctrl.sh %{x}))
 )
 
 (rule

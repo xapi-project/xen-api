@@ -1,10 +1,9 @@
 (library
- (name xenopsd)
- (public_name xapi-xenopsd)
+ (name xapi_xenopsd)
  (wrapped false)
  (libraries
    astring
-   c_stubs
+   xapi_xenopsd_c_stubs
    cohttp
    cohttp_posix
    fd-send-recv

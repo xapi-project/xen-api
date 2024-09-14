@@ -12,7 +12,7 @@
     mtime
     mtime.clock.os
     rrdd-plugin
-    rrdd-plugins.libs
+    rrdd_plugins_libs
     str
     stringext
     threads.posix

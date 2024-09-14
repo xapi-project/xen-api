@@ -11,6 +11,6 @@
   xapi-idl
   xapi-log
   xapi-stdext-unix
-  xapi-xenopsd
+  xapi_xenopsd
  )
 )

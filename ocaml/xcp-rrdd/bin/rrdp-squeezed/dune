@@ -6,7 +6,7 @@
   (libraries
     
     rrdd-plugin
-    rrdd-plugins.libs
+    rrdd_plugins_libs
     xapi-stdext-std
     ezxenstore
     ezxenstore.watch

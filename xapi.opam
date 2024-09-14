@@ -27,6 +27,7 @@ depends: [
   "domain-name"
   "ezxenstore" {= version}
   "fmt"
+  "fd-send-recv"
   "hex"
   "http-lib" {with-test & = version}
   "integers"
@@ -63,6 +64,7 @@ depends: [
   "tar-unix"
   "uri"
   "uuid" {= version}
+  "uutf"
   "uuidm"
   "x509"
   "xapi-backtrace"
@@ -83,7 +85,6 @@ depends: [
   "xapi-test-utils" {with-test}
   "xapi-tracing" {= version}
   "xapi-types" {= version}
-  "xapi-xenopsd" {= version}
   "xenctrl"
   "xenstore_transport"
   "xmlm"

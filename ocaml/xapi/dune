@@ -198,7 +198,7 @@
     xapi-tracing
     xapi-tracing-export
     xapi_version
-    xapi-xenopsd
+    xapi_xenopsd
     xenstore_transport.unix
     xml-light2
     xmlm

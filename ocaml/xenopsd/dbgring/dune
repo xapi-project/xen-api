@@ -4,7 +4,7 @@
  (package xapi-xenopsd-xc)
  (libraries
    
-   xapi-xenopsd
+   xapi_xenopsd
    xenctrl
    xenmmap
    xenstore

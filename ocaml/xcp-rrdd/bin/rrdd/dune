@@ -27,7 +27,7 @@
     xapi-log
     xapi-rrd
     xapi-rrd.unix
-    xapi-rrdd
+    rrdd_libs
     xapi-stdext-threads
     xapi-stdext-unix
     xmlm
@@ -64,7 +64,7 @@
     xapi-idl.rrd
     xapi-log
     xapi-rrd
-    xapi-rrdd
+    rrdd_libs
     xapi-stdext-pervasives
     xapi-stdext-threads
     xapi-stdext-unix

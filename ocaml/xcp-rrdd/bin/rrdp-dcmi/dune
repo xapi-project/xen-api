@@ -6,7 +6,7 @@
   (libraries
     
     rrdd-plugin
-    rrdd-plugins.libs
+    rrdd_plugins_libs
     xapi-idl.rrd
     xapi-log
     xapi-rrd

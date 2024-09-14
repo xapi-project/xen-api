@@ -5,7 +5,7 @@
  (libraries
    
    xapi-idl.xen.interface
-   xapi-xenopsd
+   xapi_xenopsd
  )
 )
 

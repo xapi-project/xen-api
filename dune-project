@@ -106,10 +106,6 @@
 )
 
 (package
-  (name xapi-xenopsd)
-)
-
-(package
   (name xapi-types)
 )
 
@@ -348,6 +344,7 @@
     domain-name
     (ezxenstore (= :version))
     fmt
+    fd-send-recv
     hex
     (http-lib (and :with-test (= :version))) ; the public library is only used for testing
     integers
@@ -384,6 +381,7 @@
     tar-unix
     uri
     (uuid (= :version))
+    uutf
     uuidm
     x509
     xapi-backtrace
@@ -404,7 +402,6 @@
     (xapi-test-utils :with-test)
     (xapi-tracing (= :version))
     (xapi-types (= :version))
-    (xapi-xenopsd (= :version))
     xenctrl ; for quicktest
     xenstore_transport
     xmlm
