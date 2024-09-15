@@ -45,13 +45,13 @@
 )
 
 (install
- (package xapi-networkd)
+ (package xapi-tools)
  (section man)
  (files xcp-networkd.1)
 )
 
 (install
- (package xapi-networkd)
+ (package xapi-tools)
  (section sbin)
  (files (networkd.exe as xcp-networkd))
 )

@@ -1,7 +1,7 @@
 (test
  (name test)
  (modes exe)
- (package xapi-xenopsd-xc)
+ (package xapi-tools)
  (libraries
   alcotest
   cpuid
@@ -26,7 +26,7 @@
 
 (rule
   (alias runtest)
-  (package xapi-xenopsd-simulator)
+  (package xapi-tools)
   (deps
     (:x ../simulator/xenops_simulator_main.exe)
   )

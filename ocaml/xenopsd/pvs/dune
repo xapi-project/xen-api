@@ -5,7 +5,7 @@
 
 (install
  (section libexec_root)
- (package xapi-xenopsd-xc)
+ (package xapi-tools)
  (files
   (pvs_proxy_setup.exe as pvs-proxy-ovs-setup)
  )

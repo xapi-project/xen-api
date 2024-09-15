@@ -6,5 +6,5 @@
 (install
  (files (set_domain_uuid.exe as set-domain-uuid))
  (section libexec_root)
- (package xapi-xenopsd-xc)
+ (package xapi-tools)
 )

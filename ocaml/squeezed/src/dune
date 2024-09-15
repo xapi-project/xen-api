@@ -30,7 +30,7 @@
 )
 
 (install
- (package xapi-squeezed)
+ (package xapi-tools)
  (section sbin)
  (files (squeezed.exe as squeezed))
 )

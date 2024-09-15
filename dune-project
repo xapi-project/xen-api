@@ -90,18 +90,6 @@
 )
 
 (package
-  (name xapi-xenopsd-xc)
-)
-
-(package
-  (name xapi-xenopsd-simulator)
-)
-
-(package
-  (name xapi-xenopsd-cli)
-)
-
-(package
   (name xapi-types)
 )
 
@@ -159,10 +147,6 @@
 )
 
 (package
-  (name xapi-squeezed)
-)
-
-(package
   (name xapi-schema)
 )
 
@@ -187,87 +171,7 @@
 )
 
 (package
-  (name xapi-rrdd)
-  (synopsis "Performance monitoring daemon for xapi")
-  (description "This daemon monitors 'datasources' i.e. time-varying values such as performance counters and records the samples in RRD archives. These archives can be used to examine historical performance trends.")
-  (depends
-   (ocaml (>= "4.02.0"))
-   (alcotest :with-test)
-   astring
-   cmdliner
-   (fmt :with-test)
-   (gzip (= :version))
-   (http-lib (= :version))
-   inotify
-   io-page
-   ipaddr
-   mtime
-   polly
-   ppx_deriving_rpc
-   rpclib
-   uri
-   (ezxenstore (= :version))
-   (uuid (= :version))
-   xapi-backtrace
-   (xapi-idl (= :version))
-   (xapi-rrd (= :version))
-   (xapi-stdext-threads (= :version))
-   (xapi-stdext-unix (= :version))
-   xapi-tracing
-   xenctrl
-   xenstore
-   xenstore_transport
-   xmlm
-   yojson
-  )
-)
-
-(package
-  (name xapi-rrd-transport-utils)
-  (synopsis "Shared-memory protocols for exposing performance counters")
-  (description "VMs running on a Xen host can use this library to expose performance counters which can be sampled by the xapi performance monitoring daemon.")
-  (authors "John Else")
-  (depends
-   ocaml
-   cmdliner
-   (rrd-transport (= :version))
-   (xapi-idl (= :version))
-   (xapi-rrd (= :version))
-  )
-)
-
-(package
   (name xapi-open-uri)
-)
-
-(package
-  (name xapi-networkd)
-  (authors "Jon Ludlam")
-  (synopsis "The XCP networking daemon")
-  (depends
-    (alcotest :with-test)
-    astring
-    base-threads
-    (forkexec (= :version))
-    (http-lib (= :version))
-    integers
-    mtime
-    netlink
-    re
-    result
-    rresult
-    rpclib
-    uri
-    (xapi-idl (= :version))
-    xapi-inventory
-    (xapi-stdext-pervasives (= :version))
-    (xapi-stdext-std (= :version))
-    (xapi-stdext-threads (= :version))
-    (xapi-stdext-unix (= :version))
-    xapi-test-utils
-    (xen-api-client (= :version))
-    yojson
-  )
 )
 
 (package
@@ -374,6 +278,37 @@
 )
 
 (package
+  (name xapi-tools)
+  (synopsis "Various daemons and CLI applications required by XAPI")
+  (description "Includes message-switch, xenopsd, forkexecd, ...")
+  (depends
+    astring
+    base64
+    cmdliner
+    cstruct-unix
+    fmt
+    logs
+    lwt
+    mtime
+    netlink
+    qmp
+    re
+    result
+    rpclib
+    rresult
+    uri
+    xenctrl
+    xmlm
+    yojson
+    (alcotest :with-test)
+    (ppx_deriving_rpc :with-test)
+    (qcheck-core :with-test)
+    (xapi-test-utils :with-test)
+    (xenstore_transport :with-test)
+  )
+)
+
+(package
   (name xapi)
   (synopsis "The toolstack daemon which implements the XenAPI")
   (description "This daemon exposes the XenAPI and is used by clients such as 'xe' and 'XenCenter' to manage clusters of Xen-enabled hosts.")
@@ -459,23 +394,6 @@
     (xml-light2 (= :version))
     yojson
     (zstd (= :version))
-  )
-)
-
-(package
-  (name wsproxy)
-  (synopsis "Websockets proxy for VNC traffic")
-  (authors "Jon Ludlam" "Marcello Seri")
-  (license "LGPL-2.0-only WITH OCaml-LGPL-linking-exception")
-  (depends
-    (alcotest :with-test)
-    (base64 (>= "3.1.0"))
-    fmt
-    logs
-    (lwt (>= "3.0.0"))
-    re
-    uuid
-    (qcheck-core :with-test)
   )
 )
 
@@ -571,10 +489,6 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name safe-resources)
-)
-
-(package
-  (name rrddump)
 )
 
 (package

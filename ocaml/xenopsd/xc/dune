@@ -108,7 +108,7 @@
 (install
  (files (xenops_xc_main.exe as xenopsd-xc))
  (section sbin)
- (package xapi-xenopsd-xc)
+ (package xapi-tools)
 )
  
 (executable
@@ -169,5 +169,5 @@
 (install
  (section man)
  (files xenopsd-xc.1.gz)
- (package xapi-xenopsd-xc)
+ (package xapi-tools)
 )

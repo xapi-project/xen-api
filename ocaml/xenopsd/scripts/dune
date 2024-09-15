@@ -1,6 +1,6 @@
 (install
 	(section libexec_root)
-	(package xapi-xenopsd-xc)
+	(package xapi-tools)
 	(files 
 		(vif as vif)
 		(vif-real as vif-real)

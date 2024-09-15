@@ -10,7 +10,7 @@
 (install
  (files (xenops_simulator_main.exe as xenopsd-simulator))
  (section sbin)
- (package xapi-xenopsd-simulator)
+ (package xapi-tools)
 )
 
 (rule
@@ -30,5 +30,5 @@
 (install
  (section man)
  (files xenopsd-simulator.1.gz)
- (package xapi-xenopsd-simulator)
+ (package xapi-tools)
 )

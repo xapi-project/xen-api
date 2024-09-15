@@ -2,7 +2,7 @@
   (modes exe)
   (name xs_trace)
   (public_name xs-trace)
-  (package xapi-xenopsd-xc)
+  (package xapi-tools)
   (libraries
     uri
     tracing
