@@ -13,13 +13,18 @@ depends: [
   "ocaml" {>= "4.02.0"}
   "alcotest" {with-test}
   "astring"
+  "cmdliner"
+  "fmt" {with-test}
   "gzip" {= version}
   "http-lib" {= version}
   "inotify"
   "io-page"
+  "ipaddr"
   "mtime"
+  "polly"
   "ppx_deriving_rpc"
   "rpclib"
+  "uri"
   "ezxenstore" {= version}
   "uuid" {= version}
   "xapi-backtrace"
@@ -28,6 +33,11 @@ depends: [
   "xapi-stdext-threads" {= version}
   "xapi-stdext-unix" {= version}
   "xapi-tracing"
+  "xenctrl"
+  "xenstore"
+  "xenstore_transport"
+  "xmlm"
+  "yojson"
   "odoc" {with-doc}
 ]
 build: [

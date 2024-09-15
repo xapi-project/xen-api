@@ -14,15 +14,19 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "astring"
   "base-threads"
   "base-unix"
+  "base64"
+  "bos"
+  "cmdliner"
   "conf-xen"
   "ezxenstore"
   "fd-send-recv"
   "fmt"
   "forkexec"
+  "inotify"
   "mtime"
   "polly"
   "ppx_deriving_rpc"
@@ -33,7 +37,10 @@ depends: [
   "rpclib"
   "rresult"
   "sexplib0"
+  "uri"
   "uuid"
+  "uuidm"
+  "uutf"
   "xapi-backtrace"
   "xapi-idl"
   "xapi-rrd"
@@ -46,6 +53,7 @@ depends: [
   "xenctrl"
   "xenstore"
   "xenstore_transport"
+  "xenmmap"
 ]
 synopsis:
   "A xenops plugin which knows how to use xenstore, xenctrl and xenguest to manage"

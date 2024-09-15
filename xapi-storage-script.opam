@@ -12,7 +12,7 @@ tags: [ "org:xapi-project" ]
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "conf-python-3" {with-test}
   "xapi-idl" {>= "0.10.0"}
   "xapi-storage"

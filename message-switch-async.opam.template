@@ -12,9 +12,15 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
   "odoc" {with-doc}
   "async" {>= "v0.9.0"}
+  "async_kernel"
+  "async_unix"
+  "base"
+  "core"
+  "core_kernel"
+  "core_unix"
   "cohttp-async" {>= "1.0.2"}
   "message-switch-core"
 ]

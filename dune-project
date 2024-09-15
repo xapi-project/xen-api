@@ -27,6 +27,7 @@
     (ocaml (>= 4.12))
     (alcotest :with-test)
     astring
+    fmt
     mtime
     ptime
     (xapi-log (= :version))
@@ -50,9 +51,11 @@
   (depends
    (alcotest :with-test)
    astring
+   (fmt :with-test)
    mustache
    (xapi-datamodel (= :version))
    (xapi-stdext-unix (and (= :version) :with-test))
+   (xapi-test-utils :with-test)
   )
   (allow_empty)
 )
@@ -115,6 +118,7 @@
    ocaml
    dune
    (alcotest :with-test)
+   (fmt :with-test)
    re
    uri
    (uuid :with-test)
@@ -132,8 +136,12 @@
    cohttp-posix
    dune
    cohttp
+   ptime
+   result
+   rresult
    rpclib
    ppx_deriving_rpc
+   uri
    (xapi-log (= :version))
    (xapi-open-uri (= :version))
    (xapi-stdext-threads (= :version))
@@ -180,6 +188,7 @@
    (xapi-stdext-threads (= :version))
    (xapi-stdext-unix (= :version))
    (xapi-idl (= :version))
+   xenstore
    xenstore_transport
   )
 )
@@ -192,13 +201,18 @@
    (ocaml (>= "4.02.0"))
    (alcotest :with-test)
    astring
+   cmdliner
+   (fmt :with-test)
    (gzip (= :version))
    (http-lib (= :version))
    inotify
    io-page
+   ipaddr
    mtime
+   polly
    ppx_deriving_rpc
    rpclib
+   uri
    (ezxenstore (= :version))
    (uuid (= :version))
    xapi-backtrace
@@ -207,6 +221,11 @@
    (xapi-stdext-threads (= :version))
    (xapi-stdext-unix (= :version))
    xapi-tracing
+   xenctrl
+   xenstore
+   xenstore_transport
+   xmlm
+   yojson
   )
 )
 
@@ -238,10 +257,14 @@
     base-threads
     (forkexec (= :version))
     (http-lib (= :version))
+    integers
     mtime
     netlink
     re
+    result
+    rresult
     rpclib
+    uri
     (xapi-idl (= :version))
     xapi-inventory
     (xapi-stdext-pervasives (= :version))
@@ -250,6 +273,7 @@
     (xapi-stdext-unix (= :version))
     xapi-test-utils
     (xen-api-client (= :version))
+    yojson
   )
 )
 
@@ -308,19 +332,27 @@
   (depends
     alcotest ; needed for the quicktest binary
     angstrom
+    astring
     base-threads
     base64
+    (bos :with-test)
     cdrom
+    cmdliner
+    cohttp
     conf-pam
     (crowbar :with-test)
+    cstruct
     ctypes
     ctypes-foreign
     domain-name
     (ezxenstore (= :version))
-    (fmt :with-test)
+    fmt
     hex
     (http-lib (and :with-test (= :version))) ; the public library is only used for testing
+    integers
     ipaddr
+    logs
+    magic-mime
     mirage-crypto
     mirage-crypto-pk
     (mirage-crypto-rng (>= "0.11.0"))
@@ -329,21 +361,31 @@
     opentelemetry-client-ocurl
     pci
     (pciutil (= :version))
+    polly
     ppx_deriving_rpc
     ppx_sexp_conv
     ppx_deriving
     psq
+    ptime
     qcheck-alcotest
+    qcheck-core
+    re
+    result
     rpclib
     (rrdd-plugin (= :version))
     rresult
     sexpr
+    sexplib
+    sexplib0
     sha
     (stunnel (= :version))
     tar
     tar-unix
+    uri
     (uuid (= :version))
+    uuidm
     x509
+    xapi-backtrace
     (xapi-client (= :version))
     (xapi-cli-protocol (= :version))
     (xapi-consts (= :version))
@@ -362,6 +404,9 @@
     (xapi-tracing (= :version))
     (xapi-types (= :version))
     (xapi-xenopsd (= :version))
+    xenctrl ; for quicktest
+    xenstore_transport
+    xmlm
     (xml-light2 (= :version))
     yojson
     (zstd (= :version))
@@ -391,6 +436,10 @@
   (tags ("org.mirage" "org:xapi-project"))
   (depends
     (alcotest-lwt :with-test)
+    astring
+    bigarray-compat
+    cmdliner
+    cohttp
     cohttp-lwt
     conf-libssl
     (cstruct (>= "3.0.0"))
@@ -398,13 +447,18 @@
     (forkexec (= :version))
     io-page
     lwt
+    lwt_ssl
+    nbd
     nbd-unix
     ppx_cstruct
     ppx_deriving_rpc
     re
+    result
     rpclib
+    ssl
     sha
     tar
+    uri
     (vhd-format (= :version))
     (vhd-format-lwt (= :version))
     (xapi-idl (= :version))
@@ -438,9 +492,13 @@ This package provides an Lwt compatible interface to the library.")
     (ocaml (and (>= "4.02.3") (< "5.0.0")))
     (alcotest :with-test)
     (alcotest-lwt :with-test)
+    bigarray-compat
     (cstruct (< "6.1.0"))
+    cstruct-lwt
+    (fmt :with-test)
     (lwt (>= "3.2.0"))
     (mirage-block (>= "2.0.1"))
+    rresult
     (vhd-format (= :version))
     (io-page (and :with-test (>= "2.4.0")))
   )
@@ -486,8 +544,11 @@ This package provides an Lwt compatible interface to the library.")
   (depends
     (alcotest :with-test)
     astring
+    bigarray-compat
     cstruct
     crc
+    (fmt :with-test)
+    rpclib
     yojson
     (xapi-idl (= :version))
     (xapi-rrd (= :version))
@@ -518,6 +579,8 @@ This package provides an Lwt compatible interface to the library.")
     ppx_sexp_conv
     rpclib
     sexplib
+    sexplib0
+    uri
     (xapi-log (= :version))
     (xapi-stdext-threads (= :version))
     (odoc :with-doc)
@@ -554,10 +617,16 @@ This package provides an Lwt compatible interface to the library.")
     (alcotest :with-test)
     astring
     (base64 (>= "3.1.0"))
+    fmt
+    ipaddr
+    mtime
+    ppx_deriving_rpc
+    (qcheck-core :with-test)
     rpclib
     (safe-resources(= :version))
     sha
     (stunnel (= :version))
+    uri
     (uuid (= :version))
     xapi-backtrace
     (xapi-idl (= :version))
@@ -580,11 +649,13 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Process-spawning library")
   (description "Client and server library to spawn processes.")
   (depends
+    astring
     base-threads
     (fd-send-recv (>= "2.0.0"))
     ppx_deriving_rpc
     rpclib
     (uuid (= :version))
+    xapi-backtrace
     (xapi-log (= :version))
     (xapi-stdext-pervasives (= :version))
     (xapi-stdext-unix (= :version))
@@ -661,6 +732,8 @@ This package provides an Lwt compatible interface to the library.")
   (depends
     base-threads
     base-unix
+    (alcotest :with-test)
+    (fmt :with-test)
     (odoc :with-doc)
     (xapi-stdext-pervasives (= :version))
     (mtime :with-test)
@@ -675,10 +748,12 @@ This package provides an Lwt compatible interface to the library.")
   (depends
     (ocaml (>= 4.12.0))
     (alcotest :with-test)
+    astring
     base-unix
     (bisect_ppx :with-test)
     (fd-send-recv (>= 2.0.0))
     fmt
+    integers
     (mtime (and (>= 2.0.0) :with-test))
     (logs :with-test)
     (qcheck-core (and (>= 0.21.2) :with-test))

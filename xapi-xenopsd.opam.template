@@ -12,7 +12,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "base-threads"
   "alcotest" {with-test}
   "astring"
@@ -30,6 +30,7 @@ depends: [
   "sexplib0"
   "uri"
   "uuid"
+  "uuidm"
   "uutf"
   "xapi-backtrace"
   "xapi-idl"
@@ -37,6 +38,7 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-threads"
   "xapi-stdext-unix"
+  "xapi-test-utils" {with-test}
   "xapi-tracing"
   "xapi-tracing-export"
   "xenstore_transport" {with-test}

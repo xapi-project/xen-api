@@ -10,11 +10,13 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
   "mustache"
   "ppx_deriving_rpc"
   "rpclib"
   "base-threads"
+  "sexplib0"
+  "xapi-backtrace"
   "xapi-consts"
   "xapi-schema"
   "xapi-stdext-date"

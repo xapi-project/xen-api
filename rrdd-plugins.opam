@@ -12,18 +12,23 @@ build: [[ "dune" "build" "-p" name "-j" jobs ]]
 synopsis: "Plugins registering to the RRD daemon and exposing various metrics"
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
+  "astring"
   "base-threads"
   "base-unix"
+  "cstruct"
   "cstruct-unix"
   "ezxenstore"
   "inotify"
+  "ppx_cstruct"
   "rrdd-plugin"
+  "stringext"
   "uuid"
   "xapi-stdext-std"
   "xapi-stdext-unix"
   "xenctrl"
   "xenstore"
+  "xenstore_transport"
   "mtime"
 ]
 url {

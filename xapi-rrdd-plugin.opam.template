@@ -4,7 +4,7 @@ authors: "xen-api@lists.xen.org"
 homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 dev-repo: "git+https://github.com/xapi-project/xen-api.git"
-depends: ["ocaml" "rrdd-plugin"]
+depends: ["ocaml" "rrdd-plugin" "xenstore" "xenstore_transport" "dune" {>= "3.15"}]
 synopsis: "A plugin library for the xapi performance monitoring daemon"
 description: """
 This library allows one to expose a datasource which can then be

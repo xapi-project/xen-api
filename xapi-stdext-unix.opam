@@ -10,10 +10,12 @@ depends: [
   "dune" {>= "3.15"}
   "ocaml" {>= "4.12.0"}
   "alcotest" {with-test}
+  "astring"
   "base-unix"
   "bisect_ppx" {with-test}
   "fd-send-recv" {>= "2.0.0"}
   "fmt"
+  "integers"
   "mtime" {>= "2.0.0" & with-test}
   "logs" {with-test}
   "qcheck-core" {>= "0.21.2" & with-test}

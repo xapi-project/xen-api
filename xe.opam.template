@@ -10,16 +10,20 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
+  "astring"
+  "base-threads"
   "fpath"
   "stunnel"
-  "base-threads"
+  "uri"
+  "xapi-backtrace"
   "xapi-cli-protocol"
   "xapi-consts"
   "xapi-datamodel"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-unix"
+  "yojson"
 ]
 synopsis: "The xapi toolstack daemon which implements the XenAPI"
 description: """

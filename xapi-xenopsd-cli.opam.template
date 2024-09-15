@@ -10,15 +10,20 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
+  "astring"
   "base-threads"
   "cmdliner"
+  "ppx_deriving_rpc"
   "re"
+  "result"
   "rpclib"
   "rresult"
   "uuid"
+  "uuidm"
   "xapi-idl"
   "xenstore_transport" {with-test}
+  "yojson"
 ]
 synopsis: "A simple command-line tool for interacting with xenopsd"
 description: """

@@ -9,7 +9,7 @@ dev-repo: "git+https://github.com/xapi-project/xen-api.git"
 build: [[ "dune" "build" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "base-threads"
   "re"
   "rpclib"

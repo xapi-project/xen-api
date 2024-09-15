@@ -13,8 +13,12 @@ depends: [
   "cohttp-posix"
   "dune" {>= "3.15"}
   "cohttp"
+  "ptime"
+  "result"
+  "rresult"
   "rpclib"
   "ppx_deriving_rpc"
+  "uri"
   "xapi-log" {= version}
   "xapi-open-uri" {= version}
   "xapi-stdext-threads" {= version}
