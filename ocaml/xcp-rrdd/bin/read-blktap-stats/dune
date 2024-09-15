@@ -2,7 +2,7 @@
   (modes exe)
   (name read_blktap_stats)
 ; not expected by the specfile
-;  (package rrdd-plugins)
+;  (package xapi)
 ;  (public_name xcp-rrdd-read-blktap-stats)
   (libraries
     cstruct

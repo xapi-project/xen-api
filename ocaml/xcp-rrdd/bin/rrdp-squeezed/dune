@@ -19,7 +19,7 @@
 )
 
 (install
-  (package rrdd-plugins)
+  (package xapi)
   (files (rrdp_squeezed.exe as xcp-rrdd-plugins/xcp-rrdd-squeezed))
   (section libexec_root)
 )

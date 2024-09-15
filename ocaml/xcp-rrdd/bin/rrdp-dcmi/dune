@@ -13,7 +13,7 @@
 )
 
 (install
-  (package rrdd-plugins)
+  (package xapi)
   (files (rrdp_dcmi.exe as xcp-rrdd-plugins/xcp-rrdd-dcmi))
   (section libexec_root)
 )

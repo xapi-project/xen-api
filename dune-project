@@ -38,10 +38,6 @@
 )
 
 (package
-  (name xapi-rrdd-plugin)
-)
-
-(package
   (name xml-light2)
 )
 
@@ -579,10 +575,6 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name rrddump)
-)
-
-(package
-  (name rrdd-plugins)
 )
 
 (package

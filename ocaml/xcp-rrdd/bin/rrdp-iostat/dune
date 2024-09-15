@@ -30,7 +30,7 @@
 )
 
 (install
-  (package rrdd-plugins)
+  (package xapi)
   (files (rrdp_iostat.exe as xcp-rrdd-plugins/xcp-rrdd-iostat))
   (section libexec_root)
 )
