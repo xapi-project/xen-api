@@ -43,7 +43,7 @@ let take n xs =
   in
   loop n [] xs
 
-let get_servertime ~__context ~host:_ = Date.of_float (Unix.gettimeofday ())
+let get_servertime ~__context ~host:_ = Date.now ()
 
 let get_server_localtime ~__context ~host:_ = Date.localtime ()
 
@@ -1009,7 +1009,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
   let make_new_metrics_object ref =
     Db.Host_metrics.create ~__context ~ref
       ~uuid:(Uuidx.to_string (Uuidx.make ()))
-      ~live:false ~memory_total:0L ~memory_free:0L ~last_updated:Date.never
+      ~live:false ~memory_total:0L ~memory_free:0L ~last_updated:Date.epoch
       ~other_config:[]
   in
   let name_description = "Default install" and host = Ref.make () in
@@ -1058,8 +1058,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~latest_synced_updates_applied:`unknown ~pending_guidances_recommended:[]
     ~pending_guidances_full:[] ~last_update_hash:"" ;
   (* If the host we're creating is us, make sure its set to live *)
-  Db.Host_metrics.set_last_updated ~__context ~self:metrics
-    ~value:(Date.of_float (Unix.gettimeofday ())) ;
+  Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
   host
 

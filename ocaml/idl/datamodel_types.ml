@@ -26,12 +26,12 @@
 
 *)
 module Date = struct
-  open Xapi_stdext_date
+  module Date = Xapi_stdext_date.Date
   include Date
 
-  let iso8601_of_rpc rpc = Date.of_string (Rpc.string_of_rpc rpc)
+  let t_of_rpc rpc = Date.of_iso8601 (Rpc.string_of_rpc rpc)
 
-  let rpc_of_iso8601 date = Rpc.rpc_of_string (Date.to_string date)
+  let rpc_of_t date = Rpc.rpc_of_string (Date.to_rfc3339 date)
 end
 
 (* useful constants for product vsn tracking *)
@@ -418,7 +418,7 @@ type api_value =
   | VInt of int64
   | VFloat of float
   | VBool of bool
-  | VDateTime of Date.iso8601
+  | VDateTime of Date.t
   | VEnum of string
   | VMap of (api_value * api_value) list
   | VSet of api_value list

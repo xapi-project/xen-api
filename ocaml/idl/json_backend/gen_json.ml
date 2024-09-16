@@ -89,7 +89,7 @@ end = struct
     | VBool x ->
         string_of_bool x
     | VDateTime x ->
-        Date.to_string x
+        Date.to_rfc3339 x
     | VEnum x ->
         x
     | VMap x ->

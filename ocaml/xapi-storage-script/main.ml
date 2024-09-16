@@ -1330,9 +1330,7 @@ let bind ~volume_script_dir =
                Volume_client.snapshot (volume_rpc ~dbg) dbg sr vdi
            )
            >>>= fun response ->
-           let now =
-             Xapi_stdext_date.Date.(to_string (of_float (Unix.gettimeofday ())))
-           in
+           let now = Xapi_stdext_date.Date.(to_rfc3339 (now ())) in
            set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
              ~key:_snapshot_time_key ~value:now
            >>>= fun () ->

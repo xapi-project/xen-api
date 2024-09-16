@@ -20,7 +20,7 @@ let never, _ =
 let get_expiry_date ~__context ~host =
   let license = Db.Host.get_license_params ~__context ~self:host in
   if List.mem_assoc "expiry" license then
-    Some (Xapi_stdext_date.Date.of_string (List.assoc "expiry" license))
+    Some (Xapi_stdext_date.Date.of_iso8601 (List.assoc "expiry" license))
   else
     None
 
@@ -30,7 +30,7 @@ let check_expiry ~__context ~host =
     | None ->
         false (* No expiry date means no expiry :) *)
     | Some date ->
-        Unix.time () > Xapi_stdext_date.Date.to_float date
+        Unix.time () > Xapi_stdext_date.Date.to_unix_time date
   in
   if expired then
     raise (Api_errors.Server_error (Api_errors.license_expired, []))

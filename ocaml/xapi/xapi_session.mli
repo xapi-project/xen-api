@@ -87,7 +87,7 @@ val create_from_db_file :
 (* for unit testing *)
 val _record_login_failure :
      __context:Context.t
-  -> now:Xapi_stdext_date.Date.iso8601
+  -> now:Xapi_stdext_date.Date.t
   -> uname:string option
   -> originator:string option
   -> record:[< `log_only | `log_and_alert]

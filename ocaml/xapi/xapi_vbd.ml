@@ -260,7 +260,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           let metrics = Ref.make ()
           and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
           Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-            ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
+            ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:Date.epoch
             ~other_config:[] ;
           (* Enable the SM driver to specify a VBD backend kind for the VDI *)
           let other_config =

@@ -376,7 +376,7 @@ let message_record rpc session_id message =
           ~get:(fun () -> (x ()).API.message_obj_uuid)
           ()
       ; make_field ~name:"timestamp"
-          ~get:(fun () -> Date.to_string (x ()).API.message_timestamp)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.message_timestamp)
           ()
       ; make_field ~name:"body" ~get:(fun () -> (x ()).API.message_body) ()
       ]
@@ -749,10 +749,10 @@ let task_record rpc session_id task =
       ; make_field ~name:"type" ~get:(fun () -> (x ()).API.task_type) ()
       ; make_field ~name:"result" ~get:(fun () -> (x ()).API.task_result) ()
       ; make_field ~name:"created"
-          ~get:(fun () -> Date.to_string (x ()).API.task_created)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.task_created)
           ()
       ; make_field ~name:"finished"
-          ~get:(fun () -> Date.to_string (x ()).API.task_finished)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.task_finished)
           ()
       ; make_field ~name:"error_info"
           ~get:(fun () -> concat_with_semi (x ()).API.task_error_info)
@@ -1447,11 +1447,11 @@ let pool_record rpc session_id pool =
           ()
       ; make_field ~name:"telemetry-next-collection"
           ~get:(fun () ->
-            (x ()).API.pool_telemetry_next_collection |> Date.to_string
+            (x ()).API.pool_telemetry_next_collection |> Date.to_rfc3339
           )
           ()
       ; make_field ~name:"last-update-sync"
-          ~get:(fun () -> Date.to_string (x ()).API.pool_last_update_sync)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.pool_last_update_sync)
           ()
       ; make_field ~name:"update-sync-frequency"
           ~get:(fun () ->
@@ -1550,7 +1550,7 @@ let vmss_record rpc session_id vmss =
           )
           ()
       ; make_field ~name:"last-run-time"
-          ~get:(fun () -> Date.to_string (x ()).API.vMSS_last_run_time)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.vMSS_last_run_time)
           ()
       ; make_field ~name:"VMs"
           ~get:(fun () ->
@@ -1842,7 +1842,7 @@ let vm_record rpc session_id vm =
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vM_snapshots)
           ()
       ; make_field ~name:"snapshot-time"
-          ~get:(fun () -> Date.to_string (x ()).API.vM_snapshot_time)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.vM_snapshot_time)
           ()
       ; make_field ~name:"transportable-snapshot-id" ~hidden:true
           ~get:(fun () -> (x ()).API.vM_transportable_snapshot_id)
@@ -2264,14 +2264,14 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"start-time"
           ~get:(fun () ->
             Option.fold ~none:unknown_time
-              ~some:(fun m -> Date.to_string m.API.vM_metrics_start_time)
+              ~some:(fun m -> Date.to_rfc3339 m.API.vM_metrics_start_time)
               (xm ())
           )
           ()
       ; make_field ~name:"install-time"
           ~get:(fun () ->
             Option.fold ~none:unknown_time
-              ~some:(fun m -> Date.to_string m.API.vM_metrics_install_time)
+              ~some:(fun m -> Date.to_rfc3339 m.API.vM_metrics_install_time)
               (xm ())
           )
           ()
@@ -2410,7 +2410,9 @@ let vm_record rpc session_id vm =
       ; make_field ~name:"guest-metrics-last-updated"
           ~get:(fun () ->
             Option.fold ~none:nid
-              ~some:(fun m -> Date.to_string m.API.vM_guest_metrics_last_updated)
+              ~some:(fun m ->
+                Date.to_rfc3339 m.API.vM_guest_metrics_last_updated
+              )
               (xgm ())
           )
           ()
@@ -2611,7 +2613,7 @@ let host_crashdump_record rpc session_id host =
           ~get:(fun () -> get_uuid_from_ref (x ()).API.host_crashdump_host)
           ()
       ; make_field ~name:"timestamp"
-          ~get:(fun () -> Date.to_string (x ()).API.host_crashdump_timestamp)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.host_crashdump_timestamp)
           ()
       ; make_field ~name:"size"
           ~get:(fun () -> Int64.to_string (x ()).API.host_crashdump_size)
@@ -3203,7 +3205,7 @@ let host_record rpc session_id host =
           )
           ()
       ; make_field ~name:"last-software-update"
-          ~get:(fun () -> Date.to_string (x ()).API.host_last_software_update)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.host_last_software_update)
           ()
       ; make_field ~name:"latest-synced-updates-applied"
           ~get:(fun () ->
@@ -3274,7 +3276,7 @@ let vdi_record rpc session_id vdi =
           ~get:(fun () -> get_uuids_from_refs (x ()).API.vDI_snapshots)
           ()
       ; make_field ~name:"snapshot-time"
-          ~get:(fun () -> Date.to_string (x ()).API.vDI_snapshot_time)
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.vDI_snapshot_time)
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
@@ -5118,7 +5120,7 @@ let cluster_host_record rpc session_id cluster_host =
           ()
       ; make_field ~name:"last-update-live"
           ~get:(fun () ->
-            (x ()).API.cluster_host_last_update_live |> Date.to_string
+            (x ()).API.cluster_host_last_update_live |> Date.to_rfc3339
           )
           ()
       ; make_field ~name:"allowed-operations"
@@ -5184,10 +5186,10 @@ let certificate_record rpc session_id certificate =
           ~get:(fun () -> (x ()).API.certificate_host |> get_uuid_from_ref)
           ()
       ; make_field ~name:"not-before"
-          ~get:(fun () -> (x ()).API.certificate_not_before |> Date.to_string)
+          ~get:(fun () -> (x ()).API.certificate_not_before |> Date.to_rfc3339)
           ()
       ; make_field ~name:"not-after"
-          ~get:(fun () -> (x ()).API.certificate_not_after |> Date.to_string)
+          ~get:(fun () -> (x ()).API.certificate_not_after |> Date.to_rfc3339)
           ()
       ; make_field ~name:"fingerprint"
           ~get:(fun () -> (x ()).API.certificate_fingerprint)

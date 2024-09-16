@@ -433,8 +433,7 @@ let copy ~__context ?vdi ~vm vbd =
   let metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
   let vdi = Option.value ~default:all.API.vBD_VDI vdi in
   Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-    ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
-    ~other_config:[] ;
+    ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:Date.epoch ~other_config:[] ;
   Db.VBD.create ~__context ~ref:new_vbd ~uuid:vbd_uuid ~allowed_operations:[]
     ~current_operations:[] ~storage_lock:false ~vM:vm ~vDI:vdi
     ~empty:(all.API.vBD_empty || vdi = Ref.null)

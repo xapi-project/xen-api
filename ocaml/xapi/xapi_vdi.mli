@@ -87,7 +87,7 @@ val pool_introduce :
   -> physical_utilisation:int64
   -> metadata_of_pool:[`pool] API.Ref.t
   -> is_a_snapshot:bool
-  -> snapshot_time:API.Date.iso8601
+  -> snapshot_time:API.Date.t
   -> snapshot_of:[`VDI] API.Ref.t
   -> cbt_enabled:bool
   -> [`VDI] Ref.t
@@ -110,7 +110,7 @@ val db_introduce :
   -> physical_utilisation:int64
   -> metadata_of_pool:[`pool] API.Ref.t
   -> is_a_snapshot:bool
-  -> snapshot_time:API.Date.iso8601
+  -> snapshot_time:API.Date.t
   -> snapshot_of:[`VDI] API.Ref.t
   -> cbt_enabled:bool
   -> [`VDI] Ref.t
@@ -208,7 +208,7 @@ val set_snapshot_of :
   __context:Context.t -> self:[`VDI] API.Ref.t -> value:[`VDI] API.Ref.t -> unit
 
 val set_snapshot_time :
-  __context:Context.t -> self:[`VDI] API.Ref.t -> value:API.Date.iso8601 -> unit
+  __context:Context.t -> self:[`VDI] API.Ref.t -> value:API.Date.t -> unit
 
 val set_metadata_of_pool :
      __context:Context.t

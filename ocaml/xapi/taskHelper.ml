@@ -44,7 +44,7 @@ let make ~__context ~http_other_config ?(description = "") ?session_id
   in
   let (_ : unit) =
     Db_actions.DB_Action.Task.create ~ref ~__context ~created:(Date.now ())
-      ~finished:(Date.of_float 0.0) ~current_operations:[] ~_type:"<none/>"
+      ~finished:Date.epoch ~current_operations:[] ~_type:"<none/>"
       ~session:(Option.value ~default:Ref.null session_id)
       ~resident_on:!Xapi_globs.localhost_ref ~status:`pending ~result:""
       ~progress:0. ~error_info:[] ~allowed_operations:[]

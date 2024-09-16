@@ -73,7 +73,7 @@ let to_xml output _ref gen message =
     ; tag "priority" [data (Int64.to_string message.API.message_priority)]
     ; tag "cls" [data (Record_util.cls_to_string message.API.message_cls)]
     ; tag "obj_uuid" [data message.API.message_obj_uuid]
-    ; tag "timestamp" [data (Date.to_string message.API.message_timestamp)]
+    ; tag "timestamp" [data (Date.to_rfc3339 message.API.message_timestamp)]
     ; tag "uuid" [data message.API.message_uuid]
     ; tag "body" [data message.API.message_body]
     ]
@@ -96,7 +96,7 @@ let of_xml input =
       ; API.message_priority= 0L
       ; API.message_cls= `VM
       ; API.message_obj_uuid= ""
-      ; API.message_timestamp= Date.never
+      ; API.message_timestamp= Date.epoch
       ; API.message_body= ""
       ; API.message_uuid= ""
       }
@@ -123,7 +123,8 @@ let of_xml input =
         | "obj_uuid" ->
             message := {!message with API.message_obj_uuid= dat}
         | "timestamp" ->
-            message := {!message with API.message_timestamp= Date.of_string dat}
+            message :=
+              {!message with API.message_timestamp= Date.of_iso8601 dat}
         | "uuid" ->
             message := {!message with API.message_uuid= dat}
         | "body" ->
@@ -342,7 +343,7 @@ let write ~__context ~_ref ~message =
       )
   ) ;
   Unixext.mkdir_rec message_dir 0o700 ;
-  let timestamp = ref (Date.to_float message.API.message_timestamp) in
+  let timestamp = ref (Date.to_unix_time message.API.message_timestamp) in
   if message_exists () then
     Some (message_gen ())
   else
@@ -442,7 +443,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
     ; API.message_priority= priority
     ; API.message_cls= cls
     ; API.message_obj_uuid= obj_uuid
-    ; API.message_timestamp= Date.of_float timestamp
+    ; API.message_timestamp= Date.of_unix_time timestamp
     ; API.message_body= body
     }
   in
@@ -596,8 +597,8 @@ let get_real_inner dir filter name_filter =
           r
         else
           compare
-            (Date.to_float m2.API.message_timestamp)
-            (Date.to_float m1.API.message_timestamp)
+            (Date.to_unix_time m2.API.message_timestamp)
+            (Date.to_unix_time m1.API.message_timestamp)
       )
       messages
   with _ -> []
@@ -631,16 +632,16 @@ let get ~__context ~cls ~obj_uuid ~since =
   (* Read in all the messages for a particular object *)
   let class_symlink = class_symlink cls obj_uuid in
   if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then
-    raise (Api_errors.Server_error (Api_errors.uuid_invalid, [])) ;
+    raise Api_errors.(Server_error (uuid_invalid, [])) ;
   let msg =
     get_real_inner class_symlink
-      (fun msg -> Date.to_float msg.API.message_timestamp > Date.to_float since)
+      (fun msg -> Date.is_later msg.API.message_timestamp ~than:since)
       (fun _ -> true)
   in
   List.map (fun (_, b, c) -> (b, c)) msg
 
 let get_since ~__context ~since =
-  get_real message_dir (fun _ -> true) (Date.to_float since)
+  get_real message_dir (fun _ -> true) (Date.to_unix_time since)
 
 let get_since_for_events ~__context since =
   let cached_result =
@@ -747,7 +748,7 @@ let repopulate_cache () =
       let last_256 = Listext.List.take 256 messages in
       in_memory_cache := last_256 ;
       let get_ts (ts, _, m) =
-        Printf.sprintf "%Ld (%s)" ts (Date.to_string m.API.message_timestamp)
+        Printf.sprintf "%Ld (%s)" ts (Date.to_rfc3339 m.API.message_timestamp)
       in
       debug "Constructing in-memory-cache: most length=%d" (List.length last_256) ;
       ( try

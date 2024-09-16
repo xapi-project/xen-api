@@ -450,8 +450,8 @@ but we've still got a bit of thinking to do: we sort the VDIs to copy based on a
     let compare_fun v1 v2 =
       let r = Int64.compare v1.size v2.size in
       if r = 0 then
-        let t1 = Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi) in
-        let t2 = Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi) in
+        let t1 = Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi) in
+        let t2 = Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi) in
         compare t1 t2
       else r in
     let all_vdis = all_vdis |> List.sort compare_fun in

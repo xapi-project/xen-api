@@ -381,7 +381,7 @@ let event_message_test rpc session_id () =
     ) ;
   let messages =
     Client.Client.Message.get ~rpc ~session_id ~cls ~obj_uuid
-      ~since:Xapi_stdext_date.Date.never
+      ~since:Xapi_stdext_date.Date.epoch
   in
   let has_msg m = List.exists (fun (r, _) -> r = m) messages in
   Alcotest.(check bool)

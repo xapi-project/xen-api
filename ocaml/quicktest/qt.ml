@@ -100,9 +100,9 @@ module Time = struct
 
   let now () = Unix.gettimeofday ()
 
-  let of_field = Xapi_stdext_date.Date.to_float
+  let of_field = Xapi_stdext_date.Date.to_unix_time
 
-  let pp t = Xapi_stdext_date.Date.of_float t |> Xapi_stdext_date.Date.to_string
+  let pp t = Xapi_stdext_date.Date.(of_unix_time t |> to_rfc3339)
 
   let check t ~after ~before =
     Alcotest.(check bool)
@@ -269,7 +269,7 @@ module VDI = struct
       ; ( `Same
         , "snapshot_time"
         , fun vdi ->
-            vdi.API.vDI_snapshot_time |> Xapi_stdext_date.Date.to_string
+            vdi.API.vDI_snapshot_time |> Xapi_stdext_date.Date.to_rfc3339
         )
       ; (`Same, "virtual_size", fun vdi -> vdi.API.vDI_location)
       ]

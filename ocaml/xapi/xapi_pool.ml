@@ -3127,10 +3127,10 @@ let get_license_state ~__context ~self:_ =
     | None ->
         "never"
     | Some date ->
-        if date = Date.of_float License_check.never then
+        if date = Date.of_unix_time License_check.never then
           "never"
         else
-          Date.to_string date
+          Date.to_rfc3339 date
   in
   [("edition", pool_edition); ("expiry", pool_expiry)]
 
@@ -3285,7 +3285,7 @@ let alert_failed_login_attempts () =
   let now = Date.localtime () in
   let login_failures_between =
     Printf.sprintf "login failures between '%s' and last check"
-      (Date.to_string now)
+      (Date.to_rfc3339 now)
   in
   match Xapi_session.get_failed_login_stats () with
   | None ->
@@ -3678,7 +3678,7 @@ let set_telemetry_next_collection ~__context ~self ~value =
         let err_msg = "Can't parse date and time for telemetry collection." in
         raise Api_errors.(Server_error (internal_error, [err_msg]))
   in
-  let ts = Date.to_string value in
+  let ts = Date.to_rfc3339 value in
   match Ptime.is_later dt_of_value ~than:dt_of_max_sched with
   | true ->
       raise Api_errors.(Server_error (telemetry_next_collection_too_late, [ts]))

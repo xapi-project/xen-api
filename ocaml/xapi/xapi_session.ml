@@ -41,7 +41,7 @@ module AuthFail : sig
 
   val on_fail :
        __context:Context.t
-    -> now:Date.iso8601
+    -> now:Date.t
     -> uname:string option
     -> originator:string option
     -> record:[< `log_only | `log_and_alert]
@@ -85,7 +85,7 @@ end = struct
   type client_failed_attempts = {
       client: client
     ; num_failed_attempts: int
-    ; last_failed_attempt: Date.iso8601
+    ; last_failed_attempt: Date.t
   }
 
   let up_to_3 xs x =
@@ -103,7 +103,7 @@ end = struct
 </known>|}
       (string_of_client x.client)
       x.num_failed_attempts
-      (Date.to_string x.last_failed_attempt)
+      (Date.to_rfc3339 x.last_failed_attempt)
 
   type stats = {
       total_num_failed_attempts: int
@@ -143,7 +143,7 @@ end = struct
     val get : unit -> stats option
 
     (* returns the number of failures from this client since last call to [ get ] *)
-    val record_client : client -> now:Date.iso8601 -> int
+    val record_client : client -> now:Date.t -> int
 
     (* returns number of failures from unknown clients since last call to [ get ] *)
     val record_unknown : unit -> int
@@ -159,7 +159,7 @@ end = struct
           ctr
       )
 
-    type value = {num_failed_attempts: int; last_failed_attempt: Date.iso8601}
+    type value = {num_failed_attempts: int; last_failed_attempt: Date.t}
 
     let table = Hashtbl.create 10
 
@@ -247,7 +247,7 @@ let _record_login_failure ~__context ~now ~uname ~originator ~record f =
 
 let record_login_failure ~__context ~uname ~originator ~record f =
   Context.with_tracing ?originator ~__context __FUNCTION__ @@ fun __context ->
-  let now = Unix.time () |> Date.of_float in
+  let now = Date.now () in
   _record_login_failure ~__context ~now ~uname ~originator ~record f
 
 let get_failed_login_stats = AuthFail.get_stats_string
@@ -448,11 +448,12 @@ let revalidate_external_session ~__context ~session =
 
         (* 2. has the external session expired/does it need revalidation? *)
         let session_last_validation_time =
-          Date.to_float (Db.Session.get_validation_time ~__context ~self:session)
+          Date.to_unix_time
+            (Db.Session.get_validation_time ~__context ~self:session)
         in
-        let now = Unix.time () in
+        let now = Date.now () in
         let session_needs_revalidation =
-          now
+          Date.to_unix_time now
           > session_last_validation_time +. session_lifespan +. random_lifespan
         in
         if session_needs_revalidation then (
@@ -528,7 +529,7 @@ let revalidate_external_session ~__context ~session =
 
                 (* session passed revalidation, let's update its last revalidation time *)
                 Db.Session.set_validation_time ~__context ~self:session
-                  ~value:(Date.of_float now) ;
+                  ~value:now ;
                 debug "updated validation time for session %s, sid %s "
                   (trackid session) authenticated_user_sid ;
                 (* let's also update the session's subject ref *)
@@ -634,12 +635,11 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
       (trackid session_id) pool
       (match uname with None -> "" | Some u -> u)
       originator is_local_superuser auth_user_sid (trackid parent) ;
+    let now = Date.now () in
     Db.Session.create ~__context ~ref:session_id ~uuid ~this_user:user
-      ~this_host:host ~pool
-      ~last_active:(Date.of_float (Unix.time ()))
-      ~other_config:[] ~subject ~is_local_superuser ~auth_user_sid
-      ~validation_time:(Date.of_float (Unix.time ()))
-      ~auth_user_name ~rbac_permissions ~parent ~originator ~client_certificate ;
+      ~this_host:host ~pool ~last_active:now ~other_config:[] ~subject
+      ~is_local_superuser ~auth_user_sid ~validation_time:now ~auth_user_name
+      ~rbac_permissions ~parent ~originator ~client_certificate ;
     if not pool then
       Atomic.incr total_sessions ;
     Ref.string_of session_id

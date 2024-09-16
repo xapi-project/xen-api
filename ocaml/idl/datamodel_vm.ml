@@ -339,7 +339,11 @@ let update_snapshot_metadata =
       [
         (Ref _vm, "vm", "The VM to update")
       ; (Ref _vm, "snapshot_of", "")
-      ; (DateTime, "snapshot_time", "")
+      ; ( DateTime
+        , "snapshot_time"
+        , "The timestamp the snapshot was taken. When a timezone is missing, \
+           UTC is assumed"
+        )
       ; (String, "transportable_snapshot_id", "")
       ]
     ~allowed_roles:_R_POOL_OP ()
@@ -2112,7 +2116,7 @@ let t =
             "List pointing to all the VM snapshots."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
             ~in_product_since:rel_orlando
-            ~default_value:(Some (VDateTime Date.never)) ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
             "snapshot_time" "Date/time when this snapshot was created."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
             ~in_product_since:rel_orlando ~default_value:(Some (VString ""))

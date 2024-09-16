@@ -343,9 +343,9 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~snapshot_of:(if is_a_snapshot then vm else Ref.null)
     ~snapshot_time:
       ( if is_a_snapshot then
-          Date.of_float (Unix.gettimeofday ())
+          Date.now ()
         else
-          Date.never
+          Date.epoch
       )
     ~snapshot_info:
       ( match snapshot_info_record with

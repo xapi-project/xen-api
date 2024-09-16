@@ -109,7 +109,7 @@ let xs_read_bytes_from_kib_key xs path =
 
 (** {2 Host fields} *)
 
-let host_time _ = Date.to_string (Date.of_float (Unix.gettimeofday ()))
+let host_time _ = Date.(to_rfc3339 (now ()))
 
 let host_total_bytes h =
   Int64.to_string

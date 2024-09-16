@@ -214,7 +214,7 @@ end = struct
           in
           (name, Ref.null, `ca, remove_obsoleted_copies)
     in
-    let date_of_ptime time = Date.of_float (Ptime.to_float_s time) in
+    let date_of_ptime time = Date.of_unix_time (Ptime.to_float_s time) in
     let dates_of_ptimes (a, b) = (date_of_ptime a, date_of_ptime b) in
     let not_before, not_after =
       dates_of_ptimes (X509.Certificate.validity certificate)

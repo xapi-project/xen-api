@@ -24,7 +24,7 @@ let create ~__context ~mime_type ~public =
     if mime_type = "" then "application/octet-stream" else mime_type
   in
   Db.Blob.create ~__context ~ref ~uuid:(Uuidx.to_string uuid) ~public
-    ~mime_type:mime_type' ~size:0L ~last_updated:Xapi_stdext_date.Date.never
+    ~mime_type:mime_type' ~size:0L ~last_updated:Xapi_stdext_date.Date.epoch
     ~name_label:"" ~name_description:"" ;
   ref
 
@@ -212,7 +212,7 @@ let handler (req : Http.Request.t) s _ =
             in
             Db.Blob.set_size ~__context ~self ~value:size ;
             Db.Blob.set_last_updated ~__context ~self
-              ~value:(Xapi_stdext_date.Date.of_float (Unix.gettimeofday ()))
+              ~value:(Xapi_stdext_date.Date.of_unix_time (Unix.gettimeofday ()))
         | _ ->
             failwith "Unsupported method for BLOB"
       in

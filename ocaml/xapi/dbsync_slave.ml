@@ -73,12 +73,12 @@ let get_start_time () =
     let uptime = String.split ' ' uptime in
     let uptime = List.hd uptime in
     let uptime = float_of_string uptime in
-    let boot_time = Date.of_float (now -. uptime) in
-    debug " system booted at %s" (Date.to_string boot_time) ;
+    let boot_time = Date.of_unix_time (now -. uptime) in
+    debug " system booted at %s" (Date.to_rfc3339 boot_time) ;
     boot_time
   with e ->
     debug "Calculating boot time failed with '%s'" (ExnHelper.string_of_exn e) ;
-    Date.never
+    Date.epoch
 
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
 
@@ -106,7 +106,9 @@ let refresh_localhost_info ~__context info =
   Db.Host.set_capabilities ~__context ~self:host ~value:caps ;
   Db.Host.set_address ~__context ~self:host ~value:(get_my_ip_addr ~__context) ;
   let boot_time_key = "boot_time" in
-  let boot_time_value = string_of_float (Date.to_float (get_start_time ())) in
+  let boot_time_value =
+    string_of_float (Date.to_unix_time (get_start_time ()))
+  in
   Db.Host.remove_from_other_config ~__context ~self:host ~key:boot_time_key ;
   Db.Host.add_to_other_config ~__context ~self:host ~key:boot_time_key
     ~value:boot_time_value ;
