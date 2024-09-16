@@ -6,6 +6,7 @@ on:
   schedule:
     # run daily, this refreshes the cache
     - cron: "13 2 * * *"
+  merge_group:
 
 concurrency: # On new push, cancel old workflows from the same PR, branch or tag:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
