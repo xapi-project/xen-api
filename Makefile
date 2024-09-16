@@ -146,27 +146,37 @@ install-extra:
 	install -D ./ocaml/xenopsd/scripts/pygrub-wrapper $(DESTDIR)/$(QEMU_WRAPPER_DIR)/pygrub-wrapper
 	DESTDIR=$(DESTDIR) SBINDIR=$(SBINDIR) QEMU_WRAPPER_DIR=$(QEMU_WRAPPER_DIR) XENOPSD_LIBEXECDIR=$(XENOPSD_LIBEXECDIR) ETCDIR=$(ETCDIR) ./ocaml/xenopsd/scripts/make-custom-xenopsd.conf
 
+# common flags and packages for 'dune install' and 'dune uninstall'
+DUNE_IU_PACKAGES1=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR)
+DUNE_IU_PACKAGES1+=--libexecdir=$(XENOPSD_LIBEXECDIR) --datadir=$(SDKDIR)
+DUNE_IU_PACKAGES1+=xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types
+DUNE_IU_PACKAGES1+=xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport
+DUNE_IU_PACKAGES1+=gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources
+DUNE_IU_PACKAGES1+=message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt
+DUNE_IU_PACKAGES1+=message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli
+DUNE_IU_PACKAGES1+=xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix
+DUNE_IU_PACKAGES1+=xapi-rrd xapi-inventory clock xapi-sdk
+DUNE_IU_PACKAGES1+=xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-tools
+
+
 install-dune1:
 # dune can install libraries and several other files into the right locations
-	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		--libexecdir=$(XENOPSD_LIBEXECDIR) --datadir=$(SDKDIR) \
-		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
-		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
-		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
-		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli \
-		xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory clock xapi-sdk\
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-tools
+	dune install $(DUNE_IU_PACKAGES1)
 
+DUNE_IU_PACKAGES2=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe
+	
 install-dune2:
-	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe
+	dune install $(DUNE_IU_PACKAGES2)
+
+DUNE_IU_PACKAGES3=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
 
 install-dune3:
-	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
+	dune install $(DUNE_IU_PACKAGES3)
+
+DUNE_IU_PACKAGES4=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR) vhd-tool
 
 install-dune4:
-	dune install -j $(JOBS) --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --libexecdir=/usr/libexec --mandir=$(MANDIR) vhd-tool
+	dune install $(DUNE_IU_PACKAGES4)
 
 install:
 	$(MAKE) -j $(JOBS) install-parallel
@@ -181,18 +191,10 @@ install:
 
 uninstall:
 	# only removes what was installed with `dune install`
-	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) \
-		xapi-client xapi-schema xapi-consts xapi-cli-protocol xapi-datamodel xapi-types \
-		xen-api-client xen-api-client-lwt xen-api-client-async rrdd-plugin rrd-transport \
-		gzip http-lib pciutil sexpr stunnel uuid xml-light2 zstd xapi-compression safe-resources \
-		message-switch message-switch-async message-switch-cli message-switch-core message-switch-lwt \
-		message-switch-unix xapi-idl forkexec xapi-forkexecd xapi-storage xapi-storage-script xapi-log \
-		xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix \
-		xapi-rrd xapi-inventory clock xapi-sdk\
-		xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-tools
-	dune uninstall --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR)  xapi xe
-	dune uninstall --destdir=$(DESTDIR) --prefix=$(PREFIX) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(XENOPSD_LIBEXECDIR)  xapi-tools
-	dune uninstall --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --bindir=$(OPTDIR)/debug --datadir=$(OPTDIR)/debug xapi-debug
+	dune uninstall $(DUNE_IU_PACKAGES1)
+	dune uninstall $(DUNE_IU_PACKAGES2)
+	dune uninstall $(DUNE_IU_PACKAGES3)
+	dune uninstall $(DUNE_IU_PACKAGES4)
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\
