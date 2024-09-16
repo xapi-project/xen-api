@@ -1019,7 +1019,7 @@ let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
 let export_interval = ref 30.
 
-let max_spans = ref 1000
+let max_spans = ref 10000
 
 let max_traces = ref 10000
 
