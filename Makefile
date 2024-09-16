@@ -12,9 +12,9 @@ OPTMANDIR ?= $(OPTDIR)/man/man1/
 # this is typically used when we're not building from a git repo
 build:
 	[ -z "${XAPI_VERSION}" ] || (sed -i '/(version.*)/d' dune-project && echo "(version ${XAPI_VERSION})" >> dune-project)
-	dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
+	dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
 	dune build @install -j $(JOBS) --profile=$(PROFILE)
-	dune build @python --profile=$(PROFILE)
+	dune build @ocaml/xapi-storage/python/xapi/storage/api/v5/python --profile=$(PROFILE)
 
 # Quickly verify that the code compiles, without actually building it
 check:
