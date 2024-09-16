@@ -304,14 +304,16 @@ namespace XenAPI
             {
                 webResponse = (HttpWebResponse)webRequest.GetResponse();
 
-                ResponseHeaders = new Dictionary<string, string>();
+                var newResponseHeaders = new Dictionary<string, string>();
 
                 if (webResponse.Headers != null)
                 {
                     var keys = webResponse.Headers.AllKeys;
                     foreach (var key in keys)
-                        ResponseHeaders.Add(key, string.Join(",", webResponse.Headers.Get(key)));
+                        newResponseHeaders.Add(key, string.Join(",", webResponse.Headers.Get(key)));
                 }
+
+                ResponseHeaders = newResponseHeaders;
 
                 if (webResponse.StatusCode != HttpStatusCode.OK)
                     throw new WebException(webResponse.StatusCode.ToString());
