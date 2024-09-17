@@ -248,7 +248,8 @@ val install_ca_certificate :
 
 val certificate_uninstall : __context:Context.t -> name:string -> unit
 
-val uninstall_ca_certificate : __context:Context.t -> name:string -> unit
+val uninstall_ca_certificate :
+  __context:Context.t -> name:string -> force:bool -> unit
 
 val certificate_list : __context:Context.t -> string list
 
