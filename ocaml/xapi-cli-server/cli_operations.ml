@@ -1770,7 +1770,8 @@ let pool_install_ca_certificate fd _printer rpc session_id params =
 
 let pool_uninstall_ca_certificate _printer rpc session_id params =
   let name = List.assoc "name" params in
-  Client.Pool.uninstall_ca_certificate ~rpc ~session_id ~name
+  let force = get_bool_param params "force" in
+  Client.Pool.uninstall_ca_certificate ~rpc ~session_id ~name ~force
 
 let pool_certificate_list printer rpc session_id _params =
   printer (Cli_printer.PList (Client.Pool.certificate_list ~rpc ~session_id))
