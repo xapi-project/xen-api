@@ -1,6 +1,6 @@
 let prototyped_of_class = function
   | "Host_driver" ->
-      Some "24.26.0-next"
+      Some "24.28.0-next"
   | "VM_group" ->
       Some "24.19.1"
   | "Observer" ->
@@ -80,7 +80,7 @@ let prototyped_of_field = function
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "VM_guest_metrics", "netbios_name" ->
-      Some "24.27.0-next"
+      Some "24.28.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
@@ -122,9 +122,9 @@ let prototyped_of_field = function
 
 let prototyped_of_message = function
   | "Host_driver", "deselect" ->
-      Some "24.26.0-next"
+      Some "24.28.0-next"
   | "Host_driver", "select" ->
-      Some "24.26.0-next"
+      Some "24.28.0-next"
   | "Observer", "set_components" ->
       Some "23.14.0"
   | "Observer", "set_endpoints" ->
@@ -167,6 +167,8 @@ let prototyped_of_message = function
       Some "23.18.0"
   | "host", "set_https_only" ->
       Some "22.27.0"
+  | "host", "rescan_drivers" ->
+      Some "24.28.0-next"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
   | "VM", "get_secureboot_readiness" ->

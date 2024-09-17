@@ -7754,6 +7754,25 @@ let host_apply_updates _printer rpc session_id params =
        params ["hash"]
     )
 
+let host_rescan_drivers printer rpc session_id params =
+  ignore
+    (do_host_op rpc session_id ~multiple:false
+       (fun _ host ->
+         let host_t = host.record () in
+         let host = host.getref () in
+         let result =
+           ("host-uuid", host_t.host_uuid)
+           :: (Client.Host.rescan_drivers ~rpc ~session_id ~host
+              |> List.map (fun (rescan_result, drivers) ->
+                     (rescan_result, String.concat "; " drivers)
+                 )
+              )
+         in
+         printer (Cli_printer.PMsg (Cli_printer.multi_line_record result))
+       )
+       params []
+    )
+
 module SDN_controller = struct
   let introduce printer rpc session_id params =
     let port =

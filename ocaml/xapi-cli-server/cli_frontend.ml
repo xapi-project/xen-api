@@ -1045,6 +1045,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
+  ; ( "host-rescan-drivers"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Scan the host and update its driver information."
+      ; implementation= No_fd Cli_operations.host_rescan_drivers
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "host-emergency-clear-mandatory-guidance"
     , {
         reqd= []

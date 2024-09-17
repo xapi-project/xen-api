@@ -9,6 +9,9 @@ val create :
 
 val destroy : __context:Context.t -> self:[`Host_driver] Ref.t -> unit
 
+val discover :
+  __context:Context.t -> host:[`host] Ref.t -> (string * string list) list
+
 val select :
   __context:Context.t -> self:[`Host_driver] Ref.t -> version:string -> unit
 
