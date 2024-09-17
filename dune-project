@@ -29,6 +29,7 @@
     astring
     mtime
     ptime
+    (xapi-log (= :version))
     (qcheck-core :with-test)
     (qcheck-alcotest :with-test)
   )
