@@ -13,7 +13,7 @@ OPTMANDIR ?= $(OPTDIR)/man/man1/
 build:
 	[ -z "${XAPI_VERSION}" ] || (sed -i '/(version.*)/d' dune-project && echo "(version ${XAPI_VERSION})" >> dune-project)
 # if available use external file, otherwise use built-in, this allows building XAPI without being root
-	! test -f $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml || cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml
+	if test -f $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml; then cp $(SHAREDIR)/sm/XE_SR_ERRORCODES.xml ocaml/sdk-gen/csharp/XE_SR_ERRORCODES.xml; fi
 	dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote || dune build @ocaml/idl/update-dm-lifecycle -j $(JOBS) --profile=$(PROFILE) --auto-promote
 	dune build -j $(JOBS) --profile=$(PROFILE) @install @ocaml/xapi-storage/python/xapi/storage/api/v5/python @ocaml/xapi-doc @ocaml/sdk-gen/sdkgen
 
