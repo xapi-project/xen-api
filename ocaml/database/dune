@@ -27,6 +27,9 @@
   (libraries
     forkexec
     gzip
+    mtime
+    mtime.clock.os
+    clock
     rpclib.core
     rpclib.json
     safe-resources
