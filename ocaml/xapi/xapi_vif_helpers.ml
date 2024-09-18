@@ -54,13 +54,13 @@ let valid_operations ~__context record _ref' : table =
     debug "No operations are valid because current-operations = [ %s ]"
       (String.concat "; "
          (List.map
-            (fun (task, op) -> task ^ " -> " ^ vif_operation_to_string op)
+            (fun (task, op) -> task ^ " -> " ^ vif_operations_to_string op)
             current_ops
          )
       ) ;
     let concurrent_op = snd (List.hd current_ops) in
     set_errors Api_errors.other_operation_in_progress
-      ["VIF"; _ref; vif_operation_to_string concurrent_op]
+      ["VIF"; _ref; vif_operations_to_string concurrent_op]
       all_ops
   ) ;
   (* No hotplug on dom0 *)
@@ -85,8 +85,8 @@ let valid_operations ~__context record _ref' : table =
   | `Running, false ->
       set_errors Api_errors.device_already_detached [_ref] [`unplug]
   | _, _ ->
-      let actual = Record_util.power_to_string power_state in
-      let expected = Record_util.power_to_string `Running in
+      let actual = Record_util.vm_power_state_to_lowercase_string power_state in
+      let expected = Record_util.vm_power_state_to_lowercase_string `Running in
       set_errors Api_errors.vm_bad_power_state
         [Ref.string_of vm; expected; actual]
         [`plug; `unplug]
@@ -163,7 +163,7 @@ let throw_error (table : table) op =
            , [
                Printf.sprintf
                  "xapi_vif_helpers.assert_operation_valid unknown operation: %s"
-                 (vif_operation_to_string op)
+                 (vif_operations_to_string op)
              ]
            )
         )
@@ -298,8 +298,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
       Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
         ~io_read_kbs:0. ~io_write_kbs:0.
-        ~last_updated:(Xapi_stdext_date.Date.of_float 0.)
-        ~other_config:[] ;
+        ~last_updated:Xapi_stdext_date.Date.epoch ~other_config:[] ;
       let (_ : unit) =
         Db.VIF.create ~__context ~ref ~uuid:(Uuidx.to_string uuid)
           ~current_operations:[] ~allowed_operations:[] ~reserved:false ~device

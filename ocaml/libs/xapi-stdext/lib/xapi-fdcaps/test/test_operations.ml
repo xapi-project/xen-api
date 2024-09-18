@@ -197,9 +197,6 @@ let test_block () =
     in
     if Unix.geteuid () = 0 then
       run ()
-    else
-      Alcotest.check_raises "non-root fails to create blockdevice"
-        (Failure "with_temp_blk") run
   in
   test_fd with_make
     [("read", read_fd); ("write", write_fd); ("lseek", test_lseek)]

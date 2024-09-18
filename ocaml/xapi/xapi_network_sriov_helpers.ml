@@ -56,7 +56,7 @@ let sriov_bring_up ~__context ~self =
     in
     info "Enable network sriov on PIF %s successful, mode: %s need_reboot: %b"
       (Ref.string_of physical_pif)
-      (Record_util.network_sriov_configuration_mode_to_string mode)
+      (Record_util.sriov_configuration_mode_to_string mode)
       require_reboot ;
     Db.Network_sriov.set_configuration_mode ~__context ~self:sriov ~value:mode ;
     Db.Network_sriov.set_requires_reboot ~__context ~self:sriov

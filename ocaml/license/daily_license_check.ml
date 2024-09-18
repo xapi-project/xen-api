@@ -13,7 +13,7 @@ let get_hosts all_license_params threshold =
   List.fold_left
     (fun acc (name_label, license_params) ->
       let expiry = List.assoc "expiry" license_params in
-      let expiry = Xapi_stdext_date.Date.(to_float (of_string expiry)) in
+      let expiry = Xapi_stdext_date.Date.(to_unix_time (of_iso8601 expiry)) in
       if expiry < threshold then
         name_label :: acc
       else
@@ -23,7 +23,7 @@ let get_hosts all_license_params threshold =
 
 let check_license now pool_license_state all_license_params =
   let expiry = List.assoc "expiry" pool_license_state in
-  let expiry = Xapi_stdext_date.Date.(to_float (of_string expiry)) in
+  let expiry = Xapi_stdext_date.Date.(to_unix_time (of_iso8601 expiry)) in
   let days = days_to_expiry now expiry in
   if days <= 0. then
     Expired (get_hosts all_license_params now)

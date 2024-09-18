@@ -308,14 +308,14 @@ let timeout_tasks ~__context =
   let completed_old, completed_young =
     List.partition
       (fun (_, t) ->
-        Date.to_float t.Db_actions.task_finished < oldest_completed_time
+        Date.to_unix_time t.Db_actions.task_finished < oldest_completed_time
       )
       completed_gcable
   in
   let pending_old, pending_young =
     List.partition
       (fun (_, t) ->
-        Date.to_float t.Db_actions.task_created < oldest_pending_time
+        Date.to_unix_time t.Db_actions.task_created < oldest_pending_time
       )
       pending
   in
@@ -360,8 +360,8 @@ let timeout_tasks ~__context =
         List.sort
           (fun (_, t1) (_, t2) ->
             compare
-              (Date.to_float t1.Db_actions.task_finished)
-              (Date.to_float t2.Db_actions.task_finished)
+              (Date.to_unix_time t1.Db_actions.task_finished)
+              (Date.to_unix_time t2.Db_actions.task_finished)
           )
           completed
       in
@@ -422,7 +422,7 @@ let timeout_sessions_common ~__context sessions limit session_group =
     List.map
       (fun (x, y) ->
         ( x
-        , Date.to_float y.Db_actions.session_last_active
+        , Date.to_unix_time y.Db_actions.session_last_active
         , y.Db_actions.session_uuid
         )
       )
@@ -447,7 +447,7 @@ let timeout_sessions_common ~__context sessions limit session_group =
         debug "Session.destroy _ref=%s uuid=%s %s (last active %s): %s"
           (Ref.string_of s) uuid
           (Context.trackid_of_session (Some s))
-          (Date.to_string (Date.of_float active))
+          (Date.to_rfc3339 (Date.of_unix_time active))
           doc ;
         Xapi_session.destroy_db_session ~__context ~self:s
       )
@@ -586,7 +586,7 @@ let timeout_alerts ~__context =
   let all_alerts = Db.Alert.get_all ~__context in
   let now = Unix.gettimeofday() in
   List.iter (fun alert ->
-    let alert_time = Date.to_float (Db.Alert.get_timestamp ~__context ~self:alert) in
+    let alert_time = Date.to_unix_time (Db.Alert.get_timestamp ~__context ~self:alert) in
     if now -. alert_time > Xapi_globs.alert_timeout then
       Db.Alert.destroy ~__context ~self:alert
   ) all_alerts

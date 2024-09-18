@@ -1,3 +1,7 @@
+let all_placement_policy = [`anti_affinity; `normal]
+
+let all_origin = [`remote; `bundle]
+
 let all_certificate_type = [`ca; `host; `host_internal]
 
 let all_cluster_host_operation = [`enable; `disable; `destroy]
@@ -22,7 +26,7 @@ let all_vgpu_type_implementation =
 
 let all_allocation_algorithm = [`breadth_first; `depth_first]
 
-let all_pgpu_dom0_access =
+let all_pci_dom0_access =
   [`enabled; `disable_on_reboot; `disabled; `enable_on_reboot]
 
 let all_sriov_configuration_mode = [`sysfs; `modprobe; `manual; `unknown]
@@ -135,15 +139,18 @@ let all_host_numa_affinity_policy = [`any; `best_effort; `default_policy]
 
 let all_host_sched_gran = [`core; `cpu; `socket]
 
-let all_latest_synced_updates_applied_state = [`yes; `no; `unknown]
-
 let all_update_guidances =
   [
     `reboot_host
   ; `reboot_host_on_livepatch_failure
+  ; `reboot_host_on_kernel_livepatch_failure
+  ; `reboot_host_on_xen_livepatch_failure
   ; `restart_toolstack
   ; `restart_device_model
+  ; `restart_vm
   ]
+
+let all_latest_synced_updates_applied_state = [`yes; `no; `unknown]
 
 let all_host_display =
   [`enabled; `disable_on_reboot; `disabled; `enable_on_reboot]
@@ -159,6 +166,7 @@ let all_host_allowed_operations =
   ; `vm_resume
   ; `vm_migrate
   ; `apply_updates
+  ; `enable
   ]
 
 let all_vm_appliance_operation =
@@ -179,6 +187,8 @@ let all_vmpp_backup_type = [`snapshot; `checkpoint]
 let all_tristate_type = [`yes; `no; `unspecified]
 
 let all_domain_type = [`hvm; `pv; `pv_in_pvh; `pvh; `unspecified]
+
+let all_vm_uefi_mode = [`setup; `user]
 
 let all_on_crash_behaviour =
   [
@@ -267,6 +277,7 @@ let all_pool_allowed_operations =
   ; `designate_new_master
   ; `configure_repositories
   ; `sync_updates
+  ; `sync_bundle
   ; `get_updates
   ; `apply_updates
   ; `tls_verification_enable
@@ -274,6 +285,7 @@ let all_pool_allowed_operations =
   ; `exchange_certificates_on_join
   ; `exchange_ca_certificates_on_join
   ; `copy_primary_host_certs
+  ; `eject
   ]
 
 let all_task_status_type =
@@ -283,9 +295,22 @@ let all_task_allowed_operations = [`cancel; `destroy]
 
 let all_hello_return = [`ok; `unknown_host; `cannot_talk_back]
 
+let all_pool_guest_secureboot_readiness = [`ready; `ready_no_dbx; `not_ready]
+
 let all_livepatch_status =
   [`ok_livepatch_complete; `ok_livepatch_incomplete; `ok]
 
-let all_sr_health = [`healthy; `recovering]
+let all_vm_secureboot_readiness =
+  [
+    `not_supported
+  ; `disabled
+  ; `first_boot
+  ; `ready
+  ; `ready_no_dbx
+  ; `setup_mode
+  ; `certs_incomplete
+  ]
+
+let all_sr_health = [`healthy; `recovering; `unreachable; `unavailable]
 
 let all_event_operation = [`add; `del; `_mod]

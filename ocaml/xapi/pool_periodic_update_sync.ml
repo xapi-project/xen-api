@@ -144,7 +144,7 @@ let rec update_sync () =
               with e ->
                 let exc = Printexc.to_string e in
                 warn "Periodic update sync failed with exception %s" exc ;
-                let now = Xapi_stdext_date.Date.(now () |> to_string) in
+                let now = Xapi_stdext_date.Date.(now () |> to_rfc3339) in
                 let body =
                   Printf.sprintf
                     "<body><message>Periodic update sync \

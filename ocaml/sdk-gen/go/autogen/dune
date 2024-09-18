@@ -22,3 +22,5 @@
     (source_tree .)
   )
 )
+
+(data_only_dirs src)

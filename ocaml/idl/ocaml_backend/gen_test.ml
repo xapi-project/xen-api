@@ -32,7 +32,7 @@ let rec gen_test_type highapi ty =
     | DT.Bool ->
         "true"
     | DT.DateTime ->
-        "(Date.of_string \"20120101T00:00:00Z\")"
+        "(Date.of_iso8601 \"20120101T00:00:00Z\")"
     | DT.Enum (_, (x, _) :: _) ->
         Printf.sprintf "(%s)" (OU.constructor_of x)
     | DT.Set (DT.Enum (_, y)) ->

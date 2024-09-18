@@ -339,7 +339,11 @@ let update_snapshot_metadata =
       [
         (Ref _vm, "vm", "The VM to update")
       ; (Ref _vm, "snapshot_of", "")
-      ; (DateTime, "snapshot_time", "")
+      ; ( DateTime
+        , "snapshot_time"
+        , "The timestamp the snapshot was taken. When a timezone is missing, \
+           UTC is assumed"
+        )
       ; (String, "transportable_snapshot_id", "")
       ]
     ~allowed_roles:_R_POOL_OP ()
@@ -1628,6 +1632,43 @@ let operations =
         ]
     )
 
+let set_blocked_operations =
+  call ~name:"set_blocked_operations"
+    ~in_product_since:rel_orlando (* but updated 2024 *)
+    ~doc:
+      "Update list of operations which have been explicitly blocked and an \
+       error code"
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (Map (operations, String), "value", "Blocked operations")
+      ]
+    ~allowed_roles:_R_VM_ADMIN ()
+
+let add_to_blocked_operations =
+  call ~name:"add_to_blocked_operations"
+    ~in_product_since:rel_orlando (* but updated 2024 *)
+    ~doc:
+      "Update list of operations which have been explicitly blocked and an \
+       error code"
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (operations, "key", "Blocked operation")
+      ; (String, "value", "Error code")
+      ]
+    ~allowed_roles:_R_VM_ADMIN ()
+
+let remove_from_blocked_operations =
+  call ~name:"remove_from_blocked_operations"
+    ~in_product_since:rel_orlando (* but updated 2024 *)
+    ~doc:
+      "Update list of operations which have been explicitly blocked and an \
+       error code"
+    ~params:
+      [(Ref _vm, "self", "The VM"); (operations, "key", "Blocked operation")]
+    ~allowed_roles:_R_VM_ADMIN ()
+
 let assert_operation_valid =
   call ~in_oss_since:None ~in_product_since:rel_rio
     ~name:"assert_operation_valid"
@@ -1909,6 +1950,9 @@ let t =
       ; restart_device_models
       ; set_uefi_mode
       ; get_secureboot_readiness
+      ; set_blocked_operations
+      ; add_to_blocked_operations
+      ; remove_from_blocked_operations
       ]
     ~contents:
       ([uid _vm]
@@ -2072,7 +2116,7 @@ let t =
             "List pointing to all the VM snapshots."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
             ~in_product_since:rel_orlando
-            ~default_value:(Some (VDateTime Date.never)) ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
             "snapshot_time" "Date/time when this snapshot was created."
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
             ~in_product_since:rel_orlando ~default_value:(Some (VString ""))
@@ -2086,7 +2130,7 @@ let t =
             ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
-            ~qualifier:RW
+            ~qualifier:StaticRO
             ~ty:(Map (operations, String))
             "blocked_operations"
             "List of operations which have been explicitly blocked and an \

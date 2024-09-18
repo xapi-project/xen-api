@@ -1,18 +1,18 @@
 /*
  * Copyright (c) Cloud Software Group, Inc.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- * 
+ *
  *   1) Redistributions of source code must retain the above copyright
  *      notice, this list of conditions and the following disclaimer.
- * 
+ *
  *   2) Redistributions in binary form must reproduce the above
  *      copyright notice, this list of conditions and the following
  *      disclaimer in the documentation and/or other materials
  *      provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -141,7 +141,6 @@ namespace XenAPI
 
             //call these before setting the shortError because they modify the errorText
             ParseSmapiV3Failures();
-            ParseCslgFailures();
 
             try
             {
@@ -178,57 +177,6 @@ namespace XenAPI
             catch
             {
                 //ignore
-            }
-        }
-
-        /// <summary>
-        /// The ErrorDescription[2] of Cslg failures contains embedded xml.
-        /// This method parses it and copies the user friendly part to errorText.
-        /// </summary>
-        private void ParseCslgFailures()
-        {
-            /* ErrorDescription[2] example:
-
-            <StorageLinkServiceError>
-                <Fault>Host ivory has not yet been added to the service. [err=Object was not found]</Fault>
-                <Detail>
-                    <errorCode>6</errorCode>
-                    <messageId></messageId>
-                    <defaultMessage>Host ivory has not yet been added to the service. [err=Object was not found]</defaultMessage>
-                    <severity>2</severity>
-                    <errorFunction>CXSSHostUtil::getHost</errorFunction>
-                    <errorLine>113</errorLine>
-                    <errorFile>.\\xss_util_host.cpp</errorFile>
-                </Detail>
-            </StorageLinkServiceError>
-            */
-
-            if (ErrorDescription.Count > 2 && ErrorDescription[2] != null && ErrorDescription[0] != null && ErrorDescription[0].StartsWith("SR_BACKEND_FAILURE"))
-            {
-                Match m = Regex.Match(ErrorDescription[2], @"<StorageLinkServiceError>.*</StorageLinkServiceError>", RegexOptions.Singleline);
-
-                if (m.Success)
-                {
-                    XmlDocument doc = new XmlDocument();
-
-                    try
-                    {
-                        doc.LoadXml(m.Value);
-                    }
-                    catch (XmlException)
-                    {
-                        return;
-                    }
-
-                    XmlNodeList nodes = doc.SelectNodes("/StorageLinkServiceError/Fault");
-
-                    if (nodes != null && nodes.Count > 0 && !string.IsNullOrEmpty(nodes[0].InnerText))
-                    {
-                        errorText = string.IsNullOrEmpty(errorText)
-                            ? nodes[0].InnerText
-                            : string.Format("{0} ({1})", errorText, nodes[0].InnerText);
-                    }
-                }
             }
         }
 

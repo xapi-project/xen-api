@@ -421,9 +421,15 @@ module Volume (R : RPC) = struct
   let compose =
     R.declare "compose"
       [
-        "[compose sr volume1 volume2] layers the updates from [volume2] onto"
-      ; "[volume1], modifying [volume2]. Implementations shall declare the"
-      ; "VDI_COMPOSE feature for this method to be supported."
+        "[compose sr child_volume parent_volume] layers the updates from "
+      ; "[child_volume] onto [parent_volume], modifying [child_volume]. "
+      ; "In the case of a delta file format this means updating the "
+      ; "[child_volume] to have a parent or backing object defined by "
+      ; "[parent_volume]. Implementations shall declare the VDI_COMPOSE "
+      ; "feature for this method to be supported. After a successful "
+      ; "return it should be assumed that the [parent_volume] is no "
+      ; "longer valid. Calling SR.ls, will return the list of currently "
+      ; "known, valid, volumes."
       ]
       (dbg @-> sr @-> key @-> key2 @-> returning unit errors)
 

@@ -51,9 +51,9 @@ let check_empty_disk size =
   let filename = make_new_filename () in
   Vhd_IO.create_dynamic ~filename ~size () >>= fun vhd ->
   Vhd_IO.openchain filename false >>= fun vhd' ->
-  Alcotest.check Lib.header __LOC__ vhd.Vhd.header vhd'.Vhd.header ;
-  Alcotest.check Lib.footer __LOC__ vhd.Vhd.footer vhd'.Vhd.footer ;
-  Alcotest.check Lib.bat __LOC__ vhd.Vhd.bat vhd'.Vhd.bat ;
+  Alcotest.check Lib.header ~pos:__POS__ "" vhd.Vhd.header vhd'.Vhd.header ;
+  Alcotest.check Lib.footer ~pos:__POS__ "" vhd.Vhd.footer vhd'.Vhd.footer ;
+  Alcotest.check Lib.bat ~pos:__POS__ "" vhd.Vhd.bat vhd'.Vhd.bat ;
   Vhd_IO.close vhd' >>= fun () -> Vhd_IO.close vhd
 
 (* Create a disk, resize it, check headers *)
@@ -64,7 +64,8 @@ let check_resize size =
   let vhd = Vhd.resize vhd newsize in
   Vhd_IO.close vhd >>= fun () ->
   Vhd_IO.openchain filename false >>= fun vhd' ->
-  Alcotest.(check int64) __LOC__ newsize vhd.Vhd.footer.Footer.current_size ;
+  Alcotest.(check int64 ~pos:__POS__)
+    "" newsize vhd.Vhd.footer.Footer.current_size ;
   Vhd_IO.close vhd'
 
 (* Create a snapshot, check headers *)
@@ -74,9 +75,9 @@ let check_empty_snapshot size =
   let filename = make_new_filename () in
   Vhd_IO.create_difference ~filename ~parent:vhd () >>= fun vhd' ->
   Vhd_IO.openchain filename false >>= fun vhd'' ->
-  Alcotest.check Lib.header __LOC__ vhd'.Vhd.header vhd''.Vhd.header ;
-  Alcotest.check Lib.footer __LOC__ vhd'.Vhd.footer vhd''.Vhd.footer ;
-  Alcotest.check Lib.bat __LOC__ vhd'.Vhd.bat vhd''.Vhd.bat ;
+  Alcotest.check Lib.header ~pos:__POS__ "" vhd'.Vhd.header vhd''.Vhd.header ;
+  Alcotest.check Lib.footer ~pos:__POS__ "" vhd'.Vhd.footer vhd''.Vhd.footer ;
+  Alcotest.check Lib.bat ~pos:__POS__ "" vhd'.Vhd.bat vhd''.Vhd.bat ;
   Vhd_IO.close vhd'' >>= fun () ->
   Vhd_IO.close vhd' >>= fun () -> Vhd_IO.close vhd
 

@@ -37,7 +37,7 @@ let expiry =
   Alcotest.testable pp_expiry equals
 
 let check_time =
-  Xapi_stdext_date.Date.(to_float (of_string "20160601T04:00:00Z"))
+  Xapi_stdext_date.Date.(to_unix_time (of_iso8601 "20160601T04:00:00Z"))
 
 let test_expiry ((pool_license_state, all_license_params), expected) () =
   let result = check_license check_time pool_license_state all_license_params in

@@ -6,6 +6,7 @@ on:
       - master
       - 'feature/**'
       - '*-lcm'
+  merge_group:
 
 jobs:
   ocaml-format:

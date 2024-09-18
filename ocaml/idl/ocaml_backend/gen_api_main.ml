@@ -73,7 +73,17 @@ let _ =
     [
       ( "-mode"
       , Arg.Symbol
-          ( ["client"; "server"; "api"; "db"; "actions"; "sql"; "rbac"; "test"]
+          ( [
+              "client"
+            ; "server"
+            ; "api"
+            ; "utils"
+            ; "db"
+            ; "actions"
+            ; "sql"
+            ; "rbac"
+            ; "test"
+            ]
           , fun x -> mode := Some x
           )
       , "Choose which file to output"
@@ -114,6 +124,8 @@ let _ =
       Gen_api.gen_client api
   | Some "api" ->
       Gen_api.gen_client_types api
+  | Some "utils" ->
+      Gen_api.gen_record_deserialization api
   | Some "server" ->
       Gen_api.gen_server api
   | Some "db" ->

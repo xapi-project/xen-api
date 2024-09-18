@@ -348,6 +348,14 @@ module Mux = struct
       end)) in
       C.SR.stat (Debug_info.to_string di) sr
 
+    let scan2 () ~dbg ~sr =
+      with_dbg ~name:"SR.scan2" ~dbg @@ fun di ->
+      info "SR.scan2 dbg:%s sr:%s" dbg (s_of_sr sr) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.SR.scan2 (Debug_info.to_string di) sr
+
     let scan () ~dbg ~sr =
       with_dbg ~name:"SR.scan" ~dbg @@ fun di ->
       info "SR.scan dbg:%s sr:%s" dbg (s_of_sr sr) ;

@@ -40,7 +40,7 @@ let rec to_rpc v =
   | VBool b ->
       Rpc.Bool b
   | VDateTime d ->
-      Rpc.String (Date.to_string d)
+      Rpc.String (Date.to_rfc3339 d)
   | VEnum e ->
       Rpc.String e
   | VMap vvl ->
@@ -94,7 +94,7 @@ let to_db v =
   | VBool false ->
       String "false"
   | VDateTime d ->
-      String (Date.to_string d)
+      String (Date.to_rfc3339 d)
   | VEnum e ->
       String e
   | VMap vvl ->
@@ -117,7 +117,7 @@ let gen_empty_db_val t =
   | Bool ->
       Value.String "false"
   | DateTime ->
-      Value.String (Date.to_string Date.never)
+      Value.String Date.(to_rfc3339 epoch)
   | Enum (_, (enum_value, _) :: _) ->
       Value.String enum_value
   | Enum (_, []) ->

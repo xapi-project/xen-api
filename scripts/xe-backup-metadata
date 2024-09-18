@@ -51,7 +51,7 @@ function usage {
 function uuid5 {
   # could use a modern uuidgen but it's not on XS 8
   # should work with Python 2 and 3
-  python -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
+  python3 -c "import uuid; print (uuid.uuid5(uuid.UUID('$1'), '$2'))"
 }
 
 function test_sr {

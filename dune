@@ -13,3 +13,7 @@
 (executable
   (name configure)
   (libraries dune-configurator findlib cmdliner unix))
+
+; Can still be used for dependencies, but dune won't scan these dirs
+; for dune files
+(data_only_dirs doc scripts python3 .vscode)

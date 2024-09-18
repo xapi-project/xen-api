@@ -57,8 +57,8 @@ val localtime : unit -> t
 
 (** Comparisons *)
 
-val eq : t -> t -> bool
-(** [eq a b] returns whether [a] and [b] are equal *)
+val equal : t -> t -> bool
+(** [equal a b] returns whether [a] and [b] are equal *)
 
 val compare : t -> t -> int
 (** [compare a b] returns -1 if [a] is earlier than [b], 1 if [a] is later than
@@ -77,29 +77,39 @@ val diff : t -> t -> Ptime.Span.t
 
 (** Deprecated bindings, these will be removed in a future release: *)
 
+val eq : t -> t -> bool
+[@@deprecated "Use Date.equal"]
+(** [eq a b] returns whether [a] and [b] are equal *)
+
 val rfc822_to_string : t -> string
+[@@deprecated "Use Date.to_rfc822"]
 (** Same as {!to_rfc822} *)
 
 val rfc822_of_float : float -> t
+[@@deprecated "Use Date.of_unix_time"]
 (** Same as {!of_unix_time} *)
 
 val of_float : float -> t
+[@@deprecated "Use Date.of_unix_time"]
 (** Same as {!of_unix_time} *)
 
 val to_float : t -> float
+[@@deprecated "Use Date.to_unix_time"]
 (** Same as {!to_unix_time} *)
 
 val to_string : t -> string
+[@@deprecated "Use Date.to_rfc3339"]
 (** Same as {!to_rfc3339} *)
 
 val of_string : string -> t
+[@@deprecated "Use Date.of_iso8601"]
 (** Same as {!of_iso8601} *)
 
-val never : t
+val never : t [@@deprecated "Use Date.epoch"]
 (** Same as {!epoch} *)
 
 (** Deprecated alias for {!t} *)
-type iso8601 = t
+type iso8601 = t [@@deprecated "Use Date.t"]
 
 (** Deprecated alias for {!t} *)
-type rfc822 = t
+type rfc822 = t [@@deprecated "Use Date.t"]

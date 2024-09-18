@@ -87,7 +87,7 @@ val create_from_db_file :
 (* for unit testing *)
 val _record_login_failure :
      __context:Context.t
-  -> now:Xapi_stdext_date.Date.iso8601
+  -> now:Xapi_stdext_date.Date.t
   -> uname:string option
   -> originator:string option
   -> record:[< `log_only | `log_and_alert]
@@ -110,3 +110,5 @@ val get_total_sessions : unit -> Int64.t
 val set_local_auth_max_threads : int64 -> unit
 
 val set_ext_auth_max_threads : int64 -> unit
+
+val clear_external_auth_cache : unit -> unit

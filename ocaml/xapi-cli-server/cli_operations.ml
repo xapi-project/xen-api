@@ -1956,7 +1956,7 @@ let vdi_introduce printer rpc session_id params =
   let virtual_size = 0L and physical_utilisation = 0L in
   let metadata_of_pool = Ref.null in
   let is_a_snapshot = false in
-  let snapshot_time = Date.never in
+  let snapshot_time = Date.epoch in
   let snapshot_of = Ref.null in
   let vdi =
     Client.VDI.introduce ~rpc ~session_id ~uuid ~name_label ~name_description
@@ -3210,7 +3210,7 @@ exception Multiple_failure of (string * string) list
 
 let format_message msg =
   Printf.sprintf "Message: time=%s priority=%Ld name='%s'"
-    (Date.to_string msg.API.message_timestamp)
+    (Date.to_rfc3339 msg.API.message_timestamp)
     msg.API.message_priority msg.API.message_name
 
 let wrap_op printer pri rpc session_id op e =
@@ -3220,7 +3220,7 @@ let wrap_op printer pri rpc session_id op e =
     try
       Client.Message.get ~rpc ~session_id ~cls:`VM
         ~obj_uuid:(safe_get_field (field_lookup e.fields "uuid"))
-        ~since:(Date.of_float now)
+        ~since:(Date.of_unix_time now)
     with _ -> []
   in
   List.iter
@@ -5272,7 +5272,7 @@ let with_license_server_changes printer rpc session_id params hosts f =
         current_license_servers ;
       let alerts =
         Client.Message.get_since ~rpc ~session_id
-          ~since:(Date.of_float (now -. 1.))
+          ~since:(Date.of_unix_time (now -. 1.))
       in
       let print_if_checkout_error (ref, msg) =
         if
@@ -6245,7 +6245,7 @@ let license_of_host rpc session_id host =
   let rstr = Features.of_assoc_list params in
   let expiry =
     if List.mem_assoc "expiry" params then
-      Date.to_float (Date.of_string (List.assoc "expiry" params))
+      Date.to_unix_time (Date.of_iso8601 (List.assoc "expiry" params))
     else
       0.
   in
@@ -6280,7 +6280,7 @@ let diagnostic_license_status printer rpc session_id _params =
         ; String.sub h.uuid 0 8
         ; Features.to_compact_string h.rstr
         ; h.edition
-        ; Date.to_string (Date.of_float h.expiry)
+        ; Date.to_rfc3339 (Date.of_unix_time h.expiry)
         ; Printf.sprintf "%.1f" ((h.expiry -. now) /. (24. *. 60. *. 60.))
         ]
       )
@@ -7370,8 +7370,8 @@ let vmss_create printer rpc session_id params =
           failwith ("No default value for parameter " ^ param_name)
   in
   let name_label = List.assoc "name-label" params in
-  let ty = Record_util.string_to_vmss_type (get "type") in
-  let frequency = Record_util.string_to_vmss_frequency (get "frequency") in
+  let ty = Record_util.vmss_type_of_string (get "type") in
+  let frequency = Record_util.vmss_frequency_of_string (get "frequency") in
   let schedule = read_map_params "schedule" params in
   (* optional parameters with default values *)
   let name_description = get "name-description" ~default:"" in
@@ -7753,7 +7753,8 @@ module SDN_controller = struct
     in
     let protocol =
       if List.mem_assoc "protocol" params then
-        Record_util.sdn_protocol_of_string (List.assoc "protocol" params)
+        Record_util.sdn_controller_protocol_of_string
+          (List.assoc "protocol" params)
       else
         `ssl
     in

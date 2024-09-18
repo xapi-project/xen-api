@@ -11,7 +11,7 @@
    xapi-log
  )
  (wrapped false)
- (preprocess (pps ppx_deriving_rpc)))
+ (preprocess (per_module ((pps ppx_deriving_rpc) Gpumon_interface))))
 
 (executable
  (name gpumon_cli)

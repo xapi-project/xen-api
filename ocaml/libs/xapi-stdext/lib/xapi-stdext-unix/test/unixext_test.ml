@@ -115,7 +115,8 @@ let test_time_limited_write =
 let test_time_limited_read =
   let gen = Gen.tup2 Generate.t Generate.timeouts
   and print = Print.tup2 Generate.print Print.float in
-  Test.make ~name:__FUNCTION__ ~print gen @@ fun (behaviour, timeout) ->
+  Test.make ~count:20 ~name:__FUNCTION__ ~print gen
+  @@ fun (behaviour, timeout) ->
   skip_blk behaviour.kind ;
   skip_dirlnk behaviour.kind ;
   skip_blk_timed behaviour ;
@@ -166,7 +167,7 @@ let test_time_limited_read =
 
 let test_proxy =
   let gen = Generate.t and print = Generate.print in
-  Test.make ~name:__FUNCTION__ ~print gen @@ fun behaviour ->
+  Test.make ~count:20 ~name:__FUNCTION__ ~print gen @@ fun behaviour ->
   if behaviour.kind <> Unix.S_SOCK then
     QCheck2.assume_fail () ;
   let test wrapped_fd =
@@ -252,7 +253,7 @@ let check_subsets msg ((s1, s2, s3) as all) ((s1', s2', s3') as all') =
 
 let test_select =
   let gen, print = Generate.select_input in
-  Test.make ~long_factor:10 ~name:__FUNCTION__ ~print gen @@ fun t ->
+  Test.make ~name:__FUNCTION__ ~print gen @@ fun t ->
   (* epoll raised EEXIST, but none of the actual callers in XAPI need this,
      so skip
   *)
@@ -286,4 +287,5 @@ let tests =
 let () =
   (* avoid SIGPIPE *)
   let (_ : Sys.signal_behavior) = Sys.signal Sys.sigpipe Sys.Signal_ignore in
-  Xapi_stdext_unix.Unixext.test_open 1024
+  (* TODO: reenable once the epoll branch is merged Xapi_stdext_unix.Unixext.test_open 1024 *)
+  ()

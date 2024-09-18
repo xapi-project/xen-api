@@ -1370,10 +1370,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
       let r = Int64.compare v1.size v2.size in
       if r = 0 then
         let t1 =
-          Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi)
+          Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v1.vdi)
         in
         let t2 =
-          Date.to_float (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi)
+          Date.to_unix_time (Db.VDI.get_snapshot_time ~__context ~self:v2.vdi)
         in
         compare t1 t2
       else
@@ -1805,8 +1805,8 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
              ( Api_errors.vm_bad_power_state
              , [
                  Ref.string_of vm
-               ; Record_util.power_to_string `Halted
-               ; Record_util.power_to_string power_state
+               ; Record_util.vm_power_state_to_lowercase_string `Halted
+               ; Record_util.vm_power_state_to_lowercase_string power_state
                ]
              )
           ) ;

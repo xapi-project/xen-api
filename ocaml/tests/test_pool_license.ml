@@ -29,22 +29,24 @@ let string_of_date_opt = function
   | None ->
       "None"
   | Some date ->
-      Printf.sprintf "Some %s" (Date.to_string date)
+      Printf.sprintf "Some %s" (Date.to_rfc3339 date)
 
-let f2d = Date.of_float
+let f2d = Date.of_unix_time
 
-let f2d2s f = f |> Date.of_float |> Date.to_string
+let f2d2s f = f |> Date.of_unix_time |> Date.to_rfc3339
 
 let edition_to_int = [("edition1", 1); ("edition2", 2); ("edition3", 3)]
 
 module CompareDates = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = Date.iso8601 option * Date.iso8601 option
+    type input_t = Date.t option * Date.t option
 
     type output_t = int
 
     let string_of_input_t =
-      Test_printers.(assoc_pair (option Date.to_string) (option Date.to_string))
+      Test_printers.(
+        assoc_pair (option Date.to_rfc3339) (option Date.to_rfc3339)
+      )
 
     let string_of_output_t = Test_printers.int
   end
@@ -66,13 +68,13 @@ end)
 
 module PoolExpiryDate = Generic.MakeStateful (struct
   module Io = struct
-    type input_t = Date.iso8601 option list
+    type input_t = Date.t option list
 
-    type output_t = Date.iso8601 option
+    type output_t = Date.t option
 
-    let string_of_input_t = Test_printers.(list (option Date.to_string))
+    let string_of_input_t = Test_printers.(list (option Date.to_rfc3339))
 
-    let string_of_output_t = Test_printers.option Date.to_string
+    let string_of_output_t = Test_printers.option Date.to_rfc3339
   end
 
   module State = Test_state.XapiDb
@@ -86,7 +88,7 @@ module PoolExpiryDate = Generic.MakeStateful (struct
           | None ->
               []
           | Some date ->
-              [("expiry", Date.to_string date)]
+              [("expiry", Date.to_rfc3339 date)]
         in
         let (_ : API.ref_host) =
           Test_common.make_host ~__context ~edition:"edition1" ~license_params
@@ -201,10 +203,10 @@ module PoolLicenseState = Generic.MakeStateful (struct
       | None ->
           "never"
       | Some date ->
-          if date = Date.of_float License_check.never then
+          if date = Date.of_unix_time License_check.never then
             "never"
           else
-            Date.to_string date
+            Date.to_rfc3339 date
     in
     (pool_edition, pool_expiry)
 

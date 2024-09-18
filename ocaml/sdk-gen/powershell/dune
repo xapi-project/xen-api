@@ -19,3 +19,4 @@
   (action (run %{x}))
 )
 
+(data_only_dirs templates)

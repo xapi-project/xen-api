@@ -1152,7 +1152,7 @@ module WorkerPool = struct
       let t' = Xenops_task.to_interface_task t in
       {
         id= t'.Task.id
-      ; ctime= t'.Task.ctime |> Date.of_float |> Date.to_string
+      ; ctime= t'.Task.ctime |> Date.of_unix_time |> Date.to_rfc3339
       ; dbg= t'.Task.dbg
       ; subtasks=
           List.map

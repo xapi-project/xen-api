@@ -46,3 +46,4 @@
   (action (run %{x} -s %{y}))
 )
 
+(data_only_dirs templates)

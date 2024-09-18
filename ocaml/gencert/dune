@@ -67,3 +67,5 @@
   )
   (action (run %{test} --color=always))
 )
+
+(data_only_dirs test_data)

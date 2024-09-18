@@ -37,21 +37,97 @@ import java.io.IOException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.TimeZone;
 
 /**
- * {@link CustomDateDeserializer} is a Jackson JSON deserializer for parsing {@link Date} objects
+ * {@link CustomDateDeserializer} is a Jackson JSON deserializer for parsing
+ * {@link Date} objects
  * from custom date formats used in Xen-API responses.
  */
 public class CustomDateDeserializer extends StdDeserializer<Date> {
 
     /**
-     * Array of {@link SimpleDateFormat} objects representing the custom date formats
-     * used in XenServer API responses.
+     * Array of {@link SimpleDateFormat} objects representing the date formats
+     * used in xen-api responses.
+     * 
+     * RFC-3339 date formats can be returned in either Zulu or time zone agnostic.
+     * This list is not an exhaustive list of formats supported by RFC-3339, rather
+     * a set of formats that will enable the deserialization of xen-api dates.
+     * Formats are listed in order of decreasing precision. When adding
+     * to this list, please ensure the order is kept.
      */
-    private final SimpleDateFormat[] dateFormatters
-            = new SimpleDateFormat[]{
+    private static final SimpleDateFormat[] dateFormatsUtc = {
+           // Most commonly returned formats
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+            new SimpleDateFormat("ss.SSS"),
+
+            // Other
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
             new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss'Z'"),
-            new SimpleDateFormat("ss.SSS")
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSS'Z'"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSS'Z'"),
+
+    };
+
+    /**
+     * Array of {@link SimpleDateFormat} objects representing the date formats for
+     * local time.
+     * These formats are used to parse dates in local time zones.
+     * Formats are listed in order of decreasing precision. When adding
+     * to this list, please ensure the order is kept.
+     */
+    private static final SimpleDateFormat[] dateFormatsLocal = {
+            // no dashes, no colons
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSXXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSX"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSS"),
+
+            new SimpleDateFormat("yyyyMMdd'T'HHmmssZZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmssZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmssZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmssXXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmssXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmssX"),
+            new SimpleDateFormat("yyyyMMdd'T'HHmmss"),
+
+            // no dashes, with colons
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSXXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSX"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSS"),
+
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZ"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssXXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssXX"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssX"),
+            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss"),
+
+            // dashes and colons
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZ"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXX"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS"),
+
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZZ"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZ"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXX"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX"),
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss"),
     };
 
     /**
@@ -62,28 +138,42 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
     }
 
     /**
-     * Constructs a {@link CustomDateDeserializer} instance with the specified value type.
+     * Constructs a {@link CustomDateDeserializer} instance with the specified value
+     * type.
      *
      * @param t The value type to handle (can be null, handled by superclass)
      */
     public CustomDateDeserializer(Class t) {
         super(t);
+        var utcTimeZone = TimeZone.getTimeZone("UTC");
+        for (var utcFormatter : dateFormatsUtc) {
+            utcFormatter.setTimeZone(utcTimeZone);
+        }
     }
 
     /**
      * Deserializes a {@link Date} object from the given JSON parser.
      *
-     * @param jsonParser             The JSON parser containing the date value to deserialize
+     * @param jsonParser             The JSON parser containing the date value to
+     *                               deserialize
      * @param deserializationContext The deserialization context
      * @return The deserialized {@link Date} object
      * @throws IOException if an I/O error occurs during deserialization
      */
     @Override
     public Date deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
-
-        for (SimpleDateFormat formatter : dateFormatters) {
+        var text = jsonParser.getText();
+        for (SimpleDateFormat formatter : dateFormatsUtc) {
             try {
-                return formatter.parse(jsonParser.getText());
+                return formatter.parse(text);
+            } catch (ParseException e) {
+                // ignore
+            }
+        }
+
+        for (SimpleDateFormat formatter : dateFormatsLocal) {
+            try {
+                return formatter.parse(text);
             } catch (ParseException e) {
                 // ignore
             }

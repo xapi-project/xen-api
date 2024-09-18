@@ -44,16 +44,16 @@ from datetime import datetime, timezone
 from logging.handlers import SysLogHandler
 from typing import List, Sequence
 
-# The opentelemetry library may generate exceptions we aren't expecting, this code
+# The OpenTelemetry library may generate exceptions we aren't expecting: This code
 # must not fail or it will cause the pass-through script to fail when at worst
 # this script should be a noop. As such, we sometimes need to catch broad exceptions:
 # pylint: disable=broad-exception-caught, too-many-locals, too-many-statements
 # wrapt.decorator adds the extra parameters so we shouldn't provide them:
 # pylint: disable=no-value-for-parameter
-# We only want to import opentelemetry libraries if instrumentation is enabled
+# We only want to import OpenTelemetry libraries when instrumentation is enabled
 # pylint: disable=import-outside-toplevel
 
-DEBUG_ENABLED = False
+DEBUG_ENABLED = os.getenv("XAPI_TEST")
 DEFAULT_MODULES = "LVHDSR,XenAPI,SR,SRCommand,util"
 FORMAT = "observer.py: %(message)s"
 handler = SysLogHandler(facility="local5", address="/dev/log")
@@ -114,7 +114,7 @@ def _init_tracing(configs: List[str], config_dir: str):
 
     If configs is empty, return the noop span and patch_module functions.
     If configs are passed:
-    - Import the opentelemetry packages
+    - Import the OpenTelemetry packages
     - Read the configuration file
     - Create a tracer
     - Trace the script

@@ -40,7 +40,7 @@
     xenctrl
     xml-light2
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (per_module ((pps ppx_deriving_rpc) Quicktest_vm_lifecycle)))
 )
 
 

@@ -355,16 +355,6 @@
     <value>Your current role is not authorized to perform this action.
 Action: {0}</value>
   </data>
-  <data name="RBAC_PERMISSION_DENIED_FRIENDLY" xml:space="preserve">
-    <value>Your current role is not authorized to perform this action.
-Current Role: {0}
-Authorized Roles: {1}</value>
-  </data>
-  <data name="RBAC_PERMISSION_DENIED_FRIENDLY_CONNECTION" xml:space="preserve">
-    <value>Your current role is not authorized to perform this action on {2}.
-Current Role: {0}
-Authorized Roles: {1}</value>
-  </data>
   <data name="RESTORE_INCOMPATIBLE_VERSION" xml:space="preserve">
     <value>Cannot restore on this server because it was saved on an incompatible version</value>
   </data>

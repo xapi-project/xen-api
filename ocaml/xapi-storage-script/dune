@@ -13,6 +13,7 @@
     
     message-switch-async
     message-switch-unix
+    ppx_deriving.runtime
     result
     rpclib.core
     rpclib.json
@@ -71,3 +72,4 @@
   (action (bash "export PYTHONPATH=../xapi-storage/python/; echo $PYTHONPATH; ./%{x} --root=$PWD/test --self-test-only=true"))
 )
 
+(data_only_dirs test examples)

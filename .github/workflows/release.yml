@@ -33,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: XenAPI
-          path: scripts/examples/python/dist/
+          path: python3/examples/dist/
 
   build-sdks:
     name: Build and upload SDK artifacts
@@ -63,6 +63,12 @@ jobs:
         with:
           name: SDK_Artifacts_C
           path: libxenserver/usr/local/
+
+      - name: Retrieve Java SDK distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: SDK_Artifacts_Java
+          path: dist/
 
       - name: Retrieve C# SDK distribution artifacts
         uses: actions/download-artifact@v4

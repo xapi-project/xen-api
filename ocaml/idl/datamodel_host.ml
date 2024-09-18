@@ -935,7 +935,9 @@ let create_params =
   ; {
       param_type= DateTime
     ; param_name= "last_software_update"
-    ; param_doc= "Date and time when the last software update was applied."
+    ; param_doc=
+        "Date and time when the last software update was applied. When the \
+         timezone is missing, UTC is assumed"
     ; param_release= dundee_release
     ; param_default= Some (VDateTime Date.epoch)
     }
@@ -2188,8 +2190,7 @@ let t =
             "tls_verification_enabled" ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
-            "last_software_update"
-            ~default_value:(Some (VDateTime (Date.of_float 0.0)))
+            "last_software_update" ~default_value:(Some (VDateTime Date.epoch))
             "Date and time when the last software update was applied"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "https_only"

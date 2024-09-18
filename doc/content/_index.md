@@ -8,7 +8,7 @@ The **XAPI Toolstack**:
 - Forms the control plane of both [XenServer](http://xenserver.com) as well as
 [xcp-ng](http://xcp-ng.org),
 - manages clusters of Xen hosts with shared storage and networking,
-- has a full-featured [API](http://xapi-project-github.io/xen-api), used by clients such as
+- has a full-featured [API](http://xapi-project.github.io/xen-api), used by clients such as
 [XenCenter](https://github.com/xenserver/xenadmin) and [Xen Orchestra](https://xen-orchestra.com).
 
 The XAPI Toolstack is an open-source project developed by the [xapi

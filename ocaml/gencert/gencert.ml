@@ -76,19 +76,34 @@ let () =
   let program_name = Sys.argv.(0) in
   let dbg = Printf.sprintf "%s - %f" program_name (Unix.gettimeofday ()) in
   (* if necessary use Unix.localtime to debug *)
-  D.debug "%s" dbg ;
-  match Sys.argv with
-  | [|_; path; _; _|] when Sys.file_exists path ->
-      D.info "file already exists at path (%s) - doing nothing" path ;
-      exit 0
-  | [|_; path; cert_gid; sni|] -> (
+  let sni_or_exit sni =
     match SNI.of_string sni with
     | Some sni ->
-        main ~dbg ~path ~cert_gid:(int_of_string cert_gid) ~sni ()
+        sni
     | None ->
         D.error "SNI must be default or xapi:pool, but got '%s'" sni ;
         exit 1
-  )
+  in
+  let gid_or_exit gid =
+    match int_of_string_opt gid with
+    | Some gid ->
+        gid
+    | None ->
+        D.error "GROUPID must be an integer, but got '%s'" gid ;
+        exit 1
+  in
+  D.debug "%s" dbg ;
+  match Sys.argv with
+  | ([|_; path; _|] | [|_; path; _; _|]) when Sys.file_exists path ->
+      D.info "file already exists at path (%s) - doing nothing" path ;
+      exit 0
+  | [|_; path; sni|] ->
+      let sni = sni_or_exit sni in
+      main ~dbg ~path ~cert_gid:(-1) ~sni ()
+  | [|_; path; cert_gid; sni|] ->
+      let sni = sni_or_exit sni in
+      let cert_gid = gid_or_exit cert_gid in
+      main ~dbg ~path ~cert_gid ~sni ()
   | _ ->
-      D.error "Usage: %s PATH (default|xapi:pool)" program_name ;
+      D.error "Usage: %s PATH [GROUPID] (default|xapi:pool)" program_name ;
       exit 1

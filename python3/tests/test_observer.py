@@ -4,13 +4,13 @@ import os
 import sys
 import unittest
 
-from mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 # Ensure observer is initialised as noop
 with patch("os.listdir") as mock_listdir:
     # Prevent it finding an observer.conf
     mock_listdir.return_value = []
-    from packages import observer
+    from python3.packages import observer
 
 TEST_CONFIG = """
     XS_EXPORTER_BUGTOOL_ENDPOINT='/var/log/dt/test'
@@ -18,7 +18,7 @@ TEST_CONFIG = """
     OTEL_RESOURCE_ATTRIBUTES='service.name=sm'
     """
 TEST_OBSERVER_CONF = "test-observer.conf"
-OBSERVER_OPEN = "packages.observer.open"
+OBSERVER_OPEN = "python3.packages.observer.open"
 
 #
 # These are the modules that are mocked to avoid dependencies.
