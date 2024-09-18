@@ -141,10 +141,11 @@ if __name__ == "__main__":
   
 	if options.mode_v6 == 'static':
 		if options.ipv6 == '':
-	 		parser.error("if static IPv6 mode is selected, an IPv6 address needs to be specified")
-		elif options.ipv6.find('/') == -1:
+			parser.error("if static IPv6 mode is selected, an IPv6 address needs to be specified")
+			sys.exit(1)
+		if options.ipv6.find('/') == -1:
 			parser.error("Invalid format: IPv6 must be specified with CIDR format: <IPv6>/<prefix>")
-		sys.exit(1)
+			sys.exit(1)
   
 	# Warn user
 	if not os.access('/tmp/fist_network_reset_no_warning', os.F_OK):
