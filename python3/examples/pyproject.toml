@@ -1,0 +1,6 @@
+[build-system]
+requires = ["setuptools >= 38.6.0", "setuptools_scm[toml]", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = "../.."

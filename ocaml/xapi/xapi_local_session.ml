@@ -14,11 +14,7 @@
 (** Code to handle local sessions, used so that slaves can communicate even when
     the master is down. *)
 
-type t = {
-    r: API.ref_session
-  ; pool: bool
-  ; last_active: Xapi_stdext_date.Date.iso8601
-}
+type t = {r: API.ref_session; pool: bool; last_active: Xapi_stdext_date.Date.t}
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
@@ -31,13 +27,7 @@ let get_all ~__context =
 
 let create ~__context ~pool =
   let r = Ref.make () in
-  let session =
-    {
-      r
-    ; pool
-    ; last_active= Xapi_stdext_date.Date.of_float (Unix.gettimeofday ())
-    }
-  in
+  let session = {r; pool; last_active= Xapi_stdext_date.Date.now ()} in
   with_lock m (fun () -> Hashtbl.replace table r session) ;
   r
 

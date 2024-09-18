@@ -69,7 +69,7 @@ let dm_to_string tys : O.Module.t =
       | DT.Bool ->
           "string_of_bool"
       | DT.DateTime ->
-          "Date.to_string"
+          "Date.to_rfc3339"
       | DT.Enum (_name, cs) ->
           let aux (c, _) =
             Printf.sprintf {|| %s -> "%s"|} (OU.constructor_of c) c
@@ -119,7 +119,7 @@ let string_to_dm tys : O.Module.t =
       | DT.Bool ->
           "bool_of_string"
       | DT.DateTime ->
-          "fun x -> Date.of_string x"
+          "fun x -> Date.of_iso8601 x"
       | DT.Enum (name, cs) ->
           let aux (c, _) = "\"" ^ c ^ "\" -> " ^ OU.constructor_of c in
           "fun v -> match v with\n      "

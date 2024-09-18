@@ -70,8 +70,7 @@ let set_pif_metrics ~__context ~self ~vendor ~device ~carrier ~speed ~duplex
     Db.PIF_metrics.set_duplex ~__context ~self ~value:duplex ;
   if pmr.API.pIF_metrics_pci_bus_path <> pcibuspath then
     Db.PIF_metrics.set_pci_bus_path ~__context ~self ~value:pcibuspath ;
-  Db.PIF_metrics.set_last_updated ~__context ~self
-    ~value:(Date.of_float (Unix.gettimeofday ()))
+  Db.PIF_metrics.set_last_updated ~__context ~self ~value:(Date.now ())
 
 (* Note that the following function is actually called on the slave most of the
  * time now but only when the PIF information changes. *)
@@ -190,8 +189,8 @@ let update_pifs ~__context host pifs =
                   ~uuid:(Uuidx.to_string (Uuidx.make ()))
                   ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:""
                   ~vendor_id:"" ~speed:0L ~duplex:false ~pci_bus_path:""
-                  ~io_read_kbs:0. ~io_write_kbs:0.
-                  ~last_updated:(Date.of_float 0.) ~other_config:[] ;
+                  ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:Date.epoch
+                  ~other_config:[] ;
                 Db.PIF.set_metrics ~__context ~self:pifdev ~value:ref ;
                 ref
             in

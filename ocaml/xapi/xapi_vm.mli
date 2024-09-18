@@ -428,3 +428,19 @@ val set_uefi_mode :
 
 val get_secureboot_readiness :
   __context:Context.t -> self:API.ref_VM -> API.vm_secureboot_readiness
+
+val set_blocked_operations :
+     __context:Context.t
+  -> self:API.ref_VM
+  -> value:(API.vm_operations * string) list
+  -> unit
+
+val add_to_blocked_operations :
+     __context:Context.t
+  -> self:API.ref_VM
+  -> key:API.vm_operations
+  -> value:string
+  -> unit
+
+val remove_from_blocked_operations :
+  __context:Context.t -> self:API.ref_VM -> key:API.vm_operations -> unit

@@ -354,6 +354,38 @@ let toposort_types highapi types =
   assert (List.sort compare result = List.sort compare types) ;
   result
 
+let gen_record_deserialization highapi =
+  let gen_of_to_string types =
+    let gen_string_and_all = function
+      | DT.Set (DT.Enum (_, elist) as e) ->
+          let nlist = List.map fst elist in
+          [
+            (Printf.sprintf "let %s_of_string str = %s")
+              (OU.alias_of_ty e)
+              (OU.ocaml_of_string_of_enum nlist)
+          ; (Printf.sprintf "let %s_to_string = %s")
+              (OU.alias_of_ty e)
+              (OU.ocaml_to_string_of_enum nlist)
+          ]
+      | _ ->
+          []
+    in
+    List.concat_map gen_string_and_all types
+  in
+  let all_types = all_types_of highapi in
+  let all_types = add_set_enums all_types in
+  List.iter (List.iter print)
+    (between [""]
+       [
+         [
+           "exception Record_failure of string"
+         ; "let record_failure fmt ="
+         ; "Printf.ksprintf (fun msg -> raise (Record_failure msg)) fmt"
+         ]
+       ; gen_of_to_string all_types
+       ]
+    )
+
 let gen_client_types highapi =
   let all_types = all_types_of highapi in
   let all_types = add_set_enums all_types in
@@ -381,9 +413,9 @@ let gen_client_types highapi =
            "module Date = struct"
          ; "  open Xapi_stdext_date"
          ; "  include Date"
-         ; "  let rpc_of_iso8601 x = DateTime (Date.to_string x)"
-         ; "  let iso8601_of_rpc = function String x | DateTime x -> \
-            Date.of_string x | _ -> failwith \"Date.iso8601_of_rpc\""
+         ; "  let rpc_of_t x = DateTime (Date.to_rfc3339 x)"
+         ; "  let t_of_rpc = function String x | DateTime x -> Date.of_iso8601 \
+            x | _ -> failwith \"Date.t_of_rpc\""
          ; "end"
          ]
        ; [

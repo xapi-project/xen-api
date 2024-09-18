@@ -245,7 +245,7 @@ From this interface we generate
         and appear in the` _build/default/python/xapi/storage/api/v5`
         directory.
     -   On a XenServer host, they are stored in the
-        `/usr/lib/python2.7/site-packages/xapi/storage/api/v5/`
+        `/usr/lib/python3.6/site-packages/xapi/storage/api/v5/`
         directory
 
 ### SMAPIv3 Plugins

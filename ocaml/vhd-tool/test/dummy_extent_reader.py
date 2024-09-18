@@ -1,10 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """
 Dummy extent reader that returns a huge extent list
 """
 
-from __future__ import print_function
 import json
 import sys
 

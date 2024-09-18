@@ -1256,6 +1256,9 @@ let _ =
     () ;
   error Api_errors.sr_is_cache_sr ["host"]
     ~doc:"The SR is currently being used as a local cache SR." () ;
+  error Api_errors.sr_unhealthy ["sr"; "health"; "fix"]
+    ~doc:"The SR is currently unhealthy. See the suggestion on how to fix it."
+    () ;
   error Api_errors.clustered_sr_degraded ["sr"]
     ~doc:
       "An SR is using clustered local storage. It is not safe to reboot a host \

@@ -682,7 +682,7 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
           ~current_operations:[] ~allowed_operations:[]
           ~is_a_snapshot:vdi.is_a_snapshot
           ~snapshot_of:(find_vdi db_vdi_map vdi.snapshot_of)
-          ~snapshot_time:(Date.of_string vdi.snapshot_time)
+          ~snapshot_time:(Date.of_iso8601 vdi.snapshot_time)
           ~sR:sr ~virtual_size:vdi.virtual_size
           ~physical_utilisation:vdi.physical_utilisation
           ~_type:(try Storage_utils.vdi_type_of_string vdi.ty with _ -> `user)
@@ -735,10 +735,10 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
         debug "%s is_a_snapshot <- %b" (Ref.string_of r) vi.is_a_snapshot ;
         Db.VDI.set_is_a_snapshot ~__context ~self:r ~value:vi.is_a_snapshot
       ) ;
-      if v.API.vDI_snapshot_time <> Date.of_string vi.snapshot_time then (
+      if v.API.vDI_snapshot_time <> Date.of_iso8601 vi.snapshot_time then (
         debug "%s snapshot_time <- %s" (Ref.string_of r) vi.snapshot_time ;
         Db.VDI.set_snapshot_time ~__context ~self:r
-          ~value:(Date.of_string vi.snapshot_time)
+          ~value:(Date.of_iso8601 vi.snapshot_time)
       ) ;
       let snapshot_of = find_vdi db_vdi_map vi.snapshot_of in
       if v.API.vDI_snapshot_of <> snapshot_of then (
@@ -787,8 +787,8 @@ let scan ~__context ~sr =
   SRScanThrottle.execute (fun () ->
       transform_storage_exn (fun () ->
           let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-          let vs =
-            C.SR.scan (Ref.string_of task)
+          let vs, sr_info =
+            C.SR.scan2 (Ref.string_of task)
               (Storage_interface.Sr.of_string sr_uuid)
           in
           let db_vdis =
@@ -796,10 +796,6 @@ let scan ~__context ~sr =
               ~expr:(Eq (Field "SR", Literal sr'))
           in
           update_vdis ~__context ~sr db_vdis vs ;
-          let sr_info =
-            C.SR.stat (Ref.string_of task)
-              (Storage_interface.Sr.of_string sr_uuid)
-          in
           let virtual_allocation =
             List.fold_left Int64.add 0L
               (List.map (fun v -> v.Storage_interface.virtual_size) vs)

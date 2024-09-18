@@ -99,7 +99,7 @@ let check_written_sectors t expected =
         | false ->
             fail (Failure "read empty sector, expected data")
         | true ->
-            Alcotest.check cstruct __LOC__ data y ;
+            Alcotest.check cstruct ~pos:__POS__ "" data y ;
             return ()
         )
         >>= fun () -> loop xs
@@ -139,10 +139,10 @@ let check_raw_stream_contents t expected =
               let actual = Cstruct.sub data (i * 512) 512 in
 
               ( if not (List.mem_assoc sector expected) then
-                  Alcotest.check cstruct __LOC__ empty_sector actual
+                  Alcotest.check cstruct ~pos:__POS__ "" empty_sector actual
                 else
                   let expected = List.assoc sector expected in
-                  Alcotest.check cstruct __LOC__ expected actual
+                  Alcotest.check cstruct ~pos:__POS__ "" expected actual
               ) ;
               check (i + 1)
           in
@@ -163,7 +163,7 @@ let check_raw_stream_contents t expected =
             else
               let expected = List.assoc offset expected in
               let actual = Cstruct.sub remaining 0 F.sector_size in
-              Alcotest.check cstruct __LOC__ expected actual ;
+              Alcotest.check cstruct ~pos:__POS__ "" expected actual ;
               loop Int64.(add offset 1L) (Cstruct.shift remaining F.sector_size)
           in
           loop offset data

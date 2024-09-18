@@ -14,7 +14,7 @@
 
 open Expiry_alert
 
-let date_of = Xapi_stdext_date.Date.of_string
+let date_of = Xapi_stdext_date.Date.of_iso8601
 
 let test_expired = ("TEST_EXPIRED", 1L)
 

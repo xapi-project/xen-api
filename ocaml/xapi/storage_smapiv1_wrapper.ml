@@ -90,7 +90,7 @@ let host_state_path = ref "/var/run/nonpersistent/xapi/storage.db"
 
 let indent x = "    " ^ x
 
-let string_of_date x = Date.to_string (Date.of_float x)
+let string_of_date x = Date.to_rfc3339 (Date.of_unix_time x)
 
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~with_thread:true ~module_name:"SMAPIv1-Wrapper" ~name
@@ -1208,6 +1208,20 @@ functor
                 raise (Storage_error (Sr_not_attached (s_of_sr sr)))
             | Some _ ->
                 Impl.SR.scan context ~dbg ~sr
+        )
+
+      let scan2 context ~dbg ~sr =
+        with_dbg ~name:"SR.scan2" ~dbg @@ fun di ->
+        info "SR.scan2 dbg:%s sr:%s" di.log (s_of_sr sr) ;
+        let dbg = Debug_info.to_string di in
+        with_sr sr (fun () ->
+            match Host.find sr !Host.host with
+            | None ->
+                raise (Storage_error (Sr_not_attached (s_of_sr sr)))
+            | Some _ ->
+                let vs = Impl.SR.scan context ~dbg ~sr in
+                let sr_info = Impl.SR.stat context ~dbg ~sr in
+                (vs, sr_info)
         )
 
       let create context ~dbg ~sr ~name_label ~name_description ~device_config

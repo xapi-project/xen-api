@@ -68,6 +68,14 @@ let domain =
     ~description:["An opaque string which represents the Xen domain."]
     domain
 
+(** Path to a UNIX domain socket *)
+type sock_path = string [@@deriving rpcty]
+
+let sock_path =
+  Param.mk ~name:"sock_path"
+    ~description:["A path to a UNIX domain socket in the filesystem."]
+    sock_path
+
 open Idl
 
 module Datapath (R : RPC) = struct
@@ -131,6 +139,23 @@ module Datapath (R : RPC) = struct
       ; "is interchangeable with activate."
       ]
       (dbg @-> uri_p @-> domain @-> returning unit error)
+
+  let import_activate =
+    declare "import_activate"
+      [
+        "[import_activate uri domain] prepares a connection to the "
+      ; " storage named by [uri] for use by inbound import mirroring, "
+      ; "the [domain] parameter identifies which domain to connect to, "
+      ; "most likely 0 or a custom storage domain. The return value is a "
+      ; "path to a UNIX domain socket to which an open file descriptor "
+      ; "may be passed, by SCM_RIGHTS. This, in turn, will become "
+      ; "the server end of a Network Block Device (NBD) connection "
+      ; "using, new-fixed protocol. Implementations shall declare the "
+      ; "VDI_MIRROR_IN feature for this method to be supported. It is "
+      ; "expected that activate will have been previously called so that "
+      ; "there is an active datapath."
+      ]
+      (dbg @-> uri_p @-> domain @-> returning sock_path error)
 
   let deactivate =
     declare "deactivate"

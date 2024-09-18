@@ -48,7 +48,9 @@ let all = List.map of_string Constants.observer_components_all
    This does mean that observer will always be enabled for clusterd. *)
 let startup_components () =
   List.filter
-    (function Xapi_clusterd -> !Xapi_clustering.Daemon.enabled | _ -> true)
+    (function
+      | Xapi_clusterd -> Xapi_clustering.Daemon.is_enabled () | _ -> true
+      )
     all
 
 let assert_valid_components components =

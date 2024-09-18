@@ -68,6 +68,8 @@ module SR = struct
 
   let scan ctx ~dbg ~sr = u "SR.scan"
 
+  let scan2 ctx ~dbg ~sr = u "SR.scan2"
+
   let update_snapshot_info_src ctx ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
       ~snapshot_pairs =
     u "SR.update_snapshot_info_src"

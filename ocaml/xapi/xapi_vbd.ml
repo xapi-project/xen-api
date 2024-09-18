@@ -260,7 +260,7 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
           let metrics = Ref.make ()
           and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
           Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-            ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
+            ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:Date.epoch
             ~other_config:[] ;
           (* Enable the SM driver to specify a VBD backend kind for the VDI *)
           let other_config =
@@ -310,10 +310,16 @@ let assert_not_suspended ~__context ~vm =
   if Db.VM.get_power_state ~__context ~self:vm = `Suspended then
     let expected =
       String.concat ", "
-        (List.map Record_util.power_to_string [`Halted; `Running])
+        (List.map Record_util.vm_power_state_to_lowercase_string
+           [`Halted; `Running]
+        )
     in
     let error_params =
-      [Ref.string_of vm; expected; Record_util.power_to_string `Suspended]
+      [
+        Ref.string_of vm
+      ; expected
+      ; Record_util.vm_power_state_to_lowercase_string `Suspended
+      ]
     in
     raise (Api_errors.Server_error (Api_errors.vm_bad_power_state, error_params))
 

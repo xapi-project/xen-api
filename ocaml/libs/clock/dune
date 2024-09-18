@@ -8,6 +8,7 @@
     mtime.clock.os
     (re_export ptime)
     ptime.clock.os
+    xapi-log
   )
 )
 

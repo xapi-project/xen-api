@@ -133,10 +133,13 @@ let test_2_way_convert =
     let original = of_disk_number hvm disk_number |> Option.get in
     let of_linux = of_linux_device (to_linux_device original) |> Option.get in
     let of_xenstore = of_xenstore_key (to_xenstore_key original) in
-    Alcotest.check device_number_equal_linux
-      "of_linux must be equal to original" original of_linux ;
-    Alcotest.check device_number "of_xenstore must be equal to original"
-      original of_xenstore
+    (* use ~pos instead of msg: a non-empty msg causes the formatter to be flushed,
+       and messages printed on stdout, which is very slow if we do this in a loop a million times
+    *)
+    Alcotest.check' ~pos:__POS__ ~msg:"" device_number_equal_linux
+      ~expected:original ~actual:of_linux ;
+    Alcotest.check' ~pos:__POS__ ~msg:"" device_number ~expected:original
+      ~actual:of_xenstore
   in
 
   let max_d = (1 lsl 20) - 1 in

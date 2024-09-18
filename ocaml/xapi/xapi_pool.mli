@@ -397,7 +397,7 @@ val set_https_only :
 val set_telemetry_next_collection :
      __context:Context.t
   -> self:API.ref_pool
-  -> value:Xapi_stdext_date.Date.iso8601
+  -> value:Xapi_stdext_date.Date.t
   -> unit
 
 val reset_telemetry_uuid : __context:Context.t -> self:API.ref_pool -> unit

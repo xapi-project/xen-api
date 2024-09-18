@@ -86,7 +86,7 @@ let vdi_info_of_vdi_rec __context vdi_rec =
   ; ty= Storage_utils.string_of_vdi_type vdi_rec.API.vDI_type
   ; metadata_of_pool= Ref.string_of vdi_rec.API.vDI_metadata_of_pool
   ; is_a_snapshot= vdi_rec.API.vDI_is_a_snapshot
-  ; snapshot_time= Date.to_string vdi_rec.API.vDI_snapshot_time
+  ; snapshot_time= Date.to_rfc3339 vdi_rec.API.vDI_snapshot_time
   ; snapshot_of=
       ( if Db.is_valid_ref __context vdi_rec.API.vDI_snapshot_of then
           Db.VDI.get_uuid ~__context ~self:vdi_rec.API.vDI_snapshot_of
@@ -146,7 +146,7 @@ module SMAPIv1 : Server_impl = struct
     Server_helpers.exec_with_new_task "VDI.set_snapshot_time"
       ~subtask_of:(Ref.of_string dbg) (fun __context ->
         let vdi, _ = find_vdi ~__context sr vdi in
-        let snapshot_time = Date.of_string snapshot_time in
+        let snapshot_time = Date.of_iso8601 snapshot_time in
         Db.VDI.set_snapshot_time ~__context ~self:vdi ~value:snapshot_time
     )
 
@@ -761,7 +761,7 @@ module SMAPIv1 : Server_impl = struct
                   (Db.VDI.get_other_config ~__context ~self:clonee)
               with _ -> Uuidx.(to_string (make ()))
             in
-            let snapshot_time = Date.of_float (Unix.gettimeofday ()) in
+            let snapshot_time = Date.now () in
             Db.VDI.set_name_label ~__context ~self ~value:vdi_info.name_label ;
             Db.VDI.set_name_description ~__context ~self
               ~value:vdi_info.name_description ;

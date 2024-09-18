@@ -6,6 +6,7 @@ on:
   schedule:
     # run daily, this refreshes the cache
     - cron: "13 2 * * *"
+  merge_group:
 
 concurrency: # On new push, cancel old workflows from the same PR, branch or tag:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["2.7", "3.11"]
+        python-version: ["3.11"]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -39,47 +40,10 @@ jobs:
 
       - uses: pre-commit/action@v3.0.1
         name: Run pre-commit checks (no spaces at end of lines, etc)
-        if: ${{ matrix.python-version != '2.7' }}
         with:
           extra_args: --all-files --verbose --hook-stage commit
         env:
           SKIP: no-commit-to-branch
-
-      - name: Install dependencies only needed for python 2
-        if: ${{ matrix.python-version == '2.7' }}
-        run: pip install enum
-
-      - name: Install dependencies only needed for python 3
-        if: ${{ matrix.python-version != '2.7' }}
-        run: pip install opentelemetry-api opentelemetry-exporter-zipkin-json opentelemetry-sdk pandas pytype toml wrapt
-
-      - name: Install common dependencies for Python ${{matrix.python-version}}
-        run: pip install future mock pytest-coverage pytest-mock
-
-      - name: Run Pytest for python 2 and get code coverage
-        if: ${{ matrix.python-version == '2.7' }}
-        run: >
-          pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd
-          scripts/ ocaml/xcp-rrdd -vv -rA
-          --junitxml=.git/pytest${{matrix.python-version}}.xml
-          --cov-report term-missing
-          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
-        env:
-          PYTHONDEVMODE: yes
-
-      - name: Run Pytest for python 3 and get code coverage
-        if: ${{ matrix.python-version != '2.7' }}
-        run: >
-          pytest
-          --cov=scripts --cov=ocaml/xcp-rrdd --cov=python3/
-          scripts/ ocaml/xcp-rrdd python3/ -vv -rA
-          --junitxml=.git/pytest${{matrix.python-version}}.xml
-          --cov-report term-missing
-          --cov-report xml:.git/coverage${{matrix.python-version}}.xml
-        env:
-          PYTHONDEVMODE: yes
-          PYTHONPATH: "python3:python3/tests/stubs"
 
       - name: Upload coverage report to Coveralls
         uses: coverallsapp/github-action@v2
@@ -90,7 +54,6 @@ jobs:
           parallel: true
 
       - uses: dciborow/action-pylint@0.1.0
-        if: ${{ matrix.python-version != '2.7' }}
         with:
           reporter: github-pr-review
           level: warning
@@ -99,8 +62,7 @@ jobs:
         continue-on-error: true
 
       - name: Run pytype checks
-        if: ${{ matrix.python-version != '2.7' }}
-        run: ./pytype_reporter.py
+        run: pip install pandas pytype toml && ./pytype_reporter.py
         env:
           PR_NUMBER: ${{ github.event.number }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,5 +1,5 @@
 PREFIX?=/usr
-PYTHON?=python2
+PYTHON?=python3
 
 .PHONY: build release clean install uninstall
 

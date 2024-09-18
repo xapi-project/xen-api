@@ -40,11 +40,9 @@ endif
 
 CFLAGS = -g -Iinclude \
          $(shell xml2-config --cflags) \
-         $(shell curl-config --cflags) \
          -W -Wall -Wmissing-prototypes -Werror -std=c99 $(POS_FLAG)
 
 LDFLAGS = -g $(shell xml2-config --libs) \
-             $(shell curl-config --libs) \
           -Wl,-rpath,$(shell pwd) $(CYGWIN_LIBXML)
 
 # -h for Solaris

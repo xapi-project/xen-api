@@ -25,3 +25,5 @@
     xapi-rrd
   )
 )
+
+(data_only_dirs test_data)

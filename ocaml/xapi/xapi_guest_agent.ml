@@ -68,6 +68,10 @@ let os_version =
     ("attr/os/spminor", "spminor") (* windows *)
   ]
 
+let netbios_name = [("data/host_name_dns", "host_name")]
+
+let dns_domain = [("data/domain", "dns_domain")]
+
 let memory = [("data/meminfo_free", "free"); ("data/meminfo_total", "total")]
 
 let device_id = [("data/device_id", "device_id")]
@@ -215,6 +219,7 @@ type m = (string * string) list
 type guest_metrics_t = {
     pv_drivers_version: m
   ; os_version: m
+  ; netbios_name: m
   ; networks: m
   ; other: m
   ; memory: m
@@ -269,6 +274,14 @@ let get_initial_guest_metrics (lookup : string -> string option)
   in
   let pv_drivers_version = to_map pv_drivers_version
   and os_version = to_map os_version
+  and netbios_name =
+    match to_map dns_domain with
+    | [] ->
+        to_map netbios_name
+    | (_, dns_domain) :: _ ->
+        List.map
+          (fun (k, v) -> (k, Printf.sprintf "%s.%s" v dns_domain))
+          (to_map netbios_name)
   and device_id = to_map device_id
   and networks =
     to_map
@@ -294,6 +307,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
   {
     pv_drivers_version
   ; os_version
+  ; netbios_name
   ; networks
   ; other
   ; memory
@@ -311,11 +325,11 @@ let create_and_set_guest_metrics (lookup : string -> string option)
   let new_gm_uuid = Uuidx.to_string (Uuidx.make ())
   and new_gm_ref = Ref.make () in
   Db.VM_guest_metrics.create ~__context ~ref:new_gm_ref ~uuid:new_gm_uuid
-    ~os_version:initial_gm.os_version
+    ~os_version:initial_gm.os_version ~netbios_name:initial_gm.netbios_name
     ~pV_drivers_version:initial_gm.pv_drivers_version
     ~pV_drivers_up_to_date:pV_drivers_detected ~memory:[] ~disks:[]
     ~networks:initial_gm.networks ~pV_drivers_detected ~other:initial_gm.other
-    ~last_updated:(Date.of_float initial_gm.last_updated)
+    ~last_updated:(Date.of_unix_time initial_gm.last_updated)
     ~other_config:[] ~live:true
     ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
     ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ;
@@ -339,6 +353,7 @@ let all (lookup : string -> string option) (list : string -> string list)
   let {
     pv_drivers_version
   ; os_version
+  ; netbios_name
   ; networks
   ; other
   ; memory
@@ -372,6 +387,7 @@ let all (lookup : string -> string option) (list : string -> string list)
             {
               pv_drivers_version= []
             ; os_version= []
+            ; netbios_name= []
             ; networks= []
             ; other= []
             ; memory= []
@@ -388,6 +404,7 @@ let all (lookup : string -> string option) (list : string -> string list)
         {
           pv_drivers_version
         ; os_version
+        ; netbios_name
         ; networks
         ; other
         ; memory
@@ -401,6 +418,7 @@ let all (lookup : string -> string option) (list : string -> string list)
   if
     (guest_metrics_cached.pv_drivers_version <> pv_drivers_version
     || guest_metrics_cached.os_version <> os_version
+    || guest_metrics_cached.netbios_name <> netbios_name
     || guest_metrics_cached.networks <> networks
     || guest_metrics_cached.other <> other
     || guest_metrics_cached.device_id <> device_id
@@ -431,6 +449,9 @@ let all (lookup : string -> string option) (list : string -> string list)
         ~value:pv_drivers_version ;
     if guest_metrics_cached.os_version <> os_version then
       Db.VM_guest_metrics.set_os_version ~__context ~self:gm ~value:os_version ;
+    if guest_metrics_cached.netbios_name <> netbios_name then
+      Db.VM_guest_metrics.set_netbios_name ~__context ~self:gm
+        ~value:netbios_name ;
     if guest_metrics_cached.networks <> networks then
       Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks ;
     if guest_metrics_cached.other <> other then (
@@ -448,7 +469,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     (* if(guest_metrics_cached.memory <> memory) then
          Db.VM_guest_metrics.set_memory ~__context ~self:gm ~value:memory; *)
     Db.VM_guest_metrics.set_last_updated ~__context ~self:gm
-      ~value:(Date.of_float last_updated) ;
+      ~value:(Date.of_unix_time last_updated) ;
     if guest_metrics_cached.device_id <> device_id then
       if List.mem_assoc Xapi_globs.device_id_key_name device_id then (
         let value = List.assoc Xapi_globs.device_id_key_name device_id in

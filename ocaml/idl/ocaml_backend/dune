@@ -11,3 +11,4 @@
   )
 )
 
+(data_only_dirs python)

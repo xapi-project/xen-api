@@ -57,4 +57,6 @@ let _ =
     ~specific_nonessential_paths:Xc_resources.nonessentials () ;
   check_domain0_uuid () ;
   make_var_run_xen () ;
+  let reporter = Mem_stats.start () in
+  at_exit (fun () -> Mem_stats.stop reporter) ;
   Xenopsd.main (module Xenops_server_xen : Xenops_server_plugin.S)

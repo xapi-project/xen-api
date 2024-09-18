@@ -950,7 +950,26 @@ static void parse_into(xen_session *s, xmlNode *value_node,
         {
             struct tm tm;
             memset(&tm, 0, sizeof(tm));
-            strptime((char *)string, "%Y%m%dT%H:%M:%S", &tm);
+            // We only support basic ISO8601 since the C SDK only
+            // connects to the XML-RPC backend
+            char *formats[] = {
+                // no dashes, no colons
+                "%Y%m%dT%H%M%S",
+                // no dashes, with colons
+                "%Y%m%dT%H:%M:%S",
+                // dashes and colons
+                "%Y-%m-%dT%H:%M:%S",
+            };
+            int num_formats = sizeof(formats) / sizeof(formats[0]);
+
+            for (int i = 0; i < num_formats; i++)
+            {
+                if (strptime((char *)string, formats[i], &tm) != NULL)
+                {
+                    break;
+                }
+            }
+
             ((time_t *)value)[slot] = (time_t)mktime(&tm);
             free(string);
         }

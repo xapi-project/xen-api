@@ -261,6 +261,7 @@ let destroy_op ~__context ~self ~force =
           ) ;
           Db.Cluster_host.destroy ~__context ~self ;
           debug "Cluster_host.%s was successful" fn_str ;
+          Xapi_clustering.Watcher.signal_exit () ;
           Xapi_clustering.Daemon.disable ~__context
       | Error error ->
           warn "Error occurred during Cluster_host.%s" fn_str ;
@@ -361,7 +362,7 @@ let enable ~__context ~self =
       in
 
       (* TODO: Pass these through from CLI *)
-      if not !Xapi_clustering.Daemon.enabled then (
+      if not (Xapi_clustering.Daemon.is_enabled ()) then (
         D.debug
           "Cluster_host.enable: xapi-clusterd not running - attempting to start" ;
         Xapi_clustering.Daemon.enable ~__context

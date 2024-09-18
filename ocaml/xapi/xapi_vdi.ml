@@ -247,7 +247,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
         if blocked_by_attach then
           Some
             ( Api_errors.vdi_in_use
-            , [_ref; Record_util.vdi_operation_to_string op]
+            , [_ref; Record_util.vdi_operations_to_string op]
             )
         else if
           (* data_destroy first waits for all the VBDs to disappear in its
@@ -961,7 +961,7 @@ let wait_for_vbds_to_be_unplugged_and_destroyed ~__context ~self ~timeout =
          ( Api_errors.vdi_in_use
          , [
              Ref.string_of self
-           ; Record_util.vdi_operation_to_string `data_destroy
+           ; Record_util.vdi_operations_to_string `data_destroy
            ]
          )
       )

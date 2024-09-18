@@ -701,70 +701,10 @@ let list_compact () =
 let list copts =
   diagnose_error (if copts.Common.verbose then list_verbose else list_compact)
 
-type t = Line of string | Block of t list
-
-let pp x =
-  let open Rpc in
-  let rec to_string_list = function
-    | Line x ->
-        [x]
-    | Block xs ->
-        let xs' = List.map to_string_list xs |> List.concat in
-        List.map (fun x -> "    " ^ x) xs'
-  in
-  let flatten xs =
-    let rec aux line = function
-      | Line x :: xs ->
-          aux (if line <> "" then line ^ " " ^ x else x) xs
-      | Block x :: xs ->
-          (if line <> "" then [Line line] else [])
-          @ [Block (aux "" x)]
-          @ aux "" xs
-      | [] ->
-          if line <> "" then [Line line] else []
-    in
-    aux "" xs
-  in
-  let rec to_t = function
-    | Int32 x ->
-        [Line (Printf.sprintf "%d" (Int32.to_int x))]
-    | Int x ->
-        [Line (Printf.sprintf "%Ld" x)]
-    | Bool x ->
-        [Line (Printf.sprintf "%b" x)]
-    | Float x ->
-        [Line (Printf.sprintf "%g" x)]
-    | String x ->
-        [Line x]
-    | DateTime x ->
-        [Line x]
-    | Enum [] ->
-        [Line "[]"]
-    | Enum xs ->
-        [Line "["; Block (List.concat (List.map to_t xs)); Line "]"]
-    | Dict [] ->
-        [Line "{}"]
-    | Dict xs ->
-        [
-          Line "{"
-        ; Block
-            (List.concat (List.map (fun (s, t) -> Line (s ^ ": ") :: to_t t) xs))
-        ; Line "}"
-        ]
-    | Base64 x ->
-        [Line x]
-    | Null ->
-        []
-  in
-  x
-  |> to_t
-  |> flatten
-  |> List.map to_string_list
-  |> List.concat
-  |> List.iter (Printf.printf "%s\n")
-
 let diagnostics' () =
-  Client.get_diagnostics dbg () |> Jsonrpc.of_string |> pp ;
+  Client.get_diagnostics dbg ()
+  |> Yojson.Safe.prettify ~std:true
+  |> print_endline ;
   `Ok ()
 
 let stat_vm _ id =

@@ -1,9 +1,9 @@
 module Date : sig
   include module type of Xapi_stdext_date.Date
 
-  val iso8601_of_rpc : Rpc.t -> Xapi_stdext_date.Date.iso8601
+  val t_of_rpc : Rpc.t -> Xapi_stdext_date.Date.t
 
-  val rpc_of_iso8601 : Xapi_stdext_date.Date.iso8601 -> Rpc.t
+  val rpc_of_t : Xapi_stdext_date.Date.t -> Rpc.t
 end
 
 val oss_since_303 : string option
@@ -115,7 +115,7 @@ type api_value =
   | VInt of int64
   | VFloat of float
   | VBool of bool
-  | VDateTime of Date.iso8601
+  | VDateTime of Date.t
   | VEnum of string
   | VMap of (api_value * api_value) list
   | VSet of api_value list

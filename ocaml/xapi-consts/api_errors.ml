@@ -512,6 +512,8 @@ let sr_requires_upgrade = add_error "SR_REQUIRES_UPGRADE"
 
 let sr_is_cache_sr = add_error "SR_IS_CACHE_SR"
 
+let sr_unhealthy = add_error "SR_UNHEALTHY"
+
 let vdi_in_use = add_error "VDI_IN_USE"
 
 let vdi_is_sharable = add_error "VDI_IS_SHARABLE"

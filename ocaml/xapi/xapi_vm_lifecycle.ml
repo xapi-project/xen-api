@@ -262,9 +262,10 @@ let check_snapshot ~vmr:_ ~op ~ref_str =
 let report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str =
   let expected = allowed_power_states ~__context ~vmr ~op in
   let expected =
-    String.concat ", " (List.map Record_util.power_to_string expected)
+    String.concat ", "
+      (List.map Record_util.vm_power_state_to_lowercase_string expected)
   in
-  let actual = Record_util.power_to_string power_state in
+  let actual = Record_util.vm_power_state_to_lowercase_string power_state in
   Some (Api_errors.vm_bad_power_state, [ref_str; expected; actual])
 
 let report_concurrent_operations_error ~current_ops ~ref_str =
@@ -972,8 +973,9 @@ let assert_initial_power_state_in ~__context ~self ~allowed =
          ( Api_errors.vm_bad_power_state
          , [
              Ref.string_of self
-           ; List.map Record_util.power_to_string allowed |> String.concat ";"
-           ; Record_util.power_to_string actual
+           ; List.map Record_util.vm_power_state_to_lowercase_string allowed
+             |> String.concat ";"
+           ; Record_util.vm_power_state_to_lowercase_string actual
            ]
          )
       )
@@ -992,8 +994,9 @@ let assert_final_power_state_in ~__context ~self ~allowed =
          , [
              "VM not in expected power state after completing operation"
            ; Ref.string_of self
-           ; List.map Record_util.power_to_string allowed |> String.concat ";"
-           ; Record_util.power_to_string actual
+           ; List.map Record_util.vm_power_state_to_lowercase_string allowed
+             |> String.concat ";"
+           ; Record_util.vm_power_state_to_lowercase_string actual
            ]
          )
       )

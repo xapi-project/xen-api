@@ -24,8 +24,7 @@ val disk_snapshot_type : string
 val quiesced : string
 
 val snapshot_info :
-     power_state:
-       [< `Halted | `Migrating | `Paused | `Running | `ShuttingDown | `Suspended]
+     power_state:[< `Halted | `Paused | `Running | `Suspended]
   -> is_a_snapshot:bool
   -> (string * string) list
 

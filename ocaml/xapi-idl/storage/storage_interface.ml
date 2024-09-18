@@ -206,8 +206,7 @@ type vdi_info = {
   ; (* sm_config: workaround via XenAPI *)
     metadata_of_pool: string [@default ""]
   ; is_a_snapshot: bool [@default false]
-  ; snapshot_time: string
-        [@default Xapi_stdext_date.Date.to_string Xapi_stdext_date.Date.never]
+  ; snapshot_time: string [@default Xapi_stdext_date.Date.(to_rfc3339 epoch)]
   ; snapshot_of: Vdi.t [@default Vdi.of_string ""]
   ; (* managed: workaround via XenAPI *)
     read_only: bool [@default false]
@@ -233,7 +232,7 @@ let default_vdi_info =
       failwith (Printf.sprintf "Error creating default_vdi_info: %s" m)
 
 type sr_health = Healthy | Recovering | Unreachable | Unavailable
-[@@deriving rpcty]
+[@@deriving rpcty, show {with_path= false}]
 
 type sr_info = {
     sr_uuid: string option
@@ -354,6 +353,7 @@ module Errors = struct
     | Cancelled of string
     | Redirect of string option
     | Sr_attached of string
+    | Sr_unhealthy of string * sr_health
     | Unimplemented of string
     | Activated_on_another_host of uuid
     | Duplicated_key of string
@@ -617,11 +617,23 @@ module StorageAPI (R : RPC) = struct
     let destroy =
       declare "SR.destroy" [] (dbg_p @-> sr_p @-> returning unit_p err)
 
-    (** [scan task sr] returns a list of VDIs contained within an attached SR *)
+    (** [scan task sr] returns a list of VDIs contained within an attached SR.
+    @deprecated This function is deprecated, and is only here to keep backward 
+    compatibility with old xapis that call Remote.SR.scan during SXM. 
+    Use the scan2 function instead. 
+    *)
     let scan =
       let open TypeCombinators in
       let result = Param.mk ~name:"result" (list vdi_info) in
       declare "SR.scan" [] (dbg_p @-> sr_p @-> returning result err)
+
+    (** [scan2 task sr] returns a list of VDIs contained within an attached SR,
+    as well as the sr_info of the scanned [sr]. This operation is implemented as
+    a combination of scan and stats. *)
+    let scan2 =
+      let open TypeCombinators in
+      let result = Param.mk ~name:"result" (pair (list vdi_info, sr_info)) in
+      declare "SR.scan2" [] (dbg_p @-> sr_p @-> returning result err)
 
     (** [update_snapshot_info_src sr vdi url dest dest_vdi snapshot_pairs] *
         updates the fields is_a_snapshot, snapshot_time and snapshot_of for a *
@@ -1160,6 +1172,8 @@ module type Server_impl = sig
 
     val scan : context -> dbg:debug_info -> sr:sr -> vdi_info list
 
+    val scan2 : context -> dbg:debug_info -> sr:sr -> vdi_info list * sr_info
+
     val update_snapshot_info_src :
          context
       -> dbg:debug_info
@@ -1449,6 +1463,7 @@ module Server (Impl : Server_impl) () = struct
     S.SR.reset (fun dbg sr -> Impl.SR.reset () ~dbg ~sr) ;
     S.SR.destroy (fun dbg sr -> Impl.SR.destroy () ~dbg ~sr) ;
     S.SR.scan (fun dbg sr -> Impl.SR.scan () ~dbg ~sr) ;
+    S.SR.scan2 (fun dbg sr -> Impl.SR.scan2 () ~dbg ~sr) ;
     S.SR.update_snapshot_info_src
       (fun dbg sr vdi url dest dest_vdi snapshot_pairs verify_dest ->
         Impl.SR.update_snapshot_info_src () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi

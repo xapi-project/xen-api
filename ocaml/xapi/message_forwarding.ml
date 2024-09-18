@@ -743,6 +743,7 @@ functor
       let start ~__context ~self ~paused =
         info "VM_appliance.start: VM_appliance = '%s'"
           (vm_appliance_uuid ~__context self) ;
+        Pool_features.assert_enabled ~__context ~f:Features.VM_appliance_start ;
         with_vm_appliance_operation ~__context ~self ~doc:"VM_appliance.start"
           ~op:`start (fun () ->
             Local.VM_appliance.start ~__context ~self ~paused
@@ -1130,7 +1131,7 @@ functor
       let set_telemetry_next_collection ~__context ~self ~value =
         info "%s: pool='%s' value='%s'" __FUNCTION__
           (pool_uuid ~__context self)
-          (Xapi_stdext_date.Date.to_string value) ;
+          (Xapi_stdext_date.Date.to_rfc3339 value) ;
         Local.Pool.set_telemetry_next_collection ~__context ~self ~value
 
       let reset_telemetry_uuid ~__context ~self =
@@ -1854,6 +1855,7 @@ functor
 
       let start ~__context ~vm ~start_paused ~force =
         info "VM.start: VM = '%s'" (vm_uuid ~__context vm) ;
+        Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         let local_fn = Local.VM.start ~vm ~start_paused ~force in
         let host =
@@ -2914,6 +2916,8 @@ functor
         info "VM.assert_can_boot_here: VM = '%s'; host = '%s'"
           (vm_uuid ~__context self)
           (host_uuid ~__context host) ;
+        if Db.VM.get_power_state ~__context ~self = `Halted then
+          Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Local.VM.assert_can_boot_here ~__context ~self ~host
 
       let retrieve_wlb_recommendations ~__context ~vm =
@@ -3093,6 +3097,23 @@ functor
       let get_secureboot_readiness ~__context ~self =
         info "VM.get_secureboot_readiness: self = '%s'" (vm_uuid ~__context self) ;
         Local.VM.get_secureboot_readiness ~__context ~self
+
+      let set_blocked_operations ~__context ~self ~value =
+        info "VM.set_blocked_operations: self = '%s'" (vm_uuid ~__context self) ;
+        Local.VM.set_blocked_operations ~__context ~self ~value ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+
+      let add_to_blocked_operations ~__context ~self ~key ~value =
+        info "VM.add_to_blocked_operations: self = '%s'"
+          (vm_uuid ~__context self) ;
+        Local.VM.add_to_blocked_operations ~__context ~self ~key ~value ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+
+      let remove_from_blocked_operations ~__context ~self ~key =
+        info "VM.remove_from_blocked_operations: self = '%s'"
+          (vm_uuid ~__context self) ;
+        Local.VM.remove_from_blocked_operations ~__context ~self ~key ;
+        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
     end
 
     module VM_metrics = struct end
@@ -4364,7 +4385,7 @@ functor
 
       let unplug_common ~__context ~self ~force =
         let op = `unplug in
-        let name = "VIF." ^ Record_util.vif_operation_to_string op in
+        let name = "VIF." ^ Record_util.vif_operations_to_string op in
         info "%s: VIF = '%s'" name (vif_uuid ~__context self) ;
         let local_fn, remote_fn =
           if force then
@@ -6200,7 +6221,7 @@ functor
     module SDN_controller = struct
       let introduce ~__context ~protocol ~address ~port =
         info "SDN_controller.introduce: protocol='%s', address='%s', port='%Ld'"
-          (Record_util.sdn_protocol_to_string protocol)
+          (Record_util.sdn_controller_protocol_to_string protocol)
           address port ;
         Local.SDN_controller.introduce ~__context ~protocol ~address ~port
 

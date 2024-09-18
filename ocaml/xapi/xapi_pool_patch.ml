@@ -140,7 +140,7 @@ let get_patch_applied_to ~__context ~patch ~host =
 
 let write_patch_applied_db ~__context ?date ?(applied = true) ~self ~host () =
   let date =
-    Xapi_stdext_date.Date.of_float
+    Xapi_stdext_date.Date.of_unix_time
       (match date with Some d -> d | None -> Unix.gettimeofday ())
   in
   match get_patch_applied_to ~__context ~patch:self ~host with

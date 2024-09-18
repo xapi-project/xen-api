@@ -76,7 +76,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   ( if current_ops <> [] then
       let concurrent_op = List.hd current_ops in
       set_errors Api_errors.other_operation_in_progress
-        ["VBD"; _ref; vbd_operation_to_string concurrent_op]
+        ["VBD"; _ref; vbd_operations_to_string concurrent_op]
         (Listext.List.set_difference all_ops safe_to_parallelise)
   ) ;
   (* If not all operations are parallisable then preclude pause *)
@@ -88,7 +88,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
      parallelisable operations too *)
   if not all_are_parallelisable then
     set_errors Api_errors.other_operation_in_progress
-      ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
+      ["VBD"; _ref; vbd_operations_to_string (List.hd current_ops)]
       [`pause] ;
   (* If something other than `pause `unpause *and* `attach (for VM.reboot, see CA-24282) then disallow unpause *)
   if
@@ -96,7 +96,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
     <> []
   then
     set_errors Api_errors.other_operation_in_progress
-      ["VBD"; _ref; vbd_operation_to_string (List.hd current_ops)]
+      ["VBD"; _ref; vbd_operations_to_string (List.hd current_ops)]
       [`unpause] ;
   (* Drives marked as not unpluggable cannot be unplugged *)
   if not record.Db_actions.vBD_unpluggable then
@@ -122,8 +122,8 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       set_errors Api_errors.device_already_detached [_ref]
         [`unplug; `unplug_force]
   | _, _ ->
-      let actual = Record_util.power_to_string power_state in
-      let expected = Record_util.power_to_string `Running in
+      let actual = Record_util.vm_power_state_to_lowercase_string power_state in
+      let expected = Record_util.vm_power_state_to_lowercase_string `Running in
       (* If not Running, always block these operations: *)
       let bad_ops = [`plug; `unplug; `unplug_force] in
       (* However allow VBD pause and unpause if the VM is paused: *)
@@ -199,10 +199,16 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   ( if record.Db_actions.vBD_type = `CD && power_state = `Suspended then
       let expected =
         String.concat ", "
-          (List.map Record_util.power_to_string [`Halted; `Running])
+          (List.map Record_util.vm_power_state_to_lowercase_string
+             [`Halted; `Running]
+          )
       in
       let error_params =
-        [Ref.string_of vm; expected; Record_util.power_to_string `Suspended]
+        [
+          Ref.string_of vm
+        ; expected
+        ; Record_util.vm_power_state_to_lowercase_string `Suspended
+        ]
       in
       set_errors Api_errors.vm_bad_power_state error_params [`insert; `eject]
     (* `attach required for resume *)
@@ -229,7 +235,7 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
           snd (List.hd vdi_record.Db_actions.vDI_current_operations)
         in
         set_errors Api_errors.other_operation_in_progress
-          ["VDI"; Ref.string_of vdi; vdi_operation_to_string concurrent_op]
+          ["VDI"; Ref.string_of vdi; vdi_operations_to_string concurrent_op]
           [`attach; `plug; `insert]
     ) ;
     if
@@ -307,7 +313,7 @@ let throw_error (table : table) op =
            , [
                Printf.sprintf
                  "xapi_vbd_helpers.assert_operation_valid unknown operation: %s"
-                 (vbd_operation_to_string op)
+                 (vbd_operations_to_string op)
              ]
            )
         )
@@ -427,8 +433,7 @@ let copy ~__context ?vdi ~vm vbd =
   let metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
   let vdi = Option.value ~default:all.API.vBD_VDI vdi in
   Db.VBD_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
-    ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:(Date.of_float 0.)
-    ~other_config:[] ;
+    ~io_read_kbs:0. ~io_write_kbs:0. ~last_updated:Date.epoch ~other_config:[] ;
   Db.VBD.create ~__context ~ref:new_vbd ~uuid:vbd_uuid ~allowed_operations:[]
     ~current_operations:[] ~storage_lock:false ~vM:vm ~vDI:vdi
     ~empty:(all.API.vBD_empty || vdi = Ref.null)

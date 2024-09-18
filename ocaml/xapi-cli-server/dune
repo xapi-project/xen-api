@@ -1,3 +1,13 @@
+(rule
+  (targets generated_record_utils.ml)
+  (deps
+    ../idl/ocaml_backend/gen_api_main.exe
+  )
+  (action
+    (run %{deps} -filterinternal true -filter closed -mode utils -output
+      %{targets}))
+)
+
 (library
   (name xapi_cli_server)
   (modes best)
@@ -35,7 +45,7 @@
     xmlm
     xml-light2
   )
-  (preprocess (pps ppx_deriving_rpc))
+  (preprocess (per_module ((pps ppx_deriving_rpc) Cli_operations)))
   (wrapped false)
 )
 

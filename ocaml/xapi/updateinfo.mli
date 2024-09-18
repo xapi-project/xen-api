@@ -143,8 +143,10 @@ end
 
 (** The metadata of one update in updateinfo. *)
 module UpdateInfo : sig
+  type id_t = string
+
   type t = {
-      id: string
+      id: id_t
     ; summary: string
     ; description: string
     ; guidance: GuidanceInUpdateInfo.t
@@ -158,13 +160,15 @@ module UpdateInfo : sig
     ; title: string
   }
 
+  type api_ver_t = string
+
   val to_json : t -> Yojson.Basic.t
 
   val guidance_to_string : Guidance.t option -> string
 
-  val of_xml : Xml.xml -> (string * t) list
+  val of_xml : Xml.xml -> api_ver_t option * (id_t * t) list
 
-  val of_xml_file : string -> (string * t) list
+  val of_xml_file : string -> api_ver_t option * (id_t * t) list
 
   val get_guidances_of_kind : kind:Guidance.kind -> t -> Guidance.t list
 end

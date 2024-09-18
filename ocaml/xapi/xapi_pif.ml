@@ -347,7 +347,8 @@ let assert_fcoe_not_in_use ~__context ~self =
              ()
      )
 
-let find_or_create_network (bridge : string) (device : string) ~__context =
+let find_or_create_network (bridge : string) (device : string) ~managed
+    ~__context =
   let nets =
     Db.Network.get_refs_where ~__context
       ~expr:(Eq (Field "bridge", Literal bridge))
@@ -362,7 +363,7 @@ let find_or_create_network (bridge : string) (device : string) ~__context =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
           ~name_label:(Helpers.choose_network_name_for_pif device)
-          ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed:true
+          ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed
           ~other_config:[] ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked
           ~assigned_ips:[]
       in
@@ -411,7 +412,7 @@ let make_pif_metrics ~__context =
     Db.PIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
       ~carrier:false ~device_name:"" ~vendor_name:"" ~device_id:"" ~vendor_id:""
       ~speed:0L ~duplex:false ~pci_bus_path:"" ~io_read_kbs:0. ~io_write_kbs:0.
-      ~last_updated:(Date.of_float 0.) ~other_config:[]
+      ~last_updated:Date.epoch ~other_config:[]
   in
   metrics
 
@@ -457,13 +458,13 @@ let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
     ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed
     ?(disallow_unplug = false) () =
-  let bridge = bridge_naming_convention device in
+  let bridge = if managed then bridge_naming_convention device else "" in
   (* If we are not told which network to use,
      	 * apply the default convention *)
   let net_ref =
     match network with
     | None ->
-        find_or_create_network bridge device ~__context
+        find_or_create_network bridge device ~managed ~__context
     | Some x ->
         x
   in
@@ -667,6 +668,8 @@ let scan ~__context ~host =
       ([], [])
     )
   in
+  debug "non-managed devices=%s" (String.concat "," non_managed_devices) ;
+  debug "disallow-unplug devices=%s" (String.concat "," disallow_unplug_devices) ;
   Xapi_stdext_threads.Threadext.Mutex.execute scan_m (fun () ->
       let t = make_tables ~__context ~host in
       let devices_not_yet_represented_by_pifs =
@@ -681,6 +684,8 @@ let scan ~__context ~host =
           let mTU = Int64.of_int (Net.Interface.get_mtu dbg device) in
           let managed = not (List.mem device non_managed_devices) in
           let disallow_unplug = List.mem device disallow_unplug_devices in
+          debug "About to introduce %s, managed=%b, disallow-unplug=%b" device
+            managed disallow_unplug ;
           let (_ : API.ref_PIF) =
             introduce_internal ~t ~__context ~host ~mAC ~mTU ~vLAN:(-1L)
               ~vLAN_master_of:Ref.null ~device ~managed ~disallow_unplug ()

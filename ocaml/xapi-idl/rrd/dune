@@ -39,8 +39,7 @@
    (re_export xapi-idl.rrd.interface.types)
    xapi-rrd
  )
- (wrapped false)
- (preprocess (pps ppx_deriving_rpc)))
+ (wrapped false))
 
 (executable
  (name rrd_cli)

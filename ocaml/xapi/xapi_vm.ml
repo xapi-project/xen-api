@@ -411,8 +411,8 @@ let hard_reboot ~__context ~vm =
            ( Api_errors.vm_bad_power_state
            , [
                Ref.string_of vm
-             ; Record_util.power_to_string `Running
-             ; Record_util.power_to_string `Suspended
+             ; Record_util.vm_power_state_to_lowercase_string `Running
+             ; Record_util.vm_power_state_to_lowercase_string `Suspended
              ]
            )
         )
@@ -617,8 +617,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
   let current_domain_type = if suspended then domain_type else `unspecified in
   Db.VM_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid
     ~memory_actual:0L ~vCPUs_number:0L ~vCPUs_utilisation ~vCPUs_CPU:[]
-    ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.never
-    ~install_time:Date.never ~last_updated:Date.never ~other_config:[]
+    ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch
+    ~install_time:Date.epoch ~last_updated:Date.epoch ~other_config:[]
     ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type ;
   let domain_type =
     if domain_type = `unspecified then
@@ -643,8 +643,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
           ( vm_bad_power_state
           , [
               Ref.string_of vm_ref
-            ; Record_util.power_to_string `Halted
-            ; Record_util.power_to_string power_state
+            ; Record_util.vm_power_state_to_lowercase_string `Halted
+            ; Record_util.vm_power_state_to_lowercase_string power_state
             ]
           )
       ) ;
@@ -652,7 +652,7 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~power_state:_power_state ~allowed_operations:[] ~current_operations:[]
     ~blocked_operations:[] ~name_label ~name_description ~user_version
     ~is_a_template ~is_default_template:false ~transportable_snapshot_id:""
-    ~is_a_snapshot:false ~snapshot_time:Date.never ~snapshot_of:Ref.null
+    ~is_a_snapshot:false ~snapshot_time:Date.epoch ~snapshot_of:Ref.null
     ~parent:Ref.null ~snapshot_info:[] ~snapshot_metadata:"" ~resident_on
     ~scheduled_to_be_resident_on ~affinity ~memory_overhead:0L
     ~memory_static_max ~memory_dynamic_max ~memory_target ~memory_dynamic_min
@@ -1601,6 +1601,18 @@ let set_domain_type ~__context ~self ~value =
   Db.VM.set_HVM_boot_policy ~__context ~self
     ~value:(derive_hvm_boot_policy ~domain_type:value)
 
+let set_blocked_operations ~__context ~self ~value =
+  debug "%s" __FUNCTION__ ;
+  Db.VM.set_blocked_operations ~__context ~self ~value
+
+let add_to_blocked_operations ~__context ~self ~key ~value =
+  debug "%s" __FUNCTION__ ;
+  Db.VM.add_to_blocked_operations ~__context ~self ~key ~value
+
+let remove_from_blocked_operations ~__context ~self ~key =
+  debug "%s" __FUNCTION__ ;
+  Db.VM.remove_from_blocked_operations ~__context ~self ~key
+
 let set_HVM_boot_policy ~__context ~self ~value =
   Db.VM.set_domain_type ~__context ~self
     ~value:(derive_domain_type ~hVM_boot_policy:value) ;
@@ -1627,8 +1639,8 @@ let restart_device_models ~__context ~self =
           ( vm_bad_power_state
           , [
               Ref.string_of self
-            ; Record_util.power_state_to_string `Running
-            ; Record_util.power_state_to_string power_state
+            ; Record_util.vm_power_state_to_string `Running
+            ; Record_util.vm_power_state_to_string power_state
             ]
           )
       ) ;

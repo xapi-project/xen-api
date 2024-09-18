@@ -1,8 +1,8 @@
 module Date = Xapi_stdext_date.Date
 
-let now = Date.of_string "2020-09-22T14:57:11Z"
+let now = Date.of_iso8601 "2020-09-22T14:57:11Z"
 
-let future = Date.of_string "2020-09-22T15:03:13Z"
+let future = Date.of_iso8601 "2020-09-22T15:03:13Z"
 
 let fail_login ~__context ~uname ~originator ~now () =
   try

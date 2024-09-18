@@ -217,9 +217,8 @@ module Session = struct
              session instance has is_local_superuser set, then the value of \
              this field is undefined."
         ; field ~in_product_since:rel_george ~qualifier:DynamicRO
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
-            ~ty:DateTime "validation_time"
-            "time when session was last validated"
+            ~default_value:(Some (VDateTime Date.epoch)) ~ty:DateTime
+            "validation_time" "time when session was last validated"
         ; field ~in_product_since:rel_george ~qualifier:DynamicRO
             ~default_value:(Some (VString "")) ~ty:String "auth_user_sid"
             "the subject identifier of the user that was externally \
@@ -2791,8 +2790,13 @@ module Sr_stat = struct
       , [
           ("healthy", "Storage is fully available")
         ; ("recovering", "Storage is busy recovering, e.g. rebuilding mirrors.")
-        ; ("unreachable", "Storage is unreachable")
-        ; ("unavailable", "Storage is unavailable")
+        ; ( "unreachable"
+          , "Storage is unreachable but may be recoverable with admin \
+             intervention"
+          )
+        ; ( "unavailable"
+          , "Storage is unavailable, a host reboot will be required"
+          )
         ]
       )
 
@@ -3890,9 +3894,11 @@ module VDI = struct
     ; {
         param_type= DateTime
       ; param_name= "snapshot_time"
-      ; param_doc= "Storage-specific config"
+      ; param_doc=
+          "Storage-specific config. When the timezone is missing, UTC is \
+           assumed"
       ; param_release= tampa_release
-      ; param_default= Some (VDateTime Date.never)
+      ; param_default= Some (VDateTime Date.epoch)
       }
     ; {
         param_type= Ref _vdi
@@ -4084,7 +4090,11 @@ module VDI = struct
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
-        ; (DateTime, "value", "The snapshot time of this VDI.")
+        ; ( DateTime
+          , "value"
+          , "The snapshot time of this VDI. When the timezone is missing, UTC \
+             is assumed"
+          )
         ]
       ~flags:[`Session] ~doc:"Sets the snapshot time of this VDI."
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
@@ -4463,7 +4473,7 @@ module VDI = struct
               ~ty:(Set (Ref _vdi)) ~doc_tags:[Snapshots] "snapshots"
               "List pointing to all the VDIs snapshots."
           ; field ~in_product_since:rel_orlando
-              ~default_value:(Some (VDateTime Date.never)) ~qualifier:DynamicRO
+              ~default_value:(Some (VDateTime Date.epoch)) ~qualifier:DynamicRO
               ~ty:DateTime ~doc_tags:[Snapshots] "snapshot_time"
               "Date/time when this snapshot was created."
           ; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando
@@ -4747,7 +4757,7 @@ module VBD_metrics = struct
           uid _vbd_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
         ; field ~qualifier:DynamicRO ~ty:DateTime
-            ~default_value:(Some (VDateTime Date.never))
+            ~default_value:(Some (VDateTime Date.epoch))
             ~lifecycle:
               [
                 (Published, rel_rio, "")
@@ -5175,6 +5185,10 @@ module VM_guest_metrics = struct
             "os_version" "version of the OS"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
+            ~lifecycle:[] "netbios_name" "The NETBIOS name of the machine"
+            ~default_value:(Some (VMap []))
+        ; field ~qualifier:DynamicRO
+            ~ty:(Map (String, String))
             "PV_drivers_version" "version of the PV drivers"
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
             ~lifecycle:
@@ -5502,7 +5516,11 @@ module VMPP = struct
       ~params:
         [
           (Ref _vmpp, "self", "The protection policy")
-        ; (DateTime, "value", "the value to set")
+        ; ( DateTime
+          , "value"
+          , "When was the last backup was done. When the timezone is missing, \
+             UTC is assumed"
+          )
         ]
       ()
 
@@ -5512,7 +5530,11 @@ module VMPP = struct
       ~params:
         [
           (Ref _vmpp, "self", "The protection policy")
-        ; (DateTime, "value", "the value to set")
+        ; ( DateTime
+          , "value"
+          , "When was the last archive was done. When the timezone is missing, \
+             UTC is assumed"
+          )
         ]
       ()
 
@@ -5660,7 +5682,7 @@ module VMPP = struct
             "true if this protection policy's backup is running"
         ; field ~lifecycle:removed ~qualifier:DynamicRO ~ty:DateTime
             "backup_last_run_time" "time of the last backup"
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
+            ~default_value:(Some (VDateTime Date.epoch))
         ; field ~lifecycle:removed ~qualifier:StaticRO ~ty:archive_target_type
             "archive_target_type" "type of the archive target config"
             ~default_value:(Some (VEnum "none"))
@@ -5684,7 +5706,7 @@ module VMPP = struct
             "true if this protection policy's archive is running"
         ; field ~lifecycle:removed ~qualifier:DynamicRO ~ty:DateTime
             "archive_last_run_time" "time of the last archive"
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
+            ~default_value:(Some (VDateTime Date.epoch))
         ; field ~lifecycle:removed ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
             "VMs" "all VMs attached to this protection policy"
         ; field ~lifecycle:removed ~qualifier:StaticRO ~ty:Bool
@@ -5773,7 +5795,11 @@ module VMSS = struct
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
-        ; (DateTime, "value", "the value to set")
+        ; ( DateTime
+          , "value"
+          , "When was the schedule was last run. When a timezone is missing, \
+             UTC is assumed"
+          )
         ]
       ()
 
@@ -5847,7 +5873,7 @@ module VMSS = struct
             ~default_value:(Some (VMap []))
         ; field ~qualifier:DynamicRO ~ty:DateTime "last_run_time"
             "time of the last snapshot"
-            ~default_value:(Some (VDateTime (Date.of_float 0.)))
+            ~default_value:(Some (VDateTime Date.epoch))
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs"
             "all VMs attached to this snapshot schedule"
         ]
@@ -6302,7 +6328,10 @@ module Message = struct
         [
           (cls, "cls", "The class of object")
         ; (String, "obj_uuid", "The uuid of the object")
-        ; (DateTime, "since", "The cutoff time")
+        ; ( DateTime
+          , "since"
+          , "The cutoff time. When the timezone is missing, UTC is assumed"
+          )
         ]
       ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The relevant messages")
@@ -6310,7 +6339,13 @@ module Message = struct
 
   let get_since =
     call ~name:"get_since" ~in_product_since:rel_orlando
-      ~params:[(DateTime, "since", "The cutoff time")]
+      ~params:
+        [
+          ( DateTime
+          , "since"
+          , "The cutoff time. When the timezone is missing, UTC is assumed"
+          )
+        ]
       ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The relevant messages")
       ~allowed_roles:_R_READ_ONLY ()

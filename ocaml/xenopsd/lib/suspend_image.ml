@@ -42,7 +42,7 @@ module Xenops_record = struct
   [@@deriving sexp]
 
   let make ?vm_str ?xs_subtree () =
-    let time = Xapi_stdext_date.Date.(to_string (now ())) in
+    let time = Xapi_stdext_date.Date.(to_rfc3339 (now ())) in
     let word_size = Sys.word_size in
     {word_size; time; vm_str; xs_subtree}
 

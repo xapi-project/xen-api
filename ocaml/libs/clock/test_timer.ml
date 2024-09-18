@@ -7,7 +7,7 @@ let spans =
 
 let test_timer_remaining =
   let print = Fmt.to_to_string Mtime.Span.pp in
-  Test.make ~name:"Timer.remaining" ~print spans @@ fun duration ->
+  Test.make ~count:20 ~name:"Timer.remaining" ~print spans @@ fun duration ->
   let timer = Timer.start ~duration in
   let half = Timer.span_to_s duration /. 2. in
   let elapsed = Mtime_clock.counter () in

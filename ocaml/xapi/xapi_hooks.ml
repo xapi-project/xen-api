@@ -20,6 +20,8 @@ let scriptname__host_pre_declare_dead = "host-pre-declare-dead"
 
 let scriptname__host_post_declare_dead = "host-post-declare-dead"
 
+let scriptname__xapi_pre_shutdown = "xapi-pre-shutdown"
+
 (* Host Script hook reason codes *)
 let reason__fenced = "fenced"
 
@@ -71,11 +73,15 @@ let execute_hook ~__context ~script_name ~args ~reason =
       try
         debug "Executing hook '%s/%s' with args [ %s ]" script_name script
           (String.concat "; " args) ;
-        ignore
-          (Forkhelpers.execute_command_get_output
-             (Filename.concat script_dir script)
-             args
-          )
+        let os, es =
+          Forkhelpers.execute_command_get_output
+            (Filename.concat script_dir script)
+            args
+        in
+        debug
+          "%s: Output of executing hook '%s/%s' with args [ %s ] is %s, err is \
+           %s"
+          __FUNCTION__ script_name script (String.concat "; " args) os es
       with
       | Forkhelpers.Spawn_internal_error (_, stdout, Unix.WEXITED i)
       (* i<>0 since that case does not generate exn *)
@@ -122,6 +128,12 @@ let host_pre_declare_dead ~__context ~host ~reason =
         | None ->
             ()
     )
+
+let xapi_pre_shutdown ~__context ~host ~reason =
+  info "%s Running xapi pre shutdown hooks for %s" __FUNCTION__
+    (Ref.string_of host) ;
+  execute_host_hook ~__context ~script_name:scriptname__xapi_pre_shutdown
+    ~reason ~host
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
 let internal_host_dead_hook __context host =
