@@ -2282,13 +2282,15 @@ let update_vm ~__context id =
                 Option.iter
                   (fun (_, state) ->
                     let metrics = Db.VM.get_metrics ~__context ~self in
+                    (* Clamp time to full seconds, stored timestamps do not
+                        have decimals *)
                     let start_time =
-                      Date.of_unix_time state.Vm.last_start_time
+                      Float.floor state.Vm.last_start_time |> Date.of_unix_time
                     in
-                    if
-                      start_time
-                      <> Db.VM_metrics.get_start_time ~__context ~self:metrics
-                    then (
+                    let expected_time =
+                      Db.VM_metrics.get_start_time ~__context ~self:metrics
+                    in
+                    if Date.is_later ~than:expected_time start_time then (
                       debug
                         "xenopsd event: Updating VM %s last_start_time <- %s" id
                         Date.(to_rfc3339 (of_unix_time state.Vm.last_start_time)) ;
