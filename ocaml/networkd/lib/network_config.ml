@@ -135,9 +135,12 @@ let read_management_conf () =
           in
           let dns = (nameservers, domains) in
           (Static4 [(ip, prefixlen)], gateway, dns)
-      | "dhcp" | _ ->
+      | "dhcp" ->
           (DHCP4, None, ([], []))
+      | _ ->
+          (None4, None, ([], []))
     in
+
     let phy_interface = {default_interface with persistent_i= true} in
     let bridge_interface =
       {default_interface with ipv4_conf; ipv4_gateway; persistent_i= true; dns}
