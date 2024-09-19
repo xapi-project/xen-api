@@ -65,6 +65,8 @@
    xapi-idl.xen
    xapi-idl.xen.interface
    xapi-log
+   xapi-stdext-unix
+   xapi-stdext-threads
  )
  (preprocess (per_module ((pps ppx_deriving_rpc) Task_server_test Updates_test))))
 

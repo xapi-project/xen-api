@@ -959,7 +959,9 @@ let raw_console_proxy sockaddr =
       ) else if !final then
         finished := true
       else
-        let r, _, _ = Unix.select [Unix.stdin; fd] [] [] (-1.) in
+        let r, _, _ =
+          Xapi_stdext_unix.Unixext.select [Unix.stdin; fd] [] [] (-1.)
+        in
         if List.mem Unix.stdin r then (
           let b =
             Unix.read Unix.stdin buf_remote !buf_remote_end
