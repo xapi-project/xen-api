@@ -239,14 +239,17 @@ end
 module Data (R : RPC) = struct
   open R
 
+  type copy_operation_v1 = string [@@deriving rpcty]
+  type mirror_operation_v1 = string [@@deriving rpcty]
+
   (** The primary key for referring to a long-running operation. *)
   type operation =
-    | Copy of uri * uri
-        (** Copy (src,dst) represents an on-going copy operation
-        from the [src] URI to the [dst] URI. *)
-    | Mirror of uri * uri
-        (** Mirror (src,dst) represents an on-going mirror
-        operation from the [src] URI to the [dst] URI. *)
+    | CopyV1 of copy_operation_v1
+        (** CopyV1 (key) represents an on-going copy operation
+        with the unique [key]. *)
+    | MirrorV1 of mirror_operation_v1
+        (** MirrorV1 (key) represents an on-going mirror
+        operation with the unique [key]. *)
   [@@deriving rpcty]
 
   (** A list of operations. *)
