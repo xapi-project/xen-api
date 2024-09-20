@@ -678,11 +678,19 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
      lifecycle ?(doc_tags = []) name desc =
   (* in_product_since currently defaults to 'Some rel_rio', for backwards compatibility.
      	 * This should eventually become 'None'. *)
-  let in_product_since =
-    match in_product_since with None -> Some rel_rio | x -> x
+  let _ =
+    match (lifecycle, in_product_since) with
+    | None, None ->
+        failwith ("Lifecycle for field '" ^ name ^ "' not specified")
+    | Some _, Some _ ->
+        failwith
+          ("lifecycle is given, in_product_since should not be specified \
+            explicitly in "
+          ^ name
+          )
+    | _, _ ->
+        ()
   in
-  if lifecycle = None && in_product_since = None then
-    failwith ("Lifecycle for field '" ^ name ^ "' not specified") ;
   let lifecycle =
     match lifecycle with
     | None ->
@@ -739,7 +747,9 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
 
 let uid ?(in_oss_since = Some "3.0.3") ?(reader_roles = None) ?lifecycle
     _refname =
-  field ~in_oss_since ?lifecycle ~qualifier:DynamicRO ~ty:String
+  let in_product_since = if lifecycle = None then Some rel_rio else None in
+  field ~in_oss_since ?in_product_since ?lifecycle ~qualifier:DynamicRO
+    ~ty:String
     ~writer_roles:_R_POOL_ADMIN
       (* only the system should be able to create/modify uuids *)
     ~reader_roles "uuid" "Unique identifier/object reference"
@@ -748,13 +758,13 @@ let allowed_and_current_operations ?(writer_roles = None) ?(reader_roles = None)
     operations_type =
   [
     field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None
-      ~qualifier:DynamicRO ~ty:(Set operations_type)
+      ~in_product_since:rel_rio ~qualifier:DynamicRO ~ty:(Set operations_type)
       ~default_value:(Some (VSet [])) "allowed_operations"
       "list of the operations allowed in this state. This list is advisory \
        only and the server state may have changed by the time this field is \
        read by a client."
   ; field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None
-      ~qualifier:DynamicRO
+      ~in_product_since:rel_rio ~qualifier:DynamicRO
       ~ty:(Map (String, operations_type))
       ~default_value:(Some (VMap [])) "current_operations"
       "links each of the running tasks using this object (by reference) to a \
@@ -782,9 +792,10 @@ let namespace ?(get_field_writer_roles = fun x -> x)
 (** Many of the objects have a set of names of various lengths: *)
 let names ?(writer_roles = None) ?(reader_roles = None) ?lifecycle in_oss_since
     qual =
+  let in_product_since = if lifecycle = None then Some rel_rio else None in
   let field x y =
-    field x y ~in_oss_since ~qualifier:qual ~writer_roles ~reader_roles
-      ~default_value:(Some (VString "")) ?lifecycle
+    field x y ~in_oss_since ?in_product_since ~qualifier:qual ~writer_roles
+      ~reader_roles ~default_value:(Some (VString "")) ?lifecycle
   in
   [
     field "label" "a human-readable name"

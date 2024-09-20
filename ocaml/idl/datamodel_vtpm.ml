@@ -77,9 +77,10 @@ let t =
          ; allowed_and_current_operations operations
          ; [
              field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
+               ~in_product_since:rel_rio
                "The virtual machine the TPM is attached to"
            ; field ~qualifier:DynamicRO ~ty:(Ref _vm) "backend"
-               ~default_value:(Some (VRef null_ref))
+               ~in_product_since:rel_rio ~default_value:(Some (VRef null_ref))
                "The domain where the backend is located (unused)"
            ; field ~qualifier:DynamicRO ~ty:persistence_backend
                ~default_value:(Some (VEnum "xapi")) ~lifecycle:[]

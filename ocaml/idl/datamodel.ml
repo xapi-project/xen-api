@@ -195,13 +195,14 @@ module Session = struct
       ~contents:
         [
           uid _session
-        ; field ~qualifier:DynamicRO ~ty:(Ref _host) "this_host"
-            "Currently connected host"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _user) "this_user"
-            "Currently connected user"
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_active"
-            "Timestamp for last time session was active"
-        ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "pool"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _host) ~in_product_since:rel_rio
+            "this_host" "Currently connected host"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _user) ~in_product_since:rel_rio
+            "this_user" "Currently connected user"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_active" "Timestamp for last time session was active"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
+            ~in_product_since:rel_rio "pool"
             "True if this session relates to a intra-pool login, false \
              otherwise"
         ; field ~in_product_since:rel_miami ~default_value:(Some (VMap []))
@@ -384,46 +385,53 @@ module Task = struct
          ]
         @ allowed_and_current_operations task_allowed_operations
         @ [
-            field ~qualifier:DynamicRO ~ty:DateTime "created"
-              "Time task was created"
-          ; field ~qualifier:DynamicRO ~ty:DateTime "finished"
+            field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+              "created" "Time task was created"
+          ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+              "finished"
               "Time task finished (i.e. succeeded or failed). If task-status \
                is pending, then the value of this field has no meaning"
-          ; field ~qualifier:DynamicRO ~ty:status_type "status"
-              "current status of the task"
-          ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-              ~ty:(Ref _session) "session" "the session that created the task"
-          ; field ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on"
-              "the host on which the task is running"
-          ; field ~qualifier:DynamicRO ~ty:Float "progress"
+          ; field ~qualifier:DynamicRO ~ty:status_type ~in_product_since:rel_rio
+              "status" "current status of the task"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _session)
+              "session" "the session that created the task"
+          ; field ~qualifier:DynamicRO ~ty:(Ref _host) ~in_product_since:rel_rio
+              "resident_on" "the host on which the task is running"
+          ; field ~qualifier:DynamicRO ~ty:Float ~in_product_since:rel_rio
+              "progress"
               "This field contains the estimated fraction of the task which is \
                complete. This field should not be used to determine whether \
                the task is complete - for this the status field of the task \
                should be used."
-          ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-              ~ty:Int "externalpid"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_only:true ~qualifier:DynamicRO ~ty:Int "externalpid"
               "If the task has spawned a program, the field record the PID of \
                the process that the task is waiting on. (-1 if no waiting \
                completion of an external program )"
-          ; field ~in_oss_since:None ~internal_deprecated_since:rel_boston
-              ~internal_only:true ~qualifier:DynamicRO ~ty:Int "stunnelpid"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_deprecated_since:rel_boston ~internal_only:true
+              ~qualifier:DynamicRO ~ty:Int "stunnelpid"
               "If the task has been forwarded, this field records the pid of \
                the stunnel process spawned to manage the forwarding connection"
-          ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-              ~ty:Bool "forwarded"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "forwarded"
               "True if this task has been forwarded to a slave"
-          ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-              ~ty:(Ref _host) "forwarded_to"
-              "The host to which the task has been forwarded"
-          ; field ~qualifier:DynamicRO ~ty:String "type"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _host)
+              "forwarded_to" "The host to which the task has been forwarded"
+          ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+              "type"
               "if the task has completed successfully, this field contains the \
                type of the encoded result (i.e. name of the class whose \
                reference is in the result field). Undefined otherwise."
-          ; field ~qualifier:DynamicRO ~ty:String "result"
+          ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+              "result"
               "if the task has completed successfully, this field contains the \
                result value (either Void or an object reference). Undefined \
                otherwise."
-          ; field ~qualifier:DynamicRO ~ty:(Set String) "error_info"
+          ; field ~qualifier:DynamicRO ~ty:(Set String)
+              ~in_product_since:rel_rio "error_info"
               "if the task has failed, this field contains the set of \
                associated error strings. Undefined otherwise."
           ; field ~in_product_since:rel_miami ~default_value:(Some (VMap []))
@@ -492,8 +500,9 @@ module User = struct
       ~contents:
         [
           uid _user
-        ; field ~qualifier:StaticRO "short_name" "short name (e.g. userid)"
-        ; field "fullname" "full name"
+        ; field ~qualifier:StaticRO ~in_product_since:rel_rio "short_name"
+            "short name (e.g. userid)"
+        ; field ~in_product_since:rel_rio "fullname" "full name"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -535,14 +544,16 @@ module Host_crashdump = struct
       ~contents:
         [
           uid ~in_oss_since:None _host_crashdump
-        ; field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _host) "host"
-            "Host the crashdump relates to"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime "timestamp"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
+            ~ty:(Ref _host) "host" "Host the crashdump relates to"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:DateTime "timestamp"
             "Time the crash happened"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size"
-            "Size of the crashdump"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:Int "size" "Size of the crashdump"
         ; field ~qualifier:StaticRO ~ty:String ~in_oss_since:None
-            ~internal_only:true "filename" "filename of crash dir"
+            ~in_product_since:rel_rio ~internal_only:true "filename"
+            "filename of crash dir"
         ; field ~in_product_since:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -711,8 +722,8 @@ module Pool_update = struct
             ~in_oss_since:None ~qualifier:StaticRO
             ~ty:(Set after_apply_guidance) "after_apply_guidance"
             "What the client should do after this update has been applied."
-        ; field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _vdi) "vdi"
-            "VDI the update was uploaded to"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
+            ~ty:(Ref _vdi) "vdi" "VDI the update was uploaded to"
         ; field ~in_product_since:rel_ely ~in_oss_since:None
             ~qualifier:DynamicRO ~ty:(Set (Ref _host)) "hosts"
             "The hosts that have applied this update."
@@ -892,18 +903,20 @@ module Host_patch = struct
         [
           uid ~in_oss_since:None _host_patch
         ; namespace ~name:"name" ~contents:(names None StaticRO) ()
-        ; field ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version"
-            "Patch version number"
-        ; field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Ref _host) "host"
-            "Host the patch relates to"
-        ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-            ~ty:String "filename" "Filename of the patch"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "applied"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
+            ~ty:String "version" "Patch version number"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
+            ~ty:(Ref _host) "host" "Host the patch relates to"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~internal_only:true
+            ~qualifier:DynamicRO ~ty:String "filename" "Filename of the patch"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:Bool "applied"
             "True if the patch has been applied"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime
-            "timestamp_applied" "Time the patch was applied"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Int "size"
-            "Size of the patch"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:DateTime "timestamp_applied"
+            "Time the patch was applied"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:Int "size" "Size of the patch"
         ; field ~in_product_since:rel_miami ~in_oss_since:None
             ~qualifier:StaticRO ~ty:(Ref _pool_patch)
             ~default_value:(Some (VRef "")) "pool_patch" "The patch applied"
@@ -919,8 +932,8 @@ module Host_metrics = struct
   let host_metrics_memory =
     let field = field ~ty:Int in
     [
-      field ~qualifier:DynamicRO "total" "Total host memory (bytes)"
-        ~doc_tags:[Memory]
+      field ~qualifier:DynamicRO ~in_product_since:rel_rio "total"
+        "Total host memory (bytes)" ~doc_tags:[Memory]
     ; field "free" "Free host memory (bytes)" ~default_value:(Some (VInt 0L))
         ~lifecycle:
           [
@@ -942,9 +955,9 @@ module Host_metrics = struct
           uid _host_metrics
         ; namespace ~name:"memory" ~contents:host_metrics_memory ()
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None "live"
-            "Pool master thinks this host is live"
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_updated"
-            "Time at which this information was last updated"
+            ~in_product_since:rel_rio "Pool master thinks this host is live"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_updated" "Time at which this information was last updated"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -971,28 +984,30 @@ module Host_cpu = struct
       ~contents:
         [
           uid _hostcpu
-        ; field ~qualifier:DynamicRO ~ty:(Ref _host) "host"
-            "the host the CPU is in"
-        ; field ~qualifier:DynamicRO ~ty:Int "number"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _host) ~in_product_since:rel_rio
+            "host" "the host the CPU is in"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "number"
             "the number of the physical CPU within the host"
-        ; field ~qualifier:DynamicRO ~ty:String "vendor"
-            "the vendor of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:Int "speed"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "vendor" "the vendor of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "speed"
             "the speed of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:String "modelname"
-            "the model name of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:Int "family"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "modelname" "the model name of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "family"
             "the family (number) of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:Int "model"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "model"
             "the model number of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:String "stepping"
-            "the stepping of the physical CPU"
-        ; field ~qualifier:DynamicRO ~ty:String "flags"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "stepping" "the stepping of the physical CPU"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "flags"
             "the flags of the physical CPU (a decoded version of the features \
              field)"
-        ; field ~qualifier:DynamicRO ~ty:String "features"
-            "the physical CPU feature bitmap"
-        ; field ~qualifier:DynamicRO ~persist:false ~ty:Float "utilisation"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "features" "the physical CPU feature bitmap"
+        ; field ~qualifier:DynamicRO ~persist:false ~ty:Float
+            ~in_product_since:rel_rio "utilisation"
             "the current CPU utilisation"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
@@ -1004,11 +1019,13 @@ end
 (** Disk and network interfaces are associated with QoS parameters: *)
 let qos devtype =
   [
-    field "algorithm_type" "QoS algorithm to use"
+    field ~in_product_since:rel_rio "algorithm_type" "QoS algorithm to use"
   ; field
       ~ty:(Map (String, String))
-      "algorithm_params" "parameters for chosen QoS algorithm"
-  ; field ~qualifier:DynamicRO ~ty:(Set String) "supported_algorithms"
+      ~in_product_since:rel_rio "algorithm_params"
+      "parameters for chosen QoS algorithm"
+  ; field ~qualifier:DynamicRO ~ty:(Set String) ~in_product_since:rel_rio
+      "supported_algorithms"
       ("supported QoS algorithms for this " ^ devtype)
   ]
 
@@ -1255,10 +1272,10 @@ module Network = struct
          ]
         @ allowed_and_current_operations ~writer_roles:_R_POOL_OP operations
         @ [
-            field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) "VIFs"
-              "list of connected vifs"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) "PIFs"
-              "list of connected pifs"
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _vif))
+              ~in_product_since:rel_rio "VIFs" "list of connected vifs"
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif))
+              ~in_product_since:rel_rio "PIFs" "list of connected pifs"
           ; field ~qualifier:RW ~ty:Int ~default_value:(Some (VInt 1500L))
               ~in_product_since:rel_midnight_ride "MTU" "MTU in octets"
           ; field ~writer_roles:_R_POOL_OP
@@ -1270,6 +1287,7 @@ module Network = struct
                 ; ("XenCenter.CustomFields.*", _R_VM_OP)
                 ; ("XenCenterCreateInProgress", _R_VM_OP)
                 ]
+              ~in_product_since:rel_rio
           ; field
               ~lifecycle:
                 [
@@ -1786,23 +1804,25 @@ module PIF = struct
         [
           uid _pif
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO "device"
+          field ~qualifier:StaticRO ~in_product_since:rel_rio "device"
             "machine-readable name of the interface (e.g. eth0)"
-        ; field ~qualifier:StaticRO ~ty:(Ref _network) "network"
-            "virtual network to which this pif is connected"
-        ; field ~qualifier:StaticRO ~ty:(Ref _host) "host"
-            "physical machine to which this pif is connected"
+        ; field ~qualifier:StaticRO ~ty:(Ref _network) ~in_product_since:rel_rio
+            "network" "virtual network to which this pif is connected"
+        ; field ~qualifier:StaticRO ~ty:(Ref _host) ~in_product_since:rel_rio
+            "host" "physical machine to which this pif is connected"
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO "MAC"
+          field ~qualifier:StaticRO ~in_product_since:rel_rio "MAC"
             "ethernet MAC address of physical interface"
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets"
+          field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_rio "MTU"
+            "MTU in octets"
         ; (* qualifier changed RW -> StaticRO in Miami *)
-          field ~qualifier:StaticRO ~ty:Int "VLAN"
+          field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_rio "VLAN"
             "VLAN tag for all traffic passing through this interface"
-        ; field ~in_oss_since:None ~internal_only:true "device_name"
-            "actual dom0 device name"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _pif_metrics) "metrics"
+        ; field ~in_oss_since:None ~internal_only:true ~in_product_since:rel_rio
+            "device_name" "actual dom0 device name"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _pif_metrics)
+            ~in_product_since:rel_rio "metrics"
             "metrics associated with this PIF"
         ; field ~in_oss_since:None ~ty:Bool ~in_product_since:rel_miami
             ~qualifier:DynamicRO "physical"
@@ -1948,22 +1968,24 @@ module PIF_metrics = struct
         [
           uid _pif_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
-        ; field ~qualifier:DynamicRO ~ty:Bool "carrier"
-            "Report if the PIF got a carrier or not"
-        ; field ~qualifier:DynamicRO ~ty:String "vendor_id" "Report vendor ID"
-        ; field ~qualifier:DynamicRO ~ty:String "vendor_name"
-            "Report vendor name"
-        ; field ~qualifier:DynamicRO ~ty:String "device_id" "Report device ID"
-        ; field ~qualifier:DynamicRO ~ty:String "device_name"
-            "Report device name"
-        ; field ~qualifier:DynamicRO ~ty:Int "speed"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
+            "carrier" "Report if the PIF got a carrier or not"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "vendor_id" "Report vendor ID"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "vendor_name" "Report vendor name"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "device_id" "Report device ID"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "device_name" "Report device name"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "speed"
             "Speed of the link in Mbit/s (if available)"
-        ; field ~qualifier:DynamicRO ~ty:Bool "duplex"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio "duplex"
             "Full duplex capability of the link (if available)"
-        ; field ~qualifier:DynamicRO ~ty:String "pci_bus_path"
-            "PCI bus path of the pif (if available)"
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_updated"
-            "Time at which this information was last updated"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "pci_bus_path" "PCI bus path of the pif (if available)"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_updated" "Time at which this information was last updated"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -2321,17 +2343,17 @@ module PBD = struct
       ~contents:
         [
           uid _pbd
-        ; field ~qualifier:StaticRO ~ty:(Ref _host) "host"
-            "physical machine on which the pbd is available"
-        ; field ~qualifier:StaticRO ~ty:(Ref _sr) "SR"
+        ; field ~qualifier:StaticRO ~ty:(Ref _host) ~in_product_since:rel_rio
+            "host" "physical machine on which the pbd is available"
+        ; field ~qualifier:StaticRO ~ty:(Ref _sr) ~in_product_since:rel_rio "SR"
             "the storage repository that the pbd realises"
         ; field
             ~ty:(Map (String, String))
-            ~qualifier:StaticRO "device_config"
+            ~qualifier:StaticRO "device_config" ~in_product_since:rel_rio
             "a config string to string map that is provided to the host's \
              SR-backend-driver"
-        ; field ~ty:Bool ~qualifier:DynamicRO "currently_attached"
-            "is the SR currently attached on this host?"
+        ; field ~ty:Bool ~qualifier:DynamicRO ~in_product_since:rel_rio
+            "currently_attached" "is the SR currently attached on this host?"
         ; field ~in_product_since:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -2353,15 +2375,17 @@ let device_status_fields =
           )
         ]
       "currently_attached" "is the device currently attached (erased on reboot)"
-  ; field ~ty:Int ~qualifier:DynamicRO "status_code"
+  ; field ~ty:Int ~qualifier:DynamicRO ~in_product_since:rel_rio "status_code"
       "error/success code associated with last attach-operation (erased on \
        reboot)"
-  ; field ~ty:String ~qualifier:DynamicRO "status_detail"
+  ; field ~ty:String ~qualifier:DynamicRO ~in_product_since:rel_rio
+      "status_detail"
       "error/success information associated with last attach-operation status \
        (erased on reboot)"
   ; field
       ~ty:(Map (String, String))
-      ~qualifier:DynamicRO "runtime_properties" "Device runtime properties"
+      ~qualifier:DynamicRO ~in_product_since:rel_rio "runtime_properties"
+      "Device runtime properties"
   ]
 
 module VIF = struct
@@ -2652,21 +2676,24 @@ module VIF = struct
         ([uid _vif]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:StaticRO "device"
+            field ~qualifier:StaticRO ~in_product_since:rel_rio "device"
               "order in which VIF backends are created by xapi"
-          ; field ~qualifier:StaticRO ~ty:(Ref _network) "network"
+          ; field ~qualifier:StaticRO ~ty:(Ref _network)
+              ~in_product_since:rel_rio "network"
               "virtual network to which this vif is connected"
-          ; field ~qualifier:StaticRO ~ty:(Ref _vm) "VM"
-              "virtual machine to which this vif is connected"
-          ; field ~qualifier:StaticRO ~ty:String "MAC"
+          ; field ~qualifier:StaticRO ~ty:(Ref _vm) ~in_product_since:rel_rio
+              "VM" "virtual machine to which this vif is connected"
+          ; field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_rio "MAC"
               "ethernet MAC address of virtual interface, as exposed to guest"
-          ; field ~qualifier:StaticRO ~ty:Int "MTU" "MTU in octets"
-          ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-              ~ty:Bool "reserved"
+          ; field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_rio "MTU"
+              "MTU in octets"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_only:true ~qualifier:DynamicRO ~ty:Bool "reserved"
               "true if the VIF is reserved pending a reboot/migrate"
           ; field
               ~ty:(Map (String, String))
-              "other_config" "additional configuration"
+              ~in_product_since:rel_rio "other_config"
+              "additional configuration"
           ]
         @ device_status_fields
         @ [namespace ~name:"qos" ~contents:(qos "VIF") ()]
@@ -2748,8 +2775,8 @@ module VIF_metrics = struct
         [
           uid _vif_metrics
         ; namespace ~name:"io" ~contents:iobandwidth ()
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_updated"
-            "Time at which this information was last updated"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_updated" "Time at which this information was last updated"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -2767,17 +2794,19 @@ module Data_source = struct
       ~contents:
         [
           namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ()
-        ; field ~qualifier:DynamicRO ~ty:Bool "enabled"
-            "true if the data source is being logged"
-        ; field ~qualifier:DynamicRO ~ty:Bool "standard"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
+            "enabled" "true if the data source is being logged"
+        ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
+            "standard"
             "true if the data source is enabled by default. Non-default data \
              sources cannot be disabled"
-        ; field ~qualifier:DynamicRO ~ty:String "units" "the units of the value"
-        ; field ~qualifier:DynamicRO ~ty:Float "min"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "units" "the units of the value"
+        ; field ~qualifier:DynamicRO ~ty:Float ~in_product_since:rel_rio "min"
             "the minimum value of the data source"
-        ; field ~qualifier:DynamicRO ~ty:Float "max"
+        ; field ~qualifier:DynamicRO ~ty:Float ~in_product_since:rel_rio "max"
             "the maximum value of the data source"
-        ; field ~qualifier:DynamicRO ~ty:Float "value"
+        ; field ~qualifier:DynamicRO ~ty:Float ~in_product_since:rel_rio "value"
             "current value of the data source"
         ]
       ()
@@ -3371,23 +3400,29 @@ module SR = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~ty:(Set (Ref _vdi)) ~qualifier:DynamicRO "VDIs"
+            field ~ty:(Set (Ref _vdi)) ~qualifier:DynamicRO
+              ~in_product_since:rel_rio "VDIs"
               "all virtual disks known to this storage repository"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs"
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd))
+              ~in_product_since:rel_rio "PBDs"
               "describes how particular hosts can see this storage repository"
-          ; field ~ty:Int ~qualifier:DynamicRO "virtual_allocation"
+          ; field ~ty:Int ~qualifier:DynamicRO ~in_product_since:rel_rio
+              "virtual_allocation"
               "sum of virtual_sizes of all VDIs in this storage repository (in \
                bytes)"
-          ; field ~ty:Int ~qualifier:DynamicRO "physical_utilisation"
+          ; field ~ty:Int ~qualifier:DynamicRO ~in_product_since:rel_rio
+              "physical_utilisation"
               "physical space currently utilised on this storage repository \
                (in bytes). Note that for sparse disk formats, \
                physical_utilisation may be less than virtual_allocation"
-          ; field ~ty:Int ~qualifier:StaticRO "physical_size"
-              "total physical size of the repository (in bytes)"
-          ; field ~qualifier:StaticRO "type" "type of the storage repository"
-          ; field ~qualifier:StaticRO "content_type"
+          ; field ~ty:Int ~qualifier:StaticRO ~in_product_since:rel_rio
+              "physical_size" "total physical size of the repository (in bytes)"
+          ; field ~qualifier:StaticRO ~in_product_since:rel_rio "type"
+              "type of the storage repository"
+          ; field ~qualifier:StaticRO ~in_product_since:rel_rio "content_type"
               "the type of the SR's content, if required (e.g. ISOs)"
           ; field ~qualifier:DynamicRO "shared" ~ty:Bool
+              ~in_product_since:rel_rio
               "true if this SR is (capable of being) shared between multiple \
                hosts"
           ; field
@@ -3395,11 +3430,13 @@ module SR = struct
               "other_config" "additional configuration"
               ~map_keys_roles:
                 [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
+              ~in_product_since:rel_rio
           ; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando
               ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
               "user-specified tags for categorization purposes"
           ; field ~ty:Bool ~qualifier:DynamicRO ~in_oss_since:None
-              ~internal_only:true "default_vdi_visibility" ""
+              ~in_product_since:rel_rio ~internal_only:true
+              "default_vdi_visibility" ""
           ; field ~in_oss_since:None
               ~ty:(Map (String, String))
               ~in_product_since:rel_miami ~qualifier:RW "sm_config"
@@ -3446,16 +3483,20 @@ module SM = struct
         [
           uid _sm
         ; namespace ~name:"name" ~contents:(names None DynamicRO) ()
-        ; field ~in_oss_since:None ~qualifier:DynamicRO "type" "SR.type"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO "vendor"
-            "Vendor who created this plugin"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO "copyright"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO "type" "SR.type"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO "vendor" "Vendor who created this plugin"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO "copyright"
             "Entity which owns the copyright of this plugin"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO "version"
-            "Version of the plugin"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO "required_api_version"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO "version" "Version of the plugin"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO "required_api_version"
             "Minimum SM API version required on the server"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             "configuration" "names and descriptions of device config keys"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
@@ -4410,37 +4451,46 @@ module VDI = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:StaticRO ~ty:(Ref _sr) "SR"
-              "storage repository in which the VDI resides"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs"
+            field ~qualifier:StaticRO ~ty:(Ref _sr) ~in_product_since:rel_rio
+              "SR" "storage repository in which the VDI resides"
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd))
+              ~in_product_since:rel_rio "VBDs"
               "list of vbds that refer to this disk"
-          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps"
+          ; field ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump))
+              ~in_product_since:rel_rio "crash_dumps"
               "list of crash dumps that refer to this disk"
-          ; field ~qualifier:StaticRO ~ty:Int "virtual_size"
+          ; field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_rio
+              "virtual_size"
               "size of disk as presented to the guest (in bytes). Note that, \
                depending on storage backend type, requested size may not be \
                respected exactly"
-          ; field ~qualifier:DynamicRO ~ty:Int "physical_utilisation"
+          ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio
+              "physical_utilisation"
               "amount of physical space that the disk image is currently \
                taking up on the storage repository (in bytes)"
-          ; field ~qualifier:StaticRO ~ty:type' "type" "type of the VDI"
-          ; field ~qualifier:StaticRO ~ty:Bool "sharable"
-              "true if this disk may be shared"
-          ; field ~qualifier:StaticRO ~ty:Bool "read_only"
-              "true if this disk may ONLY be mounted read-only"
+          ; field ~qualifier:StaticRO ~ty:type' ~in_product_since:rel_rio "type"
+              "type of the VDI"
+          ; field ~qualifier:StaticRO ~ty:Bool ~in_product_since:rel_rio
+              "sharable" "true if this disk may be shared"
+          ; field ~qualifier:StaticRO ~ty:Bool ~in_product_since:rel_rio
+              "read_only" "true if this disk may ONLY be mounted read-only"
           ; field
               ~ty:(Map (String, String))
-              "other_config" "additional configuration"
+              ~in_product_since:rel_rio "other_config"
+              "additional configuration"
               ~map_keys_roles:
                 [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
           ; field ~qualifier:DynamicRO ~ty:Bool "storage_lock"
+              ~in_product_since:rel_rio
               "true if this disk is locked at the storage level"
           ; (* XXX: location field was in the database in rio, now API in miami *)
             field ~in_oss_since:None ~in_product_since:rel_miami ~ty:String
               ~qualifier:DynamicRO ~default_value:(Some (VString "")) "location"
               "location information"
-          ; field ~in_oss_since:None ~ty:Bool ~qualifier:DynamicRO "managed" ""
-          ; field ~in_oss_since:None ~ty:Bool ~qualifier:DynamicRO "missing"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio ~ty:Bool
+              ~qualifier:DynamicRO "managed" ""
+          ; field ~in_oss_since:None ~in_product_since:rel_rio ~ty:Bool
+              ~qualifier:DynamicRO "missing"
               "true if SR scan operation reported this VDI as not present on \
                disk"
           ; field ~in_oss_since:None ~ty:(Ref _vdi) ~qualifier:DynamicRO
@@ -4684,8 +4734,10 @@ module VBD = struct
         ([uid _vbd]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine"
-          ; field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk"
+            field ~qualifier:StaticRO ~ty:(Ref _vm) ~in_product_since:rel_rio
+              "VM" "the virtual machine"
+          ; field ~qualifier:StaticRO ~ty:(Ref _vdi) ~in_product_since:rel_rio
+              "VDI" "the virtual disk"
           ; field ~qualifier:StaticRO ~ty:String
               ~default_value:(Some (VString ""))
               ~lifecycle:
@@ -4698,25 +4750,29 @@ module VBD = struct
                   )
                 ]
               "device" "device seen by the guest e.g. hda1"
-          ; field "userdevice" "user-friendly device name e.g. 0,1,2,etc."
-          ; field ~ty:Bool "bootable" "true if this VBD is bootable"
-          ; field ~qualifier:StaticRO ~ty:mode "mode"
+          ; field ~in_product_since:rel_rio "userdevice"
+              "user-friendly device name e.g. 0,1,2,etc."
+          ; field ~ty:Bool ~in_product_since:rel_rio "bootable"
+              "true if this VBD is bootable"
+          ; field ~qualifier:StaticRO ~ty:mode ~in_product_since:rel_rio "mode"
               "the mode the VBD should be mounted with"
-          ; field ~ty:type' "type"
+          ; field ~ty:type' ~in_product_since:rel_rio "type"
               "how the VBD will appear to the guest (e.g. disk or CD)"
           ; field ~in_oss_since:None ~in_product_since:rel_miami ~ty:Bool
               ~default_value:(Some (VBool true)) "unpluggable"
               "true if this VBD will support hot-unplug"
-          ; field ~qualifier:DynamicRO ~ty:Bool "storage_lock"
-              "true if a storage level lock was acquired"
-          ; field ~qualifier:StaticRO ~ty:Bool "empty"
+          ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
+              "storage_lock" "true if a storage level lock was acquired"
+          ; field ~qualifier:StaticRO ~ty:Bool ~in_product_since:rel_rio "empty"
               "if true this represents an empty drive"
-          ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-              ~ty:Bool ~default_value:(Some (VBool false)) "reserved"
+          ; field ~in_oss_since:None ~in_product_since:rel_rio
+              ~internal_only:true ~qualifier:DynamicRO ~ty:Bool
+              ~default_value:(Some (VBool false)) "reserved"
               "true if the VBD is reserved pending a reboot/migrate"
           ; field
               ~ty:(Map (String, String))
-              "other_config" "additional configuration"
+              ~in_product_since:rel_rio "other_config"
+              "additional configuration"
           ]
         @ device_status_fields
         @ [namespace ~name:"qos" ~contents:(qos "VBD") ()]
@@ -4765,7 +4821,7 @@ module VBD_metrics = struct
               ; (Removed, rel_tampa, "Disabled in favour of RRD")
               ]
             "last_updated" "Time at which this information was last updated"
-        ; field ~in_product_since:rel_orlando
+        ; field
             ~lifecycle:
               [
                 (Published, rel_orlando, "")
@@ -4796,8 +4852,10 @@ module Crashdump = struct
       ~contents:
         [
           uid _crashdump
-        ; field ~qualifier:StaticRO ~ty:(Ref _vm) "VM" "the virtual machine"
-        ; field ~qualifier:StaticRO ~ty:(Ref _vdi) "VDI" "the virtual disk"
+        ; field ~qualifier:StaticRO ~ty:(Ref _vm) ~in_product_since:rel_rio "VM"
+            "the virtual machine"
+        ; field ~qualifier:StaticRO ~ty:(Ref _vdi) ~in_product_since:rel_rio
+            "VDI" "the virtual disk"
         ; field ~in_product_since:rel_miami ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -5061,16 +5119,17 @@ module Console = struct
       ~contents:
         [
           uid _console
-        ; field ~qualifier:DynamicRO ~ty:protocol "protocol"
-            "the protocol used by this console"
-        ; field ~qualifier:DynamicRO ~ty:String "location"
-            "URI for the console service"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _vm) "VM"
-            "VM to which this console is attached"
+        ; field ~qualifier:DynamicRO ~ty:protocol ~in_product_since:rel_rio
+            "protocol" "the protocol used by this console"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "location" "URI for the console service"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _vm) ~in_product_since:rel_rio
+            "VM" "VM to which this console is attached"
         ; field
             ~ty:(Map (String, String))
-            "other_config" "additional configuration"
-        ; field ~in_oss_since:None ~internal_only:true ~ty:Int "port"
+            ~in_product_since:rel_rio "other_config" "additional configuration"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~internal_only:true
+            ~ty:Int "port"
             "port in dom0 on which the console server is listening"
         ]
       ()
@@ -5079,14 +5138,14 @@ end
 module VM_metrics = struct
   let vm_memory_metrics =
     [
-      field ~qualifier:DynamicRO ~ty:Int "actual"
+      field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "actual"
         "Guest's actual memory (bytes)" ~persist:false
     ]
 
   let vm_vcpu_metrics =
     [
-      field ~qualifier:DynamicRO ~ty:Int "number" "Current number of VCPUs"
-        ~persist:true
+      field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "number"
+        "Current number of VCPUs" ~persist:true
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Float))
         ~persist:false "utilisation"
@@ -5100,13 +5159,15 @@ module VM_metrics = struct
           ]
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Int))
-        "CPU" "VCPU to PCPU map" ~persist:false
+        ~in_product_since:rel_rio "CPU" "VCPU to PCPU map" ~persist:false
     ; field ~qualifier:DynamicRO
         ~ty:(Map (String, String))
-        "params" "The live equivalent to VM.VCPUs_params" ~persist:false
+        ~in_product_since:rel_rio "params"
+        "The live equivalent to VM.VCPUs_params" ~persist:false
     ; field ~qualifier:DynamicRO
         ~ty:(Map (Int, Set String))
-        "flags" "CPU flags (blocked,online,running)" ~persist:false
+        ~in_product_since:rel_rio "flags" "CPU flags (blocked,online,running)"
+        ~persist:false
     ]
 
   let t =
@@ -5120,14 +5181,17 @@ module VM_metrics = struct
           uid _vm_metrics
         ; namespace ~name:"memory" ~contents:vm_memory_metrics ()
         ; namespace ~name:"VCPUs" ~contents:vm_vcpu_metrics ()
-        ; field ~qualifier:DynamicRO ~ty:(Set String) "state"
-            "The state of the guest, eg blocked, dying etc" ~persist:false
-        ; field ~qualifier:DynamicRO ~ty:DateTime "start_time"
-            "Time at which this VM was last booted"
+        ; field ~qualifier:DynamicRO ~ty:(Set String) ~in_product_since:rel_rio
+            "state" "The state of the guest, eg blocked, dying etc"
+            ~persist:false
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "start_time" "Time at which this VM was last booted"
         ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:DateTime
-            "install_time" "Time at which the VM was installed"
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_updated"
-            "Time at which this information was last updated" ~persist:false
+            ~in_product_since:rel_rio "install_time"
+            "Time at which the VM was installed"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_updated" "Time at which this information was last updated"
+            ~persist:false
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration" ~persist:false
@@ -5182,14 +5246,15 @@ module VM_guest_metrics = struct
           uid _vm_guest_metrics
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            "os_version" "version of the OS"
+            ~in_product_since:rel_rio "os_version" "version of the OS"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~lifecycle:[] "netbios_name" "The NETBIOS name of the machine"
             ~default_value:(Some (VMap []))
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            "PV_drivers_version" "version of the PV drivers"
+            ~in_product_since:rel_rio "PV_drivers_version"
+            "version of the PV drivers"
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_oss_since:None
             ~lifecycle:
               [
@@ -5232,12 +5297,12 @@ module VM_guest_metrics = struct
             "disks" "This field exists but has no data."
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            "networks" "network configuration"
+            ~in_product_since:rel_rio "networks" "network configuration"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            "other" "anything else"
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_updated"
-            "Time at which this information was last updated"
+            ~in_product_since:rel_rio "other" "anything else"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_updated" "Time at which this information was last updated"
         ; field ~in_product_since:rel_orlando ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
@@ -5855,26 +5920,28 @@ module VMSS = struct
         [
           uid _vmss
         ; namespace ~name:"name" ~contents:(names None RW) ()
-        ; field ~qualifier:RW ~ty:Bool "enabled"
+        ; field ~qualifier:RW ~ty:Bool ~in_product_since:rel_rio "enabled"
             "enable or disable this snapshot schedule"
             ~default_value:(Some (VBool true))
-        ; field ~qualifier:StaticRO ~ty:type' "type"
+        ; field ~qualifier:StaticRO ~ty:type' ~in_product_since:rel_rio "type"
             "type of the snapshot schedule"
-        ; field ~qualifier:StaticRO ~ty:Int "retained_snapshots"
+        ; field ~qualifier:StaticRO ~ty:Int ~in_product_since:rel_rio
+            "retained_snapshots"
             "maximum number of snapshots that should be stored at any time"
             ~default_value:(Some (VInt 7L))
-        ; field ~qualifier:StaticRO ~ty:frequency "frequency"
-            "frequency of taking snapshot from snapshot schedule"
+        ; field ~qualifier:StaticRO ~ty:frequency ~in_product_since:rel_rio
+            "frequency" "frequency of taking snapshot from snapshot schedule"
         ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
-            "schedule"
+            ~in_product_since:rel_rio "schedule"
             "schedule of the snapshot containing 'hour', 'min', 'days'. \
              Date/time-related information is in Local Timezone"
             ~default_value:(Some (VMap []))
-        ; field ~qualifier:DynamicRO ~ty:DateTime "last_run_time"
-            "time of the last snapshot"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_run_time" "time of the last snapshot"
             ~default_value:(Some (VDateTime Date.epoch))
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
+            ~in_product_since:rel_rio "VMs"
             "all VMs attached to this snapshot schedule"
         ]
       ()
@@ -6003,8 +6070,8 @@ module VM_appliance = struct
          ]
         @ allowed_and_current_operations operations
         @ [
-            field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "VMs"
-              "all VMs in this appliance"
+            field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
+              ~in_product_since:rel_rio "VMs" "all VMs in this appliance"
           ]
         )
       ()
@@ -6045,7 +6112,8 @@ module DR_task = struct
       ~contents:
         [
           uid _dr_task
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _sr)) "introduced_SRs"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _sr))
+            ~in_product_since:rel_rio "introduced_SRs"
             "All SRs introduced by this appliance"
         ]
       ()
@@ -6187,20 +6255,24 @@ module Event = struct
         }
     ; contents=
         [
-          field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int "id"
+          field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:Int
+            ~in_product_since:rel_rio "id"
             "An ID, monotonically increasing, and local to the current session"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:DateTime
-            ~internal_deprecated_since:rel_boston "timestamp"
-            "The time at which the event occurred"
-        ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "class"
+            ~in_product_since:rel_rio ~internal_deprecated_since:rel_boston
+            "timestamp" "The time at which the event occurred"
+        ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String
+            ~in_product_since:rel_rio "class"
             "The name of the class of the object that changed"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:operation
-            "operation" "The operation that was performed"
-        ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String "ref"
+            ~in_product_since:rel_rio "operation"
+            "The operation that was performed"
+        ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String
+            ~in_product_since:rel_rio "ref"
             "A reference to the object that changed"
         ; field ~reader_roles:_R_ALL ~qualifier:StaticRO ~ty:String
-            ~internal_deprecated_since:rel_boston "obj_uuid"
-            "The uuid of the object that changed"
+            ~in_product_since:rel_rio ~internal_deprecated_since:rel_boston
+            "obj_uuid" "The uuid of the object that changed"
         ]
     ; (* As of tampa, the event record has one more field, snapshot, which is the record of the object changed.
          Due to the difficulty of representing this in the datamodel, the doc is generated manually,
@@ -6257,14 +6329,15 @@ module Blob = struct
         [
           uid _blob
         ; namespace ~name:"name" ~contents:(names oss_since_303 RW) ()
-        ; field ~qualifier:DynamicRO ~ty:Int "size"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "size"
             "Size of the binary data, in bytes"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:RW
             ~in_product_since:rel_tampa ~default_value:(Some (VBool false))
             ~ty:Bool "public" "True if the blob is publicly accessible"
-        ; field ~qualifier:StaticRO ~ty:DateTime "last_updated"
-            "Time at which the data in the blob was last updated"
-        ; field ~qualifier:StaticRO ~ty:String "mime_type"
+        ; field ~qualifier:StaticRO ~ty:DateTime ~in_product_since:rel_rio
+            "last_updated" "Time at which the data in the blob was last updated"
+        ; field ~qualifier:StaticRO ~ty:String ~in_product_since:rel_rio
+            "mime_type"
             "The mime type associated with this object. Defaults to \
              'application/octet-stream' if the empty string is supplied"
         ]
@@ -6399,9 +6472,10 @@ module Message = struct
       ~contents:
         [
           uid _message
-        ; field ~qualifier:DynamicRO ~ty:String "name" "The name of the message"
-        ; field ~qualifier:DynamicRO ~ty:Int "priority"
-            "The message priority, 0 being low priority"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio "name"
+            "The name of the message"
+        ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio
+            "priority" "The message priority, 0 being low priority"
         ; field ~qualifier:DynamicRO ~ty:cls
             ~lifecycle:
               [
@@ -6409,11 +6483,12 @@ module Message = struct
               ; (Extended, "1.313.0", "Added Certificate class")
               ]
             "cls" "The class of the object this message is associated with"
-        ; field ~qualifier:DynamicRO ~ty:String "obj_uuid"
-            "The uuid of the object this message is associated with"
-        ; field ~qualifier:DynamicRO ~ty:DateTime "timestamp"
-            "The time at which the message was created"
-        ; field ~qualifier:DynamicRO ~ty:String "body" "The body of the message"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "obj_uuid" "The uuid of the object this message is associated with"
+        ; field ~qualifier:DynamicRO ~ty:DateTime ~in_product_since:rel_rio
+            "timestamp" "The time at which the message was created"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio "body"
+            "The body of the message"
         ]
       ()
 end
@@ -6458,11 +6533,12 @@ module Secret = struct
       ~contents:
         [
           uid ~reader_roles:_R_POOL_OP _secret
-        ; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String "value"
-            "the secret"
+        ; field ~reader_roles:_R_POOL_OP ~qualifier:RW ~ty:String
+            ~in_product_since:rel_rio "value" "the secret"
         ; field ~qualifier:RW
             ~ty:(Map (String, String))
-            "other_config" "other_config" ~default_value:(Some (VMap []))
+            ~in_product_since:rel_rio "other_config" "other_config"
+            ~default_value:(Some (VMap []))
         ]
       ()
 end
@@ -7816,8 +7892,8 @@ module VUSB = struct
               ~ty:(Map (String, String))
               ~lifecycle "other_config" "Additional configuration"
               ~default_value:(Some (VMap []))
-          ; field ~qualifier:DynamicRO ~ty:Bool "currently_attached"
-              "is the device currently attached"
+          ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
+              "currently_attached" "is the device currently attached"
               ~default_value:(Some (VBool false))
           ]
         )

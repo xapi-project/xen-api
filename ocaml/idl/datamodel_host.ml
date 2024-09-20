@@ -7,7 +7,7 @@ open Datamodel_types
 let host_memory =
   let field = field ~ty:Int in
   [
-    field ~qualifier:DynamicRO "overhead"
+    field ~qualifier:DynamicRO "overhead" ~in_product_since:rel_rio
       "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L))
       ~doc_tags:[Memory]
   ]
@@ -15,12 +15,14 @@ let host_memory =
 let api_version =
   let field' = field ~qualifier:DynamicRO in
   [
-    field' ~ty:Int "major" "major version number"
-  ; field' ~ty:Int "minor" "minor version number"
-  ; field' ~ty:String "vendor" "identification of vendor"
+    field' ~ty:Int ~in_product_since:rel_rio "major" "major version number"
+  ; field' ~ty:Int ~in_product_since:rel_rio "minor" "minor version number"
+  ; field' ~ty:String ~in_product_since:rel_rio "vendor"
+      "identification of vendor"
   ; field'
       ~ty:(Map (String, String))
-      "vendor_implementation" "details of vendor implementation"
+      ~in_product_since:rel_rio "vendor_implementation"
+      "details of vendor implementation"
   ]
 
 let migrate_receive =
@@ -1985,68 +1987,76 @@ let t =
       @ [
           namespace ~name:"API_version" ~contents:api_version ()
         ; field ~qualifier:DynamicRO ~ty:Bool "enabled"
-            "True if the host is currently enabled"
+            ~in_product_since:rel_rio "True if the host is currently enabled"
         ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
-            "software_version" "version strings"
+            ~in_product_since:rel_rio "software_version" "version strings"
         ; field
             ~ty:(Map (String, String))
-            "other_config" "additional configuration"
+            ~in_product_since:rel_rio "other_config" "additional configuration"
             ~map_keys_roles:
               [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
-        ; field ~qualifier:StaticRO ~ty:(Set String) "capabilities"
-            "Xen capabilities"
+        ; field ~qualifier:StaticRO ~ty:(Set String) ~in_product_since:rel_rio
+            "capabilities" "Xen capabilities"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            "cpu_configuration"
+            ~in_product_since:rel_rio "cpu_configuration"
             "The CPU configuration on this host.  May contain keys such as \
              \"nr_nodes\", \"sockets_per_node\", \"cores_per_socket\", or \
              \"threads_per_core\""
-        ; field ~qualifier:DynamicRO ~ty:String "sched_policy"
-            "Scheduler policy currently in force on this host"
-        ; field ~qualifier:DynamicRO ~ty:(Set String) "supported_bootloaders"
+        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+            "sched_policy" "Scheduler policy currently in force on this host"
+        ; field ~qualifier:DynamicRO ~ty:(Set String) ~in_product_since:rel_rio
+            "supported_bootloaders"
             "a list of the bootloaders installed on the machine"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm)) "resident_VMs"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
+            ~in_product_since:rel_rio "resident_VMs"
             "list of VMs currently resident on host"
         ; field ~qualifier:RW
             ~ty:(Map (String, String))
-            "logging" "logging configuration"
+            ~in_product_since:rel_rio "logging" "logging configuration"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) ~doc_tags:[Networking]
-            "PIFs" "physical network interfaces"
-        ; field ~qualifier:RW ~ty:(Ref _sr) "suspend_image_sr"
+            ~in_product_since:rel_rio "PIFs" "physical network interfaces"
+        ; field ~qualifier:RW ~ty:(Ref _sr) ~in_product_since:rel_rio
+            "suspend_image_sr"
             "The SR in which VDIs for suspend images are created"
-        ; field ~qualifier:RW ~ty:(Ref _sr) "crash_dump_sr"
-            "The SR in which VDIs for crash dumps are created"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO
-            ~ty:(Set (Ref _host_crashdump)) "crashdumps"
+        ; field ~qualifier:RW ~ty:(Ref _sr) ~in_product_since:rel_rio
+            "crash_dump_sr" "The SR in which VDIs for crash dumps are created"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:(Set (Ref _host_crashdump)) "crashdumps"
             "Set of host crash dumps"
-        ; field ~in_oss_since:None ~internal_deprecated_since:rel_ely
-            ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "patches"
-            "Set of host patches"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~internal_deprecated_since:rel_ely ~qualifier:DynamicRO
+            ~ty:(Set (Ref _host_patch)) "patches" "Set of host patches"
         ; field ~in_oss_since:None ~in_product_since:rel_ely
             ~qualifier:DynamicRO ~ty:(Set (Ref _pool_update)) "updates"
             "Set of updates"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd)) "PBDs"
-            "physical blockdevices"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu)) "host_CPUs"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd))
+            ~in_product_since:rel_rio "PBDs" "physical blockdevices"
+        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu))
+            ~in_product_since:rel_rio "host_CPUs"
             "The physical CPUs on this host"
         ; field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on this host"
-        ; field ~in_oss_since:None ~qualifier:RW ~ty:String
-            ~doc_tags:[Networking] "hostname" "The hostname of this host"
-        ; field ~in_oss_since:None ~qualifier:RW ~ty:String
-            ~doc_tags:[Networking] "address"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:String ~doc_tags:[Networking] "hostname"
+            "The hostname of this host"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:String ~doc_tags:[Networking] "address"
             "The address by which this host can be contacted from any other \
              host in the pool"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _host_metrics) "metrics"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _host_metrics)
+            ~in_product_since:rel_rio "metrics"
             "metrics associated with this host"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             "license_params" "State of the current license"
-        ; field ~in_oss_since:None ~internal_only:true ~qualifier:DynamicRO
-            ~ty:Int "boot_free_mem" "Free memory on host at boot time"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~internal_only:true
+            ~qualifier:DynamicRO ~ty:Int "boot_free_mem"
+            "Free memory on host at boot time"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
             ~in_product_since:rel_orlando ~ty:(Set String)
             ~default_value:(Some (VSet [])) "ha_statefiles"

@@ -1287,20 +1287,22 @@ let t =
     ~contents:
       ([uid ~in_oss_since:None _pool]
       @ [
-          field ~in_oss_since:None ~qualifier:RW ~ty:String "name_label"
-            "Short name"
-        ; field ~in_oss_since:None ~qualifier:RW ~ty:String "name_description"
-            "Description"
-        ; field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _host) "master"
+          field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:String "name_label" "Short name"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:String "name_description" "Description"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~qualifier:DynamicRO ~ty:(Ref _host) "master"
             "The host that is pool master"
-        ; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "default_SR"
-            "Default SR for VDIs"
-        ; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr)
-            "suspend_image_SR"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:(Ref _sr) "suspend_image_SR"
             "The SR in which VDIs for suspend images are created"
-        ; field ~in_oss_since:None ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
+            ~ty:(Ref _sr) "crash_dump_SR"
             "The SR in which VDIs for crash dumps are created"
-        ; field ~in_oss_since:None
+        ; field ~in_oss_since:None ~in_product_since:rel_rio
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
@@ -1372,8 +1374,8 @@ let t =
             ~in_product_since:rel_george ~qualifier:RW ~ty:Bool
             ~default_value:(Some (VBool false)) "wlb_enabled"
             "true if workload balancing is enabled on the pool, false otherwise"
-        ; field ~in_product_since:rel_george ~qualifier:RW ~ty:Bool
-            ~default_value:(Some (VBool false)) "wlb_verify_cert"
+        ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
+            "wlb_verify_cert"
             "true if communication with the WLB server should enforce TLS \
              certificate verification."
             ~lifecycle:
@@ -1516,7 +1518,7 @@ let t =
             "Default behaviour during migration, True if stream compression \
              should be used"
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool true))
-            "coordinator_bias"
+            ~in_product_since:rel_rio "coordinator_bias"
             "true if bias against pool master when scheduling vms is enabled, \
              false otherwise"
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 8L))

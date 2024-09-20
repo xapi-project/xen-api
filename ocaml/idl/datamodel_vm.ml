@@ -21,12 +21,14 @@ let vmpp_deprecated =
 
 let pv =
   [
-    field "bootloader" "name of or path to bootloader"
-  ; field "kernel" "path to the kernel"
-  ; field "ramdisk" "path to the initrd"
-  ; field "args" "kernel command-line arguments"
-  ; field "bootloader_args" "miscellaneous arguments for the bootloader"
-  ; field ~in_oss_since:None "legacy_args" "to make Zurich guests boot"
+    field ~in_product_since:rel_rio "bootloader" "name of or path to bootloader"
+  ; field ~in_product_since:rel_rio "kernel" "path to the kernel"
+  ; field ~in_product_since:rel_rio "ramdisk" "path to the initrd"
+  ; field ~in_product_since:rel_rio "args" "kernel command-line arguments"
+  ; field ~in_product_since:rel_rio "bootloader_args"
+      "miscellaneous arguments for the bootloader"
+  ; field ~in_oss_since:None ~in_product_since:rel_rio "legacy_args"
+      "to make Zurich guests boot"
   ]
 
 (** HVM domain booting *)
@@ -39,7 +41,9 @@ let hvm =
         ; (Deprecated, rel_kolkata, "Replaced by VM.domain_type")
         ]
       "boot_policy" "HVM boot policy"
-  ; field ~ty:(Map (String, String)) "boot_params" "HVM boot params"
+  ; field ~in_product_since:rel_rio
+      ~ty:(Map (String, String))
+      "boot_params" "HVM boot params"
   ; field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None ~ty:Float
       ~in_product_since:rel_miami ~qualifier:StaticRO "shadow_multiplier"
       "multiplier applied to the amount of shadow that will be made available \
@@ -50,24 +54,29 @@ let hvm =
 let guest_memory =
   let field = field ~ty:Int in
   [
-    field "overhead" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-      "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L))
-      ~doc_tags:[Memory]
-  ; field "target" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+    field "overhead" ~in_product_since:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:DynamicRO "Virtualization memory overhead (bytes)."
+      ~default_value:(Some (VInt 0L)) ~doc_tags:[Memory]
+  ; field "target" ~in_product_since:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO
       "Dynamically-set memory target (bytes). The value of this field \
        indicates the current target for memory available to this VM."
       ~default_value:(Some (VInt 0L))
       ~internal_deprecated_since:rel_midnight_ride ~doc_tags:[Memory]
-  ; field "static_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+  ; field "static_max" ~in_product_since:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO
       "Statically-set (i.e. absolute) maximum (bytes). The value of this field \
        at VM start time acts as a hard limit of the amount of memory a guest \
        can use. New values only take effect on reboot."
       ~doc_tags:[Memory]
-  ; field "dynamic_max" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+  ; field "dynamic_max" ~in_product_since:rel_rio
+      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
       "Dynamic maximum (bytes)" ~doc_tags:[Memory]
-  ; field "dynamic_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+  ; field "dynamic_min" ~in_product_since:rel_rio
+      ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
       "Dynamic minimum (bytes)" ~doc_tags:[Memory]
-  ; field "static_min" ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:StaticRO
+  ; field "static_min" ~in_product_since:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+      ~qualifier:StaticRO
       "Statically-set (i.e. absolute) mininum (bytes). The value of this field \
        indicates the least amount of memory this VM can boot with without \
        crashing."
@@ -118,17 +127,21 @@ let on_normal_exit_behaviour =
 (** Virtual CPUs *)
 let vcpus =
   [
-    field
+    field ~in_product_since:rel_rio
       ~ty:(Map (String, String))
       "params" "configuration parameters for the selected VCPU policy"
-  ; field ~qualifier:StaticRO ~ty:Int "max" "Max number of VCPUs"
-  ; field ~qualifier:StaticRO ~ty:Int "at_startup" "Boot number of VCPUs"
+  ; field ~in_product_since:rel_rio ~qualifier:StaticRO ~ty:Int "max"
+      "Max number of VCPUs"
+  ; field ~in_product_since:rel_rio ~qualifier:StaticRO ~ty:Int "at_startup"
+      "Boot number of VCPUs"
   ]
 
 (** Default actions *)
 let actions =
-  let crash = field ~qualifier:StaticRO ~ty:on_crash_behaviour in
-  let normal = field ~ty:on_normal_exit_behaviour in
+  let crash =
+    field ~in_product_since:rel_rio ~qualifier:StaticRO ~ty:on_crash_behaviour
+  in
+  let normal = field ~in_product_since:rel_rio ~ty:on_normal_exit_behaviour in
   let soft =
     field ~qualifier:RW ~lifecycle:[] ~ty:on_softreboot_behavior
       ~default_value:(Some (VEnum "soft_reboot"))
@@ -1970,9 +1983,9 @@ let t =
                 )
               ]
             ~ty:power_state "power_state" "Current power state of the machine"
-        ; field ~ty:Int "user_version"
+        ; field ~ty:Int "user_version" ~in_product_since:rel_rio
             "Creators of VMs and templates may store version information here."
-        ; field ~effect:true ~ty:Bool "is_a_template"
+        ; field ~effect:true ~ty:Bool "is_a_template" ~in_product_since:rel_rio
             "true if this is a template. Template VMs can never be started, \
              they are used only for cloning other VMs"
         ; field ~ty:Bool ~default_value:(Some (VBool false))
@@ -1994,40 +2007,44 @@ let t =
             ~ty:(Ref _vdi) "suspend_VDI"
             "The VDI that a suspend image is stored on. (Only has meaning if \
              VM is currently suspended)"
-        ; field ~writer_roles:_R_VM_POWER_ADMIN ~qualifier:DynamicRO
-            ~ty:(Ref _host) "resident_on"
+        ; field ~in_product_since:rel_rio ~writer_roles:_R_VM_POWER_ADMIN
+            ~qualifier:DynamicRO ~ty:(Ref _host) "resident_on"
             "the host the VM is currently resident on"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None
-            ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref))
-            ~ty:(Ref _host) "scheduled_to_be_resident_on"
+            ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~default_value:(Some (VRef null_ref)) ~ty:(Ref _host)
+            "scheduled_to_be_resident_on"
             "the host on which the VM is due to be started/resumed/migrated. \
              This acts as a memory reservation indicator"
         ; field ~writer_roles:_R_VM_POWER_ADMIN ~in_oss_since:None
-            ~ty:(Ref _host) "affinity"
+            ~in_product_since:rel_rio ~ty:(Ref _host) "affinity"
             "A host which the VM has some affinity for (or NULL). This is used \
              as a hint to the start call when it decides where to run the VM. \
              Resource constraints may cause the VM to be started elsewhere."
         ; namespace ~name:"memory" ~contents:guest_memory ()
         ; namespace ~name:"VCPUs" ~contents:vcpus ()
         ; namespace ~name:"actions" ~contents:actions ()
-        ; field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO
-            ~ty:(Set (Ref _console)) "consoles" "virtual console devices"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vif)) ~doc_tags:[Networking]
-            "VIFs" "virtual network interfaces"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vbd)) "VBDs"
-            "virtual block devices"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vusb)) "VUSBs"
-            "virtual usb devices"
-        ; field ~writer_roles:_R_POOL_ADMIN ~qualifier:DynamicRO
-            ~ty:(Set (Ref _crashdump)) "crash_dumps"
+        ; field ~in_product_since:rel_rio ~writer_roles:_R_POOL_ADMIN
+            ~qualifier:DynamicRO ~ty:(Set (Ref _console)) "consoles"
+            "virtual console devices"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~ty:(Set (Ref _vif)) ~doc_tags:[Networking] "VIFs"
+            "virtual network interfaces"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~ty:(Set (Ref _vbd)) "VBDs" "virtual block devices"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~ty:(Set (Ref _vusb)) "VUSBs" "virtual usb devices"
+        ; field ~in_product_since:rel_rio ~writer_roles:_R_POOL_ADMIN
+            ~qualifier:DynamicRO ~ty:(Set (Ref _crashdump)) "crash_dumps"
             "crash dumps associated with this VM"
-        ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vtpm)) "VTPMs"
-            "virtual TPMs"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~ty:(Set (Ref _vtpm)) "VTPMs" "virtual TPMs"
         ; namespace ~name:"PV" ~contents:pv ()
         ; namespace ~name:"HVM" ~contents:hvm ()
         ; field
             ~ty:(Map (String, String))
-            "platform" "platform-specific configuration"
+            ~in_product_since:rel_rio "platform"
+            "platform-specific configuration"
         ; field
             ~lifecycle:
               [
@@ -2035,7 +2052,7 @@ let t =
               ; (Deprecated, rel_boston, "Field was never used")
               ]
             "PCI_bus" "PCI bus path for pass-through devices"
-        ; field
+        ; field ~in_product_since:rel_rio
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
@@ -2044,19 +2061,22 @@ let t =
               ; ("folder", _R_VM_OP)
               ; ("XenCenter.CustomFields.*", _R_VM_OP)
               ]
-        ; field ~qualifier:DynamicRO ~ty:Int "domid"
+        ; field ~qualifier:DynamicRO ~ty:Int "domid" ~in_product_since:rel_rio
             "domain ID (if available, -1 otherwise)"
-        ; field ~qualifier:DynamicRO ~in_oss_since:None ~ty:String "domarch"
+        ; field ~qualifier:DynamicRO ~in_oss_since:None
+            ~in_product_since:rel_rio ~ty:String "domarch"
             "Domain architecture (if available, null string otherwise)"
-        ; field ~in_oss_since:None ~qualifier:StaticRO
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "last_boot_CPU_flags"
             "describes the CPU flags on which the VM was last booted"
-        ; field ~qualifier:DynamicRO ~ty:Bool "is_control_domain"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO ~ty:Bool
+            "is_control_domain"
             "true if this is a control domain (domain 0 or a driver domain)"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _vm_metrics) "metrics"
-            "metrics associated with this VM"
-        ; field ~qualifier:DynamicRO ~ty:(Ref _vm_guest_metrics) "guest_metrics"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~ty:(Ref _vm_metrics) "metrics" "metrics associated with this VM"
+        ; field ~in_product_since:rel_rio ~qualifier:DynamicRO
+            ~ty:(Ref _vm_guest_metrics) "guest_metrics"
             "metrics associated with the running guest"
         ; (* This was an internal field in Rio, Miami beta1, Miami beta2 but is now exposed so that
              	   it will be included automatically in Miami GA exports and can be restored, important if
@@ -2078,7 +2098,8 @@ let t =
             ~qualifier:StaticRO ~ty:String "last_booted_record"
             "marshalled value containing VM record at time of last boot"
             ~default_value:(Some (VString ""))
-        ; field ~in_oss_since:None ~ty:String "recommendations"
+        ; field ~in_oss_since:None ~in_product_since:rel_rio ~ty:String
+            "recommendations"
             "An XML specification of recommended values and ranges for \
              properties of this VM"
         ; field ~effect:true ~in_oss_since:None
@@ -2171,8 +2192,9 @@ let t =
             ~ty:Bool "is_vmss_snapshot"
             "true if this snapshot was created by the snapshot schedule"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
-            ~ty:(Ref _vm_appliance) ~default_value:(Some (VRef null_ref))
-            "appliance" "the appliance to which this VM belongs"
+            ~in_product_since:rel_rio ~ty:(Ref _vm_appliance)
+            ~default_value:(Some (VRef null_ref)) "appliance"
+            "the appliance to which this VM belongs"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:StaticRO
             ~in_product_since:rel_boston ~default_value:(Some (VInt 0L)) ~ty:Int
             "start_delay"
