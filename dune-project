@@ -300,6 +300,10 @@
     xenctrl
     xmlm
     yojson
+    ; can't use '= version' here yet,
+    ; 'xapi-tools' will have version ~dev, not 'master' like all the others
+    ; because it is not in xs-opam yet
+    rrd-transport
     (alcotest :with-test)
     (ppx_deriving_rpc :with-test)
     (qcheck-core :with-test)
