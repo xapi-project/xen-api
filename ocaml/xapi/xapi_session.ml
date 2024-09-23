@@ -671,9 +671,12 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     ~rbac_permissions ~db_ref ~client_certificate =
   Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
   let is_valid_session session_id =
-    if session_id = Ref.null then
-      false
-    else
+    match (session_id, !Xapi_globs.validate_reusable_pool_session) with
+    | session, _ when session = Ref.null ->
+        false
+    | _, false ->
+        true
+    | session_id, true -> (
       try
         (* Call an API function to check the session is still valid *)
         let rpc = Helpers.make_rpc ~__context in
@@ -682,6 +685,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
       with Api_errors.Server_error (err, _) ->
         debug "%s: Invalid session: %s" __FUNCTION__ err ;
         false
+    )
   in
   let create_session () =
     let new_session_id =

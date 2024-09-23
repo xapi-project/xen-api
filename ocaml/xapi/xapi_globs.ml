@@ -1078,6 +1078,9 @@ let disable_webserver = ref false
 let reuse_pool_sessions = ref true
 (* Enables the reuse of pool sessions, speeding up intrapool communication *)
 
+let validate_reusable_pool_session = ref false
+(* Validate a reusable session before each use. This is slower and should not be required *)
+
 let test_open = ref 0
 
 let tgroups_enabled = ref false
@@ -1716,6 +1719,11 @@ let other_options =
     , Arg.Set reuse_pool_sessions
     , (fun () -> string_of_bool !reuse_pool_sessions)
     , "Enable the reuse of pool sessions"
+    )
+  ; ( "validate-reusable-pool-session"
+    , Arg.Set validate_reusable_pool_session
+    , (fun () -> string_of_bool !validate_reusable_pool_session)
+    , "Enable validation of reusable pool sessions before use"
     )
   ]
 
