@@ -83,14 +83,6 @@ let guest_memory =
       ~doc_tags:[Memory]
   ]
 
-(*
-let power_behaviour =
-  Enum ("power_behaviour", [ "destroy", "destroy the VM state";
-			     "restart", "automatically restart the VM";
-			     "preserve", "leave VM running";
-			     "rename_restart", "leave VM running and restart a new one" ])
-*)
-
 (** Action to take on guest reboot/power off/sleep etc *)
 let on_crash_behaviour =
   Enum

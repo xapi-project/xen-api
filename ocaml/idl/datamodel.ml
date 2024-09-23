@@ -526,8 +526,7 @@ module Task = struct
                 ; ("XenCenterUUID", _R_VM_OP)
                 ; ("XenCenterMeddlingActionTitle", _R_VM_OP)
                 ]
-          ; (* field ~ty:(Set(Ref _alert)) ~in_product_since:rel_miami ~qualifier:DynamicRO "alerts" "all alerts related to this task"; *)
-            field ~qualifier:DynamicRO ~in_product_since:rel_orlando
+          ; field ~qualifier:DynamicRO ~in_product_since:rel_orlando
               ~default_value:(Some (VRef "")) ~ty:(Ref _task) "subtask_of"
               "Ref pointing to the task this is a substask of."
           ; field ~qualifier:DynamicRO ~in_product_since:rel_orlando
@@ -4077,21 +4076,6 @@ module LVHD = struct
       ()
 end
 
-(* --- rws: removed this after talking to Andy and Julian
-   let filesystem =
-   { name = _filesystem; description = "An on-disk filesystem";
-    messages = [];
-    contents =
-      field "uuid" "globally-unique ID" ::
-    let field ?(ty=Int) = field ~qualifier:DynamicRO ~ty in
-    [ field "block_size" "block size";
-      field "total_blocks" "total blocks on disk";
-      field "available_blocks" "blocks available for allocation";
-      field "used_blocks" "blocks already in use";
-      field "percentage_free" "Percentage of free space left in filesystem";
-      field ~ty:String "type" "filesystem type" ] }
-*)
-
 module Vdi_nbd_server_info = struct
   let t =
     let lifecycle = [(Published, rel_inverness, "")] in
@@ -7509,25 +7493,6 @@ module Secret = struct
         ]
       ()
 end
-
-(*
-
-let alert =
-  create_obj ~in_product_since:rel_miami ~in_oss_since:None ~persist:PersistEverything ~gen_constructor_destructor:true ~name:_alert ~descr:"Notification information"
-    ~gen_events:true
-    ~doccomments:[]
-    ~messages: []
-    ~contents:
-    [
-     uid ~in_oss_since:None _alert;
-     field ~in_oss_since:None ~qualifier:StaticRO ~ty:String "message" "description of the alert";
-     field ~in_oss_since:None ~qualifier:StaticRO ~ty:(Map (String, String)) ~default_value:(Some (VMap [])) "params" "parameters of the alert";
-     field ~in_oss_since:None ~qualifier:StaticRO ~ty:alert_level "level" "level of importance (info/warning/error/critical)";
-     field ~in_oss_since:None ~qualifier:DynamicRO ~ty:Bool "system" "system task";
-     field ~in_oss_since:None ~qualifier:DynamicRO ~ty:(Ref _task) "task" "task related to this alert (null reference if there's no task associated)";
-    ]
-    ()
-*)
 
 (** network sriov **)
 module Network_sriov = struct

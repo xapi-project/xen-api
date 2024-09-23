@@ -209,17 +209,6 @@ let ha_wait_for_shutdown_via_statefile =
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
 
-(*
-let host_query_ha = call ~flags:[`Session]
-  ~in_product_since:rel_miami
-  ~name:"query_ha"
-  ~doc:"Return the local HA configuration as seen by this host"
-  ~params:[]
-  ~custom_marshaller:true
-  ~pool_internal:true
-  ~hide_from_docs:true
-  ()
-*)
 let request_backup =
   call ~flags:[`Session] ~name:"request_backup"
     ~lifecycle:
