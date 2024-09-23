@@ -701,7 +701,9 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     with_lock reusable_pool_session_lock (fun () ->
         if
           !reusable_pool_session <> Ref.null
-          && is_valid_session !reusable_pool_session
+          && ((not !Xapi_globs.validate_reusable_pool_session)
+             || is_valid_session !reusable_pool_session
+             )
         then
           !reusable_pool_session
         else
