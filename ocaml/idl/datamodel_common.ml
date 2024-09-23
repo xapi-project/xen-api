@@ -792,8 +792,7 @@ let default_field_writer_roles = _R_POOL_ADMIN
 (* by default, only root can write to them *)
 
 (** Create an object and map the object name into the messages *)
-let create_obj ?lifecycle ~in_oss_since ?in_product_since
-    ?(internal_deprecated_since = None) ~gen_constructor_destructor ~gen_events
+let create_obj ?lifecycle ~in_oss_since ~gen_constructor_destructor ~gen_events
     ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db
     ?(contents_default_reader_roles = default_field_reader_roles)
     ?(contents_default_writer_roles = None)
@@ -844,26 +843,10 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
         )
       contents
   in
-  if lifecycle = None && in_product_since = None then
-    failwith ("Lifecycle for class '" ^ name ^ "' not specified") ;
   let lifecycle =
     match lifecycle with
     | None ->
-        let published =
-          match in_product_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Published, rel, descr)]
-        in
-        let deprecated =
-          match internal_deprecated_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Deprecated, rel, "")]
-        in
-        published @ deprecated
+        failwith ("Lifecycle for class '" ^ name ^ "' not specified")
     | Some l ->
         l
   in

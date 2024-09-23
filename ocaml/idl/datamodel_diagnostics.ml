@@ -58,7 +58,14 @@ let network_stats =
     ()
 
 let t =
-  create_obj ~in_db:false ~in_product_since:Datamodel_types.rel_stockholm
+  create_obj ~in_db:false
+    ~lifecycle:
+      [
+        ( Published
+        , Datamodel_types.rel_stockholm
+        , "A set of functions for diagnostic purpose"
+        )
+      ]
     ~in_oss_since:None ~persist:PersistNothing ~gen_constructor_destructor:false
     ~name:_diagnostics ~descr:"A set of functions for diagnostic purpose"
     ~gen_events:false ~doccomments:[]

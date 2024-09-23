@@ -2314,10 +2314,11 @@ let latest_synced_updates_applied_state =
 
 (** Hosts *)
 let t =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
-    ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_host
-    ~descr:"A physical host" ~gen_events:true ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
+  create_obj ~in_db:true
+    ~lifecycle:[(Published, rel_rio, "A physical host")]
+    ~in_oss_since:oss_since_303 ~persist:PersistEverything
+    ~gen_constructor_destructor:false ~name:_host ~descr:"A physical host"
+    ~gen_events:true ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP
     ~messages:
       [
         disable

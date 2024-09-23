@@ -1509,10 +1509,11 @@ let get_guest_secureboot_readiness =
 
 (** A pool class *)
 let t =
-  create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
-    ~persist:PersistEverything ~gen_constructor_destructor:false ~name:_pool
-    ~descr:"Pool-wide information" ~gen_events:true ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_OP
+  create_obj ~in_db:true
+    ~lifecycle:[(Published, rel_rio, "Pool-wide information")]
+    ~in_oss_since:None ~persist:PersistEverything
+    ~gen_constructor_destructor:false ~name:_pool ~descr:"Pool-wide information"
+    ~gen_events:true ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_OP
     ~messages:
       [
         join
