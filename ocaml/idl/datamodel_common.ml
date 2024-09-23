@@ -653,46 +653,16 @@ let operation_enum x =
   (x.msg_name, Printf.sprintf "refers to the operation \"%s\"" x.msg_name)
 
 (** Make an object field record *)
-let field ?(in_oss_since = Some "3.0.3") ?in_product_since
-    ?(internal_only = false) ?internal_deprecated_since
+let field ?(in_oss_since = Some "3.0.3") ?(internal_only = false)
     ?(ignore_foreign_key = false) ?(writer_roles = None) ?(reader_roles = None)
     ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None)
     ?(persist = true) ?(map_keys_roles = [])
     ?(* list of (key_name,(writer_roles)) for a map field *)
      lifecycle ?(doc_tags = []) name desc =
-  (* in_product_since currently defaults to 'Some rel_rio', for backwards compatibility.
-     	 * This should eventually become 'None'. *)
-  let _ =
-    match (lifecycle, in_product_since) with
-    | None, None ->
-        failwith ("Lifecycle for field '" ^ name ^ "' not specified")
-    | Some _, Some _ ->
-        failwith
-          ("lifecycle is given, in_product_since should not be specified \
-            explicitly in "
-          ^ name
-          )
-    | _, _ ->
-        ()
-  in
   let lifecycle =
     match lifecycle with
     | None ->
-        let published =
-          match in_product_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Published, rel, desc)]
-        in
-        let deprecated =
-          match internal_deprecated_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Deprecated, rel, "")]
-        in
-        published @ deprecated
+        failwith ("Lifecycle for field '" ^ name ^ "' not specified")
     | Some l ->
         l
   in
@@ -731,9 +701,7 @@ let field ?(in_oss_since = Some "3.0.3") ?in_product_since
 
 let uid ?(in_oss_since = Some "3.0.3") ?(reader_roles = None) ?lifecycle
     _refname =
-  let in_product_since = if lifecycle = None then Some rel_rio else None in
-  field ~in_oss_since ?in_product_since ?lifecycle ~qualifier:DynamicRO
-    ~ty:String
+  field ~in_oss_since ?lifecycle ~qualifier:DynamicRO ~ty:String
     ~writer_roles:_R_POOL_ADMIN
       (* only the system should be able to create/modify uuids *)
     ~reader_roles "uuid" "Unique identifier/object reference"
@@ -794,10 +762,9 @@ let namespace ?(get_field_writer_roles = fun x -> x)
 (** Many of the objects have a set of names of various lengths: *)
 let names ?(writer_roles = None) ?(reader_roles = None) ?lifecycle in_oss_since
     qual =
-  let in_product_since = if lifecycle = None then Some rel_rio else None in
   let field x y =
-    field x y ~in_oss_since ?in_product_since ~qualifier:qual ~writer_roles
-      ~reader_roles ~default_value:(Some (VString "")) ?lifecycle
+    field x y ~in_oss_since ~qualifier:qual ~writer_roles ~reader_roles
+      ~default_value:(Some (VString "")) ?lifecycle
   in
   [
     field "label" "a human-readable name"
