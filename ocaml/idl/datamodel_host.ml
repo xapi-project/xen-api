@@ -26,7 +26,16 @@ let api_version =
   ]
 
 let migrate_receive =
-  call ~in_oss_since:None ~in_product_since:rel_tampa ~name:"migrate_receive"
+  call ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , rel_tampa
+        , "Prepare to receive a VM, returning a token which can be passed to \
+           VM.migrate."
+        )
+      ]
+    ~name:"migrate_receive"
     ~doc:
       "Prepare to receive a VM, returning a token which can be passed to \
        VM.migrate."
@@ -44,7 +53,17 @@ let migrate_receive =
     ~allowed_roles:_R_VM_POWER_ADMIN ()
 
 let ha_disable_failover_decisions =
-  call ~in_product_since:rel_orlando ~name:"ha_disable_failover_decisions"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Prevents future failover decisions happening on this node. This \
+           function should only be used as part of a controlled shutdown of \
+           the HA system."
+        )
+      ]
+    ~name:"ha_disable_failover_decisions"
     ~doc:
       "Prevents future failover decisions happening on this node. This \
        function should only be used as part of a controlled shutdown of the HA \
@@ -54,7 +73,17 @@ let ha_disable_failover_decisions =
     ()
 
 let ha_disarm_fencing =
-  call ~in_product_since:rel_orlando ~name:"ha_disarm_fencing"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Disarms the fencing function of the HA subsystem. This function is \
+           extremely dangerous and should only be used as part of a controlled \
+           shutdown of the HA system."
+        )
+      ]
+    ~name:"ha_disarm_fencing"
     ~doc:
       "Disarms the fencing function of the HA subsystem. This function is \
        extremely dangerous and should only be used as part of a controlled \
@@ -64,7 +93,17 @@ let ha_disarm_fencing =
     ()
 
 let ha_stop_daemon =
-  call ~in_product_since:rel_orlando ~name:"ha_stop_daemon"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Stops the HA daemon. This function is extremely dangerous and \
+           should only be used as part of a controlled shutdown of the HA \
+           system."
+        )
+      ]
+    ~name:"ha_stop_daemon"
     ~doc:
       "Stops the HA daemon. This function is extremely dangerous and should \
        only be used as part of a controlled shutdown of the HA system."
@@ -73,7 +112,16 @@ let ha_stop_daemon =
     ()
 
 let ha_release_resources =
-  call ~in_product_since:rel_orlando ~name:"ha_release_resources"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Cleans up any resources on the host associated with this HA \
+           instance."
+        )
+      ]
+    ~name:"ha_release_resources"
     ~doc:"Cleans up any resources on the host associated with this HA instance."
     ~params:
       [(Ref _host, "host", "The Host whose resources should be cleaned up")]
@@ -81,7 +129,15 @@ let ha_release_resources =
     ()
 
 let local_assert_healthy =
-  call ~flags:[`Session] ~in_product_since:rel_miami
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Returns nothing if this host is healthy, otherwise it throws an \
+           error explaining why the host is unhealthy"
+        )
+      ]
     ~name:"local_assert_healthy"
     ~doc:
       "Returns nothing if this host is healthy, otherwise it throws an error \
@@ -102,7 +158,16 @@ let local_assert_healthy =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let preconfigure_ha =
-  call ~in_product_since:rel_miami ~name:"preconfigure_ha"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Attach statefiles, generate config files but do not start the xHA \
+           daemon."
+        )
+      ]
+    ~name:"preconfigure_ha"
     ~doc:
       "Attach statefiles, generate config files but do not start the xHA \
        daemon."
@@ -117,14 +182,26 @@ let preconfigure_ha =
     ()
 
 let ha_join_liveset =
-  call ~in_product_since:rel_orlando ~name:"ha_join_liveset"
-    ~doc:"Block until this host joins the liveset."
+  call
+    ~lifecycle:
+      [(Published, rel_orlando, "Block until this host joins the liveset.")]
+    ~name:"ha_join_liveset" ~doc:"Block until this host joins the liveset."
     ~params:[(Ref _host, "host", "The Host whose HA daemon to start")]
     ~pool_internal:true ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY
     ()
 
 let ha_wait_for_shutdown_via_statefile =
-  call ~in_product_since:rel_orlando ~name:"ha_wait_for_shutdown_via_statefile"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Block until this host xHA daemon exits after having seen the \
+           invalid statefile. If the host loses statefile access then throw an \
+           exception"
+        )
+      ]
+    ~name:"ha_wait_for_shutdown_via_statefile"
     ~doc:
       "Block until this host xHA daemon exits after having seen the invalid \
        statefile. If the host loses statefile access then throw an exception"
@@ -144,7 +221,9 @@ let host_query_ha = call ~flags:[`Session]
   ()
 *)
 let request_backup =
-  call ~flags:[`Session] ~name:"request_backup" ~in_product_since:rel_rio
+  call ~flags:[`Session] ~name:"request_backup"
+    ~lifecycle:
+      [(Published, rel_rio, "Request this host performs a database backup")]
     ~doc:"Request this host performs a database backup"
     ~params:
       [
@@ -161,7 +240,9 @@ let request_backup =
 
 let request_config_file_sync =
   call ~flags:[`Session] ~name:"request_config_file_sync"
-    ~in_product_since:rel_rio ~doc:"Request this host syncs dom0 config files"
+    ~lifecycle:
+      [(Published, rel_rio, "Request this host syncs dom0 config files")]
+    ~doc:"Request this host syncs dom0 config files"
     ~params:
       [
         (Ref _host, "host", "The Host to send the request to")
@@ -173,7 +254,18 @@ let request_config_file_sync =
 (* Since there are no async versions, no tasks are generated (!) this is important
    otherwise the call would block doing a Db.Task.create *)
 let propose_new_master =
-  call ~flags:[`Session] ~in_product_since:rel_miami ~name:"propose_new_master"
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "First phase of a two-phase commit protocol to set the new master. \
+           If the host has already committed to another configuration or if \
+           the proposed new master is not in this node's membership set then \
+           the call will return an exception."
+        )
+      ]
+    ~name:"propose_new_master"
     ~doc:
       "First phase of a two-phase commit protocol to set the new master. If \
        the host has already committed to another configuration or if the \
@@ -195,8 +287,10 @@ let propose_new_master =
     ()
 
 let abort_new_master =
-  call ~flags:[`Session] ~in_product_since:rel_miami ~name:"abort_new_master"
-    ~doc:"Causes the new master transaction to abort"
+  call ~flags:[`Session]
+    ~lifecycle:
+      [(Published, rel_miami, "Causes the new master transaction to abort")]
+    ~name:"abort_new_master" ~doc:"Causes the new master transaction to abort"
     ~params:
       [
         ( String
@@ -208,7 +302,15 @@ let abort_new_master =
     ()
 
 let commit_new_master =
-  call ~flags:[`Session] ~in_product_since:rel_miami ~name:"commit_new_master"
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Second phase of a two-phase commit protocol to set the new master."
+        )
+      ]
+    ~name:"commit_new_master"
     ~doc:"Second phase of a two-phase commit protocol to set the new master."
     ~params:
       [
@@ -221,7 +323,15 @@ let commit_new_master =
     ()
 
 let compute_free_memory =
-  call ~in_product_since:rel_orlando ~name:"compute_free_memory"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Computes the amount of free memory on the host."
+        )
+      ]
+    ~name:"compute_free_memory"
     ~doc:"Computes the amount of free memory on the host."
     ~params:[(Ref _host, "host", "The host to send the request to")]
     ~pool_internal:false ~hide_from_docs:false
@@ -229,7 +339,15 @@ let compute_free_memory =
     ~allowed_roles:_R_READ_ONLY ~doc_tags:[Memory] ()
 
 let compute_memory_overhead =
-  call ~in_product_since:rel_midnight_ride ~name:"compute_memory_overhead"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_midnight_ride
+        , "Computes the virtualization memory overhead of a host."
+        )
+      ]
+    ~name:"compute_memory_overhead"
     ~doc:"Computes the virtualization memory overhead of a host."
     ~params:
       [(Ref _host, "host", "The host for which to compute the memory overhead")]
@@ -239,7 +357,14 @@ let compute_memory_overhead =
 
 (* Diagnostics see if host is in emergency mode *)
 let is_in_emergency_mode =
-  call ~flags:[`Session] ~in_product_since:rel_miami
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Diagnostics call to discover if host is in emergency mode"
+        )
+      ]
     ~name:"is_in_emergency_mode"
     ~doc:"Diagnostics call to discover if host is in emergency mode" ~params:[]
     ~pool_internal:false ~hide_from_docs:true
@@ -248,7 +373,15 @@ let is_in_emergency_mode =
 
 (* Signal that the management IP address or hostname has been changed beneath us. *)
 let signal_networking_change =
-  call ~flags:[`Session] ~in_product_since:rel_miami
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Signals that the management IP address or hostname has been changed \
+           beneath us."
+        )
+      ]
     ~name:"signal_networking_change"
     ~doc:
       "Signals that the management IP address or hostname has been changed \
@@ -257,7 +390,9 @@ let signal_networking_change =
     ~doc_tags:[Networking] ()
 
 let notify =
-  call ~in_product_since:rel_miami ~name:"notify" ~doc:"Notify an event"
+  call
+    ~lifecycle:[(Published, rel_miami, "Notify an event")]
+    ~name:"notify" ~doc:"Notify an event"
     ~params:
       [
         (String, "ty", "type of the notification")
@@ -267,8 +402,9 @@ let notify =
     ()
 
 let syslog_reconfigure =
-  call ~in_product_since:rel_miami ~name:"syslog_reconfigure"
-    ~doc:"Re-configure syslog logging"
+  call
+    ~lifecycle:[(Published, rel_miami, "Re-configure syslog logging")]
+    ~name:"syslog_reconfigure" ~doc:"Re-configure syslog logging"
     ~params:
       [
         ( Ref _host
@@ -280,7 +416,10 @@ let syslog_reconfigure =
     ~allowed_roles:_R_POOL_OP ()
 
 let management_reconfigure =
-  call ~in_product_since:rel_miami ~name:"management_reconfigure"
+  call
+    ~lifecycle:
+      [(Published, rel_miami, "Reconfigure the management network interface")]
+    ~name:"management_reconfigure"
     ~doc:"Reconfigure the management network interface"
     ~params:
       [
@@ -292,7 +431,16 @@ let management_reconfigure =
     ~allowed_roles:_R_POOL_OP ~doc_tags:[Networking] ()
 
 let local_management_reconfigure =
-  call ~flags:[`Session] ~in_product_since:rel_miami
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Reconfigure the management network interface. Should only be used \
+           if Host.management_reconfigure is impossible because the network \
+           configuration is broken."
+        )
+      ]
     ~name:"local_management_reconfigure"
     ~doc:
       "Reconfigure the management network interface. Should only be used if \
@@ -308,16 +456,25 @@ let local_management_reconfigure =
     ~allowed_roles:_R_POOL_OP ()
 
 let ha_xapi_healthcheck =
-  call ~flags:[`Session] ~in_product_since:rel_orlando
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Returns true if xapi appears to be functioning normally."
+        )
+      ]
     ~name:"ha_xapi_healthcheck"
     ~doc:"Returns true if xapi appears to be functioning normally."
     ~result:(Bool, "true if xapi is functioning normally.")
     ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN ()
 
 let management_disable =
-  call ~flags:[`Session] ~in_product_since:rel_miami ~name:"management_disable"
-    ~doc:"Disable the management network interface" ~params:[]
-    ~allowed_roles:_R_POOL_OP ~doc_tags:[Networking] ()
+  call ~flags:[`Session]
+    ~lifecycle:
+      [(Published, rel_miami, "Disable the management network interface")]
+    ~name:"management_disable" ~doc:"Disable the management network interface"
+    ~params:[] ~allowed_roles:_R_POOL_OP ~doc_tags:[Networking] ()
 
 let get_management_interface =
   call
@@ -333,15 +490,25 @@ let get_management_interface =
    Not intended for HA *)
 
 let assert_can_evacuate =
-  call ~in_product_since:rel_miami ~name:"assert_can_evacuate"
-    ~doc:"Check this host can be evacuated."
+  call
+    ~lifecycle:[(Published, rel_miami, "Check this host can be evacuated.")]
+    ~name:"assert_can_evacuate" ~doc:"Check this host can be evacuated."
     ~params:[(Ref _host, "host", "The host to evacuate")]
     ~allowed_roles:_R_POOL_OP ()
 
 (* New Orlando message which aims to make the GUI less brittle (unexpected errors will trigger a VM suspend)
    and sensitive to HA planning constraints *)
 let get_vms_which_prevent_evacuation =
-  call ~in_product_since:rel_orlando ~name:"get_vms_which_prevent_evacuation"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Return a set of VMs which prevent the host being evacuated, with \
+           per-VM error codes"
+        )
+      ]
+    ~name:"get_vms_which_prevent_evacuation"
     ~doc:
       "Return a set of VMs which prevent the host being evacuated, with per-VM \
        error codes"
@@ -353,8 +520,7 @@ let get_vms_which_prevent_evacuation =
     ~allowed_roles:_R_READ_ONLY ()
 
 let evacuate =
-  call ~in_product_since:rel_miami ~name:"evacuate"
-    ~doc:"Migrate all VMs off of this host, where possible."
+  call ~name:"evacuate" ~doc:"Migrate all VMs off of this host, where possible."
     ~lifecycle:
       [
         (Published, rel_miami, "")
@@ -391,7 +557,16 @@ let evacuate =
     ()
 
 let get_uncooperative_resident_VMs =
-  call ~in_product_since:rel_midnight_ride ~internal_deprecated_since:rel_tampa
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_midnight_ride
+        , "Return a set of VMs which are not co-operating with the host's \
+           memory control system"
+        )
+      ; (Deprecated, rel_tampa, "")
+      ]
     ~name:"get_uncooperative_resident_VMs"
     ~doc:
       "Return a set of VMs which are not co-operating with the host's memory \
@@ -401,7 +576,16 @@ let get_uncooperative_resident_VMs =
     ~allowed_roles:_R_READ_ONLY ()
 
 let get_uncooperative_domains =
-  call ~in_product_since:rel_midnight_ride ~internal_deprecated_since:rel_tampa
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_midnight_ride
+        , "Return the set of domain uuids which are not co-operating with the \
+           host's memory control system"
+        )
+      ; (Deprecated, rel_tampa, "")
+      ]
     ~name:"get_uncooperative_domains"
     ~doc:
       "Return the set of domain uuids which are not co-operating with the \
@@ -413,7 +597,15 @@ let get_uncooperative_domains =
 
 let retrieve_wlb_evacuate_recommendations =
   call ~name:"retrieve_wlb_evacuate_recommendations"
-    ~in_product_since:rel_george
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "Retrieves recommended host migrations to perform when evacuating \
+           the host from the wlb server. If a VM cannot be migrated from the \
+           host the reason is listed instead of a recommendation."
+        )
+      ]
     ~doc:
       "Retrieves recommended host migrations to perform when evacuating the \
        host from the wlb server. If a VM cannot be migrated from the host the \
@@ -429,7 +621,16 @@ let retrieve_wlb_evacuate_recommendations =
 (* Host.Disable *)
 
 let disable =
-  call ~in_product_since:rel_rio ~name:"disable"
+  call
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Puts the host into a state in which no new VMs can be started. \
+           Currently active VMs on the host continue to execute."
+        )
+      ]
+    ~name:"disable"
     ~doc:
       "Puts the host into a state in which no new VMs can be started. \
        Currently active VMs on the host continue to execute."
@@ -440,7 +641,14 @@ let disable =
 (* Host.Enable *)
 
 let enable =
-  call ~name:"enable" ~in_product_since:rel_rio
+  call ~name:"enable"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Puts the host into a state in which new VMs can be started."
+        )
+      ]
     ~doc:"Puts the host into a state in which new VMs can be started."
     ~params:[(Ref _host, "host", "The Host to enable")]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -449,7 +657,15 @@ let enable =
 (* Host.Shutdown *)
 
 let shutdown =
-  call ~name:"shutdown" ~in_product_since:rel_rio
+  call ~name:"shutdown"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Shutdown the host. (This function can only be called if there are \
+           no currently running VMs on the host and it is disabled.)"
+        )
+      ]
     ~doc:
       "Shutdown the host. (This function can only be called if there are no \
        currently running VMs on the host and it is disabled.)"
@@ -459,7 +675,15 @@ let shutdown =
 (* Host.reboot *)
 
 let reboot =
-  call ~name:"reboot" ~in_product_since:rel_rio
+  call ~name:"reboot"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Reboot the host. (This function can only be called if there are no \
+           currently running VMs on the host and it is disabled.)"
+        )
+      ]
     ~doc:
       "Reboot the host. (This function can only be called if there are no \
        currently running VMs on the host and it is disabled.)"
@@ -469,7 +693,14 @@ let reboot =
 (* Host.prepare_for_poweroff *)
 
 let prepare_for_poweroff =
-  call ~name:"prepare_for_poweroff" ~in_product_since:rel_kolkata
+  call ~name:"prepare_for_poweroff"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_kolkata
+        , "Performs the necessary actions before host shutdown or reboot."
+        )
+      ]
     ~doc:"Performs the necessary actions before host shutdown or reboot."
     ~params:
       [(Ref _host, "host", "The Host that is about to reboot or shutdown")]
@@ -478,13 +709,31 @@ let prepare_for_poweroff =
 (* Host.power_on *)
 
 let power_on =
-  call ~name:"power_on" ~in_product_since:rel_orlando
+  call ~name:"power_on"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Attempt to power-on the host (if the capability exists)."
+        )
+      ]
     ~doc:"Attempt to power-on the host (if the capability exists)."
     ~params:[(Ref _host, "host", "The Host to power on")]
     ~allowed_roles:_R_POOL_OP ()
 
 let restart_agent =
-  call ~name:"restart_agent" ~in_product_since:rel_rio
+  call ~name:"restart_agent"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Restarts the agent after a 10 second pause. WARNING: this is a \
+           dangerous operation. Any operations in progress will be aborted, \
+           and unrecoverable data loss may occur. The caller is responsible \
+           for ensuring that there are no operations in progress when this \
+           method is called."
+        )
+      ]
     ~doc:
       "Restarts the agent after a 10 second pause. WARNING: this is a \
        dangerous operation. Any operations in progress will be aborted, and \
@@ -496,7 +745,18 @@ let restart_agent =
     ~allowed_roles:_R_POOL_OP ()
 
 let shutdown_agent =
-  call ~name:"shutdown_agent" ~in_product_since:rel_orlando
+  call ~name:"shutdown_agent"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Shuts the agent down after a 10 second pause. WARNING: this is a \
+           dangerous operation. Any operations in progress will be aborted, \
+           and unrecoverable data loss may occur. The caller is responsible \
+           for ensuring that there are no operations in progress when this \
+           method is called."
+        )
+      ]
     ~doc:
       "Shuts the agent down after a 10 second pause. WARNING: this is a \
        dangerous operation. Any operations in progress will be aborted, and \
@@ -507,31 +767,45 @@ let shutdown_agent =
     ~allowed_roles:_R_POOL_OP ()
 
 let dmesg =
-  call ~name:"dmesg" ~in_product_since:rel_rio ~doc:"Get the host xen dmesg."
+  call ~name:"dmesg"
+    ~lifecycle:[(Published, rel_rio, "Get the host xen dmesg.")]
+    ~doc:"Get the host xen dmesg."
     ~params:[(Ref _host, "host", "The Host to query")]
     ~result:(String, "dmesg string") ~allowed_roles:_R_POOL_OP ()
 
 let dmesg_clear =
-  call ~name:"dmesg_clear" ~in_product_since:rel_rio
+  call ~name:"dmesg_clear"
+    ~lifecycle:
+      [(Published, rel_rio, "Get the host xen dmesg, and clear the buffer.")]
     ~doc:"Get the host xen dmesg, and clear the buffer."
     ~params:[(Ref _host, "host", "The Host to query")]
     ~result:(String, "dmesg string") ~allowed_roles:_R_POOL_OP ()
 
 let get_log =
-  call ~name:"get_log" ~in_product_since:rel_rio ~doc:"Get the host's log file"
+  call ~name:"get_log"
+    ~lifecycle:[(Published, rel_rio, "Get the host's log file")]
+    ~doc:"Get the host's log file"
     ~params:[(Ref _host, "host", "The Host to query")]
     ~result:(String, "The contents of the host's primary log file")
     ~allowed_roles:_R_READ_ONLY ()
 
 let send_debug_keys =
-  call ~name:"send_debug_keys" ~in_product_since:rel_rio
+  call ~name:"send_debug_keys"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Inject the given string as debugging keys into Xen"
+        )
+      ]
     ~doc:"Inject the given string as debugging keys into Xen"
     ~params:
       [(Ref _host, "host", "The host"); (String, "keys", "The keys to send")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let get_data_sources =
-  call ~name:"get_data_sources" ~in_oss_since:None ~in_product_since:rel_orlando
+  call ~name:"get_data_sources" ~in_oss_since:None
+    ~lifecycle:[(Published, rel_orlando, "")]
     ~doc:""
     ~result:(Set (Record _data_source), "A set of data sources")
     ~params:[(Ref _host, "host", "The host to interrogate")]
@@ -539,7 +813,8 @@ let get_data_sources =
 
 let record_data_source =
   call ~name:"record_data_source" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [(Published, rel_orlando, "Start recording the specified data source")]
     ~doc:"Start recording the specified data source"
     ~params:
       [
@@ -550,7 +825,13 @@ let record_data_source =
 
 let query_data_source =
   call ~name:"query_data_source" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Query the latest value of the specified data source"
+        )
+      ]
     ~doc:"Query the latest value of the specified data source"
     ~params:
       [
@@ -561,7 +842,9 @@ let query_data_source =
     ~errs:[] ~flags:[`Session] ~allowed_roles:_R_READ_ONLY ()
 
 let attach_static_vdis =
-  call ~name:"attach_static_vdis" ~in_product_since:rel_midnight_ride
+  call ~name:"attach_static_vdis"
+    ~lifecycle:
+      [(Published, rel_midnight_ride, "Statically attach VDIs on a host.")]
     ~doc:"Statically attach VDIs on a host."
     ~params:
       [
@@ -575,7 +858,9 @@ let attach_static_vdis =
     ()
 
 let detach_static_vdis =
-  call ~name:"detach_static_vdis" ~in_product_since:rel_midnight_ride
+  call ~name:"detach_static_vdis"
+    ~lifecycle:
+      [(Published, rel_midnight_ride, "Detach static VDIs from a host.")]
     ~doc:"Detach static VDIs from a host."
     ~params:
       [
@@ -586,7 +871,16 @@ let detach_static_vdis =
     ()
 
 let declare_dead =
-  call ~name:"declare_dead" ~in_product_since:rel_clearwater
+  call ~name:"declare_dead"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_clearwater
+        , "Declare that a host is dead. This is a dangerous operation, and \
+           should only be called if the administrator is absolutely sure the \
+           host is definitely dead"
+        )
+      ]
     ~doc:
       "Declare that a host is dead. This is a dangerous operation, and should \
        only be called if the administrator is absolutely sure the host is \
@@ -596,7 +890,13 @@ let declare_dead =
 
 let forget_data_source_archives =
   call ~name:"forget_data_source_archives" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Forget the recorded statistics related to the specified data source"
+        )
+      ]
     ~doc:"Forget the recorded statistics related to the specified data source"
     ~params:
       [
@@ -609,7 +909,14 @@ let forget_data_source_archives =
     ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
 let get_diagnostic_timing_stats =
-  call ~flags:[`Session] ~in_product_since:rel_miami
+  call ~flags:[`Session]
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Return timing statistics for diagnostic purposes"
+        )
+      ]
     ~name:"get_diagnostic_timing_stats"
     ~doc:"Return timing statistics for diagnostic purposes"
     ~params:[(Ref _host, "host", "The host to interrogate")]
@@ -617,7 +924,15 @@ let get_diagnostic_timing_stats =
     ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY ()
 
 let create_new_blob =
-  call ~name:"create_new_blob" ~in_product_since:rel_orlando
+  call ~name:"create_new_blob"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Create a placeholder for a named binary blob of data that is \
+           associated with this host"
+        )
+      ]
     ~doc:
       "Create a placeholder for a named binary blob of data that is associated \
        with this host"
@@ -659,7 +974,8 @@ let create_new_blob =
     ~allowed_roles:_R_POOL_OP ()
 
 let call_plugin =
-  call ~name:"call_plugin" ~in_product_since:rel_orlando
+  call ~name:"call_plugin"
+    ~lifecycle:[(Published, rel_orlando, "Call an API plugin on this host")]
     ~doc:"Call an API plugin on this host"
     ~params:
       [
@@ -672,7 +988,14 @@ let call_plugin =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let has_extension =
-  call ~name:"has_extension" ~in_product_since:rel_ely
+  call ~name:"has_extension"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_ely
+        , "Return true if the extension is available on the host"
+        )
+      ]
     ~doc:"Return true if the extension is available on the host"
     ~params:
       [
@@ -683,8 +1006,9 @@ let has_extension =
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let call_extension =
-  call ~name:"call_extension" ~in_product_since:rel_ely ~custom_marshaller:true
-    ~doc:"Call an API extension on this host"
+  call ~name:"call_extension"
+    ~lifecycle:[(Published, rel_ely, "Call an API extension on this host")]
+    ~custom_marshaller:true ~doc:"Call an API extension on this host"
     ~params:
       [
         (Ref _host, "host", "The host")
@@ -695,7 +1019,15 @@ let call_extension =
     ()
 
 let enable_binary_storage =
-  call ~name:"enable_binary_storage" ~in_product_since:rel_orlando
+  call ~name:"enable_binary_storage"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Enable binary storage on a particular host, for storing RRDs, \
+           messages and blobs"
+        )
+      ]
     ~hide_from_docs:true ~pool_internal:true
     ~doc:
       "Enable binary storage on a particular host, for storing RRDs, messages \
@@ -704,7 +1036,15 @@ let enable_binary_storage =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let disable_binary_storage =
-  call ~name:"disable_binary_storage" ~in_product_since:rel_orlando
+  call ~name:"disable_binary_storage"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Disable binary storage on a particular host, deleting stored RRDs, \
+           messages and blobs"
+        )
+      ]
     ~hide_from_docs:true ~pool_internal:true
     ~doc:
       "Disable binary storage on a particular host, deleting stored RRDs, \
@@ -713,7 +1053,8 @@ let disable_binary_storage =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let update_pool_secret =
-  call ~name:"update_pool_secret" ~in_product_since:rel_midnight_ride
+  call ~name:"update_pool_secret"
+    ~lifecycle:[(Published, rel_midnight_ride, "")]
     ~hide_from_docs:true ~pool_internal:true ~doc:""
     ~params:
       [
@@ -723,7 +1064,8 @@ let update_pool_secret =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let update_master =
-  call ~name:"update_master" ~in_product_since:rel_midnight_ride
+  call ~name:"update_master"
+    ~lifecycle:[(Published, rel_midnight_ride, "")]
     ~hide_from_docs:true ~pool_internal:true ~doc:""
     ~params:
       [
@@ -733,7 +1075,9 @@ let update_master =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let set_localdb_key =
-  call ~name:"set_localdb_key" ~in_product_since:rel_midnight_ride
+  call ~name:"set_localdb_key"
+    ~lifecycle:
+      [(Published, rel_midnight_ride, "Set a key in the local DB of the host.")]
     ~doc:"Set a key in the local DB of the host."
     ~params:
       [
@@ -759,7 +1103,14 @@ let refresh_pack_info =
 let bugreport_upload =
   call ~name:"bugreport_upload"
     ~doc:"Run xen-bugtool --yestoall and upload the output to support"
-    ~in_oss_since:None ~in_product_since:rel_rio
+    ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , rel_rio
+        , "Run xen-bugtool --yestoall and upload the output to support"
+        )
+      ]
     ~params:
       [
         (Ref _host, "host", "The host on which to run xen-bugtool")
@@ -769,8 +1120,9 @@ let bugreport_upload =
     ~allowed_roles:_R_POOL_OP ()
 
 let list_methods =
-  call ~name:"list_methods" ~in_product_since:rel_rio ~flags:[`Session]
-    ~doc:"List all supported methods" ~params:[]
+  call ~name:"list_methods"
+    ~lifecycle:[(Published, rel_rio, "List all supported methods")]
+    ~flags:[`Session] ~doc:"List all supported methods" ~params:[]
     ~result:(Set String, "The name of every supported method.")
     ~allowed_roles:_R_READ_ONLY ()
 
@@ -946,20 +1298,24 @@ let create_params =
   ]
 
 let create =
-  call ~name:"create" ~in_oss_since:None ~in_product_since:rel_rio
+  call ~name:"create" ~in_oss_since:None
+    ~lifecycle:[(Published, rel_rio, "Create a new host record")]
     ~versioned_params:create_params ~doc:"Create a new host record"
     ~result:(Ref _host, "Reference to the newly created host object.")
     ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
 let destroy =
-  call ~name:"destroy" ~in_oss_since:None ~in_product_since:rel_rio
+  call ~name:"destroy" ~in_oss_since:None
+    ~lifecycle:
+      [(Published, rel_rio, "Destroy specified host record in database")]
     ~doc:"Destroy specified host record in database"
     ~params:[(Ref _host, "self", "The host record to remove")]
     ~allowed_roles:_R_POOL_OP ()
 
 let get_system_status_capabilities =
   call ~flags:[`Session] ~name:"get_system_status_capabilities"
-    ~in_oss_since:None ~in_product_since:rel_miami
+    ~in_oss_since:None
+    ~lifecycle:[(Published, rel_miami, "")]
     ~params:[(Ref _host, "host", "The host to interrogate")]
     ~doc:""
     ~result:
@@ -968,7 +1324,14 @@ let get_system_status_capabilities =
 
 let set_hostname_live =
   call ~flags:[`Session] ~name:"set_hostname_live" ~in_oss_since:None
-    ~in_product_since:rel_miami
+    ~lifecycle:
+      [
+        ( Published
+        , rel_miami
+        , "Sets the host name to the specified string.  Both the API and \
+           lower-level system hostname are changed immediately."
+        )
+      ]
     ~params:
       [
         (Ref _host, "host", "The host whose host name to set")
@@ -982,7 +1345,14 @@ let set_hostname_live =
 
 let tickle_heartbeat =
   call ~flags:[`Session] ~name:"tickle_heartbeat" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Needs to be called every 30 seconds for the master to believe the \
+           host is alive"
+        )
+      ]
     ~params:
       [
         ( Ref _host
@@ -1003,7 +1373,15 @@ let tickle_heartbeat =
 
 let sync_data =
   call ~flags:[`Session] ~name:"sync_data" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "This causes the synchronisation of the non-database data (messages, \
+           RRDs and so on) stored on the master to be synchronised with the \
+           host"
+        )
+      ]
     ~params:[(Ref _host, "host", "The host to whom the data should be sent")]
     ~doc:
       "This causes the synchronisation of the non-database data (messages, \
@@ -1012,7 +1390,13 @@ let sync_data =
 
 let backup_rrds =
   call ~flags:[`Session] ~name:"backup_rrds" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "This causes the RRDs to be backed up to the master"
+        )
+      ]
     ~params:
       [
         (Ref _host, "host", "Schedule a backup of the RRDs of this host")
@@ -1027,7 +1411,13 @@ let backup_rrds =
 
 let get_servertime =
   call ~flags:[`Session] ~name:"get_servertime" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "This call queries the host's clock for the current time"
+        )
+      ]
     ~params:[(Ref _host, "host", "The host whose clock should be queried")]
     ~doc:"This call queries the host's clock for the current time"
     ~result:(DateTime, "The current time")
@@ -1035,7 +1425,14 @@ let get_servertime =
 
 let get_server_localtime =
   call ~flags:[`Session] ~name:"get_server_localtime" ~in_oss_since:None
-    ~in_product_since:rel_cowley
+    ~lifecycle:
+      [
+        ( Published
+        , rel_cowley
+        , "This call queries the host's clock for the current time in the \
+           host's local timezone"
+        )
+      ]
     ~params:[(Ref _host, "host", "The host whose clock should be queried")]
     ~doc:
       "This call queries the host's clock for the current time in the host's \
@@ -1045,7 +1442,14 @@ let get_server_localtime =
 
 let emergency_ha_disable =
   call ~flags:[`Session] ~name:"emergency_ha_disable" ~in_oss_since:None
-    ~in_product_since:rel_orlando
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "This call disables HA on the local host. This should only be used \
+           with extreme care."
+        )
+      ]
     ~versioned_params:
       [
         {
@@ -1101,8 +1505,15 @@ let certificate_list =
     ()
 
 let crl_install =
-  call ~in_oss_since:None ~in_product_since:rel_george ~pool_internal:true
-    ~hide_from_docs:true ~name:"crl_install"
+  call ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "Install a TLS CA-issued Certificate Revocation List to this host."
+        )
+      ]
+    ~pool_internal:true ~hide_from_docs:true ~name:"crl_install"
     ~doc:"Install a TLS CA-issued Certificate Revocation List to this host."
     ~params:
       [
@@ -1113,15 +1524,31 @@ let crl_install =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let crl_uninstall =
-  call ~in_oss_since:None ~in_product_since:rel_george ~pool_internal:true
-    ~hide_from_docs:true ~name:"crl_uninstall"
+  call ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "Uninstall a TLS CA-issued certificate revocation list from this \
+           host."
+        )
+      ]
+    ~pool_internal:true ~hide_from_docs:true ~name:"crl_uninstall"
     ~doc:"Uninstall a TLS CA-issued certificate revocation list from this host."
     ~params:[(Ref _host, "host", "The host"); (String, "name", "The CRL name")]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let crl_list =
-  call ~in_oss_since:None ~in_product_since:rel_george ~pool_internal:true
-    ~hide_from_docs:true ~name:"crl_list"
+  call ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "List the filenames of all installed TLS CA-issued Certificate \
+           Revocation Lists."
+        )
+      ]
+    ~pool_internal:true ~hide_from_docs:true ~name:"crl_list"
     ~doc:
       "List the filenames of all installed TLS CA-issued Certificate \
        Revocation Lists."
@@ -1130,8 +1557,16 @@ let crl_list =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let certificate_sync =
-  call ~in_oss_since:None ~in_product_since:rel_george ~pool_internal:true
-    ~hide_from_docs:true ~name:"certificate_sync"
+  call ~in_oss_since:None
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "Make installed TLS CA certificates and CRLs available to all \
+           programs using OpenSSL."
+        )
+      ]
+    ~pool_internal:true ~hide_from_docs:true ~name:"certificate_sync"
     ~doc:
       "Make installed TLS CA certificates and CRLs available to all programs \
        using OpenSSL."
@@ -1273,7 +1708,13 @@ let operations =
 
 let enable_external_auth =
   call ~flags:[`Session] ~name:"enable_external_auth" ~in_oss_since:None
-    ~in_product_since:rel_george
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "This call enables external authentication on a host"
+        )
+      ]
     ~params:
       [
         ( Ref _host
@@ -1295,7 +1736,13 @@ let enable_external_auth =
 
 let disable_external_auth =
   call ~flags:[`Session] ~name:"disable_external_auth" ~in_oss_since:None
-    ~in_product_since:rel_george
+    ~lifecycle:
+      [
+        ( Published
+        , rel_george
+        , "This call disables external authentication on the local host"
+        )
+      ]
     ~versioned_params:
       [
         {
@@ -1320,7 +1767,15 @@ let disable_external_auth =
 
 let set_license_params =
   call ~name:"set_license_params"
-    ~in_product_since:rel_orlando (* actually update 3 aka floodgate *)
+    ~lifecycle:
+      [
+        ( Published
+        , rel_orlando
+        , "Set the new license details in the database, trigger a \
+           recomputation of the pool SKU"
+        )
+      ]
+      (* actually update 3 aka floodgate *)
     ~doc:
       "Set the new license details in the database, trigger a recomputation of \
        the pool SKU"
@@ -1334,7 +1789,15 @@ let set_license_params =
 
 let apply_edition =
   call ~flags:[`Session] ~name:"apply_edition"
-    ~in_product_since:rel_midnight_ride
+    ~lifecycle:
+      [
+        ( Published
+        , rel_midnight_ride
+        , "Change to another edition, or reactivate the current edition after \
+           a license has expired. This may be subject to the successful \
+           checkout of an appropriate license."
+        )
+      ]
     ~doc:
       "Change to another edition, or reactivate the current edition after a \
        license has expired. This may be subject to the successful checkout of \
@@ -1373,7 +1836,6 @@ let set_power_on_mode =
       ; (Changed, rel_stockholm, "Removed iLO script")
       ; (Changed, "24.19.0", "Replaced DRAC mode with IPMI")
       ]
-    ~in_product_since:rel_midnight_ride
     ~doc:"Set the power-on-mode, host, user and password"
     ~params:
       [
@@ -1453,7 +1915,13 @@ let reset_networking =
 
 let enable_local_storage_caching =
   call ~flags:[`Session] ~name:"enable_local_storage_caching"
-    ~in_product_since:rel_cowley
+    ~lifecycle:
+      [
+        ( Published
+        , rel_cowley
+        , "Enable the use of a local SR for caching purposes"
+        )
+      ]
     ~doc:"Enable the use of a local SR for caching purposes"
     ~params:
       [
@@ -1464,13 +1932,20 @@ let enable_local_storage_caching =
 
 let disable_local_storage_caching =
   call ~flags:[`Session] ~name:"disable_local_storage_caching"
-    ~in_product_since:rel_cowley
+    ~lifecycle:
+      [
+        ( Published
+        , rel_cowley
+        , "Disable the use of a local SR for caching purposes"
+        )
+      ]
     ~doc:"Disable the use of a local SR for caching purposes"
     ~params:[(Ref _host, "host", "The host")]
     ~allowed_roles:_R_POOL_OP ()
 
 let get_sm_diagnostics =
-  call ~flags:[`Session] ~name:"get_sm_diagnostics" ~in_product_since:rel_boston
+  call ~flags:[`Session] ~name:"get_sm_diagnostics"
+    ~lifecycle:[(Published, rel_boston, "Return live SM diagnostics")]
     ~doc:"Return live SM diagnostics"
     ~params:[(Ref _host, "host", "The host")]
     ~result:(String, "Printable diagnostic data")
@@ -1478,13 +1953,21 @@ let get_sm_diagnostics =
 
 let get_thread_diagnostics =
   call ~flags:[`Session] ~name:"get_thread_diagnostics"
-    ~in_product_since:rel_boston ~doc:"Return live thread diagnostics"
+    ~lifecycle:[(Published, rel_boston, "Return live thread diagnostics")]
+    ~doc:"Return live thread diagnostics"
     ~params:[(Ref _host, "host", "The host")]
     ~result:(String, "Printable diagnostic data")
     ~allowed_roles:_R_POOL_OP ~hide_from_docs:true ()
 
 let sm_dp_destroy =
-  call ~flags:[`Session] ~name:"sm_dp_destroy" ~in_product_since:rel_boston
+  call ~flags:[`Session] ~name:"sm_dp_destroy"
+    ~lifecycle:
+      [
+        ( Published
+        , rel_boston
+        , "Attempt to cleanup and destroy a named SM datapath"
+        )
+      ]
     ~doc:"Attempt to cleanup and destroy a named SM datapath"
     ~params:
       [
@@ -1751,7 +2234,8 @@ let emergency_reenable_tls_verification =
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let apply_updates =
-  call ~name:"apply_updates" ~in_oss_since:None ~in_product_since:"1.301.0"
+  call ~name:"apply_updates" ~in_oss_since:None
+    ~lifecycle:[(Published, "1.301.0", "")]
     ~doc:"apply updates from current enabled repository on a host"
     ~params:
       [
@@ -1772,7 +2256,7 @@ let apply_updates =
 
 let copy_primary_host_certs =
   call ~name:"copy_primary_host_certs" ~in_oss_since:None
-    ~in_product_since:"1.307.0"
+    ~lifecycle:[(Published, "1.307.0", "")]
     ~doc:"useful for secondary hosts that are missing some certs"
     ~params:
       [

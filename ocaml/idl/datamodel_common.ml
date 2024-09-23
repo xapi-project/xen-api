@@ -573,36 +573,20 @@ let get_deprecated lifecycle =
     Some deprecated
   with Not_found -> None
 
-let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?in_product_since
-    ?internal_deprecated_since ?result ?(flags = [`Session; `Async])
-    ?(effect = true) ?(tag = Custom) ?(errs = []) ?(custom_marshaller = false)
-    ?(db_only = false) ?(no_current_operations = false) ?(secret = false)
-    ?(hide_from_docs = false) ?(pool_internal = false) ~allowed_roles
-    ?(map_keys_roles = []) ?(params = []) ?versioned_params ?lifecycle
-    ?(doc_tags = []) ?forward_to () =
+let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?result
+    ?(flags = [`Session; `Async]) ?(effect = true) ?(tag = Custom) ?(errs = [])
+    ?(custom_marshaller = false) ?(db_only = false)
+    ?(no_current_operations = false) ?(secret = false) ?(hide_from_docs = false)
+    ?(pool_internal = false) ~allowed_roles ?(map_keys_roles = [])
+    ?(params = []) ?versioned_params ?lifecycle ?(doc_tags = []) ?forward_to ()
+    =
   (* if you specify versioned_params then these get put in the params field of the message record;
      	 * otherwise params go in with no default values and param_release=call_release...
   *)
-  if lifecycle = None && in_product_since = None then
-    failwith ("Lifecycle for message '" ^ name ^ "' not specified") ;
   let lifecycle =
     match lifecycle with
     | None ->
-        let published =
-          match in_product_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Published, rel, doc)]
-        in
-        let deprecated =
-          match internal_deprecated_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Deprecated, rel, "")]
-        in
-        published @ deprecated
+        failwith ("Lifecycle for message '" ^ name ^ "' not specified")
     | Some l ->
         l
   in

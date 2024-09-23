@@ -30,7 +30,15 @@ let api_version_minor = Datamodel_common.api_version_minor
 
 module Session = struct
   let login =
-    call ~flags:[] ~name:"login_with_password" ~in_product_since:rel_rio
+    call ~flags:[] ~name:"login_with_password"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Attempt to authenticate the user, returning a session reference \
+             if successful"
+          )
+        ]
       ~doc:
         "Attempt to authenticate the user, returning a session reference if \
          successful"
@@ -84,12 +92,29 @@ module Session = struct
           (Ref _host, "host", "Host id of slave")
         ; (SecretString, "psecret", "Pool secret")
         ]
-      ~in_oss_since:None ~in_product_since:rel_rio ~secret:true
-      ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Attempt to authenticate to the pool master by presenting the \
+             slave's host ref and pool secret"
+          )
+        ]
+      ~secret:true ~hide_from_docs:true ~allowed_roles:_R_POOL_ADMIN
       (*system can create a slave session !!! *) ()
 
   let slave_local_login =
-    call ~flags:[] ~in_product_since:rel_miami ~name:"slave_local_login"
+    call ~flags:[]
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Authenticate locally against a slave in emergency mode. Note the \
+             resulting sessions are only good for use on this host."
+          )
+        ]
+      ~name:"slave_local_login"
       ~doc:
         "Authenticate locally against a slave in emergency mode. Note the \
          resulting sessions are only good for use on this host."
@@ -99,7 +124,15 @@ module Session = struct
       ~allowed_roles:_R_POOL_ADMIN (*system can create a slave session*) ()
 
   let slave_local_login_with_password =
-    call ~flags:[] ~in_product_since:rel_miami
+    call ~flags:[]
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Authenticate locally against a slave in emergency mode. Note the \
+             resulting sessions are only good for use on this host."
+          )
+        ]
       ~name:"slave_local_login_with_password"
       ~doc:
         "Authenticate locally against a slave in emergency mode. Note the \
@@ -123,14 +156,17 @@ module Session = struct
       ~in_oss_since:None ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let local_logout =
-    call ~flags:[`Session] ~in_product_since:rel_miami ~name:"local_logout"
-      ~doc:"Log out of local session." ~params:[] ~in_oss_since:None
-      ~allowed_roles:_R_POOL_ADMIN (*system can destroy a local session*) ()
+    call ~flags:[`Session]
+      ~lifecycle:[(Published, rel_miami, "Log out of local session.")]
+      ~name:"local_logout" ~doc:"Log out of local session." ~params:[]
+      ~in_oss_since:None ~allowed_roles:_R_POOL_ADMIN
+      (*system can destroy a local session*) ()
 
   let logout =
-    call ~flags:[`Session] ~in_product_since:rel_rio ~name:"logout"
-      ~doc:"Log out of a session" ~params:[] ~allowed_roles:_R_ALL
-      (*any role can destroy a known user session*) ()
+    call ~flags:[`Session]
+      ~lifecycle:[(Published, rel_rio, "Log out of a session")]
+      ~name:"logout" ~doc:"Log out of a session" ~params:[]
+      ~allowed_roles:_R_ALL (*any role can destroy a known user session*) ()
 
   let change_password =
     call ~flags:[`Session] ~name:"change_password"
@@ -143,8 +179,16 @@ module Session = struct
           (String, "old_pwd", "Old password for account")
         ; (String, "new_pwd", "New password for account")
         ]
-      ~in_product_since:rel_rio ~in_oss_since:None
-      ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Change the account password; if your session is authenticated \
+             with root privileges then the old_pwd is validated and the \
+             new_pwd is set regardless"
+          )
+        ]
+      ~in_oss_since:None ~allowed_roles:_R_LOCAL_ROOT_ONLY
       (*not even pool-admin can change passwords, only root*) ()
 
   let get_all_subject_identifiers =
@@ -156,8 +200,16 @@ module Session = struct
         ( Set String
         , "The list of user subject-identifiers of all existing sessions"
         )
-      ~params:[] ~in_product_since:rel_george ~in_oss_since:None
-      ~allowed_roles:_R_ALL ()
+      ~params:[]
+      ~lifecycle:
+        [
+          ( Published
+          , rel_george
+          , "Return a list of all the user subject-identifiers of all existing \
+             sessions"
+          )
+        ]
+      ~in_oss_since:None ~allowed_roles:_R_ALL ()
 
   let logout_subject_identifier =
     call ~name:"logout_subject_identifier"
@@ -171,8 +223,16 @@ module Session = struct
           , "User subject-identifier of the sessions to be destroyed"
           )
         ]
-      ~in_product_since:rel_george ~in_oss_since:None ~allowed_roles:_R_POOL_OP
-      ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_george
+          , "Log out all sessions associated to a user subject-identifier, \
+             except the session associated with the context calling this \
+             function"
+          )
+        ]
+      ~in_oss_since:None ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:oss_since_303
@@ -266,7 +326,17 @@ module Task = struct
       )
 
   let cancel =
-    call ~name:"cancel" ~in_product_since:rel_rio
+    call ~name:"cancel"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Request that a task be cancelled. Note that a task may fail to be \
+             cancelled and may complete or fail normally and note that, even \
+             when a task does cancel, it might take an arbitrary amount of \
+             time."
+          )
+        ]
       ~doc:
         "Request that a task be cancelled. Note that a task may fail to be \
          cancelled and may complete or fail normally and note that, even when \
@@ -278,7 +348,14 @@ module Task = struct
       ()
 
   let create =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_rio
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Create a new task object which must be manually destroyed."
+          )
+        ]
       ~name:"create"
       ~doc:"Create a new task object which must be manually destroyed."
       ~params:
@@ -290,7 +367,8 @@ module Task = struct
       ~allowed_roles:_R_READ_ONLY (* any subject can create tasks *) ()
 
   let destroy =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_rio
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:[(Published, rel_rio, "Destroy the task object")]
       ~name:"destroy" ~doc:"Destroy the task object"
       ~params:[(Ref _task, "self", "Reference to the task object")]
       ~allowed_roles:_R_READ_ONLY
@@ -298,7 +376,8 @@ module Task = struct
       ()
 
   let set_status =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_falcon
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:[(Published, rel_falcon, "Set the task status")]
       ~name:"set_status" ~doc:"Set the task status"
       ~params:
         [
@@ -310,7 +389,8 @@ module Task = struct
       ()
 
   let set_progress =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:rel_stockholm
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:[(Published, rel_stockholm, "Set the task progress")]
       ~name:"set_progress" ~doc:"Set the task progress"
       ~params:
         [
@@ -322,7 +402,8 @@ module Task = struct
       ()
 
   let set_result =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:[(Published, "21.3.0", "")]
       ~name:"set_result" ~doc:"Set the task result"
       ~params:
         [
@@ -334,7 +415,8 @@ module Task = struct
       ()
 
   let set_error_info =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:[(Published, "21.3.0", "")]
       ~name:"set_error_info" ~doc:"Set the task error info"
       ~params:
         [
@@ -346,7 +428,8 @@ module Task = struct
       ()
 
   let set_resident_on =
-    call ~flags:[`Session] ~in_oss_since:None ~in_product_since:"21.3.0"
+    call ~flags:[`Session] ~in_oss_since:None
+      ~lifecycle:[(Published, "21.3.0", "")]
       ~name:"set_resident_on" ~doc:"Set the resident on field"
       ~params:
         [
@@ -519,14 +602,28 @@ module Host_crashdump = struct
   let destroy =
     call ~name:"destroy"
       ~doc:"Destroy specified host crash dump, removing it from the disk."
-      ~in_oss_since:None ~in_product_since:rel_rio
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Destroy specified host crash dump, removing it from the disk."
+          )
+        ]
       ~params:[(Ref _host_crashdump, "self", "The host crashdump to destroy")]
       ~allowed_roles:_R_POOL_OP ()
 
   let upload =
     call ~name:"upload"
       ~doc:"Upload the specified host crash dump to a specified URL"
-      ~in_oss_since:None ~in_product_since:rel_rio
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Upload the specified host crash dump to a specified URL"
+          )
+        ]
       ~params:
         [
           (Ref _host_crashdump, "self", "The host crashdump to upload")
@@ -598,7 +695,7 @@ module Pool_update = struct
 
   let introduce =
     call ~name:"introduce" ~doc:"Introduce update VDI" ~in_oss_since:None
-      ~in_product_since:rel_ely
+      ~lifecycle:[(Published, rel_ely, "Introduce update VDI")]
       ~params:[(Ref _vdi, "vdi", "The VDI which contains a software update.")]
       ~result:(Ref _pool_update, "the introduced pool update")
       ~allowed_roles:_R_POOL_OP ()
@@ -606,7 +703,14 @@ module Pool_update = struct
   let precheck =
     call ~name:"precheck"
       ~doc:"Execute the precheck stage of the selected update on a host"
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_ely
+          , "Execute the precheck stage of the selected update on a host"
+          )
+        ]
       ~params:
         [
           (Ref _pool_update, "self", "The update whose prechecks will be run")
@@ -618,7 +722,8 @@ module Pool_update = struct
 
   let apply =
     call ~name:"apply" ~doc:"Apply the selected update to a host"
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:[(Published, rel_ely, "Apply the selected update to a host")]
       ~params:
         [
           (Ref _pool_update, "self", "The update to apply")
@@ -630,7 +735,14 @@ module Pool_update = struct
   let pool_apply =
     call ~name:"pool_apply"
       ~doc:"Apply the selected update to all hosts in the pool"
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_ely
+          , "Apply the selected update to all hosts in the pool"
+          )
+        ]
       ~params:[(Ref _pool_update, "self", "The update to apply")]
       ~allowed_roles:_R_POOL_OP ()
 
@@ -639,20 +751,36 @@ module Pool_update = struct
       ~doc:
         "Removes the update's files from all hosts in the pool, but does not \
          revert the update"
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_ely
+          , "Removes the update's files from all hosts in the pool, but does \
+             not revert the update"
+          )
+        ]
       ~params:[(Ref _pool_update, "self", "The update to clean up")]
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy"
       ~doc:"Removes the database entry. Only works on unapplied update."
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_ely
+          , "Removes the database entry. Only works on unapplied update."
+          )
+        ]
       ~params:[(Ref _pool_update, "self", "The update to destroy")]
       ~allowed_roles:_R_POOL_OP ()
 
   let attach =
     call ~name:"attach" ~hide_from_docs:true ~doc:"Attach the pool update VDI"
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:[(Published, rel_ely, "Attach the pool update VDI")]
       ~versioned_params:
         [
           {
@@ -675,14 +803,16 @@ module Pool_update = struct
 
   let detach =
     call ~name:"detach" ~hide_from_docs:true ~doc:"Detach the pool update VDI"
-      ~in_oss_since:None ~in_product_since:rel_ely
+      ~in_oss_since:None
+      ~lifecycle:[(Published, rel_ely, "Detach the pool update VDI")]
       ~params:[(Ref _pool_update, "self", "The update to be detached")]
       ~allowed_roles:_R_POOL_OP ()
 
   let resync_host =
     call ~name:"resync_host" ~hide_from_docs:true
       ~doc:"Resync the applied updates of the host" ~in_oss_since:None
-      ~in_product_since:rel_ely
+      ~lifecycle:
+        [(Published, rel_ely, "Resync the applied updates of the host")]
       ~params:[(Ref _host, "host", "The host to resync the applied updates")]
       ~allowed_roles:_R_POOL_OP ()
 
@@ -764,72 +894,129 @@ module Pool_patch = struct
   let apply =
     call ~name:"apply"
       ~doc:"Apply the selected patch to a host and return its output"
-      ~in_oss_since:None ~in_product_since:rel_miami
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Apply the selected patch to a host and return its output"
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:
         [
           (Ref _pool_patch, "self", "The patch to apply")
         ; (Ref _host, "host", "The host to apply the patch too")
         ]
       ~result:(String, "the output of the patch application process")
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let precheck =
     call ~name:"precheck"
       ~doc:
         "Execute the precheck stage of the selected patch on a host and return \
          its output"
-      ~in_oss_since:None ~in_product_since:rel_miami
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Execute the precheck stage of the selected patch on a host and \
+             return its output"
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:
         [
           (Ref _pool_patch, "self", "The patch whose prechecks will be run")
         ; (Ref _host, "host", "The host to run the prechecks on")
         ]
       ~result:(String, "the output of the patch prechecks")
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let clean =
     call ~name:"clean" ~doc:"Removes the patch's files from the server"
-      ~in_oss_since:None ~in_product_since:rel_miami
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          (Published, rel_miami, "Removes the patch's files from the server")
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:[(Ref _pool_patch, "self", "The patch to clean up")]
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let clean_on_host =
     call ~name:"clean_on_host"
       ~doc:"Removes the patch's files from the specified host"
-      ~in_oss_since:None ~in_product_since:rel_tampa
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Removes the patch's files from the specified host"
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:
         [
           (Ref _pool_patch, "self", "The patch to clean up")
         ; (Ref _host, "host", "The host on which to clean the patch")
         ]
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let pool_clean =
     call ~name:"pool_clean"
       ~doc:
         "Removes the patch's files from all hosts in the pool, but does not \
          remove the database entries"
-      ~in_oss_since:None ~in_product_since:rel_tampa
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Removes the patch's files from all hosts in the pool, but does \
+             not remove the database entries"
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:[(Ref _pool_patch, "self", "The patch to clean up")]
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy"
       ~doc:
         "Removes the patch's files from all hosts in the pool, and removes the \
          database entries.  Only works on unapplied patches."
-      ~in_oss_since:None ~in_product_since:rel_miami
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Removes the patch's files from all hosts in the pool, and removes \
+             the database entries.  Only works on unapplied patches."
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:[(Ref _pool_patch, "self", "The patch to destroy")]
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let pool_apply =
     call ~name:"pool_apply"
       ~doc:
         "Apply the selected patch to all hosts in the pool and return a map of \
          host_ref -> patch output"
-      ~in_oss_since:None ~in_product_since:rel_miami
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Apply the selected patch to all hosts in the pool and return a \
+             map of host_ref -> patch output"
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
       ~params:[(Ref _pool_patch, "self", "The patch to apply")]
-      ~allowed_roles:_R_POOL_OP ~internal_deprecated_since:rel_ely ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
@@ -882,16 +1069,30 @@ module Host_patch = struct
       ~doc:
         "Destroy the specified host patch, removing it from the disk. This \
          does NOT reverse the patch"
-      ~in_oss_since:None ~in_product_since:rel_rio
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Destroy the specified host patch, removing it from the disk. This \
+             does NOT reverse the patch"
+          )
+        ; (Deprecated, rel_miami, "")
+        ]
       ~params:[(Ref _host_patch, "self", "The patch to destroy")]
-      ~internal_deprecated_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let apply =
     call ~name:"apply" ~doc:"Apply the selected patch and return its output"
-      ~in_oss_since:None ~in_product_since:rel_rio
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          (Published, rel_rio, "Apply the selected patch and return its output")
+        ; (Deprecated, rel_miami, "")
+        ]
       ~params:[(Ref _host_patch, "self", "The patch to apply")]
       ~result:(String, "the output of the patch application process")
-      ~internal_deprecated_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_rio ~in_oss_since:None
@@ -1062,8 +1263,14 @@ module Network = struct
           )
         ; (Ref _host, "host", "physical machine to which this PIF is connected")
         ]
-      ~in_product_since:rel_miami ~hide_from_docs:true ~allowed_roles:_R_POOL_OP
-      ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Makes the network immediately available on a particular host"
+          )
+        ]
+      ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
   let purpose =
     Enum
@@ -1134,14 +1341,29 @@ module Network = struct
 
   (* network pool introduce is used to copy network records on pool join -- it's the network analogue of VDI/PIF.pool_introduce *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"pool_introduce" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Create a new network record in the database only"
+          )
+        ]
       ~versioned_params:(introduce_params miami_release)
       ~doc:"Create a new network record in the database only"
       ~result:(Ref _network, "The ref of the newly created network record.")
       ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
   let create_new_blob =
-    call ~name:"create_new_blob" ~in_product_since:rel_orlando
+    call ~name:"create_new_blob"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_orlando
+          , "Create a placeholder for a named binary blob of data that is \
+             associated with this pool"
+          )
+        ]
       ~doc:
         "Create a placeholder for a named binary blob of data that is \
          associated with this pool"
@@ -1183,7 +1405,14 @@ module Network = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_default_locking_mode =
-    call ~name:"set_default_locking_mode" ~in_product_since:rel_tampa
+    call ~name:"set_default_locking_mode"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Set the default locking mode for VIFs attached to this network"
+          )
+        ]
       ~doc:"Set the default locking mode for VIFs attached to this network"
       ~params:
         [
@@ -1206,8 +1435,14 @@ module Network = struct
           )
         ; (Ref _vm, "vm", "The virtual machine")
         ]
-      ~in_product_since:rel_tampa ~hide_from_docs:true
-      ~allowed_roles:_R_VM_POWER_ADMIN ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Attaches all networks needed by a given VM on a particular host"
+          )
+        ]
+      ~hide_from_docs:true ~allowed_roles:_R_VM_POWER_ADMIN ()
 
   let detach_for_vm =
     call ~name:"detach_for_vm"
@@ -1220,8 +1455,14 @@ module Network = struct
           )
         ; (Ref _vm, "vm", "The virtual machine")
         ]
-      ~in_product_since:rel_tampa ~hide_from_docs:true
-      ~allowed_roles:_R_VM_POWER_ADMIN ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Detaches all networks of a given VM from a particular host"
+          )
+        ]
+      ~hide_from_docs:true ~allowed_roles:_R_VM_POWER_ADMIN ()
 
   let add_purpose =
     call ~name:"add_purpose"
@@ -1232,7 +1473,14 @@ module Network = struct
         ; (purpose, "value", "The purpose to add")
         ]
       ~errs:[Api_errors.network_incompatible_purposes]
-      ~in_product_since:rel_inverness ~allowed_roles:_R_POOL_ADMIN ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Give a network a new purpose (if not present already)"
+          )
+        ]
+      ~allowed_roles:_R_POOL_ADMIN ()
 
   let remove_purpose =
     call ~name:"remove_purpose"
@@ -1242,7 +1490,14 @@ module Network = struct
           (Ref _network, "self", "The network")
         ; (purpose, "value", "The purpose to remove")
         ]
-      ~in_product_since:rel_inverness ~allowed_roles:_R_POOL_ADMIN ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Remove a purpose from a network (if present)"
+          )
+        ]
+      ~allowed_roles:_R_POOL_ADMIN ()
 
   (** A virtual network *)
   let t =
@@ -1333,7 +1588,7 @@ end
 
 module PIF = struct
   let create_VLAN =
-    call ~name:"create_VLAN" ~in_product_since:rel_rio
+    call ~name:"create_VLAN"
       ~doc:
         "Create a VLAN interface from an existing physical interface. This \
          call is deprecated: use VLAN.create instead"
@@ -1360,10 +1615,10 @@ module PIF = struct
         ]
       ~result:(Ref _pif, "The reference of the created PIF object")
       ~errs:[Api_errors.vlan_tag_invalid]
-      ~internal_deprecated_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
-    call ~name:"destroy" ~in_product_since:rel_rio
+    call ~name:"destroy"
       ~doc:
         "Destroy the PIF object (provided it is a VLAN interface). This call \
          is deprecated: use VLAN.destroy or Bond.destroy instead"
@@ -1377,19 +1632,23 @@ module PIF = struct
         ]
       ~params:[(Ref _pif, "self", "the PIF object to destroy")]
       ~errs:[Api_errors.pif_is_physical]
-      ~internal_deprecated_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~allowed_roles:_R_POOL_OP ()
 
   let plug =
     call ~name:"plug" ~doc:"Attempt to bring up a physical interface"
       ~params:[(Ref _pif, "self", "the PIF object to plug")]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [(Published, rel_miami, "Attempt to bring up a physical interface")]
+      ~allowed_roles:_R_POOL_OP
       ~errs:[Api_errors.transport_pif_not_configured]
       ()
 
   let unplug =
     call ~name:"unplug" ~doc:"Attempt to bring down a physical interface"
       ~params:[(Ref _pif, "self", "the PIF object to unplug")]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [(Published, rel_miami, "Attempt to bring down a physical interface")]
+      ~allowed_roles:_R_POOL_OP
       ~errs:
         [
           Api_errors.ha_operation_would_break_failover_plan
@@ -1402,7 +1661,9 @@ module PIF = struct
   let set_disallow_unplug =
     call ~name:"set_disallow_unplug"
       ~doc:"Set whether unplugging the PIF is allowed" ~hide_from_docs:false
-      ~in_oss_since:None ~in_product_since:rel_orlando
+      ~in_oss_since:None
+      ~lifecycle:
+        [(Published, rel_orlando, "Set whether unplugging the PIF is allowed")]
       ~params:
         [
           (Ref _pif, "self", "Reference to the object")
@@ -1437,7 +1698,14 @@ module PIF = struct
         ; (String, "gateway", "the new gateway")
         ; (String, "DNS", "the new DNS settings")
         ]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Reconfigure the IP address settings for this interface"
+          )
+        ]
+      ~allowed_roles:_R_POOL_OP
       ~errs:Api_errors.[clustering_enabled]
       ()
 
@@ -1503,7 +1771,15 @@ module PIF = struct
         "Scan for physical interfaces on a host and create PIF objects to \
          represent them"
       ~params:[(Ref _host, "host", "The host on which to scan")]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Scan for physical interfaces on a host and create PIF objects to \
+             represent them"
+          )
+        ]
+      ~allowed_roles:_R_POOL_OP ()
 
   let introduce_params =
     [
@@ -1542,7 +1818,14 @@ module PIF = struct
   let introduce =
     call ~name:"introduce"
       ~doc:"Create a PIF object matching a particular network interface"
-      ~versioned_params:introduce_params ~in_product_since:rel_miami
+      ~versioned_params:introduce_params
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Create a PIF object matching a particular network interface"
+          )
+        ]
       ~result:(Ref _pif, "The reference of the created PIF object")
       ~allowed_roles:_R_POOL_OP ()
 
@@ -1550,7 +1833,14 @@ module PIF = struct
     call ~name:"forget"
       ~doc:"Destroy the PIF object matching a particular network interface"
       ~params:[(Ref _pif, "self", "The PIF object to destroy")]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Destroy the PIF object matching a particular network interface"
+          )
+        ]
+      ~allowed_roles:_R_POOL_OP
       ~errs:Api_errors.[pif_tunnel_still_exists; clustering_enabled]
       ()
 
@@ -1721,21 +2011,31 @@ module PIF = struct
 
   (* PIF pool introduce is used to copy PIF records on pool join -- it's the PIF analogue of VDI.pool_introduce *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"pool_introduce" ~in_oss_since:None
+      ~lifecycle:
+        [(Published, rel_rio, "Create a new PIF record in the database only")]
       ~versioned_params:(pool_introduce_params miami_release)
       ~doc:"Create a new PIF record in the database only"
       ~result:(Ref _pif, "The ref of the newly created PIF record.")
       ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()
 
   let db_introduce =
-    call ~name:"db_introduce" ~in_oss_since:None ~in_product_since:rel_orlando
+    call ~name:"db_introduce" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_orlando
+          , "Create a new PIF record in the database only"
+          )
+        ]
       ~versioned_params:(pool_introduce_params orlando_release)
       ~doc:"Create a new PIF record in the database only"
       ~result:(Ref _pif, "The ref of the newly created PIF record.")
       ~hide_from_docs:false ~allowed_roles:_R_POOL_OP ()
 
   let db_forget =
-    call ~name:"db_forget" ~in_oss_since:None ~in_product_since:rel_orlando
+    call ~name:"db_forget" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_orlando, "Destroy a PIF database record.")]
       ~params:
         [
           ( Ref _pif
@@ -2051,12 +2351,14 @@ module Bond = struct
           }
         ]
       ~result:(Ref _bond, "The reference of the created Bond object")
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~lifecycle:[(Published, rel_miami, "Create an interface bond")]
+      ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy" ~doc:"Destroy an interface bond"
       ~params:[(Ref _bond, "self", "Bond to destroy")]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~lifecycle:[(Published, rel_miami, "Destroy an interface bond")]
+      ~allowed_roles:_R_POOL_OP ()
 
   let set_mode =
     call ~name:"set_mode" ~doc:"Change the bond mode"
@@ -2073,7 +2375,9 @@ module Bond = struct
         ; (String, "name", "The property name")
         ; (String, "value", "The property value")
         ]
-      ~in_product_since:rel_tampa ~allowed_roles:_R_POOL_OP ()
+      ~lifecycle:
+        [(Published, rel_tampa, "Set the value of a property of the bond")]
+      ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
@@ -2162,7 +2466,13 @@ module VLAN = struct
   (* vlan pool introduce is used to copy management vlan record on pool join -- it's the vlan analogue of VDI/PIF.pool_introduce *)
   let pool_introduce =
     call ~name:"pool_introduce" ~in_oss_since:None
-      ~in_product_since:rel_inverness
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Create a new vlan record in the database only"
+          )
+        ]
       ~versioned_params:(introduce_params inverness_release)
       ~doc:"Create a new vlan record in the database only"
       ~result:(Ref _vlan, "The reference of the created VLAN object")
@@ -2177,12 +2487,14 @@ module VLAN = struct
         ; (Ref _network, "network", "Network to receive the untagged traffic")
         ]
       ~result:(Ref _vlan, "The reference of the created VLAN object")
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~lifecycle:[(Published, rel_miami, "Create a VLAN mux/demuxer")]
+      ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
     call ~name:"destroy" ~doc:"Destroy a VLAN mux/demuxer"
       ~params:[(Ref _vlan, "self", "VLAN mux/demuxer to destroy")]
-      ~in_product_since:rel_miami ~allowed_roles:_R_POOL_OP ()
+      ~lifecycle:[(Published, rel_miami, "Destroy a VLAN mux/demuxer")]
+      ~allowed_roles:_R_POOL_OP ()
 
   let t =
     create_obj ~in_db:true ~in_product_since:rel_miami ~in_oss_since:None
@@ -2304,7 +2616,15 @@ end
 
 module PBD = struct
   let plug =
-    call ~name:"plug" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"plug" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Activate the specified PBD, causing the referenced SR to be \
+             attached and scanned"
+          )
+        ]
       ~doc:
         "Activate the specified PBD, causing the referenced SR to be attached \
          and scanned"
@@ -2313,7 +2633,15 @@ module PBD = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let unplug =
-    call ~name:"unplug" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"unplug" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Deactivate the specified PBD, causing the referenced SR to be \
+             detached and nolonger scanned"
+          )
+        ]
       ~doc:
         "Deactivate the specified PBD, causing the referenced SR to be \
          detached and nolonger scanned"
@@ -2322,7 +2650,7 @@ module PBD = struct
 
   let set_device_config =
     call ~name:"set_device_config" ~in_oss_since:None
-      ~in_product_since:rel_miami
+      ~lifecycle:[(Published, rel_miami, "Sets the PBD's device_config field")]
       ~params:
         [
           (Ref _pbd, "self", "The PBD to modify")
@@ -2416,14 +2744,30 @@ module VIF = struct
       )
 
   let plug =
-    call ~name:"plug" ~in_product_since:rel_rio
+    call ~name:"plug"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Hotplug the specified VIF, dynamically attaching it to the \
+             running VM"
+          )
+        ]
       ~doc:
         "Hotplug the specified VIF, dynamically attaching it to the running VM"
       ~params:[(Ref _vif, "self", "The VIF to hotplug")]
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug =
-    call ~name:"unplug" ~in_product_since:rel_rio
+    call ~name:"unplug"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Hot-unplug the specified VIF, dynamically unattaching it from the \
+             running VM"
+          )
+        ]
       ~doc:
         "Hot-unplug the specified VIF, dynamically unattaching it from the \
          running VM"
@@ -2431,13 +2775,22 @@ module VIF = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug_force =
-    call ~name:"unplug_force" ~in_product_since:rel_boston
+    call ~name:"unplug_force"
+      ~lifecycle:[(Published, rel_boston, "Forcibly unplug the specified VIF")]
       ~doc:"Forcibly unplug the specified VIF"
       ~params:[(Ref _vif, "self", "The VIF to forcibly unplug")]
       ~allowed_roles:_R_VM_ADMIN ()
 
   let move =
-    call ~name:"move" ~in_product_since:rel_ely
+    call ~name:"move"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_ely
+          , "Move the specified VIF to the specified network, even while the \
+             VM is running"
+          )
+        ]
       ~doc:
         "Move the specified VIF to the specified network, even while the VM is \
          running"
@@ -2475,7 +2828,8 @@ module VIF = struct
       )
 
   let set_locking_mode =
-    call ~name:"set_locking_mode" ~in_product_since:rel_tampa
+    call ~name:"set_locking_mode"
+      ~lifecycle:[(Published, rel_tampa, "Set the locking mode for this VIF")]
       ~doc:"Set the locking mode for this VIF"
       ~params:
         [
@@ -2485,7 +2839,15 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_ipv4_allowed =
-    call ~name:"set_ipv4_allowed" ~in_product_since:rel_tampa
+    call ~name:"set_ipv4_allowed"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Set the IPv4 addresses to which traffic on this VIF can be \
+             restricted"
+          )
+        ]
       ~doc:
         "Set the IPv4 addresses to which traffic on this VIF can be restricted"
       ~params:
@@ -2502,7 +2864,9 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let add_ipv4_allowed =
-    call ~name:"add_ipv4_allowed" ~in_product_since:rel_tampa
+    call ~name:"add_ipv4_allowed"
+      ~lifecycle:
+        [(Published, rel_tampa, "Associates an IPv4 address with this VIF")]
       ~doc:"Associates an IPv4 address with this VIF"
       ~params:
         [
@@ -2518,7 +2882,9 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let remove_ipv4_allowed =
-    call ~name:"remove_ipv4_allowed" ~in_product_since:rel_tampa
+    call ~name:"remove_ipv4_allowed"
+      ~lifecycle:
+        [(Published, rel_tampa, "Removes an IPv4 address from this VIF")]
       ~doc:"Removes an IPv4 address from this VIF"
       ~params:
         [
@@ -2528,7 +2894,15 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_ipv6_allowed =
-    call ~name:"set_ipv6_allowed" ~in_product_since:rel_tampa
+    call ~name:"set_ipv6_allowed"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Set the IPv6 addresses to which traffic on this VIF can be \
+             restricted"
+          )
+        ]
       ~doc:
         "Set the IPv6 addresses to which traffic on this VIF can be restricted"
       ~params:
@@ -2545,7 +2919,9 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let add_ipv6_allowed =
-    call ~name:"add_ipv6_allowed" ~in_product_since:rel_tampa
+    call ~name:"add_ipv6_allowed"
+      ~lifecycle:
+        [(Published, rel_tampa, "Associates an IPv6 address with this VIF")]
       ~doc:"Associates an IPv6 address with this VIF"
       ~params:
         [
@@ -2561,7 +2937,9 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let remove_ipv6_allowed =
-    call ~name:"remove_ipv6_allowed" ~in_product_since:rel_tampa
+    call ~name:"remove_ipv6_allowed"
+      ~lifecycle:
+        [(Published, rel_tampa, "Removes an IPv6 address from this VIF")]
       ~doc:"Removes an IPv6 address from this VIF"
       ~params:
         [
@@ -2571,7 +2949,14 @@ module VIF = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let configure_ipv4 =
-    call ~name:"configure_ipv4" ~in_product_since:rel_dundee
+    call ~name:"configure_ipv4"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_dundee
+          , "Configure IPv4 settings for this virtual interface"
+          )
+        ]
       ~doc:"Configure IPv4 settings for this virtual interface"
       ~versioned_params:
         [
@@ -2611,7 +2996,14 @@ module VIF = struct
       ~allowed_roles:_R_VM_OP ()
 
   let configure_ipv6 =
-    call ~name:"configure_ipv6" ~in_product_since:rel_dundee
+    call ~name:"configure_ipv6"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_dundee
+          , "Configure IPv6 settings for this virtual interface"
+          )
+        ]
       ~doc:"Configure IPv6 settings for this virtual interface"
       ~versioned_params:
         [
@@ -3020,7 +3412,16 @@ module SR = struct
     }
 
   let create =
-    call ~name:"create" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"create" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Create a new Storage Repository and introduce it into the managed \
+             system, creating both SR record and PBD record to attach it to \
+             current host (with specified device_config parameters)"
+          )
+        ]
       ~versioned_params:
         (host_param
         :: dev_config_param
@@ -3038,7 +3439,17 @@ module SR = struct
   let destroy_self_param = (Ref _sr, "sr", "The SR to destroy")
 
   let destroy =
-    call ~name:"destroy" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"destroy" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Destroy specified SR, removing SR-record from database and remove \
+             SR from disk. (In order to affect this operation the appropriate \
+             device_config is read from the specified SR's PBD on current \
+             host)"
+          )
+        ]
       ~doc:
         "Destroy specified SR, removing SR-record from database and remove SR \
          from disk. (In order to affect this operation the appropriate \
@@ -3047,7 +3458,15 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let forget =
-    call ~name:"forget" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"forget" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Removing specified SR-record from database, without attempting to \
+             remove SR from disk"
+          )
+        ]
       ~doc:
         "Removing specified SR-record from database, without attempting to \
          remove SR from disk"
@@ -3055,7 +3474,14 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let introduce =
-    call ~name:"introduce" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"introduce" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Introduce a new Storage Repository into the managed system"
+          )
+        ]
       ~versioned_params:
         ({
            param_type= String
@@ -3072,7 +3498,19 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let probe =
-    call ~name:"probe" ~in_oss_since:None ~in_product_since:rel_miami
+    call ~name:"probe" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_miami
+          , "Perform a backend-specific scan, using the given device_config.  \
+             If the device_config is complete, then this will return a list of \
+             the SRs present of this type on the device, if any.  If the \
+             device_config is partial, then a backend-specific scan will be \
+             performed, returning results that will guide the user in \
+             improving the device_config."
+          )
+        ]
       ~versioned_params:
         [
           host_param
@@ -3130,8 +3568,7 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let make =
-    call ~name:"make" ~in_oss_since:None ~in_product_since:rel_rio
-      ~internal_deprecated_since:rel_miami
+    call ~name:"make" ~in_oss_since:None
       ~lifecycle:
         [
           (Published, rel_rio, "Create a new Storage Repository on disk")
@@ -3150,27 +3587,44 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let get_supported_types =
-    call ~name:"get_supported_types" ~in_product_since:rel_rio ~flags:[`Session]
+    call ~name:"get_supported_types"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Return a set of all the SR types supported by the system"
+          )
+        ]
+      ~flags:[`Session]
       ~doc:"Return a set of all the SR types supported by the system" ~params:[]
       ~result:(Set String, "the supported SR types")
       ~allowed_roles:_R_READ_ONLY ()
 
   let scan =
-    call ~name:"scan" ~in_product_since:rel_rio
+    call ~name:"scan"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Refreshes the list of VDIs associated with an SR"
+          )
+        ]
       ~doc:"Refreshes the list of VDIs associated with an SR"
       ~params:[(Ref _sr, "sr", "The SR to scan")]
       ~allowed_roles:_R_VM_POWER_ADMIN ()
 
   (* Nb, although this is a new explicit call, it's actually been in the API since rio - just autogenerated. So no setting of rel_miami. *)
   let set_shared =
-    call ~name:"set_shared" ~in_product_since:rel_rio
+    call ~name:"set_shared"
+      ~lifecycle:[(Published, rel_rio, "Sets the shared flag on the SR")]
       ~doc:"Sets the shared flag on the SR"
       ~params:
         [(Ref _sr, "sr", "The SR"); (Bool, "value", "True if the SR is shared")]
       ~allowed_roles:_R_POOL_OP ()
 
   let set_name_label =
-    call ~name:"set_name_label" ~in_product_since:rel_rio
+    call ~name:"set_name_label"
+      ~lifecycle:[(Published, rel_rio, "Set the name label of the SR")]
       ~doc:"Set the name label of the SR"
       ~params:
         [
@@ -3180,7 +3634,8 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let set_name_description =
-    call ~name:"set_name_description" ~in_product_since:rel_rio
+    call ~name:"set_name_description"
+      ~lifecycle:[(Published, rel_rio, "Set the name description of the SR")]
       ~doc:"Set the name description of the SR"
       ~params:
         [
@@ -3190,7 +3645,15 @@ module SR = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let create_new_blob =
-    call ~name:"create_new_blob" ~in_product_since:rel_orlando
+    call ~name:"create_new_blob"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_orlando
+          , "Create a placeholder for a named binary blob of data that is \
+             associated with this SR"
+          )
+        ]
       ~doc:
         "Create a placeholder for a named binary blob of data that is \
          associated with this SR"
@@ -3233,14 +3696,16 @@ module SR = struct
 
   let get_data_sources =
     call ~name:"get_data_sources" ~in_oss_since:None
-      ~in_product_since:rel_dundee ~doc:""
+      ~lifecycle:[(Published, rel_dundee, "")]
+      ~doc:""
       ~result:(Set (Record _data_source), "A set of data sources")
       ~params:[(Ref _sr, "sr", "The SR to interrogate")]
       ~errs:[] ~flags:[`Session] ~allowed_roles:_R_READ_ONLY ()
 
   let record_data_source =
     call ~name:"record_data_source" ~in_oss_since:None
-      ~in_product_since:rel_dundee
+      ~lifecycle:
+        [(Published, rel_dundee, "Start recording the specified data source")]
       ~doc:"Start recording the specified data source"
       ~params:
         [
@@ -3251,7 +3716,13 @@ module SR = struct
 
   let query_data_source =
     call ~name:"query_data_source" ~in_oss_since:None
-      ~in_product_since:rel_dundee
+      ~lifecycle:
+        [
+          ( Published
+          , rel_dundee
+          , "Query the latest value of the specified data source"
+          )
+        ]
       ~doc:"Query the latest value of the specified data source"
       ~params:
         [
@@ -3263,7 +3734,14 @@ module SR = struct
 
   let forget_data_source_archives =
     call ~name:"forget_data_source_archives" ~in_oss_since:None
-      ~in_product_since:rel_dundee
+      ~lifecycle:
+        [
+          ( Published
+          , rel_dundee
+          , "Forget the recorded statistics related to the specified data \
+             source"
+          )
+        ]
       ~doc:"Forget the recorded statistics related to the specified data source"
       ~params:
         [
@@ -3277,7 +3755,8 @@ module SR = struct
 
   let set_virtual_allocation =
     call ~name:"set_virtual_allocation" ~in_oss_since:None
-      ~in_product_since:rel_miami
+      ~lifecycle:
+        [(Published, rel_miami, "Sets the SR's virtual_allocation field")]
       ~params:
         [
           (Ref _sr, "self", "The SR to modify")
@@ -3288,7 +3767,7 @@ module SR = struct
 
   let set_physical_size =
     call ~name:"set_physical_size" ~in_oss_since:None
-      ~in_product_since:rel_miami
+      ~lifecycle:[(Published, rel_miami, "Sets the SR's physical_size field")]
       ~params:
         [
           (Ref _sr, "self", "The SR to modify")
@@ -3299,7 +3778,9 @@ module SR = struct
 
   let set_physical_utilisation =
     call ~name:"set_physical_utilisation" ~in_oss_since:None
-      ~in_product_since:rel_miami ~flags:[`Session]
+      ~lifecycle:
+        [(Published, rel_miami, "Sets the SR's physical_utilisation field")]
+      ~flags:[`Session]
       ~params:
         [
           (Ref _sr, "self", "The SR to modify")
@@ -3309,13 +3790,21 @@ module SR = struct
       ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let update =
-    call ~name:"update" ~in_oss_since:None ~in_product_since:rel_symc
+    call ~name:"update" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_symc, "Refresh the fields on the SR object")]
       ~params:[(Ref _sr, "sr", "The SR whose fields should be refreshed")]
       ~doc:"Refresh the fields on the SR object" ~allowed_roles:_R_POOL_OP ()
 
   let assert_can_host_ha_statefile =
     call ~name:"assert_can_host_ha_statefile" ~in_oss_since:None
-      ~in_product_since:rel_orlando
+      ~lifecycle:
+        [
+          ( Published
+          , rel_orlando
+          , "Returns successfully if the given SR can host an HA statefile. \
+             Otherwise returns an error to explain why not"
+          )
+        ]
       ~params:[(Ref _sr, "sr", "The SR to query")]
       ~doc:
         "Returns successfully if the given SR can host an HA statefile. \
@@ -3324,7 +3813,14 @@ module SR = struct
 
   let assert_supports_database_replication =
     call ~name:"assert_supports_database_replication" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Returns successfully if the given SR supports database \
+             replication. Otherwise returns an error to explain why not."
+          )
+        ]
       ~params:[(Ref _sr, "sr", "The SR to query")]
       ~doc:
         "Returns successfully if the given SR supports database replication. \
@@ -3333,13 +3829,13 @@ module SR = struct
 
   let enable_database_replication =
     call ~name:"enable_database_replication" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:[(Published, rel_boston, "")]
       ~params:[(Ref _sr, "sr", "The SR to which metadata should be replicated")]
       ~allowed_roles:_R_POOL_OP ()
 
   let disable_database_replication =
     call ~name:"disable_database_replication" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:[(Published, rel_boston, "")]
       ~params:
         [
           ( Ref _sr
@@ -3351,7 +3847,8 @@ module SR = struct
 
   let get_live_hosts =
     call ~in_oss_since:None ~name:"get_live_hosts"
-      ~in_product_since:rel_stockholm
+      ~lifecycle:
+        [(Published, rel_stockholm, "Get all live hosts attached to this SR")]
       ~doc:"Get all live hosts attached to this SR"
       ~params:[(Ref _sr, "sr", "The SR from which to query attached hosts")]
       ~allowed_roles:_R_POOL_OP ~hide_from_docs:true
@@ -3469,7 +3966,8 @@ module SM = struct
   (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
   let get_driver_filename =
     call ~name:"get_driver_filename" ~in_oss_since:None
-      ~in_product_since:rel_orlando
+      ~lifecycle:
+        [(Published, rel_orlando, "Gets the SM's driver_filename field")]
       ~params:[(Ref _sm, "self", "The SM to query")]
       ~result:(String, "The SM's driver_filename field")
       ~doc:"Gets the SM's driver_filename field" ()
@@ -3531,7 +4029,17 @@ end
 module LVHD = struct
   let enable_thin_provisioning =
     call ~name:"enable_thin_provisioning" ~in_oss_since:None
-      ~in_product_since:rel_dundee ~allowed_roles:_R_POOL_ADMIN
+      ~lifecycle:
+        [
+          ( Published
+          , rel_dundee
+          , "Upgrades an LVHD SR to enable thin-provisioning. Future VDIs \
+             created in this SR will be thinly-provisioned, although existing \
+             VDIs will be left alone. Note that the SR must be attached to the \
+             SRmaster for upgrade to work."
+          )
+        ]
+      ~allowed_roles:_R_POOL_ADMIN
       ~params:
         [
           ( Ref _host
@@ -3644,7 +4152,18 @@ module VDI = struct
       )
 
   let snapshot =
-    call ~name:"snapshot" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"snapshot" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Take a read-only snapshot of the VDI, returning a reference to \
+             the snapshot. If any driver_params are specified then these are \
+             passed through to the storage-specific substrate driver that \
+             takes the snapshot. NB the snapshot lives in the same Storage \
+             Repository as its parent."
+          )
+        ]
       ~versioned_params:
         [
           {
@@ -3675,7 +4194,18 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ~doc_tags:[Snapshots] ()
 
   let clone =
-    call ~name:"clone" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"clone" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Take an exact copy of the VDI and return a reference to the new \
+             disk. If any driver_params are specified then these are passed \
+             through to the storage-specific substrate driver that implements \
+             the clone operation. NB the clone lives in the same Storage \
+             Repository as its parent."
+          )
+        ]
       ~params:[(Ref _vdi, "vdi", "The VDI to clone")]
       ~versioned_params:
         [
@@ -3706,7 +4236,9 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ~doc_tags:[Snapshots] ()
 
   let resize =
-    call ~name:"resize" ~in_product_since:rel_rio ~in_oss_since:None
+    call ~name:"resize"
+      ~lifecycle:[(Published, rel_rio, "Resize the VDI.")]
+      ~in_oss_since:None
       ~params:
         [
           (Ref _vdi, "vdi", "The VDI to resize")
@@ -3805,7 +4337,15 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let pool_migrate =
-    call ~name:"pool_migrate" ~in_oss_since:None ~in_product_since:rel_tampa
+    call ~name:"pool_migrate" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Migrate a VDI, which may be attached to a running guest, to a \
+             different SR. The destination SR must be visible to the guest."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "vdi", "The VDI to migrate")
@@ -3952,7 +4492,9 @@ module VDI = struct
 
   (* This used to be called VDI.introduce but it was always an internal call *)
   let pool_introduce =
-    call ~name:"pool_introduce" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"pool_introduce" ~in_oss_since:None
+      ~lifecycle:
+        [(Published, rel_rio, "Create a new VDI record in the database only")]
       ~versioned_params:
         (introduce_params miami_release
         @ [
@@ -3981,7 +4523,9 @@ module VDI = struct
     call ~name:"db_forget" ~in_oss_since:None
       ~params:[(Ref _vdi, "vdi", "The VDI to forget about")]
       ~doc:"Removes a VDI record from the database" ~hide_from_docs:true
-      ~in_product_since:rel_miami ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
+      ~lifecycle:
+        [(Published, rel_miami, "Removes a VDI record from the database")]
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let introduce =
     call ~name:"introduce" ~in_oss_since:None
@@ -3989,17 +4533,29 @@ module VDI = struct
       ~doc:"Create a new VDI record in the database only"
       ~result:(Ref _vdi, "The ref of the newly created VDI record.")
       ~errs:[Api_errors.sr_operation_not_supported]
-      ~in_product_since:rel_miami ~allowed_roles:_R_VM_ADMIN ()
+      ~lifecycle:
+        [(Published, rel_miami, "Create a new VDI record in the database only")]
+      ~allowed_roles:_R_VM_ADMIN ()
 
   let forget =
-    call ~name:"forget" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"forget" ~in_oss_since:None
+      ~lifecycle:
+        [(Published, rel_rio, "Removes a VDI record from the database")]
       ~params:[(Ref _vdi, "vdi", "The VDI to forget about")]
       ~doc:"Removes a VDI record from the database" ~allowed_roles:_R_VM_ADMIN
       ()
 
   let force_unlock =
-    call ~name:"force_unlock" ~in_oss_since:None ~in_product_since:rel_rio
-      ~internal_deprecated_since:rel_miami
+    call ~name:"force_unlock" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Steals the lock on this VDI and leaves it unlocked. This function \
+             is extremely dangerous. This call is deprecated."
+          )
+        ; (Deprecated, rel_miami, "")
+        ]
       ~params:[(Ref _vdi, "vdi", "The VDI to forcibly unlock")]
       ~doc:
         "Steals the lock on this VDI and leaves it unlocked. This function is \
@@ -4012,7 +4568,14 @@ module VDI = struct
         [(Ref _vdi, "vdi", "The VDI whose stats (eg size) should be updated")]
       ~doc:"Ask the storage backend to refresh the fields in the VDI object"
       ~errs:[Api_errors.sr_operation_not_supported]
-      ~in_product_since:rel_symc ~allowed_roles:_R_VM_ADMIN ()
+      ~lifecycle:
+        [
+          ( Published
+          , rel_symc
+          , "Ask the storage backend to refresh the fields in the VDI object"
+          )
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
 
   let operations =
     Enum
@@ -4041,7 +4604,8 @@ module VDI = struct
       )
 
   let set_missing =
-    call ~name:"set_missing" ~in_oss_since:None ~in_product_since:rel_miami
+    call ~name:"set_missing" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_miami, "Sets the VDI's missing field")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4051,7 +4615,8 @@ module VDI = struct
       ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_read_only =
-    call ~name:"set_read_only" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"set_read_only" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_rio, "Sets the VDI's read_only field")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4061,7 +4626,8 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_sharable =
-    call ~name:"set_sharable" ~in_oss_since:None ~in_product_since:rel_george
+    call ~name:"set_sharable" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_george, "Sets the VDI's sharable field")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4071,7 +4637,8 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_managed =
-    call ~name:"set_managed" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"set_managed" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_rio, "Sets the VDI's managed field")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4081,7 +4648,8 @@ module VDI = struct
       ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_virtual_size =
-    call ~name:"set_virtual_size" ~in_oss_since:None ~in_product_since:rel_miami
+    call ~name:"set_virtual_size" ~in_oss_since:None
+      ~lifecycle:[(Published, rel_miami, "Sets the VDI's virtual_size field")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4092,7 +4660,8 @@ module VDI = struct
 
   let set_physical_utilisation =
     call ~name:"set_physical_utilisation" ~in_oss_since:None
-      ~in_product_since:rel_miami
+      ~lifecycle:
+        [(Published, rel_miami, "Sets the VDI's physical_utilisation field")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4103,7 +4672,8 @@ module VDI = struct
 
   let set_is_a_snapshot =
     call ~name:"set_is_a_snapshot" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:
+        [(Published, rel_boston, "Sets whether this VDI is a snapshot")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4116,7 +4686,11 @@ module VDI = struct
       ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let set_snapshot_of =
-    call ~name:"set_snapshot_of" ~in_oss_since:None ~in_product_since:rel_boston
+    call ~name:"set_snapshot_of" ~in_oss_since:None
+      ~lifecycle:
+        [
+          (Published, rel_boston, "Sets the VDI of which this VDI is a snapshot")
+        ]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4127,7 +4701,8 @@ module VDI = struct
 
   let set_snapshot_time =
     call ~name:"set_snapshot_time" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:
+        [(Published, rel_boston, "Sets the snapshot time of this VDI.")]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4142,7 +4717,13 @@ module VDI = struct
 
   let set_metadata_of_pool =
     call ~name:"set_metadata_of_pool" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Records the pool whose metadata is contained by this VDI."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4158,7 +4739,8 @@ module VDI = struct
   (** An API call for debugging and testing only *)
   let generate_config =
     call ~name:"generate_config" ~in_oss_since:None
-      ~in_product_since:rel_orlando
+      ~lifecycle:
+        [(Published, rel_orlando, "Internal function for debugging only")]
       ~params:
         [
           (Ref _host, "host", "The host on which to generate the configuration")
@@ -4181,7 +4763,15 @@ module VDI = struct
       )
 
   let set_on_boot =
-    call ~name:"set_on_boot" ~in_oss_since:None ~in_product_since:rel_cowley
+    call ~name:"set_on_boot" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_cowley
+          , "Set the value of the on_boot parameter. This value can only be \
+             changed when the VDI is not attached to a running VM."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4194,7 +4784,18 @@ module VDI = struct
 
   let set_allow_caching =
     call ~name:"set_allow_caching" ~in_oss_since:None
-      ~in_product_since:rel_cowley
+      ~lifecycle:
+        [
+          ( Published
+          , rel_cowley
+          , "Set the value of the allow_caching parameter. This value can only \
+             be changed when the VDI is not attached to a running VM. The \
+             caching behaviour is only affected by this flag for VHD-based \
+             VDIs that have one parent and no child VHDs. Moreover, caching \
+             only takes place when the host running the VM containing this VDI \
+             has a nominated SR for local caching."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4210,7 +4811,15 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let set_name_label =
-    call ~name:"set_name_label" ~in_oss_since:None ~in_product_since:rel_rio
+    call ~name:"set_name_label" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Set the name label of the VDI. This can only happen when then its \
+             SR is currently attached."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4223,7 +4832,14 @@ module VDI = struct
 
   let set_name_description =
     call ~name:"set_name_description" ~in_oss_since:None
-      ~in_product_since:rel_rio
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Set the name description of the VDI. This can only happen when \
+             its SR is currently attached."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "self", "The VDI to modify")
@@ -4235,7 +4851,15 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let open_database =
-    call ~name:"open_database" ~in_oss_since:None ~in_product_since:rel_boston
+    call ~name:"open_database" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Load the metadata found on the supplied VDI and return a session \
+             reference which can be used in API calls to query its contents."
+          )
+        ]
       ~params:
         [(Ref _vdi, "self", "The VDI which contains the database to open")]
       ~result:(Ref _session, "A session which can be used to query the database")
@@ -4245,7 +4869,14 @@ module VDI = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let checksum =
-    call ~name:"checksum" ~in_oss_since:None ~in_product_since:rel_boston
+    call ~name:"checksum" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Internal function to calculate VDI checksum and return a string"
+          )
+        ]
       ~params:[(Ref _vdi, "self", "The VDI to checksum")]
       ~result:(String, "The md5sum of the vdi")
       ~doc:"Internal function to calculate VDI checksum and return a string"
@@ -4258,14 +4889,29 @@ module VDI = struct
 
   let read_database_pool_uuid =
     call ~name:"read_database_pool_uuid" ~in_oss_since:None
-      ~in_product_since:rel_boston
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Check the VDI cache for the pool UUID of the database on this VDI."
+          )
+        ]
       ~params:[(Ref _vdi, "self", "The metadata VDI to look up in the cache.")]
       ~result:(String, "The cached pool UUID of the database on the VDI.")
       ~doc:"Check the VDI cache for the pool UUID of the database on this VDI."
       ~allowed_roles:_R_READ_ONLY ()
 
   let enable_cbt =
-    call ~name:"enable_cbt" ~in_oss_since:None ~in_product_since:rel_inverness
+    call ~name:"enable_cbt" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Enable changed block tracking for the VDI. This call is \
+             idempotent - enabling CBT for a VDI for which CBT is already \
+             enabled results in a no-op, and no error will be thrown."
+          )
+        ]
       ~params:[(Ref _vdi, "self", "The VDI for which CBT should be enabled")]
       ~errs:
         [
@@ -4284,7 +4930,17 @@ module VDI = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let disable_cbt =
-    call ~name:"disable_cbt" ~in_oss_since:None ~in_product_since:rel_inverness
+    call ~name:"disable_cbt" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Disable changed block tracking for the VDI. This call is only \
+             allowed on VDIs that support enabling CBT. It is an idempotent \
+             operation - disabling CBT for a VDI for which CBT is not enabled \
+             results in a no-op, and no error will be thrown."
+          )
+        ]
       ~params:[(Ref _vdi, "self", "The VDI for which CBT should be disabled")]
       ~errs:
         [
@@ -4306,7 +4962,7 @@ module VDI = struct
   (** This command is for internal use by SM to set the cbt_enabled field when it needs to disable cbt for its own reasons. This command should be removed once SMAPIv3 is implemented *)
   let set_cbt_enabled =
     call ~name:"set_cbt_enabled" ~in_oss_since:None
-      ~in_product_since:rel_inverness
+      ~lifecycle:[(Published, rel_inverness, "")]
       ~params:
         [
           ( Ref _vdi
@@ -4318,7 +4974,18 @@ module VDI = struct
       ~errs:[] ~hide_from_docs:true ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
   let data_destroy =
-    call ~name:"data_destroy" ~in_oss_since:None ~in_product_since:rel_inverness
+    call ~name:"data_destroy" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Delete the data of the snapshot VDI, but keep its changed block \
+             tracking metadata. When successful, this call changes the type of \
+             the VDI to cbt_metadata. This operation is idempotent: calling it \
+             on a VDI of type cbt_metadata results in a no-op, and no error \
+             will be thrown."
+          )
+        ]
       ~params:[(Ref _vdi, "self", "The VDI whose data should be deleted.")]
       ~errs:
         [
@@ -4342,7 +5009,15 @@ module VDI = struct
 
   let list_changed_blocks =
     call ~name:"list_changed_blocks" ~in_oss_since:None
-      ~in_product_since:rel_inverness
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Compare two VDIs in 64k block increments and report which blocks \
+             differ. This operation is not allowed when vdi_to is attached to \
+             a VM."
+          )
+        ]
       ~params:
         [
           (Ref _vdi, "vdi_from", "The first VDI.")
@@ -4368,7 +5043,25 @@ module VDI = struct
       ~allowed_roles:_R_VM_OP ()
 
   let get_nbd_info =
-    call ~name:"get_nbd_info" ~in_oss_since:None ~in_product_since:rel_inverness
+    call ~name:"get_nbd_info" ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_inverness
+          , "Get details specifying how to access this VDI via a Network Block \
+             Device server. For each of a set of NBD server addresses on which \
+             the VDI is available, the return value set contains a \
+             vdi_nbd_server_info object that contains an exportname to request \
+             once the NBD connection is established, and connection details \
+             for the address. An empty list is returned if there is no network \
+             that has a PIF on a host with access to the relevant SR, or if no \
+             such network has been assigned an NBD-related purpose in its \
+             purpose field. To access the given VDI, any of the \
+             vdi_nbd_server_info objects can be used to make a connection to a \
+             server, and then the VDI will be available by requesting the \
+             exportname."
+          )
+        ]
       ~params:
         [
           ( Ref _vdi
@@ -4594,14 +5287,22 @@ module VBD = struct
       )
 
   let eject =
-    call ~name:"eject" ~in_product_since:rel_rio
+    call ~name:"eject"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Remove the media from the device and leave it empty"
+          )
+        ]
       ~doc:"Remove the media from the device and leave it empty"
       ~params:[(Ref _vbd, "vbd", "The vbd representing the CDROM-like device")]
       ~errs:[Api_errors.vbd_not_removable_media; Api_errors.vbd_is_empty]
       ~allowed_roles:_R_VM_OP ()
 
   let insert =
-    call ~name:"insert" ~in_product_since:rel_rio
+    call ~name:"insert"
+      ~lifecycle:[(Published, rel_rio, "Insert new media into the device")]
       ~doc:"Insert new media into the device"
       ~params:
         [
@@ -4612,14 +5313,30 @@ module VBD = struct
       ~allowed_roles:_R_VM_OP ()
 
   let plug =
-    call ~name:"plug" ~in_product_since:rel_rio
+    call ~name:"plug"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Hotplug the specified VBD, dynamically attaching it to the \
+             running VM"
+          )
+        ]
       ~doc:
         "Hotplug the specified VBD, dynamically attaching it to the running VM"
       ~params:[(Ref _vbd, "self", "The VBD to hotplug")]
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug =
-    call ~name:"unplug" ~in_product_since:rel_rio
+    call ~name:"unplug"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Hot-unplug the specified VBD, dynamically unattaching it from the \
+             running VM"
+          )
+        ]
       ~doc:
         "Hot-unplug the specified VBD, dynamically unattaching it from the \
          running VM"
@@ -4629,7 +5346,8 @@ module VBD = struct
       ~allowed_roles:_R_VM_ADMIN ()
 
   let unplug_force =
-    call ~name:"unplug_force" ~in_product_since:rel_rio
+    call ~name:"unplug_force"
+      ~lifecycle:[(Published, rel_rio, "Forcibly unplug the specified VBD")]
       ~doc:"Forcibly unplug the specified VBD"
       ~params:[(Ref _vbd, "self", "The VBD to forcibly unplug")]
       ~allowed_roles:_R_VM_ADMIN ()
@@ -4650,8 +5368,20 @@ module VBD = struct
              if the device supports surprise-remove)"
           )
         ]
-      ~internal_deprecated_since:rel_ely ~hide_from_docs:true
-      ~in_product_since:rel_symc ~allowed_roles:_R_VM_ADMIN ()
+      ~hide_from_docs:true
+      ~lifecycle:
+        [
+          ( Published
+          , rel_symc
+          , "Deprecated: use 'unplug_force' instead. Forcibly unplug the \
+             specified VBD without any safety checks. This is an extremely \
+             dangerous operation in the general case that can cause guest \
+             crashes and data corruption; it should be called with extreme \
+             caution. Functionally equivalent with 'unplug_force'."
+          )
+        ; (Deprecated, rel_ely, "")
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
 
   let pause =
     call ~name:"pause"
@@ -4659,7 +5389,15 @@ module VBD = struct
         "Stop the backend device servicing requests so that an operation can \
          be performed on the disk (eg live resize, snapshot)"
       ~params:[(Ref _vbd, "self", "The VBD to pause")]
-      ~hide_from_docs:true ~in_product_since:rel_symc
+      ~hide_from_docs:true
+      ~lifecycle:
+        [
+          ( Published
+          , rel_symc
+          , "Stop the backend device servicing requests so that an operation \
+             can be performed on the disk (eg live resize, snapshot)"
+          )
+        ]
       ~result:
         ( String
         , "Token to uniquely identify this pause instance, used to match the \
@@ -4690,11 +5428,27 @@ module VBD = struct
           ; param_default= Some (VString "")
           }
         ]
-      ~hide_from_docs:true ~in_product_since:rel_symc ~allowed_roles:_R_VM_ADMIN
-      ()
+      ~hide_from_docs:true
+      ~lifecycle:
+        [
+          ( Published
+          , rel_symc
+          , "Restart the backend device after it was paused while an operation \
+             was performed on the disk (eg live resize, snapshot)"
+          )
+        ]
+      ~allowed_roles:_R_VM_ADMIN ()
 
   let assert_attachable =
-    call ~name:"assert_attachable" ~in_product_since:rel_rio
+    call ~name:"assert_attachable"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Throws an error if this VBD could not be attached to this VM if \
+             the VM were running. Intended for debugging."
+          )
+        ]
       ~doc:
         "Throws an error if this VBD could not be attached to this VM if the \
          VM were running. Intended for debugging."
@@ -4702,7 +5456,15 @@ module VBD = struct
       ~in_oss_since:None ~allowed_roles:_R_VM_ADMIN ()
 
   let set_mode =
-    call ~name:"set_mode" ~in_product_since:rel_rio
+    call ~name:"set_mode"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Sets the mode of the VBD. The power_state of the VM must be \
+             halted."
+          )
+        ]
       ~doc:"Sets the mode of the VBD. The power_state of the VM must be halted."
       ~params:
         [
@@ -4837,7 +5599,8 @@ end
 
 module Crashdump = struct
   let destroy =
-    call ~name:"destroy" ~in_product_since:rel_rio
+    call ~name:"destroy"
+      ~lifecycle:[(Published, rel_rio, "Destroy the specified crashdump")]
       ~doc:"Destroy the specified crashdump"
       ~params:[(Ref _crashdump, "self", "The crashdump to destroy")]
       ~allowed_roles:_R_POOL_OP ()
@@ -4867,7 +5630,15 @@ module Auth = struct
   (** Auth class *)
   let get_subject_identifier =
     call ~flags:[`Session] ~name:"get_subject_identifier" ~in_oss_since:None
-      ~in_product_since:rel_george
+      ~lifecycle:
+        [
+          ( Published
+          , rel_george
+          , "This call queries the external directory service to obtain the \
+             subject_identifier as a string from the human-readable \
+             subject_name"
+          )
+        ]
       ~params:
         [
           (*Ref _auth, "auth", "???";*)
@@ -4887,7 +5658,16 @@ module Auth = struct
 
   let get_subject_information_from_identifier =
     call ~flags:[`Session] ~name:"get_subject_information_from_identifier"
-      ~in_oss_since:None ~in_product_since:rel_george
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_george
+          , "This call queries the external directory service to obtain the \
+             user information (e.g. username, organization etc) from the \
+             specified subject_identifier"
+          )
+        ]
       ~params:
         [
           ( String
@@ -4908,7 +5688,15 @@ module Auth = struct
 
   let get_group_membership =
     call ~flags:[`Session] ~name:"get_group_membership" ~in_oss_since:None
-      ~in_product_since:rel_george
+      ~lifecycle:
+        [
+          ( Published
+          , rel_george
+          , "This calls queries the external directory service to obtain the \
+             transitively-closed set of groups that the the subject_identifier \
+             is member of."
+          )
+        ]
       ~params:
         [
           ( String
@@ -4947,7 +5735,13 @@ module Subject = struct
   (** Subject class *)
   let add_to_roles =
     call ~flags:[`Session] ~name:"add_to_roles" ~in_oss_since:None
-      ~in_product_since:rel_midnight_ride
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call adds a new role to a subject"
+          )
+        ]
       ~params:
         [
           (Ref _subject, "self", "The subject who we want to add the role to")
@@ -4958,7 +5752,13 @@ module Subject = struct
 
   let remove_from_roles =
     call ~flags:[`Session] ~name:"remove_from_roles" ~in_oss_since:None
-      ~in_product_since:rel_midnight_ride
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call removes a role from a subject"
+          )
+        ]
       ~params:
         [
           ( Ref _subject
@@ -4975,7 +5775,13 @@ module Subject = struct
 
   let get_permissions_name_label =
     call ~flags:[`Session] ~name:"get_permissions_name_label" ~in_oss_since:None
-      ~in_product_since:rel_midnight_ride
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call returns a list of permission names given a subject"
+          )
+        ]
       ~params:
         [
           ( Ref _subject
@@ -5020,7 +5826,13 @@ module Role = struct
   (** Role class *)
   let get_permissions =
     call ~flags:[`Session] ~name:"get_permissions" ~in_oss_since:None
-      ~in_product_since:rel_midnight_ride
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call returns a list of permissions given a role"
+          )
+        ]
       ~params:[(Ref _role, "self", "a reference to a role")]
       ~result:(Set (Ref _role), "a list of permissions")
       ~doc:"This call returns a list of permissions given a role"
@@ -5028,7 +5840,13 @@ module Role = struct
 
   let get_permissions_name_label =
     call ~flags:[`Session] ~name:"get_permissions_name_label" ~in_oss_since:None
-      ~in_product_since:rel_midnight_ride
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call returns a list of permission names given a role"
+          )
+        ]
       ~params:[(Ref _role, "self", "a reference to a role")]
       ~result:(Set String, "a list of permission names")
       ~doc:"This call returns a list of permission names given a role"
@@ -5036,7 +5854,13 @@ module Role = struct
 
   let get_by_permission =
     call ~flags:[`Session] ~name:"get_by_permission" ~in_oss_since:None
-      ~in_product_since:rel_midnight_ride
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call returns a list of roles given a permission"
+          )
+        ]
       ~params:[(Ref _role, "permission", "a reference to a permission")]
       ~result:(Set (Ref _role), "a list of references to roles")
       ~doc:"This call returns a list of roles given a permission"
@@ -5044,7 +5868,14 @@ module Role = struct
 
   let get_by_permission_name_label =
     call ~flags:[`Session] ~name:"get_by_permission_name_label"
-      ~in_oss_since:None ~in_product_since:rel_midnight_ride
+      ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_midnight_ride
+          , "This call returns a list of roles given a permission name"
+          )
+        ]
       ~params:[(String, "label", "The short friendly name of the role")]
       ~result:(Set (Ref _role), "a list of references to roles")
       ~doc:"This call returns a list of roles given a permission name"
@@ -5791,7 +6622,13 @@ module VMSS = struct
   (* VM schedule snapshot *)
   let snapshot_now =
     call ~flags:[`Session] ~name:"snapshot_now" ~in_oss_since:None
-      ~in_product_since:rel_falcon
+      ~lifecycle:
+        [
+          ( Published
+          , rel_falcon
+          , "This call executes the snapshot schedule immediately"
+          )
+        ]
       ~params:[(Ref _vmss, "vmss", "Snapshot Schedule to execute")]
       ~doc:"This call executes the snapshot schedule immediately"
       ~allowed_roles:_R_POOL_OP
@@ -5826,7 +6663,8 @@ module VMSS = struct
 
   let set_retained_snapshots =
     call ~flags:[`Session] ~name:"set_retained_snapshots" ~in_oss_since:None
-      ~in_product_since:rel_falcon ~allowed_roles:_R_POOL_OP
+      ~lifecycle:[(Published, rel_falcon, "")]
+      ~allowed_roles:_R_POOL_OP
       ~params:
         [
           (Ref _vmss, "self", "The schedule snapshot")
@@ -5836,7 +6674,8 @@ module VMSS = struct
 
   let set_frequency =
     call ~flags:[`Session] ~name:"set_frequency" ~in_oss_since:None
-      ~in_product_since:rel_falcon
+      ~lifecycle:
+        [(Published, rel_falcon, "Set the value of the frequency field")]
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -5846,7 +6685,8 @@ module VMSS = struct
 
   let set_schedule =
     call ~flags:[`Session] ~name:"set_schedule" ~in_oss_since:None
-      ~in_product_since:rel_falcon ~allowed_roles:_R_POOL_OP
+      ~lifecycle:[(Published, rel_falcon, "")]
+      ~allowed_roles:_R_POOL_OP
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -5856,7 +6696,8 @@ module VMSS = struct
 
   let set_last_run_time =
     call ~flags:[`Session] ~name:"set_last_run_time" ~in_oss_since:None
-      ~in_product_since:rel_falcon ~allowed_roles:_R_LOCAL_ROOT_ONLY
+      ~lifecycle:[(Published, rel_falcon, "")]
+      ~allowed_roles:_R_LOCAL_ROOT_ONLY
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -5870,7 +6711,8 @@ module VMSS = struct
 
   let add_to_schedule =
     call ~flags:[`Session] ~name:"add_to_schedule" ~in_oss_since:None
-      ~in_product_since:rel_falcon ~allowed_roles:_R_POOL_OP
+      ~lifecycle:[(Published, rel_falcon, "")]
+      ~allowed_roles:_R_POOL_OP
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -5881,7 +6723,8 @@ module VMSS = struct
 
   let remove_from_schedule =
     call ~flags:[`Session] ~name:"remove_from_schedule" ~in_oss_since:None
-      ~in_product_since:rel_falcon ~allowed_roles:_R_POOL_OP
+      ~lifecycle:[(Published, rel_falcon, "")]
+      ~allowed_roles:_R_POOL_OP
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -5891,7 +6734,8 @@ module VMSS = struct
 
   let set_type =
     call ~flags:[`Session] ~name:"set_type" ~in_oss_since:None
-      ~in_product_since:rel_falcon ~allowed_roles:_R_POOL_OP
+      ~lifecycle:[(Published, rel_falcon, "")]
+      ~allowed_roles:_R_POOL_OP
       ~params:
         [
           (Ref _vmss, "self", "The snapshot schedule")
@@ -5961,7 +6805,8 @@ module VM_appliance = struct
       )
 
   let start =
-    call ~name:"start" ~in_product_since:rel_boston
+    call ~name:"start"
+      ~lifecycle:[(Published, rel_boston, "Start all VMs in the appliance")]
       ~params:
         [
           (Ref _vm_appliance, "self", "The VM appliance")
@@ -5975,21 +6820,43 @@ module VM_appliance = struct
       ~doc:"Start all VMs in the appliance" ~allowed_roles:_R_POOL_OP ()
 
   let clean_shutdown =
-    call ~name:"clean_shutdown" ~in_product_since:rel_boston
+    call ~name:"clean_shutdown"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Perform a clean shutdown of all the VMs in the appliance"
+          )
+        ]
       ~params:[(Ref _vm_appliance, "self", "The VM appliance")]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Perform a clean shutdown of all the VMs in the appliance"
       ~allowed_roles:_R_POOL_OP ()
 
   let hard_shutdown =
-    call ~name:"hard_shutdown" ~in_product_since:rel_boston
+    call ~name:"hard_shutdown"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Perform a hard shutdown of all the VMs in the appliance"
+          )
+        ]
       ~params:[(Ref _vm_appliance, "self", "The VM appliance")]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:"Perform a hard shutdown of all the VMs in the appliance"
       ~allowed_roles:_R_POOL_OP ()
 
   let shutdown =
-    call ~name:"shutdown" ~in_product_since:rel_boston
+    call ~name:"shutdown"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "For each VM in the appliance, try to shut it down cleanly. If \
+             this fails, perform a hard shutdown of the VM."
+          )
+        ]
       ~params:[(Ref _vm_appliance, "self", "The VM appliance")]
       ~errs:[Api_errors.operation_partially_failed]
       ~doc:
@@ -5998,7 +6865,15 @@ module VM_appliance = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let assert_can_be_recovered =
-    call ~name:"assert_can_be_recovered" ~in_product_since:rel_boston
+    call ~name:"assert_can_be_recovered"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Assert whether all SRs required to recover this VM appliance are \
+             available."
+          )
+        ]
       ~params:
         [
           (Ref _vm_appliance, "self", "The VM appliance to recover")
@@ -6014,7 +6889,14 @@ module VM_appliance = struct
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_SRs_required_for_recovery =
-    call ~name:"get_SRs_required_for_recovery" ~in_product_since:rel_creedence
+    call ~name:"get_SRs_required_for_recovery"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_creedence
+          , "Get the list of SRs required by the VM appliance to recover."
+          )
+        ]
       ~params:
         [
           ( Ref _vm_appliance
@@ -6033,7 +6915,8 @@ module VM_appliance = struct
       ~allowed_roles:_R_READ_ONLY ()
 
   let recover =
-    call ~name:"recover" ~in_product_since:rel_boston
+    call ~name:"recover"
+      ~lifecycle:[(Published, rel_boston, "Recover the VM appliance")]
       ~params:
         [
           (Ref _vm_appliance, "self", "The VM appliance to recover")
@@ -6080,7 +6963,15 @@ end
 module DR_task = struct
   (* DR_task *)
   let create =
-    call ~name:"create" ~in_product_since:rel_boston
+    call ~name:"create"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Create a disaster recovery task which will query the supplied \
+             list of devices"
+          )
+        ]
       ~params:
         [
           (String, "type", "The SR driver type of the SRs to introduce")
@@ -6097,7 +6988,15 @@ module DR_task = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
-    call ~name:"destroy" ~in_product_since:rel_boston
+    call ~name:"destroy"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Destroy the disaster recovery task, detaching and forgetting any \
+             SRs introduced which are no longer required"
+          )
+        ]
       ~params:[(Ref _dr_task, "self", "The disaster recovery task to destroy")]
       ~doc:
         "Destroy the disaster recovery task, detaching and forgetting any SRs \
@@ -6133,8 +7032,17 @@ module Event = struct
       )
 
   let register =
-    call ~name:"register" ~in_product_since:rel_rio
-      ~internal_deprecated_since:rel_boston
+    call ~name:"register"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Registers this session with the event system for a set of given \
+             classes. This method is only recommended for legacy use in \
+             conjunction with event.next."
+          )
+        ; (Deprecated, rel_boston, "")
+        ]
       ~params:
         [
           ( Set String
@@ -6151,8 +7059,17 @@ module Event = struct
       ~allowed_roles:_R_ALL ()
 
   let unregister =
-    call ~name:"unregister" ~in_product_since:rel_rio
-      ~internal_deprecated_since:rel_boston
+    call ~name:"unregister"
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Removes this session's registration with the event system for a \
+             set of given classes. This method is only recommended for legacy \
+             use in conjunction with event.next."
+          )
+        ; (Deprecated, rel_boston, "")
+        ]
       ~params:
         [
           ( Set String
@@ -6168,8 +7085,17 @@ module Event = struct
       ~allowed_roles:_R_ALL ()
 
   let next =
-    call ~name:"next" ~params:[] ~in_product_since:rel_rio
-      ~internal_deprecated_since:rel_boston
+    call ~name:"next" ~params:[]
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Blocking call which returns a (possibly empty) batch of events. \
+             This method is only recommended for legacy use. New development \
+             should use event.from which supersedes this method."
+          )
+        ; (Deprecated, rel_boston, "")
+        ]
       ~doc:
         "Blocking call which returns a (possibly empty) batch of events. This \
          method is only recommended for legacy use. New development should use \
@@ -6194,7 +7120,15 @@ module Event = struct
           )
         ; (Float, "timeout", "Return after this many seconds if no events match")
         ]
-      ~in_product_since:rel_boston
+      ~lifecycle:
+        [
+          ( Published
+          , rel_boston
+          , "Blocking call which returns a new token and a (possibly empty) \
+             batch of events. The returned token can be used in subsequent \
+             calls to this function."
+          )
+        ]
       ~doc:
         "Blocking call which returns a new token and a (possibly empty) batch \
          of events. The returned token can be used in subsequent calls to this \
@@ -6213,7 +7147,14 @@ module Event = struct
       ~allowed_roles:_R_ALL ()
 
   let get_current_id =
-    call ~name:"get_current_id" ~params:[] ~in_product_since:rel_rio
+    call ~name:"get_current_id" ~params:[]
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "Return the ID of the next event to be generated by the system"
+          )
+        ]
       ~doc:"Return the ID of the next event to be generated by the system"
       ~flags:[`Session] ~result:(Int, "the event ID") ~allowed_roles:_R_ALL ()
 
@@ -6224,7 +7165,20 @@ module Event = struct
           (String, "class", "class of the object")
         ; (String, "ref", "A reference to the object that will be changed.")
         ]
-      ~in_product_since:rel_tampa
+      ~lifecycle:
+        [
+          ( Published
+          , rel_tampa
+          , "Injects an artificial event on the given object and returns the \
+             corresponding ID in the form of a token, which can be used as a \
+             point of reference for database events. For example, to check \
+             whether an object has reached the right state before attempting \
+             an operation, one can inject an artificial event on the object \
+             and wait until the token returned by consecutive event.from calls \
+             is lexicographically greater than the one returned by \
+             event.inject."
+          )
+        ]
       ~doc:
         "Injects an artificial event on the given object and returns the \
          corresponding ID in the form of a token, which can be used as a point \
@@ -6291,7 +7245,9 @@ end
 
 module Blob = struct
   let create =
-    call ~name:"create" ~in_product_since:rel_orlando
+    call ~name:"create"
+      ~lifecycle:
+        [(Published, rel_orlando, "Create a placeholder for a binary blob")]
       ~versioned_params:
         [
           {
@@ -6316,7 +7272,8 @@ module Blob = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
-    call ~name:"destroy" ~in_product_since:rel_orlando
+    call ~name:"destroy"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:[(Ref _blob, "self", "The reference of the blob to destroy")]
       ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
 
@@ -6362,7 +7319,8 @@ module Message = struct
       )
 
   let create =
-    call ~name:"create" ~in_product_since:rel_orlando
+    call ~name:"create"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:
         [
           (String, "name", "The name of the message")
@@ -6379,7 +7337,8 @@ module Message = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let destroy =
-    call ~name:"destroy" ~in_product_since:rel_orlando
+    call ~name:"destroy"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:
         [(Ref _message, "self", "The reference of the message to destroy")]
       ~flags:[`Session] ~allowed_roles:_R_POOL_OP ()
@@ -6390,13 +7349,15 @@ module Message = struct
       ~allowed_roles:_R_POOL_OP ()
 
   let get_all =
-    call ~name:"get_all" ~in_product_since:rel_orlando ~params:[]
-      ~flags:[`Session]
+    call ~name:"get_all"
+      ~lifecycle:[(Published, rel_orlando, "")]
+      ~params:[] ~flags:[`Session]
       ~result:(Set (Ref _message), "The references to the messages")
       ~allowed_roles:_R_READ_ONLY ()
 
   let get =
-    call ~name:"get" ~in_product_since:rel_orlando
+    call ~name:"get"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:
         [
           (cls, "cls", "The class of object")
@@ -6411,7 +7372,8 @@ module Message = struct
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_since =
-    call ~name:"get_since" ~in_product_since:rel_orlando
+    call ~name:"get_since"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:
         [
           ( DateTime
@@ -6424,27 +7386,31 @@ module Message = struct
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_by_uuid =
-    call ~name:"get_by_uuid" ~in_product_since:rel_orlando
+    call ~name:"get_by_uuid"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:[(String, "uuid", "The uuid of the message")]
       ~flags:[`Session]
       ~result:(Ref _message, "The message reference")
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_record =
-    call ~name:"get_record" ~in_product_since:rel_orlando
+    call ~name:"get_record"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:[(Ref _message, "self", "The reference to the message")]
       ~flags:[`Session]
       ~result:(Record _message, "The message record")
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_all_records =
-    call ~name:"get_all_records" ~in_product_since:rel_orlando ~params:[]
-      ~flags:[`Session]
+    call ~name:"get_all_records"
+      ~lifecycle:[(Published, rel_orlando, "")]
+      ~params:[] ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The messages")
       ~allowed_roles:_R_READ_ONLY ()
 
   let get_all_records_where =
-    call ~name:"get_all_records_where" ~in_product_since:rel_orlando
+    call ~name:"get_all_records_where"
+      ~lifecycle:[(Published, rel_orlando, "")]
       ~params:[(String, "expr", "The expression to match (not currently used)")]
       ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The messages")
@@ -6495,7 +7461,8 @@ end
 
 module Secret = struct
   let introduce =
-    call ~name:"introduce" ~in_product_since:rel_midnight_ride
+    call ~name:"introduce"
+      ~lifecycle:[(Published, rel_midnight_ride, "")]
       ~versioned_params:
         [
           {
