@@ -1045,6 +1045,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
+  ; ( "host-rescan-drivers"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Scan the host and update its driver information."
+      ; implementation= No_fd Cli_operations.host_rescan_drivers
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "host-emergency-clear-mandatory-guidance"
     , {
         reqd= []
@@ -3699,6 +3708,32 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= []
       ; help= "Set the file name of the GPG public key."
       ; implementation= No_fd Cli_operations.Repository.set_gpgkey_path
+      ; flags= []
+      }
+    )
+  ; ( "hostdriver-select"
+    , {
+        reqd= ["uuid"; "version"]
+      ; optn= []
+      ; help=
+          "Select a version of the specified driver. If no versions of the \
+           driver are loaded, this version will become active. If some other \
+           version is already active, a reboot will be required to activate \
+           the new version."
+      ; implementation= No_fd Cli_operations.Host_driver.select
+      ; flags= []
+      }
+    )
+  ; ( "hostdriver-deselect"
+    , {
+        reqd= ["uuid"]
+      ; optn= ["force"]
+      ; help=
+          "Deselect the currently active version of the specified driver after \
+           reboot. No action will be taken if no version is currently active. \
+           Potentially dangerous operation, needs the '--force' flag \
+           specified."
+      ; implementation= No_fd Cli_operations.Host_driver.deselect
       ; flags= []
       }
     )

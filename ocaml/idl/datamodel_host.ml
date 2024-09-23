@@ -1766,6 +1766,13 @@ let apply_updates =
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 
+let rescan_drivers =
+  call ~name:"rescan_drivers" ~in_oss_since:None ~lifecycle:[]
+    ~doc:"Scan the host and update its driver information."
+    ~params:[(Ref _host, "host", "The host to be rescanned")]
+    ~result:(Map (String, Set String), "Updates to the drivers' versions")
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let copy_primary_host_certs =
   call ~name:"copy_primary_host_certs" ~in_oss_since:None
     ~in_product_since:"1.307.0"
@@ -1968,6 +1975,7 @@ let t =
       ; emergency_reenable_tls_verification
       ; cert_distrib_atom
       ; apply_updates
+      ; rescan_drivers
       ; copy_primary_host_certs
       ; set_https_only
       ; apply_recommended_guidances

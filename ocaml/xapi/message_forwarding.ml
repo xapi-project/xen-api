@@ -4106,6 +4106,14 @@ functor
         info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash ;
         Local.Host.apply_updates ~__context ~self ~hash
 
+      let rescan_drivers ~__context ~host =
+        let uuid = host_uuid ~__context host in
+        info "Host.rescan_drivers: host = '%s'" uuid ;
+        let local_fn = Local.Host.rescan_drivers ~host in
+        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
+            Client.Host.rescan_drivers ~rpc ~session_id ~host
+        )
+
       let set_https_only ~__context ~self ~value =
         let uuid = host_uuid ~__context self in
         info "Host.set_https_only: self = %s ; value = %b" uuid value ;
@@ -6553,6 +6561,26 @@ functor
     end
 
     module Certificate = struct end
+
+    module Host_driver = struct
+      (** select needs to be executed on the host of the driver *)
+      let select ~__context ~self ~version =
+        info "%s" __FUNCTION__ ;
+        let host = Db.Host_driver.get_host ~__context ~self in
+        let local_fn = Local.Host_driver.select ~self ~version in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Host_driver.select ~rpc ~session_id ~self ~version
+        )
+
+      (** deselect needs to be executed on the host of the driver *)
+      let deselect ~__context ~self =
+        info "%s" __FUNCTION__ ;
+        let host = Db.Host_driver.get_host ~__context ~self in
+        let local_fn = Local.Host_driver.deselect ~self in
+        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
+            Client.Host_driver.deselect ~rpc ~session_id ~self
+        )
+    end
 
     module Repository = struct
       let introduce ~__context ~name_label ~name_description ~binary_url

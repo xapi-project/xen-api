@@ -71,6 +71,16 @@ let gc_VDIs ~__context =
     )
     (Db.VDI.get_all ~__context)
 
+let gc_Host_drivers ~__context =
+  let all_host_drivers = Db.Host_driver.get_all ~__context in
+  List.iter
+    (fun self ->
+      if not (valid_ref __context (Db.Host_driver.get_host ~__context ~self))
+      then
+        Db.Host_driver.destroy ~__context ~self
+    )
+    all_host_drivers
+
 let gc_PIFs ~__context =
   gc_connector ~__context Db.PIF.get_all Db.PIF.get_record
     (fun x -> valid_ref __context x.pIF_host)
@@ -581,17 +591,6 @@ let gc_PVS_cache_storage ~__context =
     (fun x -> valid_ref __context x.pVS_cache_storage_host)
     Db.PVS_cache_storage.destroy
 
-(*
-let timeout_alerts ~__context =
-  let all_alerts = Db.Alert.get_all ~__context in
-  let now = Unix.gettimeofday() in
-  List.iter (fun alert ->
-    let alert_time = Date.to_float (Db.Alert.get_timestamp ~__context ~self:alert) in
-    if now -. alert_time > Xapi_globs.alert_timeout then
-      Db.Alert.destroy ~__context ~self:alert
-  ) all_alerts
-*)
-
 let gc_updates_requiring_reboot ~__context =
   List.iter
     (fun host ->
@@ -632,9 +631,8 @@ let gc_subtask_list =
   ; ("PVS servers", gc_PVS_servers)
   ; ("PVS cache storage", gc_PVS_cache_storage)
   ; ("Certificates", gc_certificates)
-  ; ("VTPMs", gc_vtpms)
-  ; (* timeout_alerts; *)
-    (* CA-29253: wake up all blocked clients *)
-    ("Heartbeat", Xapi_event.heartbeat)
+  ; ("VTPMs", gc_vtpms) (* CA-29253: wake up all blocked clients *)
+  ; ("Heartbeat", Xapi_event.heartbeat)
   ; ("Updates requiring reboot", gc_updates_requiring_reboot)
+  ; ("Host drivers", gc_Host_drivers)
   ]

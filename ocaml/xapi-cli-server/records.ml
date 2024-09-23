@@ -5263,6 +5263,55 @@ let repository_record rpc session_id repository =
       ]
   }
 
+let host_driver_record rpc session_id host_driver =
+  let _ref = ref host_driver in
+  let empty =
+    ToGet (fun () -> Client.Host_driver.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.host_driver_uuid) ()
+      ; make_field ~name:"name" ~get:(fun () -> (x ()).API.host_driver_name) ()
+      ; make_field ~name:"host-uuid"
+          ~get:(fun () ->
+            try get_uuid_from_ref (x ()).API.host_driver_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"versions"
+          ~get:(fun () -> concat_with_semi (x ()).API.host_driver_versions)
+          ()
+      ; make_field ~name:"active-version"
+          ~get:(fun () -> (x ()).API.host_driver_active_version)
+          ()
+      ; make_field ~name:"selected-version"
+          ~get:(fun () -> (x ()).API.host_driver_selected_version)
+          ()
+      ; make_field ~name:"requires-reboot"
+          ~get:(fun () ->
+            let active_version = (x ()).API.host_driver_active_version in
+            let selected_version = (x ()).API.host_driver_selected_version in
+            string_of_bool
+              (active_version <> "" && active_version <> selected_version)
+          )
+          ()
+      ]
+  }
+
 let vtpm_record rpc session_id vtpm =
   let _ref = ref vtpm in
   let empty_record =
