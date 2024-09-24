@@ -1303,7 +1303,11 @@ let management_disable ~__context =
     raise
       (Api_errors.Server_error (Api_errors.slave_requires_management_iface, [])) ;
   (* Reset the management server *)
-  Xapi_mgmt_iface.change "" `IPv4 ;
+  let management_address_type =
+    Record_util.primary_address_type_of_string
+      Xapi_inventory.(lookup _management_address_type)
+  in
+  Xapi_mgmt_iface.change "" management_address_type ;
   Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false () ;
   (* Make sure all my PIFs are marked appropriately *)
   Xapi_pif.update_management_flags ~__context
