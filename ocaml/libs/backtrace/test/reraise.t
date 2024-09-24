@@ -8,7 +8,7 @@
   Raised Failure("bar")
   1/4 raiser.exe Raised at file ocaml/libs/backtrace/test/raiser.ml, line 1
   2/4 raiser.exe Called from file ocaml/libs/backtrace/test/raiser.ml, line 4
-  3/4 raiser.exe Called from file ocaml/libs/backtrace/lib/backtrace.ml, line 279
+  3/4 raiser.exe Called from file ocaml/libs/backtrace/lib/backtrace.ml, line 268
   4/4 raiser.exe Called from file ocaml/libs/backtrace/test/log.ml, line 59
   
 
