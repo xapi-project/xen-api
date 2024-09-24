@@ -1892,6 +1892,11 @@ let eject_self ~__context ~host =
       | `Static ->
           "static"
     in
+    let mode_v6 =
+      Record_util.ipv6_configuration_mode_to_string
+        pif.API.pIF_ipv6_configuration_mode
+      |> String.uncapitalize_ascii
+    in
     let write_first_boot_management_interface_configuration_file () =
       (* During firstboot, now inventory has an empty MANAGEMENT_INTERFACE *)
       let bridge = "" in
@@ -1905,7 +1910,11 @@ let eject_self ~__context ~host =
       (* If the management_interface exists on a vlan, write the vlan id into management.conf *)
       let vlan_id = Int64.to_int pif.API.pIF_VLAN in
       let config_base =
-        [sprintf "LABEL='%s'" management_device; sprintf "MODE='%s'" mode]
+        [
+          sprintf "LABEL='%s'" management_device
+        ; sprintf "MODE='%s'" mode
+        ; sprintf "MODEV6='%s'" mode_v6
+        ]
       in
       let config_static =
         if mode <> "static" then
@@ -1915,8 +1924,22 @@ let eject_self ~__context ~host =
             sprintf "IP='%s'" pif.API.pIF_IP
           ; sprintf "NETMASK='%s'" pif.API.pIF_netmask
           ; sprintf "GATEWAY='%s'" pif.API.pIF_gateway
-          ; sprintf "DNS='%s'" pif.API.pIF_DNS
           ]
+      in
+      let configv6_static =
+        if mode_v6 <> "static" then
+          []
+        else
+          [
+            sprintf "IPv6='%s'" (String.concat "," pif.API.pIF_IPv6)
+          ; sprintf "IPv6_GATEWAY='%s'" pif.API.pIF_ipv6_gateway
+          ]
+      in
+      let config_dns =
+        if mode = "static" || mode_v6 = "static" then
+          [sprintf "DNS='%s'" pif.API.pIF_DNS]
+        else
+          []
       in
       let config_vlan =
         if vlan_id = -1 then
@@ -1925,7 +1948,8 @@ let eject_self ~__context ~host =
           [sprintf "VLAN='%d'" vlan_id]
       in
       let configuration_file =
-        List.concat [config_base; config_static; config_vlan]
+        List.concat
+          [config_base; config_static; configv6_static; config_dns; config_vlan]
         |> String.concat "\n"
       in
       Unixext.write_string_to_file
