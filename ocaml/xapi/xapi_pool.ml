@@ -807,6 +807,37 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
               (pool_joining_host_ca_certificates_conflict, !conflicting_names)
           )
   in
+  let assert_no_host_pending_mandatory_guidance () =
+    (* Assert that there is no host pending mandatory guidance on the joiner or
+       the remote pool coordinator.
+    *)
+    Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
+      ~host:(Helpers.get_localhost ~__context) ;
+    let remote_coordinator = get_master ~rpc ~session_id in
+    let remote_coordinator_pending_mandatory_guidances =
+      Client.Host.get_pending_guidances ~rpc ~session_id
+        ~self:remote_coordinator
+    in
+    if remote_coordinator_pending_mandatory_guidances <> [] then (
+      error
+        "%s: %d mandatory guidances are pending for remote coordinator %s: [%s]"
+        __FUNCTION__
+        (List.length remote_coordinator_pending_mandatory_guidances)
+        (Ref.string_of remote_coordinator)
+        (remote_coordinator_pending_mandatory_guidances
+        |> List.map Updateinfo.Guidance.of_pending_guidance
+        |> List.map Updateinfo.Guidance.to_string
+        |> String.concat ";"
+        ) ;
+      raise
+        Api_errors.(
+          Server_error
+            ( host_pending_mandatory_guidances_not_empty
+            , [Ref.string_of remote_coordinator]
+            )
+        )
+    )
+  in
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -817,6 +848,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_i_know_of_no_other_hosts () ;
   assert_no_running_vms_on_me () ;
   assert_no_vms_with_current_ops () ;
+  (* check first no host pending mandatory guidance then the hosts compatible,
+     api version and db schema *)
+  assert_no_host_pending_mandatory_guidance () ;
   assert_hosts_compatible () ;
   if not force then assert_hosts_homogeneous () ;
   assert_no_shared_srs_on_me () ;
