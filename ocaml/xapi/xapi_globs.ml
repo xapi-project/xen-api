@@ -1040,12 +1040,6 @@ let cert_thumbprint_header_value_sha1 = ref "sha-1:master"
 let cert_thumbprint_header_response =
   ref "x-xenapi-response-host-certificate-thumbprint"
 
-let external_authentication_expiry = ref Mtime.Span.(5 * min)
-
-let external_authentication_cache_enabled = ref false
-
-let external_authentication_cache_size = ref 50
-
 let observer_endpoint_http_enabled = ref false
 
 let observer_endpoint_https_enabled = ref false
@@ -1149,14 +1143,7 @@ let xapi_globs_spec =
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ]
 
-let xapi_globs_spec_with_descriptions =
-  [
-    ( "external-authentication-expiry"
-    , ShortDurationFromSeconds external_authentication_expiry
-    , "Specify how long externally authenticated login decisions should be \
-       cached (in seconds)"
-    )
-  ]
+let xapi_globs_spec_with_descriptions = []
 
 let option_of_xapi_globs_spec ?(description = None) (name, ty) =
   let spec =
@@ -1624,21 +1611,6 @@ let other_options =
     , Arg.Set disable_webserver
     , (fun () -> string_of_bool !disable_webserver)
     , "Disable the host webserver"
-    )
-  ; ( "enable-external-authentication-cache"
-    , Arg.Set external_authentication_cache_enabled
-    , (fun () -> string_of_bool !external_authentication_cache_enabled)
-    , "Enable caching of external authentication decisions"
-    )
-  ; ( "external-authentication-cache-size"
-    , Arg.Int (fun sz -> external_authentication_cache_size := sz)
-    , (fun () -> string_of_int !external_authentication_cache_size)
-    , "Specify the maximum capacity of the external authentication cache"
-    )
-  ; ( "threshold_last_active"
-    , Arg.Int (fun t -> threshold_last_active := Ptime.Span.of_int_s t)
-    , (fun () -> Format.asprintf "%a" Ptime.Span.pp !threshold_last_active)
-    , "Specify the threshold below which we do not refresh the session"
     )
   ]
 

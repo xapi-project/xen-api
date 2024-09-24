@@ -1469,6 +1469,31 @@ let pool_record rpc session_id pool =
           ~get:(fun () -> get_from_map (x ()).API.pool_recommendations)
           ~get_map:(fun () -> (x ()).API.pool_recommendations)
           ()
+      ; make_field ~name:"ext-auth-cache-enabled" ~hidden:true
+          ~get:(fun () ->
+            (x ()).API.pool_ext_auth_cache_enabled |> string_of_bool
+          )
+          ~set:(fun v ->
+            Client.Pool.set_ext_auth_cache_enabled ~rpc ~session_id ~self:pool
+              ~value:(bool_of_string v)
+          )
+          ()
+      ; make_field ~name:"ext-auth-cache-size" ~hidden:true
+          ~get:(fun () -> (x ()).API.pool_ext_auth_cache_size |> Int64.to_string)
+          ~set:(fun v ->
+            Client.Pool.set_ext_auth_cache_size ~rpc ~session_id ~self:pool
+              ~value:(Int64.of_string v)
+          )
+          ()
+      ; make_field ~name:"ext-auth-cache-expiry" ~hidden:true
+          ~get:(fun () ->
+            (x ()).API.pool_ext_auth_cache_expiry |> Int64.to_string
+          )
+          ~set:(fun v ->
+            Client.Pool.set_ext_auth_cache_expiry ~rpc ~session_id ~self:pool
+              ~value:(Int64.of_string v)
+          )
+          ()
       ]
   }
 

@@ -788,28 +788,42 @@ module Caching = struct
   let ( let@ ) = ( @@ )
 
   (* Attain the extant cache or get nothing if caching is
-     disabled. This function exists to delay the construction of the
-     cache, as Xapi_globs configuration is not guaranteed to have been
-     populated before the top-level code of this module is executed. *)
-  let get_or_init_cache () =
-    if not !Xapi_globs.external_authentication_cache_enabled then
+     disabled. *)
+  let get_or_init_cache ~__context =
+    let pool = Helpers.get_pool ~__context in
+    let cache_enabled =
+      Db.Pool.get_ext_auth_cache_enabled ~__context ~self:pool
+    in
+    if not cache_enabled then
       None
     else
-      let capacity = !Xapi_globs.external_authentication_cache_size in
       let@ () = with_lock lock in
       match !cache with
       | Some _ as extant ->
           extant
       | _ ->
-          let auth_cache = AuthenticationCache.create ~size:capacity in
+          let capacity =
+            Db.Pool.get_ext_auth_cache_size ~__context ~self:pool
+            |> Int64.to_int
+          in
+          let ttl =
+            Db.Pool.get_ext_auth_cache_expiry ~__context ~self:pool
+            |> Int64.unsigned_to_int
+            |> Option.map (fun sec -> Mtime.Span.(sec * s))
+            |> Option.value ~default:Mtime.Span.(5 * min)
+          in
+          let span = Format.asprintf "%a" Mtime.Span.pp ttl in
+          info "Creating authentication cache of capacity %d and TTL of %s"
+            capacity span ;
+          let auth_cache = AuthenticationCache.create ~size:capacity ~ttl in
           let instance = Some auth_cache in
           cache := instance ;
           instance
 
   (* Try to insert into cache. The cache could have been disabled
      during query to external authentication plugin. *)
-  let insert_into_cache username password result =
-    match get_or_init_cache () with
+  let insert_into_cache ~__context username password result =
+    match get_or_init_cache ~__context with
     | None ->
         ()
     | Some cache ->
@@ -818,13 +832,13 @@ module Caching = struct
 
   (* Consult the cache or rely on a provided "slow path". Each time
      the slow path is invoked, an attempt is made to cache its result. *)
-  let memoize username password ~slow_path =
+  let memoize ~__context username password ~slow_path =
     let slow_path () =
       let ext_auth_result = slow_path () in
-      insert_into_cache username password ext_auth_result ;
+      insert_into_cache ~__context username password ext_auth_result ;
       ext_auth_result
     in
-    match get_or_init_cache () with
+    match get_or_init_cache ~__context with
     | None ->
         slow_path ()
     | Some cache -> (
@@ -840,6 +854,7 @@ module Caching = struct
       )
 
   let clear_cache () =
+    info "Clearing authentication cache" ;
     let@ () = with_lock lock in
     cache := None
 end
@@ -1206,7 +1221,8 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                     ; subject_name
                     ; rbac_permissions
                     } =
-                Caching.memoize uname pwd ~slow_path:query_external_auth
+                Caching.memoize ~__context uname pwd
+                  ~slow_path:query_external_auth
               in
               login_no_password_common ~__context ~uname:(Some uname)
                 ~originator

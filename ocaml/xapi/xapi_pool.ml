@@ -3781,6 +3781,29 @@ let set_local_auth_max_threads ~__context:_ ~self:_ ~value =
 let set_ext_auth_max_threads ~__context:_ ~self:_ ~value =
   Xapi_session.set_ext_auth_max_threads value
 
+let set_ext_auth_cache_enabled ~__context ~self ~value:enabled =
+  Db.Pool.set_ext_auth_cache_enabled ~__context ~self ~value:enabled ;
+  if not enabled then
+    Xapi_session.clear_external_auth_cache ()
+
+let set_ext_auth_cache_size ~__context ~self ~value:capacity =
+  if capacity < 0L then
+    raise
+      Api_errors.(
+        Server_error (invalid_value, ["size"; Int64.to_string capacity])
+      )
+  else
+    Db.Pool.set_ext_auth_cache_size ~__context ~self ~value:capacity
+
+let set_ext_auth_cache_expiry ~__context ~self ~value:expiry_seconds =
+  if expiry_seconds <= 0L then
+    raise
+      Api_errors.(
+        Server_error (invalid_value, ["expiry"; Int64.to_string expiry_seconds])
+      )
+  else
+    Db.Pool.set_ext_auth_cache_expiry ~__context ~self ~value:expiry_seconds
+
 let get_guest_secureboot_readiness ~__context ~self:_ =
   let auth_files = Sys.readdir !Xapi_globs.varstore_dir in
   let pk_present = Array.mem "PK.auth" auth_files in
