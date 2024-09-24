@@ -1603,24 +1603,48 @@ let t =
       ; get_guest_secureboot_readiness
       ]
     ~contents:
-      ([uid ~in_oss_since:None _pool]
+      ([
+         uid ~in_oss_since:None
+           ~lifecycle:
+             [(Published, rel_rio, "Unique identifier/object reference")]
+           _pool
+       ]
       @ [
-          field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:String "name_label" "Short name"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:String "name_description" "Description"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio
+          field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "Short name")]
+            ~qualifier:RW ~ty:String "name_label" "Short name"
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "Description")]
+            ~qualifier:RW ~ty:String "name_description" "Description"
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "The host that is pool master")]
             ~qualifier:DynamicRO ~ty:(Ref _host) "master"
             "The host that is pool master"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:(Ref _sr) "suspend_image_SR"
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "Default SR for VDIs")]
+            ~qualifier:RW ~ty:(Ref _sr) "default_SR" "Default SR for VDIs"
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "The SR in which VDIs for suspend images are created"
+                )
+              ]
+            ~qualifier:RW ~ty:(Ref _sr) "suspend_image_SR"
             "The SR in which VDIs for suspend images are created"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:(Ref _sr) "crash_dump_SR"
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "The SR in which VDIs for crash dumps are created"
+                )
+              ]
+            ~qualifier:RW ~ty:(Ref _sr) "crash_dump_SR"
             "The SR in which VDIs for crash dumps are created"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "additional configuration")]
             ~ty:(Map (String, String))
             "other_config" "additional configuration"
             ~map_keys_roles:
@@ -1629,68 +1653,165 @@ let t =
               ; ("XenCenter.CustomFields.*", _R_VM_OP)
               ; ("EMPTY_FOLDERS", _R_VM_OP)
               ]
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "true if HA is enabled on the pool, false otherwise"
+                )
+              ]
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
             "ha_enabled" "true if HA is enabled on the pool, false otherwise"
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [(Published, rel_orlando, "The current HA configuration")]
             ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "ha_configuration"
             "The current HA configuration"
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_orlando, "HA statefile VDIs in use")]
             ~qualifier:DynamicRO ~ty:(Set String)
             ~default_value:(Some (VSet [])) "ha_statefiles"
             "HA statefile VDIs in use"
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "Number of host failures to tolerate before the Pool is \
+                   declared to be overcommitted"
+                )
+              ]
             ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L))
             "ha_host_failures_to_tolerate"
             "Number of host failures to tolerate before the Pool is declared \
              to be overcommitted"
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "Number of future host failures we have managed to find a \
+                   plan for. Once this reaches zero any future host failures \
+                   will cause the failure of protected VMs."
+                )
+              ]
             ~qualifier:DynamicRO ~ty:Int ~default_value:(Some (VInt 0L))
             "ha_plan_exists_for"
             "Number of future host failures we have managed to find a plan \
              for. Once this reaches zero any future host failures will cause \
              the failure of protected VMs."
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando ~qualifier:RW
-            ~ty:Bool ~default_value:(Some (VBool false)) "ha_allow_overcommit"
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "If set to false then operations which would cause the Pool \
+                   to become overcommitted will be blocked."
+                )
+              ]
+            ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
+            "ha_allow_overcommit"
             "If set to false then operations which would cause the Pool to \
              become overcommitted will be blocked."
-        ; field ~in_oss_since:None ~in_product_since:rel_orlando
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "True if the Pool is considered to be overcommitted i.e. if \
+                   there exist insufficient physical resources to tolerate the \
+                   configured number of host failures"
+                )
+              ]
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
             "ha_overcommitted"
             "True if the Pool is considered to be overcommitted i.e. if there \
              exist insufficient physical resources to tolerate the configured \
              number of host failures"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_orlando
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "Binary blobs associated with this pool"
+                )
+              ]
             ~ty:(Map (String, Ref _blob))
             ~default_value:(Some (VMap [])) "blobs"
             "Binary blobs associated with this pool"
-        ; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando
+        ; field ~writer_roles:_R_VM_OP
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "user-specified tags for categorization purposes"
+                )
+              ]
             ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
-        ; field ~writer_roles:_R_VM_OP ~in_product_since:rel_orlando
+        ; field ~writer_roles:_R_VM_OP
+            ~lifecycle:
+              [(Published, rel_orlando, "gui-specific configuration for pool")]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "gui_config" "gui-specific configuration for pool"
-        ; field ~writer_roles:_R_POOL_OP ~in_product_since:rel_dundee
+        ; field ~writer_roles:_R_POOL_OP
+            ~lifecycle:
+              [
+                ( Published
+                , rel_dundee
+                , "Configuration for the automatic health check feature"
+                )
+              ]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "health_check_config"
             "Configuration for the automatic health check feature"
-        ; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String
-            ~default_value:(Some (VString "")) "wlb_url"
-            "Url for the configured workload balancing host"
-        ; field ~in_product_since:rel_george ~qualifier:DynamicRO ~ty:String
-            ~default_value:(Some (VString "")) "wlb_username"
-            "Username for accessing the workload balancing host"
-        ; field ~in_product_since:rel_george ~internal_only:true
-            ~qualifier:DynamicRO ~ty:(Ref _secret) "wlb_password"
-            "Password for accessing the workload balancing host"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "Url for the configured workload balancing host"
+                )
+              ]
+            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
+            "wlb_url" "Url for the configured workload balancing host"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "Username for accessing the workload balancing host"
+                )
+              ]
+            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
+            "wlb_username" "Username for accessing the workload balancing host"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "Password for accessing the workload balancing host"
+                )
+              ]
+            ~internal_only:true ~qualifier:DynamicRO ~ty:(Ref _secret)
+            "wlb_password" "Password for accessing the workload balancing host"
         ; field
             ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
-            ~in_product_since:rel_george ~qualifier:RW ~ty:Bool
-            ~default_value:(Some (VBool false)) "wlb_enabled"
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "true if workload balancing is enabled on the pool, false \
+                   otherwise"
+                )
+              ]
+            ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
+            "wlb_enabled"
             "true if workload balancing is enabled on the pool, false otherwise"
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
             "wlb_verify_cert"
@@ -1705,12 +1826,28 @@ let t =
                    Pool.enable_tls_verification instead"
                 )
               ]
-        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_midnight_ride
+                , "true a redo-log is to be used other than when HA is \
+                   enabled, false otherwise"
+                )
+              ]
             ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
             "redo_log_enabled"
             "true a redo-log is to be used other than when HA is enabled, \
              false otherwise"
-        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_midnight_ride
+                , "indicates the VDI to use for the redo-log other than when \
+                   HA is enabled"
+                )
+              ]
             ~qualifier:DynamicRO ~ty:(Ref _vdi)
             ~default_value:(Some (VRef null_ref)) "redo_log_vdi"
             "indicates the VDI to use for the redo-log other than when HA is \
@@ -1730,15 +1867,37 @@ let t =
                    SDN_controller instead."
                 )
               ]
-        ; field ~in_oss_since:None ~in_product_since:rel_midnight_ride
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_midnight_ride
+                , "Pool-wide restrictions currently in effect"
+                )
+              ]
             ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "restrictions"
             "Pool-wide restrictions currently in effect"
-        ; field ~in_oss_since:None ~in_product_since:rel_boston
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_boston
+                , "The set of currently known metadata VDIs for this pool"
+                )
+              ]
             ~qualifier:DynamicRO ~ty:(Set (Ref _vdi)) "metadata_VDIs"
             "The set of currently known metadata VDIs for this pool"
-        ; field ~in_oss_since:None ~in_product_since:rel_dundee
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_dundee
+                , "The HA cluster stack that is currently in use. Only valid \
+                   when HA is enabled."
+                )
+              ]
             ~qualifier:DynamicRO ~default_value:(Some (VString "")) ~ty:String
             "ha_cluster_stack"
             "The HA cluster stack that is currently in use. Only valid when HA \
@@ -1746,12 +1905,26 @@ let t =
         ]
       @ allowed_and_current_operations operations
       @ [
-          field ~in_oss_since:None ~in_product_since:rel_dundee
+          field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_dundee
+                , "Pool-wide guest agent configuration information"
+                )
+              ]
             ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "guest_agent_config"
             "Pool-wide guest agent configuration information"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_dundee
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_dundee
+                , "Details about the physical CPUs on the pool"
+                )
+              ]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on the pool"
@@ -1765,13 +1938,30 @@ let t =
             "This field was consulted when VM.create did not specify a value \
              for 'has_vendor_device'; VM.create now uses a simple default and \
              no longer consults this value."
-        ; field ~qualifier:RW ~in_product_since:rel_ely
+        ; field ~qualifier:RW
+            ~lifecycle:
+              [
+                ( Published
+                , rel_ely
+                , "The pool-wide flag to show if the live patching feauture is \
+                   disabled or not."
+                )
+              ]
             ~default_value:(Some (VBool false)) ~ty:Bool
             "live_patching_disabled"
             "The pool-wide flag to show if the live patching feauture is \
              disabled or not."
-        ; field ~in_product_since:rel_inverness ~qualifier:DynamicRO ~ty:Bool
-            ~default_value:(Some (VBool false)) "igmp_snooping_enabled"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , rel_inverness
+                , "true if IGMP snooping is enabled in the pool, false \
+                   otherwise."
+                )
+              ]
+            ~qualifier:DynamicRO ~ty:Bool ~default_value:(Some (VBool false))
+            "igmp_snooping_enabled"
             "true if IGMP snooping is enabled in the pool, false otherwise."
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:
@@ -1790,8 +1980,17 @@ let t =
         ; field ~qualifier:StaticRO ~ty:String ~lifecycle:[]
             ~default_value:(Some (VString "")) "custom_uefi_certificates"
             "Custom UEFI certificates allowing Secure Boot"
-        ; field ~in_product_since:rel_stockholm_psr ~qualifier:RW ~ty:Bool
-            ~default_value:(Some (VBool false)) "is_psr_pending"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , rel_stockholm_psr
+                , "True if either a PSR is running or we are waiting for a PSR \
+                   to be re-run"
+                )
+              ]
+            ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool false))
+            "is_psr_pending"
             "True if either a PSR is running or we are waiting for a PSR to be \
              re-run"
         ; field ~qualifier:DynamicRO
@@ -1799,8 +1998,16 @@ let t =
             ~ty:Bool ~default_value:(Some (VBool false))
             "tls_verification_enabled"
             "True iff TLS certificate verification is enabled"
-        ; field ~in_product_since:"1.301.0" ~qualifier:DynamicRO
-            ~ty:(Set (Ref _repository)) ~ignore_foreign_key:true "repositories"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , "1.301.0"
+                , "The set of currently enabled repositories"
+                )
+              ]
+            ~qualifier:DynamicRO ~ty:(Set (Ref _repository))
+            ~ignore_foreign_key:true "repositories"
             ~default_value:(Some (VSet []))
             "The set of currently enabled repositories"
         ; field ~qualifier:DynamicRO
@@ -1814,11 +2021,29 @@ let t =
             "client_certificate_auth_name"
             "The name (CN/SAN) that an incoming client certificate must have \
              to allow authentication"
-        ; field ~in_product_since:"21.3.0" ~qualifier:DynamicRO ~ty:String
-            ~default_value:(Some (VString "")) "repository_proxy_url"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , "21.3.0"
+                , "Url of the proxy used in syncing with the enabled \
+                   repositories"
+                )
+              ]
+            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
+            "repository_proxy_url"
             "Url of the proxy used in syncing with the enabled repositories"
-        ; field ~in_product_since:"21.3.0" ~qualifier:DynamicRO ~ty:String
-            ~default_value:(Some (VString "")) "repository_proxy_username"
+        ; field
+            ~lifecycle:
+              [
+                ( Published
+                , "21.3.0"
+                , "Username for the authentication of the proxy used in \
+                   syncing with the enabled repositories"
+                )
+              ]
+            ~qualifier:DynamicRO ~ty:String ~default_value:(Some (VString ""))
+            "repository_proxy_username"
             "Username for the authentication of the proxy used in syncing with \
              the enabled repositories"
         ; field ~qualifier:DynamicRO
@@ -1836,7 +2061,15 @@ let t =
             "Default behaviour during migration, True if stream compression \
              should be used"
         ; field ~qualifier:RW ~ty:Bool ~default_value:(Some (VBool true))
-            ~in_product_since:rel_rio "coordinator_bias"
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "true if bias against pool master when scheduling vms is \
+                   enabled, false otherwise"
+                )
+              ]
+            "coordinator_bias"
             "true if bias against pool master when scheduling vms is enabled, \
              false otherwise"
         ; field ~qualifier:StaticRO ~ty:Int ~default_value:(Some (VInt 8L))

@@ -33,6 +33,8 @@ let t =
     ~contents:
       [
         uid _vm_group
+          ~lifecycle:
+            [(Published, rel_rio, "Unique identifier/object reference")]
       ; namespace ~name:"name"
           ~contents:(names ~lifecycle:[(Published, rel_rio, "")] None RW)
           ()

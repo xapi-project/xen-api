@@ -7,7 +7,9 @@ open Datamodel_types
 let host_memory =
   let field = field ~ty:Int in
   [
-    field ~qualifier:DynamicRO "overhead" ~in_product_since:rel_rio
+    field ~qualifier:DynamicRO "overhead"
+      ~lifecycle:
+        [(Published, rel_rio, "Virtualization memory overhead (bytes).")]
       "Virtualization memory overhead (bytes)." ~default_value:(Some (VInt 0L))
       ~doc_tags:[Memory]
   ]
@@ -15,14 +17,19 @@ let host_memory =
 let api_version =
   let field' = field ~qualifier:DynamicRO in
   [
-    field' ~ty:Int ~in_product_since:rel_rio "major" "major version number"
-  ; field' ~ty:Int ~in_product_since:rel_rio "minor" "minor version number"
-  ; field' ~ty:String ~in_product_since:rel_rio "vendor"
-      "identification of vendor"
+    field' ~ty:Int
+      ~lifecycle:[(Published, rel_rio, "major version number")]
+      "major" "major version number"
+  ; field' ~ty:Int
+      ~lifecycle:[(Published, rel_rio, "minor version number")]
+      "minor" "minor version number"
+  ; field' ~ty:String
+      ~lifecycle:[(Published, rel_rio, "identification of vendor")]
+      "vendor" "identification of vendor"
   ; field'
       ~ty:(Map (String, String))
-      ~in_product_since:rel_rio "vendor_implementation"
-      "details of vendor implementation"
+      ~lifecycle:[(Published, rel_rio, "details of vendor implementation")]
+      "vendor_implementation" "details of vendor implementation"
   ]
 
 let migrate_receive =
@@ -2454,6 +2461,8 @@ let t =
     ~contents:
       ([
          uid _host
+           ~lifecycle:
+             [(Published, rel_rio, "Unique identifier/object reference")]
        ; namespace ~name:"name"
            ~contents:(names None RW ~lifecycle:[(Published, rel_rio, "")])
            ()
@@ -2463,110 +2472,239 @@ let t =
       @ [
           namespace ~name:"API_version" ~contents:api_version ()
         ; field ~qualifier:DynamicRO ~ty:Bool "enabled"
-            ~in_product_since:rel_rio "True if the host is currently enabled"
+            ~lifecycle:
+              [(Published, rel_rio, "True if the host is currently enabled")]
+            "True if the host is currently enabled"
         ; field ~qualifier:StaticRO
             ~ty:(Map (String, String))
-            ~in_product_since:rel_rio "software_version" "version strings"
+            ~lifecycle:[(Published, rel_rio, "version strings")]
+            "software_version" "version strings"
         ; field
             ~ty:(Map (String, String))
-            ~in_product_since:rel_rio "other_config" "additional configuration"
+            ~lifecycle:[(Published, rel_rio, "additional configuration")]
+            "other_config" "additional configuration"
             ~map_keys_roles:
               [("folder", _R_VM_OP); ("XenCenter.CustomFields.*", _R_VM_OP)]
-        ; field ~qualifier:StaticRO ~ty:(Set String) ~in_product_since:rel_rio
+        ; field ~qualifier:StaticRO ~ty:(Set String)
+            ~lifecycle:[(Published, rel_rio, "Xen capabilities")]
             "capabilities" "Xen capabilities"
         ; field ~qualifier:DynamicRO
             ~ty:(Map (String, String))
-            ~in_product_since:rel_rio "cpu_configuration"
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "The CPU configuration on this host.  May contain keys such \
+                   as \"nr_nodes\", \"sockets_per_node\", \
+                   \"cores_per_socket\", or \"threads_per_core\""
+                )
+              ]
+            "cpu_configuration"
             "The CPU configuration on this host.  May contain keys such as \
              \"nr_nodes\", \"sockets_per_node\", \"cores_per_socket\", or \
              \"threads_per_core\""
-        ; field ~qualifier:DynamicRO ~ty:String ~in_product_since:rel_rio
+        ; field ~qualifier:DynamicRO ~ty:String
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "Scheduler policy currently in force on this host"
+                )
+              ]
             "sched_policy" "Scheduler policy currently in force on this host"
-        ; field ~qualifier:DynamicRO ~ty:(Set String) ~in_product_since:rel_rio
+        ; field ~qualifier:DynamicRO ~ty:(Set String)
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "a list of the bootloaders installed on the machine"
+                )
+              ]
             "supported_bootloaders"
             "a list of the bootloaders installed on the machine"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _vm))
-            ~in_product_since:rel_rio "resident_VMs"
-            "list of VMs currently resident on host"
+            ~lifecycle:
+              [(Published, rel_rio, "list of VMs currently resident on host")]
+            "resident_VMs" "list of VMs currently resident on host"
         ; field ~qualifier:RW
             ~ty:(Map (String, String))
-            ~in_product_since:rel_rio "logging" "logging configuration"
+            ~lifecycle:[(Published, rel_rio, "logging configuration")]
+            "logging" "logging configuration"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pif)) ~doc_tags:[Networking]
-            ~in_product_since:rel_rio "PIFs" "physical network interfaces"
-        ; field ~qualifier:RW ~ty:(Ref _sr) ~in_product_since:rel_rio
+            ~lifecycle:[(Published, rel_rio, "physical network interfaces")]
+            "PIFs" "physical network interfaces"
+        ; field ~qualifier:RW ~ty:(Ref _sr)
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "The SR in which VDIs for suspend images are created"
+                )
+              ]
             "suspend_image_sr"
             "The SR in which VDIs for suspend images are created"
-        ; field ~qualifier:RW ~ty:(Ref _sr) ~in_product_since:rel_rio
+        ; field ~qualifier:RW ~ty:(Ref _sr)
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "The SR in which VDIs for crash dumps are created"
+                )
+              ]
             "crash_dump_sr" "The SR in which VDIs for crash dumps are created"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "Set of host crash dumps")]
             ~qualifier:DynamicRO ~ty:(Set (Ref _host_crashdump)) "crashdumps"
             "Set of host crash dumps"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio
-            ~internal_deprecated_since:rel_ely ~qualifier:DynamicRO
-            ~ty:(Set (Ref _host_patch)) "patches" "Set of host patches"
-        ; field ~in_oss_since:None ~in_product_since:rel_ely
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                (Published, rel_rio, "Set of host patches")
+              ; (Deprecated, rel_ely, "")
+              ]
+            ~qualifier:DynamicRO ~ty:(Set (Ref _host_patch)) "patches"
+            "Set of host patches"
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_ely, "Set of updates")]
             ~qualifier:DynamicRO ~ty:(Set (Ref _pool_update)) "updates"
             "Set of updates"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _pbd))
-            ~in_product_since:rel_rio "PBDs" "physical blockdevices"
+            ~lifecycle:[(Published, rel_rio, "physical blockdevices")]
+            "PBDs" "physical blockdevices"
         ; field ~qualifier:DynamicRO ~ty:(Set (Ref _hostcpu))
-            ~in_product_since:rel_rio "host_CPUs"
-            "The physical CPUs on this host"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride
+            ~lifecycle:[(Published, rel_rio, "The physical CPUs on this host")]
+            "host_CPUs" "The physical CPUs on this host"
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_midnight_ride
+                , "Details about the physical CPUs on this host"
+                )
+              ]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "cpu_info" "Details about the physical CPUs on this host"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:String ~doc_tags:[Networking] "hostname"
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "The hostname of this host")]
+            ~qualifier:RW ~ty:String ~doc_tags:[Networking] "hostname"
             "The hostname of this host"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:RW
-            ~ty:String ~doc_tags:[Networking] "address"
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [
+                ( Published
+                , rel_rio
+                , "The address by which this host can be contacted from any \
+                   other host in the pool"
+                )
+              ]
+            ~qualifier:RW ~ty:String ~doc_tags:[Networking] "address"
             "The address by which this host can be contacted from any other \
              host in the pool"
         ; field ~qualifier:DynamicRO ~ty:(Ref _host_metrics)
-            ~in_product_since:rel_rio "metrics"
-            "metrics associated with this host"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio
+            ~lifecycle:
+              [(Published, rel_rio, "metrics associated with this host")]
+            "metrics" "metrics associated with this host"
+        ; field ~in_oss_since:None
+            ~lifecycle:[(Published, rel_rio, "State of the current license")]
             ~qualifier:DynamicRO
             ~ty:(Map (String, String))
             "license_params" "State of the current license"
-        ; field ~in_oss_since:None ~in_product_since:rel_rio ~internal_only:true
-            ~qualifier:DynamicRO ~ty:Int "boot_free_mem"
+        ; field ~in_oss_since:None
+            ~lifecycle:
+              [(Published, rel_rio, "Free memory on host at boot time")]
+            ~internal_only:true ~qualifier:DynamicRO ~ty:Int "boot_free_mem"
             "Free memory on host at boot time"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
-            ~in_product_since:rel_orlando ~ty:(Set String)
-            ~default_value:(Some (VSet [])) "ha_statefiles"
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "The set of statefiles accessible from this host"
+                )
+              ]
+            ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_statefiles"
             "The set of statefiles accessible from this host"
         ; field ~in_oss_since:None ~qualifier:DynamicRO
-            ~in_product_since:rel_orlando ~ty:(Set String)
-            ~default_value:(Some (VSet [])) "ha_network_peers"
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "The set of hosts visible via the network from this host"
+                )
+              ]
+            ~ty:(Set String) ~default_value:(Some (VSet [])) "ha_network_peers"
             "The set of hosts visible via the network from this host"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_orlando
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "Binary blobs associated with this host"
+                )
+              ]
             ~ty:(Map (String, Ref _blob))
             ~default_value:(Some (VMap [])) "blobs"
             "Binary blobs associated with this host"
         ; field ~writer_roles:_R_VM_OP ~qualifier:RW
-            ~in_product_since:rel_orlando ~default_value:(Some (VSet []))
-            ~ty:(Set String) "tags"
+            ~lifecycle:
+              [
+                ( Published
+                , rel_orlando
+                , "user-specified tags for categorization purposes"
+                )
+              ]
+            ~default_value:(Some (VSet [])) ~ty:(Set String) "tags"
             "user-specified tags for categorization purposes"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_george
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "type of external authentication service configured; empty \
+                   if none configured."
+                )
+              ]
             ~default_value:(Some (VString "")) ~ty:String "external_auth_type"
             "type of external authentication service configured; empty if none \
              configured."
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_george
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "name of external authentication service configured; empty \
+                   if none configured."
+                )
+              ]
             ~default_value:(Some (VString "")) ~ty:String
             "external_auth_service_name"
             "name of external authentication service configured; empty if none \
              configured."
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_george
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_george
+                , "configuration specific to external authentication service"
+                )
+              ]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "external_auth_configuration"
             "configuration specific to external authentication service"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, rel_midnight_ride, "Product edition")]
             ~default_value:(Some (VString "")) ~ty:String "edition"
             "Product edition"
-        ; field ~qualifier:RW ~in_product_since:rel_midnight_ride
+        ; field ~qualifier:RW
+            ~lifecycle:
+              [
+                ( Published
+                , rel_midnight_ride
+                , "Contact information of the license server"
+                )
+              ]
             ~default_value:
               (Some
                  (VMap
@@ -2578,18 +2716,23 @@ let t =
               )
             ~ty:(Map (String, String))
             "license_server" "Contact information of the license server"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, rel_midnight_ride, "BIOS strings")]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "bios_strings" "BIOS strings"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, rel_midnight_ride, "The power on mode")]
             ~default_value:(Some (VString "")) ~ty:String "power_on_mode"
             "The power on mode"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_midnight_ride
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:[(Published, rel_midnight_ride, "The power on config")]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "power_on_config" "The power on config"
-        ; field ~qualifier:StaticRO ~in_product_since:rel_cowley
+        ; field ~qualifier:StaticRO
+            ~lifecycle:
+              [(Published, rel_cowley, "The SR that is used as a local cache")]
             ~default_value:(Some (VRef null_ref)) ~ty:(Ref _sr) "local_cache_sr"
             "The SR that is used as a local cache"
         ; field ~qualifier:DynamicRO
@@ -2619,22 +2762,45 @@ let t =
              restarts its SSL/TLS listening service; typically this takes less \
              than a second but existing connections to it will be broken. API \
              login sessions will remain valid."
-        ; field ~qualifier:RW ~in_product_since:rel_tampa
+        ; field ~qualifier:RW
+            ~lifecycle:
+              [
+                ( Published
+                , rel_tampa
+                , "VCPUs params to apply to all resident guests"
+                )
+              ]
             ~default_value:(Some (VMap []))
             ~ty:(Map (String, String))
             "guest_VCPUs_params" "VCPUs params to apply to all resident guests"
-        ; field ~qualifier:RW ~in_product_since:rel_cream
+        ; field ~qualifier:RW
+            ~lifecycle:
+              [
+                ( Published
+                , rel_cream
+                , "indicates whether the host is configured to output its \
+                   console to a physical display device"
+                )
+              ]
             ~default_value:(Some (VEnum "enabled")) ~ty:display "display"
             "indicates whether the host is configured to output its console to \
              a physical display device"
-        ; field ~qualifier:DynamicRO ~in_product_since:rel_cream
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_cream
+                , "The set of versions of the virtual hardware platform that \
+                   the host can offer to its guests"
+                )
+              ]
             ~default_value:(Some (VSet [VInt 0L])) ~ty:(Set Int)
             "virtual_hardware_platform_versions"
             "The set of versions of the virtual hardware platform that the \
              host can offer to its guests"
         ; field ~qualifier:DynamicRO ~default_value:(Some (VRef null_ref))
-            ~in_product_since:rel_ely ~ty:(Ref _vm) "control_domain"
-            "The control domain (domain 0)"
+            ~lifecycle:[(Published, rel_ely, "The control domain (domain 0)")]
+            ~ty:(Ref _vm) "control_domain" "The control domain (domain 0)"
         ; field ~qualifier:DynamicRO
             ~lifecycle:[(Published, rel_ely, "")]
             ~ty:(Set (Ref _pool_update)) ~ignore_foreign_key:true
@@ -2667,13 +2833,30 @@ let t =
             ~lifecycle:[(Published, rel_stockholm, "")]
             ~default_value:(Some (VSet [])) ~ty:(Set String) "editions"
             "List of all available product editions"
-        ; field ~qualifier:DynamicRO ~in_product_since:"1.303.0"
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , "1.303.0"
+                , "The set of pending mandatory guidances after applying \
+                   updates, which must be applied, as otherwise there may be \
+                   e.g. VM failures"
+                )
+              ]
             ~ty:(Set update_guidances) "pending_guidances"
             ~default_value:(Some (VSet []))
             "The set of pending mandatory guidances after applying updates, \
              which must be applied, as otherwise there may be e.g. VM failures"
-        ; field ~qualifier:DynamicRO ~in_product_since:"1.313.0" ~ty:Bool
-            "tls_verification_enabled" ~default_value:(Some (VBool false))
+        ; field ~qualifier:DynamicRO
+            ~lifecycle:
+              [
+                ( Published
+                , "1.313.0"
+                , "True if this host has TLS verifcation enabled"
+                )
+              ]
+            ~ty:Bool "tls_verification_enabled"
+            ~default_value:(Some (VBool false))
             "True if this host has TLS verifcation enabled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
             "last_software_update" ~default_value:(Some (VDateTime Date.epoch))

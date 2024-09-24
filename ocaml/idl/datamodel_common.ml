@@ -742,13 +742,31 @@ let allowed_and_current_operations ?(writer_roles = None) ?(reader_roles = None)
     operations_type =
   [
     field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None
-      ~in_product_since:rel_rio ~qualifier:DynamicRO ~ty:(Set operations_type)
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "list of the operations allowed in this state. This list is \
+             advisory only and the server state may have changed by the time \
+             this field is read by a client."
+          )
+        ]
+      ~qualifier:DynamicRO ~ty:(Set operations_type)
       ~default_value:(Some (VSet [])) "allowed_operations"
       "list of the operations allowed in this state. This list is advisory \
        only and the server state may have changed by the time this field is \
        read by a client."
   ; field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None
-      ~in_product_since:rel_rio ~qualifier:DynamicRO
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "links each of the running tasks using this object (by reference) \
+             to a current_operation enum which describes the nature of the \
+             task."
+          )
+        ]
+      ~qualifier:DynamicRO
       ~ty:(Map (String, operations_type))
       ~default_value:(Some (VMap [])) "current_operations"
       "links each of the running tasks using this object (by reference) to a \
