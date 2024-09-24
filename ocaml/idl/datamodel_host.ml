@@ -2454,7 +2454,9 @@ let t =
     ~contents:
       ([
          uid _host
-       ; namespace ~name:"name" ~contents:(names None RW) ()
+       ; namespace ~name:"name"
+           ~contents:(names None RW ~lifecycle:[(Published, rel_rio, "")])
+           ()
        ; namespace ~name:"memory" ~contents:host_memory ()
        ]
       @ allowed_and_current_operations operations

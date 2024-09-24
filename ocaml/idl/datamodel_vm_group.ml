@@ -33,7 +33,9 @@ let t =
     ~contents:
       [
         uid _vm_group
-      ; namespace ~name:"name" ~contents:(names None RW) ()
+      ; namespace ~name:"name"
+          ~contents:(names ~lifecycle:[(Published, rel_rio, "")] None RW)
+          ()
       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:placement_policy "placement"
           ~default_value:(Some (VEnum "normal"))
           "The placement policy of the VM group"

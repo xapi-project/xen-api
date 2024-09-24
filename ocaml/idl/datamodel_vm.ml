@@ -2496,7 +2496,10 @@ let t =
       ([uid _vm]
       @ allowed_and_current_operations operations
       @ [
-          namespace ~name:"name" ~contents:(names oss_since_303 RW) ()
+          namespace ~name:"name"
+            ~contents:
+              (names oss_since_303 RW ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~writer_roles:_R_VM_OP ~qualifier:StaticRO
             ~default_value:(Some (VEnum "Halted"))
             ~lifecycle:

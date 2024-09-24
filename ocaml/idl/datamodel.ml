@@ -468,7 +468,13 @@ module Task = struct
       ~contents:
         ([
            uid _task
-         ; namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ()
+         ; namespace ~name:"name"
+             ~contents:
+               (names
+                  ~lifecycle:[(Published, rel_rio, "")]
+                  oss_since_303 DynamicRO
+               )
+             ()
          ]
         @ allowed_and_current_operations task_allowed_operations
         @ [
@@ -843,7 +849,9 @@ module Pool_update = struct
       ~contents:
         [
           uid ~in_oss_since:None _pool_update
-        ; namespace ~name:"name" ~contents:(names None StaticRO) ()
+        ; namespace ~name:"name"
+            ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~in_product_since:rel_ely ~default_value:(Some (VString ""))
             ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version"
             "Update version number"
@@ -1037,7 +1045,9 @@ module Pool_patch = struct
       ~contents:
         [
           uid ~in_oss_since:None _pool_patch
-        ; namespace ~name:"name" ~contents:(names None StaticRO) ()
+        ; namespace ~name:"name"
+            ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~in_product_since:rel_miami ~default_value:(Some (VString ""))
             ~in_oss_since:None ~qualifier:StaticRO ~ty:String "version"
             "Patch version number"
@@ -1116,7 +1126,9 @@ module Host_patch = struct
       ~contents:
         [
           uid ~in_oss_since:None _host_patch
-        ; namespace ~name:"name" ~contents:(names None StaticRO) ()
+        ; namespace ~name:"name"
+            ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
             ~ty:String "version" "Patch version number"
         ; field ~in_oss_since:None ~in_product_since:rel_rio ~qualifier:StaticRO
@@ -1538,7 +1550,11 @@ module Network = struct
         ([
            uid _network
          ; namespace ~name:"name"
-             ~contents:(names ~writer_roles:_R_POOL_OP oss_since_303 RW)
+             ~contents:
+               (names ~writer_roles:_R_POOL_OP
+                  ~lifecycle:[(Published, rel_rio, "")]
+                  oss_since_303 RW
+               )
              ()
          ]
         @ allowed_and_current_operations ~writer_roles:_R_POOL_OP operations
@@ -3239,7 +3255,12 @@ module Data_source = struct
       ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN ~messages:[]
       ~contents:
         [
-          namespace ~name:"name" ~contents:(names oss_since_303 DynamicRO) ()
+          namespace ~name:"name"
+            ~contents:
+              (names oss_since_303 DynamicRO
+                 ~lifecycle:[(Published, rel_rio, "")]
+              )
+            ()
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
             "enabled" "true if the data source is being logged"
         ; field ~qualifier:DynamicRO ~ty:Bool ~in_product_since:rel_rio
@@ -3949,7 +3970,12 @@ module SR = struct
       ~contents:
         ([
            uid _sr
-         ; namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ()
+         ; namespace ~name:"name"
+             ~contents:
+               (names oss_since_303 StaticRO
+                  ~lifecycle:[(Published, rel_rio, "")]
+               )
+             ()
          ]
         @ allowed_and_current_operations operations
         @ [
@@ -4038,7 +4064,10 @@ module SM = struct
       ~contents:
         [
           uid _sm
-        ; namespace ~name:"name" ~contents:(names None DynamicRO) ()
+        ; namespace ~name:"name"
+            ~contents:
+              (names None DynamicRO ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~in_oss_since:None ~in_product_since:rel_rio
             ~qualifier:DynamicRO "type" "SR.type"
         ; field ~in_oss_since:None ~in_product_since:rel_rio
@@ -5187,7 +5216,12 @@ module VDI = struct
       ~contents:
         ([
            uid _vdi
-         ; namespace ~name:"name" ~contents:(names oss_since_303 StaticRO) ()
+         ; namespace ~name:"name"
+             ~contents:
+               (names oss_since_303 StaticRO
+                  ~lifecycle:[(Published, rel_rio, "")]
+               )
+             ()
          ]
         @ allowed_and_current_operations operations
         @ [
@@ -6633,7 +6667,7 @@ module VMPP = struct
       ~contents:
         [
           uid ~lifecycle:removed _vmpp
-        ; namespace ~name:"name" ~contents:(names None RW) ()
+        ; namespace ~name:"name" ~contents:(names None RW ~lifecycle:removed) ()
         ; field ~lifecycle:removed ~qualifier:RW ~ty:Bool "is_policy_enabled"
             "enable or disable this policy" ~default_value:(Some (VBool true))
         ; field ~lifecycle:removed ~qualifier:RW ~ty:backup_type "backup_type"
@@ -6842,7 +6876,9 @@ module VMSS = struct
       ~contents:
         [
           uid _vmss
-        ; namespace ~name:"name" ~contents:(names None RW) ()
+        ; namespace ~name:"name"
+            ~contents:(names None RW ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~qualifier:RW ~ty:Bool ~in_product_since:rel_rio "enabled"
             "enable or disable this snapshot schedule"
             ~default_value:(Some (VBool true))
@@ -7030,7 +7066,10 @@ module VM_appliance = struct
         ]
       ~contents:
         ([
-           uid _vm_appliance; namespace ~name:"name" ~contents:(names None RW) ()
+           uid _vm_appliance
+         ; namespace ~name:"name"
+             ~contents:(names None RW ~lifecycle:[(Published, rel_rio, "")])
+             ()
          ]
         @ allowed_and_current_operations operations
         @ [
@@ -7370,7 +7409,10 @@ module Blob = struct
       ~contents:
         [
           uid _blob
-        ; namespace ~name:"name" ~contents:(names oss_since_303 RW) ()
+        ; namespace ~name:"name"
+            ~contents:
+              (names oss_since_303 RW ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~qualifier:DynamicRO ~ty:Int ~in_product_since:rel_rio "size"
             "Size of the binary data, in bytes"
         ; field ~writer_roles:_R_POOL_OP ~qualifier:RW
@@ -8648,7 +8690,9 @@ module Feature = struct
       ~contents:
         [
           uid _feature ~lifecycle:[(Published, rel_falcon, "")]
-        ; namespace ~name:"name" ~contents:(names None StaticRO) ()
+        ; namespace ~name:"name"
+            ~contents:(names None StaticRO ~lifecycle:[(Published, rel_rio, "")])
+            ()
         ; field ~qualifier:DynamicRO ~ty:Bool
             ~lifecycle:[(Published, rel_falcon, "")]
             ~default_value:(Some (VBool false)) "enabled"
