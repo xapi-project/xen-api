@@ -475,6 +475,10 @@ let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
   let capabilities = Net.Interface.get_capabilities dbg device in
   let pci = get_device_pci ~__context ~host ~device in
   let pif = Ref.make () in
+  let primary_address_type =
+    Record_util.primary_address_type_of_string
+      (Xapi_inventory.lookup Xapi_inventory._management_address_type)
+  in
   debug "Creating a new record for NIC: %s: %s" device (Ref.string_of pif) ;
   let () =
     Db.PIF.create ~__context ~ref:pif
@@ -485,7 +489,7 @@ let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
       ~netmask:"" ~gateway:"" ~dNS:"" ~bond_slave_of:Ref.null ~vLAN_master_of
       ~management:false ~other_config:[] ~disallow_unplug
       ~ipv6_configuration_mode:`None ~iPv6:[] ~ipv6_gateway:""
-      ~primary_address_type:`IPv4 ~managed ~properties:default_properties
+      ~primary_address_type ~managed ~properties:default_properties
       ~capabilities ~pCI:pci
   in
   (* If I'm a pool slave and this pif represents my management
