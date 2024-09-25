@@ -72,3 +72,7 @@ module Cgroup : sig
   (** [set_cgroup c] sets the current xapi thread in a cgroup based on the
       creator [c].*)
 end
+
+val of_req_originator : string option -> unit
+(** [of_req_originator o] same as [of_originator] but it classifies based on the
+http request header.*)
