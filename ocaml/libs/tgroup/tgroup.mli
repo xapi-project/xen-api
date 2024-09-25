@@ -76,3 +76,10 @@ module Cgroup : sig
       
       @raises Cgroups_not_initialized if [init dir] has not been called. *)
 end
+
+val of_creator : Group.Creator.t -> unit
+(** [of_creator c] classifies the current thread based on creator [c]*)
+
+val of_req_originator : string option -> unit
+(** [of_req_originator o] same as [of_originator] but it classifies based on the
+http request header.*)
