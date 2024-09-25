@@ -14,6 +14,8 @@
 
 module D = Debug.Make (struct let name = __MODULE__ end)
 
+open D
+
 let ( // ) = Filename.concat
 
 module Group = struct
@@ -134,4 +136,33 @@ module Cgroup = struct
     Group.all
     |> List.map dir_of
     |> List.iter (fun dir -> Xapi_stdext_unix.Unixext.mkdir_rec dir 0o755)
+
+  let write_cur_tid_to_cgroup_file filename =
+    let fd =
+      Unix.openfile filename [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC] 0o640
+    in
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () ->
+        let buf = "0\n" in
+        let len = String.length buf in
+        if Unix.write fd (Bytes.unsafe_of_string buf) 0 len <> len then
+          debug "writing current tid to %s failed" filename
+      )
+      (fun () -> Unix.close fd)
+
+  let attach_task group =
+    let tasks_file = dir_of group // "tasks" in
+    write_cur_tid_to_cgroup_file tasks_file
+
+  let set_cur_cgroup ~originator =
+    match originator with
+    | Group.Originator.Internal_Host_SM ->
+        attach_task (Group Internal_Host_SM)
+    | Group.Originator.Internal_Server ->
+        attach_task (Group Internal_Server)
+    | Group.Originator.EXTERNAL ->
+        attach_task (Group EXTERNAL)
+
+  let set_cgroup creator =
+    set_cur_cgroup ~originator:creator.Group.Creator.originator
 end
