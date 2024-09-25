@@ -74,11 +74,23 @@ install:
 	$(IDATA) xapi-nbd.path $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.path
 	$(IDATA) 10-stunnel-increase-number-of-file-descriptors.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/10-stunnel-increase-number-of-file-descriptors.conf
 	$(IDATA) 11-stunnel-gencert.conf $(DESTDIR)/etc/systemd/system/stunnel@xapi.service.d/11-stunnel-gencert.conf
+	$(IDATA) xcp-rrdd.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd.service
+	$(IDATA) xcp-rrdd-xenpm.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-xenpm.service
+	$(IDATA) xcp-rrdd-iostat.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-iostat.service
+	$(IDATA) xcp-rrdd-squeezed.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-squeezed.service
+	$(IDATA) xcp-rrdd-squeezed.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-squeezed.service
+	$(IDATA) xcp-rrdd-dcmi.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-dcmi.service
+	$(IDATA) xcp-rrdd-cpu.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-cpu.service
+	$(IDATA) xcp-rrdd-netdev.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-netdev.service
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCXENDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCXENDIR)/master.d/03-mpathalert-daemon
 	mkdir -p $(DESTDIR)/etc/sysconfig
 	$(IPROG) sysconfig-xapi $(DESTDIR)/etc/sysconfig/xapi
+	$(IPROG) xcp-rrdd-sysconfig $(DESTDIR)/etc/sysconfig/xcp-rrdd
+	$(IPROG) xcp-rrdd-conf $(DESTDIR)/etc/xcp-rrdd.conf
+	mkdir -p $(DESTDIR)/usr/lib/tmpfiles.d
+	$(IPROG) xcp-rrdd-tmp $(DESTDIR)/usr/lib/tmpfiles.d/xcp-rrdd.conf
 	$(IPROG) nbd-firewall-config.sh $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) update-ca-bundle.sh $(DESTDIR)$(OPTDIR)/bin
 	mkdir -p $(DESTDIR)$(OPTDIR)/debug
