@@ -157,6 +157,11 @@ val time_limited_read : Unix.file_descr -> int -> float -> string
 
 val time_limited_single_read :
   Unix.file_descr -> int -> max_wait:float -> string
+(** [time_limited_single_read fd length max_wait] Reads [length] bytes from
+    the file descriptor [fd] in a single read, allowing up to [time_span] of
+    time to pass. Raises [Timeout] exception when less than [amount] bytes have
+    been read after [time_span] of time has passed. It may raise exceptions
+    that come from {{Unix.read}} *)
 
 val select :
      Unix.file_descr list
@@ -262,7 +267,7 @@ val test_open : int -> unit
   to [Xapi_stdext_unix.Unixext.select] that use file descriptors, because such calls will then immediately fail.
 
   This assumes that [ulimit -n] has been suitably increased in the test environment.
-  
+
   Can only be called once in a program, and will raise an exception otherwise.
 
   The file descriptors will stay open until the program exits.

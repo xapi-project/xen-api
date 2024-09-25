@@ -670,7 +670,10 @@ let time_limited_single_read filedesc length ~max_wait =
     ->
       0
   in
-  Bytes.sub_string buf 0 bytes
+  if bytes < length then
+    raise Timeout
+  else
+    Bytes.sub_string buf 0 bytes
 
 (** see [select(2)] "Correspondence between select() and poll() notifications".
     Note that HUP and ERR are ignored in events and returned only in revents.
