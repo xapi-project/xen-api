@@ -166,3 +166,15 @@ module Cgroup = struct
   let set_cgroup creator =
     set_cur_cgroup ~originator:creator.Group.Creator.originator
 end
+
+let of_originator originator =
+  originator |> Group.Creator.make |> Cgroup.set_cgroup
+
+let of_creator creator =
+  try Cgroup.set_cgroup creator with Cgroup.Cgroups_not_initialized -> ()
+
+let of_req_originator originator =
+  originator
+  |> Option.value ~default:Group.Originator.(to_string EXTERNAL)
+  |> Group.Originator.of_string
+  |> of_originator
