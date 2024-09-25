@@ -67,4 +67,8 @@ module Cgroup : sig
   val init : string -> unit
   (** [init dir] initializes the hierachy of cgroups associated to all [Group.t]
       types under the directory [dir].*)
+
+  val set_cgroup : Group.Creator.t -> unit
+  (** [set_cgroup c] sets the current xapi thread in a cgroup based on the
+      creator [c].*)
 end

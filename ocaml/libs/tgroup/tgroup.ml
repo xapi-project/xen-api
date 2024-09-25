@@ -14,6 +14,8 @@
 
 module D = Debug.Make (struct let name = __MODULE__ end)
 
+open D
+
 let ( // ) = Filename.concat
 
 module Group = struct
@@ -127,4 +129,36 @@ module Cgroup = struct
     Group.all
     |> List.filter_map dir_of
     |> List.iter (fun dir -> Xapi_stdext_unix.Unixext.mkdir_rec dir 0o755)
+
+  let write_cur_tid_to_cgroup_file filename =
+    try
+      let perms = 0o640 in
+      let mode = [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC] in
+      Xapi_stdext_unix.Unixext.with_file filename mode perms @@ fun fd ->
+      (* Writing 0 to the task file will automatically transform in writing
+         the current caller tid to the file.
+
+         Writing 0 to the processes file will automatically write the caller's
+         pid to file. *)
+      let buf = "0\n" in
+      let len = String.length buf in
+      if Unix.write fd (Bytes.unsafe_of_string buf) 0 len <> len then
+        warn "writing current tid to %s failed" filename
+    with exn ->
+      warn "writing current tid to %s failed with exception: %s" filename
+        (Printexc.to_string exn)
+
+  let attach_task group =
+    let tasks_file = dir_of group // "tasks" in
+    write_cur_tid_to_cgroup_file tasks_file
+
+  let set_cur_cgroup ~originator =
+    match originator with
+    | Group.Originator.Internal_Host_SM ->
+        attach_task (Group Internal_Host_SM)
+    | Group.Originator.EXTERNAL ->
+        attach_task (Group EXTERNAL)
+
+  let set_cgroup creator =
+    set_cur_cgroup ~originator:creator.Group.Creator.originator
 end
