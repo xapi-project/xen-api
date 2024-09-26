@@ -40,12 +40,32 @@ let with_tracing ~tracing ~name f = Tracing.with_tracing ~parent:tracing ~name f
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-type pidty = Unix.file_descr * int
+let use_daemon = ref false
+
+module FEStubs = struct
+  external safe_exec_with_helper : string list -> string list -> int
+    = "caml_safe_exec_with_helper"
+
+  (* timeout <= 0 wait infinite *)
+  external pidwaiter_waitpid : ?timeout:float -> int -> bool
+    = "caml_pidwaiter_waitpid"
+
+  (* do not wait for a process, release it, it won't generate a zombie process *)
+  external pidwaiter_dontwait : int -> unit = "caml_pidwaiter_dontwait"
+end
+
+type waiter = Pidwaiter | Sock of Unix.file_descr
+
+type pidty = waiter * int
 
 (* The forking executioner has been used, therefore we need to tell *it* to waitpid *)
 
-let string_of_pidty (fd, pid) =
-  Printf.sprintf "(FEFork (%d,%d))" (Fd_send_recv.int_of_fd fd) pid
+let string_of_pidty (waiter, pid) =
+  match waiter with
+  | Pidwaiter ->
+      Printf.sprintf "(FEFork (%d))" pid
+  | Sock fd ->
+      Printf.sprintf "(FEFork (%d,%d))" (Fd_send_recv.int_of_fd fd) pid
 
 exception Subprocess_failed of int
 
@@ -53,7 +73,7 @@ exception Subprocess_killed of int
 
 exception Subprocess_timeout
 
-let waitpid (sock, pid) =
+let waitpid_daemon sock pid =
   let status = Fecomms.read_raw_rpc sock in
   Unix.close sock ;
   match status with
@@ -79,7 +99,7 @@ let waitpid (sock, pid) =
 (* [waitpid_nohang] reports the status of a socket to a process. The
    intention is to make this non-blocking. If the process is finished,
    the socket is closed and not otherwise. *)
-let waitpid_nohang (sock, pid) =
+let waitpid_nohang_daemon sock pid =
   let verbose = false in
   if verbose then D.debug "%s pid=%d" __FUNCTION__ pid ;
   let fail fmt = Printf.ksprintf failwith fmt in
@@ -118,7 +138,7 @@ let waitpid_nohang (sock, pid) =
       fail "%s: error happened when trying to read the status. %s" __FUNCTION__
         (Printexc.to_string exn)
 
-let dontwaitpid (sock, _pid) =
+let dontwaitpid_daemon sock _pid =
   ( try
       (* Try to tell the child fe that we're not going to wait for it. If the
          other end of the pipe has been closed then this doesn't matter, as this
@@ -127,6 +147,27 @@ let dontwaitpid (sock, _pid) =
     with Unix.Unix_error (Unix.EPIPE, _, _) -> ()
   ) ;
   Unix.close sock
+
+let waitpid (waiter, pid) =
+  match waiter with
+  | Pidwaiter ->
+      Unix.waitpid [] pid
+  | Sock sock ->
+      waitpid_daemon sock pid
+
+let waitpid_nohang (waiter, pid) =
+  match waiter with
+  | Pidwaiter ->
+      Unix.waitpid [Unix.WNOHANG] pid
+  | Sock sock ->
+      waitpid_nohang_daemon sock pid
+
+let dontwaitpid (waiter, pid) =
+  match waiter with
+  | Pidwaiter ->
+      FEStubs.pidwaiter_dontwait pid
+  | Sock sock ->
+      dontwaitpid_daemon sock pid
 
 let waitpid_fail_if_bad_exit ty =
   let _, status = waitpid ty in
@@ -140,7 +181,7 @@ let waitpid_fail_if_bad_exit ty =
   | Unix.WSTOPPED n ->
       raise (Subprocess_killed n)
 
-let getpid (_sock, pid) = pid
+let getpid (_waiter, pid) = pid
 
 type 'a result = Success of string * 'a | Failure of string * exn
 
@@ -179,12 +220,9 @@ type syslog_stdout =
   | Syslog_DefaultKey
   | Syslog_WithKey of string
 
-(** Safe function which forks a command, closing all fds except a whitelist and
-    having performed some fd operations in the child *)
-let safe_close_and_exec ?tracing ?env stdin stdout stderr
+let safe_close_and_exec_daemon ?tracing env stdin stdout stderr
     (fds : (string * Unix.file_descr) list) ?(syslog_stdout = NoSyslogging)
-    ?(redirect_stderr_to_stdout = false) (cmd : string) (args : string list) =
-  with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
+    ?(redirect_stderr_to_stdout = false) args =
   let sock =
     Fecomms.open_unix_domain_sock_client ?tracing
       (Filename.concat runtime_path "/xapi/forker/main")
@@ -228,7 +266,6 @@ let safe_close_and_exec ?tracing ?env stdin stdout stderr
         List.fold_left maybe_add_id_to_fd_map dest_named_fds predefined_fds
       in
 
-      let env = Option.value ~default:default_path_env_pair env in
       let syslog_stdout =
         match syslog_stdout with
         | NoSyslogging ->
@@ -241,7 +278,7 @@ let safe_close_and_exec ?tracing ?env stdin stdout stderr
       Fecomms.write_raw_rpc ?tracing sock
         (Fe.Setup
            {
-             Fe.cmdargs= cmd :: args
+             Fe.cmdargs= args
            ; env= Array.to_list env
            ; id_to_fd_map
            ; syslog_stdout
@@ -295,7 +332,7 @@ let safe_close_and_exec ?tracing ?env stdin stdout stderr
       match Fecomms.read_raw_rpc ?tracing sock with
       | Ok (Fe.Execed pid) ->
           remove_fd_from_close_list sock ;
-          (sock, pid)
+          (Sock sock, pid)
       | Ok status ->
           let msg =
             Printf.sprintf
@@ -313,6 +350,64 @@ let safe_close_and_exec ?tracing ?env stdin stdout stderr
           failwith msg
     )
     close_fds
+
+let safe_close_and_exec_vfork ?tracing env stdin stdout stderr
+    (fds : (string * Unix.file_descr) list) ?(syslog_stdout = NoSyslogging)
+    ?(redirect_stderr_to_stdout = false) cmd args =
+  let string_of_fd (fd : Unix.file_descr) = string_of_int (Obj.magic fd) in
+  let args = "--" :: args in
+  let args = if redirect_stderr_to_stdout then "-S" :: args else args in
+  let args =
+    match syslog_stdout with
+    | NoSyslogging ->
+        args
+    | Syslog_DefaultKey ->
+        "-s" :: Filename.basename cmd :: args
+    | Syslog_WithKey key ->
+        "-s" :: key :: args
+  in
+  let args =
+    List.fold_right
+      (fun (uuid, fd) args ->
+        Unix.clear_close_on_exec fd ;
+        "-m" :: uuid :: string_of_fd fd :: args
+      )
+      fds args
+  in
+  let add_std args arg fd =
+    match fd with
+    | Some fd ->
+        Unix.clear_close_on_exec fd ;
+        arg :: string_of_fd fd :: args
+    | None ->
+        args
+  in
+  let args = add_std args "-E" stderr in
+  let args = add_std args "-O" stdout in
+  let args = add_std args "-I" stdin in
+  let args = "/usr/libexec/xapi/vfork_helper" :: "-e" :: "DUMMY" :: args in
+  (* Convert environment and add tracing variables. *)
+  let env =
+    List.append (Tracing.EnvHelpers.of_span tracing) (Array.to_list env)
+  in
+  let pid = FEStubs.safe_exec_with_helper args env in
+  (Pidwaiter, pid)
+
+(** Safe function which forks a command, closing all fds except a whitelist and
+    having performed some fd operations in the child *)
+let safe_close_and_exec ?tracing ?env stdin stdout stderr
+    (fds : (string * Unix.file_descr) list) ?(syslog_stdout = NoSyslogging)
+    ?(redirect_stderr_to_stdout = false) (cmd : string) (args : string list) =
+  with_tracing ~tracing ~name:__FUNCTION__ @@ fun tracing ->
+  let args = cmd :: args in
+  let env = Option.value ~default:default_path_env_pair env in
+
+  if not !use_daemon then (* Build a list of arguments as helper wants. *)
+    safe_close_and_exec_vfork ?tracing env stdin stdout stderr fds
+      ~syslog_stdout ~redirect_stderr_to_stdout cmd args
+  else
+    safe_close_and_exec_daemon ?tracing env stdin stdout stderr fds
+      ~syslog_stdout ~redirect_stderr_to_stdout args
 
 let execute_command_get_output_inner ?tracing ?env ?stdin
     ?(syslog_stdout = NoSyslogging) ?(redirect_stderr_to_stdout = false)
@@ -342,7 +437,7 @@ let execute_command_get_output_inner ?tracing ?env ?stdin
             with_tracing ~tracing ~name:"Forkhelpers.with_logfile_err_fd"
             @@ fun tracing ->
             with_logfile_fd "execute_command_get_err" (fun err_fd ->
-                let sock, pid =
+                let waiter, pid =
                   safe_close_and_exec ?tracing ?env
                     (Option.map (fun (_, fd, _) -> fd) stdinandpipes)
                     (Some out_fd) (Some err_fd) [] ~syslog_stdout
@@ -354,14 +449,26 @@ let execute_command_get_output_inner ?tracing ?env ?stdin
                     close wr
                   )
                   stdinandpipes ;
-                if timeout > 0. then
-                  Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
-                with_tracing ~tracing ~name:"Forkhelpers.waitpid" @@ fun _ ->
-                try waitpid (sock, pid)
-                with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
-                  Unix.kill pid Sys.sigkill ;
-                  ignore (waitpid (sock, pid)) ;
-                  raise Subprocess_timeout
+                match waiter with
+                | Pidwaiter ->
+                    with_tracing ~tracing ~name:"Forkhelpers.waitpid"
+                    @@ fun _ ->
+                    let timedout = FEStubs.pidwaiter_waitpid ~timeout pid in
+                    let res = Unix.waitpid [] pid in
+
+                    if timedout then raise Subprocess_timeout ;
+                    res
+                | Sock sock -> (
+                    if timeout > 0. then
+                      Unix.setsockopt_float sock Unix.SO_RCVTIMEO timeout ;
+                    with_tracing ~tracing ~name:"Forkhelpers.waitpid"
+                    @@ fun _ ->
+                    try waitpid_daemon sock pid
+                    with Unix.(Unix_error ((EAGAIN | EWOULDBLOCK), _, _)) ->
+                      Unix.kill pid Sys.sigkill ;
+                      ignore (waitpid_daemon sock pid) ;
+                      raise Subprocess_timeout
+                  )
             )
         )
       with
