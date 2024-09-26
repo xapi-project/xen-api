@@ -3881,7 +3881,29 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ; base_build_id= "2cc28689364587682593b6a72e2a586d29996bb9"
       ; base_version= "4.19.19"
       ; base_release= "8.0.20.xs8"
-      ; to_version= "4.13.4"
+      ; to_version= "4.19.19"
+      ; to_release= "8.0.21.xs8"
+      }
+
+  let lp2 =
+    LivePatch.
+      {
+        component= Livepatch.Kernel
+      ; base_build_id= "2cc28689364587682593b6a72e2a586d29996bb9"
+      ; base_version= "4.19.19"
+      ; base_release= "8.0.20.xs8"
+      ; to_version= "4.19.20"
+      ; to_release= "8.0.21.xs8"
+      }
+
+  let lp3 =
+    LivePatch.
+      {
+        component= Livepatch.Kernel
+      ; base_build_id= "4cc28689364587682593b6a72e2a586d29996bb9"
+      ; base_version= "4.19.20"
+      ; base_release= "7.0.20.xs8"
+      ; to_version= "4.13.5"
       ; to_release= "8.0.21.xs8"
       }
 
@@ -3914,6 +3936,12 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
         )
       ; ( ([], {updateinfo with livepatches= [lp0; lp1]})
         , {updateinfo with livepatches= []}
+        )
+      ; ( ([lp0; lp2], {updateinfo with livepatches= [lp0; lp1; lp2; lp3]})
+        , {updateinfo with livepatches= [lp0; lp1; lp2]}
+        )
+      ; ( ([lp0], {updateinfo with livepatches= [lp0; lp1; lp2; lp3]})
+        , {updateinfo with livepatches= [lp0]}
         )
       ]
 end)
