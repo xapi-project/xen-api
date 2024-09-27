@@ -138,3 +138,7 @@ let really_pretty_and_small x =
       "NULL"
 
 let pp ppf x = Format.fprintf ppf "%s" (string_of x)
+
+let rpc_of_t _ x = Rpc.rpc_of_string (string_of x)
+
+let t_of_rpc _ x = of_string (Rpc.string_of_rpc x)

@@ -14,6 +14,10 @@
 
 type 'a t
 
+val rpc_of_t : ('a -> Rpc.t) -> 'a t -> Rpc.t
+
+val t_of_rpc : (Rpc.t -> 'a) -> Rpc.t -> 'a t
+
 val ref_prefix : string
 
 val make : unit -> 'a t
