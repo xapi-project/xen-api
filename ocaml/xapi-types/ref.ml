@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type all = Uuidx.all
+
 type 'a t =
   | Real of string
   (* ref to an object in the database *)
@@ -20,6 +22,7 @@ type 'a t =
   | Other of string
   (* ref used for other purposes (it doesn't have one of the official prefixes) *)
   | Null
+  constraint 'a = [< all]
 
 (* ref to nothing at all *)
 

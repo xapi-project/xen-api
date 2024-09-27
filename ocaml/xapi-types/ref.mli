@@ -12,7 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type 'a t
+type all = Uuidx.all
+
+type 'a t constraint 'a = [< all]
 
 val rpc_of_t : ('a -> Rpc.t) -> 'a t -> Rpc.t
 

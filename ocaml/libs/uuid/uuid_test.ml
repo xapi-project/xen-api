@@ -25,7 +25,7 @@ let uuid_arrays =
 let non_uuid_arrays =
   [[|0|]; [|0; 1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12; 13; 14|]]
 
-type resource
+type resource = [`Generic]
 
 let uuid_testable : (module Alcotest.TESTABLE with type t = resource Uuidx.t) =
   Alcotest.testable Uuidx.pp Uuidx.equal

@@ -22,9 +22,85 @@
     Also, cookies aren't UUIDs and should be put somewhere else.
 *)
 
+(** all object classes supported by XAPI *)
+type all =
+  [ `auth
+  | `blob
+  | `Bond
+  | `Certificate
+  | `Cluster
+  | `Cluster_host
+  | `console
+  | `crashdump
+  | `data_source
+  | `Diagnostics
+  | `DR_task
+  | `event
+  | `Feature
+  | `generation
+  | `Generic
+  | `GPU_group
+  | `host
+  | `host_cpu
+  | `host_crashdump
+  | `host_metrics
+  | `host_patch
+  | `LVHD
+  | `message
+  | `network
+  | `network_sriov
+  | `Observer
+  | `PBD
+  | `PCI
+  | `PGPU
+  | `PIF
+  | `PIF_metrics
+  | `pool
+  | `pool_patch
+  | `pool_update
+  | `probe_result
+  | `PUSB
+  | `PVS_cache_storage
+  | `PVS_proxy
+  | `PVS_server
+  | `PVS_site
+  | `Repository
+  | `role
+  | `SDN_controller
+  | `secret
+  | `session
+  | `SM
+  | `SR
+  | `sr_stat
+  | `subject
+  | `task
+  | `tunnel
+  | `USB_group
+  | `user
+  | `VBD
+  | `VBD_metrics
+  | `VDI
+  | `vdi_nbd_server_info
+  | `VGPU
+  | `VGPU_type
+  | `VIF
+  | `VIF_metrics
+  | `VLAN
+  | `VM
+  | `VM_appliance
+  | `VM_group
+  | `VM_guest_metrics
+  | `VM_metrics
+  | `VMPP
+  | `VMSS
+  | `VTPM
+  | `VUSB ]
+
 (** A 128-bit UUID to identify an object of class 'a. For example the UUID of
-    a host has the type ([\[`host\] Uuidx.t]). *)
-type 'a t
+    a host has the type ([\[`host\] Uuidx.t]).
+    The type parameter is one of {!type:all}
+ *)
+type 'a t = Uuidm.t constraint 'a = [< all]
 
 val null : 'a t
 (** A null UUID, as if such a thing actually existed. It turns out to be

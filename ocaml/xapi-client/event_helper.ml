@@ -13,9 +13,9 @@
  *)
 
 type event_record =
-  | Session of [`Session] Ref.t * API.session_t option
+  | Session of [`session] Ref.t * API.session_t option
   | Task of [`task] Ref.t * API.task_t option
-  | Event of [`Event] Ref.t * API.event_t option
+  | Event of [`event] Ref.t * API.event_t option
   | VM of [`VM] Ref.t * API.vM_t option
   | VM_metrics of [`VM_metrics] Ref.t * API.vM_metrics_t option
   | VM_guest_metrics of
@@ -33,10 +33,10 @@ type event_record =
   | VBD of [`VBD] Ref.t * API.vBD_t option
   | VBD_metrics of [`VBD_metrics] Ref.t * API.vBD_metrics_t option
   | PBD of [`PBD] Ref.t * API.pBD_t option
-  | Crashdump of [`Crashdump] Ref.t * API.crashdump_t option
+  | Crashdump of [`crashdump] Ref.t * API.crashdump_t option
   | VTPM of [`VTPM] Ref.t * API.vTPM_t option
-  | Console of [`Console] Ref.t * API.console_t option
-  | User of [`User] Ref.t * API.user_t option
+  | Console of [`console] Ref.t * API.console_t option
+  | User of [`user] Ref.t * API.user_t option
   | Pool of [`pool] Ref.t * API.pool_t option
   | Message of [`message] Ref.t * API.message_t option
   | Secret of [`secret] Ref.t * API.secret_t option

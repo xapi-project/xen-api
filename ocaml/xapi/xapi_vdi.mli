@@ -22,8 +22,8 @@
 val check_operation_error :
      __context:Context.t
   -> ?sr_records:'a list
-  -> ?pbd_records:('b API.Ref.t * API.pBD_t) list
-  -> ?vbd_records:('c API.Ref.t * Db_actions.vBD_t) list
+  -> ?pbd_records:(API.ref_PBD * API.pBD_t) list
+  -> ?vbd_records:(API.ref_VBD * Db_actions.vBD_t) list
   -> bool
   -> Db_actions.vDI_t
   -> API.ref_VDI
@@ -39,8 +39,8 @@ val update_allowed_operations_internal :
      __context:Context.t
   -> self:[`VDI] API.Ref.t
   -> sr_records:'a list
-  -> pbd_records:('b API.Ref.t * API.pBD_t) list
-  -> ?vbd_records:('c API.Ref.t * Db_actions.vBD_t) list
+  -> pbd_records:(API.ref_PBD * API.pBD_t) list
+  -> ?vbd_records:(API.ref_VBD * Db_actions.vBD_t) list
   -> unit
   -> unit
 
@@ -50,7 +50,7 @@ val update_allowed_operations :
 val cancel_tasks :
      __context:Context.t
   -> self:[`VDI] API.Ref.t
-  -> all_tasks_in_db:'a Ref.t list
+  -> all_tasks_in_db:API.ref_task list
   -> task_ids:string list
   -> unit
 

@@ -12,7 +12,80 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type 'a t = Uuidm.t
+type all =
+  [ `auth
+  | `blob
+  | `Bond
+  | `Certificate
+  | `Cluster
+  | `Cluster_host
+  | `console
+  | `crashdump
+  | `data_source
+  | `Diagnostics
+  | `DR_task
+  | `event
+  | `Feature
+  | `generation
+  | `Generic
+  | `GPU_group
+  | `host
+  | `host_cpu
+  | `host_crashdump
+  | `host_metrics
+  | `host_patch
+  | `LVHD
+  | `message
+  | `network
+  | `network_sriov
+  | `Observer
+  | `PBD
+  | `PCI
+  | `PGPU
+  | `PIF
+  | `PIF_metrics
+  | `pool
+  | `pool_patch
+  | `pool_update
+  | `probe_result
+  | `PUSB
+  | `PVS_cache_storage
+  | `PVS_proxy
+  | `PVS_server
+  | `PVS_site
+  | `Repository
+  | `role
+  | `SDN_controller
+  | `secret
+  | `session
+  | `SM
+  | `SR
+  | `sr_stat
+  | `subject
+  | `task
+  | `tunnel
+  | `USB_group
+  | `user
+  | `VBD
+  | `VBD_metrics
+  | `VDI
+  | `vdi_nbd_server_info
+  | `VGPU
+  | `VGPU_type
+  | `VIF
+  | `VIF_metrics
+  | `VLAN
+  | `VM
+  | `VM_appliance
+  | `VM_group
+  | `VM_guest_metrics
+  | `VM_metrics
+  | `VMPP
+  | `VMSS
+  | `VTPM
+  | `VUSB ]
+
+type 'a t = Uuidm.t constraint 'a = [< all]
 
 let null = Uuidm.nil
 

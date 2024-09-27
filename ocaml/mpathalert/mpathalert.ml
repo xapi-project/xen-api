@@ -53,7 +53,7 @@ let debug (fmt : ('a, unit, string, unit) format4) =
 type t = {
     host: [`host] Uuidx.t
   ; host_name: string
-  ; pbd: [`pbd] Uuidx.t
+  ; pbd: [`PBD] Uuidx.t
   ; timestamp: float
   ; scsi_id: string
   ; current: int
