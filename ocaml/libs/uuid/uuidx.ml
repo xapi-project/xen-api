@@ -131,8 +131,20 @@ let read_bytes dev n =
 
 let make_uuid_urnd () = of_bytes (read_bytes dev_urandom_fd 16) |> Option.get
 
-(* Use the CSPRNG-backed urandom *)
-let make = make_uuid_urnd
+(** Use non-CSPRNG by default, for CSPRNG see {!val:make_uuid_urnd} *)
+let make_uuid_fast =
+  let uuid_state = Random.State.make_self_init () in
+  (* On OCaml 5 we could use Random.State.split instead,
+     and on OCaml 4 the mutex may not be strictly needed
+  *)
+  let m = Mutex.create () in
+  let finally () = Mutex.unlock m in
+  let gen = Uuidm.v4_gen uuid_state in
+  fun () -> Mutex.lock m ; Fun.protect ~finally gen
+
+let make_default = ref make_uuid_urnd
+
+let make () = !make_default ()
 
 type cookie = string
 

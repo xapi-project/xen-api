@@ -122,6 +122,13 @@ val make : unit -> [< not_secret] t
 (** Create a fresh UUID *)
 
 val make_uuid_urnd : unit -> [< secret] t
+(** [make_uuid_urnd ()] generate a UUID using a CSPRNG.
+     Currently this reads from /dev/urandom directly. *)
+
+val make_uuid_fast : unit -> [< not_secret] t
+(** [make_uuid_fast ()] generate a UUID using a PRNG.
+    Don't use this to generate secrets, see {!val:make_uuid_urnd} for that instead.
+ *)
 
 val pp : Format.formatter -> [< not_secret] t -> unit
 
@@ -129,7 +136,7 @@ val equal : 'a t -> 'a t -> bool
 
 val is_uuid : string -> bool
 
-val of_string : string -> 'a t option
+val of_string : string -> [< not_secret] t option
 (** Create a UUID from a string. *)
 
 val to_string : 'a t -> string
@@ -177,3 +184,8 @@ module Hash : sig
   (* UUID Version 5 derived from argument string and namespace UUID *)
   val string : string -> [< not_secret] t
 end
+
+(**/**)
+
+(* just for feature flag, to be removed *)
+val make_default : (unit -> [< not_secret] t) ref

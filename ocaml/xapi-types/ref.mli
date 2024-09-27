@@ -46,7 +46,7 @@ val to_option : 'a t -> 'a t option
 (** [to_option ref] returns [None] when [ref] is [Ref.Null] or [Some ref]
     otherwise *)
 
-val short_string_of : 'a t -> string
+val short_string_of : [< not_secret] t -> string
 
 val of_string : string -> [< not_secret] t
 
@@ -60,6 +60,6 @@ val is_dummy : 'a t -> bool
 
 val name_of_dummy : 'a t -> string
 
-val really_pretty_and_small : 'a t -> string
+val really_pretty_and_small : [< not_secret] t -> string
 
 val pp : Format.formatter -> 'a t -> unit

@@ -4,6 +4,7 @@
   (modules uuidx)
   (libraries
     unix (re_export uuidm)
+    threads.posix
   )
   (wrapped false)
 )
