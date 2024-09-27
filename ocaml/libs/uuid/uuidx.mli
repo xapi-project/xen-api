@@ -27,13 +27,23 @@
 type 'a t
 
 val null : 'a t
-(** A null UUID, as if such a thing actually existed. It turns out to be
-    useful though. *)
+(** A null UUID, as defined in RFC 9562 5.9. *)
 
 val make : unit -> 'a t
 (** Create a fresh UUID *)
 
 val make_uuid_urnd : unit -> 'a t
+
+val make_v7_uuid_from_parts : int64 -> int64 -> 'a t
+(** For testing only: create a v7 UUID, as defined in RFC 9562 5.7 *)
+
+val make_v7_uuid : unit -> 'a t
+(** Create a fresh v7 UUID, as defined in RFC 9562 5.7. This incorporates a
+    POSIX timestamp, such that the alphabetic of any two such UUIDs will match
+    the timestamp order - provided that they are at least 245 nanoseconds
+    apart. Note that in order to ensure that the timestamps used are
+    monotonic, operating time adjustments are ignored and hence timestamps
+    only approximate system time. *)
 
 val pp : Format.formatter -> 'a t -> unit
 

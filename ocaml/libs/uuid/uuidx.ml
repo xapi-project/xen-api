@@ -20,15 +20,15 @@ let pp = Uuidm.pp
 
 let equal = Uuidm.equal
 
-let of_bytes u = Uuidm.of_bytes ~pos:0 u
+let of_bytes u = Uuidm.of_binary_string ~pos:0 u
 
-let to_bytes = Uuidm.to_bytes
+let to_bytes = Uuidm.to_binary_string
 
 let of_int_array arr =
   arr |> Array.to_seq |> Seq.map char_of_int |> String.of_seq |> of_bytes
 
 let to_int_array u =
-  Uuidm.to_bytes u |> String.to_seq |> Seq.map int_of_char |> Array.of_seq
+  to_bytes u |> String.to_seq |> Seq.map int_of_char |> Array.of_seq
 
 let of_string = Uuidm.of_string ~pos:0
 
@@ -53,11 +53,31 @@ let read_bytes dev n =
       if read <> n then
         raise End_of_file
       else
-        Bytes.to_string buf
+        buf
     )
     (fun () -> Unix.close fd)
 
-let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
+let rand64 () =
+  let b = read_bytes dev_urandom 8 in
+  Bytes.get_int64_ne b 0
+
+let make_uuid_urnd () =
+  let buf = read_bytes dev_urandom 16 in
+  Uuidm.v4 buf
+
+let make_v7_uuid_from_parts time_ns rand_b = Uuidm.v7_ns ~time_ns ~rand_b
+
+let now_ns =
+  let start = Mtime_clock.counter () in
+  let t0 =
+    let d, ps = Ptime_clock.now () |> Ptime.to_span |> Ptime.Span.to_d_ps in
+    Int64.(add (mul (of_int d) 86_400_000_000_000L) (div ps 1000L))
+  in
+  fun () ->
+    let since_t0 = Mtime_clock.count start |> Mtime.Span.to_uint64_ns in
+    Int64.add t0 since_t0
+
+let make_v7_uuid () = make_v7_uuid_from_parts (now_ns ()) (rand64 ())
 
 (* Use the CSPRNG-backed urandom *)
 let make = make_uuid_urnd
@@ -66,7 +86,7 @@ type cookie = string
 
 let make_cookie () =
   read_bytes dev_urandom 64
-  |> String.to_seq
+  |> Bytes.to_seq
   |> Seq.map (fun c -> Printf.sprintf "%1x" (int_of_char c))
   |> List.of_seq
   |> String.concat ""
