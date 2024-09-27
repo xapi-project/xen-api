@@ -516,7 +516,7 @@ let make_pool_update ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi ;
   ref
 
-let make_session ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
+let make_session ~__context ?(ref = Ref.make_secret ()) ?(uuid = make_uuid ())
     ?(this_host = Ref.null) ?(this_user = Ref.null)
     ?(last_active = API.Date.epoch) ?(pool = false) ?(other_config = [])
     ?(is_local_superuser = false) ?(subject = Ref.null)

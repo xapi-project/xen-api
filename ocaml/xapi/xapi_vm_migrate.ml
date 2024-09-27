@@ -103,7 +103,7 @@ let remote_of_dest ~__context dest =
   in
   let master_url = List.assoc _master dest |> maybe_set_https in
   let xenops_url = List.assoc _xenops dest |> maybe_set_https in
-  let session_id = Ref.of_string (List.assoc _session_id dest) in
+  let session_id = Ref.of_secret_string (List.assoc _session_id dest) in
   let remote_ip = get_ip_from_url xenops_url in
   let remote_master_ip = get_ip_from_url master_url in
   let dest_host_string = List.assoc _host dest in

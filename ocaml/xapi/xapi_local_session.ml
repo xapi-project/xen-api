@@ -26,7 +26,7 @@ let get_all ~__context =
   with_lock m (fun () -> Hashtbl.fold (fun k _ acc -> k :: acc) table [])
 
 let create ~__context ~pool =
-  let r = Ref.make () in
+  let r = Ref.make_secret () in
   let session = {r; pool; last_active= Xapi_stdext_date.Date.now ()} in
   with_lock m (fun () -> Hashtbl.replace table r session) ;
   r

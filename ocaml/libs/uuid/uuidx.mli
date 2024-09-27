@@ -22,8 +22,8 @@
     Also, cookies aren't UUIDs and should be put somewhere else.
 *)
 
-(** all object classes supported by XAPI *)
-type all =
+(** regular UUIDs *)
+type without_secret =
   [ `auth
   | `blob
   | `Bond
@@ -68,7 +68,6 @@ type all =
   | `role
   | `SDN_controller
   | `secret
-  | `session
   | `SM
   | `SR
   | `sr_stat
@@ -96,22 +95,35 @@ type all =
   | `VTPM
   | `VUSB ]
 
+(** ensures that attempting to unify the type with `session yields
+    an error message about a type conflict,
+    and also avoids accidentally getting session added to the above
+    {!type:without_secret} type.
+ *)
+type not_secret = [without_secret | `session of [`use_make_uuid_rnd_instead]]
+
+(** session UUIDs and Refs are secret: they are effectively authentication tokens *)
+type secret = [`session]
+
+(** all object classes supported by XAPI *)
+type all = [without_secret | secret]
+
 (** A 128-bit UUID to identify an object of class 'a. For example the UUID of
     a host has the type ([\[`host\] Uuidx.t]).
     The type parameter is one of {!type:all}
  *)
 type 'a t = Uuidm.t constraint 'a = [< all]
 
-val null : 'a t
+val null : [< not_secret] t
 (** A null UUID, as if such a thing actually existed. It turns out to be
     useful though. *)
 
-val make : unit -> 'a t
+val make : unit -> [< not_secret] t
 (** Create a fresh UUID *)
 
-val make_uuid_urnd : unit -> 'a t
+val make_uuid_urnd : unit -> [< secret] t
 
-val pp : Format.formatter -> 'a t -> unit
+val pp : Format.formatter -> [< not_secret] t -> unit
 
 val equal : 'a t -> 'a t -> bool
 
@@ -123,7 +135,7 @@ val of_string : string -> 'a t option
 val to_string : 'a t -> string
 (** Marshal a UUID to a string. *)
 
-val uuid_of_string : string -> 'a t option
+val uuid_of_string : string -> [< not_secret] t option
 [@@deprecated "Use of_string"]
 (** Deprecated alias for {! Uuidx.of_string} *)
 
@@ -131,13 +143,13 @@ val string_of_uuid : 'a t -> string
 [@@deprecated "Use to_string"]
 (** Deprecated alias for {! Uuidx.to_string} *)
 
-val of_int_array : int array -> 'a t option
+val of_int_array : int array -> [< not_secret] t option
 (** Convert an array to a UUID. *)
 
 val to_int_array : 'a t -> int array
 (** Convert a UUID to an array. *)
 
-val uuid_of_int_array : int array -> 'a t option
+val uuid_of_int_array : int array -> [< not_secret] t option
 [@@deprecated "Use Uuidx.of_int_array"]
 (** Deprecated alias for {! Uuidx.of_int_array} *)
 
@@ -145,7 +157,7 @@ val int_array_of_uuid : 'a t -> int array
 [@@deprecated "Use Uuidx.to_int_array"]
 (** Deprecated alias for {! Uuidx.to_int_array} *)
 
-val of_bytes : string -> 'a t option
+val of_bytes : string -> [< not_secret] t option
 
 val to_bytes : 'a t -> string
 
@@ -163,5 +175,5 @@ module Hash : sig
       namespace UUID e93e0639-2bdb-4a59-8b46-352b3f408c19. *)
 
   (* UUID Version 5 derived from argument string and namespace UUID *)
-  val string : string -> 'a t
+  val string : string -> [< not_secret] t
 end

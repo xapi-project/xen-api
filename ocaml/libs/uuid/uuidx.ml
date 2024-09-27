@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type all =
+type without_secret =
   [ `auth
   | `blob
   | `Bond
@@ -57,7 +57,6 @@ type all =
   | `role
   | `SDN_controller
   | `secret
-  | `session
   | `SM
   | `SR
   | `sr_stat
@@ -84,6 +83,12 @@ type all =
   | `VMSS
   | `VTPM
   | `VUSB ]
+
+type secret = [`session]
+
+type not_secret = [without_secret | `session of [`use_make_uuid_rnd_instead]]
+
+type all = [without_secret | secret]
 
 type 'a t = Uuidm.t constraint 'a = [< all]
 

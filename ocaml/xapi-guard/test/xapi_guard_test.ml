@@ -6,7 +6,7 @@ open Xen_api_client_lwt.Xen_api_lwt_unix
 
 module D = Debug.Make (struct let name = "xapi-guard-test" end)
 
-let expected_session_id : [`session] Ref.t = Ref.make ()
+let expected_session_id : [`session] Ref.t = Ref.make_secret ()
 
 let vm : [`VM] Ref.t = Ref.make ()
 

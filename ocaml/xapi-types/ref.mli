@@ -12,6 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type without_secret = Uuidx.without_secret
+
+type secret = Uuidx.secret
+
+type not_secret =
+  [ without_secret
+  | `session of [`use_make_secret_or_ref_of_secret_string_instead] ]
+
 type all = Uuidx.all
 
 type 'a t constraint 'a = [< all]
@@ -22,9 +30,11 @@ val t_of_rpc : (Rpc.t -> 'a) -> Rpc.t -> 'a t
 
 val ref_prefix : string
 
-val make : unit -> 'a t
+val make : unit -> [< not_secret] t
 
-val null : 'a t
+val make_secret : unit -> [< secret] t
+
+val null : _ t
 
 val compare : 'a t -> 'a t -> int
 (** [compare a b] returns [0] if [a] and [b] are equal, a negative integer if
@@ -38,9 +48,11 @@ val to_option : 'a t -> 'a t option
 
 val short_string_of : 'a t -> string
 
-val of_string : string -> 'a t
+val of_string : string -> [< not_secret] t
 
-val make_dummy : string -> 'a t
+val of_secret_string : string -> [< secret] t
+
+val make_dummy : string -> [< not_secret] t
 
 val is_real : 'a t -> bool
 

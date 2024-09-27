@@ -50,7 +50,9 @@ let record_of_event ev =
   match ev.Event_types.ty with
   | "session" ->
       Session
-        (Ref.of_string ev.Event_types.reference, maybe API.session_t_of_rpc rpc)
+        ( Ref.of_secret_string ev.Event_types.reference
+        , maybe API.session_t_of_rpc rpc
+        )
   | "task" ->
       Task (Ref.of_string ev.Event_types.reference, maybe API.task_t_of_rpc rpc)
   | "event" ->

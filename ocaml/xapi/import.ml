@@ -2515,7 +2515,7 @@ let handler (req : Request.t) s _ =
                       if List.mem_assoc "session_id" all then
                         let external_session_id = List.assoc "session_id" all in
                         Xapi_session.consider_touching_session rpc
-                          (Ref.of_string external_session_id)
+                          (Ref.of_secret_string external_session_id)
                       else
                         fun () -> ()
                     in
