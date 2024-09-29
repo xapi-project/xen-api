@@ -51,7 +51,15 @@ let library_filename kind name = Filename.concat (library_path kind) name
 let mkdir_cert_path kind = Unixext.mkdir_rec (library_path kind) 0o700
 
 let rehash' path =
-  ignore (Forkhelpers.execute_command_get_output !Xapi_globs.c_rehash [path])
+  match Sys.file_exists !Xapi_globs.c_rehash with
+  | true ->
+      Forkhelpers.execute_command_get_output !Xapi_globs.c_rehash [path]
+      |> ignore
+  | false ->
+      (* c_rehash will be replaced with openssl sub-command in newer version *)
+      Forkhelpers.execute_command_get_output !Constants.openssl_path
+        ["rehash"; path]
+      |> ignore
 
 let rehash () =
   mkdir_cert_path CA_Certificate ;
