@@ -2054,7 +2054,7 @@ functor
         info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.clean_shutdown ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.clean_shutdown"
-          ~op:`clean_shutdown (fun () ->
+          ~op:`clean_shutdown ~strict:false (fun () ->
             forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
                 Client.VM.clean_shutdown ~rpc ~session_id ~vm
             )
@@ -2073,7 +2073,7 @@ functor
         info "VM.shutdown: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.shutdown ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.shutdown" ~op:`shutdown
-          (fun () ->
+          ~strict:false (fun () ->
             if Db.VM.get_power_state ~__context ~self:vm = `Suspended then (
               debug
                 "VM '%s' is suspended. Shutdown will just delete suspend VDI"
