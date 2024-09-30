@@ -1187,7 +1187,8 @@ let make_batching name ~delay_before ~delay_between =
   (config, (name, Arg.String set, get, desc))
 
 let event_from_delay, event_from_entry =
-  make_batching "event_from" ~delay_before:Mtime.Span.zero
+  make_batching "event_from"
+    ~delay_before:Mtime.Span.(50 * ms)
     ~delay_between:Mtime.Span.(50 * ms)
 
 let event_from_task_delay, event_from_task_entry =
