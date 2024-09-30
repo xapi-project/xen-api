@@ -547,7 +547,7 @@ let call_api_functions ~__context f =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   match Context.get_test_rpc __context with
   | Some rpc ->
-      f rpc (Ref.of_string "fake_session")
+      f rpc (Ref.of_secret_string "fake_session")
   | None ->
       call_api_functions_internal ~__context f
 
@@ -1955,7 +1955,9 @@ end = struct
     (* by default we generate the pool secret using /dev/urandom,
        but if a script to generate the pool secret exists, use that instead *)
     let make_urandom () =
-      Stdlib.List.init 3 (fun _ -> Uuidx.(make_uuid_urnd () |> to_string))
+      Stdlib.List.init 3 (fun _ ->
+          Uuidx.((make_uuid_urnd () : [`session] t) |> to_string)
+      )
       |> String.concat "/"
     in
     let make_script () =

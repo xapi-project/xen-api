@@ -9,7 +9,7 @@ let uuidm =
 let ref_of_uuidm uuidm =
   Ref.ref_prefix ^ (uuidm |> Uuidm.to_string) |> Ref.of_string
 
-type arg
+type arg = [`Generic]
 
 type t = arg Ref.t
 

@@ -65,8 +65,11 @@ let ref_param_of_req (req : Http.Request.t) param_name =
 
 let _session_id = "session_id"
 
+let session_ref_param_of_req (req : Http.Request.t) =
+  lookup_param_of_req req _session_id |> Option.map Ref.of_secret_string
+
 let get_session_id (req : Request.t) =
-  ref_param_of_req req _session_id |> Option.value ~default:Ref.null
+  session_ref_param_of_req req |> Option.value ~default:Ref.null
 
 let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
@@ -138,7 +141,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
   (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
   else
     match
-      ( ref_param_of_req req _session_id
+      ( session_ref_param_of_req req
       , Helpers.secret_string_of_request req
       , req.Http.Request.auth
       )
@@ -203,7 +206,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         )
       else
         match
-          ( ref_param_of_req req _session_id
+          ( session_ref_param_of_req req
           , Helpers.secret_string_of_request req
           , req.Http.Request.auth
           )

@@ -12,7 +12,85 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type 'a t = Uuidm.t
+type without_secret =
+  [ `auth
+  | `blob
+  | `Bond
+  | `Certificate
+  | `Cluster
+  | `Cluster_host
+  | `console
+  | `crashdump
+  | `data_source
+  | `Diagnostics
+  | `DR_task
+  | `event
+  | `Feature
+  | `generation
+  | `Generic
+  | `GPU_group
+  | `host
+  | `host_cpu
+  | `host_crashdump
+  | `host_metrics
+  | `host_patch
+  | `LVHD
+  | `message
+  | `network
+  | `network_sriov
+  | `Observer
+  | `PBD
+  | `PCI
+  | `PGPU
+  | `PIF
+  | `PIF_metrics
+  | `pool
+  | `pool_patch
+  | `pool_update
+  | `probe_result
+  | `PUSB
+  | `PVS_cache_storage
+  | `PVS_proxy
+  | `PVS_server
+  | `PVS_site
+  | `Repository
+  | `role
+  | `SDN_controller
+  | `secret
+  | `SM
+  | `SR
+  | `sr_stat
+  | `subject
+  | `task
+  | `tunnel
+  | `USB_group
+  | `user
+  | `VBD
+  | `VBD_metrics
+  | `VDI
+  | `vdi_nbd_server_info
+  | `VGPU
+  | `VGPU_type
+  | `VIF
+  | `VIF_metrics
+  | `VLAN
+  | `VM
+  | `VM_appliance
+  | `VM_group
+  | `VM_guest_metrics
+  | `VM_metrics
+  | `VMPP
+  | `VMSS
+  | `VTPM
+  | `VUSB ]
+
+type secret = [`session]
+
+type not_secret = [without_secret | `session of [`use_make_uuid_rnd_instead]]
+
+type all = [without_secret | secret]
+
+type 'a t = Uuidm.t constraint 'a = [< all]
 
 let null = Uuidm.nil
 
@@ -38,34 +116,40 @@ let is_uuid str = match of_string str with None -> false | Some _ -> true
 
 let dev_urandom = "/dev/urandom"
 
+let dev_urandom_fd = Unix.openfile dev_urandom [Unix.O_RDONLY] 0o640
+(* we can't close this in at_exit, because Crowbar runs at_exit, and
+   it'll fail because this FD will then be closed
+*)
+
 let read_bytes dev n =
-  let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
-  let finally body_f clean_f =
-    try
-      let ret = body_f () in
-      clean_f () ; ret
-    with e -> clean_f () ; raise e
-  in
-  finally
-    (fun () ->
-      let buf = Bytes.create n in
-      let read = Unix.read fd buf 0 n in
-      if read <> n then
-        raise End_of_file
-      else
-        Bytes.to_string buf
-    )
-    (fun () -> Unix.close fd)
+  let buf = Bytes.create n in
+  let read = Unix.read dev buf 0 n in
+  if read <> n then
+    raise End_of_file
+  else
+    Bytes.to_string buf
 
-let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
+let make_uuid_urnd () = of_bytes (read_bytes dev_urandom_fd 16) |> Option.get
 
-(* Use the CSPRNG-backed urandom *)
-let make = make_uuid_urnd
+(** Use non-CSPRNG by default, for CSPRNG see {!val:make_uuid_urnd} *)
+let make_uuid_fast =
+  let uuid_state = Random.State.make_self_init () in
+  (* On OCaml 5 we could use Random.State.split instead,
+     and on OCaml 4 the mutex may not be strictly needed
+  *)
+  let m = Mutex.create () in
+  let finally () = Mutex.unlock m in
+  let gen = Uuidm.v4_gen uuid_state in
+  fun () -> Mutex.lock m ; Fun.protect ~finally gen
+
+let make_default = ref make_uuid_urnd
+
+let make () = !make_default ()
 
 type cookie = string
 
 let make_cookie () =
-  read_bytes dev_urandom 64
+  read_bytes dev_urandom_fd 64
   |> String.to_seq
   |> Seq.map (fun c -> Printf.sprintf "%1x" (int_of_char c))
   |> List.of_seq

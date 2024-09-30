@@ -615,8 +615,8 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     ~rbac_permissions ~db_ref ~client_certificate =
   Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
   let create_session () =
-    let session_id = Ref.make () in
-    let uuid = Uuidx.to_string (Uuidx.make ()) in
+    let session_id = Ref.make_secret () in
+    let uuid = Uuidx.to_string (Uuidx.make_uuid_urnd ()) in
     let user = Ref.null in
     (* always return a null reference to the deprecated user object *)
     let parent = try Context.get_session_id __context with _ -> Ref.null in
@@ -645,7 +645,7 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
     Ref.string_of session_id
   in
   let session_id =
-    Ref.of_string
+    Ref.of_secret_string
       ( match db_ref with
       | Some db_ref ->
           Xapi_database.Db_backend.create_registered_session create_session

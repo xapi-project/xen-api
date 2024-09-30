@@ -295,7 +295,8 @@ let parse_session_and_args str =
   try
     let line = List.hd args in
     if Astring.String.is_prefix ~affix:"session_id=" line then
-      ( Some (Ref.of_string (String.sub line 11 (String.length line - 11)))
+      ( Some
+          (Ref.of_secret_string (String.sub line 11 (String.length line - 11)))
       , List.tl args
       )
     else
