@@ -138,6 +138,13 @@ jobs:
           name: SDK_Source_CSharp
           path: source/
 
+      - name: Test C# SDK
+        shell: pwsh
+        run: |
+          dotnet test source/XenServerTest `
+          --disable-build-servers `
+          --verbosity=normal
+
       - name: Build C# SDK
         shell: pwsh
         run: |
