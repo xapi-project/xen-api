@@ -15,7 +15,7 @@ module L = Debug.Make (struct let name = "license" end)
 
 module Date = Xapi_stdext_date.Date
 
-let never = Ptime.of_year 2030 |> Option.get |> Date.of_ptime
+let never = Ptime.of_year 2100 |> Option.get |> Date.of_ptime
 
 let serialize_expiry = function
   | None ->
