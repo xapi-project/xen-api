@@ -3179,16 +3179,7 @@ let get_license_state ~__context ~self:_ =
     Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts
       ~edition_to_int
   in
-  let pool_expiry =
-    match expiry with
-    | None ->
-        "never"
-    | Some date ->
-        if date = Date.of_unix_time License_check.never then
-          "never"
-        else
-          Date.to_rfc3339 date
-  in
+  let pool_expiry = License_check.serialize_expiry expiry in
   [("edition", pool_edition); ("expiry", pool_expiry)]
 
 let apply_edition ~__context ~self:_ ~edition =
