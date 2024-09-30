@@ -146,7 +146,7 @@ module Process = struct
           Error (Signal n)
   end
 
-  let create ~env ~prog ~args =
+  let with_process ~env ~prog ~args f =
     let args = Array.of_list (prog :: args) in
     let cmd = (prog, args) in
 
@@ -164,7 +164,7 @@ module Process = struct
       |> Array.of_seq
     in
 
-    Lwt_process.open_process_full ~env cmd
+    Lwt_process.with_process_full ~env cmd f
 
   let close chan () = Lwt_io.close chan
 
@@ -174,7 +174,8 @@ module Process = struct
   let receive chan = Lwt.finalize (fun () -> Lwt_io.read chan) (close chan)
 
   let run ~env ~prog ~args ~input =
-    let p = create ~env ~prog ~args in
+    let ( let@ ) f x = f x in
+    let@ p = with_process ~env ~prog ~args in
     let sender = send p#stdin input in
     let receiver_out = receive p#stdout in
     let receiver_err = receive p#stderr in
