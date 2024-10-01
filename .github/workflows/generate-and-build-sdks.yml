@@ -54,6 +54,7 @@ jobs:
           path: |
             _build/install/default/share/go/*
             !_build/install/default/share/go/dune
+            !_build/install/default/share/go/**/*_test.go
 
       - name: Store Java SDK source
         uses: actions/upload-artifact@v4
