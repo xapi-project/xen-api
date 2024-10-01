@@ -2043,11 +2043,6 @@ let _ =
   in
   configure2 ~name:"xapi-script-storage" ~version:Xapi_version.version
     ~doc:description ~resources ~options () ;
-  if !Xcp_service.daemon then (
-    Xcp_service.maybe_daemonize () ;
-    use_syslog := true ;
-    info "Daemonisation successful."
-  ) ;
   let run () =
     let ( let* ) = ( >>= ) in
     let* observer_enabled = observer_is_component_enabled () in

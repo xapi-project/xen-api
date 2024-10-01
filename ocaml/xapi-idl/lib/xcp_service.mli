@@ -54,13 +54,7 @@ val make :
 
 val serve_forever : server -> unit
 
-val daemon : bool ref
-
 val loglevel : unit -> Syslog.level
-
-val daemonize : ?start_fn:(unit -> unit) -> unit -> unit
-
-val maybe_daemonize : ?start_fn:(unit -> unit) -> unit -> unit
 
 val cli :
      name:string
