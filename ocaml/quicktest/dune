@@ -2,7 +2,7 @@
   (modes exe)
   (name quicktest)
   (public_name quicktestbin)
-  (package xapi)
+  (package xapi-debug)
   (libraries
     alcotest
     astring
@@ -42,7 +42,6 @@
   )
   (preprocess (per_module ((pps ppx_deriving_rpc) Quicktest_vm_lifecycle)))
 )
-
 
 (rule
  (alias runtest)

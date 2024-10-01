@@ -10,6 +10,8 @@ depends: [
   "dune" {>= "3.15"}
   "base-threads"
   "base-unix"
+  "alcotest" {with-test}
+  "fmt" {with-test}
   "odoc" {with-doc}
   "xapi-stdext-pervasives" {= version}
   "mtime" {with-test}

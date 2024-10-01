@@ -27,7 +27,7 @@
     xapi-log
     xapi-rrd
     xapi-rrd.unix
-    xapi-rrdd
+    rrdd_libs
     xapi-stdext-threads
     xapi-stdext-unix
     xmlm
@@ -38,8 +38,6 @@
 (executable
   (modes exe)
   (name xcp_rrdd)
-  (public_name xcp-rrdd)
-  (package xapi-rrdd)
   (modules xcp_rrdd)
   (libraries
     astring
@@ -64,7 +62,7 @@
     xapi-idl.rrd
     xapi-log
     xapi-rrd
-    xapi-rrdd
+    rrdd_libs
     xapi-stdext-pervasives
     xapi-stdext-threads
     xapi-stdext-unix
@@ -75,3 +73,8 @@
   )
 )
 
+(install
+  (package xapi-tools)
+  (files (xcp_rrdd.exe as xcp-rrdd))
+  (section sbin)
+)

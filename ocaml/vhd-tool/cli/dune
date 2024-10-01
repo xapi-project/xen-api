@@ -1,8 +1,6 @@
 (executables
   (modes exe)
   (names main sparse_dd get_vhd_vsize)
-  (package vhd-tool)
-  (public_names vhd-tool sparse_dd get_vhd_vsize)
   (libraries
     astring
     
@@ -40,9 +38,33 @@
   (action (with-stdout-to %{targets} (run %{x} --help)))
 )
 
+; specfile doesn't expect these
+;(install
+;  (package vhd-tool)
+;  (section man)
+;  (files vhd-tool.1 sparse_dd.1))
+
 (install
   (package vhd-tool)
-  (section man)
-  (files vhd-tool.1 sparse_dd.1)
+  (section bin)
+  (files (main.exe as vhd-tool))
 )
 
+(install
+  (package xapi)
+  (section libexec_root)
+  (files
+    (../scripts/get_nbd_extents.py as get_nbd_extents.py)
+    (../scripts/python_nbd_client.py as python_nbd_client.py)
+  )
+)
+
+; xapi's libexec is in /opt/xensource/libexec
+; but vhd-tool installs into /usr/libexec/xapi
+; we should eventually fix these inconsistencies,
+; for now be backwards compatible
+(install
+  (package vhd-tool)
+  (section libexec_root)
+  (files (get_vhd_vsize.exe as xapi/get_vhd_vsize) (sparse_dd.exe as xapi/sparse_dd))
+)

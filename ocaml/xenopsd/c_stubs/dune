@@ -1,6 +1,5 @@
 (library
- (name c_stubs)
- (public_name xapi-xenopsd.c_stubs)
+ (name xapi_xenopsd_c_stubs)
  (wrapped false)
  (foreign_stubs
   (language c)
@@ -9,8 +8,7 @@
 )
 
 (library
- (name xc_stubs)
- (public_name xapi-xenopsd-xc.c_stubs)
+ (name xapi_xenopsd_xc_c_stubs)
  (wrapped false)
  (libraries xenctrl)
  (foreign_stubs

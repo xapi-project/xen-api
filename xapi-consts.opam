@@ -12,7 +12,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
   "dune-build-info"
   "xapi-inventory"
 ]

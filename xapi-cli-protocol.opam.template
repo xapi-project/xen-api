@@ -10,8 +10,9 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
   "base-threads"
+  "alcotest" {with-test}
   "xapi-consts"
   "xapi-datamodel"
   "xapi-stdext-std"

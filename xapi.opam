@@ -10,21 +10,30 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
-  "alcotest"
+  "alcotest" {with-test}
   "angstrom"
+  "astring"
   "base-threads"
   "base64"
+  "bos" {with-test}
   "cdrom"
+  "cmdliner"
+  "cohttp"
   "conf-pam"
   "crowbar" {with-test}
+  "cstruct"
   "ctypes"
   "ctypes-foreign"
   "domain-name"
   "ezxenstore" {= version}
-  "fmt" {with-test}
+  "fmt"
+  "fd-send-recv"
   "hex"
   "http-lib" {with-test & = version}
+  "integers"
   "ipaddr"
+  "logs"
+  "magic-mime"
   "mirage-crypto"
   "mirage-crypto-pk"
   "mirage-crypto-rng" {>= "0.11.0"}
@@ -33,21 +42,32 @@ depends: [
   "opentelemetry-client-ocurl"
   "pci"
   "pciutil" {= version}
+  "polly"
   "ppx_deriving_rpc"
   "ppx_sexp_conv"
   "ppx_deriving"
   "psq"
+  "ptime"
   "qcheck-alcotest"
+  "qcheck-core"
+  "re"
+  "result"
   "rpclib"
   "rrdd-plugin" {= version}
   "rresult"
   "sexpr"
+  "sexplib"
+  "sexplib0"
   "sha"
   "stunnel" {= version}
   "tar"
   "tar-unix"
+  "uri"
   "uuid" {= version}
+  "uutf"
+  "uuidm"
   "x509"
+  "xapi-backtrace"
   "xapi-client" {= version}
   "xapi-cli-protocol" {= version}
   "xapi-consts" {= version}
@@ -65,7 +85,9 @@ depends: [
   "xapi-test-utils" {with-test}
   "xapi-tracing" {= version}
   "xapi-types" {= version}
-  "xapi-xenopsd" {= version}
+  "xenctrl"
+  "xenstore_transport"
+  "xmlm"
   "xml-light2" {= version}
   "yojson"
   "zstd" {= version}

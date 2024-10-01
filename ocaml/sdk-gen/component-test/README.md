@@ -51,7 +51,7 @@ jsonrpc-client is a client that imports the SDK and runs the functions, followin
 
 5. To support the SDK component test, it recommended to move the SDK generated to a sub directory as a local module for import purposes, eg:
 ```
-cp -r ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src jsonrpc-client/go/goSDK
+cp -r ${{ github.workspace }}/_build/install/default/share/go/src jsonrpc-client/go/goSDK
 ```
 then, import the local module.
 ```

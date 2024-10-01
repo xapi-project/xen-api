@@ -15,8 +15,6 @@
 (executable
   (modes exe)
   (name certificate_check_main)
-  (public_name alert-certificate-check)
-  (package xapi)
   (modules certificate_check_main)
   (libraries
     certificate_check
@@ -28,3 +26,8 @@
   )
 )
 
+(install
+  (files (certificate_check_main.exe as alert-certificate-check))
+  (package xapi)
+  (section libexec_root)
+)

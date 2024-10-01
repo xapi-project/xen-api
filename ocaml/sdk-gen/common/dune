@@ -7,6 +7,7 @@
     xapi-datamodel
     mustache
     xapi-stdext-std
+    xapi-stdext-unix
   )
   (modules_without_implementation license)
 )

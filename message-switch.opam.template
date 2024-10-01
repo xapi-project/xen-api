@@ -13,7 +13,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
   "odoc" {with-doc}
   "cmdliner"
   "cohttp-async" {with-test}

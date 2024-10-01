@@ -14,8 +14,9 @@ build: [
 available: [ os = "linux" | os = "macos" ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "alcotest" {with-test}
+  "fmt" {with-test}
   "uuidm"
 ]
 synopsis: "Library required by xapi"

@@ -1,8 +1,6 @@
 (executable
   (modes exe)
   (name rrdp_iostat)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-iostat)
   (libraries
     astring
     cstruct
@@ -12,7 +10,7 @@
     mtime
     mtime.clock.os
     rrdd-plugin
-    rrdd-plugins.libs
+    rrdd_plugins_libs
     str
     stringext
     threads.posix
@@ -31,3 +29,8 @@
   )
 )
 
+(install
+  (package xapi)
+  (files (rrdp_iostat.exe as xcp-rrdd-plugins/xcp-rrdd-iostat))
+  (section libexec_root)
+)

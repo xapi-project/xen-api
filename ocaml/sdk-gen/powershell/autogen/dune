@@ -15,3 +15,8 @@
 )
 
 (data_only_dirs src)
+(install
+	(package xapi-sdk)
+	(section doc)
+	(files (glob_files_rec (autogen/* with_prefix powershell)))
+)

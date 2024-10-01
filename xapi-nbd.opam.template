@@ -10,11 +10,11 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "alcotest" {with-test}
   "alcotest-lwt" {with-test}
   "cmdliner"
-  "lwt" {>= "3.0.0"}
+  "lwt" {>= "3.0.0" & with-test}
   "lwt_log"
   "mirage-block-unix"
   "nbd-unix"

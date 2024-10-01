@@ -25,7 +25,7 @@ let get_deprecated_attribute message =
   | Some versionString ->
       "[Deprecated(\"" ^ get_release_branding versionString ^ "\")]"
 
-let destdir = "autogen/src"
+let destdir = "autogen-out/src"
 
 let templdir = "templates"
 

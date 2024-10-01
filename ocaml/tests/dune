@@ -50,7 +50,7 @@
     xapi-tracing
     xapi-types
     xapi-stdext-pervasives
-    xapi-xenopsd
+    xapi_xenopsd
     xml-light2
   )
   (deps
@@ -186,7 +186,7 @@
 (rule
   (deps ../xenopsd/xc/xenops_xc_main.exe)
   (target xenops_xc_main.disasm)
-  (package xapi-xenopsd-xc)
+  (package xapi-tools)
   (action
     (with-stdout-to %{target}
       (run objdump %{deps} --wide -d --no-show-raw-insn)
@@ -202,7 +202,7 @@
 )
 (rule
   (alias runtest)
-  (package xapi-xenopsd-xc)
+  (package xapi-tools)
   (deps (:script ./unix_select.gawk) (:disasm xenops_xc_main.disasm))
   (action (run gawk -f ./%{script} %{disasm}))
 )

@@ -1,8 +1,6 @@
 (executable
   (modes exe)
   (name cdrommon)
-  (public_name cdrommon)
-  (package xapi)
   (libraries
     cdrom
     threads
@@ -11,3 +9,8 @@
   )
 )
 
+(install
+  (files (cdrommon.exe as cdrommon))
+  (section libexec_root)
+  (package xapi)
+)

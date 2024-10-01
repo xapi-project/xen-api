@@ -16,13 +16,21 @@
 )
 
 (rule
-  (alias jsapigen)
+  (aliases jsapigen xapi-doc)
   (deps
     (:x jsapi.exe)
     (source_tree templates)
   )
+  (targets (dir api) branding.js)
   (package xapi-datamodel)
   (action (run %{x}))
+)
+
+(rule
+  (alias xapi-doc)
+  (package xapi)
+  (targets (dir jekyll))
+  (action (run ../idl/json_backend/gen_json.exe -destdir jekyll))
 )
 
 (rule
@@ -30,9 +38,25 @@
   (deps
     (:x jsapi.exe)
     (source_tree templates)
+    (sandbox always)
   )
   (package xapi-datamodel)
   (action (run %{x}))
 )
 
 (data_only_dirs templates)
+
+(install
+  (package xapi)
+  (section share_root)
+  (dirs jekyll)
+  (files
+    (glob_files_rec (api/* with_prefix html/api))
+    (glob_files (*.html with_prefix html))
+    (glob_files (*.css with_prefix html))
+    (glob_files (*.js with_prefix html))
+    (glob_files ([!R]*.md with_prefix markdown))
+    (glob_files *.dot)
+    doc-convert.sh
+  )
+)
