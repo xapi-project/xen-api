@@ -304,6 +304,7 @@
     ; 'xapi-tools' will have version ~dev, not 'master' like all the others
     ; because it is not in xs-opam yet
     rrd-transport
+    xapi-tracing-export
     (alcotest :with-test)
     (ppx_deriving_rpc :with-test)
     (qcheck-core :with-test)
@@ -391,6 +392,7 @@
     (xapi-stdext-zerocheck (= :version))
     (xapi-test-utils :with-test)
     (xapi-tracing (= :version))
+    (xapi-tracing-export (= :version))
     (xapi-types (= :version))
     xenctrl ; for quicktest
     xenstore_transport
