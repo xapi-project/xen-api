@@ -90,7 +90,7 @@ let string_of_operation = function
         (string_of_choice p.sector)
 
 let descr_of_program p =
-  let lines = List.concat (List.map descr_of_operation p) in
+  let lines = List.concat_map descr_of_operation p in
   List.rev
     (fst
        (List.fold_left

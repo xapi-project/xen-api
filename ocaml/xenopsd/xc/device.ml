@@ -1100,7 +1100,7 @@ module PCI = struct
       )
 
   (* From
-     https://github.com/torvalds/linux/blob/v4.19/include/linux/pci.h#L76-L102 *)
+      https://github.com/torvalds/linux/blob/v4.19/include/linux/pci.h#L76-L102 *)
   (* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
   let _proc_pci_num_resources = 7
 
@@ -1112,7 +1112,7 @@ module PCI = struct
   let _xen_domctl_dev_rdm_relaxed = 1
 
   (* XXX: we don't want to use the 'xl' command here because the "interface"
-     isn't considered as stable as the C API *)
+      isn't considered as stable as the C API *)
   let xl_pci cmd pcidevs domid =
     List.iter
       (fun dev ->
@@ -1141,7 +1141,7 @@ module PCI = struct
     Printf.sprintf "%s/backend/pci/%d/0" be_path fe_domid
 
   (* Given a domid, return a list of [ X, (domain, bus, dev, func) ] where X
-     indicates the order in which the device was plugged. *)
+      indicates the order in which the device was plugged. *)
   let read_pcidir ~xs domid =
     let path = device_model_pci_device_path xs 0 domid in
     let prefix = "dev-" in
@@ -1436,7 +1436,7 @@ module PCI = struct
   let nvidia_manage = "/usr/lib/nvidia/sriov-manage"
 
   (** [num_vfs devstr] returns the number of PCI VFs of [devstr] or 0 if
-      [devstr] is not an SRIOV device *)
+        [devstr] is not an SRIOV device *)
   let num_vfs devstr =
     let path = sysfs_devices // devstr // "sriov_numvfs" in
     try Some (Unixext.string_of_file path |> String.trim |> int_of_string) with
@@ -1448,8 +1448,8 @@ module PCI = struct
           (Printexc.to_string exn)
 
   (** [vfs_of device] returns the PCI addresses of the virtual functions of PCI
-      [device]. We find each virtual function by looking at the virtfnX symlink
-      in [device]. *)
+        [device]. We find each virtual function by looking at the virtfnX symlink
+        in [device]. *)
   let vfs_of devstr =
     let virtfn n =
       let path = sysfs_devices // devstr // Printf.sprintf "virtfn%d" n in
@@ -1466,8 +1466,8 @@ module PCI = struct
         []
 
   (** [deactivate_nvidia_sriov devstr] deactivates SRIOV PCI VFs of [devstr] if
-      necessary. This needs to be called for NVidia GPUs before using [devstr]
-      as a pass-through GPU. *)
+        necessary. This needs to be called for NVidia GPUs before using [devstr]
+        as a pass-through GPU. *)
   let deactivate_nvidia_sriov devstr =
     let cmd = nvidia_manage in
     let args = ["-d"; devstr] in
@@ -1916,7 +1916,7 @@ end = struct
         None
 
   (** query qemu for the serial console and write it to xenstore. Only write
-      path for a real console, not a file or socket path. CA-318579 *)
+        path for a real console, not a file or socket path. CA-318579 *)
   let update_xenstore ~xs domid =
     if not @@ Service.Qemu.is_running ~xs domid then
       internal_error "Qemu not running for domain %d (%s)" domid __LOC__ ;
@@ -1934,12 +1934,12 @@ end
 let can_surprise_remove ~xs (x : device) = Generic.can_surprise_remove ~xs x
 
 (** Dm_Common contains the private Dm functions that are common between the qemu
-    profile backends. *)
+        profile backends. *)
 module Dm_Common = struct
   (* An example one: [/usr/lib/xen/bin/qemu-dm -d 39 -m 256 -boot cd -serial pty
-     -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee
-     -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net
-     tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1] *)
+      -usb -usbdevice tablet -domain-name bee94ac1-8f97-42e0-bf77-5cb7a6b664ee
+      -net nic,vlan=1,macaddr=00:16:3E:76:CE:44,model=rtl8139 -net
+      tap,vlan=1,bridge=xenbr0 -vnc 39 -k en-us -vnclisten 127.0.0.1] *)
 
   type usb_opt = Enabled of (string * int) list | Disabled
 
@@ -2081,7 +2081,7 @@ module Dm_Common = struct
     let vga_type_opts x =
       let open Xenops_interface.Vgpu in
       (* We can match on the implementation details to detect the VCS
-         case. Don't pass -vgpu for a compute vGPU. *)
+          case. Don't pass -vgpu for a compute vGPU. *)
       match x with
       | Vgpu ({implementation= Nvidia {vclass= Some "Compute"; _}; _} :: _) ->
           ["-std-vga"]
@@ -2099,7 +2099,7 @@ module Dm_Common = struct
             ; Int64.to_string gvt_g.fence_sz
             ]
           and priv_opt = ["-priv"] in
-          List.flatten [base_opts; priv_opt]
+          List.concat [base_opts; priv_opt]
       | Vgpu [{implementation= MxGPU _; _}] ->
           []
       | Vgpu _ ->
@@ -2136,7 +2136,7 @@ module Dm_Common = struct
       in
       let vnc_opt = ["-vnc"; vnc_arg] in
       let keymap_opt = match keymap with Some k -> ["-k"; k] | None -> [] in
-      List.flatten [unused_opt; vnc_opt; keymap_opt]
+      List.concat [unused_opt; vnc_opt; keymap_opt]
     in
     let disp_options, wait_for_port =
       match info.disp with
@@ -2166,17 +2166,15 @@ module Dm_Common = struct
         ; (info.acpi |> function false -> [] | true -> ["-acpi"])
         ; (restore |> function false -> [] | true -> ["-loadvm"; restorefile])
         ; info.pci_emulations
-          |> List.map (fun pci -> ["-pciemulation"; pci])
-          |> List.concat
+          |> List.concat_map (fun pci -> ["-pciemulation"; pci])
         ; (info.pci_passthrough |> function false -> [] | true -> ["-priv"])
         ; List.rev info.extras
-          |> List.map (function
+          |> List.concat_map (function
                | k, None ->
                    ["-" ^ k]
                | k, Some v ->
                    ["-" ^ k; v]
                )
-          |> List.concat
         ; (info.monitor |> function None -> [] | Some x -> ["-monitor"; x])
         ; ["-pidfile"; Service.Qemu.pidfile_path domid]
         ]
@@ -2193,15 +2191,14 @@ module Dm_Common = struct
     let root = Device_common.xenops_domain_path in
     try
       (* NB: The response size of this directory call may exceed the default
-         payload size limit. However, we have an exception that allows oversized
-         packets. *)
+          payload size limit. However, we have an exception that allows oversized
+          packets. *)
       xs.Xs.directory root
-      |> List.map (fun domid ->
+      |> List.concat_map (fun domid ->
              let path = Printf.sprintf "%s/%s/device/vgpu" root domid in
              try List.map (fun x -> path ^ "/" ^ x) (xs.Xs.directory path)
              with Xs_protocol.Enoent _ -> []
          )
-      |> List.concat
       |> List.exists (fun vgpu ->
              try
                let path = Printf.sprintf "%s/pf" vgpu in
@@ -2365,20 +2362,20 @@ module Backend = struct
   (** Common signature for all the profile backends *)
   module type Intf = sig
     (** Vgpu functions that use the dispatcher to choose between different
-        profile and device-model backends *)
+            profile and device-model backends *)
     module Vgpu : sig
       val device : index:int -> int option
     end
 
     (** Vbd functions that use the dispatcher to choose between different
-        profile backends *)
+            profile backends *)
     module Vbd : sig
       val qemu_media_change :
         xs:Ezxenstore_core.Xenstore.Xs.xsh -> device -> string -> string -> unit
     end
 
     (** Vcpu functions that use the dispatcher to choose between different
-        profile backends *)
+            profile backends *)
     module Vcpu : sig
       val add :
         xs:Ezxenstore_core.Xenstore.Xs.xsh -> devid:int -> int -> bool -> unit
@@ -2393,17 +2390,17 @@ module Backend = struct
     end
 
     (** Dm functions that use the dispatcher to choose between different profile
-        backends *)
+            backends *)
     module Dm : sig
       val get_vnc_port :
         xs:Ezxenstore_core.Xenstore.Xs.xsh -> int -> Socket.t option
       (** [get_vnc_port xenstore domid] returns the dom0 tcp port in which the
-          vnc server for [domid] can be found *)
+            vnc server for [domid] can be found *)
 
       val assert_can_suspend :
         xs:Ezxenstore_core.Xenstore.Xs.xsh -> Xenctrl.domid -> unit
       (** [assert_can_suspend xenstore xc] checks whether suspending is
-          prevented by QEMU *)
+            prevented by QEMU *)
 
       val suspend :
            Xenops_task.task_handle
@@ -2426,7 +2423,7 @@ module Backend = struct
         -> 'a
         -> Forkhelpers.pidty
       (** [init_daemon task path args domid xenstore ready_path timeout cancel]
-          returns a forkhelper pid after starting the qemu daemon in dom0 *)
+            returns a forkhelper pid after starting the qemu daemon in dom0 *)
 
       val stop :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
@@ -2444,7 +2441,7 @@ module Backend = struct
         -> int
         -> Dm_Common.qemu_args
       (** [cmdline_of_info xenstore info restore domid] creates the command line
-          arguments to pass to the qemu wrapper script *)
+            arguments to pass to the qemu wrapper script *)
 
       val after_suspend_image :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
@@ -2453,7 +2450,7 @@ module Backend = struct
         -> int
         -> unit
       (** [after_suspend_image xs qemu_domid domid] hook to execute actions
-          after the suspend image has been created *)
+            after the suspend image has been created *)
 
       val pci_assign_guest :
            xs:Ezxenstore_core.Xenstore.Xs.xsh
@@ -2464,18 +2461,18 @@ module Backend = struct
   end
 
   (** Implementation of the backend common signature for the qemu-none (PV)
-      backend *)
+        backend *)
   module Qemu_none : Intf = struct
     module Vgpu = struct let device ~index:_ = None end
 
     (** Implementation of the Vbd functions that use the dispatcher for the
-        qemu-none backend *)
+            qemu-none backend *)
     module Vbd = struct
       let qemu_media_change = Vbd_Common.qemu_media_change
     end
 
     (** Implementation of the Vcpu functions that use the dispatcher for the
-        qemu-none backend *)
+            qemu-none backend *)
     module Vcpu = struct
       let add = Vcpu_Common.add
 
@@ -2487,7 +2484,7 @@ module Backend = struct
     end
 
     (** Implementation of the Dm functions that use the dispatcher for the
-        qemu-none backend *)
+            qemu-none backend *)
     module Dm = struct
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
@@ -2525,7 +2522,7 @@ module Backend = struct
   (* Backend.Qemu_none *)
 
   (** Implementation of the backend common signature for the
-      qemu-upstream-compat backend *)
+        qemu-upstream-compat backend *)
   module type Qemu_upstream_config = sig
     module NIC : sig
       val max_emulated : int
@@ -2686,7 +2683,7 @@ module Backend = struct
 
     let extra_qemu_args ~nic_type =
       let mult xs ys =
-        List.map (fun x -> List.map (fun y -> x ^ "." ^ y) ys) xs |> List.concat
+        List.concat_map (fun x -> List.map (fun y -> x ^ "." ^ y) ys) xs
       in
       List.concat
         [
@@ -2696,8 +2693,7 @@ module Backend = struct
         ; mult
             ["piix3-ide-xen"; "piix3-usb-uhci"; nic_type]
             ["subvendor_id=0x5853"; "subsystem_id=0x0001"]
-          |> List.map (fun x -> ["-global"; x])
-          |> List.concat
+          |> List.concat_map (fun x -> ["-global"; x])
         ]
   end
 
@@ -2846,11 +2842,11 @@ module Backend = struct
     let update_cant_suspend domid xs =
       let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
       (* changing this will cause fire_event_on_vm to get called, which will do
-         a VM.check_state, which will trigger a VM.stat from XAPI to update
-         migratable state *)
+          a VM.check_state, which will trigger a VM.stat from XAPI to update
+          migratable state *)
       let path = Dm_Common.cant_suspend_reason_path domid in
       (* This will raise QMP_Error if it can't do it, we catch it and update
-         xenstore. *)
+          xenstore. *)
       match qmp_send_cmd ~may_fail:true domid Qmp.Query_migratable with
       | Qmp.Unit ->
           debug "query-migratable precheck passed (domid=%d)" domid ;
@@ -2984,7 +2980,7 @@ module Backend = struct
     module Vgpu = struct let device = DefaultConfig.VGPU.device end
 
     (** Implementation of the Vbd functions that use the dispatcher for the
-        qemu-upstream-compat backend *)
+            qemu-upstream-compat backend *)
     module Vbd = struct
       let cd_of devid =
         match
@@ -3004,8 +3000,8 @@ module Backend = struct
             internal_error "unexpected disk for devid %d" devid
 
       (* parse NBD URI. We are not using the URI module because the
-         format is not compliant but used by qemu. Using sscanf instead
-         to recognise and parse the specific URI *)
+          format is not compliant but used by qemu. Using sscanf instead
+          to recognise and parse the specific URI *)
       let is_nbd str =
         try Scanf.sscanf str "nbd:unix:%s@:exportname=%s" (fun _ _ -> true)
         with _ -> false
@@ -3101,7 +3097,7 @@ module Backend = struct
     (* Backend.Qemu_upstream_compat.Vbd *)
 
     (** Implementation of the Vcpu functions that use the dispatcher for the
-        qemu-upstream-compat backend *)
+            qemu-upstream-compat backend *)
     module Vcpu = struct
       let add = Vcpu_Common.add
 
@@ -3110,7 +3106,7 @@ module Backend = struct
       let status = Vcpu_Common.status
 
       (* hot(un)plug vcpu using QMP, keeping backwards-compatible xenstored
-         mechanism *)
+          mechanism *)
       let set ~xs ~devid domid online =
         Vcpu_Common.set ~xs ~devid domid online ;
         match online with
@@ -3156,7 +3152,7 @@ module Backend = struct
     end
 
     (** Implementation of the Dm functions that use the dispatcher for the
-        qemu-upstream-compat backend *)
+            qemu-upstream-compat backend *)
     module Dm = struct
       let get_vnc_port ~xs domid =
         Dm_Common.get_vnc_port ~xs domid ~f:(fun () ->
@@ -3212,7 +3208,7 @@ module Backend = struct
           (fun () -> Unix.close save_fd)
 
       (* Wait for QEMU's event socket to appear. Connect to it to make sure it
-         is ready. *)
+          is ready. *)
       let wait_event_socket ~task ~name ~domid ~timeout =
         let finished = ref false in
         let timeout_ns = Int64.of_float (timeout *. 1e9) in
@@ -3296,10 +3292,9 @@ module Backend = struct
           | Dm_Common.Enabled devices ->
               let devs =
                 devices
-                |> List.map (fun (x, y) ->
+                |> List.concat_map (fun (x, y) ->
                        ["-device"; sprintf "usb-%s,port=%d" x y]
                    )
-                |> List.concat
               in
               "-usb" :: devs
         in
@@ -3357,13 +3352,12 @@ module Backend = struct
             ) ;
         let qmp =
           ["libxl"; "event"]
-          |> List.map (fun x ->
+          |> List.concat_map (fun x ->
                  [
                    "-qmp"
                  ; sprintf "unix:/var/run/xen/qmp-%s-%d,server,nowait" x domid
                  ]
              )
-          |> List.concat
         in
         let pv_device addr =
           try
@@ -3525,11 +3519,11 @@ module Backend = struct
   (* Backend.Qemu_upstream *)
 
   (** Implementation of the backend common signature for the qemu-upstream
-      backend *)
+        backend *)
   module Qemu_upstream_compat = Make_qemu_upstream (Config_qemu_upstream_compat)
 
   (** Until the stage 4 defined in the qemu upstream design is implemented,
-      qemu_upstream behaves as qemu_upstream_compat *)
+        qemu_upstream behaves as qemu_upstream_compat *)
   module Qemu_upstream = Qemu_upstream_compat
 
   module Qemu_upstream_uefi = Make_qemu_upstream (Config_qemu_upstream_uefi)
@@ -3663,7 +3657,7 @@ module Dm = struct
         ()
 
   (* the following functions depend on the functions above that use the qemu
-     backend Q *)
+      backend Q *)
 
   let start_vgpu ~xc:_ ~xs task ?(restore = false) domid vgpus vcpus profile =
     let open Xenops_interface.Vgpu in

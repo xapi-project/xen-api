@@ -1015,12 +1015,11 @@ let xenguest_args_pv ~domid ~store_port ~store_domid ~console_port
 let xenguest_args_pvh ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory ~kernel ~cmdline ~modules =
   let module_args =
-    List.map
+    List.concat_map
       (fun (m, c) ->
         "-module" :: m :: (match c with Some x -> ["-cmdline"; x] | None -> [])
       )
       modules
-    |> List.flatten
   in
   [
     "-mode"

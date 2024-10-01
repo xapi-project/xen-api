@@ -4222,7 +4222,7 @@ module VIF = struct
               ]
             )
             srvs
-          |> List.flatten
+          |> List.concat
         in
         ("pvs-site", s)
         :: ("pvs-interface", iface)

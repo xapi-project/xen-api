@@ -99,11 +99,9 @@ let rec strings_of_dtd_element known_els = function
           Hashtbl.remove known_els name ;
           sprintf "%s%s>" prefix body
           :: (strings_of_attributes name attributes
-             @ List.concat
-                 (List.map
-                    (strings_of_dtd_element known_els)
-                    (List.filter is_element els)
-                 )
+             @ List.concat_map
+                 (strings_of_dtd_element known_els)
+                 (List.filter is_element els)
              )
       ) else
         []
@@ -166,4 +164,4 @@ let of_objs api =
   let xs = objects_of_api api in
   let known_els = Hashtbl.create 10 in
   let elements = List.map (dtd_element_of_obj known_els) xs in
-  List.concat (List.map (strings_of_dtd_element known_els) elements)
+  List.concat_map (strings_of_dtd_element known_els) elements

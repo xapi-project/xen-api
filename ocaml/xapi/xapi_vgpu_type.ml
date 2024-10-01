@@ -508,7 +508,7 @@ module Vendor_nvidia = struct
     | E (n, _, _) as t when n = name ->
         [t]
     | E (_, _, ch) ->
-        List.map (find_by_name name) ch |> List.concat
+        List.concat_map (find_by_name name) ch
     | D _ ->
         []
 

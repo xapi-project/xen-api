@@ -73,7 +73,7 @@ let create rra_timestep rras first_rra last_cdp_time first_cdp_time start
       let extract_row rra =
         List.map (fun ring -> Fring.peek ring i) (Array.to_list rra.rra_data)
       in
-      let values = List.concat (List.map extract_row rras) in
+      let values = List.concat_map extract_row rras in
       do_data (i + 1) ({time; row_data= Array.of_list values} :: accum)
   in
 
@@ -283,7 +283,7 @@ let create_multi prefixandrrds start interval cfopt =
       )
   in
 
-  let rras = List.flatten rras in
+  let rras = List.concat rras in
 
   (* The following timestep is that of the archive *)
   let rra_timestep = Int64.mul timestep (Int64.of_int first_rra.rra_pdp_cnt) in

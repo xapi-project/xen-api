@@ -195,7 +195,7 @@ let map_with_drop ?(doc = "performing unknown operation") f xs =
         (ExnHelper.string_of_exn e) ;
       []
   in
-  List.concat (List.map one xs)
+  List.concat_map one xs
 
 (* Iterate a function across a list, ignoring applications which throw an exception *)
 let iter_with_drop ?(doc = "performing unknown operation") f xs =

@@ -79,9 +79,7 @@ let vm_access_costs host all_vms (vcpus, nodes, cpuset) =
   in
   D.debug "Costs: %s" (Fmt.to_to_string pp costs) ;
   let cpus = float @@ CPUSet.cardinal cpuset in
-  let nodes =
-    all_vms |> List.map (fun ((_, nodes), _) -> nodes) |> List.flatten
-  in
+  let nodes = all_vms |> List.concat_map (fun ((_, nodes), _) -> nodes) in
   {costs with average= costs.average /. cpus; nodes}
 
 let cost_not_worse ~default c =

@@ -61,7 +61,7 @@ let to_sectors bufs =
         (Cstruct.sub remaining 0 available :: acc)
         (Cstruct.shift remaining available)
   in
-  List.concat (List.map (loop []) bufs)
+  List.concat_map (loop []) bufs
 
 let forall_sectors f offset bufs =
   let rec one offset = function

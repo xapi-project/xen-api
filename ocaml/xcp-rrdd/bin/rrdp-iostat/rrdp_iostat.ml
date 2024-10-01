@@ -52,7 +52,7 @@ let update_vdi_to_vm_map () =
               (* Get VBDs for this domain *)
               let enoents = ref 0 in
               let vbds =
-                List.map
+                List.concat_map
                   (fun base_path ->
                     try
                       let path = Printf.sprintf "%s/%d" base_path domid in
@@ -75,7 +75,6 @@ let update_vdi_to_vm_map () =
                       []
                   )
                   base_paths
-                |> List.flatten
               in
 
               if !enoents = List.length base_paths then
@@ -103,7 +102,7 @@ let update_vdi_to_vm_map () =
                 vbds
             )
             domUs
-          |> List.flatten
+          |> List.concat
       )
     with e ->
       D.error "Error while constructing VDI-to-VM map: %s" (Printexc.to_string e) ;
@@ -1080,34 +1079,30 @@ let gen_metrics () =
   in
   (* Lookup the VM(s) for this VDI and associate with the RRD for those VM(s) *)
   let data_sources_vm_iostats =
-    List.flatten
-      (List.map
-         (fun ((_sr, vdi), iostats_value) ->
-           let create_metrics (vm, pos, _devid) =
-             let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
-             Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
-               iostats_value
-           in
-           let vms = list_all_assocs vdi vdi_to_vm in
-           List.map create_metrics vms
-         )
-         sr_vdi_to_iostats_values
+    List.concat_map
+      (fun ((_sr, vdi), iostats_value) ->
+        let create_metrics (vm, pos, _devid) =
+          let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
+          Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
+            iostats_value
+        in
+        let vms = list_all_assocs vdi vdi_to_vm in
+        List.map create_metrics vms
       )
+      sr_vdi_to_iostats_values
   in
   let data_sources_vm_stats =
-    List.flatten
-      (List.map
-         (fun ((_sr, vdi), stats_value) ->
-           let create_metrics (vm, pos, _devid) =
-             let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
-             Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
-               stats_value
-           in
-           let vms = list_all_assocs vdi vdi_to_vm in
-           List.map create_metrics vms
-         )
-         sr_vdi_to_stats_values
+    List.concat_map
+      (fun ((_sr, vdi), stats_value) ->
+        let create_metrics (vm, pos, _devid) =
+          let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
+          Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
+            stats_value
+        in
+        let vms = list_all_assocs vdi vdi_to_vm in
+        List.map create_metrics vms
       )
+      sr_vdi_to_stats_values
   in
 
   (* convert recent stats data to hashtbl for next iterator use *)
@@ -1122,7 +1117,7 @@ let gen_metrics () =
   sr_vdi_to_last_stats_values := Some (to_hashtbl sr_vdi_to_stats) ;
   domid_devid_to_last_stats_blktap3 := Some domid_devid_to_stats_blktap3 ;
 
-  List.flatten
+  List.concat
     (data_sources_stats
     @ data_sources_iostats
     @ data_sources_vm_stats

@@ -285,20 +285,18 @@ let gen_client highapi =
     )
 
 let add_set_enums types =
-  List.concat
-    (List.map
-       (fun ty ->
-         match ty with
-         | DT.Enum _ ->
-             if List.exists (fun ty2 -> ty2 = DT.Set ty) types then
-               [ty]
-             else
-               [DT.Set ty; ty]
-         | _ ->
-             [ty]
-       )
-       types
+  List.concat_map
+    (fun ty ->
+      match ty with
+      | DT.Enum _ ->
+          if List.exists (fun ty2 -> ty2 = DT.Set ty) types then
+            [ty]
+          else
+            [DT.Set ty; ty]
+      | _ ->
+          [ty]
     )
+    types
 
 let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
 

@@ -382,7 +382,7 @@ and gen_class out_chan cls =
     gen_overloads generator message
   in
   let all_methods =
-    messages |> List.map (gen_exposed_method_overloads cls) |> List.concat
+    messages |> List.concat_map (gen_exposed_method_overloads cls)
   in
   List.iter (print "%s") all_methods ;
   List.iter (gen_exposed_field out_chan cls) contents ;
@@ -581,7 +581,7 @@ and exposed_call_params message classname params =
 
 (* 'messages' are methods, 'contents' are fields *)
 and gen_save_changes out_chan exposed_class_name messages contents =
-  let fields = List.flatten (List.map flatten_content contents) in
+  let fields = List.concat_map flatten_content contents in
   let fields2 =
     List.filter
       (fun fr -> fr.qualifier == RW && not (List.mem "public" fr.full_name))
@@ -620,7 +620,7 @@ and flatten_content content =
   | Field fr ->
       [fr]
   | Namespace (_, c) ->
-      List.flatten (List.map flatten_content c)
+      List.concat_map flatten_content c
 
 and gen_save_changes_to_field out_chan exposed_class_name fr =
   let print format = fprintf out_chan format in
@@ -675,9 +675,7 @@ and gen_exposed_field out_chan cls content =
       List.iter (gen_exposed_field out_chan cls) c
 
 and gen_proxy protocol =
-  let all_methods =
-    classes |> List.map gen_proxy_class_methods |> List.concat
-  in
+  let all_methods = classes |> List.concat_map gen_proxy_class_methods in
   match protocol with
   | CommonFunctions.JsonRpc ->
       let json_method x = `O [("client_method", `String x)] in
@@ -690,7 +688,7 @@ and gen_proxy_class_methods {name; messages; _} =
     let generator params = gen_proxy_method name message params in
     gen_overloads generator message
   in
-  messages |> List.map (gen_message_overloads name) |> List.concat
+  messages |> List.concat_map (gen_message_overloads name)
 
 and gen_proxy_method classname message params =
   let proxy_msg_name = proxy_msg_name classname message in
