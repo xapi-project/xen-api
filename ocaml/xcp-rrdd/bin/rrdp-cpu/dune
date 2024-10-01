@@ -1,0 +1,21 @@
+(executable
+  (modes exe)
+  (name rrdp_cpu)
+  (libraries
+    astring
+    rrdd-plugin
+    rrdd-plugin.xenctrl
+    rrdd_plugins_libs
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xapi-stdext-unix
+    xenctrl
+  )
+)
+
+(install
+  (package xapi)
+  (files (rrdp_cpu.exe as xcp-rrdd-plugins/xcp-rrdd-cpu))
+  (section libexec_root)
+)

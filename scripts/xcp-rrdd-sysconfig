@@ -1,0 +1,3 @@
+# Additional options for the XCP RRD deamon.
+# XCP_RRDD_OPTIONS= : any extra command-line startup arguments for xcp-rddd
+XCP_RRDD_OPTIONS=

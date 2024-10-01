@@ -109,7 +109,7 @@ quality-gate:
 
 install-scripts:
 	$(MAKE) -C scripts install
-	
+
 install-python3:
 	$(MAKE) -C python3 install
 
@@ -164,7 +164,7 @@ install-dune1:
 	dune install $(DUNE_IU_PACKAGES1)
 
 DUNE_IU_PACKAGES2=-j $(JOBS) --destdir=$(DESTDIR) --prefix=$(OPTDIR) --libdir=$(LIBDIR) --mandir=$(MANDIR) --libexecdir=$(OPTDIR)/libexec --datadir=$(DOCDIR)  xapi xe
-	
+
 install-dune2:
 	dune install $(DUNE_IU_PACKAGES2)
 
