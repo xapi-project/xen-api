@@ -786,26 +786,51 @@ let scan ~__context ~sr =
   SRScanThrottle.execute (fun () ->
       transform_storage_exn (fun () ->
           let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
-          let vs, sr_info =
-            C.SR.scan2 (Ref.string_of task)
-              (Storage_interface.Sr.of_string sr_uuid)
+          (* CA-399757: Do not update_vdis unless we are sure that the db was not
+             changed during the scan. If it was, retry the scan operation. This
+             change might be a result of the SMAPIv1 call back into xapi with
+             the db_introduce call, for example.
+
+             Note this still suffers TOCTOU problem, but a complete operation is not easily
+             implementable without rearchitecting the storage apis *)
+          let rec scan_rec limit =
+            let find_vdis () =
+              Db.VDI.get_records_where ~__context
+                ~expr:(Eq (Field "SR", Literal sr'))
+            in
+            let db_vdis_before = find_vdis () in
+            let vs, sr_info =
+              C.SR.scan2 (Ref.string_of task)
+                (Storage_interface.Sr.of_string sr_uuid)
+            in
+            let db_vdis_after = find_vdis () in
+            if limit > 0 && db_vdis_after <> db_vdis_before then
+              (scan_rec [@tailcall]) (limit - 1)
+            else if limit = 0 then
+              raise
+                (Api_errors.Server_error
+                   (Api_errors.internal_error, ["SR.scan retry limit exceeded"])
+                )
+            else (
+              update_vdis ~__context ~sr db_vdis_after vs ;
+              let virtual_allocation =
+                List.fold_left
+                  (fun acc v -> Int64.add v.Storage_interface.virtual_size acc)
+                  0L vs
+              in
+              Db.SR.set_virtual_allocation ~__context ~self:sr
+                ~value:virtual_allocation ;
+              Db.SR.set_physical_size ~__context ~self:sr
+                ~value:sr_info.total_space ;
+              Db.SR.set_physical_utilisation ~__context ~self:sr
+                ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
+              Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty" ;
+              Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered
+            )
           in
-          let db_vdis =
-            Db.VDI.get_records_where ~__context
-              ~expr:(Eq (Field "SR", Literal sr'))
-          in
-          update_vdis ~__context ~sr db_vdis vs ;
-          let virtual_allocation =
-            List.fold_left Int64.add 0L
-              (List.map (fun v -> v.Storage_interface.virtual_size) vs)
-          in
-          Db.SR.set_virtual_allocation ~__context ~self:sr
-            ~value:virtual_allocation ;
-          Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space ;
-          Db.SR.set_physical_utilisation ~__context ~self:sr
-            ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
-          Db.SR.remove_from_other_config ~__context ~self:sr ~key:"dirty" ;
-          Db.SR.set_clustered ~__context ~self:sr ~value:sr_info.clustered
+          (* XXX Retry 10 times, and then give up. We should really expect to
+             reach this retry limit though, unless something really bad has happened.*)
+          scan_rec 10
       )
   )
 
