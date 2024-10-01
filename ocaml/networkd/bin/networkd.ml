@@ -224,15 +224,11 @@ let () =
       ~rpc_fn:(Idl.Exn.server Network_server.S.implementation)
       ()
   in
-  Xcp_service.maybe_daemonize
-    ~start_fn:(fun () ->
-      Debug.set_facility Syslog.Local5 ;
-      (* We should make the following configurable *)
-      Debug.disable "http" ;
-      handle_shutdown () ;
-      Debug.with_thread_associated "main" start server
-    )
-    () ;
+  Debug.set_facility Syslog.Local5 ;
+  (* We should make the following configurable *)
+  Debug.disable "http" ;
+  handle_shutdown () ;
+  Debug.with_thread_associated "main" start server ;
   let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
   if Daemon.systemd_notify Daemon.State.Ready then
     ()

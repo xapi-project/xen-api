@@ -31,10 +31,6 @@ let log_destination = ref "syslog:daemon"
 
 let log_level = ref Syslog.Debug
 
-let daemon = ref false
-
-let have_daemonized () = Unix.getppid () = 1
-
 let common_prefix = "org.xen.xapi."
 
 let finally f g =
@@ -195,11 +191,6 @@ let common_options =
     , Arg.Set_string log_destination
     , (fun () -> !log_destination)
     , "Where to write log messages"
-    )
-  ; ( "daemon"
-    , Arg.Bool (fun x -> daemon := x)
-    , (fun () -> string_of_bool !daemon)
-    , "True if we are to daemonise"
     )
   ; ( "disable-logging-for"
     , Arg.String
@@ -552,8 +543,6 @@ let http_handler call_of_string string_of_response process s =
         Response.write (fun _t -> ()) response oc
   )
 
-let ign_int (t : int) = ignore t
-
 let default_raw_fn rpc_fn s =
   http_handler Xmlrpc.call_of_string Xmlrpc.string_of_response rpc_fn s
 
@@ -634,52 +623,6 @@ let serve_forever = function
       in
       let rec forever () = Thread.delay 3600. ; forever () in
       forever ()
-
-let pidfile_write filename =
-  let fd =
-    Unix.openfile filename [Unix.O_WRONLY; Unix.O_CREAT; Unix.O_TRUNC] 0o640
-  in
-  finally
-    (fun () ->
-      let pid = Unix.getpid () in
-      let buf = string_of_int pid ^ "\n" |> Bytes.of_string in
-      let len = Bytes.length buf in
-      if Unix.write fd buf 0 len <> len then
-        failwith "pidfile_write failed"
-    )
-    (fun () -> Unix.close fd)
-
-(* Cf Stevens et al, Advanced Programming in the UNIX Environment,
-   Section 13.3 *)
-let daemonize ?start_fn () =
-  if not (have_daemonized ()) then
-    ign_int (Unix.umask 0) ;
-  match Unix.fork () with
-  | 0 -> (
-      if Unix.setsid () == -1 then failwith "Unix.setsid failed" ;
-      Sys.set_signal Sys.sighup Sys.Signal_ignore ;
-      match Unix.fork () with
-      | 0 ->
-          Option.iter (fun fn -> fn ()) start_fn ;
-          Unix.chdir "/" ;
-          mkdir_rec (Filename.dirname !pidfile) 0o755 ;
-          pidfile_write !pidfile ;
-          let nullfd = Unix.openfile "/dev/null" [Unix.O_RDWR] 0 in
-          Unix.dup2 nullfd Unix.stdin ;
-          Unix.dup2 nullfd Unix.stdout ;
-          Unix.dup2 nullfd Unix.stderr ;
-          Unix.close nullfd
-      | _ ->
-          exit 0
-    )
-  | _ ->
-      exit 0
-
-let maybe_daemonize ?start_fn () =
-  if !daemon then
-    daemonize ?start_fn ()
-  else
-    Option.iter (fun fn -> fn ()) start_fn
 
 let cli ~name ~doc ~version ~cmdline_gen =
   let default = Term.(ret (const (fun _ -> `Help (`Pager, None)) $ const ())) in
