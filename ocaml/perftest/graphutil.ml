@@ -30,13 +30,11 @@ let merge_infos (infos : info list) =
   in
   let floats ((file, result, subtest) as i) =
     ( i
-    , List.flatten
-        (List.map
-           (fun ((f, r, s), fl) ->
-             if file = f && result = r && subtest = s then fl else []
-           )
-           infos
+    , List.concat_map
+        (fun ((f, r, s), fl) ->
+          if file = f && result = r && subtest = s then fl else []
         )
+        infos
     )
   in
   let merge_infos = List.map floats names in
@@ -83,9 +81,9 @@ let get_info ?(separate = false) files : info list =
     | None ->
         [((f, "", ""), floats_from_file f)]
     | Some results ->
-        List.flatten (List.map (info_from_raw_result ~separate f) results)
+        List.concat_map (info_from_raw_result ~separate f) results
   in
-  merge_infos (List.flatten (List.map aux files))
+  merge_infos (List.concat_map aux files)
 
 let short_info_to_string ((file, result, subtest) : short_info) =
   Printf.sprintf "%s.%s.%s" result subtest file

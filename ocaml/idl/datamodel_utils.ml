@@ -38,7 +38,7 @@ module Types = struct
     | Field f ->
         [f.ty]
     | Namespace (_, fields) ->
-        List.concat (List.map of_content fields)
+        List.concat_map of_content fields
 
   (** Decompose a recursive type into a list of component types
       (eg a Set(String) -> String :: Set(String) ) *)
@@ -62,10 +62,10 @@ module Types = struct
 
   (** All types in a list of objects (automatically decomposes) *)
   let of_objects system =
-    let fields = List.concat (List.map (fun x -> x.contents) system) in
-    let field_types = List.concat (List.map of_content fields) in
+    let fields = List.concat_map (fun x -> x.contents) system in
+    let field_types = List.concat_map of_content fields in
 
-    let messages = List.concat (List.map (fun x -> x.messages) system) in
+    let messages = List.concat_map (fun x -> x.messages) system in
     let return_types =
       let aux accu msg =
         match msg.msg_result with None -> accu | Some (ty, _) -> ty :: accu
@@ -73,9 +73,8 @@ module Types = struct
       List.fold_left aux [] messages
     in
     let param_types =
-      List.map
-        (fun p -> p.param_type)
-        (List.concat (List.map (fun x -> x.msg_params) messages))
+      List.(concat_map (fun x -> map (fun p -> p.param_type) x.msg_params))
+        messages
     in
     let selves = List.map (fun obj -> Ref obj.name) system in
     let set_self = List.map (fun t -> Set t) selves in
@@ -84,7 +83,7 @@ module Types = struct
       Listext.List.setify
         (selves @ set_self @ field_types @ return_types @ param_types)
     in
-    Listext.List.setify (List.concat (List.map decompose all))
+    Listext.List.setify (List.concat_map decompose all)
 end
 
 (** Functions for processing relationships from the model *)
@@ -124,18 +123,16 @@ module Relations = struct
   let other_end_of api ((a, b) as one_end) =
     let rels = relations_of_api api in
     match
-      List.concat
-        (List.map
-           (function
-             | x, other_end when x = one_end ->
-                 [other_end]
-             | other_end, x when x = one_end ->
-                 [other_end]
-             | _ ->
-                 []
-             )
-           rels
-        )
+      List.concat_map
+        (function
+          | x, other_end when x = one_end ->
+              [other_end]
+          | other_end, x when x = one_end ->
+              [other_end]
+          | _ ->
+              []
+          )
+        rels
     with
     | [other_end] ->
         other_end
@@ -155,11 +152,11 @@ end
 let fields_of_obj (x : obj) : field list =
   let rec of_contents = function
     | Namespace (_, xs) ->
-        List.concat (List.map of_contents xs)
+        List.concat_map of_contents xs
     | Field x ->
         [x]
   in
-  List.concat (List.map of_contents x.contents)
+  List.concat_map of_contents x.contents
 
 (* True if an object has a label (and therefore should have a get_by_name_label message *)
 let obj_has_get_by_name_label x =
@@ -784,7 +781,7 @@ let messages_of_obj (x : obj) document_order : message list =
     messages
     @ get_all_public
     @ [get_all]
-    @ List.concat (List.map (all_new_messages_of_field x) all_fields)
+    @ List.concat_map (all_new_messages_of_field x) all_fields
     @ constructor_destructor
     @ [uuid; get_record]
     @ name_label
@@ -793,8 +790,8 @@ let messages_of_obj (x : obj) document_order : message list =
     [get_record; get_record_internal; get_all; uuid]
     @ constructor_destructor
     @ name_label
-    @ List.concat (List.map (new_messages_of_field x 0) all_fields)
-    @ List.concat (List.map (new_messages_of_field x 1) all_fields)
+    @ List.concat_map (new_messages_of_field x 0) all_fields
+    @ List.concat_map (new_messages_of_field x 1) all_fields
     @ messages
     @ get_all_public
 

@@ -172,36 +172,32 @@ module DaemonConfiguration = struct
                   Xml.Element
                     ( "parameters"
                     , []
-                    , List.concat
-                        (List.map int_parameter
-                           [
-                             ("HeartbeatInterval", config.heart_beat_interval)
-                           ; ("HeartbeatTimeout", config.heart_beat_timeout)
-                           ; ("StateFileInterval", config.state_file_interval)
-                           ; ("StateFileTimeout", config.state_file_timeout)
-                           ; ( "HeartbeatWatchdogTimeout"
-                             , config.heart_beat_watchdog_timeout
-                             )
-                           ; ( "StateFileWatchdogTimeout"
-                             , config.state_file_watchdog_timeout
-                             )
-                           ; ("BootJoinTimeout", config.boot_join_timeout)
-                           ; ("EnableJoinTimeout", config.enable_join_timeout)
-                           ; ( "XapiHealthCheckInterval"
-                             , config.xapi_healthcheck_interval
-                             )
-                           ; ( "XapiHealthCheckTimeout"
-                             , config.xapi_healthcheck_timeout
-                             )
-                           ; ( "XapiRestartAttempts"
-                             , config.xapi_restart_attempts
-                             )
-                           ; ("XapiRestartTimeout", config.xapi_restart_timeout)
-                           ; ( "XapiLicenseCheckTimeout"
-                             , config.xapi_licensecheck_timeout
-                             )
-                           ]
-                        )
+                    , List.concat_map int_parameter
+                        [
+                          ("HeartbeatInterval", config.heart_beat_interval)
+                        ; ("HeartbeatTimeout", config.heart_beat_timeout)
+                        ; ("StateFileInterval", config.state_file_interval)
+                        ; ("StateFileTimeout", config.state_file_timeout)
+                        ; ( "HeartbeatWatchdogTimeout"
+                          , config.heart_beat_watchdog_timeout
+                          )
+                        ; ( "StateFileWatchdogTimeout"
+                          , config.state_file_watchdog_timeout
+                          )
+                        ; ("BootJoinTimeout", config.boot_join_timeout)
+                        ; ("EnableJoinTimeout", config.enable_join_timeout)
+                        ; ( "XapiHealthCheckInterval"
+                          , config.xapi_healthcheck_interval
+                          )
+                        ; ( "XapiHealthCheckTimeout"
+                          , config.xapi_healthcheck_timeout
+                          )
+                        ; ("XapiRestartAttempts", config.xapi_restart_attempts)
+                        ; ("XapiRestartTimeout", config.xapi_restart_timeout)
+                        ; ( "XapiLicenseCheckTimeout"
+                          , config.xapi_licensecheck_timeout
+                          )
+                        ]
                     )
                 ]
             )

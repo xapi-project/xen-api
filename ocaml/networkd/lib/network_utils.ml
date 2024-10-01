@@ -1566,15 +1566,11 @@ module Ovs = struct
           in
           List.filter_map parse lines
         in
-        List.flatten
-          (List.map
-             (fun vif ->
-               create_port_arg
-                 ?ty:(List.assoc_opt vif ifaces_with_type)
-                 vif name
-             )
-             existing_vifs
+        List.concat_map
+          (fun vif ->
+            create_port_arg ?ty:(List.assoc_opt vif ifaces_with_type) vif name
           )
+          existing_vifs
       in
       let del_old_arg =
         let real_bridge_exists () =
@@ -1746,32 +1742,26 @@ module Ovs = struct
       in
       (* Don't add new properties here, these use the legacy converter *)
       let extra_args_legacy =
-        List.flatten
-          (List.map get_prop_legacy
-             [
-               ("updelay", "bond_updelay")
-             ; ("downdelay", "bond_downdelay")
-             ; ("miimon", "other-config:bond-miimon-interval")
-             ; ("use_carrier", "other-config:bond-detect-mode")
-             ; ("rebalance-interval", "other-config:bond-rebalance-interval")
-             ]
-          )
+        List.concat_map get_prop_legacy
+          [
+            ("updelay", "bond_updelay")
+          ; ("downdelay", "bond_downdelay")
+          ; ("miimon", "other-config:bond-miimon-interval")
+          ; ("use_carrier", "other-config:bond-detect-mode")
+          ; ("rebalance-interval", "other-config:bond-rebalance-interval")
+          ]
       and extra_args =
-        List.flatten
-          (List.map get_prop
-             [
-               ("lacp-time", "other-config:lacp-time")
-             ; ("lacp-fallback-ab", "other-config:lacp-fallback-ab")
-             ]
-          )
+        List.concat_map get_prop
+          [
+            ("lacp-time", "other-config:lacp-time")
+          ; ("lacp-fallback-ab", "other-config:lacp-fallback-ab")
+          ]
       and per_iface_args =
-        List.flatten
-          (List.map get_prop
-             [
-               ("lacp-aggregation-key", "other-config:lacp-aggregation-key")
-             ; ("lacp-actor-key", "other-config:lacp-actor-key")
-             ]
-          )
+        List.concat_map get_prop
+          [
+            ("lacp-aggregation-key", "other-config:lacp-aggregation-key")
+          ; ("lacp-actor-key", "other-config:lacp-actor-key")
+          ]
       and other_args =
         List.filter_map
           (fun (k, v) ->
@@ -1801,11 +1791,9 @@ module Ovs = struct
         if per_iface_args = [] then
           []
         else
-          List.flatten
-            (List.map
-               (fun iface -> ["--"; "set"; "interface"; iface] @ per_iface_args)
-               interfaces
-            )
+          List.concat_map
+            (fun iface -> ["--"; "set"; "interface"; iface] @ per_iface_args)
+            interfaces
       in
       vsctl
         (["--"; "--may-exist"; "add-bond"; bridge; name]
@@ -1841,26 +1829,24 @@ module Ovs = struct
                 mac port
             ]
         | ports ->
-            List.flatten
-              (List.map
-                 (fun port ->
-                   [
-                     Printf.sprintf
-                       "idle_timeout=0,priority=0,in_port=local,arp,dl_src=%s,actions=NORMAL"
-                       mac
-                   ; Printf.sprintf
-                       "idle_timeout=0,priority=0,in_port=local,dl_src=%s,actions=NORMAL"
-                       mac
-                   ; Printf.sprintf
-                       "idle_timeout=0,priority=0,in_port=%s,arp,nw_proto=1,actions=local"
-                       port
-                   ; Printf.sprintf
-                       "idle_timeout=0,priority=0,in_port=%s,dl_dst=%s,actions=local"
-                       port mac
-                   ]
-                 )
-                 ports
+            List.concat_map
+              (fun port ->
+                [
+                  Printf.sprintf
+                    "idle_timeout=0,priority=0,in_port=local,arp,dl_src=%s,actions=NORMAL"
+                    mac
+                ; Printf.sprintf
+                    "idle_timeout=0,priority=0,in_port=local,dl_src=%s,actions=NORMAL"
+                    mac
+                ; Printf.sprintf
+                    "idle_timeout=0,priority=0,in_port=%s,arp,nw_proto=1,actions=local"
+                    port
+                ; Printf.sprintf
+                    "idle_timeout=0,priority=0,in_port=%s,dl_dst=%s,actions=local"
+                    port mac
+                ]
               )
+              ports
       in
       List.iter (fun flow -> ignore (ofctl ["add-flow"; bridge; flow])) flows
 
@@ -1903,22 +1889,12 @@ module Ethtool = struct
   let set_options name options =
     if options <> [] then
       ignore
-        (call
-           ("-s"
-           :: name
-           :: List.concat (List.map (fun (k, v) -> [k; v]) options)
-           )
-        )
+        (call ("-s" :: name :: List.concat_map (fun (k, v) -> [k; v]) options))
 
   let set_offload name options =
     if options <> [] then
       ignore
-        (call
-           ("-K"
-           :: name
-           :: List.concat (List.map (fun (k, v) -> [k; v]) options)
-           )
-        )
+        (call ("-K" :: name :: List.concat_map (fun (k, v) -> [k; v]) options))
 end
 
 module Dracut = struct

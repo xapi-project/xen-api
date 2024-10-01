@@ -737,9 +737,9 @@ let get_class_fields_json cls =
             ]
         ]
     | Namespace (name, contents) ->
-        List.flatten (List.map (fun c -> content_fields c name) contents)
+        List.concat_map (fun c -> content_fields c name) contents
   in
-  List.flatten (List.map (fun c -> content_fields c "") cls.contents)
+  List.concat_map (fun c -> content_fields c "") cls.contents
 
 (** [get_all_message_variants messages acc] takes a list of messages [messages] and an accumulator [acc],
     and recursively constructs a list of tuples representing both asynchronous and synchronous variants of each message,
@@ -768,12 +768,11 @@ let rec get_all_message_variants messages acc =
               (fun (message, is_async) -> (message, is_async, []))
               messages
         | _ ->
-            List.map
+            List.concat_map
               (fun (message, is_async) ->
                 List.map (fun param -> (message, is_async, param)) params
               )
               messages
-            |> List.flatten
       in
       if h.msg_async then
         get_variants [(h, false); (h, true)] @ get_all_message_variants tail acc

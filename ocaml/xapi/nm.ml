@@ -105,8 +105,7 @@ let determine_ethtool_settings properties oc =
   in
   let settings = speed @ duplex @ autoneg @ advertise in
   let offload =
-    List.flatten
-      (List.map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"])
+    List.concat_map proc ["rx"; "tx"; "sg"; "tso"; "ufo"; "gso"; "gro"; "lro"]
   in
   (settings, offload)
 

@@ -686,16 +686,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     try
       let my_nbdish =
         Db.Network.get_all ~__context
-        |> List.map (fun nwk -> Db.Network.get_purpose ~__context ~self:nwk)
-        |> List.flatten
+        |> List.concat_map (fun nwk ->
+               Db.Network.get_purpose ~__context ~self:nwk
+           )
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       let remote_nbdish =
         Client.Network.get_all ~rpc ~session_id
-        |> List.map (fun nwk ->
+        |> List.concat_map (fun nwk ->
                Client.Network.get_purpose ~rpc ~session_id ~self:nwk
            )
-        |> List.flatten
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       if remote_nbdish <> my_nbdish then
@@ -2530,18 +2530,16 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
     (String.concat "; " (List.map Ref.string_of live_hosts)) ;
   (* All failed_vms must be agile *)
   let errors =
-    List.concat
-      (List.map
-         (fun self ->
-           try
-             Agility.vm_assert_agile ~__context ~self ;
-             [(self, [("error_code", Api_errors.host_not_enough_free_memory)])]
-             (* default *)
-           with Api_errors.Server_error (code, _) ->
-             [(self, [("error_code", code)])]
-         )
-         failed_vms
+    List.concat_map
+      (fun self ->
+        try
+          Agility.vm_assert_agile ~__context ~self ;
+          [(self, [("error_code", Api_errors.host_not_enough_free_memory)])]
+          (* default *)
+        with Api_errors.Server_error (code, _) ->
+          [(self, [("error_code", code)])]
       )
+      failed_vms
   in
   let plan =
     List.map

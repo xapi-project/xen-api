@@ -195,8 +195,7 @@ let assert_bacon_mode ~__context ~host =
         && Db.VM.get_is_control_domain ~__context ~self:vm
       )
       (Db.VM.get_all ~__context)
-    |> List.map (fun self -> Db.VM.get_VBDs ~__context ~self)
-    |> List.flatten
+    |> List.concat_map (fun self -> Db.VM.get_VBDs ~__context ~self)
     |> List.filter (fun self -> Db.VBD.get_currently_attached ~__context ~self)
   in
   if control_domain_vbds <> [] then
