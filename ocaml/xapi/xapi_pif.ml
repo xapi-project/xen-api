@@ -1109,7 +1109,12 @@ let calculate_pifs_required_at_start_of_day ~__context =
                        ( Not (Eq (Field "bond_master_of", Literal "()"))
                        , Eq (Field "physical", Literal "true")
                        )
-                   , Not (Eq (Field "ip_configuration_mode", Literal "None"))
+                   , Not
+                       (And
+                          ( Eq (Field "ip_configuration_mode", Literal "None")
+                          , Eq (Field "ipv6_configuration_mode", Literal "None")
+                          )
+                       )
                    )
                )
            )
