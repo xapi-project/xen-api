@@ -196,12 +196,12 @@ let networks path vif_type (list : string -> string list) =
   | [] ->
       path
       |> find_eths
-      |> List.concat_map (fun (path, prefix) -> find_all_ips path prefix)
+      |> List.map (fun (path, prefix) -> find_all_ips path prefix)
+      |> List.concat
   | vif_pair_list ->
       vif_pair_list
-      |> List.concat_map (fun (vif_path, vif_id) ->
-             find_all_vif_ips vif_path vif_id
-         )
+      |> List.map (fun (vif_path, vif_id) -> find_all_vif_ips vif_path vif_id)
+      |> List.concat
 
 (* One key is placed in the other map per control/* key in xenstore. This
    catches keys like "feature-shutdown" "feature-hibernate" "feature-reboot"
@@ -242,17 +242,19 @@ let get_initial_guest_metrics (lookup : string -> string option)
   let all_control = list "control" in
   let cant_suspend_reason = lookup "data/cant_suspend_reason" in
   let to_map kvpairs =
-    List.concat_map
-      (fun (xskey, mapkey) ->
-        match (lookup xskey, xskey, cant_suspend_reason) with
-        | Some _, "control/feature-suspend", Some reason ->
-            [("data-cant-suspend-reason", reason)]
-        | Some xsval, _, _ ->
-            [(mapkey, xsval)]
-        | None, _, _ ->
-            []
+    List.concat
+      (List.map
+         (fun (xskey, mapkey) ->
+           match (lookup xskey, xskey, cant_suspend_reason) with
+           | Some _, "control/feature-suspend", Some reason ->
+               [("data-cant-suspend-reason", reason)]
+           | Some xsval, _, _ ->
+               [(mapkey, xsval)]
+           | None, _, _ ->
+               []
+         )
+         kvpairs
       )
-      kvpairs
   in
   let get_tristate xskey =
     match lookup xskey with

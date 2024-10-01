@@ -1004,10 +1004,12 @@ module Redirector = struct
               )
               (Queues.tags queue)
           in
-          List.concat_map one
-            (default.queues
-            :: parallel_queues.queues
-            :: List.map snd (StringMap.bindings !overrides)
+          List.concat
+            (List.map one
+               (default.queues
+               :: parallel_queues.queues
+               :: List.map snd (StringMap.bindings !overrides)
+               )
             )
       )
   end
@@ -3055,7 +3057,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
         | Vm.Softreboot ->
             [Atomic (VM_softreboot id)]
       in
-      let operations = List.concat_map operations_of_action actions in
+      let operations = List.concat (List.map operations_of_action actions) in
       List.iter (fun x -> perform_exn x t) operations ;
       VM_DB.signal id
   | PCI_check_state id ->

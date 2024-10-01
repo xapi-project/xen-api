@@ -240,7 +240,7 @@ let update_pcis ~__context =
       )
       host_pcis
   in
-  let deps = List.concat_map (fun pci -> pci.related) class_pcis in
+  let deps = List.flatten (List.map (fun pci -> pci.related) class_pcis) in
   let deps =
     List.map
       (fun dep -> List.find (fun pci -> pci.address = dep) host_pcis)

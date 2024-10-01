@@ -120,7 +120,7 @@ let generate_state_dss state_kind =
              (fun state_id time -> gen_pm_ds state_kind cpu_id state_id time)
              times
        )
-    |> List.concat
+    |> List.flatten
   with _ -> []
 
 let generate_cpu_averages () =

@@ -1063,7 +1063,8 @@ module SMAPIv1 : Server_impl = struct
             explore 0 StringMap.empty vdi_rec.API.vDI_location
             |> invert
             |> IntMap.bindings
-            |> List.concat_map snd
+            |> List.map snd
+            |> List.concat
           in
           let vdi_recs = List.map (fun l -> StringMap.find l locations) vdis in
           (* We drop cbt_metadata VDIs that do not have any actual data *)

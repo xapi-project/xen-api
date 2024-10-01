@@ -1460,9 +1460,11 @@ let pool_ha_compute_vm_failover_plan printer rpc session_id params =
   in
   (* For now select all VMs resident on the given hosts *)
   let vms =
-    List.concat_map
-      (fun host -> Client.Host.get_resident_VMs ~rpc ~session_id ~self:host)
-      hosts
+    List.concat
+      (List.map
+         (fun host -> Client.Host.get_resident_VMs ~rpc ~session_id ~self:host)
+         hosts
+      )
   in
   let vms =
     List.filter
@@ -1588,26 +1590,32 @@ let pool_eject fd printer rpc session_id params =
         let pbds = Client.Host.get_PBDs ~rpc ~session_id ~self:host in
         (* Find the subset of SRs which cannot be seen from other hosts *)
         let srs =
-          List.concat_map
-            (fun pbd ->
-              try
-                let sr = Client.PBD.get_SR ~rpc ~session_id ~self:pbd in
-                let other_pbds = Client.SR.get_PBDs ~rpc ~session_id ~self:sr in
-                let other_hosts =
-                  List.map
-                    (fun pbd -> Client.PBD.get_host ~rpc ~session_id ~self:pbd)
-                    other_pbds
-                in
-                let other_hosts_than_me =
-                  List.filter (fun other -> other <> host) other_hosts
-                in
-                if other_hosts_than_me = [] then
-                  [sr]
-                else
-                  []
-              with _ -> []
+          List.concat
+            (List.map
+               (fun pbd ->
+                 try
+                   let sr = Client.PBD.get_SR ~rpc ~session_id ~self:pbd in
+                   let other_pbds =
+                     Client.SR.get_PBDs ~rpc ~session_id ~self:sr
+                   in
+                   let other_hosts =
+                     List.map
+                       (fun pbd ->
+                         Client.PBD.get_host ~rpc ~session_id ~self:pbd
+                       )
+                       other_pbds
+                   in
+                   let other_hosts_than_me =
+                     List.filter (fun other -> other <> host) other_hosts
+                   in
+                   if other_hosts_than_me = [] then
+                     [sr]
+                   else
+                     []
+                 with _ -> []
+               )
+               pbds
             )
-            pbds
         in
         let warnings = ref [] in
         List.iter
@@ -4161,23 +4169,25 @@ let vm_uninstall_common fd _printer rpc session_id params vms =
     in
     (* NB If a VDI is deleted then the VBD may be GCed at any time. *)
     let vdis =
-      List.concat_map
-        (fun vbd ->
-          try
-            (* We only destroy VDIs where VBD.other_config contains 'owner' *)
-            let other_config =
-              Client.VBD.get_other_config ~rpc ~session_id ~self:vbd
-            in
-            let vdi = Client.VBD.get_VDI ~rpc ~session_id ~self:vbd in
-            (* Double-check the VDI actually exists *)
-            ignore (Client.VDI.get_uuid ~rpc ~session_id ~self:vdi) ;
-            if List.mem_assoc Constants.owner_key other_config then
-              [vdi]
-            else
-              []
-          with _ -> []
+      List.concat
+        (List.map
+           (fun vbd ->
+             try
+               (* We only destroy VDIs where VBD.other_config contains 'owner' *)
+               let other_config =
+                 Client.VBD.get_other_config ~rpc ~session_id ~self:vbd
+               in
+               let vdi = Client.VBD.get_VDI ~rpc ~session_id ~self:vbd in
+               (* Double-check the VDI actually exists *)
+               ignore (Client.VDI.get_uuid ~rpc ~session_id ~self:vdi) ;
+               if List.mem_assoc Constants.owner_key other_config then
+                 [vdi]
+               else
+                 []
+             with _ -> []
+           )
+           vbds
         )
-        vbds
     in
     let suspend_VDI =
       try
@@ -4217,9 +4227,11 @@ let vm_uninstall fd printer rpc session_id params =
     do_vm_op printer rpc session_id (fun vm -> vm.getref ()) params []
   in
   let snapshots =
-    List.concat_map
-      (fun vm -> Client.VM.get_snapshots ~rpc ~session_id ~self:vm)
-      vms
+    List.flatten
+      (List.map
+         (fun vm -> Client.VM.get_snapshots ~rpc ~session_id ~self:vm)
+         vms
+      )
   in
   vm_uninstall_common fd printer rpc session_id params (vms @ snapshots)
 
@@ -6058,9 +6070,11 @@ let cd_list printer rpc session_id params =
       srs
   in
   let cd_vdis =
-    List.concat_map
-      (fun (self, _) -> Client.SR.get_VDIs ~rpc ~session_id ~self)
-      cd_srs
+    List.flatten
+      (List.map
+         (fun (self, _) -> Client.SR.get_VDIs ~rpc ~session_id ~self)
+         cd_srs
+      )
   in
   let table cd =
     let record = vdi_record rpc session_id cd in

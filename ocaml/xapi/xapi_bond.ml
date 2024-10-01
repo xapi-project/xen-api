@@ -79,9 +79,8 @@ let get_local_vifs ~__context host networks =
   (* Construct (VM -> VIFs) map for all VIFs on the given networks  *)
   let vms_with_vifs = Hashtbl.create 10 in
   let all_vifs =
-    List.concat_map
-      (fun net -> Db.Network.get_VIFs ~__context ~self:net)
-      networks
+    List.concat
+      (List.map (fun net -> Db.Network.get_VIFs ~__context ~self:net) networks)
   in
   let add_vif vif =
     let vm = Db.VIF.get_VM ~__context ~self:vif in
@@ -104,9 +103,13 @@ let get_local_vifs ~__context host networks =
   (* Make a list of the VIFs for local VMs *)
   let vms = Hashtbl.to_seq_keys vms_with_vifs |> List.of_seq in
   let local_vifs =
-    List.concat_map
-      (fun vm -> if is_local vm then Hashtbl.find_all vms_with_vifs vm else [])
-      vms
+    List.concat
+      (List.map
+         (fun vm ->
+           if is_local vm then Hashtbl.find_all vms_with_vifs vm else []
+         )
+         vms
+      )
   in
   debug "Found these local VIFs: %s"
     (String.concat ", "
@@ -228,14 +231,18 @@ let fix_bond ~__context ~bond =
   in
   let local_vifs = get_local_vifs ~__context host member_networks in
   let local_vlans =
-    List.concat_map
-      (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif)
-      members
+    List.concat
+      (List.map
+         (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif)
+         members
+      )
   in
   let local_tunnels =
-    List.concat_map
-      (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
-      members
+    List.concat
+      (List.map
+         (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
+         members
+      )
   in
   (* Move VLANs from members to master *)
   debug "Checking VLANs to move from slaves to master" ;
@@ -349,15 +356,18 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       in
       let local_vifs = get_local_vifs ~__context host member_networks in
       let local_vlans =
-        List.concat_map
-          (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif)
-          members
+        List.concat
+          (List.map
+             (fun pif -> Db.PIF.get_VLAN_slave_of ~__context ~self:pif)
+             members
+          )
       in
-
       let local_tunnels =
-        List.concat_map
-          (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
-          members
+        List.concat
+          (List.map
+             (fun pif -> Db.PIF.get_tunnel_transport_PIF_of ~__context ~self:pif)
+             members
+          )
       in
       let is_management_on_vlan =
         List.filter

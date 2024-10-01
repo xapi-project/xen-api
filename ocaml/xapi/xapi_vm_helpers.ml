@@ -1158,7 +1158,7 @@ let choose_host_for_vm_no_wlb ~__context ~vm ~snapshot =
     let validate_host =
       vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check:false
     in
-    List.concat host_lists
+    List.flatten host_lists
     |> Xapi_vm_placement.select_host __context vm validate_host
 
 (** choose_host_for_vm will use WLB as long as it is enabled and there
@@ -1328,7 +1328,7 @@ let all_used_VBD_devices ~__context ~self =
     in
     all_devices @ all_devices2
   in
-  List.concat_map possible_VBD_devices_of_string existing_devices
+  List.concat (List.map possible_VBD_devices_of_string existing_devices)
 
 let allowed_VBD_devices ~__context ~vm ~_type =
   let will_have_qemu = Helpers.will_have_qemu ~__context ~self:vm in

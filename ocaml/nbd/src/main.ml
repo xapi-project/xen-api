@@ -93,7 +93,8 @@ let xapi_says_use_tls () =
   let ask_xapi rpc session_id =
     Xen_api.Network.get_all_records ~rpc ~session_id >>= fun all_nets ->
     let all_porpoises =
-      List.concat_map (fun (_str, net) -> net.API.network_purpose) all_nets
+      List.map (fun (_str, net) -> net.API.network_purpose) all_nets
+      |> List.flatten
     in
     let tls = List.mem `nbd all_porpoises in
     let no_tls = List.mem `insecure_nbd all_porpoises in

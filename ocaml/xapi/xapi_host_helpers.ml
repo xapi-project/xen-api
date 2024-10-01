@@ -135,9 +135,10 @@ let valid_operations ~__context record _ref' =
         [List.hd plugged_clustered_srs |> Ref.string_of]
         [`shutdown; `reboot; `apply_updates] ;
     let recovering_tasks =
-      List.concat_map
+      List.map
         (fun sr -> Helpers.find_health_check_task ~__context ~sr)
         plugged_clustered_srs
+      |> List.concat
     in
     if recovering_tasks <> [] then
       set_errors Api_errors.clustered_sr_degraded

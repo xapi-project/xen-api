@@ -285,7 +285,7 @@ module UTF16 = struct
     String.concat ""
       (List.map
          (fun c -> Printf.sprintf "%c" c)
-         (List.concat_map utf8_chars_of_int (Array.to_list s))
+         (List.flatten (List.map utf8_chars_of_int (Array.to_list s)))
       )
 
   let to_utf8 x = try Rresult.R.ok (to_utf8_exn x) with e -> Rresult.R.error e
@@ -1543,7 +1543,7 @@ module Vhd = struct
             )
             locators
         in
-        List.concat locations @ blocks
+        List.flatten locations @ blocks
       else
         blocks
     in

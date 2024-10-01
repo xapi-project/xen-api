@@ -170,7 +170,8 @@ let update_pifs ~__context host pifs =
                     pifrec.API.pIF_tunnel_transport_PIF_of
                 in
                 (pifrec.API.pIF_network :: vlan_networks) @ tunnel_networks
-                |> List.concat_map vifs_on_local_bridge
+                |> List.map vifs_on_local_bridge
+                |> List.flatten
                 |> List.iter set_carrier
               with e ->
                 log_backtrace () ;

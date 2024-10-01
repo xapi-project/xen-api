@@ -75,28 +75,30 @@ let gen_test highapi =
        [
          ["open API"]
        ; ["let _ ="]
-       ; List.concat_map
-           (fun ty ->
-             [
-               sprintf "let oc = open_out \"rpc-light_%s.xml\" in"
-                 (OU.alias_of_ty ty)
-             ; sprintf "let x = %s in" (gen_test_type highapi ty)
-             ; sprintf
-                 "Printf.fprintf oc \"%%s\" (Xmlrpc.to_string (API.rpc_of_%s \
-                  x));"
-                 (OU.alias_of_ty ty)
-             ; "close_out oc;"
-             ; sprintf "let oc = open_out \"xml-light2_%s.xml\" in"
-                 (OU.alias_of_ty ty)
-             ; sprintf
-                 "Printf.fprintf oc \"%%s\" (Xml.to_string (API.Legacy.To.%s \
-                  x));"
-                 (OU.alias_of_ty ty)
-             ; "close_out oc;"
-               (*					sprintf "let s = Xml.to_string (API.Legacy.To.%s x) in" (OU.alias_of_ty ty);*)
-               (*					sprintf "let y =" *)
-             ]
+       ; List.concat
+           (List.map
+              (fun ty ->
+                [
+                  sprintf "let oc = open_out \"rpc-light_%s.xml\" in"
+                    (OU.alias_of_ty ty)
+                ; sprintf "let x = %s in" (gen_test_type highapi ty)
+                ; sprintf
+                    "Printf.fprintf oc \"%%s\" (Xmlrpc.to_string \
+                     (API.rpc_of_%s x));"
+                    (OU.alias_of_ty ty)
+                ; "close_out oc;"
+                ; sprintf "let oc = open_out \"xml-light2_%s.xml\" in"
+                    (OU.alias_of_ty ty)
+                ; sprintf
+                    "Printf.fprintf oc \"%%s\" (Xml.to_string \
+                     (API.Legacy.To.%s x));"
+                    (OU.alias_of_ty ty)
+                ; "close_out oc;"
+                  (*					sprintf "let s = Xml.to_string (API.Legacy.To.%s x) in" (OU.alias_of_ty ty);*)
+                  (*					sprintf "let y =" *)
+                ]
+              )
+              all_types
            )
-           all_types
        ]
     )

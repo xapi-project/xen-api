@@ -864,14 +864,16 @@ module MD = struct
   let pcis_of_vm ~__context (vmref, vm) =
     let vgpu_pcidevs = Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref in
     let devs =
-      List.concat_map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)
+      List.flatten
+        (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs))
     in
     (* The 'unmanaged' PCI devices are in the other_config key: *)
     let other_pcidevs =
       Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config
     in
     let unmanaged =
-      List.concat_map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)
+      List.flatten
+        (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs))
     in
     let net_sriov_pcidevs = list_net_sriov_vf_pcis ~__context ~vm in
     let devs = devs @ net_sriov_pcidevs @ unmanaged in
@@ -2998,13 +3000,14 @@ let resync_resident_on ~__context =
   in
   (* Get a list of VMs that the xenopsds know about with their xenopsd client *)
   let vms_in_xenopsds =
-    List.concat_map
+    List.map
       (fun queue_name ->
         let module Client = (val make_client queue_name : XENOPS) in
         let vms = Client.VM.list dbg () in
         List.map (fun (vm, state) -> ((vm.Vm.id, state), queue_name)) vms
       )
       (all_known_xenopsds ())
+    |> List.flatten
   in
   (* The list of VMs xenopsd knows about that (xapi knows about at all,
      xapi has no idea about at all) *)

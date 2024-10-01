@@ -1111,7 +1111,7 @@ functor
           let title = Printf.sprintf "SR %s" (s_of_sr sr) in
           title :: List.map indent (Sr.to_string_list sr_t)
         in
-        let srs = List.concat_map of_sr srs in
+        let srs = List.concat (List.map of_sr srs) in
         let errors = List.map Errors.to_string (Errors.list ()) in
         let errors =
           ( if errors <> [] then
@@ -1298,7 +1298,7 @@ functor
       let detach_destroy_common context ~dbg ~sr f =
         let active_dps sr_t =
           (* Enumerate all active datapaths *)
-          List.concat_map (fun (_, vdi_t) -> Vdi.dp vdi_t) (Sr.list sr_t)
+          List.concat (List.map (fun (_, vdi_t) -> Vdi.dp vdi_t) (Sr.list sr_t))
         in
         with_sr sr (fun () ->
             match Host.find sr !Host.host with

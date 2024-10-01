@@ -79,11 +79,12 @@ let field_exists api ~objname ~fieldname =
 *)
 let filter_field (pred : field -> bool) (system : obj list) =
   (* NB using lists rather than options - maybe change later? *)
+  let concat_map f xs = List.concat (List.map f xs) in
   let rec content = function
     | Field field as x ->
         if pred field then [x] else []
     | Namespace (name, contents) ->
-        [Namespace (name, List.concat_map content contents)]
+        [Namespace (name, concat_map content contents)]
   in
   (* remove empty /leaf/ namespaces *)
   let rec remove_leaf = function
@@ -92,7 +93,7 @@ let filter_field (pred : field -> bool) (system : obj list) =
     | Namespace (_, []) ->
         [] (* no children so removed *)
     | Namespace (name, contents) ->
-        [Namespace (name, List.concat_map remove_leaf contents)]
+        [Namespace (name, concat_map remove_leaf contents)]
   in
   let rec fixpoint f x =
     let result = f x in
@@ -102,8 +103,8 @@ let filter_field (pred : field -> bool) (system : obj list) =
     {
       x with
       contents=
-        (let contents = List.concat_map content x.contents in
-         fixpoint (List.concat_map remove_leaf) contents
+        (let contents = concat_map content x.contents in
+         fixpoint (concat_map remove_leaf) contents
         )
     }
   in

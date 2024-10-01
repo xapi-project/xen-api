@@ -107,13 +107,15 @@ let rec permutations : 'a list -> 'a list list =
   | [] ->
       [[]]
   | x :: xs ->
-      List.concat_map
-        (fun perm ->
-          List.map
-            (fun n -> insert_at n x perm)
-            (mkints_exclusive (List.length xs + 1))
+      List.concat
+        (List.map
+           (fun perm ->
+             List.map
+               (fun n -> insert_at n x perm)
+               (mkints_exclusive (List.length xs + 1))
+           )
+           (permutations xs)
         )
-        (permutations xs)
 
 let rec factorial = function 0 -> 1L | x -> Int64.of_int x ** factorial (x - 1)
 

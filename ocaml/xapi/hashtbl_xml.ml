@@ -52,11 +52,11 @@ let of_xml (input : Xmlm.input) =
   let el (tag : Xmlm.tag) acc =
     match tag with
     | (_, "config"), _ ->
-        List.concat acc
+        List.flatten acc
     | (_, "row"), attrs ->
         let key = List.assoc ("", "key") attrs in
         let value = List.assoc ("", "value") attrs in
-        (key, value) :: List.concat acc
+        (key, value) :: List.flatten acc
     | (ns, name), _ ->
         raise (Unmarshall_error (Printf.sprintf "Unknown tag: (%s,%s)" ns name))
   in

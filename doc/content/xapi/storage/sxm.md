@@ -230,8 +230,8 @@ Next, we determine which VDIs to copy:
   let vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
   let vm_and_snapshots = vm :: snapshots in
-  let snapshots_vbds = List.concat_map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots in
-  let snapshot_vifs = List.concat_map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots in
+  let snapshots_vbds = List.flatten (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots) in
+  let snapshot_vifs = List.flatten (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots) in
 ```
 
 we now decide whether we're intra-pool or not, and if we're intra-pool whether we're migrating onto the same host (localhost migrate). Intra-pool is decided by trying to do a lookup of our current host uuid on the destination pool.

@@ -928,9 +928,11 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
      	   actually running somewhere else (very strange semi-agile situation) then it will be counted as overhead there and
      	   plans will be made for it running on the host we choose. *)
   let pinned =
-    List.concat_map
-      (host_of_non_agile_vm ~__context all_hosts_and_snapshots)
-      not_agile_vms
+    List.concat
+      (List.map
+         (host_of_non_agile_vm ~__context all_hosts_and_snapshots)
+         not_agile_vms
+      )
   in
   (* The restart plan for offline non-agile VMs is just the map VM -> pinned Host *)
   let non_agile_restart_plan =
@@ -953,15 +955,19 @@ let compute_restart_plan ~__context ~all_protected_vms ~live_set
   in
   (* All these hosts are live and the VMs are running (or scheduled to be running): *)
   let agile_vm_placement =
-    List.concat_map
-      (fun (vm, host) -> match host with Some h -> [(vm, h)] | _ -> [])
-      agile_vm_accounted_to_host
+    List.concat
+      (List.map
+         (fun (vm, host) -> match host with Some h -> [(vm, h)] | _ -> [])
+         agile_vm_accounted_to_host
+      )
   in
   (* These VMs are not running on any host (either in real life or only hypothetically) *)
   let agile_vm_failed =
-    List.concat_map
-      (fun (vm, host) -> if host = None then [vm] else [])
-      agile_vm_accounted_to_host
+    List.concat
+      (List.map
+         (fun (vm, host) -> if host = None then [vm] else [])
+         agile_vm_accounted_to_host
+      )
   in
   let config =
     {

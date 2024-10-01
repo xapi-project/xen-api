@@ -43,7 +43,7 @@ let subtest_string key tag =
 let startall rpc session_id test =
   let vms = Client.VM.get_all_records ~rpc ~session_id in
   let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
-  let tags = Listext.List.setify (List.concat tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   List.map
     (fun tag ->
       debug "Starting VMs with tag: %s" tag ;
@@ -167,24 +167,25 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
               in
               let events = List.map Event_helper.record_of_event events in
               let finished_tasks =
-                List.concat_map
-                  (function
-                    | Event_helper.Task (t, Some t_rec) ->
-                        if
-                          t_rec.API.task_status <> `pending
-                          || t_rec.API.task_current_operations <> []
-                        then
-                          [t]
-                        else
-                          []
-                    | Event_helper.Task (t, None) ->
-                        [t]
-                    | _ ->
-                        []
-                    )
-                  events
+                List.concat
+                  (List.map
+                     (function
+                       | Event_helper.Task (t, Some t_rec) ->
+                           if
+                             t_rec.API.task_status <> `pending
+                             || t_rec.API.task_current_operations <> []
+                           then
+                             [t]
+                           else
+                             []
+                       | Event_helper.Task (t, None) ->
+                           [t]
+                       | _ ->
+                           []
+                       )
+                     events
+                  )
               in
-
               finished := process_finished_tasks finished_tasks
             done
           with
@@ -238,7 +239,7 @@ let parallel_with_vms async_op opname n vms rpc session_id test subtest_name =
 let parallel async_op opname n rpc session_id test =
   let vms = Client.VM.get_all_records ~rpc ~session_id in
   let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
-  let tags = Listext.List.setify (List.concat tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   Printf.printf "Tags are [%s]\n%!" (String.concat "; " tags) ;
   List.map
     (fun tag ->
@@ -259,7 +260,7 @@ let parallel_stopall = parallel Client.Async.VM.hard_shutdown "stop"
 let stopall rpc session_id test =
   let vms = Client.VM.get_all_records ~rpc ~session_id in
   let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
-  let tags = Listext.List.setify (List.concat tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   List.map
     (fun tag ->
       debug "Starting VMs with tag: %s" tag ;
@@ -303,118 +304,121 @@ let clone num_clones rpc session_id test =
   Printf.printf "Doing clone test\n%!" ;
   let vms = Client.VM.get_all_records ~rpc ~session_id in
   let tags = List.map (fun (_, vmr) -> vmr.API.vM_tags) vms in
-  let tags = Listext.List.setify (List.concat tags) in
+  let tags = Listext.List.setify (List.flatten tags) in
   Printf.printf "Tags are [%s]\n%!" (String.concat "; " tags) ;
-  List.concat_map
-    (fun tag ->
-      let vms =
-        List.filter (fun (_, vmr) -> List.mem tag vmr.API.vM_tags) vms
-      in
-      Printf.printf "We've got %d VMs\n%!" (List.length vms) ;
-      (* Start a thread to clone each one n times *)
-      let body (vm, vmr, res, clone_refs) =
-        let name_label = vmr.API.vM_name_label in
-        Printf.printf "Performing %d clones of '%s' within thread...\n%!"
-          num_clones name_label ;
-        for j = 0 to num_clones - 1 do
-          let result =
-            time (fun () ->
-                let clone =
-                  Client.VM.clone ~rpc ~session_id ~vm ~new_name:"clone"
-                in
-                clone_refs := clone :: !clone_refs
-            )
-          in
-          Printf.printf "clone %d of '%s' finished: %f\n%!" j name_label result ;
-          res := result :: !res
-        done
-      in
-      let threads_and_results =
-        List.map
-          (fun (vm, vmr) ->
-            let res : float list ref = ref [] in
-            let clones : API.ref_VM list ref = ref [] in
-            let t = Thread.create body (vm, vmr, res, clones) in
-            (t, (res, clones))
-          )
-          vms
-      in
-      let threads, times_and_clones = List.split threads_and_results in
-      let times, clones = List.split times_and_clones in
-      Printf.printf "Waiting for threads to finish...\n%!" ;
-      List.iter (fun t -> Thread.join t) threads ;
-      Printf.printf "Threads have finished\n%!" ;
-      (* times is a list of (list of floats, each being the time to clone a VM), one per SR *)
-      let times = List.map (fun x -> !x) times in
-      Printf.printf "Times are: [%s]\n%!"
-        (String.concat ", "
-           (List.map
-              (fun x ->
-                Printf.sprintf "[%s]"
-                  (String.concat ", "
-                     (List.map (fun x -> Printf.sprintf "%f" x) x)
-                  )
+  List.flatten
+    (List.map
+       (fun tag ->
+         let vms =
+           List.filter (fun (_, vmr) -> List.mem tag vmr.API.vM_tags) vms
+         in
+         Printf.printf "We've got %d VMs\n%!" (List.length vms) ;
+         (* Start a thread to clone each one n times *)
+         let body (vm, vmr, res, clone_refs) =
+           let name_label = vmr.API.vM_name_label in
+           Printf.printf "Performing %d clones of '%s' within thread...\n%!"
+             num_clones name_label ;
+           for j = 0 to num_clones - 1 do
+             let result =
+               time (fun () ->
+                   let clone =
+                     Client.VM.clone ~rpc ~session_id ~vm ~new_name:"clone"
+                   in
+                   clone_refs := clone :: !clone_refs
+               )
+             in
+             Printf.printf "clone %d of '%s' finished: %f\n%!" j name_label
+               result ;
+             res := result :: !res
+           done
+         in
+         let threads_and_results =
+           List.map
+             (fun (vm, vmr) ->
+               let res : float list ref = ref [] in
+               let clones : API.ref_VM list ref = ref [] in
+               let t = Thread.create body (vm, vmr, res, clones) in
+               (t, (res, clones))
+             )
+             vms
+         in
+         let threads, times_and_clones = List.split threads_and_results in
+         let times, clones = List.split times_and_clones in
+         Printf.printf "Waiting for threads to finish...\n%!" ;
+         List.iter (fun t -> Thread.join t) threads ;
+         Printf.printf "Threads have finished\n%!" ;
+         (* times is a list of (list of floats, each being the time to clone a VM), one per SR *)
+         let times = List.map (fun x -> !x) times in
+         Printf.printf "Times are: [%s]\n%!"
+           (String.concat ", "
+              (List.map
+                 (fun x ->
+                   Printf.sprintf "[%s]"
+                     (String.concat ", "
+                        (List.map (fun x -> Printf.sprintf "%f" x) x)
+                     )
+                 )
+                 times
               )
-              times
-           )
-        ) ;
-      let clones = List.map (fun x -> !x) clones in
-      (* Output the results for cloning each gold VM as a separate record *)
-      let results =
-        List.map
-          (fun x ->
-            {
-              resultname= test.testname
-            ; subtest= subtest_string test.key tag
-            ; xenrtresult= List.fold_left ( +. ) 0.0 (List.concat times)
-            ; rawresult= CloneTest x
-            }
-          )
-          times
-      in
-      (* Best-effort clean-up *)
-      ignore_exn (fun () ->
-          Printf.printf "Cleaning up...\n%!" ;
-          (* Create a thread to clean up each set of clones *)
-          let threads =
-            List.mapi
-              (fun i clones ->
-                Thread.create
-                  (fun clones ->
-                    List.iteri
-                      (fun j clone ->
-                        Printf.printf "Thread %d destroying VM %d...\n%!" i j ;
-                        let vbds =
-                          Client.VM.get_VBDs ~rpc ~session_id ~self:clone
-                        in
-                        let vdis =
-                          List.map
-                            (fun vbd ->
-                              Client.VBD.get_VDI ~rpc ~session_id ~self:vbd
-                            )
-                            vbds
-                        in
-                        List.iter
-                          (fun vdi ->
-                            Client.VDI.destroy ~rpc ~session_id ~self:vdi
-                          )
-                          vdis ;
-                        Client.VM.destroy ~rpc ~session_id ~self:clone
-                      )
-                      clones
-                  )
-                  clones
-              )
-              clones
-          in
-          Printf.printf "Waiting for clean-up threads to finish...\n%!" ;
-          List.iter (fun t -> Thread.join t) threads ;
-          Printf.printf "Clean-up threads have finished\n%!"
-      ) ;
-      (* Finally, return the results *)
-      results
+           ) ;
+         let clones = List.map (fun x -> !x) clones in
+         (* Output the results for cloning each gold VM as a separate record *)
+         let results =
+           List.map
+             (fun x ->
+               {
+                 resultname= test.testname
+               ; subtest= subtest_string test.key tag
+               ; xenrtresult= List.fold_left ( +. ) 0.0 (List.flatten times)
+               ; rawresult= CloneTest x
+               }
+             )
+             times
+         in
+         (* Best-effort clean-up *)
+         ignore_exn (fun () ->
+             Printf.printf "Cleaning up...\n%!" ;
+             (* Create a thread to clean up each set of clones *)
+             let threads =
+               List.mapi
+                 (fun i clones ->
+                   Thread.create
+                     (fun clones ->
+                       List.iteri
+                         (fun j clone ->
+                           Printf.printf "Thread %d destroying VM %d...\n%!" i j ;
+                           let vbds =
+                             Client.VM.get_VBDs ~rpc ~session_id ~self:clone
+                           in
+                           let vdis =
+                             List.map
+                               (fun vbd ->
+                                 Client.VBD.get_VDI ~rpc ~session_id ~self:vbd
+                               )
+                               vbds
+                           in
+                           List.iter
+                             (fun vdi ->
+                               Client.VDI.destroy ~rpc ~session_id ~self:vdi
+                             )
+                             vdis ;
+                           Client.VM.destroy ~rpc ~session_id ~self:clone
+                         )
+                         clones
+                     )
+                     clones
+                 )
+                 clones
+             in
+             Printf.printf "Waiting for clean-up threads to finish...\n%!" ;
+             List.iter (fun t -> Thread.join t) threads ;
+             Printf.printf "Clean-up threads have finished\n%!"
+         ) ;
+         (* Finally, return the results *)
+         results
+       )
+       tags
     )
-    tags
 
 let recordssize rpc session_id test =
   let doxmlrpctest (subtestname, testfn) =

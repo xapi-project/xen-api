@@ -21,41 +21,45 @@ open D
 
 let get_changes rrd_files =
   let named_dss =
-    List.concat_map
-      (fun filename ->
-        try
-          let datasources = Monitor_types.datasources_from_filename filename in
-          Mcache.log_errors_from filename ;
-          datasources
-          |> List.filter_map (function
-               | Rrd.Host, ds
-                 when List.mem ds.Ds.ds_name
-                        ["memory_total_kib"; "memory_free_kib"] ->
-                   Some ds
-               | _ ->
-                   None (* we are only interested in Host memory stats *)
-               )
-          |> List.map (function ds ->
-                 let value =
-                   match ds.Ds.ds_value with
-                   | Rrd.VT_Int64 v ->
-                       Memory.bytes_of_kib v
-                   | Rrd.VT_Float v ->
-                       Memory.bytes_of_kib (Int64.of_float v)
-                   | Rrd.VT_Unknown ->
-                       -1L
-                 in
-                 (ds.Ds.ds_name, value)
-                 )
-        with e ->
-          if not (Mcache.is_ignored filename) then (
-            error "Unable to read host memory metrics from %s: %s" filename
-              (Printexc.to_string e) ;
-            Mcache.ignore_errors_from filename
-          ) ;
-          []
+    List.flatten
+      (List.map
+         (fun filename ->
+           try
+             let datasources =
+               Monitor_types.datasources_from_filename filename
+             in
+             Mcache.log_errors_from filename ;
+             datasources
+             |> List.filter_map (function
+                  | Rrd.Host, ds
+                    when List.mem ds.Ds.ds_name
+                           ["memory_total_kib"; "memory_free_kib"] ->
+                      Some ds
+                  | _ ->
+                      None (* we are only interested in Host memory stats *)
+                  )
+             |> List.map (function ds ->
+                    let value =
+                      match ds.Ds.ds_value with
+                      | Rrd.VT_Int64 v ->
+                          Memory.bytes_of_kib v
+                      | Rrd.VT_Float v ->
+                          Memory.bytes_of_kib (Int64.of_float v)
+                      | Rrd.VT_Unknown ->
+                          -1L
+                    in
+                    (ds.Ds.ds_name, value)
+                    )
+           with e ->
+             if not (Mcache.is_ignored filename) then (
+               error "Unable to read host memory metrics from %s: %s" filename
+                 (Printexc.to_string e) ;
+               Mcache.ignore_errors_from filename
+             ) ;
+             []
+         )
+         rrd_files
       )
-      rrd_files
   in
   let free_bytes = List.assoc_opt "memory_free_kib" named_dss in
   let total_bytes = List.assoc_opt "memory_total_kib" named_dss in

@@ -144,10 +144,9 @@ let get_required_cluster_stacks ~__context ~sr_sm_type =
   in
   let sms_matching_sr_type = Db.SM.get_records_where ~__context ~expr in
   sms_matching_sr_type
+  |> List.map (fun (_sm_ref, sm_rec) -> sm_rec.API.sM_required_cluster_stack)
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
-  |> List.concat_map (fun (_sm_ref, sm_rec) ->
-         sm_rec.API.sM_required_cluster_stack
-     )
+  |> List.flatten
 
 let assert_cluster_stack_valid ~cluster_stack =
   if not (List.mem cluster_stack Constants.supported_smapiv3_cluster_stacks)
