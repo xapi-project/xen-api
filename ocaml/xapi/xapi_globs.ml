@@ -1053,6 +1053,10 @@ let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 
 let disable_webserver = ref false
 
+let reuse_pool_sessions = ref true
+
+let validate_reusable_pool_session = ref false
+
 let test_open = ref 0
 
 let xapi_globs_spec =
@@ -1617,6 +1621,16 @@ let other_options =
     , Arg.Unit (fun () -> Uuidx.make_default := Uuidx.make_uuid_fast)
     , (fun () -> !Uuidx.make_default = Uuidx.make_uuid_fast |> string_of_bool)
     , "Use PRNG based UUID generator instead of CSPRNG"
+    )
+  ; ( "reuse-pool-sessions"
+    , Arg.Set reuse_pool_sessions
+    , (fun () -> string_of_bool !reuse_pool_sessions)
+    , "Enable the reuse of pool sessions"
+    )
+  ; ( "validate-reusable-pool-session"
+    , Arg.Set validate_reusable_pool_session
+    , (fun () -> string_of_bool !validate_reusable_pool_session)
+    , "Enable the reuse of pool sessions"
     )
   ]
 
