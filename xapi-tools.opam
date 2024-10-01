@@ -28,6 +28,7 @@ depends: [
   "xmlm"
   "yojson"
   "rrd-transport"
+  "xapi-tracing-export"
   "alcotest" {with-test}
   "ppx_deriving_rpc" {with-test}
   "qcheck-core" {with-test}

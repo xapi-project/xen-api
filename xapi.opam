@@ -84,6 +84,7 @@ depends: [
   "xapi-stdext-zerocheck" {= version}
   "xapi-test-utils" {with-test}
   "xapi-tracing" {= version}
+  "xapi-tracing-export" {= version}
   "xapi-types" {= version}
   "xenctrl"
   "xenstore_transport"
