@@ -7763,8 +7763,8 @@ module VMPP = struct
           (Ref _vmpp, "self", "The protection policy")
         ; ( DateTime
           , "value"
-          , "When was the last backup was done. When the timezone is missing, \
-             UTC is assumed"
+          , "The time at which the last backup was done. When the timezone is \
+             missing, UTC is assumed"
           )
         ]
       ()
@@ -7777,8 +7777,8 @@ module VMPP = struct
           (Ref _vmpp, "self", "The protection policy")
         ; ( DateTime
           , "value"
-          , "When was the last archive was done. When the timezone is missing, \
-             UTC is assumed"
+          , "The time at which the last archive was created. When the timezone \
+             is missing, UTC is assumed"
           )
         ]
       ()
@@ -8052,8 +8052,8 @@ module VMSS = struct
           (Ref _vmss, "self", "The snapshot schedule")
         ; ( DateTime
           , "value"
-          , "When was the schedule was last run. When a timezone is missing, \
-             UTC is assumed"
+          , "The time at which the schedule was last run. When the timezone is \
+             missing, UTC is assumed"
           )
         ]
       ()
