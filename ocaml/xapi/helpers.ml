@@ -427,6 +427,13 @@ module TraceHelper = struct
     Tracing_propagator.Propagator.Http.inject_into trace_context
 end
 
+let choose_rpc () =
+  let open Xmlrpc_client in
+  if !Xapi_globs.use_xmlrpc then
+    (XMLRPC_protocol.rpc, "/")
+  else
+    (JSONRPC_protocol.rpc, "/jsonrpc")
+
 (* Note that both this and `make_timeboxed_rpc` are almost always
  * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
  * The body is therefore not evaluated until the RPC call is actually being
@@ -435,12 +442,7 @@ let make_rpc' ~subtask_of ?task_id ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of subtask_of in
   let open Xmlrpc_client in
   let tracing = Context.set_client_span __context in
-  let dorpc, path =
-    if !Xapi_globs.use_xmlrpc then
-      (XMLRPC_protocol.rpc, "/")
-    else
-      (JSONRPC_protocol.rpc, "/jsonrpc")
-  in
+  let dorpc, path = choose_rpc () in
   let http = xmlrpc ~subtask_of ~version:"1.1" path in
   let http = TraceHelper.inject_span_into_req tracing http in
   let transport =
@@ -516,6 +518,10 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
         http
   in
   let transport = transport_of_url ~verify_cert url in
+  (* we should determine the protocol based on Content-type, not the URL,
+     but since we currently only use the URL to determine the protocol:
+     keep this as XMLRPC for now, because we don't have JSONRPC duplicates for
+     all handlers *)
   XMLRPC_protocol.rpc ~transport ~srcstr ~dststr ~http call
 
 (* This one uses rpc-light *)
@@ -526,9 +532,10 @@ let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) ~__context
     SSL (SSL.make ~verify_cert (), remote_address, !Constants.https_port)
   in
   let tracing = Context.tracing_of __context in
-  let http = xmlrpc ~version:"1.0" "/" in
+  let dorpc, path = choose_rpc () in
+  let http = xmlrpc ~version:"1.0" path in
   let http = TraceHelper.inject_span_into_req tracing http in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
+  dorpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (* Helper type for an object which may or may not be in the local database. *)
 type 'a api_object =
@@ -602,10 +609,9 @@ let call_emergency_mode_functions hostname f =
       , !Constants.https_port
       )
   in
-  let http = xmlrpc ~version:"1.0" "/" in
-  let rpc =
-    XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http
-  in
+  let dorpc, path = choose_rpc () in
+  let http = xmlrpc ~version:"1.0" path in
+  let rpc = dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http in
   let session_id =
     Client.Client.Session.slave_local_login ~rpc
       ~psecret:(Xapi_globs.pool_secret ())

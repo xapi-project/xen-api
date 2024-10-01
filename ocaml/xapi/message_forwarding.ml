@@ -59,11 +59,12 @@ let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
       )
   in
   let tracing = Context.set_client_span _context in
+  let dorpc, path = Helpers.choose_rpc () in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" path
     |> Helpers.TraceHelper.inject_span_into_req tracing
   in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+  dorpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 (* Use HTTP 1.1, use the stunnel cache and pre-verify the connection *)
 let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
@@ -78,11 +79,12 @@ let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
       )
   in
   let tracing = Context.set_client_span _context in
+  let dorpc, path = Helpers.choose_rpc () in
   let http =
-    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" path
     |> Helpers.TraceHelper.inject_span_into_req tracing
   in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
+  dorpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
 let call_slave_with_session remote_rpc_fn __context host
     (task_opt : API.ref_task option) f =
