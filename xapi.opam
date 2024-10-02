@@ -46,6 +46,7 @@ depends: [
   "stunnel" {= version}
   "tar"
   "tar-unix"
+  "tgroup"
   "uuid" {= version}
   "x509"
   "xapi-client" {= version}

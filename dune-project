@@ -36,6 +36,14 @@
 )
 
 (package
+  (name tgroup)
+  (depends 
+    xapi-log
+    xapi-stdext-unix
+    xapi-stdext-pervasives)
+)
+
+(package
   (name xapi-rrdd-plugin)
 )
 
@@ -342,6 +350,7 @@
     (stunnel (= :version))
     tar
     tar-unix
+    tgroup
     (uuid (= :version))
     x509
     (xapi-client (= :version))
