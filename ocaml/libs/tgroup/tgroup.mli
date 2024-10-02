@@ -7,7 +7,7 @@
  * exception on linking described in file LICENSE.
  *
  * This program is distributed in the hope that it will be useful,
- * but WITHOUT Group WARRANTY; without even the implied warranty of
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
