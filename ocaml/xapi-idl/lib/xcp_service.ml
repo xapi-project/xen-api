@@ -464,7 +464,13 @@ let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
           (fun _ -> failwith "Invalid argument")
           (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
     )
-  with Failure msg -> prerr_endline msg ; flush stderr ; exit 1
+  with
+  | Failure msg ->
+      prerr_endline msg ; flush stderr ; exit 1
+  | Arg.Bad msg ->
+      Printf.eprintf "%s" msg ; exit 2
+  | Arg.Help msg ->
+      Printf.printf "%s" msg ; exit 0
 
 let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
   configure_common ~options ~resources @@ fun config_spec ->
