@@ -456,15 +456,15 @@ let configure_common ~options ~resources arg_parse_fn =
     resources ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
-let configure ?(options = []) ?(resources = []) () =
+let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
   try
     configure_common ~options ~resources (fun config_spec ->
-        Arg.parse
+        Arg.parse_argv argv
           (Arg.align (arg_spec config_spec))
           (fun _ -> failwith "Invalid argument")
           (Printf.sprintf "Usage: %s [-config filename]" Sys.argv.(0))
     )
-  with Failure _ -> exit 1
+  with Failure msg -> prerr_endline msg ; flush stderr ; exit 1
 
 let configure2 ~name ~version ~doc ?(options = []) ?(resources = []) () =
   configure_common ~options ~resources @@ fun config_spec ->
