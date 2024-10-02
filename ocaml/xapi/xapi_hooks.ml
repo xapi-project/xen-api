@@ -64,40 +64,43 @@ let list_individual_hooks ~script_name =
   ) else
     [||]
 
+let in_test = Atomic.make false
+
 let execute_hook ~__context ~script_name ~args ~reason =
-  let args = args @ ["-reason"; reason] in
-  let scripts = list_individual_hooks ~script_name in
-  let script_dir = Filename.concat !Xapi_globs.xapi_hooks_root script_name in
-  Array.iter
-    (fun script ->
-      try
-        debug "Executing hook '%s/%s' with args [ %s ]" script_name script
-          (String.concat "; " args) ;
-        let os, es =
-          Forkhelpers.execute_command_get_output
-            (Filename.concat script_dir script)
-            args
-        in
-        debug
-          "%s: Output of executing hook '%s/%s' with args [ %s ] is %s, err is \
-           %s"
-          __FUNCTION__ script_name script (String.concat "; " args) os es
-      with
-      | Forkhelpers.Spawn_internal_error (_, stdout, Unix.WEXITED i)
-      (* i<>0 since that case does not generate exn *)
-      ->
-        if i = exitcode_log_and_continue then
-          debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script
-            (String.concat "; " args) (String.escaped stdout)
-        else
-          raise
-            (Api_errors.Server_error
-               ( Api_errors.xapi_hook_failed
-               , [script_name ^ "/" ^ script; reason; stdout; string_of_int i]
-               )
-            )
-    )
-    scripts
+  if not (Atomic.get in_test) then
+    let args = args @ ["-reason"; reason] in
+    let scripts = list_individual_hooks ~script_name in
+    let script_dir = Filename.concat !Xapi_globs.xapi_hooks_root script_name in
+    Array.iter
+      (fun script ->
+        try
+          debug "Executing hook '%s/%s' with args [ %s ]" script_name script
+            (String.concat "; " args) ;
+          let os, es =
+            Forkhelpers.execute_command_get_output
+              (Filename.concat script_dir script)
+              args
+          in
+          debug
+            "%s: Output of executing hook '%s/%s' with args [ %s ] is %s, err \
+             is %s"
+            __FUNCTION__ script_name script (String.concat "; " args) os es
+        with
+        | Forkhelpers.Spawn_internal_error (_, stdout, Unix.WEXITED i)
+        (* i<>0 since that case does not generate exn *)
+        ->
+          if i = exitcode_log_and_continue then
+            debug "Hook '%s/%s' with args [ %s ] logged '%s'" script_name script
+              (String.concat "; " args) (String.escaped stdout)
+          else
+            raise
+              (Api_errors.Server_error
+                 ( Api_errors.xapi_hook_failed
+                 , [script_name ^ "/" ^ script; reason; stdout; string_of_int i]
+                 )
+              )
+      )
+      scripts
 
 let execute_vm_hook ~__context ~reason ~vm =
   let vmuuid = Db.VM.get_uuid ~__context ~self:vm in
