@@ -13,6 +13,7 @@ depends: [
   "astring"
   "base-unix"
   "bisect_ppx" {with-test}
+  "clock" {= version & with-test}
   "fd-send-recv" {>= "2.0.0"}
   "fmt"
   "integers"

@@ -29,6 +29,7 @@ depends: [
   "yojson"
   "rrd-transport"
   "xapi-tracing-export"
+  "xen-api-client"
   "alcotest" {with-test}
   "ppx_deriving_rpc" {with-test}
   "qcheck-core" {with-test}
