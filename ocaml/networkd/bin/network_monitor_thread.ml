@@ -109,7 +109,6 @@ let standardise_name name =
   with _ -> name
 
 let get_link_stats () =
-  let open Network_monitor in
   let open Netlink in
   let s = Socket.alloc () in
   Socket.connect s Socket.NETLINK_ROUTE ;
@@ -124,101 +123,20 @@ let get_link_stats () =
     let is_vlan name =
       Astring.String.is_prefix ~affix:"eth" name && String.contains name '.'
     in
-    List.map (fun link -> (standardise_name (Link.get_name link), link)) links
+    List.map (fun link -> standardise_name (Link.get_name link)) links
     |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
           devices (ethx.y). *)
-    List.filter (fun (name, _) -> is_whitelisted name && not (is_vlan name))
+    List.filter (fun name -> is_whitelisted name && not (is_vlan name))
   in
-  let devs =
-    List.map
-      (fun (name, link) ->
-        let convert x = Int64.of_int (Unsigned.UInt64.to_int x) in
-        let eth_stat =
-          {
-            default_stats with
-            rx_bytes= Link.get_stat link Link.RX_BYTES |> convert
-          ; rx_pkts= Link.get_stat link Link.RX_PACKETS |> convert
-          ; rx_errors= Link.get_stat link Link.RX_ERRORS |> convert
-          ; tx_bytes= Link.get_stat link Link.TX_BYTES |> convert
-          ; tx_pkts= Link.get_stat link Link.TX_PACKETS |> convert
-          ; tx_errors= Link.get_stat link Link.TX_ERRORS |> convert
-          }
-        in
-        (name, eth_stat)
-      )
-      links
-  in
-  Cache.free cache ; Socket.close s ; Socket.free s ; devs
+  Cache.free cache ; Socket.close s ; Socket.free s ; links
 
 let rec monitor dbg () =
   let open Network_interface in
   let open Network_monitor in
   ( try
-      let make_bond_info devs (name, interfaces) =
-        let devs' =
-          List.filter (fun (name', _) -> List.mem name' interfaces) devs
-        in
-        let eth_stat =
-          {
-            default_stats with
-            rx_bytes=
-              List.fold_left
-                (fun ac (_, stat) -> Int64.add ac stat.rx_bytes)
-                0L devs'
-          ; rx_pkts=
-              List.fold_left
-                (fun ac (_, stat) -> Int64.add ac stat.rx_pkts)
-                0L devs'
-          ; rx_errors=
-              List.fold_left
-                (fun ac (_, stat) -> Int64.add ac stat.rx_errors)
-                0L devs'
-          ; tx_bytes=
-              List.fold_left
-                (fun ac (_, stat) -> Int64.add ac stat.tx_bytes)
-                0L devs'
-          ; tx_pkts=
-              List.fold_left
-                (fun ac (_, stat) -> Int64.add ac stat.tx_pkts)
-                0L devs'
-          ; tx_errors=
-              List.fold_left
-                (fun ac (_, stat) -> Int64.add ac stat.tx_errors)
-                0L devs'
-          }
-        in
-        (name, eth_stat)
-      in
-      let add_bonds bonds devs = List.map (make_bond_info devs) bonds @ devs in
-      let transform_taps devs =
-        let newdevnames =
-          Xapi_stdext_std.Listext.List.setify (List.map fst devs)
-        in
+      let get_stats bonds devs =
         List.map
-          (fun name ->
-            let devs' = List.filter (fun (n, _) -> n = name) devs in
-            let tot =
-              List.fold_left
-                (fun acc (_, b) ->
-                  {
-                    default_stats with
-                    rx_bytes= Int64.add acc.rx_bytes b.rx_bytes
-                  ; rx_pkts= Int64.add acc.rx_pkts b.rx_pkts
-                  ; rx_errors= Int64.add acc.rx_errors b.rx_errors
-                  ; tx_bytes= Int64.add acc.tx_bytes b.tx_bytes
-                  ; tx_pkts= Int64.add acc.tx_pkts b.tx_pkts
-                  ; tx_errors= Int64.add acc.tx_errors b.tx_errors
-                  }
-                )
-                default_stats devs'
-            in
-            (name, tot)
-          )
-          newdevnames
-      in
-      let add_other_stats bonds devs =
-        List.map
-          (fun (dev, stat) ->
+          (fun dev ->
             if not (Astring.String.is_prefix ~affix:"vif" dev) then (
               let open Network_server.Bridge in
               let bond_slaves =
@@ -242,7 +160,6 @@ let rec monitor dbg () =
                   let links_up = if carrier then 1 else 0 in
                   let interfaces = [dev] in
                   {
-                    stat with
                     carrier
                   ; speed
                   ; duplex
@@ -286,7 +203,6 @@ let rec monitor dbg () =
                     List.map (fun info -> info.slave) bond_slaves
                   in
                   {
-                    stat with
                     carrier
                   ; speed
                   ; duplex
@@ -301,7 +217,7 @@ let rec monitor dbg () =
               check_for_changes ~dev ~stat ;
               (dev, stat)
             ) else
-              (dev, stat)
+              (dev, default_stats)
           )
           devs
       in
@@ -309,12 +225,7 @@ let rec monitor dbg () =
       let bonds : (string * string list) list =
         Network_server.Bridge.get_all_bonds dbg from_cache
       in
-      let devs =
-        get_link_stats ()
-        |> add_bonds bonds
-        |> transform_taps
-        |> add_other_stats bonds
-      in
+      let devs = get_link_stats () |> get_stats bonds in
       ( if List.length bonds <> Hashtbl.length bonds_status then
           let dead_bonds =
             Hashtbl.fold
