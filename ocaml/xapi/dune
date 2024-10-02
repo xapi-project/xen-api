@@ -151,6 +151,7 @@
     tapctl
     tar
     tar-unix
+    tgroup
     threads.posix
     tracing
     unixpwd
@@ -237,6 +238,7 @@
     rpclib.json
     rpclib.xml
     stunnel
+    tgroup
     threads.posix
     tracing
     xapi-backtrace
