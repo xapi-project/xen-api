@@ -38,6 +38,13 @@
 )
 
 (package
+  (name tgroup)
+  (depends 
+    xapi-log
+    xapi-stdext-unix)
+)
+
+(package
   (name xml-light2)
 )
 
@@ -373,6 +380,7 @@
     tar
     tar-unix
     uri
+    tgroup
     (uuid (= :version))
     uutf
     uuidm

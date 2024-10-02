@@ -1055,6 +1055,9 @@ let disable_webserver = ref false
 
 let test_open = ref 0
 
+let xapi_requests_cgroup =
+  "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
