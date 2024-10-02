@@ -28,7 +28,8 @@ type res = {
   ; perms: Unix.access_permission list
 }
 
-val configure : ?options:opt list -> ?resources:res list -> unit -> unit
+val configure :
+  ?argv:string array -> ?options:opt list -> ?resources:res list -> unit -> unit
 
 val configure2 :
      name:string
