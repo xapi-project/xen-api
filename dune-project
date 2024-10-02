@@ -270,6 +270,11 @@
     uutf
     x509
     xapi-backtrace
+    xapi-log
+    xapi-types
+    xapi-stdext-pervasives
+    xapi-stdext-unix
+    xen-api-client
     xenctrl
     xenstore_transport
     xmlm
@@ -305,6 +310,7 @@
     ; because it is not in xs-opam yet
     rrd-transport
     xapi-tracing-export
+    xen-api-client
     (alcotest :with-test)
     (ppx_deriving_rpc :with-test)
     (qcheck-core :with-test)
@@ -712,6 +718,7 @@ This package provides an Lwt compatible interface to the library.")
     astring
     base-unix
     (bisect_ppx :with-test)
+    (clock (and (= :version) :with-test))
     (fd-send-recv (>= 2.0.0))
     fmt
     integers
