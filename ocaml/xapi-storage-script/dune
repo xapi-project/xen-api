@@ -1,23 +1,42 @@
+(library
+  (name private)
+  (modules lib)
+  (libraries
+    fmt
+    inotify
+    inotify.lwt
+    lwt
+    lwt.unix
+    rpclib.core
+    )
+  (preprocess (pps ppx_deriving_rpc))
+  )
+
+(test
+  (name test_lib)
+  (modules test_lib)
+  (libraries alcotest alcotest-lwt lwt fmt private)
+  )
+
 (executable
   (name main)
+  (modules main)
   (libraries
-    async
-    async_inotify
-    async_kernel
-    async_unix
     base
-    base.caml
-    core
-    core_unix
-    core_unix.time_unix
-    
-    message-switch-async
+
+    fmt
+    logs
+    logs.lwt
+    lwt
+    lwt.unix
+    message-switch-lwt
     message-switch-unix
     ppx_deriving.runtime
+    private
     result
     rpclib.core
     rpclib.json
-    rpclib-async
+    rpclib-lwt
     sexplib
     sexplib0
     uri
@@ -33,7 +52,7 @@
     xapi-stdext-date
     xapi-storage
   )
-  (preprocess (pps ppx_deriving_rpc ppx_sexp_conv))
+  (preprocess (pps ppx_sexp_conv))
 )
 
 (install

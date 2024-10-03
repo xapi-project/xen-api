@@ -22,7 +22,7 @@ depends: [
   "ipaddr"
   "logs"
   "lwt" {>= "5.0.0"}
-  "message-switch-async" {with-test}
+  "message-switch-lwt" {with-test}
   "message-switch-core"
   "message-switch-unix"
   "mtime"
