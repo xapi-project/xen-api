@@ -2376,11 +2376,8 @@ module VM = struct
       | Dynamic.Vm id when id = vm.Vm.id ->
           debug "EVENT on our VM: %s" id ;
           Some ()
-      | Dynamic.Vm id ->
-          debug "EVENT on other VM: %s" id ;
-          None
       | _ ->
-          debug "OTHER EVENT" ; None
+          None
     in
     let vm_has_shutdown () =
       on_domain task vm (fun _ _ _ _ di -> di.Xenctrl.shutdown)
