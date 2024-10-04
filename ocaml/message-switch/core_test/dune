@@ -5,7 +5,7 @@
     server_unix_main
     lock_test_lwt
   )
-  (modules 
+  (modules
     client_unix_main
     server_unix_main
     lock_test_lwt
@@ -48,8 +48,6 @@
   (deps
     client_unix_main.exe
     server_unix_main.exe
-    async/client_async_main.exe
-    async/server_async_main.exe
     lwt/client_main.exe
     lwt/server_main.exe
     lwt/link_test_main.exe
