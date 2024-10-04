@@ -4,12 +4,15 @@ open Safe_resources
 
 let user_agent = "test_client"
 
-(* To do:
-   1. test with and without SSL
-   2. test with n parallel threads
-   3. make sure xapi still works
-   4. make xapi able to read stats
-*)
+let ip = ref "127.0.0.1"
+
+let port = ref 8080
+
+let use_ssl = ref false
+
+let use_fastpath = ref false
+
+let use_framing = ref false
 
 let with_connection ip port f =
   let inet_addr = Unix.inet_addr_of_string ip in
@@ -108,30 +111,10 @@ let sample n f =
   done ;
   !p
 
-let _ =
-  let ip = ref "127.0.0.1" in
-  let port = ref 8080 in
-  let use_ssl = ref false in
-  let use_fastpath = ref false in
-  let use_framing = ref false in
-  Arg.parse
-    [
-      ("-ip", Arg.Set_string ip, "IP to connect to")
-    ; ("-p", Arg.Set_int port, "port to connect")
-    ; ("-fast", Arg.Set use_fastpath, "use HTTP fastpath")
-    ; ("-frame", Arg.Set use_framing, "use HTTP framing")
-    ; ("--ssl", Arg.Set use_ssl, "use SSL rather than plaintext")
-    ]
-    (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
-    "A simple test HTTP client" ;
+let perf () =
   let use_fastpath = !use_fastpath in
   let use_framing = !use_framing in
   let transport = if !use_ssl then with_stunnel else with_connection in
-  (*
-	Printf.printf "Overhead of timing:                ";
-	let overhead = sample 10 (fun () -> per_nsec 1. (fun () -> ())) in
-	Printf.printf "%s ops/sec\n" (Normal_population.to_string overhead);
-*)
   Printf.printf "1 thread non-persistent connections:        " ;
   let nonpersistent =
     sample 1 (fun () ->
@@ -183,3 +166,16 @@ let _ =
     )
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent)
+
+let () =
+  Arg.parse
+    [
+      ("-ip", Arg.Set_string ip, "IP to connect to")
+    ; ("-p", Arg.Set_int port, "port to connect")
+    ; ("-fast", Arg.Set use_fastpath, "use HTTP fastpath")
+    ; ("-frame", Arg.Set use_framing, "use HTTP framing")
+    ; ("--ssl", Arg.Set use_ssl, "use SSL rather than plaintext")
+    ; ("--perf", Arg.Unit perf, "Collect performance stats")
+    ]
+    (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
+    "A simple test HTTP client"
