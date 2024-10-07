@@ -113,6 +113,8 @@
     safe-resources
     stunnel
     threads.posix
+    xapi-backtrace
+    xapi-log
     xapi-stdext-pervasives
     xapi-stdext-unix
   )

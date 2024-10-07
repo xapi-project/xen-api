@@ -167,6 +167,44 @@ let perf () =
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent)
 
+let send_close_conn ~use_fastpath ~use_framing keep_alive s =
+  try
+    Http_client.rpc ~use_fastpath s
+      (Http.Request.make ~frame:use_framing ~version:"1.1" ~keep_alive
+         ~user_agent ~body:"hello" Http.Get "/close_conn"
+      ) (fun response s ->
+        match response.Http.Response.content_length with
+        | Some l ->
+            let _ = Unixext.really_read_string s (Int64.to_int l) in
+            Printf.printf "Received a response with %Ld bytes.\n" l ;
+            exit 1
+        | None ->
+            Printf.printf "Need a content length\n" ;
+            exit 1
+    )
+  with Unix.Unix_error (Unix.ECONNRESET, "read", "") as e ->
+    Backtrace.is_important e ;
+    let bt = Backtrace.get e in
+    Debug.log_backtrace e bt
+
+let ( let@ ) f x = f x
+
+let logerr () =
+  (* Send a request to the server to close connection instead of replying with
+     an http request, force the error to be logged *)
+  Printexc.record_backtrace true ;
+  Debug.log_to_stdout () ;
+  Debug.set_level Syslog.Debug ;
+  let use_fastpath = !use_fastpath in
+  let use_framing = !use_framing in
+  let transport = if !use_ssl then with_stunnel else with_connection in
+  let call () =
+    let@ () = Backtrace.with_backtraces in
+    let@ s = transport !ip !port in
+    send_close_conn ~use_fastpath ~use_framing false s
+  in
+  match call () with `Ok () -> () | `Error (_, _) -> ()
+
 let () =
   Arg.parse
     [
@@ -176,6 +214,7 @@ let () =
     ; ("-frame", Arg.Set use_framing, "use HTTP framing")
     ; ("--ssl", Arg.Set use_ssl, "use SSL rather than plaintext")
     ; ("--perf", Arg.Unit perf, "Collect performance stats")
+    ; ("--logerr", Arg.Unit logerr, "Test log on error")
     ]
     (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
     "A simple test HTTP client"
