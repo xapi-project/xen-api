@@ -21,7 +21,7 @@ let bytes_of_handle h =
 
 let uuid_of_handle h =
   let h' = bytes_of_handle h |> Bytes.to_string in
-  match Uuidm.of_bytes h' with
+  match Uuidm.of_binary_string h' with
   | Some x ->
       x
   | None ->

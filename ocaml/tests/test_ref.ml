@@ -3,7 +3,8 @@
 
 let uuidm =
   Crowbar.(
-    map [bytes_fixed 16] @@ fun b -> b |> Uuidm.of_bytes ~pos:0 |> Option.get
+    map [bytes_fixed 16] @@ fun b ->
+    b |> Uuidm.of_binary_string ~pos:0 |> Option.get
   )
 
 let ref_of_uuidm uuidm =

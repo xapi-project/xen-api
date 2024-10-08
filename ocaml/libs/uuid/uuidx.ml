@@ -98,15 +98,15 @@ let pp = Uuidm.pp
 
 let equal = Uuidm.equal
 
-let of_bytes u = Uuidm.of_bytes ~pos:0 u
+let of_bytes u = Uuidm.of_binary_string ~pos:0 u
 
-let to_bytes = Uuidm.to_bytes
+let to_bytes = Uuidm.to_binary_string
 
 let of_int_array arr =
   arr |> Array.to_seq |> Seq.map char_of_int |> String.of_seq |> of_bytes
 
 let to_int_array u =
-  Uuidm.to_bytes u |> String.to_seq |> Seq.map int_of_char |> Array.of_seq
+  to_bytes u |> String.to_seq |> Seq.map int_of_char |> Array.of_seq
 
 let of_string = Uuidm.of_string ~pos:0
 
