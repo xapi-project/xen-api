@@ -30,6 +30,10 @@ module W3CBaggage : sig
   val to_assoc_list : t -> (string * string) list
 
   val parse : string -> t
+
+  val combine : t -> t -> t
+  (** [combine b b'] creates baggage by combining two input sources of baggage.
+      If a binding is present in both, then the entry in [b'] is preferred. *)
 end
 
 type endpoint = Bugtool | Url of Uri.t

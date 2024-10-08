@@ -229,6 +229,8 @@ module W3CBaggage = struct
     >> List.map (cut ~sep:"=" >> Option.map trim_pair)
     >> List.filter_map Fun.id
     >> of_assoc_list
+
+  let combine = SM.union (fun _ _ v' -> Some v')
 end
 
 let validate_attribute (key, value) =

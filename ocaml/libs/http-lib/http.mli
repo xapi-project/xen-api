@@ -131,6 +131,14 @@ module Request : sig
 
   val traceparent_of : t -> Tracing.Span.t option
 
+  val baggage_of : t -> Tracing.W3CBaggage.t option
+  (* Extracts out any baggage contained within the request. *)
+
+  val with_baggage : Tracing.W3CBaggage.t -> t -> t
+  (* Associates baggage with a request. If baggage is already present in the request,
+     the resultant request contains a combination of baggage entries - where entries
+     provided to this function are preferred over extant entries.*)
+
   val with_tracing :
     ?attributes:(string * string) list -> name:string -> t -> (t -> 'a) -> 'a
 end
