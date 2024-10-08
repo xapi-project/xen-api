@@ -781,6 +781,8 @@ let with_child_trace ?attributes parent ~name f =
 module EnvHelpers = struct
   let traceparent_key = "TRACEPARENT"
 
+  let baggage_key = "BAGGAGE"
+
   let of_traceparent traceparent =
     match traceparent with
     | None ->
