@@ -220,6 +220,15 @@ module W3CBaggage = struct
     List.fold_left populate SM.empty
 
   let to_assoc_list = SM.bindings
+
+  let parse =
+    let open Astring.String in
+    let ( >> ) f g x = g (f x) in
+    let trim_pair (key, value) = (trim key, trim value) in
+    cuts ~sep:";"
+    >> List.map (cut ~sep:"=" >> Option.map trim_pair)
+    >> List.filter_map Fun.id
+    >> of_assoc_list
 end
 
 let validate_attribute (key, value) =

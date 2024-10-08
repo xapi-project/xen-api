@@ -28,6 +28,8 @@ module W3CBaggage : sig
   val of_assoc_list : (string * string) list -> t
 
   val to_assoc_list : t -> (string * string) list
+
+  val parse : string -> t
 end
 
 type endpoint = Bugtool | Url of Uri.t
