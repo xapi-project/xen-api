@@ -20,6 +20,14 @@ module W3CBaggage : sig
 
     val to_string : t -> string
   end
+
+  type t
+
+  val empty : t
+
+  val of_assoc_list : (string * string) list -> t
+
+  val to_assoc_list : t -> (string * string) list
 end
 
 type endpoint = Bugtool | Url of Uri.t
