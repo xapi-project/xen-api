@@ -228,9 +228,10 @@ let validate_attribute (key, value) =
   && W3CBaggage.Key.is_valid_key key
 
 module SpanContext = struct
-  type t = {trace_id: Trace_id.t; span_id: Span_id.t} [@@deriving rpcty]
+  type t = {trace_id: Trace_id.t; span_id: Span_id.t; baggage: W3CBaggage.t}
+  [@@deriving rpcty]
 
-  let context trace_id span_id = {trace_id; span_id}
+  let context trace_id span_id baggage = {trace_id; span_id; baggage}
 
   let to_traceparent t =
     Printf.sprintf "00-%s-%s-01"
@@ -245,6 +246,7 @@ module SpanContext = struct
           {
             trace_id= Trace_id.of_string trace_id
           ; span_id= Span_id.of_string span_id
+          ; baggage= W3CBaggage.empty
           }
     | _ ->
         None
@@ -252,6 +254,8 @@ module SpanContext = struct
   let trace_id_of_span_context t = t.trace_id
 
   let span_id_of_span_context t = t.span_id
+
+  let baggage_of_span_context t = t.baggage
 end
 
 module SpanLink = struct
@@ -290,7 +294,8 @@ module Span = struct
           span_parent.context.trace_id
     in
     let span_id = Span_id.make () in
-    let context : SpanContext.t = {trace_id; span_id} in
+    let baggage = W3CBaggage.empty in
+    let context : SpanContext.t = {trace_id; span_id; baggage} in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
@@ -692,6 +697,7 @@ module Tracer = struct
                    SpanContext.context
                      (SpanContext.trace_id_of_span_context parent.context)
                      old_context.span_id
+                     (SpanContext.baggage_of_span_context parent.context)
                  in
                  let updated_span = {existing_span with parent= Some parent} in
                  let updated_span = {updated_span with context= new_context} in
