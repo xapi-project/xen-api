@@ -77,14 +77,6 @@ module OwnerMap = Map.Make (struct
         String.compare a b
 end)
 
-let owner_to_string () = function
-  | Host ->
-      "host"
-  | VM uuid ->
-      "VM " ^ uuid
-  | SR uuid ->
-      "SR " ^ uuid
-
 (** Updates all of the hosts rrds. We are passed a list of uuids that is used as
     the primary source for which VMs are resident on us. When a new uuid turns
     up that we haven't got an RRD for in our hashtbl, we create a new one. When

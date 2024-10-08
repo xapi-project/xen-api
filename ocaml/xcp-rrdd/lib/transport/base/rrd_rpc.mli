@@ -21,3 +21,5 @@ val assoc_opt : key:string -> default:string -> (string * Rpc.t) list -> string
 val ds_ty_of_string : string -> Rrd.ds_type
 
 val owner_of_string : string -> Rrd.ds_owner
+
+val transform_of_string : string -> Rrd.ds_transform_function

@@ -44,6 +44,15 @@ let ds_owner x =
         string "sr %s" sr
   )
 
+let ds_transform x =
+  ( "transform"
+  , match x with
+    | Rrd.Identity ->
+        string "identity"
+    | Rrd.Inverse ->
+        string "inverse"
+  )
+
 let bool b = string "%b" b (* Should use `Bool b *)
 
 let float x = string "%.2f" x
@@ -63,6 +72,7 @@ let ds_to_json (owner, ds) =
          [
            description ds.Ds.ds_description
          ; [ds_owner owner]
+         ; [ds_transform ds.Ds.ds_pdp_transform_function]
          ; ds_value ds.Ds.ds_value
          ; [ds_type ds.Ds.ds_type]
          ; [

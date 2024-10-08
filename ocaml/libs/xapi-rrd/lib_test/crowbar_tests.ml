@@ -81,7 +81,7 @@ let rrd =
       List.iteri
         (fun i v ->
           let t = 5. *. (init_time +. float_of_int i) in
-          ds_update rrd t [|VT_Int64 v|] [|Fun.id|] (i = 0)
+          ds_update rrd t [|VT_Int64 v|] [|Identity|] (i = 0)
         )
         values ;
       rrd

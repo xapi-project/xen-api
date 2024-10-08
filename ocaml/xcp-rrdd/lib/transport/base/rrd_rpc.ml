@@ -53,3 +53,13 @@ let owner_of_string (s : string) : Rrd.ds_owner =
       Rrd.SR uuid
   | _ ->
       raise Rrd_protocol.Invalid_payload
+
+(* Converts a string to value of ds_transform_function type. *)
+let transform_of_string (s : string) : Rrd.ds_transform_function =
+  match s with
+  | "inverse" ->
+      Rrd.Inverse
+  | "identity" ->
+      Rrd.Identity
+  | _ ->
+      raise Rrd_protocol.Invalid_payload

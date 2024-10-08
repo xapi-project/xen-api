@@ -142,8 +142,7 @@ let dss_pcpus xc =
               ~description:("Physical cpu usage for cpu " ^ string_of_int i)
               ~value:(Rrd.VT_Float (Int64.to_float v /. 1.0e9))
               ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true
-              ~transform:(fun x -> 1.0 -. x)
-              ()
+              ~transform:Rrd.Inverse ()
           )
           :: acc
         , i + 1
@@ -158,9 +157,7 @@ let dss_pcpus xc =
     , Ds.ds_make ~name:"cpu_avg" ~units:"(fraction)"
         ~description:"Average physical cpu usage"
         ~value:(Rrd.VT_Float (avg_array /. 1.0e9))
-        ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true
-        ~transform:(fun x -> 1.0 -. x)
-        ()
+        ~min:0.0 ~max:1.0 ~ty:Rrd.Derive ~default:true ~transform:Rrd.Inverse ()
     )
   in
   avgcpu_ds :: dss
