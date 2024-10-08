@@ -33,6 +33,8 @@ let xapiport = ref None
 
 let traceparent = ref None
 
+let baggage = ref None
+
 let get_xapiport ssl =
   match !xapiport with None -> if ssl then 443 else 80 | Some p -> p
 
@@ -306,6 +308,10 @@ let parse_args =
     Option.iter
       (fun tp -> traceparent := Some tp)
       (Sys.getenv_opt Tracing.EnvHelpers.traceparent_key) ;
+    (* Only source baggage from environment variable for now. *)
+    Option.iter
+      (fun b -> baggage := Some b)
+      (Sys.getenv_opt Tracing.EnvHelpers.baggage_key) ;
     let help = ref false in
     let args' = List.filter (fun s -> s <> "-help" && s <> "--help") args in
     if List.length args' < List.length args then help := true ;
@@ -814,9 +820,21 @@ let main () =
         let args =
           args @ ["username=" ^ !xapiuname; "password=" ^ !xapipword]
         in
+        let baggage =
+          let open Tracing in
+          let sanitise input =
+            input
+            |> W3CBaggage.parse
+            |> W3CBaggage.to_assoc_list
+            |> List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
+            |> String.concat ";"
+          in
+          Option.map sanitise !baggage
+        in
         let args = String.concat "\n" args in
         Printf.fprintf oc "User-agent: xe-cli/Unix/%d.%d\r\n" major minor ;
         Option.iter (Printf.fprintf oc "traceparent: %s\r\n") traceparent ;
+        Option.iter (Printf.fprintf oc "baggage: %s\r\n") baggage ;
         Printf.fprintf oc "content-length: %d\r\n\r\n" (String.length args) ;
         Printf.fprintf oc "%s" args ;
         flush_all () ;

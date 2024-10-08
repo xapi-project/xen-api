@@ -275,6 +275,10 @@ module EnvHelpers : sig
       environment variable. 
       *)
 
+  val baggage_key : string
+  (** [baggage_key] is a constant that represents the key of the baggage
+      environment variable. *)
+
   val of_traceparent : string option -> string list
   (** [of_traceparent traceparent_opt] returns a singleton list consisting of a
       envirentment variable with the key [traceparent_key] and value [v] if 
