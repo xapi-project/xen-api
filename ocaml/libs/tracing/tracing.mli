@@ -104,6 +104,8 @@ module SpanContext : sig
   val span_id_of_span_context : t -> Span_id.t
 
   val baggage_of_span_context : t -> W3CBaggage.t
+
+  val with_baggage : W3CBaggage.t -> t -> t
 end
 
 module Span : sig
