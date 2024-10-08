@@ -60,7 +60,7 @@ let xapi_rpc call =
   | _ ->
       Fmt.failwith "XAPI RPC call %s not expected in test" call.Rpc.name
 
-let vm_uuid = Uuidm.v `V4
+let vm_uuid = Uuidm.v4_gen (Random.State.make_self_init ()) ()
 
 let vm_uuid_str = Uuidm.to_string vm_uuid
 

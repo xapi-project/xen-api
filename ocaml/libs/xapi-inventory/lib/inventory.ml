@@ -52,10 +52,14 @@ let inventory = Hashtbl.create 10
 
 let inventory_m = Mutex.create ()
 
+let new_uuid () =
+  let random = Random.State.make_self_init () in
+  Uuidm.v4_gen random ()
+
 (* Compute the minimum necessary inventory file contents *)
 let minimum_default_entries () =
-  let host_uuid = Uuidm.to_string (Uuidm.v `V4) in
-  let dom0_uuid = Uuidm.to_string (Uuidm.v `V4) in
+  let host_uuid = Uuidm.to_string (new_uuid ()) in
+  let dom0_uuid = Uuidm.to_string (new_uuid ()) in
   [
     (_installation_uuid, host_uuid)
   ; (_control_domain_uuid, dom0_uuid)

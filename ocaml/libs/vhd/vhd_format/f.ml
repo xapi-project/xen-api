@@ -100,12 +100,11 @@ let _mib_shift = 20
 
 let _gib_shift = 30
 
-let blank_uuid =
-  match Uuidm.of_bytes (String.make 16 '\000') with
-  | Some x ->
-      x
-  | None ->
-      assert false (* never happens *)
+let blank_uuid = Uuidm.nil
+
+let new_uuid () =
+  let random = Random.State.make_self_init () in
+  Uuidm.v4_gen random ()
 
 module Feature = struct
   type t = Temporary
@@ -394,7 +393,7 @@ module Footer = struct
       ?(creator_application = default_creator_application)
       ?(creator_version = default_creator_version)
       ?(creator_host_os = Host_OS.Other 0l) ~current_size
-      ?(original_size = current_size) ~disk_type ?(uid = Uuidm.v `V4)
+      ?(original_size = current_size) ~disk_type ?(uid = new_uuid ())
       ?(saved_state = false) () =
     let geometry = Geometry.of_sectors Int64.(current_size lsr sector_shift) in
     let checksum = 0l in
@@ -493,7 +492,7 @@ module Footer = struct
     set_footer_sectors buf t.geometry.Geometry.sectors ;
     set_footer_disk_type buf (Disk_type.to_int32 t.disk_type) ;
     set_footer_checksum buf 0l ;
-    set_footer_uid (Uuidm.to_bytes t.uid) 0 buf ;
+    set_footer_uid (Uuidm.to_binary_string t.uid) 0 buf ;
     set_footer_saved_state buf (if t.saved_state then 1 else 0) ;
     let remaining = Cstruct.shift buf sizeof_footer in
     for i = 0 to 426 do
@@ -544,7 +543,7 @@ module Footer = struct
     Disk_type.of_int32 (get_footer_disk_type buf) >>= fun disk_type ->
     let checksum = get_footer_checksum buf in
     let bytes = copy_footer_uid buf in
-    ( match Uuidm.of_bytes bytes with
+    ( match Uuidm.of_binary_string bytes with
     | None ->
         R.error
           (Failure
@@ -979,7 +978,9 @@ module Header = struct
     set_header_block_size buf
       (Int32.of_int (1 lsl (t.block_size_sectors_shift + sector_shift))) ;
     set_header_checksum buf 0l ;
-    set_header_parent_unique_id (Uuidm.to_bytes t.parent_unique_id) 0 buf ;
+    set_header_parent_unique_id
+      (Uuidm.to_binary_string t.parent_unique_id)
+      0 buf ;
     set_header_parent_time_stamp buf t.parent_time_stamp ;
     set_header_reserved buf 0l ;
     for i = 0 to 511 do
@@ -1074,7 +1075,7 @@ module Header = struct
     let block_size_sectors_shift = block_size_shift - sector_shift in
     let checksum = get_header_checksum buf in
     let bytes = copy_header_parent_unique_id buf in
-    ( match Uuidm.of_bytes bytes with
+    ( match Uuidm.of_binary_string bytes with
     | None ->
         R.error
           (Failure
@@ -2141,7 +2142,7 @@ functor
         (* Assume the data is there, or will be written later *)
         return t
 
-      let create_dynamic ~filename ~size ?(uuid = Uuidm.v `V4)
+      let create_dynamic ~filename ~size ?(uuid = new_uuid ())
           ?(saved_state = false) ?(features = []) () =
         (* The physical disk layout will be:
            byte 0   - 511:  backup footer
@@ -2212,7 +2213,7 @@ functor
         String.concat "/" (base @ target)
 
       let create_difference ~filename ~parent ?(relative_path = true)
-          ?(uuid = Uuidm.v `V4) ?(saved_state = false) ?(features = []) () =
+          ?(uuid = new_uuid ()) ?(saved_state = false) ?(features = []) () =
         (* We use the same basic file layout as in create_dynamic *)
         let data_offset = 512L in
         let table_offset = 2048L in
