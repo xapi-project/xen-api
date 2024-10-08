@@ -12,15 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let bytes_of_handle h =
-  let s = Bytes.make 16 '\000' in
-  for i = 0 to 15 do
-    Bytes.set s i (char_of_int h.(i))
-  done ;
-  s
-
 let uuid_of_handle h =
-  let h' = bytes_of_handle h |> Bytes.to_string in
+  let h' = String.init 16 (fun i -> char_of_int h.(i)) in
   match Uuidm.of_binary_string h' with
   | Some x ->
       x
@@ -28,9 +21,5 @@ let uuid_of_handle h =
       failwith (Printf.sprintf "VM handle '%s' is an invalid uuid" h')
 
 let handle_of_uuid u =
-  let s = Uuidm.to_bytes u in
-  let h = Array.make 16 0 in
-  for i = 0 to 15 do
-    h.(i) <- int_of_char s.[i]
-  done ;
-  h
+  let s = Uuidm.to_binary_string u in
+  Array.init 16 (fun i -> int_of_char s.[i])
