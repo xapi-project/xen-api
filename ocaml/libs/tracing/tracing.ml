@@ -267,6 +267,8 @@ module SpanContext = struct
   let span_id_of_span_context t = t.span_id
 
   let baggage_of_span_context t = t.baggage
+
+  let with_baggage b t = {t with baggage= W3CBaggage.combine t.baggage b}
 end
 
 module SpanLink = struct
@@ -305,7 +307,10 @@ module Span = struct
           span_parent.context.trace_id
     in
     let span_id = Span_id.make () in
-    let baggage = W3CBaggage.empty in
+    let baggage : W3CBaggage.t =
+      let baggage_of_parent p = SpanContext.baggage_of_span_context p.context in
+      Option.fold ~none:W3CBaggage.empty ~some:baggage_of_parent parent
+    in
     let context : SpanContext.t = {trace_id; span_id; baggage} in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
