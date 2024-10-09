@@ -117,44 +117,44 @@ let perf () =
   let use_fastpath = !use_fastpath in
   let use_framing = !use_framing in
   let transport = if !use_ssl then with_stunnel else with_connection in
-  Printf.printf "1 thread non-persistent connections:        " ;
+  Printf.printf "1 thread non-persistent connections:         " ;
   let nonpersistent =
-    let@ () = sample 1 in
-    let@ () = per_nsec 1. in
+    let@ () = sample 10 in
+    let@ () = per_nsec 0.1 in
     transport !ip !port (one ~use_fastpath ~use_framing false)
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent) ;
-  Printf.printf "1 thread non-persistent connections (query):        " ;
+  Printf.printf "1 thread non-persistent connections (query): " ;
   let nonpersistent_query =
-    let@ () = sample 1 in
-    let@ () = per_nsec 1. in
+    let@ () = sample 10 in
+    let@ () = per_nsec 0.1 in
     transport !ip !port (query ~use_fastpath ~use_framing false)
   in
   Printf.printf "%s RPCs/sec\n%!"
     (Normal_population.to_string nonpersistent_query) ;
-  Printf.printf "10 threads non-persistent connections: " ;
+  Printf.printf "10 threads non-persistent connections:       " ;
   let thread_nonpersistent =
-    let@ () = sample 1 in
+    let@ () = sample 10 in
     let@ () = threads 10 in
-    let@ () = per_nsec 5. in
+    let@ () = per_nsec 0.1 in
     transport !ip !port (one ~use_fastpath ~use_framing false)
   in
   Printf.printf "%s RPCs/sec\n%!"
     (Normal_population.to_string thread_nonpersistent) ;
-  Printf.printf "1 thread persistent connection:             " ;
+  Printf.printf "1 thread persistent connection:              " ;
   let persistent =
-    let@ () = sample 1 in
+    let@ () = sample 10 in
     let@ s = transport !ip !port in
-    let@ () = per_nsec 1. in
+    let@ () = per_nsec 0.1 in
     one ~use_fastpath ~use_framing true s
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string persistent) ;
-  Printf.printf "10 threads persistent connections: " ;
+  Printf.printf "10 threads persistent connections:           " ;
   let thread_persistent =
-    let@ () = sample 1 in
+    let@ () = sample 10 in
     let@ () = threads 10 in
     let@ s = transport !ip !port in
-    let@ () = per_nsec 5. in
+    let@ () = per_nsec 0.1 in
     one ~use_fastpath ~use_framing true s
   in
   Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent)
