@@ -71,6 +71,7 @@ module Content = struct
 
       let zipkin_span_of_span (s : Span.t) : ZipkinSpan.t =
         let serviceName = get_service_name () in
+        let context = Span.get_context s in
         let annotations =
           s
           |> Span.get_events
@@ -82,15 +83,19 @@ module Content = struct
                  {timestamp; value}
              )
         in
+        (* Combine span attributes with baggage during exportation. *)
+        let tags =
+          let attributes = Span.get_attributes s in
+          let baggage =
+            SpanContext.baggage_of_span_context context
+            |> W3CBaggage.to_assoc_list
+          in
+          attributes @ baggage
+        in
         {
-          id=
-            s
-            |> Span.get_context
-            |> SpanContext.span_id_of_span_context
-            |> Span_id.to_string
+          id= context |> SpanContext.span_id_of_span_context |> Span_id.to_string
         ; traceId=
-            s
-            |> Span.get_context
+            context
             |> SpanContext.trace_id_of_span_context
             |> Trace_id.to_string
         ; parentId=
@@ -117,7 +122,7 @@ module Content = struct
             |> Option.map SpanKind.to_string
         ; localEndpoint= {serviceName}
         ; annotations
-        ; tags= Span.get_attributes s
+        ; tags
         }
 
       let content_of (spans : Span.t list) =
