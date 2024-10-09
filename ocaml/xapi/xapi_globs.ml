@@ -768,7 +768,7 @@ let server_cert_group_id = ref (-1)
 let server_cert_internal_path =
   ref (Filename.concat "/etc/xensource" "xapi-pool-tls.pem")
 
-let c_rehash = ref "c_rehash"
+let c_rehash = ref "/usr/bin/c_rehash"
 
 let trusted_certs_dir = ref "/etc/stunnel/certs"
 
@@ -1734,7 +1734,6 @@ module Resources = struct
     ; ("createrepo-cmd", createrepo_cmd, "Path to createrepo command")
     ; ("modifyrepo-cmd", modifyrepo_cmd, "Path to modifyrepo command")
     ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
-    ; ("c_rehash", c_rehash, "Path to Regenerate CA store")
     ]
 
   let nonessential_executables =
@@ -1815,6 +1814,7 @@ module Resources = struct
       , yum_config_manager_cmd
       , "Path to yum-config-manager command"
       )
+    ; ("c_rehash", c_rehash, "Path to regenerate CA store")
     ]
 
   let essential_files =
