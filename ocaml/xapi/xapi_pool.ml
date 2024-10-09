@@ -322,7 +322,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       slavetobe_auth_type slavetobe_auth_service_name ;
     if
       slavetobe_auth_type <> master_auth_type
-      || slavetobe_auth_service_name <> master_auth_service_name
+      || String.lowercase_ascii slavetobe_auth_service_name
+         <> String.lowercase_ascii master_auth_service_name
     then (
       error
         "Cannot join pool whose external authentication configuration is \
