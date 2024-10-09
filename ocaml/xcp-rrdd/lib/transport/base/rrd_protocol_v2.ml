@@ -193,8 +193,13 @@ let uninitialised_ds_of_rpc ((name, rpc) : string * Rpc.t) :
   let default =
     bool_of_string (Rrd_rpc.assoc_opt ~key:"default" ~default:"false" kvs)
   in
+  let transform =
+    Rrd_rpc.transform_of_string
+      (Rrd_rpc.assoc_opt ~key:"transform" ~default:"identity" kvs)
+  in
   let ds =
-    Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default ()
+    Ds.ds_make ~name ~description ~units ~ty ~value ~min ~max ~default
+      ~transform ()
   in
   (owner, ds)
 
