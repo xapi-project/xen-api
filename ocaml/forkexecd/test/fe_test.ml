@@ -227,6 +227,77 @@ let test_internal_failure_error () =
       Printexc.print_backtrace stderr ;
       fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
+(* Emulate syslog and output lines to returned channel *)
+let syslog_lines sockname =
+  let clean () = try Unix.unlink sockname with _ -> () in
+  clean () ;
+  let sock = Unix.socket ~cloexec:true Unix.PF_UNIX Unix.SOCK_DGRAM 0 in
+  let rd_pipe, wr_pipe = Unix.pipe ~cloexec:true () in
+  Unix.bind sock (Unix.ADDR_UNIX sockname) ;
+  match Unix.fork () with
+  | 0 ->
+      (* child, read from socket and output to pipe *)
+      let term_handler = Sys.Signal_handle (fun _ -> clean () ; exit 0) in
+      Sys.set_signal Sys.sigint term_handler ;
+      Sys.set_signal Sys.sigterm term_handler ;
+      Unix.close rd_pipe ;
+      Unix.dup2 wr_pipe Unix.stdout ;
+      Unix.close wr_pipe ;
+      let buf = Bytes.create 1024 in
+      let rec fwd () =
+        let l = Unix.recv sock buf 0 (Bytes.length buf) [] in
+        if l > 0 then (
+          print_bytes (Bytes.sub buf 0 l) ;
+          print_newline () ;
+          (fwd [@tailcall]) ()
+        )
+      in
+      fwd () ; exit 0
+  | pid ->
+      Unix.close sock ;
+      Unix.close wr_pipe ;
+      (pid, Unix.in_channel_of_descr rd_pipe)
+
+let test_syslog with_stderr =
+  let rec syslog_line ic =
+    let line = input_line ic in
+    (* ignore log lines from daemon *)
+    if String.ends_with ~suffix:"\\x0A" line then
+      syslog_line ic
+    else
+      let re = Str.regexp ": " in
+      match Str.bounded_split re line 3 with
+      | _ :: _ :: final :: _ ->
+          final ^ "\n"
+      | _ ->
+          raise Not_found
+  in
+  let expected_out = "output string" in
+  let expected_err = "error string" in
+  let args = ["echo"; expected_out; expected_err] in
+  let child, ic = syslog_lines "/tmp/xyz" in
+  let out, err =
+    Forkhelpers.execute_command_get_output ~syslog_stdout:Syslog_DefaultKey
+      ~redirect_stderr_to_stdout:with_stderr exe args
+  in
+  expect "" (out ^ "\n") ;
+  if with_stderr then
+    expect "" (err ^ "\n")
+  else
+    expect expected_err err ;
+  Unix.sleepf 0.05 ;
+  Syslog.log Syslog.Daemon Syslog.Err "exe: XXX\n" ;
+  Syslog.log Syslog.Daemon Syslog.Err "exe: YYY\n" ;
+  let out = syslog_line ic in
+  expect expected_out out ;
+  let err = syslog_line ic in
+  let expected = if with_stderr then expected_err else "XXX" in
+  expect expected err ;
+  Unix.kill child Sys.sigint ;
+  Unix.waitpid [] child |> ignore ;
+  close_in ic ;
+  print_endline "Completed syslog test"
+
 let master fds =
   Printf.printf "\nPerforming timeout tests\n%!" ;
   test_delay () ;
@@ -238,6 +309,10 @@ let master fds =
   test_input () ;
   Printf.printf "\nPerforming internal failure test\n%!" ;
   test_internal_failure_error () ;
+  Printf.printf "\nPerforming syslog tests\n%!" ;
+  test_syslog true ;
+  test_syslog false ;
+
   let combinations = shuffle (all_combinations fds) in
   Printf.printf "Starting %d tests\n%!" (List.length combinations) ;
   let i = ref 0 in
