@@ -46,7 +46,7 @@ let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
              )
      ) ;
   create_repository_record ~__context ~name_label ~name_description ~binary_url
-    ~source_url ~update ~gpgkey_path ~origin:`remote
+    ~source_url ~update ~gpgkey_path ~origin:`remote ~certificate:""
 
 let introduce_bundle ~__context ~name_label ~name_description =
   Db.Repository.get_all ~__context
@@ -65,6 +65,24 @@ let introduce_bundle ~__context ~name_label ~name_description =
      ) ;
   create_repository_record ~__context ~name_label ~name_description
     ~binary_url:"" ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`bundle
+    ~certificate:""
+
+let introduce_remote_pool ~__context ~name_label ~name_description ~binary_url
+    ~certificate =
+  Db.Repository.get_all ~__context
+  |> List.iter (fun ref ->
+         if
+           name_label = Db.Repository.get_name_label ~__context ~self:ref
+           || binary_url = Db.Repository.get_binary_url ~__context ~self:ref
+         then
+           raise
+             Api_errors.(
+               Server_error (repository_already_exists, [Ref.string_of ref])
+             )
+     ) ;
+  create_repository_record ~__context ~name_label ~name_description ~binary_url
+    ~source_url:"" ~update:true ~gpgkey_path:"" ~origin:`remote_pool
+    ~certificate
 
 let forget ~__context ~self =
   let pool = Helpers.get_pool ~__context in
@@ -143,6 +161,11 @@ let sync ~__context ~self ~token ~token_id =
             Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
           in
           (Uri.to_string uri, None)
+      | `remote_pool ->
+          (* TODO: sync with Stunnel.with_client_proxy as otherwise yum
+             reposync will fail when checking the self signed certificate on
+             the remote pool. *)
+          ("", None)
     in
     let gpgkey_path =
       match Db.Repository.get_gpgkey_path ~__context ~self with
