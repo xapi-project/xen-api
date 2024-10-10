@@ -65,15 +65,12 @@ let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
-        if Xapi_cluster_helpers.cluster_health_enabled ~__context then
-          Extended
-            {
-              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-            ; hostuuid
-            ; hostname
-            }
-        else
-          IPv4 (ipstr_of_address ip_addr)
+        Extended
+          {
+            ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+          ; hostuuid
+          ; hostname
+          }
       in
       let token_timeout_ms = Int64.of_float (token_timeout *. 1000.0) in
       let token_timeout_coefficient_ms =
@@ -298,8 +295,6 @@ let pool_resync ~__context ~self:_ =
    find or create a matching cluster_host which is also enabled *)
 
 let cstack_sync ~__context ~self =
-  if Xapi_cluster_helpers.cluster_health_enabled ~__context then (
-    debug "%s: sync db data with cluster stack" __FUNCTION__ ;
-    Watcher.on_corosync_update ~__context ~cluster:self
-      ["Updates due to cluster api calls"]
-  )
+  debug "%s: sync db data with cluster stack" __FUNCTION__ ;
+  Watcher.on_corosync_update ~__context ~cluster:self
+    ["Updates due to cluster api calls"]
