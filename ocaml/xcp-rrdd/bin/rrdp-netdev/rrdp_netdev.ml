@@ -44,12 +44,10 @@ let monitor_whitelist =
     ; "vif" (* This includes "tap" owing to the use of standardise_name below *)
     ]
 
+(** Transform names of the form 'tapX.X' to 'vifX.X' so these can be handled
+   consistently later *)
 let standardise_name name =
-  try
-    let d1, d2 = Scanf.sscanf name "tap%d.%d" (fun d1 d2 -> (d1, d2)) in
-    let newname = Printf.sprintf "vif%d.%d" d1 d2 in
-    newname
-  with _ -> name
+  try Scanf.sscanf name "tap%d.%d" @@ Printf.sprintf "vif%d.%d" with _ -> name
 
 let get_link_stats () =
   let open Netlink in
@@ -93,24 +91,17 @@ let get_link_stats () =
 
 let make_bond_info devs (name, interfaces) =
   let devs' = List.filter (fun (name', _) -> List.mem name' interfaces) devs in
+  let sum_list f =
+    List.fold_left (fun ac (_, stat) -> Int64.add ac (f stat)) 0L devs'
+  in
   let eth_stat =
     {
-      rx_bytes=
-        List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_bytes) 0L devs'
-    ; rx_pkts=
-        List.fold_left (fun ac (_, stat) -> Int64.add ac stat.rx_pkts) 0L devs'
-    ; rx_errors=
-        List.fold_left
-          (fun ac (_, stat) -> Int64.add ac stat.rx_errors)
-          0L devs'
-    ; tx_bytes=
-        List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_bytes) 0L devs'
-    ; tx_pkts=
-        List.fold_left (fun ac (_, stat) -> Int64.add ac stat.tx_pkts) 0L devs'
-    ; tx_errors=
-        List.fold_left
-          (fun ac (_, stat) -> Int64.add ac stat.tx_errors)
-          0L devs'
+      rx_bytes= sum_list (fun stat -> stat.rx_bytes)
+    ; rx_pkts= sum_list (fun stat -> stat.rx_pkts)
+    ; rx_errors= sum_list (fun stat -> stat.rx_errors)
+    ; tx_bytes= sum_list (fun stat -> stat.tx_bytes)
+    ; tx_pkts= sum_list (fun stat -> stat.tx_pkts)
+    ; tx_errors= sum_list (fun stat -> stat.tx_errors)
     }
   in
   (name, eth_stat)
