@@ -43,7 +43,8 @@ class TestIsNbdDeviceConnected(unittest.TestCase):
         result = nbd_client_manager._is_nbd_device_connected('/dev/nbd0')
 
         self.assertTrue(result)
-        mock_call.assert_called_once_with(["nbd-client", "-check", "/dev/nbd0"], error=False)
+        mock_call.assert_called_once_with(["nbd-client", "-check", "/dev/nbd0"],
+                                          raise_err=False, log_err=False)
 
     @patch('nbd_client_manager._call')
     def test_nbd_device_not_connected(self, mock_call, mock_exists):
@@ -53,7 +54,8 @@ class TestIsNbdDeviceConnected(unittest.TestCase):
         result = nbd_client_manager._is_nbd_device_connected('/dev/nbd1')
 
         self.assertFalse(result)
-        mock_call.assert_called_once_with(["nbd-client", "-check", "/dev/nbd1"], error=False)
+        mock_call.assert_called_once_with(["nbd-client", "-check", "/dev/nbd1"],
+                                          raise_err=False, log_err=False)
 
     def test_nbd_device_not_found(self, mock_exists):
         mock_exists.return_value = False
