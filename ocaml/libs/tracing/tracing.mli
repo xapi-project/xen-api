@@ -106,6 +106,8 @@ module SpanContext : sig
   val baggage_of_span_context : t -> W3CBaggage.t
 
   val with_baggage : W3CBaggage.t -> t -> t
+
+  val with_baggage_maybe : W3CBaggage.t option -> t -> t
 end
 
 module Span : sig

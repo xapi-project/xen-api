@@ -195,11 +195,7 @@ let exec_command req cmd s session args =
     let* traceparent = req.Http.Request.traceparent in
     let baggage = Http.Request.baggage_of req in
     let* context = SpanContext.of_traceparent traceparent in
-    let context =
-      Option.fold ~none:context
-        ~some:(Fun.flip SpanContext.with_baggage context)
-        baggage
-    in
+    let context = SpanContext.with_baggage_maybe baggage context in
     Some (Tracer.span_of_span_context context (get_cmdname cmd))
   in
   let minimal =
