@@ -6608,6 +6608,15 @@ functor
         Local.Repository.introduce_bundle ~__context ~name_label
           ~name_description
 
+      let introduce_remote_pool ~__context ~name_label ~name_description
+          ~address ~certificate =
+        info
+          "Repository.introduce_bundle: name = '%s'; name_description = '%s'; \
+           address = '%s'; certificate = '%s'"
+          name_label name_description address certificate ;
+        Local.Repository.introduce_remote_pool ~__context ~name_label
+          ~name_description ~address ~certificate
+
       let forget ~__context ~self =
         info "Repository.forget: self = '%s'" (repository_uuid ~__context self) ;
         Local.Repository.forget ~__context ~self

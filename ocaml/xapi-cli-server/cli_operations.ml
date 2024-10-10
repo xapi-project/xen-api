@@ -1319,6 +1319,7 @@ let gen_cmds rpc session_id =
           ; "up-to-date"
           ; "gpgkey-path"
           ; "origin"
+          ; "address"
           ]
           rpc session_id
       )
@@ -7932,6 +7933,18 @@ module Repository = struct
     let ref =
       Client.Repository.introduce_bundle ~rpc ~session_id ~name_label
         ~name_description
+    in
+    let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let introduce_remote_pool printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let name_description = get_param params "name-description" ~default:"" in
+    let address = List.assoc "address" params in
+    let certificate = List.assoc "certificate" params in
+    let ref =
+      Client.Repository.introduce_remote_pool ~rpc ~session_id ~name_label
+        ~name_description ~address ~certificate
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
