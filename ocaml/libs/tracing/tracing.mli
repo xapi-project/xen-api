@@ -20,6 +20,20 @@ module W3CBaggage : sig
 
     val to_string : t -> string
   end
+
+  type t
+
+  val empty : t
+
+  val of_assoc_list : (string * string) list -> t
+
+  val to_assoc_list : t -> (string * string) list
+
+  val parse : string -> t
+
+  val combine : t -> t -> t
+  (** [combine b b'] creates baggage by combining two input sources of baggage.
+      If a binding is present in both, then the entry in [b'] is preferred. *)
 end
 
 type endpoint = Bugtool | Url of Uri.t
@@ -88,6 +102,12 @@ module SpanContext : sig
   val trace_id_of_span_context : t -> Trace_id.t
 
   val span_id_of_span_context : t -> Span_id.t
+
+  val baggage_of_span_context : t -> W3CBaggage.t
+
+  val with_baggage : W3CBaggage.t -> t -> t
+
+  val with_baggage_maybe : W3CBaggage.t option -> t -> t
 end
 
 module Span : sig
@@ -256,6 +276,10 @@ module EnvHelpers : sig
   (** [traceparent_key] is a constant the represents the key of the traceparent
       environment variable. 
       *)
+
+  val baggage_key : string
+  (** [baggage_key] is a constant that represents the key of the baggage
+      environment variable. *)
 
   val of_traceparent : string option -> string list
   (** [of_traceparent traceparent_opt] returns a singleton list consisting of a

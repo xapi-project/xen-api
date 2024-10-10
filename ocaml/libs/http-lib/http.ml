@@ -688,11 +688,36 @@ module Request = struct
     let frame_header = if x.frame then make_frame_header headers else "" in
     frame_header ^ headers ^ body
 
+  let baggage_of req =
+    List.assoc_opt "baggage" req.additional_headers
+    |> Option.map Tracing.W3CBaggage.parse
+
+  let encode_baggage b =
+    Tracing.W3CBaggage.to_assoc_list b
+    |> List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
+    |> String.concat ";"
+
+  let with_baggage b req =
+    let extant = baggage_of req in
+    let combined =
+      let combine = Fun.flip Tracing.W3CBaggage.combine b in
+      Option.fold ~none:b ~some:combine extant
+    in
+    let baggage = encode_baggage combined in
+    let headers = List.remove_assoc "baggage" req.additional_headers in
+    {req with additional_headers= ("baggage", baggage) :: headers}
+
+  let with_baggage_maybe mb req =
+    Option.fold ~none:req ~some:(Fun.flip with_baggage req) mb
+
   let traceparent_of req =
     let open Tracing in
     let ( let* ) = Option.bind in
     let* traceparent = req.traceparent in
+    (* Create a span context and endow it with any baggage within the request. *)
     let* span_context = SpanContext.of_traceparent traceparent in
+    let baggage = baggage_of req in
+    let span_context = SpanContext.with_baggage_maybe baggage span_context in
     let span = Tracer.span_of_span_context span_context req.uri in
     Some span
 
