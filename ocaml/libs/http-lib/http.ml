@@ -707,6 +707,9 @@ module Request = struct
     let headers = List.remove_assoc "baggage" req.additional_headers in
     {req with additional_headers= ("baggage", baggage) :: headers}
 
+  let with_baggage_maybe mb req =
+    Option.fold ~none:req ~some:(Fun.flip with_baggage req) mb
+
   let traceparent_of req =
     let open Tracing in
     let ( let* ) = Option.bind in
@@ -714,11 +717,7 @@ module Request = struct
     (* Create a span context and endow it with any baggage within the request. *)
     let* span_context = SpanContext.of_traceparent traceparent in
     let baggage = baggage_of req in
-    let span_context =
-      Option.fold ~none:span_context
-        ~some:(Fun.flip SpanContext.with_baggage span_context)
-        baggage
-    in
+    let span_context = SpanContext.with_baggage_maybe baggage span_context in
     let span = Tracer.span_of_span_context span_context req.uri in
     Some span
 

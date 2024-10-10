@@ -269,6 +269,9 @@ module SpanContext = struct
   let baggage_of_span_context t = t.baggage
 
   let with_baggage b t = {t with baggage= W3CBaggage.combine t.baggage b}
+
+  let with_baggage_maybe mb c =
+    Option.fold ~none:c ~some:(Fun.flip with_baggage c) mb
 end
 
 module SpanLink = struct

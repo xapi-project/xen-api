@@ -139,6 +139,11 @@ module Request : sig
      the resultant request contains a combination of baggage entries - where entries
      provided to this function are preferred over extant entries.*)
 
+  val with_baggage_maybe : Tracing.W3CBaggage.t option -> t -> t
+  (** Convenience function [with_baggage_maybe b r] invokes [with_baggage].
+      If [b] is None, this function acts as the identity function.
+      Otherwise, it rewrites the request to contain encoded baggage information. *)
+
   val with_tracing :
     ?attributes:(string * string) list -> name:string -> t -> (t -> 'a) -> 'a
 end

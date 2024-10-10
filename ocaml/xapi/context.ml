@@ -224,12 +224,8 @@ let parent_of_origin (origin : origin) span_name =
   | Http (req, _) ->
       let* traceparent = req.Http.Request.traceparent in
       let* span_context = SpanContext.of_traceparent traceparent in
-      let span_context =
-        let baggage = Http.Request.baggage_of req in
-        Option.fold ~none:span_context
-          ~some:(Fun.flip SpanContext.with_baggage span_context)
-          baggage
-      in
+      let baggage = Http.Request.baggage_of req in
+      let span_context = SpanContext.with_baggage_maybe baggage span_context in
       let span = Tracer.span_of_span_context span_context span_name in
       Some span
   | _ ->
