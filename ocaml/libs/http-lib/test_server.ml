@@ -80,6 +80,10 @@ let _ =
                )
        )
     ) ;
+  (* Forces a protocol error by closing the connection without sending a
+      proper http reponse code *)
+  Server.add_handler server Http.Get "/close_conn"
+    (FdIO (fun _ _ _ -> raise End_of_file)) ;
   let ip = "0.0.0.0" in
   let inet_addr = Unix.inet_addr_of_string ip in
   let addr = Unix.ADDR_INET (inet_addr, !port) in

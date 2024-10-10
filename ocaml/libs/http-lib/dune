@@ -113,6 +113,8 @@
     safe-resources
     stunnel
     threads.posix
+    xapi-backtrace
+    xapi-log
     xapi-stdext-pervasives
     xapi-stdext-unix
   )
@@ -133,14 +135,10 @@
   )
 )
 
-(rule
-  (alias runtest)
+(cram
   (package xapi)
   (deps
     test_client.exe
     test_server.exe
-    client_server_test.sh
   )
-  (action (run bash client_server_test.sh))
 )
-
