@@ -1432,12 +1432,12 @@ let certificate_install ~__context ~name ~cert =
 
 let install_ca_certificate = certificate_install
 
-let certificate_uninstall ~__context ~name =
+let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ;
+  pool_uninstall CA_Certificate ~__context ~name ~force ;
   Db_util.remove_ca_cert_by_name ~__context name
 
-let uninstall_ca_certificate = certificate_uninstall
+let certificate_uninstall = uninstall_ca_certificate ~force:false
 
 let certificate_list ~__context =
   let open Certificates in
@@ -1446,7 +1446,7 @@ let certificate_list ~__context =
 
 let crl_install = Certificates.(pool_install CRL)
 
-let crl_uninstall = Certificates.(pool_uninstall CRL)
+let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
 
 let crl_list ~__context = Certificates.(local_list CRL)
 

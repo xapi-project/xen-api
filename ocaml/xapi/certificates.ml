@@ -304,17 +304,21 @@ let host_install kind ~name ~cert =
       (ExnHelper.string_of_exn e) ;
     raise_library_corrupt ()
 
-let host_uninstall kind ~name =
+let host_uninstall kind ~name ~force =
   validate_name kind name ;
   let filename = library_filename kind name in
-  if not (Sys.file_exists filename) then
-    raise_does_not_exist kind name ;
-  debug "Uninstalling %s %s" (to_string kind) name ;
-  try Sys.remove filename ; update_ca_bundle ()
-  with e ->
-    warn "Exception uninstalling %s %s: %s" (to_string kind) name
-      (ExnHelper.string_of_exn e) ;
-    raise_corrupt kind name
+  if Sys.file_exists filename then (
+    debug "Uninstalling %s %s" (to_string kind) name ;
+    try Sys.remove filename ; update_ca_bundle ()
+    with e ->
+      warn "Exception uninstalling %s %s: %s" (to_string kind) name
+        (ExnHelper.string_of_exn e) ;
+      raise_corrupt kind name
+  ) else if force then
+    info "Certificate file %s is non-existent but ignoring this due to force."
+      name
+  else
+    raise_does_not_exist kind name
 
 let get_cert kind name =
   validate_name kind name ;
@@ -367,6 +371,7 @@ let sync_certs kind ~__context master_certs host =
         )
         (fun rpc session_id host name ->
           Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
+            ~force:false
         )
         ~__context master_certs host
   | CRL ->
@@ -403,15 +408,16 @@ let pool_install kind ~__context ~name ~cert =
   host_install kind ~name ~cert ;
   try pool_sync ~__context
   with exn ->
-    ( try host_uninstall kind ~name
+    ( try host_uninstall kind ~name ~force:false
       with e ->
         warn "Exception unwinding install of %s %s: %s" (to_string kind) name
           (ExnHelper.string_of_exn e)
     ) ;
     raise exn
 
-let pool_uninstall kind ~__context ~name =
-  host_uninstall kind ~name ; pool_sync ~__context
+let pool_uninstall kind ~__context ~name ~force =
+  host_uninstall kind ~name ~force ;
+  pool_sync ~__context
 
 (* Extracts the server certificate from the server certificate pem file.
    It strips the private key as well as the rest of the certificate chain. *)
