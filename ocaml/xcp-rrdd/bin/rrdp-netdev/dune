@@ -3,14 +3,16 @@
   (name rrdp_netdev)
   (libraries
     astring
+    integers
+    netlink
     rrdd-plugin
     rrdd_plugin_xenctrl
     rrdd_plugins_libs
-    xapi-idl
     xapi-idl.network
     xapi-idl.rrd
     xapi-log
     xapi-rrd
+    xapi-stdext-std
     xenctrl
   )
 )
