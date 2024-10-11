@@ -18,16 +18,15 @@ let sizeof = sizeof_t
 
 type t = {
     offset: int64  (** offset on the physical disk *)
-  ; data: Cstruct.t  (** data to write *)
+  ; len: int32  (** how much data to write *)
 }
 
-let end_of_stream = {offset= 0L; data= Cstruct.create 0}
+let end_of_stream = {offset= 0L; len= 0l}
 
-let make ~sector ?(size = 512L) data = {offset= Int64.mul sector size; data}
+let make ~sector ?(size = 512L) data =
+  {offset= Int64.mul sector size; len= Int32.of_int (Cstruct.length data)}
 
-let marshal buf t =
-  set_t_offset buf t.offset ;
-  set_t_len buf (Int32.of_int (Cstruct.length t.data))
+let marshal buf t = set_t_offset buf t.offset ; set_t_len buf t.len
 
 let is_last_chunk buf = get_t_offset buf = 0L && get_t_len buf = 0l
 
