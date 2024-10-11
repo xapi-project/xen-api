@@ -161,8 +161,6 @@ type rra = {
   ; rra_data: Fring.t array  (** Stored data, one ring per datasource *)
   ; rra_cdps: cdp_prep array
         (** scratch area for consolidated datapoint preparation *)
-  ; mutable rra_updatehook: (rrd -> int -> unit) option
-        (** Hook that gets called when an update happens *)
 }
 
 (** The container for the DSs and RRAs. Also specifies the period between pdps *)
@@ -185,7 +183,6 @@ let copy_rra x =
   ; rra_xff= x.rra_xff
   ; rra_data= Array.map Fring.copy x.rra_data
   ; rra_cdps= Array.map copy_cdp_prep x.rra_cdps
-  ; rra_updatehook= x.rra_updatehook
   }
 
 let copy_ds x =
@@ -322,7 +319,6 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
         )
         rra.rra_cdps ;
       do_cfs rra new_start_pdp_offset pdps ;
-      match rra.rra_updatehook with None -> () | Some f -> f rrd rra_step_cnt
     )
   in
   Array.iter updatefn rrd.rrd_rras
@@ -486,7 +482,6 @@ let rra_create cf row_cnt pdp_cnt xff =
   ; rra_cdps=
       [||]
       (* defer creation of the data until we know how many dss we're storing *)
-  ; rra_updatehook= None (* DEPRECATED *)
   }
 
 let ds_create name ty ?(min = neg_infinity) ?(max = infinity) ?(mrhb = infinity)
@@ -784,7 +779,6 @@ let from_xml input =
             ; rra_xff= float_of_string xff
             ; rra_data= database
             ; rra_cdps= Array.of_list cdps
-            ; rra_updatehook= None
             }
           )
           i
