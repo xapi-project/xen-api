@@ -3,7 +3,7 @@
   (names main sparse_dd get_vhd_vsize)
   (libraries
     astring
-    
+
     local_lib
     cmdliner
     cstruct
@@ -19,6 +19,7 @@
     xapi-idl
     xapi-log
     xenstore_transport.unix
+    ezxenstore
   )
 )
 

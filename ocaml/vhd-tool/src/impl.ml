@@ -42,12 +42,6 @@ end)
 
 open F
 
-(*
-open Vhd
-open Vhd_format_lwt
-*)
-let vhd_search_path = "/dev/mapper"
-
 let require name arg =
   match arg with
   | None ->
@@ -398,15 +392,8 @@ module TarStream = struct
     ; nr_bytes_remaining: int
     ; (* start at 0 *)
       next_counter: int
-    ; mutable header: Tar.Header.t option
+    ; header: Tar.Header.t option
   }
-
-  let to_string t =
-    Printf.sprintf
-      "work_done = %Ld; nr_bytes_remaining = %d; next_counter = %d; filename = \
-       %s"
-      t.work_done t.nr_bytes_remaining t.next_counter
-      (match t.header with None -> "None" | Some h -> h.Tar.Header.file_name)
 
   let initial total_size =
     {
