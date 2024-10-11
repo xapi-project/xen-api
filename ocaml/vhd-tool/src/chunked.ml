@@ -21,12 +21,15 @@ type t = {
   ; data: Cstruct.t  (** data to write *)
 }
 
-let marshal (buf : Cstruct.t) t =
+let end_of_stream = {offset= 0L; data= Cstruct.create 0}
+
+let make ~sector ?(size = 512L) data = {offset= Int64.mul sector size; data}
+
+let marshal buf t =
   set_t_offset buf t.offset ;
   set_t_len buf (Int32.of_int (Cstruct.length t.data))
 
-let is_last_chunk (buf : Cstruct.t) =
-  get_t_offset buf = 0L && get_t_len buf = 0l
+let is_last_chunk buf = get_t_offset buf = 0L && get_t_len buf = 0l
 
 let get_offset = get_t_offset
 

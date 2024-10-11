@@ -175,7 +175,7 @@ module Progress = struct
       let s = Printf.sprintf "Progress: %.0f" (fraction *. 100.) in
       let data = Cstruct.create (String.length s) in
       Cstruct.blit_from_string s 0 data 0 (String.length s) ;
-      Chunked.marshal header {Chunked.offset= 0L; data} ;
+      Chunked.(marshal header (make ~sector:0L data)) ;
       Printf.printf "%s%s%!" (Cstruct.to_string header) s
     )
 
@@ -183,7 +183,7 @@ module Progress = struct
   let close () =
     if !machine_readable_progress then (
       let header = Cstruct.create Chunked.sizeof in
-      Chunked.marshal header {Chunked.offset= 0L; data= Cstruct.create 0} ;
+      Chunked.(marshal header end_of_stream) ;
       Printf.printf "%s%!" (Cstruct.to_string header)
     )
 end

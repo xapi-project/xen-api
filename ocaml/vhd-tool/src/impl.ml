@@ -298,7 +298,7 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
     (fun (sector, work_done) x ->
       ( match x with
       | `Sectors data ->
-          let t = {Chunked.offset= Int64.(mul sector 512L); data} in
+          let t = Chunked.make ~sector ~size:512L data in
           Chunked.marshal header t ;
           c.Channels.really_write header >>= fun () ->
           c.Channels.really_write data >>= fun () ->
@@ -326,7 +326,7 @@ let stream_chunked _common c s prezeroed _ ?(progress = no_progress_bar) () =
   p total_work ;
 
   (* Send the end-of-stream marker *)
-  Chunked.marshal header {Chunked.offset= 0L; data= Cstruct.create 0} ;
+  Chunked.(marshal header end_of_stream) ;
   c.Channels.really_write header >>= fun () -> return (Some total_work)
 
 let stream_raw _common c s prezeroed _ ?(progress = no_progress_bar) () =
