@@ -3898,7 +3898,7 @@ let put_bundle_handler (req : Request.t) s _ =
                   ) ;
                 Http_svr.headers s (Http.http_400_badrequest ())
           )
-        | `remote ->
+        | `remote | `remote_pool ->
             error "%s: Bundle repo is not enabled" __FUNCTION__ ;
             TaskHelper.failed ~__context
               Api_errors.(Server_error (bundle_repo_not_enabled, [])) ;

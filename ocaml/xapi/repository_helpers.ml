@@ -136,12 +136,12 @@ module GuidanceSet = struct
 end
 
 let create_repository_record ~__context ~name_label ~name_description
-    ~binary_url ~source_url ~update ~gpgkey_path ~origin =
+    ~binary_url ~source_url ~update ~gpgkey_path ~origin ~certificate =
   let ref = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
   Db.Repository.create ~__context ~ref ~uuid ~name_label ~name_description
     ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ~gpgkey_path
-    ~origin ;
+    ~origin ~certificate ;
   ref
 
 module DomainNameIncludeIP = struct
@@ -384,6 +384,8 @@ let get_remote_repository_name ~__context ~self =
         !Xapi_globs.remote_repository_prefix
     | `bundle ->
         !Xapi_globs.bundle_repository_prefix
+    | `remote_pool ->
+        !Xapi_globs.remote_pool_repository_prefix
   in
   prefix ^ "-" ^ get_repository_name ~__context ~self
 
