@@ -78,6 +78,24 @@ module Trace_id : sig
   val to_string : t -> string
 end
 
+module TraceContext : sig
+  type t
+
+  val empty : t
+
+  type traceparent = string
+
+  type baggage = (string * string) list
+
+  val with_traceparent : traceparent option -> t -> t
+
+  val with_baggage : baggage option -> t -> t
+
+  val traceparent_of : t -> traceparent option
+
+  val baggage_of : t -> baggage option
+end
+
 module SpanContext : sig
   type t
 

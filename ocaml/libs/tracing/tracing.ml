@@ -209,15 +209,34 @@ end = struct
   let compare = Int64.compare
 end
 
+(* The context of a trace that can be propagated across service boundaries. *)
+module TraceContext = struct
+  type traceparent = string
+
+  type baggage = (string * string) list
+
+  type t = {traceparent: traceparent option; baggage: baggage option}
+
+  let empty = {traceparent= None; baggage= None}
+
+  let with_traceparent traceparent ctx = {ctx with traceparent}
+
+  let with_baggage baggage ctx = {ctx with baggage}
+
+  let traceparent_of ctx = ctx.traceparent
+
+  let baggage_of ctx = ctx.baggage
+end
+
 module SpanContext = struct
   type t = {trace_id: Trace_id.t; span_id: Span_id.t} [@@deriving rpcty]
 
   let context trace_id span_id = {trace_id; span_id}
 
   let to_traceparent t =
-    Printf.sprintf "00-%s-%s-01"
-      (Trace_id.to_string t.trace_id)
-      (Span_id.to_string t.span_id)
+    let tid = Trace_id.to_string t.trace_id in
+    let sid = Span_id.to_string t.span_id in
+    Printf.sprintf "00-%s-%s-01" tid sid
 
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
