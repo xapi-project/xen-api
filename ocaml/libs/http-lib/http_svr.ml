@@ -99,9 +99,82 @@ let response_of_request req hdrs =
     ~headers:(connection :: cache :: hdrs)
     "200" "OK"
 
+(* These functions have been factored out of Http.Request.
+   The carrier protocol should generally have no knowledge of tracing. *)
+module type HelperS = sig
+  val traceparent_of : Http.Request.t -> Tracing.Span.t option
+
+  val with_tracing :
+       ?attributes:(string * string) list
+    -> name:string
+    -> Http.Request.t
+    -> (Http.Request.t -> 'a)
+    -> 'a
+end
+
+module Helper : HelperS = struct
+  (* This code can probably be relocated into the tracing library
+     with the following generalisation:
+
+     val with_tracing :
+       ?attributes:(string * string) list
+       -> name:string
+       -> Http.Request.t
+       -> (Http.Request.t -> 'a)
+      -> 'a
+
+     can become:
+
+     val with_tracing :
+       ?attributes:(string * string) list
+       -> inject: (TraceContext.t -> 'carrier -> 'carrier)
+       -> extract: ('carrier -> TraceContext.t)
+       -> name:string
+       -> 'carrier
+       -> ('carrier -> 'a)
+      -> 'a
+
+      Can possibly pass a first-class module, but there may be a dependency cycle,
+      so functions are a more universal interface.
+  *)
+
+  let traceparent_of req =
+    (* TODO: The extracted TraceContext must be propagated through the
+       spans. Simple approach is to add it to the SpanContext, and then
+       inherit it properly (substituting/creating only identity-related). *)
+    let open Tracing in
+    let ( let* ) = Option.bind in
+    let trace_context = Propagator.Http.extract_from req in
+    let* parent = TraceContext.traceparent_of trace_context in
+    let* span_context = SpanContext.of_traceparent parent in
+    Some (Tracer.span_of_span_context span_context req.uri)
+
+  let with_tracing ?attributes ~name req f =
+    ignore (attributes, name) ;
+    let open Tracing in
+    let trace_context = Propagator.Http.extract_from req in
+    let parent = traceparent_of req in
+    let continue_with_child = function
+      | Some child ->
+          (* Here, "traceparent" is terminology for the [version-trace_id-span_id-flags] structure.
+             Therefore, the purpose of the code below is to decorate the request with the derived (child) span's ID.
+             This function only gets called if parent is not None. *)
+          let span_context = Span.get_context child in
+          let traceparent = SpanContext.to_traceparent span_context in
+          let trace_context' =
+            TraceContext.with_traceparent (Some traceparent) trace_context
+          in
+          let req' = Propagator.Http.inject_into trace_context' req in
+          f req'
+      | _ ->
+          f req
+    in
+    with_child_trace ?attributes parent ~name continue_with_child
+end
+
 let response_fct req ?(hdrs = []) s (response_length : int64)
     (write_response_to_fd_fn : Unix.file_descr -> unit) =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
   let res =
     {
       (response_of_request req hdrs) with
@@ -445,7 +518,7 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     let r, proxy =
       read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
     in
-    let parent_span = Http.Request.traceparent_of r in
+    let parent_span = Helper.traceparent_of r in
     let loop_span =
       Option.fold ~none:None
         ~some:(fun span ->
@@ -489,8 +562,8 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     (None, None)
 
 let handle_one (x : 'a Server.t) ss context req =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
-  let span = Http.Request.traceparent_of req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
+  let span = Helper.traceparent_of req in
   let finished = ref false in
   try
     D.debug "Request %s" (Http.Request.to_string req) ;
