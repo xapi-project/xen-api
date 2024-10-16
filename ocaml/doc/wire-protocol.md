@@ -469,12 +469,21 @@ $ python3
 
 ### Using the XML-RPC Protocol
 
-Import the library `xmlrpclib` and create a
+Import the library `xmlrpc.client` and create a
 python object referencing the remote server as shown below:
 
 ```python
->>> import xmlrpclib
->>> xen = xmlrpclib.Server("https://localhost:443")
+>>> import xmlrpc.client
+>>> xen = xmlrpc.client.ServerProxy("https://localhost:443")
+```
+
+Note that you may need to disable SSL certificate validation to establish the
+connection, this can be done as follows:
+
+```python
+>>> import ssl
+>>> ctx = ssl._create_unverified_context()
+>>> xen = xmlrpc.client.ServerProxy("https://localhost:443", context=ctx)
 ```
 
 Acquire a session reference by logging in with a username and password; the
@@ -555,27 +564,38 @@ To retrieve all the VM records in a single call:
 
 ### Using the JSON-RPC Protocol
 
-For this example we are making use of the package `python-jsonrpc` due to its
-simplicity, although other packages can also be used.
+For this example we are making use of the package `jsonrpcclient` and the
+`requests` library due to their simplicity, although other packages can also be
+used.
 
-First, import the library `pyjsonrpc` and create the object referencing the
-remote server as follows:
-
-```python
->>> import pyjsonrpc
->>> client = pyjsonrpc.HttpClient(url = "https://localhost/jsonrpc:443")
-```
-
-Acquire a session reference by logging in with a username and password; the
-library `pyjsonrpc` returns the response's `result` member, which is the session
-reference:
+First, import the `requests` and `jsonrpcclient` libraries:
 
 ```python
->>> session = client.call("session.login_with_password",
-...                       "user", "passwd", "version", "originator")
+>>> import requests
+>>> import jsonrpcclient
 ```
 
-`pyjsonrpc` uses the JSON-RPC protocol v2.0, so this is what the serialized
+Now we construct a utility method to make using these libraries easier:
+
+```python
+>>> def jsonrpccall(method, params):
+...     r = requests.post("https://localhost:443/jsonrpc",
+...                       json=jsonrpcclient.request(method, params=params),
+...                       verify=False)
+...     p = jsonrpcclient.parse(r.json())
+...     if isinstance(p, jsonrpcclient.Ok):
+...         return p.result
+...     raise Exception(p.message, p.data)
+```
+
+Acquire a session reference by logging in with a username and password:
+
+```python
+>>> session = jsonrpccall("session.login_with_password",
+...                       ("user", "password", "version", "originator"))
+```
+
+`jsonrpcclient` uses the JSON-RPC protocol v2.0, so this is what the serialized
 request looks like:
 
 ```json
@@ -591,7 +611,7 @@ Next, the user may acquire a list of all the VMs known to the system (note the
 call takes the session reference as the only parameter):
 
 ```python
->>> all_vms = client.call("VM.get_all", session)
+>>> all_vms = jsonrpccall("VM.get_all", (session,))
 >>> all_vms
 ['OpaqueRef:1', 'OpaqueRef:2', 'OpaqueRef:3', 'OpaqueRef:4' ]
 ```
@@ -603,22 +623,19 @@ find the subset of template VMs using a command like the following:
 
 ```python
 >>> all_templates = filter(
-...     lambda x: client.call("VM.get_is_a_template", session, x),
-        all_vms)
+...     lambda x: jsonrpccall("VM.get_is_a_template", (session, x)),
+...     all_vms)
 ```
 
 Once a reference to a VM has been acquired, a lifecycle operation may be invoked:
 
 ```python
->>> from pyjsonrpc import JsonRpcError
 >>> try:
-...     client.call("VM.start", session, all_templates[0], False, False)
-... except JsonRpcError as e:
-...     e.message
-...     e.data
+...     jsonrpccall("VM.start", (session, next(all_templates), False, False))
+... except Exception as e:
+...     e
 ...
-'VM_IS_TEMPLATE'
-[ 'OpaqueRef:1', 'start' ]
+Exception('VM_IS_TEMPLATE', ['OpaqueRef:1', 'start'])
 ```
 
 In this case the `start` message has been rejected because the VM is
@@ -629,7 +646,7 @@ Rather than querying fields individually, whole _records_ may be returned at onc
 To retrieve the record of a single object as a python dictionary:
 
 ```python
->>> record = client.call("VM.get_record", session, all_templates[0])
+>>> record = jsonrpccall("VM.get_record", (session, next(all_templates)))
 >>> record['power_state']
 'Halted'
 >>> record['name_label']
@@ -639,7 +656,7 @@ To retrieve the record of a single object as a python dictionary:
 To retrieve all the VM records in a single call:
 
 ```python
->>> records = client.call("VM.get_all_records", session)
+>>> records = jsonrpccall("VM.get_all_records", (session,))
 >>> records.keys()
 ['OpaqueRef:1', 'OpaqueRef:2', 'OpaqueRef:3', 'OpaqueRef:4' ]
 >>> records['OpaqueRef:1']['name_label']
