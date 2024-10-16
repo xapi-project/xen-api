@@ -49,14 +49,7 @@ let connect ?session_id ?task_id ?subtask_of path =
     ?subtask_of Http.Connect path
 
 let xmlrpc ?frame ?version ?keep_alive ?task_id ?cookie ?length ?auth
-    ?subtask_of ?query ?body ?(tracing = None) path =
-  (* let traceparent = *)
-  (*   let open Tracing in *)
-  (*   Option.map *)
-  (*     (fun span -> Span.get_context span |> SpanContext.to_traceparent) *)
-  (*     tracing *)
-  (* in *)
-  ignore tracing ;
+    ?subtask_of ?query ?body path =
   let headers = Option.map (fun x -> [(Http.Hdr.task_id, x)]) task_id in
   Http.Request.make ~user_agent ?frame ?version ?keep_alive ?cookie ?headers
     ?length ?auth ?subtask_of ?query ?body Http.Post path
