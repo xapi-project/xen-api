@@ -556,7 +556,7 @@ To retrieve all the VM records in a single call:
 
 ```python
 >>> records = xen.VM.get_all_records(session)['Value']
->>> records.keys()
+>>> list(records.keys())
 ['OpaqueRef:1', 'OpaqueRef:2', 'OpaqueRef:3', 'OpaqueRef:4' ]
 >>> records['OpaqueRef:1']['name_label']
 'Red Hat Enterprise Linux 7'
