@@ -409,8 +409,6 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                        {req with host= Some v}
                    | k when k = Http.Hdr.user_agent ->
                        {req with user_agent= Some v}
-                   | k when k = Http.Hdr.traceparent ->
-                       {req with traceparent= Some v}
                    | k when k = Http.Hdr.connection && lowercase v = "close" ->
                        {req with close= true}
                    | k
