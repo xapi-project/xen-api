@@ -221,8 +221,9 @@ let parent_of_origin (origin : origin) span_name =
   let open Tracing in
   let ( let* ) = Option.bind in
   match origin with
-  | Http (_req, _) ->
-      let* traceparent = (* req.Http.Request.traceparent *) None in
+  | Http (req, _) ->
+      let context = Propagator.Http.extract_from req in
+      let* traceparent = TraceContext.traceparent_of context in
       let* span_context = SpanContext.of_traceparent traceparent in
       let span = Tracer.span_of_span_context span_context span_name in
       Some span

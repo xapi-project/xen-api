@@ -42,6 +42,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xapi-tracing
+    tracing_propagator
     xmlm
     xml-light2
   )
