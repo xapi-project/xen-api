@@ -28,6 +28,11 @@
  (preprocess
   (pps ppx_deriving_rpc)))
 
+(library
+ (name tracing_propagator)
+ (modules propagator)
+ (libraries astring http-lib tracing))
+
 (test
  (name test_tracing)
  (modules test_tracing)
