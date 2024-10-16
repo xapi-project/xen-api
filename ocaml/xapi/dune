@@ -68,6 +68,7 @@
     xapi_database
     mtime
     tracing
+    tracing_propagator
     uuid
     rpclib.core
     threads.posix

@@ -31,6 +31,7 @@
 (library
  (name tracing_propagator)
  (modules propagator)
+ (wrapped false)
  (libraries astring http-lib tracing))
 
 (test
