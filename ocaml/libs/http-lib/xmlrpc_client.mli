@@ -72,7 +72,6 @@ val xmlrpc :
   -> ?subtask_of:string
   -> ?query:(string * string) list
   -> ?body:string
-  -> ?tracing:Tracing.Span.t option
   -> string
   -> Http.Request.t
 (** Returns an HTTP.Request.t representing an XMLRPC request *)
