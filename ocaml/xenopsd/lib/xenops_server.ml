@@ -1550,6 +1550,18 @@ let dequarantine_ops vgpus =
          fun vgpu -> PCI_dequarantine vgpu.physical_pci_address
        )
 
+(* Avoid generating list-based atoms with 1 or no actions in them *)
+let collect_into apply = function [] -> [] | [op] -> [op] | lst -> apply lst
+
+let parallel name ~id =
+  collect_into (fun ls -> [Parallel (id, Printf.sprintf "%s VM=%s" name id, ls)])
+
+let parallel_concat name ~id lst = parallel name ~id (List.concat lst)
+
+let parallel_map name ~id lst f = parallel name ~id (List.concat_map f lst)
+
+let map_or_empty f x = Option.value ~default:[] (Option.map f x)
+
 let rec atomics_of_operation = function
   | VM_start (id, force) ->
       let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
@@ -1574,36 +1586,21 @@ let rec atomics_of_operation = function
           (vbds_rw @ vbds_ro)
         (* keeping behaviour of vbd_plug_order: rw vbds must be plugged before
            ro vbds, see vbd_plug_sets *)
-      ; List.map
+      ; List.concat_map
           (fun (ty, vbds) ->
-            Parallel
-              ( id
-              , Printf.sprintf "VBD.epoch_begin %s vm=%s" ty id
-              , List.filter_map
-                  (fun vbd ->
-                    Option.map
-                      (fun x ->
-                        VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)
-                      )
-                      vbd.Vbd.backend
+            parallel_map (Printf.sprintf "VBD.epoch_begin %s" ty) ~id vbds
+              (fun vbd ->
+                map_or_empty
+                  (fun x ->
+                    [VBD_epoch_begin (vbd.Vbd.id, x, vbd.Vbd.persistent)]
                   )
-                  vbds
-              )
+                  vbd.Vbd.backend
+            )
           )
           [("RW", vbds_rw); ("RO", vbds_ro)]
-      ; [
-          (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RW vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw
-            )
-        ; Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RO vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro
-            )
-        ]
+        (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+      ; parallel_map "VBD.plug RW" ~id vbds_rw (fun vbd -> [VBD_plug vbd.Vbd.id])
+      ; parallel_map "VBD.plug RO" ~id vbds_ro (fun vbd -> [VBD_plug vbd.Vbd.id])
       ; List.map (fun vif -> VIF_set_active (vif.Vif.id, true)) vifs
       ; List.map (fun vif -> VIF_plug vif.Vif.id) vifs
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
@@ -1623,8 +1620,7 @@ let rec atomics_of_operation = function
       let pcis = PCI_DB.pcis id in
       let vusbs = VUSB_DB.vusbs id in
       [
-        Option.value ~default:[]
-          (Option.map (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout)
+        map_or_empty (fun x -> [VM_shutdown_domain (id, PowerOff, x)]) timeout
         (* Before shutting down a VM, we need to unplug its VUSBs. *)
       ; List.map (fun vusb -> VUSB_unplug vusb.Vusb.id) vusbs
       ; [
@@ -1633,12 +1629,10 @@ let rec atomics_of_operation = function
              pause the domain before destroying the device model. *)
           Best_effort (VM_pause id)
         ; VM_destroy_device_model id
-        ; Parallel
-            ( id
-            , Printf.sprintf "VBD.unplug vm=%s" id
-            , List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds
-            )
         ]
+      ; parallel_map "VBD.unplug" ~id vbds (fun vbd ->
+            [VBD_unplug (vbd.Vbd.id, true)]
+        )
       ; List.map (fun vif -> VIF_unplug (vif.Vif.id, true)) vifs
       ; List.map (fun pci -> PCI_unplug pci.Pci.id) pcis
       ; [VM_destroy id]
@@ -1660,19 +1654,9 @@ let rec atomics_of_operation = function
         List.map
           (fun vbd -> VBD_set_active (vbd.Vbd.id, true))
           (vbds_rw @ vbds_ro)
-      ; [
-          (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RW vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_rw
-            )
-        ; Parallel
-            ( id
-            , Printf.sprintf "VBD.plug RO vm=%s" id
-            , List.map (fun vbd -> VBD_plug vbd.Vbd.id) vbds_ro
-            )
-        ]
+      ; (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
+        parallel_map "VBD.plug RW" ~id vbds_rw (fun vbd -> [VBD_plug vbd.Vbd.id])
+      ; parallel_map "VBD.plug RO" ~id vbds_ro (fun vbd -> [VBD_plug vbd.Vbd.id])
       ; (if restore_vifs then atomics_of_operation (VM_restore_vifs id) else [])
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, true)) vgpus
         (* Nvidia SRIOV PCI devices have been already been plugged *)
@@ -1697,19 +1681,11 @@ let rec atomics_of_operation = function
       [
         [VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)]
       ; atomics_of_operation (VM_shutdown (id, timeout))
-      ; [
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.epoch_end vm=%s" id
-            , List.filter_map
-                (fun vbd ->
-                  Option.map
-                    (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
-                    vbd.Vbd.backend
-                )
-                vbds
-            )
-        ]
+      ; parallel_map "VBD.epoch_end" ~id vbds (fun vbd ->
+            map_or_empty
+              (fun x -> [VBD_epoch_end (vbd.Vbd.id, x)])
+              vbd.Vbd.backend
+        )
       ; List.map (fun vbd -> VBD_set_active (vbd.Vbd.id, false)) vbds
       ; List.map (fun vif -> VIF_set_active (vif.Vif.id, false)) vifs
       ; List.map (fun vgpu -> VGPU_set_active (vgpu.Vgpu.id, false)) vgpus
@@ -1725,23 +1701,14 @@ let rec atomics_of_operation = function
           Xenops_hooks.reason__clean_reboot
       in
       [
-        Option.value ~default:[]
-          (Option.map (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout)
+        map_or_empty (fun x -> [VM_shutdown_domain (id, Reboot, x)]) timeout
       ; [VM_hook_script (id, Xenops_hooks.VM_pre_destroy, reason)]
       ; atomics_of_operation (VM_shutdown (id, None))
-      ; [
-          Parallel
-            ( id
-            , Printf.sprintf "VBD.epoch_end vm=%s" id
-            , List.filter_map
-                (fun vbd ->
-                  Option.map
-                    (fun x -> VBD_epoch_end (vbd.Vbd.id, x))
-                    vbd.Vbd.backend
-                )
-                vbds
-            )
-        ]
+      ; parallel_map "VBD.epoch_end" ~id vbds (fun vbd ->
+            map_or_empty
+              (fun x -> [VBD_epoch_end (vbd.Vbd.id, x)])
+              vbd.Vbd.backend
+        )
       ; [
           VM_hook_script (id, Xenops_hooks.VM_post_destroy, reason)
         ; VM_hook_script
