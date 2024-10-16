@@ -190,12 +190,13 @@ let uninteresting_cmd_postfixes = ["help"; "-get"; "-list"]
 let exec_command req cmd s session args =
   let params = get_params cmd in
   let tracing =
-    Option.bind
-      Http.Request.(req.traceparent)
-      Tracing.SpanContext.of_traceparent
-    |> Option.map (fun span_context ->
-           Tracing.Tracer.span_of_span_context span_context (get_cmdname cmd)
-       )
+    (* Option.bind *)
+    (*   Http.Request.(req.traceparent) *)
+    (*   Tracing.SpanContext.of_traceparent *)
+    (* |> Option.map (fun span_context -> *)
+    (*        Tracing.Tracer.span_of_span_context span_context (get_cmdname cmd) *)
+    (*    ) *)
+    None
   in
   let minimal =
     if List.mem_assoc "minimal" params then
