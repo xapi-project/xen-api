@@ -788,3 +788,63 @@ module EnvHelpers = struct
         Some (span |> Span.get_context |> SpanContext.to_traceparent)
         |> of_traceparent
 end
+
+module Propagator = struct
+  module type S = sig
+    type carrier
+
+    val traceparent_of : carrier -> Span.t option
+
+    val with_tracing :
+         ?attributes:(string * string) list
+      -> name:string
+      -> carrier
+      -> (carrier -> 'a)
+      -> 'a
+  end
+
+  module type PropS = sig
+    type carrier
+
+    val inject_into : TraceContext.t -> carrier -> carrier
+
+    val extract_from : carrier -> TraceContext.t
+
+    val name_span : carrier -> string
+  end
+
+  module Make (P : PropS) : S with type carrier = P.carrier = struct
+    type carrier = P.carrier
+
+    let traceparent_of carrier =
+      (* TODO: The extracted TraceContext must be propagated through the
+         spans. Simple approach is to add it to the SpanContext, and then
+         inherit it properly (substituting/creating only identity-related). *)
+      let ( let* ) = Option.bind in
+      let trace_context = P.extract_from carrier in
+      let* parent = TraceContext.traceparent_of trace_context in
+      let* span_context = SpanContext.of_traceparent parent in
+      let name = P.name_span carrier in
+      Some (Tracer.span_of_span_context span_context name)
+
+    let with_tracing ?attributes ~name carrier f =
+      let trace_context = P.extract_from carrier in
+      let parent = traceparent_of carrier in
+      let continue_with_child = function
+        | Some child ->
+            (* Here, "traceparent" is terminology for the [version-trace_id-span_id-flags] structure.
+               Therefore, the purpose of the code below is to decorate the request with the derived (child) span's ID.
+               This function only gets called if parent is not None. *)
+            let span_context = Span.get_context child in
+            let traceparent = SpanContext.to_traceparent span_context in
+            let trace_context' =
+              TraceContext.with_traceparent (Some traceparent) trace_context
+            in
+            let carrier' = P.inject_into trace_context' carrier in
+            f carrier'
+        | _ ->
+            f carrier
+      in
+      with_child_trace ?attributes parent ~name continue_with_child
+  end
+end

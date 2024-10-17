@@ -297,3 +297,33 @@ module EnvHelpers : sig
       If [span] is [None], it returns an empty list.
       *)
 end
+
+(** [Propagator] is a utility module for creating trace propagators over arbitrary carriers. *)
+module Propagator : sig
+  module type S = sig
+    type carrier
+
+    val traceparent_of : carrier -> Span.t option
+    (** [traceparent_of carrier] creates a span whose context is that encoded within the [carrier] input.
+        If there is no traceparent encoded within the carrier, the function returns [None]. *)
+
+    val with_tracing :
+         ?attributes:(string * string) list
+      -> name:string
+      -> carrier
+      -> (carrier -> 'a)
+      -> 'a
+  end
+
+  module type PropS = sig
+    type carrier
+
+    val inject_into : TraceContext.t -> carrier -> carrier
+
+    val extract_from : carrier -> TraceContext.t
+
+    val name_span : carrier -> string
+  end
+
+  module Make : functor (P : PropS) -> S with type carrier = P.carrier
+end
