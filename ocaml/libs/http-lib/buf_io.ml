@@ -15,17 +15,9 @@
 
 type t = {fd: Unix.file_descr; buf: bytes; mutable cur: int; mutable max: int}
 
-type err =
-  | (* Line input is > 1024 chars *)
-    Too_long
-  | (* EOF found, with no newline *)
-    No_newline
-
 exception Timeout (* Waited too long for data to appear *)
 
 exception Eof
-
-exception Line of err (* Raised by input_line only *)
 
 let infinite_timeout = -1.
 
@@ -61,15 +53,6 @@ let shift ic =
     ic.cur <- 0
   )
 
-(* Check to see if we've got a line (ending in \n) in the buffer *)
-let got_line ic =
-  try
-    let n = Bytes.index_from ic.buf ic.cur '\n' in
-    if n >= ic.max then -1 else n
-  with Not_found -> -1
-
-let is_full ic = ic.cur = 0 && ic.max = Bytes.length ic.buf
-
 (* Fill the buffer with everything that's ready to be read (up to the limit of the buffer *)
 let fill_buf ~buffered ic timeout =
   let buf_size = Bytes.length ic.buf in
@@ -103,33 +86,6 @@ let fill_buf ~buffered ic timeout =
     *)
     ignore (fill_no_exc (Some 1e-6) tofillsz)
   )
-
-(** Input one line terminated by \n *)
-let input_line ?(timeout = 60.0) ic =
-  (* See if we've already input a line *)
-  let n = got_line ic in
-  let rec get_line () =
-    fill_buf ~buffered:false ic timeout ;
-    let n = got_line ic in
-    if n < 0 && not (is_full ic) then
-      get_line ()
-    else
-      n
-  in
-  let n = if n < 0 then get_line () else n in
-  (* Still no \n? then either we've run out of data, or we've run out of space *)
-  if n < 0 then
-    if ic.max = Bytes.length ic.buf then
-      raise (Line Too_long)
-    else (
-      Printf.printf "got: '%s'\n"
-        (Bytes.sub_string ic.buf ic.cur (ic.max - ic.cur)) ;
-      raise (Line No_newline)
-    ) ;
-  (* Return the line, stripping the newline *)
-  let result = Bytes.sub ic.buf ic.cur (n - ic.cur) in
-  ic.cur <- n + 1 ;
-  result
 
 (** Input 'len' characters from ic and put them into the bytestring 'b' starting from 'from' *)
 let rec really_input ?(timeout = 15.0) ic b from len =

@@ -483,9 +483,6 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
         | Buf_io.Eof ->
             ()
         (* Connection terminated *)
-        | Buf_io.Line _ ->
-            response_internal_error e ss
-              ~extra:"One of the header lines was too long."
         (* Generic errors thrown during parsing *)
         | End_of_file ->
             ()

@@ -24,9 +24,6 @@ val infinite_timeout : float
 
 (** {2 Input functions} *)
 
-val input_line : ?timeout:float -> t -> bytes
-(** Input one line terminated by \n *)
-
 val really_input : ?timeout:float -> t -> bytes -> int -> int -> unit
 (** Input 'len' characters from ic and put them into the string 'str' starting from 'from' *)
 
@@ -38,13 +35,6 @@ val really_input_buf : ?timeout:float -> t -> int -> string
 exception Timeout
 
 exception Eof
-
-(** Raised by input_line only *)
-type err =
-  | Too_long  (** Line input is > 1024 chars *)
-  | No_newline  (** EOF found, with no newline *)
-
-exception Line of err
 
 (** {2 Internal functions} *)
 
