@@ -2,7 +2,7 @@
 Description=Varstored XAPI socket deprivileging daemon
 Documentation=man:varstored-guard(1)
 After=message-switch.service syslog.target
-Before=xapi-domains.service xenopsd.service
+Before=xapi-domains.service xenopsd-xc.service
 Wants=message-switch.service syslog.target
 
 [Service]
