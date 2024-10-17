@@ -346,11 +346,9 @@ let escape uri =
 
 exception Generic_error of string
 
-(** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
+(** [read_request_exn fd] reads a single Http.req from [fd] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
-let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
-    =
-  let fd = Buf_io.fd_of bio in
+let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
   let frame, headers, proxy' =
     Http.read_http_request_header ~read_timeout ~total_timeout ~max_length fd
   in
@@ -440,9 +438,9 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
   in
   (request, proxy)
 
-(** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
+(** [read_request fd] returns [Some req] read from [fd], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
-let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
+let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
   try
     let tracer = Tracing.Tracer.get_tracer ~name:"http_tracer" in
     let loop_span =
@@ -453,7 +451,7 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
           None
     in
     let r, proxy =
-      request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length ic
+      read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
     in
     let parent_span = Http.Request.traceparent_of r in
     let loop_span =
@@ -470,35 +468,29 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
   with e ->
     D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
     best_effort (fun () ->
-        let ss = Buf_io.fd_of ic in
         match e with
         (* Specific errors thrown during parsing *)
         | Http.Http_parse_failure ->
-            response_internal_error e ss
+            response_internal_error e fd
               ~extra:"The HTTP headers could not be parsed." ;
             debug "Error parsing HTTP headers"
-        | Buf_io.Timeout ->
-            ()
-        (* Idle connection closed. NB infinite timeout used when headers are being read *)
-        | Buf_io.Eof ->
-            ()
         (* Connection terminated *)
         (* Generic errors thrown during parsing *)
         | End_of_file ->
             ()
         | Unix.Unix_error (Unix.EAGAIN, _, _) | Http.Timeout ->
-            response_request_timeout ss
+            response_request_timeout fd
         | Http.Too_large ->
-            response_request_header_fields_too_large ss
+            response_request_header_fields_too_large fd
         (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
-            response_internal_error e ss
+            response_internal_error e fd
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
                    (Unix.error_message a) b c
                 )
         | exc ->
-            response_internal_error exc ss
+            response_internal_error exc fd
               ~extra:(escape (Printexc.to_string exc)) ;
             log_backtrace ()
     ) ;
@@ -571,7 +563,6 @@ let handle_connection ~header_read_timeout ~header_total_timeout
         (Unix.string_of_inet_addr addr)
         port
   ) ;
-  let ic = Buf_io.of_fd ss in
   (* For HTTPS requests, a PROXY header is sent by stunnel right at the beginning of
      of its connection to the server, before HTTP requests are transferred, and
      just once per connection. To allow for the PROXY metadata (including e.g. the
@@ -580,8 +571,8 @@ let handle_connection ~header_read_timeout ~header_total_timeout
   let rec loop ~read_timeout ~total_timeout proxy_seen =
     (* 1. we must successfully parse a request *)
     let req, proxy =
-      request_of_bio ?proxy_seen ~read_timeout ~total_timeout
-        ~max_length:max_header_length ic
+      read_request ?proxy_seen ~read_timeout ~total_timeout
+        ~max_length:max_header_length ss
     in
 
     (* 2. now we attempt to process the request *)
