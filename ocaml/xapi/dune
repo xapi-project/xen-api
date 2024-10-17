@@ -154,6 +154,7 @@
     tar-unix
     threads.posix
     tracing
+    tracing_propagator
     unixpwd
     uri
     uuid
@@ -240,6 +241,7 @@
     stunnel
     threads.posix
     tracing
+    tracing_propagator
     xapi-backtrace
     xapi-client
     xapi-consts
