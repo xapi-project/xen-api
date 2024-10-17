@@ -675,21 +675,19 @@ module Watcher = struct
     let is_master = Helpers.is_pool_master ~__context ~host in
     let daemon_enabled = Daemon.is_enabled () in
     if is_master && daemon_enabled then (
-      if Xapi_cluster_helpers.cluster_health_enabled ~__context then
-        if Atomic.compare_and_set cluster_change_watcher false true then (
-          debug "%s: create watcher for corosync-notifyd on coordinator"
-            __FUNCTION__ ;
-          Atomic.set finish_watch false ;
-          let _ : Thread.t =
-            Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
-          in
-          ()
-        ) else
-          (* someone else must have gone into the if branch above and created the thread
-             before us, leave it to them *)
-          debug
-            "%s: not create watcher for corosync-notifyd as it already exists"
-            __FUNCTION__ ;
+      if Atomic.compare_and_set cluster_change_watcher false true then (
+        debug "%s: create watcher for corosync-notifyd on coordinator"
+          __FUNCTION__ ;
+        Atomic.set finish_watch false ;
+        let _ : Thread.t =
+          Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+        in
+        ()
+      ) else
+        (* someone else must have gone into the if branch above and created the thread
+           before us, leave it to them *)
+        debug "%s: not create watcher for corosync-notifyd as it already exists"
+          __FUNCTION__ ;
 
       if Xapi_cluster_helpers.corosync3_enabled ~__context then
         if Atomic.compare_and_set cluster_stack_watcher false true then (
