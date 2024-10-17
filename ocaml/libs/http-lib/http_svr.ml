@@ -67,9 +67,7 @@ module Stats = struct
 end
 
 (** Type of a function which can handle a Request.t *)
-type 'a handler =
-  | BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
-  | FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
+type 'a handler = Http.Request.t -> Unix.file_descr -> 'a -> unit
 
 (* try and do f (unit -> unit), ignore exceptions *)
 let best_effort f = try f () with _ -> ()
@@ -270,19 +268,15 @@ let respond_to_options req s =
     (fun _ -> ())
 
 (** If no handler matches the request then call this callback *)
-let default_callback req bio _ =
-  response_forbidden (Buf_io.fd_of bio) ;
+let default_callback req fd _ =
+  response_forbidden fd ;
   req.Request.close <- true
 
 module TE = struct
   type 'a t = {stats: Stats.t; stats_m: Mutex.t; handler: 'a handler}
 
   let empty () =
-    {
-      stats= Stats.empty ()
-    ; stats_m= Mutex.create ()
-    ; handler= BufIO default_callback
-    }
+    {stats= Stats.empty (); stats_m= Mutex.create (); handler= default_callback}
 end
 
 module MethodMap = Map.Make (struct
@@ -499,7 +493,6 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
 let handle_one (x : 'a Server.t) ss context req =
   let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
   let span = Http.Request.traceparent_of req in
-  let ic = Buf_io.of_fd ss in
   let finished = ref false in
   try
     D.debug "Request %s" (Http.Request.to_string req) ;
@@ -513,14 +506,7 @@ let handle_one (x : 'a Server.t) ss context req =
         (Radix_tree.longest_prefix req.Request.uri method_map)
     in
     let@ _ = Tracing.with_child_trace span ~name:"handler" in
-    ( match te.TE.handler with
-    | BufIO handlerfn ->
-        handlerfn req ic context
-    | FdIO handlerfn ->
-        let fd = Buf_io.fd_of ic in
-        Buf_io.assert_buffer_empty ic ;
-        handlerfn req fd context
-    ) ;
+    te.TE.handler req ss context ;
     finished := req.Request.close ;
     Stats.update te.TE.stats te.TE.stats_m req ;
     !finished
@@ -685,7 +671,7 @@ let stop (socket, _name) =
 exception Client_requested_size_over_limit
 
 (** Read the body of an HTTP request (requires a content-length: header). *)
-let read_body ?limit req bio =
+let read_body ?limit req fd =
   match req.Request.content_length with
   | None ->
       failwith "We require a content-length: HTTP header"
@@ -696,7 +682,7 @@ let read_body ?limit req bio =
           if length > l then raise Client_requested_size_over_limit
         )
         limit ;
-      Unixext.really_read_string (Buf_io.fd_of bio) length
+      Unixext.really_read_string fd length
 
 (* Helpers to determine the client of a call *)
 

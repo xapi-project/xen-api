@@ -18,9 +18,7 @@
 type uri_path = string
 
 (** A handler is a function which takes a request and produces a response *)
-type 'a handler =
-  | BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
-  | FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
+type 'a handler = Http.Request.t -> Unix.file_descr -> 'a -> unit
 
 module Stats : sig
   (** Statistics recorded per-handler *)
@@ -120,7 +118,7 @@ val respond_to_options : Http.Request.t -> Unix.file_descr -> unit
 
 val headers : Unix.file_descr -> string list -> unit
 
-val read_body : ?limit:int -> Http.Request.t -> Buf_io.t -> string
+val read_body : ?limit:int -> Http.Request.t -> Unix.file_descr -> string
 
 (* Helpers to determine the client of a call *)
 

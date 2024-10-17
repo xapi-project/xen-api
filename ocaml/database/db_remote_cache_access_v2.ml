@@ -67,11 +67,10 @@ let process_rpc (req : Rpc.t) =
         Response.Too_many_values (x, y, z)
     )
 
-let handler req bio _ =
-  let fd = Buf_io.fd_of bio in
+let handler req fd _ =
   (* fd only used for writing *)
   let body =
-    Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req bio
+    Http_svr.read_body ~limit:Db_globs.http_limit_max_rpc_size req fd
   in
   let request_rpc = Jsonrpc.of_string body in
   let reply_rpc = process_rpc request_rpc in
