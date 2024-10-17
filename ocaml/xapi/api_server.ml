@@ -3,9 +3,17 @@ module Server = Server.Make (Actions) (Forwarder)
 
 let ( let@ ) f x = f x
 
+module Helper = struct
+  include Tracing.Propagator.Make (struct
+    include Propagator.Http
+
+    let name_span req = req.Http.Request.uri
+  end)
+end
+
 (* This bit is called directly by the fake_rpc callback *)
 let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
   (* We now have the body string, the xml and the call name, and can also tell *)
   (* if we're a master or slave and whether the call came in on the unix domain socket or the tcp socket *)
   (* If we're a slave, and the call is from the unix domain socket or from the HIMN, and the call *isn't* *)
@@ -24,7 +32,7 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
     forward req call is_json
   else
     let response =
-      let@ req = Http.Request.with_tracing ~name:"Server.dispatch_call" req in
+      let@ req = Helper.with_tracing ~name:"Server.dispatch_call" req in
       Server.dispatch_call req fd call
     in
     let translated =
@@ -91,8 +99,8 @@ let create_thumbprint_header req response =
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let callback is_json req fd _ =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
-  let span = Http.Request.traceparent_of req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
+  let span = Helper.traceparent_of req in
   (* fd only used for writing *)
   let body =
     Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req fd
@@ -145,7 +153,7 @@ let callback is_json req fd _ =
 
 (** HTML callback that dispatches an RPC and returns the response. *)
 let jsoncallback req fd _ =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
   (* fd only used for writing *)
   let body =
     Http_svr.read_body ~limit:Xapi_database.Db_globs.http_limit_max_rpc_size req

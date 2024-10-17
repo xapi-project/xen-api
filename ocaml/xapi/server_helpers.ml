@@ -119,10 +119,18 @@ let dispatch_exn_wrapper f =
     let code, params = ExnHelper.error_of_exn exn in
     API.response_of_failure code params
 
+module Helper = struct
+  include Tracing.Propagator.Make (struct
+    include Propagator.Http
+
+    let name_span req = req.Http.Request.uri
+  end)
+end
+
 let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
     op_fn marshaller fd http_req label sync_ty generate_task_for =
   (* if the call has been forwarded to us, then they are responsible for completing the task, so we don't need to complete it *)
-  let@ http_req = Http.Request.with_tracing ~name:__FUNCTION__ http_req in
+  let@ http_req = Helper.with_tracing ~name:__FUNCTION__ http_req in
   let called_async = sync_ty <> `Sync in
   if called_async && not supports_async then
     API.response_of_fault
