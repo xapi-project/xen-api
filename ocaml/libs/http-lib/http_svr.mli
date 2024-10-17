@@ -74,16 +74,6 @@ exception Socket_not_found
 
 val stop : socket -> unit
 
-module Chunked : sig
-  type t
-
-  val of_bufio : Buf_io.t -> t
-
-  val read : t -> int -> string
-end
-
-val read_chunked_encoding : Http.Request.t -> Buf_io.t -> bytes Http.ll
-
 (* The rest of this interface needs to be deleted and replaced with Http.Response.* *)
 
 val response_fct :
