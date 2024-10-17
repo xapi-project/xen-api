@@ -620,8 +620,7 @@ let chunks size lst =
             [op] :: xs :: xss
     )
     [] lst
-  |> List.map (fun xs -> List.rev xs)
-  |> List.rev
+  |> List.rev_map (fun xs -> List.rev xs)
 
 let really_kill pid =
   try Unixext.kill_and_wait pid
