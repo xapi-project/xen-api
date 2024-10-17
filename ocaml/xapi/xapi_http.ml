@@ -137,7 +137,7 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
       )
   in
   if Context.is_unix_socket ic then
-    ()
+    fn ()
   (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
   else
     match
@@ -367,7 +367,7 @@ let add_handler (name, handler) =
                 try
                   if check_rbac then (
                     try
-                      (* rbac checks *)
+                      (* session and rbac checks *)
                       assert_credentials_ok name req
                         ~fn:(fun () -> callback req ic context)
                         (Buf_io.fd_of ic)
@@ -395,9 +395,18 @@ let add_handler (name, handler) =
             Debug.with_thread_associated ?client name
               (fun () ->
                 try
-                  if check_rbac then assert_credentials_ok name req ic ;
-                  (* session and rbac checks *)
-                  callback req ic context
+                  if check_rbac then (
+                    try
+                      (* session and rbac checks *)
+                      assert_credentials_ok name req
+                        ~fn:(fun () -> callback req ic context)
+                        ic
+                    with e ->
+                      debug "Leaving RBAC-handler in xapi_http after: %s"
+                        (ExnHelper.string_of_exn e) ;
+                      raise e
+                  ) else (* no rbac checks *)
+                    callback req ic context
                 with Api_errors.Server_error (name, params) as e ->
                   error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
                     (String.concat "; " params) ;
