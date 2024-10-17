@@ -346,11 +346,8 @@ let exception_handler s e =
         [Cli_util.string_of_exn exc]
         s
 
-let handler (req : Http.Request.t) (bio : Buf_io.t) _ =
-  let str =
-    Http_svr.read_body ~limit:Constants.http_limit_max_cli_size req bio
-  in
-  let s = Buf_io.fd_of bio in
+let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
+  let str = Http_svr.read_body ~limit:Constants.http_limit_max_cli_size req s in
   (* Tell the client the server version *)
   marshal_protocol s ;
   (* Read the client's protocol version *)

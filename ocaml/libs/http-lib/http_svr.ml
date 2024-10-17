@@ -67,9 +67,7 @@ module Stats = struct
 end
 
 (** Type of a function which can handle a Request.t *)
-type 'a handler =
-  | BufIO of (Http.Request.t -> Buf_io.t -> 'a -> unit)
-  | FdIO of (Http.Request.t -> Unix.file_descr -> 'a -> unit)
+type 'a handler = Http.Request.t -> Unix.file_descr -> 'a -> unit
 
 (* try and do f (unit -> unit), ignore exceptions *)
 let best_effort f = try f () with _ -> ()
@@ -270,19 +268,15 @@ let respond_to_options req s =
     (fun _ -> ())
 
 (** If no handler matches the request then call this callback *)
-let default_callback req bio _ =
-  response_forbidden (Buf_io.fd_of bio) ;
+let default_callback req fd _ =
+  response_forbidden fd ;
   req.Request.close <- true
 
 module TE = struct
   type 'a t = {stats: Stats.t; stats_m: Mutex.t; handler: 'a handler}
 
   let empty () =
-    {
-      stats= Stats.empty ()
-    ; stats_m= Mutex.create ()
-    ; handler= BufIO default_callback
-    }
+    {stats= Stats.empty (); stats_m= Mutex.create (); handler= default_callback}
 end
 
 module MethodMap = Map.Make (struct
@@ -346,11 +340,9 @@ let escape uri =
 
 exception Generic_error of string
 
-(** [request_of_bio_exn ic] reads a single Http.req from [ic] and returns it. On error
+(** [read_request_exn fd] reads a single Http.req from [fd] and returns it. On error
     	it simply throws an exception and doesn't touch the output stream. *)
-let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
-    =
-  let fd = Buf_io.fd_of bio in
+let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
   let frame, headers, proxy' =
     Http.read_http_request_header ~read_timeout ~total_timeout ~max_length fd
   in
@@ -440,9 +432,9 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
   in
   (request, proxy)
 
-(** [request_of_bio ic] returns [Some req] read from [ic], or [None]. If [None] it will have
+(** [read_request fd] returns [Some req] read from [fd], or [None]. If [None] it will have
     	already sent back a suitable error code and response to the client. *)
-let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
+let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
   try
     let tracer = Tracing.Tracer.get_tracer ~name:"http_tracer" in
     let loop_span =
@@ -453,7 +445,7 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
           None
     in
     let r, proxy =
-      request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length ic
+      read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
     in
     let parent_span = Http.Request.traceparent_of r in
     let loop_span =
@@ -470,38 +462,29 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
   with e ->
     D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
     best_effort (fun () ->
-        let ss = Buf_io.fd_of ic in
         match e with
         (* Specific errors thrown during parsing *)
         | Http.Http_parse_failure ->
-            response_internal_error e ss
+            response_internal_error e fd
               ~extra:"The HTTP headers could not be parsed." ;
             debug "Error parsing HTTP headers"
-        | Buf_io.Timeout ->
-            ()
-        (* Idle connection closed. NB infinite timeout used when headers are being read *)
-        | Buf_io.Eof ->
-            ()
         (* Connection terminated *)
-        | Buf_io.Line _ ->
-            response_internal_error e ss
-              ~extra:"One of the header lines was too long."
         (* Generic errors thrown during parsing *)
         | End_of_file ->
             ()
         | Unix.Unix_error (Unix.EAGAIN, _, _) | Http.Timeout ->
-            response_request_timeout ss
+            response_request_timeout fd
         | Http.Too_large ->
-            response_request_header_fields_too_large ss
+            response_request_header_fields_too_large fd
         (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
-            response_internal_error e ss
+            response_internal_error e fd
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
                    (Unix.error_message a) b c
                 )
         | exc ->
-            response_internal_error exc ss
+            response_internal_error exc fd
               ~extra:(escape (Printexc.to_string exc)) ;
             log_backtrace ()
     ) ;
@@ -510,7 +493,6 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
 let handle_one (x : 'a Server.t) ss context req =
   let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
   let span = Http.Request.traceparent_of req in
-  let ic = Buf_io.of_fd ss in
   let finished = ref false in
   try
     D.debug "Request %s" (Http.Request.to_string req) ;
@@ -524,14 +506,7 @@ let handle_one (x : 'a Server.t) ss context req =
         (Radix_tree.longest_prefix req.Request.uri method_map)
     in
     let@ _ = Tracing.with_child_trace span ~name:"handler" in
-    ( match te.TE.handler with
-    | BufIO handlerfn ->
-        handlerfn req ic context
-    | FdIO handlerfn ->
-        let fd = Buf_io.fd_of ic in
-        Buf_io.assert_buffer_empty ic ;
-        handlerfn req fd context
-    ) ;
+    te.TE.handler req ss context ;
     finished := req.Request.close ;
     Stats.update te.TE.stats te.TE.stats_m req ;
     !finished
@@ -574,7 +549,6 @@ let handle_connection ~header_read_timeout ~header_total_timeout
         (Unix.string_of_inet_addr addr)
         port
   ) ;
-  let ic = Buf_io.of_fd ss in
   (* For HTTPS requests, a PROXY header is sent by stunnel right at the beginning of
      of its connection to the server, before HTTP requests are transferred, and
      just once per connection. To allow for the PROXY metadata (including e.g. the
@@ -583,8 +557,8 @@ let handle_connection ~header_read_timeout ~header_total_timeout
   let rec loop ~read_timeout ~total_timeout proxy_seen =
     (* 1. we must successfully parse a request *)
     let req, proxy =
-      request_of_bio ?proxy_seen ~read_timeout ~total_timeout
-        ~max_length:max_header_length ic
+      read_request ?proxy_seen ~read_timeout ~total_timeout
+        ~max_length:max_header_length ss
     in
 
     (* 2. now we attempt to process the request *)
@@ -697,7 +671,7 @@ let stop (socket, _name) =
 exception Client_requested_size_over_limit
 
 (** Read the body of an HTTP request (requires a content-length: header). *)
-let read_body ?limit req bio =
+let read_body ?limit req fd =
   match req.Request.content_length with
   | None ->
       failwith "We require a content-length: HTTP header"
@@ -708,82 +682,7 @@ let read_body ?limit req bio =
           if length > l then raise Client_requested_size_over_limit
         )
         limit ;
-      if Buf_io.is_buffer_empty bio then
-        Unixext.really_read_string (Buf_io.fd_of bio) length
-      else
-        Buf_io.really_input_buf ~timeout:Buf_io.infinite_timeout bio length
-
-module Chunked = struct
-  type t = {
-      mutable current_size: int
-    ; mutable current_offset: int
-    ; mutable read_headers: bool
-    ; bufio: Buf_io.t
-  }
-
-  let of_bufio bufio =
-    {current_size= 0; current_offset= 0; bufio; read_headers= true}
-
-  let rec read chunk size =
-    if chunk.read_headers = true then (
-      (* first get the size, then get the data requested *)
-      let size =
-        Buf_io.input_line chunk.bufio
-        |> Bytes.to_string
-        |> String.trim
-        |> Printf.sprintf "0x%s"
-        |> int_of_string
-      in
-      chunk.current_size <- size ;
-      chunk.current_offset <- 0 ;
-      chunk.read_headers <- false
-    ) ;
-    (* read as many bytes from this chunk as possible *)
-    if chunk.current_size = 0 then
-      ""
-    else
-      let bytes_to_read =
-        min size (chunk.current_size - chunk.current_offset)
-      in
-      if bytes_to_read = 0 then
-        ""
-      else
-        let data = Bytes.make bytes_to_read '\000' in
-        Buf_io.really_input chunk.bufio data 0 bytes_to_read ;
-        (* now update the data structure: *)
-        if chunk.current_offset + bytes_to_read = chunk.current_size then (
-          (* finished a chunk: get rid of the CRLF *)
-          let blank = Bytes.of_string "\000\000" in
-          Buf_io.really_input chunk.bufio blank 0 2 ;
-          if Bytes.to_string blank <> "\r\n" then
-            failwith "chunked encoding error" ;
-          chunk.read_headers <- true
-        ) else (* partway through a chunk. *)
-          chunk.current_offset <- chunk.current_offset + bytes_to_read ;
-        Bytes.unsafe_to_string data ^ read chunk (size - bytes_to_read)
-end
-
-let read_chunked_encoding _req bio =
-  let rec next () =
-    let size =
-      Buf_io.input_line bio
-      (* Strictly speaking need to kill anything past an ';' if present *)
-      |> Bytes.to_string
-      |> String.trim
-      |> Printf.sprintf "0x%s"
-      |> int_of_string
-    in
-    if size = 0 then
-      Http.End
-    else
-      let chunk = Bytes.make size '\000' in
-      Buf_io.really_input bio chunk 0 size ;
-      (* Then get rid of the CRLF *)
-      let blank = Bytes.of_string "\000\000" in
-      Buf_io.really_input bio blank 0 2 ;
-      Http.Item (chunk, next)
-  in
-  next ()
+      Unixext.really_read_string fd length
 
 (* Helpers to determine the client of a call *)
 
