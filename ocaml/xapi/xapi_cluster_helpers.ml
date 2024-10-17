@@ -126,7 +126,7 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
           let body =
             Printf.sprintf
               "Host %s has joined the cluster, there are now %d host(s) in \
-               cluster and %d hosts are required to form a quorum"
+               cluster and %d host(s) are required to form a quorum"
               host_name num_hosts quorum
           in
           let name, priority = Api_messages.cluster_host_joining in
@@ -135,7 +135,7 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
           let body =
             Printf.sprintf
               "Host %s has left the cluster, there are now %d host(s) in \
-               cluster and %d hosts are required to form a quorum"
+               cluster and %d host(s) are required to form a quorum"
               host_name num_hosts quorum
           in
           let name, priority = Api_messages.cluster_host_leaving in
@@ -157,8 +157,8 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
       let name, priority = Api_messages.cluster_quorum_approaching_lost in
       let body =
         Printf.sprintf
-          "The cluster is losing quorum: current %d hosts, need %d hosts for a \
-           quorum"
+          "The cluster is losing quorum: currently %d host(s), need %d host(s) \
+           for a quorum"
           num_hosts quorum
       in
       Helpers.call_api_functions ~__context (fun rpc session_id ->
