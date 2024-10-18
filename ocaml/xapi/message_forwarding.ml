@@ -3745,19 +3745,22 @@ functor
               ~cert
         )
 
-      let uninstall_ca_certificate ~__context ~host ~name =
-        info "Host.uninstall_ca_certificate: host = '%s'; name = '%s'"
+      let uninstall_ca_certificate ~__context ~host ~name ~force =
+        info
+          "Host.uninstall_ca_certificate: host = '%s'; name = '%s'; force = \
+           '%b'"
           (host_uuid ~__context host)
-          name ;
-        let local_fn = Local.Host.uninstall_ca_certificate ~host ~name in
+          name force ;
+        let local_fn = Local.Host.uninstall_ca_certificate ~host ~name ~force in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
+              ~force
         )
 
       (* legacy names *)
       let certificate_install = install_ca_certificate
 
-      let certificate_uninstall = uninstall_ca_certificate
+      let certificate_uninstall = uninstall_ca_certificate ~force:false
 
       let certificate_list ~__context ~host =
         info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;

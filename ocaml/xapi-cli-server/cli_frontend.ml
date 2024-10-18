@@ -396,8 +396,11 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "pool-uninstall-ca-certificate"
     , {
         reqd= ["name"]
-      ; optn= []
-      ; help= "Uninstall a pool-wide TLS CA certificate."
+      ; optn= ["force"]
+      ; help=
+          "Uninstall a pool-wide TLS CA certificate. The optional parameter \
+           '--force' will remove the DB entry even if the certificate file is \
+           non-existent"
       ; implementation= No_fd Cli_operations.pool_uninstall_ca_certificate
       ; flags= []
       }
