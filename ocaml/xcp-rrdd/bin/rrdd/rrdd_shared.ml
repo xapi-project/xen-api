@@ -75,7 +75,14 @@ let use_min_max = ref false
 
 let mutex = Mutex.create ()
 
-type rrd_info = {rrd: Rrd.rrd; mutable dss: Ds.ds list; mutable domid: int}
+type rrd_info = {
+    rrd: Rrd.rrd
+  ; mutable dss: (float * Ds.ds) Rrd.StringMap.t
+        (* Important: this must contain the entire list of datasources associated
+           with the RRD, even the ones disabled by default, as rrd_add_ds calls
+           can enable DSs at runtime *)
+  ; mutable domid: int
+}
 
 (* RRDs *)
 let vm_rrds : (string, rrd_info) Hashtbl.t = Hashtbl.create 32

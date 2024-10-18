@@ -514,15 +514,15 @@ let do_monitor_write xc writers =
       let dom0_stats =
         tagged_dom0_stats
         |> List.to_seq
-        |> Seq.flat_map (fun (name, (timestamp, dss)) ->
-               (timestamp, List.to_seq dss)
-           )
+        |> Seq.map (fun (name, (timestamp, dss)) -> (timestamp, List.to_seq dss))
       in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
       let stats = Seq.append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms ;
+
+      (* stats are grouped per plugin, which provides its timestamp *)
+      Seq.iter (Rrdd_monitor.update_rrds uuid_domids my_paused_vms) stats ;
 
       Rrdd_libs.Constants.datasource_dump_file
       |> Rrdd_server.dump_host_dss_to_file ;
@@ -541,10 +541,11 @@ let monitor_write_loop writers =
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
               ) ;
               Thread.delay !Rrdd_shared.timeslice
-            with _ ->
+            with e ->
               debug
                 "Monitor/write thread caught an exception. Pausing for 10s, \
-                 then restarting." ;
+                 then restarting: %s"
+                (Printexc.to_string e) ;
               log_backtrace () ;
               Thread.delay 10.
           done

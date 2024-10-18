@@ -318,7 +318,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
           cdp.cdp_value <- cdp_init
         )
         rra.rra_cdps ;
-      do_cfs rra new_start_pdp_offset pdps ;
+      do_cfs rra new_start_pdp_offset pdps
     )
   in
   Array.iter updatefn rrd.rrd_rras
@@ -363,7 +363,12 @@ let process_ds_value ds value interval new_domid =
     rate
 
 let ds_update rrd timestamp values transforms new_domid =
-  (* Interval is the time between this and the last update *)
+  (* Interval is the time between this and the last update
+
+     Currently ds_update is called with datasources that belong to a single
+     plugin, correspondingly they all have the same timestamp.
+     Further refactoring is needed if timestamps per measurement are to be
+     introduced. *)
   let interval = timestamp -. rrd.last_updated in
   (* Work around the clock going backwards *)
   let interval = if interval < 0. then 5. else interval in
@@ -452,11 +457,10 @@ let ds_update rrd timestamp values transforms new_domid =
       v2s
   )
 
-(** Update the rrd with named values rather than just an ordered array *)
-let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
-  let valuesandtransforms =
-    valuesandtransforms |> StringMap.of_seq
-  in
+(** Update the rrd with named values rather than just an ordered array
+    Must be called with datasources coming from a single plugin, with
+    [timestamp] and [uid] representing it *)
+let ds_update_named rrd ~new_domid timestamp valuesandtransforms =
   let get_value_and_transform {ds_name; _} =
     Option.value ~default:(VT_Unknown, Identity)
       (StringMap.find_opt ds_name valuesandtransforms)
@@ -497,8 +501,7 @@ let ds_create name ty ?(min = neg_infinity) ?(max = infinity) ?(mrhb = infinity)
   ; ds_unknown_sec= 0.0
   }
 
-let rrd_create dss rras timestep inittime =
-  (* Use the standard update routines to initialise everything to correct values *)
+let rrd_create dss rras timestep timestamp =
   let rrd =
     {
       last_updated= 0.0
@@ -510,16 +513,16 @@ let rrd_create dss rras timestep inittime =
             {
               rra with
               rra_data=
-                Array.init (Array.length dss) (fun i ->
-                    let ds = dss.(i) in
-                    Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max
-                )
+                Array.map
+                  (fun ds -> Fring.make rra.rra_row_cnt nan ds.ds_min ds.ds_max)
+                  dss
             ; rra_cdps=
-                Array.init (Array.length dss) (fun i ->
-                    let ds = dss.(i) in
+                Array.map
+                  (fun ds ->
                     let cdp_init = cf_init_value rra.rra_cf ds in
                     {cdp_value= cdp_init; cdp_unknown_pdps= 0}
-                )
+                  )
+                  dss
             }
           )
           rras
@@ -527,21 +530,20 @@ let rrd_create dss rras timestep inittime =
   in
   let values = Array.map (fun ds -> ds.ds_last) dss in
   let transforms = Array.make (Array.length values) Identity in
-  ds_update rrd inittime values transforms true ;
+  (* Use the standard update routines to initialise everything to correct values *)
+  ds_update rrd timestamp values transforms true ;
   rrd
 
 (** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives
     and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
     correctly at the moment!
-
-    @param now = Unix.gettimeofday ()
 *)
 
-let rrd_add_ds rrd now newds =
+let rrd_add_ds rrd timestamp newds =
   if List.mem newds.ds_name (ds_names rrd) then
     rrd
   else
-    let npdps = Int64.of_float now /// rrd.timestep in
+    let npdps = Int64.of_float timestamp /// rrd.timestep in
     {
       rrd with
       rrd_dss= Array.append rrd.rrd_dss [|newds|]
@@ -631,15 +633,14 @@ let find_best_rras rrd pdp_interval cf start =
     in
     List.filter (contains_time newstarttime) rras
 
-(* now = Unix.gettimeofday () *)
-let query_named_ds rrd now ds_name cf =
+let query_named_ds rrd as_of_time ds_name cf =
   let n =
     Utils.array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)
   in
   if n = -1 then
     raise (Invalid_data_source ds_name)
   else
-    let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float now) in
+    let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float as_of_time) in
     match rras with
     | [] ->
         raise No_RRA_Available
