@@ -327,7 +327,7 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
    it's dependent on the time interval between updates. To be able to
    deal with gauge DSs, we multiply by the interval so that it cancels
    the subsequent divide by interval later on *)
-let process_ds_value ds value interval new_domid =
+let process_ds_value ds value interval new_rrd =
   if interval > ds.ds_mrhb then
     nan
   else
@@ -342,7 +342,7 @@ let process_ds_value ds value interval new_domid =
     in
 
     let rate =
-      match (ds.ds_ty, new_domid) with
+      match (ds.ds_ty, new_rrd) with
       | Absolute, _ | Derive, true ->
           value_raw
       | Gauge, _ ->
@@ -362,7 +362,7 @@ let process_ds_value ds value interval new_domid =
     ds.ds_last <- value ;
     rate
 
-let ds_update rrd timestamp values transforms new_domid =
+let ds_update rrd timestamp values transforms new_rrd =
   (* Interval is the time between this and the last update
 
      Currently ds_update is called with datasources that belong to a single
@@ -400,7 +400,7 @@ let ds_update rrd timestamp values transforms new_domid =
   (* Calculate the values we're going to store based on the input data and the type of the DS *)
   let v2s =
     Array.mapi
-      (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval new_domid)
+      (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval new_rrd)
       values
   in
   (* Update the PDP accumulators up until the most recent PDP *)
@@ -460,7 +460,7 @@ let ds_update rrd timestamp values transforms new_domid =
 (** Update the rrd with named values rather than just an ordered array
     Must be called with datasources coming from a single plugin, with
     [timestamp] and [uid] representing it *)
-let ds_update_named rrd ~new_domid timestamp valuesandtransforms =
+let ds_update_named rrd ~new_rrd timestamp valuesandtransforms =
   let get_value_and_transform {ds_name; _} =
     Option.value ~default:(VT_Unknown, Identity)
       (StringMap.find_opt ds_name valuesandtransforms)
@@ -468,7 +468,7 @@ let ds_update_named rrd ~new_domid timestamp valuesandtransforms =
   let ds_values, ds_transforms =
     Array.split (Array.map get_value_and_transform rrd.rrd_dss)
   in
-  ds_update rrd timestamp ds_values ds_transforms new_domid
+  ds_update rrd timestamp ds_values ds_transforms new_rrd
 
 (** Get registered DS names *)
 let ds_names rrd = Array.to_list (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)

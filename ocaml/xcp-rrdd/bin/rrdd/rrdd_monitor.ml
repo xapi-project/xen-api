@@ -148,8 +148,8 @@ let update_rrds uuid_domids paused_vms (timestamp, dss) =
                  ignore changes from paused domains: *)
               let named_updates = StringMap.map to_named_updates dss in
               if not (StringSet.mem vm_uuid paused_vms) then
-                Rrd.ds_update_named rrd ~new_domid:(domid <> rrdi.domid)
-                  timestamp named_updates
+                Rrd.ds_update_named rrd ~new_rrd:(domid <> rrdi.domid) timestamp
+                  named_updates
           | None ->
               debug "%s: Creating fresh RRD for VM uuid=%s" __FUNCTION__ vm_uuid ;
               let dss_list = map_keys_to_list dss in
@@ -168,7 +168,7 @@ let update_rrds uuid_domids paused_vms (timestamp, dss) =
               let updated_dss, rrd = merge_new_dss rrdi dss in
               Hashtbl.replace sr_rrds sr_uuid {rrd; dss= updated_dss; domid= 0} ;
               let named_updates = StringMap.map to_named_updates dss in
-              Rrd.ds_update_named rrd ~new_domid:false timestamp named_updates
+              Rrd.ds_update_named rrd ~new_rrd:false timestamp named_updates
           | None ->
               debug "%s: Creating fresh RRD for SR uuid=%s" __FUNCTION__ sr_uuid ;
               let dss_list = map_keys_to_list dss in
@@ -188,7 +188,7 @@ let update_rrds uuid_domids paused_vms (timestamp, dss) =
             let updated_dss, rrd = merge_new_dss rrdi dss in
             host_rrd := Some {rrd; dss= updated_dss; domid= 0} ;
             let named_updates = StringMap.map to_named_updates dss in
-            Rrd.ds_update_named rrd ~new_domid:false timestamp named_updates
+            Rrd.ds_update_named rrd ~new_rrd:false timestamp named_updates
       in
 
       let process_dss ds_owner dss =
