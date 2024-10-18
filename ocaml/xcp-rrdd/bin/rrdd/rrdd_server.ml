@@ -764,7 +764,7 @@ module Plugin = struct
         )
 
       (* Read, parse, and combine metrics from all registered plugins. *)
-      let read_stats () : (Rrd.ds_owner * Ds.ds) Seq.t =
+      let read_stats () =
         let plugins =
           with_lock registered_m (fun _ ->
               List.of_seq (Hashtbl.to_seq registered)
@@ -773,7 +773,9 @@ module Plugin = struct
         let process_plugin (uid, plugin) =
           try
             let payload = get_payload ~uid plugin in
-            List.to_seq payload.Rrd_protocol.datasources
+            let timestamp = payload.Rrd_protocol.timestamp |> Int64.to_float in
+            let dss = List.to_seq payload.Rrd_protocol.datasources in
+            (timestamp, dss)
           with _ -> Seq.empty
         in
         List.iter decr_skip_count plugins ;
@@ -806,7 +808,7 @@ module Plugin = struct
   let deregister = Local.deregister
 
   (* Read, parse, and combine metrics from all registered plugins. *)
-  let read_stats () : (Rrd.ds_owner * Ds.ds) Seq.t = Local.read_stats ()
+  let read_stats () = Local.read_stats ()
 end
 
 module HA = struct
