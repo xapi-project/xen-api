@@ -738,6 +738,9 @@ module MigrateLocal = struct
     in
     let id = State.mirror_id_of (sr, local_vdi.vdi) in
     debug "Adding to active local mirrors before sending: id=%s" id ;
+    let mirror_id = State.mirror_id_of (sr, local_vdi.vdi) in
+    debug "%s: Adding to active local mirrors before sending: id=%s"
+      __FUNCTION__ mirror_id ;
     let alm =
       State.Send_state.
         {
@@ -751,8 +754,8 @@ module MigrateLocal = struct
         }
     in
 
-    State.add id (State.Send_op alm) ;
-    debug "Added" ;
+    State.add mirror_id (State.Send_op alm) ;
+    debug "%s Added mirror %s to active local mirrors" __FUNCTION__ mirror_id ;
     (* A list of cleanup actions to perform if the operation should fail. *)
     let on_fail : (unit -> unit) list ref = ref [] in
     try
@@ -774,7 +777,7 @@ module MigrateLocal = struct
            )
         ) ;
       let result_ty =
-        Remote.DATA.MIRROR.receive_start dbg dest local_vdi id similars
+        Remote.DATA.MIRROR.receive_start dbg dest local_vdi mirror_id similars
       in
       let result = match result_ty with Mirror.Vhd_mirror x -> x in
       (* Enable mirroring on the local machine *)
@@ -796,7 +799,7 @@ module MigrateLocal = struct
       debug "Searching for data path: %s" dp ;
       let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
       on_fail :=
-        (fun () -> Remote.DATA.MIRROR.receive_cancel dbg id) :: !on_fail ;
+        (fun () -> Remote.DATA.MIRROR.receive_cancel dbg mirror_id) :: !on_fail ;
       let tapdev =
         match tapdisk_of_attach_info attach_info with
         | Some tapdev ->
@@ -829,7 +832,7 @@ module MigrateLocal = struct
         | None ->
             failwith "Not attached"
       in
-      debug "Updating active local mirrors: id=%s" id ;
+      debug "%s Updating active local mirrors: id=%s" __FUNCTION__ mirror_id ;
       let alm =
         State.Send_state.
           {
@@ -850,12 +853,14 @@ module MigrateLocal = struct
           }
       in
 
-      State.add id (State.Send_op alm) ;
-      debug "Updated" ;
+      State.add mirror_id (State.Send_op alm) ;
+      debug "%s Updated mirror_id %s in the active local mirror" __FUNCTION__
+        mirror_id ;
+
       SXM.info "%s About to snapshot VDI = %s" __FUNCTION__
         (string_of_vdi_info local_vdi) ;
       let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
-      let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
+      let local_vdi = add_to_sm_config local_vdi "base_mirror" mirror_id in
       let snapshot =
         try Local.VDI.snapshot dbg sr local_vdi with
         | Storage_interface.Storage_error (Backend_error (code, _))
@@ -875,13 +880,13 @@ module MigrateLocal = struct
         (Storage_interface.Vdi.string_of local_vdi.vdi) ;
       on_fail := (fun () -> Local.VDI.destroy dbg sr snapshot.vdi) :: !on_fail ;
       (let rec inner () =
-         let alm_opt = State.find_active_local_mirror id in
+         let alm_opt = State.find_active_local_mirror mirror_id in
          match alm_opt with
          | Some alm ->
              let stats = Tapctl.stats (Tapctl.create ()) tapdev in
              if stats.Tapctl.Stats.nbd_mirror_failed = 1 then (
                error "Tapdisk mirroring has failed" ;
-               Updates.add (Dynamic.Mirror id) updates
+               Updates.add (Dynamic.Mirror mirror_id) updates
              ) ;
              alm.State.Send_state.watchdog <-
                Some
@@ -893,7 +898,7 @@ module MigrateLocal = struct
        in
        inner ()
       ) ;
-      on_fail := (fun () -> Local.DATA.MIRROR.stop dbg id) :: !on_fail ;
+      on_fail := (fun () -> Local.DATA.MIRROR.stop dbg mirror_id) :: !on_fail ;
       (* Copy the snapshot to the remote *)
       let new_parent =
         Storage_task.with_subtask task "copy" (fun () ->
@@ -916,7 +921,7 @@ module MigrateLocal = struct
       Remote.VDI.destroy dbg dest result.Mirror.dummy_vdi ;
       debug "Destroying snapshot on src" ;
       Local.VDI.destroy dbg sr snapshot.vdi ;
-      Some (Mirror_id id)
+      Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
         error " Caught exception %s:%s. Performing cleanup."
