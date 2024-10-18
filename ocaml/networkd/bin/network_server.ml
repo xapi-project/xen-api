@@ -1474,7 +1474,7 @@ end
 module PVS_proxy = struct
   open S.PVS_proxy
 
-  let path = ref "/opt/citrix/pvsproxy/socket/pvsproxy"
+  let path = ref "/run/pvsproxy"
 
   let do_call call =
     try Jsonrpc_client.with_rpc ~path:!path ~call ()
