@@ -31,7 +31,7 @@ value is_all_zeros(value string, value length)
 	for (i = len / 4; i > 0; i--)
 		if (*p++ != 0)
 			goto notallzero;
-	s = (unsigned char *) p;
+	s = (const char *) p;
 	for (i = 0; i < len % 4; i++)
 		if (s[i] != 0)
 			goto notallzero;
