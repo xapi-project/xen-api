@@ -70,8 +70,8 @@ let is_task task = function
   | _ ->
       None
 
-let parallel_id_with_tracing parallel_id t =
-  Debug_info.make ~log:parallel_id ~tracing:(Xenops_task.tracing t)
+let id_with_tracing id t =
+  Debug_info.make ~log:id ~tracing:(Xenops_task.tracing t)
   |> Debug_info.to_string
 
 let dbg_with_traceparent_of_task t =
