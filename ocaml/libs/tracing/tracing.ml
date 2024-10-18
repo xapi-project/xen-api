@@ -209,15 +209,34 @@ end = struct
   let compare = Int64.compare
 end
 
+(* The context of a trace that can be propagated across service boundaries. *)
+module TraceContext = struct
+  type traceparent = string
+
+  type baggage = (string * string) list
+
+  type t = {traceparent: traceparent option; baggage: baggage option}
+
+  let empty = {traceparent= None; baggage= None}
+
+  let with_traceparent traceparent ctx = {ctx with traceparent}
+
+  let with_baggage baggage ctx = {ctx with baggage}
+
+  let traceparent_of ctx = ctx.traceparent
+
+  let baggage_of ctx = ctx.baggage
+end
+
 module SpanContext = struct
   type t = {trace_id: Trace_id.t; span_id: Span_id.t} [@@deriving rpcty]
 
   let context trace_id span_id = {trace_id; span_id}
 
   let to_traceparent t =
-    Printf.sprintf "00-%s-%s-01"
-      (Trace_id.to_string t.trace_id)
-      (Span_id.to_string t.span_id)
+    let tid = Trace_id.to_string t.trace_id in
+    let sid = Span_id.to_string t.span_id in
+    Printf.sprintf "00-%s-%s-01" tid sid
 
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
@@ -767,4 +786,64 @@ module EnvHelpers = struct
     | Some span ->
         Some (span |> Span.get_context |> SpanContext.to_traceparent)
         |> of_traceparent
+end
+
+module Propagator = struct
+  module type S = sig
+    type carrier
+
+    val traceparent_of : carrier -> Span.t option
+
+    val with_tracing :
+         ?attributes:(string * string) list
+      -> name:string
+      -> carrier
+      -> (carrier -> 'a)
+      -> 'a
+  end
+
+  module type PropS = sig
+    type carrier
+
+    val inject_into : TraceContext.t -> carrier -> carrier
+
+    val extract_from : carrier -> TraceContext.t
+
+    val name_span : carrier -> string
+  end
+
+  module Make (P : PropS) : S with type carrier = P.carrier = struct
+    type carrier = P.carrier
+
+    let traceparent_of carrier =
+      (* TODO: The extracted TraceContext must be propagated through the
+         spans. Simple approach is to add it to the SpanContext, and then
+         inherit it properly (substituting/creating only identity-related). *)
+      let ( let* ) = Option.bind in
+      let trace_context = P.extract_from carrier in
+      let* parent = TraceContext.traceparent_of trace_context in
+      let* span_context = SpanContext.of_traceparent parent in
+      let name = P.name_span carrier in
+      Some (Tracer.span_of_span_context span_context name)
+
+    let with_tracing ?attributes ~name carrier f =
+      let trace_context = P.extract_from carrier in
+      let parent = traceparent_of carrier in
+      let continue_with_child = function
+        | Some child ->
+            (* Here, "traceparent" is terminology for the [version-trace_id-span_id-flags] structure.
+               Therefore, the purpose of the code below is to decorate the request with the derived (child) span's ID.
+               This function only gets called if parent is not None. *)
+            let span_context = Span.get_context child in
+            let traceparent = SpanContext.to_traceparent span_context in
+            let trace_context' =
+              TraceContext.with_traceparent (Some traceparent) trace_context
+            in
+            let carrier' = P.inject_into trace_context' carrier in
+            f carrier'
+        | _ ->
+            f carrier
+      in
+      with_child_trace ?attributes parent ~name continue_with_child
+  end
 end

@@ -101,9 +101,17 @@ let response_of_request req hdrs =
     ~headers:(connection :: cache :: hdrs)
     "200" "OK"
 
+module Helper = struct
+  include Tracing.Propagator.Make (struct
+    include Propagator.Http
+
+    let name_span req = req.Http.Request.uri
+  end)
+end
+
 let response_fct req ?(hdrs = []) s (response_length : int64)
     (write_response_to_fd_fn : Unix.file_descr -> unit) =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
   let res =
     {
       (response_of_request req hdrs) with
@@ -417,8 +425,6 @@ let request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length bio
                        {req with host= Some v}
                    | k when k = Http.Hdr.user_agent ->
                        {req with user_agent= Some v}
-                   | k when k = Http.Hdr.traceparent ->
-                       {req with traceparent= Some v}
                    | k when k = Http.Hdr.connection && lowercase v = "close" ->
                        {req with close= true}
                    | k
@@ -455,7 +461,7 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
     let r, proxy =
       request_of_bio_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length ic
     in
-    let parent_span = Http.Request.traceparent_of r in
+    let parent_span = Helper.traceparent_of r in
     let loop_span =
       Option.fold ~none:None
         ~some:(fun span ->
@@ -508,8 +514,8 @@ let request_of_bio ?proxy_seen ~read_timeout ~total_timeout ~max_length ic =
     (None, None)
 
 let handle_one (x : 'a Server.t) ss context req =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
-  let span = Http.Request.traceparent_of req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
+  let span = Helper.traceparent_of req in
   let ic = Buf_io.of_fd ss in
   let finished = ref false in
   try
