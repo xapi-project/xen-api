@@ -920,11 +920,6 @@ functor
       Impl.get_by_name context ~dbg ~name
 
     module DATA = struct
-      let copy_into context ~dbg ~sr ~vdi ~url ~dest =
-        info "DATA.copy_into dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg
-          (s_of_sr sr) (s_of_vdi vdi) url (s_of_sr dest) ;
-        Impl.DATA.copy_into context ~dbg ~sr ~vdi ~url ~dest
-
       let copy context ~dbg ~sr ~vdi ~dp ~url ~dest =
         info "DATA.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) url (s_of_sr dest) ;

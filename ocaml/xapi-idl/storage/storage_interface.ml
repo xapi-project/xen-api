@@ -976,21 +976,6 @@ module StorageAPI (R : RPC) = struct
         ~description:["when true, verify remote server certificate"]
         Types.bool
 
-    (** [copy_into task sr vdi url sr2] copies the data from [vdi] into a remote
-        system [url]'s [sr2] *)
-    let copy_into =
-      let dest_vdi_p = Param.mk ~name:"dest_vdi" Vdi.t in
-      declare "DATA.copy_into" []
-        (dbg_p
-        @-> sr_p
-        @-> vdi_p
-        @-> url_p
-        @-> dest_p
-        @-> dest_vdi_p
-        @-> verify_dest_p
-        @-> returning task_id_p err
-        )
-
     let copy =
       let result_p = Param.mk ~name:"task_id" Task.id in
       declare "DATA.copy" []
@@ -1344,17 +1329,6 @@ module type Server_impl = sig
   val get_by_name : context -> dbg:debug_info -> name:string -> sr * vdi_info
 
   module DATA : sig
-    val copy_into :
-         context
-      -> dbg:debug_info
-      -> sr:sr
-      -> vdi:vdi
-      -> url:string
-      -> dest:sr
-      -> dest_vdi:vdi
-      -> verify_dest:bool
-      -> Task.id
-
     val copy :
          context
       -> dbg:debug_info
@@ -1549,9 +1523,6 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
-    S.DATA.copy_into (fun dbg sr vdi url dest dest_vdi verify_dest ->
-        Impl.DATA.copy_into () ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest
-    ) ;
     S.DATA.copy (fun dbg sr vdi dp url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest
     ) ;

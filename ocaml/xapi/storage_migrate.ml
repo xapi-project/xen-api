@@ -578,9 +578,6 @@ let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
     perform_cleanup_actions !on_fail ;
     raise e
 
-let copy_into ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
-  copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest
-
 let remove_from_sm_config vdi_info key =
   {
     vdi_info with
@@ -1366,12 +1363,6 @@ let start ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
 let copy ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
       copy ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~url ~dest ~verify_dest
-  )
-
-let copy_into ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
-  with_task_and_thread ~dbg (fun task ->
-      copy_into ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~url ~dest ~dest_vdi
-        ~verify_dest
   )
 
 (* The remote end of this call, SR.update_snapshot_info_dest, is implemented in

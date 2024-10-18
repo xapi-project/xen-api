@@ -152,7 +152,6 @@ end
 let get_by_name ctx ~dbg ~name = u "get_by_name"
 
 module DATA = struct
-  let copy_into ctx ~dbg ~sr ~vdi ~url ~dest ~dest_vdi = u "DATA.copy_into"
 
   let copy ctx ~dbg ~sr ~vdi ~dp ~url ~dest = u "DATA.copy"
 
