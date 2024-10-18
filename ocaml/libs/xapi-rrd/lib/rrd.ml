@@ -172,6 +172,13 @@ and rrd = {
   ; rrd_rras: rra array
 }
 
+(** Parts of the datasources used in updating RRDs to minimize transferred data *)
+
+and ds_value_and_transform = {
+    value: ds_value_type
+  ; transform: ds_transform_function
+}
+
 let copy_cdp_prep x =
   {cdp_value= x.cdp_value; cdp_unknown_pdps= x.cdp_unknown_pdps}
 
@@ -228,41 +235,42 @@ let get_times time timestep =
 
 (** Update the CDP value with a number (start_pdp_offset) of PDPs. *)
 let do_cfs rra start_pdp_offset pdps =
-  for i = 0 to Array.length pdps - 1 do
-    let cdp = rra.rra_cdps.(i) in
-    if Utils.isnan pdps.(i) then (
-      (* CDP is an accumulator for the average. If we've got some unknowns, we need to
-         renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
-         values we expect to have. If we have unknowns, we need to multiply the whole
-         thing by \frac{n_{old}}{n_{new}} *)
-      let olddiv = rra.rra_pdp_cnt - cdp.cdp_unknown_pdps in
-      let newdiv = olddiv - start_pdp_offset in
-      if newdiv > 0 then (
-        cdp.cdp_value <-
-          cdp.cdp_value *. float_of_int olddiv /. float_of_int newdiv ;
-        cdp.cdp_unknown_pdps <- cdp.cdp_unknown_pdps + start_pdp_offset
-      )
-    ) else
-      let cdpv = cdp.cdp_value in
-      cdp.cdp_value <-
-        ( match rra.rra_cf with
-        | CF_Average ->
-            cdpv
-            +. pdps.(i)
-               *. float_of_int start_pdp_offset
-               /. float_of_int rra.rra_pdp_cnt
-        | CF_Min ->
-            min cdpv pdps.(i)
-        | CF_Max ->
-            max cdpv pdps.(i)
-        | CF_Last ->
-            pdps.(i)
+  Array.iter
+    (fun (i, pdp) ->
+      let cdp = rra.rra_cdps.(i) in
+      if Utils.isnan pdp then (
+        (* CDP is an accumulator for the average. If we've got some unknowns, we need to
+           renormalize. ie, CDP contains \sum_{i=0}^j{ (1/n) x_i} where n is the number of
+           values we expect to have. If we have unknowns, we need to multiply the whole
+           thing by \frac{n_{old}}{n_{new}} *)
+        let olddiv = rra.rra_pdp_cnt - cdp.cdp_unknown_pdps in
+        let newdiv = olddiv - start_pdp_offset in
+        if newdiv > 0 then (
+          cdp.cdp_value <-
+            cdp.cdp_value *. float_of_int olddiv /. float_of_int newdiv ;
+          cdp.cdp_unknown_pdps <- cdp.cdp_unknown_pdps + start_pdp_offset
         )
-  done
+      ) else
+        let cdpv = cdp.cdp_value in
+        cdp.cdp_value <-
+          ( match rra.rra_cf with
+          | CF_Average ->
+              cdpv
+              +. pdp
+                 *. float_of_int start_pdp_offset
+                 /. float_of_int rra.rra_pdp_cnt
+          | CF_Min ->
+              min cdpv pdp
+          | CF_Max ->
+              max cdpv pdp
+          | CF_Last ->
+              pdp
+          )
+    )
+    pdps
 
 (** Update the RRAs with a number of PDPs. *)
 let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
-  (*  debug "rra_update";*)
   let updatefn rra =
     let start_pdp_offset =
       rra.rra_pdp_cnt
@@ -287,37 +295,39 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
          repeated values is simply the value itself. *)
       let primaries =
         Array.map
-          (fun cdp ->
+          (fun (i, _) ->
+            let cdp = rra.rra_cdps.(i) in
             if
               cdp.cdp_unknown_pdps
               <= int_of_float (rra.rra_xff *. float_of_int rra.rra_pdp_cnt)
             then
-              cdp.cdp_value
+              (i, cdp.cdp_value)
             else
-              nan
+              (i, nan)
           )
-          rra.rra_cdps
+          pdps
       in
       let secondaries = pdps in
 
-      let push i value = Fring.push rra.rra_data.(i) value in
-      Array.iteri push primaries ;
+      let push (i, value) = Fring.push rra.rra_data.(i) value in
+      Array.iter push primaries ;
       for _ = 1 to min (rra_step_cnt - 1) rra.rra_row_cnt do
-        Array.iteri push secondaries
+        Array.iter push secondaries
       done ;
 
       (* Reinitialise the CDP preparation area *)
       let new_start_pdp_offset =
         (elapsed_pdp_st - start_pdp_offset) mod rra.rra_pdp_cnt
       in
-      Array.iteri
-        (fun i cdp ->
+      Array.iter
+        (fun (i, _) ->
+          let cdp = rra.rra_cdps.(i) in
           let ds = rrd.rrd_dss.(i) in
           let cdp_init = cf_init_value rra.rra_cf ds in
           cdp.cdp_unknown_pdps <- 0 ;
           cdp.cdp_value <- cdp_init
         )
-        rra.rra_cdps ;
+        pdps ;
       do_cfs rra new_start_pdp_offset pdps
     )
   in
@@ -362,7 +372,7 @@ let process_ds_value ds value interval new_rrd =
     ds.ds_last <- value ;
     rate
 
-let ds_update rrd timestamp values transforms new_rrd =
+let ds_update rrd timestamp valuesandtransforms new_rrd =
   (* Interval is the time between this and the last update
 
      Currently ds_update is called with datasources that belong to a single
@@ -399,13 +409,16 @@ let ds_update rrd timestamp values transforms new_rrd =
 
   (* Calculate the values we're going to store based on the input data and the type of the DS *)
   let v2s =
-    Array.mapi
-      (fun i value -> process_ds_value rrd.rrd_dss.(i) value interval new_rrd)
-      values
+    Array.map
+      (fun (i, {value; _}) ->
+        let v = process_ds_value rrd.rrd_dss.(i) value interval new_rrd in
+        (i, v)
+      )
+      valuesandtransforms
   in
   (* Update the PDP accumulators up until the most recent PDP *)
-  Array.iteri
-    (fun i value ->
+  Array.iter
+    (fun (i, value) ->
       let ds = rrd.rrd_dss.(i) in
       if Utils.isnan value then
         ds.ds_unknown_sec <- pre_int
@@ -418,10 +431,11 @@ let ds_update rrd timestamp values transforms new_rrd =
   if elapsed_pdp_st > 0 then (
     (* Calculate the PDPs for each DS *)
     let pdps =
-      Array.mapi
-        (fun i ds ->
+      Array.map
+        (fun (i, {transform; _}) ->
+          let ds = rrd.rrd_dss.(i) in
           if interval > ds.ds_mrhb then
-            nan
+            (i, nan)
           else
             let raw =
               ds.ds_value
@@ -430,21 +444,21 @@ let ds_update rrd timestamp values transforms new_rrd =
                  )
             in
             (* Apply the transform after the raw value has been calculated *)
-            let raw = apply_transform_function transforms.(i) raw in
+            let raw = apply_transform_function transform raw in
             (* Make sure the values are not out of bounds after all the processing *)
             if raw < ds.ds_min || raw > ds.ds_max then
-              nan
+              (i, nan)
             else
-              raw
+              (i, raw)
         )
-        rrd.rrd_dss
+        valuesandtransforms
     in
 
     rra_update rrd proc_pdp_st elapsed_pdp_st pdps ;
 
     (* Reset the PDP accumulators *)
-    Array.iteri
-      (fun i value ->
+    Array.iter
+      (fun (i, value) ->
         let ds = rrd.rrd_dss.(i) in
         if Utils.isnan value then (
           ds.ds_value <- 0.0 ;
@@ -461,14 +475,49 @@ let ds_update rrd timestamp values transforms new_rrd =
     Must be called with datasources coming from a single plugin, with
     [timestamp] and [uid] representing it *)
 let ds_update_named rrd ~new_rrd timestamp valuesandtransforms =
-  let get_value_and_transform {ds_name; _} =
-    Option.value ~default:(VT_Unknown, Identity)
-      (StringMap.find_opt ds_name valuesandtransforms)
+  (* NOTE:
+     RRD data is stored in several arrays, with the same index pointing to the
+     same datasource's data in different arrays. This dependency is not always
+     obvious and doesn't apply to everything, i.e. 'rrd_dss' stores datasources
+     one after another, but the 'rrd_rras' are actually sideways matrices,
+     with rrd_rras.(i).rra_data containing Frings for _all_ datasources, not
+     just the i-th datasource. So if one datasource is removed or adjusted,
+     one needs to update RRAs by iterating over all 'rrd_rras', not just
+     changing the i-th array.
+
+     rrdd_monitor processes datasources per plugin (and then per owner), so the
+     list of 'valuesandtransforms' all come with a single timestamp. But these
+     datasources can be located all over the 'rrd_dss' array, not necessarily
+     consecutively. Non-exhaustive examples of why that can happen:
+     1) initially disabled datasources can be enabled at runtime behind our
+        back, which adds them to the end of the rrd_dss array
+     2) on toolstack restart, RRDs are restored from the filesystem, but the
+        new order of registration of plugins might not necessarily be the same
+        as the one before the restart (so they might be consecutive, but static
+        chunk indexes can't be assumed)
+     3) rrd_monitor iterates over the hash table of registered plugins, which
+        means that plugins registered later can end up earlier in its ordering
+
+     All this means that plugin's datasources can not be assumed to be
+     consecutive and each datasource should carry its index in rrd's arrays
+     with itself, they can't just be processed in chunks.
+
+     (This is due to how this used to be organized historically, with all of
+     the RRD's datasources processed at once with the server's timestamp, even
+     though they could have come from different plugins originally)
+  *)
+  let arr, _ =
+    Array.fold_left
+      (fun (arr, i) {ds_name; _} ->
+        match StringMap.find_opt ds_name valuesandtransforms with
+        | Some ds ->
+            (Array.append arr [|(i, ds)|], i + 1)
+        | None ->
+            (arr, i + 1)
+      )
+      ([||], 0) rrd.rrd_dss
   in
-  let ds_values, ds_transforms =
-    Array.split (Array.map get_value_and_transform rrd.rrd_dss)
-  in
-  ds_update rrd timestamp ds_values ds_transforms new_rrd
+  ds_update rrd timestamp arr new_rrd
 
 (** Get registered DS names *)
 let ds_names rrd = Array.to_list (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)
@@ -528,10 +577,11 @@ let rrd_create dss rras timestep timestamp =
           rras
     }
   in
-  let values = Array.map (fun ds -> ds.ds_last) dss in
-  let transforms = Array.make (Array.length values) Identity in
+  let valuesandtransforms =
+    Array.mapi (fun i ds -> (i, {value= ds.ds_last; transform= Identity})) dss
+  in
   (* Use the standard update routines to initialise everything to correct values *)
-  ds_update rrd timestamp values transforms true ;
+  ds_update rrd timestamp valuesandtransforms true ;
   rrd
 
 (** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives

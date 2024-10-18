@@ -110,7 +110,9 @@ let update_rrds uuid_domids paused_vms (timestamp, dss) =
     OwnerMap.update owner merge all
   in
   let dss = Seq.fold_left consolidate OwnerMap.empty dss in
-  let to_named_updates (_, ds) = (ds.ds_value, ds.ds_pdp_transform_function) in
+  let to_named_updates (_, ds) =
+    {value= ds.ds_value; transform= ds.ds_pdp_transform_function}
+  in
   let map_keys_to_list dss =
     StringMap.bindings dss |> List.map snd |> List.map snd
   in
