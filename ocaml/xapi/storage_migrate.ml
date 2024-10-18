@@ -16,7 +16,11 @@ module D = Debug.Make (struct let name = "storage_migrate" end)
 
 open D
 
-module SMPERF = Debug.Make (struct let name = "SMPERF" end)
+(** As SXM is such a long running process, we dedicate this to log important 
+  milestones during the SXM process *)
+module SXM = Debug.Make (struct
+  let name = "SXM"
+end)
 
 module Listext = Xapi_stdext_std.Listext
 open Xapi_stdext_pervasives.Pervasiveext
@@ -534,7 +538,7 @@ let copy_into_vdi ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
             ; verify_dest
             }
       ) ;
-    SMPERF.debug "mirror.copy: copy initiated local_vdi:%s dest_vdi:%s"
+    SXM.info "%s: copy initiated local_vdi:%s dest_vdi:%s" __FUNCTION__
       (Storage_interface.Vdi.string_of vdi)
       (Storage_interface.Vdi.string_of dest_vdi) ;
     finally
@@ -567,7 +571,9 @@ let copy_into_vdi ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
         Remote.DP.destroy dbg remote_dp false ;
         State.remove_copy id
       ) ;
-    SMPERF.debug "mirror.copy: copy complete" ;
+    SXM.info "%s: copy complete for local_vdi:%s dest_vdi:%s" __FUNCTION__
+      (Storage_interface.Vdi.string_of vdi)
+      (Storage_interface.Vdi.string_of dest_vdi) ;
     debug "setting remote content_id <- %s" local_vdi.content_id ;
     Remote.VDI.set_content_id dbg dest dest_vdi local_vdi.content_id ;
     (* PR-1255: XXX: this is useful because we don't have content_ids by default *)
@@ -658,13 +664,7 @@ let dbg_and_tracing_of_task task =
   |> Debug_info.to_string
 
 let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
-  debug "Mirror.start sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
-    (Storage_interface.Sr.string_of sr)
-    (Storage_interface.Vdi.string_of vdi)
-    url
-    (Storage_interface.Sr.string_of dest)
-    verify_dest ;
-  SMPERF.debug "mirror.start called sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
+  SXM.info "%s sr:%s vdi:%s url:%s dest:%s verify_dest:%B" __FUNCTION__
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
     url
@@ -794,7 +794,8 @@ let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
 
     State.add id (State.Send_op alm) ;
     debug "Updated" ;
-    debug "About to snapshot VDI = %s" (string_of_vdi_info local_vdi) ;
+    SXM.info "%s About to snapshot VDI = %s" __FUNCTION__
+      (string_of_vdi_info local_vdi) ;
     let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
     let local_vdi = add_to_sm_config local_vdi "base_mirror" id in
     let snapshot =
@@ -810,8 +811,8 @@ let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
       | e ->
           raise e
     in
-    SMPERF.debug
-      "mirror.start: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
+    SXM.info "%s: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
+      __FUNCTION__
       (Storage_interface.Vdi.string_of snapshot.vdi)
       (Storage_interface.Vdi.string_of local_vdi.vdi) ;
     on_fail := (fun () -> Local.VDI.destroy dbg sr snapshot.vdi) :: !on_fail ;
