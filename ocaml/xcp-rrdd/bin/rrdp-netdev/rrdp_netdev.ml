@@ -131,7 +131,11 @@ let transform_taps devs =
     )
     newdevnames
 
-let generate_netdev_dss doms () =
+let generate_netdev_dss () =
+  let _, doms, _ =
+    Xenctrl.with_intf (fun xc -> Xenctrl_lib.domain_snapshot xc)
+  in
+
   let uuid_of_domid domains domid =
     let _, uuid, _ =
       try List.find (fun (_, _, domid') -> domid = domid') domains
@@ -265,12 +269,8 @@ let generate_netdev_dss doms () =
   @ dss
 
 let _ =
-  Xenctrl.with_intf (fun xc ->
-      let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
-      Process.initialise () ;
-      (* Share one page per virtual NIC - documentation specifies max is 512 *)
-      let shared_page_count = 512 in
-      Process.main_loop ~neg_shift:0.5
-        ~target:(Reporter.Local shared_page_count) ~protocol:Rrd_interface.V2
-        ~dss_f:(generate_netdev_dss domains)
-  )
+  Process.initialise () ;
+  (* Share one page per virtual NIC - documentation specifies max is 512 *)
+  let shared_page_count = 512 in
+  Process.main_loop ~neg_shift:0.5 ~target:(Reporter.Local shared_page_count)
+    ~protocol:Rrd_interface.V2 ~dss_f:generate_netdev_dss

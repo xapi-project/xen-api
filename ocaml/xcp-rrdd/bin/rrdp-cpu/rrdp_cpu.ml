@@ -226,7 +226,8 @@ let dss_hostload xc domains =
     )
   ]
 
-let generate_cpu_ds_list xc domains () =
+let generate_cpu_ds_list xc () =
+  let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
   dss_pcpus xc @ dss_vcpus xc domains @ dss_loadavg () @ dss_hostload xc domains
 
 let _ =
@@ -236,8 +237,8 @@ let _ =
       (* Share one page per PCPU and dom each *)
       let physinfo = Xenctrl.physinfo xc in
       let shared_page_count = physinfo.Xenctrl.nr_cpus + List.length domains in
-
+      (* TODO: Can run out of pages if a lot of domains are added at runtime *)
       Process.main_loop ~neg_shift:0.5
         ~target:(Reporter.Local shared_page_count) ~protocol:Rrd_interface.V2
-        ~dss_f:(generate_cpu_ds_list xc domains)
+        ~dss_f:(generate_cpu_ds_list xc)
   )
