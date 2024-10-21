@@ -590,6 +590,33 @@ let rrd_create dss rras timestep timestamp =
   ds_update rrd timestamp valuesandtransforms true ;
   rrd
 
+(** Add the datasource even if it exists in the RRD already. *)
+let rrd_add_ds_unsafe rrd timestamp newds =
+  let npdps = Int64.of_float timestamp /// rrd.timestep in
+  {
+    rrd with
+    rrd_dss= Array.append rrd.rrd_dss [|newds|]
+  ; rrd_rras=
+      Array.map
+        (fun rra ->
+          let cdp_init = cf_init_value rra.rra_cf newds in
+          let fring =
+            Fring.make rra.rra_row_cnt nan newds.ds_min newds.ds_max
+          in
+          let nunknowns =
+            Int64.to_int (Int64.rem npdps (Int64.of_int rra.rra_pdp_cnt))
+          in
+          {
+            rra with
+            rra_data= Array.append rra.rra_data [|fring|]
+          ; rra_cdps=
+              Array.append rra.rra_cdps
+                [|{cdp_value= cdp_init; cdp_unknown_pdps= nunknowns}|]
+          }
+        )
+        rrd.rrd_rras
+  }
+
 (** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives
     and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
     correctly at the moment!
@@ -599,30 +626,7 @@ let rrd_add_ds rrd timestamp newds =
   if List.mem newds.ds_name (ds_names rrd) then
     rrd
   else
-    let npdps = Int64.of_float timestamp /// rrd.timestep in
-    {
-      rrd with
-      rrd_dss= Array.append rrd.rrd_dss [|newds|]
-    ; rrd_rras=
-        Array.map
-          (fun rra ->
-            let cdp_init = cf_init_value rra.rra_cf newds in
-            let fring =
-              Fring.make rra.rra_row_cnt nan newds.ds_min newds.ds_max
-            in
-            let nunknowns =
-              Int64.to_int (Int64.rem npdps (Int64.of_int rra.rra_pdp_cnt))
-            in
-            {
-              rra with
-              rra_data= Array.append rra.rra_data [|fring|]
-            ; rra_cdps=
-                Array.append rra.rra_cdps
-                  [|{cdp_value= cdp_init; cdp_unknown_pdps= nunknowns}|]
-            }
-          )
-          rrd.rrd_rras
-    }
+    rrd_add_ds_unsafe rrd timestamp newds
 
 (** Remove the named DS from an RRD. Removes all of the data associated with it, too *)
 let rrd_remove_ds rrd ds_name =
