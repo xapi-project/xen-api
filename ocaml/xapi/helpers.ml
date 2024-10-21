@@ -389,11 +389,11 @@ let update_pif_addresses ~__context =
 
 module TraceHelper = struct
   let inject_span_into_req (span : Tracing.Span.t option) =
-    let module T = Tracing in
-    let span_context = Option.map T.Span.get_context span in
-    let traceparent = Option.map T.SpanContext.to_traceparent span_context in
-    let trace_context = T.TraceContext.(with_traceparent traceparent empty) in
-    Propagator.Http.inject_into trace_context
+    let open Tracing in
+    let span_context = Option.map Span.get_context span in
+    let traceparent = Option.map SpanContext.to_traceparent span_context in
+    let trace_context = TraceContext.(with_traceparent traceparent empty) in
+    Tracing_propagator.Propagator.Http.inject_into trace_context
 end
 
 (* Note that both this and `make_timeboxed_rpc` are almost always

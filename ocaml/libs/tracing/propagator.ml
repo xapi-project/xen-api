@@ -54,12 +54,13 @@ module Http = struct
     | xs ->
         Some xs
 
-  let parse =
+  let parse input =
     let open Astring.String in
     let trim_pair (key, value) = (trim key, trim value) in
-    cuts ~sep:";"
-    >> List.map (cut ~sep:"=" >> Option.map trim_pair)
-    >> List.filter_map Fun.id
+    input
+    |> cuts ~sep:";"
+    |> List.map (cut ~sep:"=" >> Option.map trim_pair)
+    |> List.filter_map Fun.id
 
   let inject_into ctx req =
     let open Tracing in

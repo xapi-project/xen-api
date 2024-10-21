@@ -5,7 +5,7 @@ let ( let@ ) f x = f x
 
 module Helper = struct
   include Tracing.Propagator.Make (struct
-    include Propagator.Http
+    include Tracing_propagator.Propagator.Http
 
     let name_span req = req.Http.Request.uri
   end)
