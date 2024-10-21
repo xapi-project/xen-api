@@ -1184,6 +1184,10 @@ and json_serialization_attr fr =
         (exposed_class_name v)
   | Map (String, String) ->
       sprintf "\n        [JsonConverter(typeof(StringStringMapConverter))]"
+  | Map (Ref u, Set String) ->
+      sprintf
+        "\n        [JsonConverer(typeof(XenRefStringSetMapConverter<%s>))]"
+        (exposed_class_name u)
   | Map (Ref _, _) | Map (_, Ref _) ->
       failwith (sprintf "Need converter for %s" fr.field_name)
   | _ ->

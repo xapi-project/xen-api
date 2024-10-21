@@ -342,12 +342,13 @@ let default_sm_features =
 let make_sm ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(_type = "sm") ?(name_label = "") ?(name_description = "") ?(vendor = "")
     ?(copyright = "") ?(version = "") ?(required_api_version = "")
-    ?(capabilities = []) ?(features = default_sm_features) ?(configuration = [])
-    ?(other_config = []) ?(driver_filename = "/dev/null")
-    ?(required_cluster_stack = []) () =
+    ?(capabilities = []) ?(features = default_sm_features)
+    ?(host_pending_features = []) ?(configuration = []) ?(other_config = [])
+    ?(driver_filename = "/dev/null") ?(required_cluster_stack = []) () =
   Db.SM.create ~__context ~ref ~uuid ~_type ~name_label ~name_description
     ~vendor ~copyright ~version ~required_api_version ~capabilities ~features
-    ~configuration ~other_config ~driver_filename ~required_cluster_stack ;
+    ~host_pending_features ~configuration ~other_config ~driver_filename
+    ~required_cluster_stack ;
   ref
 
 let make_sr ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
