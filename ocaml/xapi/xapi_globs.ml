@@ -340,6 +340,8 @@ let sync_switch_off = "nosync"
 (* dbsync_slave *)
 let sync_local_vdi_activations = "sync_local_vdi_activations"
 
+let sync_sm_records = "sync_sm_records"
+
 let sync_create_localhost = "sync_create_localhost"
 
 let sync_set_cache_sr = "sync_set_cache_sr"
