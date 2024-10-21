@@ -839,6 +839,52 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
     )
   in
+  let assert_sm_features_compatible () =
+    (* We consider the case where the existing pool has FOO/m, and the candidate having FOO/n,
+       where n >= m, to be compatible. Not vice versa. *)
+    let features_compatible coor_features candidate_features =
+      (* The pool features must not be reduced or downgraded, although it is fine
+         the other way around. *)
+      Smint.compat_features coor_features candidate_features = coor_features
+    in
+
+    let master_sms = Client.SM.get_all ~rpc ~session_id in
+    List.iter
+      (fun sm ->
+        let master_sm_type = Client.SM.get_type ~rpc ~session_id ~self:sm in
+        let candidate_sm_ref, candidate_sm_rec =
+          match
+            Db.SM.get_records_where ~__context
+              ~expr:(Eq (Field "type", Literal master_sm_type))
+          with
+          | [(sm_ref, sm_rec)] ->
+              (sm_ref, sm_rec)
+          | _ ->
+              raise
+                Api_errors.(
+                  Server_error
+                    ( pool_joining_sm_features_incompatible
+                    , [Ref.string_of sm; ""]
+                    )
+                )
+        in
+
+        let coor_sm_features =
+          Client.SM.get_features ~rpc ~session_id ~self:sm
+        in
+        let candidate_sm_features = candidate_sm_rec.API.sM_features in
+        if not (features_compatible coor_sm_features candidate_sm_features) then
+          raise
+            Api_errors.(
+              Server_error
+                ( pool_joining_sm_features_incompatible
+                , [Ref.string_of sm; Ref.string_of candidate_sm_ref]
+                )
+            )
+      )
+      master_sms
+  in
+
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -872,7 +918,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_tls_verification_matches () ;
   assert_ca_certificates_compatible () ;
   assert_not_in_updating_on_me () ;
-  assert_no_hosts_in_updating ()
+  assert_no_hosts_in_updating () ;
+  assert_sm_features_compatible ()
 
 let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
     API.ref_host =
