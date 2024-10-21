@@ -362,6 +362,9 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_refresh_localhost_info (fun () ->
       refresh_localhost_info ~__context info
   ) ;
+  switched_sync Xapi_globs.sync_sm_records (fun () ->
+      Storage_access.on_xapi_start ~__context
+  ) ;
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
       Storage_access.refresh_local_vdi_activations ~__context
   ) ;

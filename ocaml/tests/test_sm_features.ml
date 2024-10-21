@@ -160,6 +160,21 @@ let test_sequences =
     }
   ]
 
+let test_intersection_sequences =
+  ( {
+      raw= ["VDI_MIRROR"]
+    ; smapiv1_features= [(Vdi_mirror, 1L)]
+    ; smapiv2_features= ["VDI_MIRROR/1"]
+    ; sm= {capabilities= ["VDI_MIRROR"]; features= [("VDI_MIRROR", 1L)]}
+    }
+  , {
+      raw= ["VDI_MIRROR"]
+    ; smapiv1_features= [(Vdi_mirror, 2L)]
+    ; smapiv2_features= ["VDI_MIRROR/2"]
+    ; sm= {capabilities= ["VDI_MIRROR"]; features= [("VDI_MIRROR", 1L)]}
+    }
+  )
+
 module ParseSMAPIv1Features = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string list
@@ -249,6 +264,32 @@ module CreateSMObject = Generic.MakeStateful (struct
       )
 end)
 
+module CompatSMFeatures = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = (string * string) list
+
+    type output_t = string list
+
+    let string_of_input_t = Test_printers.(list (fun (x, y) -> x ^ "," ^ y))
+
+    let string_of_output_t = Test_printers.(list Fun.id)
+  end
+
+  let transform l =
+    List.split l |> fun (x, y) ->
+    (Smint.parse_string_int64_features x, Smint.parse_string_int64_features y)
+    |> fun (x, y) -> Smint.compat_features x y |> List.map Smint.unparse_feature
+
+  let tests =
+    let r1, r2 = test_intersection_sequences in
+    `QuickAndAutoDocumented
+      [
+        ( List.combine r1.smapiv2_features r2.smapiv2_features
+        , r1.smapiv2_features
+        )
+      ]
+end)
+
 let tests =
   List.map
     (fun (s, t) -> (Format.sprintf "sm_features_%s" s, t))
@@ -256,4 +297,5 @@ let tests =
       ("parse_smapiv1_features", ParseSMAPIv1Features.tests)
     ; ("create_smapiv2_features", CreateSMAPIv2Features.tests)
     ; ("create_sm_object", CreateSMObject.tests)
+    ; ("compat_sm_features", CompatSMFeatures.tests)
     ]
