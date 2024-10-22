@@ -288,9 +288,7 @@ let get_hosts_updates ~__context =
       )
       hosts
   in
-  with_pool_repositories (fun () ->
-      Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
-  )
+  Helpers.run_in_parallel ~funs ~capacity:capacity_in_parallel
 
 let get_applied_livepatches_of_host updates_of_host =
   get_list_from_updates_of_host "applied_livepatches" updates_of_host
@@ -499,7 +497,7 @@ let get_repository_handler (req : Http.Request.t) s _ =
   req.Request.close <- true ;
   if Fileserver.access_forbidden req s then
     Http_svr.response_forbidden ~req s
-  else if is_local_pool_repo_enabled () then
+  else
     let can_be_authorized =
       try
         Xapi_http.with_context "get_repository_handler" req s (fun _ -> ()) ;
@@ -536,10 +534,6 @@ let get_repository_handler (req : Http.Request.t) s _ =
           (ExnHelper.string_of_exn e) ;
         Http_svr.response_forbidden ~req s
     )
-  else (
-    error "Rejecting request: local pool repository is not enabled" ;
-    Http_svr.response_forbidden ~req s
-  )
 
 let consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts =
   Hashtbl.fold
@@ -789,49 +783,46 @@ let apply_updates ~__context ~host ~hash =
     if hash = "" || hash <> Db.Repository.get_hash ~__context ~self:repository
     then
       raise Api_errors.(Server_error (updateinfo_hash_mismatch, [])) ;
-    with_pool_repositories (fun () ->
-        let updates_info =
-          parse_updateinfo ~__context ~self:repository ~check:true |> snd
-        in
-        let updates_of_hosts =
-          if Helpers.is_pool_master ~__context ~host then (
-            (* save available updates before applying on coordinator *)
-            if Hashtbl.length updates_in_cache = 0 then
-              set_available_updates ~__context |> ignore ;
-            let hosts = Db.Host.get_all ~__context in
-            consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts
-            |> fst
-          ) else
-            []
-        in
-        let host_updates =
-          http_get_host_updates_in_json ~__context ~host ~installed:true
-        in
-        let rpm_updates =
-          host_updates
-          |> get_list_from_updates_of_host "updates"
-          |> List.map Update.of_json
-        in
-        let livepatches =
-          retrieve_livepatches_from_updateinfo ~updates_info
-            ~updates:host_updates
-        in
-        let ret =
-          match (rpm_updates, livepatches) with
-          | [], [] ->
-              let host' = Ref.string_of host in
-              info "Host ref='%s' is already up to date." host' ;
-              []
-          | _ ->
-              let _, acc_rpm_updates =
-                merge_updates ~repository_name ~updates:host_updates
-              in
-              apply_updates' ~__context ~host ~updates_info ~livepatches
-                ~acc_rpm_updates
-        in
-        maybe_set_restart_for_all_vms ~__context ~updates_of_hosts ;
-        ret
-    )
+    let updates_info =
+      parse_updateinfo ~__context ~self:repository ~check:true |> snd
+    in
+    let updates_of_hosts =
+      if Helpers.is_pool_master ~__context ~host then (
+        (* save available updates before applying on coordinator *)
+        if Hashtbl.length updates_in_cache = 0 then
+          set_available_updates ~__context |> ignore ;
+        let hosts = Db.Host.get_all ~__context in
+        consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts
+        |> fst
+      ) else
+        []
+    in
+    let host_updates =
+      http_get_host_updates_in_json ~__context ~host ~installed:true
+    in
+    let rpm_updates =
+      host_updates
+      |> get_list_from_updates_of_host "updates"
+      |> List.map Update.of_json
+    in
+    let livepatches =
+      retrieve_livepatches_from_updateinfo ~updates_info ~updates:host_updates
+    in
+    let ret =
+      match (rpm_updates, livepatches) with
+      | [], [] ->
+          let host' = Ref.string_of host in
+          info "Host ref='%s' is already up to date." host' ;
+          []
+      | _ ->
+          let _, acc_rpm_updates =
+            merge_updates ~repository_name ~updates:host_updates
+          in
+          apply_updates' ~__context ~host ~updates_info ~livepatches
+            ~acc_rpm_updates
+    in
+    maybe_set_restart_for_all_vms ~__context ~updates_of_hosts ;
+    ret
   with
   | Api_errors.(Server_error (code, _)) as e
     when code <> Api_errors.internal_error ->

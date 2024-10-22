@@ -22,8 +22,6 @@ open Updateinfo
 module LivePatchSet = Set.Make (LivePatch)
 module RpmFullNameSet = Set.Make (String)
 
-let exposing_pool_repo_mutex = Mutex.create ()
-
 module Pkgs = (val Pkg_mgr.get_pkg_mgr)
 
 module Update = struct
@@ -230,21 +228,6 @@ let assert_gpgkey_path_is_valid path =
     error "Invalid gpgkey path %s" path ;
     raise Api_errors.(Server_error (invalid_gpgkey_path, [path]))
   )
-
-let with_pool_repositories f =
-  Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () ->
-      Mutex.lock exposing_pool_repo_mutex ;
-      f ()
-    )
-    (fun () -> Mutex.unlock exposing_pool_repo_mutex)
-
-let is_local_pool_repo_enabled () =
-  if Mutex.try_lock exposing_pool_repo_mutex then (
-    Mutex.unlock exposing_pool_repo_mutex ;
-    false
-  ) else
-    true
 
 let with_updateinfo_xml gz_path f =
   let tmpfile, tmpch =
