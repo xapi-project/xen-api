@@ -126,12 +126,6 @@ module Cgroup = struct
       with Invalid_argument _ -> raise Cgroups_not_initialized
     )
 
-  let init dir =
-    let () = Atomic.set cgroup_dir (Some dir) in
-    Group.all
-    |> List.map dir_of
-    |> List.iter (fun dir -> Xapi_stdext_unix.Unixext.mkdir_rec dir 0o755)
-
   let write_cur_tid_to_cgroup_file filename =
     try
       let perms = 0o640 in
@@ -163,6 +157,13 @@ module Cgroup = struct
 
   let set_cgroup creator =
     set_cur_cgroup ~originator:creator.Group.Creator.originator
+
+  let init dir =
+    let () = Atomic.set cgroup_dir (Some dir) in
+    Group.all
+    |> List.map dir_of
+    |> List.iter (fun dir -> Xapi_stdext_unix.Unixext.mkdir_rec dir 0o755) ;
+    set_cur_cgroup ~originator:Group.Originator.EXTERNAL
 end
 
 let of_originator originator =

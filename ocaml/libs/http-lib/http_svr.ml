@@ -560,7 +560,7 @@ let handle_connection ~header_read_timeout ~header_total_timeout
       read_request ?proxy_seen ~read_timeout ~total_timeout
         ~max_length:max_header_length ss
     in
-
+    Http.Request.with_originator_of req Tgroup.of_req_originator ;
     (* 2. now we attempt to process the request *)
     let finished =
       Option.fold ~none:true
