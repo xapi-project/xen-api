@@ -392,7 +392,13 @@ module TraceHelper = struct
     let open Tracing in
     let span_context = Option.map Span.get_context span in
     let traceparent = Option.map SpanContext.to_traceparent span_context in
-    let trace_context = TraceContext.(with_traceparent traceparent empty) in
+    let trace_context =
+      Option.map SpanContext.context_of_span_context span_context
+    in
+    let trace_context =
+      Option.value ~default:TraceContext.empty trace_context
+      |> TraceContext.with_traceparent traceparent
+    in
     Tracing_propagator.Propagator.Http.inject_into trace_context
 end
 
