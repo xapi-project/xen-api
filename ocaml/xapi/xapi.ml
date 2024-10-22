@@ -180,7 +180,7 @@ let init_args () =
     Xapi_globs.xenopsd_queues := ["xenopsd"]
   )
 
-let wait_to_die () =
+let wait_to_die () : unit =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
      the OCAML-level signal handlers ever getting called... Thread.delay is fine tho' *)
   while true do
