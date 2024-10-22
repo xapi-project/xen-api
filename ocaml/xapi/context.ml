@@ -223,8 +223,7 @@ let parent_of_origin (origin : origin) span_name =
   | Http (req, _) ->
       let context = Tracing_propagator.Propagator.Http.extract_from req in
       let open Tracing in
-      let* traceparent = TraceContext.traceparent_of context in
-      let* span_context = SpanContext.of_traceparent traceparent in
+      let* span_context = SpanContext.of_trace_context context in
       let span = Tracer.span_of_span_context span_context span_name in
       Some span
   | _ ->

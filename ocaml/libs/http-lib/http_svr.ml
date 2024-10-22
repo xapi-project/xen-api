@@ -442,16 +442,23 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     	already sent back a suitable error code and response to the client. *)
 let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
   try
+    (* TODO: Restore functionality of tracing this function. We rely on the request
+       to contain information we want spans to inherit. However, it is the reading of the
+       request that we intend to trace. *)
+    let r, proxy =
+      read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
+    in
+    let trace_context = Tracing_propagator.Propagator.Http.extract_from r in
     let tracer = Tracing.Tracer.get_tracer ~name:"http_tracer" in
     let loop_span =
-      match Tracing.Tracer.start ~tracer ~name:__FUNCTION__ ~parent:None () with
+      match
+        Tracing.Tracer.start ~tracer ~trace_context ~name:__FUNCTION__
+          ~parent:None ()
+      with
       | Ok span ->
           span
       | Error _ ->
           None
-    in
-    let r, proxy =
-      read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
     in
     let parent_span = Helper.traceparent_of r in
     let loop_span =
