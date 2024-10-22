@@ -112,35 +112,45 @@ let corosync3_enabled ~__context =
 let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
     =
   let generate_alert join cluster_host =
+    let generate_alert_body host num_hosts quorum join =
+      let num_hosts = string_of_int num_hosts in
+      let quorum = string_of_int quorum in
+      let msg =
+        if join then
+          "<message>Host has joined the cluster</message>"
+        else
+          "<message>Host has left the cluster</message>"
+      in
+      String.concat ""
+        [
+          "<body>"
+        ; msg
+        ; "<host>"
+        ; host
+        ; "</host>"
+        ; "<total_hosts>"
+        ; num_hosts
+        ; "</total_hosts>"
+        ; "<quorum>"
+        ; quorum
+        ; "</quorum>"
+        ; "</body>"
+        ]
+    in
     let host = Db.Cluster_host.get_host ~__context ~self:cluster_host in
     let host_uuid = Db.Host.get_uuid ~__context ~self:host in
     let host_name = Db.Host.get_name_label ~__context ~self:host in
     let body, name, priority =
+      let body = generate_alert_body host_name num_hosts quorum join in
       match join with
       | true ->
-          let body =
-            Printf.sprintf
-              "Host %s has joined the cluster, there are now %d host(s) in \
-               cluster and %d host(s) are required to form a quorum"
-              host_name num_hosts quorum
-          in
           let name, priority = Api_messages.cluster_host_joining in
           (body, name, priority)
       | false ->
-          let body =
-            Printf.sprintf
-              "Host %s has left the cluster, there are now %d host(s) in \
-               cluster and %d host(s) are required to form a quorum"
-              host_name num_hosts quorum
-          in
           let name, priority = Api_messages.cluster_host_leaving in
           (body, name, priority)
     in
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        ignore
-        @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
-             ~cls:`Host ~obj_uuid:host_uuid ~body
-    )
+    Xapi_alert.add ~msg:(name, priority) ~cls:`Host ~obj_uuid:host_uuid ~body
   in
   List.iter (generate_alert false) hosts_left ;
   List.iter (generate_alert true) hosts_joined ;
@@ -150,10 +160,18 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
     let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
     let name, priority = Api_messages.cluster_quorum_approaching_lost in
     let body =
-      Printf.sprintf
-        "The cluster is losing quorum: currently %d host(s), need %d host(s) \
-         for a quorum"
-        num_hosts quorum
+      String.concat ""
+        [
+          "<body>"
+        ; "<message>Cluster is losing quorum</message>"
+        ; "<total_hosts>"
+        ; string_of_int num_hosts
+        ; "</total_hosts>"
+        ; "<quorum>"
+        ; string_of_int quorum
+        ; "</quorum>"
+        ; "</body>"
+        ]
     in
     Helpers.call_api_functions ~__context (fun rpc session_id ->
         ignore
