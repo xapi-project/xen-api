@@ -124,12 +124,6 @@ module Cgroup = struct
           (fun dir -> dir // Group.to_cgroup group)
           (Atomic.get cgroup_dir)
 
-  let init dir =
-    let () = Atomic.set cgroup_dir (Some dir) in
-    Group.all
-    |> List.filter_map dir_of
-    |> List.iter (fun dir -> Xapi_stdext_unix.Unixext.mkdir_rec dir 0o755)
-
   let write_cur_tid_to_cgroup_file filename =
     try
       let perms = 0o640 in
@@ -149,8 +143,12 @@ module Cgroup = struct
         (Printexc.to_string exn)
 
   let attach_task group =
-    let tasks_file = dir_of group // "tasks" in
-    write_cur_tid_to_cgroup_file tasks_file
+    Option.iter
+      (fun dir ->
+        let tasks_file = dir // "tasks" in
+        write_cur_tid_to_cgroup_file tasks_file
+      )
+      (dir_of group)
 
   let set_cur_cgroup ~originator =
     match originator with
@@ -161,6 +159,13 @@ module Cgroup = struct
 
   let set_cgroup creator =
     set_cur_cgroup ~originator:creator.Group.Creator.originator
+
+  let init dir =
+    let () = Atomic.set cgroup_dir (Some dir) in
+    Group.all
+    |> List.filter_map dir_of
+    |> List.iter (fun dir -> Xapi_stdext_unix.Unixext.mkdir_rec dir 0o755) ;
+    set_cur_cgroup ~originator:Group.Originator.EXTERNAL
 end
 
 let of_originator originator =

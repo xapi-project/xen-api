@@ -593,6 +593,7 @@ This package provides an Lwt compatible interface to the library.")
     (safe-resources(= :version))
     sha
     (stunnel (= :version))
+    tgroup
     uri
     (uuid (= :version))
     xapi-backtrace
