@@ -69,7 +69,7 @@ module Plugin : sig
 
   val next_reading : string -> float
 
-  val read_stats : unit -> (float * (Rrd.ds_owner * Ds.ds) Seq.t) Seq.t
+  val read_stats : unit -> (string * float * (Rrd.ds_owner * Ds.ds) Seq.t) Seq.t
 
   module Local : sig
     val register :

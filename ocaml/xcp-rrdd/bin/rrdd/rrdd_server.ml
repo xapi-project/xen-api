@@ -773,7 +773,7 @@ module Plugin = struct
             let payload = get_payload ~uid plugin in
             let timestamp = payload.Rrd_protocol.timestamp |> Int64.to_float in
             let dss = List.to_seq payload.Rrd_protocol.datasources in
-            Some (timestamp, dss)
+            Some (P.string_of_uid ~uid, timestamp, dss)
           with _ -> None
         in
         List.iter decr_skip_count plugins ;
