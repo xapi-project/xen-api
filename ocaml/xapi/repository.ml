@@ -488,10 +488,6 @@ let get_host_updates_in_json ~__context ~installed =
         (ExnHelper.string_of_exn e) ;
       raise Api_errors.(Server_error (get_host_updates_failed, [ref]))
 
-(* This handler hosts HTTP endpoint '/repository' which will be available iif
- * 'is_local_pool_repo_enabled' returns true with 'with_pool_repositories' being called by
- * others.
- *)
 let get_repository_handler (req : Http.Request.t) s _ =
   let open Http in
   let open Xapi_stdext_std.Xstringext in
@@ -499,7 +495,7 @@ let get_repository_handler (req : Http.Request.t) s _ =
   req.Request.close <- true ;
   if Fileserver.access_forbidden req s then
     Http_svr.response_forbidden ~req s
-  else if is_local_pool_repo_enabled () then
+  else
     let can_be_authorized =
       try
         Xapi_http.with_context "get_repository_handler" req s (fun _ -> ()) ;
@@ -536,10 +532,6 @@ let get_repository_handler (req : Http.Request.t) s _ =
           (ExnHelper.string_of_exn e) ;
         Http_svr.response_forbidden ~req s
     )
-  else (
-    error "Rejecting request: local pool repository is not enabled" ;
-    Http_svr.response_forbidden ~req s
-  )
 
 let consolidate_updates_of_hosts ~repository_name ~updates_info ~hosts =
   Hashtbl.fold
