@@ -7936,6 +7936,21 @@ module Repository = struct
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
 
+  let introduce_remote_pool fd printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let name_description = get_param params "name-description" ~default:"" in
+    let binary_url = List.assoc "binary-url" params in
+    let certificate =
+      List.assoc "certificate-file" params
+      |> get_file_or_fail fd "certificate file"
+    in
+    let ref =
+      Client.Repository.introduce_remote_pool ~rpc ~session_id ~name_label
+        ~name_description ~binary_url ~certificate
+    in
+    let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
   let forget _printer rpc session_id params =
     let ref =
       Client.Repository.get_by_uuid ~rpc ~session_id

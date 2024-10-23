@@ -3684,6 +3684,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "repository-introduce-remote-pool"
+    , {
+        reqd= ["name-label"; "binary-url"; "certificate-file"]
+      ; optn= ["name-description"]
+      ; help= "Add the configuration for a new remote pool repository."
+      ; implementation= With_fd Cli_operations.Repository.introduce_remote_pool
+      ; flags= []
+      }
+    )
   ; ( "repository-forget"
     , {
         reqd= ["uuid"]

@@ -24,6 +24,7 @@ let origin =
     , [
         ("remote", "The origin of the repository is a remote one")
       ; ("bundle", "The origin of the repository is a local bundle file")
+      ; ("remote_pool", "The origin of the repository is a remote pool")
       ]
     )
 
@@ -89,6 +90,27 @@ let introduce_bundle =
       [
         (String, "name_label", "The name of the repository")
       ; (String, "name_description", "The description of the repository")
+      ]
+    ~result:(Ref _repository, "The ref of the created repository record.")
+    ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+    ()
+
+let introduce_remote_pool =
+  call ~name:"introduce_remote_pool" ~in_oss_since:None ~lifecycle:[]
+    ~doc:"Add the configuration for a new remote pool repository"
+    ~params:
+      [
+        (String, "name_label", "The name of the repository")
+      ; (String, "name_description", "The description of the repository")
+      ; ( String
+        , "binary_url"
+        , "Base URL of binary packages in the local repository of this remote \
+           pool in https://<coordinator-ip>/repository format"
+        )
+      ; ( String
+        , "certificate"
+        , "The host certificate of the coordinator of the remote pool"
+        )
       ]
     ~result:(Ref _repository, "The ref of the created repository record.")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -173,6 +195,7 @@ let t =
       [
         introduce
       ; introduce_bundle
+      ; introduce_remote_pool
       ; forget
       ; apply
       ; set_gpgkey_path
@@ -223,8 +246,12 @@ let t =
           "The file name of the GPG public key of this repository"
       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:origin "origin"
           ~default_value:(Some (VEnum "remote"))
-          "The origin of the repository. 'remote' if the origin of the \
+          "The origin of this repository. 'remote' if the origin of the \
            repository is a remote one, 'bundle' if the origin of the \
-           repository is a local bundle file."
+           repository is a local bundle file, 'remote_pool' if the origin of \
+           the repository is a remote pool"
+      ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:String
+          ~default_value:(Some (VString "")) "certificate"
+          "The certificate of the host which hosts this repository"
       ]
     ()
