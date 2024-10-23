@@ -129,6 +129,8 @@ module Request : sig
   val to_wire_string : t -> string
   (** [to_wire_string t] returns a string which could be sent to a server *)
 
+  val with_originator_of : t option -> (string option -> unit) -> unit
+
   val traceparent_of : t -> Tracing.Span.t option
 
   val with_tracing :

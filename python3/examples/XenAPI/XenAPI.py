@@ -119,11 +119,18 @@ class UDSTransport(xmlrpclib.Transport):
             for k, v in headers.items():
                 self.add_extra_header(k, v)
 
+    def with_originator(self):
+        originator_k = "ORIGINATOR"
+        originator_v = os.getenv(originator_k, None)
+        if originator_v:
+            self.add_extra_header(originator_k.lower(), originator_v)
+
     def make_connection(self, host):
         # clear the extra headers when making a new connection. This makes sure
         # headers such as "traceparent" do not get duplicated.
         self._extra_headers = []
         self.with_tracecontext()
+        self.with_originator()
 
         # compatibility with parent xmlrpclib.Transport HTTP/1.1 support
         if self._connection and host == self._connection[0]:
