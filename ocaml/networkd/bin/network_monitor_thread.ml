@@ -225,7 +225,8 @@ let rec monitor dbg () =
       let bonds : (string * string list) list =
         Network_server.Bridge.get_all_bonds dbg from_cache
       in
-      let devs = get_link_stats () |> get_stats bonds in
+      let add_bonds bonds devs = List.map fst bonds @ devs in
+      let devs = get_link_stats () |> add_bonds bonds |> get_stats bonds in
       ( if List.length bonds <> Hashtbl.length bonds_status then
           let dead_bonds =
             Hashtbl.fold
