@@ -177,6 +177,11 @@ let response_of_fd_exn fd =
        (Astring.String.cuts ~sep:"\n" buf)
     )
 
+(* Use a different logging brand, the one used by {D} is ignore in the default
+   configuration. This allows to have visibility of an issue that interrupts
+   storage migrations. *)
+module L = Debug.Make (struct let name = __MODULE__ end)
+
 (** [response_of_fd fd] returns an optional Http.Response.t record *)
 let response_of_fd ?(use_fastpath = false) fd =
   try
@@ -188,7 +193,10 @@ let response_of_fd ?(use_fastpath = false) fd =
   | Unix.Unix_error (_, _, _) as e ->
       raise e
   | e ->
-      D.debug "%s: returning no response because of the exception: %s"
+      Backtrace.is_important e ;
+      let bt = Backtrace.get e in
+      Debug.log_backtrace e bt ;
+      L.debug "%s: returning no response because of the exception: %s"
         __FUNCTION__ (Printexc.to_string e) ;
       None
 

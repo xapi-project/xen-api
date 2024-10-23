@@ -16,7 +16,7 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "alcotest" {with-test}
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "astring"
   "xapi-client"
   "xapi-consts"

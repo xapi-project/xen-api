@@ -49,10 +49,11 @@
 )
 
 (install
-  (section share)
+  (package xapi-debug)
+  (section share_root)
   (files rbac_static.csv)
-  (package xapi)
 )
+
 
 (library
   (name xapi_internal_minimal)
@@ -150,6 +151,7 @@
     tapctl
     tar
     tar-unix
+    tgroup
     threads.posix
     tracing
     unixpwd
@@ -198,7 +200,7 @@
     xapi-tracing
     xapi-tracing-export
     xapi_version
-    xapi-xenopsd
+    xapi_xenopsd
     xenstore_transport.unix
     xml-light2
     xmlm
@@ -236,6 +238,7 @@
     rpclib.json
     rpclib.xml
     stunnel
+    tgroup
     threads.posix
     tracing
     xapi-backtrace

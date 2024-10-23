@@ -11,12 +11,12 @@ runs:
       uses: golangci/golangci-lint-action@v4
       with:
         version: v1.57.2
-        working-directory: ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src
+        working-directory: ${{ github.workspace }}/_build/install/default/share/go/src
         args: --config=${{ github.workspace }}/.golangci.yml
 
     - name: Run CI for Go SDK
       shell: bash
       run: |
         cd ./ocaml/sdk-gen/component-test/
-        cp -r ${{ github.workspace }}/_build/install/default/xapi/sdk/go/src jsonrpc-client/go/goSDK
+        cp -r ${{ github.workspace }}/_build/install/default/share/go/src jsonrpc-client/go/goSDK
         bash run-tests.sh

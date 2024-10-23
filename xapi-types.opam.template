@@ -11,7 +11,7 @@ build: [
 
 depends: [
   "ocaml"
-  "dune" {build & >= "1.4"}
+  "dune" {>= "3.15"}
   "astring"
   "ppx_deriving_rpc"
   "rpclib"

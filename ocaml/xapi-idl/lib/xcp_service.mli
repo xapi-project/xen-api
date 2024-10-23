@@ -28,7 +28,8 @@ type res = {
   ; perms: Unix.access_permission list
 }
 
-val configure : ?options:opt list -> ?resources:res list -> unit -> unit
+val configure :
+  ?argv:string array -> ?options:opt list -> ?resources:res list -> unit -> unit
 
 val configure2 :
      name:string
@@ -54,13 +55,7 @@ val make :
 
 val serve_forever : server -> unit
 
-val daemon : bool ref
-
 val loglevel : unit -> Syslog.level
-
-val daemonize : ?start_fn:(unit -> unit) -> unit -> unit
-
-val maybe_daemonize : ?start_fn:(unit -> unit) -> unit -> unit
 
 val cli :
      name:string

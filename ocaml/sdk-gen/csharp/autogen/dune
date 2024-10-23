@@ -1,4 +1,5 @@
 (rule
+  (alias generate)
   (targets LICENSE)
   (deps
     ../../LICENSE
@@ -6,12 +7,5 @@
   (action (copy %{deps} %{targets}))
 )
 
-(alias
-  (name generate)
-  (deps
-    LICENSE
-    (source_tree .)
-  )
-)
-
 (data_only_dirs src)
+

@@ -32,34 +32,34 @@ jobs:
         with:
           name: SDK_Source_C
           path: |
-            _build/install/default/xapi/sdk/c/*
-            !_build/install/default/xapi/sdk/c/dune
+            _build/install/default/share/c/*
+            !_build/install/default/share/c/dune
 
       - name: Store C# SDK source
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Source_CSharp
-          path: _build/install/default/xapi/sdk/csharp/*
+          path: _build/install/default/share/csharp/*
 
       - name: Store PowerShell SDK source
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Source_PowerShell
-          path: _build/install/default/xapi/sdk/powershell/*
+          path: _build/install/default/share/powershell/*
 
       - name: Store Go SDK Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Artifacts_Go
           path: |
-            _build/install/default/xapi/sdk/go/*
-            !_build/install/default/xapi/sdk/go/dune
+            _build/install/default/share/go/*
+            !_build/install/default/share/go/dune
 
       - name: Store Java SDK source
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Source_Java
-          path: _build/install/default/xapi/sdk/java/*
+          path: _build/install/default/share/java/*
 
       - name: Trim dune cache
         run: opam exec -- dune cache trim --size=2GiB

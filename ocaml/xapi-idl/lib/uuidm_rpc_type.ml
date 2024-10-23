@@ -1,3 +1,7 @@
+let new_uuid () =
+  let random = Random.State.make_self_init () in
+  Uuidm.v4_gen random ()
+
 module Uuidm = struct
   include Uuidm
 
@@ -6,7 +10,7 @@ module Uuidm = struct
     Rpc.Types.Abstract
       {
         aname= "uuid"
-      ; test_data= [Uuidm.v4_gen (Random.get_state ()) ()]
+      ; test_data= [new_uuid ()]
       ; rpc_of= (fun t -> Rpc.String (Uuidm.to_string t))
       ; of_rpc=
           (function

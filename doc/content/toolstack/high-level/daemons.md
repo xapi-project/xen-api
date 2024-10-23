@@ -20,6 +20,9 @@ xcp-rrdd
   - xcp-rrdd-iostat
   - xcp-rrdd-squeezed
   - xcp-rrdd-xenpm
+  - xcp-rrdd-dcmi
+  - xcp-rrdd-netdev
+  - xcp-rrdd-cpu
 
 xcp-networkd
 : a host network manager which takes care of configuring interfaces, bridges

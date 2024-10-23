@@ -144,9 +144,10 @@ let get_required_cluster_stacks ~__context ~sr_sm_type =
   in
   let sms_matching_sr_type = Db.SM.get_records_where ~__context ~expr in
   sms_matching_sr_type
-  |> List.map (fun (_sm_ref, sm_rec) -> sm_rec.API.sM_required_cluster_stack)
   (* We assume that we only have one SM for each SR type, so this is only to satisfy type checking *)
-  |> List.flatten
+  |> List.concat_map (fun (_sm_ref, sm_rec) ->
+         sm_rec.API.sM_required_cluster_stack
+     )
 
 let assert_cluster_stack_valid ~cluster_stack =
   if not (List.mem cluster_stack Constants.supported_smapiv3_cluster_stacks)
@@ -674,21 +675,19 @@ module Watcher = struct
     let is_master = Helpers.is_pool_master ~__context ~host in
     let daemon_enabled = Daemon.is_enabled () in
     if is_master && daemon_enabled then (
-      if Xapi_cluster_helpers.cluster_health_enabled ~__context then
-        if Atomic.compare_and_set cluster_change_watcher false true then (
-          debug "%s: create watcher for corosync-notifyd on coordinator"
-            __FUNCTION__ ;
-          Atomic.set finish_watch false ;
-          let _ : Thread.t =
-            Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
-          in
-          ()
-        ) else
-          (* someone else must have gone into the if branch above and created the thread
-             before us, leave it to them *)
-          debug
-            "%s: not create watcher for corosync-notifyd as it already exists"
-            __FUNCTION__ ;
+      if Atomic.compare_and_set cluster_change_watcher false true then (
+        debug "%s: create watcher for corosync-notifyd on coordinator"
+          __FUNCTION__ ;
+        Atomic.set finish_watch false ;
+        let _ : Thread.t =
+          Thread.create (fun () -> watch_cluster_change ~__context ~host) ()
+        in
+        ()
+      ) else
+        (* someone else must have gone into the if branch above and created the thread
+           before us, leave it to them *)
+        debug "%s: not create watcher for corosync-notifyd as it already exists"
+          __FUNCTION__ ;
 
       if Xapi_cluster_helpers.corosync3_enabled ~__context then
         if Atomic.compare_and_set cluster_stack_watcher false true then (

@@ -30,8 +30,6 @@ val pidfile_write : string -> unit
 
 val pidfile_read : string -> int option
 
-val daemonize : unit -> unit
-
 val with_file :
      string
   -> Unix.open_flag list
@@ -262,7 +260,7 @@ val test_open : int -> unit
   to [Xapi_stdext_unix.Unixext.select] that use file descriptors, because such calls will then immediately fail.
 
   This assumes that [ulimit -n] has been suitably increased in the test environment.
-  
+
   Can only be called once in a program, and will raise an exception otherwise.
 
   The file descriptors will stay open until the program exits.

@@ -18,7 +18,7 @@
 # @LIBEXECDIR@
 # @SCRIPTSDIR@
 
-set -x
+#set -x
 
 MODE=${1}
 NUM_FILES=$(($#-2))

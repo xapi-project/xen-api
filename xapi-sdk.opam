@@ -10,9 +10,11 @@ depends: [
   "dune" {>= "3.15"}
   "alcotest" {with-test}
   "astring"
+  "fmt" {with-test}
   "mustache"
   "xapi-datamodel" {= version}
   "xapi-stdext-unix" {= version & with-test}
+  "xapi-test-utils" {with-test}
   "odoc" {with-doc}
 ]
 build: [

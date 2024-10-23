@@ -65,8 +65,11 @@ let ref_param_of_req (req : Http.Request.t) param_name =
 
 let _session_id = "session_id"
 
+let session_ref_param_of_req (req : Http.Request.t) =
+  lookup_param_of_req req _session_id |> Option.map Ref.of_secret_string
+
 let get_session_id (req : Request.t) =
-  ref_param_of_req req _session_id |> Option.value ~default:Ref.null
+  session_ref_param_of_req req |> Option.value ~default:Ref.null
 
 let append_to_master_audit_log __context action line =
   (* http actions are not automatically written to the master's audit log *)
@@ -134,11 +137,11 @@ let assert_credentials_ok realm ?(http_action = realm) ?(fn = Rbac.nofn)
       )
   in
   if Context.is_unix_socket ic then
-    ()
+    fn ()
   (* Connections from unix-domain socket implies you're root on the box, ergo everything is OK *)
   else
     match
-      ( ref_param_of_req req _session_id
+      ( session_ref_param_of_req req
       , Helpers.secret_string_of_request req
       , req.Http.Request.auth
       )
@@ -203,7 +206,7 @@ let with_context ?(dummy = false) label (req : Request.t) (s : Unix.file_descr)
         )
       else
         match
-          ( ref_param_of_req req _session_id
+          ( session_ref_param_of_req req
           , Helpers.secret_string_of_request req
           , req.Http.Request.auth
           )
@@ -348,61 +351,33 @@ let add_handler (name, handler) =
       failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
-  let h =
-    match handler with
-    | Http_svr.BufIO callback ->
-        Http_svr.BufIO
-          (fun req ic context ->
-            let client =
-              Http_svr.(
-                client_of_req_and_fd req (Buf_io.fd_of ic)
-                |> Option.map string_of_client
-              )
-            in
-            Debug.with_thread_associated ?client name
-              (fun () ->
-                try
-                  if check_rbac then (
-                    try
-                      (* rbac checks *)
-                      assert_credentials_ok name req
-                        ~fn:(fun () -> callback req ic context)
-                        (Buf_io.fd_of ic)
-                    with e ->
-                      debug "Leaving RBAC-handler in xapi_http after: %s"
-                        (ExnHelper.string_of_exn e) ;
-                      raise e
-                  ) else (* no rbac checks *)
-                    callback req ic context
-                with Api_errors.Server_error (name, params) as e ->
-                  error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                    (String.concat "; " params) ;
-                  raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
-              )
-              ()
-          )
-    | Http_svr.FdIO callback ->
-        Http_svr.FdIO
-          (fun req ic context ->
-            let client =
-              Http_svr.(
-                client_of_req_and_fd req ic |> Option.map string_of_client
-              )
-            in
-            Debug.with_thread_associated ?client name
-              (fun () ->
-                try
-                  if check_rbac then assert_credentials_ok name req ic ;
-                  (* session and rbac checks *)
-                  callback req ic context
-                with Api_errors.Server_error (name, params) as e ->
-                  error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
-                    (String.concat "; " params) ;
-                  raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
-              )
-              ()
-          )
+  let h req ic context =
+    let client =
+      Http_svr.(client_of_req_and_fd req ic |> Option.map string_of_client)
+    in
+    Debug.with_thread_associated ?client name
+      (fun () ->
+        try
+          if check_rbac then (
+            try
+              (* session and rbac checks *)
+              assert_credentials_ok name req
+                ~fn:(fun () -> handler req ic context)
+                ic
+            with e ->
+              debug "Leaving RBAC-handler in xapi_http after: %s"
+                (ExnHelper.string_of_exn e) ;
+              raise e
+          ) else (* no rbac checks *)
+            handler req ic context
+        with Api_errors.Server_error (name, params) as e ->
+          error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
+            (String.concat "; " params) ;
+          raise (Http_svr.Generic_error (ExnHelper.string_of_exn e))
+      )
+      ()
   in
+
   match action with
   | meth, uri, _sdk, _sdkargs, _roles, _sub_actions ->
       let ty =

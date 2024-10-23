@@ -63,6 +63,5 @@ let () =
     Printf.eprintf "usage: %s <cdrompath>\n" Sys.argv.(0) ;
     exit 1
   ) ;
-  Xapi_stdext_unix.Unixext.daemonize () ;
   (* check every 2 seconds *)
   check 2 Sys.argv.(1)

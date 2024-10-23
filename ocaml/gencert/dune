@@ -28,8 +28,6 @@
 (executable
   (modes exe)
   (name gencert)
-  (public_name gencert)
-  (package xapi)
   (modules gencert)
   (libraries
     astring
@@ -39,6 +37,12 @@
     xapi_aux
     xapi-log
   )
+)
+
+(install
+  (files (gencert.exe as gencert))
+  (section libexec_root)
+  (package xapi)
 )
 
 (test

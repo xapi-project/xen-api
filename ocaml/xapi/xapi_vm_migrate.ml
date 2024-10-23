@@ -103,7 +103,7 @@ let remote_of_dest ~__context dest =
   in
   let master_url = List.assoc _master dest |> maybe_set_https in
   let xenops_url = List.assoc _xenops dest |> maybe_set_https in
-  let session_id = Ref.of_string (List.assoc _session_id dest) in
+  let session_id = Ref.of_secret_string (List.assoc _session_id dest) in
   let remote_ip = get_ip_from_url xenops_url in
   let remote_master_ip = get_ip_from_url master_url in
   let dest_host_string = List.assoc _host dest in
@@ -342,7 +342,7 @@ let infer_vgpu_map ~__context ?remote vm =
         else
           [(pf_device, pf ())]
       in
-      try Db.VM.get_VGPUs ~__context ~self:vm |> List.map f |> List.concat
+      try Db.VM.get_VGPUs ~__context ~self:vm |> List.concat_map f
       with e -> raise (VGPU_mapping (Printexc.to_string e))
     )
   | Some {rpc; session; _} -> (
@@ -370,10 +370,7 @@ let infer_vgpu_map ~__context ?remote vm =
         else
           [(pf_device, pf ())]
       in
-      try
-        XenAPI.VM.get_VGPUs ~rpc ~session_id ~self:vm
-        |> List.map f
-        |> List.concat
+      try XenAPI.VM.get_VGPUs ~rpc ~session_id ~self:vm |> List.concat_map f
       with e -> raise (VGPU_mapping (Printexc.to_string e))
     )
 
@@ -1199,12 +1196,10 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
   let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
   let vm_and_snapshots = vm :: snapshots in
   let snapshots_vbds =
-    List.flatten
-      (List.map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots)
+    List.concat_map (fun self -> Db.VM.get_VBDs ~__context ~self) snapshots
   in
   let snapshot_vifs =
-    List.flatten
-      (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots)
+    List.concat_map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots
   in
   let is_intra_pool =
     try
@@ -1838,8 +1833,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
       let vifs = Db.VM.get_VIFs ~__context ~self:vm in
       let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
       let snapshot_vifs =
-        List.flatten
-          (List.map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots)
+        List.concat_map (fun self -> Db.VM.get_VIFs ~__context ~self) snapshots
       in
       let vif_map = infer_vif_map ~__context (vifs @ snapshot_vifs) vif_map in
       try

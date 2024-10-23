@@ -19,6 +19,6 @@ let map f = List.filter_map (default_on_missing_ref (fun x -> Some (f x)) None)
 
 let iter f = List.iter (default_on_missing_ref f ())
 
-let flat_map f l = List.map (default_on_missing_ref f []) l |> List.flatten
+let flat_map f l = List.concat_map (default_on_missing_ref f []) l
 
 let filter_map f l = List.filter_map Fun.id (map f l)

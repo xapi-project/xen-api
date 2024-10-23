@@ -182,7 +182,12 @@ let t =
       [
         uid _repository ~lifecycle:[(Published, "1.301.0", "")]
       ; namespace ~name:"name"
-          ~contents:(names ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT) None RW)
+          ~contents:
+            (names
+               ~writer_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
+               ~lifecycle:[(Published, rel_rio, "")]
+               None RW
+            )
           ()
       ; field ~qualifier:StaticRO
           ~lifecycle:[(Published, "1.301.0", "")]

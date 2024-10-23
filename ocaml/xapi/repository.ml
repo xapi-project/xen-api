@@ -570,8 +570,7 @@ let get_pool_updates_in_json ~__context ~hosts =
     in
     let lps =
       updates_of_hosts
-      |> List.map (fun x -> x.HostUpdates.livepatches)
-      |> List.concat
+      |> List.concat_map (fun x -> x.HostUpdates.livepatches)
       |> LivePatchSet.of_list
     in
     let updateinfo_list =

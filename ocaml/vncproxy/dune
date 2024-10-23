@@ -2,7 +2,7 @@
   (modes exe)
   (name vncproxy)
   (public_name vncproxy)
-  (package xapi)
+  (package xapi-debug)
   (libraries
     
     http_lib

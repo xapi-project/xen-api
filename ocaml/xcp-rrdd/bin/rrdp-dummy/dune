@@ -1,7 +1,6 @@
 (executable
+  (name rrdp_dummy)
   (modes exe)
-  (public_name rrdp_dummy)
-  (package xapi-rrdd-plugin)
   (libraries
     
     rrdd-plugin

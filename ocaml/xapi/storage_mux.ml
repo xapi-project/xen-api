@@ -880,9 +880,8 @@ module Local_domain_socket = struct
   let path = Filename.concat "/var/lib/xcp" "storage"
 
   (* receives external requests on Constants.sm_uri *)
-  let xmlrpc_handler process req bio _ =
-    let body = Http_svr.read_body req bio in
-    let s = Buf_io.fd_of bio in
+  let xmlrpc_handler process req s _ =
+    let body = Http_svr.read_body req s in
     let rpc = Xmlrpc.call_of_string body in
     (* Printf.fprintf stderr "Request: %s %s\n%!" rpc.Rpc.name (Rpc.to_string (List.hd rpc.Rpc.params)); *)
     let result = process rpc in

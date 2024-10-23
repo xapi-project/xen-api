@@ -29,7 +29,7 @@ type t = API.ref_task
 
 (* creates a new task *)
 let make ~__context ~http_other_config ?(description = "") ?session_id
-    ?subtask_of label : t * t Uuidx.t =
+    ?subtask_of label : t * [`task] Uuidx.t =
   let@ __context = Context.with_tracing ~__context __FUNCTION__ in
   let uuid = Uuidx.make () in
   let uuid_str = Uuidx.to_string uuid in

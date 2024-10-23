@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=510
+  N=499
   # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
   MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
@@ -40,7 +40,7 @@ mli-files () {
 }
 
 structural-equality () {
-  N=11
+  N=10
   EQ=$(git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$EQ" -eq "$N" ]; then
     echo "OK counted $EQ usages of ' == '"

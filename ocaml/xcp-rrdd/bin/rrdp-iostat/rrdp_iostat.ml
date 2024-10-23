@@ -22,41 +22,6 @@ module Process = Process (struct let name = "xcp-rrdd-iostat" end)
 open Process
 open Ezxenstore_core.Xenstore
 
-let with_xc_and_xs f = Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
-
-(* Return a list of (domid, uuid) pairs for domUs running on this host *)
-let get_running_domUs xc xs =
-  let metadata_of_domain di =
-    let open Xenctrl in
-    let domid = di.domid in
-    let ( let* ) = Option.bind in
-    let* uuid_raw = Uuidx.of_int_array di.handle in
-    let uuid = Uuidx.to_string uuid_raw in
-
-    (* Actively hide migrating VM uuids, these are temporary and xenops
-       writes the original and the final uuid to xenstore *)
-    let uuid_from_key key =
-      let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try xs.read path
-      with Xs_protocol.Enoent _hint ->
-        D.info "Couldn't read path %s; falling back to actual uuid" path ;
-        uuid
-    in
-    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
-
-    let key =
-      if Astring.String.is_suffix ~affix:"000000000000" uuid then
-        Some "origin-uuid"
-      else if Astring.String.is_suffix ~affix:"000000000001" uuid then
-        Some "final-uuid"
-      else
-        None
-    in
-    Some (domid, stable_uuid key)
-  in
-  (* Do not list dom0 *)
-  Xenctrl.domain_getinfolist xc 1 |> List.filter_map metadata_of_domain
-
 (* A mapping of VDIs to the VMs they are plugged to, in which position, and the device-id *)
 let vdi_to_vm_map : (string * (string * string * int)) list ref = ref []
 
@@ -71,11 +36,11 @@ let update_vdi_to_vm_map () =
       ["/local/domain/0/backend/vbd"; "/local/domain/0/backend/vbd3"]
     in
     try
-      let domUs = with_xc_and_xs get_running_domUs in
+      let _, domUs, _ = Xenctrl.with_intf Xenctrl_lib.domain_snapshot in
       D.debug "Running domUs: [%s]"
         (String.concat "; "
            (List.map
-              (fun (domid, uuid) ->
+              (fun (_, uuid, domid) ->
                 Printf.sprintf "%d (%s)" domid (String.sub uuid 0 8)
               )
               domUs
@@ -83,11 +48,11 @@ let update_vdi_to_vm_map () =
         ) ;
       with_xs (fun xs ->
           List.map
-            (fun (domid, vm) ->
+            (fun (_, vm, domid) ->
               (* Get VBDs for this domain *)
               let enoents = ref 0 in
               let vbds =
-                List.map
+                List.concat_map
                   (fun base_path ->
                     try
                       let path = Printf.sprintf "%s/%d" base_path domid in
@@ -110,7 +75,6 @@ let update_vdi_to_vm_map () =
                       []
                   )
                   base_paths
-                |> List.flatten
               in
 
               if !enoents = List.length base_paths then
@@ -138,7 +102,7 @@ let update_vdi_to_vm_map () =
                 vbds
             )
             domUs
-          |> List.flatten
+          |> List.concat
       )
     with e ->
       D.error "Error while constructing VDI-to-VM map: %s" (Printexc.to_string e) ;
@@ -981,18 +945,16 @@ let gen_metrics () =
   in
 
   (* relations between dom-id, vm-uuid, device pos, dev-id, etc *)
-  let domUs = with_xc_and_xs get_running_domUs in
+  let _, domUs, _ = Xenctrl.with_intf Xenctrl_lib.domain_snapshot in
   let vdi_to_vm = get_vdi_to_vm_map () in
 
   let get_stats_blktap3_by_vdi vdi =
     if List.mem_assoc vdi vdi_to_vm then
       let vm_uuid, _pos, devid = List.assoc vdi vdi_to_vm in
-      match
-        List.filter (fun (_domid', vm_uuid') -> vm_uuid' = vm_uuid) domUs
-      with
+      match List.filter (fun (_, vm_uuid', _) -> vm_uuid' = vm_uuid) domUs with
       | [] ->
           (None, None)
-      | (domid, _vm_uuid) :: _ ->
+      | (_, _, domid) :: _ ->
           let find_blktap3 blktap3_assoc_list =
             let key = (domid, devid) in
             if List.mem_assoc key blktap3_assoc_list then
@@ -1117,34 +1079,30 @@ let gen_metrics () =
   in
   (* Lookup the VM(s) for this VDI and associate with the RRD for those VM(s) *)
   let data_sources_vm_iostats =
-    List.flatten
-      (List.map
-         (fun ((_sr, vdi), iostats_value) ->
-           let create_metrics (vm, pos, _devid) =
-             let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
-             Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
-               iostats_value
-           in
-           let vms = list_all_assocs vdi vdi_to_vm in
-           List.map create_metrics vms
-         )
-         sr_vdi_to_iostats_values
+    List.concat_map
+      (fun ((_sr, vdi), iostats_value) ->
+        let create_metrics (vm, pos, _devid) =
+          let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
+          Iostats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
+            iostats_value
+        in
+        let vms = list_all_assocs vdi vdi_to_vm in
+        List.map create_metrics vms
       )
+      sr_vdi_to_iostats_values
   in
   let data_sources_vm_stats =
-    List.flatten
-      (List.map
-         (fun ((_sr, vdi), stats_value) ->
-           let create_metrics (vm, pos, _devid) =
-             let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
-             Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
-               stats_value
-           in
-           let vms = list_all_assocs vdi vdi_to_vm in
-           List.map create_metrics vms
-         )
-         sr_vdi_to_stats_values
+    List.concat_map
+      (fun ((_sr, vdi), stats_value) ->
+        let create_metrics (vm, pos, _devid) =
+          let key_format key = Printf.sprintf "vbd_%s_%s" pos key in
+          Stats_value.make_ds ~owner:(Rrd.VM vm) ~name:"VDI" ~key_format
+            stats_value
+        in
+        let vms = list_all_assocs vdi vdi_to_vm in
+        List.map create_metrics vms
       )
+      sr_vdi_to_stats_values
   in
 
   (* convert recent stats data to hashtbl for next iterator use *)
@@ -1159,7 +1117,7 @@ let gen_metrics () =
   sr_vdi_to_last_stats_values := Some (to_hashtbl sr_vdi_to_stats) ;
   domid_devid_to_last_stats_blktap3 := Some domid_devid_to_stats_blktap3 ;
 
-  List.flatten
+  List.concat
     (data_sources_stats
     @ data_sources_iostats
     @ data_sources_vm_stats

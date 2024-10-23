@@ -22,7 +22,7 @@ The function to describe the new message will look something like the following:
     let host_price_of = call ~flags:[`Session]
         ~name:"price_of"
         ~in_oss_since:None
-        ~in_product_since:rel_orlando
+        ~lifecycle:[]
         ~params:[(Ref _host, "host", "The host containing the price information");
                  (String, "item", "The item whose price is queried")]
         ~result:(Float, "The price of the item")
@@ -41,15 +41,14 @@ host_price_of is added to the messages of the host class:
                        ]
     ...
 
-The parameters passed to call are all optional (except ~name and ~in_product_since).
+The parameters passed to call are all optional (except ~name and ~lifecycle).
 
 - The ~flags parameter is used to set conditions for the use of the message.
   For example, `Session is used to indicate that the call must be made in the
   presence of an existing session.
 
-- The value of the ~in_product_since parameter is a string taken from
-  `idl/datamodel_types.ml` indicates the XenServer release in which this
-  message was first introduced.
+- The value of the `~lifecycle` parameter should be `[]` in new code, with dune
+  automatically generating appropriate values (`datamodel_lifecycle.ml`)
 
 - The ~params parameter describes a list of the formal parameters of the message.
   Each parameter is described by a triple. The first component of the triple is
@@ -66,7 +65,7 @@ The parameters passed to call are all optional (except ~name and ~in_product_sin
 
 - The bool ~hide_from_docs parameter prevents the message from being included in the documentation when generated.
 
-- The bool ~pool_internal parameter is used to indicate if the message should be callable by external systems or only internal hosts. 
+- The bool ~pool_internal parameter is used to indicate if the message should be callable by external systems or only internal hosts.
 
 - The ~errs parameter is a list of possible exceptions that the message can raise.
 
@@ -76,53 +75,27 @@ The parameters passed to call are all optional (except ~name and ~in_product_sin
 
 
 Compiling `xen-api.(hg|git)` will cause the code corresponding to this message
-to be generated and output in `ocaml/xapi/server.ml`. In the example above, a 
+to be generated and output in `ocaml/xapi/server.ml`. In the example above, a
 section handling an incoming call host.price_of appeared in `ocaml/xapi/server.ml`.
-However, after this was generated, the rest of the build failed because this 
+However, after this was generated, the rest of the build failed because this
 call expects a price_of function in the Host object.
-
-Expected values in parameter ~in_product_since
-----------------------------------------------
-
-In the example above, the value of the parameter ~in_product_since informs that
-the message host_price_of was added during the rel_orlando release cycle. If a
-new release cycle is required, then it needs to be added in the file
-`idl/datamodel_types.ml`. The patch below shows how the new rel_george release
-identifier was added. Any class, message, etc. added during the rel_george
-release cycle should contain ~in_product_since:rel_george entries.
-(obs: the release and upgrade infrastructure can handle only one new
-`rel_*` identifier -- in this case, rel_george -- in each release)
-
-    --- a/ocaml/idl/datamodel_types.ml Tue Nov 11 15:17:48 2008 +0000
-    +++ b/ocaml/idl/datamodel_types.ml Tue Nov 11 15:53:29 2008 +0000
-    @@ -27,14 +27,13 @@
-     (* useful constants for product vsn tracking *)
-     let oss_since_303 = Some "3.0.3"
-    +let rel_george = "george"
-     let rel_orlando = "orlando"
-     let rel_orlando_update_1 = "orlando-update-1"
-     let rel_symc = "symc"
-     let rel_miami = "miami"
-     let rel_rio = "rio"
-    -let release_order = [engp:rel_rio; rel_miami; rel_symc; rel_orlando; rel_orlando_update_1]
-    +let release_order = [engp:rel_rio; rel_miami; rel_symc; rel_orlando; rel_orlando_update_1; rel_george] 
 
 Update expose_get_all_messages_for list
 ---------------------------------------
 
-If you are adding a new class, do not forget to add your new class \_name to 
-the expose_get_all_messages_for list, at the bottom of datamodel.ml, in 
+If you are adding a new class, do not forget to add your new class \_name to
+the expose_get_all_messages_for list, at the bottom of datamodel.ml, in
 order to have automatically generated get_all and get_all_records functions
 attached to it.
 
 Update the RBAC field containing the roles expected to use the new API call
 ---------------------------------------------------------------------------
 
-After the RBAC integration, Xapi provides by default a set of static roles 
+After the RBAC integration, Xapi provides by default a set of static roles
 associated to the most common subject tasks.
 
 The api calls associated with each role are defined by a new `~allowed_roles`
-parameter in each api call, which specifies the list of static roles that 
+parameter in each api call, which specifies the list of static roles that
 should be able to execute the call. The possible roles for this list is one of
 the following names, defined in `datamodel.ml`:
 
@@ -137,16 +110,16 @@ So, for instance,
 
     ~allowed_roles:[role_pool_admin,role_pool_operator] (* this is not the recommended usage, see example below *)
 
-would be a valid list (though it is not the recommended way of using 
+would be a valid list (though it is not the recommended way of using
 allowed_roles, see below), meaning that subjects belonging to either
 role_pool_admin or role_pool_operator can execute the api call.
 
-The RBAC requirements define a policy where the roles in the list above are 
-supposed to be totally-ordered by the set of api-calls associated with each of 
-them. That means that any api-call allowed to role_pool_operator should also be 
-in role_pool_admin; any api-call allowed to role_vm_power_admin should also be 
-in role_pool_operator and also in role_pool_admin; and so on. Datamodel.ml 
-provides shortcuts for expressing these totally-ordered set of roles policy 
+The RBAC requirements define a policy where the roles in the list above are
+supposed to be totally-ordered by the set of api-calls associated with each of
+them. That means that any api-call allowed to role_pool_operator should also be
+in role_pool_admin; any api-call allowed to role_vm_power_admin should also be
+in role_pool_operator and also in role_pool_admin; and so on. Datamodel.ml
+provides shortcuts for expressing these totally-ordered set of roles policy
 associated with each api-call:
 
 - \_R_POOL_ADMIN, equivalent to [role_pool_admin]
@@ -158,11 +131,11 @@ associated with each api-call:
 
 The `~allowed_roles` parameter should use one of the shortcuts in the list above,
 instead of directly using a list of roles, because the shortcuts above make sure
-that the roles in the list are in a total order regarding the api-calls 
+that the roles in the list are in a total order regarding the api-calls
 permission sets. Creating an api-call with e.g.
 allowed_roles:[role_pool_admin,role_vm_admin] would be wrong, because that
-would mean that a pool_operator cannot execute the api-call that a vm_admin can, 
-breaking the total-order policy expected in the RBAC 1.0 implementation. 
+would mean that a pool_operator cannot execute the api-call that a vm_admin can,
+breaking the total-order policy expected in the RBAC 1.0 implementation.
 In the future, this requirement might be relaxed.
 
 So, the example above should instead be used as:
@@ -224,7 +197,7 @@ We add the following function to `xapi/xapi_host.ml`:
 
     let price_of ~__context ~host ~item =
         if item = "fish" then 3.14 else 0.00
-        
+
 We also need to add the function to the interface `xapi/xapi_host.mli`:
 
     val price_of :

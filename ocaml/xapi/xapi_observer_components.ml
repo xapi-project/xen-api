@@ -103,13 +103,15 @@ let dir_name_of_component component =
 
 let env_exe_args_of ~component ~exe ~args =
   let dir_name_value = Filename.quote (dir_name_of_component component) in
+  let originator = match component with SMApi -> "SM" | _ -> "none" in
   let env_vars =
     Array.concat
       [
         Forkhelpers.default_path_env_pair
       ; Env_record.to_string_array
           [
-            Env_record.pair ("OBSERVER_CONFIG_DIR", dir_name_value)
+            Env_record.pair ("ORIGINATOR", originator)
+          ; Env_record.pair ("OBSERVER_CONFIG_DIR", dir_name_value)
           ; Env_record.pair ("PYTHONPATH", Filename.dirname exe)
           ]
       ]

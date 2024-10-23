@@ -25,11 +25,11 @@ type ds = {
   ; ds_min: float
   ; ds_max: float
   ; ds_units: string
-  ; ds_pdp_transform_function: float -> float
+  ; ds_pdp_transform_function: Rrd.ds_transform_function
 }
 
 let ds_make ~name ~description ~value ~ty ~default ~units ?(min = neg_infinity)
-    ?(max = infinity) ?(transform = fun x -> x) () =
+    ?(max = infinity) ?(transform = Rrd.Identity) () =
   {
     ds_name= name
   ; ds_description= description

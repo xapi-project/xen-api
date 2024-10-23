@@ -90,13 +90,12 @@ let create_thumbprint_header req response =
      )
 
 (** HTML callback that dispatches an RPC and returns the response. *)
-let callback is_json req bio _ =
+let callback is_json req fd _ =
   let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
   let span = Http.Request.traceparent_of req in
-  let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =
-    Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req bio
+    Http_svr.read_body ~limit:Constants.http_limit_max_rpc_size req fd
   in
   try
     let rpc =
@@ -145,13 +144,12 @@ let callback is_json req bio _ =
       Backtrace.is_important e ; raise e
 
 (** HTML callback that dispatches an RPC and returns the response. *)
-let jsoncallback req bio _ =
+let jsoncallback req fd _ =
   let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
-  let fd = Buf_io.fd_of bio in
   (* fd only used for writing *)
   let body =
     Http_svr.read_body ~limit:Xapi_database.Db_globs.http_limit_max_rpc_size req
-      bio
+      fd
   in
   try
     let json_rpc_version, id, rpc =
@@ -182,6 +180,4 @@ let jsoncallback req bio _ =
          )
       )
 
-let options_callback req bio _ =
-  let fd = Buf_io.fd_of bio in
-  Http_svr.respond_to_options req fd
+let options_callback req fd _ = Http_svr.respond_to_options req fd

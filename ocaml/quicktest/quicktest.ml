@@ -15,11 +15,7 @@
 (** The main entry point of the quicktest executable *)
 
 let qchecks =
-  [
-    ("unixext", Unixext_test.tests)
-  ; ("bufio", Bufio_test.tests)
-  ; ("Timer", Test_timer.tests)
-  ]
+  [("unixext", Unixext_test.tests); ("Timer", Test_timer.tests)]
   |> List.map @@ fun (name, test) ->
      (name, List.map QCheck_alcotest.(to_alcotest ~long:true) test)
 

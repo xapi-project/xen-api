@@ -156,6 +156,10 @@ let log_read (uuid, timestamp, key) =
   in
   Lwt_result.return "yes"
 
+let new_uuid () =
+  let random = Random.State.make_self_init () in
+  Uuidm.v4_gen random ()
+
 let to_cache with_read_writes =
   let __FUN = __FUNCTION__ in
   let elapsed = Mtime_clock.counter () in
@@ -180,7 +184,7 @@ let to_cache with_read_writes =
       let* () = Lwt.pause () in
       loop_and_stop f name uuid max sent
   in
-  let vms = List.init 4 (fun _ -> Uuidm.(v `V4)) in
+  let vms = List.init 4 (fun _ -> new_uuid ()) in
 
   List.concat
     [

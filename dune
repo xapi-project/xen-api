@@ -17,3 +17,9 @@
 ; Can still be used for dependencies, but dune won't scan these dirs
 ; for dune files
 (data_only_dirs doc scripts python3 .vscode)
+
+(install
+  (package xapi-sdk)
+  (section share_root)
+  (files (python3/examples/XenAPI/XenAPI.py as python/XenAPI.py))
+)

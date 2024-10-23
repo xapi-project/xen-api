@@ -22,6 +22,12 @@ exception No_RRA_Available
 
 exception Invalid_data_source of string
 
+(** Inverse is (fun x -> 1.0 - x) *)
+type ds_transform_function = Inverse | Identity
+
+let apply_transform_function f x =
+  match f with Inverse -> 1.0 -. x | Identity -> x
+
 type ds_owner = VM of string | Host | SR of string
 
 (** Data source types - see ds datatype *)
@@ -83,6 +89,12 @@ let ds_value_to_string = function
       Printf.sprintf "%Ld" x
   | _ ->
       "0.0"
+
+let ds_transform_function_to_string = function
+  | Inverse ->
+      "inverse"
+  | Identity ->
+      "identity"
 
 (** The CDP preparation scratch area.
     The 'value' field should be accumulated in such a way that it always
@@ -417,7 +429,7 @@ let ds_update rrd timestamp values transforms new_domid =
                  )
             in
             (* Apply the transform after the raw value has been calculated *)
-            let raw = transforms.(i) raw in
+            let raw = apply_transform_function transforms.(i) raw in
             (* Make sure the values are not out of bounds after all the processing *)
             if raw < ds.ds_min || raw > ds.ds_max then
               nan
@@ -450,7 +462,7 @@ let ds_update_named rrd timestamp ~new_domid valuesandtransforms =
     valuesandtransforms |> List.to_seq |> StringMap.of_seq
   in
   let get_value_and_transform {ds_name; _} =
-    Option.value ~default:(VT_Unknown, Fun.id)
+    Option.value ~default:(VT_Unknown, Identity)
       (StringMap.find_opt ds_name valuesandtransforms)
   in
   let ds_values, ds_transforms =
@@ -519,7 +531,7 @@ let rrd_create dss rras timestep inittime =
     }
   in
   let values = Array.map (fun ds -> ds.ds_last) dss in
-  let transforms = Array.make (Array.length values) (fun x -> x) in
+  let transforms = Array.make (Array.length values) Identity in
   ds_update rrd inittime values transforms true ;
   rrd
 

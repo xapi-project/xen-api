@@ -2,7 +2,7 @@
   (modes exe)
   (names reader writer)
   (public_names rrdreader rrdwriter)
-  (package xapi-rrd-transport-utils)
+  (package xapi-tools)
   (libraries
     cmdliner
     

@@ -981,11 +981,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           with Not_found -> []
         in
         let disabled_module_params =
-          List.concat
-            (List.map
-               (fun disabled_module -> ["--disable"; disabled_module])
-               disabled_modules
-            )
+          List.concat_map
+            (fun disabled_module -> ["--disable"; disabled_module])
+            disabled_modules
         in
         (* we need to make sure that the user passed to domaijoin-cli command is in the UPN syntax (user@domain.com) *)
         let user = convert_nt_to_upn_username _user in

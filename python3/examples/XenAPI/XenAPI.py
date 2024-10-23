@@ -120,6 +120,11 @@ class UDSTransport(xmlrpclib.Transport):
     def make_connection(self, host):
         self.with_tracecontext()
 
+        originator_k = "ORIGINATOR"
+        originator_v = os.getenv(originator_k, None)
+        if originator_v:
+            self.add_extra_header(originator_k.lower(), originator_v)
+            
         # compatibility with parent xmlrpclib.Transport HTTP/1.1 support
         if self._connection and host == self._connection[0]:
             return self._connection[1]

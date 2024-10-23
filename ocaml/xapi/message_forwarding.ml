@@ -195,7 +195,7 @@ let map_with_drop ?(doc = "performing unknown operation") f xs =
         (ExnHelper.string_of_exn e) ;
       []
   in
-  List.concat (List.map one xs)
+  List.concat_map one xs
 
 (* Iterate a function across a list, ignoring applications which throw an exception *)
 let iter_with_drop ?(doc = "performing unknown operation") f xs =
@@ -1166,6 +1166,24 @@ functor
           value ;
         Local.Pool.set_ext_auth_max_threads ~__context ~self ~value
 
+      let set_ext_auth_cache_enabled ~__context ~self ~value =
+        info "%s: pool='%s' value='%b'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ext_auth_cache_enabled ~__context ~self ~value
+
+      let set_ext_auth_cache_size ~__context ~self ~value =
+        info "%s: pool='%s' value='%Ld'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ext_auth_cache_size ~__context ~self ~value
+
+      let set_ext_auth_cache_expiry ~__context ~self ~value =
+        info "%s: pool='%s' value='%Ld'" __FUNCTION__
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ext_auth_cache_expiry ~__context ~self ~value
+
       let get_guest_secureboot_readiness ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.get_guest_secureboot_readiness ~__context ~self
@@ -1905,6 +1923,7 @@ functor
       let start_on ~__context ~vm ~host ~start_paused ~force =
         if Helpers.rolling_upgrade_in_progress ~__context then
           Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
+        Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Xapi_vm_helpers.assert_matches_control_domain_affinity ~__context
           ~self:vm ~host ;
         (* Prevent VM start on a host that is evacuating *)
@@ -3726,19 +3745,22 @@ functor
               ~cert
         )
 
-      let uninstall_ca_certificate ~__context ~host ~name =
-        info "Host.uninstall_ca_certificate: host = '%s'; name = '%s'"
+      let uninstall_ca_certificate ~__context ~host ~name ~force =
+        info
+          "Host.uninstall_ca_certificate: host = '%s'; name = '%s'; force = \
+           '%b'"
           (host_uuid ~__context host)
-          name ;
-        let local_fn = Local.Host.uninstall_ca_certificate ~host ~name in
+          name force ;
+        let local_fn = Local.Host.uninstall_ca_certificate ~host ~name ~force in
         do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
             Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
+              ~force
         )
 
       (* legacy names *)
       let certificate_install = install_ca_certificate
 
-      let certificate_uninstall = uninstall_ca_certificate
+      let certificate_uninstall = uninstall_ca_certificate ~force:false
 
       let certificate_list ~__context ~host =
         info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;

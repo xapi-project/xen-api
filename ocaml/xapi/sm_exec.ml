@@ -355,7 +355,7 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
               let env, exe, args =
                 match Xapi_observer_components.is_smapi_enabled () with
                 | false ->
-                    (None, exe, args)
+                    (Some [|"ORIGINATOR=SM"|], exe, args)
                 | true ->
                     Xapi_observer_components.env_exe_args_of
                       ~component:Xapi_observer_components.SMApi ~exe ~args

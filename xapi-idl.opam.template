@@ -9,7 +9,7 @@ build: [["dune" "build" "-p" name "-j" jobs]]
 run-test: [[ "dune" "runtest" "-p" name "-j" jobs ]]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "alcotest" {with-test}
   "fmt" {with-test}
   "astring"
@@ -20,18 +20,24 @@ depends: [
   "ipaddr"
   "logs"
   "lwt" {>= "5.0.0"}
-  "message-switch-async" {with-test}
+  "message-switch-lwt" {with-test}
   "message-switch-core"
   "message-switch-unix"
   "mtime"
   "ppx_deriving_rpc"
+  "ppx_deriving"
   "ppx_sexp_conv"
   "re"
-  "xapi-rrd"
+  "result"
+  "rpclib"
+  "rresult"
   "sexplib"
+  "sexplib0"
   "uri"
+  "uuidm"
   "xapi-backtrace"
   "xapi-open-uri"
+  "xapi-rrd"
   "xapi-stdext-date"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"

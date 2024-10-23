@@ -496,7 +496,7 @@ let gen_module api : O.Module.t =
                 ; "Server_helpers.dispatch_exn_wrapper (fun () -> (match \
                    __call with "
                 ]
-               @ List.flatten (List.map obj all_objs)
+               @ List.concat_map obj all_objs
                @ [
                    "| \"system.listMethods\" -> "
                  ; "  success (rpc_of_string_set ["

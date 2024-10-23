@@ -39,7 +39,7 @@ let test_rev_map =
   in
   let tests =
     (* Generate the product of the two lists to generate the tests *)
-    List.concat (List.map (fun func -> List.map (test func) spec_rev) spec_func)
+    List.concat_map (fun func -> List.map (test func) spec_rev) spec_func
   in
   ("rev_map", tests)
 
@@ -83,8 +83,9 @@ let test_split =
     ]
   in
   let tests_limit =
-    List.map (fun (limit, spec) -> List.map (test ~limit) spec) specs_limit
-    |> List.concat
+    List.concat_map
+      (fun (limit, spec) -> List.map (test ~limit) spec)
+      specs_limit
   in
   ("split", List.concat [tests_no_limit; tests_limit])
 

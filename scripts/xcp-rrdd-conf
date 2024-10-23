@@ -1,0 +1,6 @@
+# The xcp-rrdd config file
+
+inventory = /etc/xensource-inventory
+
+disable-logging-for = http
+loglevel = info

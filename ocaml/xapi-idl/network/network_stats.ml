@@ -35,13 +35,7 @@ let checksum_bytes = 32
 let length_bytes = 8
 
 type iface_stats = {
-    tx_bytes: int64  (** bytes emitted *)
-  ; tx_pkts: int64  (** packets emitted *)
-  ; tx_errors: int64  (** error emitted *)
-  ; rx_bytes: int64  (** bytes received *)
-  ; rx_pkts: int64  (** packets received *)
-  ; rx_errors: int64  (** error received *)
-  ; carrier: bool
+    carrier: bool
   ; speed: int
   ; duplex: duplex
   ; pci_bus_path: string
@@ -55,13 +49,7 @@ type iface_stats = {
 
 let default_stats =
   {
-    tx_bytes= 0L
-  ; tx_pkts= 0L
-  ; tx_errors= 0L
-  ; rx_bytes= 0L
-  ; rx_pkts= 0L
-  ; rx_errors= 0L
-  ; carrier= false
+    carrier= false
   ; speed= 0
   ; duplex= Duplex_unknown
   ; pci_bus_path= ""

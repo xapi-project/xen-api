@@ -2,7 +2,7 @@
   (modes exe)
   (name rrd2csv)
   (public_name rrd2csv)
-  (package rrd2csv)
+  (package xapi)
   (libraries
     
     http_lib
@@ -17,4 +17,3 @@
     xmlm
   )
 )
-

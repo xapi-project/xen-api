@@ -9,11 +9,13 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
+  "astring"
   "base-threads"
   "fd-send-recv" {>= "2.0.0"}
   "ppx_deriving_rpc"
   "rpclib"
   "uuid" {= version}
+  "xapi-backtrace"
   "xapi-log" {= version}
   "xapi-stdext-pervasives" {= version}
   "xapi-stdext-unix" {= version}
