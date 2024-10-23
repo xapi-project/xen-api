@@ -135,26 +135,19 @@ let read_bytes dev n =
     )
     (fun () -> Unix.close fd)
 
-let make_uuid_urnd () = of_bytes (read_bytes dev_urandom 16) |> Option.get
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
-(* State for random number generation. Random.State.t isn't thread safe, so
-   only use this via with_non_csprng_state, which takes care of this.
-*)
-let rstate = Random.State.make_self_init ()
+let csprng_urandom = read_bytes dev_urandom
 
-let rstate_m = Mutex.create ()
+let csprng_fortuna n = Mirage_crypto_rng.generate n |> Cstruct.to_string
 
-let with_non_csprng_state =
-  (* On OCaml 5 we could use Random.State.split instead,
-     and on OCaml 4 the mutex may not be strictly needed
-  *)
-  let finally () = Mutex.unlock rstate_m in
-  fun f ->
-    Mutex.lock rstate_m ;
-    Fun.protect ~finally (f rstate)
+let make_uuid csprng = of_bytes (csprng 16) |> Option.get
 
-(** Use non-CSPRNG by default, for CSPRNG see {!val:make_uuid_urnd} *)
-let make_uuid_fast () = with_non_csprng_state Uuidm.v4_gen
+let make_uuid_urnd () = make_uuid csprng_urandom
+
+let make_uuid_fortuna () = make_uuid csprng_fortuna
+
+let make_uuid_fast = make_uuid_fortuna
 
 let make_default = ref make_uuid_urnd
 
@@ -163,7 +156,8 @@ let make () = !make_default ()
 let make_v7_uuid_from_parts time_ns rand_b = Uuidm.v7_ns ~time_ns ~rand_b
 
 let rand64 () =
-  with_non_csprng_state (fun rstate () -> Random.State.bits64 rstate)
+  let b = csprng_fortuna 8 in
+  String.get_int64_ne b 0
 
 let now_ns =
   let start = Mtime_clock.counter () in
