@@ -9,8 +9,6 @@ Wants=message-switch.service syslog.target
 Type=simple
 Environment=OCAMLRUNPARAM=b
 ExecStart=/usr/sbin/varstored-guard
-# Needed to ensure exceptions are logged when the program fails:
-StandardError=syslog
 LimitNOFILE=4096
 # restart but fail if more than 5 failures in 30s
 Restart=on-failure
