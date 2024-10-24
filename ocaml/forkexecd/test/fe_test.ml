@@ -292,7 +292,7 @@ let slave = function
       (*
 		  Printf.fprintf stderr "%s %d\n" total_fds (List.length present - 1)
 		*)
-      if total_fds + 1 (* Uuid.dev_urandom *) <> List.length filtered then
+      if total_fds <> List.length filtered then
         fail "Expected %d fds; /proc/self/fd has %d: %s" total_fds
           (List.length filtered) ls
 

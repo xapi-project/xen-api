@@ -116,39 +116,38 @@ let is_uuid str = match of_string str with None -> false | Some _ -> true
 
 let dev_urandom = "/dev/urandom"
 
-let dev_urandom_fd = Unix.openfile dev_urandom [Unix.O_RDONLY] 0o640
-(* we can't close this in at_exit, because Crowbar runs at_exit, and
-   it'll fail because this FD will then be closed
-*)
-
 let read_bytes dev n =
-  let buf = Bytes.create n in
-  let read = Unix.read dev buf 0 n in
-  if read <> n then
-    raise End_of_file
-  else
-    Bytes.to_string buf
+  let fd = Unix.openfile dev [Unix.O_RDONLY] 0o640 in
+  let finally body_f clean_f =
+    try
+      let ret = body_f () in
+      clean_f () ; ret
+    with e -> clean_f () ; raise e
+  in
+  finally
+    (fun () ->
+      let buf = Bytes.create n in
+      let read = Unix.read fd buf 0 n in
+      if read <> n then
+        raise End_of_file
+      else
+        Bytes.to_string buf
+    )
+    (fun () -> Unix.close fd)
 
-let make_uuid_urnd () = of_bytes (read_bytes dev_urandom_fd 16) |> Option.get
+let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
 
-(* State for random number generation. Random.State.t isn't thread safe, so
-   only use this via with_non_csprng_state, which takes care of this.
-*)
-let rstate = Random.State.make_self_init ()
+let csprng_urandom = read_bytes dev_urandom
 
-let rstate_m = Mutex.create ()
+let csprng_fortuna n = Mirage_crypto_rng.generate n |> Cstruct.to_string
 
-let with_non_csprng_state =
-  (* On OCaml 5 we could use Random.State.split instead,
-     and on OCaml 4 the mutex may not be strictly needed
-  *)
-  let finally () = Mutex.unlock rstate_m in
-  fun f ->
-    Mutex.lock rstate_m ;
-    Fun.protect ~finally (f rstate)
+let make_uuid csprng = of_bytes (csprng 16) |> Option.get
 
-(** Use non-CSPRNG by default, for CSPRNG see {!val:make_uuid_urnd} *)
-let make_uuid_fast () = with_non_csprng_state Uuidm.v4_gen
+let make_uuid_urnd () = make_uuid csprng_urandom
+
+let make_uuid_fortuna () = make_uuid csprng_fortuna
+
+let make_uuid_fast = make_uuid_fortuna
 
 let make_default = ref make_uuid_urnd
 
@@ -157,7 +156,8 @@ let make () = !make_default ()
 let make_v7_uuid_from_parts time_ns rand_b = Uuidm.v7_ns ~time_ns ~rand_b
 
 let rand64 () =
-  with_non_csprng_state (fun rstate () -> Random.State.bits64 rstate)
+  let b = csprng_fortuna 8 in
+  String.get_int64_ne b 0
 
 let now_ns =
   let start = Mtime_clock.counter () in
@@ -174,7 +174,7 @@ let make_v7_uuid () = make_v7_uuid_from_parts (now_ns ()) (rand64 ())
 type cookie = string
 
 let make_cookie () =
-  read_bytes dev_urandom_fd 64
+  read_bytes dev_urandom 64
   |> String.to_seq
   |> Seq.map (fun c -> Printf.sprintf "%1x" (int_of_char c))
   |> List.of_seq

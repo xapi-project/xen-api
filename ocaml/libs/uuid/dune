@@ -3,6 +3,9 @@
   (public_name uuid)
   (modules uuidx)
   (libraries
+    cstruct
+    mirage-crypto-rng
+    mirage-crypto-rng.unix
     mtime
     mtime.clock.os
     ptime
