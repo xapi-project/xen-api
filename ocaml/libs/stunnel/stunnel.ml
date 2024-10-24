@@ -157,6 +157,9 @@ let pool =
   ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
   }
 
+let external_host ext_host_cert_file =
+  {sni= None; verify= VerifyPeer; cert_bundle_path= ext_host_cert_file}
+
 let debug_conf_of_bool verbose : string =
   if verbose then "debug=authpriv.7" else "debug=authpriv.5"
 
