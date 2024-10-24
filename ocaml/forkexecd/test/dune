@@ -1,11 +1,18 @@
 (executable
  (modes exe)
  (name fe_test)
- (libraries forkexec uuid xapi-stdext-unix fd-send-recv))
+ (libraries forkexec uuid xapi-stdext-unix fd-send-recv xapi-log))
+
+; preload library to redirect "/dev/log"
+(rule
+ (targets syslog.so)
+ (deps syslog.c)
+ (action
+  (run %{cc} -O2 -Wall -DPIC -fPIC -s --shared -o %{targets} %{deps} -ldl)))
 
 (rule
  (alias runtest)
  (package xapi-forkexecd)
- (deps fe_test.sh fe_test.exe ../src/fe_main.exe)
+ (deps fe_test.sh fe_test.exe ../src/fe_main.exe syslog.so)
  (action
   (run ./fe_test.sh)))
