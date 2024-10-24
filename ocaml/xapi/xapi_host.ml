@@ -1548,9 +1548,9 @@ let install_ca_certificate ~__context ~host:_ ~name ~cert =
   (* don't modify db - Pool.install_ca_certificate will handle that *)
   Certificates.(host_install CA_Certificate ~name ~cert)
 
-let uninstall_ca_certificate ~__context ~host:_ ~name =
+let uninstall_ca_certificate ~__context ~host:_ ~name ~force =
   (* don't modify db - Pool.uninstall_ca_certificate will handle that *)
-  Certificates.(host_uninstall CA_Certificate ~name)
+  Certificates.(host_uninstall CA_Certificate ~name ~force)
 
 let certificate_list ~__context ~host:_ =
   Certificates.(local_list CA_Certificate)
@@ -1559,7 +1559,7 @@ let crl_install ~__context ~host:_ ~name ~crl =
   Certificates.(host_install CRL ~name ~cert:crl)
 
 let crl_uninstall ~__context ~host:_ ~name =
-  Certificates.(host_uninstall CRL ~name)
+  Certificates.(host_uninstall CRL ~name ~force:false)
 
 let crl_list ~__context ~host:_ = Certificates.(local_list CRL)
 

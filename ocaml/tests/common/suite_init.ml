@@ -1,5 +1,6 @@
 let harness_init () =
   (* before any calls to XAPI code, to catch early uses of Unix.select *)
+  Atomic.set Xapi_hooks.in_test true ;
   Xapi_stdext_unix.Unixext.test_open 1024 ;
   Xapi_stdext_unix.Unixext.mkdir_safe Test_common.working_area 0o755 ;
   (* Alcotest hides the standard output of successful tests,

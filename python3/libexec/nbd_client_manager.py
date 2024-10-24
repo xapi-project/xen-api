@@ -24,6 +24,8 @@ LOCK_FILE = "/var/run/nonpersistent/nbd_client_manager"
 # Don't wait more than 10 minutes for the NBD device
 MAX_DEVICE_WAIT_MINUTES = 10
 
+# According to https://github.com/thom311/libnl/blob/main/include/netlink/errno.h#L38
+NLE_BUSY = 25
 
 class InvalidNbdDevName(Exception):
     """
@@ -80,7 +82,7 @@ class FileLock: # pragma: no cover
 FILE_LOCK = FileLock(path=LOCK_FILE)
 
 
-def _call(cmd_args, error=True):
+def _call(cmd_args, raise_err=True, log_err=True):
     """
     [call cmd_args] executes [cmd_args] and returns the exit code.
     If [error] and exit code != 0, log and throws a CalledProcessError.
@@ -94,14 +96,16 @@ def _call(cmd_args, error=True):
 
     _, stderr = proc.communicate()
 
-    if error and proc.returncode != 0:
-        LOGGER.error(
-            "%s exited with code %d: %s", " ".join(cmd_args), proc.returncode, stderr
-        )
+    if proc.returncode != 0:
+        if log_err:
+            LOGGER.error(
+                "%s exited with code %d: %s", " ".join(cmd_args), proc.returncode, stderr
+            )
 
-        raise subprocess.CalledProcessError(
-            returncode=proc.returncode, cmd=cmd_args, output=stderr
-        )
+        if raise_err:
+            raise subprocess.CalledProcessError(
+                returncode=proc.returncode, cmd=cmd_args, output=stderr
+            )
 
     return proc.returncode
 
@@ -116,7 +120,7 @@ def _is_nbd_device_connected(nbd_device):
     if not os.path.exists(nbd_device):
         raise NbdDeviceNotFound(nbd_device)
     cmd = ["nbd-client", "-check", nbd_device]
-    returncode = _call(cmd, error=False)
+    returncode = _call(cmd, raise_err=False, log_err=False)
     if returncode == 0:
         return True
     if returncode == 1:
@@ -191,6 +195,8 @@ def connect_nbd(path, exportname):
     """Connects to a free NBD device using nbd-client and returns its path"""
     # We should not ask for too many nbds, as we might not have enough memory
     _call(["modprobe", "nbd", "nbds_max=24"])
+    # Wait for systemd-udevd to process the udev rules
+    _call(["udevadm", "settle", "--timeout=30"])
     retries = 0
     while True:
         try:
@@ -206,7 +212,17 @@ def connect_nbd(path, exportname):
                     "-name",
                     exportname,
                 ]
-                _call(cmd)
+                ret = _call(cmd, raise_err=False, log_err=True)
+                if NLE_BUSY == ret:
+                    # Although _find_unused_nbd_device tell us the nbd devcie is
+                    # not connected by other nbd-client, it may be opened and locked
+                    # by other process like systemd-udev, raise NbdDeviceNotFound to retry
+                    LOGGER.warning("Device %s is busy, will retry", nbd_device)
+                    raise NbdDeviceNotFound(nbd_device)
+
+                if 0 != ret:
+                    raise subprocess.CalledProcessError(returncode=ret, cmd=cmd)
+
                 _wait_for_nbd_device(nbd_device=nbd_device, connected=True)
                 _persist_connect_info(nbd_device, path, exportname)
                 nbd = (

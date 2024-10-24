@@ -1479,12 +1479,40 @@ let install_ca_certificate =
 let uninstall_ca_certificate =
   call ~pool_internal:true ~hide_from_docs:true ~name:"uninstall_ca_certificate"
     ~doc:"Remove a TLS CA certificate from this host."
-    ~params:
+    ~versioned_params:
       [
-        (Ref _host, "host", "The host"); (String, "name", "The certificate name")
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The host"
+        ; param_release= numbered_release "1.290.0"
+        ; param_default= None
+        }
+      ; {
+          param_type= String
+        ; param_name= "name"
+        ; param_doc= "The certificate name"
+        ; param_release= numbered_release "1.290.0"
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "force"
+        ; param_doc= "Remove the DB entry even if the file is non-existent"
+        ; param_release= numbered_release "24.35.0"
+        ; param_default= Some (VBool false)
+        }
       ]
     ~allowed_roles:_R_LOCAL_ROOT_ONLY
-    ~lifecycle:[(Published, "1.290.0", "Uninstall TLS CA certificate")]
+    ~lifecycle:
+      [
+        (Published, "1.290.0", "Uninstall TLS CA certificate")
+      ; ( Changed
+        , "24.35.0"
+        , "Added --force option to allow DB entries to be removed for \
+           non-existent files"
+        )
+      ]
     ()
 
 let certificate_list =

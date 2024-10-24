@@ -322,7 +322,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       slavetobe_auth_type slavetobe_auth_service_name ;
     if
       slavetobe_auth_type <> master_auth_type
-      || slavetobe_auth_service_name <> master_auth_service_name
+      || String.lowercase_ascii slavetobe_auth_service_name
+         <> String.lowercase_ascii master_auth_service_name
     then (
       error
         "Cannot join pool whose external authentication configuration is \
@@ -1431,12 +1432,12 @@ let certificate_install ~__context ~name ~cert =
 
 let install_ca_certificate = certificate_install
 
-let certificate_uninstall ~__context ~name =
+let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ;
+  pool_uninstall CA_Certificate ~__context ~name ~force ;
   Db_util.remove_ca_cert_by_name ~__context name
 
-let uninstall_ca_certificate = certificate_uninstall
+let certificate_uninstall = uninstall_ca_certificate ~force:false
 
 let certificate_list ~__context =
   let open Certificates in
@@ -1445,7 +1446,7 @@ let certificate_list ~__context =
 
 let crl_install = Certificates.(pool_install CRL)
 
-let crl_uninstall = Certificates.(pool_uninstall CRL)
+let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
 
 let crl_list ~__context = Certificates.(local_list CRL)
 

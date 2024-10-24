@@ -175,7 +175,7 @@ module Progress = struct
       let s = Printf.sprintf "Progress: %.0f" (fraction *. 100.) in
       let data = Cstruct.create (String.length s) in
       Cstruct.blit_from_string s 0 data 0 (String.length s) ;
-      Chunked.marshal header {Chunked.offset= 0L; data} ;
+      Chunked.(marshal header (make ~sector:0L data)) ;
       Printf.printf "%s%s%!" (Cstruct.to_string header) s
     )
 
@@ -183,7 +183,7 @@ module Progress = struct
   let close () =
     if !machine_readable_progress then (
       let header = Cstruct.create Chunked.sizeof in
-      Chunked.marshal header {Chunked.offset= 0L; data= Cstruct.create 0} ;
+      Chunked.(marshal header end_of_stream) ;
       Printf.printf "%s%!" (Cstruct.to_string header)
     )
 end
@@ -198,7 +198,7 @@ let after f g =
     the driver domain corresponding to the frontend device [path] in this domain. *)
 let find_backend_device path =
   try
-    let open Xenstore in
+    let open Ezxenstore_core.Xenstore in
     (* If we're looking at a xen frontend device, see if the backend
        is in the same domain. If so check if it looks like a .vhd *)
     let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in

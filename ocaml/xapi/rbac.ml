@@ -69,10 +69,7 @@ let session_permissions_tbl = Hashtbl.create 256 (* initial 256 sessions *)
 
 module Permission_set = Set.Make (String)
 
-let permission_set permission_list =
-  List.fold_left
-    (fun set r -> Permission_set.add r set)
-    Permission_set.empty permission_list
+let permission_set = Permission_set.of_list
 
 let create_session_permissions_tbl ~session_id ~rbac_permissions =
   if
