@@ -19,3 +19,5 @@ val set_verify_by_default : bool -> unit
 val pool : unit -> Stunnel.verification_config option
 
 val appliance : unit -> Stunnel.verification_config option
+
+val external_host : string -> Stunnel.verification_config option
