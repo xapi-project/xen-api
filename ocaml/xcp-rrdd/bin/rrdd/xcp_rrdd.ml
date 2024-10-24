@@ -34,9 +34,8 @@ open D
 open Xapi_stdext_pervasives.Pervasiveext
 
 (* A helper method for processing XMLRPC requests. *)
-let xmlrpc_handler process req bio context =
-  let body = Http_svr.read_body req bio in
-  let s = Buf_io.fd_of bio in
+let xmlrpc_handler process req s context =
+  let body = Http_svr.read_body req s in
   let rpc = Xmlrpc.call_of_string body in
   try
     let result = process context rpc in
@@ -75,21 +74,19 @@ let accept_forever sock f =
 let start (xmlrpc_path, http_fwd_path) process =
   let server = Http_svr.Server.empty () in
   let open Rrdd_http_handler in
-  Http_svr.Server.add_handler server Http.Post "/"
-    (Http_svr.BufIO (xmlrpc_handler process)) ;
+  Http_svr.Server.add_handler server Http.Post "/" (xmlrpc_handler process) ;
   Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_vm_rrd_uri
-    (Http_svr.FdIO get_vm_rrd_handler) ;
+    get_vm_rrd_handler ;
   Http_svr.Server.add_handler server Http.Get
-    Rrdd_libs.Constants.get_host_rrd_uri (Http_svr.FdIO get_host_rrd_handler) ;
+    Rrdd_libs.Constants.get_host_rrd_uri get_host_rrd_handler ;
   Http_svr.Server.add_handler server Http.Get Rrdd_libs.Constants.get_sr_rrd_uri
-    (Http_svr.FdIO get_sr_rrd_handler) ;
+    get_sr_rrd_handler ;
   Http_svr.Server.add_handler server Http.Get
-    Rrdd_libs.Constants.get_rrd_updates_uri
-    (Http_svr.FdIO get_rrd_updates_handler) ;
+    Rrdd_libs.Constants.get_rrd_updates_uri get_rrd_updates_handler ;
   Http_svr.Server.add_handler server Http.Put Rrdd_libs.Constants.put_rrd_uri
-    (Http_svr.FdIO put_rrd_handler) ;
+    put_rrd_handler ;
   Http_svr.Server.add_handler server Http.Post
-    Rrdd_libs.Constants.rrd_unarchive_uri (Http_svr.FdIO unarchive_rrd_handler) ;
+    Rrdd_libs.Constants.rrd_unarchive_uri unarchive_rrd_handler ;
   Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname xmlrpc_path) 0o700 ;
   Xapi_stdext_unix.Unixext.unlink_safe xmlrpc_path ;
   let xmlrpc_socket = Http_svr.bind (Unix.ADDR_UNIX xmlrpc_path) "unix_rpc" in

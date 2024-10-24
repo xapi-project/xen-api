@@ -104,11 +104,6 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
       with _ -> ()
   )
 
-let cluster_health_enabled ~__context =
-  let pool = Helpers.get_pool ~__context in
-  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
-  List.assoc_opt "restrict_cluster_health" restrictions = Some "false"
-
 let corosync3_enabled ~__context =
   let pool = Helpers.get_pool ~__context in
   let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
@@ -126,7 +121,7 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
           let body =
             Printf.sprintf
               "Host %s has joined the cluster, there are now %d host(s) in \
-               cluster and %d hosts are required to form a quorum"
+               cluster and %d host(s) are required to form a quorum"
               host_name num_hosts quorum
           in
           let name, priority = Api_messages.cluster_host_joining in
@@ -135,7 +130,7 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
           let body =
             Printf.sprintf
               "Host %s has left the cluster, there are now %d host(s) in \
-               cluster and %d hosts are required to form a quorum"
+               cluster and %d host(s) are required to form a quorum"
               host_name num_hosts quorum
           in
           let name, priority = Api_messages.cluster_host_leaving in
@@ -147,23 +142,21 @@ let maybe_generate_alert ~__context ~num_hosts ~hosts_left ~hosts_joined ~quorum
              ~cls:`Host ~obj_uuid:host_uuid ~body
     )
   in
-  if cluster_health_enabled ~__context then (
-    List.iter (generate_alert false) hosts_left ;
-    List.iter (generate_alert true) hosts_joined ;
-    (* only generate this alert when the number of hosts is decreasing *)
-    if hosts_left <> [] && num_hosts <= quorum then
-      let pool = Helpers.get_pool ~__context in
-      let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
-      let name, priority = Api_messages.cluster_quorum_approaching_lost in
-      let body =
-        Printf.sprintf
-          "The cluster is losing quorum: current %d hosts, need %d hosts for a \
-           quorum"
-          num_hosts quorum
-      in
-      Helpers.call_api_functions ~__context (fun rpc session_id ->
-          ignore
-          @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
-               ~cls:`Pool ~obj_uuid:pool_uuid ~body
-      )
-  )
+  List.iter (generate_alert false) hosts_left ;
+  List.iter (generate_alert true) hosts_joined ;
+  (* only generate this alert when the number of hosts is decreasing *)
+  if hosts_left <> [] && num_hosts <= quorum then
+    let pool = Helpers.get_pool ~__context in
+    let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+    let name, priority = Api_messages.cluster_quorum_approaching_lost in
+    let body =
+      Printf.sprintf
+        "The cluster is losing quorum: currently %d host(s), need %d host(s) \
+         for a quorum"
+        num_hosts quorum
+    in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        ignore
+        @@ Client.Client.Message.create ~rpc ~session_id ~name ~priority
+             ~cls:`Pool ~obj_uuid:pool_uuid ~body
+    )

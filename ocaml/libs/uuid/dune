@@ -3,8 +3,13 @@
   (public_name uuid)
   (modules uuidx)
   (libraries
-    unix (re_export uuidm)
+    mtime
+    mtime.clock.os
+    ptime
+    ptime.clock.os
     threads.posix
+    unix
+    (re_export uuidm)
   )
   (wrapped false)
 )

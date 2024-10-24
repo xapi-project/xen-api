@@ -131,20 +131,45 @@ let read_bytes dev n =
 
 let make_uuid_urnd () = of_bytes (read_bytes dev_urandom_fd 16) |> Option.get
 
-(** Use non-CSPRNG by default, for CSPRNG see {!val:make_uuid_urnd} *)
-let make_uuid_fast =
-  let uuid_state = Random.State.make_self_init () in
+(* State for random number generation. Random.State.t isn't thread safe, so
+   only use this via with_non_csprng_state, which takes care of this.
+*)
+let rstate = Random.State.make_self_init ()
+
+let rstate_m = Mutex.create ()
+
+let with_non_csprng_state =
   (* On OCaml 5 we could use Random.State.split instead,
      and on OCaml 4 the mutex may not be strictly needed
   *)
-  let m = Mutex.create () in
-  let finally () = Mutex.unlock m in
-  let gen = Uuidm.v4_gen uuid_state in
-  fun () -> Mutex.lock m ; Fun.protect ~finally gen
+  let finally () = Mutex.unlock rstate_m in
+  fun f ->
+    Mutex.lock rstate_m ;
+    Fun.protect ~finally (f rstate)
+
+(** Use non-CSPRNG by default, for CSPRNG see {!val:make_uuid_urnd} *)
+let make_uuid_fast () = with_non_csprng_state Uuidm.v4_gen
 
 let make_default = ref make_uuid_urnd
 
 let make () = !make_default ()
+
+let make_v7_uuid_from_parts time_ns rand_b = Uuidm.v7_ns ~time_ns ~rand_b
+
+let rand64 () =
+  with_non_csprng_state (fun rstate () -> Random.State.bits64 rstate)
+
+let now_ns =
+  let start = Mtime_clock.counter () in
+  let t0 =
+    let d, ps = Ptime_clock.now () |> Ptime.to_span |> Ptime.Span.to_d_ps in
+    Int64.(add (mul (of_int d) 86_400_000_000_000L) (div ps 1000L))
+  in
+  fun () ->
+    let since_t0 = Mtime_clock.count start |> Mtime.Span.to_uint64_ns in
+    Int64.add t0 since_t0
+
+let make_v7_uuid () = make_v7_uuid_from_parts (now_ns ()) (rand64 ())
 
 type cookie = string
 
