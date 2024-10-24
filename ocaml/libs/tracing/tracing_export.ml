@@ -82,6 +82,16 @@ module Content = struct
                  {timestamp; value}
              )
         in
+        let tags =
+          let span_context = Span.get_context s in
+          let trace_context =
+            SpanContext.context_of_span_context span_context
+          in
+          let baggage =
+            TraceContext.baggage_of trace_context |> Option.value ~default:[]
+          in
+          Span.get_attributes s @ baggage
+        in
         {
           id=
             s
@@ -117,7 +127,7 @@ module Content = struct
             |> Option.map SpanKind.to_string
         ; localEndpoint= {serviceName}
         ; annotations
-        ; tags= Span.get_attributes s
+        ; tags
         }
 
       let content_of (spans : Span.t list) =
@@ -270,7 +280,10 @@ module Destination = struct
             ; ("xs.tracing.finished_spans_table.count", string_of_int count)
             ]
           in
-          let@ _ = with_tracing ~parent ~attributes ~name in
+          let@ _ =
+            with_tracing ~trace_context:TraceContext.empty ~parent ~attributes
+              ~name
+          in
           all_spans
           |> Content.Json.ZipkinV2.content_of
           |> export
@@ -283,7 +296,8 @@ module Destination = struct
     let ((_span_list, span_count) as span_info) = Spans.since () in
     let attributes = [("export.traces.count", string_of_int span_count)] in
     let@ parent =
-      with_tracing ~parent:None ~attributes ~name:"Tracing.flush_spans"
+      with_tracing ~trace_context:TraceContext.empty ~parent:None ~attributes
+        ~name:"Tracing.flush_spans"
     in
     TracerProvider.get_tracer_providers ()
     |> List.filter TracerProvider.get_enabled
