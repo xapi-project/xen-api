@@ -3,6 +3,7 @@ Description=XCP networking daemon
 Documentation=man:xcp-networkd(1)
 After=forkexecd.service message-switch.service syslog.target
 Wants=forkexecd.service message-switch.service syslog.target
+PartOf=toolstack.target
 
 [Service]
 Type=notify

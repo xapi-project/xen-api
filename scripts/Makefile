@@ -152,3 +152,6 @@ install:
 	$(IDATA) mail-languages/ja-JP.json $(DESTDIR)/etc/xapi.d/mail-languages
 # uefi
 	mkdir -p $(DESTDIR)/etc/xapi.d/efi-clone
+
+# toolstack.target to manage toolstack services as a group
+	$(IDATA) toolstack.target  $(DESTDIR)/usr/lib/systemd/system/toolstack.target

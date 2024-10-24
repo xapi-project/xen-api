@@ -27,11 +27,6 @@ echo "Executing $FILENAME"
 
 POOLCONF=`cat @ETCXENDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
-SERVICES="message-switch perfmon v6d xenopsd xenopsd-xc xenopsd-xenlight
-  xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed
-  xcp-rrdd-netdev xcp-rrdd-cpu
-  xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd
-  $MPATHALERT xapi-storage-script xapi-clusterd varstored-guard"
 
 tmp_file=$(mktemp --suffix="xe-toolstack-restart")
 systemctl stop stunnel@xapi > $tmp_file 2>&1
@@ -43,22 +38,23 @@ if [[ $kill_stunnel_exit_code != 0 ]]; then
 fi
 rm -f $tmp_file
 
-TO_RESTART=""
-for svc in $SERVICES ; do
-	# restart services only if systemd said they were enabled
-	systemctl is-enabled $svc >/dev/null 2>&1
-
-	if [ $? -eq 0 ] ; then
-		TO_RESTART="$svc $TO_RESTART"
-	fi
-done
-systemctl stop xapi
-systemctl stop ${TO_RESTART}
-
 set -e
 
-systemctl start ${TO_RESTART}
-systemctl start xapi
+systemctl restart $MPATHALERT toolstack.target
+
+# Check the status of toolstack services
+for service in $(systemctl list-dependencies --plain --no-pager toolstack.target); do
+  # During system bootup, xcp-rrdd-dcmi.service often fail as
+  # `ipmitool dcmi discover` discover nothing, just ignore it for now
+  if [ "$service" == "xcp-rrdd-dcmi.service" ]; then
+     continue
+  fi
+
+  if ! systemctl is-active --quiet "$service"; then
+     echo "$service failed to restart, $(systemctl status $service)"
+     exit 1
+  fi
+done
 
 rm -f $LOCKFILE
 echo "done."

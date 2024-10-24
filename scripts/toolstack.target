@@ -1,0 +1,27 @@
+[Unit]
+Description=toolstack Target to manage toolstack service restart
+# wants to start following services when run `systemctl start toolstack.target`
+# Note: `Wants` is used here instead of `Requires`, `Requires` will stop/restart
+# whole toolstack.target on any service stop/restart
+Wants=xapi.service
+Wants=message-switch.service
+Wants=forkexecd.service
+Wants=perfmon.service
+Wants=v6d.service
+Wants=xcp-rrdd-iostat.service
+Wants=xcp-rrdd-squeezed.service
+Wants=xcp-rrdd-netdev.service
+Wants=xcp-rrdd-dcmi.service
+Wants=xcp-rrdd-cpu.service
+Wants=xcp-rrdd-xenpm.service
+Wants=xcp-rrdd-gpumon.service
+Wants=xcp-rrdd.service
+Wants=xcp-networkd.service
+Wants=xenopsd-xc.service
+Wants=squeezed.service
+Wants=xapi-storage-script.service
+Wants=xapi-clusterd.service
+Wants=varstored-guard.service
+
+[Install]
+WantedBy=multi-user.target

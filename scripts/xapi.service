@@ -16,6 +16,7 @@ After=xcp-rrdd.service
 After=xenopsd-xc.service
 After=xenstored.service
 After=stunnel@xapi.service
+PartOf=toolstack.target
 
 Conflicts=shutdown.target
 

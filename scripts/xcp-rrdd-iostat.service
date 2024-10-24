@@ -2,6 +2,7 @@
 Description=XCP RRD daemon iostat plugin
 After=xcp-rrdd.service
 Requires=xcp-rrdd.service
+PartOf=toolstack.target
 
 [Service]
 ExecStart=/opt/xensource/libexec/xcp-rrdd-plugins/xcp-rrdd-iostat
