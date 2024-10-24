@@ -12,8 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* This file is only needed for building xapi with local make, now the
-   api_version_major and api_version_minor are defined in xapi.spec and this
+(* Now the api_version_major and api_version_minor are defined in xapi.spec and this
    file will be regenerated from api_version.ml.in by configure.ml during koji
    build. *)
 

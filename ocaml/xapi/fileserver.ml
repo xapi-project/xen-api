@@ -55,10 +55,8 @@ let access_forbidden req s =
   !Xapi_globs.website_https_only && is_external_http req s
 
 let send_file (uri_base : string) (dir : string) (req : Request.t)
-    (bio : Buf_io.t) _ =
+    (s : Unix.file_descr) _ =
   let uri_base_len = String.length uri_base in
-  let s = Buf_io.fd_of bio in
-  Buf_io.assert_buffer_empty bio ;
   let is_external_http = is_external_http req s in
   if is_external_http && !Xapi_globs.website_https_only then
     Http_svr.response_forbidden ~req s

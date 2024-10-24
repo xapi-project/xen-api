@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(* Now the api_version_major and api_version_minor are defined in xapi.spec and this
+   file will be regenerated from api_version.ml.in by configure.ml during koji
+   build. *)
+
 let api_version_major = @APIVERMAJ@L
 
 let api_version_minor = @APIVERMIN@L

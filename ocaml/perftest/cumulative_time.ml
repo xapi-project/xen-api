@@ -80,7 +80,7 @@ let _ =
         all ;
       (* Plot a line for (a) elapsed time and (b) this particular duration *)
       let ls =
-        List.flatten
+        List.concat
           (List.mapi
              (fun i ((info, _floats), output) ->
                let graph_one_label =

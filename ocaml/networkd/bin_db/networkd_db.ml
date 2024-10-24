@@ -35,8 +35,7 @@ let _ =
       if List.mem_assoc !bridge config.bridge_config then (
         let bridge_config = List.assoc !bridge config.bridge_config in
         let ifaces =
-          List.flatten
-            (List.map (fun (_, port) -> port.interfaces) bridge_config.ports)
+          List.concat_map (fun (_, port) -> port.interfaces) bridge_config.ports
         in
         Printf.printf "interfaces=%s\n" (String.concat "," ifaces) ;
         match bridge_config.vlan with
@@ -58,16 +57,14 @@ let _ =
           | Static4 conf ->
               let mode = [("mode", "static")] in
               let addrs =
-                List.flatten
-                  (List.map
-                     (fun (ip, plen) ->
-                       [
-                         ("ipaddr", Unix.string_of_inet_addr ip)
-                       ; ("netmask", prefixlen_to_netmask plen)
-                       ]
-                     )
-                     conf
+                List.concat_map
+                  (fun (ip, plen) ->
+                    [
+                      ("ipaddr", Unix.string_of_inet_addr ip)
+                    ; ("netmask", prefixlen_to_netmask plen)
+                    ]
                   )
+                  conf
               in
               let gateway =
                 match interface_config.ipv4_gateway with
@@ -105,19 +102,15 @@ let _ =
           | Static6 conf ->
               let mode = [("modev6", "static")] in
               let addrs =
-                List.flatten
-                  (List.map
-                     (fun (ip, plen) ->
-                       [
-                         ( "ipv6addr"
-                         , Unix.string_of_inet_addr ip
-                           ^ "/"
-                           ^ string_of_int plen
-                         )
-                       ]
-                     )
-                     conf
+                List.concat_map
+                  (fun (ip, plen) ->
+                    [
+                      ( "ipv6addr"
+                      , Unix.string_of_inet_addr ip ^ "/" ^ string_of_int plen
+                      )
+                    ]
                   )
+                  conf
               in
               let gateway =
                 match interface_config.ipv6_gateway with

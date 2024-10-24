@@ -79,7 +79,7 @@ let credentials =
 let test_cache_similar_passwords () =
   let user = "user" in
   let password = "passwordpasswordpassword" in
-  let cache = Cache.create ~size:1 in
+  let cache = Cache.create ~size:1 ~ttl:Mtime.Span.(10 * s) in
   insert cache (user, password, "session") ;
   for len = String.length password - 1 downto 0 do
     let password' = String.sub password 0 len in
@@ -92,8 +92,8 @@ let test_cache_similar_passwords () =
    expiration time. *)
 let test_cache_expiration () =
   let expiry_seconds = 2 in
-  (Xapi_globs.external_authentication_expiry := Mtime.Span.(expiry_seconds * s)) ;
-  let cache = Cache.create ~size:100 in
+  let ttl = Mtime.Span.(expiry_seconds * s) in
+  let cache = Cache.create ~size:100 ~ttl in
   (* Cache all the credentials. *)
   CS.iter (insert cache) credentials ;
   (* Immediately check that all the values are cached. *)
@@ -112,17 +112,13 @@ let test_cache_expiration () =
    of cached entries. *)
 let test_cache_updates_duplicates () =
   let expiry_seconds = 1 in
-  (Xapi_globs.external_authentication_expiry := Mtime.Span.(expiry_seconds * s)) ;
+  let ttl = Mtime.Span.(expiry_seconds * s) in
   let count = CS.cardinal credentials in
-  let cache = Cache.create ~size:count in
+  let cache = Cache.create ~size:count ~ttl in
   let credentials = CS.to_seq credentials in
   Seq.iter (insert cache) credentials ;
   let is_even i = i mod 2 = 0 in
   (* Elements occurring at even indices will have their TTLs extended. *)
-  (Xapi_globs.external_authentication_expiry :=
-     let expiry_seconds' = 30 * expiry_seconds in
-     Mtime.Span.(expiry_seconds' * s)
-  ) ;
   Seq.iteri (fun i c -> if is_even i then insert cache c) credentials ;
   (* Delay for at least as long as the original TTL. *)
   Thread.delay (float_of_int expiry_seconds) ;
@@ -144,9 +140,9 @@ let test_cache_updates_duplicates () =
    By the end, the cache must have iteratively evicted each previous
    entry and should only contain elements of c'_1, c'_2, ..., c'_N. *)
 let test_cache_eviction () =
-  (Xapi_globs.external_authentication_expiry := Mtime.Span.(30 * s)) ;
+  let ttl = Mtime.Span.(30 * s) in
   let count = CS.cardinal credentials in
-  let cache = Cache.create ~size:count in
+  let cache = Cache.create ~size:count ~ttl in
   CS.iter (insert cache) credentials ;
   (* Augment each of the credentials *)
   let change = ( ^ ) "_different_" in

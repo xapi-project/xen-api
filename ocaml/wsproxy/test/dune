@@ -1,6 +1,6 @@
 (test
   (name wsproxy_tests)
   (modes exe)
-  (package wsproxy)
+  (package xapi-tools)
   (libraries alcotest qcheck-core wslib)
 )

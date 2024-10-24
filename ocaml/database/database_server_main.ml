@@ -80,9 +80,9 @@ let _ =
         let socket = Http_svr.bind sockaddr "unix_rpc" in
         let server = Http_svr.Server.empty () in
         Http_svr.Server.add_handler server Http.Post "/post_remote_db_access"
-          (Http_svr.BufIO remote_database_access_handler_v1) ;
+          remote_database_access_handler_v1 ;
         Http_svr.Server.add_handler server Http.Post "/post_remote_db_access_v2"
-          (Http_svr.BufIO remote_database_access_handler_v2) ;
+          remote_database_access_handler_v2 ;
         Http_svr.start ~conn_limit:1024 server socket ;
         Printf.printf "server listening\n%!" ;
         if !self_test then (

@@ -1,0 +1,1 @@
+d /dev/shm/metrics 0775 root rrdmetrics -

@@ -23,6 +23,21 @@
 )
 
 (library
+  (name rrdd_plugin_xenctrl)
+  (flags (:standard -bin-annot))
+  (wrapped false)
+  (modules xenctrl_lib)
+  (libraries
+    astring
+    xenctrl
+    ezxenstore.core
+    uuid
+    xapi-log
+    threads.posix
+  )
+)
+
+(library
   (name rrdd_plugin_local)
   (public_name rrdd-plugin.local)
   (flags (:standard -bin-annot))

@@ -114,7 +114,9 @@ let t =
     ~contents:
       ([
          uid _observer ~lifecycle:[]
-       ; namespace ~name:"name" ~contents:(names None RW) ()
+       ; namespace ~name:"name"
+           ~contents:(names None RW ~lifecycle:[(Published, rel_rio, "")])
+           ()
        ]
       @ [
           field ~qualifier:StaticRO ~ty:(Set (Ref _host)) ~lifecycle:[] "hosts"

@@ -139,42 +139,34 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
           match t.Param.name with
           | Some n ->
               inner
-                (List.flatten
-                   (List.map
-                      (fun marshalled ->
-                        match (marshalled, t.Param.typedef.Rpc.Types.ty) with
-                        | Rpc.Enum [], Rpc.Types.Option _ ->
-                            params
-                        | Rpc.Enum [x], Rpc.Types.Option _ ->
-                            List.map
-                              (fun (named, unnamed) ->
-                                ((n, x) :: named, unnamed)
-                              )
-                              params
-                        | _, _ ->
-                            List.map
-                              (fun (named, unnamed) ->
-                                ((n, marshalled) :: named, unnamed)
-                              )
-                              params
-                      )
-                      marshalled
+                (List.concat_map
+                   (fun marshalled ->
+                     match (marshalled, t.Param.typedef.Rpc.Types.ty) with
+                     | Rpc.Enum [], Rpc.Types.Option _ ->
+                         params
+                     | Rpc.Enum [x], Rpc.Types.Option _ ->
+                         List.map
+                           (fun (named, unnamed) -> ((n, x) :: named, unnamed))
+                           params
+                     | _, _ ->
+                         List.map
+                           (fun (named, unnamed) ->
+                             ((n, marshalled) :: named, unnamed)
+                           )
+                           params
                    )
+                   marshalled
                 )
                 f
           | None ->
               inner
-                (List.flatten
-                   (List.map
-                      (fun marshalled ->
-                        List.map
-                          (fun (named, unnamed) ->
-                            (named, marshalled :: unnamed)
-                          )
-                          params
-                      )
-                      marshalled
+                (List.concat_map
+                   (fun marshalled ->
+                     List.map
+                       (fun (named, unnamed) -> (named, marshalled :: unnamed))
+                       params
                    )
+                   marshalled
                 )
                 f
         )

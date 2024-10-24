@@ -35,30 +35,26 @@ let compute_object_references_to_follow (obj_name : string) =
   let objs = Dm_api.objects_of_api api in
   let obj = List.find (fun obj -> obj.Datamodel_types.name = obj_name) objs in
   let relations = Dm_api.relations_of_api api in
-  let symmetric =
-    List.concat (List.map (fun (a, b) -> [(a, b); (b, a)]) relations)
-  in
+  let symmetric = List.concat_map (fun (a, b) -> [(a, b); (b, a)]) relations in
   let set = Xapi_stdext_std.Listext.List.setify symmetric in
-  List.concat
-    (List.map
-       (function
-         | {
-             Datamodel_types.ty= Datamodel_types.Ref _
-           ; Datamodel_types.field_name
-           ; _
-           } ->
-             let this_end = (obj.Datamodel_types.name, field_name) in
-             if List.mem_assoc this_end set then
-               let other_end = List.assoc this_end set in
-               let other_obj = fst other_end in
-               [(other_obj, field_name)]
-             else
-               []
-         | _ ->
-             []
-         )
-       (Datamodel_utils.fields_of_obj obj)
-    )
+  List.concat_map
+    (function
+      | {
+          Datamodel_types.ty= Datamodel_types.Ref _
+        ; Datamodel_types.field_name
+        ; _
+        } ->
+          let this_end = (obj.Datamodel_types.name, field_name) in
+          if List.mem_assoc this_end set then
+            let other_end = List.assoc this_end set in
+            let other_obj = fst other_end in
+            [(other_obj, field_name)]
+          else
+            []
+      | _ ->
+          []
+      )
+    (Datamodel_utils.fields_of_obj obj)
 
 let obj_references_table : (string, (string * string) list) Hashtbl.t =
   Hashtbl.create 30
@@ -79,17 +75,15 @@ let follow_references (obj_name : string) =
 (** Compute a set of modify events but skip any for objects which were missing
     (must have been dangling references) *)
 let events_of_other_tbl_refs other_tbl_refs =
-  List.concat
-    (List.map
-       (fun (tbl, fld, x) ->
-         try [(tbl, fld, x ())]
-         with _ ->
-           (* Probably means the reference was dangling *)
-           warn "skipping event for dangling reference %s: %s" tbl fld ;
-           []
-       )
-       other_tbl_refs
+  List.concat_map
+    (fun (tbl, fld, x) ->
+      try [(tbl, fld, x ())]
+      with _ ->
+        (* Probably means the reference was dangling *)
+        warn "skipping event for dangling reference %s: %s" tbl fld ;
+        []
     )
+    other_tbl_refs
 
 open Xapi_database.Db_cache_types
 open Xapi_database.Db_action_helper

@@ -36,12 +36,13 @@ let gc_stats ~__context ~host:_ =
 
 let db_stats ~__context =
   (* Use Printf.sprintf to keep format *)
-  let n, avgtime, min, max = Xapi_database.Db_lock.report () in
+  let open Xapi_database in
+  let Db_lock.{count; avg_time; min_time; max_time} = Db_lock.report () in
   [
-    ("n", Printf.sprintf "%d" n)
-  ; ("avgtime", Printf.sprintf "%f" avgtime)
-  ; ("min", Printf.sprintf "%f" min)
-  ; ("max", Printf.sprintf "%f" max)
+    ("n", Printf.sprintf "%d" count)
+  ; ("avgtime", Printf.sprintf "%f" avg_time)
+  ; ("min", Printf.sprintf "%f" min_time)
+  ; ("max", Printf.sprintf "%f" max_time)
   ]
 
 let network_stats ~__context ~host:_ ~params =

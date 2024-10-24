@@ -4,12 +4,15 @@ open Safe_resources
 
 let user_agent = "test_client"
 
-(* To do:
-   1. test with and without SSL
-   2. test with n parallel threads
-   3. make sure xapi still works
-   4. make xapi able to read stats
-*)
+let ip = ref "127.0.0.1"
+
+let port = ref 8080
+
+let use_ssl = ref false
+
+let use_fastpath = ref false
+
+let use_framing = ref false
 
 let with_connection ip port f =
   let inet_addr = Unix.inet_addr_of_string ip in
@@ -108,12 +111,91 @@ let sample n f =
   done ;
   !p
 
-let _ =
-  let ip = ref "127.0.0.1" in
-  let port = ref 8080 in
-  let use_ssl = ref false in
-  let use_fastpath = ref false in
-  let use_framing = ref false in
+let ( let@ ) f x = f x
+
+let perf () =
+  let use_fastpath = !use_fastpath in
+  let use_framing = !use_framing in
+  let transport = if !use_ssl then with_stunnel else with_connection in
+  Printf.printf "1 thread non-persistent connections:         " ;
+  let nonpersistent =
+    let@ () = sample 10 in
+    let@ () = per_nsec 0.1 in
+    transport !ip !port (one ~use_fastpath ~use_framing false)
+  in
+  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent) ;
+  Printf.printf "1 thread non-persistent connections (query): " ;
+  let nonpersistent_query =
+    let@ () = sample 10 in
+    let@ () = per_nsec 0.1 in
+    transport !ip !port (query ~use_fastpath ~use_framing false)
+  in
+  Printf.printf "%s RPCs/sec\n%!"
+    (Normal_population.to_string nonpersistent_query) ;
+  Printf.printf "10 threads non-persistent connections:       " ;
+  let thread_nonpersistent =
+    let@ () = sample 10 in
+    let@ () = threads 10 in
+    let@ () = per_nsec 0.1 in
+    transport !ip !port (one ~use_fastpath ~use_framing false)
+  in
+  Printf.printf "%s RPCs/sec\n%!"
+    (Normal_population.to_string thread_nonpersistent) ;
+  Printf.printf "1 thread persistent connection:              " ;
+  let persistent =
+    let@ () = sample 10 in
+    let@ s = transport !ip !port in
+    let@ () = per_nsec 0.1 in
+    one ~use_fastpath ~use_framing true s
+  in
+  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string persistent) ;
+  Printf.printf "10 threads persistent connections:           " ;
+  let thread_persistent =
+    let@ () = sample 10 in
+    let@ () = threads 10 in
+    let@ s = transport !ip !port in
+    let@ () = per_nsec 0.1 in
+    one ~use_fastpath ~use_framing true s
+  in
+  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent)
+
+let send_close_conn ~use_fastpath ~use_framing keep_alive s =
+  try
+    Http_client.rpc ~use_fastpath s
+      (Http.Request.make ~frame:use_framing ~version:"1.1" ~keep_alive
+         ~user_agent ~body:"hello" Http.Get "/close_conn"
+      ) (fun response s ->
+        match response.Http.Response.content_length with
+        | Some l ->
+            let _ = Unixext.really_read_string s (Int64.to_int l) in
+            Printf.printf "Received a response with %Ld bytes.\n" l ;
+            exit 1
+        | None ->
+            Printf.printf "Need a content length\n" ;
+            exit 1
+    )
+  with Unix.Unix_error (Unix.ECONNRESET, "read", "") as e ->
+    Backtrace.is_important e ;
+    let bt = Backtrace.get e in
+    Debug.log_backtrace e bt
+
+let logerr () =
+  (* Send a request to the server to close connection instead of replying with
+     an http request, force the error to be logged *)
+  Printexc.record_backtrace true ;
+  Debug.log_to_stdout () ;
+  Debug.set_level Syslog.Debug ;
+  let use_fastpath = !use_fastpath in
+  let use_framing = !use_framing in
+  let transport = if !use_ssl then with_stunnel else with_connection in
+  let call () =
+    let@ () = Backtrace.with_backtraces in
+    let@ s = transport !ip !port in
+    send_close_conn ~use_fastpath ~use_framing false s
+  in
+  match call () with `Ok () -> () | `Error (_, _) -> ()
+
+let () =
   Arg.parse
     [
       ("-ip", Arg.Set_string ip, "IP to connect to")
@@ -121,65 +203,8 @@ let _ =
     ; ("-fast", Arg.Set use_fastpath, "use HTTP fastpath")
     ; ("-frame", Arg.Set use_framing, "use HTTP framing")
     ; ("--ssl", Arg.Set use_ssl, "use SSL rather than plaintext")
+    ; ("--perf", Arg.Unit perf, "Collect performance stats")
+    ; ("--logerr", Arg.Unit logerr, "Test log on error")
     ]
     (fun x -> Printf.fprintf stderr "Ignoring unexpected argument: %s\n" x)
-    "A simple test HTTP client" ;
-  let use_fastpath = !use_fastpath in
-  let use_framing = !use_framing in
-  let transport = if !use_ssl then with_stunnel else with_connection in
-  (*
-	Printf.printf "Overhead of timing:                ";
-	let overhead = sample 10 (fun () -> per_nsec 1. (fun () -> ())) in
-	Printf.printf "%s ops/sec\n" (Normal_population.to_string overhead);
-*)
-  Printf.printf "1 thread non-persistent connections:        " ;
-  let nonpersistent =
-    sample 1 (fun () ->
-        per_nsec 1. (fun () ->
-            transport !ip !port (one ~use_fastpath ~use_framing false)
-        )
-    )
-  in
-  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string nonpersistent) ;
-  Printf.printf "1 thread non-persistent connections (query):        " ;
-  let nonpersistent_query =
-    sample 1 (fun () ->
-        per_nsec 1. (fun () ->
-            transport !ip !port (query ~use_fastpath ~use_framing false)
-        )
-    )
-  in
-  Printf.printf "%s RPCs/sec\n%!"
-    (Normal_population.to_string nonpersistent_query) ;
-  Printf.printf "10 threads non-persistent connections: " ;
-  let thread_nonpersistent =
-    sample 1 (fun () ->
-        threads 10 (fun () ->
-            per_nsec 5. (fun () ->
-                transport !ip !port (one ~use_fastpath ~use_framing false)
-            )
-        )
-    )
-  in
-  Printf.printf "%s RPCs/sec\n%!"
-    (Normal_population.to_string thread_nonpersistent) ;
-  Printf.printf "1 thread persistent connection:             " ;
-  let persistent =
-    sample 1 (fun () ->
-        transport !ip !port (fun s ->
-            per_nsec 1. (fun () -> one ~use_fastpath ~use_framing true s)
-        )
-    )
-  in
-  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string persistent) ;
-  Printf.printf "10 threads persistent connections: " ;
-  let thread_persistent =
-    sample 1 (fun () ->
-        threads 10 (fun () ->
-            transport !ip !port (fun s ->
-                per_nsec 5. (fun () -> one ~use_fastpath ~use_framing true s)
-            )
-        )
-    )
-  in
-  Printf.printf "%s RPCs/sec\n%!" (Normal_population.to_string thread_persistent)
+    "A simple test HTTP client"

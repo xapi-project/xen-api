@@ -37,13 +37,7 @@ let check_domain0_uuid () =
     ]
   in
   let open Ezxenstore_core.Xenstore in
-  with_xs (fun xs -> List.iter (fun (k, v) -> xs.Xs.write k v) kvs) ;
-  if !Xcp_service.daemon then
-    (* before daemonizing we need to forget the xenstore client because the
-       background thread will be gone after the fork().
-       Note that this leaks a thread.
-    *)
-    forget_client ()
+  with_xs (fun xs -> List.iter (fun (k, v) -> xs.Xs.write k v) kvs)
 
 let make_var_run_xen () =
   Xapi_stdext_unix.Unixext.mkdir_rec Device_common.var_run_xen_path 0o0755

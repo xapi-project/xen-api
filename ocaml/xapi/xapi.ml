@@ -180,7 +180,7 @@ let init_args () =
     Xapi_globs.xenopsd_queues := ["xenopsd"]
   )
 
-let wait_to_die () =
+let wait_to_die () : unit =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
      the OCAML-level signal handlers ever getting called... Thread.delay is fine tho' *)
   while true do
@@ -786,86 +786,69 @@ let startup_script () =
 let master_only_http_handlers =
   [
     (* CA-26044: don't let people DoS random slaves *)
-    ("post_remote_db_access", Http_svr.BufIO remote_database_access_handler)
-  ; ( "post_remote_db_access_v2"
-    , Http_svr.BufIO remote_database_access_handler_v2
-    )
-  ; ("get_repository", Http_svr.FdIO Repository.get_repository_handler)
-  ; ("get_updates", Http_svr.FdIO Xapi_pool.get_updates_handler)
+    ("post_remote_db_access", remote_database_access_handler)
+  ; ("post_remote_db_access_v2", remote_database_access_handler_v2)
+  ; ("get_repository", Repository.get_repository_handler)
+  ; ("get_updates", Xapi_pool.get_updates_handler)
   ]
 
 let common_http_handlers () =
   let handlers =
     [
-      ("get_services_xenops", Http_svr.FdIO Xapi_services.get_handler)
-    ; ("put_services_xenops", Http_svr.FdIO Xapi_services.put_handler)
-    ; ("post_services_xenops", Http_svr.FdIO Xapi_services.post_handler)
-    ; ("get_services_sm", Http_svr.FdIO Xapi_services.get_handler)
-    ; ("put_services_sm", Http_svr.FdIO Xapi_services.put_handler)
-    ; ("post_services_sm", Http_svr.FdIO Xapi_services.post_handler)
-    ; ("get_services", Http_svr.FdIO Xapi_services.get_handler)
-    ; ("post_services", Http_svr.FdIO Xapi_services.post_handler)
-    ; ("put_services", Http_svr.FdIO Xapi_services.put_handler)
-    ; ("put_import", Http_svr.FdIO Import.handler)
-    ; ("put_import_metadata", Http_svr.FdIO Import.metadata_handler)
-    ; ("put_import_raw_vdi", Http_svr.FdIO Import_raw_vdi.handler)
-    ; ("get_export", Http_svr.FdIO Export.handler)
-    ; ("get_export_metadata", Http_svr.FdIO Export.metadata_handler)
-    ; ("get_export_raw_vdi", Http_svr.FdIO Export_raw_vdi.handler)
-    ; ("connect_console", Http_svr.FdIO (Console.handler Console.real_proxy))
-    ; ("connect_console_ws", Http_svr.FdIO (Console.handler Console.ws_proxy))
-    ; ("post_cli", Http_svr.BufIO Xapi_cli.handler)
-    ; ("get_host_backup", Http_svr.FdIO Xapi_host_backup.host_backup_handler)
-    ; ("put_host_restore", Http_svr.FdIO Xapi_host_backup.host_restore_handler)
-    ; ( "get_host_logs_download"
-      , Http_svr.FdIO Xapi_logs_download.logs_download_handler
-      )
-    ; ( "put_pool_patch_upload"
-      , Http_svr.FdIO Xapi_pool_patch.pool_patch_upload_handler
-      )
-    ; ("get_vncsnapshot", Http_svr.FdIO Xapi_vncsnapshot.vncsnapshot_handler)
-    ; ( "get_pool_xml_db_sync"
-      , Http_svr.FdIO Pool_db_backup.pull_database_backup_handler
-      )
-    ; ( "put_pool_xml_db_sync"
-      , Http_svr.FdIO Pool_db_backup.push_database_restore_handler
-      )
-    ; ( "get_config_sync"
-      , Http_svr.FdIO Config_file_sync.config_file_sync_handler
-      )
-    ; ("get_system_status", Http_svr.FdIO System_status.handler)
-    ; (Constants.get_vm_rrd, Http_svr.FdIO Rrdd_proxy.get_vm_rrd_forwarder)
-    ; (Constants.get_host_rrd, Http_svr.FdIO Rrdd_proxy.get_host_rrd_forwarder)
-    ; (Constants.get_sr_rrd, Http_svr.FdIO Rrdd_proxy.get_sr_rrd_forwarder)
-    ; ( Constants.get_rrd_updates
-      , Http_svr.FdIO Rrdd_proxy.get_rrd_updates_forwarder
-      )
-    ; (Constants.put_rrd, Http_svr.FdIO Rrdd_proxy.put_rrd_forwarder)
-    ; ("get_blob", Http_svr.FdIO Xapi_blob.handler)
-    ; ("put_blob", Http_svr.FdIO Xapi_blob.handler)
-    ; ("put_messages", Http_svr.FdIO Xapi_message.handler)
-    ; ("connect_remotecmd", Http_svr.FdIO Xapi_remotecmd.handler)
-    ; ("get_wlb_report", Http_svr.BufIO Wlb_reports.report_handler)
-    ; ("get_wlb_diagnostics", Http_svr.BufIO Wlb_reports.diagnostics_handler)
-    ; ("get_audit_log", Http_svr.BufIO Audit_log.handler)
-    ; ("post_root", Http_svr.BufIO (Api_server.callback false))
-    ; ("post_json", Http_svr.BufIO (Api_server.callback true))
-    ; ("post_jsonrpc", Http_svr.BufIO Api_server.jsoncallback)
-    ; ("post_root_options", Http_svr.BufIO Api_server.options_callback)
-    ; ("post_json_options", Http_svr.BufIO Api_server.options_callback)
-    ; ("post_jsonrpc_options", Http_svr.BufIO Api_server.options_callback)
-    ; ( "get_pool_update_download"
-      , Http_svr.FdIO Xapi_pool_update.pool_update_download_handler
-      )
-    ; ("get_host_updates", Http_svr.FdIO Xapi_host.get_host_updates_handler)
-    ; ("put_bundle", Http_svr.FdIO Xapi_pool.put_bundle_handler)
+      ("get_services_xenops", Xapi_services.get_handler)
+    ; ("put_services_xenops", Xapi_services.put_handler)
+    ; ("post_services_xenops", Xapi_services.post_handler)
+    ; ("get_services_sm", Xapi_services.get_handler)
+    ; ("put_services_sm", Xapi_services.put_handler)
+    ; ("post_services_sm", Xapi_services.post_handler)
+    ; ("get_services", Xapi_services.get_handler)
+    ; ("post_services", Xapi_services.post_handler)
+    ; ("put_services", Xapi_services.put_handler)
+    ; ("put_import", Import.handler)
+    ; ("put_import_metadata", Import.metadata_handler)
+    ; ("put_import_raw_vdi", Import_raw_vdi.handler)
+    ; ("get_export", Export.handler)
+    ; ("get_export_metadata", Export.metadata_handler)
+    ; ("get_export_raw_vdi", Export_raw_vdi.handler)
+    ; ("connect_console", Console.handler Console.real_proxy)
+    ; ("connect_console_ws", Console.handler Console.ws_proxy)
+    ; ("post_cli", Xapi_cli.handler)
+    ; ("get_host_backup", Xapi_host_backup.host_backup_handler)
+    ; ("put_host_restore", Xapi_host_backup.host_restore_handler)
+    ; ("get_host_logs_download", Xapi_logs_download.logs_download_handler)
+    ; ("put_pool_patch_upload", Xapi_pool_patch.pool_patch_upload_handler)
+    ; ("get_vncsnapshot", Xapi_vncsnapshot.vncsnapshot_handler)
+    ; ("get_pool_xml_db_sync", Pool_db_backup.pull_database_backup_handler)
+    ; ("put_pool_xml_db_sync", Pool_db_backup.push_database_restore_handler)
+    ; ("get_config_sync", Config_file_sync.config_file_sync_handler)
+    ; ("get_system_status", System_status.handler)
+    ; (Constants.get_vm_rrd, Rrdd_proxy.get_vm_rrd_forwarder)
+    ; (Constants.get_host_rrd, Rrdd_proxy.get_host_rrd_forwarder)
+    ; (Constants.get_sr_rrd, Rrdd_proxy.get_sr_rrd_forwarder)
+    ; (Constants.get_rrd_updates, Rrdd_proxy.get_rrd_updates_forwarder)
+    ; (Constants.put_rrd, Rrdd_proxy.put_rrd_forwarder)
+    ; ("get_blob", Xapi_blob.handler)
+    ; ("put_blob", Xapi_blob.handler)
+    ; ("put_messages", Xapi_message.handler)
+    ; ("connect_remotecmd", Xapi_remotecmd.handler)
+    ; ("get_wlb_report", Wlb_reports.report_handler)
+    ; ("get_wlb_diagnostics", Wlb_reports.diagnostics_handler)
+    ; ("get_audit_log", Audit_log.handler)
+    ; ("post_root", Api_server.callback false)
+    ; ("post_json", Api_server.callback true)
+    ; ("post_jsonrpc", Api_server.jsoncallback)
+    ; ("post_root_options", Api_server.options_callback)
+    ; ("post_json_options", Api_server.options_callback)
+    ; ("post_jsonrpc_options", Api_server.options_callback)
+    ; ("get_pool_update_download", Xapi_pool_update.pool_update_download_handler)
+    ; ("get_host_updates", Xapi_host.get_host_updates_handler)
+    ; ("put_bundle", Xapi_pool.put_bundle_handler)
     ]
   in
   if !Xapi_globs.disable_webserver then
     handlers
   else
-    ("get_root", Http_svr.BufIO (Fileserver.send_file "/" !Xapi_globs.web_dir))
-    :: handlers
+    ("get_root", Fileserver.send_file "/" !Xapi_globs.web_dir) :: handlers
 
 let listen_unix_socket sock_path =
   (* Always listen on the Unix domain socket first *)

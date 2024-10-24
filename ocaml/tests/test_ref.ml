@@ -3,13 +3,14 @@
 
 let uuidm =
   Crowbar.(
-    map [bytes_fixed 16] @@ fun b -> b |> Uuidm.of_bytes ~pos:0 |> Option.get
+    map [bytes_fixed 16] @@ fun b ->
+    b |> Uuidm.of_binary_string ~pos:0 |> Option.get
   )
 
 let ref_of_uuidm uuidm =
   Ref.ref_prefix ^ (uuidm |> Uuidm.to_string) |> Ref.of_string
 
-type arg
+type arg = [`Generic]
 
 type t = arg Ref.t
 

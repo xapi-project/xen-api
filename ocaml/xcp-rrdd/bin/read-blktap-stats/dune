@@ -1,11 +1,12 @@
 (executable
   (modes exe)
   (name read_blktap_stats)
-  (package rrdd-plugins)
-  (public_name xcp-rrdd-read-blktap-stats)
+; not expected by the specfile
+;  (package xapi)
+;  (public_name xcp-rrdd-read-blktap-stats)
   (libraries
     cstruct
-    rrdd-plugins.libs
+    rrdd_plugins_libs
     unix
   )
 )

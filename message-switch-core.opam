@@ -16,6 +16,8 @@ depends: [
   "ppx_sexp_conv"
   "rpclib"
   "sexplib"
+  "sexplib0"
+  "uri"
   "xapi-log" {= version}
   "xapi-stdext-threads" {= version}
   "odoc" {with-doc}

@@ -248,7 +248,8 @@ val install_ca_certificate :
 
 val certificate_uninstall : __context:Context.t -> name:string -> unit
 
-val uninstall_ca_certificate : __context:Context.t -> name:string -> unit
+val uninstall_ca_certificate :
+  __context:Context.t -> name:string -> force:bool -> unit
 
 val certificate_list : __context:Context.t -> string list
 
@@ -416,6 +417,15 @@ val set_local_auth_max_threads :
   __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
 
 val set_ext_auth_max_threads :
+  __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
+
+val set_ext_auth_cache_enabled :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit
+
+val set_ext_auth_cache_size :
+  __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
+
+val set_ext_auth_cache_expiry :
   __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
 
 val get_guest_secureboot_readiness :

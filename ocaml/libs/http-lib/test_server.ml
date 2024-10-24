@@ -16,70 +16,63 @@ let _ =
     "A simple test HTTP server" ;
   let open Http_svr in
   let server = Server.empty () in
-  Server.add_handler server Http.Get "/stop"
-    (FdIO
-       (fun _ s _ ->
-         let r = Http.Response.to_wire_string (Http.Response.make "200" "OK") in
-         Unixext.really_write_string s r ;
-         with_lock finished_m (fun () ->
-             finished := true ;
-             Condition.signal finished_c
-         )
-       )
-    ) ;
-  Server.add_handler server Http.Post "/echo"
-    (FdIO
-       (fun request s _ ->
-         match request.Http.Request.content_length with
-         | None ->
-             Unixext.really_write_string s
-               (Http.Response.to_wire_string
-                  (Http.Response.make "404" "content length missing")
-               )
-         | Some l ->
-             let txt = Unixext.really_read_string s (Int64.to_int l) in
-             let r =
-               Http.Response.to_wire_string
-                 (Http.Response.make ~body:txt "200" "OK")
-             in
-             Unixext.really_write_string s r
-       )
-    ) ;
-  Server.add_handler server Http.Get "/stats"
-    (FdIO
-       (fun _ s _ ->
-         let lines =
-           List.map
-             (fun (m, uri, s) ->
-               Printf.sprintf "%s,%s,%d,%d\n"
-                 (Http.string_of_method_t m)
-                 uri s.Http_svr.Stats.n_requests s.Http_svr.Stats.n_connections
-             )
-             (Server.all_stats server)
-         in
-         let txt = String.concat "" lines in
-         let r =
-           Http.Response.to_wire_string (Http.Response.make ~body:txt "200" "OK")
-         in
-         Unixext.really_write_string s r
-       )
-    ) ;
-  Server.add_handler server Http.Get "/query"
-    (FdIO
-       (fun request s _ ->
-         match request.Http.Request.query with
-         | (_, v) :: _ ->
-             Unixext.really_write_string s
-               (Http.Response.to_wire_string
-                  (Http.Response.make ~body:v "200" "OK")
-               )
-         | _ ->
-             Unixext.really_write_string s
-               (Http.Response.to_wire_string
-                  (Http.Response.make "404" "Query string missing")
-               )
-       )
-    ) ;
+  Server.add_handler server Http.Get "/stop" (fun _ s _ ->
+      let r = Http.Response.to_wire_string (Http.Response.make "200" "OK") in
+      Unixext.really_write_string s r ;
+      with_lock finished_m (fun () ->
+          finished := true ;
+          Condition.signal finished_c
+      )
+  ) ;
+  Server.add_handler server Http.Post "/echo" (fun request s _ ->
+      match request.Http.Request.content_length with
+      | None ->
+          Unixext.really_write_string s
+            (Http.Response.to_wire_string
+               (Http.Response.make "404" "content length missing")
+            )
+      | Some l ->
+          let txt = Unixext.really_read_string s (Int64.to_int l) in
+          let r =
+            Http.Response.to_wire_string
+              (Http.Response.make ~body:txt "200" "OK")
+          in
+          Unixext.really_write_string s r
+  ) ;
+  Server.add_handler server Http.Get "/stats" (fun _ s _ ->
+      let lines =
+        List.map
+          (fun (m, uri, s) ->
+            Printf.sprintf "%s,%s,%d,%d\n"
+              (Http.string_of_method_t m)
+              uri s.Http_svr.Stats.n_requests s.Http_svr.Stats.n_connections
+          )
+          (Server.all_stats server)
+      in
+      let txt = String.concat "" lines in
+      let r =
+        Http.Response.to_wire_string (Http.Response.make ~body:txt "200" "OK")
+      in
+      Unixext.really_write_string s r
+  ) ;
+  Server.add_handler server Http.Get "/query" (fun request s _ ->
+      match request.Http.Request.query with
+      | (_, v) :: _ ->
+          Unixext.really_write_string s
+            (Http.Response.to_wire_string
+               (Http.Response.make ~body:v "200" "OK")
+            )
+      | _ ->
+          Unixext.really_write_string s
+            (Http.Response.to_wire_string
+               (Http.Response.make "404" "Query string missing")
+            )
+  ) ;
+  (* Forces a protocol error by closing the connection without sending a
+      proper http reponse code *)
+  Server.add_handler server Http.Get "/close_conn" (fun _ _ _ ->
+      raise End_of_file
+  ) ;
   let ip = "0.0.0.0" in
   let inet_addr = Unix.inet_addr_of_string ip in
   let addr = Unix.ADDR_INET (inet_addr, !port) in

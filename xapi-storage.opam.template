@@ -10,11 +10,13 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "conf-python-3"
   "alcotest" {with-test}
   "lwt" {with-test}
   "rpclib" {with-test}
+  "result"
+  "rresult"
   "ppx_deriving_rpc"
   "rpclib"
   "xmlm"

@@ -18,7 +18,7 @@ LOCKFILE='/dev/shm/xe_toolstack_restart.lock'
 
 (
 flock -x -n 200
-if [ "$?" != 0 ]; then 
+if [ "$?" != 0 ]; then
 	echo "Exiting: cannot lock $LOCKFILE. Is an instance of $0 running already?"
 	exit 1
 fi
@@ -29,6 +29,7 @@ POOLCONF=`cat @ETCXENDIR@/pool.conf`
 if [ $POOLCONF == "master" ]; then MPATHALERT="mpathalert"; else MPATHALERT=""; fi
 SERVICES="message-switch perfmon v6d xenopsd xenopsd-xc xenopsd-xenlight
   xenopsd-simulator xenopsd-libvirt xcp-rrdd-iostat xcp-rrdd-squeezed
+  xcp-rrdd-netdev xcp-rrdd-cpu
   xcp-rrdd-xenpm xcp-rrdd-gpumon xcp-rrdd xcp-networkd squeezed forkexecd
   $MPATHALERT xapi-storage-script xapi-clusterd varstored-guard"
 

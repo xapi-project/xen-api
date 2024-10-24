@@ -5,6 +5,6 @@
 
 (rule
   (alias runtest)
-  (package xapi)
+  (package xapi-tools)
   (deps test-xs-trace.sh ../xs_trace.exe test-source.json test-source.ndjson test_xs_trace.exe)
   (action (run bash test-xs-trace.sh)))

@@ -290,7 +290,7 @@ val install_ca_certificate :
   __context:Context.t -> host:API.ref_host -> name:string -> cert:string -> unit
 
 val uninstall_ca_certificate :
-  __context:Context.t -> host:API.ref_host -> name:string -> unit
+  __context:Context.t -> host:API.ref_host -> name:string -> force:bool -> unit
 
 val certificate_list : __context:'a -> host:'b -> string list
 

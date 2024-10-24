@@ -76,7 +76,7 @@ let get_active_vdis_by_pbd ~__context ~self =
     Db.VM.get_records_where ~__context
       ~expr:(Eq (Field "resident_on", Literal (Ref.string_of host)))
   in
-  let vbds = List.flatten (List.map (fun (_, vmr) -> vmr.API.vM_VBDs) vms) in
+  let vbds = List.concat_map (fun (_, vmr) -> vmr.API.vM_VBDs) vms in
   let vbds_r =
     List.map (fun self -> Db.VBD.get_record_internal ~__context ~self) vbds
   in

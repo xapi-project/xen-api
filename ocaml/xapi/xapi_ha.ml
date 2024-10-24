@@ -130,7 +130,7 @@ let uuid_of_host_address address =
 let on_master_failure () =
   (* The plan is: keep asking if I should be the master. If I'm rejected then query the
      live set and see if someone else has been marked as master, if so become a slave of them. *)
-  let become_master () =
+  let become_master () : unit =
     info "This node will become the master" ;
     Xapi_pool_transition.become_master () ;
     info "Waiting for server restart" ;

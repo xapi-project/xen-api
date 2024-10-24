@@ -32,6 +32,7 @@ let string_of_file filename =
     ~finally:(fun () -> close_in in_channel)
 
 let with_output filename f =
+  Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname filename) 0o755 ;
   let io = open_out filename in
   Fun.protect (fun () -> f io) ~finally:(fun () -> close_out io)
 
@@ -264,6 +265,7 @@ and get_published_info_field field cls =
 and render_template template_file json output_file =
   let templ = string_of_file template_file |> Mustache.of_string in
   let rendered = Mustache.render templ json in
+  Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname output_file) 0o755 ;
   let out_chan = open_out output_file in
   Fun.protect
     (fun () -> output_string out_chan rendered)
@@ -272,6 +274,7 @@ and render_template template_file json output_file =
 let render_file (infile, outfile) json templates_dir dest_dir =
   let input_path = Filename.concat templates_dir infile in
   let output_path = Filename.concat dest_dir outfile in
+  Xapi_stdext_unix.Unixext.mkdir_rec (Filename.dirname output_path) 0o755 ;
   render_template input_path json output_path
 
 let json_releases =

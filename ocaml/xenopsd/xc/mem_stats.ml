@@ -291,7 +291,8 @@ let observe_stats l =
           | Rrd.VT_Unknown ->
               nan
         in
-        ds.Ds.ds_pdp_transform_function f |> Printf.sprintf "%.0f"
+        Rrd.apply_transform_function ds.Ds.ds_pdp_transform_function f
+        |> Printf.sprintf "%.0f"
     )
   in
   D.debug "stats header: %s" (String.concat "," names) ;

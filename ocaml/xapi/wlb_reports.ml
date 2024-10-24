@@ -144,9 +144,8 @@ let trim_and_send method_name tag recv_sock send_sock =
     Workload_balancing.raise_malformed_response' method_name
       "Expected data is truncated." s
 
-let handle req bio _method_name tag (method_name, request_func) =
-  let client_sock = Buf_io.fd_of bio in
-  Buf_io.assert_buffer_empty bio ;
+let handle req fd _method_name tag (method_name, request_func) =
+  let client_sock = fd in
   debug "handle: fd = %d"
     (Xapi_stdext_unix.Unixext.int_of_file_descr client_sock) ;
   req.Request.close <- true ;
@@ -171,7 +170,7 @@ let handle req bio _method_name tag (method_name, request_func) =
 (* GET /wlb_report?session_id=<session>&task_id=<task>&
                    report=<report name>&<param1>=<value1>&...
 *)
-let report_handler (req : Request.t) (bio : Buf_io.t) _ =
+let report_handler (req : Request.t) (fd : Unix.file_descr) _ =
   if not (List.mem_assoc "report" req.Request.query) then (
     error "Request for WLB report lacked 'report' parameter" ;
     failwith "Bad request"
@@ -182,10 +181,10 @@ let report_handler (req : Request.t) (bio : Buf_io.t) _ =
       (fun (k, _) -> not (List.mem k ["session_id"; "task_id"; "report"]))
       req.Request.query
   in
-  handle req bio "ExecuteReport" report_tag
+  handle req fd "ExecuteReport" report_tag
     (Workload_balancing.wlb_report_request report params)
 
 (* GET /wlb_diagnostics?session_id=<session>&task_id=<task> *)
-let diagnostics_handler (req : Request.t) (bio : Buf_io.t) _ =
-  handle req bio "GetDiagnostics" diagnostics_tag
+let diagnostics_handler (req : Request.t) (fd : Unix.file_descr) _ =
+  handle req fd "GetDiagnostics" diagnostics_tag
     Workload_balancing.wlb_diagnostics_request

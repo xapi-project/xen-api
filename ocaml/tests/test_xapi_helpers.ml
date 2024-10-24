@@ -40,6 +40,15 @@ let filtering_test =
     )
     strings
 
+let test_xapi_configure () =
+  Xcp_service.configure
+    ~argv:[|Sys.argv.(0)|]
+    ~options:Xapi_globs.all_options ()
+
 let () =
   Suite_init.harness_init () ;
-  Alcotest.run "Test XAPI Helpers suite" [("Test_xapi_helpers", filtering_test)]
+  Alcotest.run "Test XAPI Helpers suite"
+    [
+      ("Test_xapi_helpers", filtering_test)
+    ; ("Test_xapi_configure", [("configure", `Quick, test_xapi_configure)])
+    ]

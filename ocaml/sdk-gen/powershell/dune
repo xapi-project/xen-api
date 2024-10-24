@@ -12,11 +12,27 @@
 
 (rule
   (alias generate)
+  (targets (dir autogen-out))
   (deps
     (:x gen_powershell_binding.exe)
     (source_tree templates)
+    (:sh ../windows-line-endings.sh)
+    (source_tree autogen)
   )
-  (action (run %{x}))
+  (action
+    (progn
+      (concurrent
+        (bash "cp -r autogen/ autogen-out/")
+        (run %{x})
+      )
+      (bash "rm autogen-out/.gitignore")
+      (bash "%{sh} autogen-out/")
+    ))
 )
 
 (data_only_dirs templates)
+(install
+	(package xapi-sdk)
+	(section share_root)
+    (dirs (autogen-out as powershell))
+)

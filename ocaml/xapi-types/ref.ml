@@ -12,6 +12,16 @@
  * GNU Lesser General Public License for more details.
  *)
 
+type without_secret = Uuidx.without_secret
+
+type not_secret =
+  [ without_secret
+  | `session of [`use_make_secret_or_ref_of_secret_string_instead] ]
+
+type secret = Uuidx.secret
+
+type all = Uuidx.all
+
 type 'a t =
   | Real of string
   (* ref to an object in the database *)
@@ -20,6 +30,7 @@ type 'a t =
   | Other of string
   (* ref used for other purposes (it doesn't have one of the official prefixes) *)
   | Null
+  constraint 'a = [< all]
 
 (* ref to nothing at all *)
 
@@ -35,6 +46,10 @@ let ref_null = ref_prefix ^ "NULL"
 
 let make () =
   let uuid = Uuidx.(to_string (make ())) in
+  Real uuid
+
+let make_secret () =
+  let uuid = Uuidx.(to_string (make_uuid_urnd ())) in
   Real uuid
 
 let null = Null
@@ -102,6 +117,8 @@ let of_string x =
   else
     Other x
 
+let of_secret_string = of_string
+
 let to_option = function Null -> None | ref -> Some ref
 
 let name_of_dummy = function
@@ -138,3 +155,7 @@ let really_pretty_and_small x =
       "NULL"
 
 let pp ppf x = Format.fprintf ppf "%s" (string_of x)
+
+let rpc_of_t _ x = Rpc.rpc_of_string (string_of x)
+
+let t_of_rpc _ x = of_string (Rpc.string_of_rpc x)

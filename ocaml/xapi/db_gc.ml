@@ -91,8 +91,12 @@ let check_host_liveness ~__context =
               | Some x ->
                   x
               | None ->
-                  Clock.Timer.start
-                    ~duration:!Xapi_globs.host_assumed_dead_interval
+                  let t =
+                    Clock.Timer.start
+                      ~duration:!Xapi_globs.host_assumed_dead_interval
+                  in
+                  Hashtbl.replace host_heartbeat_table host t ;
+                  t
           )
         in
         if not (Clock.Timer.has_expired timer) then

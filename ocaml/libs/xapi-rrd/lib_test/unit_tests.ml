@@ -131,7 +131,7 @@ let gauge_rrd =
   let rrd =
     rrd_create [|ds; ds2; ds3; ds4|] [|rra; rra2; rra3; rra4|] 1L 1000000000.0
   in
-  let id x = x in
+  let id = Identity in
   for i = 1 to 100000 do
     let t = 1000000000.0 +. (0.7 *. float_of_int i) in
     let v1 = VT_Float (0.5 +. (0.5 *. sin (t /. 10.0))) in
@@ -159,7 +159,7 @@ let _deserialize_verify_rrd =
 
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
 
-  let id x = x in
+  let id = Identity in
   for i = 1 to 100 do
     let t = init_time +. float_of_int i in
     let t64 = Int64.of_float t in
@@ -178,7 +178,7 @@ let ca_322008_rrd =
 
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
 
-  let id x = x in
+  let id = Identity in
 
   for i = 1 to 100000 do
     let t = init_time +. float_of_int i in
@@ -198,7 +198,7 @@ let ca_329043_rrd_1 =
 
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L init_time in
 
-  let id x = x in
+  let id = Identity in
 
   let time_value_of_i i =
     let t = 5. *. (init_time +. float_of_int i) in
@@ -228,7 +228,7 @@ let create_rrd ?(rows = 2) values min max =
     rrd_create [|ds1; ds2; ds3|] [|rra1; rra2; rra3; rra4|] 5L init_time
   in
 
-  let id x = x in
+  let id = Identity in
 
   List.iteri
     (fun i v ->

@@ -1,6 +1,10 @@
 (executable
  (name fence)
- (public_name fence.bin)
- (package xapi-xenopsd-xc)
  (libraries xenctrl)
+)
+
+(install
+ (package xapi)
+ (section libexec_root)
+ (files (fence.exe as fence.bin))
 )

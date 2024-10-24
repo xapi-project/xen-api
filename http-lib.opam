@@ -13,10 +13,16 @@ depends: [
   "alcotest" {with-test}
   "astring"
   "base64" {>= "3.1.0"}
+  "fmt"
+  "ipaddr"
+  "mtime"
+  "ppx_deriving_rpc"
+  "qcheck-core" {with-test}
   "rpclib"
   "safe-resources" {= version}
   "sha"
   "stunnel" {= version}
+  "uri"
   "uuid" {= version}
   "xapi-backtrace"
   "xapi-idl" {= version}

@@ -26,7 +26,7 @@ let introduce ~__context ~addresses ~first_port ~last_port ~site =
     addresses ;
   let current = Db.PVS_server.get_all_records ~__context in
   let current_addresses =
-    List.map (fun (_, r) -> r.API.pVS_server_addresses) current |> List.concat
+    List.concat_map (fun (_, r) -> r.API.pVS_server_addresses) current
   in
   let in_use = Listext.intersect addresses current_addresses in
   if in_use <> [] then

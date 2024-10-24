@@ -1298,12 +1298,22 @@ let with_access_token ~token ~token_id f =
       let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
       raise Api_errors.(Server_error (internal_error, [msg]))
 
-let prune_updateinfo_for_livepatches livepatches updateinfo =
-  let open UpdateInfo in
-  let lps =
-    List.filter (fun x -> LivePatchSet.mem x livepatches) updateinfo.livepatches
+let prune_updateinfo_for_livepatches latest_lps updateinfo =
+  let livepatches =
+    let open LivePatch in
+    (* Keep a livepatch if it is rolled up by one of the latest livepatches.
+     * The latest livepatches are the ones to be applied actually.
+     *)
+    updateinfo.UpdateInfo.livepatches
+    |> List.filter (fun lp ->
+           let is_rolled_up_by latest =
+             latest.component = lp.component
+             && latest.base_build_id = lp.base_build_id
+           in
+           LivePatchSet.exists is_rolled_up_by latest_lps
+       )
   in
-  {updateinfo with livepatches= lps}
+  {updateinfo with livepatches}
 
 let do_with_host_pending_guidances ~op guidances =
   List.iter

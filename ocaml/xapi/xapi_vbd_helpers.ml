@@ -247,13 +247,11 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
         let vbds =
           List.filter (fun vbd -> vbd <> _ref') vdi_record.Db_actions.vDI_VBDs
         in
-        List.concat
-          (List.map
-             (fun self ->
-               try [Db.VBD.get_record_internal ~__context ~self] with _ -> []
-             )
-             vbds
+        List.concat_map
+          (fun self ->
+            try [Db.VBD.get_record_internal ~__context ~self] with _ -> []
           )
+          vbds
       in
       let pointing_to_a_suspended_VM vbd =
         Db.VM.get_power_state ~__context ~self:vbd.Db_actions.vBD_VM

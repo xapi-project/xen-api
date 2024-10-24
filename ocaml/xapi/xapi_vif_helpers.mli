@@ -25,7 +25,7 @@ val update_allowed_operations : __context:Context.t -> self:[`VIF] Ref.t -> unit
 val cancel_tasks :
      __context:Context.t
   -> self:[`VIF] Ref.t
-  -> all_tasks_in_db:'a Ref.t list
+  -> all_tasks_in_db:API.ref_task list
   -> task_ids:string list
   -> unit
 (** Cancel all current operations. *)

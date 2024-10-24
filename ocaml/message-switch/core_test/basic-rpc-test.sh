@@ -29,16 +29,6 @@ SERVER=$!
 lwt/client_main.exe -path "${SPATH}" -secs "${SECS}"
 wait "${SERVER}"
 
-echo Performance test of Async to Lwt
+echo Performance test of Lwt to Unix
 lwt/server_main.exe -path "${SPATH}" &
-SERVER=$!
-async/client_async_main.exe -path "${SPATH}" -secs "${SECS}"
-wait "${SERVER}"
-
-echo Performance test of Async to Async
-async/server_async_main.exe -path "${SPATH}" &
-SERVER=$!
-async/client_async_main.exe -path "${SPATH}" -secs "${SECS}"
-wait "${SERVER}"
-
-../cli/main.exe shutdown --path "${SPATH}"
+./client_unix_main.exe -path "${SPATH}" -secs "${SECS}"

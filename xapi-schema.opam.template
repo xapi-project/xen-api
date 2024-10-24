@@ -10,7 +10,7 @@ build: [
 ]
 depends: [
   "ocaml"
-  "dune"
+  "dune" {>= "3.15"}
   "ppx_sexp_conv"
   "sexpr"
   "xapi-log"

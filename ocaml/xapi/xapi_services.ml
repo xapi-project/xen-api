@@ -156,7 +156,7 @@ let post_handler (req : Http.Request.t) s _ =
       match String.split_on_char '/' req.Http.Request.uri with
       | "" :: services :: "xenops" :: _ when services = _services ->
           (* over the network we still use XMLRPC *)
-          let request = Http_svr.read_body req (Buf_io.of_fd s) in
+          let request = Http_svr.read_body req s in
           let response =
             if !Xcp_client.use_switch then
               let req = Xmlrpc.call_of_string request in
@@ -178,7 +178,7 @@ let post_handler (req : Http.Request.t) s _ =
           http_proxy_to_plugin req s name
       | [""; services; "SM"] when services = _services ->
           Storage_mux.Local_domain_socket.xmlrpc_handler
-            Storage_mux.Server.process req (Buf_io.of_fd s) ()
+            Storage_mux.Server.process req s ()
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
           req.Http.Request.close <- true

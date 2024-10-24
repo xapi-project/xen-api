@@ -316,8 +316,10 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~repository_proxy_url ~repository_proxy_username ~repository_proxy_password
     ~migration_compression ~coordinator_bias ~telemetry_uuid
     ~telemetry_frequency ~telemetry_next_collection ~last_update_sync
-    ~local_auth_max_threads:8L ~ext_auth_max_threads:8L ~update_sync_frequency
-    ~update_sync_day ~update_sync_enabled ~recommendations ;
+    ~local_auth_max_threads:8L ~ext_auth_max_threads:8L
+    ~ext_auth_cache_enabled:false ~ext_auth_cache_size:50L
+    ~ext_auth_cache_expiry:300L ~update_sync_frequency ~update_sync_day
+    ~update_sync_enabled ~recommendations ;
   pool_ref
 
 let default_sm_features =
@@ -514,7 +516,7 @@ let make_pool_update ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
   Xapi_pool_update.create_update_record ~__context ~update:ref ~update_info ~vdi ;
   ref
 
-let make_session ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
+let make_session ~__context ?(ref = Ref.make_secret ()) ?(uuid = make_uuid ())
     ?(this_host = Ref.null) ?(this_user = Ref.null)
     ?(last_active = API.Date.epoch) ?(pool = false) ?(other_config = [])
     ?(is_local_superuser = false) ?(subject = Ref.null)

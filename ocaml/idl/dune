@@ -36,13 +36,29 @@
 )
 
 (rule
-  (alias markdowngen)
+  (aliases markdowngen xapi-doc)
   (deps
     (:x datamodel_main.exe)
     (source_tree templates)
+    (:md autogen-static/management-api.md)
   )
+  (targets (dir autogen))
   (package xapi-datamodel)
-  (action (run %{x} -closed -markdown))
+  (action
+    (progn
+      (run mkdir -p autogen)
+      (run %{x} -closed -markdown)
+      (run cp %{md} autogen/management-api.md)
+    ))
+)
+
+(install
+  (package xapi)
+  (section share_root)
+  (files
+    (glob_files (autogen/*.md with_prefix markdown))
+    (glob_files (autogen/*.yml with_prefix markdown))
+  )
 )
 
 (tests

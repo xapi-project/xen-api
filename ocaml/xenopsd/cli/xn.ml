@@ -1051,7 +1051,7 @@ let unix_proxy path =
   | 0 ->
       let buf = Bytes.make 16384 '\000' in
       let accept, _ = Unix.accept listen in
-      let copy a b =
+      let copy a b : unit =
         while true do
           let n = Unix.read a buf 0 (Bytes.length buf) in
           if n = 0 then exit 0 ;

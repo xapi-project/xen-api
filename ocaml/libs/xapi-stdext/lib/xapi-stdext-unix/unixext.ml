@@ -94,27 +94,6 @@ let with_file file mode perms f =
     (fun () -> f fd)
     (fun () -> Unix.close fd)
 
-(* !! Must call this before spawning any threads !! *)
-
-(** daemonize a process *)
-let daemonize () =
-  match Unix.fork () with
-  | 0 -> (
-      if Unix.setsid () == -1 then
-        failwith "Unix.setsid failed" ;
-      match Unix.fork () with
-      | 0 ->
-          with_file "/dev/null" [Unix.O_WRONLY] 0 (fun nullfd ->
-              Unix.close Unix.stdin ;
-              Unix.dup2 nullfd Unix.stdout ;
-              Unix.dup2 nullfd Unix.stderr
-          )
-      | _ ->
-          exit 0
-    )
-  | _ ->
-      exit 0
-
 exception Break
 
 let lines_fold f start input =
