@@ -3,6 +3,7 @@
   (name rrdp_netdev)
   (libraries
     astring
+    ezxenstore.core
     integers
     netlink
     rrdd-plugin
@@ -13,7 +14,6 @@
     xapi-log
     xapi-rrd
     xapi-stdext-std
-    xenctrl
   )
 )
 

@@ -13,10 +13,13 @@
  *)
 
 open Rrdd_plugin
+open Ezxenstore_core
 
 module D = Debug.Make (struct let name = "xcp-rrdp-netdev" end)
 
 module Process = Rrdd_plugin.Process (struct let name = "xcp-rrdd-netdev" end)
+
+let fail = Printf.ksprintf failwith
 
 type iface_stats = {
     tx_bytes: int64  (** bytes emitted *)
@@ -132,18 +135,16 @@ let transform_taps devs =
     newdevnames
 
 let generate_netdev_dss () =
-  let _, doms, _ =
-    Xenctrl.with_intf (fun xc -> Xenctrl_lib.domain_snapshot xc)
-  in
-
-  let uuid_of_domid domains domid =
-    let _, uuid, _ =
-      try List.find (fun (_, _, domid') -> domid = domid') domains
-      with Not_found ->
-        failwith
-          (Printf.sprintf "Failed to find uuid corresponding to domid: %d" domid)
-    in
-    uuid
+  let uuid_of_domid domid =
+    try
+      Xenstore.with_xs (fun xs ->
+          let vm = xs.Xenstore.Xs.getdomainpath domid ^ "/vm" in
+          let vm_dir = xs.Xenstore.Xs.read vm in
+          xs.Xenstore.Xs.read (vm_dir ^ "/uuid")
+      )
+    with e ->
+      fail "Failed to find uuid corresponding to domid: %d (%s)" domid
+        (Printexc.to_string e)
   in
 
   let dbg = "rrdp_netdev" in
@@ -198,7 +199,7 @@ let generate_netdev_dss () =
                 let vif_name = Printf.sprintf "vif_%d" d2 in
                 (* Note: rx and tx are the wrong way round because from dom0 we
                    see the vms backwards *)
-                let uuid = uuid_of_domid doms d1 in
+                let uuid = uuid_of_domid d1 in
                 ( Rrd.VM uuid
                 , Ds.ds_make ~name:(vif_name ^ "_tx") ~units:"B/s"
                     ~description:
