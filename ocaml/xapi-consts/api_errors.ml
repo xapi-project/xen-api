@@ -754,6 +754,9 @@ let pool_joining_host_tls_verification_mismatch =
 let pool_joining_host_ca_certificates_conflict =
   add_error "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
 
+let pool_joining_sm_features_incompatible =
+  add_error "POOL_JOINING_SM_FEATURES_INCOMPATIBLE"
+
 (*workload balancing*)
 let wlb_not_initialized = add_error "WLB_NOT_INITIALIZED"
 

@@ -890,6 +890,13 @@ let _ =
       "The host joining the pool has different CA certificates from the pool \
        coordinator while using the same name, uninstall them and try again."
     () ;
+  error Api_errors.pool_joining_sm_features_incompatible
+    ["pool_sm_ref"; "candidate_sm_ref"]
+    ~doc:
+      "The host joining the pool has an incompatible set of sm features from \
+       the pool coordinator. Make sure the sm are of the same versions and try \
+       again."
+    () ;
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
