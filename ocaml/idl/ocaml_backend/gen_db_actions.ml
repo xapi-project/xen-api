@@ -134,8 +134,12 @@ let string_to_dm tys : O.Module.t =
       | DT.Map (key, value) ->
           let kf = OU.alias_of_ty key and vf = OU.alias_of_ty value in
           "fun m -> map " ^ kf ^ " " ^ vf ^ " m"
-      | DT.Ref _ ->
-          "fun x -> (Ref.of_string x : " ^ OU.ocaml_of_ty ty ^ ")"
+      | DT.Ref t ->
+          "fun x -> (Ref.of_"
+          ^ (if t = "session" then "secret_" else "")
+          ^ "string x : "
+          ^ OU.ocaml_of_ty ty
+          ^ ")"
       | DT.Set ty ->
           "fun s -> set " ^ OU.alias_of_ty ty ^ " s"
       | DT.String ->
@@ -360,7 +364,8 @@ let db_action api : O.Module.t =
               expr
           ; Printf.sprintf
               "List.map (fun (ref,(__regular_fields,__set_refs)) -> \
-               Ref.of_string ref, %s __regular_fields __set_refs) records"
+               Ref.of_%sstring ref, %s __regular_fields __set_refs) records"
+              (if obj.DT.name = "session" then "secret_" else "")
               conversion_fn
           ]
         )
@@ -374,9 +379,10 @@ let db_action api : O.Module.t =
             obj.DT.name
         ; Printf.sprintf
             "(fun ~__context ~self -> (fun () -> API.rpc_of_%s_t \
-             (%s.get_record ~__context ~self:(Ref.of_string self))))"
+             (%s.get_record ~__context ~self:(Ref.of_%sstring self))))"
             (OU.ocaml_of_record_name obj.DT.name)
             (OU.ocaml_of_obj_name obj.DT.name)
+            (if obj.DT.name = "session" then "secret_" else "")
         ]
       ()
   in
@@ -580,7 +586,7 @@ let db_action api : O.Module.t =
       ()
   in
   let all = Dm_api.objects_of_api api in
-  let modules = List.concat (List.map (fun x -> [obj x; obj_init x]) all) in
+  let modules = List.concat_map (fun x -> [obj x; obj_init x]) all in
   O.Module.make ~name:_db_action
     ~preamble:
       [

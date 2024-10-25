@@ -44,7 +44,7 @@
 (executable
  (name rrd_cli)
  (public_name rrd-cli)
- (package xapi-rrdd)
+ (package xapi-tools)
  (modules rrd_cli)
  (modes exe)
  (libraries
@@ -60,6 +60,6 @@
 (rule
  (alias runtest)
  (deps (:x rrd_cli.exe))
- (package xapi-rrdd)
+ (package xapi-tools)
  (action (run %{x} --help=plain)))
 

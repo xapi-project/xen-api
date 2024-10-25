@@ -9,20 +9,18 @@ open D
 let create_rras use_min_max =
   (* Create archives of type min, max and average and last *)
   Array.of_list
-    (List.flatten
-       (List.map
-          (fun (n, ns) ->
-            if ns > 1 && use_min_max then
-              [
-                Rrd.rra_create Rrd.CF_Average n ns 1.0
-              ; Rrd.rra_create Rrd.CF_Min n ns 1.0
-              ; Rrd.rra_create Rrd.CF_Max n ns 1.0
-              ]
-            else
-              [Rrd.rra_create Rrd.CF_Average n ns 0.5]
-          )
-          timescales
+    (List.concat_map
+       (fun (n, ns) ->
+         if ns > 1 && use_min_max then
+           [
+             Rrd.rra_create Rrd.CF_Average n ns 1.0
+           ; Rrd.rra_create Rrd.CF_Min n ns 1.0
+           ; Rrd.rra_create Rrd.CF_Max n ns 1.0
+           ]
+         else
+           [Rrd.rra_create Rrd.CF_Average n ns 0.5]
        )
+       timescales
     )
 
 let step = 5L
@@ -78,14 +76,6 @@ module OwnerMap = Map.Make (struct
     | VM a, VM b | SR a, SR b ->
         String.compare a b
 end)
-
-let owner_to_string () = function
-  | Host ->
-      "host"
-  | VM uuid ->
-      "VM " ^ uuid
-  | SR uuid ->
-      "SR " ^ uuid
 
 (** Updates all of the hosts rrds. We are passed a list of uuids that is used as
     the primary source for which VMs are resident on us. When a new uuid turns

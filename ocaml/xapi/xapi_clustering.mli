@@ -15,11 +15,14 @@ val set_ha_cluster_stack : __context:Context.t -> unit
 val with_clustering_lock : string -> (unit -> 'a) -> 'a
 
 val pif_of_host :
-  __context:Context.t -> API.ref_network -> API.ref_host -> 'a Ref.t * API.pIF_t
+     __context:Context.t
+  -> API.ref_network
+  -> API.ref_host
+  -> API.ref_PIF * API.pIF_t
 
-val ip_of_pif : 'a Ref.t * API.pIF_t -> Cluster_interface.address
+val ip_of_pif : API.ref_PIF * API.pIF_t -> Cluster_interface.address
 
-val assert_pif_prerequisites : 'a Ref.t * API.pIF_t -> unit
+val assert_pif_prerequisites : API.ref_PIF * API.pIF_t -> unit
 
 val assert_pif_attached_to :
   __context:Context.t -> host:[`host] Ref.t -> pIF:[`PIF] Ref.t -> unit
@@ -27,7 +30,7 @@ val assert_pif_attached_to :
 val handle_error : Cluster_interface.error -> 'a
 
 val assert_cluster_host_can_be_created :
-  __context:Context.t -> host:'a Ref.t -> unit
+  __context:Context.t -> host:API.ref_host -> unit
 
 val get_required_cluster_stacks :
   __context:Context.t -> sr_sm_type:string -> string list
@@ -41,7 +44,7 @@ val with_clustering_lock_if_cluster_exists :
   __context:Context.t -> string -> (unit -> 'a) -> 'a
 
 val find_cluster_host :
-  __context:Context.t -> host:[`host] Ref.t -> 'a Ref.t option
+  __context:Context.t -> host:[`host] Ref.t -> API.ref_Cluster_host option
 
 val get_network_internal :
   __context:Context.t -> self:[`Cluster] Ref.t -> [`network] Ref.t
@@ -69,7 +72,7 @@ val rpc : __context:Context.t -> Rpc.call -> Rpc.response Idl.IdM.t
 
 val maybe_switch_cluster_stack_version :
      __context:Context.t
-  -> self:'a Ref.t
+  -> self:API.ref_Cluster_host
   -> cluster_stack:Cluster_interface.Cluster_stack.t
   -> unit
 

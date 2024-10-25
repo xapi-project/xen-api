@@ -14,7 +14,7 @@ build: [
 depends: [
   "ocaml"
   "ocamlfind" {build}
-  "dune" {build}
+  "dune" {>= "3.15"}
   "base-threads"
   "astring"
   "xapi-stdext-unix"

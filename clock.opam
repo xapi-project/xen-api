@@ -11,6 +11,7 @@ depends: [
   "ocaml" {>= "4.12"}
   "alcotest" {with-test}
   "astring"
+  "fmt"
   "mtime"
   "ptime"
   "xapi-log" {= version}

@@ -285,20 +285,18 @@ let gen_client highapi =
     )
 
 let add_set_enums types =
-  List.concat
-    (List.map
-       (fun ty ->
-         match ty with
-         | DT.Enum _ ->
-             if List.exists (fun ty2 -> ty2 = DT.Set ty) types then
-               [ty]
-             else
-               [DT.Set ty; ty]
-         | _ ->
-             [ty]
-       )
-       types
+  List.concat_map
+    (fun ty ->
+      match ty with
+      | DT.Enum _ ->
+          if List.exists (fun ty2 -> ty2 = DT.Set ty) types then
+            [ty]
+          else
+            [DT.Set ty; ty]
+      | _ ->
+          [ty]
     )
+    types
 
 let all_types_of highapi = DU.Types.of_objects (Dm_api.objects_of_api highapi)
 
@@ -400,15 +398,7 @@ let gen_client_types highapi =
          ; "  Rpc.failure (rpc_of_failure ([\"Fault\"; code]))"
          ]
        ; ["include Rpc"; "type string_list = string list [@@deriving rpc]"]
-       ; [
-           "module Ref = struct"
-         ; "  include Ref"
-         ; "  let rpc_of_t (_:'a -> Rpc.t) (x: 'a Ref.t) = rpc_of_string \
-            (Ref.string_of x)"
-         ; "  let t_of_rpc (_:Rpc.t -> 'a) x : 'a t = of_string (string_of_rpc \
-            x);"
-         ; "end"
-         ]
+       ; ["module Ref = Ref"]
        ; [
            "module Date = struct"
          ; "  open Xapi_stdext_date"

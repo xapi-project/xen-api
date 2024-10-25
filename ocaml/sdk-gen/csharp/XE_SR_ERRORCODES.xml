@@ -1,0 +1,914 @@
+<?xml version="1.0" ?>
+<!-- Copyright Citrix Systems Inc.
+
+     This program is free software; you can redistribute it and/or
+     modify it under the terms of the GNU Lesser General Public
+     License as published by the Free Software Foundation; either
+     version 2.1 of the License, or (at your option) any later version.
+
+     This program is distributed in the hope that it will be useful,
+     but WITHOUT ANY WARRANTY; without even the implied warranty of
+     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+     Lesser General Public License for more details.
+
+     You should have received a copy of the GNU Lesser General Public
+     License along with this library; if not, write to the Free Software
+     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301
+     USA
+
+     error codes for SR backend, 6 special codes are predefined
+     for specific use (16, 24, 37, 38, 39, 87) all others can be 
+     any other unique positive integer                      -->
+<SM-errorcodes>
+        <!-- pre-existing errors and values most not change -->
+        <code>
+                <name>SRInUse</name>
+                <description>The SR device is currently in use</description>
+                <value>16</value>
+        </code>
+        <code>
+                <name>VDIInUse</name>
+                <description>The VDI is currently in use</description>
+                <value>24</value>
+        </code>
+        <code>
+                <name>LockErr</name>
+                <description>The lock/unlock request failed</description>
+                <value>37</value>
+        </code>
+        <code>
+                <name>Unimplemented</name>
+                <description>The requested method is not supported/implemented</description>
+                <value>38</value>
+        </code>
+	<code>
+		<name>SRNotEmpty</name>
+		<description>The SR is not empty</description>
+		<value>39</value>
+	</code>
+
+        <code>
+                <name>ConfigLUNMissing</name>
+                <description>The request is missing the LUNid parameter</description>
+                <value>87</value>
+        </code>
+        <code>
+                <name>ConfigSCSIid</name>
+                <description>The SCSIid parameter is missing or incorrect</description>
+                <value>107</value>
+        </code>
+
+	<!-- codes used by agent-internal backends (such as ISO driver); allocated from 1000 -->
+        <code>
+                <name>ISODconfMissingLocation</name>
+                <description>'Location' parameter must be specified in Device Configuration</description>
+                <value>220</value>
+        </code>
+        <code>
+                <name>ISOMustHaveISOExtension</name>
+                <description>ISO name must have .iso extension</description>
+                <value>221</value>
+        </code>
+        <code>
+                <name>ISOMountFailure</name>
+                <description>Could not mount the directory specified in Device Configuration</description>
+                <value>222</value>
+        </code>
+        <code>
+                <name>ISOUnmountFailure</name>
+                <description>Could not unmount the directory specified in Device Configuration</description>
+                <value>223</value>
+        </code>
+        <code>
+                <name>ISOSharenameFailure</name>
+                <description>Could not locate the ISO sharename on the target, or the access permissions may be incorrect.</description>
+                <value>224</value>
+        </code>	
+        <code>
+                <name>ISOLocationStringError</name>
+                <description>Incorrect Location string format. String must be in the format SERVER:PATH for NFS targets, or \\SERVER\PATH for CIFS targets</description>
+                <value>225</value>
+        </code>
+        <code>
+                <name>ISOLocalPath</name>
+                <description>Invalid local path</description>
+                <value>226</value>
+        </code>
+        <code>
+                <name>ISOInvalidSMBversion</name>
+                <description>Given SMB version is not allowed. Choose either 1.0 or 3.0</description>
+                <value>227</value>
+        </code>
+        <code>
+                <name>ISOInvalidXeMountOptions</name>
+                <description>Require "-o" along with xe-mount-iso-sr</description>
+                <value>228</value>
+        </code>
+
+        <!-- generic invalid arguments -->
+        <code>
+                <name>InvalidArg</name>
+                <description>Invalid argument</description>
+                <value>1</value>
+        </code>
+        <code>
+                <name>BadCharacter</name>
+                <description>A bad character was detected in the dconf string</description>
+                <value>2</value>
+        </code>
+        <code>
+                <name>InvalidDev</name>
+                <description>No such device</description>
+                <value>19</value>
+        </code>
+        <code>
+            <name>InvalidSecret</name>
+            <description>No such secret.</description>
+            <value>20</value>
+        </code>
+
+        <!-- errors, starting at 40 (aribitrary) -->
+        <code>
+                <name>SRScan</name>
+                <description>The SR scan failed </description>
+                <value>40</value>
+        </code>
+        <code>
+                <name>SRLog</name>
+                <description>The SR log operation failed</description>
+                <value>41</value>
+        </code>
+        <code>
+                <name>SRExists</name>
+                <description>The SR already exists</description>
+                <value>42</value>
+        </code>
+        <code>
+                <name>VDIExists</name>
+                <description>The VDI already exists</description>
+                <value>43</value>
+        </code>
+        <code>
+                <name>SRNoSpace</name>
+                <description>There is insufficient space</description>
+                <value>44</value>
+        </code>
+
+        <code>
+                <name>VDIUnavailable</name>
+                <description>The VDI is not available</description>
+                <value>46</value>
+        </code>
+        <code>
+                <name>SRUnavailable</name>
+                <description>The SR is not available</description>
+                <value>47</value>
+        </code>
+        <code>
+                <name>SRUnknownType</name>
+                <description>Unknown repository type</description>
+                <value>48</value>
+        </code>
+        <code>
+                <name>SRBadXML</name>
+                <description>Malformed XML string</description>
+                <value>49</value>
+        </code>
+        <code>
+                <name>LVMCreate</name>
+                <description>Logical Volume creation error</description>
+                <value>50</value>
+        </code>
+        <code>
+                <name>LVMDelete</name>
+                <description>Logical Volume deletion error</description>
+                <value>51</value>
+        </code>
+        <code>
+                <name>LVMMount</name>
+                <description>Logical Volume mount/activate error</description>
+                <value>52</value>
+        </code>
+        <code>
+                <name>LVMUnMount</name>
+                <description>Logical Volume unmount/deactivate error</description>
+                <value>53</value>
+        </code>
+        <code>
+                <name>LVMWrite</name>
+                <description>Logical Volume write error</description>
+                <value>54</value>
+        </code>
+        <code>
+                <name>LVMPartCreate</name>
+                <description>Logical Volume partition creation error</description>
+                <value>55</value>
+        </code>
+        <code>
+                <name>LVMPartInUse</name>
+                <description>Logical Volume partition in use</description>
+                <value>56</value>
+        </code>
+        <code>
+                <name>LVMFilesystem</name>
+                <description>Logical Volume filesystem creation error</description>
+                <value>57</value>
+        </code>
+        <code>
+                <name>LVMMaster</name>
+                <description>Logical Volume request must come from master</description>
+                <value>58</value>
+        </code>
+        <code>
+                <name>LVMResize</name>
+                <description>Logical Volume resize failed</description>
+                <value>59</value>
+        </code>
+        <code>
+                <name>LVMSize</name>
+                <description>Logical Volume invalid size</description>
+                <value>60</value>
+        </code>
+        <code>
+                <name>FileSRCreate</name>
+                <description>File SR creation error</description>
+                <value>61</value>
+        </code>
+        <code>
+                <name>FileSRRmDir</name>
+                <description>File SR failed to remove directory</description>
+                <value>62</value>
+        </code>
+        <code>
+                <name>FileSRDelete</name>
+                <description>File SR deletion error</description>
+                <value>63</value>
+        </code>
+        <code>
+                <name>VDIRemove</name>
+                <description>Failed to remove VDI</description>
+                <value>64</value>
+        </code>
+        <code>
+                <name>VDILoad</name>
+                <description>Failed to load VDI</description>
+                <value>65</value>
+        </code>
+        <code>
+                <name>VDIType</name>
+                <description>Invalid VDI type</description>
+                <value>66</value>
+        </code>
+        <code>
+                <name>ISCSIDevice</name>
+                <description>ISCSI device failed to appear</description>
+                <value>67</value>
+        </code>
+        <code>
+                <name>ISCSILogin</name>
+                <description>ISCSI login failed - check access settings for the initiator on the storage, if CHAP is used verify CHAP credentials</description>
+                <value>68</value>
+        </code>
+        <code>
+                <name>ISCSILogout</name>
+                <description>ISCSI logout failed</description>
+                <value>69</value>
+        </code>
+        <code>
+                <name>ISCSIInitiator</name>
+                <description>Failed to set ISCSI initiator</description>
+                <value>70</value>
+        </code>
+        <code>
+                <name>ISCSIDaemon</name>
+                <description>Failed to start ISCSI daemon</description>
+                <value>71</value>
+        </code>
+        <code>
+                <name>NFSVersion</name>
+                <description>Required NFS server version unsupported</description>
+                <value>72</value>
+        </code>
+        <code>
+                <name>NFSMount</name>
+                <description>NFS mount error</description>
+                <value>73</value>
+        </code>
+        <code>
+                <name>NFSUnMount</name>
+                <description>NFS unmount error</description>
+                <value>74</value>
+        </code>
+        <code>
+                <name>NFSAttached</name>
+                <description>NFS mount point already attached</description>
+                <value>75</value>
+        </code>
+        <code>
+                <name>NFSDelete</name>
+                <description>Failed to remove NFS mount point</description>
+                <value>76</value>
+        </code>
+        <code>
+                <name>NFSTarget</name>
+                <description>Unable to detect an NFS service on this target.</description>
+                <value>108</value>
+        </code>
+        <code>
+                <name>LVMGroupCreate</name>
+                <description>Logical Volume group creation failed</description>
+                <value>77</value>
+        </code>
+        <code>
+                <name>VDICreate</name>
+                <description>VDI Creation failed</description>
+                <value>78</value>
+        </code>
+        <code>
+                <name>VDISize</name>
+                <description>VDI Invalid size</description>
+                <value>79</value>
+        </code>
+        <code>
+                <name>VDIDelete</name>
+                <description>Failed to mark VDI hidden</description>
+                <value>80</value>
+        </code>
+        <code>
+                <name>VDIClone</name>
+                <description>Failed to clone VDI</description>
+                <value>81</value>
+        </code>
+        <code>
+                <name>VDISnapshot</name>
+                <description>Failed to snapshot VDI</description>
+                <value>82</value>
+        </code>
+        <code>
+                <name>ISCSIDiscovery</name>
+                <description>ISCSI discovery failed</description>
+                <value>83</value>
+        </code>
+        <code>
+                <name>ISCSIIQN</name>
+                <description>ISCSI target and received IQNs differ</description>
+                <value>84</value>
+        </code>
+        <code>
+                <name>ISCSIDetach</name>
+                <description>ISCSI detach failed</description>
+                <value>85</value>
+        </code>
+        <code>
+                <name>ISCSIQueryDaemon</name>
+                <description>Failed to query the iscsi daemon</description>
+                <value>86</value>
+        </code>
+        <!-- 87 has been MOVED to the immovable section -->
+        <code>
+                <name>NFSCreate</name>
+                <description>NFS SR creation error</description>
+                <value>88</value>
+        </code>
+        <code>
+                <name>ConfigLUNIDMissing</name>
+                <description>The request is missing the LUNid parameter</description>
+                <value>89</value>
+        </code>
+        <code>
+                <name>ConfigDeviceMissing</name>
+                <description>The request is missing the device parameter</description>
+                <value>90</value>
+        </code>
+        <code>
+                <name>ConfigDeviceInvalid</name>
+                <description>The device is not a valid path</description>
+                <value>91</value>
+        </code>
+        <code>
+                <name>VolNotFound</name>
+                <description>The volume cannot be found</description>
+                <value>92</value>
+        </code>
+        <code>
+                <name>PVSfailed</name>
+                <description>pvs failed</description>
+                <value>93</value>
+        </code>
+        <code>
+                <name>ConfigLocationMissing</name>
+                <description>The request is missing the location parameter</description>
+                <value>94</value>
+        </code>
+        <code>
+                <name>ConfigTargetMissing</name>
+                <description>The request is missing the target parameter</description>
+                <value>95</value>
+        </code>
+        <code>
+                <name>ConfigTargetIQNMissing</name>
+                <description>The request is missing or has an incorrect target IQN parameter</description>
+                <value>96</value>
+        </code>
+        <code>
+                <name>ConfigISCSIIQNMissing</name>
+                <description>Unable to retrieve the host configuration ISCSI IQN parameter</description>
+                <value>97</value>
+        </code>
+        <code>
+                <name>ConfigLUNSerialMissing</name>
+                <description>The request is missing the LUN serial number</description>
+                <value>98</value>
+        </code>
+        <code>
+                <name>LVMOneLUN</name>
+                <description>Only 1 LUN may be used with shared LVM</description>
+                <value>99</value>
+        </code>
+        <code>
+                <name>LVMNoVolume</name>
+                <description>Cannot find volume</description>
+                <value>100</value>
+        </code>
+        <code>
+                <name>ConfigServerPathMissing</name>
+                <description>The request is missing the serverpath parameter</description>
+                <value>101</value>
+        </code>
+        <code>
+                <name>ConfigServerMissing</name>
+                <description>The request is missing the server parameter</description>
+                <value>102</value>
+        </code>
+        <code>
+                <name>ConfigServerPathBad</name>
+                <description>The serverpath argument is not valid</description>
+                <value>103</value>
+        </code>
+        <code>
+                <name>LVMRefCount</name>
+                <description>Unable to open the refcount file</description>
+                <value>104</value>
+        </code>
+        <code>
+                <name>Rootdev</name>
+                <description>Root system device, cannot be used for VM storage</description>
+                <value>105</value>
+        </code>
+        <code>
+                <name>NoRootDev</name>
+                <description>Root system device not found</description>
+                <value>118</value>
+        </code>
+        <code>
+                <name>InvalidIQN</name>
+                <description>The IQN provided is an invalid format</description>
+                <value>106</value>
+        </code>
+        <code>
+                <name>SnapshotChainTooLong</name>
+                <description>The snapshot chain is too long</description>
+                <value>109</value>
+        </code>
+         <code>
+                <name>VDIResize</name>
+                <description>VDI resize failed</description>
+                <value>110</value>
+        </code>
+        <code>
+                <name>SMBMount</name>
+                <description>SMB mount error</description>
+                <value>111</value>
+        </code>
+        <code>
+                <name>SMBUnMount</name>
+                <description>SMB unmount error</description>
+                <value>112</value>
+        </code>
+        <code>
+                <name>SMBAttached</name>
+                <description>SMB mount point already attached</description>
+                <value>113</value>
+        </code>
+        <code>
+                <name>SMBDelete</name>
+                <description>Failed to remove SMB mount point</description>
+                <value>114</value>
+        </code>
+        <code>
+                <name>ConfigParamsMissing</name>
+                <description>Not all required parameters specified.</description>
+                <value>115</value>
+        </code>
+        <code>
+                <name>SMBCreate</name>
+                <description>Failed to create SMB SR.</description>
+                <value>116</value>
+        </code>
+
+        <!-- An extra LVM error -->
+        <code>
+                <name>LVMRead</name>
+                <description>Logical Volume read error</description>
+                <value>117</value>
+        </code>
+
+       <!-- Agent database query errors 150+ -->
+        <code>
+                <name>APISession</name>
+                <description>Failed to initialize XMLRPC connection</description>
+                <value>150</value>
+        </code>
+        <code>
+                <name>APILocalhost</name>
+                <description>Failed to query Local Control Domain</description>
+                <value>151</value>
+        </code>
+        <code>
+                <name>APIPBDQuery</name>
+                <description>A Failure occurred querying the PBD entries</description>
+                <value>152</value>
+        </code>
+        <code>
+                <name>APIFailure</name>
+                <description>A Failure occurred accessing an API object</description>
+                <value>153</value>
+        </code>
+
+        <!-- Netapp Specific Error codes -->
+        <code>
+                <name>NAPPTarget</name>
+                <description>Netapp Target parameter missing in Dconf string</description>
+                <value>120</value>
+        </code>
+        <code>
+                <name>NAPPUsername</name>
+                <description>Netapp Username parameter missing in Dconf string</description>
+                <value>121</value>
+        </code>
+        <code>
+                <name>NAPPPassword</name>
+                <description>Netapp Password parameter missing in Dconf string</description>
+                <value>122</value>
+        </code>
+        <code>
+                <name>NAPPAggregate</name>
+                <description>Netapp Aggregate parameter missing in Dconf string</description>
+                <value>123</value>
+        </code>
+        <code>
+                <name>NAPPTargetFailed</name>
+                <description>Failed to connect to Netapp target</description>
+                <value>124</value>
+        </code>
+        <code>
+                <name>NAPPAuthFailed</name>
+                <description>Authentication credentials incorrect</description>
+                <value>125</value>
+        </code>
+        <code>
+                <name>NAPPInsufficientPriv</name>
+                <description>Auth credentials have insufficient access privileges</description>
+                <value>126</value>
+        </code>
+        <code>
+                <name>NAPPFVolNum</name>
+                <description>Max number of flexvols reached on target. Unable to allocate requested resource.</description>
+                <value>127</value>
+        </code>
+        <code>
+                <name>NAPPSnapLimit</name>
+                <description>Max number of Snapshots reached on target Volume. Unable to create snapshot.</description>
+                <value>128</value>
+        </code>
+        <code>
+                <name>NAPPSnapNoMem</name>
+                <description>Insufficient space, unable to create snapshot.</description>
+                <value>129</value>
+        </code>
+        <code>
+                <name>NAPPUnsupportedVersion</name>
+                <description>Netapp Target version unsupported</description>
+                <value>130</value>
+        </code>
+        <code>
+                <name>NAPPTargetIQN</name>
+                <description>Unable to retrieve target IQN</description>
+                <value>131</value>
+        </code>
+        <code>
+                <name>NAPPNoISCSIService</name>
+                <description>ISCSI service not running on the Netapp target.</description>
+                <value>132</value>
+        </code>
+        <code>
+                <name>NAPPAsisLicense</name>
+                <description>Failed to enable A-SIS for the SR. Requires valid license on the filer.</description>
+                <value>133</value>
+        </code>
+        <code>
+                <name>NAPPAsisError</name>
+                <description>The filer will not support A-SIS on this aggregate. The license is valid however on some filers A-SIS is limited to smaller aggregates, e.g. FAS3020 max supported aggregate is 1TB. See filer support documentation for details on your model. You must either disable A-SIS support, or re-configure your aggregate to the max supported size.</description>
+                <value>134</value>
+        </code> 
+        <code>
+                <name>NAPPExclActivate</name>
+                <description>Failed to acquire an exclusive lock on the LUN.</description>
+                <value>135</value>
+        </code>
+        <code>
+                <name>DNSError</name>
+                <description>Incorrect DNS name, unable to resolve.</description>
+                <value>140</value>
+        </code>
+        <code>
+                <name>ISCSITarget</name>
+                <description>Unable to connect to ISCSI service on target</description>
+                <value>141</value>
+        </code>
+        <code>
+                <name>ISCSIPort</name>
+                <description>Incorrect value for iSCSI port, must be a number between 1 and 65535</description>
+                <value>142</value>
+        </code>
+
+        <code>
+                <name>BadRequest</name>
+                <description>Failed to parse the request</description>
+                <value>143</value>
+        </code>
+        <code>
+                <name>VDIMissing</name>
+                <description>VDI could not be found</description>
+                <value>144</value>
+        </code>
+        <!-- Equallogic Specific Error codes -->
+        <code>
+                <name>EQLTarget</name>
+                <description>Equallogic Target parameter missing in Dconf string</description>
+                <value>160</value>
+        </code>
+        <code>
+                <name>EQLUsername</name>
+                <description>Equallogic Username parameter missing in Dconf string</description>
+                <value>161</value>
+        </code>
+        <code>
+                <name>EQLPassword</name>
+                <description>Equallogic Password parameter missing in Dconf string</description>
+                <value>162</value>
+        </code>
+        <code>
+                <name>EQLStoragePool</name>
+                <description>Equallogic StoragePool parameter missing in Dconf string</description>
+                <value>163</value>
+        </code>
+        <code>
+                <name>EQLConnectfail</name>
+                <description>Failed to connect to Equallogic Array; maximum SSH CLI sessions reached</description>
+                <value>164</value>
+        </code>
+        <code>
+                <name>EQLInvalidSnapReserve</name>
+                <description>Invalid snap-reserver-percentage value, must be an integer indicating the amount of space, as a percentage of the VDI size, to reserve for snapshots.</description>
+                <value>165</value>
+        </code>
+        <code>
+                <name>EQLInvalidSnapDepletionKey</name>
+                <description>Invalid snap-depletion value, must be one of 'delete-oldest' or 'volume-offline'</description>
+                <value>166</value>
+        </code>
+        <code>
+                <name>EQLVolOutofSpace</name>
+                <description>Volume out of space, probably due to insufficient snapshot reserve allocation.</description>
+                <value>167</value>
+        </code>
+        <code>
+                <name>EQLSnapshotOfSnapshot</name>
+                <description>Cannot create Snapshot of a Snapshot VDI, operation unsupported</description>
+                <value>168</value>
+        </code>
+        <code>
+                <name>EQLPermDenied</name>
+                <description>Failed to connect to Equallogic Array, Permission denied;username/password invalid</description>
+                <value>169</value>
+        </code>
+        <code>
+                <name>EQLUnsupportedVersion</name>
+                <description>Equallogic Target version unsupported</description>
+                <value>170</value>
+        </code>
+        <code>
+                <name>EQLTargetPort</name>
+                <description>Unable to logon to Array. Check IP settings.</description>
+                <value>171</value>
+        </code>
+        <code>
+                <name>EQLInvalidStoragePool</name>
+                <description>Equallogic StoragePool parameter specified in Dconf string is Invalid</description>
+                <value>172</value>
+        </code>
+        <code>
+                <name>EQLInvalidTargetIP</name>
+                <description>Equallogic Target parameter specified in Dconf string is Invalid, please specify the correct Group IPaddress</description>
+                <value>173</value>
+        </code>
+        <code>
+                <name>EQLInvalidSNMPResp</name>
+                <description>Invalid SNMP response received for a CLI command</description>
+                <value>174</value>
+        </code>
+        <code>
+                <name>EQLInvalidVolMetaData</name>
+                <description>Volume metadata stored in the 'Description' field is invalid, this field contains encoded data and is not user editable</description>
+                <value>175</value>
+        </code>
+        <code>
+                <name>EQLInvalidEOFRecv</name>
+                <description>Invalid EOF response received for a CLI command</description>
+                <value>176</value>
+        </code>
+        <code>
+                <name>LVMProvisionAttach</name>
+                <description>Volume Group out of space. The SR is over-provisioned, and out of space. Unable to grow the underlying volume to accommodate the virtual size of the disk.</description>
+                <value>180</value>
+        </code>
+        <code>
+                <name>MetadataError</name>
+                <description>Error in Metadata volume operation for SR.</description>
+                <value>181</value>
+        </code>
+        <code>
+                <name>ISCSIDelete</name>
+                <description>ISCSI delete failed</description>
+                <value>182</value>
+        </code>
+        <!-- Catch all error 200 (arbitrary) -->
+        <code>
+                <name>EIO</name>
+                <description>General IO error</description>
+                <value>200</value>
+        </code>
+        <code>
+                <name>EGAIN</name>
+                <description>Currently unavailable, try again</description>
+                <value>201</value>
+        </code>
+        <code>
+                <name>SMGeneral</name>
+                <description>General backend error</description>
+                <value>202</value>
+        </code>
+        <code>
+                <name>FistPoint</name>
+                <description>An active FIST point was reached that causes the process to exit abnormally</description>
+                <value>203</value>
+        </code>
+        <code>
+                <name>LeafGCSkip</name>
+                <description>Gave up on leaf coalesce after leaf grew bigger than before snapshot taken</description>
+                <value>204</value>
+        </code>
+        <code>
+                <name>VBDListNotStable</name>
+                <description>LVHDRT: found a non-stable VBD</description>
+                <value>205</value>
+        </code>
+
+        <code>
+                <name>XMLParse</name>
+                <description>Unable to parse XML</description>
+                <value>413</value>
+        </code>
+        <code>
+                <name>MultipathdCommsFailure</name>
+                <description>Failed to communicate with the multipath daemon</description>
+                <value>430</value>
+        </code>
+        <code>
+                <name>MultipathGenericFailure</name>
+                <description>Multipath generic failure</description>
+                <value>431</value>
+        </code>
+        <code>
+                <name>MultipathMapperPathMissing</name>
+                <description>Device Mapper path missing</description>
+                <value>432</value>
+        </code>
+
+        <code>
+                <name>MultipathDeviceNotAppeared</name>
+                <description>Device Mapper path not appeared yet</description>
+                <value>433</value>
+        </code>
+        <code>
+                <name>MultipathDeviceNoScsiid</name>
+                <description>Device Mapper path no SCSI ID supplied</description>
+                <value>434</value>
+        </code>
+        <code>
+            <name>TapdiskAlreadyRunning</name>
+            <description>The tapdisk is already running</description>
+            <value>445</value>
+        </code>
+
+        <code>
+            <name>CIFSExtendedCharsNotSupported</name>
+            <description>XenServer does not support extended characters in CIFS paths, usernames, passwords, and file names.</description>
+            <value>446</value>
+		</code>
+
+		<code>
+			<name>IllegalXMLChar</name>
+			<description>Illegal XML character.</description>
+			<value>447</value>
+		</code>
+
+        <code>
+            <name>UnsupportedKernel</name>
+            <description>Unsupported kernel: neither 2.6 nor 3.x.</description>
+            <value>448</value>
+        </code>
+        <code>
+                <name>OCFSOneLUN</name>
+                <description>Only 1 LUN may be used with shared OCFS</description>
+                <value>449</value>
+        </code>
+        <code>
+                <name>OCFSMount</name>
+                <description>OCFS mount error</description>
+                <value>450</value>
+        </code>
+        <code>
+                <name>OCFSUnMount</name>
+                <description>OCFS unmount error</description>
+                <value>451</value>
+        </code>
+        <code>
+                <name>OCFSFilesystem</name>
+                <description>OCFS filesystem creation error</description>
+                <value>452</value>
+        </code>
+
+        <code>
+            <name>TapdiskFailed</name>
+            <description>tapdisk experienced an error</description>
+            <value>453</value>
+        </code>
+
+        <code>
+            <name>NoSMBLicense</name>
+            <description>SMB SR is not licensed on this host</description>
+            <value>454</value>
+        </code>
+
+        <code>
+                <name>VGReg</name>
+                <description>VG Registration failure</description>
+                <value>455</value>
+        </code>
+
+        <code>
+            <name>TapdiskDriveEmpty</name>
+            <description>Unable to attach empty optical drive to VM.</description>
+            <value>456</value>
+        </code>
+
+        <code>
+            <name>CBTActivateFailed</name>
+            <description>Unable to activate changed block tracking.</description>
+            <value>457</value>
+        </code>
+
+        <code>
+            <name>CBTDeactivateFailed</name>
+            <description>Unable to deactivate changed block tracking.</description>
+            <value>458</value>
+        </code>
+
+        <code>
+            <name>CBTMetadataInconsistent</name>
+            <description>Changed block tracking log is in an inconsistent state.</description>
+            <value>459</value>
+        </code>
+
+        <code>
+            <name>CBTChangedBlocksError</name>
+            <description>Failed to calculate changed blocks for given VDIs.</description>
+            <value>460</value>
+        </code>
+
+        <code>
+            <name>SharedFileSystemNoWrite</name>
+            <description>The file system for SR cannot be written to.</description>
+            <value>461</value>
+        </code>
+
+        <code>
+            <name>GenericException</name>
+            <description>SM has thrown a generic python exception</description>
+            <value>1200</value>
+        </code>
+
+
+</SM-errorcodes>

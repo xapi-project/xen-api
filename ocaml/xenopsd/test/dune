@@ -1,7 +1,7 @@
 (test
  (name test)
  (modes exe)
- (package xapi-xenopsd)
+ (package xapi-tools)
  (libraries
   alcotest
   cpuid
@@ -16,7 +16,7 @@
   xapi-log
   xapi-stdext-pervasives
   xapi-test-utils
-  xapi-xenopsd
+  xapi_xenopsd
   xenstore_transport.unix
  )
  (preprocess
@@ -26,16 +26,7 @@
 
 (rule
   (alias runtest)
-  (package xapi-xenopsd)
-  (deps
-    (:x ../lib/xenopsd.cmxs)
-  )
-  (action (run ./check-no-xenctrl.sh %{x}))
-)
-
-(rule
-  (alias runtest)
-  (package xapi-xenopsd-simulator)
+  (package xapi-tools)
   (deps
     (:x ../simulator/xenops_simulator_main.exe)
   )

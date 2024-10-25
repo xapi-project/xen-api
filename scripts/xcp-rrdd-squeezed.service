@@ -1,0 +1,15 @@
+[Unit]
+Description=XCP RRD daemon squeezed plugin
+After=xcp-rrdd.service
+Requires=xcp-rrdd.service
+
+[Service]
+ExecStart=/opt/xensource/libexec/xcp-rrdd-plugins/xcp-rrdd-squeezed
+StandardError=null
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

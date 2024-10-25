@@ -53,7 +53,7 @@ let debug (fmt : ('a, unit, string, unit) format4) =
 type t = {
     host: [`host] Uuidx.t
   ; host_name: string
-  ; pbd: [`pbd] Uuidx.t
+  ; pbd: [`PBD] Uuidx.t
   ; timestamp: float
   ; scsi_id: string
   ; current: int
@@ -257,25 +257,21 @@ let state_of_the_world rpc session_id =
   debug "Generating the current state of the world" ;
   let pbds = Client.PBD.get_all_records ~rpc ~session_id in
   let pbd_alerts =
-    List.flatten
-      (List.map
-         (fun (pbd_ref, pbd_rec) ->
-           create_pbd_alerts rpc session_id []
-             (pbd_ref, pbd_rec, Unix.gettimeofday ())
-         )
-         pbds
+    List.concat_map
+      (fun (pbd_ref, pbd_rec) ->
+        create_pbd_alerts rpc session_id []
+          (pbd_ref, pbd_rec, Unix.gettimeofday ())
       )
+      pbds
   in
   let hosts = Client.Host.get_all_records ~rpc ~session_id in
   let host_alerts =
-    List.flatten
-      (List.map
-         (fun (host_ref, host_rec) ->
-           create_host_alerts rpc session_id []
-             (host_ref, host_rec, Unix.gettimeofday ())
-         )
-         hosts
+    List.concat_map
+      (fun (host_ref, host_rec) ->
+        create_host_alerts rpc session_id []
+          (host_ref, host_rec, Unix.gettimeofday ())
       )
+      hosts
   in
   let alerts =
     List.filter

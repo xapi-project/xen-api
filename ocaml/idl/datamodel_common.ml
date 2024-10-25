@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 781
+let schema_minor_vsn = 783
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -573,36 +573,20 @@ let get_deprecated lifecycle =
     Some deprecated
   with Not_found -> None
 
-let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?in_product_since
-    ?internal_deprecated_since ?result ?(flags = [`Session; `Async])
-    ?(effect = true) ?(tag = Custom) ?(errs = []) ?(custom_marshaller = false)
-    ?(db_only = false) ?(no_current_operations = false) ?(secret = false)
-    ?(hide_from_docs = false) ?(pool_internal = false) ~allowed_roles
-    ?(map_keys_roles = []) ?(params = []) ?versioned_params ?lifecycle
-    ?(doc_tags = []) ?forward_to () =
+let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?result
+    ?(flags = [`Session; `Async]) ?(effect = true) ?(tag = Custom) ?(errs = [])
+    ?(custom_marshaller = false) ?(db_only = false)
+    ?(no_current_operations = false) ?(secret = false) ?(hide_from_docs = false)
+    ?(pool_internal = false) ~allowed_roles ?(map_keys_roles = [])
+    ?(params = []) ?versioned_params ?lifecycle ?(doc_tags = []) ?forward_to ()
+    =
   (* if you specify versioned_params then these get put in the params field of the message record;
      	 * otherwise params go in with no default values and param_release=call_release...
   *)
-  if lifecycle = None && in_product_since = None then
-    failwith ("Lifecycle for message '" ^ name ^ "' not specified") ;
   let lifecycle =
     match lifecycle with
     | None ->
-        let published =
-          match in_product_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Published, rel, doc)]
-        in
-        let deprecated =
-          match internal_deprecated_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Deprecated, rel, "")]
-        in
-        published @ deprecated
+        failwith ("Lifecycle for message '" ^ name ^ "' not specified")
     | Some l ->
         l
   in
@@ -669,38 +653,16 @@ let operation_enum x =
   (x.msg_name, Printf.sprintf "refers to the operation \"%s\"" x.msg_name)
 
 (** Make an object field record *)
-let field ?(in_oss_since = Some "3.0.3") ?in_product_since
-    ?(internal_only = false) ?internal_deprecated_since
+let field ?(in_oss_since = Some "3.0.3") ?(internal_only = false)
     ?(ignore_foreign_key = false) ?(writer_roles = None) ?(reader_roles = None)
     ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None)
     ?(persist = true) ?(map_keys_roles = [])
     ?(* list of (key_name,(writer_roles)) for a map field *)
      lifecycle ?(doc_tags = []) name desc =
-  (* in_product_since currently defaults to 'Some rel_rio', for backwards compatibility.
-     	 * This should eventually become 'None'. *)
-  let in_product_since =
-    match in_product_since with None -> Some rel_rio | x -> x
-  in
-  if lifecycle = None && in_product_since = None then
-    failwith ("Lifecycle for field '" ^ name ^ "' not specified") ;
   let lifecycle =
     match lifecycle with
     | None ->
-        let published =
-          match in_product_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Published, rel, desc)]
-        in
-        let deprecated =
-          match internal_deprecated_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Deprecated, rel, "")]
-        in
-        published @ deprecated
+        failwith ("Lifecycle for field '" ^ name ^ "' not specified")
     | Some l ->
         l
   in
@@ -748,12 +710,30 @@ let allowed_and_current_operations ?(writer_roles = None) ?(reader_roles = None)
     operations_type =
   [
     field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "list of the operations allowed in this state. This list is \
+             advisory only and the server state may have changed by the time \
+             this field is read by a client."
+          )
+        ]
       ~qualifier:DynamicRO ~ty:(Set operations_type)
       ~default_value:(Some (VSet [])) "allowed_operations"
       "list of the operations allowed in this state. This list is advisory \
        only and the server state may have changed by the time this field is \
        read by a client."
   ; field ~writer_roles ~reader_roles ~persist:false ~in_oss_since:None
+      ~lifecycle:
+        [
+          ( Published
+          , rel_rio
+          , "links each of the running tasks using this object (by reference) \
+             to a current_operation enum which describes the nature of the \
+             task."
+          )
+        ]
       ~qualifier:DynamicRO
       ~ty:(Map (String, operations_type))
       ~default_value:(Some (VMap [])) "current_operations"
@@ -797,8 +777,7 @@ let default_field_writer_roles = _R_POOL_ADMIN
 (* by default, only root can write to them *)
 
 (** Create an object and map the object name into the messages *)
-let create_obj ?lifecycle ~in_oss_since ?in_product_since
-    ?(internal_deprecated_since = None) ~gen_constructor_destructor ~gen_events
+let create_obj ?lifecycle ~in_oss_since ~gen_constructor_destructor ~gen_events
     ~persist ~name ~descr ~doccomments ~contents ~messages ~in_db
     ?(contents_default_reader_roles = default_field_reader_roles)
     ?(contents_default_writer_roles = None)
@@ -849,26 +828,10 @@ let create_obj ?lifecycle ~in_oss_since ?in_product_since
         )
       contents
   in
-  if lifecycle = None && in_product_since = None then
-    failwith ("Lifecycle for class '" ^ name ^ "' not specified") ;
   let lifecycle =
     match lifecycle with
     | None ->
-        let published =
-          match in_product_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Published, rel, descr)]
-        in
-        let deprecated =
-          match internal_deprecated_since with
-          | None ->
-              []
-          | Some rel ->
-              [(Deprecated, rel, "")]
-        in
-        published @ deprecated
+        failwith ("Lifecycle for class '" ^ name ^ "' not specified")
     | Some l ->
         l
   in

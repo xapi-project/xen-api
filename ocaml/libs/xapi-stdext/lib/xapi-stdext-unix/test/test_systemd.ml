@@ -1,4 +1,4 @@
-let _ =
+let () =
   let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
   let notify_test () =
     if Daemon.systemd_notify Daemon.State.Ready then
@@ -22,15 +22,18 @@ let _ =
       ) else
         temp_path
     in
-    Unix.(
-      let sock = socket PF_UNIX SOCK_DGRAM 0 ~cloexec:true in
-      bind sock (ADDR_UNIX socket_path) ;
+    let sock = Unix.(socket PF_UNIX SOCK_DGRAM 0 ~cloexec:true) in
+    try
+      Unix.bind sock (Unix.ADDR_UNIX socket_path) ;
       let b = Bytes.create 1024 in
-      let i, _ = recvfrom sock b 0 1024 [] in
+      let i, _ = Unix.recvfrom sock b 0 1024 [] in
       print_endline (Bytes.sub_string b 0 i) ;
-      close sock
-    )
+      Unix.close sock
+    with e ->
+      print_endline (Printexc.to_string e) ;
+      exit 5
   in
+
   let booted_test () =
     if Daemon.systemd_booted () then (
       print_endline "Booted with systemd" ;

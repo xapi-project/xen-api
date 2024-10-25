@@ -16,7 +16,7 @@ module TypeSet = Set.Make (struct
   let compare = compare
 end)
 
-let destdir = "autogen"
+let destdir = "autogen-out"
 
 let templates_dir = "templates"
 

@@ -10,6 +10,10 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
   "alcotest-lwt" {with-test}
+  "astring"
+  "bigarray-compat"
+  "cmdliner"
+  "cohttp"
   "cohttp-lwt"
   "conf-libssl"
   "cstruct" {>= "3.0.0"}
@@ -17,13 +21,18 @@ depends: [
   "forkexec" {= version}
   "io-page"
   "lwt"
+  "lwt_ssl"
+  "nbd"
   "nbd-unix"
   "ppx_cstruct"
   "ppx_deriving_rpc"
   "re"
+  "result"
   "rpclib"
+  "ssl"
   "sha"
   "tar"
+  "uri"
   "vhd-format" {= version}
   "vhd-format-lwt" {= version}
   "xapi-idl" {= version}

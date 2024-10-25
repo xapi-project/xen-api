@@ -295,7 +295,8 @@ let parse_session_and_args str =
   try
     let line = List.hd args in
     if Astring.String.is_prefix ~affix:"session_id=" line then
-      ( Some (Ref.of_string (String.sub line 11 (String.length line - 11)))
+      ( Some
+          (Ref.of_secret_string (String.sub line 11 (String.length line - 11)))
       , List.tl args
       )
     else
@@ -345,11 +346,8 @@ let exception_handler s e =
         [Cli_util.string_of_exn exc]
         s
 
-let handler (req : Http.Request.t) (bio : Buf_io.t) _ =
-  let str =
-    Http_svr.read_body ~limit:Constants.http_limit_max_cli_size req bio
-  in
-  let s = Buf_io.fd_of bio in
+let handler (req : Http.Request.t) (s : Unix.file_descr) _ =
+  let str = Http_svr.read_body ~limit:Constants.http_limit_max_cli_size req s in
   (* Tell the client the server version *)
   marshal_protocol s ;
   (* Read the client's protocol version *)

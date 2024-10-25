@@ -3,8 +3,6 @@
 
 (executable
   (name main)
-  (public_name xenops-cli)
-  (package xapi-xenopsd-cli)
   (libraries
       astring
       cmdliner
@@ -28,6 +26,12 @@
   (preprocess (per_module ((pps ppx_deriving_rpc) Common Xn_cfg_types)))
 )
 
+(install
+  (files (main.exe as xenops-cli))
+  (section sbin)
+  (package xapi-tools)
+)
+
 (rule
  (with-stdout-to
   xenops-cli.1
@@ -45,5 +49,5 @@
 (install
  (section man)
  (files xenops-cli.1.gz)
- (package xapi-xenopsd-cli)
+ (package xapi-tools)
 )

@@ -44,6 +44,15 @@ let ds_owner x =
         string "sr %s" sr
   )
 
+let ds_transform x =
+  match x with
+  | Rrd.Identity ->
+      []
+      (* This is the default when transform is absent, and not including it
+         makes the file smaller *)
+  | Rrd.Inverse ->
+      [("transform", string "inverse")]
+
 let bool b = string "%b" b (* Should use `Bool b *)
 
 let float x = string "%.2f" x
@@ -63,6 +72,7 @@ let ds_to_json (owner, ds) =
          [
            description ds.Ds.ds_description
          ; [ds_owner owner]
+         ; ds_transform ds.Ds.ds_pdp_transform_function
          ; ds_value ds.Ds.ds_value
          ; [ds_type ds.Ds.ds_type]
          ; [

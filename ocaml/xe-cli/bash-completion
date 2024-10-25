@@ -768,10 +768,15 @@ __add_completion()
 
 __preprocess_suggestions()
 {
-    echo "$1" | \
-    sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
-    sed -e 's/ *$//' | \
-    grep "^${prefix}.*"
+    wordlist=$( echo "$1" | \
+                sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
+                sed -e 's/ *$//')
+    local IFS=$'\n'
+    for word in $wordlist; do
+        if [[ "$word" =~ ^$prefix.* ]]; then
+            echo "$word"
+        fi
+    done
 }
 
 # set_completions suggestions current_prefix description_cmd

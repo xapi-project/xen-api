@@ -54,7 +54,8 @@ let create_pool_record ~__context =
       ~last_update_sync:Xapi_stdext_date.Date.epoch
       ~update_sync_frequency:`weekly ~update_sync_day:0L
       ~update_sync_enabled:false ~local_auth_max_threads:8L
-      ~ext_auth_max_threads:1L ~recommendations:[]
+      ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false
+      ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
 
 let set_master_ip ~__context =
   let ip =

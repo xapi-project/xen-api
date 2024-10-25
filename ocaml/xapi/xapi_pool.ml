@@ -322,7 +322,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       slavetobe_auth_type slavetobe_auth_service_name ;
     if
       slavetobe_auth_type <> master_auth_type
-      || slavetobe_auth_service_name <> master_auth_service_name
+      || String.lowercase_ascii slavetobe_auth_service_name
+         <> String.lowercase_ascii master_auth_service_name
     then (
       error
         "Cannot join pool whose external authentication configuration is \
@@ -686,16 +687,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     try
       let my_nbdish =
         Db.Network.get_all ~__context
-        |> List.map (fun nwk -> Db.Network.get_purpose ~__context ~self:nwk)
-        |> List.flatten
+        |> List.concat_map (fun nwk ->
+               Db.Network.get_purpose ~__context ~self:nwk
+           )
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       let remote_nbdish =
         Client.Network.get_all ~rpc ~session_id
-        |> List.map (fun nwk ->
+        |> List.concat_map (fun nwk ->
                Client.Network.get_purpose ~rpc ~session_id ~self:nwk
            )
-        |> List.flatten
         |> List.find (function `nbd | `insecure_nbd -> true | _ -> false)
       in
       if remote_nbdish <> my_nbdish then
@@ -807,6 +808,37 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
               (pool_joining_host_ca_certificates_conflict, !conflicting_names)
           )
   in
+  let assert_no_host_pending_mandatory_guidance () =
+    (* Assert that there is no host pending mandatory guidance on the joiner or
+       the remote pool coordinator.
+    *)
+    Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
+      ~host:(Helpers.get_localhost ~__context) ;
+    let remote_coordinator = get_master ~rpc ~session_id in
+    let remote_coordinator_pending_mandatory_guidances =
+      Client.Host.get_pending_guidances ~rpc ~session_id
+        ~self:remote_coordinator
+    in
+    if remote_coordinator_pending_mandatory_guidances <> [] then (
+      error
+        "%s: %d mandatory guidances are pending for remote coordinator %s: [%s]"
+        __FUNCTION__
+        (List.length remote_coordinator_pending_mandatory_guidances)
+        (Ref.string_of remote_coordinator)
+        (remote_coordinator_pending_mandatory_guidances
+        |> List.map Updateinfo.Guidance.of_pending_guidance
+        |> List.map Updateinfo.Guidance.to_string
+        |> String.concat ";"
+        ) ;
+      raise
+        Api_errors.(
+          Server_error
+            ( host_pending_mandatory_guidances_not_empty
+            , [Ref.string_of remote_coordinator]
+            )
+        )
+    )
+  in
   (* call pre-join asserts *)
   assert_pool_size_unrestricted () ;
   assert_management_interface_exists () ;
@@ -817,6 +849,9 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_i_know_of_no_other_hosts () ;
   assert_no_running_vms_on_me () ;
   assert_no_vms_with_current_ops () ;
+  (* check first no host pending mandatory guidance then the hosts compatible,
+     api version and db schema *)
+  assert_no_host_pending_mandatory_guidance () ;
   assert_hosts_compatible () ;
   if not force then assert_hosts_homogeneous () ;
   assert_no_shared_srs_on_me () ;
@@ -1397,12 +1432,12 @@ let certificate_install ~__context ~name ~cert =
 
 let install_ca_certificate = certificate_install
 
-let certificate_uninstall ~__context ~name =
+let uninstall_ca_certificate ~__context ~name ~force =
   let open Certificates in
-  pool_uninstall CA_Certificate ~__context ~name ;
+  pool_uninstall CA_Certificate ~__context ~name ~force ;
   Db_util.remove_ca_cert_by_name ~__context name
 
-let uninstall_ca_certificate = certificate_uninstall
+let certificate_uninstall = uninstall_ca_certificate ~force:false
 
 let certificate_list ~__context =
   let open Certificates in
@@ -1411,7 +1446,7 @@ let certificate_list ~__context =
 
 let crl_install = Certificates.(pool_install CRL)
 
-let crl_uninstall = Certificates.(pool_uninstall CRL)
+let crl_uninstall = Certificates.(pool_uninstall CRL ~force:false)
 
 let crl_list ~__context = Certificates.(local_list CRL)
 
@@ -1858,6 +1893,11 @@ let eject_self ~__context ~host =
       | `Static ->
           "static"
     in
+    let mode_v6 =
+      Record_util.ipv6_configuration_mode_to_string
+        pif.API.pIF_ipv6_configuration_mode
+      |> String.uncapitalize_ascii
+    in
     let write_first_boot_management_interface_configuration_file () =
       (* During firstboot, now inventory has an empty MANAGEMENT_INTERFACE *)
       let bridge = "" in
@@ -1871,7 +1911,11 @@ let eject_self ~__context ~host =
       (* If the management_interface exists on a vlan, write the vlan id into management.conf *)
       let vlan_id = Int64.to_int pif.API.pIF_VLAN in
       let config_base =
-        [sprintf "LABEL='%s'" management_device; sprintf "MODE='%s'" mode]
+        [
+          sprintf "LABEL='%s'" management_device
+        ; sprintf "MODE='%s'" mode
+        ; sprintf "MODEV6='%s'" mode_v6
+        ]
       in
       let config_static =
         if mode <> "static" then
@@ -1881,8 +1925,22 @@ let eject_self ~__context ~host =
             sprintf "IP='%s'" pif.API.pIF_IP
           ; sprintf "NETMASK='%s'" pif.API.pIF_netmask
           ; sprintf "GATEWAY='%s'" pif.API.pIF_gateway
-          ; sprintf "DNS='%s'" pif.API.pIF_DNS
           ]
+      in
+      let configv6_static =
+        if mode_v6 <> "static" then
+          []
+        else
+          [
+            sprintf "IPv6='%s'" (String.concat "," pif.API.pIF_IPv6)
+          ; sprintf "IPv6_GATEWAY='%s'" pif.API.pIF_ipv6_gateway
+          ]
+      in
+      let config_dns =
+        if mode = "static" || mode_v6 = "static" then
+          [sprintf "DNS='%s'" pif.API.pIF_DNS]
+        else
+          []
       in
       let config_vlan =
         if vlan_id = -1 then
@@ -1891,7 +1949,8 @@ let eject_self ~__context ~host =
           [sprintf "VLAN='%d'" vlan_id]
       in
       let configuration_file =
-        List.concat [config_base; config_static; config_vlan]
+        List.concat
+          [config_base; config_static; configv6_static; config_dns; config_vlan]
         |> String.concat "\n"
       in
       Unixext.write_string_to_file
@@ -2472,18 +2531,16 @@ let ha_compute_vm_failover_plan ~__context ~failed_hosts ~failed_vms =
     (String.concat "; " (List.map Ref.string_of live_hosts)) ;
   (* All failed_vms must be agile *)
   let errors =
-    List.concat
-      (List.map
-         (fun self ->
-           try
-             Agility.vm_assert_agile ~__context ~self ;
-             [(self, [("error_code", Api_errors.host_not_enough_free_memory)])]
-             (* default *)
-           with Api_errors.Server_error (code, _) ->
-             [(self, [("error_code", code)])]
-         )
-         failed_vms
+    List.concat_map
+      (fun self ->
+        try
+          Agility.vm_assert_agile ~__context ~self ;
+          [(self, [("error_code", Api_errors.host_not_enough_free_memory)])]
+          (* default *)
+        with Api_errors.Server_error (code, _) ->
+          [(self, [("error_code", code)])]
       )
+      failed_vms
   in
   let plan =
     List.map
@@ -3746,6 +3803,29 @@ let set_local_auth_max_threads ~__context:_ ~self:_ ~value =
 
 let set_ext_auth_max_threads ~__context:_ ~self:_ ~value =
   Xapi_session.set_ext_auth_max_threads value
+
+let set_ext_auth_cache_enabled ~__context ~self ~value:enabled =
+  Db.Pool.set_ext_auth_cache_enabled ~__context ~self ~value:enabled ;
+  if not enabled then
+    Xapi_session.clear_external_auth_cache ()
+
+let set_ext_auth_cache_size ~__context ~self ~value:capacity =
+  if capacity < 0L then
+    raise
+      Api_errors.(
+        Server_error (invalid_value, ["size"; Int64.to_string capacity])
+      )
+  else
+    Db.Pool.set_ext_auth_cache_size ~__context ~self ~value:capacity
+
+let set_ext_auth_cache_expiry ~__context ~self ~value:expiry_seconds =
+  if expiry_seconds <= 0L then
+    raise
+      Api_errors.(
+        Server_error (invalid_value, ["expiry"; Int64.to_string expiry_seconds])
+      )
+  else
+    Db.Pool.set_ext_auth_cache_expiry ~__context ~self ~value:expiry_seconds
 
 let get_guest_secureboot_readiness ~__context ~self:_ =
   let auth_files = Sys.readdir !Xapi_globs.varstore_dir in

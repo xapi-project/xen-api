@@ -1,0 +1,21 @@
+[Unit]
+Description=XCP RRD daemon
+After=forkexecd.service xenstored.service message-switch.service syslog.target
+Wants=forkexecd.service xenstored.service message-switch.service syslog.target
+
+[Service]
+Type=notify
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=narenas:1,tcache:false"
+Environment=OCAMLRUNPARAM=b
+EnvironmentFile=-/etc/sysconfig/xcp-rrdd
+ExecStart=/usr/sbin/xcp-rrdd $XCP_RRDD_OPTIONS
+SuccessExitStatus=0
+# StandardError=null
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

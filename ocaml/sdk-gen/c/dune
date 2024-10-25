@@ -12,11 +12,23 @@
 
 (rule
   (alias generate)
+  (package xapi-sdk)
+  (targets (dir autogen-out))
   (deps
     (:x gen_c_binding.exe)
     (source_tree templates)
+    (source_tree autogen)
   )
-  (action (run %{x}))
+  (action (concurrent
+    (bash "cp -r autogen/ autogen-out/")
+    (run %{x})
+  ))
 )
 
 (data_only_dirs templates)
+
+(install
+	(package xapi-sdk)
+	(section share_root)
+    (dirs (autogen-out as c))
+)

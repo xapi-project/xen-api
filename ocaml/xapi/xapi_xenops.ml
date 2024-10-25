@@ -864,16 +864,14 @@ module MD = struct
   let pcis_of_vm ~__context (vmref, vm) =
     let vgpu_pcidevs = Vgpuops.list_pcis_for_passthrough ~__context ~vm:vmref in
     let devs =
-      List.flatten
-        (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs))
+      List.concat_map (fun (_, dev) -> dev) (Pciops.sort_pcidevs vgpu_pcidevs)
     in
     (* The 'unmanaged' PCI devices are in the other_config key: *)
     let other_pcidevs =
       Pciops.other_pcidevs_of_vm ~__context vm.API.vM_other_config
     in
     let unmanaged =
-      List.flatten
-        (List.map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs))
+      List.concat_map (fun (_, dev) -> dev) (Pciops.sort_pcidevs other_pcidevs)
     in
     let net_sriov_pcidevs = list_net_sriov_vf_pcis ~__context ~vm in
     let devs = devs @ net_sriov_pcidevs @ unmanaged in
@@ -1866,20 +1864,14 @@ let update_vm ~__context id =
     else
       let self = Db.VM.get_by_uuid ~__context ~uuid:id in
       let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self <> localhost then
-        debug "xenopsd event: ignoring event for VM (VM %s not resident)" id
-      else
+      if Db.VM.get_resident_on ~__context ~self = localhost then
         let previous = Xenops_cache.find_vm id in
         let dbg = Context.string_of_task_and_tracing __context in
         let module Client =
           (val make_client (queue_of_vm ~__context ~self) : XENOPS)
         in
         let info = try Some (Client.VM.stat dbg id) with _ -> None in
-        if Option.map snd info = previous then
-          debug
-            "xenopsd event: ignoring event for VM %s: metadata has not changed"
-            id
-        else (
+        if Option.map snd info <> previous then (
           debug "xenopsd event: processing event for VM %s" id ;
           if info = None then
             debug "xenopsd event: VM state missing: assuming VM has shut down" ;
@@ -2282,13 +2274,15 @@ let update_vm ~__context id =
                 Option.iter
                   (fun (_, state) ->
                     let metrics = Db.VM.get_metrics ~__context ~self in
+                    (* Clamp time to full seconds, stored timestamps do not
+                        have decimals *)
                     let start_time =
-                      Date.of_unix_time state.Vm.last_start_time
+                      Float.floor state.Vm.last_start_time |> Date.of_unix_time
                     in
-                    if
-                      start_time
-                      <> Db.VM_metrics.get_start_time ~__context ~self:metrics
-                    then (
+                    let expected_time =
+                      Db.VM_metrics.get_start_time ~__context ~self:metrics
+                    in
+                    if Date.is_later ~than:expected_time start_time then (
                       debug
                         "xenopsd event: Updating VM %s last_start_time <- %s" id
                         Date.(to_rfc3339 (of_unix_time state.Vm.last_start_time)) ;
@@ -2438,27 +2432,19 @@ let update_vm ~__context id =
 let update_vbd ~__context (id : string * string) =
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
-      debug "xenopsd event: ignoring event for VM (VM %s migrating away)"
+      debug "xenopsd event: ignoring event for VBD (VM %s migrating away)"
         (fst id)
     else
       let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
       let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self:vm <> localhost then
-        debug "xenopsd event: ignoring event for VBD (VM %s not resident)"
-          (fst id)
-      else
+      if Db.VM.get_resident_on ~__context ~self:vm = localhost then
         let previous = Xenops_cache.find_vbd id in
         let dbg = Context.string_of_task_and_tracing __context in
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VBD.stat dbg id) with _ -> None in
-        if Option.map snd info = previous then
-          debug
-            "xenopsd event: ignoring event for VBD %s.%s: metadata has not \
-             changed"
-            (fst id) (snd id)
-        else
+        if Option.map snd info <> previous then (
           let vbds = Db.VM.get_VBDs ~__context ~self:vm in
           let vbdrs =
             List.map
@@ -2541,6 +2527,7 @@ let update_vbd ~__context (id : string * string) =
           if not (Db.VBD.get_empty ~__context ~self:vbd) then
             let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
             Xapi_vdi.update_allowed_operations ~__context ~self:vdi
+        )
   with e ->
     error "xenopsd event: Caught %s while updating VBD" (string_of_exn e)
 
@@ -2552,22 +2539,14 @@ let update_vif ~__context id =
     else
       let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
       let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self:vm <> localhost then
-        debug "xenopsd event: ignoring event for VIF (VM %s not resident)"
-          (fst id)
-      else
+      if Db.VM.get_resident_on ~__context ~self:vm = localhost then
         let previous = Xenops_cache.find_vif id in
         let dbg = Context.string_of_task_and_tracing __context in
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VIF.stat dbg id) with _ -> None in
-        if Option.map snd info = previous then
-          debug
-            "xenopsd event: ignoring event for VIF %s.%s: metadata has not \
-             changed"
-            (fst id) (snd id)
-        else
+        if Option.map snd info <> previous then (
           let vifs = Db.VM.get_VIFs ~__context ~self:vm in
           let vifrs =
             List.map
@@ -2656,6 +2635,7 @@ let update_vif ~__context id =
             info ;
           Xenops_cache.update_vif id (Option.map snd info) ;
           Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
+        )
   with e ->
     error "xenopsd event: Caught %s while updating VIF" (string_of_exn e)
 
@@ -2667,22 +2647,14 @@ let update_pci ~__context id =
     else
       let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
       let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self:vm <> localhost then
-        debug "xenopsd event: ignoring event for PCI (VM %s not resident)"
-          (fst id)
-      else
+      if Db.VM.get_resident_on ~__context ~self:vm = localhost then
         let previous = Xenops_cache.find_pci id in
         let dbg = Context.string_of_task_and_tracing __context in
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.PCI.stat dbg id) with _ -> None in
-        if Option.map snd info = previous then
-          debug
-            "xenopsd event: ignoring event for PCI %s.%s: metadata has not \
-             changed"
-            (fst id) (snd id)
-        else
+        if Option.map snd info <> previous then (
           let pcis = Db.Host.get_PCIs ~__context ~self:localhost in
           let pcirs =
             List.map
@@ -2731,6 +2703,7 @@ let update_pci ~__context id =
             )
             info ;
           Xenops_cache.update_pci id (Option.map snd info)
+        )
   with e ->
     error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
@@ -2742,22 +2715,14 @@ let update_vgpu ~__context id =
     else
       let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
       let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self:vm <> localhost then
-        debug "xenopsd event: ignoring event for VGPU (VM %s not resident)"
-          (fst id)
-      else
+      if Db.VM.get_resident_on ~__context ~self:vm = localhost then
         let previous = Xenops_cache.find_vgpu id in
         let dbg = Context.string_of_task_and_tracing __context in
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VGPU.stat dbg id) with _ -> None in
-        if Option.map snd info = previous then
-          debug
-            "xenopsd event: ignoring event for VGPU %s.%s: metadata has not \
-             changed"
-            (fst id) (snd id)
-        else
+        if Option.map snd info <> previous then (
           let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
           let vgpu_records =
             List.map
@@ -2802,33 +2767,26 @@ let update_vgpu ~__context id =
               )
               info ;
           Xenops_cache.update_vgpu id (Option.map snd info)
+        )
   with e ->
     error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
 
 let update_vusb ~__context (id : string * string) =
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
-      debug "xenopsd event: ignoring event for VM (VM %s migrating away)"
+      debug "xenopsd event: ignoring event for VUSB (VM %s migrating away)"
         (fst id)
     else
       let vm = Db.VM.get_by_uuid ~__context ~uuid:(fst id) in
       let localhost = Helpers.get_localhost ~__context in
-      if Db.VM.get_resident_on ~__context ~self:vm <> localhost then
-        debug "xenopsd event: ignoring event for VUSB (VM %s not resident)"
-          (fst id)
-      else
+      if Db.VM.get_resident_on ~__context ~self:vm = localhost then
         let previous = Xenops_cache.find_vusb id in
         let dbg = Context.string_of_task_and_tracing __context in
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
         let info = try Some (Client.VUSB.stat dbg id) with _ -> None in
-        if Option.map snd info = previous then
-          debug
-            "xenopsd event: ignoring event for VUSB %s.%s: metadata has not \
-             changed"
-            (fst id) (snd id)
-        else
+        if Option.map snd info <> previous then (
           let pusb, _ =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
@@ -2853,6 +2811,7 @@ let update_vusb ~__context (id : string * string) =
             info ;
           Xenops_cache.update_vusb id (Option.map snd info) ;
           Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
+        )
   with e ->
     error "xenopsd event: Caught %s while updating VUSB" (string_of_exn e)
 
@@ -2998,14 +2957,13 @@ let resync_resident_on ~__context =
   in
   (* Get a list of VMs that the xenopsds know about with their xenopsd client *)
   let vms_in_xenopsds =
-    List.map
+    List.concat_map
       (fun queue_name ->
         let module Client = (val make_client queue_name : XENOPS) in
         let vms = Client.VM.list dbg () in
         List.map (fun (vm, state) -> ((vm.Vm.id, state), queue_name)) vms
       )
       (all_known_xenopsds ())
-    |> List.flatten
   in
   (* The list of VMs xenopsd knows about that (xapi knows about at all,
      xapi has no idea about at all) *)

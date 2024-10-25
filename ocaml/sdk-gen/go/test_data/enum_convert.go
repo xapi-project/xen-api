@@ -14,7 +14,7 @@ func deserializeEnumTaskStatusType(context string, input interface{}) (value Tas
 	case "success":
 		value = TaskStatusTypeSuccess
 	default:
-		err = fmt.Errorf("unable to parse XenAPI response: got value %q for enum %s at %s, but this is not any of the known values", strValue, "TaskStatusType", context)
+		value = TaskStatusTypeUnrecognized
 	}
 	return
 }

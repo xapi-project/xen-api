@@ -312,7 +312,7 @@ let parse_backend_link x =
 
 let readdir ~xs d = try xs.Xs.directory d with Xs_protocol.Enoent _ -> []
 
-let to_list ys = List.concat (List.map Option.to_list ys)
+let to_list ys = List.concat_map Option.to_list ys
 
 let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 
@@ -322,88 +322,79 @@ let list_kinds ~xs dir = to_list (List.map parse_kind (readdir ~xs dir))
 let list_frontends ~xs ?for_devids domid =
   let frontend_dir = sprintf "/xenops/domain/%d/device" domid in
   let kinds = list_kinds ~xs frontend_dir in
-  List.concat
-    (List.map
-       (fun k ->
-         let dir = sprintf "%s/%s" frontend_dir (string_of_kind k) in
-         let devids =
-           match for_devids with
-           | None ->
-               to_list (List.map parse_int (readdir ~xs dir))
-           | Some devids ->
-               (* check that any specified devids are present in frontend_dir *)
-               List.filter
-                 (fun devid ->
-                   try
-                     ignore (xs.Xs.read (sprintf "%s/%d" dir devid)) ;
-                     true
-                   with _ -> false
-                 )
-                 devids
-         in
-         to_list
-           (List.map
+  List.concat_map
+    (fun k ->
+      let dir = sprintf "%s/%s" frontend_dir (string_of_kind k) in
+      let devids =
+        match for_devids with
+        | None ->
+            to_list (List.map parse_int (readdir ~xs dir))
+        | Some devids ->
+            (* check that any specified devids are present in frontend_dir *)
+            List.filter
               (fun devid ->
-                (* domain [domid] believes it has a frontend for device [devid] *)
-                let frontend = {domid; kind= k; devid} in
                 try
-                  let link = xs.Xs.read (sprintf "%s/%d/backend" dir devid) in
-                  match parse_backend_link link with
-                  | Some b ->
-                      Some {backend= b; frontend}
-                  | None ->
-                      None
-                with _ -> None
+                  ignore (xs.Xs.read (sprintf "%s/%d" dir devid)) ;
+                  true
+                with _ -> false
               )
               devids
+      in
+      to_list
+        (List.map
+           (fun devid ->
+             (* domain [domid] believes it has a frontend for device [devid] *)
+             let frontend = {domid; kind= k; devid} in
+             try
+               let link = xs.Xs.read (sprintf "%s/%d/backend" dir devid) in
+               match parse_backend_link link with
+               | Some b ->
+                   Some {backend= b; frontend}
+               | None ->
+                   None
+             with _ -> None
            )
-       )
-       kinds
+           devids
+        )
     )
+    kinds
 
 (* NB: we only read data from the backend directory. Therefore this gives the
    "backend's point of view". *)
 let list_backends ~xs domid =
   let backend_dir = xs.Xs.getdomainpath domid ^ "/backend" in
   let kinds = list_kinds ~xs backend_dir in
-  List.concat
-    (List.map
-       (fun k ->
-         let dir = sprintf "%s/%s" backend_dir (string_of_kind k) in
-         let domids = to_list (List.map parse_int (readdir ~xs dir)) in
-         List.concat
-           (List.map
-              (fun frontend_domid ->
-                let dir =
-                  sprintf "%s/%s/%d" backend_dir (string_of_kind k)
-                    frontend_domid
-                in
-                let devids = to_list (List.map parse_int (readdir ~xs dir)) in
-                to_list
-                  (List.map
-                     (fun devid ->
-                       (* domain [domid] believes it has a backend for
-                          [frontend_domid] of type [k] with devid [devid] *)
-                       let backend = {domid; kind= k; devid} in
-                       try
-                         let link =
-                           xs.Xs.read (sprintf "%s/%d/frontend" dir devid)
-                         in
-                         match parse_frontend_link link with
-                         | Some f ->
-                             Some {backend; frontend= f}
-                         | None ->
-                             None
-                       with _ -> None
-                     )
-                     devids
-                  )
-              )
-              domids
-           )
-       )
-       kinds
+  List.concat_map
+    (fun k ->
+      let dir = sprintf "%s/%s" backend_dir (string_of_kind k) in
+      let domids = to_list (List.map parse_int (readdir ~xs dir)) in
+      List.concat_map
+        (fun frontend_domid ->
+          let dir =
+            sprintf "%s/%s/%d" backend_dir (string_of_kind k) frontend_domid
+          in
+          let devids = to_list (List.map parse_int (readdir ~xs dir)) in
+          to_list
+            (List.map
+               (fun devid ->
+                 (* domain [domid] believes it has a backend for
+                    [frontend_domid] of type [k] with devid [devid] *)
+                 let backend = {domid; kind= k; devid} in
+                 try
+                   let link = xs.Xs.read (sprintf "%s/%d/frontend" dir devid) in
+                   match parse_frontend_link link with
+                   | Some f ->
+                       Some {backend; frontend= f}
+                   | None ->
+                       None
+                 with _ -> None
+               )
+               devids
+            )
+        )
+        domids
     )
+    kinds
 
 (** Return a list of devices connecting two domains. Ignore those whose kind we
     don't recognise *)

@@ -247,7 +247,7 @@ val update_management_flags : __context:Context.t -> host:[`host] Ref.t -> unit
  *  which holds the bridge of the management interface in the MANAGEMENT_INTERFACE field. *)
 
 val calculate_pifs_required_at_start_of_day :
-  __context:Context.t -> ('b Ref.t * API.pIF_t) list
+  __context:Context.t -> (API.ref_PIF * API.pIF_t) list
 (** Returns the set of PIF references + records which we want to be plugged in by the end of the
     start of day code. These are the PIFs on the localhost that are not bond slaves.
     For PIFs that have [disallow_unplug] set to true, and the management interface, will

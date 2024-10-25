@@ -153,7 +153,7 @@ module Module = struct
             [
               List.map (fun x -> Line x) x.preamble
             ; (if x.letrec then [Line "let rec __unused () = ()"] else [])
-            ; List.concat (List.map e x.elements)
+            ; List.concat_map e x.elements
             ; List.map (fun x -> Line x) x.postamble
             ]
         in
@@ -182,7 +182,7 @@ module Signature = struct
         else
           Line ("module " ^ x.name ^ " : sig")
       )
-    ; Indent (List.concat (List.map e x.elements))
+    ; Indent (List.concat_map e x.elements)
     ; Line "end"
     ]
 

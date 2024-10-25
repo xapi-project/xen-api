@@ -20,6 +20,7 @@ depends: [
   "xapi-stdext-threads" {= version}
   "xapi-stdext-unix" {= version}
   "xapi-idl" {= version}
+  "xenstore"
   "xenstore_transport"
   "odoc" {with-doc}
 ]

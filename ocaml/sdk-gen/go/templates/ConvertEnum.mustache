@@ -17,7 +17,7 @@ func deserialize{{func_name_suffix}}(context string, input interface{}) (value {
 		value = {{name}}
 {{/items}}
 	default:
-		err = fmt.Errorf("unable to parse XenAPI response: got value %q for enum %s at %s, but this is not any of the known values", strValue, "{{type}}", context)
+		value = {{type}}Unrecognized
 	}
 	return
 }

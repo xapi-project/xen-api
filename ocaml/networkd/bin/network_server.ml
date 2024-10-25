@@ -1136,14 +1136,13 @@ module Bridge = struct
       (fun () ->
         if from_cache then
           let ports =
-            List.concat
-              (List.map (fun (_, {ports; _}) -> ports) !config.bridge_config)
+            List.concat_map (fun (_, {ports; _}) -> ports) !config.bridge_config
           in
           List.map (fun (port, {interfaces; _}) -> (port, interfaces)) ports
         else
           match !backend_kind with
           | Openvswitch ->
-              List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
+              List.concat_map Ovs.bridge_to_ports (Ovs.list_bridges ())
           | Bridge ->
               raise (Network_error Not_implemented)
       )
@@ -1154,8 +1153,7 @@ module Bridge = struct
       (fun () ->
         if from_cache then
           let ports =
-            List.concat
-              (List.map (fun (_, {ports; _}) -> ports) !config.bridge_config)
+            List.concat_map (fun (_, {ports; _}) -> ports) !config.bridge_config
           in
           let names =
             List.map (fun (port, {interfaces; _}) -> (port, interfaces)) ports
@@ -1164,7 +1162,7 @@ module Bridge = struct
         else
           match !backend_kind with
           | Openvswitch ->
-              List.concat (List.map Ovs.bridge_to_ports (Ovs.list_bridges ()))
+              List.concat_map Ovs.bridge_to_ports (Ovs.list_bridges ())
           | Bridge ->
               raise (Network_error Not_implemented)
       )
@@ -1476,7 +1474,7 @@ end
 module PVS_proxy = struct
   open S.PVS_proxy
 
-  let path = ref "/opt/citrix/pvsproxy/socket/pvsproxy"
+  let path = ref "/run/pvsproxy"
 
   let do_call call =
     try Jsonrpc_client.with_rpc ~path:!path ~call ()

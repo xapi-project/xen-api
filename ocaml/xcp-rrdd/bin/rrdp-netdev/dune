@@ -1,0 +1,24 @@
+(executable
+  (modes exe)
+  (name rrdp_netdev)
+  (libraries
+    astring
+    integers
+    netlink
+    rrdd-plugin
+    rrdd_plugin_xenctrl
+    rrdd_plugins_libs
+    xapi-idl.network
+    xapi-idl.rrd
+    xapi-log
+    xapi-rrd
+    xapi-stdext-std
+    xenctrl
+  )
+)
+
+(install
+  (package xapi)
+  (files (rrdp_netdev.exe as xcp-rrdd-plugins/xcp-rrdd-netdev))
+  (section libexec_root)
+)

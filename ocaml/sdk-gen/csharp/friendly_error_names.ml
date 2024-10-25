@@ -20,7 +20,7 @@ let _ =
 
 let sr_xml = !sr_xml'
 
-let destdir = "autogen/src"
+let destdir = "autogen-out/src"
 
 let templdir = "templates"
 

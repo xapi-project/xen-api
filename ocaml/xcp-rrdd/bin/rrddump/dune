@@ -9,6 +9,6 @@
     xapi-rrd.unix
     xmlm
   )
-  (package rrddump)
+  (package xapi-tools)
 )
 
