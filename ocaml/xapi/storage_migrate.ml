@@ -442,7 +442,8 @@ let progress_callback start len t y =
   Storage_task.set_state t (Task.Pending new_progress) ;
   signal (Storage_task.id_of_handle t)
 
-let copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
+(** [copy_into_vdi] is similar to [copy_into_sr] but requires a [dest_vdi] parameter *)
+let copy_into_vdi ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
   let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
   let module Remote = StorageAPI (Idl.Exn.GenClient (struct
     let rpc =
@@ -837,7 +838,7 @@ let start' ~task ~dbg:_ ~sr ~vdi ~dp ~url ~dest ~verify_dest =
     (* Copy the snapshot to the remote *)
     let new_parent =
       Storage_task.with_subtask task "copy" (fun () ->
-          copy' ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest
+          copy_into_vdi ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest
             ~dest_vdi:result.Mirror.copy_diffs_to ~verify_dest
       )
       |> vdi_info
@@ -1229,7 +1230,10 @@ let nbd_handler req s sr vdi dp =
   | None ->
       ()
 
-let copy ~task ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
+(** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will 
+  find the nearest vdi on the [dest] sr, and if there is no such vdi, it will 
+  create one. *)
+let copy_into_sr ~task ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
   debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
     (Storage_interface.Sr.string_of sr)
     (Storage_interface.Vdi.string_of vdi)
@@ -1314,7 +1318,7 @@ let copy ~task ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
             Remote.VDI.create dbg dest {local_vdi with sm_config= []}
       in
       let remote_copy =
-        copy' ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi
+        copy_into_vdi ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi
           ~verify_dest
         |> vdi_info
       in
@@ -1362,7 +1366,8 @@ let start ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
 
 let copy ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
-      copy ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~url ~dest ~verify_dest
+      copy_into_sr ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~url ~dest
+        ~verify_dest
   )
 
 (* The remote end of this call, SR.update_snapshot_info_dest, is implemented in
