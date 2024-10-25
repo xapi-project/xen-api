@@ -235,6 +235,11 @@ let get_times time timestep =
   let age = time -. Int64.to_float starttime in
   (starttime, age)
 
+let get_float_time time timestep =
+  let timestep = Int64.to_float timestep in
+  let starttime = timestep *. (time /. timestep) in
+  starttime
+
 (** Update the CDP value with a number (start_pdp_offset) of PDPs. *)
 let do_cfs rra start_pdp_offset pdps =
   Array.iter
@@ -443,10 +448,9 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
             (i, nan)
           else
             let raw =
-              ds.ds_value
-              /. (Int64.to_float (occu_pdp_st --- proc_pdp_st)
-                 -. ds.ds_unknown_sec
-                 )
+              let proc_pdp_st = get_float_time last_updated rrd.timestep in
+              let occu_pdp_st = get_float_time timestamp rrd.timestep in
+              ds.ds_value /. (occu_pdp_st -. proc_pdp_st -. ds.ds_unknown_sec)
             in
             (* Apply the transform after the raw value has been calculated *)
             let raw = apply_transform_function transform raw in
