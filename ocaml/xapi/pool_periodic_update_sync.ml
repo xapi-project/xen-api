@@ -140,7 +140,8 @@ let rec update_sync () =
                 ignore
                   (Client.Pool.sync_updates ~rpc ~session_id
                      ~self:(Helpers.get_pool ~__context)
-                     ~force:false ~token:"" ~token_id:""
+                     ~force:false ~token:"" ~token_id:"" ~username:""
+                     ~password:""
                   )
               with e ->
                 let exc = Printexc.to_string e in

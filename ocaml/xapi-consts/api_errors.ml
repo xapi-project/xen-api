@@ -1330,6 +1330,12 @@ let can_not_periodic_sync_updates = add_error "CAN_NOT_PERIODIC_SYNC_UPDATES"
 let repo_should_be_single_one_enabled =
   add_error "REPO_SHOULD_BE_SINGLE_ONE_ENABLED"
 
+let update_syncing_remote_pool_coordinator_connection_failed =
+  add_error "UPDATE_SYNCING_REMOTE_POOL_COORDINATOR_CONNECTION_FAILED"
+
+let update_syncing_remote_pool_coordinator_service_failed =
+  add_error "UPDATE_SYNCING_REMOTE_POOL_COORDINATOR_SERVICE_FAILED"
+
 let repository_is_in_use = add_error "REPOSITORY_IS_IN_USE"
 
 let repository_cleanup_failed = add_error "REPOSITORY_CLEANUP_FAILED"

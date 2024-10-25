@@ -3559,12 +3559,15 @@ let remove_repository ~__context ~self ~value =
   if Db.Pool.get_repositories ~__context ~self = [] then
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
 
-let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
+let sync_repos ~__context ~self ~repos ~force ~token ~token_id ~username
+    ~password =
   let open Repository in
   repos
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
-         let complete = sync ~__context ~self:repo ~token ~token_id in
+         let complete =
+           sync ~__context ~self:repo ~token ~token_id ~username ~password
+         in
          (* Dnf and custom yum-utils sync all the metadata including updateinfo,
           * Thus no need to re-create pool repository *)
          if Pkgs.manager = Yum && complete = false then
@@ -3574,14 +3577,14 @@ let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
   Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
   checksum
 
-let sync_updates ~__context ~self ~force ~token ~token_id =
+let sync_updates ~__context ~self ~force ~token ~token_id ~username ~password =
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.sync_updates" ~op:`sync_updates
   @@ fun () ->
   let repos = Repository_helpers.get_enabled_repositories ~__context in
   assert_can_sync_updates ~__context ~repos ;
-  sync_repos ~__context ~self ~repos ~force ~token ~token_id
+  sync_repos ~__context ~self ~repos ~force ~token ~token_id ~username ~password
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
@@ -3956,7 +3959,7 @@ let put_bundle_handler (req : Request.t) s _ =
                   (fun () ->
                     try
                       sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
-                        ~token:"" ~token_id:""
+                        ~token:"" ~token_id:"" ~username:"" ~password:""
                       |> ignore
                     with _ ->
                       raise Api_errors.(Server_error (bundle_sync_failed, []))

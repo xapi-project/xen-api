@@ -1926,6 +1926,16 @@ let _ =
       "If the bundle repository or remote_pool repository is enabled, it \
        should be the only one enabled repository of the pool."
     () ;
+  error Api_errors.update_syncing_remote_pool_coordinator_connection_failed []
+    ~doc:
+      "There was an error connecting to the remote pool coordinator while \
+       syncing updates from it."
+    () ;
+  error Api_errors.update_syncing_remote_pool_coordinator_service_failed []
+    ~doc:
+      "There was an error connecting to the server while syncing updates from \
+       it. The service contacted didn't reply properly."
+    () ;
   error Api_errors.repository_is_in_use [] ~doc:"The repository is in use." () ;
   error Api_errors.repository_cleanup_failed []
     ~doc:"Failed to clean up local repository on coordinator." () ;

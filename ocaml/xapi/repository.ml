@@ -149,26 +149,71 @@ let get_proxy_params ~__context repo_name =
   | _ ->
       ("", "", "")
 
-let sync ~__context ~self ~token ~token_id =
+let sync ~__context ~self ~token ~token_id ~username ~password =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
     remove_repo_conf_file repo_name ;
-    let binary_url, source_url =
-      match Db.Repository.get_origin ~__context ~self with
+    let origin = Db.Repository.get_origin ~__context ~self in
+
+    let binary_url, source_url, use_proxy, client_auth, server_auth =
+      match origin with
       | `remote ->
+          let plugin = "accesstoken" in
           ( Db.Repository.get_binary_url ~__context ~self
           , Some (Db.Repository.get_source_url ~__context ~self)
+          , true
+          , CdnTokenAuth {token_id; token; plugin}
+          , DefaultAuth
           )
       | `bundle ->
           let uri =
             Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
           in
-          (Uri.to_string uri, None)
+          (Uri.to_string uri, None, false, NoAuth, NoAuth)
       | `remote_pool ->
-          (* TODO: sync with Stunnel.with_client_proxy as otherwise yum
-             reposync will fail when checking the self signed certificate on
-             the remote pool. *)
-          ("", None)
+          let cert = Db.Repository.get_certificate ~__context ~self in
+          let repo_binary_url = Db.Repository.get_binary_url ~__context ~self in
+          let remote_addr =
+            repo_binary_url |> Repository_helpers.get_remote_pool_coordinator_ip
+          in
+          let verified_rpc =
+            try
+              Helpers.make_external_host_verified_rpc ~__context remote_addr
+                cert
+            with Xmlrpc_client.Connection_reset ->
+              raise
+                (Api_errors.Server_error
+                   ( Api_errors
+                     .update_syncing_remote_pool_coordinator_connection_failed
+                   , []
+                   )
+                )
+          in
+          let session_id =
+            try
+              Client.Client.Session.login_with_password ~rpc:verified_rpc
+                ~uname:username ~pwd:password
+                ~version:Datamodel_common.api_version_string
+                ~originator:Xapi_version.xapi_user_agent
+            with
+            | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
+              raise
+                (Api_errors.Server_error
+                   ( Api_errors
+                     .update_syncing_remote_pool_coordinator_service_failed
+                   , []
+                   )
+                )
+          in
+          let xapi_token = session_id |> Ref.string_of in
+          let plugin = "xapitoken" in
+          ( repo_binary_url
+          , None
+          , true
+          , PoolExtHostAuth {xapi_token; plugin}
+          , StunnelClientProxyAuth
+              {cert; remote_addr; remote_port= Constants.default_ssl_port}
+          )
     in
     let gpgkey_path =
       match Db.Repository.get_gpgkey_path ~__context ~self with
@@ -177,57 +222,78 @@ let sync ~__context ~self ~token ~token_id =
       | s ->
           s
     in
-    let write_initial_yum_config () =
+    let write_initial_yum_config ~binary_url =
       write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
         ~repo_name
     in
-    write_initial_yum_config () ;
-    clean_yum_cache repo_name ;
-    (* Remove imported YUM repository GPG key *)
-    if Pkgs.manager = Yum then
-      Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
-        with_access_token ~token ~token_id @@ fun token_path ->
-        (* Configure proxy and token *)
-        let token_param =
-          match token_path with
-          | Some p ->
-              Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
-          | None ->
-              ""
+        let config_repo params =
+          let Pkg_mgr.{cmd; params} =
+            "--save" :: params |> fun config ->
+            Pkgs.config_repo ~repo_name ~config
+          in
+          ignore (Helpers.call_script ~log_output:Helpers.On_failure cmd params)
         in
-        let proxy_url_param, proxy_username_param, proxy_password_param =
-          get_proxy_params ~__context repo_name
-        in
-        let Pkg_mgr.{cmd; params} =
-          [
-            "--save"
-          ; proxy_url_param
-          ; proxy_username_param
-          ; proxy_password_param
-          ; token_param
-          ]
-          |> fun config -> Pkgs.config_repo ~repo_name ~config
-        in
-        ignore (Helpers.call_script ~log_output:Helpers.On_failure cmd params) ;
 
-        (* Import YUM repository GPG key to check metadata in reposync *)
-        let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
-        ignore (Helpers.call_script cmd params) ;
+        let make_cache () =
+          (* Import YUM repository GPG key to check metadata in reposync *)
+          let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
+          ignore (Helpers.call_script cmd params)
+        in
 
         (* Sync with remote repository *)
-        let Pkg_mgr.{cmd; params} = Pkgs.sync_repo ~repo_name in
-        Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
+        let sync_repo () =
+          let Pkg_mgr.{cmd; params} = Pkgs.sync_repo ~repo_name in
+          Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
+          clean_yum_cache repo_name ;
+          ignore (Helpers.call_script cmd params)
+        in
+
+        with_sync_client_auth client_auth @@ fun client_auth ->
+        with_sync_server_auth server_auth @@ fun binary_url' ->
+        write_initial_yum_config
+          ~binary_url:(Option.value binary_url' ~default:binary_url) ;
         clean_yum_cache repo_name ;
-        ignore (Helpers.call_script cmd params)
+        (* Remove imported YUM repository GPG key *)
+        if Pkgs.manager = Yum then
+          Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
+        let auth_params =
+          match client_auth with
+          | Some (auth_file, plugin) ->
+              let token_param =
+                Printf.sprintf "--setopt=%s.%s=%s" repo_name plugin
+                  (Uri.make ~scheme:"file" ~path:auth_file () |> Uri.to_string)
+              in
+              [token_param]
+          | None ->
+              []
+        in
+        let proxy_params =
+          match use_proxy with
+          | true ->
+              let proxy_url_param, proxy_username_param, proxy_password_param =
+                get_proxy_params ~__context repo_name
+              in
+              [proxy_url_param; proxy_username_param; proxy_password_param]
+          | false ->
+              []
+        in
+        config_repo (auth_params @ proxy_params) ;
+        make_cache () ;
+        sync_repo ()
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential
          * related info, I.E. proxy username/password and temporary token file
          * path.
+         * One thing to note: for remote_repo, the binary_url used to
+         * re-initial yum repo is the url configed in the remote_pool repo,
+         * which is not the correct one for stunnel client proxy, while as we
+         * will always write_initial_yum_config every time before syncing repo,
+         * this should be ok.
          *)
-        write_initial_yum_config ()
+        write_initial_yum_config ~binary_url
       ) ;
     (* The custom yum-utils will fully download repository metadata including
      * the repo gpg signature.
@@ -239,10 +305,13 @@ let sync ~__context ~self ~token ~token_id =
       // "repomd.xml.asc"
     in
     Sys.file_exists repo_gpg_signature
-  with e ->
-    error "Failed to sync with remote YUM repository: %s"
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (reposync_failed, []))
+  with
+  | Api_errors.Server_error (_, _) as e ->
+      raise e
+  | e ->
+      error "Failed to sync with remote YUM repository: %s"
+        (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (reposync_failed, []))
 
 let http_get_host_updates_in_json ~__context ~host ~installed =
   let host_session_id =
