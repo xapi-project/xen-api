@@ -790,7 +790,7 @@ module MigrateLocal = struct
       let verify_cert = if verify_dest then Stunnel_client.pool () else None in
       let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
       debug "Searching for data path: %s" dp ;
-      let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
+      let attach_info = Local.DP.attach_info dbg sr vdi dp mirror_vm in
       on_fail :=
         (fun () -> Remote.DATA.MIRROR.receive_cancel dbg mirror_id) :: !on_fail ;
       let tapdev =
