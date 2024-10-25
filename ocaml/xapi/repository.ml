@@ -147,7 +147,17 @@ let get_proxy_params ~__context repo_name =
   | _ ->
       ("", "", "")
 
-let sync ~__context ~self ~token ~token_id =
+let ext_host_verified_rpc ~__context ~cert host_address xml =
+  try Helpers.make_external_host_verified_rpc ~__context host_address cert xml
+  with Xmlrpc_client.Connection_reset ->
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.update_syncing_remote_pool_coordinator_connection_failed
+         , []
+         )
+      )
+
+let sync ~__context ~self ~token ~token_id ~remote_addr ~username ~password =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
     remove_repo_conf_file repo_name ;
@@ -163,10 +173,12 @@ let sync ~__context ~self ~token ~token_id =
           in
           (Uri.to_string uri, None)
       | `remote_pool ->
-          (* TODO: sync with Stunnel.with_client_proxy as otherwise yum
-             reposync will fail when checking the self signed certificate on
-             the remote pool. *)
-          ("", None)
+          let uri =
+            Uri.make ~scheme:"http" ~host:"127.0.0.1"
+              ~port:!Xapi_globs.local_yum_repo_port
+              ~path:"/repository/enabled/" ()
+          in
+          (Uri.to_string uri, None)
     in
     let gpgkey_path =
       match Db.Repository.get_gpgkey_path ~__context ~self with
@@ -186,39 +198,115 @@ let sync ~__context ~self ~token ~token_id =
       Xapi_stdext_unix.Unixext.rm_rec (get_repo_config repo_name "gpgdir") ;
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
-        with_access_token ~token ~token_id @@ fun token_path ->
-        (* Configure proxy and token *)
-        let token_param =
-          match token_path with
-          | Some p ->
-              Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
-          | None ->
+        let cert =
+          match
+            Repository_helpers.is_remote_pool_repository ~__context ~repo:self
+          with
+          | true ->
+              Db.Repository.get_certificate ~__context ~self
+          | false ->
               ""
         in
-        let proxy_url_param, proxy_username_param, proxy_password_param =
-          get_proxy_params ~__context repo_name
+        let make_cache () =
+          (* Import YUM repository GPG key to check metadata in reposync *)
+          let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
+          ignore (Helpers.call_script cmd params)
         in
-        let Pkg_mgr.{cmd; params} =
-          [
-            "--save"
-          ; proxy_url_param
-          ; proxy_username_param
-          ; proxy_password_param
-          ; token_param
-          ]
-          |> fun config -> Pkgs.config_repo ~repo_name ~config
-        in
-        ignore (Helpers.call_script ~log_output:Helpers.On_failure cmd params) ;
-
-        (* Import YUM repository GPG key to check metadata in reposync *)
-        let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
-        ignore (Helpers.call_script cmd params) ;
 
         (* Sync with remote repository *)
-        let Pkg_mgr.{cmd; params} = Pkgs.sync_repo ~repo_name in
-        Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
-        clean_yum_cache repo_name ;
-        ignore (Helpers.call_script cmd params)
+        let sync_repo () =
+          let Pkg_mgr.{cmd; params} = Pkgs.sync_repo ~repo_name in
+          Unixext.mkdir_rec !Xapi_globs.local_pool_repo_dir 0o700 ;
+          clean_yum_cache repo_name ;
+          ignore (Helpers.call_script cmd params)
+        in
+        match Db.Repository.get_origin ~__context ~self with
+        | `remote ->
+            with_access_token ~token ~token_id @@ fun token_path ->
+            (* Configure proxy and token *)
+            let token_param =
+              match token_path with
+              | Some p ->
+                  Printf.sprintf "--setopt=%s.accesstoken=file://%s" repo_name p
+              | None ->
+                  ""
+            in
+            let proxy_url_param, proxy_username_param, proxy_password_param =
+              get_proxy_params ~__context repo_name
+            in
+            let Pkg_mgr.{cmd; params} =
+              [
+                "--save"
+              ; proxy_url_param
+              ; proxy_username_param
+              ; proxy_password_param
+              ; token_param
+              ]
+              |> fun config -> Pkgs.config_repo ~repo_name ~config
+            in
+            ignore
+              (Helpers.call_script ~log_output:Helpers.On_failure cmd params) ;
+            make_cache () ;
+            sync_repo ()
+        | `bundle ->
+            make_cache () ; sync_repo ()
+        | `remote_pool ->
+            let verified_rpc =
+              ext_host_verified_rpc ~__context ~cert remote_addr
+            in
+            let session_id =
+              try
+                Client.Client.Session.login_with_password ~rpc:verified_rpc
+                  ~uname:username ~pwd:password
+                  ~version:Datamodel_common.api_version_string
+                  ~originator:Xapi_version.xapi_user_agent
+              with
+              | Http_client.Http_request_rejected _ | Http_client.Http_error _
+              ->
+                raise
+                  (Api_errors.Server_error
+                     ( Api_errors
+                       .update_syncing_remote_pool_coordinator_service_failed
+                     , []
+                     )
+                  )
+            in
+            let xapi_token = session_id |> Ref.string_of in
+            with_xapi_token ~xapi_token @@ fun token_path ->
+            (* Configure xapi token *)
+            let token_param =
+              match token_path with
+              | Some p ->
+                  Printf.sprintf "--setopt=%s.xapitoken=file://%s" repo_name p
+              | None ->
+                  ""
+            in
+            let proxy_url_param, proxy_username_param, proxy_password_param =
+              get_proxy_params ~__context repo_name
+            in
+            let Pkg_mgr.{cmd; params} =
+              [
+                "--save"
+              ; proxy_url_param
+              ; proxy_username_param
+              ; proxy_password_param
+              ; token_param
+              ]
+              |> fun config -> Pkgs.config_repo ~repo_name ~config
+            in
+            ignore
+              (Helpers.call_script ~log_output:Helpers.On_failure cmd params) ;
+            let ( let@ ) f x = f x in
+            let@ temp_file =
+              Helpers.with_temp_file_of_content "external-host-cert-" ".pem"
+                cert
+            in
+            Stunnel.with_client_proxy
+              ~verify_cert:(Stunnel_client.external_host temp_file)
+              ~remote_host:remote_addr ~remote_port:Constants.default_ssl_port
+              ~local_host:"127.0.0.1"
+              ~local_port:!Xapi_globs.local_yum_repo_port
+            @@ fun () -> make_cache () ; sync_repo ()
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential related info,
@@ -226,10 +314,26 @@ let sync ~__context ~self ~token ~token_id =
          *)
         write_initial_yum_config ()
       )
-  with e ->
-    error "Failed to sync with remote YUM repository: %s"
-      (ExnHelper.string_of_exn e) ;
-    raise Api_errors.(Server_error (reposync_failed, []))
+  with
+  | Api_errors.Server_error (s, _) as e
+    when s = Api_errors.update_syncing_remote_pool_coordinator_connection_failed
+    ->
+      error "Failed to connect to the remote pool coordinator" ;
+      raise e
+  | Api_errors.Server_error (s, _) as e
+    when s = Api_errors.update_syncing_remote_pool_coordinator_service_failed ->
+      error
+        "Failed to connect to the server while logging in the remote pool \
+         coordinator" ;
+      raise e
+  | Api_errors.Server_error (s, _) as e
+    when s = Api_errors.session_authentication_failed ->
+      error "Authentication failed when logging in the remote pool coordinator" ;
+      raise e
+  | e ->
+      error "Failed to sync with remote YUM repository: %s"
+        (ExnHelper.string_of_exn e) ;
+      raise Api_errors.(Server_error (reposync_failed, []))
 
 let http_get_host_updates_in_json ~__context ~host ~installed =
   let host_session_id =

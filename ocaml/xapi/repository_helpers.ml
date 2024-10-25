@@ -231,17 +231,21 @@ let assert_gpgkey_path_is_valid path =
     raise Api_errors.(Server_error (invalid_gpgkey_path, [path]))
   )
 
-let assert_remote_pool_url_is_valid ~url =
+let get_remote_pool_coordinator_ip url =
   let uri = Uri.of_string url in
   match (Uri.scheme uri, Uri.host uri, Uri.path uri) with
   | Some "https", Some host, path
     when path = Constants.get_enabled_repository_uri
          && Helpers.is_valid_ip `ipv4or6 host ->
-      ()
+      host
   | _ ->
       error "Invalid url: %s, expected url format: %s" url
         ("https://<coordinator-ip>" ^ Constants.get_enabled_repository_uri) ;
       raise Api_errors.(Server_error (invalid_base_url, [url]))
+
+let assert_remote_pool_url_is_valid ~url =
+  get_remote_pool_coordinator_ip url
+  |> Xapi_stdext_pervasives.Pervasiveext.ignore_string
 
 let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally
@@ -1268,6 +1272,9 @@ let append_by_key l k v =
   in
   (k, vals) :: others
 
+let is_remote_pool_repository ~__context ~repo =
+  Db.Repository.get_origin ~__context ~self:repo = `remote_pool
+
 let get_singleton = function
   | [s] ->
       s
@@ -1304,6 +1311,23 @@ let with_access_token ~token ~token_id f =
   | _ ->
       let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
       raise Api_errors.(Server_error (internal_error, [msg]))
+
+let with_xapi_token ~xapi_token f =
+  match xapi_token with
+  | t when t <> "" ->
+      let json = `Assoc [("xapitoken", `String t)] in
+      let tmpfile, tmpch =
+        Filename.open_temp_file ~mode:[Open_text] "xapitoken" ".json"
+      in
+      Xapi_stdext_pervasives.Pervasiveext.finally
+        (fun () ->
+          output_string tmpch (Yojson.Basic.to_string json) ;
+          close_out tmpch ;
+          f (Some tmpfile)
+        )
+        (fun () -> Unixext.unlink_safe tmpfile)
+  | _ ->
+      f None
 
 let prune_updateinfo_for_livepatches latest_lps updateinfo =
   let livepatches =

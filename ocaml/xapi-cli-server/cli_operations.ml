@@ -1833,8 +1833,11 @@ let pool_sync_updates printer rpc session_id params =
   let force = get_bool_param params "force" in
   let token = get_param params "token" ~default:"" in
   let token_id = get_param params "token-id" ~default:"" in
+  let username = get_param params "username" ~default:"" in
+  let password = get_param params "password" ~default:"" in
   let hash =
     Client.Pool.sync_updates ~rpc ~session_id ~self:pool ~force ~token ~token_id
+      ~username ~password
   in
   printer (Cli_printer.PList [hash])
 

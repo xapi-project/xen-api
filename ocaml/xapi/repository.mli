@@ -48,6 +48,9 @@ val sync :
   -> self:[`Repository] API.Ref.t
   -> token:string
   -> token_id:string
+  -> remote_addr:string
+  -> username:string
+  -> password:string
   -> unit
 
 val create_pool_repository :

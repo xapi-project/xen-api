@@ -24,6 +24,8 @@ class Ptoken(dnf.Plugin):
         for repo_name in self.base.repos:
             repo = self.base.repos[repo_name]
 
+            # Only include the ptoken for repos with a localhost URL, for added safety.
+            # These will be proxied to the coordinator through stunnel, set up by xapi.
             if len(repo.baseurl) > 0 and repo.baseurl[0].startswith("http://127.0.0.1") \
                 and repo.ptoken:
                 secret = "pool_secret=" + ptoken
