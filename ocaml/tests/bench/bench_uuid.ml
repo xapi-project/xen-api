@@ -1,7 +1,5 @@
 open Bechamel
 
-let () = Uuidx.make_default := Uuidx.make_uuid_fast
-
 let benchmarks =
   Test.make_grouped ~name:"uuidx creation"
     [
