@@ -1137,7 +1137,7 @@ functor
         in
         String.concat "" (List.map (fun x -> x ^ "\n") lines)
 
-      let attach_info _context ~dbg:_ ~sr ~vdi ~dp =
+      let attach_info _context ~dbg:_ ~sr ~vdi ~dp ~vm:_ =
         let srs = Host.list !Host.host in
         let sr_state = List.assoc sr srs in
         let vdi_state = Hashtbl.find sr_state.Sr.vdis vdi in

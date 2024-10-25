@@ -253,7 +253,14 @@ module Mux = struct
 
     let diagnostics () = Storage_smapiv1_wrapper.Impl.DP.diagnostics ()
 
-    let attach_info () = Storage_smapiv1_wrapper.Impl.DP.attach_info ()
+    let attach_info _context ~dbg ~sr ~vdi ~dp ~vm =
+      with_dbg ~name:"DP.attach_info" ~dbg @@ fun di ->
+      info "%s dbg:%s sr:%s vdi:%s dp:%s vm:%s" __FUNCTION__ dbg (s_of_sr sr)
+        (s_of_vdi vdi) dp (s_of_vm vm) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DP.attach_info (Debug_info.to_string di) sr vdi dp vm
 
     let stat_vdi () = Storage_smapiv1_wrapper.Impl.DP.stat_vdi ()
   end

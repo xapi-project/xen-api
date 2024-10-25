@@ -512,6 +512,9 @@ module StorageAPI (R : RPC) = struct
         @-> returning unit_p err
         )
 
+    (** [attach_info context dbg sr vdi dp vm] returns the information as returned
+    by the [attach3 dbg dp sr vdi vm _] call. Callers of this function should ensure
+    that VDIs are already attached before calling this function. *)
     let attach_info =
       let backend_p = Param.mk ~name:"backend" backend in
       declare "DP.attach_info"
@@ -519,7 +522,7 @@ module StorageAPI (R : RPC) = struct
           "[DP.attach_info  sr vdi dp]: returns the params of the dp (the \
            return value of VDI.attach2)"
         ]
-        (dbg_p @-> sr_p @-> vdi_p @-> dp_p @-> returning backend_p err)
+        (dbg_p @-> sr_p @-> vdi_p @-> dp_p @-> vm_p @-> returning backend_p err)
 
     (**  *)
     let diagnostics =
@@ -824,7 +827,7 @@ module StorageAPI (R : RPC) = struct
         @-> returning backend_p err
         )
 
-    (** [attach3 task dp sr vdi read_write] returns the [params] for a given
+    (** [attach3 task dp sr vdi vm read_write] returns the [params] for a given
         [vdi] in [sr] which can be written to if (but not necessarily only if)
         [read_write] is true *)
     let attach3 =
@@ -1108,7 +1111,7 @@ module type Server_impl = sig
       -> unit
 
     val attach_info :
-      context -> dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> backend
+      context -> dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> vm:vm -> backend
 
     val diagnostics : context -> unit -> string
 
@@ -1409,8 +1412,8 @@ module Server (Impl : Server_impl) () = struct
     S.DP.destroy2 (fun dbg dp sr vdi vm allow_leak ->
         Impl.DP.destroy2 () ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
     ) ;
-    S.DP.attach_info (fun dbg sr vdi dp ->
-        Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp
+    S.DP.attach_info (fun dbg sr vdi dp vm ->
+        Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp ~vm
     ) ;
     S.DP.diagnostics (fun () -> Impl.DP.diagnostics () ()) ;
     S.DP.stat_vdi (fun dbg sr vdi () -> Impl.DP.stat_vdi () ~dbg ~sr ~vdi ()) ;

@@ -39,7 +39,7 @@ module DP = struct
 
   let destroy2 ctx ~dbg ~dp ~sr ~vdi ~vm ~allow_leak = u "DP.destroy2"
 
-  let attach_info ctx ~dbg ~sr ~vdi ~dp = u "DP.attach_info"
+  let attach_info ctx ~dbg ~sr ~vdi ~dp ~vm = u "DP.attach_info"
 
   let diagnostics ctx () = u "DP.diagnostics"
 
