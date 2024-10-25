@@ -75,7 +75,8 @@ module Read = struct
   let datasource_count cs =
     Int32.to_int (Cstruct.BE.get_uint32 cs datasource_count_start)
 
-  let timestamp cs = Cstruct.BE.get_uint64 cs timestamp_start
+  let timestamp cs =
+    Int64.float_of_bits (Cstruct.BE.get_uint64 cs timestamp_start)
 
   let datasource_values cs cached_datasources =
     let rec aux start acc = function
@@ -125,7 +126,8 @@ module Write = struct
   let datasource_count cs value =
     Cstruct.BE.set_uint32 cs datasource_count_start (Int32.of_int value)
 
-  let timestamp cs value = Cstruct.BE.set_uint64 cs timestamp_start value
+  let timestamp cs value =
+    Cstruct.BE.set_uint64 cs timestamp_start (Int64.bits_of_float value)
 
   let datasource_values cs values =
     let rec aux start = function

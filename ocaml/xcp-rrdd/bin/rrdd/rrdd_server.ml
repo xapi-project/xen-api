@@ -771,7 +771,7 @@ module Plugin = struct
         let process_plugin (uid, plugin) =
           try
             let payload = get_payload ~uid plugin in
-            let timestamp = payload.Rrd_protocol.timestamp |> Int64.to_float in
+            let timestamp = payload.Rrd_protocol.timestamp in
             let dss = List.to_seq payload.Rrd_protocol.datasources in
             Some (P.string_of_uid ~uid, timestamp, dss)
           with _ -> None

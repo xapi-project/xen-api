@@ -47,7 +47,7 @@ let string_of_data_source owner ds =
 
 let interpret_payload payload =
   print_endline "------------ Metadata ------------" ;
-  Printf.printf "timestamp = %Ld\n%!" payload.timestamp ;
+  Printf.printf "timestamp = %f\n%!" payload.timestamp ;
   print_endline "---------- Data sources ----------" ;
   List.iter
     (fun (owner, ds) ->

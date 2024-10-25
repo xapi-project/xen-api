@@ -501,7 +501,6 @@ let write_dom0_stats writers tagged_dss =
            this name"
           name
     | Some (timestamp, dss) ->
-        let timestamp = Int64.of_float timestamp in
         writer.Rrd_writer.write_payload {timestamp; datasources= dss}
   in
   List.iter write_dss writers
