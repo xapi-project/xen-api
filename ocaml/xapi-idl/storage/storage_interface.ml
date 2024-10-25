@@ -982,7 +982,6 @@ module StorageAPI (R : RPC) = struct
         (dbg_p
         @-> sr_p
         @-> vdi_p
-        @-> dp_p
         @-> url_p
         @-> dest_p
         @-> verify_dest_p
@@ -1334,7 +1333,6 @@ module type Server_impl = sig
       -> dbg:debug_info
       -> sr:sr
       -> vdi:vdi
-      -> dp:dp
       -> url:string
       -> dest:sr
       -> verify_dest:bool
@@ -1523,8 +1521,8 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
-    S.DATA.copy (fun dbg sr vdi dp url dest verify_dest ->
-        Impl.DATA.copy () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest
+    S.DATA.copy (fun dbg sr vdi url dest verify_dest ->
+        Impl.DATA.copy () ~dbg ~sr ~vdi ~url ~dest ~verify_dest
     ) ;
     S.DATA.MIRROR.start (fun dbg sr vdi dp url dest verify_dest ->
         Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest

@@ -152,8 +152,7 @@ end
 let get_by_name ctx ~dbg ~name = u "get_by_name"
 
 module DATA = struct
-
-  let copy ctx ~dbg ~sr ~vdi ~dp ~url ~dest = u "DATA.copy"
+  let copy ctx ~dbg ~sr ~vdi ~url ~dest = u "DATA.copy"
 
   module MIRROR = struct
     (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
