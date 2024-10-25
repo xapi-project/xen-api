@@ -137,7 +137,7 @@ let send_rrd ?(session_id : string option)
   let open Xmlrpc_client in
   with_transport transport
     (with_http request (fun (_response, fd) ->
-         try Rrd_unix.to_fd rrd fd with _ -> log_backtrace ()
+         try Rrd_unix.to_fd ~internal:true rrd fd with _ -> log_backtrace ()
      )
     ) ;
   debug "Sending RRD complete."
@@ -161,7 +161,8 @@ let archive_rrd_internal ?(transport = None) ~uuid ~rrd () =
             0o755 ;
           let base_filename = Rrdd_libs.Constants.rrd_location ^ "/" ^ uuid in
           Xapi_stdext_unix.Unixext.atomic_write_to_file (base_filename ^ ".gz")
-            0o644 (fun fd -> Gzip.Default.compress fd (Rrd_unix.to_fd rrd)
+            0o644 (fun fd ->
+              Gzip.Default.compress fd (Rrd_unix.to_fd ~internal:true rrd)
           ) ;
           (* If there's an uncompressed one hanging around, remove it. *)
           Xapi_stdext_unix.Unixext.unlink_safe base_filename

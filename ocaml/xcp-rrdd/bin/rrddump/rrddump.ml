@@ -32,10 +32,11 @@ let text_export rrd =
       Int64.sub last_cdp_time (Int64.mul (Int64.of_int i) rra_timestep)
     in
     for j = 0 to Array.length rrd.rrd_dss - 1 do
-      Printf.printf "Doing ds: %s\n" rrd.rrd_dss.(j).ds_name ;
+      let ds = rrd.rrd_dss.(j) in
+      Printf.printf "Doing ds: %s\n" ds.ds_name ;
       let oc =
         open_out
-          (Printf.sprintf "rrd_data_%s_%s_%Ld.dat" rrd.rrd_dss.(j).ds_name
+          (Printf.sprintf "rrd_data_%s_%s_%Ld.dat" ds.ds_name
              (cf_type_to_string rra.rra_cf)
              (Int64.mul
                 (Int64.of_int (rra.rra_pdp_cnt * rra.rra_row_cnt))

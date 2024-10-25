@@ -129,6 +129,7 @@ type ds = {
   ; mutable ds_value: float  (** Current calculated rate of the PDP *)
   ; mutable ds_unknown_sec: float
         (** Number of seconds that are unknown in the current PDP *)
+  ; mutable ds_last_updated: float  (** Last time this datasource was updated *)
 }
 [@@deriving rpc]
 
@@ -202,6 +203,7 @@ let copy_ds x =
   ; ds_last= x.ds_last
   ; ds_value= x.ds_value
   ; ds_unknown_sec= x.ds_unknown_sec
+  ; ds_last_updated= x.ds_last_updated
   }
 
 let copy_rrd x =
@@ -379,12 +381,14 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
      plugin, correspondingly they all have the same timestamp.
      Further refactoring is needed if timestamps per measurement are to be
      introduced. *)
-  let interval = timestamp -. rrd.last_updated in
+  let first_ds_index, _ = valuesandtransforms.(0) in
+  let last_updated = rrd.rrd_dss.(first_ds_index).ds_last_updated in
+  let interval = timestamp -. last_updated in
   (* Work around the clock going backwards *)
   let interval = if interval < 0. then 5. else interval in
 
   (* start time (st) and age of the last processed pdp and the currently occupied one *)
-  let proc_pdp_st, _proc_pdp_age = get_times rrd.last_updated rrd.timestep in
+  let proc_pdp_st, _proc_pdp_age = get_times last_updated rrd.timestep in
   let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
 
   (* The number of pdps that should result from this update *)
@@ -412,6 +416,7 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
     Array.map
       (fun (i, {value; _}) ->
         let v = process_ds_value rrd.rrd_dss.(i) value interval new_rrd in
+        rrd.rrd_dss.(i).ds_last_updated <- timestamp ;
         (i, v)
       )
       valuesandtransforms
@@ -548,6 +553,7 @@ let ds_create name ty ?(min = neg_infinity) ?(max = infinity) ?(mrhb = infinity)
   ; ds_last= init
   ; ds_value= 0.0
   ; ds_unknown_sec= 0.0
+  ; ds_last_updated= 0.0
   }
 
 let rrd_create dss rras timestep timestamp =
@@ -706,11 +712,11 @@ let from_xml input =
   let read_header i =
     ignore (get_el "version" i) ;
     let step = get_el "step" i in
-    let last_update = get_el "lastupdate" i in
+    let last_update = float_of_string (get_el "lastupdate" i) in
     (step, last_update)
   in
 
-  let read_dss i =
+  let read_dss i rrd_last_update =
     let read_ds i =
       read_block "ds"
         (fun i ->
@@ -722,6 +728,10 @@ let from_xml input =
           ignore (get_el "last_ds" i) ;
           let value = get_el "value" i in
           let unknown_sec = get_el "unknown_sec" i in
+          let last_updated =
+            try float_of_string (get_el "last_updated" i)
+            with _ -> rrd_last_update
+          in
           {
             ds_name= name
           ; ds_ty=
@@ -742,11 +752,12 @@ let from_xml input =
           ; (* float_of_string "last_ds"; *)
             ds_value= float_of_string value
           ; ds_unknown_sec= float_of_string unknown_sec
+          ; ds_last_updated= last_updated
           }
         )
         i
     in
-    let dss = read_all "ds" read_ds i [] in
+    let dss = Array.of_list (read_all "ds" read_ds i []) in
     dss
   in
 
@@ -791,7 +802,7 @@ let from_xml input =
         let cols = try Array.length data.(0) with _ -> -1 in
         let db =
           Array.init cols (fun i ->
-              let ds = List.nth dss i in
+              let ds = dss.(i) in
               Fring.make rows nan ds.ds_min ds.ds_max
           )
         in
@@ -844,13 +855,13 @@ let from_xml input =
   read_block "rrd"
     (fun i ->
       let step, last_update = read_header i in
-      let dss = read_dss i in
+      let dss = read_dss i last_update in
       let rras = read_rras dss i in
       let rrd =
         {
-          last_updated= float_of_string last_update
+          last_updated= last_update
         ; timestep= Int64.of_string step
-        ; rrd_dss= Array.of_list dss
+        ; rrd_dss= dss
         ; rrd_rras= Array.of_list rras
         }
       in
@@ -884,7 +895,7 @@ let from_xml input =
     )
     input
 
-let xml_to_output rrd output =
+let xml_to_output internal rrd output =
   (* We use an output channel for Xmlm-compat buffered output. Provided we flush
      at the end we should be safe. *)
   let tag n fn output =
@@ -906,7 +917,9 @@ let xml_to_output rrd output =
         tag "value" (data (Utils.f_to_s ds.ds_value)) output ;
         tag "unknown_sec"
           (data (Printf.sprintf "%d" (int_of_float ds.ds_unknown_sec)))
-          output
+          output ;
+        if internal then
+          tag "last_updated" (data (Utils.f_to_s ds.ds_last_updated)) output
       )
       output
   in
@@ -968,9 +981,7 @@ let xml_to_output rrd output =
     (fun output ->
       tag "version" (data "0003") output ;
       tag "step" (data (Int64.to_string rrd.timestep)) output ;
-      tag "lastupdate"
-        (data (Printf.sprintf "%Ld" (Int64.of_float rrd.last_updated)))
-        output ;
+      tag "lastupdate" (data (Utils.f_to_s rrd.last_updated)) output ;
       do_dss rrd.rrd_dss output ;
       do_rras rrd.rrd_rras output
     )
@@ -1002,6 +1013,7 @@ module Json = struct
       ; ("last_ds", string (ds_value_to_string ds.ds_last))
       ; ("value", float ds.ds_value)
       ; ("unknown_sec", float ds.ds_unknown_sec)
+      ; ("last_updated", float ds.ds_last_updated)
       ]
 
   let cdp x =
