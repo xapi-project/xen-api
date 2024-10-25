@@ -1311,6 +1311,8 @@ let invalid_base_url = add_error "INVALID_BASE_URL"
 
 let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
+let cdn_token_invalid = add_error "CDN_TOKEN_INVALID"
+
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"
 
 let bundle_repository_already_exists =
@@ -1326,6 +1328,12 @@ let can_not_periodic_sync_updates = add_error "CAN_NOT_PERIODIC_SYNC_UPDATES"
 
 let repo_should_be_single_one_enabled =
   add_error "REPO_SHOULD_BE_SINGLE_ONE_ENABLED"
+
+let update_syncing_remote_pool_coordinator_connection_failed =
+  add_error "UPDATE_SYNCING_REMOTE_POOL_COORDINATOR_CONNECTION_FAILED"
+
+let update_syncing_remote_pool_coordinator_service_failed =
+  add_error "UPDATE_SYNCING_REMOTE_POOL_COORDINATOR_SERVICE_FAILED"
 
 let repository_is_in_use = add_error "REPOSITORY_IS_IN_USE"
 

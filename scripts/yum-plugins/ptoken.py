@@ -25,7 +25,7 @@ def init_hook(conduit):
     for name in repos.repos:
         repo = repos.repos[name]
         # Only include the ptoken for repos with a localhost URL, for added safety.
-        # These may be proxied to the coordinator through stunnel, set up by xapi.
+        # These will be proxied to the coordinator through stunnel, set up by xapi.
         if len(repo.baseurl) > 0 and repo.baseurl[0].startswith("http://127.0.0.1") \
             and repo.getConfigOption('ptoken'):
             repo.http_headers['cookie'] = "pool_secret=" + ptoken
