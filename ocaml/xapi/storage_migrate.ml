@@ -790,7 +790,7 @@ module MigrateLocal = struct
       let verify_cert = if verify_dest then Stunnel_client.pool () else None in
       let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
       debug "Searching for data path: %s" dp ;
-      let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
+      let attach_info = Local.DP.attach_info dbg sr vdi dp (Vm.of_string "0") in
       on_fail :=
         (fun () -> Remote.DATA.MIRROR.receive_cancel dbg mirror_id) :: !on_fail ;
       let tapdev =
@@ -1318,7 +1318,7 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
 let nbd_handler req s sr vdi dp =
   debug "sr=%s vdi=%s dp=%s" sr vdi dp ;
   let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
-  let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
+  let attach_info = Local.DP.attach_info "nbd" sr vdi dp (Vm.of_string "0") in
   req.Http.Request.close <- true ;
   match tapdisk_of_attach_info attach_info with
   | Some tapdev ->

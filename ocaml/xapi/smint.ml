@@ -54,6 +54,7 @@ module Feature = struct
     | Vdi_attach_offline
     | Vdi_reset_on_boot
     | Vdi_configure_cbt
+    | Vdi_compose
     | Large_vdi  (** Supports >2TB VDIs *)
     | Thin_provisioning
     | Vdi_read_caching
@@ -92,6 +93,7 @@ module Feature = struct
     ; ("VDI_ATTACH_OFFLINE", Vdi_attach_offline)
     ; ("VDI_RESET_ON_BOOT", Vdi_reset_on_boot)
     ; ("VDI_CONFIG_CBT", Vdi_configure_cbt)
+    ; ("VDI_COMPOSE", Vdi_compose)
     ; ("LARGE_VDI", Large_vdi)
     ; ("THIN_PROVISIONING", Thin_provisioning)
     ; ("VDI_READ_CACHING", Vdi_read_caching)
