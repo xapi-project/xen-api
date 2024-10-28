@@ -989,6 +989,7 @@ module StorageAPI (R : RPC) = struct
         (dbg_p
         @-> sr_p
         @-> vdi_p
+        @-> vm_p
         @-> url_p
         @-> dest_p
         @-> verify_dest_p
@@ -1004,6 +1005,8 @@ module StorageAPI (R : RPC) = struct
           @-> sr_p
           @-> vdi_p
           @-> dp_p
+          @-> vm_p
+          @-> vm_p
           @-> url_p
           @-> dest_p
           @-> verify_dest_p
@@ -1020,7 +1023,11 @@ module StorageAPI (R : RPC) = struct
         let result_p = Param.mk ~name:"result" Mirror.t in
         declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
 
-      (** Called on the receiving end *)
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_start during SXM. 
+        Use the receive_start2 function instead. 
+      *)
       let receive_start =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
         let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
@@ -1030,6 +1037,20 @@ module StorageAPI (R : RPC) = struct
           @-> VDI.vdi_info_p
           @-> id_p
           @-> similar_p
+          @-> returning result err
+          )
+
+      (** Called on the receiving end to prepare for receipt of the storage.*)
+      let receive_start2 =
+        let similar_p = Param.mk ~name:"similar" Mirror.similars in
+        let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
+        declare "DATA.MIRROR.receive_start2" []
+          (dbg_p
+          @-> sr_p
+          @-> VDI.vdi_info_p
+          @-> id_p
+          @-> similar_p
+          @-> vm_p
           @-> returning result err
           )
 
@@ -1354,6 +1375,7 @@ module type Server_impl = sig
       -> dbg:debug_info
       -> sr:sr
       -> vdi:vdi
+      -> vm:vm
       -> url:string
       -> dest:sr
       -> verify_dest:bool
@@ -1366,6 +1388,8 @@ module type Server_impl = sig
         -> sr:sr
         -> vdi:vdi
         -> dp:dp
+        -> mirror_vm:vm
+        -> copy_vm:vm
         -> url:string
         -> dest:sr
         -> verify_dest:bool
@@ -1382,6 +1406,16 @@ module type Server_impl = sig
         -> vdi_info:vdi_info
         -> id:Mirror.id
         -> similar:Mirror.similars
+        -> Mirror.mirror_receive_result
+
+      val receive_start2 :
+           context
+        -> dbg:debug_info
+        -> sr:sr
+        -> vdi_info:vdi_info
+        -> id:Mirror.id
+        -> similar:Mirror.similars
+        -> vm:vm
         -> Mirror.mirror_receive_result
 
       val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
@@ -1552,16 +1586,21 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
-    S.DATA.copy (fun dbg sr vdi url dest verify_dest ->
-        Impl.DATA.copy () ~dbg ~sr ~vdi ~url ~dest ~verify_dest
+    S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
+        Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
-    S.DATA.MIRROR.start (fun dbg sr vdi dp url dest verify_dest ->
-        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest
+    S.DATA.MIRROR.start
+      (fun dbg sr vdi dp mirror_vm copy_vm url dest verify_dest ->
+        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url
+          ~dest ~verify_dest
     ) ;
     S.DATA.MIRROR.stop (fun dbg id -> Impl.DATA.MIRROR.stop () ~dbg ~id) ;
     S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
+    ) ;
+    S.DATA.MIRROR.receive_start2 (fun dbg sr vdi_info id similar vm ->
+        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
         Impl.DATA.MIRROR.receive_cancel () ~dbg ~id
