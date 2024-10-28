@@ -106,6 +106,7 @@ class UDSHTTPConnection(httplib.HTTPConnection):
 class UDSTransport(xmlrpclib.Transport):
     def add_extra_header(self, key, value):
         self._extra_headers += [ (key,value) ]
+
     def with_tracecontext(self):
         if otel:
             headers = {}
@@ -114,10 +115,14 @@ class UDSTransport(xmlrpclib.Transport):
             # pylint: disable=possibly-used-before-assignment
             propagators = propagate.get_global_textmap()
             propagators.inject(headers, ctx)
-            self._extra_headers = []
+
             for k, v in headers.items():
                 self.add_extra_header(k, v)
+
     def make_connection(self, host):
+        # clear the extra headers when making a new connection. This makes sure
+        # headers such as "traceparent" do not get duplicated.
+        self._extra_headers = []
         self.with_tracecontext()
 
         # compatibility with parent xmlrpclib.Transport HTTP/1.1 support
