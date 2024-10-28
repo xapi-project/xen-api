@@ -17,6 +17,8 @@ open Lwt
 module F = Vhd_format.F.From_file (Vhd_format_lwt.IO)
 module In = Vhd_format.F.From_input (Input)
 
+module D = Debug.Make (struct let name = "vhd_impl" end)
+
 module Channel_In = Vhd_format.F.From_input (struct
   include Lwt
 
@@ -229,9 +231,10 @@ let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
     }
   in
 
-  Client.negotiate c "" >>= fun (server, _size, _flags) ->
+  Client.negotiate c "" >>= fun (server, size, _flags) ->
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
+  D.debug "%s nbd negotiation done, size is %Ld" __FUNCTION__ size ;
   let total_work =
     let open Vhd_format.F in
     Int64.(
@@ -1088,7 +1091,7 @@ let write_stream common s destination destination_protocol prezeroed progress
         x
     | None ->
         let t = List.hd possible_protocols in
-        Printf.fprintf stderr "Using protocol: %s\n%!" (string_of_protocol t) ;
+        D.info "Using protocol: %s\n%!" (string_of_protocol t) ;
         t
   in
   if not (List.mem destination_protocol possible_protocols) then
