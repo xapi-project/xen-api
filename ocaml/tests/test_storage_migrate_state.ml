@@ -44,14 +44,15 @@ let sample_send_state =
     }
 
 let sample_receive_state =
+  let open Storage_interface in
   Storage_migrate.State.Receive_state.
     {
-      sr= Storage_interface.Sr.of_string "my_sr"
-    ; dummy_vdi= Storage_interface.Vdi.of_string "dummy_vdi"
-    ; leaf_vdi= Storage_interface.Vdi.of_string "leaf_vdi"
+      sr= Sr.of_string "my_sr"
+    ; dummy_vdi= Vdi.of_string "dummy_vdi"
+    ; leaf_vdi= Vdi.of_string "leaf_vdi"
     ; leaf_dp= "leaf_dp"
-    ; parent_vdi= Storage_interface.Vdi.of_string "parent_vdi"
-    ; remote_vdi= Storage_interface.Vdi.of_string "remote_vdi"
+    ; parent_vdi= Vdi.of_string "parent_vdi"
+    ; remote_vdi= Vdi.of_string "remote_vdi"
     }
 
 let sample_copy_state =
