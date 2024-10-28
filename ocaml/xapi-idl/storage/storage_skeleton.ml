@@ -152,12 +152,13 @@ end
 let get_by_name ctx ~dbg ~name = u "get_by_name"
 
 module DATA = struct
-  let copy ctx ~dbg ~sr ~vdi ~url ~dest = u "DATA.copy"
+  let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
 
   module MIRROR = struct
     (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
         writes data synchronously. It returns the id of the VDI.*)
-    let start ctx ~dbg ~sr ~vdi ~dp ~url ~dest = u "DATA.MIRROR.start"
+    let start ctx ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest =
+      u "DATA.MIRROR.start"
 
     let stop ctx ~dbg ~id = u "DATA.MIRROR.stop"
 
@@ -165,6 +166,9 @@ module DATA = struct
 
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       u "DATA.MIRROR.receive_start"
+
+    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+      u "DATA.MIRROR.receive_start2"
 
     let receive_finalize ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize"
 

@@ -1823,6 +1823,7 @@ let bind ~volume_script_dir =
   S.get_by_name (u "get_by_name") ;
   S.VDI.get_by_name (u "VDI.get_by_name") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
+  S.DATA.MIRROR.receive_start2 (u "DATA.MIRROR.receive_start2") ;
   S.UPDATES.get (u "UPDATES.get") ;
   S.SR.update_snapshot_info_dest (u "SR.update_snapshot_info_dest") ;
   S.DATA.MIRROR.list (u "DATA.MIRROR.list") ;
