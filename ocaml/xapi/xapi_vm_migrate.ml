@@ -1509,7 +1509,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
           )
           vifs
       in
-      (* Destroy the local datapaths - this allows the VDIs to properly detach, invoking the migrate_finalize calls *)
+      (* Destroy the local datapaths - this allows the VDIs to properly detach,
+         invoking the migrate_finalize calls *)
       List.iter
         (fun mirror_record ->
           if mirror_record.mr_mirrored then
@@ -1531,7 +1532,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
         TaskHelper.exn_if_cancelling ~__context ;
         TaskHelper.set_not_cancellable ~__context
       ) ;
-      (* It's acceptable for the VM not to exist at this point; shutdown commutes with storage migrate *)
+      (* It's acceptable for the VM not to exist at this point; shutdown commutes
+         with storage migrate *)
       ( try
           Xapi_xenops.Events_from_xenopsd.with_suppressed queue_name dbg vm_uuid
             (fun () ->
