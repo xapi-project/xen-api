@@ -37,3 +37,16 @@ end
 val wait_timed_read : Unix.file_descr -> float -> bool
 
 val wait_timed_write : Unix.file_descr -> float -> bool
+
+(** [Pthread] module contains a few helper functions that interact with pthreads.*)
+module Pthread : sig
+  val set_name : string -> string option
+  (** [set_name name] sets the name of the caller's pthread to the first 15 characters of [name].
+  
+    Returns [Some n] where [n] is the new pthread name or [None] if the operation failed.
+  *)
+
+  val get_name : unit -> string option
+  (** [get_name] returns [Some name] where [name] is the pthread name of the caller's pthread. 
+  Returns [None] if the operation failed.*)
+end

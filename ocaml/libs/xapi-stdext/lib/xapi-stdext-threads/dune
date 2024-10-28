@@ -2,6 +2,10 @@
   (public_name xapi-stdext-threads)
   (name  xapi_stdext_threads)
   (modules :standard \ threadext_test)
+  (foreign_stubs
+  (language c)
+  (names pthread_helpers pthread_stubs))
+    (c_library_flags -lpthread)
   (libraries
     threads.posix
     unix

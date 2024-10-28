@@ -131,3 +131,14 @@ let wait_timed_write fd timeout =
       true
   | _ ->
       assert false
+
+module Pthread = struct
+  external c_set_name : string -> int = "stub_set_name"
+
+  let set_name s =
+    let len = Int.min (String.length s) 15 in
+    let tname = String.sub s 0 len in
+    match c_set_name tname with 0 -> Some tname | _ -> None
+
+  external get_name : unit -> string option = "stub_get_name"
+end
