@@ -562,7 +562,20 @@ module MigrateLocal = struct
       finally
         (fun () ->
           debug "activating RW datapath %s on remote" remote_dp ;
-          ignore (Remote.VDI.attach2 dbg remote_dp dest dest_vdi true) ;
+          let backend =
+            Remote.VDI.attach3 dbg remote_dp dest dest_vdi vm true
+          in
+          let _, _, _, nbds =
+            Storage_interface.implementations_of_backend backend
+          in
+          let proto =
+            match nbds with
+            | [] ->
+                None
+            | uri :: _ ->
+                let _socket, export = Storage_interface.parse_nbd_uri uri in
+                Some (StreamCommon.Nbd export)
+          in
           Remote.VDI.activate dbg remote_dp dest dest_vdi ;
           with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
             (fun base_path ->
@@ -574,7 +587,7 @@ module MigrateLocal = struct
                   let dd =
                     Sparse_dd_wrapper.start
                       ~progress_cb:(progress_callback 0.05 0.9 task)
-                      ~verify_cert ?base:base_path true (Option.get src)
+                      ~verify_cert ~proto ?base:base_path true (Option.get src)
                       dest_vdi_url remote_vdi.virtual_size
                   in
                   Storage_task.with_cancel task
