@@ -4,7 +4,7 @@
     (language c)
     (names direct_copy_stubs)
   )
-  (name local_lib)
+  (name vhd_lib)
   (wrapped false)
   (libraries
     astring

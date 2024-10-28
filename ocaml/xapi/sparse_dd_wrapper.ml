@@ -72,7 +72,8 @@ end
 exception Cancelled
 
 (** Use the new external sparse_dd program *)
-let dd_internal progress_cb base prezeroed verify_cert infile outfile size =
+let dd_internal progress_cb base prezeroed verify_cert ?(proto = None) infile
+    outfile size =
   let pipe_read, pipe_write = Unix.pipe () in
   let to_close = ref [pipe_read; pipe_write] in
   let close x =
@@ -87,6 +88,15 @@ let dd_internal progress_cb base prezeroed verify_cert infile outfile size =
         match
           Forkhelpers.with_logfile_fd "sparse_dd" (fun log_fd ->
               let sparse_dd_path = !Xapi_globs.sparse_dd in
+              let proto_args =
+                match proto with
+                | None ->
+                    []
+                | Some (StreamCommon.Nbd export) ->
+                    ["-dest-proto"; "nbd"; "-nbd-export"; export]
+                | Some p ->
+                    ["-dest-proto"; StreamCommon.string_of_protocol p]
+              in
               let verify_args =
                 match verify_cert with
                 | None ->
@@ -119,6 +129,7 @@ let dd_internal progress_cb base prezeroed verify_cert infile outfile size =
                   ; (if prezeroed then ["-prezeroed"] else [])
                   ; (match base with None -> [] | Some x -> ["-base"; x])
                   ; verify_args
+                  ; proto_args
                   ]
               in
               debug "%s %s" sparse_dd_path (String.concat " " args) ;
@@ -164,7 +175,7 @@ let dd_internal progress_cb base prezeroed verify_cert infile outfile size =
         | Forkhelpers.Success _ ->
             progress_cb (Finished None)
         | Forkhelpers.Failure (log, End_of_file) ->
-            error "Error while trying to read progress from sparse_dd" ;
+            error "Error while trying to read progress from sparse_dd: %s" log ;
             raise (Api_errors.Server_error (Api_errors.vdi_copy_failed, [log]))
         | Forkhelpers.Failure (log, exn) ->
             error "Failure from sparse_dd: %s raising %s" log
@@ -179,13 +190,13 @@ let dd_internal progress_cb base prezeroed verify_cert infile outfile size =
     )
     (fun () -> close pipe_read ; close pipe_write)
 
-let dd ?(progress_cb = fun _ -> ()) ?base ~verify_cert prezeroed =
+let dd ?(progress_cb = fun _ -> ()) ?base ~verify_cert ?proto prezeroed =
   dd_internal
     (function Continuing x -> progress_cb x | _ -> ())
-    base prezeroed verify_cert
+    base prezeroed ~proto verify_cert
 
-let start ?(progress_cb = fun _ -> ()) ?base ~verify_cert prezeroed infile
-    outfile size =
+let start ?(progress_cb = fun _ -> ()) ?base ~verify_cert ?(proto = None)
+    prezeroed infile outfile size =
   let m = Mutex.create () in
   let c = Condition.create () in
   let pid = ref None in
@@ -206,8 +217,8 @@ let start ?(progress_cb = fun _ -> ()) ?base ~verify_cert prezeroed infile
   let _ =
     Thread.create
       (fun () ->
-        dd_internal thread_progress_cb base prezeroed verify_cert infile outfile
-          size
+        dd_internal thread_progress_cb base prezeroed verify_cert ~proto infile
+          outfile size
       )
       ()
   in
