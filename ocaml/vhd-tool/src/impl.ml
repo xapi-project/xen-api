@@ -220,7 +220,7 @@ let[@warning "-27"] stream_human _common _ s _ _ ?(progress = no_progress_bar)
   Printf.printf "# end of stream\n" ;
   return None
 
-let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
+let stream_nbd _common c s prezeroed ~export ?(progress = no_progress_bar) () =
   let open Nbd_unix in
   let c =
     {
@@ -231,7 +231,7 @@ let stream_nbd _common c s prezeroed _ ?(progress = no_progress_bar) () =
     }
   in
 
-  Client.negotiate c "" >>= fun (server, size, _flags) ->
+  Client.negotiate c export >>= fun (server, size, _flags) ->
   (* Work to do is: non-zero data to write + empty sectors if the
      target is not prezeroed *)
   D.debug "%s nbd negotiation done, size is %Ld" __FUNCTION__ size ;
@@ -988,7 +988,7 @@ let write_stream common s destination destination_protocol prezeroed progress
       return (c, [NoProtocol; Human; Tar])
   | File_descr fd ->
       Channels.of_raw_fd fd >>= fun c ->
-      return (c, [Nbd; NoProtocol; Chunked; Human; Tar])
+      return (c, [dummy_nbd; NoProtocol; Chunked; Human; Tar])
   | Sockaddr sockaddr ->
       let sock = socket sockaddr in
       Lwt.catch
@@ -996,7 +996,7 @@ let write_stream common s destination destination_protocol prezeroed progress
         (fun e -> Lwt_unix.close sock >>= fun () -> Lwt.fail e)
       >>= fun () ->
       Channels.of_raw_fd sock >>= fun c ->
-      return (c, [Nbd; NoProtocol; Chunked; Human; Tar])
+      return (c, [dummy_nbd; NoProtocol; Chunked; Human; Tar])
   | Https uri' | Http uri' -> (
       (* TODO: https is not currently implemented *)
       let port =
@@ -1016,7 +1016,6 @@ let write_stream common s destination destination_protocol prezeroed progress
       let host = Scanf.ksscanf host (fun _ _ -> host) "[%s@]" Fun.id in
       Lwt_unix.getaddrinfo host (string_of_int port) [] >>= fun he ->
       if he = [] then raise Not_found ;
-
       let sockaddr = (List.hd he).Unix.ai_addr in
       let sock = socket sockaddr in
       Lwt.catch
@@ -1077,7 +1076,7 @@ let write_stream common s destination destination_protocol prezeroed progress
               List.mem_assoc te headers && List.assoc te headers = "nbd"
             in
             if advertises_nbd then
-              return (c, [Nbd])
+              return (c, [dummy_nbd])
             else
               return (c, [Chunked; NoProtocol])
           else
@@ -1094,7 +1093,12 @@ let write_stream common s destination destination_protocol prezeroed progress
         D.info "Using protocol: %s\n%!" (string_of_protocol t) ;
         t
   in
-  if not (List.mem destination_protocol possible_protocols) then
+  (* when checking for the validity of the protocol, we only care about the protocol
+     itself and not the export name, if it was nbd. Convert all Nbd export to Nbd "" *)
+  let equal_to_dest_proto =
+    ( = ) (match destination_protocol with Nbd _ -> dummy_nbd | y -> y)
+  in
+  if not (List.exists equal_to_dest_proto possible_protocols) then
     fail
       (Failure
          (Printf.sprintf "this destination only supports protocols: [ %s ]"
@@ -1104,18 +1108,17 @@ let write_stream common s destination destination_protocol prezeroed progress
   else
     let start = Unix.gettimeofday () in
     ( match destination_protocol with
-    | Nbd ->
-        stream_nbd
+    | Nbd export ->
+        stream_nbd common c s prezeroed ~export ~progress ()
     | Human ->
-        stream_human
+        stream_human common c s prezeroed tar_filename_prefix ~progress ()
     | Chunked ->
-        stream_chunked
+        stream_chunked common c s prezeroed tar_filename_prefix ~progress ()
     | Tar ->
-        stream_tar
+        stream_tar common c s prezeroed tar_filename_prefix ~progress ()
     | NoProtocol ->
-        stream_raw
+        stream_raw common c s prezeroed tar_filename_prefix ~progress ()
     )
-      common c s prezeroed tar_filename_prefix ~progress ()
     >>= fun p ->
     c.Channels.close () >>= fun () ->
     match p with
@@ -1322,7 +1325,7 @@ let serve common_options source source_fd source_format source_protocol
     let supported_formats = ["raw"] in
     if not (List.mem destination_format supported_formats) then
       failwith (Printf.sprintf "%s is not a supported format" destination_format) ;
-    let supported_protocols = [NoProtocol; Chunked; Nbd; Tar] in
+    let supported_protocols = [NoProtocol; Chunked; dummy_nbd; Tar] in
     if not (List.mem source_protocol supported_protocols) then
       failwith
         (Printf.sprintf "%s is not a supported source protocol"
@@ -1412,7 +1415,7 @@ let serve common_options source source_fd source_format source_protocol
         match (source_format, source_protocol) with
         | "raw", NoProtocol ->
             serve_raw_to_raw common_options size
-        | "raw", Nbd ->
+        | "raw", Nbd _ ->
             serve_nbd_to_raw common_options size
         | "raw", Chunked ->
             serve_chunked_to_raw common_options
