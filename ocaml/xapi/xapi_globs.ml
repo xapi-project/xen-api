@@ -1612,12 +1612,6 @@ let other_options =
     , (fun () -> string_of_bool !disable_webserver)
     , "Disable the host webserver"
     )
-  ; ( "use-prng-uuid-gen"
-      (* eventually this'll be the default, except for Sessions *)
-    , Arg.Unit (fun () -> Uuidx.make_default := Uuidx.make_uuid_fast)
-    , (fun () -> !Uuidx.make_default == Uuidx.make_uuid_fast |> string_of_bool)
-    , "Use PRNG based UUID generator instead of CSPRNG"
-    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
