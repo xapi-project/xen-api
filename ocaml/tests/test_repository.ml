@@ -21,6 +21,7 @@ let test_introduce_duplicate_repo_name () =
   let name_description_1 = "description1" in
   let binary_url = "https://repo.example.com" in
   let binary_url_1 = "https://repo1.example.com" in
+  let binary_url_2 = "https://1.1.1.1/repository/enabled" in
   let source_url = "https://repo-src.example.com" in
   let source_url_1 = "https://repo-src1.example.com" in
   let gpgkey_path = "" in
@@ -42,6 +43,14 @@ let test_introduce_duplicate_repo_name () =
       Repository.introduce_bundle ~__context ~name_label
         ~name_description:name_description_1
       |> ignore
+    ) ;
+  Alcotest.check_raises "test_introduce_duplicate_repo_name_3"
+    Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
+    (fun () ->
+      Repository.introduce_remote_pool ~__context ~name_label
+        ~name_description:name_description_1 ~binary_url:binary_url_2
+        ~certificate:""
+      |> ignore
     )
 
 let test_introduce_duplicate_binary_url () =
@@ -58,7 +67,7 @@ let test_introduce_duplicate_binary_url () =
     Repository.introduce ~__context ~name_label ~name_description ~binary_url
       ~source_url ~update:true ~gpgkey_path
   in
-  Alcotest.check_raises "test_introduce_duplicate_binary_url"
+  Alcotest.check_raises "test_introduce_duplicate_binary_url_1"
     Api_errors.(Server_error (repository_already_exists, [Ref.string_of ref]))
     (fun () ->
       Repository.introduce ~__context ~binary_url ~name_label:name_label_1
@@ -110,6 +119,56 @@ let test_introduce_duplicate_bundle_repo () =
       |> ignore
     )
 
+let test_introduce_invalid_remote_pool_repo_url () =
+  let __context = T.make_test_database () in
+  let name_label = "name" in
+  let name_label_1 = "name1" in
+  let name_description = "description" in
+  let valid_url = "https://1.1.1.1/repository/enabled" in
+  let invalid_url_1 = "http://1.1.1.1/repository/enabled" in
+  let invalid_url_2 = "https://1.1.1.257/repository/enabled" in
+  let invalid_url_3 = "https://test.com/repository/enabled" in
+  let invalid_url_4 = "https://1.1.1.1/other" in
+  let invalid_url_5 = "https://1.1.1.1" in
+  Repository.introduce_remote_pool ~__context ~name_label ~name_description
+    ~binary_url:valid_url ~certificate:""
+  |> ignore ;
+  Alcotest.check_raises "test_introduce_duplicate_bundle_repo_1"
+    Api_errors.(Server_error (invalid_base_url, [invalid_url_1]))
+    (fun () ->
+      Repository.introduce_remote_pool ~__context ~name_label:name_label_1
+        ~name_description ~binary_url:invalid_url_1 ~certificate:""
+      |> ignore
+    ) ;
+  Alcotest.check_raises "test_introduce_duplicate_bundle_repo_2"
+    Api_errors.(Server_error (invalid_base_url, [invalid_url_2]))
+    (fun () ->
+      Repository.introduce_remote_pool ~__context ~name_label:name_label_1
+        ~name_description ~binary_url:invalid_url_2 ~certificate:""
+      |> ignore
+    ) ;
+  Alcotest.check_raises "test_introduce_duplicate_bundle_repo_3"
+    Api_errors.(Server_error (invalid_base_url, [invalid_url_3]))
+    (fun () ->
+      Repository.introduce_remote_pool ~__context ~name_label:name_label_1
+        ~name_description ~binary_url:invalid_url_3 ~certificate:""
+      |> ignore
+    ) ;
+  Alcotest.check_raises "test_introduce_duplicate_bundle_repo_4"
+    Api_errors.(Server_error (invalid_base_url, [invalid_url_4]))
+    (fun () ->
+      Repository.introduce_remote_pool ~__context ~name_label:name_label_1
+        ~name_description ~binary_url:invalid_url_4 ~certificate:""
+      |> ignore
+    ) ;
+  Alcotest.check_raises "test_introduce_duplicate_bundle_repo_5"
+    Api_errors.(Server_error (invalid_base_url, [invalid_url_5]))
+    (fun () ->
+      Repository.introduce_remote_pool ~__context ~name_label:name_label_1
+        ~name_description ~binary_url:invalid_url_5 ~certificate:""
+      |> ignore
+    )
+
 let test =
   [
     ( "test_introduce_duplicate_repo_name"
@@ -127,6 +186,10 @@ let test =
   ; ( "test_introduce_duplicate_bundle_repo"
     , `Quick
     , test_introduce_duplicate_bundle_repo
+    )
+  ; ( "test_introduce_invalid_remote_pool_repo_url"
+    , `Quick
+    , test_introduce_invalid_remote_pool_repo_url
     )
   ]
 
