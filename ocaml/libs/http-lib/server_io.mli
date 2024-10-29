@@ -16,7 +16,7 @@ type handler = {
     name: string  (** used for naming the thread *)
   ; body: Unix.sockaddr -> Unix.file_descr -> unit
         (** function called in a thread for each connection*)
-  ; lock: Xapi_stdext_threads.Semaphore.t
+  ; lock: Semaphore.Counting.t
 }
 
 type server = {
