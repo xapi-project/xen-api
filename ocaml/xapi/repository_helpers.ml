@@ -231,6 +231,19 @@ let assert_gpgkey_path_is_valid path =
     raise Api_errors.(Server_error (invalid_gpgkey_path, [path]))
   )
 
+let assert_remote_pool_url_is_valid ~url =
+  try
+    let uri = Uri.of_string url in
+    match (Uri.scheme uri, Uri.host uri, Uri.path uri) with
+    | Some "https", Some host, path
+      when path = Constants.get_enabled_repository_uri ->
+        Helpers.assert_is_valid_ip `ipv4or6 "url" host
+    | _ ->
+        raise Api_errors.(Server_error (internal_error, ["invalid url"]))
+  with e ->
+    error "Invalid url %s: %s" url (ExnHelper.string_of_exn e) ;
+    raise Api_errors.(Server_error (invalid_base_url, [url]))
+
 let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
