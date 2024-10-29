@@ -20,7 +20,7 @@ DATASOURCES
 000001e4
 dba4bf7a84b6d11d565d19ef91f7906e
 {
-  "timestamp": 1339685573,
+  "timestamp": 1339685573.245,
   "data_sources": {
     "cpu-temp-cpu0": {
       "description": "Temperature of CPU 0",
@@ -62,7 +62,7 @@ reported datasources.
 ### Example
 ```
 {
-  "timestamp": 1339685573,
+  "timestamp": 1339685573.245,
   "data_sources": {
     "cpu-temp-cpu0": {
       "description": "Temperature of CPU 0",
@@ -96,7 +96,7 @@ Protocol V2
 |data checksum        |32               |int32 |binary-encoded crc32 of the concatenation of the encoded timestamp and datasource values|
 |metadata checksum    |32               |int32 |binary-encoded crc32 of the metadata string (see below)                                 |
 |number of datasources|32               |int32 |only needed if the metadata has changed - otherwise RRDD can use a cached value         |
-|timestamp            |64               |int64 |Unix epoch                                                                              |
+|timestamp            |64               |double|Unix epoch                                                                              |
 |datasource values    |n * 64           |int64 \| double |n is the number of datasources exported by the plugin, type dependent on the setting in the metadata for value_type [int64\|float]  |
 |metadata length      |32               |int32 |                                                                                        |
 |metadata             |(string length)*8|string|                                                                                        |
@@ -193,6 +193,3 @@ This means that for a normal update, RRDD will only have to read the header plus
 the first (16 + 16 + 4 + 8 + 8*n) bytes of data, where n is the number of
 datasources exported by the plugin. If the metadata changes RRDD will have to
 read all the data (and parse the metadata).
-
-n.b. the timestamp reported by plugins is not currently used by RRDD - it uses
-its own global timestamp.
