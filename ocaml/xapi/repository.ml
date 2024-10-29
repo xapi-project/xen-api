@@ -69,6 +69,7 @@ let introduce_bundle ~__context ~name_label ~name_description =
 
 let introduce_remote_pool ~__context ~name_label ~name_description ~binary_url
     ~certificate =
+  assert_remote_pool_url_is_valid ~url:binary_url ;
   Db.Repository.get_all ~__context
   |> List.iter (fun ref ->
          if
