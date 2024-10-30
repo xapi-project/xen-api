@@ -1197,12 +1197,13 @@ module Ovs = struct
 
     val appctl : ?log:bool -> string list -> string
   end = struct
-    module Semaphore = Xapi_stdext_threads.Semaphore
+    module Semaphore = Semaphore.Counting
 
-    let s = Semaphore.create 5
+    let s = Semaphore.make 5
 
     let vsctl ?log args =
-      Semaphore.execute s (fun () ->
+      let execute = Xapi_stdext_threads.Threadext.Semaphore.execute in
+      execute s (fun () ->
           call_script ~on_error:error_handler ?log ovs_vsctl
             ("--timeout=20" :: args)
       )

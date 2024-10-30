@@ -20,7 +20,6 @@ module Rrdd = Rrd_client.Client
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module Listext = Xapi_stdext_std.Listext
-module Semaphore = Xapi_stdext_threads.Semaphore
 module Unixext = Xapi_stdext_unix.Unixext
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
