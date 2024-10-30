@@ -59,6 +59,8 @@ val appliance : verification_config
 
 val pool : verification_config
 
+val external_host : string -> verification_config
+
 val with_connect :
      ?unique_id:int
   -> ?use_fork_exec_helper:bool
