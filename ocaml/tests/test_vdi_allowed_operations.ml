@@ -30,9 +30,8 @@ let setup_test ~__context ?sm_fun ?vdi_fun () =
   (vdi_ref, vdi_record)
 
 let check_same_error_code =
-  let open Alcotest in
-  let open Alcotest_comparators in
-  check (option error_code) "Same error code"
+  Alcotest.(check @@ result unit Alcotest_comparators.error_code)
+    "Same error code"
 
 let run_assert_equal_with_vdi ~__context ?(ha_enabled = false) ?sm_fun ?vdi_fun
     op exc =
@@ -52,7 +51,7 @@ let test_ca98944 () =
         ()
     )
     `update
-    (Some (Api_errors.vdi_in_use, [])) ;
+    (Error (Api_errors.vdi_in_use, [])) ;
   (* Should raise vdi_in_use *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
@@ -61,7 +60,7 @@ let test_ca98944 () =
         ()
     )
     `update
-    (Some (Api_errors.vdi_in_use, [])) ;
+    (Error (Api_errors.vdi_in_use, [])) ;
   (* Should raise vdi_in_use *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
@@ -70,7 +69,7 @@ let test_ca98944 () =
         ()
     )
     `update
-    (Some (Api_errors.vdi_in_use, [])) ;
+    (Error (Api_errors.vdi_in_use, [])) ;
   (* Should raise other_operation_in_progress *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
@@ -79,14 +78,14 @@ let test_ca98944 () =
         ()
     )
     `update
-    (Some (Api_errors.other_operation_in_progress, [])) ;
+    (Error (Api_errors.other_operation_in_progress, [])) ;
   (* Should pass *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
       make_vbd ~vDI:vdi_ref ~__context ~reserved:false ~currently_attached:false
         ~current_operations:[] ()
     )
-    `forget None
+    `forget (Ok ())
 
 (* VDI.copy should be allowed if all attached VBDs are read-only. *)
 let test_ca101669 () =
@@ -97,15 +96,15 @@ let test_ca101669 () =
       make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RW ()
     )
     `copy
-    (Some (Api_errors.vdi_in_use, [])) ;
+    (Error (Api_errors.vdi_in_use, [])) ;
   (* Attempting to copy a RO-attached VDI should pass. *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
       make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ()
     )
-    `copy None ;
+    `copy (Ok ()) ;
   (* Attempting to copy an unattached VDI should pass. *)
-  run_assert_equal_with_vdi ~__context `copy None ;
+  run_assert_equal_with_vdi ~__context `copy (Ok ()) ;
   (* Attempting to copy RW- and RO-attached VDIs should fail with VDI_IN_USE. *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
@@ -115,7 +114,7 @@ let test_ca101669 () =
       make_vbd ~__context ~vDI:vdi_ref ~currently_attached:true ~mode:`RO ()
     )
     `copy
-    (Some (Api_errors.vdi_in_use, []))
+    (Error (Api_errors.vdi_in_use, []))
 
 let test_ca125187 () =
   let __context = Test_common.make_test_database () in
@@ -128,7 +127,7 @@ let test_ca125187 () =
       Db.VDI.set_current_operations ~__context ~self:vdi_ref
         ~value:[("mytask", `copy)]
     )
-    `copy None ;
+    `copy (Ok ()) ;
   (* A VBD can be plugged to a VDI which is being copied. This is required as
      	 * the VBD is plugged after the VDI is marked with the copy operation. *)
   let _, _ =
@@ -162,7 +161,7 @@ let test_ca126097 () =
       Db.VDI.set_current_operations ~__context ~self:vdi_ref
         ~value:[("mytask", `copy)]
     )
-    `clone None ;
+    `clone (Ok ()) ;
   (* Attempting to snapshot a VDI being copied should be allowed. *)
   run_assert_equal_with_vdi ~__context
     ~vdi_fun:(fun vdi_ref ->
@@ -173,7 +172,7 @@ let test_ca126097 () =
         ~value:[("mytask", `copy)]
     )
     `snapshot
-    (Some (Api_errors.operation_not_allowed, []))
+    (Error (Api_errors.operation_not_allowed, []))
 
 (** Tests for the checks related to changed block tracking *)
 let test_cbt =
@@ -189,7 +188,7 @@ let test_cbt =
         Db.SM.remove_from_features ~__context ~self:sm ~key:"VDI_CONFIG_CBT"
       )
       op
-      (Some (Api_errors.sr_operation_not_supported, []))
+      (Error (Api_errors.sr_operation_not_supported, []))
   in
   let test_sm_feature_check =
     for_vdi_operations all_cbt_operations test_sm_feature_check
@@ -202,7 +201,7 @@ let test_cbt =
             Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:true
           )
           op
-          (Some (Api_errors.operation_not_allowed, []))
+          (Error (Api_errors.operation_not_allowed, []))
     )
   in
   let test_cbt_enable_disable_vdi_type_check =
@@ -213,21 +212,21 @@ let test_cbt =
             Db.VDI.set_type ~__context ~self:vdi ~value:`metadata
           )
           op
-          (Some (Api_errors.vdi_incompatible_type, [])) ;
+          (Error (Api_errors.vdi_incompatible_type, [])) ;
         run_assert_equal_with_vdi ~__context
           ~vdi_fun:(fun vdi ->
             Db.VDI.set_type ~__context ~self:vdi ~value:`redo_log
           )
           op
-          (Some (Api_errors.vdi_incompatible_type, [])) ;
+          (Error (Api_errors.vdi_incompatible_type, [])) ;
         run_assert_equal_with_vdi ~__context
           ~vdi_fun:(fun vdi -> Db.VDI.set_type ~__context ~self:vdi ~value:`user)
-          op None ;
+          op (Ok ()) ;
         run_assert_equal_with_vdi ~__context
           ~vdi_fun:(fun vdi ->
             Db.VDI.set_type ~__context ~self:vdi ~value:`system
           )
-          op None
+          op (Ok ())
     )
   in
   let test_cbt_enable_disable_not_allowed_for_reset_on_boot =
@@ -238,7 +237,7 @@ let test_cbt =
             Db.VDI.set_on_boot ~__context ~self:vdi ~value:`reset
           )
           op
-          (Some (Api_errors.vdi_on_boot_mode_incompatible_with_operation, []))
+          (Error (Api_errors.vdi_on_boot_mode_incompatible_with_operation, []))
     )
   in
   let test_cbt_enable_disable_can_be_performed_live =
@@ -249,7 +248,7 @@ let test_cbt =
             Test_common.make_vbd ~__context ~vDI:vdi ~currently_attached:true
               ~mode:`RW ()
           )
-          op None
+          op (Ok ())
     )
   in
   let test_cbt_metadata_vdi_type_check =
@@ -273,7 +272,7 @@ let test_cbt =
             Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata
           )
           op
-          (Some (Api_errors.vdi_incompatible_type, []))
+          (Error (Api_errors.vdi_incompatible_type, []))
     )
   in
   let test_vdi_cbt_enabled_check =
@@ -288,7 +287,7 @@ let test_cbt =
             Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:true
           )
           op
-          (Some (Api_errors.vdi_cbt_enabled, []))
+          (Error (Api_errors.vdi_cbt_enabled, []))
     )
   in
   let test_vdi_data_destroy () =
@@ -308,31 +307,31 @@ let test_cbt =
       )
       (* ensure VDI.data_destroy works before introducing errors *)
       [
-        ((fun vdi -> pass_data_destroy vdi), None)
+        ((fun vdi -> pass_data_destroy vdi), Ok ())
       ; ( (fun vdi ->
             pass_data_destroy vdi ;
             Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:false
           )
-        , Some (Api_errors.operation_not_allowed, [])
+        , Error (Api_errors.operation_not_allowed, [])
         )
       ; ( (fun vdi ->
             pass_data_destroy vdi ;
             let sr = Db.VDI.get_SR ~__context ~self:vdi in
             Db.SR.set_is_tools_sr ~__context ~self:sr ~value:true
           )
-        , Some (Api_errors.sr_operation_not_supported, [])
+        , Error (Api_errors.sr_operation_not_supported, [])
         )
       ; ( (fun vdi ->
             pass_data_destroy vdi ;
             Db.VDI.set_cbt_enabled ~__context ~self:vdi ~value:false
           )
-        , Some (Api_errors.vdi_no_cbt_metadata, [])
+        , Error (Api_errors.vdi_no_cbt_metadata, [])
         )
       ; ( (fun vdi ->
             pass_data_destroy vdi ;
             Db.VDI.set_type ~__context ~self:vdi ~value:`cbt_metadata
           )
-        , None
+        , Ok ()
         )
       ; (* VDI.data_destroy should wait a bit for the VDIs to be unplugged and
            destroyed, instead of failing immediately in check_operation_error,
@@ -346,7 +345,7 @@ let test_cbt =
             in
             pass_data_destroy vdi
           )
-        , None
+        , Ok ()
         )
       ; ( (fun vdi ->
             (* Set up the fields corresponding to a VM snapshot *)
@@ -359,7 +358,7 @@ let test_cbt =
             in
             pass_data_destroy vdi
           )
-        , None
+        , Ok ()
         )
       ; ( (fun vdi ->
             let vM = Test_common.make_vm ~__context () in
@@ -369,7 +368,7 @@ let test_cbt =
             in
             pass_data_destroy vdi
           )
-        , None
+        , Ok ()
         )
       ]
   in
@@ -389,7 +388,7 @@ let test_cbt =
           Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true ;
           Db.VDI.set_is_a_snapshot ~__context ~self:vDI ~value:true
         )
-      , None
+      , Ok ()
       )
     in
     List.iter
@@ -407,17 +406,17 @@ let test_cbt =
             in
             ()
           )
-        , Some (Api_errors.vdi_in_use, [])
+        , Error (Api_errors.vdi_in_use, [])
         )
       ; (* positive test checks no errors thrown for cbt_metadata or cbt_enabled VDIs *)
         ( (fun vDI ->
             Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true ;
             Db.VDI.set_type ~__context ~self:vDI ~value:`cbt_metadata
           )
-        , None
+        , Ok ()
         )
       ; ( (fun vDI -> Db.VDI.set_cbt_enabled ~__context ~self:vDI ~value:true)
-        , None
+        , Ok ()
         )
       ; test_cbt_enabled_snapshot_vdi_linked_to_vm_snapshot
           ~vbd_currently_attached:false
@@ -467,14 +466,14 @@ let test_operations_restricted_during_rpu =
         Db.SM.set_features ~__context ~self:sm ~value:[("VDI_MIRROR", 1L)]
       )
       `mirror
-      (Some (Api_errors.not_supported_during_upgrade, [])) ;
+      (Error (Api_errors.not_supported_during_upgrade, [])) ;
     Db.Pool.remove_from_other_config ~__context ~self:pool
       ~key:Xapi_globs.rolling_upgrade_in_progress ;
     run_assert_equal_with_vdi ~__context
       ~sm_fun:(fun sm ->
         Db.SM.set_features ~__context ~self:sm ~value:[("VDI_MIRROR", 1L)]
       )
-      `mirror None
+      `mirror (Ok ())
   in
   let test_update_allowed_operations () =
     let __context = Mock.make_context_with_new_db "Mock context" in
@@ -523,7 +522,7 @@ let test_null_vm =
         ()
     in
     (* This shouldn't throw an exception *)
-    let (_ : _ option) =
+    let (_ : _ result) =
       Xapi_vdi.check_operation_error ~__context false vdi_record vdi_ref op
     in
     ()
