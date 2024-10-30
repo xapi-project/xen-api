@@ -130,6 +130,19 @@ module PkgOfFullnameTest = Generic.MakeStateless (struct
                  }
             )
         )
+      ; ( Io.Line "libpath-utils-2:0.2.1~rc1-29.xs8~2_1.x86_64"
+        , Ok
+            (Some
+               Pkg.
+                 {
+                   name= "libpath-utils"
+                 ; epoch= Some 2
+                 ; version= "0.2.1~rc1"
+                 ; release= "29.xs8~2_1"
+                 ; arch= "x86_64"
+                 }
+            )
+        )
       ; (Io.Line "libpath-utils-:0.2.1-29.el7.x86_64", Ok None)
       ; (Io.Line "libpath-utils-2:0.2.1-29.el7x86_64", Ok None)
       ; (* all RPM packages installed by default *)
@@ -171,6 +184,15 @@ module PkgCompareVersionStringsTest = Generic.MakeStateless (struct
       ; (("1.0_xs", "1.0.xs"), "=")
       ; (("1.0x3", "1.0x04"), "<")
       ; (("1.0O3", "1.0O04"), "<")
+      ; (("1.2.3", "1.2.3~rc1"), ">")
+      ; (("1.2.3~rc1", "1.2.3~rc2"), "<")
+      ; (("1.2.3~rc1", "1.2.3~rc1"), "=")
+      ; (("1.2.3~rc1", "1.2.3~rc1.1"), "<")
+      ; (("1.2.3~rc1.1", "1.2.3~rc1.2"), "<")
+      ; (("1.2.3~rc1.1", "1.2.3~rc1_1"), "=")
+      ; (("1.2.3.xs8", "1.2.3.xs8~2_1"), ">")
+      ; (("1.2.3.xs8~2_1", "1.2.3.xs8~2_1~beta"), ">")
+      ; (("1.2.3.xs8~", "1.2.3.xs8"), "<")
       ]
 end)
 
