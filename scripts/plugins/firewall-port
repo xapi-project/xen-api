@@ -37,14 +37,14 @@ case "${OP}" in
                 iptables -I INPUT -j "${CHAIN}"
             fi # asuume chain is used if it exists
         iptables -I "${CHAIN}" $RULE
-        service iptables save
+	/usr/libexec/iptables/iptables.init save
         fi
         ;;
     close)
         if iptables -C $CHAIN $RULE 2>/dev/null
         then # close port  if it was opened 
             iptables -D $CHAIN $RULE
-            service iptables save
+	    /usr/libexec/iptables/iptables.init save
         fi
         ;;
     check) 
