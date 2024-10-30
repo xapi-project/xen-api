@@ -46,7 +46,7 @@ module Pthread : sig
     Returns [Some n] where [n] is the new pthread name or [None] if the operation failed.
   *)
 
-  val get_name : unit -> string option
+  val get_name : unit -> string
   (** [get_name] returns [Some name] where [name] is the pthread name of the caller's pthread. 
   Returns [None] if the operation failed.*)
 end

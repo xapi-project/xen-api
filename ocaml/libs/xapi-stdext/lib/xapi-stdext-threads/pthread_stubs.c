@@ -15,6 +15,7 @@
 #define _GNU_SOURCE
 
 #include <pthread.h>
+#include <string.h>
 
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
@@ -23,6 +24,7 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/signals.h>
+#include <caml/unixsupport.h>
 
 #include "pthread_helpers.h"
 
@@ -30,13 +32,21 @@
 
 CAMLprim value stub_set_name(value name){
   CAMLparam1(name);
+  CAMLlocal1(ret);
+  ret = Val_unit;
   int rc;
 
+  char *c_name = strdup(String_val(name));
+
   caml_enter_blocking_section();
-  rc = set_name(String_val(name));
+  rc = set_name(c_name);
+  free(c_name);
   caml_leave_blocking_section();
 
-  CAMLreturn(Val_int(rc));
+  if (rc != 0)
+    unix_error(rc, "pthread_setname_np", Nothing);
+
+  CAMLreturn(ret);
 }
 
 CAMLprim value stub_get_name(value unit){
@@ -49,8 +59,8 @@ CAMLprim value stub_get_name(value unit){
   caml_leave_blocking_section();
 
   if (rc != 0)
-    CAMLreturn(Val_none);
+    unix_error(rc, "pthread_getname_np", Nothing);
 
   result = caml_copy_string(thread_name);
-  CAMLreturn(caml_alloc_some(result));
+  CAMLreturn(result);
 }
