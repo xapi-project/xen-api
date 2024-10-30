@@ -2,6 +2,7 @@
 Description=XCP RRD daemon
 After=forkexecd.service xenstored.service message-switch.service syslog.target
 Wants=forkexecd.service xenstored.service message-switch.service syslog.target
+PartOf=toolstack.target
 
 [Service]
 Type=notify
