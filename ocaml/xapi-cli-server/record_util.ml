@@ -160,6 +160,20 @@ let sr_operation_to_string : API.storage_operations -> string = function
       "VDI.data_destroy"
   | `vdi_list_changed_blocks ->
       "VDI.list_changed_blocks"
+  | `vdi_blocked ->
+      "VDI.blocked"
+  | `vdi_copy ->
+      "VDI.copy"
+  | `vdi_force_unlock ->
+      "VDI.force_unlock"
+  | `vdi_forget ->
+      "VDI.forget"
+  | `vdi_generate_config ->
+      "VDI.generate_config"
+  | `vdi_resize_online ->
+      "VDI.resize_online"
+  | `vdi_update ->
+      "VDI.update"
   | `pbd_create ->
       "PBD.create"
   | `pbd_destroy ->
