@@ -234,7 +234,7 @@ let call_probe ~__context ~host:_ ~device_config ~_type ~sm_config ~f =
     let rpc = rpc
   end)) in
   let dbg = Context.string_of_task __context in
-  Storage_access.transform_storage_exn (fun () ->
+  Storage_utils.transform_storage_exn (fun () ->
       Client.SR.probe dbg queue device_config sm_config |> f
   )
 
@@ -570,7 +570,7 @@ let update ~__context ~sr =
   let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
     let rpc = rpc
   end)) in
-  transform_storage_exn (fun () ->
+  Storage_utils.transform_storage_exn (fun () ->
       let sr' =
         Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string
       in
@@ -764,7 +764,7 @@ let scan ~__context ~sr =
   end)) in
   let sr' = Ref.string_of sr in
   SRScanThrottle.execute (fun () ->
-      transform_storage_exn (fun () ->
+      Storage_utils.transform_storage_exn (fun () ->
           let sr_uuid = Db.SR.get_uuid ~__context ~self:sr in
           (* CA-399757: Do not update_vdis unless we are sure that the db was not
              changed during the scan. If it was, retry the scan operation. This
@@ -851,13 +851,12 @@ let set_shared ~__context ~sr ~value =
     Db.SR.set_shared ~__context ~self:sr ~value
 
 let set_name_label ~__context ~sr ~value =
-  let open Storage_access in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
   let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
     let rpc = Storage_access.rpc
   end)) in
-  transform_storage_exn (fun () ->
+  Storage_utils.transform_storage_exn (fun () ->
       C.SR.set_name_label (Ref.string_of task)
         (Storage_interface.Sr.of_string sr')
         value
@@ -865,13 +864,12 @@ let set_name_label ~__context ~sr ~value =
   Db.SR.set_name_label ~__context ~self:sr ~value
 
 let set_name_description ~__context ~sr ~value =
-  let open Storage_access in
   let task = Context.get_task_id __context in
   let sr' = Db.SR.get_uuid ~__context ~self:sr in
   let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
     let rpc = Storage_access.rpc
   end)) in
-  transform_storage_exn (fun () ->
+  Storage_utils.transform_storage_exn (fun () ->
       C.SR.set_name_description (Ref.string_of task)
         (Storage_interface.Sr.of_string sr')
         value
