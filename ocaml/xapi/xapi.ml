@@ -854,12 +854,10 @@ let listen_unix_socket sock_path =
   (* Always listen on the Unix domain socket first *)
   Unixext.mkdir_safe (Filename.dirname sock_path) 0o700 ;
   Unixext.unlink_safe sock_path ;
+  let conn_limit = !Xapi_globs.conn_limit_unix in
+  let worker_pool_size = !Xapi_globs.request_worker_pool_size in
   let domain_sock = Xapi_http.bind (Unix.ADDR_UNIX sock_path) in
-  ignore
-    (Http_svr.start
-       ~conn_limit:!Xapi_globs.conn_limit_unix
-       Xapi_http.server domain_sock
-    )
+  Http_svr.start ~conn_limit ~worker_pool_size Xapi_http.server domain_sock
 
 let set_stunnel_timeout () =
   try

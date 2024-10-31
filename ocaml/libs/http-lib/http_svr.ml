@@ -654,7 +654,7 @@ type socket = Unix.file_descr * string
 
 (* Start an HTTP server on a new socket *)
 let start ?header_read_timeout ?header_total_timeout ?max_header_length
-    ~conn_limit (x : 'a Server.t) (socket, name) =
+    ?worker_pool_size ~conn_limit (x : 'a Server.t) (socket, name) =
   let handler =
     {
       Server_io.name
@@ -664,7 +664,7 @@ let start ?header_read_timeout ?header_total_timeout ?max_header_length
     ; lock= Semaphore.Counting.make conn_limit
     }
   in
-  let server = Server_io.server handler socket in
+  let server = Server_io.server ?worker_pool_size handler socket in
   Hashtbl.add socket_table socket server
 
 exception Socket_not_found

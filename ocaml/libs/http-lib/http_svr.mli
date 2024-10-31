@@ -61,6 +61,7 @@ val start :
      ?header_read_timeout:float
   -> ?header_total_timeout:float
   -> ?max_header_length:int
+  -> ?worker_pool_size:int
   -> conn_limit:int
   -> 'a Server.t
   -> socket

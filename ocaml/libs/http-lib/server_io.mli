@@ -23,5 +23,5 @@ type server = {
     shutdown: unit -> unit  (** clean shutdown, blocks until thread has gone *)
 }
 
-val server : handler -> Unix.file_descr -> server
+val server : ?worker_pool_size:int -> handler -> Unix.file_descr -> server
 (** Creates a server given a bound socket and a handler *)

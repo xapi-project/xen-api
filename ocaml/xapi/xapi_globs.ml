@@ -1011,6 +1011,8 @@ let header_total_timeout_tcp = ref 60.
 let max_header_length_tcp = ref 1024
 (* Maximum accepted size of HTTP headers in bytes (on TCP only) *)
 
+let request_worker_pool_size = ref 0
+
 let conn_limit_tcp = ref 800
 
 let conn_limit_unix = ref 1024
@@ -1613,6 +1615,11 @@ let other_options =
     , Arg.Set disable_webserver
     , (fun () -> string_of_bool !disable_webserver)
     , "Disable the host webserver"
+    )
+  ; ( "request-worker-pool-size"
+    , Arg.Set_int request_worker_pool_size
+    , (fun () -> string_of_int !request_worker_pool_size)
+    , "Specify size of worker pool servicing xapi requests, must be non-zero."
     )
   ]
 
