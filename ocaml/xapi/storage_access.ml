@@ -21,6 +21,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 module XenAPI = Client.Client
 open Storage_interface
+open Storage_utils
 
 module D = Debug.Make (struct let name = "storage_access" end)
 
@@ -29,50 +30,6 @@ open D
 let s_of_vdi = Vdi.string_of
 
 let s_of_sr = Sr.string_of
-
-let transform_storage_exn f =
-  let get_sr_ref sr_uuid =
-    Server_helpers.exec_with_new_task "transform_storage_exn" (fun __context ->
-        Db.SR.get_by_uuid ~__context ~uuid:sr_uuid
-    )
-  in
-  try f () with
-  | Storage_error (Backend_error (code, params)) as e ->
-      Backtrace.reraise e (Api_errors.Server_error (code, params))
-  | Storage_error (Backend_error_with_backtrace (code, backtrace :: params)) as
-    e ->
-      let backtrace = Backtrace.Interop.of_json "SM" backtrace in
-      Backtrace.add e backtrace ;
-      Backtrace.reraise e (Api_errors.Server_error (code, params))
-  | Storage_error (Sr_unhealthy (sr, health)) as e ->
-      let advice =
-        match health with
-        | Unavailable ->
-            "try reboot"
-        | Unreachable ->
-            "try again later"
-        | _health ->
-            ""
-      in
-      let sr = get_sr_ref sr in
-      Backtrace.reraise e
-        (Api_errors.Server_error
-           ( Api_errors.sr_unhealthy
-           , [Ref.string_of sr; Storage_interface.show_sr_health health; advice]
-           )
-        )
-  | Api_errors.Server_error _ as e ->
-      raise e
-  | Storage_error (No_storage_plugin_for_sr sr) as e ->
-      let sr = get_sr_ref sr in
-      Backtrace.reraise e
-        (Api_errors.Server_error (Api_errors.sr_not_attached, [Ref.string_of sr])
-        )
-  | e ->
-      Backtrace.reraise e
-        (Api_errors.Server_error
-           (Api_errors.internal_error, [Printexc.to_string e])
-        )
 
 (* Start a set of servers for all SMAPIv1 plugins *)
 let start_smapiv1_servers () =
