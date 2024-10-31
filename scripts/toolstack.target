@@ -20,7 +20,6 @@ Wants=xcp-networkd.service
 Wants=xenopsd-xc.service
 Wants=squeezed.service
 Wants=xapi-storage-script.service
-Wants=xapi-clusterd.service
 Wants=varstored-guard.service
 
 [Install]
