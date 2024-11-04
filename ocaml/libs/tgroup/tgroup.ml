@@ -172,9 +172,13 @@ let of_originator originator =
   originator |> Group.Creator.make |> Cgroup.set_cgroup
 
 let of_req_originator originator =
-  try
-    originator
-    |> Option.value ~default:Group.Originator.(to_string EXTERNAL)
-    |> Group.Originator.of_string
-    |> of_originator
-  with _ -> ()
+  Option.iter
+    (fun _ ->
+      try
+        originator
+        |> Option.value ~default:Group.Originator.(to_string EXTERNAL)
+        |> Group.Originator.of_string
+        |> of_originator
+      with _ -> ()
+    )
+    (Atomic.get Cgroup.cgroup_dir)

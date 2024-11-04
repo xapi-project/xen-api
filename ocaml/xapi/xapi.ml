@@ -1060,7 +1060,9 @@ let server_init () =
           ; ("Running startup check", [], startup_check)
           ; ( "Initialize cgroups via tgroup"
             , []
-            , fun () -> Tgroup.Cgroup.init Xapi_globs.xapi_requests_cgroup
+            , fun () ->
+                if !Xapi_globs.tgroups_enabled then
+                  Tgroup.Cgroup.init Xapi_globs.xapi_requests_cgroup
             )
           ; ( "Registering SMAPIv1 plugins"
             , [Startup.OnlyMaster]
