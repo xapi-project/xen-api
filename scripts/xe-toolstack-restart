@@ -43,7 +43,11 @@ set -e
 systemctl restart $MPATHALERT toolstack.target
 
 # Check the status of toolstack services
-for service in $(systemctl list-dependencies --plain --no-pager toolstack.target); do
+for service in $(systemctl list-dependencies --plain --no-pager toolstack.target) $MPATHALERT; do
+
+  # Skip check if the service is not enabled
+  systemctl is-enabled "$service" >/dev/null 2>&1 || continue
+
   # During system bootup, xcp-rrdd-dcmi.service often fail as
   # `ipmitool dcmi discover` discover nothing, just ignore it for now
   if [ "$service" == "xcp-rrdd-dcmi.service" ]; then
