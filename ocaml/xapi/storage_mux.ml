@@ -37,7 +37,7 @@ type plugin = {
     processor: processor
   ; backend_domain: string
   ; query_result: query_result
-  ; features: Smint.feature list
+  ; features: Smint.Feature.t list
 }
 
 let plugins : (sr, plugin) Hashtbl.t = Hashtbl.create 10
@@ -53,7 +53,7 @@ let debug_printer rpc call =
 let register sr rpc d info =
   with_lock m (fun () ->
       let features =
-        Smint.parse_capability_int64_features info.Storage_interface.features
+        Smint.Feature.parse_capability_int64 info.Storage_interface.features
       in
       Hashtbl.replace plugins sr
         {
@@ -88,7 +88,7 @@ let sr_has_capability sr capability =
   with_lock m (fun () ->
       match Hashtbl.find_opt plugins sr with
       | Some x ->
-          Smint.has_capability capability x.features
+          Smint.Feature.has_capability capability x.features
       | None ->
           false
   )
@@ -648,7 +648,9 @@ module Mux = struct
         | None ->
             failwith "DP not found"
       in
-      if (not read_write) && sr_has_capability sr Smint.Vdi_activate_readonly
+      if
+        (not read_write)
+        && sr_has_capability sr Smint.Feature.Vdi_activate_readonly
       then (
         info "The VDI was attached read-only: calling activate_readonly" ;
         C.VDI.activate_readonly (Debug_info.to_string di) dp sr vdi vm
