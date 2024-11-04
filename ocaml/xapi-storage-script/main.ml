@@ -352,6 +352,8 @@ end
 
 let _nonpersistent = "NONPERSISTENT"
 
+let _vdi_mirror_in = "VDI_MIRROR_IN"
+
 let _clone_on_boot_key = "clone-on-boot"
 
 let _vdi_type_key = "vdi-type"

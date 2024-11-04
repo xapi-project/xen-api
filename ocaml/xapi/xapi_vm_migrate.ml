@@ -160,7 +160,8 @@ end))
 
 open Storage_interface
 
-let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
+let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
+    ~remote_ops =
   let op_supported_on_source_sr vdi ops =
     let open Smint.Feature in
     (* Check VDIs must not be present on SR which doesn't have required capability *)
@@ -211,8 +212,8 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
   in
   List.filter (fun (vdi, sr) -> not (is_sr_matching vdi sr)) vdi_map
   |> List.iter (fun (vdi, sr) ->
-         op_supported_on_source_sr vdi ops ;
-         op_supported_on_dest_sr sr ops sm_record remote
+         op_supported_on_source_sr vdi local_ops ;
+         op_supported_on_dest_sr sr remote_ops sm_record remote
      )
 
 (** Check that none of the VDIs that are mapped to a different SR have CBT
@@ -1779,8 +1780,9 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     )
     vms_vdis ;
   (* operations required for migration *)
-  let required_sr_operations =
-    [Smint.Feature.Vdi_mirror; Smint.Feature.Vdi_snapshot]
+  let required_src_sr_operations = Smint.Feature.[Vdi_snapshot; Vdi_mirror] in
+  let required_dst_sr_operations =
+    Smint.Feature.[Vdi_snapshot; Vdi_mirror_in]
   in
   let host_from = Helpers.LocalObject source_host_ref in
   ( match migration_type ~__context ~remote with
@@ -1794,7 +1796,8 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
           (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, [])) ;
       (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
       assert_sr_support_operations ~__context ~vdi_map ~remote
-        ~ops:required_sr_operations ;
+        ~local_ops:required_src_sr_operations
+        ~remote_ops:required_dst_sr_operations ;
       let snapshot = Db.VM.get_record ~__context ~self:vm in
       let do_cpuid_check = not force in
       Xapi_vm_helpers.assert_can_boot_here ~__context ~self:vm
@@ -1826,7 +1829,8 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
       let power_state = Db.VM.get_power_state ~__context ~self:vm in
       (* Check VDIs are not migrating to or from an SR which doesn't have required_sr_operations *)
       assert_sr_support_operations ~__context ~vdi_map ~remote
-        ~ops:required_sr_operations ;
+        ~local_ops:required_src_sr_operations
+        ~remote_ops:required_dst_sr_operations ;
       (* The copy mode is only allow on stopped VM *)
       if (not force) && copy && power_state <> `Halted then
         raise

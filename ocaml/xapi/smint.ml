@@ -41,6 +41,7 @@ module Feature = struct
     | Vdi_attach
     | Vdi_detach
     | Vdi_mirror
+    | Vdi_mirror_in
     | Vdi_clone
     | Vdi_snapshot
     | Vdi_resize
@@ -80,6 +81,7 @@ module Feature = struct
     ; ("VDI_ATTACH", Vdi_attach)
     ; ("VDI_DETACH", Vdi_detach)
     ; ("VDI_MIRROR", Vdi_mirror)
+    ; ("VDI_MIRROR_IN", Vdi_mirror_in)
     ; ("VDI_RESIZE", Vdi_resize)
     ; ("VDI_RESIZE_ONLINE", Vdi_resize_online)
     ; ("VDI_CLONE", Vdi_clone)
@@ -151,9 +153,20 @@ module Feature = struct
 
   (** [has_capability c fl] will test weather the required capability [c] is present 
   in the feature list [fl]. Callers should use this function to test if a feature
-    is available rather than directly using membership functions on a feature list
-    as this function might have special logic for some features. *)
-  let has_capability (c : capability) fl = List.mem_assoc c fl
+  is available rather than directly using membership functions on a feature list
+  as this function might have special logic for some features. *)
+  let has_capability (c : capability) (fl : t list) =
+    List.exists
+      (fun (c', _v) ->
+        match (c, c') with
+        | Vdi_mirror_in, Vdi_mirror ->
+            true
+        | c, c' when c = c' ->
+            true
+        | _ ->
+            false
+      )
+      fl
 
   (** [parse_string_int64 features] takes a [features] list in its plain string
   forms such as "VDI_MIRROR/2" and parses them into the form of (VDI_MIRROR, 2).
