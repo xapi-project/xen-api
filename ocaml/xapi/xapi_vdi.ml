@@ -23,7 +23,7 @@ open D
 (* current/allowed operations checking                                                *)
 
 let feature_of_op =
-  let open Smint in
+  let open Smint.Feature in
   function
   | `forget | `copy | `force_unlock | `blocked ->
       None
@@ -53,7 +53,7 @@ let check_sm_feature_error (op : API.vdi_operations) sm_features sr =
   | None ->
       Ok ()
   | Some feature ->
-      if Smint.(has_capability feature sm_features) then
+      if Smint.Feature.(has_capability feature sm_features) then
         Ok ()
       else
         Error (Api_errors.sr_operation_not_supported, [Ref.string_of sr])

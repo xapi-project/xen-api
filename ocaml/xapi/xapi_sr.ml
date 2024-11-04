@@ -482,7 +482,7 @@ let find_or_create_rrd_vdi ~__context ~sr =
 let should_manage_stats ~__context sr =
   let sr_record = Db.SR.get_record_internal ~__context ~self:sr in
   let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-  Smint.(has_capability Sr_stats sr_features)
+  Smint.Feature.(has_capability Sr_stats sr_features)
   && Helpers.i_am_srmaster ~__context ~sr
 
 let maybe_push_sr_rrds ~__context ~sr =

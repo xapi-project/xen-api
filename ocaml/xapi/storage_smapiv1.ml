@@ -607,7 +607,10 @@ module SMAPIv1 : Server_impl = struct
                     ~key:"content_id"
             ) ;
             (* If the backend doesn't advertise the capability then do nothing *)
-            if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
+            if
+              Smint.Feature.(
+                has_capability Vdi_activate (Sm.features_of_driver _type)
+              )
             then
               Sm.vdi_activate ~dbg device_config _type sr self read_write
             else
@@ -638,7 +641,10 @@ module SMAPIv1 : Server_impl = struct
                     ~value:Uuidx.(to_string (make ()))
             ) ;
             (* If the backend doesn't advertise the capability then do nothing *)
-            if List.mem_assoc Smint.Vdi_deactivate (Sm.features_of_driver _type)
+            if
+              Smint.Feature.(
+                has_capability Vdi_deactivate (Sm.features_of_driver _type)
+              )
             then
               Sm.vdi_deactivate ~dbg device_config _type sr self
             else
