@@ -162,36 +162,31 @@ open Storage_interface
 
 let assert_sr_support_operations ~__context ~vdi_map ~remote ~ops =
   let op_supported_on_source_sr vdi ops =
+    let open Smint.Feature in
     (* Check VDIs must not be present on SR which doesn't have required capability *)
     let source_sr = Db.VDI.get_SR ~__context ~self:vdi in
     let sr_record = Db.SR.get_record_internal ~__context ~self:source_sr in
     let sr_features = Xapi_sr_operations.features_of_sr ~__context sr_record in
-    if not (List.for_all (fun op -> Smint.(has_capability op sr_features)) ops)
-    then
+    if not (List.for_all (fun op -> has_capability op sr_features) ops) then
       raise
         (Api_errors.Server_error
            (Api_errors.sr_does_not_support_migration, [Ref.string_of source_sr])
         )
   in
   let op_supported_on_dest_sr sr ops sm_record remote =
+    let open Smint.Feature in
     (* Check VDIs must not be mirrored to SR which doesn't have required capability *)
     let sr_type =
       XenAPI.SR.get_type ~rpc:remote.rpc ~session_id:remote.session ~self:sr
     in
-    let sm_capabilities =
+    let sm_features =
       match List.filter (fun (_, r) -> r.API.sM_type = sr_type) sm_record with
       | [(_, plugin)] ->
-          plugin.API.sM_capabilities
+          plugin.API.sM_features |> List.filter_map of_string_int64_opt
       | _ ->
           []
     in
-    if
-      not
-        (List.for_all
-           (fun op -> List.mem Smint.(string_of_capability op) sm_capabilities)
-           ops
-        )
-    then
+    if not (List.for_all (fun op -> has_capability op sm_features) ops) then
       raise
         (Api_errors.Server_error
            (Api_errors.sr_does_not_support_migration, [Ref.string_of sr])
@@ -1749,7 +1744,9 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     )
     vms_vdis ;
   (* operations required for migration *)
-  let required_sr_operations = [Smint.Vdi_mirror; Smint.Vdi_snapshot] in
+  let required_sr_operations =
+    [Smint.Feature.Vdi_mirror; Smint.Feature.Vdi_snapshot]
+  in
   let host_from = Helpers.LocalObject source_host_ref in
   ( match migration_type ~__context ~remote with
   | `intra_pool ->
