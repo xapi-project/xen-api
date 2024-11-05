@@ -126,8 +126,15 @@ let refresh_localhost_info ~__context info =
   ) else
     Db.Host.remove_from_other_config ~__context ~self:host
       ~key:Xapi_globs.host_no_local_storage ;
+  let options =
+    match Helpers.get_management_iface_primary_address_type with
+    | `IPv4 ->
+        ["check"; "80"]
+    | `IPv6 ->
+        ["-6"; "check"; "80"]
+  in
   let script_output =
-    Helpers.call_script !Xapi_globs.firewall_port_config_script ["check"; "80"]
+    Helpers.call_script !Xapi_globs.firewall_port_config_script options
   in
   try
     let network_state = Scanf.sscanf script_output "Port 80 open: %B" Fun.id in

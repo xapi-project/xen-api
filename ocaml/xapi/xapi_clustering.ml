@@ -274,9 +274,16 @@ module Daemon = struct
         raise Api_errors.(Server_error (not_implemented, ["Cluster.create"]))
     ) ;
     ( try
+        let options =
+          match Helpers.get_management_iface_primary_address_type with
+          | `IPv4 ->
+              ["open"; port]
+          | `IPv6 ->
+              ["-6"; "open"; port]
+        in
         maybe_call_script ~__context
           !Xapi_globs.firewall_port_config_script
-          ["open"; port] ;
+          options ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["enable"; service] ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["start"; service]
       with _ ->
@@ -295,9 +302,14 @@ module Daemon = struct
     Atomic.set enabled false ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["disable"; service] ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["stop"; service] ;
-    maybe_call_script ~__context
-      !Xapi_globs.firewall_port_config_script
-      ["close"; port] ;
+    let options =
+      match Helpers.get_management_iface_primary_address_type with
+      | `IPv4 ->
+          ["close"; port]
+      | `IPv6 ->
+          ["-6"; "close"; port]
+    in
+    maybe_call_script ~__context !Xapi_globs.firewall_port_config_script options ;
     debug "Cluster daemon: disabled & stopped"
 
   let restart ~__context =
