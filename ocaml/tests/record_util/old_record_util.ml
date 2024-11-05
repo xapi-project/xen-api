@@ -341,6 +341,21 @@ let sr_operation_to_string : API.storage_operations -> string = function
       "PBD.create"
   | `pbd_destroy ->
       "PBD.destroy"
+  (* The following ones were added after the file got introduced *)
+  | `vdi_blocked ->
+      "VDI.blocked"
+  | `vdi_copy ->
+      "VDI.copy"
+  | `vdi_force_unlock ->
+      "VDI.force_unlock"
+  | `vdi_forget ->
+      "VDI.forget"
+  | `vdi_generate_config ->
+      "VDI.generate_config"
+  | `vdi_resize_online ->
+      "VDI.resize_online"
+  | `vdi_update ->
+      "VDI.update"
 
 let vbd_operation_to_string = function
   | `attach ->

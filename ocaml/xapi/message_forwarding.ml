@@ -5501,14 +5501,22 @@ functor
                 in
                 (snapshot, host)
             in
+            let op session_id rpc =
+              let sync_op () =
+                Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options
+              in
+              let async_op () =
+                Client.InternalAsync.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
+                  ~options
+              in
+              Helpers.try_internal_async ~__context API.ref_VDI_of_rpc async_op
+                sync_op
+            in
             VM.reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
                 with_sr_andor_vdi ~__context ~vdi:(vdi, `mirror)
                   ~doc:"VDI.mirror" (fun () ->
-                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                        Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
-                          ~options
-                    )
+                    do_op_on ~local_fn ~__context ~host op
                 )
             )
         )

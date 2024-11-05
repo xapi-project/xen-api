@@ -4181,6 +4181,13 @@ module SR = struct
           , "Exporting a bitmap that shows the changed blocks between two VDIs"
           )
         ; ("vdi_set_on_boot", "Setting the on_boot field of the VDI")
+        ; ("vdi_blocked", "Blocking other operations for a VDI")
+        ; ("vdi_copy", "Copying the VDI")
+        ; ("vdi_force_unlock", "Forcefully unlocking the VDI")
+        ; ("vdi_forget", "Forgetting about the VDI")
+        ; ("vdi_generate_config", "Generating the configuration of the VDI")
+        ; ("vdi_resize_online", "Resizing the VDI online")
+        ; ("vdi_update", "Refreshing the fields on the VDI")
         ; ("pbd_create", "Creating a PBD for this SR")
         ; ("pbd_destroy", "Destroying one of this SR's PBDs")
         ]
