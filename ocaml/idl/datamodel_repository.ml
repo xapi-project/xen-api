@@ -105,7 +105,7 @@ let introduce_remote_pool =
       ; ( String
         , "binary_url"
         , "Base URL of binary packages in the local repository of this remote \
-           pool in https://<coordinator-ip>/repository format"
+           pool in https://<coordinator-ip>/repository/enabled format"
         )
       ; ( String
         , "certificate"
