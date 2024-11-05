@@ -47,6 +47,7 @@ let expiry_samples =
   [
     (([("expiry", "20170101T00:00:00Z")], []), Good)
   ; (([("expiry", "20160701T04:01:00Z")], []), Good)
+  ; (([("expiry", "never")], []), Good)
   ; (([("expiry", "20160701T04:00:00Z")], []), Expiring [])
   ; (([("expiry", "20160616T00:00:00Z")], []), Expiring [])
   ; (([("expiry", "20160601T04:00:01Z")], []), Expiring [])
