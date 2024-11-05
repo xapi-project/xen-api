@@ -1,39 +1,45 @@
 module XenAPI = Client.Client
+module Date = Xapi_stdext_date.Date
 
 type result = Good | Expiring of string list | Expired of string list
 
-let seconds_per_day = 3600. *. 24.
+let a_month_after date =
+  let days_30 = Ptime.Span.unsafe_of_d_ps (30, 0L) in
+  Date.to_ptime date
+  |> (fun d -> Ptime.add_span d days_30)
+  |> Option.fold ~none:date ~some:Date.of_ptime
 
-let seconds_per_30_days = 30. *. seconds_per_day
+let days_to_expiry ~expiry now =
+  Ptime.diff (Date.to_ptime expiry) (Date.to_ptime now) |> Ptime.Span.to_d_ps
+  |> fun (days, picosec) ->
+  let with_fraction = if days < 0 then Fun.id else fun d -> d + 1 in
+  if picosec = 0L then days else with_fraction days
 
-let days_to_expiry now expiry =
-  (expiry /. seconds_per_day) -. (now /. seconds_per_day)
-
-let get_expiry_date license =
-  List.assoc_opt "expiry" license
+let get_expiry_date pool_license =
+  List.assoc_opt "expiry" pool_license
   |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
   |> Option.map Xapi_stdext_date.Date.of_iso8601
-  |> Option.map Xapi_stdext_date.Date.to_unix_time
 
 let get_hosts all_license_params threshold =
-  List.fold_left
-    (fun acc (name_label, license_params) ->
-      match get_expiry_date license_params with
-      | Some expiry when expiry < threshold ->
-          name_label :: acc
-      | _ ->
-          acc
+  List.filter_map
+    (fun (name_label, license_params) ->
+      let ( let* ) = Option.bind in
+      let* expiry = get_expiry_date license_params in
+      if Date.is_earlier expiry ~than:threshold then
+        Some name_label
+      else
+        None
     )
-    [] all_license_params
+    all_license_params
 
 let check_license now pool_license_state all_license_params =
   match get_expiry_date pool_license_state with
   | Some expiry ->
-      let days = days_to_expiry now expiry in
-      if days <= 0. then
+      let days = days_to_expiry ~expiry now in
+      if days <= 0 then
         Expired (get_hosts all_license_params now)
-      else if days <= 30. then
-        Expiring (get_hosts all_license_params (now +. seconds_per_30_days))
+      else if days <= 30 then
+        Expiring (get_hosts all_license_params (a_month_after now))
       else
         Good
   | None ->
