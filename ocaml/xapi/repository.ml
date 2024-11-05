@@ -161,24 +161,25 @@ let sync ~__context ~self ~token ~token_id ~remote_addr ~username ~password =
   try
     let repo_name = get_remote_repository_name ~__context ~self in
     remove_repo_conf_file repo_name ;
-    let binary_url, source_url =
+    let binary_url, source_url, repo_gpgcheck =
       match Db.Repository.get_origin ~__context ~self with
       | `remote ->
           ( Db.Repository.get_binary_url ~__context ~self
           , Some (Db.Repository.get_source_url ~__context ~self)
+          , true
           )
       | `bundle ->
           let uri =
             Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
           in
-          (Uri.to_string uri, None)
+          (Uri.to_string uri, None, true)
       | `remote_pool ->
           let uri =
             Uri.make ~scheme:"http" ~host:"127.0.0.1"
               ~port:!Xapi_globs.local_yum_repo_port
               ~path:"/repository/enabled/" ()
           in
-          (Uri.to_string uri, None)
+          (Uri.to_string uri, None, false)
     in
     let gpgkey_path =
       match Db.Repository.get_gpgkey_path ~__context ~self with
@@ -188,7 +189,7 @@ let sync ~__context ~self ~token ~token_id ~remote_addr ~username ~password =
           s
     in
     let write_initial_yum_config () =
-      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
+      write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
         ~repo_name
     in
     write_initial_yum_config () ;
