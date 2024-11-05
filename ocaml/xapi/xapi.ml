@@ -789,6 +789,7 @@ let master_only_http_handlers =
     ("post_remote_db_access", remote_database_access_handler)
   ; ("post_remote_db_access_v2", remote_database_access_handler_v2)
   ; ("get_repository", Repository.get_repository_handler)
+  ; ("get_enabled_repository", Repository.get_enabled_repository_handler)
   ; ("get_updates", Xapi_pool.get_updates_handler)
   ]
 
