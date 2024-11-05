@@ -9,28 +9,35 @@ let seconds_per_30_days = 30. *. seconds_per_day
 let days_to_expiry now expiry =
   (expiry /. seconds_per_day) -. (now /. seconds_per_day)
 
+let get_expiry_date license =
+  List.assoc_opt "expiry" license
+  |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
+  |> Option.map Xapi_stdext_date.Date.of_iso8601
+  |> Option.map Xapi_stdext_date.Date.to_unix_time
+
 let get_hosts all_license_params threshold =
   List.fold_left
     (fun acc (name_label, license_params) ->
-      let expiry = List.assoc "expiry" license_params in
-      let expiry = Xapi_stdext_date.Date.(to_float (of_string expiry)) in
-      if expiry < threshold then
-        name_label :: acc
-      else
-        acc
+      match get_expiry_date license_params with
+      | Some expiry when expiry < threshold ->
+          name_label :: acc
+      | _ ->
+          acc
     )
     [] all_license_params
 
 let check_license now pool_license_state all_license_params =
-  let expiry = List.assoc "expiry" pool_license_state in
-  let expiry = Xapi_stdext_date.Date.(to_float (of_string expiry)) in
-  let days = days_to_expiry now expiry in
-  if days <= 0. then
-    Expired (get_hosts all_license_params now)
-  else if days <= 30. then
-    Expiring (get_hosts all_license_params (now +. seconds_per_30_days))
-  else
-    Good
+  match get_expiry_date pool_license_state with
+  | Some expiry ->
+      let days = days_to_expiry now expiry in
+      if days <= 0. then
+        Expired (get_hosts all_license_params now)
+      else if days <= 30. then
+        Expiring (get_hosts all_license_params (now +. seconds_per_30_days))
+      else
+        Good
+  | None ->
+      Good
 
 let get_info_from_db rpc session =
   let pool = List.hd (XenAPI.Pool.get_all rpc session) in
