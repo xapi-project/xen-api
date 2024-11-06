@@ -12,8 +12,8 @@ let days_to_expiry now expiry =
 let get_expiry_date license =
   List.assoc_opt "expiry" license
   |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
-  |> Option.map Xapi_stdext_date.Date.of_iso8601
-  |> Option.map Xapi_stdext_date.Date.to_unix_time
+  |> Option.map Xapi_stdext_date.Date.of_string
+  |> Option.map Xapi_stdext_date.Date.to_float
 
 let get_hosts all_license_params threshold =
   List.fold_left
