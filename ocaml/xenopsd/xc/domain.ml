@@ -390,7 +390,13 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     ; max_maptrack_frames=
         ( try
             int_of_string (List.assoc "max_maptrack_frames" vm_info.platformdata)
-          with _ -> 1024
+          with _ ->
+            0
+            (* This should be >0 only for driver domains (Dom0 startup is not
+               handled by the toolstack), which currently do not exist.
+               To support these in the future, xenopsd would need to check what
+               type of domain is being started.
+            *)
         )
     ; max_grant_version=
         (if List.mem CAP_Gnttab_v2 host_info.capabilities then 2 else 1)
