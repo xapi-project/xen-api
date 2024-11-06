@@ -10,6 +10,7 @@
   $ ./test_systemd.exe --server &
   @systemd.socket
   READY=1
+  $ sleep 1
   $ ./test_systemd.exe --notify
   $ wait
 
