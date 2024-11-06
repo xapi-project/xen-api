@@ -198,16 +198,7 @@ module PoolLicenseState = Generic.MakeStateful (struct
       Xapi_pool_license.get_lowest_edition_with_expiry ~__context ~hosts
         ~edition_to_int
     in
-    let pool_expiry =
-      match expiry with
-      | None ->
-          "never"
-      | Some date ->
-          if date = Date.of_unix_time License_check.never then
-            "never"
-          else
-            Date.to_rfc3339 date
-    in
+    let pool_expiry = License_check.serialize_expiry expiry in
     (pool_edition, pool_expiry)
 
   (* Tuples of (host_license_state list, expected pool license state) *)

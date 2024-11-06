@@ -4,6 +4,7 @@
   (modules daily_license_check)
   (libraries
     http_lib
+    ptime
     xapi-consts
     xapi-client
     xapi-types
