@@ -11,7 +11,6 @@ Environment=OCAMLRUNPARAM=b
 # and the PathExists in xapi-nbd.path: any change must be made in all three files.
 ExecStart=/usr/sbin/xapi-nbd --certfile=/etc/xensource/xapi-ssl.pem
 StandardOutput=null
-StandardError=syslog
 # restart but fail if more than 5 failures in 2s
 Restart=on-failure
 StartLimitBurst=5
