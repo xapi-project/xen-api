@@ -243,11 +243,6 @@ let assert_permission_name ~__context ~permission =
 let assert_permission ~__context ~permission =
   assert_permission_name ~__context ~permission:permission.role_name_label
 
-(* this is necessary to break dependency cycle between rbac and taskhelper *)
-let init_task_helper_rbac_has_permission_fn =
-  if !TaskHelper.rbac_assert_permission_fn = None then
-    TaskHelper.rbac_assert_permission_fn := Some assert_permission
-
 let has_permission_name ~__context ~permission =
   let session_id = get_session_of_context ~__context ~permission in
   is_access_allowed ~__context ~session_id ~permission
