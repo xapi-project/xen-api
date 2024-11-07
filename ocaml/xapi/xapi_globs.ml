@@ -1017,6 +1017,10 @@ let conn_limit_unix = ref 1024
 
 let conn_limit_clientcert = ref 800
 
+let stunnel_cache_max_age = ref (180. *. 60.)
+
+let stunnel_cache_max_idle = ref (5. *. 60.)
+
 let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
 let export_interval = ref 30.
@@ -1138,6 +1142,8 @@ let xapi_globs_spec =
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
+  ; ("stunnel_cache_max_age", Float stunnel_cache_max_age)
+  ; ("stunnel_cache_max_idle", Float stunnel_cache_max_idle)
   ; ("export_interval", Float export_interval)
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)

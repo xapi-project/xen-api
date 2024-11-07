@@ -42,9 +42,9 @@ type endpoint = {host: string; port: int}
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
 let max_stunnel = 70
 
-let max_age = 180. *. 60. (* seconds *)
+let max_age = ref (180. *. 60.) (* seconds *)
 
-let max_idle = 5. *. 60. (* seconds *)
+let max_idle = ref (5. *. 60.) (* seconds *)
 
 (* The add function adds the new stunnel before doing gc, so the cache *)
 (* can briefly contain one more than maximum. *)
@@ -104,6 +104,7 @@ let unlocked_gc () =
   let to_gc = ref [] in
   (* Find the ones which are too old *)
   let now = Unix.gettimeofday () in
+  let max_age = !max_age and max_idle = !max_idle in
   Tbl.iter !stunnels (fun idx stunnel ->
       match Hashtbl.find_opt !times idx with
       | Some time ->
