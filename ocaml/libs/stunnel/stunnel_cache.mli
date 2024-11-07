@@ -46,3 +46,9 @@ val flush : unit -> unit
 
 val gc : unit -> unit
 (** GCs old stunnels *)
+
+val max_age : float ref
+(** maximum time a connection is kept in the stunnel cache, counted from the time it got initially added to the cache *)
+
+val max_idle : float ref
+(** maximum time a connection is kept in the stunnel cache, counted from the most recent time it got (re)added to the cache. *)

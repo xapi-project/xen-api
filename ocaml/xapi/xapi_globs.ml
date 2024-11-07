@@ -1145,6 +1145,8 @@ let xapi_globs_spec =
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
+  ; ("stunnel_cache_max_age", Float Stunnel_cache.max_age)
+  ; ("stunnel_cache_max_idle", Float Stunnel_cache.max_idle)
   ; ("export_interval", Float export_interval)
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)

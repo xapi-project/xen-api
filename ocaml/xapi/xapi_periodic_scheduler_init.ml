@@ -114,6 +114,10 @@ let register ~__context =
           Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context
       )
   ) ;
+  let stunnel_period = !Stunnel_cache.max_idle /. 2. in
+  Xapi_periodic_scheduler.add_to_queue "Check stunnel cache expiry"
+    (Xapi_periodic_scheduler.Periodic stunnel_period) stunnel_period
+    Stunnel_cache.gc ;
   if
     master
     && Db.Pool.get_update_sync_enabled ~__context
