@@ -5001,10 +5001,20 @@ module SM = struct
                 , "capabilities of the SM plugin, with capability version \
                    numbers"
                 )
+              ; ( Changed
+                , "24.37.0"
+                , "features are now pool-wide, instead of what is available on \
+                   the coordinator sm"
+                )
               ]
             ~ty:(Map (String, Int))
             "features"
             "capabilities of the SM plugin, with capability version numbers"
+            ~default_value:(Some (VMap []))
+        ; field ~in_oss_since:None ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:(Map (Ref _host, Set String))
+            ~internal_only:true "host_pending_features"
+            "SM features that are waiting to be declared per host."
             ~default_value:(Some (VMap []))
         ; field
             ~lifecycle:[(Published, rel_miami, "additional configuration")]
