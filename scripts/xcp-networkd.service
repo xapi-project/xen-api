@@ -8,7 +8,7 @@ PartOf=toolstack.target
 [Service]
 Type=notify
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
-Environment="MALLOC_CONF=narenas:1,tcache:false"
+Environment="MALLOC_CONF=background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
 Environment=OCAMLRUNPARAM=b
 EnvironmentFile=-/etc/sysconfig/xcp-networkd
 ExecStart=/usr/sbin/xcp-networkd $XCP_NETWORKD_OPTIONS
