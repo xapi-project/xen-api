@@ -40,7 +40,11 @@ let debug = if debug_enabled then debug else ignore_log
 type endpoint = {host: string; port: int}
 
 (* Need to limit the absolute number of stunnels as well as the maximum age *)
-let max_stunnel = 70
+let max_stunnel = Atomic.make 70
+
+let set_max_stunnel n =
+  D.info "Setting max_stunnel = %d" n ;
+  Atomic.set max_stunnel n
 
 let max_age = ref (180. *. 60.) (* seconds *)
 
@@ -48,7 +52,7 @@ let max_idle = ref (5. *. 60.) (* seconds *)
 
 (* The add function adds the new stunnel before doing gc, so the cache *)
 (* can briefly contain one more than maximum. *)
-let capacity = max_stunnel + 1
+let capacity = Atomic.get max_stunnel + 1
 
 (** An index of endpoints to stunnel IDs *)
 let index : (endpoint, int list) Hashtbl.t ref = ref (Hashtbl.create capacity)
@@ -123,6 +127,7 @@ let unlocked_gc () =
           debug "%s: found no entry for idx=%d" __FUNCTION__ idx
   ) ;
   let num_remaining = List.length all_ids - List.length !to_gc in
+  let max_stunnel = Atomic.get max_stunnel in
   if num_remaining > max_stunnel then (
     let times' = Hashtbl.fold (fun k v acc -> (k, v) :: acc) !times [] in
     let times' =

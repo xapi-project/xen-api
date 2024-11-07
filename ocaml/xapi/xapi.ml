@@ -1137,6 +1137,8 @@ let server_init () =
           ] ;
         ( match Pool_role.get_role () with
         | Pool_role.Master ->
+            Stunnel_cache.set_max_stunnel
+              !Xapi_globs.coordinator_max_stunnel_cache ;
             ()
         | Pool_role.Broken ->
             info "This node is broken; moving straight to emergency mode" ;
@@ -1145,6 +1147,7 @@ let server_init () =
             server_run_in_emergency_mode ()
         | Pool_role.Slave _ ->
             info "Running in 'Pool Slave' mode" ;
+            Stunnel_cache.set_max_stunnel !Xapi_globs.member_max_stunnel_cache ;
             (* Set emergency mode until we actually talk to the master *)
             Xapi_globs.slave_emergency_mode := true ;
             (* signal the init script that it should succeed even though we're bust *)

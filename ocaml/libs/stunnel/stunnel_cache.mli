@@ -19,6 +19,11 @@
     HTTP 1.1 should be used and the connection should be kept-alive.
 *)
 
+val set_max_stunnel : int -> unit
+(** [set_max_stunnel] set the maximum number of unusued, but cached client stunnel connections.
+  This should be a low number on pool members, to avoid hitting limits on the coordinator with large pools.
+ *)
+
 val with_connect :
      ?use_fork_exec_helper:bool
   -> ?write_to_log:(string -> unit)
