@@ -1013,7 +1013,7 @@ let max_header_length_tcp = ref 1024
 
 let coordinator_max_stunnel_cache = ref 70
 
-let member_max_stunnel_cache = ref 70
+let member_max_stunnel_cache = ref 2
 
 let conn_limit_tcp = ref 800
 
