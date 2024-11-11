@@ -269,7 +269,8 @@ let wait_xen_free_mem ~xc ?(maximum_wait_time_seconds = 64) required_memory_kib
   in
   wait 0
 
-let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
+let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
+    num_of_vbds num_of_vifs =
   let open Xenctrl in
   let host_info = Xenctrl.physinfo xc in
 
@@ -385,7 +386,67 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     ; max_evtchn_port= -1
     ; max_grant_frames=
         ( try int_of_string (List.assoc "max_grant_frames" vm_info.platformdata)
-          with _ -> 64
+          with _ ->
+            let max_per_vif = 8 in
+            (* 1 VIF takes up (256 rx entries + 256 tx entries) * 8 queues max
+               * 8 bytes per grant table entry / 4096 bytes size of frame *)
+            let reasonable_per_vbd = 1 in
+            (* (1 ring (itself taking up one granted page) + 1 ring *
+               32 requests * 11 grant refs contained in each * 8 bytes ) /
+               4096 bytes size of frame = 0.6875, rounded up *)
+            let frames_number =
+              (max_per_vif * (num_of_vifs + 1))
+              + (reasonable_per_vbd * (num_of_vbds + 1))
+            in
+            debug "estimated max_grant_frames = %d" frames_number ;
+            frames_number
+            (* max_per_vif * (num_of_vifs + 1 hotplugged future one) +
+               max_per_vbd * (num_of_vbds + 1 hotplugged future one) *)
+
+            (* NOTE: While the VIF calculation is precise, the VBD one is a
+               very rough approximation of a reasonable value of
+               RING_SIZE * MAX_SEGMENTS_PER_REQUEST + PAGES_FOR_RING_ITSELF
+               The following points should allow for a rough understanding
+               of the scale of the problem of better estimation:
+
+               1) The blkfront driver can consume different numbers of grant
+               pages depending on the features advertised by the back driver
+               (and negotiated with it). These features can differ per VBD, and
+               right now aren't even known at the time of domain creation.
+               These include:
+                 1.1) indirect segments - these contain
+                 BLKIF_MAX_INDIRECT_PAGES_PER_REQUEST grants at most, and each
+                 of these frames contains GRANTS_PER_INDIRECT_FRAME grants in
+                 turn (stored in blkif_request_segment).
+                 In practice, this means a catastrophic explosion - we should
+                 not really aim to detect if indirect requests feature is on,
+                 but turn it off to get reasonable estimates.
+                 1.2) persistent grants - these are an optimization, so
+                 shouldn't really change the calculations, worst case is none
+                 of the grants are persistent.
+                 1.3) multi-page rings - these change the RING_SIZE, but not in
+                 a trivial manner (see ring-page-order)
+                 1.4) multi-queue - these change the number of rings, adding
+                 another multiplier.
+               2) The "8 bytes" multiplier for a grant table entry only applies
+               to grants_v1. v2 grants take up 16 bytes per entry. And it's
+               impossible to detect this feature at the moment.
+               3) A dynamically-sized grant table itself could be a solution?
+               Used to exist before, caused a lot of XSAs, hard to get right.
+               4) Drivers might need to be more explicitly limited in how many
+               pages they can consume
+               5) VBD backdriver's features should be managed by XAPI on the
+               object itself and (their max bound) known at the time of domain
+               creation.
+
+               So for this estimate, there is only 1 ring which is 1 page, with
+               32 entries, each entry (request) can have up to 11 pages
+               (excluding indirect pages and other complications).
+
+               SEE: xen-blkfront.c, blkif.h, and the backdriver to understand
+               the process of negotiation (visible in xenstore, in kernel
+               module parameters in the sys filesystem afterwards)
+            *)
         )
     ; max_maptrack_frames=
         ( try

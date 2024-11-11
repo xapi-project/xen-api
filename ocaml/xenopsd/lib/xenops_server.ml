@@ -2297,11 +2297,18 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
       debug "VM.destroy %s" id ;
       B.VM.destroy t (VM_DB.read_exn id)
   | VM_create (id, memory_upper_bound, final_id, no_sharept) ->
-      debug "VM.create %s memory_upper_bound = %s" id
+      let num_of_vbds = List.length (VBD_DB.vbds id) in
+      let num_of_vifs = List.length (VIF_DB.vifs id) in
+      debug
+        "VM.create %s memory_upper_bound = %s, num_of_vbds = %d, num_of_vifs = \
+         %d"
+        id
         (Option.value ~default:"None"
            (Option.map Int64.to_string memory_upper_bound)
-        ) ;
+        )
+        num_of_vbds num_of_vifs ;
       B.VM.create t memory_upper_bound (VM_DB.read_exn id) final_id no_sharept
+        num_of_vbds num_of_vifs
   | VM_build (id, force) ->
       debug "VM.build %s" id ;
       let vbds : Vbd.t list = VBD_DB.vbds id |> vbd_plug_order in

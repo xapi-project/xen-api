@@ -149,6 +149,8 @@ val make :
   -> [`VM] Uuidx.t
   -> string option
   -> bool (* no_sharept *)
+  -> int (* num_of_vbds *)
+  -> int (* num_of_vifs *)
   -> domid
 (** Create a fresh (empty) domain with a specific UUID, returning the domain ID *)
 
