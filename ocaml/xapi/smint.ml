@@ -110,6 +110,8 @@ let capability_of_feature : feature -> capability = fst
 
 let known_features = List.map fst string_to_capability_table
 
+let unparse_feature (f, v) = f ^ "/" ^ Int64.to_string v
+
 let parse_string_int64_features features =
   let scan feature =
     match String.split_on_char '/' feature with
@@ -133,6 +135,21 @@ let parse_string_int64_features features =
   features
   |> List.filter_map scan
   |> List.sort_uniq (fun (x, _) (y, _) -> compare x y)
+
+(** [compat_features features1 features2] finds the compatible features in the input
+features lists. We assume features backwards compatible, i.e. if there are FOO/1 and
+  FOO/2 are present, then we assume they can both do FOO/1*)
+let compat_features features1 features2 =
+  let features2 = List.to_seq features2 |> Hashtbl.of_seq in
+  List.filter_map
+    (fun (f1, v1) ->
+      match Hashtbl.find_opt features2 f1 with
+      | Some v2 ->
+          Some (f1, Int64.min v1 v2)
+      | None ->
+          None
+    )
+    features1
 
 let parse_capability_int64_features strings =
   List.map

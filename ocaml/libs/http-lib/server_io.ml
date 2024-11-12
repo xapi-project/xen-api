@@ -23,7 +23,7 @@ type handler = {
     name: string
   ; (* body should close the provided fd *)
     body: Unix.sockaddr -> Unix.file_descr -> unit
-  ; lock: Xapi_stdext_threads.Semaphore.t
+  ; lock: Semaphore.Counting.t
 }
 
 let handler_by_thread (h : handler) (s : Unix.file_descr)
@@ -31,7 +31,7 @@ let handler_by_thread (h : handler) (s : Unix.file_descr)
   Thread.create
     (fun () ->
       Fun.protect
-        ~finally:(fun () -> Xapi_stdext_threads.Semaphore.release h.lock 1)
+        ~finally:(fun () -> Semaphore.Counting.release h.lock)
         (Debug.with_thread_named h.name (fun () -> h.body caller s))
     )
     ()
@@ -49,7 +49,7 @@ let establish_server ?(signal_fds = []) forker handler sock =
       @@ Polly.wait epoll 2 (-1) (fun _ fd _ ->
              (* If any of the signal_fd is active then bail out *)
              if List.mem fd signal_fds then raise PleaseClose ;
-             Xapi_stdext_threads.Semaphore.acquire handler.lock 1 ;
+             Semaphore.Counting.acquire handler.lock ;
              let s, caller = Unix.accept ~cloexec:true sock in
              try ignore (forker handler s caller)
              with exc ->

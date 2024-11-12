@@ -15,6 +15,10 @@ module Mutex : sig
   val execute : Mutex.t -> (unit -> 'a) -> 'a
 end
 
+module Semaphore : sig
+  val execute : Semaphore.Counting.t -> (unit -> 'a) -> 'a
+end
+
 val thread_iter_all_exns : ('a -> unit) -> 'a list -> ('a * exn) list
 
 val thread_iter : ('a -> unit) -> 'a list -> unit

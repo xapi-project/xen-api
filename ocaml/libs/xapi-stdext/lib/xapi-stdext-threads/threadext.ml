@@ -14,11 +14,20 @@
 
 module M = Mutex
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module Mutex = struct
   (** execute the function f with the mutex hold *)
   let execute lock f =
     Mutex.lock lock ;
-    Xapi_stdext_pervasives.Pervasiveext.finally f (fun () -> Mutex.unlock lock)
+    finally f (fun () -> Mutex.unlock lock)
+end
+
+module Semaphore = struct
+  let execute s f =
+    let module Semaphore = Semaphore.Counting in
+    Semaphore.acquire s ;
+    finally f (fun () -> Semaphore.release s)
 end
 
 (** Parallel List.iter. Remembers all exceptions and returns an association list mapping input x to an exception.
@@ -60,7 +69,6 @@ module Delay = struct
   exception Pre_signalled
 
   let wait (x : t) (seconds : float) =
-    let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let to_close = ref [] in
     let close' fd =
       if List.mem fd !to_close then Unix.close fd ;

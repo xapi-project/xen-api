@@ -648,7 +648,7 @@ let start ?header_read_timeout ?header_total_timeout ?max_header_length
     ; body=
         handle_connection ~header_read_timeout ~header_total_timeout
           ~max_header_length x
-    ; lock= Xapi_stdext_threads.Semaphore.create conn_limit
+    ; lock= Semaphore.Counting.make conn_limit
     }
   in
   let server = Server_io.server handler socket in

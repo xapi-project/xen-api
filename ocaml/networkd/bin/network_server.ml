@@ -1474,10 +1474,21 @@ end
 module PVS_proxy = struct
   open S.PVS_proxy
 
-  let path = ref "/run/pvsproxy"
+  let path = ref ""
+
+  let depriv_path = "/run/pvsproxy-state/socket"
+
+  let legacy_path = "/opt/citrix/pvsproxy/socket/pvsproxy"
+
+  let default_path () =
+    if Sys.file_exists depriv_path then
+      depriv_path
+    else
+      legacy_path
 
   let do_call call =
-    try Jsonrpc_client.with_rpc ~path:!path ~call ()
+    let p = match !path with "" -> default_path () | path -> path in
+    try Jsonrpc_client.with_rpc ~path:p ~call ()
     with e ->
       error "Error when calling PVS proxy: %s" (Printexc.to_string e) ;
       raise (Network_error PVS_proxy_connection_error)
