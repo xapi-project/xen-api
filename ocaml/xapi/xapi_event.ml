@@ -49,6 +49,10 @@ module Token = struct
     Printf.sprintf "%020Ld,%020Ld" last last_t
 end
 
+let is_lowercase_char c = Char.equal (Char.lowercase_ascii c) c
+
+let is_lowercase str = String.for_all is_lowercase_char str
+
 module Subscription = struct
   type t = Class of string | Object of string * string | All
 
@@ -69,7 +73,7 @@ module Subscription = struct
 
   (** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
   let table_matches subs tbl =
-    let tbl = String.lowercase_ascii tbl in
+    let tbl = if is_lowercase tbl then tbl else String.lowercase_ascii tbl in
     let matches = function
       | All ->
           true
@@ -82,7 +86,7 @@ module Subscription = struct
 
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for specified class and object *)
   let object_matches subs ty _ref =
-    let tbl = String.lowercase_ascii ty in
+    let tbl = if is_lowercase ty then ty else String.lowercase_ascii ty in
     let matches = function
       | All ->
           true
@@ -538,11 +542,7 @@ let from_inner __context session subs from from_t deadline =
             Db_cache_types.Table.fold_over_recent !last_generation
               (fun objref {Db_cache_types.Stat.created; modified; deleted} _
                    (creates, mods, deletes, last) ->
-                if
-                  Subscription.object_matches subs
-                    (String.lowercase_ascii table)
-                    objref
-                then
+                if Subscription.object_matches subs table objref then
                   let last = max last (max modified deleted) in
                   (* mtime guaranteed to always be larger than ctime *)
                   ( ( if created > !last_generation then
@@ -572,11 +572,7 @@ let from_inner __context session subs from from_t deadline =
           Db_cache_types.Table.fold_over_deleted !last_generation
             (fun objref {Db_cache_types.Stat.created; modified; deleted}
                  (creates, mods, deletes, last) ->
-              if
-                Subscription.object_matches subs
-                  (String.lowercase_ascii table)
-                  objref
-              then
+              if Subscription.object_matches subs table objref then
                 let last = max last (max modified deleted) in
                 (* mtime guaranteed to always be larger than ctime *)
                 if created > !last_generation then
