@@ -1272,9 +1272,6 @@ let append_by_key l k v =
   in
   (k, vals) :: others
 
-let is_remote_pool_repository ~__context ~repo =
-  Db.Repository.get_origin ~__context ~self:repo = `remote_pool
-
 let get_singleton = function
   | [s] ->
       s
@@ -1291,43 +1288,27 @@ let get_single_enabled_update_repository ~__context =
   in
   get_singleton enabled_update_repositories
 
-let with_access_token ~token ~token_id f =
-  match (token, token_id) with
-  | t, tid when t <> "" && tid <> "" ->
-      info "sync updates with token_id: %s" tid ;
-      let json = `Assoc [("token", `String t); ("token_id", `String tid)] in
-      let tmpfile, tmpch =
-        Filename.open_temp_file ~mode:[Open_text] "accesstoken" ".json"
-      in
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () ->
-          output_string tmpch (Yojson.Basic.to_string json) ;
-          close_out tmpch ;
-          f (Some tmpfile)
-        )
-        (fun () -> Unixext.unlink_safe tmpfile)
-  | t, tid when t = "" && tid = "" ->
-      f None
-  | _ ->
-      let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+type client_auth = ExtHostAuth of string | CdnTokenAuth of string * string
 
-let with_xapi_token ~xapi_token f =
-  match xapi_token with
-  | t when t <> "" ->
-      let json = `Assoc [("xapitoken", `String t)] in
-      let tmpfile, tmpch =
-        Filename.open_temp_file ~mode:[Open_text] "xapitoken" ".json"
-      in
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () ->
-          output_string tmpch (Yojson.Basic.to_string json) ;
-          close_out tmpch ;
-          f (Some tmpfile)
-        )
-        (fun () -> Unixext.unlink_safe tmpfile)
-  | _ ->
-      f None
+let with_sync_client_auth auth f =
+  let secret =
+    match auth with
+    | ExtHostAuth session ->
+        Some (`Assoc [("xapitoken", `String session)])
+    | CdnTokenAuth (token_id, token) when token_id = "" && token = "" ->
+        None
+    | CdnTokenAuth (token_id, token) when token_id <> "" && token <> "" ->
+        Some (`Assoc [("token", `String token); ("token_id", `String token_id)])
+    | CdnTokenAuth (_, _) ->
+        let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
+        raise Api_errors.(Server_error (internal_error, [msg]))
+  in
+  match secret with
+  | Some s ->
+      Helpers.with_temp_file_of_content ~mode:[Open_text] "xapitoken" ".json"
+        (Yojson.Basic.to_string s) f
+  | None ->
+      f ""
 
 let prune_updateinfo_for_livepatches latest_lps updateinfo =
   let livepatches =

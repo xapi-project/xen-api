@@ -3517,23 +3517,11 @@ let remove_repository ~__context ~self ~value =
 
 let sync_repos ~__context ~self ~repos ~force ~token ~token_id ~username
     ~password =
-  let remote_addr =
-    let repo =
-      Repository_helpers.get_single_enabled_update_repository ~__context
-    in
-    match Repository_helpers.is_remote_pool_repository ~__context ~repo with
-    | true ->
-        Db.Repository.get_binary_url ~__context ~self:repo
-        |> Repository_helpers.get_remote_pool_coordinator_ip
-    | false ->
-        ""
-  in
   let open Repository in
   repos
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
-         sync ~__context ~self:repo ~token ~token_id ~remote_addr ~username
-           ~password ;
+         sync ~__context ~self:repo ~token ~token_id ~username ~password ;
          (* Dnf sync all the metadata including updateinfo,
           * Thus no need to re-create pool repository *)
          if Pkgs.manager = Yum then
