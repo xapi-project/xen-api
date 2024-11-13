@@ -51,16 +51,25 @@ public class DateTimeTests
     [TestMethod]
     [DynamicData(nameof(GetTestData), DynamicDataSourceType.Method,
         DynamicDataDisplayName = nameof(GetCustomDynamicDataDisplayName))]
-    public void TestXenDateTimeConverter(string dateString, DateTime expectedDateTime)
+    public void TestXenDateTimeConverter(string dateString, DateTime expectedDateTime, DateTimeKind expectedDateTimeKind)
     {
         try
         {
             var jsonDateString = "{ \"Date\" : \"" + dateString + "\" }";
-            var actualDateTime = JsonConvert.DeserializeObject<DateTimeObject>(jsonDateString, _settings);
+            var actualDateTimeObject = JsonConvert.DeserializeObject<DateTimeObject>(jsonDateString, _settings);
 
-            Assert.IsNotNull(actualDateTime, $"Failed to convert '{dateString}'");
-            Assert.IsTrue(expectedDateTime.Equals(actualDateTime.Date),
-                $"Conversion of '{dateString}' resulted in an incorrect DateTime value");
+
+            Assert.IsNotNull(actualDateTimeObject?.Date, $"Failed to convert '{dateString}'");
+            var actualDateTime = actualDateTimeObject.Date;
+            Assert.IsTrue(expectedDateTimeKind.Equals(actualDateTime.Kind));
+
+            // expected times are in UTC to ensure these tests do
+            // not fail when running in other timezones
+            if (expectedDateTimeKind == DateTimeKind.Local)
+                actualDateTime = actualDateTime.ToUniversalTime();
+
+            Assert.IsTrue(expectedDateTime.Equals(actualDateTime),
+                $"Conversion of '{dateString}' resulted in an incorrect DateTime value. Expected '{expectedDateTime} but instead received '{actualDateTime}'");
         }
         catch (Exception ex)
         {
@@ -78,62 +87,62 @@ public class DateTimeTests
     public static IEnumerable<object[]> GetTestData()
     {
         // no dashes, no colons
-        yield return new object[] { "20220101T123045", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Unspecified) };
-        yield return new object[] { "20220101T123045Z", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc) };
-        yield return new object[] { "20220101T123045+03", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
-        yield return new object[] { "20220101T123045+0300", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
-        yield return new object[] { "20220101T123045+03:00", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
+        yield return new object[] { "20220101T123045", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc), DateTimeKind.Unspecified };
+        yield return new object[] { "20220101T123045Z", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc), DateTimeKind.Utc };
+        yield return new object[] { "20220101T123045+03", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
+        yield return new object[] { "20220101T123045+0300", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
+        yield return new object[] { "20220101T123045+03:00", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
 
         yield return new object[]
-            { "20220101T123045.123", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Unspecified) };
+            { "20220101T123045.123", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Unspecified };
         yield return new object[]
-            { "20220101T123045.123Z", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc) };
+            { "20220101T123045.123Z", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Utc };
         yield return new object[]
-            { "20220101T123045.123+03", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "20220101T123045.123+03", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "20220101T123045.123+0300", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "20220101T123045.123+0300", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "20220101T123045.123+03:00", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "20220101T123045.123+03:00", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
 
         // no dashes, with colons
         yield return new object[]
-            { "20220101T12:30:45", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Unspecified) };
-        yield return new object[] { "20220101T12:30:45Z", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc) };
-        yield return new object[] { "20220101T12:30:45+03", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
-        yield return new object[] { "20220101T12:30:45+0300", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
+            { "20220101T12:30:45", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc), DateTimeKind.Unspecified };
+        yield return new object[] { "20220101T12:30:45Z", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc), DateTimeKind.Utc };
+        yield return new object[] { "20220101T12:30:45+03", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
+        yield return new object[] { "20220101T12:30:45+0300", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "20220101T12:30:45+03:00", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
+            { "20220101T12:30:45+03:00", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
 
         yield return new object[]
-            { "20220101T12:30:45.123", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Unspecified) };
+            { "20220101T12:30:45.123", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Unspecified };
         yield return new object[]
-            { "20220101T12:30:45.123Z", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc) };
+            { "20220101T12:30:45.123Z", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Utc };
         yield return new object[]
-            { "20220101T12:30:45.123+03", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "20220101T12:30:45.123+03", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "20220101T12:30:45.123+0300", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "20220101T12:30:45.123+0300", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "20220101T12:30:45.123+03:00", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "20220101T12:30:45.123+03:00", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
 
         // dashes and colons
         yield return new object[]
-            { "2022-01-01T12:30:45", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Unspecified) };
-        yield return new object[] { "2022-01-01T12:30:45Z", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc) };
-        yield return new object[] { "2022-01-01T12:30:45+03", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
+            { "2022-01-01T12:30:45", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc), DateTimeKind.Unspecified };
+        yield return new object[] { "2022-01-01T12:30:45Z", new DateTime(2022, 1, 1, 12, 30, 45, DateTimeKind.Utc), DateTimeKind.Utc };
+        yield return new object[] { "2022-01-01T12:30:45+03", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "2022-01-01T12:30:45+0300", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
+            { "2022-01-01T12:30:45+0300", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "2022-01-01T12:30:45+03:00", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Local) };
+            { "2022-01-01T12:30:45+03:00", new DateTime(2022, 1, 1, 9, 30, 45, DateTimeKind.Utc), DateTimeKind.Local };
 
         yield return new object[]
-            { "2022-01-01T12:30:45.123", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Unspecified) };
+            { "2022-01-01T12:30:45.123", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Unspecified };
         yield return new object[]
-            { "2022-01-01T12:30:45.123Z", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc) };
+            { "2022-01-01T12:30:45.123Z", new DateTime(2022, 1, 1, 12, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Utc };
         yield return new object[]
-            { "2022-01-01T12:30:45.123+03", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "2022-01-01T12:30:45.123+03", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "2022-01-01T12:30:45.123+0300", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "2022-01-01T12:30:45.123+0300", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
         yield return new object[]
-            { "2022-01-01T12:30:45.123+03:00", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Local) };
+            { "2022-01-01T12:30:45.123+03:00", new DateTime(2022, 1, 1, 9, 30, 45, 123, DateTimeKind.Utc), DateTimeKind.Local };
     }
 }
