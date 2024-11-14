@@ -395,8 +395,10 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
                32 requests * 11 grant refs contained in each * 8 bytes ) /
                4096 bytes size of frame = 0.6875, rounded up *)
             let frames_number =
-              (max_per_vif * (num_of_vifs + 1))
-              + (reasonable_per_vbd * (num_of_vbds + 1))
+              max 64
+                ((max_per_vif * (num_of_vifs + 1))
+                + (reasonable_per_vbd * (num_of_vbds + 1))
+                )
             in
             debug "estimated max_grant_frames = %d" frames_number ;
             frames_number
