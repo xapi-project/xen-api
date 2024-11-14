@@ -1,0 +1,19 @@
+[Unit]
+Description=Xapi storage script plugin server
+After=message-switch.service syslog.target time-sync.target
+Wants=message-switch.service syslog.target
+PartOf=toolstack.target
+
+[Service]
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
+Environment=OCAMLRUNPARAM=b
+EnvironmentFile=-/etc/sysconfig/xapi-storage-script
+ExecStart=/usr/sbin/xapi-storage-script $XAPI_STORAGE_SCRIPT_OPTIONS
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

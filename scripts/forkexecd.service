@@ -1,0 +1,22 @@
+[Unit]
+Description=Manages subprocesses independently from a multithreaded program.
+After=syslog.target
+Wants=syslog.target
+PartOf=toolstack.target
+
+[Service]
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
+Type=notify
+Environment=OCAMLRUNPARAM=b
+EnvironmentFile=-/etc/sysconfig/forkexecd
+ExecStart=/usr/sbin/forkexecd $FORKEXECD_OPTIONS
+KillMode=process
+StandardError=null
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

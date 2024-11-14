@@ -84,6 +84,12 @@ install:
 	$(IDATA) xcp-rrdd-dcmi.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-dcmi.service
 	$(IDATA) xcp-rrdd-cpu.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-cpu.service
 	$(IDATA) xcp-rrdd-netdev.service $(DESTDIR)/usr/lib/systemd/system/xcp-rrdd-netdev.service
+	$(IDATA) forkexecd.service $(DESTDIR)/usr/lib/systemd/system/forkexecd.service
+	$(IDATA) message-switch.service $(DESTDIR)/usr/lib/systemd/system/message-switch.service
+	$(IDATA) squeezed.service $(DESTDIR)/usr/lib/systemd/system/squeezed.service
+	$(IDATA) xapi-storage-script.service $(DESTDIR)/usr/lib/systemd/system/xapi-storage-script.service
+	$(IDATA) xenopsd-simulator.service $(DESTDIR)/usr/lib/systemd/system/xenopsd-simulator.service
+	$(IDATA) xenopsd-xc.service $(DESTDIR)/usr/lib/systemd/system/xenopsd-xc.service
 	mkdir -p $(DESTDIR)$(ETCXENDIR)/master.d
 	$(IPROG) on-master-start $(DESTDIR)$(ETCXENDIR)/master.d/01-example
 	$(IPROG) mpathalert-daemon $(DESTDIR)$(ETCXENDIR)/master.d/03-mpathalert-daemon

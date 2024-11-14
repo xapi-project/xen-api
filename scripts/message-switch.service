@@ -1,0 +1,23 @@
+[Unit]
+Description=Xapi toolstack store-and-forward message switch
+After=syslog.target local-fs.target
+Wants=syslog.target local-fs.target
+PartOf=toolstack.target
+
+[Service]
+Type=simple
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
+Environment=OCAMLRUNPARAM=b
+EnvironmentFile=-/etc/sysconfig/message-switch
+RuntimeDirectory=message-switch
+ExecStart=/usr/sbin/message-switch --config /etc/message-switch.conf
+StandardOutput=syslog
+StandardError=syslog
+Restart=on-failure
+# restart but fail if more than 5 failures in 30s
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

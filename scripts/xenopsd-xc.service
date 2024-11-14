@@ -1,0 +1,21 @@
+[Unit]
+Description=VM manager for Xen using libxc
+Documentation=man:xenopsd-xc(1)
+After=xenstored.service squeezed.service message-switch.service forkexecd.service xapi-storage-script.service syslog.target xcp-rrdd.service
+Wants=xenstored.service squeezed.service message-switch.service forkexecd.service xapi-storage-script.service syslog.target
+PartOf=toolstack.target
+
+[Service]
+Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
+Environment="MALLOC_CONF=background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
+EnvironmentFile=-/etc/sysconfig/xenopsd
+ExecStart=/usr/sbin/xenopsd-xc --config /etc/xenopsd.conf $XENOPSD_OPTIONS
+StandardError=null
+LimitNOFILE=4096
+# restart but fail if more than 5 failures in 30s
+Restart=on-failure
+StartLimitBurst=5
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target
