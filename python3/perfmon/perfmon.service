@@ -1,6 +1,6 @@
 [Unit]
 Description=Performance monitoring/alarm generation daemon
-After=xapi.service
+After=xapi-wait-socket.service
 Wants=xapi.service
 PartOf=toolstack.target
 

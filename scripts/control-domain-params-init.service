@@ -1,7 +1,7 @@
 [Unit]
 Description=Initialize control domain parameters
-Requires=xapi.service xapi-init-complete.target
-After=xapi.service xapi-init-complete.target
+Requires=xapi-init-complete.target
+After=xapi-init-complete.target
 ConditionPathExists=!/var/lib/misc/ran-control-domain-params-init
 
 [Service]
