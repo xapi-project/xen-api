@@ -53,6 +53,7 @@ let sample_receive_state =
     ; leaf_dp= "leaf_dp"
     ; parent_vdi= Vdi.of_string "parent_vdi"
     ; remote_vdi= Vdi.of_string "remote_vdi"
+    ; mirror_vm= Vm.of_string "mirror_vm"
     }
 
 let sample_copy_state =

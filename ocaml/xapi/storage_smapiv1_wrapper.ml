@@ -1180,6 +1180,10 @@ functor
           info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_finalize context ~dbg ~id
 
+        let receive_finalize2 context ~dbg ~id =
+          info "DATA.MIRROR.receive_finalize2 dbg:%s id:%s" dbg id ;
+          Impl.DATA.MIRROR.receive_finalize2 context ~dbg ~id
+
         let receive_cancel context ~dbg ~id =
           info "DATA.MIRROR.receive_cancel dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_cancel context ~dbg ~id

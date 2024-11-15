@@ -863,6 +863,10 @@ module Mux = struct
         with_dbg ~name:"DATA.MIRROR.receive_finalize" ~dbg
         @@ fun {log= dbg; _} -> Storage_migrate.receive_finalize ~dbg
 
+      let receive_finalize2 () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.receive_finalize2" ~dbg
+        @@ fun {log= dbg; _} -> Storage_migrate.receive_finalize2 ~dbg
+
       let receive_cancel () ~dbg =
         with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun {log= dbg; _} ->
         Storage_migrate.receive_cancel ~dbg

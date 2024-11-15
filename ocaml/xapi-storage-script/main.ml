@@ -1840,6 +1840,7 @@ let bind ~volume_script_dir =
   S.DATA.copy (u "DATA.copy") ;
   S.DP.stat_vdi (u "DP.stat_vdi") ;
   S.DATA.MIRROR.receive_finalize (u "DATA.MIRROR.receive_finalize") ;
+  S.DATA.MIRROR.receive_finalize2 (u "DATA.MIRROR.receive_finalize2") ;
   S.DP.create (u "DP.create") ;
   S.TASK.cancel (u "TASK.cancel") ;
   S.VDI.attach (u "VDI.attach") ;

@@ -172,6 +172,8 @@ module DATA = struct
 
     let receive_finalize ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize"
 
+    let receive_finalize2 ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize2"
+
     let receive_cancel ctx ~dbg ~id = u "DATA.MIRROR.receive_cancel"
 
     let list ctx ~dbg = u "DATA.MIRROR.list"

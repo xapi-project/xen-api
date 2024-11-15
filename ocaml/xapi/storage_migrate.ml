@@ -38,6 +38,7 @@ module State = struct
       ; leaf_dp: dp
       ; parent_vdi: Vdi.t
       ; remote_vdi: Vdi.t
+      ; mirror_vm: Vm.t
     }
     [@@deriving rpcty]
 
@@ -761,7 +762,7 @@ module MigrateLocal = struct
         ; watchdog= None
         }
     in
-
+ 
     State.add mirror_id (State.Send_op alm) ;
     debug "%s Added mirror %s to active local mirrors" __FUNCTION__ mirror_id ;
     (* A list of cleanup actions to perform if the operation should fail. *)
@@ -920,15 +921,9 @@ module MigrateLocal = struct
       debug "Local VDI %s = remote VDI %s"
         (Storage_interface.Vdi.string_of snapshot.vdi)
         (Storage_interface.Vdi.string_of new_parent.vdi) ;
-      Remote.VDI.compose dbg dest result.Mirror.copy_diffs_to
-        result.Mirror.mirror_vdi.vdi ;
-      Remote.VDI.remove_from_sm_config dbg dest result.Mirror.mirror_vdi.vdi
-        "base_mirror" ;
       debug "Local VDI %s now mirrored to remote VDI: %s"
         (Storage_interface.Vdi.string_of local_vdi.vdi)
         (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi) ;
-      debug "Destroying dummy VDI on remote" ;
-      Remote.VDI.destroy dbg dest result.Mirror.dummy_vdi ;
       debug "Destroying snapshot on src" ;
       Local.VDI.destroy dbg sr snapshot.vdi ;
       Some (Mirror_id mirror_id)
@@ -1127,7 +1122,7 @@ end
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  let receive_start2 ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm =
     let on_fail : (unit -> unit) list ref = ref [] in
     let vdis = Local.SR.scan dbg sr in
     (* We drop cbt_metadata VDIs that do not have any actual data *)
@@ -1138,9 +1133,11 @@ module MigrateRemote = struct
       let leaf = Local.VDI.create dbg sr vdi_info in
       info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> Local.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
+      (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
+         useful for calling VDI.compose later on *)
       let dummy = Local.VDI.snapshot dbg sr leaf in
       on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail ;
-      debug "Created dummy snapshot for mirror receive: %s"
+      debug "%s Created dummy snapshot for mirror receive: %s" __FUNCTION__
         (string_of_vdi_info dummy) ;
       let _ : backend = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
       Local.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
@@ -1202,6 +1199,7 @@ module MigrateRemote = struct
               ; leaf_dp
               ; parent_vdi= parent.vdi
               ; remote_vdi= vdi_info.vdi
+              ; mirror_vm= vm
               }
         ) ;
       let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
@@ -1224,12 +1222,35 @@ module MigrateRemote = struct
       raise e
 
   let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
-    receive_start2 ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
+
+  let receive_start2 ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
 
   let receive_finalize ~dbg ~id =
     let recv_state = State.find_active_receive_mirror id in
     let open State.Receive_state in
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
+    State.remove_receive_mirror id
+
+  let receive_finalize2 ~dbg ~id =
+    let recv_state = State.find_active_receive_mirror id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        SXM.info
+          "%s Mirror done. Compose on the dest sr %s parent %s and leaf %s"
+          __FUNCTION__ (Sr.string_of r.sr)
+          (Vdi.string_of r.parent_vdi)
+          (Vdi.string_of r.leaf_vdi) ;
+        Local.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
+        Local.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
+        (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
+           there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
+        log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        Local.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
+      )
+      recv_state ;
     State.remove_receive_mirror id
 
   let receive_cancel ~dbg ~id =
@@ -1320,11 +1341,11 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
          let t =
            Thread.create
              (fun () ->
-               debug "Calling receive_finalize" ;
+               debug "Calling receive_finalize2" ;
                log_and_ignore_exn (fun () ->
-                   Remote.DATA.MIRROR.receive_finalize "Mirror-cleanup" id
+                   Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
                ) ;
-               debug "Finished calling receive_finalize" ;
+               debug "Finished calling receive_finalize2" ;
                State.remove_local_mirror id ;
                debug "Removed active local mirror: %s" id
              )
@@ -1423,6 +1444,8 @@ let receive_start = MigrateRemote.receive_start
 let receive_start2 = MigrateRemote.receive_start2
 
 let receive_finalize = MigrateRemote.receive_finalize
+
+let receive_finalize2 = MigrateRemote.receive_finalize2
 
 let receive_cancel = MigrateRemote.receive_cancel
 
