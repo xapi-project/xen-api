@@ -1,0 +1,39 @@
+#! /bin/bash
+#
+# Copyright (c) Cloud Software Group. All rights reserved.
+#
+# wait (given specified timeout) for xapi to be able to serve local requests
+# through the unix socket
+#
+
+[ -e /proc/xen ] || exit 0
+
+usage () {
+  echo Usage: "$0" \<timeout\> \(seconds\) \[tag\]
+  echo Poll for xapi to reply to local requests, for up to \<timeout\> seconds.
+  echo Log to syslog on failure, optionally tagging with \[tag\].
+  exit 1
+}
+
+XAPI_STARTUP_COOKIE=/var/run/xapi_startup.cookie
+
+if [ -z "$1" ]; then
+  usage
+else
+  RETRIES=$1
+fi
+
+while [ "$RETRIES" -ne 0 ]; do
+    if [ -e ${XAPI_STARTUP_COOKIE} ]; then
+        # success; xapi can serve local requests
+       exit 0
+    fi
+    sleep 1
+    RETRIES=$(( "$RETRIES" - 1 ))
+done
+
+# xapi did not get ready for local requests during specified timeout interval
+TAG=${2:-wait-socket}
+logger --tag "${TAG}" --stderr "Failed to detect xapi startup cookie after ${1}s"
+
+exit 1

@@ -1,0 +1,14 @@
+[Unit]
+Description=Wait for Xapi to be able to serve local requests
+# start xapi but don't wait until it finishes, since we will finish before
+# also, fail whenever xapi fails
+Requires=xapi.service
+Before=xapi-init-complete.target
+
+[Service]
+Type=oneshot
+ExecStart=@OPTDIR@/bin/xapi-wait-socket 180
+RemainAfterExit=yes
+
+[Install]
+WantedBy=xapi-init-complete.target

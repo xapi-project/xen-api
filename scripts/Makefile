@@ -40,6 +40,7 @@ install:
 	$(IDATA) audit-logrotate $(DESTDIR)/etc/logrotate.d/audit
 	$(IDATA) xapi-logrotate.conf $(DESTDIR)/etc/logrotate.d/xapi
 	$(IPROG) xapi-tracing-log-trim.sh $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) xapi-wait-socket $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xapi-wait-init-complete $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) xapi-autostart-vms $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) udhcpd.skel $(DESTDIR)$(ETCXENDIR)/udhcpd.skel
@@ -62,6 +63,7 @@ install:
 	$(IDATA) save-boot-info.service $(DESTDIR)/usr/lib/systemd/system/save-boot-info.service
 	$(IDATA) mpathalert.service $(DESTDIR)/usr/lib/systemd/system/mpathalert.service
 	$(IDATA) xapi-init-complete.target $(DESTDIR)/usr/lib/systemd/system/xapi-init-complete.target
+	$(IDATA) xapi-wait-socket.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-socket.service
 	$(IDATA) xapi-wait-init-complete.service $(DESTDIR)/usr/lib/systemd/system/xapi-wait-init-complete.service
 	$(IDATA) xcp-networkd.service $(DESTDIR)/usr/lib/systemd/system/xcp-networkd.service
 	$(IDATA) xcp-networkd.conf $(DESTDIR)/etc/xcp-networkd.conf
