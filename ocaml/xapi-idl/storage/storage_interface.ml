@@ -1054,8 +1054,21 @@ module StorageAPI (R : RPC) = struct
           @-> returning result err
           )
 
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
+        during SXM.  Use the receive_finalize2 function instead. 
+      *)
       let receive_finalize =
         declare "DATA.MIRROR.receive_finalize" []
+          (dbg_p @-> id_p @-> returning unit_p err)
+
+      (** [receive_finalize2 dbg id] will stop the mirroring process and compose 
+      the snapshot VDI with the mirror VDI. It also cleans up the storage resources 
+      used by mirroring. It is called after the the source VM is paused. This fucntion
+      should be used in conjunction with [receive_start2] *)
+      let receive_finalize2 =
+        declare "DATA.MIRROR.receive_finalize2" []
           (dbg_p @-> id_p @-> returning unit_p err)
 
       let receive_cancel =
@@ -1420,6 +1433,8 @@ module type Server_impl = sig
 
       val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
 
+      val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
+
       val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
 
       val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
@@ -1607,6 +1622,9 @@ module Server (Impl : Server_impl) () = struct
     ) ;
     S.DATA.MIRROR.receive_finalize (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
+    ) ;
+    S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
+        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
     ) ;
     S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
     S.DATA.MIRROR.import_activate (fun dbg dp sr vdi vm ->
