@@ -1,7 +1,8 @@
 [Unit]
 Description=NBD server that exposes XenServer disks
-After=xapi.service message-switch.service syslog.target
+After=gencert.service xapi.service message-switch.service syslog.target
 Wants=xapi.service message-switch.service syslog.target
+Requires=gencert.service
 
 [Service]
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
