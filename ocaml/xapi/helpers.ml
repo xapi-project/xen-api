@@ -402,6 +402,11 @@ module TraceHelper = struct
     Tracing_propagator.Propagator.Http.inject_into trace_context
 end
 
+(** Once the server functor has been instantiated, xapi sets this reference to the appropriate
+    "fake_rpc" (loopback non-HTTP) rpc function. 
+    This way, internally the coordinator can short-circuit API calls without having to go over the network. *)
+let rpc_fun : (Http.Request.t -> Rpc.call -> Rpc.response) option ref = ref None
+
 (* Note that both this and `make_timeboxed_rpc` are almost always
  * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
  * The body is therefore not evaluated until the RPC call is actually being
@@ -418,18 +423,22 @@ let make_rpc ~__context rpc : Rpc.response =
   in
   let http = xmlrpc ~subtask_of ~version:"1.1" path in
   let http = TraceHelper.inject_span_into_req tracing http in
-  let transport =
-    if Pool_role.is_master () then
-      Unix Xapi_globs.unix_domain_socket
-    else
-      SSL
-        ( SSL.make ~use_stunnel_cache:true ~verify_cert:(Stunnel_client.pool ())
-            ()
-        , Pool_role.get_master_address ()
-        , !Constants.https_port
-        )
-  in
-  dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
+  match !rpc_fun with
+  | Some rpcfun when Pool_role.is_master () ->
+      rpcfun http rpc
+  | _ ->
+      let transport =
+        if Pool_role.is_master () then
+          Unix Xapi_globs.unix_domain_socket
+        else
+          SSL
+            ( SSL.make ~use_stunnel_cache:true
+                ~verify_cert:(Stunnel_client.pool ()) ()
+            , Pool_role.get_master_address ()
+            , !Constants.https_port
+            )
+      in
+      dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
