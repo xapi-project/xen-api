@@ -299,7 +299,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(telemetry_next_collection = API.Date.epoch)
     ?(last_update_sync = API.Date.epoch) ?(update_sync_frequency = `daily)
     ?(update_sync_day = 0L) ?(update_sync_enabled = false)
-    ?(recommendations = []) () =
+    ?(recommendations = []) ?(license_server = []) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -319,7 +319,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~local_auth_max_threads:8L ~ext_auth_max_threads:8L
     ~ext_auth_cache_enabled:false ~ext_auth_cache_size:50L
     ~ext_auth_cache_expiry:300L ~update_sync_frequency ~update_sync_day
-    ~update_sync_enabled ~recommendations ;
+    ~update_sync_enabled ~recommendations ~license_server ;
   pool_ref
 
 let default_sm_features =
