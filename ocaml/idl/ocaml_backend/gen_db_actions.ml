@@ -298,35 +298,71 @@ let db_action api : O.Module.t =
       ~body:(List.concat [open_db_module; body])
       ()
   in
+  let contains_setrefs fields =
+    let is_referential_field = function
+      | {DT.ty= DT.Set (DT.Ref _); field_ignore_foreign_key= false; _} ->
+          true
+      | _ ->
+          false
+    in
+    List.exists is_referential_field fields
+  in
   let get_record_aux_fn_body ?(m = "API.") (obj : obj) (all_fields : field list)
       =
     let of_field = function
       | {
-          DT.ty= DT.Set (DT.Ref other)
+          DT.ty= DT.Set (DT.Ref _ as ty)
         ; full_name
         ; DT.field_ignore_foreign_key= false
         ; _
         } ->
-          Printf.sprintf "List.map %s.%s (List.assoc \"%s\" __set_refs)"
-            _string_to_dm
-            (OU.alias_of_ty (DT.Ref other))
+          let accessor = "find_setref" in
+          Printf.sprintf "List.map %s.%s (%s \"%s\")" _string_to_dm
+            (OU.alias_of_ty ty) accessor
             (Escaping.escape_id full_name)
       | f ->
-          _string_to_dm
-          ^ "."
-          ^ OU.alias_of_ty f.DT.ty
-          ^ "(List.assoc \""
-          ^ Escaping.escape_id f.full_name
-          ^ "\" __regular_fields)"
+          let ty_alias = OU.alias_of_ty f.DT.ty in
+          let accessor = "find_regular" in
+          let field_name = Escaping.escape_id f.full_name in
+          Printf.sprintf {|%s.%s (%s "%s")|} _string_to_dm ty_alias accessor
+            field_name
     in
     let make_field f =
       Printf.sprintf "        %s%s = %s;" m
         (OU.ocaml_of_record_field (obj.DT.name :: f.DT.full_name))
         (of_field f)
     in
+
+    let create_lookup_fn name initial_size kvs =
+      let indent = "      " in
+      [
+        Printf.sprintf "let %s =" name
+      ; "  let module HT = Hashtbl in"
+      ; Printf.sprintf "  let tbl = HT.create %d in" initial_size
+      ; Printf.sprintf "  List.iter (fun (k, v) -> HT.replace tbl k v) %s;" kvs
+      ; "  HT.find tbl"
+      ; "in"
+      ]
+      |> List.map (( ^ ) indent)
+    in
+    let populate_regulars_tbl =
+      create_lookup_fn "find_regular" 256 "__regular_fields"
+    in
+    let populate_setrefs_tbl =
+      if contains_setrefs all_fields then
+        create_lookup_fn "find_setref" 32 "__set_refs"
+      else
+        []
+    in
     let fields = List.map make_field all_fields in
-    let mk_rec = ["{"] @ fields @ ["    }"] in
-    String.concat "\n" mk_rec
+    let mk_rec = ["      {"] @ fields @ ["    }"] in
+    let body =
+      "\n"
+      ^ (populate_regulars_tbl @ populate_setrefs_tbl @ mk_rec
+        |> String.concat "\n"
+        )
+    in
+    body
   in
   let get_record_aux_fn (obj : obj) =
     let record_fields = List.filter client_side_field (DU.fields_of_obj obj) in
@@ -364,7 +400,7 @@ let db_action api : O.Module.t =
               expr
           ; Printf.sprintf
               "List.map (fun (ref,(__regular_fields,__set_refs)) -> \
-               Ref.of_%sstring ref, %s __regular_fields __set_refs) records"
+               Ref.of_%sstring ref, %s ~__regular_fields ~__set_refs) records"
               (if obj.DT.name = "session" then "secret_" else "")
               conversion_fn
           ]
