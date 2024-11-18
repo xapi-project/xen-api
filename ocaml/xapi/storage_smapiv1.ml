@@ -1202,11 +1202,7 @@ module SMAPIv1 : Server_impl = struct
   let get_by_name _context ~dbg:_ ~name:_ = assert false
 
   module DATA = struct
-    let copy_into _context ~dbg:_ ~sr:_ ~vdi:_ ~url:_ ~dest:_ ~dest_vdi:_
-        ~verify_dest:_ =
-      assert false
-
-    let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~url:_ ~dest:_ ~verify_dest:_ =
+    let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
     module MIRROR = struct

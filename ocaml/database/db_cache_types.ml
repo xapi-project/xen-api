@@ -158,6 +158,7 @@ module Row = struct
     with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
 
   let add_defaults g (schema : Schema.Table.t) t =
+    let schema = Schema.Table.t'_of_t schema in
     List.fold_left
       (fun t c ->
         if not (mem c.Schema.Column.name t) then

@@ -1739,7 +1739,6 @@ let bind ~volume_script_dir =
   S.VDI.get_url (u "VDI.get_url") ;
   S.DATA.MIRROR.start (u "DATA.MIRROR.start") ;
   S.Policy.get_backend_vm (u "Policy.get_backend_vm") ;
-  S.DATA.copy_into (u "DATA.copy_into") ;
   S.DATA.MIRROR.receive_cancel (u "DATA.MIRROR.receive_cancel") ;
   S.SR.update_snapshot_info_src (u "SR.update_snapshot_info_src") ;
   S.DATA.MIRROR.stop (u "DATA.MIRROR.stop") ;

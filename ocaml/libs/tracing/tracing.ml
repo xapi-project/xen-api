@@ -331,6 +331,7 @@ module Span = struct
     | exn, stacktrace -> (
         let msg = Printexc.to_string exn in
         let exn_type = Printexc.exn_slot_name exn in
+        let stacktrace = Printexc.raw_backtrace_to_string stacktrace in
         let _description =
           Some
             (Printf.sprintf "Error: %s Type: %s Backtrace: %s" msg exn_type
@@ -720,10 +721,10 @@ let with_tracing ?(attributes = []) ?(parent = None) ~name f =
         ignore @@ Tracer.finish span ;
         result
       with exn ->
-        let backtrace = Printexc.get_backtrace () in
+        let backtrace = Printexc.get_raw_backtrace () in
         let error = (exn, backtrace) in
         ignore @@ Tracer.finish span ~error ;
-        raise exn
+        Printexc.raise_with_backtrace exn backtrace
     )
     | Error e ->
         warn "Failed to start tracing: %s" (Printexc.to_string e) ;
