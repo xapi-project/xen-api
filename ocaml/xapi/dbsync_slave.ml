@@ -63,21 +63,24 @@ let create_localhost ~__context info =
     in
     ()
 
-(* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
   try
-    debug "Calculating boot time..." ;
-    let now = Unix.time () in
-    let uptime = Unixext.string_of_file "/proc/uptime" in
-    let uptime = String.trim uptime in
-    let uptime = String.split ' ' uptime in
-    let uptime = List.hd uptime in
-    let uptime = float_of_string uptime in
-    let boot_time = Date.of_unix_time (now -. uptime) in
-    debug " system booted at %s" (Date.to_rfc3339 boot_time) ;
-    boot_time
+    match
+      Unixext.string_of_file "/proc/stat"
+      |> String.trim
+      |> String.split '\n'
+      |> List.find (fun s -> String.starts_with ~prefix:"btime" s)
+      |> String.split ' '
+    with
+    | _ :: btime :: _ ->
+        let boot_time = Date.of_unix_time (float_of_string btime) in
+        debug "%s: system booted at %s" __FUNCTION__ (Date.to_rfc3339 boot_time) ;
+        boot_time
+    | _ ->
+        failwith "Couldn't parse /proc/stat"
   with e ->
-    debug "Calculating boot time failed with '%s'" (ExnHelper.string_of_exn e) ;
+    debug "%s: Calculating boot time failed with '%s'" __FUNCTION__
+      (ExnHelper.string_of_exn e) ;
     Date.epoch
 
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
