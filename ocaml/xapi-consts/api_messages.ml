@@ -360,6 +360,12 @@ let host_internal_certificate_expiring_07 =
 
 let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 
+let kernel_is_broken which =
+  addMessage ("HOST_KERNEL_ENCOUNTERED_ERROR_" ^ which) 2L
+
+let kernel_is_broken_warning which =
+  addMessage ("HOST_KERNEL_ENCOUNTERED_WARNING_" ^ which) 3L
+
 let tls_verification_emergency_disabled =
   addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L
 
