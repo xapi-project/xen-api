@@ -1058,6 +1058,12 @@ let server_init () =
           ; ("Initialising random number generator", [], random_setup)
           ; ("Initialise TLS verification", [], init_tls_verification)
           ; ("Running startup check", [], startup_check)
+          ; ( "Initialize cgroups via tgroup"
+            , []
+            , fun () ->
+                if !Xapi_globs.tgroups_enabled then
+                  Tgroup.Cgroup.init Xapi_globs.xapi_requests_cgroup
+            )
           ; ( "Registering SMAPIv1 plugins"
             , [Startup.OnlyMaster]
             , Sm.register ~__context

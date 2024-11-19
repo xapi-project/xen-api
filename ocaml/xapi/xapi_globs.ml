@@ -1059,6 +1059,11 @@ let disable_webserver = ref false
 
 let test_open = ref 0
 
+let tgroups_enabled = ref false
+
+let xapi_requests_cgroup =
+  "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
+
 let xapi_globs_spec =
   [
     ( "master_connection_reset_timeout"
@@ -1620,6 +1625,11 @@ let other_options =
     , Arg.Set disable_webserver
     , (fun () -> string_of_bool !disable_webserver)
     , "Disable the host webserver"
+    )
+  ; ( "tgroups-enabled"
+    , Arg.Set tgroups_enabled
+    , (fun () -> string_of_bool !tgroups_enabled)
+    , "Turn on tgroups classification"
     )
   ]
 

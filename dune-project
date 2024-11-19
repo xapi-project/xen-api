@@ -38,6 +38,13 @@
 )
 
 (package
+  (name tgroup)
+  (depends 
+    xapi-log
+    xapi-stdext-unix)
+)
+
+(package
   (name xml-light2)
 )
 
@@ -373,6 +380,7 @@
     tar
     tar-unix
     uri
+    tgroup
     (uuid (= :version))
     uutf
     uuidm
@@ -585,6 +593,7 @@ This package provides an Lwt compatible interface to the library.")
     (safe-resources(= :version))
     sha
     (stunnel (= :version))
+    tgroup
     uri
     (uuid (= :version))
     xapi-backtrace
