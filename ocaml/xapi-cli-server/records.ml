@@ -1494,6 +1494,18 @@ let pool_record rpc session_id pool =
               ~value:(Int64.of_string v)
           )
           ()
+      ; make_field ~name:"license-server"
+          ~get:(fun () -> get_from_map (x ()).API.pool_license_server)
+          ~add_to_map:(fun key value ->
+            Client.Pool.add_to_license_server ~rpc ~session_id ~self:pool ~key
+              ~value
+          )
+          ~remove_from_map:(fun key ->
+            Client.Pool.remove_from_license_server ~rpc ~session_id ~self:pool
+              ~key
+          )
+          ~get_map:(fun () -> (x ()).API.pool_license_server)
+          ()
       ]
   }
 
