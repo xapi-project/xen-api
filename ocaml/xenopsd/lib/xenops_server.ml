@@ -848,10 +848,11 @@ module Queues = struct
 
   let get tag qs =
     with_lock qs.m (fun () ->
-        if StringMap.mem tag qs.qs then
-          StringMap.find tag qs.qs
-        else
-          Queue.create ()
+        match StringMap.find_opt tag qs.qs with
+        | Some x ->
+            x
+        | None ->
+            Queue.create ()
     )
 
   let tags qs =
@@ -862,10 +863,11 @@ module Queues = struct
   let push_with_coalesce should_keep tag item qs =
     with_lock qs.m (fun () ->
         let q =
-          if StringMap.mem tag qs.qs then
-            StringMap.find tag qs.qs
-          else
-            Queue.create ()
+          match StringMap.find_opt tag qs.qs with
+          | Some x ->
+              x
+          | None ->
+              Queue.create ()
         in
         push_with_coalesce should_keep item q ;
         qs.qs <- StringMap.add tag q qs.qs ;
