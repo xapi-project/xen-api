@@ -1025,6 +1025,8 @@ let max_spans = ref 10000
 
 let max_traces = ref 10000
 
+let use_xmlrpc = ref true
+
 let compress_tracing_files = ref true
 
 let prefer_nbd_attach = ref false
@@ -1435,6 +1437,11 @@ let other_options =
     , Arg.Set allow_host_sched_gran_modification
     , (fun () -> string_of_bool !allow_host_sched_gran_modification)
     , "Allows to modify the host's scheduler granularity"
+    )
+  ; ( "use-xmlrpc"
+    , Arg.Set use_xmlrpc
+    , (fun () -> string_of_bool !use_xmlrpc)
+    , "Use XMLRPC (deprecated) for internal communication or JSONRPC"
     )
   ; ( "extauth_ad_backend"
     , Arg.Set_string extauth_ad_backend

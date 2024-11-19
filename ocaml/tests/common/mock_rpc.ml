@@ -25,7 +25,7 @@ let rpc __context call =
       Rpc.
         {
           success= true
-        ; contents= contents |> Xmlrpc.to_string |> Xmlrpc.of_string
+        ; contents= contents |> Jsonrpc.to_string |> Jsonrpc.of_string
         ; is_notification= false
         }
   | "VM.update_allowed_operations", [session_id_rpc; self_rpc] ->
