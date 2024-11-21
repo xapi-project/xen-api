@@ -840,6 +840,10 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     )
   in
   let assert_sm_features_compatible () =
+    debug
+      "%s Checking whether SM features on the joining host is compatible with \
+       the pool"
+      __FUNCTION__ ;
     (* We consider the case where the existing pool has FOO/m, and the candidate having FOO/n,
        where n >= m, to be compatible. Not vice versa. *)
     let features_compatible coor_features candidate_features =
@@ -847,15 +851,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
          the other way around. *)
       Smint.compat_features coor_features candidate_features = coor_features
     in
-
-    let master_sms = Client.SM.get_all ~rpc ~session_id in
+    let pool_sms = Client.SM.get_all_records ~rpc ~session_id in
     List.iter
-      (fun sm ->
-        let master_sm_type = Client.SM.get_type ~rpc ~session_id ~self:sm in
+      (fun (sm_ref, sm_rec) ->
+        let pool_sm_type = sm_rec.API.sM_type in
+        debug "%s Checking SM %s of name %s in the pool" __FUNCTION__
+          (Ref.string_of sm_ref) sm_rec.sM_name_label ;
         let candidate_sm_ref, candidate_sm_rec =
           match
             Db.SM.get_records_where ~__context
-              ~expr:(Eq (Field "type", Literal master_sm_type))
+              ~expr:(Eq (Field "type", Literal pool_sm_type))
           with
           | [(sm_ref, sm_rec)] ->
               (sm_ref, sm_rec)
@@ -864,25 +869,24 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
                 Api_errors.(
                   Server_error
                     ( pool_joining_sm_features_incompatible
-                    , [Ref.string_of sm; ""]
+                    , [Ref.string_of sm_ref; ""]
                     )
                 )
         in
 
-        let coor_sm_features =
-          Client.SM.get_features ~rpc ~session_id ~self:sm
-        in
+        let pool_sm_features = sm_rec.sM_features in
+
         let candidate_sm_features = candidate_sm_rec.API.sM_features in
-        if not (features_compatible coor_sm_features candidate_sm_features) then
+        if not (features_compatible pool_sm_features candidate_sm_features) then
           raise
             Api_errors.(
               Server_error
                 ( pool_joining_sm_features_incompatible
-                , [Ref.string_of sm; Ref.string_of candidate_sm_ref]
+                , [Ref.string_of sm_ref; Ref.string_of candidate_sm_ref]
                 )
             )
       )
-      master_sms
+      pool_sms
   in
 
   (* call pre-join asserts *)
