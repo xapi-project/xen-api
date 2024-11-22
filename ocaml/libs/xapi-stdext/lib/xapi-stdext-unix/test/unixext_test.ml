@@ -281,8 +281,26 @@ let test_select =
   in
   true
 
+let test_direct =
+  let gen = Gen.unit in
+  Test.make ~count:1 ~name:__FUNCTION__ gen @@ fun _ ->
+  let fn = "test_file_direct" in
+  let buf = Bytes.make 10000 'x' in
+  Unixext.Direct.with_openfile fn [Unix.O_RDWR; Unix.O_CREAT] 0o600 (fun f ->
+      let res = Unixext.Direct.write f buf 0 4096 in
+      QCheck2.assume (res = 4096)
+  ) ;
+  Unix.unlink fn ;
+  true
+
 let tests =
-  [test_select; test_proxy; test_time_limited_write; test_time_limited_read]
+  [
+    test_select
+  ; test_proxy
+  ; test_time_limited_write
+  ; test_time_limited_read
+  ; test_direct
+  ]
 
 let () =
   (* avoid SIGPIPE *)
