@@ -23,7 +23,7 @@
 #include <sys/ioctl.h>
 #include <sys/statvfs.h>
 #if defined(__linux__)
-# include <linux/fs.h> 
+# include <linux/fs.h>
 #endif
 
 #include <caml/mlvalues.h>
@@ -41,28 +41,28 @@
 /* Set the TCP_NODELAY flag on a Unix.file_descr */
 CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value bool)
 {
-	CAMLparam2 (fd, bool);
-	int c_fd = Int_val(fd);
-	int opt = (Bool_val(bool)) ? 1 : 0;
-	if (setsockopt(c_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&opt, sizeof(opt)) != 0){
-		uerror("setsockopt", Nothing);
-	}
-	CAMLreturn(Val_unit);
+  CAMLparam2 (fd, bool);
+  int c_fd = Int_val(fd);
+  int opt = (Bool_val(bool)) ? 1 : 0;
+  if (setsockopt(c_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&opt, sizeof(opt)) != 0){
+    uerror("setsockopt", Nothing);
+  }
+  CAMLreturn(Val_unit);
 }
 
 CAMLprim value stub_unixext_fsync (value fd)
 {
-	CAMLparam1(fd);
-	int c_fd = Int_val(fd);
-	int rc;
+  CAMLparam1(fd);
+  int c_fd = Int_val(fd);
+  int rc;
 
-	caml_release_runtime_system();
-	rc = fsync(c_fd);
-	caml_acquire_runtime_system();
-	if (rc != 0) uerror("fsync", Nothing);
-	CAMLreturn(Val_unit);
+  caml_release_runtime_system();
+  rc = fsync(c_fd);
+  caml_acquire_runtime_system();
+  if (rc != 0) uerror("fsync", Nothing);
+  CAMLreturn(Val_unit);
 }
-	
+
 
 CAMLprim value stub_unixext_blkgetsize64(value fd)
 {
@@ -84,10 +84,10 @@ CAMLprim value stub_unixext_blkgetsize64(value fd)
 
 CAMLprim value stub_unixext_get_max_fd (value unit)
 {
-	CAMLparam1 (unit);
-	long maxfd;
-	maxfd = sysconf(_SC_OPEN_MAX);
-	CAMLreturn(Val_int(maxfd));
+  CAMLparam1 (unit);
+  long maxfd;
+  maxfd = sysconf(_SC_OPEN_MAX);
+  CAMLreturn(Val_int(maxfd));
 }
 
 #if defined(__linux__)
@@ -102,41 +102,41 @@ CAMLprim value stub_unixext_set_sock_keepalives(value fd, value count, value idl
 {
     CAMLparam4(fd, count, idle, interval);
 
-	int c_fd = Int_val(fd);
-	int optval;
-	socklen_t optlen=sizeof(optval);
-	
-	optval = Int_val(count);
-	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPCNT, &optval, optlen) < 0) {
-	  uerror("setsockopt(TCP_KEEPCNT)", Nothing);
-	}
-#if defined(__linux__)	
-	optval = Int_val(idle);
-	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPIDLE, &optval, optlen) < 0) {
-	  uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
-	}
-#endif
-	optval = Int_val(interval);
-	if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPINTVL, &optval, optlen) < 0) {
-	  uerror("setsockopt(TCP_KEEPINTVL)", Nothing);
-	}
+  int c_fd = Int_val(fd);
+  int optval;
+  socklen_t optlen=sizeof(optval);
 
-	CAMLreturn(Val_unit);
+  optval = Int_val(count);
+  if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPCNT, &optval, optlen) < 0) {
+    uerror("setsockopt(TCP_KEEPCNT)", Nothing);
+  }
+#if defined(__linux__)
+  optval = Int_val(idle);
+  if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPIDLE, &optval, optlen) < 0) {
+    uerror("setsockopt(TCP_KEEPIDLE)", Nothing);
+  }
+#endif
+  optval = Int_val(interval);
+  if(setsockopt(c_fd, TCP_LEVEL, TCP_KEEPINTVL, &optval, optlen) < 0) {
+    uerror("setsockopt(TCP_KEEPINTVL)", Nothing);
+  }
+
+  CAMLreturn(Val_unit);
 }
 
 void unixext_error(int code)
 {
-	static const value *exn = NULL;
+  static const value *exn = NULL;
 
-	if (!exn) {
-		exn = caml_named_value("unixext.unix_error");
-		if (!exn)
-			caml_invalid_argument("unixext.unix_error not initialiazed");
-	}
-	caml_raise_with_arg(*exn, Val_int(code));
+  if (!exn) {
+    exn = caml_named_value("unixext.unix_error");
+    if (!exn)
+      caml_invalid_argument("unixext.unix_error not initialiazed");
+  }
+  caml_raise_with_arg(*exn, Val_int(code));
 }
 
-CAMLprim value stub_statvfs(value filename) 
+CAMLprim value stub_statvfs(value filename)
 {
   CAMLparam1(filename);
   CAMLlocal1(v);

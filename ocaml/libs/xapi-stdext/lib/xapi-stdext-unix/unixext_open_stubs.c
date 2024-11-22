@@ -51,7 +51,7 @@ CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
   char * p;
 
   cv_flags = caml_convert_flag_list(flags, open_flag_table);
- 
+
 #ifdef O_DIRECT
   cv_flags |= O_DIRECT;
 #endif
