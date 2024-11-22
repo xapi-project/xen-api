@@ -63,8 +63,8 @@ CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
   if (fd != -1)
     ret = fcntl(fd, F_NOCACHE);
 #endif
-  caml_leave_blocking_section();
   caml_stat_free(p);
+  caml_leave_blocking_section();
   if (fd == -1) uerror("open", path);
 #ifndef O_DIRECT
   if (ret == -1) uerror("fcntl", path);
