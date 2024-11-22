@@ -55,8 +55,7 @@ CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
 #ifdef O_DIRECT
   cv_flags |= O_DIRECT;
 #endif
-  p = caml_stat_alloc(caml_string_length(path) + 1);
-  strcpy(p, String_val(path));
+  p = caml_stat_strdup(String_val(path));
   /* open on a named FIFO can block (PR#1533) */
   caml_enter_blocking_section();
   fd = open(p, cv_flags, Int_val(perm));
