@@ -36,6 +36,9 @@ val set_result : __context:Context.t -> Rpc.t option -> unit
 
 val status_is_completed : [> `cancelled | `failure | `success] -> bool
 
+val status_to_string :
+  [< `pending | `success | `failure | `cancelling | `cancelled] -> string
+
 val complete : __context:Context.t -> Rpc.t option -> unit
 
 val set_cancellable : __context:Context.t -> unit
