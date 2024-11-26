@@ -130,7 +130,7 @@ See page 13 in [^AMD_numa] for a diagram of an AMD Opteron 6272 system.
 
 * Booting multiple VMs in parallel will result in potentially allocating both on the same NUMA node (race condition) 
 * When we're about to run out of host memory we'll fall back to striping memory again, but the soft affinity mask won't reflect that (this needs an API to query Xen on where it has actually placed the VM, so we can fix up the mask accordingly)
-* XAPI is not aware of NUMA balancing across a pool, and chooses NUMA nodes purely based on amount of free memory on the NUMA nodes of the host, even if a better NUMA placement could be found on another host
+* XAPI is not aware of NUMA balancing across a pool. Xenopsd chooses NUMA nodes purely based on amount of free memory on the NUMA nodes of the host, even if a better NUMA placement could be found on another host
 * Very large (>16 NUMA nodes) systems may only explore a limited number of choices (fit into a single node vs fallback to full interleaving)
 * The exact VM placement is not yet controllable
 * Microbenchmarks with a single VM on a host show both performance improvements and regressions on memory bandwidth usage: previously a single VM may have been able to take advantage of the bandwidth of both NUMA nodes if it happened to allocate memory from the right places, whereas now it'll be forced to use just a single node.
