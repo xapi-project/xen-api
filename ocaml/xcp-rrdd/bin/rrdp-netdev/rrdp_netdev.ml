@@ -138,9 +138,16 @@ let generate_netdev_dss () =
   let uuid_of_domid domid =
     try
       Xenstore.with_xs (fun xs ->
-          let vm = xs.Xenstore.Xs.getdomainpath domid ^ "/vm" in
-          let vm_dir = xs.Xenstore.Xs.read vm in
-          xs.Xenstore.Xs.read (vm_dir ^ "/uuid")
+          let vm_uuid_path =
+            Printf.sprintf "/local/domain/%d/vm" domid
+            |> xs.Xenstore.Xs.read
+            |> String.split_on_char '/'
+          in
+          match vm_uuid_path with
+          | [_; _; uuid] ->
+              uuid
+          | _ ->
+              raise (Invalid_argument "Incorrect xenstore node")
       )
     with e ->
       fail "Failed to find uuid corresponding to domid: %d (%s)" domid
