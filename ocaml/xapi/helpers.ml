@@ -387,6 +387,21 @@ let update_pif_addresses ~__context =
   Option.iter (fun (pif, bridge) -> set_DNS ~__context ~pif ~bridge) dns_if ;
   List.iter (fun self -> update_pif_address ~__context ~self) pifs
 
+module TraceHelper = struct
+  let inject_span_into_req (span : Tracing.Span.t option) =
+    let open Tracing in
+    let span_context = Option.map Span.get_context span in
+    let traceparent = Option.map SpanContext.to_traceparent span_context in
+    let trace_context =
+      Option.map SpanContext.context_of_span_context span_context
+    in
+    let trace_context =
+      Option.value ~default:TraceContext.empty trace_context
+      |> TraceContext.with_traceparent traceparent
+    in
+    Tracing_propagator.Propagator.Http.inject_into trace_context
+end
+
 (* Note that both this and `make_timeboxed_rpc` are almost always
  * partially applied, returning a function of type 'Rpc.request -> Rpc.response'.
  * The body is therefore not evaluated until the RPC call is actually being
@@ -395,7 +410,8 @@ let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
   let tracing = Context.set_client_span __context in
-  let http = xmlrpc ~subtask_of ~version:"1.1" "/" ~tracing in
+  let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+  let http = TraceHelper.inject_span_into_req tracing http in
   let transport =
     if Pool_role.is_master () then
       Unix Xapi_globs.unix_domain_socket
@@ -418,7 +434,8 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
        * the task has acquired we make a new one specifically for the stunnel pid *)
       let open Xmlrpc_client in
       let tracing = Context.set_client_span __context in
-      let http = xmlrpc ~subtask_of ~version:"1.1" ~tracing "/" in
+      let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+      let http = TraceHelper.inject_span_into_req tracing http in
       let task_id = Context.get_task_id __context in
       let cancel () =
         let resources =
@@ -486,7 +503,8 @@ let make_remote_rpc ?(verify_cert = Stunnel_client.pool ()) ~__context
     SSL (SSL.make ~verify_cert (), remote_address, !Constants.https_port)
   in
   let tracing = Context.tracing_of __context in
-  let http = xmlrpc ~version:"1.0" ~tracing "/" in
+  let http = xmlrpc ~version:"1.0" "/" in
+  let http = TraceHelper.inject_span_into_req tracing http in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"remote_xapi" ~transport ~http xml
 
 (* Helper type for an object which may or may not be in the local database. *)

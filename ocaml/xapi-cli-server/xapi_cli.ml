@@ -121,7 +121,28 @@ let with_session ~local rpc u p session f =
     (fun () -> f session)
     (fun () -> do_logout ())
 
-let do_rpcs _req s username password minimal cmd session args tracing =
+module TraceHelper = struct
+  include Tracing.Propagator.Make (struct
+    include Tracing_propagator.Propagator.Http
+
+    let name_span req = req.Http.Request.uri
+  end)
+
+  let inject_span_into_req (span : Tracing.Span.t option) =
+    let open Tracing in
+    let span_context = Option.map Span.get_context span in
+    let traceparent = Option.map SpanContext.to_traceparent span_context in
+    let trace_context =
+      Option.map SpanContext.context_of_span_context span_context
+    in
+    let trace_context =
+      Option.value ~default:TraceContext.empty trace_context
+      |> TraceContext.with_traceparent traceparent
+    in
+    Tracing_propagator.Propagator.Http.inject_into trace_context
+end
+
+let do_rpcs req s username password minimal cmd session args =
   let cmdname = get_cmdname cmd in
   let cspec =
     try Hashtbl.find cmdtable cmdname
@@ -136,10 +157,23 @@ let do_rpcs _req s username password minimal cmd session args tracing =
   let _ = check_required_keys cmd cspec.reqd in
   try
     let generic_rpc = get_rpc () in
+    let trace_context = Tracing_propagator.Propagator.Http.extract_from req in
+    let parent =
+      (* This is a "faux" span in the sense that it's not exported by the program. It exists
+         so that the derived child span can refer to its span-id as its parent during exportation
+         (along with inheriting the trace-id). *)
+      let open Tracing in
+      let ( let* ) = Option.bind in
+      let* traceparent = TraceContext.traceparent_of trace_context in
+      let* span_context = SpanContext.of_traceparent traceparent in
+      let span = Tracer.span_of_span_context span_context (get_cmdname cmd) in
+      Some span
+    in
     (* NB the request we've received is for the /cli. We need an XMLRPC request for the API *)
-    Tracing.with_tracing ~parent:tracing ~name:("xe " ^ cmdname)
-    @@ fun tracing ->
-    let req = Xmlrpc_client.xmlrpc ~version:"1.1" ~tracing "/" in
+    Tracing.with_tracing ~trace_context ~parent ~name:("xe " ^ cmdname)
+    @@ fun span ->
+    let req = Xmlrpc_client.xmlrpc ~version:"1.1" "/" in
+    let req = TraceHelper.inject_span_into_req span req in
     let rpc = generic_rpc req s in
     if do_forward then
       with_session ~local:false rpc username password session (fun sess ->
@@ -189,19 +223,9 @@ let uninteresting_cmd_postfixes = ["help"; "-get"; "-list"]
 
 let exec_command req cmd s session args =
   let params = get_params cmd in
-  let tracing =
-    Option.bind
-      Http.Request.(req.traceparent)
-      Tracing.SpanContext.of_traceparent
-    |> Option.map (fun span_context ->
-           Tracing.Tracer.span_of_span_context span_context (get_cmdname cmd)
-       )
-  in
   let minimal =
-    if List.mem_assoc "minimal" params then
-      bool_of_string (List.assoc "minimal" params)
-    else
-      false
+    List.assoc_opt "minimal" params
+    |> Option.fold ~none:false ~some:bool_of_string
   in
   let u = try List.assoc "username" params with _ -> "" in
   let p = try List.assoc "password" params with _ -> "" in
@@ -257,7 +281,7 @@ let exec_command req cmd s session args =
             params
          )
       ) ;
-    do_rpcs req s u p minimal cmd session args tracing
+    do_rpcs req s u p minimal cmd session args
 
 let get_line str i =
   try
