@@ -161,7 +161,7 @@ Meaning of the policy:
 
 * Currently, `default_policy` is treated as `any`, but the admin can change it, and then the system will remember that change across upgrades.
    If we didn't have a `default_policy` then changing the "default" policy on an upgrade would be tricky: we either risk overriding an explicit choice of the admin, or existing installs cannot take advantage of the improved performance from `best_effort`
-* Future, XAPI versions may change `default_policy` to mean `best_effort`.
+* Future XAPI versions may change `default_policy` to mean `best_effort`.
    Admins can still override it to `any` if they wish on a host by host basis.
 
 It is not expected that users would have to change `best_effort`, unless they run very specific workloads, so a pool level control is not provided at this moment.
