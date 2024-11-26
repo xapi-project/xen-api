@@ -825,10 +825,6 @@ module Mux = struct
     let copy () ~dbg =
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
-    let copy_into () ~dbg =
-      with_dbg ~name:"DATA.copy_into" ~dbg @@ fun dbg ->
-      Storage_migrate.copy_into ~dbg
-
     module MIRROR = struct
       let start () ~dbg =
         with_dbg ~name:"DATA.MIRROR.start" ~dbg @@ fun dbg ->

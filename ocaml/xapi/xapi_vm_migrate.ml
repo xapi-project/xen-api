@@ -985,7 +985,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
   let mirror_to_remote new_dp =
     let task =
       if not vconf.do_mirror then
-        SMAPI.DATA.copy dbg vconf.sr vconf.location new_dp remote.sm_url dest_sr
+        SMAPI.DATA.copy dbg vconf.sr vconf.location remote.sm_url dest_sr
           is_intra_pool
       else
         (* Though we have no intention of "write", here we use the same mode as the

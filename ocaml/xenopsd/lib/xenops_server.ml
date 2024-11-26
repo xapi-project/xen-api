@@ -1840,7 +1840,7 @@ let with_tracing ~name ~task f =
         Xenops_task.set_tracing task parent ;
         result
       with exn ->
-        let backtrace = Printexc.get_backtrace () in
+        let backtrace = Printexc.get_raw_backtrace () in
         let error = (exn, backtrace) in
         ignore @@ Tracer.finish span ~error ;
         raise exn

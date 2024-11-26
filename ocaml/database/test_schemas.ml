@@ -99,22 +99,35 @@ let schema =
     ; issetref= false
     }
   in
-  let vm_table =
-    {
-      Schema.Table.name= "VM"
-    ; columns=
-        [_ref; uuid; name_label; vbds; pp; name_description; tags; other_config]
-    ; persistent= true
-    }
+  let vm_table : Schema.Table.t =
+    Schema.Table.t_of_t'
+      {
+        Schema.Table.name= "VM"
+      ; columns=
+          [
+            _ref
+          ; uuid
+          ; name_label
+          ; vbds
+          ; pp
+          ; name_description
+          ; tags
+          ; other_config
+          ]
+      ; persistent= true
+      }
   in
   let vbd_table =
-    {
-      Schema.Table.name= "VBD"
-    ; columns= [_ref; uuid; vm; type']
-    ; persistent= true
-    }
+    Schema.Table.t_of_t'
+      {
+        Schema.Table.name= "VBD"
+      ; columns= [_ref; uuid; vm; type']
+      ; persistent= true
+      }
   in
-  let database = {Schema.Database.tables= [vm_table; vbd_table]} in
+  let database =
+    Schema.Database.t_of_t' {Schema.Database.tables= [vm_table; vbd_table]}
+  in
   let one_to_many =
     Schema.ForeignMap.add "VBD" [("VM", "VM", "VBDs")] Schema.ForeignMap.empty
   in
@@ -140,12 +153,16 @@ let many_to_many =
   in
   let foo_column = {bar_column with Schema.Column.name= "foos"} in
   let foo_table =
-    {Schema.Table.name= "foo"; columns= [bar_column]; persistent= true}
+    Schema.Table.t_of_t'
+      {Schema.Table.name= "foo"; columns= [bar_column]; persistent= true}
   in
   let bar_table =
-    {Schema.Table.name= "bar"; columns= [foo_column]; persistent= true}
+    Schema.Table.t_of_t'
+      {Schema.Table.name= "bar"; columns= [foo_column]; persistent= true}
   in
-  let database = {Schema.Database.tables= [foo_table; bar_table]} in
+  let database =
+    Schema.Database.t_of_t' {Schema.Database.tables= [foo_table; bar_table]}
+  in
   let many_to_many =
     Schema.ForeignMap.add "foo"
       [("bars", "bar", "foos")]
