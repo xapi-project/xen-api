@@ -16,7 +16,7 @@ module Ipq = Xapi_stdext_threads_scheduler.Ipq
 
 (* test we get "out of bound" exception calling Ipq.remove *)
 let test_out_of_index () =
-  let q = Ipq.create 10 in
+  let q = Ipq.create 10 0 in
   Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.now ()} ;
   let is_oob = function
     | Invalid_argument s when String.ends_with ~suffix:"  out of bounds" s ->
@@ -35,6 +35,25 @@ let test_out_of_index () =
   (* this should succeed *)
   Ipq.remove q 0
 
-let tests = [("test_out_of_index", `Quick, test_out_of_index)]
+(* check queue does not retain some data after being removed *)
+let test_leak () =
+  let default () = () in
+  let q = Ipq.create 10 default in
+  let array = Array.make 1024 'x' in
+  let use_array () = array.(0) <- 'a' in
+  let allocated = Atomic.make true in
+  Gc.finalise (fun _ -> Atomic.set allocated false) array ;
+  Ipq.add q {Ipq.ev= use_array; Ipq.time= Mtime_clock.now ()} ;
+  Ipq.remove q 0 ;
+  Gc.full_major () ;
+  Gc.full_major () ;
+  Alcotest.(check bool) "allocated" false (Atomic.get allocated) ;
+  Ipq.add q {Ipq.ev= default; Ipq.time= Mtime_clock.now ()}
+
+let tests =
+  [
+    ("test_out_of_index", `Quick, test_out_of_index)
+  ; ("test_leak", `Quick, test_leak)
+  ]
 
 let () = Alcotest.run "Ipq" [("generic", tests)]

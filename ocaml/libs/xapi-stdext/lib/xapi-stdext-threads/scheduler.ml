@@ -25,7 +25,9 @@ type t = {func: unit -> unit; ty: func_ty; name: string}
 
 let delay = Delay.make ()
 
-let (queue : t Ipq.t) = Ipq.create 50
+let queue_default = {func= (fun () -> ()); ty= OneShot; name= ""}
+
+let (queue : t Ipq.t) = Ipq.create 50 queue_default
 
 let lock = Mutex.create ()
 

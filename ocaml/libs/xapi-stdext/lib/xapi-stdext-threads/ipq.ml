@@ -15,15 +15,16 @@
 
 type 'a event = {ev: 'a; time: Mtime.t}
 
-type 'a t = {mutable size: int; mutable data: 'a event array}
+type 'a t = {default: 'a event; mutable size: int; mutable data: 'a event array}
 
 exception EmptyHeap
 
-let create n =
+let create n default =
   if n <= 0 then
     invalid_arg "create"
   else
-    {size= -n; data= [||]}
+    let default = {ev= default; time= Mtime_clock.now ()} in
+    {default; size= -n; data= [||]}
 
 let is_empty h = h.size <= 0
 
@@ -32,14 +33,14 @@ let resize h =
   assert (n > 0) ;
   let n' = 2 * n in
   let d = h.data in
-  let d' = Array.make n' d.(0) in
+  let d' = Array.make n' h.default in
   Array.blit d 0 d' 0 n ;
   h.data <- d'
 
 let add h x =
   (* first addition: we allocate the array *)
   if h.size < 0 then (
-    h.data <- Array.make (-h.size) x ;
+    h.data <- Array.make (-h.size) h.default ;
     h.size <- 0
   ) ;
   let n = h.size in
@@ -69,6 +70,7 @@ let remove h s =
   let n = h.size - 1 in
   let d = h.data in
   let x = d.(n) in
+  d.(n) <- h.default ;
   (* moving [x] up in the heap *)
   let rec moveup i =
     let fi = (i - 1) / 2 in
@@ -134,11 +136,13 @@ let iter f h =
     f d.(i)
   done
 
+(*
 let fold f h x0 =
   let n = h.size in
   let d = h.data in
   let rec foldrec x i = if i >= n then x else foldrec (f d.(i) x) (succ i) in
   foldrec x0 0
+*)
 
 (*
 let _ =
