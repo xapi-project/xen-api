@@ -1337,21 +1337,6 @@ let serialize_host_enable_disable_extauth = Mutex.create ()
 
 let set_hostname_live ~__context ~host ~hostname =
   with_lock serialize_host_enable_disable_extauth (fun () ->
-      let current_auth_type =
-        Db.Host.get_external_auth_type ~__context ~self:host
-      in
-      (* the AD extauth plugin is incompatible with a hostname change *)
-      ( if current_auth_type = Xapi_globs.auth_type_AD then
-          let current_service_name =
-            Db.Host.get_external_auth_service_name ~__context ~self:host
-          in
-          raise
-            (Api_errors.Server_error
-               ( Api_errors.auth_already_enabled
-               , [current_auth_type; current_service_name]
-               )
-            )
-      ) ;
       (* hostname is valid if contains only alpha, decimals, and hyphen
          	 (for hyphens, only in middle position) *)
       let is_invalid_hostname hostname =

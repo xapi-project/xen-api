@@ -85,14 +85,16 @@ let of_datamodel () =
   in
 
   let table obj =
-    {
-      Table.name= Escaping.escape_obj obj.Datamodel_types.name
-    ; columns=
-        _ref
-        :: List.map (column obj) (flatten_fields obj.Datamodel_types.contents [])
-    ; persistent=
-        obj.Datamodel_types.persist = Datamodel_types.PersistEverything
-    }
+    Table.t_of_t'
+      {
+        Table.name= Escaping.escape_obj obj.Datamodel_types.name
+      ; columns=
+          _ref
+          :: List.map (column obj)
+               (flatten_fields obj.Datamodel_types.contents [])
+      ; persistent=
+          obj.Datamodel_types.persist = Datamodel_types.PersistEverything
+      }
   in
   let is_one_to_many x =
     match Datamodel_utils.Relations.classify Datamodel.all_api x with
@@ -119,7 +121,8 @@ let of_datamodel () =
   in
 
   let database api =
-    {Database.tables= List.map table (Dm_api.objects_of_api api)}
+    let tables = List.map table (Dm_api.objects_of_api api) in
+    Database.of_tables tables
   in
   {
     major_vsn= Datamodel_common.schema_major_vsn

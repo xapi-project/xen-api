@@ -96,28 +96,104 @@ module Column = struct
           (** only so we can special case set refs in the interface *)
   }
   [@@deriving sexp]
+
+  let name_of t = t.name
 end
 
+let tabulate ks ~key_fn =
+  let tbl = Hashtbl.create 64 in
+  List.iter (fun c -> Hashtbl.replace tbl (key_fn c) c) ks ;
+  tbl
+
+let values_of_table tbl = Hashtbl.fold (fun _ v vs -> v :: vs) tbl []
+
 module Table = struct
-  type t = {name: string; columns: Column.t list; persistent: bool}
+  type t' = {name: string; columns: Column.t list; persistent: bool}
   [@@deriving sexp]
 
-  let find name t =
-    try List.find (fun col -> col.Column.name = name) t.columns
-    with Not_found ->
-      raise (Db_exn.DBCache_NotFound ("missing column", t.name, name))
+  type t = {
+      name: string
+    ; columns: (string, Column.t) Hashtbl.t
+    ; persistent: bool
+  }
+
+  let t'_of_t : t -> t' =
+   fun (t : t) ->
+    let ({name; columns; persistent} : t) = t in
+    let columns = values_of_table columns in
+    {name; columns; persistent}
+
+  let t_of_t' : t' -> t =
+   fun (t' : t') ->
+    let ({name; columns; persistent} : t') = t' in
+    let columns = tabulate columns ~key_fn:Column.name_of in
+    {name; columns; persistent}
+
+  let sexp_of_t t =
+    let t' = t'_of_t t in
+    sexp_of_t' t'
+
+  let t_of_sexp s =
+    let ({name; columns; persistent} : t') = t'_of_sexp s in
+    let columns = tabulate columns ~key_fn:Column.name_of in
+    ({name; columns; persistent} : t)
+
+  let find name (t : t) =
+    match Hashtbl.find_opt t.columns name with
+    | Some c ->
+        c
+    | _ ->
+        raise (Db_exn.DBCache_NotFound ("missing column", t.name, name))
+
+  let create ~name ~columns ~persistent : t =
+    let columns =
+      let tbl = Hashtbl.create 64 in
+      List.iter (fun c -> Hashtbl.add tbl c.Column.name c) columns ;
+      tbl
+    in
+    {name; columns; persistent}
+
+  let name_of t = t.name
 end
 
 type relationship = OneToMany of string * string * string * string
 [@@deriving sexp]
 
 module Database = struct
-  type t = {tables: Table.t list} [@@deriving sexp]
+  type t' = {tables: Table.t list} [@@deriving sexp]
+
+  type t = {tables: (string, Table.t) Hashtbl.t}
+
+  let t_of_t' : t' -> t =
+   fun (t' : t') ->
+    let ({tables} : t') = t' in
+    let tables = tabulate tables ~key_fn:Table.name_of in
+    {tables}
+
+  let t'_of_t : t -> t' =
+   fun (t : t) ->
+    let ({tables} : t) = t in
+    let tables = values_of_table tables in
+    {tables}
+
+  let sexp_of_t t =
+    let t' = t'_of_t t in
+    sexp_of_t' t'
+
+  let t_of_sexp s =
+    let t' = t'_of_sexp s in
+    t_of_t' t'
 
   let find name t =
-    try List.find (fun tbl -> tbl.Table.name = name) t.tables
-    with Not_found ->
-      raise (Db_exn.DBCache_NotFound ("missing table", name, ""))
+    match Hashtbl.find_opt t.tables name with
+    | Some tbl ->
+        tbl
+    | _ ->
+        raise (Db_exn.DBCache_NotFound ("missing table", name, ""))
+
+  let of_tables tables =
+    let tables = tabulate tables ~key_fn:Table.name_of in
+    {tables}
 end
 
 (** indexed by table name, a list of (this field, foreign table, foreign field) *)
@@ -161,7 +237,7 @@ let empty =
   {
     major_vsn= 0
   ; minor_vsn= 0
-  ; database= {Database.tables= []}
+  ; database= {Database.tables= Hashtbl.create 64}
   ; one_to_many= ForeignMap.empty
   ; many_to_many= ForeignMap.empty
   }
@@ -174,7 +250,8 @@ let is_field_persistent schema tblname fldname =
   tbl.Table.persistent && col.Column.persistent
 
 let table_names schema =
-  List.map (fun t -> t.Table.name) (database schema).Database.tables
+  let tables = (database schema).Database.tables in
+  Hashtbl.fold (fun k _ ks -> k :: ks) tables []
 
 let one_to_many tblname schema =
   (* If there is no entry in the map it means that the table has no one-to-many relationships *)
