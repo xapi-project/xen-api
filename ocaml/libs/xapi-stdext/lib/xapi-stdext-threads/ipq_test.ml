@@ -50,10 +50,20 @@ let test_leak () =
   Alcotest.(check bool) "allocated" false (Atomic.get allocated) ;
   Ipq.add q {Ipq.ev= default; Ipq.time= Mtime_clock.now ()}
 
+(* test Ipq.is_empty call *)
+let test_empty () =
+  let q = Ipq.create 10 0 in
+  Alcotest.(check bool) "same value" true (Ipq.is_empty q) ;
+  Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.now ()} ;
+  Alcotest.(check bool) "same value" false (Ipq.is_empty q) ;
+  Ipq.remove q 0 ;
+  Alcotest.(check bool) "same value" true (Ipq.is_empty q)
+
 let tests =
   [
     ("test_out_of_index", `Quick, test_out_of_index)
   ; ("test_leak", `Quick, test_leak)
+  ; ("test_empty", `Quick, test_empty)
   ]
 
 let () = Alcotest.run "Ipq" [("generic", tests)]
