@@ -1,7 +1,7 @@
 (library
   (public_name xapi-stdext-threads)
   (name  xapi_stdext_threads)
-  (modules :standard \ ipq scheduler threadext_test)
+  (modules :standard \ ipq scheduler threadext_test ipq_test)
   (libraries
     threads.posix
     unix
@@ -16,9 +16,9 @@
   (libraries mtime mtime.clock threads.posix unix xapi-log xapi-stdext-threads)
 )
 
-(test
-  (name threadext_test)
+(tests
+  (names threadext_test ipq_test)
   (package xapi-stdext-threads)
-  (modules threadext_test)
-  (libraries xapi_stdext_threads alcotest mtime.clock.os mtime fmt threads.posix)
+  (modules threadext_test ipq_test)
+  (libraries xapi_stdext_threads alcotest mtime.clock.os mtime fmt threads.posix xapi_stdext_threads_scheduler)
 )

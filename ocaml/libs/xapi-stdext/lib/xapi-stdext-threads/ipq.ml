@@ -64,6 +64,8 @@ let maximum h =
 
 let remove h s =
   if h.size <= 0 then raise EmptyHeap ;
+  if s < 0 || s >= h.size then
+    invalid_arg (Printf.sprintf "%s: index %d out of bounds" __FUNCTION__ s) ;
   let n = h.size - 1 in
   h.size <- n ;
   let d = h.data in
