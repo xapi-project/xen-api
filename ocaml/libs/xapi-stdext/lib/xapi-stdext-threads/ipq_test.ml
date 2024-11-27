@@ -59,11 +59,85 @@ let test_empty () =
   Ipq.remove q 0 ;
   Alcotest.(check bool) "same value" true (Ipq.is_empty q)
 
+module Int64Set = Set.Make (Int64)
+
+let check = Ipq.check
+
+(* get size of the queue *)
+let size queue =
+  let l = ref 0 in
+  Ipq.iter (fun _ -> l := !l + 1) queue ;
+  !l
+
+(* get a set of times from the queue *)
+let set queue =
+  let s = ref Int64Set.empty in
+  Ipq.iter
+    (fun d ->
+      let t = d.time in
+      let t = Mtime.to_uint64_ns t in
+      s := Int64Set.add t !s
+    )
+    queue ;
+  !s
+
+let test_old () =
+  let test : int Ipq.t = Ipq.create 100 0 in
+  let s = ref Int64Set.empty in
+  let add i =
+    let ti = Random.int64 1000000L in
+    let t = Mtime.of_uint64_ns ti in
+    let e = {Ipq.time= t; Ipq.ev= i} in
+    Ipq.add test e ;
+    s := Int64Set.add ti !s
+  in
+  for i = 0 to 49 do
+    add i
+  done ;
+  let first_half = set test in
+  for i = 50 to 99 do
+    add i
+  done ;
+  check test ;
+  (* we should have all elements *)
+  Alcotest.(check int) "100 elements" 100 (size test) ;
+
+  let all = set test in
+  Alcotest.(check int) "same list" 0 (Int64Set.compare !s all) ;
+
+  (* remove half of the elements *)
+  for i = 0 to 49 do
+    let xx = Ipq.find test i in
+    Printf.printf "Removing element %d position %d\n%!" i xx ;
+    Ipq.remove test xx ;
+    check test
+  done ;
+  Alcotest.(check int) "50 elements" 50 (size test) ;
+
+  (* make sure we have the right elements in the list *)
+  let s = set test in
+  let second_half = Int64Set.diff all first_half in
+  Alcotest.(check int) "same list" 0 (Int64Set.compare s second_half) ;
+
+  (* remove test *)
+  let prev = ref 0L in
+  for _ = 0 to 49 do
+    let e = Ipq.pop_maximum test in
+    let t = Mtime.to_uint64_ns e.time in
+    Alcotest.(check bool)
+      (Printf.sprintf "%Ld bigger than %Ld" t !prev)
+      true (t >= !prev) ;
+    Printf.printf "time: %Ld, site: %d\n" t e.ev ;
+    prev := t ;
+    check test
+  done
+
 let tests =
   [
     ("test_out_of_index", `Quick, test_out_of_index)
   ; ("test_leak", `Quick, test_leak)
   ; ("test_empty", `Quick, test_empty)
+  ; ("test_old", `Quick, test_old)
   ]
 
 let () = Alcotest.run "Ipq" [("generic", tests)]

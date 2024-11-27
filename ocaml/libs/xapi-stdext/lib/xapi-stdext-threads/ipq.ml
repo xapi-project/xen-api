@@ -130,6 +130,14 @@ let pop_maximum h =
   let m = maximum h in
   remove h 0 ; m
 
+let check h =
+  let d = h.data in
+  for i = 1 to h.size - 1 do
+    let fi = (i - 1) / 2 in
+    let ordered = Mtime.is_later d.(i).time ~than:d.(fi).time in
+    assert ordered
+  done
+
 let iter f h =
   let d = h.data in
   for i = 0 to h.size - 1 do
@@ -142,22 +150,4 @@ let fold f h x0 =
   let d = h.data in
   let rec foldrec x i = if i >= n then x else foldrec (f d.(i) x) (succ i) in
   foldrec x0 0
-*)
-
-(*
-let _ =
-  let test : int t = create 100 in
-  for i=0 to 99 do
-    let e = {time=Random.float 10.0; ev=i} in
-    add test e
-  done;
-  for i=0 to 49 do
-    let xx=find test i in
-    remove test xx
-  done;
-(*  remove test xx;*)
-  for i=0 to 49 do
-    let e=pop_maximum test in
-    Printf.printf "time: %f, site: %d\n" e.time e.ev
-  done
 *)

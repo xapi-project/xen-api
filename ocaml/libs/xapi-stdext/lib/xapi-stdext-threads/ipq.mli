@@ -53,3 +53,6 @@ val pop_maximum : 'a t -> 'a event
 
 val iter : ('a event -> unit) -> 'a t -> unit
 (** Iterate given function on the list of events in the queue *)
+
+val check : 'a t -> unit
+(** Check internal queue state, used for debugging *)
