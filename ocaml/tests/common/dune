@@ -26,6 +26,7 @@
     xapi-test-utils
     xapi-types
     xapi-stdext-date
+    xapi-stdext-threads.scheduler
     xapi-stdext-unix
   )
 )

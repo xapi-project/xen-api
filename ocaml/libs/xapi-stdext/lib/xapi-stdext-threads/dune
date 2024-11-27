@@ -1,13 +1,21 @@
 (library
   (public_name xapi-stdext-threads)
   (name  xapi_stdext_threads)
-  (modules :standard \ threadext_test)
+  (modules :standard \ ipq scheduler threadext_test)
   (libraries
     threads.posix
     unix
     xapi-stdext-unix
     xapi-stdext-pervasives)
 )
+
+(library
+  (public_name xapi-stdext-threads.scheduler)
+  (name xapi_stdext_threads_scheduler)
+  (modules ipq scheduler)
+  (libraries mtime mtime.clock threads.posix unix xapi-log xapi-stdext-threads)
+)
+
 (test
   (name threadext_test)
   (package xapi-stdext-threads)

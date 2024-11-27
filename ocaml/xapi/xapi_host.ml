@@ -938,12 +938,12 @@ let ask_host_if_it_is_a_slave ~__context ~host =
         "ask_host_if_it_is_a_slave: host taking a long time to respond - IP: \
          %s; uuid: %s"
         ip uuid ;
-      Xapi_periodic_scheduler.add_to_queue task_name
-        Xapi_periodic_scheduler.OneShot timeout
+      Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
+        Xapi_stdext_threads_scheduler.Scheduler.OneShot timeout
         (log_host_slow_to_respond (min (2. *. timeout) 300.))
     in
-    Xapi_periodic_scheduler.add_to_queue task_name
-      Xapi_periodic_scheduler.OneShot timeout
+    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
+      Xapi_stdext_threads_scheduler.Scheduler.OneShot timeout
       (log_host_slow_to_respond timeout) ;
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
@@ -951,7 +951,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
           Client.Client.Pool.is_slave ~rpc ~session_id ~host
       )
     in
-    Xapi_periodic_scheduler.remove_from_queue task_name ;
+    Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name ;
     res
   in
   Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave"
@@ -1497,8 +1497,8 @@ let sync_data ~__context ~host = Xapi_sync.sync_host ~__context host
 (* Nb, no attempt to wrap exceptions yet *)
 
 let backup_rrds ~__context ~host:_ ~delay =
-  Xapi_periodic_scheduler.add_to_queue "RRD backup"
-    Xapi_periodic_scheduler.OneShot delay (fun _ ->
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue "RRD backup"
+    Xapi_stdext_threads_scheduler.Scheduler.OneShot delay (fun _ ->
       let master_address = Pool_role.get_master_address_opt () in
       log_and_ignore_exn (Rrdd.backup_rrds master_address) ;
       log_and_ignore_exn (fun () ->

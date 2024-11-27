@@ -443,8 +443,9 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
         in
         List.iter Locking_helpers.kill_resource resources
       in
-      Xapi_periodic_scheduler.add_to_queue (Ref.string_of task_id)
-        Xapi_periodic_scheduler.OneShot timeout cancel ;
+      let module Scheduler = Xapi_stdext_threads_scheduler.Scheduler in
+      Scheduler.add_to_queue (Ref.string_of task_id) Scheduler.OneShot timeout
+        cancel ;
       let transport =
         if Pool_role.is_master () then
           Unix Xapi_globs.unix_domain_socket
@@ -459,7 +460,7 @@ let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
       let result =
         XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
       in
-      Xapi_periodic_scheduler.remove_from_queue (Ref.string_of task_id) ;
+      Scheduler.remove_from_queue (Ref.string_of task_id) ;
       result
   )
 
