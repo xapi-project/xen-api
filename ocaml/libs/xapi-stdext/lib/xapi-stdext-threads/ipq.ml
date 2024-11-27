@@ -67,9 +67,17 @@ let remove h s =
   if s < 0 || s >= h.size then
     invalid_arg (Printf.sprintf "%s: index %d out of bounds" __FUNCTION__ s) ;
   let n = h.size - 1 in
-  h.size <- n ;
   let d = h.data in
   let x = d.(n) in
+  (* moving [x] up in the heap *)
+  let rec moveup i =
+    let fi = (i - 1) / 2 in
+    if i > 0 && Mtime.is_later d.(fi).time ~than:x.time then (
+      d.(i) <- d.(fi) ;
+      moveup fi
+    ) else
+      d.(i) <- x
+  in
   (* moving [x] down in the heap *)
   let rec movedown i =
     let j = (2 * i) + 1 in
@@ -86,7 +94,13 @@ let remove h s =
     else
       d.(i) <- x
   in
-  movedown s
+  if s = n then
+    ()
+  else if Mtime.is_later d.(s).time ~than:x.time then
+    moveup s
+  else
+    movedown s ;
+  h.size <- n
 
 let find h ev =
   let rec iter n =
