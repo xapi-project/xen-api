@@ -24,7 +24,7 @@ let create n default =
     invalid_arg "create"
   else
     let default = {ev= default; time= Mtime_clock.now ()} in
-    {default; size= -n; data= [||]}
+    {default; size= 0; data= Array.make n default}
 
 let is_empty h = h.size <= 0
 
@@ -38,11 +38,6 @@ let resize h =
   h.data <- d'
 
 let add h x =
-  (* first addition: we allocate the array *)
-  if h.size < 0 then (
-    h.data <- Array.make (-h.size) h.default ;
-    h.size <- 0
-  ) ;
   let n = h.size in
   (* resizing if needed *)
   if n = Array.length h.data then resize h ;
