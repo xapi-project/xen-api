@@ -675,7 +675,7 @@ description()
 
 __process_params()
 {
-    echo "$1" | cut -d: -f2- | egrep -v "^ $" | cut -c 2- | \
+    echo "$1" | cut -d: -f2- | grep -Ev "^ $" | cut -c 2- | \
     sed -e 's/,/=,/g' -e 's/$/=/g' -e 's/:=/:/g' -e 's/-=/-/g' -e 's/ //g'
 }
 
