@@ -56,10 +56,28 @@ let test_remove_self () =
   let elapsed_ms = elapsed_ms cnt in
   Alcotest.check is_less "small time" 300 elapsed_ms
 
+let test_empty () =
+  let finished = Event.new_channel () in
+  Scheduler.add_to_queue "one" Scheduler.OneShot 0.001 (fun () ->
+      send finished true
+  ) ;
+  start_schedule () ;
+  Alcotest.(check bool) "finished" true (receive finished) ;
+  (* wait loop to go to wait with no work to do *)
+  Thread.delay 0.1 ;
+  Scheduler.add_to_queue "two" Scheduler.OneShot 0.001 (fun () ->
+      send finished true
+  ) ;
+  let cnt = Mtime_clock.counter () in
+  Alcotest.(check bool) "finished" true (receive finished) ;
+  let elapsed_ms = elapsed_ms cnt in
+  Alcotest.check is_less "small time" 100 elapsed_ms
+
 let tests =
   [
     ("test_single", `Quick, test_single)
   ; ("test_remove_self", `Quick, test_remove_self)
+  ; ("test_empty", `Quick, test_empty)
   ]
 
 let () = Alcotest.run "Scheduler" [("generic", tests)]
