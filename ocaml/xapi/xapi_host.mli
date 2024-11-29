@@ -129,6 +129,7 @@ val create :
   -> chipset_info:(string * string) list
   -> ssl_legacy:bool
   -> last_software_update:API.datetime
+  -> last_update_hash:string
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
