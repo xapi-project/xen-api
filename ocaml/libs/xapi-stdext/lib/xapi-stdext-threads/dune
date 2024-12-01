@@ -3,10 +3,15 @@
   (name  xapi_stdext_threads)
   (modules :standard \ ipq scheduler threadext_test ipq_test)
   (libraries
+    mtime
+    mtime.clock.os
     threads.posix
     unix
     xapi-stdext-unix
     xapi-stdext-pervasives)
+  (foreign_stubs
+    (language c)
+    (names delay_stubs))
 )
 
 (library
