@@ -12,5 +12,5 @@
   (name threadext_test)
   (package xapi-stdext-threads)
   (modules threadext_test)
-  (libraries xapi_stdext_threads alcotest mtime.clock.os mtime fmt)
+  (libraries xapi_stdext_threads alcotest mtime.clock.os mtime fmt threads.posix)
 )
