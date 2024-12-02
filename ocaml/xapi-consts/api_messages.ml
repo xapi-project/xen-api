@@ -370,3 +370,5 @@ let xapi_startup_blocked_as_version_higher_than_coordinator =
 
 let all_running_vms_in_anti_affinity_grp_on_single_host =
   addMessage "ALL_RUNNING_VMS_IN_ANTI_AFFINITY_GRP_ON_SINGLE_HOST" 3L
+
+let sm_gc_no_space = addMessage "SM_GC_NO_SPACE" 3L
