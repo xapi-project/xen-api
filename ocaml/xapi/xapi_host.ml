@@ -991,7 +991,7 @@ let is_host_alive ~__context ~host =
 let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
-    ~ssl_legacy:_ ~last_software_update =
+    ~ssl_legacy:_ ~last_software_update ~last_update_hash =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1053,9 +1053,9 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update ~recommended_guidances:[]
-    ~latest_synced_updates_applied:`unknown ~pending_guidances_recommended:[]
-    ~pending_guidances_full:[] ~last_update_hash:"" ;
+    ~tls_verification_enabled ~last_software_update ~last_update_hash
+    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;

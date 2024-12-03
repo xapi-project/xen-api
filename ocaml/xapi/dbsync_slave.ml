@@ -59,7 +59,7 @@ let create_localhost ~__context info =
         ~external_auth_configuration:[] ~license_params:[] ~edition:""
         ~license_server:[("address", "localhost"); ("port", "27000")]
         ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
-        ~last_software_update:Date.epoch
+        ~last_software_update:Date.epoch ~last_update_hash:""
     in
     ()
 

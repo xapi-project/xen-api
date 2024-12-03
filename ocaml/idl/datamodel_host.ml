@@ -1291,6 +1291,15 @@ let create_params =
     ; param_release= dundee_release
     ; param_default= Some (VDateTime Date.epoch)
     }
+  ; {
+      param_type= String
+    ; param_name= "last_update_hash"
+    ; param_doc=
+        "The SHA256 checksum of updateinfo of the most recently applied update \
+         on the host"
+    ; param_release= numbered_release "24.39.0-next"
+    ; param_default= Some (VString "")
+    }
   ]
 
 let create =
