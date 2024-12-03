@@ -1791,9 +1791,7 @@ let rec diff a b =
   | a :: aa ->
       if List.mem a b then diff aa b else a :: diff aa b
 
-(* default false due to bugs in SMAPIv3 plugins,
-   once they are fixed this should be set to true *)
-let concurrent = ref false
+let concurrent = ref true
 
 type reload = All | Files of string list | Nothing
 
