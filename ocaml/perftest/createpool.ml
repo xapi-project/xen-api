@@ -230,7 +230,8 @@ let uninitialise session_id _template key =
   let nets = Client.Network.get_all_records ~rpc ~session_id in
   debug "Destroying any bridges" ;
   let ic =
-    Unix.open_process_in "ifconfig -a | grep \"^xapi\" | awk '{print $1}'"
+    Unix.open_process_in
+      "ip addr show  | grep -P \"^\\d+:\\s+xapi\" |awk '{print $2}'"
   in
   let netdevs =
     let rec doline () =
@@ -246,7 +247,9 @@ let uninitialise session_id _template key =
       if not (List.exists (fun (_, net) -> net.API.network_bridge = netdev) nets)
       then (
         ignore
-          (Sys.command (Printf.sprintf "ifconfig %s down 2>/dev/null" netdev)) ;
+          (Sys.command
+             (Printf.sprintf "ip link set dev %s down 2>/dev/null" netdev)
+          ) ;
         ignore (Sys.command (Printf.sprintf "brctl delbr %s 2>/dev/null" netdev))
       )
     )
@@ -336,15 +339,21 @@ let create_sdk_pool session_id sdkname pool_name key ipbase =
         ~start_paused:false ~force:false
     )
     hosts ;
-  ignore
-    (Sys.command
-       (Printf.sprintf "ifconfig %s 192.168.%d.200 up"
-          (Client.Network.get_bridge ~rpc ~session_id
-             ~self:(Client.VIF.get_network ~rpc ~session_id ~self:interfaces.(0))
-          )
-          pool.ipbase
-       )
-    ) ;
+
+  let bridge =
+    Client.Network.get_bridge ~rpc ~session_id
+      ~self:(Client.VIF.get_network ~rpc ~session_id ~self:interfaces.(0))
+  in
+
+  (* 192.168 falls in Class C network, thus default to 255.255.255.0 as the netmask *)
+  let addr = Printf.sprintf "192.168.%d.200/24" pool.ipbase in
+  (* Clear IP address *)
+  Printf.sprintf "ip addr flush dev %s" bridge |> Sys.command |> ignore ;
+  (* Assign an IP address *)
+  Printf.sprintf "ip addr add %s dev %s" addr bridge |> Sys.command |> ignore ;
+  (* Start the device *)
+  Printf.sprintf "ip link set dev %s up" bridge |> Sys.command |> ignore ;
+
   reset_template session_id template ;
   debug "Guests are now booting..." ;
   let pingable = Array.make (Array.length hosts) false in
