@@ -106,6 +106,13 @@ let register ~__context =
         (Xapi_periodic_scheduler.Periodic freq) freq
         Xapi_pool.alert_failed_login_attempts
   ) ;
+  Xapi_periodic_scheduler.add_to_queue "broken_kernel"
+    (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
+      Server_helpers.exec_with_new_task
+        "Periodic alert if the running kernel is broken in some serious way."
+        (fun __context -> Xapi_host.alert_if_kernel_broken ~__context
+      )
+  ) ;
   Xapi_periodic_scheduler.add_to_queue
     "Period alert if TLS verification emergency disabled"
     (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->

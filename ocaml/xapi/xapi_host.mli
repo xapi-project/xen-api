@@ -540,6 +540,8 @@ val set_numa_affinity_policy :
 
 val emergency_disable_tls_verification : __context:Context.t -> unit
 
+val alert_if_kernel_broken : __context:Context.t -> unit
+
 val alert_if_tls_verification_was_emergency_disabled :
   __context:Context.t -> unit
 
