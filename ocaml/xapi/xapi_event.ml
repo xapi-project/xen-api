@@ -425,12 +425,12 @@ module From = struct
           && (not (session_is_invalid call))
           && Unix.gettimeofday () < deadline
         do
-          Xapi_periodic_scheduler.add_to_queue timeoutname
-            Xapi_periodic_scheduler.OneShot
+          Xapi_stdext_threads_scheduler.Scheduler.add_to_queue timeoutname
+            Xapi_stdext_threads_scheduler.Scheduler.OneShot
             (deadline -. Unix.gettimeofday () +. 0.5)
             (fun () -> Condition.broadcast c) ;
           Condition.wait c m ;
-          Xapi_periodic_scheduler.remove_from_queue timeoutname
+          Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue timeoutname
         done
     ) ;
     if session_is_invalid call then (

@@ -16,6 +16,7 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 open Client
+module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
 
 type frequency = Daily | Weekly of int
 
@@ -162,12 +163,11 @@ let rec update_sync () =
   )
 
 and add_to_queue ~__context () =
-  let open Xapi_periodic_scheduler in
-  add_to_queue periodic_update_sync_task_name OneShot
+  Scheduler.add_to_queue periodic_update_sync_task_name Scheduler.OneShot
     (seconds_until_next_schedule ~__context)
     update_sync
 
 let set_enabled ~__context ~value =
-  Xapi_periodic_scheduler.remove_from_queue periodic_update_sync_task_name ;
+  Scheduler.remove_from_queue periodic_update_sync_task_name ;
   if value then
     add_to_queue ~__context ()
