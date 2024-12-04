@@ -1332,7 +1332,7 @@ let gen_cmds rpc session_id =
           ; "driver-name"
           ; "name"
           ; "version"
-          ; "priotory"
+          ; "priority"
           ; "host-uuid"
           ; "driver-uuid"
           ; "active"
