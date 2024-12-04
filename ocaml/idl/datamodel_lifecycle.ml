@@ -1,8 +1,8 @@
 let prototyped_of_class = function
   | "Driver_variant" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "VM_group" ->
       Some "24.19.1"
   | "Observer" ->
@@ -14,39 +14,39 @@ let prototyped_of_class = function
 
 let prototyped_of_field = function
   | "Driver_variant", "status" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Driver_variant", "priority" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Driver_variant", "hardware_present" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Driver_variant", "version" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Driver_variant", "driver" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Driver_variant", "name" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Driver_variant", "uuid" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "info" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "description" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "type" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "selected_variant" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "active_variant" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "variants" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "friendly_name" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "name" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "host" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "uuid" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "VM_group", "VMs" ->
       Some "24.19.1"
   | "VM_group", "placement" ->
@@ -156,13 +156,13 @@ let prototyped_of_field = function
 
 let prototyped_of_message = function
   | "Driver_variant", "select" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "rescan" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "deselect" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Host_driver", "select" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "Observer", "set_components" ->
       Some "23.14.0"
   | "Observer", "set_endpoints" ->
@@ -206,7 +206,7 @@ let prototyped_of_message = function
   | "host", "set_https_only" ->
       Some "22.27.0"
   | "host", "rescan_drivers" ->
-      Some "25.1.0-next"
+      Some "25.2.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
   | "VM", "get_secureboot_readiness" ->
