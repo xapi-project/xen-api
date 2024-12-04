@@ -1,4 +1,11 @@
 (library
  (name tgroup)
+ (modules tgroup)
  (public_name tgroup)
  (libraries xapi-log xapi-stdext-unix xapi-stdext-std))
+
+(test
+ (name test_tgroup)
+ (modules test_tgroup)
+ (package tgroup)
+ (libraries tgroup alcotest xapi-log))
