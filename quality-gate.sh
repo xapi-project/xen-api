@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=293
+  N=277
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -14,7 +14,7 @@ list-hd () {
 }
 
 verify-cert () {
-  N=14
+  N=13
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$NONE" -eq "$N" ]; then
     echo "OK counted $NONE usages of verify_cert:None"
@@ -106,7 +106,7 @@ unixgetenv () {
 }
 
 hashtblfind () {
-  N=36
+  N=35
   # Looks for all .ml files except the ones using Core.Hashtbl.find,
   # which already returns Option
   HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
