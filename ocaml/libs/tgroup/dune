@@ -1,4 +1,4 @@
 (library
  (name tgroup)
  (public_name tgroup)
- (libraries xapi-log xapi-stdext-unix))
+ (libraries xapi-log xapi-stdext-unix xapi-stdext-std))
