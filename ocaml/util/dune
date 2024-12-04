@@ -17,3 +17,9 @@
   (wrapped false)
 )
 
+(library
+  (name xapi_host_driver_helpers)
+  (modules xapi_host_driver_helpers)
+  (libraries yojson angstrom)
+  (wrapped false)
+)
