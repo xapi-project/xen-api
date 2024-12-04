@@ -273,6 +273,7 @@ EOF
 
 function list() {
   cat <<EOF
+
 {
     "protocol": {
         "version": 0.1
@@ -286,8 +287,8 @@ function list() {
             "friendly_name": "avago-megaraid-sas",
             "description": "avago-megaraid-sas",
             "info": "avago-megaraid-sas",
-            "selected": "generic",
-            "active": "generic",
+            "selected": null,
+            "active": null,
             "variants": {
                 "generic": {
                     "version": "1.2",
@@ -302,8 +303,8 @@ function list() {
             "friendly_name": "avago-mpt3sas",
             "description": "avago-mpt3sas",
             "info": "avago-mpt3sas",
-            "selected": "generic",
-            "active": "generic",
+            "selected": null,
+            "active": null,
             "variants": {
                 "generic": {
                     "version": "1.2",
@@ -318,12 +319,12 @@ function list() {
             "friendly_name": "broadcom-bnxt-en",
             "description": "broadcom-bnxt-en",
             "info": "broadcom-bnxt-en",
-            "selected": null,
-            "active": null,
+            "selected": "generic",
+            "active": "generic",
             "variants": {
                 "generic": {
                     "version": "1.2",
-                    "hardware_present": false,
+                    "hardware_present": true,
                     "priority": 100,
                     "status": "beta"
                 }
@@ -350,13 +351,19 @@ function list() {
             "friendly_name": "chelsio-cxgb4",
             "description": "chelsio-cxgb4",
             "info": "chelsio-cxgb4",
-            "selected": null,
-            "active": null,
+            "selected": "oem",
+            "active": "oem",
             "variants": {
                 "generic": {
                     "version": "1.2",
-                    "hardware_present": false,
+                    "hardware_present": true,
                     "priority": 100,
+                    "status": "beta"
+                },
+                "oem": {
+                    "version": "1.3",
+                    "hardware_present": true,
+                    "priority": 80,
                     "status": "beta"
                 }
             }
@@ -366,13 +373,19 @@ function list() {
             "friendly_name": "cisco-enic",
             "description": "cisco-enic",
             "info": "cisco-enic",
-            "selected": null,
-            "active": null,
+            "selected": "generic",
+            "active": "dell",
             "variants": {
                 "generic": {
                     "version": "1.2",
-                    "hardware_present": false,
+                    "hardware_present": true,
                     "priority": 100,
+                    "status": "beta"
+                },
+                "dell": {
+                    "version": "1.5",
+                    "hardware_present": true,
+                    "priority": 90,
                     "status": "beta"
                 }
             }
