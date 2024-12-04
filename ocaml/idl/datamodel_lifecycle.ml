@@ -1,4 +1,8 @@
 let prototyped_of_class = function
+  | "Driver_variant" ->
+      Some "24.36.0"
+  | "Host_driver" ->
+      Some "24.35.0"
   | "VM_group" ->
       Some "24.19.1"
   | "Observer" ->
@@ -9,6 +13,40 @@ let prototyped_of_class = function
       None
 
 let prototyped_of_field = function
+  | "Driver_variant", "status" ->
+      Some "24.36.0"
+  | "Driver_variant", "priority" ->
+      Some "24.36.0"
+  | "Driver_variant", "hardware_present" ->
+      Some "24.36.0"
+  | "Driver_variant", "version" ->
+      Some "24.36.0"
+  | "Driver_variant", "driver" ->
+      Some "24.36.0"
+  | "Driver_variant", "name" ->
+      Some "24.36.0"
+  | "Driver_variant", "uuid" ->
+      Some "24.36.0"
+  | "Host_driver", "info" ->
+      Some "24.39.0"
+  | "Host_driver", "description" ->
+      Some "24.39.0"
+  | "Host_driver", "type" ->
+      Some "24.39.0"
+  | "Host_driver", "selected_variant" ->
+      Some "24.36.0"
+  | "Host_driver", "active_variant" ->
+      Some "24.36.0"
+  | "Host_driver", "variants" ->
+      Some "24.36.0"
+  | "Host_driver", "friendly_name" ->
+      Some "24.39.0"
+  | "Host_driver", "name" ->
+      Some "24.35.0"
+  | "Host_driver", "host" ->
+      Some "24.35.0"
+  | "Host_driver", "uuid" ->
+      Some "24.35.0"
   | "VM_group", "VMs" ->
       Some "24.19.1"
   | "VM_group", "placement" ->
@@ -117,6 +155,14 @@ let prototyped_of_field = function
       None
 
 let prototyped_of_message = function
+  | "Driver_variant", "select" ->
+      Some "24.39.0"
+  | "Host_driver", "rescan" ->
+      Some "24.39.0-next"
+  | "Host_driver", "deselect" ->
+      Some "24.35.0"
+  | "Host_driver", "select" ->
+      Some "24.35.0"
   | "Observer", "set_components" ->
       Some "23.14.0"
   | "Observer", "set_endpoints" ->
@@ -159,6 +205,8 @@ let prototyped_of_message = function
       Some "23.18.0"
   | "host", "set_https_only" ->
       Some "22.27.0"
+  | "host", "rescan_drivers" ->
+      Some "24.35.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
   | "VM", "get_secureboot_readiness" ->

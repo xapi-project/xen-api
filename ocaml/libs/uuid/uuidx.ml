@@ -30,6 +30,8 @@ type without_secret =
   | `Generic
   | `GPU_group
   | `host
+  | `Host_driver
+  | `Driver_variant
   | `host_cpu
   | `host_crashdump
   | `host_metrics
