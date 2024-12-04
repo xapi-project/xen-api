@@ -1,7 +1,7 @@
 let test_payload =
   Rrd_protocol.
     {
-      timestamp= 1387867223L
+      timestamp= 1387867223.2
     ; datasources=
         [
           ( Rrd.Host
@@ -133,8 +133,7 @@ let assert_ds_equal (owner1, ds1) (owner2, ds2) =
 
 let assert_payloads_equal payload1 payload2 =
   let open Rrd_protocol in
-  Alcotest.(check int64)
-    "Timestamps match" payload1.timestamp payload2.timestamp ;
+  compare_float "Timestamps match" payload1.timestamp payload2.timestamp ;
   Alcotest.(check int)
     "Number of datasources read matches written ones"
     (List.length payload1.datasources)
