@@ -25,8 +25,8 @@ open Datamodel_roles
 let select =
   call ~name:"select" ~in_oss_since:None ~lifecycle:[]
     ~doc:
-      "Select a variant of the driver to become active after reboot or \
-       immediately if currently no version is active"
+      "UNSUPPORTED. Select a variant of the driver to become active after \
+       reboot or immediately if currently no version is active"
     ~params:
       [
         (Ref _host_driver, "self", "Driver to become active (after reboot).")
@@ -40,8 +40,8 @@ let select =
 let deselect =
   call ~name:"deselect" ~in_oss_since:None ~lifecycle:[]
     ~doc:
-      "Deselect the currently active variant of this driver after reboot. No \
-       action will be taken if no variant is currently active."
+      "UNSUPPORTED. Deselect the currently active variant of this driver after \
+       reboot. No action will be taken if no variant is currently active."
     ~params:
       [(Ref _host_driver, "self", "Driver to become inactive (after reboot).")]
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -49,7 +49,8 @@ let deselect =
 let rescan =
   call ~name:"rescan" ~in_oss_since:None ~lifecycle:[]
     ~doc:
-      "Re-scan a host's drivers and update information about them. This\n\
+      "UNSUPPORTED. Re-scan a host's drivers and update information about \
+       them. This\n\
       \      is mostly  for trouble shooting."
     ~params:[(Ref _host, "host", "Update driver information of this host.")]
     ~allowed_roles:_R_POOL_ADMIN ()
@@ -57,8 +58,8 @@ let rescan =
 let t =
   create_obj ~in_db:true ~in_oss_since:None ~persist:PersistEverything
     ~lifecycle:[] ~name:_host_driver ~gen_constructor_destructor:false
-    ~descr:"A multi-version driver on a host" ~gen_events:true ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~descr:"UNSUPPORTED. A multi-version driver on a host" ~gen_events:true
+    ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
       [
         uid _host_driver ~lifecycle:[]

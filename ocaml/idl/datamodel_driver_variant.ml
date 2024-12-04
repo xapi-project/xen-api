@@ -21,8 +21,8 @@ open Datamodel_roles
 let select =
   call ~name:"select" ~in_oss_since:None ~lifecycle:[]
     ~doc:
-      "Select this variant of a driver to become active after reboot or \
-       immediately if currently no version is active"
+      "UNSUPPORTED Select this variant of a driver to become active after \
+       reboot or immediately if currently no version is active"
     ~params:
       [
         ( Ref _driver_variant
@@ -35,8 +35,8 @@ let select =
 let t =
   create_obj ~in_db:true ~in_oss_since:None ~persist:PersistEverything
     ~lifecycle:[] ~name:_driver_variant ~gen_constructor_destructor:false
-    ~descr:"Variant of a host driver" ~gen_events:true ~doccomments:[]
-    ~messages_default_allowed_roles:_R_POOL_ADMIN
+    ~descr:"UNSUPPORTED. Variant of a host driver" ~gen_events:true
+    ~doccomments:[] ~messages_default_allowed_roles:_R_POOL_ADMIN
     ~contents:
       [
         uid _driver_variant ~lifecycle:[]
