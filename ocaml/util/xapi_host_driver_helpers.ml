@@ -15,8 +15,6 @@
 module J = Yojson
 open Angstrom
 
-let defer finally = Fun.protect ~finally
-
 let int n = Int32.to_int n
 
 let ( // ) = Filename.concat
