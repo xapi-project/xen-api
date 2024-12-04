@@ -26,9 +26,9 @@ verify-cert () {
 
 mli-files () {
   N=497
-  # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
-  MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
-  MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
+  # do not count ml files from the tests in ocaml/{tests/quicktest}
+  MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
+  MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   num_mls_without_mlis=$(comm -23 <(sort <<<"$MLS") <(sort <<<"$MLIS") | wc -l)
   if [ "$num_mls_without_mlis" -eq "$N" ]; then
     echo "OK counted $num_mls_without_mlis .ml files without an .mli"

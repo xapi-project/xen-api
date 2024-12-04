@@ -200,9 +200,6 @@ let response_of_fd ?(use_fastpath = false) fd =
         __FUNCTION__ (Printexc.to_string e) ;
       None
 
-(** See perftest/tests.ml *)
-let last_content_length = ref 0L
-
 let http_rpc_recv_response use_fastpath error_msg fd =
   match response_of_fd ~use_fastpath fd with
   | None ->
@@ -212,9 +209,6 @@ let http_rpc_recv_response use_fastpath error_msg fd =
     | ("401" | "403" | "500") as http_code ->
         raise (Http_error (http_code, error_msg))
     | "200" ->
-        Option.iter
-          (fun x -> last_content_length := x)
-          response.Http.Response.content_length ;
         response
     | code ->
         raise (Http_request_rejected (Printf.sprintf "%s: %s" code error_msg))
