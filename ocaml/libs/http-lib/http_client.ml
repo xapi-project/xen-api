@@ -119,6 +119,8 @@ let response_of_fd_exn_slow fd =
       ; additional_headers= !headers
       ; body= None
       }
+  | [] ->
+      raise End_of_file
   | _ ->
       error "Failed to parse HTTP response status line [%s]" line ;
       raise (Parse_error (Printf.sprintf "Expected initial header [%s]" line))
@@ -192,6 +194,9 @@ let response_of_fd ?(use_fastpath = false) fd =
   with
   | Unix.Unix_error (_, _, _) as e ->
       raise e
+  | End_of_file ->
+      info "No response: connection closed by server" ;
+      None
   | e ->
       Backtrace.is_important e ;
       let bt = Backtrace.get e in
