@@ -5449,9 +5449,12 @@ let host_driver_record rpc session_id host_driver =
           ()
       ; make_field ~name:"variants"
           ~get:(fun () ->
-          map_and_concat
-            (fun _, v -> Printf.sprintf "%s/%s" v.API.driver_variant_name v.API.driver_variant_version)
-            (xv ())
+            map_and_concat
+              (fun (_, v) ->
+                Printf.sprintf "%s/%s" v.API.driver_variant_name
+                  v.API.driver_variant_version
+              )
+              (xv ())
           )
           ()
       ; make_field ~name:"variants-dev-status"
@@ -5471,19 +5474,25 @@ let host_driver_record rpc session_id host_driver =
           ()
       ; make_field ~name:"variants-uuid"
           ~get:(fun () ->
-          map_and_concat
-            (fun _, v -> Printf.sprintf "%s/%s" v.API.driver_variant_name v.API.driver_variant_uuid)
-            (xv ())
+            map_and_concat
+              (fun (_, v) ->
+                Printf.sprintf "%s/%s" v.API.driver_variant_name
+                  v.API.driver_variant_uuid
+              )
+              (xv ())
+          )
           ()
       ; make_field ~name:"variants-hw-present"
           ~get:(fun () ->
-          map_filter_and_concat (fun _, v ->
-            if v.API.driver_variant_hardware_present then
-              Some v.API.driver_variant_name
-            else
-              None
-            )
-            (xv ())
+            xv ()
+            |> List.map (fun (_, v) ->
+                   ( v.API.driver_variant_name
+                   , v.API.driver_variant_version
+                   , v.API.driver_variant_hardware_present
+                   )
+               )
+            |> List.filter (fun (_, _, status) -> status = true)
+            |> map_and_concat (fun (name, _, _) -> name)
           )
           ()
       ]
