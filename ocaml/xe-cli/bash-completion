@@ -493,6 +493,17 @@ _xe()
                 return 0
                 ;;
 
+            version) # for hostdriver-select
+                if [[ "$COMP_CWORD" == "3" ]]; then
+                    __xe_debug "triggering autocompletion for hostdriver's version"
+                    IFS=$'\n,'
+                    local cmd="$xe hostdriver-list ${OLDSTYLE_WORDS[2]} --minimal params=versions 2>/dev/null"
+                    __xe_debug "full list cmd is '$cmd'"
+                    local vals=$(eval "$cmd")
+                    set_completions "${vals//; /,}" "$value"
+                fi
+                ;;
+
             data-source) # for host-data-source-*
                 __xe_debug "param is 'data-source', list command is 'host-data-source-list'"
                 IFS=$','
