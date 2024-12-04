@@ -158,7 +158,7 @@ let prototyped_of_message = function
   | "Driver_variant", "select" ->
       Some "24.39.0"
   | "Host_driver", "rescan" ->
-      Some "24.39.0-next"
+      Some "24.40.0"
   | "Host_driver", "deselect" ->
       Some "24.35.0"
   | "Host_driver", "select" ->

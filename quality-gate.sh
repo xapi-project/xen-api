@@ -25,9 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-<<<<<<< HEAD
-  N=496
-  N=499
+  N=498
   X="ocaml/tests"
   X+="|ocaml/quicktest"
   X+="|ocaml/message-switch/core_test"
