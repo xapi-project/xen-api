@@ -4143,12 +4143,12 @@ functor
         info "Host.apply_updates: host = '%s'; hash = '%s'" uuid hash ;
         Local.Host.apply_updates ~__context ~self ~hash
 
-      let rescan_drivers ~__context ~host =
-        let uuid = host_uuid ~__context host in
+      let rescan_drivers ~__context ~self =
+        let uuid = host_uuid ~__context self in
         info "Host.rescan_drivers: host = '%s'" uuid ;
-        let local_fn = Local.Host.rescan_drivers ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.rescan_drivers ~rpc ~session_id ~host
+        let local_fn = Local.Host.rescan_drivers ~self in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.rescan_drivers ~rpc ~session_id ~self
         )
 
       let set_https_only ~__context ~self ~value =

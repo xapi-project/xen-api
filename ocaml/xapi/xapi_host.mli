@@ -555,7 +555,7 @@ val get_host_updates_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit
 val apply_updates :
   __context:Context.t -> self:API.ref_host -> hash:string -> string list list
 
-val rescan_drivers : __context:Context.t -> host:API.ref_host -> unit
+val rescan_drivers : __context:Context.t -> self:API.ref_host -> unit
 
 val copy_primary_host_certs : __context:Context.t -> host:API.ref_host -> unit
 

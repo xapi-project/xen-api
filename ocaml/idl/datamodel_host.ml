@@ -2290,7 +2290,7 @@ let apply_updates =
 let rescan_drivers =
   call ~name:"rescan_drivers" ~in_oss_since:None ~lifecycle:[]
     ~doc:"Scan the host and update its driver information."
-    ~params:[(Ref _host, "host", "The host to be rescanned")]
+    ~params:[(Ref _host, "self", "The host to be rescanned")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
 let copy_primary_host_certs =

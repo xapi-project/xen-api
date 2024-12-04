@@ -22,11 +22,7 @@ let int n = Int32.to_int n
 let ( // ) = Filename.concat
 
 (** Read a (small) file into a string *)
-let read path =
-  let ic = open_in path in
-  defer (fun () -> close_in ic) @@ fun () ->
-  let size = in_channel_length ic in
-  really_input_string ic size
+let read path = Xapi_stdext_unix.Unixext.string_of_file path
 
 type note = {typ: int32; name: string; desc: string}
 

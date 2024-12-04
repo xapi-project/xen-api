@@ -3089,7 +3089,8 @@ let apply_updates ~__context ~self ~hash =
   Db.Host.set_last_update_hash ~__context ~self ~value:hash ;
   warnings
 
-let rescan_drivers ~__context ~host = Xapi_host_driver.scan ~__context ~host
+let rescan_drivers ~__context ~self =
+  Xapi_host_driver.scan ~__context ~host:self
 
 let cc_prep () =
   let cc = "CC_PREPARATIONS" in

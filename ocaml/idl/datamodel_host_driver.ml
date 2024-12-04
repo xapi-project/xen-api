@@ -77,7 +77,7 @@ let t =
           "selected_variant"
           "Variant (if any) selected to become active after reboot. Or Null"
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:String "type"
-          "Devive type this driver supports, like network or storage"
+          "Device type this driver supports, like network or storage"
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:String "description"
           "Description of the driver"
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:String "info"
