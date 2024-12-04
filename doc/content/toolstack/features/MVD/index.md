@@ -289,8 +289,8 @@ this is part of a host object.)
   up storage, creating resource pools and managing patches, high
   availability (HA) and workload balancing (WLB)"
 
-* `select (self, version)`; select `version` of driver `self`. Selecting
-  the version (a string) of an existing driver.
+* `select (self, variant)`; select `variant` of driver `self`. Selecting
+  the variant (a reference) of an existing driver.
 
 * `deselect(self)`: this driver can't be loaded next time the kernel is
   looking for a driver. This is a potentially dangerous operation, so it's
