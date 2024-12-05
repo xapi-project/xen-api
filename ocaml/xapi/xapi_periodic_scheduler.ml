@@ -91,7 +91,7 @@ let loop () =
       else
         let next = with_lock lock (fun () -> Ipq.maximum queue) in
         let now = Mtime_clock.now () in
-        if Mtime.compare next.Ipq.time now < 0 then (
+        if Mtime.is_earlier next.Ipq.time ~than:now then (
           let todo =
             (with_lock lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev
           in
