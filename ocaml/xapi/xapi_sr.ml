@@ -575,9 +575,6 @@ let update ~__context ~sr =
         Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string
       in
       let sr_info = C.SR.stat (Ref.string_of task) sr' in
-      Db.SR.set_name_label ~__context ~self:sr ~value:sr_info.name_label ;
-      Db.SR.set_name_description ~__context ~self:sr
-        ~value:sr_info.name_description ;
       Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space ;
       Db.SR.set_physical_utilisation ~__context ~self:sr
         ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
@@ -846,7 +843,7 @@ let set_name_label ~__context ~sr ~value =
         (Storage_interface.Sr.of_string sr')
         value
   ) ;
-  update ~__context ~sr
+  Db.SR.set_name_label ~__context ~self:sr ~value
 
 let set_name_description ~__context ~sr ~value =
   let open Storage_access in
@@ -860,7 +857,7 @@ let set_name_description ~__context ~sr ~value =
         (Storage_interface.Sr.of_string sr')
         value
   ) ;
-  update ~__context ~sr
+  Db.SR.set_name_description ~__context ~self:sr ~value
 
 let set_virtual_allocation ~__context ~self ~value =
   Db.SR.set_virtual_allocation ~__context ~self ~value
