@@ -33,16 +33,12 @@ let (queue : t Ipq.t) = Ipq.create 50 queue_default
 
 let lock = Mutex.create ()
 
-let add_span clock span =
-  (* return max value if the add overflows: spans are unsigned integers *)
-  match Mtime.add_span clock span with Some t -> t | None -> Mtime.max_stamp
-
 let add_to_queue_span name ty start_span newfunc =
-  let ( ++ ) = add_span in
+  let ( ++ ) = Mtime.Span.add in
   let item =
     {
       Ipq.ev= {func= newfunc; ty; name}
-    ; Ipq.time= Mtime_clock.now () ++ start_span
+    ; Ipq.time= Mtime_clock.elapsed () ++ start_span
     }
   in
   with_lock lock (fun () -> Ipq.add queue item) ;
@@ -68,11 +64,11 @@ let add_periodic_pending () =
   with_lock lock @@ fun () ->
   match !pending_event with
   | Some ({ty= Periodic timer; _} as ev) ->
-      let ( ++ ) = add_span in
+      let ( ++ ) = Mtime.Span.add in
       let delta =
         Clock.Timer.s_to_span timer |> Option.value ~default:Mtime.Span.max_span
       in
-      let item = {Ipq.ev; Ipq.time= Mtime_clock.now () ++ delta} in
+      let item = {Ipq.ev; Ipq.time= Mtime_clock.elapsed () ++ delta} in
       Ipq.add queue item ;
       pending_event := None
   | Some {ty= OneShot; _} ->
@@ -84,15 +80,15 @@ let loop () =
   debug "%s started" __MODULE__ ;
   try
     while true do
-      let now = Mtime_clock.now () in
+      let now = Mtime_clock.elapsed () in
       let deadline, item =
         with_lock lock @@ fun () ->
         (* empty: wait till we get something *)
         if Ipq.is_empty queue then
-          (add_span now Mtime.Span.(10 * s), None)
+          (Mtime.Span.add now Mtime.Span.(10 * s), None)
         else
           let next = Ipq.maximum queue in
-          if Mtime.is_later next.Ipq.time ~than:now then
+          if Mtime.Span.is_longer next.Ipq.time ~than:now then
             (* not expired: wait till time or interrupted *)
             (next.Ipq.time, None)
           else (
@@ -110,7 +106,7 @@ let loop () =
       | None -> (
           (* Sleep until next event. *)
           let sleep =
-            Mtime.(span deadline now)
+            Mtime.(Span.abs_diff deadline now)
             |> Mtime.Span.(add ms)
             |> Clock.Timer.span_to_s
           in
