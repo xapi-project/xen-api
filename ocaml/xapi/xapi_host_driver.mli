@@ -1,20 +1,18 @@
-module D : Debug.DEBUG
+(*
+   Copyright (c) Cloud Software Group, Inc.
 
-module Unixext = Xapi_stdext_unix.Unixext
-module T = Xapi_host_driver_tool
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU Lesser General Public License as published
+   by the Free Software Foundation; version 2.1 only. with the special
+   exception on linking described in file LICENSE.
 
-val with_lock : Mutex.t -> (unit -> 'a) -> 'a
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU Lesser General Public License for more details.
+ *)
 
-val selection_mutex : Mutex.t
-
-val ( // ) : string -> string -> string
-
-val invalid_value : string -> string -> 'a
-
-val internal_error : ('a, unit, string, 'b) format4 -> 'a
-
-val drivertool : string list -> string
-
+(** A host driver variant, referred to by a host driver *)
 module Variant : sig
   val create :
        __context:Context.t
@@ -42,6 +40,7 @@ val create :
   -> active_variant:[`Driver_variant] API.Ref.t
   -> selected_variant:[`Driver_variant] API.Ref.t
   -> [`Host_driver] Ref.t
+(** A host driver *)
 
 val destroy : __context:Context.t -> self:[`Host_driver] API.Ref.t -> unit
 
@@ -52,9 +51,11 @@ val select :
   -> unit
 
 val deselect : __context:Context.t -> self:[`Host_driver] API.Ref.t -> unit
-
-val reset : __context:Context.t -> host:[< Ref.all] Ref.t -> unit
+(** This is just for completeness; don't see a use case right now *)
 
 val scan : __context:Context.t -> host:[`host] API.Ref.t -> unit
+(** scan and re-scan scan the [host] for drivers and update the xapi
+    database accordingly. Previous entries are purged (this may change
+    in the future *)
 
 val rescan : __context:Context.t -> host:[`host] API.Ref.t -> unit
