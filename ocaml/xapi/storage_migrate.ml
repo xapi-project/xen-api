@@ -529,7 +529,7 @@ module MigrateLocal = struct
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
         Http.Url.set_uri url'
-          (Printf.sprintf "%s/nbd/%s/%s/%s/%s" (Http.Url.get_uri url')
+          (Printf.sprintf "%s/nbdproxy/%s/%s/%s/%s" (Http.Url.get_uri url')
              (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
@@ -537,7 +537,7 @@ module MigrateLocal = struct
           )
         |> Http.Url.to_string
       in
-      debug "copy remote NBD URL = %s" dest_vdi_url ;
+      debug "%s copy remote NBD URL = %s" __FUNCTION__ dest_vdi_url ;
       let id = State.copy_id_of (sr, vdi) in
       debug "Persisting state for copy (id=%s)" id ;
       State.add id
@@ -762,7 +762,7 @@ module MigrateLocal = struct
         ; watchdog= None
         }
     in
- 
+
     State.add mirror_id (State.Send_op alm) ;
     debug "%s Added mirror %s to active local mirrors" __FUNCTION__ mirror_id ;
     (* A list of cleanup actions to perform if the operation should fail. *)
@@ -1380,6 +1380,34 @@ let nbd_handler req s ?(vm = "0") sr vdi dp =
         Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
         req.Http.Request.close <- true
       )
+    )
+    (fun () -> Unix.close control_fd)
+
+(** nbd_proxy is a http handler but will turn the http connection into an nbd connection.
+It proxies the connection between the sender and the generic nbd server, as returned
+by [get_nbd_server dp sr vdi vm]. *)
+let nbd_proxy req s vm sr vdi dp =
+  debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
+  let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
+  req.Http.Request.close <- true ;
+  let vm = Vm.of_string vm in
+  let path =
+    Storage_utils.transform_storage_exn (fun () ->
+        Local.DATA.MIRROR.get_nbd_server "nbd" dp sr vdi vm
+    )
+  in
+  debug "%s got nbd server path %s" __FUNCTION__ path ;
+  Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
+  let control_fd = Unixext.open_connection_unix_fd path in
+  finally
+    (fun () ->
+      let s' = Unix.dup s in
+      let control_fd' = Unix.dup control_fd in
+      debug "%s: Connected; running proxy (between fds: %d and %d)" __FUNCTION__
+        (Unixext.int_of_file_descr control_fd')
+        (Unixext.int_of_file_descr s') ;
+      Unixext.proxy s' control_fd' ;
+      debug "%s: proxy exited" __FUNCTION__
     )
     (fun () -> Unix.close control_fd)
 
