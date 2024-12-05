@@ -913,8 +913,8 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.set_content_id" []
         (dbg_p @-> sr_p @-> vdi_p @-> content_id_p @-> returning unit_p err)
 
-    (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1],
-        modifying [vdi2] *)
+    (** [compose task sr parent child] layers the updates from [child] onto [parent],
+        modifying [child] *)
     let compose =
       let vdi1_p = Param.mk ~name:"vdi1" Vdi.t in
       let vdi2_p = Param.mk ~name:"vdi2" Vdi.t in
@@ -1040,7 +1040,8 @@ module StorageAPI (R : RPC) = struct
           @-> returning result err
           )
 
-      (** Called on the receiving end to prepare for receipt of the storage.*)
+      (** Called on the receiving end to prepare for receipt of the storage. This
+      function should be used in conjunction with [receive_finalize2]*)
       let receive_start2 =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
         let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
@@ -1071,6 +1072,8 @@ module StorageAPI (R : RPC) = struct
         declare "DATA.MIRROR.receive_finalize2" []
           (dbg_p @-> id_p @-> returning unit_p err)
 
+      (** [receive_cancel dbg id] is called in the case of migration failure to
+      do the clean up.*)
       let receive_cancel =
         declare "DATA.MIRROR.receive_cancel" []
           (dbg_p @-> id_p @-> returning unit_p err)
