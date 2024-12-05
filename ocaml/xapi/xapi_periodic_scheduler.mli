@@ -22,6 +22,10 @@ val add_to_queue :
   ?signal:bool -> string -> func_ty -> float -> (unit -> unit) -> unit
 (** Start a new timer. *)
 
+val add_to_queue_span :
+  ?signal:bool -> string -> func_ty -> Mtime.Span.t -> (unit -> unit) -> unit
+(** Start a new timer. *)
+
 val remove_from_queue : string -> unit
 (** Remove a scheduled item by name *)
 
