@@ -1093,6 +1093,10 @@ module StorageAPI (R : RPC) = struct
           @-> returning sock_path_p err
           )
 
+      (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
+      server that can be connected to. Depending on the backend, this will either
+      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
+      from [import_activate] as the returned server does not accept fds. *)
       let get_nbd_server =
         declare "DATA.MIRROR.get_nbd_server" []
           (dbg_p
