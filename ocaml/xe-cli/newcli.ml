@@ -816,6 +816,7 @@ let main () =
         in
         let args = String.concat "\n" args in
         Printf.fprintf oc "User-agent: xe-cli/Unix/%d.%d\r\n" major minor ;
+        Printf.fprintf oc "originator: cli\r\n" ;
         Option.iter (Printf.fprintf oc "traceparent: %s\r\n") traceparent ;
         Printf.fprintf oc "content-length: %d\r\n\r\n" (String.length args) ;
         Printf.fprintf oc "%s" args ;
