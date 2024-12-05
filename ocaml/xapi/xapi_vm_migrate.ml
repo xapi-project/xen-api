@@ -479,6 +479,7 @@ let remove_stale_pcis ~__context ~vm =
   in
   List.iter remove stale_pcis
 
+(** Called on the destination side *)
 let pool_migrate_complete ~__context ~vm ~host:_ =
   let id = Db.VM.get_uuid ~__context ~self:vm in
   debug "VM.pool_migrate_complete %s" id ;
