@@ -23,12 +23,6 @@ module DriverSet = Set.Make (String)
 *)
 module T = Xapi_host_driver_tool
 
-let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
-
-let selection_mutex = Mutex.create ()
-
-let ( // ) = Filename.concat
-
 let invalid_value field value =
   raise Api_errors.(Server_error (invalid_value, [field; value]))
 
@@ -43,7 +37,7 @@ let internal_error fmt =
 let drivertool args =
   let path = !Xapi_globs.driver_tool in
   try
-    let stdout, stderr = Forkhelpers.execute_command_get_output path args in
+    let stdout, _stderr = Forkhelpers.execute_command_get_output path args in
     debug "%s: executed %s %s" __FUNCTION__ path (String.concat " " args) ;
     stdout
   with e ->

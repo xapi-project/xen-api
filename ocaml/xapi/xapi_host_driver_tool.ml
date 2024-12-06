@@ -100,11 +100,11 @@ module J = struct
     | e ->
         R.error (Printexc.to_string e)
 
-  let keys = wrap U.keys
+  let _keys = wrap U.keys
 
-  let values = wrap U.values
+  let _values = wrap U.values
 
-  let combine = wrap2 U.combine
+  let _combine = wrap2 U.combine
 
   let member key json =
     match U.member key json with
@@ -115,39 +115,39 @@ module J = struct
     | exception e ->
         R.error (Printexc.to_string e)
 
-  let path = wrap2 U.path
+  let _path = wrap2 U.path
 
-  let index = wrap2 U.index
+  let _index = wrap2 U.index
 
-  let map = wrap2 U.map
+  let _map = wrap2 U.map
 
   let to_assoc = wrap U.to_assoc
 
-  let to_option f = wrap (U.to_option f)
+  let _to_option f = wrap (U.to_option f)
 
   let to_bool = wrap U.to_bool
 
-  let to_bool_option = wrap U.to_bool_option
+  let _to_bool_option = wrap U.to_bool_option
 
   let to_number = wrap U.to_number
 
-  let to_number_option = wrap U.to_number_option
+  let _to_number_option = wrap U.to_number_option
 
-  let to_float = wrap U.to_float
+  let _to_float = wrap U.to_float
 
-  let to_float_option = wrap U.to_float_option
+  let _to_float_option = wrap U.to_float_option
 
-  let to_int = wrap U.to_int
+  let _to_int = wrap U.to_int
 
-  let to_int_option = wrap U.to_int_option
+  let _to_int_option = wrap U.to_int_option
 
-  let to_list = wrap U.to_list
+  let _to_list = wrap U.to_list
 
   let to_string = wrap U.to_string
 
   let to_string_option = wrap U.to_string_option
 
-  let convert_each f = wrap (U.convert_each f)
+  let _convert_each f = wrap (U.convert_each f)
 end
 
 (** combinators for results and accessing members in JSON objects *)
@@ -161,7 +161,7 @@ let ( |. ) json key = json |> J.member key
 
 (** combine a list of ok list of oks into an ok list: 
     ('a, 'b) result list -> ('a list, 'b) result.  *)
-let combine results =
+let _combine results =
   let rec loop acc = function
     | [] ->
         R.Ok (List.rev acc)
@@ -185,9 +185,9 @@ let combine_assoc results =
   in
   loop [] results
 
-let protocol json = json |. "protocol" ||. "version" ||> J.to_string
+let _protocol json = json |. "protocol" ||. "version" ||> J.to_string
 
-let operation json = json |. "operation" ||. "reboot" ||> J.to_bool
+let _operation json = json |. "operation" ||. "reboot" ||> J.to_bool
 
 let variant json =
   let* version = json |. "version" ||> J.to_string in
