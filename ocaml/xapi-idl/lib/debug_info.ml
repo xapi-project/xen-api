@@ -22,10 +22,34 @@ let make ~log ~tracing = {log; tracing}
 let of_string s =
   let open Tracing in
   match String.split_on_char separator s with
-  | [log; traceparent] ->
-      let spancontext = SpanContext.of_traceparent traceparent in
+  | [log; trace_context] ->
+      (* Process the tracing data:
+         1. We expect a JSON representing the trace_context.
+         2. If the JSON is valid but not representing a trace_context,
+         we ignore the tracing data.
+         3. If we get an exception from parsing the JSON string,
+         it means a traceparent string was received.*)
+      let trace_context =
+        try
+          let trace_context =
+            Tracing.TraceContext.of_json_string trace_context
+          in
+          match trace_context with
+          | Ok trace_context ->
+              Some trace_context
+          | Error _ ->
+              None
+        with _ ->
+          Some
+            (TraceContext.empty
+            |> TraceContext.with_traceparent (Some trace_context)
+            )
+      in
+      let spancontext =
+        Option.(join (map Tracing.SpanContext.of_trace_context trace_context))
+      in
       let tracing =
-        Option.map (fun tp -> Tracer.span_of_span_context tp log) spancontext
+        Option.map (Fun.flip Tracer.span_of_span_context log) spancontext
       in
       {log; tracing}
   | _ ->
@@ -37,11 +61,13 @@ let filter_separator = Astring.String.filter (( <> ) separator)
 let to_string t =
   Option.fold ~none:t.log
     ~some:(fun span ->
-      let traceparent =
-        Tracing.Span.get_context span |> Tracing.SpanContext.to_traceparent
+      let trace_context =
+        span
+        |> Tracing.Span.to_propagation_context
+        |> Tracing.TraceContext.to_json_string
       in
       Printf.sprintf "%s%c%s" (filter_separator t.log) separator
-        (filter_separator traceparent)
+        (filter_separator trace_context)
     )
     t.tracing
 
@@ -68,7 +94,21 @@ let with_dbg ?(with_thread = false) ~module_name ~name ~dbg f =
 
 let traceparent_of_dbg dbg =
   match String.split_on_char separator dbg with
-  | [_; traceparent] ->
-      Some traceparent
+  | [_; trace_context] -> (
+    (* Process the tracing data:
+         1. We expect a JSON representing the trace_context.
+         2. If the JSON is valid but not representing a trace_context,
+         we ignore the tracing data.
+         3. If we get an exception from parsing the JSON string,
+         it means a traceparent string was received.*)
+    try
+      let trace_context = Tracing.TraceContext.of_json_string trace_context in
+      match trace_context with
+      | Ok trace_context ->
+          Tracing.TraceContext.traceparent_of trace_context
+      | Error _ ->
+          None
+    with _ -> Some trace_context
+  )
   | _ ->
       None
