@@ -94,6 +94,10 @@ module TraceContext : sig
   val traceparent_of : t -> traceparent option
 
   val baggage_of : t -> baggage option
+
+  val to_json_string : t -> string
+
+  val of_json_string : string -> (t, string) result
 end
 
 module SpanContext : sig
@@ -118,6 +122,8 @@ module Span : sig
   val compare : t -> t -> int
 
   val get_context : t -> SpanContext.t
+
+  val get_trace_context : t -> TraceContext.t
 
   val add_link : t -> SpanContext.t -> (string * string) list -> t
 
