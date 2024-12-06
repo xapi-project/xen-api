@@ -32,7 +32,7 @@ mli-files () {
   # do not count ml files from the tests in ocaml/{tests/quicktest}
   M=$(comm -23  <(git ls-files -- '**/*.ml'  | sed 's/.ml$//'  | sort) \
                 <(git ls-files -- '**/*.mli' | sed 's/.mli$//' | sort) |\
-                grep -vE "$X" | wc -l)
+                grep -cvE "$X")
 
   if [ "$M" -eq "$N" ]; then
     echo "OK counted $M .ml files without an .mli"
