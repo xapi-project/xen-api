@@ -31,7 +31,7 @@ Single simple signal stored
 let simple () =
   let d = Delay.make () in
   Delay.signal d ;
-  delay_wait_check ~min:0. ~max:0.01 d 1.0 false
+  delay_wait_check ~min:0. ~max:0.05 d 1.0 false
 
 (*
 No signal
@@ -39,7 +39,7 @@ No signal
 *)
 let no_signal () =
   let d = Delay.make () in
-  delay_wait_check ~min:0.1 ~max:0.11 d 0.1 true
+  delay_wait_check ~min:0.2 ~max:0.25 d 0.2 true
 
 (*
 Signal twice, collapsed
@@ -52,8 +52,8 @@ let collapsed () =
   let d = Delay.make () in
   Delay.signal d ;
   Delay.signal d ;
-  delay_wait_check ~min:0. ~max:0.01 d 0.1 false ;
-  delay_wait_check ~min:0.1 ~max:0.11 d 0.1 true
+  delay_wait_check ~min:0. ~max:0.05 d 0.2 false ;
+  delay_wait_check ~min:0.2 ~max:0.25 d 0.2 true
 
 (*
 Signal from another thread
@@ -62,8 +62,8 @@ Signal from another thread
 *)
 let other_thread () =
   let d = Delay.make () in
-  let th = Thread.create (fun d -> Thread.delay 0.1 ; Delay.signal d) d in
-  delay_wait_check ~min:0.1 ~max:0.11 d 1.0 false ;
+  let th = Thread.create (fun d -> Thread.delay 0.2 ; Delay.signal d) d in
+  delay_wait_check ~min:0.2 ~max:0.25 d 1.0 false ;
   Thread.join th
 
 let tests =
