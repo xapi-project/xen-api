@@ -48,13 +48,16 @@ module Clock = struct
         Mtime.min_stamp
 end
 
-let add_to_queue ?(signal = true) name ty start newfunc =
+let add_to_queue_internal ?(signal = true) name ty start newfunc =
   let ( ++ ) = Clock.add_span in
   let item =
     {Ipq.ev= {func= newfunc; ty; name}; Ipq.time= Mtime_clock.now () ++ start}
   in
   with_lock lock (fun () -> Ipq.add queue item) ;
   if signal then Delay.signal delay
+
+let add_to_queue name ty start newfunc =
+  add_to_queue_internal name ty start newfunc
 
 let remove_from_queue name =
   with_lock lock @@ fun () ->
@@ -82,7 +85,8 @@ let loop () =
           | OneShot ->
               ()
           | Periodic timer ->
-              add_to_queue ~signal:false todo.name todo.ty timer todo.func
+              add_to_queue_internal ~signal:false todo.name todo.ty timer
+                todo.func
         ) else (* Sleep until next event. *)
           let sleep =
             Mtime.(span next.Ipq.time now)
