@@ -3536,10 +3536,10 @@ let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
   repos
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
-         sync ~__context ~self:repo ~token ~token_id ;
-         (* Dnf sync all the metadata including updateinfo,
+         let complete = sync ~__context ~self:repo ~token ~token_id in
+         (* Dnf and custom yum-utils sync all the metadata including updateinfo,
           * Thus no need to re-create pool repository *)
-         if Pkgs.manager = Yum then
+         if Pkgs.manager = Yum && complete = false then
            create_pool_repository ~__context ~self:repo
      ) ;
   let checksum = set_available_updates ~__context in
