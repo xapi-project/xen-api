@@ -49,14 +49,11 @@ module Clock = struct
 end
 
 let add_to_queue ?(signal = true) name ty start newfunc =
-  with_lock lock (fun () ->
-      let ( ++ ) = Clock.add_span in
-      Ipq.add queue
-        {
-          Ipq.ev= {func= newfunc; ty; name}
-        ; Ipq.time= Mtime_clock.now () ++ start
-        }
-  ) ;
+  let ( ++ ) = Clock.add_span in
+  let item =
+    {Ipq.ev= {func= newfunc; ty; name}; Ipq.time= Mtime_clock.now () ++ start}
+  in
+  with_lock lock (fun () -> Ipq.add queue item) ;
   if signal then Delay.signal delay
 
 let remove_from_queue name =
