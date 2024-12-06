@@ -8022,7 +8022,7 @@ module Host_driver = struct
     let self = Client.Host_driver.get_by_uuid ~rpc ~session_id ~uuid in
     Client.Host_driver.deselect ~rpc ~session_id ~self
 
-  let rescan printer rpc session_id params =
+  let rescan _printer rpc session_id params =
     ignore
       (do_host_op rpc session_id ~multiple:false
          (fun _ host ->
