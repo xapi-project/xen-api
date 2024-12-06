@@ -50,8 +50,7 @@ let rescan =
   call ~name:"rescan" ~in_oss_since:None ~lifecycle:[]
     ~doc:
       "UNSUPPORTED. Re-scan a host's drivers and update information about \
-       them. This\n\
-      \      is mostly  for trouble shooting."
+       them. This is mostly  for trouble shooting."
     ~params:[(Ref _host, "host", "Update driver information of this host.")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
