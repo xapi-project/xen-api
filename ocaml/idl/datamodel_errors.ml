@@ -1818,6 +1818,11 @@ let _ =
       "The address specified is already in use by an existing PVS_server object"
     () ;
 
+  error Api_errors.pvs_vif_must_be_first_device []
+    ~doc:
+      "The VIF used by PVS proxy must be the one with the lowest device number"
+    () ;
+
   error Api_errors.usb_group_contains_vusb ["vusbs"]
     ~doc:"The USB group contains active VUSBs and cannot be deleted." () ;
   error Api_errors.usb_group_contains_pusb ["pusbs"]
