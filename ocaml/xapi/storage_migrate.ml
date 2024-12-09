@@ -1398,12 +1398,14 @@ let nbd_proxy req s vm sr vdi dp =
   in
   debug "%s got nbd server path %s" __FUNCTION__ path ;
   Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
-  let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+  let control_fd = Unixext.open_connection_unix_fd path in
   finally
     (fun () ->
-      Unix.connect control_fd (Unix.ADDR_UNIX path) ;
-      debug "%s about to proxy between two fd" __FUNCTION__ ;
-      Unixext.proxy s control_fd
+      debug "%s: Connected; running proxy (between fds: %d and %d)" __FUNCTION__
+        (Unixext.int_of_file_descr control_fd)
+        (Unixext.int_of_file_descr s) ;
+      Unixext.proxy (Unix.dup s) (Unix.dup control_fd) ;
+      debug "%s: proxy exited" __FUNCTION__
     )
     (fun () -> Unix.close control_fd)
 
