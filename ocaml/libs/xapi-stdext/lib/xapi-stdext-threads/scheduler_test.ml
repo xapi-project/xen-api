@@ -73,11 +73,31 @@ let test_empty () =
   let elapsed_ms = elapsed_ms cnt in
   Alcotest.check is_less "small time" 100 elapsed_ms
 
+let test_wakeup () =
+  let which = Event.new_channel () in
+  (* schedule a long event *)
+  Scheduler.add_to_queue "long" Scheduler.OneShot 2.0 (fun () ->
+      send which "long"
+  ) ;
+  start_schedule () ;
+  (* wait loop to go to wait with no work to do *)
+  Thread.delay 0.1 ;
+  let cnt = Mtime_clock.counter () in
+  (* schedule a quick event, should wake up the loop *)
+  Scheduler.add_to_queue "quick" Scheduler.OneShot 0.1 (fun () ->
+      send which "quick"
+  ) ;
+  Alcotest.(check string) "same event name" "quick" (receive which) ;
+  Scheduler.remove_from_queue "long" ;
+  let elapsed_ms = elapsed_ms cnt in
+  Alcotest.check is_less "small time" 150 elapsed_ms
+
 let tests =
   [
     ("test_single", `Quick, test_single)
   ; ("test_remove_self", `Quick, test_remove_self)
   ; ("test_empty", `Quick, test_empty)
+  ; ("test_wakeup", `Quick, test_wakeup)
   ]
 
 let () = Alcotest.run "Scheduler" [("generic", tests)]
