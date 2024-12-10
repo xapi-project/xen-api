@@ -74,14 +74,13 @@ let ds =
 let rrd =
   Cb.(map [list1 int64; rra; ds]) (fun values rra ds ->
       let open Rrd in
-      let init_time = 0. in
-
-      let rrd = rrd_create [|ds|] [|rra|] 5L init_time in
+      let rrd = rrd_create [|ds|] [|rra|] 5L 0. in
 
       List.iteri
         (fun i v ->
-          let t = 5. *. (init_time +. float_of_int i) in
-          ds_update rrd t [|VT_Int64 v|] [|Identity|] (i = 0)
+          let timestamp = 5. *. float_of_int i in
+          let arr = [|(0, {value= VT_Int64 v; transform= Identity})|] in
+          ds_update rrd timestamp arr (i = 0)
         )
         values ;
       rrd

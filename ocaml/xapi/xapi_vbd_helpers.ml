@@ -443,4 +443,5 @@ let copy ~__context ?vdi ~vm vbd =
     ~qos_algorithm_type:all.API.vBD_qos_algorithm_type
     ~qos_algorithm_params:all.API.vBD_qos_algorithm_params
     ~qos_supported_algorithms:[] ~runtime_properties:[] ~metrics ;
+  update_allowed_operations ~__context ~self:new_vbd ;
   new_vbd

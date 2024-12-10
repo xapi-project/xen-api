@@ -160,7 +160,7 @@ def test_update(
         unpacked_metadata_checksum,
         unpacked_num_datasources,
         unpacked_timestamp,
-    ) = unpack(">LLLQ", header[11:])
+    ) = unpack(">LLLd", header[11:])
 
     # Assert the expected unpacked header value
     assert header.startswith(b"DATASOURCES")
@@ -172,7 +172,7 @@ def test_update(
     #
 
     # Initialize the expected checksum with the fixed time
-    expected_checksum = checksum(pack(">Q", fixed_time))
+    expected_checksum = checksum(pack(">d", fixed_time))
     # Loop over the datasources and assert the packed data
     testee.dest.seek(header_len)
     # sourcery skip: no-loop-in-tests

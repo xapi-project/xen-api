@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module D = Debug.Make (struct let name = "backgroundscheduler" end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 module Delay = Xapi_stdext_threads.Threadext.Delay
@@ -25,21 +25,27 @@ type t = {func: unit -> unit; ty: func_ty; name: string}
 
 let delay = Delay.make ()
 
-let (queue : t Ipq.t) = Ipq.create 50
+let queue_default = {func= (fun () -> ()); ty= OneShot; name= ""}
+
+let (queue : t Ipq.t) = Ipq.create 50 queue_default
 
 let lock = Mutex.create ()
 
 module Clock = struct
-  (** time span of s seconds *)
   let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
 
+  let span_to_s span =
+    Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
+
   let add_span clock secs =
+    (* return mix or max available value if the add overflows *)
     match Mtime.add_span clock (span secs) with
     | Some t ->
         t
+    | None when secs > 0. ->
+        Mtime.max_stamp
     | None ->
-        raise
-          Api_errors.(Server_error (internal_error, ["clock overflow"; __LOC__]))
+        Mtime.min_stamp
 end
 
 let add_to_queue ?(signal = true) name ty start newfunc =
@@ -75,7 +81,7 @@ let wait_next sleep =
     Thread.delay sleep
 
 let loop () =
-  debug "Periodic scheduler started" ;
+  debug "%s started" __MODULE__ ;
   try
     while true do
       let empty = with_lock lock (fun () -> Ipq.is_empty queue) in
@@ -98,12 +104,12 @@ let loop () =
         ) else (* Sleep until next event. *)
           let sleep =
             Mtime.(span next.Ipq.time now)
-            |> Mtime.Span.add (Clock.span 0.001)
-            |> Scheduler.span_to_s
+            |> Mtime.Span.(add ms)
+            |> Clock.span_to_s
           in
           wait_next sleep
     done
   with _ ->
     error
-      "Periodic scheduler died! Xapi will no longer function well and should \
-       be restarted."
+      "Scheduler thread died! This daemon will no longer function well and \
+       should be restarted."

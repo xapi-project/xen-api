@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) Cloud Software Group, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,14 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-let stdout_m = Mutex.create ()
 
-let debug ?(out = stdout) (fmt : ('a, unit, string, unit) format4) =
-  Xapi_stdext_threads.Threadext.Mutex.execute stdout_m (fun () ->
-      Printf.ksprintf
-        (fun s ->
-          Printf.fprintf out "%s\n" s ;
-          flush stdout
-        )
-        fmt
-  )
+module type S = sig
+  type carrier
+
+  val inject_into : Tracing.TraceContext.t -> carrier -> carrier
+
+  val extract_from : carrier -> Tracing.TraceContext.t
+end
+
+module Http : S with type carrier = Http.Request.t

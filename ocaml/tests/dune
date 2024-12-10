@@ -118,6 +118,7 @@
     xapi-types
     xapi-stdext-date
     xapi-stdext-threads
+    xapi-stdext-threads.scheduler
     xapi-stdext-unix
     xml-light2
     yojson

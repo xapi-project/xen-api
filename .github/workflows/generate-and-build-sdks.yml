@@ -24,6 +24,14 @@ jobs:
         shell: bash
         run: opam exec -- make sdk
 
+      # sdk-ci runs some Go unit tests.
+      # This setting ensures that SDK date time 
+      # tests are run on a machine that
+      # isn't using UTC
+      - name: Set Timezone to Tokyo for datetime tests
+        run: |
+          sudo timedatectl set-timezone Asia/Tokyo
+
       - name: Run CI for SDKs
         uses: ./.github/workflows/sdk-ci
 
@@ -54,6 +62,7 @@ jobs:
           path: |
             _build/install/default/share/go/*
             !_build/install/default/share/go/dune
+            !_build/install/default/share/go/**/*_test.go
 
       - name: Store Java SDK source
         uses: actions/upload-artifact@v4
@@ -110,6 +119,14 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # Java Tests are run at compile time.
+      # This setting ensures that SDK date time 
+      # tests are run on a machine that
+      # isn't using UTC 
+      - name: Set Timezone to Tokyo for datetime tests
+        run: |
+          sudo timedatectl set-timezone Asia/Tokyo
+
       - name: Build Java SDK
         shell: bash
         run: |
@@ -137,6 +154,21 @@ jobs:
         with:
           name: SDK_Source_CSharp
           path: source/
+
+        # All tests builds and pipelines should
+        # work on other timezones. This setting ensures that
+        # SDK date time tests are run on a machine that
+        # isn't using UTC 
+      - name: Set Timezone to Tokyo for datetime tests
+        shell: pwsh
+        run: Set-TimeZone -Id "Tokyo Standard Time"
+
+      - name: Test C# SDK
+        shell: pwsh
+        run: |
+          dotnet test source/XenServerTest `
+          --disable-build-servers `
+          --verbosity=normal
 
       - name: Build C# SDK
         shell: pwsh

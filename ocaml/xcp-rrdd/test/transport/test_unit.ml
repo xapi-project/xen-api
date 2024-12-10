@@ -114,7 +114,7 @@ let test_reader_state protocol =
          payload again. *)
       let open Rrd_protocol in
       writer.Rrd_writer.write_payload
-        {test_payload with timestamp= Int64.add test_payload.timestamp 5L} ;
+        {test_payload with timestamp= test_payload.timestamp +. 5.} ;
       let (_ : Rrd_protocol.payload) = reader.Rrd_reader.read_payload () in
       ()
     )

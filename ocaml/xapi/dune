@@ -68,6 +68,7 @@
     xapi_database
     mtime
     tracing
+    tracing_propagator
     uuid
     rpclib.core
     threads.posix
@@ -154,6 +155,7 @@
     tgroup
     threads.posix
     tracing
+    tracing_propagator
     unixpwd
     uri
     uuid
@@ -195,6 +197,7 @@
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
+    xapi-stdext-threads.scheduler
     xapi-stdext-unix
     xapi-stdext-zerocheck
     xapi-tracing
@@ -241,6 +244,7 @@
     tgroup
     threads.posix
     tracing
+    tracing_propagator
     xapi-backtrace
     xapi-client
     xapi-consts
@@ -255,6 +259,7 @@
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
+    xapi-stdext-threads.scheduler
     xapi-stdext-unix
     xapi-types
     xapi_aux

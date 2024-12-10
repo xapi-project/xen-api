@@ -31,10 +31,12 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
+[assembly: InternalsVisibleTo("XenServerTest")]
 
 namespace XenAPI
 {
@@ -437,12 +439,16 @@ namespace XenAPI
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            string str = JToken.Load(reader).ToString();
+            // JsonReader may have already parsed the date for us
+            if (reader.ValueType != null && reader.ValueType == typeof(DateTime))
+            {
+                return reader.Value;
+            }
 
-            DateTime result;
+            var str = JToken.Load(reader).ToString();
 
             if (DateTime.TryParseExact(str, DateFormatsUtc, CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out result))
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var result))
                 return result;
 
             if (DateTime.TryParseExact(str, DateFormatsLocal, CultureInfo.InvariantCulture,
@@ -454,9 +460,8 @@ namespace XenAPI
 
         public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
-            if (value is DateTime)
+            if (value is DateTime dateTime)
             {
-                var dateTime = (DateTime)value;
                 dateTime = dateTime.ToUniversalTime();
                 var text = dateTime.ToString(DateFormatsUtc[0], CultureInfo.InvariantCulture);
                 writer.WriteValue(text);

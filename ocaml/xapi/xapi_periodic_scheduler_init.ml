@@ -76,48 +76,63 @@ let register ~__context =
   let update_all_subjects_delay = 10.0 in
   (* initial delay = 10 seconds *)
   if master then
-    Xapi_periodic_scheduler.add_to_queue "Synchronising RRDs/messages"
-      (Xapi_periodic_scheduler.Periodic sync_timer) sync_delay sync_func ;
+    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
+      "Synchronising RRDs/messages"
+      (Xapi_stdext_threads_scheduler.Scheduler.Periodic sync_timer) sync_delay
+      sync_func ;
   if master then
-    Xapi_periodic_scheduler.add_to_queue "Backing up RRDs"
-      (Xapi_periodic_scheduler.Periodic rrdbackup_timer) rrdbackup_delay
-      rrdbackup_func ;
+    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue "Backing up RRDs"
+      (Xapi_stdext_threads_scheduler.Scheduler.Periodic rrdbackup_timer)
+      rrdbackup_delay rrdbackup_func ;
   if master then
-    Xapi_periodic_scheduler.add_to_queue
+    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
       "Revalidating externally-authenticated sessions"
-      (Xapi_periodic_scheduler.Periodic
+      (Xapi_stdext_threads_scheduler.Scheduler.Periodic
          !Xapi_globs.session_revalidation_interval
-      ) session_revalidation_delay session_revalidation_func ;
+      )
+      session_revalidation_delay session_revalidation_func ;
   if master then
-    Xapi_periodic_scheduler.add_to_queue
+    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
       "Trying to update subjects' info using external directory service (if \
        any)"
-      (Xapi_periodic_scheduler.Periodic !Xapi_globs.update_all_subjects_interval)
+      (Xapi_stdext_threads_scheduler.Scheduler.Periodic
+         !Xapi_globs.update_all_subjects_interval
+      )
       update_all_subjects_delay update_all_subjects_func ;
-  Xapi_periodic_scheduler.add_to_queue "Periodic scheduler heartbeat"
-    (Xapi_periodic_scheduler.Periodic hb_timer) 240.0 hb_func ;
-  Xapi_periodic_scheduler.add_to_queue "Update monitor configuration"
-    (Xapi_periodic_scheduler.Periodic 3600.0) 3600.0
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
+    "Periodic scheduler heartbeat"
+    (Xapi_stdext_threads_scheduler.Scheduler.Periodic hb_timer) 240.0 hb_func ;
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
+    "Update monitor configuration"
+    (Xapi_stdext_threads_scheduler.Scheduler.Periodic 3600.0) 3600.0
     Monitor_master.update_configuration_from_master ;
   ( if master then
       let freq = !Xapi_globs.failed_login_alert_freq |> float_of_int in
-      Xapi_periodic_scheduler.add_to_queue
+      Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
         "Periodic alert failed login attempts"
-        (Xapi_periodic_scheduler.Periodic freq) freq
+        (Xapi_stdext_threads_scheduler.Scheduler.Periodic freq) freq
         Xapi_pool.alert_failed_login_attempts
   ) ;
-  Xapi_periodic_scheduler.add_to_queue
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue "broken_kernel"
+    (Xapi_stdext_threads_scheduler.Scheduler.Periodic 600.) 600. (fun () ->
+      Server_helpers.exec_with_new_task
+        "Periodic alert if the running kernel is broken in some serious way."
+        (fun __context -> Xapi_host.alert_if_kernel_broken ~__context
+      )
+  ) ;
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
     "Period alert if TLS verification emergency disabled"
-    (Xapi_periodic_scheduler.Periodic 600.) 600. (fun () ->
+    (Xapi_stdext_threads_scheduler.Scheduler.Periodic 600.) 600. (fun () ->
       Server_helpers.exec_with_new_task
         "Period alert if TLS verification emergency disabled" (fun __context ->
           Xapi_host.alert_if_tls_verification_was_emergency_disabled ~__context
       )
   ) ;
   let stunnel_period = !Stunnel_cache.max_idle /. 2. in
-  Xapi_periodic_scheduler.add_to_queue "Check stunnel cache expiry"
-    (Xapi_periodic_scheduler.Periodic stunnel_period) stunnel_period
-    Stunnel_cache.gc ;
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
+    "Check stunnel cache expiry"
+    (Xapi_stdext_threads_scheduler.Scheduler.Periodic stunnel_period)
+    stunnel_period Stunnel_cache.gc ;
   if
     master
     && Db.Pool.get_update_sync_enabled ~__context

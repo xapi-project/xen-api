@@ -287,7 +287,7 @@ let test_short_oneshot () =
     started := true ;
     Condition.broadcast cond ;
     Mutex.unlock m ;
-    Xapi_periodic_scheduler.loop ()
+    Xapi_stdext_threads_scheduler.Scheduler.loop ()
   in
   ignore (Thread.create scheduler ()) ;
   (* ensure scheduler sees an empty queue , by waiting for it to start *)
@@ -303,8 +303,8 @@ let test_short_oneshot () =
   let fired = Atomic.make false in
   let fire () = Atomic.set fired true in
   let task = "test_oneshot" in
-  Xapi_periodic_scheduler.add_to_queue task Xapi_periodic_scheduler.OneShot 1.
-    fire ;
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task
+    Xapi_stdext_threads_scheduler.Scheduler.OneShot 1. fire ;
   Thread.delay 2. ;
   assert (Atomic.get fired)
 

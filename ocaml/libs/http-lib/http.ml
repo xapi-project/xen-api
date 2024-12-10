@@ -134,8 +134,6 @@ module Hdr = struct
 
   let originator = "originator"
 
-  let traceparent = "traceparent"
-
   let hsts = "strict-transport-security"
 end
 
@@ -524,7 +522,6 @@ module Request = struct
     ; mutable close: bool
     ; additional_headers: (string * string) list
     ; body: string option
-    ; traceparent: string option
   }
   [@@deriving rpc]
 
@@ -548,12 +545,11 @@ module Request = struct
     ; close= true
     ; additional_headers= []
     ; body= None
-    ; traceparent= None
     }
 
   let make ?(frame = false) ?(version = "1.1") ?(keep_alive = true) ?accept
       ?cookie ?length ?auth ?subtask_of ?body ?(headers = []) ?content_type
-      ?host ?(query = []) ?traceparent ~user_agent meth path =
+      ?host ?(query = []) ~user_agent meth path =
     {
       empty with
       version
@@ -572,7 +568,6 @@ module Request = struct
     ; body
     ; accept
     ; query
-    ; traceparent
     }
 
   let get_version x = x.version
@@ -584,8 +579,7 @@ module Request = struct
     Printf.sprintf
       "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ \
        %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; \
-       subtask_of = %s; content-type = %s; host = %s; user_agent = %s; \
-       traceparent = %s }"
+       subtask_of = %s; content-type = %s; host = %s; user_agent = %s; }"
       x.frame (string_of_method_t x.m) x.uri (kvpairs x.query)
       (Option.fold ~none:"" ~some:Int64.to_string x.content_length)
       (Option.value ~default:"" x.transfer_encoding)
@@ -595,7 +589,6 @@ module Request = struct
       (Option.value ~default:"" x.content_type)
       (Option.value ~default:"" x.host)
       (Option.value ~default:"" x.user_agent)
-      (Option.value ~default:"" x.traceparent)
 
   let to_header_list x =
     let kvpairs x =
@@ -645,11 +638,6 @@ module Request = struct
         ~some:(fun x -> [Hdr.user_agent ^ ": " ^ x])
         x.user_agent
     in
-    let traceparent =
-      Option.fold ~none:[]
-        ~some:(fun x -> [Hdr.traceparent ^ ": " ^ x])
-        x.traceparent
-    in
     let close =
       [(Hdr.connection ^ ": " ^ if x.close then "close" else "keep-alive")]
     in
@@ -667,7 +655,6 @@ module Request = struct
     @ content_type
     @ host
     @ user_agent
-    @ traceparent
     @ close
     @ List.map (fun (k, v) -> k ^ ": " ^ v) x.additional_headers
 
@@ -697,29 +684,6 @@ module Request = struct
         f originator
       )
       req
-
-  let traceparent_of req =
-    let open Tracing in
-    let ( let* ) = Option.bind in
-    let* traceparent = req.traceparent in
-    let* span_context = SpanContext.of_traceparent traceparent in
-    let span = Tracer.span_of_span_context span_context req.uri in
-    Some span
-
-  let with_tracing ?attributes ~name req f =
-    let open Tracing in
-    let parent = traceparent_of req in
-    with_child_trace ?attributes parent ~name (fun (span : Span.t option) ->
-        match span with
-        | Some span ->
-            let traceparent =
-              Some (span |> Span.get_context |> SpanContext.to_traceparent)
-            in
-            let req = {req with traceparent} in
-            f req
-        | None ->
-            f req
-    )
 end
 
 module Response = struct
