@@ -352,6 +352,8 @@ end
 
 let _nonpersistent = "NONPERSISTENT"
 
+let _vdi_mirror_in = "VDI_MIRROR_IN"
+
 let _clone_on_boot_key = "clone-on-boot"
 
 let _vdi_type_key = "vdi-type"
@@ -1812,10 +1814,13 @@ let bind ~volume_script_dir =
         stat ~dbg ~sr ~vdi:temporary
     )
     >>>= fun response ->
-    choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
-    return_data_rpc (fun () ->
-        Datapath_client.import_activate (rpc ~dbg) dbg uri domain
-    )
+    choose_datapath domain response >>>= fun (rpc, datapath, uri, domain) ->
+    if Datapath_plugins.supports_feature datapath _vdi_mirror_in then
+      return_data_rpc (fun () ->
+          Datapath_client.import_activate (rpc ~dbg) dbg uri domain
+      )
+    else
+      fail (Storage_interface.Errors.Unimplemented _vdi_mirror_in)
   in
   S.DATA.MIRROR.import_activate data_import_activate_impl ;
 
