@@ -17,7 +17,7 @@ module Ipq = Xapi_stdext_threads_scheduler.Ipq
 (* test we get "out of bound" exception calling Ipq.remove *)
 let test_out_of_index () =
   let q = Ipq.create 10 0 in
-  Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.now ()} ;
+  Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.elapsed ()} ;
   let is_oob = function
     | Invalid_argument s when String.ends_with ~suffix:"  out of bounds" s ->
         true
@@ -43,18 +43,18 @@ let test_leak () =
   let use_array () = array.(0) <- 'a' in
   let allocated = Atomic.make true in
   Gc.finalise (fun _ -> Atomic.set allocated false) array ;
-  Ipq.add q {Ipq.ev= use_array; Ipq.time= Mtime_clock.now ()} ;
+  Ipq.add q {Ipq.ev= use_array; Ipq.time= Mtime_clock.elapsed ()} ;
   Ipq.remove q 0 ;
   Gc.full_major () ;
   Gc.full_major () ;
   Alcotest.(check bool) "allocated" false (Atomic.get allocated) ;
-  Ipq.add q {Ipq.ev= default; Ipq.time= Mtime_clock.now ()}
+  Ipq.add q {Ipq.ev= default; Ipq.time= Mtime_clock.elapsed ()}
 
 (* test Ipq.is_empty call *)
 let test_empty () =
   let q = Ipq.create 10 0 in
   Alcotest.(check bool) "same value" true (Ipq.is_empty q) ;
-  Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.now ()} ;
+  Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.elapsed ()} ;
   Alcotest.(check bool) "same value" false (Ipq.is_empty q) ;
   Ipq.remove q 0 ;
   Alcotest.(check bool) "same value" true (Ipq.is_empty q)
@@ -75,7 +75,7 @@ let set queue =
   Ipq.iter
     (fun d ->
       let t = d.time in
-      let t = Mtime.to_uint64_ns t in
+      let t = Mtime.Span.to_uint64_ns t in
       s := Int64Set.add t !s
     )
     queue ;
@@ -86,7 +86,7 @@ let test_old () =
   let s = ref Int64Set.empty in
   let add i =
     let ti = Random.int64 1000000L in
-    let t = Mtime.of_uint64_ns ti in
+    let t = Mtime.Span.of_uint64_ns ti in
     let e = {Ipq.time= t; Ipq.ev= i} in
     Ipq.add test e ;
     s := Int64Set.add ti !s
@@ -123,7 +123,7 @@ let test_old () =
   let prev = ref 0L in
   for _ = 0 to 49 do
     let e = Ipq.pop_maximum test in
-    let t = Mtime.to_uint64_ns e.time in
+    let t = Mtime.Span.to_uint64_ns e.time in
     Alcotest.(check bool)
       (Printf.sprintf "%Ld bigger than %Ld" t !prev)
       true (t >= !prev) ;

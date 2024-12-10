@@ -31,33 +31,22 @@ let (queue : t Ipq.t) = Ipq.create 50 queue_default
 
 let lock = Mutex.create ()
 
-module Clock = struct
-  let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
-
-  let span_to_s span =
-    Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
-
-  let add_span clock secs =
-    (* return mix or max available value if the add overflows *)
-    match Mtime.add_span clock (span secs) with
-    | Some t ->
-        t
-    | None when secs > 0. ->
-        Mtime.max_stamp
-    | None ->
-        Mtime.min_stamp
-end
-
-let add_to_queue ?(signal = true) name ty start newfunc =
+let add_to_queue_span ?(signal = true) name ty start_span newfunc =
   with_lock lock (fun () ->
-      let ( ++ ) = Clock.add_span in
+      let ( ++ ) = Mtime.Span.add in
       Ipq.add queue
         {
           Ipq.ev= {func= newfunc; ty; name}
-        ; Ipq.time= Mtime_clock.now () ++ start
+        ; Ipq.time= Mtime_clock.elapsed () ++ start_span
         }
   ) ;
   if signal then Delay.signal delay
+
+let add_to_queue ?signal name ty start newfunc =
+  let start_span =
+    Clock.Timer.s_to_span start |> Option.value ~default:Mtime.Span.max_span
+  in
+  add_to_queue_span ?signal name ty start_span newfunc
 
 let remove_from_queue name =
   let index = Ipq.find_p queue (fun {name= n; _} -> name = n) in
@@ -90,8 +79,8 @@ let loop () =
       (* Doesn't happen often - the queue isn't usually empty *)
       else
         let next = with_lock lock (fun () -> Ipq.maximum queue) in
-        let now = Mtime_clock.now () in
-        if next.Ipq.time < now then (
+        let now = Mtime_clock.elapsed () in
+        if Mtime.Span.is_shorter next.Ipq.time ~than:now then (
           let todo =
             (with_lock lock (fun () -> Ipq.pop_maximum queue)).Ipq.ev
           in
@@ -103,9 +92,9 @@ let loop () =
               add_to_queue ~signal:false todo.name todo.ty timer todo.func
         ) else (* Sleep until next event. *)
           let sleep =
-            Mtime.(span next.Ipq.time now)
+            Mtime.(Span.abs_diff next.Ipq.time now)
             |> Mtime.Span.(add ms)
-            |> Clock.span_to_s
+            |> Clock.Timer.span_to_s
           in
           wait_next sleep
     done

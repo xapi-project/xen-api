@@ -3,6 +3,7 @@
   (modes best)
   (libraries
     astring
+    clock
     cstruct
     forkexec
     ipaddr
