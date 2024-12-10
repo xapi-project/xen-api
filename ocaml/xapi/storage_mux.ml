@@ -862,6 +862,17 @@ module Mux = struct
       let receive_cancel () ~dbg =
         with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun {log= dbg; _} ->
         Storage_migrate.receive_cancel ~dbg
+
+      let import_activate () ~dbg ~dp ~sr ~vdi ~vm =
+        with_dbg ~name:"DATA.MIRROR.import_activate" ~dbg @@ fun di ->
+        info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp
+          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
+        let module C = StorageAPI (Idl.Exn.GenClient (struct
+          let rpc = of_sr sr
+        end)) in
+        C.DATA.MIRROR.import_activate (Debug_info.to_string di) dp sr vdi vm
+
+
     end
   end
 

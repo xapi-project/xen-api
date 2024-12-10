@@ -1228,6 +1228,10 @@ module SMAPIv1 : Server_impl = struct
       let receive_finalize _context ~dbg:_ ~id:_ = assert false
 
       let receive_cancel _context ~dbg:_ ~id:_ = assert false
+
+      let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ =
+        assert false
+
     end
   end
 
