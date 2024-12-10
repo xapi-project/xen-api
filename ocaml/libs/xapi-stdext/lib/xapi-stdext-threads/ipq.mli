@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type 'a event = {ev: 'a; time: Mtime.t}
+type 'a event = {ev: 'a; time: Mtime.span}
 
 type 'a t
 
