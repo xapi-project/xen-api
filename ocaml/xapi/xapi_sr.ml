@@ -360,23 +360,6 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
         Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
         debug "SR.create name_label=%s sm_config=[ %s ]" name_label
           (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config)) ;
-        (* This breaks the udev SR which doesn't support sr_probe *)
-        (*
-	let probe_result = probe ~__context ~host ~device_config ~_type ~sm_config in
-	begin
-	  match Xml.parse_string probe_result with
-	    | Xml.Element("SRlist", _, children) -> ()
-	    | _ ->
-		(* Figure out what was missing, then throw the appropriate error *)
-		match String.lowercase_ascii _type with
-		  | "lvmoiscsi" ->
-		      if not (List.exists (fun (s,_) -> "targetiqn" = String.lowercase_ascii s) device_config)
-		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_96",["";"";probe_result]))
-		      else if not (List.exists (fun (s,_) -> "scsiid" = String.lowercase_ascii s) device_config)
-		      then raise (Api_errors.Server_error ("SR_BACKEND_FAILURE_107",["";"";probe_result]))
-		  | _ -> ()
-	end;
-*)
         let sr_uuid = Uuidx.make () in
         let sr_uuid_str = Uuidx.to_string sr_uuid in
         (* Create the SR in the database before creating on disk, so the backends can read the sm_config field. If an error happens here
@@ -592,9 +575,6 @@ let update ~__context ~sr =
         Db.SR.get_uuid ~__context ~self:sr |> Storage_interface.Sr.of_string
       in
       let sr_info = C.SR.stat (Ref.string_of task) sr' in
-      Db.SR.set_name_label ~__context ~self:sr ~value:sr_info.name_label ;
-      Db.SR.set_name_description ~__context ~self:sr
-        ~value:sr_info.name_description ;
       Db.SR.set_physical_size ~__context ~self:sr ~value:sr_info.total_space ;
       Db.SR.set_physical_utilisation ~__context ~self:sr
         ~value:(Int64.sub sr_info.total_space sr_info.free_space) ;
@@ -863,7 +843,7 @@ let set_name_label ~__context ~sr ~value =
         (Storage_interface.Sr.of_string sr')
         value
   ) ;
-  update ~__context ~sr
+  Db.SR.set_name_label ~__context ~self:sr ~value
 
 let set_name_description ~__context ~sr ~value =
   let open Storage_access in
@@ -877,7 +857,7 @@ let set_name_description ~__context ~sr ~value =
         (Storage_interface.Sr.of_string sr')
         value
   ) ;
-  update ~__context ~sr
+  Db.SR.set_name_description ~__context ~self:sr ~value
 
 let set_virtual_allocation ~__context ~self ~value =
   Db.SR.set_virtual_allocation ~__context ~self ~value
