@@ -1229,6 +1229,9 @@ functor
 
         let import_activate context ~dbg ~dp ~sr ~vdi ~vm =
           get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style:`oldstyle
+
+        let get_nbd_server context ~dbg ~dp ~sr ~vdi ~vm =
+          get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style:`real
       end
     end
 

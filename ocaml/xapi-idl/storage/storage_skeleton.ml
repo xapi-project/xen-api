@@ -180,6 +180,9 @@ module DATA = struct
 
     let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
       u "DATA.MIRROR.import_activate"
+
+    let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm =
+      u "DATA.MIRROR.get_nbd_server"
   end
 end
 
