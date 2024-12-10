@@ -173,12 +173,14 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
 
     let ( binary_url
         , source_url
+        , repo_gpgcheck
         , client_auth_config
         , client_proxy_config ) =
       match origin with
       | `remote ->
           ( Db.Repository.get_binary_url ~__context ~self
           , Some (Db.Repository.get_source_url ~__context ~self)
+          , true
           , Some (CdnTokenAuthConf {token; token_id})
           , None
           )
@@ -186,7 +188,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           let uri =
             Uri.make ~scheme:"file" ~path:!Xapi_globs.bundle_repository_dir ()
           in
-          (Uri.to_string uri, None, None, None)
+          (Uri.to_string uri, None, true, None, None)
       | `remote_pool ->
           let uri =
             Uri.make ~scheme:"http" ~host:local_host
@@ -201,6 +203,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           let local_port = !Xapi_globs.local_yum_repo_port in
           ( Uri.to_string uri
           , None
+          , false
           , Some (PoolExtHostAuthConf {cert; remote_addr; username; password})
           , Some
               {
@@ -220,7 +223,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           s
     in
     let write_initial_yum_config () =
-      write_yum_config ~source_url ~binary_url ~repo_gpgcheck:true ~gpgkey_path
+      write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
         ~repo_name
     in
     write_initial_yum_config () ;
