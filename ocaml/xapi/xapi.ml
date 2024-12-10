@@ -1120,7 +1120,7 @@ let server_init () =
             )
           ; ( "Starting periodic scheduler"
             , [Startup.OnThread]
-            , Xapi_periodic_scheduler.loop
+            , Xapi_stdext_threads_scheduler.Scheduler.loop
             )
           ; ( "Synchronising host configuration files"
             , []

@@ -86,7 +86,6 @@ module Request : sig
     ; mutable close: bool
     ; additional_headers: (string * string) list
     ; body: string option
-    ; traceparent: string option
   }
 
   val rpc_of_t : t -> Rpc.t
@@ -109,7 +108,6 @@ module Request : sig
     -> ?content_type:string
     -> ?host:string
     -> ?query:(string * string) list
-    -> ?traceparent:string
     -> user_agent:string
     -> method_t
     -> string
@@ -130,11 +128,6 @@ module Request : sig
   (** [to_wire_string t] returns a string which could be sent to a server *)
 
   val with_originator_of : t option -> (string option -> unit) -> unit
-
-  val traceparent_of : t -> Tracing.Span.t option
-
-  val with_tracing :
-    ?attributes:(string * string) list -> name:string -> t -> (t -> 'a) -> 'a
 end
 
 (** Parsed form of the HTTP response *)
@@ -230,8 +223,6 @@ module Hdr : sig
   val accept : string
 
   val location : string
-
-  val traceparent : string
 
   val hsts : string
   (** Header used for HTTP Strict Transport Security *)

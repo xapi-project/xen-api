@@ -30,7 +30,6 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xml-light2
-    tracing
   )
 )
 
@@ -47,6 +46,7 @@
     tgroup
     threads.posix
     tracing
+    tracing_propagator
     uri
     xapi-log
     xapi-stdext-pervasives

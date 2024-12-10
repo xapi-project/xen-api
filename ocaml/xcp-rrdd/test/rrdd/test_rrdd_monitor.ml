@@ -36,7 +36,18 @@ let check_datasources kind rdds expected_dss =
   | None ->
       ()
   | Some actual_rdds ->
-      let actual_dss = dss_of_rrds actual_rdds in
+      let actual_dss =
+        dss_of_rrds actual_rdds
+        |> List.map (fun (name, dss) ->
+               ( name
+               , Rrd.StringMap.(
+                   map (fun (_timestamp, ds) -> ds) dss
+                   |> bindings
+                   |> List.map snd
+                 )
+               )
+           )
+      in
       let expected_dss = List.fast_sort Stdlib.compare expected_dss in
       Alcotest.(check @@ list @@ pair string (list ds))
         (Printf.sprintf "%s rrds are not expected" kind)
@@ -45,15 +56,16 @@ let check_datasources kind rdds expected_dss =
 let host_rrds rrd_info =
   Option.bind rrd_info @@ fun rrd_info ->
   let h = Hashtbl.create 1 in
-  if rrd_info.Rrdd_shared.dss <> [] then
+  if rrd_info.Rrdd_shared.dss <> Rrd.StringMap.empty then
     Hashtbl.add h "host" rrd_info ;
   Some h
 
-let update_rrds_test ~dss ~uuid_domids ~paused_vms ~expected_vm_rrds
+let update_rrds_test ~timestamp ~dss ~uuid_domids ~paused_vms ~expected_vm_rrds
     ~expected_sr_rrds ~expected_host_dss =
   let test () =
     reset_rrdd_shared_state () ;
-    Rrdd_monitor.update_rrds 12345.0 dss uuid_domids paused_vms ;
+    Rrdd_monitor.update_rrds uuid_domids paused_vms
+      (List.to_seq [("update_rrds_test", timestamp, List.to_seq dss)]) ;
     check_datasources "VM" (Some Rrdd_shared.vm_rrds) expected_vm_rrds ;
     check_datasources "SR" (Some Rrdd_shared.sr_rrds) expected_sr_rrds ;
     check_datasources "Host" (host_rrds !Rrdd_shared.host_rrd) expected_host_dss
@@ -64,35 +76,35 @@ let update_rrds =
   let open Rrd in
   [
     ( "Null update"
-    , update_rrds_test ~dss:[] ~uuid_domids:[] ~paused_vms:[]
+    , update_rrds_test ~timestamp:0. ~dss:[] ~uuid_domids:[] ~paused_vms:[]
         ~expected_vm_rrds:[] ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Single host update"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(Host, ds_a)]
         ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[("host", [ds_a])]
     )
   ; ( "Multiple host updates"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(Host, ds_a); (Host, ds_b)]
         ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[("host", [ds_a; ds_b])]
     )
   ; ( "Single non-resident VM update"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a)]
         ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[]
     )
   ; ( "Multiple non-resident VM updates"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a); (VM "b", ds_a)]
         ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[]
     )
   ; ( "Single resident VM update"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a)]
         ~uuid_domids:[("a", 1)]
         ~paused_vms:[]
@@ -100,7 +112,7 @@ let update_rrds =
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple resident VM updates"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "b", ds_b)]
         ~uuid_domids:[("a", 1); ("b", 1)]
         ~paused_vms:[]
@@ -108,7 +120,7 @@ let update_rrds =
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple resident and non-resident VM updates"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "c", ds_a)]
         ~uuid_domids:[("a", 1); ("b", 1)]
         ~paused_vms:[]
@@ -116,7 +128,7 @@ let update_rrds =
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple SR updates"
-    , update_rrds_test
+    , update_rrds_test ~timestamp:0.
         ~dss:[(SR "a", ds_a); (SR "b", ds_a); (SR "b", ds_b)]
         ~uuid_domids:[] ~paused_vms:[] ~expected_vm_rrds:[]
         ~expected_sr_rrds:[("a", [ds_a]); ("b", [ds_a; ds_b])]

@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=294
+  N=277
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -14,7 +14,7 @@ list-hd () {
 }
 
 verify-cert () {
-  N=14
+  N=13
   NONE=$(git grep -r --count 'verify_cert:None' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$NONE" -eq "$N" ]; then
     echo "OK counted $NONE usages of verify_cert:None"
@@ -25,10 +25,10 @@ verify-cert () {
 }
 
 mli-files () {
-  N=498
-  # do not count ml files from the tests in ocaml/{tests/perftest/quicktest}
-  MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
-  MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/perftest|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
+  N=497
+  # do not count ml files from the tests in ocaml/{tests/quicktest}
+  MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
+  MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   num_mls_without_mlis=$(comm -23 <(sort <<<"$MLS") <(sort <<<"$MLIS") | wc -l)
   if [ "$num_mls_without_mlis" -eq "$N" ]; then
     echo "OK counted $num_mls_without_mlis .ml files without an .mli"
@@ -106,7 +106,7 @@ unixgetenv () {
 }
 
 hashtblfind () {
-  N=36
+  N=35
   # Looks for all .ml files except the ones using Core.Hashtbl.find,
   # which already returns Option
   HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)

@@ -78,6 +78,24 @@ module Trace_id : sig
   val to_string : t -> string
 end
 
+module TraceContext : sig
+  type t
+
+  val empty : t
+
+  type traceparent = string
+
+  type baggage = (string * string) list
+
+  val with_traceparent : traceparent option -> t -> t
+
+  val with_baggage : baggage option -> t -> t
+
+  val traceparent_of : t -> traceparent option
+
+  val baggage_of : t -> baggage option
+end
+
 module SpanContext : sig
   type t
 
@@ -85,9 +103,13 @@ module SpanContext : sig
 
   val of_traceparent : string -> t option
 
+  val of_trace_context : TraceContext.t -> t option
+
   val trace_id_of_span_context : t -> Trace_id.t
 
   val span_id_of_span_context : t -> Span_id.t
+
+  val context_of_span_context : t -> TraceContext.t
 end
 
 module Span : sig
@@ -146,6 +168,7 @@ module Tracer : sig
   val start :
        tracer:t
     -> ?attributes:(string * string) list
+    -> ?trace_context:TraceContext.t
     -> ?span_kind:SpanKind.t
     -> name:string
     -> parent:Span.t option
@@ -232,12 +255,14 @@ val enable_span_garbage_collector : ?timeout:float -> unit -> unit
 val with_tracing :
      ?attributes:(string * string) list
   -> ?parent:Span.t option
+  -> ?trace_context:TraceContext.t
   -> name:string
   -> (Span.t option -> 'a)
   -> 'a
 
 val with_child_trace :
      ?attributes:(string * string) list
+  -> ?trace_context:TraceContext.t
   -> Span.t option
   -> name:string
   -> (Span.t option -> 'a)
@@ -278,4 +303,34 @@ module EnvHelpers : sig
         
       If [span] is [None], it returns an empty list.
       *)
+end
+
+(** [Propagator] is a utility module for creating trace propagators over arbitrary carriers. *)
+module Propagator : sig
+  module type S = sig
+    type carrier
+
+    val traceparent_of : carrier -> Span.t option
+    (** [traceparent_of carrier] creates a span whose context is that encoded within the [carrier] input.
+        If there is no traceparent encoded within the carrier, the function returns [None]. *)
+
+    val with_tracing :
+         ?attributes:(string * string) list
+      -> name:string
+      -> carrier
+      -> (carrier -> 'a)
+      -> 'a
+  end
+
+  module type PropS = sig
+    type carrier
+
+    val inject_into : TraceContext.t -> carrier -> carrier
+
+    val extract_from : carrier -> TraceContext.t
+
+    val name_span : carrier -> string
+  end
+
+  module Make : functor (P : PropS) -> S with type carrier = P.carrier
 end

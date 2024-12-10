@@ -835,12 +835,12 @@ let create_channels ~xc uuid domid =
 let numa_hierarchy =
   let open Xenctrlext in
   let open Topology in
-  Lazy.from_fun (fun () ->
-      let xcext = get_handle () in
-      let distances = (numainfo xcext).distances in
-      let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
-      NUMA.make ~distances ~cpu_to_node
-  )
+  lazy
+    (let xcext = get_handle () in
+     let distances = (numainfo xcext).distances in
+     let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
+     NUMA.make ~distances ~cpu_to_node
+    )
 
 let numa_mutex = Mutex.create ()
 

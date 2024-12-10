@@ -14,7 +14,7 @@
 
 open Rrd_protocol
 
-let now () = Int64.of_float (Unix.gettimeofday ())
+let now () = Unix.gettimeofday ()
 
 let get_extra_data_sources_flag =
   let counter = ref 0 in
@@ -27,7 +27,7 @@ let generate_time_data_source () =
   let current_time = now () in
   ( Rrd.Host
   , Ds.ds_make ~name:"current_time" ~description:"The current time"
-      ~value:(Rrd.VT_Int64 current_time) ~ty:Rrd.Gauge ~default:true
+      ~value:(Rrd.VT_Float current_time) ~ty:Rrd.Gauge ~default:true
       ~units:"seconds" ()
   )
 
