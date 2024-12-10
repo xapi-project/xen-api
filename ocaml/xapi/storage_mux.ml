@@ -880,7 +880,14 @@ module Mux = struct
         end)) in
         C.DATA.MIRROR.import_activate (Debug_info.to_string di) dp sr vdi vm
 
-
+      let get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm =
+        with_dbg ~name:"DATA.MIRROR.get_nbd_server" ~dbg @@ fun di ->
+        info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp
+          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
+        let module C = StorageAPI (Idl.Exn.GenClient (struct
+          let rpc = of_sr sr
+        end)) in
+        C.DATA.MIRROR.get_nbd_server (Debug_info.to_string di) dp sr vdi vm
     end
   end
 

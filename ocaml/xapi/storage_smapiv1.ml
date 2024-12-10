@@ -1238,6 +1238,7 @@ module SMAPIv1 : Server_impl = struct
       let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ =
         assert false
 
+      let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
     end
   end
 

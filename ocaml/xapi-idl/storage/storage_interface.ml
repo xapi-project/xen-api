@@ -1093,7 +1093,19 @@ module StorageAPI (R : RPC) = struct
           @-> returning sock_path_p err
           )
 
-
+      (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
+      server that can be connected to. Depending on the backend, this will either
+      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
+      from [import_activate] as the returned server does not accept fds. *)
+      let get_nbd_server =
+        declare "DATA.MIRROR.get_nbd_server" []
+          (dbg_p
+          @-> dp_p
+          @-> sr_p
+          @-> vdi_p
+          @-> vm_p
+          @-> returning sock_path_p err
+          )
     end
   end
 
@@ -1448,6 +1460,14 @@ module type Server_impl = sig
         -> vm:vm
         -> sock_path
 
+      val get_nbd_server :
+           context
+        -> dbg:debug_info
+        -> dp:dp
+        -> sr:sr
+        -> vdi:vdi
+        -> vm:vm
+        -> sock_path
     end
   end
 
@@ -1630,7 +1650,9 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.MIRROR.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
-
+    S.DATA.MIRROR.get_nbd_server (fun dbg dp sr vdi vm ->
+        Impl.DATA.MIRROR.get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
     S.Policy.get_backend_vm (fun dbg vm sr vdi ->
         Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi
     ) ;

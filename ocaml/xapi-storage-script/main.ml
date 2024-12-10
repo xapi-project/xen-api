@@ -1819,7 +1819,44 @@ let bind ~volume_script_dir =
       fail (Storage_interface.Errors.Unimplemented _vdi_mirror_in)
   in
   S.DATA.MIRROR.import_activate data_import_activate_impl ;
-
+  let get_nbd_server_impl dbg _dp sr vdi' vm' =
+    wrap
+    @@
+    let vdi = Storage_interface.Vdi.string_of vdi' in
+    let domain = Storage_interface.Vm.string_of vm' in
+    vdi_attach_common dbg sr vdi domain >>>= function
+    | response -> (
+        let convert_implementation = function
+          | Xapi_storage.Data.XenDisk {params; extra; backend_type} ->
+              Storage_interface.XenDisk {params; extra; backend_type}
+          | BlockDevice {path} ->
+              BlockDevice {path}
+          | File {path} ->
+              File {path}
+          | Nbd {uri} ->
+              Nbd {uri}
+        in
+        let _, blockdevices, _, nbds =
+          Storage_interface.implementations_of_backend
+            {
+              Storage_interface.implementations=
+                List.map convert_implementation
+                  response.Xapi_storage.Data.implementations
+            }
+        in
+        match (blockdevices, nbds) with
+        | _, ({uri} as nbd) :: _ ->
+            info (fun m ->
+                m "%s qemu-dp nbd server address is %s" __FUNCTION__ uri
+            )
+            >>= fun () ->
+            let socket, _export = Storage_interface.parse_nbd_uri nbd in
+            return socket
+        | _ ->
+            fail (backend_error "No nbd server found" [])
+      )
+  in
+  S.DATA.MIRROR.get_nbd_server get_nbd_server_impl ;
   let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
   S.VDI.get_by_name (u "VDI.get_by_name") ;
