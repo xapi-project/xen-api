@@ -1896,6 +1896,8 @@ let _ =
     ~doc:"The base url in the repository is invalid." () ;
   error Api_errors.invalid_gpgkey_path ["gpgkey_path"]
     ~doc:"The GPG public key file name in the repository is invalid." () ;
+  error Api_errors.cdn_token_invalid ["message"]
+    ~doc:"The provided CDN token or token_id is empty." () ;
   error Api_errors.repository_already_exists ["ref"]
     ~doc:"The repository already exists." () ;
   error Api_errors.bundle_repository_already_exists ["ref"]
@@ -1918,6 +1920,16 @@ let _ =
     ~doc:
       "If the bundle repository or remote_pool repository is enabled, it \
        should be the only one enabled repository of the pool."
+    () ;
+  error Api_errors.update_syncing_remote_pool_coordinator_connection_failed []
+    ~doc:
+      "There was an error connecting to the remote pool coordinator while \
+       syncing updates from it."
+    () ;
+  error Api_errors.update_syncing_remote_pool_coordinator_service_failed []
+    ~doc:
+      "There was an error connecting to the server while syncing updates from \
+       it. The service contacted didn't reply properly."
     () ;
   error Api_errors.repository_is_in_use [] ~doc:"The repository is in use." () ;
   error Api_errors.repository_cleanup_failed []

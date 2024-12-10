@@ -1,4 +1,4 @@
-"""dnf plugin to set accesstoken http header for enabled repos"""
+"""dnf plugin to set xapitoken http header for enabled repos"""
 import json
 import logging
 # Disable the error, it can be import in production env
@@ -16,10 +16,10 @@ class InvalidToken(Exception):
 
 
 #pylint: disable=too-few-public-methods
-class AccessToken(dnf.Plugin):
-    """dnf accesstoken plugin class"""
+class XapiToken(dnf.Plugin):
+    """dnf xapitoken plugin class"""
 
-    name = "accesstoken"
+    name = "xapitoken"
 
     def config(self):
         """ DNF plugin config hook,
@@ -28,7 +28,7 @@ class AccessToken(dnf.Plugin):
         for repo_name in self.base.repos:
             repo = self.base.repos[repo_name]
 
-            token_url = repo.accesstoken
+            token_url = repo.xapitoken
             if not token_url or token_url == '':
                 continue
             try:
@@ -38,9 +38,12 @@ class AccessToken(dnf.Plugin):
                 logging.debug("Failed to load token from: %s", token_url)
                 continue
 
-            if not (token.get('token') and token.get('token_id')):
+            if not token.get('xapitoken'):
                 raise InvalidToken(token)
 
-            access_token = f'X-Access-Token:{str(token["token"])}'
-            referer = f'Referer:{str(token["token_id"])}'
-            repo.set_http_headers([access_token, referer])
+            # Only include the xapitoken for repos with a localhost URL, for added safety.
+            # These will be proxied to the remote pool coordinator through stunnel, set up by xapi.
+            if len(repo.baseurl) > 0 and repo.baseurl[0].startswith("http://127.0.0.1") \
+                and repo.xapitoken:
+                secret = "session_id=" + str(token["xapitoken"])
+                repo.set_http_headers([f'cookie:{secret}'])
