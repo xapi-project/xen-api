@@ -778,15 +778,34 @@ let scan ~__context ~sr =
               Db.VDI.get_records_where ~__context
                 ~expr:(Eq (Field "SR", Literal sr'))
             in
+            (* It is sufficient to just compare the refs in two db_vdis, as this
+               is what update_vdis uses to determine what to delete *)
+            let vdis_ref_equal db_vdi1 db_vdi2 =
+              Listext.List.set_difference (List.map fst db_vdi1)
+                (List.map fst db_vdi2)
+              = []
+            in
             let db_vdis_before = find_vdis () in
             let vs, sr_info =
               C.SR.scan2 (Ref.string_of task)
                 (Storage_interface.Sr.of_string sr_uuid)
             in
             let db_vdis_after = find_vdis () in
-            if limit > 0 && db_vdis_after <> db_vdis_before then
+            if limit > 0 && not (vdis_ref_equal db_vdis_before db_vdis_after)
+            then (
+              debug
+                "%s detected db change while scanning, before scan vdis %s, \
+                 after scan vdis %s, retry limit left %d"
+                __FUNCTION__
+                (List.map (fun (_, v) -> v.vDI_uuid) db_vdis_before
+                |> String.concat ","
+                )
+                (List.map (fun (_, v) -> v.vDI_uuid) db_vdis_after
+                |> String.concat ","
+                )
+                limit ;
               (scan_rec [@tailcall]) (limit - 1)
-            else if limit = 0 then
+            ) else if limit = 0 then
               raise
                 (Api_errors.Server_error
                    (Api_errors.internal_error, ["SR.scan retry limit exceeded"])
