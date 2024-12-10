@@ -1315,35 +1315,32 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
            (Thread.id t)
      )
 
-let nbd_handler req s sr vdi dp =
-  debug "sr=%s vdi=%s dp=%s" sr vdi dp ;
+let nbd_handler req s ?(vm = "0") sr vdi dp =
+  debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
   let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
-  let attach_info = Local.DP.attach_info "nbd" sr vdi dp (Vm.of_string "0") in
   req.Http.Request.close <- true ;
-  match tapdisk_of_attach_info attach_info with
-  | Some tapdev ->
-      let minor = Tapctl.get_minor tapdev in
-      let pid = Tapctl.get_tapdisk_pid tapdev in
-      let path =
-        Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid minor
-      in
-      Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
-      let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-      finally
-        (fun () ->
-          Unix.connect control_fd (Unix.ADDR_UNIX path) ;
-          let msg = dp in
-          let len = String.length msg in
-          let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
-          if written <> len then (
-            error "Failed to transfer fd to %s" path ;
-            Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
-            req.Http.Request.close <- true
-          )
-        )
-        (fun () -> Unix.close control_fd)
-  | None ->
-      ()
+  let vm = Vm.of_string vm in
+  let path =
+    Storage_utils.transform_storage_exn (fun () ->
+        Local.DATA.MIRROR.import_activate "nbd" dp sr vdi vm
+    )
+  in
+  Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
+  let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+  finally
+    (fun () ->
+      Unix.connect control_fd (Unix.ADDR_UNIX path) ;
+      let msg = dp in
+      let len = String.length msg in
+      let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
+
+      if written <> len then (
+        error "Failed to transfer fd to %s" path ;
+        Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
+        req.Http.Request.close <- true
+      )
+    )
+    (fun () -> Unix.close control_fd)
 
 let with_task_and_thread ~dbg f =
   let task =

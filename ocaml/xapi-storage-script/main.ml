@@ -1795,6 +1795,30 @@ let bind ~volume_script_dir =
     return ()
   in
   S.VDI.remove_from_sm_config vdi_remove_from_sm_config_impl ;
+  let data_import_activate_impl dbg _dp sr vdi' vm' =
+    wrap
+    @@
+    let vdi = Storage_interface.Vdi.string_of vdi' in
+    let domain = Storage_interface.Vm.string_of vm' in
+    Attached_SRs.find sr >>>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
+    stat ~dbg ~sr ~vdi >>>= fun response ->
+    ( match
+        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
+      with
+    | None ->
+        return response
+    | Some temporary ->
+        stat ~dbg ~sr ~vdi:temporary
+    )
+    >>>= fun response ->
+    choose_datapath domain response >>>= fun (rpc, _datapath, uri, domain) ->
+    return_data_rpc (fun () ->
+        Datapath_client.import_activate (rpc ~dbg) dbg uri domain
+    )
+  in
+  S.DATA.MIRROR.import_activate data_import_activate_impl ;
+
   let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
   S.VDI.get_by_name (u "VDI.get_by_name") ;

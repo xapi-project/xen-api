@@ -251,6 +251,8 @@ let string_of_vdi_info (x : vdi_info) = Jsonrpc.to_string (rpc_of vdi_info x)
     "datapaths". *)
 type dp = string [@@deriving rpcty]
 
+type sock_path = string [@@deriving rpcty]
+
 type dp_stat_t = {
     superstate: Vdi_automaton.state
   ; dps: (string * Vdi_automaton.state) list
@@ -442,6 +444,8 @@ module StorageAPI (R : RPC) = struct
   let vm_p = Param.mk ~name:"vm" Vm.t
 
   let dp_p = Param.mk ~name:"dp" dp
+
+  let sock_path_p = Param.mk ~name:"sock_path" sock_path
 
   let device_config_p =
     Param.mk ~name:"device_config"
@@ -1042,6 +1046,20 @@ module StorageAPI (R : RPC) = struct
           Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
         in
         declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
+
+      (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
+      which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
+      let import_activate =
+        declare "DATA.MIRROR.import_activate" []
+          (dbg_p
+          @-> dp_p
+          @-> sr_p
+          @-> vdi_p
+          @-> vm_p
+          @-> returning sock_path_p err
+          )
+
+
     end
   end
 
@@ -1371,6 +1389,16 @@ module type Server_impl = sig
       val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
 
       val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+      val import_activate :
+           context
+        -> dbg:debug_info
+        -> dp:dp
+        -> sr:sr
+        -> vdi:vdi
+        -> vm:vm
+        -> sock_path
+
     end
   end
 
@@ -1542,6 +1570,10 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
     ) ;
     S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
+    S.DATA.MIRROR.import_activate (fun dbg dp sr vdi vm ->
+        Impl.DATA.MIRROR.import_activate () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
+
     S.Policy.get_backend_vm (fun dbg vm sr vdi ->
         Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi
     ) ;
