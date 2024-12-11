@@ -373,7 +373,6 @@ let update_env __context =
      in the db for cancelling *)
   Cancel_tasks.cancel_tasks_on_host ~__context ~host_opt:None ;
   (* Update the SM plugin table *)
-  Storage_access.on_xapi_start ~__context ;
   if !Xapi_globs.create_tools_sr then
     create_tools_sr_noexn __context ;
   ensure_vm_metrics_records_exist_noexn __context ;

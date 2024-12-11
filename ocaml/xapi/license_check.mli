@@ -16,8 +16,9 @@
  * @group Licensing
 *)
 
-val never : float
-(** The expiry date that is considered to be "never". *)
+val serialize_expiry : Xapi_stdext_date.Date.t option -> string
+(** Get the string corresponding with the expiry that can be stored in xapi's
+    DB *)
 
 val get_expiry_date :
   __context:Context.t -> host:API.ref_host -> Xapi_stdext_date.Date.t option

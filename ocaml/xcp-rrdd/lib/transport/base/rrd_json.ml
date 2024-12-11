@@ -88,7 +88,7 @@ let dss_to_json ~header timestamp dss =
   let payload =
     record
       [
-        ("timestamp", `Float (Int64.to_float timestamp))
+        ("timestamp", `Float timestamp)
       ; ("datasources", record @@ List.map ds_to_json dss)
       ]
   in

@@ -305,7 +305,7 @@ def main(argv):
        qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.2"
     else:
        qemu_env["LD_PRELOAD"] = "/usr/lib64/libjemalloc.so.2:" + qemu_env["LD_PRELOAD"]
-    qemu_env["MALLOC_CONF"] = "narenas:1,tcache:false"
+    qemu_env["MALLOC_CONF"] = "background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
 
     sys.stdout.flush()
     sys.stderr.flush()

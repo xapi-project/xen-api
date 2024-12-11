@@ -311,8 +311,6 @@ let cluster_host_leaving = addMessage "CLUSTER_HOST_LEAVING" 3L
 
 let cluster_host_joining = addMessage "CLUSTER_HOST_JOINING" 4L
 
-let cluster_stack_out_of_date = addMessage "CLUSTER_STACK_OUT_OF_DATE" 3L
-
 (* Certificate expiration messages *)
 let host_server_certificate_expiring = "HOST_SERVER_CERTIFICATE_EXPIRING"
 
@@ -360,6 +358,12 @@ let host_internal_certificate_expiring_07 =
 
 let failed_login_attempts = addMessage "FAILED_LOGIN_ATTEMPTS" 3L
 
+let kernel_is_broken which =
+  addMessage ("HOST_KERNEL_ENCOUNTERED_ERROR_" ^ which) 2L
+
+let kernel_is_broken_warning which =
+  addMessage ("HOST_KERNEL_ENCOUNTERED_WARNING_" ^ which) 3L
+
 let tls_verification_emergency_disabled =
   addMessage "TLS_VERIFICATION_EMERGENCY_DISABLED" 3L
 
@@ -370,3 +374,5 @@ let xapi_startup_blocked_as_version_higher_than_coordinator =
 
 let all_running_vms_in_anti_affinity_grp_on_single_host =
   addMessage "ALL_RUNNING_VMS_IN_ANTI_AFFINITY_GRP_ON_SINGLE_HOST" 3L
+
+let sm_gc_no_space = addMessage "SM_GC_NO_SPACE" 3L

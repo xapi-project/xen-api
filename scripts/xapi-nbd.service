@@ -5,13 +5,12 @@ Wants=xapi.service message-switch.service syslog.target
 
 [Service]
 Environment="LD_PRELOAD=/usr/lib64/libjemalloc.so.2"
-Environment="MALLOC_CONF=narenas:1,tcache:false"
+Environment="MALLOC_CONF=background_thread:true,dirty_decay_ms:100,narenas:1,tcache:false"
 Environment=OCAMLRUNPARAM=b
 # The --certfile option must match the server-cert-path in xapi.conf
 # and the PathExists in xapi-nbd.path: any change must be made in all three files.
 ExecStart=/usr/sbin/xapi-nbd --certfile=/etc/xensource/xapi-ssl.pem
 StandardOutput=null
-StandardError=syslog
 # restart but fail if more than 5 failures in 2s
 Restart=on-failure
 StartLimitBurst=5

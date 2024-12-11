@@ -218,12 +218,12 @@ let span_kind_of_parent parent =
   Option.fold ~none:SpanKind.Internal ~some:(fun _ -> SpanKind.Server) parent
 
 let parent_of_origin (origin : origin) span_name =
-  let open Tracing in
   let ( let* ) = Option.bind in
   match origin with
   | Http (req, _) ->
-      let* traceparent = req.Http.Request.traceparent in
-      let* span_context = SpanContext.of_traceparent traceparent in
+      let context = Tracing_propagator.Propagator.Http.extract_from req in
+      let open Tracing in
+      let* span_context = SpanContext.of_trace_context context in
       let span = Tracer.span_of_span_context span_context span_name in
       Some span
   | _ ->
@@ -517,7 +517,7 @@ let with_tracing ?originator ~__context name f =
       result
     with exn ->
       let backtrace = Printexc.get_raw_backtrace () in
-      let error = (exn, Printexc.raw_backtrace_to_string backtrace) in
+      let error = (exn, backtrace) in
       ignore @@ Tracer.finish span ~error ;
       Printexc.raise_with_backtrace exn backtrace
   )

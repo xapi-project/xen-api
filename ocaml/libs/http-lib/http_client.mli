@@ -40,6 +40,3 @@ val rpc :
 (** [rpc fd request body f] marshals the HTTP request represented by [request] and [body]
     through file descriptor [fd] and then applies the response to [f]. On failure an 
     exception is thrown. *)
-
-val last_content_length : int64 ref
-(** See perftest/tests.ml *)

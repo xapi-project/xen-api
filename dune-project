@@ -464,16 +464,16 @@ This package provides an Lwt compatible interface to the library.")
   (homepage "https://github.com/mirage/ocaml-vhd")
   (source (github mirage/ocaml-vhd))
   (depends
-    (ocaml (and (>= "4.02.3") (< "5.0.0")))
+    (ocaml (>= "4.10.0"))
     (alcotest :with-test)
-    (alcotest-lwt :with-test)
-    bigarray-compat
-    (cstruct (< "6.1.0"))
+    (alcotest-lwt (and :with-test (>= "1.0.0")))
+    (bigarray-compat (>= "1.1.0"))
+    (cstruct (>= "6.0.0"))
     cstruct-lwt
     (fmt :with-test)
     (lwt (>= "3.2.0"))
-    (mirage-block (>= "2.0.1"))
-    rresult
+    (mirage-block (>= "3.0.0"))
+    (rresult (>= "0.7.0"))
     (vhd-format (= :version))
     (io-page (and :with-test (>= "2.4.0")))
   )

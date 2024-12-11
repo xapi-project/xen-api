@@ -14,11 +14,20 @@
 
 module M = Mutex
 
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
+
 module Mutex = struct
   (** execute the function f with the mutex hold *)
   let execute lock f =
     Mutex.lock lock ;
-    Xapi_stdext_pervasives.Pervasiveext.finally f (fun () -> Mutex.unlock lock)
+    finally f (fun () -> Mutex.unlock lock)
+end
+
+module Semaphore = struct
+  let execute s f =
+    let module Semaphore = Semaphore.Counting in
+    Semaphore.acquire s ;
+    finally f (fun () -> Semaphore.release s)
 end
 
 (** Parallel List.iter. Remembers all exceptions and returns an association list mapping input x to an exception.
@@ -46,70 +55,27 @@ let thread_iter f xs =
   match thread_iter_all_exns f xs with [] -> () | (_, e) :: _ -> raise e
 
 module Delay = struct
-  (* Concrete type is the ends of a pipe *)
-  type t = {
-      (* A pipe is used to wake up a thread blocked in wait: *)
-      mutable pipe_in: Unix.file_descr option
-    ; (* Indicates that a signal arrived before a wait: *)
-      mutable signalled: bool
-    ; m: M.t
-  }
+  type t
 
-  let make () = {pipe_in= None; signalled= false; m= M.create ()}
+  external make : unit -> t = "caml_xapi_delay_create"
 
-  exception Pre_signalled
+  external signal : t -> unit = "caml_xapi_delay_signal"
 
-  let wait (x : t) (seconds : float) =
-    let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
-    let to_close = ref [] in
-    let close' fd =
-      if List.mem fd !to_close then Unix.close fd ;
-      to_close := List.filter (fun x -> fd <> x) !to_close
-    in
-    finally
-      (fun () ->
-        try
-          let pipe_out =
-            Mutex.execute x.m (fun () ->
-                if x.signalled then (
-                  x.signalled <- false ;
-                  raise Pre_signalled
-                ) ;
-                let pipe_out, pipe_in = Unix.pipe () in
-                (* these will be unconditionally closed on exit *)
-                to_close := [pipe_out; pipe_in] ;
-                x.pipe_in <- Some pipe_in ;
-                x.signalled <- false ;
-                pipe_out
-            )
+  external wait : t -> int64 -> bool = "caml_xapi_delay_wait"
+
+  let wait d t =
+    if t <= 0. then
+      true
+    else
+      match Mtime.Span.of_float_ns (t *. 1e9) with
+      | Some span ->
+          let now = Mtime_clock.now () in
+          let deadline =
+            Mtime.add_span now span |> Option.value ~default:Mtime.max_stamp
           in
-          let open Xapi_stdext_unix.Unixext in
-          (* flush the single byte from the pipe *)
-          try
-            let (_ : string) =
-              time_limited_single_read pipe_out 1 ~max_wait:seconds
-            in
-            false
-          with Timeout -> true
-          (* return true if we waited the full length of time, false if we were woken *)
-        with Pre_signalled -> false
-      )
-      (fun () ->
-        Mutex.execute x.m (fun () ->
-            x.pipe_in <- None ;
-            List.iter close' !to_close
-        )
-      )
-
-  let signal (x : t) =
-    Mutex.execute x.m (fun () ->
-        match x.pipe_in with
-        | Some fd ->
-            ignore (Unix.write fd (Bytes.of_string "X") 0 1)
-        | None ->
-            x.signalled <- true
-        (* If the wait hasn't happened yet then store up the signal *)
-    )
+          wait d (Mtime.to_uint64_ns deadline)
+      | None ->
+          invalid_arg "Time specified too big"
 end
 
 let wait_timed_read fd timeout =

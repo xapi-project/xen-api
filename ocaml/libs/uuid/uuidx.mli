@@ -194,8 +194,3 @@ module Hash : sig
   (* UUID Version 5 derived from argument string and namespace UUID *)
   val string : string -> [< not_secret] t
 end
-
-(**/**)
-
-(* just for feature flag, to be removed *)
-val make_default : (unit -> [< not_secret] t) ref

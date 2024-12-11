@@ -94,9 +94,7 @@ let parse_payload ~(json : string) : payload =
   try
     let rpc = Jsonrpc.of_string json in
     let kvs = Rrd_rpc.dict_of_rpc ~rpc in
-    let timestamp =
-      Rpc.float_of_rpc (List.assoc "timestamp" kvs) |> Int64.of_float
-    in
+    let timestamp = Rpc.float_of_rpc (List.assoc "timestamp" kvs) in
     let datasource_rpcs =
       Rrd_rpc.dict_of_rpc ~rpc:(List.assoc "datasources" kvs)
     in
@@ -106,15 +104,19 @@ let parse_payload ~(json : string) : payload =
 let make_payload_reader () =
   let last_checksum = ref "" in
   fun cs ->
-    let header = Cstruct.copy cs 0 header_bytes in
+    let header = Cstruct.to_string cs ~off:0 ~len:header_bytes in
     if header <> default_header then
       raise Invalid_header_string ;
-    let length =
-      let length_str = "0x" ^ Cstruct.copy cs length_start length_bytes in
+    let len =
+      let length_str =
+        "0x" ^ Cstruct.to_string cs ~off:length_start ~len:length_bytes
+      in
       try int_of_string length_str with _ -> raise Invalid_length
     in
-    let checksum = Cstruct.copy cs checksum_start checksum_bytes in
-    let payload_string = Cstruct.copy cs payload_start length in
+    let checksum =
+      Cstruct.to_string cs ~off:checksum_start ~len:checksum_bytes
+    in
+    let payload_string = Cstruct.to_string cs ~off:payload_start ~len in
     if payload_string |> Digest.string |> Digest.to_hex <> checksum then
       raise Invalid_checksum ;
     if checksum = !last_checksum then

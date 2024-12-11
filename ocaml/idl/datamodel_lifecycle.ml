@@ -51,6 +51,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "VTPM", "persistence_backend" ->
       Some "22.26.0"
+  | "SM", "host_pending_features" ->
+      Some "24.37.0"
   | "host", "last_update_hash" ->
       Some "24.10.0"
   | "host", "pending_guidances_full" ->

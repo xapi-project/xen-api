@@ -60,9 +60,8 @@ let remote_rpc_no_retry _context hostname (task_opt : API.ref_task option) xml =
   in
   let tracing = Context.set_client_span _context in
   let http =
-    xmlrpc
-      ?task_id:(Option.map Ref.string_of task_opt)
-      ~version:"1.0" ~tracing "/"
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.0" "/"
+    |> Helpers.TraceHelper.inject_span_into_req tracing
   in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
@@ -80,9 +79,8 @@ let remote_rpc_retry _context hostname (task_opt : API.ref_task option) xml =
   in
   let tracing = Context.set_client_span _context in
   let http =
-    xmlrpc
-      ?task_id:(Option.map Ref.string_of task_opt)
-      ~version:"1.1" ~tracing "/"
+    xmlrpc ?task_id:(Option.map Ref.string_of task_opt) ~version:"1.1" "/"
+    |> Helpers.TraceHelper.inject_span_into_req tracing
   in
   XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
 
@@ -5501,14 +5499,22 @@ functor
                 in
                 (snapshot, host)
             in
+            let op session_id rpc =
+              let sync_op () =
+                Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options
+              in
+              let async_op () =
+                Client.InternalAsync.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
+                  ~options
+              in
+              Helpers.try_internal_async ~__context API.ref_VDI_of_rpc async_op
+                sync_op
+            in
             VM.reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
                 with_sr_andor_vdi ~__context ~vdi:(vdi, `mirror)
                   ~doc:"VDI.mirror" (fun () ->
-                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                        Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr
-                          ~options
-                    )
+                    do_op_on ~local_fn ~__context ~host op
                 )
             )
         )

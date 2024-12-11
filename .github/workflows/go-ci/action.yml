@@ -14,6 +14,11 @@ runs:
         working-directory: ${{ github.workspace }}/_build/install/default/share/go/src
         args: --config=${{ github.workspace }}/.golangci.yml
 
+    - name: Run Go Tests
+      shell: bash
+      working-directory: ${{ github.workspace }}/_build/install/default/share/go/src
+      run: go test -v
+
     - name: Run CI for Go SDK
       shell: bash
       run: |

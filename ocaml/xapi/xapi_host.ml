@@ -938,12 +938,12 @@ let ask_host_if_it_is_a_slave ~__context ~host =
         "ask_host_if_it_is_a_slave: host taking a long time to respond - IP: \
          %s; uuid: %s"
         ip uuid ;
-      Xapi_periodic_scheduler.add_to_queue task_name
-        Xapi_periodic_scheduler.OneShot timeout
+      Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
+        Xapi_stdext_threads_scheduler.Scheduler.OneShot timeout
         (log_host_slow_to_respond (min (2. *. timeout) 300.))
     in
-    Xapi_periodic_scheduler.add_to_queue task_name
-      Xapi_periodic_scheduler.OneShot timeout
+    Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
+      Xapi_stdext_threads_scheduler.Scheduler.OneShot timeout
       (log_host_slow_to_respond timeout) ;
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
@@ -951,7 +951,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
           Client.Client.Pool.is_slave ~rpc ~session_id ~host
       )
     in
-    Xapi_periodic_scheduler.remove_from_queue task_name ;
+    Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name ;
     res
   in
   Server_helpers.exec_with_subtask ~__context "host.ask_host_if_it_is_a_slave"
@@ -991,7 +991,7 @@ let is_host_alive ~__context ~host =
 let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
-    ~ssl_legacy:_ ~last_software_update =
+    ~ssl_legacy:_ ~last_software_update ~last_update_hash =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1053,9 +1053,9 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
       )
     ~control_domain:Ref.null ~updates_requiring_reboot:[] ~iscsi_iqn:""
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
-    ~tls_verification_enabled ~last_software_update ~recommended_guidances:[]
-    ~latest_synced_updates_applied:`unknown ~pending_guidances_recommended:[]
-    ~pending_guidances_full:[] ~last_update_hash:"" ;
+    ~tls_verification_enabled ~last_software_update ~last_update_hash
+    ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -1337,21 +1337,6 @@ let serialize_host_enable_disable_extauth = Mutex.create ()
 
 let set_hostname_live ~__context ~host ~hostname =
   with_lock serialize_host_enable_disable_extauth (fun () ->
-      let current_auth_type =
-        Db.Host.get_external_auth_type ~__context ~self:host
-      in
-      (* the AD extauth plugin is incompatible with a hostname change *)
-      ( if current_auth_type = Xapi_globs.auth_type_AD then
-          let current_service_name =
-            Db.Host.get_external_auth_service_name ~__context ~self:host
-          in
-          raise
-            (Api_errors.Server_error
-               ( Api_errors.auth_already_enabled
-               , [current_auth_type; current_service_name]
-               )
-            )
-      ) ;
       (* hostname is valid if contains only alpha, decimals, and hyphen
          	 (for hyphens, only in middle position) *)
       let is_invalid_hostname hostname =
@@ -1512,8 +1497,8 @@ let sync_data ~__context ~host = Xapi_sync.sync_host ~__context host
 (* Nb, no attempt to wrap exceptions yet *)
 
 let backup_rrds ~__context ~host:_ ~delay =
-  Xapi_periodic_scheduler.add_to_queue "RRD backup"
-    Xapi_periodic_scheduler.OneShot delay (fun _ ->
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue "RRD backup"
+    Xapi_stdext_threads_scheduler.Scheduler.OneShot delay (fun _ ->
       let master_address = Pool_role.get_master_address_opt () in
       log_and_ignore_exn (Rrdd.backup_rrds master_address) ;
       log_and_ignore_exn (fun () ->
@@ -2937,6 +2922,81 @@ let emergency_reenable_tls_verification ~__context =
   Stunnel_client.set_verify_by_default true ;
   Helpers.touch_file Constants.verify_certificates_path ;
   Db.Host.set_tls_verification_enabled ~__context ~self ~value:true
+
+(** Issue an alert if /proc/sys/kernel/tainted indicates particular kernel
+    errors. Will send only one alert per reboot *)
+let alert_if_kernel_broken =
+  let __context = Context.make "host_kernel_error_alert_startup_check" in
+  (* Only add an alert if
+     (a) an alert wasn't already issued for the currently booted kernel *)
+  let possible_alerts =
+    ref
+      ( lazy
+        ((* Check all the alerts since last reboot. Only done once at toolstack
+            startup, we track if alerts have been issued afterwards internally *)
+         let self = Helpers.get_localhost ~__context in
+         let boot_time =
+           Db.Host.get_other_config ~__context ~self
+           |> List.assoc "boot_time"
+           |> float_of_string
+         in
+         let all_alerts =
+           [
+             (* processor reported a Machine Check Exception (MCE) *)
+             (4, Api_messages.kernel_is_broken "MCE")
+           ; (* bad page referenced or some unexpected page flags *)
+             (5, Api_messages.kernel_is_broken "BAD_PAGE")
+           ; (* kernel died recently, i.e. there was an OOPS or BUG *)
+             (7, Api_messages.kernel_is_broken "BUG")
+           ; (* kernel issued warning *)
+             (9, Api_messages.kernel_is_broken_warning "WARN")
+           ; (* soft lockup occurred *)
+             (14, Api_messages.kernel_is_broken_warning "SOFT_LOCKUP")
+           ]
+         in
+         all_alerts
+         |> List.filter (fun (_, alert_message) ->
+                let alert_already_issued_for_this_boot =
+                  Helpers.call_api_functions ~__context (fun rpc session_id ->
+                      Client.Client.Message.get_all_records ~rpc ~session_id
+                      |> List.exists (fun (_, record) ->
+                             record.API.message_name = fst alert_message
+                             && API.Date.is_later
+                                  ~than:(API.Date.of_unix_time boot_time)
+                                  record.API.message_timestamp
+                         )
+                  )
+                in
+                alert_already_issued_for_this_boot
+            )
+        )
+        )
+  in
+  (* and (b) if we found a problem *)
+  fun ~__context ->
+    let self = Helpers.get_localhost ~__context in
+    possible_alerts :=
+      Lazy.from_val
+        (Lazy.force !possible_alerts
+        |> List.filter (fun (alert_bit, alert_message) ->
+               let is_bit_tainted =
+                 Unixext.string_of_file "/proc/sys/kernel/tainted"
+                 |> int_of_string
+               in
+               let is_bit_tainted = (is_bit_tainted lsr alert_bit) land 1 = 1 in
+               if is_bit_tainted then (
+                 let host = Db.Host.get_name_label ~__context ~self in
+                 let body =
+                   Printf.sprintf "<body><host>%s</host></body>" host
+                 in
+                 Xapi_alert.add ~msg:alert_message ~cls:`Host
+                   ~obj_uuid:(Db.Host.get_uuid ~__context ~self)
+                   ~body ;
+                 false (* alert issued, remove from the list *)
+               ) else
+                 true (* keep in the list, alert can be issued later *)
+           )
+        )
 
 let alert_if_tls_verification_was_emergency_disabled ~__context =
   let tls_verification_enabled_locally =

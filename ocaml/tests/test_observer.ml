@@ -466,7 +466,7 @@ let test_tracing_exn_backtraces () =
       let (_ : int) = test_a () in
       ()
     with e -> (
-      let stacktrace = Printexc.get_backtrace () in
+      let stacktrace = Printexc.get_raw_backtrace () in
       let x = Tracer.finish ~error:(e, stacktrace) x in
       match x with
       | Ok (Some span) ->
