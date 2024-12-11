@@ -796,10 +796,17 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               | `vxlan ->
                   debug
                     "Opening VxLAN UDP port for tunnel with protocol 'vxlan'" ;
+                  let options =
+                    match Helpers.get_management_iface_primary_address_type with
+                    | `IPv4 ->
+                        ["open"; "4789"; "udp"]
+                    | `IPv6 ->
+                        ["-6"; "open"; "4789"; "udp"]
+                  in
                   ignore
                   @@ Helpers.call_script
                        !Xapi_globs.firewall_port_config_script
-                       ["open"; "4789"; "udp"]
+                       options
               | `gre ->
                   ()
             )
@@ -857,10 +864,17 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                 in
                 if no_more_vxlan then (
                   debug "Last VxLAN tunnel was closed, closing VxLAN UDP port" ;
+                  let options =
+                    match Helpers.get_management_iface_primary_address_type with
+                    | `IPv4 ->
+                        ["close"; "4789"; "udp"]
+                    | `IPv6 ->
+                        ["-6"; "close"; "4789"; "udp"]
+                  in
                   ignore
                   @@ Helpers.call_script
                        !Xapi_globs.firewall_port_config_script
-                       ["close"; "4789"; "udp"]
+                       options
                 )
             | `gre ->
                 ()
