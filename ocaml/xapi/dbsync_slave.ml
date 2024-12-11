@@ -59,25 +59,28 @@ let create_localhost ~__context info =
         ~external_auth_configuration:[] ~license_params:[] ~edition:""
         ~license_server:[("address", "localhost"); ("port", "27000")]
         ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
-        ~last_software_update:Date.epoch
+        ~last_software_update:Date.epoch ~last_update_hash:""
     in
     ()
 
-(* TODO cat /proc/stat for btime ? *)
 let get_start_time () =
   try
-    debug "Calculating boot time..." ;
-    let now = Unix.time () in
-    let uptime = Unixext.string_of_file "/proc/uptime" in
-    let uptime = String.trim uptime in
-    let uptime = String.split ' ' uptime in
-    let uptime = List.hd uptime in
-    let uptime = float_of_string uptime in
-    let boot_time = Date.of_unix_time (now -. uptime) in
-    debug " system booted at %s" (Date.to_rfc3339 boot_time) ;
-    boot_time
+    match
+      Unixext.string_of_file "/proc/stat"
+      |> String.trim
+      |> String.split '\n'
+      |> List.find (fun s -> String.starts_with ~prefix:"btime" s)
+      |> String.split ' '
+    with
+    | _ :: btime :: _ ->
+        let boot_time = Date.of_unix_time (float_of_string btime) in
+        debug "%s: system booted at %s" __FUNCTION__ (Date.to_rfc3339 boot_time) ;
+        boot_time
+    | _ ->
+        failwith "Couldn't parse /proc/stat"
   with e ->
-    debug "Calculating boot time failed with '%s'" (ExnHelper.string_of_exn e) ;
+    debug "%s: Calculating boot time failed with '%s'" __FUNCTION__
+      (ExnHelper.string_of_exn e) ;
     Date.epoch
 
 (* not sufficient just to fill in this data on create time [Xen caps may change if VT enabled in BIOS etc.] *)
@@ -361,6 +364,9 @@ let update_env __context sync_keys =
   ) ;
   switched_sync Xapi_globs.sync_refresh_localhost_info (fun () ->
       refresh_localhost_info ~__context info
+  ) ;
+  switched_sync Xapi_globs.sync_sm_records (fun () ->
+      Storage_access.on_xapi_start ~__context
   ) ;
   switched_sync Xapi_globs.sync_local_vdi_activations (fun () ->
       Storage_access.refresh_local_vdi_activations ~__context

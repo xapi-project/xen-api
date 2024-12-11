@@ -170,12 +170,13 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(external_auth_service_name = "") ?(external_auth_configuration = [])
     ?(license_params = []) ?(edition = "free") ?(license_server = [])
     ?(local_cache_sr = Ref.null) ?(chipset_info = []) ?(ssl_legacy = false)
-    ?(last_software_update = Date.epoch) () =
+    ?(last_software_update = Date.epoch) ?(last_update_hash = "") () =
   let host =
     Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname
       ~address ~external_auth_type ~external_auth_service_name
       ~external_auth_configuration ~license_params ~edition ~license_server
       ~local_cache_sr ~chipset_info ~ssl_legacy ~last_software_update
+      ~last_update_hash
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
@@ -342,12 +343,13 @@ let default_sm_features =
 let make_sm ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ?(_type = "sm") ?(name_label = "") ?(name_description = "") ?(vendor = "")
     ?(copyright = "") ?(version = "") ?(required_api_version = "")
-    ?(capabilities = []) ?(features = default_sm_features) ?(configuration = [])
-    ?(other_config = []) ?(driver_filename = "/dev/null")
-    ?(required_cluster_stack = []) () =
+    ?(capabilities = []) ?(features = default_sm_features)
+    ?(host_pending_features = []) ?(configuration = []) ?(other_config = [])
+    ?(driver_filename = "/dev/null") ?(required_cluster_stack = []) () =
   Db.SM.create ~__context ~ref ~uuid ~_type ~name_label ~name_description
     ~vendor ~copyright ~version ~required_api_version ~capabilities ~features
-    ~configuration ~other_config ~driver_filename ~required_cluster_stack ;
+    ~host_pending_features ~configuration ~other_config ~driver_filename
+    ~required_cluster_stack ;
   ref
 
 let make_sr ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())

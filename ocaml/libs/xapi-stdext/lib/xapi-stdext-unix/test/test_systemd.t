@@ -12,6 +12,7 @@
   READY=1
   $ sleep 1
   $ ./test_systemd.exe --notify
+  $ wait
 
 == Use socket files
   $ export TMPDIR=${TMPDIR:-/tmp}
@@ -22,6 +23,7 @@
   $ sleep 1
   $ test -S "$NOTIFY_SOCKET"
   $ ./test_systemd.exe --notify
+  $ wait
 
 == Currently not run tests because of insufficient permissions
 ==  in cram to be manipulating this file

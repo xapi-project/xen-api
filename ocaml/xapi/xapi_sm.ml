@@ -18,6 +18,8 @@
 (* The SMAPIv1 plugins are a static set in the filesystem.
    The SMAPIv2 plugins are a dynamic set hosted in driver domains. *)
 
+module Listext = Xapi_stdext_std.Listext
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 (* We treat versions as '.'-separated integer lists under the usual
@@ -36,7 +38,7 @@ let create_from_query_result ~__context q =
   if String.lowercase_ascii q.driver <> "storage_access" then (
     let features = Smint.parse_string_int64_features q.features in
     let capabilities = List.map fst features in
-    info "Registering SM plugin %s (version %s)"
+    info "%s Registering SM plugin %s (version %s)" __FUNCTION__
       (String.lowercase_ascii q.driver)
       q.version ;
     Db.SM.create ~__context ~ref:r ~uuid:u
@@ -44,19 +46,80 @@ let create_from_query_result ~__context q =
       ~name_label:q.name ~name_description:q.description ~vendor:q.vendor
       ~copyright:q.copyright ~version:q.version
       ~required_api_version:q.required_api_version ~capabilities ~features
-      ~configuration:q.configuration ~other_config:[]
+      ~host_pending_features:[] ~configuration:q.configuration ~other_config:[]
       ~driver_filename:(Sm_exec.cmd_name q.driver)
       ~required_cluster_stack:q.required_cluster_stack
   )
+
+let find_pending_features existing_features features =
+  Listext.List.set_difference features existing_features
+
+(** [addto_pending_hosts_features ~__context self new_features] will add [new_features]
+to pending features of host [self]. It then returns a list of currently pending features *)
+let addto_pending_hosts_features ~__context self new_features =
+  let host = Helpers.get_localhost ~__context in
+  let new_features =
+    List.map (fun (f, v) -> Smint.unparse_feature (f, v)) new_features
+  in
+  let curr_pending_features =
+    Db.SM.get_host_pending_features ~__context ~self
+    |> List.remove_assoc host
+    |> List.cons (host, new_features)
+  in
+  Db.SM.set_host_pending_features ~__context ~self ~value:curr_pending_features ;
+  List.iter
+    (fun (h, f) ->
+      debug "%s: current pending features for host %s, sm %s, features %s"
+        __FUNCTION__ (Ref.string_of h) (Ref.string_of self) (String.concat "," f)
+    )
+    curr_pending_features ;
+  List.map
+    (fun (h, f) -> (h, Smint.parse_string_int64_features f))
+    curr_pending_features
+
+let valid_hosts_pending_features ~__context pending_features =
+  if List.length pending_features <> List.length (Db.Host.get_all ~__context)
+  then (
+    debug "%s: Not enough hosts have registered their sm features" __FUNCTION__ ;
+    []
+  ) else
+    List.map snd pending_features |> fun l ->
+    List.fold_left Smint.compat_features
+      (* The list in theory cannot be empty due to the if condition check, but do
+         this just in case *)
+      (List.nth_opt l 0 |> Option.fold ~none:[] ~some:Fun.id)
+      (List.tl l)
+
+let remove_valid_features_from_pending ~__context ~self valid_features =
+  let valid_features = List.map Smint.unparse_feature valid_features in
+  let new_pending_feature =
+    Db.SM.get_host_pending_features ~__context ~self
+    |> List.map (fun (h, pending_features) ->
+           (h, Listext.List.set_difference pending_features valid_features)
+       )
+  in
+  Db.SM.set_host_pending_features ~__context ~self ~value:new_pending_feature
 
 let update_from_query_result ~__context (self, r) q_result =
   let open Storage_interface in
   let _type = String.lowercase_ascii q_result.driver in
   if _type <> "storage_access" then (
     let driver_filename = Sm_exec.cmd_name q_result.driver in
-    let features = Smint.parse_string_int64_features q_result.features in
+    let existing_features = Db.SM.get_features ~__context ~self in
+    let new_features =
+      Smint.parse_string_int64_features q_result.features
+      |> find_pending_features existing_features
+      |> addto_pending_hosts_features ~__context self
+      |> valid_hosts_pending_features ~__context
+    in
+    remove_valid_features_from_pending ~__context ~self new_features ;
+    let features = existing_features @ new_features in
+    List.iter
+      (fun (f, v) -> debug "%s: declaring new features %s:%Ld" __FUNCTION__ f v)
+      new_features ;
+
     let capabilities = List.map fst features in
-    info "Registering SM plugin %s (version %s)"
+    info "%s Registering SM plugin %s (version %s)" __FUNCTION__
       (String.lowercase_ascii q_result.driver)
       q_result.version ;
     if r.API.sM_type <> _type then

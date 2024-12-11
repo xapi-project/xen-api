@@ -13,6 +13,6 @@
  *)
 
 val json_of_dss :
-  header:string -> int64 -> (Rrd.ds_owner * Ds.ds) list -> string
+  header:string -> float -> (Rrd.ds_owner * Ds.ds) list -> string
 
 val json_metadata_of_dss : (Rrd.ds_owner * Ds.ds) list -> string

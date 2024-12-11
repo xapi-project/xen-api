@@ -22,6 +22,7 @@ end)
 open D
 open Xapi_stdext_std.Xstringext
 open Auth_signature
+module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -1172,16 +1173,14 @@ module ClosestKdc = struct
   let trigger_update ~start =
     if Pool_role.is_master () then (
       debug "Trigger task: %s" periodic_update_task_name ;
-      Xapi_periodic_scheduler.add_to_queue periodic_update_task_name
-        (Xapi_periodic_scheduler.Periodic
-           !Xapi_globs.winbind_update_closest_kdc_interval
-        )
+      Scheduler.add_to_queue periodic_update_task_name
+        (Scheduler.Periodic !Xapi_globs.winbind_update_closest_kdc_interval)
         start update
     )
 
   let stop_update () =
     if Pool_role.is_master () then
-      Xapi_periodic_scheduler.remove_from_queue periodic_update_task_name
+      Scheduler.remove_from_queue periodic_update_task_name
 end
 
 module RotateMachinePassword = struct
@@ -1302,11 +1301,10 @@ module RotateMachinePassword = struct
 
   let trigger_rotate ~start =
     debug "Trigger task: %s" task_name ;
-    Xapi_periodic_scheduler.add_to_queue task_name
-      (Xapi_periodic_scheduler.Periodic !Xapi_globs.winbind_machine_pwd_timeout)
-      start rotate
+    Scheduler.add_to_queue task_name
+      (Scheduler.Periodic !Xapi_globs.winbind_machine_pwd_timeout) start rotate
 
-  let stop_rotate () = Xapi_periodic_scheduler.remove_from_queue task_name
+  let stop_rotate () = Scheduler.remove_from_queue task_name
 end
 
 let build_netbios_name ~config_params =

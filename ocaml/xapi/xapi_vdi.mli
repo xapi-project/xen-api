@@ -28,7 +28,7 @@ val check_operation_error :
   -> Db_actions.vDI_t
   -> API.ref_VDI
   -> API.vdi_operations
-  -> (string * string list) option
+  -> (unit, string * string list) Result.t
 (** Checks to see if an operation is valid in this state. Returns Some exception
     if not and None if everything is ok. *)
 

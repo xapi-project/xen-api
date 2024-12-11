@@ -466,7 +466,6 @@ let domain_snapshot xc =
   let domains =
     Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
   in
-  let timestamp = Unix.gettimeofday () in
   let domain_paused (d, uuid, _) =
     if d.Xenctrl.paused then Some uuid else None
   in
@@ -474,7 +473,7 @@ let domain_snapshot xc =
   let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
   let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
   Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
-  (timestamp, domains, paused_uuids)
+  (domains, paused_uuids)
 
 let dom0_stat_generators =
   [
@@ -484,13 +483,16 @@ let dom0_stat_generators =
   ; ("cache", fun _ timestamp _ -> dss_cache timestamp)
   ]
 
-let generate_all_dom0_stats xc timestamp domains =
+let generate_all_dom0_stats xc domains =
   let handle_generator (name, generator) =
-    (name, handle_exn name (fun _ -> generator xc timestamp domains) [])
+    let timestamp = Unix.gettimeofday () in
+    ( name
+    , (timestamp, handle_exn name (fun _ -> generator xc timestamp domains) [])
+    )
   in
   List.map handle_generator dom0_stat_generators
 
-let write_dom0_stats writers timestamp tagged_dss =
+let write_dom0_stats writers tagged_dss =
   let write_dss (name, writer) =
     match List.assoc_opt name tagged_dss with
     | None ->
@@ -498,22 +500,30 @@ let write_dom0_stats writers timestamp tagged_dss =
           "Could not write stats for \"%s\": no stats were associated with \
            this name"
           name
-    | Some dss ->
+    | Some (timestamp, dss) ->
         writer.Rrd_writer.write_payload {timestamp; datasources= dss}
   in
   List.iter write_dss writers
 
 let do_monitor_write xc writers =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
-      let timestamp, domains, my_paused_vms = domain_snapshot xc in
-      let tagged_dom0_stats = generate_all_dom0_stats xc timestamp domains in
-      write_dom0_stats writers (Int64.of_float timestamp) tagged_dom0_stats ;
-      let dom0_stats = List.concat_map snd tagged_dom0_stats in
+      let domains, my_paused_vms = domain_snapshot xc in
+      let tagged_dom0_stats = generate_all_dom0_stats xc domains in
+      write_dom0_stats writers tagged_dom0_stats ;
+      let dom0_stats =
+        tagged_dom0_stats
+        |> List.to_seq
+        |> Seq.map (fun (name, (timestamp, dss)) ->
+               (name, timestamp, List.to_seq dss)
+           )
+      in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
-      let stats = List.rev_append plugins_stats dom0_stats in
+      let stats = Seq.append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-      Rrdd_monitor.update_rrds timestamp stats uuid_domids my_paused_vms ;
+
+      (* stats are grouped per plugin, which provides its timestamp *)
+      Rrdd_monitor.update_rrds uuid_domids my_paused_vms stats ;
 
       Rrdd_libs.Constants.datasource_dump_file
       |> Rrdd_server.dump_host_dss_to_file ;
@@ -532,10 +542,11 @@ let monitor_write_loop writers =
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
               ) ;
               Thread.delay !Rrdd_shared.timeslice
-            with _ ->
+            with e ->
               debug
                 "Monitor/write thread caught an exception. Pausing for 10s, \
-                 then restarting." ;
+                 then restarting: %s"
+                (Printexc.to_string e) ;
               log_backtrace () ;
               Thread.delay 10.
           done

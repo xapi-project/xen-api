@@ -754,6 +754,9 @@ let pool_joining_host_tls_verification_mismatch =
 let pool_joining_host_ca_certificates_conflict =
   add_error "POOL_JOINING_HOST_CA_CERTIFICATES_CONFLICT"
 
+let pool_joining_sm_features_incompatible =
+  add_error "POOL_JOINING_SM_FEATURES_INCOMPATIBLE"
+
 (*workload balancing*)
 let wlb_not_initialized = add_error "WLB_NOT_INITIALIZED"
 
@@ -1396,4 +1399,4 @@ let telemetry_next_collection_too_late =
 (* FIPS/CC_PREPARATIONS *)
 let illegal_in_fips_mode = add_error "ILLEGAL_IN_FIPS_MODE"
 
-let too_many_groups = "TOO_MANY_GROUPS"
+let too_many_groups = add_error "TOO_MANY_GROUPS"

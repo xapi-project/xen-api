@@ -180,7 +180,7 @@ let init_args () =
     Xapi_globs.xenopsd_queues := ["xenopsd"]
   )
 
-let wait_to_die () =
+let wait_to_die () : unit =
   (* don't call Thread.join cos this interacts strangely with OCAML runtime and stops
      the OCAML-level signal handlers ever getting called... Thread.delay is fine tho' *)
   while true do
@@ -1115,7 +1115,7 @@ let server_init () =
             )
           ; ( "Starting periodic scheduler"
             , [Startup.OnThread]
-            , Xapi_periodic_scheduler.loop
+            , Xapi_stdext_threads_scheduler.Scheduler.loop
             )
           ; ( "Synchronising host configuration files"
             , []

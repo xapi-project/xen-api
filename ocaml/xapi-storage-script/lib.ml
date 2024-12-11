@@ -131,6 +131,7 @@ module Process = struct
 
     type t = {
         exit_status: (unit, exit_or_signal) Result.t
+      ; pid: int
       ; stdout: string
       ; stderr: string
     }
@@ -176,6 +177,7 @@ module Process = struct
   let run ~env ~prog ~args ~input =
     let ( let@ ) f x = f x in
     let@ p = with_process ~env ~prog ~args in
+    let pid = p#pid in
     let sender = send p#stdin input in
     let receiver_out = receive p#stdout in
     let receiver_err = receive p#stderr in
@@ -185,7 +187,7 @@ module Process = struct
         Lwt.both sender receiver >>= fun ((), (stdout, stderr)) ->
         p#status >>= fun status ->
         let exit_status = Output.exit_or_signal_of_unix status in
-        Lwt.return {Output.exit_status; stdout; stderr}
+        Lwt.return {Output.exit_status; pid; stdout; stderr}
       )
       (function
         | Lwt.Canceled as exn ->

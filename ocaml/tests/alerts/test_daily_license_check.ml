@@ -36,8 +36,7 @@ let expiry =
   in
   Alcotest.testable pp_expiry equals
 
-let check_time =
-  Xapi_stdext_date.Date.(to_unix_time (of_iso8601 "20160601T04:00:00Z"))
+let check_time = Xapi_stdext_date.Date.(of_iso8601 "20160601T04:00:00Z")
 
 let test_expiry ((pool_license_state, all_license_params), expected) () =
   let result = check_license check_time pool_license_state all_license_params in
@@ -47,6 +46,7 @@ let expiry_samples =
   [
     (([("expiry", "20170101T00:00:00Z")], []), Good)
   ; (([("expiry", "20160701T04:01:00Z")], []), Good)
+  ; (([("expiry", "never")], []), Good)
   ; (([("expiry", "20160701T04:00:00Z")], []), Expiring [])
   ; (([("expiry", "20160616T00:00:00Z")], []), Expiring [])
   ; (([("expiry", "20160601T04:00:01Z")], []), Expiring [])
@@ -58,7 +58,7 @@ let expiry_samples =
         ; ("host1", [("expiry", "20160615T00:00:00Z")])
         ]
       )
-    , Expiring ["host1"; "host0"]
+    , Expiring ["host0"; "host1"]
     )
   ; ( ( [("expiry", "20160615T00:00:00Z")]
       , [
@@ -74,7 +74,7 @@ let expiry_samples =
         ; ("host1", [("expiry", "20150601T00:00:00Z")])
         ]
       )
-    , Expired ["host1"; "host0"]
+    , Expired ["host0"; "host1"]
     )
   ; ( ( [("expiry", "20160101T00:00:00Z")]
       , [

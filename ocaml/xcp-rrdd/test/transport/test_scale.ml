@@ -79,7 +79,7 @@ let write_payloads deliveries protocol sock =
 
 let run_tests shared_file_count protocol =
   Random.self_init () ;
-  let timestamp = Int64.of_float (Unix.gettimeofday ()) in
+  let timestamp = Unix.gettimeofday () in
   let deliveries =
     List.init shared_file_count (fun k ->
         {

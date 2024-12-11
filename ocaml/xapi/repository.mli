@@ -48,7 +48,7 @@ val sync :
   -> self:[`Repository] API.Ref.t
   -> token:string
   -> token_id:string
-  -> unit
+  -> bool
 
 val create_pool_repository :
   __context:Context.t -> self:[`Repository] API.Ref.t -> unit

@@ -99,9 +99,17 @@ let response_of_request req hdrs =
     ~headers:(connection :: cache :: hdrs)
     "200" "OK"
 
+module Helper = struct
+  include Tracing.Propagator.Make (struct
+    include Tracing_propagator.Propagator.Http
+
+    let name_span req = req.Http.Request.uri
+  end)
+end
+
 let response_fct req ?(hdrs = []) s (response_length : int64)
     (write_response_to_fd_fn : Unix.file_descr -> unit) =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
   let res =
     {
       (response_of_request req hdrs) with
@@ -409,8 +417,6 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                        {req with host= Some v}
                    | k when k = Http.Hdr.user_agent ->
                        {req with user_agent= Some v}
-                   | k when k = Http.Hdr.traceparent ->
-                       {req with traceparent= Some v}
                    | k when k = Http.Hdr.connection && lowercase v = "close" ->
                        {req with close= true}
                    | k
@@ -436,18 +442,25 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     	already sent back a suitable error code and response to the client. *)
 let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
   try
+    (* TODO: Restore functionality of tracing this function. We rely on the request
+       to contain information we want spans to inherit. However, it is the reading of the
+       request that we intend to trace. *)
+    let r, proxy =
+      read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
+    in
+    let trace_context = Tracing_propagator.Propagator.Http.extract_from r in
     let tracer = Tracing.Tracer.get_tracer ~name:"http_tracer" in
     let loop_span =
-      match Tracing.Tracer.start ~tracer ~name:__FUNCTION__ ~parent:None () with
+      match
+        Tracing.Tracer.start ~tracer ~trace_context ~name:__FUNCTION__
+          ~parent:None ()
+      with
       | Ok span ->
           span
       | Error _ ->
           None
     in
-    let r, proxy =
-      read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd
-    in
-    let parent_span = Http.Request.traceparent_of r in
+    let parent_span = Helper.traceparent_of r in
     let loop_span =
       Option.fold ~none:None
         ~some:(fun span ->
@@ -491,8 +504,8 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     (None, None)
 
 let handle_one (x : 'a Server.t) ss context req =
-  let@ req = Http.Request.with_tracing ~name:__FUNCTION__ req in
-  let span = Http.Request.traceparent_of req in
+  let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
+  let span = Helper.traceparent_of req in
   let finished = ref false in
   try
     D.debug "Request %s" (Http.Request.to_string req) ;
@@ -648,7 +661,7 @@ let start ?header_read_timeout ?header_total_timeout ?max_header_length
     ; body=
         handle_connection ~header_read_timeout ~header_total_timeout
           ~max_header_length x
-    ; lock= Xapi_stdext_threads.Semaphore.create conn_limit
+    ; lock= Semaphore.Counting.make conn_limit
     }
   in
   let server = Server_io.server handler socket in

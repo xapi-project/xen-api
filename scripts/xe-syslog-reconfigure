@@ -42,4 +42,4 @@ else
 fi
 
 [ -s /etc/syslog.$$ ] && mv -f /etc/syslog.$$ $conf_file
-service $service restart
+systemctl restart $service

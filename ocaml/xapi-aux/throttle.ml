@@ -17,9 +17,11 @@ module type SIZE = sig
 end
 
 module Make (Size : SIZE) = struct
-  module Semaphore = Xapi_stdext_threads.Semaphore
+  module Semaphore = Semaphore.Counting
 
   let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+  let execute = Xapi_stdext_threads.Threadext.Semaphore.execute
 
   let semaphore = ref None
 
@@ -29,11 +31,11 @@ module Make (Size : SIZE) = struct
     with_lock m @@ fun () ->
     match !semaphore with
     | None ->
-        let result = Semaphore.create (Size.n ()) in
+        let result = Semaphore.make (Size.n ()) in
         semaphore := Some result ;
         result
     | Some s ->
         s
 
-  let execute f = Semaphore.execute (get_semaphore ()) f
+  let execute f = execute (get_semaphore ()) f
 end

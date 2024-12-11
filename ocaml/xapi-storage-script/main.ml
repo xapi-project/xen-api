@@ -66,6 +66,23 @@ let backend_backtrace_error name args backtrace =
 let missing_uri () =
   backend_error "MISSING_URI" ["Please include a URI in the device-config"]
 
+(** return a unique 'domain' string for Dom0, so that we can plug disks
+  multiple times (e.g. for copy).
+
+  XAPI should give us a unique 'dp' (datapath) string, e.g. a UUID for storage migration,
+  or vbd/domid/device.
+  For regular guests keep the domain as passed by XAPI (an integer).
+ *)
+let domain_of ~dp ~vm' =
+  let vm = Storage_interface.Vm.string_of vm' in
+  match vm with
+  | "0" ->
+      (* SM tries to use this in filesystem paths, so cannot have /,
+         and systemd might be a bit unhappy with - *)
+      "u0-" ^ dp |> String.map (function '/' | '-' -> '_' | c -> c)
+  | _ ->
+      vm
+
 (** Functions to wrap calls to the above client modules and convert their
     exceptions and errors into SMAPIv2 errors of type
     [Storage_interface.Exception.exnty]. The above client modules should only
@@ -460,6 +477,8 @@ let fork_exec_rpc :
     )
     >>>= fun input ->
     let input = compat_in input |> Jsonrpc.to_string in
+    debug (fun m -> m "Running %s" @@ Filename.quote_command script_name args)
+    >>= fun () ->
     Process.run ~env ~prog:script_name ~args ~input >>= fun output ->
     let fail_because ~cause description =
       fail
@@ -483,12 +502,13 @@ let fork_exec_rpc :
       with
       | Error _ ->
           error (fun m ->
-              m "%s failed and printed bad error json: %s" script_name
-                output.Process.Output.stdout
+              m "%s[%d] failed and printed bad error json: %s" script_name
+                output.pid output.Process.Output.stdout
           )
           >>= fun () ->
           error (fun m ->
-              m "%s failed, stderr: %s" script_name output.Process.Output.stderr
+              m "%s[%d] failed, stderr: %s" script_name output.pid
+                output.Process.Output.stderr
           )
           >>= fun () ->
           fail_because "non-zero exit and bad json on stdout"
@@ -499,12 +519,12 @@ let fork_exec_rpc :
         with
         | Error _ ->
             error (fun m ->
-                m "%s failed and printed bad error json: %s" script_name
-                  output.Process.Output.stdout
+                m "%s[%d] failed and printed bad error json: %s" script_name
+                  output.pid output.Process.Output.stdout
             )
             >>= fun () ->
             error (fun m ->
-                m "%s failed, stderr: %s" script_name
+                m "%s[%d] failed, stderr: %s" script_name output.pid
                   output.Process.Output.stderr
             )
             >>= fun () ->
@@ -515,7 +535,9 @@ let fork_exec_rpc :
       )
     )
     | Error (Signal signal) ->
-        error (fun m -> m "%s caught a signal and failed" script_name)
+        error (fun m ->
+            m "%s[%d] caught a signal and failed" script_name output.pid
+        )
         >>= fun () -> fail_because "signalled" ~cause:(Signal.to_string signal)
     | Ok () -> (
       (* Parse the json on stdout. We get back a JSON-RPC
@@ -527,8 +549,8 @@ let fork_exec_rpc :
       with
       | Error _ ->
           error (fun m ->
-              m "%s succeeded but printed bad json: %s" script_name
-                output.Process.Output.stdout
+              m "%s[%d] succeeded but printed bad json: %s" script_name
+                output.pid output.Process.Output.stdout
           )
           >>= fun () ->
           fail
@@ -537,7 +559,8 @@ let fork_exec_rpc :
             )
       | Ok response ->
           info (fun m ->
-              m "%s succeeded: %s" script_name output.Process.Output.stdout
+              m "%s[%d] succeeded: %s" script_name output.pid
+                output.Process.Output.stdout
           )
           >>= fun () ->
           let response = compat_out response in
@@ -1432,9 +1455,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.introduce vdi_introduce_impl ;
-  let vdi_attach3_impl dbg _dp sr vdi' vm' _readwrite =
+  let vdi_attach3_impl dbg dp sr vdi' vm' _readwrite =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      vdi_attach_common dbg sr vdi domain >>>= fun response ->
      let convert_implementation = function
        | Xapi_storage.Data.XenDisk {params; extra; backend_type} ->
@@ -1456,9 +1479,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.attach3 vdi_attach3_impl ;
-  let vdi_activate_common dbg sr vdi' vm' readonly =
+  let vdi_activate_common dbg dp sr vdi' vm' readonly =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1483,17 +1506,17 @@ let bind ~volume_script_dir =
     )
     |> wrap
   in
-  let vdi_activate3_impl dbg _dp sr vdi' vm' =
-    vdi_activate_common dbg sr vdi' vm' false
+  let vdi_activate3_impl dbg dp sr vdi' vm' =
+    vdi_activate_common dbg dp sr vdi' vm' false
   in
   S.VDI.activate3 vdi_activate3_impl ;
-  let vdi_activate_readonly_impl dbg _dp sr vdi' vm' =
-    vdi_activate_common dbg sr vdi' vm' true
+  let vdi_activate_readonly_impl dbg dp sr vdi' vm' =
+    vdi_activate_common dbg dp sr vdi' vm' true
   in
   S.VDI.activate_readonly vdi_activate_readonly_impl ;
-  let vdi_deactivate_impl dbg _dp sr vdi' vm' =
+  let vdi_deactivate_impl dbg dp sr vdi' vm' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1514,9 +1537,9 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.deactivate vdi_deactivate_impl ;
-  let vdi_detach_impl dbg _dp sr vdi' vm' =
+  let vdi_detach_impl dbg dp sr vdi' vm' =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1627,9 +1650,9 @@ let bind ~volume_script_dir =
   S.VDI.epoch_end vdi_epoch_end_impl ;
   let vdi_set_persistent_impl _dbg _sr _vdi _persistent = return () |> wrap in
   S.VDI.set_persistent vdi_set_persistent_impl ;
-  let dp_destroy2 dbg _dp sr vdi' vm' _allow_leak =
+  let dp_destroy2 dbg dp sr vdi' vm' _allow_leak =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
-     let domain = Storage_interface.Vm.string_of vm' in
+     let domain = domain_of ~dp ~vm' in
      Attached_SRs.find sr >>>= fun sr ->
      (* Discover the URIs using Volume.stat *)
      stat ~dbg ~sr ~vdi >>>= fun response ->
@@ -1739,7 +1762,6 @@ let bind ~volume_script_dir =
   S.VDI.get_url (u "VDI.get_url") ;
   S.DATA.MIRROR.start (u "DATA.MIRROR.start") ;
   S.Policy.get_backend_vm (u "Policy.get_backend_vm") ;
-  S.DATA.copy_into (u "DATA.copy_into") ;
   S.DATA.MIRROR.receive_cancel (u "DATA.MIRROR.receive_cancel") ;
   S.SR.update_snapshot_info_src (u "SR.update_snapshot_info_src") ;
   S.DATA.MIRROR.stop (u "DATA.MIRROR.stop") ;
@@ -1774,7 +1796,7 @@ let rec diff a b =
 
 (* default false due to bugs in SMAPIv3 plugins,
    once they are fixed this should be set to true *)
-let concurrent = ref false
+let concurrent = ref true
 
 type reload = All | Files of string list | Nothing
 

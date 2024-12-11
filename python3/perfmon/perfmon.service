@@ -2,6 +2,7 @@
 Description=Performance monitoring/alarm generation daemon
 After=xapi.service
 Wants=xapi.service
+PartOf=toolstack.target
 
 [Service]
 EnvironmentFile=-/etc/sysconfig/perfmon

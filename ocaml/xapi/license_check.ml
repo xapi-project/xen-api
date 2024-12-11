@@ -13,27 +13,34 @@
  *)
 module L = Debug.Make (struct let name = "license" end)
 
-let never, _ =
-  let start_of_epoch = Unix.gmtime 0. in
-  Unix.mktime {start_of_epoch with Unix.tm_year= 130}
+module Date = Xapi_stdext_date.Date
+
+let never = Ptime.of_year 2100 |> Option.get |> Date.of_ptime
+
+let serialize_expiry = function
+  | None ->
+      "never"
+  | Some date when Date.equal date never ->
+      "never"
+  | Some date ->
+      Date.to_rfc3339 date
 
 let get_expiry_date ~__context ~host =
   let license = Db.Host.get_license_params ~__context ~self:host in
-  if List.mem_assoc "expiry" license then
-    Some (Xapi_stdext_date.Date.of_iso8601 (List.assoc "expiry" license))
-  else
-    None
+  List.assoc_opt "expiry" license
+  |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
+  |> Option.map Xapi_stdext_date.Date.of_iso8601
 
 let check_expiry ~__context ~host =
   let expired =
     match get_expiry_date ~__context ~host with
     | None ->
         false (* No expiry date means no expiry :) *)
-    | Some date ->
-        Unix.time () > Xapi_stdext_date.Date.to_unix_time date
+    | Some expiry ->
+        Xapi_stdext_date.Date.(is_later ~than:expiry (now ()))
   in
   if expired then
-    raise (Api_errors.Server_error (Api_errors.license_expired, []))
+    raise Api_errors.(Server_error (license_expired, []))
 
 let vm ~__context _vm =
   (* Here we check that the license is still valid - this should be the only place where this happens *)

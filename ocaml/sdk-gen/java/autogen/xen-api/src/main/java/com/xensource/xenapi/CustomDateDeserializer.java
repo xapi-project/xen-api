@@ -49,7 +49,7 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
     /**
      * Array of {@link SimpleDateFormat} objects representing the date formats
      * used in xen-api responses.
-     * 
+     * <br />
      * RFC-3339 date formats can be returned in either Zulu or time zone agnostic.
      * This list is not an exhaustive list of formats supported by RFC-3339, rather
      * a set of formats that will enable the deserialization of xen-api dates.
@@ -57,17 +57,24 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
      * to this list, please ensure the order is kept.
      */
     private static final SimpleDateFormat[] dateFormatsUtc = {
-           // Most commonly returned formats
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"),
-            new SimpleDateFormat("ss.SSS"),
+        // Most commonly returned formats
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+        new SimpleDateFormat("ss.SSS"),
 
-            // Other
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss'Z'"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSS'Z'"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSS'Z'"),
+        // Other
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss'Z'"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSS'Z'"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSS'Z'"),
 
+        // Formats without timezone info default to UTC in xapi
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSS"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSS"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss"),
     };
 
     /**
@@ -78,61 +85,55 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
      * to this list, please ensure the order is kept.
      */
     private static final SimpleDateFormat[] dateFormatsLocal = {
-            // no dashes, no colons
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSXXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSX"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSS"),
+        // no dashes, no colons
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSXXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmss.SSSX"),
 
-            new SimpleDateFormat("yyyyMMdd'T'HHmmssZZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmssZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmssZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmssXXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmssXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmssX"),
-            new SimpleDateFormat("yyyyMMdd'T'HHmmss"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmssZZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmssZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmssZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmssXXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmssXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HHmmssX"),
 
-            // no dashes, with colons
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSXXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSX"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSS"),
+        // no dashes, with colons
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSXXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss.SSSX"),
 
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZ"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssXXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssXX"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssX"),
-            new SimpleDateFormat("yyyyMMdd'T'HH:mm:ss"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssZ"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssXXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssXX"),
+        new SimpleDateFormat("yyyyMMdd'T'HH:mm:ssX"),
 
-            // dashes and colons
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZ"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXX"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS"),
+        // dashes and colons
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZZ"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXX"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX"),
 
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZZ"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZ"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXX"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX"),
-            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZZ"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZZ"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXX"),
+        new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX"),
     };
 
     /**
      * Constructs a {@link CustomDateDeserializer} instance.
-     */
+    */
     public CustomDateDeserializer() {
         this(null);
     }
@@ -163,9 +164,13 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
     @Override
     public Date deserialize(JsonParser jsonParser, DeserializationContext deserializationContext) throws IOException {
         var text = jsonParser.getText();
+        Date localDate = null;
+        Date utcDate = null;
+
         for (SimpleDateFormat formatter : dateFormatsUtc) {
             try {
-                return formatter.parse(text);
+                utcDate = formatter.parse(text);
+                break;
             } catch (ParseException e) {
                 // ignore
             }
@@ -173,12 +178,26 @@ public class CustomDateDeserializer extends StdDeserializer<Date> {
 
         for (SimpleDateFormat formatter : dateFormatsLocal) {
             try {
-                return formatter.parse(text);
+                localDate = formatter.parse(text);
+                break;
             } catch (ParseException e) {
                 // ignore
             }
         }
 
-        throw new IOException("Failed to deserialize a Date value.");
+        // Some dates such as 20220101T12:30:45.123+03:00 will match both with a UTC
+        // and local date format. In that case, we pick the date returned by the
+        // local formatter, as it's more precise.
+        // This allows us to match strings with no timezone information (such as 20220101T12:30:45.123)
+        // as UTC, while correctly parsing more precise date representations
+        if (localDate != null && utcDate != null) {
+            return localDate; // Prioritize local format if both match
+        } else if (localDate != null) {
+            return localDate;
+        } else if (utcDate != null) {
+            return utcDate;
+        } else {
+            throw new IOException("Failed to deserialize a Date value.");
+        }
     }
 }

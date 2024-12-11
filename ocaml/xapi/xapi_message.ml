@@ -647,7 +647,7 @@ let get_since_for_events ~__context since =
   let cached_result =
     with_lock in_memory_cache_mutex (fun () ->
         match List.rev !in_memory_cache with
-        | (last_in_memory, _, _) :: _ when last_in_memory < since ->
+        | (oldest_in_memory, _, _) :: _ when oldest_in_memory <= since ->
             Some
               (List.filter_map
                  (fun (gen, _ref, msg) ->
@@ -658,11 +658,11 @@ let get_since_for_events ~__context since =
                  )
                  !in_memory_cache
               )
-        | (last_in_memory, _, _) :: _ ->
+        | (oldest_in_memory, _, _) :: _ ->
             debug
-              "%s: cache (%Ld) is older than requested time (%Ld): Using slow \
-               message lookup"
-              __FUNCTION__ last_in_memory since ;
+              "%s: cache (%Ld) might not contain all messages since the \
+               requested time (%Ld): Using slow message lookup"
+              __FUNCTION__ oldest_in_memory since ;
             None
         | _ ->
             debug "%s: empty cache; Using slow message lookup" __FUNCTION__ ;

@@ -2,16 +2,16 @@ let ps_start = ref false
 
 let scheduler_mutex = Mutex.create ()
 
+module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
+
 let start_periodic_scheduler () =
   Mutex.lock scheduler_mutex ;
   if !ps_start then
     ()
   else (
-    Xapi_periodic_scheduler.add_to_queue "dummy"
-      (Xapi_periodic_scheduler.Periodic 60.0) 0.0 (fun () -> ()
-    ) ;
+    Scheduler.add_to_queue "dummy" (Scheduler.Periodic 60.0) 0.0 (fun () -> ()) ;
     Xapi_event.register_hooks () ;
-    ignore (Thread.create Xapi_periodic_scheduler.loop ()) ;
+    ignore (Thread.create Scheduler.loop ()) ;
     ps_start := true
   ) ;
   Mutex.unlock scheduler_mutex

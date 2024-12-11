@@ -241,8 +241,8 @@ let gen_record_type ~with_module highapi tys =
             [
               sprintf "let rpc_of_%s_t x = Rpc.Dict (unbox_list [ %s ])"
                 obj_name (map_fields make_of_field)
-            ; sprintf "let %s_t_of_rpc x = on_dict (fun x -> { %s }) x" obj_name
-                (map_fields make_to_field)
+            ; sprintf "let %s_t_of_rpc x = on_dict (fun x assocer -> { %s }) x"
+                obj_name (map_fields make_to_field)
             ; sprintf
                 "type ref_%s_to_%s_t_map = (ref_%s * %s_t) list [@@deriving \
                  rpc]"
@@ -408,10 +408,6 @@ let gen_client_types highapi =
             x | _ -> failwith \"Date.t_of_rpc\""
          ; "end"
          ]
-       ; [
-           "let on_dict f = function | Rpc.Dict x -> f x | _ -> failwith \
-            \"Expected Dictionary\""
-         ]
        ; ["let opt_map f = function | None -> None | Some x -> Some (f x)"]
        ; [
            "let unbox_list = let rec loop aux = function"
@@ -421,14 +417,21 @@ let gen_client_types highapi =
          ; "loop []"
          ]
        ; [
-           "let assocer key map default = "
-         ; "  try"
-         ; "    List.assoc key map"
-         ; "  with Not_found ->"
-         ; "    match default with"
-         ; "    | Some d -> d"
-         ; "    | None -> failwith (Printf.sprintf \"Field %s not present in \
-            rpc\" key)"
+           "let assocer kvs ="
+         ; "let tbl = Hashtbl.create 256 in"
+         ; "List.iter (fun (k, v) -> Hashtbl.replace tbl k v) kvs;"
+         ; "fun key _ default ->"
+         ; "match Hashtbl.find_opt tbl key with"
+         ; "| Some v -> v"
+         ; "| _ ->"
+         ; "   match default with"
+         ; "   | Some d -> d"
+         ; "   | _ -> failwith (Printf.sprintf \"Field %s not present in rpc\" \
+            key)"
+         ]
+       ; [
+           "let on_dict f = function | Rpc.Dict x -> f x (assocer x) | _ -> \
+            failwith \"Expected Dictionary\""
          ]
        ; gen_non_record_type all_types
        ; gen_record_type ~with_module:true highapi

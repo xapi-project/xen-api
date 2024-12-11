@@ -16,7 +16,7 @@
 
 (** Utility functions useful for rrdd plugins. *)
 module Utils : sig
-  val now : unit -> int64
+  val now : unit -> float
   (** Return the current unix epoch as an int64. *)
 
   val cut : string -> string list

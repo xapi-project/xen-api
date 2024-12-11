@@ -52,9 +52,11 @@ module Pkg = struct
 
   type order = LT | EQ | GT
 
-  type segment_of_version = Int of int | Str of string
+  type version_segment = Int of int | Str of string | Tilde
 
   let string_of_order = function LT -> "<" | EQ -> "=" | GT -> ">"
+
+  let order_of_int = function 0 -> EQ | r when r > 0 -> GT | _ -> LT
 
   let error_msg = Printf.sprintf "Failed to parse '%s'"
 
@@ -157,9 +159,41 @@ module Pkg = struct
     | None, None ->
         EQ
 
+  let compare_version_segment s1 s2 =
+    match (s1, s2) with
+    | Int i1, Int i2 ->
+        Int.compare i1 i2 |> order_of_int
+    | Str s1, Str s2 ->
+        String.compare s1 s2 |> order_of_int
+    | Tilde, Tilde ->
+        EQ
+    | Int _, Str _ ->
+        GT
+    | Str _, Int _ ->
+        LT
+    | Tilde, _ ->
+        LT
+    | _, Tilde ->
+        GT
+
+  let split_version_string =
+    let r = Re.Posix.compile_pat {|[a-zA-Z]+|[0-9]+|~|} in
+    fun s -> s |> Re.all r |> List.map (fun g -> Re.Group.get g 0)
+
+  let normalize v =
+    let version_segment_of_string = function
+      | "~" ->
+          Tilde
+      | s -> (
+        try Int (int_of_string s) with _ -> Str s
+      )
+    in
+    v |> split_version_string |> List.map version_segment_of_string
+
   let compare_version_strings s1 s2 =
     (* Compare versions or releases of RPM packages
-     * I.E. for "libpath-utils-0.2.1-29.el7.x86_64" and "libpath-utils-0.2.1a-30.el7.x86_64",
+     * I.E. for "libpath-utils-0.2.1-29.el7.x86_64" and
+     * "libpath-utils-0.2.1a-30.el7.x86_64",
      * this function compares:
      * versions between "0.2.1" and "0.2.1a", or
      * releases between "29.el7" and "30.el7".
@@ -173,58 +207,32 @@ module Pkg = struct
      *  "1.0" ">" "1.a"
      *  "2.50" ">" "2.5"
      *  "XS3" "<" "xs2"
-     *  "1.2.3" ">" "1.2.3a"
+     *  "1.2.3" "<" "1.2.3a"
      *  "xs4" "=" "xs.4"
      *  "2a" "<" "2.0"
      *  "2a" "<" "2b"
      *  "1.0" ">" "1.xs2"
      *  "1.0_xs" "=" "1.0.xs"
+     *  "1.xs8" ">" "1.xs8~2_1"
+     *  "1.2.3" ">" "1.2.3~beta"
+     * Some corner cases that don't follow standard RPM versioning conventions
+     * with tilde:
+     *  "1.2.3~rc1~beta" "<" "1.2.3~rc1"
+     *  "1.2.3~" "<" "1.2.3"
      *)
-    let normalize v =
-      let split_letters_and_numbers s =
-        let r = Re.Posix.compile_pat {|^([^0-9]+)([0-9]+)$|} in
-        match Re.exec_opt r s with
-        | Some groups ->
-            [Re.Group.get groups 1; Re.Group.get groups 2]
-        | None ->
-            [s]
-      in
-      let number = Re.Posix.compile_pat "^[0-9]+$" in
-      v
-      |> Astring.String.cuts ~sep:"."
-      |> List.concat_map (fun s -> Astring.String.cuts ~sep:"_" s)
-      |> List.concat_map (fun s -> split_letters_and_numbers s)
-      |> List.map (fun s ->
-             if Re.execp number s then
-               match int_of_string s with i -> Int i | exception _ -> Str s
-             else
-               Str s
-         )
-    in
     let rec compare_segments l1 l2 =
       match (l1, l2) with
       | c1 :: t1, c2 :: t2 -> (
-        match (c1, c2) with
-        | Int s1, Int s2 ->
-            if s1 > s2 then
-              GT
-            else if s1 = s2 then
-              compare_segments t1 t2
-            else
-              LT
-        | Int _, Str _ ->
-            GT
-        | Str _, Int _ ->
-            LT
-        | Str s1, Str s2 ->
-            let r = String.compare s1 s2 in
-            if r < 0 then
-              LT
-            else if r > 0 then
-              GT
-            else
-              compare_segments t1 t2
+        match compare_version_segment c1 c2 with
+        | EQ ->
+            compare_segments t1 t2
+        | r ->
+            r
       )
+      | Tilde :: _, [] ->
+          LT
+      | [], Tilde :: _ ->
+          GT
       | _ :: _, [] ->
           GT
       | [], _ :: _ ->
