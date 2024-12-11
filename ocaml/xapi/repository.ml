@@ -223,19 +223,22 @@ let sync ~__context ~self ~token ~token_id =
         ignore (Helpers.call_script cmd params)
       )
       (fun () ->
-        (* Rewrite repo conf file as initial content to remove credential related info,
-         * I.E. proxy username/password and temporary token file path.
+        (* Rewrite repo conf file as initial content to remove credential
+         * related info, I.E. proxy username/password and temporary token file
+         * path.
          *)
         write_initial_yum_config ()
       ) ;
-    (* The custom yum-utils will fully download repository metadata.*)
-    let repodata_dir =
+    (* The custom yum-utils will fully download repository metadata including
+     * the repo gpg signature.
+     *)
+    let repo_gpg_signature =
       !Xapi_globs.local_pool_repo_dir
       // repo_name
       // "repodata"
       // "repomd.xml.asc"
     in
-    Sys.file_exists repodata_dir
+    Sys.file_exists repo_gpg_signature
   with e ->
     error "Failed to sync with remote YUM repository: %s"
       (ExnHelper.string_of_exn e) ;
