@@ -6610,7 +6610,8 @@ functor
     module Host_driver = struct
       (** select needs to be executed on the host of the driver *)
       let select ~__context ~self ~variant =
-        info "%s" __FUNCTION__ ;
+        info "Host_driver.select %s %s" (Ref.string_of self)
+          (Ref.string_of variant) ;
         let host = Db.Host_driver.get_host ~__context ~self in
         let local_fn = Local.Host_driver.select ~self ~variant in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
@@ -6619,7 +6620,7 @@ functor
 
       (** deselect needs to be executed on the host of the driver *)
       let deselect ~__context ~self =
-        info "%s" __FUNCTION__ ;
+        info "Host_driver.deselect %s" (Ref.string_of self) ;
         let host = Db.Host_driver.get_host ~__context ~self in
         let local_fn = Local.Host_driver.deselect ~self in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
@@ -6627,7 +6628,7 @@ functor
         )
 
       let rescan ~__context ~host =
-        info "%s" __FUNCTION__ ;
+        info "Host_driver.rescan %s" (Ref.string_of host) ;
         let local_fn = Local.Host_driver.rescan ~host in
         do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
             Client.Host_driver.rescan ~rpc ~session_id ~host
@@ -6636,7 +6637,7 @@ functor
 
     module Driver_variant = struct
       let select ~__context ~self =
-        info "%s" __FUNCTION__ ;
+        info "Driver_variant.select %s" (Ref.string_of self) ;
         let drv = Db.Driver_variant.get_driver ~__context ~self in
         let host = Db.Host_driver.get_host ~__context ~self:drv in
         let local_fn = Local.Driver_variant.select ~self in

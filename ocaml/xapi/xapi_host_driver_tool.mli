@@ -37,6 +37,9 @@ val parse : string -> (string * driver) list
 val read : string -> (string * driver) list
 (** read from a file whose path is provided *)
 
+val call : string list -> string
+(** invoke drivertool with argumtns and return stdout *)
+
 (** install a mock drivertool.sh *)
 module Mock : sig
   val install : unit -> unit

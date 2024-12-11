@@ -16,8 +16,6 @@ open Datamodel_types
 open Datamodel_common
 open Datamodel_roles
 
-(** This is pure data with no methods *)
-
 let select =
   call ~name:"select" ~in_oss_since:None ~lifecycle:[]
     ~doc:
@@ -45,7 +43,7 @@ let t =
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:(Ref _host_driver) "driver"
           "Driver this variant is a part of"
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:String "version"
-          "Unique versions of this driver variant"
+          "Unique version of this driver variant"
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:Bool "hardware_present"
           "True if the hardware for this variant is present on the host"
       ; field ~lifecycle:[] ~qualifier:DynamicRO ~ty:Float "priority"

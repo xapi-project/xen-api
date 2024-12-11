@@ -16,9 +16,7 @@
    host-driver-tool that manages multi-version drivers and reports
    the state of them in JSON *)
 
-module D = Debug.Make (struct let name = __MODULE__ end)
-
-open D
+open Debug.Make (struct let name = __MODULE__ end)
 
 let internal_error fmt =
   Printf.ksprintf
@@ -233,6 +231,16 @@ let read path =
       internal_error "%s parsing %s failed: %s" __FUNCTION__ path msg
   | exception e ->
       raise e
+
+let call args =
+  let path = !Xapi_globs.driver_tool in
+  try
+    let stdout, _stderr = Forkhelpers.execute_command_get_output path args in
+    debug "%s: executed %s %s" __FUNCTION__ path (String.concat " " args) ;
+    stdout
+  with e ->
+    internal_error "%s: failed to run %s %s: %s" __FUNCTION__ path
+      (String.concat " " args) (Printexc.to_string e)
 
 module Mock = struct
   let drivertool_sh =

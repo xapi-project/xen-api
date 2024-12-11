@@ -16,12 +16,7 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
-
-(*
-module DriverMap = Map.Make (String)
-module DriverSet = Set.Make (String)
-*)
-module T = Xapi_host_driver_tool
+module Tool = Xapi_host_driver_tool
 
 let invalid_value field value =
   raise Api_errors.(Server_error (invalid_value, [field; value]))
@@ -34,16 +29,6 @@ let internal_error fmt =
     )
     fmt
 
-let drivertool args =
-  let path = !Xapi_globs.driver_tool in
-  try
-    let stdout, _stderr = Forkhelpers.execute_command_get_output path args in
-    debug "%s: executed %s %s" __FUNCTION__ path (String.concat " " args) ;
-    stdout
-  with e ->
-    internal_error "%s: failed to run %s %s: %s" __FUNCTION__ path
-      (String.concat " " args) (Printexc.to_string e)
-
 module Variant = struct
   let create ~__context ~name ~version ~driver ~hw_present ~priority ~dev_status
       =
@@ -55,7 +40,7 @@ module Variant = struct
     ref
 
   let destroy ~__context ~self =
-    debug "Destroying driver variant %s" (Ref.string_of self) ;
+    debug "%s: destroying driver variant %s" __FUNCTION__ (Ref.string_of self) ;
     Db.Driver_variant.destroy ~__context ~self
 
   (** create' is like create but updates an exisiting entry if it
@@ -92,7 +77,7 @@ module Variant = struct
     let d = Db.Host_driver.get_record ~__context ~self:drv in
     let v = Db.Driver_variant.get_record ~__context ~self in
     let stdout =
-      drivertool ["select"; d.API.host_driver_name; v.API.driver_variant_name]
+      Tool.call ["select"; d.API.host_driver_name; v.API.driver_variant_name]
     in
     info "%s: %s" __FUNCTION__ stdout ;
     Db.Host_driver.set_selected_variant ~__context ~self:drv ~value:self
@@ -156,7 +141,7 @@ let select ~__context ~self ~variant =
       let d = Db.Host_driver.get_record ~__context ~self in
       let v = Db.Driver_variant.get_record ~__context ~self:variant in
       let stdout =
-        drivertool ["select"; d.API.host_driver_name; v.API.driver_variant_name]
+        Tool.call ["select"; d.API.host_driver_name; v.API.driver_variant_name]
       in
       info "%s: %s" __FUNCTION__ stdout ;
       Db.Host_driver.set_selected_variant ~__context ~self ~value:variant
@@ -168,7 +153,7 @@ let select ~__context ~self ~variant =
 let deselect ~__context ~self =
   D.debug "%s  driver %s" __FUNCTION__ (Ref.string_of self) ;
   let d = Db.Host_driver.get_record ~__context ~self in
-  let stdout = drivertool ["deselect"; d.API.host_driver_name] in
+  let stdout = Tool.call ["deselect"; d.API.host_driver_name] in
   info "%s: %s" __FUNCTION__ stdout ;
   Db.Host_driver.set_active_variant ~__context ~self ~value:Ref.null ;
   Db.Host_driver.set_selected_variant ~__context ~self ~value:Ref.null
@@ -186,32 +171,33 @@ let remove ~__context ~host ~except =
 (** Runs on [host]. We update or create an entry for each driver
     reported by drivertool and remove any extra driver that is in xapi. *)
 let scan ~__context ~host =
-  T.Mock.install () ;
+  Tool.Mock.install () ;
   let null = Ref.null in
   let drivers (* on this host *) =
-    drivertool ["list"]
-    |> T.parse
+    Tool.call ["list"]
+    |> Tool.parse
     |> List.map @@ fun (_name, driver) ->
        let driver_ref =
-         create' ~__context ~host ~name:driver.T.name
-           ~friendly_name:driver.T.name ~info:driver.T.info ~active_variant:null
-           ~selected_variant:null ~description:driver.T.descr ~_type:driver.T.ty
+         create' ~__context ~host ~name:driver.Tool.name
+           ~friendly_name:driver.Tool.name ~info:driver.Tool.info
+           ~active_variant:null ~selected_variant:null
+           ~description:driver.Tool.descr ~_type:driver.Tool.ty
        in
-       (driver.T.variants
+       (driver.Tool.variants
        |> List.iter @@ fun (name, v) ->
           let var_ref =
-            Variant.create' ~__context ~name ~version:v.T.version
-              ~driver:driver_ref ~hw_present:v.T.hw_present
-              ~priority:v.T.priority ~dev_status:v.T.dev_status
+            Variant.create' ~__context ~name ~version:v.Tool.version
+              ~driver:driver_ref ~hw_present:v.Tool.hw_present
+              ~priority:v.Tool.priority ~dev_status:v.Tool.dev_status
           in
-          ( match driver.T.selected with
+          ( match driver.Tool.selected with
           | Some v when v = name ->
               Db.Host_driver.set_selected_variant ~__context ~self:driver_ref
                 ~value:var_ref
           | _ ->
               ()
           ) ;
-          match driver.T.active with
+          match driver.Tool.active with
           | Some v when v = name ->
               Db.Host_driver.set_active_variant ~__context ~self:driver_ref
                 ~value:var_ref

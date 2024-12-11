@@ -29,7 +29,7 @@ open Records
 
 let failwith str = raise (Cli_util.Cli_failure str)
 
-let failwith' fmt = Printf.ksprintf failwith fmt
+let failwithfmt fmt = Printf.ksprintf failwith fmt
 
 exception ExitWithError of int
 
@@ -8012,7 +8012,7 @@ module Host_driver = struct
 
     match List.find_opt by_name variants with
     | None ->
-        failwith' "%s does not identify a variant of this driver" name
+        failwithfmt "%s does not identify a variant of this driver" name
     | Some (variant, _) ->
         Client.Host_driver.select ~rpc ~session_id ~self:driver ~variant
 
