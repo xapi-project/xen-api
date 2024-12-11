@@ -453,6 +453,9 @@ functor
         List.fold_left perform_one vdi_t ops
 
       let perform_nolock context ~dbg ~dp ~sr ~vdi ~vm this_op =
+        debug "%s dp=%s, sr=%s, vdi=%s, vm=%s, op=%s" __FUNCTION__ dp
+          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm)
+          (Vdi_automaton.string_of_op this_op) ;
         match Host.find sr !Host.host with
         | None ->
             raise (Storage_error (Sr_not_attached (s_of_sr sr)))
@@ -473,6 +476,15 @@ functor
                    						   superstate to superstate'. These may fail: if so we revert the
                    						   datapath+VDI state to the most appropriate value. *)
                 let ops = Vdi_automaton.( - ) superstate superstate' in
+                debug "%s %s -> %s: %s" __FUNCTION__
+                  (Vdi_automaton.string_of_state superstate)
+                  (Vdi_automaton.string_of_state superstate')
+                  (String.concat ", "
+                     (List.map
+                        (fun (op, _) -> Vdi_automaton.string_of_op op)
+                        ops
+                     )
+                  ) ;
                 side_effects context dbg dp sr sr_t vdi vdi_t vm ops
               with e ->
                 let e =
@@ -529,7 +541,8 @@ functor
                     )
                 with e ->
                   if not allow_leak then (
-                    ignore (Vdi.add_leaked dp vdi_t) ;
+                    Sr.add_or_replace vdi (Vdi.add_leaked dp vdi_t) sr_t ;
+                    Everything.to_file !host_state_path (Everything.make ()) ;
                     raise e
                   ) else (
                     (* allow_leak means we can forget this dp *)
