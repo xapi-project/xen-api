@@ -173,46 +173,54 @@ let deselect ~__context ~self =
   Db.Host_driver.set_active_variant ~__context ~self ~value:Ref.null ;
   Db.Host_driver.set_selected_variant ~__context ~self ~value:Ref.null
 
-(** remove all host driver entries for this host *)
-let reset ~__context ~host =
+(** remove all host driver entries  that are not in [except]. We exepect
+    any list to be short *)
+let remove ~__context ~host ~except =
   D.debug "%s" __FUNCTION__ ;
   let open Xapi_database.Db_filter_types in
   let expr = Eq (Field "host", Literal (Ref.string_of host)) in
-  let drivers = Db.Host_driver.get_refs_where ~__context ~expr in
-  drivers |> List.iter (fun self -> destroy ~__context ~self)
+  Db.Host_driver.get_refs_where ~__context ~expr
+  |> List.filter (fun driver -> not @@ List.mem driver except)
+  |> List.iter (fun self -> destroy ~__context ~self)
 
-(** Runs on [host] *)
+(** Runs on [host]. We update or create an entry for each driver
+    reported by drivertool and remove any extra driver that is in xapi. *)
 let scan ~__context ~host =
   T.Mock.install () ;
   let null = Ref.null in
-  drivertool ["list"]
-  |> T.parse
-  |> List.iter @@ fun (_name, driver) ->
-     let driver_ref =
-       create' ~__context ~host ~name:driver.T.name ~friendly_name:driver.T.name
-         ~info:driver.T.info ~active_variant:null ~selected_variant:null
-         ~description:driver.T.descr ~_type:driver.T.ty
-     in
-     driver.T.variants
-     |> List.iter @@ fun (name, v) ->
-        let var_ref =
-          Variant.create' ~__context ~name ~version:v.T.version
-            ~driver:driver_ref ~hw_present:v.T.hw_present ~priority:v.T.priority
-            ~dev_status:v.T.dev_status
-        in
-        ( match driver.T.selected with
-        | Some v when v = name ->
-            Db.Host_driver.set_selected_variant ~__context ~self:driver_ref
-              ~value:var_ref
-        | _ ->
-            ()
-        ) ;
-        match driver.T.active with
-        | Some v when v = name ->
-            Db.Host_driver.set_active_variant ~__context ~self:driver_ref
-              ~value:var_ref
-        | _ ->
-            ()
+  let drivers (* on this host *) =
+    drivertool ["list"]
+    |> T.parse
+    |> List.map @@ fun (_name, driver) ->
+       let driver_ref =
+         create' ~__context ~host ~name:driver.T.name
+           ~friendly_name:driver.T.name ~info:driver.T.info ~active_variant:null
+           ~selected_variant:null ~description:driver.T.descr ~_type:driver.T.ty
+       in
+       (driver.T.variants
+       |> List.iter @@ fun (name, v) ->
+          let var_ref =
+            Variant.create' ~__context ~name ~version:v.T.version
+              ~driver:driver_ref ~hw_present:v.T.hw_present
+              ~priority:v.T.priority ~dev_status:v.T.dev_status
+          in
+          ( match driver.T.selected with
+          | Some v when v = name ->
+              Db.Host_driver.set_selected_variant ~__context ~self:driver_ref
+                ~value:var_ref
+          | _ ->
+              ()
+          ) ;
+          match driver.T.active with
+          | Some v when v = name ->
+              Db.Host_driver.set_active_variant ~__context ~self:driver_ref
+                ~value:var_ref
+          | _ ->
+              ()
+       ) ;
+       driver_ref
+  in
+  remove ~__context ~host ~except:drivers
 
 (** Runs on [host] *)
 let rescan ~__context ~host = debug "%s" __FUNCTION__ ; scan ~__context ~host
