@@ -519,6 +519,26 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
+let omitted = Rpc.Null
+
+let[@tail_mod_cons] rec maybe_map_fields = function
+  | [] ->
+      []
+  | (key, _) :: tl when Xapi_globs.StringSet.mem key !Xapi_globs.event_filter ->
+      (key, omitted) :: (maybe_map_fields [@tailcall]) tl
+  | hd :: tl ->
+      hd :: (maybe_map_fields [@tailcall]) tl
+
+let apply_event_filter = function
+  | Rpc.Dict lst as orig ->
+      let lst' = maybe_map_fields lst in
+      if lst' == lst then
+        orig
+      else
+        Rpc.Dict lst'
+  | rpc ->
+      rpc
+
 let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
   let open From in
@@ -658,7 +678,10 @@ let from_inner __context session subs from from_t timer batching =
       (fun acc (table, objref, mtime) ->
         let serialiser = Eventgen.find_get_record table in
         try
-          let xml = serialiser ~__context ~self:objref () in
+          let xml =
+            serialiser ~__context ~self:objref ()
+            |> Option.map apply_event_filter
+          in
           let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
           if Subscription.event_matches subs ev then ev :: acc else acc
         with _ -> acc
@@ -670,7 +693,10 @@ let from_inner __context session subs from from_t timer batching =
       (fun acc (table, objref, ctime) ->
         let serialiser = Eventgen.find_get_record table in
         try
-          let xml = serialiser ~__context ~self:objref () in
+          let xml =
+            serialiser ~__context ~self:objref ()
+            |> Option.map apply_event_filter
+          in
           let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
           if Subscription.event_matches subs ev then ev :: acc else acc
         with _ -> acc

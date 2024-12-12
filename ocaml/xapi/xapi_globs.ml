@@ -1068,6 +1068,8 @@ let tgroups_enabled = ref false
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
 
+let event_filter = ref (StringSet.of_list [])
+
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
   let name = Printf.sprintf "%s_delay" name in
@@ -1450,6 +1452,15 @@ let other_options =
     , Arg.Set Db_globs.idempotent_map
     , (fun () -> string_of_bool !Db_globs.idempotent_map)
     , "True if the add_to_<map> API calls should be idempotent"
+    )
+  ; ( "event-field-filter"
+    , Arg.String
+        (fun s ->
+          event_filter := String.split_on_char ',' s |> StringSet.of_list
+        )
+    , (fun () -> !event_filter |> StringSet.elements |> String.concat ",")
+    , "Filter out events on these fields. THIS CAN BREAK API CLIENTS IF USED \
+       INCORRECTLY."
     )
   ; ( "use-event-next"
     , Arg.Set Constants.use_event_next
