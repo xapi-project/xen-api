@@ -2141,7 +2141,8 @@ let get_active_uefi_certificates ~__context ~self =
   in
   match (!Xapi_globs.allow_custom_uefi_certs, custom_uefi_certs) with
   | false, _ | true, "" ->
-      Db.Pool.get_uefi_certificates ~__context ~self
+      let master = Db.Pool.get_master ~__context ~self in
+      Db.Host.get_uefi_certificates ~__context ~self:master
   | true, _ ->
       custom_uefi_certs
 

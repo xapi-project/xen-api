@@ -3722,6 +3722,11 @@ let disable_repository_proxy ~__context ~self =
         Db.Secret.destroy ~__context ~self:old_secret_ref
     )
 
+let get_uefi_certificates ~__context ~self =
+  (* cyclic dependency with Helpers, do it inline *)
+  let master = Db.Pool.get_master ~__context ~self in
+  Db.Host.get_uefi_certificates ~__context ~self:master
+
 let set_uefi_certificates ~__context ~self:_ ~value:_ =
   let msg =
     "Setting UEFI certificates is deprecated, please use \
