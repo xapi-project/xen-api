@@ -56,6 +56,12 @@ let is_lowercase str = String.for_all is_lowercase_char str
 module Subscription = struct
   type t = Class of string | Object of string * string | All
 
+  let is_task_only = function
+    | Class "task" | Object ("task", _) ->
+        true
+    | Class _ | Object _ | All ->
+        false
+
   let of_string x =
     if x = "*" then
       All
@@ -470,6 +476,7 @@ let unregister ~__context ~classes =
 
 (** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
+  let batching = !Xapi_globs.event_next_delay in
   let session = Context.get_session_id __context in
   let open Next in
   assert_subscribed session ;
@@ -489,11 +496,12 @@ let rec next ~__context =
     )
   in
   (* Like grab_range () only guarantees to return a non-empty range by blocking if necessary *)
-  let rec grab_nonempty_range () =
+  let grab_nonempty_range =
+    Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
     let last_id, end_id = grab_range () in
     if last_id = end_id then
       let (_ : int64) = wait subscription end_id in
-      grab_nonempty_range ()
+      (self [@tailcall]) arg
     else
       (last_id, end_id)
   in
@@ -511,7 +519,7 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
-let from_inner __context session subs from from_t timer =
+let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
   let open From in
   (* The database tables involved in our subscription *)
@@ -599,7 +607,8 @@ let from_inner __context session subs from from_t timer =
   (* Each event.from should have an independent subscription record *)
   let msg_gen, messages, tableset, (creates, mods, deletes, last) =
     with_call session subs (fun sub ->
-        let rec grab_nonempty_range () =
+        let grab_nonempty_range =
+          Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
           let ( (msg_gen, messages, _tableset, (creates, mods, deletes, last))
                 as result
               ) =
@@ -618,8 +627,7 @@ let from_inner __context session subs from from_t timer =
             (* last id the client got is equivalent to the current one *)
             last_msg_gen := msg_gen ;
             wait2 sub last timer ;
-            Thread.delay 0.05 ;
-            grab_nonempty_range ()
+            (self [@tailcall]) arg
           ) else
             result
         in
@@ -698,6 +706,19 @@ let from_inner __context session subs from from_t timer =
   {events; valid_ref_counts; token= Token.to_string (last, msg_gen)}
 
 let from ~__context ~classes ~token ~timeout =
+  let duration =
+    timeout
+    |> Clock.Timer.s_to_span
+    |> Option.value ~default:Mtime.Span.(24 * hour)
+  in
+  let timer = Clock.Timer.start ~duration in
+  let subs = List.map Subscription.of_string classes in
+  let batching =
+    if List.for_all Subscription.is_task_only subs then
+      !Xapi_globs.event_from_task_delay
+    else
+      !Xapi_globs.event_from_delay
+  in
   let session = Context.get_session_id __context in
   let from, from_t =
     try Token.of_string token
@@ -709,19 +730,14 @@ let from ~__context ~classes ~token ~timeout =
            (Api_errors.event_from_token_parse_failure, [token])
         )
   in
-  let subs = List.map Subscription.of_string classes in
-  let duration =
-    timeout
-    |> Clock.Timer.s_to_span
-    |> Option.value ~default:Mtime.Span.(24 * hour)
-  in
-  let timer = Clock.Timer.start ~duration in
   (* We need to iterate because it's possible for an empty event set
      	   to be generated if we peek in-between a Modify and a Delete; we'll
      	   miss the Delete event and fail to generate the Modify because the
      	   snapshot can't be taken. *)
   let rec loop () =
-    let event_from = from_inner __context session subs from from_t timer in
+    let event_from =
+      from_inner __context session subs from from_t timer batching
+    in
     if event_from.events = [] && not (Clock.Timer.has_expired timer) then (
       debug "suppressing empty event.from" ;
       loop ()

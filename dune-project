@@ -327,6 +327,7 @@
   (synopsis "The toolstack daemon which implements the XenAPI")
   (description "This daemon exposes the XenAPI and is used by clients such as 'xe' and 'XenCenter' to manage clusters of Xen-enabled hosts.")
   (depends
+    (ocaml (>= 4.09))
     (alcotest :with-test)
     angstrom
     astring
