@@ -256,7 +256,7 @@ let read_refs t tblname =
   Table.fold (fun r _ _ acc -> r :: acc) tbl []
 
 (* Return a list of all the refs for which the expression returns true. *)
-let find_refs_with_filter_internal db (tblname : string)
+let find_refs_with_filter_internal db (tblname : Db_interface.table)
     (expr : Db_filter_types.expr) =
   let tbl = TableSet.find tblname (Database.tableset db) in
   let eval_val row = function

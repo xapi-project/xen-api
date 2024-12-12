@@ -16,7 +16,7 @@ open Sexplib0.Sexp_conv
 
 module Type = struct
   type t = String | Set  (** of strings *) | Pairs  (** of strings *)
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   exception Error of t * t
 
@@ -38,7 +38,7 @@ module Value = struct
     | String of string
     | Set of string list
     | Pairs of (string * string) list
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   let marshal = function
     | String x ->
@@ -95,7 +95,7 @@ module Column = struct
     ; issetref: bool
           (** only so we can special case set refs in the interface *)
   }
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   let name_of t = t.name
 end
@@ -109,7 +109,7 @@ let values_of_table tbl = Hashtbl.fold (fun _ v vs -> v :: vs) tbl []
 
 module Table = struct
   type t' = {name: string; columns: Column.t list; persistent: bool}
-  [@@deriving sexp]
+  [@@deriving sexp_of]
 
   type t = {
       name: string
@@ -133,11 +133,6 @@ module Table = struct
     let t' = t'_of_t t in
     sexp_of_t' t'
 
-  let t_of_sexp s =
-    let ({name; columns; persistent} : t') = t'_of_sexp s in
-    let columns = tabulate columns ~key_fn:Column.name_of in
-    ({name; columns; persistent} : t)
-
   let find name (t : t) =
     match Hashtbl.find_opt t.columns name with
     | Some c ->
@@ -157,10 +152,10 @@ module Table = struct
 end
 
 type relationship = OneToMany of string * string * string * string
-[@@deriving sexp]
+[@@deriving sexp_of]
 
 module Database = struct
-  type t' = {tables: Table.t list} [@@deriving sexp]
+  type t' = {tables: Table.t list} [@@deriving sexp_of]
 
   type t = {tables: (string, Table.t) Hashtbl.t}
 
@@ -180,10 +175,6 @@ module Database = struct
     let t' = t'_of_t t in
     sexp_of_t' t'
 
-  let t_of_sexp s =
-    let t' = t'_of_sexp s in
-    t_of_t' t'
-
   let find name t =
     match Hashtbl.find_opt t.tables name with
     | Some tbl ->
@@ -197,7 +188,7 @@ module Database = struct
 end
 
 (** indexed by table name, a list of (this field, foreign table, foreign field) *)
-type foreign = (string * string * string) list [@@deriving sexp]
+type foreign = (string * string * string) list [@@deriving sexp_of]
 
 module ForeignMap = struct
   include Map.Make (struct
@@ -206,17 +197,13 @@ module ForeignMap = struct
     let compare = Stdlib.compare
   end)
 
-  type t' = (string * foreign) list [@@deriving sexp]
+  type t' = (string * foreign) list [@@deriving sexp_of]
 
   type m = foreign t
 
   let sexp_of_m t : Sexp.t =
     let t' = fold (fun key foreign acc -> (key, foreign) :: acc) t [] in
     sexp_of_t' t'
-
-  let m_of_sexp sexp : m =
-    let t' = t'_of_sexp sexp in
-    List.fold_left (fun acc (key, foreign) -> add key foreign acc) empty t'
 end
 
 type t = {
@@ -227,7 +214,7 @@ type t = {
   ; one_to_many: ForeignMap.m
   ; many_to_many: ForeignMap.m
 }
-[@@deriving sexp]
+[@@deriving sexp_of]
 
 let database x = x.database
 

@@ -64,6 +64,7 @@
   (modules suite_alcotest_server test_client test_valid_ref_list test_vm_group)
   (libraries
     alcotest
+    xapi_database
     httpsvr
     tests_common
     xapi-client
