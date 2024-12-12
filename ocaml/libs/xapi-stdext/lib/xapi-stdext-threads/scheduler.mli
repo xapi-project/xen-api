@@ -18,8 +18,7 @@ type func_ty =
   | OneShot  (** Fire just once *)
   | Periodic of float  (** Fire periodically with a given period in seconds *)
 
-val add_to_queue :
-  ?signal:bool -> string -> func_ty -> float -> (unit -> unit) -> unit
+val add_to_queue : string -> func_ty -> float -> (unit -> unit) -> unit
 (** Start a new timer. *)
 
 val remove_from_queue : string -> unit
