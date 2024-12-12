@@ -1,0 +1,5 @@
+(library
+	(name xapi_timeslice)
+	(package xapi-idl)
+ 	(libraries threads.posix mtime mtime.clock.os xapi-log)
+)
