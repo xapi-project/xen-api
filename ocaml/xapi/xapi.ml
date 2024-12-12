@@ -159,11 +159,18 @@ let random_setup () =
   finally (fun () -> really_input chan s 0 n) (fun () -> close_in chan) ;
   Random.full_init (Array.init n (fun i -> Char.code (Bytes.get s i)))
 
+let dummy_fd, dummy_fd2 = Unix.pipe ()
+
+let () = Unix.close dummy_fd
+
+let fake_rpc2 req rpc = Api_server.Server.dispatch_call req dummy_fd2 rpc
+
 let register_callback_fns () =
   let fake_rpc req sock xml : Rpc.response =
     Api_server.callback1 false req sock xml
   in
   Xapi_cli.rpc_fun := Some fake_rpc ;
+  Helpers.rpc_fun := Some fake_rpc2 ;
   Message_forwarding.register_callback_fns ()
 
 let noevents = ref false
