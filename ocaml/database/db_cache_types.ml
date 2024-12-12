@@ -367,7 +367,12 @@ module Database = struct
   let unregister_callback name x =
     {x with callbacks= List.filter (fun (x, _) -> x <> name) x.callbacks}
 
+  let[@inline never] [@specialize never] notify_begin () = ()
+
+  let[@inline never] [@specialize never] notify_end () = ()
+
   let notify e db =
+    notify_begin () ;
     List.iter
       (fun (name, f) ->
         try f e db
@@ -376,7 +381,8 @@ module Database = struct
             (Printexc.to_string e) name ;
           ()
       )
-      db.callbacks
+      db.callbacks ;
+    notify_end ()
 
   let reindex x =
     let g = x.manifest.Manifest.generation_count in
