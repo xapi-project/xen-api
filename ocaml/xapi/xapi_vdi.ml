@@ -155,16 +155,14 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
                )
           )
     | Some records ->
-        List.map snd
-          (List.filter
-             (fun (_, vbd_record) ->
-               vbd_record.Db_actions.vBD_VDI = _ref'
-               && (vbd_record.Db_actions.vBD_currently_attached
-                  || vbd_record.Db_actions.vBD_reserved
-                  )
-             )
-             records
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && (vbd_record.Db_actions.vBD_currently_attached
+               || vbd_record.Db_actions.vBD_reserved
+               )
           )
+          records
   in
   let my_active_rw_vbd_records =
     List.filter (fun vbd -> vbd.Db_actions.vBD_mode = `RW) my_active_vbd_records
@@ -183,14 +181,12 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
                )
           )
     | Some records ->
-        List.map snd
-          (List.filter
-             (fun (_, vbd_record) ->
-               vbd_record.Db_actions.vBD_VDI = _ref'
-               && vbd_record.Db_actions.vBD_current_operations <> []
-             )
-             records
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && vbd_record.Db_actions.vBD_current_operations <> []
           )
+          records
   in
   (* If the VBD is currently_attached then some operations can still be
      performed ie: VDI.clone (if the VM is suspended we have to have the
@@ -477,10 +473,18 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
          )
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
+  let vbd_records =
+    match vbd_records with
+    | None ->
+        all.Db_actions.vDI_VBDs
+        |> List.rev_map (fun self -> Db.VBD.get_record_internal ~__context ~self)
+    | Some cached ->
+        cached (* currently unused *)
+  in
   let allowed =
     let check x =
       match
-        check_operation_error ~__context ~sr_records ~pbd_records ?vbd_records
+        check_operation_error ~__context ~sr_records ~pbd_records ~vbd_records
           ha_enabled all self x
       with
       | Ok () ->
