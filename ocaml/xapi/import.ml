@@ -939,7 +939,7 @@ module VDI : HandlerTools = struct
     | Found_iso of API.ref_VDI
     | Found_no_iso
     | Found_disk of API.ref_VDI
-    | Found_no_disk of exn
+    | Found_no_disk of string * exn
     | Skip
     | Create of API.vDI_t
 
@@ -1090,27 +1090,31 @@ module VDI : HandlerTools = struct
             | Some vdi ->
                 Found_disk vdi
             | None ->
-                error "Found no VDI with location = %s: %s"
-                  vdi_record.API.vDI_location
-                  ( if config.force then
-                      "ignoring error because '--force' is set"
-                    else
-                      "treating as fatal and abandoning import"
-                  ) ;
-                if config.force then
-                  Skip
-                else if exists vdi_record.API.vDI_SR state.table then
+                let error_string =
+                  Printf.sprintf "Found no VDI with location = %s%s"
+                    vdi_record.API.vDI_location
+                    ( if config.force then
+                        ": ignoring error because '--force' is set"
+                      else
+                        ""
+                    )
+                in
+                if config.force then (
+                  warn "%s" error_string ; Skip
+                ) else if exists vdi_record.API.vDI_SR state.table then
                   let sr = lookup vdi_record.API.vDI_SR state.table in
                   Found_no_disk
-                    (Api_errors.Server_error
-                       ( Api_errors.vdi_location_missing
-                       , [Ref.string_of sr; vdi_record.API.vDI_location]
-                       )
+                    ( error_string
+                    , Api_errors.Server_error
+                        ( Api_errors.vdi_location_missing
+                        , [Ref.string_of sr; vdi_record.API.vDI_location]
+                        )
                     )
                 else
                   Found_no_disk
-                    (Api_errors.Server_error
-                       (Api_errors.vdi_content_id_missing, [])
+                    ( error_string
+                    , Api_errors.Server_error
+                        (Api_errors.vdi_content_id_missing, [])
                     )
           )
         )
@@ -1123,18 +1127,19 @@ module VDI : HandlerTools = struct
         state.table <- (x.cls, x.id, Ref.string_of vdi) :: state.table
     | Found_no_iso ->
         () (* VDI will be ejected. *)
-    | Found_no_disk e -> (
+    | Found_no_disk (error_string, e) -> (
       match config.import_type with
       | Metadata_import {live= true; _} ->
           (* We expect the disk to be missing during a live migration dry run. *)
-          debug
+          info
             "Ignoring missing disk %s - this will be mirrored during a real \
-             live migration."
-            x.id ;
+             live migration. (Suppressed error: '%s')"
+            x.id error_string ;
           (* Create a dummy disk in the state table so the VBD import has a disk to look up. *)
           let dummy_vdi = Ref.make () in
           state.table <- (x.cls, x.id, Ref.string_of dummy_vdi) :: state.table
       | _ ->
+          error "%s - treating as fatal and abandoning import" error_string ;
           raise e
     )
     | Skip ->
@@ -1161,7 +1166,8 @@ module VDI : HandlerTools = struct
             with Not_found -> ()
           )
           Xapi_globs.vdi_other_config_sync_keys
-    | Found_no_disk e ->
+    | Found_no_disk (error_string, e) ->
+        error "%s - treating as fatal and abandoning import" error_string ;
         raise e
     | Create vdi_record ->
         (* Make a new VDI for streaming data into; adding task-id to sm-config on VDI.create so SM backend can see this is an import *)
