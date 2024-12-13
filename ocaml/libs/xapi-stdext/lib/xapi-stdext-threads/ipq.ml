@@ -15,15 +15,16 @@
 
 type 'a event = {ev: 'a; time: Mtime.t}
 
-type 'a t = {mutable size: int; mutable data: 'a event array}
+type 'a t = {default: 'a event; mutable size: int; mutable data: 'a event array}
 
 exception EmptyHeap
 
-let create n =
+let create n default =
   if n <= 0 then
     invalid_arg "create"
   else
-    {size= -n; data= [||]}
+    let default = {ev= default; time= Mtime_clock.now ()} in
+    {default; size= 0; data= Array.make n default}
 
 let is_empty h = h.size <= 0
 
@@ -32,16 +33,11 @@ let resize h =
   assert (n > 0) ;
   let n' = 2 * n in
   let d = h.data in
-  let d' = Array.make n' d.(0) in
+  let d' = Array.make n' h.default in
   Array.blit d 0 d' 0 n ;
   h.data <- d'
 
 let add h x =
-  (* first addition: we allocate the array *)
-  if h.size < 0 then (
-    h.data <- Array.make (-h.size) x ;
-    h.size <- 0
-  ) ;
   let n = h.size in
   (* resizing if needed *)
   if n = Array.length h.data then resize h ;
@@ -64,10 +60,21 @@ let maximum h =
 
 let remove h s =
   if h.size <= 0 then raise EmptyHeap ;
+  if s < 0 || s >= h.size then
+    invalid_arg (Printf.sprintf "%s: index %d out of bounds" __FUNCTION__ s) ;
   let n = h.size - 1 in
-  h.size <- n ;
   let d = h.data in
   let x = d.(n) in
+  d.(n) <- h.default ;
+  (* moving [x] up in the heap *)
+  let rec moveup i =
+    let fi = (i - 1) / 2 in
+    if i > 0 && Mtime.is_later d.(fi).time ~than:x.time then (
+      d.(i) <- d.(fi) ;
+      moveup fi
+    ) else
+      d.(i) <- x
+  in
   (* moving [x] down in the heap *)
   let rec movedown i =
     let j = (2 * i) + 1 in
@@ -84,7 +91,13 @@ let remove h s =
     else
       d.(i) <- x
   in
-  movedown s
+  if s = n then
+    ()
+  else if Mtime.is_later d.(s).time ~than:x.time then
+    moveup s
+  else
+    movedown s ;
+  h.size <- n
 
 let find h ev =
   let rec iter n =
@@ -112,32 +125,24 @@ let pop_maximum h =
   let m = maximum h in
   remove h 0 ; m
 
+let check h =
+  let d = h.data in
+  for i = 1 to h.size - 1 do
+    let fi = (i - 1) / 2 in
+    let ordered = Mtime.is_later d.(i).time ~than:d.(fi).time in
+    assert ordered
+  done
+
 let iter f h =
   let d = h.data in
   for i = 0 to h.size - 1 do
     f d.(i)
   done
 
+(*
 let fold f h x0 =
   let n = h.size in
   let d = h.data in
   let rec foldrec x i = if i >= n then x else foldrec (f d.(i) x) (succ i) in
   foldrec x0 0
-
-(*
-let _ =
-  let test : int t = create 100 in
-  for i=0 to 99 do
-    let e = {time=Random.float 10.0; ev=i} in
-    add test e
-  done;
-  for i=0 to 49 do
-    let xx=find test i in
-    remove test xx
-  done;
-(*  remove test xx;*)
-  for i=0 to 49 do
-    let e=pop_maximum test in
-    Printf.printf "time: %f, site: %d\n" e.time e.ev
-  done
 *)

@@ -296,10 +296,10 @@ class API(object):
         """Write all datasources specified (via set_datasource) since the last
         call to this function. The datasources are written together with the
         relevant metadata into the file agreed with rrdd."""
-        timestamp = int(time.time())
+        timestamp = time.time()
         data_values = []
         combined = dict()
-        data_checksum = crc32(pack(">Q", timestamp)) & 0xffffffff
+        data_checksum = crc32(pack(">d", timestamp)) & 0xffffffff
 
         for ds in sorted(self.datasources, key=lambda source: source.name):
             value = self.pack_data(ds)
@@ -326,7 +326,7 @@ class API(object):
         # Now write the updated header
         self.dest.seek(0)
         self.dest.write(encoded_datasource_header)
-        self.dest.write(pack(">LLLQ",
+        self.dest.write(pack(">LLLd",
                              data_checksum,
                              metadata_checksum,
                              len(self.datasources),

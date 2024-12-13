@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let now () = Int64.of_float (Unix.gettimeofday ())
+let now () = Unix.gettimeofday ()
 
 let cut str =
   Astring.String.fields ~empty:false ~is_sep:(fun c -> c = ' ' || c = '\t') str

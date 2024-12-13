@@ -228,5 +228,7 @@ let put_rrd_handler (req : Http.Request.t) (s : Unix.file_descr) _ =
   ) else (
     debug "Receiving RRD for resident VM uuid=%s. Replacing in hashtable." uuid ;
     let domid = int_of_string (List.assoc "domid" query) in
-    with_lock mutex (fun _ -> Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid})
+    with_lock mutex (fun _ ->
+        Hashtbl.replace vm_rrds uuid {rrd; dss= Rrd.StringMap.empty; domid}
+    )
   )

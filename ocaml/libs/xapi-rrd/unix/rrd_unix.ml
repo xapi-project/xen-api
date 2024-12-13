@@ -30,12 +30,13 @@ let with_out_channel_output fd f =
     )
     (fun () -> Out_channel.close_noerr oc)
 
-let xml_to_fd rrd fd = with_out_channel_output fd (Rrd.xml_to_output rrd)
+let xml_to_fd internal rrd fd =
+  with_out_channel_output fd (Rrd.xml_to_output internal rrd)
 
 let json_to_fd rrd fd =
   let payload = Rrd.json_to_string rrd |> Bytes.unsafe_of_string in
   let len = Bytes.length payload in
   Unix.write fd payload 0 len |> ignore
 
-let to_fd ?(json = false) rrd fd =
-  (if json then json_to_fd else xml_to_fd) rrd fd
+let to_fd ?(json = false) ?(internal = false) rrd fd =
+  (if json then json_to_fd else xml_to_fd internal) rrd fd

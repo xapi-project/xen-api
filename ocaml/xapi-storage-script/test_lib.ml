@@ -103,12 +103,20 @@ let test_run_status =
   let module P = Process in
   let test () =
     let* output = P.run ~prog:"true" ~args:[] ~input:"" ~env:[] in
-    let expected = P.Output.{exit_status= Ok (); stdout= ""; stderr= ""} in
+    let expected =
+      P.Output.{exit_status= Ok (); pid= output.pid; stdout= ""; stderr= ""}
+    in
     Alcotest.(check output_c) "Exit status is correct" expected output ;
 
     let* output = P.run ~prog:"false" ~args:[] ~input:"" ~env:[] in
     let expected =
-      P.Output.{exit_status= Error (Exit_non_zero 1); stdout= ""; stderr= ""}
+      P.Output.
+        {
+          exit_status= Error (Exit_non_zero 1)
+        ; pid= output.pid
+        ; stdout= ""
+        ; stderr= ""
+        }
     in
     Alcotest.(check output_c) "Exit status is correct" expected output ;
 
@@ -121,7 +129,10 @@ let test_run_output =
   let test () =
     let content = "@@@@@@" in
     let* output = P.run ~prog:"cat" ~args:["-"] ~input:content ~env:[] in
-    let expected = P.Output.{exit_status= Ok (); stdout= content; stderr= ""} in
+    let expected =
+      P.Output.
+        {exit_status= Ok (); pid= output.pid; stdout= content; stderr= ""}
+    in
     Alcotest.(check output_c) "Stdout is correct" expected output ;
 
     let* output = P.run ~prog:"cat" ~args:[content] ~input:content ~env:[] in
@@ -129,7 +140,13 @@ let test_run_output =
       Printf.sprintf "cat: %s: No such file or directory\n" content
     in
     let expected =
-      P.Output.{exit_status= Error (Exit_non_zero 1); stdout= ""; stderr}
+      P.Output.
+        {
+          exit_status= Error (Exit_non_zero 1)
+        ; pid= output.pid
+        ; stdout= ""
+        ; stderr
+        }
     in
     Alcotest.(check output_c) "Stderr is correct" expected output ;
     Lwt.return ()

@@ -129,6 +129,7 @@ val create :
   -> chipset_info:(string * string) list
   -> ssl_legacy:bool
   -> last_software_update:API.datetime
+  -> last_update_hash:string
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
@@ -538,6 +539,8 @@ val set_numa_affinity_policy :
   -> unit
 
 val emergency_disable_tls_verification : __context:Context.t -> unit
+
+val alert_if_kernel_broken : __context:Context.t -> unit
 
 val alert_if_tls_verification_was_emergency_disabled :
   __context:Context.t -> unit

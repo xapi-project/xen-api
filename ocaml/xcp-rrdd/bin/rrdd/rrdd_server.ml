@@ -59,7 +59,8 @@ let push_sr_rrd (sr_uuid : string) (path : string) : unit =
     | Some rrd ->
         debug "Pushing RRD for SR uuid=%s locally" sr_uuid ;
         with_lock mutex (fun _ ->
-            Hashtbl.replace sr_rrds sr_uuid {rrd; dss= []; domid= 0}
+            Hashtbl.replace sr_rrds sr_uuid
+              {rrd; dss= Rrd.StringMap.empty; domid= 0}
         )
     | None ->
         ()
@@ -256,7 +257,9 @@ module Deprecated = struct
             )
         )
       in
-      with_lock mutex (fun () -> host_rrd := Some {rrd; dss= []; domid= 0})
+      with_lock mutex (fun () ->
+          host_rrd := Some {rrd; dss= Rrd.StringMap.empty; domid= 0}
+      )
     with _ -> ()
 end
 
@@ -264,7 +267,9 @@ let push_rrd_local uuid domid : unit =
   try
     let rrd = get_rrd ~uuid in
     debug "Pushing RRD for VM uuid=%s locally" uuid ;
-    with_lock mutex (fun _ -> Hashtbl.replace vm_rrds uuid {rrd; dss= []; domid})
+    with_lock mutex (fun _ ->
+        Hashtbl.replace vm_rrds uuid {rrd; dss= Rrd.StringMap.empty; domid}
+    )
   with _ -> ()
 
 let push_rrd_remote uuid member_address : unit =
@@ -345,12 +350,11 @@ let fail_missing name = raise (Rrdd_error (Datasource_missing name))
     name {ds_name}. The operation fails if rrdi does not contain any live
     datasource with the name {ds_name} *)
 let add_ds ~rrdi ~ds_name =
-  match List.find_opt (fun ds -> ds.Ds.ds_name = ds_name) rrdi.dss with
+  match Rrd.StringMap.find_opt ds_name rrdi.dss with
   | None ->
       fail_missing ds_name
-  | Some ds ->
-      let now = Unix.gettimeofday () in
-      Rrd.rrd_add_ds rrdi.rrd now
+  | Some (timestamp, ds) ->
+      Rrd.rrd_add_ds rrdi.rrd timestamp
         (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
 
 let add rrds uuid domid ds_name rrdi =
@@ -391,7 +395,6 @@ let query_possible_dss rrdi =
      'live' ds, then it is enabled if it exists in the set rrdi.rrd. If we have
      an 'archival' ds, then it is enabled if it is also an enabled 'live' ds,
      otherwise it is disabled. *)
-  let module SMap = Map.Make (String) in
   let module SSet = Set.Make (String) in
   let open Ds in
   let open Data_source in
@@ -401,26 +404,22 @@ let query_possible_dss rrdi =
     let enabled_names = Rrd.ds_names rrdi.rrd |> SSet.of_list in
     let is_live_ds_enabled ds = SSet.mem ds.ds_name enabled_names in
     live_sources
-    |> List.to_seq
-    |> Seq.map (fun ds ->
-           ( ds.ds_name
-           , {
-               name= ds.ds_name
-             ; description= ds.ds_description
-             ; enabled= is_live_ds_enabled ds
-             ; standard= ds.ds_default
-             ; min= ds.ds_min
-             ; max= ds.ds_max
-             ; units= ds.ds_units
-             }
-           )
+    |> Rrd.StringMap.map (fun (_timestamp, ds) ->
+           {
+             name= ds.ds_name
+           ; description= ds.ds_description
+           ; enabled= is_live_ds_enabled ds
+           ; standard= ds.ds_default
+           ; min= ds.ds_min
+           ; max= ds.ds_max
+           ; units= ds.ds_units
+           }
        )
-    |> SMap.of_seq
   in
   let name_to_disabled_dss =
     archival_sources
     |> Seq.filter_map (fun ds ->
-           if SMap.mem ds.Rrd.ds_name name_to_live_dss then
+           if Rrd.StringMap.mem ds.Rrd.ds_name name_to_live_dss then
              None
            else
              Some
@@ -437,10 +436,9 @@ let query_possible_dss rrdi =
                )
        )
   in
-  SMap.add_seq name_to_disabled_dss name_to_live_dss
-  |> SMap.to_seq
-  |> Seq.map snd
-  |> List.of_seq
+  Rrd.StringMap.add_seq name_to_disabled_dss name_to_live_dss
+  |> Rrd.StringMap.bindings
+  |> List.map snd
 
 let query_possible_host_dss () : Data_source.t list =
   with_lock mutex (fun () ->
@@ -764,22 +762,25 @@ module Plugin = struct
         )
 
       (* Read, parse, and combine metrics from all registered plugins. *)
-      let read_stats () : (Rrd.ds_owner * Ds.ds) list =
+      let read_stats () =
         let plugins =
           with_lock registered_m (fun _ ->
               List.of_seq (Hashtbl.to_seq registered)
           )
         in
-        let process_plugin acc (uid, plugin) =
+        let process_plugin (uid, plugin) =
           try
             let payload = get_payload ~uid plugin in
-            List.rev_append payload.Rrd_protocol.datasources acc
-          with _ -> acc
+            let timestamp = payload.Rrd_protocol.timestamp in
+            let dss = List.to_seq payload.Rrd_protocol.datasources in
+            Some (P.string_of_uid ~uid, timestamp, dss)
+          with _ -> None
         in
         List.iter decr_skip_count plugins ;
         plugins
-        |> List.filter (Fun.negate skip)
-        |> List.fold_left process_plugin []
+        |> List.to_seq
+        |> Seq.filter (Fun.negate skip)
+        |> Seq.filter_map process_plugin
     end
 
   module Local = Make (struct
@@ -805,7 +806,7 @@ module Plugin = struct
   let deregister = Local.deregister
 
   (* Read, parse, and combine metrics from all registered plugins. *)
-  let read_stats () : (Rrd.ds_owner * Ds.ds) list = Local.read_stats ()
+  let read_stats () = Local.read_stats ()
 end
 
 module HA = struct
