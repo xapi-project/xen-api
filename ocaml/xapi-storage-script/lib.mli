@@ -65,6 +65,7 @@ module Process : sig
 
     type t = {
         exit_status: (unit, exit_or_signal) result
+      ; pid: int
       ; stdout: string
       ; stderr: string
     }
@@ -78,7 +79,7 @@ module Process : sig
     -> Output.t Lwt.t
   (** Runs a cli program, writes [input] into its stdin, then closing the fd,
       and finally waits for the program to finish and returns the exit status,
-      its stdout and stderr. *)
+      the pid, and its stdout and stderr. *)
 end
 
 module DirWatcher : sig

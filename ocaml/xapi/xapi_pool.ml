@@ -840,6 +840,10 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     )
   in
   let assert_sm_features_compatible () =
+    debug
+      "%s Checking whether SM features on the joining host is compatible with \
+       the pool"
+      __FUNCTION__ ;
     (* We consider the case where the existing pool has FOO/m, and the candidate having FOO/n,
        where n >= m, to be compatible. Not vice versa. *)
     let features_compatible coor_features candidate_features =
@@ -847,15 +851,16 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
          the other way around. *)
       Smint.compat_features coor_features candidate_features = coor_features
     in
-
-    let master_sms = Client.SM.get_all ~rpc ~session_id in
+    let pool_sms = Client.SM.get_all_records ~rpc ~session_id in
     List.iter
-      (fun sm ->
-        let master_sm_type = Client.SM.get_type ~rpc ~session_id ~self:sm in
+      (fun (sm_ref, sm_rec) ->
+        let pool_sm_type = sm_rec.API.sM_type in
+        debug "%s Checking SM %s of name %s in the pool" __FUNCTION__
+          (Ref.string_of sm_ref) sm_rec.sM_name_label ;
         let candidate_sm_ref, candidate_sm_rec =
           match
             Db.SM.get_records_where ~__context
-              ~expr:(Eq (Field "type", Literal master_sm_type))
+              ~expr:(Eq (Field "type", Literal pool_sm_type))
           with
           | [(sm_ref, sm_rec)] ->
               (sm_ref, sm_rec)
@@ -864,25 +869,24 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
                 Api_errors.(
                   Server_error
                     ( pool_joining_sm_features_incompatible
-                    , [Ref.string_of sm; ""]
+                    , [Ref.string_of sm_ref; ""]
                     )
                 )
         in
 
-        let coor_sm_features =
-          Client.SM.get_features ~rpc ~session_id ~self:sm
-        in
+        let pool_sm_features = sm_rec.sM_features in
+
         let candidate_sm_features = candidate_sm_rec.API.sM_features in
-        if not (features_compatible coor_sm_features candidate_sm_features) then
+        if not (features_compatible pool_sm_features candidate_sm_features) then
           raise
             Api_errors.(
               Server_error
                 ( pool_joining_sm_features_incompatible
-                , [Ref.string_of sm; Ref.string_of candidate_sm_ref]
+                , [Ref.string_of sm_ref; Ref.string_of candidate_sm_ref]
                 )
             )
       )
-      master_sms
+      pool_sms
   in
 
   (* call pre-join asserts *)
@@ -964,6 +968,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~local_cache_sr ~chipset_info:host.API.host_chipset_info
           ~ssl_legacy:false
           ~last_software_update:host.API.host_last_software_update
+          ~last_update_hash:host.API.host_last_update_hash
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -3402,7 +3407,8 @@ let perform ~local_fn ~__context ~host op =
     let verify_cert = Some Stunnel.pool (* verify! *) in
     let task_id = Option.map Ref.string_of task_opt in
     let tracing = Context.set_client_span __context in
-    let http = xmlrpc ?task_id ~version:"1.0" ~tracing "/" in
+    let http = xmlrpc ?task_id ~version:"1.0" "/" in
+    let http = Helpers.TraceHelper.inject_span_into_req tracing http in
     let port = !Constants.https_port in
     let transport = SSL (SSL.make ~verify_cert ?task_id (), hostname, port) in
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
@@ -3530,10 +3536,10 @@ let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
   repos
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
-         sync ~__context ~self:repo ~token ~token_id ;
-         (* Dnf sync all the metadata including updateinfo,
+         let complete = sync ~__context ~self:repo ~token ~token_id in
+         (* Dnf and custom yum-utils sync all the metadata including updateinfo,
           * Thus no need to re-create pool repository *)
-         if Pkgs.manager = Yum then
+         if Pkgs.manager = Yum && complete = false then
            create_pool_repository ~__context ~self:repo
      ) ;
   let checksum = set_available_updates ~__context in

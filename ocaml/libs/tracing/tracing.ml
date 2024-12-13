@@ -95,7 +95,7 @@ let validate_attribute (key, value) =
   && W3CBaggage.Key.is_valid_key key
 
 module SpanKind = struct
-  type t = Server | Consumer | Client | Producer | Internal [@@deriving rpcty]
+  type t = Server | Consumer | Client | Producer | Internal
 
   let to_string = function
     | Server ->
@@ -127,7 +127,7 @@ let endpoint_to_string = function
 let ok_none = Ok None
 
 module Status = struct
-  type status_code = Unset | Ok | Error [@@deriving rpcty]
+  type status_code = Unset | Ok | Error
 
   type t = {status_code: status_code; _description: string option}
 end
@@ -209,15 +209,39 @@ end = struct
   let compare = Int64.compare
 end
 
-module SpanContext = struct
-  type t = {trace_id: Trace_id.t; span_id: Span_id.t} [@@deriving rpcty]
+(* The context of a trace that can be propagated across service boundaries. *)
+module TraceContext = struct
+  type traceparent = string
 
-  let context trace_id span_id = {trace_id; span_id}
+  type baggage = (string * string) list
+
+  type t = {traceparent: traceparent option; baggage: baggage option}
+
+  let empty = {traceparent= None; baggage= None}
+
+  let with_traceparent traceparent ctx = {ctx with traceparent}
+
+  let with_baggage baggage ctx = {ctx with baggage}
+
+  let traceparent_of ctx = ctx.traceparent
+
+  let baggage_of ctx = ctx.baggage
+end
+
+module SpanContext = struct
+  type t = {
+      trace_id: Trace_id.t
+    ; span_id: Span_id.t
+    ; trace_context: TraceContext.t
+  }
+
+  let context trace_id span_id =
+    {trace_id; span_id; trace_context= TraceContext.empty}
 
   let to_traceparent t =
-    Printf.sprintf "00-%s-%s-01"
-      (Trace_id.to_string t.trace_id)
-      (Span_id.to_string t.span_id)
+    let tid = Trace_id.to_string t.trace_id in
+    let sid = Span_id.to_string t.span_id in
+    Printf.sprintf "00-%s-%s-01" tid sid
 
   let of_traceparent traceparent =
     let elements = String.split_on_char '-' traceparent in
@@ -227,6 +251,7 @@ module SpanContext = struct
           {
             trace_id= Trace_id.of_string trace_id
           ; span_id= Span_id.of_string span_id
+          ; trace_context= TraceContext.empty
           }
     | _ ->
         None
@@ -234,6 +259,15 @@ module SpanContext = struct
   let trace_id_of_span_context t = t.trace_id
 
   let span_id_of_span_context t = t.span_id
+
+  let context_of_span_context t = t.trace_context
+
+  let with_trace_context trace_context t = {t with trace_context}
+
+  let of_trace_context trace_context =
+    let traceparent = TraceContext.traceparent_of trace_context in
+    let span_context = Option.(join (map of_traceparent traceparent)) in
+    Option.map (with_trace_context trace_context) span_context
 end
 
 module SpanLink = struct
@@ -263,16 +297,25 @@ module Span = struct
 
   let get_context t = t.context
 
-  let start ?(attributes = Attributes.empty) ~name ~parent ~span_kind () =
-    let trace_id =
+  let start ?(attributes = Attributes.empty)
+      ?(trace_context : TraceContext.t option) ~name ~parent ~span_kind () =
+    let trace_id, extra_context =
       match parent with
       | None ->
-          Trace_id.make ()
+          (Trace_id.make (), TraceContext.empty)
       | Some span_parent ->
-          span_parent.context.trace_id
+          (span_parent.context.trace_id, span_parent.context.trace_context)
     in
     let span_id = Span_id.make () in
-    let context : SpanContext.t = {trace_id; span_id} in
+    let context : SpanContext.t =
+      {trace_id; span_id; trace_context= extra_context}
+    in
+    let context =
+      (* If trace_context is provided to the call, override any inherited trace context. *)
+      Option.fold ~none:context
+        ~some:(Fun.flip SpanContext.with_trace_context context)
+        trace_context
+    in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
     let end_time = None in
@@ -650,15 +693,18 @@ module Tracer = struct
     ; attributes= Attributes.empty
     }
 
-  let start ~tracer:t ?(attributes = []) ?(span_kind = SpanKind.Internal) ~name
-      ~parent () : (Span.t option, exn) result =
+  let start ~tracer:t ?(attributes = []) ?trace_context
+      ?(span_kind = SpanKind.Internal) ~name ~parent () :
+      (Span.t option, exn) result =
     let open TracerProvider in
     (* Do not start span if the TracerProvider is disabled*)
     if not t.enabled then
       ok_none
     else
       let attributes = Attributes.merge_into t.attributes attributes in
-      let span = Span.start ~attributes ~name ~parent ~span_kind () in
+      let span =
+        Span.start ~attributes ?trace_context ~name ~parent ~span_kind ()
+      in
       Spans.add_to_spans ~span ; Ok (Some span)
 
   let update_span_with_parent span (parent : Span.t option) =
@@ -672,9 +718,11 @@ module Tracer = struct
           |> Option.map (fun existing_span ->
                  let old_context = Span.get_context existing_span in
                  let new_context : SpanContext.t =
+                   let trace_context = span.Span.context.trace_context in
                    SpanContext.context
                      (SpanContext.trace_id_of_span_context parent.context)
                      old_context.span_id
+                   |> SpanContext.with_trace_context trace_context
                  in
                  let updated_span = {existing_span with parent= Some parent} in
                  let updated_span = {updated_span with context= new_context} in
@@ -711,10 +759,10 @@ end
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
-let with_tracing ?(attributes = []) ?(parent = None) ~name f =
+let with_tracing ?(attributes = []) ?(parent = None) ?trace_context ~name f =
   let tracer = Tracer.get_tracer ~name in
   if tracer.enabled then (
-    match Tracer.start ~tracer ~attributes ~name ~parent () with
+    match Tracer.start ~tracer ?trace_context ~attributes ~name ~parent () with
     | Ok span -> (
       try
         let result = f span in
@@ -732,12 +780,12 @@ let with_tracing ?(attributes = []) ?(parent = None) ~name f =
   ) else
     f None
 
-let with_child_trace ?attributes parent ~name f =
+let with_child_trace ?attributes ?trace_context parent ~name f =
   match parent with
   | None ->
       f None
   | Some _ as parent ->
-      with_tracing ?attributes ~parent ~name f
+      with_tracing ?attributes ?trace_context ~parent ~name f
 
 module EnvHelpers = struct
   let traceparent_key = "TRACEPARENT"
@@ -768,4 +816,68 @@ module EnvHelpers = struct
     | Some span ->
         Some (span |> Span.get_context |> SpanContext.to_traceparent)
         |> of_traceparent
+end
+
+module Propagator = struct
+  module type S = sig
+    type carrier
+
+    val traceparent_of : carrier -> Span.t option
+
+    val with_tracing :
+         ?attributes:(string * string) list
+      -> name:string
+      -> carrier
+      -> (carrier -> 'a)
+      -> 'a
+  end
+
+  module type PropS = sig
+    type carrier
+
+    val inject_into : TraceContext.t -> carrier -> carrier
+
+    val extract_from : carrier -> TraceContext.t
+
+    val name_span : carrier -> string
+  end
+
+  module Make (P : PropS) : S with type carrier = P.carrier = struct
+    type carrier = P.carrier
+
+    let traceparent_of carrier =
+      (* TODO: The extracted TraceContext must be propagated through the
+         spans. Simple approach is to add it to the SpanContext, and then
+         inherit it properly (substituting/creating only identity-related). *)
+      let ( let* ) = Option.bind in
+      let trace_context = P.extract_from carrier in
+      let* parent = TraceContext.traceparent_of trace_context in
+      let* span_context = SpanContext.of_traceparent parent in
+      let span_context =
+        SpanContext.with_trace_context trace_context span_context
+      in
+      let name = P.name_span carrier in
+      Some (Tracer.span_of_span_context span_context name)
+
+    let with_tracing ?attributes ~name carrier f =
+      let trace_context = P.extract_from carrier in
+      let parent = traceparent_of carrier in
+      let continue_with_child = function
+        | Some child ->
+            (* Here, "traceparent" is terminology for the [version-trace_id-span_id-flags] structure.
+               Therefore, the purpose of the code below is to decorate the request with the derived (child) span's ID.
+               This function only gets called if parent is not None. *)
+            let span_context = Span.get_context child in
+            let traceparent = SpanContext.to_traceparent span_context in
+            let trace_context' =
+              TraceContext.with_traceparent (Some traceparent) trace_context
+            in
+            let carrier' = P.inject_into trace_context' carrier in
+            f carrier'
+        | _ ->
+            f carrier
+      in
+      with_child_trace ?attributes ~trace_context parent ~name
+        continue_with_child
+  end
 end

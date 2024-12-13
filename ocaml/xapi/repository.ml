@@ -25,6 +25,8 @@ module Pkgs = (val Pkg_mgr.get_pkg_mgr)
 
 let capacity_in_parallel = 16
 
+let ( // ) = Filename.concat
+
 (* The cache below is protected by pool's current_operations locking mechanism *)
 let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
   Hashtbl.create 64
@@ -201,7 +203,15 @@ let sync ~__context ~self ~token ~token_id =
          * I.E. proxy username/password and temporary token file path.
          *)
         write_initial_yum_config ()
-      )
+      ) ;
+    (* The custom yum-utils will fully download repository metadata.*)
+    let repodata_dir =
+      !Xapi_globs.local_pool_repo_dir
+      // repo_name
+      // "repodata"
+      // "repomd.xml.asc"
+    in
+    Sys.file_exists repodata_dir
   with e ->
     error "Failed to sync with remote YUM repository: %s"
       (ExnHelper.string_of_exn e) ;

@@ -28,12 +28,20 @@ exception Domain_not_found
 
 let uuid_of_domid ~xs domid =
   try
-    let vm = xs.Xs.getdomainpath domid ^ "/vm" in
-    let vm_dir = xs.Xs.read vm in
-    match Uuidx.of_string (xs.Xs.read (vm_dir ^ "/uuid")) with
-    | Some uuid ->
-        uuid
-    | None ->
+    let vm_uuid_path =
+      Printf.sprintf "/local/domain/%d/vm" domid
+      |> xs.Xs.read
+      |> String.split_on_char '/'
+    in
+    match vm_uuid_path with
+    | [_; _; uuid] -> (
+      match Uuidx.of_string uuid with
+      | Some uuid ->
+          uuid
+      | None ->
+          raise Domain_not_found
+    )
+    | _ ->
         raise Domain_not_found
   with _ -> raise Domain_not_found
 
