@@ -887,27 +887,31 @@ module SR : HandlerTools = struct
     | Will_use_SR of API.ref_SR
     | SR_not_needed
 
-  let precheck __context config rpc session_id _state x =
+  let precheck __context config _rpc _session_id _state x =
     let sr_record = API.sR_t_of_rpc x.snapshot in
     match config.import_type with
     | Metadata_import _ -> (
-      try
+      match
         (* Look up the existing SR record *)
-        let sr =
-          Client.SR.get_by_uuid ~rpc ~session_id ~uuid:sr_record.API.sR_uuid
-        in
-        Found_SR sr
-      with _ ->
-        let msg =
-          match sr_record.API.sR_content_type with
-          | "iso" ->
-              "- will eject disk" (* Will be handled specially in handle_vdi *)
-          | _ ->
-              "- will still try to find individual VDIs"
-        in
-        warn "Failed to find SR with UUID: %s content-type: %s %s"
-          sr_record.API.sR_uuid sr_record.API.sR_content_type msg ;
-        Found_no_SR
+        (* Use an internal DB call - this avoids raising an exception and logging
+           the backtrace internally in case of a (reasonably expected) absence of
+           the object with this UUID *)
+        Db.SR.get_by_uuid_opt ~__context ~uuid:sr_record.API.sR_uuid
+      with
+      | Some sr ->
+          Found_SR sr
+      | None ->
+          let msg =
+            match sr_record.API.sR_content_type with
+            | "iso" ->
+                "- will eject disk"
+                (* Will be handled specially in handle_vdi *)
+            | _ ->
+                "- will still try to find individual VDIs"
+          in
+          warn "Failed to find SR with UUID: %s content-type: %s %s"
+            sr_record.API.sR_uuid sr_record.API.sR_content_type msg ;
+          Found_no_SR
     )
     | Full_import sr ->
         if sr_record.API.sR_content_type = "iso" then
@@ -1365,80 +1369,94 @@ end
 module VBD : HandlerTools = struct
   type precheck_t = Found_VBD of API.ref_VBD | Skip | Create of API.vBD_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context config _rpc _session_id state x =
     let vbd_record = API.vBD_t_of_rpc x.snapshot in
     let get_vbd () =
-      Client.VBD.get_by_uuid ~rpc ~session_id ~uuid:vbd_record.API.vBD_uuid
+      (* Use an internal DB call - this avoids raising an exception and logging
+         the backtrace internally in case of a (reasonably expected) absence of
+         the object with this UUID *)
+      Db.VBD.get_by_uuid_opt ~__context ~uuid:vbd_record.API.vBD_uuid
     in
-    let vbd_exists () =
-      try
-        ignore (get_vbd ()) ;
-        true
-      with _ -> false
+    let vbd_opt =
+      (* If there's already a VBD with the same UUID and we're preserving UUIDs, use that one. *)
+      if config.full_restore then (
+        match get_vbd () with
+        | Some x ->
+            Some x
+        | None ->
+            info
+              "Did not find an already existing VBD with the same uuid=%s, try \
+               to create a new one"
+              vbd_record.API.vBD_uuid ;
+            None
+      ) else
+        None
     in
-    if config.full_restore && vbd_exists () then
-      let vbd = get_vbd () in
-      Found_VBD vbd
-    else
-      let vm =
-        log_reraise
-          ("Failed to find VBD's VM: " ^ Ref.string_of vbd_record.API.vBD_VM)
-          (lookup vbd_record.API.vBD_VM)
-          state.table
-      in
-      (* If the VBD is supposed to be attached to a PV guest (which doesn't support
-         				 currently_attached empty drives) then throw a fatal error. *)
-      let original_vm =
-        get_vm_record
-          (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export)
-      in
-      (* Note: the following is potentially inaccurate: the find out whether a running or
-       * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
-       * available in the exported metadata. *)
-      let has_qemu = Helpers.will_have_qemu_from_record original_vm in
-      (* In the case of dry_run live migration, don't check for
-         				 missing disks as CDs will be ejected before the real migration. *)
-      let dry_run, live =
-        match config.import_type with
-        | Metadata_import {dry_run; live; _} ->
-            (dry_run, live)
-        | _ ->
-            (false, false)
-      in
-      ( if
-          vbd_record.API.vBD_currently_attached
-          && not (exists vbd_record.API.vBD_VDI state.table)
-        then
-          (* It's only ok if it's a CDROM attached to an HVM guest, or it's part of SXM and we know the sender would eject it. *)
-          let will_eject =
-            dry_run && live && original_vm.API.vM_power_state <> `Suspended
-          in
-          if not (vbd_record.API.vBD_type = `CD && (has_qemu || will_eject))
+    match vbd_opt with
+    | Some vbd ->
+        Found_VBD vbd
+    | None -> (
+        let vm =
+          log_reraise
+            ("Failed to find VBD's VM: " ^ Ref.string_of vbd_record.API.vBD_VM)
+            (lookup vbd_record.API.vBD_VM)
+            state.table
+        in
+        (* If the VBD is supposed to be attached to a PV guest (which doesn't support
+           currently_attached empty drives) then throw a fatal error. *)
+        let original_vm =
+          get_vm_record
+            (find_in_export (Ref.string_of vbd_record.API.vBD_VM) state.export)
+        in
+        (* Note: the following is potentially inaccurate: the find out whether a running or
+         * suspended VM has booted HVM, we must consult the VM metrics, but those aren't
+         * available in the exported metadata. *)
+        let has_qemu = Helpers.will_have_qemu_from_record original_vm in
+        (* In the case of dry_run live migration, don't check for
+           missing disks as CDs will be ejected before the real migration. *)
+        let dry_run, live =
+          match config.import_type with
+          | Metadata_import {dry_run; live; _} ->
+              (dry_run, live)
+          | _ ->
+              (false, false)
+        in
+        ( if
+            vbd_record.API.vBD_currently_attached
+            && not (exists vbd_record.API.vBD_VDI state.table)
           then
-            raise (IFailure Attached_disks_not_found)
-      ) ;
-      let vbd_record = {vbd_record with API.vBD_VM= vm} in
-      match
-        (vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table)
-      with
-      | `CD, false | `Floppy, false ->
-          if has_qemu || original_vm.API.vM_power_state <> `Suspended then
-            Create {vbd_record with API.vBD_VDI= Ref.null; API.vBD_empty= true}
-          (* eject *)
-          else
-            Create vbd_record
-      | `Disk, false ->
-          (* omit: cannot have empty disks *)
-          warn
-            "Cannot import VM's disk: was it an .iso attached as a disk rather \
-             than CD?" ;
-          Skip
-      | _, true ->
-          Create
-            {
-              vbd_record with
-              API.vBD_VDI= lookup vbd_record.API.vBD_VDI state.table
-            }
+            (* It's only ok if it's a CDROM attached to an HVM guest, or it's part of SXM and we know the sender would eject it. *)
+            let will_eject =
+              dry_run && live && original_vm.API.vM_power_state <> `Suspended
+            in
+            if not (vbd_record.API.vBD_type = `CD && (has_qemu || will_eject))
+            then
+              raise (IFailure Attached_disks_not_found)
+        ) ;
+        let vbd_record = {vbd_record with API.vBD_VM= vm} in
+        match
+          (vbd_record.API.vBD_type, exists vbd_record.API.vBD_VDI state.table)
+        with
+        | `CD, false | `Floppy, false ->
+            if has_qemu || original_vm.API.vM_power_state <> `Suspended then
+              Create
+                {vbd_record with API.vBD_VDI= Ref.null; API.vBD_empty= true}
+            (* eject *)
+            else
+              Create vbd_record
+        | `Disk, false ->
+            (* omit: cannot have empty disks *)
+            warn
+              "Cannot import VM's disk: was it an .iso attached as a disk \
+               rather than CD?" ;
+            Skip
+        | _, true ->
+            Create
+              {
+                vbd_record with
+                API.vBD_VDI= lookup vbd_record.API.vBD_VDI state.table
+              }
+      )
 
   let handle_dry_run __context _config _rpc _session_id state x precheck_result
       =
@@ -1493,88 +1511,99 @@ end
 module VIF : HandlerTools = struct
   type precheck_t = Found_VIF of API.ref_VIF | Create of API.vIF_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context config _rpc _session_id state x =
     let vif_record = API.vIF_t_of_rpc x.snapshot in
     let get_vif () =
-      Client.VIF.get_by_uuid ~rpc ~session_id ~uuid:vif_record.API.vIF_uuid
+      (* Use an internal DB call - this avoids raising an exception and logging
+         the backtrace internally in case of a (reasonably expected) absence of
+         the object with this UUID *)
+      Db.VIF.get_by_uuid_opt ~__context ~uuid:vif_record.API.vIF_uuid
     in
-    let vif_exists () =
-      try
-        ignore (get_vif ()) ;
-        true
-      with _ -> false
+    let vif_opt =
+      if config.full_restore then (
+        (* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
+        match get_vif () with
+        | Some x ->
+            Some x
+        | None ->
+            info
+              "Did not find an already existing VIF with the same uuid=%s, try \
+               to create a new one"
+              vif_record.API.vIF_uuid ;
+            None
+      ) else
+        None
     in
-    if config.full_restore && vif_exists () then
-      (* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
-      let vif = get_vif () in
-      Found_VIF vif
-    else
-      (* If not restoring a full backup then blank the MAC so it is regenerated *)
-      let vif_record =
-        {
-          vif_record with
-          API.vIF_MAC=
-            (if config.full_restore then vif_record.API.vIF_MAC else "")
-        }
-      in
-      (* Determine the VM to which we're going to attach this VIF. *)
-      let vm =
-        log_reraise
-          ("Failed to find VIF's VM: " ^ Ref.string_of vif_record.API.vIF_VM)
-          (lookup vif_record.API.vIF_VM)
-          state.table
-      in
-      (* Determine the network to which we're going to attach this VIF. *)
-      let net =
-        (* If we find the cross-pool migration key, attach the VIF to that network... *)
-        if
-          List.mem_assoc Constants.storage_migrate_vif_map_key
-            vif_record.API.vIF_other_config
-        then
-          Ref.of_string
-            (List.assoc Constants.storage_migrate_vif_map_key
-               vif_record.API.vIF_other_config
-            )
-        else
-          (* ...otherwise fall back to looking up the network from the state table. *)
-          log_reraise
-            ("Failed to find VIF's Network: "
-            ^ Ref.string_of vif_record.API.vIF_network
-            )
-            (lookup vif_record.API.vIF_network)
-            state.table
-      in
-      (* Make sure we remove the cross-pool migration VIF mapping key from the other_config
-         			 * before creating a VIF - otherwise we'll risk sending this key on to another pool
-         			 * during a future cross-pool migration and it won't make sense. *)
-      let other_config =
-        List.filter
-          (fun (k, _) -> k <> Constants.storage_migrate_vif_map_key)
-          vif_record.API.vIF_other_config
-      in
-      (* Construct the VIF record we're going to try to create locally. *)
-      let vif_record =
-        if Pool_features.is_enabled ~__context Features.VIF_locking then
-          vif_record
-        else if vif_record.API.vIF_locking_mode = `locked then
+    match vif_opt with
+    | Some vif ->
+        Found_VIF vif
+    | None ->
+        (* If not restoring a full backup then blank the MAC so it is regenerated *)
+        let vif_record =
           {
             vif_record with
-            API.vIF_locking_mode= `network_default
-          ; API.vIF_ipv4_allowed= []
-          ; API.vIF_ipv6_allowed= []
+            API.vIF_MAC=
+              (if config.full_restore then vif_record.API.vIF_MAC else "")
           }
-        else
-          {vif_record with API.vIF_ipv4_allowed= []; API.vIF_ipv6_allowed= []}
-      in
-      let vif_record =
-        {
-          vif_record with
-          API.vIF_VM= vm
-        ; API.vIF_network= net
-        ; API.vIF_other_config= other_config
-        }
-      in
-      Create vif_record
+        in
+        (* Determine the VM to which we're going to attach this VIF. *)
+        let vm =
+          log_reraise
+            ("Failed to find VIF's VM: " ^ Ref.string_of vif_record.API.vIF_VM)
+            (lookup vif_record.API.vIF_VM)
+            state.table
+        in
+        (* Determine the network to which we're going to attach this VIF. *)
+        let net =
+          (* If we find the cross-pool migration key, attach the VIF to that network... *)
+          if
+            List.mem_assoc Constants.storage_migrate_vif_map_key
+              vif_record.API.vIF_other_config
+          then
+            Ref.of_string
+              (List.assoc Constants.storage_migrate_vif_map_key
+                 vif_record.API.vIF_other_config
+              )
+          else
+            (* ...otherwise fall back to looking up the network from the state table. *)
+            log_reraise
+              ("Failed to find VIF's Network: "
+              ^ Ref.string_of vif_record.API.vIF_network
+              )
+              (lookup vif_record.API.vIF_network)
+              state.table
+        in
+        (* Make sure we remove the cross-pool migration VIF mapping key from the other_config
+         * before creating a VIF - otherwise we'll risk sending this key on to another pool
+         * during a future cross-pool migration and it won't make sense. *)
+        let other_config =
+          List.filter
+            (fun (k, _) -> k <> Constants.storage_migrate_vif_map_key)
+            vif_record.API.vIF_other_config
+        in
+        (* Construct the VIF record we're going to try to create locally. *)
+        let vif_record =
+          if Pool_features.is_enabled ~__context Features.VIF_locking then
+            vif_record
+          else if vif_record.API.vIF_locking_mode = `locked then
+            {
+              vif_record with
+              API.vIF_locking_mode= `network_default
+            ; API.vIF_ipv4_allowed= []
+            ; API.vIF_ipv6_allowed= []
+            }
+          else
+            {vif_record with API.vIF_ipv4_allowed= []; API.vIF_ipv6_allowed= []}
+        in
+        let vif_record =
+          {
+            vif_record with
+            API.vIF_VM= vm
+          ; API.vIF_network= net
+          ; API.vIF_other_config= other_config
+          }
+        in
+        Create vif_record
 
   let handle_dry_run __context _config _rpc _session_id state x precheck_result
       =
@@ -1710,74 +1739,88 @@ end
 module VGPU : HandlerTools = struct
   type precheck_t = Found_VGPU of API.ref_VGPU | Create of API.vGPU_t
 
-  let precheck __context config rpc session_id state x =
+  let precheck __context config _rpc _session_id state x =
     let vgpu_record = API.vGPU_t_of_rpc x.snapshot in
     let get_vgpu () =
-      Client.VGPU.get_by_uuid ~rpc ~session_id ~uuid:vgpu_record.API.vGPU_uuid
+      (* Use an internal DB call - this avoids raising an exception and logging
+         the backtrace internally in case of a (reasonably expected) absence of
+         the object with this UUID *)
+      Db.VGPU.get_by_uuid_opt ~__context ~uuid:vgpu_record.API.vGPU_uuid
     in
-    let vgpu_exists () =
-      try
-        ignore (get_vgpu ()) ;
-        true
-      with _ -> false
+    let vgpu_opt =
+      if config.full_restore then (
+        (* If there's already a VGPU with the same UUID and we're preserving UUIDs, use that one. *)
+        match get_vgpu () with
+        | Some x ->
+            Some x
+        | None ->
+            info
+              "Did not find an already existing VGPU with the same uuid=%s, \
+               try to create a new one"
+              vgpu_record.API.vGPU_uuid ;
+            None
+      ) else
+        None
     in
-    if config.full_restore && vgpu_exists () then
-      let vgpu = get_vgpu () in
-      Found_VGPU vgpu
-    else
-      let vm =
-        log_reraise
-          ("Failed to find VGPU's VM: " ^ Ref.string_of vgpu_record.API.vGPU_VM)
-          (lookup vgpu_record.API.vGPU_VM)
-          state.table
-      in
-      let group =
-        (* If we find the cross-pool migration key, attach the vgpu to the provided gpu_group... *)
-        if
-          List.mem_assoc Constants.storage_migrate_vgpu_map_key
-            vgpu_record.API.vGPU_other_config
-        then
-          Ref.of_string
-            (List.assoc Constants.storage_migrate_vgpu_map_key
-               vgpu_record.API.vGPU_other_config
-            )
-        else
-          (* ...otherwise fall back to looking up the vgpu from the state table. *)
+    match vgpu_opt with
+    | Some vgpu ->
+        Found_VGPU vgpu
+    | None ->
+        let vm =
           log_reraise
-            ("Failed to find VGPU's GPU group: "
-            ^ Ref.string_of vgpu_record.API.vGPU_GPU_group
+            ("Failed to find VGPU's VM: "
+            ^ Ref.string_of vgpu_record.API.vGPU_VM
             )
-            (lookup vgpu_record.API.vGPU_GPU_group)
+            (lookup vgpu_record.API.vGPU_VM)
             state.table
-      in
-      let _type =
-        log_reraise
-          ("Failed to find VGPU's type: "
-          ^ Ref.string_of vgpu_record.API.vGPU_type
-          )
-          (lookup vgpu_record.API.vGPU_type)
-          state.table
-      in
-      (* Make sure we remove the cross-pool migration VGPU mapping key from the other_config
-       * before creating a VGPU - otherwise we'll risk sending this key on to another pool
-       * during a future cross-pool migration and it won't make sense. *)
-      let other_config =
-        List.filter
-          (fun (k, _) -> k <> Constants.storage_migrate_vgpu_map_key)
-          vgpu_record.API.vGPU_other_config
-      in
-      let vgpu_record =
-        {
-          vgpu_record with
-          API.vGPU_VM= vm
-        ; API.vGPU_GPU_group= group
-        ; API.vGPU_type= _type
-        ; API.vGPU_other_config= other_config
-        }
-      in
-      if is_live config then
-        assert_can_live_import_vgpu ~__context vgpu_record ;
-      Create vgpu_record
+        in
+        let group =
+          (* If we find the cross-pool migration key, attach the vgpu to the provided gpu_group... *)
+          if
+            List.mem_assoc Constants.storage_migrate_vgpu_map_key
+              vgpu_record.API.vGPU_other_config
+          then
+            Ref.of_string
+              (List.assoc Constants.storage_migrate_vgpu_map_key
+                 vgpu_record.API.vGPU_other_config
+              )
+          else
+            (* ...otherwise fall back to looking up the vgpu from the state table. *)
+            log_reraise
+              ("Failed to find VGPU's GPU group: "
+              ^ Ref.string_of vgpu_record.API.vGPU_GPU_group
+              )
+              (lookup vgpu_record.API.vGPU_GPU_group)
+              state.table
+        in
+        let _type =
+          log_reraise
+            ("Failed to find VGPU's type: "
+            ^ Ref.string_of vgpu_record.API.vGPU_type
+            )
+            (lookup vgpu_record.API.vGPU_type)
+            state.table
+        in
+        (* Make sure we remove the cross-pool migration VGPU mapping key from the other_config
+         * before creating a VGPU - otherwise we'll risk sending this key on to another pool
+         * during a future cross-pool migration and it won't make sense. *)
+        let other_config =
+          List.filter
+            (fun (k, _) -> k <> Constants.storage_migrate_vgpu_map_key)
+            vgpu_record.API.vGPU_other_config
+        in
+        let vgpu_record =
+          {
+            vgpu_record with
+            API.vGPU_VM= vm
+          ; API.vGPU_GPU_group= group
+          ; API.vGPU_type= _type
+          ; API.vGPU_other_config= other_config
+          }
+        in
+        if is_live config then
+          assert_can_live_import_vgpu ~__context vgpu_record ;
+        Create vgpu_record
 
   let handle_dry_run __context _config _rpc _session_id state x precheck_result
       =
