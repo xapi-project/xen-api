@@ -1282,6 +1282,20 @@ let sync_updates =
         ; param_release= numbered_release "1.329.0"
         ; param_default= Some (VString "")
         }
+      ; {
+          param_type= String
+        ; param_name= "username"
+        ; param_doc= "The username of the remote pool"
+        ; param_release= numbered_release "24.39.0-next"
+        ; param_default= Some (VString "")
+        }
+      ; {
+          param_type= String
+        ; param_name= "password"
+        ; param_doc= "The password of the remote pool"
+        ; param_release= numbered_release "24.39.0-next"
+        ; param_default= Some (VString "")
+        }
       ]
     ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
