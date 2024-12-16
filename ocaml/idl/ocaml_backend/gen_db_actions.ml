@@ -411,8 +411,7 @@ let db_action api : O.Module.t =
     O.Let.make ~name:"_" ~params:[] ~ty:"unit"
       ~body:
         [
-          Printf.sprintf "Hashtbl.add Eventgen.get_record_table \"%s\""
-            obj.DT.name
+          Printf.sprintf "Eventgen.set_get_record \"%s\"" obj.DT.name
         ; Printf.sprintf
             "(fun ~__context ~self -> (fun () -> API.rpc_of_%s_t \
              (%s.get_record ~__context ~self:(Ref.of_%sstring self))))"

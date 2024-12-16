@@ -19,6 +19,8 @@ let get_record_table :
     (string, __context:Context.t -> self:string -> get_record) Hashtbl.t =
   Hashtbl.create 64
 
+let set_get_record = Hashtbl.replace get_record_table
+
 let find_get_record obj_name ~__context ~self () : Rpc.t option =
   Option.map
     (fun f -> f ~__context ~self ())

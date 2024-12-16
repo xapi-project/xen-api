@@ -12,14 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type get_record = unit -> Rpc.t
-
-val get_record_table :
-  (string, __context:Context.t -> self:string -> get_record) Hashtbl.t
-
 open Xapi_database.Db_cache_types
 
-val database_callback : update -> Database.t -> unit
+type get_record = unit -> Rpc.t
+
+val set_get_record :
+  string -> (__context:Context.t -> self:string -> get_record) -> unit
 
 val find_get_record :
   string -> __context:Context.t -> self:string -> unit -> Rpc.t option
+
+val database_callback : update -> Database.t -> unit
