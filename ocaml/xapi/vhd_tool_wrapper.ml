@@ -184,6 +184,8 @@ let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
   let s' = Uuidx.(to_string (make ())) in
   let source_format, source =
+    debug "GTNDEBUG: get_nbd_device %s" path ;
+    debug "GTNDEBUG: s' is %s" s' ;
     match (Stream_vdi.get_nbd_device path, vhd_of_device path, relative_to) with
     | Some (nbd_server, exportname), _, None ->
         ( "nbdhybrid"

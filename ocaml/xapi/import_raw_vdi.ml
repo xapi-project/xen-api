@@ -158,11 +158,12 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                 in
                 Http_svr.headers s headers ;
                 ( match format with
-                | Raw | Vhd ->
+                | Raw | Vhd | Qcow ->
                     let prezeroed =
                       not
                         (Sm_fs_ops.must_write_zeroes_into_new_vdi ~__context vdi)
                     in
+                    debug "GTNDEBUG: we are receiving Raw, Vhd or Qcow file" ;
                     Sm_fs_ops.with_block_attached_device __context rpc
                       session_id vdi `RW (fun path ->
                         if chunked then
