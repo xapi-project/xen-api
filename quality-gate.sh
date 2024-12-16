@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=497
+  N=496
   # do not count ml files from the tests in ocaml/{tests/quicktest}
   MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
   MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
