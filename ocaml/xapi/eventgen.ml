@@ -26,6 +26,24 @@ let find_get_record obj_name ~__context ~self () : Rpc.t option =
     (fun f -> f ~__context ~self ())
     (Hashtbl.find_opt get_record_table obj_name)
 
+(* Bidirectional lookup for relations encoded in all_relations. *)
+let lookup_object_relation =
+  (* Precompute the symmetric closure of all_relations and store it as
+     a hash table. *)
+  let symmetric_table =
+    let table = Hashtbl.create 128 in
+    let relate = Hashtbl.replace table in
+    let api = Datamodel.all_api in
+    let close (p, p') =
+      (* R U= { (p, p'), (p', p) } where p, p' are of the form
+         (object, field) *)
+      relate p p' ; relate p' p
+    in
+    Dm_api.relations_of_api api |> List.iter close ;
+    table
+  in
+  Hashtbl.find_opt symmetric_table
+
 (* If a record is modified, events must be emitted for related objects' records.
    We collect a list of related objects by querying the (Ref _)-typed
    fields of the input object against the relations encoded by the datamodel.
@@ -37,16 +55,11 @@ let compute_object_references_to_follow (obj_name : string) =
   let module DT = Datamodel_types in
   let api = Datamodel.all_api in
   let obj = Dm_api.get_obj_by_name api ~objname:obj_name in
-  let symmetric =
-    (* Symmetric closure of the field relation set. *)
-    Dm_api.relations_of_api api
-    |> List.concat_map (fun (a, b) -> [(a, b); (b, a)])
-  in
   (* Find an object related to the input field using the datamodel. *)
   let find_related_object = function
     | DT.{field_name; ty= Ref _; _} ->
         let this_end = (obj_name, field_name) in
-        List.assoc_opt this_end symmetric
+        lookup_object_relation this_end
         |> Option.map (fun (other_object, _) -> (other_object, field_name))
     | _ ->
         None
