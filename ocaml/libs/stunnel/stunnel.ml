@@ -487,6 +487,31 @@ let with_client_proxy ~verify_cert ~remote_host ~remote_port ~local_host
     )
     5
 
+let with_client_proxy_systemd_service ~verify_cert ~remote_host ~remote_port
+    ~local_host ~local_port ~service f =
+  let cmd_path = stunnel_path () in
+  let config =
+    config_file
+      ~accept:(Some (local_host, local_port))
+      verify_cert remote_host remote_port
+  in
+  let stop () = ignore (Fe_systemctl.stop ~service) in
+  (* Try stopping anyway before starting it. *)
+  ignore_exn stop () ;
+  let conf_path, out = Filename.open_temp_file service ".conf" in
+  let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
+  finally
+    (fun () ->
+      finally (fun () -> output_string out config) (fun () -> close_out out) ;
+      finally
+        (fun () ->
+          Fe_systemctl.start_transient ~service cmd_path [conf_path] ;
+          f ()
+        )
+        (fun () -> ignore_exn stop ())
+    )
+    (fun () -> Unixext.unlink_safe conf_path)
+
 let check_verify_error line =
   let sub_after i s =
     let len = String.length s in

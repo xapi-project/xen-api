@@ -96,3 +96,13 @@ val with_client_proxy :
   -> local_port:int
   -> (unit -> 'a)
   -> 'a
+
+val with_client_proxy_systemd_service :
+     verify_cert:verification_config option
+  -> remote_host:string
+  -> remote_port:int
+  -> local_host:string
+  -> local_port:int
+  -> service:string
+  -> (unit -> 'a)
+  -> 'a
