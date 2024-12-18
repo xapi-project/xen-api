@@ -1823,6 +1823,13 @@ let _ =
       "The VIF used by PVS proxy must be the one with the lowest device number"
     () ;
 
+  error Api_errors.pvs_proxy_present_on_higher_vif_device ["device"]
+    ~doc:
+      "The VM has a VIF, with a higher device number than the new VIF, that \
+       uses a PVS proxy. The VIF used by PVS proxy must be the one with the \
+       lowest device number."
+    () ;
+
   error Api_errors.usb_group_contains_vusb ["vusbs"]
     ~doc:"The USB group contains active VUSBs and cannot be deleted." () ;
   error Api_errors.usb_group_contains_pusb ["pusbs"]
