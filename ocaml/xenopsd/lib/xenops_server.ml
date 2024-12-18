@@ -278,6 +278,15 @@ let rec name_of_atomic = function
   | Best_effort atomic ->
       Printf.sprintf "Best_effort (%s)" (name_of_atomic atomic)
 
+let rec atomic_expires_after = function
+  | Serial (_, _, ops) ->
+      List.map atomic_expires_after ops |> List.fold_left ( +. ) 0.
+  | Parallel (_, _, ops) ->
+      List.map atomic_expires_after ops |> List.fold_left Float.max 0.
+  | _ ->
+      (* 20 minutes, in seconds *)
+      1200.
+
 type vm_migrate_op = {
     vmm_id: Vm.id
   ; vmm_vdi_map: (string * string) list
@@ -2341,16 +2350,17 @@ and queue_atomics_and_wait ~progress_callback ~max_parallel_atoms dbg id ops =
                let atom_id =
                  Printf.sprintf "%s.chunk=%d.atom=%d" id chunk_idx atom_idx
                in
-               queue_atomic_int ~progress_callback dbg atom_id op
+               (queue_atomic_int ~progress_callback dbg atom_id op, op)
              )
              ops
          in
          let timeout_start = Unix.gettimeofday () in
          List.map
-           (fun task ->
+           (fun (task, op) ->
              let task_id = Xenops_task.id_of_handle task in
+             let expiration = atomic_expires_after op in
              let completion =
-               event_wait updates task ~from ~timeout_start 1200.0
+               event_wait updates task ~from ~timeout_start expiration
                  (is_task task_id) task_ended
              in
              (task_id, task, completion)
