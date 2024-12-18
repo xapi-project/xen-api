@@ -21,14 +21,6 @@ module Tool = Xapi_host_driver_tool
 let invalid_value field value =
   raise Api_errors.(Server_error (invalid_value, [field; value]))
 
-let internal_error fmt =
-  Printf.ksprintf
-    (fun msg ->
-      error "%s" msg ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
-    )
-    fmt
-
 module Variant = struct
   let create ~__context ~name ~version ~driver ~hw_present ~priority ~dev_status
       =
@@ -111,15 +103,16 @@ let create' ~__context ~host ~name ~friendly_name ~_type ~description ~info:inf
   match Db.Host_driver.get_refs_where ~__context ~expr with
   | [] ->
       (* no such entry exists - create it *)
-      create ~__context ~host ~name ~friendly_name ~info:inf
-        ~active_variant:null ~selected_variant:null ~description ~_type
+      create ~__context ~host ~name ~friendly_name ~info:inf ~active_variant
+        ~selected_variant ~description ~_type
   | [self] ->
       (* one existing entry - update it *)
       info "%s: updating host driver %s" __FUNCTION__ name ;
       Db.Host_driver.set_friendly_name ~__context ~self ~value:name ;
       Db.Host_driver.set_info ~__context ~self ~value:inf ;
-      Db.Host_driver.set_active_variant ~__context ~self ~value:null ;
-      Db.Host_driver.set_selected_variant ~__context ~self ~value:null ;
+      Db.Host_driver.set_active_variant ~__context ~self ~value:active_variant ;
+      Db.Host_driver.set_selected_variant ~__context ~self
+        ~value:selected_variant ;
       Db.Host_driver.set_description ~__context ~self ~value:description ;
       Db.Host_driver.set_type ~__context ~self ~value:_type ;
       self
