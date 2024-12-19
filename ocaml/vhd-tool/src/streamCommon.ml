@@ -12,11 +12,20 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type protocol = Nbd | Chunked | Human | Tar | NoProtocol
+type protocol =
+  | Nbd of string (* export name used by the nbd client during negotiation*)
+  | Chunked
+  | Human
+  | Tar
+  | NoProtocol
+
+(** This dummy nbd has no export name in it, it is introduced for backwards compatability 
+reasons. *)
+let dummy_nbd = Nbd ""
 
 let protocol_of_string = function
   | "nbd" ->
-      Nbd
+      dummy_nbd
   | "chunked" ->
       Chunked
   | "human" ->
@@ -29,8 +38,8 @@ let protocol_of_string = function
       failwith (Printf.sprintf "Unsupported protocol: %s" x)
 
 let string_of_protocol = function
-  | Nbd ->
-      "nbd"
+  | Nbd export ->
+      "nbd:" ^ export
   | Chunked ->
       "chunked"
   | Human ->

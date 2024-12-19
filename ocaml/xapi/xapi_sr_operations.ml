@@ -76,20 +76,21 @@ let disallowed_during_rpu : API.storage_operations_set =
   List.filter (fun x -> not (List.mem x all_rpu_ops)) all_ops
 
 let sm_cap_table : (API.storage_operations * _) list =
+  let open Smint.Feature in
   [
-    (`vdi_create, Smint.Vdi_create)
-  ; (`vdi_destroy, Smint.Vdi_delete)
-  ; (`vdi_resize, Smint.Vdi_resize)
-  ; (`vdi_introduce, Smint.Vdi_introduce)
-  ; (`vdi_mirror, Smint.Vdi_mirror)
-  ; (`vdi_enable_cbt, Smint.Vdi_configure_cbt)
-  ; (`vdi_disable_cbt, Smint.Vdi_configure_cbt)
-  ; (`vdi_data_destroy, Smint.Vdi_configure_cbt)
-  ; (`vdi_list_changed_blocks, Smint.Vdi_configure_cbt)
-  ; (`vdi_set_on_boot, Smint.Vdi_reset_on_boot)
-  ; (`update, Smint.Sr_update)
+    (`vdi_create, Vdi_create)
+  ; (`vdi_destroy, Vdi_delete)
+  ; (`vdi_resize, Vdi_resize)
+  ; (`vdi_introduce, Vdi_introduce)
+  ; (`vdi_mirror, Vdi_mirror)
+  ; (`vdi_enable_cbt, Vdi_configure_cbt)
+  ; (`vdi_disable_cbt, Vdi_configure_cbt)
+  ; (`vdi_data_destroy, Vdi_configure_cbt)
+  ; (`vdi_list_changed_blocks, Vdi_configure_cbt)
+  ; (`vdi_set_on_boot, Vdi_reset_on_boot)
+  ; (`update, Sr_update)
   ; (* We fake clone ourselves *)
-    (`vdi_snapshot, Smint.Vdi_snapshot)
+    (`vdi_snapshot, Vdi_snapshot)
   ]
 
 type table = (API.storage_operations, (string * string list) option) Hashtbl.t
@@ -104,7 +105,7 @@ let features_of_sr_internal ~__context ~_type =
   | (_, sm) :: _ ->
       List.filter_map
         (fun (name, v) ->
-          try Some (List.assoc name Smint.string_to_capability_table, v)
+          try Some (List.assoc name Smint.Feature.string_to_capability_table, v)
           with Not_found -> None
         )
         sm.Db_actions.sM_features
@@ -139,16 +140,14 @@ let valid_operations ~__context ?op record _ref' : table =
      Multiple simultaneous PBD.unplug operations are ok.
   *)
   let check_sm_features ~__context record =
+    let open Smint.Feature in
     (* First consider the backend SM features *)
     let sm_features = features_of_sr ~__context record in
     (* Then filter out the operations we don't want to see for the magic tools SR *)
     let sm_features =
       if record.Db_actions.sR_is_tools_sr then
         List.filter
-          (fun f ->
-            not
-              Smint.(List.mem (capability_of_feature f) [Vdi_create; Vdi_delete])
-          )
+          (fun f -> not (List.mem (capability_of f) [Vdi_create; Vdi_delete]))
           sm_features
       else
         sm_features
@@ -157,7 +156,7 @@ let valid_operations ~__context ?op record _ref' : table =
       List.filter
         (fun op ->
           List.mem_assoc op sm_cap_table
-          && not (Smint.has_capability (List.assoc op sm_cap_table) sm_features)
+          && not (has_capability (List.assoc op sm_cap_table) sm_features)
         )
         all_ops
     in

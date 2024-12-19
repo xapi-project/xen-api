@@ -311,6 +311,10 @@ let on_vdi' f common_opts sr vdi =
     )
     common_opts sr vdi
 
+let mirror_vm = Vm.of_string "SXM_mirror"
+
+let copy_vm = Vm.of_string "SXM_copy"
+
 let mirror_start common_opts sr vdi dp url dest verify_dest =
   on_vdi'
     (fun sr vdi ->
@@ -319,7 +323,7 @@ let mirror_start common_opts sr vdi dp url dest verify_dest =
       let url = get_opt url "Need a URL" in
       let dest = get_opt dest "Need a destination SR" in
       let task =
-        Client.DATA.MIRROR.start dbg sr vdi dp url
+        Client.DATA.MIRROR.start dbg sr vdi dp mirror_vm copy_vm url
           (Storage_interface.Sr.of_string dest)
           verify_dest
       in

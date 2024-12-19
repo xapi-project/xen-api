@@ -2725,6 +2725,23 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
             ) ;
             debug "VM.migrate: Synchronisation point 1"
           in
+          let pause_src_vm () =
+            debug
+              "VM.migrate: pause src vm before allowing destination to proceed" ;
+            (* cleanup tmp src VM *)
+            let atomics =
+              [
+                VM_hook_script_stable
+                  ( id
+                  , Xenops_hooks.VM_pre_destroy
+                  , Xenops_hooks.reason__suspend
+                  , new_src_id
+                  )
+              ]
+              @ atomics_of_operation (VM_shutdown (new_src_id, None))
+            in
+            perform_atomics atomics t
+          in
           let final_handshake () =
             Handshake.send vm_fd Handshake.Success ;
             debug "VM.migrate: Synchronisation point 3" ;
@@ -2765,7 +2782,10 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
              the main VM migration sequence. *)
           match VGPU_DB.ids id with
           | [] ->
-              first_handshake () ; save () ; final_handshake ()
+              first_handshake () ;
+              save () ;
+              pause_src_vm () ;
+              final_handshake ()
           | (_vm_id, dev_id) :: _ ->
               let url =
                 make_url "/migrate/vgpu/"
@@ -2782,20 +2802,12 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
                   first_handshake () ;
                   save ~vgpu_fd:(FD vgpu_fd) ()
               ) ;
+              pause_src_vm () ;
               final_handshake ()
       ) ;
-      (* cleanup tmp src VM *)
-      let atomics =
-        [
-          VM_hook_script_stable
-            ( id
-            , Xenops_hooks.VM_pre_destroy
-            , Xenops_hooks.reason__suspend
-            , new_src_id
-            )
-        ]
-        @ atomics_of_operation (VM_shutdown (new_src_id, None))
-        @ [
+      let cleanup_src_vm () =
+        let atomics =
+          [
             VM_hook_script_stable
               ( id
               , Xenops_hooks.VM_post_destroy
@@ -2804,8 +2816,10 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
               )
           ; VM_remove new_src_id
           ]
+        in
+        perform_atomics atomics t
       in
-      perform_atomics atomics t
+      cleanup_src_vm ()
   | VM_receive_memory
       {
         vmr_id= id
