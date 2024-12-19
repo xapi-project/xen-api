@@ -104,7 +104,7 @@ let checkpoint ~__context ~vm ~new_name =
         in
         (* Check if SR has snapshot feature *)
         let sr_has_snapshot_feature sr =
-          Smint.has_capability Vdi_snapshot
+          Smint.Feature.(has_capability Vdi_snapshot)
             (Xapi_sr_operations.features_of_sr ~__context sr)
         in
         List.iter

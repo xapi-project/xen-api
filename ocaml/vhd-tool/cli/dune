@@ -4,7 +4,7 @@
   (libraries
     astring
 
-    local_lib
+    vhd_lib
     cmdliner
     cstruct
     forkexec

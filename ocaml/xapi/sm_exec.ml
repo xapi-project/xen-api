@@ -551,8 +551,8 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
   let strings =
     XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info)
   in
-  let features = Smint.parse_capability_int64_features strings in
-  let text_features = List.map Smint.string_of_feature features in
+  let features = Smint.Feature.parse_capability_int64 strings in
+  let text_features = List.map Smint.Feature.to_string features in
   (* Parse the driver options *)
   let configuration =
     List.map

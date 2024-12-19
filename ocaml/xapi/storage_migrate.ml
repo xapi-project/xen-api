@@ -38,6 +38,7 @@ module State = struct
       ; leaf_dp: dp
       ; parent_vdi: Vdi.t
       ; remote_vdi: Vdi.t
+      ; mirror_vm: Vm.t
     }
     [@@deriving rpcty]
 
@@ -362,13 +363,11 @@ let tapdisk_of_attach_info (backend : Storage_interface.backend) =
         (Storage_interface.(rpc_of backend) backend |> Rpc.to_string) ;
       None
 
-let vm_of_s = Storage_interface.Vm.of_string
-
-let with_activated_disk ~dbg ~sr ~vdi ~dp f =
+let with_activated_disk ~dbg ~sr ~vdi ~dp ~vm f =
   let attached_vdi =
     Option.map
       (fun vdi ->
-        let backend = Local.VDI.attach3 dbg dp sr vdi (vm_of_s "0") false in
+        let backend = Local.VDI.attach3 dbg dp sr vdi vm false in
         (vdi, backend)
       )
       vdi
@@ -383,10 +382,10 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
             in
             match (files, blockdevs, nbds) with
             | {path} :: _, _, _ | _, {path} :: _, _ ->
-                Local.VDI.activate3 dbg dp sr vdi (vm_of_s "0") ;
+                Local.VDI.activate3 dbg dp sr vdi vm ;
                 (path, false)
             | _, _, nbd :: _ ->
-                Local.VDI.activate3 dbg dp sr vdi (vm_of_s "0") ;
+                Local.VDI.activate3 dbg dp sr vdi vm ;
                 let unix_socket_path, export_name =
                   Storage_interface.parse_nbd_uri nbd
                 in
@@ -423,14 +422,12 @@ let with_activated_disk ~dbg ~sr ~vdi ~dp f =
                   ()
               )
             path_and_nbd ;
-          Option.iter
-            (fun vdi -> Local.VDI.deactivate dbg dp sr vdi (vm_of_s "0"))
-            vdi
+          Option.iter (fun vdi -> Local.VDI.deactivate dbg dp sr vdi vm) vdi
         )
     )
     (fun () ->
       Option.iter
-        (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi (vm_of_s "0"))
+        (fun (vdi, _) -> Local.VDI.detach dbg dp sr vdi vm)
         attached_vdi
     )
 
@@ -462,7 +459,7 @@ they tend to be executed on the sender side. although there is not a hard rule
 on what is executed on the sender side, this provides some heuristics. *)
 module MigrateLocal = struct
   (** [copy_into_vdi] is similar to [copy_into_sr] but requires a [dest_vdi] parameter *)
-  let copy_into_vdi ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~verify_dest =
+  let copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_vdi ~verify_dest =
     let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
     let module Remote = StorageAPI (Idl.Exn.GenClient (struct
       let rpc =
@@ -532,14 +529,15 @@ module MigrateLocal = struct
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
         Http.Url.set_uri url'
-          (Printf.sprintf "%s/nbd/%s/%s/%s" (Http.Url.get_uri url')
+          (Printf.sprintf "%s/nbdproxy/%s/%s/%s/%s" (Http.Url.get_uri url')
+             (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
              remote_dp
           )
         |> Http.Url.to_string
       in
-      debug "copy remote NBD URL = %s" dest_vdi_url ;
+      debug "%s copy remote NBD URL = %s" __FUNCTION__ dest_vdi_url ;
       let id = State.copy_id_of (sr, vdi) in
       debug "Persisting state for copy (id=%s)" id ;
       State.add id
@@ -562,11 +560,24 @@ module MigrateLocal = struct
       finally
         (fun () ->
           debug "activating RW datapath %s on remote" remote_dp ;
-          ignore (Remote.VDI.attach2 dbg remote_dp dest dest_vdi true) ;
-          Remote.VDI.activate dbg remote_dp dest dest_vdi ;
-          with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp
+          let backend =
+            Remote.VDI.attach3 dbg remote_dp dest dest_vdi vm true
+          in
+          let _, _, _, nbds =
+            Storage_interface.implementations_of_backend backend
+          in
+          let proto =
+            match nbds with
+            | [] ->
+                None
+            | uri :: _ ->
+                let _socket, export = Storage_interface.parse_nbd_uri uri in
+                Some (StreamCommon.Nbd export)
+          in
+          Remote.VDI.activate3 dbg remote_dp dest dest_vdi vm ;
+          with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp ~vm
             (fun base_path ->
-              with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp
+              with_activated_disk ~dbg ~sr ~vdi:(Some vdi) ~dp:leaf_dp ~vm
                 (fun src ->
                   let verify_cert =
                     if verify_dest then Stunnel_client.pool () else None
@@ -574,7 +585,7 @@ module MigrateLocal = struct
                   let dd =
                     Sparse_dd_wrapper.start
                       ~progress_cb:(progress_callback 0.05 0.9 task)
-                      ~verify_cert ?base:base_path true (Option.get src)
+                      ~verify_cert ~proto ?base:base_path true (Option.get src)
                       dest_vdi_url remote_vdi.virtual_size
                   in
                   Storage_task.with_cancel task
@@ -608,7 +619,7 @@ module MigrateLocal = struct
   (** [copy_into_sr] does not requires a dest vdi to be provided, instead, it will 
   find the nearest vdi on the [dest] sr, and if there is no such vdi, it will 
   create one. *)
-  let copy_into_sr ~task ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
+  let copy_into_sr ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
     debug "copy sr:%s vdi:%s url:%s dest:%s verify_dest:%B"
       (Storage_interface.Sr.string_of sr)
       (Storage_interface.Vdi.string_of vdi)
@@ -693,8 +704,8 @@ module MigrateLocal = struct
               Remote.VDI.create dbg dest {local_vdi with sm_config= []}
         in
         let remote_copy =
-          copy_into_vdi ~task ~dbg ~sr ~vdi ~url ~dest ~dest_vdi:remote_base.vdi
-            ~verify_dest
+          copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest
+            ~dest_vdi:remote_base.vdi ~verify_dest
           |> vdi_info
         in
         let snapshot = Remote.VDI.snapshot dbg dest remote_copy in
@@ -710,10 +721,17 @@ module MigrateLocal = struct
     | e ->
         raise (Storage_error (Internal_error (Printexc.to_string e)))
 
-  let start ~task ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
-    SXM.info "%s sr:%s vdi:%s url:%s dest:%s verify_dest:%B" __FUNCTION__
+  let start ~task ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest
+      =
+    SXM.info
+      "%s sr:%s vdi:%s dp: %s mirror_vm: %s copy_vm: %s url:%s dest:%s \
+       verify_dest:%B"
+      __FUNCTION__
       (Storage_interface.Sr.string_of sr)
       (Storage_interface.Vdi.string_of vdi)
+      dp
+      (Storage_interface.Vm.string_of mirror_vm)
+      (Storage_interface.Vm.string_of copy_vm)
       url
       (Storage_interface.Sr.string_of dest)
       verify_dest ;
@@ -729,8 +747,6 @@ module MigrateLocal = struct
       try List.find (fun x -> x.vdi = vdi) vdis
       with Not_found -> failwith "Local VDI not found"
     in
-    let id = State.mirror_id_of (sr, local_vdi.vdi) in
-    debug "Adding to active local mirrors before sending: id=%s" id ;
     let mirror_id = State.mirror_id_of (sr, local_vdi.vdi) in
     debug "%s: Adding to active local mirrors before sending: id=%s"
       __FUNCTION__ mirror_id ;
@@ -769,18 +785,20 @@ module MigrateLocal = struct
               similar_vdis
            )
         ) ;
-      let result_ty =
-        Remote.DATA.MIRROR.receive_start dbg dest local_vdi mirror_id similars
+      let (Mirror.Vhd_mirror result) =
+        Remote.DATA.MIRROR.receive_start2 dbg dest local_vdi mirror_id similars
+          mirror_vm
       in
-      let result = match result_ty with Mirror.Vhd_mirror x -> x in
       (* Enable mirroring on the local machine *)
       let mirror_dp = result.Mirror.mirror_datapath in
       let uri =
-        Printf.sprintf "/services/SM/nbd/%s/%s/%s"
+        Printf.sprintf "/services/SM/nbd/%s/%s/%s/%s"
+          (Storage_interface.Vm.string_of mirror_vm)
           (Storage_interface.Sr.string_of dest)
           (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi)
           mirror_dp
       in
+      debug "%s: uri of http request for mirroring is %s" __FUNCTION__ uri ;
       let dest_url = Http.Url.set_uri remote_url uri in
       let request =
         Http.Request.make
@@ -790,7 +808,7 @@ module MigrateLocal = struct
       let verify_cert = if verify_dest then Stunnel_client.pool () else None in
       let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
       debug "Searching for data path: %s" dp ;
-      let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
+      let attach_info = Local.DP.attach_info dbg sr vdi dp mirror_vm in
       on_fail :=
         (fun () -> Remote.DATA.MIRROR.receive_cancel dbg mirror_id) :: !on_fail ;
       let tapdev =
@@ -895,23 +913,17 @@ module MigrateLocal = struct
       (* Copy the snapshot to the remote *)
       let new_parent =
         Storage_task.with_subtask task "copy" (fun () ->
-            copy_into_vdi ~task ~dbg ~sr ~vdi:snapshot.vdi ~url ~dest
-              ~dest_vdi:result.Mirror.copy_diffs_to ~verify_dest
+            copy_into_vdi ~task ~dbg ~sr ~vdi:snapshot.vdi ~vm:copy_vm ~url
+              ~dest ~dest_vdi:result.Mirror.copy_diffs_to ~verify_dest
         )
         |> vdi_info
       in
       debug "Local VDI %s = remote VDI %s"
         (Storage_interface.Vdi.string_of snapshot.vdi)
         (Storage_interface.Vdi.string_of new_parent.vdi) ;
-      Remote.VDI.compose dbg dest result.Mirror.copy_diffs_to
-        result.Mirror.mirror_vdi.vdi ;
-      Remote.VDI.remove_from_sm_config dbg dest result.Mirror.mirror_vdi.vdi
-        "base_mirror" ;
       debug "Local VDI %s now mirrored to remote VDI: %s"
         (Storage_interface.Vdi.string_of local_vdi.vdi)
         (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi) ;
-      debug "Destroying dummy VDI on remote" ;
-      Remote.VDI.destroy dbg dest result.Mirror.dummy_vdi ;
       debug "Destroying snapshot on src" ;
       Local.VDI.destroy dbg sr snapshot.vdi ;
       Some (Mirror_id mirror_id)
@@ -1110,7 +1122,7 @@ end
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
+  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm =
     let on_fail : (unit -> unit) list ref = ref [] in
     let vdis = Local.SR.scan dbg sr in
     (* We drop cbt_metadata VDIs that do not have any actual data *)
@@ -1121,12 +1133,14 @@ module MigrateRemote = struct
       let leaf = Local.VDI.create dbg sr vdi_info in
       info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> Local.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
+      (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
+         useful for calling VDI.compose later on *)
       let dummy = Local.VDI.snapshot dbg sr leaf in
       on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail ;
-      debug "Created dummy snapshot for mirror receive: %s"
+      debug "%s Created dummy snapshot for mirror receive: %s" __FUNCTION__
         (string_of_vdi_info dummy) ;
-      let _ = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi (vm_of_s "0") true in
-      Local.VDI.activate3 dbg leaf_dp sr leaf.vdi (vm_of_s "0") ;
+      let _ : backend = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
+      Local.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
       let nearest =
         List.fold_left
           (fun acc content_id ->
@@ -1185,6 +1199,7 @@ module MigrateRemote = struct
               ; leaf_dp
               ; parent_vdi= parent.vdi
               ; remote_vdi= vdi_info.vdi
+              ; mirror_vm= vm
               }
         ) ;
       let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
@@ -1206,10 +1221,36 @@ module MigrateRemote = struct
         !on_fail ;
       raise e
 
+  let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
+
+  let receive_start2 ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
+
   let receive_finalize ~dbg ~id =
     let recv_state = State.find_active_receive_mirror id in
     let open State.Receive_state in
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
+    State.remove_receive_mirror id
+
+  let receive_finalize2 ~dbg ~id =
+    let recv_state = State.find_active_receive_mirror id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        SXM.info
+          "%s Mirror done. Compose on the dest sr %s parent %s and leaf %s"
+          __FUNCTION__ (Sr.string_of r.sr)
+          (Vdi.string_of r.parent_vdi)
+          (Vdi.string_of r.leaf_vdi) ;
+        Local.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
+        Local.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
+        (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
+           there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
+        log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        Local.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
+      )
+      recv_state ;
     State.remove_receive_mirror id
 
   let receive_cancel ~dbg ~id =
@@ -1300,11 +1341,11 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
          let t =
            Thread.create
              (fun () ->
-               debug "Calling receive_finalize" ;
+               debug "Calling receive_finalize2" ;
                log_and_ignore_exn (fun () ->
-                   Remote.DATA.MIRROR.receive_finalize "Mirror-cleanup" id
+                   Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
                ) ;
-               debug "Finished calling receive_finalize" ;
+               debug "Finished calling receive_finalize2" ;
                State.remove_local_mirror id ;
                debug "Removed active local mirror: %s" id
              )
@@ -1315,35 +1356,60 @@ let post_detach_hook ~sr ~vdi ~dp:_ =
            (Thread.id t)
      )
 
-let nbd_handler req s sr vdi dp =
-  debug "sr=%s vdi=%s dp=%s" sr vdi dp ;
+let nbd_handler req s ?(vm = "0") sr vdi dp =
+  debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
   let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
-  let attach_info = Local.DP.attach_info "nbd" sr vdi dp in
   req.Http.Request.close <- true ;
-  match tapdisk_of_attach_info attach_info with
-  | Some tapdev ->
-      let minor = Tapctl.get_minor tapdev in
-      let pid = Tapctl.get_tapdisk_pid tapdev in
-      let path =
-        Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid minor
-      in
-      Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
-      let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
-      finally
-        (fun () ->
-          Unix.connect control_fd (Unix.ADDR_UNIX path) ;
-          let msg = dp in
-          let len = String.length msg in
-          let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
-          if written <> len then (
-            error "Failed to transfer fd to %s" path ;
-            Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
-            req.Http.Request.close <- true
-          )
-        )
-        (fun () -> Unix.close control_fd)
-  | None ->
-      ()
+  let vm = Vm.of_string vm in
+  let path =
+    Storage_utils.transform_storage_exn (fun () ->
+        Local.DATA.MIRROR.import_activate "nbd" dp sr vdi vm
+    )
+  in
+  Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
+  let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+  finally
+    (fun () ->
+      Unix.connect control_fd (Unix.ADDR_UNIX path) ;
+      let msg = dp in
+      let len = String.length msg in
+      let written = Unixext.send_fd_substring control_fd msg 0 len [] s in
+
+      if written <> len then (
+        error "Failed to transfer fd to %s" path ;
+        Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
+        req.Http.Request.close <- true
+      )
+    )
+    (fun () -> Unix.close control_fd)
+
+(** nbd_proxy is a http handler but will turn the http connection into an nbd connection.
+It proxies the connection between the sender and the generic nbd server, as returned
+by [get_nbd_server dp sr vdi vm]. *)
+let nbd_proxy req s vm sr vdi dp =
+  debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
+  let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
+  req.Http.Request.close <- true ;
+  let vm = Vm.of_string vm in
+  let path =
+    Storage_utils.transform_storage_exn (fun () ->
+        Local.DATA.MIRROR.get_nbd_server "nbd" dp sr vdi vm
+    )
+  in
+  debug "%s got nbd server path %s" __FUNCTION__ path ;
+  Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
+  let control_fd = Unixext.open_connection_unix_fd path in
+  finally
+    (fun () ->
+      let s' = Unix.dup s in
+      let control_fd' = Unix.dup control_fd in
+      debug "%s: Connected; running proxy (between fds: %d and %d)" __FUNCTION__
+        (Unixext.int_of_file_descr control_fd')
+        (Unixext.int_of_file_descr s') ;
+      Unixext.proxy s' control_fd' ;
+      debug "%s: proxy exited" __FUNCTION__
+    )
+    (fun () -> Unix.close control_fd)
 
 let with_task_and_thread ~dbg f =
   let task =
@@ -1374,16 +1440,16 @@ let with_task_and_thread ~dbg f =
    this way so that they all stay in one place rather than being spread around the
    file. *)
 
-let copy ~dbg ~sr ~vdi ~url ~dest ~verify_dest =
+let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
-      MigrateLocal.copy_into_sr ~task ~dbg:(Debug_info.to_string dbg) ~sr ~vdi
-        ~url ~dest ~verify_dest
+      MigrateLocal.copy_into_sr ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~vm ~url
+        ~dest ~verify_dest
   )
 
-let start ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest =
+let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest =
   with_task_and_thread ~dbg (fun task ->
-      MigrateLocal.start ~task ~dbg:(Debug_info.to_string dbg) ~sr ~vdi ~dp ~url
-        ~dest ~verify_dest
+      MigrateLocal.start ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm
+        ~copy_vm ~url ~dest ~verify_dest
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
@@ -1403,7 +1469,11 @@ let stat = MigrateLocal.stat
 
 let receive_start = MigrateRemote.receive_start
 
+let receive_start2 = MigrateRemote.receive_start2
+
 let receive_finalize = MigrateRemote.receive_finalize
+
+let receive_finalize2 = MigrateRemote.receive_finalize2
 
 let receive_cancel = MigrateRemote.receive_cancel
 
