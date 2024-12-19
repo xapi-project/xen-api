@@ -1857,7 +1857,7 @@ let with_tracing ~name ~task f =
       warn "Failed to start tracing: %s" (Printexc.to_string e) ;
       f ()
 
-let rec perform_atomic ~progress_callback ?subtask:_ ?result (op : atomic)
+let rec perform_atomic ~progress_callback ?result (op : atomic)
     (t : Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
   with_tracing ~name:(name_of_atomic op) ~task:t @@ fun () ->
@@ -2396,7 +2396,7 @@ let perform_atomics atomics t =
           progress_callback progress (weight /. total_weight) t
         in
         debug "Performing: %s" (string_of_atomic x) ;
-        perform_atomic ~subtask:(string_of_atomic x) ~progress_callback x t ;
+        perform_atomic ~progress_callback x t ;
         progress_callback 1. ;
         progress +. (weight /. total_weight)
       )
@@ -2530,8 +2530,7 @@ and trigger_cleanup_after_failure_atom op t =
   | VM_import_metadata _ ->
       ()
 
-and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
-    : unit =
+and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in
   with_tracing ~name:(name_of_operation op) ~task:t @@ fun () ->
   match op with
@@ -2658,9 +2657,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
           (id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min)
       in
       let (_ : unit) =
-        perform_atomic ~subtask:(string_of_atomic atomic)
-          ~progress_callback:(fun _ -> ())
-          atomic t
+        perform_atomic ~progress_callback:(fun _ -> ()) atomic t
       in
       (* Waiting here is not essential but adds a degree of safety and
          reducess unnecessary memory copying. *)
@@ -3172,7 +3169,7 @@ and perform_exn ?subtask ?result (op : operation) (t : Xenops_task.task_handle)
       VUSB_DB.signal id
   | Atomic op ->
       let progress_callback = progress_callback 0. 1. t in
-      perform_atomic ~progress_callback ?subtask ?result op t
+      perform_atomic ~progress_callback ?result op t
 
 and verify_power_state op =
   let module B = (val get_backend () : S) in
@@ -3201,7 +3198,7 @@ and perform ?subtask ?result (op : operation) (t : Xenops_task.task_handle) :
     unit =
   let one op =
     verify_power_state op ;
-    try perform_exn ?subtask ?result op t
+    try perform_exn ?result op t
     with e ->
       Backtrace.is_important e ;
       info "Caught %s executing %s: triggering cleanup actions"
