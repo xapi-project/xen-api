@@ -41,15 +41,15 @@ CAMLprim value stub_stdext_unix_write(value fd, value buf, value vofs, value vle
     written = 0;
     while (len > 0) {
       numbytes = len > UNIX_BUFFER_SIZE ? UNIX_BUFFER_SIZE : len;
-	  ret = posix_memalign(&iobuf, PAGE_SIZE, numbytes);
-	  if (ret != 0)
-	    uerror("write/posix_memalign", Nothing);
+      ret = posix_memalign(&iobuf, PAGE_SIZE, numbytes);
+      if (ret != 0)
+        uerror("write/posix_memalign", Nothing);
 
       memmove (iobuf, &Byte(buf, ofs), numbytes);
       caml_enter_blocking_section();
       ret = write(Int_val(fd), iobuf, numbytes);
       caml_leave_blocking_section();
-	  free(iobuf);
+      free(iobuf);
 
       if (ret == -1) {
         if ((errno == EAGAIN || errno == EWOULDBLOCK) && written > 0) break;
