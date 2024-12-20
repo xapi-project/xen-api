@@ -15,6 +15,10 @@
 (* Exception about systemctl operation like start/stop failed *)
 exception Systemctl_fail of string
 
+type t = Start | Stop | Restart | Enable | Disable
+
+val to_string : t -> string
+
 (* start a service with systemctl *)
 val start : ?timeout:float -> wait_until_success:bool -> string -> unit
 
@@ -23,3 +27,9 @@ val stop : ?timeout:float -> wait_until_success:bool -> string -> unit
 
 (* restart a service with systemctl *)
 val restart : ?timeout:float -> wait_until_success:bool -> string -> unit
+
+(* enable a service with systemctl *)
+val enable : ?timeout:float -> wait_until_success:bool -> string -> unit
+
+(* disable a service with systemctl *)
+val disable : ?timeout:float -> wait_until_success:bool -> string -> unit
