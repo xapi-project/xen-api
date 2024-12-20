@@ -121,14 +121,18 @@ let stop ~service =
   Xapi_stdext_unix.Unixext.unlink_safe destination ;
   status
 
-let is_active ~service =
+let status ~command ~service =
   let status =
     Forkhelpers.safe_close_and_exec None None None [] systemctl
-      ["is-active"; "--quiet"; service]
+      [command; "--quiet"; service]
     |> Forkhelpers.waitpid
     |> snd
   in
   Unix.WEXITED 0 = status
+
+let is_active ~service = status ~command:"is-active" ~service
+
+let is_enabled ~service = status ~command:"is-enabled" ~service
 
 (** path to service file *)
 let path service = Filename.concat run_path (service ^ ".service")
