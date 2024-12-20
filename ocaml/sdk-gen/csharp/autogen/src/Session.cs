@@ -65,7 +65,6 @@ namespace XenAPI
             client.KeepAlive = true;
             client.UserAgent = UserAgent;
             client.WebProxy = Proxy;
-            client.JsonRpcVersion = JsonRpcVersion.v2;
             client.AllowAutoRedirect = true;
             JsonRpcClient = client;
         }
@@ -144,6 +143,14 @@ namespace XenAPI
                 var pool = pools.Values.First();
                 Host host = Host.get_record(this, pool.master);
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
+            }
+
+            if (JsonRpcClient != null)
+            {
+                if (APIVersion == API_Version.API_2_6)
+                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v1;
+                else if (APIVersion >= API_Version.API_2_8)
+                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
             }
         }
 
