@@ -621,9 +621,9 @@ let rrd_add_ds_unsafe rrd timestamp newds =
         rrd.rrd_rras
   }
 
-(** Add in a new DS into a pre-existing RRD. Preserves data of all the other archives
-    and fills the new one full of NaNs. Note that this doesn't fill in the CDP values
-    correctly at the moment!
+(** Add in a new DS into a pre-existing RRD. Preserves data of all the other
+    archives and fills the new one full of NaNs. Note that this doesn't fill
+    in the CDP values correctly at the moment!
 *)
 
 let rrd_add_ds rrd timestamp newds =
