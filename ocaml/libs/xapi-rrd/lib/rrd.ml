@@ -635,26 +635,24 @@ let rrd_add_ds rrd timestamp newds =
 (** Remove the named DS from an RRD. Removes all of the data associated with
     it, too. THe function is idempotent. *)
 let rrd_remove_ds rrd ds_name =
-  let n =
-    Utils.array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)
-  in
-  if n = -1 then
-    rrd
-  else
-    {
-      rrd with
-      rrd_dss= Utils.array_remove n rrd.rrd_dss
-    ; rrd_rras=
-        Array.map
-          (fun rra ->
-            {
-              rra with
-              rra_data= Utils.array_remove n rra.rra_data
-            ; rra_cdps= Utils.array_remove n rra.rra_cdps
-            }
-          )
-          rrd.rrd_rras
-    }
+  match Utils.find_index (fun ds -> ds.ds_name = ds_name) rrd.rrd_dss with
+  | None ->
+      rrd
+  | Some n ->
+      {
+        rrd with
+        rrd_dss= Utils.array_remove n rrd.rrd_dss
+      ; rrd_rras=
+          Array.map
+            (fun rra ->
+              {
+                rra with
+                rra_data= Utils.array_remove n rra.rra_data
+              ; rra_cdps= Utils.array_remove n rra.rra_cdps
+              }
+            )
+            rrd.rrd_rras
+      }
 
 (** Find the RRA with a particular CF that contains a particular start
     time, and also has a minimum pdp_cnt. If it can't find an
@@ -699,18 +697,17 @@ let find_best_rras rrd pdp_interval cf start =
     List.filter (contains_time newstarttime) rras
 
 let query_named_ds rrd as_of_time ds_name cf =
-  let n =
-    Utils.array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)
-  in
-  if n = -1 then
-    raise (Invalid_data_source ds_name)
-  else
-    let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float as_of_time) in
-    match rras with
-    | [] ->
-        raise No_RRA_Available
-    | rra :: _ ->
-        Fring.peek rra.rra_data.(n) 0
+  match Utils.find_index (fun ds -> ds.ds_name = ds_name) rrd.rrd_dss with
+  | None ->
+      raise (Invalid_data_source ds_name)
+  | Some n -> (
+      let rras = find_best_rras rrd 0 (Some cf) (Int64.of_float as_of_time) in
+      match rras with
+      | [] ->
+          raise No_RRA_Available
+      | rra :: _ ->
+          Fring.peek rra.rra_data.(n) 0
+    )
 
 (******************************************************************************)
 (* Marshalling/Unmarshalling functions                                        *)
@@ -877,30 +874,26 @@ let from_xml input =
 
       (* Purge any repeated data sources from the RRD *)
       let ds_names = ds_names rrd in
-      let ds_names_set = Utils.setify ds_names in
-      let ds_name_counts =
-        List.map
-          (fun name ->
-            let x, _ = List.partition (( = ) name) ds_names in
-            (name, List.length x)
-          )
-          ds_names_set
-      in
-      let removals_required =
-        List.filter (fun (_, x) -> x > 1) ds_name_counts
-      in
-      List.fold_left
-        (fun rrd (name, n) ->
-          (* Remove n-1 lots of this data source *)
-          let rec inner rrd n =
-            if n = 1 then
-              rrd
-            else
-              inner (rrd_remove_ds rrd name) (n - 1)
-          in
-          inner rrd n
-        )
-        rrd removals_required
+      List.sort_uniq String.compare ds_names
+      |> List.filter_map (fun name ->
+             match List.filter (String.equal name) ds_names with
+             | [] | [_] ->
+                 None
+             | x ->
+                 Some (name, List.length x)
+         )
+      |> List.fold_left
+           (fun rrd (name, n) ->
+             (* Remove n-1 lots of this data source *)
+             let rec inner rrd n =
+               if n = 1 then
+                 rrd
+               else
+                 inner (rrd_remove_ds rrd name) (n - 1)
+             in
+             inner rrd n
+           )
+           rrd
     )
     input
 
