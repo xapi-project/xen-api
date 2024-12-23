@@ -632,13 +632,14 @@ let rrd_add_ds rrd timestamp newds =
   else
     rrd_add_ds_unsafe rrd timestamp newds
 
-(** Remove the named DS from an RRD. Removes all of the data associated with it, too *)
+(** Remove the named DS from an RRD. Removes all of the data associated with
+    it, too. THe function is idempotent. *)
 let rrd_remove_ds rrd ds_name =
   let n =
     Utils.array_index ds_name (Array.map (fun ds -> ds.ds_name) rrd.rrd_dss)
   in
   if n = -1 then
-    raise (Invalid_data_source ds_name)
+    rrd
   else
     {
       rrd with
