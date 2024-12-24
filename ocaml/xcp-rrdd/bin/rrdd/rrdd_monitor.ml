@@ -227,20 +227,21 @@ let update_rrds uuid_domids paused_vms plugins_dss =
                      (* First, potentially update the rrd with any new default dss *)
                      match vm_rrd with
                      | Some rrdi ->
-                         let updated_dss, rrd = merge_new_dss rrdi dss in
                          (* CA-34383: Memory updates from paused domains serve no useful
                             purpose. During a migrate such updates can also cause undesirable
                             discontinuities in the observed value of memory_actual. Hence, we
                             ignore changes from paused domains: *)
-                         ( if not (StringSet.mem vm_uuid paused_vms) then
-                             let named_updates =
-                               StringMap.map to_named_updates dss
-                             in
-                             Rrd.ds_update_named rrd
-                               ~new_rrd:(domid <> rrdi.domid) timestamp
-                               named_updates
-                         ) ;
-                         Some {rrd; dss= updated_dss; domid}
+                         if StringSet.mem vm_uuid paused_vms then
+                           Some rrdi
+                         else
+                           let named_updates =
+                             StringMap.map to_named_updates dss
+                           in
+                           let dss, rrd = merge_new_dss rrdi dss in
+                           Rrd.ds_update_named rrd
+                             ~new_rrd:(domid <> rrdi.domid) timestamp
+                             named_updates ;
+                           Some {rrd; dss; domid}
                      | None ->
                          debug "%s: Creating fresh RRD for VM uuid=%s"
                            __FUNCTION__ vm_uuid ;
