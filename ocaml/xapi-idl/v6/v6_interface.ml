@@ -79,6 +79,8 @@ type errors =
           date *)
   | License_processing_error  (** License could not be processed *)
   | License_checkout_error of string  (** License could not be checked out *)
+  | License_server_certificate_error of string
+      (** License server certificate error *)
   | Missing_connection_details
       (** Thrown if connection port or address parameter not supplied to
           check_license *)

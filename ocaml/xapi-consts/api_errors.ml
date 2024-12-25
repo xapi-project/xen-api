@@ -919,6 +919,9 @@ let missing_connection_details = add_error "MISSING_CONNECTION_DETAILS"
 
 let license_checkout_error = add_error "LICENSE_CHECKOUT_ERROR"
 
+let license_server_certificate_error =
+  add_error "LICENSE_SERVER_CERTIFICATE_ERROR"
+
 let license_file_deprecated = add_error "LICENSE_FILE_DEPRECATED"
 
 let activation_while_not_free = add_error "ACTIVATION_WHILE_NOT_FREE"

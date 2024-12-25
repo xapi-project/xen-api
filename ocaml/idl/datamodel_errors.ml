@@ -70,6 +70,8 @@ let _ =
     () ;
   error Api_errors.license_checkout_error ["reason"]
     ~doc:"The license for the edition you requested is not available." () ;
+  error Api_errors.license_server_certificate_error ["reason"]
+    ~doc:"The license server certificate check error." () ;
   error Api_errors.license_file_deprecated []
     ~doc:
       "This type of license file is for previous versions of the server. \

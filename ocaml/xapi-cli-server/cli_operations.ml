@@ -5249,9 +5249,12 @@ let with_license_server_changes printer rpc session_id params hosts f =
           hosts
   ) ;
   let now = Unix.gettimeofday () in
+  let need_roll_back errname =
+    errname = Api_errors.license_checkout_error
+    || errname = Api_errors.license_server_certificate_error
+  in
   try f rpc session_id with
-  | Api_errors.Server_error (name, _) as e
-    when name = Api_errors.license_checkout_error ->
+  | Api_errors.Server_error (name, _) as e when need_roll_back name ->
       (* Put back original license_server_details *)
       List.iter
         (fun (host, license_server) ->

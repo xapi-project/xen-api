@@ -2067,6 +2067,8 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
         raise Api_errors.(Server_error (missing_connection_details, []))
     | V6_interface.(V6_error (License_checkout_error s)) ->
         raise Api_errors.(Server_error (license_checkout_error, [s]))
+    | V6_interface.(V6_error (License_server_certificate_error s)) ->
+        raise Api_errors.(Server_error (license_server_certificate_error, [s]))
     | V6_interface.(V6_error (Internal_error e)) ->
         raise Api_errors.(Server_error (internal_error, [e]))
   in
