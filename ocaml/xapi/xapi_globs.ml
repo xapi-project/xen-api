@@ -1143,6 +1143,7 @@ let xapi_globs_spec =
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
+  ; ("local_yum_repo_port", Int local_yum_repo_port)
   ]
 
 let xapi_globs_spec_with_descriptions = []
