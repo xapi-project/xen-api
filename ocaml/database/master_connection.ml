@@ -214,6 +214,56 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req : string) :
     else if !backoff_delay > 256.0 then
       backoff_delay := 256.0
   in
+  let reconnect () =
+    (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
+    ( match !my_connection with
+    | None ->
+        ()
+    | Some st_proc -> (
+        my_connection := None ;
+        (* don't want to try closing multiple times *)
+        try Stunnel.disconnect st_proc with _ -> ()
+      )
+    ) ;
+    let time_sofar = Unix.gettimeofday () -. time_call_started in
+    if !connection_timeout < 0. then (
+      if not !surpress_no_timeout_logs then (
+        debug
+          "Connection to master died. I will continue to retry \
+           indefinitely (supressing future logging of this message)." ;
+        error
+          "Connection to master died. I will continue to retry \
+           indefinitely (supressing future logging of this message)."
+      ) ;
+      surpress_no_timeout_logs := true
+    ) else
+      debug
+        "Connection to master died: time taken so far in this call '%f'; \
+         will %s"
+        time_sofar
+        ( if !connection_timeout < 0. then
+            "never timeout"
+        else
+          Printf.sprintf "timeout after '%f'" !connection_timeout
+        ) ;
+    if time_sofar > !connection_timeout && !connection_timeout >= 0. then
+      if !restart_on_connection_timeout then (
+        debug
+          "Exceeded timeout for retrying master connection: restarting xapi" ;
+        !Db_globs.restart_fn ()
+      ) else (
+        debug
+          "Exceeded timeout for retrying master connection: raising \
+           Cannot_connect_to_master" ;
+        raise Cannot_connect_to_master
+      ) ;
+    debug "Sleeping %f seconds before retrying master connection..."
+      !backoff_delay ;
+    Thread.delay !backoff_delay ;
+    update_backoff_delay () ;
+    try open_secure_connection () with _ -> ()
+    (* oh well, maybe nextime... *)
+  in
   while not !write_ok do
     try
       let req_string = req in
@@ -259,65 +309,12 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req : string) :
           Db_globs.http_limit_max_rpc_size ;
         debug "Re-raising exception to caller." ;
         raise Http_svr.Client_requested_size_over_limit
-    (* TODO: This http exception handler caused CA-36936 and can probably be removed now that there's backoff delay in the generic handler _ below *)
     | Http_client.Http_error (http_code, err_msg) ->
-        error
-          "Received HTTP error %s (%s) from master. This suggests our master \
-           address is wrong. Sleeping for %.0fs and then executing restart_fn."
-          http_code err_msg
-          !Db_globs.permanent_master_failure_retry_interval ;
-        Thread.delay !Db_globs.permanent_master_failure_retry_interval ;
-        !Db_globs.restart_fn ()
+        error "Received HTTP error %s (%s) from the coordinator." http_code err_msg ;
+        reconnect ()
     | e -> (
         error "Caught %s" (Printexc.to_string e) ;
-        (* RPC failed - there's no way we can recover from this so try reopening connection every 2s + backoff delay *)
-        ( match !my_connection with
-        | None ->
-            ()
-        | Some st_proc -> (
-            my_connection := None ;
-            (* don't want to try closing multiple times *)
-            try Stunnel.disconnect st_proc with _ -> ()
-          )
-        ) ;
-        let time_sofar = Unix.gettimeofday () -. time_call_started in
-        if !connection_timeout < 0. then (
-          if not !surpress_no_timeout_logs then (
-            debug
-              "Connection to master died. I will continue to retry \
-               indefinitely (supressing future logging of this message)." ;
-            error
-              "Connection to master died. I will continue to retry \
-               indefinitely (supressing future logging of this message)."
-          ) ;
-          surpress_no_timeout_logs := true
-        ) else
-          debug
-            "Connection to master died: time taken so far in this call '%f'; \
-             will %s"
-            time_sofar
-            ( if !connection_timeout < 0. then
-                "never timeout"
-            else
-              Printf.sprintf "timeout after '%f'" !connection_timeout
-            ) ;
-        if time_sofar > !connection_timeout && !connection_timeout >= 0. then
-          if !restart_on_connection_timeout then (
-            debug
-              "Exceeded timeout for retrying master connection: restarting xapi" ;
-            !Db_globs.restart_fn ()
-          ) else (
-            debug
-              "Exceeded timeout for retrying master connection: raising \
-               Cannot_connect_to_master" ;
-            raise Cannot_connect_to_master
-          ) ;
-        debug "Sleeping %f seconds before retrying master connection..."
-          !backoff_delay ;
-        Thread.delay !backoff_delay ;
-        update_backoff_delay () ;
-        try open_secure_connection () with _ -> ()
-        (* oh well, maybe nextime... *)
+        reconnect ()
       )
   done ;
   !result
