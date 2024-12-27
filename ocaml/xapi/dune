@@ -79,6 +79,7 @@
     sexplib0
     sexplib
     sexpr
+    tgroup
     forkexec
     xapi-idl
     xapi_aux
