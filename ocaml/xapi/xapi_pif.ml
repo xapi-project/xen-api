@@ -319,33 +319,41 @@ let assert_no_other_local_pifs ~__context ~host ~network =
       )
 
 let assert_fcoe_not_in_use ~__context ~self =
-  let interface = Db.PIF.get_device ~__context ~self in
-  let output, _ =
-    Forkhelpers.execute_command_get_output !Xapi_globs.fcoe_driver
-      ["-t"; interface]
-  in
-  let output = String.trim output in
-  debug "Scsi ids on %s are: %s" interface output ;
-  let fcoe_scsids = Str.split (Str.regexp " ") output in
-  Helpers.get_my_pbds __context
-  |> List.iter (fun (_, pbd_rec) ->
-         let sr = pbd_rec.API.pBD_SR in
-         match Db.SR.get_type ~__context ~self:sr with
-         | "lvmofcoe" -> (
-           try
-             let scsid = List.assoc "SCSIid" pbd_rec.API.pBD_device_config in
-             if List.mem scsid fcoe_scsids then
-               raise
-                 (Api_errors.Server_error
-                    ( Api_errors.pif_has_fcoe_sr_in_use
-                    , [Ref.string_of self; Ref.string_of sr]
-                    )
-                 )
-           with Not_found -> ()
+  match Sys.file_exists !Xapi_globs.fcoe_driver with
+  | false ->
+      (* Does not support FCoE from XS9, presuming not in use
+       * Upgrade plugin will block upgrade with FCoE in use *)
+      ()
+  | true ->
+      let interface = Db.PIF.get_device ~__context ~self in
+      let output, _ =
+        Forkhelpers.execute_command_get_output !Xapi_globs.fcoe_driver
+          ["-t"; interface]
+      in
+      let output = String.trim output in
+      debug "Scsi ids on %s are: %s" interface output ;
+      let fcoe_scsids = Str.split (Str.regexp " ") output in
+      Helpers.get_my_pbds __context
+      |> List.iter (fun (_, pbd_rec) ->
+             let sr = pbd_rec.API.pBD_SR in
+             match Db.SR.get_type ~__context ~self:sr with
+             | "lvmofcoe" -> (
+               try
+                 let scsid =
+                   List.assoc "SCSIid" pbd_rec.API.pBD_device_config
+                 in
+                 if List.mem scsid fcoe_scsids then
+                   raise
+                     (Api_errors.Server_error
+                        ( Api_errors.pif_has_fcoe_sr_in_use
+                        , [Ref.string_of self; Ref.string_of sr]
+                        )
+                     )
+               with Not_found -> ()
+             )
+             | _ ->
+                 ()
          )
-         | _ ->
-             ()
-     )
 
 let find_or_create_network (bridge : string) (device : string) ~managed
     ~__context =
