@@ -71,7 +71,7 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
     | None ->
         "without a timeout"
     | Some t ->
-        Printf.sprintf "with a timeout of %.3f seconds" t
+        Fmt.str "with a timeout of %a" Mtime.Span.pp t
   in
   debug "about to call script %s: %s %s" timeout_msg script
     (String.concat " " (filter_args args)) ;

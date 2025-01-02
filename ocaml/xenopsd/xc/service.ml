@@ -40,7 +40,7 @@ type t = {
   ; exec_path: string
   ; pid_filename: string
   ; chroot: Chroot.t
-  ; timeout_seconds: int
+  ; timeout: Mtime.Span.t
   ; args: string list
   ; execute:
       path:string -> args:string list -> domid:Xenctrl.domid -> unit -> string
@@ -180,7 +180,7 @@ let start_and_wait_for_readyness ~task ~service =
 
   Xenops_task.check_cancelling task ;
 
-  let amount = Mtime.Span.(service.timeout_seconds * s) in
+  let amount = service.timeout in
   (* wait for pidfile to appear *)
   Result.iter_error raise_e (wait ~amount ~service_name:syslog_key) ;
 
@@ -797,16 +797,14 @@ module Swtpm = struct
        swtpm-wrapper runs as a service and getting the exact error back is
        difficult. *)
     let needs_init = check_state_needs_init task vtpm_uuid in
-    let timeout_seconds = !Xenopsd.swtpm_ready_timeout in
+    let timeout = !Xenopsd.swtpm_ready_timeout in
     if needs_init then (
       debug "vTPM %s is empty, needs to be created" (Uuidm.to_string vtpm_uuid) ;
       let key = Printf.sprintf "%s-%d" (Filename.basename exec_path) domid in
       let _, _ =
         Forkhelpers.execute_command_get_output
           ~syslog_stdout:(Forkhelpers.Syslog_WithKey key)
-          ~redirect_stderr_to_stdout:true
-          ~timeout:(float_of_int timeout_seconds)
-          exec_path (args true)
+          ~redirect_stderr_to_stdout:true ~timeout exec_path (args true)
       in
       let state_file = Filename.concat tpm_root "tpm2-00.permall" in
       let state = Unixext.string_of_file state_file |> Base64.encode_exn in
@@ -825,7 +823,7 @@ module Swtpm = struct
       ; chroot
       ; args= args false
       ; execute
-      ; timeout_seconds
+      ; timeout
       }
     in
 
