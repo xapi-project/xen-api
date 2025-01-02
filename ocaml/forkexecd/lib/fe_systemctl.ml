@@ -130,6 +130,15 @@ let is_active ~service =
   in
   Unix.WEXITED 0 = status
 
+let is_enabled ~service =
+  let status =
+    Forkhelpers.safe_close_and_exec None None None [] systemctl
+      ["is-enabled"; "--quiet"; service]
+    |> Forkhelpers.waitpid
+    |> snd
+  in
+  Unix.WEXITED 0 = status
+
 (** path to service file *)
 let path service = Filename.concat run_path (service ^ ".service")
 

@@ -6779,6 +6779,10 @@ let pool_sync_bundle fd _printer rpc session_id params =
   | None ->
       failwith "Required parameter not found: filename"
 
+let pool_configure_ssh _printer rpc session_id params =
+  let status = Record_util.ssh_status_of_string (List.assoc "status" params) in
+  Client.Pool.configure_ssh ~rpc ~session_id ~status
+
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let op _ host =
@@ -7727,6 +7731,17 @@ let host_apply_updates _printer rpc session_id params =
             )
        )
        params ["hash"]
+    )
+
+let host_configure_ssh _printer rpc session_id params =
+  let status = Record_util.ssh_status_of_string (List.assoc "status" params) in
+  ignore
+    (do_host_op rpc session_id
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.configure_ssh ~rpc ~session_id ~self:host ~status
+       )
+       params ["status"]
     )
 
 module SDN_controller = struct

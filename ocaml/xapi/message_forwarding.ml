@@ -1185,6 +1185,11 @@ functor
       let get_guest_secureboot_readiness ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.get_guest_secureboot_readiness ~__context ~self
+
+      let configure_ssh ~__context ~status =
+        info "%s: status = '%s'" __FUNCTION__
+          (Record_util.ssh_status_to_string status) ;
+        Local.Pool.configure_ssh ~__context ~status
     end
 
     module VM = struct
@@ -4154,6 +4159,15 @@ functor
       let emergency_clear_mandatory_guidance ~__context =
         info "Host.emergency_clear_mandatory_guidance" ;
         Local.Host.emergency_clear_mandatory_guidance ~__context
+
+      let configure_ssh ~__context ~self ~status =
+        info "%s: host = '%s' ; status = '%s'" __FUNCTION__
+          (host_uuid ~__context self)
+          (Record_util.ssh_status_to_string status) ;
+        let local_fn = Local.Host.configure_ssh ~self ~status in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.configure_ssh ~rpc ~session_id ~self ~status
+        )
     end
 
     module Host_crashdump = struct

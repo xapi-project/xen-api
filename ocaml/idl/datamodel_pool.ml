@@ -61,6 +61,15 @@ let telemetry_frequency =
       ]
     )
 
+let ssh_status =
+  Enum
+    ( "ssh_status"
+    , [
+        ("on", "Start and enable sshd service")
+      ; ("off", "Stop and disable sshd service")
+      ]
+    )
+
 let enable_ha =
   call
     ~lifecycle:[(Published, rel_miami, "Turn on High Availability mode")]
@@ -1539,6 +1548,11 @@ let get_guest_secureboot_readiness =
     ~result:(pool_guest_secureboot_readiness, "The readiness of the pool")
     ~allowed_roles:_R_POOL_OP ()
 
+let configure_ssh =
+  call ~name:"configure_ssh" ~doc:"Configure ssd service" ~lifecycle:[]
+    ~params:[(ssh_status, "status", "Status of ssd service")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1633,6 +1647,7 @@ let t =
       ; set_ext_auth_cache_size
       ; set_ext_auth_cache_expiry
       ; get_guest_secureboot_readiness
+      ; configure_ssh
       ]
     ~contents:
       ([

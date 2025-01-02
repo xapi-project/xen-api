@@ -1048,6 +1048,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
+  ; ( "host-configure-ssh"
+    , {
+        reqd= ["status"]
+      ; optn= []
+      ; help= "Configure sshd service"
+      ; implementation= No_fd Cli_operations.host_configure_ssh
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "host-emergency-clear-mandatory-guidance"
     , {
         reqd= []
@@ -3102,6 +3111,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Upload and unpack a bundle file, after that, sync the bundle \
            repository."
       ; implementation= With_fd Cli_operations.pool_sync_bundle
+      ; flags= []
+      }
+    )
+  ; ( "pool-configure-ssh"
+    , {
+        reqd= ["status"]
+      ; optn= []
+      ; help= "Configure sshd service"
+      ; implementation= No_fd Cli_operations.pool_configure_ssh
       ; flags= []
       }
     )
