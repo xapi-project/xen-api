@@ -4,6 +4,15 @@ open Datamodel_common
 open Datamodel_roles
 open Datamodel_types
 
+let ssh_status =
+  Enum
+    ( "ssh_status"
+    , [
+        ("on", "Start and enable sshd service")
+      ; ("off", "Stop and disable sshd service")
+      ]
+    )
+
 let host_memory =
   let field = field ~ty:Int in
   [
@@ -2338,6 +2347,15 @@ let emergency_clear_mandatory_guidance =
     ~doc:"Clear the pending mandatory guidance on this host"
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
+let configure_ssh =
+  call ~name:"configure_ssh" ~doc:"Configure sshd service" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (ssh_status, "status", "Status of sshd service")
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2494,6 +2512,7 @@ let t =
       ; set_https_only
       ; apply_recommended_guidances
       ; emergency_clear_mandatory_guidance
+      ; configure_ssh
       ]
     ~contents:
       ([

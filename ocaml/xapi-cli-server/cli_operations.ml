@@ -7729,6 +7729,17 @@ let host_apply_updates _printer rpc session_id params =
        params ["hash"]
     )
 
+let host_configure_ssh _printer rpc session_id params =
+  let status = Record_util.ssh_status_of_string (List.assoc "status" params) in
+  ignore
+    (do_host_op rpc session_id
+       (fun _ host ->
+         let host = host.getref () in
+         Client.Host.configure_ssh ~rpc ~session_id ~self:host ~status
+       )
+       params ["status"]
+    )
+
 module SDN_controller = struct
   let introduce printer rpc session_id params =
     let port =

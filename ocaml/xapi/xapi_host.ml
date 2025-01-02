@@ -3127,3 +3127,18 @@ let emergency_clear_mandatory_guidance ~__context =
          info "%s: %s is cleared" __FUNCTION__ s
      ) ;
   Db.Host.set_pending_guidances ~__context ~self ~value:[]
+
+let configure_ssh ~__context ~self ~status =
+  try
+    match status with
+    | `on ->
+        Xapi_systemctl.start ~wait_until_success:false "sshd" ;
+        Xapi_systemctl.enable ~wait_until_success:false "sshd"
+    | `off ->
+        Xapi_systemctl.stop ~wait_until_success:false "sshd" ;
+        Xapi_systemctl.disable ~wait_until_success:false "sshd"
+  with _ ->
+    raise
+      (Api_errors.Server_error
+         (Api_errors.configure_ssh_failed, [Ref.string_of self])
+      )
