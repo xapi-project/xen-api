@@ -292,7 +292,7 @@ let dss_mem_vms doms =
           | Ok mem ->
               Some
                 ( Rrd.VM uuid
-                , Ds.ds_make ~name:"memory_internal_free" ~units:"B"
+                , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
                     ~description:"Dom0 current free memory"
                     ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
                     ~default:true ()
