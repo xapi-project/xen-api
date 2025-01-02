@@ -3114,6 +3114,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-configure-ssh"
+    , {
+        reqd= ["status"]
+      ; optn= []
+      ; help= "Configure sshd service"
+      ; implementation= No_fd Cli_operations.pool_configure_ssh
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []

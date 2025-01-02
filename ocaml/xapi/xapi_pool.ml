@@ -3952,3 +3952,26 @@ let put_bundle_handler (req : Request.t) s _ =
       | None ->
           ()
   )
+
+let configure_ssh ~__context ~status =
+  let hosts = Db.Host.get_all ~__context in
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      let failed_hosts =
+        List.fold_left
+          (fun failed_hosts host ->
+            try
+              Client.Host.configure_ssh ~rpc ~session_id ~self:host ~status ;
+              failed_hosts
+            with _ -> Ref.string_of host :: failed_hosts
+          )
+          [] hosts
+      in
+      match failed_hosts with
+      | [] ->
+          ()
+      | _ ->
+          raise
+            (Api_errors.Server_error
+               (Api_errors.configure_ssh_partially_failed, failed_hosts)
+            )
+  )

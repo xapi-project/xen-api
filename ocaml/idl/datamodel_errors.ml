@@ -2013,6 +2013,9 @@ let _ =
   error Api_errors.configure_ssh_failed ["host"]
     ~doc:"Failed to configure sshd service." () ;
 
+  error Api_errors.configure_ssh_partially_failed ["hosts"]
+    ~doc:"Some of hosts failed to configure sshd service." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
