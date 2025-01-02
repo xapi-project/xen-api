@@ -51,12 +51,11 @@ CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
   char * p;
 
   cv_flags = caml_convert_flag_list(flags, open_flag_table);
- 
+
 #ifdef O_DIRECT
   cv_flags |= O_DIRECT;
 #endif
-  p = caml_stat_alloc(caml_string_length(path) + 1);
-  strcpy(p, String_val(path));
+  p = caml_stat_strdup(String_val(path));
   /* open on a named FIFO can block (PR#1533) */
   caml_enter_blocking_section();
   fd = open(p, cv_flags, Int_val(perm));
@@ -64,8 +63,8 @@ CAMLprim value stub_stdext_unix_open_direct(value path, value flags, value perm)
   if (fd != -1)
     ret = fcntl(fd, F_NOCACHE);
 #endif
-  caml_leave_blocking_section();
   caml_stat_free(p);
+  caml_leave_blocking_section();
   if (fd == -1) uerror("open", path);
 #ifndef O_DIRECT
   if (ret == -1) uerror("fcntl", path);
