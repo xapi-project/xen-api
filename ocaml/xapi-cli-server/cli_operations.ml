@@ -6779,6 +6779,14 @@ let pool_sync_bundle fd _printer rpc session_id params =
   | None ->
       failwith "Required parameter not found: filename"
 
+let pool_enable_ssh _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.enable_ssh ~rpc ~session_id ~self:pool
+
+let pool_disable_ssh _printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  Client.Pool.disable_ssh ~rpc ~session_id ~self:pool
+
 let host_restore fd _printer rpc session_id params =
   let filename = List.assoc "file-name" params in
   let op _ host =

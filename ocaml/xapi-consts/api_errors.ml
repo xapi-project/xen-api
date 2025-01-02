@@ -1407,3 +1407,7 @@ let too_many_groups = add_error "TOO_MANY_GROUPS"
 let enable_ssh_failed = add_error "ENABLE_SSH_FAILED"
 
 let disable_ssh_failed = add_error "DISABLE_SSH_FAILED"
+
+let enable_ssh_partially_failed = add_error "ENABLE_SSH_PARTIALLY_FAILED"
+
+let disable_ssh_partially_failed = add_error "DISABLE_SSH_PARTIALLY_FAILED"

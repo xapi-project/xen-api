@@ -3131,6 +3131,28 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-enable-ssh"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Enable SSH access on all hosts in the pool. It's a helper which \
+           calls host.enable_ssh for all the hosts in the pool."
+      ; implementation= No_fd Cli_operations.pool_enable_ssh
+      ; flags= []
+      }
+    )
+  ; ( "pool-disable-ssh"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Disable SSH access on all hosts in the pool. It's a helper which \
+           calls host.disable_ssh for all the hosts in the pool."
+      ; implementation= No_fd Cli_operations.pool_disable_ssh
+      ; flags= []
+      }
+    )
   ; ( "host-ha-xapi-healthcheck"
     , {
         reqd= []

@@ -1185,6 +1185,14 @@ functor
       let get_guest_secureboot_readiness ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.get_guest_secureboot_readiness ~__context ~self
+
+      let enable_ssh ~__context ~self =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.enable_ssh ~__context ~self
+
+      let disable_ssh ~__context ~self =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.disable_ssh ~__context ~self
     end
 
     module VM = struct

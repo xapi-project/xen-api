@@ -3952,3 +3952,37 @@ let put_bundle_handler (req : Request.t) s _ =
       | None ->
           ()
   )
+
+module Ssh = struct
+  let operate ~__context ~action ~error =
+    let hosts = Db.Host.get_all ~__context in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        let failed_hosts =
+          List.fold_left
+            (fun failed_hosts host ->
+              try
+                action ~rpc ~session_id ~self:host ;
+                failed_hosts
+              with _ -> Ref.string_of host :: failed_hosts
+            )
+            [] hosts
+        in
+        match failed_hosts with
+        | [] ->
+            ()
+        | _ ->
+            raise (Api_errors.Server_error (error, failed_hosts))
+    )
+
+  let enable ~__context ~self:_ =
+    operate ~__context ~action:Client.Host.enable_ssh
+      ~error:Api_errors.enable_ssh_partially_failed
+
+  let disable ~__context ~self:_ =
+    operate ~__context ~action:Client.Host.disable_ssh
+      ~error:Api_errors.disable_ssh_partially_failed
+end
+
+let enable_ssh = Ssh.enable
+
+let disable_ssh = Ssh.disable

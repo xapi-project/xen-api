@@ -38,6 +38,7 @@ let acronyms =
   ; "db"
   ; "xml"
   ; "eof"
+  ; "ssh"
   ]
   |> StringSet.of_list
 
