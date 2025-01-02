@@ -2338,6 +2338,28 @@ let emergency_clear_mandatory_guidance =
     ~doc:"Clear the pending mandatory guidance on this host"
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
+let enable_ssh =
+  call ~name:"enable_ssh"
+    ~doc:
+      "Enable SSH access on the host. It will start the service sshd only if \
+       it is not running. It will also enable the service sshd only if it is \
+       not enabled. A newly joined host in the pool or an ejected host from \
+       the pool would keep the original status."
+    ~lifecycle:[]
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let disable_ssh =
+  call ~name:"disable_ssh"
+    ~doc:
+      "Disable SSH access on the host. It will stop the service sshd only if \
+       it is running. It will also disable the service sshd only if it is \
+       enabled. A newly joined host in the pool or an ejected host from the \
+       pool would keep the original status."
+    ~lifecycle:[]
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2494,6 +2516,8 @@ let t =
       ; set_https_only
       ; apply_recommended_guidances
       ; emergency_clear_mandatory_guidance
+      ; enable_ssh
+      ; disable_ssh
       ]
     ~contents:
       ([

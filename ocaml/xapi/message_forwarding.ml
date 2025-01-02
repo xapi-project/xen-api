@@ -4154,6 +4154,20 @@ functor
       let emergency_clear_mandatory_guidance ~__context =
         info "Host.emergency_clear_mandatory_guidance" ;
         Local.Host.emergency_clear_mandatory_guidance ~__context
+
+      let enable_ssh ~__context ~self =
+        info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
+        let local_fn = Local.Host.enable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.enable_ssh ~rpc ~session_id ~self
+        )
+
+      let disable_ssh ~__context ~self =
+        info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
+        let local_fn = Local.Host.disable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
+            Client.Host.disable_ssh ~rpc ~session_id ~self
+        )
     end
 
     module Host_crashdump = struct
