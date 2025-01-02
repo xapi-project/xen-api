@@ -43,29 +43,31 @@ let footer = function
   | OTHER ->
       "-----END PRIVATE KEY-----"
 
-let key_header = string "-----BEGIN" *> kind <* string "PRIVATE KEY-----"
+let key_header =
+  string "-----BEGIN" *> kind <* string "PRIVATE KEY-----" <?> "key_header"
 
-let key_footer k = string (footer k)
+let key_footer k = string (footer k) <?> "key_footer"
 
-let cert_header = string "-----BEGIN CERTIFICATE-----"
+let cert_header = string "-----BEGIN CERTIFICATE-----" <?> "cert_header"
 
-let cert_footer = string "-----END CERTIFICATE-----"
+let cert_footer = string "-----END CERTIFICATE-----" <?> "cert_footer"
 
 let key =
   key_header >>= fun kind ->
   data >>= fun body ->
   key_footer kind *> return (String.concat "" [header kind; body; footer kind])
+  <?> "key"
 
 let cert =
   cert_header >>= fun hd ->
   data >>= fun body ->
-  cert_footer >>= fun tl -> return (String.concat "" [hd; body; tl])
+  cert_footer >>= fun tl -> return (String.concat "" [hd; body; tl]) <?> "cert"
 
 let pem =
   many end_of_line *> key >>= fun private_key ->
   many end_of_line *> cert >>= fun host_cert ->
   many end_of_line *> many cert >>= fun other_certs ->
-  many end_of_line *> return {private_key; host_cert; other_certs}
+  many end_of_line *> return {private_key; host_cert; other_certs} <?> "pem"
 
 let defer f = Fun.protect ~finally:f
 
