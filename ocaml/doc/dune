@@ -60,3 +60,13 @@
     doc-convert.sh
   )
 )
+
+(install
+  (package xapi)
+  (section share_root)
+  (files
+    (glob_files (../../doc/content/xen-api/basics.md with_prefix markdown))
+    (glob_files (../../doc/content/xen-api/wire-protocol.md with_prefix markdown))
+    (glob_files (../../doc/content/xen-api/topics/vm-lifecycle.md with_prefix markdown))
+  )
+)
