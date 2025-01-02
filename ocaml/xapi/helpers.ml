@@ -165,6 +165,10 @@ let get_localhost ~__context =
   | true ->
       get_localhost_uncached ~__context
 
+let get_management_iface_primary_address_type =
+  Record_util.primary_address_type_of_string
+    (Xapi_inventory.lookup Xapi_inventory._management_address_type)
+
 (* Determine the gateway and DNS PIFs:
  * If one of the PIFs with IP has other_config:defaultroute=true, then
  * pick this one as gateway PIF. If there are multiple, pick a random one of these.
