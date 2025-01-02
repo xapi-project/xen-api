@@ -229,17 +229,17 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req : string) :
     if !connection_timeout < 0. then (
       if not !surpress_no_timeout_logs then (
         debug
-          "Connection to master died. I will continue to retry \
-           indefinitely (supressing future logging of this message)." ;
+          "Connection to master died. I will continue to retry indefinitely \
+           (supressing future logging of this message)." ;
         error
-          "Connection to master died. I will continue to retry \
-           indefinitely (supressing future logging of this message)."
+          "Connection to master died. I will continue to retry indefinitely \
+           (supressing future logging of this message)."
       ) ;
       surpress_no_timeout_logs := true
     ) else
       debug
-        "Connection to master died: time taken so far in this call '%f'; \
-         will %s"
+        "Connection to master died: time taken so far in this call '%f'; will \
+         %s"
         time_sofar
         ( if !connection_timeout < 0. then
             "never timeout"
@@ -248,8 +248,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req : string) :
         ) ;
     if time_sofar > !connection_timeout && !connection_timeout >= 0. then
       if !restart_on_connection_timeout then (
-        debug
-          "Exceeded timeout for retrying master connection: restarting xapi" ;
+        debug "Exceeded timeout for retrying master connection: restarting xapi" ;
         !Db_globs.restart_fn ()
       ) else (
         debug
@@ -310,12 +309,12 @@ let do_db_xml_rpc_persistent_with_reopen ~host ~path (req : string) :
         debug "Re-raising exception to caller." ;
         raise Http_svr.Client_requested_size_over_limit
     | Http_client.Http_error (http_code, err_msg) ->
-        error "Received HTTP error %s (%s) from the coordinator." http_code err_msg ;
+        error "Received HTTP error %s (%s) from the coordinator." http_code
+          err_msg ;
         reconnect ()
-    | e -> (
+    | e ->
         error "Caught %s" (Printexc.to_string e) ;
         reconnect ()
-      )
   done ;
   !result
 
