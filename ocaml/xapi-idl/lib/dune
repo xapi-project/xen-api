@@ -26,6 +26,7 @@
    unix
    uri
    uuidm
+   xapi_timeslice
    xapi-backtrace
    xapi-consts
    xapi-log

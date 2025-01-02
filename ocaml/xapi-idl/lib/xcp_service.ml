@@ -163,6 +163,26 @@ let setify =
   in
   loop []
 
+(** How long to let an OCaml thread run, before
+    switching to another thread.
+    This needs to be as small as possible to reduce latency.
+
+    Too small values reduce performance due to context switching overheads
+  
+    4ms = 1/HZ in Dom0 seems like a good default,
+    a better value will be written by a boot time service.
+ *)
+let timeslice = ref 0.05
+
+let adjust_timeslice () =
+  let interval = !timeslice in
+  D.debug "%s: Setting timeslice to %.3fs" __FUNCTION__ interval ;
+  if interval >= 0.05 then
+    D.debug "%s: Timeslice same as or larger than OCaml's default: not setting"
+      __FUNCTION__
+  else
+    Xapi_timeslice.Timeslice.set interval
+
 let common_options =
   [
     ( "use-switch"
@@ -235,6 +255,11 @@ let common_options =
     , Arg.Set_string config_dir
     , (fun () -> !config_dir)
     , "Location of directory containing configuration file fragments"
+    )
+  ; ( "timeslice"
+    , Arg.Set_float timeslice
+    , (fun () -> Printf.sprintf "%.3f" !timeslice)
+    , "timeslice in seconds"
     )
   ]
 
@@ -454,6 +479,7 @@ let configure_common ~options ~resources arg_parse_fn =
         failwith (String.concat "\n" lines)
     )
     resources ;
+  adjust_timeslice () ;
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore
 
 let configure ?(argv = Sys.argv) ?(options = []) ?(resources = []) () =
