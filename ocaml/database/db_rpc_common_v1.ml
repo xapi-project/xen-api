@@ -194,6 +194,8 @@ let marshall_db_get_by_uuid_response s = XMLRPC.To.string s
 
 let unmarshall_db_get_by_uuid_response xml = XMLRPC.From.string xml
 
+let unmarshall_db_get_by_uuid_opt_response xml = unmarshall_stringopt xml
+
 (* db_get_by_name_label *)
 let marshall_db_get_by_name_label_args (s1, s2) = marshall_2strings (s1, s2)
 

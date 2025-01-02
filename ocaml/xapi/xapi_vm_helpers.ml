@@ -628,7 +628,7 @@ let assert_matches_control_domain_affinity ~__context ~self ~host =
 let assert_enough_pcpus ~__context ~self ~host ?remote () =
   let vcpus = Db.VM.get_VCPUs_max ~__context ~self in
   let pcpus =
-    Cpuid_helpers.get_host_cpu_info ~__context ~vm:self ~host ?remote ()
+    Cpuid_helpers.get_host_cpu_info ~__context ~host ?remote ()
     |> Map_check.getf Cpuid_helpers.cpu_count
     |> Int64.of_int
   in
@@ -699,7 +699,7 @@ let assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check
   assert_hardware_platform_support ~__context ~vm:self
     ~host:(Helpers.LocalObject host) ;
   if do_cpuid_check then
-    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:self ~host () ;
+    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:(`db self) ~host ;
   if do_sr_check then
     assert_can_see_SRs ~__context ~self ~host ;
   assert_can_see_networks ~__context ~self ~host ;
