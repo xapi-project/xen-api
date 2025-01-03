@@ -36,6 +36,8 @@ let process_rpc (req : Rpc.t) =
             Response.Read_field_where (DB.read_field_where t w)
         | Request.Db_get_by_uuid (a, b) ->
             Response.Db_get_by_uuid (DB.db_get_by_uuid t a b)
+        | Request.Db_get_by_uuid_opt (a, b) ->
+            Response.Db_get_by_uuid_opt (DB.db_get_by_uuid_opt t a b)
         | Request.Db_get_by_name_label (a, b) ->
             Response.Db_get_by_name_label (DB.db_get_by_name_label t a b)
         | Request.Create_row (a, b, c) ->

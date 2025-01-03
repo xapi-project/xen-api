@@ -78,7 +78,7 @@ functor
           raise Remote_db_server_returned_bad_message
 
     let db_get_by_uuid_opt _ t u =
-      match process (Request.Db_get_by_uuid (t, u)) with
+      match process (Request.Db_get_by_uuid_opt (t, u)) with
       | Response.Db_get_by_uuid_opt y ->
           y
       | _ ->
