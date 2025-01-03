@@ -93,6 +93,9 @@ let dm_to_string tys : O.Module.t =
           "fun x -> x |> SecretString.rpc_of_t |> Rpc.string_of_rpc"
       | DT.Record _ ->
           failwith "record types never stored in the database"
+      | DT.Option (DT.Ref _ as ty) ->
+          String.concat ""
+            ["fun s -> set "; OU.alias_of_ty ty; "(Option.to_list s)"]
       | DT.Option _ ->
           failwith "option types never stored in the database"
     in
@@ -148,6 +151,13 @@ let string_to_dm tys : O.Module.t =
           "SecretString.of_string"
       | DT.Record _ ->
           failwith "record types never stored in the database"
+      | DT.Option (DT.Ref _ as ty) ->
+          String.concat ""
+            [
+              "fun s -> match set "
+            ; OU.alias_of_ty ty
+            ; " s with [] -> None | x::_ -> Some x"
+            ]
       | DT.Option _ ->
           failwith "option types never stored in the database"
     in
@@ -411,8 +421,7 @@ let db_action api : O.Module.t =
     O.Let.make ~name:"_" ~params:[] ~ty:"unit"
       ~body:
         [
-          Printf.sprintf "Hashtbl.add Eventgen.get_record_table \"%s\""
-            obj.DT.name
+          Printf.sprintf "Eventgen.set_get_record \"%s\"" obj.DT.name
         ; Printf.sprintf
             "(fun ~__context ~self -> (fun () -> API.rpc_of_%s_t \
              (%s.get_record ~__context ~self:(Ref.of_%sstring self))))"
@@ -515,7 +524,32 @@ let db_action api : O.Module.t =
                 (Escaping.escape_obj obj.DT.name)
                 (OU.escape name)
             in
-            _string_to_dm ^ "." ^ OU.alias_of_ty result_ty ^ " (" ^ query ^ ")"
+            let func =
+              _string_to_dm
+              ^ "."
+              ^ OU.alias_of_ty result_ty
+              ^ " ("
+              ^ query
+              ^ ")"
+            in
+            let query_opt =
+              Printf.sprintf "DB.db_get_by_uuid_opt __t \"%s\" %s"
+                (Escaping.escape_obj obj.DT.name)
+                (OU.escape name)
+            in
+            String.concat "\n\t\t"
+              ([func]
+              @ [
+                  String.concat "\n\t\t  "
+                    (["and get_by_uuid_opt ~__context ~uuid ="]
+                    @ open_db_module
+                    @ [
+                        Printf.sprintf "Option.map %s.%s (%s)" _string_to_dm
+                          (OU.alias_of_ty result_ty) query_opt
+                      ]
+                    )
+                ]
+              )
         | _ ->
             failwith
               "GetByUuid call should have only one parameter and a result!"

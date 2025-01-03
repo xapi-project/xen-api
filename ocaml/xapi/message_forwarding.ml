@@ -2473,7 +2473,7 @@ functor
           try bool_of_string (List.assoc "force" options) with _ -> false
         in
         if not force then
-          Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host () ;
+          Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:(`db vm) ~host ;
         let source_host = Db.VM.get_resident_on ~__context ~self:vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate"
           ~op:`pool_migrate ~strict:(not force) (fun () ->

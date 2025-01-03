@@ -88,6 +88,10 @@ functor
       do_remote_call marshall_db_get_by_uuid_args
         unmarshall_db_get_by_uuid_response "db_get_by_uuid" (t, u)
 
+    let db_get_by_uuid_opt _ t u =
+      do_remote_call marshall_db_get_by_uuid_args
+        unmarshall_db_get_by_uuid_opt_response "db_get_by_uuid_opt" (t, u)
+
     let db_get_by_name_label _ t l =
       do_remote_call marshall_db_get_by_name_label_args
         unmarshall_db_get_by_name_label_response "db_get_by_name_label" (t, l)

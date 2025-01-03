@@ -218,29 +218,29 @@ let config_file ?(accept = None) config host port =
          | None ->
              []
          | Some {sni; verify; cert_bundle_path} ->
-             [
-               ""
-             ; "# use SNI to request a specific cert. CAfile contains"
-             ; "# public certs of all hosts in the pool and must contain"
-             ; "# the cert of the server we connect to"
-             ; (match sni with None -> "" | Some s -> sprintf "sni = %s" s)
-             ; ( match verify with
+             List.rev_append
+               ( match verify with
                | VerifyPeer ->
-                   ""
+                   ["verifyPeer=yes"]
                | CheckHost ->
-                   sprintf "checkHost=%s" host
+                   [sprintf "checkHost=%s" host; "verifyChain=yes"]
                )
-             ; "verifyPeer=yes"
-             ; sprintf "CAfile=%s" cert_bundle_path
-             ; ( match Sys.readdir crl_path with
-               | [||] ->
-                   ""
-               | _ ->
-                   sprintf "CRLpath=%s" crl_path
-               | exception _ ->
-                   ""
-               )
-             ]
+               [
+                 ""
+               ; "# use SNI to request a specific cert. CAfile contains"
+               ; "# public certs of all hosts in the pool and must contain"
+               ; "# the cert of the server we connect to"
+               ; (match sni with None -> "" | Some s -> sprintf "sni = %s" s)
+               ; sprintf "CAfile=%s" cert_bundle_path
+               ; ( match Sys.readdir crl_path with
+                 | [||] ->
+                     ""
+                 | _ ->
+                     sprintf "CRLpath=%s" crl_path
+                 | exception _ ->
+                     ""
+                 )
+               ]
          )
        ; [""]
        ]

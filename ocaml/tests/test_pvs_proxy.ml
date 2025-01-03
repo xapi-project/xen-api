@@ -34,12 +34,28 @@ let test_create_ok () =
     "test_create_ok testing get_VIF" vIF
     (Db.PVS_proxy.get_VIF ~__context ~self:pvs_proxy)
 
-let test_create_invalid_device () =
+let test_create_ok_lowest_device_number () =
   let __context = T.make_test_database () in
   let site = T.make_pvs_site ~__context () in
   let vIF = T.make_vif ~__context ~device:"1" () in
-  Alcotest.check_raises "test_create_invalid_device should raise invalid_device"
-    Api_errors.(Server_error (invalid_device, ["1"]))
+  let _vIF' = T.make_vif ~__context ~device:"2" () in
+  let pvs_proxy = Xapi_pvs_proxy.create ~__context ~site ~vIF in
+  Alcotest.(check (Alcotest_comparators.ref ()))
+    "test_create_ok testing get_site" site
+    (Db.PVS_proxy.get_site ~__context ~self:pvs_proxy) ;
+  Alcotest.(check (Alcotest_comparators.ref ()))
+    "test_create_ok testing get_VIF" vIF
+    (Db.PVS_proxy.get_VIF ~__context ~self:pvs_proxy)
+
+let test_create_not_lowest_device_number () =
+  let __context = T.make_test_database () in
+  let site = T.make_pvs_site ~__context () in
+  let _vIF' = T.make_vif ~__context ~device:"0" () in
+  let vIF = T.make_vif ~__context ~device:"1" () in
+  Alcotest.check_raises
+    "test_create_not_lowest_device_number should raise \
+     pvs_vif_must_be_first_device"
+    Api_errors.(Server_error (pvs_vif_must_be_first_device, []))
     (fun () -> ignore (Xapi_pvs_proxy.create ~__context ~site ~vIF))
 
 let test_create_invalid_site () =
@@ -103,7 +119,14 @@ let test =
   [
     ("test_unlicensed", `Quick, test_unlicensed)
   ; ("test_create_ok", `Quick, test_create_ok)
-  ; ("test_create_invalid_device", `Quick, test_create_invalid_device)
+  ; ( "test_create_ok_lowest_device_number"
+    , `Quick
+    , test_create_ok_lowest_device_number
+    )
+  ; ( "test_create_not_lowest_device_number"
+    , `Quick
+    , test_create_not_lowest_device_number
+    )
   ; ("test_create_invalid_site", `Quick, test_create_invalid_site)
   ; ("test_create_invalid_vif", `Quick, test_create_invalid_vif)
   ; ("test_destroy", `Quick, test_destroy)

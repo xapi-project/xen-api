@@ -608,26 +608,17 @@ module SystemdDaemonMgmt (D : DAEMONPIDPATH) = struct
     else
       None
 
-  let is_running ~xs domid =
-    match of_domid domid with
-    | None ->
-        Compat.is_running ~xs domid
-    | Some key ->
-        Fe_systemctl.is_active ~service:key
-
   let stop ~xs domid =
-    match (of_domid domid, is_running ~xs domid) with
-    | None, true ->
+    match of_domid domid with
+    | None when Compat.is_running ~xs domid ->
         Compat.stop ~xs domid
-    | Some service, true ->
-        (* xenstore cleanup is done by systemd unit file *)
-        let (_ : Fe_systemctl.status) = Fe_systemctl.stop ~service in
-        ()
-    | Some service, false ->
-        info "Not trying to stop %s since it's not running" service
-    | None, false ->
+    | None ->
         info "Not trying to stop %s for domid %i since it's not running" D.name
           domid
+    | Some service ->
+        (* call even when not running for clean up *)
+        let (_ : Fe_systemctl.status) = Fe_systemctl.stop ~service in
+        ()
 
   let start_daemon ~path ~args ~domid () =
     debug "Starting daemon: %s with args [%s]" path (String.concat "; " args) ;

@@ -11,248 +11,215 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module D = Debug.Make (struct let name = "sql" end)
+open Debug.Make (struct let name = "sql" end)
 
-open D
-
-type getrecord = unit -> Rpc.t
+type get_record = unit -> Rpc.t
 
 let get_record_table :
-    (string, __context:Context.t -> self:string -> getrecord) Hashtbl.t =
-  Hashtbl.create 20
+    (string, __context:Context.t -> self:string -> get_record) Hashtbl.t =
+  Hashtbl.create 64
 
-let find_get_record x ~__context ~self () : Rpc.t option =
+let set_get_record = Hashtbl.replace get_record_table
+
+let find_get_record obj_name ~__context ~self () : Rpc.t option =
   Option.map
-    (fun x -> x ~__context ~self ())
-    (Hashtbl.find_opt get_record_table x)
+    (fun f -> f ~__context ~self ())
+    (Hashtbl.find_opt get_record_table obj_name)
 
-(* If a record is created or destroyed, then
-   for any (Ref _) field which is one end of a relationship, need to send
-   modified events for all those other objects. *)
-(* we build a hashtable of these references and then look them up by object on each db write: *)
+(* Bidirectional lookup for relations encoded in all_relations. *)
+let lookup_object_relation =
+  (* Precompute the symmetric closure of all_relations and store it as
+     a hash table. *)
+  let symmetric_table =
+    let table = Hashtbl.create 128 in
+    let relate = Hashtbl.replace table in
+    let api = Datamodel.all_api in
+    let close (p, p') =
+      (* R U= { (p, p'), (p', p) } where p, p' are of the form
+         (object, field) *)
+      relate p p' ; relate p' p
+    in
+    Dm_api.relations_of_api api |> List.iter close ;
+    table
+  in
+  Hashtbl.find_opt symmetric_table
+
+(* If a record is modified, events must be emitted for related objects' records.
+   We collect a list of related objects by querying the (Ref _)-typed
+   fields of the input object against the relations encoded by the datamodel.
+
+   The result of this function is a list of pairs [(object, field);, ...].
+   Note that the field component refers to a field in the input object,
+   not the related object. *)
 let compute_object_references_to_follow (obj_name : string) =
+  let module DT = Datamodel_types in
   let api = Datamodel.all_api in
-  let objs = Dm_api.objects_of_api api in
-  let obj = List.find (fun obj -> obj.Datamodel_types.name = obj_name) objs in
-  let relations = Dm_api.relations_of_api api in
-  let symmetric = List.concat_map (fun (a, b) -> [(a, b); (b, a)]) relations in
-  let set = Xapi_stdext_std.Listext.List.setify symmetric in
-  List.concat_map
-    (function
-      | {
-          Datamodel_types.ty= Datamodel_types.Ref _
-        ; Datamodel_types.field_name
-        ; _
-        } ->
-          let this_end = (obj.Datamodel_types.name, field_name) in
-          if List.mem_assoc this_end set then
-            let other_end = List.assoc this_end set in
-            let other_obj = fst other_end in
-            [(other_obj, field_name)]
-          else
-            []
-      | _ ->
-          []
-      )
-    (Datamodel_utils.fields_of_obj obj)
+  let obj = Dm_api.get_obj_by_name api ~objname:obj_name in
+  (* Find an object related to the input field using the datamodel. *)
+  let find_related_object = function
+    | DT.{field_name; ty= Ref _; _} ->
+        let this_end = (obj_name, field_name) in
+        lookup_object_relation this_end
+        |> Option.map (fun (other_object, _) -> (other_object, field_name))
+    | _ ->
+        None
+  in
+  let fields = Datamodel_utils.fields_of_obj obj in
+  List.filter_map find_related_object fields
 
+(* For each object, precompute a list of related objects [(object,
+   field); ...] and store it in a hash table.
+
+   If looking up an entry for some object, "foo", yields a list
+   containing ("bar", "baz"), then it must be the case that "foo"'s
+   field "baz" (which is necessarily of type Ref _) is related to some
+   field within "bar". In which case, the database will have already
+   updated the related field(s) and we must emit events for those fields. *)
 let obj_references_table : (string, (string * string) list) Hashtbl.t =
-  Hashtbl.create 30
-
-(* populate obj references table *)
-let _ =
-  List.iter
-    (fun obj ->
-      let obj_name = obj.Datamodel_types.name in
-      Hashtbl.replace obj_references_table obj_name
-        (compute_object_references_to_follow obj_name)
-    )
-    (Dm_api.objects_of_api Datamodel.all_api)
+  let table = Hashtbl.create 64 in
+  let populate_follows (obj : Datamodel_types.obj) =
+    let follows = compute_object_references_to_follow obj.name in
+    Hashtbl.replace table obj.name follows
+  in
+  Dm_api.objects_of_api Datamodel.all_api |> List.iter populate_follows ;
+  table
 
 let follow_references (obj_name : string) =
   Hashtbl.find obj_references_table obj_name
 
-(** Compute a set of modify events but skip any for objects which were missing
-    (must have been dangling references) *)
-let events_of_other_tbl_refs other_tbl_refs =
-  List.concat_map
-    (fun (tbl, fld, x) ->
-      try [(tbl, fld, x ())]
-      with _ ->
-        (* Probably means the reference was dangling *)
-        warn "skipping event for dangling reference %s: %s" tbl fld ;
-        []
-    )
-    other_tbl_refs
+(* Compute a modify event's snapshot by attemping to invoke its
+   getter. If the record cannot be found, the event is dropped (as the
+   reference is probably dangling). *)
+let snapshots_of_other_tbl_refs other_tbl_refs =
+  let try_get_records (table, field, getter) =
+    try Some (table, field, getter ())
+    with _ ->
+      (* Probably means the reference was dangling *)
+      warn "%s: skipping event for dangling reference %s: %s" __FUNCTION__ table
+        field ;
+      None
+  in
+  List.filter_map try_get_records other_tbl_refs
 
 open Xapi_database.Db_cache_types
 open Xapi_database.Db_action_helper
 
-let database_callback_inner event db context =
+let is_valid_ref db = function
+  | Schema.Value.String r -> (
+    try
+      ignore (Database.table_of_ref r db) ;
+      true
+    with _ -> false
+  )
+  | _ ->
+      false
+
+type event_kind = Modify | Delete | Add
+
+let strings_of_event_kind = function
+  | Modify ->
+      ("mod", "MOD")
+  | Delete ->
+      ("del", "DEL")
+  | Add ->
+      ("add", "ADD")
+
+let emit_events ~kind events =
+  let kind, upper = strings_of_event_kind kind in
+  let emit = function
+    | tbl, ref, None ->
+        error "%s: Failed to generate %s event on %s %s" __FUNCTION__ upper tbl
+          ref
+    | tbl, ref, Some snapshot ->
+        events_notify ~snapshot tbl kind ref
+  in
+  List.iter emit events
+
+let database_callback_inner event db ~__context =
   let other_tbl_refs tblname = follow_references tblname in
   let other_tbl_refs_for_this_field tblname fldname =
     List.filter (fun (_, fld) -> fld = fldname) (other_tbl_refs tblname)
   in
-  let is_valid_ref = function
-    | Schema.Value.String r -> (
-      try
-        ignore (Database.table_of_ref r db) ;
-        true
-      with _ -> false
-    )
-    | _ ->
-        false
+  let compute_other_table_events table kvs =
+    (* Given a table and a deleted/new row's key-values, compute event
+       snapshots for all objects potentially referenced by values in the
+       row. *)
+    let get_potential_event (other_tbl, field) =
+      (* If a deleted/new field could refer to a row within
+         other_tbl, collect a potential event for it. *)
+      let field_value = List.assoc field kvs in
+      if is_valid_ref db field_value then
+        let self = Schema.Value.Unsafe_cast.string field_value in
+        let getter = find_get_record other_tbl ~__context ~self in
+        Some (other_tbl, self, getter)
+      else
+        None
+    in
+    follow_references table
+    |> List.filter_map get_potential_event
+    |> snapshots_of_other_tbl_refs
   in
   match event with
-  | RefreshRow (tblname, objref) -> (
-      (* Generate event *)
-      let snapshot = find_get_record tblname ~__context:context ~self:objref in
-      let record = snapshot () in
-      match record with
-      | None ->
-          error "Failed to send MOD event for %s %s" tblname objref ;
-          Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref
-      | Some record ->
-          events_notify ~snapshot:record tblname "mod" objref
-    )
+  | RefreshRow (tblname, objref) ->
+      (* To refresh a row, emit a modify event with the current record's
+         snapshot. *)
+      let getter = find_get_record tblname ~__context ~self:objref in
+      let snapshot = getter () in
+      emit_events ~kind:Modify [(tblname, objref, snapshot)]
   | WriteField (tblname, objref, fldname, oldval, newval) ->
-      let events_old_val =
-        if is_valid_ref oldval then
-          let oldval = Schema.Value.Unsafe_cast.string oldval in
-          events_of_other_tbl_refs
-            (List.map
-               (fun (tbl, _) ->
-                 ( tbl
-                 , oldval
-                 , find_get_record tbl ~__context:context ~self:oldval
-                 )
-               )
-               (other_tbl_refs_for_this_field tblname fldname)
-            )
+      (* When a field is written, both the new and old values of the
+         field may be references to other objects, which have already
+         been rewritten by the database layer. To follow up, we must
+         emit events for the previously referenced object, the current
+         row, and the newly referenced object.*)
+      let other_tbl_refs = other_tbl_refs_for_this_field tblname fldname in
+      (* Compute list of potential events. Some snapshots may fail to
+         be reified because the reference is no longer valid (i.e. it's
+         dangling). *)
+      let get_other_ref_events maybe_ref =
+        if is_valid_ref db maybe_ref then
+          let self = Schema.Value.Unsafe_cast.string maybe_ref in
+          let go (other_tbl, _) =
+            let get_record = find_get_record other_tbl ~__context ~self in
+            (other_tbl, self, get_record)
+          in
+          List.map go other_tbl_refs |> snapshots_of_other_tbl_refs
         else
           []
       in
-      let events_new_val =
-        if is_valid_ref newval then
-          let newval = Schema.Value.Unsafe_cast.string newval in
-          events_of_other_tbl_refs
-            (List.map
-               (fun (tbl, _) ->
-                 ( tbl
-                 , newval
-                 , find_get_record tbl ~__context:context ~self:newval
-                 )
-               )
-               (other_tbl_refs_for_this_field tblname fldname)
-            )
-        else
-          []
-      in
-      (* Generate event *)
-      let snapshot = find_get_record tblname ~__context:context ~self:objref in
-      let record = snapshot () in
-      List.iter
-        (function
-          | tbl, ref, None ->
-              error "Failed to send MOD event for %s %s" tbl ref ;
-              Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref
-          | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
-        events_old_val ;
-      ( match record with
-      | None ->
-          error "Failed to send MOD event for %s %s" tblname objref ;
-          Printf.printf "Failed to send MOD event for %s %s\n%!" tblname objref
-      | Some record ->
-          events_notify ~snapshot:record tblname "mod" objref
-      ) ;
-      List.iter
-        (function
-          | tbl, ref, None ->
-              error "Failed to send MOD event for %s %s" tbl ref ;
-              Printf.printf "Failed to send MOD event for %s %s\n%!" tbl ref
-          | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
-        events_new_val
-  | PreDelete (tblname, objref) -> (
-    match find_get_record tblname ~__context:context ~self:objref () with
-    | None ->
-        error "Failed to generate DEL event for %s %s" tblname objref
-    (*				Printf.printf "Failed to generate DEL event for %s %s\n%!" tblname objref; *)
-    | Some snapshot ->
-        events_notify ~snapshot tblname "del" objref
-  )
-  | Delete (tblname, _objref, kv) ->
-      let other_tbl_refs = follow_references tblname in
-      let other_tbl_refs =
-        List.fold_left
-          (fun accu (remote_tbl, fld) ->
-            let fld_value = List.assoc fld kv in
-            if is_valid_ref fld_value then
-              let fld_value = Schema.Value.Unsafe_cast.string fld_value in
-              ( remote_tbl
-              , fld_value
-              , find_get_record remote_tbl ~__context:context ~self:fld_value
-              )
-              :: accu
-            else
-              accu
-          )
-          [] other_tbl_refs
-      in
-      let other_tbl_ref_events = events_of_other_tbl_refs other_tbl_refs in
-      List.iter
-        (function
-          | tbl, ref, None ->
-              error "Failed to generate MOD event on %s %s" tbl ref
-          (*					Printf.printf "Failed to generate MOD event on %s %s\n%!" tbl ref; *)
-          | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
-        other_tbl_ref_events
-  | Create (tblname, new_objref, kv) ->
-      let snapshot =
-        find_get_record tblname ~__context:context ~self:new_objref
-      in
-      let other_tbl_refs = follow_references tblname in
-      let other_tbl_refs =
-        List.fold_left
-          (fun accu (tbl, fld) ->
-            let fld_value = List.assoc fld kv in
-            if is_valid_ref fld_value then
-              let fld_value = Schema.Value.Unsafe_cast.string fld_value in
-              ( tbl
-              , fld_value
-              , find_get_record tbl ~__context:context ~self:fld_value
-              )
-              :: accu
-            else
-              accu
-          )
-          [] other_tbl_refs
-      in
-      let other_tbl_events = events_of_other_tbl_refs other_tbl_refs in
-      ( match snapshot () with
-      | None ->
-          error "Failed to generate ADD event for %s %s" tblname new_objref
-      (*				Printf.printf "Failed to generate ADD event for %s %s\n%!" tblname new_objref; *)
-      | Some snapshot ->
-          events_notify ~snapshot tblname "add" new_objref
-      ) ;
-      List.iter
-        (function
-          | tbl, ref, None ->
-              error "Failed to generate MOD event for %s %s" tbl ref
-          (* 				Printf.printf "Failed to generate MOD event for %s %s\n%!" tbl ref;*)
-          | tbl, ref, Some s ->
-              events_notify ~snapshot:s tbl "mod" ref
-          )
-        other_tbl_events
+      (* Compute modify events for the old and new field values, if
+         either value appears to be a reference. *)
+      let events_old_val = get_other_ref_events oldval in
+      let events_new_val = get_other_ref_events newval in
+      (* Emit modify events for records referenced by the old row's value. *)
+      emit_events ~kind:Modify events_old_val ;
+      (* Emit a modify event for the current row. *)
+      let getter = find_get_record tblname ~__context ~self:objref in
+      let snapshot = getter () in
+      emit_events ~kind:Modify [(tblname, objref, snapshot)] ;
+      (* Emit modify events for records referenced by the new row's value. *)
+      emit_events ~kind:Modify events_new_val
+  | PreDelete (tblname, objref) ->
+      (* Emit a deletion event for the deleted row. *)
+      let getter = find_get_record tblname ~__context ~self:objref in
+      let snapshot = getter () in
+      emit_events ~kind:Delete [(tblname, objref, snapshot)]
+  | Delete (tblname, _objref, kvs) ->
+      (* Deleting a row requires similar modify events as overwriting a
+         field's value does. If any of the deleted cells may be a
+         reference, we must emit modify events for each of the related
+         objects. *)
+      compute_other_table_events tblname kvs |> emit_events ~kind:Modify
+  | Create (tblname, new_objref, kvs) ->
+      (* Emit an add event for the new object. *)
+      let getter = find_get_record tblname ~__context ~self:new_objref in
+      let snapshot = getter () in
+      emit_events ~kind:Add [(tblname, new_objref, snapshot)] ;
+      (* Emit modification events for any newly-referenced objects. *)
+      compute_other_table_events tblname kvs |> emit_events ~kind:Modify
 
 let database_callback event db =
-  let context = Context.make "eventgen" in
+  let __context = Context.make __MODULE__ in
   Xapi_stdext_pervasives.Pervasiveext.finally
-    (fun () -> database_callback_inner event db context)
-    (fun () -> Context.complete_tracing context)
+    (fun () -> database_callback_inner event db ~__context)
+    (fun () -> Context.complete_tracing __context)

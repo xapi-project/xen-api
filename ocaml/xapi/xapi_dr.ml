@@ -279,6 +279,7 @@ let recover_vms ~__context ~vms ~session_to ~force =
     {
       Import.dry_run= false
     ; Import.live= false
+    ; check_cpu= false
     ; vdi_map= [] (* we expect the VDI metadata to be present *)
     }
   in

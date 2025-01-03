@@ -287,13 +287,42 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
   ) ;
   (* Check to make sure the device is unique *)
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
-      let all = Db.VM.get_VIFs ~__context ~self:vM in
-      let all_devices =
-        List.map (fun self -> Db.VIF.get_device ~__context ~self) all
+      let all_vifs_with_devices =
+        Db.VM.get_VIFs ~__context ~self:vM
+        |> List.map (fun self ->
+               (self, int_of_string (Db.VIF.get_device ~__context ~self))
+           )
       in
-      if List.mem device all_devices then
+      let new_device = int_of_string device in
+      if List.exists (fun (_, d) -> d = new_device) all_vifs_with_devices then
         raise
           (Api_errors.Server_error (Api_errors.device_already_exists, [device])) ;
+
+      (* If the VM uses a PVS_proxy, then the proxy _must_ be associated with
+         the VIF that has the lowest device number. Check that the new VIF
+         respects this. *)
+      ( match all_vifs_with_devices with
+      | [] ->
+          ()
+      | hd :: tl ->
+          let min_vif, min_device =
+            List.fold_left
+              (fun ((_, d) as v) ((_, d') as v') -> if d' < d then v' else v)
+              hd tl
+          in
+          let vm_has_pvs_proxy =
+            Pvs_proxy_control.find_proxy_for_vif ~__context ~vif:min_vif <> None
+          in
+          if vm_has_pvs_proxy && new_device < min_device then
+            raise
+              Api_errors.(
+                Server_error
+                  ( pvs_proxy_present_on_higher_vif_device
+                  , [Printf.sprintf "%d" min_device]
+                  )
+              )
+      ) ;
+
       let metrics = Ref.make ()
       and metrics_uuid = Uuidx.to_string (Uuidx.make ()) in
       Db.VIF_metrics.create ~__context ~ref:metrics ~uuid:metrics_uuid

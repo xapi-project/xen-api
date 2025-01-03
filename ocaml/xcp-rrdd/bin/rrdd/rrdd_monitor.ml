@@ -51,10 +51,10 @@ let merge_new_dss rrdi dss =
     !Rrdd_shared.enable_all_dss || ds.ds_default
   in
   let default_dss = StringMap.filter should_enable_ds dss in
-  (* NOTE: It's enough to check if all the default datasources have been added
-     to the RRD_INFO, because if a non-default one has been enabled at runtime,
-     it's added to the RRD immediately and we don't need to bother *)
-  let new_dss =
+  (* NOTE: Only add enabled dss to the live rrd, ignoring non-default ones.
+     This is because non-default ones are added to the RRD when they are
+     enabled. *)
+  let new_enabled_dss =
     StringMap.filter
       (fun ds_name _ -> not (StringMap.mem ds_name rrdi.dss))
       default_dss
@@ -73,7 +73,7 @@ let merge_new_dss rrdi dss =
         rrd_add_ds_unsafe rrd timestamp
           (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
       )
-      new_dss rrdi.rrd
+      new_enabled_dss rrdi.rrd
   )
 
 module OwnerMap = Map.Make (struct

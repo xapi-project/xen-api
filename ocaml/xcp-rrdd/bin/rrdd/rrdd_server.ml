@@ -347,7 +347,7 @@ let send_host_rrd_to_master master_address =
 let fail_missing name = raise (Rrdd_error (Datasource_missing name))
 
 (** {add_ds rrdi ds_name} creates a new time series (rrd) in {rrdi} with the
-    name {ds_name}. The operation fails if rrdi does not contain any live
+    name {ds_name}. The operation fails if rrdi does not contain any
     datasource with the name {ds_name} *)
 let add_ds ~rrdi ~ds_name =
   match Rrd.StringMap.find_opt ds_name rrdi.dss with

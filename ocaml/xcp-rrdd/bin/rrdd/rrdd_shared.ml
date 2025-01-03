@@ -77,10 +77,13 @@ let mutex = Mutex.create ()
 
 type rrd_info = {
     rrd: Rrd.rrd
+        (** Contains the live metrics, i.e. The datasources that are enabled
+            and being collected .*)
   ; mutable dss: (float * Ds.ds) Rrd.StringMap.t
-        (* Important: this must contain the entire list of datasources associated
-           with the RRD, even the ones disabled by default, as rrd_add_ds calls
-           can enable DSs at runtime *)
+        (** Important: this must contain the entire list of datasources
+           associated with the RRD, even the ones disabled by default, because
+           functions like rrd_add_ds or rrd_remove_ds expect disabled
+           datasources to be present. e.g. to enable DSs at runtime *)
   ; mutable domid: int
 }
 

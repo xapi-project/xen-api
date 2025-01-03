@@ -1246,6 +1246,11 @@ let pvs_proxy_already_present = add_error "PVS_PROXY_ALREADY_PRESENT"
 
 let pvs_server_address_in_use = add_error "PVS_SERVER_ADDRESS_IN_USE"
 
+let pvs_vif_must_be_first_device = add_error "PVS_VIF_MUST_BE_FIRST_DEVICE"
+
+let pvs_proxy_present_on_higher_vif_device =
+  add_error "PVS_PROXY_PRESENT_ON_HIGHER_VIF_DEVICE"
+
 let extension_protocol_failure = add_error "EXTENSION_PROTOCOL_FAILURE"
 
 let usb_group_contains_vusb = add_error "USB_GROUP_CONTAINS_VUSB"

@@ -43,6 +43,9 @@ namespace XenAPI
             LEAF_COALESCE_COMPLETED,
             LEAF_COALESCE_FAILED,
             POST_ATTACH_SCAN_FAILED,
+            WLB_HOST_POWER_OFF,
+            WLB_HOST_POWER_ON,
+            WLB_SERVER_TIME_DISCREPANCY,
             WLB_VM_RELOCATION,
 {{#message_types}}
             {{{message_type}}},
@@ -74,6 +77,12 @@ namespace XenAPI
                         return MessageType.LEAF_COALESCE_FAILED;
                     case "POST_ATTACH_SCAN_FAILED":
                         return MessageType.POST_ATTACH_SCAN_FAILED;
+                    case "WLB_HOST_POWER_OFF":
+                        return MessageType.WLB_HOST_POWER_OFF;
+                    case "WLB_HOST_POWER_ON":
+                        return MessageType.WLB_HOST_POWER_ON;
+                    case "WLB_SERVER_TIME_DISCREPANCY":
+                        return MessageType.WLB_SERVER_TIME_DISCREPANCY;
                     case "WLB_VM_RELOCATION":
                         return MessageType.WLB_VM_RELOCATION;
 {{#message_types}}

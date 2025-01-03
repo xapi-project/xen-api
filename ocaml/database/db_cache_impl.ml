@@ -240,6 +240,21 @@ let db_get_by_uuid t tbl uuid_val =
   | _ ->
       raise (Too_many_values (tbl, "", uuid_val))
 
+let db_get_by_uuid_opt t tbl uuid_val =
+  match
+    read_field_where t
+      {
+        table= tbl
+      ; return= Db_names.ref
+      ; where_field= Db_names.uuid
+      ; where_value= uuid_val
+      }
+  with
+  | [r] ->
+      Some r
+  | _ ->
+      None
+
 (** Return reference fields from tbl that matches specified name_label field *)
 let db_get_by_name_label t tbl label =
   read_field_where t

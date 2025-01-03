@@ -56,6 +56,11 @@ module type DB_ACCESS = sig
   (** [db_get_by_uuid tbl uuid] returns the single object reference
       		associated with [uuid] *)
 
+  val db_get_by_uuid_opt : Db_ref.t -> string -> string -> string option
+  (** [db_get_by_uuid_opt tbl uuid] returns [Some obj] with the single object
+          reference associated with [uuid] if one exists and [None] otherwise,
+          instead of raising an exception like [get_by_uuid] *)
+
   val db_get_by_name_label : Db_ref.t -> string -> string -> string list
   (** [db_get_by_name_label tbl label] returns the list of object references
       		associated with [label] *)
