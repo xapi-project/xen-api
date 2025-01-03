@@ -580,6 +580,24 @@ functor
           let (_ : string) = Client.db_get_by_uuid t "VM" invalid_uuid in
           failwith "db_get_by_uuid <invalid uuid>"
       ) ;
+      Printf.printf "db_get_by_uuid_opt <valid uuid>\n" ;
+      let r = Client.db_get_by_uuid_opt t "VM" valid_uuid in
+      ( if r <> Some valid_ref then
+          let rs = Option.value ~default:"None" r in
+          failwith
+            (Printf.sprintf
+               "db_get_by_uuid_opt <valid uuid>: got %s; expected %s" rs
+               valid_ref
+            )
+      ) ;
+      Printf.printf "db_get_by_uuid_opt <invalid uuid>\n" ;
+      let r = Client.db_get_by_uuid_opt t "VM" invalid_uuid in
+      if not (Option.is_none r) then
+        failwith
+          (Printf.sprintf
+             "db_get_by_uuid_opt <invalid uuid>: got %s; expected None"
+             valid_ref
+          ) ;
       Printf.printf "get_by_name_label <invalid name label>\n" ;
       if Client.db_get_by_name_label t "VM" invalid_name <> [] then
         failwith "db_get_by_name_label <invalid name label>" ;
