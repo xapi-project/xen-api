@@ -25,15 +25,19 @@ verify-cert () {
 }
 
 mli-files () {
-  N=496
+  N=498
+  X="ocaml/tests"
+  X+="|ocaml/quicktest"
+  X+="|ocaml/message-switch/core_test"
   # do not count ml files from the tests in ocaml/{tests/quicktest}
-  MLIS=$(git ls-files -- '**/*.mli' | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
-  MLS=$(git  ls-files -- '**/*.ml'  | grep -vE "ocaml/tests|ocaml/quicktest|ocaml/message-switch/core_test" | xargs -I {} sh -c "echo {} | cut -f 1 -d '.'" \;)
-  num_mls_without_mlis=$(comm -23 <(sort <<<"$MLS") <(sort <<<"$MLIS") | wc -l)
-  if [ "$num_mls_without_mlis" -eq "$N" ]; then
-    echo "OK counted $num_mls_without_mlis .ml files without an .mli"
+  M=$(comm -23  <(git ls-files -- '**/*.ml'  | sed 's/.ml$//'  | sort) \
+                <(git ls-files -- '**/*.mli' | sed 's/.mli$//' | sort) |\
+                grep -cvE "$X")
+
+  if [ "$M" -eq "$N" ]; then
+    echo "OK counted $M .ml files without an .mli"
   else
-    echo "ERROR expected $N .ml files without .mlis, got $num_mls_without_mlis."\
+    echo "ERROR expected $N .ml files without .mlis, got $M."\
          "If you created some .ml files, they are probably missing corresponding .mli's" 1>&2
     exit 1
   fi

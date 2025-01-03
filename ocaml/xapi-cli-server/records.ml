@@ -5290,6 +5290,217 @@ let repository_record rpc session_id repository =
       ]
   }
 
+let driver_variant_record rpc session_id variant =
+  let _ref = ref variant in
+  let empty =
+    ToGet
+      (fun () -> Client.Driver_variant.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty in
+  let x () = lzy_get record in
+
+  let empty_driver =
+    ToGet
+      (fun () ->
+        Client.Host_driver.get_record ~rpc ~session_id
+          ~self:(x ()).API.driver_variant_driver
+      )
+  in
+
+  let driver = ref empty_driver in
+  let xd () = lzy_get driver in
+
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid"
+          ~get:(fun () -> (x ()).API.driver_variant_uuid)
+          ()
+      ; make_field ~name:"name"
+          ~get:(fun () -> (x ()).API.driver_variant_name)
+          ()
+      ; make_field ~name:"version"
+          ~get:(fun () -> (x ()).API.driver_variant_version)
+          ()
+      ; make_field ~name:"status"
+          ~get:(fun () -> (x ()).API.driver_variant_status)
+          ()
+      ; make_field ~name:"priority"
+          ~get:(fun () ->
+            Printf.sprintf "%5.1f" (x ()).API.driver_variant_priority
+          )
+          ()
+      ; make_field ~name:"active"
+          ~get:(fun () ->
+            string_of_bool ((xd ()).API.host_driver_active_variant = !_ref)
+          )
+          ()
+      ; make_field ~name:"selected"
+          ~get:(fun () ->
+            string_of_bool ((xd ()).API.host_driver_selected_variant = !_ref)
+          )
+          ()
+      ; make_field ~name:"driver-uuid"
+          ~get:(fun () -> get_uuid_from_ref (x ()).API.driver_variant_driver)
+          ()
+      ; make_field ~name:"driver-name"
+          ~get:(fun () -> (xd ()).API.host_driver_name)
+          ()
+      ; make_field ~name:"host-uuid"
+          ~get:(fun () ->
+            try get_uuid_from_ref (xd ()).API.host_driver_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"hw-present"
+          ~get:(fun () ->
+            string_of_bool (x ()).API.driver_variant_hardware_present
+          )
+          ()
+      ]
+  }
+
+let host_driver_record rpc session_id host_driver =
+  let _ref = ref host_driver in
+  let none = "<none>" in
+  let empty =
+    ToGet (fun () -> Client.Host_driver.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty in
+  let x () = lzy_get record in
+
+  (* variants of this driver in priority order; should be a short list *)
+  let variants =
+    ToGet
+      (fun () ->
+        List.map
+          (fun self ->
+            (self, Client.Driver_variant.get_record ~rpc ~session_id ~self)
+          )
+          (Client.Host_driver.get_variants ~rpc ~session_id ~self:host_driver)
+        |> List.stable_sort (fun (_, x) (_, y) ->
+               Float.compare x.API.driver_variant_priority
+                 y.API.driver_variant_priority
+               |> Int.neg
+           )
+      )
+  in
+
+  let variants = ref variants in
+  let xv () = lzy_get variants in
+
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.host_driver_uuid) ()
+      ; make_field ~name:"name" ~get:(fun () -> (x ()).API.host_driver_name) ()
+      ; make_field ~name:"type" ~get:(fun () -> (x ()).API.host_driver_type) ()
+      ; make_field ~name:"description"
+          ~get:(fun () -> (x ()).API.host_driver_description)
+          ()
+      ; make_field ~name:"info" ~get:(fun () -> (x ()).API.host_driver_info) ()
+      ; make_field ~name:"host-uuid"
+          ~get:(fun () ->
+            try get_uuid_from_ref (x ()).API.host_driver_host with _ -> nid
+          )
+          ()
+      ; make_field ~name:"active-variant"
+          ~get:(fun () ->
+            let r = (x ()).API.host_driver_active_variant in
+            match List.find_opt (fun (r', _) -> r = r') (xv ()) with
+            | None ->
+                none
+            | Some (_, v) ->
+                v.API.driver_variant_name
+          )
+          ()
+      ; make_field ~name:"selected-variant"
+          ~get:(fun () ->
+            let r = (x ()).API.host_driver_selected_variant in
+            match List.find_opt (fun (r', _) -> r = r') (xv ()) with
+            | None ->
+                none
+            | Some (_, v) ->
+                v.API.driver_variant_name
+          )
+          ()
+      ; make_field ~name:"variants"
+          ~get:(fun () ->
+            xv ()
+            |> List.map (fun (_, v) ->
+                   (v.API.driver_variant_name, v.API.driver_variant_version)
+               )
+            |> List.map (fun (name, version) ->
+                   Printf.sprintf "%s/%s" name version
+               )
+            |> String.concat "; "
+          )
+          ()
+      ; make_field ~name:"variants-dev-status"
+          ~get:(fun () ->
+            xv ()
+            |> List.map (fun (_, v) ->
+                   ( v.API.driver_variant_name
+                   , v.API.driver_variant_version
+                   , v.API.driver_variant_status
+                   )
+               )
+            |> List.map (fun (name, _version, status) ->
+                   Printf.sprintf "%s=%s" name status
+               )
+            |> String.concat "; "
+          )
+          ()
+      ; make_field ~name:"variants-uuid"
+          ~get:(fun () ->
+            xv ()
+            |> List.map (fun (_, v) ->
+                   (v.API.driver_variant_name, v.API.driver_variant_uuid)
+               )
+            |> List.map (fun (name, uuid) -> Printf.sprintf "%s=%s" name uuid)
+            |> String.concat "; "
+          )
+          ()
+      ; make_field ~name:"variants-hw-present"
+          ~get:(fun () ->
+            xv ()
+            |> List.map (fun (_, v) ->
+                   ( v.API.driver_variant_name
+                   , v.API.driver_variant_version
+                   , v.API.driver_variant_hardware_present
+                   )
+               )
+            |> List.filter (fun (_, _, status) -> status = true)
+            |> List.map (fun (name, _, _) -> name)
+            |> String.concat "; "
+          )
+          ()
+      ]
+  }
+
 let vtpm_record rpc session_id vtpm =
   let _ref = ref vtpm in
   let empty_record =
