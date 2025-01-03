@@ -36,7 +36,7 @@ let create_from_query_result ~__context q =
   let r = Ref.make () and u = Uuidx.to_string (Uuidx.make ()) in
   let open Storage_interface in
   if String.lowercase_ascii q.driver <> "storage_access" then (
-    let features = Smint.parse_string_int64_features q.features in
+    let features = Smint.Feature.parse_string_int64 q.features in
     let capabilities = List.map fst features in
     info "%s Registering SM plugin %s (version %s)" __FUNCTION__
       (String.lowercase_ascii q.driver)
@@ -59,7 +59,7 @@ to pending features of host [self]. It then returns a list of currently pending 
 let addto_pending_hosts_features ~__context self new_features =
   let host = Helpers.get_localhost ~__context in
   let new_features =
-    List.map (fun (f, v) -> Smint.unparse_feature (f, v)) new_features
+    List.map (fun (f, v) -> Smint.Feature.unparse (f, v)) new_features
   in
   let curr_pending_features =
     Db.SM.get_host_pending_features ~__context ~self
@@ -74,7 +74,7 @@ let addto_pending_hosts_features ~__context self new_features =
     )
     curr_pending_features ;
   List.map
-    (fun (h, f) -> (h, Smint.parse_string_int64_features f))
+    (fun (h, f) -> (h, Smint.Feature.parse_string_int64 f))
     curr_pending_features
 
 let valid_hosts_pending_features ~__context pending_features =
@@ -84,14 +84,14 @@ let valid_hosts_pending_features ~__context pending_features =
     []
   ) else
     List.map snd pending_features |> fun l ->
-    List.fold_left Smint.compat_features
+    List.fold_left Smint.Feature.compat_features
       (* The list in theory cannot be empty due to the if condition check, but do
          this just in case *)
       (List.nth_opt l 0 |> Option.fold ~none:[] ~some:Fun.id)
       (List.tl l)
 
 let remove_valid_features_from_pending ~__context ~self valid_features =
-  let valid_features = List.map Smint.unparse_feature valid_features in
+  let valid_features = List.map Smint.Feature.unparse valid_features in
   let new_pending_feature =
     Db.SM.get_host_pending_features ~__context ~self
     |> List.map (fun (h, pending_features) ->
@@ -107,7 +107,7 @@ let update_from_query_result ~__context (self, r) q_result =
     let driver_filename = Sm_exec.cmd_name q_result.driver in
     let existing_features = Db.SM.get_features ~__context ~self in
     let new_features =
-      Smint.parse_string_int64_features q_result.features
+      Smint.Feature.parse_string_int64 q_result.features
       |> find_pending_features existing_features
       |> addto_pending_hosts_features ~__context self
       |> valid_hosts_pending_features ~__context

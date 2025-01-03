@@ -159,6 +159,7 @@
     uri
     uuid
     uuidm
+    vhd_lib
     x509
     xapi_aux
     xapi-backtrace
