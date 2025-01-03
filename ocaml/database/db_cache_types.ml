@@ -508,6 +508,8 @@ module Database = struct
 
   let lookup_key key db = KeyMap.find_opt (Ref key) db.keymap
 
+  let lookup_uuid key db = KeyMap.find_opt (Uuid key) db.keymap
+
   let make schema =
     {
       tables= TableSet.empty

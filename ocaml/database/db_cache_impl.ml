@@ -277,21 +277,13 @@ let read_field_where' conv t rcd =
 let read_field_where t rcd = read_field_where' Fun.id t rcd
 
 let db_get_by_uuid t tbl uuid_val =
-  match
-    read_field_where' Schema.CachedValue.string_of t
-      {
-        table= tbl
-      ; return= Db_names.ref
-      ; where_field= Db_names.uuid
-      ; where_value= uuid_val
-      }
-  with
-  | [] ->
-      raise (Read_missing_uuid (tbl, "", uuid_val))
-  | [r] ->
+  let db = get_database t in
+  match Database.lookup_uuid uuid_val db with
+  | Some (tbl', r) when String.equal tbl tbl' ->
       r
   | _ ->
-      raise (Too_many_values (tbl, "", uuid_val))
+      (* we didn't find the UUID, or it belonged to another table *)
+      raise (Read_missing_uuid (tbl, "", uuid_val))
 
 let db_get_by_uuid_opt t tbl uuid_val =
   match
