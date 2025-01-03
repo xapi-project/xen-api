@@ -448,44 +448,30 @@ let with_connect ?unique_id ?use_fork_exec_helper ?write_to_log ~verify_cert
     )
     5
 
-let with_client_proxy ~verify_cert ~remote_host ~remote_port ~local_host
-    ~local_port f =
-  ( try
-      D.debug "Clean up running stunnel client proxy if there is any ..." ;
-      let out, _ =
-        Forkhelpers.execute_command_get_output "/usr/sbin/fuser"
-          ["-4k"; string_of_int local_port ^ "/tcp"]
-      in
-      D.debug "Killed running stunnel client proxy:%s" out
-    with
-    | Forkhelpers.Spawn_internal_error (stderr, stdout, process_status) -> (
-      match process_status with
-      | Unix.WEXITED 1 ->
-          D.debug "No running stunnel client proxy"
-      | _ ->
-          D.warn
-            "Cleaning up running stunnel client proxy returned unexpectedly: \
-             stdout=(%s); stderr=(%s)"
-            stdout stderr
-    )
-  ) ;
-
-  retry
+let with_client_proxy_systemd_service ~verify_cert ~remote_host ~remote_port
+    ~local_host ~local_port ~service f =
+  let cmd_path = stunnel_path () in
+  let config =
+    config_file
+      ~accept:(Some (local_host, local_port))
+      verify_cert remote_host remote_port
+  in
+  let stop () = ignore (Fe_systemctl.stop ~service) in
+  (* Try stopping anyway before starting it. *)
+  ignore_exn stop () ;
+  let conf_path, out = Filename.open_temp_file service ".conf" in
+  let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
+  finally
     (fun () ->
-      let pid, _ =
-        attempt_one_connect
-          (`Local_host_port (local_host, local_port))
-          verify_cert remote_host remote_port
-      in
-      D.debug "Started a client proxy (pid:%s): %s:%s -> %s:%s"
-        (string_of_int (getpid pid))
-        local_host (string_of_int local_port) remote_host
-        (string_of_int remote_port) ;
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () -> f ())
-        (fun () -> disconnect_with_pid ~wait:false ~force:true pid)
+      finally (fun () -> output_string out config) (fun () -> close_out out) ;
+      finally
+        (fun () ->
+          Fe_systemctl.start_transient ~service cmd_path [conf_path] ;
+          f ()
+        )
+        (fun () -> ignore_exn stop ())
     )
-    5
+    (fun () -> Unixext.unlink_safe conf_path)
 
 let check_verify_error line =
   let sub_after i s =
