@@ -323,7 +323,7 @@ let assert_fcoe_not_in_use ~__context ~self =
   | false ->
       (* Does not support FCoE from XS9, presuming not in use
        * Upgrade plugin will block upgrade with FCoE in use *)
-      ()
+      debug "%s not found, does not support FCoE" !Xapi_globs.fcoe_driver
   | true ->
       let interface = Db.PIF.get_device ~__context ~self in
       let output, _ =
@@ -331,25 +331,24 @@ let assert_fcoe_not_in_use ~__context ~self =
           ["-t"; interface]
       in
       let output = String.trim output in
-      debug "Scsi ids on %s are: %s" interface output ;
+      debug "%s: SCSI ids on %s are: %s" __FUNCTION__ interface output ;
       let fcoe_scsids = Str.split (Str.regexp " ") output in
       Helpers.get_my_pbds __context
       |> List.iter (fun (_, pbd_rec) ->
              let sr = pbd_rec.API.pBD_SR in
              match Db.SR.get_type ~__context ~self:sr with
              | "lvmofcoe" -> (
-               try
-                 let scsid =
-                   List.assoc "SCSIid" pbd_rec.API.pBD_device_config
-                 in
-                 if List.mem scsid fcoe_scsids then
-                   raise
-                     (Api_errors.Server_error
-                        ( Api_errors.pif_has_fcoe_sr_in_use
-                        , [Ref.string_of self; Ref.string_of sr]
-                        )
-                     )
-               with Not_found -> ()
+               match List.assoc_opt "SCSIid" pbd_rec.API.pBD_device_config with
+               | Some scsid ->
+                   if List.mem scsid fcoe_scsids then
+                     raise
+                       (Api_errors.Server_error
+                          ( Api_errors.pif_has_fcoe_sr_in_use
+                          , [Ref.string_of self; Ref.string_of sr]
+                          )
+                       )
+               | None ->
+                   ()
              )
              | _ ->
                  ()

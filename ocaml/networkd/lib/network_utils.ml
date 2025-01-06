@@ -1069,13 +1069,15 @@ module Fcoe = struct
   let get_capabilities name =
     match Sys.file_exists !fcoedriver with
     | false ->
+        info "%s: %s not found, does not support FCoE" __FUNCTION__ !fcoedriver ;
         [] (* Does not support FCoE *)
     | true -> (
       try
         let output = call ~log:false ["--xapi"; name; "capable"] in
         if Astring.String.is_infix ~affix:"True" output then ["fcoe"] else []
       with _ ->
-        debug "Failed to get fcoe support status on device %s" name ;
+        debug "%s: Failed to get fcoe support status on device %s" __FUNCTION__
+          name ;
         []
     )
 end
