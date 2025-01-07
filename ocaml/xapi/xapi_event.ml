@@ -476,7 +476,13 @@ let unregister ~__context ~classes =
 
 (** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
-  let batching = !Xapi_globs.event_next_delay in
+  let batching =
+    if !Constants.use_event_next then
+      Throttle.Batching.make ~delay_before:Mtime.Span.zero
+        ~delay_between:Mtime.Span.zero
+    else
+      !Xapi_globs.event_next_delay
+  in
   let session = Context.get_session_id __context in
   let open Next in
   assert_subscribed session ;
