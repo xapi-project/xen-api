@@ -24,5 +24,5 @@ val add_to_queue : string -> func_ty -> float -> (unit -> unit) -> unit
 val remove_from_queue : string -> unit
 (** Remove a scheduled item by name *)
 
-val loop : unit -> unit
-(** The scheduler's main loop, started by {!Xapi} on start-up. *)
+val loop_start : ((unit -> unit) -> unit) option -> unit
+(** Start the scheduler's main loop. *)

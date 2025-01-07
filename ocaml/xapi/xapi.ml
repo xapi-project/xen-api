@@ -1041,7 +1041,13 @@ let server_init () =
     )
   in
   try
+    let scheduler_name = "Periodic scheduler" in
     Server_helpers.exec_with_new_task "server_init" (fun __context ->
+        let scheduler_wrapper func =
+          Server_helpers.exec_with_subtask ~__context scheduler_name
+            (fun ~__context -> Startup.thread_exn_wrapper scheduler_name func
+          )
+        in
         Startup.run ~__context
           [
             ("XAPI SERVER STARTING", [], print_server_starting_message)
@@ -1113,8 +1119,10 @@ let server_init () =
             , bring_up_management_if ~__context
             )
           ; ( "Starting periodic scheduler"
-            , [Startup.OnThread]
-            , Xapi_stdext_threads_scheduler.Scheduler.loop
+            , []
+            , fun () ->
+                Xapi_stdext_threads_scheduler.Scheduler.loop_start
+                  (Some scheduler_wrapper)
             )
           ; ( "Synchronising host configuration files"
             , []

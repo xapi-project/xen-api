@@ -33,6 +33,10 @@ let (queue : t Ipq.t) = Ipq.create 50 queue_default
 
 let lock = Mutex.create ()
 
+let stopping = Atomic.make false
+
+let (loop_thread : Thread.t option ref) = ref None
+
 module Clock = struct
   let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
 
@@ -50,23 +54,18 @@ module Clock = struct
         Mtime.min_stamp
 end
 
-let add_to_queue name ty start newfunc =
-  let ( ++ ) = Clock.add_span in
-  let item =
-    {Ipq.ev= {func= newfunc; ty; name}; Ipq.time= Mtime_clock.now () ++ start}
-  in
-  with_lock lock (fun () -> Ipq.add queue item) ;
-  Delay.signal delay
-
-let remove_from_queue name =
+let loop_stop () =
   with_lock lock @@ fun () ->
-  match !pending_event with
-  | Some ev when ev.name = name ->
-      pending_event := None
-  | Some _ | None ->
-      let index = Ipq.find_p queue (fun {name= n; _} -> name = n) in
-      if index > -1 then
-        Ipq.remove queue index
+  match !loop_thread with
+  | Some thread ->
+      Atomic.set stopping true ;
+      Delay.signal delay ;
+      Delay.signal delay ;
+      Thread.join thread ;
+      Atomic.set stopping false ;
+      loop_thread := None
+  | None ->
+      ()
 
 let add_periodic_pending () =
   with_lock lock @@ fun () ->
@@ -84,7 +83,7 @@ let add_periodic_pending () =
 let loop () =
   debug "%s started" __MODULE__ ;
   try
-    while true do
+    while not (Atomic.get stopping) do
       let now = Mtime_clock.now () in
       let deadline, item =
         with_lock lock @@ fun () ->
@@ -133,3 +132,41 @@ let loop () =
     error
       "Scheduler thread died! This daemon will no longer function well and \
        should be restarted."
+
+let loop_start wrapper =
+  loop_stop () ;
+  with_lock lock @@ fun () ->
+  match !loop_thread with
+  | Some _thread ->
+      ()
+  | None ->
+      let loop =
+        match wrapper with
+        | Some wrapper ->
+            fun () -> wrapper loop
+        | None ->
+            loop
+      in
+      loop_thread := Some (Thread.create loop ()) ;
+      ()
+
+let add_to_queue name ty start newfunc =
+  let ( ++ ) = Clock.add_span in
+  let item =
+    {Ipq.ev= {func= newfunc; ty; name}; Ipq.time= Mtime_clock.now () ++ start}
+  in
+  with_lock lock (fun () ->
+      Ipq.add queue item ;
+      if !loop_thread = None then loop_thread := Some (Thread.create loop ())
+  ) ;
+  Delay.signal delay
+
+let remove_from_queue name =
+  with_lock lock @@ fun () ->
+  match !pending_event with
+  | Some ev when ev.name = name ->
+      pending_event := None
+  | Some _ | None ->
+      let index = Ipq.find_p queue (fun {name= n; _} -> name = n) in
+      if index > -1 then
+        Ipq.remove queue index

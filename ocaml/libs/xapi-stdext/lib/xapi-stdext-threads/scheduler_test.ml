@@ -14,12 +14,6 @@
 
 module Scheduler = Xapi_stdext_threads_scheduler.Scheduler
 
-let started = Atomic.make false
-
-let start_schedule () =
-  if not (Atomic.exchange started true) then
-    Thread.create Scheduler.loop () |> ignore
-
 let send event data = Event.(send event data |> sync)
 
 let receive event = Event.(receive event |> sync)
@@ -35,7 +29,6 @@ let test_single () =
   Scheduler.add_to_queue "one" Scheduler.OneShot 0.001 (fun () ->
       send finished true
   ) ;
-  start_schedule () ;
   Alcotest.(check bool) "result" true (receive finished)
 
 let test_remove_self () =
@@ -49,7 +42,6 @@ let test_remove_self () =
       ) ;
       send which "self"
   ) ;
-  start_schedule () ;
   let cnt = Mtime_clock.counter () in
   Alcotest.(check string) "same event name" "self" (receive which) ;
   Alcotest.(check string) "same event name" "stop" (receive which) ;
@@ -61,7 +53,6 @@ let test_empty () =
   Scheduler.add_to_queue "one" Scheduler.OneShot 0.001 (fun () ->
       send finished true
   ) ;
-  start_schedule () ;
   Alcotest.(check bool) "finished" true (receive finished) ;
   (* wait loop to go to wait with no work to do *)
   Thread.delay 0.1 ;
@@ -79,7 +70,6 @@ let test_wakeup () =
   Scheduler.add_to_queue "long" Scheduler.OneShot 2.0 (fun () ->
       send which "long"
   ) ;
-  start_schedule () ;
   (* wait loop to go to wait with no work to do *)
   Thread.delay 0.1 ;
   let cnt = Mtime_clock.counter () in
@@ -92,12 +82,28 @@ let test_wakeup () =
   let elapsed_ms = elapsed_ms cnt in
   Alcotest.check is_less "small time" 150 elapsed_ms
 
+let test_start () =
+  let which = Event.new_channel () in
+  Scheduler.add_to_queue "done" Scheduler.OneShot 0.05 (fun () ->
+      send which "done"
+  ) ;
+  let wrapper f = send which "wrapper" ; f () in
+  Scheduler.loop_start (Some wrapper) ;
+  Alcotest.(check string) "same event name" "wrapper" (receive which) ;
+  Scheduler.loop_start (Some wrapper) ;
+  Alcotest.(check string) "same event name" "wrapper" (receive which) ;
+  let cnt = Mtime_clock.counter () in
+  Alcotest.(check string) "same event name" "done" (receive which) ;
+  let elapsed_ms = elapsed_ms cnt in
+  Alcotest.check is_less "small time" 100 elapsed_ms
+
 let tests =
   [
     ("test_single", `Quick, test_single)
   ; ("test_remove_self", `Quick, test_remove_self)
   ; ("test_empty", `Quick, test_empty)
   ; ("test_wakeup", `Quick, test_wakeup)
+  ; ("test_start", `Quick, test_start)
   ]
 
 let () = Alcotest.run "Scheduler" [("generic", tests)]
