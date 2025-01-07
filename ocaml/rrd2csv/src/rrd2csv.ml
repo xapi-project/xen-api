@@ -149,27 +149,33 @@ module Ds_selector = struct
 
   let of_string str =
     let open Rrd in
-    let splitted = Xstringext.String.split ':' str in
+    let splitted = Xstringext.String.split ',' str in
     match splitted with
-    | [cf; owner; uuid; metric] ->
-        {
-          cf= (try Some (cf_type_of_string cf) with _ -> None)
-        ; owner=
-            ( match owner with
-            | "vm" ->
-                Some (VM uuid)
-            | "sr" ->
-                Some (SR uuid)
-            | "host" ->
-                Some Host
-            | _ ->
-                None
-            )
-        ; uuid
-        ; metric
-        }
-    | [metric] ->
-        {empty with metric}
+    | without_trailing_comma :: _ -> (
+        let splitted = Xstringext.String.split ':' without_trailing_comma in
+        match splitted with
+        | [cf; owner; uuid; metric] ->
+            {
+              cf= (try Some (cf_type_of_string cf) with _ -> None)
+            ; owner=
+                ( match owner with
+                | "vm" ->
+                    Some (VM uuid)
+                | "sr" ->
+                    Some (SR uuid)
+                | "host" ->
+                    Some Host
+                | _ ->
+                    None
+                )
+            ; uuid
+            ; metric
+            }
+        | [metric] ->
+            {empty with metric}
+        | _ ->
+            failwith "ds_selector_of_string"
+      )
     | _ ->
         failwith "ds_selector_of_string"
 
