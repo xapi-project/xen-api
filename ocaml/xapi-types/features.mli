@@ -65,6 +65,7 @@ type feature =
   | USB_passthrough  (** Enable the use of USB passthrough. *)
   | Network_sriov  (** Enable the use of Network SRIOV. *)
   | Corosync  (** Enable the use of corosync. *)
+  | Cluster_address  (** Enable the use of extended cluster address interface *)
   | Zstd_export  (** Enable the use of VM export with zstd compression. *)
   | Pool_secret_rotation  (** Enable Pool Secret Rotation *)
   | Certificate_verification  (** Used by XenCenter *)
