@@ -29,6 +29,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Management.Automation;
 using System.Net;
 using System.Net.Security;
@@ -36,6 +37,7 @@ using System.Runtime.InteropServices;
 using System.Security;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Xml;
 using XenAPI;
 
 namespace Citrix.XenServer.Commands
@@ -43,6 +45,8 @@ namespace Citrix.XenServer.Commands
     [Cmdlet("Connect", "XenServer")]
     public class ConnectXenServerCommand : PSCmdlet
     {
+        private const string CertificatesPathVariable = "global:KnownServerCertificatesFilePath";
+
         private readonly object _certificateValidationLock = new object();
 
         public ConnectXenServerCommand()
@@ -214,7 +218,10 @@ namespace Citrix.XenServer.Commands
                         {
                             if (ShouldContinue(ex.Message, ex.Caption))
                             {
-                                AddCertificate(ex.Hostname, ex.Fingerprint);
+                                var certPath = GetCertificatesPath();
+                                var certificates = LoadCertificates(certPath);
+                                certificates[ex.Hostname] = ex.Fingerprint;
+                                SaveCertificates(certPath, certificates);
                                 i--;
                                 continue;
                             }
@@ -254,13 +261,6 @@ namespace Citrix.XenServer.Commands
                 WriteObject(newSessions.Values, true);
         }
 
-        private void AddCertificate(string hostname, string fingerprint)
-        {
-            var certificates = CommonCmdletFunctions.LoadCertificates(this);
-            certificates[hostname] = fingerprint;
-            CommonCmdletFunctions.SaveCertificates(this, certificates);
-        }
-
         private bool ValidateServerCertificate(object sender, X509Certificate certificate, X509Chain chain, SslPolicyErrors sslPolicyErrors)
         {
             if (sslPolicyErrors == SslPolicyErrors.None)
@@ -277,11 +277,11 @@ namespace Citrix.XenServer.Commands
 
                 bool trusted = VerifyInAllStores(new X509Certificate2(certificate));
 
-                var certificates = CommonCmdletFunctions.LoadCertificates(this);
+                var certPath = GetCertificatesPath();
+                var certificates = LoadCertificates(certPath);
 
-                if (certificates.ContainsKey(hostname))
+                if (certificates.TryGetValue(hostname, out var fingerprintOld))
                 {
-                    string fingerprintOld = certificates[hostname];
                     if (fingerprintOld == fingerprint)
                         return true;
 
@@ -295,7 +295,7 @@ namespace Citrix.XenServer.Commands
                 }
 
                 certificates[hostname] = fingerprint;
-                CommonCmdletFunctions.SaveCertificates(this, certificates);
+                SaveCertificates(certPath, certificates);
                 return true;
             }
         }
@@ -311,6 +311,65 @@ namespace Citrix.XenServer.Commands
             {
                 return false;
             }
+        }
+
+        private string GetCertificatesPath()
+        {
+            var certPathObject = SessionState.PSVariable.GetValue(CertificatesPathVariable);
+
+            return certPathObject is PSObject psObject
+                ? psObject.BaseObject as string
+                : certPathObject?.ToString() ?? string.Empty;
+        }
+
+        private Dictionary<string, string> LoadCertificates(string certPath)
+        {
+            var certificates = new Dictionary<string, string>();
+
+            if (File.Exists(certPath))
+            {
+                var doc = new XmlDocument();
+                doc.Load(certPath);
+
+                foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
+                {
+                    var hostAtt = node.Attributes?["hostname"];
+                    var fngprtAtt = node.Attributes?["fingerprint"];
+
+                    if (hostAtt != null && fngprtAtt != null)
+                        certificates[hostAtt.Value] = fngprtAtt.Value;
+                }
+            }
+
+            return certificates;
+        }
+
+        private void SaveCertificates(string certPath, Dictionary<string, string> certificates)
+        {
+            string dirName = Path.GetDirectoryName(certPath);
+
+            if (!Directory.Exists(dirName))
+                Directory.CreateDirectory(dirName);
+
+            XmlDocument doc = new XmlDocument();
+            XmlDeclaration decl = doc.CreateXmlDeclaration("1.0", "utf-8", null);
+            doc.AppendChild(decl);
+            XmlNode node = doc.CreateElement("certificates");
+
+            foreach (KeyValuePair<string, string> cert in certificates)
+            {
+                XmlNode certNode = doc.CreateElement("certificate");
+                XmlAttribute hostname = doc.CreateAttribute("hostname");
+                XmlAttribute fingerprint = doc.CreateAttribute("fingerprint");
+                hostname.Value = cert.Key;
+                fingerprint.Value = cert.Value;
+                certNode.Attributes?.Append(hostname);
+                certNode.Attributes?.Append(fingerprint);
+                node.AppendChild(certNode);
+            }
+
+            doc.AppendChild(node);
+            doc.Save(certPath);
         }
     }
 
