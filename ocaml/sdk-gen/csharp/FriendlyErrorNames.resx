@@ -61,7 +61,7 @@
     <value>The device {0} is not currently attached</value>
   </data>
   <data name="DEVICE_ALREADY_EXISTS" xml:space="preserve">
-    <value>There is already a disk at position {0} on the selected VM</value>
+    <value>There is already a device at position {0} on the selected VM</value>
   </data>
   <data name="DEVICE_ATTACH_TIMEOUT" xml:space="preserve">
     <value>A timeout happened while attempting to attach a device {1} of type {0} to a VM</value>
