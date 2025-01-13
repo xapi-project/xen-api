@@ -1199,6 +1199,7 @@ let xapi_globs_spec =
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
+  ; ("local_yum_repo_port", Int local_yum_repo_port)
   ]
 
 let xapi_globs_spec_with_descriptions = []
@@ -1763,11 +1764,6 @@ module Resources = struct
     ; ("xsh", xsh, "Path to xsh binary")
     ; ("static-vdis", static_vdis, "Path to static-vdis script")
     ; ("xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script")
-    ; ( "fcoe-driver"
-      , fcoe_driver
-      , "Execute during PIF unplug to get the lun devices related with the \
-         ether interface of the PIF"
-      )
     ; ("list_domains", list_domains, "Path to the list_domains command")
     ; ("systemctl", systemctl, "Control the systemd system and service manager")
     ; ( "alert-certificate-check"
@@ -1871,6 +1867,12 @@ module Resources = struct
       , "Path to yum-config-manager command"
       )
     ; ("c_rehash", c_rehash, "Path to regenerate CA store")
+      (* Dropped since XS9, list here as XS8 still requires it *)
+    ; ( "fcoe-driver"
+      , fcoe_driver
+      , "Execute during PIF unplug to get the lun devices related with the \
+         ether interface of the PIF"
+      )
     ]
 
   let essential_files =

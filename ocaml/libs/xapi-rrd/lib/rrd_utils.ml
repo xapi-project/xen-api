@@ -47,13 +47,13 @@ end
 
 let isnan x = match classify_float x with FP_nan -> true | _ -> false
 
-let array_index e a =
+let find_index f a =
   let len = Array.length a in
   let rec check i =
     if len <= i then
-      -1
-    else if a.(i) = e then
-      i
+      None
+    else if f a.(i) then
+      Some i
     else
       check (i + 1)
   in
@@ -61,23 +61,6 @@ let array_index e a =
 
 let array_remove n a =
   Array.append (Array.sub a 0 n) (Array.sub a (n + 1) (Array.length a - n - 1))
-
-let filter_map f list =
-  let rec inner acc l =
-    match l with
-    | [] ->
-        List.rev acc
-    | x :: xs ->
-        let acc = match f x with Some res -> res :: acc | None -> acc in
-        inner acc xs
-  in
-  inner [] list
-
-let rec setify = function
-  | [] ->
-      []
-  | x :: xs ->
-      if List.mem x xs then setify xs else x :: setify xs
 
 (** C# and JS representation of special floats are 'NaN' and 'Infinity' which
     are different from ocaml's native representation. Caml is fortunately more

@@ -99,6 +99,7 @@ let archive_rrd vm_uuid (remote_address : string option) : unit =
     master host, exclusively. Any attempt to send the rrds to pools outside
     the host will fail. *)
 let backup_rrds (remote_address : string option) () : unit =
+  let __FUN = __FUNCTION__ in
   let transport =
     Option.map
       (fun address ->
@@ -119,50 +120,39 @@ let backup_rrds (remote_address : string option) () : unit =
     | Some address ->
         Printf.sprintf "host %s" address
   in
-  info "%s: trying to back up RRDs to %s" __FUNCTION__ destination ;
+  info "%s: trying to back up RRDs to %s" __FUN destination ;
   let total_cycles = 5 in
   let cycles_tried = ref 0 in
+  let host_uuid = Inventory.lookup Inventory._installation_uuid in
   while !cycles_tried < total_cycles do
     if Mutex.try_lock mutex then (
       cycles_tried := total_cycles ;
-      let vrrds =
-        try Hashtbl.fold (fun k v acc -> (k, v.rrd) :: acc) vm_rrds []
-        with exn -> Mutex.unlock mutex ; raise exn
+      let rrds_copy =
+        [
+          Hashtbl.fold
+            (fun k v acc -> ("VM", k, Rrd.copy_rrd v.rrd) :: acc)
+            vm_rrds []
+        ; Hashtbl.fold
+            (fun k v acc -> ("SR", k, Rrd.copy_rrd v.rrd) :: acc)
+            sr_rrds []
+        ; Option.fold ~none:[]
+            ~some:(fun rrdi -> [("host", host_uuid, Rrd.copy_rrd rrdi.rrd)])
+            !host_rrd
+        ]
+        |> List.concat
       in
       Mutex.unlock mutex ;
+
       List.iter
-        (fun (uuid, rrd) ->
-          debug "%s: saving RRD for VM uuid=%s" __FUNCTION__ uuid ;
-          let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrd) in
+        (fun (cls, uuid, rrd) ->
+          debug "%s: saving RRD for %s uuid=%s" __FUN cls uuid ;
           archive_rrd_internal ~transport ~uuid ~rrd ()
         )
-        vrrds ;
-      Mutex.lock mutex ;
-      let srrds =
-        try Hashtbl.fold (fun k v acc -> (k, v.rrd) :: acc) sr_rrds []
-        with exn -> Mutex.unlock mutex ; raise exn
-      in
-      Mutex.unlock mutex ;
-      List.iter
-        (fun (uuid, rrd) ->
-          debug "%s: saving RRD for SR uuid=%s" __FUNCTION__ uuid ;
-          let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrd) in
-          archive_rrd_internal ~transport ~uuid ~rrd ()
-        )
-        srrds ;
-      match !host_rrd with
-      | Some rrdi ->
-          debug "%s: saving RRD for host" __FUNCTION__ ;
-          let rrd = with_lock mutex (fun () -> Rrd.copy_rrd rrdi.rrd) in
-          archive_rrd_internal ~transport
-            ~uuid:(Inventory.lookup Inventory._installation_uuid)
-            ~rrd ()
-      | None ->
-          ()
+        rrds_copy
     ) else (
       cycles_tried := 1 + !cycles_tried ;
       if !cycles_tried >= total_cycles then
-        warn "%s: Could not acquire RRD lock, skipping RRD backup" __FUNCTION__
+        warn "%s: Could not acquire RRD lock, skipping RRD backup" __FUN
       else
         Thread.delay 1.
     )
@@ -347,7 +337,7 @@ let send_host_rrd_to_master master_address =
 let fail_missing name = raise (Rrdd_error (Datasource_missing name))
 
 (** {add_ds rrdi ds_name} creates a new time series (rrd) in {rrdi} with the
-    name {ds_name}. The operation fails if rrdi does not contain any live
+    name {ds_name}. The operation fails if rrdi does not contain any
     datasource with the name {ds_name} *)
 let add_ds ~rrdi ~ds_name =
   match Rrd.StringMap.find_opt ds_name rrdi.dss with

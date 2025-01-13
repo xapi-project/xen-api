@@ -1067,12 +1067,19 @@ module Fcoe = struct
   let call ?log args = call_script ?log ~timeout:(Some 10.0) !fcoedriver args
 
   let get_capabilities name =
-    try
-      let output = call ~log:false ["--xapi"; name; "capable"] in
-      if Astring.String.is_infix ~affix:"True" output then ["fcoe"] else []
-    with _ ->
-      debug "Failed to get fcoe support status on device %s" name ;
-      []
+    match Sys.file_exists !fcoedriver with
+    | false ->
+        info "%s: %s not found, does not support FCoE" __FUNCTION__ !fcoedriver ;
+        [] (* Does not support FCoE *)
+    | true -> (
+      try
+        let output = call ~log:false ["--xapi"; name; "capable"] in
+        if Astring.String.is_infix ~affix:"True" output then ["fcoe"] else []
+      with _ ->
+        debug "%s: Failed to get fcoe support status on device %s" __FUNCTION__
+          name ;
+        []
+    )
 end
 
 module Sysctl = struct

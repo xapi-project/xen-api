@@ -161,12 +161,9 @@ module From = struct
                 D.warn "no lifetime information about %s.%s, ignoring" tblname k ;
                 false
             in
-            if do_not_load then (
-              D.info
-                {|dropping column "%s.%s": it has been removed from the datamodel|}
-                tblname k ;
+            if do_not_load then
               row
-            ) else
+            else
               let column_schema = Schema.Table.find k table_schema in
               let value =
                 Schema.Value.unmarshal column_schema.Schema.Column.ty

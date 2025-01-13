@@ -32,9 +32,18 @@ let create ~__context ~site ~vIF =
       ) ;
   Helpers.assert_is_valid_ref ~__context ~name:"site" ~ref:site ;
   Helpers.assert_is_valid_ref ~__context ~name:"VIF" ~ref:vIF ;
-  let device = Db.VIF.get_device ~__context ~self:vIF in
-  if device <> "0" then
-    raise Api_errors.(Server_error (invalid_device, [device])) ;
+  let device = Db.VIF.get_device ~__context ~self:vIF |> int_of_string in
+  let min_device =
+    let open Xapi_database.Db_filter_types in
+    let vm = Db.VIF.get_VM ~__context ~self:vIF in
+    Db.VIF.get_records_where ~__context
+      ~expr:(Eq (Field "VM", Literal (Ref.string_of vm)))
+    |> List.fold_left
+         (fun m (_, {API.vIF_device= d; _}) -> min m (int_of_string d))
+         device
+  in
+  if device <> min_device then
+    raise Api_errors.(Server_error (pvs_vif_must_be_first_device, [])) ;
   let pvs_proxy = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
   Db.PVS_proxy.create ~__context ~ref:pvs_proxy ~uuid ~site ~vIF

@@ -18,6 +18,8 @@ type t = {private_key: string; host_cert: string; other_certs: string list}
 
 let is_data = function '-' -> false | _ -> true
 
+let is_eol = function '\n' | '\r' -> true | _ -> false
+
 let data = take_while1 is_data
 
 type kind = RSA | EC | OTHER
@@ -43,29 +45,39 @@ let footer = function
   | OTHER ->
       "-----END PRIVATE KEY-----"
 
-let key_header = string "-----BEGIN" *> kind <* string "PRIVATE KEY-----"
+let key_header =
+  string "-----BEGIN" *> kind <* string "PRIVATE KEY-----" <?> "key_header"
 
-let key_footer k = string (footer k)
+let key_footer k = string (footer k) <?> "key_footer"
 
-let cert_header = string "-----BEGIN CERTIFICATE-----"
+let cert_header = string "-----BEGIN CERTIFICATE-----" <?> "cert_header"
 
-let cert_footer = string "-----END CERTIFICATE-----"
+let cert_footer = string "-----END CERTIFICATE-----" <?> "cert_footer"
 
 let key =
   key_header >>= fun kind ->
   data >>= fun body ->
   key_footer kind *> return (String.concat "" [header kind; body; footer kind])
+  <?> "key"
+
+let line = take_till is_eol *> end_of_line
+
+(* try to read a key, or skip a line and try again *)
+let until_key = fix (fun m -> key <|> line *> m) <?> "until_key"
 
 let cert =
   cert_header >>= fun hd ->
   data >>= fun body ->
-  cert_footer >>= fun tl -> return (String.concat "" [hd; body; tl])
+  cert_footer >>= fun tl -> return (String.concat "" [hd; body; tl]) <?> "cert"
+
+(* try to read a cert, or skip a line and try again *)
+let until_cert = fix (fun m -> cert <|> line *> m) <?> "until_cert"
 
 let pem =
-  many end_of_line *> key >>= fun private_key ->
-  many end_of_line *> cert >>= fun host_cert ->
-  many end_of_line *> many cert >>= fun other_certs ->
-  many end_of_line *> return {private_key; host_cert; other_certs}
+  until_key >>= fun private_key ->
+  until_cert >>= fun host_cert ->
+  many until_cert >>= fun other_certs ->
+  many end_of_line *> return {private_key; host_cert; other_certs} <?> "pem"
 
 let defer f = Fun.protect ~finally:f
 
