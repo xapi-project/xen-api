@@ -2465,9 +2465,8 @@ module VM = struct
         | true ->
             Unixext.with_file path [Unix.O_RDONLY] 0o600 f_synced
         | false ->
-            with_mounted_dir_ro path @@ fun dir ->
-            let filename = Filename.concat dir "suspend-image" in
-            Unixext.with_file filename [Unix.O_RDONLY] 0o600 f_synced
+            error "%s: can't mount %s" __FUNCTION__ path ;
+            internal_error "can't mount %s (not a file or block dev)" path
       )
 
   let wait_ballooning task vm =
