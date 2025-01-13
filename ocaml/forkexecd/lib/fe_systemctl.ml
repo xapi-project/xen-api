@@ -130,14 +130,28 @@ let is_active ~service =
   in
   Unix.WEXITED 0 = status
 
-let exists ~service =
-  Sys.file_exists (Filename.concat run_path (service ^ ".service"))
+(** path to service file *)
+let path service = Filename.concat run_path (service ^ ".service")
+
+(** does [service] file exist *)
+let exists ~service = Sys.file_exists (path service)
+
+(** creation time of [path] as a string *)
+let ctime path =
+  let ctime = Unix.((stat path).st_ctime) in
+  Xapi_stdext_date.Date.(of_unix_time ctime |> to_rfc3339)
 
 let start_transient ?env ?properties ?(exec_ty = Type.Simple) ~service cmd args
     =
-  if exists ~service then
-    (* this can only happen if there is a bug in the caller *)
-    invalid_arg (Printf.sprintf "Tried to start %s twice" service) ;
+  ( match exists ~service with
+  | true ->
+      (* this can only happen if there is a bug in the caller *)
+      let path = path service in
+      let invalid fmt = Printf.ksprintf invalid_arg fmt in
+      invalid "Tried to start %s twice: %s exists (%s)" service path (ctime path)
+  | false ->
+      ()
+  ) ;
   try start_transient ?env ?properties ~exec_ty ~service cmd args
   with e ->
     Backtrace.is_important e ;

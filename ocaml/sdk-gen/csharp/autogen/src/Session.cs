@@ -65,26 +65,12 @@ namespace XenAPI
             client.KeepAlive = true;
             client.UserAgent = UserAgent;
             client.WebProxy = Proxy;
-            client.JsonRpcVersion = JsonRpcVersion.v2;
             client.AllowAutoRedirect = true;
             JsonRpcClient = client;
         }
 
-        [Obsolete("Use Session(string url) { Timeout = ... }; instead.")]
-        public Session(int timeout, string url)
-            : this(new JsonRpcClient(url))
-        {
-            JsonRpcClient.Timeout = timeout;
-        }
-
         public Session(string url) :
             this(new JsonRpcClient(url))
-        {
-        }
-
-        [Obsolete("Use Session(string host, int port) { Timeout = ... }; instead.")]
-        public Session(int timeout, string host, int port)
-            : this(timeout, GetUrl(host, port))
         {
         }
 
@@ -98,23 +84,6 @@ namespace XenAPI
         {
             opaque_ref = opaqueRef;
             SetupSessionDetails();
-        }
-
-        /// <summary>
-        /// Create a new Session instance, using the given instance and timeout.  The connection details and Xen-API session handle will be
-        /// copied from the given instance, but a new connection will be created.  Use this if you want a duplicate connection to a host,
-        /// for example when you need to cancel an operation that is blocking the primary connection.
-        /// </summary>
-        /// <param name="session"></param>
-        /// <param name="timeout"></param>
-        [Obsolete("Use Session(Session session) { Timeout = ... }; instead.")]
-        public Session(Session session, int timeout)
-            : this(session)
-        {
-            if (JsonRpcClient != null)
-            {
-                JsonRpcClient.Timeout = timeout;
-            }
         }
 
         /// <summary>
@@ -174,6 +143,14 @@ namespace XenAPI
                 var pool = pools.Values.First();
                 Host host = Host.get_record(this, pool.master);
                 APIVersion = Helper.GetAPIVersion(host.API_version_major, host.API_version_minor);
+            }
+
+            if (JsonRpcClient != null)
+            {
+                if (APIVersion == API_Version.API_2_6)
+                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v1;
+                else if (APIVersion >= API_Version.API_2_8)
+                    JsonRpcClient.JsonRpcVersion = JsonRpcVersion.v2;
             }
         }
 
