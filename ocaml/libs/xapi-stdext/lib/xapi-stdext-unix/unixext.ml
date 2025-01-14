@@ -371,35 +371,63 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout = 10.) pid =
       raise Process_still_alive
   )
 
-let string_of_signal x =
-  let table =
-    [
-      (Sys.sigabrt, "SIGABRT")
-    ; (Sys.sigalrm, "SIGALRM")
-    ; (Sys.sigfpe, "SIGFPE")
-    ; (Sys.sighup, "SIGHUP")
-    ; (Sys.sigill, "SIGILL")
-    ; (Sys.sigint, "SIGINT")
-    ; (Sys.sigkill, "SIGKILL")
-    ; (Sys.sigpipe, "SIGPIPE")
-    ; (Sys.sigquit, "SIGQUIT")
-    ; (Sys.sigsegv, "SIGSEGV")
-    ; (Sys.sigterm, "SIGTERM")
-    ; (Sys.sigusr1, "SIGUSR1")
-    ; (Sys.sigusr2, "SIGUSR2")
-    ; (Sys.sigchld, "SIGCHLD")
-    ; (Sys.sigcont, "SIGCONT")
-    ; (Sys.sigstop, "SIGSTOP")
-    ; (Sys.sigttin, "SIGTTIN")
-    ; (Sys.sigttou, "SIGTTOU")
-    ; (Sys.sigvtalrm, "SIGVTALRM")
-    ; (Sys.sigprof, "SIGPROF")
-    ]
-  in
-  if List.mem_assoc x table then
-    List.assoc x table
-  else
-    Printf.sprintf "(ocaml signal %d with an unknown name)" x
+let string_of_signal = function
+  | s when s = Sys.sigabrt ->
+      "SIGABRT"
+  | s when s = Sys.sigalrm ->
+      "SIGALRM"
+  | s when s = Sys.sigfpe ->
+      "SIGFPE"
+  | s when s = Sys.sighup ->
+      "SIGHUP"
+  | s when s = Sys.sigill ->
+      "SIGILL"
+  | s when s = Sys.sigint ->
+      "SIGINT"
+  | s when s = Sys.sigkill ->
+      "SIGKILL"
+  | s when s = Sys.sigpipe ->
+      "SIGPIPE"
+  | s when s = Sys.sigquit ->
+      "SIGQUIT"
+  | s when s = Sys.sigsegv ->
+      "SIGSEGV"
+  | s when s = Sys.sigterm ->
+      "SIGTERM"
+  | s when s = Sys.sigusr1 ->
+      "SIGUSR1"
+  | s when s = Sys.sigusr2 ->
+      "SIGUSR2"
+  | s when s = Sys.sigchld ->
+      "SIGCHLD"
+  | s when s = Sys.sigcont ->
+      "SIGCONT"
+  | s when s = Sys.sigstop ->
+      "SIGSTOP"
+  | s when s = Sys.sigttin ->
+      "SIGTTIN"
+  | s when s = Sys.sigttou ->
+      "SIGTTOU"
+  | s when s = Sys.sigvtalrm ->
+      "SIGVTALRM"
+  | s when s = Sys.sigprof ->
+      "SIGPROF"
+  | s when s = Sys.sigbus ->
+      "SIGBUS"
+  | s when s = Sys.sigpoll ->
+      "SIGPOLL"
+  | s when s = Sys.sigsys ->
+      "SIGSYS"
+  | s when s = Sys.sigtrap ->
+      "SIGTRAP"
+  | s when s = Sys.sigurg ->
+      "SIGURG"
+  | s when s = Sys.sigxcpu ->
+      "SIGXCPU"
+  | s when s = Sys.sigxfsz ->
+      "SIGXFSZ"
+  | s ->
+      Printf.sprintf "SIG(%d)" s
 
 let with_polly f =
   let polly = Polly.create () in
