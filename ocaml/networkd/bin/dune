@@ -15,6 +15,7 @@
  (libraries
   astring
   clock
+  fmt
   forkexec
   http_lib
   integers

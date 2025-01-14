@@ -735,7 +735,7 @@ let configure_writers () =
 (** we need to make sure we call exit on fatal signals to make sure profiling
     data is dumped *)
 let stop err writers signal =
-  debug "caught signal %d" signal ;
+  debug "caught signal %s (%d)" Fmt.(to_to_string Dump.signal signal) signal ;
   List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers ;
   exit err
 
