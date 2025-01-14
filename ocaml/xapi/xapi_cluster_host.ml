@@ -13,7 +13,6 @@
  *)
 
 open Xapi_clustering
-open Ipaddr_rpc_type
 
 module D = Debug.Make (struct let name = "xapi_cluster_host" end)
 
@@ -126,12 +125,8 @@ let join_internal ~__context ~self =
       let host = Db.Cluster_host.get_host ~__context ~self in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
-        Extended
-          {
-            ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-          ; hostuuid
-          ; hostname
-          }
+        Xapi_cluster_host_helpers.get_cluster_host_address ~__context ~ip_addr
+          ~hostuuid ~hostname
       in
       let ip_list =
         List.filter_map
@@ -338,14 +333,8 @@ let enable ~__context ~self =
       let hostuuid = Inventory.lookup Inventory._installation_uuid in
       let hostname = Db.Host.get_hostname ~__context ~self:host in
       let member =
-        Cluster_interface.(
-          Extended
-            {
-              ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
-            ; hostuuid
-            ; hostname
-            }
-        )
+        Xapi_cluster_host_helpers.get_cluster_host_address ~__context ~ip_addr
+          ~hostuuid ~hostname
       in
       let cluster_ref = Db.Cluster_host.get_cluster ~__context ~self in
       let cluster_stack =
