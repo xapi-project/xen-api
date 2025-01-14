@@ -925,35 +925,6 @@ let test_open n =
     done
   )
 
-module Direct = struct
-  type t = Unix.file_descr
-
-  external openfile : string -> Unix.open_flag list -> Unix.file_perm -> t
-    = "stub_stdext_unix_open_direct"
-
-  let close = Unix.close
-
-  let with_openfile path flags perms f =
-    let t = openfile path flags perms in
-    finally (fun () -> f t) (fun () -> close t)
-
-  external unsafe_write : t -> bytes -> int -> int -> int
-    = "stub_stdext_unix_write"
-
-  let write fd buf ofs len =
-    if ofs < 0 || len < 0 || ofs > Bytes.length buf - len then
-      invalid_arg "Unixext.write"
-    else
-      unsafe_write fd buf ofs len
-
-  let copy_from_fd ?limit socket fd =
-    copy_file_internal ?limit (Unix.read socket) (write fd)
-
-  let fsync x = fsync x
-
-  let lseek fd x cmd = Unix.LargeFile.lseek fd x cmd
-end
-
 (* --------------------------------------------------------------------------------------- *)
 
 module Daemon = struct

@@ -266,36 +266,6 @@ val test_open : int -> unit
   The file descriptors will stay open until the program exits.
  *)
 
-module Direct : sig
-  (** Perform I/O in O_DIRECT mode using 4KiB page-aligned buffers *)
-
-  (** represents a file open in O_DIRECT mode *)
-  type t
-
-  val openfile : string -> Unix.open_flag list -> Unix.file_perm -> t
-  (** [openfile name flags perm] behaves the same as [Unix.openfile] but includes the O_DIRECT flag *)
-
-  val close : t -> unit
-  (** [close t] closes [t], a file open in O_DIRECT mode *)
-
-  val with_openfile :
-    string -> Unix.open_flag list -> Unix.file_perm -> (t -> 'a) -> 'a
-  (** [with_openfile name flags perm f] opens [name], applies the result to [f] and closes *)
-
-  val write : t -> bytes -> int -> int -> int
-  (** [write t buf ofs len] writes [len] bytes at offset [ofs] from buffer [buf] to
-      		[t] using page-aligned buffers. *)
-
-  val copy_from_fd : ?limit:int64 -> Unix.file_descr -> t -> int64
-  (** [copy_from_fd ?limit fd t] copies from [fd] to [t] up to [limit] *)
-
-  val fsync : t -> unit
-  (** [fsync t] commits all outstanding writes, throwing an error if necessary. *)
-
-  val lseek : t -> int64 -> Unix.seek_command -> int64
-  (** [lseek t offset command]: see Unix.LargeFile.lseek *)
-end
-
 module Daemon : sig
   (** OCaml interface to libsystemd.
 
