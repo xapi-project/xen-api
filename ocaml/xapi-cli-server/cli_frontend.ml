@@ -1048,6 +1048,32 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Host_selectors]
       }
     )
+  ; ( "host-enable-ssh"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Enable SSH access on the host. It will start the service sshd only \
+           if it is not running. It will also enable the service sshd only if \
+           it is not enabled. A newly joined host in the pool or an ejected \
+           host from the pool would keep the original status."
+      ; implementation= No_fd Cli_operations.host_enable_ssh
+      ; flags= [Host_selectors]
+      }
+    )
+  ; ( "host-disable-ssh"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Disable SSH access on the host. It will stop the service sshd only \
+           if it is running. It will also disable the service sshd only if it \
+           is enabled. A newly joined host in the pool or an ejected host from \
+           the pool would keep the original status."
+      ; implementation= No_fd Cli_operations.host_disable_ssh
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "host-emergency-clear-mandatory-guidance"
     , {
         reqd= []
@@ -3102,6 +3128,28 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Upload and unpack a bundle file, after that, sync the bundle \
            repository."
       ; implementation= With_fd Cli_operations.pool_sync_bundle
+      ; flags= []
+      }
+    )
+  ; ( "pool-enable-ssh"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Enable SSH access on all hosts in the pool. It's a helper which \
+           calls host.enable_ssh for all the hosts in the pool."
+      ; implementation= No_fd Cli_operations.pool_enable_ssh
+      ; flags= []
+      }
+    )
+  ; ( "pool-disable-ssh"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Disable SSH access on all hosts in the pool. It's a helper which \
+           calls host.disable_ssh for all the hosts in the pool."
+      ; implementation= No_fd Cli_operations.pool_disable_ssh
       ; flags= []
       }
     )

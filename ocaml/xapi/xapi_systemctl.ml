@@ -19,7 +19,7 @@ module D = Debug.Make (struct let name = "xapi_systemctl" end)
 
 open D
 
-type t = Start | Stop | Restart
+type t = Start | Stop | Restart | Enable | Disable
 
 exception Systemctl_fail of string
 
@@ -30,6 +30,10 @@ let to_string = function
       "stop"
   | Restart ->
       "restart"
+  | Enable ->
+      "enable"
+  | Disable ->
+      "disable"
 
 let perform ~wait_until_success ~service ~timeout op =
   let op_str = op |> to_string in
@@ -42,8 +46,17 @@ let perform ~wait_until_success ~service ~timeout op =
     if wait_until_success then (
       if op = Restart then Thread.delay 0.1 ;
       let is_active = Fe_systemctl.is_active ~service in
+      let is_enabled = Fe_systemctl.is_enabled ~service in
       let success_cond () =
-        match op with Start | Restart -> is_active | Stop -> is_active |> not
+        match op with
+        | Start | Restart ->
+            is_active
+        | Stop ->
+            is_active |> not
+        | Enable ->
+            is_enabled
+        | Disable ->
+            is_enabled |> not
       in
       try
         Helpers.retry_until_timeout ~timeout
@@ -62,7 +75,17 @@ let restart ?(timeout = 5.) ~wait_until_success service =
   perform ~wait_until_success ~service ~timeout Restart
 
 let stop ?(timeout = 5.) ~wait_until_success service =
-  perform ~wait_until_success ~service ~timeout Stop
+  if Fe_systemctl.is_active ~service then
+    perform ~wait_until_success ~service ~timeout Stop
 
 let start ?(timeout = 5.) ~wait_until_success service =
-  perform ~wait_until_success ~service ~timeout Start
+  if not (Fe_systemctl.is_active ~service) then
+    perform ~wait_until_success ~service ~timeout Start
+
+let disable ?(timeout = 5.) ~wait_until_success service =
+  if Fe_systemctl.is_enabled ~service then
+    perform ~wait_until_success ~service ~timeout Disable
+
+let enable ?(timeout = 5.) ~wait_until_success service =
+  if not (Fe_systemctl.is_enabled ~service) then
+    perform ~wait_until_success ~service ~timeout Enable

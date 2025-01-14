@@ -2010,6 +2010,18 @@ let _ =
 
   error Api_errors.too_many_groups [] ~doc:"VM can only belong to one group." () ;
 
+  error Api_errors.enable_ssh_failed ["host"]
+    ~doc:"Failed to enable SSH access." () ;
+
+  error Api_errors.disable_ssh_failed ["host"]
+    ~doc:"Failed to disable SSH access." () ;
+
+  error Api_errors.enable_ssh_partially_failed ["hosts"]
+    ~doc:"Some of hosts failed to enable SSH access." () ;
+
+  error Api_errors.disable_ssh_partially_failed ["hosts"]
+    ~doc:"Some of hosts failed to disable SSH access." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
