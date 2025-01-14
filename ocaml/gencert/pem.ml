@@ -24,6 +24,10 @@ let data = take_while1 is_data
 
 type kind = RSA | EC | OTHER
 
+type block = Key of string | Cert of string
+
+let fail_fmt fmt = Printf.ksprintf (fun str -> fail str) fmt
+
 let kind =
   string " RSA " *> return RSA
   <|> string " EC " *> return EC
@@ -60,24 +64,39 @@ let key =
   key_footer kind *> return (String.concat "" [header kind; body; footer kind])
   <?> "key"
 
-let line = take_till is_eol *> end_of_line
-
-(* try to read a key, or skip a line and try again *)
-let until_key = fix (fun m -> key <|> line *> m) <?> "until_key"
-
 let cert =
   cert_header >>= fun hd ->
   data >>= fun body ->
   cert_footer >>= fun tl -> return (String.concat "" [hd; body; tl]) <?> "cert"
 
-(* try to read a cert, or skip a line and try again *)
-let until_cert = fix (fun m -> cert <|> line *> m) <?> "until_cert"
+let line = take_till is_eol *> end_of_line
 
+let any_block =
+  cert >>= (fun c -> return (Cert c)) <|> (key >>= fun k -> return (Key k))
+
+(* this skips over junk until we succeed finding the next block *)
+let block = fix (fun m -> any_block <|> line *> m) <?> "until_block"
+
+(* collect and tag all blocks *)
+let blocks = many block <?> "PEM blocks"
+
+(* decompose blocks into certs and keys *)
 let pem =
-  until_key >>= fun private_key ->
-  until_cert >>= fun host_cert ->
-  many until_cert >>= fun other_certs ->
-  many end_of_line *> return {private_key; host_cert; other_certs} <?> "pem"
+  let ( let* ) = ( >>= ) in
+  let strip = function Cert c -> c | Key k -> k in
+  blocks >>= fun bs ->
+  match List.partition (function Key _ -> true | Cert _ -> false) bs with
+  | [Key k], Cert c :: xs ->
+      return {private_key= k; host_cert= c; other_certs= List.map strip xs}
+  | [_], [] ->
+      let* p = pos in
+      fail_fmt "PEM is lacking a certificate (at offset %d)" p
+  | [], _ ->
+      let* p = pos in
+      fail_fmt "PEM is missing a private key (at offset %d)" p
+  | _ :: _, _ ->
+      let* p = pos in
+      fail_fmt "PEM has more than one private key (at offset %d)" p
 
 let defer f = Fun.protect ~finally:f
 
@@ -85,6 +104,10 @@ let read_file path =
   let ic = open_in path in
   defer (fun () -> close_in ic) @@ fun () ->
   really_input_string ic (in_channel_length ic)
+
+let _parse_with t path =
+  let consume = Consume.Prefix in
+  read_file path |> parse_string ~consume t
 
 let parse_string str =
   let consume = Consume.Prefix in
