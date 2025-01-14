@@ -98,8 +98,7 @@ terminated by receiving the `TERM` signal, a signal handler must be
 installed:
 
     let stop signal =
-      let name = Xapi_stdext_unix.Unixext.string_of_signal signal in
-      printf "caught signal %s\n" name;
+      printf "caught signal %a\n" Debug.Pp.signal signal;
       exit 0
 
     Sys.set_signal Sys.sigterm (Sys.Signal_handle stop)

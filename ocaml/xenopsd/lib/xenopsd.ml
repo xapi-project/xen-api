@@ -461,7 +461,7 @@ let main backend =
   (* we need to catch this to make sure at_exit handlers are triggered. In
      particular, triggers for the bisect_ppx coverage profiling *)
   let signal_handler n =
-    debug "caught signal %s" (Unixext.string_of_signal n) ;
+    debug "caught signal %a" Debug.Pp.signal n ;
     exit 0
   in
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;

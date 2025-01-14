@@ -59,13 +59,12 @@ let exec_cmd (module D : Debug.DEBUG) ~cmdstring ~(f : string -> 'a option) =
   (try loop () with End_of_file -> ()) ;
   Unix.close out_readme ;
   let pid, status = Forkhelpers.waitpid pid in
-  let signal = Xapi_stdext_unix.Unixext.string_of_signal in
   ( match status with
   | Unix.WEXITED n ->
       D.debug "Process %d exited normally with code %d" pid n
   | Unix.WSIGNALED s ->
-      D.debug "Process %d was killed by signal %s" pid (signal s)
+      D.debug "Process %d was killed by signal %a" pid Debug.Pp.signal s
   | Unix.WSTOPPED s ->
-      D.debug "Process %d was stopped by signal %s" pid (signal s)
+      D.debug "Process %d was stopped by signal %a" pid Debug.Pp.signal s
   ) ;
   List.rev !vals

@@ -220,7 +220,7 @@ module Runtime = struct
         exit 0
     | Signal n ->
         Printf.eprintf "unexpected signal %s in signal handler - exiting"
-          (Xapi_stdext_unix.Unixext.string_of_signal n) ;
+          Fmt.(to_to_string Dump.signal n) ;
         flush stderr ;
         exit 1
     | e ->
@@ -230,7 +230,7 @@ module Runtime = struct
         exit 1
 
   let cleanup_resources signal =
-    let name = Xapi_stdext_unix.Unixext.string_of_signal signal in
+    let name = Fmt.(to_to_string Dump.signal signal) in
     let cleanup () =
       Lwt_log.warning_f "Caught signal %s, cleaning up" name >>= fun () ->
       (* First we have to close the open file descriptors corresponding to the

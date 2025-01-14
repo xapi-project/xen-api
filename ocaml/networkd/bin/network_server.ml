@@ -53,8 +53,8 @@ let on_shutdown signal =
   let dbg = "shutdown" in
   Debug.with_thread_associated dbg
     (fun () ->
-      debug "xcp-networkd caught signal %s; performing cleanup actions."
-        (Xapi_stdext_unix.Unixext.string_of_signal signal) ;
+      debug "xcp-networkd caught signal %a; performing cleanup actions."
+        Debug.Pp.signal signal ;
       write_config ()
     )
     ()

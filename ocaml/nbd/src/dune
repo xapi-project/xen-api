@@ -4,6 +4,7 @@
  (libraries
   cmdliner
   consts
+  fmt
   local_xapi_session
   lwt
   lwt.unix
@@ -19,7 +20,6 @@
   xapi-consts
   xapi-inventory
   xapi-types
-  xapi-stdext-unix
   xen-api-client-lwt
   )
 )
