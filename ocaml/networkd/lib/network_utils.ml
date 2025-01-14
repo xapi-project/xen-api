@@ -67,7 +67,7 @@ let dracut = ref "/sbin/dracut"
 
 let modinfo = ref "/sbin/modinfo"
 
-let dracut_timeout = ref 180.0
+let dracut_timeout = ref Mtime.Span.(3 * min)
 
 let fcoedriver = ref "/opt/xensource/libexec/fcoe_driver"
 
@@ -128,7 +128,8 @@ let check_n_run ?(on_error = default_error_handler) ?(log = true) run_func
   | Forkhelpers.Spawn_internal_error (stderr, stdout, status) ->
       on_error script args stdout stderr status
 
-let call_script ?(timeout = Some 60.0) ?on_error ?log script args =
+let call_script ?(timeout = Some Mtime.Span.(1 * min)) ?on_error ?log script
+    args =
   let call_script_internal env script args =
     let out, _err =
       Forkhelpers.execute_command_get_output ~env ?timeout script args
@@ -1064,7 +1065,8 @@ end = struct
 end
 
 module Fcoe = struct
-  let call ?log args = call_script ?log ~timeout:(Some 10.0) !fcoedriver args
+  let call ?log args =
+    call_script ?log ~timeout:(Some Mtime.Span.(10 * s)) !fcoedriver args
 
   let get_capabilities name =
     match Sys.file_exists !fcoedriver with

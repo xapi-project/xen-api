@@ -994,7 +994,7 @@ let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
 
-let winbind_ldap_query_subject_timeout = ref 20.
+let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1146,7 +1146,13 @@ let xapi_globs_spec =
   ; ("local_yum_repo_port", Int local_yum_repo_port)
   ]
 
-let xapi_globs_spec_with_descriptions = []
+let xapi_globs_spec_with_descriptions =
+  [
+    ( "winbind_ldap_query_subject_timeout"
+    , ShortDurationFromSeconds winbind_ldap_query_subject_timeout
+    , "Timeout to perform ldap query for subject information"
+    )
+  ]
 
 let option_of_xapi_globs_spec ?(description = None) (name, ty) =
   let spec =
@@ -1466,11 +1472,6 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
-    )
-  ; ( "winbind_ldap_query_subject_timeout"
-    , Arg.Set_float winbind_ldap_query_subject_timeout
-    , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
-    , "Timeout to perform ldap query for subject information"
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age
