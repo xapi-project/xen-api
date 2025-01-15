@@ -20,13 +20,11 @@ jobs:
           python-version: "3.x"
 
       - name: Install build dependencies
-        run: |
-          pip install build
-          sudo apt-get install ocaml ocaml-dune libfindlib-ocaml-dev libdune-ocaml-dev libcmdliner-ocaml-dev
+        run: pip install build
 
       - name: Generate python package for XenAPI
         run: |
-          ./configure --xapi_version=v25.1.0
+          echo "export XAPI_VERSION=v25.1.0" > config.mk
           make python
 
       - name: Store python distribution artifacts
