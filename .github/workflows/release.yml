@@ -2,8 +2,8 @@ name: Create release from tag
 
 on:
   push:
-    tags:
-      - "v*"
+    branch:
+      - "release/v24.39.1"
 
 jobs:
   build-python:
@@ -20,13 +20,11 @@ jobs:
           python-version: "3.x"
 
       - name: Install build dependencies
-        run: |
-          pip install build
-          sudo apt-get install ocaml dune libfindlib-ocaml-dev libdune-ocaml-dev libcmdliner-ocaml-dev
+        run: pip install build
 
       - name: Generate python package for XenAPI
         run: |
-          ./configure --xapi_version=${{ github.ref_name }}
+          echo "export XAPI_VERSION=v24.39.1" > config.mk
           make python
 
       - name: Store python distribution artifacts
@@ -39,7 +37,7 @@ jobs:
     name: Build and upload SDK artifacts
     uses: ./.github/workflows/generate-and-build-sdks.yml
     with:
-      xapi_version: ${{ github.ref_name }}
+      xapi_version: v24.39.1
 
   release:
     name: "Create and package release"
@@ -109,10 +107,10 @@ jobs:
         shell: bash
         run: zip Go-SDK-prerelease-unsigned.zip ./sdk_go -r
 
-      - name: Create release ${{ github.ref_name }}
+      - name: Create release v24.39.1
         shell: bash
         run: |
-          gh release create ${{ github.ref_name }} --repo ${{ github.repository }} --generate-notes dist/* \
+          gh release create v24.39.1 --repo ${{ github.repository }} --generate-notes dist/* \
           PowerShell-SDK-5.x-prerelease-unsigned.zip \
           PowerShell-SDK-7.x-prerelease-unsigned.zip \
           Go-SDK-prerelease-unsigned.zip \
