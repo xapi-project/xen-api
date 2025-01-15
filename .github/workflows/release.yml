@@ -111,12 +111,7 @@ jobs:
 
       - name: Create release v25.1.0
         shell: bash
-        run: |
-          gh release create v25.1.0 --repo ${{ github.repository }} --generate-notes dist/* \
-          PowerShell-SDK-5.x-prerelease-unsigned.zip \
-          PowerShell-SDK-7.x-prerelease-unsigned.zip \
-          Go-SDK-prerelease-unsigned.zip \
-          libxenserver-prerelease.tar.gz libxenserver-prerelease.src.tar.gz
+        run: "true"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
