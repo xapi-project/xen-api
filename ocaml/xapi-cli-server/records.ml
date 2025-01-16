@@ -5449,14 +5449,9 @@ let host_driver_record rpc session_id host_driver =
           ()
       ; make_field ~name:"variants"
           ~get:(fun () ->
-            xv ()
-            |> List.map (fun (_, v) ->
-                   (v.API.driver_variant_name, v.API.driver_variant_version)
-               )
-            |> List.map (fun (name, version) ->
-                   Printf.sprintf "%s/%s" name version
-               )
-            |> String.concat "; "
+          map_and_concat
+            (fun _, v -> Printf.sprintf "%s/%s" v.API.driver_variant_name v.API.driver_variant_version)
+            (xv ())
           )
           ()
       ; make_field ~name:"variants-dev-status"
