@@ -341,9 +341,10 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
   Array.iter updatefn rrd.rrd_rras
 
 (* We assume that the data being given is of the form of a rate; that is,
-   it's dependent on the time interval between updates. To be able to
-   deal with gauge DSs, we multiply by the interval so that it cancels
-   the subsequent divide by interval later on *)
+   it's dependent on the time interval between updates.
+   Gauge and Absolute data sources are simply kept as is without any
+   time-based calculations, while Derive data sources will be changed according
+   to the time passed since the last measurement. (see CA-404597) *)
 let process_ds_value ds value interval new_rrd =
   if interval > ds.ds_mrhb then
     nan
@@ -360,10 +361,8 @@ let process_ds_value ds value interval new_rrd =
 
     let rate =
       match (ds.ds_ty, new_rrd) with
-      | Absolute, _ | Derive, true ->
+      | Absolute, _ | Derive, true | Gauge, _ ->
           value_raw
-      | Gauge, _ ->
-          value_raw *. interval
       | Derive, false -> (
         match (ds.ds_last, value) with
         | VT_Int64 x, VT_Int64 y ->
@@ -433,7 +432,14 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
       if Utils.isnan value then
         ds.ds_unknown_sec <- pre_int
       else
-        ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval)
+        (* CA-404597 - Gauge and Absolute values should be passed as-is,
+           without being involved in time-based calculations at all.
+           This applies to calculations below as well *)
+        match ds.ds_ty with
+        | Gauge | Absolute ->
+            ds.ds_value <- value
+        | Derive ->
+            ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval)
     )
     v2s ;
 
@@ -450,7 +456,13 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
             let raw =
               let proc_pdp_st = get_float_time last_updated rrd.timestep in
               let occu_pdp_st = get_float_time timestamp rrd.timestep in
-              ds.ds_value /. (occu_pdp_st -. proc_pdp_st -. ds.ds_unknown_sec)
+
+              match ds.ds_ty with
+              | Gauge | Absolute ->
+                  ds.ds_value
+              | Derive ->
+                  ds.ds_value
+                  /. (occu_pdp_st -. proc_pdp_st -. ds.ds_unknown_sec)
             in
             (* Apply the transform after the raw value has been calculated *)
             let raw = apply_transform_function transform raw in
@@ -473,8 +485,12 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
           ds.ds_value <- 0.0 ;
           ds.ds_unknown_sec <- post_int
         ) else (
-          ds.ds_value <- post_int *. value /. interval ;
-          ds.ds_unknown_sec <- 0.0
+          ds.ds_unknown_sec <- 0.0 ;
+          match ds.ds_ty with
+          | Gauge | Absolute ->
+              ds.ds_value <- value
+          | Derive ->
+              ds.ds_value <- post_int *. value /. interval
         )
       )
       v2s
