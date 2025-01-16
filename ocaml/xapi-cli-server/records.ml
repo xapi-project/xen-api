@@ -5477,16 +5477,13 @@ let host_driver_record rpc session_id host_driver =
           ()
       ; make_field ~name:"variants-hw-present"
           ~get:(fun () ->
-            xv ()
-            |> List.map (fun (_, v) ->
-                   ( v.API.driver_variant_name
-                   , v.API.driver_variant_version
-                   , v.API.driver_variant_hardware_present
-                   )
-               )
-            |> List.filter (fun (_, _, status) -> status = true)
-            |> List.map (fun (name, _, _) -> name)
-            |> String.concat "; "
+          map_filter_and_concat (fun _, v ->
+            if v.API.driver_variant_hardware_present then
+              Some v.API.driver_variant_name
+            else
+              None
+            )
+            (xv ())
           )
           ()
       ]
