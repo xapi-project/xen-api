@@ -122,10 +122,6 @@ exception Process_still_alive
 
 val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
 
-val string_of_signal : int -> string
-(** [string_of_signal x] translates an ocaml signal number into
- *  a string suitable for logging. *)
-
 val proxy : Unix.file_descr -> Unix.file_descr -> unit
 
 val really_read : Unix.file_descr -> bytes -> int -> int -> unit

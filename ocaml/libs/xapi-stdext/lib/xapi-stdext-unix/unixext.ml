@@ -371,36 +371,6 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout = 10.) pid =
       raise Process_still_alive
   )
 
-let string_of_signal x =
-  let table =
-    [
-      (Sys.sigabrt, "SIGABRT")
-    ; (Sys.sigalrm, "SIGALRM")
-    ; (Sys.sigfpe, "SIGFPE")
-    ; (Sys.sighup, "SIGHUP")
-    ; (Sys.sigill, "SIGILL")
-    ; (Sys.sigint, "SIGINT")
-    ; (Sys.sigkill, "SIGKILL")
-    ; (Sys.sigpipe, "SIGPIPE")
-    ; (Sys.sigquit, "SIGQUIT")
-    ; (Sys.sigsegv, "SIGSEGV")
-    ; (Sys.sigterm, "SIGTERM")
-    ; (Sys.sigusr1, "SIGUSR1")
-    ; (Sys.sigusr2, "SIGUSR2")
-    ; (Sys.sigchld, "SIGCHLD")
-    ; (Sys.sigcont, "SIGCONT")
-    ; (Sys.sigstop, "SIGSTOP")
-    ; (Sys.sigttin, "SIGTTIN")
-    ; (Sys.sigttou, "SIGTTOU")
-    ; (Sys.sigvtalrm, "SIGVTALRM")
-    ; (Sys.sigprof, "SIGPROF")
-    ]
-  in
-  if List.mem_assoc x table then
-    List.assoc x table
-  else
-    Printf.sprintf "(ocaml signal %d with an unknown name)" x
-
 let with_polly f =
   let polly = Polly.create () in
   let finally () = Polly.close polly in

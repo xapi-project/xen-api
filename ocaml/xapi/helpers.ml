@@ -109,9 +109,9 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
         | Unix.WEXITED n ->
             Printf.sprintf "exited with code %d" n
         | Unix.WSIGNALED n ->
-            Printf.sprintf "was killed by signal %d" n
+            Printf.sprintf "was killed by signal %a" Debug.Pp.signal n
         | Unix.WSTOPPED n ->
-            Printf.sprintf "was stopped by signal %d" n
+            Printf.sprintf "was stopped by signal %a" Debug.Pp.signal n
       in
       if should_log_output_on_failure then
         debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
