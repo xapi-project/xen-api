@@ -69,7 +69,7 @@ let array_remove n a =
 let f_to_s f =
   match classify_float f with
   | FP_normal | FP_subnormal ->
-      Printf.sprintf "%0.5g" f
+      Printf.sprintf "%0.15g" f
   | FP_nan ->
       "NaN"
   | FP_infinite ->
