@@ -4,7 +4,9 @@
  (wrapped false)
  (libraries
    astring
+   clock
    fd-send-recv
+   mtime
    rpclib.core
    rpclib.json
    rpclib.xml

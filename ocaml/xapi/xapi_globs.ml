@@ -994,7 +994,7 @@ let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
 
-let winbind_ldap_query_subject_timeout = ref 20.
+let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1143,9 +1143,16 @@ let xapi_globs_spec =
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
+  ; ("local_yum_repo_port", Int local_yum_repo_port)
   ]
 
-let xapi_globs_spec_with_descriptions = []
+let xapi_globs_spec_with_descriptions =
+  [
+    ( "winbind_ldap_query_subject_timeout"
+    , ShortDurationFromSeconds winbind_ldap_query_subject_timeout
+    , "Timeout to perform ldap query for subject information"
+    )
+  ]
 
 let option_of_xapi_globs_spec ?(description = None) (name, ty) =
   let spec =
@@ -1466,11 +1473,6 @@ let other_options =
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
     )
-  ; ( "winbind_ldap_query_subject_timeout"
-    , Arg.Set_float winbind_ldap_query_subject_timeout
-    , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
-    , "Timeout to perform ldap query for subject information"
-    )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age
     , (fun () -> string_of_int !hsts_max_age)
@@ -1689,11 +1691,6 @@ module Resources = struct
     ; ("xsh", xsh, "Path to xsh binary")
     ; ("static-vdis", static_vdis, "Path to static-vdis script")
     ; ("xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script")
-    ; ( "fcoe-driver"
-      , fcoe_driver
-      , "Execute during PIF unplug to get the lun devices related with the \
-         ether interface of the PIF"
-      )
     ; ("list_domains", list_domains, "Path to the list_domains command")
     ; ("systemctl", systemctl, "Control the systemd system and service manager")
     ; ( "alert-certificate-check"
@@ -1797,6 +1794,12 @@ module Resources = struct
       , "Path to yum-config-manager command"
       )
     ; ("c_rehash", c_rehash, "Path to regenerate CA store")
+      (* Dropped since XS9, list here as XS8 still requires it *)
+    ; ( "fcoe-driver"
+      , fcoe_driver
+      , "Execute during PIF unplug to get the lun devices related with the \
+         ether interface of the PIF"
+      )
     ]
 
   let essential_files =
