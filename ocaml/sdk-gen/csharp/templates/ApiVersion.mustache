@@ -28,9 +28,6 @@
  */
 
 using System;
-using System.Collections;
-using System.Collections.Generic;
-
 
 namespace XenAPI
 {
@@ -63,8 +60,7 @@ namespace XenAPI
         {
             try
             {
-                return (API_Version)Enum.Parse(typeof(API_Version),
-                    string.Format("API_{0}_{1}", major, minor));
+                return (API_Version)Enum.Parse(typeof(API_Version), $"API_{major}_{minor}");
             }
             catch (ArgumentException)
             {
@@ -82,30 +78,14 @@ namespace XenAPI
             {
                 string[] tokens = version.Split('.');
                 int major, minor;
-                if (tokens.Length == 2 && int.TryParse(tokens[0], out major) && int.TryParse(tokens[1], out minor))
+                if (tokens.Length == 2 &&
+                    int.TryParse(tokens[0], out major) &&
+                    int.TryParse(tokens[1], out minor))
                 {
                     return GetAPIVersion(major, minor);
                 }
             }
             return API_Version.UNKNOWN;
-        }
-
-        /// <summary>
-        /// Return a positive number if the given session's API version is greater than the given
-        /// API_version, negative if it is less, and 0 if they are equal.
-        /// </summary>
-        internal static int APIVersionCompare(Session session, API_Version v)
-        {
-            return (int)session.APIVersion - (int)v;
-        }
-
-        /// <summary>
-        /// Return true if the given session's API version is greater than or equal to the given
-        /// API_version.
-        /// </summary>
-        internal static bool APIVersionMeets(Session session, API_Version v)
-        {
-            return APIVersionCompare(session, v) >= 0;
         }
     }
 }

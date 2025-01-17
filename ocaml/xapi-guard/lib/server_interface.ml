@@ -38,7 +38,8 @@ let shutdown = Lwt_switch.create ()
 
 let () =
   let cleanup n =
-    debug "Triggering cleanup on signal %d, and waiting for servers to stop" n ;
+    debug "Triggering cleanup on signal %a, and waiting for servers to stop"
+      Debug.Pp.signal n ;
     Lwt.async (fun () ->
         let* () = Lwt_switch.turn_off shutdown in
         info "Cleanup complete, exiting" ;

@@ -5,7 +5,6 @@
   (modules (:standard \ xcp_rrdd))
   (libraries
     astring
-    
     ezxenstore
     gzip
     http_lib
@@ -41,7 +40,6 @@
   (modules xcp_rrdd)
   (libraries
     astring
-    
     ezxenstore.core
     ezxenstore.watch
     forkexec

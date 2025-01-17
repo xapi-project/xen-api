@@ -16,6 +16,8 @@ let name_label = "name__label"
 
 let name_description = "name__description"
 
+let failwith_fmt fmt = Printf.ksprintf failwith fmt
+
 module Tests =
 functor
   (Client : Db_interface.DB_ACCESS)
@@ -111,7 +113,7 @@ functor
               ; where_value= ""
               }
           in
-          failwith (Printf.sprintf "%s <invalid table>" fn_name)
+          failwith_fmt "%s <invalid table>" fn_name
       ) ;
       Printf.printf
         "%s <valid table> <invalid return> <valid field> <valid value>\n"
@@ -126,11 +128,9 @@ functor
               ; where_value= name
               }
           in
-          failwith
-            (Printf.sprintf
-               "%s <valid table> <invalid return> <valid field> <valid value>"
-               fn_name
-            )
+          failwith_fmt
+            "%s <valid table> <invalid return> <valid field> <valid value>"
+            fn_name
       ) ;
       Printf.printf
         "%s <valid table> <valid return> <invalid field> <valid value>\n"
@@ -145,11 +145,9 @@ functor
               ; where_value= ""
               }
           in
-          failwith
-            (Printf.sprintf
-               "%s <valid table> <valid return> <invalid field> <valid value>"
-               fn_name
-            )
+          failwith_fmt
+            "%s <valid table> <valid return> <invalid field> <valid value>"
+            fn_name
       )
 
     (* Verify the ref_index contents are correct for a given [tblname] and [key] (uuid/ref) *)
@@ -168,10 +166,9 @@ functor
       | Some {Ref_index.name_label= name_label'; uuid; _ref} ->
           (* key should be either uuid or _ref *)
           if key <> uuid && key <> _ref then
-            failwith
-              (Printf.sprintf "check_ref_index %s key %s: got ref %s uuid %s"
-                 tblname key _ref uuid
-              ) ;
+            failwith_fmt "check_ref_index %s key %s: got ref %s uuid %s" tblname
+              key _ref uuid ;
+
           let real_ref =
             if Client.is_valid_ref t key then
               key
@@ -183,14 +180,11 @@ functor
             with _ -> None
           in
           if name_label' <> real_name_label then
-            failwith
-              (Printf.sprintf
-                 "check_ref_index %s key %s: ref_index name_label = %s; db has \
-                  %s"
-                 tblname key
-                 (Option.value ~default:"None" name_label')
-                 (Option.value ~default:"None" real_name_label)
-              )
+            failwith_fmt
+              "check_ref_index %s key %s: ref_index name_label = %s; db has %s"
+              tblname key
+              (Option.value ~default:"None" name_label')
+              (Option.value ~default:"None" real_name_label)
 
     open Db_cache_types
 
@@ -226,11 +220,9 @@ functor
       in
       let bar_foos = Row.find "foos" bar_1 in
       if bar_foos <> Set ["foo:1"] then
-        failwith
-          (Printf.sprintf
-             "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s"
-             (Schema.Value.marshal bar_foos)
-          ) ;
+        failwith_fmt
+          "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s"
+          (Schema.Value.marshal bar_foos) ;
       (* set foo.bars to [] *)
       (*		let foo_1 = Table.find "foo:1" (TableSet.find "foo" (Database.tableset db)) in*)
       let db = set_field "foo" "foo:1" "bars" (Set []) db in
@@ -240,11 +232,8 @@ functor
       in
       let bar_foos = Row.find "foos" bar_1 in
       if bar_foos <> Set [] then
-        failwith
-          (Printf.sprintf
-             "check_many_to_many: bar(bar:1).foos expected () got %s"
-             (Schema.Value.marshal bar_foos)
-          ) ;
+        failwith_fmt "check_many_to_many: bar(bar:1).foos expected () got %s"
+          (Schema.Value.marshal bar_foos) ;
       (* add 'bar' to foo.bars *)
       let db = set_field "foo" "foo:1" "bars" (Set ["bar:1"]) db in
       (* check that 'bar.foos' includes 'foo' *)
@@ -253,11 +242,9 @@ functor
       in
       let bar_foos = Row.find "foos" bar_1 in
       if bar_foos <> Set ["foo:1"] then
-        failwith
-          (Printf.sprintf
-             "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2"
-             (Schema.Value.marshal bar_foos)
-          ) ;
+        failwith_fmt
+          "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2"
+          (Schema.Value.marshal bar_foos) ;
       (* delete 'bar' *)
       let db = remove_row "bar" "bar:1" db in
       (* check that 'foo.bars' is empty *)
@@ -266,11 +253,8 @@ functor
       in
       let foo_bars = Row.find "bars" foo_1 in
       if foo_bars <> Set [] then
-        failwith
-          (Printf.sprintf
-             "check_many_to_many: foo(foo:1).foos expected () got %s"
-             (Schema.Value.marshal foo_bars)
-          ) ;
+        failwith_fmt "check_many_to_many: foo(foo:1).foos expected () got %s"
+          (Schema.Value.marshal foo_bars) ;
       ()
 
     let check_events t =
@@ -503,8 +487,7 @@ functor
       | None ->
           Printf.printf "Reference '%s' has no associated table\n" invalid_ref
       | Some t ->
-          failwith
-            (Printf.sprintf "Reference '%s' exists in table '%s'" invalid_ref t)
+          failwith_fmt "Reference '%s' exists in table '%s'" invalid_ref t
       ) ;
       Printf.printf "is_valid_ref <invalid_ref>\n" ;
       if Client.is_valid_ref t invalid_ref then
@@ -571,15 +554,25 @@ functor
       Printf.printf "db_get_by_uuid <valid uuid>\n" ;
       let r = Client.db_get_by_uuid t "VM" valid_uuid in
       if r <> valid_ref then
-        failwith
-          (Printf.sprintf "db_get_by_uuid <valid uuid>: got %s; expected %s" r
-             valid_ref
-          ) ;
+        failwith_fmt "db_get_by_uuid <valid uuid>: got %s; expected %s" r
+          valid_ref ;
       Printf.printf "db_get_by_uuid <invalid uuid>\n" ;
       expect_missing_uuid "VM" invalid_uuid (fun () ->
           let (_ : string) = Client.db_get_by_uuid t "VM" invalid_uuid in
           failwith "db_get_by_uuid <invalid uuid>"
       ) ;
+      Printf.printf "db_get_by_uuid_opt <valid uuid>\n" ;
+      let r = Client.db_get_by_uuid_opt t "VM" valid_uuid in
+      ( if r <> Some valid_ref then
+          let rs = Option.value ~default:"None" r in
+          failwith_fmt "db_get_by_uuid_opt <valid uuid>: got %s; expected %s" rs
+            valid_ref
+      ) ;
+      Printf.printf "db_get_by_uuid_opt <invalid uuid>\n" ;
+      let r = Client.db_get_by_uuid_opt t "VM" invalid_uuid in
+      if not (Option.is_none r) then
+        failwith_fmt "db_get_by_uuid_opt <invalid uuid>: got %s; expected None"
+          valid_ref ;
       Printf.printf "get_by_name_label <invalid name label>\n" ;
       if Client.db_get_by_name_label t "VM" invalid_name <> [] then
         failwith "db_get_by_name_label <invalid name label>" ;

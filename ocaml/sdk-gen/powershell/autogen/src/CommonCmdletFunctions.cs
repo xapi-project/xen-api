@@ -39,13 +39,10 @@ using XenAPI;
 
 namespace Citrix.XenServer
 {
-    class CommonCmdletFunctions
+    internal class CommonCmdletFunctions
     {
         private const string SessionsVariable = "global:Citrix.XenServer.Sessions";
-
         private const string DefaultSessionVariable = "global:XenServer_Default_Session";
-
-        private const string KnownServerCertificatesFilePathVariable = "global:KnownServerCertificatesFilePath";
 
         static CommonCmdletFunctions()
         {
@@ -78,72 +75,12 @@ namespace Citrix.XenServer
             cmdlet.SessionState.PSVariable.Set(DefaultSessionVariable, session);
         }
 
-        internal static string GetKnownServerCertificatesFilePathVariable(PSCmdlet cmdlet)
-        {
-            var knownCertificatesFilePathObject = cmdlet.SessionState.PSVariable.GetValue(KnownServerCertificatesFilePathVariable);
-            if (knownCertificatesFilePathObject is PSObject psObject)
-                return psObject.BaseObject as string;
-            return knownCertificatesFilePathObject?.ToString() ?? string.Empty;
-        }
-
         internal static string GetUrl(string hostname, int port)
         {
-            return string.Format("{0}://{1}:{2}", port == 80 ? "http" : "https", hostname, port);
+            return $"{(port == 80 ? "http" : "https")}://{hostname}:{port}";
         }
 
-        public static Dictionary<string, string> LoadCertificates(PSCmdlet cmdlet)
-        {
-            Dictionary<string, string> certificates = new Dictionary<string, string>();
-            var knownServerCertificatesFilePath = GetKnownServerCertificatesFilePathVariable(cmdlet);
-
-            if (File.Exists(knownServerCertificatesFilePath))
-            {
-                XmlDocument doc = new XmlDocument();
-                doc.Load(knownServerCertificatesFilePath);
-
-                foreach (XmlNode node in doc.GetElementsByTagName("certificate"))
-                {
-                    XmlAttribute hostAtt = node.Attributes?["hostname"];
-                    XmlAttribute fngprtAtt = node.Attributes?["fingerprint"];
-
-                    if (hostAtt != null && fngprtAtt != null)
-                        certificates[hostAtt.Value] = fngprtAtt.Value;
-                }
-            }
-
-            return certificates;
-        }
-
-        public static void SaveCertificates(PSCmdlet cmdlet, Dictionary<string, string> certificates)
-        {
-            var knownServerCertificatesFilePath = GetKnownServerCertificatesFilePathVariable(cmdlet);
-            string dirName = Path.GetDirectoryName(knownServerCertificatesFilePath);
-
-            if (!Directory.Exists(dirName))
-                Directory.CreateDirectory(dirName);
-
-            XmlDocument doc = new XmlDocument();
-            XmlDeclaration decl = doc.CreateXmlDeclaration("1.0", "utf-8", null);
-            doc.AppendChild(decl);
-            XmlNode node = doc.CreateElement("certificates");
-
-            foreach (KeyValuePair<string, string> cert in certificates)
-            {
-                XmlNode certNode = doc.CreateElement("certificate");
-                XmlAttribute hostname = doc.CreateAttribute("hostname");
-                XmlAttribute fingerprint = doc.CreateAttribute("fingerprint");
-                hostname.Value = cert.Key;
-                fingerprint.Value = cert.Value;
-                certNode.Attributes?.Append(hostname);
-                certNode.Attributes?.Append(fingerprint);
-                node.AppendChild(certNode);
-            }
-
-            doc.AppendChild(node);
-            doc.Save(knownServerCertificatesFilePath);
-        }
-
-        public static string FingerprintPrettyString(string fingerprint)
+        internal static string FingerprintPrettyString(string fingerprint)
         {
             List<string> pairs = new List<string>();
             while (fingerprint.Length > 1)
@@ -157,7 +94,7 @@ namespace Citrix.XenServer
             return string.Join(":", pairs.ToArray());
         }
 
-        public static Dictionary<T, S> ConvertHashTableToDictionary<T, S>(Hashtable tbl)
+        internal static Dictionary<T, S> ConvertHashTableToDictionary<T, S>(Hashtable tbl)
         {
             if (tbl == null)
                 return null;
@@ -169,7 +106,7 @@ namespace Citrix.XenServer
             return dict;
         }
 
-        public static Hashtable ConvertDictionaryToHashtable<T, S>(Dictionary<T, S> dict)
+        internal static Hashtable ConvertDictionaryToHashtable<T, S>(Dictionary<T, S> dict)
         {
             if (dict == null)
                 return null;

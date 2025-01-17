@@ -566,7 +566,7 @@ let resume ~__context ~vm ~start_paused ~force =
   ) ;
   let host = Helpers.get_localhost ~__context in
   if not force then
-    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm ~host () ;
+    Cpuid_helpers.assert_vm_is_compatible ~__context ~vm:(`db vm) ~host ;
   (* Update CPU feature set, which will be passed to xenopsd *)
   Xapi_xenops.resume ~__context ~self:vm ~start_paused ~force
 

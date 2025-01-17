@@ -292,7 +292,7 @@ let dss_mem_vms doms =
           | Ok mem ->
               Some
                 ( Rrd.VM uuid
-                , Ds.ds_make ~name:"memory_internal_free" ~units:"B"
+                , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
                     ~description:"Dom0 current free memory"
                     ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
                     ~default:true ()
@@ -735,7 +735,7 @@ let configure_writers () =
 (** we need to make sure we call exit on fatal signals to make sure profiling
     data is dumped *)
 let stop err writers signal =
-  debug "caught signal %d" signal ;
+  debug "caught signal %a" Debug.Pp.signal signal ;
   List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers ;
   exit err
 
