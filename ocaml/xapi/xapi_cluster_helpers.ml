@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = __MODULE__ end)
+
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let all_cluster_operations = [`add; `remove; `enable; `disable; `destroy]
@@ -103,6 +105,12 @@ let with_cluster_operation ~__context ~(self : [`Cluster] API.Ref.t) ~doc ~op
           (Datamodel_common._cluster, Ref.string_of self)
       with _ -> ()
   )
+
+let cluster_address_enabled ~__context =
+  let r = Pool_features.is_enabled ~__context Features.Cluster_address in
+  D.debug "%s extended cluster address is %s" __FUNCTION__
+    (if r then "enabled" else "disabled") ;
+  r
 
 let corosync3_enabled ~__context =
   let pool = Helpers.get_pool ~__context in

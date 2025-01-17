@@ -88,11 +88,12 @@ val with_moved_exn : t -> (t -> 'd) -> 'd
 
 val safe_release : t -> unit
 
-val with_client_proxy :
+val with_client_proxy_systemd_service :
      verify_cert:verification_config option
   -> remote_host:string
   -> remote_port:int
   -> local_host:string
   -> local_port:int
+  -> service:string
   -> (unit -> 'a)
   -> 'a

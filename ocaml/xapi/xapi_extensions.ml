@@ -50,8 +50,7 @@ let call_extension rpc =
                ( Api_errors.internal_error
                , [
                    path
-                 ; Printf.sprintf "signal: %s"
-                     (Xapi_stdext_unix.Unixext.string_of_signal i)
+                 ; Printf.sprintf "signal: %a" Debug.Pp.signal i
                  ; output
                  ; log
                  ]

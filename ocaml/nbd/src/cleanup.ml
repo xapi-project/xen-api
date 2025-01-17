@@ -218,6 +218,11 @@ module Runtime = struct
         Printf.eprintf "SIGINT received - exiting" ;
         flush stderr ;
         exit 0
+    | Signal n ->
+        Printf.eprintf "unexpected signal %s in signal handler - exiting"
+          Fmt.(to_to_string Dump.signal n) ;
+        flush stderr ;
+        exit 1
     | e ->
         Printf.eprintf "unexpected exception %s in signal handler - exiting"
           (Printexc.to_string e) ;
@@ -225,8 +230,9 @@ module Runtime = struct
         exit 1
 
   let cleanup_resources signal =
+    let name = Fmt.(to_to_string Dump.signal signal) in
     let cleanup () =
-      Lwt_log.warning_f "Caught signal %d, cleaning up" signal >>= fun () ->
+      Lwt_log.warning_f "Caught signal %s, cleaning up" name >>= fun () ->
       (* First we have to close the open file descriptors corresponding to the
          VDIs we plugged to dom0. Otherwise the VDI.unplug call would hang. *)
       ignore_exn_log_error "Caught exception while closing open block devices"

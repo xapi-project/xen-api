@@ -37,7 +37,7 @@ let vgpu_ready_timeout = ref 30.
 
 let varstored_ready_timeout = ref 30.
 
-let swtpm_ready_timeout = ref 60
+let swtpm_ready_timeout = ref Mtime.Span.(1 * min)
 
 let use_upstream_qemu = ref false
 
@@ -459,8 +459,11 @@ let main backend =
       ~rpc_fn ()
   in
   (* we need to catch this to make sure at_exit handlers are triggered. In
-     particuar, triggers for the bisect_ppx coverage profiling *)
-  let signal_handler n = debug "caught signal %d" n ; exit 0 in
+     particular, triggers for the bisect_ppx coverage profiling *)
+  let signal_handler n =
+    debug "caught signal %a" Debug.Pp.signal n ;
+    exit 0
+  in
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
   Sys.set_signal Sys.sigterm (Sys.Signal_handle signal_handler) ;
   Xenops_utils.set_fs_backend

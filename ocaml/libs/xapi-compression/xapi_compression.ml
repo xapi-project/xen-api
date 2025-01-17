@@ -123,7 +123,6 @@ module Make (Algorithm : ALGORITHM) = struct
           error "%s" msg ; failwith msg
         in
         Unixfd.safe_close close_later ;
-        let open Xapi_stdext_unix in
         match snd (Forkhelpers.waitpid pid) with
         | Unix.WEXITED 0 ->
             ()
@@ -131,14 +130,10 @@ module Make (Algorithm : ALGORITHM) = struct
             failwith_error (Printf.sprintf "exit code %d" i)
         | Unix.WSIGNALED i ->
             failwith_error
-              (Printf.sprintf "killed by signal: %s"
-                 (Unixext.string_of_signal i)
-              )
+              (Printf.sprintf "killed by signal: %a" Debug.Pp.signal i)
         | Unix.WSTOPPED i ->
             failwith_error
-              (Printf.sprintf "stopped by signal: %s"
-                 (Unixext.string_of_signal i)
-              )
+              (Printf.sprintf "stopped by signal: %a" Debug.Pp.signal i)
       )
 
   let compress fd f = go Compress Active fd f

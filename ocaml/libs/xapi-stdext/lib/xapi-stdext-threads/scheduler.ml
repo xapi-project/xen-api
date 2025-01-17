@@ -36,8 +36,7 @@ let lock = Mutex.create ()
 module Clock = struct
   let span s = Mtime.Span.of_uint64_ns (Int64.of_float (s *. 1e9))
 
-  let span_to_s span =
-    Mtime.Span.to_uint64_ns span |> Int64.to_float |> fun ns -> ns /. 1e9
+  let span_to_s span = Mtime.Span.to_float_ns span |> fun ns -> ns /. 1e9
 
   let add_span clock secs =
     (* return mix or max available value if the add overflows *)

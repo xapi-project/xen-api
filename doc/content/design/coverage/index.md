@@ -8,7 +8,7 @@ revision: 2
 
 We would like to add optional coverage profiling to existing [OCaml]
 projects in the context of [XenServer] and [XenAPI]. This article
-presents how we do it. 
+presents how we do it.
 
 Binaries instrumented for coverage profiling in the XenServer project
 need to run in an environment where several services act together as
@@ -21,7 +21,7 @@ isolation.
 To build binaries with coverage profiling, do:
 
     ./configure --enable-coverage
-    make 
+    make
 
 Binaries will log coverage data to `/tmp/bisect*.out` from which a
 coverage report can be generated in `coverage/`:
@@ -38,7 +38,7 @@ and logs during execution data to in-memory data structures. Before an
 instrumented binary terminates, it writes the logged data to a file.
 This data can then be analysed with the `bisect-ppx-report` tool, to
 produce a summary of annotated code that highlights what part of a
-codebase was executed. 
+codebase was executed.
 
 [BisectPPX] has several desirable properties:
 
@@ -65,13 +65,13 @@ abstracted by OCamlfind (OCaml's library manager) and OCamlbuild
 
     # build it with instrumentation from bisect_ppx
     ocamlbuild -use-ocamlfind -pkg bisect_ppx -pkg unix example.native
-    
+
     # execute it - generates files ./bisect*.out
     ./example.native
-    
+
     # generate report
     bisect-ppx-report -I _build -html coverage bisect000*
-    
+
     # view coverage/index.html
 
     Summary:
@@ -86,7 +86,7 @@ will be instrumented during compilation. Behind the scenes `ocamlfind`
 makes sure that the compiler uses a preprocessing step that instruments
 the code.
 
-## Signal Handling 
+## Signal Handling
 
 During execution the code instrumentation leads to the collection of
 data. This code registers a function with `at_exit` that writes the data
@@ -98,7 +98,7 @@ terminated by receiving the `TERM` signal, a signal handler must be
 installed:
 
     let stop signal =
-      printf "caught signal %d\n" signal;
+      printf "caught signal %a\n" Debug.Pp.signal signal;
       exit 0
 
     Sys.set_signal Sys.sigterm (Sys.Signal_handle stop)
@@ -149,8 +149,8 @@ environment variable. This can happen on the command line:
 
     BISECT_FILE=/tmp/example ./example.native
 
-In the context of XenServer we could do this in startup scripts. 
-However, we added a bit of code 
+In the context of XenServer we could do this in startup scripts.
+However, we added a bit of code
 
     val Coverage.init: string -> unit
 
@@ -176,12 +176,12 @@ Goals for instrumentation are:
 
 * what files are instrumented should be obvious and easy to manage
 * instrumentation must be optional, yet easy to activate
-* avoid methods that require to keep several files in sync like multiple 
+* avoid methods that require to keep several files in sync like multiple
   `_oasis` files
 * avoid separate Git branches for instrumented and non-instrumented
   code
 
-In the ideal case, we could introduce a configuration switch 
+In the ideal case, we could introduce a configuration switch
 `./configure --enable-coverage` that would prepare compilation for
 coverage instrumentation. While [Oasis] supports the creation of such
 switches, they cannot be used to control build dependencies like
@@ -196,7 +196,7 @@ rules in file `_tags.coverage` that cause files to be instrumented:
 
 leads to the execution of this code during preparation:
 
-    coverage: _tags _tags.coverage 
+    coverage: _tags _tags.coverage
       test ! -f _tags.orig && mv _tags _tags.orig || true
       cat _tags.coverage _tags.orig > _tags
 
@@ -207,7 +207,7 @@ could be tweaked to instrument only some files:
     <**/*.native>:   pkg_bisect_ppx
 
 When `make coverage` is not called, these rules are not active and
-hence, code is not instrumented for coverage. We believe that this 
+hence, code is not instrumented for coverage. We believe that this
 solution to control instrumentation meets the goals from above. In
 particular, what files are instrumented and when is controlled by very
 few lines of declarative code that lives in the main repository of a
@@ -226,14 +226,14 @@ coverage analysis are:
 The `_oasis` file bundles the files under `profiling/` into an internal
 library which executables then depend on:
 
-		# Support files for profiling 
+		# Support files for profiling
 		Library profiling
 			CompiledObject:     best
 			Path:               profiling
 			Install:            false
 			Findlibname:        profiling
 			Modules:            Coverage
-			BuildDepends: 
+			BuildDepends:
 
 		Executable set_domain_uuid
 			CompiledObject:     best
@@ -243,8 +243,8 @@ library which executables then depend on:
 			MainIs:             set_domain_uuid.ml
 			Install:            false
 			BuildDepends:
-				xenctrl, 
-				uuidm, 
+				xenctrl,
+				uuidm,
 				cmdliner,
 				profiling			# <-- here
 
@@ -252,7 +252,7 @@ The `Makefile` target `coverage` primes the project for a profiling build:
 
 		# make coverage - prepares for building with coverage analysis
 
-		coverage: _tags _tags.coverage 
+		coverage: _tags _tags.coverage
 			test ! -f _tags.orig && mv _tags _tags.orig || true
 			cat _tags.coverage _tags.orig > _tags
 

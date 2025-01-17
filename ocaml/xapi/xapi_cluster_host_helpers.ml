@@ -106,3 +106,17 @@ let with_cluster_host_operation ~__context ~(self : [`Cluster_host] API.Ref.t)
           (Datamodel_common._cluster_host, Ref.string_of self)
       with _ -> ()
   )
+
+let get_cluster_host_address ~__context ~ip_addr ~hostuuid ~hostname =
+  let open Ipaddr_rpc_type in
+  if Xapi_cluster_helpers.cluster_address_enabled ~__context then
+    Cluster_interface.(
+      Extended
+        {
+          ip= Ipaddr.of_string_exn (ipstr_of_address ip_addr)
+        ; hostuuid
+        ; hostname
+        }
+    )
+  else
+    Cluster_interface.(IPv4 (ipstr_of_address ip_addr))

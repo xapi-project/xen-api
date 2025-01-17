@@ -398,10 +398,11 @@ let with_local_repositories ~__context f =
     with Pool_role.This_host_is_a_master ->
       Option.get (Helpers.get_management_ip_addr ~__context)
   in
-  Stunnel.with_client_proxy ~verify_cert:(Stunnel_client.pool ())
-    ~remote_host:master_addr ~remote_port:Constants.default_ssl_port
-    ~local_host:"127.0.0.1"
+  Stunnel.with_client_proxy_systemd_service
+    ~verify_cert:(Stunnel_client.pool ()) ~remote_host:master_addr
+    ~remote_port:Constants.default_ssl_port ~local_host:"127.0.0.1"
     ~local_port:!Xapi_globs.local_yum_repo_port
+    ~service:"stunnel_proxy_for_update_client"
   @@ fun () ->
   let enabled = get_enabled_repositories ~__context in
   Xapi_stdext_pervasives.Pervasiveext.finally

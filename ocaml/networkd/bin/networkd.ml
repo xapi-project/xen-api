@@ -105,8 +105,14 @@ let options =
     , "Path to the Unix command dracut"
     )
   ; ( "dracut-timeout"
-    , Arg.Set_float Network_utils.dracut_timeout
-    , (fun () -> string_of_float !Network_utils.dracut_timeout)
+    , Arg.Float
+        (fun x ->
+          let x = Float.to_int (x *. 1000.) in
+          Network_utils.dracut_timeout := Mtime.Span.(x * ms)
+        )
+    , (fun () ->
+        Float.to_string (Clock.Timer.span_to_s !Network_utils.dracut_timeout)
+      )
     , "Default value for the dracut command timeout"
     )
   ; ( "modinfo-cmd-path"
