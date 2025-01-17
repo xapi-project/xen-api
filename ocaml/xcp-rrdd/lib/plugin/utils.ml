@@ -63,8 +63,8 @@ let exec_cmd (module D : Debug.DEBUG) ~cmdstring ~(f : string -> 'a option) =
   | Unix.WEXITED n ->
       D.debug "Process %d exited normally with code %d" pid n
   | Unix.WSIGNALED s ->
-      D.debug "Process %d was killed by signal %d" pid s
+      D.debug "Process %d was killed by signal %a" pid Debug.Pp.signal s
   | Unix.WSTOPPED s ->
-      D.debug "Process %d was stopped by signal %d" pid s
+      D.debug "Process %d was stopped by signal %a" pid Debug.Pp.signal s
   ) ;
   List.rev !vals

@@ -91,4 +91,8 @@ val is_disabled : string -> Syslog.level -> bool
 
 module Pp : sig
   val mtime_span : unit -> Mtime.Span.t -> string
+
+  val signal : unit -> int -> string
+  (** signal pretty-prints an ocaml signal number as its POSIX name, see
+      {Fmt.Dump.signal} *)
 end

@@ -249,6 +249,7 @@ type vm_export_import = {
   ; dry_run: bool
   ; live: bool
   ; send_snapshots: bool
+  ; check_cpu: bool
 }
 
 (* Copy VM metadata to a remote pool *)
@@ -269,11 +270,12 @@ let remote_metadata_export_import ~__context ~rpc ~session_id ~remote_address
       match which with
       | `All ->
           []
-      | `Only {live; dry_run; send_snapshots; _} ->
+      | `Only {live; dry_run; send_snapshots; check_cpu; _} ->
           [
             Printf.sprintf "live=%b" live
           ; Printf.sprintf "dry_run=%b" dry_run
           ; Printf.sprintf "export_snapshots=%b" send_snapshots
+          ; Printf.sprintf "check_cpu=%b" check_cpu
           ]
     in
     let params = Printf.sprintf "restore=%b" restore :: params in

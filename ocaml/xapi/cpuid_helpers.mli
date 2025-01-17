@@ -16,11 +16,12 @@ val next_boot_cpu_features : __context:Context.t -> vm:[`VM] API.Ref.t -> string
 
 val assert_vm_is_compatible :
      __context:Context.t
-  -> vm:[`VM] API.Ref.t
+  -> vm:[`db of [`VM] API.Ref.t | `import of API.vM_t * API.domain_type]
   -> host:[`host] API.Ref.t
-  -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session] Ref.t
   -> unit
-  -> unit
+(** Checks whether the CPU vendor and features used by the VM are compatible
+    with the given host. The VM can be one that is currently in the DB, or a record
+    coming from a metadata import as used for cross-pool migration. *)
 
 val vendor : string Map_check.field
 
@@ -42,7 +43,6 @@ val features_hvm_host : [`host] Xenops_interface.CPU_policy.t Map_check.field
 
 val get_host_cpu_info :
      __context:Context.t
-  -> vm:[`VM] API.Ref.t
   -> host:[`host] API.Ref.t
   -> ?remote:(Rpc.call -> Rpc.response Client.Id.t) * [< `session] Ref.t
   -> unit

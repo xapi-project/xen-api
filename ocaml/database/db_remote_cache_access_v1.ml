@@ -102,6 +102,12 @@ module DBCacheRemoteListener = struct
           let s, e = unmarshall_db_get_by_uuid_args args in
           success
             (marshall_db_get_by_uuid_response (DBCache.db_get_by_uuid t s e))
+      | "db_get_by_uuid_opt" ->
+          let s, e = unmarshall_db_get_by_uuid_args args in
+          success
+            (marshall_db_get_by_uuid_opt_response
+               (DBCache.db_get_by_uuid_opt t s e)
+            )
       | "db_get_by_name_label" ->
           let s, e = unmarshall_db_get_by_name_label_args args in
           success

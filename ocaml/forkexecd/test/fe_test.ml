@@ -115,12 +115,6 @@ let one fds x =
     :: string_of_int (fds - (x.max_extra - number_of_extra))
     :: shuffle cmdline_names
   in
-  (* Printf.fprintf stderr "stdin = %s\n" (if x.stdin then "Some" else "None");
-     Printf.fprintf stderr "stdout = %s\n" (if x.stdout then "Some" else "None");
-     Printf.fprintf stderr "stderr = %s\n" (if x.stderr then "Some" else "None");
-     List.iter (fun (uuid, _) -> Printf.fprintf stderr "uuid %s -> stdin\n" uuid) table;
-     Printf.fprintf stderr "%s %s\n" exe (String.concat " " args);
-  *)
   Forkhelpers.waitpid_fail_if_bad_exit
     (Forkhelpers.safe_close_and_exec
        (if x.stdin then Some fd else None)
@@ -129,26 +123,43 @@ let one fds x =
        table exe args
     )
 
+type in_range = In_range | Longer | Shorter
+
+let in_range ~e:leeway ~around span =
+  let upper = Mtime.Span.add around leeway in
+  if Clock.Timer.span_is_shorter ~than:around span then
+    Shorter
+  else if Clock.Timer.span_is_longer ~than:upper span then
+    Longer
+  else
+    In_range
+
 let test_delay () =
-  let start = Unix.gettimeofday () in
+  let start = Mtime_clock.counter () in
   let args = ["sleep"] in
   (* Need to have fractional part because some internal usage split integer
      and fractional and do computation.
      Better to have a high fractional part (> 0.5) to more probably exceed
      the unit.
   *)
-  let timeout = 1.7 in
+  let timeout = Mtime.Span.(1700 * ms) in
   try
     Forkhelpers.execute_command_get_output ~timeout exe args |> ignore ;
     fail "Failed to timeout"
   with
-  | Forkhelpers.Subprocess_timeout ->
-      let elapsed = Unix.gettimeofday () -. start in
-      Printf.printf "Caught timeout exception after %f seconds\n%!" elapsed ;
-      if elapsed < timeout then
-        failwith "Process exited too soon" ;
-      if elapsed > timeout +. 0.2 then
-        failwith "Excessive time elapsed"
+  | Forkhelpers.Subprocess_timeout -> (
+      let elapsed = Mtime_clock.count start in
+      Printf.printf "Caught timeout exception after %s seconds\n%!"
+        Fmt.(to_to_string Mtime.Span.pp elapsed) ;
+
+      match in_range ~e:Mtime.Span.(200 * ms) ~around:timeout elapsed with
+      | In_range ->
+          ()
+      | Shorter ->
+          failwith "Process exited too soon"
+      | Longer ->
+          failwith "Process took too long to exit"
+    )
   | e ->
       fail "Failed with unexpected exception: %s" (Printexc.to_string e)
 
@@ -289,9 +300,6 @@ let slave = function
         )
         fds ;
       (* Check that we have the expected number *)
-      (*
-		  Printf.fprintf stderr "%s %d\n" total_fds (List.length present - 1)
-		*)
       if total_fds <> List.length filtered then
         fail "Expected %d fds; /proc/self/fd has %d: %s" total_fds
           (List.length filtered) ls

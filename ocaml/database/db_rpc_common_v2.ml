@@ -23,6 +23,7 @@ module Request = struct
     | Find_refs_with_filter of string * Db_filter_types.expr
     | Read_field_where of Db_cache_types.where_record
     | Db_get_by_uuid of string * string
+    | Db_get_by_uuid_opt of string * string
     | Db_get_by_name_label of string * string
     | Create_row of string * (string * string) list * string
     | Delete_row of string * string
@@ -59,6 +60,7 @@ module Response = struct
     | Find_refs_with_filter of string list
     | Read_field_where of string list
     | Db_get_by_uuid of string
+    | Db_get_by_uuid_opt of string option
     | Db_get_by_name_label of string list
     | Create_row of unit
     | Delete_row of unit
