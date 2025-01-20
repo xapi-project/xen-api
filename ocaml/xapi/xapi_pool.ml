@@ -3466,13 +3466,7 @@ let assert_single_repo_can_be_enabled ~__context ~repos =
   in
   match (repos, origins) with
   | _ :: _ :: _, _ :: _ ->
-      raise
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , origins |> List.map Record_util.origin_to_string
-            )
-        )
+      raise Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
   | _, _ ->
       ()
 

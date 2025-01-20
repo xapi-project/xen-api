@@ -41,34 +41,19 @@ let test_set_repositories () =
       Xapi_pool.set_repositories ~__context ~self ~value:[ref_bundle] ;
       Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote_pool] ;
       Alcotest.check_raises "test_set_repositories_1"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [Record_util.origin_to_string `bundle]
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self
             ~value:[ref_remote; ref_bundle]
         ) ;
       Alcotest.check_raises "test_set_repositories_2"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [`bundle; `remote_pool] |> List.map Record_util.origin_to_string
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self
             ~value:[ref_remote_pool; ref_bundle]
         ) ;
       Alcotest.check_raises "test_set_repositories_3"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [Record_util.origin_to_string `remote_pool]
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self
             ~value:[ref_remote; ref_remote_pool]
@@ -78,45 +63,25 @@ let test_set_repositories () =
 let test_add_repository () =
   on_repositories (fun __context self ref_remote ref_bundle ref_remote_pool ->
       Alcotest.check_raises "test_add_repository_1"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [Record_util.origin_to_string `bundle]
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote] ;
           Xapi_pool.add_repository ~__context ~self ~value:ref_bundle
         ) ;
       Alcotest.check_raises "test_add_repository_2"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [Record_util.origin_to_string `remote_pool]
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote] ;
           Xapi_pool.add_repository ~__context ~self ~value:ref_remote_pool
         ) ;
       Alcotest.check_raises "test_add_repository_3"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [`remote_pool; `bundle] |> List.map Record_util.origin_to_string
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote_pool] ;
           Xapi_pool.add_repository ~__context ~self ~value:ref_bundle
         ) ;
       Alcotest.check_raises "test_add_repository_4"
-        Api_errors.(
-          Server_error
-            ( repo_should_be_single_one_enabled
-            , [`bundle; `remote_pool] |> List.map Record_util.origin_to_string
-            )
-        )
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
         (fun () ->
           Xapi_pool.set_repositories ~__context ~self ~value:[ref_bundle] ;
           Xapi_pool.add_repository ~__context ~self ~value:ref_remote_pool
