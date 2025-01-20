@@ -400,7 +400,7 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
                    (Backend_error
                       ( Api_errors.sr_backend_failure
                       , [
-                          "received signal: " ^ Unixext.string_of_signal i
+                          Printf.sprintf "received signal: %a" Debug.Pp.signal i
                         ; output
                         ; log
                         ]
