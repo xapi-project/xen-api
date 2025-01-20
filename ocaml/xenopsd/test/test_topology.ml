@@ -8,7 +8,7 @@ let make_numa ~numa ~cores =
   in
   let cores_per_numa = cores / numa in
   let cpu_to_node = Array.init cores (fun core -> core / cores_per_numa) in
-  (cores, NUMA.make ~distances ~cpu_to_node)
+  (cores, Option.get (NUMA.make ~distances ~cpu_to_node))
 
 let make_numa_amd ~cores_per_numa =
   (* e.g. AMD Opteron 6272 *)
@@ -28,7 +28,7 @@ let make_numa_amd ~cores_per_numa =
   let cpu_to_node =
     Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
   in
-  (cores_per_numa * numa, NUMA.make ~distances ~cpu_to_node)
+  (cores_per_numa * numa, Option.get (NUMA.make ~distances ~cpu_to_node))
 
 type t = {worst: int; average: float; nodes: NUMA.node list; best: int}
 

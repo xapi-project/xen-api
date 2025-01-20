@@ -78,7 +78,7 @@ module NUMA : sig
   (** A NUMA node index. Distinct from an int to avoid mixing with CPU numbers *)
   type node = private Node of int
 
-  val make : distances:int array array -> cpu_to_node:int array -> t
+  val make : distances:int array array -> cpu_to_node:int array -> t option
   (** [make distances cpu_to_node] stores the topology. [distances] is a square
       matrix [d] where [d.(i).(j)] is an approximation to how much slower it is
       to access memory from node [j] when running on node [i]. Distances are
