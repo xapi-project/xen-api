@@ -189,30 +189,32 @@ module NUMA = struct
     Array.iteri
       (fun i node -> node_cpus.(node) <- CPUSet.add i node_cpus.(node))
       cpu_to_node ;
-    Array.iteri
-      (fun i row ->
-        let d = distances.(i).(i) in
-        if d <> 10 then
-          invalid_arg
-            (Printf.sprintf "NUMA distance from node to itself must be 10: %d" d) ;
-        Array.iteri
-          (fun _ d ->
-            if d < 10 then
-              invalid_arg (Printf.sprintf "NUMA distance must be >= 10: %d" d)
-          )
-          row
-      )
-      distances ;
-    let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
-    let candidates = gen_candidates distances in
-    {
+    let numa_matrix_is_reasonable =
       distances
-    ; cpu_to_node= Array.map node_of_int cpu_to_node
-    ; node_cpus
-    ; all
-    ; node_usage= Array.map (fun _ -> 0) distances
-    ; candidates
-    }
+      |> Array.to_seqi
+      |> Seq.for_all (fun (i, row) ->
+             let d = distances.(i).(i) in
+             d = 10 && Array.for_all (fun d -> d >= 10) row
+         )
+    in
+
+    if not numa_matrix_is_reasonable then (
+      D.info
+        "Not enabling NUMA: the ACPI SLIT table contains values that are \
+         invalid." ;
+      None
+    ) else
+      let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
+      let candidates = gen_candidates distances in
+      Some
+        {
+          distances
+        ; cpu_to_node= Array.map node_of_int cpu_to_node
+        ; node_cpus
+        ; all
+        ; node_usage= Array.map (fun _ -> 0) distances
+        ; candidates
+        }
 
   let distance t (Node a) (Node b) = t.distances.(a).(b)
 

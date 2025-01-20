@@ -8,7 +8,11 @@ let make_numa ~numa ~cores =
   in
   let cores_per_numa = cores / numa in
   let cpu_to_node = Array.init cores (fun core -> core / cores_per_numa) in
-  (cores, NUMA.make ~distances ~cpu_to_node)
+  match NUMA.make ~distances ~cpu_to_node with
+  | None ->
+      Alcotest.fail "Synthetic matrix can't fail to load"
+  | Some d ->
+      (cores, d)
 
 let make_numa_amd ~cores_per_numa =
   (* e.g. AMD Opteron 6272 *)
@@ -28,7 +32,20 @@ let make_numa_amd ~cores_per_numa =
   let cpu_to_node =
     Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
   in
-  (cores_per_numa * numa, NUMA.make ~distances ~cpu_to_node)
+  match NUMA.make ~distances ~cpu_to_node with
+  | None ->
+      Alcotest.fail "Synthetic matrix can't fail to load"
+  | Some d ->
+      (cores_per_numa * numa, d)
+
+let make_numa_unreachable ~cores_per_numa =
+  let numa = 2 in
+  (* 4294967295 is exactly (2ˆ32) - 1, meaning the node is unreachable *)
+  let distances = [|[|10; 4294967295|]; [|4294967295; 4294967295|]|] in
+  let cpu_to_node =
+    Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
+  in
+  NUMA.make ~distances ~cpu_to_node
 
 type t = {worst: int; average: float; nodes: NUMA.node list; best: int}
 
@@ -185,6 +202,18 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
 
 let () = Printexc.record_backtrace true
 
+let distances_spec =
+  let numa = Alcotest.testable NUMA.pp_dump ( = ) in
+  let unreachable ~cores_per_numa expected () =
+    let actual = make_numa_unreachable ~cores_per_numa in
+    Alcotest.(check @@ option numa) "oops" expected actual
+  in
+  [("unreachable_nodes, 1 cpu / node", unreachable ~cores_per_numa:1 None)]
+
+let test_distances (name, fn) = (name, `Quick, fn)
+
+let distances_tests = List.map test_distances distances_spec
+
 let suite =
   [
     ( "Allocation tests"
@@ -235,6 +264,7 @@ let suite =
         )
       ]
     )
+  ; ("Distance matrix tests", distances_tests)
   ]
 
 let () = Alcotest.run "Topology tests" suite
