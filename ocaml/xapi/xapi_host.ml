@@ -3089,6 +3089,9 @@ let apply_updates ~__context ~self ~hash =
   Db.Host.set_last_update_hash ~__context ~self ~value:hash ;
   warnings
 
+let rescan_drivers ~__context ~self =
+  Xapi_host_driver.scan ~__context ~host:self
+
 let cc_prep () =
   let cc = "CC_PREPARATIONS" in
   Xapi_inventory.lookup ~default:"false" cc |> String.lowercase_ascii

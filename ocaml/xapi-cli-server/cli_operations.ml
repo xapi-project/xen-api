@@ -29,6 +29,8 @@ open Records
 
 let failwith str = raise (Cli_util.Cli_failure str)
 
+let failwithfmt fmt = Printf.ksprintf failwith fmt
+
 exception ExitWithError of int
 
 let bool_of_string param string =
@@ -1319,6 +1321,37 @@ let gen_cmds rpc session_id =
           ; "up-to-date"
           ; "gpgkey-path"
           ; "origin"
+          ]
+          rpc session_id
+      )
+    ; Client.Driver_variant.(
+        mk get_all_records_where get_by_uuid driver_variant_record
+          "hostdriver-variant" []
+          [
+            "uuid"
+          ; "driver-name"
+          ; "name"
+          ; "version"
+          ; "priority"
+          ; "host-uuid"
+          ; "driver-uuid"
+          ; "active"
+          ; "selected"
+          ; "status"
+          ; "hw-present"
+          ]
+          rpc session_id
+      )
+    ; Client.Host_driver.(
+        mk get_all_records_where get_by_uuid host_driver_record "hostdriver" []
+          [
+            "uuid"
+          ; "name"
+          ; "host-uuid"
+          ; "active-variant"
+          ; "selected-variant"
+          ; "variants"
+          ; "variants-uuid"
           ]
           rpc session_id
       )
@@ -7952,6 +7985,52 @@ module Repository = struct
     let gpgkey_path = List.assoc "gpgkey-path" params in
     Client.Repository.set_gpgkey_path ~rpc ~session_id ~self:ref
       ~value:gpgkey_path
+end
+
+module Driver_variant = struct
+  let select _ rpc session_id params =
+    let uuid = List.assoc "uuid" params in
+    let self = Client.Driver_variant.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.Driver_variant.select ~rpc ~session_id ~self
+end
+
+module Host_driver = struct
+  let select _ rpc session_id params =
+    let driver_uuid = List.assoc "uuid" params in
+    let name = List.assoc "variant-name" params in
+    let driver =
+      Client.Host_driver.get_by_uuid ~rpc ~session_id ~uuid:driver_uuid
+    in
+    let by_name (_, variant) = variant.API.driver_variant_name = name in
+    let variants =
+      List.map
+        (fun self ->
+          (self, Client.Driver_variant.get_record ~rpc ~session_id ~self)
+        )
+        (Client.Host_driver.get_variants ~rpc ~session_id ~self:driver)
+    in
+
+    match List.find_opt by_name variants with
+    | None ->
+        failwithfmt "%s does not identify a variant of this driver" name
+    | Some (variant, _) ->
+        Client.Host_driver.select ~rpc ~session_id ~self:driver ~variant
+
+  let deselect _ rpc session_id params =
+    fail_without_force params ;
+    let uuid = List.assoc "uuid" params in
+    let self = Client.Host_driver.get_by_uuid ~rpc ~session_id ~uuid in
+    Client.Host_driver.deselect ~rpc ~session_id ~self
+
+  let rescan _printer rpc session_id params =
+    ignore
+      (do_host_op rpc session_id ~multiple:false
+         (fun _ host ->
+           let host = host.getref () in
+           Client.Host_driver.rescan ~rpc ~session_id ~host
+         )
+         params []
+      )
 end
 
 module VTPM = struct
