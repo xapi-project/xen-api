@@ -534,6 +534,11 @@
                 <description>A Failure occurred accessing an API object</description>
                 <value>153</value>
         </code>
+        <code>
+                <name>APIProtocolError</name>
+                <description>A protocol error was received when accessing the API</description>
+                <value>154</value>
+        </code>
 
         <!-- Netapp Specific Error codes -->
         <code>
