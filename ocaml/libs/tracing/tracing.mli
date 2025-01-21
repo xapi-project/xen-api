@@ -95,6 +95,10 @@ module TraceContext : sig
 
   val baggage_of : t -> baggage option
 
+  val parse : string -> baggage
+
+  val encode_baggage : t -> string option
+
   val to_json_string : t -> string
 
   val of_json_string : string -> (t, string) result
