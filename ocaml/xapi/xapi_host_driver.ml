@@ -21,6 +21,9 @@ module Tool = Xapi_host_driver_tool
 let invalid_value field value =
   raise Api_errors.(Server_error (invalid_value, [field; value]))
 
+let no_hardware driver_variant =
+  raise Api_errors.(Server_error (host_driver_no_hardware, [driver_variant]))
+
 module Variant = struct
   let create ~__context ~name ~version ~driver ~hw_present ~priority ~dev_status
       =
@@ -68,6 +71,8 @@ module Variant = struct
     let drv = Db.Driver_variant.get_driver ~__context ~self in
     let d = Db.Host_driver.get_record ~__context ~self:drv in
     let v = Db.Driver_variant.get_record ~__context ~self in
+    if v.API.driver_variant_hardware_present = false then
+      no_hardware (Ref.string_of self) ;
     let stdout =
       Tool.call ["select"; d.API.host_driver_name; v.API.driver_variant_name]
     in
@@ -133,6 +138,8 @@ let select ~__context ~self ~variant =
       D.debug "%s selecting driver %s variant %s" __FUNCTION__ drv var ;
       let d = Db.Host_driver.get_record ~__context ~self in
       let v = Db.Driver_variant.get_record ~__context ~self:variant in
+      if v.API.driver_variant_hardware_present = false then
+        no_hardware (Ref.string_of variant) ;
       let stdout =
         Tool.call ["select"; d.API.host_driver_name; v.API.driver_variant_name]
       in
