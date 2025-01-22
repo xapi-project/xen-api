@@ -248,11 +248,7 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
         "Connection to master died: time taken so far in this call '%f'; will \
          %s"
         time_sofar
-        ( if !connection_timeout < 0. then
-            "never timeout"
-          else
-            Printf.sprintf "timeout after '%f'" !connection_timeout
-        ) ;
+        (Printf.sprintf "timeout after '%f'" !connection_timeout) ;
     if time_sofar > !connection_timeout && !connection_timeout >= 0. then
       if !restart_on_connection_timeout then (
         debug "Exceeded timeout for retrying master connection: restarting xapi" ;
