@@ -1194,7 +1194,6 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
      We look at the VDIs of the VM, the VDIs of all of the snapshots, and any
      suspend-image VDIs. *)
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  let power_state = Db.VM.get_power_state ~__context ~self:vm in
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vifs = Db.VM.get_VIFs ~__context ~self:vm in
   let snapshots = Db.VM.get_snapshots ~__context ~self:vm in
@@ -1466,6 +1465,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
                 )
                 vgpu_map
             in
+            let power_state = Db.VM.get_power_state ~__context ~self:vm in
             inter_pool_metadata_transfer ~__context ~remote ~vm ~vdi_map
               ~vif_map ~vgpu_map ~dry_run:false ~live:true ~copy
               ~check_cpu:((not force) && power_state <> `Halted)
