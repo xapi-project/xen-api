@@ -186,51 +186,55 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
 let () = Printexc.record_backtrace true
 
 let suite =
-  ( "topology test"
-  , [
-      ( "Allocation of 1 VM on 1 node"
-      , `Quick
-      , test_allocate ~vms:1 @@ make_numa ~numa:1 ~cores:2
-      )
-    ; ( "Allocation of 10 VMs on 1 node"
-      , `Quick
-      , test_allocate ~vms:10 @@ make_numa ~numa:1 ~cores:8
-      )
-    ; ( "Allocation of 1 VM on 2 nodes"
-      , `Quick
-      , test_allocate ~vms:1 @@ make_numa ~numa:2 ~cores:4
-      )
-    ; ( "Allocation of 10 VM on 2 nodes"
-      , `Quick
-      , test_allocate ~vms:10 @@ make_numa ~numa:2 ~cores:4
-      )
-    ; ( "Allocation of 1 VM on 4 nodes"
-      , `Quick
-      , test_allocate ~vms:1 @@ make_numa ~numa:4 ~cores:16
-      )
-    ; ( "Allocation of 10 VM on 4 nodes"
-      , `Quick
-      , test_allocate ~vms:10 @@ make_numa ~numa:4 ~cores:16
-      )
-    ; ( "Allocation of 40 VM on 16 nodes"
-      , `Quick
-      , test_allocate ~vms:40 @@ make_numa ~numa:16 ~cores:256
-      )
-    ; ( "Allocation of 40 VM on 32 nodes"
-      , `Quick
-      , test_allocate ~vms:40 @@ make_numa ~numa:32 ~cores:256
-      )
-    ; ( "Allocation of 40 VM on 64 nodes"
-      , `Quick
-      , test_allocate ~vms:80 @@ make_numa ~numa:64 ~cores:256
-      )
-    ; ( "Allocation of 10 VM on assymetric nodes"
-      , `Quick
-      , test_allocate ~vms:10 (make_numa_amd ~cores_per_numa:4)
-      )
-    ; ( "Allocation of 10 VM on assymetric nodes"
-      , `Quick
-      , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4)
-      )
-    ]
-  )
+  [
+    ( "Allocation tests"
+    , [
+        ( "Allocation of 1 VM on 1 node"
+        , `Quick
+        , test_allocate ~vms:1 @@ make_numa ~numa:1 ~cores:2
+        )
+      ; ( "Allocation of 10 VMs on 1 node"
+        , `Quick
+        , test_allocate ~vms:10 @@ make_numa ~numa:1 ~cores:8
+        )
+      ; ( "Allocation of 1 VM on 2 nodes"
+        , `Quick
+        , test_allocate ~vms:1 @@ make_numa ~numa:2 ~cores:4
+        )
+      ; ( "Allocation of 10 VM on 2 nodes"
+        , `Quick
+        , test_allocate ~vms:10 @@ make_numa ~numa:2 ~cores:4
+        )
+      ; ( "Allocation of 1 VM on 4 nodes"
+        , `Quick
+        , test_allocate ~vms:1 @@ make_numa ~numa:4 ~cores:16
+        )
+      ; ( "Allocation of 10 VM on 4 nodes"
+        , `Quick
+        , test_allocate ~vms:10 @@ make_numa ~numa:4 ~cores:16
+        )
+      ; ( "Allocation of 40 VM on 16 nodes"
+        , `Quick
+        , test_allocate ~vms:40 @@ make_numa ~numa:16 ~cores:256
+        )
+      ; ( "Allocation of 40 VM on 32 nodes"
+        , `Quick
+        , test_allocate ~vms:40 @@ make_numa ~numa:32 ~cores:256
+        )
+      ; ( "Allocation of 40 VM on 64 nodes"
+        , `Quick
+        , test_allocate ~vms:80 @@ make_numa ~numa:64 ~cores:256
+        )
+      ; ( "Allocation of 10 VM on assymetric nodes"
+        , `Quick
+        , test_allocate ~vms:10 (make_numa_amd ~cores_per_numa:4)
+        )
+      ; ( "Allocation of 10 VM on assymetric nodes"
+        , `Quick
+        , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4)
+        )
+      ]
+    )
+  ]
+
+let () = Alcotest.run "Topology tests" suite
