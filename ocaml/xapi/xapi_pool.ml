@@ -849,7 +849,8 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
     let features_compatible coor_features candidate_features =
       (* The pool features must not be reduced or downgraded, although it is fine
          the other way around. *)
-      Smint.compat_features coor_features candidate_features = coor_features
+      Smint.Feature.compat_features coor_features candidate_features
+      = coor_features
     in
     let pool_sms = Client.SM.get_all_records ~rpc ~session_id in
     List.iter
@@ -3156,8 +3157,10 @@ let enable_local_storage_caching ~__context ~self:_ =
       (fun (_, _, srrec) ->
         (not srrec.API.sR_shared)
         && List.length srrec.API.sR_PBDs = 1
-        && List.mem_assoc Smint.Sr_supports_local_caching
-             (Sm.features_of_driver srrec.API.sR_type)
+        && Smint.Feature.(
+             has_capability Sr_supports_local_caching
+               (Sm.features_of_driver srrec.API.sR_type)
+           )
       )
       hosts_and_srs
   in

@@ -65,6 +65,10 @@ let sni = ref None
 
 let cert_bundle_path = ref None
 
+let dest_proto = ref None
+
+let nbd_export = ref ""
+
 let string_opt = function None -> "None" | Some x -> x
 
 let machine_readable_progress = ref false
@@ -157,6 +161,16 @@ let options =
     , Arg.String (fun x -> cert_bundle_path := Some x)
     , (fun () -> string_opt !cert_bundle_path)
     , "path to a CA certificate bundle"
+    )
+  ; ( "dest-proto"
+    , Arg.String (fun x -> dest_proto := Some x)
+    , (fun () -> string_opt !dest_proto)
+    , "destination protocol to be used for copying the disk"
+    )
+  ; ( "nbd-export"
+    , Arg.String (fun x -> nbd_export := x)
+    , (fun () -> !nbd_export)
+    , "nbd export name to be used, only useful when dest-proto is nbd"
     )
   ]
 
@@ -288,6 +302,15 @@ let _ =
     debug "Must have -size argument\n" ;
     exit 1
   ) ;
+  let dest_proto =
+    match !dest_proto with
+    | Some "nbd" ->
+        Some (StreamCommon.Nbd !nbd_export)
+    | Some x ->
+        Some (StreamCommon.protocol_of_string x)
+    | None ->
+        None
+  in
   let size = !size in
   let base = !base in
   (* Helper function to bring an int into valid range *)
@@ -485,7 +508,7 @@ let _ =
   in
   let t =
     stream_t >>= fun s ->
-    Impl.write_stream common s destination None !prezeroed progress None
+    Impl.write_stream common s destination dest_proto !prezeroed progress None
       !good_ciphersuites verify_cert
   in
   if destination_format = "vhd" then
