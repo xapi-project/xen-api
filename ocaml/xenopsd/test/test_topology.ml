@@ -2,50 +2,67 @@ open Topology
 
 module D = Debug.Make (struct let name = "test_topology" end)
 
-let make_numa ~numa ~cores =
-  let distances =
-    Array.init numa (fun i -> Array.init numa (fun j -> 10 + (11 * abs (j - i))))
+module Distances = struct
+  type t = int * int array array
+
+  let example numa : t =
+    let distances =
+      Array.init numa (fun i ->
+          Array.init numa (fun j -> 10 + (11 * abs (j - i)))
+      )
+    in
+    (numa, distances)
+
+  let opteron : t =
+    (* e.g. AMD Opteron 6272 *)
+    let numa = 8 in
+    let distances =
+      [|
+         [|10; 16; 16; 22; 16; 22; 16; 22|]
+       ; [|16; 10; 22; 16; 16; 22; 22; 16|]
+       ; [|16; 22; 10; 16; 16; 16; 16; 16|]
+       ; [|22; 16; 16; 10; 16; 16; 22; 22|]
+       ; [|16; 16; 16; 16; 10; 16; 16; 22|]
+       ; [|22; 22; 16; 16; 16; 10; 22; 16|]
+       ; [|16; 22; 16; 22; 16; 22; 10; 16|]
+       ; [|22; 16; 16; 22; 22; 16; 16; 10|]
+      |]
+    in
+    (numa, distances)
+
+  let unreachable : t =
+    let numa = 2 in
+    (* 4294967295 is exactly (2ˆ32) - 1, meaning the node is unreachable *)
+    let distances = [|[|10; 4294967295|]; [|4294967295; 4294967295|]|] in
+    (numa, distances)
+end
+
+let make_numa_common ~cores_per_numa (distances : Distances.t) =
+  let numa, distances = distances in
+  let cpu_to_node =
+    Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
   in
+  Option.map
+    (fun d -> (cores_per_numa * numa, d))
+    (NUMA.make ~distances ~cpu_to_node)
+
+let make_numa ~numa ~cores =
   let cores_per_numa = cores / numa in
-  let cpu_to_node = Array.init cores (fun core -> core / cores_per_numa) in
-  match NUMA.make ~distances ~cpu_to_node with
+  match make_numa_common ~cores_per_numa (Distances.example numa) with
   | None ->
       Alcotest.fail "Synthetic matrix can't fail to load"
   | Some d ->
-      (cores, d)
+      d
 
 let make_numa_amd ~cores_per_numa =
-  (* e.g. AMD Opteron 6272 *)
-  let numa = 8 in
-  let distances =
-    [|
-       [|10; 16; 16; 22; 16; 22; 16; 22|]
-     ; [|16; 10; 22; 16; 16; 22; 22; 16|]
-     ; [|16; 22; 10; 16; 16; 16; 16; 16|]
-     ; [|22; 16; 16; 10; 16; 16; 22; 22|]
-     ; [|16; 16; 16; 16; 10; 16; 16; 22|]
-     ; [|22; 22; 16; 16; 16; 10; 22; 16|]
-     ; [|16; 22; 16; 22; 16; 22; 10; 16|]
-     ; [|22; 16; 16; 22; 22; 16; 16; 10|]
-    |]
-  in
-  let cpu_to_node =
-    Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
-  in
-  match NUMA.make ~distances ~cpu_to_node with
+  match make_numa_common ~cores_per_numa Distances.opteron with
   | None ->
       Alcotest.fail "Synthetic matrix can't fail to load"
   | Some d ->
-      (cores_per_numa * numa, d)
+      d
 
 let make_numa_unreachable ~cores_per_numa =
-  let numa = 2 in
-  (* 4294967295 is exactly (2ˆ32) - 1, meaning the node is unreachable *)
-  let distances = [|[|10; 4294967295|]; [|4294967295; 4294967295|]|] in
-  let cpu_to_node =
-    Array.init (cores_per_numa * numa) (fun core -> core / cores_per_numa)
-  in
-  NUMA.make ~distances ~cpu_to_node
+  make_numa_common ~cores_per_numa Distances.unreachable
 
 type t = {worst: int; average: float; nodes: NUMA.node list; best: int}
 
@@ -202,69 +219,61 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
 
 let () = Printexc.record_backtrace true
 
-let distances_spec =
-  let numa = Alcotest.testable NUMA.pp_dump ( = ) in
-  let unreachable ~cores_per_numa expected () =
-    let actual = make_numa_unreachable ~cores_per_numa in
-    Alcotest.(check @@ option numa) "oops" expected actual
+let symmetric_specs =
+  let make ~vms ~numa ~cores =
+    let name =
+      Printf.sprintf "Allocation of %d VM(s) on %d node(s), %d cores" vms numa
+        cores
+    in
+    (name, vms, None, make_numa ~numa ~cores)
   in
-  [("unreachable_nodes, 1 cpu / node", unreachable ~cores_per_numa:1 None)]
-
-let test_distances (name, fn) = (name, `Quick, fn)
-
-let distances_tests = List.map test_distances distances_spec
-
-let suite =
   [
-    ( "Allocation tests"
-    , [
-        ( "Allocation of 1 VM on 1 node"
-        , `Quick
-        , test_allocate ~vms:1 @@ make_numa ~numa:1 ~cores:2
-        )
-      ; ( "Allocation of 10 VMs on 1 node"
-        , `Quick
-        , test_allocate ~vms:10 @@ make_numa ~numa:1 ~cores:8
-        )
-      ; ( "Allocation of 1 VM on 2 nodes"
-        , `Quick
-        , test_allocate ~vms:1 @@ make_numa ~numa:2 ~cores:4
-        )
-      ; ( "Allocation of 10 VM on 2 nodes"
-        , `Quick
-        , test_allocate ~vms:10 @@ make_numa ~numa:2 ~cores:4
-        )
-      ; ( "Allocation of 1 VM on 4 nodes"
-        , `Quick
-        , test_allocate ~vms:1 @@ make_numa ~numa:4 ~cores:16
-        )
-      ; ( "Allocation of 10 VM on 4 nodes"
-        , `Quick
-        , test_allocate ~vms:10 @@ make_numa ~numa:4 ~cores:16
-        )
-      ; ( "Allocation of 40 VM on 16 nodes"
-        , `Quick
-        , test_allocate ~vms:40 @@ make_numa ~numa:16 ~cores:256
-        )
-      ; ( "Allocation of 40 VM on 32 nodes"
-        , `Quick
-        , test_allocate ~vms:40 @@ make_numa ~numa:32 ~cores:256
-        )
-      ; ( "Allocation of 40 VM on 64 nodes"
-        , `Quick
-        , test_allocate ~vms:80 @@ make_numa ~numa:64 ~cores:256
-        )
-      ; ( "Allocation of 10 VM on assymetric nodes"
-        , `Quick
-        , test_allocate ~vms:10 (make_numa_amd ~cores_per_numa:4)
-        )
-      ; ( "Allocation of 10 VM on assymetric nodes"
-        , `Quick
-        , test_allocate ~vms:6 ~mem:mem3 (make_numa_amd ~cores_per_numa:4)
-        )
-      ]
-    )
-  ; ("Distance matrix tests", distances_tests)
+    make ~vms:1 ~numa:1 ~cores:2
+  ; make ~vms:10 ~numa:1 ~cores:8
+  ; make ~vms:1 ~numa:2 ~cores:4
+  ; make ~vms:10 ~numa:2 ~cores:4
+  ; make ~vms:1 ~numa:4 ~cores:16
+  ; make ~vms:10 ~numa:4 ~cores:16
+  ; make ~vms:40 ~numa:16 ~cores:256
+  ; make ~vms:40 ~numa:32 ~cores:256
+  ; make ~vms:80 ~numa:64 ~cores:256
+  ; make ~vms:10 ~numa:1 ~cores:8
+  ; make ~vms:10 ~numa:1 ~cores:8
   ]
 
-let () = Alcotest.run "Topology tests" suite
+let amd_specs =
+  let make ~vms ~cores_per_numa ?mem () =
+    let name =
+      Printf.sprintf
+        "Allocation of %d VM(s) on asymmetric nodes, %d cores per node" vms
+        cores_per_numa
+    in
+    (name, vms, mem, make_numa_amd ~cores_per_numa)
+  in
+  [
+    make ~vms:10 ~cores_per_numa:4 (); make ~vms:6 ~mem:mem3 ~cores_per_numa:4 ()
+  ]
+
+let allocate_tests =
+  let test (name, vms, mem, spec) =
+    (name, `Quick, test_allocate ~vms ?mem spec)
+  in
+  ("VM Allocation", List.map test (symmetric_specs @ amd_specs))
+
+let distances_tests =
+  let numa = Alcotest.testable NUMA.pp_dump ( = ) in
+  let unreachable ~cores_per_numa =
+    let name =
+      Printf.sprintf "A node is unreachable, %d cores per node" cores_per_numa
+    in
+    let test () =
+      let actual = make_numa_unreachable ~cores_per_numa in
+      Alcotest.(check @@ option @@ pair int numa)
+        "NUMA object must match" None actual
+    in
+    (name, `Quick, test)
+  in
+
+  ("Distance matrices", [unreachable ~cores_per_numa:1])
+
+let () = Alcotest.run "Topology" [allocate_tests; distances_tests]
