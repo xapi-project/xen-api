@@ -146,6 +146,8 @@ module Span : sig
   val get_end_time : t -> float option
 
   val get_attributes : t -> (string * string) list
+
+  val with_trace_context : t -> TraceContext.t -> t
 end
 
 module TraceMap : module type of Map.Make (Trace_id)

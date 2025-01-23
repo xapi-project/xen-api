@@ -337,7 +337,20 @@ let start_tracing_helper ?(span_attributes = []) parent_fn task_name =
       ~parent ()
   with
   | Ok x ->
-      x
+      Option.map
+        (fun span ->
+          let traceparent =
+            span |> Span.get_context |> SpanContext.to_traceparent
+          in
+          let trace_context =
+            span
+            |> Span.get_context
+            |> SpanContext.context_of_span_context
+            |> TraceContext.with_traceparent (Some traceparent)
+          in
+          Span.with_trace_context span trace_context
+        )
+        x
   | Error e ->
       R.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
       None

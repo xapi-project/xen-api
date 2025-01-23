@@ -418,6 +418,12 @@ module Span = struct
         {span with status= {status_code; _description}}
     | _ ->
         span
+
+  let with_trace_context span trace_context =
+    let span_context =
+      span |> get_context |> SpanContext.with_trace_context trace_context
+    in
+    {span with context= span_context}
 end
 
 module TraceMap = Map.Make (Trace_id)
