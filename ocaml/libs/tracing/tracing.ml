@@ -425,6 +425,12 @@ module Span = struct
     |> get_context
     |> SpanContext.context_of_span_context
     |> TraceContext.with_traceparent (Some traceparent)
+
+  let with_trace_context span trace_context =
+    let span_context =
+      span |> get_context |> SpanContext.with_trace_context trace_context
+    in
+    {span with context= span_context}
 end
 
 module TraceMap = Map.Make (Trace_id)

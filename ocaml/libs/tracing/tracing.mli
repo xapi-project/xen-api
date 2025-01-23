@@ -148,6 +148,8 @@ module Span : sig
   val get_attributes : t -> (string * string) list
 
   val to_propagation_context : t -> TraceContext.t
+
+  val with_trace_context : t -> TraceContext.t -> t
 end
 
 module TraceMap : module type of Map.Make (Trace_id)
