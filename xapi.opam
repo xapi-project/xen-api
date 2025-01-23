@@ -86,6 +86,7 @@ depends: [
   "xapi-tracing" {= version}
   "xapi-tracing-export" {= version}
   "xapi-types" {= version}
+  "xen-api-client-lwt" {= version}
   "xenctrl"
   "xenstore_transport"
   "xmlm"

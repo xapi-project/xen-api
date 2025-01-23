@@ -58,6 +58,7 @@ depends: [
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
   "xen-api-client"
+  "xen-api-client-lwt"
   "xenctrl"
   "xenstore_transport"
   "xmlm"

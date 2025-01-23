@@ -271,6 +271,7 @@
     xapi-stdext-pervasives
     xapi-stdext-unix
     xen-api-client
+    xen-api-client-lwt
     xenctrl
     xenstore_transport
     xmlm
@@ -396,6 +397,7 @@
     (xapi-tracing (= :version))
     (xapi-tracing-export (= :version))
     (xapi-types (= :version))
+    (xen-api-client-lwt (= :version))
     xenctrl ; for quicktest
     xenstore_transport
     xmlm
