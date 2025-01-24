@@ -25,7 +25,7 @@ We propose to:
   this should reduce the number of RPCs across the network.
 
 In a later phase we can move to a completely
-[distributed database](../distributed-database).
+[distributed database](distributed-database/index).
 
 Replicating the database
 ------------------------

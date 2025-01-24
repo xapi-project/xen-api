@@ -179,5 +179,5 @@ Yet other commands do not actually do any XenAPI calls, but instead get "helpful
 
 The following tutorials show how to extend the CLI (and XenAPI):
 
--   [Adding a field]({{< relref "../guides/howtos/add-field.md" >}})
--   [Adding an operation]({{< relref "../guides/howtos/add-function.md" >}})
+-   [Adding a field](../guides/howtos/add-field)
+-   [Adding a function](../guides/howtos/add-function)
