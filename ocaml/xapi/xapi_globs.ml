@@ -935,7 +935,7 @@ let depmod = ref "/usr/sbin/depmod"
 
 let driver_tool = ref "/opt/xensource/debug/drivertool.sh"
 
-let dracut = ref "/usr/sbin/dracut"
+let dracut = ref "/usr/bin/dracut"
 
 let udevadm = ref "/usr/sbin/udevadm"
 
