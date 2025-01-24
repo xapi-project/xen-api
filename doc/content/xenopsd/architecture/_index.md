@@ -17,7 +17,7 @@ Managing a VM means:
 - providing updates to clients when things change (reboots, console becomes
   available, guest agent says something etc).
 
-For a full list of features, consult the [features list](features.html).
+For a full list of features, consult the [feature list](../features).
 
 Each Xenopsd instance has a unique name on the host. A typical name is
 
