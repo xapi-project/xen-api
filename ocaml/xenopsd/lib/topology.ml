@@ -158,18 +158,22 @@ module NUMA = struct
   let node_of_int i = Node i
 
   let node_distances d nodes =
-    let dists =
-      nodes |> Seq.flat_map (fun n1 -> nodes |> Seq.map (fun n2 -> d.(n1).(n2)))
-    in
-    let count, max_dist, sum_dist =
-      Seq.fold_left
-        (fun (count, maxv, sum) e -> (count + 1, max maxv e, sum + e))
-        (0, min_int, 0) dists
-    in
-    (* We want to minimize maximum distance first, and average distance next.
-       When running the VM we don't know which pCPU it'll end up using, and want
-       to limit the worst case performance. *)
-    ((max_dist, float sum_dist /. float count), nodes)
+    if Seq.is_empty nodes then
+      None
+    else
+      let dists =
+        nodes
+        |> Seq.flat_map (fun n1 -> nodes |> Seq.map (fun n2 -> d.(n1).(n2)))
+      in
+      let count, max_dist, sum_dist =
+        Seq.fold_left
+          (fun (count, maxv, sum) e -> (count + 1, max maxv e, sum + e))
+          (0, min_int, 0) dists
+      in
+      (* We want to minimize maximum distance first, and average distance next.
+         When running the VM we don't know which pCPU it'll end up using, and want
+         to limit the worst case performance. *)
+      Some ((max_dist, float sum_dist /. float count), nodes)
 
   let dist_cmp (a1, _) (b1, _) = compare a1 b1
 
@@ -207,7 +211,7 @@ module NUMA = struct
       else
         valid_nodes
         |> seq_all_subsets
-        |> Seq.map (node_distances d)
+        |> Seq.filter_map (node_distances d)
         |> seq_append single_nodes
     in
     nodes
