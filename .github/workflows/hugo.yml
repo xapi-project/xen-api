@@ -2,12 +2,16 @@ name: Generate and upload Hugo docs
 
 on:
   push:
-    branches: master
+    paths:
+      - 'doc/**'
+      - '.github/workflows/hugo.yml'
 
 jobs:
-  ocaml:
+  hugo:
     name: Docs
     runs-on: ubuntu-22.04
+    outputs:
+      preview: ${{ steps.preview.outputs.done }}  # Set to true if the preview job runs
 
     steps:
       - name: Checkout code
@@ -24,7 +28,14 @@ jobs:
           hugo --minify
 
       - name: Deploy
+        # Only run this deploy step on the main xapi repo and only the master branch:
+        if: |
+          github.repository == 'xapi-project/xen-api' &&
+          github.ref == 'refs/heads/master'
         uses: peaceiris/actions-gh-pages@v4
+        # The deploy key used for deployment to https://xenapi-project.github.io
+        # It is stored in the repository's secrets and is used to push the built
+        # documentation. This step skips deployment if it is not set on a clone.
         with:
           deploy_key: ${{ secrets.ACTIONS_DOCS_DEPLOY_KEY }}
           publish_dir: ./doc/public
@@ -35,3 +46,69 @@ jobs:
           destination_dir: new-docs # temporary staging branch
           allow_empty_commit: false
           enable_jekyll: true # do not create .nojekyll file
+
+      # To preview Hugo docs online on GitHub Pages of forks, the steps below are needed.
+      # When not enabled, the preview jobs below are skipped:
+      #
+      # On https://github.com/[user|organisation]/[repo-name]/settings/pages,
+      # change the deployment source of the fork to "GitHub Pages"
+      #
+      # On https://github.com/[user|organisation]/[repo-name]/settings/environments,
+      # make sure the environment 'github-pages' exists and in it, at "Deployment branches and tags"
+      # add a wildcard rule that allows deployment from the branches you like to allow
+      # or the rule can be set to "No restriction" to allow deployment from any branch.
+      #
+      # Finally, add a variable named PREVIEW_HUGO_DOCS with the value 'true' to the
+      # repository's variables (or to its secets) to enable the preview jobs below:
+      # https://github.com/[user|organisation]/[repo-name]/settings/variables/actions
+
+      - name: If vars.PREVIEW_HUGO_DOCS is true, enable github pages for the preview
+        if: ${{ vars.PREVIEW_HUGO_DOCS == 'true' }}  # Only runs if set by the admin
+        id: configure-pages
+        with:
+          enablement: true  # Enables GitHub Pages for the clone repository
+        uses: actions/configure-pages@v5  # output: the base_url for the preview site
+
+      - name: If vars.PREVIEW_HUGO_DOCS is true, build the hugo preview
+        if: ${{ vars.PREVIEW_HUGO_DOCS == 'true' }}
+        id: preview
+        env:
+          # Force Hugo to render the site using the baseUrl used by GitHub Pages for the preview:
+          # The default base URL used by GitHub pages of a repository is
+          # https://<user|organisation>.github.io/<repo name>
+          # Owners of forks can setup custom domains for the gh-pages of their repositories instead:
+          # https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site
+          # In this case, the base URL is the custom domain and we read it
+          # from the output of the output variable 'base_url' of the configure-pages action:
+          HUGO_BASEURL: ${{ steps.configure-pages.outputs.base_url }}
+        run: cd doc && hugo --minify && echo done=true >$GITHUB_OUTPUT
+
+      - name: If vars.PREVIEW_HUGO_DOCS is true, upload the Hugo site as an artifact
+        if: ${{ vars.PREVIEW_HUGO_DOCS == 'true' }}
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./doc/public
+
+
+  # When pushed to other repositories, deploy to the repository's GitHub Pages
+  preview-docs:
+    # Add a dependency to the hugo job, skip if the hugo job did not complete
+    needs: hugo
+
+    if: ${{ needs.hugo.outputs.preview == 'true' }}
+
+    # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+    permissions:
+      id-token: write  # Required for the deployment job to access the uploaded artifact
+      pages: write     # Required for the deployment job to deploy to GitHub Pages
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-24.04-arm
+    steps:
+      # If deployed, the summary of this step in the Workflow summary shows the site URL:
+      - name: Deploy uploaded artifact to GitHub Pages for documentation update reviews
+        id: deployment
+        uses: actions/deploy-pages@v4
