@@ -30,10 +30,31 @@ module Distances = struct
     in
     (numa, distances)
 
-  let unreachable : t =
+  (* A node without CPUs has this distance value ((2ˆ32) - 1) *)
+  let empty = 0xFFFFFFFF
+
+  let unreachable_last : t =
     let numa = 2 in
-    (* 4294967295 is exactly (2ˆ32) - 1, meaning the node is unreachable *)
-    let distances = [|[|10; 4294967295|]; [|4294967295; 4294967295|]|] in
+    let distances = [|[|10; empty|]; [|empty; empty|]|] in
+    (numa, distances)
+
+  let unreachable_middle : t =
+    let numa = 3 in
+    let distances =
+      [|[|10; empty; 20|]; [|empty; empty; empty|]; [|20; empty; 10|]|]
+    in
+    (numa, distances)
+
+  let unreachable_two : t =
+    let numa = 3 in
+    let distances =
+      [|[|empty; empty; 20|]; [|empty; empty; empty|]; [|10; empty; 10|]|]
+    in
+    (numa, distances)
+
+  let none_reachable : t =
+    let numa = 2 in
+    let distances = [|[|empty; empty|]; [|empty; empty|]|] in
     (numa, distances)
 end
 
@@ -60,9 +81,6 @@ let make_numa_amd ~cores_per_numa =
       Alcotest.fail "Synthetic matrix can't fail to load"
   | Some d ->
       d
-
-let make_numa_unreachable ~cores_per_numa =
-  make_numa_common ~cores_per_numa Distances.unreachable
 
 type t = {worst: int; average: float; nodes: NUMA.node list; best: int}
 
@@ -261,19 +279,49 @@ let allocate_tests =
   ("VM Allocation", List.map test (symmetric_specs @ amd_specs))
 
 let distances_tests =
-  let numa = Alcotest.testable NUMA.pp_dump ( = ) in
-  let unreachable ~cores_per_numa =
-    let name =
-      Printf.sprintf "A node is unreachable, %d cores per node" cores_per_numa
-    in
+  let specs =
+    [
+      ( "Last node is unreachable"
+      , Distances.unreachable_last
+      , Some [(10., [0]); (10., [0])]
+      )
+    ; ( "Node in the middle is unreachable"
+      , Distances.unreachable_middle
+      , Some [(10., [0]); (10., [2]); (10., [0]); (10., [2]); (15., [0; 2])]
+      )
+    ; ( "The first two nodes are unreachable"
+      , Distances.unreachable_two
+      , Some [(10., [2]); (10., [2])]
+      )
+    ; ("All nodes are unreachable", Distances.none_reachable, None)
+    ]
+  in
+  let to_actual spec =
+    spec
+    |> Seq.map (fun (d, nodes) ->
+           (d, Seq.map (function NUMA.Node n -> n) nodes |> List.of_seq)
+       )
+    |> List.of_seq
+  in
+  let test_of_spec (name, distances, expected) =
     let test () =
-      let actual = make_numa_unreachable ~cores_per_numa in
-      Alcotest.(check @@ option @@ pair int numa)
-        "NUMA object must match" None actual
+      let numa_t = make_numa_common ~cores_per_numa:1 distances in
+      match (expected, numa_t) with
+      | None, None ->
+          ()
+      | Some _, None ->
+          Alcotest.fail "Synthetic matrix can't fail to load"
+      | None, Some _ ->
+          Alcotest.fail "Synthetic matrix loaded when it wasn't supposed to"
+      | Some expected, Some (_, numa_t) ->
+          let actual = NUMA.candidates numa_t |> to_actual in
+          Alcotest.(check @@ list @@ pair (float Float.epsilon) (list int))
+            "Candidates must match" expected actual
     in
     (name, `Quick, test)
   in
+  ("Distance matrices", List.map test_of_spec specs)
 
-  ("Distance matrices", [unreachable ~cores_per_numa:1])
-
-let () = Alcotest.run "Topology" [allocate_tests; distances_tests]
+let () =
+  Debug.log_to_stdout () ;
+  Alcotest.run "Topology" [allocate_tests; distances_tests]

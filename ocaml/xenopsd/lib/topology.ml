@@ -95,13 +95,25 @@ let seq_range a b =
   let rec next i () = if i = b then Seq.Nil else Seq.Cons (i, next (i + 1)) in
   next a
 
-(** [gen_2n n] Generates all non-empty subsets of the set of [n] nodes. *)
-let seq_gen_2n n =
+let seq_filteri p s =
+  let rec loop i s () =
+    match s () with
+    | Seq.Nil ->
+        Seq.Nil
+    | Cons (hd, s) ->
+        if p i hd then
+          Cons (hd, loop (i + 1) s)
+        else
+          loop (i + 1) s ()
+  in
+  loop 0 s
+
+(** [seq_all_subsets n] Generates all non-empty subsets of the [nodes] set. *)
+let seq_all_subsets nodes =
+  let n = Seq.length nodes in
   (* A node can either be present in the output or not, so use a loop [1, 2^n)
      and have the [i]th bit determine that. *)
-  let of_mask i =
-    seq_range 0 n |> Seq.filter (fun bit -> (i lsr bit) land 1 = 1)
-  in
+  let of_mask i = nodes |> seq_filteri (fun bit _ -> (i lsr bit) land 1 = 1) in
   seq_range 1 (1 lsl n) |> Seq.map of_mask
 
 (** [seq_sort ~cmp s] sorts [s] in a temporary place using [cmp]. *)
@@ -125,6 +137,11 @@ module NUMA = struct
     let compare (Node a) (Node b) = compare a b
   end)
 
+  (* -1 in 32 bits *)
+  let unreachable_distance = 0xFFFFFFFF
+
+  let self_distance = 10
+
   (* no mutation is exposed in the interface, therefore this is immutable *)
   type t = {
       distances: int array array
@@ -132,7 +149,10 @@ module NUMA = struct
     ; node_cpus: CPUSet.t array
     ; all: CPUSet.t
     ; node_usage: int array
+          (** Usage across nodes is meant to be balanced when choosing candidates for a VM *)
     ; candidates: (float * node Seq.t) Seq.t
+          (** Sequence of all subsets of nodes and the average distance within
+              the subset, sorted by the latter in increasing order. *)
   }
 
   let node_of_int i = Node i
@@ -159,9 +179,23 @@ module NUMA = struct
        [n*multiply ... n*multiply + multiply-1], except we always the add the
        single NUMA node combinations. *)
     (* make sure that single NUMA nodes are always present in the combinations *)
-    let single_nodes =
+    let distance_to_candidate d = (d, float d) in
+    let valid_nodes =
       seq_range 0 (Array.length d)
-      |> Seq.map (fun i -> ((10, 10.0), Seq.return i))
+      |> Seq.filter_map (fun i ->
+             let self = d.(i).(i) in
+             if self <> unreachable_distance then
+               Some i
+             else
+               None
+         )
+    in
+    let single_nodes =
+      valid_nodes
+      |> Seq.map (fun i ->
+             let self_distance = d.(i).(i) in
+             (distance_to_candidate self_distance, Seq.return i)
+         )
     in
     let numa_nodes = Array.length d in
     let nodes =
@@ -171,8 +205,8 @@ module NUMA = struct
            reducing the matrix *)
         single_nodes
       else
-        numa_nodes
-        |> seq_gen_2n
+        valid_nodes
+        |> seq_all_subsets
         |> Seq.map (node_distances d)
         |> seq_append single_nodes
     in
@@ -183,38 +217,67 @@ module NUMA = struct
   let pp_dump_distances = Fmt.(int |> Dump.array |> Dump.array)
 
   let make ~distances ~cpu_to_node =
+    let ( let* ) = Option.bind in
     debug "Distances: %s" (Fmt.to_to_string pp_dump_distances distances) ;
     debug "CPU2Node: %s" (Fmt.to_to_string Fmt.(Dump.array int) cpu_to_node) ;
     let node_cpus = Array.map (fun _ -> CPUSet.empty) distances in
+
+    (* nothing can be scheduled on unreachable nodes, remove them from the
+       node_cpus *)
     Array.iteri
-      (fun i node -> node_cpus.(node) <- CPUSet.add i node_cpus.(node))
+      (fun i node ->
+        let self = distances.(node).(node) in
+        if self <> unreachable_distance then
+          node_cpus.(node) <- CPUSet.add i node_cpus.(node)
+      )
       cpu_to_node ;
+
+    debug "Cpus in node: %s"
+      Fmt.(to_to_string (Dump.array CPUSet.pp_dump) node_cpus) ;
+
+    let* () =
+      if Array.for_all (fun cpus -> CPUSet.is_empty cpus) node_cpus then (
+        D.info
+          "Not enabling NUMA: the ACPI SLIT only contains unreachable nodes." ;
+        None
+      ) else
+        Some ()
+    in
+
     let numa_matrix_is_reasonable =
       distances
       |> Array.to_seqi
       |> Seq.for_all (fun (i, row) ->
              let d = distances.(i).(i) in
-             d = 10 && Array.for_all (fun d -> d >= 10) row
+             (d = unreachable_distance || d = self_distance)
+             && Array.for_all
+                  (fun d -> d >= self_distance || d = unreachable_distance)
+                  row
          )
     in
 
-    if not numa_matrix_is_reasonable then (
-      D.info
-        "Not enabling NUMA: the ACPI SLIT table contains values that are \
-         invalid." ;
-      None
-    ) else
-      let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
-      let candidates = gen_candidates distances in
-      Some
-        {
-          distances
-        ; cpu_to_node= Array.map node_of_int cpu_to_node
-        ; node_cpus
-        ; all
-        ; node_usage= Array.map (fun _ -> 0) distances
-        ; candidates
-        }
+    let* () =
+      if not numa_matrix_is_reasonable then (
+        D.info
+          "Not enabling NUMA: the ACPI SLIT table contains values that are \
+           invalid." ;
+        None
+      ) else
+        Some ()
+    in
+
+    let candidates = gen_candidates distances in
+
+    let all = Array.fold_left CPUSet.union CPUSet.empty node_cpus in
+    Some
+      {
+        distances
+      ; cpu_to_node= Array.map node_of_int cpu_to_node
+      ; node_cpus
+      ; all
+      ; node_usage= Array.map (fun _ -> 0) distances
+      ; candidates
+      }
 
   let distance t (Node a) (Node b) = t.distances.(a).(b)
 
