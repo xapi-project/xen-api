@@ -281,17 +281,14 @@ let allocate_tests =
 let distances_tests =
   let specs =
     [
-      ( "Last node is unreachable"
-      , Distances.unreachable_last
-      , Some [(10., [0]); (10., [0])]
-      )
+      ("Last node is unreachable", Distances.unreachable_last, Some [(10., [0])])
     ; ( "Node in the middle is unreachable"
       , Distances.unreachable_middle
-      , Some [(10., [0]); (10., [2]); (10., [0]); (10., [2]); (15., [0; 2])]
+      , Some [(10., [0]); (10., [2]); (15., [0; 2])]
       )
     ; ( "The first two nodes are unreachable"
       , Distances.unreachable_two
-      , Some [(10., [2]); (10., [2])]
+      , Some [(10., [2])]
       )
     ; ("All nodes are unreachable", Distances.none_reachable, None)
     ]

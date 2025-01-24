@@ -121,13 +121,6 @@ let seq_sort ~cmp s =
   let a = Array.of_seq s in
   Array.fast_sort cmp a ; Array.to_seq a
 
-(** [seq_append a b] is the sequence [a] followed by [b] *)
-let seq_append (a : 'a Seq.t) (b : 'a Seq.t) =
-  let rec next v () =
-    match v () with Seq.Nil -> b () | Seq.Cons (x, xs) -> Seq.Cons (x, next xs)
-  in
-  next a
-
 module NUMA = struct
   type node = Node of int
 
@@ -194,25 +187,19 @@ module NUMA = struct
                None
          )
     in
-    let single_nodes =
-      valid_nodes
-      |> Seq.map (fun i ->
-             let self_distance = d.(i).(i) in
-             (distance_to_candidate self_distance, Seq.return i)
-         )
-    in
     let numa_nodes = Array.length d in
     let nodes =
       if numa_nodes > 16 then
-        (* try just the single nodes, and give up (use all nodes otherwise) to
-           avoid exponential running time. We could do better here, e.g. by
+        (* Avoid generating too many candidates because of the exponential
+           running time. We could do better here, e.g. by
            reducing the matrix *)
-        single_nodes
-      else
         valid_nodes
-        |> seq_all_subsets
-        |> Seq.filter_map (node_distances d)
-        |> seq_append single_nodes
+        |> Seq.map (fun i ->
+               let self = d.(i).(i) in
+               (distance_to_candidate self, Seq.return i)
+           )
+      else
+        valid_nodes |> seq_all_subsets |> Seq.filter_map (node_distances d)
     in
     nodes
     |> seq_sort ~cmp:dist_cmp
