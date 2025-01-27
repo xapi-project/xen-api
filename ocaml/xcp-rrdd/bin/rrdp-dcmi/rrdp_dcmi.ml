@@ -29,29 +29,47 @@ let ipmitool args =
   (* we connect to the local /dev/ipmi0 if available to read measurements from local BMC *)
   ipmitool_bin :: args |> String.concat " "
 
+type discovery_error = Devices_missing
+
+let discovery_error_to_string = function
+  | Devices_missing ->
+      "IPMI devices are missing"
+
 let discover () =
+  let read_out_line line =
+    (* this code runs once on startup, logging all the output here will be useful for debugging *)
+    D.debug "DCMI discover: %s" line ;
+    let line = String.trim line in
+    if String.equal line "Power management available" then
+      Some ()
+    else
+      None
+  in
+  let read_err_line line =
+    (* this code runs once on startup, logging all the output here will be useful for debugging *)
+    D.debug "DCMI discover: %s" line ;
+    let line = String.trim line in
+    if String.starts_with ~prefix:"Could not open device at" line then
+      Some Devices_missing
+    else
+      None
+  in
   Utils.exec_cmd
     (module Process.D)
     ~cmdstring:(ipmitool ["dcmi"; "discover"])
-    ~f:(fun line ->
-      (* this code runs once on startup, logging all the output here will be useful for debugging *)
-      D.debug "DCMI discover: %s" line ;
-      if String.trim line = "Power management available" then
-        Some ()
-      else
-        None
-    )
+    ~read_out_line ~read_err_line
 
 let get_dcmi_power_reading () =
+  let read_out_line line =
+    (* example line: '     Instantaneous power reading:                    34 Watts' *)
+    try Scanf.sscanf line " Instantaneous power reading : %f Watts" Option.some
+    with Scanf.Scan_failure _ | End_of_file -> None
+  in
+  let read_err_line _ = None in
   Utils.exec_cmd
     (module Process.D)
     ~cmdstring:(ipmitool ["dcmi"; "power"; "reading"])
-    ~f:(fun line ->
-      (* example line: '     Instantaneous power reading:                    34 Watts' *)
-      try
-        Scanf.sscanf line " Instantaneous power reading : %f Watts" Option.some
-      with Scanf.Scan_failure _ | End_of_file -> None
-    )
+    ~read_out_line ~read_err_line
 
 let gen_dcmi_power_reading value =
   ( Rrd.Host
@@ -63,7 +81,7 @@ let gen_dcmi_power_reading value =
 
 let generate_dss () =
   match get_dcmi_power_reading () with
-  | watts :: _ ->
+  | watts :: _, _ ->
       [gen_dcmi_power_reading watts]
   | _ ->
       []
@@ -71,10 +89,15 @@ let generate_dss () =
 let _ =
   initialise () ;
   match discover () with
-  | [] ->
-      D.warn "IPMI DCMI power readings not available, stopping." ;
-      exit 0
-  | _ ->
+  | () :: _, _ ->
       D.info "IPMI DCMI power reading is available" ;
       main_loop ~neg_shift:0.5 ~target:(Reporter.Local 1)
         ~protocol:Rrd_interface.V2 ~dss_f:generate_dss
+  | [], errs ->
+      let reason =
+        List.nth_opt errs 0
+        |> Option.map discovery_error_to_string
+        |> Option.value ~default:"unknown"
+      in
+      D.warn "IPMI DCMI power readings not available, stopping. Reason: %s"
+        reason

@@ -10,6 +10,7 @@
     mtime
     mtime.clock.os
     rrdd-plugin
+    rrdd-plugin.base
     rrdd_plugin_xenctrl
     rrdd_plugins_libs
     str
