@@ -52,8 +52,11 @@ let get_pool ~rpc ~session_id =
   | [] ->
       let err_msg = "Remote host does not belong to a pool." in
       raise Api_errors.(Server_error (internal_error, [err_msg]))
-  | pool :: _ ->
+  | [pool] ->
       pool
+  | _ ->
+      let err_msg = "Should get only one pool." in
+      raise Api_errors.(Server_error (internal_error, [err_msg]))
 
 let get_master ~rpc ~session_id =
   let pool = get_pool ~rpc ~session_id in
@@ -63,16 +66,7 @@ let get_master ~rpc ~session_id =
 let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I cannot join a Pool unless my management interface exists in the db, otherwise
      	   Pool.eject will fail to rewrite network interface files. *)
-  let remote_pool =
-    match Client.Pool.get_all ~rpc ~session_id with
-    | [pool] ->
-        pool
-    | _ ->
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["Should get only one pool"])
-          )
-  in
+  let remote_pool = get_pool ~rpc ~session_id in
   let assert_management_interface_exists () =
     try
       let (_ : API.ref_PIF) =
@@ -725,7 +719,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
   in
   let assert_tls_verification_matches () =
-    let remote_pool = get_pool ~rpc ~session_id in
     let joiner_pool = Helpers.get_pool ~__context in
     let tls_enabled_pool =
       Client.Pool.get_tls_verification_enabled ~rpc ~session_id
