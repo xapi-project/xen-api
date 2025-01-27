@@ -72,8 +72,8 @@ let _ =
   initialise () ;
   match discover () with
   | [] ->
-      D.info "IPMI DCMI power reading is unavailable" ;
-      exit 1
+      D.warn "IPMI DCMI power readings not available, stopping." ;
+      exit 0
   | _ ->
       D.info "IPMI DCMI power reading is available" ;
       main_loop ~neg_shift:0.5 ~target:(Reporter.Local 1)
