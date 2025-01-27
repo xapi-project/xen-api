@@ -461,7 +461,7 @@ Summary of the impact on the admin
 
 OCFS2 is fundamentally a different type of storage to all existing storage
 types supported by xapi. OCFS2 relies upon O2CB, which provides
-[Host-level High Availability](../../../features/HA/HA.html). All HA implementations
+[Host-level High Availability](../../toolstack/features/HA/index). All HA implementations
 (including O2CB and `xhad`) impose restrictions on the server admin to
 prevent unnecessary host "fencing" (i.e. crashing). Once we have OCFS2 as
 a feature, we will have to live with these restrictions which previously only
