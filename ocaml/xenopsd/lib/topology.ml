@@ -14,8 +14,6 @@
 
 module D = Debug.Make (struct let name = "topology" end)
 
-open D
-
 module CPUSet = struct
   include Set.Make (struct
     type t = int
@@ -205,12 +203,8 @@ module NUMA = struct
     |> seq_sort ~cmp:dist_cmp
     |> Seq.map (fun ((_, avg), nodes) -> (avg, Seq.map (fun n -> Node n) nodes))
 
-  let pp_dump_distances = Fmt.(int |> Dump.array |> Dump.array)
-
   let make ~distances ~cpu_to_node =
     let ( let* ) = Option.bind in
-    debug "Distances: %s" (Fmt.to_to_string pp_dump_distances distances) ;
-    debug "CPU2Node: %s" (Fmt.to_to_string Fmt.(Dump.array int) cpu_to_node) ;
     let node_cpus = Array.map (fun _ -> CPUSet.empty) distances in
 
     (* nothing can be scheduled on unreachable nodes, remove them from the
@@ -222,9 +216,6 @@ module NUMA = struct
           node_cpus.(node) <- CPUSet.add i node_cpus.(node)
       )
       cpu_to_node ;
-
-    debug "Cpus in node: %s"
-      Fmt.(to_to_string (Dump.array CPUSet.pp_dump) node_cpus) ;
 
     let* () =
       if Array.for_all (fun cpus -> CPUSet.is_empty cpus) node_cpus then (
