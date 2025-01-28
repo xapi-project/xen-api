@@ -3309,6 +3309,7 @@ let set_igmp_snooping_enabled ~__context ~self ~value =
                       if
                         pif_record.API.pIF_VLAN = -1L
                         && pif_record.API.pIF_bond_slave_of = Ref.null
+                        && pif_record.API.pIF_managed
                       then
                         Client.Network.attach ~rpc ~session_id ~network ~host ;
                       fail'
