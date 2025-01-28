@@ -27,7 +27,7 @@ let ipmitool_bin = "/usr/bin/ipmitool"
 
 let ipmitool args =
   (* we connect to the local /dev/ipmi0 if available to read measurements from local BMC *)
-  ipmitool_bin :: "-I" :: "open" :: args |> String.concat " "
+  ipmitool_bin :: args |> String.concat " "
 
 let discover () =
   Utils.exec_cmd
