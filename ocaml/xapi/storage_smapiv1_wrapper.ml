@@ -422,10 +422,10 @@ functor
               | Vdi_automaton.Deactivate ->
                   Storage_migrate.pre_deactivate_hook ~dbg ~dp ~sr ~vdi ;
                   Impl.VDI.deactivate context ~dbg ~dp ~sr ~vdi ~vm ;
+                  Storage_migrate.post_deactivate_hook ~sr ~vdi ~dp ;
                   vdi_t
               | Vdi_automaton.Detach ->
                   Impl.VDI.detach context ~dbg ~dp ~sr ~vdi ~vm ;
-                  Storage_migrate.post_detach_hook ~sr ~vdi ~dp ;
                   vdi_t
             in
             Sr.add_or_replace vdi new_vdi_t sr_t ;

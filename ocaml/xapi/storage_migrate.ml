@@ -1320,7 +1320,7 @@ let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
              s.failed <- true
      )
 
-let post_detach_hook ~sr ~vdi ~dp:_ =
+let post_deactivate_hook ~sr ~vdi ~dp:_ =
   let open State.Send_state in
   let id = State.mirror_id_of (sr, vdi) in
   State.find_active_local_mirror id
