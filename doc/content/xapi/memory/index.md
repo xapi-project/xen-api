@@ -1,6 +1,6 @@
 +++
 title = "Host memory accounting"
-menuTitle = "Memory"
+linkTitle = "Memory"
 +++
 
 Memory is used for many things:

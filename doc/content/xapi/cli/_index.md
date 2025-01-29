@@ -1,6 +1,6 @@
 +++
 title = "XE CLI architecture"
-menuTitle = "CLI"
+linkTitle = "CLI"
 +++
 
 {{% notice info %}}

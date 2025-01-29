@@ -1,6 +1,6 @@
 ---
 title: The XAPI Toolstack
-menuTitle: The Toolstack
+linkTitle: The Toolstack
 weight: 10
 ---
 

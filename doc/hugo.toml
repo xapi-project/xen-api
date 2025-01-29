@@ -7,12 +7,21 @@ assetsDir = "assets"
 
 [module]
 [[module.imports]]
-    path = 'github.com/McShelby/hugo-theme-relearn'
+    path = 'github.com/xenserver-next/hugo-theme-relearn'
 
 # The latest upstream version of hugo-theme-relearn needs hugo 0.121.0:
 # https://mcshelby.github.io/hugo-theme-relearn/basics/requirements/index.html
 [module.hugoVersion]
-    min = "0.121.0"
+    min = "0.126.0"
+
+# Newer Hugo needs to set the renderer to `unsafe = true` to support the raw HTML
+# code that a number of pages intentionally use.
+# goldmark is already the default renderer. The only change is the flag for raw HTML:
+[markup]
+  defaultMarkdownHandler = 'goldmark'
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = true
 
 [outputs]
 # Home and section pages should also have a print icon for the print view:
