@@ -63,7 +63,7 @@ let get_dcmi_power_reading () =
   let read_out_line line =
     (* example line: '     Instantaneous power reading:                    34 Watts' *)
     try Scanf.sscanf line " Instantaneous power reading : %f Watts" Option.some
-    with Scanf.Scan_failure _ | End_of_file -> None
+    with _ -> None
   in
   let read_err_line _ = None in
   Utils.exec_cmd

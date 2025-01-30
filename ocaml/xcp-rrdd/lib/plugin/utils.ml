@@ -33,6 +33,8 @@ let list_directory_entries_unsafe dir =
   let dirlist = list_directory_unsafe dir in
   List.filter (fun x -> x <> "." && x <> "..") dirlist
 
+let protect ~finally fn = Xapi_stdext_pervasives.Pervasiveext.finally fn finally
+
 let exec_cmd (module D : Debug.DEBUG) ~cmdstring
     ~(read_out_line : string -> 'a option) ~(read_err_line : string -> 'b option)
     =
@@ -53,17 +55,13 @@ let exec_cmd (module D : Debug.DEBUG) ~cmdstring
   in
   Unix.close out_writeme ;
   Unix.close err_writeme ;
+
   let read_and_close f fd =
     let in_channel = Unix.in_channel_of_descr fd in
-    let vals = ref [] in
-    let rec loop () =
-      let line = input_line in_channel in
-      let ret = f line in
-      (match ret with None -> () | Some v -> vals := v :: !vals) ;
-      loop ()
-    in
-    (try loop () with End_of_file -> ()) ;
-    Unix.close fd ; List.rev !vals
+    let f acc line = match f line with None -> acc | Some v -> v :: acc in
+    protect
+      ~finally:(fun () -> Unix.close fd)
+      (fun () -> Xapi_stdext_unix.Unixext.lines_fold f [] in_channel |> List.rev)
   in
   let stdout = read_and_close read_out_line out_readme in
   let stderr = read_and_close read_err_line err_readme in
