@@ -398,19 +398,24 @@ let is_subject_suspended ~__context ~cache subject_identifier =
     debug "Subject identifier %s is suspended" subject_identifier ;
   (is_suspended, subject_name)
 
+let reusable_pool_session = Atomic.make Ref.null
+
 let destroy_db_session ~__context ~self =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
-  Xapi_event.on_session_deleted self ;
-  (* unregister from the event system *)
-  (* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
-  (* Never print the session id nor uuid: they are secret values that should be known only to the user that *)
-  (* logged in. Instead, we print a non-invertible hash as the tracking id for the session id *)
-  (* see also task creation in context.ml *)
-  (* CP-982: create tracking id in log files to link username to actions *)
-  info "Session.destroy %s" (trackid self) ;
-  Rbac_audit.session_destroy ~__context ~session_id:self ;
-  (try Db.Session.destroy ~__context ~self with _ -> ()) ;
-  Rbac.destroy_session_permissions_tbl ~session_id:self
+  if self <> Atomic.get reusable_pool_session then (
+    Xapi_event.on_session_deleted self ;
+    (* unregister from the event system *)
+    (* This info line is important for tracking, auditability and client accountability purposes on XenServer *)
+    (* Never print the session id nor uuid: they are secret values that should be known only to the user that *)
+    (* logged in. Instead, we print a non-invertible hash as the tracking id for the session id *)
+    (* see also task creation in context.ml *)
+    (* CP-982: create tracking id in log files to link username to actions *)
+    info "Session.destroy %s" (trackid self) ;
+    Rbac_audit.session_destroy ~__context ~session_id:self ;
+    (try Db.Session.destroy ~__context ~self with _ -> ()) ;
+    Rbac.destroy_session_permissions_tbl ~session_id:self
+  ) else
+    info "Skipping Session.destroy for reusable pool session %s" (trackid self)
 
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
 (* in response to external authentication/directory services updates, such as *)
@@ -610,8 +615,8 @@ let revalidate_all_sessions ~__context =
     debug "Unexpected exception while revalidating external sessions: %s"
       (ExnHelper.string_of_exn e)
 
-let login_no_password_common ~__context ~uname ~originator ~host ~pool
-    ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
+let login_no_password_common_create_session ~__context ~uname ~originator ~host
+    ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
     ~rbac_permissions ~db_ref ~client_certificate =
   Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
   let create_session () =
@@ -660,6 +665,58 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
   let rpc = Helpers.make_rpc ~__context in
   ignore (Client.Pool.get_all ~rpc ~session_id) ;
   session_id
+
+let login_no_password_common ~__context ~uname ~originator ~host ~pool
+    ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
+    ~rbac_permissions ~db_ref ~client_certificate =
+  Context.with_tracing ~originator ~__context __FUNCTION__ @@ fun __context ->
+  let is_valid_session session_id =
+    if session_id = Ref.null then
+      false
+    else
+      try
+        (* Call an API function to check the session is still valid *)
+        let rpc = Helpers.make_rpc ~__context in
+        ignore (Client.Pool.get_all ~rpc ~session_id) ;
+        true
+      with Api_errors.Server_error (err, _) ->
+        debug "%s: Invalid session: %s" __FUNCTION__ err ;
+        false
+  in
+  let create_session () =
+    let new_session_id =
+      login_no_password_common_create_session ~__context ~uname ~originator
+        ~host ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
+        ~rbac_permissions ~db_ref ~client_certificate
+    in
+    new_session_id
+  in
+  let rec get_session () =
+    let session = Atomic.get reusable_pool_session in
+    if is_valid_session session then (
+      (* Check if the session changed during validation.
+         Use our version regardless to avoid being stuck in a loop of session creation *)
+      if Atomic.get reusable_pool_session <> session then
+        debug "reusable_pool_session has changed, using the original anyway" ;
+      session
+    ) else
+      let new_session = create_session () in
+      if Atomic.compare_and_set reusable_pool_session session new_session then
+        new_session
+      else (
+        (* someone else raced with us and created a session, destroy ours and attempt to use theirs *)
+        destroy_db_session ~__context ~self:new_session ;
+        (get_session [@tailcall]) ()
+      )
+  in
+  if
+    (originator, pool, is_local_superuser, uname)
+    = (xapi_internal_originator, true, true, None)
+    && !Xapi_globs.reuse_pool_sessions
+  then
+    get_session ()
+  else
+    create_session ()
 
 (* XXX: only used internally by the code which grants the guest access to the API.
    Needs to be protected by a proper access control system *)
