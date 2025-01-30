@@ -15,11 +15,7 @@
 module D = Debug.Make (struct let name = "topology" end)
 
 module CPUSet = struct
-  include Set.Make (struct
-    type t = int
-
-    let compare (x : int) (y : int) = compare x y
-  end)
+  include Set.Make (Int)
 
   let pp_dump = Fmt.using to_seq Fmt.(Dump.seq int)
 
