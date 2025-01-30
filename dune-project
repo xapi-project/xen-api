@@ -711,12 +711,14 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Threads")
   (authors "Jonathan Ludlam")
   (depends
+    ambient-context
     base-threads
     base-unix
     (alcotest :with-test)
     (clock (= :version))
     (fmt :with-test)
     mtime
+    tgroup
     (xapi-log (= :version))
     (xapi-stdext-pervasives (= :version))
     (xapi-stdext-unix (= :version))

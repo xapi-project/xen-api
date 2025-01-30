@@ -8,12 +8,14 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
+  "ambient-context"
   "base-threads"
   "base-unix"
   "alcotest" {with-test}
   "clock" {= version}
   "fmt" {with-test}
   "mtime"
+  "tgroup"
   "xapi-log" {= version}
   "xapi-stdext-pervasives" {= version}
   "xapi-stdext-unix" {= version}

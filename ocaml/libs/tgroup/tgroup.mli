@@ -37,7 +37,7 @@ module Group : sig
 
     val of_string : string -> t
     (** [of_string s] creates an originator from a string [s].
-        
+
         e.g create an originator based on a http header. *)
 
     val to_string : t -> string
@@ -76,6 +76,14 @@ module Group : sig
 
   val to_string : t -> string
   (** [to_string g] returns the string representation of the group [g].*)
+
+  val authenticated_root : t
+  (** [authenticated_root] represents the main classification of internal xapi
+      threads. *)
+
+  val unauthenticated : t
+  (** [unauthenticated] represents the classification of xapi threads for
+      unauthenticated users. *)
 end
 
 (** [Cgroup] module encapsulates different function for managing the cgroups
@@ -87,7 +95,7 @@ module Cgroup : sig
   val dir_of : Group.t -> t option
   (** [dir_of group] returns the full path of the cgroup directory corresponding
           to the group [group] as [Some dir].
-          
+
           Returns [None] if [init dir] has not been called. *)
 
   val init : string -> unit

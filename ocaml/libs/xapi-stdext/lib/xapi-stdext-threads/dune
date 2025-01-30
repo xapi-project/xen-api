@@ -1,29 +1,47 @@
 (library
   (public_name xapi-stdext-threads)
-  (name  xapi_stdext_threads)
+  (name xapi_stdext_threads)
   (modules :standard \ ipq scheduler threadext_test ipq_test scheduler_test)
   (libraries
+    ambient-context.thread_local
     mtime
     mtime.clock.os
     threads.posix
     unix
+    tgroup
     xapi-stdext-unix
     xapi-stdext-pervasives)
   (foreign_stubs
     (language c)
-    (names delay_stubs))
+    (names delay_stubs)
+  )
 )
 
 (library
   (public_name xapi-stdext-threads.scheduler)
   (name xapi_stdext_threads_scheduler)
   (modules ipq scheduler)
-  (libraries mtime mtime.clock.os threads.posix unix xapi-log xapi-stdext-threads clock)
-)
+  (libraries
+    mtime
+    mtime.clock.os
+    threads.posix
+    unix
+    xapi-log
+    xapi-stdext-threads
+    clock)
+ )
 
 (tests
   (names threadext_test ipq_test scheduler_test)
   (package xapi-stdext-threads)
   (modules threadext_test ipq_test scheduler_test)
-  (libraries xapi_stdext_threads alcotest mtime.clock.os mtime fmt threads.posix xapi_stdext_threads_scheduler)
+  (libraries
+    xapi_stdext_threads
+    alcotest
+    mtime.clock.os
+    mtime
+    fmt
+    tgroup
+    threads.posix
+    xapi_stdext_threads_scheduler)
 )
