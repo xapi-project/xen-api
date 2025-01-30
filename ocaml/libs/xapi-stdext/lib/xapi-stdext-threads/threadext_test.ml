@@ -74,4 +74,90 @@ let tests =
   ; ("other_thread", `Quick, other_thread)
   ]
 
-let () = Alcotest.run "Threadext" [("Delay", tests)]
+let test_create_ambient_storage () =
+  let open Xapi_stdext_threads.Threadext in
+  let _ : Thread.t =
+    Thread.create
+      (fun () ->
+        let storage = ThreadLocalStorage.create () in
+        let storage_tid = storage.ocaml_tid in
+        let ocaml_tid = Thread.self () |> Thread.id in
+        Alcotest.(check int)
+          "Ocaml thread id matches the thread id stored" ocaml_tid storage_tid
+      )
+      ()
+  in
+  ()
+
+let test_thread_storage_set_and_get () =
+  let open Xapi_stdext_threads.Threadext in
+  let _ : Thread.t =
+    Thread.create
+      (fun () ->
+        let _ : ThreadLocalStorage.t = ThreadLocalStorage.create () in
+
+        let expected_name = "thread_1" in
+        ThreadLocalStorage.set ~thread_name:expected_name () ;
+        let storage = ThreadLocalStorage.get () in
+        Alcotest.(check string)
+          "Check if correct value is set in storage" expected_name
+          storage.thread_name
+      )
+      ()
+  in
+  ()
+
+let test_storage_locality () =
+  let open Xapi_stdext_threads.Threadext in
+  let r1 = ref None in
+  let r2 = ref None in
+
+  let thread1_expected_name = "thread_1" in
+  let thread2_expected_name = "thread_2" in
+
+  let thread1 =
+    Thread.create
+      (fun () ->
+        let _ : ThreadLocalStorage.t = ThreadLocalStorage.create () in
+        ThreadLocalStorage.set ~thread_name:thread1_expected_name () ;
+        Thread.delay 1. ;
+        r1 := Some (ThreadLocalStorage.get ())
+      )
+      ()
+  in
+  let thread2 =
+    Thread.create
+      (fun () ->
+        let _ : ThreadLocalStorage.t = ThreadLocalStorage.create () in
+        ThreadLocalStorage.set ~thread_name:thread2_expected_name () ;
+
+        r2 := Some (ThreadLocalStorage.get ())
+      )
+      ()
+  in
+  Thread.join thread1 ;
+  Thread.join thread2 ;
+  Alcotest.(check bool)
+    "Check thread local storage is set for thread1" true (Option.is_some !r1) ;
+  Alcotest.(check bool)
+    "Check thread local storage is set for thread2" true (Option.is_some !r2) ;
+  let thread1_name =
+    let r1 = Option.get !r1 in
+    r1.thread_name
+  in
+  let thread2_name =
+    let r2 = Option.get !r2 in
+    r2.thread_name
+  in
+  Alcotest.(check string) "Thread1 name" thread1_expected_name thread1_name ;
+  Alcotest.(check string) "Thread2 name" thread2_expected_name thread2_name
+
+let tls_tests =
+  [
+    ("create storage", `Quick, test_create_ambient_storage)
+  ; ("storage set and get", `Quick, test_thread_storage_set_and_get)
+  ; ("thread local storage", `Quick, test_storage_locality)
+  ]
+
+let () =
+  Alcotest.run "Threadext" [("Delay", tests); ("ThreadLocalStorage", tls_tests)]
