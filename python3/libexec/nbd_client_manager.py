@@ -209,6 +209,7 @@ def connect_nbd(path, exportname):
                     nbd_device,
                     "-timeout",
                     "90",
+                    "-persist",
                     "-name",
                     exportname,
                 ]
