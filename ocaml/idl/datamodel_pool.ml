@@ -1441,8 +1441,8 @@ let update_sync_frequency =
 let configure_update_sync =
   call ~name:"configure_update_sync"
     ~doc:
-      "Configure periodic update synchronization to sync updates from a remote \
-       CDN"
+      "Configure periodic update synchronization to synchronize updates from a \
+       remote CDN"
     ~lifecycle:[]
     ~params:
       [

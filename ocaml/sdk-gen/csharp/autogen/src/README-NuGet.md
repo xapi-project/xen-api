@@ -1,6 +1,6 @@
 # XenServer.NET
 
-Copyright (c) 2007-2024 Cloud Software Group, Inc. All Rights Reserved.
+Copyright (c) 2007-2025 Cloud Software Group, Inc. All Rights Reserved.
 
 XenServer.NET is a complete SDK for XenServer, exposing the XenServer
 API as .NET classes. It is written in C#.

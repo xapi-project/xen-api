@@ -1,6 +1,6 @@
 # XenServer SDK for Go
 
-Copyright (c) 2023-2024 Cloud Software Group, Inc. All Rights Reserved.
+Copyright (c) 2023-2025 Cloud Software Group, Inc. All Rights Reserved.
 
 XenServer SDK for Go is a complete SDK for XenServer, exposing the XenServer
 API as Go module. It is written in Go.
