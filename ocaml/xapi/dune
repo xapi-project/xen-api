@@ -161,6 +161,7 @@
     uri
     uuid
     uuidm
+    vhd_lib
     x509
     xapi_aux
     xapi-backtrace
@@ -211,6 +212,7 @@
     xxhash
     yojson
     zstd
+    xapi_host_driver_helpers
   )
   (preprocess (per_module
    ((pps ppx_sexp_conv) Cert_distrib)

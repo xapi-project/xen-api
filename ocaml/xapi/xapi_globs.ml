@@ -372,6 +372,8 @@ let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
 
+let sync_host_driver = "sync_host_driver"
+
 (* Allow dbsync actions to be disabled via the redo log, since the database
    isn't of much use if xapi won't start. *)
 let disable_dbsync_for = ref []
@@ -928,6 +930,14 @@ let kpatch_cmd = ref "/usr/sbin/kpatch"
 let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
 
 let xl_cmd = ref "/usr/sbin/xl"
+
+let depmod = ref "/usr/sbin/depmod"
+
+let driver_tool = ref "/opt/xensource/debug/drivertool.sh"
+
+let dracut = ref "/usr/bin/dracut"
+
+let udevadm = ref "/usr/sbin/udevadm"
 
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
@@ -1690,6 +1700,11 @@ let other_options =
   ; event_from_entry
   ; event_from_task_entry
   ; event_next_entry
+  ; ( "drivertool"
+    , Arg.Set_string driver_tool
+    , (fun () -> !driver_tool)
+    , "Path to drivertool for selecting host driver variants"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1787,6 +1802,9 @@ module Resources = struct
     ; ("createrepo-cmd", createrepo_cmd, "Path to createrepo command")
     ; ("modifyrepo-cmd", modifyrepo_cmd, "Path to modifyrepo command")
     ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
+    ; ("depmod", depmod, "Path to depmod command")
+    ; ("dracut", dracut, "Path to dracut command")
+    ; ("udevadm", udevadm, "Path to udevadm command")
     ]
 
   let nonessential_executables =

@@ -352,9 +352,15 @@ end
 
 let _nonpersistent = "NONPERSISTENT"
 
+let _vdi_mirror_in = "VDI_MIRROR_IN"
+
 let _clone_on_boot_key = "clone-on-boot"
 
 let _vdi_type_key = "vdi-type"
+
+let _vdi_content_id_key = "content_id"
+
+let _sm_config_prefix_key = "_sm_config_"
 
 let _snapshot_time_key = "snapshot_time"
 
@@ -749,7 +755,7 @@ let vdi_of_volume x =
   {
     vdi= Vdi.of_string x.Xapi_storage.Control.key
   ; uuid= x.Xapi_storage.Control.uuid
-  ; content_id= ""
+  ; content_id= find_string _vdi_content_id_key ~default:""
   ; name_label= x.Xapi_storage.Control.name
   ; name_description= x.Xapi_storage.Control.description
   ; ty= find_string _vdi_type_key ~default:""
@@ -762,7 +768,24 @@ let vdi_of_volume x =
   ; cbt_enabled= Option.value x.Xapi_storage.Control.cbt_enabled ~default:false
   ; virtual_size= x.Xapi_storage.Control.virtual_size
   ; physical_utilisation= x.Xapi_storage.Control.physical_utilisation
-  ; sm_config= []
+  ; (* All the sm_config stored is of the form (k, v) where k will be prefixed by
+       "_sm_config_". For example if the sm_config passed was ("base_mirror", 3),
+       then it will be stored as ()"_sm_config_base_mirror", mirror_id). The
+       code below removed this prefix and extracts the actual key. *)
+    sm_config=
+      List.filter_map
+        (fun (k, v) ->
+          if String.starts_with ~prefix:_sm_config_prefix_key k then
+            Some
+              ( String.sub k
+                  (String.length _sm_config_prefix_key)
+                  (String.length k - String.length _sm_config_prefix_key)
+              , v
+              )
+          else
+            None
+        )
+        x.Xapi_storage.Control.keys
   ; sharable= x.Xapi_storage.Control.sharable
   ; persistent= true
   }
@@ -813,6 +836,16 @@ let choose_datapath ?(persistent = true) response =
       fail (missing_uri ())
   | (script_dir, scheme, u) :: _us ->
       return (fork_exec_rpc ~script_dir, scheme, u)
+
+let convert_implementation = function
+  | Xapi_storage.Data.XenDisk {params; extra; backend_type} ->
+      Storage_interface.XenDisk {params; extra; backend_type}
+  | BlockDevice {path} ->
+      BlockDevice {path}
+  | File {path} ->
+      File {path}
+  | Nbd {uri} ->
+      Nbd {uri}
 
 (* Bind the implementations *)
 let bind ~volume_script_dir =
@@ -1459,16 +1492,6 @@ let bind ~volume_script_dir =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      let domain = domain_of ~dp ~vm in
      vdi_attach_common dbg sr vdi domain >>>= fun response ->
-     let convert_implementation = function
-       | Xapi_storage.Data.XenDisk {params; extra; backend_type} ->
-           Storage_interface.XenDisk {params; extra; backend_type}
-       | BlockDevice {path} ->
-           BlockDevice {path}
-       | File {path} ->
-           File {path}
-       | Nbd {uri} ->
-           Nbd {uri}
-     in
      return
        {
          Storage_interface.implementations=
@@ -1479,6 +1502,10 @@ let bind ~volume_script_dir =
     |> wrap
   in
   S.VDI.attach3 vdi_attach3_impl ;
+  let dp_attach_info_impl dbg sr vdi dp vm =
+    vdi_attach3_impl dbg dp sr vdi vm ()
+  in
+  S.DP.attach_info dp_attach_info_impl ;
   let vdi_activate_common dbg dp sr vdi' vm readonly =
     (let vdi = Storage_interface.Vdi.string_of vdi' in
      let domain = domain_of ~dp ~vm in
@@ -1729,27 +1756,116 @@ let bind ~volume_script_dir =
     set ~dbg ~sr ~vdi ~key:_vdi_type_key ~value:"cbt_metadata"
   in
   S.VDI.data_destroy vdi_data_destroy_impl ;
+  let vdi_compose_impl dbg sr parent child =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let child = Storage_interface.Vdi.string_of child in
+    let parent = Storage_interface.Vdi.string_of parent in
+    return_volume_rpc (fun () ->
+        Volume_client.compose (volume_rpc ~dbg) dbg sr child parent
+    )
+  in
+  S.VDI.compose vdi_compose_impl ;
+  let vdi_set_content_id_impl dbg sr vdi content_id =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    let* () = set ~dbg ~sr ~vdi ~key:_vdi_content_id_key ~value:content_id in
+    return ()
+  in
+  S.VDI.set_content_id vdi_set_content_id_impl ;
+  let vdi_add_to_sm_config_impl dbg sr vdi key value =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    let* () = set ~dbg ~sr ~vdi ~key:(_sm_config_prefix_key ^ key) ~value in
+    return ()
+  in
+  S.VDI.add_to_sm_config vdi_add_to_sm_config_impl ;
+  let vdi_remove_from_sm_config_impl dbg sr vdi key =
+    wrap
+    @@
+    let* sr = Attached_SRs.find sr in
+    let vdi = Storage_interface.Vdi.string_of vdi in
+    let* () = unset ~dbg ~sr ~vdi ~key:(_sm_config_prefix_key ^ key) in
+    return ()
+  in
+  S.VDI.remove_from_sm_config vdi_remove_from_sm_config_impl ;
+  let data_import_activate_impl dbg _dp sr vdi' vm' =
+    wrap
+    @@
+    let vdi = Storage_interface.Vdi.string_of vdi' in
+    let domain = Storage_interface.Vm.string_of vm' in
+    Attached_SRs.find sr >>>= fun sr ->
+    (* Discover the URIs using Volume.stat *)
+    stat ~dbg ~sr ~vdi >>>= fun response ->
+    ( match
+        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
+      with
+    | None ->
+        return response
+    | Some temporary ->
+        stat ~dbg ~sr ~vdi:temporary
+    )
+    >>>= fun response ->
+    choose_datapath response >>>= fun (rpc, datapath, uri) ->
+    if Datapath_plugins.supports_feature datapath _vdi_mirror_in then
+      return_data_rpc (fun () ->
+          Datapath_client.import_activate (rpc ~dbg) dbg uri domain
+      )
+    else
+      fail (Storage_interface.Errors.Unimplemented _vdi_mirror_in)
+  in
+  S.DATA.MIRROR.import_activate data_import_activate_impl ;
+  let get_nbd_server_impl dbg _dp sr vdi' vm' =
+    wrap
+    @@
+    let vdi = Storage_interface.Vdi.string_of vdi' in
+    let domain = Storage_interface.Vm.string_of vm' in
+    vdi_attach_common dbg sr vdi domain >>>= function
+    | response -> (
+        let _, _, _, nbds =
+          Storage_interface.implementations_of_backend
+            {
+              Storage_interface.implementations=
+                List.map convert_implementation
+                  response.Xapi_storage.Data.implementations
+            }
+        in
+        match nbds with
+        | ({uri} as nbd) :: _ ->
+            info (fun m ->
+                m "%s qemu-dp nbd server address is %s" __FUNCTION__ uri
+            )
+            >>= fun () ->
+            let socket, _export = Storage_interface.parse_nbd_uri nbd in
+            return socket
+        | _ ->
+            fail (backend_error "No nbd server found" [])
+      )
+  in
+  S.DATA.MIRROR.get_nbd_server get_nbd_server_impl ;
   let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
-  S.VDI.compose (u "VDI.compose") ;
   S.VDI.get_by_name (u "VDI.get_by_name") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
+  S.DATA.MIRROR.receive_start2 (u "DATA.MIRROR.receive_start2") ;
   S.UPDATES.get (u "UPDATES.get") ;
   S.SR.update_snapshot_info_dest (u "SR.update_snapshot_info_dest") ;
   S.DATA.MIRROR.list (u "DATA.MIRROR.list") ;
   S.TASK.stat (u "TASK.stat") ;
-  S.VDI.remove_from_sm_config (u "VDI.remove_from_sm_config") ;
   S.DP.diagnostics (u "DP.diagnostics") ;
   S.TASK.destroy (u "TASK.destroy") ;
   S.DP.destroy (u "DP.destroy") ;
-  S.VDI.add_to_sm_config (u "VDI.add_to_sm_config") ;
   S.VDI.similar_content (u "VDI.similar_content") ;
   S.DATA.copy (u "DATA.copy") ;
   S.DP.stat_vdi (u "DP.stat_vdi") ;
   S.DATA.MIRROR.receive_finalize (u "DATA.MIRROR.receive_finalize") ;
+  S.DATA.MIRROR.receive_finalize2 (u "DATA.MIRROR.receive_finalize2") ;
   S.DP.create (u "DP.create") ;
-  S.VDI.set_content_id (u "VDI.set_content_id") ;
-  S.DP.attach_info (u "DP.attach_info") ;
   S.TASK.cancel (u "TASK.cancel") ;
   S.VDI.attach (u "VDI.attach") ;
   S.VDI.attach2 (u "VDI.attach2") ;

@@ -6,8 +6,8 @@ This document describes how to add a new class to the data model that
 defines the Xen Server API. It complements two other documents that
 describe how to extend an existing class:
 
-* [Adding a Field]({{< ref add-field.md >}})
-* [Adding a Function]({{< ref add-function.md >}})
+* [Adding a field](add-field)
+* [Adding a function](add-function)
 
 As a running example, we will use the addition of a class that is part
 of the design for the PVS Direct feature. PVS Direct introduces

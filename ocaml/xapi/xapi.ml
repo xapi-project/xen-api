@@ -1227,7 +1227,6 @@ let server_init () =
             , []
             , Monitor_master.update_configuration_from_master
             )
-          ; ("Initialising licensing", [], handle_licensing)
           ; ( "message_hook_thread"
             , [Startup.NoExnRaising]
             , Xapi_message.start_message_hook_thread ~__context
@@ -1261,6 +1260,7 @@ let server_init () =
             , [Startup.OnlyMaster]
             , check_no_other_masters
             )
+          ; ("Initialising licensing", [], handle_licensing)
           ; ( "Registering periodic functions"
             , []
             , fun () -> Xapi_periodic_scheduler_init.register ~__context

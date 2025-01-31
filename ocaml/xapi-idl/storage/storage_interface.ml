@@ -251,6 +251,8 @@ let string_of_vdi_info (x : vdi_info) = Jsonrpc.to_string (rpc_of vdi_info x)
     "datapaths". *)
 type dp = string [@@deriving rpcty]
 
+type sock_path = string [@@deriving rpcty]
+
 type dp_stat_t = {
     superstate: Vdi_automaton.state
   ; dps: (string * Vdi_automaton.state) list
@@ -443,6 +445,8 @@ module StorageAPI (R : RPC) = struct
 
   let dp_p = Param.mk ~name:"dp" dp
 
+  let sock_path_p = Param.mk ~name:"sock_path" sock_path
+
   let device_config_p =
     Param.mk ~name:"device_config"
       ~description:["Backend-specific keys to specify the storage for the SR"]
@@ -512,6 +516,9 @@ module StorageAPI (R : RPC) = struct
         @-> returning unit_p err
         )
 
+    (** [attach_info context dbg sr vdi dp vm] returns the information as returned
+    by the [attach3 dbg dp sr vdi vm _] call. Callers of this function should ensure
+    that VDIs are already attached before calling this function. *)
     let attach_info =
       let backend_p = Param.mk ~name:"backend" backend in
       declare "DP.attach_info"
@@ -519,7 +526,7 @@ module StorageAPI (R : RPC) = struct
           "[DP.attach_info  sr vdi dp]: returns the params of the dp (the \
            return value of VDI.attach2)"
         ]
-        (dbg_p @-> sr_p @-> vdi_p @-> dp_p @-> returning backend_p err)
+        (dbg_p @-> sr_p @-> vdi_p @-> dp_p @-> vm_p @-> returning backend_p err)
 
     (**  *)
     let diagnostics =
@@ -824,7 +831,7 @@ module StorageAPI (R : RPC) = struct
         @-> returning backend_p err
         )
 
-    (** [attach3 task dp sr vdi read_write] returns the [params] for a given
+    (** [attach3 task dp sr vdi vm read_write] returns the [params] for a given
         [vdi] in [sr] which can be written to if (but not necessarily only if)
         [read_write] is true *)
     let attach3 =
@@ -906,8 +913,8 @@ module StorageAPI (R : RPC) = struct
       declare "VDI.set_content_id" []
         (dbg_p @-> sr_p @-> vdi_p @-> content_id_p @-> returning unit_p err)
 
-    (** [compose task sr vdi1 vdi2] layers the updates from [vdi2] onto [vdi1],
-        modifying [vdi2] *)
+    (** [compose task sr parent child] layers the updates from [child] onto [parent],
+        modifying [child] *)
     let compose =
       let vdi1_p = Param.mk ~name:"vdi1" Vdi.t in
       let vdi2_p = Param.mk ~name:"vdi2" Vdi.t in
@@ -982,6 +989,7 @@ module StorageAPI (R : RPC) = struct
         (dbg_p
         @-> sr_p
         @-> vdi_p
+        @-> vm_p
         @-> url_p
         @-> dest_p
         @-> verify_dest_p
@@ -989,6 +997,10 @@ module StorageAPI (R : RPC) = struct
         )
 
     module MIRROR = struct
+      let mirror_vm_p = Param.mk ~name:"mirror_vm" Vm.t
+
+      let copy_vm_p = Param.mk ~name:"copy_vm" Vm.t
+
       (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
           writes data synchronously. It returns the id of the VDI.*)
       let start =
@@ -997,6 +1009,8 @@ module StorageAPI (R : RPC) = struct
           @-> sr_p
           @-> vdi_p
           @-> dp_p
+          @-> mirror_vm_p
+          @-> copy_vm_p
           @-> url_p
           @-> dest_p
           @-> verify_dest_p
@@ -1013,7 +1027,11 @@ module StorageAPI (R : RPC) = struct
         let result_p = Param.mk ~name:"result" Mirror.t in
         declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
 
-      (** Called on the receiving end *)
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_start during SXM. 
+        Use the receive_start2 function instead. 
+      *)
       let receive_start =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
         let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
@@ -1026,10 +1044,40 @@ module StorageAPI (R : RPC) = struct
           @-> returning result err
           )
 
+      (** Called on the receiving end to prepare for receipt of the storage. This
+      function should be used in conjunction with [receive_finalize2]*)
+      let receive_start2 =
+        let similar_p = Param.mk ~name:"similar" Mirror.similars in
+        let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
+        declare "DATA.MIRROR.receive_start2" []
+          (dbg_p
+          @-> sr_p
+          @-> VDI.vdi_info_p
+          @-> id_p
+          @-> similar_p
+          @-> vm_p
+          @-> returning result err
+          )
+
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
+        during SXM.  Use the receive_finalize2 function instead. 
+      *)
       let receive_finalize =
         declare "DATA.MIRROR.receive_finalize" []
           (dbg_p @-> id_p @-> returning unit_p err)
 
+      (** [receive_finalize2 dbg id] will stop the mirroring process and compose 
+      the snapshot VDI with the mirror VDI. It also cleans up the storage resources 
+      used by mirroring. It is called after the the source VM is paused. This fucntion
+      should be used in conjunction with [receive_start2] *)
+      let receive_finalize2 =
+        declare "DATA.MIRROR.receive_finalize2" []
+          (dbg_p @-> id_p @-> returning unit_p err)
+
+      (** [receive_cancel dbg id] is called in the case of migration failure to
+      do the clean up.*)
       let receive_cancel =
         declare "DATA.MIRROR.receive_cancel" []
           (dbg_p @-> id_p @-> returning unit_p err)
@@ -1039,6 +1087,32 @@ module StorageAPI (R : RPC) = struct
           Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
         in
         declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
+
+      (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
+      which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
+      let import_activate =
+        declare "DATA.MIRROR.import_activate" []
+          (dbg_p
+          @-> dp_p
+          @-> sr_p
+          @-> vdi_p
+          @-> vm_p
+          @-> returning sock_path_p err
+          )
+
+      (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
+      server that can be connected to. Depending on the backend, this will either
+      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
+      from [import_activate] as the returned server does not accept fds. *)
+      let get_nbd_server =
+        declare "DATA.MIRROR.get_nbd_server" []
+          (dbg_p
+          @-> dp_p
+          @-> sr_p
+          @-> vdi_p
+          @-> vm_p
+          @-> returning sock_path_p err
+          )
     end
   end
 
@@ -1108,7 +1182,7 @@ module type Server_impl = sig
       -> unit
 
     val attach_info :
-      context -> dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> backend
+      context -> dbg:debug_info -> sr:sr -> vdi:vdi -> dp:dp -> vm:vm -> backend
 
     val diagnostics : context -> unit -> string
 
@@ -1333,6 +1407,7 @@ module type Server_impl = sig
       -> dbg:debug_info
       -> sr:sr
       -> vdi:vdi
+      -> vm:vm
       -> url:string
       -> dest:sr
       -> verify_dest:bool
@@ -1345,6 +1420,8 @@ module type Server_impl = sig
         -> sr:sr
         -> vdi:vdi
         -> dp:dp
+        -> mirror_vm:vm
+        -> copy_vm:vm
         -> url:string
         -> dest:sr
         -> verify_dest:bool
@@ -1363,11 +1440,41 @@ module type Server_impl = sig
         -> similar:Mirror.similars
         -> Mirror.mirror_receive_result
 
+      val receive_start2 :
+           context
+        -> dbg:debug_info
+        -> sr:sr
+        -> vdi_info:vdi_info
+        -> id:Mirror.id
+        -> similar:Mirror.similars
+        -> vm:vm
+        -> Mirror.mirror_receive_result
+
       val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+      val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
 
       val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
 
       val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+      val import_activate :
+           context
+        -> dbg:debug_info
+        -> dp:dp
+        -> sr:sr
+        -> vdi:vdi
+        -> vm:vm
+        -> sock_path
+
+      val get_nbd_server :
+           context
+        -> dbg:debug_info
+        -> dp:dp
+        -> sr:sr
+        -> vdi:vdi
+        -> vm:vm
+        -> sock_path
     end
   end
 
@@ -1409,8 +1516,8 @@ module Server (Impl : Server_impl) () = struct
     S.DP.destroy2 (fun dbg dp sr vdi vm allow_leak ->
         Impl.DP.destroy2 () ~dbg ~dp ~sr ~vdi ~vm ~allow_leak
     ) ;
-    S.DP.attach_info (fun dbg sr vdi dp ->
-        Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp
+    S.DP.attach_info (fun dbg sr vdi dp vm ->
+        Impl.DP.attach_info () ~dbg ~sr ~vdi ~dp ~vm
     ) ;
     S.DP.diagnostics (fun () -> Impl.DP.diagnostics () ()) ;
     S.DP.stat_vdi (fun dbg sr vdi () -> Impl.DP.stat_vdi () ~dbg ~sr ~vdi ()) ;
@@ -1521,16 +1628,21 @@ module Server (Impl : Server_impl) () = struct
         Impl.VDI.list_changed_blocks () ~dbg ~sr ~vdi_from ~vdi_to
     ) ;
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
-    S.DATA.copy (fun dbg sr vdi url dest verify_dest ->
-        Impl.DATA.copy () ~dbg ~sr ~vdi ~url ~dest ~verify_dest
+    S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
+        Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
-    S.DATA.MIRROR.start (fun dbg sr vdi dp url dest verify_dest ->
-        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~url ~dest ~verify_dest
+    S.DATA.MIRROR.start
+      (fun dbg sr vdi dp mirror_vm copy_vm url dest verify_dest ->
+        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url
+          ~dest ~verify_dest
     ) ;
     S.DATA.MIRROR.stop (fun dbg id -> Impl.DATA.MIRROR.stop () ~dbg ~id) ;
     S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
+    ) ;
+    S.DATA.MIRROR.receive_start2 (fun dbg sr vdi_info id similar vm ->
+        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
         Impl.DATA.MIRROR.receive_cancel () ~dbg ~id
@@ -1538,7 +1650,16 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_finalize (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
     ) ;
+    S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
+        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
+    ) ;
     S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
+    S.DATA.MIRROR.import_activate (fun dbg dp sr vdi vm ->
+        Impl.DATA.MIRROR.import_activate () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
+    S.DATA.MIRROR.get_nbd_server (fun dbg dp sr vdi vm ->
+        Impl.DATA.MIRROR.get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm
+    ) ;
     S.Policy.get_backend_vm (fun dbg vm sr vdi ->
         Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi
     ) ;

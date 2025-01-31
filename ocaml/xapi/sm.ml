@@ -117,7 +117,7 @@ let sr_detach ~dbg dconf driver sr =
 let sr_probe ~dbg dconf driver sr_sm_config =
   with_dbg ~dbg ~name:"sr_probe" @@ fun di ->
   let dbg = Debug_info.to_string di in
-  if List.mem_assoc Sr_probe (features_of_driver driver) then
+  if Feature.(has_capability Sr_probe (features_of_driver driver)) then
     Locking_helpers.Named_mutex.execute serialize_attach_detach (fun () ->
         debug "sr_probe" driver
           (sprintf "sm_config=[%s]"

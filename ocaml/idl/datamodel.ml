@@ -10453,6 +10453,8 @@ let all_system =
   ; Datamodel_repository.t
   ; Datamodel_observer.t
   ; Datamodel_vm_group.t
+  ; Datamodel_host_driver.t
+  ; Datamodel_driver_variant.t
   ]
 
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
@@ -10545,6 +10547,7 @@ let all_relations =
   ; ((_network_sriov, "logical_PIF"), (_pif, "sriov_logical_PIF_of"))
   ; ((_certificate, "host"), (_host, "certificates"))
   ; ((_vm, "groups"), (_vm_group, "VMs"))
+  ; ((_driver_variant, "driver"), (_host_driver, "variants"))
   ]
 
 let update_lifecycles =
@@ -10700,6 +10703,8 @@ let expose_get_all_messages_for =
   ; _repository
   ; _vtpm
   ; _observer
+  ; _host_driver
+  ; _driver_variant
   ]
 
 let no_task_id_for = [_task; (* _alert; *) _event]

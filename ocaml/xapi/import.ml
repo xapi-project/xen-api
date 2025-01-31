@@ -76,7 +76,9 @@ type config = {
 let is_live config =
   match config.import_type with Metadata_import {live; _} -> live | _ -> false
 
-let needs_cpu_check config =
+let needs_cpu_check config vm_record =
+  vm_record.API.vM_power_state <> `Halted
+  &&
   match config.import_type with
   | Metadata_import {check_cpu; _} ->
       check_cpu
@@ -519,7 +521,7 @@ module VM : HandlerTools = struct
         | Replace (_, vm_record) | Clean_import vm_record ->
             if is_live config then
               assert_can_live_import __context vm_record ;
-            ( if needs_cpu_check config then
+            ( if needs_cpu_check config vm_record then
                 let vmm_record =
                   find_in_export
                     (Ref.string_of vm_record.API.vM_metrics)
