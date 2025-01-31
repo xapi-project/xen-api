@@ -73,11 +73,11 @@ Hosts
 
 APIs
 ----
-- versioned json-rpc API with feature advertisements
+- versioned JSON-RPC API with feature advertisements
 - clients can disconnect, reconnect and easily resync with the latest
   VM state without losing updates
 - all operations have task control including
-  - asychronous cancellation: for both subprocesses and xenstore watches
+  - asynchronous cancellation: for both subprocesses and xenstore watches
   - progress updates
   - subtasks
   - per-task debug logs

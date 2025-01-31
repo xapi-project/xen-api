@@ -11,7 +11,7 @@ the network.
 
 It should be noted that for this reason, that callers who modify the
 default configuration should be aware that their changes may have an
-adverse affect on other consumers of the HIMN.
+adverse effect on other consumers of the HIMN.
 
 Version history
 ---------------

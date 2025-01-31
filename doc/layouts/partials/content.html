@@ -1,7 +1,7 @@
 {{- /* Partial to generate the content of XenAPI class reference and release pages, see: */}}
 {{- /* https://mcshelby.github.io/hugo-theme-relearn/configuration/customization/partials/index.html */}}
 
-{{- /* XenAPI class reference pages define a class fontmatter */}}
+{{- /* XenAPI class reference pages define a class frontmatter */}}
 {{- /* For these, provide and generate their class reference content: */}}
 
 {{ .Content }}
@@ -200,7 +200,7 @@ Class: {{ $c }}
 
 {{ end }}
 
-{{- /* XenAPI release pages define a release fontmatter */}}
+{{- /* XenAPI release pages define a release frontmatter */}}
 {{- /* For these provide and generate their page content */}}
 
 {{ $r := .Page.Params.release }}
