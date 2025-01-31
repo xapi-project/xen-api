@@ -2,8 +2,8 @@
   (modes exe)
   (name rrdp_dcmi)
   (libraries
-    
     rrdd-plugin
+    rrdd-plugin.base
     rrdd_plugins_libs
     xapi-idl.rrd
     xapi-log

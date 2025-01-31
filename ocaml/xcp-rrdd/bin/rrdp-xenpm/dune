@@ -2,8 +2,8 @@
   (modes exe)
   (name rrdp_xenpm)
   (libraries
-    
     rrdd-plugin
+    rrdd-plugin.base
     rrdd_plugins_libs
     str
     xapi-idl.rrd
