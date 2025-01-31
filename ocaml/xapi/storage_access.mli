@@ -61,9 +61,6 @@ val reset : __context:Context.t -> vm:API.ref_VM -> unit
 (** [reset __context vm] declares that [vm] has reset and if it's a driver
     domain, we expect it to lose all state. *)
 
-val transform_storage_exn : (unit -> 'a) -> 'a
-(** [transform_storage_exn f] runs [f], rethrowing any storage error as a nice XenAPI error *)
-
 val attach_and_activate :
      __context:Context.t
   -> vbd:API.ref_VBD

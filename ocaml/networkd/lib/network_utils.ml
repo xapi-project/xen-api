@@ -63,7 +63,7 @@ let bonding_dir = "/proc/net/bonding/"
 
 let uname = ref "/usr/bin/uname"
 
-let dracut = ref "/sbin/dracut"
+let dracut = ref "/usr/bin/dracut"
 
 let modinfo = ref "/sbin/modinfo"
 

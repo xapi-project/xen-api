@@ -20,7 +20,7 @@ type sm_data_sequence = {
     (* Text feature list we get back as part of sr_get_driver_info. *)
     raw: string list
   ; (* SMAPIv1 driver info. *)
-    smapiv1_features: Smint.feature list
+    smapiv1_features: Smint.Feature.t list
   ; (* SMAPIv2 driver info. *)
     smapiv2_features: string list
   ; (* SM object created in the database. *)
@@ -40,7 +40,6 @@ let string_of_sm_object sm =
     )
 
 let test_sequences =
-  let open Smint in
   [
     (* Test NFS driver features as of Clearwater. *)
     {
@@ -179,14 +178,14 @@ module ParseSMAPIv1Features = Generic.MakeStateless (struct
   module Io = struct
     type input_t = string list
 
-    type output_t = Smint.feature list
+    type output_t = Smint.Feature.t list
 
     let string_of_input_t = Test_printers.(list string)
 
-    let string_of_output_t = Test_printers.(list Smint.string_of_feature)
+    let string_of_output_t = Test_printers.(list Smint.Feature.to_string)
   end
 
-  let transform = Smint.parse_capability_int64_features
+  let transform = Smint.Feature.parse_capability_int64
 
   let tests =
     `QuickAndAutoDocumented
@@ -198,16 +197,16 @@ end)
 
 module CreateSMAPIv2Features = Generic.MakeStateless (struct
   module Io = struct
-    type input_t = Smint.feature list
+    type input_t = Smint.Feature.t list
 
     type output_t = string list
 
-    let string_of_input_t = Test_printers.(list Smint.string_of_feature)
+    let string_of_input_t = Test_printers.(list Smint.Feature.to_string)
 
     let string_of_output_t = Test_printers.(list string)
   end
 
-  let transform = List.map Smint.string_of_feature
+  let transform = List.map Smint.Feature.to_string
 
   let tests =
     `QuickAndAutoDocumented
@@ -276,9 +275,10 @@ module CompatSMFeatures = Generic.MakeStateless (struct
   end
 
   let transform l =
+    let open Smint.Feature in
     List.split l |> fun (x, y) ->
-    (Smint.parse_string_int64_features x, Smint.parse_string_int64_features y)
-    |> fun (x, y) -> Smint.compat_features x y |> List.map Smint.unparse_feature
+    (parse_string_int64 x, parse_string_int64 y) |> fun (x, y) ->
+    compat_features x y |> List.map unparse
 
   let tests =
     let r1, r2 = test_intersection_sequences in

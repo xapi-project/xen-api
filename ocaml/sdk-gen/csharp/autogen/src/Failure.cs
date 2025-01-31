@@ -49,16 +49,16 @@ namespace XenAPI
 
         private readonly List<string> errorDescription = new List<string>();
         private string errorText;
-        private string shortError;
 
         public List<string> ErrorDescription
         {
             get { return errorDescription; }
         }
 
+        [Obsolete("Use property Message instead.")]
         public string ShortMessage
         {
-            get { return shortError; }
+            get { return errorText; }
         }
 
         public override string Message
@@ -93,7 +93,6 @@ namespace XenAPI
         {
             errorDescription = (List<string>)info.GetValue("errorDescription", typeof(List<string>));
             errorText = info.GetString("errorText");
-            shortError = info.GetString("shortError");
         }
 
         #endregion
@@ -141,15 +140,6 @@ namespace XenAPI
 
             //call these before setting the shortError because they modify the errorText
             ParseSmapiV3Failures();
-
-            try
-            {
-                shortError = errorDescriptions.GetString(ErrorDescription[0] + "_SHORT") ?? errorText;
-            }
-            catch (Exception)
-            {
-                shortError = errorText;
-            }
         }
 
         /// <summary>
@@ -192,7 +182,6 @@ namespace XenAPI
 
             info.AddValue("errorDescription", errorDescription, typeof(List<string>));
             info.AddValue("errorText", errorText);
-            info.AddValue("shortError", shortError);
 
             base.GetObjectData(info, context);
         }

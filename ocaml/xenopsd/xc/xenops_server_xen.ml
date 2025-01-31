@@ -2385,54 +2385,6 @@ module VM = struct
     Option.is_some
       (event_wait internal_updates task timeout is_vm_event vm_has_shutdown)
 
-  (* Mount a filesystem somewhere, with optional type *)
-  let mount ?(ty = None) src dest write =
-    let ty = match ty with None -> [] | Some ty -> ["-t"; ty] in
-    run !Xc_resources.mount
-      (ty @ [src; dest; "-o"; (if write then "rw" else "ro")])
-    |> ignore_string
-
-  let timeout = 300.
-
-  (* 5 minutes: something is seriously wrong if we hit this timeout *)
-
-  exception Umount_timeout
-
-  (** Unmount a mountpoint. Retries every 5 secs for a total of 5mins before
-      returning failure *)
-  let umount ?(retry = true) dest =
-    let finished = ref false in
-    let start = Unix.gettimeofday () in
-    while (not !finished) && Unix.gettimeofday () -. start < timeout do
-      try
-        run !Xc_resources.umount [dest] |> ignore_string ;
-        finished := true
-      with e ->
-        if not retry then raise e ;
-        debug
-          "Caught exception (%s) while unmounting %s: pausing before retrying"
-          (Printexc.to_string e) dest ;
-        Thread.delay 5.
-    done ;
-    if not !finished then raise Umount_timeout
-
-  let with_mounted_dir_ro device f =
-    let mount_point = Filename.temp_file "xenops_mount_" "" in
-    Unix.unlink mount_point ;
-    Unix.mkdir mount_point 0o640 ;
-    finally
-      (fun () ->
-        mount ~ty:(Some "ext2") device mount_point false ;
-        f mount_point
-      )
-      (fun () ->
-        ( try umount mount_point
-          with e -> debug "Caught %s" (Printexc.to_string e)
-        ) ;
-        try Unix.rmdir mount_point
-        with e -> debug "Caught %s" (Printexc.to_string e)
-      )
-
   (* A raw image is a file or device in contrast to a directory where
      would need to open a file *)
   let is_raw_image path =
