@@ -1,6 +1,6 @@
 +++
 title = "Live Migration Sequence Diagram"
-menuTitle = "Live Migration"
+linkTitle = "Live Migration"
 +++
 
 {{<mermaid align="left">}}

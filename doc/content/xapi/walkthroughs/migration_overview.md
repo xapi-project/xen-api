@@ -1,6 +1,6 @@
 +++
 title = "From RPC migration request to xapi internals"
-menuTitle = "How XAPI handles migration request"
+linkTitle = "How XAPI handles migration request"
 +++
 
 ## Overview

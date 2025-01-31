@@ -1,6 +1,6 @@
 +++
 title = "XAPI requests walk-throughs"
-menuTitle = "Walk-throughs"
+linkTitle = "Walk-throughs"
 +++
 
 Let's detail the handling process of an XML request within XAPI.
