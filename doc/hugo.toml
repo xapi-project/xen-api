@@ -25,7 +25,7 @@ assetsDir = "assets"
 
 [outputs]
 # Home and section pages should also have a print icon for the print view:
-home = [ "HTML", "RSS", "SEARCH", "PRINT"]
+home = [ "HTML", "RSS",  "PRINT"]
 section = [ "HTML", "RSS", "PRINT"]
 
 [params]
