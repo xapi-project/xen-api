@@ -49,8 +49,18 @@ module Token = struct
     Printf.sprintf "%020Ld,%020Ld" last last_t
 end
 
+let is_lowercase_char c = Char.equal (Char.lowercase_ascii c) c
+
+let is_lowercase str = String.for_all is_lowercase_char str
+
 module Subscription = struct
   type t = Class of string | Object of string * string | All
+
+  let is_task_only = function
+    | Class "task" | Object ("task", _) ->
+        true
+    | Class _ | Object _ | All ->
+        false
 
   let of_string x =
     if x = "*" then
@@ -67,11 +77,9 @@ module Subscription = struct
                (Api_errors.event_subscription_parse_failure, [x])
             )
 
-  let any = List.fold_left (fun acc x -> acc || x) false
-
   (** [table_matches subs tbl]: true if at least one subscription from [subs] would select some events from [tbl] *)
   let table_matches subs tbl =
-    let tbl = String.lowercase_ascii tbl in
+    let tbl = if is_lowercase tbl then tbl else String.lowercase_ascii tbl in
     let matches = function
       | All ->
           true
@@ -80,11 +88,11 @@ module Subscription = struct
       | Object (x, _) ->
           x = tbl
     in
-    any (List.map matches subs)
+    List.exists matches subs
 
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for specified class and object *)
   let object_matches subs ty _ref =
-    let tbl = String.lowercase_ascii ty in
+    let tbl = if is_lowercase ty then ty else String.lowercase_ascii ty in
     let matches = function
       | All ->
           true
@@ -93,7 +101,7 @@ module Subscription = struct
       | Object (x, y) ->
           x = tbl && y = _ref
     in
-    any (List.map matches subs)
+    List.exists matches subs
 
   (** [event_matches subs ev]: true if at least one subscription from [subs] selects for event [ev] *)
   let event_matches subs ev = object_matches subs ev.ty ev.reference
@@ -417,20 +425,25 @@ module From = struct
 
   let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)
 
-  let wait2 call from_id deadline =
+  let wait2 call from_id timer =
     let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
     with_lock m (fun () ->
         while
           from_id = call.cur_id
           && (not (session_is_invalid call))
-          && Unix.gettimeofday () < deadline
+          && not (Clock.Timer.has_expired timer)
         do
-          Xapi_stdext_threads_scheduler.Scheduler.add_to_queue timeoutname
-            Xapi_stdext_threads_scheduler.Scheduler.OneShot
-            (deadline -. Unix.gettimeofday () +. 0.5)
-            (fun () -> Condition.broadcast c) ;
-          Condition.wait c m ;
-          Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue timeoutname
+          match Clock.Timer.remaining timer with
+          | Expired _ ->
+              ()
+          | Remaining delta ->
+              Xapi_stdext_threads_scheduler.Scheduler.add_to_queue_span
+                timeoutname Xapi_stdext_threads_scheduler.Scheduler.OneShot
+                delta (fun () -> Condition.broadcast c
+              ) ;
+              Condition.wait c m ;
+              Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue
+                timeoutname
         done
     ) ;
     if session_is_invalid call then (
@@ -463,6 +476,13 @@ let unregister ~__context ~classes =
 
 (** Blocking call which returns the next set of events relevant to this session. *)
 let rec next ~__context =
+  let batching =
+    if !Constants.use_event_next then
+      Throttle.Batching.make ~delay_before:Mtime.Span.zero
+        ~delay_between:Mtime.Span.zero
+    else
+      !Xapi_globs.event_next_delay
+  in
   let session = Context.get_session_id __context in
   let open Next in
   assert_subscribed session ;
@@ -482,11 +502,12 @@ let rec next ~__context =
     )
   in
   (* Like grab_range () only guarantees to return a non-empty range by blocking if necessary *)
-  let rec grab_nonempty_range () =
+  let grab_nonempty_range =
+    Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
     let last_id, end_id = grab_range () in
     if last_id = end_id then
       let (_ : int64) = wait subscription end_id in
-      grab_nonempty_range ()
+      (self [@tailcall]) arg
     else
       (last_id, end_id)
   in
@@ -504,7 +525,7 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
-let from_inner __context session subs from from_t deadline =
+let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
   let open From in
   (* The database tables involved in our subscription *)
@@ -540,11 +561,7 @@ let from_inner __context session subs from from_t deadline =
             Db_cache_types.Table.fold_over_recent !last_generation
               (fun objref {Db_cache_types.Stat.created; modified; deleted} _
                    (creates, mods, deletes, last) ->
-                if
-                  Subscription.object_matches subs
-                    (String.lowercase_ascii table)
-                    objref
-                then
+                if Subscription.object_matches subs table objref then
                   let last = max last (max modified deleted) in
                   (* mtime guaranteed to always be larger than ctime *)
                   ( ( if created > !last_generation then
@@ -574,11 +591,7 @@ let from_inner __context session subs from from_t deadline =
           Db_cache_types.Table.fold_over_deleted !last_generation
             (fun objref {Db_cache_types.Stat.created; modified; deleted}
                  (creates, mods, deletes, last) ->
-              if
-                Subscription.object_matches subs
-                  (String.lowercase_ascii table)
-                  objref
-              then
+              if Subscription.object_matches subs table objref then
                 let last = max last (max modified deleted) in
                 (* mtime guaranteed to always be larger than ctime *)
                 if created > !last_generation then
@@ -600,7 +613,8 @@ let from_inner __context session subs from from_t deadline =
   (* Each event.from should have an independent subscription record *)
   let msg_gen, messages, tableset, (creates, mods, deletes, last) =
     with_call session subs (fun sub ->
-        let rec grab_nonempty_range () =
+        let grab_nonempty_range =
+          Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
           let ( (msg_gen, messages, _tableset, (creates, mods, deletes, last))
                 as result
               ) =
@@ -611,16 +625,15 @@ let from_inner __context session subs from from_t deadline =
             && mods = []
             && deletes = []
             && messages = []
-            && Unix.gettimeofday () < deadline
+            && not (Clock.Timer.has_expired timer)
           then (
             last_generation := last ;
             (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
             sub.cur_id <- last ;
             (* last id the client got is equivalent to the current one *)
             last_msg_gen := msg_gen ;
-            wait2 sub last deadline ;
-            Thread.delay 0.05 ;
-            grab_nonempty_range ()
+            wait2 sub last timer ;
+            (self [@tailcall]) arg
           ) else
             result
         in
@@ -699,6 +712,19 @@ let from_inner __context session subs from from_t deadline =
   {events; valid_ref_counts; token= Token.to_string (last, msg_gen)}
 
 let from ~__context ~classes ~token ~timeout =
+  let duration =
+    timeout
+    |> Clock.Timer.s_to_span
+    |> Option.value ~default:Mtime.Span.(24 * hour)
+  in
+  let timer = Clock.Timer.start ~duration in
+  let subs = List.map Subscription.of_string classes in
+  let batching =
+    if List.for_all Subscription.is_task_only subs then
+      !Xapi_globs.event_from_task_delay
+    else
+      !Xapi_globs.event_from_delay
+  in
   let session = Context.get_session_id __context in
   let from, from_t =
     try Token.of_string token
@@ -710,15 +736,15 @@ let from ~__context ~classes ~token ~timeout =
            (Api_errors.event_from_token_parse_failure, [token])
         )
   in
-  let subs = List.map Subscription.of_string classes in
-  let deadline = Unix.gettimeofday () +. timeout in
   (* We need to iterate because it's possible for an empty event set
      	   to be generated if we peek in-between a Modify and a Delete; we'll
      	   miss the Delete event and fail to generate the Modify because the
      	   snapshot can't be taken. *)
   let rec loop () =
-    let event_from = from_inner __context session subs from from_t deadline in
-    if event_from.events = [] && Unix.gettimeofday () < deadline then (
+    let event_from =
+      from_inner __context session subs from from_t timer batching
+    in
+    if event_from.events = [] && not (Clock.Timer.has_expired timer) then (
       debug "suppressing empty event.from" ;
       loop ()
     ) else

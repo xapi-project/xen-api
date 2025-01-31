@@ -19,6 +19,11 @@
     HTTP 1.1 should be used and the connection should be kept-alive.
 *)
 
+val set_max_stunnel : int -> unit
+(** [set_max_stunnel] set the maximum number of unusued, but cached client stunnel connections.
+  This should be a low number on pool members, to avoid hitting limits on the coordinator with large pools.
+ *)
+
 val with_connect :
      ?use_fork_exec_helper:bool
   -> ?write_to_log:(string -> unit)
@@ -46,3 +51,9 @@ val flush : unit -> unit
 
 val gc : unit -> unit
 (** GCs old stunnels *)
+
+val max_age : float ref
+(** maximum time a connection is kept in the stunnel cache, counted from the time it got initially added to the cache *)
+
+val max_idle : float ref
+(** maximum time a connection is kept in the stunnel cache, counted from the most recent time it got (re)added to the cache. *)

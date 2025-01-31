@@ -38,6 +38,13 @@
 )
 
 (package
+  (name tgroup)
+  (depends 
+    xapi-log
+    xapi-stdext-unix)
+)
+
+(package
   (name xml-light2)
 )
 
@@ -321,6 +328,7 @@
   (synopsis "The toolstack daemon which implements the XenAPI")
   (description "This daemon exposes the XenAPI and is used by clients such as 'xe' and 'XenCenter' to manage clusters of Xen-enabled hosts.")
   (depends
+    (ocaml (>= 4.09))
     (alcotest :with-test)
     angstrom
     astring
@@ -374,6 +382,7 @@
     tar
     tar-unix
     uri
+    tgroup
     (uuid (= :version))
     uutf
     uuidm
@@ -587,6 +596,7 @@ This package provides an Lwt compatible interface to the library.")
     (safe-resources(= :version))
     sha
     (stunnel (= :version))
+    tgroup
     uri
     (uuid (= :version))
     xapi-backtrace

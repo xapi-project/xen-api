@@ -8517,11 +8517,18 @@ module Event = struct
         ]
       ~doc:
         "Blocking call which returns a (possibly empty) batch of events. This \
-         method is only recommended for legacy use. New development should use \
-         event.from which supersedes this method."
+         method is only recommended for legacy use.It stores events in a \
+         buffer of limited size, raising EVENTS_LOST if too many events got \
+         generated. New development should use event.from which supersedes \
+         this method."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:(Set (Record _event), "A set of events")
-      ~errs:[Api_errors.session_not_registered; Api_errors.events_lost]
+      ~errs:
+        [
+          Api_errors.session_not_registered
+        ; Api_errors.events_lost
+        ; Api_errors.event_subscription_parse_failure
+        ]
       ~allowed_roles:_R_ALL ()
 
   let from =
@@ -8551,7 +8558,8 @@ module Event = struct
       ~doc:
         "Blocking call which returns a new token and a (possibly empty) batch \
          of events. The returned token can be used in subsequent calls to this \
-         function."
+         function. It eliminates redundant events (e.g. same field updated \
+         multiple times)."
       ~custom_marshaller:true ~flags:[`Session]
       ~result:
         ( Set (Record _event)
@@ -8562,7 +8570,11 @@ module Event = struct
         (*In reality the event batch is not a set of records as stated here.
           Due to the difficulty of representing this in the datamodel, the doc is generated manually,
           so ensure the markdown_backend.ml and gen_json.ml is updated if something changes. *)
-      ~errs:[Api_errors.session_not_registered; Api_errors.events_lost]
+      ~errs:
+        [
+          Api_errors.event_from_token_parse_failure
+        ; Api_errors.event_subscription_parse_failure
+        ]
       ~allowed_roles:_R_ALL ()
 
   let get_current_id =

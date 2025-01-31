@@ -113,6 +113,7 @@
     xapi-idl.xen
     xapi-stdext-date
     xapi-stdext-threads
+    xapi-stdext-threads.scheduler
     xapi-stdext-unix
     xapi-test-utils
     xapi-tracing

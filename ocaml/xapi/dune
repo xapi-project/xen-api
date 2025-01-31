@@ -79,6 +79,7 @@
     sexplib0
     sexplib
     sexpr
+    tgroup
     forkexec
     xapi-idl
     xapi_aux
@@ -152,6 +153,7 @@
     tapctl
     tar
     tar-unix
+    tgroup
     threads.posix
     tracing
     tracing_propagator
@@ -242,6 +244,7 @@
     rpclib.json
     rpclib.xml
     stunnel
+    tgroup
     threads.posix
     tracing
     tracing_propagator
