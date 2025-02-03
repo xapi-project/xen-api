@@ -939,6 +939,8 @@ let dracut = ref "/usr/bin/dracut"
 
 let udevadm = ref "/usr/sbin/udevadm"
 
+let pvsproxy_close_cache_vdi = ref "/opt/citrix/pvsproxy/close-cache-vdi.sh"
+
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
@@ -1891,6 +1893,10 @@ module Resources = struct
       , fcoe_driver
       , "Execute during PIF unplug to get the lun devices related with the \
          ether interface of the PIF"
+      )
+    ; ( "pvsproxy_close_cache_vdi"
+      , pvsproxy_close_cache_vdi
+      , "Path to close-cache-vdi.sh"
       )
     ]
 
