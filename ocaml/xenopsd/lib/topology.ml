@@ -181,18 +181,22 @@ module NUMA = struct
                None
          )
     in
-    let numa_nodes = Array.length d in
+    let numa_nodes = Seq.length valid_nodes in
     let nodes =
-      if numa_nodes > 16 then
+      if numa_nodes > 16 then (
         (* Avoid generating too many candidates because of the exponential
            running time. We could do better here, e.g. by
            reducing the matrix *)
+        D.info
+          "%s: More than 16 valid NUMA nodes detected, considering only \
+           individual nodes."
+          __FUNCTION__ ;
         valid_nodes
         |> Seq.map (fun i ->
                let self = d.(i).(i) in
                (distance_to_candidate self, Seq.return i)
            )
-      else
+      ) else
         valid_nodes |> seq_all_subsets |> Seq.filter_map (node_distances d)
     in
     nodes
