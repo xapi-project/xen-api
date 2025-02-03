@@ -851,7 +851,7 @@ let numa_init () =
   let host = Lazy.force numa_hierarchy in
   let mem = (Xenctrlext.numainfo xcext).memory in
   D.debug "Host NUMA information: %s"
-    (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
+    (Fmt.to_to_string (Fmt.Dump.option Topology.NUMA.pp_dump) host) ;
   Array.iteri
     (fun i m ->
       let open Xenctrlext in
@@ -864,8 +864,9 @@ let numa_placement domid ~vcpus ~memory =
   let open Topology in
   let hint =
     with_lock numa_mutex (fun () ->
+        let ( let* ) = Option.bind in
         let xcext = get_handle () in
-        let host = Lazy.force numa_hierarchy in
+        let* host = Lazy.force numa_hierarchy in
         let numa_meminfo = (numainfo xcext).memory |> Array.to_list in
         let nodes =
           ListLabels.map2
