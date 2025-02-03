@@ -19,9 +19,9 @@ The first and last blocks must be present. Readers expect the block size to be e
 ## Omitting empty blocks
 
 If it is known that a block is entirely empty (i.e. full of zeroes) then it may
-be ommitted from the stream *provided it is neither the first nor the last block*.
+be omitted from the stream *provided it is neither the first nor the last block*.
 The ommission is signaled by incrementing the counter value by 1 for every
-ommitted block.
+omitted block.
 
 Example sequence 1:
 
@@ -34,7 +34,7 @@ Example sequence 1:
 00000002.checksum
 ```
 
-no blocks have been ommitted, since the counter value increases by 1 each block.
+no blocks have been omitted, since the counter value increases by 1 each block.
 
 Example sequence 2:
 
@@ -45,7 +45,7 @@ Example sequence 2:
 00000002.checksum
 ```
 
-one block has been ommitted, since the counter value increased by 2.
+one block has been omitted, since the counter value increased by 2.
 
 ## Inserting dummy blocks
 

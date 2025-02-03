@@ -694,7 +694,7 @@ let destroy ~__context ~self =
 
 (* Note: we don't need to call lock_vm around clone or copy. The lock_vm just takes the local
    lock on a specific pool host and is used to manage contention between API threads and the
-   event monitoring thread on live VMs. Since clone does not deal with live VMs we ommit lock_vm. *)
+   event monitoring thread on live VMs. Since clone does not deal with live VMs we omit lock_vm. *)
 
 let clone ~__context ~vm ~new_name =
   TaskHelper.set_cancellable ~__context ;
