@@ -1,41 +1,32 @@
-# Quick start guide:
+# Quick start guide
 
-- Visit https://xapi-project.github.io/new-docs/ to view the current documentation.
+- Visit <https://xapi-project.github.io/new-docs/> to view the current documentation.
 
 ## Required software
 
 The docs use Hugo and the [Hugo Relearn theme](https://mcshelby.github.io/hugo-theme-relearn),
 an enhanced fork of the popular Hugo Learn theme.
 
-### Compatible versions
+### Supported versions of Hugo and the Hugo Relearn theme
 
-Due to a number of gradual changes in Hugo and Relearn,
-the docs are currently only compatible with specific older versions of Hugo and Relearn.
+Hugo Relearn 7.3.2 is currently used (defined by a git tag in `doc/go.mod`).
 
-Hugo v0.121.0 to ~v0.127.0 (the current version of the Ubuntu `snap` is too recent)
-- Fixes to support newer versions are forthcoming.
-
-Hugo Relearn 5.24.0 (defined by a git tag in doc/go.mod)
-- Note: Hugo Relearn >= 5.25 currently trigger additional warnings due to deprecations.
-- Further updates fix this situation are forthcoming step by step.
-
-Hugo Relearn >= 5.24.0 and < 6.x are expected to work:
-- https://mcshelby.github.io/hugo-theme-relearn/introduction/releasenotes/5/index.html#5-24-0
-- Breaking changes in Relearn 6.0.0:
-  https://mcshelby.github.io/hugo-theme-relearn/introduction/releasenotes/6/#6-0-0
+- The minimum Hugo version required by the Relearn theme is 0.126.0.
+- The current Ubuntu `snap` (which provides 0.142.0) also works.
 
 ## Installation
 
-- Install Hugo; follow the guidance on https://gohugo.io/getting-started/installing.
-  You'll need to install Go as well: see https://go.dev/
-  - Hugo installation is described at https://gohugo.io/installation
-  - On Ubuntu 24.04, the version installed by `apt` works.
-  - On Ubuntu 22.04 and older:
-    - `apt-get install hugo` would install a version that is too old.
-    - `sudo snap install hugo` installs a too recent version
+- Install Hugo 0.126 or newer (required by the Hugo Relearn theme)
+  follow the guidance on <https://gohugo.io/installing>.
+  You'll need to install Go as well: see <https://go.dev/>
+  - On Ubuntu, use the `snap` package:
+    - `sudo snap install hugo` installs the current version
+      `apt-get install hugo` would install a version that is too old,
+      (this applies up to Ubuntu 24.04)
 
   - To install Hugo from source, you need a recent `golang-1.2x` compiler:
     - On Ubuntu 22.04, this can be done with:
+
       ```bash
       sudo apt install golang-1.23-go
       # Add it to your path, assuming your .local/bin/ is early in your PATH:
@@ -47,13 +38,67 @@ Hugo Relearn >= 5.24.0 and < 6.x are expected to work:
 ## Development
 
 - Run a local server: `hugo server`
-- Open a browser at http://127.0.0.1:1313/new-docs/
+- Open a browser at <http://127.0.0.1:1313/new-docs/>
 - Add content to `doc/content/`:
   - Documents are written in Markdown.
-  - Please wrap lines in paragraphs to make review and diffs easier to read.
-  - The menu hierarchy comes mostly from the directory structure in `content/`.
+  - Please wrap lines in paragraphs to make reviews more manageable.
+  - The menu hierarchy comes mainly from the directory structure in `content/`.
   - A file called `_index.md` is needed in a directory to define a new level in the menu.
-    - To set the page title which is also used for the main menu,
+    - To set the page title,
       [use the front matter](https://gohugo.io/content-management/front-matter/).
-  - For a page that has images or other stuff included, it is best to create a new directory. Put the contents in a `index.md` file (no `_`) and the related files next to it. See https://gohugo.io/content-management/organization/ for more information.
-  - Look at https://mcshelby.github.io/hugo-theme-relearn/ for more information about what the Relearn theme offers, including some handy "shortcodes".
+  - For a page that has images or other stuff included, it is best to create a new directory:
+    Put the contents in an `index.md` file (no `_`) and the related files next to it.
+    See <https://gohugo.io/content-management/organization/> for more information.
+
+  See <https://mcshelby.github.io/hugo-theme-relearn/> for more information about
+  the features of the Relearn theme, including handy "shortcodes".
+
+Note: When switching versions, before re-generating the documentation using
+`hugo server`, delete the previously generated static site using `rm -r docs/public`.
+
+### Notes for supporting current versions of Hugo and the Relearn theme
+
+Backported fixes to support newer Hugo versions:
+
+- `layouts/partials/header.html`, it fixes:
+  ```js
+  ERROR deprecated: .Sites.First was deprecated in Hugo v0.127.0 and will be removed in Hugo 0.143.0. Use .Sites.Default instead.
+  ```
+- `layouts/partials/menu.html`, it fixes:
+  ```js
+  ERROR deprecated: .Site.IsMultiLingual was deprecated in Hugo v0.124.0 and will be removed in Hugo 0.143.0. Use hugo.IsMultilingual instead.
+  ```
+
+The fixes for those issues were backported from the Hugo Relearn v7.x.x theme.
+When updating to Hugo Relearn 7.x.x, please remove them (if possible).
+
+#### Tips when upgradubg to newer Hugo Relearn versions
+
+Check the release notes of the Hugo Relearn theme for breaking changes:
+https://mcshelby.github.io/hugo-theme-relearn/introduction/releasenotes
+
+These pages might need review when making changes as their content is
+generated by layouts/partials/content.html:
+
+- XenAPI Reference: <https://xapi-project.github.io/new-docs/xen-api/classes>
+- XenAPI Releases: <https://xapi-project.github.io/new-docs/xen-api/releases>
+
+For a summary of the partials supported by the Hugo Relearn theme, see:
+https://mcshelby.github.io/hugo-theme-relearn/configuration/customization/partials
+
+Hint: For upgrading the Hugo Relearn theme, you can use:
+
+```bash
+cd doc; hugo mod get -u github.com/McShelby/hugo-theme-relearn@7.4.0
+```
+
+#### Summary
+
+Hugo >= 0.126 and the Hugo Relearn >= 7.3.2 are supported to render the docs.
+
+#### References
+
+- Changes with Relearn 6.x:
+  <https://mcshelby.github.io/hugo-theme-relearn/introduction/releasenotes/6/#6-0-0>
+- Breaking changes with Relearn 7.x:
+  <https://mcshelby.github.io/hugo-theme-relearn/introduction/releasenotes/7/#7-0-0>

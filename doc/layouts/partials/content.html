@@ -1,7 +1,12 @@
-{{- partial "header.html" . }}
-<span id="sidebar-toggle-span">
-<a href="#" id="sidebar-toggle" data-sidebar-toggle=""><i class="fas fa-bars"></i> navigation</a>
-</span>
+{{- /* Partial to generate the content of XenAPI class reference and release pages, see: */}}
+{{- /* https://mcshelby.github.io/hugo-theme-relearn/configuration/customization/partials/index.html */}}
+
+{{- /* XenAPI class reference pages define a class fontmatter */}}
+{{- /* For these, provide and generate their class reference content: */}}
+
+{{ .Content }}
+{{ $c := .Page.Params.class }}
+{{ with index (where $.Site.Data.xenapi "name" $c) 0 }}
 
 <script type="text/javascript">
    function showhide(obj) {
@@ -13,8 +18,8 @@
 
   function toggle_implicit(button) {
     var elements = document.querySelectorAll(".implicit");
-    for (var i=0; i < elements.length; i++)
-      showhide(elements[i]);
+    for (element of elements)
+      showhide(element);
 
     if (button.textContent == 'Hide implicit')
       button.textContent = 'Show implicit';
@@ -25,10 +30,6 @@
 
 {{ $style := resources.Get "css/xenapi.css" }}
 <link rel="stylesheet" href="{{ $style.Permalink }}">
-
-{{ .Content }}
-{{ $c := .Page.Params.class }}
-{{ with index (where $.Site.Data.xenapi "name" $c) 0 }}
 
 {{ with .lifecycle }}
 <div class="lifecycle">
@@ -195,6 +196,43 @@ Class: {{ $c }}
 </div>
 {{ end }}
 
+{{- /* Finished generating the XenAPI class reference page content */}}
+
 {{ end }}
 
-{{- partial "footer.html" . }}
+{{- /* XenAPI release pages define a release fontmatter */}}
+{{- /* For these provide and generate their page content */}}
+
+{{ $r := .Page.Params.release }}
+{{ with .Page.Params.release }}
+
+<h2 class="title">
+  {{ index $.Site.Data.releases $r }}
+</h2>
+
+Code name: "{{ $r }}".
+
+{{ with index $.Site.Data.release_info $r }}
+
+<h3>Changes</h3>
+
+<table class="table table-bordered table-striped">
+  <tr><th>Change</th><th>Element</th><th>Description</th></tr>
+  {{ range . }}
+    <tr>
+      <td style="white-space: nowrap">{{ .transition | humanize }}</td>
+      <td><a href="{{ index (split .name ".") 0 | urls.JoinPath "xen-api/classes" | absURL }}">{{ .name }}</a></td>
+      <td>{{ .log }}</td>
+    </tr>
+  {{ end }}
+</table>
+
+{{ else }}
+
+<p>No changes...</p>
+
+{{ end }}
+
+{{- /* Finished generating the release page content */}}
+
+{{ end }}

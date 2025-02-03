@@ -7,9 +7,6 @@ on:
       - 'doc/**'
       - '.github/workflows/hugo.yml'
   pull_request:
-    paths-ignore:
-      - 'doc/**'
-      - '.github/workflows/hugo.yml'
   schedule:
     # run daily, this refreshes the cache
     - cron: "13 2 * * *"
