@@ -285,7 +285,7 @@ contains the members `jsonrpc`, `method`, `params`, and `id`.
   (requests without responses).
 
 For example, the body of a JSON-RPC v2.0 request to retrieve the VMs resident on
-a host may may look like this:
+a host may look like this:
 
 ```json
   {
@@ -538,7 +538,7 @@ you must login and initiate a session. For example:
 where `uname` and `password` refer to your username and password, as defined by
 the Xen administrator, while `version` and `originator` are optional. The
 `session ref` returned by `session.login_with_password` is passed
-to subequent RPC calls as an authentication token. Note that a session
+to subsequent RPC calls as an authentication token. Note that a session
 reference obtained by a login request to the XML-RPC backend can be used in
 subsequent requests to the JSON-RPC backend, and vice-versa.
 
@@ -565,7 +565,7 @@ Instead of returning its result directly, an asynchronous RPC call
 returns an identifier of type `task ref` which is subsequently used
 to track the status of a running asynchronous RPC.
 
-Note that an asychronous call may fail immediately, before a task has even been
+Note that an asynchronous call may fail immediately, before a task has even been
 created. When using the XML-RPC wire protocol, this eventuality is represented
 by wrapping the returned `task ref` in an XML-RPC struct with a `Status`,
 `ErrorDescription`, and `Value` fields, exactly as specified above; the

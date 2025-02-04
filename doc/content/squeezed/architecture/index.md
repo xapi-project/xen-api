@@ -18,7 +18,7 @@ includes:
   together describe a range, within which the domain's actual used memory
   should remain.
 - Per-domain calibration data which allows us to compute the necessary balloon
-  target value to achive a particular memory usage value.
+  target value to achieve a particular memory usage value.
 
 Squeezed is a single-threaded program which receives commands from xenopsd over
 a Unix domain socket. When Xenopsd wishes to start a new VM, squeezed will be

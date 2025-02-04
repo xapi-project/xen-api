@@ -16,7 +16,7 @@ redirect traffic between PVS and VM to pass through the proxy.
 
 OVS uses rules that match packets. Rules are organised in sets called
 tables. A rule can be used to match a packet and to inject it into
-another rule set/table table such that a packet can be matched again.
+another rule set/table such that a packet can be matched again.
 
 Furthermore, a rule can set registers associated with a packet which that
 can be matched in subsequent rules. In that way, a packet can be tagged

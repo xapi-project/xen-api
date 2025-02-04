@@ -220,7 +220,7 @@ A new class, Certificate, will be added with the following schema:
 | ---------- | --------- | ----- |
 | uuid       |           |
 | type       | CA        | Certificate trusted by all hosts
-|            | Host      | Certificate that the host present sto normal clients
+|            | Host      | Certificate that the host presents to normal clients
 | name       | String    | Name, only present for trusted certificates
 | host       | Ref _host | Host where the certificate is installed
 | not_before | DateTime  | Date after which the certificate is valid

@@ -4,7 +4,7 @@ hidden: true
 ---
 
 {{% notice warning %}}
-This was converted to markdown from squeezer.tex. It is not clear how much
+This was converted to Markdown from squeezer.tex. It is not clear how much
 of this document is still relevant and/or already present in the other docs.
 {{% /notice %}}
 

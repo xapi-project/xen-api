@@ -124,7 +124,7 @@ helper function
 [perform_atomics](https://github.com/xapi-project/xenopsd/blob/f876f9029cf53f14a52bf42a4a3a03265e048926/lib/xenops_server.ml#L1092)
 which divides the progress 'bar' into sections, where each "micro-op" can have
 a different size (`weight`). A progress callback function is passed into
-each Xenopsd backend function so it can be updated with fine granulatiry. For
+each Xenopsd backend function so it can be updated with fine granularity. For
 example note the arguments to
 [B.VM.save](https://github.com/xapi-project/xenopsd/blob/f876f9029cf53f14a52bf42a4a3a03265e048926/lib/xenops_server.ml#L1092)
 
