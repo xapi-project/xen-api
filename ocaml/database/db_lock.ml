@@ -79,9 +79,11 @@ module ReentrantLock : REENTRANT_LOCK = struct
 
   let current_tid () = Thread.(self () |> id)
 
-  let[@inline never] [@specialize never] lock_acquired () = ()
+  let[@inline never] [@specialize never] lock_acquired () =
+    Xapi_timeslice.Timeslice.lock_acquired ()
 
-  let[@inline never] [@specialize never] lock_released () = ()
+  let[@inline never] [@specialize never] lock_released () =
+    Xapi_timeslice.Timeslice.lock_released ()
 
   let lock l =
     let me = current_tid () in
