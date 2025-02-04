@@ -277,11 +277,11 @@ contains the members `jsonrpc`, `method`, `params`, and `id`.
 
 -  `params`: A JSON `array` of values, which represents the parameters of the
   function to be invoked. Although the JSON-RPC v2.0 specification allows this
-  member to be ommitted, in practice all API calls accept at least one parameter.
+  member to be omitted, in practice all API calls accept at least one parameter.
 
 -  `id`: A JSON `string` or `integer` representing the call id. Note that,
   diverging from the JSON-RPC v2.0 specification it cannot be null. Neither can
-  it be ommitted because the API does not accept _notification_ requests
+  it be omitted because the API does not accept _notification_ requests
   (requests without responses).
 
 For example, the body of a JSON-RPC v2.0 request to retrieve the VMs resident on
@@ -619,7 +619,7 @@ connection, this can be done as follows:
 
 Acquire a session reference by logging in with a username and password; the
 session reference is returned under the key `Value` in the resulting dictionary
-(error-handling ommitted for brevity):
+(error-handling omitted for brevity):
 
 ```python
 >>> session = xen.session.login_with_password("user", "passwd",
