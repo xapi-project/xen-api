@@ -637,9 +637,7 @@ module Attached_SRs = struct
 
   let state_path = ref None
 
-  let add smapiv2 plugin uids =
-    let key = Storage_interface.Sr.string_of smapiv2 in
-    Base.Hashtbl.set !sr_table ~key ~data:{sr= plugin; uids} ;
+  let update_state_path () =
     ( match !state_path with
     | None ->
         Lwt.return_unit
@@ -652,6 +650,11 @@ module Attached_SRs = struct
         Sys.mkdir_p dir >>= fun () -> Sys.save path ~contents
     )
     >>= fun () -> return ()
+
+  let add smapiv2 plugin uids =
+    let key = Storage_interface.Sr.string_of smapiv2 in
+    Base.Hashtbl.set !sr_table ~key ~data:{sr= plugin; uids} ;
+    update_state_path ()
 
   let find smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
@@ -674,7 +677,7 @@ module Attached_SRs = struct
   let remove smapiv2 =
     let key = Storage_interface.Sr.string_of smapiv2 in
     Base.Hashtbl.remove !sr_table key ;
-    return ()
+    update_state_path ()
 
   let list () =
     let srs =
