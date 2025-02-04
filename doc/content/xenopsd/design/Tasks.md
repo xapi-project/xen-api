@@ -175,7 +175,7 @@ types of cancel callback:
 2. cancellable subprocesses
 
 Xenstore watches are used for device hotplug and unplug. Xenopsd has to wait for
-the backend or for a udev script to do something. If that blocks then we need
+the backend or for a udev script to do something. If that blocks, we need
 a way to cancel the watch. The easiest way to cancel a watch is to watch an
 additional path (a "cancel path") and delete it, see
 [cancellable_watch](https://github.com/xapi-project/xenopsd/blob/f876f9029cf53f14a52bf42a4a3a03265e048926/xc/cancel_utils.ml#L117).

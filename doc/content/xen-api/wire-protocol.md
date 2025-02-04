@@ -540,7 +540,7 @@ the Xen administrator, while `version` and `originator` are optional. The
 `session ref` returned by `session.login_with_password` is passed
 to subsequent RPC calls as an authentication token. Note that a session
 reference obtained by a login request to the XML-RPC backend can be used in
-subsequent requests to the JSON-RPC backend, and vice-versa.
+subsequent requests to the JSON-RPC backend, and vice versa.
 
 A session can be terminated with the `session.logout` function:
 
