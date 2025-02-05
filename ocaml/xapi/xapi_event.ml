@@ -525,21 +525,27 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
+(* Names of all objects for which events should be generated. *)
+let event_related_objects =
+  let event_object_name (o : Datamodel_types.obj) =
+    if o.gen_events then
+      Some o.name
+    else
+      None
+  in
+  Dm_api.objects_of_api Datamodel.all_api |> List.filter_map event_object_name
+
+let generate_events_for =
+  let table = Hashtbl.create 64 in
+  List.iter (fun name -> Hashtbl.replace table name ()) event_related_objects ;
+  Hashtbl.mem table
+
 let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
   let open From in
   (* The database tables involved in our subscription *)
   let tables =
-    let all =
-      let objs =
-        List.filter
-          (fun x -> x.Datamodel_types.gen_events)
-          (Dm_api.objects_of_api Datamodel.all_api)
-      in
-      let objs = List.map (fun x -> x.Datamodel_types.name) objs in
-      objs
-    in
-    List.filter (fun table -> Subscription.table_matches subs table) all
+    event_related_objects |> List.filter (Subscription.table_matches subs)
   in
   let last_generation = ref from in
   let last_msg_gen = ref from_t in
@@ -782,16 +788,6 @@ let inject ~__context ~_class ~_ref =
   Token.to_string token
 
 (* Internal interface ****************************************************)
-
-let generate_events_for =
-  let table = Hashtbl.create 64 in
-  let add_object ({name; gen_events; _} : Datamodel_types.obj) =
-    (* Record only the names of objects that should generate events. *)
-    if gen_events then
-      Hashtbl.replace table name ()
-  in
-  Dm_api.objects_of_api Datamodel.all_api |> List.iter add_object ;
-  Hashtbl.mem table
 
 let event_add ?snapshot ty op reference =
   let add () =
