@@ -317,19 +317,16 @@ module From = struct
           result
       )
 
-  (* A (blocking) call which should be unblocked on logout *)
+  (* A (blocking) call which should be unblocked on logout. *)
   type call = {
-      index: int64
-    ; (* Unique id for this call *)
-      mutable cur_id: int64
-    ; (* Most current generation count relevant to the client *)
-      subs: Subscription.t list
-    ; (* list of all the subscriptions *)
-      session: API.ref_session
-    ; (* the session associated with this call *)
-      mutable session_invalid: bool
-    ; (* set to true if the associated session has been deleted *)
-      m: Mutex.t (* protects access to the mutable fields in this record *)
+      index: int64 (* Unique id for this call *)
+    ; mutable cur_id: int64
+          (* Most current generation count relevant to the client. *)
+    ; subs: Subscription.t list (* List of all the subscriptions. *)
+    ; session: API.ref_session (* The session associated with this call. *)
+    ; mutable session_invalid: bool
+          (* Set to true if the associated session has been deleted. *)
+    ; m: Mutex.t (* Protects access to the mutable fields in this record. *)
   }
 
   (* The set of (blocking) calls associated with a session *)
