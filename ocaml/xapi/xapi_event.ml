@@ -150,14 +150,8 @@ module Next = struct
   let add ev =
     with_lock m (fun () ->
         let matches =
-          Hashtbl.fold
-            (fun _ s acc ->
-              if Subscription.event_matches s.subs ev then
-                true
-              else
-                acc
-            )
-            subscriptions false
+          Hashtbl.to_seq_values subscriptions
+          |> Seq.exists (fun s -> Subscription.event_matches s.subs ev)
         in
         if matches then (
           let size = event_size ev in
