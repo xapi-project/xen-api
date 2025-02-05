@@ -337,10 +337,11 @@ module From = struct
 
   let get_current_event_number () =
     let open Xapi_database in
-    Db_cache_types.Manifest.generation
-      (Db_cache_types.Database.manifest
-         (Db_ref.get_database (Db_backend.make ()))
-      )
+    let open Db_cache_types in
+    Db_backend.make ()
+    |> Db_ref.get_database
+    |> Database.manifest
+    |> Manifest.generation
 
   (* Add an event to the queue if it matches any active subscriptions *)
   let add ev =
