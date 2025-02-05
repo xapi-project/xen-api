@@ -101,7 +101,8 @@ let create ~__context ~_type ~device_config ~whitelist =
   (* Check if licence allows disaster recovery. *)
   Pool_features.assert_enabled ~__context ~f:Features.DR ;
   (* Check that the SR type supports metadata. *)
-  if not (List.mem_assoc Smint.Sr_metadata (Sm.features_of_driver _type)) then
+  if not Smint.Feature.(has_capability Sr_metadata (Sm.features_of_driver _type))
+  then
     raise
       (Api_errors.Server_error
          ( Api_errors.operation_not_allowed

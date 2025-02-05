@@ -3705,6 +3705,54 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "hostdriver-select"
+    , {
+        reqd= ["uuid"; "variant-name"]
+      ; optn= []
+      ; help=
+          "Select a variant of the specified driver. If no variant of the \
+           driver is loaded, this variant will become active. If some other \
+           variant is already active, a reboot will be required to activate \
+           the new variant."
+      ; implementation= No_fd Cli_operations.Host_driver.select
+      ; flags= []
+      }
+    )
+  ; ( "hostdriver-deselect"
+    , {
+        reqd= ["uuid"]
+      ; optn= ["force"]
+      ; help=
+          "Deselect the currently active variant of the specified driver after \
+           reboot. No action will be taken if no version is currently active. \
+           Potentially dangerous operation, needs the '--force' flag \
+           specified."
+      ; implementation= No_fd Cli_operations.Host_driver.deselect
+      ; flags= []
+      }
+    )
+  ; ( "hostdriver-variant-select"
+    , {
+        reqd= ["uuid"]
+      ; optn= []
+      ; help=
+          "Select a variant of a driver. If no variant of the driver is \
+           loaded, this variant will become active. If some other variant is \
+           already active, a reboot will be required to activate the new \
+           variant."
+      ; implementation= No_fd Cli_operations.Driver_variant.select
+      ; flags= []
+      }
+    )
+  ; ( "hostdriver-rescan"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Scan a host and update its driver information."
+      ; implementation= No_fd Cli_operations.Host_driver.rescan
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "vtpm-create"
     , {
         reqd= ["vm-uuid"]

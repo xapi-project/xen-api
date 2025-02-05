@@ -11,7 +11,7 @@ Introduction
 ------------
 
 Passthrough of discrete GPUs has been
-[available since XenServer 6.0]({{site.baseurl}}/xapi/design/gpu-passthrough.html).
+[available since XenServer 6.0](../gpu-passthrough.md).
 With some extensions, we will also be able to support passthrough of integrated
 GPUs.
 

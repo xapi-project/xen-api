@@ -14,7 +14,7 @@ revision_history:
 Introduction
 ------------
 
-Xapi currently uses a cluster manager called [xhad](../../features/HA/HA.html). Sometimes other software comes with its own built-in way of managing clusters, which would clash with xhad (example: xhad could choose to fence node 'a' while the other system could fence node 'b' resulting in a total failure). To integrate xapi with this other software we have 2 choices:
+Xapi currently uses a cluster manager called [xhad](../toolstack/features/HA/index). Sometimes other software comes with its own built-in way of managing clusters, which would clash with xhad (example: xhad could choose to fence node 'a' while the other system could fence node 'b' resulting in a total failure). To integrate xapi with this other software we have 2 choices:
 
 1. modify the other software to take membership information from xapi; or
 2. modify xapi to take membership information from this other software.
@@ -70,4 +70,4 @@ The `xapi.conf` file will have a new field: `cluster-stack-root` which will have
 
 In `Pool.enable_ha` with `cluster_stack="foo"` we will verify that the subdirectory `<cluster-stack-root>/foo` exists. If it does not exist, then the call will fail with `UNKNOWN_CLUSTER_STACK`.
 
-Alternative cluster stacks will need to conform to the exact same interface as [xhad](../../features/HA/HA.html).
+Alternative cluster stacks will need to conform to the exact same interface as [xhad](../toolstack/features/HA).

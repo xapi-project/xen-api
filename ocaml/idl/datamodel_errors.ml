@@ -2010,6 +2010,9 @@ let _ =
 
   error Api_errors.too_many_groups [] ~doc:"VM can only belong to one group." () ;
 
+  error Api_errors.host_driver_no_hardware ["driver variant"]
+    ~doc:"No hardware present for this host driver variant" () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

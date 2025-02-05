@@ -79,6 +79,7 @@
     sexplib0
     sexplib
     sexpr
+    tgroup
     forkexec
     xapi-idl
     xapi_aux
@@ -152,6 +153,7 @@
     tapctl
     tar
     tar-unix
+    tgroup
     threads.posix
     tracing
     tracing_propagator
@@ -159,6 +161,7 @@
     uri
     uuid
     uuidm
+    vhd_lib
     x509
     xapi_aux
     xapi-backtrace
@@ -209,6 +212,7 @@
     xxhash
     yojson
     zstd
+    xapi_host_driver_helpers
   )
   (preprocess (per_module
    ((pps ppx_sexp_conv) Cert_distrib)
@@ -223,7 +227,7 @@
   (name xapi_internal_server_only)
   (modes best)
   (modules server)
-  (libraries xapi_internal_minimal http_lib rpclib.core xapi-types xapi-log xapi-stdext-encodings xapi-consts xapi-backtrace xapi-stdext-date rpclib.json)
+  (libraries xapi_database xapi_internal_minimal http_lib rpclib.core xapi-types xapi-log xapi-stdext-encodings xapi-consts xapi-backtrace xapi-stdext-date rpclib.json)
   (wrapped false)
 )
 
@@ -240,6 +244,7 @@
     rpclib.json
     rpclib.xml
     stunnel
+    tgroup
     threads.posix
     tracing
     tracing_propagator

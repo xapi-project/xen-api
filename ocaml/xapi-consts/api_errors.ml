@@ -1403,3 +1403,5 @@ let telemetry_next_collection_too_late =
 let illegal_in_fips_mode = add_error "ILLEGAL_IN_FIPS_MODE"
 
 let too_many_groups = add_error "TOO_MANY_GROUPS"
+
+let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"

@@ -311,6 +311,10 @@ let _repository = "Repository"
 
 let _observer = "Observer"
 
+let _host_driver = "Host_driver"
+
+let _driver_variant = "Driver_variant"
+
 let update_guidances =
   Enum
     ( "update_guidances"

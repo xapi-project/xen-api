@@ -61,7 +61,7 @@
     <value>The device {0} is not currently attached</value>
   </data>
   <data name="DEVICE_ALREADY_EXISTS" xml:space="preserve">
-    <value>There is already a disk at position {0} on the selected VM</value>
+    <value>There is already a device at position {0} on the selected VM</value>
   </data>
   <data name="DEVICE_ATTACH_TIMEOUT" xml:space="preserve">
     <value>A timeout happened while attempting to attach a device {1} of type {0} to a VM</value>
@@ -114,17 +114,11 @@
   <data name="HOST_CANNOT_ATTACH_NETWORK" xml:space="preserve">
     <value>Server cannot attach network (in the case of NIC bonding, this may be because attaching the network on this server would require other networks [that are currently active] to be taken down).</value>
   </data>
-  <data name="HOST_CANNOT_ATTACH_NETWORK_SHORT" xml:space="preserve">
-    <value>Cannot attach network</value>
-  </data>
   <data name="HOST_CANNOT_DESTROY_SELF" xml:space="preserve">
     <value>This server cannot destroy itself.</value>
   </data>
   <data name="HOST_CD_DRIVE_EMPTY" xml:space="preserve">
     <value>The VM could not start because the CD drive is empty.</value>
-  </data>
-  <data name="HOST_DISABLED_SHORT" xml:space="preserve">
-    <value>Disabled</value>
   </data>
   <data name="HOST_HAS_RESIDENT_VMS" xml:space="preserve">
     <value>This server cannot be forgotten because there are some user VMs still running</value>
@@ -147,14 +141,8 @@
   <data name="HOST_NOT_ENOUGH_FREE_MEMORY" xml:space="preserve">
     <value>Not enough server memory is available to perform this operation</value>
   </data>
-  <data name="HOST_NOT_ENOUGH_FREE_MEMORY_SHORT" xml:space="preserve">
-    <value>Not enough free memory</value>
-  </data>
   <data name="HOST_NOT_IN_RECOVERY_MODE" xml:space="preserve">
     <value>The restore could not be performed because the server is not in recovery mode</value>
-  </data>
-  <data name="HOST_NOT_LIVE_SHORT" xml:space="preserve">
-    <value>Unreachable</value>
   </data>
   <data name="HOST_OFFLINE" xml:space="preserve">
     <value>Server could not be contacted</value>
@@ -796,9 +784,6 @@ Action: {0}</value>
   <data name="VM_HOST_INCOMPATIBLE_VIRTUAL_HARDWARE_PLATFORM_VERSION" xml:space="preserve">
     <value>The VM's Virtual Hardware Platform version is incompatible with this host.</value>
   </data>
-  <data name="VM_HVM_REQUIRED_SHORT" xml:space="preserve">
-    <value>HVM not supported</value>
-  </data>
   <data name="VM_INCOMPATIBLE_WITH_THIS_HOST" xml:space="preserve">
     <value>The host does not have some of the CPU features that the VM is currently using</value>
   </data>
@@ -814,20 +799,11 @@ Action: {0}</value>
   <data name="VM_REQUIRES_GPU" xml:space="preserve">
     <value>You attempted to run a VM on a host which does not have a GPU available in the GPU group needed by the VM.</value>
   </data>
-  <data name="VM_REQUIRES_GPU_SHORT" xml:space="preserve">
-    <value>GPU not available</value>
-  </data>
   <data name="VM_REQUIRES_NETWORK" xml:space="preserve">
     <value>This VM needs a network that cannot be seen from that server</value>
   </data>
-  <data name="VM_REQUIRES_NETWORK_SHORT" xml:space="preserve">
-    <value>Cannot see required network</value>
-  </data>
   <data name="VM_REQUIRES_SR" xml:space="preserve">
     <value>This VM needs storage that cannot be seen from that server</value>
-  </data>
-  <data name="VM_REQUIRES_SR_SHORT" xml:space="preserve">
-    <value>Cannot see required storage</value>
   </data>
   <data name="VM_REQUIRES_VGPU" xml:space="preserve">
     <value>The VM cannot start because the virtual GPU required by it cannot be allocated on any GPU in the GPU group needed by the VM.</value>

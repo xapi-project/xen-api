@@ -235,24 +235,17 @@ let do_db_xml_rpc_persistent_with_reopen ~host:_ ~path (req : string) :
     let time_sofar = Unix.gettimeofday () -. time_call_started in
     if !connection_timeout < 0. then (
       if not !surpress_no_timeout_logs then (
-        debug
-          "Connection to master died. I will continue to retry indefinitely \
-           (supressing future logging of this message)." ;
         error
           "Connection to master died. I will continue to retry indefinitely \
-           (supressing future logging of this message)."
-      ) ;
-      surpress_no_timeout_logs := true
+           (supressing future logging of this message)." ;
+        surpress_no_timeout_logs := true
+      )
     ) else
       debug
         "Connection to master died: time taken so far in this call '%f'; will \
          %s"
         time_sofar
-        ( if !connection_timeout < 0. then
-            "never timeout"
-          else
-            Printf.sprintf "timeout after '%f'" !connection_timeout
-        ) ;
+        (Printf.sprintf "timeout after '%f'" !connection_timeout) ;
     if time_sofar > !connection_timeout && !connection_timeout >= 0. then
       if !restart_on_connection_timeout then (
         debug "Exceeded timeout for retrying master connection: restarting xapi" ;

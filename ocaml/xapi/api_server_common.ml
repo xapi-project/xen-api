@@ -130,6 +130,8 @@ module Actions = struct
   module Diagnostics = Xapi_diagnostics
   module Repository = Repository
   module Observer = Xapi_observer
+  module Host_driver = Xapi_host_driver
+  module Driver_variant = Xapi_host_driver.Variant
 end
 
 (** Use the server functor to make an XML-RPC dispatcher. *)

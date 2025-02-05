@@ -277,15 +277,15 @@ contains the members `jsonrpc`, `method`, `params`, and `id`.
 
 -  `params`: A JSON `array` of values, which represents the parameters of the
   function to be invoked. Although the JSON-RPC v2.0 specification allows this
-  member to be ommitted, in practice all API calls accept at least one parameter.
+  member to be omitted, in practice all API calls accept at least one parameter.
 
 -  `id`: A JSON `string` or `integer` representing the call id. Note that,
   diverging from the JSON-RPC v2.0 specification it cannot be null. Neither can
-  it be ommitted because the API does not accept _notification_ requests
+  it be omitted because the API does not accept _notification_ requests
   (requests without responses).
 
 For example, the body of a JSON-RPC v2.0 request to retrieve the VMs resident on
-a host may may look like this:
+a host may look like this:
 
 ```json
   {
@@ -538,9 +538,9 @@ you must login and initiate a session. For example:
 where `uname` and `password` refer to your username and password, as defined by
 the Xen administrator, while `version` and `originator` are optional. The
 `session ref` returned by `session.login_with_password` is passed
-to subequent RPC calls as an authentication token. Note that a session
+to subsequent RPC calls as an authentication token. Note that a session
 reference obtained by a login request to the XML-RPC backend can be used in
-subsequent requests to the JSON-RPC backend, and vice-versa.
+subsequent requests to the JSON-RPC backend, and vice versa.
 
 A session can be terminated with the `session.logout` function:
 
@@ -565,7 +565,7 @@ Instead of returning its result directly, an asynchronous RPC call
 returns an identifier of type `task ref` which is subsequently used
 to track the status of a running asynchronous RPC.
 
-Note that an asychronous call may fail immediately, before a task has even been
+Note that an asynchronous call may fail immediately, before a task has even been
 created. When using the XML-RPC wire protocol, this eventuality is represented
 by wrapping the returned `task ref` in an XML-RPC struct with a `Status`,
 `ErrorDescription`, and `Value` fields, exactly as specified above; the
@@ -619,7 +619,7 @@ connection, this can be done as follows:
 
 Acquire a session reference by logging in with a username and password; the
 session reference is returned under the key `Value` in the resulting dictionary
-(error-handling ommitted for brevity):
+(error-handling omitted for brevity):
 
 ```python
 >>> session = xen.session.login_with_password("user", "passwd",

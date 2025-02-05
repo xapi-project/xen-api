@@ -28,8 +28,8 @@ Introduction
 * Multiple VMs can be a part of VMSS but a VM cannot be a part of multiple VMSS.
 * A VMSS takes VMs snapshot with type [`snapshot`, `checkpoint`, `snapshot_with_quiesce`].
 * VMSS takes snapshot of VMs on configured intervals:
-	* `hourly` -> On everyday, Each hour, Mins [0;15;30;45]
-	* `daily` -> On everyday, Hour [0 to 23], Mins [0;15;30;45]
+	* `hourly` -> On every day, Each hour, Mins [0;15;30;45]
+	* `daily` -> On every day, Hour [0 to 23], Mins [0;15;30;45]
 	* `weekly` -> Days [`Monday`,`Tuesday`,`Wednesday`,`Thursday`,`Friday`,`Saturday`,`Sunday`], Hour[0 to 23], Mins [0;15;30;45]
 * VMSS will have a limit on retaining number of VM snapshots in range [1 to 10].
 

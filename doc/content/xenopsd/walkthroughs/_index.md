@@ -1,6 +1,6 @@
 +++
 title = "Operation Walk-Throughs"
-menuTitle = "Walk-throughs"
+linkTitle = "Walk-throughs"
 +++
 
 Let's trace through interesting operations to see how the whole system
