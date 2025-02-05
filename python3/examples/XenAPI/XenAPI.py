@@ -124,6 +124,10 @@ class UDSTransport(xmlrpclib.Transport):
             if traceparent:
                 self.add_extra_header("traceparent", traceparent)
 
+        baggage = os.getenv("BAGGAGE", None)
+        if baggage:
+            self.add_extra_header("baggage", baggage)
+
     def with_originator(self):
         originator_k = "ORIGINATOR"
         originator_v = os.getenv(originator_k, None)
