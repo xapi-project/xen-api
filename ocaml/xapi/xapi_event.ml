@@ -333,7 +333,7 @@ module From = struct
   }
 
   (* The set of (blocking) calls associated with a session *)
-  let calls : (API.ref_session, call list) Hashtbl.t = Hashtbl.create 10
+  let calls : (API.ref_session, call list) Hashtbl.t = Hashtbl.create 32
 
   let get_current_event_number () =
     let open Xapi_database in
@@ -345,24 +345,21 @@ module From = struct
 
   (* Add an event to the queue if it matches any active subscriptions *)
   let add ev =
-    with_lock m (fun () ->
-        let matches_per_thread =
-          Hashtbl.fold
-            (fun _ s acc ->
-              List.fold_left
-                (fun acc s ->
-                  if Subscription.event_matches s.subs ev then (
-                    s.cur_id <- get_current_event_number () ;
-                    true
-                  ) else
-                    acc
-                )
-                acc s
-            )
-            calls false
-        in
-        if matches_per_thread then Condition.broadcast c
-    )
+    let go () =
+      let event_matches call =
+        let matches = Subscription.event_matches call.subs ev in
+        if matches then
+          call.cur_id <- get_current_event_number () ;
+        matches
+      in
+      let matches =
+        (* Filter for matches in the global (session -> call list) table. *)
+        Hashtbl.to_seq_values calls |> Seq.filter (List.exists event_matches)
+      in
+      if not (Seq.is_empty matches) then (* Wake up any deferred calls. *)
+        Condition.broadcast c
+    in
+    with_lock m go
 
   (* Call a function with a registered call which will be woken up if
      	   the session is destroyed in the background. *)
