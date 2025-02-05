@@ -60,11 +60,10 @@ The numbered state changes in the diagram have the following meaning:
 4. Deprecate: declare that the use of this XenAPI element should be avoided from
    now on. Reasons for doing this include: the element is redundant (it
    duplicates functionality elsewhere), it is inconsistent with other parts of
-   the XenAPI, it is insecure or inefficient (for examples of deprecation
-   policies of other projects, see
-   [symbian](http://developer.symbian.org/wiki/index.php/Public_API_Change_Control_Process)
-   [eclipse](http://wiki.eclipse.org/Eclipse/API_Central/Deprecation_Policy)
-   [oval](http://oval.mitre.org/language/about/deprecation.html).
+   the XenAPI, it is insecure or inefficient.
+   For examples of deprecation policies of other projects, see the policies of the
+   [eclipse](https://github.com/eclipse-platform/eclipse.platform/blob/master/docs/Eclipse_API_Central_Deprecation_Policy.md)
+   and [oval](http://oval.mitre.org/language/about/deprecation.html) projects.
 5. Remove: the element is taken out of the public API and can no longer be used.
 
 Each lifecycle transition must be accompanied by an explanation describing the

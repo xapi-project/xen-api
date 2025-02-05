@@ -28,6 +28,7 @@
     xapi-stdext-date
     xapi-stdext-threads.scheduler
     xapi-stdext-unix
+    xapi_timeslice
   )
 )
 

@@ -11,7 +11,7 @@ They can be used for:
 - experiments (take snapshot, try something, revert back again)
 - golden images (install OS, get it just right, clone it 1000s of times)
 
-Read more about [Snapshots: the High-Level Feature](../features/snapshots/snapshots.html).
+Read more about [Snapshots: the High-Level Feature](../../toolstack/features/snapshots/index).
 
 Taking a VDI snapshot
 =====================

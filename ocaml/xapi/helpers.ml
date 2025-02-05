@@ -410,7 +410,13 @@ let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
   let tracing = Context.set_client_span __context in
-  let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+  let dorpc, path =
+    if !Xapi_globs.use_xmlrpc then
+      (XMLRPC_protocol.rpc, "/")
+    else
+      (JSONRPC_protocol.rpc, "/jsonrpc")
+  in
+  let http = xmlrpc ~subtask_of ~version:"1.1" path in
   let http = TraceHelper.inject_span_into_req tracing http in
   let transport =
     if Pool_role.is_master () then
@@ -423,7 +429,7 @@ let make_rpc ~__context rpc : Rpc.response =
         , !Constants.https_port
         )
   in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
+  dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in

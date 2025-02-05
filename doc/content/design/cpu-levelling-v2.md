@@ -29,7 +29,7 @@ The old XS 5.6-style Heterogeneous Pool feature that is based around hardware-le
 History
 =======
 
-- Original XS 5.6 design: [heterogeneous-pools](../heterogeneous-pools)
+- Original XS 5.6 design: [heterogeneous-pools](heterogeneous-pools)
 - Changes made in XS 5.6 FP1 for the DR feature (added CPUID checks upon migration)
 - XS 6.1: migration checks extended for cross-pool scenario
 

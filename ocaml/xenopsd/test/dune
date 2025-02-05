@@ -1,11 +1,9 @@
 (test
  (name test)
- (modes exe)
+ (modules :standard \ test_cpuid test_topology)
  (package xapi-tools)
  (libraries
   alcotest
-  cpuid
-  
   fmt
   result
   rpclib.core
@@ -15,13 +13,25 @@
   xapi-idl.xen.interface.types
   xapi-log
   xapi-stdext-pervasives
-  xapi-test-utils
   xapi_xenopsd
-  xenstore_transport.unix
  )
  (preprocess
   (per_module ((pps ppx_deriving_rpc) Test))
  )
+)
+
+(test
+  (name test_cpuid)
+  (modules test_cpuid)
+  (package xapi-tools)
+  (libraries alcotest cpuid xapi-test-utils xapi_xenopsd)
+)
+
+(test
+  (name test_topology)
+  (modules test_topology)
+  (package xapi-tools)
+  (libraries alcotest fmt xapi-log xapi_xenopsd)
 )
 
 (rule

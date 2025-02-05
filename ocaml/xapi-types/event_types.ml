@@ -77,6 +77,24 @@ let rec rpc_of_event_from e =
     ; ("token", rpc_of_token e.token)
     ]
 
+(* xmlrpc and jsonrpc would map Int32 to Int, but int32_of_rpc can't actually parse
+    an Int32 back as an int32... this is a bug in ocaml-rpc that should be fixed.
+    meanwhile work it around by mapping Rpc.Int32 to Rpc.Int upon receiving the message
+   (it is only Rpc.Int32 for backward compat with non-XAPI Xmlrpc clients)
+*)
+
+let rec fixup_int32 = function
+  | Rpc.Dict dict ->
+      Rpc.Dict (List.map fixup_kv dict)
+  | Rpc.Int32 i ->
+      Rpc.Int (Int64.of_int32 i)
+  | rpc ->
+      rpc
+
+and fixup_kv (k, v) = (k, fixup_int32 v)
+
+let event_from_of_rpc rpc = rpc |> fixup_int32 |> event_from_of_rpc
+
 (** Return result of an events.from call *)
 
 open Printf

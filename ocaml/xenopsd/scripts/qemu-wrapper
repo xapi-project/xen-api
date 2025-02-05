@@ -47,7 +47,7 @@ xenstore = xs.xs()
 #  - 'system.slice' means move it into the system slice, etc.
 # If the nominated slice does not already exist, the process will be
 # left in its parent's slice.
-cgroup_slice = ''
+cgroup_slice = 'vm.slice'
 
 CLONE_NEWNS = 0x00020000 # mount namespace
 CLONE_NEWNET = 0x40000000 # network namespace

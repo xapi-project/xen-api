@@ -11,8 +11,6 @@ releases_root = "content/xen-api/releases/"
 def class_template(c):
     return f"""+++
 title = "{c}"
-layout = "class"
-type = "xenapi"
 class = "{c}"
 +++
 """
@@ -29,8 +27,6 @@ for cls in classes():
 def release_template(a, b, w):
     return f"""+++
 title = "{b}"
-layout = "release"
-type = "xenapi"
 release = "{a}"
 weight = {w}
 +++
