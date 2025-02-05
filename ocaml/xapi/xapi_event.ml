@@ -396,21 +396,21 @@ module From = struct
         )
       )
 
-  (* Is called by the session timeout code *)
+  (* Is called by the session timeout code. *)
   let on_session_deleted session_id =
-    with_lock m (fun () ->
-        let mark_invalid sub =
-          (* Mark the subscription as invalid and wake everyone up *)
-          with_lock sub.m (fun () -> sub.session_invalid <- true) ;
+    let cleanup () =
+      let invalidate =
+        let invalidate_one call =
+          (* Mark the subscription as invalid and wake everyone up. *)
+          with_lock call.m (fun () -> call.session_invalid <- true) ;
           Condition.broadcast c
         in
-        Option.iter
-          (fun x ->
-            List.iter mark_invalid x ;
-            Hashtbl.remove calls session_id
-          )
-          (Hashtbl.find_opt calls session_id)
-    )
+        List.iter invalidate_one
+      in
+      Hashtbl.find_opt calls session_id |> Option.iter invalidate ;
+      Hashtbl.remove calls session_id
+    in
+    with_lock m cleanup
 
   let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)
 
