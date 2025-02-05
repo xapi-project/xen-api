@@ -426,7 +426,7 @@ module From = struct
   let session_is_invalid call = with_lock call.m (fun () -> call.session_invalid)
 
   let wait2 call from_id timer =
-    let timeoutname = Printf.sprintf "event_from_timeout_%Ld" call.index in
+    let timeout_name = Printf.sprintf "event_from_timeout_%Ld" call.index in
     with_lock m (fun () ->
         while
           from_id = call.cur_id
@@ -437,22 +437,19 @@ module From = struct
           | Expired _ ->
               ()
           | Remaining delta ->
-              Xapi_stdext_threads_scheduler.Scheduler.add_to_queue_span
-                timeoutname Xapi_stdext_threads_scheduler.Scheduler.OneShot
-                delta (fun () -> Condition.broadcast c
+              let open Xapi_stdext_threads_scheduler in
+              Scheduler.add_to_queue_span timeout_name Scheduler.OneShot delta
+                (fun () -> Condition.broadcast c
               ) ;
               Condition.wait c m ;
-              Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue
-                timeoutname
+              Scheduler.remove_from_queue timeout_name
         done
     ) ;
     if session_is_invalid call then (
+      let session = call.session in
       info "%s raising SESSION_INVALID *because* subscription is invalid"
-        (Context.trackid_of_session (Some call.session)) ;
-      raise
-        (Api_errors.Server_error
-           (Api_errors.session_invalid, [Ref.string_of call.session])
-        )
+        (Context.trackid_of_session (Some session)) ;
+      raise Api_errors.(Server_error (session_invalid, [Ref.string_of session]))
     )
 end
 
