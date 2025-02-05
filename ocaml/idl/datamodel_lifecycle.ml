@@ -120,7 +120,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "license_server" ->
-      Some "24.37.0-next"
+      Some "25.5.0-next"
   | "pool", "recommendations" ->
       Some "24.19.1"
   | "pool", "update_sync_enabled" ->
