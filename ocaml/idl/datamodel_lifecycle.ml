@@ -119,6 +119,8 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "license_server" ->
+      Some "25.5.0-next"
   | "pool", "recommendations" ->
       Some "24.19.1"
   | "pool", "update_sync_enabled" ->

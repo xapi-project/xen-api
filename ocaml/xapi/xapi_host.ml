@@ -2022,9 +2022,21 @@ let set_license_params ~__context ~self ~value =
   Db.Host.set_license_params ~__context ~self ~value ;
   Pool_features_helpers.update_pool_features ~__context
 
+let collect_license_server_data ~__context ~host =
+  let pool = Helpers.get_pool ~__context in
+  let host_license_server = Db.Host.get_license_server ~__context ~self:host in
+  let pool_license_server = Db.Pool.get_license_server ~__context ~self:pool in
+  (* If there are same keys both in host and pool, use host level data. *)
+  let list_assoc_union l1 l2 =
+    List.fold_left
+      (fun acc (k, v) -> if List.mem_assoc k l1 then acc else (k, v) :: acc)
+      l1 l2
+  in
+  list_assoc_union host_license_server pool_license_server
+
 let apply_edition_internal ~__context ~host ~edition ~additional =
   (* Get localhost's current license state. *)
-  let license_server = Db.Host.get_license_server ~__context ~self:host in
+  let license_server = collect_license_server_data ~__context ~host in
   let current_edition = Db.Host.get_edition ~__context ~self:host in
   let current_license_params =
     Db.Host.get_license_params ~__context ~self:host
