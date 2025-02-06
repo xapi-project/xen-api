@@ -17,8 +17,6 @@ module D = Debug.Make (struct let name = "gencert_lib" end)
 open Api_errors
 open Rresult
 
-type t_certificate = Leaf | Chain
-
 let validate_private_key pkcs8_private_key =
   let ensure_rsa_key_length = function
     | `RSA priv ->
@@ -86,7 +84,7 @@ let validate_not_expired x ~error_not_yet ~error_expired ~error_invalid =
   _validate_not_expired ~now x ~error_not_yet ~error_expired ~error_invalid
   |> Rresult.R.reword_error @@ fun (`Msg (e, msgs)) -> Server_error (e, msgs)
 
-let validate_certificate kind pem now private_key =
+let validate_pem_chain ~pem_leaf ~pem_chain now private_key =
   let ensure_keys_match private_key certificate =
     let public_key = X509.Certificate.public_key certificate in
     match (public_key, private_key) with
@@ -102,38 +100,55 @@ let validate_certificate kind pem now private_key =
     | _ ->
         Error (`Msg (server_certificate_signature_not_supported, []))
   in
-  match kind with
-  | Leaf ->
-      _validate_not_expired ~now pem ~error_invalid:server_certificate_invalid
-        ~error_not_yet:server_certificate_not_valid_yet
-        ~error_expired:server_certificate_expired
-      >>= ensure_keys_match private_key
-      >>= ensure_sha256_signature_algorithm
-  | Chain -> (
-      let raw_pem = Cstruct.of_string pem in
-      X509.Certificate.decode_pem_multiple raw_pem |> function
-      | Ok (cert :: _) ->
-          Ok cert
-      | Ok [] ->
-          D.info "Rejected certificate chain because it's empty." ;
-          Error (`Msg (server_certificate_chain_invalid, []))
-      | Error (`Msg err_msg) ->
-          D.info {|Failed to validate certificate chain because "%s"|} err_msg ;
-          Error (`Msg (server_certificate_chain_invalid, []))
-    )
+  let validate_chain pem_chain =
+    let raw_pem = Cstruct.of_string pem_chain in
+    X509.Certificate.decode_pem_multiple raw_pem |> function
+    | Ok (_ :: _ as certs) ->
+        Ok certs
+    | Ok [] ->
+        D.info "Rejected certificate chain because it's empty." ;
+        Error (`Msg (server_certificate_chain_invalid, []))
+    | Error (`Msg err_msg) ->
+        D.info {|Failed to validate certificate chain because "%s"|} err_msg ;
+        Error (`Msg (server_certificate_chain_invalid, []))
+  in
+  _validate_not_expired ~now pem_leaf ~error_invalid:server_certificate_invalid
+    ~error_not_yet:server_certificate_not_valid_yet
+    ~error_expired:server_certificate_expired
+  >>= ensure_keys_match private_key
+  >>= ensure_sha256_signature_algorithm
+  >>= fun cert ->
+  match Option.map validate_chain pem_chain with
+  | None ->
+      Ok (cert, None)
+  | Some (Ok chain) ->
+      Ok (cert, Some chain)
+  | Some (Error msg) ->
+      Error msg
 
+(** Decodes the PEM-encoded objects (private key, leaf certificate, and
+    certificate chain, reencodes them to make sure they are normalised, and
+    finally it installs them as a server certificate to be ready to use by
+    stunnel. It also ensures the objects maintian some cryptographic
+    properties. *)
 let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key
     ~server_cert_path ~cert_gid =
   let now = Ptime_clock.now () in
   validate_private_key pkcs8_private_key >>= fun priv ->
-  validate_certificate Leaf pem_leaf now priv >>= fun cert ->
+  let pkcs8_private_key =
+    X509.Private_key.encode_pem priv |> Cstruct.to_string
+  in
+  validate_pem_chain ~pem_leaf ~pem_chain now priv >>= fun (cert, chain) ->
+  let pem_leaf = X509.Certificate.encode_pem cert |> Cstruct.to_string in
   Option.fold
     ~none:(Ok [pkcs8_private_key; pem_leaf])
-    ~some:(fun pem_chain ->
-      validate_certificate Chain pem_chain now priv >>= fun _ignored ->
+    ~some:(fun chain ->
+      let pem_chain =
+        X509.Certificate.encode_pem_multiple chain |> Cstruct.to_string
+      in
       Ok [pkcs8_private_key; pem_leaf; pem_chain]
     )
-    pem_chain
+    chain
   >>= fun server_cert_components ->
   server_cert_components
   |> String.concat "\n\n"

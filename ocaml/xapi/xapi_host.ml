@@ -2778,7 +2778,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
   if Pool_role.is_master () then
     Db.Pool.set_uefi_certificates ~__context
       ~self:(Helpers.get_pool ~__context)
-      ~value:disk_uefi_certs_tar ;
+      ~value:(Digest.string disk_uefi_certs_tar |> Digest.to_hex) ;
   let pool_uefi_certs =
     Db.Pool.get_custom_uefi_certificates ~__context
       ~self:(Helpers.get_pool ~__context)

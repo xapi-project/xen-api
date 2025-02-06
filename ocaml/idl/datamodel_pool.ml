@@ -2006,6 +2006,11 @@ let t =
                 , "22.16.0"
                 , "Became StaticRO to be editable through new method"
                 )
+              ; ( Changed
+                , "25.6.0"
+                , "Field replaced with a digest. You can still get the actual \
+                   value by calling Host.get_uefi_certificates"
+                )
               ]
             ~default_value:(Some (VString "")) "uefi_certificates"
             "The UEFI certificates allowing Secure Boot"

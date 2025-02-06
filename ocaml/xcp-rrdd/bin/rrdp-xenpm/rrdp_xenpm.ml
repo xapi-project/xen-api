@@ -57,27 +57,30 @@ let gen_pm_cpu_averages cpu_id time =
 
 let get_cpu_averages () : int64 list =
   let pattern = Str.regexp "average cpu frequency:[ \t]+\\([0-9]+\\)[ \t]*$" in
-  let match_fun s =
+  let read_out_line s =
     if Str.string_match pattern s 0 then
       Some (Int64.of_string (Str.matched_group 1 s))
     else
       None
   in
+  let read_err_line _ = None in
   Utils.exec_cmd
     (module Process.D)
     ~cmdstring:(Printf.sprintf "%s %s" xenpm_bin "get-cpufreq-average")
-    ~f:match_fun
+    ~read_out_line ~read_err_line
+  |> fst
 
 let get_states cpu_state : int64 list =
   let pattern =
     Str.regexp "[ \t]*residency[ \t]+\\[[ \t]*\\([0-9]+\\) ms\\][ \t]*"
   in
-  let match_fun s =
+  let read_out_line s =
     if Str.string_match pattern s 0 then
       Some (Int64.of_string (Str.matched_group 1 s))
     else
       None
   in
+  let read_err_line _ = None in
   Utils.exec_cmd
     (module Process.D)
     ~cmdstring:
@@ -89,7 +92,8 @@ let get_states cpu_state : int64 list =
              "get-cpufreq-states"
          )
       )
-    ~f:match_fun
+    ~read_out_line ~read_err_line
+  |> fst
 
 (* list_package [1;2;3;4] 2 = [[1;2];[3;4]] *)
 let list_package (l : 'a list) (n : int) : 'a list list =
