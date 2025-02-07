@@ -47,3 +47,26 @@ themeVariant = [
 themeVariantAuto = ["red", "zen-dark"]
 alwaysopen = false
 collapsibleMenu = true
+
+  [params.imageEffects]
+
+    #
+    # Enable a soft shadow around the images that make the images appear to
+    # stand out ever so slightly like paper on a desk, giving them a smooth look:
+    #
+    shadow = true
+
+    #
+    # The CSS-based photographer's lightbox makes the image border flash
+    # on mouse-over and darkens the rest of the page when clicking on images.
+    #
+    # It is better to disable it as it serves no proper function for the
+    # toolstack docs and causes a border around the image to appear/disappear
+    # in a flash when entering/leaving the image. Disabling it turns the sudden
+    # appearance and disappearance of the flashy border off.
+    #
+    # Initially, this was based on the Featherlight jQuery plugin, which would
+    # have enlarged the images, but the CSS-only solution appears inadequate
+    # for a proper lightbox as it does not zoom the image:
+    #
+    lightbox = false
