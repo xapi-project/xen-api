@@ -89,7 +89,7 @@ hardware and config files present in dom0. They exist in the pool database, and
 a primary key is used to avoid duplication. In XenServer 6.x the tuple of
 `(vendor_name, model_name)` was used as the primary key, however this was not
 ideal as these values are subject to change. XenServer 7.0 switched to a
-[new primary key]({{site.baseurl}}/xapi/futures/vgpu-type-identifiers.html)
+[new primary key](../../../design/vgpu-type-identifiers)
 generated from static metadata, falling back to the old method for backwards
 compatibility.
 
@@ -109,12 +109,12 @@ on PGPUs.
 
 In XenServer 6.x, all VGPU config was added to the VM's `platform` field at
 startup, and this information was used by xenopsd to start the display emulator.
-See the relevant code [here][5].
+See the relevant code in [ocaml/xapi/vgpuops.ml][5].
 
 In XenServer 7.0, to facilitate support of VGPU on Intel hardware in parallel
 with the existing NVIDIA support, VGPUs were made first-class objects in the
-xapi-xenopsd interface. The interface is described
-[here]({{site.baseurl}}/features/futures/gpu-support-evolution.html).
+xapi-xenopsd interface. The interface is described in the design document on
+the [GPU support evolution](../../../design/gpu-support-evolution).
 
 ## VM startup
 

@@ -1,6 +1,6 @@
 +++
 title = "Design Documents"
-menuTitle = "Designs"
+linkTitle = "Designs"
 +++
 
 {{< design_docs_list >}}

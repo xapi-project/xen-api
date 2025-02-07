@@ -14,10 +14,11 @@
  (modes exe)
  (libraries
   astring
-  
+  clock
   forkexec
   http_lib
   integers
+  mtime
   netlink
   networklibs
   rpclib.core

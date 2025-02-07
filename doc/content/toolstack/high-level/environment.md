@@ -7,14 +7,14 @@ The Toolstack runs in an environment on a server (host) that has:
 
 - Physical hardware.
 - The Xen hypervisor.
-- The control domain (domain 0): the priviledged domain that the Toolstack runs in.
-- Other, mostly unpriviledged domains, usually for guests (VMs).
+- The control domain (domain 0): the privileged domain that the Toolstack runs in.
+- Other, mostly unprivileged domains, usually for guests (VMs).
 
 The Toolstack relies on various bits of software inside the control domain, and directly communicates with most of these:
 
 - Linux kernel including drivers for hardware and Xen paravirtualised devices (e.g. `netback` and `blkback`).
   - Interacts through `/sys` and `/proc`, udev scripts, xenstore, ...
-- CentOS distibution including userspace tools and libraries.
+- CentOS distribution including userspace tools and libraries.
   - systemd, networking tools, ...
 - Xen-specific libraries, especially `libxenctrl` (a.k.a. `libxc`)
 - `xenstored`: a key-value pair configuration database

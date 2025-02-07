@@ -13,7 +13,7 @@
  *)
 (* Imperative priority queue *)
 
-type 'a event = {ev: 'a; time: Mtime.t}
+type 'a event = {ev: 'a; time: Mtime.span}
 
 type 'a t = {default: 'a event; mutable size: int; mutable data: 'a event array}
 
@@ -23,7 +23,7 @@ let create n default =
   if n <= 0 then
     invalid_arg "create"
   else
-    let default = {ev= default; time= Mtime_clock.now ()} in
+    let default = {ev= default; time= Mtime_clock.elapsed ()} in
     {default; size= 0; data= Array.make n default}
 
 let is_empty h = h.size <= 0
@@ -45,7 +45,7 @@ let add h x =
   (* moving [x] up in the heap *)
   let rec moveup i =
     let fi = (i - 1) / 2 in
-    if i > 0 && Mtime.is_later d.(fi).time ~than:x.time then (
+    if i > 0 && Mtime.Span.is_longer d.(fi).time ~than:x.time then (
       d.(i) <- d.(fi) ;
       moveup fi
     ) else
@@ -69,7 +69,7 @@ let remove h s =
   (* moving [x] up in the heap *)
   let rec moveup i =
     let fi = (i - 1) / 2 in
-    if i > 0 && Mtime.is_later d.(fi).time ~than:x.time then (
+    if i > 0 && Mtime.Span.is_longer d.(fi).time ~than:x.time then (
       d.(i) <- d.(fi) ;
       moveup fi
     ) else
@@ -83,7 +83,7 @@ let remove h s =
         let j' = j + 1 in
         if j' < n && d.(j').time < d.(j).time then j' else j
       in
-      if Mtime.is_earlier d.(j).time ~than:x.time then (
+      if Mtime.Span.is_shorter d.(j).time ~than:x.time then (
         d.(i) <- d.(j) ;
         movedown j
       ) else
@@ -93,7 +93,7 @@ let remove h s =
   in
   if s = n then
     ()
-  else if Mtime.is_later d.(s).time ~than:x.time then
+  else if Mtime.Span.is_longer d.(s).time ~than:x.time then
     moveup s
   else
     movedown s ;
@@ -129,7 +129,7 @@ let check h =
   let d = h.data in
   for i = 1 to h.size - 1 do
     let fi = (i - 1) / 2 in
-    let ordered = Mtime.is_later d.(i).time ~than:d.(fi).time in
+    let ordered = Mtime.Span.is_longer d.(i).time ~than:d.(fi).time in
     assert ordered
   done
 

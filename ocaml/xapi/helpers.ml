@@ -71,7 +71,7 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
     | None ->
         "without a timeout"
     | Some t ->
-        Printf.sprintf "with a timeout of %.3f seconds" t
+        Fmt.str "with a timeout of %a" Mtime.Span.pp t
   in
   debug "about to call script %s: %s %s" timeout_msg script
     (String.concat " " (filter_args args)) ;
@@ -109,9 +109,9 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
         | Unix.WEXITED n ->
             Printf.sprintf "exited with code %d" n
         | Unix.WSIGNALED n ->
-            Printf.sprintf "was killed by signal %d" n
+            Printf.sprintf "was killed by signal %a" Debug.Pp.signal n
         | Unix.WSTOPPED n ->
-            Printf.sprintf "was stopped by signal %d" n
+            Printf.sprintf "was stopped by signal %a" Debug.Pp.signal n
       in
       if should_log_output_on_failure then
         debug "%s %s %s [stdout = '%s'; stderr = '%s']" script
@@ -410,7 +410,13 @@ let make_rpc ~__context rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in
   let open Xmlrpc_client in
   let tracing = Context.set_client_span __context in
-  let http = xmlrpc ~subtask_of ~version:"1.1" "/" in
+  let dorpc, path =
+    if !Xapi_globs.use_xmlrpc then
+      (XMLRPC_protocol.rpc, "/")
+    else
+      (JSONRPC_protocol.rpc, "/jsonrpc")
+  in
+  let http = xmlrpc ~subtask_of ~version:"1.1" path in
   let http = TraceHelper.inject_span_into_req tracing http in
   let transport =
     if Pool_role.is_master () then
@@ -423,7 +429,7 @@ let make_rpc ~__context rpc : Rpc.response =
         , !Constants.https_port
         )
   in
-  XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
+  dorpc ~srcstr:"xapi" ~dststr:"xapi" ~transport ~http rpc
 
 let make_timeboxed_rpc ~__context timeout rpc : Rpc.response =
   let subtask_of = Ref.string_of (Context.get_task_id __context) in

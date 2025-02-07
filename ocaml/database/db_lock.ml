@@ -79,6 +79,12 @@ module ReentrantLock : REENTRANT_LOCK = struct
 
   let current_tid () = Thread.(self () |> id)
 
+  let[@inline never] [@specialize never] lock_acquired () =
+    Xapi_timeslice.Timeslice.lock_acquired ()
+
+  let[@inline never] [@specialize never] lock_released () =
+    Xapi_timeslice.Timeslice.lock_released ()
+
   let lock l =
     let me = current_tid () in
     match Atomic.get l.holder with
@@ -91,6 +97,7 @@ module ReentrantLock : REENTRANT_LOCK = struct
         while not (Atomic.compare_and_set l.holder None intended) do
           Condition.wait l.condition l.lock
         done ;
+        lock_acquired () ;
         let stats = l.statistics in
         let delta = Clock.Timer.span_to_s (Mtime_clock.count counter) in
         stats.total_time <- stats.total_time +. delta ;
@@ -109,7 +116,8 @@ module ReentrantLock : REENTRANT_LOCK = struct
           let () = Atomic.set l.holder None in
           Mutex.lock l.lock ;
           Condition.signal l.condition ;
-          Mutex.unlock l.lock
+          Mutex.unlock l.lock ;
+          lock_released ()
         )
     | _ ->
         failwith

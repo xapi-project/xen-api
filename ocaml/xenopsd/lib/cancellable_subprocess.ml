@@ -76,16 +76,16 @@ let run (task : Xenops_task.task_handle) ?env ?stdin fds
             raise (Spawn_internal_error (err, out, Unix.WEXITED n))
         | Unix.WSTOPPED n ->
             raise (Spawn_internal_error (err, out, Unix.WSTOPPED n))
-        | Unix.WSIGNALED n ->
+        | Unix.WSIGNALED s ->
             if !cancelled then (
               debug
-                "Subprocess %s exited with signal %d and cancel requested; \
+                "Subprocess %s exited with signal %a and cancel requested; \
                  raising Cancelled"
-                cmd n ;
+                cmd Debug.Pp.signal s ;
               Xenops_task.raise_cancelled task
             ) else (
-              debug "Subprocess %s exited with signal %d" cmd n ;
-              raise (Spawn_internal_error (err, out, Unix.WSIGNALED n))
+              debug "Subprocess %s exited with signal %a" cmd Debug.Pp.signal s ;
+              raise (Spawn_internal_error (err, out, Unix.WSIGNALED s))
             )
       )
       | Success (_, Failure (_, exn)) | Failure (_, exn) ->

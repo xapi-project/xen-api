@@ -43,6 +43,7 @@
     http_lib
     ipaddr
     polly
+    tgroup
     threads.posix
     tracing
     tracing_propagator

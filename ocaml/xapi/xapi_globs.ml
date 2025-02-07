@@ -372,6 +372,8 @@ let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
 
+let sync_host_driver = "sync_host_driver"
+
 (* Allow dbsync actions to be disabled via the redo log, since the database
    isn't of much use if xapi won't start. *)
 let disable_dbsync_for = ref []
@@ -929,6 +931,16 @@ let xen_livepatch_cmd = ref "/usr/sbin/xen-livepatch"
 
 let xl_cmd = ref "/usr/sbin/xl"
 
+let depmod = ref "/usr/sbin/depmod"
+
+let driver_tool = ref "/opt/xensource/debug/drivertool.sh"
+
+let dracut = ref "/usr/bin/dracut"
+
+let udevadm = ref "/usr/sbin/udevadm"
+
+let pvsproxy_close_cache_vdi = ref "/opt/citrix/pvsproxy/close-cache-vdi.sh"
+
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
 let remote_repository_prefix = ref "remote"
@@ -994,7 +1006,7 @@ let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
 
-let winbind_ldap_query_subject_timeout = ref 20.
+let winbind_ldap_query_subject_timeout = ref Mtime.Span.(20 * s)
 
 let tdb_tool = ref "/usr/bin/tdbtool"
 
@@ -1011,6 +1023,10 @@ let header_total_timeout_tcp = ref 60.
 let max_header_length_tcp = ref 1024
 (* Maximum accepted size of HTTP headers in bytes (on TCP only) *)
 
+let coordinator_max_stunnel_cache = ref 70
+
+let member_max_stunnel_cache = ref 70
+
 let conn_limit_tcp = ref 800
 
 let conn_limit_unix = ref 1024
@@ -1024,6 +1040,8 @@ let export_interval = ref 30.
 let max_spans = ref 10000
 
 let max_traces = ref 10000
+
+let use_xmlrpc = ref true
 
 let compress_tracing_files = ref true
 
@@ -1056,6 +1074,52 @@ let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 let disable_webserver = ref false
 
 let test_open = ref 0
+
+let tgroups_enabled = ref false
+
+let xapi_requests_cgroup =
+  "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
+
+(* Event.{from,next} batching delays *)
+let make_batching name ~delay_before ~delay_between =
+  let name = Printf.sprintf "%s_delay" name in
+  let config = ref (Throttle.Batching.make ~delay_before ~delay_between)
+  and config_vals = ref (delay_before, delay_between) in
+  let set str =
+    Scanf.sscanf str "%f,%f" @@ fun delay_before delay_between ->
+    match
+      (Clock.Timer.s_to_span delay_before, Clock.Timer.s_to_span delay_between)
+    with
+    | Some delay_before, Some delay_between ->
+        config_vals := (delay_before, delay_between) ;
+        config := Throttle.Batching.make ~delay_before ~delay_between
+    | _ ->
+        D.warn
+          "Ignoring argument '%s'. (it only allows durations of less than 104 \
+           days)"
+          str
+  and get () =
+    let d1, d2 = !config_vals in
+    Printf.sprintf "%f,%f" (Clock.Timer.span_to_s d1) (Clock.Timer.span_to_s d2)
+  and desc =
+    Printf.sprintf
+      "delays in seconds before the API call, and between internal recursive \
+       calls, separated with a comma"
+  in
+  (config, (name, Arg.String set, get, desc))
+
+let event_from_delay, event_from_entry =
+  make_batching "event_from" ~delay_before:Mtime.Span.zero
+    ~delay_between:Mtime.Span.(50 * ms)
+
+let event_from_task_delay, event_from_task_entry =
+  make_batching "event_from_task" ~delay_before:Mtime.Span.zero
+    ~delay_between:Mtime.Span.(50 * ms)
+
+let event_next_delay, event_next_entry =
+  make_batching "event_next"
+    ~delay_before:Mtime.Span.(200 * ms)
+    ~delay_between:Mtime.Span.(50 * ms)
 
 let xapi_globs_spec =
   [
@@ -1135,17 +1199,28 @@ let xapi_globs_spec =
   ; ("header_read_timeout_tcp", Float header_read_timeout_tcp)
   ; ("header_total_timeout_tcp", Float header_total_timeout_tcp)
   ; ("max_header_length_tcp", Int max_header_length_tcp)
+  ; ("coordinator_max_stunnel_cache", Int coordinator_max_stunnel_cache)
+  ; ("member_max_stunnel_cache", Int member_max_stunnel_cache)
   ; ("conn_limit_tcp", Int conn_limit_tcp)
   ; ("conn_limit_unix", Int conn_limit_unix)
   ; ("conn_limit_clientcert", Int conn_limit_clientcert)
+  ; ("stunnel_cache_max_age", Float Stunnel_cache.max_age)
+  ; ("stunnel_cache_max_idle", Float Stunnel_cache.max_idle)
   ; ("export_interval", Float export_interval)
   ; ("max_spans", Int max_spans)
   ; ("max_traces", Int max_traces)
   ; ("max_observer_file_size", Int max_observer_file_size)
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
+  ; ("local_yum_repo_port", Int local_yum_repo_port)
   ]
 
-let xapi_globs_spec_with_descriptions = []
+let xapi_globs_spec_with_descriptions =
+  [
+    ( "winbind_ldap_query_subject_timeout"
+    , ShortDurationFromSeconds winbind_ldap_query_subject_timeout
+    , "Timeout to perform ldap query for subject information"
+    )
+  ]
 
 let option_of_xapi_globs_spec ?(description = None) (name, ty) =
   let spec =
@@ -1395,6 +1470,11 @@ let other_options =
     , (fun () -> string_of_bool !Db_globs.idempotent_map)
     , "True if the add_to_<map> API calls should be idempotent"
     )
+  ; ( "use-event-next"
+    , Arg.Set Constants.use_event_next
+    , (fun () -> string_of_bool !Constants.use_event_next)
+    , "Use deprecated Event.next instead of Event.from"
+    )
   ; ( "nvidia_multi_vgpu_enabled_driver_versions"
     , Arg.String
         (fun x ->
@@ -1436,6 +1516,11 @@ let other_options =
     , (fun () -> string_of_bool !allow_host_sched_gran_modification)
     , "Allows to modify the host's scheduler granularity"
     )
+  ; ( "use-xmlrpc"
+    , Arg.Set use_xmlrpc
+    , (fun () -> string_of_bool !use_xmlrpc)
+    , "Use XMLRPC (deprecated) for internal communication or JSONRPC"
+    )
   ; ( "extauth_ad_backend"
     , Arg.Set_string extauth_ad_backend
     , (fun () -> !extauth_ad_backend)
@@ -1465,11 +1550,6 @@ let other_options =
     , (fun () -> string_of_bool !winbind_keep_configuration)
     , "Whether to clear winbind configuration when join domain failed or leave \
        domain"
-    )
-  ; ( "winbind_ldap_query_subject_timeout"
-    , Arg.Set_float winbind_ldap_query_subject_timeout
-    , (fun () -> string_of_float !winbind_ldap_query_subject_timeout)
-    , "Timeout to perform ldap query for subject information"
     )
   ; ( "hsts_max_age"
     , Arg.Set_int hsts_max_age
@@ -1614,6 +1694,19 @@ let other_options =
     , (fun () -> string_of_bool !disable_webserver)
     , "Disable the host webserver"
     )
+  ; ( "tgroups-enabled"
+    , Arg.Set tgroups_enabled
+    , (fun () -> string_of_bool !tgroups_enabled)
+    , "Turn on tgroups classification"
+    )
+  ; event_from_entry
+  ; event_from_task_entry
+  ; event_next_entry
+  ; ( "drivertool"
+    , Arg.Set_string driver_tool
+    , (fun () -> !driver_tool)
+    , "Path to drivertool for selecting host driver variants"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1689,11 +1782,6 @@ module Resources = struct
     ; ("xsh", xsh, "Path to xsh binary")
     ; ("static-vdis", static_vdis, "Path to static-vdis script")
     ; ("xen-cmdline-script", xen_cmdline_script, "Path to xen-cmdline script")
-    ; ( "fcoe-driver"
-      , fcoe_driver
-      , "Execute during PIF unplug to get the lun devices related with the \
-         ether interface of the PIF"
-      )
     ; ("list_domains", list_domains, "Path to the list_domains command")
     ; ("systemctl", systemctl, "Control the systemd system and service manager")
     ; ( "alert-certificate-check"
@@ -1716,6 +1804,9 @@ module Resources = struct
     ; ("createrepo-cmd", createrepo_cmd, "Path to createrepo command")
     ; ("modifyrepo-cmd", modifyrepo_cmd, "Path to modifyrepo command")
     ; ("rpm-cmd", rpm_cmd, "Path to rpm command")
+    ; ("depmod", depmod, "Path to depmod command")
+    ; ("dracut", dracut, "Path to dracut command")
+    ; ("udevadm", udevadm, "Path to udevadm command")
     ]
 
   let nonessential_executables =
@@ -1797,6 +1888,16 @@ module Resources = struct
       , "Path to yum-config-manager command"
       )
     ; ("c_rehash", c_rehash, "Path to regenerate CA store")
+      (* Dropped since XS9, list here as XS8 still requires it *)
+    ; ( "fcoe-driver"
+      , fcoe_driver
+      , "Execute during PIF unplug to get the lun devices related with the \
+         ether interface of the PIF"
+      )
+    ; ( "pvsproxy_close_cache_vdi"
+      , pvsproxy_close_cache_vdi
+      , "Path to close-cache-vdi.sh"
+      )
     ]
 
   let essential_files =

@@ -1,6 +1,6 @@
 +++
 title = "XAPI's Storage Layers"
-menuTitle = "Storage"
+linkTitle = "Storage"
 +++
 
 {{% notice info %}}

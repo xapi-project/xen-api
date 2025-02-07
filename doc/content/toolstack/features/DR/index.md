@@ -2,7 +2,7 @@
 title = "Disaster Recovery"
 +++
 
-The [HA](../HA/HA.html) feature will restart VMs after hosts have failed, but what
+The [HA](HA) feature will restart VMs after hosts have failed, but what
 happens if a whole site (e.g. datacenter) is lost? A disaster recovery
 configuration is shown in the following diagram:
 

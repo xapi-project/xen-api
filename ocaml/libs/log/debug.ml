@@ -353,4 +353,8 @@ functor
       with e -> log_backtrace_internal ~level:Syslog.Debug ~msg:"debug" e ()
   end
 
-module Pp = struct let mtime_span () = Fmt.str "%a" Mtime.Span.pp end
+module Pp = struct
+  let mtime_span () = Fmt.to_to_string Mtime.Span.pp
+
+  let signal () = Fmt.(to_to_string Dump.signal)
+end

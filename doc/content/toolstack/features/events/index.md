@@ -1,6 +1,6 @@
 +++
 title = "Event handling in the Control Plane - Xapi, Xenopsd and Xenstore"
-menuTitle = "Event handling"
+linkTitle = "Event handling"
 +++
 
 Introduction

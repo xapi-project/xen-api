@@ -28,21 +28,19 @@ type t =
   (* IP address *)
   | Broken
 
-let role = ref None
+let role = Atomic.make None
 
-let role_unit_tests = ref false
+let role_unit_tests = Atomic.make false
 
 let role_m = Mutex.create ()
 
 let with_pool_role_lock f = Xapi_stdext_threads.Threadext.Mutex.execute role_m f
 
 let set_pool_role_for_test () =
-  with_pool_role_lock (fun _ ->
-      role := Some Master ;
-      role_unit_tests := true
-  )
+  Atomic.set role (Some Master) ;
+  Atomic.set role_unit_tests true
 
-let is_unit_test () = with_pool_role_lock (fun _ -> !role_unit_tests)
+let is_unit_test () = Atomic.get role_unit_tests
 
 let string_of = function
   | Master ->
@@ -80,15 +78,18 @@ let read_pool_role () =
     )
 
 let get_role () =
-  with_pool_role_lock (fun _ ->
-      match !role with
-      | Some x ->
-          x
-      | None ->
-          let r = read_pool_role () in
-          role := Some r ;
-          r
-  )
+  match Atomic.get role with
+  | Some x ->
+      x
+  | None ->
+      with_pool_role_lock (fun _ ->
+          match Atomic.get role with
+          | Some x ->
+              x
+          | None ->
+              let r = read_pool_role () in
+              Atomic.set role (Some r) ; r
+      )
 
 let is_master () = get_role () = Master
 

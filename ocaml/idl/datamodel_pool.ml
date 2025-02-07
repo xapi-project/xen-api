@@ -2173,6 +2173,10 @@ let t =
             ~default_value:(Some (VMap [])) "recommendations"
             "The recommended pool properties for clients to respect for \
              optimal performance. e.g. max-vm-group=5"
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[]
+            ~ty:(Map (String, String))
+            ~default_value:(Some (VMap [])) "license_server"
+            "Licensing data shared within the whole pool"
         ]
       )
     ()

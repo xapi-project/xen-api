@@ -1411,3 +1411,5 @@ let disable_ssh_failed = add_error "DISABLE_SSH_FAILED"
 let enable_ssh_partially_failed = add_error "ENABLE_SSH_PARTIALLY_FAILED"
 
 let disable_ssh_partially_failed = add_error "DISABLE_SSH_PARTIALLY_FAILED"
+
+let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"

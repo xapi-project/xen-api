@@ -8,7 +8,7 @@ Snapshots represent the state of a VM, or a disk (VDI) at a point in time. They 
 - experiments (take snapshot, try something, revert back again)
 - golden images (install OS, get it just right, clone it 1000s of times)
 
-Read more about [the Snapshot APIs](../../xen-api/snapshots.html).
+Read more about [the Snapshot APIs](../../../xen-api/topics/snapshots).
 
 Disk snapshots
 ==============

@@ -28,7 +28,7 @@ let start_local (module D : Debug.DEBUG) ~reporter ~uid ~neg_shift ~page_count
       overdue_count :=
         wait_until_next_reading
           (module D)
-          ~neg_shift ~uid ~protocol ~overdue_count:!overdue_count ;
+          ~neg_shift ~uid ~protocol ~overdue_count:!overdue_count ~reporter ;
       if page_count > 0 then
         let payload =
           Rrd_protocol.{timestamp= Utils.now (); datasources= dss_f ()}

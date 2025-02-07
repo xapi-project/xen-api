@@ -275,15 +275,15 @@ let with_conversion_script task name hvm fd f =
         | Unix.WSIGNALED n ->
             Error
               (Failure
-                 (Printf.sprintf "Conversion script exited with signal %s"
-                    (Unixext.string_of_signal n)
+                 (Printf.sprintf "Conversion script exited with signal %a"
+                    Debug.Pp.signal n
                  )
               )
         | Unix.WSTOPPED n ->
             Error
               (Failure
-                 (Printf.sprintf "Conversion script stopped with signal %s"
-                    (Unixext.string_of_signal n)
+                 (Printf.sprintf "Conversion script stopped with signal %a"
+                    Debug.Pp.signal n
                  )
               )
       )

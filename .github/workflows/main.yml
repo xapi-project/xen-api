@@ -1,7 +1,11 @@
 name: Build and test
 
 on:
+  # When only Hugo docs change, this workflow is not required:
   push:
+    paths-ignore:
+      - 'doc/**'
+      - '.github/workflows/hugo.yml'
   pull_request:
   schedule:
     # run daily, this refreshes the cache

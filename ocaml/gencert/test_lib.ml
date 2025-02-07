@@ -162,8 +162,8 @@ let invalid_keys_tests =
     )
     invalid_private_keys
 
-let test_valid_cert ~kind cert time pkey =
-  match validate_certificate kind cert time pkey with
+let test_valid_leaf_cert pem_leaf time pkey () =
+  match validate_pem_chain ~pem_leaf ~pem_chain:None time pkey with
   | Ok _ ->
       ()
   | Error (`Msg (_, msg)) ->
@@ -173,8 +173,8 @@ let test_valid_cert ~kind cert time pkey =
            msg
         )
 
-let test_invalid_cert ~kind cert time pkey error reason =
-  match validate_certificate kind cert time pkey with
+let test_invalid_cert pem_leaf time pkey error reason =
+  match validate_pem_chain ~pem_leaf ~pem_chain:None time pkey with
   | Ok _ ->
       Alcotest.fail "Invalid certificate was validated without errors"
   | Error (`Msg msg) ->
@@ -203,9 +203,6 @@ let sign_leaf_cert host_name digest pkey_leaf =
   >>| Cstruct.to_string
 
 let valid_leaf_cert_tests =
-  let test_valid_leaf_cert cert time pkey () =
-    test_valid_cert ~kind:Leaf cert time pkey
-  in
   List.map
     (fun (name, pkey_leaf_name, time, digest) ->
       let cert_test =
@@ -222,7 +219,7 @@ let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
   let time = time_of_rfc3339 time in
   let test_cert =
     load_pkcs8 pkey_name >>| fun pkey ->
-    let test () = test_invalid_cert ~kind:Leaf cert time pkey error reason in
+    let test () = test_invalid_cert cert time pkey error reason in
     test
   in
   ("Validation of a corrupted certificate", `Quick, test_cert)
@@ -230,7 +227,7 @@ let test_corrupt_leaf_cert (cert_name, pkey_name, time, error, reason) =
 let test_invalid_leaf_cert
     (name, pkey_leaf_name, pkey_expected_name, time, digest, error, reason) =
   let test_invalid_leaf_cert cert time pkey error reason () =
-    test_invalid_cert ~kind:Leaf cert time pkey error reason
+    test_invalid_cert cert time pkey error reason
   in
   let test_cert =
     load_pkcs8 pkey_leaf_name >>= fun pkey_leaf ->
@@ -245,17 +242,30 @@ let invalid_leaf_cert_tests =
   List.map test_corrupt_leaf_cert corrupt_certificates
   @ List.map test_invalid_leaf_cert invalid_leaf_certificates
 
-let test_valid_cert_chain chain time pkey () =
-  test_valid_cert ~kind:Chain chain time pkey
+let test_valid_cert_chain ~pem_leaf ~pem_chain time pkey () =
+  match validate_pem_chain ~pem_leaf ~pem_chain:(Some pem_chain) time pkey with
+  | Ok _ ->
+      ()
+  | Error (`Msg (_, msg)) ->
+      Alcotest.fail
+        (Format.asprintf "Valid certificate chain could not be validated: %a"
+           Fmt.(Dump.list string)
+           msg
+        )
 
-let test_invalid_cert_chain cert time pkey error reason () =
-  test_invalid_cert ~kind:Chain cert time pkey error reason
+let test_invalid_cert_chain pem_leaf pem_chain time pkey error reason () =
+  match validate_pem_chain ~pem_leaf ~pem_chain:(Some pem_chain) time pkey with
+  | Ok _ ->
+      Alcotest.fail "Invalid certificate chain was validated without errors"
+  | Error (`Msg msg) ->
+      Alcotest.(check @@ pair string @@ list string)
+        "Error must match" (error, reason) msg
 
 let valid_chain_cert_tests =
   let time = time_of_rfc3339 "2020-02-01T00:00:00Z" in
   let test_cert =
     load_pkcs8 "pkey_rsa_4096" >>= fun pkey_root ->
-    let pkey, chain =
+    let pkey_leaf, chain =
       List.fold_left
         (fun (pkey_sign, chain_result) pkey ->
           let result =
@@ -267,8 +277,10 @@ let valid_chain_cert_tests =
         )
         (pkey_root, Ok []) key_chain
     in
+    sign_leaf_cert host_name `SHA256 pkey_leaf >>= fun pem_leaf ->
     chain >>| X509.Certificate.encode_pem_multiple >>| Cstruct.to_string
-    >>| fun chain -> test_valid_cert_chain chain time pkey
+    >>| fun pem_chain ->
+    test_valid_cert_chain ~pem_leaf ~pem_chain time pkey_leaf
   in
   [("Validation of a supported certificate chain", `Quick, test_cert)]
 
@@ -277,8 +289,11 @@ let invalid_chain_cert_tests =
     (fun (chain_name, pkey_name, time, error, reason) ->
       let chain = load_test_data chain_name in
       let test_cert =
-        load_pkcs8 pkey_name >>| fun pkey ->
-        test_invalid_cert_chain chain (time_of_rfc3339 time) pkey error reason
+        (* Need to load a valid key and leaf cert *)
+        load_pkcs8 pkey_name >>= fun pkey ->
+        sign_leaf_cert host_name `SHA256 pkey >>| fun cert ->
+        test_invalid_cert_chain cert chain (time_of_rfc3339 time) pkey error
+          reason
       in
       ("Validation of an unsupported certificate chain", `Quick, test_cert)
     )

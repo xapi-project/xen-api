@@ -11,7 +11,7 @@ status: proposed
 At present (early March 2015) the datamodel defines a VM as having a "platform" string-string map, in which two keys are interpreted as specifying a PCI device which should be emulated for the VM. Those keys are "device_id" and "revision" (with int values represented as decimal strings).
 
 Limitations:
-* Hardcoded defaults are used for the the vendor ID and all other parameters except device_id and revision.
+* Hardcoded defaults are used for the vendor ID and all other parameters except device_id and revision.
 * Only one emulated PCI device can be specified.
 
 When instructing qemu to emulate PCI devices, qemu accepts twelve parameters for each device.

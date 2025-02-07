@@ -3,7 +3,7 @@ title = "Responsibilities"
 weight = 10
 +++
 
-The XAPI Toolstack forms the main control plane of a pool of XenServer hosts. It allow the administrator to:
+The XAPI Toolstack forms the main control plane of a pool of XenServer hosts. It allows the administrator to:
 
 - Configure the hardware resources of XenServer hosts: storage, networking, graphics, memory.
 - Create, configure and destroy VMs and their virtual resources.

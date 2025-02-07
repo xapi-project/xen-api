@@ -2022,9 +2022,21 @@ let set_license_params ~__context ~self ~value =
   Db.Host.set_license_params ~__context ~self ~value ;
   Pool_features_helpers.update_pool_features ~__context
 
+let collect_license_server_data ~__context ~host =
+  let pool = Helpers.get_pool ~__context in
+  let host_license_server = Db.Host.get_license_server ~__context ~self:host in
+  let pool_license_server = Db.Pool.get_license_server ~__context ~self:pool in
+  (* If there are same keys both in host and pool, use host level data. *)
+  let list_assoc_union l1 l2 =
+    List.fold_left
+      (fun acc (k, v) -> if List.mem_assoc k l1 then acc else (k, v) :: acc)
+      l1 l2
+  in
+  list_assoc_union host_license_server pool_license_server
+
 let apply_edition_internal ~__context ~host ~edition ~additional =
   (* Get localhost's current license state. *)
-  let license_server = Db.Host.get_license_server ~__context ~self:host in
+  let license_server = collect_license_server_data ~__context ~host in
   let current_edition = Db.Host.get_edition ~__context ~self:host in
   let current_license_params =
     Db.Host.get_license_params ~__context ~self:host
@@ -2232,7 +2244,7 @@ let enable_local_storage_caching ~__context ~host ~sr =
   let shared = Db.SR.get_shared ~__context ~self:sr in
   let has_required_capability =
     let caps = Sm.features_of_driver ty in
-    List.mem_assoc Smint.Sr_supports_local_caching caps
+    Smint.Feature.(has_capability Sr_supports_local_caching caps)
   in
   debug "shared: %b. List.length pbds: %d. has_required_capability: %b" shared
     (List.length pbds) has_required_capability ;
@@ -3088,6 +3100,9 @@ let apply_updates ~__context ~self ~hash =
   Db.Host.set_latest_synced_updates_applied ~__context ~self ~value:`yes ;
   Db.Host.set_last_update_hash ~__context ~self ~value:hash ;
   warnings
+
+let rescan_drivers ~__context ~self =
+  Xapi_host_driver.scan ~__context ~host:self
 
 let cc_prep () =
   let cc = "CC_PREPARATIONS" in
