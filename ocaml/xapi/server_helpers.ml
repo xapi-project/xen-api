@@ -152,7 +152,14 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
                 Tgroup.Group.Identity.make ?user_agent:http_req.user_agent
                   subject
               )
-              session_id
+              ( if !Xapi_globs.slave_emergency_mode then
+                  (* in emergency mode we cannot reach the coordinator,
+                     and we must not attempt to make Db calls
+                  *)
+                  None
+                else
+                  session_id
+              )
           with _ -> None
         in
         Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ())
