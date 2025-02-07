@@ -111,11 +111,11 @@ let report_child_exit comms_sock args child_pid status =
         Fe.WEXITED n
     | Unix.WSIGNALED n ->
         log_failure args child_pid
-          (Printf.sprintf "exited with signal: %s" (Unixext.string_of_signal n)) ;
+          (Printf.sprintf "exited with signal: %a" Debug.Pp.signal n) ;
         Fe.WSIGNALED n
     | Unix.WSTOPPED n ->
         log_failure args child_pid
-          (Printf.sprintf "stopped with signal: %s" (Unixext.string_of_signal n)) ;
+          (Printf.sprintf "stopped with signal: %a" Debug.Pp.signal n) ;
         Fe.WSTOPPED n
   in
   let result = Fe.Finished pr in

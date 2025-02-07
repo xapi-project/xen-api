@@ -49,12 +49,7 @@ let call_plugin session_id plugin_name fn_name args =
         raise
           (Api_errors.Server_error
              ( Api_errors.xenapi_plugin_failure
-             , [
-                 Printf.sprintf "signal: %s"
-                   (Xapi_stdext_unix.Unixext.string_of_signal i)
-               ; output
-               ; log
-               ]
+             , [Printf.sprintf "signal: %a" Debug.Pp.signal i; output; log]
              )
           )
     | Forkhelpers.Spawn_internal_error (log, output, Unix.WEXITED _) ->

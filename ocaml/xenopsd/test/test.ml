@@ -1032,4 +1032,4 @@ let _ =
     )
   in
   Debug.log_to_stdout () ;
-  Alcotest.run "xenops test" ([suite; Test_topology.suite] @ Test_cpuid.tests)
+  Alcotest.run "xenops test" [suite]

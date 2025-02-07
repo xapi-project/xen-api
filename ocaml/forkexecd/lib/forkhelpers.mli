@@ -48,7 +48,7 @@ val execute_command_get_output :
   -> ?env:string array
   -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
-  -> ?timeout:float
+  -> ?timeout:Mtime.Span.t
   -> string
   -> string list
   -> string * string
@@ -61,7 +61,7 @@ val execute_command_get_output_send_stdin :
   -> ?env:string array
   -> ?syslog_stdout:syslog_stdout
   -> ?redirect_stderr_to_stdout:bool
-  -> ?timeout:float
+  -> ?timeout:Mtime.Span.t
   -> string
   -> string list
   -> string

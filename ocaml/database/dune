@@ -48,6 +48,7 @@
     xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
+    xapi_timeslice
     xml-light2
     xmlm
   )

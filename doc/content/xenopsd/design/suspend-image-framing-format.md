@@ -19,7 +19,7 @@ Example suspend image layout:
     | 5.0 End_of_image footer    |
     +----------------------------+
 
-A suspend image is now constucted as a series of header-record pairs. The
+A suspend image is now constructed as a series of header-record pairs. The
 initial signature (1.) is used to determine whether we are dealing with the
 unstructured, "legacy" suspend image or the new, structured format.
 

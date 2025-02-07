@@ -36,7 +36,9 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 
+#if BUILD_FOR_TEST
 [assembly: InternalsVisibleTo("XenServerTest")]
+#endif
 
 namespace XenAPI
 {

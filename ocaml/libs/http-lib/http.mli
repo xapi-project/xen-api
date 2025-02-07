@@ -126,6 +126,8 @@ module Request : sig
 
   val to_wire_string : t -> string
   (** [to_wire_string t] returns a string which could be sent to a server *)
+
+  val with_originator_of : t option -> (string option -> unit) -> unit
 end
 
 (** Parsed form of the HTTP response *)

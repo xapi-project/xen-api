@@ -71,7 +71,7 @@ Changes beneath the XenAPI
 Summary of the impact on the admin
 ==================================
 
-- There will nolonger be a size limit on hotfixes imposed by the mechanism
+- There will no longer be a size limit on hotfixes imposed by the mechanism
   itself.
 - There must be enough free space in an SR connected to the host to be able
   to apply a patch on that host.

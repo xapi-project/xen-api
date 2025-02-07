@@ -625,6 +625,7 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
     (domain_type : [`pv | `pvh | `hvm]) req =
   let di = Xenctrl.domain_getinfo xc domid in
   let uuid = get_uuid ~xc domid in
+  let uuid = Uuidx.to_string uuid in
   let expecting_ack =
     match (di.Xenctrl.hvm_guest, domain_type) with
     | false, _ ->
@@ -640,12 +641,12 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
     debug
       "VM = %s; domid = %d; HVM guest without PV drivers: not expecting any \
        acknowledgement"
-      (Uuidx.to_string uuid) domid ;
+      uuid domid ;
     Xenctrl.domain_shutdown xc domid (shutdown_to_xc_shutdown req)
   ) else (
     debug
       "VM = %s; domid = %d; Waiting for domain to acknowledge shutdown request"
-      (Uuidx.to_string uuid) domid ;
+      uuid domid ;
     let path = control_shutdown ~xs domid in
     let cancel = Domain domid in
     if
@@ -654,11 +655,10 @@ let shutdown_wait_for_ack (t : Xenops_task.task_handle) ~timeout ~xc ~xs domid
         [Watch.key_to_disappear path]
         t ~xs ~timeout ()
     then
-      info "VM = %s; domid = %d; Domain acknowledged shutdown request"
-        (Uuidx.to_string uuid) domid
-    else
-      debug "VM = %s; domid = %d; Domain disappeared" (Uuidx.to_string uuid)
+      info "VM = %s; domid = %d; Domain acknowledged shutdown request" uuid
         domid
+    else
+      debug "VM = %s; domid = %d; Domain disappeared" uuid domid
   )
 
 let sysrq ~xs domid key =
@@ -851,7 +851,7 @@ let numa_init () =
   let host = Lazy.force numa_hierarchy in
   let mem = (Xenctrlext.numainfo xcext).memory in
   D.debug "Host NUMA information: %s"
-    (Fmt.to_to_string Topology.NUMA.pp_dump host) ;
+    (Fmt.to_to_string (Fmt.Dump.option Topology.NUMA.pp_dump) host) ;
   Array.iteri
     (fun i m ->
       let open Xenctrlext in
@@ -864,8 +864,9 @@ let numa_placement domid ~vcpus ~memory =
   let open Topology in
   let hint =
     with_lock numa_mutex (fun () ->
+        let ( let* ) = Option.bind in
         let xcext = get_handle () in
-        let host = Lazy.force numa_hierarchy in
+        let* host = Lazy.force numa_hierarchy in
         let numa_meminfo = (numainfo xcext).memory |> Array.to_list in
         let nodes =
           ListLabels.map2

@@ -15,7 +15,7 @@ recognized). No specific language bindings are prescribed, although examples
 are given in the Python programming language.
 
 Although we adopt some terminology from object-oriented programming,
-future client language bindings may or may not be object oriented.
+future client language bindings may or may not be object-oriented.
 The API reference uses the terminology _classes_ and _objects_.
 For our purposes a _class_ is simply a hierarchical namespace;
 an _object_ is an instance of a class with its fields set to

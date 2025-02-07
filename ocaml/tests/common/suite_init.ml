@@ -11,4 +11,6 @@ let harness_init () =
     Filename.concat Test_common.working_area "xapi-inventory" ;
   Xcp_client.use_switch := false ;
   Pool_role.set_pool_role_for_test () ;
-  Message_forwarding.register_callback_fns ()
+  Message_forwarding.register_callback_fns () ;
+  (* for unit tests use a fixed value *)
+  Xapi_timeslice.Timeslice.set 0.004

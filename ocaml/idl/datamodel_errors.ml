@@ -2022,6 +2022,9 @@ let _ =
   error Api_errors.disable_ssh_partially_failed ["hosts"]
     ~doc:"Some of hosts failed to disable SSH access." () ;
 
+  error Api_errors.host_driver_no_hardware ["driver variant"]
+    ~doc:"No hardware present for this host driver variant" () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

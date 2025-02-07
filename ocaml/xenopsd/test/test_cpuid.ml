@@ -327,3 +327,5 @@ let tests =
     ; ("equality", Equality.tests)
     ; ("comparisons", Comparisons.tests)
     ]
+
+let () = Alcotest.run "CPUID" tests

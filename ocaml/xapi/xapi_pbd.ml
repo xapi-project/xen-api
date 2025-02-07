@@ -188,7 +188,7 @@ let plug ~__context ~self =
         check_sharing_constraint ~__context ~sr ;
         let dbg = Ref.string_of (Context.get_task_id __context) in
         let device_config = Db.PBD.get_device_config ~__context ~self in
-        Storage_access.transform_storage_exn (fun () ->
+        Storage_utils.transform_storage_exn (fun () ->
             C.SR.attach dbg
               (Storage_interface.Sr.of_string
                  (Db.SR.get_uuid ~__context ~self:sr)
@@ -264,7 +264,7 @@ let unplug ~__context ~self =
         ) ;
         let dbg = Ref.string_of (Context.get_task_id __context) in
         let uuid = Db.SR.get_uuid ~__context ~self:sr in
-        Storage_access.transform_storage_exn (fun () ->
+        Storage_utils.transform_storage_exn (fun () ->
             C.SR.detach dbg (Storage_interface.Sr.of_string uuid)
         ) ;
         Storage_access.unbind ~__context ~pbd:self ;

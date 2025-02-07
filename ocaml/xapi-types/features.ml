@@ -58,6 +58,7 @@ type feature =
   | USB_passthrough
   | Network_sriov
   | Corosync
+  | Cluster_address
   | Zstd_export
   | Pool_secret_rotation
   | Certificate_verification
@@ -123,6 +124,7 @@ let keys_of_features =
   ; (USB_passthrough, ("restrict_usb_passthrough", Negative, "USB_passthrough"))
   ; (Network_sriov, ("restrict_network_sriov", Negative, "Network_sriov"))
   ; (Corosync, ("restrict_corosync", Negative, "Corosync"))
+  ; (Cluster_address, ("restrict_cluster_address", Negative, "Cluster_address"))
   ; (Zstd_export, ("restrict_zstd_export", Negative, "Zstd_export"))
   ; ( Pool_secret_rotation
     , ("restrict_pool_secret_rotation", Negative, "Pool_secret_rotation")

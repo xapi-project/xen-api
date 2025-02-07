@@ -371,36 +371,6 @@ let kill_and_wait ?(signal = Sys.sigterm) ?(timeout = 10.) pid =
       raise Process_still_alive
   )
 
-let string_of_signal x =
-  let table =
-    [
-      (Sys.sigabrt, "SIGABRT")
-    ; (Sys.sigalrm, "SIGALRM")
-    ; (Sys.sigfpe, "SIGFPE")
-    ; (Sys.sighup, "SIGHUP")
-    ; (Sys.sigill, "SIGILL")
-    ; (Sys.sigint, "SIGINT")
-    ; (Sys.sigkill, "SIGKILL")
-    ; (Sys.sigpipe, "SIGPIPE")
-    ; (Sys.sigquit, "SIGQUIT")
-    ; (Sys.sigsegv, "SIGSEGV")
-    ; (Sys.sigterm, "SIGTERM")
-    ; (Sys.sigusr1, "SIGUSR1")
-    ; (Sys.sigusr2, "SIGUSR2")
-    ; (Sys.sigchld, "SIGCHLD")
-    ; (Sys.sigcont, "SIGCONT")
-    ; (Sys.sigstop, "SIGSTOP")
-    ; (Sys.sigttin, "SIGTTIN")
-    ; (Sys.sigttou, "SIGTTOU")
-    ; (Sys.sigvtalrm, "SIGVTALRM")
-    ; (Sys.sigprof, "SIGPROF")
-    ]
-  in
-  if List.mem_assoc x table then
-    List.assoc x table
-  else
-    Printf.sprintf "(ocaml signal %d with an unknown name)" x
-
 let with_polly f =
   let polly = Polly.create () in
   let finally () = Polly.close polly in
@@ -924,35 +894,6 @@ let test_open n =
       at_exit (fun () -> Unix.close fd)
     done
   )
-
-module Direct = struct
-  type t = Unix.file_descr
-
-  external openfile : string -> Unix.open_flag list -> Unix.file_perm -> t
-    = "stub_stdext_unix_open_direct"
-
-  let close = Unix.close
-
-  let with_openfile path flags perms f =
-    let t = openfile path flags perms in
-    finally (fun () -> f t) (fun () -> close t)
-
-  external unsafe_write : t -> bytes -> int -> int -> int
-    = "stub_stdext_unix_write"
-
-  let write fd buf ofs len =
-    if ofs < 0 || len < 0 || ofs > Bytes.length buf - len then
-      invalid_arg "Unixext.write"
-    else
-      unsafe_write fd buf ofs len
-
-  let copy_from_fd ?limit socket fd =
-    copy_file_internal ?limit (Unix.read socket) (write fd)
-
-  let fsync x = fsync x
-
-  let lseek fd x cmd = Unix.LargeFile.lseek fd x cmd
-end
 
 (* --------------------------------------------------------------------------------------- *)
 

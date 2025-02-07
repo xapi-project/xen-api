@@ -607,7 +607,10 @@ module SMAPIv1 : Server_impl = struct
                     ~key:"content_id"
             ) ;
             (* If the backend doesn't advertise the capability then do nothing *)
-            if List.mem_assoc Smint.Vdi_activate (Sm.features_of_driver _type)
+            if
+              Smint.Feature.(
+                has_capability Vdi_activate (Sm.features_of_driver _type)
+              )
             then
               Sm.vdi_activate ~dbg device_config _type sr self read_write
             else
@@ -638,7 +641,10 @@ module SMAPIv1 : Server_impl = struct
                     ~value:Uuidx.(to_string (make ()))
             ) ;
             (* If the backend doesn't advertise the capability then do nothing *)
-            if List.mem_assoc Smint.Vdi_deactivate (Sm.features_of_driver _type)
+            if
+              Smint.Feature.(
+                has_capability Vdi_deactivate (Sm.features_of_driver _type)
+              )
             then
               Sm.vdi_deactivate ~dbg device_config _type sr self
             else
@@ -1202,12 +1208,12 @@ module SMAPIv1 : Server_impl = struct
   let get_by_name _context ~dbg:_ ~name:_ = assert false
 
   module DATA = struct
-    let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~url:_ ~dest:_ ~verify_dest:_ =
+    let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
     module MIRROR = struct
-      let start _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~url:_ ~dest:_ ~verify_dest:_
-          =
+      let start _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~mirror_vm:_ ~copy_vm:_
+          ~url:_ ~dest:_ ~verify_dest:_ =
         assert false
 
       let stop _context ~dbg:_ ~id:_ = assert false
@@ -1219,9 +1225,20 @@ module SMAPIv1 : Server_impl = struct
       let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
         assert false
 
+      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_
+          ~vm:_ =
+        assert false
+
       let receive_finalize _context ~dbg:_ ~id:_ = assert false
 
+      let receive_finalize2 _context ~dbg:_ ~id:_ = assert false
+
       let receive_cancel _context ~dbg:_ ~id:_ = assert false
+
+      let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ =
+        assert false
+
+      let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
     end
   end
 

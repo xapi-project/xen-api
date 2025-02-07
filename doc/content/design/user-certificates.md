@@ -16,7 +16,7 @@ and not impersonating the actual host.
 Historically there has not been a supported mechanism to do this, and as a
 result users have had to rely on guides written by third parties that show how
 to manually replace the xapi-ssl.pem file on a host. This process is
-error-prone, and if a mistake is made, can result in an unuseable system.
+error-prone, and if a mistake is made, can result in an unusable system.
 This design provides a fully supported mechanism to allow replacing the
 certificates.
 
@@ -200,7 +200,7 @@ should be removed to avoid a build-up of messages.
 
 Additionally, the task may also produce messages for expired server
 certificates which must use the name `HOST_SERVER_CERTIFICATE_EXPIRED`.
-These kind of message must contain the message "The TLS server certificate has
+This kind of message must contain the message "The TLS server certificate has
 expired." as well as the expiry date, like the expiring messages.
 They also may replace the existing expiring messages in a host.
 
@@ -220,7 +220,7 @@ A new class, Certificate, will be added with the following schema:
 | ---------- | --------- | ----- |
 | uuid       |           |
 | type       | CA        | Certificate trusted by all hosts
-|            | Host      | Certificate that the host present sto normal clients
+|            | Host      | Certificate that the host presents to normal clients
 | name       | String    | Name, only present for trusted certificates
 | host       | Ref _host | Host where the certificate is installed
 | not_before | DateTime  | Date after which the certificate is valid
@@ -246,7 +246,7 @@ and it will accept the parameter `host-uuid=<uuid>`.
 ## Recovery mechanism
 
 In the case a certificate is let to expire TLS clients connecting to the host
-will refuse establish the connection.
+will refuse to establish the connection.
 This means that the host is going to be unable to be managed using the xapi
 API (Xencenter, or a CVAD control plane)
 

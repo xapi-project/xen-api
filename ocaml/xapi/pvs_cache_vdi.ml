@@ -79,11 +79,24 @@ let get_or_recreate_vdi ~__context ~self =
           vdi
   )
 
+let ensure_vdi_is_closed ~__context vdi =
+  (* The pvsproxy daemon normally unmounts and removes the locally attached VBD
+     for the cache VDI. Here we do it as well, just in case pvsproxy did not
+     manage to, for whatever reason. *)
+  try
+    let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
+    let _ : string =
+      Helpers.call_script !Xapi_globs.pvsproxy_close_cache_vdi [uuid]
+    in
+    ()
+  with _ -> () (* call_script will log anything interesting already *)
+
 let destroy_vdi ~__context ~self =
   match get_vdi ~__context ~self with
   | None ->
       () (* The VDI doesn't exist anymore; nothing to do. *)
   | Some vdi ->
+      ensure_vdi_is_closed ~__context vdi ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
           Client.Client.VDI.destroy ~rpc ~session_id ~self:vdi
       )

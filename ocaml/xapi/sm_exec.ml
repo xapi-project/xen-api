@@ -38,6 +38,13 @@ let with_dbg ~name ~dbg f =
 (*********************************************************************************************)
 (* Random utility functions *)
 
+let env_vars =
+  Array.concat
+    [
+      Forkhelpers.default_path_env_pair
+    ; Env_record.to_string_array [Env_record.pair ("ORIGINATOR", "SM")]
+    ]
+
 type call = {
     (* All calls are performed by a specific Host with a special Session and device_config *)
     host_ref: API.ref_host
@@ -355,9 +362,9 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
               let env, exe, args =
                 match Xapi_observer_components.is_smapi_enabled () with
                 | false ->
-                    (None, exe, args)
+                    (Some env_vars, exe, args)
                 | true ->
-                    Xapi_observer_components.env_exe_args_of
+                    Xapi_observer_components.env_exe_args_of ~env_vars
                       ~component:Xapi_observer_components.SMApi ~exe ~args
               in
               Forkhelpers.execute_command_get_output ?tracing:di.tracing ?env
@@ -393,7 +400,7 @@ let exec_xmlrpc ~dbg ?context:_ ?(needs_session = true) (driver : string)
                    (Backend_error
                       ( Api_errors.sr_backend_failure
                       , [
-                          "received signal: " ^ Unixext.string_of_signal i
+                          Printf.sprintf "received signal: %a" Debug.Pp.signal i
                         ; output
                         ; log
                         ]
@@ -551,8 +558,8 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
   let strings =
     XMLRPC.From.array XMLRPC.From.string (safe_assoc "capabilities" info)
   in
-  let features = Smint.parse_capability_int64_features strings in
-  let text_features = List.map Smint.string_of_feature features in
+  let features = Smint.Feature.parse_capability_int64 strings in
+  let text_features = List.map Smint.Feature.to_string features in
   (* Parse the driver options *)
   let configuration =
     List.map

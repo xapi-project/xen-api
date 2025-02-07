@@ -291,7 +291,7 @@ let attach_helper ~__context ~uuid ~vdi ~use_localhost_proxy =
             "/dev/" ^ Client.VBD.get_device ~rpc ~session_id ~self:vbd
         )
       in
-      with_api_errors (mount device) mount_point ;
+      with_api_errors (mount ~ty:(Some "iso9660") device) mount_point ;
       debug "pool_update.attach_helper Mounted %s" mount_point
   ) ;
   let ip =

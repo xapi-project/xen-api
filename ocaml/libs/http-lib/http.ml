@@ -132,6 +132,8 @@ module Hdr = struct
 
   let location = "location"
 
+  let originator = "originator"
+
   let hsts = "strict-transport-security"
 end
 
@@ -674,6 +676,14 @@ module Request = struct
     let headers, body = to_headers_and_body x in
     let frame_header = if x.frame then make_frame_header headers else "" in
     frame_header ^ headers ^ body
+
+  let with_originator_of req f =
+    Option.iter
+      (fun req ->
+        let originator = List.assoc_opt Hdr.originator req.additional_headers in
+        f originator
+      )
+      req
 end
 
 module Response = struct
