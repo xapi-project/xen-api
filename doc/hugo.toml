@@ -29,6 +29,7 @@ home = [ "HTML", "RSS",  "PRINT"]
 section = [ "HTML", "RSS", "PRINT"]
 
 [params]
+editURL = 'https://github.com/xapi-project/xen-api/edit/master/doc/content/${FilePath}'
 # Enable the theme variant selector, default to auto:
 themeVariant = [
     "auto",
