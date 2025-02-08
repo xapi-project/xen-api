@@ -434,10 +434,9 @@ let with_local_repositories ~__context f =
             clean_yum_cache repo_name ;
             let Pkg_mgr.{cmd; params} =
               [
-                "--save"
-              ; Printf.sprintf "--setopt=%s.sslverify=false" repo_name
+                "sslverify=false"
                 (* certificate verification is handled by the stunnel proxy *)
-              ; Printf.sprintf "--setopt=%s.ptoken=true" repo_name
+              ; "ptoken=true"
                 (* makes yum include the pool secret as a cookie in all requests
                    (only to access the repo mirror in the coordinator!) *)
               ]
@@ -476,7 +475,16 @@ let assert_yum_error output =
 
 let parse_updateinfo_list acc line =
   match Astring.String.fields ~empty:false line with
-  | [update_id; _; full_name] -> (
+  | [update_id; _; full_name]
+  (*
+   * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/advisorylist.cpp#L87
+   * dnf5 print advistory in following format
+   *
+   * Name                        Type        Severity                        Package              Issued
+   * CITRIX-HYPERVISOR-2021-0000 Improvement None     test-update-0.6.0-1.xs8.x86_64 2024-08-22 03:18:56*)
+  | [update_id; _; _; full_name; _; _]
+  (* Just in case time does not have two elements *)
+  | [update_id; _; _; full_name; _] -> (
     match Pkg.of_fullname full_name with
     | Some pkg ->
         (pkg, update_id) :: acc
@@ -504,25 +512,29 @@ let is_obsoleted pkg_name repositories =
         pkg_name ;
       false
 
-let get_pkgs_from_yum_updateinfo_list sub_command repositories =
+let get_pkgs_from_yum_updateinfo_list updateinfo repositories =
   let Pkg_mgr.{cmd; params} =
-    Pkgs.get_pkgs_from_updateinfo ~sub_command ~repositories
+    Pkgs.get_pkgs_from_updateinfo updateinfo ~repositories
   in
   Helpers.call_script cmd params
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
-         debug "yum updateinfo list %s: %s" sub_command x ;
+         debug "yum/dnf updateinfo list %s: %s"
+           (Pkg_mgr.Updateinfo.to_string updateinfo)
+           x ;
          x
      )
   |> List.fold_left parse_updateinfo_list []
 
 let get_updates_from_updateinfo ~__context repositories =
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
-  let updates = get_pkgs_from_yum_updateinfo_list "updates" repositories in
+  let updates =
+    get_pkgs_from_yum_updateinfo_list Pkg_mgr.Updateinfo.Updates repositories
+  in
   (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
   let new_updates =
-    get_pkgs_from_yum_updateinfo_list "available" repositories
+    get_pkgs_from_yum_updateinfo_list Pkg_mgr.Updateinfo.Available repositories
     |> List.filter (fun x -> not (List.mem x updates))
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
@@ -760,7 +772,7 @@ module YumUpgradeOutput = struct
               (* this new section is the first one *)
               line ~section:(Some section') ~section_acc:[] ~acc
         )
-        | "Transaction Summary" -> (
+        | "Transaction Summary" | "Transaction Summary:" -> (
           match section with
           | Some s ->
               (* save the last section to the final accumulation *)
@@ -769,32 +781,34 @@ module YumUpgradeOutput = struct
               line_after_txn_summary acc
         )
         | l -> (
-          match
-            ( section
-            , String.starts_with ~prefix:"     replacing " l
-            , String.starts_with ~prefix:"Error: " l
-            )
-          with
-          | Some s, true, false ->
-              (* in a section, but starting with 'replacing', ignoring the line.
-               * https://github.com/rpm-software-management/yum/blob/master/output.py#L1622
-               *)
-              line ~section:(Some s) ~section_acc ~acc
-          | Some s, false, false ->
-              (* in a section, append to the section's list *)
-              line ~section:(Some s) ~section_acc:(l :: section_acc) ~acc
-          | None, false, true ->
-              (* error reported from yum upgrade *)
-              fail l
-          | None, false, false ->
-              (* not in any section, ignoring the line *)
-              line ~section:None ~section_acc:[] ~acc
-          | _ ->
-              fail
-                (Printf.sprintf
-                   "Unexpected output from yum upgrade (dry run): %s" l
-                )
-        )
+            let pattern = Re.Str.regexp "^[ ]+replacing .+$" in
+            match
+              ( section
+              , Re.Str.string_match pattern l 0
+              , String.starts_with ~prefix:"Error: " l
+              )
+            with
+            | Some s, true, false ->
+                (* in a section, but starting with 'replacing', ignoring the line.
+                 * https://github.com/rpm-software-management/yum/blob/master/output.py#L1622
+                 * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/transaction_table.cpp#L373
+                 *)
+                line ~section:(Some s) ~section_acc ~acc
+            | Some s, false, false ->
+                (* in a section, append to the section's list *)
+                line ~section:(Some s) ~section_acc:(l :: section_acc) ~acc
+            | None, false, true ->
+                (* error reported from yum upgrade *)
+                fail l
+            | None, false, false ->
+                (* not in any section, ignoring the line *)
+                line ~section:None ~section_acc:[] ~acc
+            | _ ->
+                fail
+                  (Printf.sprintf
+                     "Unexpected output from yum upgrade (dry run): %s" l
+                  )
+          )
       )
     | true ->
         return ([], None)
