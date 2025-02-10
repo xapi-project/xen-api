@@ -42,6 +42,16 @@ th { text-align: left;
 .field, .field2 {
   margin: 0em 0;
   padding: .5em .7em .7em;
+  /**
+   * doc/layouts/partials/content.html generates tables with alternating
+   * field and field2 for the rows of the XenAPI Class Reference tables.
+   * Their background colours are hard-coded to bright colours here, but the
+   * colors are not adjusted for dark mode. We cannot use the theme colours
+   * in this case. Thus we have to hard-code the colours for now. Ergo, also
+   * hard-code the text colour to ensure that it has contrast in dark mode too.
+   * Only shades of grey are used, so the text colour is hard-coded to black.
+   */
+  color: black;
   background-color: #dddddd;
   cursor: pointer;
   font-size: 15px;
