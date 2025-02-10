@@ -11,7 +11,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU Lesser General Public License for more details.
 #
-. /etc/init.d/functions
+test -f /etc/init.d/functions && source /etc/init.d/functions
 
 FILENAME=`basename $0`
 LOCKFILE='/dev/shm/xe_toolstack_restart.lock'
