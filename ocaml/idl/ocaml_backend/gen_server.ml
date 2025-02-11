@@ -57,18 +57,6 @@ let has_default_args args =
     Code to generate a single operation in server dispatcher
    ------------------------------------------------------------------------------------------ *)
 
-let count_mandatory_message_parameters (msg : message) =
-  (* Returns the number of mandatory parameters of a message *)
-  let rec count_mandatory_parameters (params : param list) =
-    match params with
-    | [] ->
-        0
-    | head :: tail ->
-        (match head.param_default with None -> 1 | Some _ -> 0)
-        + count_mandatory_parameters tail
-  in
-  count_mandatory_parameters msg.msg_params
-
 let operation (obj : obj) (x : message) =
   let msg_params = x.DT.msg_params in
   let msg_params_with_default_values, msg_params_without_default_values =
@@ -428,7 +416,7 @@ let operation (obj : obj) (x : message) =
   ^ "        | _ ->\n"
   ^ "            Server_helpers.parameter_count_mismatch_failure __call "
   ^ "\""
-  ^ string_of_int (count_mandatory_message_parameters x)
+  ^ string_of_int (List.length msg_params_without_default_values)
   ^ "\""
   ^ " (string_of_int ((List.length __params) - "
   ^ (if x.msg_session then "1" else "0")
