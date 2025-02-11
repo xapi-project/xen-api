@@ -1,7 +1,7 @@
 XenServerJava
 =============
 
-Copyright (c) 2007-2023 Cloud Software Group, Inc. All Rights Reserved.
+Copyright (c) 2007-2025 Cloud Software Group, Inc. All Rights Reserved.
 
 XenServerJava is a complete SDK for XenServer, exposing the XenServer API as
 Java classes.

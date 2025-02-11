@@ -11,7 +11,7 @@
     <PackageId>$(AssemblyName).NET</PackageId>
     <Product>$(AssemblyName).NET</Product>
     <Description>.NET wrapper for the XenServer API</Description>
-    <Copyright>Copyright (c) 2007-2024 Cloud Software Group, Inc. All Rights Reserved.</Copyright>
+    <Copyright>Copyright (c) 2007-2025 Cloud Software Group, Inc. All Rights Reserved.</Copyright>
     <PackageTags>citrix hypervisor virtualization sdk jsonrpc .net c# xen xenserver</PackageTags>
     <PackageLicenseExpression>BSD-2-Clause</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/xapi-project/xen-api</RepositoryUrl>
