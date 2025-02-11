@@ -16,15 +16,10 @@
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-module Int64Map = Map.Make (struct
-  type t = int64
-
-  let compare = compare
-end)
-
+module Int64Map = Map.Make (Int64)
 module Delay = Xapi_stdext_threads.Threadext.Delay
 
-type item = {id: int; name: string; fn: unit -> unit}
+type item = {id: int; fn: unit -> unit}
 
 let schedule = ref Int64Map.empty
 
@@ -34,37 +29,10 @@ let next_id = ref 0
 
 let m = Mutex.create ()
 
-type time = Absolute of int64 | Delta of int [@@deriving rpc]
-
-type t = int64 * int [@@deriving rpc]
-
 let now () = Unix.gettimeofday () |> ceil |> Int64.of_float
 
-module Dump = struct
-  type u = {time: int64; thing: string} [@@deriving rpc]
-
-  type t = u list [@@deriving rpc]
-
-  let make () =
-    let now = now () in
-    with_lock m (fun () ->
-        Int64Map.fold
-          (fun time xs acc ->
-            List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
-            @ acc
-          )
-          !schedule []
-    )
-end
-
-let one_shot time (name : string) f =
-  let time =
-    match time with
-    | Absolute x ->
-        x
-    | Delta x ->
-        Int64.(add (of_int x) (now ()))
-  in
+let run_after ~seconds f =
+  let time = Int64.(add (of_int seconds) (now ())) in
   let id =
     with_lock m (fun () ->
         let existing =
@@ -75,7 +43,7 @@ let one_shot time (name : string) f =
         in
         let id = !next_id in
         incr next_id ;
-        let item = {id; name; fn= f} in
+        let item = {id; fn= f} in
         schedule := Int64Map.add time (item :: existing) !schedule ;
         Delay.signal delay ;
         id

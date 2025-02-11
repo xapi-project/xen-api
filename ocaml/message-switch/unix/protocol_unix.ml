@@ -65,7 +65,7 @@ module Clock : sig
 
   val cancel : t -> unit
 end = struct
-  type t = Protocol_unix_scheduler.t
+  type t = int64 * int
 
   let started = ref false
 
@@ -78,7 +78,7 @@ end = struct
           started := true
         )
     ) ;
-    Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" f)
+    Protocol_unix_scheduler.run_after ~seconds:timeout f
 
   let cancel = Protocol_unix_scheduler.cancel
 end
