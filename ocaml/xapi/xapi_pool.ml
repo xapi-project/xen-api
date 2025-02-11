@@ -112,6 +112,82 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
             )
         )
   in
+  let one_ip_configured_on_joining_cluster_network () =
+    match Client.Cluster_host.get_all ~rpc ~session_id with
+    | [] ->
+        ()
+    | ch :: _ -> (
+        let cluster =
+          Client.Cluster_host.get_cluster ~rpc ~session_id ~self:ch
+        in
+        match
+          Client.Cluster.get_pool_auto_join ~rpc ~session_id ~self:cluster
+        with
+        | false ->
+            ()
+        | true -> (
+          match Client.Cluster_host.get_PIF ~rpc ~session_id ~self:ch with
+          | pif when pif = Ref.null ->
+              ()
+          | pif -> (
+            match Client.PIF.get_VLAN ~rpc ~session_id ~self:pif with
+            | vlan when vlan > 0L ->
+                error
+                  "Cannot join pool whose clustering is enabled on VLAN network" ;
+                raise
+                  (Api_errors.Server_error
+                     ( Api_errors
+                       .pool_joining_pool_cannot_enable_clustering_on_vlan_network
+                     , [Int64.to_string vlan]
+                     )
+                  )
+            | 0L | _ -> (
+                let clustering_devices_in_pool =
+                  ( match
+                      Client.PIF.get_bond_master_of ~rpc ~session_id ~self:pif
+                    with
+                  | [] ->
+                      [pif]
+                  | bonds ->
+                      List.concat_map
+                        (fun bond ->
+                          Client.Bond.get_slaves ~rpc ~session_id ~self:bond
+                        )
+                        bonds
+                  )
+                  |> List.map (fun self ->
+                         Client.PIF.get_device ~rpc ~session_id ~self
+                     )
+                in
+                match
+                  Db.Host.get_PIFs ~__context
+                    ~self:(Helpers.get_localhost ~__context)
+                  |> List.filter (fun p ->
+                         List.exists
+                           (fun d -> Db.PIF.get_device ~__context ~self:p = d)
+                           clustering_devices_in_pool
+                         && Db.PIF.get_IP ~__context ~self:p <> ""
+                     )
+                with
+                | [_] ->
+                    ()
+                | _ ->
+                    error
+                      "Cannot join pool as the joining host needs to have one \
+                       (and only one) IP address on the network that will be \
+                       used for clustering." ;
+                    raise
+                      (Api_errors.Server_error
+                         ( Api_errors
+                           .pool_joining_host_must_have_only_one_IP_on_clustering_network
+                         , []
+                         )
+                      )
+              )
+          )
+        )
+      )
+  in
   (* CA-26975: Pool edition MUST match *)
   let assert_restrictions_match () =
     let my_edition =
@@ -888,6 +964,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_management_interface_exists () ;
   ha_is_not_enable_on_me () ;
   clustering_is_not_enabled_on_me () ;
+  one_ip_configured_on_joining_cluster_network () ;
   ha_is_not_enable_on_the_distant_pool () ;
   assert_not_joining_myself () ;
   assert_i_know_of_no_other_hosts () ;
