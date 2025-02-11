@@ -14,19 +14,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-let finally' f g =
-  try
-    let result = f () in
-    g () ; result
-  with e -> g () ; raise e
-
-module Mutex = struct
-  include Mutex
-
-  let execute m f =
-    lock m ;
-    finally' f (fun () -> unlock m)
-end
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 module Int64Map = Map.Make (struct
   type t = int64
@@ -59,7 +47,7 @@ module Dump = struct
 
   let make () =
     let now = now () in
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         Int64Map.fold
           (fun time xs acc ->
             List.map (fun i -> {time= Int64.sub time now; thing= i.name}) xs
@@ -78,7 +66,7 @@ let one_shot time (name : string) f =
         Int64.(add (of_int x) (now ()))
   in
   let id =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let existing =
           if Int64Map.mem time !schedule then
             Int64Map.find time !schedule
@@ -96,7 +84,7 @@ let one_shot time (name : string) f =
   (time, id)
 
 let cancel (time, id) =
-  Mutex.execute m (fun () ->
+  with_lock m (fun () ->
       let existing =
         if Int64Map.mem time !schedule then
           Int64Map.find time !schedule
@@ -110,7 +98,7 @@ let cancel (time, id) =
 let process_expired () =
   let t = now () in
   let expired =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         let expired, unexpired =
           Int64Map.partition (fun t' _ -> t' <= t) !schedule
         in
@@ -129,7 +117,7 @@ let rec main_loop () =
     ()
   done ;
   let sleep_until =
-    Mutex.execute m (fun () ->
+    with_lock m (fun () ->
         try Int64Map.min_binding !schedule |> fst
         with Not_found -> Int64.add 3600L (now ())
     )

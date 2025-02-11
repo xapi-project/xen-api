@@ -16,12 +16,7 @@
 
 open Message_switch_core.Protocol
 
-let with_lock m f =
-  Mutex.lock m ;
-  try
-    let r = f () in
-    Mutex.unlock m ; r
-  with e -> Mutex.unlock m ; raise e
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let thread_forever f v =
   let rec loop () =
@@ -133,14 +128,6 @@ module IO = struct
       )
   end
 
-  module Mutex = struct
-    type t = Mutex.t
-
-    let create = Mutex.create
-
-    let with_lock = with_lock
-  end
-
   module Clock = struct
     type _timer = Protocol_unix_scheduler.t
 
@@ -239,7 +226,7 @@ module Client = struct
   type t = {
       mutable requests_conn: IO.ic * IO.oc
     ; mutable events_conn: IO.ic * IO.oc
-    ; requests_m: IO.Mutex.t
+    ; requests_m: Mutex.t
     ; wakener:
         ( Message_switch_core.Protocol.message_id
         , Message_switch_core.Protocol.Message.t result IO.Ivar.t
@@ -264,7 +251,7 @@ module Client = struct
     reconnect () >>|= fun (requests_conn, events_conn) ->
     let wakener = Hashtbl.create 10 in
     do_rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
-    let requests_m = IO.Mutex.create () in
+    let requests_m = Mutex.create () in
     let t =
       {requests_conn; events_conn; requests_m; wakener; reply_queue_name}
     in
@@ -292,7 +279,7 @@ module Client = struct
                       Error e
                   | Ok (), i, m ->
                       (* If the Ack doesn't belong to us then assume it's another thread *)
-                      IO.Mutex.with_lock requests_m (fun () ->
+                      with_lock requests_m (fun () ->
                           match m.Message.kind with
                           | Message.Response j -> (
                             match Hashtbl.find_opt wakener j with
@@ -334,7 +321,7 @@ module Client = struct
     let c = ref None in
     let m = Mutex.create () in
     fun ~switch () ->
-      IO.Mutex.with_lock m (fun () ->
+      with_lock m (fun () ->
           match !c with
           | Some x ->
               Ok x
@@ -388,44 +375,44 @@ module Client = struct
     | Ok response ->
         (* release resources *)
         Option.iter IO.Clock.cancel timer ;
-        IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id) ;
+        with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id) ;
         Ok response.Message.payload
     | Error e ->
         Error e
 
   let list ~t:c ~prefix ?(filter = `All) () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.List (prefix, filter)) >>|= fun result ->
         Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
     )
 
   let ack ~t:c ~message:(name, id) () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Ack (name, id)) >>|= fun (_ : string) ->
         Ok ()
     )
 
   let diagnostics ~t:c () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn In.Diagnostics >>|= fun (result : string) ->
         Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
     )
 
   let trace ~t:c ?(from = 0L) ?(timeout = 0.) () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Trace (from, timeout))
         >>|= fun (result : string) ->
         Ok (Out.trace_of_rpc (Jsonrpc.of_string result))
     )
 
   let shutdown ~t:c () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn In.Shutdown >>|= fun (_ : string) ->
         IO.IO.return (Ok ())
     )
 
   let destroy ~t ~queue:queue_name () =
-    IO.Mutex.with_lock t.requests_m (fun () ->
+    with_lock t.requests_m (fun () ->
         do_rpc t.requests_conn (In.Destroy queue_name) >>|= fun (_ : string) ->
         IO.IO.return (Ok ())
     )
@@ -487,7 +474,7 @@ module Server = struct
       let frame = In.Transfer transfer in
       do_rpc request_conn frame >>= function
       | Error _e ->
-          IO.Mutex.with_lock mutex (fun () ->
+          with_lock mutex (fun () ->
               IO.disconnect request_conn ;
               IO.disconnect reply_conn ;
               reconnect ()
@@ -523,16 +510,12 @@ module Server = struct
                                   }
                                 )
                             in
-                            IO.Mutex.with_lock mutex (fun () ->
-                                do_rpc reply_conn request
-                            )
+                            with_lock mutex (fun () -> do_rpc reply_conn request)
                             >>= fun _ -> return ()
                         )
                         >>= fun () ->
                         let request = In.Ack i in
-                        IO.Mutex.with_lock mutex (fun () ->
-                            do_rpc reply_conn request
-                        )
+                        with_lock mutex (fun () -> do_rpc reply_conn request)
                         >>= fun _ -> ()
                       )
                       ()
