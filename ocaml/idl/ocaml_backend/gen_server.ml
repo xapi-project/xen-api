@@ -286,16 +286,12 @@ let operation (obj : obj) (x : message) =
   in
   let may_be_side_effecting msg =
     match msg.msg_tag with
-    | FromField (Setter, _) | FromField (Add, _) | FromField (Remove, _) ->
+    | Custom
+    | FromField ((Setter | Add | Remove), _)
+    | FromObject (Make | Delete | Private Copy) ->
         true
-    | FromField _ ->
+    | FromObject _ | FromField (Getter, _) ->
         false
-    | FromObject Make | FromObject Delete | FromObject (Private Copy) ->
-        true
-    | FromObject _ ->
-        false
-    | Custom ->
-        true
   in
   let session_check_exp =
     if x.msg_session then
