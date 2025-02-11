@@ -34,6 +34,15 @@ module StringSet = Set.Make (String)
 
 let ( let* ) = Result.bind
 
+let internal_error ?(log_err = false) ?(err_fun = error) fmt =
+  Printf.ksprintf
+    (fun str ->
+      if log_err then
+        err_fun "%s" str ;
+      raise Api_errors.(Server_error (internal_error, [str]))
+    )
+    fmt
+
 let log_exn_continue msg f x =
   try f x
   with e ->
@@ -719,8 +728,7 @@ let check_domain_type : API.domain_type -> [`hvm | `pv_in_pvh | `pv | `pvh] =
   | `pvh ->
       `pvh
   | `unspecified ->
-      raise
-        Api_errors.(Server_error (internal_error, ["unspecified domain type"]))
+      internal_error "unspecified domain type"
 
 let domain_type ~__context ~self : [`hvm | `pv_in_pvh | `pv | `pvh] =
   let vm = Db.VM.get_record ~__context ~self in
@@ -1498,11 +1506,8 @@ let resolve_uri_path ~root ~uri_path =
   | true, true ->
       x
   | _ ->
-      let msg =
-        Printf.sprintf "Failed to resolve uri path '%s' under '%s': %s" uri_path
-          root x
-      in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      internal_error "Failed to resolve uri path '%s' under '%s': %s" uri_path
+        root x
 
 let run_in_parallel ~funs ~capacity =
   let rec run_in_parallel' acc funs capacity =
@@ -1727,42 +1732,21 @@ let rec retry_until_timeout ?(interval = 0.1) ?(timeout = 5.) doc f =
       let next_interval = interval *. 1.5 in
       let next_timeout = timeout -. interval in
       if next_timeout < 0. then
-        raise
-          Api_errors.(
-            Server_error (internal_error, [Printf.sprintf "retry %s failed" doc])
-          ) ;
+        internal_error "retry %s failed" doc ;
       Thread.delay interval ;
       retry_until_timeout ~interval:next_interval ~timeout:next_timeout doc f
 
 let get_first_pusb ~__context usb_group =
   try List.hd (Db.USB_group.get_PUSBs ~__context ~self:usb_group)
   with _ ->
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , [
-              Printf.sprintf
-                "there is no PUSB associated with the USB_group: %s"
-                (Ref.string_of usb_group)
-            ]
-          )
-      )
+    internal_error "there is no PUSB associated with the USB_group: %s"
+      (Ref.string_of usb_group)
 
 let get_first_vusb ~__context usb_group =
   try List.hd (Db.USB_group.get_VUSBs ~__context ~self:usb_group)
   with _ ->
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , [
-              Printf.sprintf
-                "there is no VUSB associated with the USB_group: %s"
-                (Ref.string_of usb_group)
-            ]
-          )
-      )
+    internal_error "there is no VUSB associated with the USB_group: %s"
+      (Ref.string_of usb_group)
 
 let host_supports_hvm ~__context host =
   (* We say that a host supports HVM if any of
@@ -1873,13 +1857,7 @@ end = struct
   let to_result ~__context ~of_rpc ~t =
     Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
     wait_for_mirror ~__context ~propagate_cancel:true ~t ;
-    let fail msg =
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of t) msg])
-        )
-    in
+    let fail msg = internal_error "%s, %s" (Ref.string_of t) msg in
     let res =
       match Db.Task.get_status ~__context ~self:t with
       | `pending ->
@@ -1965,15 +1943,8 @@ end = struct
     in
     let sufficiently_secret = String.length x > 36 in
     if has_valid_chars && sufficiently_secret |> not then
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                {|expected pool secret to match the following regex '^[0-9a-f\/\-]{37,}$'|}
-              ]
-            )
-        ) ;
+      internal_error
+        {|expected pool secret to match the following regex '^[0-9a-f\/\-]{37,}$'|} ;
     SecretString.of_string x
 
   let _make () =

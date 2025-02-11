@@ -101,7 +101,7 @@ let raise_internal ?e ?(details = "") msg : 'a =
       e
   in
   [msg; details; e] |> String.concat ". " |> D.error "%s" ;
-  raise Api_errors.(Server_error (internal_error, [msg]))
+  Helpers.internal_error "%s" msg
 
 module type CertificateProvider = sig
   val store_path : string
@@ -404,13 +404,8 @@ let exchange_certificates_in_pool ~__context =
           let throw_op =
             ( "FIST"
             , fun () ->
-                raise
-                  Api_errors.(
-                    Server_error
-                      ( internal_error
-                      , ["/tmp/fist_exchange_certificates_in_pool FIST!"]
-                      )
-                  )
+                Helpers.internal_error
+                  "/tmp/fist_exchange_certificates_in_pool FIST!"
             )
           in
           let ops' = insert_at rand_i throw_op ops in

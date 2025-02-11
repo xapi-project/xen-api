@@ -901,12 +901,8 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
         | role :: _ ->
             role
         | [] ->
-            raise
-              (Api_errors.Server_error
-                 ( Api_errors.internal_error
-                 , [Datamodel_roles.role_client_cert ^ " role not found"]
-                 )
-              )
+            Helpers.internal_error "%s role not found"
+              Datamodel_roles.role_client_cert
       in
       let rbac_permissions =
         Xapi_role.get_permissions_name_label ~__context ~self:role

@@ -988,18 +988,13 @@ let assert_initial_power_state_is ~expected =
 let assert_final_power_state_in ~__context ~self ~allowed =
   let actual = Db.VM.get_power_state ~__context ~self in
   if not (List.mem actual allowed) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.internal_error
-         , [
-             "VM not in expected power state after completing operation"
-           ; Ref.string_of self
-           ; List.map Record_util.vm_power_state_to_lowercase_string allowed
-             |> String.concat ";"
-           ; Record_util.vm_power_state_to_lowercase_string actual
-           ]
-         )
+    Helpers.internal_error
+      "VM not in expected power state after completing operation: %s, %s, %s"
+      (Ref.string_of self)
+      (List.map Record_util.vm_power_state_to_lowercase_string allowed
+      |> String.concat ";"
       )
+      (Record_util.vm_power_state_to_lowercase_string actual)
 
 (** Assert that VM is in a certain state after completing an operation *)
 let assert_final_power_state_is ~expected =

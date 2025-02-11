@@ -131,17 +131,9 @@ let valid_operations ~__context record (pool : API.ref_pool) =
 let throw_error table op =
   match Hashtbl.find_opt table op with
   | None ->
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.internal_error
-           , [
-               Printf.sprintf
-                 "xapi_pool_helpers.assert_operation_valid unknown operation: \
-                  %s"
-                 (pool_allowed_operations_to_string op)
-             ]
-           )
-        )
+      Helpers.internal_error
+        "xapi_pool_helpers.assert_operation_valid unknown operation: %s"
+        (pool_allowed_operations_to_string op)
   | Some (Some (code, params)) ->
       raise (Api_errors.Server_error (code, params))
   | Some None ->
@@ -206,7 +198,7 @@ let assert_no_pool_ops ~__context =
         |> String.concat "; "
         |> Printf.sprintf "pool operations in progress: [ %s ]"
       in
-      raise Api_errors.(Server_error (internal_error, [err]))
+      Helpers.internal_error "%s" err
 
 let get_master_slaves_list_with_fn ~__context fn =
   let _unsorted_hosts = Db.Host.get_all ~__context in

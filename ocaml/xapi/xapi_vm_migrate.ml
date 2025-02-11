@@ -1904,16 +1904,9 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
             = []
             )
         then
-          raise
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [
-                    "assert_can_migrate: inter_pool_metadata_transfer returned \
-                     a nonempty list"
-                  ]
-                )
-            )
+          Helpers.internal_error
+            "assert_can_migrate: inter_pool_metadata_transfer returned a \
+             nonempty list"
       with Xmlrpc_client.Connection_reset ->
         raise
           (Api_errors.Server_error

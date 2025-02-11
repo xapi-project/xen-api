@@ -50,13 +50,13 @@ let rpc ~__context ~verify_cert host_address xml =
 let get_pool ~rpc ~session_id =
   match Client.Pool.get_all ~rpc ~session_id with
   | [] ->
-      let err_msg = "Remote host does not belong to a pool." in
-      raise Api_errors.(Server_error (internal_error, [err_msg]))
+      Helpers.internal_error "Remote host does not belong to a pool."
   | [pool] ->
       pool
-  | _ ->
-      let err_msg = "Should get only one pool." in
-      raise Api_errors.(Server_error (internal_error, [err_msg]))
+  | pools ->
+      Helpers.internal_error "Should get only one pool, but got %d: %s"
+        (List.length pools)
+        (pools |> List.map Ref.string_of |> String.concat ",")
 
 let get_master ~rpc ~session_id =
   let pool = get_pool ~rpc ~session_id in
@@ -1034,8 +1034,7 @@ and create_or_get_sr_on_master __context rpc session_id (_sr_ref, sr) :
         |> List.find (fun (_, sr) -> sr.API.sR_is_tools_sr)
         |> fun (ref, _) -> ref
       with Not_found ->
-        let msg = Printf.sprintf "can't find SR %s of tools iso" my_uuid in
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error "can't find SR %s of tools iso" my_uuid
     else (
       debug "Found no SR with uuid = '%s' on the master, so creating one."
         my_uuid ;
@@ -3798,8 +3797,8 @@ let set_telemetry_next_collection ~__context ~self ~value =
     | Some dt1, dt2 ->
         (dt1, dt2)
     | _ | (exception _) ->
-        let err_msg = "Can't parse date and time for telemetry collection." in
-        raise Api_errors.(Server_error (internal_error, [err_msg]))
+        Helpers.internal_error
+          "Can't parse date and time for telemetry collection."
   in
   let ts = Date.to_rfc3339 value in
   match Ptime.is_later dt_of_value ~than:dt_of_max_sched with

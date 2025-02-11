@@ -186,16 +186,8 @@ let set_passthrough_enabled ~__context ~self ~value =
             | [] ->
                 ()
             | _ :: _ :: _ ->
-                raise
-                  Api_errors.(
-                    Server_error
-                      ( internal_error
-                      , [
-                          Printf.sprintf "too many vusb on the USB_group: %s"
-                            (Ref.string_of usb_group)
-                        ]
-                      )
-                  )
+                Helpers.internal_error "too many vusb on the USB_group: %s"
+                  (Ref.string_of usb_group)
             | [vusb] ->
                 let currently_attached =
                   Db.VUSB.get_currently_attached ~__context ~self:vusb

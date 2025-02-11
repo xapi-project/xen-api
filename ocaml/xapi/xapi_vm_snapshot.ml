@@ -161,10 +161,9 @@ let checkpoint ~__context ~vm ~new_name =
 
 (* The following code have to run on the master as it manipulates the DB cache directly. *)
 let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
-  ( if not (Pool_role.is_master ()) then
-      let msg = "copy_vm_fields: Aborting because the host is not master" in
-      raise Api_errors.(Server_error (internal_error, [msg]))
-  ) ;
+  if not (Pool_role.is_master ()) then
+    Helpers.internal_error
+      "copy_vm_fields: Aborting because the host is not master" ;
   debug "copying metadata into %s" (Ref.string_of dst) ;
   let db = Context.database_of __context in
   let module DB =

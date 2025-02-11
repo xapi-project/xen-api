@@ -68,7 +68,7 @@ let of_json js =
       (ExnHelper.string_of_exn e)
       msg
       (Yojson.Basic.pretty_to_string js) ;
-    raise Api_errors.(Server_error (internal_error, [msg]))
+    Helpers.internal_error "%s" msg
 
 let get_latest_livepatch lps =
   List.map (fun (_, _, t_v, t_r) -> (t_v, t_r)) lps
@@ -344,14 +344,11 @@ let apply ~component ~livepatch_file ~base_build_id ~base_version ~base_release
     | expected_id, Some real_id when expected_id = real_id ->
         ()
     | _ ->
-        let msg =
-          Printf.sprintf
-            "The livepatch is against build ID %s, but the build ID of the \
-             running %s is %s"
-            expected component_str
-            (Option.value real ~default:"None")
-        in
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error
+          "The livepatch is against build ID %s, but the build ID of the \
+           running %s is %s"
+          expected component_str
+          (Option.value real ~default:"None")
   in
   match component with
   | Xen ->
