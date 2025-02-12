@@ -46,6 +46,9 @@ themeVariant = [
 ]
 # auto switches between "red" and "zen-dark" depending on the browser/OS dark mode:
 themeVariantAuto = ["red", "zen-dark"]
+# Consistency: Use the font of the Hugo Relearn theme also for Mermaid diagrams:
+# securityLevel=loose is the default of Relearn, it allows HTML links in diagrams:
+mermaidInitialize = '{ "fontFamily": "Roboto Flex", "securityLevel": "loose" }'
 alwaysopen = false
 collapsibleMenu = true
 

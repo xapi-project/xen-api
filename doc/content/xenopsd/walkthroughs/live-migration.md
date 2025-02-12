@@ -1,6 +1,7 @@
 +++
 title = "Live Migration Sequence Diagram"
 linkTitle = "Live Migration"
+description = "Sequence diagram of the process of Live Migration."
 +++
 
 {{<mermaid align="left">}}

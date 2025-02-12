@@ -1,5 +1,8 @@
 ---
 title: 'Walkthrough: Starting a VM'
+linktitle: 'Starting a VM'
+description: Complete walkthrough of starting a VM, from receiving the request to unpause.
+weight: 10
 ---
 
 A Xenopsd client wishes to start a VM. They must first tell Xenopsd the VM
@@ -89,7 +92,7 @@ exist for:
 From here we shall assume the use of the "Xen via libxc, libxenguest and xenstore" (a.k.a.
 "Xenopsd classic") backend.
 
-The backend [VM.add](https://github.com/xapi-project/xenopsd/blob/2a476c132c0b5732f9b224316b851a1b4d57520b/xc/xenops_server_xen.ml#L719)
+The backend [VM.add](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/xenops_server_xen.ml#L1603-L1659)
 function checks whether the VM we have to manage already exists -- and if it does
 then it ensures the Xenstore configuration is intact. This Xenstore configuration
 is important because at any time a client can query the state of a VM with
@@ -196,24 +199,43 @@ takes care of:
 Once a thread from the worker pool becomes free, it will execute the "do it now"
 function. In the example above this is `perform op t` where `op` is
 `VM_start vm` and `t` is the Task. The function
-[perform](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L1198)
+[perform_exn](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L2533)
 has fragments like this:
 
 ```ocaml
-		| VM_start id ->
-			debug "VM.start %s" id;
-			perform_atomics (atomics_of_operation op) t;
-			VM_DB.signal id
+  | VM_start (id, force) -> (
+      debug "VM.start %s (force=%b)" id force ;
+      let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
+      match power with
+      | Running ->
+          info "VM %s is already running" id
+      | _ ->
+          perform_atomics (atomics_of_operation op) t ;
+          VM_DB.signal id "^^^^^^^^^^^^^^^^^^^^--------
+    )
 ```
 
 Each "operation" (e.g. `VM_start vm`) is decomposed into "micro-ops" by the
 function
-[atomics_of_operation](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L739)
+[atomics_of_operation](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L1583)
 where the micro-ops are small building-block actions common to the higher-level
 operations. Each operation corresponds to a list of "micro-ops", where there is
 no if/then/else. Some of the "micro-ops" may be a no-op depending on the VM
 configuration (for example a PV domain may not need a qemu). In the case of
-`VM_start vm` this decomposes into the sequence:
+[`VM_start vm`](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L1584)
+the `Xenopsd` server starts by calling the [functions that
+decompose](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L1612-L1714)
+ the `VM_hook_script`, `VM_create` and `VM_build` micro-ops:
+```ml
+        dequarantine_ops vgpus
+      ; [
+          VM_hook_script
+            (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none)
+        ; VM_create (id, None, None, no_sharept)
+        ; VM_build (id, force)
+        ]
+```
+This is the complete sequence of micro-ops:
 
 ## 1. run the "VM_pre_start" scripts
 
@@ -259,105 +281,10 @@ function must
 
 ## 3. build the domain
 
-On Xen, `Xenctrl.domain_create` creates an empty domain and
-returns the domain ID (`domid`) of the new domain to `xenopsd`.
-
-In the `build` phase, the `xenguest` program is called to create
-the system memory layout of the domain, set vCPU affinity and a
-lot more.
-
-The function
-[VM.build_domain_exn](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/xenops_server_xen.ml#L2024)
-must
-
-1. run pygrub (or eliloader) to extract the kernel and initrd, if necessary
-2. invoke the *xenguest* binary to interact with libxenguest.
-3. apply the `cpuid` configuration
-4. store the current domain configuration on disk -- it's important to know
-   the difference between the configuration you started with and the configuration
-   you would use after a reboot because some properties (such as maximum memory
-   and vCPUs) as fixed on create.
-
-### 3.1 Interface to xenguest for building domains
-
-[xenguest](https://github.com/xenserver/xen.pg/blob/XS-8/patches/xenguest.patch)
-was originally created as a separate program due to issues with
-`libxenguest` that were fixed, but we still shell out to `xenguest`:
-
-- Wasn't threadsafe: fixed, but it still uses a per-call global struct
-- Incompatible licence, but now licensed under the LGPL.
-
-The `xenguest` binary has evolved to build more of the initial
-domain state. `xenopsd` passes it:
-
-- The domain type to build for (HVM, PHV or PV),
-- The `domid` of the created empty domain,
-- The amount of system memory of the domain,
-- The platform data (vCPUs, vCPU affinity, etc) using the Xenstore:
-  - the vCPU affinity
-  - the vCPU credit2 weight/cap parameters
-  - whether the NX bit is exposed
-  - whether the viridian CPUID leaf is exposed
-  - whether the system has PAE or not
-  - whether the system has ACPI or not
-  - whether the system has nested HVM or not
-  - whether the system has an HPET or not
-
-When called to build a domain, `xenguest` reads those and builds the VM accordingly.
-
-### 3.2 Workflow for allocating and populating domain memory
-
-Based on the given type, the `xenguest` program calls dedicated
-functions for the build process of given domain type.
-
-- For HVM, this function is `stub_xc_hvm_build()`.
-
-These domain build functions call these functions:
-
-1. `get_flags()` to get the platform data from the Xenstore
-2. `configure_vcpus()` which uses the platform data from the Xenstore to configure vCPU affinity and the credit scheduler parameters vCPU weight and vCPU cap (max % pCPU time for throttling)
-3. For HVM, `hvm_build_setup_mem` to:
-   1.  Decide the `e820` memory layout of the system memory of the domain
-       including memory holes depending on PCI passthrough and vGPU flags.
-   2.  Load the BIOS/UEFI firmware images
-   3.  Store the final MMIO hole parameters in the Xenstore
-   4.  Call the `libxenguest` function
-       [xc_dom_boot_mem_init()](https://github.com/xen-project/xen/blob/39c45caef271bc2b2e299217450cfda24c0c772a/tools/libs/guest/xg_dom_boot.c#L110-L126)
-       to allocate and map the domain's system memory.
-       For HVM domains, it calls
-       [meminit_hvm()](https://github.com/xen-project/xen/blob/39c45caef271bc2b2e299217450cfda24c0c772a/tools/libs/guest/xg_dom_x86.c#L1348-L1648)
-       to loop over the `vmemranges` of the domain for mapping the system RAM
-       of the guest from the Xen hypervisor heap. Its goals are:
-
-       - Attempt to allocate 1GB superpages when possible
-       - Fall back to 2MB pages when 1GB allocation failed
-       - Fall back to 4k pages when both failed
-
-       It uses the hypercall
-       [XENMEM_populate_physmap()](
-        https://github.com/xen-project/xen/blob/39c45caef271bc2b2e299217450cfda24c0c772a/xen/common/memory.c#L1408-L1477)
-       to perform memory allocation and to map the allocated memory
-       to the system RAM ranges of the domain.
-       The hypercall must:
-
-       1. convert the arguments for allocating a page to hypervisor structures
-       2. set flags and calls functions according to the arguments
-       3. allocate the requested page at the most suitable place
-
-          - depending on passed flags, allocate on a specific NUMA node
-          - else, if the domain has node affinity, on the affine nodes
-          - also in the most suitable memory zone within the NUMA node
-
-       4. fall back to less desirable places if this fails
-
-          - or fail for "exact" allocation requests
-
-       5. split superpages if pages of the requested size are not available
-
-   5. Call `construct_cpuid_policy()` to apply the `CPUID` `featureset` policy
-
-   For more details on the VM build step involving xenguest and Xen side see:
-   https://wiki.xenproject.org/wiki/Walkthrough:_VM_build_using_xenguest
+The `build` phase waits, if necessary, for the Xen memory scrubber to catch
+up reclaiming memory, runs NUMA placement, sets vCPU affinity and invokes
+the `xenguest` to build the system memory layout of the domain.
+See the [walk-through of the VM_build μ-op](VM.build) for details.
 
 ## 4. mark each VBD as "active"
 

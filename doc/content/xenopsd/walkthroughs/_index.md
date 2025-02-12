@@ -6,7 +6,7 @@ linkTitle = "Walk-throughs"
 Let's trace through interesting operations to see how the whole system
 works.
 
-{{% children %}}
+{{% children depth=2 description=true %}}
 
 Inspiration for other walk-throughs:
 
