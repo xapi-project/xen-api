@@ -111,23 +111,6 @@ setting the vCPU affinity causes the Xen hypervisor to activate
 NUMA node affinity for memory allocations to be aligned with
 the vCPU affinity of the domain.
 
-Note: See the Xen domain's
-[auto_node_affinity](https://wiki.xenproject.org/wiki/NUMA_node_affinity_in_the_Xen_hypervisor)
-feature flag, which controls this, which can be overridden in the
-Xen hypervisor if needed for specific VMs.
-
-This can be used, for example, when there might not be enough memory
-on the preferred NUMA node, but there are other NUMA nodes that have
-enough free memory among with the memory allocations shall be done.
-
-In terms of future NUMA design, it might be even more favourable to
-have a strategy in `xenguest` where in such cases, the superpages
-of the preferred node are used first and a fallback to neighbouring
-NUMA nodes only happens to the extent necessary.
-
-Likely, the future allocation strategy should be passed to `xenguest`
-using Xenstore like the other platform parameters for the VM.
-
 Summary: This passes the information to the hypervisor that memory
 allocation for this domain should preferably be done from this NUMA node.
 
@@ -136,3 +119,15 @@ allocation for this domain should preferably be done from this NUMA node.
 With the preparation in `build_pre` completed, `Domain.build`
 [calls](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L1127-L1155)
 the `xenguest` function to invoke the [xenguest](xenguest) program to build the domain.
+
+## Notes on future design improvements
+
+The Xen domain feature flag
+[domain->auto_node_affinity](https://wiki.xenproject.org/wiki/NUMA_node_affinity_in_the_Xen_hypervisor)
+can be disabled by calling
+[xc_domain_node_setaffinity()](../../references/xc_domain_node_setaffinity.md)
+to set a specific NUMA node affinity in special cases:
+
+This can be used, for example, when there might not be enough memory on the preferred
+NUMA node, and there are other NUMA nodes (in the same CPU package) to use
+([reference](../../../lib/xenctrl/xc_domain_node_setaffinity.md)).
