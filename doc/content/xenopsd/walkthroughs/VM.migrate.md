@@ -1,5 +1,8 @@
 ---
 title: 'Walkthrough: Migrating a VM'
+linktitle: 'Migrating a VM'
+description: Walkthrough of migrating a VM from one host to another.
+weight: 50
 ---
 
 A XenAPI client wishes to migrate a VM from one host to another within

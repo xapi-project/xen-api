@@ -1,6 +1,7 @@
 ---
 title: 'Walkthrough: Starting a VM'
 linktitle: 'Starting a VM'
+description: Complete walkthrough of starting a VM, from receiving the request to unpause.
 weight: 10
 ---
 
