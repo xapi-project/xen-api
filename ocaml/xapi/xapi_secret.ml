@@ -41,7 +41,7 @@ let clean_out_passwds ~__context strmap =
       Db.Secret.destroy ~__context ~self:s
     with _ -> ()
   in
-  let check_key (k, _) = String.endswith "password_secret" k in
+  let check_key (k, _) = String.ends_with ~suffix:"password_secret" k in
   let secrets = List.map snd (List.filter check_key strmap) in
   List.iter delete_secret secrets
 
@@ -55,7 +55,7 @@ let copy ~__context ~secret =
 (* Modify a ((string * string) list) by duplicating all the passwords found in
  * it *)
 let duplicate_passwds ~__context strmap =
-  let check_key k = String.endswith "password_secret" k in
+  let check_key k = String.ends_with ~suffix:"password_secret" k in
   let possibly_duplicate (k, v) =
     if check_key k then
       let sr = Db.Secret.get_by_uuid ~__context ~uuid:v in
@@ -70,7 +70,7 @@ let duplicate_passwds ~__context strmap =
 
 let move_passwds_to_secrets ~__context strmap =
   let maybe_move (k, value) =
-    if String.endswith "password" k then (
+    if String.ends_with ~suffix:"password" k then (
       let new_k = k ^ "_secret" in
       warn
         "Replacing deprecated %s with %s, please avoid using %s in \

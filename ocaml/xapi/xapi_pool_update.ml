@@ -817,7 +817,7 @@ let pool_update_download_handler (req : Request.t) s _ =
   if host_uuid <> localhost_uuid then
     proxy_request req s host_uuid
   else if
-    (not (String.startswith !Xapi_globs.host_update_dir filepath))
+    (not (String.starts_with ~prefix:!Xapi_globs.host_update_dir filepath))
     || not (Sys.file_exists filepath)
   then (
     debug

@@ -132,7 +132,7 @@ let refresh_all ~__context ~host =
   List.iter (fun self -> refresh_internal ~__context ~self) pifs
 
 let bridge_naming_convention (device : string) =
-  if String.startswith "eth" device then
+  if String.starts_with ~prefix:"eth" device then
     "xenbr" ^ String.sub device 3 (String.length device - 3)
   else
     "br" ^ device
