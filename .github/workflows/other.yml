@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # To check which files changed: origin/master..HEAD
-      - uses: LizardByte/setup-python-action@master
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{matrix.python-version}}
 
