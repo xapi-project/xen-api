@@ -89,8 +89,8 @@ jobs:
       - name: Finish the parallel coverage upload to Coveralls
         uses: coverallsapp/github-action@v2
         with:
+          fail-on-error: false
           parallel-finished: true
-        continue-on-error: true  # Do not fail CI if this step fails
 
   deprecation-test:
     name: Deprecation tests
