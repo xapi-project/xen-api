@@ -45,12 +45,12 @@ must:
 
 1. Run pygrub (or eliloader) to extract the kernel and initrd, if necessary
 2. [Call](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/xenops_server_xen.ml#L2222-L2225)
-   [Domain.build](Domain.build)
-   to:
+   [Domain.build](Domain.build) to
    - optionally run NUMA placement and
    - invoke [xenguest](VM.build/xenguest) to set up the domain memory.
 
-   See the walk-though on [VM.build](VM.build) for more details on this phase.
+   See the walk-through of the [Domain.build](Domain.build) function
+   for more details on this phase.
 3. Apply the `cpuid` configuration
 4. Store the current domain configuration on disk -- it's important to know
    the difference between the configuration you started with and the configuration

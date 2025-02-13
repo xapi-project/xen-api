@@ -53,21 +53,22 @@ to call:
   - Run `xenguest`
 - `xenguest` to invoke the [xenguest](xenguest) program to setup the domain's system memory.
 
-## Domain Build Preparation using build_pre
+## build_pre: Prepare building the VM
 
-[`Domain.build`](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L1111-L1210)
+[Domain.build](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L1111-L1210)
 [calls](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L1137)
-the [function `build_pre`](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L899-L964)
-(which is also used for VM restore). It must:
+[build_pre](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L899-L964)
+(which is also used for VM restore) to:
 
 1.  [Call](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L902-L911)
     [wait_xen_free_mem](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L236-L272)
-    to wait, if necessary, for the Xen memory scrubber to catch up reclaiming memory (CA-39743)
+    to wait (if necessary), for the Xen memory scrubber to catch up reclaiming memory (CA-39743)
 2.  Call the hypercall to set the timer mode
 3.  Call the hypercall to set the number of vCPUs
-4.  As described in the [NUMA feature description](../../toolstack/features/NUMA),
-    when the `xe` configuration option `numa_placement` is set to `Best_effort`,
-    except when the VM has a hard affinity set, invoke the `numa_placement` function:
+4.  Call the `numa_placement` function
+    as described in the [NUMA feature description](/toolstack/features/NUMA)
+    when the `xe` configuration option `numa_placement` is set to `Best_effort`
+    (except when the VM has a hard CPU affinity).
 
     ```ml
     match !Xenops_server.numa_placement with

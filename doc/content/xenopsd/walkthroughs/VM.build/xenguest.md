@@ -3,10 +3,9 @@ title: xenguest
 description:
   "Perform building VMs: Allocate and populate the domain's system memory."
 ---
-
-# Flowchart
-
-xenguest is called as part of starting a new domain in VM_build:
+As part of starting a new domain in VM_build, `xenopsd` calls `xenguest`.
+When multiple domain build threads run in parallel,
+also multiple instances of `xenguest` also run in parallel:
 
 ```mermaid
 flowchart
@@ -27,7 +26,8 @@ libxenguest2 --> Xen
 end
 ```
 
-# About xenguest
+## About xenguest
+
 `xenguest` is called by the xenopsd [Domain.build](Domain.build) function
 to perform the build phase for new VMs, which is part of the `xenopsd`
 [VM.start operation](VM.start).
@@ -45,7 +45,7 @@ an individual package once planned changes to the Xen hypercalls are stabilised.
 
 Over time, `xenguest` has evolved to build more of the initial domain state.
 
-# Interface to xenguest
+## Interface to xenguest
 
 ```mermaid
 flowchart
@@ -70,7 +70,8 @@ Xenstore[Xenstore platform data] --> xenguest
 - The amount of system memory of the domain,
 - A number of other parameters that are domain-specific.
 
-Using the Xenstore, the platform data (vCPUs, vCPU affinity, etc) is passed:
+`xenopsd` uses the Xenstore to provide platform data:
+
 - the vCPU affinity
 - the vCPU credit2 weight/cap parameters
 - whether the NX bit is exposed
