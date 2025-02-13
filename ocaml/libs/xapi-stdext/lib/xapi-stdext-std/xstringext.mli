@@ -29,12 +29,6 @@ module String : sig
   val fold_right : (char -> 'a -> 'a) -> string -> 'a -> 'a
   (** Iterate over the characters in a string in reverse order. *)
 
-  val endswith : string -> string -> bool
-  (** True if string 'x' ends with suffix 'suffix' *)
-
-  val startswith : string -> string -> bool
-  (** True if string 'x' starts with prefix 'prefix' *)
-
   val isspace : char -> bool
   (** True if the character is whitespace *)
 

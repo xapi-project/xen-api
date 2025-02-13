@@ -78,7 +78,7 @@ let send_file (uri_base : string) (dir : string) (req : Request.t)
       let file_path =
         Xapi_stdext_unix.Unixext.resolve_dot_and_dotdot file_path
       in
-      if not (String.startswith dir file_path) then (
+      if not (String.starts_with ~prefix:dir file_path) then (
         debug "Rejecting request for file: %s (outside of directory %s)"
           file_path dir ;
         Http_svr.response_forbidden ~req s

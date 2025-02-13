@@ -215,7 +215,7 @@ let create_bond ~__context bond mtu persistent =
       let overrides =
         List.filter_map
           (fun (k, v) ->
-            if String.startswith "bond-" k then
+            if String.starts_with ~prefix:"bond-" k then
               Some (String.sub_to_end k 5, v)
             else
               None

@@ -233,7 +233,7 @@ let wlb_request host meth body encoded_auth =
 let filtered_headers headers =
   List.map
     (fun s ->
-      if String.startswith "Authorization:" s then
+      if String.starts_with ~prefix:"Authorization:" s then
         "Authorization: Basic <password>"
       else
         s

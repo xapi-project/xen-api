@@ -95,7 +95,7 @@ let rec retry_with_session f rpc x =
     retry_with_session f rpc x
 
 let keep_mpath =
-  List.filter (fun (key, _) -> Xstringext.String.startswith "mpath-" key)
+  List.filter (fun (key, _) -> String.starts_with ~prefix:"mpath-" key)
 
 let create_alert ~host_uuid_string ~host_name ~pbd_uuid_string key value
     timestamp scsi_id =

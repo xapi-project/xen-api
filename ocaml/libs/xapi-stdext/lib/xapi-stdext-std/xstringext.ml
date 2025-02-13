@@ -39,16 +39,6 @@ module String = struct
     done ;
     !accu
 
-  (** True if string 'x' ends with suffix 'suffix' *)
-  let endswith suffix x =
-    let x_l = String.length x and suffix_l = String.length suffix in
-    suffix_l <= x_l && String.sub x (x_l - suffix_l) suffix_l = suffix
-
-  (** True if string 'x' starts with prefix 'prefix' *)
-  let startswith prefix x =
-    let x_l = String.length x and prefix_l = String.length prefix in
-    prefix_l <= x_l && String.sub x 0 prefix_l = prefix
-
   (** Returns true for whitespace characters, false otherwise *)
   let isspace = function ' ' | '\n' | '\r' | '\t' -> true | _ -> false
 
