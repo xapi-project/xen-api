@@ -18,20 +18,19 @@ let content_xml = content_hdr_of_mime mime_xml
 
 let client_prefers_json req =
   let module Accept = Http.Accept in
-  match req.Http.Request.accept with
-  | None ->
-      List.mem_assoc "json" req.Http.Request.query
-  | Some accept -> (
-      let accepted = Accept.of_string accept in
-      let negotiated = Accept.preferred ~from:[mime_json; mime_xml] accepted in
-      match negotiated with
-      | x :: _ when String.equal x mime_json ->
-          true
-      | [] ->
-          List.mem_assoc "json" req.Http.Request.query
-      | _ ->
-          false
-    )
+  let ( let* ) = Option.bind in
+  let map_head f lst = List.nth_opt lst 0 |> Option.map f in
+  let prefers_json =
+    let* accept = req.Http.Request.accept in
+    let* accepted =
+      try Some (Accept.of_string accept) with Accept.Parse_failure _ -> None
+    in
+    Accept.preferred ~from:[mime_json; mime_xml] accepted
+    |> map_head (fun x -> String.equal x mime_json)
+  in
+  Option.value
+    ~default:(List.mem_assoc "json" req.Http.Request.query)
+    prefers_json
 
 let content_type json = if json then content_json else content_xml
 

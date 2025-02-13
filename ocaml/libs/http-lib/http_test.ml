@@ -24,6 +24,15 @@ module Accept = struct
     let actual = Accept.of_string data in
     Alcotest.(check @@ list accept) data expected actual
 
+  let test_invalid () =
+    let data = "text/html, image/gif, image/jpeg, ; q=.2, */; q=.2" in
+    let expected = Accept.Parse_failure " " in
+    let actual () =
+      let _ = Accept.of_string data in
+      ()
+    in
+    Alcotest.check_raises "Raises Parse failure" expected actual
+
   let test_accept_complex () =
     let data =
       "application/xml;q=0.9,text/html,application/xhtml+xml,*/*;q=0.8"
@@ -81,6 +90,7 @@ module Accept = struct
         [
           ("Simple", `Quick, test_accept_simple)
         ; ("Complex", `Quick, test_accept_complex)
+        ; ("Invalid", `Quick, test_invalid)
         ]
       ; preferred_tests
       ]

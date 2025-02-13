@@ -55,6 +55,9 @@ module Accept : sig
   val equal : t -> t -> bool
 
   val of_string : string -> t list
+  (** [of_string accept_hdr] Returns a list of weighted media types represented
+      by [accept_hdr]. If [accept_hdr] can't be parsed, raises [Parse_failure].
+      *)
 
   val to_string : t -> string
 
