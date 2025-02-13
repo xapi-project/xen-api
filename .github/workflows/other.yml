@@ -56,6 +56,7 @@ jobs:
           files: .git/coverage${{matrix.python-version}}.xml
           flag-name: python${{matrix.python-version}}
           parallel: true
+          fail-on-error: false
 
       - uses: dciborow/action-pylint@0.1.0
         with:
