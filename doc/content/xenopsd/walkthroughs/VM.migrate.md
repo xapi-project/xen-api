@@ -28,8 +28,8 @@ that we will describe in the documentation are:
 - PCI.plug
 - VM.set_domain_action_request
 
-The command have serveral parameters such as: should it be ran asynchronously,
-should it be forwared to another host, how arguments should be marshalled and
+The command has several parameters such as: Should it be started asynchronously,
+should it be forwarded to another host, how arguments should be marshalled and
 so on. A new thread is created by [xapi/server_helpers.ml](https://github.com/xapi-project/xen-api/blob/7ac88b90e762065c5ebb94a8ea61c61bdbf62c5c/ocaml/xapi/server_helpers.ml#L55)
 to handle the command asynchronously. At this point the helper also check if
 the command should be passed to the [message forwarding](https://github.com/xapi-project/xen-api/blob/master/ocaml/xapi/message_forwarding.ml)
@@ -76,26 +76,26 @@ After checking with Qemu that the VM is suspendable we can start the migration.
 
 As for *hooks*, commands to source domain are sent using [stunnel](https://github.com/xapi-project/xen-api/tree/master/ocaml/libs/stunnel) a daemon which
 is used as a wrapper to manage SSL encryption communication between two hosts on the same
-pool. To import metada an XML RPC command is sent to the original domain.
+pool. To import the metadata, an XML RPC command is sent to the original domain.
 
-Once imported it will give us a reference id and will allow to build the new domain
+Once imported, it will give us a reference id and will allow building the new domain
 on the destination using the temporary VM uuid `XXXXXXXX-XXXX-XXXX-XXXX-000000000001`
 where `XXX...` is the reference id of the original VM.
 
 ## Setting memory
 
-One of the first thing to do is to setup the memory. The backend will check that there
+One of the first thing to do is to set up the memory. The backend will check that there
 is no ballooning operation in progress. At this point the migration can fail if a
 ballooning operation is in progress and takes too much time.
 
-Once memory checked the daemon will get the state of the VM (running, halted, ...) and
-information about the VM are retrieve by the backend like the maximum memory the domain
+Once memory has been checked, the daemon will get the state of the VM (running, halted, ...) and
+information about the VM is retrieved by the backend like the maximum memory the domain
 can consume but also information about quotas for example.
-Information are retrieve by the backend from xenstore.
+The backend retrieves this information from the Xenstore.
 
 Once this is complete, we can restore VIF and create the domain.
 
-The synchronisation of the memory is the first point of synchronisation and everythin
+The synchronisation of the memory is the first point of synchronisation and everything
 is ready for VM migration.
 
 ## VM Migration
@@ -148,12 +148,12 @@ We are almost done. The next step is to create the device model
 #### create device model
 
 Create device model is done by using the atomic operation [VM.create_device_model](https://github.com/xapi-project/xen-api/blob/7ac88b90e762065c5ebb94a8ea61c61bdbf62c5c/ocaml/xenopsd/xc/xenops_server_xen.ml#L2375). This
-will configure **qemu-dm** and started. This allow to manage PCI devices.
+will configure **qemu-dm** and started. This allows to manage PCI devices.
 
 #### PCI plug
 
 [PCI.plug](https://github.com/xapi-project/xen-api/blob/7ac88b90e762065c5ebb94a8ea61c61bdbf62c5c/ocaml/xenopsd/xc/xenops_server_xen.ml#L3399)
-is executed by the backend. It plugs a PCI device and advertise it to QEMU if this option is set. It is
+is executed by the backend. It plugs a PCI device and advertises it to QEMU if this option is set. It is
 the case for NVIDIA SR-IOV vGPUS.
 
 At this point devices have been restored. The new domain is considered survivable. We can
@@ -168,12 +168,12 @@ initiated.
 
 Previously we spoke about some points called *hooks* at which `xenopsd` can execute some script. There
 is also a hook to run a post migrate script. After the execution of the script if there is one
-the migration is almost done. The last step is a handskake to seal the success of the migration
-and the old VM can now be cleaned.
+the migration is almost done. The last step is a handshake to seal the success of the migration
+and the old VM can now be cleaned up.
 
 # Links
 
-Some links are old but even if many changes occured they are relevant for a global understanding
+Some links are old but even if many changes occurred, they are relevant for a global understanding
 of the XAPI toolstack.
 
 - [XAPI architecture](https://xapi-project.github.io/xapi/architecture.html)
