@@ -543,13 +543,13 @@ let collect_events subs tables last_generation acc table =
     if Subscription.object_matches subs table obj then
       let last = max last (max modified deleted) in
       let creates =
-        if created > !last_generation then
+        if created > last_generation then
           (table, obj, created) :: creates
         else
           creates
       in
       let mods =
-        if modified > !last_generation && not (created > !last_generation) then
+        if modified > last_generation && not (created > last_generation) then
           (table, obj, modified) :: mods
         else
           mods
@@ -563,7 +563,7 @@ let collect_events subs tables last_generation acc table =
     if Subscription.object_matches subs table obj then
       let last = max last (max modified deleted) in
       let deletes =
-        if created <= !last_generation then
+        if created <= last_generation then
           (table, obj, deleted) :: deletes
         else
           deletes
@@ -573,8 +573,8 @@ let collect_events subs tables last_generation acc table =
       entries
   in
   acc
-  |> Table.fold_over_recent !last_generation prepend_recent table_value
-  |> Table.fold_over_deleted !last_generation prepend_deleted table_value
+  |> Table.fold_over_recent last_generation prepend_recent table_value
+  |> Table.fold_over_deleted last_generation prepend_deleted table_value
 
 let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
@@ -592,9 +592,8 @@ let from_inner __context session subs from from_t timer batching =
     in
     List.filter (fun table -> Subscription.table_matches subs table) all
   in
-  let last_generation = ref from in
   let last_msg_gen = ref from_t in
-  let grab_range t =
+  let grab_range ~since t =
     let tableset = Db_cache_types.Database.tableset (Db_ref.get_database t) in
     let msg_gen, messages =
       if Subscription.table_matches subs "message" then
@@ -603,10 +602,8 @@ let from_inner __context session subs from from_t timer batching =
         (0L, [])
     in
     let events =
-      let initial =
-        {creates= []; mods= []; deletes= []; last= !last_generation}
-      in
-      let folder = collect_events subs tableset last_generation in
+      let initial = {creates= []; mods= []; deletes= []; last= since} in
+      let folder = collect_events subs tableset since in
       List.fold_left folder initial tables
     in
     (msg_gen, messages, tableset, events)
@@ -615,9 +612,9 @@ let from_inner __context session subs from from_t timer batching =
   let msg_gen, messages, tableset, events =
     with_call session subs (fun sub ->
         let grab_nonempty_range =
-          Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
+          Throttle.Batching.with_recursive_loop batching @@ fun self since ->
           let result =
-            Db_lock.with_lock (fun () -> grab_range (Db_backend.make ()))
+            Db_lock.with_lock (fun () -> grab_range ~since (Db_backend.make ()))
           in
           let msg_gen, messages, _tables, events = result in
           let {creates; mods; deletes; last} = events in
@@ -628,21 +625,22 @@ let from_inner __context session subs from from_t timer batching =
             && messages = []
             && not (Clock.Timer.has_expired timer)
           then (
-            last_generation := last ;
-            (* Cur_id was bumped, but nothing relevent fell out of the db. Therefore the *)
+            (* cur_id was bumped, but nothing relevent fell out of the database.
+               Therefore the last ID the client got is equivalent to the current one. *)
             sub.cur_id <- last ;
-            (* last id the client got is equivalent to the current one *)
             last_msg_gen := msg_gen ;
             wait2 sub last timer ;
-            (self [@tailcall]) arg
+            (* The next iteration will fold over events starting after
+               the last database event that matched a subscription. *)
+            let next = last in
+            (self [@tailcall]) next
           ) else
             result
         in
-        grab_nonempty_range ()
+        grab_nonempty_range from
     )
   in
   let {creates; mods; deletes; last} = events in
-  last_generation := last ;
   let event_of op ?snapshot (table, objref, time) =
     {
       id= Int64.to_string time
