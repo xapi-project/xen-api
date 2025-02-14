@@ -651,39 +651,32 @@ let from_inner __context session subs from from_t timer batching =
     ; snapshot
     }
   in
-  let events =
-    List.fold_left
-      (fun acc x ->
-        let ev = event_of `del x in
-        if Subscription.event_matches subs ev then ev :: acc else acc
-      )
-      [] deletes
-  in
-  let events =
-    List.fold_left
-      (fun acc (table, objref, mtime) ->
+  let events_of ~kind ?(with_snapshot = true) entries acc =
+    let rec go events ((table, obj, _time) as entry) =
+      let snapshot =
         let serialiser = Eventgen.find_get_record table in
-        try
-          let xml = serialiser ~__context ~self:objref () in
-          let ev = event_of `_mod ?snapshot:xml (table, objref, mtime) in
-          if Subscription.event_matches subs ev then ev :: acc else acc
-        with _ -> acc
-      )
-      events mods
+        if with_snapshot then
+          serialiser ~__context ~self:obj ()
+        else
+          None
+      in
+      let event = event_of kind ?snapshot entry in
+      if Subscription.event_matches subs event then
+        event :: events
+      else
+        events
+    in
+    List.fold_left go acc entries
   in
   let events =
-    List.fold_left
-      (fun acc (table, objref, ctime) ->
-        let serialiser = Eventgen.find_get_record table in
-        try
-          let xml = serialiser ~__context ~self:objref () in
-          let ev = event_of `add ?snapshot:xml (table, objref, ctime) in
-          if Subscription.event_matches subs ev then ev :: acc else acc
-        with _ -> acc
-      )
-      events creates
+    [] (* Accumulate the events for objects stored in the database. *)
+    |> events_of ~kind:`del ~with_snapshot:false deletes
+    |> events_of ~kind:`_mod mods
+    |> events_of ~kind:`add creates
   in
   let events =
+    (* Messages require a special casing as their contents are not
+       stored in the database. *)
     List.fold_left
       (fun acc mev ->
         let event =
