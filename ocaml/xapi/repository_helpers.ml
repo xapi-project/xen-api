@@ -22,7 +22,7 @@ open Updateinfo
 module LivePatchSet = Set.Make (LivePatch)
 module RpmFullNameSet = Set.Make (String)
 
-let exposing_pool_repo_mutex = Mutex.create ()
+let pool_update_ops_mutex = Mutex.create ()
 
 module Pkgs = (val Pkg_mgr.get_pkg_mgr)
 
@@ -136,12 +136,12 @@ module GuidanceSet = struct
 end
 
 let create_repository_record ~__context ~name_label ~name_description
-    ~binary_url ~source_url ~update ~gpgkey_path ~origin =
+    ~binary_url ~source_url ~update ~gpgkey_path ~origin ~certificate =
   let ref = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
   Db.Repository.create ~__context ~ref ~uuid ~name_label ~name_description
     ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ~gpgkey_path
-    ~origin ;
+    ~origin ~certificate ;
   ref
 
 module DomainNameIncludeIP = struct
@@ -231,20 +231,29 @@ let assert_gpgkey_path_is_valid path =
     raise Api_errors.(Server_error (invalid_gpgkey_path, [path]))
   )
 
+let get_remote_pool_coordinator_ip url =
+  let uri = Uri.of_string url in
+  match (Uri.scheme uri, Uri.host uri, Uri.path uri) with
+  | Some "https", Some host, path
+    when path = Constants.get_enabled_repository_uri
+         && Helpers.is_valid_ip `ipv4or6 host ->
+      host
+  | _ ->
+      error "Invalid url: %s, expected url format: %s" url
+        ("https://<coordinator-ip>" ^ Constants.get_enabled_repository_uri) ;
+      raise Api_errors.(Server_error (invalid_base_url, [url]))
+
+let assert_remote_pool_url_is_valid ~url =
+  get_remote_pool_coordinator_ip url
+  |> Xapi_stdext_pervasives.Pervasiveext.ignore_string
+
 let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      Mutex.lock exposing_pool_repo_mutex ;
+      Mutex.lock pool_update_ops_mutex ;
       f ()
     )
-    (fun () -> Mutex.unlock exposing_pool_repo_mutex)
-
-let is_local_pool_repo_enabled () =
-  if Mutex.try_lock exposing_pool_repo_mutex then (
-    Mutex.unlock exposing_pool_repo_mutex ;
-    false
-  ) else
-    true
+    (fun () -> Mutex.unlock pool_update_ops_mutex)
 
 let with_updateinfo_xml gz_path f =
   let tmpfile, tmpch =
@@ -384,6 +393,8 @@ let get_remote_repository_name ~__context ~self =
         !Xapi_globs.remote_repository_prefix
     | `bundle ->
         !Xapi_globs.bundle_repository_prefix
+    | `remote_pool ->
+        !Xapi_globs.remote_pool_repository_prefix
   in
   prefix ^ "-" ^ get_repository_name ~__context ~self
 
@@ -1278,26 +1289,70 @@ let get_single_enabled_update_repository ~__context =
   in
   get_singleton enabled_update_repositories
 
-let with_access_token ~token ~token_id f =
-  match (token, token_id) with
-  | t, tid when t <> "" && tid <> "" ->
-      info "sync updates with token_id: %s" tid ;
-      let json = `Assoc [("token", `String t); ("token_id", `String tid)] in
-      let tmpfile, tmpch =
-        Filename.open_temp_file ~mode:[Open_text] "accesstoken" ".json"
-      in
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () ->
-          output_string tmpch (Yojson.Basic.to_string json) ;
-          close_out tmpch ;
-          f (Some tmpfile)
-        )
-        (fun () -> Unixext.unlink_safe tmpfile)
-  | t, tid when t = "" && tid = "" ->
+type client_auth =
+  | CdnTokenAuth (* remote *) of {
+        token_id: string
+      ; token: string
+      ; plugin: string
+    }
+  | NoAuth (* bundle *)
+  | PoolExtHostAuth (* remote_pool *) of {xapi_token: string; plugin: string}
+
+let with_sync_client_auth auth f =
+  let go_with_client_plugin cred plugin =
+    let ( let@ ) g x = g x in
+    let@ temp_file =
+      Helpers.with_temp_file_of_content ~mode:[Open_text] "token-" ".json" cred
+    in
+    f (Some (temp_file, plugin))
+  in
+  match auth with
+  | CdnTokenAuth {token_id; token; _} when token_id = "" && token = "" ->
       f None
-  | _ ->
-      let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+  | CdnTokenAuth {token_id; token; plugin} ->
+      let cred =
+        `Assoc [("token", `String token); ("token_id", `String token_id)]
+        |> Yojson.Basic.to_string
+      in
+      go_with_client_plugin cred plugin
+  | PoolExtHostAuth {xapi_token; plugin} ->
+      let cred =
+        `Assoc [("xapitoken", `String xapi_token)] |> Yojson.Basic.to_string
+      in
+      go_with_client_plugin cred plugin
+  | NoAuth ->
+      f None
+
+type server_auth =
+  | DefaultAuth (* remote *)
+  | NoAuth (* bundle *)
+  | StunnelClientProxyAuth (* remote_pool *) of {
+        cert: string
+      ; remote_addr: string
+      ; remote_port: int
+    }
+
+let with_sync_server_auth auth f =
+  match auth with
+  | DefaultAuth | NoAuth ->
+      f None
+  | StunnelClientProxyAuth {cert; remote_addr; remote_port} ->
+      let local_host = "127.0.0.1" in
+      let local_port = !Xapi_globs.local_yum_repo_port in
+      let ( let@ ) f x = f x in
+      let@ temp_file =
+        Helpers.with_temp_file_of_content "external-host-cert-" ".pem" cert
+      in
+      let binary_url =
+        Uri.make ~scheme:"http" ~host:local_host ~port:local_port
+          ~path:Constants.get_enabled_repository_uri ()
+        |> Uri.to_string
+      in
+      Stunnel.with_client_proxy_systemd_service
+        ~verify_cert:(Stunnel_client.external_host temp_file)
+        ~remote_host:remote_addr ~remote_port ~local_host ~local_port
+        ~service:"stunnel_proxy_for_update_client"
+      @@ fun () -> f (Some binary_url)
 
 let prune_updateinfo_for_livepatches latest_lps updateinfo =
   let livepatches =

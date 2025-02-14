@@ -1924,11 +1924,29 @@ let _ =
   error Api_errors.bundle_repo_not_enabled []
     ~doc:"Cannot sync bundle as the bundle repository is not enabled." () ;
   error Api_errors.can_not_sync_updates []
-    ~doc:"Cannot sync updates as the bundle repository is enabled." () ;
-  error Api_errors.bundle_repo_should_be_single_enabled []
     ~doc:
-      "If the bundle repository is enabled, it should be the only one enabled \
-       repository of the pool."
+      "The currently enabled repositories do not support synchronization of \
+       updates."
+    () ;
+  error Api_errors.can_not_periodic_sync_updates []
+    ~doc:
+      "The currently enabled repositories do not support periodic automatic \
+       updates."
+    () ;
+  error Api_errors.repo_should_be_single_one_enabled []
+    ~doc:
+      "If the bundle repository or remote_pool repository is enabled, it \
+       should be the only enabled repository of the pool."
+    () ;
+  error Api_errors.update_syncing_remote_pool_coordinator_connection_failed []
+    ~doc:
+      "There was an error connecting to the remote pool coordinator while \
+       syncing updates from it."
+    () ;
+  error Api_errors.update_syncing_remote_pool_coordinator_service_failed []
+    ~doc:
+      "There was an error connecting to the server while syncing updates from \
+       it. The service contacted didn't reply properly."
     () ;
   error Api_errors.repository_is_in_use [] ~doc:"The repository is in use." () ;
   error Api_errors.repository_cleanup_failed []

@@ -360,6 +360,8 @@ val sync_updates :
   -> force:bool
   -> token:string
   -> token_id:string
+  -> username:string
+  -> password:string
   -> string
 
 val check_update_readiness :

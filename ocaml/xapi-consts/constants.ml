@@ -155,6 +155,9 @@ let get_pool_update_download_uri = "/update/"
 
 let get_repository_uri = "/repository" (* ocaml/xapi/repository.ml *)
 
+let get_enabled_repository_uri =
+  "/repository/enabled" (* ocaml/xapi/repository.ml *)
+
 let get_host_updates_uri = "/host_updates" (* ocaml/xapi/repository.ml *)
 
 let get_updates_uri = "/updates" (* ocaml/xapi/repository.ml *)
