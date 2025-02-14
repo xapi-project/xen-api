@@ -33,7 +33,7 @@ users:
 
 - the XenAPI has many clients which are updated on long release cycles. The
   main property needed is backwards compatibility, so that new release of xapi
-  remain compatible with these older clients. Quite often we will chose to
+  remain compatible with these older clients. Quite often, we will choose to
   "grandfather in" some poorly designed interface simply because we wish to
   avoid imposing churn on 3rd parties.
 - the Xenopsd API clients are all open-source and are part of the xapi-project.
@@ -166,7 +166,7 @@ via the function
 
 It is the responsibility of the client to call
 [TASK.destroy](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e3711227892271a6bece98eb0fa1/xen/xenops_interface.ml#L406)
-when the Task is nolonger needed. Xenopsd won't destroy the task because it contains
+when the Task is no longer needed. Xenopsd won't destroy the task because it contains
 the success/failure result of the operation which is needed by the client.
 
 What happens when a Xenopsd receives a VM.start request?
