@@ -947,6 +947,8 @@ let remote_repository_prefix = ref "remote"
 
 let bundle_repository_prefix = ref "bundle"
 
+let remote_pool_repository_prefix = ref "remote-pool"
+
 let local_repository_prefix = ref "local"
 
 let yum_config_manager_cmd = ref "/usr/bin/yum-config-manager"

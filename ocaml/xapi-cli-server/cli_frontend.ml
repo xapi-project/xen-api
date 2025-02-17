@@ -511,7 +511,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "pool-sync-updates"
     , {
         reqd= []
-      ; optn= ["force"; "token"; "token-id"]
+      ; optn= ["force"; "token"; "token-id"; "username"; "password"]
       ; help= "Sync updates from remote YUM repository, pool-wide."
       ; implementation= No_fd Cli_operations.pool_sync_updates
       ; flags= []
@@ -3684,6 +3684,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["name-description"]
       ; help= "Add the configuration for a new bundle repository."
       ; implementation= No_fd Cli_operations.Repository.introduce_bundle
+      ; flags= []
+      }
+    )
+  ; ( "repository-introduce-remote-pool"
+    , {
+        reqd= ["name-label"; "binary-url"; "certificate-file"]
+      ; optn= ["name-description"]
+      ; help= "Add the configuration for a new remote pool repository."
+      ; implementation= With_fd Cli_operations.Repository.introduce_remote_pool
       ; flags= []
       }
     )

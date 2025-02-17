@@ -14,101 +14,103 @@
 
 module T = Test_common
 
-let test_set_remote_and_bundle_repos () =
+let on_repositories f =
   let __context = T.make_test_database () in
-  let name_label = "remote" in
-  let name_description = "remote" in
-  let binary_url = "https://repo.example.com" in
+  let pool = Helpers.get_pool ~__context in
+  let binary_url_1 = "https://repo.example.com" in
+  let binary_url_2 = "https://1.1.1.1/repository/enabled" in
   let source_url = "https://repo-src.example.com" in
-  let gpgkey_path = "" in
   let ref_remote =
-    Repository.introduce ~__context ~name_label ~name_description ~binary_url
-      ~source_url ~update:true ~gpgkey_path
+    Repository.introduce ~__context ~name_label:"remote"
+      ~name_description:"remote" ~binary_url:binary_url_1 ~source_url
+      ~update:true ~gpgkey_path:""
   in
   let ref_bundle =
     Repository.introduce_bundle ~__context ~name_label:"bundle"
       ~name_description:"bundle"
   in
-  let self = Helpers.get_pool ~__context in
-  Alcotest.check_raises "test_set_remote_and_bundle_repos"
-    Api_errors.(Server_error (bundle_repo_should_be_single_enabled, []))
-    (fun () ->
-      Xapi_pool.set_repositories ~__context ~self
-        ~value:[ref_remote; ref_bundle]
-    )
+  let ref_remote_pool =
+    Repository.introduce_remote_pool ~__context ~name_label:"remote_pool"
+      ~binary_url:binary_url_2 ~name_description:"remote_pool" ~certificate:""
+  in
+  f __context pool ref_remote ref_bundle ref_remote_pool
 
-let test_add_bundle_repo () =
-  let __context = T.make_test_database () in
-  let name_label = "remote" in
-  let name_description = "remote" in
-  let binary_url = "https://repo.example.com" in
-  let source_url = "https://repo-src.example.com" in
-  let gpgkey_path = "" in
-  let ref_remote =
-    Repository.introduce ~__context ~name_label ~name_description ~binary_url
-      ~source_url ~update:true ~gpgkey_path
-  in
-  let ref_bundle =
-    Repository.introduce_bundle ~__context ~name_label:"bundle"
-      ~name_description:"bundle"
-  in
-  let self = Helpers.get_pool ~__context in
-  Alcotest.check_raises "test_add_bundle_repo"
-    Api_errors.(Server_error (bundle_repo_should_be_single_enabled, []))
-    (fun () ->
+let test_set_repositories () =
+  on_repositories (fun __context self ref_remote ref_bundle ref_remote_pool ->
       Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote] ;
-      Xapi_pool.add_repository ~__context ~self ~value:ref_bundle
-    )
-
-let test_add_remote_repo () =
-  let __context = T.make_test_database () in
-  let name_label = "remote" in
-  let name_description = "remote" in
-  let binary_url = "https://repo.example.com" in
-  let source_url = "https://repo-src.example.com" in
-  let gpgkey_path = "" in
-  let ref_remote =
-    Repository.introduce ~__context ~name_label ~name_description ~binary_url
-      ~source_url ~update:true ~gpgkey_path
-  in
-  let ref_bundle =
-    Repository.introduce_bundle ~__context ~name_label:"bundle"
-      ~name_description:"bundle"
-  in
-  let self = Helpers.get_pool ~__context in
-  Alcotest.check_raises "test_add_remote_repo"
-    Api_errors.(Server_error (bundle_repo_should_be_single_enabled, []))
-    (fun () ->
       Xapi_pool.set_repositories ~__context ~self ~value:[ref_bundle] ;
-      Xapi_pool.add_repository ~__context ~self ~value:ref_remote
-    )
+      Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote_pool] ;
+      Alcotest.check_raises "test_set_repositories_1"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self
+            ~value:[ref_remote; ref_bundle]
+        ) ;
+      Alcotest.check_raises "test_set_repositories_2"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self
+            ~value:[ref_remote_pool; ref_bundle]
+        ) ;
+      Alcotest.check_raises "test_set_repositories_3"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self
+            ~value:[ref_remote; ref_remote_pool]
+        )
+  )
 
-let test_can_not_enable_bundle_repo_auto_sync () =
-  let __context = T.make_test_database () in
-  let ref_bundle =
-    Repository.introduce_bundle ~__context ~name_label:"bundle"
-      ~name_description:"bundle"
-  in
-  let self = Helpers.get_pool ~__context in
-  Alcotest.check_raises "test_can_not_enable_bundle_repo_auto_sync"
-    Api_errors.(Server_error (can_not_sync_updates, []))
-    (fun () ->
-      Xapi_pool.set_repositories ~__context ~self ~value:[ref_bundle] ;
-      Xapi_pool.set_update_sync_enabled ~__context ~self ~value:true
-    )
+let test_add_repository () =
+  on_repositories (fun __context self ref_remote ref_bundle ref_remote_pool ->
+      Alcotest.check_raises "test_add_repository_1"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote] ;
+          Xapi_pool.add_repository ~__context ~self ~value:ref_bundle
+        ) ;
+      Alcotest.check_raises "test_add_repository_2"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote] ;
+          Xapi_pool.add_repository ~__context ~self ~value:ref_remote_pool
+        ) ;
+      Alcotest.check_raises "test_add_repository_3"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote_pool] ;
+          Xapi_pool.add_repository ~__context ~self ~value:ref_bundle
+        ) ;
+      Alcotest.check_raises "test_add_repository_4"
+        Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self ~value:[ref_bundle] ;
+          Xapi_pool.add_repository ~__context ~self ~value:ref_remote_pool
+        )
+  )
+
+let test_enable_periodic_repo_sync () =
+  on_repositories (fun __context self ref_remote ref_bundle ref_remote_pool ->
+      Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote] ;
+      Xapi_pool.set_update_sync_enabled ~__context ~self ~value:true ;
+      Alcotest.check_raises "test_enable_periodic_repo_sync_1"
+        Api_errors.(Server_error (can_not_periodic_sync_updates, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self ~value:[ref_bundle] ;
+          Xapi_pool.set_update_sync_enabled ~__context ~self ~value:true
+        ) ;
+      Alcotest.check_raises "test_enable_periodic_repo_sync_2"
+        Api_errors.(Server_error (can_not_periodic_sync_updates, []))
+        (fun () ->
+          Xapi_pool.set_repositories ~__context ~self ~value:[ref_remote_pool] ;
+          Xapi_pool.set_update_sync_enabled ~__context ~self ~value:true
+        )
+  )
 
 let test =
   [
-    ( "test_set_remote_and_bundle_repos"
-    , `Quick
-    , test_set_remote_and_bundle_repos
-    )
-  ; ("test_add_bundle_repo", `Quick, test_add_bundle_repo)
-  ; ("test_add_remote_repo", `Quick, test_add_remote_repo)
-  ; ( "test_can_not_enable_bundle_repo_auto_sync"
-    , `Quick
-    , test_can_not_enable_bundle_repo_auto_sync
-    )
+    ("test_set_repositories", `Quick, test_set_repositories)
+  ; ("test_add_repository", `Quick, test_add_repository)
+  ; ("test_enable_periodic_repo_sync", `Quick, test_enable_periodic_repo_sync)
   ]
 
 let () =

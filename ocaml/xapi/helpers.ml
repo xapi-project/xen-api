@@ -2036,9 +2036,24 @@ let with_temp_file ?mode prefix suffix f =
   let path, channel = Filename.open_temp_file ?mode prefix suffix in
   finally (fun () -> f (path, channel)) (fun () -> Unix.unlink path)
 
+let with_temp_file_of_content ?mode prefix suffix content f =
+  let@ temp_file, temp_out_ch = with_temp_file ?mode prefix suffix in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> output_string temp_out_ch content)
+    (fun () -> close_out temp_out_ch) ;
+  f temp_file
+
 let with_temp_out_ch_of_temp_file ?mode prefix suffix f =
   let@ path, channel = with_temp_file ?mode prefix suffix in
   f (path, channel |> with_temp_out_ch)
+
+let make_external_host_verified_rpc ~__context host_address host_cert xml =
+  let@ cert_file =
+    with_temp_file_of_content "external-host-cert-" ".pem" host_cert
+  in
+  make_remote_rpc ~__context
+    ~verify_cert:(Stunnel_client.external_host cert_file)
+    host_address xml
 
 module FileSys : sig
   (* bash-like interface for manipulating files *)
