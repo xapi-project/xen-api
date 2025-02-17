@@ -135,17 +135,15 @@ When the Task has completed successfully, then calls to *.stat will show:
 - a valid start time
 - valid "targets" for memory and vCPU
 
-Note: before a Task completes, calls to *.stat will show partial updates e.g.
-the power state may be Paused but none of the disks may have become plugged.
+Note: before a Task completes, calls to *.stat will show partial updates. E.g.
+the power state may be paused, but no disk may have been plugged.
 UI clients must choose whether they are happy displaying this in-between state
 or whether they wish to hide it and pretend the whole operation has happened
-transactionally. If a particular client wishes to perform side-effects in
-response to Xenopsd state changes -- for example to clean up an external resource
-when a VIF becomes unplugged -- then it must be very careful to avoid responding
-to these in-between states. Generally it is safest to passively report these
-values without driving things directly from them. Think of them as status lights
-on the front panel of a PC: fine to look at but it's not a good idea to wire
-them up to actuators which actually do things.
+transactionally. If a particular, when a client wishes to perform side-effects in
+response to `xenopsd` state changes (for example, to clean up an external resource
+when a VIF becomes unplugged), it must be very careful to avoid responding
+to these in-between states. Generally, it is safest to passively report these
+values without driving things directly from them.
 
 Note: the Xenopsd implementation guarantees that, if it is restarted at any point
 during the start operation, on restart the VM state shall be "fixed" by either
@@ -304,7 +302,7 @@ calls bracket plug/unplug. If the "active" flag was set before the unplug
 attempt then as soon as the frontend/backend connection is removed clients
 would see the VBD as completely dissociated from the VM -- this would be misleading
 because Xenopsd will not have had time to use the storage API to release locks
-on the disks. By doing all the cleanup before setting "active" to false, clients
+on the disks. By cleaning up before setting "active" to false, clients
 can be assured that the disks are now free to be reassigned.
 
 ## 5. handle non-persistent disks
@@ -370,7 +368,7 @@ to be the order the nodes were created so this means that (i) xenstored must
 continue to store directories as ordered lists rather than maps (which would
 be more efficient); and (ii) Xenopsd must make sure to plug the vifs in
 the same order. Note that relying on ethX device numbering has always been a
-bad idea but is still common. I bet if you change this lots of tests will
+bad idea but is still common. I bet if you change this, many tests will
 suddenly start to fail!
 
 The function
