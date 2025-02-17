@@ -1,5 +1,7 @@
 open Xenops_utils
 
+module D = Debug.Make (struct let name = __MODULE__ end)
+
 module XI = struct
   include Xenops_interface
 
@@ -89,3 +91,25 @@ let traceparent_header_of_task t =
     )
     (Xenops_task.tracing t)
   |> Option.to_list
+
+let with_tracing ~name ~task f =
+  let open Tracing in
+  let parent = Xenops_task.tracing task in
+  let tracer = Tracer.get_tracer ~name in
+  match Tracer.start ~tracer ~name ~parent () with
+  | Ok span -> (
+      Xenops_task.set_tracing task span ;
+      try
+        let result = f () in
+        let _ : (Span.t option, exn) result = Tracer.finish span in
+        Xenops_task.set_tracing task parent ;
+        result
+      with exn ->
+        let backtrace = Printexc.get_raw_backtrace () in
+        let error = (exn, backtrace) in
+        let _ : (Span.t option, exn) result = Tracer.finish span ~error in
+        raise exn
+    )
+  | Error e ->
+      D.warn "Failed to start tracing: %s" (Printexc.to_string e) ;
+      f ()
