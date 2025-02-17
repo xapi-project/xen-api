@@ -2,30 +2,37 @@
 title: Add supported image formats in sm-list
 layout: default
 design_doc: true
-revision: 1
+revision: 2
 status: proposed
 ---
 
 # Introduction
 
-At XCP-ng, we are enhancing support for QCOW2 images in SMAPIv1. The main
-motivation behind this change is to overcome the 2TB size limitation imposed
+
+At XCP-ng, we are enhancing support for QCOW2 images in SMAPI. The primary
+motivation for this change is to overcome the 2TB size limitation imposed
 by the VHD format. By adding support for QCOW2, a Storage Repository (SR) will
 be able to host disks in VHD and/or QCOW2 formats, depending on the SR type.
-This flexibility allows end users to choose storage solutions that best meet
-their capacity requirements.
+In the future, additional formats—such as VHDx—could also be supported.
+
+We need a mechanism to expose to end users which image formats are supported
+by a given SR. The proposal is to extend the SM API object with a new field
+that clients (such as XenCenter, XenOrchestra, etc.) can use to determine the
+available formats.
 
 # Design Proposal
 
-To expose the available image formats to clients (e.g., the `xe` CLI), we propose
-adding a new field called `supported-image-formats` to the Storage Manager (SM)
+To expose the available image formats to clients (e.g., XenCenter, XenOrchestra, etc.),
+we propose adding a new field called `supported-image-formats` to the Storage Manager (SM)
 module. This field will be included in the output of the `SM.get_all_records` call.
 
-The `supported-image-formats` field is populated by retrieving the information
-from the SMAPIv1 driver. Specifically, the driver will update its `DRIVER_INFO`
+The `supported-image-formats` field is populated by retrieving information
+from the SMAPI drivers. Specifically, the drivers will update its `DRIVER_INFO`
 dictionary with a new key, `supported_image_formats`, which will contain a list
 of strings representing the supported image formats
 (for example: `["vhd", "raw", "qcow2"]`).
+
+If a driver does not provide this information, the default value will be an empty array.
 
 For example, after this change, running:
 
