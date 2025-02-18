@@ -224,6 +224,7 @@ type guest_metrics_t = {
   ; other: m
   ; memory: m
   ; device_id: m
+  ; services: m
   ; last_updated: float
   ; can_use_hotplug_vbd: API.tristate_type
   ; can_use_hotplug_vif: API.tristate_type
@@ -289,6 +290,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
          ; networks "xenserver/attr" "net-sriov-vf" list
          ]
       )
+  and services = []
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
@@ -310,6 +312,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
   ; other
   ; memory
   ; device_id
+  ; services
   ; last_updated
   ; can_use_hotplug_vbd
   ; can_use_hotplug_vif
@@ -326,7 +329,8 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     ~os_version:initial_gm.os_version ~netbios_name:initial_gm.netbios_name
     ~pV_drivers_version:initial_gm.pv_drivers_version
     ~pV_drivers_up_to_date:pV_drivers_detected ~memory:[] ~disks:[]
-    ~networks:initial_gm.networks ~pV_drivers_detected ~other:initial_gm.other
+    ~networks:initial_gm.networks ~services:initial_gm.services
+    ~pV_drivers_detected ~other:initial_gm.other
     ~last_updated:(Date.of_unix_time initial_gm.last_updated)
     ~other_config:[] ~live:true
     ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
@@ -356,6 +360,7 @@ let all (lookup : string -> string option) (list : string -> string list)
   ; other
   ; memory
   ; device_id
+  ; services
   ; last_updated
   ; can_use_hotplug_vbd
   ; can_use_hotplug_vif
@@ -390,6 +395,7 @@ let all (lookup : string -> string option) (list : string -> string list)
             ; other= []
             ; memory= []
             ; device_id= []
+            ; services= []
             ; last_updated= 0.0
             ; can_use_hotplug_vbd= `unspecified
             ; can_use_hotplug_vif= `unspecified
@@ -407,6 +413,7 @@ let all (lookup : string -> string option) (list : string -> string list)
         ; other
         ; memory
         ; device_id
+        ; services
         ; last_updated
         ; can_use_hotplug_vbd
         ; can_use_hotplug_vif
@@ -420,6 +427,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     || guest_metrics_cached.networks <> networks
     || guest_metrics_cached.other <> other
     || guest_metrics_cached.device_id <> device_id
+    || guest_metrics_cached.services <> services
     )
     || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
     || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
@@ -452,6 +460,8 @@ let all (lookup : string -> string option) (list : string -> string list)
         ~value:netbios_name ;
     if guest_metrics_cached.networks <> networks then
       Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks ;
+    if guest_metrics_cached.services <> services then
+      Db.VM_guest_metrics.set_services ~__context ~self:gm ~value:services ;
     if guest_metrics_cached.other <> other then (
       Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->
