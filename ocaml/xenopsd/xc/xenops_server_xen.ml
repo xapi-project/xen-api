@@ -2849,6 +2849,7 @@ module VM = struct
               ; ("drivers", None, 0)
               ; ("data", None, 0)
                 (* in particular avoid data/volumes which contains many entries for each disk *)
+              ; ("data/service", None, 1) (* data/service/<service-name>/<key>*)
               ]
               |> List.fold_left
                    (fun acc (dir, excludes, depth) ->
@@ -4825,6 +4826,7 @@ module Actions = struct
       sprintf "/local/domain/%d/attr" domid
     ; sprintf "/local/domain/%d/data/updated" domid
     ; sprintf "/local/domain/%d/data/ts" domid
+    ; sprintf "/local/domain/%d/data/service" domid
     ; sprintf "/local/domain/%d/memory/target" domid
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid
