@@ -18,14 +18,6 @@
 
 open Debug.Make (struct let name = __MODULE__ end)
 
-let internal_error fmt =
-  Printf.ksprintf
-    (fun str ->
-      error "%s" str ;
-      raise Api_errors.(Server_error (internal_error, [str]))
-    )
-    fmt
-
 (** types to represent the JSON output of the script that reports
     drivers *)
 type variant = {
@@ -219,7 +211,8 @@ let parse str =
   | R.Ok x ->
       x
   | R.Error msg ->
-      internal_error "%s parsing failed: %s" __FUNCTION__ msg
+      Helpers.internal_error ~log_err:true "%s parsing failed: %s" __FUNCTION__
+        msg
   | exception e ->
       raise e
 
@@ -228,7 +221,8 @@ let read path =
   | R.Ok x ->
       x
   | R.Error msg ->
-      internal_error "%s parsing %s failed: %s" __FUNCTION__ path msg
+      Helpers.internal_error ~log_err:true "%s parsing %s failed: %s"
+        __FUNCTION__ path msg
   | exception e ->
       raise e
 
@@ -239,8 +233,8 @@ let call args =
     debug "%s: executed %s %s" __FUNCTION__ path (String.concat " " args) ;
     stdout
   with e ->
-    internal_error "%s: failed to run %s %s: %s" __FUNCTION__ path
-      (String.concat " " args) (Printexc.to_string e)
+    Helpers.internal_error ~log_err:true "%s: failed to run %s %s: %s"
+      __FUNCTION__ path (String.concat " " args) (Printexc.to_string e)
 
 module Mock = struct
   let drivertool_sh =
@@ -651,6 +645,6 @@ esac
       Xapi_stdext_unix.Unixext.write_string_to_file path drivertool_sh ;
       Unix.chmod path 0o755
     with e ->
-      internal_error "%s: can't install %s: %s" __FUNCTION__ path
-        (Printexc.to_string e)
+      Helpers.internal_error ~log_err:true "%s: can't install %s: %s"
+        __FUNCTION__ path (Printexc.to_string e)
 end

@@ -372,7 +372,7 @@ let parse_updateinfo ~__context ~self ~check =
             hash md.RepoMetaData.checksum
         in
         error "%s: %s" repo_name msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error "%s" msg
       )
   ) ;
   let updateinfo_xml_gz_path =
@@ -691,9 +691,8 @@ let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
   let component' =
     try component_of_string component
     with _ ->
-      let msg = Printf.sprintf "Invalid component name '%s'" component in
-      error "%s" msg ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error ~log_err:true "Invalid component name '%s'"
+        component
   in
   match
     Livepatch.get_livepatch_file_path ~component:component' ~base_build_id
@@ -703,9 +702,8 @@ let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
       Livepatch.apply ~component:component' ~livepatch_file ~base_build_id
         ~base_version ~base_release ~to_version ~to_release
   | None ->
-      let msg = Printf.sprintf "No expected livepatch file for %s" component in
-      error "%s" msg ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error ~log_err:true "No expected livepatch file for %s"
+        component
 
 let apply_livepatches' ~__context ~host ~livepatches =
   List.partition_map

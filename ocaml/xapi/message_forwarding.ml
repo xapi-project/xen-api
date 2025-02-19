@@ -3858,15 +3858,8 @@ functor
           in
           ()
         with Forkhelpers.Spawn_internal_error (_, _, _) ->
-          raise
-            (Api_errors.Server_error
-               ( Api_errors.internal_error
-               , [
-                   "Generation of alerts for server certificate expiration \
-                    failed."
-                 ]
-               )
-            )
+          Helpers.internal_error
+            "Generation of alerts for server certificate expiration failed."
 
       let reset_server_certificate ~__context ~host =
         info "Host.reset_server_certificate: host = '%s'"

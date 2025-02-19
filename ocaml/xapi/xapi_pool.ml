@@ -50,10 +50,13 @@ let rpc ~__context ~verify_cert host_address xml =
 let get_pool ~rpc ~session_id =
   match Client.Pool.get_all ~rpc ~session_id with
   | [] ->
-      let err_msg = "Remote host does not belong to a pool." in
-      raise Api_errors.(Server_error (internal_error, [err_msg]))
-  | pool :: _ ->
+      Helpers.internal_error "Remote host does not belong to a pool."
+  | [pool] ->
       pool
+  | pools ->
+      Helpers.internal_error "Should get only one pool, but got %d: %s"
+        (List.length pools)
+        (pools |> List.map Ref.string_of |> String.concat ",")
 
 let get_master ~rpc ~session_id =
   let pool = get_pool ~rpc ~session_id in
@@ -63,16 +66,7 @@ let get_master ~rpc ~session_id =
 let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I cannot join a Pool unless my management interface exists in the db, otherwise
      	   Pool.eject will fail to rewrite network interface files. *)
-  let remote_pool =
-    match Client.Pool.get_all ~rpc ~session_id with
-    | [pool] ->
-        pool
-    | _ ->
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["Should get only one pool"])
-          )
-  in
+  let remote_pool = get_pool ~rpc ~session_id in
   let assert_management_interface_exists () =
     try
       let (_ : API.ref_PIF) =
@@ -117,6 +111,82 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
               Server_error (clustering_enabled, [Ref.string_of cluster_host])
             )
         )
+  in
+  let one_ip_configured_on_joining_cluster_network () =
+    match Client.Cluster_host.get_all ~rpc ~session_id with
+    | [] ->
+        ()
+    | ch :: _ -> (
+        let cluster =
+          Client.Cluster_host.get_cluster ~rpc ~session_id ~self:ch
+        in
+        match
+          Client.Cluster.get_pool_auto_join ~rpc ~session_id ~self:cluster
+        with
+        | false ->
+            ()
+        | true -> (
+          match Client.Cluster_host.get_PIF ~rpc ~session_id ~self:ch with
+          | pif when pif = Ref.null ->
+              ()
+          | pif -> (
+            match Client.PIF.get_VLAN ~rpc ~session_id ~self:pif with
+            | vlan when vlan > 0L ->
+                error
+                  "Cannot join pool whose clustering is enabled on VLAN network" ;
+                raise
+                  (Api_errors.Server_error
+                     ( Api_errors
+                       .pool_joining_pool_cannot_enable_clustering_on_vlan_network
+                     , [Int64.to_string vlan]
+                     )
+                  )
+            | 0L | _ -> (
+                let clustering_devices_in_pool =
+                  ( match
+                      Client.PIF.get_bond_master_of ~rpc ~session_id ~self:pif
+                    with
+                  | [] ->
+                      [pif]
+                  | bonds ->
+                      List.concat_map
+                        (fun bond ->
+                          Client.Bond.get_slaves ~rpc ~session_id ~self:bond
+                        )
+                        bonds
+                  )
+                  |> List.map (fun self ->
+                         Client.PIF.get_device ~rpc ~session_id ~self
+                     )
+                in
+                match
+                  Db.Host.get_PIFs ~__context
+                    ~self:(Helpers.get_localhost ~__context)
+                  |> List.filter (fun p ->
+                         List.exists
+                           (fun d -> Db.PIF.get_device ~__context ~self:p = d)
+                           clustering_devices_in_pool
+                         && Db.PIF.get_IP ~__context ~self:p <> ""
+                     )
+                with
+                | [_] ->
+                    ()
+                | _ ->
+                    error
+                      "Cannot join pool as the joining host needs to have one \
+                       (and only one) IP address on the network that will be \
+                       used for clustering." ;
+                    raise
+                      (Api_errors.Server_error
+                         ( Api_errors
+                           .pool_joining_host_must_have_only_one_IP_on_clustering_network
+                         , []
+                         )
+                      )
+              )
+          )
+        )
+      )
   in
   (* CA-26975: Pool edition MUST match *)
   let assert_restrictions_match () =
@@ -725,7 +795,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
   in
   let assert_tls_verification_matches () =
-    let remote_pool = get_pool ~rpc ~session_id in
     let joiner_pool = Helpers.get_pool ~__context in
     let tls_enabled_pool =
       Client.Pool.get_tls_verification_enabled ~rpc ~session_id
@@ -895,6 +964,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
   assert_management_interface_exists () ;
   ha_is_not_enable_on_me () ;
   clustering_is_not_enabled_on_me () ;
+  one_ip_configured_on_joining_cluster_network () ;
   ha_is_not_enable_on_the_distant_pool () ;
   assert_not_joining_myself () ;
   assert_i_know_of_no_other_hosts () ;
@@ -1041,8 +1111,7 @@ and create_or_get_sr_on_master __context rpc session_id (_sr_ref, sr) :
         |> List.find (fun (_, sr) -> sr.API.sR_is_tools_sr)
         |> fun (ref, _) -> ref
       with Not_found ->
-        let msg = Printf.sprintf "can't find SR %s of tools iso" my_uuid in
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error "can't find SR %s of tools iso" my_uuid
     else (
       debug "Found no SR with uuid = '%s' on the master, so creating one."
         my_uuid ;
@@ -3805,8 +3874,8 @@ let set_telemetry_next_collection ~__context ~self ~value =
     | Some dt1, dt2 ->
         (dt1, dt2)
     | _ | (exception _) ->
-        let err_msg = "Can't parse date and time for telemetry collection." in
-        raise Api_errors.(Server_error (internal_error, [err_msg]))
+        Helpers.internal_error
+          "Can't parse date and time for telemetry collection."
   in
   let ts = Date.to_rfc3339 value in
   match Ptime.is_later dt_of_value ~than:dt_of_max_sched with

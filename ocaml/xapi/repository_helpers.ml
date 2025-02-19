@@ -77,7 +77,7 @@ module Update = struct
     with e ->
       let msg = "Can't construct an update from json" in
       error "%s: %s" msg (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "%s" msg
 
   let to_string u =
     Printf.sprintf "%s.%s %s:%s-%s -> %s:%s-%s from %s:%s" u.name u.arch
@@ -186,8 +186,7 @@ let assert_url_is_valid ~url =
         | [], [] ->
             ()
         | valids, [] when not (hostname_allowed valids) ->
-            let msg = "host is not in allowlist" in
-            raise Api_errors.(Server_error (internal_error, [msg]))
+            Helpers.internal_error "host is not in allowlist"
         | _, [] ->
             ()
         | _ ->
@@ -199,10 +198,9 @@ let assert_url_is_valid ~url =
               )
       )
     | _, None ->
-        raise Api_errors.(Server_error (internal_error, ["invalid host in url"]))
+        Helpers.internal_error "invalid host in url"
     | _ ->
-        raise
-          Api_errors.(Server_error (internal_error, ["invalid scheme in url"]))
+        Helpers.internal_error "invalid scheme in url"
   with
   | Api_errors.Server_error (err, _) as e
     when err = Api_errors.invalid_repository_domain_allowlist ->
@@ -307,15 +305,9 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
         Filename.concat !Xapi_globs.rpm_gpgkey_dir gpgkey_path
       in
       if not (Sys.file_exists gpgkey_abs_path) then
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["gpg key file does not exist"])
-          ) ;
+        Helpers.internal_error "gpg key file does not exist" ;
       if not ((Unix.lstat gpgkey_abs_path).Unix.st_kind = Unix.S_REG) then
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["gpg key file is not a regular file"])
-          ) ;
+        Helpers.internal_error "gpg key file is not a regular file" ;
       Printf.sprintf "gpgkey=file://%s" gpgkey_abs_path
     in
     match (!Xapi_globs.repository_gpgcheck, repo_gpgcheck) with
@@ -374,10 +366,8 @@ let get_repo_config repo_name config_name =
   | [x] ->
       x
   | _ ->
-      let msg =
-        Printf.sprintf "Not found %s for repository %s" config_name repo_name
-      in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "Not found %s for repository %s" config_name
+        repo_name
 
 let get_enabled_repositories ~__context =
   let pool = Helpers.get_pool ~__context in
@@ -950,14 +940,14 @@ let get_latest_updates_from_redundancy ~fail_on_error ~pkgs ~fallback_pkgs =
         debug "Use 'yum upgrade (dry run)'" ;
         pkgs
     | true, false ->
-        raise Api_errors.(Server_error (internal_error, [err]))
+        Helpers.internal_error "%s" err
     | false, false ->
         (* falling back *)
         warn "%s" err ; fallback_pkgs
   in
   match (fail_on_error, pkgs) with
   | true, None ->
-      raise Api_errors.(Server_error (internal_error, [err]))
+      Helpers.internal_error "%s" err
   | false, None ->
       (* falling back *)
       warn "%s" err ; fallback_pkgs
@@ -1122,7 +1112,7 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   | None ->
       let msg = "Found update from unmanaged repository" in
       error "%s: %s" msg repo ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "%s" msg
 
 let merge_updates ~repository_name ~updates =
   let accumulative_updates =
@@ -1534,11 +1524,7 @@ let get_ops_of_pending ~__context ~host ~kind =
       in
       {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
   | Guidance.Livepatch ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["No pending operations for Livepatch guidance"])
-        )
+      Helpers.internal_error "No pending operations for Livepatch guidance"
 
 let set_pending_guidances ~ops ~coming =
   let pending_of_host =

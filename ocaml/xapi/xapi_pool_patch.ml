@@ -46,7 +46,7 @@ let pool_patch_of_update ~__context update_ref =
         "Invalid state: Expected invariant - 1 pool_patch per pool_update. \
          Found: [%s]"
         (String.concat ";" (List.map (fun patch -> Ref.string_of patch) patches)) ;
-      raise Api_errors.(Server_error (internal_error, ["Invalid state"]))
+      Helpers.internal_error "Invalid state"
 
 let pool_patch_upload_handler (req : Http.Request.t) s _ =
   debug "Patch Upload Handler - Entered..." ;

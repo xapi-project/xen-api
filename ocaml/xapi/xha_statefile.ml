@@ -116,16 +116,8 @@ let check_sr_can_host_statefile ~__context ~sr ~cluster_stack =
   with
   | [] ->
       (* This should never happen because the PBDs are plugged in *)
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.internal_error
-           , [
-               "SR does not have corresponding SM record"
-             ; Ref.string_of sr
-             ; srtype
-             ]
-           )
-        )
+      Helpers.internal_error "SR does not have corresponding SM record: %s %s"
+        (Ref.string_of sr) srtype
   | (_, sm) :: _ ->
       if
         (not (List.mem_assoc "VDI_GENERATE_CONFIG" sm.Db_actions.sM_features))
