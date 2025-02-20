@@ -18,6 +18,8 @@ open D
 
 let fail fmt = Printf.ksprintf failwith fmt
 
+let ( >> ) f g x = g (f x)
+
 let failures = Atomic.make 0
 
 let not_throttled () =
@@ -211,11 +213,12 @@ end
 
 (* The context of a trace that can be propagated across service boundaries. *)
 module TraceContext = struct
-  type traceparent = string
+  type traceparent = string [@@deriving yojson]
 
-  type baggage = (string * string) list
+  type baggage = (string * string) list [@@deriving yojson]
 
   type t = {traceparent: traceparent option; baggage: baggage option}
+  [@@deriving yojson]
 
   let empty = {traceparent= None; baggage= None}
 
@@ -226,6 +229,24 @@ module TraceContext = struct
   let traceparent_of ctx = ctx.traceparent
 
   let baggage_of ctx = ctx.baggage
+
+  let parse input =
+    let open Astring.String in
+    let trim_pair (key, value) = (trim key, trim value) in
+    input
+    |> cuts ~sep:";"
+    |> List.map (cut ~sep:"=" >> Option.map trim_pair)
+    |> List.filter_map Fun.id
+
+  let encode_baggage ctx =
+    let encode =
+      List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v) >> String.concat ";"
+    in
+    ctx |> baggage_of |> Option.map encode
+
+  let to_json_string t = Yojson.Safe.to_string (to_yojson t)
+
+  let of_json_string s = of_yojson (Yojson.Safe.from_string s)
 end
 
 module SpanContext = struct
@@ -297,6 +318,8 @@ module Span = struct
 
   let get_context t = t.context
 
+  let get_trace_context t = t.context |> SpanContext.context_of_span_context
+
   let start ?(attributes = Attributes.empty)
       ?(trace_context : TraceContext.t option) ~name ~parent ~span_kind () =
     let trace_id, extra_context =
@@ -312,9 +335,9 @@ module Span = struct
     in
     let context =
       (* If trace_context is provided to the call, override any inherited trace context. *)
-      Option.fold ~none:context
-        ~some:(Fun.flip SpanContext.with_trace_context context)
-        trace_context
+      trace_context
+      |> Option.fold ~none:context
+           ~some:(Fun.flip SpanContext.with_trace_context context)
     in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
@@ -411,6 +434,12 @@ module Span = struct
         {span with status= {status_code; _description}}
     | _ ->
         span
+
+  let with_trace_context span trace_context =
+    let span_context =
+      span |> get_context |> SpanContext.with_trace_context trace_context
+    in
+    {span with context= span_context}
 end
 
 module TraceMap = Map.Make (Trace_id)
@@ -790,6 +819,8 @@ let with_child_trace ?attributes ?trace_context parent ~name f =
 module EnvHelpers = struct
   let traceparent_key = "TRACEPARENT"
 
+  let baggage_key = "BAGGAGE"
+
   let of_traceparent traceparent =
     match traceparent with
     | None ->
@@ -814,8 +845,23 @@ module EnvHelpers = struct
     | None ->
         []
     | Some span ->
-        Some (span |> Span.get_context |> SpanContext.to_traceparent)
-        |> of_traceparent
+        let baggage_env =
+          span
+          |> Span.get_context
+          |> SpanContext.context_of_span_context
+          |> TraceContext.encode_baggage
+          |> Option.fold ~none:[] ~some:(fun baggage ->
+                 [String.concat "=" [baggage_key; baggage]]
+             )
+        in
+        let traceparent_env =
+          span
+          |> Span.get_context
+          |> SpanContext.to_traceparent
+          |> Option.some
+          |> of_traceparent
+        in
+        List.concat [baggage_env; traceparent_env]
 end
 
 module Propagator = struct

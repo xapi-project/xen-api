@@ -103,11 +103,13 @@
    dune
    (alcotest :with-test)
    (fmt :with-test)
+   ppx_deriving_yojson
    re
    uri
    (uuid :with-test)
    (xapi-log (= :version))
    (xapi-stdext-threads (= :version))
+   yojson
   )
   (synopsis "Allows to instrument code to generate tracing information")
   (description "This library provides modules to allow gathering runtime traces.")
