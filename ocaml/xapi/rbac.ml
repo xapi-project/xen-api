@@ -161,80 +161,95 @@ let is_permission_in_session ~session_id ~permission ~session =
 
 open Db_actions
 
-(* look up the list generated in xapi_session.get_permissions *)
-let is_access_allowed ~__context ~session_id ~permission =
-  (* always allow local system access *)
-  if Session_check.is_local_session __context session_id then
-    true (* normal user session *)
+(* Given a list of permissions, determine if the given session is
+   permitted to perform the related actions. If not, stop and return the
+   first disallowed permission. This stops us doing redundant checks
+   but also is consistent with the current RBAC error reporting, where
+   a single action is usually reported. *)
+let find_first_disallowed_permission ~__context ~session_id ~permissions =
+  let is_local_session () =
+    Session_check.is_local_session __context session_id
+  in
+  let doesn't_have_permission session permission =
+    is_permission_in_session ~session_id ~permission ~session = false
+  in
+  (* Test session properties before querying permission sets. *)
+  if is_local_session () then
+    None
   else
     let session = DB_Action.Session.get_record ~__context ~self:session_id in
-    (* the root user can always execute anything *)
     if session.API.session_is_local_superuser then
-      true
-    (* not root user, so let's decide if permission is allowed or denied *)
+      None
     else
-      is_permission_in_session ~session_id ~permission ~session
+      List.find_opt (doesn't_have_permission session) permissions
 
-(* Execute fn if rbac access is allowed for action, otherwise fails. *)
+(* Determine if session has a given permission. *)
+let is_access_allowed ~__context ~session_id ~permission =
+  find_first_disallowed_permission ~__context ~session_id
+    ~permissions:[permission]
+  |> Option.is_none
+
+let get_session_of_context ~__context ~permission =
+  try Context.get_session_id __context
+  with Failure _ ->
+    let msg = "no session in context" in
+    raise Api_errors.(Server_error (rbac_permission_denied, [permission; msg]))
+
+let disallowed_permission_exn ?(extra_dmsg = "") ?(extra_msg = "") ~__context
+    ~permission ~action =
+  let session_id = get_session_of_context ~__context ~permission in
+  let allowed_roles =
+    try
+      Xapi_role.get_by_permission_name_label ~__context ~label:permission
+      |> List.map (fun self -> Xapi_role.get_name_label ~__context ~self)
+      |> String.concat ", "
+    with e ->
+      debug "Could not obtain allowed roles for %s (%s)" permission
+        (ExnHelper.string_of_exn e) ;
+      "<Could not obtain the list.>"
+  in
+  let msg =
+    Printf.sprintf
+      "No permission in user session. (Roles with this permission: %s)%s"
+      allowed_roles extra_msg
+  in
+  debug "%s[%s]: %s %s %s" action permission msg (trackid session_id) extra_dmsg ;
+  raise Api_errors.(Server_error (rbac_permission_denied, [permission; msg]))
+
 let nofn () = ()
 
 let check ?(extra_dmsg = "") ?(extra_msg = "") ?args ?(keys = []) ~__context ~fn
     session_id action =
   let permission = permission_of_action action ?args ~keys in
-  if is_access_allowed ~__context ~session_id ~permission then (
-    (* allow access to action *)
+  let allow_access () =
+    (* Allow access to action. *)
     let sexpr_of_args = Rbac_audit.allowed_pre_fn ~__context ~action ?args () in
     try
-      let result = fn () (* call rbac-protected function *) in
+      (* Call the RBAC-protected function. *)
+      let result = fn () in
       Rbac_audit.allowed_post_fn_ok ~__context ~session_id ~action ~permission
         ?sexpr_of_args ?args ~result () ;
       result
     with error ->
+      (* Catch all exceptions and log to RBAC audit log. *)
       Backtrace.is_important error ;
-      (* catch all exceptions *)
       Rbac_audit.allowed_post_fn_error ~__context ~session_id ~action
         ~permission ?sexpr_of_args ?args ~error () ;
+      (* Re-raise. *)
       raise error
-  ) else (* deny access to action *)
-    let allowed_roles_string =
-      try
-        let allowed_roles =
-          Xapi_role.get_by_permission_name_label ~__context ~label:permission
-        in
-        List.fold_left
-          (fun acc allowed_role ->
-            acc
-            ^ (if acc = "" then "" else ", ")
-            ^ Xapi_role.get_name_label ~__context ~self:allowed_role
-          )
-          "" allowed_roles
-      with e ->
-        debug "Could not obtain allowed roles for %s (%s)" permission
-          (ExnHelper.string_of_exn e) ;
-        "<Could not obtain the list.>"
-    in
-    let msg =
-      Printf.sprintf
-        "No permission in user session. (Roles with this permission: %s)%s"
-        allowed_roles_string extra_msg
-    in
-    debug "%s[%s]: %s %s %s" action permission msg (trackid session_id)
-      extra_dmsg ;
+  in
+  let deny_access () =
+    (*  Deny access to action, raising an exception. *)
     Rbac_audit.denied ~__context ~session_id ~action ~permission ?args () ;
     raise
-      (Api_errors.Server_error
-         (Api_errors.rbac_permission_denied, [permission; msg])
+      (disallowed_permission_exn ~extra_dmsg ~extra_msg ~__context ~permission
+         ~action
       )
-
-let get_session_of_context ~__context ~permission =
-  try Context.get_session_id __context
-  with Failure _ ->
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.rbac_permission_denied
-         , [permission; "no session in context"]
-         )
-      )
+  in
+  if is_access_allowed ~__context ~session_id ~permission then
+    allow_access ()
+  else
+    deny_access ()
 
 let assert_permission_name ~__context ~permission =
   let session_id = get_session_of_context ~__context ~permission in
