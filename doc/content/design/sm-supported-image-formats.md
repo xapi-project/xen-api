@@ -8,7 +8,6 @@ status: proposed
 
 # Introduction
 
-
 At XCP-ng, we are enhancing support for QCOW2 images in SMAPI. The primary
 motivation for this change is to overcome the 2TB size limitation imposed
 by the VHD format. By adding support for QCOW2, a Storage Repository (SR) will
@@ -26,13 +25,15 @@ To expose the available image formats to clients (e.g., XenCenter, XenOrchestra,
 we propose adding a new field called `supported-image-formats` to the Storage Manager (SM)
 module. This field will be included in the output of the `SM.get_all_records` call.
 
-The `supported-image-formats` field is populated by retrieving information
-from the SMAPI drivers. Specifically, the drivers will update its `DRIVER_INFO`
+The `supported-image-formats` field will be populated by retrieving information
+from the SMAPI drivers. Specifically, each driver will update its `DRIVER_INFO`
 dictionary with a new key, `supported_image_formats`, which will contain a list
 of strings representing the supported image formats
 (for example: `["vhd", "raw", "qcow2"]`).
 
-If a driver does not provide this information, the default value will be an empty array.
+If a driver does not provide this information (as is currently the case with existing
+drivers), the default value will be an empty array. This ensures that the modification
+remains compatible with both current and future drivers.
 
 For example, after this change, running:
 
