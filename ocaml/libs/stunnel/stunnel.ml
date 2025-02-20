@@ -110,11 +110,6 @@ type pid =
   | FEFork of Forkhelpers.pidty  (** the forkhelpers module did it for us. *)
   | Nopid
 
-(* let string_of_pid = function
-   | StdFork x -> Printf.sprintf "(StdFork %d)" x
-   | FEFork x -> Forkhelpers.string_of_pidty x
-   | Nopid -> "None" *)
-
 let getpid ty =
   match ty with
   | StdFork pid ->

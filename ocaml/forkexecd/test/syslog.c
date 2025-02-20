@@ -18,6 +18,23 @@
 	if (!old_func) \
 		old_func = (typeof(name) *) dlsym(RTLD_NEXT, #name);
 
+#define strlcpy _strlcpy
+static size_t
+strlcpy(char *dest, const char *src, size_t len)
+{
+	size_t l = strlen(src);
+
+	if (len) {
+		--len;
+		if (l <= len)
+			len = l;
+
+		memcpy(dest, src, len);
+		dest[len] = 0;
+	}
+	return l;
+}
+
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
 	static const char dev_log[] = "/dev/log";
@@ -118,4 +135,51 @@ void __syslog_chk(int priority, int flags, const char *format, ...)
 void __vsyslog_chk(int priority, int flags, const char *format, va_list ap)
 {
 	vsyslog_internal(priority, format, ap);
+}
+
+static char vfork_helper[256] = "/usr/libexec/xapi/vfork_helper";
+static char ld_preload[512];
+
+static const char ld_prefix[] = "LD_PRELOAD=";
+enum { len_prefix = sizeof(ld_prefix) - 1 };
+
+__attribute__((constructor))
+static void initialize(void)
+{
+	const char *env;
+	env = getenv("TEST_VFORK_HELPER");
+	if (env)
+		strlcpy(vfork_helper, env, sizeof(vfork_helper));
+	env = getenv("LD_PRELOAD");
+	if (env) {
+		strcpy(ld_preload, ld_prefix);
+		strlcpy(ld_preload + len_prefix, env, sizeof(ld_preload) - len_prefix);
+	}
+}
+
+int execve(const char *pathname, char *const argv[], char *const envp[])
+{
+	START(execve);
+
+	if (strcmp(pathname, "/usr/libexec/xapi/vfork_helper") == 0)
+		pathname = vfork_helper;
+
+	if (envp && ld_preload[0]) {
+		bool ok = false;
+		size_t num_env = 0;
+		for (char * const *e = envp; *e; ++e) {
+			++num_env;
+			if (strncmp(*e, ld_prefix, len_prefix) == 0)
+				ok = true;
+		}
+		if (!ok) {
+			// allocate on stack, we could be inside a vfork() created process
+			char **new_envs = alloca(sizeof(char*) * (num_env + 2));
+			*new_envs = ld_preload;
+			memcpy(new_envs + 1, envp, sizeof(char*) * (num_env + 1));
+			envp = new_envs;
+		}
+	}
+
+	return old_func(pathname, argv, envp);
 }
