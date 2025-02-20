@@ -94,6 +94,10 @@ module TraceContext : sig
   val traceparent_of : t -> traceparent option
 
   val baggage_of : t -> baggage option
+
+  val to_json_string : t -> string
+
+  val of_json_string : string -> (t, string) result
 end
 
 module SpanContext : sig
@@ -119,6 +123,8 @@ module Span : sig
 
   val get_context : t -> SpanContext.t
 
+  val get_trace_context : t -> TraceContext.t
+
   val add_link : t -> SpanContext.t -> (string * string) list -> t
 
   val add_event : t -> string -> (string * string) list -> t
@@ -140,6 +146,10 @@ module Span : sig
   val get_end_time : t -> float option
 
   val get_attributes : t -> (string * string) list
+
+  val to_propagation_context : t -> TraceContext.t
+
+  val with_trace_context : t -> TraceContext.t -> t
 end
 
 module TraceMap : module type of Map.Make (Trace_id)
