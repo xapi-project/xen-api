@@ -20,6 +20,30 @@ open Record_util
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
+type blocking_operations =
+  [ `apply_updates
+  | `cluster_create
+  | `configure_repositories
+  | `designate_new_master
+  | `ha_disable
+  | `ha_enable
+  | `sync_bundle
+  | `sync_updates
+  | `tls_verification_enable ]
+
+type waiting_operations =
+  [ `cert_refresh
+  | `copy_primary_host_certs
+  | `eject
+  | `exchange_ca_certificates_on_join
+  | `exchange_certificates_on_join
+  | `get_updates ]
+
+type all_operations = [blocking_operations | waiting_operations]
+
+(* Unused, ensure every API operation is statically partitioned here. *)
+let _id (op : API.pool_allowed_operations) : all_operations = op
+
 (* psr is not included as a pool op because it can be considered in progress
    in between api calls (i.e. wrapping it inside with_pool_operation won't work) *)
 
@@ -27,7 +51,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
  * a) throw an error if any other blocked op is in progress
  * b) wait if only a wait op is in progress
  *)
-let blocking_ops =
+let blocking_ops_table : (blocking_operations * string) list =
   [
     (`ha_enable, Api_errors.ha_enable_in_progress)
   ; (`ha_disable, Api_errors.ha_disable_in_progress)
@@ -45,7 +69,7 @@ let blocking_ops =
  *
  * waiting is symmetric: if `ha_enable is in progress, and we want to perform
  * `copy_primary_host_certs, then we wait in this case too *)
-let wait_ops =
+let waiting_ops : waiting_operations list =
   [
     `cert_refresh
   ; `exchange_certificates_on_join
@@ -55,107 +79,143 @@ let wait_ops =
   ; `get_updates
   ]
 
-let all_operations = blocking_ops |> List.map fst |> List.append wait_ops
+(* Shadow with widening coercions to allow us to query using
+   operations from either set, whilst maintaining the static guarantees
+   of the original listings. *)
+let blocking_ops_table : (all_operations * string) list =
+  List.map (fun (op, v) -> ((op :> all_operations), v)) blocking_ops_table
 
-(* see [Helpers.retry]. this error code causes a 'wait' *)
-let wait_error = Api_errors.other_operation_in_progress
+let blocking_ops : all_operations list = List.map fst blocking_ops_table
 
-(** Returns a table of operations -> API error options (None if the operation would be ok) *)
-let valid_operations ~__context record (pool : API.ref_pool) =
+let waiting_ops = List.map (fun op -> (op :> all_operations)) waiting_ops
+
+let all_operations : all_operations list = blocking_ops @ waiting_ops
+
+type validity = Unknown | Allowed | Disallowed of string * string list
+
+(* Computes a function (all_operations -> validity) that maps each
+   element of all_operations to a value indicating whether it would be
+   valid for it to be executed in the inputted execution context. *)
+let compute_valid_operations ~__context record pool :
+    API.pool_allowed_operations -> validity =
   let ref = Ref.string_of pool in
   let current_ops = List.map snd record.Db_actions.pool_current_operations in
-  let table = Hashtbl.create 10 in
-  all_operations |> List.iter (fun x -> Hashtbl.replace table x None) ;
-  let set_errors (code : string) (params : string list)
-      (ops : API.pool_allowed_operations_set) =
-    List.iter
-      (fun op ->
-        if Hashtbl.find table op = None then
-          Hashtbl.replace table op (Some (code, params))
-      )
-      ops
+  let table = (Hashtbl.create 32 : (all_operations, validity) Hashtbl.t) in
+  let set_validity = Hashtbl.replace table in
+  (* Start by assuming all operations are allowed. *)
+  List.iter (fun op -> set_validity op Allowed) all_operations ;
+  (* Given a list of operations, map each to the given error. If an
+     error has already been specified for a given operation, do
+     nothing. *)
+  let set_errors ops ((error, detail) : string * string list) =
+    let populate op =
+      match Hashtbl.find table op with
+      | Allowed ->
+          set_validity op (Disallowed (error, detail))
+      | Disallowed _ | Unknown ->
+          (* These cases should be impossible here. *)
+          ()
+    in
+    List.iter populate ops
   in
-  if current_ops <> [] then (
-    List.iter
-      (fun (blocking_op, err) ->
-        if List.mem blocking_op current_ops then (
-          set_errors err [] (blocking_ops |> List.map fst) ;
-          set_errors Api_errors.other_operation_in_progress
-            [Datamodel_common._pool; ref]
-            wait_ops
-        )
-      )
-      blocking_ops ;
-    List.iter
-      (fun wait_op ->
-        if List.mem wait_op current_ops then
-          set_errors wait_error [Datamodel_common._pool; ref] all_operations
-      )
-      wait_ops
-  ) ;
-  (* HA disable cannot run if HA is already disabled on a pool *)
-  (* HA enable cannot run if HA is already enabled on a pool *)
-  let ha_enabled =
-    Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context)
+  let other_operation_in_progress =
+    (Api_errors.other_operation_in_progress, [Datamodel_common._pool; ref])
   in
-  let current_stack =
-    Db.Pool.get_ha_cluster_stack ~__context ~self:(Helpers.get_pool ~__context)
+  let is_current_op = Fun.flip List.mem current_ops in
+  let blocking =
+    List.find_opt (fun (op, _) -> is_current_op op) blocking_ops_table
   in
-  if ha_enabled then (
-    set_errors Api_errors.ha_is_enabled [] [`ha_enable] ;
-    (* TLS verification is not allowed to run if HA is enabled *)
-    set_errors Api_errors.ha_is_enabled [] [`tls_verification_enable]
-  ) else
-    set_errors Api_errors.ha_not_enabled [] [`ha_disable] ;
-  (* cluster create cannot run during a rolling pool upgrade *)
-  if Helpers.rolling_upgrade_in_progress ~__context then (
-    set_errors Api_errors.not_supported_during_upgrade [] [`cluster_create] ;
-    set_errors Api_errors.not_supported_during_upgrade []
-      [`tls_verification_enable]
+  let waiting = List.find_opt is_current_op waiting_ops in
+  ( match (blocking, waiting) with
+  | Some (_, reason), _ ->
+      (* Mark all potentially blocking operations as invalid due
+         to the specific blocking operation's "in progress" error. *)
+      set_errors blocking_ops (reason, []) ;
+      (* Mark all waiting operations as invalid for the generic
+         "OTHER_OPERATION_IN_PROGRESS" reason. *)
+      set_errors waiting_ops other_operation_in_progress
+      (* Note that all_operations ⊆ blocking_ops ∪ waiting_ops, so this
+         invalidates all operations (with the reason partitioned
+         between whether the operation is blocking or waiting). *)
+  | None, Some _ ->
+      (* If there's no blocking operation in current operations, but
+         there is a waiting operation, invalidate all operations for the
+         generic reason. Again, this covers every operation. *)
+      set_errors all_operations other_operation_in_progress
+  | None, None -> (
+      (* If there's no blocking or waiting operation in current
+         operations (i.e. current operations is empty), we can report
+         more precise reasons why operations would be invalid. *)
+      let ha_enabled, current_stack =
+        let self = Helpers.get_pool ~__context in
+        Db.Pool.
+          ( get_ha_enabled ~__context ~self
+          , get_ha_cluster_stack ~__context ~self
+          )
+      in
+      if ha_enabled then (
+        (* Can't enable HA if it's already enabled. *)
+        let ha_is_enabled = (Api_errors.ha_is_enabled, []) in
+        set_errors [`ha_enable] ha_is_enabled ;
+        (* TLS verification is not allowed to run if HA is enabled. *)
+        set_errors [`tls_verification_enable] ha_is_enabled
+      ) else (* Can't disable HA if it's not enabled. *)
+        set_errors [`ha_disable] (Api_errors.ha_not_enabled, []) ;
+      (* Cluster create cannot run during a rolling pool upgrade. *)
+      if Helpers.rolling_upgrade_in_progress ~__context then (
+        let not_supported_during_upgrade =
+          (Api_errors.not_supported_during_upgrade, [])
+        in
+        set_errors [`cluster_create] not_supported_during_upgrade ;
+        set_errors [`tls_verification_enable] not_supported_during_upgrade
+      ) ;
+      (* Cluster create cannot run if a cluster already exists on the pool. *)
+      match Db.Cluster.get_all ~__context with
+      | [_] ->
+          set_errors [`cluster_create] (Api_errors.cluster_already_exists, [])
+      (* Indicates a bug or a need to update this code (if we ever support multiple clusters in the pool). *)
+      | _ :: _ ->
+          failwith "Multiple clusters exist in the pool"
+      (* Cluster create cannot run if HA is already enabled. *)
+      | [] ->
+          if ha_enabled then
+            let error =
+              (Api_errors.incompatible_cluster_stack_active, [current_stack])
+            in
+            set_errors [`cluster_create] error
+    )
   ) ;
-  (* cluster create cannot run if a cluster already exists on the pool *)
-  ( match Db.Cluster.get_all ~__context with
-  | [_] ->
-      set_errors Api_errors.cluster_already_exists [] [`cluster_create]
-  (* indicates a bug or a need to update this code (if we ever support multiple clusters in the pool *)
-  | _ :: _ ->
-      failwith "Multiple clusters exist in the pool"
-  (* cluster create cannot run if ha is already enabled *)
-  | [] ->
-      if ha_enabled then
-        set_errors Api_errors.incompatible_cluster_stack_active [current_stack]
-          [`cluster_create]
-  ) ;
-  table
-
-let throw_error table op =
-  match Hashtbl.find_opt table op with
-  | None ->
-      Helpers.internal_error
-        "xapi_pool_helpers.assert_operation_valid unknown operation: %s"
-        (pool_allowed_operations_to_string op)
-  | Some (Some (code, params)) ->
-      raise (Api_errors.Server_error (code, params))
-  | Some None ->
-      ()
+  fun op -> Hashtbl.find_opt table op |> Option.value ~default:Unknown
 
 let assert_operation_valid ~__context ~self ~(op : API.pool_allowed_operations)
     =
-  (* no pool operations allowed during a pending PSR *)
+  (* No pool operations allowed during a pending PSR. *)
   if Db.Pool.get_is_psr_pending ~__context ~self:(Helpers.get_pool ~__context)
   then
     raise Api_errors.(Server_error (pool_secret_rotation_pending, [])) ;
   let all = Db.Pool.get_record_internal ~__context ~self in
-  let table = valid_operations ~__context all self in
-  throw_error table op
+  let lookup = compute_valid_operations ~__context all self in
+  match lookup op with
+  | Allowed ->
+      ()
+  | Disallowed (error, detail) ->
+      raise (Api_errors.Server_error (error, detail))
+  | Unknown ->
+      (* This should never happen and implies our validity algorithm is incomplete. *)
+      let detail =
+        let op = pool_allowed_operations_to_string op in
+        Printf.sprintf "%s.%s unknown operation: %s" __MODULE__ __FUNCTION__ op
+      in
+      raise Api_errors.(Server_error (internal_error, [detail]))
 
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.Pool.get_record_internal ~__context ~self in
-  let valid = valid_operations ~__context all self in
-  let keys =
-    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+  let is_allowed_op =
+    let lookup = compute_valid_operations ~__context all self in
+    fun op -> lookup op = Allowed
   in
-  Db.Pool.set_allowed_operations ~__context ~self ~value:keys
+  let value = List.filter is_allowed_op all_operations in
+  Db.Pool.set_allowed_operations ~__context ~self ~value
 
 (** Add to the Pool's current operations, call a function and then remove from the
     current operations. Ensure the allowed_operations are kept up to date. *)
