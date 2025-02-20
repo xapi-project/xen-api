@@ -201,7 +201,7 @@ class TestNssConfig(TestCase):
         self.assertTrue(line_exists_in_config(nss._lines, expected_config))
 
     def test_ad_enabled(self, mock_install):
-        expected_config = "passwd: files hcp winbind"
+        expected_config = "passwd: files override_id winbind"
         nss = NssConfig(mock_session, args_bd_winbind, True)
         nss.apply()
         self.assertTrue(line_exists_in_config(nss._lines, expected_config))
