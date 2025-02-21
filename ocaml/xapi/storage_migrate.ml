@@ -1338,22 +1338,14 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
              Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
                remote_url
          end)) in
-         let t =
-           Thread.create
-             (fun () ->
-               debug "Calling receive_finalize2" ;
-               log_and_ignore_exn (fun () ->
-                   Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
-               ) ;
-               debug "Finished calling receive_finalize2" ;
-               State.remove_local_mirror id ;
-               debug "Removed active local mirror: %s" id
-             )
-             ()
-         in
-         Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog ;
-         debug "Created thread %d to call receive finalize and dp destroy"
-           (Thread.id t)
+         debug "Calling receive_finalize2" ;
+         log_and_ignore_exn (fun () ->
+             Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
+         ) ;
+         debug "Finished calling receive_finalize2" ;
+         State.remove_local_mirror id ;
+         debug "Removed active local mirror: %s" id ;
+         Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog
      )
 
 let nbd_handler req s ?(vm = "0") sr vdi dp =
