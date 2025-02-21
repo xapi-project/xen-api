@@ -62,7 +62,20 @@ to call:
 
 1.  [Call](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L902-L911)
     [wait_xen_free_mem](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/domain.ml#L236-L272)
-    to wait (if necessary), for the Xen memory scrubber to catch up reclaiming memory (CA-39743)
+    to wait (if necessary), for the Xen memory scrubber to catch up reclaiming memory.
+    It
+    1. calls `Xenctrl.physinfo` which returns:
+       - `hostinfo.free_pages` - the free and already scrubbed pages (available)
+       - `host.scrub_pages` - the not yet scrubbed pages (not yet available)
+    2. repeats this until a timeout as long as `free_pages` is *lower*
+       than the *required* pages
+       - unless if `scrub_pages` is 0 (no scrubbing left to do)
+
+    Note: `free_pages` is system-wide memory, not memory specific to a NUMA node.
+    Because this is not NUMA-aware, in case of temporary node-specific memory shortage,
+    this check is not sufficient to prevent the VM from being spread over all NUMA nodes.
+    It is planned to resolve this issue by claiming NUMA node memory during NUMA placement.
+
 2.  Call the hypercall to set the timer mode
 3.  Call the hypercall to set the number of vCPUs
 4.  Call the `numa_placement` function
