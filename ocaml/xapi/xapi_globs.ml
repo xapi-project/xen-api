@@ -933,7 +933,7 @@ let xl_cmd = ref "/usr/sbin/xl"
 
 let depmod = ref "/usr/sbin/depmod"
 
-let driver_tool = ref "/opt/xensource/debug/drivertool.sh"
+let driver_tool = ref "/usr/sbin/driver-tool"
 
 let dracut = ref "/usr/bin/dracut"
 

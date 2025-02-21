@@ -74,7 +74,8 @@ module Variant = struct
     if v.API.driver_variant_hardware_present = false then
       no_hardware (Ref.string_of self) ;
     let stdout =
-      Tool.call ["select"; d.API.host_driver_name; v.API.driver_variant_name]
+      Tool.call
+        ["-s"; "-n"; d.API.host_driver_name; "-v"; v.API.driver_variant_name]
     in
     info "%s: %s" __FUNCTION__ stdout ;
     Db.Host_driver.set_selected_variant ~__context ~self:drv ~value:self
@@ -171,10 +172,12 @@ let remove ~__context ~host ~except =
 (** Runs on [host]. We update or create an entry for each driver
     reported by drivertool and remove any extra driver that is in xapi. *)
 let scan ~__context ~host =
-  Tool.Mock.install () ;
+  let path = !Xapi_globs.driver_tool in
+  (* if the real tool is not installed, install a mock *)
+  if not (Sys.file_exists path) then Tool.Mock.install () ;
   let null = Ref.null in
   let drivers (* on this host *) =
-    Tool.call ["list"]
+    Tool.call ["-l"]
     |> Tool.parse
     |> List.map @@ fun (_name, driver) ->
        let driver_ref =
