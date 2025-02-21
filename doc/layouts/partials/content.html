@@ -8,12 +8,60 @@
 {{ $c := .Page.Params.class }}
 {{ with index (where $.Site.Data.xenapi "name" $c) 0 }}
 
+<script>
+
+function render(t) {
+  if (t instanceof Builtin)
+    return `<span class="ty builtin ${t.name}">${t.name}</span>`;
+
+  if (t instanceof Enum)
+    return `<span class="ty enum"><span class="kw-enum">enum</span> <span class="enum name"><a href="#" onClick="locateEnum('${t.name}')">${t.name}</a></span></span>`;
+
+  if (t instanceof Ctor) {
+    if (t.name == 'map') {
+      let l = render(t.params[0]);
+      let r = render(t.params[1]);
+      return `<span class="ty ctor">(${l} \u2192 ${r}) <span class="ctor name ${t.name}">${t.name}</span></span>`;
+    }
+
+    if (t.params.length == 0)
+      return `<a href="../${t.name.toLowerCase()}" onClick="event.stopPropagation();">${t.name}</a>`;
+
+    let unary = render(t.params[0]);
+    return `<span class="ty ctor">${unary} <span class="ctor name ${t.name}">${t.name}</span></span>`;
+  }
+}
+
+function renderType(input) {
+  let ty = parseSingleType(input);
+  if (ty == null)
+    return input;
+
+  return render(ty);
+}
+</script>
+
 <script type="text/javascript">
    function showhide(obj) {
     if (obj.style.display == 'none')
       obj.style.display = 'inherit';
     else
       obj.style.display = 'none';
+  }
+
+  function toggle(e) {
+    showhide(e.nextElementSibling);
+  }
+
+  function locateEnum(name) {
+    event.stopPropagation();
+    let target = document.querySelector(`#enum_${name}`);
+    document.querySelector('#enums').scrollIntoView();
+    let detail = target.querySelector(`#enum_${name}_details`);
+    detail.style.display = 'inherit';
+    target.style.transition = '0.1s';
+    target.style.textShadow = '0px 4px 5px rgba(0, 0, 0, 0.5)';
+    setTimeout(() => { target.style.textShadow = 'none'; }, 300);
   }
 
   function toggle_implicit(button) {
@@ -29,7 +77,9 @@
 </script>
 
 {{ $style := resources.Get "css/xenapi.css" }}
+{{ $parser := resources.Get "js/parse.js" }}
 <link rel="stylesheet" href="{{ $style.Permalink }}">
+<script src="{{ $parser.Permalink }}"></script>
 
 {{ with .lifecycle }}
 <div class="lifecycle">
@@ -64,11 +114,11 @@ Class: {{ $c }}
 </div>
 
 {{ if gt (len .enums) 0 }}
-  <h3>Enums</h3>
+  <h3 id="enums">Enums</h3>
 
   {{ range $i, $x := .enums }}
   <div id="enum_{{$x.name}}" class="{{ if modBool $i 2 }}field{{ else }}field2{{ end }}" >
-    <div class="field-name" onclick="showhide(document.getElementById('enum_{{$x.name}}_details'))">{{ $x.name }}</div>
+    <div class="field-name" onclick="toggle(this)">{{ $x.name }}</div>
     <div id="enum_{{$x.name}}_details" style="display: none">
 
     <table class="field-table">
@@ -146,16 +196,20 @@ Class: {{ $c }}
     {{ end }}
   </div>
   {{ end }}
-  <div onclick="showhide(document.getElementById('{{$x.name}}_details'))">
+  <div onclick="toggle(this)">
     <span class="inline-type">{{replace (index $x.result 0) "->" "→"}}</span>
     <span class="field-name">{{$x.name}}</span>
     {{ $ptypes := slice }}
     {{ range $x.params }}
       {{ $ptypes = $ptypes | append (replace .type "->" "→") }}
     {{ end }}
-    <span class="inline-params">({{ delimit $ptypes ", " }})</span>
+    {{ $wrappedTypes := slice }}
+    {{ range $ptypes }}
+      {{ $wrappedTypes = $wrappedTypes | append (safeHTML (printf "<span class=\"inline-type\" style=\"margin: 0;\">%s</span>" .)) }}
+    {{ end }}
+    <span class="inline-params">({{ delimit $wrappedTypes ", " | safeHTML }})</span>
   </div>
-  <div id="{{$x.name}}_details" style="display: none">
+  <div id="{{$x.name}}_details" class="details" style="display: none">
     <div class="field-description">
       {{ $x.description | htmlEscape }}
     </div>
@@ -237,3 +291,8 @@ Code name: "{{ $r }}".
 {{- /* Finished generating the release page content */}}
 
 {{ end }}
+
+<script>
+  for (let x of document.querySelectorAll('.inline-type'))
+    x.innerHTML = renderType(x.innerHTML);
+</script>
