@@ -69,7 +69,8 @@ CAMLprim value stub_blkgetsize64(value filename){
     }
 #endif
     close(fd);
-  }
+  } else
+    size_in_bytes = -1;
   caml_leave_blocking_section();
   free((void*)filename_c);
 
