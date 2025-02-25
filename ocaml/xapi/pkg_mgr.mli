@@ -18,6 +18,12 @@ type mgr = Yum | Dnf
 
 type cmd_line = {cmd: string; params: string list}
 
+module Updateinfo : sig
+  type t = Available | Updates
+
+  val to_string : t -> string
+end
+
 (** Interfaces to build command line and params for the package manager *)
 module type S = sig
   val manager : mgr
@@ -29,7 +35,7 @@ module type S = sig
   (** Command line and arguments to clean a repo cache *)
 
   val get_pkgs_from_updateinfo :
-    sub_command:string -> repositories:string list -> cmd_line
+    Updateinfo.t -> repositories:string list -> cmd_line
   (** Command line and arguments to get packages from updateinfo *)
 
   val get_updates_from_upgrade_dry_run : repositories:string list -> cmd_line

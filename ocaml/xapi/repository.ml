@@ -129,7 +129,7 @@ let cleanup_pool_repo ~__context ~self =
       (ExnHelper.string_of_exn e) ;
     raise Api_errors.(Server_error (repository_cleanup_failed, []))
 
-let get_proxy_params ~__context repo_name =
+let get_proxy_params ~__context =
   let pool = Helpers.get_pool ~__context in
   let url = Db.Pool.get_repository_proxy_url ~__context ~self:pool in
   let username = Db.Pool.get_repository_proxy_username ~__context ~self:pool in
@@ -139,15 +139,16 @@ let get_proxy_params ~__context repo_name =
   match (url, username, password_ref) with
   | url', username', password_ref'
     when url' <> "" && username' <> "" && password_ref' <> Ref.null ->
-      ( Printf.sprintf "--setopt=%s.proxy=%s" repo_name url'
-      , Printf.sprintf "--setopt=%s.proxy_username=%s" repo_name username'
-      , Printf.sprintf "--setopt=%s.proxy_password=%s" repo_name
+      [
+        Printf.sprintf "proxy=%s" url'
+      ; Printf.sprintf "proxy_username=%s" username'
+      ; Printf.sprintf "proxy_password=%s"
           (Db.Secret.get_value ~__context ~self:password_ref')
-      )
+      ]
   | url', "", _ when url' <> "" ->
-      (Printf.sprintf "--setopt=%s.proxy=%s" repo_name url', "", "")
+      [Printf.sprintf "proxy=%s" url']
   | _ ->
-      ("", "", "")
+      []
 
 let sync ~__context ~self ~token ~token_id ~username ~password =
   try
@@ -228,14 +229,15 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
     in
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
-        let config_repo params =
-          let Pkg_mgr.{cmd; params} =
-            "--save" :: params |> fun config ->
-            Pkgs.config_repo ~repo_name ~config
-          in
-          ignore (Helpers.call_script ~log_output:Helpers.On_failure cmd params)
+        let config_repo config =
+          if List.length config <> 0 then (* Set params to yum/dnf *)
+            let Pkg_mgr.{cmd; params} = Pkgs.config_repo ~repo_name ~config in
+            ignore
+              (Helpers.call_script ~log_output:Helpers.On_failure cmd params)
+          else
+            debug "%s: Skip configure repo as no valid params to configure"
+              __FUNCTION__
         in
-
         let make_cache () =
           (* Import YUM repository GPG key to check metadata in reposync *)
           let Pkg_mgr.{cmd; params} = Pkgs.make_cache ~repo_name in
@@ -262,7 +264,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
           match client_auth with
           | Some (auth_file, plugin) ->
               let token_param =
-                Printf.sprintf "--setopt=%s.%s=%s" repo_name plugin
+                Printf.sprintf "%s=%s" plugin
                   (Uri.make ~scheme:"file" ~path:auth_file () |> Uri.to_string)
               in
               [token_param]
@@ -272,16 +274,12 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
         let proxy_params =
           match use_proxy with
           | true ->
-              let proxy_url_param, proxy_username_param, proxy_password_param =
-                get_proxy_params ~__context repo_name
-              in
-              [proxy_url_param; proxy_username_param; proxy_password_param]
+              get_proxy_params ~__context
           | false ->
               []
         in
-        config_repo (auth_params @ proxy_params) ;
-        make_cache () ;
-        sync_repo ()
+        auth_params @ proxy_params |> fun x ->
+        config_repo x ; make_cache () ; sync_repo ()
       )
       (fun () ->
         (* Rewrite repo conf file as initial content to remove credential
