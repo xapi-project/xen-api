@@ -466,11 +466,7 @@ open Gen_db_actions
 
 let gen_db_actions highapi =
   let highapi_in_db =
-    Dm_api.filter
-      (fun obj -> obj.DT.in_database)
-      (fun _ -> true)
-      (fun _ -> true)
-      highapi
+    Dm_api.filter_by ~obj:(fun obj -> obj.DT.in_database) highapi
   in
   let all_types_in_db = all_types_of highapi_in_db in
   let only_records =

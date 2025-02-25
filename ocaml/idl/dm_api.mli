@@ -34,16 +34,14 @@ val get_obj_by_name : api -> objname:string -> obj
 val field_exists : api -> objname:string -> fieldname:string -> bool
 (** True if the named field exists *)
 
-val filter : (obj -> bool) -> (field -> bool) -> (message -> bool) -> api -> api
-(** Apply a predicate to every object, field and message, to generate a sub-API *)
-
 val filter_by :
      ?obj:(obj -> bool)
   -> ?field:(field -> bool)
   -> ?message:(message -> bool)
   -> api
   -> api
-(** Same as [filter] but with defaulted arguments that retain everything. *)
+(** Filter an API by filtering objects, fields, and messages. The
+    default predicates retain everything. *)
 
 val map :
      (obj -> obj)

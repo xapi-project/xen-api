@@ -687,13 +687,12 @@ let () =
   (* Add all implicit messages *)
   let api = add_implicit_messages api in
   (* Only include messages that are visible to a XenAPI client *)
-  let api = filter (fun _ -> true) (fun _ -> true) on_client_side api in
+  let api = filter_by ~message:on_client_side api in
   (* And only messages marked as not hidden from the docs, and non-internal fields *)
   let api =
-    filter
-      (fun _ -> true)
-      (fun f -> not f.internal_only)
-      (fun m -> not m.msg_hide_from_docs)
+    filter_by
+      ~field:(fun f -> not f.internal_only)
+      ~message:(fun m -> not m.msg_hide_from_docs)
       api
   in
   let objs = objects_of_api api in

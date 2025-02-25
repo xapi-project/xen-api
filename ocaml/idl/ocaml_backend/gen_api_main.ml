@@ -48,18 +48,18 @@ let filter_api () =
   let api_used = Datamodel.all_api in
   (* Add all implicit messages to the API directly *)
   let api_used = Datamodel_utils.add_implicit_messages api_used in
-  let filterfn = Dm_api.filter (fun _ -> true) in
+  let filter_by = Dm_api.filter_by in
   match !filter with
   | None ->
       api_used
   | Some "opensource" ->
-      filterfn Field.opensource Message.opensource api_used
+      filter_by ~field:Field.opensource ~message:Message.opensource api_used
   | Some "closed" ->
-      filterfn Field.closed Message.closed api_used
+      filter_by ~field:Field.closed ~message:Message.closed api_used
   | Some "debug" ->
-      filterfn Field.debug Message.debug api_used
+      filter_by ~field:Field.debug ~message:Message.debug api_used
   | Some "nothing" ->
-      filterfn Field.nothing Message.nothing api_used
+      filter_by ~field:Field.nothing ~message:Message.nothing api_used
   | Some x ->
       Printf.eprintf "Unknown filter mode: %s\n" x ;
       api_used

@@ -79,10 +79,10 @@ let operation_requires_side_effect ({msg_tag= tag; _} as msg) =
       msg.DT.msg_has_effect && msg.DT.msg_forward_to = None
 
 let make_custom_api api =
-  Dm_api.filter
-    (fun _ -> true)
-    (fun _ -> true)
-    (fun msg -> operation_requires_side_effect msg && Client.objfilter msg api)
+  Dm_api.filter_by
+    ~message:(fun msg ->
+      operation_requires_side_effect msg && Client.objfilter msg api
+    )
     api
 
 let gen_debug_module name_override result_type_override body_override api :
