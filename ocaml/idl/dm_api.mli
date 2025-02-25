@@ -37,6 +37,14 @@ val field_exists : api -> objname:string -> fieldname:string -> bool
 val filter : (obj -> bool) -> (field -> bool) -> (message -> bool) -> api -> api
 (** Apply a predicate to every object, field and message, to generate a sub-API *)
 
+val filter_by :
+     ?obj:(obj -> bool)
+  -> ?field:(field -> bool)
+  -> ?message:(message -> bool)
+  -> api
+  -> api
+(** Same as [filter] but with defaulted arguments that retain everything. *)
+
 val map :
      (obj -> obj)
   -> (string -> field -> field)
