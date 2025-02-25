@@ -93,7 +93,7 @@ let call_slave_with_session remote_rpc_fn __context host
       ~auth_user_name:"" ~rbac_permissions:[]
   in
   finally
-    (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
+    (fun () -> f ~rpc:(remote_rpc_fn __context hostname task_opt) ~session_id)
     (fun () -> Xapi_session.destroy_db_session ~__context ~self:session_id)
 
 let call_slave_with_local_session remote_rpc_fn __context host
@@ -105,7 +105,7 @@ let call_slave_with_local_session remote_rpc_fn __context host
       ~psecret:(Xapi_globs.pool_secret ())
   in
   finally
-    (fun () -> f session_id (remote_rpc_fn __context hostname task_opt))
+    (fun () -> f ~rpc:(remote_rpc_fn __context hostname task_opt) ~session_id)
     (fun () ->
       Client.Session.local_logout
         ~rpc:(remote_rpc_fn __context hostname None)
@@ -134,14 +134,14 @@ let check_live ~__context h =
     raise (Api_errors.Server_error (Api_errors.host_offline, [Ref.string_of h]))
 
 (* Forward op to one of the specified hosts if host is not localhost *)
-let do_op_on_common ~local_fn ~__context ~host op f =
+let do_op_on_common ~local_fn ~__context ~host ~remote_fn f =
   try
     let localhost = Helpers.get_localhost ~__context in
     if localhost = host then
       local_fn ~__context
     else
       let task_opt = set_forwarding_on_task ~__context ~host in
-      f __context host task_opt op
+      f __context host task_opt remote_fn
   with
   | Xmlrpc_client.Connection_reset | Http_client.Http_request_rejected _ ->
       warn
@@ -166,22 +166,22 @@ let do_op_on_common ~local_fn ~__context ~host op f =
    use the connection cache. *)
 (* we don't check "host.enabled" here, because for most messages we want to be able to forward
    them even when the host is disabled; vm.start_on and resume_on do their own check for enabled *)
-let do_op_on ~local_fn ~__context ~host op =
+let do_op_on ~local_fn ~__context ~host ~remote_fn =
   check_live ~__context host ;
-  do_op_on_common ~local_fn ~__context ~host op
+  do_op_on_common ~local_fn ~__context ~host ~remote_fn
     (call_slave_with_session remote_rpc_retry)
 
 (* with session but no live check. Used by the Pool.hello calling back ONLY
    Don't use the connection cache or retry logic. *)
-let do_op_on_nolivecheck_no_retry ~local_fn ~__context ~host op =
-  do_op_on_common ~local_fn ~__context ~host op
+let do_op_on_nolivecheck_no_retry ~local_fn ~__context ~host ~remote_fn =
+  do_op_on_common ~local_fn ~__context ~host ~remote_fn
     (call_slave_with_session remote_rpc_no_retry)
 
 (* with a local session and no checking. This is used for forwarding messages to hosts that
    we don't know are alive/dead -- e.g. the pool_emergency_* messages.
    Don't use the connection cache or retry logic. *)
-let do_op_on_localsession_nolivecheck ~local_fn ~__context ~host op =
-  do_op_on_common ~local_fn ~__context ~host op
+let do_op_on_localsession_nolivecheck ~local_fn ~__context ~host ~remote_fn =
+  do_op_on_common ~local_fn ~__context ~host ~remote_fn
     (call_slave_with_local_session remote_rpc_no_retry)
 
 (* Map a function across a list, remove elements which throw an exception *)
@@ -700,12 +700,12 @@ functor
         Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
         TaskHelper.assert_op_valid ~__context task ;
         let local_fn = cancel ~task in
+        let remote_fn = Client.Task.cancel ~task in
         let forwarded_to = Db.Task.get_forwarded_to ~__context ~self:task in
         if Db.is_valid_ref __context forwarded_to then
           do_op_on ~local_fn ~__context
             ~host:(Db.Task.get_forwarded_to ~__context ~self:task)
-            (fun session_id rpc -> Client.Task.cancel ~rpc ~session_id ~task
-          )
+            ~remote_fn
         else
           local_fn ~__context
     end
@@ -805,22 +805,18 @@ functor
         @@ fun () ->
         let master = Helpers.get_master ~__context in
         let local_fn = Local.Pool.eject ~host in
+        let remote_fn = Client.Pool.eject ~host in
         let other =
           Db.Host.get_all ~__context
           |> List.filter (fun h -> h <> host && h <> master)
         in
         (* eject host but don't remove it from DB yet *)
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool.eject ~rpc ~session_id ~host
-        ) ;
+        do_op_on ~local_fn ~__context ~host ~remote_fn ;
         (* perform cleanup on remaining pool members
          * this must be best effort - once an eject has begun we cannot rollback *)
         other
         |> List.iter (fun h ->
-               try
-                 do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
-                     Client.Pool.eject ~rpc ~session_id ~host
-                 )
+               try do_op_on ~local_fn ~__context ~host:h ~remote_fn
                with e ->
                  D.warn
                    "Pool.eject: while ejecting host=%s, we failed to clean up \
@@ -829,9 +825,7 @@ functor
                    (Printexc.to_string e)
            ) ;
         (* finally clean up on master *)
-        do_op_on ~local_fn ~__context ~host:master (fun session_id rpc ->
-            Client.Pool.eject ~rpc ~session_id ~host
-        )
+        do_op_on ~local_fn ~__context ~host:master ~remote_fn
 
       let designate_new_master ~__context ~host =
         info "Pool.designate_new_master: pool = '%s'; host = '%s'"
@@ -843,9 +837,8 @@ functor
             (* Sync the RRDs from localhost to new master *)
             Xapi_sync.sync_host ~__context host ;
             let local_fn = Local.Pool.designate_new_master ~host in
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Pool.designate_new_master ~rpc ~session_id ~host
-            )
+            let remote_fn = Client.Pool.designate_new_master ~host in
+            do_op_on ~local_fn ~__context ~host ~remote_fn
         )
 
       let management_reconfigure ~__context ~network =
@@ -1022,6 +1015,7 @@ functor
           (current_pool_uuid ~__context) ;
         let self = Helpers.get_pool ~__context in
         let local_fn = Local.Pool.enable_tls_verification in
+        let remote_fn = Client.Pool.enable_tls_verification in
         let all_hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
 
         Xapi_pool_helpers.with_pool_operation ~__context
@@ -1035,9 +1029,7 @@ functor
             done ;
             all_hosts
             |> List.iter (fun host ->
-                   do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                       Client.Pool.enable_tls_verification ~rpc ~session_id
-                   ) ;
+                   do_op_on ~local_fn ~__context ~host ~remote_fn ;
                    debug "Pool.enable_tls_verification enabling on host %s"
                      (Ref.string_of host)
                ) ;
@@ -1371,12 +1363,12 @@ functor
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
       (* Read resisdent-on field from vm to determine who to forward to  *)
-      let forward_vm_op ~local_fn ~__context ~vm op =
+      let forward_vm_op ~local_fn ~__context ~vm ~remote_fn =
         let power_state = Db.VM.get_power_state ~__context ~self:vm in
         if List.mem power_state [`Running; `Paused] then
           do_op_on ~local_fn ~__context
             ~host:(Db.VM.get_resident_on ~__context ~self:vm)
-            op
+            ~remote_fn
         else
           local_fn ~__context
 
@@ -1489,8 +1481,8 @@ functor
 
       (* Used by VM.start and VM.resume to choose a host with enough resource and to
          'allocate_vm_to_host' (ie set the 'scheduled_to_be_resident_on' field) *)
-      let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ?host_op
-          op =
+      let forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot ~remote_fn
+          ?host_op () =
         let suitable_host =
           Helpers.with_global_lock (fun () ->
               let host =
@@ -1511,7 +1503,9 @@ functor
         in
         finally
           (fun () ->
-            (do_op_on ~local_fn ~__context ~host:suitable_host op, suitable_host)
+            ( do_op_on ~local_fn ~__context ~host:suitable_host ~remote_fn
+            , suitable_host
+            )
           )
           (fun () ->
             Helpers.with_global_lock (fun () ->
@@ -1599,16 +1593,17 @@ functor
           ) ;
           raise exn
 
-      let forward_to_access_srs ~local_fn ~__context ~vm op =
+      let forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn =
         let suitable_host =
           Xapi_vm_helpers.choose_host ~__context ~vm
             ~choose_fn:(Xapi_vm_helpers.assert_can_see_SRs ~__context ~self:vm)
             ()
         in
-        do_op_on ~local_fn ~__context ~host:suitable_host op
+        do_op_on ~local_fn ~__context ~host:suitable_host ~remote_fn
 
       (* Used for the VM.copy when an SR is specified *)
-      let forward_to_access_srs_and ~local_fn ~__context ?vm ?extra_sr op =
+      let forward_to_access_srs_and ~local_fn ~__context ~remote_fn ?vm
+          ?extra_sr () =
         let choose_fn ~host =
           ( match vm with
           | Some vm ->
@@ -1626,7 +1621,7 @@ functor
         let suitable_host =
           Xapi_vm_helpers.choose_host ~__context ?vm ~choose_fn ()
         in
-        do_op_on ~local_fn ~__context ~host:suitable_host op
+        do_op_on ~local_fn ~__context ~host:suitable_host ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -1699,15 +1694,12 @@ functor
         info "VM.clone: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm)
           new_name ;
         let local_fn = Local.VM.clone ~vm ~new_name in
+        let remote_fn = Client.VM.clone ~vm ~new_name in
         (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
            uses the API to clone and lock the individual VDIs. We don't give any atomicity
            guarantees here but we do prevent disk corruption. *)
         with_vm_operation ~__context ~self:vm ~doc:"VM.clone" ~op:`clone
-          (fun () ->
-            forward_to_access_srs ~local_fn ~__context ~vm
-              (fun session_id rpc ->
-                Client.VM.clone ~rpc ~session_id ~vm ~new_name
-            )
+          (fun () -> forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
         )
 
       let update_snapshot_metadata ~__context ~vm ~snapshot_of ~snapshot_time
@@ -1723,16 +1715,13 @@ functor
         info "VM.snapshot: VM = '%s'; new_name = '%s'" (vm_uuid ~__context vm)
           new_name ;
         let local_fn = Local.VM.snapshot ~vm ~new_name ~ignore_vdis in
+        let remote_fn = Client.VM.snapshot ~vm ~new_name ~ignore_vdis in
         (* We mark the VM as snapshoting. We don't mark the disks; the implementation of the snapshot uses the API   *)
         (* to snapshot and lock the individual VDIs. We don't give any atomicity guarantees here but we do prevent   *)
         (* disk corruption.                                                                                          *)
         let result =
           with_vm_operation ~__context ~self:vm ~doc:"VM.snapshot" ~op:`snapshot
-            (fun () ->
-              forward_to_access_srs ~local_fn ~__context ~vm
-                (fun session_id rpc ->
-                  Client.VM.snapshot ~rpc ~session_id ~vm ~new_name ~ignore_vdis
-              )
+            (fun () -> forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
           )
         in
         let message_body =
@@ -1749,16 +1738,14 @@ functor
         info "VM.checkpoint: VM = '%s'; new_name=' %s'" (vm_uuid ~__context vm)
           new_name ;
         let local_fn = Local.VM.checkpoint ~vm ~new_name in
-        let forward_fn session_id rpc =
-          Client.VM.checkpoint ~rpc ~session_id ~vm ~new_name
-        in
+        let remote_fn = Client.VM.checkpoint ~vm ~new_name in
         let result =
           with_vm_operation ~__context ~self:vm ~doc:"VM.checkpoint"
             ~op:`checkpoint (fun () ->
               if Db.VM.get_power_state ~__context ~self:vm = `Running then
-                forward_vm_op ~local_fn ~__context ~vm forward_fn
+                forward_vm_op ~local_fn ~__context ~vm ~remote_fn
               else
-                forward_to_access_srs ~local_fn ~__context ~vm forward_fn
+                forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
           )
         in
         let message_body =
@@ -1790,6 +1777,7 @@ functor
       let provision ~__context ~vm =
         info "VM.provision: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.provision ~vm in
+        let remote_fn = Client.VM.provision ~vm in
         let localhost = Helpers.get_localhost ~__context in
         with_vm_operation ~__context ~self:vm ~doc:"VM.provision" ~op:`provision
           (fun () ->
@@ -1856,9 +1844,7 @@ functor
             in
             loadbalance_host_operation ~__context ~hosts ~doc:"VM.provision"
               ~op:`provision (fun host ->
-                do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                    Client.VM.provision ~rpc ~session_id ~vm
-                )
+                do_op_on ~local_fn ~__context ~host ~remote_fn
             )
         )
 
@@ -1874,6 +1860,7 @@ functor
         Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         let local_fn = Local.VM.start ~vm ~start_paused ~force in
+        let remote_fn = Client.VM.start ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.start" ~op:`start
             (fun () ->
@@ -1894,10 +1881,7 @@ functor
                       let snapshot = Db.VM.get_record ~__context ~self:vm in
                       let (), host =
                         forward_to_suitable_host ~local_fn ~__context ~vm
-                          ~snapshot ~host_op:`vm_start (fun session_id rpc ->
-                            Client.VM.start ~rpc ~session_id ~vm ~start_paused
-                              ~force
-                        )
+                          ~snapshot ~host_op:`vm_start ~remote_fn ()
                       in
                       host
                   )
@@ -1940,6 +1924,7 @@ functor
         info "VM.start_on: VM = '%s'; host '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.start_on ~vm ~host ~start_paused ~force in
+        let remote_fn = Client.VM.start ~vm ~start_paused ~force in
         with_vm_operation ~__context ~self:vm ~doc:"VM.start_on" ~op:`start_on
           (fun () ->
             with_vbds_marked ~__context ~vm ~doc:"VM.start_on" ~op:`attach
@@ -1958,11 +1943,7 @@ functor
                     let snapshot = Db.VM.get_record ~__context ~self:vm in
                     reserve_memory_for_vm ~__context ~vm ~host ~snapshot
                       ~host_op:`vm_start (fun () ->
-                        do_op_on ~local_fn ~__context ~host
-                          (fun session_id rpc ->
-                            Client.VM.start ~rpc ~session_id ~vm ~start_paused
-                              ~force
-                        )
+                        do_op_on ~local_fn ~__context ~host ~remote_fn
                     ) ;
                     Xapi_vm_helpers.start_delay ~__context ~vm
                 )
@@ -1986,11 +1967,9 @@ functor
       let pause ~__context ~vm =
         info "VM.pause: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.pause ~vm in
+        let remote_fn = Client.VM.pause ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.pause" ~op:`pause
-          (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.pause ~rpc ~session_id ~vm
-            )
+          (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         let message_body =
           Printf.sprintf "VM '%s' (uuid: %s) paused"
@@ -2005,11 +1984,9 @@ functor
       let unpause ~__context ~vm =
         info "VM.unpause: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.unpause ~vm in
+        let remote_fn = Client.VM.unpause ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.unpause" ~op:`unpause
-          (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.unpause ~rpc ~session_id ~vm
-            )
+          (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         let message_body =
           Printf.sprintf "VM '%s' (uuid: %s) unpaused"
@@ -2027,11 +2004,10 @@ functor
            'hidden' ]"
           (vm_uuid ~__context vm) plugin fn ;
         let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
+        let remote_fn = Client.VM.call_plugin ~vm ~plugin ~fn ~args in
         with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin"
           ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.call_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args
-            )
+            forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         )
 
       let set_has_vendor_device ~__context ~self ~value =
@@ -2045,18 +2021,16 @@ functor
         let power_state = Db.VM.get_power_state ~__context ~self in
         if power_state = `Running then
           let local_fn = Local.VM.set_xenstore_data ~self ~value in
-          forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-              Client.VM.set_xenstore_data ~rpc ~session_id ~self ~value
-          )
+          let remote_fn = Client.VM.set_xenstore_data ~self ~value in
+          forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
 
       let clean_shutdown ~__context ~vm =
         info "VM.clean_shutdown: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.clean_shutdown ~vm in
+        let remote_fn = Client.VM.clean_shutdown ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.clean_shutdown"
           ~op:`clean_shutdown (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.clean_shutdown ~rpc ~session_id ~vm
-            )
+            forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         let message_body =
           Printf.sprintf "VM '%s' (uuid: %s) shutdown"
@@ -2071,6 +2045,7 @@ functor
       let shutdown ~__context ~vm =
         info "VM.shutdown: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.shutdown ~vm in
+        let remote_fn = Client.VM.shutdown ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.shutdown" ~op:`shutdown
           (fun () ->
             if Db.VM.get_power_state ~__context ~self:vm = `Suspended then (
@@ -2090,14 +2065,12 @@ functor
                     )
                   ()
               in
-              do_op_on ~__context ~local_fn:(Local.VM.hard_shutdown ~vm)
-                ~host:suitable_host (fun session_id rpc ->
-                  Client.VM.hard_shutdown ~rpc ~session_id ~vm
-              )
+              do_op_on ~__context
+                ~local_fn:(Local.VM.hard_shutdown ~vm)
+                ~host:suitable_host
+                ~remote_fn:(Client.VM.hard_shutdown ~vm)
             ) else
-              forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                  Client.VM.shutdown ~rpc ~session_id ~vm
-              )
+              forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm ;
@@ -2112,6 +2085,7 @@ functor
       let clean_reboot ~__context ~vm =
         info "VM.clean_reboot: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.clean_reboot ~vm in
+        let remote_fn = Client.VM.clean_reboot ~vm in
         (* Mark all the VBDs to prevent someone nicking one of the VDIs (or attaching
            			   a conflicting VBD) while the devices are detached *)
         with_vm_operation ~__context ~self:vm ~doc:"VM.clean_reboot"
@@ -2122,10 +2096,7 @@ functor
                   ~op:`attach (fun _vifs ->
                     (* CA-31903: we don't need to reserve memory for reboot
                        because the memory settings can't change across reboot. *)
-                    forward_vm_op ~local_fn ~__context ~vm
-                      (fun session_id rpc ->
-                        Client.VM.clean_reboot ~rpc ~session_id ~vm
-                    )
+                    forward_vm_op ~local_fn ~__context ~vm ~remote_fn
                 )
             )
         ) ;
@@ -2147,6 +2118,7 @@ functor
       let hard_shutdown ~__context ~vm =
         info "VM.hard_shutdown: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.hard_shutdown ~vm in
+        let remote_fn = Client.VM.hard_shutdown ~vm in
         let host = Db.VM.get_resident_on ~__context ~self:vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.hard_shutdown"
           ~op:`hard_shutdown (fun () ->
@@ -2187,9 +2159,7 @@ functor
                 (* if we're nt suspended then just forward to host that has vm running on it: *)
                 do_op_on ~host
             in
-            policy ~local_fn ~__context (fun session_id rpc ->
-                Client.VM.hard_shutdown ~rpc ~session_id ~vm
-            )
+            policy ~local_fn ~__context ~remote_fn
         ) ;
         let message_body =
           Printf.sprintf "VM '%s' (uuid: %s) shutdown forcibly"
@@ -2204,6 +2174,7 @@ functor
       let hard_reboot ~__context ~vm =
         info "VM.hard_reboot: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.hard_reboot ~vm in
+        let remote_fn = Client.VM.hard_reboot ~vm in
         let host = Db.VM.get_resident_on ~__context ~self:vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.hard_reboot"
           ~op:`hard_reboot (fun () ->
@@ -2222,9 +2193,7 @@ functor
                   ~op:`attach (fun _vifs ->
                     (* CA-31903: we don't need to reserve memory for reboot
                        because the memory settings can't change across reboot. *)
-                    do_op_on ~host ~local_fn ~__context (fun session_id rpc ->
-                        Client.VM.hard_reboot ~rpc ~session_id ~vm
-                    )
+                    do_op_on ~host ~local_fn ~__context ~remote_fn
                 )
             )
         ) ;
@@ -2241,6 +2210,7 @@ functor
       let hard_reboot_internal ~__context ~vm =
         info "VM.hard_reboot_internal: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.hard_reboot_internal ~vm in
+        let remote_fn = Client.VM.hard_reboot_internal ~vm in
         (* no VM operation: we assume the VM is still Running *)
         with_vbds_marked ~__context ~vm ~doc:"VM.hard_reboot" ~op:`attach
           (fun _vbds ->
@@ -2248,9 +2218,7 @@ functor
               (fun _vifs ->
                 (* CA-31903: we don't need to reserve memory for reboot because the memory settings can't
                    							   change across reboot. *)
-                forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                    Client.VM.hard_reboot_internal ~rpc ~session_id ~vm
-                )
+                forward_vm_op ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
         update_vbd_operations ~__context ~vm ;
@@ -2259,11 +2227,9 @@ functor
       let suspend ~__context ~vm =
         info "VM.suspend: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.suspend ~vm in
+        let remote_fn = Client.VM.suspend ~vm in
         with_vm_operation ~__context ~self:vm ~doc:"VM.suspend" ~op:`suspend
-          (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.suspend ~rpc ~session_id ~vm
-            )
+          (fun () -> forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         ) ;
         (* debug "placeholder for retrieving the current value of memory-actual";*)
         let message_body =
@@ -2286,7 +2252,7 @@ functor
             Xapi_vm_snapshot.create_vm_from_snapshot ~__context ~snapshot
         in
         let local_fn = Local.VM.revert ~snapshot in
-        let forward_fn _session_id _rpc =
+        let remote_fn ~rpc:_ ~session_id:_ =
           Local.VM.revert ~__context ~snapshot
         in
         with_vm_operation ~__context ~self:snapshot ~doc:"VM.revert" ~op:`revert
@@ -2333,9 +2299,9 @@ functor
                 ) ;
                 Xapi_vm_snapshot.revert_vm_fields ~__context ~snapshot ~vm ;
                 if Db.VM.get_power_state ~__context ~self:vm = `Running then
-                  forward_vm_op ~local_fn ~__context ~vm forward_fn
+                  forward_vm_op ~local_fn ~__context ~vm ~remote_fn
                 else
-                  forward_to_access_srs ~local_fn ~__context ~vm forward_fn
+                  forward_to_access_srs ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
         let message_body =
@@ -2352,6 +2318,7 @@ functor
       let csvm ~__context ~vm =
         info "VM.csvm: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.csvm ~vm in
+        let remote_fn = Client.VM.csvm ~vm in
         (* We mark the VM as cloning. We don't mark the disks; the implementation of the clone
            			   uses the API to clone and lock the individual VDIs. We don't give any atomicity
            			   guarantees here but we do prevent disk corruption. *)
@@ -2363,9 +2330,7 @@ functor
           with_vm_operation ~__context ~self:vm ~doc:"VM.csvm" ~op:`csvm
             (fun () ->
               forward_to_access_srs_and ~extra_sr:suspend_sr ~local_fn
-                ~__context ~vm (fun session_id rpc ->
-                  Client.VM.csvm ~rpc ~session_id ~vm
-              )
+                ~__context ~vm ~remote_fn ()
           )
         in
         let message_body =
@@ -2383,6 +2348,8 @@ functor
         info "VM.resume: VM = '%s'" (vm_uuid ~__context vm) ;
         Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         let local_fn = Local.VM.resume ~vm ~start_paused ~force in
+
+        let remote_fn = Client.VM.resume ~vm ~start_paused ~force in
         let host =
           with_vm_operation ~__context ~self:vm ~doc:"VM.resume" ~op:`resume
             (fun () ->
@@ -2393,10 +2360,7 @@ functor
                   let snapshot = Db.VM.get_record ~__context ~self:vm in
                   let (), host =
                     forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
-                      ~host_op:`vm_resume (fun session_id rpc ->
-                        Client.VM.resume ~rpc ~session_id ~vm ~start_paused
-                          ~force
-                    )
+                      ~host_op:`vm_resume ~remote_fn ()
                   in
                   host
               )
@@ -2422,6 +2386,7 @@ functor
         info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
+        let remote_fn = Client.VM.resume_on ~vm ~host ~start_paused ~force in
         Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
         with_vm_operation ~__context ~self:vm ~doc:"VM.resume_on" ~op:`resume_on
           (fun () ->
@@ -2432,10 +2397,7 @@ functor
                 let snapshot = Db.VM.get_record ~__context ~self:vm in
                 reserve_memory_for_vm ~__context ~vm ~host ~snapshot
                   ~host_op:`vm_resume (fun () ->
-                    do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                        Client.VM.resume_on ~rpc ~session_id ~vm ~host
-                          ~start_paused ~force
-                    )
+                    do_op_on ~local_fn ~__context ~host ~remote_fn
                 )
             )
         ) ;
@@ -2458,9 +2420,8 @@ functor
           (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.pool_migrate_complete ~vm ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.VM.pool_migrate_complete ~rpc ~session_id ~vm ~host
-        ) ;
+        let remote_fn = Client.VM.pool_migrate_complete ~vm ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn ;
         update_vbd_operations ~__context ~vm ;
         update_vif_operations ~__context ~vm
 
@@ -2468,6 +2429,7 @@ functor
         info "VM.pool_migrate: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.pool_migrate ~vm ~host ~options in
+        let remote_fn = Client.VM.pool_migrate ~vm ~host ~options in
         (* Check that the VM is compatible with the host it is being migrated to. *)
         let force =
           try bool_of_string (List.assoc "force" options) with _ -> false
@@ -2494,9 +2456,7 @@ functor
             let snapshot = Db.VM.get_record ~__context ~self:vm in
             reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
-                forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                    Client.VM.pool_migrate ~rpc ~session_id ~vm ~host ~options
-                )
+                forward_vm_op ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
         let message_body =
@@ -2522,11 +2482,11 @@ functor
           Local.VM.assert_can_migrate_sender ~vm ~dest ~live ~vdi_map ~vif_map
             ~vgpu_map ~options
         in
-        try
-          forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-              Client.VM.assert_can_migrate_sender ~rpc ~session_id ~vm ~dest
-                ~live ~vdi_map ~vif_map ~vgpu_map ~options
-          )
+        let remote_fn =
+          Client.VM.assert_can_migrate_sender ~vm ~dest ~live ~vdi_map ~vif_map
+            ~vgpu_map ~options
+        in
+        try forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         with
         | Api_errors.Server_error (code, _)
         when code = Api_errors.message_method_unknown
@@ -2553,9 +2513,9 @@ functor
           Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
             ~options
         in
-        let op session_id rpc =
-          Client.VM.migrate_send ~rpc ~session_id ~vm ~dest ~live ~vdi_map
-            ~vif_map ~options ~vgpu_map
+        let remote_fn =
+          Client.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options
+            ~vgpu_map
         in
         let migration_type =
           if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
@@ -2569,7 +2529,8 @@ functor
         in
         let forward_migrate_send () =
           let forward_internal_async () =
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
+            forward_vm_op ~local_fn ~__context ~vm
+              ~remote_fn:(fun ~rpc ~session_id ->
                 (* try InternalAsync.VM.migrate_send first to avoid long running idle stunnel connection
                    * fall back on Async.VM.migrate_send if slave doesn't support InternalAsync *)
                 Helpers.try_internal_async ~__context API.ref_VM_of_rpc
@@ -2577,7 +2538,7 @@ functor
                     Client.InternalAsync.VM.migrate_send ~rpc ~session_id ~vm
                       ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map
                   )
-                  (fun () -> op session_id rpc)
+                  (fun () -> remote_fn ~session_id ~rpc)
             )
           in
           match migration_type with
@@ -2588,7 +2549,7 @@ functor
               let snapshot = Db.VM.get_record ~__context ~self:vm in
               fst
                 (forward_to_suitable_host ~local_fn ~__context ~vm ~snapshot
-                   ~host_op:`vm_migrate op
+                   ~host_op:`vm_migrate ~remote_fn ()
                 )
           | `Live_intrapool host ->
               (* reserve resources on the destination host, then forward the call to the source. *)
@@ -2643,45 +2604,40 @@ functor
         info "VM.send_trigger: VM = '%s'; trigger = '%s'"
           (vm_uuid ~__context vm) trigger ;
         let local_fn = Local.VM.send_trigger ~vm ~trigger in
+        let remote_fn = Client.VM.send_trigger ~vm ~trigger in
         with_vm_operation ~__context ~self:vm ~doc:"VM.send_trigger"
           ~op:`send_trigger (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.send_trigger ~rpc ~session_id ~vm ~trigger
-            )
+            forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         )
 
       let send_sysrq ~__context ~vm ~key =
         info "VM.send_sysrq: VM = '%s'; sysrq = '%s'" (vm_uuid ~__context vm)
           key ;
         let local_fn = Local.VM.send_sysrq ~vm ~key in
+        let remote_fn = Client.VM.send_sysrq ~vm ~key in
         with_vm_operation ~__context ~self:vm ~doc:"VM.send_sysrq"
           ~op:`send_sysrq (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-                Client.VM.send_sysrq ~rpc ~session_id ~vm ~key
-            )
+            forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         )
 
       let set_VCPUs_number_live ~__context ~self ~nvcpu =
         info "VM.set_VCPUs_number_live: VM = '%s'; number_of_VCPU = %Ld"
           (vm_uuid ~__context self) nvcpu ;
         let local_fn = Local.VM.set_VCPUs_number_live ~self ~nvcpu in
+        let remote_fn = Client.VM.set_VCPUs_number_live ~self ~nvcpu in
         with_vm_operation ~__context ~self ~doc:"VM.set_VCPUs_number_live"
           ~op:`changing_VCPUs_live (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_VCPUs_number_live ~rpc ~session_id ~self ~nvcpu
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let add_to_VCPUs_params_live ~__context ~self ~key ~value =
         info "VM.add_to_VCPUs_params_live: VM = '%s'; params = ('%s','%s')"
           (vm_uuid ~__context self) key value ;
         let local_fn = Local.VM.add_to_VCPUs_params_live ~self ~key ~value in
+        let remote_fn = Client.VM.add_to_VCPUs_params_live ~self ~key ~value in
         with_vm_operation ~__context ~self ~doc:"VM.add_to_VCPUs_params_live"
           ~op:`changing_VCPUs_live (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.add_to_VCPUs_params_live ~rpc ~session_id ~self ~key
-                  ~value
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let set_NVRAM ~__context ~self ~value =
@@ -2728,6 +2684,7 @@ functor
         info "VM.set_memory_dynamic_range: VM = '%s'; min = %Ld; max = %Ld"
           (Ref.string_of self) min max ;
         let local_fn = Local.VM.set_memory_dynamic_range ~self ~min ~max in
+        let remote_fn = Client.VM.set_memory_dynamic_range ~self ~min ~max in
         with_vm_operation ~__context ~self ~doc:"VM.set_memory_dynamic_range"
           ~op:`changing_dynamic_range (fun () ->
             (* XXX: Perform basic parameter validation, before forwarding *)
@@ -2740,11 +2697,7 @@ functor
                 (* then we will block the operation *)
                 reserve_memory_for_dynamic_change ~__context ~vm:self min max
                   (fun () ->
-                    forward_vm_op ~local_fn ~__context ~vm:self
-                      (fun session_id rpc ->
-                        Client.VM.set_memory_dynamic_range ~rpc ~session_id
-                          ~self ~min ~max
-                    )
+                    forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
                 )
             | `Halted ->
                 local_fn ~__context
@@ -2797,44 +2750,42 @@ functor
           Local.VM.set_memory_limits ~self ~static_min ~static_max ~dynamic_min
             ~dynamic_max
         in
+        let remote_fn =
+          Client.VM.set_memory_limits ~self ~static_min ~static_max ~dynamic_min
+            ~dynamic_max
+        in
         with_vm_operation ~__context ~self ~doc:"VM.set_memory_limits"
           ~op:`changing_memory_limits (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_memory_limits ~rpc ~session_id ~self ~static_min
-                  ~static_max ~dynamic_min ~dynamic_max
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let set_memory ~__context ~self ~value =
         info "VM.set_memory: self = %s; value = %Ld" (vm_uuid ~__context self)
           value ;
         let local_fn = Local.VM.set_memory ~self ~value in
+        let remote_fn = Client.VM.set_memory ~self ~value in
         with_vm_operation ~__context ~self ~doc:"VM.set_memory"
           ~op:`changing_memory_limits (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_memory ~rpc ~session_id ~self ~value
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let set_memory_target_live ~__context ~self ~target =
         info "VM.set_memory_target_live: VM = '%s'; min = %Ld"
           (vm_uuid ~__context self) target ;
         let local_fn = Local.VM.set_memory_target_live ~self ~target in
+        let remote_fn = Client.VM.set_memory_target_live ~self ~target in
         with_vm_operation ~__context ~self ~doc:"VM.set_memory_target_live"
           ~op:`changing_memory_live (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.set_memory_target_live ~rpc ~session_id ~self ~target
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let wait_memory_target_live ~__context ~self =
         info "VM.wait_memory_target_live: VM = '%s'" (vm_uuid ~__context self) ;
         let local_fn = Local.VM.wait_memory_target_live ~self in
+        let remote_fn = Client.VM.wait_memory_target_live ~self in
         with_vm_operation ~__context ~self ~doc:"VM.wait_memory_target_live"
           ~op:`awaiting_memory_live (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.wait_memory_target_live ~rpc ~session_id ~self
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       (* Dummy implementation for a deprecated API method. *)
@@ -2853,15 +2804,15 @@ functor
       let set_shadow_multiplier_live ~__context ~self ~multiplier =
         info "VM.set_shadow_multiplier_live: VM = '%s'; min = %f"
           (vm_uuid ~__context self) multiplier ;
+        (* No need to perform a memory calculation here: the real code
+           will tell us if the new value is too big. *)
         let local_fn = Local.VM.set_shadow_multiplier_live ~self ~multiplier in
+        let remote_fn =
+          Client.VM.set_shadow_multiplier_live ~self ~multiplier
+        in
         with_vm_operation ~__context ~self ~doc:"VM.set_shadow_multiplier_live"
           ~op:`changing_shadow_memory_live (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                (* No need to perform a memory calculation here: the real code
-                   will tell us if the new value is too big. *)
-                Client.VM.set_shadow_multiplier_live ~rpc ~session_id ~self
-                  ~multiplier
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       (* this is in db *)
@@ -2875,22 +2826,20 @@ functor
       let get_data_sources ~__context ~self =
         info "VM.get_data_sources: VM = '%s'" (vm_uuid ~__context self) ;
         let local_fn = Local.VM.get_data_sources ~self in
+        let remote_fn = Client.VM.get_data_sources ~self in
         with_vm_operation ~__context ~self ~doc:"VM.get_data_source"
           ~op:`data_source_op (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.get_data_sources ~rpc ~session_id ~self
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let record_data_source ~__context ~self ~data_source =
         info "VM.record_data_source: VM = '%s'; data source = '%s'"
           (vm_uuid ~__context self) data_source ;
         let local_fn = Local.VM.record_data_source ~self ~data_source in
+        let remote_fn = Client.VM.record_data_source ~self ~data_source in
         with_vm_operation ~__context ~self ~doc:"VM.record_data_source"
           ~op:`data_source_op (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.record_data_source ~rpc ~session_id ~self ~data_source
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let query_data_source ~__context ~self ~data_source =
@@ -2899,9 +2848,8 @@ functor
         Xapi_vm_lifecycle.assert_initial_power_state_in ~__context ~self
           ~allowed:[`Running; `Paused] ;
         let local_fn = Local.VM.query_data_source ~self ~data_source in
-        forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-            Client.VM.query_data_source ~rpc ~session_id ~self ~data_source
-        )
+        let remote_fn = Client.VM.query_data_source ~self ~data_source in
+        forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
 
       let forget_data_source_archives ~__context ~self ~data_source =
         info "VM.forget_data_source_archives: VM = '%s'; data source = '%s'"
@@ -2909,12 +2857,12 @@ functor
         let local_fn =
           Local.VM.forget_data_source_archives ~self ~data_source
         in
+        let remote_fn =
+          Client.VM.forget_data_source_archives ~self ~data_source
+        in
         with_vm_operation ~__context ~self ~doc:"VM.forget_data_source_archives"
           ~op:`data_source_op (fun () ->
-            forward_vm_op ~local_fn ~__context ~vm:self (fun session_id rpc ->
-                Client.VM.forget_data_source_archives ~rpc ~session_id ~self
-                  ~data_source
-            )
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
         )
 
       let get_possible_hosts ~__context ~vm =
@@ -2972,16 +2920,14 @@ functor
       let s3_suspend ~__context ~vm =
         info "VM.s3_suspend: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.s3_suspend ~vm in
-        forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-            Client.VM.s3_suspend ~rpc ~session_id ~vm
-        )
+        let remote_fn = Client.VM.s3_suspend ~vm in
+        forward_vm_op ~local_fn ~__context ~vm ~remote_fn
 
       let s3_resume ~__context ~vm =
         info "VM.s3_resume: VM = '%s'" (vm_uuid ~__context vm) ;
         let local_fn = Local.VM.s3_resume ~vm in
-        forward_vm_op ~local_fn ~__context ~vm (fun session_id rpc ->
-            Client.VM.s3_resume ~rpc ~session_id ~vm
-        )
+        let remote_fn = Client.VM.s3_resume ~vm in
+        forward_vm_op ~local_fn ~__context ~vm ~remote_fn
 
       let set_bios_strings ~__context ~self ~value =
         info "VM.set_bios_strings: self = '%s'; value = '%s'"
@@ -3077,10 +3023,9 @@ functor
             ()
         in
         let host = Db.PBD.get_host ~__context ~self:pbd in
-        do_op_on ~local_fn:(Local.VM.import ~url ~sr ~full_restore ~force)
-          ~__context ~host (fun session_id rpc ->
-            Client.VM.import ~rpc ~session_id ~url ~sr ~full_restore ~force
-        )
+        let local_fn = Local.VM.import ~url ~sr ~full_restore ~force in
+        let remote_fn = Client.VM.import ~url ~sr ~full_restore ~force in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_domain_type ~__context ~self ~value =
         info "VM.set_domain_type: self = '%s'; value = '%s';"
@@ -3141,16 +3086,14 @@ functor
       let gc_compact ~__context ~host =
         info "Diagnostics.gc_compact: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Diagnostics.gc_compact ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Diagnostics.gc_compact ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Diagnostics.gc_compact ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let gc_stats ~__context ~host =
         info "Diagnostics.gc_stats: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Diagnostics.gc_stats ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Diagnostics.gc_stats ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Diagnostics.gc_stats ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let db_stats ~__context =
         info "Diagnostics.db_stats" ;
@@ -3159,9 +3102,8 @@ functor
       let network_stats ~__context ~host ~params =
         info "Diagnostics.network_stats: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Diagnostics.network_stats ~host ~params in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Diagnostics.network_stats ~rpc ~session_id ~host ~params
-        )
+        let remote_fn = Client.Diagnostics.network_stats ~host ~params in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module Host = struct
@@ -3206,39 +3148,33 @@ functor
         info "Host.ha_disable_failover_decisions: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_disable_failover_decisions ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_disable_failover_decisions ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.ha_disable_failover_decisions ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let ha_disarm_fencing ~__context ~host =
         info "Host.ha_disarm_fencing: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_disarm_fencing ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_disarm_fencing ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.ha_disarm_fencing ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let ha_stop_daemon ~__context ~host =
         info "Host.ha_stop_daemon: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_stop_daemon ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_stop_daemon ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.ha_stop_daemon ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let ha_release_resources ~__context ~host =
         info "Host.ha_release_resources: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_release_resources ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_release_resources ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.ha_release_resources ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let ha_wait_for_shutdown_via_statefile ~__context ~host =
         info "Host.ha_wait_for_shutdown_via_statefile: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_wait_for_shutdown_via_statefile ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_wait_for_shutdown_via_statefile ~rpc ~session_id
-              ~host
-        )
+        let remote_fn = Client.Host.ha_wait_for_shutdown_via_statefile ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let preconfigure_ha ~__context ~host ~statefiles ~metadata_vdi ~generation
           =
@@ -3252,32 +3188,30 @@ functor
         let local_fn =
           Local.Host.preconfigure_ha ~host ~statefiles ~metadata_vdi ~generation
         in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.preconfigure_ha ~rpc ~session_id ~host ~statefiles
-              ~metadata_vdi ~generation
-        )
+        let remote_fn =
+          Client.Host.preconfigure_ha ~host ~statefiles ~metadata_vdi
+            ~generation
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let ha_join_liveset ~__context ~host =
         info "Host.ha_join_liveset: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.ha_join_liveset ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.ha_join_liveset ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.ha_join_liveset ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let request_backup ~__context ~host ~generation ~force =
         debug "Host.request_backup: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.request_backup ~host ~generation ~force in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.request_backup ~rpc ~session_id ~host ~generation ~force
-        )
+        let remote_fn = Client.Host.request_backup ~host ~generation ~force in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let request_config_file_sync ~__context ~host ~hash =
         debug "Host.request_config_file_sync: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.request_config_file_sync ~host ~hash in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.request_config_file_sync ~rpc ~session_id ~host ~hash
-        )
+        let remote_fn = Client.Host.request_config_file_sync ~host ~hash in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       (* Call never forwarded *)
       let ha_xapi_healthcheck ~__context =
@@ -3337,11 +3271,11 @@ functor
           if Db.PIF.get_management ~__context ~self:pif then Some () else None
         in
         let local_fn = Local.Host.management_reconfigure ~pif in
+        let remote_fn = Client.Host.management_reconfigure ~pif in
         let fn () =
           do_op_on ~local_fn ~__context
-            ~host:(Db.PIF.get_host ~__context ~self:pif) (fun session_id rpc ->
-              Client.Host.management_reconfigure ~rpc ~session_id ~pif
-          )
+            ~host:(Db.PIF.get_host ~__context ~self:pif)
+            ~remote_fn
         in
         tolerate_connection_loss fn success 30.
 
@@ -3360,9 +3294,8 @@ functor
         Xapi_ha_vm_failover.assert_host_disable_preserves_ha_plan ~__context
           host ;
         let local_fn = Local.Host.disable ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable ~rpc ~session_id ~host
-        ) ;
+        let remote_fn = Client.Host.disable ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
       let declare_dead ~__context ~host =
@@ -3373,41 +3306,37 @@ functor
       let enable ~__context ~host =
         info "Host.enable: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable ~host in
+        let remote_fn = Client.Host.enable ~host in
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.enable" ~op:`enable (fun () ->
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Host.enable ~rpc ~session_id ~host
-            )
+            do_op_on ~local_fn ~__context ~host ~remote_fn
         ) ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 
       let shutdown ~__context ~host =
         info "Host.shutdown: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.shutdown ~host in
+        let remote_fn = Client.Host.shutdown ~host in
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.shutdown" ~op:`shutdown (fun () ->
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Host.shutdown ~rpc ~session_id ~host
-            )
+            do_op_on ~local_fn ~__context ~host ~remote_fn
         )
 
       let reboot ~__context ~host =
         info "Host.reboot: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.reboot ~host in
+        let remote_fn = Client.Host.reboot ~host in
         Xapi_host_helpers.with_host_operation ~__context ~self:host
           ~doc:"Host.reboot" ~op:`reboot (fun () ->
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.Host.reboot ~rpc ~session_id ~host
-            )
+            do_op_on ~local_fn ~__context ~host ~remote_fn
         )
 
       (* This is only be called by systemd during shutdown when xapi-domains.service is stopped *)
       let prepare_for_poweroff ~__context ~host =
         info "Host.prepare_for_poweroff: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.prepare_for_poweroff ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.prepare_for_poweroff ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.prepare_for_poweroff ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let power_on ~__context ~host =
         info "Host.power_on: host = '%s'" (host_uuid ~__context host) ;
@@ -3420,16 +3349,14 @@ functor
       let dmesg ~__context ~host =
         info "Host.dmesg: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.dmesg ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.dmesg ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.dmesg ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let dmesg_clear ~__context ~host =
         info "Host.dmesg_clear: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.dmesg_clear ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.dmesg_clear ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.dmesg_clear ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let bugreport_upload ~__context ~host ~url ~options =
         let filtered_options =
@@ -3451,9 +3378,8 @@ functor
              (List.map (fun (k, v) -> k ^ "=" ^ v) filtered_options)
           ) ;
         let local_fn = Local.Host.bugreport_upload ~host ~url ~options in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.bugreport_upload ~rpc ~session_id ~host ~url ~options
-        )
+        let remote_fn = Client.Host.bugreport_upload ~host ~url ~options in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let list_methods ~__context =
         info "Host.list_methods" ;
@@ -3464,30 +3390,26 @@ functor
           (host_uuid ~__context host)
           keys ;
         let local_fn = Local.Host.send_debug_keys ~host ~keys in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.send_debug_keys ~rpc ~session_id ~host ~keys
-        )
+        let remote_fn = Client.Host.send_debug_keys ~host ~keys in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_log ~__context ~host =
         info "Host.get_log: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_log ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_log ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_log ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let license_add ~__context ~host ~contents =
         info "Host.license_add: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.license_add ~host ~contents in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.license_add ~rpc ~session_id ~host ~contents
-        )
+        let remote_fn = Client.Host.license_add ~host ~contents in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let license_remove ~__context ~host =
         info "Host.license_remove: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.license_remove ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.license_remove ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.license_remove ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let assert_can_evacuate ~__context ~host =
         info "Host.assert_can_evacuate: host = '%s'" (host_uuid ~__context host) ;
@@ -3516,25 +3438,22 @@ functor
       let update_pool_secret ~__context ~host ~pool_secret =
         info "Host.update_pool_secret: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.update_pool_secret ~host ~pool_secret in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.update_pool_secret ~rpc ~session_id ~host ~pool_secret
-        )
+        let remote_fn = Client.Host.update_pool_secret ~host ~pool_secret in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let update_master ~__context ~host ~master_address =
         info "Host.update_master: host = '%s'; master = '%s'"
           (host_uuid ~__context host)
           master_address ;
         let local_fn = Local.Pool.emergency_reset_master ~master_address in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.update_master ~rpc ~session_id ~host ~master_address
-        )
+        let remote_fn = Client.Host.update_master ~host ~master_address in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let restart_agent ~__context ~host =
         info "Host.restart_agent: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.restart_agent ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.restart_agent ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.restart_agent ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let shutdown_agent ~__context = Local.Host.shutdown_agent ~__context
 
@@ -3549,59 +3468,52 @@ functor
       let syslog_reconfigure ~__context ~host =
         info "Host.syslog_reconfigure: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.syslog_reconfigure ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.syslog_reconfigure ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.syslog_reconfigure ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_system_status_capabilities ~__context ~host =
         info "Host.get_system_status_capabilities: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_system_status_capabilities ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_system_status_capabilities ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_system_status_capabilities ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_diagnostic_timing_stats ~__context ~host =
         info "Host.get_diagnostic_timing_stats: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_diagnostic_timing_stats ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_diagnostic_timing_stats ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_hostname_live ~__context ~host ~hostname =
         info "Host.set_hostname_live: host = '%s'; hostname = '%s'"
           (host_uuid ~__context host)
           hostname ;
         let local_fn = Local.Host.set_hostname_live ~host ~hostname in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_hostname_live ~rpc ~session_id ~host ~hostname
-        )
+        let remote_fn = Client.Host.set_hostname_live ~host ~hostname in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_data_sources ~__context ~host =
         info "Host.get_data_sources: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_data_sources ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_data_sources ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_data_sources ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let record_data_source ~__context ~host ~data_source =
         info "Host.record_data_source: host = '%s';  data source = '%s'"
           (host_uuid ~__context host)
           data_source ;
         let local_fn = Local.Host.record_data_source ~host ~data_source in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.record_data_source ~rpc ~session_id ~host ~data_source
-        )
+        let remote_fn = Client.Host.record_data_source ~host ~data_source in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let query_data_source ~__context ~host ~data_source =
         info "Host.query_data_source: host = '%s'; data source = '%s'"
           (host_uuid ~__context host)
           data_source ;
         let local_fn = Local.Host.query_data_source ~host ~data_source in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.query_data_source ~rpc ~session_id ~host ~data_source
-        )
+        let remote_fn = Client.Host.query_data_source ~host ~data_source in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let forget_data_source_archives ~__context ~host ~data_source =
         info "Host.forget_data_source_archives: host = '%s'; data source = '%s'"
@@ -3610,10 +3522,10 @@ functor
         let local_fn =
           Local.Host.forget_data_source_archives ~host ~data_source
         in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.forget_data_source_archives ~rpc ~session_id ~host
-              ~data_source
-        )
+        let remote_fn =
+          Client.Host.forget_data_source_archives ~host ~data_source
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let tickle_heartbeat ~__context ~host ~stuff =
         (* info "Host.tickle_heartbeat: Incoming call from host '%s' with arguments [ %s ]" (Ref.string_of host) (String.concat "; " (List.map (fun (a, b) -> a ^ ": " ^ b) stuff)); *)
@@ -3634,27 +3546,24 @@ functor
           (host_uuid ~__context host)
           plugin fn ;
         let local_fn = Local.Host.call_plugin ~host ~plugin ~fn ~args in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.call_plugin ~rpc ~session_id ~host ~plugin ~fn ~args
-        )
+        let remote_fn = Client.Host.call_plugin ~host ~plugin ~fn ~args in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let call_extension ~__context ~host ~call =
         info "Host.call_extension host = '%s'; call = '%s'"
           (host_uuid ~__context host)
           call ;
         let local_fn = Local.Host.call_extension ~host ~call in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.call_extension ~rpc ~session_id ~host ~call
-        )
+        let remote_fn = Client.Host.call_extension ~host ~call in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let has_extension ~__context ~host ~name =
         info "Host.has_extension: host = '%s'; name = '%s'"
           (host_uuid ~__context host)
           name ;
         let local_fn = Local.Host.has_extension ~host ~name in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.has_extension ~rpc ~session_id ~host ~name
-        )
+        let remote_fn = Client.Host.has_extension ~host ~name in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let sync_data ~__context ~host =
         info "Host.sync_data: host = '%s'" (host_uuid ~__context host) ;
@@ -3662,9 +3571,8 @@ functor
 
       let backup_rrds ~__context ~host ~delay =
         let local_fn = Local.Host.backup_rrds ~host ~delay in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.backup_rrds ~rpc ~session_id ~host ~delay
-        )
+        let remote_fn = Client.Host.backup_rrds ~host ~delay in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let compute_free_memory ~__context ~host =
         info "Host.compute_free_memory: host = '%s'" (host_uuid ~__context host) ;
@@ -3679,33 +3587,29 @@ functor
         (* info "Host.get_servertime"; *)
         (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
         let local_fn = Local.Host.get_servertime ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_servertime ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_servertime ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_server_localtime ~__context ~host =
         (* info "Host.get_servertime"; *)
         (* suppressed because the GUI calls this frequently and it isn't interesting for debugging *)
         let local_fn = Local.Host.get_server_localtime ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_server_localtime ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_server_localtime ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let enable_binary_storage ~__context ~host =
         info "Host.enable_binary_storage: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable_binary_storage ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_binary_storage ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.enable_binary_storage ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let disable_binary_storage ~__context ~host =
         info "Host.disable_binary_storage: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.disable_binary_storage ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_binary_storage ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.disable_binary_storage ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let enable_external_auth ~__context ~host ~config ~service_name ~auth_type
           =
@@ -3720,28 +3624,26 @@ functor
         let local_fn =
           Local.Host.enable_external_auth ~host ~config ~service_name ~auth_type
         in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_external_auth ~rpc ~session_id ~host ~config
-              ~service_name ~auth_type
-        )
+        let remote_fn =
+          Client.Host.enable_external_auth ~host ~config ~service_name
+            ~auth_type
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let disable_external_auth ~__context ~host ~config =
         info "Host.disable_external_auth: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.disable_external_auth ~host ~config in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_external_auth ~rpc ~session_id ~host ~config
-        )
+        let remote_fn = Client.Host.disable_external_auth ~host ~config in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let install_ca_certificate ~__context ~host ~name ~cert =
         info "Host.install_ca_certificate: host = '%s'; name = '%s'"
           (host_uuid ~__context host)
           name ;
         let local_fn = Local.Host.install_ca_certificate ~host ~name ~cert in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.install_ca_certificate ~rpc ~session_id ~host ~name
-              ~cert
-        )
+        let remote_fn = Client.Host.install_ca_certificate ~host ~name ~cert in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let uninstall_ca_certificate ~__context ~host ~name ~force =
         info
@@ -3750,10 +3652,10 @@ functor
           (host_uuid ~__context host)
           name force ;
         let local_fn = Local.Host.uninstall_ca_certificate ~host ~name ~force in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.uninstall_ca_certificate ~rpc ~session_id ~host ~name
-              ~force
-        )
+        let remote_fn =
+          Client.Host.uninstall_ca_certificate ~host ~name ~force
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       (* legacy names *)
       let certificate_install = install_ca_certificate
@@ -3763,55 +3665,50 @@ functor
       let certificate_list ~__context ~host =
         info "Host.certificate_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_list ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_list ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.certificate_list ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let crl_install ~__context ~host ~name ~crl =
         info "Host.crl_install: host = '%s'; name = '%s'"
           (host_uuid ~__context host)
           name ;
         let local_fn = Local.Host.crl_install ~host ~name ~crl in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.crl_install ~rpc ~session_id ~host ~name ~crl
-        )
+        let remote_fn = Client.Host.crl_install ~host ~name ~crl in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let crl_uninstall ~__context ~host ~name =
         info "Host.crl_uninstall: host = '%s'; name = '%s'"
           (host_uuid ~__context host)
           name ;
         let local_fn = Local.Host.crl_uninstall ~host ~name in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.crl_uninstall ~rpc ~session_id ~host ~name
-        )
+        let remote_fn = Client.Host.crl_uninstall ~host ~name in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let crl_list ~__context ~host =
         info "Host.crl_list: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.crl_list ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.crl_list ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.crl_list ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let certificate_sync ~__context ~host =
         info "Host.certificate_sync: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.certificate_sync ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.certificate_sync ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.certificate_sync ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_server_certificate ~__context ~host =
         info "Host.get_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.get_server_certificate ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_server_certificate ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_server_certificate ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let refresh_server_certificate ~__context ~host =
         info "Host.refresh_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
         let pool = Helpers.get_pool ~__context in
         let local_fn = Local.Host.refresh_server_certificate ~host in
+        let remote_fn = Client.Host.refresh_server_certificate ~host in
         let other =
           Db.Host.get_all ~__context |> List.filter (fun h -> h <> host)
         in
@@ -3819,16 +3716,10 @@ functor
           ~doc:"Host.refresh_server_certificate" ~self:pool ~op:`cert_refresh
         @@ fun () ->
         (* let host refresh its certificates first *)
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.refresh_server_certificate ~rpc ~session_id ~host
-        ) ;
+        do_op_on ~local_fn ~__context ~host ~remote_fn ;
         (* update all other hosts in the pool *)
         other
-        |> List.iter (fun h ->
-               do_op_on ~local_fn ~__context ~host:h (fun session_id rpc ->
-                   Client.Host.refresh_server_certificate ~rpc ~session_id ~host
-               )
-           )
+        |> List.iter (fun h -> do_op_on ~local_fn ~__context ~host:h ~remote_fn)
 
       let _success ~__context () =
         let task = Context.get_task_id __context in
@@ -3843,12 +3734,11 @@ functor
           Local.Host.install_server_certificate ~host ~certificate ~private_key
             ~certificate_chain
         in
-        let fn () =
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.Host.install_server_certificate ~rpc ~session_id ~host
-                ~certificate ~private_key ~certificate_chain
-          )
+        let remote_fn =
+          Client.Host.install_server_certificate ~host ~certificate ~private_key
+            ~certificate_chain
         in
+        let fn () = do_op_on ~local_fn ~__context ~host ~remote_fn in
         tolerate_connection_loss fn (_success ~__context) 30. ;
         try
           let _, _ =
@@ -3865,11 +3755,8 @@ functor
         info "Host.reset_server_certificate: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.reset_server_certificate ~host in
-        let fn () =
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.Host.reset_server_certificate ~rpc ~session_id ~host
-          )
-        in
+        let remote_fn = Client.Host.reset_server_certificate ~host in
+        let fn () = do_op_on ~local_fn ~__context ~host ~remote_fn in
         tolerate_connection_loss fn (_success ~__context) 30.
 
       let emergency_reset_server_certificate ~__context =
@@ -3879,9 +3766,8 @@ functor
       let cert_distrib_atom ~__context ~host ~command =
         info "Host.cert_distrib_atom" ;
         let local_fn = Local.Host.cert_distrib_atom ~host ~command in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.cert_distrib_atom ~rpc ~session_id ~host ~command
-        )
+        let remote_fn = Client.Host.cert_distrib_atom ~host ~command in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let copy_primary_host_certs ~__context ~host =
         info "Host.copy_primary_host_certs host = '%s'" (Ref.string_of host) ;
@@ -3897,44 +3783,38 @@ functor
              (List.map (fun (a, b) -> Ref.string_of a ^ "/" ^ b) vdi_reason_map)
           ) ;
         let local_fn = Local.Host.attach_static_vdis ~host ~vdi_reason_map in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.attach_static_vdis ~rpc ~session_id ~host
-              ~vdi_reason_map
-        )
+        let remote_fn = Client.Host.attach_static_vdis ~host ~vdi_reason_map in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let detach_static_vdis ~__context ~host ~vdis =
         info "Host.detach_static_vdis: host = '%s'; vdis =[ %s ]"
           (host_uuid ~__context host)
           (String.concat "; " (List.map Ref.string_of vdis)) ;
         let local_fn = Local.Host.detach_static_vdis ~host ~vdis in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.detach_static_vdis ~rpc ~session_id ~host ~vdis
-        )
+        let remote_fn = Client.Host.detach_static_vdis ~host ~vdis in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_localdb_key ~__context ~host ~key ~value =
         info "Host.set_localdb_key: host = '%s'; key = '%s'; value = '%s'"
           (host_uuid ~__context host)
           key value ;
         let local_fn = Local.Host.set_localdb_key ~host ~key ~value in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_localdb_key ~rpc ~session_id ~host ~key ~value
-        )
+        let remote_fn = Client.Host.set_localdb_key ~host ~key ~value in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let apply_edition ~__context ~host ~edition ~force =
         info "Host.apply_edition: host = '%s'; edition = '%s'; force = '%s'"
           (host_uuid ~__context host)
           edition (string_of_bool force) ;
         let local_fn = Local.Host.apply_edition ~host ~edition ~force in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.apply_edition ~rpc ~session_id ~host ~edition ~force
-        )
+        let remote_fn = Client.Host.apply_edition ~host ~edition ~force in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let refresh_pack_info ~__context ~host =
         info "Host.refresh_pack_info: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.refresh_pack_info ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.refresh_pack_info ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.refresh_pack_info ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let reset_networking ~__context ~host =
         info "Host.reset_networking: host = '%s'" (host_uuid ~__context host) ;
@@ -3942,33 +3822,28 @@ functor
 
       let enable_local_storage_caching ~__context ~host ~sr =
         let local_fn = Local.Host.enable_local_storage_caching ~host ~sr in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_local_storage_caching ~rpc ~session_id ~host ~sr
-        )
+        let remote_fn = Client.Host.enable_local_storage_caching ~host ~sr in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let disable_local_storage_caching ~__context ~host =
         let local_fn = Local.Host.disable_local_storage_caching ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_local_storage_caching ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.disable_local_storage_caching ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_sm_diagnostics ~__context ~host =
         let local_fn = Local.Host.get_sm_diagnostics ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_sm_diagnostics ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_sm_diagnostics ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let get_thread_diagnostics ~__context ~host =
         let local_fn = Local.Host.get_thread_diagnostics ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.get_thread_diagnostics ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.get_thread_diagnostics ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let sm_dp_destroy ~__context ~host ~dp ~allow_leak =
         let local_fn = Local.Host.sm_dp_destroy ~host ~dp ~allow_leak in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.sm_dp_destroy ~rpc ~session_id ~host ~dp ~allow_leak
-        )
+        let remote_fn = Client.Host.sm_dp_destroy ~host ~dp ~allow_leak in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let sync_vlans ~__context ~host =
         info "Host.sync_vlans: host = '%s'" (host_uuid ~__context host) ;
@@ -3992,40 +3867,35 @@ functor
       let enable_display ~__context ~host =
         info "Host.enable_display: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.enable_display ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.enable_display ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.enable_display ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let disable_display ~__context ~host =
         info "Host.disable_display: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.disable_display ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.disable_display ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.disable_display ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let apply_guest_agent_config ~__context ~host =
         info "Host.apply_guest_agent_config: host = '%s'"
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.apply_guest_agent_config ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.apply_guest_agent_config ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.apply_guest_agent_config ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let mxgpu_vf_setup ~__context ~host =
         info "Host.mxgpu_vf_setup: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.mxgpu_vf_setup ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.mxgpu_vf_setup ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.mxgpu_vf_setup ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let nvidia_vf_setup ~__context ~host ~pf ~enable =
         info "Host.nvidia_vf_setup: host = '%s' pf = '%s' enable = %b"
           (host_uuid ~__context host)
           (pci_uuid ~__context pf) enable ;
         let local_fn = Local.Host.nvidia_vf_setup ~host ~pf ~enable in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.nvidia_vf_setup ~rpc ~session_id ~host ~pf ~enable
-        )
+        let remote_fn = Client.Host.nvidia_vf_setup ~host ~pf ~enable in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let allocate_resources_for_vm ~__context ~self ~vm ~live:_ =
         info "Host.host_allocate_resources_for_vm: host = %s; VM = %s"
@@ -4039,26 +3909,23 @@ functor
           (host_uuid ~__context host)
           value ;
         let local_fn = Local.Host.set_iscsi_iqn ~host ~value in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_iscsi_iqn ~rpc ~session_id ~host ~value
-        )
+        let remote_fn = Client.Host.set_iscsi_iqn ~host ~value in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_multipathing ~__context ~host ~value =
         info "Host.set_multipathing: host='%s' value='%s'"
           (host_uuid ~__context host)
           (string_of_bool value) ;
         let local_fn = Local.Host.set_multipathing ~host ~value in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.set_multipathing ~rpc ~session_id ~host ~value
-        )
+        let remote_fn = Client.Host.set_multipathing ~host ~value in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let write_uefi_certificates_to_disk ~__context ~host =
         info "Host.write_uefi_certificates_to_disk: host='%s' "
           (host_uuid ~__context host) ;
         let local_fn = Local.Host.write_uefi_certificates_to_disk ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Host.write_uefi_certificates_to_disk ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host.write_uefi_certificates_to_disk ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_uefi_certificates ~__context ~host ~value =
         info "Host.set_uefi_certificates: host='%s' value='%s'"
@@ -4074,10 +3941,10 @@ functor
         let local_fn =
           Local.Host.notify_accept_new_pool_secret ~host ~old_ps ~new_ps
         in
-        do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.notify_accept_new_pool_secret ~rpc ~session_id ~host
-              ~old_ps ~new_ps
-        )
+        let remote_fn =
+          Client.Host.notify_accept_new_pool_secret ~host ~old_ps ~new_ps
+        in
+        do_op_on ~__context ~host ~local_fn ~remote_fn
 
       let notify_send_new_pool_secret ~__context ~host ~old_ps ~new_ps =
         info "Host.notify_send_new_pool_secret: host='%s'"
@@ -4085,43 +3952,38 @@ functor
         let local_fn =
           Local.Host.notify_send_new_pool_secret ~host ~old_ps ~new_ps
         in
-        do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.notify_send_new_pool_secret ~rpc ~session_id ~host
-              ~old_ps ~new_ps
-        )
+        let remote_fn =
+          Client.Host.notify_send_new_pool_secret ~host ~old_ps ~new_ps
+        in
+        do_op_on ~__context ~host ~local_fn ~remote_fn
 
       let cleanup_pool_secret ~__context ~host ~old_ps ~new_ps =
         info "Host.cleanup_pool_secret: host='%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Host.cleanup_pool_secret ~host ~old_ps ~new_ps in
-        do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-            Client.Host.cleanup_pool_secret ~rpc ~session_id ~host ~old_ps
-              ~new_ps
-        )
+        let remote_fn = Client.Host.cleanup_pool_secret ~host ~old_ps ~new_ps in
+        do_op_on ~__context ~host ~local_fn ~remote_fn
 
       let set_sched_gran ~__context ~self ~value =
         info "Host.set_sched_gran: host='%s' sched='%s'"
           (host_uuid ~__context self)
           (Record_util.host_sched_gran_to_string value) ;
         let local_fn = Local.Host.set_sched_gran ~self ~value in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.set_sched_gran ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.Host.set_sched_gran ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
 
       let get_sched_gran ~__context ~self =
         info "Host.get_sched_gran: host='%s'" (host_uuid ~__context self) ;
         let local_fn = Local.Host.get_sched_gran ~self in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.get_sched_gran ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Host.get_sched_gran ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
 
       let set_numa_affinity_policy ~__context ~self ~value =
         info "Host.set_numa_affinity_policy: host='%s' policy='%s'"
           (host_uuid ~__context self)
           (Record_util.host_numa_affinity_policy_to_string value) ;
         let local_fn = Local.Host.set_numa_affinity_policy ~self ~value in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.set_numa_affinity_policy ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.Host.set_numa_affinity_policy ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
 
       let emergency_disable_tls_verification ~__context =
         info "Host.emergency_disable_tls_verification" ;
@@ -4140,17 +4002,15 @@ functor
         let uuid = host_uuid ~__context self in
         info "Host.rescan_drivers: host = '%s'" uuid ;
         let local_fn = Local.Host.rescan_drivers ~self in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.rescan_drivers ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Host.rescan_drivers ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
 
       let set_https_only ~__context ~self ~value =
         let uuid = host_uuid ~__context self in
         info "Host.set_https_only: self = %s ; value = %b" uuid value ;
         let local_fn = Local.Host.set_https_only ~self ~value in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.set_https_only ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.Host.set_https_only ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
 
       let emergency_clear_mandatory_guidance ~__context =
         info "Host.emergency_clear_mandatory_guidance" ;
@@ -4162,22 +4022,20 @@ functor
         info "Host_crashdump.destroy: host crashdump = '%s'"
           (host_crashdump_uuid ~__context self) ;
         let local_fn = Local.Host_crashdump.destroy ~self in
+        let remote_fn = Client.Host_crashdump.destroy ~self in
         do_op_on ~local_fn ~__context
           ~host:(Db.Host_crashdump.get_host ~__context ~self)
-          (fun session_id rpc ->
-            Client.Host_crashdump.destroy ~rpc ~session_id ~self
-        )
+          ~remote_fn
 
       let upload ~__context ~self ~url ~options =
         info "Host_crashdump.upload: host crashdump = '%s'; url = '%s'"
           (host_crashdump_uuid ~__context self)
           "(url filtered)" ;
         let local_fn = Local.Host_crashdump.upload ~self ~url ~options in
+        let remote_fn = Client.Host_crashdump.upload ~self ~url ~options in
         do_op_on ~local_fn ~__context
           ~host:(Db.Host_crashdump.get_host ~__context ~self)
-          (fun session_id rpc ->
-            Client.Host_crashdump.upload ~rpc ~session_id ~self ~url ~options
-        )
+          ~remote_fn
     end
 
     module Host_patch = struct
@@ -4190,10 +4048,10 @@ functor
         info "Host_patch.apply: host patch = '%s'"
           (host_patch_uuid ~__context self) ;
         let local_fn = Local.Host_patch.apply ~self in
+        let remote_fn = Client.Host_patch.apply ~self in
         do_op_on ~local_fn ~__context
-          ~host:(Db.Host_patch.get_host ~__context ~self) (fun session_id rpc ->
-            Client.Host_patch.apply ~rpc ~session_id ~self
-        )
+          ~host:(Db.Host_patch.get_host ~__context ~self)
+          ~remote_fn
     end
 
     module Pool_patch = struct
@@ -4202,18 +4060,16 @@ functor
           (pool_patch_uuid ~__context self)
           (host_uuid ~__context host) ;
         let local_fn = Local.Pool_patch.apply ~self ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_patch.apply ~rpc ~session_id ~self ~host
-        )
+        let remote_fn = Client.Pool_patch.apply ~self ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let precheck ~__context ~self ~host =
         info "Pool_patch.precheck: pool patch = '%s'; host = '%s'"
           (pool_patch_uuid ~__context self)
           (host_uuid ~__context host) ;
         let local_fn = Local.Pool_patch.precheck ~self ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_patch.precheck ~rpc ~session_id ~self ~host
-        )
+        let remote_fn = Client.Pool_patch.precheck ~self ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let pool_apply ~__context ~self =
         info "Pool_patch.pool_apply: pool patch = '%s'"
@@ -4229,9 +4085,8 @@ functor
         info "Pool_patch.clean_on_host: pool patch = '%s'"
           (pool_patch_uuid ~__context self) ;
         let local_fn = Local.Pool_patch.clean ~self in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_patch.clean ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Pool_patch.clean ~self in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let pool_clean ~__context ~self =
         info "Pool_patch.pool_clean: pool patch = '%s'"
@@ -4269,9 +4124,8 @@ functor
           (network_uuid ~__context network)
           (host_uuid ~__context host) ;
         let local_fn = Local.Network.attach ~network ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Network.attach ~rpc ~session_id ~network ~host
-        )
+        let remote_fn = Client.Network.attach ~network ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let pool_introduce ~__context ~name_label ~name_description ~mTU
           ~other_config ~bridge ~managed =
@@ -4306,18 +4160,16 @@ functor
           (host_uuid ~__context host)
           (vm_uuid ~__context vm) ;
         let local_fn = Local.Network.attach_for_vm ~host ~vm in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Network.attach_for_vm ~rpc ~session_id ~host ~vm
-        )
+        let remote_fn = Client.Network.attach_for_vm ~host ~vm in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let detach_for_vm ~__context ~host ~vm =
         info "Network.detach_for_vm: host = '%s'; VM = '%s'"
           (host_uuid ~__context host)
           (vm_uuid ~__context vm) ;
         let local_fn = Local.Network.detach_for_vm ~host ~vm in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Network.detach_for_vm ~rpc ~session_id ~host ~vm
-        )
+        let remote_fn = Client.Network.detach_for_vm ~host ~vm in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let add_purpose ~__context ~self ~value =
         info "Network.add_purpose: self = '%s'; value = '%s'"
@@ -4373,13 +4225,13 @@ functor
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
-      let forward_vif_op ~local_fn ~__context ~self op =
+      let forward_vif_op ~local_fn ~__context ~self ~remote_fn =
         let vm = Db.VIF.get_VM ~__context ~self in
         let host_resident_on = Db.VM.get_resident_on ~__context ~self:vm in
         if host_resident_on = Ref.null then
           local_fn ~__context
         else
-          do_op_on ~local_fn ~__context ~host:host_resident_on op
+          do_op_on ~local_fn ~__context ~host:host_resident_on ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -4397,11 +4249,9 @@ functor
       let plug ~__context ~self =
         info "VIF.plug: VIF = '%s'" (vif_uuid ~__context self) ;
         let local_fn = Local.VIF.plug ~self in
+        let remote_fn = Client.VIF.plug ~self in
         with_vif_marked ~__context ~vif:self ~doc:"VIF.plug" ~op:`plug
-          (fun () ->
-            forward_vif_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VIF.plug ~rpc ~session_id ~self
-            )
+          (fun () -> forward_vif_op ~local_fn ~__context ~self ~remote_fn
         )
 
       let unplug_common ~__context ~self ~force =
@@ -4415,10 +4265,9 @@ functor
             (Local.VIF.unplug, Client.VIF.unplug)
         in
         let local_fn = local_fn ~self in
+        let remote_fn = remote_fn ~self in
         with_vif_marked ~__context ~vif:self ~doc:name ~op (fun () ->
-            forward_vif_op ~local_fn ~__context ~self (fun session_id rpc ->
-                remote_fn ~rpc ~session_id ~self
-            )
+            forward_vif_op ~local_fn ~__context ~self ~remote_fn
         )
 
       let unplug ~__context ~self = unplug_common ~__context ~self ~force:false
@@ -4430,74 +4279,58 @@ functor
         info "VIF.move: VIF = '%s' network = '%s'" (vif_uuid ~__context self)
           (network_uuid ~__context network) ;
         let local_fn = Local.VIF.move ~self ~network in
-        let remote_fn session_id rpc =
-          Client.VIF.move ~rpc ~session_id ~self ~network
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.move ~self ~network in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let set_locking_mode ~__context ~self ~value =
         info "VIF.set_locking_mode: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self)
           (Record_util.vif_locking_mode_to_string value) ;
         let local_fn = Local.VIF.set_locking_mode ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.set_locking_mode ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.set_locking_mode ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let set_ipv4_allowed ~__context ~self ~value =
         info "VIF.set_ipv4_allowed: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self) (String.concat "," value) ;
         let local_fn = Local.VIF.set_ipv4_allowed ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.set_ipv4_allowed ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.set_ipv4_allowed ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let add_ipv4_allowed ~__context ~self ~value =
         info "VIF.add_ipv4_allowed: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self) value ;
         let local_fn = Local.VIF.add_ipv4_allowed ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.add_ipv4_allowed ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.add_ipv4_allowed ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let remove_ipv4_allowed ~__context ~self ~value =
         info "VIF.remove_ipv4_allowed: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self) value ;
         let local_fn = Local.VIF.remove_ipv4_allowed ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.remove_ipv4_allowed ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.remove_ipv4_allowed ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let set_ipv6_allowed ~__context ~self ~value =
         info "VIF.set_ipv6_allowed: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self) (String.concat "," value) ;
         let local_fn = Local.VIF.set_ipv6_allowed ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.set_ipv6_allowed ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.set_ipv6_allowed ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let add_ipv6_allowed ~__context ~self ~value =
         info "VIF.add_ipv6_allowed: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self) value ;
         let local_fn = Local.VIF.add_ipv6_allowed ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.add_ipv6_allowed ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.add_ipv6_allowed ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let remove_ipv6_allowed ~__context ~self ~value =
         info "VIF.remove_ipv6_allowed: VIF = '%s'; value = '%s'"
           (vif_uuid ~__context self) value ;
         let local_fn = Local.VIF.remove_ipv6_allowed ~self ~value in
-        let remote_fn session_id rpc =
-          Client.VIF.remove_ipv6_allowed ~rpc ~session_id ~self ~value
-        in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        let remote_fn = Client.VIF.remove_ipv6_allowed ~self ~value in
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let configure_ipv4 ~__context ~self ~mode ~address ~gateway =
         info
@@ -4507,11 +4340,10 @@ functor
           (Record_util.vif_ipv4_configuration_mode_to_string mode)
           address gateway ;
         let local_fn = Local.VIF.configure_ipv4 ~self ~mode ~address ~gateway in
-        let remote_fn session_id rpc =
-          Client.VIF.configure_ipv4 ~rpc ~session_id ~self ~mode ~address
-            ~gateway
+        let remote_fn =
+          Client.VIF.configure_ipv4 ~self ~mode ~address ~gateway
         in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
 
       let configure_ipv6 ~__context ~self ~mode ~address ~gateway =
         info
@@ -4521,11 +4353,10 @@ functor
           (Record_util.vif_ipv6_configuration_mode_to_string mode)
           address gateway ;
         let local_fn = Local.VIF.configure_ipv6 ~self ~mode ~address ~gateway in
-        let remote_fn session_id rpc =
-          Client.VIF.configure_ipv6 ~rpc ~session_id ~self ~mode ~address
-            ~gateway
+        let remote_fn =
+          Client.VIF.configure_ipv6 ~self ~mode ~address ~gateway
         in
-        forward_vif_op ~local_fn ~__context ~self remote_fn
+        forward_vif_op ~local_fn ~__context ~self ~remote_fn
     end
 
     module VIF_metrics = struct end
@@ -4547,43 +4378,44 @@ functor
           (network_uuid ~__context network)
           tag ;
         let local_fn = Local.VLAN.create ~tagged_PIF ~tag ~network in
+        let remote_fn = Client.VLAN.create ~tagged_PIF ~tag ~network in
         do_op_on ~local_fn ~__context
           ~host:(Db.PIF.get_host ~__context ~self:tagged_PIF)
-          (fun session_id rpc ->
-            Client.VLAN.create ~rpc ~session_id ~tagged_PIF ~tag ~network
-        )
+          ~remote_fn
 
       let destroy ~__context ~self =
         info "VLAN.destroy: VLAN = '%s'" (vlan_uuid ~__context self) ;
         let local_fn = Local.VLAN.destroy ~self in
+        let remote_fn = Client.VLAN.destroy ~self in
         do_op_on ~local_fn ~__context
           ~host:
             (Db.PIF.get_host ~__context
                ~self:(Db.VLAN.get_tagged_PIF ~__context ~self)
             )
-          (fun session_id rpc -> Client.VLAN.destroy ~rpc ~session_id ~self)
+          ~remote_fn
     end
 
     module Tunnel = struct
       let create ~__context ~transport_PIF ~network ~protocol =
         info "Tunnel.create: network = '%s'" (network_uuid ~__context network) ;
         let local_fn = Local.Tunnel.create ~transport_PIF ~network ~protocol in
+        let remote_fn =
+          Client.Tunnel.create ~transport_PIF ~network ~protocol
+        in
         do_op_on ~local_fn ~__context
           ~host:(Db.PIF.get_host ~__context ~self:transport_PIF)
-          (fun session_id rpc ->
-            Client.Tunnel.create ~rpc ~session_id ~transport_PIF ~network
-              ~protocol
-        )
+          ~remote_fn
 
       let destroy ~__context ~self =
         info "Tunnel.destroy: tunnel = '%s'" (tunnel_uuid ~__context self) ;
         let local_fn = Local.Tunnel.destroy ~self in
+        let remote_fn = Client.Tunnel.destroy ~self in
         do_op_on ~local_fn ~__context
           ~host:
             (Db.PIF.get_host ~__context
                ~self:(Db.Tunnel.get_transport_PIF ~__context ~self)
             )
-          (fun session_id rpc -> Client.Tunnel.destroy ~rpc ~session_id ~self)
+          ~remote_fn
     end
 
     module Bond = struct
@@ -4599,6 +4431,9 @@ functor
         let local_fn =
           Local.Bond.create ~network ~members ~mAC ~mode ~properties
         in
+        let remote_fn =
+          Client.Bond.create ~network ~members ~mAC ~mode ~properties
+        in
         (* The management interface on the slave may change during this operation, so expect connection loss.
          * Consider the operation successful if task progress is set to 1.0. *)
         let task = Context.get_task_id __context in
@@ -4610,12 +4445,7 @@ functor
           else
             None
         in
-        let fn () =
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.Bond.create ~rpc ~session_id ~network ~members ~mAC ~mode
-                ~properties
-          )
-        in
+        let fn () = do_op_on ~local_fn ~__context ~host ~remote_fn in
         tolerate_connection_loss fn success 30.
 
       let destroy ~__context ~self =
@@ -4635,11 +4465,8 @@ functor
             None
         in
         let local_fn = Local.Bond.destroy ~self in
-        let fn () =
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.Bond.destroy ~rpc ~session_id ~self
-          )
-        in
+        let remote_fn = Client.Bond.destroy ~self in
+        let fn () = do_op_on ~local_fn ~__context ~host ~remote_fn in
         tolerate_connection_loss fn success 30.
 
       let set_mode ~__context ~self ~value =
@@ -4650,9 +4477,8 @@ functor
           Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self)
         in
         let local_fn = Local.Bond.set_mode ~self ~value in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Bond.set_mode ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.Bond.set_mode ~self ~value in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_property ~__context ~self ~name ~value =
         info "Bond.set_property: bond = '%s'; name = '%s'; value = '%s'"
@@ -4662,9 +4488,8 @@ functor
           Db.PIF.get_host ~__context ~self:(Db.Bond.get_master ~__context ~self)
         in
         let local_fn = Local.Bond.set_property ~self ~name ~value in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Bond.set_property ~rpc ~session_id ~self ~name ~value
-        )
+        let remote_fn = Client.Bond.set_property ~self ~name ~value in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module PIF = struct
@@ -4688,30 +4513,29 @@ functor
           (network_uuid ~__context network)
           vLAN ;
         let local_fn = Local.PIF.create_VLAN ~device ~network ~host ~vLAN in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.create_VLAN ~rpc ~session_id ~device ~network ~host ~vLAN
-        )
+        let remote_fn = Client.PIF.create_VLAN ~device ~network ~host ~vLAN in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let destroy ~__context ~self =
         info "PIF.destroy: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.destroy ~self in
-        do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.destroy ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PIF.destroy ~self in
+        let host = Db.PIF.get_host ~__context ~self in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let unplug ~__context ~self =
         info "PIF.unplug: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.unplug ~self in
-        do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.unplug ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PIF.unplug ~self in
+        let host = Db.PIF.get_host ~__context ~self in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let plug ~__context ~self =
         info "PIF.plug: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.plug ~self in
-        do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.plug ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PIF.plug ~self in
+        let host = Db.PIF.get_host ~__context ~self in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let reconfigure_ip ~__context ~self ~mode ~iP ~netmask ~gateway ~dNS =
         info
@@ -4724,6 +4548,9 @@ functor
         let local_fn =
           Local.PIF.reconfigure_ip ~self ~mode ~iP ~netmask ~gateway ~dNS
         in
+        let remote_fn =
+          Client.PIF.reconfigure_ip ~self ~mode ~iP ~netmask ~gateway ~dNS
+        in
         let task = Context.get_task_id __context in
         let success () =
           let status = Db.Task.get_status ~__context ~self:task in
@@ -4732,12 +4559,7 @@ functor
           else
             None
         in
-        let fn () =
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.PIF.reconfigure_ip ~rpc ~session_id ~self ~mode ~iP
-                ~netmask ~gateway ~dNS
-          )
-        in
+        let fn () = do_op_on ~local_fn ~__context ~host ~remote_fn in
         tolerate_connection_loss fn success
           !Xapi_globs.pif_reconfigure_ip_timeout
 
@@ -4752,6 +4574,9 @@ functor
         let local_fn =
           Local.PIF.reconfigure_ipv6 ~self ~mode ~iPv6 ~gateway ~dNS
         in
+        let remote_fn =
+          Client.PIF.reconfigure_ipv6 ~self ~mode ~iPv6 ~gateway ~dNS
+        in
         let task = Context.get_task_id __context in
         let success () =
           let status = Db.Task.get_status ~__context ~self:task in
@@ -4760,12 +4585,7 @@ functor
           else
             None
         in
-        let fn () =
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.PIF.reconfigure_ipv6 ~rpc ~session_id ~self ~mode ~iPv6
-                ~gateway ~dNS
-          )
-        in
+        let fn () = do_op_on ~local_fn ~__context ~host ~remote_fn in
         tolerate_connection_loss fn success
           !Xapi_globs.pif_reconfigure_ip_timeout
 
@@ -4778,20 +4598,19 @@ functor
         let local_fn =
           Local.PIF.set_primary_address_type ~self ~primary_address_type
         in
-        do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc ->
-            Client.PIF.set_primary_address_type ~rpc ~session_id ~self
-              ~primary_address_type
-        )
+        let remote_fn =
+          Client.PIF.set_primary_address_type ~self ~primary_address_type
+        in
+        let host = Db.PIF.get_host ~__context ~self in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_property ~__context ~self ~name ~value =
         info "PIF.set_property: PIF = '%s'; name = '%s'; value = '%s'"
           (pif_uuid ~__context self) name value ;
         let host = Db.PIF.get_host ~__context ~self in
         let local_fn = Local.PIF.set_property ~self ~name ~value in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.set_property ~rpc ~session_id ~self ~name ~value
-        )
+        let remote_fn = Client.PIF.set_property ~self ~name ~value in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_disallow_unplug ~__context ~self ~value =
         info "PIF.set_disallow_unplug: PIF uuid = %s; value = %s"
@@ -4801,9 +4620,8 @@ functor
       let scan ~__context ~host =
         info "PIF.scan: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.PIF.scan ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.scan ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.PIF.scan ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let introduce ~__context ~host ~mAC ~device ~managed =
         info
@@ -4812,16 +4630,15 @@ functor
           (host_uuid ~__context host)
           mAC device managed ;
         let local_fn = Local.PIF.introduce ~host ~mAC ~device ~managed in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PIF.introduce ~rpc ~session_id ~host ~mAC ~device ~managed
-        )
+        let remote_fn = Client.PIF.introduce ~host ~mAC ~device ~managed in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let forget ~__context ~self =
         info "PIF.forget: PIF = '%s'" (pif_uuid ~__context self) ;
         let local_fn = Local.PIF.forget ~self in
-        do_op_on ~local_fn ~__context ~host:(Db.PIF.get_host ~__context ~self)
-          (fun session_id rpc -> Client.PIF.forget ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PIF.forget ~self in
+        let host = Db.PIF.get_host ~__context ~self in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module PIF_metrics = struct end
@@ -4872,18 +4689,18 @@ functor
 
       (* Forward SR operation to host that has a suitable plugged (or unplugged) PBD  *)
       let forward_sr_op ?(consider_unplugged_pbds = false) ~local_fn ~__context
-          ~self op =
+          ~self ~remote_fn () =
         let pbd =
           choose_pbd_for_sr ~consider_unplugged_pbds ~__context ~self ()
         in
         let host = Db.PBD.get_host ~__context ~self:pbd in
-        do_op_on ~local_fn ~__context ~host op
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       (** Do op on a host that can view multiple SRs. If none is found, the
         Not_found exception will be raised.
         WARNING: this may forward the call to a host that is NOT the SR master. *)
       let forward_sr_multiple_op ~local_fn ~__context ~srs
-          ?(prefer_slaves = false) op =
+          ?(prefer_slaves = false) ~remote_fn =
         let choose_fn ~host =
           Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:srs
             ~host
@@ -4893,12 +4710,12 @@ functor
             Xapi_vm_helpers.choose_host ~__context ~choose_fn ~prefer_slaves ()
           with _ -> raise Not_found
         in
-        do_op_on ~local_fn ~__context ~host op
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       (* Forward SR operation to all hosts that have suitable, plugged or
          unplugged PBDs, best effort *)
       let forward_sr_all_op ?(consider_unplugged_pbds = false) ~local_fn
-          ~__context ~self op =
+          ~__context ~self ~remote_fn () =
         match
           choose_pbds_for_sr ~consider_unplugged_pbds ~__context ~self ()
         with
@@ -4911,7 +4728,7 @@ functor
             pbds
             |> List.map (fun pbd -> Db.PBD.get_host ~__context ~self:pbd)
             |> List.iter (fun host ->
-                   try do_op_on ~local_fn ~__context ~host op
+                   try do_op_on ~local_fn ~__context ~host ~remote_fn
                    with
                    | Api_errors.Server_error (reason, _)
                    when reason = Api_errors.host_offline
@@ -4942,15 +4759,15 @@ functor
           Local.SR.create ~host ~device_config ~physical_size ~name_label
             ~name_description ~_type ~content_type ~shared ~sm_config
         in
+        let remote_fn =
+          Client.SR.create ~host ~device_config ~physical_size ~name_label
+            ~name_description ~_type ~content_type ~shared ~sm_config
+        in
         (* if shared, then ignore host parameter and do create on the master.. *)
         if shared then
           local_fn ~__context
         else (* otherwise forward to specified host *)
-          do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-              Client.SR.create ~rpc ~session_id ~host ~device_config
-                ~physical_size ~name_label ~name_description ~_type
-                ~content_type ~shared ~sm_config
-          )
+          do_op_on ~local_fn ~__context ~host ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -4973,27 +4790,27 @@ functor
           Local.SR.make ~host ~device_config ~physical_size ~name_label
             ~name_description ~_type ~content_type ~sm_config
         in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.SR.make ~rpc ~session_id ~host ~device_config ~physical_size
-              ~name_label ~name_description ~_type ~content_type ~sm_config
-        )
+        let remote_fn =
+          Client.SR.make ~host ~device_config ~physical_size ~name_label
+            ~name_description ~_type ~content_type ~sm_config
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let destroy ~__context ~sr =
         info "SR.destroy: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_destroy = Local.SR.destroy ~sr in
         let local_forget = Local.SR.forget ~sr in
+        let remote_destroy = Client.SR.destroy ~sr in
+        let remote_forget = Client.SR.forget ~sr in
         with_sr_marked ~__context ~sr ~doc:"SR.destroy" ~op:`destroy (fun () ->
             Xapi_sr.assert_all_pbds_unplugged ~__context ~sr ;
             Xapi_sr.assert_sr_not_indestructible ~__context ~sr ;
             Xapi_sr.assert_sr_not_local_cache ~__context ~sr ;
             forward_sr_op ~consider_unplugged_pbds:true ~local_fn:local_destroy
-              ~__context ~self:sr (fun session_id rpc ->
-                Client.SR.destroy ~rpc ~session_id ~sr
-            ) ;
+              ~__context ~self:sr ~remote_fn:remote_destroy () ;
             forward_sr_all_op ~consider_unplugged_pbds:true
-              ~local_fn:local_forget ~__context ~self:sr (fun session_id rpc ->
-                Client.SR.forget ~rpc ~session_id ~sr
-            ) ;
+              ~local_fn:local_forget ~__context ~self:sr
+              ~remote_fn:remote_forget () ;
             (* don't forward - this is just a db call *)
             Xapi_sr.really_forget ~__context ~sr
         )
@@ -5001,12 +4818,11 @@ functor
       let forget ~__context ~sr =
         info "SR.forget: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.forget ~sr in
+        let remote_fn = Client.SR.forget ~sr in
         with_sr_marked ~__context ~sr ~doc:"SR.forget" ~op:`forget (fun () ->
             Xapi_sr.assert_all_pbds_unplugged ~__context ~sr ;
             forward_sr_all_op ~consider_unplugged_pbds:true ~local_fn ~__context
-              ~self:sr (fun session_id rpc ->
-                Client.SR.forget ~rpc ~session_id ~sr
-            ) ;
+              ~self:sr ~remote_fn () ;
             (* don't forward - this is just a db call *)
             Xapi_sr.really_forget ~__context ~sr
         )
@@ -5014,10 +4830,9 @@ functor
       let update ~__context ~sr =
         info "SR.update: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.update ~sr in
+        let remote_fn = Client.SR.update ~sr in
         (* SR.update made lock free as of CA-27630 *)
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.update ~rpc ~session_id ~sr
-        )
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let get_supported_types ~__context =
         info "SR.get_supported_types" ;
@@ -5031,10 +4846,9 @@ functor
         (if is_internal_scan then debug else info)
           "SR.scan: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.scan ~sr in
+        let remote_fn = Client.SR.scan ~sr in
         with_sr_marked ~__context ~sr ~doc:"SR.scan" ~op:`scan (fun () ->
-            forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-                Client.SR.scan ~rpc ~session_id ~sr
-            )
+            forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
         )
 
       let probe ~__context ~host ~device_config ~_type ~sm_config =
@@ -5043,10 +4857,10 @@ functor
         in
         info "SR.probe: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.SR.probe ~host ~device_config ~_type ~sm_config in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.SR.probe ~rpc ~session_id ~host ~device_config ~_type
-              ~sm_config
-        )
+        let remote_fn =
+          Client.SR.probe ~host ~device_config ~_type ~sm_config
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let probe_ext ~__context ~host ~device_config ~_type ~sm_config =
         let device_config =
@@ -5056,10 +4870,10 @@ functor
         let local_fn =
           Local.SR.probe_ext ~host ~device_config ~_type ~sm_config
         in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.SR.probe_ext ~rpc ~session_id ~host ~device_config ~_type
-              ~sm_config
-        )
+        let remote_fn =
+          Client.SR.probe_ext ~host ~device_config ~_type ~sm_config
+        in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let set_shared ~__context ~sr ~value =
         Local.SR.set_shared ~__context ~sr ~value
@@ -5068,17 +4882,15 @@ functor
         info "SR.set_name_label: SR = '%s' name-label = '%s'"
           (sr_uuid ~__context sr) value ;
         let local_fn = Local.SR.set_name_label ~sr ~value in
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.set_name_label ~rpc ~session_id ~sr ~value
-        )
+        let remote_fn = Client.SR.set_name_label ~sr ~value in
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let set_name_description ~__context ~sr ~value =
         info "SR.set_name_description: SR = '%s' name-description = '%s'"
           (sr_uuid ~__context sr) value ;
         let local_fn = Local.SR.set_name_description ~sr ~value in
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.set_name_description ~rpc ~session_id ~sr ~value
-        )
+        let remote_fn = Client.SR.set_name_description ~sr ~value in
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let assert_can_host_ha_statefile ~__context ~sr =
         info "SR.assert_can_host_ha_statefile: SR = '%s'" (sr_uuid ~__context sr) ;
@@ -5105,34 +4917,31 @@ functor
       let get_data_sources ~__context ~sr =
         info "SR.get_data_sources: SR = '%s'" (sr_uuid ~__context sr) ;
         let local_fn = Local.SR.get_data_sources ~sr in
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.get_data_sources ~rpc ~session_id ~sr
-        )
+        let remote_fn = Client.SR.get_data_sources ~sr in
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let record_data_source ~__context ~sr ~data_source =
         info "SR.record_data_source: SR = '%s';  data source = '%s'"
           (sr_uuid ~__context sr) data_source ;
         let local_fn = Local.SR.record_data_source ~sr ~data_source in
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.record_data_source ~rpc ~session_id ~sr ~data_source
-        )
+        let remote_fn = Client.SR.record_data_source ~sr ~data_source in
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let query_data_source ~__context ~sr ~data_source =
         info "SR.query_data_source: SR = '%s'; data source = '%s'"
           (sr_uuid ~__context sr) data_source ;
         let local_fn = Local.SR.query_data_source ~sr ~data_source in
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.query_data_source ~rpc ~session_id ~sr ~data_source
-        )
+        let remote_fn = Client.SR.query_data_source ~sr ~data_source in
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let forget_data_source_archives ~__context ~sr ~data_source =
         info "SR.forget_data_source_archives: sr = '%s'; data source = '%s'"
           (sr_uuid ~__context sr) data_source ;
         let local_fn = Local.SR.forget_data_source_archives ~sr ~data_source in
-        forward_sr_op ~local_fn ~__context ~self:sr (fun session_id rpc ->
-            Client.SR.forget_data_source_archives ~rpc ~session_id ~sr
-              ~data_source
-        )
+        let remote_fn =
+          Client.SR.forget_data_source_archives ~sr ~data_source
+        in
+        forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       let get_live_hosts ~__context ~sr =
         info "SR.get_live_hosts: SR = '%s'" (sr_uuid ~__context sr) ;
@@ -5197,9 +5006,9 @@ functor
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
       (* Read SR from VDI and use same forwarding mechanism as SR *)
-      let forward_vdi_op ~local_fn ~__context ~self op =
+      let forward_vdi_op ~local_fn ~__context ~self ~remote_fn =
         let sr = Db.VDI.get_SR ~__context ~self in
-        SR.forward_sr_op ~local_fn ~__context ~self:sr op
+        SR.forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
 
       (* -------------------------------------------------------------------------- *)
 
@@ -5257,17 +5066,15 @@ functor
         info "VDI.set_name_label: VDI = '%s' name-label = '%s'"
           (vdi_uuid ~__context self) value ;
         let local_fn = Local.VDI.set_name_label ~self ~value in
-        forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.VDI.set_name_label ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.VDI.set_name_label ~self ~value in
+        forward_vdi_op ~local_fn ~__context ~self ~remote_fn
 
       let set_name_description ~__context ~self ~value =
         info "VDI.set_name_description: VDI = '%s' name-description = '%s'"
           (vdi_uuid ~__context self) value ;
         let local_fn = Local.VDI.set_name_description ~self ~value in
-        forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.VDI.set_name_description ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.VDI.set_name_description ~self ~value in
+        forward_vdi_op ~local_fn ~__context ~self ~remote_fn
 
       let ensure_vdi_not_on_running_vm ~__context ~self =
         let vbds = Db.VDI.get_VBDs ~__context ~self in
@@ -5282,12 +5089,11 @@ functor
       let set_on_boot ~__context ~self ~value =
         ensure_vdi_not_on_running_vm ~__context ~self ;
         let local_fn = Local.VDI.set_on_boot ~self ~value in
+        let remote_fn = Client.VDI.set_on_boot ~self ~value in
         let sr = Db.VDI.get_SR ~__context ~self in
         with_sr_andor_vdi ~__context ~sr:(sr, `vdi_set_on_boot)
           ~vdi:(self, `set_on_boot) ~doc:"VDI.set_on_boot" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.set_on_boot ~rpc ~session_id ~self ~value
-            )
+            forward_vdi_op ~local_fn ~__context ~self ~remote_fn
         )
 
       let set_allow_caching ~__context ~self ~value =
@@ -5311,14 +5117,14 @@ functor
             ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config
             ~tags
         in
+        let remote_fn =
+          Client.VDI.create ~name_label ~name_description ~sR ~virtual_size
+            ~_type ~sharable ~read_only ~other_config ~xenstore_data ~sm_config
+            ~tags
+        in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_create) ~doc:"VDI.create"
           (fun () ->
-            SR.forward_sr_op ~local_fn ~__context ~self:sR
-              (fun session_id rpc ->
-                Client.VDI.create ~rpc ~session_id ~name_label ~name_description
-                  ~sR ~virtual_size ~_type ~sharable ~read_only ~other_config
-                  ~xenstore_data ~sm_config ~tags
-            )
+            SR.forward_sr_op ~local_fn ~__context ~self:sR ~remote_fn ()
         )
 
       (* Hidden call used in pool join only *)
@@ -5354,26 +5160,24 @@ functor
             ~sm_config ~managed ~virtual_size ~physical_utilisation
             ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of
         in
+        let remote_fn =
+          Client.VDI.introduce ~uuid ~name_label ~name_description ~sR ~_type
+            ~sharable ~read_only ~other_config ~location ~xenstore_data
+            ~sm_config ~managed ~virtual_size ~physical_utilisation
+            ~metadata_of_pool ~is_a_snapshot ~snapshot_time ~snapshot_of
+        in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_introduce)
           ~doc:"VDI.introduce" (fun () ->
-            SR.forward_sr_op ~local_fn ~__context ~self:sR
-              (fun session_id rpc ->
-                Client.VDI.introduce ~rpc ~session_id ~uuid ~name_label
-                  ~name_description ~sR ~_type ~sharable ~read_only
-                  ~other_config ~location ~xenstore_data ~sm_config ~managed
-                  ~virtual_size ~physical_utilisation ~metadata_of_pool
-                  ~is_a_snapshot ~snapshot_time ~snapshot_of
-            )
+            SR.forward_sr_op ~local_fn ~__context ~self:sR ~remote_fn ()
         )
 
       let update ~__context ~vdi =
         let local_fn = Local.VDI.update ~vdi in
+        let remote_fn = Client.VDI.update ~vdi in
         let sr = Db.VDI.get_SR ~__context ~self:vdi in
         with_sr_andor_vdi ~__context ~vdi:(vdi, `update) ~doc:"VDI.update"
           (fun () ->
-            SR.forward_sr_op ~local_fn ~__context ~self:sr
-              (fun session_id rpc -> Client.VDI.update ~rpc ~session_id ~vdi
-            )
+            SR.forward_sr_op ~local_fn ~__context ~self:sr ~remote_fn ()
         )
 
       let forget ~__context ~vdi =
@@ -5385,35 +5189,32 @@ functor
       let destroy ~__context ~self =
         info "VDI.destroy: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.destroy ~self in
+        let remote_fn = Client.VDI.destroy ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_destroy)
           ~vdi:(self, `destroy) ~doc:"VDI.destroy" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.destroy ~rpc ~session_id ~self
-            )
+            forward_vdi_op ~local_fn ~__context ~self ~remote_fn
         )
 
       (* !! FIXME - Depends on what we're doing here... *)
       let snapshot ~__context ~vdi ~driver_params =
         info "VDI.snapshot: VDI = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VDI.snapshot ~vdi ~driver_params in
+        let remote_fn = Client.VDI.snapshot ~vdi ~driver_params in
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_snapshot)
           ~vdi:(vdi, `snapshot) ~doc:"VDI.snapshot" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.snapshot ~rpc ~session_id ~vdi ~driver_params
-            )
+            forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
 
       let clone ~__context ~vdi ~driver_params =
         info "VDI.clone: VDI = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VDI.clone ~vdi ~driver_params in
+        let remote_fn = Client.VDI.clone ~vdi ~driver_params in
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_clone) ~vdi:(vdi, `clone)
           ~doc:"VDI.clone" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.clone ~rpc ~session_id ~vdi ~driver_params
-            )
+            forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
 
       let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
@@ -5426,7 +5227,7 @@ functor
         (* No need to lock the VDI because the VBD.plug will do that for us *)
         (* Try forward the request to a host which can have access to both source
            and destination SR. *)
-        let op session_id rpc =
+        let remote_fn ~rpc ~session_id =
           let sync_op () =
             Client.VDI.copy ~rpc ~session_id ~vdi ~sr ~base_vdi ~into_vdi
           in
@@ -5441,10 +5242,10 @@ functor
           (fun () ->
             try
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr; sr]
-                ~prefer_slaves:true op
+                ~prefer_slaves:true ~remote_fn
             with Not_found ->
               SR.forward_sr_multiple_op ~local_fn ~__context ~srs:[src_sr]
-                ~prefer_slaves:true op
+                ~prefer_slaves:true ~remote_fn
         )
 
       let pool_migrate ~__context ~vdi ~sr ~options =
@@ -5500,7 +5301,7 @@ functor
                 in
                 (snapshot, host)
             in
-            let op session_id rpc =
+            let remote_fn ~rpc ~session_id =
               let sync_op () =
                 Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options
               in
@@ -5515,7 +5316,7 @@ functor
               ~host_op:`vm_migrate (fun () ->
                 with_sr_andor_vdi ~__context ~vdi:(vdi, `mirror)
                   ~doc:"VDI.mirror" (fun () ->
-                    do_op_on ~local_fn ~__context ~host op
+                    do_op_on ~local_fn ~__context ~host ~remote_fn
                 )
             )
         )
@@ -5523,12 +5324,11 @@ functor
       let resize ~__context ~vdi ~size =
         info "VDI.resize: VDI = '%s'; size = %Ld" (vdi_uuid ~__context vdi) size ;
         let local_fn = Local.VDI.resize ~vdi ~size in
+        let remote_fn = Client.VDI.resize ~vdi ~size in
         let sR = Db.VDI.get_SR ~__context ~self:vdi in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_resize) ~vdi:(vdi, `resize)
           ~doc:"VDI.resize" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.resize ~rpc ~session_id ~vdi ~size
-            )
+            forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
 
       let generate_config ~__context ~host ~vdi =
@@ -5536,49 +5336,46 @@ functor
           (vdi_uuid ~__context vdi)
           (host_uuid ~__context host) ;
         let local_fn = Local.VDI.generate_config ~host ~vdi in
+        let remote_fn = Client.VDI.generate_config ~host ~vdi in
         with_sr_andor_vdi ~__context ~vdi:(vdi, `generate_config)
           ~doc:"VDI.generate_config" (fun () ->
-            do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                Client.VDI.generate_config ~rpc ~session_id ~host ~vdi
-            )
+            do_op_on ~local_fn ~__context ~host ~remote_fn
         )
 
       let force_unlock ~__context ~vdi =
         info "VDI.force_unlock: VDI = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VDI.force_unlock ~vdi in
+        let remote_fn = Client.VDI.force_unlock ~vdi in
         with_sr_andor_vdi ~__context ~vdi:(vdi, `force_unlock)
           ~doc:"VDI.force_unlock" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-                Client.VDI.force_unlock ~rpc ~session_id ~vdi
-            )
+            forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
         )
 
       let checksum ~__context ~self =
         VM.forward_to_access_srs_and ~local_fn:(Local.VDI.checksum ~self)
-          ~__context ~extra_sr:(Db.VDI.get_SR ~__context ~self)
-          (fun session_id rpc -> Client.VDI.checksum ~rpc ~session_id ~self
-        )
+          ~__context
+          ~extra_sr:(Db.VDI.get_SR ~__context ~self)
+          ~remote_fn:(Client.VDI.checksum ~self)
+          ()
 
       let enable_cbt ~__context ~self =
         info "VDI.enable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.enable_cbt ~self in
+        let remote_fn = Client.VDI.enable_cbt ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_enable_cbt)
           ~vdi:(self, `enable_cbt) ~doc:"VDI.enable_cbt" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.enable_cbt ~rpc ~session_id ~self
-            )
+            forward_vdi_op ~local_fn ~__context ~self ~remote_fn
         )
 
       let disable_cbt ~__context ~self =
         info "VDI.disable_cbt: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.disable_cbt ~self in
+        let remote_fn = Client.VDI.disable_cbt ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_disable_cbt)
           ~vdi:(self, `disable_cbt) ~doc:"VDI.disable_cbt" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.disable_cbt ~rpc ~session_id ~self
-            )
+            forward_vdi_op ~local_fn ~__context ~self ~remote_fn
         )
 
       let set_cbt_enabled ~__context ~self ~value =
@@ -5591,12 +5388,11 @@ functor
       let data_destroy ~__context ~self =
         info "VDI.data_destroy: VDI = '%s'" (vdi_uuid ~__context self) ;
         let local_fn = Local.VDI.data_destroy ~self in
+        let remote_fn = Client.VDI.data_destroy ~self in
         let sR = Db.VDI.get_SR ~__context ~self in
         with_sr_andor_vdi ~__context ~sr:(sR, `vdi_data_destroy)
           ~vdi:(self, `data_destroy) ~doc:"VDI.data_destroy" (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VDI.data_destroy ~rpc ~session_id ~self
-            )
+            forward_vdi_op ~local_fn ~__context ~self ~remote_fn
         )
 
       let list_changed_blocks ~__context ~vdi_from ~vdi_to =
@@ -5604,15 +5400,11 @@ functor
           (vdi_uuid ~__context vdi_from)
           (vdi_uuid ~__context vdi_to) ;
         let local_fn = Local.VDI.list_changed_blocks ~vdi_from ~vdi_to in
+        let remote_fn = Client.VDI.list_changed_blocks ~vdi_from ~vdi_to in
         let vdi_to_sr = Db.VDI.get_SR ~__context ~self:vdi_to in
         with_sr_andor_vdi ~__context ~sr:(vdi_to_sr, `vdi_list_changed_blocks)
           ~vdi:(vdi_to, `list_changed_blocks) ~doc:"VDI.list_changed_blocks"
-          (fun () ->
-            forward_vdi_op ~local_fn ~__context ~self:vdi_to
-              (fun session_id rpc ->
-                Client.VDI.list_changed_blocks ~rpc ~session_id ~vdi_from
-                  ~vdi_to
-            )
+          (fun () -> forward_vdi_op ~local_fn ~__context ~self:vdi_to ~remote_fn
         )
 
       let get_nbd_info ~__context ~self =
@@ -5672,13 +5464,13 @@ functor
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
       (* Forward to host that has resident VM that this VBD references *)
-      let forward_vbd_op ~local_fn ~__context ~self op =
+      let forward_vbd_op ~local_fn ~__context ~self ~remote_fn =
         let vm = Db.VBD.get_VM ~__context ~self in
         let host_resident_on = Db.VM.get_resident_on ~__context ~self:vm in
         if host_resident_on = Ref.null then
           local_fn ~__context
         else
-          do_op_on ~local_fn ~__context ~host:host_resident_on op
+          do_op_on ~local_fn ~__context ~host:host_resident_on ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -5706,6 +5498,7 @@ functor
         info "VBD.insert: VBD = '%s'; VDI = '%s'" (vbd_uuid ~__context vbd)
           (vdi_uuid ~__context vdi) ;
         let local_fn = Local.VBD.insert ~vbd ~vdi in
+        let remote_fn = Client.VBD.insert ~vbd ~vdi in
         with_vbd_marked ~__context ~vbd ~doc:"VBD.insert" ~op:`insert (fun () ->
             let vm = Db.VBD.get_VM ~__context ~self:vbd in
             if Db.VM.get_power_state ~__context ~self:vm = `Halted then (
@@ -5713,16 +5506,14 @@ functor
               Db.VBD.set_VDI ~__context ~self:vbd ~value:vdi ;
               Db.VBD.set_empty ~__context ~self:vbd ~value:false
             ) else
-              forward_vbd_op ~local_fn ~__context ~self:vbd
-                (fun session_id rpc ->
-                  Client.VBD.insert ~rpc ~session_id ~vbd ~vdi
-              )
+              forward_vbd_op ~local_fn ~__context ~self:vbd ~remote_fn
         ) ;
         update_vbd_and_vdi_operations ~__context ~vbd
 
       let eject ~__context ~vbd =
         info "VBD.eject: VBD = '%s'" (vbd_uuid ~__context vbd) ;
         let local_fn = Local.VBD.eject ~vbd in
+        let remote_fn = Client.VBD.eject ~vbd in
         with_vbd_marked ~__context ~vbd ~doc:"VBD.eject" ~op:`eject (fun () ->
             let vm = Db.VBD.get_VM ~__context ~self:vbd in
             if Db.VM.get_power_state ~__context ~self:vm = `Halted then (
@@ -5730,42 +5521,35 @@ functor
               Db.VBD.set_empty ~__context ~self:vbd ~value:true ;
               Db.VBD.set_VDI ~__context ~self:vbd ~value:Ref.null
             ) else
-              forward_vbd_op ~local_fn ~__context ~self:vbd
-                (fun session_id rpc -> Client.VBD.eject ~rpc ~session_id ~vbd
-              )
+              forward_vbd_op ~local_fn ~__context ~self:vbd ~remote_fn
         ) ;
         update_vbd_and_vdi_operations ~__context ~vbd
 
       let plug ~__context ~self =
         info "VBD.plug: VBD = '%s'" (vbd_uuid ~__context self) ;
         let local_fn = Local.VBD.plug ~self in
+        let remote_fn = Client.VBD.plug ~self in
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.plug" ~op:`plug
-          (fun () ->
-            forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.plug ~rpc ~session_id ~self
-            )
+          (fun () -> forward_vbd_op ~local_fn ~__context ~self ~remote_fn
         ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
       let unplug ~__context ~self =
         info "VBD.unplug: VBD = '%s'" (vbd_uuid ~__context self) ;
         let local_fn = Local.VBD.unplug ~self in
+        let remote_fn = Client.VBD.unplug ~self in
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unplug" ~op:`unplug
-          (fun () ->
-            forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.unplug ~rpc ~session_id ~self
-            )
+          (fun () -> forward_vbd_op ~local_fn ~__context ~self ~remote_fn
         ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
       let unplug_force ~__context ~self =
         info "VBD.unplug_force: VBD = '%s'" (vbd_uuid ~__context self) ;
         let local_fn = Local.VBD.unplug_force ~self in
+        let remote_fn = Client.VBD.unplug_force ~self in
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unplug_force"
           ~op:`unplug_force (fun () ->
-            forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.unplug_force ~rpc ~session_id ~self
-            )
+            forward_vbd_op ~local_fn ~__context ~self ~remote_fn
         ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
@@ -5777,12 +5561,10 @@ functor
       let pause ~__context ~self =
         info "VBD.pause: VBD = '%s'" (vbd_uuid ~__context self) ;
         let local_fn = Local.VBD.pause ~self in
+        let remote_fn = Client.VBD.pause ~self in
         let result =
           with_vbd_marked ~__context ~vbd:self ~doc:"VBD.pause" ~op:`pause
-            (fun () ->
-              forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                  Client.VBD.pause ~rpc ~session_id ~self
-              )
+            (fun () -> forward_vbd_op ~local_fn ~__context ~self ~remote_fn
           )
         in
         update_vbd_and_vdi_operations ~__context ~vbd:self ;
@@ -5792,11 +5574,9 @@ functor
         info "VBD.unpause: VBD = '%s'; token = '%s'" (vbd_uuid ~__context self)
           token ;
         let local_fn = Local.VBD.unpause ~self ~token in
+        let remote_fn = Client.VBD.unpause ~self ~token in
         with_vbd_marked ~__context ~vbd:self ~doc:"VBD.unpause" ~op:`unpause
-          (fun () ->
-            forward_vbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VBD.unpause ~rpc ~session_id ~self ~token
-            )
+          (fun () -> forward_vbd_op ~local_fn ~__context ~self ~remote_fn
         ) ;
         update_vbd_and_vdi_operations ~__context ~vbd:self
 
@@ -5830,10 +5610,10 @@ functor
 
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
-      let forward_pbd_op ~local_fn ~__context ~self op =
+      let forward_pbd_op ~local_fn ~__context ~self ~remote_fn =
         do_op_on ~local_fn ~__context
           ~host:(Db.PBD.get_host ~__context ~self)
-          op
+          ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -5851,9 +5631,8 @@ functor
         let sr = Db.PBD.get_SR ~__context ~self in
         Sm.assert_session_has_internal_sr_access ~__context ~sr ;
         let local_fn = Local.PBD.set_device_config ~self ~value in
-        forward_pbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.PBD.set_device_config ~rpc ~session_id ~self ~value
-        )
+        let remote_fn = Client.PBD.set_device_config ~self ~value in
+        forward_pbd_op ~local_fn ~__context ~self ~remote_fn
 
       (* Mark the SR and check, if we are the 'SRmaster' that no VDI
          current_operations are present (eg snapshot, clone) since these are all
@@ -5888,6 +5667,7 @@ functor
       let plug ~__context ~self =
         info "PBD.plug: PBD = '%s'" (pbd_uuid ~__context self) ;
         let local_fn = Local.PBD.plug ~self in
+        let remote_fn = Client.PBD.plug ~self in
         let sr = Db.PBD.get_SR ~__context ~self in
         let is_shared_sr = Db.SR.get_shared ~__context ~self:sr in
         let is_master_pbd =
@@ -5896,9 +5676,7 @@ functor
           pbd_host = master_host
         in
         SR.with_sr_marked ~__context ~sr ~doc:"PBD.plug" ~op:`plug (fun () ->
-            forward_pbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.PBD.plug ~rpc ~session_id ~self
-            )
+            forward_pbd_op ~local_fn ~__context ~self ~remote_fn
         ) ;
         (* We always plug the master PBD first and unplug it last. If this is the
          * first PBD plugged for this SR (proxy: the PBD being plugged is for the
@@ -5928,6 +5706,7 @@ functor
       let unplug ~__context ~self =
         info "PBD.unplug: PBD = '%s'" (pbd_uuid ~__context self) ;
         let local_fn = Local.PBD.unplug ~self in
+        let remote_fn = Client.PBD.unplug ~self in
         let sr = Db.PBD.get_SR ~__context ~self in
         let is_master_pbd =
           let pbd_host = Db.PBD.get_host ~__context ~self in
@@ -5937,9 +5716,7 @@ functor
         with_unplug_locks ~__context ~sr ~pbd:self (fun () ->
             if is_master_pbd then
               Xapi_sr.maybe_copy_sr_rrds ~__context ~sr ;
-            forward_pbd_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.PBD.unplug ~rpc ~session_id ~self
-            )
+            forward_pbd_op ~local_fn ~__context ~self ~remote_fn
         )
     end
 
@@ -5947,9 +5724,9 @@ functor
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
       (* Read VDI and then re-use VDI forwarding policy *)
-      let forward_crashdump_op ~local_fn ~__context ~self op =
+      let forward_crashdump_op ~local_fn ~__context ~self ~remote_fn =
         let vdi = Db.Crashdump.get_VDI ~__context ~self in
-        VDI.forward_vdi_op ~local_fn ~__context ~self:vdi op
+        VDI.forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -5957,9 +5734,8 @@ functor
         info "Crashdump.destroy: crashdump = '%s'"
           (crashdump_uuid ~__context self) ;
         let local_fn = Local.Crashdump.destroy ~self in
-        forward_crashdump_op ~local_fn ~__context ~self (fun session_id rpc ->
-            Client.Crashdump.destroy ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Crashdump.destroy ~self in
+        forward_crashdump_op ~local_fn ~__context ~self ~remote_fn
     end
 
     (* whatever *)
@@ -5977,25 +5753,22 @@ functor
         info "PCI.disable_dom0_access: pci = '%s'" (pci_uuid ~__context self) ;
         let host = Db.PCI.get_host ~__context ~self in
         let local_fn = Local.PCI.disable_dom0_access ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PCI.disable_dom0_access ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PCI.disable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let enable_dom0_access ~__context ~self =
         info "PCI.enable_dom0_access: pci = '%s'" (pci_uuid ~__context self) ;
         let host = Db.PCI.get_host ~__context ~self in
         let local_fn = Local.PCI.enable_dom0_access ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PCI.enable_dom0_access ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PCI.enable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let get_dom0_access_status ~__context ~self =
         info "PCI.get_dom0_access_status: pci = '%s'" (pci_uuid ~__context self) ;
         let host = Db.PCI.get_host ~__context ~self in
         let local_fn = Local.PCI.get_dom0_access_status ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PCI.get_dom0_access_status ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PCI.get_dom0_access_status ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module VTPM = struct
@@ -6021,17 +5794,15 @@ functor
         info "PGPU.enable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self) ;
         let host = Db.PGPU.get_host ~__context ~self in
         let local_fn = Local.PGPU.enable_dom0_access ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PGPU.enable_dom0_access ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PGPU.enable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let disable_dom0_access ~__context ~self =
         info "PGPU.disable_dom0_access: pgpu = '%s'" (pgpu_uuid ~__context self) ;
         let host = Db.PGPU.get_host ~__context ~self in
         let local_fn = Local.PGPU.disable_dom0_access ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PGPU.disable_dom0_access ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PGPU.disable_dom0_access ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module GPU_group = struct
@@ -6100,9 +5871,8 @@ functor
       let introduce ~__context ~vdi =
         info "Pool_update.introduce: vdi = '%s'" (vdi_uuid ~__context vdi) ;
         let local_fn = Local.Pool_update.introduce ~vdi in
-        VDI.forward_vdi_op ~local_fn ~__context ~self:vdi (fun session_id rpc ->
-            Client.Pool_update.introduce ~rpc ~session_id ~vdi
-        )
+        let remote_fn = Client.Pool_update.introduce ~vdi in
+        VDI.forward_vdi_op ~local_fn ~__context ~self:vdi ~remote_fn
 
       let pool_apply ~__context ~self =
         info "Pool_update.pool_apply: pool update = '%s'"
@@ -6113,12 +5883,10 @@ functor
         info "Pool_update.pool_clean: pool update = '%s'"
           (pool_update_uuid ~__context self) ;
         let local_fn = Local.Pool_update.pool_clean ~self in
+        let remote_fn = Client.Pool_update.pool_clean ~self in
         let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
         if Db.is_valid_ref __context update_vdi then
-          VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-            (fun session_id rpc ->
-              Client.Pool_update.pool_clean ~rpc ~session_id ~self
-          )
+          VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi ~remote_fn
         else
           info
             "Pool_update.pool_clean: pool update '%s' has already been cleaned."
@@ -6133,13 +5901,10 @@ functor
         info "Pool_update.attach: pool update = '%s'"
           (pool_update_uuid ~__context self) ;
         let local_fn = Local.Pool_update.attach ~self ~use_localhost_proxy in
+        let remote_fn = Client.Pool_update.attach ~self ~use_localhost_proxy in
         let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
         if Db.is_valid_ref __context update_vdi then
-          VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-            (fun session_id rpc ->
-              Client.Pool_update.attach ~rpc ~session_id ~self
-                ~use_localhost_proxy
-          )
+          VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi ~remote_fn
         else
           raise
             (Api_errors.Server_error
@@ -6152,12 +5917,10 @@ functor
         info "Pool_update.detach: pool update = '%s''"
           (pool_update_uuid ~__context self) ;
         let local_fn = Local.Pool_update.detach ~self in
+        let remote_fn = Client.Pool_update.detach ~self in
         let update_vdi = Db.Pool_update.get_vdi ~__context ~self in
         if Db.is_valid_ref __context update_vdi then
-          VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi
-            (fun session_id rpc ->
-              Client.Pool_update.detach ~rpc ~session_id ~self
-          )
+          VDI.forward_vdi_op ~local_fn ~__context ~self:update_vdi ~remote_fn
         else
           raise
             (Api_errors.Server_error
@@ -6169,9 +5932,8 @@ functor
       let resync_host ~__context ~host =
         info "Pool_update.resync_host: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Pool_update.resync_host ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.Pool_update.resync_host ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Pool_update.resync_host ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module VGPU_type = struct end
@@ -6217,18 +5979,16 @@ functor
         info "PVS_proxy.create" ;
         let host = choose_host ~__context ~vIF in
         let local_fn = Local.PVS_proxy.create ~site ~vIF in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PVS_proxy.create ~rpc ~session_id ~site ~vIF
-        )
+        let remote_fn = Client.PVS_proxy.create ~site ~vIF in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let destroy ~__context ~self =
         info "PVS_proxy.destroy" ;
         let vIF = Db.PVS_proxy.get_VIF ~__context ~self in
         let host = choose_host ~__context ~vIF in
         let local_fn = Local.PVS_proxy.destroy ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PVS_proxy.destroy ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.PVS_proxy.destroy ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module PVS_cache_storage = struct
@@ -6239,10 +5999,9 @@ functor
       let destroy ~__context ~self =
         info "PVS_cache_storage.destroy" ;
         let local_fn = Local.PVS_cache_storage.destroy ~self in
+        let remote_fn = Client.PVS_cache_storage.destroy ~self in
         let host = Db.PVS_cache_storage.get_host ~__context ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.PVS_cache_storage.destroy ~rpc ~session_id ~self
-        )
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module Feature = struct end
@@ -6266,9 +6025,8 @@ functor
       let scan ~__context ~host =
         info "PUSB.scan: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.PUSB.scan ~host in
-        do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-            Client.PUSB.scan ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.PUSB.scan ~host in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
     module USB_group = struct
@@ -6335,13 +6093,13 @@ functor
       (* -------- Forwarding helper functions: ------------------------------------ *)
 
       (* Forward to host that has resident VM that this VUSB references *)
-      let forward_vusb_op ~local_fn ~__context ~self op =
+      let forward_vusb_op ~local_fn ~__context ~self ~remote_fn =
         let vm = Db.VUSB.get_VM ~__context ~self in
         let host_resident_on = Db.VM.get_resident_on ~__context ~self:vm in
         if host_resident_on = Ref.null then
           local_fn ~__context
         else
-          do_op_on ~local_fn ~__context ~host:host_resident_on op
+          do_op_on ~local_fn ~__context ~host:host_resident_on ~remote_fn
 
       (* -------------------------------------------------------------------------- *)
 
@@ -6353,11 +6111,9 @@ functor
       let unplug ~__context ~self =
         info "VUSB.unplug: VUSB = '%s'" (vusb_uuid ~__context self) ;
         let local_fn = Local.VUSB.unplug ~self in
+        let remote_fn = Client.VUSB.unplug ~self in
         with_vusb_marked ~__context ~vusb:self ~doc:"VUSB.unplug" ~op:`unplug
-          (fun () ->
-            forward_vusb_op ~local_fn ~__context ~self (fun session_id rpc ->
-                Client.VUSB.unplug ~rpc ~session_id ~self
-            )
+          (fun () -> forward_vusb_op ~local_fn ~__context ~self ~remote_fn
         ) ;
         update_vusb_operations ~__context ~vusb:self
 
@@ -6372,20 +6128,18 @@ functor
           (pif_uuid ~__context pif)
           (network_uuid ~__context network) ;
         let local_fn = Local.Network_sriov.create ~pif ~network in
+        let remote_fn = Client.Network_sriov.create ~pif ~network in
         let host = Db.PIF.get_host ~__context ~self:pif in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Network_sriov.create ~rpc ~session_id ~pif ~network
-        )
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let destroy ~__context ~self =
         info "Network_sriov.destroy : network_sriov = '%s'"
           (network_sriov_uuid ~__context self) ;
         let local_fn = Local.Network_sriov.destroy ~self in
+        let remote_fn = Client.Network_sriov.destroy ~self in
         let physical_pif = Db.Network_sriov.get_physical_PIF ~__context ~self in
         let host = Db.PIF.get_host ~__context ~self:physical_pif in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Network_sriov.destroy ~rpc ~session_id ~self
-        )
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let get_remaining_capacity ~__context ~self =
         info "Network_sriov.get_remaining_capacity : network_sriov = '%s'"
@@ -6394,7 +6148,7 @@ functor
     end
 
     module Cluster = struct
-      let forward_cluster_op ~local_fn ~__context op =
+      let forward_cluster_op ~local_fn ~__context ~remote_fn =
         let localhost = Helpers.get_localhost ~__context in
         let is_local_cluster_host self =
           Db.Cluster_host.get_host ~__context ~self = localhost
@@ -6409,7 +6163,7 @@ functor
           | cluster_host :: _ ->
               Db.Cluster_host.get_host ~__context ~self:cluster_host
         in
-        do_op_on ~local_fn ~__context ~host op
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
       let create ~__context ~pIF ~cluster_stack ~pool_auto_join ~token_timeout
           ~token_timeout_coefficient =
@@ -6432,9 +6186,8 @@ functor
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self
           ~doc:"Cluster.destroy" ~op:`destroy (fun () ->
             let local_fn = Local.Cluster.destroy ~self in
-            forward_cluster_op ~__context ~local_fn (fun session_id rpc ->
-                Client.Cluster.destroy ~rpc ~session_id ~self
-            )
+            let remote_fn = Client.Cluster.destroy ~self in
+            forward_cluster_op ~__context ~local_fn ~remote_fn
         )
 
       let get_network ~__context ~self =
@@ -6464,21 +6217,19 @@ functor
         info "Cluster.pool_resync cluster: %s" (Ref.string_of self) ;
         let hosts = Xapi_pool_helpers.get_master_slaves_list ~__context in
         let local_fn = Local.Cluster.pool_resync ~self in
+        let remote_fn = Client.Cluster.pool_resync ~self in
         hosts
         |> List.iter (fun host ->
-               do_op_on ~local_fn ~__context ~host (fun session_id rpc ->
-                   Client.Cluster.pool_resync ~rpc ~session_id ~self
-               ) ;
+               do_op_on ~local_fn ~__context ~host ~remote_fn ;
                debug "Cluster.pool_resync for host %s" (Ref.string_of host)
            )
 
       let cstack_sync ~__context ~self =
         info "Cluster.cstack_sync cluster %s" (Ref.string_of self) ;
         let local_fn = Local.Cluster.cstack_sync ~self in
+        let remote_fn = Client.Cluster.cstack_sync ~self in
         let coor = Helpers.get_master ~__context in
-        do_op_on ~local_fn ~__context ~host:coor (fun session_id rpc ->
-            Client.Cluster.cstack_sync ~rpc ~session_id ~self
-        )
+        do_op_on ~local_fn ~__context ~host:coor ~remote_fn
     end
 
     module Cluster_host = struct
@@ -6486,14 +6237,10 @@ functor
         info "Cluster_host.create with cluster:%s, host:%s, pif:%s"
           (Ref.string_of cluster) (Ref.string_of host) (Ref.string_of pif) ;
         let local_fn = Local.Cluster_host.create ~cluster ~host ~pif in
+        let remote_fn = Client.Cluster_host.create ~cluster ~host ~pif in
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster.add" ~op:`add (fun () ->
-            let cluster_host =
-              do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                  Client.Cluster_host.create ~rpc ~session_id ~cluster ~host
-                    ~pif
-              )
-            in
+            let cluster_host = do_op_on ~__context ~local_fn ~host ~remote_fn in
             Xapi_cluster_host_helpers.update_allowed_operations ~__context
               ~self:cluster_host ;
             cluster_host
@@ -6502,39 +6249,36 @@ functor
       let destroy ~__context ~self =
         info "Cluster_host.destroy cluster_host: %s" (Ref.string_of self) ;
         let local_fn = Local.Cluster_host.destroy ~self in
+        let remote_fn = Client.Cluster_host.destroy ~self in
         let host = Db.Cluster_host.get_host ~__context ~self in
         let cluster = Db.Cluster_host.get_cluster ~__context ~self in
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster_host.destroy" ~op:`remove (fun () ->
-            do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                Client.Cluster_host.destroy ~rpc ~session_id ~self
-            )
+            do_op_on ~__context ~local_fn ~host ~remote_fn
         )
 
       let force_destroy ~__context ~self =
         info "Cluster_host.force_destroy cluster_host: %s" (Ref.string_of self) ;
         let local_fn = Local.Cluster_host.force_destroy ~self in
+        let remote_fn = Client.Cluster_host.force_destroy ~self in
         let host = Db.Cluster_host.get_host ~__context ~self in
         let cluster = Db.Cluster_host.get_cluster ~__context ~self in
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster_host.force_destroy" ~op:`remove (fun () ->
-            do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                Client.Cluster_host.force_destroy ~rpc ~session_id ~self
-            )
+            do_op_on ~__context ~local_fn ~host ~remote_fn
         )
 
       let enable ~__context ~self =
         info "Cluster_host.enable cluster_host %s" (Ref.string_of self) ;
         let cluster = Db.Cluster_host.get_cluster ~__context ~self in
         let local_fn = Local.Cluster_host.enable ~self in
+        let remote_fn = Client.Cluster_host.enable ~self in
         let host = Db.Cluster_host.get_host ~__context ~self in
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster.enable" ~op:`enable (fun () ->
             Xapi_cluster_host_helpers.with_cluster_host_operation ~__context
               ~self ~doc:"Cluster_host.enable" ~op:`enable (fun () ->
-                do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                    Client.Cluster_host.enable ~rpc ~session_id ~self
-                )
+                do_op_on ~__context ~local_fn ~host ~remote_fn
             )
         )
 
@@ -6542,14 +6286,13 @@ functor
         info "Cluster_host.disable cluster_host: %s" (Ref.string_of self) ;
         let cluster = Db.Cluster_host.get_cluster ~__context ~self in
         let local_fn = Local.Cluster_host.disable ~self in
+        let remote_fn = Client.Cluster_host.disable ~self in
         let host = Db.Cluster_host.get_host ~__context ~self in
         Xapi_cluster_helpers.with_cluster_operation ~__context ~self:cluster
           ~doc:"Cluster.disable" ~op:`disable (fun () ->
             Xapi_cluster_host_helpers.with_cluster_host_operation ~__context
               ~self ~doc:"Cluster_host.disable" ~op:`disable (fun () ->
-                do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                    Client.Cluster_host.disable ~rpc ~session_id ~self
-                )
+                do_op_on ~__context ~local_fn ~host ~remote_fn
             )
         )
 
@@ -6558,6 +6301,7 @@ functor
         Db.Cluster_host.set_joined ~__context ~self ~value:false ;
         let cluster = Db.Cluster_host.get_cluster ~__context ~self in
         let local_fn = Local.Cluster_host.forget ~self in
+        let remote_fn = Client.Cluster_host.forget ~self in
         (* We need to ask another host that has a cluster host to mark it as dead.
          * We might've run force destroy and this host would no longer have a cluster host
          * *)
@@ -6576,9 +6320,7 @@ functor
               in
               Xapi_cluster_helpers.with_cluster_operation ~__context
                 ~self:cluster ~doc:"Cluster.remove" ~op:`remove (fun () ->
-                  do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-                      Client.Cluster_host.forget ~rpc ~session_id ~self
-                  )
+                  do_op_on ~__context ~local_fn ~host ~remote_fn
               )
             with
             | Api_errors.Server_error (code, _) as e
@@ -6607,25 +6349,22 @@ functor
           (Ref.string_of variant) ;
         let host = Db.Host_driver.get_host ~__context ~self in
         let local_fn = Local.Host_driver.select ~self ~variant in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Host_driver.select ~rpc ~session_id ~self ~variant
-        )
+        let remote_fn = Client.Host_driver.select ~self ~variant in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       (** deselect needs to be executed on the host of the driver *)
       let deselect ~__context ~self =
         info "Host_driver.deselect %s" (Ref.string_of self) ;
         let host = Db.Host_driver.get_host ~__context ~self in
         let local_fn = Local.Host_driver.deselect ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Host_driver.deselect ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Host_driver.deselect ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let rescan ~__context ~host =
         info "Host_driver.rescan %s" (Ref.string_of host) ;
         let local_fn = Local.Host_driver.rescan ~host in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Host_driver.rescan ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Host_driver.rescan ~host in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module Driver_variant = struct
@@ -6634,9 +6373,8 @@ functor
         let drv = Db.Driver_variant.get_driver ~__context ~self in
         let host = Db.Host_driver.get_host ~__context ~self:drv in
         let local_fn = Local.Driver_variant.select ~self in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Driver_variant.select ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Driver_variant.select ~self in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module Repository = struct
@@ -6673,9 +6411,8 @@ functor
       let apply ~__context ~host =
         info "Repository.apply: host = '%s'" (host_uuid ~__context host) ;
         let local_fn = Local.Repository.apply ~host in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Repository.apply ~rpc ~session_id ~host
-        )
+        let remote_fn = Client.Repository.apply ~host in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
 
       let set_gpgkey_path ~__context ~self ~value =
         info "Repository.set_gpgkey_path : repository='%s' value='%s'"
@@ -6696,10 +6433,11 @@ functor
           Local.Repository.apply_livepatch ~host ~component ~base_build_id
             ~base_version ~base_release ~to_version ~to_release
         in
-        do_op_on ~__context ~local_fn ~host (fun session_id rpc ->
-            Client.Repository.apply_livepatch ~rpc ~session_id ~host ~component
-              ~base_build_id ~base_version ~base_release ~to_version ~to_release
-        )
+        let remote_fn =
+          Client.Repository.apply_livepatch ~host ~component ~base_build_id
+            ~base_version ~base_release ~to_version ~to_release
+        in
+        do_op_on ~__context ~local_fn ~host ~remote_fn
     end
 
     module VM_group = struct
@@ -6738,27 +6476,22 @@ functor
         in
         Xapi_observer.observed_hosts_of ~__context hosts
         |> List.iter (fun host ->
-               do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-                   Client.Observer.register ~rpc ~session_id ~self ~host
-               )
+               let remote_fn = Client.Observer.register ~self ~host in
+               do_op_on ~__context ~host ~local_fn ~remote_fn
            ) ;
         self
 
       let register ~__context ~self ~host =
         info "Observer.register: self=%s" (observer_uuid ~__context self) ;
         let local_fn = Local.Observer.register ~self ~host in
-        let client_fn session_id rpc =
-          Client.Observer.register ~rpc ~session_id ~self ~host
-        in
-        do_op_on ~__context ~host ~local_fn client_fn
+        let remote_fn = Client.Observer.register ~self ~host in
+        do_op_on ~__context ~host ~local_fn ~remote_fn
 
       let unregister ~__context ~self ~host =
         info "Observer.unregister: self=%s" (observer_uuid ~__context self) ;
         let local_fn = Local.Observer.unregister ~self ~host in
-        let client_fn session_id rpc =
-          Client.Observer.unregister ~rpc ~session_id ~self ~host
-        in
-        do_op_on ~__context ~host ~local_fn client_fn
+        let remote_fn = Client.Observer.unregister ~self ~host in
+        do_op_on ~__context ~host ~local_fn ~remote_fn
 
       let destroy ~__context ~self =
         info "Observer.destroy: self=%s" (observer_uuid ~__context self) ;
@@ -6769,9 +6502,8 @@ functor
         in
         Xapi_observer.observed_hosts_of ~__context hosts
         |> List.iter (fun host ->
-               do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-                   Client.Observer.unregister ~rpc ~session_id ~self ~host
-               )
+               let remote_fn = Client.Observer.unregister ~self ~host in
+               do_op_on ~__context ~host ~local_fn ~remote_fn
            ) ;
         Local.Observer.destroy ~__context ~self
 
@@ -6795,17 +6527,15 @@ functor
         let local_fn = Local.Observer.unregister ~self ~host:localhost in
         RefSet.iter
           (fun host ->
-            do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-                Client.Observer.unregister ~rpc ~session_id ~self ~host
-            )
+            let remote_fn = Client.Observer.unregister ~self ~host in
+            do_op_on ~__context ~host ~local_fn ~remote_fn
           )
           to_remove ;
         let local_fn = Local.Observer.register ~self ~host:localhost in
         RefSet.iter
           (fun host ->
-            do_op_on ~__context ~host ~local_fn (fun session_id rpc ->
-                Client.Observer.register ~rpc ~session_id ~self ~host
-            )
+            let remote_fn = Client.Observer.register ~self ~host in
+            do_op_on ~__context ~host ~local_fn ~remote_fn
           )
           to_add
 
@@ -6813,36 +6543,30 @@ functor
         info "Observer.set_enabled: self=%s value=%B"
           (observer_uuid ~__context self)
           value ;
-        let client_fn session_id rpc =
-          Client.Observer.set_enabled ~rpc ~session_id ~self ~value
-        in
         let local_fn = Local.Observer.set_enabled ~self ~value in
+        let remote_fn = Client.Observer.set_enabled ~self ~value in
         let fn ~rpc:_ ~session_id:_ ~host =
-          do_op_on ~__context ~host ~local_fn client_fn
+          do_op_on ~__context ~host ~local_fn ~remote_fn
         in
         Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context fn
 
       let set_attributes ~__context ~self ~value =
         (* attributes will be kept out of the logs *)
         info "Observer.set_attributes: self=%s" (observer_uuid ~__context self) ;
-        let client_fn session_id rpc =
-          Client.Observer.set_attributes ~rpc ~session_id ~self ~value
-        in
         let local_fn = Local.Observer.set_attributes ~self ~value in
+        let remote_fn = Client.Observer.set_attributes ~self ~value in
         let fn ~rpc:_ ~session_id:_ ~host =
-          do_op_on ~__context ~host ~local_fn client_fn
+          do_op_on ~__context ~host ~local_fn ~remote_fn
         in
         Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context fn
 
       let set_endpoints ~__context ~self ~value =
         (* endpoints will be kept out of the logs *)
         info "Observer.set_endpoints: self=%s" (observer_uuid ~__context self) ;
-        let client_fn session_id rpc =
-          Client.Observer.set_endpoints ~rpc ~session_id ~self ~value
-        in
         let local_fn = Local.Observer.set_endpoints ~self ~value in
+        let remote_fn = Client.Observer.set_endpoints ~self ~value in
         let fn ~rpc:_ ~session_id:_ ~host =
-          do_op_on ~__context ~host ~local_fn client_fn
+          do_op_on ~__context ~host ~local_fn ~remote_fn
         in
         Xapi_pool_helpers.call_fn_on_master_then_slaves ~__context fn
 
@@ -6850,12 +6574,10 @@ functor
         info "Observer.set_components: self=%s value=%s"
           (observer_uuid ~__context self)
           (value |> String.concat ",") ;
-        let client_fn session_id rpc =
-          Client.Observer.set_components ~rpc ~session_id ~self ~value
-        in
         let local_fn = Local.Observer.set_components ~self ~value in
+        let remote_fn = Client.Observer.set_components ~self ~value in
         let fn ~rpc:_ ~session_id:_ ~host =
-          do_op_on ~__context ~host ~local_fn client_fn
+          do_op_on ~__context ~host ~local_fn ~remote_fn
         in
         Xapi_pool_helpers.call_fn_on_slaves_then_master ~__context fn
     end

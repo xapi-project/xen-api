@@ -914,6 +914,7 @@ let is_slave ~__context ~host:_ = not (Pool_role.is_master ())
 let ask_host_if_it_is_a_slave ~__context ~host =
   let ask_and_warn_when_slow ~__context =
     let local_fn = is_slave ~host in
+    let remote_fn = Client.Client.Pool.is_slave ~host in
     let timeout = 10. in
     let task_name = Context.get_task_id __context |> Ref.string_of in
     let ip, uuid =
@@ -935,9 +936,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
       (log_host_slow_to_respond timeout) ;
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
-        ~host (fun session_id rpc ->
-          Client.Client.Pool.is_slave ~rpc ~session_id ~host
-      )
+        ~host ~remote_fn
     in
     Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name ;
     res

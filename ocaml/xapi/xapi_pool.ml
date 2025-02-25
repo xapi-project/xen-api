@@ -1844,16 +1844,16 @@ let recover_slaves ~__context =
     if not (hostref = !Xapi_globs.localhost_ref) then
       try
         let local_fn = emergency_reset_master ~master_address:my_address in
+        let remote_fn =
+          Client.Pool.emergency_reset_master ~master_address:my_address
+        in
         (* We have to use a new context here because the slave is currently doing a
            	     Task.get_name_label on real tasks, which will block on slaves that we're
            	     trying to recover. Get around this by creating a dummy task, for which
            	     the name-label bit is bypassed *)
         let newcontext = Context.make "emergency_reset_master" in
         Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn
-          ~__context:newcontext ~host:hostref (fun session_id rpc ->
-            Client.Pool.emergency_reset_master ~rpc ~session_id
-              ~master_address:my_address
-        ) ;
+          ~__context:newcontext ~host:hostref ~remote_fn ;
         recovered_hosts := hostref :: !recovered_hosts
       with _ -> ()
   in
@@ -2347,18 +2347,18 @@ let hello ~__context ~host_uuid ~host_address =
         Dbsync_master.refresh_console_urls ~__context
       ) ;
       let local_fn = is_slave ~host:host_ref in
+      let remote_fn = Client.Pool.is_slave ~host:host_ref in
       (* Nb. next call is purely there to establish that we can talk back to the host that initiated this call *)
       (* We don't care about the return type, only that no exception is raised while talking to it *)
       ( try
-          ignore
-            (Server_helpers.exec_with_subtask ~__context "pool.hello.is_slave"
-               (fun ~__context ->
-                 Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn
-                   ~__context ~host:host_ref (fun session_id rpc ->
-                     Client.Pool.is_slave ~rpc ~session_id ~host:host_ref
-                 )
-             )
+          let _ : bool =
+            Server_helpers.exec_with_subtask ~__context "pool.hello.is_slave"
+              (fun ~__context ->
+                Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn
+                  ~__context ~host:host_ref ~remote_fn
             )
+          in
+          ()
         with
       | Api_errors.Server_error (code, ["pool.is_slave"; "1"; "2"]) as e
         when code = Api_errors.message_parameter_count_mismatch ->
@@ -3474,7 +3474,7 @@ let alert_failed_login_attempts () =
             ~body:stats
       )
 
-let perform ~local_fn ~__context ~host op =
+let perform ~local_fn ~__context ~host ~remote_fn =
   let rpc' _context hostname (task_opt : API.ref_task option) xml =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
@@ -3487,7 +3487,8 @@ let perform ~local_fn ~__context ~host op =
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
   in
   let open Message_forwarding in
-  do_op_on_common ~local_fn ~__context ~host op (call_slave_with_session rpc')
+  do_op_on_common ~local_fn ~__context ~host ~remote_fn
+    (call_slave_with_session rpc')
 
 (** [ping_with_tls_verification host] calls [Pool.is_slave] using a TLS
 connection that uses certficate checking. We ignore the result but are
@@ -3498,15 +3499,15 @@ yet enabled. *)
 
 let ping_with_tls_verification ~__context host =
   let local_fn = is_slave ~host in
+  let remote_fn = Client.Pool.is_slave ~host in
   let this_uuid = Helpers.get_localhost_uuid () in
   let remote_uuid = Db.Host.get_uuid ~__context ~self:host in
   info "pinging host before enabling TLS: %s -> %s" this_uuid remote_uuid ;
-  Server_helpers.exec_with_subtask ~__context "pool.ping" (fun ~__context ->
-      perform ~local_fn ~__context ~host (fun session_id rpc ->
-          Client.Pool.is_slave ~rpc ~session_id ~host
-      )
-  )
-  |> ignore
+  let _ : bool =
+    Server_helpers.exec_with_subtask ~__context "pool.ping"
+      (perform ~local_fn ~host ~remote_fn)
+  in
+  ()
 
 (* TODO: move to xapi_host *)
 let enable_tls_verification ~__context =
