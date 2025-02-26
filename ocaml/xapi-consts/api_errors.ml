@@ -1419,3 +1419,6 @@ let illegal_in_fips_mode = add_error "ILLEGAL_IN_FIPS_MODE"
 let too_many_groups = add_error "TOO_MANY_GROUPS"
 
 let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
+
+let tls_verification_not_enabled_in_pool =
+  add_error "TLS_VERIFICATION_NOT_ENABLED_IN_POOL"

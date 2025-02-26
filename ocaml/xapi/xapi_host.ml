@@ -2890,6 +2890,17 @@ let emergency_reenable_tls_verification ~__context =
   (* NB: Should only be used after running emergency_disable_tls_verification.
      Xapi_pool.enable_tls_verification is not used because it introduces a
      dependency cycle. *)
+  let tls_needs_to_be_enabled_first =
+    try
+      not
+        (Db.Pool.get_tls_verification_enabled ~__context
+           ~self:(Helpers.get_pool ~__context)
+        || Sys.file_exists !Xapi_globs.pool_bundle_path
+        )
+    with _ -> false
+  in
+  if tls_needs_to_be_enabled_first then
+    raise Api_errors.(Server_error (tls_verification_not_enabled_in_pool, [])) ;
   let self = Helpers.get_localhost ~__context in
   Stunnel_client.set_verify_by_default true ;
   Helpers.touch_file Constants.verify_certificates_path ;
