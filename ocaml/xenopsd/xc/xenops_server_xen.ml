@@ -2711,6 +2711,10 @@ module VM = struct
     )
 
   module Limit : sig
+    (** Set the limit of entries amount, key string length and value string
+        length when walking through a xenstore path. *)
+
+    (** Type representing the limit configuration. *)
     type t
 
     val make :
@@ -2719,20 +2723,48 @@ module VM = struct
       -> ?value_len:int option
       -> unit
       -> t
-
-    val valid_amount : t -> bool
+    (** Create a limit with optional entries amount, key string length, and
+        value string length.
+      @param amount Optional limit on the number of entries.
+      @param key_len Optional limit on the length of keys.
+      @param value_len Optional limit on the length of values.
+      @return A limit configuration. *)
 
     val decrease_amount : t -> t
+    (** Decrease the amount by 1.
+      @param t The limit configuration.
+      @return A new limit configuration with the amount decreased by 1. *)
+
+    val valid_amount : t -> bool
+    (** Check if the amount is valid (greater than 0).
+      @param t The limit configuration.
+      @return [true] if the amount is valid, [false] otherwise. *)
 
     val valid_key_length : string -> t -> bool
+    (** Check if the key string length is valid.
+      @param key The key string to check.
+      @param t The limit configuration.
+      @return [true] if the key string length is valid, [false] otherwise. *)
 
     val valid_value_length : string -> t -> bool
+    (** Check if the value string length is valid.
+      @param value The value string to check.
+      @param t The limit configuration.
+      @return [true] if the value string length is valid, [false] otherwise. *)
 
     val mark_reached : t -> t
+    (** Mark the limit as reached. Once the limit is marked as reached, it
+        cannot be unmarked.
+      @param t The limit configuration.
+      @return A new limit configuration marked as reached. *)
 
     val is_reached : t -> bool
+    (** Check if the limit has been reached.
+      @param t The limit configuration.
+      @return [true] if the limit has been reached, [false] otherwise. *)
 
     val no_limit : t
+    (** A limit configuration with no limits. *)
   end = struct
     type t = {
         amount: int option
@@ -2781,6 +2813,7 @@ module VM = struct
     let vme = vm.Vm.id |> DB.read in
     (* may not exist *)
     let map_tr f l = List.rev_map f l |> List.rev in
+    let append_tr l1 l2 = List.rev_append (List.rev l1) l2 in
     with_xc_and_xs (fun xc xs ->
         match di_of_uuid ~xc uuid with
         | None -> (
@@ -2918,12 +2951,12 @@ module VM = struct
               if Limit.is_reached limit then (
                 info "Reach limit for %s, so the string is dropped: [%s]" path
                   (acc
-                  |> List.map (fun (k, v) -> Printf.sprintf "%s: %s" k v)
+                  |> map_tr (fun (k, v) -> Printf.sprintf "%s: %s" k v)
                   |> String.concat "; "
                   ) ;
                 (quota, result)
               ) else
-                (quota, acc @ result)
+                (quota, append_tr acc result)
             in
             let quota = !Xenopsd.vm_guest_agent_xenstore_quota_bytes in
             (* depth is the number of directories descended into,
@@ -2946,6 +2979,8 @@ module VM = struct
                     (Limit.make ~amount:(Some 256) ~key_len:(Some 256)
                        ~value_len:(Some 256) ()
                     )
+                  (* Different with quota, quota will be accumulated all the paths,
+                     but limit is just for one path if it is offered. *)
                 , 1
                 )
                 (* data/service/<service-name>/<key>*)

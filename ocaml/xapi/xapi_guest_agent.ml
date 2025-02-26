@@ -247,19 +247,17 @@ let get_guest_services (lookup : string -> string option)
     (list : string -> string list) =
   let base_path = "data/service" in
   let services = list base_path in
-  List.fold_left
-    (fun acc service ->
-      let sub_path = base_path // service in
-      List.fold_left
-        (fun acc key ->
-          let full_path_key = sub_path // key in
-          let db_key = service // key in
-          let value = lookup full_path_key in
-          (db_key, Option.value ~default:"" value) :: acc
-        )
-        acc (list sub_path)
-    )
-    [] services
+  services
+  |> List.concat_map (fun service ->
+         let sub_path = base_path // service in
+         list sub_path
+         |> List.map (fun key ->
+                let full_path_key = sub_path // key in
+                let db_key = service // key in
+                let value = lookup full_path_key in
+                (db_key, Option.value ~default:"" value)
+            )
+     )
 
 (* In the following functions, 'lookup' reads a key from xenstore and 'list' reads
    a directory from xenstore. Both are relative to the guest's domainpath. *)
