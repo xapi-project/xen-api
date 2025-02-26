@@ -1,6 +1,6 @@
 (test
  (name test)
- (modules :standard \ test_cpuid test_topology)
+ (modules :standard \ test_cpuid test_topology test_xc)
  (package xapi-tools)
  (libraries
   alcotest
@@ -32,6 +32,13 @@
   (modules test_topology)
   (package xapi-tools)
   (libraries alcotest fmt xapi-log xapi_xenopsd)
+)
+
+(test
+  (name test_xc)
+  (modules test_xc)
+  (package xapi-tools)
+  (libraries alcotest xapi-test-utils xenopsd_xc)
 )
 
 (rule
