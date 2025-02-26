@@ -34,9 +34,11 @@ let api =
     && msg.msg_name <> "get"
     && msg.msg_name <> "get_data_sources"
   in
-  filter obj_filter field_filter message_filter
+  filter_by ~obj:obj_filter ~field:field_filter ~message:message_filter
     (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api)
+       (filter_by ~obj:obj_filter ~field:field_filter ~message:message_filter
+          Datamodel.all_api
+       )
     )
 
 let classes = objects_of_api api

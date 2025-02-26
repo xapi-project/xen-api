@@ -79,11 +79,12 @@ let objfilter msg api =
     (not msg_is_con_or_des) || obj_gen_con_and_des
 
 let client_api ~sync api =
-  let filter f = Dm_api.filter (fun _ -> true) (fun _ -> true) f in
   let api =
-    filter (fun msg -> DU.on_client_side msg && objfilter msg api) api
+    Dm_api.filter_by
+      ~message:(fun msg -> DU.on_client_side msg && objfilter msg api)
+      api
   in
-  if sync then api else filter has_async api
+  if sync then api else Dm_api.filter_by ~message:has_async api
 
 (* Client constructor takes all object fields which are StaticRO or RW *)
 let ctor_fields (obj : obj) =
