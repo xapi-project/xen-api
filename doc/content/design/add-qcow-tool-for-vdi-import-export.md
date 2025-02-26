@@ -56,7 +56,8 @@ add streaming support to `qcow-tool`.
 - Since the format is checked in the handler, we need to add support for `Qcow2`,
   as currently only `Raw`, `Tar`, and `Vhd` are supported.
 - This requires adding a new type in the `Importexport.Format` module and a new
-  content type: `"application/qcow2"`.
+  content type: `application/x-qemu-disk`.
+  See [mime-types format](https://www.digipres.org/formats/mime-types/#application/x-qemu-disk).
 - This allows the format to be properly decoded. Currently, all formats use a
   wrapper called `Vhd_tool_wrapper`, which sets up parameters for `vhd-tool`.
   We need to add a new wrapper for the Qcow2 format, which will instead use
@@ -77,8 +78,44 @@ add streaming support to `qcow-tool`.
   `Vhd_tool_wrapper.send`, which calls `vhd-tool stream`.
   - It writes data from the source to a destination. Unlike `vhd-tool`, which
     supports multiple destinations, we will only support Qcow2 files.
+  - Here is a typicall call to `vhd-tool stream`
+```sh
+/bin/vhd-tool stream \
+    --source-protocol none \
+    --source-format hybrid \
+    --source /dev/sm/backend/ff1b27b1-3c35-972e-76ec-a56fe9f25e36/87711319-2b05-41a3-8ee0-3b63a2fc7035:/dev/VG_XenStorage-ff1b27b1-3c35-972e-76ec-a56fe9f25e36/VHD-87711319-2b05-41a3-8ee0-3b63a2fc7035 \
+    --destination-protocol none \
+    --destination-format vhd \
+    --destination-fd 2585f988-7374-8131-5b66-77bbc239cbb2 \
+    --tar-filename-prefix  \
+    --progress \
+    --machine \
+    --direct \
+    --path /dev/mapper:.
+```
 
 - To import a VDI from a Qcow2 file, we need to implement functionality similar
   to `Vhd_tool_wrapper.receive`, which calls `vhd-tool serve`.
   - This is the reverse of the export process. As with export, we will only
     support a single type of import: from a Qcow2 file.
+  - Here is a typical call to `vhd-tool serve`
+```sh
+/bin/vhd-tool serve \
+    --source-format raw \
+    --source-protocol none \
+    --source-fd 3451d7ed-9078-8b01-95bf-293d3bc53e7a \
+    --tar-filename-prefix  \
+    --destination file:///dev/sm/backend/f939be89-5b9f-c7c7-e1e8-30c419ee5de6/4868ac1d-8321-4826-b058-952d37a29b82 \
+    --destination-format raw \
+    --progress \
+    --machine \
+    --direct \
+    --destination-size 180405760 \
+    --prezeroed
+```
+
+- We don't need to propose different protocol and different format. As we will
+not support different formats we just to handle data copy from socket into file
+and from file to socket. Sockets and files will be managed into the
+`qcow_tool_wrapper`. The `forkhelpers.ml` manages the list of file descriptors
+and we will mimic what the vhd tool wrapper does to link a UUID to socket.
