@@ -62,16 +62,30 @@ https://github.com/xen-project/xen/blob/master/xen/common/domain.c#L943-L970"
 
 This function implements the functionality of `xc_domain_node_setaffinity`
 to set the NUMA affinity of a domain as described above.
-If the new_affinity does not intersect the `node_online_map`,
-it returns `-EINVAL`, otherwise on success `0`.
 
-When the `new_affinity` is a specific set of NUMA nodes, it updates the NUMA
-`node_affinity` of the domain to these nodes and disables `auto_node_affinity`
-for this domain. It also notifies the Xen scheduler of the change.
+- If `new_affinity` does not intersect the `node_online_map`,
+  it returns `-EINVAL`. Otherwise, the result is a success and it returns `0`.
+- When the `new_affinity` is a specific set of NUMA nodes,
+  it sets `d->node_affinity` of the domain to these nodes
+  and disables `auto_node_affinity` for this domain.
+- If `new_affinity` has all bits set, it re-enables `auto_node_affinity`
+  for this domain and calls
+  [domain_update_node_aff()](https://github.com/xen-project/xen/blob/e16acd80/xen/common/sched/core.c#L1809-L1876)
+  to re-set the domain's `node_affinity` mask to the NUMA nodes of the current
+  the hard and soft affinity of the domain's online vCPUs.
 
-This sets the preference the memory allocator to the new NUMA nodes,
-and in theory, it could also alter the behaviour of the scheduler.
-This of course depends on the scheduler and its configuration.
+The result of changing the domains' node affinity changes the
+preference of the memory allocator to the new NUMA nodes.
+
+Currently, the only scheduling change is that if set before vCPU creation,
+the initial pCPU of the new vCPU is the first pCPU of the first NUMA node
+in the domain's `node_affinity`. This is if further changed when one of more
+`cpupools` are set up.
+
+When done early, before vCPU creation, domain-related data structures
+could be allocated using the domain's `node_affinity` NUMA node mask.
+With further changes in Xen, also the vCPU struct could be allocated
+using it.
 
 ## Notes on future design improvements
 
