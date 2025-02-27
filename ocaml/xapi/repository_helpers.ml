@@ -242,8 +242,7 @@ let get_remote_pool_coordinator_ip url =
       raise Api_errors.(Server_error (invalid_base_url, [url]))
 
 let assert_remote_pool_url_is_valid ~url =
-  get_remote_pool_coordinator_ip url
-  |> Xapi_stdext_pervasives.Pervasiveext.ignore_string
+  ignore (get_remote_pool_coordinator_ip url : string)
 
 let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally

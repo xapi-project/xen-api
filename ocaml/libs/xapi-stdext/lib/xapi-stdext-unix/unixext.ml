@@ -219,7 +219,7 @@ let copy_file_internal ?limit reader writer =
     let num = reader buffer 0 (Int64.to_int requested) in
     let num64 = Int64.of_int num in
     limit := Option.map (fun x -> Int64.sub x num64) !limit ;
-    ignore_int (writer buffer 0 num) ;
+    ignore (writer buffer 0 num : int) ;
     total_bytes := Int64.add !total_bytes num64 ;
     finished := num = 0 || !limit = Some 0L
   done ;

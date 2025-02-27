@@ -278,7 +278,7 @@ let write_raw ~__context ~vdi ~text =
               VDI_CStruct.format cstruct ;
             VDI_CStruct.write cstruct text (String.length text) ;
             Unix.ftruncate fd 0 ;
-            Unixext.seek_to fd 0 |> ignore ;
+            ignore (Unixext.seek_to fd 0 : int) ;
             Unixext.really_write_string fd (VDI_CStruct.read cstruct)
         )
     )
