@@ -261,27 +261,27 @@ module VDI_CStruct = struct
 end
 
 let write_raw ~__context ~vdi ~text =
-  if String.length text >= VDI_CStruct.(vdi_size - vdi_format_length) then (
-    let error_msg =
-      Printf.sprintf "Cannot write %d bytes to raw VDI. Capacity = %d bytes"
-        (String.length text)
-        VDI_CStruct.(vdi_size - vdi_format_length)
-    in
-    ignore (failwith error_msg) ;
-    Helpers.call_api_functions ~__context (fun rpc session_id ->
-        Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi
-          `RW (fun fd ->
-            let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
-            let cstruct = Cstruct.of_string contents in
-            if VDI_CStruct.get_magic_number cstruct <> VDI_CStruct.magic_number
-            then
-              VDI_CStruct.format cstruct ;
-            VDI_CStruct.write cstruct text (String.length text) ;
-            Unix.ftruncate fd 0 ;
-            ignore (Unixext.seek_to fd 0 : int) ;
-            Unixext.really_write_string fd (VDI_CStruct.read cstruct)
-        )
-    )
+  ( if String.length text >= VDI_CStruct.(vdi_size - vdi_format_length) then
+      let error_msg =
+        Printf.sprintf "Cannot write %d bytes to raw VDI. Capacity = %d bytes"
+          (String.length text)
+          VDI_CStruct.(vdi_size - vdi_format_length)
+      in
+      failwith error_msg
+  ) ;
+  Helpers.call_api_functions ~__context (fun rpc session_id ->
+      Sm_fs_ops.with_open_block_attached_device __context rpc session_id vdi `RW
+        (fun fd ->
+          let contents = Unixext.really_read_string fd VDI_CStruct.vdi_size in
+          let cstruct = Cstruct.of_string contents in
+          if VDI_CStruct.get_magic_number cstruct <> VDI_CStruct.magic_number
+          then
+            VDI_CStruct.format cstruct ;
+          VDI_CStruct.write cstruct text (String.length text) ;
+          Unix.ftruncate fd 0 ;
+          ignore (Unixext.seek_to fd 0 : int) ;
+          Unixext.really_write_string fd (VDI_CStruct.read cstruct)
+      )
   )
 
 let read_raw ~__context ~vdi =
