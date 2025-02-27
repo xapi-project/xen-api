@@ -8,27 +8,25 @@ flowchart TD
 subgraph xenopsd["xenopsd VM.build"]
 
 Host.numa_affinity_policy{<tt>Host.numa_affinity_policy</tt><br>is}
-    --best_effort-->numa_placement-->XenStore
+    --best_effort-->numa_placement-->exec_xenguest
+Host.numa_affinity_policy=="default: disabled"==>exec_xenguest
 end
 
 subgraph xenguest
-Host.numa_affinity_policy=="default: disabled"==>stub_xc_hvm_build
-XenStore(Add to Xenstore:<br><tt>platform/vcpu/#domid/affinity</tt>)-->
+stub_xc_hvm_build
+exec_xenguest-->stub_xc_hvm_build
     stub_xc_hvm_build("<tt>stub_xc_hvm_build()")
     ==> configure_vcpus("<tT>configure_vcpus()")
         ==> affinity_set{"Is<br><tt>platform/vcpu/#domid/affinity</tt><br>set?"}
-            =="affinity is found (automatically only set on <tt>numa_placement</tt> success)"==>
-                xc_vcpu_setaffinity("<tt>xc_vcpu_setaffinity()")
+            %%=="affinity is found (automatically only set on <tt>numa_placement</tt> success)"
 
-    stub_xc_hvm_build["<tt>stub_xc_hvm_build()"]
-        <==> get_flags["<tt>get_flags()</tt><br>gets Xenstore platform data"]
+    %% stub_xc_hvm_build["<tt>stub_xc_hvm_build()"]
+    %%    <==> get_flags["<tt>get_flags()</tt><br>gets Xenstore platform data"]
 
-    subgraph xenctrl[XenCtrl]
-        xc_vcpu_setaffinity
-        xc_domain_node_setaffinity
-    end
 end
 
+numa_placement & affinity_set-->xc_vcpu_setaffinity("<tt>xc_vcpu_setaffinity()")
+%% affinity_set-->xc_vcpu_setaffinity
 xc_vcpu_setaffinity ==Currently used hypercall==> do_domctl
 xc_domain_node_setaffinity --Currently not used by the Xapi toolstack--> do_domctl
 
