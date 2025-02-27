@@ -248,10 +248,10 @@ let prototyped_of_message = function
   | "pool", "set_custom_uefi_certificates" ->
       Some "24.0.0"
   | "task", "set_other_config" ->
-      Some "25.2.0-next"
+      Some "25.8.0"
   | "task", "remove_from_other_config" ->
-      Some "25.2.0-next"
+      Some "25.8.0"
   | "task", "add_to_other_config" ->
-      Some "25.2.0-next"
+      Some "25.8.0"
   | _ ->
       None
