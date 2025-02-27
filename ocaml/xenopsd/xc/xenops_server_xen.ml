@@ -2710,11 +2710,110 @@ module VM = struct
         Domain.soft_reset ~xc ~xs di.Xenctrl.domid
     )
 
+  module Limit : sig
+    (** Set the limit of entries amount, key string length and value string
+        length when walking through a xenstore path. *)
+
+    (** Type representing the limit configuration. *)
+    type t
+
+    val make :
+         ?amount:int option
+      -> ?key_len:int option
+      -> ?value_len:int option
+      -> unit
+      -> t
+    (** Create a limit with optional entries amount, key string length, and
+        value string length.
+      @param amount Optional limit on the number of entries.
+      @param key_len Optional limit on the length of keys.
+      @param value_len Optional limit on the length of values.
+      @return A limit configuration. *)
+
+    val decrease_amount : t -> t
+    (** Decrease the amount by 1.
+      @param t The limit configuration.
+      @return A new limit configuration with the amount decreased by 1. *)
+
+    val valid_amount : t -> bool
+    (** Check if the amount is valid (greater than 0).
+      @param t The limit configuration.
+      @return [true] if the amount is valid, [false] otherwise. *)
+
+    val valid_key_length : string -> t -> bool
+    (** Check if the key string length is valid.
+      @param key The key string to check.
+      @param t The limit configuration.
+      @return [true] if the key string length is valid, [false] otherwise. *)
+
+    val valid_value_length : string -> t -> bool
+    (** Check if the value string length is valid.
+      @param value The value string to check.
+      @param t The limit configuration.
+      @return [true] if the value string length is valid, [false] otherwise. *)
+
+    val mark_reached : t -> t
+    (** Mark the limit as reached. Once the limit is marked as reached, it
+        cannot be unmarked.
+      @param t The limit configuration.
+      @return A new limit configuration marked as reached. *)
+
+    val is_reached : t -> bool
+    (** Check if the limit has been reached.
+      @param t The limit configuration.
+      @return [true] if the limit has been reached, [false] otherwise. *)
+
+    val no_limit : t
+    (** A limit configuration with no limits. *)
+  end = struct
+    type t = {
+        amount: int option
+      ; key_len: int option
+      ; value_len: int option
+      ; reached: bool
+    }
+
+    let make ?(amount = None) ?(key_len = None) ?(value_len = None) () =
+      {amount; key_len; value_len; reached= false}
+
+    let valid_amount t =
+      match t.amount with
+      | None ->
+          true
+      | Some a ->
+          let r = a > 0 in
+          if not r then warn "exceeds amount limit" ;
+          r
+
+    let decrease_amount t =
+      {t with amount= Option.bind t.amount (fun a -> Some (a - 1))}
+
+    let valid_length s = function
+      | None ->
+          true
+      | Some l ->
+          let r = String.length s <= l in
+          if not r then
+            warn "entry %s exceeds length limit %d" s l ;
+          r
+
+    let valid_key_length s t = valid_length s t.key_len
+
+    let valid_value_length s t = valid_length s t.value_len
+
+    let mark_reached t = {t with reached= true}
+
+    let is_reached t = t.reached
+
+    let no_limit = make ()
+  end
+
   let get_state vm =
     let uuid = uuid_of_vm vm in
     let vme = vm.Vm.id |> DB.read in
     (* may not exist *)
     let map_tr f l = List.rev_map f l |> List.rev in
+    let append_tr l1 l2 = List.rev_append (List.rev l1) l2 in
     with_xc_and_xs (fun xc xs ->
         match di_of_uuid ~xc uuid with
         | None -> (
@@ -2744,9 +2843,10 @@ module VM = struct
                 (fun port -> {Vm.protocol= Vm.Vt100; port; path= ""})
                 (Device.get_tc_port ~xs di.Xenctrl.domid)
             in
-            let local x =
-              Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x
+            let root_path =
+              Printf.sprintf "/local/domain/%d" di.Xenctrl.domid
             in
+            let local x = Printf.sprintf "%s/%s" root_path x in
             let uncooperative =
               try
                 ignore_string (xs.Xs.read (local "memory/uncooperative")) ;
@@ -2813,48 +2913,81 @@ module VM = struct
               in
               (value_opt, subdirs)
             in
-            let rec ls_lR ?(excludes = StringSet.empty) ?(depth = 512) root
-                (quota, acc) dir =
+            let rec ls_lR ~excludes ~depth root (quota, limit, acc) dir =
               if quota <= 0 || StringSet.mem dir excludes then
-                (quota, acc) (* quota reached, stop listing/reading *)
+                (quota, limit, acc)
+              (* quota reached, or exclude dir, stop listing/reading *)
               else
                 let value_opt, subdirs = ls_l ~depth root dir in
-                let quota, acc =
+                let quota, limit, acc =
                   match value_opt with
                   | Some ((k, v) as entry) ->
-                      ( quota
-                        - Xenops_utils.xenstore_encoded_entry_size_bytes k v
-                      , entry :: acc
-                      )
+                      if
+                        Limit.valid_key_length k limit
+                        && Limit.valid_value_length v limit
+                        && Limit.valid_amount limit
+                      then
+                        ( quota
+                          - Xenops_utils.xenstore_encoded_entry_size_bytes k v
+                        , Limit.decrease_amount limit
+                        , entry :: acc
+                        )
+                      else
+                        (quota, Limit.mark_reached limit, acc)
                   | None ->
-                      (quota, acc)
+                      (quota, limit, acc)
                 in
                 let depth = depth - 1 in
                 List.fold_left
                   (ls_lR ~excludes ~depth root)
-                  (quota, acc) subdirs
+                  (quota, limit, acc) subdirs
+            in
+            let read_xs_path ?(excludes = StringSet.empty)
+                ?(limit = Limit.no_limit) ?(depth = 512) root (quota, result)
+                path =
+              let quota, limit, acc =
+                ls_lR ~excludes ~depth root (quota, limit, []) path
+              in
+              if Limit.is_reached limit then (
+                info "Reach limit for %s, so the string is dropped: [%s]" path
+                  (acc
+                  |> map_tr (fun (k, v) -> Printf.sprintf "%s: %s" k v)
+                  |> String.concat "; "
+                  ) ;
+                (quota, result)
+              ) else
+                (quota, append_tr acc result)
             in
             let quota = !Xenopsd.vm_guest_agent_xenstore_quota_bytes in
             (* depth is the number of directories descended into,
                keys at depth+1 are still read *)
             let quota, guest_agent =
               [
-                ("control", None, 0)
-              ; ("feature/hotplug", None, 0)
-              ; ("xenserver/attr", None, 3)
+                ("control", None, None, 0)
+              ; ("feature/hotplug", None, None, 0)
+              ; ("xenserver/attr", None, None, 3)
                 (* xenserver/attr/net-sriov-vf/0/ipv4/1 *)
-              ; ("attr", Some (StringSet.singleton "attr/os/hotfixes"), 3)
+              ; ("attr", Some (StringSet.singleton "attr/os/hotfixes"), None, 3)
                 (* attr/vif/0/ipv4/0, attr/eth0/ipv6/0/addr,
                    and exclude hotfixes which can exceed the quota on their own *)
-              ; ("drivers", None, 0)
-              ; ("data", None, 0)
+              ; ("drivers", None, None, 0)
+              ; ("data", None, None, 0)
                 (* in particular avoid data/volumes which contains many entries for each disk *)
+              ; ( "data/service"
+                , None
+                , Some
+                    (Limit.make ~amount:(Some 256) ~key_len:(Some 256)
+                       ~value_len:(Some 256) ()
+                    )
+                  (* Different with quota, quota will be accumulated all the paths,
+                     but limit is just for one path if it is offered. *)
+                , 1
+                )
+                (* data/service/<service-name>/<key>*)
               ]
               |> List.fold_left
-                   (fun acc (dir, excludes, depth) ->
-                     ls_lR ?excludes ~depth
-                       (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)
-                       acc dir
+                   (fun acc (dir, excludes, limit, depth) ->
+                     read_xs_path ?excludes ?limit ~depth root_path acc dir
                    )
                    (quota, [])
               |> fun (quota, acc) ->
@@ -2862,9 +2995,7 @@ module VM = struct
             in
             let quota, xsdata_state =
               Domain.allowed_xsdata_prefixes
-              |> List.fold_left
-                   (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-                   (quota, [])
+              |> List.fold_left (read_xs_path root_path) (quota, [])
             in
             let path =
               Device_common.xenops_path_of_domain di.Xenctrl.domid
@@ -4825,6 +4956,7 @@ module Actions = struct
       sprintf "/local/domain/%d/attr" domid
     ; sprintf "/local/domain/%d/data/updated" domid
     ; sprintf "/local/domain/%d/data/ts" domid
+    ; sprintf "/local/domain/%d/data/service" domid
     ; sprintf "/local/domain/%d/memory/target" domid
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid
