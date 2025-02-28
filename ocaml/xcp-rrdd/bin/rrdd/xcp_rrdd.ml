@@ -109,7 +109,7 @@ let start (xmlrpc_path, http_fwd_path) process =
             |> Http.Request.t_of_rpc
           in
           req.Http.Request.close <- true ;
-          ignore_bool (Http_svr.handle_one server received_fd () req)
+          ignore (Http_svr.handle_one server received_fd () req : bool)
         )
         (fun _ -> Unix.close received_fd)
   ) ;
