@@ -1,5 +1,7 @@
 name: Generate and upload Hugo docs
 
+permissions: {}
+
 on:
   push:
     branches: master
@@ -8,6 +10,9 @@ jobs:
   ocaml:
     name: Docs
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
 
     steps:
       - name: Checkout code
