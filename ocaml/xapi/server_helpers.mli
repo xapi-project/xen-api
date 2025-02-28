@@ -61,7 +61,7 @@ val do_dispatch :
   -> string
   -> (__context:Context.t -> 'a)
   -> ('a -> Rpc.t)
-  -> Unix.file_descr
+  -> Unix.file_descr option
   -> Http.Request.t
   -> string
   -> [< `Async | `InternalAsync | `Sync > `Sync `InternalAsync]
