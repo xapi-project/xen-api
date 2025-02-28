@@ -2263,7 +2263,9 @@ let emergency_reenable_tls_verification =
   call ~flags:[`Session] ~name:"emergency_reenable_tls_verification"
     ~lifecycle:[(Published, "1.298.0", "")]
     ~in_oss_since:None ~params:[]
-    ~doc:"Reenable TLS verification for this host only"
+    ~doc:
+      "Reenable TLS verification for this host only, and only after it was \
+       emergency disabled"
     ~allowed_roles:_R_LOCAL_ROOT_ONLY ()
 
 let apply_updates =
