@@ -1,7 +1,7 @@
 (library
  (name tracing)
  (modules tracing)
- (libraries re uri yojson xapi-log xapi-stdext-threads threads.posix)
+ (libraries astring re uri yojson xapi-log xapi-stdext-threads threads.posix)
  (preprocess
   (pps ppx_deriving_yojson))
  (public_name xapi-tracing))
@@ -33,7 +33,7 @@
 (library
  (name tracing_propagator)
  (modules propagator)
- (libraries astring http-lib tracing))
+ (libraries http-lib tracing))
 
 (test
  (name test_tracing)
