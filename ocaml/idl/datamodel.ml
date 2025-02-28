@@ -9243,21 +9243,18 @@ module PCI = struct
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "class_id" "PCI class ID" ~default_value:(Some (VString ""))
-            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "class_name" "PCI class name" ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "vendor_id" "Vendor ID" ~default_value:(Some (VString ""))
-            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "vendor_name" "Vendor name" ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "device_id" "Device ID" ~default_value:(Some (VString ""))
-            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "device_name" "Device name" ~default_value:(Some (VString ""))
@@ -9301,7 +9298,7 @@ module PCI = struct
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_vendor_id" "Subsystem vendor ID"
-            ~default_value:(Some (VString "")) ~internal_only:true
+            ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_vendor_name" "Subsystem vendor name"
@@ -9309,7 +9306,7 @@ module PCI = struct
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_device_id" "Subsystem device ID"
-            ~default_value:(Some (VString "")) ~internal_only:true
+            ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_device_name" "Subsystem device name"
