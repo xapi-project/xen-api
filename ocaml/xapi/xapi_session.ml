@@ -655,10 +655,6 @@ let login_no_password_common ~__context ~uname ~originator ~host ~pool
       )
   in
   Rbac_audit.session_create ~__context ~session_id ~uname ;
-  (* At this point, the session is created, but with an incorrect time *)
-  (* Force the time to be updated by calling an API function with this session *)
-  let rpc = Helpers.make_rpc ~__context in
-  ignore (Client.Pool.get_all ~rpc ~session_id) ;
   session_id
 
 (* XXX: only used internally by the code which grants the guest access to the API.
