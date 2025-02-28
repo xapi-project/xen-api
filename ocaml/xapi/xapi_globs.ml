@@ -1077,8 +1077,6 @@ let disable_webserver = ref false
 
 let test_open = ref 0
 
-let tgroups_enabled = ref false
-
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
 
@@ -1697,8 +1695,8 @@ let other_options =
     , "Disable the host webserver"
     )
   ; ( "tgroups-enabled"
-    , Arg.Set tgroups_enabled
-    , (fun () -> string_of_bool !tgroups_enabled)
+    , Arg.Set Constants.tgroups_enabled
+    , (fun () -> string_of_bool !Constants.tgroups_enabled)
     , "Turn on tgroups classification"
     )
   ; event_from_entry
