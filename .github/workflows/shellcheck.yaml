@@ -1,5 +1,7 @@
 name: ShellCheck
 
+permissions: {}
+
 on:
   pull_request:
   merge_group:
@@ -16,8 +18,11 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
+      actions: read
+      contents: read
+      pull-requests: write # allow commenting on the PR
       security-events: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

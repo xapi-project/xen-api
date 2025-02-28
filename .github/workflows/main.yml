@@ -1,5 +1,7 @@
 name: Build and test
 
+permissions: {}
+
 on:
   # When only Hugo docs change, this workflow is not required:
   push:
@@ -20,6 +22,8 @@ jobs:
   ocaml-tests:
     name: Run OCaml tests
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     env:
       # Ensure you also update test-sdk-builds
       # when changing this value, to keep builds

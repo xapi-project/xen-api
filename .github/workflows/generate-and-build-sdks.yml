@@ -1,5 +1,7 @@
 name: Generate and Build SDKs
 
+permissions: {}
+
 on:
   workflow_call:
     inputs:
@@ -11,6 +13,9 @@ jobs:
   generate-sdk-sources:
     name: Generate SDK sources
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,7 +30,7 @@ jobs:
         run: opam exec -- make sdk
 
       # sdk-ci runs some Go unit tests.
-      # This setting ensures that SDK date time 
+      # This setting ensures that SDK date time
       # tests are run on a machine that
       # isn't using UTC
       - name: Set Timezone to Tokyo for datetime tests
@@ -77,6 +82,9 @@ jobs:
     name: Build C SDK
     runs-on: ubuntu-latest
     needs: generate-sdk-sources
+    permissions:
+      contents: read
+
     steps:
       - name: Install dependencies
         run: sudo apt-get install libxml2-dev
@@ -103,6 +111,9 @@ jobs:
     name: Build Java SDK
     runs-on: ubuntu-latest
     needs: generate-sdk-sources
+    permissions:
+      contents: read
+
     steps:
       - name: Install dependencies
         run: sudo apt-get install maven
@@ -120,9 +131,9 @@ jobs:
           distribution: 'temurin'
 
       # Java Tests are run at compile time.
-      # This setting ensures that SDK date time 
+      # This setting ensures that SDK date time
       # tests are run on a machine that
-      # isn't using UTC 
+      # isn't using UTC
       - name: Set Timezone to Tokyo for datetime tests
         run: |
           sudo timedatectl set-timezone Asia/Tokyo
@@ -144,6 +155,9 @@ jobs:
     name: Build C# SDK
     runs-on: windows-2022
     needs: generate-sdk-sources
+    permissions:
+      contents: read
+
     steps:
       - name: Strip 'v' prefix from xapi version
         shell: pwsh
@@ -158,7 +172,7 @@ jobs:
         # All tests builds and pipelines should
         # work on other timezones. This setting ensures that
         # SDK date time tests are run on a machine that
-        # isn't using UTC 
+        # isn't using UTC
       - name: Set Timezone to Tokyo for datetime tests
         shell: pwsh
         run: Set-TimeZone -Id "Tokyo Standard Time"
@@ -192,6 +206,9 @@ jobs:
     # PowerShell SDK for PowerShell 5.x needs to run on windows-2019 because
     # windows-2022 doesn't contain .NET Framework 4.x dev tools
     runs-on: windows-2019
+    permissions:
+      contents: read
+
     steps:
       - name: Strip 'v' prefix from xapi version
         shell: pwsh
@@ -265,6 +282,8 @@ jobs:
         dotnet: ["6", "8"]
     needs: build-csharp-sdk
     runs-on: windows-2022
+    permissions:
+      contents: read
 
     steps:
       - name: Strip 'v' prefix from xapi version
