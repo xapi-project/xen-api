@@ -468,9 +468,87 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
       ]
 end)
 
+module Services = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = (string * string) list
+
+    type output_t = (string * string) list
+
+    let string_of_input_t = Test_printers.(assoc_list string string)
+
+    let string_of_output_t = Test_printers.(assoc_list string string)
+  end
+
+  (* lookup and list are from Xapi_xenops.update_vm *)
+  let lookup state key = List.assoc_opt key state
+
+  let list state dir =
+    let dir =
+      if dir.[0] = '/' then
+        String.sub dir 1 (String.length dir - 1)
+      else
+        dir
+    in
+    let results =
+      List.filter_map
+        (fun (path, _) ->
+          if String.starts_with ~prefix:dir path then
+            let rest =
+              String.sub path (String.length dir)
+                (String.length path - String.length dir)
+            in
+            let is_sep = function '/' -> true | _ -> false in
+            match Astring.String.fields ~empty:false ~is_sep rest with
+            | x :: _ ->
+                Some x
+            | _ ->
+                None
+          else
+            None
+        )
+        state
+      |> Xapi_stdext_std.Listext.List.setify
+    in
+    results
+
+  let transform input =
+    Xapi_guest_agent.get_guest_services (lookup input) (list input)
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* normal case *)
+        ( [
+            ("data/service/service-a/key1", "sa-v1")
+          ; ("data/service/service-a/key2", "sa-v2")
+          ; ("data/service/service-b/key1", "sb-v1")
+          ; ("data/service/service-b/key2", "sb-v2")
+          ]
+        , [
+            ("service-a/key1", "sa-v1")
+          ; ("service-a/key2", "sa-v2")
+          ; ("service-b/key1", "sb-v1")
+          ; ("service-b/key2", "sb-v2")
+          ]
+        )
+      ; (* no data/service *)
+        ([("data/key1", "v1"); ("data/key2", "v2")], [])
+      ; (* less than two depth in data/service *)
+        ([("data/service/key1", "v1"); ("data/service/key2", "v2")], [])
+      ; (* beyond two depth in data/service *)
+        ( [
+            ("data/service/service-a/sub/key1", "sab-v1")
+          ; ("data/service/service-a/sub/key2", "sab-v2")
+          ]
+        , [("service-a/sub", "")]
+        )
+      ]
+end)
+
 let tests =
   make_suite "guest_agent_"
     [
       ("networks", Networks.tests)
     ; ("get_initial_guest_metrics", Initial_guest_metrics.tests)
+    ; ("get_guest_services", Services.tests)
     ]

@@ -236,6 +236,29 @@ let dead_domains : IntSet.t ref = ref IntSet.empty
 
 let mutex = Mutex.create ()
 
+(* Parse data/service which has the following structure:
+   data/service/<service_name>/<key> = <value>
+   data/service/<service_name>/<key> = <value>
+   ...
+   data/service/<service_name>/<key> = <value>
+   Read and convert to [(<service_name>/<key>, <value>)] pair list.
+   The list is intended to store in VM_guest_metrics.services at last *)
+let get_guest_services (lookup : string -> string option)
+    (list : string -> string list) =
+  let base_path = "data/service" in
+  let services = list base_path in
+  services
+  |> List.concat_map (fun service ->
+         let sub_path = base_path // service in
+         list sub_path
+         |> List.map (fun key ->
+                let full_path_key = sub_path // key in
+                let db_key = service // key in
+                let value = lookup full_path_key in
+                (db_key, Option.value ~default:"" value)
+            )
+     )
+
 (* In the following functions, 'lookup' reads a key from xenstore and 'list' reads
    a directory from xenstore. Both are relative to the guest's domainpath. *)
 let get_initial_guest_metrics (lookup : string -> string option)
@@ -290,7 +313,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
          ; networks "xenserver/attr" "net-sriov-vf" list
          ]
       )
-  and services = []
+  and services = get_guest_services lookup list
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in

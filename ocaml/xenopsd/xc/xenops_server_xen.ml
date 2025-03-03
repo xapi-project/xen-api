@@ -2744,9 +2744,10 @@ module VM = struct
                 (fun port -> {Vm.protocol= Vm.Vt100; port; path= ""})
                 (Device.get_tc_port ~xs di.Xenctrl.domid)
             in
-            let local x =
-              Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x
+            let root_path =
+              Printf.sprintf "/local/domain/%d" di.Xenctrl.domid
             in
+            let local x = Printf.sprintf "%s/%s" root_path x in
             let uncooperative =
               try
                 ignore_string (xs.Xs.read (local "memory/uncooperative")) ;
@@ -2849,12 +2850,11 @@ module VM = struct
               ; ("drivers", None, 0)
               ; ("data", None, 0)
                 (* in particular avoid data/volumes which contains many entries for each disk *)
+              ; ("data/service", None, 1) (* data/service/<service-name>/<key>*)
               ]
               |> List.fold_left
                    (fun acc (dir, excludes, depth) ->
-                     ls_lR ?excludes ~depth
-                       (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)
-                       acc dir
+                     ls_lR ?excludes ~depth root_path acc dir
                    )
                    (quota, [])
               |> fun (quota, acc) ->
@@ -2862,9 +2862,7 @@ module VM = struct
             in
             let quota, xsdata_state =
               Domain.allowed_xsdata_prefixes
-              |> List.fold_left
-                   (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-                   (quota, [])
+              |> List.fold_left (ls_lR root_path) (quota, [])
             in
             let path =
               Device_common.xenops_path_of_domain di.Xenctrl.domid
@@ -4825,6 +4823,7 @@ module Actions = struct
       sprintf "/local/domain/%d/attr" domid
     ; sprintf "/local/domain/%d/data/updated" domid
     ; sprintf "/local/domain/%d/data/ts" domid
+    ; sprintf "/local/domain/%d/data/service" domid
     ; sprintf "/local/domain/%d/memory/target" domid
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid
