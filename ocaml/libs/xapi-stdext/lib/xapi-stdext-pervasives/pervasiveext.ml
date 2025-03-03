@@ -42,28 +42,3 @@ let finally fct clean_f =
 
 (** execute fct ignoring exceptions *)
 let ignore_exn fct = try fct () with _ -> ()
-
-(* non polymorphic ignore function *)
-let ignore_int v =
-  let (_ : int) = v in
-  ()
-
-let ignore_int64 v =
-  let (_ : int64) = v in
-  ()
-
-let ignore_int32 v =
-  let (_ : int32) = v in
-  ()
-
-let ignore_string v =
-  let (_ : string) = v in
-  ()
-
-let ignore_float v =
-  let (_ : float) = v in
-  ()
-
-let ignore_bool v =
-  let (_ : bool) = v in
-  ()

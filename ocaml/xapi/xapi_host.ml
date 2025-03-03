@@ -1970,8 +1970,7 @@ let attach_static_vdis ~__context ~host:_ ~vdi_reason_map =
       && v.Static_vdis_list.currently_attached
     in
     if not (List.exists check static_vdis) then
-      Pervasiveext.ignore_string
-        (Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason)
+      ignore (Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason : string)
   in
   List.iter attach vdi_reason_map
 
