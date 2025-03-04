@@ -17,15 +17,3 @@ val finally : (unit -> 'a) -> (unit -> unit) -> 'a
     [g ()] even if [f ()] throws an exception. *)
 
 val ignore_exn : (unit -> unit) -> unit
-
-val ignore_int : int -> unit
-
-val ignore_int32 : int32 -> unit
-
-val ignore_int64 : int64 -> unit
-
-val ignore_string : string -> unit
-
-val ignore_float : float -> unit
-
-val ignore_bool : bool -> unit
