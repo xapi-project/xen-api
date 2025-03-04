@@ -7,9 +7,6 @@ STATE_DIR=/etc/xensource/static-vdis
 [ -d ${STATE_DIR} ] || exit 0
 [ -e /opt/xensource/bin/static-vdis ] || exit 0
 
-# Source function library.
-. /etc/init.d/functions
-
 clear_stale_state(){
 	for i in $(ls -1 ${STATE_DIR}); do
 	    # Clear the now-stale symlink to the attached disk. From this point the disk will

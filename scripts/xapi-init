@@ -1,8 +1,5 @@
 #! /bin/bash
 
-# Source function library.
-. /etc/init.d/functions
-
 if [ -f /etc/sysconfig/xapi ]; then
   . /etc/sysconfig/xapi
 fi
@@ -23,9 +20,8 @@ start() {
 
         if [ -e /var/lock/subsys/xapi ]; then
 	    if [ -e /var/run/xapi.pid ] && [ -e /proc/`cat /var/run/xapi.pid` ]; then
-		echo -n $"cannot start xapi: already running.";
-		failure $"cannot start xapi: already running.";
-		echo
+		echo $"cannot start xapi: already running.";
+		logger "cannot start xapi: already running.";
 		return 1
 	    fi
 	fi
@@ -39,9 +35,8 @@ start() {
 	if [ -e ${XAPI_BLOCK_STARTUP_COOKIE} ]; then
             if [ -e ${XAPI_BOOT_TIME_INFO_UPDATED} ]; then
 	    logger "Aborting xapi startup because ${XAPI_BLOCK_STARTUP_COOKIE} is present and the system has just booted. Remove file and try again";
-	    echo -n $"startup blocked."
-	    failure $"startup blocked."
-	    echo
+	    echo $"startup blocked."
+	    logger $"startup blocked."
 	    return 1
             fi
 	fi
@@ -69,9 +64,8 @@ start() {
 stop() {
 	echo -n $"Stopping xapi: "
         if [ ! -e /var/lock/subsys/xapi ]; then
-	    echo -n $"cannot stop xapi: xapi is not running."
-	    failure $"cannot stop xapi: xapi is not running."
-	    echo
+	    echo $"cannot stop xapi: xapi is not running."
+	    logger $"cannot stop xapi: xapi is not running."
 	    return 1;
 	fi
 	rm -f ${XAPI_STARTUP_COOKIE}
@@ -88,10 +82,9 @@ stop() {
 		# Finish if all xapis have gone 
 		xapi_pids=$(pidof xapi)
 		if [ -z "$xapi_pids" ]; then
-			logger "xapi stopped successfully"
+			echo $"xapi stopped successfully"
 			rm -f /var/run/xapi.pid /var/lock/subsys/xapi
-			success $"xapi stopped successfully"
-			echo
+			logger $"xapi stopped successfully"
 			return 0
 		fi
 		sleep 1
@@ -103,13 +96,11 @@ stop() {
 	RETVAL=$?
 	if [ $RETVAL -eq 0 ]; then
 	    logger "xapi stopped forcibly"
-	    success $"xapi stopped successfully"
-	    echo
+	    echo $"xapi stopped successfully"
 	    rm -f /var/run/xapi.pid /var/lock/subsys/xapi
 	else
 	    logger "failed to stop xapi"
-	    failure $"failed to stop xapi"
-	    echo
+	    echo $"failed to stop xapi"
 	fi
 
 	return $RETVAL
