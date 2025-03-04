@@ -10,7 +10,8 @@ these files.
 
 ##  Design Documents
 
-* [Design](../../design/user-certificates.md)
+* [Pool Certificates](../../design/pool-certificates.md)
+* [User Certificates](../../design/user-certificates.md)
 
 ## Paths
 
@@ -52,6 +53,8 @@ pool or host to be used as an API.
   certificate.
 * See below for xapi-stunnel-ca-bundle for additional certificates that
   can be added to a pool in support of a user-supplied host certificate.
+* `xe reset-server-certificate` creates a new self-signed certificate.
+
 
 ### `xapi-pool-tls.pem`
 
@@ -74,7 +77,8 @@ Certifiacte bundles are used by stunnel. They are a collection of public
 keys from hosts and certificates provided by a user. Knowing a host's
 public key facilitates stunnel connecting to the host.
 
-Certificates in a pool are
+Bundles by themselves are a technicality as they organise a set of
+certificates in a single file but don't add new certificates.
 
 ### `xapi-pool-ca-bundle.pem` and `certs-pool/*.pem`
 
@@ -85,8 +89,8 @@ them.
 
 * bundle of public keys from hosts' `xapi-pool-tls.pem`
 * constructed from PEM files in `certs-pool/`
-* `/opt/xensource/bin/update-ca-bundle.sh` generates bundle from PEM files
-* used by
+* `/opt/xensource/bin/update-ca-bundle.sh` generates the bundle from PEM
+  files
 
 ### `xapi-stunnel-ca-bundle.pem` and `certs/*.pem`
 
@@ -97,9 +101,11 @@ used by clients when using HTTPS for API calls.
 * in a plain pool installation, these are empty
 * bundle of public keys provided by a user
 * constructed from PEM files in `certs/`
-* `/opt/xensource/bin/update-ca-bundle.sh` generates bundle from PEM files
+* `/opt/xensource/bin/update-ca-bundle.sh` generates the bundle from PEM files
 * Updated by a user using `xe pool-install-ca-certificate`
 * `Pool.install_ca_certificate`
 * `Pool.uninstall_ca_certificate`
 * `xe pool-certificate-sync` explicitly distribute these certificates in
   the pool.
+* User-provided certificates can be used to let outside services (like
+  WLB) connect to Xapi.
