@@ -124,7 +124,7 @@ module Iostat = struct
 
     (* Keep track of how many results headers we've seen so far *)
     let parsing_section = ref 0 in
-    let process_line str =
+    let read_out_line str =
       let res = Utils.cut str in
       (* Keep values from the second set of outputs *)
       ( if !parsing_section = 2 then
@@ -151,7 +151,10 @@ module Iostat = struct
     (* 2 iterations; 1 second between them *)
 
     (* Iterate through each line and populate dev_values_map *)
-    let _ = Utils.exec_cmd (module Process.D) ~cmdstring ~f:process_line in
+    let read_err_line _ = None in
+    let _ =
+      Utils.exec_cmd (module Process.D) ~cmdstring ~read_out_line ~read_err_line
+    in
 
     (* Now read the values out of dev_values_map for devices for which we have data *)
     List.filter_map
@@ -341,7 +344,7 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
         D.error "Could not find device with physical path %s" phypath ;
         None
   in
-  let process_line str =
+  let read_out_line str =
     try Scanf.sscanf str "pid=%d minor=%d state=%s args=%s@:%s" extract_vdis
     with Scanf.Scan_failure _ | Failure _ | End_of_file ->
       D.warn {|"%s" returned a line that could not be parsed. Ignoring.|}
@@ -349,8 +352,11 @@ let exec_tap_ctl_list () : ((string * string) * int) list =
       D.warn "Offending line: %s" str ;
       None
   in
-  let pid_and_minor_to_sr_and_vdi =
-    Utils.exec_cmd (module Process.D) ~cmdstring:tap_ctl ~f:process_line
+  let read_err_line _ = None in
+  let pid_and_minor_to_sr_and_vdi, _ =
+    Utils.exec_cmd
+      (module Process.D)
+      ~cmdstring:tap_ctl ~read_out_line ~read_err_line
   in
   let sr_and_vdi_to_minor =
     List.map

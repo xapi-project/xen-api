@@ -43,8 +43,6 @@ val validate_not_expired :
 (** The following functions are exposed exclusively for unit-testing, please
     do not use them directly, they are not stable *)
 
-type t_certificate = Leaf | Chain
-
 val validate_private_key :
      string
   -> ( [> `RSA of Mirage_crypto_pk.Rsa.priv]
@@ -52,9 +50,12 @@ val validate_private_key :
      )
      Result.result
 
-val validate_certificate :
-     t_certificate
-  -> string
+val validate_pem_chain :
+     pem_leaf:string
+  -> pem_chain:string option
   -> Ptime.t
   -> [> `RSA of Mirage_crypto_pk.Rsa.priv]
-  -> (X509.Certificate.t, [> `Msg of string * string list]) Rresult.result
+  -> ( X509.Certificate.t * X509.Certificate.t list option
+     , [> `Msg of string * string list]
+     )
+     Result.t

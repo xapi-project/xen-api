@@ -27,7 +27,13 @@ val list_directory_entries_unsafe : string -> string list
 (** List the contents of a directory, not including . and .. *)
 
 val exec_cmd :
-  (module Debug.DEBUG) -> cmdstring:string -> f:(string -> 'a option) -> 'a list
-(** [exec_cmd cmd f] executes [cmd], applies [f] on each of the lines which
-      	    [cmd] outputs on stdout, and returns a list of resulting values for which
-      	    applying [f] returns [Some value]. *)
+     (module Debug.DEBUG)
+  -> cmdstring:string
+  -> read_out_line:(string -> 'a option)
+  -> read_err_line:(string -> 'b option)
+  -> 'a list * 'b list
+(** [exec_cmd cmd out_line err_line] executes [cmd], applies [read_out_line] to
+    each of the lines which [cmd] outputs on stdout, applies [read_err_line] to
+    each of the lines which [cmd] outputs on stderr, and returns a tuple of
+    list with each of the values that the [read_out_line] and [read_err_line]
+    returned [Some value]. *)
