@@ -144,7 +144,7 @@ unixpwd_setspw(const char *user, char *password)
                    *sp;
     char            buf[BUFLEN];
     int             tmp;
-    FILE           *tmp_file;
+    FILE           *tmp_file = NULL;
     char            tmp_name[PATH_MAX];
     struct stat     statbuf;
     int             rc;
@@ -164,6 +164,8 @@ unixpwd_setspw(const char *user, char *password)
         return rc;
     }
     if (lckpwdf() != 0) {
+        if (tmp_file)
+            fclose(tmp_file);
         close(tmp);
         unlink(tmp_name);
         return ENOLCK;

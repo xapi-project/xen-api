@@ -20,12 +20,12 @@
 #include <caml/custom.h>
 #include <caml/signals.h>
 
-static int __syslog_level_table[] = {
+static int syslog_level_table[] = {
 	LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING,
 	LOG_NOTICE, LOG_INFO, LOG_DEBUG
 };
 
-static int __syslog_facility_table[] = {
+static int syslog_facility_table[] = {
 	LOG_AUTH, LOG_AUTHPRIV, LOG_CRON, LOG_DAEMON, LOG_FTP, LOG_KERN,
 	LOG_LOCAL0, LOG_LOCAL1, LOG_LOCAL2, LOG_LOCAL3,
 	LOG_LOCAL4, LOG_LOCAL5, LOG_LOCAL6, LOG_LOCAL7,
@@ -54,8 +54,8 @@ value stub_syslog(value facility, value level, value msg)
 {
 	CAMLparam3(facility, level, msg);
 	char *c_msg = strdup(String_val(msg));
-	int c_facility = __syslog_facility_table[Int_val(facility)]
-	               | __syslog_level_table[Int_val(level)];
+	int c_facility = syslog_facility_table[Int_val(facility)]
+	               | syslog_level_table[Int_val(level)];
 
 	caml_enter_blocking_section();
 	syslog(c_facility, "%s", c_msg);
