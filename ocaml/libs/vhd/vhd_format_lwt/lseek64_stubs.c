@@ -26,7 +26,7 @@
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
@@ -43,7 +43,7 @@ CAMLprim value stub_lseek64_data(value fd, value ofs) {
   off_t c_ofs = Int64_val(ofs);
   off_t c_ret;
 
-  caml_enter_blocking_section();
+  caml_release_runtime_system();
 #if defined(SEEK_DATA)
   c_ret = lseek(c_fd, c_ofs, SEEK_DATA);
   /* retry, if SEEK_DATA not supported on this file system */
@@ -53,7 +53,7 @@ CAMLprim value stub_lseek64_data(value fd, value ofs) {
   /* Set the file pointer to ofs; pretend there is data */
   c_ret = lseek(c_fd, c_ofs, SEEK_SET);
 #endif
-  caml_leave_blocking_section();
+  caml_acquire_runtime_system();
   if (c_ret == -1) uerror("lseek", Nothing);
 
   result = caml_copy_int64(c_ret);
@@ -67,7 +67,7 @@ CAMLprim value stub_lseek64_hole(value fd, value ofs) {
   off_t c_ofs = Int64_val(ofs);
   off_t c_ret;
 
-  caml_enter_blocking_section();
+  caml_release_runtime_system();
 #if defined(SEEK_HOLE)
   c_ret = lseek(c_fd, c_ofs, SEEK_HOLE);
   /* retry, if SEEK_HOLE not supported on this file system */
@@ -78,7 +78,7 @@ CAMLprim value stub_lseek64_hole(value fd, value ofs) {
      there is no hole */
   c_ret = lseek(c_fd, 0, SEEK_END);
 #endif
-  caml_leave_blocking_section();
+  caml_acquire_runtime_system();
   if (c_ret == -1) uerror("lseek", Nothing);
   result = caml_copy_int64(c_ret);
   CAMLreturn(result);
