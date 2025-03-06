@@ -23,7 +23,7 @@
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
@@ -36,7 +36,7 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
 
   const char *filename_c = strdup(String_val(filename));
 
-  caml_enter_blocking_section();
+  caml_release_runtime_system();
   int flags = 0;
 #if defined(O_DIRECT)
   flags |= O_DIRECT;
@@ -47,7 +47,7 @@ CAMLprim value stub_openfile_direct(value filename, value rw, value perm){
     flags |= O_RDONLY;
   }
   fd = open(filename_c, flags, Int_val(perm));
-  caml_leave_blocking_section();
+  caml_acquire_runtime_system();
 
   free((void*)filename_c);
 

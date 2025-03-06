@@ -25,7 +25,7 @@
 #include <caml/custom.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 
 #include "xa_auth.h"
 
@@ -39,11 +39,11 @@ CAMLprim value stub_XA_mh_authorize(value username, value password){
     const char *error = NULL;
     int rc;
 
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     rc = XA_mh_authorize(c_username, c_password, &error);
     free(c_username);
     free(c_password);
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
 
     if (rc != XA_SUCCESS)
         caml_failwith(error ? error : "Unknown error");
@@ -60,11 +60,11 @@ CAMLprim value stub_XA_mh_chpasswd(value username, value new_password){
     const char *error = NULL;
     int rc;
 
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     rc = XA_mh_chpasswd (c_username, c_new_password, &error);
     free(c_username);
     free(c_new_password);
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
 
     if (rc != XA_SUCCESS)
         caml_failwith(error ? error : "Unknown error");
@@ -102,10 +102,10 @@ CAMLprim value stub_XA_crypt_r(value key, value setting) {
 
     struct crypt_data cd = {0};
 
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     const char* const hashed =
         crypt_r(String_val(key), String_val(setting), &cd);
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
 
     if (!hashed || *hashed == '*')
       CAMLreturn(Val_none);

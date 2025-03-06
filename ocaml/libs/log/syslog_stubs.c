@@ -18,7 +18,7 @@
 #include <caml/memory.h>
 #include <caml/alloc.h>
 #include <caml/custom.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 
 static int syslog_level_table[] = {
 	LOG_EMERG, LOG_ALERT, LOG_CRIT, LOG_ERR, LOG_WARNING,
@@ -57,10 +57,10 @@ value stub_syslog(value facility, value level, value msg)
 	int c_facility = syslog_facility_table[Int_val(facility)]
 	               | syslog_level_table[Int_val(level)];
 
-	caml_enter_blocking_section();
+	caml_release_runtime_system();
 	syslog(c_facility, "%s", c_msg);
 	free(c_msg);
-	caml_leave_blocking_section();
+	caml_acquire_runtime_system();
 
 	CAMLreturn(Val_unit);
 }
