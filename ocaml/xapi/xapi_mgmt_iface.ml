@@ -36,6 +36,9 @@ module Server : sig
   val current_mode : unit -> listening_mode
 
   val is_ipv6_enabled : unit -> bool
+
+  val stop : unit -> unit
+  (** Stop server for external API calls *)
 end = struct
   (* Keep track of the management interface server thread.
      Stores a key into the table in Http_srv which identifies the server thread bound
