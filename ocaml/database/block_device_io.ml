@@ -184,7 +184,7 @@ let get_pointer half =
 (* Lay out a blank double-buffered redo log on the given block device. *)
 (* May raise Unixext.Timeout exception *)
 let initialise_redo_log block_dev_fd target_response_time =
-  ignore_int (Unixext.seek_to block_dev_fd 0) ;
+  ignore (Unixext.seek_to block_dev_fd 0 : int) ;
   Unixext.time_limited_write_substring block_dev_fd magic_size magic
     target_response_time ;
   Unixext.time_limited_write_substring block_dev_fd 2 "\0000"
@@ -221,7 +221,7 @@ let open_block_device block_dev target_response_time =
 
 (* Within the given block device, seek to the position of the validity byte. *)
 let seek_to_validity_byte block_dev_fd =
-  ignore_int (Unixext.seek_to block_dev_fd pos_validity_byte)
+  ignore (Unixext.seek_to block_dev_fd pos_validity_byte : int)
 
 (* Read the validity byte from the given block device. *)
 let read_validity_byte block_dev_fd target_response_time =
@@ -279,14 +279,15 @@ let read_database block_dev_fd target_response_time =
   let db_fn f =
     let prev_pos = Unixext.current_cursor_pos block_dev_fd in
     (* Seek to the position of the database *)
-    ignore_int (Unixext.seek_to block_dev_fd cur_pos) ;
+    ignore (Unixext.seek_to block_dev_fd cur_pos : int) ;
     (* Read 'len' bytes from the block device and send them to the function we were given *)
-    ignore_int (Unixext.read_data_in_string_chunks f ~max_bytes:len block_dev_fd) ;
+    ignore
+      (Unixext.read_data_in_string_chunks f ~max_bytes:len block_dev_fd : int) ;
     (* Seek back to where we were before *)
-    ignore_int (Unixext.seek_to block_dev_fd prev_pos)
+    ignore (Unixext.seek_to block_dev_fd prev_pos : int)
   in
   (* For now, skip over where the database is *)
-  ignore_int (Unixext.seek_rel block_dev_fd len) ;
+  ignore (Unixext.seek_rel block_dev_fd len : int) ;
   (* Read the generation count and marker *)
   let generation_count = Int64.of_string (read generation_size) in
   let marker_end = read marker_size in
@@ -471,7 +472,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
       (* if neither half is valid, use the first half *)
     in
     (* Seek to the start of the chosen half *)
-    ignore_int (Unixext.seek_to block_dev_fd (start_of_half half_to_use)) ;
+    ignore (Unixext.seek_to block_dev_fd (start_of_half half_to_use) : int) ;
     (* Check that we've got enough space for two markers, a length and a generation count. This is the smallest possible size for a db record. *)
     let min_space_needed = (marker_size * 2) + size_size + generation_size in
     let available_space = Db_globs.redo_log_length_of_half in
@@ -487,7 +488,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
     R.debug "Cursor position to which the length will be written is %d"
       pos_to_write_length ;
     (* Seek forwards to the position to write the data *)
-    ignore_int (Unixext.seek_rel block_dev_fd size_size) ;
+    ignore (Unixext.seek_rel block_dev_fd size_size : int) ;
     (* Read the data from the data channel and write this directly into block_dev_fd *)
     let remaining_space =
       Db_globs.redo_log_length_of_half - marker_size - size_size
@@ -523,7 +524,7 @@ let action_writedb block_dev_fd client datasock target_response_time =
       (Bytes.make trample_size '\000')
       target_response_time ;
     (* Seek backwards in the block device to where the length is supposed to go and write it *)
-    ignore_int (Unixext.seek_to block_dev_fd pos_to_write_length) ;
+    ignore (Unixext.seek_to block_dev_fd pos_to_write_length : int) ;
     let total_length_str = Printf.sprintf "%016d" total_length in
     Unixext.time_limited_write_substring block_dev_fd size_size total_length_str
       target_response_time ;
@@ -680,7 +681,7 @@ let action_read block_dev_fd client datasock target_response_time =
     (* the log is empty *)
 
     (* Seek to the start of the chosen half *)
-    ignore_int (Unixext.seek_to block_dev_fd (start_of_half half_to_use)) ;
+    ignore (Unixext.seek_to block_dev_fd (start_of_half half_to_use) : int) ;
     (* Attempt to read a database record *)
     let length, db_fn, generation_count, marker =
       read_database block_dev_fd target_response_time
@@ -783,7 +784,7 @@ let _ =
         (fun half ->
           Printf.printf "*** [Half %s] Entering half.\n" (half_to_string half) ;
           (* Seek to the start of the chosen half *)
-          ignore_int (Unixext.seek_to block_dev_fd (start_of_half half)) ;
+          ignore (Unixext.seek_to block_dev_fd (start_of_half half) : int) ;
           (* Attempt to read a database record *)
           try
             let length, db_fn, generation_count, marker =

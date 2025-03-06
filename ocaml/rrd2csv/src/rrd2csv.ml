@@ -655,7 +655,6 @@ let _ =
      R2.2. Ability to specify period of sampling on the command-line (in seconds)
   *)
   let user_filters, sampling_period, show_name, show_uuid =
-    let open Xapi_stdext_pervasives.Pervasiveext in
     (* R2.1.1. If none are specified, assume that all enabled data-sources are of
        interest *)
     let ds = ref [] and s = ref None and n = ref false and u = ref false in
@@ -690,7 +689,7 @@ let _ =
         ; ( "-help"
           , Arg.Unit
               (fun () ->
-                ignore_int (Sys.command "man -M /opt/xensource/man rrd2csv") ;
+                ignore (Sys.command "man -M /opt/xensource/man rrd2csv" : int) ;
                 exit 0
               )
           , " display help"
@@ -698,7 +697,7 @@ let _ =
         ; ( "--help"
           , Arg.Unit
               (fun () ->
-                ignore_int (Sys.command "man -M /opt/xensource/man rrd2csv") ;
+                ignore (Sys.command "man -M /opt/xensource/man rrd2csv" : int) ;
                 exit 0
               )
           , " display help"
