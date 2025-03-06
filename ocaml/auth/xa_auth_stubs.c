@@ -96,15 +96,23 @@ void __attribute__((constructor)) stub_XA_workaround(void)
 }
 
 /* key:string -> setting:string -> string option */
-CAMLprim value stub_XA_crypt_r(value key, value setting) {
-    CAMLparam2(key, setting);
+CAMLprim value stub_XA_crypt_r(value key_val, value setting_val) {
+    CAMLparam2(key_val, setting_val);
     CAMLlocal1(result);
 
     struct crypt_data cd = {0};
 
+    char* const key =
+        caml_stat_strdup(String_val(key_val));
+    char* const setting =
+        caml_stat_strdup(String_val(setting_val));
+
     caml_release_runtime_system();
     const char* const hashed =
-        crypt_r(String_val(key), String_val(setting), &cd);
+        crypt_r(key, setting, &cd);
+
+    caml_stat_free(key);
+    caml_stat_free(setting);
     caml_acquire_runtime_system();
 
     if (!hashed || *hashed == '*')
