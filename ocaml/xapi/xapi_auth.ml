@@ -49,5 +49,12 @@ let get_group_membership ~__context ~subject_identifier =
 
 let get_subject_information_from_identifier ~__context ~subject_identifier =
   call_with_exception_handler (fun () ->
-      (Ext_auth.d ()).query_subject_information ~__context subject_identifier
+      try
+        (* Query from xapi db first *)
+        Xapi_subject.query_subject_information_from_db ~__context
+          subject_identifier
+      with Auth_signature.Subject_cannot_be_resolved ->
+        (* Not found, fall back to query AD *)
+        Xapi_subject.query_subject_information_from_AD ~__context
+          subject_identifier
   )

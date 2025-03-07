@@ -2661,9 +2661,8 @@ let revalidate_subjects ~__context =
     let subj_id = Db.Subject.get_subject_identifier ~__context ~self in
     debug "Revalidating subject %s" subj_id ;
     try
-      let open Auth_signature in
-      ignore
-        ((Extauth.Ext_auth.d ()).query_subject_information ~__context subj_id)
+      Xapi_subject.query_subject_information_from_AD ~__context subj_id
+      |> ignore
     with Not_found ->
       debug "Destroying subject %s" subj_id ;
       Xapi_subject.destroy ~__context ~self
