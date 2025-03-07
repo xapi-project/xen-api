@@ -655,18 +655,20 @@ let from_inner __context session subs from from_t timer batching =
   in
   let events_of ~kind ?(with_snapshot = true) entries acc =
     let rec go events ({table; obj; time= _} as entry) =
-      let snapshot =
-        let serialiser = Eventgen.find_get_record table in
-        if with_snapshot then
-          serialiser ~__context ~self:obj ()
+      try
+        let snapshot =
+          let serialiser = Eventgen.find_get_record table in
+          if with_snapshot then
+            serialiser ~__context ~self:obj ()
+          else
+            None
+        in
+        let event = event_of kind ?snapshot entry in
+        if Subscription.event_matches subs event then
+          event :: events
         else
-          None
-      in
-      let event = event_of kind ?snapshot entry in
-      if Subscription.event_matches subs event then
-        event :: events
-      else
-        events
+          events
+      with _ -> events
     in
     List.fold_left go acc entries
   in
