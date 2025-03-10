@@ -94,17 +94,9 @@ let valid_operations ~__context record _ref' : table =
 let throw_error (table : table) op =
   match Hashtbl.find_opt table op with
   | None ->
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.internal_error
-           , [
-               Printf.sprintf
-                 "xapi_vusb_helpers.assert_operation_valid unknown operation: \
-                  %s"
-                 (vusb_operations_to_string op)
-             ]
-           )
-        )
+      Helpers.internal_error
+        "xapi_vusb_helpers.assert_operation_valid unknown operation: %s"
+        (vusb_operations_to_string op)
   | Some (Some (code, params)) ->
       raise (Api_errors.Server_error (code, params))
   | Some None ->

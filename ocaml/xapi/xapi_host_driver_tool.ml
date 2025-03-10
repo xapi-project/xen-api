@@ -18,14 +18,6 @@
 
 open Debug.Make (struct let name = __MODULE__ end)
 
-let internal_error fmt =
-  Printf.ksprintf
-    (fun str ->
-      error "%s" str ;
-      raise Api_errors.(Server_error (internal_error, [str]))
-    )
-    fmt
-
 (** types to represent the JSON output of the script that reports
     drivers *)
 type variant = {
@@ -219,7 +211,8 @@ let parse str =
   | R.Ok x ->
       x
   | R.Error msg ->
-      internal_error "%s parsing failed: %s" __FUNCTION__ msg
+      Helpers.internal_error ~log_err:true "%s parsing failed: %s" __FUNCTION__
+        msg
   | exception e ->
       raise e
 
@@ -228,7 +221,8 @@ let read path =
   | R.Ok x ->
       x
   | R.Error msg ->
-      internal_error "%s parsing %s failed: %s" __FUNCTION__ path msg
+      Helpers.internal_error ~log_err:true "%s parsing %s failed: %s"
+        __FUNCTION__ path msg
   | exception e ->
       raise e
 
@@ -239,8 +233,8 @@ let call args =
     debug "%s: executed %s %s" __FUNCTION__ path (String.concat " " args) ;
     stdout
   with e ->
-    internal_error "%s: failed to run %s %s: %s" __FUNCTION__ path
-      (String.concat " " args) (Printexc.to_string e)
+    Helpers.internal_error ~log_err:true "%s: failed to run %s %s: %s"
+      __FUNCTION__ path (String.concat " " args) (Printexc.to_string e)
 
 module Mock = struct
   let drivertool_sh =
@@ -248,26 +242,6 @@ module Mock = struct
 
 set -o errexit
 set -o pipefail
-if [[ -n "$TRACE" ]]; then set -o xtrace; fi
-set -o nounset
-
-if [[ "${1-}" =~ ^-*h(elp)?$ ]]; then
-    cat <<EOF 
-Usage: $0 arg-one arg-two
-
-This is an awesome bash script to make your life better.
-EOF
-fi
-
-function deselect {
-  cat <<EOF
-{
-  "driver": "$1",
-  "exit": 0
-}
-EOF
-}
-
 
 function selection {
   cat <<EOF
@@ -627,22 +601,61 @@ function list() {
 EOF
 }
 
+# Initialize variables with default values
+l_flag=false
+s_flag=false
+n_value=""
+v_value=""
 
-case "$1" in
-  list)
-    list
-    ;;
-  select)
-    selection "$2" "$3"
-    ;;
-  deselect)
-    deselect "$2"
-    ;;
-   *)
-    echo "unknown command $1" 2>&1
+# Use getopt to parse command-line options
+while getopts "lsn:v:" opt; do
+  case "$opt" in
+    l)
+      l_flag=true
+      ;;
+    s)
+      s_flag=true
+      ;;
+    n)
+      n_value="$OPTARG"
+      ;;
+    v)
+      v_value="$OPTARG"
+      ;;
+    \?)  # Invalid option
+      echo "Invalid option: -$OPTARG" >&2  #>&2 redirects error message to stderr
+      exit 1
+      ;;
+    :)   # Missing argument for option
+      echo "Option -$OPTARG requires an argument." >&2
+      exit 1
+      ;;
+  esac
+done
+
+# Shift the remaining positional parameters (if any)
+shift $((OPTIND - 1))
+
+# We don't properly prevent illegal combinations because this is just a
+# mock. So we recognise -l first.
+if $l_flag; then
+  list
+  exit 0
+fi
+
+if $s_flag; then
+  if [ -z "$n_value" ]; then
+    echo "missing -n" >&2
     exit 1
-    ;;
-esac
+  fi
+  if [ -z "$v_value" ]; then
+    echo "missing -v" >&2
+    exit 1
+  fi
+
+  selection "$n_value" "$v_value"
+  exit 0
+fi
 |}
 
   let install () =
@@ -651,6 +664,6 @@ esac
       Xapi_stdext_unix.Unixext.write_string_to_file path drivertool_sh ;
       Unix.chmod path 0o755
     with e ->
-      internal_error "%s: can't install %s: %s" __FUNCTION__ path
+      Helpers.internal_error "%s: can't install %s: %s" __FUNCTION__ path
         (Printexc.to_string e)
 end

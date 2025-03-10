@@ -25,16 +25,8 @@ let get_sriov_of ~__context ~sriov_logical_pif =
   | v :: _ ->
       v
   | [] ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                Printf.sprintf "Cannot find sriov object in sriov logical PIF %s"
-                  (Ref.string_of sriov_logical_pif)
-              ]
-            )
-        )
+      Helpers.internal_error "Cannot find sriov object in sriov logical PIF %s"
+        (Ref.string_of sriov_logical_pif)
 
 let sriov_bring_up ~__context ~self =
   let update_sriov_with_result result =
@@ -121,18 +113,9 @@ let require_operation_on_pci_device ~__context ~sriov ~self =
                  | v :: _ ->
                      v
                  | [] ->
-                     raise
-                       Api_errors.(
-                         Server_error
-                           ( internal_error
-                           , [
-                               Printf.sprintf
-                                 "Cannot find sriov object in sriov logical \
-                                  PIF %s"
-                                 pif_rec.API.pIF_uuid
-                             ]
-                           )
-                       )
+                     Helpers.internal_error
+                       "Cannot find sriov object in sriov logical PIF %s"
+                       pif_rec.API.pIF_uuid
                in
                let physical_pif =
                  Db.Network_sriov.get_physical_PIF ~__context ~self:sriov
@@ -235,21 +218,14 @@ let get_remaining_capacity_on_host ~__context ~host ~network =
   in
   match local_pifs with
   | [] ->
-      raise
-        Api_errors.(
-          Server_error (internal_error, ["Cannot get local pif on network"])
-        )
+      Helpers.internal_error "Cannot get local pif on network"
   | local_pif :: _ -> (
     match get_underlying_pif ~__context ~pif:local_pif with
     | Some underlying_pif ->
         let pci = Db.PIF.get_PCI ~__context ~self:underlying_pif in
         Xapi_pci.get_idle_vf_nums ~__context ~self:pci
     | None ->
-        raise
-          Api_errors.(
-            Server_error
-              (internal_error, ["Cannot get underlying pif on sriov network"])
-          )
+        Helpers.internal_error "Cannot get underlying pif on sriov network"
   )
 
 (* Partition hosts by attached and unattached pifs, the network input is a SR-IOV type.
@@ -276,16 +252,8 @@ let group_hosts_by_best_sriov ~__context ~network =
             | VLAN_untagged _ :: Network_sriov_logical sriov :: _ ->
                 sriov
             | _ ->
-                raise
-                  Api_errors.(
-                    Server_error
-                      ( internal_error
-                      , [
-                          Printf.sprintf "Cannot find sriov object in PIF %s"
-                            (Ref.string_of pif)
-                        ]
-                      )
-                  )
+                Helpers.internal_error "Cannot find sriov object in PIF %s"
+                  (Ref.string_of pif)
           in
           if can_be_up_without_reboot ~__context sriov then
             (l1, (host, 0L) :: l2)
@@ -320,11 +288,7 @@ let reserve_sriov_vfs ~__context ~host ~vm =
           | Some vf ->
               Db.VIF.set_reserved_pci ~__context ~self:vif ~value:vf
           | None ->
-              raise
-                Api_errors.(
-                  Server_error
-                    (internal_error, ["No free virtual function found"])
-                )
+              Helpers.internal_error "No free virtual function found"
         )
     )
     vifs

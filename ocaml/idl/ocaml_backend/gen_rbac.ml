@@ -301,7 +301,7 @@ let apicalls obj =
   permissions_roles
 
 (* Returns a (static_role,permission list) list generated from datamodel.ml *)
-let gen_permissions_of_static_roles highapi =
+let gen_permissions_of_static_roles config highapi =
   let api = Client.client_api ~sync:true highapi in
   let all_objs = Dm_api.objects_of_api api in
   let rec get_roles_permissions_of_objs = function
@@ -338,7 +338,7 @@ let gen_permissions_of_static_roles highapi =
       (fun (r, _) -> r = internal_role_local_root)
       _permissions_roles
   in
-  if !Gen_server.enable_debugging then (* for rbac_static.csv *)
+  if config.Gen_api_types.debug then (* for rbac_static.csv *)
     writer_csv permissions_roles
   else (* for rbac_static.ml *)
     let _, roles_permissions =

@@ -5,7 +5,6 @@ IPROG=../scripts/install.sh 755
 IDATA=../scripts/install.sh 644
 
 SITE3_DIR=$(shell python3 -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")
-DNF_PLUGIN_DIR=dnf-plugins
 
 install:
 	# Create destination directories using install -m 755 -d:
@@ -16,12 +15,9 @@ install:
 	install -m 755 -d $(DESTDIR)/etc/sysconfig
 	install -m 755 -d $(DESTDIR)/usr/lib/systemd/system
 	install -m 755 -d $(DESTDIR)$(EXTENSIONDIR)
-	install -m 755 -d $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)
 
 	$(IDATA) packages/inventory.py $(DESTDIR)$(SITE3_DIR)/
 	$(IDATA) packages/observer.py $(DESTDIR)$(SITE3_DIR)/
-	$(IDATA) dnf_plugins/accesstoken.py $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)/
-	$(IDATA) dnf_plugins/ptoken.py $(DESTDIR)$(SITE3_DIR)/$(DNF_PLUGIN_DIR)/
 
 	$(IPROG) libexec/metrics.py $(DESTDIR)$(OPTDIR)/debug
 	$(IPROG) libexec/metricsgraph.py $(DESTDIR)$(OPTDIR)/debug

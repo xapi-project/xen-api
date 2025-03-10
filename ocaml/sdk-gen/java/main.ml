@@ -16,7 +16,6 @@ module DU = Datamodel_utils
 let api =
   Datamodel_utils.named_self := true ;
 
-  let obj_filter _ = true in
   let field_filter field =
     (not field.internal_only) && List.mem "closed" field.release.internal
   in
@@ -25,10 +24,11 @@ let api =
     && (not msg.msg_hide_from_docs)
     && List.mem "closed" msg.msg_release.internal
   in
-  filter obj_filter field_filter message_filter
-    (Datamodel_utils.add_implicit_messages ~document_order:false
-       (filter obj_filter field_filter message_filter Datamodel.all_api)
-    )
+  let filter api = filter_by ~field:field_filter ~message:message_filter api in
+  Datamodel.all_api
+  |> filter
+  |> Datamodel_utils.add_implicit_messages ~document_order:false
+  |> filter
 
 (*Here we extract a list of objs (look in datamodel_types.ml for the structure definitions)*)
 let classes = objects_of_api api

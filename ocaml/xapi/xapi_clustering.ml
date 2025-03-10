@@ -63,12 +63,9 @@ let pif_of_host ~__context (network : API.ref_network) (host : API.ref_host) =
   | [(ref, record)] ->
       (ref, record)
   | _ ->
-      let msg =
-        Printf.sprintf "No PIF found for host:%s and network:%s"
-          (Ref.string_of host) (Ref.string_of network)
-      in
-      debug "%s" msg ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error ~log_err:true
+        "No PIF found for host:%s and network:%s" (Ref.string_of host)
+        (Ref.string_of network)
 
 let ip_of_pif (ref, record) =
   let ip = record.API.pIF_IP in
@@ -113,7 +110,7 @@ let assert_pif_attached_to ~__context ~host ~pIF =
 
 let handle_error = function
   | InternalError message ->
-      raise Api_errors.(Server_error (internal_error, [message]))
+      Helpers.internal_error "%s" message
   | Unix_error message ->
       failwith ("Unix Error: " ^ message)
 
@@ -127,13 +124,8 @@ let assert_cluster_host_can_be_created ~__context ~host =
   | [] ->
       ()
   | _ ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , ["Cluster host cannot be created because it already exists"]
-            )
-        )
+      Helpers.internal_error
+        "Cluster host cannot be created because it already exists"
 
 (** One of the cluster stacks returned by
     [get_required_cluster_stacks context sr_sm_type]
@@ -179,9 +171,10 @@ let find_cluster_host ~__context ~host =
       Some ref
   | _ :: _ ->
       (* should never happen; this indicates a bug *)
-      let msg = "Multiple cluster_hosts found for host" in
-      error "%s %s" msg (Db.Host.get_uuid ~__context ~self:host) ;
-      raise Api_errors.(Server_error (internal_error, [msg; Ref.string_of host]))
+      Helpers.internal_error ~log_err:true
+        "Multiple cluster_hosts found for host %s %s"
+        (Db.Host.get_uuid ~__context ~self:host)
+        (Ref.string_of host)
   | _ ->
       None
 
@@ -218,13 +211,8 @@ let assert_cluster_host_enabled ~__context ~self ~expected =
    xapi-clusterd daemon running on the target host *)
 let assert_operation_host_target_is_localhost ~__context ~host =
   if host <> Helpers.get_localhost ~__context then
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , ["A clustering operation was attempted from the wrong host"]
-          )
-      )
+    Helpers.internal_error
+      "A clustering operation was attempted from the wrong host"
 
 let assert_cluster_host_has_no_attached_sr_which_requires_cluster_stack
     ~__context ~self =
@@ -279,12 +267,7 @@ module Daemon = struct
           ["open"; port] ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["enable"; service] ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["start"; service]
-      with _ ->
-        raise
-          Api_errors.(
-            Server_error
-              (internal_error, [Printf.sprintf "could not start %s" service])
-          )
+      with _ -> Helpers.internal_error "could not start %s" service
     ) ;
     Atomic.set enabled true ;
     debug "Cluster daemon: enabled & started"

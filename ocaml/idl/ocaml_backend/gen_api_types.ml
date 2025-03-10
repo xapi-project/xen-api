@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) 2025 Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,8 +12,4 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val finally : (unit -> 'a) -> (unit -> unit) -> 'a
-(** [finally f g] returns [f ()] guaranteeing to run clean-up actions
-    [g ()] even if [f ()] throws an exception. *)
-
-val ignore_exn : (unit -> unit) -> unit
+type config = {debug: bool}

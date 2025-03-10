@@ -119,19 +119,13 @@ let update ~__context =
   let* () = sync ~__context ~type':`host_internal in
   Ok ()
 
-let internal_error fmt =
-  fmt
-  |> Printf.ksprintf @@ fun msg ->
-     error "%s" msg ;
-     raise Api_errors.(Server_error (internal_error, [msg]))
-
 let remove_from_db ~__context cert =
   try
     Db.Certificate.destroy ~__context ~self:cert ;
     info "removed host certificate %s from db" (Ref.string_of cert)
   with e ->
-    internal_error "failed to remove cert %s: %s" (Ref.string_of cert)
-      (Printexc.to_string e)
+    Helpers.internal_error ~log_err:true "failed to remove cert %s: %s"
+      (Ref.string_of cert) (Printexc.to_string e)
 
 let path host_uuid =
   let prefix = !Xapi_globs.trusted_pool_certs_dir in
@@ -161,5 +155,5 @@ let eject_certs_from_fs_for ~__context host =
     | false ->
         info "host %s has no certificate %s to remove" host_uuid file
   with e ->
-    internal_error "failed to remove cert %s on pool eject: %s" file
-      (Printexc.to_string e)
+    Helpers.internal_error ~log_err:true
+      "failed to remove cert %s on pool eject: %s" file (Printexc.to_string e)

@@ -39,7 +39,7 @@
 
 (package
   (name tgroup)
-  (depends 
+  (depends
     xapi-log
     xapi-stdext-unix)
 )
@@ -103,11 +103,13 @@
    dune
    (alcotest :with-test)
    (fmt :with-test)
+   ppx_deriving_yojson
    re
    uri
    (uuid :with-test)
    (xapi-log (= :version))
    (xapi-stdext-threads (= :version))
+   yojson
   )
   (synopsis "Allows to instrument code to generate tracing information")
   (description "This library provides modules to allow gathering runtime traces.")
@@ -500,6 +502,21 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name stunnel)
+  (synopsis "Library used by xapi to herd stunnel processes")
+  (description "This library allows xapi to configure, launch and terminate stunnel processes that act as clients and servers.")
+  (depends
+    astring
+    (forkexec (= :version))
+    (safe-resources (= :version))
+    (uuid (= :version))
+    (xapi-consts (= :version))
+    xapi-inventory
+    (xapi-log (= :version))
+    (xapi-stdext-pervasives (= :version))
+    (xapi-stdext-threads (= :version))
+    (xapi-stdext-unix (= :version))
+    (odoc :with-doc)
+  )
 )
 
 (package

@@ -28,7 +28,7 @@
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
@@ -134,7 +134,7 @@ CAMLprim value stub_direct_copy(value handle, value len){
    * values may be accessed, until it is reacquired. Also this
    * means other OCaml threads may do things while this is going
    * on so the caller must be careful. */
-  caml_enter_blocking_section();
+  caml_release_runtime_system();
 
   rc = TRIED_AND_FAILED;
   bytes = 0;
@@ -195,7 +195,7 @@ CAMLprim value stub_direct_copy(value handle, value len){
   rc = OK;
 fail:
 
-  caml_leave_blocking_section();
+  caml_acquire_runtime_system();
   /* Now that the OCaml runtime lock is reacquired, it is safe to
    * raise OCaml exceptions */
 

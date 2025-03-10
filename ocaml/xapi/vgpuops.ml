@@ -137,19 +137,14 @@ let reserve_free_virtual_function ~__context vm impl pf =
         | _other ->
             let vm_ref = Ref.string_of vm in
             let pf_ref = Ref.string_of pf in
-            let msg =
-              Printf.sprintf "Unexpected GPU implementation vm=%s pf=%s (%s)"
-                vm_ref pf_ref __LOC__
-            in
-            raise Api_errors.(Server_error (internal_error, [msg]))
+            Helpers.internal_error
+              "Unexpected GPU implementation vm=%s pf=%s (%s)" vm_ref pf_ref
+              __LOC__
         ) ;
         get false
     | None ->
         (* This probably means that our capacity checking went wrong! *)
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["No free virtual function found"])
-          )
+        Helpers.internal_error "No free virtual function found"
   in
   match impl with
   | `nvidia_sriov ->

@@ -25,7 +25,7 @@
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
@@ -54,7 +54,7 @@ CAMLprim value stub_blkgetsize64(value filename){
   int rc = NOT_IMPLEMENTED;
   const char *filename_c = strdup(String_val(filename));
 
-  caml_enter_blocking_section();
+  caml_release_runtime_system();
   fd = open(filename_c, O_RDONLY, 0);
   if (fd >= 0) {
 #if defined(BLKGETSIZE64)
@@ -69,8 +69,9 @@ CAMLprim value stub_blkgetsize64(value filename){
     }
 #endif
     close(fd);
-  }
-  caml_leave_blocking_section();
+  } else
+    size_in_bytes = -1;
+  caml_acquire_runtime_system();
   free((void*)filename_c);
 
   if (fd == -1) uerror("open", filename);

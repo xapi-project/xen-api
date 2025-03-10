@@ -33,10 +33,7 @@ let _db_defaults = "DB_DEFAULTS"
 
 (** Filter out all the operations which don't make sense to the database *)
 let make_db_api =
-  Dm_api.filter
-    (fun _ -> true)
-    (fun _ -> true)
-    (fun {msg_tag= tag; _} ->
+  Dm_api.filter_by ~message:(fun {msg_tag= tag; _} ->
       match tag with
       | FromField (_, _) ->
           true
@@ -46,7 +43,7 @@ let make_db_api =
           false (* rely on the Private(GetDBAll) function for now *)
       | FromObject _ ->
           true
-    )
+  )
 
 (* Only these types are actually marshalled into the database: *)
 let type_marshalled_in_db = function
@@ -672,10 +669,9 @@ let db_action api : O.Module.t =
     which has no custom action. The signature will be smaller than the
     db_actions signature but the db_actions module will be compatible with it *)
 let make_db_defaults_api =
-  Dm_api.filter
-    (fun _ -> true)
-    (fun _ -> true)
-    (fun x -> not (Gen_empty_custom.operation_requires_side_effect x))
+  Dm_api.filter_by ~message:(fun msg ->
+      not (Gen_empty_custom.operation_requires_side_effect msg)
+  )
 
 let db_defaults api : O.Signature.t =
   (* Since we intend to defunctorise, don't bother filtering the signature *)

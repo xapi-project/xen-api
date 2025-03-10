@@ -119,7 +119,7 @@ let assert_update_vbds_attached ~__context ~vdi =
           "pool_update: expected VBDs=[ %s ] to be attached but they aren't!"
           (unplugged |> List.map Ref.string_of |> String.concat "; ")
       in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "%s" msg
 
 let with_dec_refcount ~__context ~uuid ~vdi f =
   with_lock updates_to_attach_count_tbl_mutex (fun () ->

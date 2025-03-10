@@ -124,12 +124,7 @@ let create ~__context ~_type ~device_config ~whitelist =
   let sr_records =
     try parse_sr_probe probe_result
     with Failure msg ->
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.internal_error
-           , [Printf.sprintf "SR probe response was malformed: %s" msg]
-           )
-        )
+      Helpers.internal_error "SR probe response was malformed: %s" msg
   in
   (* If the SR record has a UUID, make sure it's in the whitelist. *)
   let sr_records =

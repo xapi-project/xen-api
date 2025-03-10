@@ -11,8 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  */
-#ifndef _XA_AUTH_H_
-#define _XA_AUTH_H_
+#ifndef XA_AUTH_H_
+#define XA_AUTH_H_
 
 #define XA_SUCCESS 0
 #define XA_ERR_EXTERNAL 1

@@ -528,10 +528,8 @@ let generate_errors () =
 let all api =
   (* Remove private messages that are only used internally (e.g. get_record_internal) *)
   let api =
-    Dm_api.filter
-      (fun _ -> true)
-      (fun _ -> true)
-      (fun msg ->
+    Dm_api.filter_by
+      ~message:(fun msg ->
         match msg.msg_tag with FromObject (Private _) -> false | _ -> true
       )
       api

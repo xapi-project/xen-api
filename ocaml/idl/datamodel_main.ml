@@ -48,17 +48,15 @@ let _ =
   if num_modes_set > 1 then failwith "More than one mode on the commandline" ;
 
   let oss_filter api =
-    filter
-      (fun _ -> true)
-      (fun field -> List.mem "3.0.3" field.release.opensource)
-      (fun message -> List.mem "3.0.3" message.msg_release.opensource)
+    filter_by
+      ~field:(fun field -> List.mem "3.0.3" field.release.opensource)
+      ~message:(fun message -> List.mem "3.0.3" message.msg_release.opensource)
       api
   in
   let closed_filter api =
-    filter
-      (fun _ -> true)
-      (fun field -> List.mem "closed" field.release.internal)
-      (fun message -> List.mem "closed" message.msg_release.internal)
+    filter_by
+      ~field:(fun field -> List.mem "closed" field.release.internal)
+      ~message:(fun message -> List.mem "closed" message.msg_release.internal)
       api
   in
 
@@ -75,13 +73,12 @@ let _ =
   (* Add all implicit messages to the API directly *)
   let api = DU.add_implicit_messages ~document_order:!markdown_mode api in
   (* Only show those visible to the client *)
-  let api = filter (fun _ -> true) (Fun.const true) DU.on_client_side api in
+  let api = filter_by ~message:DU.on_client_side api in
   (* And only messages marked as not hidden from the docs, and non-internal fields *)
   let api =
-    filter
-      (fun _ -> true)
-      (fun f -> not f.internal_only)
-      (fun m -> not m.msg_hide_from_docs)
+    filter_by
+      ~field:(fun f -> not f.internal_only)
+      ~message:(fun m -> not m.msg_hide_from_docs)
       api
   in
 
@@ -94,10 +91,6 @@ let _ =
 
   if !dtd_mode then
     let api =
-      filter
-        (fun _ -> true)
-        (fun field -> field.qualifier <> DynamicRO)
-        (fun _ -> true)
-        api
+      filter_by ~field:(fun field -> field.qualifier <> DynamicRO) api
     in
     List.iter print_endline (Dtd_backend.of_objs api)

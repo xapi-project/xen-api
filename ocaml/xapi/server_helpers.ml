@@ -141,7 +141,8 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       Context.of_http_req ?session_id ~internal_async_subtask ~generate_task_for
         ~supports_async ~label ~http_req ~fd ()
     in
-    ( if !Xapi_globs.tgroups_enabled then
+
+    Constants.when_tgroups_enabled (fun () ->
         let identity =
           try
             Option.map
@@ -164,6 +165,7 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
         in
         Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ())
     ) ;
+
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
       exec_with_context ~__context ~need_complete ~called_async
