@@ -5,9 +5,6 @@
 # chkconfig: 2345 23 82
 # description: XCP RRD daemon plugins
 
-# Source function library.
-. /etc/init.d/functions
-
 # names
 NAME="xcp-rrdd-plugins"
 FULL_NAME="the XCP RRDD daemon plugins"
@@ -37,9 +34,8 @@ start() {
 		
 		if [ -e ${SUBSYS_FILE} ]; then
 			if [ -e ${PID_FILE} ] && [ -e /proc/`cat ${PID_FILE}` ]; then
-				echo -n $"cannot start ${NAME}: already running."
-				failure $"cannot start ${NAME}: already running."
-				echo
+				echo $"cannot start ${NAME}: already running."
+				logger $"cannot start ${NAME}: already running."
 				WORST_RETVAL=1
 				continue
 			fi
@@ -59,8 +55,8 @@ start() {
 			if [ $? -eq 0 ]; then
 				touch ${SUBSYS_FILE}
 				SUCCESS=1
-				success
-				echo
+				logger $"[ OK ]"
+				echo -e $"\t[ OK ]"
 				break
 			fi
 			sleep 1
@@ -70,11 +66,10 @@ start() {
 		if [ ${SUCCESS} -eq 1 ]; then
 			continue
 		fi
-		echo -n $"failed to start ${NAME}."
-		failure $"failed to start ${NAME}."
+		echo $"failed to start ${NAME}."
+		logger $"failed to start ${NAME}."
 		killproc ${NAME}
 		rm -f ${SUBSYS_FILE} ${PID_FILE}
-		echo
 	done
 	return $WORST_RETVAL
 }
@@ -87,9 +82,8 @@ stop() {
 		local SUBSYS_FILE=${SUBSYS_PREFIX}${NAME}
 		
 		if [ ! -e ${SUBSYS_FILE} ]; then
-			echo -n $"cannot stop ${NAME}: daemon is not running."
-			failure $"cannot stop ${NAME}: daemon is not running."
-			echo
+			echo $"cannot stop ${NAME}: daemon is not running."
+			logger $"cannot stop ${NAME}: daemon is not running."
 			continue
 		fi
 		

@@ -46,9 +46,9 @@ install:
 	$(IDATA) xapi.conf $(DESTDIR)$(XAPICONF)
 	$(IPROG) db.conf.skel $(DESTDIR)$(ETCXENDIR)/db.conf
 	$(IPROG) rio.db.conf.skel $(DESTDIR)$(ETCXENDIR)/db.conf.rio
-	$(IPROG) init.d-xapi $(DESTDIR)$(LIBEXECDIR)/xapi-init
-	$(IPROG) init.d-save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
-	$(IPROG) init.d-attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
+	$(IPROG) xapi-init $(DESTDIR)$(LIBEXECDIR)/xapi-init
+	$(IPROG) save-boot-info $(DESTDIR)$(LIBEXECDIR)/save-boot-info
+	$(IPROG) attach-static-vdis $(DESTDIR)$(LIBEXECDIR)/attach-static-vdis
 	$(IPROG) generate-iscsi-iqn $(DESTDIR)$(LIBEXECDIR)/generate-iscsi-iqn
 	$(IPROG) network-init $(DESTDIR)$(LIBEXECDIR)/network-init
 	$(IPROG) control-domain-params-init $(DESTDIR)$(LIBEXECDIR)/control-domain-params-init

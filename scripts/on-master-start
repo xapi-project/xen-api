@@ -1,23 +1,17 @@
 #!/bin/sh
 
 # Example on-master-start script
-
-# Source function library.
-. /etc/init.d/functions
-
+#
 start() {
 	echo -n $"Assuming role of master: "
 	touch /tmp/master
-	echo -n $"OK"
-	success $"OK"
-	echo
+	echo $"OK"
 	return 0
 }
 
 stop() {
-	echo -n $"Dropping role of master: "
+	echo $"Dropping role of master: "
 	rm -f /tmp/master
-	echo
 	return 0
 }
 
