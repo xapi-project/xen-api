@@ -109,5 +109,19 @@ external combine_cpu_policies : int64 array -> int64 array -> int64 array
 external policy_is_compatible : int64 array -> int64 array -> string option
   = "stub_xenctrlext_featuresets_are_compatible"
 
-external domain_claim_pages : handle -> domid -> int -> unit
+external stub_domain_claim_pages : handle -> domid -> Nativeint.t -> int -> unit
   = "stub_xenctrlext_domain_claim_pages"
+
+module NumaNode = struct
+  type t = Nativeint.t
+
+  (** Defined at
+      https://gitlab.com/xen-project/people/agvallejo/xen/-/blob/staging/tools/include/xenguest.h#L25
+   *)
+  let none = Nativeint.minus_one
+
+  let from = Nativeint.of_int
+end
+
+let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
+  stub_domain_claim_pages handle domid numa_node nr_pages
