@@ -562,8 +562,7 @@ let rra_create cf row_cnt pdp_cnt xff =
       (* defer creation of the data until we know how many dss we're storing *)
   }
 
-let ds_create name ty ?(min = neg_infinity) ?(max = infinity) ?(mrhb = infinity)
-    init =
+let ds_create name ty ~min ~max ~mrhb init =
   {
     ds_name= name
   ; ds_ty= ty
