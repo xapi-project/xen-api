@@ -18,6 +18,8 @@ open D
 
 let fail fmt = Printf.ksprintf failwith fmt
 
+let ( >> ) f g x = g (f x)
+
 let failures = Atomic.make 0
 
 let not_throttled () =
@@ -227,6 +229,20 @@ module TraceContext = struct
   let traceparent_of ctx = ctx.traceparent
 
   let baggage_of ctx = ctx.baggage
+
+  let parse input =
+    let open Astring.String in
+    let trim_pair (key, value) = (trim key, trim value) in
+    input
+    |> cuts ~sep:";"
+    |> List.map (cut ~sep:"=" >> Option.map trim_pair)
+    |> List.filter_map Fun.id
+
+  let encode_baggage ctx =
+    let encode =
+      List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v) >> String.concat ";"
+    in
+    ctx |> baggage_of |> Option.map encode
 
   let to_json_string t = Yojson.Safe.to_string (to_yojson t)
 
@@ -810,6 +826,8 @@ let with_child_trace ?attributes ?trace_context parent ~name f =
 module EnvHelpers = struct
   let traceparent_key = "TRACEPARENT"
 
+  let baggage_key = "BAGGAGE"
+
   let of_traceparent traceparent =
     match traceparent with
     | None ->
@@ -834,8 +852,23 @@ module EnvHelpers = struct
     | None ->
         []
     | Some span ->
-        Some (span |> Span.get_context |> SpanContext.to_traceparent)
-        |> of_traceparent
+        let baggage_env =
+          span
+          |> Span.get_context
+          |> SpanContext.context_of_span_context
+          |> TraceContext.encode_baggage
+          |> Option.fold ~none:[] ~some:(fun baggage ->
+                 [String.concat "=" [baggage_key; baggage]]
+             )
+        in
+        let traceparent_env =
+          span
+          |> Span.get_context
+          |> SpanContext.to_traceparent
+          |> Option.some
+          |> of_traceparent
+        in
+        List.concat [baggage_env; traceparent_env]
 end
 
 module Propagator = struct
