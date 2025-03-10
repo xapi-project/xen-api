@@ -274,11 +274,9 @@ let update_pcis ~__context =
                      r
                  )
             with Not_found ->
-              let msg =
-                Printf.sprintf "failed to update PCI dependencies for %s (%s)"
-                  (Ref.string_of pref) __LOC__
-              in
-              raise Api_errors.(Server_error (internal_error, [msg]))
+              Helpers.internal_error
+                "failed to update PCI dependencies for %s (%s)"
+                (Ref.string_of pref) __LOC__
           in
           Db.PCI.set_dependencies ~__context ~self:pref ~value:dependencies ;
           update remaining

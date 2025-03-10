@@ -63,6 +63,8 @@ let prototyped_of_field = function
       Some "23.14.0"
   | "Observer", "uuid" ->
       Some "23.14.0"
+  | "Repository", "certificate" ->
+      Some "25.7.0"
   | "Repository", "origin" ->
       Some "24.23.0"
   | "Repository", "gpgkey_path" ->
@@ -108,7 +110,7 @@ let prototyped_of_field = function
   | "host", "last_software_update" ->
       Some "22.20.0"
   | "VM_guest_metrics", "services" ->
-      Some "25.6.0-next"
+      Some "25.10.0-next"
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
   | "VM", "groups" ->
@@ -122,7 +124,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "license_server" ->
-      Some "25.5.0-next"
+      Some "25.6.0"
   | "pool", "recommendations" ->
       Some "24.19.1"
   | "pool", "update_sync_enabled" ->
@@ -185,6 +187,8 @@ let prototyped_of_message = function
       Some "22.20.0"
   | "Repository", "set_gpgkey_path" ->
       Some "22.12.0"
+  | "Repository", "introduce_remote_pool" ->
+      Some "25.7.0"
   | "Repository", "introduce_bundle" ->
       Some "24.23.0"
   | "PCI", "get_dom0_access_status" ->
@@ -245,5 +249,11 @@ let prototyped_of_message = function
       Some "22.27.0"
   | "pool", "set_custom_uefi_certificates" ->
       Some "24.0.0"
+  | "task", "set_other_config" ->
+      Some "25.8.0"
+  | "task", "remove_from_other_config" ->
+      Some "25.8.0"
+  | "task", "add_to_other_config" ->
+      Some "25.8.0"
   | _ ->
       None

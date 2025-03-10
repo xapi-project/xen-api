@@ -1,5 +1,7 @@
 name: Generate and upload docs
 
+permissions: {}
+
 on:
   push:
     branches: master
@@ -8,6 +10,8 @@ jobs:
   ocaml:
     name: Docs
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
     env:
       XAPI_VERSION: "v0.0.0-${{ github.sha }}"
       STORAGE_DOCDIR: .gh-pages-xapi-storage

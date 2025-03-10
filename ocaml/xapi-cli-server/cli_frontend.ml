@@ -842,7 +842,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= []
       ; optn= []
-      ; help= "Disable TLS verification for this host only"
+      ; help= "Disable TLS verification for this host only."
       ; implementation=
           No_fd_local_session
             Cli_operations.host_emergency_disable_tls_verification
@@ -853,7 +853,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= []
       ; optn= []
-      ; help= "Reenable TLS verification for this host only"
+      ; help=
+          "Reenable TLS verification for this host only, and only after it was \
+           emergency disabled."
       ; implementation=
           No_fd_local_session
             Cli_operations.host_emergency_reenable_tls_verification

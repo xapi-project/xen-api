@@ -1,11 +1,11 @@
 (rule
-  (targets aPI.ml)
+  (target aPI.ml)
   (deps
-    ../idl/ocaml_backend/gen_api_main.exe
+    (:gen ../idl/ocaml_backend/gen_api_main.exe)
   )
   (action
-    (run %{deps} -filterinternal true -filter closed -mode api -output
-      %{targets}))
+   (with-stdout-to %{target}
+    (run %{gen} api --filter-internal --filter closed)))
 )
 
 (library

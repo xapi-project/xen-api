@@ -806,10 +806,7 @@ let scan ~__context ~sr =
                 limit ;
               (scan_rec [@tailcall]) (limit - 1)
             ) else if limit = 0 then
-              raise
-                (Api_errors.Server_error
-                   (Api_errors.internal_error, ["SR.scan retry limit exceeded"])
-                )
+              Helpers.internal_error "SR.scan retry limit exceeded"
             else (
               update_vdis ~__context ~sr db_vdis_after vs ;
               let virtual_allocation =
@@ -932,16 +929,8 @@ let assert_supports_database_replication ~__context ~sr =
   with
   | [] ->
       (* This should never happen because the PBDs are plugged in *)
-      raise
-        (Api_errors.Server_error
-           ( Api_errors.internal_error
-           , [
-               "SR does not have corresponding SM record"
-             ; Ref.string_of sr
-             ; srtype
-             ]
-           )
-        )
+      Helpers.internal_error "SR does not have corresponding SM record: %s %s"
+        (Ref.string_of sr) srtype
   | (_, sm) :: _ ->
       if not (List.mem_assoc "SR_METADATA" sm.Db_actions.sM_features) then
         raise

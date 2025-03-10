@@ -162,9 +162,9 @@ let handle req fd _method_name tag (method_name, request_func) =
       | Api_errors.Server_error (_, _) as exn ->
           raise exn
       | exn ->
-          warn "WLB %s request failed: %s" method_name
-            (ExnHelper.string_of_exn exn) ;
-          raise (Api_errors.Server_error (Api_errors.internal_error, []))
+          Helpers.internal_error ~log_err:true ~err_fun:warn
+            "WLB %s request failed: %s" method_name
+            (ExnHelper.string_of_exn exn)
   )
 
 (* GET /wlb_report?session_id=<session>&task_id=<task>&

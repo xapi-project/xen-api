@@ -1,5 +1,7 @@
 name: Build and test (1.249-lcm, scheduled)
 
+permissions: {}
+
 on:
   schedule:
     # run every Monday, this refreshes the cache
@@ -9,6 +11,8 @@ jobs:
   python-test:
     name: Python tests
     runs-on: ubuntu-20.04
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:

@@ -260,7 +260,7 @@ let gen_record_type ~with_module highapi tys =
   in
   aux [] tys
 
-let gen_client highapi =
+let gen_client _config highapi =
   List.iter (List.iter print)
     (between [""]
        [
@@ -352,7 +352,7 @@ let toposort_types highapi types =
   assert (List.sort compare result = List.sort compare types) ;
   result
 
-let gen_record_deserialization highapi =
+let gen_record_deserialization _config highapi =
   let gen_of_to_string types =
     let gen_string_and_all = function
       | DT.Set (DT.Enum (_, elist) as e) ->
@@ -384,7 +384,7 @@ let gen_record_deserialization highapi =
        ]
     )
 
-let gen_client_types highapi =
+let gen_client_types _config highapi =
   let all_types = all_types_of highapi in
   let all_types = add_set_enums all_types in
   List.iter (List.iter print)
@@ -440,7 +440,7 @@ let gen_client_types highapi =
        ]
     )
 
-let gen_server highapi =
+let gen_server _config highapi =
   List.iter (List.iter print)
     (between [""]
        [
@@ -449,7 +449,7 @@ let gen_server highapi =
        ]
     )
 
-let gen_custom_actions highapi =
+let gen_custom_actions _config highapi =
   List.iter (List.iter print)
     (between [""]
        [
@@ -464,13 +464,9 @@ let gen_custom_actions highapi =
 
 open Gen_db_actions
 
-let gen_db_actions highapi =
+let gen_db_actions _config highapi =
   let highapi_in_db =
-    Dm_api.filter
-      (fun obj -> obj.DT.in_database)
-      (fun _ -> true)
-      (fun _ -> true)
-      highapi
+    Dm_api.filter_by ~obj:(fun obj -> obj.DT.in_database) highapi
   in
   let all_types_in_db = all_types_of highapi_in_db in
   let only_records =
@@ -495,4 +491,5 @@ let gen_db_actions highapi =
     @ []
     )
 
-let gen_rbac highapi = print (Gen_rbac.gen_permissions_of_static_roles highapi)
+let gen_rbac config highapi =
+  print (Gen_rbac.gen_permissions_of_static_roles config highapi)

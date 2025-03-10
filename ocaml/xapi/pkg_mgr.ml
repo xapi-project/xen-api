@@ -16,6 +16,12 @@ type mgr = Yum | Dnf
 
 type cmd_line = {cmd: string; params: string list}
 
+module Updateinfo = struct
+  type t = Available | Updates
+
+  let to_string = function Available -> "available" | Updates -> "updates"
+end
+
 let active () =
   match Sys.file_exists !Xapi_globs.dnf_cmd with true -> Dnf | false -> Yum
 
@@ -27,7 +33,7 @@ module type S = sig
   val clean_cache : repo_name:string -> cmd_line
 
   val get_pkgs_from_updateinfo :
-    sub_command:string -> repositories:string list -> cmd_line
+    Updateinfo.t -> repositories:string list -> cmd_line
 
   val get_updates_from_upgrade_dry_run : repositories:string list -> cmd_line
 
@@ -61,7 +67,7 @@ module type Args = sig
 
   val clean_cache : string -> string list
 
-  val get_pkgs_from_updateinfo : string -> string list -> string list
+  val get_pkgs_from_updateinfo : Updateinfo.t -> string list -> string list
 
   val get_updates_from_upgrade_dry_run : string list -> string list
 
@@ -84,12 +90,12 @@ end
 
 let repoquery_sep = ":|"
 
-let fmt =
-  ["name"; "epoch"; "version"; "release"; "arch"; "repoid"]
-  |> List.map (fun field -> Printf.sprintf "%%{%s}" field) (* %{field} *)
-  |> String.concat repoquery_sep
-
 module Common_args = struct
+  let fmt =
+    ["name"; "epoch"; "version"; "release"; "arch"; "repoid"]
+    |> List.map (fun field -> Printf.sprintf "%%{%s}" field) (* %{field} *)
+    |> String.concat repoquery_sep
+
   let clean_cache = function
     | "*" ->
         ["clean"; "all"]
@@ -101,20 +107,9 @@ module Common_args = struct
         ; "all"
         ]
 
-  let get_pkgs_from_updateinfo sub_command repositories =
-    [
-      "-q"
-    ; "--disablerepo=*"
-    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "updateinfo"
-    ; "list"
-    ; sub_command
-    ]
-
   let is_obsoleted pkg_name repositories =
     [
-      "-a"
-    ; "--disablerepo=*"
+      "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
     ; "--whatobsoletes"
     ; pkg_name
@@ -132,14 +127,14 @@ module Common_args = struct
 
   let repoquery repositories =
     [
-      "-a"
-    ; "--disablerepo=*"
+      "--disablerepo=*"
     ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
-    ; "--qf"
-    ; fmt
     ]
 
-  let config_repo repo_name config = config @ [repo_name]
+  let config_repo repo_name config =
+    (* Add --setopt to repo options *)
+    List.map (fun x -> Printf.sprintf "--setopt=%s.%s" repo_name x) config
+    |> fun x -> ["--save"] @ x @ [repo_name]
 
   let make_cache repo_name =
     [
@@ -153,7 +148,6 @@ module Common_args = struct
     [
       "-p"
     ; !Xapi_globs.local_pool_repo_dir
-    ; "--downloadcomps"
     ; "--download-metadata"
     ; "--delete"
     ; "--newest-only"
@@ -172,7 +166,7 @@ end
 module Yum_args : Args = struct
   include Common_args
 
-  let repoquery_installed () = ["-a"; "--pkgnarrow=installed"; "--qf"; fmt]
+  let repoquery_installed () = ["--all"; "--pkgnarrow=installed"; "--qf"; fmt]
 
   let pkg_cmd = !Xapi_globs.yum_cmd
 
@@ -186,21 +180,35 @@ module Yum_args : Args = struct
     ["--quiet"] @ Common_args.get_updates_from_upgrade_dry_run repositories
 
   let is_obsoleted pkg_name repositories =
-    Common_args.is_obsoleted pkg_name repositories @ ["--plugins"]
+    ["--all"] @ Common_args.is_obsoleted pkg_name repositories @ ["--plugins"]
 
   let repoquery_available repositories =
     Common_args.repoquery repositories
-    @ ["--pkgnarrow"; "available"; "--plugins"]
+    @ ["--qf"; fmt; "--all"; "--pkgnarrow"; "available"; "--plugins"]
 
   let repoquery_updates repositories =
-    Common_args.repoquery repositories @ ["--pkgnarrow"; "updates"; "--plugins"]
+    Common_args.repoquery repositories
+    @ ["--qf"; fmt; "--all"; "--pkgnarrow"; "updates"; "--plugins"]
 
-  let sync_repo repo_name = Common_args.sync_repo repo_name @ ["--plugins"]
+  let sync_repo repo_name =
+    Common_args.sync_repo repo_name @ ["--downloadcomps"; "--plugins"]
 
   let get_repo_config repo_name = [repo_name]
+
+  let get_pkgs_from_updateinfo updateinfo repositories =
+    [
+      "-q"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "updateinfo"
+    ; "list"
+    ; Updateinfo.to_string updateinfo
+    ]
 end
 
 module Dnf_args : Args = struct
+  include Common_args
+
   let pkg_cmd = !Xapi_globs.dnf_cmd
 
   let repoquery_cmd = !Xapi_globs.dnf_cmd
@@ -208,6 +216,9 @@ module Dnf_args : Args = struct
   let repoconfig_cmd = !Xapi_globs.dnf_cmd
 
   let reposync_cmd = !Xapi_globs.dnf_cmd
+
+  (* dnf5 removed ending line breaker, we need to add it back *)
+  let fmt = Printf.sprintf "%s\n" Common_args.fmt
 
   type sub_cmd = Repoquery | Repoconfig | Reposync
 
@@ -221,29 +232,39 @@ module Dnf_args : Args = struct
 
   let add_sub_cmd sub_cmd params = [sub_cmd_to_string sub_cmd] @ params
 
-  include Common_args
-
   let repoquery_installed () =
-    ["-a"; "--qf"; fmt; "--installed"] |> add_sub_cmd Repoquery
+    ["--qf"; fmt; "--installed"] |> add_sub_cmd Repoquery
+
+  let config_repo repo_name config =
+    config |> List.map (fun x -> Printf.sprintf "%s.%s" repo_name x) |> fun x ->
+    ["setopt"] @ x |> add_sub_cmd Repoconfig
 
   let is_obsoleted pkg_name repositories =
     Common_args.is_obsoleted pkg_name repositories |> add_sub_cmd Repoquery
 
   let repoquery_available repositories =
-    Common_args.repoquery repositories @ ["--available"]
+    Common_args.repoquery repositories @ ["--qf"; fmt; "--available"]
     |> add_sub_cmd Repoquery
 
   let repoquery_updates repositories =
-    Common_args.repoquery repositories @ ["--upgrades"] |> add_sub_cmd Repoquery
-
-  let config_repo repo_name config =
-    Common_args.config_repo repo_name config |> add_sub_cmd Repoconfig
+    Common_args.repoquery repositories @ ["--qf"; fmt; "--upgrades"]
+    |> add_sub_cmd Repoquery
 
   let sync_repo repo_name =
     Common_args.sync_repo repo_name |> add_sub_cmd Reposync
 
   let get_repo_config repo_name =
     ["--dump"; repo_name] |> add_sub_cmd Repoconfig
+
+  let get_pkgs_from_updateinfo updateinfo repositories =
+    [
+      "-q"
+    ; "--disablerepo=*"
+    ; Printf.sprintf "--enablerepo=%s" (String.concat "," repositories)
+    ; "advisory"
+    ; "list"
+    ; (updateinfo |> Updateinfo.to_string |> fun x -> Printf.sprintf "--%s" x)
+    ]
 end
 
 module Cmd_line (M : Args) : S = struct
@@ -256,11 +277,8 @@ module Cmd_line (M : Args) : S = struct
 
   let clean_cache ~repo_name = {cmd= M.pkg_cmd; params= M.clean_cache repo_name}
 
-  let get_pkgs_from_updateinfo ~sub_command ~repositories =
-    {
-      cmd= M.pkg_cmd
-    ; params= M.get_pkgs_from_updateinfo sub_command repositories
-    }
+  let get_pkgs_from_updateinfo updateinfo ~repositories =
+    {cmd= M.pkg_cmd; params= M.get_pkgs_from_updateinfo updateinfo repositories}
 
   let get_updates_from_upgrade_dry_run ~repositories =
     {cmd= M.pkg_cmd; params= M.get_updates_from_upgrade_dry_run repositories}

@@ -157,10 +157,7 @@ let set_dom0_memory ~__context ~self:_ ~bytes =
     Xapi_host_helpers.Host_requires_reboot.set ()
   with e ->
     error "Failed to update dom0 memory: %s" (Printexc.to_string e) ;
-    raise
-      Api_errors.(
-        Server_error (internal_error, ["Failed to update dom0 memory"])
-      )
+    Helpers.internal_error "Failed to update dom0 memory"
 
 let set_memory_static_range ~__context ~self ~min ~max =
   (* For non-control domains, this function is only called on the master and
@@ -363,10 +360,8 @@ let start ~__context ~vm ~start_paused ~force =
 let assert_host_is_localhost ~__context ~host =
   let localhost = Helpers.get_localhost ~__context in
   if host <> localhost then
-    let msg =
+    Helpers.internal_error
       "Error in message forwarding layer: host parameter was not localhost"
-    in
-    raise (Api_errors.Server_error (Api_errors.internal_error, [msg]))
 
 let start_on ~__context ~vm ~host ~start_paused ~force =
   (* If we modify this to support start_on other-than-localhost,
@@ -1392,13 +1387,8 @@ let set_suspend_VDI ~__context ~self ~value =
       | `Fail e ->
           raise e
       | `Pending ->
-          raise
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , ["set_suspend_VDI: The operation is still `Pending"]
-                )
-            )
+          Helpers.internal_error
+            "set_suspend_VDI: The operation is still `Pending"
     in
     let src_checksum = get_result src_thread src_result in
     let dst_checksum = get_result dst_thread dst_result in

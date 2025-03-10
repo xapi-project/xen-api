@@ -29,8 +29,6 @@ let _db_defaults = "Db_actions.DB_Action"
 
 let _concurrency = "Concurrency"
 
-let enable_debugging = ref false
-
 let is_session_arg arg =
   let binding = O.string_of_param arg in
   let converter = O.type_of_param arg in
@@ -44,10 +42,7 @@ let from_rpc ?(ignore = false) arg =
     binding converter binding
 
 let debug msg args =
-  if !enable_debugging then
-    "D.debug \"" ^ String.escaped msg ^ "\" " ^ String.concat " " args ^ ";"
-  else
-    ""
+  "D.debug \"" ^ String.escaped msg ^ "\" " ^ String.concat " " args ^ ";"
 
 let has_default_args args =
   let has_default arg = Option.is_some arg.DT.param_default in

@@ -20,9 +20,8 @@ let test_dnf_repo_query_installed =
         ; params=
             [
               "repoquery"
-            ; "-a"
             ; "--qf"
-            ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}"
+            ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}\n"
             ; "--installed"
             ]
         }
@@ -40,11 +39,10 @@ let test_dnf_repo_query_updates =
         ; params=
             [
               "repoquery"
-            ; "-a"
             ; "--disablerepo=*"
             ; "--enablerepo=testrepo1,testrepo2"
             ; "--qf"
-            ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}"
+            ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}\n"
             ; "--upgrades"
             ]
         }
@@ -78,7 +76,6 @@ let test_dnf_clean_repo_cache =
   ]
 
 let test_dnf_get_pkgs_from_updateinfo =
-  let sub_command = "upgrades" in
   let repositories = ["testrepo1"; "testrepo2"] in
   [
     ( "<null>"
@@ -91,17 +88,19 @@ let test_dnf_get_pkgs_from_updateinfo =
               "-q"
             ; "--disablerepo=*"
             ; "--enablerepo=testrepo1,testrepo2"
-            ; "updateinfo"
+            ; "advisory"
             ; "list"
-            ; "upgrades"
+            ; "--updates"
             ]
         }
-        (Pkg_mgr.Dnf_cmd.get_pkgs_from_updateinfo ~sub_command ~repositories)
+        (Pkg_mgr.Dnf_cmd.get_pkgs_from_updateinfo Pkg_mgr.Updateinfo.Updates
+           ~repositories
+        )
     )
   ]
 
 let test_dnf_config_repo =
-  let config = ["--setopt=testrepo.accesstoken=file:///some/path"] in
+  let config = ["accesstoken=file:///some/path"] in
   [
     ( "<null>"
     , `Quick
@@ -111,8 +110,8 @@ let test_dnf_config_repo =
         ; params=
             [
               "config-manager"
-            ; "--setopt=testrepo.accesstoken=file:///some/path"
-            ; "testrepo"
+            ; "setopt"
+            ; "testrepo.accesstoken=file:///some/path"
             ]
         }
         (Pkg_mgr.Dnf_cmd.config_repo ~repo_name:"testrepo" ~config)
@@ -131,7 +130,6 @@ let test_dnf_sync_repo =
               "reposync"
             ; "-p"
             ; !Xapi_globs.local_pool_repo_dir
-            ; "--downloadcomps"
             ; "--download-metadata"
             ; "--delete"
             ; "--newest-only"
@@ -170,7 +168,7 @@ let test_yum_repo_query_installed =
           cmd= !Xapi_globs.repoquery_cmd
         ; params=
             [
-              "-a"
+              "--all"
             ; "--pkgnarrow=installed"
             ; "--qf"
             ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}"
@@ -204,7 +202,6 @@ let test_yum_clean_repo_cache =
   ]
 
 let test_yum_get_pkgs_from_updateinfo =
-  let sub_command = "updates" in
   let repositories = ["testrepo1"; "testrepo2"] in
   [
     ( "<null>"
@@ -222,12 +219,14 @@ let test_yum_get_pkgs_from_updateinfo =
             ; "updates"
             ]
         }
-        (Pkg_mgr.Yum_cmd.get_pkgs_from_updateinfo ~sub_command ~repositories)
+        (Pkg_mgr.Yum_cmd.get_pkgs_from_updateinfo Pkg_mgr.Updateinfo.Updates
+           ~repositories
+        )
     )
   ]
 
 let test_yum_config_repo =
-  let config = ["--setopt=testrepo.accesstoken=file:///some/path"] in
+  let config = ["accesstoken=file:///some/path"] in
   [
     ( "<null>"
     , `Quick
@@ -235,7 +234,11 @@ let test_yum_config_repo =
         {
           cmd= !Xapi_globs.yum_config_manager_cmd
         ; params=
-            ["--setopt=testrepo.accesstoken=file:///some/path"; "testrepo"]
+            [
+              "--save"
+            ; "--setopt=testrepo.accesstoken=file:///some/path"
+            ; "testrepo"
+            ]
         }
         (Pkg_mgr.Yum_cmd.config_repo ~repo_name:"testrepo" ~config)
     )
@@ -252,11 +255,11 @@ let test_yum_sync_repo =
             [
               "-p"
             ; !Xapi_globs.local_pool_repo_dir
-            ; "--downloadcomps"
             ; "--download-metadata"
             ; "--delete"
             ; "--newest-only"
             ; "--repoid=testrepo"
+            ; "--downloadcomps"
             ; "--plugins"
             ]
         }
@@ -292,11 +295,11 @@ let test_yum_repo_query_updates =
           cmd= !Xapi_globs.repoquery_cmd
         ; params=
             [
-              "-a"
-            ; "--disablerepo=*"
+              "--disablerepo=*"
             ; "--enablerepo=testrepo1,testrepo2"
             ; "--qf"
             ; "%{name}:|%{epoch}:|%{version}:|%{release}:|%{arch}:|%{repoid}"
+            ; "--all"
             ; "--pkgnarrow updates"
             ; "--plugins"
             ]
