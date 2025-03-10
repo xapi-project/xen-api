@@ -15,6 +15,11 @@
  *  @group Networking
 *)
 
+module Server : sig
+  val stop : unit -> unit
+  (** Stop server for external API calls *)
+end
+
 val himn_addr : unit -> string option
 (** Local IP address of the HIMN (if any) *)
 
