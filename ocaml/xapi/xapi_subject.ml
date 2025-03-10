@@ -39,6 +39,27 @@ let asynchronously_run_hook_script_after_subject_add =
   At_least_once_more.make "running after-subject-add hook script"
     run_hook_script_after_subject_add
 
+let query_subject_information_from_db ~__context identifier =
+  let open Xapi_database.Db_filter_types in
+  match
+    Db.Subject.get_records_where ~__context
+      ~expr:(Eq (Field "subject_identifier", Literal identifier))
+  with
+  | [] ->
+      raise Auth_signature.Subject_cannot_be_resolved
+  | x :: _ ->
+      let subject_r = snd x in
+      subject_r.API.subject_other_config
+
+let query_subject_information_from_AD ~__context identifier =
+  (Extauth.Ext_auth.d ()).query_subject_information ~__context identifier
+
+let get_subject_information_from_identifier ~__context ~cache identifier =
+  if cache then
+    query_subject_information_from_db ~__context identifier
+  else
+    query_subject_information_from_AD ~__context identifier
+
 let create ~__context ~subject_identifier ~other_config:_ =
   (* If at least one of the hosts uses AD external auth, then assert that the AD feature is enabled *)
   let hosts = Db.Host.get_all ~__context in
@@ -87,8 +108,8 @@ let create ~__context ~subject_identifier ~other_config:_ =
     in
     (* subject_info is overrided by subject info queried form DC *)
     let subject_info =
-      Xapi_auth.get_subject_information_from_identifier ~__context
-        ~subject_identifier
+      Extauth.call_with_exception_handler @@ fun () ->
+      query_subject_information_from_AD ~__context subject_identifier
     in
     Db.Subject.create ~__context ~ref ~uuid ~subject_identifier
       ~other_config:subject_info ~roles:default_roles ;
@@ -130,8 +151,8 @@ let update ~__context ~self =
   (* query external directory service *)
   (* this might raise an exception *)
   let subject_info =
-    Xapi_auth.get_subject_information_from_identifier ~__context
-      ~subject_identifier
+    Extauth.call_with_exception_handler @@ fun () ->
+    query_subject_information_from_AD ~__context subject_identifier
   in
   if Db.Subject.get_other_config ~__context ~self <> subject_info then (
     (* update locally the fresh information received from external directory service *)
@@ -243,22 +264,3 @@ let remove_from_roles ~__context ~self ~role =
       (Ref.string_of role) ;
     raise (Api_errors.Server_error (Api_errors.role_not_found, []))
   )
-
-let query_subject_information_from_db ~__context identifier =
-  let open Xapi_database.Db_filter_types in
-  match
-    Db.Subject.get_records_where ~__context
-      ~expr:(Eq (Field "subject_identifier", Literal identifier))
-  with
-  | [] ->
-      raise Auth_signature.Subject_cannot_be_resolved
-  | x :: _ ->
-      let subject_r = snd x in
-      subject_r.API.subject_other_config
-
-let get_subject_information_from_identifier ~__context ~cache identifier =
-  let open Extauth in
-  if cache then
-    query_subject_information_from_db ~__context identifier
-  else
-    (Ext_auth.d ()).query_subject_information ~__context identifier
