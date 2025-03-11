@@ -3,18 +3,12 @@ title = "XAPI's Storage Layers"
 linkTitle = "Storage"
 +++
 
+
 {{% notice info %}}
 The links in this page point to the source files of xapi
-[v1.127.0](https://github.com/xapi-project/xen-api/tree/v1.127.0), and xcp-idl
-[v1.62.0](https://github.com/xapi-project/xcp-idl/tree/v1.62.0), not to the
-latest source code.
-
-In the beginning of 2023, significant changes have been made in the layering.
-In particular, the wrapper code from `storage_impl.ml` has been pushed down the
-stack, below the mux, such that it only covers the SMAPIv1 backend and not
-SMAPIv3. Also, all of the code (from xcp-idl etc) is now present in this repo
-(xen-api).
+[v25.11.0](https://github.com/xapi-project/xen-api/tree/v25.11.0).
 {{% /notice %}}
+
 
 Xapi directly communicates only with the SMAPIv2 layer. There are no
 plugins directly implementing the SMAPIv2 interface, but the plugins in
