@@ -52,31 +52,29 @@ These are the files related to SMAPIv1 in `xen-api/ocaml/xapi/`:
 These are the files related to SMAPIv2, which need to be modified to
 implement new calls:
 
--   [xcp-idl/storage/storage\_interface.ml](https://github.com/xapi-project/xcp-idl/blob/v1.62.0/storage/storage_interface.ml):
+-   [xcp-idl/storage/storage\_interface.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_interface.ml):
     Contains the SMAPIv2 interface
--   [xcp-idl/storage/storage\_skeleton.ml](https://github.com/xapi-project/xcp-idl/blob/v1.62.0/storage/storage_skeleton.ml):
+-   [xcp-idl/storage/storage\_skeleton.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_skeleton.ml):
     A stub SMAPIv2 storage server implementation that matches the
     SMAPIv2 storage server interface (this is verified by
-    [storage\_skeleton\_test.ml](https://github.com/xapi-project/xcp-idl/blob/v1.62.0/storage/storage_skeleton_test.ml)),
+    [storage\_skeleton\_test.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_skeleton_test.ml)),
     each of its function just raise a `Storage_interface.Unimplemented`
     error. This skeleton is used to automatically fill the unimplemented
     methods of the below storage servers to satisfy the interface.
--   [xen-api/ocaml/xapi/storage\_access.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml):
-    [module SMAPIv1](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml#L104):
-    a SMAPIv2 server that does SMAPIv2 -&gt; SMAPIv1 translation.
+-   [xen-api/ocaml/xapi/storage\_smapiv1.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1.ml):
+    a SMAPIv2 server that does SMAPIv2 -> SMAPIv1 translation.
     It passes the XML-RPC requests as the first command-line argument to the
     corresponding Python script, which returns an XML-RPC response on standard
     output.
--   [xen-api/ocaml/xapi/storage\_impl.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_impl.ml):
-    The
-    [Wrapper](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_impl.ml#L302)
+-   [xen-api/ocaml/xapi/storage_smapiv1_wrapper.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml):
+    The [Wrapper](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml#L360)
     module wraps a SMAPIv2 server (Server\_impl) and takes care of
     locking and datapaths (in case of multiple connections (=datapaths)
     from VMs to the same VDI, it will use the superstate computed by the
-    [Vdi_automaton](https://github.com/xapi-project/xcp-idl/blob/v1.62.0/storage/vdi_automaton.ml)
+    [Vdi_automaton](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/vdi_automaton.ml)
     in xcp-idl). It also implements some functionality, like the `DP`
     module, that is not implemented in lower layers.
--   [xen-api/ocaml/xapi/storage\_mux.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_mux.ml):
+-   [xen-api/ocaml/xapi/storage\_mux.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_mux.ml):
     A SMAPIv2 server, which multiplexes between other servers. A
     different SMAPIv2 server can be registered for each SR. Then it
     forwards the calls for each SR to the "storage plugin" registered
@@ -85,30 +83,30 @@ implement new calls:
 ### How SMAPIv2 works:
 
 We use [message-switch] under the hood for RPC communication between
-[xcp-idl](https://github.com/xapi-project/xcp-idl) components. The
+[xapi-idl](https://github.com/xapi-project/xen-api/tree/v25.11.0/ocaml/xapi-idl) components. The
 main `Storage_mux.Server` (basically `Storage_impl.Wrapper(Mux)`) is
 [registered to
-listen](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml#L1279)
+listen](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_access.ml#L500)
 on the "`org.xen.xapi.storage`" queue [during xapi's
-startup](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/xapi.ml#L801),
+startup](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/xapi.ml#L1080),
 and this is the main entry point for incoming SMAPIv2 function calls.
 `Storage_mux` does not really multiplex between different plugins right
 now: [earlier during xapi's
-startup](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/xapi.ml#L799),
+startup](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/xapi.ml#L1076),
 the same SMAPIv1 storage server module [is
-registered](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml#L934)
+registered](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_access.ml#L934)
 on the various "`org.xen.xapi.storage.<sr type>`" queues for each
 supported SR type. (This will change with SMAPIv3, which is accessed via
 a SMAPIv2 plugin outside of xapi that translates between SMAPIv2 and
 SMAPIv3.) Then, in
-[Storage\_access.create\_sr](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml#L1531),
+[Storage\_access.create\_sr](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_access.ml#L802),
 which is called
-[during SR.create](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/xapi_sr.ml#L326),
+[during SR.create](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/xapi_sr.ml#L391),
 and also
-[during PBD.plug](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/xapi_pbd.ml#L121),
+[during PBD.plug](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/xapi_pbd.ml#L175),
 the relevant "`org.xen.xapi.storage.<sr type>`" queue needed for that
 PBD is [registered with Storage_mux in
-Storage\_access.bind](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml#L1107)
+Storage\_access.bind](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_access.ml#L267)
 for the SR of that PBD.\
 So basically what happens is that xapi registers itself as a SMAPIv2
 server, and forwards incoming function calls to itself through
@@ -185,9 +183,8 @@ layers, in addition to the basic SMAPIv2 <-> SMAPIv1 translation in
 These are the three files in xapi that implement the SMAPIv2 storage interface,
 from higher to lower level:
 
--   [xen-api/ocaml/xapi/storage\_impl.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_impl.ml):
--   [xen-api/ocaml/xapi/storage\_mux.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_mux.ml):
--   [xen-api/ocaml/xapi/storage\_access.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml):
+-   [xen-api/ocaml/xapi/storage\_mux.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_mux.ml):
+-   [xen-api/ocaml/xapi/storage\_access.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_access.ml):
 
 Functionality implemented by higher layers is not implemented by the layers below it.
 
@@ -220,7 +217,7 @@ It also implements the `Policy` module from the SMAPIv2 interface.
 
 [SMAPIv3](https://xapi-project.github.io/xapi-storage/) has a slightly
 different interface from SMAPIv2.The
-[xapi-storage-script](https://github.com/xapi-project/xapi-storage-script)
+[xapi-storage-script](https://github.com/xapi-project/xen-api/tree/v25.11.0/ocaml/xapi-storage-script)
 daemon is a SMAPIv2 plugin separate from xapi that is doing the SMAPIv2
 ↔ SMAPIv3 translation. It keeps the plugins registered with xcp-idl
 (their message-switch queues) up to date as their files appear or
@@ -266,7 +263,7 @@ stored in subdirectories of the
 `/usr/libexec/xapi-storage-script/datapath/` directories, respectively.
 When it finds a new datapath plugin, it adds the plugin to a lookup table and
 uses it the next time that datapath is required. When it finds a new volume
-plugin, it binds a new [message-switch] queue named after the plugin's
+plugin, it binds a new [message-switch](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-storage-script/main.ml#L2023) queue named after the plugin's
 subdirectory to a new server instance that uses these volume scripts.
 
 To invoke a SMAPIv3 method, it executes a program named
@@ -353,23 +350,23 @@ org.xen.xapi.storage.SR_type_x --VDI.attach2-->xapi-storage-script
 ## Error reporting
 
 In our SMAPIv1 OCaml "bindings" in xapi
-([xen-api/ocaml/xapi/sm\_exec.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/sm_exec.ml)),
+([xen-api/ocaml/xapi/sm\_exec.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/sm_exec.ml)),
 [when we inspect the error codes returned from a call to
-SM](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/sm_exec.ml#L199),
+SM](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/sm_exec.ml#L421),
 we translate some of the SMAPIv1/SM error codes to XenAPI errors, and
 for others, we just [construct an error
 code](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/sm_exec.ml#L214)
 of the form `SR_BACKEND_FAILURE_<SM error number>`.
 
 The file
-[xcp-idl/storage/storage\_interface.ml](https://github.com/xapi-project/xcp-idl/blob/v1.62.0/storage/storage_interface.ml#L362)
+[xcp-idl/storage/storage\_interface.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_interface.ml#L343)
 defines a number of SMAPIv2 errors, ultimately all errors from the various
 SMAPIv2 storage servers in xapi will be returned as one of these. Most of the
 errors aren't converted into a specific exception in `Storage_interface`, but
 are simply wrapped with `Storage_interface.Backend_error`.
 
 The
-[Storage\_access.transform\_storage\_exn](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/storage_access.ml#L29)
+[Storage\_utils.transform\_storage\_exn](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_utils.ml#L133)
 function is used by the client code in xapi to translate the SMAPIv2
 errors into XenAPI errors again, this unwraps the errors wrapped with
 `Storage_interface.Backend_error`.
@@ -379,7 +376,7 @@ errors into XenAPI errors again, this unwraps the errors wrapped with
 In the message forwarding layer, first we check the validity of VDI
 operations using `mark_vdi` and `mark_sr`. These first check that the
 operation is valid operations,
-using [Xapi\_vdi.check\_operation\_error](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/xapi_vdi.ml#L57),
+using [Xapi\_vdi.check\_operation\_error](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/xapi_vdi.ml#L65),
 for `mark_vdi`, which also inspects the current operations of the VDI,
 and then, if the operation is valid, it is added to the VDI's current
 operations, and update\_allowed\_operations is called. Then we forward
@@ -390,7 +387,7 @@ VDI's SR.
 
 For the VDI operations, we check at two different places whether the SR
 is attached: first, at the Xapi level, [in
-Xapi\_vdi.check\_operation\_error](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/xapi_vdi.ml#L98),
+Xapi\_vdi.check\_operation\_error](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/xapi_vdi.ml#L133),
 for the resize operation, and then, at the SMAPIv1 level, in
 `Sm.assert_pbd_is_plugged`. `Sm.assert_pbd_is_plugged` performs the
 same checks, plus it checks that the PBD is attached to the localhost,
