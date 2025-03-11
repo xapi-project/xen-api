@@ -23,9 +23,10 @@ other layers are accessed through it:
 ```mermaid
 graph TD
 A[xapi] --> B[SMAPIv2 interface]
-B --> C[SMAPIv2 <-> SMAPIv1 translation: storage_access.ml]
+B --> C[SMAPIv2 <-> SMAPIv1 state machine: storage_smapiv1_wrapper.ml]
+C --> G[SMAPIv2 <-> SMAPIv1 translation: storage_smapiv1.ml]
 B --> D[SMAPIv2 <-> SMAPIv3 translation: xapi-storage-script]
-C --> E[SMAPIv1 plugins]
+G --> E[SMAPIv1 plugins]
 D --> F[SMAPIv3 plugins]
 ```
 
@@ -33,9 +34,8 @@ D --> F[SMAPIv3 plugins]
 
 These are the files related to SMAPIv1 in `xen-api/ocaml/xapi/`:
 
--   [sm.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/sm.ml):
-    OCaml "bindings" for the SMAPIv1 Python "drivers" (SM)
--   [sm_exec.ml](https://github.com/xapi-project/xen-api/blob/v1.127.0/ocaml/xapi/sm_exec.ml):
+-   sm.ml: OCaml "bindings" for the SMAPIv1 Python "drivers" (SM)
+-   sm_exec.ml:
     support for implementing the above "bindings". The
     parameters are converted to XML-RPC, passed to the relevant python
     script ("driver"), and then the standard output of the program is
@@ -46,6 +46,10 @@ These are the files related to SMAPIv1 in `xen-api/ocaml/xapi/`:
     parameters in the args record.
 -   `smint.ml`: Contains types, exceptions, ... for the SMAPIv1 OCaml
     interface
+-   `storage_smapiv1_wrapper.ml`: A state machine for SMAPIv1 operations. It computes
+    the required actions to reach the desired state from the current state.
+-   `storage_smapiv1.ml`: Contains the actual translation of SMAPIv2 calls to SMAPIv1
+    calls, by calling the bindings provided in sm.ml.
 
 ## SMAPIv2
 
@@ -119,7 +123,7 @@ translation.
 ```mermaid
 sequenceDiagram
 participant q as message-switch
-participant v1 as Storage_access.SMAPIv1
+participant v1 as Storage_smapiv1.SMAPIv1
 participant svr as Storage_mux.Server
 
 Note over q, svr: xapi startup, "Starting SMAPIv1 proxies"
@@ -146,17 +150,17 @@ org.xen.xapi.storage
 org.xen.xapi.storage.SR_type_x
 end
 
-org.xen.xapi.storage --VDI.attach2--> Storage_impl.Wrapper
+org.xen.xapi.storage --VDI.attach2--> Storage_smapiv1_wrapper.Wrapper
 
 subgraph xapi
 subgraph Storage_mux.server
-Storage_impl.Wrapper --> Storage_mux.mux
+Storage_smapiv1_wrapper.Wrapper --> Storage_mux.mux
 end
-Storage_access.SMAPIv1
+Storage_smapiv1.SMAPIv1
 end
 
 Storage_mux.mux --VDI.attach2--> org.xen.xapi.storage.SR_type_x
-org.xen.xapi.storage.SR_type_x --VDI.attach2--> Storage_access.SMAPIv1
+org.xen.xapi.storage.SR_type_x --VDI.attach2--> Storage_smapiv1.SMAPIv1
 
 subgraph SMAPIv1
 driver_x[SMAPIv1 driver for SR_type_x]
@@ -180,7 +184,7 @@ translation. However, the former has large portions of code in its intermediate
 layers, in addition to the basic SMAPIv2 <-> SMAPIv1 translation in
 `storage_access.ml`.
 
-These are the three files in xapi that implement the SMAPIv2 storage interface,
+These are the two files in xapi that implement the SMAPIv2 storage interface,
 from higher to lower level:
 
 -   [xen-api/ocaml/xapi/storage\_mux.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_mux.ml):
@@ -188,18 +192,15 @@ from higher to lower level:
 
 Functionality implemented by higher layers is not implemented by the layers below it.
 
-#### Extra functionality in `storage_impl.ml`
+#### Extra functionality in `storage_task.ml`
 
-In addition to its usual functions, `Storage_impl.Wrapper` also implements the
-`UPDATES` and `TASK` SMAPIv2 APIs, without calling the wrapped module.
-
-These are backed by the `Updates`, `Task_server`, and `Scheduler` modules from
+`storage_smapiv1_wrapper.ml` also implements the `UPDATES` and `TASK` SMAPIv2 APIs. These are backed by the `Updates`, `Task_server`, and `Scheduler` modules from
 xcp-idl, instantiated in xapi's `Storage_task` module. Migration code in
 `Storage_mux` will interact with these to update task progress. There is also
 an event loop in xapi that keeps calling `UPDATES.get` to keep the tasks in
 xapi's database in sync with the storage manager's tasks.
 
-`Storage_impl.Wrapper` also implements the legacy `VDI.attach` call by simply
+`Storage_smapiv1_wrapper.ml` also implements the legacy `VDI.attach` call by simply
 calling the newer `VDI.attach2` call in the same module. In general, this is a
 good place to implement a compatibility layer for deprecated functionality
 removed from other layers, because this is the first module that intercepts a
@@ -207,9 +208,10 @@ SMAPIv2 call.
 
 #### Extra functionality in `storage_mux.ml`
 
-`Storage_mux` implements storage motion (SXM): it implements the `DATA` and
-`DATA.MIRROR` modules. Migration code will use the `Storage_task` module to run
-the operations and update the task's progress.
+`Storage_mux` redirects all storage motion (SXM) code to `storage_migrate.ml`, 
+and the multiplexed will be managed by `storage_migrate.ml`. The main implementation
+resides in the `DATA` and `DATA.MIRROR` modules. Migration code will use 
+the `Storage_task` module to run the operations and update the task's progress.
 
 It also implements the `Policy` module from the SMAPIv2 interface.
 
@@ -219,7 +221,7 @@ It also implements the `Policy` module from the SMAPIv2 interface.
 different interface from SMAPIv2.The
 [xapi-storage-script](https://github.com/xapi-project/xen-api/tree/v25.11.0/ocaml/xapi-storage-script)
 daemon is a SMAPIv2 plugin separate from xapi that is doing the SMAPIv2
-↔ SMAPIv3 translation. It keeps the plugins registered with xcp-idl
+↔ SMAPIv3 translation. It keeps the plugins registered with xapi-idl
 (their message-switch queues) up to date as their files appear or
 disappear from the relevant directory.
 
@@ -275,7 +277,7 @@ are type-checked using the generated Python bindings, and so are the
 outputs. The URIs of the SRs that xapi-storage-script knows about are
 stored in the `/var/run/nonpersistent/xapi-storage-script/state.db`
 file, these URIs can be used on the command line when an sr argument is
-expected.` `
+expected.
 
 #### Registration of the various SMAPIv3 plugins
 
