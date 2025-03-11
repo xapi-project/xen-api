@@ -20,14 +20,14 @@ Xapi directly communicates only with the SMAPIv2 layer. There are no
 plugins directly implementing the SMAPIv2 interface, but the plugins in
 other layers are accessed through it:
 
-{{<mermaid>}}
+```mermaid
 graph TD
 A[xapi] --> B[SMAPIv2 interface]
 B --> C[SMAPIv2 <-> SMAPIv1 translation: storage_access.ml]
 B --> D[SMAPIv2 <-> SMAPIv3 translation: xapi-storage-script]
 C --> E[SMAPIv1 plugins]
 D --> F[SMAPIv3 plugins]
-{{< /mermaid >}}
+```
 
 ## SMAPIv1
 
@@ -118,7 +118,7 @@ translation.
 
 #### Registration of the various storage servers
 
-{{<mermaid>}}
+```mermaid
 sequenceDiagram
 participant q as message-switch
 participant v1 as Storage_access.SMAPIv1
@@ -134,11 +134,11 @@ q ->> svr:org.xen.xapi.storage
 
 Note over q, svr: SR.create, PBD.plug
 svr ->> q:org.xapi.storage.sr_type_2
-{{< /mermaid >}}
+```
 
 #### What happens when a SMAPIv2 "function" is called
 
-{{<mermaid>}}
+```mermaid
 graph TD
 
 call[SMAPIv2 call] --VDI.attach2--> org.xen.xapi.storage
@@ -164,8 +164,8 @@ subgraph SMAPIv1
 driver_x[SMAPIv1 driver for SR_type_x]
 end
 
-Storage_access.SMAPIv1 --vdi_attach--> driver_x
-{{< /mermaid >}}
+Storage_smapiv1.SMAPIv1 --vdi_attach--> driver_x
+```
 
 ### Interface Changes, Backward Compatibility, & SXM
 
@@ -282,7 +282,7 @@ expected.` `
 
 #### Registration of the various SMAPIv3 plugins
 
-{{<mermaid>}}
+```mermaid
 sequenceDiagram
 participant q as message-switch
 participant v1 as (Storage_access.SMAPIv1)
@@ -306,11 +306,11 @@ q ->> svr:org.xen.xapi.storage
 
 Note over q, svr: SR.create, PBD.plug
 svr ->> q:org.xapi.storage.sr_type_4
-{{< /mermaid >}}
+```
 
 #### What happens when a SMAPIv3 "function" is called
 
-{{<mermaid>}}
+```mermaid
 graph TD
 
 call[SMAPIv2 call] --VDI.attach2--> org.xen.xapi.storage
@@ -348,7 +348,7 @@ end
 end
 
 org.xen.xapi.storage.SR_type_x --VDI.attach2-->xapi-storage-script
-{{< /mermaid >}}
+```
 
 ## Error reporting
 
