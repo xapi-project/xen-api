@@ -3,14 +3,14 @@
 # Example on-master-start script
 #
 start() {
-	echo -n $"Assuming role of master: "
+	printf "%s" "Assuming role of master: "
 	touch /tmp/master
-	echo $"OK"
+	echo "OK"
 	return 0
 }
 
 stop() {
-	echo $"Dropping role of master: "
+	echo "Dropping role of master: "
 	rm -f /tmp/master
 	return 0
 }
@@ -31,6 +31,6 @@ case "$1" in
 	restart
 	;;
   *)
-	echo $"Usage: $0 {start|stop|restart}"
+	echo "Usage: $0 {start|stop|restart}"
 	exit 1
 esac

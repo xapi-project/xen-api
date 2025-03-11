@@ -1,6 +1,8 @@
 #! /bin/bash
 
 if [ -f /etc/sysconfig/xapi ]; then
+  # shellcheck disable=SC1091
+  # disalbe the check as not available on checking machine
   . /etc/sysconfig/xapi
 fi
 
@@ -19,7 +21,7 @@ start() {
 	rm -rf /var/xapi/debug
 
         if [ -e /var/lock/subsys/xapi ]; then
-	    if [ -e /var/run/xapi.pid ] && [ -e /proc/`cat /var/run/xapi.pid` ]; then
+	    if [ -e /var/run/xapi.pid ] && [ -e "/proc/$(cat /var/run/xapi.pid)" ]; then
 		echo $"cannot start xapi: already running.";
 		logger "cannot start xapi: already running.";
 		return 1
@@ -50,11 +52,18 @@ start() {
 	    # want to avoid collisions with new domains. CA-375992
 	    rm -rf /var/lib/xcp/run/*
 	    echo
+	    # shellcheck disable=SC2154
+	    # xapiflags may come from sourced files
+	    #
+	    # shellcheck disable=SC2086
+	    # quote introduce invalid argument on empty
 	    exec "@OPTDIR@/bin/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE} -onsystemboot
 		RETVAL=$?
 	else
 	    echo
+	    # shellcheck disable=SC2154
+	    # shellcheck disable=SC2086
 	    exec "@OPTDIR@/bin/xapi" -nowatchdog ${xapiflags} \
 		-writereadyfile ${XAPI_STARTUP_COOKIE} -writeinitcomplete ${XAPI_INIT_COMPLETE_COOKIE}
 		RETVAL=$?
@@ -89,7 +98,7 @@ stop() {
 		fi
 		sleep 1
 		echo -n .
-		RETRIES=$(( ${RETRIES} - 1 ))
+		RETRIES=$(( RETRIES - 1 ))
 	done
 
 	killproc xapi
@@ -106,15 +115,6 @@ stop() {
 	return $RETVAL
 }
 
-rhstatus() {
-	status xapi
-}
-
-restart() {
-	stop
-	start
-}
-
 case "$1" in
   start)
 	start
@@ -122,16 +122,7 @@ case "$1" in
   stop)
 	stop
 	;;
-  restart)
-	restart
-	;;
-  status)
-	rhstatus
-	;;
-  condrestart)
-	[ -f /var/lock/subsys/xapi ] && restart || :
-	;;
   *)
-	echo $"Usage: $0 {start|stop|status|restart|condrestart}"
+	echo $"Usage: $0 {start|stop}"
 	exit 1
 esac

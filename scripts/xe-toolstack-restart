@@ -12,7 +12,7 @@
 # GNU Lesser General Public License for more details.
 #
 
-FILENAME=`basename $0`
+FILENAME=$(basename "$0")
 LOCKFILE='/dev/shm/xe_toolstack_restart.lock'
 
 (
