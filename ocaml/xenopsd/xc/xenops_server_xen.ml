@@ -51,6 +51,8 @@ let _xenguest = "xenguest"
 
 let _emu_manager = "emu-manager"
 
+let ( // ) = Filename.concat
+
 let run cmd args =
   debug "%s %s" cmd (String.concat " " args) ;
   fst (Forkhelpers.execute_command_get_output cmd args)
@@ -58,20 +60,20 @@ let run cmd args =
 let choose_alternative kind default platformdata =
   debug "looking for %s in [ %s ]" kind
     (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^ v) platformdata)) ;
-  if List.mem_assoc kind platformdata then
-    let x = List.assoc kind platformdata in
-    let dir = Filename.concat !Xc_resources.alternatives kind in
-    let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+  let path_available x =
+    let dir = !Xc_resources.alternatives // kind in
+    let available = try Sys.readdir dir with _ -> [||] in
     (* If x has been put in the directory (by root) then it's safe to use *)
-    if List.mem x available then
-      Filename.concat dir x
+    if Array.mem x available then
+      Some (dir // x)
     else (
       error "Invalid platform:%s=%s (check execute permissions of %s)" kind x
-        (Filename.concat dir x) ;
-      default
+        (dir // x) ;
+      None
     )
-  else
-    default
+  in
+  Option.bind (List.assoc_opt kind platformdata) path_available
+  |> Option.value ~default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
 let choose_qemu_dm x =
@@ -2664,8 +2666,8 @@ module VM = struct
           in
           let manager_path = choose_emu_manager vm.Vm.platformdata in
           Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
-            ~console_domid ~no_incr_generationid (* XXX progress_callback *)
-            ~timeoffset ~extras build_info ~manager_path ~vtpm domid fd vgpu_fd
+            ~console_domid ~no_incr_generationid ~timeoffset ~extras build_info
+            ~manager_path ~vtpm domid fd vgpu_fd
         with e ->
           error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;
           (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
