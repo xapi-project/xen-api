@@ -57,8 +57,7 @@ let unescape s =
 
 let mkstring x = String (unescape x)
 
-let string_of sexpr =
-  let buf = Buffer.create 64 in
+let string_of_buf buf sexpr =
   let rec __string_of_rec x =
     match x with
     | Node l ->
@@ -80,4 +79,8 @@ let string_of sexpr =
         escape_buf buf s ;
         Buffer.add_string buf "\'"
   in
-  __string_of_rec sexpr ; Buffer.contents buf
+  __string_of_rec sexpr
+
+let string_of sexpr =
+  let buf = Buffer.create 64 in
+  string_of_buf buf sexpr ; Buffer.contents buf
