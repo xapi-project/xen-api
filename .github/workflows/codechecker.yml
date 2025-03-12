@@ -27,38 +27,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Restore cache for compile_commands.json
-        uses: actions/cache/restore@v4
-        id: cache-cmds
-        with:
-          path: compile_commands.json
-          key: compile_commands.json-v1-${{ hashFiles('**/dune') }}
-
       - name: Setup XenAPI environment
-        if: steps.cache-cmds.outputs.cache-hit != 'true'
         uses: ./.github/workflows/setup-xapi-environment
         with:
           xapi_version: ${{ env.XAPI_VERSION }}
 
       - name: Install dune-compiledb to generate compile_commands.json
-        if: steps.cache-cmds.outputs.cache-hit != 'true'
         run: |
           opam pin add -y ezjsonm https://github.com/mirage/ezjsonm/releases/download/v1.3.0/ezjsonm-1.3.0.tbz
           opam pin add -y dune-compiledb https://github.com/edwintorok/dune-compiledb/releases/download/0.6.0/dune-compiledb-0.6.0.tbz
 
       - name: Trim dune cache
-        if: steps.cache-cmds.outputs.cache-hit != 'true'
         run: opam exec -- dune cache trim --size=2GiB         
 
       - name: Generate compile_commands.json
-        if: steps.cache-cmds.outputs.cache-hit != 'true'
         run: opam exec -- make compile_commands.json
-
-      - name: Save cache for cmds.json
-        uses: actions/cache/save@v4
-        with:
-          path: compile_commands.json
-          key: ${{ steps.cache-cmds.outputs.cache-primary-key }}
 
       - name: Upload compile commands json
         uses: actions/upload-artifact@v4
