@@ -100,3 +100,4 @@ module NumaNode : sig
 end
 
 val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
+(** Raises {Unix_error} if there's not enough memory to claim in the system *)
