@@ -2074,8 +2074,6 @@ let eject_self ~__context ~host =
           )
       )
       (fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject ()) ;
-    debug "%s: stop management server" __FUNCTION__ ;
-    Xapi_mgmt_iface.run ~__context ~mgmt_enabled:false () ;
     Xapi_hooks.pool_eject_hook ~__context
 
 (** eject [host] from the pool. This code is run on all hosts in the
