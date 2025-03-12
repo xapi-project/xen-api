@@ -35,7 +35,6 @@ jobs:
           key: compile_commands.json-v1-${{ hashFiles('**/dune') }}
 
       - name: Setup XenAPI environment
-        if: steps.cache-cmds.outputs.cache-hit != 'true'
         uses: ./.github/workflows/setup-xapi-environment
         with:
           xapi_version: ${{ env.XAPI_VERSION }}
@@ -47,7 +46,6 @@ jobs:
           opam pin add -y dune-compiledb https://github.com/edwintorok/dune-compiledb/releases/download/0.6.0/dune-compiledb-0.6.0.tbz
 
       - name: Trim dune cache
-        if: steps.cache-cmds.outputs.cache-hit != 'true'
         run: opam exec -- dune cache trim --size=2GiB         
 
       - name: Generate compile_commands.json
