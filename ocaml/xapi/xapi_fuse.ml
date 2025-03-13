@@ -86,6 +86,8 @@ let light_fuse_and_reboot_after_eject () =
   ignore
     (Thread.create
        (fun () ->
+         debug "%s: stop management server" __FUNCTION__ ;
+         Xapi_mgmt_iface.Server.stop () ;
          Thread.delay !Constants.fuse_time ;
          (* this activates firstboot script and reboots the host *)
          ignore
