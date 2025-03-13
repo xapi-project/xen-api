@@ -23,7 +23,7 @@ let unescape_buf buf s =
   if Astring.String.fold_left aux false s then
     Buffer.add_char buf '\\'
 
-let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
+let is_escape_char = function '\\' | '\'' -> true | _ -> false
 
 (* XXX: This escapes "'c'" and "\'c\'" to "\\'c\\'".
  * They are both unescaped as "'c'". They have been ported
@@ -40,8 +40,6 @@ let escape_buf escaped s =
         match c with
         | '\\' ->
             Buffer.add_string escaped "\\\\"
-        | '"' ->
-            Buffer.add_string escaped "\\\""
         | '\'' ->
             Buffer.add_string escaped "\\\'"
         | _ ->
