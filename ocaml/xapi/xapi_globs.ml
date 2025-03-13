@@ -1075,7 +1075,7 @@ let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 
 let disable_webserver = ref false
 
-let reuse_pool_sessions = ref true
+let reuse_pool_sessions = ref false
 (* Enables the reuse of pool sessions, speeding up intrapool communication *)
 
 let validate_reusable_pool_session = ref false
