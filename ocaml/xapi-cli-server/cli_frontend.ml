@@ -511,7 +511,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "pool-sync-updates"
     , {
         reqd= []
-      ; optn= ["force"; "token"; "token-id"]
+      ; optn= ["force"; "token"; "token-id"; "username"; "password"]
       ; help= "Sync updates from remote YUM repository, pool-wide."
       ; implementation= No_fd Cli_operations.pool_sync_updates
       ; flags= []
@@ -842,7 +842,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= []
       ; optn= []
-      ; help= "Disable TLS verification for this host only"
+      ; help= "Disable TLS verification for this host only."
       ; implementation=
           No_fd_local_session
             Cli_operations.host_emergency_disable_tls_verification
@@ -853,7 +853,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
     , {
         reqd= []
       ; optn= []
-      ; help= "Reenable TLS verification for this host only"
+      ; help=
+          "Reenable TLS verification for this host only, and only after it was \
+           emergency disabled."
       ; implementation=
           No_fd_local_session
             Cli_operations.host_emergency_reenable_tls_verification
@@ -3732,6 +3734,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["name-description"]
       ; help= "Add the configuration for a new bundle repository."
       ; implementation= No_fd Cli_operations.Repository.introduce_bundle
+      ; flags= []
+      }
+    )
+  ; ( "repository-introduce-remote-pool"
+    , {
+        reqd= ["name-label"; "binary-url"; "certificate-file"]
+      ; optn= ["name-description"]
+      ; help= "Add the configuration for a new remote pool repository."
+      ; implementation= With_fd Cli_operations.Repository.introduce_remote_pool
       ; flags= []
       }
     )

@@ -50,10 +50,13 @@ let rpc ~__context ~verify_cert host_address xml =
 let get_pool ~rpc ~session_id =
   match Client.Pool.get_all ~rpc ~session_id with
   | [] ->
-      let err_msg = "Remote host does not belong to a pool." in
-      raise Api_errors.(Server_error (internal_error, [err_msg]))
-  | pool :: _ ->
+      Helpers.internal_error "Remote host does not belong to a pool."
+  | [pool] ->
       pool
+  | pools ->
+      Helpers.internal_error "Should get only one pool, but got %d: %s"
+        (List.length pools)
+        (pools |> List.map Ref.string_of |> String.concat ",")
 
 let get_master ~rpc ~session_id =
   let pool = get_pool ~rpc ~session_id in
@@ -63,16 +66,7 @@ let get_master ~rpc ~session_id =
 let pre_join_checks ~__context ~rpc ~session_id ~force =
   (* I cannot join a Pool unless my management interface exists in the db, otherwise
      	   Pool.eject will fail to rewrite network interface files. *)
-  let remote_pool =
-    match Client.Pool.get_all ~rpc ~session_id with
-    | [pool] ->
-        pool
-    | _ ->
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["Should get only one pool"])
-          )
-  in
+  let remote_pool = get_pool ~rpc ~session_id in
   let assert_management_interface_exists () =
     try
       let (_ : API.ref_PIF) =
@@ -725,7 +719,6 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
         )
   in
   let assert_tls_verification_matches () =
-    let remote_pool = get_pool ~rpc ~session_id in
     let joiner_pool = Helpers.get_pool ~__context in
     let tls_enabled_pool =
       Client.Pool.get_tls_verification_enabled ~rpc ~session_id
@@ -1041,8 +1034,7 @@ and create_or_get_sr_on_master __context rpc session_id (_sr_ref, sr) :
         |> List.find (fun (_, sr) -> sr.API.sR_is_tools_sr)
         |> fun (ref, _) -> ref
       with Not_found ->
-        let msg = Printf.sprintf "can't find SR %s of tools iso" my_uuid in
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error "can't find SR %s of tools iso" my_uuid
     else (
       debug "Found no SR with uuid = '%s' on the master, so creating one."
         my_uuid ;
@@ -1775,16 +1767,16 @@ let recover_slaves ~__context =
     if not (hostref = !Xapi_globs.localhost_ref) then
       try
         let local_fn = emergency_reset_master ~master_address:my_address in
+        let remote_fn =
+          Client.Pool.emergency_reset_master ~master_address:my_address
+        in
         (* We have to use a new context here because the slave is currently doing a
            	     Task.get_name_label on real tasks, which will block on slaves that we're
            	     trying to recover. Get around this by creating a dummy task, for which
            	     the name-label bit is bypassed *)
         let newcontext = Context.make "emergency_reset_master" in
         Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn
-          ~__context:newcontext ~host:hostref (fun session_id rpc ->
-            Client.Pool.emergency_reset_master ~rpc ~session_id
-              ~master_address:my_address
-        ) ;
+          ~__context:newcontext ~host:hostref ~remote_fn ;
         recovered_hosts := hostref :: !recovered_hosts
       with _ -> ()
   in
@@ -2278,18 +2270,18 @@ let hello ~__context ~host_uuid ~host_address =
         Dbsync_master.refresh_console_urls ~__context
       ) ;
       let local_fn = is_slave ~host:host_ref in
+      let remote_fn = Client.Pool.is_slave ~host:host_ref in
       (* Nb. next call is purely there to establish that we can talk back to the host that initiated this call *)
       (* We don't care about the return type, only that no exception is raised while talking to it *)
       ( try
-          ignore
-            (Server_helpers.exec_with_subtask ~__context "pool.hello.is_slave"
-               (fun ~__context ->
-                 Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn
-                   ~__context ~host:host_ref (fun session_id rpc ->
-                     Client.Pool.is_slave ~rpc ~session_id ~host:host_ref
-                 )
-             )
+          let _ : bool =
+            Server_helpers.exec_with_subtask ~__context "pool.hello.is_slave"
+              (fun ~__context ->
+                Message_forwarding.do_op_on_nolivecheck_no_retry ~local_fn
+                  ~__context ~host:host_ref ~remote_fn
             )
+          in
+          ()
         with
       | Api_errors.Server_error (code, ["pool.is_slave"; "1"; "2"]) as e
         when code = Api_errors.message_parameter_count_mismatch ->
@@ -2669,9 +2661,8 @@ let revalidate_subjects ~__context =
     let subj_id = Db.Subject.get_subject_identifier ~__context ~self in
     debug "Revalidating subject %s" subj_id ;
     try
-      let open Auth_signature in
-      ignore
-        ((Extauth.Ext_auth.d ()).query_subject_information ~__context subj_id)
+      Xapi_subject.query_subject_information_from_AD ~__context subj_id
+      |> ignore
     with Not_found ->
       debug "Destroying subject %s" subj_id ;
       Xapi_subject.destroy ~__context ~self
@@ -2839,8 +2830,8 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
                          (Api_errors.auth_unknown_type, [msg_of_e])
                       )
                 | err_of_e
-                  when Xstringext.String.startswith
-                         Api_errors.auth_enable_failed err_of_e ->
+                  when String.starts_with ~prefix:Api_errors.auth_enable_failed
+                         err_of_e ->
                     raise
                       (Api_errors.Server_error
                          ( Api_errors.pool_auth_prefix ^ err_of_e
@@ -2923,7 +2914,7 @@ let disable_external_auth ~__context ~pool:_ ~config =
             debug
               "Failed to disable the external authentication of at least one \
                host in the pool" ;
-            if Xstringext.String.startswith Api_errors.auth_disable_failed err
+            if String.starts_with ~prefix:Api_errors.auth_disable_failed err
             then (* tagged exception *)
               raise
                 (Api_errors.Server_error
@@ -3405,7 +3396,7 @@ let alert_failed_login_attempts () =
             ~body:stats
       )
 
-let perform ~local_fn ~__context ~host op =
+let perform ~local_fn ~__context ~host ~remote_fn =
   let rpc' _context hostname (task_opt : API.ref_task option) xml =
     let open Xmlrpc_client in
     let verify_cert = Some Stunnel.pool (* verify! *) in
@@ -3418,7 +3409,8 @@ let perform ~local_fn ~__context ~host op =
     XMLRPC_protocol.rpc ~srcstr:"xapi" ~dststr:"dst_xapi" ~transport ~http xml
   in
   let open Message_forwarding in
-  do_op_on_common ~local_fn ~__context ~host op (call_slave_with_session rpc')
+  do_op_on_common ~local_fn ~__context ~host ~remote_fn
+    (call_slave_with_session rpc')
 
 (** [ping_with_tls_verification host] calls [Pool.is_slave] using a TLS
 connection that uses certficate checking. We ignore the result but are
@@ -3429,15 +3421,15 @@ yet enabled. *)
 
 let ping_with_tls_verification ~__context host =
   let local_fn = is_slave ~host in
+  let remote_fn = Client.Pool.is_slave ~host in
   let this_uuid = Helpers.get_localhost_uuid () in
   let remote_uuid = Db.Host.get_uuid ~__context ~self:host in
   info "pinging host before enabling TLS: %s -> %s" this_uuid remote_uuid ;
-  Server_helpers.exec_with_subtask ~__context "pool.ping" (fun ~__context ->
-      perform ~local_fn ~__context ~host (fun session_id rpc ->
-          Client.Pool.is_slave ~rpc ~session_id ~host
-      )
-  )
-  |> ignore
+  let _ : bool =
+    Server_helpers.exec_with_subtask ~__context "pool.ping"
+      (perform ~local_fn ~host ~remote_fn)
+  in
+  ()
 
 (* TODO: move to xapi_host *)
 let enable_tls_verification ~__context =
@@ -3454,21 +3446,44 @@ let enable_tls_verification ~__context =
   | Some self ->
       Xapi_cluster_host.set_tls_config ~__context ~self ~verify:true
 
-let contains_bundle_repo ~__context ~repos =
-  List.exists
-    (fun repo -> Db.Repository.get_origin ~__context ~self:repo = `bundle)
+let assert_single_repo_can_be_enabled ~__context ~repos =
+  let origins =
+    repos
+    |> List.filter_map (fun repo ->
+           match Db.Repository.get_origin ~__context ~self:repo with
+           | (`bundle | `remote_pool) as origin ->
+               Some origin
+           | `remote ->
+               None
+       )
+    |> List.fold_left
+         (fun acc origin -> if List.mem origin acc then acc else origin :: acc)
+         []
+  in
+  match (repos, origins) with
+  | _ :: _ :: _, _ :: _ ->
+      raise Api_errors.(Server_error (repo_should_be_single_one_enabled, []))
+  | _, _ ->
+      ()
+
+let assert_can_sync_updates ~__context ~repos =
+  List.iter
+    (fun repo ->
+      match Db.Repository.get_origin ~__context ~self:repo with
+      | `remote | `remote_pool ->
+          ()
+      | `bundle ->
+          raise Api_errors.(Server_error (can_not_sync_updates, []))
+    )
     repos
 
-let assert_single_bundle_repo_can_be_enabled ~__context ~repos =
-  if List.length repos > 1 && contains_bundle_repo ~__context ~repos then
-    raise Api_errors.(Server_error (bundle_repo_should_be_single_enabled, []))
+let can_periodic_sync_updates ~__context ~repos =
+  List.for_all
+    (fun repo -> Db.Repository.get_origin ~__context ~self:repo = `remote)
+    repos
 
-let assert_not_bundle_repo ~__context ~repos =
-  if contains_bundle_repo ~__context ~repos then
-    raise Api_errors.(Server_error (can_not_sync_updates, []))
-
-let disable_auto_update_sync_for_bundle_repo ~__context ~self ~repos =
-  if contains_bundle_repo ~__context ~repos then (
+let disable_unsupported_periodic_sync_updates ~__context ~self ~repos =
+  if not (can_periodic_sync_updates ~__context ~repos) then (
     Pool_periodic_update_sync.set_enabled ~__context ~value:false ;
     Db.Pool.set_update_sync_enabled ~__context ~self ~value:false
   )
@@ -3477,7 +3492,7 @@ let set_repositories ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.set_repositories" ~op:`configure_repositories
   @@ fun () ->
-  assert_single_bundle_repo_can_be_enabled ~__context ~repos:value ;
+  assert_single_repo_can_be_enabled ~__context ~repos:value ;
   let existings = Db.Pool.get_repositories ~__context ~self in
   (* To be removed *)
   List.iter
@@ -3501,7 +3516,7 @@ let set_repositories ~__context ~self ~value =
   Db.Pool.set_repositories ~__context ~self ~value ;
   if Db.Pool.get_repositories ~__context ~self = [] then
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch ;
-  disable_auto_update_sync_for_bundle_repo ~__context ~self ~repos:value
+  disable_unsupported_periodic_sync_updates ~__context ~self ~repos:value
 
 let add_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
@@ -3509,15 +3524,14 @@ let add_repository ~__context ~self ~value =
   @@ fun () ->
   let existings = Db.Pool.get_repositories ~__context ~self in
   if not (List.mem value existings) then (
-    assert_single_bundle_repo_can_be_enabled ~__context
-      ~repos:(value :: existings) ;
+    assert_single_repo_can_be_enabled ~__context ~repos:(value :: existings) ;
     Db.Pool.add_repositories ~__context ~self ~value ;
     Db.Repository.set_hash ~__context ~self:value ~value:"" ;
     Repository.reset_updates_in_cache () ;
-    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
-  ) ;
-  disable_auto_update_sync_for_bundle_repo ~__context ~self
-    ~repos:(value :: existings)
+    Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch ;
+    disable_unsupported_periodic_sync_updates ~__context ~self
+      ~repos:(value :: existings)
+  )
 
 let remove_repository ~__context ~self ~value =
   Xapi_pool_helpers.with_pool_operation ~__context ~self
@@ -3535,12 +3549,15 @@ let remove_repository ~__context ~self ~value =
   if Db.Pool.get_repositories ~__context ~self = [] then
     Db.Pool.set_last_update_sync ~__context ~self ~value:Date.epoch
 
-let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
+let sync_repos ~__context ~self ~repos ~force ~token ~token_id ~username
+    ~password =
   let open Repository in
   repos
   |> List.iter (fun repo ->
          if force then cleanup_pool_repo ~__context ~self:repo ;
-         let complete = sync ~__context ~self:repo ~token ~token_id in
+         let complete =
+           sync ~__context ~self:repo ~token ~token_id ~username ~password
+         in
          (* Dnf and custom yum-utils sync all the metadata including updateinfo,
           * Thus no need to re-create pool repository *)
          if Pkgs.manager = Yum && complete = false then
@@ -3550,14 +3567,14 @@ let sync_repos ~__context ~self ~repos ~force ~token ~token_id =
   Db.Pool.set_last_update_sync ~__context ~self ~value:(Date.now ()) ;
   checksum
 
-let sync_updates ~__context ~self ~force ~token ~token_id =
+let sync_updates ~__context ~self ~force ~token ~token_id ~username ~password =
   Pool_features.assert_enabled ~__context ~f:Features.Updates ;
   Xapi_pool_helpers.with_pool_operation ~__context ~self
     ~doc:"pool.sync_updates" ~op:`sync_updates
   @@ fun () ->
   let repos = Repository_helpers.get_enabled_repositories ~__context in
-  assert_not_bundle_repo ~__context ~repos ;
-  sync_repos ~__context ~self ~repos ~force ~token ~token_id
+  assert_can_sync_updates ~__context ~repos ;
+  sync_repos ~__context ~self ~repos ~force ~token ~token_id ~username ~password
 
 let check_update_readiness ~__context ~self:_ ~requires_reboot =
   (* Pool license check *)
@@ -3780,8 +3797,8 @@ let set_telemetry_next_collection ~__context ~self ~value =
     | Some dt1, dt2 ->
         (dt1, dt2)
     | _ | (exception _) ->
-        let err_msg = "Can't parse date and time for telemetry collection." in
-        raise Api_errors.(Server_error (internal_error, [err_msg]))
+        Helpers.internal_error
+          "Can't parse date and time for telemetry collection."
   in
   let ts = Date.to_rfc3339 value in
   match Ptime.is_later dt_of_value ~than:dt_of_max_sched with
@@ -3841,7 +3858,8 @@ let set_update_sync_enabled ~__context ~self ~value =
              repositories." ;
           raise Api_errors.(Server_error (no_repositories_configured, []))
       | repos ->
-          assert_not_bundle_repo ~__context ~repos
+          if not (can_periodic_sync_updates ~__context ~repos) then
+            raise Api_errors.(Server_error (can_not_periodic_sync_updates, []))
   ) ;
   Pool_periodic_update_sync.set_enabled ~__context ~value ;
   Db.Pool.set_update_sync_enabled ~__context ~self ~value
@@ -3931,7 +3949,7 @@ let put_bundle_handler (req : Request.t) s _ =
                   (fun () ->
                     try
                       sync_repos ~__context ~self:pool ~repos:[repo] ~force:true
-                        ~token:"" ~token_id:""
+                        ~token:"" ~token_id:"" ~username:"" ~password:""
                       |> ignore
                     with _ ->
                       raise Api_errors.(Server_error (bundle_sync_failed, []))
@@ -3947,7 +3965,7 @@ let put_bundle_handler (req : Request.t) s _ =
                   ) ;
                 Http_svr.headers s (Http.http_400_badrequest ())
           )
-        | `remote ->
+        | `remote | `remote_pool ->
             error "%s: Bundle repo is not enabled" __FUNCTION__ ;
             TaskHelper.failed ~__context
               Api_errors.(Server_error (bundle_repo_not_enabled, [])) ;

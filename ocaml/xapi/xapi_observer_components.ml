@@ -90,9 +90,17 @@ let is_component_enabled ~component =
                  |> List.mem component
             )
             observers
-        with _ -> false
+        with e ->
+          D.log_backtrace () ;
+          D.warn "is_component_enabled(%s) inner got exception: %s"
+            (to_string component) (Printexc.to_string e) ;
+          false
       )
-  with _ -> false
+  with e ->
+    D.log_backtrace () ;
+    D.warn "is_component_enabled(%s) got exception: %s" (to_string component)
+      (Printexc.to_string e) ;
+    false
 
 let is_smapi_enabled () = is_component_enabled ~component:SMApi
 

@@ -10,4 +10,3 @@ run by xapi and other daemons.
 - packages: This contains files to be installed in python's site-packages and are meant
 to be modules and packages to be imported by other scripts or executed via python3 -m
 - plugins: This contains files that are meant to be xapi plugins
-- dnf-plugins: This contains dnf-plugins and are meant to be called automatically by dnf

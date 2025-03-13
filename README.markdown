@@ -32,7 +32,7 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
     - Run that line, e.g.:
 
         ```bash
-        export OCAML_VERSION_FULL="4.14.1"
+        export OCAML_VERSION_FULL="4.14.2"
         ```
 
 4) Setup opam with your environment (i.e. switch).
@@ -99,18 +99,26 @@ git push origin --tags
 Contributions
 -------------
 
-To contribute patches to xen-api, please fork the repository on
-Github, and then submit a pull request. If for some reason you can't
-use Github to submit a pull request, then you may send your patch for
-review to the [xen-api@lists.xenproject.org mailing list](http://www.xenproject.org/help/mailing-list.html), with a link to a
-public git repository for review. We much prefer Github pull requests,
-however, and submitting a patch to the mailing list will take much
-more time for review.
+To contribute changes to xen-api, please fork the repository on
+GitHub, and then submit a pull request.
 
-Maintainers
+It is required to add a `Signed-off-by:` as a
+[Developers Certificate of Origin](http://developercertificate.org).
+It certifies the patch's origin and is licensed under an
+appropriate open-source licence to include it in Xapi:
+https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff
+
+Discussions
 -----------
 
-Maintainers can be contacted via this mailing list: `xen-api@lists.xenproject.org`
+Discussions can be started at
+https://github.com/xapi-project/xen-api/discussions
+
+Issues
+------
+
+Issues can be raised at
+https://github.com/xapi-project/xen-api/issues
 
 Licensing
 ---------

@@ -1,9 +1,13 @@
 +++
 title = "Live Migration Sequence Diagram"
 linkTitle = "Live Migration"
+description = "Sequence diagram of the process of Live Migration."
+# Note: This page is included by VM.migrate.md to provide a complete overview
+# of the most important parts of live migration. Do not add text as that would
+# break the mermaid diagram inclusion.
 +++
 
-{{<mermaid align="left">}}
+```mermaid
 sequenceDiagram
 autonumber
 participant tx as sender
@@ -43,5 +47,4 @@ deactivate rx1
 
 tx->>tx: VM_shutdown<br/>VM_remove
 deactivate tx
-
-{{< /mermaid >}}
+```

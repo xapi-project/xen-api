@@ -155,6 +155,9 @@ let get_pool_update_download_uri = "/update/"
 
 let get_repository_uri = "/repository" (* ocaml/xapi/repository.ml *)
 
+let get_enabled_repository_uri =
+  "/repository/enabled" (* ocaml/xapi/repository.ml *)
+
 let get_host_updates_uri = "/host_updates" (* ocaml/xapi/repository.ml *)
 
 let get_updates_uri = "/updates" (* ocaml/xapi/repository.ml *)
@@ -415,3 +418,7 @@ let observer_components_all =
   ; observer_component_xapi_clusterd
   ; observer_component_smapi
   ]
+
+let tgroups_enabled = ref false
+
+let when_tgroups_enabled f = if !tgroups_enabled then f () else ()

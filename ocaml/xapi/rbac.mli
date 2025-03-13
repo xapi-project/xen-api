@@ -22,6 +22,26 @@ val is_access_allowed :
     (on the coordinator only) to benefit successive queries for the
     same session. *)
 
+val find_first_disallowed_permission :
+     __context:Context.t
+  -> session_id:[`session] Ref.t
+  -> permissions:string list
+  -> string option
+(** Given a list of permissions, determine if the given session is
+    permitted to perform the related actions. If not, stop and return
+    the first disallowed permssion (without considering the remaining ones). *)
+
+val disallowed_permission_exn :
+     ?extra_dmsg:string
+  -> ?extra_msg:string
+  -> __context:Context.t
+  -> permission:string
+  -> action:string
+  -> exn
+(** Create an RBAC_PERMISSION_DENIED exception for the given
+    permission. Attempts to report the role(s) which do have the given
+    permission (if any). *)
+
 val check :
      ?extra_dmsg:string
   -> ?extra_msg:string

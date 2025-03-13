@@ -1,6 +1,6 @@
 # XenServer PowerShell Module
 
-Copyright (c) 2013-2024 Cloud Software Group, Inc. All Rights Reserved.
+Copyright (c) 2013-2025 Cloud Software Group, Inc. All Rights Reserved.
 
 The XenServer PowerShell Module is a complete SDK for XenServer,
 exposing the XenServer API as Windows PowerShell cmdlets.

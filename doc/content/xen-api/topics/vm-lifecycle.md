@@ -2,7 +2,7 @@
 title = "VM Lifecycle"
 +++
 
-The following figure shows the states that a VM can be in and the
+The following figure shows the states that a VM can be in and the
 API calls that can be used to move the VM between these states.
 
 ```mermaid

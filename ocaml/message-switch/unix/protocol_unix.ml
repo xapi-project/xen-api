@@ -16,12 +16,7 @@
 
 open Message_switch_core.Protocol
 
-let with_lock m f =
-  Mutex.lock m ;
-  try
-    let r = f () in
-    Mutex.unlock m ; r
-  with e -> Mutex.unlock m ; raise e
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let thread_forever f v =
   let rec loop () =
@@ -32,6 +27,61 @@ let thread_forever f v =
         Thread.delay 1.0 ; (loop [@tailcall]) ()
   in
   Thread.create loop ()
+
+(** "Immutable variables" are a single-element container that can only be set
+    once. Reading the content blocks until they hold a value. *)
+module Ivar : sig
+  type 'a t
+
+  val create : unit -> 'a t
+
+  val fill : 'a t -> 'a -> unit
+
+  val read : 'a t -> 'a
+end = struct
+  type 'a t = {mutable v: 'a option; m: Mutex.t; c: Condition.t}
+
+  let create () = {v= None; m= Mutex.create (); c= Condition.create ()}
+
+  let fill r x =
+    with_lock r.m (fun () ->
+        r.v <- Some x ;
+        Condition.signal r.c
+    )
+
+  let read r =
+    with_lock r.m (fun () ->
+        while r.v = None do
+          Condition.wait r.c r.m
+        done ;
+        match r.v with Some x -> x | None -> assert false
+    )
+end
+
+module Clock : sig
+  type t
+
+  val run_after : int -> (unit -> unit) -> t
+
+  val cancel : t -> unit
+end = struct
+  type t = int64 * int
+
+  let started = ref false
+
+  let started_m = Mutex.create ()
+
+  let run_after timeout f =
+    with_lock started_m (fun () ->
+        if not !started then (
+          Protocol_unix_scheduler.start () ;
+          started := true
+        )
+    ) ;
+    Protocol_unix_scheduler.run_after ~seconds:timeout f
+
+  let cancel = Protocol_unix_scheduler.cancel
+end
 
 module IO = struct
   let whoami () =
@@ -112,53 +162,6 @@ module IO = struct
   end
 
   include IO
-
-  module Ivar = struct
-    type 'a t = {mutable v: 'a option; m: Mutex.t; c: Condition.t}
-
-    let create () = {v= None; m= Mutex.create (); c= Condition.create ()}
-
-    let fill r x =
-      with_lock r.m (fun () ->
-          r.v <- Some x ;
-          Condition.signal r.c
-      )
-
-    let read r =
-      with_lock r.m (fun () ->
-          while r.v = None do
-            Condition.wait r.c r.m
-          done ;
-          match r.v with Some x -> x | None -> assert false
-      )
-  end
-
-  module Mutex = struct
-    type t = Mutex.t
-
-    let create = Mutex.create
-
-    let with_lock = with_lock
-  end
-
-  module Clock = struct
-    type _timer = Protocol_unix_scheduler.t
-
-    let started = ref false
-
-    let started_m = Mutex.create ()
-
-    let run_after timeout f =
-      with_lock started_m (fun () ->
-          if not !started then (
-            Protocol_unix_scheduler.start () ;
-            started := true
-          )
-      ) ;
-      Protocol_unix_scheduler.(one_shot (Delta timeout) "rpc" f)
-
-    let cancel = Protocol_unix_scheduler.cancel
-  end
 end
 
 module Connection = Message_switch_core.Make.Connection (IO)
@@ -239,10 +242,10 @@ module Client = struct
   type t = {
       mutable requests_conn: IO.ic * IO.oc
     ; mutable events_conn: IO.ic * IO.oc
-    ; requests_m: IO.Mutex.t
+    ; requests_m: Mutex.t
     ; wakener:
         ( Message_switch_core.Protocol.message_id
-        , Message_switch_core.Protocol.Message.t result IO.Ivar.t
+        , Message_switch_core.Protocol.Message.t result Ivar.t
         )
         Hashtbl.t
     ; reply_queue_name: string
@@ -264,7 +267,7 @@ module Client = struct
     reconnect () >>|= fun (requests_conn, events_conn) ->
     let wakener = Hashtbl.create 10 in
     do_rpc requests_conn (In.CreateTransient token) >>|= fun reply_queue_name ->
-    let requests_m = IO.Mutex.create () in
+    let requests_m = Mutex.create () in
     let t =
       {requests_conn; events_conn; requests_m; wakener; reply_queue_name}
     in
@@ -292,14 +295,14 @@ module Client = struct
                       Error e
                   | Ok (), i, m ->
                       (* If the Ack doesn't belong to us then assume it's another thread *)
-                      IO.Mutex.with_lock requests_m (fun () ->
+                      with_lock requests_m (fun () ->
                           match m.Message.kind with
                           | Message.Response j -> (
                             match Hashtbl.find_opt wakener j with
                             | Some x ->
                                 do_rpc t.events_conn (In.Ack i)
                                 >>|= fun (_ : string) ->
-                                IO.Ivar.fill x (Ok m) ; Ok ()
+                                Ivar.fill x (Ok m) ; Ok ()
                             | None ->
                                 Printf.printf "no wakener for id %s,%Ld\n%!"
                                   (fst i) (snd i) ;
@@ -334,7 +337,7 @@ module Client = struct
     let c = ref None in
     let m = Mutex.create () in
     fun ~switch () ->
-      IO.Mutex.with_lock m (fun () ->
+      with_lock m (fun () ->
           match !c with
           | Some x ->
               Ok x
@@ -345,12 +348,12 @@ module Client = struct
       )
 
   let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
-    let t = IO.Ivar.create () in
+    let t = Ivar.create () in
     let timer =
       Option.map
         (fun timeout ->
-          IO.Clock.run_after timeout (fun () ->
-              IO.Ivar.fill t (Error (`Message_switch `Timeout))
+          Clock.run_after timeout (fun () ->
+              Ivar.fill t (Error (`Message_switch `Timeout))
           )
         )
         timeout
@@ -384,48 +387,48 @@ module Client = struct
     in
     loop () >>|= fun id ->
     (* now block waiting for our response *)
-    match IO.Ivar.read t with
+    match Ivar.read t with
     | Ok response ->
         (* release resources *)
-        Option.iter IO.Clock.cancel timer ;
-        IO.Mutex.with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id) ;
+        Option.iter Clock.cancel timer ;
+        with_lock c.requests_m (fun () -> Hashtbl.remove c.wakener id) ;
         Ok response.Message.payload
     | Error e ->
         Error e
 
   let list ~t:c ~prefix ?(filter = `All) () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.List (prefix, filter)) >>|= fun result ->
         Ok (Out.string_list_of_rpc (Jsonrpc.of_string result))
     )
 
   let ack ~t:c ~message:(name, id) () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Ack (name, id)) >>|= fun (_ : string) ->
         Ok ()
     )
 
   let diagnostics ~t:c () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn In.Diagnostics >>|= fun (result : string) ->
         Ok (Diagnostics.t_of_rpc (Jsonrpc.of_string result))
     )
 
   let trace ~t:c ?(from = 0L) ?(timeout = 0.) () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn (In.Trace (from, timeout))
         >>|= fun (result : string) ->
         Ok (Out.trace_of_rpc (Jsonrpc.of_string result))
     )
 
   let shutdown ~t:c () =
-    IO.Mutex.with_lock c.requests_m (fun () ->
+    with_lock c.requests_m (fun () ->
         do_rpc c.requests_conn In.Shutdown >>|= fun (_ : string) ->
         IO.IO.return (Ok ())
     )
 
   let destroy ~t ~queue:queue_name () =
-    IO.Mutex.with_lock t.requests_m (fun () ->
+    with_lock t.requests_m (fun () ->
         do_rpc t.requests_conn (In.Destroy queue_name) >>|= fun (_ : string) ->
         IO.IO.return (Ok ())
     )
@@ -478,7 +481,7 @@ module Server = struct
     in
     reconnect () >>|= fun ((request_conn, _reply_conn) as connections) ->
     (* Only allow one reply RPC at a time (no pipelining) *)
-    let mutex = IO.Mutex.create () in
+    let mutex = Mutex.create () in
     do_rpc request_conn (In.CreatePersistent name) >>|= fun (_ : string) ->
     let rec loop ((request_conn, reply_conn) as connections) from =
       let transfer =
@@ -487,7 +490,7 @@ module Server = struct
       let frame = In.Transfer transfer in
       do_rpc request_conn frame >>= function
       | Error _e ->
-          IO.Mutex.with_lock mutex (fun () ->
+          with_lock mutex (fun () ->
               IO.disconnect request_conn ;
               IO.disconnect reply_conn ;
               reconnect ()
@@ -523,16 +526,12 @@ module Server = struct
                                   }
                                 )
                             in
-                            IO.Mutex.with_lock mutex (fun () ->
-                                do_rpc reply_conn request
-                            )
+                            with_lock mutex (fun () -> do_rpc reply_conn request)
                             >>= fun _ -> return ()
                         )
                         >>= fun () ->
                         let request = In.Ack i in
-                        IO.Mutex.with_lock mutex (fun () ->
-                            do_rpc reply_conn request
-                        )
+                        with_lock mutex (fun () -> do_rpc reply_conn request)
                         >>= fun _ -> ()
                       )
                       ()

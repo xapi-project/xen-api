@@ -168,7 +168,7 @@ let parse_db_conf s =
     let connections : db_connection list ref = ref [] in
     while !lines <> [] do
       let line = List.hd !lines in
-      if String.startswith "[" line then
+      if String.starts_with ~prefix:"[" line then
         connections := read_block () :: !connections
       else
         consume_line ()

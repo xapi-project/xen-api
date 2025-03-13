@@ -1,5 +1,6 @@
 +++
-title = "Architecture"
+title = "Xenopsd Architecture"
+linkTitle = "Architecture"
 +++
 
 Xenopsd instances run on a host and manage VMs on behalf of clients. This

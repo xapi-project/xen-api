@@ -1,0 +1,79 @@
+name: Run CodeChecker static analyzer on XAPI's C stubs
+permissions: {}
+
+on:
+  push:
+  pull_request:
+    branches:
+      - master
+      - 'feature/**'
+      - '*-lcm'
+
+concurrency: # On new push, cancel old workflows from the same PR, branch or tag:
+  group: ${{ github.workflow }}-${{github.event_name}}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  staticanalyzer:
+    name: Static analyzer for OCaml C stubs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      XAPI_VERSION: "v0.0.0-${{ github.sha }}"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup XenAPI environment
+        uses: ./.github/workflows/setup-xapi-environment
+        with:
+          xapi_version: ${{ env.XAPI_VERSION }}
+
+      - name: Install dune-compiledb to generate compile_commands.json
+        run: |
+          opam pin add -y ezjsonm https://github.com/mirage/ezjsonm/releases/download/v1.3.0/ezjsonm-1.3.0.tbz
+          opam pin add -y dune-compiledb https://github.com/edwintorok/dune-compiledb/releases/download/0.6.0/dune-compiledb-0.6.0.tbz
+
+      - name: Trim dune cache
+        run: opam exec -- dune cache trim --size=2GiB         
+
+      - name: Generate compile_commands.json
+        run: opam exec -- make compile_commands.json
+
+      - name: Upload compile commands json
+        uses: actions/upload-artifact@v4
+        with:
+          path: ${{ github.workspace }}/compile_commands.json
+
+      - uses: whisperity/codechecker-analysis-action@v1
+        id: codechecker
+        with:
+          ctu: true
+          logfile: ${{ github.workspace }}/compile_commands.json
+          analyze-output: "codechecker_results"
+
+      - name: Upload CodeChecker report
+        uses: actions/upload-artifact@v4
+        with:
+          name: codechecker_results
+          path: "${{ steps.codechecker.outputs.result-html-dir }}"
+
+      # cppcheck even for other analyzers apparently, this is
+      # codechecker's output
+      - name: convert to SARIF
+        shell: bash
+        run: report-converter "codechecker_results" --type cppcheck --output codechecker.sarif --export sarif
+
+      - name: Upload CodeChecker SARIF report
+        uses: actions/upload-artifact@v4
+        with:
+          name: codechecker_sarif
+          path: codechecker.sarif
+
+      - name: Upload SARIF report
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+         sarif_file: codechecker.sarif

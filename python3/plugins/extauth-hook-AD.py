@@ -332,7 +332,7 @@ class NssConfig(KeyValueConfig):
             "/etc/nsswitch.conf", session, args, ad_enabled)
         modules = "files sss"
         if ad_enabled:
-            modules = "files hcp winbind"
+            modules = "files override_id winbind"
         self._update_key_value("passwd", modules)
         self._update_key_value("group", modules)
         self._update_key_value("shadow", modules)

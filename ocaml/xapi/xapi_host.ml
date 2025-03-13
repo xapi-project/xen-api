@@ -655,11 +655,7 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
     let finally = Xapi_stdext_pervasives.Pervasiveext.finally in
     let destroy = Client.Client.Task.destroy in
     let fail task msg =
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, [Printf.sprintf "%s, %s" (Ref.string_of task) msg])
-        )
+      Helpers.internal_error "%s, %s" (Ref.string_of task) msg
     in
 
     let assert_success task =
@@ -729,16 +725,8 @@ let evacuate ~__context ~host ~network ~evacuate_batch_size =
   in
   let remainder = List.length vms in
   if not (remainder = 0) then
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , [
-              Printf.sprintf "evacuate: %d VMs are still resident on %s"
-                remainder (Ref.string_of host)
-            ]
-          )
-      )
+    Helpers.internal_error "evacuate: %d VMs are still resident on %s" remainder
+      (Ref.string_of host)
 
 let retrieve_wlb_evacuate_recommendations ~__context ~self =
   let plans = compute_evacuation_plan_wlb ~__context ~self in
@@ -926,6 +914,7 @@ let is_slave ~__context ~host:_ = not (Pool_role.is_master ())
 let ask_host_if_it_is_a_slave ~__context ~host =
   let ask_and_warn_when_slow ~__context =
     let local_fn = is_slave ~host in
+    let remote_fn = Client.Client.Pool.is_slave ~host in
     let timeout = 10. in
     let task_name = Context.get_task_id __context |> Ref.string_of in
     let ip, uuid =
@@ -947,9 +936,7 @@ let ask_host_if_it_is_a_slave ~__context ~host =
       (log_host_slow_to_respond timeout) ;
     let res =
       Message_forwarding.do_op_on_localsession_nolivecheck ~local_fn ~__context
-        ~host (fun session_id rpc ->
-          Client.Client.Pool.is_slave ~rpc ~session_id ~host
-      )
+        ~host ~remote_fn
     in
     Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name ;
     res
@@ -1599,9 +1586,8 @@ let _new_host_cert ~dbg ~path : X509.Certificate.t =
   let ip_as_string, ip =
     match Networking_info.get_management_ip_addr ~dbg with
     | None ->
-        let msg = Printf.sprintf "%s: failed to get management IP" __LOC__ in
-        D.error "%s" msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error ~log_err:true ~err_fun:D.error
+          "%s: failed to get management IP" __LOC__
     | Some ip ->
         ip
   in
@@ -1984,8 +1970,7 @@ let attach_static_vdis ~__context ~host:_ ~vdi_reason_map =
       && v.Static_vdis_list.currently_attached
     in
     if not (List.exists check static_vdis) then
-      Pervasiveext.ignore_string
-        (Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason)
+      ignore (Static_vdis.permanent_vdi_attach ~__context ~vdi ~reason : string)
   in
   List.iter attach vdi_reason_map
 
@@ -2068,7 +2053,7 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
     | V6_interface.(V6_error (License_checkout_error s)) ->
         raise Api_errors.(Server_error (license_checkout_error, [s]))
     | V6_interface.(V6_error (Internal_error e)) ->
-        raise Api_errors.(Server_error (internal_error, [e]))
+        Helpers.internal_error "%s" e
   in
   let create_feature fname fenabled =
     Db.Feature.create ~__context
@@ -2139,9 +2124,7 @@ let license_add ~__context ~host ~contents =
   Pervasiveext.finally
     (fun () ->
       ( try Unixext.write_string_to_file tmp license
-        with _ ->
-          let s = "Failed to write temporary file." in
-          raise Api_errors.(Server_error (internal_error, [s]))
+        with _ -> Helpers.internal_error "Failed to write temporary file."
       ) ;
       apply_edition_internal ~__context ~host ~edition:""
         ~additional:[("license_file", tmp)]
@@ -2313,16 +2296,8 @@ let sync_vlans ~__context ~host =
         in
         Db.PIF.get_network ~__context ~self:pif_underneath_vlan
     | _ ->
-        raise
-          Api_errors.(
-            Server_error
-              ( internal_error
-              , [
-                  Printf.sprintf "Cannot find vlan from a vlan master PIF:%s"
-                    vlan_pif_rec.API.pIF_uuid
-                ]
-              )
-          )
+        Helpers.internal_error "Cannot find vlan from a vlan master PIF:%s"
+          vlan_pif_rec.API.pIF_uuid
   in
   let maybe_create_vlan (_, master_pif_rec) =
     (* Check to see if the slave has any existing pif(s) that for the specified device, network, vlan... *)
@@ -2409,16 +2384,8 @@ let sync_tunnels ~__context ~host =
         let protocol = Db.Tunnel.get_protocol ~__context ~self:tunnel in
         (Db.PIF.get_network ~__context ~self:transport_pif, protocol)
     | _ ->
-        raise
-          Api_errors.(
-            Server_error
-              ( internal_error
-              , [
-                  Printf.sprintf "PIF %s has no tunnel_access_PIF_of"
-                    access_pif_rec.API.pIF_uuid
-                ]
-              )
-          )
+        Helpers.internal_error "PIF %s has no tunnel_access_PIF_of"
+          access_pif_rec.API.pIF_uuid
   in
   let maybe_create_tunnel_for_me (_, master_pif_rec) =
     (* check to see if I have any existing pif(s) that for the specified device, network, vlan... *)
@@ -2881,8 +2848,7 @@ let set_sched_gran ~__context ~self ~value =
     ()
   with e ->
     error "Failed to update sched-gran: %s" (Printexc.to_string e) ;
-    raise
-      Api_errors.(Server_error (internal_error, ["Failed to update sched-gran"]))
+    Helpers.internal_error "Failed to update sched-gran"
 
 let get_sched_gran ~__context ~self =
   if Helpers.get_localhost ~__context <> self then
@@ -2900,8 +2866,7 @@ let get_sched_gran ~__context ~self =
         Record_util.host_sched_gran_of_string value
   with e ->
     error "Failed to get sched-gran: %s" (Printexc.to_string e) ;
-    raise
-      Api_errors.(Server_error (internal_error, ["Failed to get sched-gran"]))
+    Helpers.internal_error "Failed to get sched-gran"
 
 let emergency_disable_tls_verification ~__context =
   (* NB: the tls-verification state on this host will no longer agree with state.db *)
@@ -2915,21 +2880,25 @@ let emergency_disable_tls_verification ~__context =
   with e ->
     info "Failed to update database after TLS verication was disabled: %s"
       (Printexc.to_string e) ;
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , [
-              "TLS verification disabled successfully. Failed to contact the \
-               coordinator to update the database."
-            ]
-          )
-      )
+    Helpers.internal_error
+      "TLS verification disabled successfully. Failed to contact the \
+       coordinator to update the database."
 
 let emergency_reenable_tls_verification ~__context =
   (* NB: Should only be used after running emergency_disable_tls_verification.
      Xapi_pool.enable_tls_verification is not used because it introduces a
      dependency cycle. *)
+  let tls_needs_to_be_enabled_first =
+    try
+      not
+        (Db.Pool.get_tls_verification_enabled ~__context
+           ~self:(Helpers.get_pool ~__context)
+        || Sys.file_exists !Xapi_globs.pool_bundle_path
+        )
+    with _ -> false
+  in
+  if tls_needs_to_be_enabled_first then
+    raise Api_errors.(Server_error (tls_verification_not_enabled_in_pool, [])) ;
   let self = Helpers.get_localhost ~__context in
   Stunnel_client.set_verify_by_default true ;
   Helpers.touch_file Constants.verify_certificates_path ;

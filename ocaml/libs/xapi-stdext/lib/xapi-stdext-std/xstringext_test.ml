@@ -127,44 +127,6 @@ let test_has_substr =
   in
   ("has_substr", List.map test spec)
 
-let test_startswith =
-  let spec =
-    [
-      ("", "", true)
-    ; ("", "foo bar", true)
-    ; ("foofo", "foof", false)
-    ; ("foof", "foof", true)
-    ; ("f", "foof", true)
-    ; ("fo", "foof", true)
-    ; ("of", "foof", false)
-    ; ("ff", "foof", false)
-    ]
-  in
-  let test (contained, container, expected) =
-    let name = Printf.sprintf {|"%s" starts with "%s"|} container contained in
-    test_boolean (XString.startswith contained) (name, container, expected)
-  in
-  ("startswith", List.map test spec)
-
-let test_endswith =
-  let spec =
-    [
-      ("", "", true)
-    ; ("", "foo bar", true)
-    ; ("ofoof", "foof", false)
-    ; ("foof", "foof", true)
-    ; ("f", "foof", true)
-    ; ("fo", "foof", false)
-    ; ("of", "foof", true)
-    ; ("ff", "foof", false)
-    ]
-  in
-  let test (contained, container, expected) =
-    let name = Printf.sprintf {|"%s" ends with "%s"|} container contained in
-    test_boolean (XString.endswith contained) (name, container, expected)
-  in
-  ("endswith", List.map test spec)
-
 let test_rtrim =
   let spec =
     [
@@ -187,12 +149,4 @@ let test_rtrim =
 
 let () =
   Alcotest.run "Xstringext"
-    [
-      test_rev_map
-    ; test_split
-    ; test_split_f
-    ; test_has_substr
-    ; test_startswith
-    ; test_endswith
-    ; test_rtrim
-    ]
+    [test_rev_map; test_split; test_split_f; test_has_substr; test_rtrim]

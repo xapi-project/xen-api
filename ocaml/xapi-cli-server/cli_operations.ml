@@ -1866,8 +1866,11 @@ let pool_sync_updates printer rpc session_id params =
   let force = get_bool_param params "force" in
   let token = get_param params "token" ~default:"" in
   let token_id = get_param params "token-id" ~default:"" in
+  let username = get_param params "username" ~default:"" in
+  let password = get_param params "password" ~default:"" in
   let hash =
     Client.Pool.sync_updates ~rpc ~session_id ~self:pool ~force ~token ~token_id
+      ~username ~password
   in
   printer (Cli_printer.PList [hash])
 
@@ -8007,6 +8010,21 @@ module Repository = struct
     let ref =
       Client.Repository.introduce_bundle ~rpc ~session_id ~name_label
         ~name_description
+    in
+    let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PList [uuid])
+
+  let introduce_remote_pool fd printer rpc session_id params =
+    let name_label = List.assoc "name-label" params in
+    let name_description = get_param params "name-description" ~default:"" in
+    let binary_url = List.assoc "binary-url" params in
+    let certificate =
+      List.assoc "certificate-file" params
+      |> get_file_or_fail fd "certificate file"
+    in
+    let ref =
+      Client.Repository.introduce_remote_pool ~rpc ~session_id ~name_label
+        ~name_description ~binary_url ~certificate
     in
     let uuid = Client.Repository.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])

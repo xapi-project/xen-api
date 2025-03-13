@@ -562,8 +562,7 @@ let rra_create cf row_cnt pdp_cnt xff =
       (* defer creation of the data until we know how many dss we're storing *)
   }
 
-let ds_create name ty ?(min = neg_infinity) ?(max = infinity) ?(mrhb = infinity)
-    init =
+let ds_create name ty ~min ~max ~mrhb init =
   {
     ds_name= name
   ; ds_ty= ty
@@ -999,7 +998,14 @@ let xml_to_output internal rrd output =
     (fun output ->
       tag "version" (data "0003") output ;
       tag "step" (data (Int64.to_string rrd.timestep)) output ;
-      tag "lastupdate" (data (Utils.f_to_s rrd.last_updated)) output ;
+      (* XenCenter and other legacy users expect this to be an integer
+         representing the number of seconds, so keep it an integer to avoid
+         breaking them. Some other libraries (e.g. the Python rrd parser,
+         the C rrd parser, xenrt) will expect a float and can easily convert
+         an int to it. *)
+      tag "lastupdate"
+        (data (Printf.sprintf "%Ld" (Int64.of_float rrd.last_updated)))
+        output ;
       do_dss rrd.rrd_dss output ;
       do_rras rrd.rrd_rras output
     )

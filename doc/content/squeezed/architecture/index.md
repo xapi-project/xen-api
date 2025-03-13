@@ -1,8 +1,9 @@
 +++
-title = "Architecture"
+title = "Squeezed Architecture"
+linkTitle = "Architecture"
 +++
 
-Squeezed is responsible for managing the memory on a single host. Squeezed
+Squeezed is the XAPI Toolstack’s host memory ballooning daemon. It
 "balances" memory between VMs according to a policy written to Xenstore.
 
 The following diagram shows the internals of Squeezed:

@@ -165,15 +165,15 @@ let test_find_cluster_host_finds_multiple_cluster_hosts () =
   let host = Db.Host.get_all ~__context |> List.hd in
   let _ = T.make_cluster_host ~__context ~host () in
   let _ = T.make_cluster_host ~__context ~host () in
+  let err =
+    Printf.sprintf "Multiple cluster_hosts found for host %s %s"
+      (Db.Host.get_uuid ~__context ~self:host)
+      (Ref.string_of host)
+  in
   Alcotest.check_raises
     "test_find_cluster_host_finds_multiple_cluster_hosts should throw an \
      internal error"
-    Api_errors.(
-      Server_error
-        ( internal_error
-        , ["Multiple cluster_hosts found for host"; Ref.string_of host]
-        )
-    )
+    Api_errors.(Server_error (internal_error, [err]))
     (fun () -> ignore (Xapi_clustering.find_cluster_host ~__context ~host))
 
 let test_find_cluster_host =

@@ -22,7 +22,7 @@ open Updateinfo
 module LivePatchSet = Set.Make (LivePatch)
 module RpmFullNameSet = Set.Make (String)
 
-let exposing_pool_repo_mutex = Mutex.create ()
+let pool_update_ops_mutex = Mutex.create ()
 
 module Pkgs = (val Pkg_mgr.get_pkg_mgr)
 
@@ -77,7 +77,7 @@ module Update = struct
     with e ->
       let msg = "Can't construct an update from json" in
       error "%s: %s" msg (ExnHelper.string_of_exn e) ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "%s" msg
 
   let to_string u =
     Printf.sprintf "%s.%s %s:%s-%s -> %s:%s-%s from %s:%s" u.name u.arch
@@ -136,12 +136,12 @@ module GuidanceSet = struct
 end
 
 let create_repository_record ~__context ~name_label ~name_description
-    ~binary_url ~source_url ~update ~gpgkey_path ~origin =
+    ~binary_url ~source_url ~update ~gpgkey_path ~origin ~certificate =
   let ref = Ref.make () in
   let uuid = Uuidx.(to_string (make ())) in
   Db.Repository.create ~__context ~ref ~uuid ~name_label ~name_description
     ~binary_url ~source_url ~update ~hash:"" ~up_to_date:false ~gpgkey_path
-    ~origin ;
+    ~origin ~certificate ;
   ref
 
 module DomainNameIncludeIP = struct
@@ -186,8 +186,7 @@ let assert_url_is_valid ~url =
         | [], [] ->
             ()
         | valids, [] when not (hostname_allowed valids) ->
-            let msg = "host is not in allowlist" in
-            raise Api_errors.(Server_error (internal_error, [msg]))
+            Helpers.internal_error "host is not in allowlist"
         | _, [] ->
             ()
         | _ ->
@@ -199,10 +198,9 @@ let assert_url_is_valid ~url =
               )
       )
     | _, None ->
-        raise Api_errors.(Server_error (internal_error, ["invalid host in url"]))
+        Helpers.internal_error "invalid host in url"
     | _ ->
-        raise
-          Api_errors.(Server_error (internal_error, ["invalid scheme in url"]))
+        Helpers.internal_error "invalid scheme in url"
   with
   | Api_errors.Server_error (err, _) as e
     when err = Api_errors.invalid_repository_domain_allowlist ->
@@ -231,20 +229,28 @@ let assert_gpgkey_path_is_valid path =
     raise Api_errors.(Server_error (invalid_gpgkey_path, [path]))
   )
 
+let get_remote_pool_coordinator_ip url =
+  let uri = Uri.of_string url in
+  match (Uri.scheme uri, Uri.host uri, Uri.path uri) with
+  | Some "https", Some host, path
+    when path = Constants.get_enabled_repository_uri
+         && Helpers.is_valid_ip `ipv4or6 host ->
+      host
+  | _ ->
+      error "Invalid url: %s, expected url format: %s" url
+        ("https://<coordinator-ip>" ^ Constants.get_enabled_repository_uri) ;
+      raise Api_errors.(Server_error (invalid_base_url, [url]))
+
+let assert_remote_pool_url_is_valid ~url =
+  ignore (get_remote_pool_coordinator_ip url : string)
+
 let with_pool_repositories f =
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      Mutex.lock exposing_pool_repo_mutex ;
+      Mutex.lock pool_update_ops_mutex ;
       f ()
     )
-    (fun () -> Mutex.unlock exposing_pool_repo_mutex)
-
-let is_local_pool_repo_enabled () =
-  if Mutex.try_lock exposing_pool_repo_mutex then (
-    Mutex.unlock exposing_pool_repo_mutex ;
-    false
-  ) else
-    true
+    (fun () -> Mutex.unlock pool_update_ops_mutex)
 
 let with_updateinfo_xml gz_path f =
   let tmpfile, tmpch =
@@ -298,15 +304,9 @@ let write_yum_config ~source_url ~binary_url ~repo_gpgcheck ~gpgkey_path
         Filename.concat !Xapi_globs.rpm_gpgkey_dir gpgkey_path
       in
       if not (Sys.file_exists gpgkey_abs_path) then
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["gpg key file does not exist"])
-          ) ;
+        Helpers.internal_error "gpg key file does not exist" ;
       if not ((Unix.lstat gpgkey_abs_path).Unix.st_kind = Unix.S_REG) then
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["gpg key file is not a regular file"])
-          ) ;
+        Helpers.internal_error "gpg key file is not a regular file" ;
       Printf.sprintf "gpgkey=file://%s" gpgkey_abs_path
     in
     match (!Xapi_globs.repository_gpgcheck, repo_gpgcheck) with
@@ -365,10 +365,8 @@ let get_repo_config repo_name config_name =
   | [x] ->
       x
   | _ ->
-      let msg =
-        Printf.sprintf "Not found %s for repository %s" config_name repo_name
-      in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "Not found %s for repository %s" config_name
+        repo_name
 
 let get_enabled_repositories ~__context =
   let pool = Helpers.get_pool ~__context in
@@ -384,6 +382,8 @@ let get_remote_repository_name ~__context ~self =
         !Xapi_globs.remote_repository_prefix
     | `bundle ->
         !Xapi_globs.bundle_repository_prefix
+    | `remote_pool ->
+        !Xapi_globs.remote_pool_repository_prefix
   in
   prefix ^ "-" ^ get_repository_name ~__context ~self
 
@@ -433,10 +433,9 @@ let with_local_repositories ~__context f =
             clean_yum_cache repo_name ;
             let Pkg_mgr.{cmd; params} =
               [
-                "--save"
-              ; Printf.sprintf "--setopt=%s.sslverify=false" repo_name
+                "sslverify=false"
                 (* certificate verification is handled by the stunnel proxy *)
-              ; Printf.sprintf "--setopt=%s.ptoken=true" repo_name
+              ; "ptoken=true"
                 (* makes yum include the pool secret as a cookie in all requests
                    (only to access the repo mirror in the coordinator!) *)
               ]
@@ -475,7 +474,16 @@ let assert_yum_error output =
 
 let parse_updateinfo_list acc line =
   match Astring.String.fields ~empty:false line with
-  | [update_id; _; full_name] -> (
+  | [update_id; _; full_name]
+  (*
+   * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/advisorylist.cpp#L87
+   * dnf5 print advistory in following format
+   *
+   * Name                        Type        Severity                        Package              Issued
+   * CITRIX-HYPERVISOR-2021-0000 Improvement None     test-update-0.6.0-1.xs8.x86_64 2024-08-22 03:18:56*)
+  | [update_id; _; _; full_name; _; _]
+  (* Just in case time does not have two elements *)
+  | [update_id; _; _; full_name; _] -> (
     match Pkg.of_fullname full_name with
     | Some pkg ->
         (pkg, update_id) :: acc
@@ -503,25 +511,29 @@ let is_obsoleted pkg_name repositories =
         pkg_name ;
       false
 
-let get_pkgs_from_yum_updateinfo_list sub_command repositories =
+let get_pkgs_from_yum_updateinfo_list updateinfo repositories =
   let Pkg_mgr.{cmd; params} =
-    Pkgs.get_pkgs_from_updateinfo ~sub_command ~repositories
+    Pkgs.get_pkgs_from_updateinfo updateinfo ~repositories
   in
   Helpers.call_script cmd params
   |> assert_yum_error
   |> Astring.String.cuts ~sep:"\n"
   |> List.map (fun x ->
-         debug "yum updateinfo list %s: %s" sub_command x ;
+         debug "yum/dnf updateinfo list %s: %s"
+           (Pkg_mgr.Updateinfo.to_string updateinfo)
+           x ;
          x
      )
   |> List.fold_left parse_updateinfo_list []
 
 let get_updates_from_updateinfo ~__context repositories =
   (* Use 'updates' to decrease the number of packages to apply 'is_obsoleted' *)
-  let updates = get_pkgs_from_yum_updateinfo_list "updates" repositories in
+  let updates =
+    get_pkgs_from_yum_updateinfo_list Pkg_mgr.Updateinfo.Updates repositories
+  in
   (* 'new_updates' are a list of RPM packages to be installed, rather than updated *)
   let new_updates =
-    get_pkgs_from_yum_updateinfo_list "available" repositories
+    get_pkgs_from_yum_updateinfo_list Pkg_mgr.Updateinfo.Available repositories
     |> List.filter (fun x -> not (List.mem x updates))
     |> List.filter (fun (pkg, _) -> not (is_obsoleted pkg.Pkg.name repositories))
   in
@@ -759,7 +771,7 @@ module YumUpgradeOutput = struct
               (* this new section is the first one *)
               line ~section:(Some section') ~section_acc:[] ~acc
         )
-        | "Transaction Summary" -> (
+        | "Transaction Summary" | "Transaction Summary:" -> (
           match section with
           | Some s ->
               (* save the last section to the final accumulation *)
@@ -768,32 +780,34 @@ module YumUpgradeOutput = struct
               line_after_txn_summary acc
         )
         | l -> (
-          match
-            ( section
-            , String.starts_with ~prefix:"     replacing " l
-            , String.starts_with ~prefix:"Error: " l
-            )
-          with
-          | Some s, true, false ->
-              (* in a section, but starting with 'replacing', ignoring the line.
-               * https://github.com/rpm-software-management/yum/blob/master/output.py#L1622
-               *)
-              line ~section:(Some s) ~section_acc ~acc
-          | Some s, false, false ->
-              (* in a section, append to the section's list *)
-              line ~section:(Some s) ~section_acc:(l :: section_acc) ~acc
-          | None, false, true ->
-              (* error reported from yum upgrade *)
-              fail l
-          | None, false, false ->
-              (* not in any section, ignoring the line *)
-              line ~section:None ~section_acc:[] ~acc
-          | _ ->
-              fail
-                (Printf.sprintf
-                   "Unexpected output from yum upgrade (dry run): %s" l
-                )
-        )
+            let pattern = Re.Str.regexp "^[ ]+replacing .+$" in
+            match
+              ( section
+              , Re.Str.string_match pattern l 0
+              , String.starts_with ~prefix:"Error: " l
+              )
+            with
+            | Some s, true, false ->
+                (* in a section, but starting with 'replacing', ignoring the line.
+                 * https://github.com/rpm-software-management/yum/blob/master/output.py#L1622
+                 * https://github.com/rpm-software-management/dnf5/blob/main/libdnf5-cli/output/transaction_table.cpp#L373
+                 *)
+                line ~section:(Some s) ~section_acc ~acc
+            | Some s, false, false ->
+                (* in a section, append to the section's list *)
+                line ~section:(Some s) ~section_acc:(l :: section_acc) ~acc
+            | None, false, true ->
+                (* error reported from yum upgrade *)
+                fail l
+            | None, false, false ->
+                (* not in any section, ignoring the line *)
+                line ~section:None ~section_acc:[] ~acc
+            | _ ->
+                fail
+                  (Printf.sprintf
+                     "Unexpected output from yum upgrade (dry run): %s" l
+                  )
+          )
       )
     | true ->
         return ([], None)
@@ -939,14 +953,14 @@ let get_latest_updates_from_redundancy ~fail_on_error ~pkgs ~fallback_pkgs =
         debug "Use 'yum upgrade (dry run)'" ;
         pkgs
     | true, false ->
-        raise Api_errors.(Server_error (internal_error, [err]))
+        Helpers.internal_error "%s" err
     | false, false ->
         (* falling back *)
         warn "%s" err ; fallback_pkgs
   in
   match (fail_on_error, pkgs) with
   | true, None ->
-      raise Api_errors.(Server_error (internal_error, [err]))
+      Helpers.internal_error "%s" err
   | false, None ->
       (* falling back *)
       warn "%s" err ; fallback_pkgs
@@ -1111,7 +1125,7 @@ let get_update_in_json ~installed_pkgs (new_pkg, update_id, repo) =
   | None ->
       let msg = "Found update from unmanaged repository" in
       error "%s: %s" msg repo ;
-      raise Api_errors.(Server_error (internal_error, [msg]))
+      Helpers.internal_error "%s" msg
 
 let merge_updates ~repository_name ~updates =
   let accumulative_updates =
@@ -1278,26 +1292,70 @@ let get_single_enabled_update_repository ~__context =
   in
   get_singleton enabled_update_repositories
 
-let with_access_token ~token ~token_id f =
-  match (token, token_id) with
-  | t, tid when t <> "" && tid <> "" ->
-      info "sync updates with token_id: %s" tid ;
-      let json = `Assoc [("token", `String t); ("token_id", `String tid)] in
-      let tmpfile, tmpch =
-        Filename.open_temp_file ~mode:[Open_text] "accesstoken" ".json"
-      in
-      Xapi_stdext_pervasives.Pervasiveext.finally
-        (fun () ->
-          output_string tmpch (Yojson.Basic.to_string json) ;
-          close_out tmpch ;
-          f (Some tmpfile)
-        )
-        (fun () -> Unixext.unlink_safe tmpfile)
-  | t, tid when t = "" && tid = "" ->
+type client_auth =
+  | CdnTokenAuth (* remote *) of {
+        token_id: string
+      ; token: string
+      ; plugin: string
+    }
+  | NoAuth (* bundle *)
+  | PoolExtHostAuth (* remote_pool *) of {xapi_token: string; plugin: string}
+
+let with_sync_client_auth auth f =
+  let go_with_client_plugin cred plugin =
+    let ( let@ ) g x = g x in
+    let@ temp_file =
+      Helpers.with_temp_file_of_content ~mode:[Open_text] "token-" ".json" cred
+    in
+    f (Some (temp_file, plugin))
+  in
+  match auth with
+  | CdnTokenAuth {token_id; token; _} when token_id = "" && token = "" ->
       f None
-  | _ ->
-      let msg = Printf.sprintf "%s: The token or token_id is empty" __LOC__ in
-      raise Api_errors.(Server_error (internal_error, [msg]))
+  | CdnTokenAuth {token_id; token; plugin} ->
+      let cred =
+        `Assoc [("token", `String token); ("token_id", `String token_id)]
+        |> Yojson.Basic.to_string
+      in
+      go_with_client_plugin cred plugin
+  | PoolExtHostAuth {xapi_token; plugin} ->
+      let cred =
+        `Assoc [("xapitoken", `String xapi_token)] |> Yojson.Basic.to_string
+      in
+      go_with_client_plugin cred plugin
+  | NoAuth ->
+      f None
+
+type server_auth =
+  | DefaultAuth (* remote *)
+  | NoAuth (* bundle *)
+  | StunnelClientProxyAuth (* remote_pool *) of {
+        cert: string
+      ; remote_addr: string
+      ; remote_port: int
+    }
+
+let with_sync_server_auth auth f =
+  match auth with
+  | DefaultAuth | NoAuth ->
+      f None
+  | StunnelClientProxyAuth {cert; remote_addr; remote_port} ->
+      let local_host = "127.0.0.1" in
+      let local_port = !Xapi_globs.local_yum_repo_port in
+      let ( let@ ) f x = f x in
+      let@ temp_file =
+        Helpers.with_temp_file_of_content "external-host-cert-" ".pem" cert
+      in
+      let binary_url =
+        Uri.make ~scheme:"http" ~host:local_host ~port:local_port
+          ~path:Constants.get_enabled_repository_uri ()
+        |> Uri.to_string
+      in
+      Stunnel.with_client_proxy_systemd_service
+        ~verify_cert:(Stunnel_client.external_host temp_file)
+        ~remote_host:remote_addr ~remote_port ~local_host ~local_port
+        ~service:"stunnel_proxy_for_update_client"
+      @@ fun () -> f (Some binary_url)
 
 let prune_updateinfo_for_livepatches latest_lps updateinfo =
   let livepatches =
@@ -1479,11 +1537,7 @@ let get_ops_of_pending ~__context ~host ~kind =
       in
       {host_get; host_add; host_remove; vms_get; vm_add; vm_remove}
   | Guidance.Livepatch ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["No pending operations for Livepatch guidance"])
-        )
+      Helpers.internal_error "No pending operations for Livepatch guidance"
 
 let set_pending_guidances ~ops ~coming =
   let pending_of_host =

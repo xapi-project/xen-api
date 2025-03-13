@@ -933,7 +933,7 @@ let xl_cmd = ref "/usr/sbin/xl"
 
 let depmod = ref "/usr/sbin/depmod"
 
-let driver_tool = ref "/opt/xensource/debug/drivertool.sh"
+let driver_tool = ref "/usr/sbin/driver-tool"
 
 let dracut = ref "/usr/bin/dracut"
 
@@ -946,6 +946,8 @@ let yum_repos_config_dir = ref "/etc/yum.repos.d"
 let remote_repository_prefix = ref "remote"
 
 let bundle_repository_prefix = ref "bundle"
+
+let remote_pool_repository_prefix = ref "remote-pool"
 
 let local_repository_prefix = ref "local"
 
@@ -1074,8 +1076,6 @@ let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 let disable_webserver = ref false
 
 let test_open = ref 0
-
-let tgroups_enabled = ref false
 
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
@@ -1695,8 +1695,8 @@ let other_options =
     , "Disable the host webserver"
     )
   ; ( "tgroups-enabled"
-    , Arg.Set tgroups_enabled
-    , (fun () -> string_of_bool !tgroups_enabled)
+    , Arg.Set Constants.tgroups_enabled
+    , (fun () -> string_of_bool !Constants.tgroups_enabled)
     , "Turn on tgroups classification"
     )
   ; event_from_entry

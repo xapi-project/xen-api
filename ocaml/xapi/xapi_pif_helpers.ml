@@ -84,17 +84,8 @@ let get_pif_type pif_rec =
   | Some v, _ ->
       v
   | None, _ ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                Printf.sprintf "Cannot calculate PIF type of %s"
-                  pif_rec.API.pIF_uuid
-              ]
-            )
-        )
-
+      Helpers.internal_error "Cannot calculate PIF type of %s"
+        pif_rec.API.pIF_uuid
 (* The root PIF underneath should be Physical or Bond_master *)
 
 (** This function aims to get a list of types of the PIFs underneath the given PIF *)

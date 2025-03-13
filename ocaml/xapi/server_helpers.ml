@@ -141,19 +141,31 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       Context.of_http_req ?session_id ~internal_async_subtask ~generate_task_for
         ~supports_async ~label ~http_req ~fd ()
     in
-    let identity =
-      try
-        Option.map
-          (fun session_id ->
-            let subject =
-              Db.Session.get_auth_user_sid ~__context ~self:session_id
-            in
-            Tgroup.Group.Identity.make ?user_agent:http_req.user_agent subject
-          )
-          session_id
-      with _ -> None
-    in
-    Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ()) ;
+
+    Constants.when_tgroups_enabled (fun () ->
+        let identity =
+          try
+            Option.map
+              (fun session_id ->
+                let subject =
+                  Db.Session.get_auth_user_sid ~__context ~self:session_id
+                in
+                Tgroup.Group.Identity.make ?user_agent:http_req.user_agent
+                  subject
+              )
+              ( if !Xapi_globs.slave_emergency_mode then
+                  (* in emergency mode we cannot reach the coordinator,
+                     and we must not attempt to make Db calls
+                  *)
+                  None
+                else
+                  session_id
+              )
+          with _ -> None
+        in
+        Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ())
+    ) ;
+
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
       exec_with_context ~__context ~need_complete ~called_async

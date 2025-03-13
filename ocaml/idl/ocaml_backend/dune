@@ -3,6 +3,7 @@
   (name gen_api_main)
   (libraries
     astring
+    cmdliner
     uuidm
     xapi-consts
     xapi-datamodel

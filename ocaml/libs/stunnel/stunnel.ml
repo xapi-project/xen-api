@@ -16,7 +16,6 @@
 module D = Debug.Make (struct let name = "stunnel" end)
 
 open Printf
-open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_stdext_unix
 open Safe_resources
 
@@ -87,8 +86,8 @@ module Unsafe = struct
       try
         pre_exec () ;
         (* CA-18955: xapi now runs with priority -3. We then set his sons priority to 0. *)
-        ignore_int (Unix.nice (-Unix.nice 0)) ;
-        ignore_int (Unix.setsid ()) ;
+        ignore (Unix.nice (-Unix.nice 0) : int) ;
+        ignore (Unix.setsid () : int) ;
         match env with
         | None ->
             Unix.execv argv0 args
@@ -156,6 +155,9 @@ let pool =
   ; verify= VerifyPeer
   ; cert_bundle_path= "/etc/stunnel/xapi-pool-ca-bundle.pem"
   }
+
+let external_host ext_host_cert_file =
+  {sni= None; verify= VerifyPeer; cert_bundle_path= ext_host_cert_file}
 
 let debug_conf_of_bool verbose : string =
   if verbose then "debug=authpriv.7" else "debug=authpriv.5"

@@ -28,7 +28,7 @@
 #include <caml/alloc.h>
 #include <caml/custom.h>
 #include <caml/fail.h>
-#include <caml/signals.h>
+#include <caml/threads.h>
 #include <caml/callback.h>
 #include <caml/unixsupport.h>
 #include <caml/bigarray.h>
@@ -95,9 +95,9 @@ CAMLprim value stub_xenctrlext_interface_open(value unused)
 	CAMLlocal1(result);
 	xc_interface *xch;
 
-	caml_enter_blocking_section();
+	caml_release_runtime_system();
 	xch = xc_interface_open(NULL, NULL, 0);
-	caml_leave_blocking_section();
+	caml_acquire_runtime_system();
 
 	if ( !xch )
 		failwith_xc(xch);
@@ -226,9 +226,9 @@ CAMLprim value stub_xenctrlext_get_max_nr_cpus(value xch_val)
     xc_interface *xch = xch_of_val(xch_val);
 	int r;
 
-	caml_enter_blocking_section();
+	caml_release_runtime_system();
 	r = xc_physinfo(xch, &c_physinfo);
-	caml_leave_blocking_section();
+	caml_acquire_runtime_system();
 
 	if (r)
 		failwith_xc(xch);
@@ -256,9 +256,9 @@ CAMLprim value stub_xenctrlext_physdev_map_pirq(value xch_val,
     CAMLparam3(xch_val, domid, irq);
     xc_interface *xch = xch_of_val(xch_val);
     int pirq = Int_val(irq);
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     int retval = xc_physdev_map_pirq(xch, Int_val(domid), pirq, &pirq);
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xch);
     CAMLreturn(Val_int(pirq));
@@ -269,9 +269,9 @@ CAMLprim value stub_xenctrlext_assign_device(value xch_val, value domid,
 {
     CAMLparam4(xch_val, domid, machine_sbdf, flag);
     xc_interface *xch = xch_of_val(xch_val);
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     int retval = xc_assign_device(xch, Int_val(domid), Int_val(machine_sbdf), Int_val(flag));
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xch);
     CAMLreturn(Val_unit);
@@ -281,9 +281,9 @@ CAMLprim value stub_xenctrlext_deassign_device(value xch_val, value domid, value
 {
     CAMLparam3(xch_val, domid, machine_sbdf);
     xc_interface *xc = xch_of_val(xch_val);
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     int retval = xc_deassign_device(xc, Int_val(domid), Int_val(machine_sbdf));
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xc);
     CAMLreturn(Val_unit);
@@ -299,9 +299,9 @@ CAMLprim value stub_xenctrlext_domain_soft_reset(value xch_val, value domid)
 {
     CAMLparam2(xch_val, domid);
     xc_interface *xc = xch_of_val(xch_val);
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     int retval = xc_domain_soft_reset(xc, Int_val(domid));
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xc);
     CAMLreturn(Val_unit);
@@ -312,11 +312,11 @@ CAMLprim value stub_xenctrlext_domain_update_channels(value xch_val, value domid
 {
     CAMLparam4(xch_val, domid, store_port, console_port);
     xc_interface *xc = xch_of_val(xch_val);
-    caml_enter_blocking_section();
+    caml_release_runtime_system();
     int retval = xc_set_hvm_param(xc, Int_val(domid), HVM_PARAM_STORE_EVTCHN, Int_val(store_port));
     if (!retval)
         retval = xc_set_hvm_param(xc, Int_val(domid), HVM_PARAM_CONSOLE_EVTCHN, Int_val(console_port));
-    caml_leave_blocking_section();
+    caml_acquire_runtime_system();
     if (retval)
         failwith_xc(xc);
     CAMLreturn(Val_unit);

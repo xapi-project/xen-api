@@ -551,6 +551,80 @@ module Task = struct
   let task_allowed_operations =
     Enum ("task_allowed_operations", List.map operation_enum [cancel; destroy])
 
+  module Special = struct
+    (* These keys are usually ascribed to the field directly but,
+       since we are providing custom implementations, we ascribe them
+       to the messages themselves.
+
+       Note that only the "add_to" and "remove_from" messages are
+       protected by these keys. This is because the current RBAC logic
+       is special cased to those messages. The "set_other_config"
+       message has a relaxed RBAC restriction by comparison, and its
+       checking logic is defined in terms of the permissions created
+       for the "add_to" and "remove_from" operations.
+
+       The difference is subtle: if a session attempts to perform
+       "add_to"/"remove_from" upon "other_config", those operations
+       are purely destructive and RBAC checking can be done by the
+       current logic in Rbac.check (which guards the action). However,
+       in the case of "set_other_config", we relax the restriction and
+       must do the RBAC checking ourselves. The relaxed restriction is
+       that the call may maintain entries that it cannot change
+       itself. This means a read-only user can technically supply a
+       map containing privileged entries, so long as those entries are
+       already present. This allows read-only users to update a subset
+       of the entries within "other_config".
+    *)
+    let protected_keys =
+      [
+        ("applies_to", _R_VM_OP)
+      ; ("XenCenterUUID", _R_VM_OP)
+      ; ("XenCenterMeddlingActionTitle", _R_VM_OP)
+      ]
+
+    let call = call ~lifecycle:[] ~errs:[] ~allowed_roles:_R_READ_ONLY
+
+    let add_to_other_config =
+      call ~name:"add_to_other_config"
+        ~doc:
+          "Add the given key-value pair to the other_config field of the given \
+           task."
+        ~params:
+          [
+            (Ref _task, "self", "Task object to modify")
+          ; (String, "key", "Key to add")
+          ; (String, "value", "Value to add")
+          ]
+        ~map_keys_roles:protected_keys ()
+
+    let remove_from_other_config =
+      call ~name:"remove_from_other_config"
+        ~doc:
+          "Remove the given key and its corresponding value from the \
+           other_config field of the given task. If the key is not in that \
+           Map, then do nothing."
+        ~params:
+          [
+            (Ref _task, "self", "Task object to modify")
+          ; (String, "key", "Key of entry to remove")
+          ]
+          (* Privileged key permissions are generated for each of these protected keys. *)
+        ~map_keys_roles:protected_keys ()
+
+    (* We cannot cite the protected keys here as the current RBAC
+       logic only works for "add_to" and "remove_from" and, even if it
+       did, it is too strict. *)
+    let set_other_config =
+      call ~name:"set_other_config"
+        ~doc:"Set the other_config field of the given task."
+        ~params:
+          [
+            (Ref _task, "self", "Task object to modify")
+          ; (Map (String, String), "value", "New value to set")
+          ]
+        ()
+  end
+
   let t =
     create_obj ~in_db:true
       ~lifecycle:[(Published, rel_rio, "A long-running asynchronous task")]
@@ -567,6 +641,9 @@ module Task = struct
         ; set_progress
         ; set_result
         ; set_error_info
+        ; Special.add_to_other_config
+        ; Special.remove_from_other_config
+        ; Special.set_other_config
         ]
       ~contents:
         ([
@@ -716,7 +793,7 @@ module Task = struct
               "error_info"
               "if the task has failed, this field contains the set of \
                associated error strings. Undefined otherwise."
-          ; field
+          ; field ~qualifier:DynamicRO
               ~lifecycle:[(Published, rel_miami, "additional configuration")]
               ~default_value:(Some (VMap []))
               ~ty:(Map (String, String))
@@ -9166,21 +9243,18 @@ module PCI = struct
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "class_id" "PCI class ID" ~default_value:(Some (VString ""))
-            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "class_name" "PCI class name" ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "vendor_id" "Vendor ID" ~default_value:(Some (VString ""))
-            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "vendor_name" "Vendor name" ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "device_id" "Device ID" ~default_value:(Some (VString ""))
-            ~internal_only:true
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_boston, "")]
             "device_name" "Device name" ~default_value:(Some (VString ""))
@@ -9224,7 +9298,7 @@ module PCI = struct
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_vendor_id" "Subsystem vendor ID"
-            ~default_value:(Some (VString "")) ~internal_only:true
+            ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_vendor_name" "Subsystem vendor name"
@@ -9232,7 +9306,7 @@ module PCI = struct
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_device_id" "Subsystem device ID"
-            ~default_value:(Some (VString "")) ~internal_only:true
+            ~default_value:(Some (VString ""))
         ; field ~qualifier:StaticRO ~ty:String
             ~lifecycle:[(Published, rel_clearwater_whetstone, "")]
             "subsystem_device_name" "Subsystem device name"
@@ -11016,6 +11090,15 @@ let http_actions =
   ; ( "get_repository"
     , (Get, Constants.get_repository_uri, false, [], _R_LOCAL_ROOT_ONLY, [])
     )
+  ; ( "get_enabled_repository"
+    , ( Get
+      , Constants.get_enabled_repository_uri
+      , false
+      , []
+      , _R_POOL_OP ++ _R_CLIENT_CERT
+      , []
+      )
+    )
   ; ( "get_host_updates"
     , ( Get
       , Constants.get_host_updates_uri
@@ -11059,7 +11142,6 @@ let public_http_actions_with_no_rbac_check =
   ; "post_jsonrpc"
   ; "post_jsonrpc_options"
   ; "get_pool_update_download"
-  ; "get_repository"
   ]
 
 (* permissions not associated with any object message or field *)

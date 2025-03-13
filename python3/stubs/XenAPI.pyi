@@ -51,8 +51,14 @@ class _Dispatcher:
     PBD: Incomplete
     pool: Incomplete
     host: Incomplete
+    host_metrics: Incomplete
+    host_cpu: Incomplete
     pool_update: Incomplete
     VM: Incomplete
+    VIF: Incomplete
+    PIF: Incomplete
+    VBD: Incomplete
+    network: Incomplete
 
 
 class Session(xmlrpclib.ServerProxy):

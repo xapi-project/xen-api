@@ -93,8 +93,7 @@ module Pkg = struct
         (e, v, r)
     | Error _ ->
         let msg = error_msg epoch_ver_rel in
-        error "%s" msg ;
-        raise Api_errors.(Server_error (internal_error, [msg]))
+        Helpers.internal_error ~log_err:true "%s" msg
 
   let of_fullname s =
     (* The s likes, I.E.
