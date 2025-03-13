@@ -1,5 +1,5 @@
 module Client = Client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let test_host_get_server_localtime rpc session_id () =
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:Qt.localhost_uuid in

@@ -1,5 +1,5 @@
 module XenAPI = Client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 type result = Good | Expiring of string list | Expired of string list
 
@@ -18,7 +18,7 @@ let days_to_expiry ~expiry now =
 let get_expiry_date pool_license =
   List.assoc_opt "expiry" pool_license
   |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
-  |> Option.map Xapi_stdext_date.Date.of_iso8601
+  |> Option.map Clock.Date.of_iso8601
 
 let get_hosts all_license_params threshold =
   List.filter_map

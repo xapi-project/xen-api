@@ -17,7 +17,7 @@
 
 module Listext = Xapi_stdext_std.Listext
 module Xstringext = Xapi_stdext_std.Xstringext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Xapi_stdext_pervasives.Pervasiveext
 open Xapi_support
 

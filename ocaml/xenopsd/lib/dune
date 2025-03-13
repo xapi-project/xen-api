@@ -38,7 +38,7 @@
    xapi-idl.xen.interface.types
    xapi-log
    xapi-open-uri
-   xapi-stdext-date
+   clock
    xapi-stdext-pervasives
    xapi-stdext-threads
    xapi-stdext-unix

@@ -16,7 +16,7 @@
     xapi-backtrace
     xapi-consts
     xapi-schema
-    xapi-stdext-date
+    clock
     xapi-stdext-std
   )
   (wrapped false)

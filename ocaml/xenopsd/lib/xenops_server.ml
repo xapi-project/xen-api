@@ -1143,7 +1143,7 @@ module Worker = struct
 end
 
 module WorkerPool = struct
-  module Date = Xapi_stdext_date.Date
+  module Date = Clock.Date
 
   (* Store references to Worker.ts here *)
   let pool = ref []

@@ -13,7 +13,7 @@
  *)
 
 (** date-time with support for keeping timezone for ISO 8601 conversion *)
-type t
+type t = Clock.Date.t
 
 (** Conversions *)
 

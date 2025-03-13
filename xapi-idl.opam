@@ -40,7 +40,7 @@ depends: [
   "xapi-backtrace"
   "xapi-open-uri"
   "xapi-rrd"
-  "xapi-stdext-date"
+  "clock"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-threads"

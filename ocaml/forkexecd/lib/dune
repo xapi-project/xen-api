@@ -15,7 +15,6 @@
    xapi-log
    xapi-stdext-pervasives
    xapi-stdext-unix
-   xapi-stdext-date
    xapi-tracing
  )
  (preprocess (per_module ((pps ppx_deriving_rpc) Fe))))

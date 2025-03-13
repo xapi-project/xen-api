@@ -22,7 +22,7 @@ module D = Debug.Make (struct let name = "xapi_ha" end)
 
 open D
 module Rrdd = Rrd_client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Delay = Xapi_stdext_threads.Threadext.Delay
 module Unixext = Xapi_stdext_unix.Unixext
 

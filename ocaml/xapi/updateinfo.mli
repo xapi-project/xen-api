@@ -155,7 +155,7 @@ module UpdateInfo : sig
     ; url: string
     ; update_type: string
     ; livepatches: LivePatch.t list
-    ; issued: Xapi_stdext_date.Date.t
+    ; issued: Clock.Date.t
     ; severity: Severity.t
     ; title: string
   }

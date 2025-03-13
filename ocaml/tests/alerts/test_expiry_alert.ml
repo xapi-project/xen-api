@@ -14,7 +14,7 @@
 
 open Expiry_alert
 
-let date_of = Xapi_stdext_date.Date.of_iso8601
+let date_of = Clock.Date.of_iso8601
 
 let test_expired = ("TEST_EXPIRED", 1L)
 
@@ -40,8 +40,7 @@ module TestGenerateAlert = struct
     ; alert_conditions: (remaining_days * message_id) list
     ; obj_description: string
     ; expected:
-        (string -> Xapi_stdext_date.Date.t -> (string * (string * int64)) option)
-        option
+        (string -> Clock.Date.t -> (string * (string * int64)) option) option
   }
 
   let expired_result expired_message_id obj_description expiry =
@@ -352,7 +351,7 @@ module TestUpdateMessageInternal = struct
             ; API.message_body= body
             ; API.message_uuid= Uuidx.to_string (Uuidx.make ()) (*not used*)
             ; API.message_cls= `Host (*not used*)
-            ; API.message_timestamp= Xapi_stdext_date.Date.epoch (*not used*)
+            ; API.message_timestamp= Clock.Date.epoch (*not used*)
             }
           )
         )
@@ -373,7 +372,7 @@ module TestUpdateMessageInternal = struct
             ; API.message_body= "body" (*not used*)
             ; API.message_uuid= Uuidx.to_string (Uuidx.make ()) (*not used*)
             ; API.message_cls= `Host (*not used*)
-            ; API.message_timestamp= Xapi_stdext_date.Date.epoch (*not used*)
+            ; API.message_timestamp= Clock.Date.epoch (*not used*)
             }
           )
         )

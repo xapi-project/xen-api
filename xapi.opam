@@ -18,6 +18,7 @@ depends: [
   "base64"
   "bos" {with-test}
   "cdrom"
+  "clock" {= version}
   "cmdliner"
   "cohttp"
   "conf-pam"
@@ -78,7 +79,6 @@ depends: [
   "xapi-idl" {= version}
   "xapi-inventory" {= version}
   "xapi-log" {= version}
-  "xapi-stdext-date" {= version}
   "xapi-stdext-pervasives" {= version}
   "xapi-stdext-std" {= version}
   "xapi-stdext-threads" {= version}

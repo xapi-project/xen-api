@@ -15,7 +15,7 @@
 module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module XenAPI = Client.Client
 open Storage_interface
 

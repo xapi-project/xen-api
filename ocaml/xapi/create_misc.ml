@@ -17,7 +17,7 @@
 
 module Xstringext = Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Xapi_vm_memory_constraints
 open Vm_memory_constraints
 open Xapi_database.Db_filter_types

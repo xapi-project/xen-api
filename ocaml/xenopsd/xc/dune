@@ -46,7 +46,7 @@
   xapi-idl.xen.interface.types
   xapi-log
   xapi-rrd
-  xapi-stdext-date
+  clock
   xapi-stdext-pervasives
   xapi-stdext-std
   xapi-stdext-threads
@@ -99,7 +99,7 @@
   ezxenstore.core
   uuid
   xapi-idl.memory
-  xapi-stdext-date
+  clock
   xapi-stdext-unix
   xenctrl
   xenopsd_xc
@@ -119,7 +119,7 @@
  (modules memory_summary)
  (libraries
   
-  xapi-stdext-date
+  clock
   xapi-stdext-unix
   xapi_xenopsd
   xenctrl

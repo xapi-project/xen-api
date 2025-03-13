@@ -22,7 +22,7 @@ depends: [
   "xapi-backtrace"
   "xapi-consts"
   "xapi-schema"
-  "xapi-stdext-date"
+  "clock"
   "xapi-stdext-std"
   "xapi-stdext-unix"
 ]

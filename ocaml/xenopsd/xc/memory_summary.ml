@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Unixext = Xapi_stdext_unix.Unixext
 open Xenops_utils
 

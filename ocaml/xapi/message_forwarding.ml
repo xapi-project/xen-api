@@ -1121,7 +1121,7 @@ functor
       let set_telemetry_next_collection ~__context ~self ~value =
         info "%s: pool='%s' value='%s'" __FUNCTION__
           (pool_uuid ~__context self)
-          (Xapi_stdext_date.Date.to_rfc3339 value) ;
+          (Clock.Date.to_rfc3339 value) ;
         Local.Pool.set_telemetry_next_collection ~__context ~self ~value
 
       let reset_telemetry_uuid ~__context ~self =
