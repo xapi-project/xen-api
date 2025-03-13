@@ -86,18 +86,3 @@ let string_of sexpr =
         Buffer.add_string buf "\'"
   in
   __string_of_rec sexpr ; Buffer.contents buf
-
-let rec output_fmt ff = function
-  | Node list ->
-      let rec aux ?(first = true) = function
-        | [] ->
-            ()
-        | h :: t when first ->
-            output_fmt ff h ; aux ~first:false t
-        | h :: t ->
-            Format.fprintf ff "@;<1 2>%a" output_fmt h ;
-            aux ~first t
-      in
-      Format.fprintf ff "@[(" ; aux list ; Format.fprintf ff ")@]"
-  | Symbol s | String s ->
-      Format.fprintf ff "\"%s\"" (escape s)
