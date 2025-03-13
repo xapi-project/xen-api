@@ -1,5 +1,8 @@
 ---
 title: 'Walkthrough: Starting a VM'
+linktitle: 'Starting a VM'
+description: Complete walkthrough of starting a VM, from receiving the request to unpause.
+weight: 10
 ---
 
 A Xenopsd client wishes to start a VM. They must first tell Xenopsd the VM
@@ -30,7 +33,7 @@ users:
 
 - the XenAPI has many clients which are updated on long release cycles. The
   main property needed is backwards compatibility, so that new release of xapi
-  remain compatible with these older clients. Quite often we will chose to
+  remain compatible with these older clients. Quite often, we will choose to
   "grandfather in" some poorly designed interface simply because we wish to
   avoid imposing churn on 3rd parties.
 - the Xenopsd API clients are all open-source and are part of the xapi-project.
@@ -89,7 +92,7 @@ exist for:
 From here we shall assume the use of the "Xen via libxc, libxenguest and xenstore" (a.k.a.
 "Xenopsd classic") backend.
 
-The backend [VM.add](https://github.com/xapi-project/xenopsd/blob/2a476c132c0b5732f9b224316b851a1b4d57520b/xc/xenops_server_xen.ml#L719)
+The backend [VM.add](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/xc/xenops_server_xen.ml#L1603-L1659)
 function checks whether the VM we have to manage already exists -- and if it does
 then it ensures the Xenstore configuration is intact. This Xenstore configuration
 is important because at any time a client can query the state of a VM with
@@ -132,17 +135,15 @@ When the Task has completed successfully, then calls to *.stat will show:
 - a valid start time
 - valid "targets" for memory and vCPU
 
-Note: before a Task completes, calls to *.stat will show partial updates e.g.
-the power state may be Paused but none of the disks may have become plugged.
+Note: before a Task completes, calls to *.stat will show partial updates. E.g.
+the power state may be paused, but no disk may have been plugged.
 UI clients must choose whether they are happy displaying this in-between state
 or whether they wish to hide it and pretend the whole operation has happened
-transactionally. If a particular client wishes to perform side-effects in
-response to Xenopsd state changes -- for example to clean up an external resource
-when a VIF becomes unplugged -- then it must be very careful to avoid responding
-to these in-between states. Generally it is safest to passively report these
-values without driving things directly from them. Think of them as status lights
-on the front panel of a PC: fine to look at but it's not a good idea to wire
-them up to actuators which actually do things.
+transactionally. If a particular, when a client wishes to perform side-effects in
+response to `xenopsd` state changes (for example, to clean up an external resource
+when a VIF becomes unplugged), it must be very careful to avoid responding
+to these in-between states. Generally, it is safest to passively report these
+values without driving things directly from them.
 
 Note: the Xenopsd implementation guarantees that, if it is restarted at any point
 during the start operation, on restart the VM state shall be "fixed" by either
@@ -163,7 +164,7 @@ via the function
 
 It is the responsibility of the client to call
 [TASK.destroy](https://github.com/xapi-project/xcp-idl/blob/2e5c3dd79c63e3711227892271a6bece98eb0fa1/xen/xenops_interface.ml#L406)
-when the Task is nolonger needed. Xenopsd won't destroy the task because it contains
+when the Task is no longer needed. Xenopsd won't destroy the task because it contains
 the success/failure result of the operation which is needed by the client.
 
 What happens when a Xenopsd receives a VM.start request?
@@ -196,24 +197,43 @@ takes care of:
 Once a thread from the worker pool becomes free, it will execute the "do it now"
 function. In the example above this is `perform op t` where `op` is
 `VM_start vm` and `t` is the Task. The function
-[perform](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L1198)
+[perform_exn](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L2533)
 has fragments like this:
 
 ```ocaml
-		| VM_start id ->
-			debug "VM.start %s" id;
-			perform_atomics (atomics_of_operation op) t;
-			VM_DB.signal id
+  | VM_start (id, force) -> (
+      debug "VM.start %s (force=%b)" id force ;
+      let power = (B.VM.get_state (VM_DB.read_exn id)).Vm.power_state in
+      match power with
+      | Running ->
+          info "VM %s is already running" id
+      | _ ->
+          perform_atomics (atomics_of_operation op) t ;
+          VM_DB.signal id "^^^^^^^^^^^^^^^^^^^^--------
+    )
 ```
 
 Each "operation" (e.g. `VM_start vm`) is decomposed into "micro-ops" by the
 function
-[atomics_of_operation](https://github.com/xapi-project/xenopsd/blob/524d57b3c70/lib/xenops_server.ml#L739)
+[atomics_of_operation](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L1583)
 where the micro-ops are small building-block actions common to the higher-level
 operations. Each operation corresponds to a list of "micro-ops", where there is
 no if/then/else. Some of the "micro-ops" may be a no-op depending on the VM
 configuration (for example a PV domain may not need a qemu). In the case of
-`VM_start vm` this decomposes into the sequence:
+[`VM_start vm`](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L1584)
+the `Xenopsd` server starts by calling the [functions that
+decompose](https://github.com/xapi-project/xen-api/blob/master/ocaml/xenopsd/lib/xenops_server.ml#L1612-L1714)
+ the `VM_hook_script`, `VM_create` and `VM_build` micro-ops:
+```ml
+        dequarantine_ops vgpus
+      ; [
+          VM_hook_script
+            (id, Xenops_hooks.VM_pre_start, Xenops_hooks.reason__none)
+        ; VM_create (id, None, None, no_sharept)
+        ; VM_build (id, force)
+        ]
+```
+This is the complete sequence of micro-ops:
 
 ## 1. run the "VM_pre_start" scripts
 
@@ -225,8 +245,8 @@ module and looks for scripts in the hardcoded path `/etc/xapi.d`.
 ## 2. create a Xen domain
 
 The `VM_create` micro-op calls the `VM.create` function in the backend.
-In the classic Xenopsd backend the
-[VM.create_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L633)
+In the classic Xenopsd backend, the
+[VM.create_exn](https://github.com/xapi-project/xen-api/blob/bae7526faeb2a02a2fe5b71410083983f4695963/ocaml/xenopsd/xc/xenops_server_xen.ml#L1421-L1586)
 function must
 
 1. check if we're creating a domain for a fresh VM or resuming an existing one:
@@ -237,7 +257,13 @@ function must
    because domain create often fails in low-memory conditions. This means the
    "reservation" is associated with our "session" with squeezed; if Xenopsd
    crashes and restarts the reservation will be freed automatically.
-3. create the Domain via the libxc hypercall
+3. create the Domain via the libxc hypercall `Xenctrl.domain_create`
+4. [call](
+    https://github.com/xapi-project/xen-api/blob/bae7526faeb2a02a2fe5b71410083983f4695963/ocaml/xenopsd/xc/xenops_server_xen.ml#L1547)
+   [generate_create_info()](
+    https://github.com/xapi-project/xen-api/blob/bae7526faeb2a02a2fe5b71410083983f4695963/ocaml/xenopsd/xc/xenops_server_xen.ml#L1302-L1419)
+   for storing the platform data (vCPUs, etc) the domain's Xenstore tree.
+   `xenguest` then uses this in the `build` phase (see below) to build the domain.
 4. "transfer" the squeezed reservation to the domain such that squeezed will
    free the memory if the domain is destroyed later
 5. compute and set an initial balloon target depending on the amount of memory
@@ -253,38 +279,10 @@ function must
 
 ## 3. build the domain
 
-On a Xen system a domain is created empty, and memory is actually allocated
-from the host in the "build" phase via functions in *libxenguest*. The
-[VM.build_domain_exn](https://github.com/xapi-project/xenopsd/blob/b33bab13080cea91e2fd59d5088622cd68152339/xc/xenops_server_xen.ml#L994)
-function must
-
-1. run pygrub (or eliloader) to extract the kernel and initrd, if necessary
-2. invoke the *xenguest* binary to interact with libxenguest.
-3. apply the `cpuid` configuration
-4. store the current domain configuration on disk -- it's important to know
-   the difference between the configuration you started with and the configuration
-   you would use after a reboot because some properties (such as maximum memory
-   and vCPUs) as fixed on create.
-
-The xenguest binary was originally
-a separate binary for two reasons: (i) the libxenguest functions weren't
-threadsafe since they used lots of global variables; and (ii) the libxenguest
-functions used to have a different, incompatible license, which prevent us
-linking. Both these problems have been resolved but we still shell out to
-the xenguest binary.
-
-The xenguest binary has also evolved to configure more of the initial domain
-state. It also [reads Xenstore](https://github.com/xapi-project/ocaml-xen-lowlevel-libs/blob/master/xenguest-4.4/xenguest_stubs.c#L42)
-and configures
-
-- the vCPU affinity
-- the vCPU credit2 weight/cap parameters
-- whether the NX bit is exposed
-- whether the viridian CPUID leaf is exposed
-- whether the system has PAE or not
-- whether the system has ACPI or not
-- whether the system has nested HVM or not
-- whether the system has an HPET or not
+The `build` phase waits, if necessary, for the Xen memory scrubber to catch
+up reclaiming memory, runs NUMA placement, sets vCPU affinity and invokes
+the `xenguest` to build the system memory layout of the domain.
+See the [walk-through of the VM_build μ-op](VM.build) for details.
 
 ## 4. mark each VBD as "active"
 
@@ -304,7 +302,7 @@ calls bracket plug/unplug. If the "active" flag was set before the unplug
 attempt then as soon as the frontend/backend connection is removed clients
 would see the VBD as completely dissociated from the VM -- this would be misleading
 because Xenopsd will not have had time to use the storage API to release locks
-on the disks. By doing all the cleanup before setting "active" to false, clients
+on the disks. By cleaning up before setting "active" to false, clients
 can be assured that the disks are now free to be reassigned.
 
 ## 5. handle non-persistent disks
@@ -370,7 +368,7 @@ to be the order the nodes were created so this means that (i) xenstored must
 continue to store directories as ordered lists rather than maps (which would
 be more efficient); and (ii) Xenopsd must make sure to plug the vifs in
 the same order. Note that relying on ethX device numbering has always been a
-bad idea but is still common. I bet if you change this lots of tests will
+bad idea but is still common. I bet if you change this, many tests will
 suddenly start to fail!
 
 The function

@@ -29,8 +29,6 @@ let _db_defaults = "Db_actions.DB_Action"
 
 let _concurrency = "Concurrency"
 
-let enable_debugging = ref false
-
 let is_session_arg arg =
   let binding = O.string_of_param arg in
   let converter = O.type_of_param arg in
@@ -44,10 +42,7 @@ let from_rpc ?(ignore = false) arg =
     binding converter binding
 
 let debug msg args =
-  if !enable_debugging then
-    "D.debug \"" ^ String.escaped msg ^ "\" " ^ String.concat " " args ^ ";"
-  else
-    ""
+  "D.debug \"" ^ String.escaped msg ^ "\" " ^ String.concat " " args ^ ";"
 
 let has_default_args args =
   let has_default arg = Option.is_some arg.DT.param_default in
@@ -56,18 +51,6 @@ let has_default_args args =
 (* ------------------------------------------------------------------------------------------
     Code to generate a single operation in server dispatcher
    ------------------------------------------------------------------------------------------ *)
-
-let count_mandatory_message_parameters (msg : message) =
-  (* Returns the number of mandatory parameters of a message *)
-  let rec count_mandatory_parameters (params : param list) =
-    match params with
-    | [] ->
-        0
-    | head :: tail ->
-        (match head.param_default with None -> 1 | Some _ -> 0)
-        + count_mandatory_parameters tail
-  in
-  count_mandatory_parameters msg.msg_params
 
 let operation (obj : obj) (x : message) =
   let msg_params = x.DT.msg_params in
@@ -286,16 +269,12 @@ let operation (obj : obj) (x : message) =
   in
   let may_be_side_effecting msg =
     match msg.msg_tag with
-    | FromField (Setter, _) | FromField (Add, _) | FromField (Remove, _) ->
+    | Custom
+    | FromField ((Setter | Add | Remove), _)
+    | FromObject (Make | Delete | Private Copy) ->
         true
-    | FromField _ ->
+    | FromObject _ | FromField (Getter, _) ->
         false
-    | FromObject Make | FromObject Delete | FromObject (Private Copy) ->
-        true
-    | FromObject _ ->
-        false
-    | Custom ->
-        true
   in
   let session_check_exp =
     if x.msg_session then
@@ -432,7 +411,7 @@ let operation (obj : obj) (x : message) =
   ^ "        | _ ->\n"
   ^ "            Server_helpers.parameter_count_mismatch_failure __call "
   ^ "\""
-  ^ string_of_int (count_mandatory_message_parameters x)
+  ^ string_of_int (List.length msg_params_without_default_values)
   ^ "\""
   ^ " (string_of_int ((List.length __params) - "
   ^ (if x.msg_session then "1" else "0")

@@ -2499,15 +2499,35 @@ module VM = struct
                   None
             in
             let manager_path = choose_emu_manager vm.Vm.platformdata in
+            with_tracing ~task ~name:"VM_save_domain_suspend" @@ fun () ->
             Domain.suspend task ~xc ~xs ~domain_type ~dm:(dm_of ~vm)
               ~vtpm:(vtpm_of ~vm) ~progress_callback ~qemu_domid ~manager_path
               ~is_uefi vm_str domid fd vgpu_fd flags' (fun () ->
+                with_tracing ~task ~name:"VM_save_domain_suspend_callback"
+                @@ fun () ->
                 (* SCTX-2558: wait more for ballooning if needed *)
-                wait_ballooning task vm ;
-                pre_suspend_callback task ;
-                if not (request_shutdown task vm Suspend 30.) then
+                ( with_tracing ~task ~name:"VM_save_wait_ballooning" @@ fun () ->
+                  wait_ballooning task vm
+                ) ;
+                ( with_tracing ~task ~name:"VM_save_pre_suspend_callback"
+                @@ fun () -> pre_suspend_callback task
+                ) ;
+
+                if
+                  not
+                    ( with_tracing ~task
+                        ~name:"VM_save_domain_suspend_callback_request_shutdown"
+                    @@ fun () -> request_shutdown task vm Suspend 30.
+                    )
+                then
                   raise (Xenopsd_error Failed_to_acknowledge_suspend_request) ;
-                if not (wait_shutdown task vm Suspend 1200.) then
+                if
+                  not
+                    ( with_tracing ~task
+                        ~name:"VM_save_domain_suspend_callback_wait_shutdown"
+                    @@ fun () -> wait_shutdown task vm Suspend 1200.
+                    )
+                then
                   raise (Xenopsd_error (Failed_to_suspend (vm.Vm.id, 1200.)))
             ) ;
             (* Record the final memory usage of the domain so we know how much

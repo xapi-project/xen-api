@@ -37,7 +37,7 @@ GUID = 'D695A8B9-039A-443C-99A4-0D48D7C6AD76'
 #Copyright
 Author = ''
 CompanyName = 'Cloud Software Group, Inc'
-Copyright = 'Copyright (c) 2013-2024 Cloud Software Group, Inc. All rights reserved.'
+Copyright = 'Copyright (c) 2013-2025 Cloud Software Group, Inc. All rights reserved.'
 
 # Requirements
 PowerShellVersion = '@PS_VERSION@'

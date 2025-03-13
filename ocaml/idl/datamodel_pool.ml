@@ -1282,6 +1282,20 @@ let sync_updates =
         ; param_release= numbered_release "1.329.0"
         ; param_default= Some (VString "")
         }
+      ; {
+          param_type= String
+        ; param_name= "username"
+        ; param_doc= "The username of the remote pool"
+        ; param_release= numbered_release "25.6.0-next"
+        ; param_default= Some (VString "")
+        }
+      ; {
+          param_type= String
+        ; param_name= "password"
+        ; param_doc= "The password of the remote pool"
+        ; param_release= numbered_release "25.6.0-next"
+        ; param_default= Some (VString "")
+        }
       ]
     ~result:(String, "The SHA256 hash of updateinfo.xml.gz")
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
@@ -1441,8 +1455,8 @@ let update_sync_frequency =
 let configure_update_sync =
   call ~name:"configure_update_sync"
     ~doc:
-      "Configure periodic update synchronization to sync updates from a remote \
-       CDN"
+      "Configure periodic update synchronization to synchronize updates from a \
+       remote CDN"
     ~lifecycle:[]
     ~params:
       [

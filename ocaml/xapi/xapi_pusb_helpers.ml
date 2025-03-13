@@ -98,13 +98,7 @@ let get_script_stdout () =
     let stdout, _ = Forkhelpers.execute_command_get_output usb_scan_script [] in
     stdout
   with Forkhelpers.Spawn_internal_error (_, _, Unix.WEXITED n) ->
-    raise
-      Api_errors.(
-        Server_error
-          ( internal_error
-          , [Printf.sprintf "%s exitted with %d" usb_scan_script n]
-          )
-      )
+    Helpers.internal_error "%s exitted with %d" usb_scan_script n
 
 let get_usbs stdout =
   let extract_devices json = [json] |> flatten in

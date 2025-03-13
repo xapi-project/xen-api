@@ -20,7 +20,7 @@ module Exporter = struct
     if json <> "" then
       match Tracing_export.Destination.Http.export ~url json with
       | Error err ->
-          Printf.eprintf "Error: %s" (Printexc.to_string err) ;
+          Printf.eprintf "Error: %s\n" (Printexc.to_string err) ;
           exit 1
       | _ ->
           ()
@@ -34,18 +34,17 @@ module Exporter = struct
           (* Recursively export trace files. *)
           Sys.readdir path
           |> Array.iter (fun f -> Filename.concat path f |> export_file)
-      | path when Filename.check_suffix path ".zst" ->
-          (* Decompress compressed trace file and decide whether to
-             treat it as line-delimited or not. *)
-          let ( let@ ) = ( @@ ) in
-          let@ compressed = Unixext.with_file path [O_RDONLY] 0o000 in
-          let@ decompressed = Zstd.Fast.decompress_passive compressed in
-          if Filename.check_suffix path ".ndjson.zst" then
-            let ic = Unix.in_channel_of_descr decompressed in
-            Unixext.lines_iter submit_json ic
-          else
-            let json = Unixext.string_of_fd decompressed in
-            submit_json json
+      | path when Filename.check_suffix path ".zst" -> (
+          (* Decompress compressed trace file and submit each line iteratively *)
+          let args = [|"zstdcat"; path|] in
+          let ic = Unix.open_process_args_in args.(0) args in
+          Unixext.lines_iter submit_json ic ;
+          match Unix.close_process_in ic with
+          | Unix.WEXITED 0 ->
+              ()
+          | _ ->
+              Printf.eprintf "File %s exited with non-zero\n" path
+        )
       | path when Filename.check_suffix path ".ndjson" ->
           (* Submit traces line by line. *)
           Unixext.readfile_line submit_json path

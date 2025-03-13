@@ -1703,22 +1703,23 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
           (string_of_message message) ;
         match message with
         | Suspend ->
-            do_suspend_callback () ;
-            if domain_type = `hvm then (
-              let vm_uuid = Uuidx.to_string uuid in
-              debug "VM = %s; domid = %d; suspending qemu-dm" vm_uuid domid ;
-              Device.Dm.suspend task ~xs ~qemu_domid ~dm domid ;
-              if is_uefi then
-                let (_ : string) =
-                  Device.Dm.suspend_varstored task ~xs domid ~vm_uuid
-                in
-                let (_ : string list) =
-                  Device.Dm.suspend_vtpm task ~xs domid ~vtpm
-                in
-                ()
+            ( with_tracing ~task ~name:"suspend_emu_manager Suspend" @@ fun () ->
+              do_suspend_callback () ;
+              if domain_type = `hvm then (
+                let vm_uuid = Uuidx.to_string uuid in
+                debug "VM = %s; domid = %d; suspending qemu-dm" vm_uuid domid ;
+                Device.Dm.suspend task ~xs ~qemu_domid ~dm domid ;
+                if is_uefi then
+                  let (_ : string) =
+                    Device.Dm.suspend_varstored task ~xs domid ~vm_uuid
+                  in
+                  let (_ : string list) =
+                    Device.Dm.suspend_vtpm task ~xs domid ~vtpm
+                  in
+                  ()
+              )
             ) ;
-            send_done cnx ;
-            wait_for_message ()
+            send_done cnx ; wait_for_message ()
         | Prepare x when x = "xenguest" ->
             debug "Writing Libxc header" ;
             write_header main_fd (Libxc, 0L) >>= fun () ->
@@ -1741,6 +1742,7 @@ let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
                 )
         )
         | Result _ ->
+            with_tracing ~task ~name:"suspend_emu_manager Result" @@ fun () ->
             debug "VM = %s; domid = %d; emu-manager completed successfully"
               (Uuidx.to_string uuid) domid ;
             return ()

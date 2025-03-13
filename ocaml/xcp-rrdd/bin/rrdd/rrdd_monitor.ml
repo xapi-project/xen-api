@@ -71,7 +71,9 @@ let merge_new_dss rrdi dss =
         (* SAFETY: verified that these datasources aren't enabled above
            already, in a more efficient way than RRD does it *)
         rrd_add_ds_unsafe rrd timestamp
-          (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+          (Rrd.ds_create ds.ds_name ds.Ds.ds_type ~mrhb:300.0 ~min:ds.ds_min
+             ~max:ds.ds_max Rrd.VT_Unknown
+          )
       )
       new_enabled_dss rrdi.rrd
   )

@@ -391,7 +391,6 @@ let nvidia_vf_setup_mutex = Mutex.create ()
 
 let nvidia_vf_setup ~__context ~pf ~enable =
   let sprintf = Printf.sprintf in
-  let fail msg = Api_errors.(Server_error (internal_error, [msg])) in
   let script = !Xapi_globs.nvidia_sriov_manage_script in
   let enable' = if enable then "-e" else "-d" in
   let bind_path = "/sys/bus/pci/drivers/nvidia/bind" in
@@ -409,12 +408,9 @@ let nvidia_vf_setup ~__context ~pf ~enable =
         debug "File %s does not exist - assuming no SRIOV devices in use" path ;
         None
     | exn ->
-        let msg =
-          Printf.sprintf "Can't read %s to activate Nvidia GPU %s: %s" path pci
-            (Printexc.to_string exn)
-        in
-        error "%s" msg ;
-        raise (fail msg)
+        Helpers.internal_error ~log_err:true
+          "Can't read %s to activate Nvidia GPU %s: %s" path pci
+          (Printexc.to_string exn)
   in
   let write_to path pci =
     try
@@ -423,7 +419,7 @@ let nvidia_vf_setup ~__context ~pf ~enable =
     with e ->
       error "failed to write to %s to re-bind PCI %s to Nvidia driver: %s" path
         pci (Printexc.to_string e) ;
-      raise (fail (sprintf "Can't rebind PCI %s driver" pci))
+      Helpers.internal_error "Can't rebind PCI %s driver" pci
   in
   let bind_to_nvidia pci =
     match Xapi_pci_helpers.get_driver_name pci with
@@ -458,7 +454,7 @@ let nvidia_vf_setup ~__context ~pf ~enable =
         debug "PCI %s already has %n VFs - not calling %s" pci n script
     | _ ->
         error "nvdia_vf_setup %s does not exist" script ;
-        raise (fail (sprintf "Can't locate %s" script))
+        Helpers.internal_error "Can't locate %s" script
   in
   (* Update the gpus even if the VFs were present already, in case they were
    * already created before xapi was (re)started. *)

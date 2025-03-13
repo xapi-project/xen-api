@@ -1,0 +1,94 @@
+<script>
+/**
+ * @file custom-footer.html
+ * @brief This file contains the custom footer for the documentation site.
+ *
+ * This file is included in the footer of the documentation site.
+ * It contains custom JavaScript code that is executed on every page load.
+ *
+ * This script supports the use of dark themes on the documentation site.
+ *
+ * Invert images (except those with the 'no-invert' class) to match the theme.
+ *
+ * - The docs use some SVG images that draw black on transparent background,
+ *   making them black-on-black in the dark themes.
+ *
+ * - Other black-on-white drawings are inverted to white-on-black to match
+ *   the dark theme as well. This is also more friendly to dark theme users.
+ *
+ * - The "invert" filter used is set to use 85% strength:
+ *   With it, the image background will be medium dark grey, carefully
+ *   matching the background colour of the page body in the dark themes.
+ *
+ * Other images:
+ * - The xapi-project logo embedded in the menu is correctly not changed.
+ * - The output image from `lstopo` also looks better inverted in the dark theme.
+ * - Adding the class `no-invert` to an image will prevent it from being inverted.
+ */
+
+/**
+ * @brief Applies an invert filter to image elements on the page.
+ *
+ * The invert filter is individually applied as a CSS style to each image,
+ * element, except to those that have the 'no-invert' class.
+ * https://developer.mozilla.org/en-US/docs/Web/CSS/filter-function/invert
+ *
+ * @param invert A value between 0 and 1 that specifies the degree of
+ * inversion. 0 means no inversion, and 1 means full inversion.
+ */
+function apply_image_invert_filter(invert) {
+    // apply the invert filter as a CSS style, but only for image elements:
+    document.querySelectorAll('img').forEach(function(image) {
+        // Skip images that should not be inverted:
+        if (image.classList.contains('no-invert')) { return; }
+        image.style = 'filter: invert(' + invert + ');';
+    });
+}
+
+/**
+ * @brief Detect if a dark theme is used on the page.
+ *
+ * Relearn does not set the dark theme class on the body element:
+ *
+ * Thus, we need to detect dark themes by checking the perceived darkness
+ * of the background colour. The body element is not available in the
+ * header partial, so this script needs to be placed in the
+ * custom-footer.html partial.
+ *
+ * @return {boolean} True if a dark theme is used, false otherwise.
+ */
+function darkThemeUsed() {
+    const style = window.getComputedStyle(document.querySelector('body'));
+    const property = style.getPropertyValue('background-color');
+    var rgb = property.match(/\d+/g).map(function(e){return parseInt(e,10);});
+    if (rgb.length === 3 && ((0.2126 * rgb[0]) + (0.7152 * rgb[1]) + (0.0722 * rgb[2]) < 165) ) {
+      return true;
+    }
+    return false;
+}
+
+/**
+ * Configure the invert filter strength for dark themes:
+ * Make the background a dark gray matching the page body in dark themes.
+ */
+const invertToDarkGray = 0.85;
+
+/**
+ * Invert the images if a dark theme is used on page load.
+ * Check if a dark theme is active when the page loads. If so, invert images.
+ */
+if (darkThemeUsed()) { apply_image_invert_filter(invertToDarkGray); }
+
+/**
+ * Update the invert filter of images when the theme variant is changed.
+ *
+ * Listen for the 'themeVariantLoaded' event and apply the appropriate image
+ * invert filter based on whether the theme variant ends with 'dark' or not.
+ *
+ * @see https://mcshelby.github.io/hugo-theme-relearn/configuration/branding/colors/index.html#react-to-variant-switches-in-javascript
+ */
+document.addEventListener( 'themeVariantLoaded', function( e ){
+    apply_image_invert_filter( e.detail.variant.endsWith('dark') ? invertToDarkGray : 0 );
+});
+
+</script>

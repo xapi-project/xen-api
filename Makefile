@@ -6,7 +6,7 @@ JOBS = $(shell getconf _NPROCESSORS_ONLN)
 PROFILE=release
 OPTMANDIR ?= $(OPTDIR)/man/man1/
 
-.PHONY: build clean test doc python format install uninstall coverage
+.PHONY: build clean test doc python format install uninstall coverage analyze
 
 # if we have XAPI_VERSION set then set it in dune-project so we use that version number instead of the one obtained from git
 # this is typically used when we're not building from a git repo
@@ -195,6 +195,17 @@ uninstall:
 	dune uninstall $(DUNE_IU_PACKAGES2)
 	dune uninstall $(DUNE_IU_PACKAGES3)
 	dune uninstall $(DUNE_IU_PACKAGES4)
+
+# An approximation, we actually depend on all dune files recursively
+# Also fixup the directory paths to remove _build
+# (we must refer to paths that exist in the repository for static analysis results)
+compile_commands.json: Makefile dune
+	mkdir -p _build/
+	dune rules | dune-compiledb -o _build/
+	sed -e 's/"directory".*/"directory": ".",/' <_build/$@ >$@
+
+analyze: compile_commands.json Makefile .codechecker.json
+	CodeChecker check --config .codechecker.json -l compile_commands.json
 
 compile_flags.txt: Makefile
 	(ocamlc -config-var ocamlc_cflags;\

@@ -136,12 +136,9 @@ let refresh_localhost_info ~__context info =
     let network_state = Scanf.sscanf script_output "Port 80 open: %B" Fun.id in
     Db.Host.set_https_only ~__context ~self:host ~value:network_state
   with _ ->
-    let message =
-      Printf.sprintf
-        "unexpected output from /etc/xapi.d/plugins/firewall-port: %s"
-        script_output
-    in
-    raise Api_errors.(Server_error (internal_error, [message]))
+    Helpers.internal_error
+      "unexpected output from /etc/xapi.d/plugins/firewall-port: %s"
+      script_output
 (*************** update database tools ******************)
 
 (** Record host memory properties in database *)

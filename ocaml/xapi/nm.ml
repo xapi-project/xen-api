@@ -215,7 +215,7 @@ let create_bond ~__context bond mtu persistent =
       let overrides =
         List.filter_map
           (fun (k, v) ->
-            if String.startswith "bond-" k then
+            if String.starts_with ~prefix:"bond-" k then
               Some (String.sub_to_end k 5, v)
             else
               None
@@ -441,11 +441,7 @@ let rec create_bridges ~__context pif_rc net_rc =
         ]
       )
   | Network_sriov_logical _ ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["Should not create bridge for SRIOV logical PIF"])
-        )
+      Helpers.internal_error "Should not create bridge for SRIOV logical PIF"
 
 let rec destroy_bridges ~__context ~force pif_rc bridge =
   let open Xapi_pif_helpers in
@@ -468,11 +464,7 @@ let rec destroy_bridges ~__context ~force pif_rc bridge =
   | Physical _ ->
       [(bridge, false)]
   | Network_sriov_logical _ ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["Should not destroy bridge for SRIOV logical PIF"])
-        )
+      Helpers.internal_error "Should not destroy bridge for SRIOV logical PIF"
 
 let determine_static_routes net_rc =
   if List.mem_assoc "static-routes" net_rc.API.network_other_config then

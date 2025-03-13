@@ -1835,28 +1835,6 @@ let rec atomics_of_operation = function
   | _ ->
       []
 
-let with_tracing ~name ~task f =
-  let open Tracing in
-  let parent = Xenops_task.tracing task in
-  let tracer = Tracer.get_tracer ~name in
-  match Tracer.start ~tracer ~name ~parent () with
-  | Ok span -> (
-      Xenops_task.set_tracing task span ;
-      try
-        let result = f () in
-        ignore @@ Tracer.finish span ;
-        Xenops_task.set_tracing task parent ;
-        result
-      with exn ->
-        let backtrace = Printexc.get_raw_backtrace () in
-        let error = (exn, backtrace) in
-        ignore @@ Tracer.finish span ~error ;
-        raise exn
-    )
-  | Error e ->
-      warn "Failed to start tracing: %s" (Printexc.to_string e) ;
-      f ()
-
 let rec perform_atomic ~progress_callback ?result (op : atomic)
     (t : Xenops_task.task_handle) : unit =
   let module B = (val get_backend () : S) in

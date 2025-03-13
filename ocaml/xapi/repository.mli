@@ -28,6 +28,14 @@ val introduce_bundle :
   -> name_description:string
   -> [`Repository] API.Ref.t
 
+val introduce_remote_pool :
+     __context:Context.t
+  -> name_label:string
+  -> name_description:string
+  -> binary_url:string
+  -> certificate:string
+  -> [`Repository] API.Ref.t
+
 val forget : __context:Context.t -> self:[`Repository] API.Ref.t -> unit
 
 val cleanup_all_pool_repositories : unit -> unit
@@ -40,12 +48,17 @@ val sync :
   -> self:[`Repository] API.Ref.t
   -> token:string
   -> token_id:string
+  -> username:string
+  -> password:string
   -> bool
 
 val create_pool_repository :
   __context:Context.t -> self:[`Repository] API.Ref.t -> unit
 
 val get_repository_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit
+
+val get_enabled_repository_handler :
+  Http.Request.t -> Unix.file_descr -> 'a -> unit
 
 val get_host_updates_in_json :
   __context:Context.t -> installed:bool -> Yojson.Basic.t

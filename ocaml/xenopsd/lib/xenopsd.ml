@@ -356,7 +356,8 @@ let handle_received_fd this_connection =
         let context = {Xenops_server.transferred_fd= Some received_fd} in
         let uri = Uri.of_string req.Xenops_migrate.Forwarded_http_request.uri in
         let traceparent =
-          req.Xenops_migrate.Forwarded_http_request.traceparent
+          List.assoc_opt "traceparent"
+            req.Xenops_migrate.Forwarded_http_request.additional_headers
         in
         fn uri req.Xenops_migrate.Forwarded_http_request.cookie traceparent
           this_connection context

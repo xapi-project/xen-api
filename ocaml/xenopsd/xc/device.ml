@@ -2501,6 +2501,7 @@ module Backend = struct
       let assert_can_suspend ~xs:_ _ = ()
 
       let suspend (task : Xenops_task.task_handle) ~xs ~qemu_domid domid =
+        with_tracing ~task ~name:"Qemu_none.Dm.suspend" @@ fun () ->
         Dm_Common.signal task ~xs ~qemu_domid ~domid "save" ~wait_for:"paused"
 
       let stop ~xs:_ ~qemu_domid:_ ~vtpm:_ _ = ()
@@ -3180,7 +3181,8 @@ module Backend = struct
 
       (* key not present *)
 
-      let suspend (_ : Xenops_task.task_handle) ~xs:_ ~qemu_domid:_ domid =
+      let suspend (task : Xenops_task.task_handle) ~xs:_ ~qemu_domid:_ domid =
+        with_tracing ~task ~name:"Qemu_upstream_compat.Dm.suspend" @@ fun () ->
         let as_msg cmd = Qmp.(Success (Some __LOC__, cmd)) in
         let perms = [Unix.O_WRONLY; Unix.O_CREAT] in
         let save_file = sprintf qemu_save_path domid in
@@ -3860,7 +3862,8 @@ module Dm = struct
     debug "Called Dm.restore_vgpu" ;
     start_vgpu ~xc ~xs task ~restore:true domid vgpus vcpus profile
 
-  let suspend_varstored (_ : Xenops_task.task_handle) ~xs domid ~vm_uuid =
+  let suspend_varstored (task : Xenops_task.task_handle) ~xs domid ~vm_uuid =
+    with_tracing ~task ~name:"Dm.suspend_varstored" @@ fun () ->
     debug "Called Dm.suspend_varstored (domid=%d)" domid ;
     Service.Varstored.stop ~xs domid ;
     Xenops_sandbox.Varstore_guard.read ~domid efivars_save_path ~vm_uuid
@@ -3877,6 +3880,7 @@ module Dm = struct
     debug "Wrote EFI variables to %s (domid=%d)" path domid
 
   let suspend_vtpm (task : Xenops_task.task_handle) ~xs domid ~vtpm =
+    with_tracing ~task ~name:"Dm.suspend_vtpm" @@ fun () ->
     debug "Called Dm.suspend_vtpm (domid=%d)" domid ;
     let dbg = Xenops_task.get_dbg task in
     Option.map

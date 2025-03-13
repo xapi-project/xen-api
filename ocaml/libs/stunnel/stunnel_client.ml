@@ -26,7 +26,12 @@ let set_verify_by_default = function
       D.info "enabling default tls verification" ;
       verify := true
 
-let pool () = match !verify with true -> Some Stunnel.pool | false -> None
+let get_verification_config config =
+  match !verify with true -> Some config | false -> None
 
-let appliance () =
-  match !verify with true -> Some Stunnel.appliance | false -> None
+let pool () = get_verification_config Stunnel.pool
+
+let appliance () = get_verification_config Stunnel.appliance
+
+let external_host cert_file =
+  Stunnel.external_host cert_file |> get_verification_config

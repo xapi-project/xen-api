@@ -5299,6 +5299,9 @@ let repository_record rpc session_id repository =
             Record_util.origin_to_string (x ()).API.repository_origin
           )
           ()
+      ; make_field ~name:"certificate" ~hidden:true
+          ~get:(fun () -> (x ()).API.repository_certificate)
+          ()
       ]
   }
 

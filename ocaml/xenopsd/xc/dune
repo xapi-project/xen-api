@@ -51,6 +51,8 @@
   xapi-stdext-std
   xapi-stdext-threads
   xapi-stdext-unix
+  xapi-tracing
+  xapi-tracing-export
   xapi_xenopsd
   xapi_xenopsd_c_stubs
   xapi_xenopsd_xc_c_stubs

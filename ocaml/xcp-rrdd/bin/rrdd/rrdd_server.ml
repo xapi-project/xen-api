@@ -345,7 +345,9 @@ let add_ds ~rrdi ~ds_name =
       fail_missing ds_name
   | Some (timestamp, ds) ->
       Rrd.rrd_add_ds rrdi.rrd timestamp
-        (Rrd.ds_create ds.ds_name ds.ds_type ~mrhb:300.0 Rrd.VT_Unknown)
+        (Rrd.ds_create ds.ds_name ds.ds_type ~min:ds.ds_min ~max:ds.ds_max
+           ~mrhb:300.0 Rrd.VT_Unknown
+        )
 
 let add rrds uuid domid ds_name rrdi =
   let rrd = add_ds ~rrdi ~ds_name in

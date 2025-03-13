@@ -100,8 +100,7 @@ let set_contents ~__context ~self ~contents =
   let _ =
     (* verify contents to be already base64-encoded *)
     try Base64.decode contents
-    with Invalid_argument err ->
-      raise Api_errors.(Server_error (internal_error, [err]))
+    with Invalid_argument err -> Helpers.internal_error "%s" err
   in
   let secret = Xapi_secret.create ~__context ~value:contents ~other_config:[] in
   Db.VTPM.set_contents ~__context ~self ~value:secret ;

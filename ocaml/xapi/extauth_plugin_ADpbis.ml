@@ -363,7 +363,7 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
           let errcode =
             List.hd
               (List.filter
-                 (fun w -> String.startswith "LW_ERROR_" w)
+                 (fun w -> String.starts_with ~prefix:"LW_ERROR_" w)
                  (split_to_words errcodeline)
               )
           in

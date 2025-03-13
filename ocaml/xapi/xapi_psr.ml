@@ -183,10 +183,7 @@ functor
         (* _in theory_ save_checkpoint or backup could fail, so
            catch that here. however we don't expect this to happen *)
         D.error "PSR.start: unexpected error: %s" (Printexc.to_string e) ;
-        raise
-          Api_errors.(
-            Server_error (internal_error, ["PSR.start: unexpected error"])
-          )
+        Helpers.internal_error "PSR.start: unexpected error"
   end
 
 let perm = 0o640
@@ -220,11 +217,7 @@ end = struct
     | false, false ->
         false
     | false, true | true, false ->
-        raise
-          Api_errors.(
-            Server_error
-              (internal_error, ["do_backups_exist: invalid backup state"])
-          )
+        Helpers.internal_error "do_backups_exist: invalid backup state"
 
   let does_checkpoint_exist () = Sys.file_exists checkpoint_path
 
@@ -235,34 +228,23 @@ end = struct
       SecretString.(equal old_backup old_ps && equal new_backup new_ps)
     in
     if not do_backups_match then
-      raise Api_errors.(Server_error (internal_error, ["backups don't match"]))
+      Helpers.internal_error "backups don't match"
 
   let no_backups () =
     if do_backups_exist () then
-      raise
-        Api_errors.(
-          Server_error (internal_error, ["pool member should have no backups"])
-        )
+      Helpers.internal_error "pool member should have no backups"
 
   let no_checkpoint () =
     (* we expect a checkpoint on the master, but not slaves *)
     if Pool_role.is_slave () && does_checkpoint_exist () then
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["pool member should not have a checkpoint"])
-        )
+      Helpers.internal_error "pool member should not have a checkpoint"
 
   let master_state_valid () =
     match (do_backups_exist (), does_checkpoint_exist ()) with
     | false, false | true, true ->
         ()
     | false, true | true, false ->
-        raise
-          Api_errors.(
-            Server_error
-              (internal_error, ["master pool secret rotation state is invalid"])
-          )
+        Helpers.internal_error "master pool secret rotation state is invalid"
 end
 
 let cleanup_internal ~additional_files_to_remove ~old_ps ~new_ps =
@@ -271,16 +253,9 @@ let cleanup_internal ~additional_files_to_remove ~old_ps ~new_ps =
       Assert.no_backups () ;
       D.info "xapi_psr.ml:cleanup_internal: already cleaned up"
   | [_] ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                "cleanup_internal: host has been cleaned up, but pool secret \
-                 doesn't match"
-              ]
-            )
-        )
+      Helpers.internal_error
+        "cleanup_internal: host has been cleaned up, but pool secret doesn't \
+         match"
   | [priority_1_ps; priority_2_ps]
     when SecretString.(equal new_ps priority_1_ps && equal old_ps priority_2_ps)
     ->
@@ -301,23 +276,10 @@ let cleanup_internal ~additional_files_to_remove ~old_ps ~new_ps =
       (* psr done, so stop accepting old pool secret *)
       Xapi_globs.pool_secrets := [priority_1_ps]
   | [_; _] ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["cleanup_internal: runtime secrets don't match"])
-        )
+      Helpers.internal_error "cleanup_internal: runtime secrets don't match"
   | l ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                Printf.sprintf
-                  "cleanup_internal: expected 1 or 2 pool secrets, got: %i"
-                  (List.length l)
-              ]
-            )
-        )
+      Helpers.internal_error
+        "cleanup_internal: expected 1 or 2 pool secrets, got: %i" (List.length l)
 
 module Impl =
 functor
@@ -348,11 +310,7 @@ functor
           Some x
       | [] | _ :: _ ->
           D.error "unexpected checkpoint file format: %s" checkpoint_path ;
-          raise
-            Api_errors.(
-              Server_error
-                (internal_error, ["unexpected checkpoint file format"])
-            )
+          Helpers.internal_error "unexpected checkpoint file format"
       | exception e ->
           D.info
             "tried to read %s, but encountered exception %s. assuming it \
@@ -402,36 +360,18 @@ let notify_new ~__context ~old_ps ~new_ps =
       then
         D.info "xapi_psr.ml:notify_new: already accepting new pool secret"
       else
-        raise
-          Api_errors.(
-            Server_error
-              ( internal_error
-              , ["notify_new: existing pool secrets are inconsistent"]
-              )
-          )
+        Helpers.internal_error
+          "notify_new: existing pool secrets are inconsistent"
   | [priority_1_ps] when SecretString.equal priority_1_ps old_ps ->
       if Pool_role.is_slave () then Assert.no_backups () ;
       SecretString.write_to_file old_pool_secret_backup_path old_ps ;
       SecretString.write_to_file new_pool_secret_backup_path new_ps ;
       Xapi_globs.pool_secrets := [old_ps; new_ps]
   | [_] ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["notify_new: old pool secret doesn't match"])
-        )
+      Helpers.internal_error "notify_new: old pool secret doesn't match"
   | l ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                Printf.sprintf
-                  "notify_new: expected 1 or 2 pool secrets, got: %i"
-                  (List.length l)
-              ]
-            )
-        )
+      Helpers.internal_error "notify_new: expected 1 or 2 pool secrets, got: %i"
+        (List.length l)
 
 let notify_send ~__context ~old_ps ~new_ps =
   Xapi_fist.hang_psr `notify_send ;
@@ -470,22 +410,10 @@ let notify_send ~__context ~old_ps ~new_ps =
     ->
       D.info "xapi_psr.ml:notify_send: already sending new_ps"
   | [_; _] ->
-      raise
-        Api_errors.(
-          Server_error
-            (internal_error, ["notify_send: runtime secrets don't match"])
-        )
+      Helpers.internal_error "notify_send: runtime secrets don't match"
   | l ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                Printf.sprintf "notify_send: expected 2 pool secrets, got: %i"
-                  (List.length l)
-              ]
-            )
-        )
+      Helpers.internal_error "notify_send: expected 2 pool secrets, got: %i"
+        (List.length l)
 
 let cleanup ~__context ~old_ps ~new_ps =
   Xapi_fist.hang_psr `cleanup ;
@@ -505,10 +433,7 @@ let start =
     if Mutex.try_lock m then (
       try f () ; Mutex.unlock m with e -> Mutex.unlock m ; raise e
     ) else
-      raise
-        Api_errors.(
-          Server_error (internal_error, ["pool secret rotation already running"])
-        )
+      Helpers.internal_error "pool secret rotation already running"
   in
   fun ~__context ->
     let self = Helpers.get_pool ~__context in
@@ -580,5 +505,5 @@ let start =
         | Error e ->
             let err_msg = user_facing_error_message ~__context e in
             D.error "PSR failed: %s" err_msg ;
-            raise Api_errors.(Server_error (internal_error, [err_msg]))
+            Helpers.internal_error "%s" err_msg
     )

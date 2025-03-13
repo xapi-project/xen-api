@@ -14,127 +14,130 @@
 (* Front end around the API code generator. Central place for filtering *)
 
 open Datamodel_types
+open Cmdliner
 
-let filter = ref None
-
-let filterinternal = ref false
+type filter = Nothing | OpenSource | Closed | Debug
 
 module Field = struct
-  let filter_internal x = if !filterinternal then not x.internal_only else true
-
-  let opensource x = List.mem "3.0.3" x.release.opensource && filter_internal x
-
-  let closed x = List.mem "closed" x.release.internal && filter_internal x
-
-  let debug x = List.mem "debug" x.release.internal && filter_internal x
-
-  let nothing x = filter_internal x
+  let filter_of filter filter_internal field =
+    let filter_internal =
+      if filter_internal then not field.internal_only else true
+    in
+    filter_internal
+    &&
+    match filter with
+    | OpenSource ->
+        List.mem "3.0.3" field.release.opensource
+    | Closed ->
+        List.mem "closed" field.release.internal
+    | Debug ->
+        List.mem "debug" field.release.internal
+    | Nothing ->
+        true
 end
 
 module Message = struct
-  let filter_internal x = if !filterinternal then not x.msg_db_only else true
-
-  let opensource x =
-    List.mem "3.0.3" x.msg_release.opensource && filter_internal x
-
-  let closed x = List.mem "closed" x.msg_release.internal && filter_internal x
-
-  let debug x = List.mem "debug" x.msg_release.internal && filter_internal x
-
-  let nothing x = filter_internal x
+  let filter_of filter filter_internal msg =
+    let filter_internal =
+      if filter_internal then
+        not msg.msg_db_only
+      else
+        true
+    in
+    filter_internal
+    &&
+    match filter with
+    | OpenSource ->
+        List.mem "3.0.3" msg.msg_release.opensource
+    | Closed ->
+        List.mem "closed" msg.msg_release.internal
+    | Debug ->
+        List.mem "debug" msg.msg_release.internal
+    | Nothing ->
+        true
 end
 
-let filter_api () =
-  let api_used = Datamodel.all_api in
-  (* Add all implicit messages to the API directly *)
-  let api_used = Datamodel_utils.add_implicit_messages api_used in
-  let filterfn = Dm_api.filter (fun _ -> true) in
-  match !filter with
-  | None ->
-      api_used
-  | Some "opensource" ->
-      filterfn Field.opensource Message.opensource api_used
-  | Some "closed" ->
-      filterfn Field.closed Message.closed api_used
-  | Some "debug" ->
-      filterfn Field.debug Message.debug api_used
-  | Some "nothing" ->
-      filterfn Field.nothing Message.nothing api_used
-  | Some x ->
-      Printf.eprintf "Unknown filter mode: %s\n" x ;
-      api_used
+let filter_api filter filter_internal =
+  let api = Datamodel.all_api |> Datamodel_utils.add_implicit_messages in
+  let field = Field.filter_of filter filter_internal in
+  let message = Message.filter_of filter filter_internal in
+  Dm_api.filter_by ~field ~message api
 
-let set_gendebug () = Gen_server.enable_debugging := true
+let filter_internal_arg =
+  let doc = "Filter out internal messages and internal-only fields." in
+  Arg.(value & flag & info ["filter-internal"] ~doc ~docv:"FILTER_INTERNAL")
 
-let mode = ref None
+let gen_debug_arg =
+  let doc = "Intersperse debugging code amid output." in
+  Arg.(value & flag & info ["gen-debug"] ~doc ~docv:"GEN_DEBUG")
 
-let _ =
-  Arg.parse
+let filter_arg =
+  let options =
     [
-      ( "-mode"
-      , Arg.Symbol
-          ( [
-              "client"
-            ; "server"
-            ; "api"
-            ; "utils"
-            ; "db"
-            ; "actions"
-            ; "sql"
-            ; "rbac"
-            ; "test"
-            ]
-          , fun x -> mode := Some x
-          )
-      , "Choose which file to output"
-      )
-    ; ( "-filter"
-      , Arg.Symbol
-          ( ["opensource"; "closed"; "debug"; "nothing"]
-          , fun x -> filter := Some x
-          )
-      , "Apply a filter to the API"
-      )
-    ; ( "-filterinternal"
-      , Arg.Bool (fun x -> filterinternal := x)
-      , "Filter internal fields and messages"
-      )
-    ; ( "-gendebug"
-      , Arg.Unit (fun _ -> set_gendebug ())
-      , "Add debugging code to generated output"
-      )
-    ; ( "-output"
-      , Arg.String
-          (fun s ->
-            ( try Unix.mkdir (Filename.dirname s) 0o755
-              with Unix.Unix_error (Unix.EEXIST, _, _) -> ()
-            ) ;
-            Gen_api.oc := open_out s
-          )
-      , "Output to the specified file"
-      )
+      ("nothing", Nothing)
+    ; ("opensource", OpenSource)
+    ; ("closed", Closed)
+    ; ("debug", Debug)
     ]
-    (fun x -> Printf.eprintf "Ignoring argument: %s\n" x)
-    "Generate ocaml code from the datamodel. See -help" ;
-  let api = filter_api () in
-  match !mode with
-  | None ->
-      Printf.eprintf "Must select an output type with -mode\n"
-  | Some "client" ->
-      Gen_api.gen_client api
-  | Some "api" ->
-      Gen_api.gen_client_types api
-  | Some "utils" ->
-      Gen_api.gen_record_deserialization api
-  | Some "server" ->
-      Gen_api.gen_server api
-  | Some "db" ->
-      Gen_api.gen_db_actions api
-  | Some "actions" ->
-      Gen_api.gen_custom_actions api
-  | Some "rbac" ->
-      Gen_api.gen_rbac api
-  | Some "test" ->
-      Gen_test.gen_test api
-  | Some x ->
-      Printf.eprintf "Didn't recognise mode: %s\n" x
+  in
+  let doc =
+    let keys = List.map fst options |> String.concat ", " in
+    Printf.sprintf
+      "Specify how the datamodel API should be filtered prior to processing, \
+       one of: %s."
+      keys
+  in
+  let filter =
+    Arg.(opt (enum options) Nothing & info ["f"; "filter"] ~doc ~docv:"FILTER")
+  in
+  Arg.(value & filter)
+
+let gen_command_common ~name ~doc
+    ~(f : Gen_api_types.config -> Dm_api.api -> unit) =
+  let go filter filter_internal debug =
+    let api = filter_api filter filter_internal in
+    let config = Gen_api_types.{debug} in
+    f config api
+  in
+  let man = [] in
+  let info = Cmd.info name ~version:"0.1" ~doc ~man in
+  let term =
+    Term.(const go $ filter_arg $ filter_internal_arg $ gen_debug_arg)
+  in
+  Cmd.v info term
+
+module Commands = struct
+  open Gen_api
+
+  let server =
+    gen_command_common ~name:"server" ~doc:"generate server.ml" ~f:gen_server
+
+  let client =
+    gen_command_common ~name:"client" ~doc:"generate client.ml" ~f:gen_client
+
+  let api =
+    gen_command_common ~name:"api" ~doc:"generate api.ml" ~f:gen_client_types
+
+  let rbac =
+    gen_command_common ~name:"rbac" ~doc:"generate rbac_static.ml" ~f:gen_rbac
+
+  let db =
+    gen_command_common ~name:"db" ~doc:"generate db_actions.ml"
+      ~f:gen_db_actions
+
+  let utils =
+    gen_command_common ~name:"utils" ~doc:"generate generated_record_utils.ml"
+      ~f:gen_record_deserialization
+
+  let actions =
+    gen_command_common ~name:"actions" ~doc:"generate custom_actions.ml"
+      ~f:gen_custom_actions
+end
+
+let driver =
+  let group = Commands.[server; client; api; rbac; db; utils; actions] in
+  let exe = Filename.basename Sys.argv.(0) in
+  let info = Cmd.info exe ~version:"0.1" in
+  Cmd.group info group
+
+let () = exit (Cmd.eval driver)

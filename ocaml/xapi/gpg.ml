@@ -28,7 +28,7 @@ exception InvalidSignature
 let parse_gpg_status status_data =
   let lines = String.split '\n' status_data in
   let status_contains substr =
-    List.exists (fun s -> String.startswith substr s) lines
+    List.exists (fun s -> String.starts_with ~prefix:substr s) lines
   in
   if
     not
@@ -40,7 +40,7 @@ let parse_gpg_status status_data =
   let validsig = "[GNUPG:] VALIDSIG" in
   if status_contains validsig then
     let validsigline =
-      List.find (fun s -> String.startswith validsig s) lines
+      List.find (fun s -> String.starts_with ~prefix:validsig s) lines
     in
     match String.split ' ' validsigline with
     | _ :: _ :: fingerprint :: _ ->

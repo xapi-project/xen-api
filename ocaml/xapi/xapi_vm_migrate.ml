@@ -805,13 +805,17 @@ let get_vdi_mirror __context vm vdi do_mirror =
   in
   let hash x =
     let s = Digest.string x |> Digest.to_hex in
-    String.sub s 0 5
+    String.sub s 0 3
   in
   let copy_vm =
-    Ref.string_of vm |> hash |> ( ^ ) "COPY" |> Storage_interface.Vm.of_string
+    (Ref.string_of vm |> hash) ^ (Ref.string_of vdi |> hash)
+    |> ( ^ ) "CP"
+    |> Storage_interface.Vm.of_string
   in
   let mirror_vm =
-    Ref.string_of vm |> hash |> ( ^ ) "MIR" |> Storage_interface.Vm.of_string
+    (Ref.string_of vm |> hash) ^ (Ref.string_of vdi |> hash)
+    |> ( ^ ) "MIR"
+    |> Storage_interface.Vm.of_string
   in
   {
     vdi
@@ -1904,16 +1908,9 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
             = []
             )
         then
-          raise
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [
-                    "assert_can_migrate: inter_pool_metadata_transfer returned \
-                     a nonempty list"
-                  ]
-                )
-            )
+          Helpers.internal_error
+            "assert_can_migrate: inter_pool_metadata_transfer returned a \
+             nonempty list"
       with Xmlrpc_client.Connection_reset ->
         raise
           (Api_errors.Server_error

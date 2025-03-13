@@ -174,17 +174,8 @@ let join_internal ~__context ~self =
 let resync_host ~__context ~host =
   match find_cluster_host ~__context ~host with
   | _ when host <> Helpers.get_localhost ~__context ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , [
-                "resync_host called with remote host"
-              ; Ref.string_of host
-              ; __LOC__
-              ]
-            )
-        )
+      Helpers.internal_error "resync_host called with remote host: %s (%s)"
+        (Ref.string_of host) __LOC__
   | None ->
       () (* no clusters exist *)
   | Some self ->
@@ -434,25 +425,13 @@ let sync_required ~__context ~host =
           else
             None
       | _ ->
-          raise
-            Api_errors.(
-              Server_error
-                ( internal_error
-                , [
-                    "Host cannot be associated with more than one cluster_host"
-                  ; Ref.string_of host
-                  ]
-                )
-            )
+          Helpers.internal_error
+            "Host cannot be associated with more than one cluster_host: %s"
+            (Ref.string_of host)
     )
   | _ ->
-      raise
-        Api_errors.(
-          Server_error
-            ( internal_error
-            , ["Cannot have more than one Cluster object per pool currently"]
-            )
-        )
+      Helpers.internal_error
+        "Cannot have more than one Cluster object per pool currently"
 
 (* If cluster found without local cluster_host, create one in db *)
 let create_as_necessary ~__context ~host =

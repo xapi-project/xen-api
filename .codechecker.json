@@ -1,0 +1,6 @@
+{
+  "analyze": [
+    "--disable=misc-header-include-cycle",
+    "--disable=clang-diagnostic-unused-parameter"
+  ]
+}

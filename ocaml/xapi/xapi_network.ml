@@ -252,7 +252,7 @@ let create ~__context ~name_label ~name_description ~mTU ~other_config ~bridge
             (not is_internal_session)
             && (String.length bridge > 15
                || List.exists
-                    (fun s -> String.startswith s bridge)
+                    (fun s -> String.starts_with ~prefix:s bridge)
                     bridge_blacklist
                )
           then
