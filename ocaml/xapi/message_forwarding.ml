@@ -4027,16 +4027,14 @@ functor
       let enable_ssh ~__context ~self =
         info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
         let local_fn = Local.Host.enable_ssh ~self in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.enable_ssh ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Host.enable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
 
       let disable_ssh ~__context ~self =
         info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
         let local_fn = Local.Host.disable_ssh ~self in
-        do_op_on ~local_fn ~__context ~host:self (fun session_id rpc ->
-            Client.Host.disable_ssh ~rpc ~session_id ~self
-        )
+        let remote_fn = Client.Host.disable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct
