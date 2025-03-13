@@ -32,10 +32,9 @@ let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
  * - Astring.String.Ascii.escape_string
  * - Astring.String.Ascii.unescape
  * that have guaranteed invariants and optimised performances *)
-let escape s =
+let escape_buf escaped s =
   let open Astring in
-  if String.exists is_escape_char s then (
-    let escaped = Buffer.create (String.length s + 10) in
+  if String.exists is_escape_char s then
     String.iter
       (fun c ->
         match c with
@@ -48,10 +47,9 @@ let escape s =
         | _ ->
             Buffer.add_char escaped c
       )
-      s ;
-    Buffer.contents escaped
-  ) else
-    s
+      s
+  else
+    Buffer.add_string escaped s
 
 let unescape s =
   if String.contains s '\\' then (
@@ -82,7 +80,7 @@ let string_of sexpr =
         Buffer.add_char buf ')'
     | Symbol s | String s ->
         Buffer.add_string buf "\'" ;
-        Buffer.add_string buf (escape s) ;
+        escape_buf buf s ;
         Buffer.add_string buf "\'"
   in
   __string_of_rec sexpr ; Buffer.contents buf
