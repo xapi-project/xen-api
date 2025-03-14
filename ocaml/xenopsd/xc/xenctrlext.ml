@@ -108,3 +108,6 @@ external combine_cpu_policies : int64 array -> int64 array -> int64 array
 
 external policy_is_compatible : int64 array -> int64 array -> string option
   = "stub_xenctrlext_featuresets_are_compatible"
+
+external domain_claim_pages : handle -> domid -> int -> unit
+  = "stub_xenctrlext_domain_claim_pages"
