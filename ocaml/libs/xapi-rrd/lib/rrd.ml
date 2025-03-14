@@ -744,7 +744,19 @@ let from_xml input =
           let name = get_el "name" i in
           let type_ = get_el "type" i in
           let min_hb = get_el "minimal_heartbeat" i in
-          let min = get_el "min" i in
+          (* CA-408126 - work around negative data in historical RRDs
+             where ds_min could have been incorrectly set to neg_infinity.
+             Currently the only metric that could be negative is
+             DCMI-power-reading, so account for it.
+             Setting ds_min to 0. means Fring.make below will turn negative
+             historical values to NaNs.*)
+          let min = float_of_string (get_el "min" i) in
+          let min =
+            if min < 0. && name <> "DCMI-power-reading" then
+              0.
+            else
+              min
+          in
           let max = get_el "max" i in
           ignore (get_el "last_ds" i) ;
           let value = get_el "value" i in
@@ -767,7 +779,7 @@ let from_xml input =
                   failwith "Bad format"
               )
           ; ds_mrhb= float_of_string min_hb
-          ; ds_min= float_of_string min
+          ; ds_min= min
           ; ds_max= float_of_string max
           ; ds_last= VT_Unknown
           ; (* float_of_string "last_ds"; *)
