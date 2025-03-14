@@ -94,6 +94,6 @@ module DirWatcher : sig
     (Inotify.watch, string) Hashtbl.t * Lwt_inotify.t -> event list Lwt.t
 end
 
-module Clock : sig
+module Wake : sig
   val after : seconds:float -> unit Lwt.t
 end

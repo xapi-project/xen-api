@@ -139,7 +139,7 @@ let exists ~service = Sys.file_exists (path service)
 (** creation time of [path] as a string *)
 let ctime path =
   let ctime = Unix.((stat path).st_ctime) in
-  Xapi_stdext_date.Date.(of_unix_time ctime |> to_rfc3339)
+  Clock.Date.(of_unix_time ctime |> to_rfc3339)
 
 let start_transient ?env ?properties ?(exec_ty = Type.Simple) ~service cmd args
     =

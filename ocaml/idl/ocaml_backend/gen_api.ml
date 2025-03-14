@@ -401,7 +401,7 @@ let gen_client_types _config highapi =
        ; ["module Ref = Ref"]
        ; [
            "module Date = struct"
-         ; "  open Xapi_stdext_date"
+         ; "  module Date = Clock.Date"
          ; "  include Date"
          ; "  let rpc_of_t x = DateTime (Date.to_rfc3339 x)"
          ; "  let t_of_rpc = function String x | DateTime x -> Date.of_iso8601 \

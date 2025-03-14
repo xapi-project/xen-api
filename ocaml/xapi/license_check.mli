@@ -16,12 +16,12 @@
  * @group Licensing
 *)
 
-val serialize_expiry : Xapi_stdext_date.Date.t option -> string
+val serialize_expiry : Clock.Date.t option -> string
 (** Get the string corresponding with the expiry that can be stored in xapi's
     DB *)
 
 val get_expiry_date :
-  __context:Context.t -> host:API.ref_host -> Xapi_stdext_date.Date.t option
+  __context:Context.t -> host:API.ref_host -> Clock.Date.t option
 (** Returns (Some date) if the host's license has an expiry date,
  *  otherwise returns None. *)
 

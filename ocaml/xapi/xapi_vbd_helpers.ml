@@ -17,7 +17,7 @@
 
 open Xapi_stdext_std.Xstringext
 module Listext = Xapi_stdext_std.Listext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 module D = Debug.Make (struct let name = "xapi_vbd_helpers" end)
 

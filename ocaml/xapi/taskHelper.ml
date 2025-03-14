@@ -14,7 +14,7 @@
 module D = Debug.Make (struct let name = "taskhelper" end)
 
 open D
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 

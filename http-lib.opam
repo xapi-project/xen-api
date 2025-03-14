@@ -13,6 +13,7 @@ depends: [
   "alcotest" {with-test}
   "astring"
   "base64" {>= "3.1.0"}
+  "clock" {= version}
   "fmt"
   "ipaddr"
   "mtime"
@@ -28,7 +29,6 @@ depends: [
   "xapi-backtrace"
   "xapi-idl" {= version}
   "xapi-log" {= version}
-  "xapi-stdext-date" {= version}
   "xapi-stdext-pervasives" {= version}
   "xapi-stdext-threads" {= version}
   "xapi-tracing" {= version}

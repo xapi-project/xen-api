@@ -14,7 +14,7 @@
 
 module T = Test_common
 module X = Xapi_db_upgrade
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let upgrade_bios () =
   let tmp_filename =

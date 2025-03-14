@@ -22,7 +22,7 @@ depends: [
   "uuid"
   "xapi-consts"
   "xapi-datamodel"
-  "xapi-stdext-date"
+  "clock"
   "xapi-stdext-pervasives"
   "xapi-stdext-std"
   "xapi-stdext-unix"

@@ -13,7 +13,7 @@ let make_client_params ~__context =
   let rpc = Api_server.Server.dispatch_call req Unix.stdout in
   let session_id =
     let session_id = Ref.make_secret () in
-    let now = Xapi_stdext_date.Date.now () in
+    let now = Clock.Date.now () in
     let (_ : _ API.Ref.t) =
       Test_common.make_session ~__context ~ref:session_id
         ~this_host:(Helpers.get_localhost ~__context)

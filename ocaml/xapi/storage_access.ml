@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute

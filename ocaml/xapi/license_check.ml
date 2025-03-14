@@ -13,7 +13,7 @@
  *)
 module L = Debug.Make (struct let name = "license" end)
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let never = Ptime.of_year 2100 |> Option.get |> Date.of_ptime
 
@@ -29,7 +29,7 @@ let get_expiry_date ~__context ~host =
   let license = Db.Host.get_license_params ~__context ~self:host in
   List.assoc_opt "expiry" license
   |> Fun.flip Option.bind (fun e -> if e = "never" then None else Some e)
-  |> Option.map Xapi_stdext_date.Date.of_iso8601
+  |> Option.map Clock.Date.of_iso8601
 
 let check_expiry ~__context ~host =
   let expired =
@@ -37,7 +37,7 @@ let check_expiry ~__context ~host =
     | None ->
         false (* No expiry date means no expiry :) *)
     | Some expiry ->
-        Xapi_stdext_date.Date.(is_later ~than:expiry (now ()))
+        Clock.Date.(is_later ~than:expiry (now ()))
   in
   if expired then
     raise Api_errors.(Server_error (license_expired, []))

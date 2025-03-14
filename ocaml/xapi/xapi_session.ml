@@ -27,7 +27,7 @@ let total_sessions = Atomic.make 0
 
 let get_total_sessions () = Atomic.get total_sessions |> Int64.of_int
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext
 open Client
 open Auth_signature

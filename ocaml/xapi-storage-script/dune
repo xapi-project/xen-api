@@ -50,7 +50,7 @@
     xapi-idl.storage.interface
     xapi-log
     xapi-rrd
-    xapi-stdext-date
+    clock
     xapi-storage
   )
   (preprocess (pps ppx_sexp_conv))

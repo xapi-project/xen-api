@@ -14,7 +14,7 @@ let _ =
   in
   Xapi_stdext_pervasives.Pervasiveext.finally
     (fun () ->
-      let now = Xapi_stdext_date.Date.now () in
+      let now = Clock.Date.now () in
       let pool, pool_license_state, all_license_params =
         Daily_license_check.get_info_from_db rpc session_id
       in
