@@ -54,25 +54,11 @@ module Http = struct
     | xs ->
         Some xs
 
-  let parse input =
-    let open Astring.String in
-    let trim_pair (key, value) = (trim key, trim value) in
-    input
-    |> cuts ~sep:";"
-    |> List.map (cut ~sep:"=" >> Option.map trim_pair)
-    |> List.filter_map Fun.id
-
   let inject_into ctx req =
     let open Tracing in
     let traceparent = (hdr_traceparent, TraceContext.traceparent_of ctx) in
     let baggage =
-      let encoded =
-        let encode =
-          List.map (fun (k, v) -> Printf.sprintf "%s=%s" k v)
-          >> String.concat ";"
-        in
-        TraceContext.baggage_of ctx |> Option.map encode
-      in
+      let encoded = TraceContext.encode_baggage ctx in
       (hdr_baggage, encoded)
     in
     let entries = [traceparent; baggage] in
@@ -102,7 +88,7 @@ module Http = struct
     let traceparent = List.assoc_opt hdr_traceparent headers in
     let baggage =
       let* all = alloc_assoc hdr_baggage headers in
-      Some (List.concat_map parse all)
+      Some (List.concat_map TraceContext.parse all)
     in
     let open TraceContext in
     empty |> maybe with_traceparent traceparent |> maybe with_baggage baggage
