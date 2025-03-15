@@ -2,7 +2,7 @@
 title: Add supported image formats in sm-list
 layout: default
 design_doc: true
-revision: 2
+revision: 3
 status: proposed
 ---
 
@@ -22,24 +22,31 @@ available formats.
 # Design Proposal
 
 To expose the available image formats to clients (e.g., XenCenter, XenOrchestra, etc.),
-we propose adding a new field called `supported-image-formats` to the Storage Manager (SM)
-module. This field will be included in the output of the `SM.get_all_records` call.
+we propose adding a new field called `supported_image_formats` to the Storage Manager
+(SM) module. This field will be included in the output of the `SM.get_all_records` call.
 
-The `supported-image-formats` field will be populated by retrieving information
+The `supported_image_formats` field will be populated by retrieving information
 from the SMAPI drivers. Specifically, each driver will update its `DRIVER_INFO`
 dictionary with a new key, `supported_image_formats`, which will contain a list
 of strings representing the supported image formats
 (for example: `["vhd", "raw", "qcow2"]`).
 
-The list designates the driver's preferred VDI format as its first entry. That
-means that when migrating a VDI, the destination storage repository will
-attempt to create a VDI in this preferred format. If the default format cannot
-be used (e.g., due to size limitations), an error will be generated.
+If a driver does not provide this information (as is currently the case with
+existing drivers), the default value will be an empty array. This signifies that
+the driver determines which format to use when creating or migrating a VDI.
+This approach ensures compatibility with both current and future drivers.
 
-If a driver does not provide this information (as is currently the case with existing
-drivers), the default value will be an empty array. This signifies that it is the
-driver that decides which format it will use. This ensures that the modification
-remains compatible with both current and future drivers.
+When creating new VDI, user can choose the format by passing the option
+`type=qcow2` to the `sm_config` parameter. If no format is specified, it is
+up to the driver to choose its preferred format.
+
+During the migration of a VDI, the API client needs a way to specify the desired
+image format when an SR supports multiple storage types. To achieve this, a new
+field, `destination_image_format`, is introduced and provided during the migration
+process. This field is added as a new parameter to `VDI.pool_migrate` and accepts
+a string. The string specifies a preferred format (e.g., qcow2), ensuring that the
+VDI is migrated in the correct format. If the chosen or default format cannot be
+used (e.g., due to size limitations), an error will be generated.
 
 With this new information, listing all parameters of the SM object will return:
 
@@ -47,7 +54,7 @@ With this new information, listing all parameters of the SM object will return:
 # xe sm-list params=all
 ```
 
-will output something like:
+will output something like (notice that CLI uses hyphens):
 
 ```
 uuid ( RO)                         : c6ae9a43-fff6-e482-42a9-8c3f8c533e36
@@ -70,7 +77,7 @@ be incremented.
 
 # Impact
 
-- **Data Model:** A new field (`supported-image-formats`) is added to the SM records.
+- **Data Model:** A new field (`supported_image_formats`) is added to the SM records.
 - **Client Awareness:** Clients like the `xe` CLI will now be able to query and display the supported image formats for a given SR.
 - **Database Versioning:** The XAPI database version will be updated to reflect this change.
 
