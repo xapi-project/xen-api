@@ -19,7 +19,7 @@
     xapi-consts
     xapi-log
     xapi-types
-    xapi-stdext-date
+    clock
     xapi-stdext-pervasives
   )
   (wrapped false)

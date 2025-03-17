@@ -13,7 +13,7 @@
  *)
 (** Represents local sessions, for use in emergency mode *)
 
-type t = {r: API.ref_session; pool: bool; last_active: Xapi_stdext_date.Date.t}
+type t = {r: API.ref_session; pool: bool; last_active: Clock.Date.t}
 
 val get_all : __context:Context.t -> API.ref_session list
 

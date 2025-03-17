@@ -17,7 +17,7 @@
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 module D = Debug.Make (struct let name = "xapi_guest_metrics" end)
 

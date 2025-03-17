@@ -210,6 +210,13 @@ def _init_tracing(configs: List[str], config_dir: str):
             if "=" in item
         )
 
+        baggage = os.getenv("BAGGAGE")
+        if baggage:
+            update = dict(
+                item.split("=", 1) for item in baggage.split(";") if "=" in item
+            )
+            otel_resource_attrs.update(update)
+
         service_name = config.get(
             "otel_service_name", otel_resource_attrs.get("service.name", "unknown")
         )

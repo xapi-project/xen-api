@@ -1,4 +1,4 @@
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let now = Date.of_iso8601 "2020-09-22T14:57:11Z"
 

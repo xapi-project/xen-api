@@ -182,7 +182,7 @@ module Db_util : sig
 
   val get_ca_certs : __context:Context.t -> API.ref_Certificate list
 end = struct
-  module Date = Xapi_stdext_date.Date
+  module Date = Clock.Date
 
   type name = string
 

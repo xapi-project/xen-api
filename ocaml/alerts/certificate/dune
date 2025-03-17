@@ -4,11 +4,12 @@
   (modes best)
   (libraries
     astring
+    ptime
     xapi-expiry-alerts
     xapi-client
     xapi-consts
     xapi-types
-    xapi-stdext-date
+    clock
   )
 )
 
@@ -18,7 +19,7 @@
   (modules certificate_check_main)
   (libraries
     certificate_check
-    
+
     http_lib
     xapi-client
     xapi-types

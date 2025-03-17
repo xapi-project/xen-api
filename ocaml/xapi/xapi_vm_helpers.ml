@@ -18,7 +18,7 @@
 open Xapi_vm_memory_constraints
 open Xapi_network_attach_helpers
 module Listext = Xapi_stdext_std.Listext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 

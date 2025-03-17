@@ -1,9 +1,9 @@
 module Date : sig
-  include module type of Xapi_stdext_date.Date
+  include module type of Clock.Date
 
-  val t_of_rpc : Rpc.t -> Xapi_stdext_date.Date.t
+  val t_of_rpc : Rpc.t -> Clock.Date.t
 
-  val rpc_of_t : Xapi_stdext_date.Date.t -> Rpc.t
+  val rpc_of_t : Clock.Date.t -> Rpc.t
 end
 
 val oss_since_303 : string option

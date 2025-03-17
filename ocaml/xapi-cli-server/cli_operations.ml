@@ -18,7 +18,7 @@
 open Cli_protocol
 open Cli_util
 open Cli_cmdtable
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext.List
 module Unixext = Xapi_stdext_unix.Unixext
 

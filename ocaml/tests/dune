@@ -39,7 +39,7 @@
     xapi-idl.xen.interface
     xapi-idl.xen.interface.types
     xapi-log
-    xapi-stdext-date
+    clock
     xapi-stdext-pervasives
     xapi-stdext-std
     xapi-stdext-threads
@@ -71,7 +71,7 @@
     xapi-client
     http_lib
     xapi-log
-    xapi-stdext-date
+    clock
     xapi-types
     xapi_internal
     xapi_internal_server
@@ -112,7 +112,7 @@
     xapi-idl.storage
     xapi-idl.storage.interface
     xapi-idl.xen
-    xapi-stdext-date
+    clock
     xapi-stdext-threads
     xapi-stdext-threads.scheduler
     xapi-stdext-unix

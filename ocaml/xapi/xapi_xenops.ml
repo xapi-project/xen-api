@@ -18,7 +18,7 @@ open D
 module StringSet = Set.Make (String)
 open Network
 open Xapi_stdext_std.Xstringext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext.List
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute

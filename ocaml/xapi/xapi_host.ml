@@ -13,7 +13,7 @@
  *)
 
 module Rrdd = Rrd_client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute

@@ -65,7 +65,7 @@
       SR_p, VDI_p_a, VDI_p_b, ..., VDI_p_z : for an SR.detach (to "quiesce" the SR)
 *)
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
 
