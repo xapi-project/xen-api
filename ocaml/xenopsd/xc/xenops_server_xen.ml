@@ -2313,11 +2313,12 @@ module VM = struct
         )
         (create_device_model_config vm vmextra vbds vifs vgpus vusbs) ;
       match vm.Vm.ty with
-      | Vm.PV {vncterm= true; vncterm_ip= ip; _}
-      | Vm.PVH {vncterm= true; vncterm_ip= ip; _}
-      | Vm.PVinPVH {vncterm= true; vncterm_ip= ip; _} ->
-          Service.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
-      | _ ->
+      | PV {vncterm; vncterm_ip= ip; _}
+      | PVH {vncterm; vncterm_ip= ip; _}
+      | PVinPVH {vncterm; vncterm_ip= ip; _} ->
+          if vncterm then
+            Service.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
+      | HVM _ ->
           ()
     with Device.Ioemu_failed (name, msg) ->
       raise (Xenopsd_error (Failed_to_start_emulator (vm.Vm.id, name, msg)))
