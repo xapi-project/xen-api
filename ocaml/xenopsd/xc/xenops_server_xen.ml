@@ -2314,6 +2314,7 @@ module VM = struct
         (create_device_model_config vm vmextra vbds vifs vgpus vusbs) ;
       match vm.Vm.ty with
       | Vm.PV {vncterm= true; vncterm_ip= ip; _}
+      | Vm.PVH {vncterm= true; vncterm_ip= ip; _}
       | Vm.PVinPVH {vncterm= true; vncterm_ip= ip; _} ->
           Service.PV_Vnc.start ~xs ?ip di.Xenctrl.domid
       | _ ->
