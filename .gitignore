@@ -6,6 +6,7 @@ _coverage/
 *.install
 *.swp
 compile_flags.txt
+_opam
 
 # tests
 xapi-db.xml
