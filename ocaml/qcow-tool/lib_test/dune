@@ -1,0 +1,6 @@
+(executables
+ (names test compact_random)
+ (libraries qcow io-page.unix logs logs.fmt oUnit ezjsonm
+   mirage-block-ramdisk mirage-block-combinators)
+ (preprocess
+  (pps ppx_sexp_conv)))

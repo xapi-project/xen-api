@@ -1,0 +1,16 @@
+*.annot
+*.cmo
+*.cma
+*.cmi
+*.a
+*.o
+*.cmx
+*.cmxs
+*.cmxa
+_build
+*.native
+.coverage/
+*.install
+lib/qcow_word_size.ml
+*.exe
+*.merlin
