@@ -919,7 +919,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let timer_mode = int_platform_flag "timer_mode" in
   let log_reraise call_str f =
     debug "VM = %s; domid = %d; %s" (Uuidx.to_string uuid) domid call_str ;
-    try ignore (f ())
+    try f ()
     with e ->
       let bt = Printexc.get_backtrace () in
       debug "Backtrace: %s" bt ;
