@@ -433,3 +433,7 @@ val get_guest_secureboot_readiness :
   -> API.pool_guest_secureboot_readiness
 
 val put_bundle_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit
+
+val enable_ssh : __context:Context.t -> self:API.ref_pool -> unit
+
+val disable_ssh : __context:Context.t -> self:API.ref_pool -> unit

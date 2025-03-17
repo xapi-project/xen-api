@@ -45,6 +45,9 @@ val start_transient :
 val is_active : service:string -> bool
 (** [is_active ~service] checks whether the [service] is still running *)
 
+val is_enabled : service:string -> bool
+(** [is_enabled ~service] checks whether the [service] is enabled *)
+
 val show : service:string -> status
 (** [shows ~service] retrieves the exitcodes and PIDs of the specified [service] *)
 

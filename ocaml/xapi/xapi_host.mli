@@ -563,3 +563,7 @@ val set_https_only :
   __context:Context.t -> self:API.ref_host -> value:bool -> unit
 
 val emergency_clear_mandatory_guidance : __context:Context.t -> unit
+
+val enable_ssh : __context:Context.t -> self:API.ref_host -> unit
+
+val disable_ssh : __context:Context.t -> self:API.ref_host -> unit

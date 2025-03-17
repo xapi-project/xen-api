@@ -3111,3 +3111,23 @@ let emergency_clear_mandatory_guidance ~__context =
          info "%s: %s is cleared" __FUNCTION__ s
      ) ;
   Db.Host.set_pending_guidances ~__context ~self ~value:[]
+
+let enable_ssh ~__context ~self =
+  try
+    Xapi_systemctl.enable ~wait_until_success:false "sshd" ;
+    Xapi_systemctl.start ~wait_until_success:false "sshd"
+  with _ ->
+    raise
+      (Api_errors.Server_error
+         (Api_errors.enable_ssh_failed, [Ref.string_of self])
+      )
+
+let disable_ssh ~__context ~self =
+  try
+    Xapi_systemctl.disable ~wait_until_success:false "sshd" ;
+    Xapi_systemctl.stop ~wait_until_success:false "sshd"
+  with _ ->
+    raise
+      (Api_errors.Server_error
+         (Api_errors.disable_ssh_failed, [Ref.string_of self])
+      )
