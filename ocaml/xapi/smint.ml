@@ -36,6 +36,7 @@ module Feature = struct
     | Sr_metadata
     | Sr_trim
     | Sr_multipath
+    | Sr_caching
     | Vdi_create
     | Vdi_delete
     | Vdi_attach
@@ -75,6 +76,7 @@ module Feature = struct
     ; ("SR_METADATA", Sr_metadata)
     ; ("SR_TRIM", Sr_trim)
     ; ("SR_MULTIPATH", Sr_multipath)
+    ; ("SR_CACHING", Sr_caching)
     ; ("SR_STATS", Sr_stats)
     ; ("VDI_CREATE", Vdi_create)
     ; ("VDI_DELETE", Vdi_delete)
