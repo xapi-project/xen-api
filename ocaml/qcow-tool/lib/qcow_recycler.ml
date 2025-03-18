@@ -162,7 +162,7 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
   let erase t remaining =
     let open Lwt.Infix in
     let intervals = Cluster.IntervalSet.fold (fun i acc -> i :: acc) remaining [] in
-    let buffer_size_clusters = Int64.of_int (Cstruct.len t.zero_buffer) |> t.cluster_bits in
+    let buffer_size_clusters = Int64.of_int (Cstruct.length t.zero_buffer) |> t.cluster_bits in
 
     Lwt_list.fold_left_s
       (fun acc i -> match acc with

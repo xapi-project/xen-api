@@ -49,7 +49,7 @@ end
 module TracedBlock = struct
   include ReadWriteBlock
 
-  let length_of bufs = List.fold_left (+) 0 (List.map Cstruct.len bufs)
+  let length_of bufs = List.fold_left (+) 0 (List.map Cstruct.length bufs)
 
   let read t sector bufs =
     Log.info (fun f -> f "BLOCK.read %Ld len = %d" sector (length_of bufs));
@@ -251,7 +251,7 @@ exception Non_zero
 (* slow but performance is not a concern *)
 let is_zero buffer =
   try
-    for i = 0 to Cstruct.len buffer - 1 do
+    for i = 0 to Cstruct.length buffer - 1 do
       if Cstruct.get_uint8 buffer i <> 0 then raise Non_zero
     done;
     true
@@ -283,7 +283,7 @@ let discard unsafe_buffering filename =
     F.mapped_s
       ~f:(fun acc sector buffer ->
         if is_zero buffer then begin
-          let len = Cstruct.len buffer in
+          let len = Cstruct.length buffer in
           assert (len mod info.Mirage_block.sector_size = 0);
           let n = Int64.of_int @@ len / info.Mirage_block.sector_size in
           if Int64.add sector n = info.Mirage_block.size_sectors then begin
@@ -407,13 +407,13 @@ let sha _common_options_t filename =
       if c.Cstruct.off = 0 && c.Cstruct.len = (Bigarray.Array1.dim b')
       then Sha1.update_buffer ctx b'
       else begin
-        let c' = Cstruct.create (Cstruct.len c) in
-        Cstruct.blit c 0 c' 0 (Cstruct.len c);
+        let c' = Cstruct.create (Cstruct.length c) in
+        Cstruct.blit c 0 c' 0 (Cstruct.length c);
         let b' = c'.Cstruct.buffer in
         Sha1.update_buffer ctx b'
       end in
     let buf = Io_page.(to_cstruct @@ get 1024) in
-    let buf_sectors = Int64.of_int (Cstruct.len buf / info.Mirage_block.sector_size) in
+    let buf_sectors = Int64.of_int (Cstruct.length buf / info.Mirage_block.sector_size) in
     let rec loop sector =
       let remaining = Int64.sub info.Mirage_block.size_sectors sector in
       if remaining = 0L then Lwt.return_unit else begin
@@ -566,7 +566,7 @@ let pattern common_options_t trace filename size number =
            should be worst case for the compactor *)
         let pages = Io_page.(to_cstruct @@ get 1024) in (* 4 MiB *)
         Cstruct.memset pages 0;
-        let sectors = Cstruct.len pages / sector_size in
+        let sectors = Cstruct.length pages / sector_size in
         let rec loop sector =
           if sector >= info.Mirage_block.size_sectors then Lwt.return_unit else begin
             let percent = Int64.(to_int (div (mul 50L sector) info.Mirage_block.size_sectors)) in
@@ -642,7 +642,7 @@ type output = [
 
 let is_zero buf =
   let rec loop ofs =
-    (ofs >= Cstruct.len buf) || (Cstruct.get_uint8 buf ofs = 0 && (loop (ofs + 1))) in
+    (ofs >= Cstruct.length buf) || (Cstruct.get_uint8 buf ofs = 0 && (loop (ofs + 1))) in
   loop 0
 
 let mapped filename _format ignore_zeroes =
@@ -660,7 +660,7 @@ let mapped filename _format ignore_zeroes =
     F.mapped_s ~f:(fun () sector_ofs data ->
       let sector_bytes = Int64.(mul sector_ofs (of_int info.Mirage_block.sector_size)) in
       if not ignore_zeroes || not(is_zero data)
-      then Printf.printf "%Lx %d\n" sector_bytes (Cstruct.len data);
+      then Printf.printf "%Lx %d\n" sector_bytes (Cstruct.length data);
       Lwt.return_unit
     ) () x
     >>*= fun () ->
@@ -713,7 +713,7 @@ let dehydrate _common input_filename output_filename =
         let rec loop x =
           let remaining = Int64.(succ @@ sub y x) in
           if remaining = 0L then Lwt.return_unit else begin
-            let this_time = min (Cstruct.len buffer) (Int64.to_int remaining) in
+            let this_time = min (Cstruct.length buffer) (Int64.to_int remaining) in
             let fragment = Cstruct.sub buffer 0 this_time in
             Lwt_unix.LargeFile.lseek input_fd x Lwt_unix.SEEK_SET
             >>= fun _ ->
@@ -758,7 +758,7 @@ let rehydrate _common input_filename output_filename =
         let rec loop x =
           let remaining = Int64.(succ @@ sub y x) in
           if remaining = 0L then Lwt.return_unit else begin
-            let this_time = min (Cstruct.len buffer) (Int64.to_int remaining) in
+            let this_time = min (Cstruct.length buffer) (Int64.to_int remaining) in
             let fragment = Cstruct.sub buffer 0 this_time in
             Lwt_unix.LargeFile.lseek output_fd x Lwt_unix.SEEK_SET
             >>= fun _ ->

@@ -132,10 +132,10 @@ module Feature = struct
 
   let read_all rest =
     let rec loop acc rest =
-      if Cstruct.len rest = 0
+      if Cstruct.length rest = 0
       then Ok (List.rev acc)
       else begin
-        if Cstruct.len rest < 48
+        if Cstruct.length rest < 48
         then error_msg "Trailing garbage in feature area: %s" (String.Ascii.escape (Cstruct.to_string rest))
         else begin
           read rest
@@ -205,7 +205,7 @@ let sizeof t =
   base + additional + extensions
 
 let write t rest =
-  let initial_buffer_length = Cstruct.len rest in
+  let initial_buffer_length = Cstruct.length rest in
   big_enough_for "Header" rest (sizeof t)
   >>= fun () ->
   Int8.write (int_of_char 'Q') rest
@@ -263,7 +263,7 @@ let write t rest =
     Int32.write e.refcount_order rest
     >>= fun rest ->
     (* The extensions are not counted in the header_length *)
-    let header_length = Int32.of_int (4 + initial_buffer_length - (Cstruct.len rest)) in
+    let header_length = Int32.of_int (4 + initial_buffer_length - (Cstruct.length rest)) in
     Int32.write header_length rest
     >>= fun rest ->
     let write_extension rest = function

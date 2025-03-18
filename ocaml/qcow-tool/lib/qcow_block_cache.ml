@@ -177,8 +177,8 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK) = struct
     | b :: bs ->
       let open Lwt.Infix in
       let rec loop sector remaining =
-        if Cstruct.len remaining = 0 then Lwt.return (Ok sector) else begin
-          assert (Cstruct.len remaining >= sector_size);
+        if Cstruct.length remaining = 0 then Lwt.return (Ok sector) else begin
+          assert (Cstruct.length remaining >= sector_size);
           let first = Cstruct.sub remaining 0 sector_size in
           f sector first
           >>= function
@@ -232,7 +232,7 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK) = struct
             (fun () ->
               per_sector t.sector_size start bufs
                 (fun sector buf ->
-                  assert (Cstruct.len buf = t.sector_size);
+                  assert (Cstruct.length buf = t.sector_size);
                   if not(Int64.Map.mem sector t.cache) then begin
                     t.in_cache <- Int64.IntervalSet.(add i t.in_cache);
                     t.zeros <- Int64.IntervalSet.(remove i t.zeros);

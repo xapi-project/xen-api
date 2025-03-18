@@ -18,7 +18,7 @@ open Sexplib.Std
 open Qcow_error
 
 let big_enough_for name buf needed =
-  let length = Cstruct.len buf in
+  let length = Cstruct.length buf in
   if length < needed
   then error_msg "%s: buffer too small (%d < %d)" name length needed
   else return ()

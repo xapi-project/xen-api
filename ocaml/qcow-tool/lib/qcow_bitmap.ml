@@ -38,7 +38,7 @@ let make_full ~initial_size:len ~maximum_size:max_len =
   { buf; len; max_len }
 
 let copy t =
-  let bytes_required = Cstruct.len t.buf in
+  let bytes_required = Cstruct.length t.buf in
   let buf = Cstruct.create bytes_required in
   Cstruct.blit t.buf 0 buf 0 bytes_required;
   let len = t.len in
@@ -55,7 +55,7 @@ let increase t n =
   let bytes_required = (len + 7) / 8 in
   let buf = Cstruct.create bytes_required in
   Cstruct.memset buf 0;
-  Cstruct.blit t.buf 0 buf 0 (Cstruct.len t.buf);
+  Cstruct.blit t.buf 0 buf 0 (Cstruct.length t.buf);
   t.buf <- buf;
   t.len <- len
 

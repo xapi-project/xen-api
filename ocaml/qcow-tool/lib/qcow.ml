@@ -853,12 +853,12 @@ module Make(Base: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
     | buf :: bufs ->
       (* If we're not aligned, sync to the next boundary *)
       let into = Int64.(to_int (sub alignment (rem ofs alignment))) in
-      if Cstruct.len buf > into then begin
+      if Cstruct.length buf > into then begin
         let this = ofs, Cstruct.sub buf 0 into in
         let rest = chop_into_aligned alignment Int64.(add ofs (of_int into)) (Cstruct.shift buf into :: bufs) in
         this :: rest
       end else begin
-        (ofs, buf) :: (chop_into_aligned alignment Int64.(add ofs (of_int (Cstruct.len buf))) bufs)
+        (ofs, buf) :: (chop_into_aligned alignment Int64.(add ofs (of_int (Cstruct.length buf))) bufs)
       end
 
   type work = {
@@ -1171,7 +1171,7 @@ module Make(Base: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
     with_deadline t describe_fn time_30s
       (fun () ->
         let open Lwt_error.Infix in
-        Counter.inc (Metrics.reads t.config.Config.id) (float_of_int @@ List.fold_left (+) 0 @@ List.map Cstruct.len bufs);
+        Counter.inc (Metrics.reads t.config.Config.id) (float_of_int @@ List.fold_left (+) 0 @@ List.map Cstruct.length bufs);
         let sectors_per_cluster = (1 lsl t.cluster_bits) / t.sector_size in
         let client = Locks.Client.make describe_fn in
         let cluster_size = 1L <| t.cluster_bits in
@@ -1236,7 +1236,7 @@ module Make(Base: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
     else with_deadline t describe_fn time_30s
       (fun () ->
         let open Lwt_write_error.Infix in
-        Counter.inc (Metrics.writes t.config.Config.id) (float_of_int @@ List.fold_left (+) 0 @@ List.map Cstruct.len bufs);
+        Counter.inc (Metrics.writes t.config.Config.id) (float_of_int @@ List.fold_left (+) 0 @@ List.map Cstruct.length bufs);
         let cluster_size = 1L <| t.cluster_bits in
         let client = Locks.Client.make describe_fn in
         let sectors_per_cluster = (1 lsl t.cluster_bits) / t.sector_size in
