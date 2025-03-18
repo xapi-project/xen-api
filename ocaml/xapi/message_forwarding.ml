@@ -1185,6 +1185,14 @@ functor
       let disable_ssh ~__context ~self =
         info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.disable_ssh ~__context ~self
+
+      let set_ssh_enable_timeout ~__context ~self ~timeout =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.set_ssh_enable_timeout ~__context ~self ~timeout
+
+      let set_console_timeout ~__context ~self ~console_timeout =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.set_console_timeout ~__context ~self ~console_timeout
     end
 
     module VM = struct
@@ -4034,6 +4042,22 @@ functor
         info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
         let local_fn = Local.Host.disable_ssh ~self in
         let remote_fn = Client.Host.disable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ssh_enable_timeout ~__context ~self ~timeout =
+        let uuid = host_uuid ~__context self in
+        info "Host.set_ssh_enable_timeout : host = '%s'" uuid ;
+        let local_fn = Local.Host.set_ssh_enable_timeout ~self ~timeout in
+        let remote_fn = Client.Host.set_ssh_enable_timeout ~self ~timeout in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_console_timeout ~__context ~self ~console_timeout =
+        let uuid = host_uuid ~__context self in
+        info "Host.set_console_timeout: host = '%s'" uuid ;
+        let local_fn = Local.Host.set_console_timeout ~self ~console_timeout in
+        let remote_fn =
+          Client.Host.set_console_timeout ~self ~console_timeout
+        in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 

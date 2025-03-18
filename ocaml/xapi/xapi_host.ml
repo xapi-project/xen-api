@@ -1042,7 +1042,9 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update ~last_update_hash
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[]
+    ~ssh_enabled:true ~ssh_enabled_timeout:0L ~ssh_expiry:Date.epoch
+    ~console_idle_timeout:0L ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3112,22 +3114,167 @@ let emergency_clear_mandatory_guidance ~__context =
      ) ;
   Db.Host.set_pending_guidances ~__context ~self ~value:[]
 
-let enable_ssh ~__context ~self =
-  try
-    Xapi_systemctl.enable ~wait_until_success:false "sshd" ;
-    Xapi_systemctl.start ~wait_until_success:false "sshd"
-  with _ ->
+let validate_timeout timeout =
+  if timeout < 0L || timeout > 2880L then
     raise
       (Api_errors.Server_error
-         (Api_errors.enable_ssh_failed, [Ref.string_of self])
+         ( Api_errors.invalid_value
+         , ["timeout"; Int64.to_string timeout; "must be between 0 and 2880"]
+         )
+      )
+  else
+    timeout
+
+let remove_disable_job ~__context ~self =
+  let host_uuid = Db.Host.get_uuid ~__context ~self in
+  let task_name = Printf.sprintf "disable_ssh_for_host_%s" host_uuid in
+  Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name
+
+let schedule_disable_job ~__context ~self ~timeout =
+  let host_uuid = Db.Host.get_uuid ~__context ~self in
+  let task_name = Printf.sprintf "disable_ssh_for_host_%s" host_uuid in
+  let current_time = Date.now () in
+
+  let expiry_time =
+    let current_secs = Date.to_unix_time current_time in
+    let timeout_secs = Int64.to_float timeout in
+    Date.of_unix_time (current_secs +. timeout_secs)
+  in
+
+  debug "Scheduling SSH disable job for host %s with timeout %Ld seconds"
+    host_uuid timeout ;
+
+  (* Remove any existing job first *)
+  remove_disable_job ~__context ~self ;
+
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
+    Xapi_stdext_threads_scheduler.Scheduler.OneShot (Int64.to_float timeout)
+    (fun () ->
+      try
+        Xapi_systemctl.disable ~wait_until_success:false "sshd" ;
+        Xapi_systemctl.stop ~wait_until_success:false "sshd" ;
+        Db.Host.set_ssh_enabled ~__context ~self ~value:false ;
+        debug "Successfully disabled SSH for host %s" host_uuid
+      with e ->
+        error "Failed to disable SSH for host %s: %s" host_uuid
+          (Printexc.to_string e)
+  ) ;
+
+  Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+
+let enable_ssh ~__context ~self =
+  try
+    debug "Enabling SSH for host %s" (Db.Host.get_uuid ~__context ~self) ;
+
+    Xapi_systemctl.enable ~wait_until_success:false "sshd" ;
+    Xapi_systemctl.start ~wait_until_success:false "sshd" ;
+
+    let timeout = Db.Host.get_ssh_enabled_timeout ~__context ~self in
+    ( match timeout with
+    | 0L ->
+        remove_disable_job ~__context ~self
+    | t ->
+        schedule_disable_job ~__context ~self ~timeout:(Int64.mul t 60L)
+    ) ;
+
+    Db.Host.set_ssh_enabled ~__context ~self ~value:true
+  with e ->
+    error "Failed to enable SSH on host %s: %s" (Ref.string_of self)
+      (Printexc.to_string e) ;
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.enable_ssh_failed
+         , [Ref.string_of self; Printexc.to_string e]
+         )
       )
 
 let disable_ssh ~__context ~self =
   try
+    debug "Disabling SSH for host %s" (Db.Host.get_uuid ~__context ~self) ;
+
+    remove_disable_job ~__context ~self ;
+
     Xapi_systemctl.disable ~wait_until_success:false "sshd" ;
-    Xapi_systemctl.stop ~wait_until_success:false "sshd"
-  with _ ->
+    Xapi_systemctl.stop ~wait_until_success:false "sshd" ;
+    Db.Host.set_ssh_enabled ~__context ~self ~value:false ;
+
+    let expiry_time = Date.now () |> Date.to_unix_time |> Date.of_unix_time in
+    Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+  with e ->
+    error "Failed to disable SSH on host %s: %s" (Ref.string_of self)
+      (Printexc.to_string e) ;
     raise
       (Api_errors.Server_error
          (Api_errors.disable_ssh_failed, [Ref.string_of self])
       )
+
+let set_ssh_enable_timeout ~__context ~self ~timeout =
+  let timeout = validate_timeout timeout in
+  debug "Setting SSH timeout for host %s to %Ld minutes"
+    (Db.Host.get_uuid ~__context ~self)
+    timeout ;
+  Db.Host.set_ssh_enabled_timeout ~__context ~self ~value:timeout ;
+  match Db.Host.get_ssh_enabled ~__context ~self with
+  | false ->
+      ()
+  | true -> (
+    match timeout with
+    | 0L ->
+        remove_disable_job ~__context ~self ;
+        Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
+    | t ->
+        schedule_disable_job ~__context ~self ~timeout:(Int64.mul t 60L) ;
+        Db.Host.set_ssh_enabled_timeout ~__context ~self ~value:timeout
+  )
+
+let set_console_timeout ~__context ~self ~console_timeout =
+  let validate_timeout = function
+    | timeout when timeout >= 0L ->
+        timeout
+    | timeout ->
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.invalid_value
+             , [
+                 "console_timeout"
+               ; Int64.to_string timeout
+               ; "must be a positive integer"
+               ]
+             )
+          )
+  in
+
+  let console_timeout = validate_timeout console_timeout in
+
+  let configure_timeout = function
+    | 0L ->
+        let script =
+          "sed -i '/^export TMOUT=/d' /root/.bashrc && source /root/.bashrc"
+        in
+        Helpers.call_script "/bin/bash" ["-c"; script] |> Result.ok
+    | timeout ->
+        let script =
+          Printf.sprintf
+            "sed -i '/^export TMOUT=/d' /root/.bashrc && echo 'export \
+             TMOUT=%Ld' >> /root/.bashrc && source /root/.bashrc"
+            timeout
+        in
+        Helpers.call_script "/bin/bash" ["-c"; script] |> Result.ok
+  in
+
+  configure_timeout console_timeout
+  |> Result.map (fun _ ->
+         Db.Host.set_console_idle_timeout ~__context ~self
+           ~value:console_timeout
+     )
+  |> function
+  | Ok () ->
+      ()
+  | Error e ->
+      error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.set_console_timeout_failed
+           , ["Failed to configure console timeout"; Printexc.to_string e]
+           )
+        )

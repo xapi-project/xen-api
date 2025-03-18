@@ -1571,6 +1571,33 @@ let disable_ssh =
     ~params:[(Ref _pool, "self", "The pool")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_ssh_enable_timeout =
+  call ~name:"set_ssh_enable_timeout " ~lifecycle:[]
+    ~doc:"Set the SSH enabled timeout for the hosts in the pool"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Int
+        , "timeout"
+        , "The SSH enabled timeout in minutes. (0 means no timeout, max 2880)"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let set_console_timeout =
+  call ~name:"set_console_timeout" ~lifecycle:[]
+    ~doc:"Set the idle SSH/VNC session timeout for the pool"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Int
+        , "console_timeout"
+        , "The idle SSH/VNC session timeout in seconds. A value of 0 means no \
+           timeout."
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1667,6 +1694,8 @@ let t =
       ; get_guest_secureboot_readiness
       ; enable_ssh
       ; disable_ssh
+      ; set_ssh_enable_timeout
+      ; set_console_timeout
       ]
     ~contents:
       ([
