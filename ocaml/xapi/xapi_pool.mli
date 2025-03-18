@@ -437,3 +437,9 @@ val put_bundle_handler : Http.Request.t -> Unix.file_descr -> 'a -> unit
 val enable_ssh : __context:Context.t -> self:API.ref_pool -> unit
 
 val disable_ssh : __context:Context.t -> self:API.ref_pool -> unit
+
+val set_ssh_enable_timeout :
+  __context:Context.t -> self:API.ref_pool -> timeout:int64 -> unit
+
+val set_console_timeout :
+  __context:Context.t -> self:API.ref_pool -> console_timeout:int64 -> unit

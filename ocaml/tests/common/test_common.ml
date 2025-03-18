@@ -215,7 +215,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref)
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
-    ~last_update_hash:"" ;
+    ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
+    ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

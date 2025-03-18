@@ -204,6 +204,15 @@ let get_pbds_host rpc session_id pbds =
 let get_sr_host rpc session_id record =
   get_pbds_host rpc session_id record.API.sR_PBDs
 
+let get_unified_field ~rpc ~session_id ~getter ~transform ~default =
+  Client.Host.get_all ~rpc ~session_id
+  |> List.map (fun h -> getter ~rpc ~session_id ~self:h |> transform)
+  |> fun values ->
+  if List.for_all (( = ) (List.hd values)) values then
+    List.hd values
+  else
+    default
+
 let bond_record rpc session_id bond =
   let _ref = ref bond in
   let empty_record =
@@ -1505,6 +1514,42 @@ let pool_record rpc session_id pool =
               ~key
           )
           ~get_map:(fun () -> (x ()).API.pool_license_server)
+          ()
+      ; make_field ~name:"ssh-enabled"
+          ~get:(fun () ->
+            get_unified_field ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_enabled ~transform:string_of_bool
+              ~default:""
+          )
+          ()
+      ; make_field ~name:"ssh-enabled-timeout"
+          ~get:(fun () ->
+            get_unified_field ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_enabled_timeout
+              ~transform:Int64.to_string ~default:""
+          )
+          ~set:(fun value ->
+            Client.Pool.set_ssh_enable_timeout ~rpc ~session_id ~self:pool
+              ~timeout:(Int64.of_string value)
+          )
+          ()
+      ; make_field ~name:"ssh-expiry"
+          ~get:(fun () ->
+            get_unified_field ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_expiry ~transform:Date.to_rfc3339
+              ~default:""
+          )
+          ()
+      ; make_field ~name:"console-idle-timeout"
+          ~get:(fun () ->
+            get_unified_field ~rpc ~session_id
+              ~getter:Client.Host.get_console_idle_timeout
+              ~transform:Int64.to_string ~default:""
+          )
+          ~set:(fun value ->
+            Client.Pool.set_console_timeout ~rpc ~session_id ~self:pool
+              ~console_timeout:(Int64.of_string value)
+          )
           ()
       ]
   }
@@ -3264,6 +3309,26 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"last-update-hash"
           ~get:(fun () -> (x ()).API.host_last_update_hash)
+          ()
+      ; make_field ~name:"ssh-enabled"
+          ~get:(fun () -> string_of_bool (x ()).API.host_ssh_enabled)
+          ()
+      ; make_field ~name:"ssh-enabled-timeout"
+          ~get:(fun () -> Int64.to_string (x ()).API.host_ssh_enabled_timeout)
+          ~set:(fun value ->
+            Client.Host.set_ssh_enable_timeout ~rpc ~session_id ~self:host
+              ~timeout:(safe_i64_of_string "ssh-enabled-timeout" value)
+          )
+          ()
+      ; make_field ~name:"ssh-expiry"
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.host_ssh_expiry)
+          ()
+      ; make_field ~name:"console-idle-timeout"
+          ~get:(fun () -> Int64.to_string (x ()).API.host_console_idle_timeout)
+          ~set:(fun value ->
+            Client.Host.set_console_timeout ~rpc ~session_id ~self:host
+              ~console_timeout:(safe_i64_of_string "console-idle-timeout" value)
+          )
           ()
       ]
   }

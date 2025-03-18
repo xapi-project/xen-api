@@ -4008,3 +4008,25 @@ end
 let enable_ssh = Ssh.enable
 
 let disable_ssh = Ssh.disable
+
+let set_ssh_enable_timeout ~__context ~self:_ ~timeout =
+  let hosts = Db.Host.get_all ~__context in
+  List.iter
+    (fun host ->
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Host.set_ssh_enable_timeout ~rpc ~session_id ~self:host
+            ~timeout
+      )
+    )
+    hosts
+
+let set_console_timeout ~__context ~self:_ ~console_timeout =
+  let hosts = Db.Host.get_all ~__context in
+  List.iter
+    (fun host ->
+      Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Client.Host.set_console_timeout ~rpc ~session_id ~self:host
+            ~console_timeout
+      )
+    )
+    hosts
