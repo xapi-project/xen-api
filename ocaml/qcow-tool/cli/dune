@@ -2,7 +2,7 @@
  (name main)
  (public_name qcow-tool)
  (package qcow-tool)
- (libraries qcow io-page.unix logs logs.fmt sha unix-type-representations
+ (libraries qcow io-page logs logs.fmt sha unix-type-representations
    cmdliner sexplib mirage-block-combinators)
  (preprocess
   (pps ppx_sexp_conv)))
