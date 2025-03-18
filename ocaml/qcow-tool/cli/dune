@@ -1,8 +1,31 @@
 (executable
- (name main)
- (public_name qcow-tool)
- (package qcow-tool)
- (libraries qcow io-page logs logs.fmt sha unix-type-representations
-   cmdliner sexplib mirage-block-combinators)
- (preprocess
-  (pps ppx_sexp_conv)))
+  (name main)
+  (libraries
+    astring
+    cmdliner
+    cstruct
+    cstruct-lwt
+    fmt
+    io-page logs
+    logs.fmt
+    lwt
+    lwt.unix
+    mirage-block
+    mirage-block-unix
+    mirage-block-combinators
+    mirage-time
+    qcow
+    sexplib
+    sha
+    unix-type-representations
+    )
+  (preprocess
+    (pps ppx_sexp_conv)
+  )
+)
+
+(install
+  (package qcow-tool)
+  (section bin)
+  (files (main.exe as qcow-tool))
+)

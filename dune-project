@@ -421,6 +421,34 @@
 )
 
 (package
+  (name qcow-tool)
+  (synopsis "Manipulate .qcow files")
+  (tags ("org.mirage" "org:xapi-project"))
+  (depends
+    asetmap
+    astring
+    cmdliner
+    cstruct
+    ezjsonm
+    fmt
+    io-page
+    logs
+    lwt
+    mirage-block
+    mirage-block-combinators
+    mirage-block-unix
+    mirage-time
+    mirage-types-lwt
+    ounit
+    prometheus
+    result
+    sexplib
+    sha
+    unix-type-representations
+  )
+)
+
+(package
   (name vhd-tool)
   (synopsis "Manipulate .vhd files")
   (tags ("org.mirage" "org:xapi-project"))
