@@ -256,7 +256,7 @@ module MigrateLocal = struct
                 None
             | uri :: _ ->
                 let _socket, export = Storage_interface.parse_nbd_uri uri in
-                Some (StreamCommon.Nbd export)
+                Some (`NBD export)
           in
           Remote.VDI.activate3 dbg remote_dp dest dest_vdi vm ;
           with_activated_disk ~dbg ~sr ~vdi:base_vdi ~dp:base_dp ~vm

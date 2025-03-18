@@ -189,7 +189,6 @@
   uri
   uuid
   uuidm
-  vhd_lib
   x509
   xapi_aux
   xapi-backtrace
@@ -332,3 +331,11 @@
   xapi-idl
   xapi-log
   xapi-stdext-unix))
+
+(rule
+ (alias runtest)
+ (package xapi)
+ (deps
+  (:x xapi_main.exe))
+ (action
+  (run ./check-no-lwtssl.sh %{x})))
