@@ -3398,7 +3398,12 @@ module VIF = struct
       ()
 end
 
+let default_numa_affinity_policy = ref Xenops_interface.Host.Any
+
 let numa_placement = ref Xenops_interface.Host.Any
+
+let string_of_numa_affinity_policy =
+  Xenops_interface.Host.(function Any -> "any" | Best_effort -> "best-effort")
 
 module HOST = struct
   let stat _ dbg =
@@ -3413,7 +3418,15 @@ module HOST = struct
   let set_numa_affinity_policy _ dbg =
     Debug.with_thread_associated dbg @@ fun policy ->
     debug "HOST.set_numa_affinity_policy" ;
-    numa_placement := policy
+    match policy with
+    | None ->
+        info "Enforcing default NUMA affinity policy (%s)"
+          (string_of_numa_affinity_policy !default_numa_affinity_policy) ;
+        numa_placement := !default_numa_affinity_policy
+    | Some p ->
+        info "Enforcing '%s' NUMA affinity policy"
+          (string_of_numa_affinity_policy p) ;
+        numa_placement := p
 
   let get_console_data _ dbg =
     Debug.with_thread_associated dbg

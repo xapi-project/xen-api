@@ -501,6 +501,8 @@ module Host = struct
         (** best effort placement on the smallest number of NUMA nodes where possible *)
   [@@deriving rpcty]
 
+  type numa_affinity_policy_opt = numa_affinity_policy option [@@deriving rpcty]
+
   type guest_agent_feature_list = guest_agent_feature list [@@deriving rpcty]
 end
 
@@ -657,7 +659,7 @@ module XenopsAPI (R : RPC) = struct
       let numa_affinity_policy_p =
         Param.mk
           ~description:["Host NUMA affinity policy"]
-          ~name:"numa_affinity_policy" Host.numa_affinity_policy
+          ~name:"numa_affinity_policy" Host.numa_affinity_policy_opt
       in
       declare "HOST.set_numa_affinity_policy"
         ["Sets the host's NUMA aware VM scheduling policy"]
