@@ -43,7 +43,7 @@ let common_options_t =
   let progress_fd =
     let doc = "Write machine-readable progress output." in
     Arg.(value & opt (some int) None & info [ "progress-fd"] ~docs ~doc) in
-  Term.(pure Common.make $ debug $ progress $ progress_fd)
+  Term.(const Common.make $ debug $ progress $ progress_fd)
 
 let filename =
   let doc = Printf.sprintf "Path to the qcow2 file." in
@@ -148,8 +148,8 @@ let info_cmd =
     `P "To print the dirty flag:";
     `P "$(mname) info <filename> --filter .additional.[0].dirty";
   ] @ help in
-  Term.(ret(pure Impl.info $ filename $ filter)),
-  Term.info "info" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.info $ filename $ filter)),
+  Cmd.info "info" ~sdocs:_common_options ~doc ~man
 
 let check_cmd =
   let doc = "check the device for internal consistency" in
@@ -157,8 +157,8 @@ let check_cmd =
     `S "DESCRIPTION";
     `P "Scan through the device and check for internal consistency"
   ] @ help in
-  Term.(ret(pure Impl.check $ filename)),
-  Term.info "check" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.check $ filename)),
+  Cmd.info "check" ~sdocs:_common_options ~doc ~man
 
 let decode_cmd =
   let doc = "decode qcow2 formatted data and write a raw image" in
@@ -166,8 +166,8 @@ let decode_cmd =
     `S "DESCRIPTION";
     `P "Decode qcow2 formatted data and write to a raw file.";
   ] @ help in
-  Term.(ret(pure Impl.decode $ filename $ output)),
-  Term.info "decode" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.decode $ filename $ output)),
+  Cmd.info "decode" ~sdocs:_common_options ~doc ~man
 
 let encode_cmd =
   let doc = "Convert the file from raw to qcow2" in
@@ -175,8 +175,8 @@ let encode_cmd =
     `S "DESCRIPTION";
     `P "Convert a raw file to qcow2 ."
   ] @ help in
-  Term.(ret(pure Impl.encode $ filename $ output)),
-  Term.info "encode" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.encode $ filename $ output)),
+  Cmd.info "encode" ~sdocs:_common_options ~doc ~man
 
 let create_cmd =
   let doc = "create a qcow-formatted data file" in
@@ -184,8 +184,8 @@ let create_cmd =
     `S "DESCRIPTION";
     `P "Create a qcow-formatted data file";
   ] @ help in
-  Term.(ret(pure Impl.create $ size $ strict_refcounts $ trace $ output)),
-  Term.info "create" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.create $ size $ strict_refcounts $ trace $ output)),
+  Cmd.info "create" ~sdocs:_common_options ~doc ~man
 
 let resize_cmd =
   let doc = "Change the maximum virtual size of the disk." in
@@ -197,8 +197,8 @@ let resize_cmd =
        without harming the contents. It's up to the client whether it is able \
        to use the new space or not."
   ] @ help in
-  Term.(ret(pure Impl.resize $ trace $ filename $ size $ ignore_data_loss)),
-  Term.info "resize" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.resize $ trace $ filename $ size $ ignore_data_loss)),
+  Cmd.info "resize" ~sdocs:_common_options ~doc ~man
 
 let unsafe_buffering =
   let doc = Printf.sprintf "Run faster by caching writes in memory. A failure in the middle could corrupt the file." in
@@ -212,8 +212,8 @@ let discard_cmd =
         contains zeroes, then invoke discard (aka TRIM or UNMAP) on it. This \
         helps shrink the blocks in the file.";
   ] @ help in
-  Term.(ret(pure Impl.discard $ unsafe_buffering $ filename)),
-  Term.info "discard" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.discard $ unsafe_buffering $ filename)),
+  Cmd.info "discard" ~sdocs:_common_options ~doc ~man
 
 let compact_cmd =
   let doc = "Compact the file" in
@@ -222,8 +222,8 @@ let compact_cmd =
     `P "Iterate over all the unallocated blocks ('holes') in the file created \
         by discard and move live data into them to shrink the file.";
   ] @ help in
-  Term.(ret(pure Impl.compact $ common_options_t $ unsafe_buffering $ filename)),
-  Term.info "compact" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.compact $ common_options_t $ unsafe_buffering $ filename)),
+  Cmd.info "compact" ~sdocs:_common_options ~doc ~man
 
 let repair_cmd =
   let doc = "Regenerate the refcount table in an image" in
@@ -233,8 +233,8 @@ let repair_cmd =
         the spec. We normally avoid updating the refcount at runtime as a \
         performance optimisation."
   ] @ help in
-  Term.(ret(pure Impl.repair $ unsafe_buffering $ filename)),
-  Term.info "repair" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.repair $ unsafe_buffering $ filename)),
+  Cmd.info "repair" ~sdocs:_common_options ~doc ~man
 
 let sector =
   let doc = Printf.sprintf "Virtual sector within the qcow2 image" in
@@ -250,8 +250,8 @@ let write_cmd =
     `S "DESCRIPTION";
     `P "Write a string at a given virtual sector offset in the qcow2 image."
   ] @ help in
-  Term.(ret(pure Impl.write $ filename $ sector $ text $ trace)),
-  Term.info "write" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.write $ filename $ sector $ text $ trace)),
+  Cmd.info "write" ~sdocs:_common_options ~doc ~man
 
 let length =
   let doc = Printf.sprintf "Length of the data in 512-byte sectors" in
@@ -263,8 +263,8 @@ let read_cmd =
     `S "DESCRIPTION";
     `P "Read a string at a given virtual sector offset in the qcow2 image."
   ] @ help in
-  Term.(ret(pure Impl.read $ filename $ sector $ length $ trace)),
-  Term.info "read" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.read $ filename $ sector $ length $ trace)),
+  Cmd.info "read" ~sdocs:_common_options ~doc ~man
 
 let mapped_cmd =
   let doc = "Output a list of allocated extents, which may contain writes" in
@@ -274,8 +274,8 @@ let mapped_cmd =
         As data is written to the virtual disk, metadata is updated on the \
         physical file which allows us to list the regions which have been written to."
   ] @ help in
-  Term.(ret(pure Impl.mapped $ filename $ output_format $ ignore_zeroes)),
-  Term.info "mapped" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.mapped $ filename $ output_format $ ignore_zeroes)),
+  Cmd.info "mapped" ~sdocs:_common_options ~doc ~man
 
 let pattern_number =
   let doc = Printf.sprintf "Pattern number to write" in
@@ -290,8 +290,8 @@ let pattern_cmd =
     `P "Pattern 2: write to the whole disk and then discard every other cluster \
         to produce the worst case for compaction.";
   ] @ help in
-  Term.(ret(pure Impl.pattern $ common_options_t $ trace $ output $ size $ pattern_number)),
-  Term.info "pattern" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.pattern $ common_options_t $ trace $ output $ size $ pattern_number)),
+  Cmd.info "pattern" ~sdocs:_common_options ~doc ~man
 
 let sha_cmd =
   let doc = "Compute a SHA1 from the contents of a qcow2" in
@@ -300,8 +300,8 @@ let sha_cmd =
     `P "This is equivalent to decoding the qcow2 to a raw file and \
         running sha1sum.";
   ] @ help in
-  Term.(ret(pure Impl.sha $ common_options_t $ filename)),
-  Term.info "sha" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.sha $ common_options_t $ filename)),
+  Cmd.info "sha" ~sdocs:_common_options ~doc ~man
 
 let dehydrate_cmd =
   let doc = "Extract only the metadata blocks for debugging" in
@@ -318,8 +318,8 @@ let dehydrate_cmd =
   let output =
     let doc = Printf.sprintf "Prefix of the output files" in
     Arg.(value & pos 1 string "dehydrated" & info [] ~doc) in
-  Term.(ret(pure Impl.dehydrate $ common_options_t $ filename $ output)),
-  Term.info "dehydrate" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.dehydrate $ common_options_t $ filename $ output)),
+  Cmd.info "dehydrate" ~sdocs:_common_options ~doc ~man
 
 let rehydrate_cmd =
   let doc = "Create a qcow2 file from a previously dehydrated file" in
@@ -337,21 +337,21 @@ let rehydrate_cmd =
   let output =
     let doc = Printf.sprintf "Output qcow2 file" in
     Arg.(value & pos 1 string "output.qcow2" & info [] ~doc) in
-  Term.(ret(pure Impl.rehydrate $ common_options_t $ filename $ output)),
-  Term.info "rehydrate" ~sdocs:_common_options ~doc ~man
-
-let default_cmd =
-  let doc = "manipulate virtual disks stored in qcow2 files" in
-  let man = help in
-  Term.(ret (pure (fun _ -> `Help (`Pager, None)) $ common_options_t)),
-  Term.info "qcow-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  Term.(ret(const Impl.rehydrate $ common_options_t $ filename $ output)),
+  Cmd.info "rehydrate" ~sdocs:_common_options ~doc ~man
 
 let cmds = [info_cmd; create_cmd; check_cmd; repair_cmd; encode_cmd; decode_cmd;
   write_cmd; read_cmd; mapped_cmd; resize_cmd; discard_cmd; compact_cmd;
-  pattern_cmd; sha_cmd; dehydrate_cmd; rehydrate_cmd ]
+  pattern_cmd; sha_cmd; dehydrate_cmd; rehydrate_cmd ] |> List.map (fun (t,i) -> Cmd.v i t)
 
-let _ =
-  Logs.set_reporter (Logs_fmt.reporter ());
-  match Term.eval_choice default_cmd cmds with
-  | `Error _ -> exit 1
-  | _ -> exit 0
+let () =
+  let default =
+    Term.(ret (const (fun _ -> `Help (`Pager, None)) $ common_options_t))
+  in
+  let doc = "manipulate virtual disks stored in qcow2 files" in
+  let man = help in
+  let info =
+    Cmd.info "qcow-tool" ~version:"1.0.0" ~sdocs:_common_options ~doc ~man
+  in
+  let cmd = Cmd.group ~default info cmds in
+  exit (Cmd.eval cmd)
