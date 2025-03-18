@@ -342,8 +342,8 @@ let zero =
   let free = Qcow_bitmap.make_empty ~initial_size:0 ~maximum_size:0 in
   let refs = Cluster.Map.empty in
   let cache = Cache.create
-    ~read_cluster:(fun _ -> Lwt.return (Error `Unimplemented))
-    ~write_cluster:(fun _ _ -> Lwt.return (Error `Unimplemented))
+    ~read_cluster:(fun _ -> Lwt.fail (Failure "Unimplemented"))
+    ~write_cluster:(fun _ _ -> Lwt.fail (Failure "Unimplemented"))
     () in
   make ~free ~refs ~first_movable_cluster:Cluster.zero ~cache ~runtime_asserts:false ~id:None ~cluster_size:0
 

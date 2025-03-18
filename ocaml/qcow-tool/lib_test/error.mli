@@ -19,7 +19,7 @@ open Result
 module Lwt_error: sig
   module Infix : sig
     val ( >>= ) :
-      ('a, [> `Disconnected | `Unimplemented ]) result Lwt.t ->
+      ('a, [> `Disconnected ]) result Lwt.t ->
       ('a -> 'b Lwt.t) -> 'b Lwt.t
   end
 end
@@ -27,7 +27,7 @@ end
 module Lwt_write_error: sig
   module Infix : sig
     val ( >>= ) :
-      ('a, [> `Is_read_only | `Disconnected | `Unimplemented ]) result Lwt.t ->
+      ('a, [> `Is_read_only | `Disconnected ]) result Lwt.t ->
       ('a -> 'b Lwt.t) -> 'b Lwt.t
   end
 end

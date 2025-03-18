@@ -21,9 +21,8 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK) = struct
   include B
 
   let handle_error = function
-    | `Unimplemented -> Lwt.return (Error `Unimplemented)
     | `Disconnected -> Lwt.return (Error `Disconnected)
-    | e -> Format.kasprintf Lwt.fail_with "Unknown error: %a" B.pp_error e
+    | _ -> Format.kasprintf Lwt.fail_with "Unknown error in qcow_paddle.ml"
 
   let read base base_sector buf =
     let open Lwt in

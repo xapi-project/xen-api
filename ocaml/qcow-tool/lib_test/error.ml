@@ -21,7 +21,6 @@ module Lwt_error = struct
   module Infix = struct
     let ( >>= ) m f = m >>= function
       | Ok x -> f x
-      | Error `Unimplemented -> Lwt.fail_with "Unimplemented"
       | Error `Disconnected -> Lwt.fail_with "Disconnected"
       | Error _ -> Lwt.fail_with "Unknown error"
   end
@@ -33,7 +32,6 @@ module Lwt_write_error = struct
     let ( >>= ) m f = m >>= function
       | Ok x -> f x
       | Error `Is_read_only -> Lwt.fail_with "Is_read_only"
-      | Error `Unimplemented -> Lwt.fail_with "Unimplemented"
       | Error `Disconnected -> Lwt.fail_with "Disconnected"
       | Error _ -> Lwt.fail_with "Unknown error"
   end

@@ -137,6 +137,5 @@ let update ?client t cluster f =
        >>= function
        | Error `Is_read_only -> Lwt.return (Error `Is_read_only)
        | Error `Disconnected -> Lwt.return (Error `Disconnected)
-       | Error `Unimplemented -> Lwt.return (Error `Unimplemented)
        | Ok () -> Lwt.return (Ok result)
     )

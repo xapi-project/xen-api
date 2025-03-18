@@ -41,7 +41,6 @@ module Lwt_error = struct
     let ( >>= ) m f = m >>= function
       | Ok x -> f x
       | Error (`Msg s) -> Lwt.return (Error (`Msg s))
-      | Error `Unimplemented -> Lwt.return (Error `Unimplemented)
       | Error `Disconnected -> Lwt.return (Error `Disconnected)
   end
 
@@ -49,7 +48,6 @@ module Lwt_error = struct
     let open Lwt in
     m >>= function
     | Error (`Msg s) -> Lwt.fail_with s
-    | Error `Unimplemented -> Lwt.fail_with "unimplemented"
     | Error `Disconnected -> Lwt.fail_with "disconnected"
     | Ok x -> Lwt.return x
 
@@ -76,14 +74,12 @@ module Lwt_write_error = struct
       | Ok x -> f x
       | Error (`Msg s) -> Lwt.return (Error (`Msg s))
       | Error `Is_read_only -> Lwt.return (Error `Is_read_only)
-      | Error `Unimplemented -> Lwt.return (Error `Unimplemented)
       | Error `Disconnected -> Lwt.return (Error `Disconnected)
   end
   let or_fail_with m =
     let open Lwt in
     m >>= function
     | Error (`Msg s) -> Lwt.fail_with s
-    | Error `Unimplemented -> Lwt.fail_with "unimplemented"
     | Error `Is_read_only -> Lwt.fail_with "is read only"
     | Error `Disconnected -> Lwt.fail_with "disconnected"
     | Ok x -> Lwt.return x

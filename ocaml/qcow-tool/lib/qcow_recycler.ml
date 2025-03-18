@@ -81,13 +81,11 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
     let open Lwt.Infix in
     B.read t.base src_sector [ cluster ]
     >>= function
-    | Error `Unimplemented -> Lwt.return (Error `Unimplemented)
     | Error `Disconnected -> Lwt.return (Error `Disconnected)
     | Error e -> Format.kasprintf Lwt.fail_with "Unknown error: %a" B.pp_error e
     | Ok () ->
       B.write t.base dst_sector [ cluster ]
       >>= function
-      | Error `Unimplemented -> Lwt.return (Error `Unimplemented)
       | Error `Disconnected -> Lwt.return (Error `Disconnected)
       | Error `Is_read_only -> Lwt.return (Error `Is_read_only)
       | Error e -> Format.kasprintf Lwt.fail_with "Unknown error: %a" B.pp_write_error e
@@ -134,10 +132,9 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
              end else begin
                copy_already_locked t src dst
                >>= function
-               | Error `Unimplemented -> Lwt.return (Error `Unimplemented)
                | Error `Disconnected -> Lwt.return (Error `Disconnected)
                | Error `Is_read_only -> Lwt.return (Error `Is_read_only)
-               | Error e -> Format.kasprintf Lwt.fail_with "Unknown error: %a" B.pp_write_error e
+               | Error _ -> Format.kasprintf Lwt.fail_with "Unknown error in qcow_recylcer.ml"
                | Ok () ->
                  Qcow_cluster_map.(set_move_state cluster_map move Copied);
                  Lwt.return (Ok ())
@@ -549,7 +546,6 @@ module Make(B: Qcow_s.RESIZABLE_BLOCK)(Time: Mirage_time.S) = struct
         begin update_references t
           >>= function
           | Error (`Msg x) -> Lwt.fail_with x
-          | Error `Unimplemented -> Lwt.fail_with "Unimplemented"
           | Error `Disconnected -> Lwt.fail_with "Disconnected"
           | Error `Is_read_only -> Lwt.fail_with "Is_read_only"
           | Ok nr_updated ->
