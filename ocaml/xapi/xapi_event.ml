@@ -525,6 +525,57 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
+type entry = string * string * Xapi_database.Db_cache_types.Time.t
+
+type acc = {
+    creates: entry list
+  ; mods: entry list
+  ; deletes: entry list
+  ; last: Xapi_database.Db_cache_types.Time.t
+}
+
+let collect_events subs tables last_generation acc table =
+  let open Xapi_database in
+  let open Db_cache_types in
+  let table_value = TableSet.find table tables in
+  let prepend_recent obj stat _ ({creates; mods; last; _} as entries) =
+    let Stat.{created; modified; deleted} = stat in
+    if Subscription.object_matches subs table obj then
+      let last = max last (max modified deleted) in
+      let creates =
+        if created > !last_generation then
+          (table, obj, created) :: creates
+        else
+          creates
+      in
+      let mods =
+        if modified > !last_generation && not (created > !last_generation) then
+          (table, obj, modified) :: mods
+        else
+          mods
+      in
+      {entries with creates; mods; last}
+    else
+      entries
+  in
+  let prepend_deleted obj stat ({deletes; last; _} as entries) =
+    let Stat.{created; modified; deleted} = stat in
+    if Subscription.object_matches subs table obj then
+      let last = max last (max modified deleted) in
+      let deletes =
+        if created <= !last_generation then
+          (table, obj, deleted) :: deletes
+        else
+          deletes
+      in
+      {entries with deletes; last}
+    else
+      entries
+  in
+  acc
+  |> Table.fold_over_recent !last_generation prepend_recent table_value
+  |> Table.fold_over_deleted !last_generation prepend_deleted table_value
+
 let from_inner __context session subs from from_t timer batching =
   let open Xapi_database in
   let open From in
@@ -551,75 +602,25 @@ let from_inner __context session subs from from_t timer batching =
       else
         (0L, [])
     in
-    ( msg_gen
-    , messages
-    , tableset
-    , List.fold_left
-        (fun acc table ->
-          (* Fold over the live objects *)
-          let acc =
-            Db_cache_types.Table.fold_over_recent !last_generation
-              (fun objref {Db_cache_types.Stat.created; modified; deleted} _
-                   (creates, mods, deletes, last) ->
-                if Subscription.object_matches subs table objref then
-                  let last = max last (max modified deleted) in
-                  (* mtime guaranteed to always be larger than ctime *)
-                  ( ( if created > !last_generation then
-                        (table, objref, created) :: creates
-                      else
-                        creates
-                    )
-                  , ( if
-                        modified > !last_generation
-                        && not (created > !last_generation)
-                      then
-                        (table, objref, modified) :: mods
-                      else
-                        mods
-                    )
-                  , (* Only have a mod event if we don't have a created event *)
-                    deletes
-                  , last
-                  )
-                else
-                  (creates, mods, deletes, last)
-              )
-              (Db_cache_types.TableSet.find table tableset)
-              acc
-          in
-          (* Fold over the deleted objects *)
-          Db_cache_types.Table.fold_over_deleted !last_generation
-            (fun objref {Db_cache_types.Stat.created; modified; deleted}
-                 (creates, mods, deletes, last) ->
-              if Subscription.object_matches subs table objref then
-                let last = max last (max modified deleted) in
-                (* mtime guaranteed to always be larger than ctime *)
-                if created > !last_generation then
-                  (creates, mods, deletes, last)
-                (* It was created and destroyed since the last update *)
-                else
-                  (creates, mods, (table, objref, deleted) :: deletes, last)
-              (* It might have been modified, but we can't tell now *)
-              else
-                (creates, mods, deletes, last)
-            )
-            (Db_cache_types.TableSet.find table tableset)
-            acc
-        )
-        ([], [], [], !last_generation)
-        tables
-    )
+    let events =
+      let initial =
+        {creates= []; mods= []; deletes= []; last= !last_generation}
+      in
+      let folder = collect_events subs tableset last_generation in
+      List.fold_left folder initial tables
+    in
+    (msg_gen, messages, tableset, events)
   in
   (* Each event.from should have an independent subscription record *)
-  let msg_gen, messages, tableset, (creates, mods, deletes, last) =
+  let msg_gen, messages, tableset, events =
     with_call session subs (fun sub ->
         let grab_nonempty_range =
           Throttle.Batching.with_recursive_loop batching @@ fun self arg ->
-          let ( (msg_gen, messages, _tableset, (creates, mods, deletes, last))
-                as result
-              ) =
+          let result =
             Db_lock.with_lock (fun () -> grab_range (Db_backend.make ()))
           in
+          let msg_gen, messages, _tables, events = result in
+          let {creates; mods; deletes; last} = events in
           if
             creates = []
             && mods = []
@@ -640,6 +641,7 @@ let from_inner __context session subs from from_t timer batching =
         grab_nonempty_range ()
     )
   in
+  let {creates; mods; deletes; last} = events in
   last_generation := last ;
   let event_of op ?snapshot (table, objref, time) =
     {
