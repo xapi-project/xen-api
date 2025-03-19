@@ -284,7 +284,7 @@ module NUMA = struct
   let candidates t = t.candidates
 
   let choose t candidates =
-    let node_get_usage (Node n) = t.node_usage.(n) in
+    let node_get_usage (Node n, _) = t.node_usage.(n) in
     let nodes_sum_usage nodes =
       nodes |> List.to_seq |> Seq.map node_get_usage |> Seq.fold_left ( + ) 0
     in
@@ -297,8 +297,10 @@ module NUMA = struct
     if best = max_int then
       None
     else (
-      List.iter (fun (Node n) -> t.node_usage.(n) <- t.node_usage.(n) + 1) nodes ;
-      Some result
+      List.iter
+        (fun (Node n, _) -> t.node_usage.(n) <- t.node_usage.(n) + 1)
+        nodes ;
+      Some (result, nodes)
     )
 
   let pp_dump_node = Fmt.(using (fun (Node x) -> x) int)
