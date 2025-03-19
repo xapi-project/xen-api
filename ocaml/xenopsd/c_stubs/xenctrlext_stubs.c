@@ -678,7 +678,7 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
         int retval, the_errno;
         xc_interface* xch = xch_of_val(xch_val);
         uint32_t domid = Int_val(domid_val);
-        unsigned long nr_pages = Int_val(nr_pages_val);
+        unsigned long nr_pages = Long_val(nr_pages_val);
 
         caml_release_runtime_system();
         retval = xc_domain_claim_pages(xch, domid, nr_pages);
