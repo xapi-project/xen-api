@@ -525,16 +525,18 @@ let rec next ~__context =
   else
     rpc_of_events relevant
 
-type entry = string * string * Xapi_database.Db_cache_types.Time.t
+type time = Xapi_database.Db_cache_types.Time.t
+
+type entry = {table: string; obj: string; time: time}
 
 type acc = {
     creates: entry list
   ; mods: entry list
   ; deletes: entry list
-  ; last: Xapi_database.Db_cache_types.Time.t
+  ; last: time
 }
 
-let collect_events subs tables last_generation acc table =
+let collect_events (subs, tables, last_generation) acc table =
   let open Xapi_database in
   let open Db_cache_types in
   let table_value = TableSet.find table tables in
@@ -544,13 +546,13 @@ let collect_events subs tables last_generation acc table =
       let last = max last (max modified deleted) in
       let creates =
         if created > last_generation then
-          (table, obj, created) :: creates
+          {table; obj; time= created} :: creates
         else
           creates
       in
       let mods =
         if modified > last_generation && not (created > last_generation) then
-          (table, obj, modified) :: mods
+          {table; obj; time= modified} :: mods
         else
           mods
       in
@@ -564,7 +566,7 @@ let collect_events subs tables last_generation acc table =
       let last = max last (max modified deleted) in
       let deletes =
         if created <= last_generation then
-          (table, obj, deleted) :: deletes
+          {table; obj; time= deleted} :: deletes
         else
           deletes
       in
@@ -603,7 +605,7 @@ let from_inner __context session subs from from_t timer batching =
     in
     let events =
       let initial = {creates= []; mods= []; deletes= []; last= since} in
-      let folder = collect_events subs tableset since in
+      let folder = collect_events (subs, tableset, since) in
       List.fold_left folder initial tables
     in
     (msg_gen, messages, tableset, events)
@@ -641,18 +643,18 @@ let from_inner __context session subs from from_t timer batching =
     )
   in
   let {creates; mods; deletes; last} = events in
-  let event_of op ?snapshot (table, objref, time) =
+  let event_of op ?snapshot {table; obj; time} =
     {
       id= Int64.to_string time
     ; ts= "0.0"
     ; ty= String.lowercase_ascii table
     ; op
-    ; reference= objref
+    ; reference= obj
     ; snapshot
     }
   in
   let events_of ~kind ?(with_snapshot = true) entries acc =
-    let rec go events ((table, obj, _time) as entry) =
+    let rec go events ({table; obj; time= _} as entry) =
       try
         let snapshot =
           let serialiser = Eventgen.find_get_record table in
@@ -696,13 +698,14 @@ let from_inner __context session subs from from_t timer batching =
     List.fold_left
       (fun acc mev ->
         let event =
+          let table = "message" in
           match mev with
           | Message.Create (_ref, message) ->
               event_of `add
                 ?snapshot:(Some (API.rpc_of_message_t message))
-                ("message", Ref.string_of _ref, 0L)
+                {table; obj= Ref.string_of _ref; time= 0L}
           | Message.Del _ref ->
-              event_of `del ("message", Ref.string_of _ref, 0L)
+              event_of `del {table; obj= Ref.string_of _ref; time= 0L}
         in
         event :: acc
       )
