@@ -506,7 +506,7 @@ let check_verify_error line =
     ()
 
 let check_error s line =
-  if Astring.String.is_infix ~affix:line s then
+  if Astring.String.is_infix ~affix:s line then
     raise (Stunnel_error s)
 
 let diagnose_failure st_proc =
