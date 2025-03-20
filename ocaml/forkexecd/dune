@@ -3,7 +3,6 @@
 (rule
   (deps (source_tree helper))
   (targets vfork_helper)
-  (package forkexec)
   (action
     (no-infer
       (progn
