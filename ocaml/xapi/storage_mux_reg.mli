@@ -36,9 +36,6 @@ val register :
 
 val unregister : Storage_interface.sr -> unit
 
-val query_result_of_sr :
-  Storage_interface.sr -> Storage_interface.query_result option
-
 val sr_has_capability : Storage_interface.sr -> Smint.Feature.capability -> bool
 
 val of_sr : Storage_interface.sr -> processor
