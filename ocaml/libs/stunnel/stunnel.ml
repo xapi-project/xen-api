@@ -483,12 +483,17 @@ let check_verify_error line =
   let split_1 c s =
     match Astring.String.cut ~sep:c s with Some (x, _) -> x | None -> s
   in
-  if Astring.String.is_infix ~affix:"VERIFY ERROR: " line then
-    match Astring.String.find_sub ~sub:"error=" line with
+  (* When verified with a mismatched certificate, one line of log from stunnel
+   * would look like:
+     SSL_connect: ssl/statem/statem_clnt.c:1889: error:0A000086:SSL routines::certificate verify failed
+   * in this case, Stunnel_verify_error can be raised with detailed error as
+   * reason if it can found in the log *)
+  if Astring.String.is_infix ~affix:"certificate verify failed" line then
+    match Astring.String.find_sub ~sub:"error:" line with
     | Some e ->
         raise
           (Stunnel_verify_error
-             (split_1 "," (sub_after (e + String.length "error=") line))
+             (split_1 "," (sub_after (e + String.length "error:") line))
           )
     | None ->
         raise (Stunnel_verify_error "")
