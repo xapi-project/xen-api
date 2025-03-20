@@ -497,6 +497,11 @@ let check_verify_error line =
           )
     | None ->
         raise (Stunnel_verify_error "")
+  else if
+    Astring.String.is_infix ~affix:"No certificate or private key specified"
+      line
+  then
+    raise (Stunnel_verify_error "The specified certificate is corrupt")
   else
     ()
 
