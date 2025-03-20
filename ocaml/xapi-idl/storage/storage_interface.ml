@@ -404,6 +404,9 @@ let err =
       )
   }
 
+type smapi_version = SMAPIv1 | SMAPIv2 | SMAPIv3
+[@@deriving rpcty, show {with_path= false}]
+
 type query_result = {
     driver: string
   ; name: string
@@ -415,6 +418,7 @@ type query_result = {
   ; features: string list
   ; configuration: (string * string) list
   ; required_cluster_stack: string list
+  ; smapi_version: smapi_version
 }
 [@@deriving rpcty]
 

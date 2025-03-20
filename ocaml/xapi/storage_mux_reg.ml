@@ -102,6 +102,20 @@ let of_sr sr =
           raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
   )
 
+let smapi_version_of_sr sr =
+  with_lock m (fun () ->
+      match Hashtbl.find_opt plugins sr with
+      | Some x ->
+          x.query_result.smapi_version
+      | None ->
+          error "No storage plugin for SR: %s (currently-registered = [ %s ])"
+            (s_of_sr sr)
+            (String.concat ", "
+               (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
+            ) ;
+          raise (Storage_error (No_storage_plugin_for_sr (s_of_sr sr)))
+  )
+
 type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
 let string_of_sm_result f = function

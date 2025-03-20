@@ -264,7 +264,9 @@ let bind ~__context ~pbd =
     let service = make_service uuid ty in
     System_domains.register_service service queue_name ;
     let info = Client.Query.query dbg in
-    Storage_mux_reg.register (Storage_interface.Sr.of_string sr_uuid) rpc uuid info ;
+    Storage_mux_reg.register
+      (Storage_interface.Sr.of_string sr_uuid)
+      rpc uuid info ;
     info
   with e ->
     error
