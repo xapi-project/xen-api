@@ -247,3 +247,16 @@ val with_http :
   -> (Http.Response.t * Unix.file_descr -> 'a)
   -> Unix.file_descr
   -> 'a
+
+module type SMAPIv2 = sig
+  include module type of Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
+    let rpc call =
+      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2"
+        (Storage_utils.localhost_connection_args ())
+        call
+  end))
+end
+
+module Local : SMAPIv2
+
+val get_remote_backend : string -> bool -> (module SMAPIv2)

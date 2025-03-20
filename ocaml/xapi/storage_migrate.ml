@@ -23,13 +23,6 @@ open Storage_interface
 open Storage_task
 open Storage_migrate_helper
 
-module Local = StorageAPI (Idl.Exn.GenClient (struct
-  let rpc call =
-    Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2"
-      (Storage_utils.localhost_connection_args ())
-      call
-end))
-
 let tapdisk_of_attach_info (backend : Storage_interface.backend) =
   let _, blockdevices, _, nbds =
     Storage_interface.implementations_of_backend backend
@@ -155,11 +148,7 @@ on what is executed on the sender side, this provides some heuristics. *)
 module MigrateLocal = struct
   (** [copy_into_vdi] is similar to [copy_into_sr] but requires a [dest_vdi] parameter *)
   let copy_into_vdi ~task ~dbg ~sr ~vdi ~vm ~url ~dest ~dest_vdi ~verify_dest =
-    let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
-    let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-      let rpc =
-        Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
-    end)) in
+    let (module Remote) = get_remote_backend url verify_dest in
     debug "copy local=%s/%s url=%s remote=%s/%s verify_dest=%B"
       (Storage_interface.Sr.string_of sr)
       (Storage_interface.Vdi.string_of vdi)
@@ -321,11 +310,7 @@ module MigrateLocal = struct
       url
       (Storage_interface.Sr.string_of dest)
       verify_dest ;
-    let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
-    let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-      let rpc =
-        Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
-    end)) in
+    let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
     try
       let vdis = Local.SR.scan dbg sr in
@@ -430,12 +415,9 @@ module MigrateLocal = struct
       url
       (Storage_interface.Sr.string_of dest)
       verify_dest ;
+
     let remote_url = Http.Url.of_string url in
-    let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-      let rpc =
-        Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
-          (Storage_utils.connection_args_of_uri ~verify_dest url)
-    end)) in
+    let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
     let vdis = Local.SR.scan dbg sr in
     let local_vdi =
@@ -676,16 +658,10 @@ module MigrateLocal = struct
             | None ->
                 debug "Snapshot VDI already cleaned up"
             ) ;
-            let remote_url =
-              Storage_utils.connection_args_of_uri
-                ~verify_dest:remote_info.State.Send_state.verify_dest
-                remote_info.State.Send_state.url
+
+            let (module Remote) =
+              get_remote_backend remote_info.url remote_info.verify_dest
             in
-            let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-              let rpc =
-                Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
-                  remote_url
-            end)) in
             try Remote.DATA.MIRROR.receive_cancel dbg id with _ -> ()
           )
         | None ->
@@ -773,7 +749,7 @@ module MigrateLocal = struct
       )
       send_ops ;
     List.iter
-      (fun (id, copy_state) ->
+      (fun (id, (copy_state : State.Copy_state.t)) ->
         debug "Copy in progress: %s" id ;
         List.iter log_and_ignore_exn
           [
@@ -784,15 +760,9 @@ module MigrateLocal = struct
               Local.DP.destroy dbg copy_state.State.Copy_state.base_dp true
             )
           ] ;
-        let remote_url =
-          Storage_utils.connection_args_of_uri
-            ~verify_dest:copy_state.State.Copy_state.verify_dest
-            copy_state.State.Copy_state.remote_url
+        let (module Remote) =
+          get_remote_backend copy_state.remote_url copy_state.verify_dest
         in
-        let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-          let rpc =
-            Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
-        end)) in
         List.iter log_and_ignore_exn
           [
             (fun () ->
@@ -1025,14 +995,7 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
              ~some:(fun ri -> ri.verify_dest)
              r.remote_info
          in
-         let remote_url =
-           Storage_utils.connection_args_of_uri ~verify_dest r.url
-         in
-         let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-           let rpc =
-             Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"
-               remote_url
-         end)) in
+         let (module Remote) = get_remote_backend r.url verify_dest in
          debug "Calling receive_finalize2" ;
          log_and_ignore_exn (fun () ->
              Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
@@ -1170,11 +1133,7 @@ let receive_cancel = MigrateRemote.receive_cancel
  * to SMAPI. *)
 let update_snapshot_info_src ~dbg ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
     ~verify_dest =
-  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
-  let module Remote = StorageAPI (Idl.Exn.GenClient (struct
-    let rpc =
-      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
-  end)) in
+  let (module Remote) = get_remote_backend url verify_dest in
   let local_vdis = Local.SR.scan dbg sr in
   let find_vdi ~vdi ~vdi_info_list =
     try List.find (fun x -> x.vdi = vdi) vdi_info_list

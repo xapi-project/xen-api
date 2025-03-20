@@ -326,3 +326,20 @@ let add_to_sm_config vdi_info key value =
 let with_http request f s =
   try Http_client.rpc s request (fun response s -> f (response, s))
   with Unix.Unix_error (Unix.ECONNRESET, _, _) -> raise Connection_reset
+
+module Local = StorageAPI (Idl.Exn.GenClient (struct
+  let rpc call =
+    Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"smapiv2"
+      (Storage_utils.localhost_connection_args ())
+      call
+end))
+
+module type SMAPIv2 = module type of Local
+
+let get_remote_backend url verify_dest =
+  let remote_url = Storage_utils.connection_args_of_uri ~verify_dest url in
+  let module Remote = StorageAPI (Idl.Exn.GenClient (struct
+    let rpc =
+      Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
+  end)) in
+  (module Remote : SMAPIv2)
