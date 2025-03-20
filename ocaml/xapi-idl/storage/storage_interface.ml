@@ -1161,6 +1161,60 @@ module StorageAPI (R : RPC) = struct
   end
 end
 
+module type MIRROR = sig
+  type context = unit
+
+  val start :
+       context
+    -> dbg:debug_info
+    -> sr:sr
+    -> vdi:vdi
+    -> dp:dp
+    -> mirror_vm:vm
+    -> copy_vm:vm
+    -> url:string
+    -> dest:sr
+    -> verify_dest:bool
+    -> Task.id
+
+  val stop : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
+
+  val receive_start :
+       context
+    -> dbg:debug_info
+    -> sr:sr
+    -> vdi_info:vdi_info
+    -> id:Mirror.id
+    -> similar:Mirror.similars
+    -> Mirror.mirror_receive_result
+
+  val receive_start2 :
+       context
+    -> dbg:debug_info
+    -> sr:sr
+    -> vdi_info:vdi_info
+    -> id:Mirror.id
+    -> similar:Mirror.similars
+    -> vm:vm
+    -> Mirror.mirror_receive_result
+
+  val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+  val import_activate :
+    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> sock_path
+
+  val get_nbd_server :
+    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> sock_path
+end
+
 module type Server_impl = sig
   type context = unit
 
@@ -1417,69 +1471,7 @@ module type Server_impl = sig
       -> verify_dest:bool
       -> Task.id
 
-    module MIRROR : sig
-      val start :
-           context
-        -> dbg:debug_info
-        -> sr:sr
-        -> vdi:vdi
-        -> dp:dp
-        -> mirror_vm:vm
-        -> copy_vm:vm
-        -> url:string
-        -> dest:sr
-        -> verify_dest:bool
-        -> Task.id
-
-      val stop : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-      val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
-
-      val receive_start :
-           context
-        -> dbg:debug_info
-        -> sr:sr
-        -> vdi_info:vdi_info
-        -> id:Mirror.id
-        -> similar:Mirror.similars
-        -> Mirror.mirror_receive_result
-
-      val receive_start2 :
-           context
-        -> dbg:debug_info
-        -> sr:sr
-        -> vdi_info:vdi_info
-        -> id:Mirror.id
-        -> similar:Mirror.similars
-        -> vm:vm
-        -> Mirror.mirror_receive_result
-
-      val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-      val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-      val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-      val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
-
-      val import_activate :
-           context
-        -> dbg:debug_info
-        -> dp:dp
-        -> sr:sr
-        -> vdi:vdi
-        -> vm:vm
-        -> sock_path
-
-      val get_nbd_server :
-           context
-        -> dbg:debug_info
-        -> dp:dp
-        -> sr:sr
-        -> vdi:vdi
-        -> vm:vm
-        -> sock_path
-    end
+    module MIRROR : MIRROR
   end
 
   module Policy : sig

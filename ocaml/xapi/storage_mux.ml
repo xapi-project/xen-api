@@ -740,6 +740,8 @@ module Mux = struct
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
     module MIRROR = struct
+      type context = unit
+
       let start () ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest
           =
         with_dbg ~name:"DATA.MIRROR.start" ~dbg @@ fun di ->

@@ -1143,6 +1143,8 @@ functor
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
 
       module MIRROR = struct
+        type context = unit
+
         let start context ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest =
           info "DATA.MIRROR.start dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg
             (s_of_sr sr) (s_of_vdi vdi) url (s_of_sr dest) ;
