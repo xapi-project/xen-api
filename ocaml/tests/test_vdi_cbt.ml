@@ -33,7 +33,7 @@ let register_smapiv2_server (module S : Storage_interface.Server_impl) sr_ref =
       }
   in
 
-  Storage_mux.register sr_ref rpc "" dummy_query_result
+  Storage_mux_reg.register sr_ref rpc "" dummy_query_result
 
 let make_smapiv2_storage_server ?vdi_enable_cbt ?vdi_disable_cbt
     ?vdi_list_changed_blocks ?vdi_data_destroy ?vdi_snapshot ?vdi_clone:_ () =
