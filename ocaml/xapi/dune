@@ -217,8 +217,8 @@
    ((pps ppx_deriving.ord) Xapi_observer_components)
    ((pps ppx_deriving_rpc)
     Config_file_sync Extauth_plugin_ADwinbind Importexport Sparse_dd_wrapper
-    Storage_migrate Storage_mux Storage_smapiv1_wrapper Stream_vdi
-    System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
+    Storage_migrate Storage_migrate_helper Storage_mux Storage_smapiv1_wrapper 
+    Stream_vdi System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
 )
 
 (library
