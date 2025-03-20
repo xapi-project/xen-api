@@ -172,6 +172,7 @@ module SMAPIv1 : Server_impl = struct
       ; features= []
       ; configuration= []
       ; required_cluster_stack= []
+      ; smapi_version= SMAPIv1
       }
 
     let diagnostics _context ~dbg:_ =
