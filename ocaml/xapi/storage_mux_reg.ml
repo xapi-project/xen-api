@@ -71,13 +71,6 @@ let unregister sr =
         )
   )
 
-(* This function is entirely unused, but I am not sure if it should be
-   deleted or not *)
-let query_result_of_sr sr =
-  with_lock m (fun () ->
-      Option.map (fun x -> x.query_result) (Hashtbl.find_opt plugins sr)
-  )
-
 let sr_has_capability sr capability =
   with_lock m (fun () ->
       match Hashtbl.find_opt plugins sr with
