@@ -28,6 +28,7 @@ depends: [
   "xmlm"
   "yojson"
   "rrd-transport"
+  "rrdd-plugin"
   "xapi-tracing-export"
   "xen-api-client"
   "alcotest" {with-test}

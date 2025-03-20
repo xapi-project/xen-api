@@ -42,6 +42,7 @@ depends: [
   "re"
   "result"
   "rpclib"
+  "rrdd-plugin"
   "rresult"
   "sexplib"
   "sexplib0"

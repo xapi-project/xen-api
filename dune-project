@@ -264,6 +264,7 @@
     re
     result
     rpclib
+    rrdd-plugin
     rresult
     sexplib
     sexplib0
@@ -315,6 +316,7 @@
     ; 'xapi-tools' will have version ~dev, not 'master' like all the others
     ; because it is not in xs-opam yet
     rrd-transport
+    rrdd-plugin
     xapi-tracing-export
     xen-api-client
     (alcotest :with-test)
@@ -721,10 +723,11 @@ This package provides an Lwt compatible interface to the library.")
     base-threads
     base-unix
     (alcotest :with-test)
+    (clock (= :version))
     (fmt :with-test)
-    (odoc :with-doc)
+    mtime
+    (xapi-log (= :version))
     (xapi-stdext-pervasives (= :version))
-    (mtime :with-test)
     (xapi-stdext-unix (= :version))
   )
 )
