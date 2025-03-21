@@ -33,7 +33,7 @@ let callback1 ?(json_rpc_version = Jsonrpc.V1) is_json req fd call =
   else
     let response =
       let@ req = Helper.with_tracing ~name:"Server.dispatch_call" req in
-      Server.dispatch_call req fd call
+      Server.dispatch_call req (Some fd) call
     in
     let translated =
       if
