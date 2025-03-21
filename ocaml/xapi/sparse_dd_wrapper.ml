@@ -92,10 +92,8 @@ let dd_internal progress_cb base prezeroed verify_cert ?(proto = None) infile
                 match proto with
                 | None ->
                     []
-                | Some (StreamCommon.Nbd export) ->
+                | Some (`NBD export) ->
                     ["-dest-proto"; "nbd"; "-nbd-export"; export]
-                | Some p ->
-                    ["-dest-proto"; StreamCommon.string_of_protocol p]
               in
               let verify_args =
                 match verify_cert with
