@@ -204,8 +204,6 @@ let assert_file_is_readable filename =
     error "Cannot read file %s" filename ;
     raise (Could_not_read_file filename)
 
-let maybe f = function None -> () | Some x -> f x
-
 (* Recursively iterate over a directory and all its children, calling fn for
    each *)
 let rec xenstore_iter t fn path =
@@ -931,7 +929,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
       error "VM = %s; domid = %d; %s" (Uuidx.to_string uuid) domid err_msg ;
       raise (Domain_build_pre_failed err_msg)
   in
-  maybe
+  Option.iter
     (fun mode ->
       log_reraise (Printf.sprintf "domain_set_timer_mode %d" mode) (fun () ->
           let xcext = Xenctrlext.get_handle () in
@@ -1163,7 +1161,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
           Memory.Linux.full_config static_max_mib video_mib target_mib vcpus
             shadow_multiplier
         in
-        maybe assert_file_is_readable pvinfo.ramdisk ;
+        Option.iter assert_file_is_readable pvinfo.ramdisk ;
         let store_port, console_port =
           build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid
         in
