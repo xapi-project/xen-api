@@ -188,10 +188,6 @@ module State : sig
 
   val rpc_of_path : string -> Rpc.t
 
-  val load_one : 'a table -> unit
-
-  val load : unit -> unit
-
   val save_one : 'a table -> unit
 
   val save : unit -> unit

@@ -17,8 +17,6 @@ and multiplexing between them according to the sr type *)
 
 module D = Debug.Make (struct let name = __MODULE__ end)
 
-open D
-
 type processor = Rpc.call -> Rpc.response
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -56,7 +54,7 @@ let register sr rpc d info =
         ; query_result= info
         ; features
         } ;
-      debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr)
+      D.debug "register SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
            (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
         )
@@ -65,7 +63,7 @@ let register sr rpc d info =
 let unregister sr =
   with_lock m (fun () ->
       Hashtbl.remove plugins sr ;
-      debug "unregister SR %s (currently-registered = [ %s ])" (s_of_sr sr)
+      D.debug "unregister SR %s (currently-registered = [ %s ])" (s_of_sr sr)
         (String.concat ", "
            (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
         )
@@ -87,7 +85,7 @@ let of_sr sr =
       | Some x ->
           x.processor
       | None ->
-          error "No storage plugin for SR: %s (currently-registered = [ %s ])"
+          D.error "No storage plugin for SR: %s (currently-registered = [ %s ])"
             (s_of_sr sr)
             (String.concat ", "
                (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
@@ -101,7 +99,7 @@ let smapi_version_of_sr sr =
       | Some x ->
           x.query_result.smapi_version
       | None ->
-          error "No storage plugin for SR: %s (currently-registered = [ %s ])"
+          D.error "No storage plugin for SR: %s (currently-registered = [ %s ])"
             (s_of_sr sr)
             (String.concat ", "
                (Hashtbl.fold (fun sr _ acc -> s_of_sr sr :: acc) plugins [])
@@ -111,7 +109,7 @@ let smapi_version_of_sr sr =
 
 type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
-let string_of_sm_result f = function
+let s_of_sm_result f = function
   | SMSuccess x ->
       Printf.sprintf "Success: %s" (f x)
   | SMFailure e ->
