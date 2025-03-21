@@ -15,4 +15,8 @@
 let () =
   Debug.log_to_stdout () ;
   Alcotest.run "base_suite"
-    (Network_test_lacp_properties.suite @ Test_jsonrpc_client.tests)
+    (Network_test_lacp_properties.suite
+    @ Test_jsonrpc_client.tests
+    @ Test_network_device_order_inherited.tests
+    @ Test_network_device_order.tests
+    )
