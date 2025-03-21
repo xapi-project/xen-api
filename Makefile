@@ -83,6 +83,11 @@ doc:
 sdk:
 	dune build --profile=$(PROFILE)  @sdkgen xapi-sdk.install @ocaml/sdk-gen/install
 
+# workaround for no .resx generation, just for compilation testing
+sdksanity: sdk
+	cd _build/install/default/share/csharp/src && dotnet add package Newtonsoft.Json && dotnet build -f netstandard2.0
+	cd _build/install/default/share/csharp && dotnet test XenServerTest -p:DefineConstants=BUILD_FOR_TEST
+
 .PHONY: sdk-build-c
 
 sdk-build-c: sdk
