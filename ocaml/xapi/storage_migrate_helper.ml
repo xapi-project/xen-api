@@ -207,12 +207,6 @@ module State = struct
         Hashtbl.iter (Hashtbl.replace table)
           (hashtbl_of_rpc ~of_rpc:Copy_state.t_of_rpc rpc)
 
-  let load () =
-    ignore_exn (fun () -> load_one (Send_table active_send)) ;
-    ignore_exn (fun () -> load_one (Recv_table active_recv)) ;
-    ignore_exn (fun () -> load_one (Copy_table active_copy)) ;
-    loaded := true
-
   let save_one : type a. a table -> unit =
    fun table ->
     to_string table |> Unixext.write_string_to_file (path_of_table table)
@@ -224,6 +218,12 @@ module State = struct
     save_one (Copy_table active_copy)
 
   let access_table ~save_after f table =
+    let load () =
+      ignore_exn (fun () -> load_one (Send_table active_send)) ;
+      ignore_exn (fun () -> load_one (Recv_table active_recv)) ;
+      ignore_exn (fun () -> load_one (Copy_table active_copy)) ;
+      loaded := true
+    in
     Xapi_stdext_threads.Threadext.Mutex.execute mutex (fun () ->
         if not !loaded then load () ;
         let result = f table in
@@ -265,9 +265,10 @@ module State = struct
     access_table ~save_after:true (fun table -> Hashtbl.remove table id) table
 
   let clear () =
-    access_table ~save_after:true (fun table -> Hashtbl.clear table) active_send ;
-    access_table ~save_after:true (fun table -> Hashtbl.clear table) active_recv ;
-    access_table ~save_after:true (fun table -> Hashtbl.clear table) active_copy
+    let clear_one (type a) (tbl : (string, a) Hashtbl.t) : unit =
+      access_table ~save_after:true Hashtbl.clear tbl
+    in
+    clear_one active_send ; clear_one active_recv ; clear_one active_copy
 
   let remove_local_mirror id = remove id active_send
 
@@ -308,8 +309,7 @@ module State = struct
         failwith "Bad id"
 end
 
-let vdi_info x =
-  match x with
+let vdi_info = function
   | Some (Vdi_info v) ->
       v
   | _ ->

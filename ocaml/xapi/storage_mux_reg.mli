@@ -45,7 +45,7 @@ val smapi_version_of_sr :
 
 type 'a sm_result = SMSuccess of 'a | SMFailure of exn
 
-val string_of_sm_result : ('a -> string) -> 'a sm_result -> string
+val s_of_sm_result : ('a -> string) -> 'a sm_result -> string
 
 val success : 'a sm_result -> bool
 
