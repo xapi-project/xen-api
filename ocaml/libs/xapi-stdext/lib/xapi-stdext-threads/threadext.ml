@@ -97,3 +97,67 @@ let wait_timed_write fd timeout =
       true
   | _ ->
       assert false
+
+module ThreadLocalStorage = struct
+  type t = {
+      ocaml_tid: int
+    ; thread_name: string
+    ; time_running: Mtime.span
+    ; time_last_yield: Mtime_clock.counter
+    ; tepoch: Mtime.t
+    ; tgroup: Tgroup.Group.t
+  }
+
+  let thread_local_storage = Ambient_context_thread_local.Thread_local.create ()
+
+  let create () =
+    let ocaml_tid = Thread.self () |> Thread.id in
+    let thread_name = "" in
+    let time_running = Mtime.Span.zero in
+    let time_last_yield = Mtime_clock.counter () in
+    let tepoch = Mtime_clock.now () in
+    let tgroup =
+      Tgroup.Group.(
+        of_creator (Creator.make ~identity:Identity.root_identity ())
+      )
+    in
+    let tls =
+      {thread_name; tgroup; ocaml_tid; time_running; time_last_yield; tepoch}
+    in
+    let () =
+      Ambient_context_thread_local.Thread_local.set thread_local_storage tls
+    in
+    tls
+
+  let get () =
+    Ambient_context_thread_local.Thread_local.get_or_create ~create
+      thread_local_storage
+
+  let set ?thread_name ?time_running ?time_last_yield ?tepoch ?tgroup () =
+    let tls = get () in
+    let tls =
+      Option.fold ~none:tls
+        ~some:(fun thread_name -> {tls with thread_name})
+        thread_name
+    in
+    let tls =
+      Option.fold ~none:tls
+        ~some:(fun time_running -> {tls with time_running})
+        time_running
+    in
+    let tls =
+      Option.fold ~none:tls
+        ~some:(fun time_last_yield -> {tls with time_last_yield})
+        time_last_yield
+    in
+    let tls =
+      Option.fold ~none:tls ~some:(fun tepoch -> {tls with tepoch}) tepoch
+    in
+    let tls =
+      Option.fold ~none:tls ~some:(fun tgroup -> {tls with tgroup}) tgroup
+    in
+    Ambient_context_thread_local.Thread_local.set thread_local_storage tls
+
+  let remove () =
+    Ambient_context_thread_local.Thread_local.remove thread_local_storage
+end
