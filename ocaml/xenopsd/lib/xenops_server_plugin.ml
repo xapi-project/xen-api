@@ -211,7 +211,9 @@ module type S = sig
 
     val activate : Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
 
-    val unplug : Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit
+    val deactivate : Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit
+
+    val detach : Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
 
     val insert : Xenops_task.task_handle -> Vm.id -> Vbd.t -> disk -> unit
 
