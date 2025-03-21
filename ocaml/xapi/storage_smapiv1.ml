@@ -172,6 +172,7 @@ module SMAPIv1 : Server_impl = struct
       ; features= []
       ; configuration= []
       ; required_cluster_stack= []
+      ; smapi_version= SMAPIv1
       }
 
     let diagnostics _context ~dbg:_ =
@@ -1212,6 +1213,8 @@ module SMAPIv1 : Server_impl = struct
       assert false
 
     module MIRROR = struct
+      type context = unit
+
       let start _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~mirror_vm:_ ~copy_vm:_
           ~url:_ ~dest:_ ~verify_dest:_ =
         assert false

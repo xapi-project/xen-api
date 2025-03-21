@@ -155,6 +155,8 @@ module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
 
   module MIRROR = struct
+    type context = unit
+
     (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
         writes data synchronously. It returns the id of the VDI.*)
     let start ctx ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest =
