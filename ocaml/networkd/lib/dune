@@ -4,8 +4,10 @@
  (libraries
   astring
   forkexec
+  macaddr
   mtime
   mtime.clock.os
+  ppx_deriving_yojson.runtime
   re
   re.perl
   result
@@ -24,5 +26,6 @@
   xapi-open-uri
   yojson
  )
+ (preprocess (pps ppx_deriving_yojson))
  (wrapped false)
 )
