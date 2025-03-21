@@ -130,6 +130,8 @@ type atomic =
   | VBD_epoch_end of (Vbd.id * disk)
   | VBD_set_qos of Vbd.id
   | VBD_unplug of Vbd.id * bool
+  | VBD_deactivate of Vbd.id * bool
+  | VBD_detach of Vbd.id
   | VBD_insert of Vbd.id * disk
   | VBD_set_active of Vbd.id * bool
   | VM_remove of Vm.id
@@ -211,6 +213,10 @@ let rec name_of_atomic = function
       "VBD_set_qos"
   | VBD_unplug _ ->
       "VBD_unplug"
+  | VBD_deactivate _ ->
+      "VBD_deactivate"
+  | VBD_detach _ ->
+      "VBD_detach"
   | VBD_insert _ ->
       "VBD_insert"
   | VBD_set_active _ ->
@@ -1600,6 +1606,14 @@ let vbd_plug vbd_id =
     serial_of "VBD.attach_and_activate" ~id:(VBD_DB.vm_of vbd_id)
       (VBD_attach vbd_id) (VBD_activate vbd_id) []
 
+let vbd_unplug vbd_id force =
+  if !xenopsd_vbd_plug_unplug_legacy then
+    VBD_unplug (vbd_id, force)
+  else
+    serial_of "VBD.deactivate_and_detach" ~id:(VBD_DB.vm_of vbd_id)
+      (VBD_deactivate (vbd_id, force))
+      (VBD_detach vbd_id) []
+
 let rec atomics_of_operation = function
   | VM_start (id, force) ->
       let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
@@ -1688,7 +1702,7 @@ let rec atomics_of_operation = function
         ]
       ; parallel_concat "Devices.unplug" ~id
           [
-            List.map (fun vbd -> VBD_unplug (vbd.Vbd.id, true)) vbds
+            List.map (fun vbd -> vbd_unplug vbd.Vbd.id true) vbds
           ; List.map (fun vif -> VIF_unplug (vif.Vif.id, true)) vifs
           ; List.map (fun pci -> PCI_unplug pci.Pci.id) pcis
           ]
@@ -1847,7 +1861,7 @@ let rec atomics_of_operation = function
   | VBD_hotplug id ->
       [VBD_set_active (id, true); vbd_plug id]
   | VBD_hotunplug (id, force) ->
-      [VBD_unplug (id, force); VBD_set_active (id, false)]
+      [vbd_unplug id force; VBD_set_active (id, false)]
   | VIF_hotplug id ->
       [VIF_set_active (id, true); VIF_plug id]
   | VIF_hotunplug (id, force) ->
@@ -2065,8 +2079,22 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
   | VBD_unplug (id, force) ->
       debug "VBD.unplug %s" (VBD_DB.string_of_id id) ;
       finally
-        (fun () -> B.VBD.unplug t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force)
+        (fun () ->
+          B.VBD.deactivate t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force ;
+          B.VBD.detach t (VBD_DB.vm_of id) (VBD_DB.read_exn id)
+        )
         (fun () -> VBD_DB.signal id)
+  | VBD_deactivate (id, force) ->
+      debug "VBD.deactivate %s" (VBD_DB.string_of_id id) ;
+      finally
+        (fun () ->
+          B.VBD.deactivate t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force
+        )
+        (fun () -> VBD_DB.signal id)
+  | VBD_detach id ->
+      debug "VBD.detach %s" (VBD_DB.string_of_id id) ;
+      B.VBD.detach t (VBD_DB.vm_of id) (VBD_DB.read_exn id) ;
+      VBD_DB.signal id
   | VBD_insert (id, disk) -> (
       (* NB this is also used to "refresh" ie signal a qemu that it should
          re-open a device, useful for when a physical CDROM is inserted into the
@@ -2481,6 +2509,8 @@ and trigger_cleanup_after_failure_atom op t =
   | VBD_epoch_end (id, _)
   | VBD_set_qos id
   | VBD_unplug (id, _)
+  | VBD_deactivate (id, _)
+  | VBD_detach id
   | VBD_insert (id, _) ->
       immediate_operation dbg (fst id) (VBD_check_state id)
   | VIF_plug id
