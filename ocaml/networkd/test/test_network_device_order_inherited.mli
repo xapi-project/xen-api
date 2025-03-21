@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2013 Citrix Systems Inc.
+ * Copyright (c) Cloud Software Group, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,11 +12,4 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let () =
-  Debug.log_to_stdout () ;
-  Alcotest.run "base_suite"
-    (Network_test_lacp_properties.suite
-    @ Test_jsonrpc_client.tests
-    @ Test_network_device_order_inherited.tests
-    @ Test_network_device_order.tests
-    )
+val tests : unit Alcotest.test list
