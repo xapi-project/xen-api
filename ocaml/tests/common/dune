@@ -25,7 +25,7 @@
     xapi-log
     xapi-test-utils
     xapi-types
-    xapi-stdext-date
+    clock
     xapi-stdext-threads.scheduler
     xapi-stdext-unix
     xapi_timeslice

@@ -2,8 +2,8 @@
   (name expiry_alert)
   (public_name xapi-expiry-alerts)
   (libraries
+    clock
     xapi-client
     xapi-types
-    xapi-stdext-date
   )
 )

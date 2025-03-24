@@ -49,6 +49,7 @@ let test_sequences =
         ; "SR_CACHING"
         ; "SR_PROBE"
         ; "SR_UPDATE"
+        ; "SR_CACHING"
         ; "VDI_ATTACH"
         ; "VDI_CLONE"
         ; "VDI_CONFIG_CBT"
@@ -63,7 +64,8 @@ let test_sequences =
         ]
     ; smapiv1_features=
         [
-          (Sr_probe, 1L)
+          (Sr_caching, 1L)
+        ; (Sr_probe, 1L)
         ; (Sr_update, 1L)
         ; (Vdi_attach, 1L)
         ; (Vdi_clone, 1L)
@@ -79,7 +81,8 @@ let test_sequences =
         ]
     ; smapiv2_features=
         [
-          "SR_PROBE/1"
+          "SR_CACHING/1"
+        ; "SR_PROBE/1"
         ; "SR_UPDATE/1"
         ; "VDI_ATTACH/1"
         ; "VDI_CLONE/1"
@@ -97,7 +100,8 @@ let test_sequences =
         {
           capabilities=
             [
-              "SR_PROBE"
+              "SR_CACHING"
+            ; "SR_PROBE"
             ; "SR_UPDATE"
             ; "VDI_ATTACH"
             ; "VDI_CLONE"
@@ -113,7 +117,8 @@ let test_sequences =
             ]
         ; features=
             [
-              ("SR_PROBE", 1L)
+              ("SR_CACHING", 1L)
+            ; ("SR_PROBE", 1L)
             ; ("SR_UPDATE", 1L)
             ; ("VDI_ATTACH", 1L)
             ; ("VDI_CLONE", 1L)

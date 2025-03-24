@@ -1121,7 +1121,7 @@ functor
       let set_telemetry_next_collection ~__context ~self ~value =
         info "%s: pool='%s' value='%s'" __FUNCTION__
           (pool_uuid ~__context self)
-          (Xapi_stdext_date.Date.to_rfc3339 value) ;
+          (Clock.Date.to_rfc3339 value) ;
         Local.Pool.set_telemetry_next_collection ~__context ~self ~value
 
       let reset_telemetry_uuid ~__context ~self =
@@ -1177,6 +1177,14 @@ functor
       let get_guest_secureboot_readiness ~__context ~self =
         info "%s: pool='%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.get_guest_secureboot_readiness ~__context ~self
+
+      let enable_ssh ~__context ~self =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.enable_ssh ~__context ~self
+
+      let disable_ssh ~__context ~self =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.disable_ssh ~__context ~self
     end
 
     module VM = struct
@@ -4015,6 +4023,18 @@ functor
       let emergency_clear_mandatory_guidance ~__context =
         info "Host.emergency_clear_mandatory_guidance" ;
         Local.Host.emergency_clear_mandatory_guidance ~__context
+
+      let enable_ssh ~__context ~self =
+        info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
+        let local_fn = Local.Host.enable_ssh ~self in
+        let remote_fn = Client.Host.enable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let disable_ssh ~__context ~self =
+        info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
+        let local_fn = Local.Host.disable_ssh ~self in
+        let remote_fn = Client.Host.disable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct

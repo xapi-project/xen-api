@@ -1075,6 +1075,12 @@ let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 
 let disable_webserver = ref false
 
+let reuse_pool_sessions = ref false
+(* Enables the reuse of pool sessions, speeding up intrapool communication *)
+
+let validate_reusable_pool_session = ref false
+(* Validate a reusable session before each use. This is slower and should not be required *)
+
 let test_open = ref 0
 
 let xapi_requests_cgroup =
@@ -1706,6 +1712,16 @@ let other_options =
     , Arg.Set_string driver_tool
     , (fun () -> !driver_tool)
     , "Path to drivertool for selecting host driver variants"
+    )
+  ; ( "reuse-pool-sessions"
+    , Arg.Set reuse_pool_sessions
+    , (fun () -> string_of_bool !reuse_pool_sessions)
+    , "Enable the reuse of pool sessions"
+    )
+  ; ( "validate-reusable-pool-session"
+    , Arg.Set validate_reusable_pool_session
+    , (fun () -> string_of_bool !validate_reusable_pool_session)
+    , "Enable validation of reusable pool sessions before use"
     )
   ]
 

@@ -886,15 +886,18 @@ let numa_placement domid ~vcpus ~memory =
         Softaffinity.plan ~vm host nodea
     )
   in
-  match hint with
+  let xcext = get_handle () in
+  ( match hint with
   | None ->
       D.debug "NUMA-aware placement failed for domid %d" domid
   | Some soft_affinity ->
       let cpua = CPUSet.to_mask soft_affinity in
-      let xcext = get_handle () in
       for i = 0 to vcpus - 1 do
         Xenctrlext.vcpu_setaffinity_soft xcext domid i cpua
       done
+  ) ;
+  let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+  Xenctrlext.domain_claim_pages xcext domid nr_pages
 
 let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   let open Memory in

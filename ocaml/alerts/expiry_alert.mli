@@ -55,7 +55,7 @@ type raw_alert = {
          * sent, and when it has expired, message "host_server_certificate_expired"
          * should be sent.
          *)
-  ; expiry: Xapi_stdext_date.Date.t
+  ; expiry: Clock.Date.t
         (* the last second when the obj is valid, it will expire in the next second *)
 }
 
@@ -69,17 +69,17 @@ val alert :
 
 (* Below exposed only for ease of testing *)
 
-val message_body : string -> Xapi_stdext_date.Date.t -> string
+val message_body : string -> Clock.Date.t -> string
 
 val expired_message : string -> string
 
 val expiring_message : string -> string
 
 val maybe_generate_alert :
-     Xapi_stdext_date.Date.t
+     Clock.Date.t
   -> string
   -> (remaining_days * message_id) list
-  -> Xapi_stdext_date.Date.t
+  -> Clock.Date.t
   -> (string * message_id) option
 (** An inner function exposed only for ease of testing, it returns None if there is no
     need for an expiry alert as it is not expiring or expired yet, otherwise an "alert"

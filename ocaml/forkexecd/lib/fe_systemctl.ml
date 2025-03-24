@@ -121,14 +121,18 @@ let stop ~service =
   Xapi_stdext_unix.Unixext.unlink_safe destination ;
   status
 
-let is_active ~service =
+let status ~command ~service =
   let status =
     Forkhelpers.safe_close_and_exec None None None [] systemctl
-      ["is-active"; "--quiet"; service]
+      [command; "--quiet"; service]
     |> Forkhelpers.waitpid
     |> snd
   in
   Unix.WEXITED 0 = status
+
+let is_active ~service = status ~command:"is-active" ~service
+
+let is_enabled ~service = status ~command:"is-enabled" ~service
 
 (** path to service file *)
 let path service = Filename.concat run_path (service ^ ".service")
@@ -139,7 +143,7 @@ let exists ~service = Sys.file_exists (path service)
 (** creation time of [path] as a string *)
 let ctime path =
   let ctime = Unix.((stat path).st_ctime) in
-  Xapi_stdext_date.Date.(of_unix_time ctime |> to_rfc3339)
+  Clock.Date.(of_unix_time ctime |> to_rfc3339)
 
 let start_transient ?env ?properties ?(exec_ty = Type.Simple) ~service cmd args
     =

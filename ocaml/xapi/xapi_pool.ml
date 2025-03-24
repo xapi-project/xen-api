@@ -13,7 +13,7 @@
  *)
 
 open Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext
 module Unixext = Xapi_stdext_unix.Unixext
 module Xstringext = Xapi_stdext_std.Xstringext
@@ -2661,9 +2661,8 @@ let revalidate_subjects ~__context =
     let subj_id = Db.Subject.get_subject_identifier ~__context ~self in
     debug "Revalidating subject %s" subj_id ;
     try
-      let open Auth_signature in
-      ignore
-        ((Extauth.Ext_auth.d ()).query_subject_information ~__context subj_id)
+      Xapi_subject.query_subject_information_from_AD ~__context subj_id
+      |> ignore
     with Not_found ->
       debug "Destroying subject %s" subj_id ;
       Xapi_subject.destroy ~__context ~self
@@ -3975,3 +3974,37 @@ let put_bundle_handler (req : Request.t) s _ =
       | None ->
           ()
   )
+
+module Ssh = struct
+  let operate ~__context ~action ~error =
+    let hosts = Db.Host.get_all ~__context in
+    Helpers.call_api_functions ~__context (fun rpc session_id ->
+        let failed_hosts =
+          List.fold_left
+            (fun failed_hosts host ->
+              try
+                action ~rpc ~session_id ~self:host ;
+                failed_hosts
+              with _ -> Ref.string_of host :: failed_hosts
+            )
+            [] hosts
+        in
+        match failed_hosts with
+        | [] ->
+            ()
+        | _ ->
+            raise (Api_errors.Server_error (error, failed_hosts))
+    )
+
+  let enable ~__context ~self:_ =
+    operate ~__context ~action:Client.Host.enable_ssh
+      ~error:Api_errors.enable_ssh_partially_failed
+
+  let disable ~__context ~self:_ =
+    operate ~__context ~action:Client.Host.disable_ssh
+      ~error:Api_errors.disable_ssh_partially_failed
+end
+
+let enable_ssh = Ssh.enable
+
+let disable_ssh = Ssh.disable

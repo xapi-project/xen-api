@@ -142,7 +142,8 @@ let select ~__context ~self ~variant =
       if v.API.driver_variant_hardware_present = false then
         no_hardware (Ref.string_of variant) ;
       let stdout =
-        Tool.call ["select"; d.API.host_driver_name; v.API.driver_variant_name]
+        Tool.call
+          ["-s"; "-n"; d.API.host_driver_name; "-v"; v.API.driver_variant_name]
       in
       info "%s: %s" __FUNCTION__ stdout ;
       Db.Host_driver.set_selected_variant ~__context ~self ~value:variant
@@ -154,7 +155,7 @@ let select ~__context ~self ~variant =
 let deselect ~__context ~self =
   D.debug "%s  driver %s" __FUNCTION__ (Ref.string_of self) ;
   let d = Db.Host_driver.get_record ~__context ~self in
-  let stdout = Tool.call ["deselect"; d.API.host_driver_name] in
+  let stdout = Tool.call ["-d"; d.API.host_driver_name] in
   info "%s: %s" __FUNCTION__ stdout ;
   Db.Host_driver.set_active_variant ~__context ~self ~value:Ref.null ;
   Db.Host_driver.set_selected_variant ~__context ~self ~value:Ref.null

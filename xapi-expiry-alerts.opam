@@ -21,7 +21,7 @@ depends: [
   "xapi-client"
   "xapi-consts"
   "xapi-types"
-  "xapi-stdext-date"
+  "clock"
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs]

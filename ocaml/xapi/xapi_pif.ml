@@ -20,7 +20,7 @@ module L = Debug.Make (struct let name = "license" end)
 open Xapi_database.Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
 open Xapi_stdext_std.Xstringext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Network
 
 let get_device_pci ~__context ~host ~device =

@@ -13,7 +13,7 @@
  *)
 
 module Rrdd = Rrd_client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Monitor_types
 open Xapi_database.Db_filter_types
 open Network

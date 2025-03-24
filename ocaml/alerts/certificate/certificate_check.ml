@@ -1,5 +1,5 @@
 module XenAPI = Client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 type cert =
   | CA of API.ref_Certificate * API.datetime

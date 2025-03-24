@@ -26,7 +26,7 @@
 
 *)
 module Date = struct
-  module Date = Xapi_stdext_date.Date
+  module Date = Clock.Date
   include Date
 
   let t_of_rpc rpc = Date.of_iso8601 (Rpc.string_of_rpc rpc)

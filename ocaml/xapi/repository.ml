@@ -306,6 +306,8 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
   with
   | Api_errors.Server_error (_, _) as e ->
       raise e
+  | Stunnel.Stunnel_verify_error reason ->
+      raise (Api_errors.Server_error (Api_errors.ssl_verify_error, [reason]))
   | e ->
       error "Failed to sync with remote YUM repository: %s"
         (ExnHelper.string_of_exn e) ;

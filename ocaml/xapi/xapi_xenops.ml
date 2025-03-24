@@ -18,7 +18,7 @@ open D
 module StringSet = Set.Make (String)
 open Network
 open Xapi_stdext_std.Xstringext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Listext = Xapi_stdext_std.Listext.List
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -3098,11 +3098,11 @@ let set_numa_affinity_policy ~__context ~value =
     let open Xenops_interface.Host in
     match value with
     | `any ->
-        Any
+        Some Any
     | `best_effort ->
-        Best_effort
+        Some Best_effort
     | `default_policy ->
-        Any
+        None
   in
   Client.HOST.set_numa_affinity_policy dbg value
 

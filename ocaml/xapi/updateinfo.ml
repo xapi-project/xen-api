@@ -543,7 +543,7 @@ module UpdateInfo = struct
     ; url: string
     ; update_type: string
     ; livepatches: LivePatch.t list
-    ; issued: Xapi_stdext_date.Date.t
+    ; issued: Clock.Date.t
     ; severity: Severity.t
     ; title: string
   }
@@ -562,7 +562,7 @@ module UpdateInfo = struct
       ; ("special-info", `String ui.spec_info)
       ; ("URL", `String ui.url)
       ; ("type", `String ui.update_type)
-      ; ("issued", `String (Xapi_stdext_date.Date.to_rfc3339 ui.issued))
+      ; ("issued", `String (Clock.Date.to_rfc3339 ui.issued))
       ; ("severity", `String (Severity.to_string ui.severity))
       ; ( "livepatches"
         , `List (List.map (fun x -> LivePatch.to_json x) ui.livepatches)
@@ -584,7 +584,7 @@ module UpdateInfo = struct
     ; url= ""
     ; update_type= ""
     ; livepatches= []
-    ; issued= Xapi_stdext_date.Date.epoch
+    ; issued= Clock.Date.epoch
     ; severity= Severity.None
     ; title= ""
     }
@@ -656,7 +656,7 @@ module UpdateInfo = struct
                               match List.assoc_opt "date" attrs with
                               | Some date -> (
                                 try
-                                  Xapi_stdext_date.Date.of_iso8601
+                                  Clock.Date.of_iso8601
                                     (Scanf.sscanf date
                                        "%04d-%02d-%02d %02d:%02d:%02d"
                                        (fun y mon d h m s ->
@@ -669,10 +669,10 @@ module UpdateInfo = struct
                                   (* The error should not block update. Ingore it
                                      and set "issued" as epoch. *)
                                   warn "%s" (ExnHelper.string_of_exn e) ;
-                                  Xapi_stdext_date.Date.epoch
+                                  Clock.Date.epoch
                               )
                               | None ->
-                                  Xapi_stdext_date.Date.epoch
+                                  Clock.Date.epoch
                             in
                             {acc with issued}
                         | Xml.Element ("severity", _, [Xml.PCData v]) -> (

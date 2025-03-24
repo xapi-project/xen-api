@@ -259,4 +259,4 @@ module DirWatcher = struct
         |> Lwt.return
 end
 
-module Clock = struct let after ~seconds = Lwt_unix.sleep seconds end
+module Wake = struct let after ~seconds = Lwt_unix.sleep seconds end

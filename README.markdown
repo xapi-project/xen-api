@@ -32,7 +32,7 @@ To build xen-api from source, we recommend using [opam](https://opam.ocaml.org/d
     - Run that line, e.g.:
 
         ```bash
-        export OCAML_VERSION_FULL="4.14.1"
+        export OCAML_VERSION_FULL="4.14.2"
         ```
 
 4) Setup opam with your environment (i.e. switch).

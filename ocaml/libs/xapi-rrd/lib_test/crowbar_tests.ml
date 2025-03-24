@@ -67,7 +67,7 @@ let ds =
   Cb.(
     map [ds_value; float; float; ds_type] (fun v x y typ ->
         let min, max = castd2s x y in
-        ds_create (ds_type_to_string typ) ~min ~max typ v
+        ds_create (ds_type_to_string typ) ~min ~max ~mrhb:infinity typ v
     )
   )
 

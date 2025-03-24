@@ -55,16 +55,14 @@ let check ~intra_pool_only ~session_id ~action =
           if Pool_role.is_master () then
             (* before updating the last_active field, check if the field has been
                already updated recently. This avoids holding the database lock too often.*)
-            let n = Xapi_stdext_date.Date.now () in
+            let n = Clock.Date.now () in
             let last_active =
               Db_actions.DB_Action.Session.get_last_active ~__context
                 ~self:session_id
             in
-            let ptime_now = Xapi_stdext_date.Date.to_ptime n in
+            let ptime_now = Clock.Date.to_ptime n in
             let refresh_threshold =
-              let last_active_ptime =
-                Xapi_stdext_date.Date.to_ptime last_active
-              in
+              let last_active_ptime = Clock.Date.to_ptime last_active in
               match
                 Ptime.add_span last_active_ptime
                   !Xapi_globs.threshold_last_active

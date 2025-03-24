@@ -27,7 +27,7 @@
  *  /var/lib/xcp/blobs/messages/ref/<message ref> -> message
  *)
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Encodings = Xapi_stdext_encodings.Encodings
 module Listext = Xapi_stdext_std.Listext
 module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
