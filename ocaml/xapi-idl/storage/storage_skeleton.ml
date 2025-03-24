@@ -154,6 +154,11 @@ let get_by_name ctx ~dbg ~name = u "get_by_name"
 module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
 
+  let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
+    u "DATA.MIRROR.import_activate"
+
+  let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm = u "DATA.MIRROR.get_nbd_server"
+
   module MIRROR = struct
     type context = unit
 
@@ -179,12 +184,6 @@ module DATA = struct
     let receive_cancel ctx ~dbg ~id = u "DATA.MIRROR.receive_cancel"
 
     let list ctx ~dbg = u "DATA.MIRROR.list"
-
-    let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
-      u "DATA.MIRROR.import_activate"
-
-    let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm =
-      u "DATA.MIRROR.get_nbd_server"
   end
 end
 

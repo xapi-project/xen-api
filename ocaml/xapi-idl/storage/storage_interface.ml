@@ -1000,6 +1000,32 @@ module StorageAPI (R : RPC) = struct
         @-> returning result_p err
         )
 
+    (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
+      which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
+    let import_activate =
+      declare "DATA.import_activate" []
+        (dbg_p
+        @-> dp_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> returning sock_path_p err
+        )
+
+    (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
+      server that can be connected to. Depending on the backend, this will either
+      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
+      from [import_activate] as the returned server does not accept fds. *)
+    let get_nbd_server =
+      declare "DATA.get_nbd_server" []
+        (dbg_p
+        @-> dp_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> returning sock_path_p err
+        )
+
     module MIRROR = struct
       let mirror_vm_p = Param.mk ~name:"mirror_vm" Vm.t
 
@@ -1091,32 +1117,6 @@ module StorageAPI (R : RPC) = struct
           Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
         in
         declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
-
-      (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
-      which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
-      let import_activate =
-        declare "DATA.MIRROR.import_activate" []
-          (dbg_p
-          @-> dp_p
-          @-> sr_p
-          @-> vdi_p
-          @-> vm_p
-          @-> returning sock_path_p err
-          )
-
-      (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
-      server that can be connected to. Depending on the backend, this will either
-      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
-      from [import_activate] as the returned server does not accept fds. *)
-      let get_nbd_server =
-        declare "DATA.MIRROR.get_nbd_server" []
-          (dbg_p
-          @-> dp_p
-          @-> sr_p
-          @-> vdi_p
-          @-> vm_p
-          @-> returning sock_path_p err
-          )
     end
   end
 
@@ -1207,12 +1207,6 @@ module type MIRROR = sig
   val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
 
   val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
-
-  val import_activate :
-    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> sock_path
-
-  val get_nbd_server :
-    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> sock_path
 end
 
 module type Server_impl = sig
@@ -1471,6 +1465,24 @@ module type Server_impl = sig
       -> verify_dest:bool
       -> Task.id
 
+    val import_activate :
+         context
+      -> dbg:debug_info
+      -> dp:dp
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> sock_path
+
+    val get_nbd_server :
+         context
+      -> dbg:debug_info
+      -> dp:dp
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> sock_path
+
     module MIRROR : MIRROR
   end
 
@@ -1650,11 +1662,11 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
     ) ;
     S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
-    S.DATA.MIRROR.import_activate (fun dbg dp sr vdi vm ->
-        Impl.DATA.MIRROR.import_activate () ~dbg ~dp ~sr ~vdi ~vm
+    S.DATA.import_activate (fun dbg dp sr vdi vm ->
+        Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
-    S.DATA.MIRROR.get_nbd_server (fun dbg dp sr vdi vm ->
-        Impl.DATA.MIRROR.get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm
+    S.DATA.get_nbd_server (fun dbg dp sr vdi vm ->
+        Impl.DATA.get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
     S.Policy.get_backend_vm (fun dbg vm sr vdi ->
         Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi

@@ -1142,6 +1142,47 @@ functor
           (s_of_vdi vdi) url (s_of_sr dest) ;
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
 
+      (* tapdisk supports three kind of nbd servers, the old style nbdserver,
+         the new style nbd server and a real nbd server. The old and new style nbd servers
+         are "special" nbd servers that accept fds passed via SCM_RIGHTS and handle
+         connection based on that fd. The real nbd server is a "normal" nbd server
+         that accepts nbd connections from nbd clients, and it does not support fd
+         passing. *)
+      let get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style =
+        info "%s DATA.get_nbd_server dbg:%s dp:%s sr:%s vdi:%s vm:%s"
+          __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
+        let attach_info = DP.attach_info context ~dbg:"nbd" ~sr ~vdi ~dp ~vm in
+        match Storage_migrate.tapdisk_of_attach_info attach_info with
+        | Some tapdev ->
+            let minor = Tapctl.get_minor tapdev in
+            let pid = Tapctl.get_tapdisk_pid tapdev in
+            let path =
+              match style with
+              | `newstyle ->
+                  Printf.sprintf "/var/run/blktap-control/nbdserver-new%d.%d"
+                    pid minor
+              | `oldstyle ->
+                  Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid
+                    minor
+              | `real ->
+                  Printf.sprintf "/var/run/blktap-control/nbd%d.%d" pid minor
+            in
+            debug "%s nbd server path is %s" __FUNCTION__ path ;
+            path
+        | None ->
+            raise
+              (Storage_interface.Storage_error
+                 (Backend_error
+                    (Api_errors.internal_error, ["No tapdisk attach info found"])
+                 )
+              )
+
+      let import_activate context ~dbg ~dp ~sr ~vdi ~vm =
+        get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style:`oldstyle
+
+      let get_nbd_server context ~dbg ~dp ~sr ~vdi ~vm =
+        get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style:`real
+
       module MIRROR = struct
         type context = unit
 
@@ -1189,51 +1230,6 @@ functor
         let receive_cancel context ~dbg ~id =
           info "DATA.MIRROR.receive_cancel dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_cancel context ~dbg ~id
-
-        (* tapdisk supports three kind of nbd servers, the old style nbdserver,
-           the new style nbd server and a real nbd server. The old and new style nbd servers
-           are "special" nbd servers that accept fds passed via SCM_RIGHTS and handle
-           connection based on that fd. The real nbd server is a "normal" nbd server
-           that accepts nbd connections from nbd clients, and it does not support fd
-           passing. *)
-        let get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style =
-          info "%s DATA.MIRROR.get_nbd_server dbg:%s dp:%s sr:%s vdi:%s vm:%s"
-            __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
-          let attach_info =
-            DP.attach_info context ~dbg:"nbd" ~sr ~vdi ~dp ~vm
-          in
-          match Storage_migrate.tapdisk_of_attach_info attach_info with
-          | Some tapdev ->
-              let minor = Tapctl.get_minor tapdev in
-              let pid = Tapctl.get_tapdisk_pid tapdev in
-              let path =
-                match style with
-                | `newstyle ->
-                    Printf.sprintf "/var/run/blktap-control/nbdserver-new%d.%d"
-                      pid minor
-                | `oldstyle ->
-                    Printf.sprintf "/var/run/blktap-control/nbdserver%d.%d" pid
-                      minor
-                | `real ->
-                    Printf.sprintf "/var/run/blktap-control/nbd%d.%d" pid minor
-              in
-              debug "%s nbd server path is %s" __FUNCTION__ path ;
-              path
-          | None ->
-              raise
-                (Storage_interface.Storage_error
-                   (Backend_error
-                      ( Api_errors.internal_error
-                      , ["No tapdisk attach info found"]
-                      )
-                   )
-                )
-
-        let import_activate context ~dbg ~dp ~sr ~vdi ~vm =
-          get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style:`oldstyle
-
-        let get_nbd_server context ~dbg ~dp ~sr ~vdi ~vm =
-          get_nbd_server_common context ~dbg ~dp ~sr ~vdi ~vm ~style:`real
       end
     end
 

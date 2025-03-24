@@ -1013,7 +1013,7 @@ let nbd_handler req s ?(vm = "0") sr vdi dp =
   let vm = Vm.of_string vm in
   let path =
     Storage_utils.transform_storage_exn (fun () ->
-        Local.DATA.MIRROR.import_activate "nbd" dp sr vdi vm
+        Local.DATA.import_activate "nbd" dp sr vdi vm
     )
   in
   Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
@@ -1043,7 +1043,7 @@ let nbd_proxy req s vm sr vdi dp =
   let vm = Vm.of_string vm in
   let path =
     Storage_utils.transform_storage_exn (fun () ->
-        Local.DATA.MIRROR.get_nbd_server "nbd" dp sr vdi vm
+        Local.DATA.get_nbd_server "nbd" dp sr vdi vm
     )
   in
   debug "%s got nbd server path %s" __FUNCTION__ path ;

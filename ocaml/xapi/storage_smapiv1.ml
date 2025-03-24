@@ -1212,6 +1212,10 @@ module SMAPIv1 : Server_impl = struct
     let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
+    let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
+
+    let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
+
     module MIRROR = struct
       type context = unit
 
@@ -1237,11 +1241,6 @@ module SMAPIv1 : Server_impl = struct
       let receive_finalize2 _context ~dbg:_ ~id:_ = assert false
 
       let receive_cancel _context ~dbg:_ ~id:_ = assert false
-
-      let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ =
-        assert false
-
-      let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
     end
   end
 
