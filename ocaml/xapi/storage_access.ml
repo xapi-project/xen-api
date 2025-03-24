@@ -439,7 +439,7 @@ let update_task ~__context id =
 let update_mirror ~__context id =
   try
     let dbg = Context.string_of_task __context in
-    let m = Client.DATA.MIRROR.stat dbg id in
+    let m = Storage_migrate.stat ~dbg ~id in
     if m.Mirror.failed then
       debug "Mirror %s has failed" id ;
     let task = get_mirror_task id in

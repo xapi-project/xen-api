@@ -1186,24 +1186,6 @@ functor
       module MIRROR = struct
         type context = unit
 
-        let start context ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest =
-          info "DATA.MIRROR.start dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg
-            (s_of_sr sr) (s_of_vdi vdi) url (s_of_sr dest) ;
-          Impl.DATA.MIRROR.start context ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm
-            ~url ~dest
-
-        let stop context ~dbg ~id =
-          info "DATA.MIRROR.stop dbg:%s id:%s" dbg id ;
-          Impl.DATA.MIRROR.stop context ~dbg ~id
-
-        let list context ~dbg =
-          info "DATA.MIRROR.active dbg:%s" dbg ;
-          Impl.DATA.MIRROR.list context ~dbg
-
-        let stat context ~dbg ~id =
-          info "DATA.MIRROR.stat dbg:%s id:%s" dbg id ;
-          Impl.DATA.MIRROR.stat context ~dbg ~id
-
         let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
           info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" dbg
             (s_of_sr sr) id

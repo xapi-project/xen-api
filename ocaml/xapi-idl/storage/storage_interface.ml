@@ -1027,35 +1027,7 @@ module StorageAPI (R : RPC) = struct
         )
 
     module MIRROR = struct
-      let mirror_vm_p = Param.mk ~name:"mirror_vm" Vm.t
-
-      let copy_vm_p = Param.mk ~name:"copy_vm" Vm.t
-
-      (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
-          writes data synchronously. It returns the id of the VDI.*)
-      let start =
-        declare "DATA.MIRROR.start" []
-          (dbg_p
-          @-> sr_p
-          @-> vdi_p
-          @-> dp_p
-          @-> mirror_vm_p
-          @-> copy_vm_p
-          @-> url_p
-          @-> dest_p
-          @-> verify_dest_p
-          @-> returning task_id_p err
-          )
-
       let id_p = Param.mk ~name:"id" Mirror.id
-
-      (** [stop task sr vdi] stops mirroring local [vdi] *)
-      let stop =
-        declare "DATA.MIRROR.stop" [] (dbg_p @-> id_p @-> returning unit_p err)
-
-      let stat =
-        let result_p = Param.mk ~name:"result" Mirror.t in
-        declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
 
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
@@ -1111,12 +1083,6 @@ module StorageAPI (R : RPC) = struct
       let receive_cancel =
         declare "DATA.MIRROR.receive_cancel" []
           (dbg_p @-> id_p @-> returning unit_p err)
-
-      let list =
-        let result_p =
-          Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
-        in
-        declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
     end
   end
 
@@ -1164,23 +1130,6 @@ end
 module type MIRROR = sig
   type context = unit
 
-  val start :
-       context
-    -> dbg:debug_info
-    -> sr:sr
-    -> vdi:vdi
-    -> dp:dp
-    -> mirror_vm:vm
-    -> copy_vm:vm
-    -> url:string
-    -> dest:sr
-    -> verify_dest:bool
-    -> Task.id
-
-  val stop : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
-
   val receive_start :
        context
     -> dbg:debug_info
@@ -1205,8 +1154,6 @@ module type MIRROR = sig
   val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
 
   val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-  val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
 end
 
 module type Server_impl = sig
@@ -1639,13 +1586,6 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
-    S.DATA.MIRROR.start
-      (fun dbg sr vdi dp mirror_vm copy_vm url dest verify_dest ->
-        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url
-          ~dest ~verify_dest
-    ) ;
-    S.DATA.MIRROR.stop (fun dbg id -> Impl.DATA.MIRROR.stop () ~dbg ~id) ;
-    S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
     ) ;
@@ -1661,7 +1601,6 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
     ) ;
-    S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
     S.DATA.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;

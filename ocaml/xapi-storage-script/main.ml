@@ -1913,7 +1913,6 @@ let bind ~volume_script_dir =
   S.VDI.get_by_name (u "VDI.get_by_name") ;
   S.UPDATES.get (u "UPDATES.get") ;
   S.SR.update_snapshot_info_dest (u "SR.update_snapshot_info_dest") ;
-  S.DATA.MIRROR.list (u "DATA.MIRROR.list") ;
   S.TASK.stat (u "TASK.stat") ;
   S.DP.diagnostics (u "DP.diagnostics") ;
   S.TASK.destroy (u "TASK.destroy") ;
@@ -1932,12 +1931,9 @@ let bind ~volume_script_dir =
   S.VDI.attach (u "VDI.attach") ;
   S.VDI.attach2 (u "VDI.attach2") ;
   S.VDI.activate (u "VDI.activate") ;
-  S.DATA.MIRROR.stat (u "DATA.MIRROR.stat") ;
   S.VDI.get_url (u "VDI.get_url") ;
-  S.DATA.MIRROR.start (u "DATA.MIRROR.start") ;
   S.Policy.get_backend_vm (u "Policy.get_backend_vm") ;
   S.SR.update_snapshot_info_src (u "SR.update_snapshot_info_src") ;
-  S.DATA.MIRROR.stop (u "DATA.MIRROR.stop") ;
   Rpc_lwt.server S.implementation
 
 let process_smapiv2_requests server txt =
