@@ -19,7 +19,7 @@
 module Rrdd = Rrd_client.Client
 open Xapi_stdext_std.Xstringext
 module Unixext = Xapi_stdext_unix.Unixext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Create_misc
 open Client
 open Network

@@ -2,7 +2,7 @@ module D = Debug.Make (struct let name = "certificates_sync" end)
 
 open D
 module Unixext = Xapi_stdext_unix.Unixext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module G = Gencertlib
 module GP = Gencertlib.Pem
 open Api_errors

@@ -501,7 +501,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -524,7 +524,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -572,7 +572,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -619,7 +619,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -642,7 +642,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -689,7 +689,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -725,7 +725,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -772,7 +772,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -819,7 +819,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -866,7 +866,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -902,7 +902,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -949,7 +949,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -984,7 +984,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1031,7 +1031,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1078,7 +1078,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1147,7 +1147,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "10.23.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1206,7 +1206,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "10.23.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1267,7 +1267,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.21.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1302,7 +1302,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.22.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1361,7 +1361,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.21.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1406,7 +1406,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.22.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1465,7 +1465,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.21.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1488,7 +1488,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1547,7 +1547,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.21.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1570,7 +1570,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                     ; url= "https://update.details.info"
                     ; update_type= "security"
                     ; livepatches= []
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1639,7 +1639,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.21.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -1674,7 +1674,7 @@ module EvalGuidanceForOneUpdate = Generic.MakeStateless (struct
                             ; to_release= "8.0.22.xs8"
                             }
                         ]
-                    ; issued= Xapi_stdext_date.Date.epoch
+                    ; issued= Clock.Date.epoch
                     ; severity= Severity.None
                     ; title= ""
                     }
@@ -2017,7 +2017,7 @@ module ConsolidateUpdatesOfHost = Generic.MakeStateless (struct
       ; url= "https://update.details.info"
       ; update_type= "security"
       ; livepatches= []
-      ; issued= Xapi_stdext_date.Date.epoch
+      ; issued= Clock.Date.epoch
       ; severity= Severity.None
       ; title= ""
       }
@@ -3920,7 +3920,7 @@ module PruneUpdateInfoForLivepatches = Generic.MakeStateless (struct
       ; url= "URL"
       ; update_type= "UPDATE_TYPE"
       ; livepatches= []
-      ; issued= Xapi_stdext_date.Date.epoch
+      ; issued= Clock.Date.epoch
       ; severity= Severity.None
       ; title= ""
       }

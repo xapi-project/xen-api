@@ -37,7 +37,7 @@
 
 open Importexport
 open Xapi_stdext_pervasives.Pervasiveext
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 module Unixext = Xapi_stdext_unix.Unixext
 
 module D = Debug.Make (struct let name = "export" end)

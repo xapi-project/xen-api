@@ -109,11 +109,6 @@ type pid =
   | FEFork of Forkhelpers.pidty  (** the forkhelpers module did it for us. *)
   | Nopid
 
-(* let string_of_pid = function
-   | StdFork x -> Printf.sprintf "(StdFork %d)" x
-   | FEFork x -> Forkhelpers.string_of_pidty x
-   | Nopid -> "None" *)
-
 let getpid ty =
   match ty with
   | StdFork pid ->
@@ -483,20 +478,30 @@ let check_verify_error line =
   let split_1 c s =
     match Astring.String.cut ~sep:c s with Some (x, _) -> x | None -> s
   in
-  if Astring.String.is_infix ~affix:"VERIFY ERROR: " line then
-    match Astring.String.find_sub ~sub:"error=" line with
+  (* When verified with a mismatched certificate, one line of log from stunnel
+   * would look like:
+     SSL_connect: ssl/statem/statem_clnt.c:1889: error:0A000086:SSL routines::certificate verify failed
+   * in this case, Stunnel_verify_error can be raised with detailed error as
+   * reason if it can found in the log *)
+  if Astring.String.is_infix ~affix:"certificate verify failed" line then
+    match Astring.String.find_sub ~sub:"error:" line with
     | Some e ->
         raise
           (Stunnel_verify_error
-             (split_1 "," (sub_after (e + String.length "error=") line))
+             (split_1 "," (sub_after (e + String.length "error:") line))
           )
     | None ->
         raise (Stunnel_verify_error "")
+  else if
+    Astring.String.is_infix ~affix:"No certificate or private key specified"
+      line
+  then
+    raise (Stunnel_verify_error "The specified certificate is corrupt")
   else
     ()
 
 let check_error s line =
-  if Astring.String.is_infix ~affix:line s then
+  if Astring.String.is_infix ~affix:s line then
     raise (Stunnel_error s)
 
 let diagnose_failure st_proc =

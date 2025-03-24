@@ -25,7 +25,7 @@ depends: [
   "rpclib-lwt"
   "sexplib0"
   "xapi-idl" {>= "0.10.0"}
-  "xapi-stdext-date"
+  "clock"
   "xapi-storage"
 ]
 synopsis: "A directory full of scripts can be a Xapi storage implementation"

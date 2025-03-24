@@ -264,6 +264,7 @@
     re
     result
     rpclib
+    rrdd-plugin
     rresult
     sexplib
     sexplib0
@@ -315,6 +316,7 @@
     ; 'xapi-tools' will have version ~dev, not 'master' like all the others
     ; because it is not in xs-opam yet
     rrd-transport
+    rrdd-plugin
     xapi-tracing-export
     xen-api-client
     (alcotest :with-test)
@@ -338,6 +340,7 @@
     base64
     (bos :with-test)
     cdrom
+    (clock (= :version))
     cmdliner
     cohttp
     conf-pam
@@ -398,7 +401,6 @@
     (xapi-idl (= :version))
     (xapi-inventory (= :version))
     (xapi-log (= :version))
-    (xapi-stdext-date (= :version))
     (xapi-stdext-pervasives (= :version))
     (xapi-stdext-std (= :version))
     (xapi-stdext-threads (= :version))
@@ -604,6 +606,7 @@ This package provides an Lwt compatible interface to the library.")
     (alcotest :with-test)
     astring
     (base64 (>= "3.1.0"))
+    (clock (= :version))
     fmt
     ipaddr
     mtime
@@ -619,7 +622,6 @@ This package provides an Lwt compatible interface to the library.")
     xapi-backtrace
     (xapi-idl (= :version))
     (xapi-log (= :version))
-    (xapi-stdext-date (= :version))
     (xapi-stdext-pervasives (= :version))
     (xapi-stdext-threads (= :version))
     (xapi-tracing (= :version))
@@ -721,10 +723,11 @@ This package provides an Lwt compatible interface to the library.")
     base-threads
     base-unix
     (alcotest :with-test)
+    (clock (= :version))
     (fmt :with-test)
-    (odoc :with-doc)
+    mtime
+    (xapi-log (= :version))
     (xapi-stdext-pervasives (= :version))
-    (mtime :with-test)
     (xapi-stdext-unix (= :version))
   )
 )

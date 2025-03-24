@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Test_highlevel
 
 type host_license_state = {

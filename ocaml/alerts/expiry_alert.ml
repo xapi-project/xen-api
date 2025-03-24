@@ -13,7 +13,7 @@
  *)
 
 module XenAPI = Client.Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 type message_name = string
 
@@ -37,7 +37,7 @@ type raw_alert = {
   ; obj_uuid: string
   ; obj_description: string
   ; alert_conditions: (remaining_days * message_id) list
-  ; expiry: Xapi_stdext_date.Date.t (* when the obj will expire *)
+  ; expiry: Date.t (* when the obj will expire *)
 }
 
 let seconds_per_day = 3600. *. 24.
@@ -87,7 +87,7 @@ let filter_messages msg_name_list msg_obj_uuid alert all_msgs =
      )
 
 let alert ~rpc ~session_id raw_alerts =
-  let now = Date.now () in
+  let now = Clock.Date.now () in
   let all_msgs = all_messages rpc session_id in
   List.iter
     (fun {cls; obj_uuid; obj_description; alert_conditions; expiry} ->

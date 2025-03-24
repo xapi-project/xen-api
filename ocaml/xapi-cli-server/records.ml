@@ -14,7 +14,7 @@
 (* String-based interface to the API *)
 
 open Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 
 let nullref = Ref.string_of Ref.null
 

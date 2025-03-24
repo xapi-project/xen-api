@@ -19,7 +19,7 @@
     rpclib.xml
     uuid
     xapi-consts
-    xapi-stdext-date
+    clock
     xapi-stdext-unix
   )
   (wrapped false)

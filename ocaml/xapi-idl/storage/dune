@@ -22,7 +22,7 @@
    rpclib.core
    rpclib.json
    rresult
-   xapi-stdext-date
+   clock
    xapi-idl
    xapi-idl.storage.interface.types
    xapi-log
@@ -41,7 +41,7 @@
    threads.posix
    xapi-idl
    xapi-idl.storage.interface
-   xapi-stdext-date
+   clock
  )
  (wrapped false))
 

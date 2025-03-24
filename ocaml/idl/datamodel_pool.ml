@@ -1553,6 +1553,24 @@ let get_guest_secureboot_readiness =
     ~result:(pool_guest_secureboot_readiness, "The readiness of the pool")
     ~allowed_roles:_R_POOL_OP ()
 
+let enable_ssh =
+  call ~name:"enable_ssh"
+    ~doc:
+      "Enable SSH access on all hosts in the pool. It's a helper which calls \
+       host.enable_ssh for all the hosts in the pool."
+    ~lifecycle:[]
+    ~params:[(Ref _pool, "self", "The pool")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let disable_ssh =
+  call ~name:"disable_ssh"
+    ~doc:
+      "Disable SSH access on all hosts in the pool. It's a helper which calls \
+       host.disable_ssh for all the hosts in the pool."
+    ~lifecycle:[]
+    ~params:[(Ref _pool, "self", "The pool")]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1647,6 +1665,8 @@ let t =
       ; set_ext_auth_cache_size
       ; set_ext_auth_cache_expiry
       ; get_guest_secureboot_readiness
+      ; enable_ssh
+      ; disable_ssh
       ]
     ~contents:
       ([

@@ -49,11 +49,9 @@ let create_pool_record ~__context =
       ~repository_proxy_url:"" ~repository_proxy_username:""
       ~repository_proxy_password:Ref.null ~migration_compression:false
       ~coordinator_bias:true ~telemetry_uuid:Ref.null
-      ~telemetry_frequency:`weekly
-      ~telemetry_next_collection:Xapi_stdext_date.Date.epoch
-      ~last_update_sync:Xapi_stdext_date.Date.epoch
-      ~update_sync_frequency:`weekly ~update_sync_day:0L
-      ~update_sync_enabled:false ~local_auth_max_threads:8L
+      ~telemetry_frequency:`weekly ~telemetry_next_collection:Clock.Date.epoch
+      ~last_update_sync:Clock.Date.epoch ~update_sync_frequency:`weekly
+      ~update_sync_day:0L ~update_sync_enabled:false ~local_auth_max_threads:8L
       ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false
       ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
       ~license_server:[]
@@ -293,9 +291,9 @@ let ensure_vm_metrics_records_exist __context =
         let uuid = Uuidx.to_string (Uuidx.make ()) in
         Db.VM_metrics.create ~__context ~ref:m ~uuid ~vCPUs_number:0L
           ~vCPUs_utilisation:[] ~memory_actual:0L ~vCPUs_CPU:[] ~vCPUs_params:[]
-          ~vCPUs_flags:[] ~start_time:Xapi_stdext_date.Date.epoch
-          ~install_time:Xapi_stdext_date.Date.epoch ~state:[]
-          ~last_updated:Xapi_stdext_date.Date.epoch ~other_config:[] ~hvm:false
+          ~vCPUs_flags:[] ~start_time:Clock.Date.epoch
+          ~install_time:Clock.Date.epoch ~state:[]
+          ~last_updated:Clock.Date.epoch ~other_config:[] ~hvm:false
           ~nested_virt:false ~nomigrate:false ~current_domain_type:`unspecified ;
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       )
@@ -332,7 +330,7 @@ let setup_telemetry ~__context =
           |> Span.add (Span.of_int_s (Random.int (interval_hours * 3600)))
           |> add_span (Ptime_clock.now ())
           |> Option.get
-          |> Xapi_stdext_date.Date.of_ptime
+          |> Clock.Date.of_ptime
         in
         Helpers.call_api_functions ~__context (fun rpc session_id ->
             Client.Pool.set_telemetry_next_collection ~rpc ~session_id

@@ -273,9 +273,9 @@ val sync_data : __context:Context.t -> host:API.ref_host -> unit
 
 val backup_rrds : __context:Context.t -> host:'b -> delay:float -> unit
 
-val get_servertime : __context:'a -> host:'b -> Xapi_stdext_date.Date.t
+val get_servertime : __context:'a -> host:'b -> Clock.Date.t
 
-val get_server_localtime : __context:'a -> host:'b -> Xapi_stdext_date.Date.t
+val get_server_localtime : __context:'a -> host:'b -> Clock.Date.t
 
 val enable_binary_storage : __context:Context.t -> host:[`host] Ref.t -> unit
 
@@ -563,3 +563,7 @@ val set_https_only :
   __context:Context.t -> self:API.ref_host -> value:bool -> unit
 
 val emergency_clear_mandatory_guidance : __context:Context.t -> unit
+
+val enable_ssh : __context:Context.t -> self:API.ref_host -> unit
+
+val disable_ssh : __context:Context.t -> self:API.ref_host -> unit

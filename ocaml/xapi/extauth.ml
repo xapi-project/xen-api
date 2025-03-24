@@ -193,3 +193,19 @@ let call_extauth_hook_script_in_pool ~__context event_name =
       event_name ;
     []
   )
+
+let call_with_exception_handler fn =
+  try fn () with
+  | Extauth_is_disabled ->
+      raise (Api_errors.Server_error (Api_errors.auth_is_disabled, []))
+  | Unknown_extauth_type msg ->
+      raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
+  | Not_found | Auth_signature.Subject_cannot_be_resolved ->
+      raise (Api_errors.Server_error (Api_errors.subject_cannot_be_resolved, []))
+  | Auth_signature.Auth_service_error (_, msg) ->
+      raise (Api_errors.Server_error (Api_errors.auth_service_error, [msg]))
+  | e ->
+      raise
+        (Api_errors.Server_error
+           (Api_errors.auth_service_error, [ExnHelper.string_of_exn e])
+        )

@@ -207,6 +207,10 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "host", "disable_ssh" ->
+      Some "25.13.0"
+  | "host", "enable_ssh" ->
+      Some "25.13.0"
   | "host", "emergency_clear_mandatory_guidance" ->
       Some "24.10.0"
   | "host", "apply_recommended_guidances" ->
@@ -225,6 +229,10 @@ let prototyped_of_message = function
       Some "23.30.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
+  | "pool", "disable_ssh" ->
+      Some "25.13.0"
+  | "pool", "enable_ssh" ->
+      Some "25.13.0"
   | "pool", "get_guest_secureboot_readiness" ->
       Some "24.17.0"
   | "pool", "set_ext_auth_cache_expiry" ->

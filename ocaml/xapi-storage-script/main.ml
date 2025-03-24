@@ -860,8 +860,8 @@ module type META = sig
 
   val version : string option ref
   (** This field will be populated once Query.query is called when each plugin
-  is registered, after which it will be used in the [Compat] module, which is used 
-  in various volume function implementations. 
+  is registered, after which it will be used in the [Compat] module, which is used
+  in various volume function implementations.
   It is an alias to the global reference cell declared above *)
 end
 
@@ -1282,7 +1282,7 @@ module SRImpl (M : META) = struct
                   sr_uuid times
             )
           in
-          Clock.after ~seconds:1. >>= fun () ->
+          Wake.after ~seconds:1. >>= fun () ->
           stat_with_retry ~times:(times - 1) sr
       | health ->
           let* () =
@@ -1445,7 +1445,7 @@ module VDIImpl (M : META) = struct
                Volume_client.snapshot (volume_rpc ~dbg) dbg sr vdi
            )
            >>>= fun response ->
-           let now = Xapi_stdext_date.Date.(to_rfc3339 (now ())) in
+           let now = Clock.Date.(to_rfc3339 (now ())) in
            set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
              ~key:_snapshot_time_key ~value:now
            >>>= fun () ->
@@ -2139,7 +2139,7 @@ let main ~root_dir ~state_path ~switch_path =
         Lwt.return_unit
     | Error x ->
         error (fun m -> m "%s thread failed with %s" name (Base.Exn.to_string x))
-        >>= fun () -> Clock.after ~seconds:5. >>= retry_loop thread
+        >>= fun () -> Wake.after ~seconds:5. >>= retry_loop thread
   in
   [
     ( "volume plugins"

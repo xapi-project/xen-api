@@ -16,7 +16,7 @@
 *)
 
 open Client
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open Event_types
 
 module D = Debug.Make (struct let name = "xapi_vm_clone" end)

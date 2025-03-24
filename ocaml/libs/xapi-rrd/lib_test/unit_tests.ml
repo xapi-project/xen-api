@@ -113,10 +113,18 @@ let absolute_rrd =
   let rra3 = rra_create CF_Average 100 100 0.5 in
   let rra4 = rra_create CF_Average 100 1000 0.5 in
   let ts = 1000000000.0 in
-  let ds = ds_create "foo" Absolute ~mrhb:10.0 (VT_Float 0.0) in
-  let ds2 = ds_create "bar" Absolute ~mrhb:10.0 (VT_Float 0.0) in
-  let ds3 = ds_create "baz" Absolute ~mrhb:10.0 (VT_Float 0.0) in
-  let ds4 = ds_create "boo" Absolute ~mrhb:10.0 (VT_Float 0.0) in
+  let ds =
+    ds_create "foo" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds2 =
+    ds_create "bar" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds3 =
+    ds_create "baz" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds4 =
+    ds_create "boo" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
   let rrd = rrd_create [|ds; ds2; ds3; ds4|] [|rra; rra2; rra3; rra4|] 1L ts in
   let id = Identity in
   for i = 1 to 100000 do
@@ -143,10 +151,18 @@ let absolute_rrd_CA_404597 () =
   let rra3 = rra_create CF_Average 100 100 0.5 in
   let rra4 = rra_create CF_Average 100 1000 0.5 in
   let ts = 1000000000.0 in
-  let ds = ds_create "foo" Absolute ~mrhb:10.0 (VT_Float 0.0) in
-  let ds2 = ds_create "bar" Absolute ~mrhb:10.0 (VT_Float 0.0) in
-  let ds3 = ds_create "baz" Absolute ~mrhb:10.0 (VT_Float 0.0) in
-  let ds4 = ds_create "boo" Absolute ~mrhb:10.0 (VT_Float 0.0) in
+  let ds =
+    ds_create "foo" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds2 =
+    ds_create "bar" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds3 =
+    ds_create "baz" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds4 =
+    ds_create "boo" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
   let rrd = rrd_create [|ds; ds2; ds3; ds4|] [|rra; rra2; rra3; rra4|] 1L ts in
   let id = Identity in
   for i = 1 to 100000 do
@@ -181,10 +197,18 @@ let gauge_rrd_CA_404597 () =
   let rra3 = rra_create CF_Average 100 100 0.5 in
   let rra4 = rra_create CF_Average 100 1000 0.5 in
   let ts = 1000000000.0 in
-  let ds = ds_create "foo" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-  let ds2 = ds_create "bar" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-  let ds3 = ds_create "baz" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-  let ds4 = ds_create "boo" Gauge ~mrhb:10.0 (VT_Float 0.0) in
+  let ds =
+    ds_create "foo" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds2 =
+    ds_create "bar" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds3 =
+    ds_create "baz" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds4 =
+    ds_create "boo" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
   let rrd = rrd_create [|ds; ds2; ds3; ds4|] [|rra; rra2; rra3; rra4|] 1L ts in
   let id = Identity in
   for i = 1 to 100000 do
@@ -217,10 +241,18 @@ let gauge_rrd =
   let rra3 = rra_create CF_Average 100 100 0.5 in
   let rra4 = rra_create CF_Average 100 1000 0.5 in
   let ts = 1000000000.0 in
-  let ds = ds_create "foo" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-  let ds2 = ds_create "bar" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-  let ds3 = ds_create "baz" Gauge ~mrhb:10.0 (VT_Float 0.0) in
-  let ds4 = ds_create "boo" Gauge ~mrhb:10.0 (VT_Float 0.0) in
+  let ds =
+    ds_create "foo" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds2 =
+    ds_create "bar" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds3 =
+    ds_create "baz" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
+  let ds4 =
+    ds_create "boo" Gauge ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+  in
   let rrd = rrd_create [|ds; ds2; ds3; ds4|] [|rra; rra2; rra3; rra4|] 1L ts in
   let id = Identity in
   for i = 1 to 100000 do
@@ -252,7 +284,9 @@ let _deserialize_verify_rrd =
   let rra1 = rra_create CF_Average 100 1 0.5 in
   let rra2 = rra_create CF_Min 100 1 0.5 in
   let rra3 = rra_create CF_Max 100 1 0.5 in
-  let ds = ds_create "flip_flop" Derive (VT_Int64 0L) in
+  let ds =
+    ds_create "flip_flop" Derive ~min:0. ~max:infinity ~mrhb:5. (VT_Int64 0L)
+  in
 
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L 0. in
 
@@ -269,7 +303,9 @@ let ca_322008_rrd =
   let rra1 = rra_create CF_Average 100 1 0.5 in
   let rra2 = rra_create CF_Min 100 1 0.5 in
   let rra3 = rra_create CF_Max 100 1 0.5 in
-  let ds = ds_create "even or zero" Derive ~min:0. (VT_Int64 0L) in
+  let ds =
+    ds_create "even or zero" Derive ~min:0. ~max:infinity ~mrhb:5. (VT_Int64 0L)
+  in
 
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L 0. in
 
@@ -287,7 +323,9 @@ let ca_329043_rrd_1 =
   let rra1 = rra_create CF_Average 3 1 0.5 in
   let rra2 = rra_create CF_Min 3 1 0.5 in
   let rra3 = rra_create CF_Max 3 1 0.5 in
-  let ds = ds_create "derive_with_min" ~min:0. ~max:1. Derive VT_Unknown in
+  let ds =
+    ds_create "derive_with_min" ~min:0. ~max:1. ~mrhb:5. Derive VT_Unknown
+  in
 
   let rrd = rrd_create [|ds|] [|rra1; rra2; rra3|] 5L 0. in
 
@@ -313,9 +351,10 @@ let create_rrd ?(rows = 2) values min max =
   let rra2 = rra_create CF_Min rows 10 0.5 in
   let rra3 = rra_create CF_Max rows 10 0.5 in
   let rra4 = rra_create CF_Last rows 10 0.5 in
-  let ds1 = ds_create "derive" ~min ~max Derive VT_Unknown in
-  let ds2 = ds_create "absolute" ~min ~max Derive VT_Unknown in
-  let ds3 = ds_create "gauge" ~min ~max Derive VT_Unknown in
+  let mrhb = 5. in
+  let ds1 = ds_create "derive" ~min ~max ~mrhb Derive VT_Unknown in
+  let ds2 = ds_create "absolute" ~min ~max ~mrhb Derive VT_Unknown in
+  let ds3 = ds_create "gauge" ~min ~max ~mrhb Derive VT_Unknown in
 
   let rrd =
     rrd_create [|ds1; ds2; ds3|] [|rra1; rra2; rra3; rra4|] 5L init_time
@@ -339,7 +378,9 @@ let ca_329043_rrd_2 =
 
 let ca_329813_rrd =
   let rrd = create_rrd [0L; 5L; 10L] 0. 1. in
-  let new_ds = ds_create "new!" Derive VT_Unknown in
+  let new_ds =
+    ds_create "new!" Derive VT_Unknown ~min:0. ~max:infinity ~mrhb:5.
+  in
   Rrd.rrd_add_ds rrd rrd.last_updated new_ds
 
 let test_ca_322008 () =

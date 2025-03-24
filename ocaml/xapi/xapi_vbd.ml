@@ -17,7 +17,7 @@
 
 open Xapi_vbd_helpers
 open Vbdops
-module Date = Xapi_stdext_date.Date
+module Date = Clock.Date
 open D
 
 let update_allowed_operations ~__context ~self : unit =

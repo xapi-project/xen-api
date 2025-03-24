@@ -13,6 +13,7 @@
 # GNU Lesser General Public License for more details.
 
 import os
+import os.path
 import stat
 import socket
 import sys
@@ -140,6 +141,8 @@ def main(argv):
 
     tpm_env = dict(os.environ)
     tpm_env["LD_LIBRARY_PATH"] = "/usr/lib:"
+    if os.path.exists("/etc/ssl/openssl-swtpm.cnf"):
+        tpm_env["OPENSSL_CONF"] = "/etc/ssl/openssl-swtpm.cnf"
 
     if needs_init or check_state_needs_init(tpm_state_file):
         if tpm_file is None:
