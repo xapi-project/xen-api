@@ -1920,6 +1920,7 @@ let bind ~volume_script_dir =
   S.VDI.similar_content (u "VDI.similar_content") ;
   S.DATA.copy (u "DATA.copy") ;
   S.DP.stat_vdi (u "DP.stat_vdi") ;
+  S.DATA.MIRROR.send_start (u "DATA.MIRROR.send_start") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
   S.DATA.MIRROR.receive_start2 (u "DATA.MIRROR.receive_start2") ;
   S.DATA.MIRROR.receive_finalize (u "DATA.MIRROR.receive_finalize") ;

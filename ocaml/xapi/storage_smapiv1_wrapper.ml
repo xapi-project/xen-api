@@ -1186,6 +1186,14 @@ functor
       module MIRROR = struct
         type context = unit
 
+        let u x =
+          raise Storage_interface.(Storage_error (Errors.Unimplemented x))
+
+        let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
+            ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+            ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
+          u "DATA.MIRROR.send_start"
+
         let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
           info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" dbg
             (s_of_sr sr) id

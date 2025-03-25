@@ -162,6 +162,10 @@ module DATA = struct
   module MIRROR = struct
     type context = unit
 
+    let send_start ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
+        ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+      u "DATA.MIRROR.send_start"
+
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       u "DATA.MIRROR.receive_start"
 

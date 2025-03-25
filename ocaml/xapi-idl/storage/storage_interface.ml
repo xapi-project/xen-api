@@ -1027,7 +1027,42 @@ module StorageAPI (R : RPC) = struct
         )
 
     module MIRROR = struct
+      let mirror_vm_p = Param.mk ~name:"mirror_vm" Vm.t
+
+      let copy_vm_p = Param.mk ~name:"copy_vm" Vm.t
+
+      let live_vm_p = Param.mk ~name:"live_vm" Vm.t
+
       let id_p = Param.mk ~name:"id" Mirror.id
+
+      (** [send_start dbg dp task src_sr vdi mirror_vm mirror_id local_vdi copy_vm 
+      live_vm url remote_mirror dest_sr verify_dest]
+      takes the remote mirror [remote_mirror] prepared by the destination host 
+      and initiates the mirroring of [vdi] from the source *)
+      let send_start =
+        let recv_result_p =
+          Param.mk ~name:"recv_result" Mirror.mirror_receive_result
+        in
+        let local_vdi_p = Param.mk ~name:"local_vdi" vdi_info in
+        let src_sr_p = Param.mk ~name:"src_sr" Sr.t in
+        let dest_sr_p = Param.mk ~name:"dest_sr" Sr.t in
+        declare "DATA.MIRROR.send_start" []
+          (dbg_p
+          @-> dp_p
+          @-> task_id_p
+          @-> src_sr_p
+          @-> vdi_p
+          @-> mirror_vm_p
+          @-> id_p
+          @-> local_vdi_p
+          @-> copy_vm_p
+          @-> live_vm_p
+          @-> url_p
+          @-> recv_result_p
+          @-> dest_sr_p
+          @-> verify_dest_p
+          @-> returning unit_p err
+          )
 
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
@@ -1129,6 +1164,24 @@ end
 
 module type MIRROR = sig
   type context = unit
+
+  val send_start :
+       context
+    -> dbg:debug_info
+    -> task_id:Task.id
+    -> dp:dp
+    -> sr:sr
+    -> vdi:vdi
+    -> mirror_vm:vm
+    -> mirror_id:Mirror.id
+    -> local_vdi:vdi_info
+    -> copy_vm:vm
+    -> live_vm:vm
+    -> url:string
+    -> remote_mirror:Mirror.mirror_receive_result
+    -> dest_sr:sr
+    -> verify_dest:bool
+    -> unit
 
   val receive_start :
        context
@@ -1585,6 +1638,27 @@ module Server (Impl : Server_impl) () = struct
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
+    ) ;
+    S.DATA.MIRROR.send_start
+      (fun
+        dbg
+        task_id
+        dp
+        sr
+        vdi
+        mirror_vm
+        mirror_id
+        local_vdi
+        copy_vm
+        live_vm
+        url
+        remote_mirror
+        dest_sr
+        verify_dest
+      ->
+        Impl.DATA.MIRROR.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
+          ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr
+          ~verify_dest
     ) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar

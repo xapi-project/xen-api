@@ -760,6 +760,13 @@ module Mux = struct
     module MIRROR = struct
       type context = unit
 
+      let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
+
+      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
+          ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
+        u "DATA.MIRROR.send_start" (* see storage_smapi{v1,v3}_migrate.ml *)
+
       let receive_start () ~dbg ~sr ~vdi_info ~id ~similar =
         with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun di ->
         info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s"
