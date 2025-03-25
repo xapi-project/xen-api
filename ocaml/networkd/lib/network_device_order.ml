@@ -32,6 +32,8 @@ module PciAddr = struct
 
   let int_of_hex_str s = int_of_string (Printf.sprintf "0x%s" s)
 
+  exception Parse_error of string
+
   let of_string_exn s =
     match Re.exec_opt pattern s with
     | Some g -> (
@@ -41,10 +43,10 @@ module PciAddr = struct
         let dev = int_of_hex_str (Re.Group.get g 3) in
         let func = int_of_hex_str (Re.Group.get g 4) in
         {segment; bus; dev; func}
-      with _ -> failwith "Can't parse PCI address in SBDF format."
+      with _ -> raise (Parse_error s)
     )
     | None ->
-        failwith "Invalid PCI address string."
+        raise (Parse_error s)
 
   let compare t1 t2 =
     match
@@ -89,9 +91,11 @@ module ToMap = struct
     val fold : (key -> 'a -> 'acc -> 'acc) -> 'a t -> 'acc -> 'acc
   end
 
-  let fail _ = failwith "Duplicate key!"
-
   module MakeForList (M : MapOut) = struct
+    exception Duplicate_key
+
+    let fail _ = raise Duplicate_key
+
     (** [to_11_map ~by l] is a map. For each binding in the map, the key is [by v] and the value is [v] in the list. *)
     let to_11_map ~by l =
       List.fold_left
@@ -103,6 +107,10 @@ module ToMap = struct
   end
 
   module MakeForMap (MI : MapIn) (MO : MapOut) = struct
+    exception Duplicate_key
+
+    let fail _ = raise Duplicate_key
+
     (** [to_11_map ~by m] is a map. For each binding in the map, the key is [by v] and the value is [v] which is a value in the [m]. *)
     let to_11_map ~by m =
       MI.fold
@@ -187,6 +195,8 @@ module NetDevMapping = struct
     | Label name ->
         Printf.sprintf "label:\"%s\"" name
 
+  exception Unsupported_type of string
+
   let index_of_string ty value =
     match ty with
     | ty when ty = "pci" ->
@@ -196,7 +206,7 @@ module NetDevMapping = struct
     | ty when ty = "label" ->
         Label value
     | _ ->
-        failwith "Invalid network device mapping configuration."
+        raise (Unsupported_type ty)
 
   type t = {position: int; index: index}
 
@@ -233,6 +243,16 @@ module NetDevMapping = struct
                  m
              )
 
+  exception Duplicate_position
+
+  let assert_no_duplicate_position (l : t list) =
+    try
+      let _ : t IntMap.t =
+        ListToIntMap.to_11_map ~by:(fun dev -> dev.position) l
+      in
+      ()
+    with ListToIntMap.Duplicate_key -> raise Duplicate_position
+
   let mappings_of_file ~(path : string) : t list =
     if not (Sys.file_exists path) then
       []
@@ -240,20 +260,20 @@ module NetDevMapping = struct
       let read_lines = Xapi_stdext_unix.Unixext.read_lines in
       let l = read_lines ~path |> List.filter_map parse_mapping_conf in
       (* Ensure no position conflicts. *)
-      let _ : t IntMap.t =
-        ListToIntMap.to_11_map ~by:(fun dev -> dev.position) l
-      in
+      assert_no_duplicate_position l ;
       l
 end
 
 let ethn_pattern = Re.Posix.compile_pat "^eth([0-9]+)$"
+
+exception Not_ethN of string
 
 let n_of_ethn ethn =
   match Re.exec_opt ethn_pattern ethn with
   | Some g ->
       int_of_string (Re.Group.get g 1)
   | None ->
-      failwith "Can not parse NIC name like 'eth<N>'."
+      raise (Not_ethN ethn)
 
 (** A network device which has not been assigned a position in the order. *)
 module UnOrderedNetDev = struct
@@ -265,6 +285,8 @@ module UnOrderedNetDev = struct
     Printf.sprintf "UnOrderedNetDev: %s, bios_eth_order=%d"
       (NetDev.to_string t.net_dev)
       t.bios_eth_order
+
+  exception Missing_key of string
 
   let parse output_of_one_dev =
     debug "%s: line: %s" __FUNCTION__ output_of_one_dev ;
@@ -299,21 +321,23 @@ module UnOrderedNetDev = struct
       )
     ]
     |> List.fold_left
-         (fun (results, acc) (key, f) ->
+         (fun (missing_keys, acc) (key, f) ->
            match List.assoc_opt key kvs with
            | Some v ->
-               (true :: results, f acc v)
+               (missing_keys, f acc v)
            | None ->
-               error "%s: Missing key \"%s\"" __FUNCTION__ key ;
-               (false :: results, acc)
+               (key :: missing_keys, acc)
          )
          ([], default)
-    |> fun (results, r) ->
-    if List.for_all Fun.id results then (
-      debug "%s: %s" __FUNCTION__ (to_string r) ;
-      r
-    ) else
-      failwith "Missing key(s) in parsing output of biosdevname"
+    |> fun (missing_keys, r) ->
+    match missing_keys with
+    | [] ->
+        debug "%s: %s" __FUNCTION__ (to_string r) ;
+        r
+    | key :: _ ->
+        raise (Missing_key key)
+
+  exception Duplicate_mac_address
 
   let get_all () : t MacaddrMap.t =
     try
@@ -323,9 +347,12 @@ module UnOrderedNetDev = struct
       |> List.filter (fun line -> line <> "")
       |> List.map parse
       |> ListToMacaddrMap.to_11_map ~by:(fun v -> v.net_dev.mac_addr)
-    with e ->
-      error "%s" "Can't parse the output of the biosdevname!" ;
-      raise e
+    with
+    | ListToMacaddrMap.Duplicate_key ->
+        raise Duplicate_mac_address
+    | e ->
+        error "%s" "Can't parse the output of the biosdevname!" ;
+        raise e
 end
 
 (** A network device which is being ordered. *)
@@ -340,25 +367,33 @@ module OrderingNetDev = struct
 
   let to_string t = Printf.sprintf "%s" (Yojson.Safe.to_string (to_yojson t))
 
-  let of_unordered ~(pci_cnts : int PciAddrMap.t) (raw : UnOrderedNetDev.t) : t
-      =
-    let multinic =
-      match PciAddrMap.find_opt raw.net_dev.pci_addr pci_cnts with
-      | Some c when c > 1 ->
-          true
-      | Some c when c = 1 ->
-          false
-      | Some _ ->
-          failwith "The number of devices on the PCI address is < 1."
-      | None ->
-          failwith "Can't find PCI address from the PCI address map."
+  let of_unordered_map (currents : UnOrderedNetDev.t MacaddrMap.t) :
+      t MacaddrMap.t =
+    let pci_cnt =
+      let f o = Some (Option.fold ~none:1 ~some:(fun c -> c + 1) o) in
+      MacaddrMap.fold
+        (fun _ dev acc ->
+          PciAddrMap.update dev.UnOrderedNetDev.net_dev.pci_addr f acc
+        )
+        currents PciAddrMap.empty
     in
-    {
-      net_dev= raw.net_dev
-    ; position= None
-    ; bios_eth_order= raw.bios_eth_order
-    ; multinic
-    }
+    MacaddrMap.map
+      (fun dev ->
+        let multinic =
+          (* Will never raise exception or be < 1 *)
+          let c =
+            PciAddrMap.find dev.UnOrderedNetDev.net_dev.pci_addr pci_cnt
+          in
+          if c > 1 then true else false
+        in
+        {
+          net_dev= dev.net_dev
+        ; position= None
+        ; bios_eth_order= dev.bios_eth_order
+        ; multinic
+        }
+      )
+      currents
 
   let compare_on_mac t1 t2 =
     Macaddr.compare t1.net_dev.mac_addr t2.net_dev.mac_addr
@@ -383,6 +418,8 @@ module OrderedNetDev = struct
   let write_to_file ~path l =
     List.map to_yojson l |> (fun l -> `List l) |> Yojson.Safe.to_file path
 
+  exception Parse_error of string
+
   let order_of_file ~(path : string) : t MacaddrMap.t =
     if not (Sys.file_exists path) then
       MacaddrMap.empty
@@ -404,7 +441,7 @@ module OrderedNetDev = struct
                       (to_string dev) ;
                     dev
                 | Result.Error err ->
-                    failwith ("Can't parse the file: " ^ err)
+                    raise (Parse_error err)
               )
               l
           in
@@ -414,7 +451,7 @@ module OrderedNetDev = struct
           in
           ListToMacaddrMap.to_11_map ~by:(fun dev -> dev.net_dev.mac_addr) devs
       | _ ->
-          failwith "Invalid content in ordered network devices file"
+          raise (Parse_error "Not a list")
 
   let map_by_pci (m : t MacaddrMap.t) : t list PciAddrMap.t =
     MacaddrMapToPciAddrMap.to_1n_map ~by:(fun _k v -> v.net_dev.pci_addr) m
@@ -422,13 +459,15 @@ module OrderedNetDev = struct
   let map_by_position (m : t MacaddrMap.t) : t IntMap.t =
     MacaddrMapToIntMap.to_11_map ~by:(fun _k v -> v.position) m
 
+  exception Duplicate_position
+
   let assert_no_duplicate_position (l : t list) =
     try
       let _ : t IntMap.t =
         ListToIntMap.to_11_map ~by:(fun dev -> dev.position) l
       in
       ()
-    with _ -> failwith "Duplicate position in ordered list."
+    with _ -> raise Duplicate_position
 end
 
 let assign_position_by_mapping ~(mappings : NetDevMapping.t list)
@@ -489,7 +528,7 @@ let assign_position_by_pci ~dbg ~(seen_pcis : OrderedNetDev.t list PciAddrMap.t)
       debug "%s %s: skip %s" __FUNCTION__ dbg (OrderingNetDev.to_string dev) ;
       dev (* leave the current one unassigned at the moment. *)
 
-let assign_postion_for_multinic_funcs
+let assign_position_for_multinic_funcs
     ~(last_pcis : OrderedNetDev.t list PciAddrMap.t)
     ~(assigned_positions : IntSet.t) (multinics : OrderingNetDev.t MacaddrMap.t)
     : OrderingNetDev.t MacaddrMap.t =
@@ -500,7 +539,7 @@ let assign_postion_for_multinic_funcs
   |> PciAddrMap.mapi
        (fun (pci_addr : PciAddr.t) (devs : OrderingNetDev.t list) ->
          (* The devices were previously occupying the PCI address.
-          * The postions of these devices are called the "last positions".
+          * The positions of these devices are called the "last positions".
           *)
          let last_devs : OrderedNetDev.t list =
            PciAddrMap.find_opt pci_addr last_pcis
@@ -520,7 +559,7 @@ let assign_postion_for_multinic_funcs
              (* All the "last positions" have not been assigned yet.
               * And no change on the number of devices sharing the PCI address.
               * And none of them are assigned positions so far. The MAC addresses of all have changed.
-              * Re-assign the "last postions" by sorting with MAC addresses.
+              * Re-assign the "last positions" by sorting with MAC addresses.
               *)
              let devs' = List.sort compare_on_mac devs in
              let lasts' = List.sort OrderedNetDev.compare_on_mac last_devs in
@@ -582,15 +621,6 @@ let assign_position_for_remaining ~(max_position : int)
     )
     (max_position, []) devs
 
-let count_devices_by_pci (devs : UnOrderedNetDev.t MacaddrMap.t) :
-    int PciAddrMap.t =
-  let f o = Some (Option.fold ~none:1 ~some:(fun c -> c + 1) o) in
-  MacaddrMap.fold
-    (fun _ dev acc ->
-      PciAddrMap.update dev.UnOrderedNetDev.net_dev.pci_addr f acc
-    )
-    devs PciAddrMap.empty
-
 let changes_on_olds ~(currents : UnOrderedNetDev.t MacaddrMap.t)
     ~(lasts : OrderedNetDev.t MacaddrMap.t)
     ~(olds : OrderedNetDev.t MacaddrMap.t) : int * OrderedNetDev.t list =
@@ -640,13 +670,12 @@ let generate_order ~(currents : UnOrderedNetDev.t MacaddrMap.t)
   let curr_macs : MacaddrSet.t =
     MacaddrMap.bindings currents |> List.map fst |> MacaddrSet.of_list
   in
-  let curr_pci_cnts = count_devices_by_pci currents in
   let last_pcis = OrderedNetDev.map_by_pci lasts in
   let old_pcis = OrderedNetDev.map_by_pci olds in
   let orderings =
     let module M = MacaddrMap in
     currents
-    |> M.map (of_unordered ~pci_cnts:curr_pci_cnts)
+    |> of_unordered_map
     |> M.map (assign_position_by_mapping ~mappings)
     |> M.map (assign_position_by_mac ~dbg:"lasts" ~lasts)
     |> M.map
@@ -665,7 +694,7 @@ let generate_order ~(currents : UnOrderedNetDev.t MacaddrMap.t)
       orderings |> MacaddrMap.partition (fun _mac dev -> dev.multinic)
     in
     let f _ _ _ = failwith "Impossible duplication on MAC address." in
-    assign_postion_for_multinic_funcs ~last_pcis ~assigned_positions multinics
+    assign_position_for_multinic_funcs ~last_pcis ~assigned_positions multinics
     |> MacaddrMap.union f others
   in
   let positioned, not_positioned =
@@ -741,12 +770,8 @@ let generate ?(force = false) () =
     )
     [] new_ordered
 
-(** Return the order recorded in memory. *)
 let order () : (int * string option) list = !order
 
-(** Return the order recorded in the names like eth<N>.
-    This is for backwards compatibility.
- *)
 let order_of_eths () : (int * string option) list =
   Network_utils.Sysfs.list ()
   |> List.map (fun eth_name -> (n_of_ethn eth_name, Some eth_name))
