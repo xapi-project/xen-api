@@ -2360,26 +2360,3 @@ module AuthenticationCache = struct
           None
   end
 end
-
-module ListFile = struct
-  (* Read/Write List to/from file, line by line *)
-  let of_path path =
-    let ic = open_in path in
-    finally
-      (fun () ->
-        let rec read_lines acc =
-          try
-            let line = input_line ic in
-            read_lines (acc @ [line])
-          with End_of_file -> acc
-        in
-        read_lines []
-      )
-      (fun () -> close_in ic)
-
-  let to_path ?(perm = 0o0644) path contents =
-    String.concat "\n" contents |> fun x ->
-    Unixext.atomic_write_to_file path perm @@ fun fd ->
-    Unixext.really_write_string fd x |> ignore ;
-    Unix.fsync fd
-end

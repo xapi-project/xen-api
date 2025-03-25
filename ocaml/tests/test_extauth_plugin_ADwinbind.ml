@@ -505,7 +505,9 @@ let test_add_ipv4_localhost_to_hosts =
     let msg =
       Printf.sprintf "%s -> %s" (String.concat "\n" inp) (String.concat "\n" exp)
     in
-    let actual = HostsConfIPv4.join "hostname" "domain" inp in
+    let actual =
+      HostsConfIPv4.join ~name:"hostname" ~domain:"domain" ~lines:inp
+    in
     Alcotest.(check @@ list string) msg exp actual
   in
   let matrix =
@@ -537,7 +539,8 @@ let test_add_ipv4_and_ipv6_localhost_to_hosts =
       Printf.sprintf "%s -> %s" (String.concat "\n" inp) (String.concat "\n" exp)
     in
     let actual =
-      HostsConfIPv6.join "hostname" "domain" inp |> fun lines ->
+      HostsConfIPv6.join ~name:"hostname" ~domain:"domain" ~lines:inp
+      |> fun lines ->
       HostsConfIPv4.join ~name:"hostname" ~domain:"domain" ~lines
     in
     Alcotest.(check @@ list string) msg exp actual
@@ -569,7 +572,9 @@ let test_remove_ipv4_localhost_from_hosts =
     let msg =
       Printf.sprintf "%s -> %s" (String.concat "\n" inp) (String.concat "\n" exp)
     in
-    let actual = HostsConfIPv4.leave "hostname" "domain" inp in
+    let actual =
+      HostsConfIPv4.leave ~name:"hostname" ~domain:"domain" ~lines:inp
+    in
     Alcotest.(check @@ list string) msg exp actual
   in
   let matrix =
