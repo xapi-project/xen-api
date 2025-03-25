@@ -1424,3 +1424,6 @@ let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
 
 let tls_verification_not_enabled_in_pool =
   add_error "TLS_VERIFICATION_NOT_ENABLED_IN_POOL"
+
+let set_console_idle_timeout_failed =
+  add_error "SET_CONSOLE_IDLE_TIMEOUT_FAILED"
