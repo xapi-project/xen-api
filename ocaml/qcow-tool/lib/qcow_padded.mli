@@ -15,10 +15,9 @@
  *
  *)
 
-module Make(B: Qcow_s.RESIZABLE_BLOCK): sig
+module Make (B : Qcow_s.RESIZABLE_BLOCK) : sig
   (** A block device which is padded with virtual zeroes so that reads beyond
       the current end don't fail. *)
 
-  include Qcow_s.RESIZABLE_BLOCK
-    with type t = B.t
+  include Qcow_s.RESIZABLE_BLOCK with type t = B.t
 end

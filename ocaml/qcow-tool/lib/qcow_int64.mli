@@ -20,19 +20,22 @@ open Sexplib
 
 include module type of Int64
 
-val t_of_sexp: Sexp.t -> t
-val sexp_of_t: t -> Sexp.t
+val t_of_sexp : Sexp.t -> t
 
-val of_int64: int64 -> t
-val to_int64: t -> int64
+val sexp_of_t : t -> Sexp.t
 
-val round_up: int64 -> int64 -> int64
+val of_int64 : int64 -> t
+
+val to_int64 : t -> int64
+
+val round_up : int64 -> int64 -> int64
 (** [round_up value to] rounds [value] to the next multiple of [to] *)
 
-val round_down: int64 -> int64 -> int64
+val round_down : int64 -> int64 -> int64
 (** [round_down value to] rounds [value] down to the multiple of [to] *)
 
-module IntervalSet: Qcow_s.INTERVAL_SET with type elt = t
-module Map: Map.S with type key = t
+module IntervalSet : Qcow_s.INTERVAL_SET with type elt = t
+
+module Map : Map.S with type key = t
 
 include Qcow_s.SERIALISABLE with type t := t

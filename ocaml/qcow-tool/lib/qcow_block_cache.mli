@@ -15,10 +15,10 @@
  *
  *)
 
-module Make(B: Qcow_s.RESIZABLE_BLOCK): sig
+module Make (B : Qcow_s.RESIZABLE_BLOCK) : sig
   include Qcow_s.RESIZABLE_BLOCK
 
-  val connect: ?max_size_bytes:int64 -> B.t -> t Lwt.t
+  val connect : ?max_size_bytes:int64 -> B.t -> t Lwt.t
   (** [connect ?max_size_bytes b] constructs a cache over [b] with a maximum
       memory footprint of [max_size_bytes]. Writes are heavily cached and only
       written to disk on a flush, disconnect or when out of space. *)

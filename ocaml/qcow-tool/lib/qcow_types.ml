@@ -19,9 +19,10 @@ open Qcow_error
 
 let big_enough_for name buf needed =
   let length = Cstruct.length buf in
-  if length < needed
-  then error_msg "%s: buffer too small (%d < %d)" name length needed
-  else return ()
+  if length < needed then
+    error_msg "%s: buffer too small (%d < %d)" name length needed
+  else
+    return ()
 
 module Int8 = struct
   type t = int [@@deriving sexp]
@@ -29,14 +30,12 @@ module Int8 = struct
   let sizeof _ = 1
 
   let read buf =
-    big_enough_for "Int8.read" buf 1
-    >>= fun () ->
+    big_enough_for "Int8.read" buf 1 >>= fun () ->
     return (Cstruct.get_uint8 buf 0, Cstruct.shift buf 1)
 
   let write t buf =
-    big_enough_for "Int8.write" buf 1
-    >>= fun () ->
-    Cstruct.set_uint8 buf 0 t;
+    big_enough_for "Int8.write" buf 1 >>= fun () ->
+    Cstruct.set_uint8 buf 0 t ;
     return (Cstruct.shift buf 1)
 end
 
@@ -46,14 +45,12 @@ module Int16 = struct
   let sizeof _ = 2
 
   let read buf =
-    big_enough_for "Int16.read" buf 2
-    >>= fun () ->
+    big_enough_for "Int16.read" buf 2 >>= fun () ->
     return (Cstruct.BE.get_uint16 buf 0, Cstruct.shift buf 2)
 
   let write t buf =
-    big_enough_for "Int16.write" buf 2
-    >>= fun () ->
-    Cstruct.BE.set_uint16 buf 0 t;
+    big_enough_for "Int16.write" buf 2 >>= fun () ->
+    Cstruct.BE.set_uint16 buf 0 t ;
     return (Cstruct.shift buf 2)
 end
 
@@ -61,25 +58,24 @@ module Int32 = struct
   include Int32
 
   type _t = int32 [@@deriving sexp]
+
   let sexp_of_t = sexp_of__t
+
   let t_of_sexp = _t_of_sexp
 
   let sizeof _ = 4
 
   let read buf =
-    big_enough_for "Int32.read" buf 4
-    >>= fun () ->
+    big_enough_for "Int32.read" buf 4 >>= fun () ->
     return (Cstruct.BE.get_uint32 buf 0, Cstruct.shift buf 4)
 
   let write t buf =
-    big_enough_for "Int32.read" buf 4
-    >>= fun () ->
-    Cstruct.BE.set_uint32 buf 0 t;
+    big_enough_for "Int32.read" buf 4 >>= fun () ->
+    Cstruct.BE.set_uint32 buf 0 t ;
     return (Cstruct.shift buf 4)
 end
 
 module Int64 = Qcow_int64
-
 module Int = Qcow_int
 
 (*

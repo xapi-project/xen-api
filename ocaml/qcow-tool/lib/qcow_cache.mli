@@ -16,32 +16,35 @@
  *)
 open Qcow_types
 
-type t
 (** A cache of clusters *)
+type t
 
-val create:
-  read_cluster:(Cluster.t -> (Cstruct.t, Mirage_block.error) result Lwt.t) ->
-  write_cluster:(Cluster.t -> Cstruct.t -> (unit, Mirage_block.write_error) result Lwt.t) ->
-  unit -> t
+val create :
+     read_cluster:(Cluster.t -> (Cstruct.t, Mirage_block.error) result Lwt.t)
+  -> write_cluster:
+       (Cluster.t -> Cstruct.t -> (unit, Mirage_block.write_error) result Lwt.t)
+  -> unit
+  -> t
 (** Create a cache of clusters, given the read/write functions *)
 
-val read: t -> Cluster.t -> (Cstruct.t, Mirage_block.error) result Lwt.t
+val read : t -> Cluster.t -> (Cstruct.t, Mirage_block.error) result Lwt.t
 (** [read t cluster] returns the data in [cluster] *)
 
-val write: t -> Cluster.t -> Cstruct.t -> (unit, Mirage_block.write_error) result Lwt.t
+val write :
+  t -> Cluster.t -> Cstruct.t -> (unit, Mirage_block.write_error) result Lwt.t
 (** [write t cluster data] writes [data] to [cluster] *)
 
-val remove: t -> Cluster.t -> unit
+val remove : t -> Cluster.t -> unit
 (** [remove t cluster] drops any cache associated with [cluster] *)
 
-val resize: t -> Cluster.t -> unit
+val resize : t -> Cluster.t -> unit
 (** [resize t new_size_clusters] drops any cache entries which are beyond the new
     file size. *)
 
-module Debug: sig
-  val assert_not_cached: t -> Cluster.t -> unit
+module Debug : sig
+  val assert_not_cached : t -> Cluster.t -> unit
 
-  val all_cached_clusters: t -> Cluster.IntervalSet.t
+  val all_cached_clusters : t -> Cluster.IntervalSet.t
 
-  val check_disk: t -> (unit, Mirage_block.error) result Lwt.t
+  val check_disk : t -> (unit, Mirage_block.error) result Lwt.t
 end

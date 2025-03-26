@@ -18,24 +18,26 @@ open Sexplib.Std
 
 (* An address in a qcow image is broken into 3 levels: *)
 type t = {
-  l1_index: int64; (* index in the L1 table *)
-  l2_index: int64; (* index in the L2 table *)
-  cluster: int64;  (* index within the cluster *)
-} [@@deriving sexp]
+    l1_index: int64 (* index in the L1 table *)
+  ; l2_index: int64 (* index in the L2 table *)
+  ; cluster: int64 (* index within the cluster *)
+}
+[@@deriving sexp]
 
 let ( <| ) = Int64.shift_left
+
 let ( |> ) = Int64.shift_right_logical
 
 let make ~cluster_bits x =
   let l2_bits = cluster_bits - 3 in
-  let l1_index = x |> (l2_bits + cluster_bits) in
-  let l2_index = (x <| (64 - l2_bits - cluster_bits)) |> (64 - l2_bits) in
-  let cluster  = (x <| (64 - cluster_bits)) |> (64 - cluster_bits) in
-  { l1_index; l2_index; cluster }
+  let l1_index = x |> l2_bits + cluster_bits in
+  let l2_index = x <| 64 - l2_bits - cluster_bits |> 64 - l2_bits in
+  let cluster = x <| 64 - cluster_bits |> 64 - cluster_bits in
+  {l1_index; l2_index; cluster}
 
 let to_offset ~cluster_bits t =
   let l2_bits = cluster_bits - 3 in
-  let l1_index = t.l1_index <| (l2_bits + cluster_bits) in
+  let l1_index = t.l1_index <| l2_bits + cluster_bits in
   let l2_index = t.l2_index <| cluster_bits in
   Int64.(logor (logor l1_index l2_index) t.cluster)
 

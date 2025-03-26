@@ -15,21 +15,22 @@
  *
  *)
 
-type t = {
-  l1_index: int64; (* index in the L1 table *)
-  l2_index: int64; (* index in the L2 table *)
-  cluster: int64;  (* index within the cluster *)
-} [@@deriving sexp]
 (** A virtual address in a qcow image is broken into 3 levels:
     - an index in the L1 table, pointing to
     		 - an index in the L2 table, pointing to
     		 - a cluster within which we need an offset *)
+type t = {
+    l1_index: int64 (* index in the L1 table *)
+  ; l2_index: int64 (* index in the L2 table *)
+  ; cluster: int64 (* index within the cluster *)
+}
+[@@deriving sexp]
 
-val make: cluster_bits:int -> int64 -> t
+val make : cluster_bits:int -> int64 -> t
 (** [make cluster_bits byte] computes the address within the file
     of the virtual [byte] offset *)
 
-val to_offset: cluster_bits:int -> t -> int64
+val to_offset : cluster_bits:int -> t -> int64
 (** [to_offset cluster_bits address] computes the virtual byte offset
     of the virtual address *)
 

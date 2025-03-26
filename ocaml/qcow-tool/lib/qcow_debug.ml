@@ -17,7 +17,7 @@
 
 let src =
   let src = Logs.Src.create "qcow" ~doc:"qcow2-formatted BLOCK device" in
-  Logs.Src.set_level src (Some Logs.Info);
+  Logs.Src.set_level src (Some Logs.Info) ;
   src
 
 module Log = (val Logs.src_log src : Logs.LOG)
@@ -28,48 +28,62 @@ module Metadata = Qcow_metadata
 open Qcow_types
 
 let check_on_disk_reference metadata ~cluster_bits (c, w) target =
-  Metadata.read metadata c
-    (fun contents ->
+  Metadata.read metadata c (fun contents ->
       let p = Metadata.Physical.of_contents contents in
       let target' = Metadata.Physical.get p w in
       let target_cluster = Physical.cluster ~cluster_bits target in
       let target'_cluster = Physical.cluster ~cluster_bits target' in
-      let descr = Printf.sprintf "Physical.get %s:%d = %s (%s %s)"
-        (Cluster.to_string c) w (Cluster.to_string target'_cluster)
-        (if target = target' then "=" else "<>")
-        (Cluster.to_string target_cluster) in
-      if target <> target'
-      then Log.err (fun f -> f "%s" descr)
-      else Log.info (fun f -> f "%s" descr);
+      let descr =
+        Printf.sprintf "Physical.get %s:%d = %s (%s %s)" (Cluster.to_string c) w
+          (Cluster.to_string target'_cluster)
+          (if target = target' then "=" else "<>")
+          (Cluster.to_string target_cluster)
+      in
+      if target <> target' then
+        Log.err (fun f -> f "%s" descr)
+      else
+        Log.info (fun f -> f "%s" descr) ;
       Lwt.return (Ok ())
-    )
+  )
 
-let rec check_references metadata cluster_map ~cluster_bits (cluster: Cluster.t) =
+let rec check_references metadata cluster_map ~cluster_bits (cluster : Cluster.t)
+    =
   let open Error.Lwt_write_error.Infix in
   match Qcow_cluster_map.find cluster_map cluster with
   | exception Not_found ->
-    if Qcow_cluster_map.is_immovable cluster_map cluster
-    then Log.info (fun f -> f "Cluster %s is an L1 cluster" (Cluster.to_string cluster))
-    else Log.err (fun f -> f "No reference to cluster %s" (Cluster.to_string cluster));
-    Lwt.return (Ok ())
+      if Qcow_cluster_map.is_immovable cluster_map cluster then
+        Log.info (fun f ->
+            f "Cluster %s is an L1 cluster" (Cluster.to_string cluster)
+        )
+      else
+        Log.err (fun f ->
+            f "No reference to cluster %s" (Cluster.to_string cluster)
+        ) ;
+      Lwt.return (Ok ())
   | c', w' ->
-    let target = Physical.make ~is_mutable:true ~is_compressed:false (Cluster.to_int cluster lsl cluster_bits) in
-    check_on_disk_reference metadata ~cluster_bits (c', w') target
-    >>= fun () ->
-    check_references metadata cluster_map ~cluster_bits c'
+      let target =
+        Physical.make ~is_mutable:true ~is_compressed:false
+          (Cluster.to_int cluster lsl cluster_bits)
+      in
+      check_on_disk_reference metadata ~cluster_bits (c', w') target
+      >>= fun () -> check_references metadata cluster_map ~cluster_bits c'
 
-let on_duplicate_reference metadata cluster_map ~cluster_bits (c, w) (c', w') cluster =
+let on_duplicate_reference metadata cluster_map ~cluster_bits (c, w) (c', w')
+    cluster =
   let open Error.Lwt_write_error.Infix in
   let cluster = Cluster.of_int64 cluster in
-  let rec follow (c, w) (cluster: Cluster.t) =
-    let target = Physical.make ~is_mutable:true ~is_compressed:true (Cluster.to_int cluster lsl cluster_bits) in
-    check_on_disk_reference metadata ~cluster_bits (c, w) target
-    >>= fun () ->
+  let rec follow (c, w) (cluster : Cluster.t) =
+    let target =
+      Physical.make ~is_mutable:true ~is_compressed:true
+        (Cluster.to_int cluster lsl cluster_bits)
+    in
+    check_on_disk_reference metadata ~cluster_bits (c, w) target >>= fun () ->
     match Qcow_cluster_map.find cluster_map c with
     | exception Not_found ->
-      Log.err (fun f -> f "No reference to cluster %s" (Cluster.to_string c));
-      Lwt.return (Ok ())
-    | c', w' -> follow (c', w') c in
-  follow (Cluster.of_int64 c', w') cluster
-  >>= fun () ->
+        Log.err (fun f -> f "No reference to cluster %s" (Cluster.to_string c)) ;
+        Lwt.return (Ok ())
+    | c', w' ->
+        follow (c', w') c
+  in
+  follow (Cluster.of_int64 c', w') cluster >>= fun () ->
   follow (Cluster.of_int64 c, w) cluster

@@ -16,68 +16,80 @@
  *)
 open Qcow_types
 
-type t
 (** A set of per-cluster read and write locks *)
+type t
 
-val make: unit -> t
+val make : unit -> t
 (** Create a set of locks *)
 
-type lock
 (** A value which represents holding a lock *)
+type lock
 
-val unlock: lock -> unit
+val unlock : lock -> unit
 (** [unlock lock] releases the lock. Note releasing the same lock more than
     once will trigger a runtime failure. *)
 
-module Client: sig
-  type t
+module Client : sig
   (** An entity which holds a set of locks *)
+  type t
 
-  val make: (unit -> string) -> t
+  val make : (unit -> string) -> t
   (** [make describe_fn] creates an entity where [describe_fn ()] returns
       a human-readable description of the client for use in debugging. *)
 end
 
-module Read: sig
+module Read : sig
   (** Non-exclusive read locks *)
 
-  val with_lock: ?client:Client.t -> t -> Cluster.t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+  val with_lock :
+    ?client:Client.t -> t -> Cluster.t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
   (** [with_lock t f] executes [f ()] with the lock held for reading *)
 
-  val with_locks: ?client:Client.t -> t -> first:Cluster.t -> last:Cluster.t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+  val with_locks :
+       ?client:Client.t
+    -> t
+    -> first:Cluster.t
+    -> last:Cluster.t
+    -> (unit -> 'a Lwt.t)
+    -> 'a Lwt.t
   (** [with_locks t ~first ~last f] executes [f ()] with all clusters in the
       interval [first .. last] inclusive locked for reading. *)
 
-  val lock: ?client:Client.t -> t -> Cluster.t -> lock Lwt.t
+  val lock : ?client:Client.t -> t -> Cluster.t -> lock Lwt.t
   (** [lock t cluster] acquire a non-exclusive read lock on [cluster]. The
       resulting lock must be released by calling [unlock] *)
-
 end
 
-module Write: sig
+module Write : sig
   (** Exclusive write locks *)
 
-  val with_lock: ?client:Client.t -> t -> Cluster.t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+  val with_lock :
+    ?client:Client.t -> t -> Cluster.t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
   (** [with_lock t f] executes [f ()] with the lock held for writing *)
 
-  val with_locks: ?client:Client.t -> t -> first:Cluster.t -> last:Cluster.t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+  val with_locks :
+       ?client:Client.t
+    -> t
+    -> first:Cluster.t
+    -> last:Cluster.t
+    -> (unit -> 'a Lwt.t)
+    -> 'a Lwt.t
   (** [with_locks t ~first ~last f] executes [f ()] with all clusters in the
       interval [first .. last] inclusive locked for writing. *)
 
-  val try_lock: ?client:Client.t -> t -> Cluster.t -> lock option
+  val try_lock : ?client:Client.t -> t -> Cluster.t -> lock option
   (** [try_lock ?client t cluster] returns a write lock on [cluster] if it can
       be done without blocking, or returns None. *)
 end
 
-val with_metadata_lock: t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
+val with_metadata_lock : t -> (unit -> 'a Lwt.t) -> 'a Lwt.t
 (** [with_metadata_lock t f] executes [f ()] with the global metadata lock held.
     This prevents metadata blocks from moving while they're being used. *)
 
-module Debug: sig
-
-  val assert_no_locks_held: Client.t -> unit
+module Debug : sig
+  val assert_no_locks_held : Client.t -> unit
   (** Check that all locks have been explicitly released. *)
 
-  val dump_state: t -> unit
+  val dump_state : t -> unit
   (** Write the cluster lock state to the logs for analysis *)
 end

@@ -17,38 +17,57 @@
 
 module Cstructs = Qcow_cstructs
 
-module Make(B: Qcow_s.RESIZABLE_BLOCK) = struct
+module Make (B : Qcow_s.RESIZABLE_BLOCK) = struct
   include B
 
   let handle_error = function
-    | `Disconnected -> Lwt.return (Error `Disconnected)
-    | _ -> Format.kasprintf Lwt.fail_with "Unknown error in qcow_paddle.ml"
+    | `Disconnected ->
+        Lwt.return (Error `Disconnected)
+    | _ ->
+        Format.kasprintf Lwt.fail_with "Unknown error in qcow_paddle.ml"
 
   let read base base_sector buf =
     let open Lwt in
-    B.get_info base
-    >>= fun base_info ->
+    B.get_info base >>= fun base_info ->
     let buf_len = Int64.of_int (Cstructs.len buf) in
     let missing_sectors =
       Int64.sub
-        Int64.(add base_sector (div buf_len (of_int base_info.Mirage_block.sector_size)))
-        base_info.Mirage_block.size_sectors in
-    if missing_sectors > 0L then begin
-      let available_sectors = Int64.(sub (div buf_len (of_int base_info.Mirage_block.sector_size)) missing_sectors) in
-      let bytes = Int64.(to_int (mul available_sectors (of_int base_info.Mirage_block.sector_size))) in
+        Int64.(
+          add base_sector
+            (div buf_len (of_int base_info.Mirage_block.sector_size))
+        )
+        base_info.Mirage_block.size_sectors
+    in
+    if missing_sectors > 0L then (
+      let available_sectors =
+        Int64.(
+          sub
+            (div buf_len (of_int base_info.Mirage_block.sector_size))
+            missing_sectors
+        )
+      in
+      let bytes =
+        Int64.(
+          to_int
+            (mul available_sectors (of_int base_info.Mirage_block.sector_size))
+        )
+      in
       let open Lwt.Infix in
-      ( if bytes > 0
-        then B.read base base_sector (Cstructs.sub buf 0 bytes)
-        else Lwt.return (Ok ()) )
+      ( if bytes > 0 then
+          B.read base base_sector (Cstructs.sub buf 0 bytes)
+        else
+          Lwt.return (Ok ())
+      )
       >>= function
-      | Error e -> handle_error e
+      | Error e ->
+          handle_error e
       | Ok () ->
-        Cstructs.(memset (shift buf (max 0 bytes)) 0);
-        Lwt.return (Ok ())
-    end else begin
-      B.read base base_sector buf
-      >>= function
-      | Error e -> handle_error e
-      | Ok () -> Lwt.return (Ok ())
-    end
+          Cstructs.(memset (shift buf (max 0 bytes)) 0) ;
+          Lwt.return (Ok ())
+    ) else
+      B.read base base_sector buf >>= function
+      | Error e ->
+          handle_error e
+      | Ok () ->
+          Lwt.return (Ok ())
 end

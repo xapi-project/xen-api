@@ -16,29 +16,29 @@
  *)
 
 module type ELT = sig
-  type t [@@deriving sexp]
   (** The type of the set elements. *)
+  type t [@@deriving sexp]
 
   include Set.OrderedType with type t := t
 
-  val zero: t
+  val zero : t
   (** The zeroth element *)
 
-  val pred: t -> t
+  val pred : t -> t
   (** Predecessor of an element *)
 
-  val succ: t -> t
+  val succ : t -> t
   (** Successor of an element *)
 
-  val sub: t -> t -> t
+  val sub : t -> t -> t
   (** [sub a b] returns [a] - [b] *)
 
-  val add: t -> t -> t
+  val add : t -> t -> t
   (** [add a b] returns [a] + [b] *)
 end
 
-module Make(Elt: ELT): Qcow_s.INTERVAL_SET with type elt = Elt.t
+module Make (Elt : ELT) : Qcow_s.INTERVAL_SET with type elt = Elt.t
 
-module Test: sig
-  val all: (string * (unit -> unit)) list
+module Test : sig
+  val all : (string * (unit -> unit)) list
 end

@@ -17,14 +17,15 @@
 
 (** Host system word size dependent types *)
 
-module Cluster: sig
+module Cluster : sig
   type t [@@deriving sexp]
 
   include Qcow_s.NUM with type t := t
 
-  val round_up: t -> t -> t
+  val round_up : t -> t -> t
   (** [round_up value to] rounds [value] to the next multiple of [to] *)
 
-  module IntervalSet: Qcow_s.INTERVAL_SET with type elt = t
-  module Map: Map.S with type key = t
+  module IntervalSet : Qcow_s.INTERVAL_SET with type elt = t
+
+  module Map : Map.S with type key = t
 end

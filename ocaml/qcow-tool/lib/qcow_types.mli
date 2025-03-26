@@ -18,7 +18,7 @@
 
 open Sexplib
 
-val big_enough_for: string -> Cstruct.t -> int -> unit Qcow_error.t
+val big_enough_for : string -> Cstruct.t -> int -> unit Qcow_error.t
 (** [big_enough_for name buf length] returns an error with a log message
     if buffer [buf] is smaller than [length]. The [name] will be included
     in the error message. *)
@@ -38,13 +38,15 @@ end
 module Int32 : sig
   include module type of Int32
 
-  val t_of_sexp: Sexp.t -> t
-  val sexp_of_t: t -> Sexp.t
+  val t_of_sexp : Sexp.t -> t
+
+  val sexp_of_t : t -> Sexp.t
 
   include Qcow_s.SERIALISABLE with type t := t
 end
 
 module Int64 : module type of Qcow_int64
+
 module Int : module type of Qcow_int
 
 module Cluster : sig
@@ -52,12 +54,12 @@ module Cluster : sig
 
   include Qcow_s.NUM with type t := t
 
-  val to_float: t -> float
+  val to_float : t -> float
 
-  val round_up: t -> t -> t
+  val round_up : t -> t -> t
   (** [round_up value to] rounds [value] to the next multiple of [to] *)
 
-  module IntervalSet: Qcow_s.INTERVAL_SET with type elt = t
-  module Map: Map.S with type key = t
+  module IntervalSet : Qcow_s.INTERVAL_SET with type elt = t
 
+  module Map : Map.S with type key = t
 end
