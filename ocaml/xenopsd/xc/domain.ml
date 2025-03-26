@@ -880,7 +880,7 @@ let numa_placement domid ~vcpus ~memory =
             Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
       in
       numa_resources := Some nodea ;
-      let memory_plan =
+      let _ =
         match Softaffinity.plan ~vm host nodea with
         | None ->
             D.debug "NUMA-aware placement failed for domid %d" domid ;
@@ -892,29 +892,10 @@ let numa_placement domid ~vcpus ~memory =
             done ;
             mem_plan
       in
-      (* Xen only allows a single node when using memory claims, or none at all. *)
-      let* numa_node, node =
-        match memory_plan with
-        | [Node node] ->
-            Some (Xenctrlext.NumaNode.from node, node)
-        | [] | _ :: _ :: _ ->
-            D.debug
-              "%s: domain %d can't fit a single NUMA node, falling back to \
-               default behaviour"
-              __FUNCTION__ domid ;
-            None
-      in
-      let nr_pages = Int64.div memory 4096L |> Int64.to_int in
-      try
-        Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
-        Some (node, memory)
-      with Xenctrlext.Unix_error (errno, _) ->
-        D.info
-          "%s: unable to claim enough memory, domain %d won't be hosted in a \
-           single NUMA node. (error %s)"
-          __FUNCTION__ domid
-          Unix.(error_message errno) ;
-        None
+      (* Neither xenguest nor emu-manager allow allocating pages to a single
+         NUMA node, don't return any NUMA in any case. Claiming the memory
+         would be done here, but it conflicts with DMC. *)
+      None
   )
 
 let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
