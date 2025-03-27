@@ -1063,7 +1063,7 @@ let server_init () =
             , []
             , fun () ->
                 Constants.when_tgroups_enabled @@ fun () ->
-                Tgroup.Cgroup.init Xapi_globs.xapi_requests_cgroup
+                Tgroup.init Xapi_globs.xapi_requests_cgroup
             )
           ; ( "Registering SMAPIv1 plugins"
             , [Startup.OnlyMaster]

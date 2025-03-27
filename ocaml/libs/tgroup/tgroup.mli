@@ -94,22 +94,22 @@ module Cgroup : sig
 
   val dir_of : Group.t -> t option
   (** [dir_of group] returns the full path of the cgroup directory corresponding
-          to the group [group] as [Some dir].
+      to the group [group] as [Some dir].
 
-          Returns [None] if [init dir] has not been called. *)
-
-  val init : string -> unit
-  (** [init dir] initializes the hierachy of cgroups associated to all [Group.t]
-          types under the directory [dir].*)
+      Returns [None] if [init dir] has not been called. *)
 
   val set_cgroup : Group.Creator.t -> unit
   (** [set_cgroup c] sets the current xapi thread in a cgroup based on the
-          creator [c].*)
+      creator [c].*)
 end
 
-val of_creator : Group.Creator.t -> unit
+val init : string -> unit
+(** [init dir] initializes the hierachy of cgroups and tgroups associated to
+    all [Group.t] types under the directory [dir].*)
+
+val of_creator : Group.Creator.t -> Group.t
 (** [of_creator g] classifies the current thread based based on the creator [c].*)
 
-val of_req_originator : string option -> unit
+val of_req_originator : string option -> Group.t option
 (** [of_req_originator o] same as [of_creator] but it classifies based on the
     http request header.*)

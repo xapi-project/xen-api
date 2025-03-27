@@ -575,7 +575,14 @@ let handle_connection ~header_read_timeout ~header_total_timeout
         ~max_length:max_header_length ss
     in
 
-    Http.Request.with_originator_of req Tgroup.of_req_originator ;
+    Constants.when_tgroups_enabled (fun () ->
+        Http.Request.with_originator_of req (fun originator ->
+            let _ : Tgroup.Group.t option =
+              originator |> Tgroup.of_req_originator
+            in
+            ()
+        )
+    ) ;
 
     (* 2. now we attempt to process the request *)
     let finished =

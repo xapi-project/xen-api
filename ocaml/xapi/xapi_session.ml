@@ -745,7 +745,10 @@ let consider_touching_session rpc session_id =
 let slave_login_common ~__context ~host_str ~psecret =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   Constants.when_tgroups_enabled (fun () ->
-      Tgroup.of_creator (Tgroup.Group.Creator.make ~intrapool:true ())
+      let _ =
+        Tgroup.of_creator (Tgroup.Group.Creator.make ~intrapool:true ())
+      in
+      ()
   ) ;
 
   if not (Helpers.PoolSecret.is_authorized psecret) then (
@@ -944,8 +947,11 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
       (* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
       (* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
       Constants.when_tgroups_enabled (fun () ->
-          Tgroup.of_creator
-            Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
+          let _ =
+            Tgroup.of_creator
+              Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
+          in
+          ()
       ) ;
 
       login_no_password_common ~__context ~uname:(Some uname) ~originator
@@ -994,8 +1000,11 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
             (Context.get_origin __context) ;
 
           Constants.when_tgroups_enabled (fun () ->
-              Tgroup.of_creator
-                Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
+              let _ =
+                Tgroup.of_creator
+                  Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
+              in
+              ()
           ) ;
 
           login_no_password_common ~__context ~uname:(Some uname) ~originator
@@ -1295,12 +1304,15 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
               in
 
               Constants.when_tgroups_enabled (fun () ->
-                  Tgroup.of_creator
-                    Tgroup.Group.(
-                      Creator.make
-                        ~identity:(Identity.make subject_identifier)
-                        ()
-                    )
+                  let _ =
+                    Tgroup.of_creator
+                      Tgroup.Group.(
+                        Creator.make
+                          ~identity:(Identity.make subject_identifier)
+                          ()
+                      )
+                  in
+                  ()
               ) ;
 
               login_no_password_common ~__context ~uname:(Some uname)

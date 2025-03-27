@@ -163,7 +163,8 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
               )
           with _ -> None
         in
-        Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ())
+        let _ = Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ()) in
+        ()
     ) ;
 
     let sync () =

@@ -306,27 +306,36 @@ module Cgroup = struct
 
   let set_cgroup creator = set_cur_cgroup ~creator
 
-  let init dir =
+  let init dir groups =
     let () = Atomic.set cgroup_dir (Some dir) in
-    Group.all
+    groups
     |> List.filter_map dir_of
     |> List.iter (fun dir -> with_dir dir debug "created cgroup for: %s" dir) ;
     set_cur_cgroup ~creator:Group.Creator.default_creator
 end
 
-let of_req_originator originator =
-  Option.iter
-    (fun _ ->
-      try
-        originator
-        |> Option.iter (fun originator ->
-               let originator = Group.Originator.of_string originator in
-               Group.Creator.make ~endpoint:Group.Endpoint.Internal ~originator
-                 ()
-               |> Cgroup.set_cgroup
-           )
-      with _ -> ()
-    )
-    (Atomic.get Cgroup.cgroup_dir)
+let init dir =
+  Group.all |> Cgroup.init dir ;
+  Cgroup.set_cur_cgroup ~creator:Group.Creator.default_creator
 
-let of_creator creator = creator |> Cgroup.set_cgroup
+let of_req_originator originator =
+  let ( let* ) = Option.bind in
+  let* _ = Atomic.get Cgroup.cgroup_dir in
+  try
+    let* originator in
+    let originator = Group.Originator.of_string originator in
+    let creator =
+      Group.Creator.make ~endpoint:Group.Endpoint.Internal ~originator ()
+    in
+    let () = Cgroup.set_cgroup creator in
+    let group = Group.of_creator creator in
+    Some group
+  with exn ->
+    warn
+      "setting the tgroup based on http request header failed with\n\
+      \    exception: %s" (Printexc.to_string exn) ;
+    None
+
+let of_creator creator =
+  let () = Cgroup.set_cgroup creator in
+  Group.of_creator creator

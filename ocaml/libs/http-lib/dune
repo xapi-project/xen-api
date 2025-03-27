@@ -59,6 +59,7 @@
   tracing_propagator
   uri
   xapi-backtrace
+  xapi-consts
   xapi-log
   xapi-stdext-pervasives
   xapi-stdext-threads
