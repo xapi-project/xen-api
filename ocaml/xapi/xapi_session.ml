@@ -745,10 +745,20 @@ let consider_touching_session rpc session_id =
 let slave_login_common ~__context ~host_str ~psecret =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   Constants.when_tgroups_enabled (fun () ->
-      let _ =
+      let open Xapi_stdext_threads.Threadext in
+      let tgroup =
         Tgroup.of_creator (Tgroup.Group.Creator.make ~intrapool:true ())
       in
-      ()
+      let thread_ctx = ThreadRuntimeContext.get () in
+      (* authenticated_root here should mean a group has not been set yet and
+         we should set one. otherwise go with what has already been set.*)
+      if
+        thread_ctx.tgroup = Tgroup.Group.authenticated_root
+        || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+      then
+        ThreadRuntimeContext.update
+          (fun thread_ctx -> {thread_ctx with tgroup})
+          thread_ctx
   ) ;
 
   if not (Helpers.PoolSecret.is_authorized psecret) then (
@@ -947,11 +957,21 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
       (* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
       (* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
       Constants.when_tgroups_enabled (fun () ->
-          let _ =
+          let open Xapi_stdext_threads.Threadext in
+          let tgroup =
             Tgroup.of_creator
               Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
           in
-          ()
+          let thread_ctx = ThreadRuntimeContext.get () in
+          (* authenticated_root here should mean a group has not been set yet and
+             we should set one. otherwise go with what has already been set.*)
+          if
+            thread_ctx.tgroup = Tgroup.Group.authenticated_root
+            || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+          then
+            ThreadRuntimeContext.update
+              (fun thread_ctx -> {thread_ctx with tgroup})
+              thread_ctx
       ) ;
 
       login_no_password_common ~__context ~uname:(Some uname) ~originator
@@ -1000,11 +1020,21 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
             (Context.get_origin __context) ;
 
           Constants.when_tgroups_enabled (fun () ->
-              let _ =
+              let open Xapi_stdext_threads.Threadext in
+              let tgroup =
                 Tgroup.of_creator
                   Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
               in
-              ()
+              let thread_ctx = ThreadRuntimeContext.get () in
+              (* authenticated_root here should mean a group has not been set yet and
+                 we should set one. otherwise go with what has already been set.*)
+              if
+                thread_ctx.tgroup = Tgroup.Group.authenticated_root
+                || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+              then
+                ThreadRuntimeContext.update
+                  (fun thread_ctx -> {thread_ctx with tgroup})
+                  thread_ctx
           ) ;
 
           login_no_password_common ~__context ~uname:(Some uname) ~originator
@@ -1304,7 +1334,8 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
               in
 
               Constants.when_tgroups_enabled (fun () ->
-                  let _ =
+                  let open Xapi_stdext_threads.Threadext in
+                  let tgroup =
                     Tgroup.of_creator
                       Tgroup.Group.(
                         Creator.make
@@ -1312,7 +1343,16 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                           ()
                       )
                   in
-                  ()
+                  let thread_ctx = ThreadRuntimeContext.get () in
+                  (* authenticated_root here should mean a group has not been set yet and
+                     we should set one. otherwise go with what has already been set.*)
+                  if
+                    thread_ctx.tgroup = Tgroup.Group.authenticated_root
+                    || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+                  then
+                    ThreadRuntimeContext.update
+                      (fun thread_ctx -> {thread_ctx with tgroup})
+                      thread_ctx
               ) ;
 
               login_no_password_common ~__context ~uname:(Some uname)

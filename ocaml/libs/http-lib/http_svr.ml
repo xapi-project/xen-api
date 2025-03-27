@@ -577,10 +577,15 @@ let handle_connection ~header_read_timeout ~header_total_timeout
 
     Constants.when_tgroups_enabled (fun () ->
         Http.Request.with_originator_of req (fun originator ->
-            let _ : Tgroup.Group.t option =
-              originator |> Tgroup.of_req_originator
-            in
-            ()
+            let open Xapi_stdext_threads.Threadext in
+            originator
+            |> Tgroup.of_req_originator
+            |> Option.iter (fun tgroup ->
+                   ThreadRuntimeContext.get ()
+                   |> ThreadRuntimeContext.update (fun thread_ctx ->
+                          {thread_ctx with tgroup}
+                      )
+               )
         )
     ) ;
 
