@@ -110,6 +110,18 @@ module Group = struct
 
   type t = Group : 'a group -> t
 
+  let get_share = function
+    | Group Internal_SM ->
+        100
+    | Group Internal_CLI ->
+        10
+    | Group External_Intrapool ->
+        100
+    | Group External_Unauthenticated ->
+        10
+    | Group (External_Authenticated _) ->
+        100
+
   let all =
     [
       Group Internal_SM
@@ -314,8 +326,100 @@ module Cgroup = struct
     set_cur_cgroup ~creator:Group.Creator.default_creator
 end
 
+module ThreadGroup = struct
+  type tgroup = {
+      mutable tgroup: Group.t
+    ; mutable tgroup_name: string
+    ; mutable tgroup_share: int
+    ; mutable thread_count: int Atomic.t
+    ; mutable time_ideal: int
+  }
+
+  type t = tgroup option
+
+  let tgroups : t array Atomic.t = Atomic.make (Array.make 0 None)
+
+  let tgroup_total_share = Atomic.make 0
+
+  let create ~tgroup =
+    {
+      tgroup
+    ; tgroup_name= tgroup |> Group.to_string
+    ; tgroup_share= tgroup |> Group.get_share
+    ; thread_count= Atomic.make 0
+    ; time_ideal= 0
+    }
+
+  let add tgroup =
+    let _ = Atomic.fetch_and_add tgroup_total_share tgroup.tgroup_share in
+    while
+      not
+        (let seen = Atomic.get tgroups in
+         Some tgroup
+         |> Array.make 1
+         |> Array.append seen
+         |> Atomic.compare_and_set tgroups seen
+        )
+    do
+      () (* todo: raise exception after n unsuccessful attempts *)
+    done
+
+  let destroy () = Atomic.set tgroups (Array.make 0 None)
+
+  let tgroups () =
+    tgroups
+    |> Atomic.get
+    |> Array.fold_left
+         (fun xs x -> match x with None -> xs | Some x -> x :: xs)
+         []
+
+  let get_tgroup g =
+    tgroups ()
+    |> List.find_opt (fun tg ->
+           let g =
+             match g with
+             | Group.Group Internal_CLI | Group.Group External_Unauthenticated
+               ->
+                 Group.Group Group.Internal_CLI
+             | Group.Group (External_Authenticated _)
+             | Group.Group Internal_SM
+             | Group.Group External_Intrapool ->
+                 Group.authenticated_root
+           in
+           tg.tgroup = g
+       )
+
+  let thread_starts_in_tgroup tg = Atomic.incr tg.thread_count
+
+  let thread_stops_in_tgroup tg = Atomic.decr tg.thread_count
+
+  let with_one_thread_in_tgroup tg f =
+    thread_starts_in_tgroup tg ;
+    Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
+        thread_stops_in_tgroup tg
+    )
+
+  let with_one_fewer_thread_in_tgroup tg f =
+    (* when tgroup.thread_count < 1, then sched_global_slice will ignore this tgroup *)
+    if Atomic.get tg.thread_count = 0 then
+      ()
+    else
+      thread_stops_in_tgroup tg ;
+    Xapi_stdext_pervasives.Pervasiveext.finally
+      (fun () -> f tg)
+      (fun () -> thread_starts_in_tgroup tg)
+
+  let with_one_thread_of_group group f =
+    match get_tgroup group with
+    | None ->
+        f ()
+    | Some tg ->
+        with_one_thread_in_tgroup tg f
+end
+
 let init dir =
   Group.all |> Cgroup.init dir ;
+  Group.all |> List.iter (fun group -> ThreadGroup.(create ~tgroup:group |> add)) ;
   Cgroup.set_cur_cgroup ~creator:Group.Creator.default_creator
 
 let of_req_originator originator =

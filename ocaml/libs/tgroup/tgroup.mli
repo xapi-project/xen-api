@@ -92,6 +92,8 @@ module Cgroup : sig
   (** Represents one of the children of the cgroup directory.*)
   type t = string
 
+  val cgroup_dir : string option Atomic.t
+
   val dir_of : Group.t -> t option
   (** [dir_of group] returns the full path of the cgroup directory corresponding
       to the group [group] as [Some dir].
@@ -101,6 +103,36 @@ module Cgroup : sig
   val set_cgroup : Group.Creator.t -> unit
   (** [set_cgroup c] sets the current xapi thread in a cgroup based on the
       creator [c].*)
+end
+
+module ThreadGroup : sig
+  type tgroup = {
+      mutable tgroup: Group.t
+    ; mutable tgroup_name: string
+    ; mutable tgroup_share: int
+    ; mutable thread_count: int Atomic.t
+    ; mutable time_ideal: int
+  }
+
+  type t = tgroup option
+
+  val tgroup_total_share : int Atomic.t
+
+  val tgroups : unit -> tgroup list
+
+  val get_tgroup : Group.t -> t
+
+  val create : tgroup:Group.t -> tgroup
+
+  val add : tgroup -> unit
+
+  val destroy : unit -> unit
+
+  val with_one_thread_in_tgroup : tgroup -> (unit -> 'a) -> 'a
+
+  val with_one_thread_of_group : Group.t -> (unit -> 'a) -> 'a
+
+  val with_one_fewer_thread_in_tgroup : tgroup -> (tgroup -> 'a) -> 'a
 end
 
 val init : string -> unit
