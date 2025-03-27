@@ -6,6 +6,7 @@
   astring
   
   fmt
+  macaddr
   networklibs
   rpclib.core
   rpclib.json
