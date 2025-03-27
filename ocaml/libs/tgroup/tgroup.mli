@@ -12,9 +12,9 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(** [Group] module helps with the classification of different xapi execution
+(** [Description] module helps with the classification of different xapi execution
     threads.*)
-module Group : sig
+module Description : sig
   (** Abstract type that represents a group of execution threads in xapi. Each
       group corresponds to a Creator, and has a designated level of priority.*)
   type t
@@ -87,29 +87,73 @@ module Group : sig
 end
 
 (** [Cgroup] module encapsulates different function for managing the cgroups
-    corresponding with [Groups].*)
+    corresponding with [Description.].*)
 module Cgroup : sig
   (** Represents one of the children of the cgroup directory.*)
   type t = string
 
-  val dir_of : Group.t -> t option
+  val cgroup_dir : string option Atomic.t
+
+  val dir_of : Description.t -> t option
   (** [dir_of group] returns the full path of the cgroup directory corresponding
       to the group [group] as [Some dir].
 
       Returns [None] if [init dir] has not been called. *)
 
-  val set_cgroup : Group.Creator.t -> unit
+  val set_cgroup : Description.Creator.t -> unit
   (** [set_cgroup c] sets the current xapi thread in a cgroup based on the
       creator [c].*)
 end
 
+(** Type that represents a group of threads. Contains information about this
+   group.
+
+   time_ideal is measured in nanoseconds.*)
+type t = {
+    group_descr: Description.t
+  ; tgroup_name: string
+  ; mutable tgroup_share: int
+  ; thread_count: int Atomic.t
+  ; mutable time_ideal: int (*This represents the time in nanoseconds*)
+}
+
+val tgroups : unit -> t list
+(** [tgroups ()] return the list of groups currently set. *)
+
+val group_of_description : Description.t -> t option
+(** [group_of_description descr] return [Some group] where [group] is the
+      group associated with description [descr].
+
+      Returns [None] if there is not such group set.*)
+
+val add : Description.t -> unit
+(** [add descr] adds a group the list of tracked groups based on the
+      description [descr].*)
+
+val destroy : unit -> unit
+(** [desctroy ()] clears the list of groups tracked. Used for testing.*)
+
+val with_one_thread_in_tgroup : t -> (unit -> 'a) -> 'a
+(** [with_one_thread_in_tgroup tg fn] increments the count of the number of
+      threads inside the group [tg] for the span of [fn]. *)
+
+val with_one_thread_of_group : Description.t -> (unit -> 'a) -> 'a
+(** [with_one_thread_of_group desc fn] increments the count of the number of
+      threads inside the group corresponding to [descr] for the span of [fn].
+
+      No operation is done if there is no such group.*)
+
+val with_one_fewer_thread_in_tgroup : t -> (t -> 'a) -> 'a
+(** [with_one_fewer_thread_in_tgroup tg fn] decrements the count of the number
+      of threads inside the group [tg] for the span of [fn]. *)
+
 val init : string -> unit
 (** [init dir] initializes the hierachy of cgroups and tgroups associated to
-    all [Group.t] types under the directory [dir].*)
+    all [Description.t] types under the directory [dir].*)
 
-val of_creator : Group.Creator.t -> Group.t
+val of_creator : Description.Creator.t -> Description.t
 (** [of_creator g] classifies the current thread based based on the creator [c].*)
 
-val of_req_originator : string option -> Group.t option
+val of_req_originator : string option -> Description.t option
 (** [of_req_originator o] same as [of_creator] but it classifies based on the
     http request header.*)

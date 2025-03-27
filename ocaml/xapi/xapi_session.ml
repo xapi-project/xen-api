@@ -33,6 +33,20 @@ open Client
 open Auth_signature
 open Extauth
 
+let update_thread_ctx tgroup =
+  if !Constants.tgroups_enabled then
+    let open Xapi_stdext_threads.Threadext in
+    let thread_ctx = ThreadRuntimeContext.get () in
+    (* authenticated_root here should mean a group has not been set yet and
+       we should set one. otherwise go with what has already been set.*)
+    if
+      thread_ctx.tgroup = Tgroup.Description.authenticated_root
+      || thread_ctx.tgroup = Tgroup.Description.unauthenticated
+    then
+      ThreadRuntimeContext.update
+        (fun thread_ctx -> {thread_ctx with tgroup})
+        thread_ctx
+
 module AuthFail : sig
   (* stats are reset each time you query, so if there hasn't
      been a failed login attempt since the last time the stats
@@ -744,29 +758,24 @@ let consider_touching_session rpc session_id =
 (* Make sure the pool secret matches *)
 let slave_login_common ~__context ~host_str ~psecret =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
-  Constants.when_tgroups_enabled (fun () ->
-      let open Xapi_stdext_threads.Threadext in
-      let tgroup =
-        Tgroup.of_creator (Tgroup.Group.Creator.make ~intrapool:true ())
-      in
-      let thread_ctx = ThreadRuntimeContext.get () in
-      (* authenticated_root here should mean a group has not been set yet and
-         we should set one. otherwise go with what has already been set.*)
-      if
-        thread_ctx.tgroup = Tgroup.Group.authenticated_root
-        || thread_ctx.tgroup = Tgroup.Group.unauthenticated
-      then
-        ThreadRuntimeContext.update
-          (fun thread_ctx -> {thread_ctx with tgroup})
-          thread_ctx
-  ) ;
-
-  if not (Helpers.PoolSecret.is_authorized psecret) then (
-    let msg = "Pool credentials invalid" in
-    debug "Failed to authenticate slave %s: %s" host_str msg ;
-    raise
-      Api_errors.(Server_error (session_authentication_failed, [host_str; msg]))
-  )
+  let f () =
+    if not (Helpers.PoolSecret.is_authorized psecret) then (
+      let msg = "Pool credentials invalid" in
+      debug "Failed to authenticate slave %s: %s" host_str msg ;
+      raise
+        Api_errors.(
+          Server_error (session_authentication_failed, [host_str; msg])
+        )
+    )
+  in
+  if !Constants.tgroups_enabled then (
+    let tgroup =
+      Tgroup.of_creator (Tgroup.Description.Creator.make ~intrapool:true ())
+    in
+    update_thread_ctx tgroup ;
+    Tgroup.with_one_thread_of_group tgroup f
+  ) else
+    f ()
 
 (* Normal login, uses the master's database *)
 let slave_login ~__context ~host ~psecret =
@@ -956,29 +965,22 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
   | Some `root ->
       (* in this case, the context origin of this login request is a unix socket bound locally to a filename *)
       (* we trust requests from local unix filename sockets, so no need to authenticate them before login *)
-      Constants.when_tgroups_enabled (fun () ->
-          let open Xapi_stdext_threads.Threadext in
-          let tgroup =
-            Tgroup.of_creator
-              Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
-          in
-          let thread_ctx = ThreadRuntimeContext.get () in
-          (* authenticated_root here should mean a group has not been set yet and
-             we should set one. otherwise go with what has already been set.*)
-          if
-            thread_ctx.tgroup = Tgroup.Group.authenticated_root
-            || thread_ctx.tgroup = Tgroup.Group.unauthenticated
-          then
-            ThreadRuntimeContext.update
-              (fun thread_ctx -> {thread_ctx with tgroup})
-              thread_ctx
-      ) ;
-
-      login_no_password_common ~__context ~uname:(Some uname) ~originator
-        ~host:(Helpers.get_localhost ~__context)
-        ~pool:false ~is_local_superuser:true ~subject:Ref.null ~auth_user_sid:""
-        ~auth_user_name:uname ~rbac_permissions:[] ~db_ref:None
-        ~client_certificate:false
+      let f () =
+        login_no_password_common ~__context ~uname:(Some uname) ~originator
+          ~host:(Helpers.get_localhost ~__context)
+          ~pool:false ~is_local_superuser:true ~subject:Ref.null
+          ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
+          ~db_ref:None ~client_certificate:false
+      in
+      if !Constants.tgroups_enabled then (
+        let tgroup =
+          Tgroup.of_creator
+            Tgroup.Description.(Creator.make ~identity:Identity.root_identity ())
+        in
+        update_thread_ctx tgroup ;
+        Tgroup.with_one_thread_of_group tgroup f
+      ) else
+        f ()
   | Some `client_cert ->
       (* The session was authenticated by stunnel's verification of the client certificate,
          so we do not need to verify the username/password. Grant access to functions
@@ -1019,29 +1021,24 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
           debug "Success: local auth, user %s from %s" uname
             (Context.get_origin __context) ;
 
-          Constants.when_tgroups_enabled (fun () ->
-              let open Xapi_stdext_threads.Threadext in
-              let tgroup =
-                Tgroup.of_creator
-                  Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
-              in
-              let thread_ctx = ThreadRuntimeContext.get () in
-              (* authenticated_root here should mean a group has not been set yet and
-                 we should set one. otherwise go with what has already been set.*)
-              if
-                thread_ctx.tgroup = Tgroup.Group.authenticated_root
-                || thread_ctx.tgroup = Tgroup.Group.unauthenticated
-              then
-                ThreadRuntimeContext.update
-                  (fun thread_ctx -> {thread_ctx with tgroup})
-                  thread_ctx
-          ) ;
-
-          login_no_password_common ~__context ~uname:(Some uname) ~originator
-            ~host:(Helpers.get_localhost ~__context)
-            ~pool:false ~is_local_superuser:true ~subject:Ref.null
-            ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
-            ~db_ref:None ~client_certificate:false
+          let f () =
+            login_no_password_common ~__context ~uname:(Some uname) ~originator
+              ~host:(Helpers.get_localhost ~__context)
+              ~pool:false ~is_local_superuser:true ~subject:Ref.null
+              ~auth_user_sid:"" ~auth_user_name:uname ~rbac_permissions:[]
+              ~db_ref:None ~client_certificate:false
+          in
+          if !Constants.tgroups_enabled then (
+            let tgroup =
+              Tgroup.of_creator
+                Tgroup.Description.(
+                  Creator.make ~identity:Identity.root_identity ()
+                )
+            in
+            update_thread_ctx tgroup ;
+            Tgroup.with_one_thread_of_group tgroup f
+          ) else
+            f ()
         )
       in
       let thread_delay_and_raise_error ~error uname msg =
@@ -1333,34 +1330,27 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                   ~slow_path:query_external_auth
               in
 
-              Constants.when_tgroups_enabled (fun () ->
-                  let open Xapi_stdext_threads.Threadext in
-                  let tgroup =
-                    Tgroup.of_creator
-                      Tgroup.Group.(
-                        Creator.make
-                          ~identity:(Identity.make subject_identifier)
-                          ()
-                      )
-                  in
-                  let thread_ctx = ThreadRuntimeContext.get () in
-                  (* authenticated_root here should mean a group has not been set yet and
-                     we should set one. otherwise go with what has already been set.*)
-                  if
-                    thread_ctx.tgroup = Tgroup.Group.authenticated_root
-                    || thread_ctx.tgroup = Tgroup.Group.unauthenticated
-                  then
-                    ThreadRuntimeContext.update
-                      (fun thread_ctx -> {thread_ctx with tgroup})
-                      thread_ctx
-              ) ;
-
-              login_no_password_common ~__context ~uname:(Some uname)
-                ~originator
-                ~host:(Helpers.get_localhost ~__context)
-                ~pool:false ~is_local_superuser:false ~subject
-                ~auth_user_sid:subject_identifier ~auth_user_name:subject_name
-                ~rbac_permissions ~db_ref:None ~client_certificate:false
+              let f () =
+                login_no_password_common ~__context ~uname:(Some uname)
+                  ~originator
+                  ~host:(Helpers.get_localhost ~__context)
+                  ~pool:false ~is_local_superuser:false ~subject
+                  ~auth_user_sid:subject_identifier ~auth_user_name:subject_name
+                  ~rbac_permissions ~db_ref:None ~client_certificate:false
+              in
+              if !Constants.tgroups_enabled then (
+                let tgroup =
+                  Tgroup.of_creator
+                    Tgroup.Description.(
+                      Creator.make
+                        ~identity:(Identity.make subject_identifier)
+                        ()
+                    )
+                in
+                update_thread_ctx tgroup ;
+                Tgroup.with_one_thread_of_group tgroup f
+              ) else
+                f ()
               (* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)
             with
             | Not_found | Auth_signature.Subject_cannot_be_resolved ->

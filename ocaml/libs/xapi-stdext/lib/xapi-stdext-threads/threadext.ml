@@ -104,7 +104,7 @@ module ThreadRuntimeContext = struct
     ; thread_name: string
     ; mutable time_running: int
     ; mutable tepoch: int
-    ; tgroup: Tgroup.Group.t
+    ; tgroup: Tgroup.Description.t
   }
 
   (*The documentation for Ambient_context_thread_local isn't really clear is
@@ -117,7 +117,7 @@ module ThreadRuntimeContext = struct
     let ocaml_tid = Thread.self () |> Thread.id in
     let time_running = 0 in
     let tepoch = 0 in
-    let tgroup = Tgroup.Group.authenticated_root in
+    let tgroup = Tgroup.Description.authenticated_root in
     let tls = {thread_name; tgroup; ocaml_tid; time_running; tepoch} in
     let () =
       Ambient_context_thread_local.Thread_local.set thread_local_storage tls

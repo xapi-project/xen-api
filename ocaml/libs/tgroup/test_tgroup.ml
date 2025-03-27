@@ -20,7 +20,7 @@ let test_identity () =
 
   let test_make ((user_agent, subject_sid), expected_identity) =
     let actual_identity =
-      Tgroup.Group.Identity.(make ?user_agent subject_sid |> to_string)
+      Tgroup.Description.Identity.(make ?user_agent subject_sid |> to_string)
     in
     Alcotest.(check string)
       "Check expected identity" expected_identity actual_identity
@@ -29,28 +29,28 @@ let test_identity () =
 
 let test_of_creator () =
   let dummy_identity =
-    Tgroup.Group.Identity.make ~user_agent:"XenCenter2024" "root"
+    Tgroup.Description.Identity.make ~user_agent:"XenCenter2024" "root"
   in
   let specs =
     [
       ((None, None, None, None), "external/unauthenticated")
     ; ((Some true, None, None, None), "external/intrapool")
     ; ( ( Some true
-        , Some Tgroup.Group.Endpoint.External
+        , Some Tgroup.Description.Endpoint.External
         , Some dummy_identity
         , Some "sm"
         )
       , "external/intrapool"
       )
     ; ( ( Some true
-        , Some Tgroup.Group.Endpoint.Internal
+        , Some Tgroup.Description.Endpoint.Internal
         , Some dummy_identity
         , Some "sm"
         )
       , "external/intrapool"
       )
     ; ( ( None
-        , Some Tgroup.Group.Endpoint.Internal
+        , Some Tgroup.Description.Endpoint.Internal
         , Some dummy_identity
         , Some "cli"
         )
@@ -62,9 +62,11 @@ let test_of_creator () =
     ]
   in
   let test_make ((intrapool, endpoint, identity, originator), expected_group) =
-    let originator = Option.map Tgroup.Group.Originator.of_string originator in
+    let originator =
+      Option.map Tgroup.Description.Originator.of_string originator
+    in
     let actual_group =
-      Tgroup.Group.(
+      Tgroup.Description.(
         Creator.make ?intrapool ?endpoint ?identity ?originator ()
         |> of_creator
         |> to_string

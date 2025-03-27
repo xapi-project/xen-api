@@ -142,43 +142,6 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
         ~supports_async ~label ~http_req ~fd ()
     in
 
-    Constants.when_tgroups_enabled (fun () ->
-        let identity =
-          try
-            Option.map
-              (fun session_id ->
-                let subject =
-                  Db.Session.get_auth_user_sid ~__context ~self:session_id
-                in
-                Tgroup.Group.Identity.make ?user_agent:http_req.user_agent
-                  subject
-              )
-              ( if !Xapi_globs.slave_emergency_mode then
-                  (* in emergency mode we cannot reach the coordinator,
-                     and we must not attempt to make Db calls
-                  *)
-                  None
-                else
-                  session_id
-              )
-          with _ -> None
-        in
-        let tgroup =
-          Tgroup.of_creator (Tgroup.Group.Creator.make ?identity ())
-        in
-        let open Xapi_stdext_threads.Threadext in
-        let thread_ctx = ThreadRuntimeContext.get () in
-        (* authenticated_root here should mean a group has not been set yet and
-           we should set one. otherwise go with what has already been set.*)
-        if
-          thread_ctx.tgroup = Tgroup.Group.authenticated_root
-          || thread_ctx.tgroup = Tgroup.Group.unauthenticated
-        then
-          ThreadRuntimeContext.update
-            (fun thread_ctx -> {thread_ctx with tgroup})
-            thread_ctx
-    ) ;
-
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
       exec_with_context ~__context ~need_complete ~called_async
@@ -199,14 +162,54 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       (* Return task id immediately *)
       Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
-    match sync_ty with
-    | `Sync ->
-        sync ()
-    | `Async ->
-        let need_complete = not (Context.forwarded_task __context) in
-        async ~need_complete
-    | `InternalAsync ->
-        async ~need_complete:true
+    let f () =
+      match sync_ty with
+      | `Sync ->
+          sync ()
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          async ~need_complete
+      | `InternalAsync ->
+          async ~need_complete:true
+    in
+    if !Constants.tgroups_enabled then (
+      let identity =
+        try
+          Option.map
+            (fun session_id ->
+              let subject =
+                Db.Session.get_auth_user_sid ~__context ~self:session_id
+              in
+              Tgroup.Description.Identity.make ?user_agent:http_req.user_agent
+                subject
+            )
+            ( if !Xapi_globs.slave_emergency_mode then
+                (* in emergency mode we cannot reach the coordinator,
+                   and we must not attempt to make Db calls
+                *)
+                None
+              else
+                session_id
+            )
+        with _ -> None
+      in
+      let tgroup =
+        Tgroup.of_creator (Tgroup.Description.Creator.make ?identity ())
+      in
+      let open Xapi_stdext_threads.Threadext in
+      let thread_ctx = ThreadRuntimeContext.get () in
+      (* authenticated_root here should mean a group has not been set yet and
+         we should set one. otherwise go with what has already been set.*)
+      if
+        thread_ctx.tgroup = Tgroup.Description.authenticated_root
+        || thread_ctx.tgroup = Tgroup.Description.unauthenticated
+      then
+        ThreadRuntimeContext.update
+          (fun thread_ctx -> {thread_ctx with tgroup})
+          thread_ctx ;
+      Tgroup.with_one_thread_of_group tgroup f
+    ) else
+      f ()
 
 (* regardless of forwarding, we are expected to complete the task *)
 
