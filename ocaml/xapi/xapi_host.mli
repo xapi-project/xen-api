@@ -567,3 +567,9 @@ val emergency_clear_mandatory_guidance : __context:Context.t -> unit
 val enable_ssh : __context:Context.t -> self:API.ref_host -> unit
 
 val disable_ssh : __context:Context.t -> self:API.ref_host -> unit
+
+val set_ssh_enabled_timeout :
+  __context:Context.t -> self:API.ref_host -> value:int64 -> unit
+
+val set_console_idle_timeout :
+  __context:Context.t -> self:API.ref_host -> value:int64 -> unit

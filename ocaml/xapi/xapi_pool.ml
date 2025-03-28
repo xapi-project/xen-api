@@ -4008,3 +4008,7 @@ end
 let enable_ssh = Ssh.enable
 
 let disable_ssh = Ssh.disable
+
+let set_ssh_enabled_timeout ~__context ~self:_ ~value:_ = ()
+
+let set_console_idle_timeout ~__context ~self:_ ~value:_ = ()

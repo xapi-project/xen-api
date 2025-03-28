@@ -1042,7 +1042,9 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~multipathing:false ~uefi_certificates:"" ~editions:[] ~pending_guidances:[]
     ~tls_verification_enabled ~last_software_update ~last_update_hash
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~pending_guidances_recommended:[] ~pending_guidances_full:[]
+    ~ssh_enabled:true ~ssh_enabled_timeout:0L ~ssh_expiry:Date.epoch
+    ~console_idle_timeout:0L ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3131,3 +3133,7 @@ let disable_ssh ~__context ~self =
       (Api_errors.Server_error
          (Api_errors.disable_ssh_failed, [Ref.string_of self])
       )
+
+let set_ssh_enabled_timeout ~__context ~self:_ ~value:_ = ()
+
+let set_console_idle_timeout ~__context ~self:_ ~value:_ = ()

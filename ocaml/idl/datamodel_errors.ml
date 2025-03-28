@@ -2043,6 +2043,9 @@ let _ =
   error Api_errors.host_driver_no_hardware ["driver variant"]
     ~doc:"No hardware present for this host driver variant" () ;
 
+  error Api_errors.set_console_idle_timeout_failed ["timeout"]
+    ~doc:"Failed to set console idle timeout." () ;
+
   error Api_errors.tls_verification_not_enabled_in_pool []
     ~doc:
       "TLS verification has not been enabled in the pool successfully, please \

@@ -2368,6 +2368,29 @@ let disable_ssh =
     ~params:[(Ref _host, "self", "The host")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_ssh_enabled_timeout =
+  call ~name:"set_ssh_enabled_timeout" ~lifecycle:[]
+    ~doc:"Set the SSH service enabled timeout for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( Int
+        , "value"
+        , "The SSH enabled timeout in seconds (0 means no timeout, max 2 days)"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let set_console_idle_timeout =
+  call ~name:"set_console_idle_timeout" ~lifecycle:[]
+    ~doc:"Set the console idle timeout for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (Int, "value", "The idle console timeout in seconds")
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2527,6 +2550,8 @@ let t =
       ; emergency_clear_mandatory_guidance
       ; enable_ssh
       ; disable_ssh
+      ; set_ssh_enabled_timeout
+      ; set_console_idle_timeout
       ]
     ~contents:
       ([
@@ -2964,6 +2989,22 @@ let t =
             ~default_value:(Some (VString "")) "last_update_hash"
             "The SHA256 checksum of updateinfo of the most recently applied \
              update on the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool true)) "ssh_enabled"
+            "True if SSH access is enabled for the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int
+            ~default_value:(Some (VInt 0L)) "ssh_enabled_timeout"
+            "The timeout in seconds after which SSH access will be \
+             automatically disabled (0 means never), this setting will be \
+             applied every time the SSH is enabled by XAPI"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:DateTime
+            ~default_value:(Some (VDateTime Date.epoch)) "ssh_expiry"
+            "The time in UTC after which the SSH access will be automatically \
+             disabled"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int
+            ~default_value:(Some (VInt 0L)) "console_idle_timeout"
+            "The timeout in seconds after which idle console will be \
+             automatically terminated (0 means never)"
         ]
       )
     ()
