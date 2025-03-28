@@ -1297,14 +1297,22 @@ let create_params =
     ; param_doc=
         "The SHA256 checksum of updateinfo of the most recently applied update \
          on the host"
-    ; param_release= numbered_release "24.39.0-next"
+    ; param_release= numbered_release "24.40.0"
     ; param_default= Some (VString "")
     }
   ]
 
 let create =
   call ~name:"create" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Create a new host record")]
+    ~lifecycle:
+      [
+        (Published, rel_rio, "Create a new host record")
+      ; ( Changed
+        , "24.40.0"
+        , "Added --last_update_hash option to allow last_update_hash to be \
+           kept for host joined a pool"
+        )
+      ]
     ~versioned_params:create_params ~doc:"Create a new host record"
     ~result:(Ref _host, "Reference to the newly created host object.")
     ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()

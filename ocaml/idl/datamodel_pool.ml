@@ -1249,7 +1249,15 @@ let remove_repository =
 
 let sync_updates =
   call ~name:"sync_updates"
-    ~lifecycle:[(Published, "1.329.0", "")]
+    ~lifecycle:
+      [
+        (Published, "1.329.0", "")
+      ; ( Changed
+        , "25.7.0"
+        , "Added --username --password options to allow syncing updates from a \
+           remote_pool type repository"
+        )
+      ]
     ~doc:"Sync with the enabled repository"
     ~versioned_params:
       [
@@ -1286,14 +1294,14 @@ let sync_updates =
           param_type= String
         ; param_name= "username"
         ; param_doc= "The username of the remote pool"
-        ; param_release= numbered_release "25.6.0-next"
+        ; param_release= numbered_release "25.7.0"
         ; param_default= Some (VString "")
         }
       ; {
           param_type= String
         ; param_name= "password"
         ; param_doc= "The password of the remote pool"
-        ; param_release= numbered_release "25.6.0-next"
+        ; param_release= numbered_release "25.7.0"
         ; param_default= Some (VString "")
         }
       ]
