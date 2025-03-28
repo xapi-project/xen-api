@@ -57,9 +57,37 @@ let run_qcow_tool (progress_cb : int -> unit) (args : string list)
 let update_task_progress (__context : Context.t) (x : int) =
   TaskHelper.set_progress ~__context (float_of_int x /. 100.)
 
+let qcow_of_device path =
+  let tapdisk_of_path path =
+    try
+      match Tapctl.of_device (Tapctl.create ()) path with
+      | _, str, Some (_, qcow) ->
+          debug "Found str %s and file %s" str qcow ;
+          Some qcow
+      | _ ->
+          None
+    with Not_found ->
+      debug "Device %s has an unknown driver" path ;
+      None
+  in
+  Common_tool_wrapper.find_backend_device path
+  |> Option.value ~default:path
+  |> tapdisk_of_path
+
 let send (progress_cb : int -> unit) (unix_fd : Unix.file_descr) (path : string)
     (size : Int64.t) =
   debug "Qcow send called with a size of %Ld and path equal to %s" size path ;
-  let _ = progress_cb in
-  let _ = unix_fd in
-  run_qcow_tool progress_cb ["stream"] unix_fd
+  let _, source =
+    match (Stream_vdi.get_nbd_device path, qcow_of_device path) with
+    | Some (nbd_path, exportname), Some p ->
+        debug "get_nbd_device (path=%s, exportname=%s), p = %s" nbd_path
+          exportname p ;
+        (nbd_path, exportname)
+    | None, Some p ->
+        debug "nbd device not found but p = %s" p ;
+        ("gtn_no_nbd", p)
+    | _ ->
+        ("gtn_unknown", "gtn_unknown")
+  in
+  let args = ["stream"; "--source"; source; path] in
+  run_qcow_tool progress_cb args unix_fd

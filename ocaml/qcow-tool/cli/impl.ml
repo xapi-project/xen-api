@@ -844,3 +844,7 @@ let rehydrate _common input_filename output_filename =
     >>= fun () -> Lwt.return (`Ok ())
   in
   Lwt_main.run t
+
+let stream _common source output =
+  failwith
+    (Printf.sprintf "streaming from %s to %s is not implemented" source output)

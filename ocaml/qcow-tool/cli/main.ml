@@ -457,6 +457,25 @@ let rehydrate_cmd =
   , Cmd.info "rehydrate" ~sdocs:_common_options ~doc ~man
   )
 
+let stream_cmd =
+  let doc = "stream the contents of a virtual disk" in
+  let man =
+    [
+      `S "DESCRIPTION"
+    ; `P
+        "Read the contents of a virtual disk from a source and write it to\n\
+        \         a destination that is a qcow2 file."
+    ]
+    @ help
+  in
+  let source =
+    let doc = Printf.sprintf "The disk to be streamed" in
+    Arg.(value & opt string "stdin:" & info ["source"] ~doc)
+  in
+  ( Term.(ret (const Impl.stream $ common_options_t $ source $ output))
+  , Cmd.info "stream" ~sdocs:_common_options ~doc ~man
+  )
+
 let cmds =
   [
     info_cmd
@@ -475,6 +494,7 @@ let cmds =
   ; sha_cmd
   ; dehydrate_cmd
   ; rehydrate_cmd
+  ; stream_cmd
   ]
   |> List.map (fun (t, i) -> Cmd.v i t)
 
