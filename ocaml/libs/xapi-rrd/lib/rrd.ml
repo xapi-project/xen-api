@@ -385,8 +385,16 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
      plugin, correspondingly they all have the same timestamp.
      Further refactoring is needed if timestamps per measurement are to be
      introduced. *)
-  let first_ds_index, _ = valuesandtransforms.(0) in
-  let last_updated = rrd.rrd_dss.(first_ds_index).ds_last_updated in
+  let last_updated =
+    match Array.to_list valuesandtransforms with
+    | [] ->
+        (* If all dss in the current plugin are disabled, valuesandtransforms
+           will be empty. In this case, will use the whole last_updated.
+           Otherwise, use the per-datasource last_updated. *)
+        rrd.last_updated
+    | (first_ds_index, _) :: _ ->
+        rrd.rrd_dss.(first_ds_index).ds_last_updated
+  in
   let interval = timestamp -. last_updated in
   (* Work around the clock going backwards *)
   let interval = if interval < 0. then 5. else interval in
