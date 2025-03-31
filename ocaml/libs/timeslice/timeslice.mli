@@ -42,3 +42,9 @@ val lock_acquired : unit -> unit
 
 val lock_released : unit -> unit
 (** [lock_acquired ()] notifies about lock release. *)
+
+module Runtime : sig
+  val maybe_thread_yield : global_slice_period:int -> unit
+
+  val sched_global_slice : global_slice_period:int -> unit
+end

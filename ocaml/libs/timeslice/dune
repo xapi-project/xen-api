@@ -1,5 +1,14 @@
 (library
-	(name xapi_timeslice)
-	(package xapi-idl)
- 	(libraries threads.posix mtime mtime.clock.os xapi-log)
+  (name xapi_timeslice)
+  (package xapi-idl)
+  (libraries
+    bechamel.monotonic_clock
+    threads.posix
+    tgroup
+    mtime
+    mtime.clock.os
+    xapi-consts
+    xapi-log
+    xapi-stdext-unix
+    xapi-stdext-threads)
 )

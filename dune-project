@@ -350,6 +350,7 @@
     astring
     base-threads
     base64
+    bechamel
     (bos :with-test)
     cdrom
     (clock (= :version))
