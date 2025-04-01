@@ -1289,6 +1289,10 @@ let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
 
 let console_timeout_profile_path = ref "/etc/profile.d/console_timeout.sh"
 
+let job_for_disable_ssh = ref "Disable SSH"
+
+let ssh_service = ref "sshd"
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
   "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
