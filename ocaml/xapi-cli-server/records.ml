@@ -20,6 +20,8 @@ let nullref = Ref.string_of Ref.null
 
 let nid = "<not in database>"
 
+let inconsistent = "<inconsistent>"
+
 let unknown_time = "<unknown time>"
 
 let string_of_float f = Printf.sprintf "%.3f" f
@@ -203,6 +205,37 @@ let get_pbds_host rpc session_id pbds =
     Ref.null if it's attached to 0 or >1 hosts. *)
 let get_sr_host rpc session_id record =
   get_pbds_host rpc session_id record.API.sR_PBDs
+
+(** Get consistent field from all hosts, or return a default value if the field
+    is not the same on all hosts. *)
+let get_consistent_field_or_default ~rpc ~session_id ~getter ~transform ~default
+    =
+  match Client.Host.get_all ~rpc ~session_id with
+  | [] ->
+      default
+  | hosts -> (
+      let result =
+        List.fold_left
+          (fun acc host ->
+            match acc with
+            | `Inconsistent ->
+                `Inconsistent
+            | `NotSet ->
+                `Value (getter ~rpc ~session_id ~self:host |> transform)
+            | `Value v ->
+                let current = getter ~rpc ~session_id ~self:host |> transform in
+                if v = current then `Value v else `Inconsistent
+          )
+          `NotSet hosts
+      in
+      match result with
+      | `Value v ->
+          v
+      | `Inconsistent ->
+          default
+      | `NotSet ->
+          default
+    )
 
 let bond_record rpc session_id bond =
   let _ref = ref bond in
@@ -1505,6 +1538,42 @@ let pool_record rpc session_id pool =
               ~key
           )
           ~get_map:(fun () -> (x ()).API.pool_license_server)
+          ()
+      ; make_field ~name:"ssh-enabled"
+          ~get:(fun () ->
+            get_consistent_field_or_default ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_enabled ~transform:string_of_bool
+              ~default:inconsistent
+          )
+          ()
+      ; make_field ~name:"ssh-enabled-timeout"
+          ~get:(fun () ->
+            get_consistent_field_or_default ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_enabled_timeout
+              ~transform:Int64.to_string ~default:inconsistent
+          )
+          ~set:(fun value ->
+            Client.Pool.set_ssh_enabled_timeout ~rpc ~session_id ~self:pool
+              ~value:(safe_i64_of_string "ssh-enabled-timeout" value)
+          )
+          ()
+      ; make_field ~name:"ssh-expiry"
+          ~get:(fun () ->
+            get_consistent_field_or_default ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_expiry ~transform:Date.to_rfc3339
+              ~default:inconsistent
+          )
+          ()
+      ; make_field ~name:"console-idle-timeout"
+          ~get:(fun () ->
+            get_consistent_field_or_default ~rpc ~session_id
+              ~getter:Client.Host.get_console_idle_timeout
+              ~transform:Int64.to_string ~default:inconsistent
+          )
+          ~set:(fun value ->
+            Client.Pool.set_console_idle_timeout ~rpc ~session_id ~self:pool
+              ~value:(safe_i64_of_string "console-idle-timeout" value)
+          )
           ()
       ]
   }
@@ -3264,6 +3333,26 @@ let host_record rpc session_id host =
           ()
       ; make_field ~name:"last-update-hash"
           ~get:(fun () -> (x ()).API.host_last_update_hash)
+          ()
+      ; make_field ~name:"ssh-enabled"
+          ~get:(fun () -> string_of_bool (x ()).API.host_ssh_enabled)
+          ()
+      ; make_field ~name:"ssh-enabled-timeout"
+          ~get:(fun () -> Int64.to_string (x ()).API.host_ssh_enabled_timeout)
+          ~set:(fun value ->
+            Client.Host.set_ssh_enabled_timeout ~rpc ~session_id ~self:host
+              ~value:(safe_i64_of_string "ssh-enabled-timeout" value)
+          )
+          ()
+      ; make_field ~name:"ssh-expiry"
+          ~get:(fun () -> Date.to_rfc3339 (x ()).API.host_ssh_expiry)
+          ()
+      ; make_field ~name:"console-idle-timeout"
+          ~get:(fun () -> Int64.to_string (x ()).API.host_console_idle_timeout)
+          ~set:(fun value ->
+            Client.Host.set_console_idle_timeout ~rpc ~session_id ~self:host
+              ~value:(safe_i64_of_string "console-idle-timeout" value)
+          )
           ()
       ]
   }
