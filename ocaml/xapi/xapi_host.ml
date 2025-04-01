@@ -3136,4 +3136,36 @@ let disable_ssh ~__context ~self =
 
 let set_ssh_enabled_timeout ~__context ~self:_ ~value:_ = ()
 
-let set_console_idle_timeout ~__context ~self:_ ~value:_ = ()
+let set_console_idle_timeout ~__context ~self ~value =
+  let assert_timeout_valid timeout =
+    if timeout < 0L then
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.invalid_value
+           , ["console_timeout"; Int64.to_string timeout]
+           )
+        )
+  in
+
+  assert_timeout_valid value ;
+  try
+    let content =
+      match value with
+      | 0L ->
+          "# Console timeout is disabled\n"
+      | timeout ->
+          Printf.sprintf "# Console timeout configuration\nexport TMOUT=%Ld\n"
+            timeout
+    in
+
+    Unixext.atomic_write_to_file !Xapi_globs.console_timeout_profile_path 0o0644
+      (fun fd ->
+        Unix.write fd (Bytes.of_string content) 0 (String.length content)
+        |> ignore
+    ) ;
+
+    Db.Host.set_console_idle_timeout ~__context ~self ~value
+  with e ->
+    error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
+    Helpers.internal_error "Failed to set console timeout: %Ld: %s" value
+      (Printexc.to_string e)

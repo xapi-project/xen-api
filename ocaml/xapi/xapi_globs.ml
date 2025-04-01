@@ -1287,6 +1287,8 @@ let gpumon_stop_timeout = ref 10.0
 
 let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
 
+let console_timeout_profile_path = ref "/etc/profile.d/console_timeout.sh"
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
   "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="

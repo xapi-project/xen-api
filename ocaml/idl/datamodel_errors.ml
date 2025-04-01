@@ -2040,6 +2040,9 @@ let _ =
   error Api_errors.disable_ssh_partially_failed ["hosts"]
     ~doc:"Some of hosts failed to disable SSH access." () ;
 
+  error Api_errors.set_console_timeout_partially_failed ["hosts"]
+    ~doc:"Some hosts failed to set console timeout." () ;
+
   error Api_errors.host_driver_no_hardware ["driver variant"]
     ~doc:"No hardware present for this host driver variant" () ;
 
