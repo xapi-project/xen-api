@@ -1420,6 +1420,9 @@ let enable_ssh_partially_failed = add_error "ENABLE_SSH_PARTIALLY_FAILED"
 
 let disable_ssh_partially_failed = add_error "DISABLE_SSH_PARTIALLY_FAILED"
 
+let set_ssh_timeout_partially_failed =
+  add_error "SET_SSH_TIMEOUT_PARTIALLY_FAILED"
+
 let set_console_timeout_partially_failed =
   add_error "SET_CONSOLE_TIMEOUT_PARTIALLY_FAILED"
 

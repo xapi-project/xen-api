@@ -3114,27 +3114,126 @@ let emergency_clear_mandatory_guidance ~__context =
      ) ;
   Db.Host.set_pending_guidances ~__context ~self ~value:[]
 
+let get_disable_ssh_task_name ~__context ~self =
+  let host_uuid = Db.Host.get_uuid ~__context ~self in
+  Printf.sprintf "disable_ssh_for_host_%s" host_uuid
+
+let remove_disable_ssh_job ~__context ~self =
+  let task_name = get_disable_ssh_task_name ~__context ~self in
+  Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue task_name
+
+let schedule_disable_ssh_job ~__context ~self ~timeout =
+  let host_uuid = Db.Host.get_uuid ~__context ~self in
+  let task_name = get_disable_ssh_task_name ~__context ~self in
+  let expiry_time =
+    match
+      Ptime.add_span (Ptime_clock.now ())
+        (Ptime.Span.of_int_s (Int64.to_int timeout))
+    with
+    | None ->
+        error "Invalid SSH timeout: %Ld" timeout ;
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.invalid_value
+             , ["ssh_enabled_timeout"; Int64.to_string timeout]
+             )
+          )
+    | Some t ->
+        Ptime.to_float_s t |> Date.of_unix_time
+  in
+
+  debug "Scheduling SSH disable job for host %s with timeout %Ld seconds"
+    host_uuid timeout ;
+
+  (* Remove any existing job first *)
+  remove_disable_ssh_job ~__context ~self ;
+
+  Xapi_stdext_threads_scheduler.Scheduler.add_to_queue task_name
+    Xapi_stdext_threads_scheduler.Scheduler.OneShot (Int64.to_float timeout)
+    (fun () ->
+      try
+        Xapi_systemctl.disable ~wait_until_success:false "sshd" ;
+        Xapi_systemctl.stop ~wait_until_success:false "sshd" ;
+        Db.Host.set_ssh_enabled ~__context ~self ~value:false ;
+        debug "Successfully disabled SSH for host %s" host_uuid
+      with e ->
+        error "Failed to disable SSH for host %s: %s" host_uuid
+          (Printexc.to_string e)
+  ) ;
+
+  Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+
 let enable_ssh ~__context ~self =
   try
+    debug "Enabling SSH for host %s" (Db.Host.get_uuid ~__context ~self) ;
+
     Xapi_systemctl.enable ~wait_until_success:false "sshd" ;
-    Xapi_systemctl.start ~wait_until_success:false "sshd"
-  with _ ->
-    raise
-      (Api_errors.Server_error
-         (Api_errors.enable_ssh_failed, [Ref.string_of self])
-      )
+    Xapi_systemctl.start ~wait_until_success:false "sshd" ;
+
+    let timeout = Db.Host.get_ssh_enabled_timeout ~__context ~self in
+    ( match timeout with
+    | 0L ->
+        remove_disable_ssh_job ~__context ~self
+    | t ->
+        schedule_disable_ssh_job ~__context ~self ~timeout:t
+    ) ;
+
+    Db.Host.set_ssh_enabled ~__context ~self ~value:true
+  with e ->
+    error "Failed to enable SSH on host %s: %s" (Ref.string_of self)
+      (Printexc.to_string e) ;
+    Helpers.internal_error "Failed to enable SSH: %s" (Printexc.to_string e)
 
 let disable_ssh ~__context ~self =
   try
-    Xapi_systemctl.disable ~wait_until_success:false "sshd" ;
-    Xapi_systemctl.stop ~wait_until_success:false "sshd"
-  with _ ->
-    raise
-      (Api_errors.Server_error
-         (Api_errors.disable_ssh_failed, [Ref.string_of self])
-      )
+    debug "Disabling SSH for host %s" (Db.Host.get_uuid ~__context ~self) ;
 
-let set_ssh_enabled_timeout ~__context ~self:_ ~value:_ = ()
+    remove_disable_ssh_job ~__context ~self ;
+
+    Xapi_systemctl.disable ~wait_until_success:false "sshd" ;
+    Xapi_systemctl.stop ~wait_until_success:false "sshd" ;
+    Db.Host.set_ssh_enabled ~__context ~self ~value:false ;
+
+    let expiry_time =
+      Ptime_clock.now () |> Ptime.to_float_s |> Date.of_unix_time
+    in
+    Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+  with e ->
+    error "Failed to disable SSH on host %s: %s" (Ref.string_of self)
+      (Printexc.to_string e) ;
+    Helpers.internal_error "Failed to disable SSH: %s" (Printexc.to_string e)
+
+let set_ssh_enabled_timeout ~__context ~self ~value =
+  let validate_timeout value =
+    (* the max timeout is two days: 172800L = 2*24*60*60 *)
+    if value < 0L || value > 172800L then
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.invalid_value
+           , [
+               "ssh_enabled_timeout"
+             ; Int64.to_string value
+             ; "must be between 0 and 2*24*60*60 seconds"
+             ]
+           )
+        )
+  in
+  validate_timeout value ;
+  debug "Setting SSH timeout for host %s to %Ld seconds"
+    (Db.Host.get_uuid ~__context ~self)
+    value ;
+  Db.Host.set_ssh_enabled_timeout ~__context ~self ~value ;
+  match Db.Host.get_ssh_enabled ~__context ~self with
+  | false ->
+      ()
+  | true -> (
+    match value with
+    | 0L ->
+        remove_disable_ssh_job ~__context ~self ;
+        Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
+    | t ->
+        schedule_disable_ssh_job ~__context ~self ~timeout:t
+  )
 
 let set_console_idle_timeout ~__context ~self ~value =
   let validate_timeout = function
