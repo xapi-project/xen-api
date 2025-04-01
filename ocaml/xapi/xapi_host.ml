@@ -3136,4 +3136,54 @@ let disable_ssh ~__context ~self =
 
 let set_ssh_enabled_timeout ~__context ~self:_ ~value:_ = ()
 
-let set_console_idle_timeout ~__context ~self:_ ~value:_ = ()
+let set_console_idle_timeout ~__context ~self ~value =
+  let validate_timeout = function
+    | timeout when timeout >= 0L ->
+        timeout
+    | timeout ->
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.invalid_value
+             , [
+                 "console_timeout"
+               ; Int64.to_string timeout
+               ; "non-negative integer"
+               ]
+             )
+          )
+  in
+
+  let console_timeout = validate_timeout value in
+  let bashrc = "/root/.bashrc" in
+
+  try
+    let lines = Unixext.read_lines ~path:bashrc in
+    let filtered =
+      List.filter
+        (fun line -> not (String.starts_with ~prefix:"export TMOUT=" line))
+        lines
+    in
+
+    let new_lines =
+      match console_timeout with
+      | 0L ->
+          filtered
+      | timeout ->
+          filtered @ [Printf.sprintf "export TMOUT=%Ld" timeout]
+    in
+    let content = String.concat "\n" new_lines ^ "\n" in
+
+    Unixext.atomic_write_to_file bashrc 0o0644 (fun fd ->
+        Unix.write fd (Bytes.of_string content) 0 (String.length content)
+        |> ignore
+    ) ;
+
+    Db.Host.set_console_idle_timeout ~__context ~self ~value:console_timeout
+  with e ->
+    error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
+    raise
+      (Api_errors.Server_error
+         ( Api_errors.set_console_idle_timeout_failed
+         , ["Failed to configure console timeout"; Printexc.to_string e]
+         )
+      )
