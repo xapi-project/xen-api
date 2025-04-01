@@ -114,11 +114,12 @@ let refresh_all ~__context ~host =
   in
   List.iter (fun self -> refresh_internal ~__context ~self) pifs
 
-let bridge_naming_convention (device : string) =
-  if String.starts_with ~prefix:"eth" device then
-    "xenbr" ^ String.sub device 3 (String.length device - 3)
-  else
-    "br" ^ device
+let bridge_naming_convention (device : string) (pos_opt : int option) =
+  match pos_opt with
+  | Some index ->
+      "xenbr" ^ string_of_int index
+  | None ->
+      "br" ^ device
 
 let read_bridges_from_inventory () =
   try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
@@ -337,8 +338,8 @@ let assert_fcoe_not_in_use ~__context ~self =
                  ()
          )
 
-let find_or_create_network (bridge : string) (device : string) ~managed
-    ~__context =
+let find_or_create_network (bridge : string) (device : string)
+    (pos_opt : int option) ~managed ~__context =
   let nets =
     Db.Network.get_refs_where ~__context
       ~expr:(Eq (Field "bridge", Literal bridge))
@@ -352,7 +353,7 @@ let find_or_create_network (bridge : string) (device : string) ~managed
       let () =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
-          ~name_label:(Helpers.choose_network_name_for_pif device)
+          ~name_label:(Helpers.choose_network_name_for_pif device pos_opt)
           ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed
           ~other_config:[] ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked
           ~assigned_ips:[]
@@ -360,18 +361,21 @@ let find_or_create_network (bridge : string) (device : string) ~managed
       net_ref
 
 type tables = {
-    device_to_mac_table: (string * string) list
+    device_to_position_table: (string * int) list
+  ; device_to_mac_table: (string * string) list
   ; pif_to_device_table: (API.ref_PIF * string) list
 }
 
 let make_tables ~__context ~host =
   let dbg = Context.string_of_task __context in
-  let devices =
-    List.filter
-      (fun name -> Net.Interface.is_physical dbg name)
-      (Net.Interface.get_all dbg ())
+  let device_to_position_table = Net.Interface.get_interface_positions dbg () in
+  let device_to_mac_table =
+    List.map
+      (fun (name, _) -> (name, Net.Interface.get_mac dbg name))
+      device_to_position_table
   in
-  let pifs =
+  (* Get all PIFs on this host *)
+  let pif_to_device_table =
     Db.PIF.get_records_where ~__context
       ~expr:
         (And
@@ -379,14 +383,22 @@ let make_tables ~__context ~host =
            , Eq (Field "physical", Literal "true")
            )
         )
+    |> List.map (fun (pref, prec) -> (pref, prec.API.pIF_device))
   in
-  {
-    device_to_mac_table=
-      List.combine devices
-        (List.map (fun name -> Net.Interface.get_mac dbg name) devices)
-  ; pif_to_device_table=
-      List.map (fun (pref, prec) -> (pref, prec.API.pIF_device)) pifs
-  }
+  debug "tables: device_to_position_table = %s"
+    (String.concat "; "
+       (List.map
+          (fun (d, p) -> d ^ ":" ^ string_of_int p)
+          device_to_position_table
+       )
+    ) ;
+  debug "tables: device_to_mac_table = %s"
+    (String.concat "; "
+       (List.map (fun (d, m) -> d ^ ":" ^ m) device_to_mac_table)
+    ) ;
+  debug "tables: pif_to_device_table = %s"
+    (String.concat "; " (List.map snd pif_to_device_table)) ;
+  {device_to_position_table; device_to_mac_table; pif_to_device_table}
 
 let is_my_management_pif ~__context ~self =
   let net = Db.PIF.get_network ~__context ~self in
@@ -445,16 +457,19 @@ let db_introduce = pool_introduce
 let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 
 (* Internal [introduce] is passed a pre-built table [t] *)
-let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
-    ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed
-    ?(disallow_unplug = false) () =
-  let bridge = if managed then bridge_naming_convention device else "" in
+let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
+    ~device ~vLAN ~vLAN_master_of ?metrics ~managed ?(disallow_unplug = false)
+    () =
+  let pos_opt = List.assoc_opt device t.device_to_position_table in
+  let bridge =
+    if managed then bridge_naming_convention device pos_opt else ""
+  in
   (* If we are not told which network to use,
      	 * apply the default convention *)
   let net_ref =
     match network with
     | None ->
-        find_or_create_network bridge device ~managed ~__context
+        find_or_create_network bridge device pos_opt ~managed ~__context
     | Some x ->
         x
   in
