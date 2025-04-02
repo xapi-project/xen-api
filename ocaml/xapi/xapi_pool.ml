@@ -2045,6 +2045,10 @@ let eject_self ~__context ~host =
           control_domains_to_destroy
       with _ -> ()
     ) ;
+    (* Restore SSH service to its default state: enabled with no timeout *)
+    Xapi_host.set_ssh_enabled_timeout ~__context ~self:host ~value:0L ;
+    Xapi_host.enable_ssh ~__context ~self:host ;
+
     debug "Pool.eject: setting our role to be master" ;
     Xapi_pool_transition.set_role Pool_role.Master ;
     debug "Pool.eject: forgetting pool secret" ;
