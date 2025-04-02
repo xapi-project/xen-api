@@ -130,6 +130,10 @@ val create :
   -> ssl_legacy:bool
   -> last_software_update:API.datetime
   -> last_update_hash:string
+  -> ssh_enabled:bool
+  -> ssh_enabled_timeout:int64
+  -> ssh_expiry:API.datetime
+  -> console_idle_timeout:int64
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit

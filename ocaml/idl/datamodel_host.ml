@@ -1297,14 +1297,63 @@ let create_params =
     ; param_doc=
         "The SHA256 checksum of updateinfo of the most recently applied update \
          on the host"
-    ; param_release= numbered_release "24.39.0-next"
+    ; param_release= numbered_release "24.40.0"
     ; param_default= Some (VString "")
+    }
+  ; {
+      param_type= Bool
+    ; param_name= "ssh_enabled"
+    ; param_doc= "True if SSH access is enabled for the host"
+    ; param_release= numbered_release "25.14.0-next"
+    ; param_default= Some (VBool true)
+    }
+  ; {
+      param_type= Int
+    ; param_name= "ssh_enabled_timeout"
+    ; param_doc=
+        "The timeout in seconds after which SSH access will be automatically \
+         disabled (0 means never), this setting will be applied every time the \
+         SSH is enabled by XAPI"
+    ; param_release= numbered_release "25.14.0-next"
+    ; param_default= Some (VInt 0L)
+    }
+  ; {
+      param_type= DateTime
+    ; param_name= "ssh_expiry"
+    ; param_doc=
+        "The time in UTC after which the SSH access will be automatically \
+         disabled"
+    ; param_release= numbered_release "25.14.0-next"
+    ; param_default= Some (VDateTime Date.epoch)
+    }
+  ; {
+      param_type= Int
+    ; param_name= "console_idle_timeout"
+    ; param_doc=
+        "The timeout in seconds after which idle console will be automatically \
+         terminated (0 means never)"
+    ; param_release= numbered_release "25.14.0-next"
+    ; param_default= Some (VInt 0L)
     }
   ]
 
 let create =
   call ~name:"create" ~in_oss_since:None
-    ~lifecycle:[(Published, rel_rio, "Create a new host record")]
+    ~lifecycle:
+      [
+        (Published, rel_rio, "Create a new host record")
+      ; ( Changed
+        , "24.40.0"
+        , "Added --last_update_hash option to allow last_update_hash to be \
+           kept for host joined a pool"
+        )
+      ; ( Changed
+        , "25.14.0-next"
+        , "Added --ssh_enabled --ssh_enabled_timeout --ssh_expiry \
+           --console_idle_timeout options to allow them to be configured for \
+           new host"
+        )
+      ]
     ~versioned_params:create_params ~doc:"Create a new host record"
     ~result:(Ref _host, "Reference to the newly created host object.")
     ~hide_from_docs:true ~allowed_roles:_R_POOL_OP ()

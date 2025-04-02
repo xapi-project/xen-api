@@ -943,6 +943,38 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           create_or_get_sr_on_master __context rpc session_id
             (my_local_cache_sr, my_local_cache_sr_rec)
       in
+      let remote_coordinator = get_master ~rpc ~session_id in
+      let ssh_enabled =
+        Client.Host.get_ssh_enabled ~rpc ~session_id ~self:remote_coordinator
+      in
+      let ssh_enabled_timeout =
+        Client.Host.get_ssh_enabled_timeout ~rpc ~session_id
+          ~self:remote_coordinator
+      in
+      let console_idle_timeout =
+        Client.Host.get_console_idle_timeout ~rpc ~session_id
+          ~self:remote_coordinator
+      in
+      (* Configure SSH service on local host *)
+      Xapi_host.set_console_idle_timeout ~__context ~self:host_ref
+        ~value:console_idle_timeout ;
+      Xapi_host.set_ssh_enabled_timeout ~__context ~self:host_ref
+        ~value:ssh_enabled_timeout ;
+      ( match ssh_enabled with
+      | true ->
+          Xapi_host.enable_ssh ~__context ~self:host_ref
+      | false ->
+          Xapi_host.disable_ssh ~__context ~self:host_ref
+      ) ;
+      (* As ssh_expiry will be updated by host.enable_ssh and host.disable_ssh,
+         there is a corner case when the joiner's SSH state will not match SSH
+         service state in its new coordinator exactly: if the joiner joins when
+         SSH service has been enabled in the new coordinator, while not timed
+         out yet, the joiner will start SSH service with timeout
+         host.ssh_enabled_timeout, which means SSH service in the joiner will
+         be disabled later than in the new coordinator. *)
+      let ssh_expiry = Db.Host.get_ssh_expiry ~__context ~self:host_ref in
+
       debug "Creating host object on master" ;
       let ref =
         Client.Host.create ~rpc ~session_id ~uuid:my_uuid
@@ -962,7 +994,8 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~local_cache_sr ~chipset_info:host.API.host_chipset_info
           ~ssl_legacy:false
           ~last_software_update:host.API.host_last_software_update
-          ~last_update_hash:host.API.host_last_update_hash
+          ~last_update_hash:host.API.host_last_update_hash ~ssh_enabled
+          ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout
       in
       (* Copy other-config into newly created host record: *)
       no_exn

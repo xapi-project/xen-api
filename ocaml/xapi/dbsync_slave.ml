@@ -59,7 +59,8 @@ let create_localhost ~__context info =
         ~external_auth_configuration:[] ~license_params:[] ~edition:""
         ~license_server:[("address", "localhost"); ("port", "27000")]
         ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
-        ~last_software_update:Date.epoch ~last_update_hash:""
+        ~last_software_update:Date.epoch ~last_update_hash:"" ~ssh_enabled:true
+        ~ssh_enabled_timeout:0L ~ssh_expiry:Date.epoch ~console_idle_timeout:0L
     in
     ()
 
