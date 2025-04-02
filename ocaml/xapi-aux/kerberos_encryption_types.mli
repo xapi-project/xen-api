@@ -17,5 +17,7 @@ module Winbind : sig
 
   val to_string : t -> string
 
+  val to_encoding : t -> int
+
   val of_string : string -> t option
 end
