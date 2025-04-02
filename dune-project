@@ -670,16 +670,6 @@ This package provides an Lwt compatible interface to the library.")
 )
 
 (package
-  (name xapi-stdext-date)
-  (synopsis "Xapi's standard library extension, Dates")
-  (authors "Jonathan Ludlam")
-  (depends
-    (clock (= :version))
-    ptime
-  )
-)
-
-(package
   (name xapi-stdext-encodings)
   (synopsis "Xapi's standard library extension, Encodings")
   (authors "Jonathan Ludlam")

@@ -4,6 +4,7 @@
   (action (run %{test} -e))
   (libraries
     safe-resources
+    logs
     logs.fmt
     alcotest
   )
