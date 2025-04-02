@@ -3,6 +3,7 @@
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
 (using directory-targets 0.1)
+(opam_file_location inside_opam_directory)
 
 (cram enable)
 (implicit_transitive_deps false)
