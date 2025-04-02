@@ -362,6 +362,19 @@ module Errors = struct
     | No_storage_plugin_for_sr of string
     | Content_ids_do_not_match of (string * string)
     | Missing_configuration_parameter of string
+    (* raised when preparing the environment for SXM, for example, when the dest
+        host creates VDIs for data mirroring (SMAPIv1 and v3) *)
+    | Migration_preparation_failure of string
+    (* happens when passing fds to tapdisks for mirroring (SMAPIv1 only) *)
+    | Migration_mirror_fd_failure of string
+    (* raised when taking a snapshot as the base image before copying it over to
+       the destination (SMAPIv1 only) *)
+    | Migration_mirror_snapshot_failure of string
+    (* mirror_copy_failure: raised when copying of the base image fails (SMAPIv1 only) *)
+    | Migration_mirror_copy_failure of string
+    (* mirror_failure: raised when there is any issues that causes the mirror to crash
+       during SXM (SMAPIv3 only, v1 uses more specific errors as above) *)
+    | Migration_mirror_failure of string
     | Internal_error of string
     | Unknown_error
   [@@default Unknown_error] [@@deriving rpcty]
