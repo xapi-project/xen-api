@@ -264,7 +264,9 @@ let bind ~__context ~pbd =
     let service = make_service uuid ty in
     System_domains.register_service service queue_name ;
     let info = Client.Query.query dbg in
-    Storage_mux.register (Storage_interface.Sr.of_string sr_uuid) rpc uuid info ;
+    Storage_mux_reg.register
+      (Storage_interface.Sr.of_string sr_uuid)
+      rpc uuid info ;
     info
   with e ->
     error
@@ -281,7 +283,7 @@ let unbind ~__context ~pbd =
   let ty = Db.SR.get_type ~__context ~self:sr in
   let sr = Db.SR.get_uuid ~__context ~self:sr in
   info "SR %s will nolonger be implemented by VM %s" sr (Ref.string_of driver) ;
-  Storage_mux.unregister (Storage_interface.Sr.of_string sr) ;
+  Storage_mux_reg.unregister (Storage_interface.Sr.of_string sr) ;
   let service = make_service uuid ty in
   System_domains.unregister_service service
 
