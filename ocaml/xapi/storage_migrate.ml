@@ -23,6 +23,21 @@ open Storage_interface
 open Storage_task
 open Storage_migrate_helper
 
+module type SMAPIv2_MIRROR = Storage_interface.MIRROR
+
+let s_of_sr = Storage_interface.Sr.string_of
+
+let choose_backend dbg sr =
+  debug "%s dbg: %s choosing backend for sr :%s" __FUNCTION__ dbg (s_of_sr sr) ;
+  match Storage_mux_reg.smapi_version_of_sr sr with
+  | SMAPIv1 ->
+      (module Storage_smapiv1_migrate.MIRROR : SMAPIv2_MIRROR)
+  | SMAPIv3 ->
+      (module Storage_smapiv3_migrate.MIRROR : SMAPIv2_MIRROR)
+  | SMAPIv2 ->
+      (* this should never happen *)
+      failwith "unsupported SMAPI version smapiv2"
+
 let tapdisk_of_attach_info (backend : Storage_interface.backend) =
   let _, blockdevices, _, nbds =
     Storage_interface.implementations_of_backend backend
