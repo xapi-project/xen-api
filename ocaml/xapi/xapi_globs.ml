@@ -1004,6 +1004,8 @@ let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 
 let winbind_kerberos_encryption_type = ref Kerberos_encryption_types.Winbind.All
 
+let winbind_set_machine_account_kerberos_encryption_type = ref false
+
 let winbind_allow_kerberos_auth_fallback = ref false
 
 let winbind_keep_configuration = ref false
@@ -1545,6 +1547,14 @@ let other_options =
       )
     , "Encryption types to use when operating as Kerberos client \
        [strong|legacy|all]"
+    )
+  ; ( "winbind_set_machine_account_kerberos_encryption_type"
+    , Arg.Set winbind_set_machine_account_kerberos_encryption_type
+    , (fun () ->
+        string_of_bool !winbind_set_machine_account_kerberos_encryption_type
+      )
+    , "Whether set machine account encryption type \
+       (msDS-SupportedEncryptionTypes) on domain controller"
     )
   ; ( "winbind_allow_kerberos_auth_fallback"
     , Arg.Set winbind_allow_kerberos_auth_fallback
