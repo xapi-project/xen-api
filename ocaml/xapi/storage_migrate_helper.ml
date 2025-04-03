@@ -345,3 +345,31 @@ let get_remote_backend url verify_dest =
       Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
   end)) in
   (module Remote : SMAPIv2)
+
+(** [similar_vdis dbg sr vdi] returns a list of content_ids of vdis
+  which are similar to the input [vdi] in [sr] *)
+let similar_vdis ~dbg ~sr ~vdi =
+  let similar_vdis = Local.VDI.similar_content dbg sr vdi in
+  let similars =
+    List.filter_map
+      (function
+        | {content_id; _} when content_id = "" ->
+            None
+        | {content_id; _} ->
+            Some content_id
+        )
+      similar_vdis
+  in
+
+  D.debug "%s Similar VDIs to = [ %s ]" __FUNCTION__
+    (String.concat "; "
+       (List.map
+          (fun x ->
+            Printf.sprintf "(vdi=%s,content_id=%s)"
+              (Storage_interface.Vdi.string_of x.vdi)
+              x.content_id
+          )
+          similar_vdis
+       )
+    ) ;
+  similars

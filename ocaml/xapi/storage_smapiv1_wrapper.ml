@@ -1152,7 +1152,7 @@ functor
         info "%s DATA.get_nbd_server dbg:%s dp:%s sr:%s vdi:%s vm:%s"
           __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
         let attach_info = DP.attach_info context ~dbg:"nbd" ~sr ~vdi ~dp ~vm in
-        match Storage_migrate.tapdisk_of_attach_info attach_info with
+        match Storage_smapiv1_migrate.tapdisk_of_attach_info attach_info with
         | Some tapdev ->
             let minor = Tapctl.get_minor tapdev in
             let pid = Tapctl.get_tapdisk_pid tapdev in
