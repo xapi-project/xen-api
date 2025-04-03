@@ -2988,6 +2988,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
             ]
           )
           t ;
+        with_tracing ~task:t ~name:"VM_migrate_downtime_end" Fun.id ;
         Handshake.send s Handshake.Success ;
         debug "VM.receive_memory: Synchronisation point 4"
       with e ->

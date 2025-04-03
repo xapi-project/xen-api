@@ -2517,6 +2517,7 @@ module VM = struct
                 @@ fun () -> pre_suspend_callback task
                 ) ;
 
+                with_tracing ~task ~name:"VM_save_request_shutdown" @@ fun () ->
                 if
                   not
                     ( with_tracing ~task
@@ -2525,6 +2526,13 @@ module VM = struct
                     )
                 then
                   raise (Xenopsd_error Failed_to_acknowledge_suspend_request) ;
+                (* If this is for a migration, record the begin time *)
+                ( match data with
+                | FD _ ->
+                    with_tracing ~task ~name:"VM_migrate_downtime_begin" Fun.id
+                | _ ->
+                    ()
+                ) ;
                 if
                   not
                     ( with_tracing ~task

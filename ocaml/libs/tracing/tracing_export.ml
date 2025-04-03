@@ -83,10 +83,7 @@ module Content = struct
              )
         in
         let tags =
-          let span_context = Span.get_context s in
-          let trace_context =
-            SpanContext.context_of_span_context span_context
-          in
+          let trace_context = Span.get_trace_context s in
           let baggage =
             TraceContext.baggage_of trace_context |> Option.value ~default:[]
           in
