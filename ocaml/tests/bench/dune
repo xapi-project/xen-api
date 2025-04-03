@@ -1,5 +1,6 @@
 (executables
  (names
+  bench_timeslice
   bench_tracing
   bench_uuid
   bench_throttle2
@@ -10,6 +11,7 @@
   bechamel
   bechamel-notty
   notty.unix
+  tgroup
   tracing_export
   threads.posix
   fmt
@@ -18,4 +20,6 @@
   xapi_aux
   tests_common
   log
-  xapi_internal))
+  xapi_internal
+  xapi_timeslice
+  xapi-stdext-threads))
