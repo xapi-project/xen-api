@@ -28,6 +28,21 @@ module Winbind = struct
     | All ->
         "all"
 
+  let to_encoding = function
+    (*
+     * [X] 0x00000001 DES-CBC-CRC
+     * [X] 0x00000002 DES-CBC-MD5
+     * [X] 0x00000004 RC4-HMAC
+     * [X] 0x00000008 AES128-CTS-HMAC-SHA1-96
+     * [X] 0x00000010 AES256-CTS-HMAC-SHA1-96
+     * *)
+    | Strong ->
+        0x08 lor 0x10
+    | Legacy ->
+        0x01 lor 0x02 lor 0x04
+    | All ->
+        0x01 lor 0x02 lor 0x4 lor 0x08 lor 0x10
+
   let of_string = function
     | "all" ->
         Some All
