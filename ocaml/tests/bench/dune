@@ -1,4 +1,27 @@
 (executables
-	(names bench_tracing bench_uuid bench_throttle2 bench_cached_reads)
-	(libraries tracing bechamel bechamel-notty notty.unix tracing_export threads.posix fmt notty uuid xapi_aux tests_common log xapi_internal)
+	(names
+      bench_timeslice
+      bench_tracing
+      bench_uuid
+      bench_throttle2
+      bench_cached_reads)
+	(libraries
+      mtime
+      tracing
+      bechamel
+      bechamel-notty
+      notty.unix
+      tgroup
+      tracing_export
+      threads.posix
+      fmt
+      notty
+      uuid
+      xapi_aux
+      tests_common
+      log
+      xapi_internal
+      xapi_timeslice
+      xapi-stdext-threads
+      )
 )
