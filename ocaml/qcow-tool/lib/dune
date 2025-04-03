@@ -1,0 +1,26 @@
+(library
+  (name qcow)
+  (libraries
+    astring
+    cstruct
+    logs
+    lwt
+    mirage-block
+    mirage-block-unix
+    mirage-types.lwt
+    prometheus
+    io-page
+    sexplib
+    stdlib-shims
+    mirage-time fmt
+    )
+  (wrapped false)
+  (preprocess
+    (pps ppx_sexp_conv)
+  )
+)
+
+(rule
+ (targets qcow_word_size.ml)
+ (action
+  (run ../generator/gen.exe -o %{targets})))

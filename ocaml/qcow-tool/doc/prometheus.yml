@@ -1,0 +1,12 @@
+global:
+  scrape_interval:     5s # By default, scrape targets every 15 seconds.
+
+scrape_configs:
+  - job_name: 'qcow'
+
+    # Override the global default and scrape targets from this job every 5 seconds.
+    scrape_interval: 5s
+
+    static_configs:
+      - targets: ['192.168.65.1:9090']
+

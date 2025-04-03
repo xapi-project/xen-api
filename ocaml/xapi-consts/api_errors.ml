@@ -1424,3 +1424,6 @@ let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
 
 let tls_verification_not_enabled_in_pool =
   add_error "TLS_VERIFICATION_NOT_ENABLED_IN_POOL"
+
+let unimplemented_in_qcow_tool_wrapper =
+  add_error "UNIMPLEMENTED_IN_QCOW_TOOL_WRAPPER"
