@@ -379,121 +379,124 @@ let process_ds_value ds value interval new_rrd =
     rate
 
 let ds_update rrd timestamp valuesandtransforms new_rrd =
-  (* Interval is the time between this and the last update
+  (* CA-408841 - don't update the rrd at all if list of datasources is empty *)
+  if valuesandtransforms <> [||] then (
+    (* Interval is the time between this and the last update
 
-     Currently ds_update is called with datasources that belong to a single
-     plugin, correspondingly they all have the same timestamp.
-     Further refactoring is needed if timestamps per measurement are to be
-     introduced. *)
-  let first_ds_index, _ = valuesandtransforms.(0) in
-  let last_updated = rrd.rrd_dss.(first_ds_index).ds_last_updated in
-  let interval = timestamp -. last_updated in
-  (* Work around the clock going backwards *)
-  let interval = if interval < 0. then 5. else interval in
+       Currently ds_update is called with datasources that belong to a single
+       plugin, correspondingly they all have the same timestamp.
+       Further refactoring is needed if timestamps per measurement are to be
+       introduced. *)
+    let first_ds_index, _ = valuesandtransforms.(0) in
+    let last_updated = rrd.rrd_dss.(first_ds_index).ds_last_updated in
+    let interval = timestamp -. last_updated in
+    (* Work around the clock going backwards *)
+    let interval = if interval < 0. then 5. else interval in
 
-  (* start time (st) and age of the last processed pdp and the currently occupied one *)
-  let proc_pdp_st, _proc_pdp_age = get_times last_updated rrd.timestep in
-  let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
+    (* start time (st) and age of the last processed pdp and the currently occupied one *)
+    let proc_pdp_st, _proc_pdp_age = get_times last_updated rrd.timestep in
+    let occu_pdp_st, occu_pdp_age = get_times timestamp rrd.timestep in
 
-  (* The number of pdps that should result from this update *)
-  let elapsed_pdp_st =
-    Int64.to_int ((occu_pdp_st --- proc_pdp_st) /// rrd.timestep)
-  in
+    (* The number of pdps that should result from this update *)
+    let elapsed_pdp_st =
+      Int64.to_int ((occu_pdp_st --- proc_pdp_st) /// rrd.timestep)
+    in
 
-  (* if we're due one or more PDPs, pre_int is the amount of the
-     current update interval that will be used in calculating them, and
-     post_int is the amount left over
-     this step. If a PDP isn't post is what's left over *)
-  let pre_int, post_int =
-    if elapsed_pdp_st > 0 then
-      let pre = interval -. occu_pdp_age in
-      (pre, occu_pdp_age)
-    else
-      (interval, 0.0)
-  in
-
-  (* We're now done with the last_updated value, so update it *)
-  rrd.last_updated <- timestamp ;
-
-  (* Calculate the values we're going to store based on the input data and the type of the DS *)
-  let v2s =
-    Array.map
-      (fun (i, {value; _}) ->
-        let v = process_ds_value rrd.rrd_dss.(i) value interval new_rrd in
-        rrd.rrd_dss.(i).ds_last_updated <- timestamp ;
-        (i, v)
-      )
-      valuesandtransforms
-  in
-  (* Update the PDP accumulators up until the most recent PDP *)
-  Array.iter
-    (fun (i, value) ->
-      let ds = rrd.rrd_dss.(i) in
-      if Utils.isnan value then
-        ds.ds_unknown_sec <- pre_int
+    (* if we're due one or more PDPs, pre_int is the amount of the
+       current update interval that will be used in calculating them, and
+       post_int is the amount left over
+       this step. If a PDP isn't post is what's left over *)
+    let pre_int, post_int =
+      if elapsed_pdp_st > 0 then
+        let pre = interval -. occu_pdp_age in
+        (pre, occu_pdp_age)
       else
-        (* CA-404597 - Gauge and Absolute values should be passed as-is,
-           without being involved in time-based calculations at all.
-           This applies to calculations below as well *)
-        match ds.ds_ty with
-        | Gauge | Absolute ->
-            ds.ds_value <- value
-        | Derive ->
-            ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval)
-    )
-    v2s ;
+        (interval, 0.0)
+    in
 
-  (* If we've passed a PDP point, we need to update the RRAs *)
-  if elapsed_pdp_st > 0 then (
-    (* Calculate the PDPs for each DS *)
-    let pdps =
+    (* We're now done with the last_updated value, so update it *)
+    rrd.last_updated <- timestamp ;
+
+    (* Calculate the values we're going to store based on the input data and the type of the DS *)
+    let v2s =
       Array.map
-        (fun (i, {transform; _}) ->
-          let ds = rrd.rrd_dss.(i) in
-          if interval > ds.ds_mrhb then
-            (i, nan)
-          else
-            let raw =
-              let proc_pdp_st = get_float_time last_updated rrd.timestep in
-              let occu_pdp_st = get_float_time timestamp rrd.timestep in
-
-              match ds.ds_ty with
-              | Gauge | Absolute ->
-                  ds.ds_value
-              | Derive ->
-                  ds.ds_value
-                  /. (occu_pdp_st -. proc_pdp_st -. ds.ds_unknown_sec)
-            in
-            (* Apply the transform after the raw value has been calculated *)
-            let raw = apply_transform_function transform raw in
-            (* Make sure the values are not out of bounds after all the processing *)
-            if raw < ds.ds_min || raw > ds.ds_max then
-              (i, nan)
-            else
-              (i, raw)
+        (fun (i, {value; _}) ->
+          let v = process_ds_value rrd.rrd_dss.(i) value interval new_rrd in
+          rrd.rrd_dss.(i).ds_last_updated <- timestamp ;
+          (i, v)
         )
         valuesandtransforms
     in
-
-    rra_update rrd proc_pdp_st elapsed_pdp_st pdps ;
-
-    (* Reset the PDP accumulators *)
+    (* Update the PDP accumulators up until the most recent PDP *)
     Array.iter
       (fun (i, value) ->
         let ds = rrd.rrd_dss.(i) in
-        if Utils.isnan value then (
-          ds.ds_value <- 0.0 ;
-          ds.ds_unknown_sec <- post_int
-        ) else (
-          ds.ds_unknown_sec <- 0.0 ;
+        if Utils.isnan value then
+          ds.ds_unknown_sec <- pre_int
+        else
+          (* CA-404597 - Gauge and Absolute values should be passed as-is,
+             without being involved in time-based calculations at all.
+             This applies to calculations below as well *)
           match ds.ds_ty with
           | Gauge | Absolute ->
               ds.ds_value <- value
           | Derive ->
-              ds.ds_value <- post_int *. value /. interval
-        )
+              ds.ds_value <- ds.ds_value +. (pre_int *. value /. interval)
       )
-      v2s
+      v2s ;
+
+    (* If we've passed a PDP point, we need to update the RRAs *)
+    if elapsed_pdp_st > 0 then (
+      (* Calculate the PDPs for each DS *)
+      let pdps =
+        Array.map
+          (fun (i, {transform; _}) ->
+            let ds = rrd.rrd_dss.(i) in
+            if interval > ds.ds_mrhb then
+              (i, nan)
+            else
+              let raw =
+                let proc_pdp_st = get_float_time last_updated rrd.timestep in
+                let occu_pdp_st = get_float_time timestamp rrd.timestep in
+
+                match ds.ds_ty with
+                | Gauge | Absolute ->
+                    ds.ds_value
+                | Derive ->
+                    ds.ds_value
+                    /. (occu_pdp_st -. proc_pdp_st -. ds.ds_unknown_sec)
+              in
+              (* Apply the transform after the raw value has been calculated *)
+              let raw = apply_transform_function transform raw in
+              (* Make sure the values are not out of bounds after all the processing *)
+              if raw < ds.ds_min || raw > ds.ds_max then
+                (i, nan)
+              else
+                (i, raw)
+          )
+          valuesandtransforms
+      in
+
+      rra_update rrd proc_pdp_st elapsed_pdp_st pdps ;
+
+      (* Reset the PDP accumulators *)
+      Array.iter
+        (fun (i, value) ->
+          let ds = rrd.rrd_dss.(i) in
+          if Utils.isnan value then (
+            ds.ds_value <- 0.0 ;
+            ds.ds_unknown_sec <- post_int
+          ) else (
+            ds.ds_unknown_sec <- 0.0 ;
+            match ds.ds_ty with
+            | Gauge | Absolute ->
+                ds.ds_value <- value
+            | Derive ->
+                ds.ds_value <- post_int *. value /. interval
+          )
+        )
+        v2s
+    )
   )
 
 (** Update the rrd with named values rather than just an ordered array
