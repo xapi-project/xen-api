@@ -149,7 +149,7 @@ let string_of_file filename =
 
 let mirror_list common_opts =
   wrap common_opts (fun () ->
-      let list = Client.DATA.MIRROR.list dbg in
+      let list = Storage_migrate.list ~dbg in
       List.iter
         (fun (id, status) -> Printf.printf "%s" (string_of_mirror id status))
         list
@@ -323,9 +323,9 @@ let mirror_start common_opts sr vdi dp url dest verify_dest =
       let url = get_opt url "Need a URL" in
       let dest = get_opt dest "Need a destination SR" in
       let task =
-        Client.DATA.MIRROR.start dbg sr vdi dp mirror_vm copy_vm url
-          (Storage_interface.Sr.of_string dest)
-          verify_dest
+        Storage_migrate.start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url
+          ~dest:(Storage_interface.Sr.of_string dest)
+          ~verify_dest
       in
       Printf.printf "Task id: %s\n" task
     )
@@ -335,7 +335,7 @@ let mirror_stop common_opts id =
   wrap common_opts (fun () ->
       match id with
       | Some id ->
-          Client.DATA.MIRROR.stop dbg id
+          Storage_migrate.stop ~dbg ~id
       | None ->
           failwith "Need an ID"
   )

@@ -5,6 +5,7 @@
     xapi-idl
     xapi-idl.storage
     xapi-idl.storage.interface
+    xapi_internal
     re
     re.str
     rpclib.core

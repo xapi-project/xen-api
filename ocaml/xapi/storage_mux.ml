@@ -739,34 +739,33 @@ module Mux = struct
     let copy () ~dbg =
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
+    let import_activate () ~dbg ~dp ~sr ~vdi ~vm =
+      with_dbg ~name:"DATA.import_activate" ~dbg @@ fun di ->
+      info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp (s_of_sr sr)
+        (s_of_vdi vdi) (s_of_vm vm) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DATA.import_activate (Debug_info.to_string di) dp sr vdi vm
+
+    let get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm =
+      with_dbg ~name:"DATA.get_nbd_server" ~dbg @@ fun di ->
+      info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp (s_of_sr sr)
+        (s_of_vdi vdi) (s_of_vm vm) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DATA.get_nbd_server (Debug_info.to_string di) dp sr vdi vm
+
     module MIRROR = struct
       type context = unit
 
-      let start () ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest
-          =
-        with_dbg ~name:"DATA.MIRROR.start" ~dbg @@ fun di ->
-        info
-          "%s dbg:%s sr: %s vdi: %s dp:%s mirror_vm: %s copy_vm: %s url: %s \
-           dest sr: %s verify_dest: %B"
-          __FUNCTION__ dbg (s_of_sr sr) (s_of_vdi vdi) dp (s_of_vm mirror_vm)
-          (s_of_vm copy_vm) url (s_of_sr dest) verify_dest ;
-        Storage_migrate.start ~dbg:di ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url
-          ~dest ~verify_dest
+      let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
 
-      let stop () ~dbg ~id =
-        with_dbg ~name:"DATA.MIRROR.stop" ~dbg @@ fun di ->
-        info "%s dbg:%s mirror_id: %s" __FUNCTION__ dbg id ;
-        Storage_migrate.stop ~dbg:di.log ~id
-
-      let list () ~dbg =
-        with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun di ->
-        info "%s dbg: %s" __FUNCTION__ dbg ;
-        Storage_migrate.list ~dbg:di.log
-
-      let stat () ~dbg ~id =
-        with_dbg ~name:"DATA.MIRROR.stat" ~dbg @@ fun di ->
-        info "%s dbg: %s mirror_id: %s" __FUNCTION__ di.log id ;
-        Storage_migrate.stat ~dbg:di.log ~id
+      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
+          ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
+        u "DATA.MIRROR.send_start" (* see storage_smapi{v1,v3}_migrate.ml *)
 
       let receive_start () ~dbg ~sr ~vdi_info ~id ~similar =
         with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun di ->
@@ -803,24 +802,6 @@ module Mux = struct
         with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun di ->
         info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
         Storage_migrate.receive_cancel ~dbg:di.log ~id
-
-      let import_activate () ~dbg ~dp ~sr ~vdi ~vm =
-        with_dbg ~name:"DATA.MIRROR.import_activate" ~dbg @@ fun di ->
-        info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp
-          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
-        let module C = StorageAPI (Idl.Exn.GenClient (struct
-          let rpc = of_sr sr
-        end)) in
-        C.DATA.MIRROR.import_activate (Debug_info.to_string di) dp sr vdi vm
-
-      let get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm =
-        with_dbg ~name:"DATA.MIRROR.get_nbd_server" ~dbg @@ fun di ->
-        info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp
-          (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
-        let module C = StorageAPI (Idl.Exn.GenClient (struct
-          let rpc = of_sr sr
-        end)) in
-        C.DATA.MIRROR.get_nbd_server (Debug_info.to_string di) dp sr vdi vm
     end
   end
 

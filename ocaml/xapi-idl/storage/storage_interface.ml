@@ -1000,36 +1000,69 @@ module StorageAPI (R : RPC) = struct
         @-> returning result_p err
         )
 
+    (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
+      which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
+    let import_activate =
+      declare "DATA.import_activate" []
+        (dbg_p
+        @-> dp_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> returning sock_path_p err
+        )
+
+    (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
+      server that can be connected to. Depending on the backend, this will either
+      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
+      from [import_activate] as the returned server does not accept fds. *)
+    let get_nbd_server =
+      declare "DATA.get_nbd_server" []
+        (dbg_p
+        @-> dp_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> returning sock_path_p err
+        )
+
     module MIRROR = struct
       let mirror_vm_p = Param.mk ~name:"mirror_vm" Vm.t
 
       let copy_vm_p = Param.mk ~name:"copy_vm" Vm.t
 
-      (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
-          writes data synchronously. It returns the id of the VDI.*)
-      let start =
-        declare "DATA.MIRROR.start" []
-          (dbg_p
-          @-> sr_p
-          @-> vdi_p
-          @-> dp_p
-          @-> mirror_vm_p
-          @-> copy_vm_p
-          @-> url_p
-          @-> dest_p
-          @-> verify_dest_p
-          @-> returning task_id_p err
-          )
+      let live_vm_p = Param.mk ~name:"live_vm" Vm.t
 
       let id_p = Param.mk ~name:"id" Mirror.id
 
-      (** [stop task sr vdi] stops mirroring local [vdi] *)
-      let stop =
-        declare "DATA.MIRROR.stop" [] (dbg_p @-> id_p @-> returning unit_p err)
-
-      let stat =
-        let result_p = Param.mk ~name:"result" Mirror.t in
-        declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
+      (** [send_start dbg dp task src_sr vdi mirror_vm mirror_id local_vdi copy_vm 
+      live_vm url remote_mirror dest_sr verify_dest]
+      takes the remote mirror [remote_mirror] prepared by the destination host 
+      and initiates the mirroring of [vdi] from the source *)
+      let send_start =
+        let recv_result_p =
+          Param.mk ~name:"recv_result" Mirror.mirror_receive_result
+        in
+        let local_vdi_p = Param.mk ~name:"local_vdi" vdi_info in
+        let src_sr_p = Param.mk ~name:"src_sr" Sr.t in
+        let dest_sr_p = Param.mk ~name:"dest_sr" Sr.t in
+        declare "DATA.MIRROR.send_start" []
+          (dbg_p
+          @-> dp_p
+          @-> task_id_p
+          @-> src_sr_p
+          @-> vdi_p
+          @-> mirror_vm_p
+          @-> id_p
+          @-> local_vdi_p
+          @-> copy_vm_p
+          @-> live_vm_p
+          @-> url_p
+          @-> recv_result_p
+          @-> dest_sr_p
+          @-> verify_dest_p
+          @-> returning unit_p err
+          )
 
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
@@ -1085,38 +1118,6 @@ module StorageAPI (R : RPC) = struct
       let receive_cancel =
         declare "DATA.MIRROR.receive_cancel" []
           (dbg_p @-> id_p @-> returning unit_p err)
-
-      let list =
-        let result_p =
-          Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
-        in
-        declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
-
-      (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
-      which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
-      let import_activate =
-        declare "DATA.MIRROR.import_activate" []
-          (dbg_p
-          @-> dp_p
-          @-> sr_p
-          @-> vdi_p
-          @-> vm_p
-          @-> returning sock_path_p err
-          )
-
-      (** [get_nbd_server dbg dp sr vdi vm] returns the address of a generic nbd
-      server that can be connected to. Depending on the backend, this will either
-      be a nbd server backed by tapdisk or qemu-dp. Note this is different 
-      from [import_activate] as the returned server does not accept fds. *)
-      let get_nbd_server =
-        declare "DATA.MIRROR.get_nbd_server" []
-          (dbg_p
-          @-> dp_p
-          @-> sr_p
-          @-> vdi_p
-          @-> vm_p
-          @-> returning sock_path_p err
-          )
     end
   end
 
@@ -1164,22 +1165,23 @@ end
 module type MIRROR = sig
   type context = unit
 
-  val start :
+  val send_start :
        context
     -> dbg:debug_info
+    -> task_id:Task.id
+    -> dp:dp
     -> sr:sr
     -> vdi:vdi
-    -> dp:dp
     -> mirror_vm:vm
+    -> mirror_id:Mirror.id
+    -> local_vdi:vdi_info
     -> copy_vm:vm
+    -> live_vm:vm
     -> url:string
-    -> dest:sr
+    -> remote_mirror:Mirror.mirror_receive_result
+    -> dest_sr:sr
     -> verify_dest:bool
-    -> Task.id
-
-  val stop : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
+    -> unit
 
   val receive_start :
        context
@@ -1205,14 +1207,6 @@ module type MIRROR = sig
   val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
 
   val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
-
-  val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
-
-  val import_activate :
-    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> sock_path
-
-  val get_nbd_server :
-    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> vm:vm -> sock_path
 end
 
 module type Server_impl = sig
@@ -1471,6 +1465,24 @@ module type Server_impl = sig
       -> verify_dest:bool
       -> Task.id
 
+    val import_activate :
+         context
+      -> dbg:debug_info
+      -> dp:dp
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> sock_path
+
+    val get_nbd_server :
+         context
+      -> dbg:debug_info
+      -> dp:dp
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> sock_path
+
     module MIRROR : MIRROR
   end
 
@@ -1627,13 +1639,27 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
-    S.DATA.MIRROR.start
-      (fun dbg sr vdi dp mirror_vm copy_vm url dest verify_dest ->
-        Impl.DATA.MIRROR.start () ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url
-          ~dest ~verify_dest
+    S.DATA.MIRROR.send_start
+      (fun
+        dbg
+        task_id
+        dp
+        sr
+        vdi
+        mirror_vm
+        mirror_id
+        local_vdi
+        copy_vm
+        live_vm
+        url
+        remote_mirror
+        dest_sr
+        verify_dest
+      ->
+        Impl.DATA.MIRROR.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
+          ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr
+          ~verify_dest
     ) ;
-    S.DATA.MIRROR.stop (fun dbg id -> Impl.DATA.MIRROR.stop () ~dbg ~id) ;
-    S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
     ) ;
@@ -1649,12 +1675,11 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
     ) ;
-    S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
-    S.DATA.MIRROR.import_activate (fun dbg dp sr vdi vm ->
-        Impl.DATA.MIRROR.import_activate () ~dbg ~dp ~sr ~vdi ~vm
+    S.DATA.import_activate (fun dbg dp sr vdi vm ->
+        Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
-    S.DATA.MIRROR.get_nbd_server (fun dbg dp sr vdi vm ->
-        Impl.DATA.MIRROR.get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm
+    S.DATA.get_nbd_server (fun dbg dp sr vdi vm ->
+        Impl.DATA.get_nbd_server () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
     S.Policy.get_backend_vm (fun dbg vm sr vdi ->
         Impl.Policy.get_backend_vm () ~dbg ~vm ~sr ~vdi
