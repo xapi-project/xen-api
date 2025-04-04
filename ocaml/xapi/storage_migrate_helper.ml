@@ -24,9 +24,9 @@ open Storage_interface
 open Xapi_stdext_pervasives.Pervasiveext
 open Xmlrpc_client
 
-module State = struct
-  let failwith_fmt fmt = Printf.ksprintf failwith fmt
+let failwith_fmt fmt = Printf.ksprintf failwith fmt
 
+module State = struct
   module Receive_state = struct
     type t = {
         sr: Sr.t

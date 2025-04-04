@@ -411,12 +411,12 @@ module MigrateLocal = struct
             let sr, vdi = State.of_mirror_id id in
             let vdis = Local.SR.scan dbg sr in
             let local_vdi =
-              try List.find (fun x -> x.vdi = vdi) vdis
-              with Not_found ->
-                failwith
-                  (Printf.sprintf "Local VDI %s not found"
-                     (Storage_interface.Vdi.string_of vdi)
-                  )
+              match List.find_opt (fun x -> x.vdi = vdi) vdis with
+              | None ->
+                  failwith_fmt "Local VDI %s not found"
+                    (Storage_interface.Vdi.string_of vdi)
+              | Some v ->
+                  v
             in
             let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
             let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
@@ -425,16 +425,12 @@ module MigrateLocal = struct
             Local.VDI.destroy dbg sr snapshot.vdi ;
             (* Destroy the snapshot, if it still exists *)
             let snap =
-              try
-                Some
-                  (List.find
-                     (fun x ->
-                       List.mem_assoc "base_mirror" x.sm_config
-                       && List.assoc "base_mirror" x.sm_config = id
-                     )
-                     vdis
-                  )
-              with _ -> None
+              List.find_opt
+                (fun x ->
+                  List.mem_assoc "base_mirror" x.sm_config
+                  && List.assoc "base_mirror" x.sm_config = id
+                )
+                vdis
             in
             ( match snap with
             | Some s ->
