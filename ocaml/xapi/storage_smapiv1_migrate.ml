@@ -556,12 +556,41 @@ let mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm ~url ~dest_sr ~remote_mirror
   with e ->
     raise (Storage_error (Migration_mirror_copy_failure (Printexc.to_string e)))
 
+let mirror_cleanup ~dbg ~sr ~snapshot =
+  D.debug "Destroying snapshot on src" ;
+  Local.VDI.destroy dbg sr snapshot.vdi
+
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
+  let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
+      ~local_vdi ~copy_vm ~live_vm:_ ~url ~remote_mirror ~dest_sr ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    match remote_mirror with
+    | Mirror.Vhd_mirror mirror_res ->
+        let tapdev =
+          mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~mirror_id ~url ~dest_sr
+            ~verify_dest ~remote_mirror:mirror_res
+        in
 
-  let send_start _ctx = u __FUNCTION__
+        let snapshot = mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi in
+
+        mirror_checker mirror_id tapdev ;
+        let task = Storage_task.(handle_of_id tasks) task_id in
+        let new_parent =
+          mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm ~url ~dest_sr
+            ~remote_mirror:mirror_res ~verify_dest
+        in
+
+        D.debug "Local VDI %s = remote VDI %s"
+          (Storage_interface.Vdi.string_of snapshot.vdi)
+          (Storage_interface.Vdi.string_of new_parent.vdi) ;
+        D.debug "Local VDI %s now mirrored to remote VDI: %s"
+          (Storage_interface.Vdi.string_of local_vdi.vdi)
+          (Storage_interface.Vdi.string_of mirror_res.Mirror.mirror_vdi.vdi) ;
+        mirror_cleanup ~dbg ~sr ~snapshot
 
   let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm =
     let on_fail : (unit -> unit) list ref = ref [] in

@@ -261,8 +261,8 @@ module MigrateLocal = struct
       raise
         (Storage_error (Migration_preparation_failure (Printexc.to_string e)))
 
-  let start ~task ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest
-      =
+  let start ~task_id ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest
+      ~verify_dest =
     SXM.info
       "%s sr:%s vdi:%s dp: %s mirror_vm: %s copy_vm: %s url:%s dest:%s \
        verify_dest:%B"
@@ -298,32 +298,15 @@ module MigrateLocal = struct
     State.add mirror_id (State.Send_op alm) ;
     debug "%s Added mirror %s to active local mirrors" __FUNCTION__ mirror_id ;
     (* A list of cleanup actions to perform if the operation should fail. *)
+    let (module Migrate_Backend) = choose_backend dbg sr in
     try
-      let (Vhd_mirror remote_mirror) =
+      let remote_mirror =
         prepare ~dbg ~sr ~vdi ~dest ~local_vdi ~mirror_id ~mirror_vm ~url
           ~verify_dest
       in
-      let tapdev =
-        Storage_smapiv1_migrate.mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm
-          ~mirror_id ~url ~dest_sr:dest ~verify_dest ~remote_mirror
-      in
-      let snapshot =
-        Storage_smapiv1_migrate.mirror_snapshot ~dbg ~sr ~dp ~mirror_id
-          ~local_vdi
-      in
-      Storage_smapiv1_migrate.mirror_checker mirror_id tapdev ;
-      let new_parent =
-        Storage_smapiv1_migrate.mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm
-          ~url ~dest_sr:dest ~remote_mirror ~verify_dest
-      in
-      debug "Local VDI %s = remote VDI %s"
-        (Storage_interface.Vdi.string_of snapshot.vdi)
-        (Storage_interface.Vdi.string_of new_parent.vdi) ;
-      debug "Local VDI %s now mirrored to remote VDI: %s"
-        (Storage_interface.Vdi.string_of local_vdi.vdi)
-        (Storage_interface.Vdi.string_of remote_mirror.Mirror.mirror_vdi.vdi) ;
-      debug "Destroying snapshot on src" ;
-      Local.VDI.destroy dbg sr snapshot.vdi ;
+      Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
+        ~mirror_id ~local_vdi ~copy_vm ~live_vm:(Vm.of_string "0") ~url
+        ~remote_mirror ~dest_sr:dest ~verify_dest ;
       Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
@@ -628,8 +611,10 @@ let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
 let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest =
   with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
   with_task_and_thread ~dbg (fun task ->
-      MigrateLocal.start ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm
-        ~copy_vm ~url ~dest ~verify_dest
+      MigrateLocal.start
+        ~task_id:(Storage_task.id_of_handle task)
+        ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest
+        ~verify_dest
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
