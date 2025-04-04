@@ -401,6 +401,161 @@ module Copy = struct
         raise (Storage_error (Internal_error (Printexc.to_string e)))
 end
 
+let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~mirror_id ~url ~dest_sr
+    ~verify_dest ~(remote_mirror : Mirror.mirror_receive_result_vhd_t) =
+  let remote_vdi = remote_mirror.mirror_vdi.vdi in
+  let mirror_dp = remote_mirror.mirror_datapath in
+
+  let uri =
+    Printf.sprintf "/services/SM/nbd/%s/%s/%s/%s"
+      (Storage_interface.Vm.string_of mirror_vm)
+      (Storage_interface.Sr.string_of dest_sr)
+      (Storage_interface.Vdi.string_of remote_vdi)
+      mirror_dp
+  in
+  D.debug "%s: uri of http request for mirroring is %s" __FUNCTION__ uri ;
+  let dest_url = Http.Url.set_uri (Http.Url.of_string url) uri in
+  D.debug "%s url of http request for mirroring is %s" __FUNCTION__
+    (Http.Url.to_string dest_url) ;
+  let request =
+    Http.Request.make
+      ~query:(Http.Url.get_query_params dest_url)
+      ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri
+  in
+  let verify_cert = if verify_dest then Stunnel_client.pool () else None in
+  let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
+  D.debug "Searching for data path: %s" dp ;
+  let attach_info = Local.DP.attach_info dbg sr vdi dp mirror_vm in
+
+  let tapdev =
+    match tapdisk_of_attach_info attach_info with
+    | Some tapdev ->
+        let pid = Tapctl.get_tapdisk_pid tapdev in
+        let path = Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid in
+        with_transport ~stunnel_wait_disconnect:false transport
+          (with_http request (fun (_response, s) ->
+               (* Enable mirroring on the local machine *)
+               let control_fd = Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0 in
+               finally
+                 (fun () ->
+                   Unix.connect control_fd (Unix.ADDR_UNIX path) ;
+                   let msg = dp in
+                   let len = String.length msg in
+                   let written =
+                     Unixext.send_fd_substring control_fd msg 0 len [] s
+                   in
+                   if written <> len then (
+                     D.error "Failed to transfer fd to %s" path ;
+                     failwith "Internal error transferring fd to tapdisk"
+                   )
+                 )
+                 (fun () -> Unix.close control_fd)
+           )
+          ) ;
+        tapdev
+    | None ->
+        D.error "%s: vdi %s not attached" __FUNCTION__ (Vdi.string_of vdi) ;
+        raise
+          (Storage_interface.Storage_error
+             (Migration_mirror_fd_failure "VDI Not Attached")
+          )
+    | exception e ->
+        D.error "%s Caught exception %s:. Performing cleanup." __FUNCTION__
+          (Printexc.to_string e) ;
+        raise
+          (Storage_interface.Storage_error
+             (Migration_mirror_fd_failure (Printexc.to_string e))
+          )
+  in
+  D.debug "%s Updating active local mirrors: id=%s" __FUNCTION__ mirror_id ;
+  let alm =
+    State.Send_state.
+      {
+        url
+      ; dest_sr
+      ; remote_info=
+          Some
+            {
+              dp= remote_mirror.mirror_datapath
+            ; vdi= remote_mirror.mirror_vdi.vdi
+            ; url
+            ; verify_dest
+            }
+      ; local_dp= dp
+      ; tapdev= Some tapdev
+      ; failed= false
+      ; watchdog= None
+      }
+  in
+  State.add mirror_id (State.Send_op alm) ;
+  D.debug "%s Updated mirror_id %s in the active local mirror" __FUNCTION__
+    mirror_id ;
+  tapdev
+
+let mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi =
+  SXM.info "%s About to snapshot VDI = %s" __FUNCTION__
+    (string_of_vdi_info local_vdi) ;
+  let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
+  let local_vdi = add_to_sm_config local_vdi "base_mirror" mirror_id in
+  let snapshot =
+    try Local.VDI.snapshot dbg sr local_vdi with
+    | Storage_interface.Storage_error (Backend_error (code, _))
+      when code = "SR_BACKEND_FAILURE_44" ->
+        raise
+          (Storage_interface.Storage_error
+             (Migration_mirror_snapshot_failure
+                (Printf.sprintf "%s:%s" Api_errors.sr_source_space_insufficient
+                   (Storage_interface.Sr.string_of sr)
+                )
+             )
+          )
+    | e ->
+        raise
+          (Storage_interface.Storage_error
+             (Migration_mirror_snapshot_failure (Printexc.to_string e))
+          )
+  in
+
+  SXM.info "%s: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
+    __FUNCTION__
+    (Storage_interface.Vdi.string_of snapshot.vdi)
+    (Storage_interface.Vdi.string_of local_vdi.vdi) ;
+
+  snapshot
+
+let mirror_checker mirror_id tapdev =
+  let rec inner () =
+    let alm_opt = State.find_active_local_mirror mirror_id in
+    match alm_opt with
+    | Some alm ->
+        let stats = Tapctl.stats (Tapctl.create ()) tapdev in
+        if stats.Tapctl.Stats.nbd_mirror_failed = 1 then (
+          D.error "Tapdisk mirroring has failed" ;
+          Updates.add (Dynamic.Mirror mirror_id) updates
+        ) ;
+        alm.State.Send_state.watchdog <-
+          Some
+            (Scheduler.one_shot scheduler (Scheduler.Delta 5) "tapdisk_watchdog"
+               inner
+            )
+    | None ->
+        ()
+  in
+  inner ()
+
+let mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm ~url ~dest_sr ~remote_mirror
+    ~verify_dest =
+  (* Copy the snapshot to the remote *)
+  try
+    Storage_task.with_subtask task "copy" (fun () ->
+        Copy.copy_into_vdi ~task ~dbg ~sr ~vdi:snapshot.vdi ~vm:copy_vm ~url
+          ~dest:dest_sr ~dest_vdi:remote_mirror.Mirror.copy_diffs_to
+          ~verify_dest
+    )
+    |> vdi_info
+  with e ->
+    raise (Storage_error (Migration_mirror_copy_failure (Printexc.to_string e)))
+
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 

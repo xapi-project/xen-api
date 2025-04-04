@@ -247,6 +247,20 @@ module MigrateLocal = struct
     | e ->
         raise e
 
+  let prepare ~dbg ~sr ~vdi ~dest ~local_vdi ~mirror_id ~mirror_vm ~url
+      ~verify_dest =
+    try
+      let (module Remote) = get_remote_backend url verify_dest in
+      let similars = similar_vdis ~dbg ~sr ~vdi in
+
+      Remote.DATA.MIRROR.receive_start2 dbg dest local_vdi mirror_id similars
+        mirror_vm
+    with e ->
+      error "%s Caught error %s while preparing for SXM" __FUNCTION__
+        (Printexc.to_string e) ;
+      raise
+        (Storage_error (Migration_preparation_failure (Printexc.to_string e)))
+
   let start ~task ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest
       =
     SXM.info
@@ -262,7 +276,6 @@ module MigrateLocal = struct
       (Storage_interface.Sr.string_of dest)
       verify_dest ;
 
-    let remote_url = Http.Url.of_string url in
     let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
     let local_vdi = find_local_vdi ~dbg ~sr ~vdi in
@@ -285,164 +298,30 @@ module MigrateLocal = struct
     State.add mirror_id (State.Send_op alm) ;
     debug "%s Added mirror %s to active local mirrors" __FUNCTION__ mirror_id ;
     (* A list of cleanup actions to perform if the operation should fail. *)
-    let on_fail : (unit -> unit) list ref = ref [] in
     try
-      let similar_vdis = Local.VDI.similar_content dbg sr vdi in
-      let similars =
-        List.filter
-          (fun x -> x <> "")
-          (List.map (fun vdi -> vdi.content_id) similar_vdis)
+      let (Vhd_mirror remote_mirror) =
+        prepare ~dbg ~sr ~vdi ~dest ~local_vdi ~mirror_id ~mirror_vm ~url
+          ~verify_dest
       in
-      debug "Similar VDIs to = [ %s ]"
-        (String.concat "; "
-           (List.map
-              (fun x ->
-                Printf.sprintf "(vdi=%s,content_id=%s)"
-                  (Storage_interface.Vdi.string_of x.vdi)
-                  x.content_id
-              )
-              similar_vdis
-           )
-        ) ;
-      let (Mirror.Vhd_mirror result) =
-        Remote.DATA.MIRROR.receive_start2 dbg dest local_vdi mirror_id similars
-          mirror_vm
-      in
-      (* Enable mirroring on the local machine *)
-      let mirror_dp = result.Mirror.mirror_datapath in
-      let uri =
-        Printf.sprintf "/services/SM/nbd/%s/%s/%s/%s"
-          (Storage_interface.Vm.string_of mirror_vm)
-          (Storage_interface.Sr.string_of dest)
-          (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi)
-          mirror_dp
-      in
-      debug "%s: uri of http request for mirroring is %s" __FUNCTION__ uri ;
-      let dest_url = Http.Url.set_uri remote_url uri in
-      let request =
-        Http.Request.make
-          ~query:(Http.Url.get_query_params dest_url)
-          ~version:"1.0" ~user_agent:"smapiv2" Http.Put uri
-      in
-      let verify_cert = if verify_dest then Stunnel_client.pool () else None in
-      let transport = Xmlrpc_client.transport_of_url ~verify_cert dest_url in
-      debug "Searching for data path: %s" dp ;
-      let attach_info = Local.DP.attach_info dbg sr vdi dp mirror_vm in
-      on_fail :=
-        (fun () -> Remote.DATA.MIRROR.receive_cancel dbg mirror_id) :: !on_fail ;
       let tapdev =
-        match tapdisk_of_attach_info attach_info with
-        | Some tapdev ->
-            let pid = Tapctl.get_tapdisk_pid tapdev in
-            let path =
-              Printf.sprintf "/var/run/blktap-control/nbdclient%d" pid
-            in
-            with_transport ~stunnel_wait_disconnect:false transport
-              (with_http request (fun (_response, s) ->
-                   let control_fd =
-                     Unix.socket Unix.PF_UNIX Unix.SOCK_STREAM 0
-                   in
-                   finally
-                     (fun () ->
-                       Unix.connect control_fd (Unix.ADDR_UNIX path) ;
-                       let msg = dp in
-                       let len = String.length msg in
-                       let written =
-                         Unixext.send_fd_substring control_fd msg 0 len [] s
-                       in
-                       if written <> len then (
-                         error "Failed to transfer fd to %s" path ;
-                         failwith "Internal error transferring fd to tapdisk"
-                       )
-                     )
-                     (fun () -> Unix.close control_fd)
-               )
-              ) ;
-            tapdev
-        | None ->
-            failwith "Not attached"
+        Storage_smapiv1_migrate.mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm
+          ~mirror_id ~url ~dest_sr:dest ~verify_dest ~remote_mirror
       in
-      debug "%s Updating active local mirrors: id=%s" __FUNCTION__ mirror_id ;
-      let alm =
-        State.Send_state.
-          {
-            url
-          ; dest_sr= dest
-          ; remote_info=
-              Some
-                {
-                  dp= mirror_dp
-                ; vdi= result.Mirror.mirror_vdi.vdi
-                ; url
-                ; verify_dest
-                }
-          ; local_dp= dp
-          ; tapdev= Some tapdev
-          ; failed= false
-          ; watchdog= None
-          }
-      in
-
-      State.add mirror_id (State.Send_op alm) ;
-      debug "%s Updated mirror_id %s in the active local mirror" __FUNCTION__
-        mirror_id ;
-
-      SXM.info "%s About to snapshot VDI = %s" __FUNCTION__
-        (string_of_vdi_info local_vdi) ;
-      let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
-      let local_vdi = add_to_sm_config local_vdi "base_mirror" mirror_id in
       let snapshot =
-        try Local.VDI.snapshot dbg sr local_vdi with
-        | Storage_interface.Storage_error (Backend_error (code, _))
-          when code = "SR_BACKEND_FAILURE_44" ->
-            raise
-              (Api_errors.Server_error
-                 ( Api_errors.sr_source_space_insufficient
-                 , [Storage_interface.Sr.string_of sr]
-                 )
-              )
-        | e ->
-            raise e
+        Storage_smapiv1_migrate.mirror_snapshot ~dbg ~sr ~dp ~mirror_id
+          ~local_vdi
       in
-      SXM.info "%s: snapshot created, mirror initiated vdi:%s snapshot_of:%s"
-        __FUNCTION__
-        (Storage_interface.Vdi.string_of snapshot.vdi)
-        (Storage_interface.Vdi.string_of local_vdi.vdi) ;
-      on_fail := (fun () -> Local.VDI.destroy dbg sr snapshot.vdi) :: !on_fail ;
-      (let rec inner () =
-         let alm_opt = State.find_active_local_mirror mirror_id in
-         match alm_opt with
-         | Some alm ->
-             let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-             if stats.Tapctl.Stats.nbd_mirror_failed = 1 then (
-               error "Tapdisk mirroring has failed" ;
-               Updates.add (Dynamic.Mirror mirror_id) updates
-             ) ;
-             alm.State.Send_state.watchdog <-
-               Some
-                 (Scheduler.one_shot scheduler (Scheduler.Delta 5)
-                    "tapdisk_watchdog" inner
-                 )
-         | None ->
-             ()
-       in
-       inner ()
-      ) ;
-      on_fail := (fun () -> stop ~dbg ~id:mirror_id) :: !on_fail ;
-      (* Copy the snapshot to the remote *)
+      Storage_smapiv1_migrate.mirror_checker mirror_id tapdev ;
       let new_parent =
-        Storage_task.with_subtask task "copy" (fun () ->
-            copy_into_vdi ~task ~dbg ~sr ~vdi:snapshot.vdi ~vm:copy_vm ~url
-              ~dest ~dest_vdi:result.Mirror.copy_diffs_to ~verify_dest
-        )
-        |> vdi_info
+        Storage_smapiv1_migrate.mirror_copy ~task ~dbg ~sr ~snapshot ~copy_vm
+          ~url ~dest_sr:dest ~remote_mirror ~verify_dest
       in
       debug "Local VDI %s = remote VDI %s"
         (Storage_interface.Vdi.string_of snapshot.vdi)
         (Storage_interface.Vdi.string_of new_parent.vdi) ;
       debug "Local VDI %s now mirrored to remote VDI: %s"
         (Storage_interface.Vdi.string_of local_vdi.vdi)
-        (Storage_interface.Vdi.string_of result.Mirror.mirror_vdi.vdi) ;
+        (Storage_interface.Vdi.string_of remote_mirror.Mirror.mirror_vdi.vdi) ;
       debug "Destroying snapshot on src" ;
       Local.VDI.destroy dbg sr snapshot.vdi ;
       Some (Mirror_id mirror_id)
@@ -450,11 +329,20 @@ module MigrateLocal = struct
     | Storage_error (Sr_not_attached sr_uuid) ->
         error " Caught exception %s:%s. Performing cleanup."
           Api_errors.sr_not_attached sr_uuid ;
-        perform_cleanup_actions !on_fail ;
         raise (Api_errors.Server_error (Api_errors.sr_not_attached, [sr_uuid]))
+    | ( Storage_error (Migration_mirror_fd_failure reason)
+      | Storage_error (Migration_mirror_snapshot_failure reason) ) as e ->
+        error "%s: Caught %s: during storage migration preparation" __FUNCTION__
+          reason ;
+        MigrateRemote.receive_cancel ~dbg ~id:mirror_id ;
+        raise e
+    | Storage_error (Migration_mirror_copy_failure reason) as e ->
+        error "%s: Caught %s: during storage migration copy" __FUNCTION__ reason ;
+        stop ~dbg ~id:mirror_id ;
+        raise e
     | e ->
-        error "Caught %s: performing cleanup actions" (Api_errors.to_string e) ;
-        perform_cleanup_actions !on_fail ;
+        error "Caught %s during SXM: " (Api_errors.to_string e) ;
+        stop ~dbg ~id:mirror_id ;
         raise e
 
   let stat ~dbg:_ ~id =
