@@ -265,11 +265,7 @@ module MigrateLocal = struct
     let remote_url = Http.Url.of_string url in
     let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
-    let vdis = Local.SR.scan dbg sr in
-    let local_vdi =
-      try List.find (fun x -> x.vdi = vdi) vdis
-      with Not_found -> failwith "Local VDI not found"
-    in
+    let local_vdi = find_local_vdi ~dbg ~sr ~vdi in
     let mirror_id = State.mirror_id_of (sr, local_vdi.vdi) in
     debug "%s: Adding to active local mirrors before sending: id=%s"
       __FUNCTION__ mirror_id ;

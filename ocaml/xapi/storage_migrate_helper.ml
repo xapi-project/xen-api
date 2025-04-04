@@ -346,6 +346,15 @@ let get_remote_backend url verify_dest =
   end)) in
   (module Remote : SMAPIv2)
 
+let find_local_vdi ~dbg ~sr ~vdi =
+  (* Find the local VDI *)
+  let vdis, _ = Local.SR.scan2 dbg sr in
+  match List.find_opt (fun x -> x.vdi = vdi) vdis with
+  | None ->
+      failwith "Local VDI not found"
+  | Some v ->
+      v
+
 (** [similar_vdis dbg sr vdi] returns a list of content_ids of vdis
   which are similar to the input [vdi] in [sr] *)
 let similar_vdis ~dbg ~sr ~vdi =
