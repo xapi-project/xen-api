@@ -633,13 +633,7 @@ let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest =
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
-let stop ~dbg ~id =
-  try MigrateLocal.stop ~dbg ~id with
-  | Storage_error (Backend_error (code, params))
-  | Api_errors.Server_error (code, params) ->
-      raise (Storage_error (Backend_error (code, params)))
-  | e ->
-      raise e
+let stop = MigrateLocal.stop
 
 let list = MigrateLocal.list
 
