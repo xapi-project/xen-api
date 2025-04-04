@@ -1778,14 +1778,6 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
   check_vdi_map ~__context vms_vdis vdi_map ;
-  (* Prevent SXM when the VM has a VDI on which changed block tracking is enabled *)
-  List.iter
-    (fun vconf ->
-      let vdi = vconf.vdi in
-      if Db.VDI.get_cbt_enabled ~__context ~self:vdi then
-        raise Api_errors.(Server_error (vdi_cbt_enabled, [Ref.string_of vdi]))
-    )
-    vms_vdis ;
   (* operations required for migration *)
   let required_src_sr_operations = Smint.Feature.[Vdi_snapshot; Vdi_mirror] in
   let required_dst_sr_operations =
@@ -1919,6 +1911,9 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     )
   ) ;
   (* check_vdi_map above has already verified that all VDIs are in the vdi_map *)
+  (* Previously there was also a check that none of the VDIs have CBT enabled.
+     This is unnecessary, we only need to check that none of the VDIs that
+     *will be moved* have CBT enabled. *)
   assert_can_migrate_vdis ~__context ~vdi_map
 
 let assert_can_migrate_sender ~__context ~vm ~dest ~live:_ ~vdi_map:_ ~vif_map:_
