@@ -219,6 +219,9 @@ let t =
        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "live_hosts"
            ~default_value:(Some (VInt 0L))
            "Current number of live hosts, according to the cluster stack"
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "expected_hosts"
+           ~default_value:(Some (VInt 0L))
+           "Total number of hosts expected by the cluster stack"
        ]
       @ allowed_and_current_operations cluster_operation
       @ [
