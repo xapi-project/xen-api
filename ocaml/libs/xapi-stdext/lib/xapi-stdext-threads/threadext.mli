@@ -43,3 +43,27 @@ end
 val wait_timed_read : Unix.file_descr -> float -> bool
 
 val wait_timed_write : Unix.file_descr -> float -> bool
+
+module ThreadRuntimeContext : sig
+  type t = {
+      ocaml_tid: int
+    ; thread_name: string
+    ; mutable time_running: Mtime.span
+    ; mutable tepoch: int
+    ; tgroup: Tgroup.Group.t
+  }
+
+  val create : ?thread_name:string -> unit -> t
+  (** [create ()] creates and returns an initial thread local strorage for the
+     current thread. *)
+
+  val get : unit -> t
+  (** [get ()] returns the current thread local storage. *)
+
+  val update : (t -> t) -> t -> unit
+  (** [update fn thread_ctx] updates the thread local storage based on
+      the supplied arguments. *)
+
+  val remove : unit -> unit
+  (** [remove ()] removes the thread local storage of the current thread. *)
+end

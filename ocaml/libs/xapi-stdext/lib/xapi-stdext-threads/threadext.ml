@@ -97,3 +97,45 @@ let wait_timed_write fd timeout =
       true
   | _ ->
       assert false
+
+module ThreadRuntimeContext = struct
+  type t = {
+      ocaml_tid: int
+    ; thread_name: string
+    ; mutable time_running: Mtime.span
+    ; mutable tepoch: int
+    ; tgroup: Tgroup.Group.t
+  }
+
+  (*The documentation for Ambient_context_thread_local isn't really clear is
+    this context. thread_local_storage is a global variable shared by all
+    threads. It is a map with keys, the thread IDs and values the above
+    defined data structure.*)
+  let thread_local_storage = Ambient_context_thread_local.Thread_local.create ()
+
+  let create ?(thread_name = "") () =
+    let ocaml_tid = Thread.self () |> Thread.id in
+    let time_running = Mtime.Span.zero in
+    let tepoch = 0 in
+    let tgroup =
+      Tgroup.Group.(
+        of_creator (Creator.make ~identity:Identity.root_identity ())
+      )
+    in
+    let tls = {thread_name; tgroup; ocaml_tid; time_running; tepoch} in
+    let () =
+      Ambient_context_thread_local.Thread_local.set thread_local_storage tls
+    in
+    tls
+
+  let get () =
+    Ambient_context_thread_local.Thread_local.get_or_create ~create
+      thread_local_storage
+
+  let update f context =
+    f context
+    |> Ambient_context_thread_local.Thread_local.set thread_local_storage
+
+  let remove () =
+    Ambient_context_thread_local.Thread_local.remove thread_local_storage
+end
