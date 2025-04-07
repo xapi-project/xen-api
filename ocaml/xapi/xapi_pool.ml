@@ -1688,8 +1688,6 @@ let join_common ~__context ~master_address ~master_username ~master_password
             "Unable to set the write the new pool certificates to the disk : %s"
             (ExnHelper.string_of_exn e)
       ) ;
-      Db.Host.set_latest_synced_updates_applied ~__context ~self:me
-        ~value:`unknown ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
