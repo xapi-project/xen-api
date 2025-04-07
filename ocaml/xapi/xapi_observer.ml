@@ -571,6 +571,14 @@ let initialise ~__context =
          |> observed_components_of
          |> List.iter (initialise_observer_component ~__context)
      ) ;
+  (* If SMApi is now experimental, manually remove the config as there is no observer to do it *)
+  if
+    Xapi_globs.(
+      StringSet.mem (to_string SMApi) !observer_experimental_components
+    )
+  then
+    Xapi_stdext_unix.Unixext.rm_rec (dir_name_of_component SMApi) ;
+
   Tracing_export.set_service_name "xapi"
 
 let set_hosts ~__context ~self ~value =
