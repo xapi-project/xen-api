@@ -210,18 +210,20 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
          match Softaffinity.plan h nodes ~vm with
          | None ->
              Alcotest.fail "No NUMA plan"
-         | Some plan ->
-             D.debug "NUMA allocation succeeded for VM %d: %s" i
-               (Fmt.to_to_string CPUSet.pp_dump plan) ;
+         | Some (cpu_plan, mem_plan) ->
+             D.debug
+               "NUMA allocation succeeded for VM %d: [CPUS: %s]; [nodes: %s]" i
+               (Fmt.to_to_string CPUSet.pp_dump cpu_plan)
+               (Fmt.to_to_string Fmt.(Dump.list NUMA.pp_dump_node) mem_plan) ;
              let usednodes =
-               plan
+               cpu_plan
                |> CPUSet.elements
                |> List.map (NUMA.node_of_cpu h)
                |> List.sort_uniq compare
                |> List.to_seq
              in
              let costs_numa_aware =
-               vm_access_costs h plans (vm_cores, usednodes, plan)
+               vm_access_costs h plans (vm_cores, usednodes, cpu_plan)
              in
              let costs_default =
                vm_access_costs h plans (vm_cores, NUMA.nodes h, NUMA.all_cpus h)
@@ -229,7 +231,7 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
              cost_not_worse ~default:costs_default costs_numa_aware ;
              ( costs_default :: costs_old
              , costs_numa_aware :: costs_new
-             , ((vm_cores, List.of_seq usednodes), plan) :: plans
+             , ((vm_cores, List.of_seq usednodes), cpu_plan) :: plans
              )
        )
        ([], [], [])

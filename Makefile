@@ -156,7 +156,7 @@ DUNE_IU_PACKAGES1+=message-switch message-switch-cli message-switch-core message
 DUNE_IU_PACKAGES1+=message-switch-unix xapi-idl xapi-forkexecd xapi-storage xapi-storage-script xapi-storage-cli
 DUNE_IU_PACKAGES1+=xapi-nbd varstored-guard xapi-log xapi-open-uri xapi-tracing xapi-tracing-export xapi-expiry-alerts cohttp-posix
 DUNE_IU_PACKAGES1+=xapi-rrd xapi-inventory clock xapi-sdk
-DUNE_IU_PACKAGES1+=xapi-stdext-date xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-tools
+DUNE_IU_PACKAGES1+=xapi-stdext-encodings xapi-stdext-pervasives xapi-stdext-std xapi-stdext-threads xapi-stdext-unix xapi-stdext-zerocheck xapi-tools
 
 
 install-dune1:

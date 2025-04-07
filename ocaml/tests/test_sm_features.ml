@@ -249,6 +249,7 @@ module CreateSMObject = Generic.MakeStateful (struct
       ; features
       ; configuration= []
       ; required_cluster_stack= []
+      ; smapi_version= SMAPIv2
       }
 
   let extract_output __context _ =

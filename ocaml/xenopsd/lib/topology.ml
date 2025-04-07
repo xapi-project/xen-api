@@ -298,7 +298,7 @@ module NUMA = struct
       None
     else (
       List.iter (fun (Node n) -> t.node_usage.(n) <- t.node_usage.(n) + 1) nodes ;
-      Some result
+      Some (result, nodes)
     )
 
   let pp_dump_node = Fmt.(using (fun (Node x) -> x) int)

@@ -2,6 +2,7 @@
  (name xenopsd_xc)
  (modes best)
  (modules :standard \
+          numa
           xenops_xc_main
           memory_breakdown
           memory_summary
@@ -68,13 +69,18 @@
  )
  (wrapped false)
 )
+
+(executable
+ (name numa)
+ (modules numa)
+ (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl xenopsd_xc)
+)
+
 (executable
  (name xenops_xc_main)
  (modes exe)
  (modules xenops_xc_main)
-
  (libraries
-  
   ezxenstore.core
   uuid
   xapi-idl
@@ -95,7 +101,7 @@
  (libraries
   astring
   cmdliner
-  
+
   ezxenstore.core
   uuid
   xapi-idl.memory
@@ -112,13 +118,13 @@
  (section sbin)
  (package xapi-tools)
 )
- 
+
 (executable
  (name memory_summary)
  (modes exe)
  (modules memory_summary)
  (libraries
-  
+
   clock
   xapi-stdext-unix
   xapi_xenopsd
@@ -143,7 +149,7 @@
  (modules cancel_utils_test)
  (libraries
   cmdliner
-  
+
   ezxenstore.core
   threads.posix
   xapi-idl.xen.interface

@@ -3,6 +3,7 @@
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
 (using directory-targets 0.1)
+(opam_file_location inside_opam_directory)
 
 (cram enable)
 (implicit_transitive_deps false)
@@ -667,16 +668,6 @@ This package provides an Lwt compatible interface to the library.")
 
 (package
   (name xapi-inventory)
-)
-
-(package
-  (name xapi-stdext-date)
-  (synopsis "Xapi's standard library extension, Dates")
-  (authors "Jonathan Ludlam")
-  (depends
-    (clock (= :version))
-    ptime
-  )
 )
 
 (package

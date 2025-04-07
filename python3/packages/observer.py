@@ -266,7 +266,7 @@ def _init_tracing(configs: List[str], config_dir: str):
     tracers = list(map(create_tracer_from_config, configs))
     debug("tracers=%s", tracers)
 
-    def span_of_tracers(wrapped=None, span_name_prefix=""):
+    def span_of_tracers(wrapped=None, span_name_prefix="", parent_context=None):
         """
         Public decorator that creates a trace around a function.
 
@@ -289,7 +289,7 @@ def _init_tracing(configs: List[str], config_dir: str):
         that the function is decorated properly on the second pass.
         """
         if wrapped is None:  # handle decorators with parameters
-            return functools.partial(span_of_tracers, span_name_prefix=span_name_prefix)
+            return functools.partial(span_of_tracers, span_name_prefix=span_name_prefix, parent_context=parent_context)
 
         @wrapt.decorator
         def instrument_function(wrapped, _, args, kwargs):
@@ -352,11 +352,10 @@ def _init_tracing(configs: List[str], config_dir: str):
                                 traceback.format_exc(),
                             )
 
-
         def autoinstrument_module(amodule):
             """Autoinstrument the classes and functions in a module."""
 
-            with tracers[0].start_as_current_span(f"auto_instrumentation.add_module: {amodule}"):
+            with tracers[0].start_as_current_span(f"auto_instrumentation.add_module: {amodule}", context=parent_context):
                 # Instrument the methods of the classes in the module
                 for _, aclass in inspect.getmembers(amodule, inspect.isclass):
                     try:
@@ -373,20 +372,25 @@ def _init_tracing(configs: List[str], config_dir: str):
 
         return instrument_function(wrapped)
 
-    def _patch_module(module_name):
+    def _patch_module(module_name, parent_context=None):
         wrapt.importer.discover_post_import_hooks(module_name)
         wrapt.importer.when_imported(module_name)(
-            lambda hook: span_of_tracers(wrapped=hook)
+            lambda hook: span_of_tracers(wrapped=hook, parent_context=parent_context)
         )
 
-    for m in module_names:
-        _patch_module(m)
+    def _patch_modules(parent_context):
+        for m in module_names:
+            _patch_module(m, parent_context=parent_context)
 
     # Create spans to track observer.py's setup duration
     t = tracers[0]
     with t.start_as_current_span("observer.py:init_tracing", start_time=observer_ts_start):
         import_span = t.start_span("observer.py:imports", start_time=import_ts_start)
         import_span.end(end_time=import_ts_end)
+
+        # Set a parent span in the add_module spans' context so that they are kept together
+        with t.start_span("auto_instrumentation") as aspan:
+            _patch_modules(trace.set_span_in_context(aspan))
 
     return span_of_tracers, _patch_module
 
