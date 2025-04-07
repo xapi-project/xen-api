@@ -1305,7 +1305,7 @@ let create_params =
     ; param_name= "ssh_enabled"
     ; param_doc= "True if SSH access is enabled for the host"
     ; param_release= numbered_release "25.14.0-next"
-    ; param_default= Some (VBool true)
+    ; param_default= Some (VBool Constants.default_ssh_enabled)
     }
   ; {
       param_type= Int
@@ -1315,7 +1315,7 @@ let create_params =
          disabled (0 means never), this setting will be applied every time the \
          SSH is enabled by XAPI"
     ; param_release= numbered_release "25.14.0-next"
-    ; param_default= Some (VInt 0L)
+    ; param_default= Some (VInt Constants.default_ssh_enabled_timeout)
     }
   ; {
       param_type= DateTime
@@ -1333,7 +1333,7 @@ let create_params =
         "The timeout in seconds after which idle console will be automatically \
          terminated (0 means never)"
     ; param_release= numbered_release "25.14.0-next"
-    ; param_default= Some (VInt 0L)
+    ; param_default= Some (VInt Constants.default_console_idle_timeout)
     }
   ]
 
@@ -2436,7 +2436,7 @@ let set_console_idle_timeout =
     ~params:
       [
         (Ref _host, "self", "The host")
-      ; (Int, "value", "The idle console timeout in seconds")
+      ; (Int, "value", "The console idle timeout in seconds")
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
@@ -3039,10 +3039,11 @@ let t =
             "The SHA256 checksum of updateinfo of the most recently applied \
              update on the host"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
-            ~default_value:(Some (VBool true)) "ssh_enabled"
-            "True if SSH access is enabled for the host"
+            ~default_value:(Some (VBool Constants.default_ssh_enabled))
+            "ssh_enabled" "True if SSH access is enabled for the host"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int
-            ~default_value:(Some (VInt 0L)) "ssh_enabled_timeout"
+            ~default_value:(Some (VInt Constants.default_ssh_enabled_timeout))
+            "ssh_enabled_timeout"
             "The timeout in seconds after which SSH access will be \
              automatically disabled (0 means never), this setting will be \
              applied every time the SSH is enabled by XAPI"
@@ -3051,7 +3052,8 @@ let t =
             "The time in UTC after which the SSH access will be automatically \
              disabled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int
-            ~default_value:(Some (VInt 0L)) "console_idle_timeout"
+            ~default_value:(Some (VInt Constants.default_console_idle_timeout))
+            "console_idle_timeout"
             "The timeout in seconds after which idle console will be \
              automatically terminated (0 means never)"
         ]
