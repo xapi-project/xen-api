@@ -427,6 +427,23 @@ let make_rpc ~__context rpc : Rpc.response =
   in
   let http = xmlrpc ~subtask_of ~version:"1.1" path in
   let http = TraceHelper.inject_span_into_req tracing http in
+  let http =
+    if !Constants.tgroups_enabled then
+      let thread_ctx =
+        Xapi_stdext_threads.Threadext.ThreadRuntimeContext.get ()
+      in
+      let originator =
+        thread_ctx.tgroup
+        |> Tgroup.Group.get_originator
+        |> Tgroup.Group.Originator.to_string
+      in
+      let additional_headers =
+        ("originator", originator) :: http.additional_headers
+      in
+      {http with additional_headers}
+    else
+      http
+  in
   let transport =
     if Pool_role.is_master () then
       Unix Xapi_globs.unix_domain_socket
