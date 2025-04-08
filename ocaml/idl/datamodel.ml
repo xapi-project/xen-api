@@ -8976,7 +8976,7 @@ module Message = struct
   let get_all_records_where =
     call ~name:"get_all_records_where"
       ~lifecycle:[(Published, rel_orlando, "")]
-      ~params:[(String, "expr", "The expression to match (not currently used)")]
+      ~params:[(String, "expr", "The expression to match")]
       ~flags:[`Session]
       ~result:(Map (Ref _message, Record _message), "The messages")
       ~allowed_roles:_R_READ_ONLY ()
@@ -10543,12 +10543,12 @@ let all_system =
 (**
    These are the pairs of (object, field) which are bound together in
    the database schema.
-   
+
    It is assumed that, for any entry (p, p'), neither p nor p'
    appears in any other entry. It may be the case that p = p', which
    is the only instance where some object-field pair may appear more
    than once.
-   
+
    This is implicitly assumed by other code which treats this list -
    and its symmetric closure - as an association list
    without duplicate keys. *)
