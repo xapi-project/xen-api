@@ -2416,6 +2416,18 @@ let vm_record rpc session_id vm =
               (xgm ())
           )
           ()
+      ; make_field ~name:"services"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_services)
+              (xgm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m -> m.API.vM_guest_metrics_services)
+              (xgm ())
+          )
+          ()
       ; make_field ~name:"PV-drivers-detected"
           ~get:(fun () ->
             Option.fold ~none:nid

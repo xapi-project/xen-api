@@ -109,6 +109,8 @@ let prototyped_of_field = function
       Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
+  | "VM_guest_metrics", "services" ->
+      Some "25.14.0-next"
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
   | "VM", "groups" ->

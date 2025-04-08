@@ -224,6 +224,7 @@ type guest_metrics_t = {
   ; other: m
   ; memory: m
   ; device_id: m
+  ; services: m
   ; last_updated: float
   ; can_use_hotplug_vbd: API.tristate_type
   ; can_use_hotplug_vif: API.tristate_type
@@ -234,6 +235,29 @@ let cache : (int, guest_metrics_t) Hashtbl.t = Hashtbl.create 20
 let dead_domains : IntSet.t ref = ref IntSet.empty
 
 let mutex = Mutex.create ()
+
+(* Parse data/service which has the following structure:
+   data/service/<service_name>/<key> = <value>
+   data/service/<service_name>/<key> = <value>
+   ...
+   data/service/<service_name>/<key> = <value>
+   Read and convert to [(<service_name>/<key>, <value>)] pair list.
+   The list is intended to store in VM_guest_metrics.services at last *)
+let get_guest_services (lookup : string -> string option)
+    (list : string -> string list) =
+  let base_path = "data/service" in
+  let services = list base_path in
+  services
+  |> List.concat_map (fun service ->
+         let sub_path = base_path // service in
+         list sub_path
+         |> List.map (fun key ->
+                let full_path_key = sub_path // key in
+                let db_key = service // key in
+                let value = lookup full_path_key in
+                (db_key, Option.value ~default:"" value)
+            )
+     )
 
 (* In the following functions, 'lookup' reads a key from xenstore and 'list' reads
    a directory from xenstore. Both are relative to the guest's domainpath. *)
@@ -289,6 +313,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
          ; networks "xenserver/attr" "net-sriov-vf" list
          ]
       )
+  and services = get_guest_services lookup list
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in
@@ -310,6 +335,7 @@ let get_initial_guest_metrics (lookup : string -> string option)
   ; other
   ; memory
   ; device_id
+  ; services
   ; last_updated
   ; can_use_hotplug_vbd
   ; can_use_hotplug_vif
@@ -326,7 +352,8 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     ~os_version:initial_gm.os_version ~netbios_name:initial_gm.netbios_name
     ~pV_drivers_version:initial_gm.pv_drivers_version
     ~pV_drivers_up_to_date:pV_drivers_detected ~memory:[] ~disks:[]
-    ~networks:initial_gm.networks ~pV_drivers_detected ~other:initial_gm.other
+    ~networks:initial_gm.networks ~services:initial_gm.services
+    ~pV_drivers_detected ~other:initial_gm.other
     ~last_updated:(Date.of_unix_time initial_gm.last_updated)
     ~other_config:[] ~live:true
     ~can_use_hotplug_vbd:initial_gm.can_use_hotplug_vbd
@@ -356,6 +383,7 @@ let all (lookup : string -> string option) (list : string -> string list)
   ; other
   ; memory
   ; device_id
+  ; services
   ; last_updated
   ; can_use_hotplug_vbd
   ; can_use_hotplug_vif
@@ -390,6 +418,7 @@ let all (lookup : string -> string option) (list : string -> string list)
             ; other= []
             ; memory= []
             ; device_id= []
+            ; services= []
             ; last_updated= 0.0
             ; can_use_hotplug_vbd= `unspecified
             ; can_use_hotplug_vif= `unspecified
@@ -407,6 +436,7 @@ let all (lookup : string -> string option) (list : string -> string list)
         ; other
         ; memory
         ; device_id
+        ; services
         ; last_updated
         ; can_use_hotplug_vbd
         ; can_use_hotplug_vif
@@ -420,6 +450,7 @@ let all (lookup : string -> string option) (list : string -> string list)
     || guest_metrics_cached.networks <> networks
     || guest_metrics_cached.other <> other
     || guest_metrics_cached.device_id <> device_id
+    || guest_metrics_cached.services <> services
     )
     || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
     || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
@@ -452,6 +483,8 @@ let all (lookup : string -> string option) (list : string -> string list)
         ~value:netbios_name ;
     if guest_metrics_cached.networks <> networks then
       Db.VM_guest_metrics.set_networks ~__context ~self:gm ~value:networks ;
+    if guest_metrics_cached.services <> services then
+      Db.VM_guest_metrics.set_services ~__context ~self:gm ~value:services ;
     if guest_metrics_cached.other <> other then (
       Db.VM_guest_metrics.set_other ~__context ~self:gm ~value:other ;
       Helpers.call_api_functions ~__context (fun rpc session_id ->

@@ -7621,6 +7621,10 @@ module VM_guest_metrics = struct
             ~ty:Bool ~default_value:(Some (VBool false)) "PV_drivers_detected"
             "At least one of the guest's devices has successfully connected to \
              the backend."
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:(Map (String, String))
+            ~default_value:(Some (VMap [])) "services"
+            "The guest's services data."
         ]
       ()
 end
