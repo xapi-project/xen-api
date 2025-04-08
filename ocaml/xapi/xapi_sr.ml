@@ -757,6 +757,11 @@ let update_vdis ~__context ~sr db_vdis vdi_infos =
 
 (* Perform a scan of this locally-attached SR *)
 let scan ~__context ~sr =
+  let module RefSet = Set.Make (struct
+    type t = [`VDI] Ref.t
+
+    let compare = Ref.compare
+  end) in
   let open Storage_access in
   let task = Context.get_task_id __context in
   let module C = Storage_interface.StorageAPI (Idl.Exn.GenClient (struct
@@ -781,9 +786,21 @@ let scan ~__context ~sr =
             (* It is sufficient to just compare the refs in two db_vdis, as this
                is what update_vdis uses to determine what to delete *)
             let vdis_ref_equal db_vdi1 db_vdi2 =
-              Listext.List.set_difference (List.map fst db_vdi1)
-                (List.map fst db_vdi2)
-              = []
+              let refs1 = RefSet.of_list (List.map fst db_vdi1) in
+              let refs2 = RefSet.of_list (List.map fst db_vdi2) in
+              if RefSet.equal refs1 refs2 then
+                true
+              else
+                let log_diff label a b =
+                  RefSet.diff a b
+                  |> RefSet.elements
+                  |> List.map Ref.string_of
+                  |> String.concat " "
+                  |> debug "%s: VDIs %s during scan: %s" __FUNCTION__ label
+                in
+                log_diff "removed" refs1 refs2 ;
+                log_diff "added" refs2 refs1 ;
+                false
             in
             let db_vdis_before = find_vdis () in
             let vs, sr_info =
@@ -793,21 +810,13 @@ let scan ~__context ~sr =
             let db_vdis_after = find_vdis () in
             if limit > 0 && not (vdis_ref_equal db_vdis_before db_vdis_after)
             then (
-              debug
-                "%s detected db change while scanning, before scan vdis %s, \
-                 after scan vdis %s, retry limit left %d"
-                __FUNCTION__
-                (List.map (fun (_, v) -> v.vDI_uuid) db_vdis_before
-                |> String.concat ","
-                )
-                (List.map (fun (_, v) -> v.vDI_uuid) db_vdis_after
-                |> String.concat ","
-                )
-                limit ;
+              debug "%s detected db change while scanning, retry limit left %d"
+                __FUNCTION__ limit ;
               (scan_rec [@tailcall]) (limit - 1)
             ) else if limit = 0 then
               Helpers.internal_error "SR.scan retry limit exceeded"
             else (
+              debug "%s no change detected, updating VDIs" __FUNCTION__ ;
               update_vdis ~__context ~sr db_vdis_after vs ;
               let virtual_allocation =
                 List.fold_left
