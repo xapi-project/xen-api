@@ -4056,12 +4056,26 @@ module Ssh = struct
   let disable ~__context ~self:_ =
     operate ~__context ~action:Client.Host.disable_ssh
       ~error:Api_errors.disable_ssh_partially_failed
+
+  let set_enabled_timeout ~__context ~self:_ ~value =
+    operate ~__context
+      ~action:(fun ~rpc ~session_id ~self ->
+        Client.Host.set_ssh_enabled_timeout ~rpc ~session_id ~self ~value
+      )
+      ~error:Api_errors.set_ssh_timeout_partially_failed
+
+  let set_console_timeout ~__context ~self:_ ~value =
+    operate ~__context
+      ~action:(fun ~rpc ~session_id ~self ->
+        Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
+      )
+      ~error:Api_errors.set_console_timeout_partially_failed
 end
 
 let enable_ssh = Ssh.enable
 
 let disable_ssh = Ssh.disable
 
-let set_ssh_enabled_timeout ~__context ~self:_ ~value:_ = ()
+let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 
-let set_console_idle_timeout ~__context ~self:_ ~value:_ = ()
+let set_console_idle_timeout = Ssh.set_console_timeout
