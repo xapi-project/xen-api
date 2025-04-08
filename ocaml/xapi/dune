@@ -1,288 +1,334 @@
 (rule
-  (target server.ml)
-  (deps
-    (:gen ../idl/ocaml_backend/gen_api_main.exe)
-  )
-  (action
-   (with-stdout-to %{target}
-    (run %{gen} server --gen-debug --filter-internal --filter closed)))
-)
+ (target server.ml)
+ (deps
+  (:gen ../idl/ocaml_backend/gen_api_main.exe))
+ (action
+  (with-stdout-to
+   %{target}
+   (run %{gen} server --gen-debug --filter-internal --filter closed))))
 
 (rule
-  (target db_actions.ml)
-  (deps
-    (:gen ../idl/ocaml_backend/gen_api_main.exe)
-  )
-  (action
-   (with-stdout-to %{target}
-    (run %{gen} db --filter nothing)))
-)
+ (target db_actions.ml)
+ (deps
+  (:gen ../idl/ocaml_backend/gen_api_main.exe))
+ (action
+  (with-stdout-to
+   %{target}
+   (run %{gen} db --filter nothing))))
 
 (rule
-  (target custom_actions.ml)
-  (deps
-    (:gen ../idl/ocaml_backend/gen_api_main.exe)
-  )
-  (action
-   (with-stdout-to %{target}
-    (run %{gen} actions --filter-internal --filter closed)))
-)
+ (target custom_actions.ml)
+ (deps
+  (:gen ../idl/ocaml_backend/gen_api_main.exe))
+ (action
+  (with-stdout-to
+   %{target}
+   (run %{gen} actions --filter-internal --filter closed))))
 
 (rule
-  (target rbac_static.ml)
-  (deps
-    (:gen ../idl/ocaml_backend/gen_api_main.exe)
-  )
-  (action
-   (with-stdout-to %{target}
-    (run %{gen} rbac --filter-internal --filter closed)))
-)
+ (target rbac_static.ml)
+ (deps
+  (:gen ../idl/ocaml_backend/gen_api_main.exe))
+ (action
+  (with-stdout-to
+   %{target}
+   (run %{gen} rbac --filter-internal --filter closed))))
 
 (rule
-  (target rbac_static.csv)
-  (deps
-    (:gen ../idl/ocaml_backend/gen_api_main.exe)
-  )
-  (action
-   (with-stdout-to %{target}
-    (run %{gen} rbac --gen-debug --filter-internal --filter closed)))
-)
+ (target rbac_static.csv)
+ (deps
+  (:gen ../idl/ocaml_backend/gen_api_main.exe))
+ (action
+  (with-stdout-to
+   %{target}
+   (run %{gen} rbac --gen-debug --filter-internal --filter closed))))
 
 (install
-  (package xapi-debug)
-  (section share_root)
-  (files rbac_static.csv)
-)
-
+ (package xapi-debug)
+ (section share_root)
+ (files rbac_static.csv))
 
 (library
-  (name xapi_internal_minimal)
-  (modules context custom_actions xapi_globs server_helpers session_check rbac rbac_audit db_actions taskHelper eventgen locking_helpers exnHelper rbac_static xapi_role xapi_extensions db)
-  (modes best)
-  (wrapped false)
-  (libraries
-    http_lib
-    httpsvr
-    ipaddr
-    xapi-types
-    xapi_database
-    mtime
-    tracing
-    tracing_propagator
-    uuid
-    rpclib.core
-    threads.posix
-    fmt
-    clock
-    astring
-    stunnel
-    sexplib0
-    sexplib
-    sexpr
-    tgroup
-    forkexec
-    xapi-idl
-    xapi_aux
-    xapi-stdext-std
-    xapi-stdext-pervasives
-    xapi-backtrace
-    xapi-datamodel
-    xapi-consts
-    xapi_version
-    xapi-stdext-threads
-    xapi-stdext-unix
-    rpclib.xml
-    xapi-log)
-)
+ (name xapi_internal_minimal)
+ (modules
+  context
+  custom_actions
+  xapi_globs
+  server_helpers
+  session_check
+  rbac
+  rbac_audit
+  db_actions
+  taskHelper
+  eventgen
+  locking_helpers
+  exnHelper
+  rbac_static
+  xapi_role
+  xapi_extensions
+  db)
+ (modes best)
+ (wrapped false)
+ (libraries
+  http_lib
+  httpsvr
+  ipaddr
+  xapi-types
+  xapi_database
+  mtime
+  tracing
+  tracing_propagator
+  uuid
+  rpclib.core
+  threads.posix
+  fmt
+  clock
+  astring
+  stunnel
+  sexplib0
+  sexplib
+  sexpr
+  tgroup
+  forkexec
+  xapi-idl
+  xapi_aux
+  xapi-stdext-std
+  xapi-stdext-pervasives
+  xapi-backtrace
+  xapi-datamodel
+  xapi-consts
+  xapi_version
+  xapi-stdext-threads
+  xapi-stdext-unix
+  rpclib.xml
+  xapi-log))
 
 (library
-  (name xapi_internal)
-  (wrapped false)
-  (modes best)
-  (modules (:standard \
-    xapi_main server api_server xapi custom_actions context xapi_globs server_helpers session_check rbac rbac_audit rbac_static db_actions taskHelper eventgen locking_helpers exnHelper xapi_role xapi_extensions db))
-  (libraries
-    angstrom
-    astring
-    cstruct
-    base64
-    clock
-    cohttp
-    cohttp_posix
-    domain-name
-    ezxenstore.core
-    fmt
-    forkexec
-    gencertlib
-    gzip
-    hex
-    http_lib
-    httpsvr
-    ipaddr
-    ipaddr.unix
-    magic-mime
-    message-switch-core
-    message-switch-unix
-    mirage-crypto
-    mirage-crypto-rng
-    mirage-crypto-rng.unix
-    mtime
-    mtime.clock.os
-    pam
-    pciutil
-    pci
-    psq
-    ptime
-    ptime.clock.os
-    rpclib.core
-    rpclib.json
-    rpclib.xml
-    re
-    result
-    rresult
-    rrd-transport.lib
-    rrd-transport.file
-    rrdd-plugin.base
-    rrdd-plugin.local
-    sexplib
-    sexplib0
-    sexpr
-    sha
-    stunnel
-    tapctl
-    tar
-    tar-unix
-    tgroup
-    threads.posix
-    tracing
-    tracing_propagator
-    unixpwd
-    uri
-    uuid
-    uuidm
-    vhd_lib
-    x509
-    xapi_aux
-    xapi-backtrace
-    (re_export xapi-consts)
-    xapi-consts.xapi_version
-    xapi-client
-    xapi-cli-protocol
-    xapi_cli_server
-    xapi_database
-    xapi-datamodel
-    xapi-idl
-    xapi-idl.cluster
-    xapi-idl.rrd
-    xapi-idl.rrd.interface
-    xapi-idl.rrd.interface.types
-    xapi-idl.storage
-    xapi-idl.storage.interface
-    xapi-idl.storage.interface.types
-    xapi-idl.xen
-    xapi-idl.xen.interface
-    xapi-idl.xen.interface.types
-    xapi-idl.network
-    xapi-idl.v6
-    xapi-idl.memory
-    xapi-idl.gpumon
-    xapi-idl.updates
-    (re_export xapi_internal_minimal)
-    xapi-inventory
-    xapi-log
-    xapi-open-uri
-    xapi-rrd
-    (re_export xapi-types)
-    xapi-stdext-encodings
-    xapi-stdext-pervasives
-    xapi-stdext-std
-    xapi-stdext-threads
-    xapi-stdext-threads.scheduler
-    xapi-stdext-unix
-    xapi-stdext-zerocheck
-    xapi-tracing
-    xapi-tracing-export
-    xapi_version
-    xapi_xenopsd
-    xenstore_transport.unix
-    xml-light2
-    xmlm
-    xxhash
-    yojson
-    zstd
-    xapi_host_driver_helpers
-  )
-  (preprocess (per_module
-   ((pps ppx_sexp_conv) Cert_distrib)
-   ((pps ppx_deriving.ord) Xapi_observer_components)
+ (name xapi_internal)
+ (wrapped false)
+ (modes best)
+ (modules
+  (:standard
+   \
+   xapi_main
+   server
+   api_server
+   xapi
+   custom_actions
+   context
+   xapi_globs
+   server_helpers
+   session_check
+   rbac
+   rbac_audit
+   rbac_static
+   db_actions
+   taskHelper
+   eventgen
+   locking_helpers
+   exnHelper
+   xapi_role
+   xapi_extensions
+   db))
+ (libraries
+  angstrom
+  astring
+  cstruct
+  base64
+  clock
+  cohttp
+  cohttp_posix
+  domain-name
+  ezxenstore.core
+  fmt
+  forkexec
+  gencertlib
+  gzip
+  hex
+  http_lib
+  httpsvr
+  ipaddr
+  ipaddr.unix
+  magic-mime
+  message-switch-core
+  message-switch-unix
+  mirage-crypto
+  mirage-crypto-rng
+  mirage-crypto-rng.unix
+  mtime
+  mtime.clock.os
+  pam
+  pciutil
+  pci
+  psq
+  ptime
+  ptime.clock.os
+  rpclib.core
+  rpclib.json
+  rpclib.xml
+  re
+  result
+  rresult
+  rrd-transport.lib
+  rrd-transport.file
+  rrdd-plugin.base
+  rrdd-plugin.local
+  sexplib
+  sexplib0
+  sexpr
+  sha
+  stunnel
+  tapctl
+  tar
+  tar-unix
+  tgroup
+  threads.posix
+  tracing
+  tracing_propagator
+  unixpwd
+  uri
+  uuid
+  uuidm
+  vhd_lib
+  x509
+  xapi_aux
+  xapi-backtrace
+  (re_export xapi-consts)
+  xapi-consts.xapi_version
+  xapi-client
+  xapi-cli-protocol
+  xapi_cli_server
+  xapi_database
+  xapi-datamodel
+  xapi-idl
+  xapi-idl.cluster
+  xapi-idl.rrd
+  xapi-idl.rrd.interface
+  xapi-idl.rrd.interface.types
+  xapi-idl.storage
+  xapi-idl.storage.interface
+  xapi-idl.storage.interface.types
+  xapi-idl.xen
+  xapi-idl.xen.interface
+  xapi-idl.xen.interface.types
+  xapi-idl.network
+  xapi-idl.v6
+  xapi-idl.memory
+  xapi-idl.gpumon
+  xapi-idl.updates
+  (re_export xapi_internal_minimal)
+  xapi-inventory
+  xapi-log
+  xapi-open-uri
+  xapi-rrd
+  (re_export xapi-types)
+  xapi-stdext-encodings
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-threads
+  xapi-stdext-threads.scheduler
+  xapi-stdext-unix
+  xapi-stdext-zerocheck
+  xapi-tracing
+  xapi-tracing-export
+  xapi_version
+  xapi_xenopsd
+  xenstore_transport.unix
+  xml-light2
+  xmlm
+  xxhash
+  yojson
+  zstd
+  xapi_host_driver_helpers)
+ (preprocess
+  (per_module
+   ((pps ppx_sexp_conv)
+    Cert_distrib)
+   ((pps ppx_deriving.ord)
+    Xapi_observer_components)
    ((pps ppx_deriving_rpc)
-    Config_file_sync Extauth_plugin_ADwinbind Importexport Sparse_dd_wrapper
-    Storage_migrate Storage_migrate_helper Storage_mux Storage_smapiv1_wrapper 
-    Stream_vdi System_domains Xapi_psr Xapi_services Xapi_udhcpd)))
-)
+    Config_file_sync
+    Extauth_plugin_ADwinbind
+    Importexport
+    Sparse_dd_wrapper
+    Storage_migrate
+    Storage_migrate_helper
+    Storage_mux
+    Storage_smapiv1_wrapper
+    Stream_vdi
+    System_domains
+    Xapi_psr
+    Xapi_services
+    Xapi_udhcpd))))
 
 (library
-  (name xapi_internal_server_only)
-  (modes best)
-  (modules server)
-  (libraries xapi_database xapi_internal_minimal http_lib rpclib.core xapi-types xapi-log xapi-stdext-encodings xapi-consts xapi-backtrace clock rpclib.json)
-  (wrapped false)
-)
+ (name xapi_internal_server_only)
+ (modes best)
+ (modules server)
+ (libraries
+  xapi_database
+  xapi_internal_minimal
+  http_lib
+  rpclib.core
+  xapi-types
+  xapi-log
+  xapi-stdext-encodings
+  xapi-consts
+  xapi-backtrace
+  clock
+  rpclib.json)
+ (wrapped false))
 
 (library
-  (name xapi_internal_server)
-  (modes best)
-  (wrapped false)
-  (modules api_server xapi)
-  (libraries
-    clock
-    forkexec
-    http_lib
-    httpsvr
-    rpclib.core
-    rpclib.json
-    rpclib.xml
-    stunnel
-    tgroup
-    threads.posix
-    tracing
-    tracing_propagator
-    xapi-backtrace
-    xapi-client
-    xapi-consts
-    xapi-datamodel
-    xapi_internal_minimal
-    xapi-idl
-    xapi-inventory
-    (re_export xapi_internal_server_only)
-    xapi-log
-    xapi-stdext-encodings
-    xapi-stdext-pervasives
-    xapi-stdext-std
-    xapi-stdext-threads
-    xapi-stdext-threads.scheduler
-    xapi-stdext-unix
-    xapi-types
-    xapi_aux
-    xapi-consts.xapi_version
-    xapi_cli_server
-    xapi_database
-    xapi_internal)
-)
+ (name xapi_internal_server)
+ (modes best)
+ (wrapped false)
+ (modules api_server xapi)
+ (libraries
+  clock
+  forkexec
+  http_lib
+  httpsvr
+  rpclib.core
+  rpclib.json
+  rpclib.xml
+  stunnel
+  tgroup
+  threads.posix
+  tracing
+  tracing_propagator
+  xapi-backtrace
+  xapi-client
+  xapi-consts
+  xapi-datamodel
+  xapi_internal_minimal
+  xapi-idl
+  xapi-inventory
+  (re_export xapi_internal_server_only)
+  xapi-log
+  xapi-stdext-encodings
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-threads
+  xapi-stdext-threads.scheduler
+  xapi-stdext-unix
+  xapi-types
+  xapi_aux
+  xapi-consts.xapi_version
+  xapi_cli_server
+  xapi_database
+  xapi_internal))
 
 (executable
-  (modes exe)
-  (name xapi_main)
-  (public_name xapi)
-  (package xapi)
-  (modules xapi_main)
-  (libraries
-    xapi_internal
-    xapi_internal_server
-    xapi_internal_minimal
-    xapi-idl
-    xapi-log
-    xapi-stdext-unix
-  )
-)
-
+ (modes exe)
+ (name xapi_main)
+ (public_name xapi)
+ (package xapi)
+ (modules xapi_main)
+ (libraries
+  xapi_internal
+  xapi_internal_server
+  xapi_internal_minimal
+  xapi-idl
+  xapi-log
+  xapi-stdext-unix))
