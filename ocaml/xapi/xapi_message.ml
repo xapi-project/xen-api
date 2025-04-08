@@ -730,8 +730,54 @@ let get_record ~__context ~self =
 
 let get_all_records ~__context = get_real message_dir (fun _ -> true) 0.0
 
-let get_all_records_where ~__context ~expr:_ =
-  get_real message_dir (fun _ -> true) 0.0
+let get_all_records_where ~__context ~expr =
+  let open Xapi_database in
+  let expr = Db_filter.expr_of_string expr in
+  let eval_val msg expr =
+    match expr with
+    | Db_filter_types.Literal x ->
+        x
+    | Db_filter_types.Field x -> (
+      match x with
+      | "name" ->
+          msg.API.message_name
+      | "uuid" ->
+          msg.API.message_uuid
+      | "priority" ->
+          Int64.to_string msg.API.message_priority
+      | "cls" ->
+          Record_util.cls_to_string msg.API.message_cls
+      | "obj_uuid" ->
+          msg.API.message_obj_uuid
+      | "timestamp" ->
+          Date.to_rfc3339 msg.API.message_timestamp
+      | "body" ->
+          msg.API.message_body
+      | any_other_key ->
+          raise (Db_exn.DBCache_NotFound ("missing field", any_other_key, ""))
+    )
+  in
+  let eval_expr (lookup_val : API.message_t -> Db_filter_types._val -> string)
+      (msg : API.message_t) =
+    let lookup_val = lookup_val msg in
+    let compare _a _b = lookup_val _a = lookup_val _b in
+    let rec f = function
+      | Db_filter_types.True ->
+          true
+      | Db_filter_types.False ->
+          false
+      | Db_filter_types.Not x ->
+          not (f x)
+      | Db_filter_types.And (a, b) ->
+          f a && f b
+      | Db_filter_types.Eq (_a, _b) ->
+          compare _a _b
+      | Db_filter_types.Or (a, b) ->
+          f a || f b
+    in
+    f expr
+  in
+  get_real message_dir (eval_expr eval_val) 0.0
 
 let repopulate_cache () =
   with_lock in_memory_cache_mutex (fun () ->
