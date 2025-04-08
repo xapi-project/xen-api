@@ -42,11 +42,7 @@ let _ =
 (* internal parse function *)
 let is_empty xml =
   let is_empty_string s =
-    let is_empty = ref true in
-    for i = 0 to String.length s - 1 do
-      if s.[i] <> '\n' && s.[i] <> ' ' && s.[i] <> '\t' then is_empty := false
-    done ;
-    !is_empty
+    String.for_all (function '\n' | ' ' | '\t' -> true | _ -> false) s
   in
   match xml with PCData data when is_empty_string data -> true | _ -> false
 
@@ -54,7 +50,9 @@ let _parse i =
   let el (tag : Xmlm.tag) (children : xml list) : xml =
     let name_local = snd (fst tag) in
     let attrs' =
-      List.map (fun (nameattr, str) -> (snd nameattr, str)) (snd tag)
+      Xapi_stdext_std.Listext.List.map_tr
+        (fun (nameattr, str) -> (snd nameattr, str))
+        (snd tag)
     in
     Element
       (name_local, attrs', List.filter (fun xml -> not (is_empty xml)) children)
@@ -93,28 +91,24 @@ let parse_string s =
 let esc_pcdata data =
   let buf = Buffer.create (String.length data + 10) in
   String.iter
-    (fun c ->
-      let s =
-        match c with
-        | '>' ->
-            "&gt;"
-        | '<' ->
-            "&lt;"
-        | '&' ->
-            "&amp;"
-        | '"' ->
-            "&quot;"
-        | c
-          when (c >= '\x20' && c <= '\xff')
-               || c = '\x09'
-               || c = '\x0a'
-               || c = '\x0d' ->
-            String.make 1 c
-        | _ ->
-            ""
-      in
-      Buffer.add_string buf s
-    )
+    (function
+      | '>' ->
+          Buffer.add_string buf "&gt;"
+      | '<' ->
+          Buffer.add_string buf "&lt;"
+      | '&' ->
+          Buffer.add_string buf "&amp;"
+      | '"' ->
+          Buffer.add_string buf "&quot;"
+      | c
+        when (c >= '\x20' && c <= '\xff')
+             || c = '\x09'
+             || c = '\x0a'
+             || c = '\x0d' ->
+          Buffer.add_char buf c
+      | _ ->
+          ()
+      )
     data ;
   Buffer.contents buf
 
@@ -139,9 +133,7 @@ let to_fct xml f =
         let astr = str_of_attrs attrs in
         let on = fmt "<%s%s>" name astr in
         let off = fmt "</%s>" name in
-        f on ;
-        List.iter (fun child -> print child) children ;
-        f off
+        f on ; List.iter print children ; f off
     | PCData data ->
         f (esc_pcdata data)
   in
