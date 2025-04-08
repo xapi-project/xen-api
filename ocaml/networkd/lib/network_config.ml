@@ -187,6 +187,7 @@ let read_management_conf () =
     ; bridge_config
     ; gateway_interface= Some bridge_name
     ; dns_interface= Some bridge_name
+    ; interface_order= None
     }
   with e ->
     error "Error while trying to read firstboot data: %s\n%s"
