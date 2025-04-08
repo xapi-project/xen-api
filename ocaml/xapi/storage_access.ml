@@ -109,10 +109,16 @@ exception Message_switch_failure
 (** Synchronise the SM table with the SMAPIv1 plugins on the disk and the SMAPIv2
     plugins mentioned in the configuration file whitelist. *)
 let on_xapi_start ~__context =
+  (* An SM is either implemented as a plugin - for which we check its
+      presence, or via an API *)
+  let is_available (_rf, rc) =
+    Sys.file_exists rc.API.sM_driver_filename
+    || Version.String.ge rc.sM_required_api_version "5.0"
+  in
   let existing =
-    List.map
-      (fun (rf, rc) -> (rc.API.sM_type, (rf, rc)))
-      (Db.SM.get_all_records ~__context)
+    Db.SM.get_all_records ~__context
+    |> List.filter is_available
+    |> List.map (fun (rf, rc) -> (rc.API.sM_type, (rf, rc)))
   in
   let explicitly_configured_drivers =
     List.filter_map
