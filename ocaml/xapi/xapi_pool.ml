@@ -2048,6 +2048,23 @@ let eject_self ~__context ~host =
           control_domains_to_destroy
       with _ -> ()
     ) ;
+    ( try
+        (* Restore console idle timeout *)
+        Xapi_host.set_console_idle_timeout ~__context ~self:host
+          ~value:Constants.default_console_idle_timeout ;
+        (* Restore SSH service to default state *)
+        Xapi_host.set_ssh_enabled_timeout ~__context ~self:host
+          ~value:Constants.default_ssh_enabled_timeout ;
+        match Constants.default_ssh_enabled with
+        | true ->
+            Xapi_host.enable_ssh ~__context ~self:host
+        | false ->
+            Xapi_host.disable_ssh ~__context ~self:host
+      with e ->
+        warn "Caught %s while restoring ssh service. Ignoring"
+          (Printexc.to_string e)
+    ) ;
+
     debug "Pool.eject: setting our role to be master" ;
     Xapi_pool_transition.set_role Pool_role.Master ;
     debug "Pool.eject: forgetting pool secret" ;
