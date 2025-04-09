@@ -426,10 +426,7 @@ module MigrateLocal = struct
             (* Destroy the snapshot, if it still exists *)
             let snap =
               List.find_opt
-                (fun x ->
-                  List.mem_assoc "base_mirror" x.sm_config
-                  && List.assoc "base_mirror" x.sm_config = id
-                )
+                (fun x -> List.assoc_opt "base_mirror" x.sm_config = Some id)
                 vdis
             in
             ( match snap with
