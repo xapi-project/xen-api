@@ -25,6 +25,7 @@ let () =
       let suite =
         [
           ("Quicktest_example", Quicktest_example.tests ())
+        ; ("Quicktest_message", Quicktest_message.tests ())
         ; ("xenstore", Quicktest_xenstore.tests ())
         ; ("cbt", Quicktest_cbt.tests ())
         ; ("event", Quicktest_event.tests ())
