@@ -34,6 +34,11 @@ let bridge_naming_convention (device : string) =
   else
     "br" ^ device
 
+let get_list_from ~sep ~key args =
+  List.assoc_opt key args
+  |> Option.map (fun v -> Astring.String.cuts ~empty:false ~sep v)
+  |> Option.value ~default:[]
+
 let read_management_conf () =
   try
     let management_conf =
@@ -42,35 +47,23 @@ let read_management_conf () =
     in
     let args =
       Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf)
-    in
-    let args =
-      List.map
-        (fun s ->
-          match Astring.String.cuts ~sep:"=" s with
-          | [k; v] ->
-              (k, Astring.String.trim ~drop:(( = ) '\'') v)
-          | _ ->
-              ("", "")
-        )
-        args
+      |> List.filter_map (fun s ->
+             match Astring.String.cut ~sep:"=" s with
+             | Some (_, "") | None ->
+                 None
+             | Some (k, v) ->
+                 Some (k, Astring.String.trim ~drop:(( = ) '\'') v)
+         )
     in
     debug "Firstboot file management.conf has: %s"
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args)) ;
     let vlan = List.assoc_opt "VLAN" args in
-    let bond_mode =
-      Option.value ~default:"" (List.assoc_opt "BOND_MODE" args)
-    in
-    let bond_members =
-      match List.assoc_opt "BOND_MEMBERS" args with
-      | None ->
-          []
-      | Some x ->
-          String.split_on_char ',' x
-    in
+    let bond_mode = List.assoc_opt "BOND_MODE" args in
+    let bond_members = get_list_from ~sep:"," ~key:"BOND_MEMBERS" args in
     let device =
       (* Take 1st member of bond *)
       match (bond_mode, bond_members) with
-      | "", _ | _, [] -> (
+      | None, _ | _, [] -> (
         match List.assoc_opt "LABEL" args with
         | Some x ->
             x
@@ -111,28 +104,13 @@ let read_management_conf () =
           let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
           let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
           let gateway =
-            if List.mem_assoc "GATEWAY" args then
-              Some (List.assoc "GATEWAY" args |> Unix.inet_addr_of_string)
-            else
-              None
+            Option.map Unix.inet_addr_of_string (List.assoc_opt "GATEWAY" args)
           in
           let nameservers =
-            if List.mem_assoc "DNS" args && List.assoc "DNS" args <> "" then
-              List.map Unix.inet_addr_of_string
-                (Astring.String.cuts ~empty:false ~sep:","
-                   (List.assoc "DNS" args)
-                )
-            else
-              []
+            get_list_from ~sep:"," ~key:"DNS" args
+            |> List.map Unix.inet_addr_of_string
           in
-          let domains =
-            if List.mem_assoc "DOMAIN" args && List.assoc "DOMAIN" args <> ""
-            then
-              Astring.String.cuts ~empty:false ~sep:" "
-                (List.assoc "DOMAIN" args)
-            else
-              []
-          in
+          let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
           let dns = (nameservers, domains) in
           (Static4 [(ip, prefixlen)], gateway, dns)
       | "dhcp" ->
