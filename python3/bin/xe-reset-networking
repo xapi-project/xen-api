@@ -87,7 +87,7 @@ if __name__ == "__main__":
         f = open(pool_conf, 'r')
         try:
             l = f.readline()
-            ls = l.split(':')
+            ls = l.split(':', maxsplit=1)
             if ls[0].strip() == 'master':
                 master = True
                 address = 'localhost'
