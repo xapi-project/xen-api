@@ -2191,6 +2191,12 @@ let t =
             ~ty:(Map (String, String))
             ~default_value:(Some (VMap [])) "license_server"
             "Licensing data shared within the whole pool"
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool true))
+            "ha_reboot_vm_on_internal_shutdown"
+            "Indicates whether an HA-protected VM that is shut down from \
+             inside (not through the API) should be automatically rebooted \
+             when HA is enabled"
         ]
       )
     ()

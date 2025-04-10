@@ -2033,6 +2033,20 @@ let update_vm ~__context id =
                   "Will update VM.allowed_operations because power_state has \
                    changed." ;
                 should_update_allowed_operations := true ;
+                (* Update ha_always_run before the power_state (if needed), to avoid racing
+                   with the HA monitor thread. *)
+                let pool = Helpers.get_pool ~__context in
+                if
+                  power_state = `Halted
+                  && not
+                       (Db.Pool.get_ha_reboot_vm_on_internal_shutdown ~__context
+                          ~self:pool
+                       )
+                then (
+                  Db.VM.set_ha_always_run ~__context ~self ~value:false ;
+                  debug "Setting ha_always_run on vm=%s as false after shutdown"
+                    (Ref.string_of self)
+                ) ;
                 debug "xenopsd event: Updating VM %s power_state <- %s" id
                   (Record_util.vm_power_state_to_string power_state) ;
                 (* This will mark VBDs, VIFs as detached and clear resident_on
