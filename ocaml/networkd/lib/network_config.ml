@@ -39,6 +39,46 @@ let get_list_from ~sep ~key args =
   |> Option.map (fun v -> Astring.String.cuts ~empty:false ~sep v)
   |> Option.value ~default:[]
 
+let parse_ipv4_config args = function
+  | Some "static" ->
+      let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
+      let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
+      let gateway =
+        Option.map Unix.inet_addr_of_string (List.assoc_opt "GATEWAY" args)
+      in
+      (Static4 [(ip, prefixlen)], gateway)
+  | Some "dhcp" ->
+      (DHCP4, None)
+  | _ ->
+      (None4, None)
+
+let parse_ipv6_config args = function
+  | Some "static" ->
+      let ipv6_arg = List.assoc "IPv6" args in
+      let ip, prefixlen =
+        Scanf.sscanf ipv6_arg "%s@/%d" (fun ip prefixlen ->
+            let ip = ip |> Unix.inet_addr_of_string in
+            (ip, prefixlen)
+        )
+      in
+      let gateway =
+        Option.map Unix.inet_addr_of_string (List.assoc_opt "IPv6_GATEWAY" args)
+      in
+      (Static6 [(ip, prefixlen)], gateway)
+  | Some "dhcp" ->
+      (DHCP6, None)
+  | Some "autoconf" ->
+      (Autoconf6, None)
+  | _ ->
+      (None6, None)
+
+let parse_dns_config args =
+  let nameservers =
+    get_list_from ~sep:"," ~key:"DNS" args |> List.map Unix.inet_addr_of_string
+  in
+  let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
+  (nameservers, domains)
+
 let read_management_conf () =
   try
     let management_conf =
@@ -98,30 +138,28 @@ let read_management_conf () =
           bridge
     in
     let mac = Network_utils.Ip.get_mac device in
-    let ipv4_conf, ipv4_gateway, dns =
-      match List.assoc "MODE" args with
-      | "static" ->
-          let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
-          let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
-          let gateway =
-            Option.map Unix.inet_addr_of_string (List.assoc_opt "GATEWAY" args)
-          in
-          let nameservers =
-            get_list_from ~sep:"," ~key:"DNS" args
-            |> List.map Unix.inet_addr_of_string
-          in
-          let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
-          let dns = (nameservers, domains) in
-          (Static4 [(ip, prefixlen)], gateway, dns)
-      | "dhcp" ->
-          (DHCP4, None, ([], []))
-      | _ ->
-          (None4, None, ([], []))
+    let dns = parse_dns_config args in
+    let (ipv4_conf, ipv4_gateway), (ipv6_conf, ipv6_gateway) =
+      match (List.assoc_opt "MODE" args, List.assoc_opt "MODEV6" args) with
+      | None, None ->
+          error "%s: at least one of 'MODE', 'MODEV6' needs to be specified"
+            __FUNCTION__ ;
+          raise Read_error
+      | v4, v6 ->
+          (parse_ipv4_config args v4, parse_ipv6_config args v6)
     in
 
     let phy_interface = {default_interface with persistent_i= true} in
     let bridge_interface =
-      {default_interface with ipv4_conf; ipv4_gateway; persistent_i= true; dns}
+      {
+        default_interface with
+        ipv4_conf
+      ; ipv4_gateway
+      ; ipv6_conf
+      ; ipv6_gateway
+      ; persistent_i= true
+      ; dns
+      }
     in
     let interface_config, bridge_config =
       let primary_bridge_conf =
