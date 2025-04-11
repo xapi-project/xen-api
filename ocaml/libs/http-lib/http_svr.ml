@@ -574,12 +574,31 @@ let handle_connection ~header_read_timeout ~header_total_timeout
         ~max_length:max_header_length ss
     in
 
-    Http.Request.with_originator_of req Tgroup.of_req_originator ;
-
     (* 2. now we attempt to process the request *)
     let finished =
       Option.fold ~none:true
-        ~some:(handle_one x ss x.Server.default_context)
+        ~some:(fun req ->
+          if !Constants.tgroups_enabled then (
+            let open Xapi_stdext_threads.Threadext in
+            let originator =
+              List.assoc_opt Http.Hdr.originator
+                req.Http.Request.additional_headers
+            in
+            originator
+            |> Tgroup.of_req_originator
+            |> Option.iter (fun tgroup ->
+                   ThreadRuntimeContext.get ()
+                   |> ThreadRuntimeContext.update (fun thread_ctx ->
+                          {thread_ctx with tgroup}
+                      )
+               ) ;
+
+            let thread_ctx = ThreadRuntimeContext.get () in
+            Tgroup.with_one_thread_of_group thread_ctx.tgroup @@ fun () ->
+            handle_one x ss x.Server.default_context req
+          ) else
+            handle_one x ss x.Server.default_context req
+        )
         req
     in
     (* 3. do it again if the connection is kept open, but without timeouts *)
