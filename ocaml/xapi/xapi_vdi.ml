@@ -345,12 +345,12 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     then
       Error (Api_errors.ha_is_enabled, [])
     else if
-      List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata]
+      List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
       && Xapi_pool_helpers.ha_enable_in_progress ~__context
     then
       Error (Api_errors.ha_enable_in_progress, [])
     else if
-      List.mem record.Db_actions.vDI_type [`ha_statefile; `metadata]
+      List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
       && Xapi_pool_helpers.ha_disable_in_progress ~__context
     then
       Error (Api_errors.ha_disable_in_progress, [])
