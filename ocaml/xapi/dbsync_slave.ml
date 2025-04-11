@@ -380,5 +380,10 @@ let update_env __context sync_keys =
       Create_misc.create_chipset_info ~__context info
   ) ;
   switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context) ;
+  switched_sync Xapi_globs.sync_ssh_status (fun () ->
+      let ssh_service = !Xapi_globs.ssh_service in
+      let status = Fe_systemctl.is_active ~service:ssh_service in
+      Db.Host.set_ssh_enabled ~__context ~self:localhost ~value:status
+  ) ;
 
   remove_pending_guidances ~__context
