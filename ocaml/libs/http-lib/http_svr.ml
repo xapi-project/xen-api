@@ -594,8 +594,8 @@ let handle_connection ~header_read_timeout ~header_total_timeout
                ) ;
 
             let thread_ctx = ThreadRuntimeContext.get () in
-            Tgroup.ThreadGroup.with_one_thread_of_group thread_ctx.tgroup
-            @@ fun () -> handle_one x ss x.Server.default_context req
+            Tgroup.with_one_thread_of_group thread_ctx.tgroup @@ fun () ->
+            handle_one x ss x.Server.default_context req
           ) else
             handle_one x ss x.Server.default_context req
         )

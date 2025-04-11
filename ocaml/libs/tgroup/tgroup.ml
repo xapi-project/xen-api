@@ -18,7 +18,7 @@ open D
 
 let ( // ) = Filename.concat
 
-module Group = struct
+module Description = struct
   module Internal = struct
     type t
 
@@ -99,36 +99,42 @@ module Group = struct
     let root_identity = make "root"
   end
 
-  type _ group =
-    | Internal_SM : (Internal.t * SM.t) group
-    | Internal_CLI : (Internal.t * CLI.t) group
-    | External_Intrapool : (External.t * External.Intrapool.t) group
+  type _ group_description =
+    | Internal_SM : (Internal.t * SM.t) group_description
+    | Internal_CLI : (Internal.t * CLI.t) group_description
+    | External_Intrapool : (External.t * External.Intrapool.t) group_description
     | External_Authenticated :
         Identity.t
-        -> (External.t * External.Authenticated.t) group
-    | External_Unauthenticated : (External.t * External.Unauthenticated.t) group
+        -> (External.t * External.Authenticated.t) group_description
+    | External_Unauthenticated
+        : (External.t * External.Unauthenticated.t) group_description
 
-  type t = Group : 'a group -> t
+  type t = Description : 'a group_description -> t
 
+  (* Ideally this number would be percentages but not all of the groups have at
+     least a thread running at any moment of time. This numbers just mean that
+     the groups External_Authenticated, External_Intrapool, Internal_SM have a
+     total amount of time allocated in a timeslice 100/10 times more
+     than Internal_CLI and External_Unauthenticated do. *)
   let get_share = function
-    | Group Internal_SM ->
+    | Description Internal_SM ->
         100
-    | Group Internal_CLI ->
+    | Description Internal_CLI ->
         10
-    | Group External_Intrapool ->
+    | Description External_Intrapool ->
         100
-    | Group External_Unauthenticated ->
+    | Description External_Unauthenticated ->
         10
-    | Group (External_Authenticated _) ->
+    | Description (External_Authenticated _) ->
         100
 
   let all =
     [
-      Group Internal_SM
-    ; Group Internal_CLI
-    ; Group External_Intrapool
-    ; Group (External_Authenticated Identity.root_identity)
-    ; Group External_Unauthenticated
+      Description Internal_SM
+    ; Description Internal_CLI
+    ; Description External_Intrapool
+    ; Description (External_Authenticated Identity.root_identity)
+    ; Description External_Unauthenticated
     ]
 
   module Endpoint = struct type t = Internal | External end
@@ -221,9 +227,9 @@ module Group = struct
   end
 
   let get_originator = function
-    | Group Internal_SM ->
+    | Description Internal_SM ->
         Originator.Internal_SM
-    | Group Internal_CLI ->
+    | Description Internal_CLI ->
         Originator.Internal_CLI
     | _ ->
         Originator.External
@@ -236,21 +242,21 @@ module Group = struct
       )
     with
     | _, _, Intrapool ->
-        Group External_Intrapool
+        Description External_Intrapool
     | Endpoint.Internal, Internal_SM, _ ->
-        Group Internal_SM
+        Description Internal_SM
     | Endpoint.Internal, Internal_CLI, _ ->
-        Group Internal_CLI
+        Description Internal_CLI
     | Endpoint.External, Internal_CLI, Authenticated identity
     | Endpoint.External, Internal_SM, Authenticated identity
     | _, External, Authenticated identity ->
-        Group (External_Authenticated identity)
+        Description (External_Authenticated identity)
     | Endpoint.External, Internal_CLI, Unautheticated
     | Endpoint.External, Internal_SM, Unautheticated
     | _, External, Unautheticated ->
-        Group External_Unauthenticated
+        Description External_Unauthenticated
 
-  let to_cgroup : type a. a group -> string = function
+  let to_cgroup : type a. a group_description -> string = function
     | Internal_SM ->
         Internal.name // SM.name
     | Internal_CLI ->
@@ -264,12 +270,13 @@ module Group = struct
     | External_Unauthenticated ->
         External.name // External.Unauthenticated.name
 
-  let to_string g = match g with Group group -> to_cgroup group
+  let to_string g =
+    match g with Description group_description -> to_cgroup group_description
 
   let authenticated_root =
     of_creator (Creator.make ~identity:Identity.root_identity ())
 
-  let unauthenticated = Group External_Unauthenticated
+  let unauthenticated = Description External_Unauthenticated
 end
 
 module Cgroup = struct
@@ -279,9 +286,9 @@ module Cgroup = struct
 
   let dir_of group : t option =
     match group with
-    | Group.Group group ->
+    | Description.Description group ->
         Option.map
-          (fun dir -> dir // Group.to_cgroup group)
+          (fun dir -> dir // Description.to_cgroup group)
           (Atomic.get cgroup_dir)
 
   let with_dir dir f arg =
@@ -314,7 +321,7 @@ module Cgroup = struct
       )
       (dir_of group)
 
-  let set_cur_cgroup ~creator = attach_task (Group.of_creator creator)
+  let set_cur_cgroup ~creator = attach_task (Description.of_creator creator)
 
   let set_cgroup creator = set_cur_cgroup ~creator
 
@@ -323,119 +330,89 @@ module Cgroup = struct
     groups
     |> List.filter_map dir_of
     |> List.iter (fun dir -> with_dir dir debug "created cgroup for: %s" dir) ;
-    set_cur_cgroup ~creator:Group.Creator.default_creator
+    set_cur_cgroup ~creator:Description.Creator.default_creator
 end
 
-module ThreadGroup = struct
-  type tgroup = {
-      mutable tgroup: Group.t
-    ; mutable tgroup_name: string
-    ; mutable tgroup_share: int
-    ; mutable thread_count: int Atomic.t
-    ; mutable time_ideal: int
+type t = {
+    group_descr: Description.t
+  ; tgroup_name: string
+  ; mutable tgroup_share: int
+  ; thread_count: int Atomic.t
+  ; mutable time_ideal: int
+}
+
+let tgroups = Hashtbl.create 10
+
+let add group_descr =
+  {
+    group_descr
+  ; tgroup_name= group_descr |> Description.to_string
+  ; tgroup_share= group_descr |> Description.get_share
+  ; thread_count= Atomic.make 0
+  ; time_ideal= 0
   }
+  |> Hashtbl.add tgroups group_descr
 
-  type t = tgroup option
+let destroy () = Hashtbl.reset tgroups
 
-  let tgroups : t array Atomic.t = Atomic.make (Array.make 0 None)
+let get_group_description = function
+  | Description.Description Internal_CLI
+  | Description.Description External_Unauthenticated ->
+      Description.Description Internal_CLI |> Hashtbl.find_opt tgroups
+  | Description.Description (External_Authenticated _)
+  | Description.Description Internal_SM
+  | Description.Description External_Intrapool ->
+      Description.authenticated_root |> Hashtbl.find_opt tgroups
 
-  let tgroup_total_share = Atomic.make 0
+let tgroups () = Hashtbl.to_seq_values tgroups |> List.of_seq
 
-  let create ~tgroup =
-    {
-      tgroup
-    ; tgroup_name= tgroup |> Group.to_string
-    ; tgroup_share= tgroup |> Group.get_share
-    ; thread_count= Atomic.make 0
-    ; time_ideal= 0
-    }
+let thread_starts_in_tgroup tg = Atomic.incr tg.thread_count
 
-  let add tgroup =
-    let _ = Atomic.fetch_and_add tgroup_total_share tgroup.tgroup_share in
-    while
-      not
-        (let seen = Atomic.get tgroups in
-         Some tgroup
-         |> Array.make 1
-         |> Array.append seen
-         |> Atomic.compare_and_set tgroups seen
-        )
-    do
-      () (* todo: raise exception after n unsuccessful attempts *)
-    done
+let thread_stops_in_tgroup tg = Atomic.decr tg.thread_count
 
-  let destroy () = Atomic.set tgroups (Array.make 0 None)
+let with_one_thread_in_tgroup tg f =
+  thread_starts_in_tgroup tg ;
+  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
+      thread_stops_in_tgroup tg
+  )
 
-  let tgroups () =
-    tgroups
-    |> Atomic.get
-    |> Array.fold_left
-         (fun xs x -> match x with None -> xs | Some x -> x :: xs)
-         []
+let with_one_fewer_thread_in_tgroup tg f =
+  (* when tgroup.thread_count < 1, then sched_global_slice will ignore this tgroup *)
+  if Atomic.get tg.thread_count = 0 then
+    ()
+  else
+    thread_stops_in_tgroup tg ;
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f tg)
+    (fun () -> thread_starts_in_tgroup tg)
 
-  let get_tgroup g =
-    tgroups ()
-    |> List.find_opt (fun tg ->
-           let g =
-             match g with
-             | Group.Group Internal_CLI | Group.Group External_Unauthenticated
-               ->
-                 Group.Group Group.Internal_CLI
-             | Group.Group (External_Authenticated _)
-             | Group.Group Internal_SM
-             | Group.Group External_Intrapool ->
-                 Group.authenticated_root
-           in
-           tg.tgroup = g
-       )
-
-  let thread_starts_in_tgroup tg = Atomic.incr tg.thread_count
-
-  let thread_stops_in_tgroup tg = Atomic.decr tg.thread_count
-
-  let with_one_thread_in_tgroup tg f =
-    thread_starts_in_tgroup tg ;
-    Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
-        thread_stops_in_tgroup tg
-    )
-
-  let with_one_fewer_thread_in_tgroup tg f =
-    (* when tgroup.thread_count < 1, then sched_global_slice will ignore this tgroup *)
-    if Atomic.get tg.thread_count = 0 then
-      ()
-    else
-      thread_stops_in_tgroup tg ;
-    Xapi_stdext_pervasives.Pervasiveext.finally
-      (fun () -> f tg)
-      (fun () -> thread_starts_in_tgroup tg)
-
-  let with_one_thread_of_group group f =
-    match get_tgroup group with
-    | None ->
-        f ()
-    | Some tg ->
-        with_one_thread_in_tgroup tg f
-end
+let with_one_thread_of_group group f =
+  match get_group_description group with
+  | None ->
+      f ()
+  | Some tg ->
+      with_one_thread_in_tgroup tg f
 
 let init dir =
-  Group.all |> Cgroup.init dir ;
-  Group.all |> List.iter (fun group -> ThreadGroup.(create ~tgroup:group |> add)) ;
-  Cgroup.set_cur_cgroup ~creator:Group.Creator.default_creator
+  Description.all |> Cgroup.init dir ;
+  Description.all |> List.iter add ;
+  Cgroup.set_cur_cgroup ~creator:Description.Creator.default_creator
 
 let of_req_originator originator =
   let ( let* ) = Option.bind in
   let* _ = Atomic.get Cgroup.cgroup_dir in
   try
     let* originator in
-    let originator = Group.Originator.of_string originator in
+    let originator = Description.Originator.of_string originator in
     let creator =
-      Group.Creator.make ~endpoint:Group.Endpoint.Internal ~originator ()
+      Description.Creator.make ~endpoint:Description.Endpoint.Internal
+        ~originator ()
     in
     let () = Cgroup.set_cgroup creator in
-    let group = Group.of_creator creator in
+    let group = Description.of_creator creator in
     Some group
   with _ -> None
 
 let of_creator creator =
   let () = Cgroup.set_cgroup creator in
-  Group.of_creator creator
+  Description.of_creator creator

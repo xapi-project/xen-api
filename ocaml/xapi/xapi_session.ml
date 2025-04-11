@@ -757,19 +757,19 @@ let slave_login_common ~__context ~host_str ~psecret =
   if !Constants.tgroups_enabled then (
     let open Xapi_stdext_threads.Threadext in
     let tgroup =
-      Tgroup.of_creator (Tgroup.Group.Creator.make ~intrapool:true ())
+      Tgroup.of_creator (Tgroup.Description.Creator.make ~intrapool:true ())
     in
     let thread_ctx = ThreadRuntimeContext.get () in
     (* authenticated_root here should mean a group has not been set yet and
        we should set one. otherwise go with what has already been set.*)
     if
-      thread_ctx.tgroup = Tgroup.Group.authenticated_root
-      || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+      thread_ctx.tgroup = Tgroup.Description.authenticated_root
+      || thread_ctx.tgroup = Tgroup.Description.unauthenticated
     then
       ThreadRuntimeContext.update
         (fun thread_ctx -> {thread_ctx with tgroup})
         thread_ctx ;
-    Tgroup.ThreadGroup.with_one_thread_of_group tgroup f
+    Tgroup.with_one_thread_of_group tgroup f
   ) else
     f ()
 
@@ -972,19 +972,19 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
         let open Xapi_stdext_threads.Threadext in
         let tgroup =
           Tgroup.of_creator
-            Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
+            Tgroup.Description.(Creator.make ~identity:Identity.root_identity ())
         in
         let thread_ctx = ThreadRuntimeContext.get () in
         (* authenticated_root here should mean a group has not been set yet and
            we should set one. otherwise go with what has already been set.*)
         if
-          thread_ctx.tgroup = Tgroup.Group.authenticated_root
-          || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+          thread_ctx.tgroup = Tgroup.Description.authenticated_root
+          || thread_ctx.tgroup = Tgroup.Description.unauthenticated
         then
           ThreadRuntimeContext.update
             (fun thread_ctx -> {thread_ctx with tgroup})
             thread_ctx ;
-        Tgroup.ThreadGroup.with_one_thread_of_group tgroup f
+        Tgroup.with_one_thread_of_group tgroup f
       ) else
         f ()
   | Some `client_cert ->
@@ -1038,20 +1038,22 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
             let open Xapi_stdext_threads.Threadext in
             let tgroup =
               Tgroup.of_creator
-                Tgroup.Group.(Creator.make ~identity:Identity.root_identity ())
+                Tgroup.Description.(
+                  Creator.make ~identity:Identity.root_identity ()
+                )
             in
             let thread_ctx = ThreadRuntimeContext.get () in
             (* authenticated_root here should mean a group has not been set yet and
                we should set one. otherwise go with what has already been set.*)
             if
-              thread_ctx.tgroup = Tgroup.Group.authenticated_root
-              || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+              thread_ctx.tgroup = Tgroup.Description.authenticated_root
+              || thread_ctx.tgroup = Tgroup.Description.unauthenticated
             then
               ThreadRuntimeContext.update
                 (fun thread_ctx -> {thread_ctx with tgroup})
                 thread_ctx ;
 
-            Tgroup.ThreadGroup.with_one_thread_of_group tgroup f
+            Tgroup.with_one_thread_of_group tgroup f
           ) else
             f ()
         )
@@ -1357,7 +1359,7 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                 let open Xapi_stdext_threads.Threadext in
                 let tgroup =
                   Tgroup.of_creator
-                    Tgroup.Group.(
+                    Tgroup.Description.(
                       Creator.make
                         ~identity:(Identity.make subject_identifier)
                         ()
@@ -1367,14 +1369,14 @@ let login_with_password ~__context ~uname ~pwd ~version:_ ~originator =
                 (* authenticated_root here should mean a group has not been set yet and
                    we should set one. otherwise go with what has already been set.*)
                 if
-                  thread_ctx.tgroup = Tgroup.Group.authenticated_root
-                  || thread_ctx.tgroup = Tgroup.Group.unauthenticated
+                  thread_ctx.tgroup = Tgroup.Description.authenticated_root
+                  || thread_ctx.tgroup = Tgroup.Description.unauthenticated
                 then
                   ThreadRuntimeContext.update
                     (fun thread_ctx -> {thread_ctx with tgroup})
                     thread_ctx ;
 
-                Tgroup.ThreadGroup.with_one_thread_of_group tgroup f
+                Tgroup.with_one_thread_of_group tgroup f
               ) else
                 f ()
               (* we only reach this point if for some reason a function above forgot to catch a possible exception in the Auth_signature module*)

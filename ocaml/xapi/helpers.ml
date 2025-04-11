@@ -434,8 +434,8 @@ let make_rpc ~__context rpc : Rpc.response =
       in
       let originator =
         thread_ctx.tgroup
-        |> Tgroup.Group.get_originator
-        |> Tgroup.Group.Originator.to_string
+        |> Tgroup.Description.get_originator
+        |> Tgroup.Description.Originator.to_string
       in
       let additional_headers =
         ("originator", originator) :: http.additional_headers

@@ -50,7 +50,7 @@ module ThreadRuntimeContext : sig
     ; thread_name: string
     ; mutable time_running: int
     ; mutable tepoch: int
-    ; tgroup: Tgroup.Group.t
+    ; tgroup: Tgroup.Description.t
   }
 
   val create : ?thread_name:string -> unit -> t
