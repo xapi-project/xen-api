@@ -53,7 +53,7 @@ module Runtime = struct
   let maybe_thread_yield ~global_slice_period =
     let open Xapi_stdext_threads.Threadext in
     let thread_ctx = ThreadRuntimeContext.get () in
-    let tgroup = thread_ctx.tgroup |> Tgroup.ThreadGroup.get_tgroup in
+    let tgroup = thread_ctx.tgroup |> Tgroup.get_group_description in
     match tgroup with
     | None ->
         ()
@@ -75,16 +75,16 @@ module Runtime = struct
             thread_ctx.time_running <- time_running
         ) ;
 
-        let sleep_or_yield sleep_time (tgroup : Tgroup.ThreadGroup.tgroup) =
+        let sleep_or_yield sleep_time (tgroup : Tgroup.t) =
           (*todo: do not sleep if this is the last thread in the tgroup(s) *)
-          if tgroup.tgroup = Tgroup.Group.authenticated_root then
+          if tgroup.group_descr = Tgroup.Description.authenticated_root then
             with_time_counter_now thread_last_yield Thread.yield ()
           else
             with_time_counter_now thread_last_yield Unix.sleepf sleep_time
         in
         let is_to_sleep_or_yield delay_s =
           if delay_s > 0. then
-            Tgroup.ThreadGroup.with_one_fewer_thread_in_tgroup tgroup
+            Tgroup.with_one_fewer_thread_in_tgroup tgroup
               (sleep_or_yield delay_s)
         in
 
@@ -124,7 +124,7 @@ module Runtime = struct
     (* delegation via tgroups minimizes the number of synchronous global writes
        here from O(threads) to O(groups) *)
     let time_ideal_of_tgroups groups =
-      Tgroup.ThreadGroup.(
+      Tgroup.(
         let group_share_total =
           groups |> List.fold_left (fun xs x -> x.tgroup_share + xs) 0
         in
@@ -154,13 +154,12 @@ module Runtime = struct
     let tgroups_with_threads =
       List.fold_left
         (fun xs x ->
-          if x.Tgroup.ThreadGroup.thread_count |> Atomic.get > 0 then
+          if x.Tgroup.thread_count |> Atomic.get > 0 then
             x :: xs
           else
             xs
         )
-        []
-        (Tgroup.ThreadGroup.tgroups ())
+        [] (Tgroup.tgroups ())
     in
     (* reserve cpu time only to tgroups that have threads to run at the moment *)
     tgroups_with_threads |> time_ideal_of_tgroups
