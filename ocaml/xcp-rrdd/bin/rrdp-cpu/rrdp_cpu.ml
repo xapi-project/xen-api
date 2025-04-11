@@ -233,14 +233,20 @@ let generate_cpu_ds_list xc () =
   let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
   dss_pcpus xc @ dss_vcpus xc domains @ dss_loadavg () @ dss_hostload xc domains
 
+(* 32 vCPUS ~8659 bytes, so 64 vCPUs should fit in 5 *)
+let cpu_pages_per_vm = 5
+
 let _ =
   Xenctrl.with_intf (fun xc ->
       let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
       Process.initialise () ;
       (* Share one page per PCPU and dom each *)
       let physinfo = Xenctrl.physinfo xc in
-      let shared_page_count = physinfo.Xenctrl.nr_cpus + List.length domains in
-      (* TODO: Can run out of pages if a lot of domains are added at runtime *)
+      let shared_page_count =
+        physinfo.Xenctrl.nr_cpus
+        + Int.max Rrd_interface.max_supported_vms (List.length domains)
+          * cpu_pages_per_vm
+      in
       Process.main_loop ~neg_shift:0.5
         ~target:(Reporter.Local shared_page_count) ~protocol:Rrd_interface.V2
         ~dss_f:(generate_cpu_ds_list xc)
