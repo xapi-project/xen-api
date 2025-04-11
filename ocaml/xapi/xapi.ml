@@ -760,9 +760,9 @@ let check_network_reset () =
     ) ;
     (* Remove trigger file *)
     Unix.unlink Xapi_globs.network_reset_trigger
-  with _ -> ()
-
-(* TODO: catch specific exception for missing fields in reset_file and inform user *)
+  with e ->
+    D.error "%s: exception: %s (%s)" __FUNCTION__ (Printexc.to_string e)
+      (Printexc.get_backtrace ())
 
 (** Make sure our license is set correctly *)
 let handle_licensing () =
