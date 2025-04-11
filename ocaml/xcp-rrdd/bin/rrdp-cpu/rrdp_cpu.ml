@@ -188,12 +188,15 @@ let dss_hostload xc domains =
   let load =
     List.fold_left
       (fun acc (dom, _, domid) ->
-        sum 0 dom.Xenctrl.max_vcpu_id (fun id ->
-            let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid id in
-            if vcpuinfo.Xenctrl.online && not vcpuinfo.Xenctrl.blocked then
-              1
-            else
-              0
+        ( try
+            sum 0 dom.Xenctrl.max_vcpu_id (fun id ->
+                let vcpuinfo = Xenctrl.domain_get_vcpuinfo xc domid id in
+                if vcpuinfo.Xenctrl.online && not vcpuinfo.Xenctrl.blocked then
+                  1
+                else
+                  0
+            )
+          with _ -> 0
         )
         + acc
       )
