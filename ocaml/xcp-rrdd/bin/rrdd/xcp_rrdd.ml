@@ -543,7 +543,7 @@ let monitor_write_loop writers =
               ) ;
               Thread.delay !Rrdd_shared.timeslice
             with e ->
-              debug
+              warn
                 "Monitor/write thread caught an exception. Pausing for 10s, \
                  then restarting: %s"
                 (Printexc.to_string e) ;
