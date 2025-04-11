@@ -577,3 +577,6 @@ val set_ssh_enabled_timeout :
 
 val set_console_idle_timeout :
   __context:Context.t -> self:API.ref_host -> value:int64 -> unit
+
+val schedule_disable_ssh_job :
+  __context:Context.t -> self:API.ref_host -> timeout:int64 -> unit
