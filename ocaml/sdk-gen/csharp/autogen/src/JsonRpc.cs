@@ -29,6 +29,9 @@
 
 using System;
 using System.Collections.Generic;
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+using System.Diagnostics;
+#endif
 using System.IO;
 using System.Net;
 using System.Net.Security;
@@ -155,6 +158,41 @@ namespace XenAPI
     {
         private int _globalId;
 
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+        private static readonly Type ClassType = typeof(JsonRpcClient);
+        private static readonly System.Reflection.AssemblyName ClassAssemblyName= ClassType?.Assembly?.GetName();
+        private static readonly ActivitySource source = new ActivitySource(ClassAssemblyName.Name + "." + ClassType?.FullName, ClassAssemblyName.Version?.ToString());
+
+        // Follow naming conventions from OpenTelemetry.SemanticConventions
+        // Not yet on NuGet though:
+        // dotnet add package OpenTelemetry.SemanticConventions
+        private static class RpcAttributes {
+            public const string AttributeRpcMethod = "rpc.method";
+            public const string AttributeRpcSystem = "rpc.system";
+            public const string AttributeRpcService = "rpc.service";
+            public const string AttributeRpcJsonrpcErrorCode = "rpc.jsonrpc.error_code";
+            public const string AttributeRpcJsonrpcErrorMessage = "rpc.jsonrpc.error_message";
+            public const string AttributeRpcJsonrpcRequestId = "rpc.jsonrpc.request_id";
+            public const string AttributeRpcJsonrpcVersion = "rpc.jsonrpc.version";
+
+            public const string AttributeRpcMessageType = "rpc.message.type";
+            public static class RpcMessageTypeValues
+            {
+                public const string Sent = "SENT";
+
+                public const string Received = "RECEIVED";
+            }
+        }
+
+        private static class ServerAttributes {
+            public const string AttributeServerAddress = "server.address";
+        }
+
+        // not part of the SemanticConventions package
+        private const string ValueJsonRpc = "jsonrpc";
+        private const string EventRpcMessage = "rpc.message";
+#endif
+
         public JsonRpcClient(string baseUrl)
         {
             Url = baseUrl;
@@ -207,6 +245,21 @@ namespace XenAPI
             // therefore the latter will be done only in DEBUG mode
             using (var postStream = new MemoryStream())
             {
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+              // the semantic convention is $package.$service/$method
+              using (Activity activity = source.CreateActivity("XenAPI/" + callName, ActivityKind.Client))
+              {
+                 // .NET 5 would use W3C format for the header by default but we build for .Net 4.x still
+                activity?.SetIdFormat(ActivityIdFormat.W3C);
+                activity?.Start();
+                // Set the fields described in the OpenTelemetry Semantic Conventions:
+                // https://web.archive.org/web/20250119181511/https://opentelemetry.io/docs/specs/semconv/rpc/json-rpc/
+                // https://web.archive.org/web/20241113162246/https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/
+                activity?.SetTag(RpcAttributes.AttributeRpcSystem, ValueJsonRpc);
+                activity?.SetTag(ServerAttributes.AttributeServerAddress, new Uri(Url).Host);
+                activity?.SetTag(RpcAttributes.AttributeRpcMethod, callName);
+                activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcRequestId, id.ToString());
+#endif
                 using (var sw = new StreamWriter(postStream))
                 {
 #if DEBUG
@@ -233,37 +286,67 @@ namespace XenAPI
                             switch (JsonRpcVersion)
                             {
                                 case JsonRpcVersion.v2:
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+                                    activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcVersion, "2.0");
+#endif
 #if DEBUG
                                     string json2 = responseReader.ReadToEnd();
                                     var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
 #else
                                     var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
 #endif
+
                                     if (res2.Error != null)
                                     {
                                         var descr = new List<string> { res2.Error.Message };
                                         descr.AddRange(res2.Error.Data.ToObject<string[]>());
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+                                        activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorCode, res2.Error.Code);
+                                        activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, descr);
+                                        activity?.SetStatus(ActivityStatusCode.Error);
+#endif
                                         throw new Failure(descr);
                                     }
+
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+                                    activity?.SetStatus(ActivityStatusCode.Ok);
+#endif
                                     return res2.Result;
                                 default:
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+                                    activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcVersion, "1.0");
+#endif
 #if DEBUG
                                     string json1 = responseReader.ReadToEnd();
                                     var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
 #else
                                     var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
 #endif
+
                                     if (res1.Error != null)
                                     {
                                         var errorArray = res1.Error.ToObject<string[]>();
-                                        if (errorArray != null)
+                                        if (errorArray != null) {
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+                                            activity?.SetStatus(ActivityStatusCode.Error);
+                                            // we can't be sure whether we'll have a Code here
+                                            // the exact format of an error object is not specified in JSONRPC v1
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, errorArray.ToString());
+#endif
                                             throw new Failure(errorArray);
+                                        }
                                     }
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+                                    activity?.SetStatus(ActivityStatusCode.Ok);
+#endif
                                     return res1.Result;
                             }
                         }
                     }
                 }
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+              }
+#endif
             }
         }
 
@@ -293,11 +376,37 @@ namespace XenAPI
                     webRequest.Headers.Add(header.Key, header.Value);
             }
 
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+            // propagate W3C traceparent and tracestate
+            // HttpClient would do this automatically on .NET 5,
+            // and .NET 6 would provide even more control over this: https://blog.ladeak.net/posts/opentelemetry-net6-httpclient
+            // the caller must ensure that the activity is in W3C format (by inheritance or direct setting)
+            var activity = Activity.Current;
+            if (activity != null && activity.IdFormat == ActivityIdFormat.W3C)
+            {
+                webRequest.Headers.Add("traceparent", activity.Id);
+                var state = activity.TraceStateString;
+                if (state?.Length > 0)
+                {
+                    webRequest.Headers.Add("tracestate", state);
+                }
+            }
+#endif
+
             using (var str = webRequest.GetRequestStream())
             {
                 postStream.CopyTo(str);
                 str.Flush();
             }
+
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+            if (activity != null) {
+                var tags =  new ActivityTagsCollection{
+                    { RpcAttributes.AttributeRpcMessageType, RpcAttributes.RpcMessageTypeValues.Sent }
+                };
+                activity.AddEvent(new ActivityEvent(EventRpcMessage, DateTimeOffset.Now, tags));
+            }
+#endif
 
             HttpWebResponse webResponse = null;
             try
@@ -326,6 +435,16 @@ namespace XenAPI
                     str.CopyTo(responseStream);
                     responseStream.Flush();
                 }
+                
+#if (NET462_OR_GREATER || NETSTANDARD2_0_OR_GREATER)
+            if (activity != null) {
+                var tags =  new ActivityTagsCollection{
+                    { RpcAttributes.AttributeRpcMessageType, RpcAttributes.RpcMessageTypeValues.Received }
+                };
+                activity.AddEvent(new ActivityEvent(EventRpcMessage, DateTimeOffset.Now, tags));
+            }
+#endif
+
             }
             finally
             {
