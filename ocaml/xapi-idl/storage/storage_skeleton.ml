@@ -154,17 +154,17 @@ let get_by_name ctx ~dbg ~name = u "get_by_name"
 module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
 
+  let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
+    u "DATA.MIRROR.import_activate"
+
+  let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm = u "DATA.MIRROR.get_nbd_server"
+
   module MIRROR = struct
     type context = unit
 
-    (** [start task sr vdi url sr2] creates a VDI in remote [url]'s [sr2] and
-        writes data synchronously. It returns the id of the VDI.*)
-    let start ctx ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest =
-      u "DATA.MIRROR.start"
-
-    let stop ctx ~dbg ~id = u "DATA.MIRROR.stop"
-
-    let stat ctx ~dbg ~id = u "DATA.MIRROR.stat"
+    let send_start ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
+        ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+      u "DATA.MIRROR.send_start"
 
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       u "DATA.MIRROR.receive_start"
@@ -177,14 +177,6 @@ module DATA = struct
     let receive_finalize2 ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize2"
 
     let receive_cancel ctx ~dbg ~id = u "DATA.MIRROR.receive_cancel"
-
-    let list ctx ~dbg = u "DATA.MIRROR.list"
-
-    let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
-      u "DATA.MIRROR.import_activate"
-
-    let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm =
-      u "DATA.MIRROR.get_nbd_server"
   end
 end
 

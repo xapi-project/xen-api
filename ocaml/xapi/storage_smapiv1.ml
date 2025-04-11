@@ -1212,18 +1212,17 @@ module SMAPIv1 : Server_impl = struct
     let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
+    let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
+
+    let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
+
     module MIRROR = struct
       type context = unit
 
-      let start _context ~dbg:_ ~sr:_ ~vdi:_ ~dp:_ ~mirror_vm:_ ~copy_vm:_
-          ~url:_ ~dest:_ ~verify_dest:_ =
+      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
+          ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+          ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
         assert false
-
-      let stop _context ~dbg:_ ~id:_ = assert false
-
-      let list _context ~dbg:_ = assert false
-
-      let stat _context ~dbg:_ ~id:_ = assert false
 
       let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
         assert false
@@ -1237,11 +1236,6 @@ module SMAPIv1 : Server_impl = struct
       let receive_finalize2 _context ~dbg:_ ~id:_ = assert false
 
       let receive_cancel _context ~dbg:_ ~id:_ = assert false
-
-      let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ =
-        assert false
-
-      let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
     end
   end
 

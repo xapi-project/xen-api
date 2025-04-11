@@ -401,6 +401,63 @@ module MigrateLocal = struct
     | e ->
         raise (Storage_error (Internal_error (Printexc.to_string e)))
 
+  let stop_internal ~dbg ~id =
+    (* Find the local VDI *)
+    let alm = State.find_active_local_mirror id in
+    match alm with
+    | Some alm ->
+        ( match alm.State.Send_state.remote_info with
+        | Some remote_info -> (
+            let sr, vdi = State.of_mirror_id id in
+            let vdis = Local.SR.scan dbg sr in
+            let local_vdi =
+              match List.find_opt (fun x -> x.vdi = vdi) vdis with
+              | None ->
+                  failwith_fmt "Local VDI %s not found"
+                    (Storage_interface.Vdi.string_of vdi)
+              | Some v ->
+                  v
+            in
+            let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
+            let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
+            (* Disable mirroring on the local machine *)
+            let snapshot = Local.VDI.snapshot dbg sr local_vdi in
+            Local.VDI.destroy dbg sr snapshot.vdi ;
+            (* Destroy the snapshot, if it still exists *)
+            let snap =
+              List.find_opt
+                (fun x -> List.assoc_opt "base_mirror" x.sm_config = Some id)
+                vdis
+            in
+            ( match snap with
+            | Some s ->
+                debug "Found snapshot VDI: %s"
+                  (Storage_interface.Vdi.string_of s.vdi) ;
+                Local.VDI.destroy dbg sr s.vdi
+            | None ->
+                debug "Snapshot VDI already cleaned up"
+            ) ;
+
+            let (module Remote) =
+              get_remote_backend remote_info.url remote_info.verify_dest
+            in
+            try Remote.DATA.MIRROR.receive_cancel dbg id with _ -> ()
+          )
+        | None ->
+            ()
+        ) ;
+        State.remove_local_mirror id
+    | None ->
+        raise (Storage_interface.Storage_error (Does_not_exist ("mirror", id)))
+
+  let stop ~dbg ~id =
+    try stop_internal ~dbg ~id with
+    | Storage_error (Backend_error (code, params))
+    | Api_errors.Server_error (code, params) ->
+        raise (Storage_error (Backend_error (code, params)))
+    | e ->
+        raise e
+
   let start ~task ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest
       =
     SXM.info
@@ -586,7 +643,7 @@ module MigrateLocal = struct
        in
        inner ()
       ) ;
-      on_fail := (fun () -> Local.DATA.MIRROR.stop dbg mirror_id) :: !on_fail ;
+      on_fail := (fun () -> stop ~dbg ~id:mirror_id) :: !on_fail ;
       (* Copy the snapshot to the remote *)
       let new_parent =
         Storage_task.with_subtask task "copy" (fun () ->
@@ -614,62 +671,6 @@ module MigrateLocal = struct
         error "Caught %s: performing cleanup actions" (Api_errors.to_string e) ;
         perform_cleanup_actions !on_fail ;
         raise e
-
-  let stop ~dbg ~id =
-    (* Find the local VDI *)
-    let alm = State.find_active_local_mirror id in
-    match alm with
-    | Some alm ->
-        ( match alm.State.Send_state.remote_info with
-        | Some remote_info -> (
-            let sr, vdi = State.of_mirror_id id in
-            let vdis = Local.SR.scan dbg sr in
-            let local_vdi =
-              try List.find (fun x -> x.vdi = vdi) vdis
-              with Not_found ->
-                failwith
-                  (Printf.sprintf "Local VDI %s not found"
-                     (Storage_interface.Vdi.string_of vdi)
-                  )
-            in
-            let local_vdi = add_to_sm_config local_vdi "mirror" "null" in
-            let local_vdi = remove_from_sm_config local_vdi "base_mirror" in
-            (* Disable mirroring on the local machine *)
-            let snapshot = Local.VDI.snapshot dbg sr local_vdi in
-            Local.VDI.destroy dbg sr snapshot.vdi ;
-            (* Destroy the snapshot, if it still exists *)
-            let snap =
-              try
-                Some
-                  (List.find
-                     (fun x ->
-                       List.mem_assoc "base_mirror" x.sm_config
-                       && List.assoc "base_mirror" x.sm_config = id
-                     )
-                     vdis
-                  )
-              with _ -> None
-            in
-            ( match snap with
-            | Some s ->
-                debug "Found snapshot VDI: %s"
-                  (Storage_interface.Vdi.string_of s.vdi) ;
-                Local.VDI.destroy dbg sr s.vdi
-            | None ->
-                debug "Snapshot VDI already cleaned up"
-            ) ;
-
-            let (module Remote) =
-              get_remote_backend remote_info.url remote_info.verify_dest
-            in
-            try Remote.DATA.MIRROR.receive_cancel dbg id with _ -> ()
-          )
-        | None ->
-            ()
-        ) ;
-        State.remove_local_mirror id
-    | None ->
-        raise (Storage_interface.Storage_error (Does_not_exist ("mirror", id)))
 
   let stat ~dbg:_ ~id =
     let recv_opt = State.find_active_receive_mirror id in
@@ -1013,7 +1014,7 @@ let nbd_handler req s ?(vm = "0") sr vdi dp =
   let vm = Vm.of_string vm in
   let path =
     Storage_utils.transform_storage_exn (fun () ->
-        Local.DATA.MIRROR.import_activate "nbd" dp sr vdi vm
+        Local.DATA.import_activate "nbd" dp sr vdi vm
     )
   in
   Http_svr.headers s (Http.http_200_ok () @ ["Transfer-encoding: nbd"]) ;
@@ -1043,7 +1044,7 @@ let nbd_proxy req s vm sr vdi dp =
   let vm = Vm.of_string vm in
   let path =
     Storage_utils.transform_storage_exn (fun () ->
-        Local.DATA.MIRROR.get_nbd_server "nbd" dp sr vdi vm
+        Local.DATA.get_nbd_server "nbd" dp sr vdi vm
     )
   in
   debug "%s got nbd server path %s" __FUNCTION__ path ;
@@ -1060,6 +1061,9 @@ let nbd_proxy req s vm sr vdi dp =
       debug "%s: proxy exited" __FUNCTION__
     )
     (fun () -> Unix.close control_fd)
+
+let with_dbg ~name ~dbg f =
+  Debug_info.with_dbg ~with_thread:true ~module_name:__MODULE__ ~name ~dbg f
 
 let with_task_and_thread ~dbg f =
   let task =
@@ -1097,6 +1101,7 @@ let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
   )
 
 let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest =
+  with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
   with_task_and_thread ~dbg (fun task ->
       MigrateLocal.start ~task ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm
         ~copy_vm ~url ~dest ~verify_dest

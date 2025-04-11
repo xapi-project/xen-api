@@ -14,6 +14,8 @@
 
 module SXM : Debug.DEBUG
 
+val failwith_fmt : ('a, unit, string, 'b) format4 -> 'a
+
 module State : sig
   module Receive_state : sig
     type t = {

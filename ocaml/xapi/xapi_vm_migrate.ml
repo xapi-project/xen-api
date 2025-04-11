@@ -1035,8 +1035,9 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
           (Vm.string_of vconf.copy_vm) ;
         (* Layering violation!! *)
         ignore (Storage_access.register_mirror __context id) ;
-        SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp
-          vconf.mirror_vm vconf.copy_vm remote.sm_url dest_sr is_intra_pool
+        Storage_migrate.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp
+          ~mirror_vm:vconf.mirror_vm ~copy_vm:vconf.copy_vm ~url:remote.sm_url
+          ~dest:dest_sr ~verify_dest:is_intra_pool
     in
     let mapfn x =
       let total = Int64.to_float total_size in
@@ -1061,7 +1062,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (None, vdi.vdi)
       ) else
         let mirrorid = task_result |> mirror_of_task dbg in
-        let m = SMAPI.DATA.MIRROR.stat dbg mirrorid in
+        let m = Storage_migrate.stat ~dbg ~id:mirrorid in
         (Some mirrorid, m.Mirror.dest_vdi)
     in
     so_far := Int64.add !so_far vconf.size ;
@@ -1090,8 +1091,8 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         match mirror_id with
         | Some mid ->
             ignore (Storage_access.unregister_mirror mid) ;
-            let m = SMAPI.DATA.MIRROR.stat dbg mid in
-            (try SMAPI.DATA.MIRROR.stop dbg mid with _ -> ()) ;
+            let m = Storage_migrate.stat ~dbg ~id:mid in
+            (try Storage_migrate.stop ~dbg ~id:mid with _ -> ()) ;
             m.Mirror.failed
         | None ->
             false
