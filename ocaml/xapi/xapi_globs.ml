@@ -806,6 +806,8 @@ let sparse_dd = ref "sparse_dd"
 
 let vhd_tool = ref "vhd-tool"
 
+let qcow_tool = ref "qcow-tool"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -1779,6 +1781,7 @@ module Resources = struct
       )
     ; ("sparse_dd", sparse_dd, "Path to sparse_dd")
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
+    ; ("qcow-tool", qcow_tool, "Path to qcow-tool")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
