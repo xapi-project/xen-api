@@ -118,33 +118,33 @@ type t = {
 }
 
 val tgroups : unit -> t list
-  (** [tgroups ()] return the list of groups currently set. *)
+(** [tgroups ()] return the list of groups currently set. *)
 
 val group_of_description : Description.t -> t option
-  (** [group_of_description descr] return [Some group] where [group] is the
+(** [group_of_description descr] return [Some group] where [group] is the
       group associated with description [descr].
 
       Returns [None] if there is not such group set.*)
 
 val add : Description.t -> unit
-  (** [add descr] adds a group the list of tracked groups based on the
+(** [add descr] adds a group the list of tracked groups based on the
       description [descr].*)
 
 val destroy : unit -> unit
-  (** [desctroy ()] clears the list of groups tracked. Used for testing.*)
+(** [desctroy ()] clears the list of groups tracked. Used for testing.*)
 
 val with_one_thread_in_tgroup : t -> (unit -> 'a) -> 'a
-  (** [with_one_thread_in_tgroup tg fn] increments the count of the number of
+(** [with_one_thread_in_tgroup tg fn] increments the count of the number of
       threads inside the group [tg] for the span of [fn]. *)
 
 val with_one_thread_of_group : Description.t -> (unit -> 'a) -> 'a
-  (** [with_one_thread_of_group desc fn] increments the count of the number of
+(** [with_one_thread_of_group desc fn] increments the count of the number of
       threads inside the group corresponding to [descr] for the span of [fn].
 
       No operation is done if there is no such group.*)
 
 val with_one_fewer_thread_in_tgroup : t -> (t -> 'a) -> 'a
-  (** [with_one_fewer_thread_in_tgroup tg fn] decrements the count of the number
+(** [with_one_fewer_thread_in_tgroup tg fn] decrements the count of the number
       of threads inside the group [tg] for the span of [fn]. *)
 
 val init : string -> unit

@@ -355,7 +355,7 @@ let add group_descr =
 
 let destroy () = Hashtbl.reset tgroups
 
-let get_group_description = function
+let group_of_description = function
   | Description.Description Internal_CLI
   | Description.Description External_Unauthenticated ->
       Description.Description Internal_CLI |> Hashtbl.find_opt tgroups
@@ -387,7 +387,7 @@ let with_one_fewer_thread_in_tgroup tg f =
     (fun () -> thread_starts_in_tgroup tg)
 
 let with_one_thread_of_group group f =
-  match get_group_description group with
+  match group_of_description group with
   | None ->
       f ()
   | Some tg ->
