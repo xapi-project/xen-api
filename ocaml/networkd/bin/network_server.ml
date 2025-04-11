@@ -412,12 +412,23 @@ module Interface = struct
                 Ip.set_ipv6_link_local_addr name
               )
           | DHCP6 ->
+              let gateway =
+                Option.fold ~none:[]
+                  ~some:(fun n -> [`gateway n])
+                  !config.gateway_interface
+              in
+              let dns =
+                Option.fold ~none:[]
+                  ~some:(fun n -> [`dns n])
+                  !config.dns_interface
+              in
               if Dhclient.is_running ~ipv6:true name then
                 ignore (Dhclient.stop ~ipv6:true name) ;
               Sysctl.set_ipv6_autoconf name false ;
               Ip.flush_ip_addr ~ipv6:true name ;
               Ip.set_ipv6_link_local_addr name ;
-              ignore (Dhclient.ensure_running ~ipv6:true name [])
+              let options = gateway @ dns in
+              ignore (Dhclient.ensure_running ~ipv6:true name options)
           | Autoconf6 ->
               if Dhclient.is_running ~ipv6:true name then
                 ignore (Dhclient.stop ~ipv6:true name) ;
