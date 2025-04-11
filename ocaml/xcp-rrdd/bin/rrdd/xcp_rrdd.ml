@@ -225,11 +225,11 @@ let dss_mem_host xc =
 (** estimate the space needed to serialize all the dss_mem_vms in a host. the
     json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes. these
     bytes plus some overhead make 1024 bytes an upper bound. *)
-let max_supported_vms = 1024
 
 let bytes_per_mem_vm = 1024
 
-let mem_vm_writer_pages = ((max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
+let mem_vm_writer_pages =
+  ((Rrd_interface.max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
 
 let res_error fmt = Printf.ksprintf Result.error fmt
 
