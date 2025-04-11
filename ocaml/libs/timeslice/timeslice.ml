@@ -53,7 +53,7 @@ module Runtime = struct
   let maybe_thread_yield ~global_slice_period =
     let open Xapi_stdext_threads.Threadext in
     let thread_ctx = ThreadRuntimeContext.get () in
-    let tgroup = thread_ctx.tgroup |> Tgroup.get_group_description in
+    let tgroup = thread_ctx.tgroup |> Tgroup.group_of_description in
     match tgroup with
     | None ->
         ()
