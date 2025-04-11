@@ -13,6 +13,8 @@
  *)
 (** Periodic scheduler for background tasks. *)
 
+module Date = Clock.Date
+
 module D = Debug.Make (struct let name = "backgroundscheduler" end)
 
 open D
@@ -72,6 +74,25 @@ let register ~__context =
     Server_helpers.exec_with_new_task "update_all_subjects_func"
       (fun __context -> Xapi_subject.update_all_subjects ~__context
     )
+  in
+  let sync_ssh_status ~__context =
+    let self = Helpers.get_localhost ~__context in
+    let timeout = Db.Host.get_ssh_enabled_timeout ~__context ~self in
+
+    if timeout > 0L then
+      let expiry_time =
+        Db.Host.get_ssh_expiry ~__context ~self
+        |> Date.to_unix_time
+        |> Int64.of_float
+      in
+      let current_time = Unix.time () |> Int64.of_float in
+
+      if Int64.compare expiry_time current_time > 0 then
+        let remaining = Int64.sub expiry_time current_time in
+        Xapi_host.schedule_disable_ssh_job ~__context ~self ~timeout:remaining
+      (* handle the case where XAPI is not active when the SSH timeout expires *)
+      else if Fe_systemctl.is_active ~service:!Xapi_globs.ssh_service then
+        Xapi_host.disable_ssh ~__context ~self
   in
   let update_all_subjects_delay = 10.0 in
   (* initial delay = 10 seconds *)
@@ -133,6 +154,7 @@ let register ~__context =
     "Check stunnel cache expiry"
     (Xapi_stdext_threads_scheduler.Scheduler.Periodic stunnel_period)
     stunnel_period Stunnel_cache.gc ;
+  sync_ssh_status ~__context ;
   if
     master
     && Db.Pool.get_update_sync_enabled ~__context
