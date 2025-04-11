@@ -1085,6 +1085,35 @@ module Winbind = struct
       netbios_name
     ) else
       hostname
+
+  let set_machine_account_encryption_type netbios_name =
+    match !Xapi_globs.winbind_set_machine_account_kerberos_encryption_type with
+    | true -> (
+        let args =
+          [
+            "ads"
+          ; "enctypes"
+          ; "set"
+          ; "--machine-pass"
+          ; "-d"
+          ; debug_level ()
+          ; Printf.sprintf "%s$" netbios_name
+          ; Printf.sprintf "%d"
+              (Kerberos_encryption_types.Winbind.to_encoding
+                 !Xapi_globs.winbind_kerberos_encryption_type
+              )
+          ]
+        in
+        try
+          Helpers.call_script
+            ~timeout:Mtime.Span.(5 * s)
+            !Xapi_globs.net_cmd args
+          |> ignore
+        with _ ->
+          warn "Failed to set machine account encryption type, ignoring"
+      )
+    | false ->
+        debug "Skip setting machine account encryption type to DC"
 end
 
 module ClosestKdc = struct
@@ -1688,10 +1717,11 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         ~ou_conf ~workgroup:(Some workgroup)
         ~machine_pwd_last_change_time:(Some machine_pwd_last_change_time)
         ~netbios_name:(Some netbios_name) ;
+      (* Trigger right now *)
       ClosestKdc.trigger_update ~start:0. ;
       RotateMachinePassword.trigger_rotate ~start:0. ;
       ConfigHosts.join ~domain:service_name ~name:netbios_name ;
-      (* Trigger right now *)
+      Winbind.set_machine_account_encryption_type netbios_name ;
       debug "Succeed to join domain %s" service_name
     with
     | Forkhelpers.Spawn_internal_error (_, stdout, _) ->
