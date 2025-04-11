@@ -16,39 +16,44 @@ let test_tgroups_on ~name f =
   let allocate () =
     let () = Atomic.set Tgroup.Cgroup.cgroup_dir (Some "") in
     let g_cli = Some "cli" |> Tgroup.of_req_originator |> Option.get in
-    let tg_cli = Tgroup.ThreadGroup.create ~tgroup:g_cli in
-    let () = tg_cli.thread_count <- Atomic.make 10 in
+    let () = Tgroup.add g_cli in
+    let tg_cli = Tgroup.group_of_description g_cli |> Option.get in
+    let _ = Atomic.fetch_and_add tg_cli.thread_count 10 in
+    let () = Tgroup.add Tgroup.Description.authenticated_root in
     let tg_authenticated_root =
-      Tgroup.ThreadGroup.create ~tgroup:Tgroup.Group.authenticated_root
+      Tgroup.group_of_description Tgroup.Description.authenticated_root
+      |> Option.get
     in
-    let () = tg_authenticated_root.thread_count <- Atomic.make 5 in
-    Tgroup.ThreadGroup.(add tg_cli ; add tg_authenticated_root)
+    let _ = Atomic.fetch_and_add tg_authenticated_root.thread_count 5 in
+    ()
   in
-  let free = Tgroup.ThreadGroup.destroy in
+  let free = Tgroup.destroy in
   Test.make_with_resource ~name ~allocate ~free Test.uniq f
 
 let test_with_thread_classified ~name f =
   let allocate () =
     let () = Atomic.set Tgroup.Cgroup.cgroup_dir (Some "") in
     let g_cli = Some "cli" |> Tgroup.of_req_originator |> Option.get in
-    let tg_cli = Tgroup.ThreadGroup.create ~tgroup:g_cli in
-    let () = tg_cli.thread_count <- Atomic.make 10 in
+    let () = Tgroup.add g_cli in
+    let tg_cli = Tgroup.group_of_description g_cli |> Option.get in
+    let _ = Atomic.fetch_and_add tg_cli.thread_count 10 in
+    let () = Tgroup.add Tgroup.Description.authenticated_root in
     let tg_authenticated_root =
-      Tgroup.ThreadGroup.create ~tgroup:Tgroup.Group.authenticated_root
+      Tgroup.group_of_description Tgroup.Description.authenticated_root
+      |> Option.get
     in
-    let () = tg_authenticated_root.thread_count <- Atomic.make 1 in
+    let () = Atomic.incr tg_authenticated_root.thread_count in
     Xapi_stdext_threads.Threadext.ThreadRuntimeContext.(
       let thread_ctx = get () in
       update
         (fun thread_ctx ->
-          {thread_ctx with tgroup= Tgroup.Group.authenticated_root}
+          {thread_ctx with tgroup= Tgroup.Description.authenticated_root}
         )
         thread_ctx
-    ) ;
-    Tgroup.ThreadGroup.(add tg_cli ; add tg_authenticated_root)
+    )
   in
   let free () =
-    Tgroup.ThreadGroup.destroy () ;
+    Tgroup.destroy () ;
     Xapi_stdext_threads.Threadext.ThreadRuntimeContext.remove ()
   in
   Test.make_with_resource ~name ~allocate ~free Test.uniq f
