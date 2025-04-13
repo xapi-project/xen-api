@@ -8,7 +8,14 @@ Title: Storage migration
     - [But we have storage\_mux.ml](#but-we-have-storage_muxml)
     - [Thought experiments on an alternative design](#thought-experiments-on-an-alternative-design)
   - [Design](#design)
-- [SMAPIv1 Migration](#smapiv1-migration)
+- [SMAPIv1 migration](#smapiv1-migration)
+- [SMAPIv3 migration](#smapiv3-migration)
+- [Error Handling](#error-handling)
+  - [Preparation (SMAPIv1 and SMAPIv3)](#preparation-smapiv1-and-smapiv3)
+  - [Snapshot and mirror failure (SMAPIv1)](#snapshot-and-mirror-failure-smapiv1)
+  - [Mirror failure (SMAPIv3)](#mirror-failure-smapiv3)
+  - [Copy failure (SMAPIv1)](#copy-failure-smapiv1)
+- [SMAPIv1 Migration implementation detail](#smapiv1-migration-implementation-detail)
   - [Receiving SXM](#receiving-sxm)
   - [Xapi code](#xapi-code)
   - [Storage code](#storage-code)
@@ -113,8 +120,100 @@ Note that later on storage_smapi{v1,v3}_migrate.ml will still have the flexibili
 to call remote SMAPIv2 functions, such as `Remote.VDI.attach dest_sr vdi`, and
 it will be handled just as before.
 
+## SMAPIv1 migration
 
-## SMAPIv1 Migration
+At a high level, mirror establishment for SMAPIv1 works as follows:
+
+1. Take a snapshot of a VDI that is attached to VM1. This gives us an immutable 
+copy of the current state of the VDI, with all the data until the point we took 
+the snapshot. This is illustrated in the diagram as a VDI and its snapshot connecting 
+to a shared parent, which stores the shared content for the snapshot and the writable 
+VDI from which we took the snapshot (snapshot)
+2. Mirror the writable VDI to the server hosts: this means that all writes that goes to the 
+client VDI will also be written to the mirrored VDI on the remote host (mirror)
+3. Copy the immutable snapshot from our local host to the remote (copy)
+4. Compose the mirror and the snapshot to form a single VDI 
+5. Destroy the snapshot on the local host (cleanup)
+
+
+more detail to come...
+
+## SMAPIv3 migration
+
+More detail to come...
+
+## Error Handling
+
+Storage migration is a long-running process, and is prone to failures in each
+step. Hence it is important specifying what errors could be raised at each step
+and their significance. This is beneficial both for the user and for triaging.
+
+There are two general cleanup functions in SXM: `MIRROR.receive_cancel` and
+`MIRROR.stop`. The former is for cleaning up whatever has been created by `MIRROR.receive_start`
+on the destination host (such as VDIs for receiving mirrored data). The latter is 
+a more comprehensive function that attempts to "undo" all the side effects that
+was done during the SXM, and also calls `receive_cancel` as part of its operations.
+
+Currently error handling was done by building up a list of cleanup functions in
+the `on_fail` list ref as the function executes. For example, if the `receive_start`
+has been completed successfully, add `receive_cancel` to the list of cleanup functions.
+And whenever an exception is encountered, just execute whatever has been added
+to the `on_fail` list ref. This is convenient, but does entangle all the error
+handling logic with the core SXM logic itself, making the code rather than hard
+to understand and maintain.
+
+The idea to fix this is to introduce explicit "stages" during the SXM and define
+explicitly what error handling should be done if it fails at a certain stage. This
+helps separate the error handling logic into the `with` part of a `try with` block,
+which is where they are supposed to be. Since we need to accommodate the existing
+SMAPIv1 migration (which has more stages than SMAPIv3), the following stages are
+introduced: preparation (v1,v3), snapshot(v1), mirror(v1, v3), copy(v1). Note that
+each stage also roughly corresponds to a helper function that is called within `MIRROR.start`,
+which is the wrapper function that initiates storage migration. And each helper
+functions themselves would also have error handling logic within themselves as
+needed (e.g. see `Storage_smapiv1_migrate.receive_start) to deal with exceptions 
+that happen within each helper functions.
+
+### Preparation (SMAPIv1 and SMAPIv3)
+
+The preparation stage generally corresponds to what is done in `receive_start`, and
+this function itself will handle exceptions when there are partial failures within
+the function itself, such as an exception after the receiving VDI is created.
+It will use the old-style `on_fail` function but only with a limited scope.
+
+There is nothing to be done at a higher level (i.e within `MIRROR.start` which
+calls `receive_start`) if preparation has failed.
+
+### Snapshot and mirror failure (SMAPIv1)
+
+For SMAPIv1, the mirror is done in a bit cumbersome way. The end goal is to establish
+connections between two tapdisk processes on the source and destination hosts.
+To achieve this goal, xapi will do two main jobs: 1. create a connection between two
+hosts and pass the connection to tapdisk; 2. create a snapshot as a starting point
+of the mirroring process. 
+
+Therefore handling of failures at these two stages are similar: clean up what was
+done in the preparation stage by calling `receive_cancel`, and that is almost it. 
+Again, we will leave whatever is needed for partial failure handling within those 
+functions themselves and only clean up at a stage-level in `storage_migrate.ml`
+
+Note that `receive_cancel` is a multiplexed function for SMAPIv1 and SMAPIv3, which
+means different clean up logic will be executed depending on what type of SR we
+are migrating from.
+
+### Mirror failure (SMAPIv3)
+
+To be filled...
+
+### Copy failure (SMAPIv1)
+
+The final step of storage migration for SMAPIv1 is to copy the snapshot from the
+source to the destination. At this stage, most of the side effectful work has been
+done, so we do need to call `MIRROR.stop` to clean things up if we experience an
+failure during copying.
+
+
+## SMAPIv1 Migration implementation detail
 
 ```mermaid
 sequenceDiagram
@@ -1877,3 +1976,4 @@ let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
         s.failed <- true
     )
 ```
+
