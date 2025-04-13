@@ -22,6 +22,26 @@ Title: Storage migration
 
 ## Overview
 
+The core idea of storage migration is surprisingly simple: We have VDIs attached to a VM, 
+and we wish to migrate these VDIs from one SR to another. This necessarily requires 
+us to copy the data stored in these VDIs over to the new SR, which can be a long-running 
+process if there are gigabytes or even terabytes of them. We wish to minimise the 
+down time of this process to allow the VM to keep running as much as possible.
+
+At a very high level, the SXM process generally only consists of two stages: preparation 
+and mirroring. The preparation is about getting the receiving host ready for the
+mirroring operation, while the mirroring itself can be further divided into two 
+more operations: 1. sending new writes to both sides; 2.copying existing data from 
+source to destination. The exact detail of how to set up a mirror differs significantly
+between SMAPIv1 and SMAPIv3, but both of them will have to perform the above two
+operations.
+Once the mirroring is established, it is a matter of checking the status of the 
+mirroring and carry on with the follwoing VM migration.
+
+The reality is more complex than what we had hoped for. For example, in SMAPIv1,
+the mirror establishment is quite an involved process and is itself divided into
+several stages, which will be discussed in more detail later on.
+
 
 ## SXM Multiplexing
 
