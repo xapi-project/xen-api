@@ -2,9 +2,101 @@
 Title: Storage migration
 ---
 
+- [Overview](#overview)
+- [SXM Multiplexing](#sxm-multiplexing)
+  - [Motivation](#motivation)
+    - [But we have storage\_mux.ml](#but-we-have-storage_muxml)
+    - [Thought experiments on an alternative design](#thought-experiments-on-an-alternative-design)
+  - [Design](#design)
+- [SMAPIv1 Migration](#smapiv1-migration)
+  - [Receiving SXM](#receiving-sxm)
+  - [Xapi code](#xapi-code)
+  - [Storage code](#storage-code)
+    - [Copying a VDI](#copying-a-vdi)
+    - [Mirroring a VDI](#mirroring-a-vdi)
+    - [Code walkthrough](#code-walkthrough)
+      - [DATA.copy](#datacopy)
+      - [DATA.copy\_into](#datacopy_into)
+      - [DATA.MIRROR.start](#datamirrorstart)
+
+
 ## Overview
 
-{{<mermaid align="left">}}
+
+## SXM Multiplexing
+
+This section is about the design idea behind the additional layer of mutiplexing specifically
+for Storage Xen Motion (SXM) from SRs using SMAPIv3. It is recommended that you have read the 
+[introduction doc](_index.md) for the storage layer first to understand how storage
+multiplexing is done between SMAPIv2 and SMAPI{v1, v3} before reading this.
+
+
+### Motivation
+
+The existing SXM code was designed to work only with SMAPIv1 SRs, and therefore
+does not take into account the dramatic difference in the ways SXM is done between
+SMAPIv1 and SMAPIv3. The exact difference will be covered later on in this doc, for this section
+it is sufficient to assume that they have two ways of doing migration. Therefore,
+we need different code paths for migration from SMAPIv1 and SMAPIv3.    
+
+#### But we have storage_mux.ml
+
+Indeed, storage_mux.ml is responsible for multiplexing and forwarding requests to
+the correct storage backend, based on the SR type that the caller specifies. And
+in fact, for inbound SXM to SMAPIv3 (i.e. migrating into a SMAPIv3 SR, GFS2 for example),
+storage_mux is doing the heavy lifting of multiplexing between different storage
+backends. Every time a `Remote.` call is invoked, this will go through the SMAPIv2
+layer to the remote host and get multiplexed on the destination host, based on
+whether we are migrating into a SMAPIv1 or SMAPIv3 SR (see the diagram below). 
+And the inbound SXM is implemented
+by implementing the existing SMAPIv2 -> SMAPIv3 calls (see `import_activate` for example)
+which may not have been implemented before.
+
+![mux for inbound](sxm_mux_inbound.svg)
+
+While this works fine for inbound SXM, it does not work for outbound SXM. A typical SXM
+consists of four combinations, the source sr type (v1/v3) and the destiantion sr
+type (v1/v3), any of the four combinations is possible. We have already covered the
+destination multiplexing (v1/v3) by utilising storage_mux, and at this point we
+have run out of multiplexer for multiplexing on the source. In other words, we
+can only mutiplex once for each SMAPIv2 call, and we can either use that chance for
+either the source or the destination, and we have already used it for the latter.
+
+
+#### Thought experiments on an alternative design
+
+To make it even more concrete, let us consider an example: the mirroring logic in
+SXM is different based on the source SR type of the SXM call. You might imagine
+defining a function like `MIRROR.start v3_sr v1_sr` that will be multiplexed
+by the storage_mux based on the source SR type, and forwarded to storage_smapiv3_migrate,
+or even just xapi-storage-script, which is indeed quite possible. 
+Now at this point we have already done the multiplexing, but we still wish to 
+multiplex operations on destination SRs, for example, we might want to attach a 
+VDI belonging to a SMAPIv1 SR on the remote host. But as we have already done the
+multiplexing and is now inside xapi-storage-script, we have lost any chance of doing
+any further multiplexing :(
+
+### Design
+
+The idea of this new design is to introduce an additional multiplexing layer that
+is specific for multiplexing calls based on the source SR type. For example, in
+the diagram below the `send_start src_sr dest_sr` will take both the src SR and the
+destination SR as parameters, and suppose the mirroring logic is different for different
+types of source SRs (i.e. SMAPIv1 or SMAPIv3), the storage migration code will
+necessarily choose the right code path based on the source SR type. And this is
+exactly what is done in this additional multiplexing layer. The respective logic
+for doing {v1,v3}-specifi mirroring, for example, will stay in storage_smapi{v1,v3}_migrate.ml
+
+![mux for outbound](sxm_mux_outbound.svg)
+
+Note that later on storage_smapi{v1,v3}_migrate.ml will still have the flexibility
+to call remote SMAPIv2 functions, such as `Remote.VDI.attach dest_sr vdi`, and
+it will be handled just as before.
+
+
+## SMAPIv1 Migration
+
+```mermaid
 sequenceDiagram
 participant local_tapdisk as local tapdisk
 participant local_smapiv2 as local SMAPIv2
@@ -129,7 +221,7 @@ opt post_detach_hook
 end
 Note over xapi: memory image migration by xenopsd
 Note over xapi: destroy the VM record
-{{< /mermaid >}}
+```
 
 ### Receiving SXM
 
@@ -162,7 +254,7 @@ the receiving end of storage motion:
 
 This is how xapi coordinates storage migration. We'll do it as a code walkthrough through the two layers: xapi and storage-in-xapi (SMAPIv2).
 
-## Xapi code
+### Xapi code
 
 The entry point is in [xapi_vm_migration.ml](https://github.com/xapi-project/xen-api/blob/f75d51e7a3eff89d952330ec1a739df85a2895e2/ocaml/xapi/xapi_vm_migrate.ml#L786)
 
@@ -1056,7 +1148,7 @@ We also try to remove the VM record from the destination if we managed to send i
 Finally we check for mirror failure in the task - this is set by the events thread watching for events from the storage layer, in [storage_access.ml](https://github.com/xapi-project/xen-api/blob/f75d51e7a3eff89d952330ec1a739df85a2895e2/ocaml/xapi/storage_access.ml#L1169-L1207)
 
 
-## Storage code
+### Storage code
 
 The part of the code that is conceptually in the storage layer, but physically in xapi, is located in
 [storage_migrate.ml](https://github.com/xapi-project/xen-api/blob/f75d51e7a3eff89d952330ec1a739df85a2895e2/ocaml/xapi/storage_migrate.ml). There are logically a few separate parts to this file:
@@ -1069,7 +1161,7 @@ The part of the code that is conceptually in the storage layer, but physically i
 
 Let's start by considering the way the storage APIs are intended to be used.
 
-### Copying a VDI
+#### Copying a VDI
 
 `DATA.copy` takes several parameters:
 
@@ -1119,7 +1211,7 @@ The implementation uses the `url` parameter to make SMAPIv2 calls to the destina
 The implementation tries to minimize the amount of data copied by looking for related VDIs on the destination SR. See below for more details.
 
 
-### Mirroring a VDI
+#### Mirroring a VDI
 
 `DATA.MIRROR.start` takes a similar set of parameters to that of copy:
 
@@ -1156,11 +1248,11 @@ Note that state is a list since the initial phase of the operation requires both
 
 Additionally the mirror can be cancelled using the `MIRROR.stop` API call.
 
-### Code walkthrough
+#### Code walkthrough
 
 let's go through the implementation of `copy`:
 
-#### DATA.copy
+##### DATA.copy
 
 ```ocaml
 let copy ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
@@ -1296,7 +1388,7 @@ Finally we snapshot the remote VDI to ensure we've got a VDI of type 'snapshot' 
 
 The exception handler does nothing - so we leak remote VDIs if the exception happens after we've done our cloning :-(
 
-#### DATA.copy_into
+##### DATA.copy_into
 
 Let's now look at the data-copying part. This is common code shared between `VDI.copy`, `VDI.copy_into` and `MIRROR.start` and hence has some duplication of the calls made above.
 
@@ -1467,7 +1559,7 @@ The last thing we do is to set the local and remote content_id. The local set_co
 Here we perform the list of cleanup operations. Theoretically. It seems we don't ever actually set this to anything, so this is dead code.
 
 
-#### DATA.MIRROR.start
+##### DATA.MIRROR.start
 
 ```ocaml
 let start' ~task ~dbg ~sr ~vdi ~dp ~url ~dest =
