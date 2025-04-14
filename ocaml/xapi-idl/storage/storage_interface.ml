@@ -291,11 +291,38 @@ module Mirror = struct
   }
   [@@deriving rpcty]
 
-  type mirror_receive_result = Vhd_mirror of mirror_receive_result_vhd_t
+  type mirror_receive_result_qcow2_t = {
+      mirror_vdi: vdi_info
+    ; mirror_datapath: dp
+    ; nbd_export: string
+  }
+  [@@deriving rpcty]
+
+  type mirror_receive_result =
+    | Vhd_mirror of mirror_receive_result_vhd_t
+    | QCOW2_mirror of mirror_receive_result_qcow2_t
   [@@deriving rpcty]
 
   type similars = content_id list [@@deriving rpcty]
+
+  type copy_operation_v1 = string [@@deriving rpcty, show {with_path= false}]
+
+  type mirror_operation_v1 = string [@@deriving rpcty, show {with_path= false}]
+
+  (* SMAPIv3 mirror operation *)
+  type operation =
+    | CopyV1 of copy_operation_v1
+    | MirrorV1 of mirror_operation_v1
+  [@@deriving rpcty, show {with_path= false}]
+
+  (* status of SMAPIv3 mirror *)
+  type status = {failed: bool; complete: bool; progress: float option}
+  [@@deriving rpcty]
 end
+
+type operation = Mirror.operation
+
+type status = Mirror.status
 
 type async_result_t = Vdi_info of vdi_info | Mirror_id of Mirror.id
 [@@deriving rpcty]
@@ -373,7 +400,7 @@ module Errors = struct
     (* mirror_copy_failure: raised when copying of the base image fails (SMAPIv1 only) *)
     | Migration_mirror_copy_failure of string
     (* mirror_failure: raised when there is any issues that causes the mirror to crash
-       during SXM (SMAPIv3 only, v1 uses more specific errors as above) *)
+       during SXM (SMAPIv1 and SMAPIv3 *)
     | Migration_mirror_failure of string
     | Internal_error of string
     | Unknown_error
