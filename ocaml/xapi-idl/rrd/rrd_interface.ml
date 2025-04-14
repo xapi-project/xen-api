@@ -29,6 +29,8 @@ let default_sockets_dir = "/var/lib/xcp"
 
 let daemon_name = "xcp-rrdd"
 
+let max_supported_vms = 1024
+
 let default_path = ref (Filename.concat default_sockets_dir daemon_name)
 
 let forwarded_path =

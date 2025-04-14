@@ -51,6 +51,8 @@ let _xenguest = "xenguest"
 
 let _emu_manager = "emu-manager"
 
+let ( // ) = Filename.concat
+
 let run cmd args =
   debug "%s %s" cmd (String.concat " " args) ;
   fst (Forkhelpers.execute_command_get_output cmd args)
@@ -58,20 +60,20 @@ let run cmd args =
 let choose_alternative kind default platformdata =
   debug "looking for %s in [ %s ]" kind
     (String.concat "; " (List.map (fun (k, v) -> k ^ " : " ^ v) platformdata)) ;
-  if List.mem_assoc kind platformdata then
-    let x = List.assoc kind platformdata in
-    let dir = Filename.concat !Xc_resources.alternatives kind in
-    let available = try Array.to_list (Sys.readdir dir) with _ -> [] in
+  let path_available x =
+    let dir = !Xc_resources.alternatives // kind in
+    let available = try Sys.readdir dir with _ -> [||] in
     (* If x has been put in the directory (by root) then it's safe to use *)
-    if List.mem x available then
-      Filename.concat dir x
+    if Array.mem x available then
+      Some (dir // x)
     else (
       error "Invalid platform:%s=%s (check execute permissions of %s)" kind x
-        (Filename.concat dir x) ;
-      default
+        (dir // x) ;
+      None
     )
-  else
-    default
+  in
+  Option.bind (List.assoc_opt kind platformdata) path_available
+  |> Option.value ~default
 
 (* We allow qemu-dm to be overriden via a platform flag *)
 let choose_qemu_dm x =
@@ -2515,6 +2517,7 @@ module VM = struct
                 @@ fun () -> pre_suspend_callback task
                 ) ;
 
+                with_tracing ~task ~name:"VM_save_request_shutdown" @@ fun () ->
                 if
                   not
                     ( with_tracing ~task
@@ -2523,6 +2526,13 @@ module VM = struct
                     )
                 then
                   raise (Xenopsd_error Failed_to_acknowledge_suspend_request) ;
+                (* If this is for a migration, record the begin time *)
+                ( match data with
+                | FD _ ->
+                    with_tracing ~task ~name:"VM_migrate_downtime_begin" Fun.id
+                | _ ->
+                    ()
+                ) ;
                 if
                   not
                     ( with_tracing ~task
@@ -2664,8 +2674,8 @@ module VM = struct
           in
           let manager_path = choose_emu_manager vm.Vm.platformdata in
           Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
-            ~console_domid ~no_incr_generationid (* XXX progress_callback *)
-            ~timeoffset ~extras build_info ~manager_path ~vtpm domid fd vgpu_fd
+            ~console_domid ~no_incr_generationid ~timeoffset ~extras build_info
+            ~manager_path ~vtpm domid fd vgpu_fd
         with e ->
           error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;
           (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
@@ -2746,9 +2756,10 @@ module VM = struct
                 (fun port -> {Vm.protocol= Vm.Vt100; port; path= ""})
                 (Device.get_tc_port ~xs di.Xenctrl.domid)
             in
-            let local x =
-              Printf.sprintf "/local/domain/%d/%s" di.Xenctrl.domid x
+            let root_path =
+              Printf.sprintf "/local/domain/%d" di.Xenctrl.domid
             in
+            let local x = Printf.sprintf "%s/%s" root_path x in
             let uncooperative =
               try
                 ignore_string (xs.Xs.read (local "memory/uncooperative")) ;
@@ -2851,12 +2862,11 @@ module VM = struct
               ; ("drivers", None, 0)
               ; ("data", None, 0)
                 (* in particular avoid data/volumes which contains many entries for each disk *)
+              ; ("data/service", None, 1) (* data/service/<service-name>/<key>*)
               ]
               |> List.fold_left
                    (fun acc (dir, excludes, depth) ->
-                     ls_lR ?excludes ~depth
-                       (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid)
-                       acc dir
+                     ls_lR ?excludes ~depth root_path acc dir
                    )
                    (quota, [])
               |> fun (quota, acc) ->
@@ -2864,9 +2874,7 @@ module VM = struct
             in
             let quota, xsdata_state =
               Domain.allowed_xsdata_prefixes
-              |> List.fold_left
-                   (ls_lR (Printf.sprintf "/local/domain/%d" di.Xenctrl.domid))
-                   (quota, [])
+              |> List.fold_left (ls_lR root_path) (quota, [])
             in
             let path =
               Device_common.xenops_path_of_domain di.Xenctrl.domid
@@ -4827,6 +4835,7 @@ module Actions = struct
       sprintf "/local/domain/%d/attr" domid
     ; sprintf "/local/domain/%d/data/updated" domid
     ; sprintf "/local/domain/%d/data/ts" domid
+    ; sprintf "/local/domain/%d/data/service" domid
     ; sprintf "/local/domain/%d/memory/target" domid
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid

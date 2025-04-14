@@ -254,6 +254,7 @@ let get_handler (req : Http.Request.t) s _ =
             ; features= List.map (fun x -> path [_services; x]) [_SM]
             ; configuration= []
             ; required_cluster_stack= []
+            ; smapi_version= SMAPIv2
             }
           in
           respond req (Storage_interface.(rpc_of query_result) q) s

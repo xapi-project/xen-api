@@ -3,6 +3,7 @@
 (formatting (enabled_for ocaml))
 (using menhir 2.0)
 (using directory-targets 0.1)
+(opam_file_location inside_opam_directory)
 
 (cram enable)
 (implicit_transitive_deps false)
@@ -670,16 +671,6 @@ This package provides an Lwt compatible interface to the library.")
 )
 
 (package
-  (name xapi-stdext-date)
-  (synopsis "Xapi's standard library extension, Dates")
-  (authors "Jonathan Ludlam")
-  (depends
-    (clock (= :version))
-    ptime
-  )
-)
-
-(package
   (name xapi-stdext-encodings)
   (synopsis "Xapi's standard library extension, Encodings")
   (authors "Jonathan Ludlam")
@@ -720,12 +711,14 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Threads")
   (authors "Jonathan Ludlam")
   (depends
+    ambient-context
     base-threads
     base-unix
     (alcotest :with-test)
     (clock (= :version))
     (fmt :with-test)
     mtime
+    tgroup
     (xapi-log (= :version))
     (xapi-stdext-pervasives (= :version))
     (xapi-stdext-unix (= :version))

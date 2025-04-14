@@ -91,5 +91,13 @@ external combine_cpu_policies : int64 array -> int64 array -> int64 array
 external policy_is_compatible : int64 array -> int64 array -> string option
   = "stub_xenctrlext_featuresets_are_compatible"
 
-external domain_claim_pages : handle -> domid -> int -> unit
-  = "stub_xenctrlext_domain_claim_pages"
+module NumaNode : sig
+  type t
+
+  val none : t
+
+  val from : int -> t
+end
+
+val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
+(** Raises {Unix_error} if there's not enough memory to claim in the system *)

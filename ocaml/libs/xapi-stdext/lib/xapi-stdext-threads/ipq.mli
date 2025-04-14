@@ -18,6 +18,8 @@ type 'a t
 
 exception EmptyHeap
 
+exception OutOfBounds of int
+
 val create : int -> 'a -> 'a t
 (** [create n default] creates an empty Imperative priority queue.
    The queue initially is initialized to store [n] elements.

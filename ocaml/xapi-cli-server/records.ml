@@ -1244,6 +1244,15 @@ let pool_record rpc session_id pool =
       ; make_field ~name:"ha-overcommitted"
           ~get:(fun () -> string_of_bool (x ()).API.pool_ha_overcommitted)
           ()
+      ; make_field ~name:"ha-reboot-vm-on-internal-shutdown"
+          ~get:(fun () ->
+            string_of_bool (x ()).API.pool_ha_reboot_vm_on_internal_shutdown
+          )
+          ~set:(fun x ->
+            Client.Pool.set_ha_reboot_vm_on_internal_shutdown ~rpc ~session_id
+              ~self:pool ~value:(bool_of_string x)
+          )
+          ()
       ; make_field ~name:"blobs"
           ~get:(fun () -> get_uuid_map_from_ref_map (x ()).API.pool_blobs)
           ()
@@ -2413,6 +2422,18 @@ let vm_record rpc session_id vm =
           ~get_map:(fun () ->
             Option.fold ~none:[]
               ~some:(fun m -> m.API.vM_guest_metrics_networks)
+              (xgm ())
+          )
+          ()
+      ; make_field ~name:"services"
+          ~get:(fun () ->
+            Option.fold ~none:nid
+              ~some:(fun m -> get_from_map m.API.vM_guest_metrics_services)
+              (xgm ())
+          )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m -> m.API.vM_guest_metrics_services)
               (xgm ())
           )
           ()

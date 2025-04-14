@@ -75,3 +75,15 @@ module Migrate_from_pbis : sig
 
   val parse_value_from_pbis : string -> string
 end
+
+module type HostsConf = sig
+  (* add the domain info into conf*)
+  val join : name:string -> domain:string -> lines:string list -> string list
+
+  (* remove the domain info from conf*)
+  val leave : name:string -> domain:string -> lines:string list -> string list
+end
+
+module HostsConfIPv4 : HostsConf
+
+module HostsConfIPv6 : HostsConf

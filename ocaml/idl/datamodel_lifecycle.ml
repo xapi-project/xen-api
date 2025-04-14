@@ -109,6 +109,8 @@ let prototyped_of_field = function
       Some "22.27.0"
   | "host", "last_software_update" ->
       Some "22.20.0"
+  | "VM_guest_metrics", "services" ->
+      Some "25.15.0"
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
   | "VM", "groups" ->
@@ -121,6 +123,8 @@ let prototyped_of_field = function
       Some "23.18.0"
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
+  | "pool", "ha_reboot_vm_on_internal_shutdown" ->
+      Some "25.15.0-next"
   | "pool", "license_server" ->
       Some "25.6.0"
   | "pool", "recommendations" ->

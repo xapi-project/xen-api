@@ -1465,6 +1465,7 @@ let copy_guest_metrics ~__context ~vm =
       ~memory:all.API.vM_guest_metrics_memory
       ~disks:all.API.vM_guest_metrics_disks
       ~networks:all.API.vM_guest_metrics_networks
+      ~services:all.API.vM_guest_metrics_services
       ~pV_drivers_detected:all.API.vM_guest_metrics_PV_drivers_detected
       ~other:all.API.vM_guest_metrics_other
       ~last_updated:all.API.vM_guest_metrics_last_updated

@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,24 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-include Clock.Date
+module type SMAPIv2_MIRROR = Storage_interface.MIRROR
 
-let never = epoch
-
-let of_string = of_iso8601
-
-let to_string = to_rfc3339
-
-let of_float = of_unix_time
-
-let to_float = to_unix_time
-
-let rfc822_of_float = of_unix_time
-
-let rfc822_to_string = to_rfc822
-
-let eq = equal
-
-type iso8601 = t
-
-type rfc822 = t
+module MIRROR : SMAPIv2_MIRROR

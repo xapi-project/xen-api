@@ -150,7 +150,10 @@ module NUMA : sig
       NUMA nodes > 16 it limits the length of the sequence to [n+65520], to
       avoid exponential blowup. *)
 
-  val choose : t -> (node list * NUMAResource.t) Seq.t -> NUMAResource.t option
+  val choose :
+       t
+    -> (node list * NUMAResource.t) Seq.t
+    -> (NUMAResource.t * node list) option
   (** [choose t resources] will choose one NUMA node deterministically, trying
       to keep the overall NUMA node usage balanced *)
 

@@ -14,7 +14,11 @@
 
 open Topology
 
-val plan : NUMA.t -> NUMAResource.t array -> vm:NUMARequest.t -> CPUSet.t option
+val plan :
+     NUMA.t
+  -> NUMAResource.t array
+  -> vm:NUMARequest.t
+  -> (Topology.CPUSet.t * Topology.NUMA.node list) option
 (** [plan host nodes ~vm] returns the CPU soft affinity recommended for [vm],
     Such that the memory latency between the NUMA nodes of the vCPUs is small,
     and usage of NUMA nodes is balanced.

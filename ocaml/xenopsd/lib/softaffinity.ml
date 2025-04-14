@@ -26,10 +26,9 @@ let plan host nodes ~vm =
       (Fmt.to_to_string NUMARequest.pp_dump requested)
       (Fmt.to_to_string NUMAResource.pp_dump allocated) ;
     let candidate = nodes.(nodeidx) in
-    ( NUMAResource.union allocated candidate
-    , node :: picked
-    , NUMARequest.shrink requested candidate
-    )
+    (* This is where the memory allocated to the node can be calculated *)
+    let remaining_request = NUMARequest.shrink requested candidate in
+    (NUMAResource.union allocated candidate, node :: picked, remaining_request)
   in
   let plan_valid (avg, nodes) =
     let allocated, picked, remaining =
@@ -72,8 +71,8 @@ let plan host nodes ~vm =
   | None ->
       debug "No allocations possible" ;
       None
-  | Some allocated ->
+  | Some (allocated, nodes) ->
       debug "Allocated resources: %s"
         (Fmt.to_to_string NUMAResource.pp_dump allocated) ;
       assert (NUMARequest.fits vm allocated) ;
-      Some allocated.NUMAResource.affinity
+      Some (allocated.NUMAResource.affinity, nodes)

@@ -19,6 +19,8 @@ type 'a t = {default: 'a event; mutable size: int; mutable data: 'a event array}
 
 exception EmptyHeap
 
+exception OutOfBounds of int
+
 let create n default =
   if n <= 0 then
     invalid_arg "create"
@@ -61,7 +63,7 @@ let maximum h =
 let remove h s =
   if h.size <= 0 then raise EmptyHeap ;
   if s < 0 || s >= h.size then
-    invalid_arg (Printf.sprintf "%s: index %d out of bounds" __FUNCTION__ s) ;
+    raise (OutOfBounds s) ;
   let n = h.size - 1 in
   let d = h.data in
   let x = d.(n) in

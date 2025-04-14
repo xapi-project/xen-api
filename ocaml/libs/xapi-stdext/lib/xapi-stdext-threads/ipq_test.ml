@@ -18,14 +18,9 @@ module Ipq = Xapi_stdext_threads_scheduler.Ipq
 let test_out_of_index () =
   let q = Ipq.create 10 0 in
   Ipq.add q {Ipq.ev= 123; Ipq.time= Mtime_clock.elapsed ()} ;
-  let is_oob = function
-    | Invalid_argument s when String.ends_with ~suffix:"  out of bounds" s ->
-        true
-    | _ ->
-        false
-  in
   let oob_check n =
-    (Alcotest.match_raises "out of bound" is_oob @@ fun () -> Ipq.remove q n) ;
+    let oob = Ipq.OutOfBounds n in
+    (Alcotest.check_raises "out of bound" oob @@ fun () -> Ipq.remove q n) ;
     Alcotest.(check bool) "same value" false (Ipq.is_empty q)
   in
   oob_check 10 ;

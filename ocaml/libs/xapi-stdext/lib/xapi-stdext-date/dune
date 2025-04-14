@@ -1,6 +1,0 @@
-(library
-  (name xapi_stdext_date)
-  (public_name xapi-stdext-date)
-  (modules :standard)
-  (libraries clock ptime)
-)

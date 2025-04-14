@@ -1028,15 +1028,16 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
           ) ;
         SMAPI.VDI.activate3 dbg new_dp vconf.sr vconf.location vconf.mirror_vm ;
         let id =
-          Storage_migrate.State.mirror_id_of (vconf.sr, vconf.location)
+          Storage_migrate_helper.State.mirror_id_of (vconf.sr, vconf.location)
         in
         debug "%s mirror_vm is %s copy_vm is %s" __FUNCTION__
           (Vm.string_of vconf.mirror_vm)
           (Vm.string_of vconf.copy_vm) ;
         (* Layering violation!! *)
         ignore (Storage_access.register_mirror __context id) ;
-        SMAPI.DATA.MIRROR.start dbg vconf.sr vconf.location new_dp
-          vconf.mirror_vm vconf.copy_vm remote.sm_url dest_sr is_intra_pool
+        Storage_migrate.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp
+          ~mirror_vm:vconf.mirror_vm ~copy_vm:vconf.copy_vm ~url:remote.sm_url
+          ~dest:dest_sr ~verify_dest:is_intra_pool
     in
     let mapfn x =
       let total = Int64.to_float total_size in
@@ -1061,7 +1062,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (None, vdi.vdi)
       ) else
         let mirrorid = task_result |> mirror_of_task dbg in
-        let m = SMAPI.DATA.MIRROR.stat dbg mirrorid in
+        let m = Storage_migrate.stat ~dbg ~id:mirrorid in
         (Some mirrorid, m.Mirror.dest_vdi)
     in
     so_far := Int64.add !so_far vconf.size ;
@@ -1090,8 +1091,8 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         match mirror_id with
         | Some mid ->
             ignore (Storage_access.unregister_mirror mid) ;
-            let m = SMAPI.DATA.MIRROR.stat dbg mid in
-            (try SMAPI.DATA.MIRROR.stop dbg mid with _ -> ()) ;
+            let m = Storage_migrate.stat ~dbg ~id:mid in
+            (try Storage_migrate.stop ~dbg ~id:mid with _ -> ()) ;
             m.Mirror.failed
         | None ->
             false
@@ -1778,14 +1779,6 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vms_vdis = List.filter_map (vdi_filter __context true) vbds in
   check_vdi_map ~__context vms_vdis vdi_map ;
-  (* Prevent SXM when the VM has a VDI on which changed block tracking is enabled *)
-  List.iter
-    (fun vconf ->
-      let vdi = vconf.vdi in
-      if Db.VDI.get_cbt_enabled ~__context ~self:vdi then
-        raise Api_errors.(Server_error (vdi_cbt_enabled, [Ref.string_of vdi]))
-    )
-    vms_vdis ;
   (* operations required for migration *)
   let required_src_sr_operations = Smint.Feature.[Vdi_snapshot; Vdi_mirror] in
   let required_dst_sr_operations =
@@ -1919,6 +1912,9 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
     )
   ) ;
   (* check_vdi_map above has already verified that all VDIs are in the vdi_map *)
+  (* Previously there was also a check that none of the VDIs have CBT enabled.
+     This is unnecessary, we only need to check that none of the VDIs that
+     *will be moved* have CBT enabled. *)
   assert_can_migrate_vdis ~__context ~vdi_map
 
 let assert_can_migrate_sender ~__context ~vm ~dest ~live:_ ~vdi_map:_ ~vif_map:_
