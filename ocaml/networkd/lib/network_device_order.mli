@@ -76,12 +76,8 @@ module OrderedDev : sig
   exception Duplicate_mac_address
 end
 
-val generate :
-     ?force:bool
-  -> OrderedDev.t list option
-  -> (OrderedDev.t list * (string * string) list) option
-(** [generate force ()] is to generate order, return the order and a list for device name changes (old_name, new_name).
-    When the [force] is [true], use the initial rules only. By default it is [false]. *)
+val generate : OrderedDev.t list -> OrderedDev.t list * (string * string) list
+(** [generate last_order] is to generate an order based on [last_order], return the new order and a list for device name changes (old_name, new_name). *)
 
 (* Below is exposed only for unit tests *)
 

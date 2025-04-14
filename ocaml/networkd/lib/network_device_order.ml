@@ -487,40 +487,33 @@ let generate_order ~(currents : Dev.t list) ~(rules : Rule.t list)
   OrderedDev.assert_no_duplicate_mac new_order ;
   new_order
 
-let generate ?(force = false) interface_order =
-  match interface_order with
-  | None ->
-      None
-  | Some last_order ->
-      let rules, last_order =
-        match (last_order, force) with
-        | [], _ | _ :: _, true ->
-            (Rule.rules_of_file ~path:initial_rules_file_path, [])
-        | (_ :: _ as last_order), false ->
-            ([], last_order)
-      in
-      let currents = Dev.get_all () in
-      currents
-      |> List.iter (fun x ->
-             debug "%s current: %s" __FUNCTION__ (Dev.to_string x)
-         ) ;
-      let new_order = generate_order ~currents ~rules ~last_order in
-      new_order
-      |> List.iter (fun x ->
-             debug "%s new order: %s" __FUNCTION__ (OrderedDev.to_string x)
-         ) ;
+let generate last_order =
+  let rules, last_order =
+    if last_order = [] then
+      (Rule.rules_of_file ~path:initial_rules_file_path, [])
+    else
+      ([], last_order)
+  in
+  let currents = Dev.get_all () in
+  currents
+  |> List.iter (fun x -> debug "%s current: %s" __FUNCTION__ (Dev.to_string x)) ;
+  let new_order = generate_order ~currents ~rules ~last_order in
+  new_order
+  |> List.iter (fun x ->
+         debug "%s new order: %s" __FUNCTION__ (OrderedDev.to_string x)
+     ) ;
 
-      (* Find the NICs whose name changes *)
-      let changes =
-        let m = OrderedDev.map_by_position last_order in
-        List.fold_left
-          (fun acc {position; name= curr; _} ->
-            match IntMap.find_opt position m with
-            | Some {name= last; _} when last <> curr ->
-                (last, curr) :: acc
-            | _ ->
-                acc
-          )
-          [] new_order
-      in
-      Some (new_order, changes)
+  (* Find the NICs whose name changes *)
+  let changes =
+    let m = OrderedDev.map_by_position last_order in
+    List.fold_left
+      (fun acc {position; name= curr; _} ->
+        match IntMap.find_opt position m with
+        | Some {name= last; _} when last <> curr ->
+            (last, curr) :: acc
+        | _ ->
+            acc
+      )
+      [] new_order
+  in
+  (new_order, changes)
