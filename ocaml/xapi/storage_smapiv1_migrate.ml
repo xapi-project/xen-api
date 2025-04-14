@@ -554,6 +554,14 @@ module MIRROR : SMAPIv2_MIRROR = struct
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
     match remote_mirror with
+    | Mirror.SMAPIv3_mirror _ ->
+        (* this should never happen *)
+        raise
+          (Storage_error
+             (Migration_mirror_failure
+                "Incorrect remote mirror format for SMAPIv1"
+             )
+          )
     | Mirror.Vhd_mirror mirror_res ->
         let tapdev =
           mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~mirror_id ~url ~dest_sr
