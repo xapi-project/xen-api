@@ -307,7 +307,7 @@ module type DEBUG = sig
 
   val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
 
-  val log_backtrace : unit -> unit
+  val log_backtrace : exn -> unit
 
   val log_and_ignore_exn : (unit -> unit) -> unit
 end
@@ -344,9 +344,10 @@ functor
         )
         fmt
 
-    let log_backtrace () =
-      let backtrace = Printexc.get_backtrace () in
-      debug "%s" (String.escaped backtrace)
+    let log_backtrace exn =
+      let level = Syslog.Debug in
+      if not (is_disabled Brand.name level) then
+        log_backtrace_internal ~level exn ()
 
     let log_and_ignore_exn f =
       try f ()

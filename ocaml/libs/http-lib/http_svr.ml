@@ -189,8 +189,9 @@ let response_request_header_fields_too_large s =
   response_error_html s "431" "Request Header Fields Too Large" [] body
 
 let response_internal_error ?req ?extra exc s =
+  Backtrace.is_important exc ;
   E.error "Responding with 500 Internal Error due to %s" (Printexc.to_string exc) ;
-  E.log_backtrace () ;
+  E.log_backtrace exc ;
   let version = Option.map get_return_version req in
   let extra =
     Option.fold ~none:""
@@ -497,9 +498,10 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                    (Unix.error_message a) b c
                 )
         | exc ->
+            Backtrace.is_important exc ;
             response_internal_error exc fd
               ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace ()
+            log_backtrace exc
     ) ;
     (None, None)
 

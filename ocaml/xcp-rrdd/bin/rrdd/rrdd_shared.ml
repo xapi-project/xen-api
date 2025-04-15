@@ -140,7 +140,7 @@ let send_rrd ?(session_id : string option)
   let open Xmlrpc_client in
   with_transport transport
     (with_http request (fun (_response, fd) ->
-         try Rrd_unix.to_fd ~internal:true rrd fd with _ -> log_backtrace ()
+         try Rrd_unix.to_fd ~internal:true rrd fd with e -> log_backtrace e
      )
     ) ;
   debug "Sending RRD complete."
@@ -171,7 +171,7 @@ let archive_rrd_internal ?(transport = None) ~uuid ~rrd () =
           Xapi_stdext_unix.Unixext.unlink_safe base_filename
         ) else
           debug "No local storage: not persisting RRDs"
-      with _ -> log_backtrace ()
+      with e -> log_backtrace e
     )
   | Some transport ->
       (* Stream it to the master to store, or maybe to a host in the migrate

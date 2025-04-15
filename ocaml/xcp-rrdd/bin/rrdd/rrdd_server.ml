@@ -300,7 +300,7 @@ let migrate_rrd (session_id : string option) (remote_address : string)
           Some x
       | None ->
           debug "VM %s RRDs not found on migrate! Continuing anyway..." vm_uuid ;
-          log_backtrace () ;
+          log_backtrace Not_found ;
           None
   )
   |> Option.iter (fun rrdi ->
@@ -696,9 +696,10 @@ module Plugin = struct
           incr_skip_count uid plugin ;
           (* increase skip count *)
           let log e =
+            Backtrace.is_important e ;
             info "Failed to process plugin metrics file: %s (%s)"
               (P.string_of_uid ~uid) (Printexc.to_string e) ;
-            log_backtrace ()
+            log_backtrace e
           in
           let open Rrd_protocol in
           match e with
