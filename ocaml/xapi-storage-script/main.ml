@@ -1754,6 +1754,8 @@ module VDIImpl (M : META) = struct
     let vdi = Storage_interface.Vdi.string_of vdi in
     let* () = unset ~dbg ~sr ~vdi ~key:(_sm_config_prefix_key ^ key) in
     return ()
+
+  let similar_content_impl _dbg _sr _vdi = wrap @@ return []
 end
 
 module DPImpl (M : META) = struct
@@ -1957,6 +1959,7 @@ let bind ~volume_script_dir =
   S.VDI.set_content_id VDI.vdi_set_content_id_impl ;
   S.VDI.add_to_sm_config VDI.vdi_add_to_sm_config_impl ;
   S.VDI.remove_from_sm_config VDI.vdi_remove_from_sm_config_impl ;
+  S.VDI.similar_content VDI.similar_content_impl ;
 
   let module DP = DPImpl (RuntimeMeta) in
   S.DP.destroy2 DP.dp_destroy2 ;
@@ -1977,7 +1980,6 @@ let bind ~volume_script_dir =
   S.DP.diagnostics (u "DP.diagnostics") ;
   S.TASK.destroy (u "TASK.destroy") ;
   S.DP.destroy (u "DP.destroy") ;
-  S.VDI.similar_content (u "VDI.similar_content") ;
   S.DP.stat_vdi (u "DP.stat_vdi") ;
   S.DATA.MIRROR.send_start (u "DATA.MIRROR.send_start") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
