@@ -97,7 +97,7 @@ module Rule = struct
 
   type t = {position: int; index: index}
 
-  let matched ~(mac : Macaddr.t) ~(pci : Pciaddr.t) ~(label : string) t : bool =
+  let matches ~(mac : Macaddr.t) ~(pci : Pciaddr.t) ~(label : string) t : bool =
     match t.index with
     | Mac_addr mac' ->
         mac' = mac
@@ -135,7 +135,7 @@ module Rule = struct
     try ListToIntMap.to_11_map ~by:(fun dev -> dev.position) l |> ignore
     with ListToIntMap.Duplicate_key -> raise Duplicate_position
 
-  let rules_of_file ~(path : string) : t list =
+  let read ~(path : string) : t list =
     if not (Sys.file_exists path) then
       []
     else
@@ -157,7 +157,7 @@ module Dev = struct
     ; mac: Network_interface.mac_address
     ; pci: Xcp_pci.address
     ; bios_eth_order: int
-    ; multinic: bool
+    ; multi_nic: bool
   }
 
   let default =
@@ -166,7 +166,7 @@ module Dev = struct
     ; mac= Macaddr.of_string_exn "00:00:00:00:00:00"
     ; pci= Pciaddr.default
     ; bios_eth_order= -1
-    ; multinic= false
+    ; multi_nic= false
     }
 
   let compare_on_mac t1 t2 = Macaddr.compare t1.mac t2.mac
@@ -175,10 +175,10 @@ module Dev = struct
     compare t1.bios_eth_order t2.bios_eth_order
 
   let to_string t =
-    Printf.sprintf "Name=%s; MAC=%s; PCI=%s; bios_eth_order=%d; multinic=%s"
+    Printf.sprintf "Name=%s; MAC=%s; PCI=%s; bios_eth_order=%d; multi_nic=%s"
       t.name (Macaddr.to_string t.mac) (Pciaddr.to_string t.pci)
       t.bios_eth_order
-      (string_of_bool t.multinic)
+      (string_of_bool t.multi_nic)
 
   exception Missing_key of string
 
@@ -221,7 +221,7 @@ module Dev = struct
 
   exception Duplicate_mac_address
 
-  let update_multinic currents =
+  let update_multi_nic currents =
     let pci_cnt =
       let f o = Some (Option.fold ~none:1 ~some:(fun c -> c + 1) o) in
       List.fold_left
@@ -230,12 +230,12 @@ module Dev = struct
     in
     List.map
       (fun dev : t ->
-        let multinic =
+        let multi_nic =
           (* Will never raise exception or be < 1 *)
           let c = PciaddrMap.find dev.pci pci_cnt in
           if c > 1 then true else false
         in
-        {dev with multinic}
+        {dev with multi_nic}
       )
       currents
 
@@ -247,7 +247,7 @@ module Dev = struct
         |> Astring.String.cuts ~sep:"\n\n"
         |> List.filter (fun line -> line <> "")
         |> List.map parse
-        |> update_multinic
+        |> update_multi_nic
       in
       ListToMacaddrMap.to_11_map ~by:(fun v -> v.mac) all |> ignore ;
       all
@@ -301,7 +301,7 @@ let assign_position_by_rules ~(rules : Rule.t list)
     (fun (acc_ordered, acc_unordered) (dev : Dev.t) ->
       match
         List.filter
-          (Rule.matched ~mac:dev.mac ~pci:dev.pci ~label:dev.name)
+          (Rule.matches ~mac:dev.mac ~pci:dev.pci ~label:dev.name)
           rules
       with
       | {position; _} :: _ ->
@@ -337,8 +337,8 @@ let assign_position_by_pci ~(last_pcis : OrderedDev.t list PciaddrMap.t)
   List.fold_left
     (fun (acc_ordered, acc_unordered) (dev : Dev.t) ->
       match (dev, PciaddrMap.find_opt dev.pci last_pcis) with
-      | Dev.{multinic= false; _}, Some [{position; mac; _}] -> (
-        (* Not a multinic funciton.
+      | Dev.{multi_nic= false; _}, Some [{position; mac; _}] -> (
+        (* Not a multi-nic funciton.
            And found a ever-seen device which had located at the same PCI address. *)
         match MacaddrSet.find_opt mac curr_macs with
         | None ->
@@ -432,7 +432,7 @@ let assign_position_for_remaining ~(max_position : int) (devs : Dev.t list) :
     (max_position, []) devs
   |> snd
 
-let generate_order ~(currents : Dev.t list) ~(rules : Rule.t list)
+let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
     ~(last_order : OrderedDev.t list) : OrderedDev.t list =
   let open Dev in
   let curr_macs =
@@ -450,7 +450,7 @@ let generate_order ~(currents : Dev.t list) ~(rules : Rule.t list)
          multinics - the devices each share a PCI BUS ID with others (multinic function).
          remaining - the deivces each occupy a PCI BUS ID exclusively. *)
     let multinics, remaining =
-      unordered |> List.partition (fun dev -> dev.multinic)
+      unordered |> List.partition (fun dev -> dev.multi_nic)
     in
     let assigned_positions =
       ordered |> List.map (fun dev -> dev.position) |> IntSet.of_list
@@ -487,17 +487,17 @@ let generate_order ~(currents : Dev.t list) ~(rules : Rule.t list)
   OrderedDev.assert_no_duplicate_mac new_order ;
   new_order
 
-let generate last_order =
+let sort last_order =
   let rules, last_order =
     if last_order = [] then
-      (Rule.rules_of_file ~path:initial_rules_file_path, [])
+      (Rule.read ~path:initial_rules_file_path, [])
     else
       ([], last_order)
   in
   let currents = Dev.get_all () in
   currents
   |> List.iter (fun x -> debug "%s current: %s" __FUNCTION__ (Dev.to_string x)) ;
-  let new_order = generate_order ~currents ~rules ~last_order in
+  let new_order = sort' ~currents ~rules ~last_order in
   new_order
   |> List.iter (fun x ->
          debug "%s new order: %s" __FUNCTION__ (OrderedDev.to_string x)

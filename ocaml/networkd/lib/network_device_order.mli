@@ -23,21 +23,21 @@ module Rule : sig
   (** Type of one mapping configuration. *)
   type t = {position: int; index: index}
 
-  val rules_of_file : path:string -> t list
-  (** [rules_of_file ~path] is the parsed rules from the content of file [path].
+  val read : path:string -> t list
+  (** [read ~path] is the parsed rules from the content of file [path].
       The file [path] contains lines in the following format:
         <N>:<label|mac|pci>="<value>", where
         label: means the <value> is the name label of the device,
         mac: means the <value> is the MAC address of the device like 00:02:C9:ED:FD:F0,
         pci: means the <value> is the PCI address (in SBDF format) of the device locates at, like 0000:05:00.0. *)
 
-  (** [Parse_error] is raised when a rule can't be created via [rules_of_file]. *)
+  (** [Parse_error] is raised when a rule can't be created via [read]. *)
   exception Parse_error of string
 
   (** [Duplicate_position] is raised when duplicate position is specified in the rules. *)
   exception Duplicate_position
 
-  val matched : mac:Macaddr.t -> pci:Pciaddr.t -> label:string -> t -> bool
+  val matches : mac:Macaddr.t -> pci:Pciaddr.t -> label:string -> t -> bool
   (** [true] if any of the [mac], [pci], or [label] meets the rule [t]. *)
 end
 
@@ -48,7 +48,9 @@ module Dev : sig
     ; mac: Network_interface.mac_address
     ; pci: Xcp_pci.address
     ; bios_eth_order: int
-    ; multinic: bool
+          (** The <N> in eth<N> which is the value of "BIOS device" from output of [biosdevname --policy all_ethN], is greater than or equal to 0 *)
+    ; multi_nic: bool
+          (** [true] if there are other devices locate at the same PCI address. Otherwise [false]. *)
   }
 
   (** [Missing_key k] is raised when no [k] can be found from the output of biosdevname. *)
@@ -76,12 +78,12 @@ module OrderedDev : sig
   exception Duplicate_mac_address
 end
 
-val generate : OrderedDev.t list -> OrderedDev.t list * (string * string) list
-(** [generate last_order] is to generate an order based on [last_order], return the new order and a list for device name changes (old_name, new_name). *)
+val sort : OrderedDev.t list -> OrderedDev.t list * (string * string) list
+(** [sort last_order] is to sort and generate an order based on [last_order], return the new order and a list for device name changes (old_name, new_name). *)
 
 (* Below is exposed only for unit tests *)
 
-val generate_order :
+val sort' :
      currents:Dev.t list
   -> rules:Rule.t list
   -> last_order:OrderedDev.t list
