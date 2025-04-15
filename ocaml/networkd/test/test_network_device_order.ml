@@ -55,42 +55,42 @@ let currents =
     ; pci= pci_addr0
     ; mac= mac_addr0
     ; bios_eth_order= 0
-    ; multinic= false
+    ; multi_nic= false
     }
   ; {
       name= name1
     ; pci= pci_addr1
     ; mac= mac_addr1
     ; bios_eth_order= 1
-    ; multinic= false
+    ; multi_nic= false
     }
   ; {
       name= name2
     ; pci= pci_addr2
     ; mac= mac_addr2
     ; bios_eth_order= 2
-    ; multinic= false
+    ; multi_nic= false
     }
   ; {
       name= name3
     ; pci= pci_addr3
     ; mac= mac_addr3
     ; bios_eth_order= 3
-    ; multinic= false
+    ; multi_nic= false
     }
   ; {
       name= name4
     ; pci= pci_addr4
     ; mac= mac_addr4
     ; bios_eth_order= 5
-    ; multinic= false
+    ; multi_nic= false
     }
   ; {
       name= name5
     ; pci= pci_addr5
     ; mac= mac_addr5
     ; bios_eth_order= 4
-    ; multinic= false
+    ; multi_nic= false
     }
   ]
 
@@ -109,7 +109,7 @@ let present_of_mac mac order =
       failwith "Can't find the device!"
 
 let test_default () =
-  let order = generate_order ~currents ~rules:[] ~last_order:[] in
+  let order = sort' ~currents ~rules:[] ~last_order:[] in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -137,7 +137,7 @@ let test_initial_rules_via_mac () =
       ; {position= 5; index= Mac_addr mac_addr0}
       ]
   in
-  let order = generate_order ~currents ~rules ~last_order:[] in
+  let order = sort' ~currents ~rules ~last_order:[] in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 5 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr1 order) ;
@@ -165,7 +165,7 @@ let test_initial_rules_via_label () =
       ; {position= 5; index= Label name0}
       ]
   in
-  let order = generate_order ~currents ~rules ~last_order:[] in
+  let order = sort' ~currents ~rules ~last_order:[] in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 5 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr1 order) ;
@@ -191,7 +191,7 @@ let test_replacement () =
     ; pci= pci_addr0
     ; mac= mac_addr0'
     ; bios_eth_order= 1
-    ; multinic= false
+    ; multi_nic= false
     }
   in
   let dev1 =
@@ -200,7 +200,7 @@ let test_replacement () =
     ; pci= pci_addr1
     ; mac= mac_addr1'
     ; bios_eth_order= 0
-    ; multinic= false
+    ; multi_nic= false
     }
   in
   let currents =
@@ -210,7 +210,7 @@ let test_replacement () =
     |> List.cons dev0
     |> List.cons dev1
   in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
 
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
 
@@ -240,7 +240,7 @@ let test_adding () =
     ; pci= pci_addr6
     ; mac= mac_addr6
     ; bios_eth_order= 1
-    ; multinic= false
+    ; multi_nic= false
     }
   in
   let dev7 =
@@ -249,12 +249,12 @@ let test_adding () =
     ; pci= pci_addr7
     ; mac= mac_addr7
     ; bios_eth_order= 0
-    ; multinic= false
+    ; multi_nic= false
     }
   in
   (* Add two devices *)
   let currents = List.rev_append currents [dev6; dev7] in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check int) "8 devices in the order" 8 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -282,7 +282,7 @@ let test_removing () =
     |> List.filter (fun dev -> dev.mac <> mac_addr0)
     |> List.filter (fun dev -> dev.mac <> mac_addr1)
   in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
 
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
@@ -314,7 +314,7 @@ let test_replug () =
     |> List.cons dev0
     |> List.cons dev1
   in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -330,7 +330,7 @@ let test_replug () =
   Alcotest.(check bool) "present" true (present_of_mac mac_addr4 order) ;
   Alcotest.(check bool) "present" true (present_of_mac mac_addr5 order)
 
-let test_multinic_inplace_reorder () =
+let test_multi_nic_inplace_reorder () =
   let mac_addr4' = Macaddr.of_string_exn "01:02:c9:ed:fd:f0" in
   let mac_addr5' = Macaddr.of_string_exn "01:02:c9:ed:fd:f1" in
   let open Dev in
@@ -340,7 +340,7 @@ let test_multinic_inplace_reorder () =
     ; pci= pci_addr4
     ; mac= mac_addr4'
     ; bios_eth_order= 1
-    ; multinic= true
+    ; multi_nic= true
     }
   in
   let dev5 =
@@ -349,10 +349,10 @@ let test_multinic_inplace_reorder () =
     ; pci= pci_addr5
     ; mac= mac_addr5'
     ; bios_eth_order= 0
-    ; multinic= true
+    ; multi_nic= true
     }
   in
-  (* The MAC addresses of multinic functions change *)
+  (* The MAC addresses of multi_nic functions change *)
   let currents =
     currents
     |> List.filter (fun dev -> dev.mac <> mac_addr4)
@@ -360,7 +360,7 @@ let test_multinic_inplace_reorder () =
     |> List.cons dev4
     |> List.cons dev5
   in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -376,7 +376,7 @@ let test_multinic_inplace_reorder () =
   Alcotest.(check bool) "present" true (present_of_mac mac_addr4' order) ;
   Alcotest.(check bool) "present" true (present_of_mac mac_addr5' order)
 
-let test_multinic_new_devices () =
+let test_multi_nic_new_devices () =
   let mac_addr6 = Macaddr.of_string_exn "01:02:c9:ed:fd:f0" in
   let mac_addr7 = Macaddr.of_string_exn "01:02:c9:ed:fd:f1" in
   let dev6 =
@@ -386,7 +386,7 @@ let test_multinic_new_devices () =
       ; pci= pci_addr4
       ; mac= mac_addr6
       ; bios_eth_order= 1
-      ; multinic= true
+      ; multi_nic= true
       }
   in
   let dev7 =
@@ -396,12 +396,12 @@ let test_multinic_new_devices () =
       ; pci= pci_addr5
       ; mac= mac_addr7
       ; bios_eth_order= 0
-      ; multinic= true
+      ; multi_nic= true
       }
   in
   (* New devices are reported on the same PCI address. *)
   let currents = currents |> List.cons dev6 |> List.cons dev7 in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check int) "8 devices in the order" 8 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -426,7 +426,7 @@ let test_pci_changes () =
   let currents =
     currents |> List.map (fun dev -> Dev.{dev with pci= move_bus_by_1 dev.pci})
   in
-  let order = generate_order ~currents ~rules:[] ~last_order in
+  let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -453,8 +453,11 @@ let tests =
       ; ("test_adding", `Quick, test_adding)
       ; ("test_removing", `Quick, test_removing)
       ; ("test_replug", `Quick, test_replug)
-      ; ("test_multinic_inplace_reorder", `Quick, test_multinic_inplace_reorder)
-      ; ("test_multinic_new_devices", `Quick, test_multinic_new_devices)
+      ; ( "test_multi_nic_inplace_reorder"
+        , `Quick
+        , test_multi_nic_inplace_reorder
+        )
+      ; ("test_multi_nic_new_devices", `Quick, test_multi_nic_new_devices)
       ; ("test_pci_changes", `Quick, test_pci_changes)
       ]
     )
