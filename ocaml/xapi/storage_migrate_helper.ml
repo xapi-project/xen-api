@@ -36,6 +36,8 @@ module State = struct
       ; parent_vdi: Vdi.t
       ; remote_vdi: Vdi.t
       ; mirror_vm: Vm.t
+      ; url: string [@default ""]
+      ; verify_dest: bool [@default false]
     }
     [@@deriving rpcty]
 
@@ -92,6 +94,11 @@ module State = struct
       ; tapdev: tapdev option
       ; mutable failed: bool
       ; mutable watchdog: handle option
+      ; vdi: Vdi.t [@default Vdi.of_string ""] (* source vdi *)
+      ; live_vm: Vm.t
+            [@default Vm.of_string "0"]
+            (* vm to which the source vdi is attached *)
+      ; mirror_key: Mirror.operation option [@default None]
     }
     [@@deriving rpcty]
 

@@ -56,6 +56,7 @@ val mirror_pass_fds :
   -> sr:Storage_interface.sr
   -> vdi:Storage_interface.vdi
   -> mirror_vm:Storage_interface.vm
+  -> live_vm:Storage_interface.vm
   -> mirror_id:string
   -> url:string
   -> dest_sr:Storage_interface.sr

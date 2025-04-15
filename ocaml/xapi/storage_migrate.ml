@@ -261,7 +261,7 @@ module MigrateLocal = struct
       raise
         (Storage_error (Migration_preparation_failure (Printexc.to_string e)))
 
-  let start ~task_id ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest
+  let start ~task_id ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url ~dest
       ~verify_dest =
     SXM.info
       "%s sr:%s vdi:%s dp: %s mirror_vm: %s copy_vm: %s url:%s dest:%s \
@@ -292,6 +292,9 @@ module MigrateLocal = struct
         ; tapdev= None
         ; failed= false
         ; watchdog= None
+        ; live_vm
+        ; vdi
+        ; mirror_key= None
         }
     in
 
@@ -608,13 +611,14 @@ let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
         ~sr ~vdi ~vm ~url ~dest ~verify_dest
   )
 
-let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest =
+let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url ~dest ~verify_dest
+    =
   with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
   with_task_and_thread ~dbg (fun task ->
       MigrateLocal.start
         ~task_id:(Storage_task.id_of_handle task)
-        ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest
-        ~verify_dest
+        ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url
+        ~dest ~verify_dest
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
