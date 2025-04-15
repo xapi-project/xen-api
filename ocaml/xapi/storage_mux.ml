@@ -27,6 +27,8 @@ let s_of_vdi = Storage_interface.Vdi.string_of
 
 let s_of_vm = Storage_interface.Vm.string_of
 
+let s_of_operation = Storage_interface.Mirror.show_operation
+
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~with_thread:true ~module_name:"SMAPIv2" ~name ~dbg f
 
@@ -796,6 +798,24 @@ module Mux = struct
   module DATA = struct
     let copy () ~dbg =
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
+
+    let mirror () ~dbg ~sr ~vdi ~vm ~dest =
+      with_dbg ~name:"DATA.mirror" ~dbg @@ fun di ->
+      info "%s dbg:%s sr: %s vdi: %s vm:%s  remote:%s" __FUNCTION__ dbg
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) dest ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DATA.mirror (Debug_info.to_string di) sr vdi vm dest
+
+    let stat () ~dbg ~sr ~vdi ~vm ~key =
+      with_dbg ~name:"DATA.stat" ~dbg @@ fun di ->
+      info "%s dbg:%s sr: %s vdi: %s vm: %s opeartion_key: %s" __FUNCTION__ dbg
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) (s_of_operation key) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DATA.stat (Debug_info.to_string di) sr vdi vm key
 
     let import_activate () ~dbg ~dp ~sr ~vdi ~vm =
       with_dbg ~name:"DATA.import_activate" ~dbg @@ fun di ->
