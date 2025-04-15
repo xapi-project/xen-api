@@ -81,8 +81,30 @@ let frame_of_location loc =
 let frame_of_slot slot =
   slot |> Printexc.Slot.location |> Option.map frame_of_location
 
+let frame_eq a b =
+  a.process == b.process
+  && a.line = b.line
+  && String.equal a.filename b.filename
+
+let[@tail_mod_cons] rec dedup_to_list' last xs =
+  match xs () with
+  | Seq.Nil ->
+      []
+  | Seq.Cons (x, xs) ->
+      if frame_eq last x then
+        dedup_to_list' x xs
+      else
+        x :: dedup_to_list' x xs
+
+let dedup_to_list seq =
+  match seq () with
+  | Seq.Nil ->
+      []
+  | Seq.Cons (x, xs) ->
+      x :: dedup_to_list' x xs
+
 let frames_of_slots slots =
-  slots |> Array.to_seq |> Seq.filter_map frame_of_slot |> List.of_seq
+  slots |> Array.to_seq |> Seq.filter_map frame_of_slot |> dedup_to_list
 
 let get_backtrace_402 () =
   Printexc.get_raw_backtrace ()
