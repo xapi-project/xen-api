@@ -1030,14 +1030,27 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         let id =
           Storage_migrate_helper.State.mirror_id_of (vconf.sr, vconf.location)
         in
-        debug "%s mirror_vm is %s copy_vm is %s" __FUNCTION__
+        let live_vm =
+          match Db.VDI.get_VBDs ~__context ~self:vconf.vdi with
+          | [] ->
+              failwith "VDI does not have a corresponding VBD"
+          | vbd_ref :: _ ->
+              (* XX Is it possible that this VDI might be used as multiple VBDs attached to different VMs? *)
+              let vm_ref = Db.VBD.get_VM ~__context ~self:vbd_ref in
+              let domid =
+                Db.VM.get_domid ~__context ~self:vm_ref |> Int64.to_string
+              in
+              Vm.of_string domid
+        in
+        debug "%s mirror_vm is %s copy_vm is %s live_vm is %s" __FUNCTION__
           (Vm.string_of vconf.mirror_vm)
-          (Vm.string_of vconf.copy_vm) ;
+          (Vm.string_of vconf.copy_vm)
+          (Vm.string_of live_vm) ;
         (* Layering violation!! *)
         ignore (Storage_access.register_mirror __context id) ;
         Storage_migrate.start ~dbg ~sr:vconf.sr ~vdi:vconf.location ~dp:new_dp
-          ~mirror_vm:vconf.mirror_vm ~copy_vm:vconf.copy_vm ~url:remote.sm_url
-          ~dest:dest_sr ~verify_dest:is_intra_pool
+          ~mirror_vm:vconf.mirror_vm ~copy_vm:vconf.copy_vm ~live_vm
+          ~url:remote.sm_url ~dest:dest_sr ~verify_dest:is_intra_pool
     in
     let mapfn x =
       let total = Int64.to_float total_size in
