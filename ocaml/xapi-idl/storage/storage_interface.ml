@@ -175,6 +175,9 @@ let parse_nbd_uri nbd =
   | _ ->
       fail ()
 
+let parse_nbd_uri_opt nbd =
+  try Some (parse_nbd_uri nbd) with Failure _e -> None
+
 (** Separates the implementations of the given backend returned from the
     VDI.attach2 SMAPIv2 call based on their type *)
 let implementations_of_backend backend =
@@ -191,6 +194,16 @@ let implementations_of_backend backend =
           (xendisks, blockdevices, files, nbd :: nbds)
     )
     ([], [], [], []) backend.implementations
+
+let nbd_export_of_attach_info (backend : backend) =
+  let _, _, _, nbds = implementations_of_backend backend in
+  match nbds with
+  | [] ->
+      debug "%s no nbd uri found" __FUNCTION__ ;
+      None
+  | uri :: _ ->
+      debug "%s found nbd uri %s" __FUNCTION__ uri.uri ;
+      parse_nbd_uri_opt uri |> Option.map snd
 
 (** Uniquely identifies the contents of a VDI *)
 type content_id = string [@@deriving rpcty]
