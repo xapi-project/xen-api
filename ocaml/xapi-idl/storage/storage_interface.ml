@@ -1040,6 +1040,29 @@ module StorageAPI (R : RPC) = struct
         @-> returning result_p err
         )
 
+    let operation_p = Param.mk ~name:"operation" Mirror.operation
+
+    let mirror =
+      declare "DATA.mirror" []
+        (dbg_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> url_p
+        @-> returning operation_p err
+        )
+
+    let stat =
+      let status_p = Param.mk ~name:"status" Mirror.status in
+      declare "DATA.stat" []
+        (dbg_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> operation_p
+        @-> returning status_p err
+        )
+
     (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
       which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
     let import_activate =
@@ -1540,6 +1563,24 @@ module type Server_impl = sig
       -> verify_dest:bool
       -> Task.id
 
+    val mirror :
+         context
+      -> dbg:debug_info
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> dest:string
+      -> operation
+
+    val stat :
+         context
+      -> dbg:debug_info
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> key:operation
+      -> status
+
     val import_activate :
          context
       -> dbg:debug_info
@@ -1713,6 +1754,12 @@ module Server (Impl : Server_impl) () = struct
     S.get_by_name (fun dbg name -> Impl.get_by_name () ~dbg ~name) ;
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
+    ) ;
+    S.DATA.mirror (fun dbg sr vdi vm dest ->
+        Impl.DATA.mirror () ~dbg ~sr ~vdi ~vm ~dest
+    ) ;
+    S.DATA.stat (fun dbg sr vdi vm key ->
+        Impl.DATA.stat () ~dbg ~sr ~vdi ~vm ~key
     ) ;
     S.DATA.MIRROR.send_start
       (fun
