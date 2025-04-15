@@ -40,111 +40,6 @@ let choose_backend dbg sr =
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-    let on_fail : (unit -> unit) list ref = ref [] in
-    let vdis = Local.SR.scan dbg sr in
-    (* We drop cbt_metadata VDIs that do not have any actual data *)
-    let vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") vdis in
-    let leaf_dp = Local.DP.create dbg Uuidx.(to_string (make ())) in
-    try
-      let vdi_info = {vdi_info with sm_config= [("base_mirror", id)]} in
-      let leaf = Local.VDI.create dbg sr vdi_info in
-      info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
-      on_fail := (fun () -> Local.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
-      (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
-         useful for calling VDI.compose later on *)
-      let dummy = Local.VDI.snapshot dbg sr leaf in
-      on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail ;
-      debug "%s Created dummy snapshot for mirror receive: %s" __FUNCTION__
-        (string_of_vdi_info dummy) ;
-      let _ : backend = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
-      Local.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
-      let nearest =
-        List.fold_left
-          (fun acc content_id ->
-            match acc with
-            | Some _ ->
-                acc
-            | None -> (
-              try
-                Some
-                  (List.find
-                     (fun vdi ->
-                       vdi.content_id = content_id
-                       && vdi.virtual_size <= vdi_info.virtual_size
-                     )
-                     vdis
-                  )
-              with Not_found -> None
-            )
-          )
-          None similar
-      in
-      debug "Nearest VDI: content_id=%s vdi=%s"
-        (Option.fold ~none:"None" ~some:(fun x -> x.content_id) nearest)
-        (Option.fold ~none:"None"
-           ~some:(fun x -> Storage_interface.Vdi.string_of x.vdi)
-           nearest
-        ) ;
-      let parent =
-        match nearest with
-        | Some vdi ->
-            debug "Cloning VDI" ;
-            let vdi = add_to_sm_config vdi "base_mirror" id in
-            let vdi_clone = Local.VDI.clone dbg sr vdi in
-            debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi) ;
-            ( if vdi_clone.virtual_size <> vdi_info.virtual_size then
-                let new_size =
-                  Local.VDI.resize dbg sr vdi_clone.vdi vdi_info.virtual_size
-                in
-                debug "Resize local clone VDI to %Ld: result %Ld"
-                  vdi_info.virtual_size new_size
-            ) ;
-            vdi_clone
-        | None ->
-            debug "Creating a blank remote VDI" ;
-            Local.VDI.create dbg sr vdi_info
-      in
-      debug "Parent disk content_id=%s" parent.content_id ;
-      State.add id
-        State.(
-          Recv_op
-            Receive_state.
-              {
-                sr
-              ; dummy_vdi= dummy.vdi
-              ; leaf_vdi= leaf.vdi
-              ; leaf_dp
-              ; parent_vdi= parent.vdi
-              ; remote_vdi= vdi_info.vdi
-              ; mirror_vm= vm
-              }
-        ) ;
-      let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
-      Mirror.Vhd_mirror
-        {
-          Mirror.mirror_vdi= leaf
-        ; mirror_datapath= leaf_dp
-        ; copy_diffs_from= nearest_content_id
-        ; copy_diffs_to= parent.vdi
-        ; dummy_vdi= dummy.vdi
-        }
-    with e ->
-      List.iter
-        (fun op ->
-          try op ()
-          with e ->
-            debug "Caught exception in on_fail: %s" (Printexc.to_string e)
-        )
-        !on_fail ;
-      raise e
-
-  let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
-
-  let receive_start2 ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
-
   let receive_finalize ~dbg ~id =
     let recv_state = State.find_active_receive_mirror id in
     let open State.Receive_state in
@@ -629,10 +524,6 @@ let list = MigrateLocal.list
 let killall = MigrateLocal.killall
 
 let stat = MigrateLocal.stat
-
-let receive_start = MigrateRemote.receive_start
-
-let receive_start2 = MigrateRemote.receive_start2
 
 let receive_finalize = MigrateRemote.receive_finalize
 
