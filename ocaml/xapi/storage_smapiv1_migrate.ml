@@ -552,6 +552,8 @@ let mirror_cleanup ~dbg ~sr ~snapshot =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
+  let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
+
   let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
       ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
     let (module Remote) =
@@ -589,25 +591,26 @@ module MIRROR : SMAPIv2_MIRROR = struct
           (Storage_interface.Vdi.string_of mirror_res.Mirror.mirror_vdi.vdi) ;
         mirror_cleanup ~dbg ~sr ~snapshot
 
-  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
+      (module SMAPI : SMAPIv2) =
     let on_fail : (unit -> unit) list ref = ref [] in
-    let vdis = Local.SR.scan dbg sr in
+    let vdis = SMAPI.SR.scan dbg sr in
     (* We drop cbt_metadata VDIs that do not have any actual data *)
     let vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") vdis in
-    let leaf_dp = Local.DP.create dbg Uuidx.(to_string (make ())) in
+    let leaf_dp = SMAPI.DP.create dbg Uuidx.(to_string (make ())) in
     try
       let vdi_info = {vdi_info with sm_config= [("base_mirror", id)]} in
-      let leaf = Local.VDI.create dbg sr vdi_info in
+      let leaf = SMAPI.VDI.create dbg sr vdi_info in
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
-      on_fail := (fun () -> Local.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
+      on_fail := (fun () -> SMAPI.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
       (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
          useful for calling VDI.compose later on *)
-      let dummy = Local.VDI.snapshot dbg sr leaf in
-      on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail ;
+      let dummy = SMAPI.VDI.snapshot dbg sr leaf in
+      on_fail := (fun () -> SMAPI.VDI.destroy dbg sr dummy.vdi) :: !on_fail ;
       D.debug "%s Created dummy snapshot for mirror receive: %s" __FUNCTION__
         (string_of_vdi_info dummy) ;
-      let _ : backend = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
-      Local.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
+      let _ : backend = SMAPI.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
+      SMAPI.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
       let nearest =
         List.fold_left
           (fun acc content_id ->
@@ -640,21 +643,26 @@ module MIRROR : SMAPIv2_MIRROR = struct
         | Some vdi ->
             D.debug "Cloning VDI" ;
             let vdi = add_to_sm_config vdi "base_mirror" id in
-            let vdi_clone = Local.VDI.clone dbg sr vdi in
+            let vdi_clone = SMAPI.VDI.clone dbg sr vdi in
             D.debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi) ;
             ( if vdi_clone.virtual_size <> vdi_info.virtual_size then
                 let new_size =
-                  Local.VDI.resize dbg sr vdi_clone.vdi vdi_info.virtual_size
+                  SMAPI.VDI.resize dbg sr vdi_clone.vdi vdi_info.virtual_size
                 in
-                D.debug "Resize local clone VDI to %Ld: result %Ld"
+                D.debug "Resize clone VDI to %Ld: result %Ld"
                   vdi_info.virtual_size new_size
             ) ;
             vdi_clone
         | None ->
             D.debug "Creating a blank remote VDI" ;
-            Local.VDI.create dbg sr vdi_info
+            SMAPI.VDI.create dbg sr vdi_info
       in
       D.debug "Parent disk content_id=%s" parent.content_id ;
+      (* The state tracking here does not need to be changed, however, it will be
+         stored in memory on different hosts. If receive_start is called, by an older
+         host, this State.add is run on the destination host. On the other hand, if
+         receive_start2 is called, this will be stored in memory on the source host.
+         receive_finalize2 and receive_cancel2 handles this similarly. *)
       State.add id
         State.(
           Recv_op
@@ -692,9 +700,15 @@ module MIRROR : SMAPIv2_MIRROR = struct
 
   let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~similar =
     receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
+      (module Local)
 
-  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
+  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
+      ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    receive_start_common ~dbg ~sr ~vdi_info ~id:mirror_id ~similar ~vm
+      (module Remote)
 
   let receive_finalize _ctx ~dbg ~id =
     let recv_state = State.find_active_receive_mirror id in
@@ -702,8 +716,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
     State.remove_receive_mirror id
 
-  let receive_finalize2 _ctx ~dbg ~id =
-    let recv_state = State.find_active_receive_mirror id in
+  let receive_finalize2 _ctx ~dbg ~mirror_id ~sr:_ ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let recv_state = State.find_active_receive_mirror mirror_id in
     let open State.Receive_state in
     Option.iter
       (fun r ->
@@ -712,15 +729,15 @@ module MIRROR : SMAPIv2_MIRROR = struct
           __FUNCTION__ (Sr.string_of r.sr)
           (Vdi.string_of r.parent_vdi)
           (Vdi.string_of r.leaf_vdi) ;
-        Local.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
-        Local.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
+        Remote.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
+        Remote.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
         (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
            there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        D.log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr r.dummy_vdi) ;
-        Local.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
+        D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        Remote.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
-    State.remove_receive_mirror id
+    State.remove_receive_mirror mirror_id
 
   let receive_cancel _ctx ~dbg ~id =
     let receive_state = State.find_active_receive_mirror id in
@@ -736,4 +753,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
       )
       receive_state ;
     State.remove_receive_mirror id
+
+  let receive_cancel2 _ctx ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
+    (* see Storage_migrate.receive_cancel2 *)
+    u __FUNCTION__
 end

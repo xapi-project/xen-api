@@ -40,44 +40,29 @@ let choose_backend dbg sr =
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  let receive_finalize ~dbg ~id =
-    let recv_state = State.find_active_receive_mirror id in
-    let open State.Receive_state in
-    Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
-    State.remove_receive_mirror id
+  (** [receive_finalize2 dbg mirror_id sr url verify_dest] takes an [sr] parameter
+  which is the source sr and multiplexes based on the type of that *)
+  let receive_finalize2 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    let (module Migrate_Backend) = choose_backend dbg sr in
+    Migrate_Backend.receive_finalize2 () ~dbg ~mirror_id ~sr ~url ~verify_dest
 
-  let receive_finalize2 ~dbg ~id =
-    let recv_state = State.find_active_receive_mirror id in
+  let receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let receive_state = State.find_active_receive_mirror mirror_id in
     let open State.Receive_state in
     Option.iter
       (fun r ->
-        SXM.info
-          "%s Mirror done. Compose on the dest sr %s parent %s and leaf %s"
-          __FUNCTION__ (Sr.string_of r.sr)
-          (Vdi.string_of r.parent_vdi)
-          (Vdi.string_of r.leaf_vdi) ;
-        Local.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
-        Local.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
-        (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
-           there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr r.dummy_vdi) ;
-        Local.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
-      )
-      recv_state ;
-    State.remove_receive_mirror id
-
-  let receive_cancel ~dbg ~id =
-    let receive_state = State.find_active_receive_mirror id in
-    let open State.Receive_state in
-    Option.iter
-      (fun r ->
-        log_and_ignore_exn (fun () -> Local.DP.destroy dbg r.leaf_dp false) ;
+        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
         List.iter
-          (fun v -> log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr v))
+          (fun v ->
+            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
+          )
           [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
       )
       receive_state ;
-    State.remove_receive_mirror id
+    State.remove_receive_mirror mirror_id
 end
 
 (** This module [MigrateLocal] consists of the concrete implementations of the 
@@ -121,11 +106,10 @@ module MigrateLocal = struct
             | None ->
                 debug "Snapshot VDI already cleaned up"
             ) ;
-
-            let (module Remote) =
-              get_remote_backend remote_info.url remote_info.verify_dest
-            in
-            try Remote.DATA.MIRROR.receive_cancel dbg id with _ -> ()
+            try
+              MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id
+                ~url:remote_info.url ~verify_dest:remote_info.verify_dest
+            with _ -> ()
           )
         | None ->
             ()
@@ -145,11 +129,10 @@ module MigrateLocal = struct
   let prepare ~dbg ~sr ~vdi ~dest ~local_vdi ~mirror_id ~mirror_vm ~url
       ~verify_dest =
     try
-      let (module Remote) = get_remote_backend url verify_dest in
+      let (module Migrate_Backend) = choose_backend dbg sr in
       let similars = similar_vdis ~dbg ~sr ~vdi in
-
-      Remote.DATA.MIRROR.receive_start2 dbg dest local_vdi mirror_id similars
-        mirror_vm
+      Migrate_Backend.receive_start2 () ~dbg ~sr:dest ~vdi_info:local_vdi
+        ~mirror_id ~similar:similars ~vm:mirror_vm ~url ~verify_dest
     with e ->
       error "%s Caught error %s while preparing for SXM" __FUNCTION__
         (Printexc.to_string e) ;
@@ -215,7 +198,7 @@ module MigrateLocal = struct
       | Storage_error (Migration_mirror_snapshot_failure reason) ) as e ->
         error "%s: Caught %s: during storage migration preparation" __FUNCTION__
           reason ;
-        MigrateRemote.receive_cancel ~dbg ~id:mirror_id ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest ;
         raise e
     | Storage_error (Migration_mirror_copy_failure reason) as e ->
         error "%s: Caught %s: during storage migration copy" __FUNCTION__ reason ;
@@ -331,9 +314,12 @@ module MigrateLocal = struct
       )
       copy_ops ;
     List.iter
-      (fun (id, _recv_state) ->
-        debug "Receive in progress: %s" id ;
-        log_and_ignore_exn (fun () -> Local.DATA.MIRROR.receive_cancel dbg id)
+      (fun (mirror_id, (recv_state : State.Receive_state.t)) ->
+        debug "Receive in progress: %s" mirror_id ;
+        log_and_ignore_exn (fun () ->
+            MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~url:recv_state.url
+              ~verify_dest:recv_state.verify_dest
+        )
       )
       recv_ops ;
     State.clear ()
@@ -405,7 +391,8 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
          let (module Remote) = get_remote_backend r.url verify_dest in
          debug "Calling receive_finalize2" ;
          log_and_ignore_exn (fun () ->
-             Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
+             MigrateRemote.receive_finalize2 ~dbg:"Mirror-cleanup" ~mirror_id:id
+               ~sr ~url:r.url ~verify_dest
          ) ;
          debug "Finished calling receive_finalize2" ;
          State.remove_local_mirror id ;
@@ -524,12 +511,6 @@ let list = MigrateLocal.list
 let killall = MigrateLocal.killall
 
 let stat = MigrateLocal.stat
-
-let receive_finalize = MigrateRemote.receive_finalize
-
-let receive_finalize2 = MigrateRemote.receive_finalize2
-
-let receive_cancel = MigrateRemote.receive_cancel
 
 (* The remote end of this call, SR.update_snapshot_info_dest, is implemented in
  * the SMAPIv1 section of storage_migrate.ml. It needs to access the setters
