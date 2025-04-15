@@ -386,8 +386,9 @@ module Copy = struct
         raise (Storage_error (Internal_error (Printexc.to_string e)))
 end
 
-let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~mirror_id ~url ~dest_sr
-    ~verify_dest ~(remote_mirror : Mirror.mirror_receive_result_vhd_t) =
+let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
+    ~dest_sr ~verify_dest ~(remote_mirror : Mirror.mirror_receive_result_vhd_t)
+    =
   let remote_vdi = remote_mirror.mirror_vdi.vdi in
   let mirror_dp = remote_mirror.mirror_datapath in
 
@@ -470,6 +471,9 @@ let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~mirror_id ~url ~dest_sr
       ; tapdev= Some tapdev
       ; failed= false
       ; watchdog= None
+      ; vdi
+      ; live_vm
+      ; mirror_key= None
       }
   in
   State.add mirror_id (State.Send_op alm) ;
@@ -549,7 +553,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
   let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
-      ~local_vdi ~copy_vm ~live_vm:_ ~url ~remote_mirror ~dest_sr ~verify_dest =
+      ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
@@ -564,8 +568,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
           )
     | Mirror.Vhd_mirror mirror_res ->
         let tapdev =
-          mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~mirror_id ~url ~dest_sr
-            ~verify_dest ~remote_mirror:mirror_res
+          mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
+            ~dest_sr ~verify_dest ~remote_mirror:mirror_res
         in
 
         let snapshot = mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi in
@@ -663,6 +667,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
               ; parent_vdi= parent.vdi
               ; remote_vdi= vdi_info.vdi
               ; mirror_vm= vm
+              ; url= ""
+              ; verify_dest= false
               }
         ) ;
       let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
