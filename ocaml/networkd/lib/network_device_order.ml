@@ -300,16 +300,16 @@ let assign_position_by_rules ~(rules : Rule.t list)
   List.fold_left
     (fun (acc_ordered, acc_unordered) (dev : Dev.t) ->
       match
-        List.filter
+        List.find_opt
           (Rule.matches ~mac:dev.mac ~pci:dev.pci ~label:dev.name)
           rules
       with
-      | {position; _} :: _ ->
+      | Some {position; _} ->
           debug "%s: assign position: %d <- %s" __FUNCTION__ position
             (Dev.to_string dev) ;
           let dev' = OrderedDev.assign_position dev position in
           (dev' :: acc_ordered, acc_unordered)
-      | [] ->
+      | None ->
           (acc_ordered, dev :: acc_unordered)
     )
     (ordered, []) unordered
@@ -367,7 +367,7 @@ let assign_position_for_multinic ~(last_pcis : OrderedDev.t list PciaddrMap.t)
       (* The [last_devs] are the devices which were previously occupying the PCI address.
          The positions of these devices are called the "last positions". *)
       let last_devs =
-        PciaddrMap.find_opt pci last_pcis |> Option.fold ~none:[] ~some:Fun.id
+        PciaddrMap.find_opt pci last_pcis |> Option.value ~default:[]
       in
       match
         ( List.exists
