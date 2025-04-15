@@ -186,8 +186,8 @@ module MigrateLocal = struct
           ~verify_dest
       in
       Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
-        ~mirror_id ~local_vdi ~copy_vm ~live_vm:(Vm.of_string "0") ~url
-        ~remote_mirror ~dest_sr:dest ~verify_dest ;
+        ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
+        ~dest_sr:dest ~verify_dest ;
       Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
@@ -196,9 +196,14 @@ module MigrateLocal = struct
         raise (Api_errors.Server_error (Api_errors.sr_not_attached, [sr_uuid]))
     | ( Storage_error (Migration_mirror_fd_failure reason)
       | Storage_error (Migration_mirror_snapshot_failure reason) ) as e ->
-        error "%s: Caught %s: during storage migration preparation" __FUNCTION__
-          reason ;
-        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest ;
+        error "%s: Caught %s: during SMAPIv1 storage migration mirror "
+          __FUNCTION__ reason ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest ;
+        raise e
+    | Storage_error (Migration_mirror_failure reason) as e ->
+        error "%s: Caught :%s: during SMAPIv3 storage migration mirror"
+          __FUNCTION__ reason ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest ;
         raise e
     | Storage_error (Migration_mirror_copy_failure reason) as e ->
         error "%s: Caught %s: during storage migration copy" __FUNCTION__ reason ;
