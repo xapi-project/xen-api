@@ -838,23 +838,25 @@ module Mux = struct
           ~similar
 
       (** see storage_smapiv{1,3}_migrate.receive_start2 *)
-      let receive_start2 () ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ ~vm:_ =
+      let receive_start2 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
+          ~vm:_ =
         u __FUNCTION__
 
       let receive_finalize () ~dbg ~id =
         with_dbg ~name:"DATA.MIRROR.receive_finalize" ~dbg @@ fun di ->
         info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
-        Storage_migrate.receive_finalize ~dbg:di.log ~id
+        Storage_smapiv1_migrate.MIRROR.receive_finalize () ~dbg:di.log ~id
 
-      let receive_finalize2 () ~dbg ~id =
-        with_dbg ~name:"DATA.MIRROR.receive_finalize2" ~dbg @@ fun di ->
-        info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
-        Storage_migrate.receive_finalize2 ~dbg:di.log ~id
+      let receive_finalize2 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
+        u __FUNCTION__
 
       let receive_cancel () ~dbg ~id =
         with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun di ->
         info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
-        Storage_migrate.receive_cancel ~dbg:di.log ~id
+        Storage_smapiv1_migrate.MIRROR.receive_cancel () ~dbg:di.log ~id
+
+      let receive_cancel2 () ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
+        u __FUNCTION__
     end
   end
 
