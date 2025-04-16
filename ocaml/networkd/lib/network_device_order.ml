@@ -8,9 +8,19 @@ open Network_interface
 
 let initial_rules_file_path = "/var/lib/xcp/initial_network_device_rules.conf"
 
+let ( let* ) = Result.bind
+
 let cmd_biosdevname = "/usr/sbin/biosdevname"
 
-(** PCI address in format SBDF: domain:bus:device:function *)
+type error =
+  | Pci_addr_parse_error of string
+  | Mac_addr_parse_error of string
+  | Rule_parse_error of string
+  | Missing_biosdevname_key of string
+  | Duplicate_mac_address
+  | Duplicate_position
+  | Invalid_biosdevname_key_value of (string * string)
+
 module Pciaddr = struct
   type t = Xcp_pci.address
 
@@ -18,28 +28,25 @@ module Pciaddr = struct
 
   let to_string = Xcp_pci.string_of_address
 
-  exception Parse_error of string
-
-  let of_string_exn s =
-    try Xcp_pci.address_of_string s with _ -> raise (Parse_error s)
+  let of_string s =
+    try Ok (Xcp_pci.address_of_string s)
+    with _ -> Error (Pci_addr_parse_error s)
 
   let compare t1 t2 =
     let open Xcp_pci in
-    match
-      ( compare t1.domain t2.domain
-      , compare t1.bus t2.bus
-      , compare t1.dev t2.dev
-      , compare t1.fn t2.fn
-      )
-    with
-    | x, _, _, _ when x <> 0 ->
-        x
-    | _, x, _, _ when x <> 0 ->
-        x
-    | _, _, x, _ when x <> 0 ->
-        x
-    | _, _, _, x ->
-        x
+    let ( <?> ) a b = if a = 0 then b else a in
+    compare t1.domain t2.domain
+    <?> compare t1.bus t2.bus
+    <?> compare t1.dev t2.dev
+    <?> compare t1.fn t2.fn
+    <?> 0
+end
+
+module Macaddr = struct
+  include Macaddr
+
+  let of_string s =
+    try Ok (of_string_exn s) with _ -> Error (Mac_addr_parse_error s)
 end
 
 module PciaddrMap = Map.Make (Pciaddr)
@@ -48,52 +55,62 @@ module MacaddrMap = Map.Make (Macaddr)
 module IntMap = Map.Make (Int)
 module IntSet = Set.Make (Int)
 
-module ToMap = struct
-  module type Map = sig
-    type !+'a t
+module UniqueMap (M : Map.S) : sig
+  exception Duplicate_key
 
-    type key
+  val of_unique_list : ('a -> M.key) -> 'a list -> 'a M.t
+  (** [of_unique_list map lst] creates a map with the values in [lst]. Their
+      keys are created by calling [map value]. Raises [Duplicate_key] whenever
+      more than one value in [lst] produces the same key when calling
+      [map value]. *)
+end = struct
+  exception Duplicate_key
 
-    val empty : 'a t
+  let fail _ = raise Duplicate_key
 
-    val update : key -> ('a option -> 'a option) -> 'a t -> 'a t
-  end
-
-  module Make (M : Map) = struct
-    exception Duplicate_key
-
-    let fail _ = raise Duplicate_key
-
-    (** [to_11_map ~by l] is a map. For each binding in the map, the key is [by v] and the value is [v] in the list. *)
-    let to_11_map ~by l =
-      List.fold_left
-        (fun acc v ->
-          let f x = Some (Option.fold ~none:v ~some:fail x) in
-          M.update (by v) f acc
-        )
-        M.empty l
-
-    (** [to_1n_map ~by m] is a map. For each binding in the map, the key is [by v] and the value is a list of [v] which are values in the [m]. *)
-    let to_1n_map ~by l =
-      List.fold_left
-        (fun acc v ->
-          let f x = Some (Option.fold ~none:[v] ~some:(List.cons v) x) in
-          M.update (by v) f acc
-        )
-        M.empty l
-  end
+  let of_unique_list map l =
+    List.fold_left
+      (fun acc v ->
+        let f x = Some (Option.fold ~none:v ~some:fail x) in
+        M.update (map v) f acc
+      )
+      M.empty l
 end
 
-module ListToIntMap = ToMap.Make (IntMap)
-module ListToMacaddrMap = ToMap.Make (MacaddrMap)
-module ListToPciaddrMap = ToMap.Make (PciaddrMap)
+module MultiMap (M : Map.S) : sig
+  val of_list : ('a -> M.key) -> 'a list -> 'a list M.t
+  (** [of_list map lst] creates a map with the values in [lst]. Their keys are
+      created by calling [map value]. Whenever more than a value generates the
+      key when calling [map value], the values are concatenated as a list. *)
+end = struct
+  let of_list map l =
+    List.fold_left
+      (fun acc v ->
+        let f x = Some (Option.fold ~none:[v] ~some:(List.cons v) x) in
+        M.update (map v) f acc
+      )
+      M.empty l
+end
 
-(** A rule is to specify a position for a network device which can be
-    identified by MAC address, PCI address, or name label. *)
+module IntUniqueMap = UniqueMap (IntMap)
+module MacaddrUniqueMap = UniqueMap (MacaddrMap)
+module PciaddrMultiMap = MultiMap (PciaddrMap)
+
+let fold_results (l : ('a, 'e) result list) : ('a list, 'e) result =
+  List.fold_left
+    (fun acc r ->
+      match (acc, r) with
+      | Ok acc, Ok r ->
+          Ok (r :: acc)
+      | Error error, _ ->
+          Error error
+      | Ok _, Error error ->
+          Error error
+    )
+    (Ok []) l
+
 module Rule = struct
   type index = Mac_addr of Macaddr.t | Pci_addr of Pciaddr.t | Label of string
-
-  exception Parse_error of string
 
   type t = {position: int; index: index}
 
@@ -110,47 +127,37 @@ module Rule = struct
     debug "%s: line: %s" __FUNCTION__ line ;
     try
       Scanf.sscanf line {|%d:%s@="%s@"|} (fun position ty value ->
-          let index =
-            match ty with
-            | "pci" ->
-                Pci_addr (Pciaddr.of_string_exn value)
-            | "mac" ->
-                Mac_addr (Macaddr.of_string_exn value)
-            | "label" ->
-                Label value
-            | _ ->
-                raise (Parse_error line)
-          in
-          {position; index}
+          let to_rule index = Ok {position; index} in
+          match ty with
+          | "pci" ->
+              let* pci = Pciaddr.of_string value in
+              to_rule (Pci_addr pci)
+          | "mac" ->
+              let* mac = Macaddr.of_string value in
+              to_rule (Mac_addr mac)
+          | "label" ->
+              to_rule (Label value)
+          | _ ->
+              Error (Rule_parse_error line)
       )
-    with
-    | Parse_error _ as e ->
-        raise e
-    | _ ->
-        raise (Parse_error line)
+    with _ -> Error (Rule_parse_error line)
 
-  exception Duplicate_position
+  let validate_rules (l : (t, error) result list) =
+    let* rules = fold_results l in
+    try
+      IntUniqueMap.of_unique_list (fun dev -> dev.position) rules |> ignore ;
+      Ok rules
+    with IntUniqueMap.Duplicate_key -> Error Duplicate_position
 
-  let assert_no_duplicate_position (l : t list) =
-    try ListToIntMap.to_11_map ~by:(fun dev -> dev.position) l |> ignore
-    with ListToIntMap.Duplicate_key -> raise Duplicate_position
-
-  let read ~(path : string) : t list =
+  let read ~(path : string) : (t list, error) result =
     if not (Sys.file_exists path) then
-      []
+      Ok []
     else
-      let read_lines = Xapi_stdext_unix.Unixext.read_lines in
-      let l = read_lines ~path |> List.map parse in
-      assert_no_duplicate_position l ;
-      l
+      Xapi_stdext_unix.Unixext.read_lines ~path
+      |> List.map parse
+      |> validate_rules
 end
 
-exception Not_ethN of string
-
-let n_of_ethn ethn =
-  try Scanf.sscanf ethn "eth%d" (fun n -> n) with _ -> raise (Not_ethN ethn)
-
-(** A network device which has not been assigned a position in the order. *)
 module Dev = struct
   type t = {
       name: Network_interface.iface
@@ -180,7 +187,9 @@ module Dev = struct
       t.bios_eth_order
       (string_of_bool t.multi_nic)
 
-  exception Missing_key of string
+  let n_of_ethn ethn =
+    try Ok (Scanf.sscanf ethn "eth%d" (fun n -> n))
+    with _ -> Error (Invalid_biosdevname_key_value ("BIOS device", ethn))
 
   let parse output_of_one_dev =
     debug "%s: line: %s" __FUNCTION__ output_of_one_dev ;
@@ -194,39 +203,41 @@ module Dev = struct
     List.iter (fun (k, v) -> debug "%s: [%s]=[%s]" __FUNCTION__ k v) kvs ;
     [
       ( "BIOS device"
-      , fun acc value -> {acc with bios_eth_order= n_of_ethn value}
+      , fun r v ->
+          let* bios_eth_order = n_of_ethn v in
+          Ok {r with bios_eth_order}
       )
-    ; ("Kernel name", fun acc value -> {acc with name= value})
+    ; ("Kernel name", fun r v -> Ok {r with name= v})
     ; ( "Assigned MAC"
-      , fun acc value -> {acc with mac= Macaddr.of_string_exn value}
+      , fun r v ->
+          let* mac = Macaddr.of_string v in
+          Ok {r with mac}
       )
-    ; ("Bus Info", fun acc value -> {acc with pci= Pciaddr.of_string_exn value})
+    ; ( "Bus Info"
+      , fun r v ->
+          let* pci = Pciaddr.of_string v in
+          Ok {r with pci}
+      )
     ]
     |> List.fold_left
-         (fun (missing_keys, acc) (key, f) ->
-           match List.assoc_opt key kvs with
+         (fun acc (k, f) ->
+           let* r = acc in
+           match List.assoc_opt k kvs with
            | Some v ->
-               (missing_keys, f acc v)
+               Result.map_error
+                 (fun _ -> Invalid_biosdevname_key_value (k, v))
+                 (f r v)
            | None ->
-               (key :: missing_keys, acc)
+               Error (Missing_biosdevname_key k)
          )
-         ([], default)
-    |> fun (missing_keys, r) ->
-    match missing_keys with
-    | [] ->
-        debug "%s: %s" __FUNCTION__ (to_string r) ;
-        r
-    | key :: _ ->
-        raise (Missing_key key)
+         (Ok default)
 
-  exception Duplicate_mac_address
-
-  let update_multi_nic currents =
+  let update_multi_nic devs =
     let pci_cnt =
       let f o = Some (Option.fold ~none:1 ~some:(fun c -> c + 1) o) in
       List.fold_left
         (fun acc dev -> PciaddrMap.update dev.pci f acc)
-        PciaddrMap.empty currents
+        PciaddrMap.empty devs
     in
     List.map
       (fun dev : t ->
@@ -237,29 +248,23 @@ module Dev = struct
         in
         {dev with multi_nic}
       )
-      currents
+      devs
 
-  let get_all () : t list =
+  let get_all () : (t list, error) result =
+    let* devs =
+      Network_utils.call_script cmd_biosdevname
+        ["--policy"; "all_ethN"; "-d"; "-x"]
+      |> Astring.String.cuts ~sep:"\n\n"
+      |> List.filter (fun line -> line <> "")
+      |> List.map parse
+      |> fold_results
+    in
     try
-      let all =
-        Network_utils.call_script cmd_biosdevname
-          ["--policy"; "all_ethN"; "-d"; "-x"]
-        |> Astring.String.cuts ~sep:"\n\n"
-        |> List.filter (fun line -> line <> "")
-        |> List.map parse
-        |> update_multi_nic
-      in
-      ListToMacaddrMap.to_11_map ~by:(fun v -> v.mac) all |> ignore ;
-      all
-    with
-    | ListToMacaddrMap.Duplicate_key ->
-        raise Duplicate_mac_address
-    | e ->
-        error "%s" "Can't parse the output of the biosdevname!" ;
-        raise e
+      MacaddrUniqueMap.of_unique_list (fun v -> v.mac) devs |> ignore ;
+      Ok (update_multi_nic devs)
+    with MacaddrUniqueMap.Duplicate_key -> Error Duplicate_mac_address
 end
 
-(** A network device which has been in an order. *)
 module OrderedDev = struct
   type t = Network_interface.ordered_iface
 
@@ -271,22 +276,27 @@ module OrderedDev = struct
       (string_of_bool t.present)
 
   let map_by_pci (l : t list) : t list PciaddrMap.t =
-    ListToPciaddrMap.to_1n_map ~by:(fun v -> v.pci) l
+    PciaddrMultiMap.of_list (fun v -> v.pci) l
 
-  let map_by_position (l : t list) : t IntMap.t =
-    ListToIntMap.to_11_map ~by:(fun v -> v.position) l
+  let map_by_position (l : t list) : (t IntMap.t, error) result =
+    try Ok (IntUniqueMap.of_unique_list (fun v -> v.position) l)
+    with _ -> Error Duplicate_position
 
-  exception Duplicate_position
+  let validate_no_duplicate_position (l : t list) : (t list, error) result =
+    try
+      IntUniqueMap.of_unique_list (fun dev -> dev.position) l |> ignore ;
+      Ok l
+    with _ -> Error Duplicate_position
 
-  let assert_no_duplicate_position (l : t list) =
-    try ListToIntMap.to_11_map ~by:(fun dev -> dev.position) l |> ignore
-    with _ -> raise Duplicate_position
+  let validate_no_duplicate_mac (l : t list) : (t list, error) result =
+    try
+      MacaddrUniqueMap.of_unique_list (fun dev -> dev.mac) l |> ignore ;
+      Ok l
+    with _ -> Error Duplicate_mac_address
 
-  exception Duplicate_mac_address
-
-  let assert_no_duplicate_mac (l : t list) =
-    try ListToMacaddrMap.to_11_map ~by:(fun dev -> dev.mac) l |> ignore
-    with _ -> raise Duplicate_mac_address
+  let validate_order (l : t list) : (t list, error) result =
+    let* l = validate_no_duplicate_position l in
+    validate_no_duplicate_mac l
 
   let assign_position (dev : Dev.t) position =
     Network_interface.
@@ -417,7 +427,7 @@ let assign_position_for_multinic ~(last_pcis : OrderedDev.t list PciaddrMap.t)
           in
           (acc_ordered, List.rev_append unordered_devs acc_unordered)
     )
-    (ListToPciaddrMap.to_1n_map ~by:(fun v -> v.Dev.pci) multinics)
+    (PciaddrMultiMap.of_list (fun v -> v.Dev.pci) multinics)
     ([], [])
 
 let assign_position_for_remaining ~(max_position : int) (devs : Dev.t list) :
@@ -433,7 +443,7 @@ let assign_position_for_remaining ~(max_position : int) (devs : Dev.t list) :
   |> snd
 
 let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
-    ~(last_order : OrderedDev.t list) : OrderedDev.t list =
+    ~(last_order : OrderedDev.t list) : (OrderedDev.t list, error) result =
   let open Dev in
   let curr_macs =
     currents |> List.map (fun dev -> dev.mac) |> MacaddrSet.of_list
@@ -460,8 +470,8 @@ let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
     in
     (List.rev_append ordered ordered', List.rev_append remaining unordered')
   in
+  let* m = OrderedDev.map_by_position ordered in
   let removed =
-    let m = OrderedDev.map_by_position ordered in
     last_order
     |> List.filter_map (fun (dev : OrderedDev.t) ->
            if MacaddrSet.mem dev.mac curr_macs then
@@ -483,29 +493,28 @@ let sort' ~(currents : Dev.t list) ~(rules : Rule.t list)
     |> assign_position_for_remaining ~max_position
     |> List.rev_append ordered
   in
-  OrderedDev.assert_no_duplicate_position new_order ;
-  OrderedDev.assert_no_duplicate_mac new_order ;
-  new_order
+  OrderedDev.validate_order new_order
 
 let sort last_order =
+  let* rules = Rule.read ~path:initial_rules_file_path in
   let rules, last_order =
     if last_order = [] then
-      (Rule.read ~path:initial_rules_file_path, [])
+      (rules, [])
     else
       ([], last_order)
   in
-  let currents = Dev.get_all () in
+  let* currents = Dev.get_all () in
   currents
   |> List.iter (fun x -> debug "%s current: %s" __FUNCTION__ (Dev.to_string x)) ;
-  let new_order = sort' ~currents ~rules ~last_order in
+  let* new_order = sort' ~currents ~rules ~last_order in
   new_order
   |> List.iter (fun x ->
          debug "%s new order: %s" __FUNCTION__ (OrderedDev.to_string x)
      ) ;
 
   (* Find the NICs whose name changes *)
+  let* m = OrderedDev.map_by_position last_order in
   let changes =
-    let m = OrderedDev.map_by_position last_order in
     List.fold_left
       (fun acc {position; name= curr; _} ->
         match IntMap.find_opt position m with
@@ -516,4 +525,4 @@ let sort last_order =
       )
       [] new_order
   in
-  (new_order, changes)
+  Ok (new_order, changes)
