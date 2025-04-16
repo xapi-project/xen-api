@@ -552,8 +552,6 @@ let mirror_cleanup ~dbg ~sr ~snapshot =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
   let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
       ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
     let (module Remote) =
@@ -754,7 +752,21 @@ module MIRROR : SMAPIv2_MIRROR = struct
       receive_state ;
     State.remove_receive_mirror id
 
-  let receive_cancel2 _ctx ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
-    (* see Storage_migrate.receive_cancel2 *)
-    u __FUNCTION__
+  let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let receive_state = State.find_active_receive_mirror mirror_id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
+        List.iter
+          (fun v ->
+            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
+          )
+          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
+      )
+      receive_state ;
+    State.remove_receive_mirror mirror_id
 end

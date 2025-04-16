@@ -271,7 +271,19 @@ module MIRROR : SMAPIv2_MIRROR = struct
       recv_state ;
     State.remove_receive_mirror mirror_id
 
-  let receive_cancel _ctx = u __FUNCTION__
+  let receive_cancel _ctx ~dbg:_ ~id:_ = u __FUNCTION__
 
-  let receive_cancel2 _ctx = u __FUNCTION__
+  let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let receive_state = State.find_active_receive_mirror mirror_id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
+        D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr r.leaf_vdi)
+      )
+      receive_state ;
+    State.remove_receive_mirror mirror_id
 end
