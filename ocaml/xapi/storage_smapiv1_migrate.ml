@@ -797,10 +797,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
       receive_state ;
     State.remove_receive_mirror id
 
-  let receive_cancel2 _ctx ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
-    (* see Storage_migrate.receive_cancel2 *)
-    u __FUNCTION__
-
   exception Timeout of Mtime.Span.t
 
   let reqs_outstanding_timeout = Mtime.Span.(150 * s)
@@ -875,4 +871,22 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let list _ctx = u __FUNCTION__
 
   let stat _ctx = u __FUNCTION__
+
+  let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let receive_state = State.find_active_receive_mirror mirror_id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
+        List.iter
+          (fun v ->
+            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
+          )
+          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
+      )
+      receive_state ;
+    State.remove_receive_mirror mirror_id
 end

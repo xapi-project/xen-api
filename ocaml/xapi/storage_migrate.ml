@@ -46,23 +46,9 @@ module MigrateRemote = struct
     let (module Migrate_Backend) = choose_backend dbg sr in
     Migrate_Backend.receive_finalize3 () ~dbg ~mirror_id ~sr ~url ~verify_dest
 
-  let receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest =
-    let (module Remote) =
-      Storage_migrate_helper.get_remote_backend url verify_dest
-    in
-    let receive_state = State.find_active_receive_mirror mirror_id in
-    let open State.Receive_state in
-    Option.iter
-      (fun r ->
-        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
-        List.iter
-          (fun v ->
-            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
-          )
-          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
-      )
-      receive_state ;
-    State.remove_receive_mirror mirror_id
+  let receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    let (module Migrate_Backend) = choose_backend dbg sr in
+    Migrate_Backend.receive_cancel2 () ~dbg ~mirror_id ~url ~verify_dest
 end
 
 (** This module [MigrateLocal] consists of the concrete implementations of the 
@@ -107,7 +93,7 @@ module MigrateLocal = struct
                 debug "Snapshot VDI already cleaned up"
             ) ;
             try
-              MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id
+              MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id ~sr
                 ~url:remote_info.url ~verify_dest:remote_info.verify_dest
             with _ -> ()
           )
@@ -312,10 +298,11 @@ module MigrateLocal = struct
       copy_ops ;
     List.iter
       (fun (mirror_id, (recv_state : State.Receive_state.t)) ->
+        let sr, _vdi = State.of_mirror_id mirror_id in
         debug "Receive in progress: %s" mirror_id ;
         log_and_ignore_exn (fun () ->
-            MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~url:recv_state.url
-              ~verify_dest:recv_state.verify_dest
+            MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr
+              ~url:recv_state.url ~verify_dest:recv_state.verify_dest
         )
       )
       recv_ops ;
@@ -456,7 +443,9 @@ let stop = MigrateLocal.stop
 
 let list = MigrateLocal.list
 
-let killall = MigrateLocal.killall
+let killall ~dbg =
+  with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  MigrateLocal.killall ~dbg:(Debug_info.to_string di)
 
 let stat = MigrateLocal.stat
 
