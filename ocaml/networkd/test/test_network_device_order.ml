@@ -1,29 +1,29 @@
 open Network_device_order
 open Network_interface
 
-let pci_addr0 = Pciaddr.of_string_exn "0000:01:0f.0"
+let pci_addr0 = Pciaddr.of_string "0000:01:0f.0" |> Result.get_ok
 
-let pci_addr1 = Pciaddr.of_string_exn "0000:01:0f.1"
+let pci_addr1 = Pciaddr.of_string "0000:01:0f.1" |> Result.get_ok
 
-let pci_addr2 = Pciaddr.of_string_exn "0000:01:0f.2"
+let pci_addr2 = Pciaddr.of_string "0000:01:0f.2" |> Result.get_ok
 
-let pci_addr3 = Pciaddr.of_string_exn "0000:01:0f.3"
+let pci_addr3 = Pciaddr.of_string "0000:01:0f.3" |> Result.get_ok
 
-let pci_addr4 = Pciaddr.of_string_exn "0000:05:0f.0"
+let pci_addr4 = Pciaddr.of_string "0000:05:0f.0" |> Result.get_ok
 
 let pci_addr5 = pci_addr4
 
-let mac_addr0 = Macaddr.of_string_exn "ec:f4:bb:e6:d7:b8"
+let mac_addr0 = Macaddr.of_string "ec:f4:bb:e6:d7:b8" |> Result.get_ok
 
-let mac_addr1 = Macaddr.of_string_exn "ec:f4:bb:e6:d7:b9"
+let mac_addr1 = Macaddr.of_string "ec:f4:bb:e6:d7:b9" |> Result.get_ok
 
-let mac_addr2 = Macaddr.of_string_exn "ec:f4:bb:e6:d7:ba"
+let mac_addr2 = Macaddr.of_string "ec:f4:bb:e6:d7:ba" |> Result.get_ok
 
-let mac_addr3 = Macaddr.of_string_exn "ec:f4:bb:e6:d7:bb"
+let mac_addr3 = Macaddr.of_string "ec:f4:bb:e6:d7:bb" |> Result.get_ok
 
-let mac_addr4 = Macaddr.of_string_exn "00:02:c9:ed:fd:f0"
+let mac_addr4 = Macaddr.of_string "00:02:c9:ed:fd:f0" |> Result.get_ok
 
-let mac_addr5 = Macaddr.of_string_exn "00:02:c9:ed:fd:f1"
+let mac_addr5 = Macaddr.of_string "00:02:c9:ed:fd:f1" |> Result.get_ok
 
 let name0 = "eno1"
 
@@ -110,6 +110,8 @@ let present_of_mac mac order =
 
 let test_default () =
   let order = sort' ~currents ~rules:[] ~last_order:[] in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -138,6 +140,8 @@ let test_initial_rules_via_mac () =
       ]
   in
   let order = sort' ~currents ~rules ~last_order:[] in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 5 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr1 order) ;
@@ -166,6 +170,8 @@ let test_initial_rules_via_label () =
       ]
   in
   let order = sort' ~currents ~rules ~last_order:[] in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 5 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr1 order) ;
@@ -182,8 +188,8 @@ let test_initial_rules_via_label () =
   Alcotest.(check bool) "present" true (present_of_mac mac_addr5 order)
 
 let test_replacement () =
-  let mac_addr0' = Macaddr.of_string_exn "fc:f4:bb:e6:d7:b8" in
-  let mac_addr1' = Macaddr.of_string_exn "fc:f4:bb:e6:d7:b9" in
+  let mac_addr0' = Macaddr.of_string "fc:f4:bb:e6:d7:b8" |> Result.get_ok in
+  let mac_addr1' = Macaddr.of_string "fc:f4:bb:e6:d7:b9" |> Result.get_ok in
   let open Dev in
   let dev0 =
     {
@@ -211,6 +217,8 @@ let test_replacement () =
     |> List.cons dev1
   in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
 
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
 
@@ -229,10 +237,10 @@ let test_replacement () =
   Alcotest.(check bool) "present" true (present_of_mac mac_addr5 order)
 
 let test_adding () =
-  let pci_addr6 = Pciaddr.of_string_exn "0000:06:0f.0" in
-  let mac_addr6 = Macaddr.of_string_exn "fc:f4:bb:e6:d7:b8" in
-  let pci_addr7 = Pciaddr.of_string_exn "0000:06:0f.1" in
-  let mac_addr7 = Macaddr.of_string_exn "fc:f4:bb:e6:d7:b9" in
+  let pci_addr6 = Pciaddr.of_string "0000:06:0f.0" |> Result.get_ok in
+  let mac_addr6 = Macaddr.of_string "fc:f4:bb:e6:d7:b8" |> Result.get_ok in
+  let pci_addr7 = Pciaddr.of_string "0000:06:0f.1" |> Result.get_ok in
+  let mac_addr7 = Macaddr.of_string "fc:f4:bb:e6:d7:b9" |> Result.get_ok in
   let open Dev in
   let dev6 =
     {
@@ -255,6 +263,8 @@ let test_adding () =
   (* Add two devices *)
   let currents = List.rev_append currents [dev6; dev7] in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "8 devices in the order" 8 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -283,6 +293,8 @@ let test_removing () =
     |> List.filter (fun dev -> dev.mac <> mac_addr1)
   in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
 
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
@@ -315,6 +327,8 @@ let test_replug () =
     |> List.cons dev1
   in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -331,8 +345,8 @@ let test_replug () =
   Alcotest.(check bool) "present" true (present_of_mac mac_addr5 order)
 
 let test_multi_nic_inplace_reorder () =
-  let mac_addr4' = Macaddr.of_string_exn "01:02:c9:ed:fd:f0" in
-  let mac_addr5' = Macaddr.of_string_exn "01:02:c9:ed:fd:f1" in
+  let mac_addr4' = Macaddr.of_string "01:02:c9:ed:fd:f0" |> Result.get_ok in
+  let mac_addr5' = Macaddr.of_string "01:02:c9:ed:fd:f1" |> Result.get_ok in
   let open Dev in
   let dev4 =
     {
@@ -361,6 +375,8 @@ let test_multi_nic_inplace_reorder () =
     |> List.cons dev5
   in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -377,8 +393,8 @@ let test_multi_nic_inplace_reorder () =
   Alcotest.(check bool) "present" true (present_of_mac mac_addr5' order)
 
 let test_multi_nic_new_devices () =
-  let mac_addr6 = Macaddr.of_string_exn "01:02:c9:ed:fd:f0" in
-  let mac_addr7 = Macaddr.of_string_exn "01:02:c9:ed:fd:f1" in
+  let mac_addr6 = Macaddr.of_string "01:02:c9:ed:fd:f0" |> Result.get_ok in
+  let mac_addr7 = Macaddr.of_string "01:02:c9:ed:fd:f1" |> Result.get_ok in
   let dev6 =
     Dev.
       {
@@ -402,6 +418,8 @@ let test_multi_nic_new_devices () =
   (* New devices are reported on the same PCI address. *)
   let currents = currents |> List.cons dev6 |> List.cons dev7 in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "8 devices in the order" 8 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
@@ -427,6 +445,8 @@ let test_pci_changes () =
     currents |> List.map (fun dev -> Dev.{dev with pci= move_bus_by_1 dev.pci})
   in
   let order = sort' ~currents ~rules:[] ~last_order in
+  Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
+  let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
   Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
   Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
