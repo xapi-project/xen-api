@@ -89,11 +89,17 @@ module Macaddr = struct
       {
         aname= "macaddr"
       ; test_data= [Macaddr.of_string_exn "ca:fe:ba:be:ee:ee"]
-      ; rpc_of= (fun t -> Rpc.String (Macaddr.to_string t))
+      ; rpc_of= (fun t -> Rpc.String (Macaddr.to_octets t))
       ; of_rpc=
           (function
-          | Rpc.String s ->
-              Ok (Macaddr.of_string_exn s)
+          | Rpc.String s -> (
+            try Ok (Macaddr.of_octets_exn s)
+            with e ->
+              Error
+                (`Msg
+                  (Printf.sprintf "typ_of_macaddr: %s" (Printexc.to_string e))
+                  )
+          )
           | r ->
               Error
                 (`Msg
