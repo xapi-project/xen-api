@@ -113,42 +113,6 @@ let receive progress_cb format protocol (s : Unix.file_descr)
   in
   run_vhd_tool progress_cb args s s' path
 
-(** [find_backend_device path] returns [Some path'] where [path'] is the backend path in
-    the driver domain corresponding to the frontend device [path] in this domain. *)
-let find_backend_device path =
-  try
-    let open Ezxenstore_core.Xenstore in
-    (* If we're looking at a xen frontend device, see if the backend
-       is in the same domain. If so check if it looks like a .vhd *)
-    let rdev = (Unix.stat path).Unix.st_rdev in
-    let major = rdev / 256 and minor = rdev mod 256 in
-    let link =
-      Unix.readlink (Printf.sprintf "/sys/dev/block/%d:%d/device" major minor)
-    in
-    match List.rev (String.split '/' link) with
-    | id :: "xen" :: "devices" :: _
-      when Astring.String.is_prefix ~affix:"vbd-" id ->
-        let id = int_of_string (String.sub id 4 (String.length id - 4)) in
-        with_xs (fun xs ->
-            let self = xs.Xs.read "domid" in
-            let backend =
-              xs.Xs.read (Printf.sprintf "device/vbd/%d/backend" id)
-            in
-            let params = xs.Xs.read (Printf.sprintf "%s/params" backend) in
-            match String.split '/' backend with
-            | "local" :: "domain" :: bedomid :: _ ->
-                if not (self = bedomid) then
-                  Helpers.internal_error
-                    "find_backend_device: Got domid %s but expected %s" bedomid
-                    self ;
-                Some params
-            | _ ->
-                raise Not_found
-        )
-    | _ ->
-        raise Not_found
-  with _ -> None
-
 (** [vhd_of_device path] returns (Some vhd) where 'vhd' is the vhd leaf backing a particular device [path] or None.
     [path] may either be a blktap2 device *or* a blkfront device backed by a blktap2 device. If the latter then
     the script must be run in the same domain as blkback. *)
@@ -178,20 +142,27 @@ let vhd_of_device path =
         debug "Device %s has an unknown driver" path ;
         None
   in
-  find_backend_device path |> Option.value ~default:path |> tapdisk_of_path
+  Common_tool_wrapper.find_backend_device path
+  |> Option.value ~default:path
+  |> tapdisk_of_path
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
   let s' = Uuidx.(to_string (make ())) in
+  debug "GTNDEBUG: path is %s" path ;
+  debug "GTNDEBUG: prefix is %s" prefix ;
   let source_format, source =
     match (Stream_vdi.get_nbd_device path, vhd_of_device path, relative_to) with
     | Some (nbd_server, exportname), _, None ->
+        debug "GTNDEBUG: nbdhybrid %s:%s:%s:%Ld" path nbd_server exportname size ;
         ( "nbdhybrid"
         , Printf.sprintf "%s:%s:%s:%Ld" path nbd_server exportname size
         )
     | Some _, Some vhd, Some _ | None, Some vhd, _ ->
+        debug "GTNDEBUG: hybrid %s" (path ^ ":" ^ vhd) ;
         ("hybrid", path ^ ":" ^ vhd)
     | None, None, None ->
+        debug "GTNDEBUG: raw %s" path ;
         ("raw", path)
     | _, None, Some _ ->
         let msg = "Cannot compute differences on non-VHD images" in
