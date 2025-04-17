@@ -372,7 +372,7 @@ module Mux = struct
         ) ;
       Server_helpers.exec_with_new_task "SR.update_snapshot_info_dest"
         ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          let local_vdis = scan () ~dbg ~sr in
+          let local_vdis, _ = scan2 () ~dbg ~sr in
           let find_sm_vdi ~vdi ~vdi_info_list =
             try List.find (fun x -> x.vdi = vdi) vdi_info_list
             with Not_found ->
