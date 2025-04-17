@@ -92,14 +92,11 @@ module Macaddr = struct
       ; rpc_of= (fun t -> Rpc.String (Macaddr.to_octets t))
       ; of_rpc=
           (function
-          | Rpc.String s -> (
-            try Ok (Macaddr.of_octets_exn s)
-            with e ->
-              Error
-                (`Msg
-                  (Printf.sprintf "typ_of_macaddr: %s" (Printexc.to_string e))
-                  )
-          )
+          | Rpc.String s ->
+              Macaddr.of_octets s
+              |> Result.map_error (fun (`Msg e) ->
+                     `Msg (Printf.sprintf "typ_of_macaddr: %s" e)
+                 )
           | r ->
               Error
                 (`Msg
