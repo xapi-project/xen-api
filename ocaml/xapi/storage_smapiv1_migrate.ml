@@ -279,6 +279,8 @@ module Copy = struct
       (* PR-1255: XXX: this is useful because we don't have content_ids by default *)
       D.debug "setting local content_id <- %s" local_vdi.content_id ;
       Local.VDI.set_content_id dbg sr local_vdi.vdi local_vdi.content_id ;
+      (* Re-find the VDI to get the updated content_id info *)
+      let remote_vdi = find_vdi ~dbg ~sr:dest ~vdi:dest_vdi (module Remote) in
       Some (Vdi_info remote_vdi)
     with e ->
       D.error "Caught %s: performing cleanup actions" (Printexc.to_string e) ;
