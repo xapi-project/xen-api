@@ -1457,6 +1457,9 @@ module VDIImpl (M : META) = struct
            set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
              ~key:_snapshot_of_key ~value:vdi
            >>>= fun () ->
+           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
+             ~key:_vdi_content_id_key ~value:vdi_info.content_id
+           >>>= fun () ->
            let response =
              {
                (vdi_of_volume response) with
