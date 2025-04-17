@@ -8,54 +8,63 @@ let pos_of_mac mac_addr order =
   | _ ->
       -1
 
+let present_of_mac mac order =
+  match List.find_opt (fun dev -> dev.mac = mac) order with
+  | Some {present; _} ->
+      present
+  | _ ->
+      failwith "Can't find the device!"
+
+let test_postion_and_present expected_position expected_present dev order =
+  let mac = dev.Dev.mac in
+  let name = Format.asprintf "Position assigned for %a" Macaddr.pp mac in
+  Alcotest.(check int) name expected_position (pos_of_mac mac order) ;
+  Alcotest.(check bool) name expected_present (present_of_mac mac order)
+
 let test_newhw_norules_1eth () =
   let mac_addr = Macaddr.of_string "ab:cd:ef:12:34:56" |> Result.get_ok in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-12-eth1"
-      ; pci= Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok
-      ; mac= mac_addr
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-12-eth1"
+    ; pci= Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok
+    ; mac= mac_addr
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
+  let currents = [dev0] in
   let order = sort' ~currents ~rules:[] ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "1 device in the order" 1 (List.length order) ;
-  let position = pos_of_mac mac_addr order in
-  Alcotest.(check int) "position assigned" 0 position
+  test_postion_and_present 0 true dev0 order
 
 let test_newhw_norules_2eth () =
-  let mac_addr = Macaddr.of_string "ab:cd:ef:12:34:56" |> Result.get_ok in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-12-eth1"
-      ; pci= Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok
-      ; mac= mac_addr
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-33-eth0"
-      ; pci= Pciaddr.of_string "0000:00:01.0" |> Result.get_ok
-      ; mac= Macaddr.of_string "ab:cd:ef:12:34:57" |> Result.get_ok
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-12-eth1"
+    ; pci= Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok
+    ; mac= Macaddr.of_string "ab:cd:ef:12:34:56" |> Result.get_ok
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
+  let dev1 =
+    {
+      Dev.name= "side-33-eth0"
+    ; pci= Pciaddr.of_string "0000:00:01.0" |> Result.get_ok
+    ; mac= Macaddr.of_string "ab:cd:ef:12:34:57" |> Result.get_ok
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
+  in
+  let currents = [dev0; dev1] in
   let order = sort' ~currents ~rules:[] ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "2 devices in the order" 2 (List.length order) ;
-  let position = pos_of_mac mac_addr order in
-  Alcotest.(check int) "position assigned" 0 position
+  test_postion_and_present 0 true dev0 order ;
+  test_postion_and_present 1 true dev1 order
 
 let test_newhw_2srule_2eth () =
   let mac_addr0 = Macaddr.of_string "12:34:56:78:90:12" |> Result.get_ok in
@@ -67,130 +76,119 @@ let test_newhw_2srule_2eth () =
       ; {position= 1; index= Mac_addr mac_addr0}
       ]
   in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "eth0"
-      ; pci= Pciaddr.of_string "0000:00:01.0" |> Result.get_ok
-      ; mac= mac_addr0
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-12-eth1"
-      ; pci= Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok
-      ; mac= mac_addr1
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "eth0"
+    ; pci= Pciaddr.of_string "0000:00:01.0" |> Result.get_ok
+    ; mac= mac_addr0
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
   in
+  let dev1 =
+    {
+      Dev.name= "side-12-eth1"
+    ; pci= Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok
+    ; mac= mac_addr1
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
+  in
+  let currents = [dev0; dev1] in
   let order = sort' ~currents ~rules ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
-  Alcotest.(check int) "2 devices in the order" 2 (List.length order) ;
-  let position = pos_of_mac mac_addr1 order in
-  Alcotest.(check int) "position assigned" 0 position
+  test_postion_and_present 1 true dev0 order ;
+  test_postion_and_present 0 true dev1 order
 
 let test_nosrules_1eth_incorrect_udev () =
   let mac_addr = Macaddr.of_string "ab:cd:ef:12:34:56" |> Result.get_ok in
   let pci_addr = Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-12-eth0"
-      ; pci= pci_addr
-      ; mac= mac_addr
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-12-eth0"
+    ; pci= pci_addr
+    ; mac= mac_addr
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
-  let last_order =
-    [{name= "eth2"; pci= pci_addr; mac= mac_addr; position= 3; present= true}]
+  let currents = [dev0] in
+  let seen_dev0 =
+    {name= "eth2"; pci= pci_addr; mac= mac_addr; position= 3; present= true}
   in
+  let last_order = [seen_dev0] in
   let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
-  Alcotest.(check int) "1 device in the order" 1 (List.length order) ;
-  let position = pos_of_mac mac_addr order in
-  Alcotest.(check int) "position assigned" 3 position
+  test_postion_and_present 3 true dev0 order
 
 let test_1srule_1eth_1last_correct_udev () =
   let mac_addr = Macaddr.of_string "ab:cd:ef:12:34:56" |> Result.get_ok in
   let pci_addr = Pciaddr.of_string "0000:00:0f.0" |> Result.get_ok in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "eth1"
-      ; pci= pci_addr
-      ; mac= mac_addr
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "eth1"
+    ; pci= pci_addr
+    ; mac= mac_addr
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
   in
+  let currents = [dev0] in
   let rules = Rule.[{position= 0; index= Mac_addr mac_addr}] in
-  let last_order =
-    [{name= "eth1"; pci= pci_addr; mac= mac_addr; position= 1; present= true}]
+  let seen_dev0 =
+    {name= "eth1"; pci= pci_addr; mac= mac_addr; position= 1; present= true}
   in
+  let last_order = [seen_dev0] in
   let order = sort' ~currents ~rules ~last_order in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "1 device in the order" 1 (List.length order) ;
-  let position = pos_of_mac mac_addr order in
-  Alcotest.(check int) "position assigned" 0 position
+  test_postion_and_present 0 true dev0 order
 
 let test_1srule_1eth_already_complete () =
   let mac_addr = Macaddr.of_string "00:13:72:2d:2a:ec" |> Result.get_ok in
   let pci_addr = Pciaddr.of_string "0000:04:00.0" |> Result.get_ok in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "eth0"
-      ; pci= pci_addr
-      ; mac= mac_addr
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "eth0"
+    ; pci= pci_addr
+    ; mac= mac_addr
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
+  let currents = [dev0] in
   let rules = Rule.[{position= 0; index= Mac_addr mac_addr}] in
   let order = sort' ~currents ~rules ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "1 device in the order" 1 (List.length order) ;
-  let position = pos_of_mac mac_addr order in
-  Alcotest.(check int) "position assigned" 0 position
+  test_postion_and_present 0 true dev0 order
 
 let test_1drule_1eth_already_complete () =
   let mac_addr = Macaddr.of_string "00:13:72:2d:2a:ec" |> Result.get_ok in
   let pci_addr = Pciaddr.of_string "0000:04:00.0" |> Result.get_ok in
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "eth0"
-      ; pci= pci_addr
-      ; mac= mac_addr
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "eth0"
+    ; pci= pci_addr
+    ; mac= mac_addr
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
-  let last_order =
-    [{name= "eth0"; pci= pci_addr; mac= mac_addr; position= 0; present= true}]
+  let currents = [dev0] in
+  let seen_dev0 =
+    {name= "eth0"; pci= pci_addr; mac= mac_addr; position= 0; present= true}
   in
+  let last_order = [seen_dev0] in
   let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "1 device in the order" 1 (List.length order) ;
-  let position = pos_of_mac mac_addr order in
-  Alcotest.(check int) "position assigned" 0 position
+  test_postion_and_present 0 true dev0 order
 
 let test_usecase1 () =
   let mac_addr0 = Macaddr.of_string "01:23:45:67:89:01" |> Result.get_ok in
@@ -204,64 +202,77 @@ let test_usecase1 () =
   let pci_addr3 = Pciaddr.of_string "0000:04:00.0" |> Result.get_ok in
   let pci_addr4 = Pciaddr.of_string "0000:05:00.0" |> Result.get_ok in
 
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "eth0"
-      ; pci= pci_addr0
-      ; mac= mac_addr0
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ; {
-        name= "eth1"
-      ; pci= pci_addr1
-      ; mac= mac_addr1
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ; {
-        name= "eth2"
-      ; pci= pci_addr2
-      ; mac= mac_addr2
-      ; bios_eth_order= 2
-      ; multi_nic= false
-      }
-    ; {
-        name= "eth3"
-      ; pci= pci_addr3
-      ; mac= mac_addr3
-      ; bios_eth_order= 3
-      ; multi_nic= false
-      }
-    ; {
-        name= "eth4"
-      ; pci= pci_addr4
-      ; mac= mac_addr4
-      ; bios_eth_order= 4
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "eth0"
+    ; pci= pci_addr0
+    ; mac= mac_addr0
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
-  let last_order =
-    [
-      {name= "eth0"; pci= pci_addr0; mac= mac_addr0; position= 0; present= true}
-    ; {name= "eth1"; pci= pci_addr1; mac= mac_addr1; position= 1; present= true}
-    ; {name= "eth2"; pci= pci_addr2; mac= mac_addr2; position= 2; present= true}
-    ; {name= "eth3"; pci= pci_addr3; mac= mac_addr3; position= 3; present= true}
-    ; {name= "eth4"; pci= pci_addr4; mac= mac_addr4; position= 4; present= true}
-    ]
+  let dev1 =
+    {
+      Dev.name= "eth1"
+    ; pci= pci_addr1
+    ; mac= mac_addr1
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
   in
+  let dev2 =
+    {
+      Dev.name= "eth2"
+    ; pci= pci_addr2
+    ; mac= mac_addr2
+    ; bios_eth_order= 2
+    ; multi_nic= false
+    }
+  in
+  let dev3 =
+    {
+      Dev.name= "eth3"
+    ; pci= pci_addr3
+    ; mac= mac_addr3
+    ; bios_eth_order= 3
+    ; multi_nic= false
+    }
+  in
+  let dev4 =
+    {
+      Dev.name= "eth4"
+    ; pci= pci_addr4
+    ; mac= mac_addr4
+    ; bios_eth_order= 4
+    ; multi_nic= false
+    }
+  in
+  let currents = [dev0; dev1; dev2; dev3; dev4] in
+  let seen_dev0 =
+    {name= "eth0"; pci= pci_addr0; mac= mac_addr0; position= 0; present= true}
+  in
+  let seen_dev1 =
+    {name= "eth1"; pci= pci_addr1; mac= mac_addr1; position= 1; present= true}
+  in
+  let seen_dev2 =
+    {name= "eth2"; pci= pci_addr2; mac= mac_addr2; position= 2; present= true}
+  in
+  let seen_dev3 =
+    {name= "eth3"; pci= pci_addr3; mac= mac_addr3; position= 3; present= true}
+  in
+  let seen_dev4 =
+    {name= "eth4"; pci= pci_addr4; mac= mac_addr4; position= 4; present= true}
+  in
+  let last_order = [seen_dev0; seen_dev1; seen_dev2; seen_dev3; seen_dev4] in
   let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "5 devices in the order" 5 (List.length order) ;
-  Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
-  Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
-  Alcotest.(check int) "position assigned" 2 (pos_of_mac mac_addr2 order) ;
-  Alcotest.(check int) "position assigned" 3 (pos_of_mac mac_addr3 order) ;
-  Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr4 order)
+  test_postion_and_present 0 true dev0 order ;
+  test_postion_and_present 1 true dev1 order ;
+  test_postion_and_present 2 true dev2 order ;
+  test_postion_and_present 3 true dev3 order ;
+  test_postion_and_present 4 true dev4 order
 
 let test_usecase5 () =
   let mac_addr0' = Macaddr.of_string "02:23:45:67:89:01" |> Result.get_ok in
@@ -282,64 +293,77 @@ let test_usecase5 () =
   let pci_addr3 = Pciaddr.of_string "0000:04:00.0" |> Result.get_ok in
   let pci_addr4 = Pciaddr.of_string "0000:05:00.0" |> Result.get_ok in
 
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-1-eth0"
-      ; pci= pci_addr0
-      ; mac= mac_addr0'
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-34-eth1"
-      ; pci= pci_addr1
-      ; mac= mac_addr1'
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-71-eth2"
-      ; pci= pci_addr2
-      ; mac= mac_addr2'
-      ; bios_eth_order= 2
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-3012-eth3"
-      ; pci= pci_addr3
-      ; mac= mac_addr3'
-      ; bios_eth_order= 3
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-4332-eth4"
-      ; pci= pci_addr4
-      ; mac= mac_addr4'
-      ; bios_eth_order= 4
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-1-eth0"
+    ; pci= pci_addr0
+    ; mac= mac_addr0'
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
-  let last_order =
-    [
-      {name= "eth0"; pci= pci_addr0; mac= mac_addr0; position= 0; present= true}
-    ; {name= "eth1"; pci= pci_addr1; mac= mac_addr1; position= 1; present= true}
-    ; {name= "eth2"; pci= pci_addr2; mac= mac_addr2; position= 2; present= true}
-    ; {name= "eth3"; pci= pci_addr3; mac= mac_addr3; position= 3; present= true}
-    ; {name= "eth4"; pci= pci_addr4; mac= mac_addr4; position= 4; present= true}
-    ]
+  let dev1 =
+    {
+      Dev.name= "side-34-eth1"
+    ; pci= pci_addr1
+    ; mac= mac_addr1'
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
   in
+  let dev2 =
+    {
+      Dev.name= "side-71-eth2"
+    ; pci= pci_addr2
+    ; mac= mac_addr2'
+    ; bios_eth_order= 2
+    ; multi_nic= false
+    }
+  in
+  let dev3 =
+    {
+      Dev.name= "side-3012-eth3"
+    ; pci= pci_addr3
+    ; mac= mac_addr3'
+    ; bios_eth_order= 3
+    ; multi_nic= false
+    }
+  in
+  let dev4 =
+    {
+      Dev.name= "side-4332-eth4"
+    ; pci= pci_addr4
+    ; mac= mac_addr4'
+    ; bios_eth_order= 4
+    ; multi_nic= false
+    }
+  in
+  let currents = [dev0; dev1; dev2; dev3; dev4] in
+  let seen_dev0 =
+    {name= "eth0"; pci= pci_addr0; mac= mac_addr0; position= 0; present= true}
+  in
+  let seen_dev1 =
+    {name= "eth1"; pci= pci_addr1; mac= mac_addr1; position= 1; present= true}
+  in
+  let seen_dev2 =
+    {name= "eth2"; pci= pci_addr2; mac= mac_addr2; position= 2; present= true}
+  in
+  let seen_dev3 =
+    {name= "eth3"; pci= pci_addr3; mac= mac_addr3; position= 3; present= true}
+  in
+  let seen_dev4 =
+    {name= "eth4"; pci= pci_addr4; mac= mac_addr4; position= 4; present= true}
+  in
+  let last_order = [seen_dev0; seen_dev1; seen_dev2; seen_dev3; seen_dev4] in
   let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "5 devices in the order" 5 (List.length order) ;
-  Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0' order) ;
-  Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1' order) ;
-  Alcotest.(check int) "position assigned" 2 (pos_of_mac mac_addr2' order) ;
-  Alcotest.(check int) "position assigned" 3 (pos_of_mac mac_addr3' order) ;
-  Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr4' order)
+  test_postion_and_present 0 true dev0 order ;
+  test_postion_and_present 1 true dev1 order ;
+  test_postion_and_present 2 true dev2 order ;
+  test_postion_and_present 3 true dev3 order ;
+  test_postion_and_present 4 true dev4 order
 
 let test_CA_94279 () =
   let mac_addr0 = Macaddr.of_string "00:1b:21:aa:ef:f0" |> Result.get_ok in
@@ -356,63 +380,71 @@ let test_CA_94279 () =
   let pci_addr4 = Pciaddr.of_string "0000:06:00.0" |> Result.get_ok in
   let pci_addr5 = Pciaddr.of_string "0000:06:00.1" |> Result.get_ok in
 
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-1-eth0"
-      ; pci= pci_addr0
-      ; mac= mac_addr0
-      ; bios_eth_order= 2
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-2-eth1"
-      ; pci= pci_addr1
-      ; mac= mac_addr1
-      ; bios_eth_order= 3
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-3-eth2"
-      ; pci= pci_addr2
-      ; mac= mac_addr2
-      ; bios_eth_order= 4
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-4-eth3"
-      ; pci= pci_addr3
-      ; mac= mac_addr3
-      ; bios_eth_order= 5
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-5-eth4"
-      ; pci= pci_addr4
-      ; mac= mac_addr4
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-6-eth5"
-      ; pci= pci_addr5
-      ; mac= mac_addr5
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-1-eth0"
+    ; pci= pci_addr0
+    ; mac= mac_addr0
+    ; bios_eth_order= 2
+    ; multi_nic= false
+    }
   in
+  let dev1 =
+    {
+      Dev.name= "side-2-eth1"
+    ; pci= pci_addr1
+    ; mac= mac_addr1
+    ; bios_eth_order= 3
+    ; multi_nic= false
+    }
+  in
+  let dev2 =
+    {
+      Dev.name= "side-3-eth2"
+    ; pci= pci_addr2
+    ; mac= mac_addr2
+    ; bios_eth_order= 4
+    ; multi_nic= false
+    }
+  in
+  let dev3 =
+    {
+      Dev.name= "side-4-eth3"
+    ; pci= pci_addr3
+    ; mac= mac_addr3
+    ; bios_eth_order= 5
+    ; multi_nic= false
+    }
+  in
+  let dev4 =
+    {
+      Dev.name= "side-5-eth4"
+    ; pci= pci_addr4
+    ; mac= mac_addr4
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
+  in
+  let dev5 =
+    {
+      Dev.name= "side-6-eth5"
+    ; pci= pci_addr5
+    ; mac= mac_addr5
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
+  in
+  let currents = [dev0; dev1; dev2; dev3; dev4; dev5] in
   let order = sort' ~currents ~rules:[] ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "6 devices in the order" 6 (List.length order) ;
-  Alcotest.(check int) "position assigned" 2 (pos_of_mac mac_addr0 order) ;
-  Alcotest.(check int) "position assigned" 3 (pos_of_mac mac_addr1 order) ;
-  Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr2 order) ;
-  Alcotest.(check int) "position assigned" 5 (pos_of_mac mac_addr3 order) ;
-  Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr4 order) ;
-  Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr5 order)
+  test_postion_and_present 2 true dev0 order ;
+  test_postion_and_present 3 true dev1 order ;
+  test_postion_and_present 4 true dev2 order ;
+  test_postion_and_present 5 true dev3 order ;
+  test_postion_and_present 0 true dev4 order ;
+  test_postion_and_present 1 true dev5 order
 
 let test_rshp_new_hardware () =
   let mac_addr0' = Macaddr.of_string "02:23:45:67:89:01" |> Result.get_ok in
@@ -432,64 +464,79 @@ let test_rshp_new_hardware () =
   let mac_addr3 = Macaddr.of_string "31:23:45:67:89:02" |> Result.get_ok in
   let mac_addr4 = Macaddr.of_string "31:23:45:67:89:01" |> Result.get_ok in
 
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-1-eth0"
-      ; pci= pci_addr0
-      ; mac= mac_addr0'
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-34-eth1"
-      ; pci= pci_addr1
-      ; mac= mac_addr1'
-      ; bios_eth_order= 1
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-71-eth2"
-      ; pci= pci_addr2
-      ; mac= mac_addr2'
-      ; bios_eth_order= 2
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-3012-eth3"
-      ; pci= pci_addr3
-      ; mac= mac_addr3'
-      ; bios_eth_order= 3
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-4332-eth4"
-      ; pci= pci_addr3
-      ; mac= mac_addr4'
-      ; bios_eth_order= 4
-      ; multi_nic= true
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-1-eth0"
+    ; pci= pci_addr0
+    ; mac= mac_addr0'
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
-  let last_order =
-    [
-      {name= "eth0"; pci= pci_addr0; mac= mac_addr0; position= 0; present= true}
-    ; {name= "eth1"; pci= pci_addr1; mac= mac_addr1; position= 1; present= true}
-    ; {name= "eth2"; pci= pci_addr2; mac= mac_addr2; position= 2; present= true}
-    ; {name= "eth3"; pci= pci_addr3; mac= mac_addr3; position= 3; present= true}
-    ; {name= "eth4"; pci= pci_addr3; mac= mac_addr4; position= 4; present= true}
-    ]
+
+  let dev1 =
+    {
+      Dev.name= "side-34-eth1"
+    ; pci= pci_addr1
+    ; mac= mac_addr1'
+    ; bios_eth_order= 1
+    ; multi_nic= false
+    }
   in
+  let dev2 =
+    {
+      Dev.name= "side-71-eth2"
+    ; pci= pci_addr2
+    ; mac= mac_addr2'
+    ; bios_eth_order= 2
+    ; multi_nic= false
+    }
+  in
+
+  let dev3 =
+    {
+      Dev.name= "side-3012-eth3"
+    ; pci= pci_addr3
+    ; mac= mac_addr3'
+    ; bios_eth_order= 3
+    ; multi_nic= true
+    }
+  in
+  let dev4 =
+    {
+      Dev.name= "side-4332-eth4"
+    ; pci= pci_addr3
+    ; mac= mac_addr4'
+    ; bios_eth_order= 4
+    ; multi_nic= true
+    }
+  in
+  let seen_dev0 =
+    {name= "eth0"; pci= pci_addr0; mac= mac_addr0; position= 0; present= true}
+  in
+  let seen_dev1 =
+    {name= "eth1"; pci= pci_addr1; mac= mac_addr1; position= 1; present= true}
+  in
+  let seen_dev2 =
+    {name= "eth2"; pci= pci_addr2; mac= mac_addr2; position= 2; present= true}
+  in
+  let seen_dev3 =
+    {name= "eth3"; pci= pci_addr3; mac= mac_addr3; position= 3; present= true}
+  in
+  let seen_dev4 =
+    {name= "eth4"; pci= pci_addr3; mac= mac_addr4; position= 4; present= true}
+  in
+  let currents = [dev0; dev1; dev2; dev3; dev4] in
+  let last_order = [seen_dev0; seen_dev1; seen_dev2; seen_dev3; seen_dev4] in
   let order = sort' ~currents ~rules:[] ~last_order in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "5 devices in the order" 5 (List.length order) ;
-  Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0' order) ;
-  Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1' order) ;
-  Alcotest.(check int) "position assigned" 2 (pos_of_mac mac_addr2' order) ;
-  Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr3' order) ;
-  Alcotest.(check int) "position assigned" 3 (pos_of_mac mac_addr4' order)
+  test_postion_and_present 0 true dev0 order ;
+  test_postion_and_present 1 true dev1 order ;
+  test_postion_and_present 2 true dev2 order ;
+  test_postion_and_present 4 true dev3 order ;
+  test_postion_and_present 3 true dev4 order
 
 let test_bad_biosdevname_order () =
   let pci_addr0 = Pciaddr.of_string "0000:01:00.0" |> Result.get_ok in
@@ -508,87 +555,101 @@ let test_bad_biosdevname_order () =
   let mac_addr7 = Macaddr.of_string "00:00:22:00:03:03" |> Result.get_ok in
   let mac_addr8 = Macaddr.of_string "00:00:00:00:04:01" |> Result.get_ok in
 
-  let currents =
-    let open Dev in
-    [
-      {
-        name= "side-0-eth0"
-      ; pci= pci_addr0
-      ; mac= mac_addr0
-      ; bios_eth_order= 0
-      ; multi_nic= false
-      }
-    ; {
-        name= "side-0-eth2"
-      ; pci= pci_addr1
-      ; mac= mac_addr1
-      ; bios_eth_order= 2
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth6"
-      ; pci= pci_addr1
-      ; mac= mac_addr2
-      ; bios_eth_order= 6
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth1"
-      ; pci= pci_addr1
-      ; mac= mac_addr3
-      ; bios_eth_order= 1
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth4"
-      ; pci= pci_addr4
-      ; mac= mac_addr4
-      ; bios_eth_order= 4
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth5"
-      ; pci= pci_addr5
-      ; mac= mac_addr5
-      ; bios_eth_order= 7
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth3"
-      ; pci= pci_addr5
-      ; mac= mac_addr6
-      ; bios_eth_order= 3
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth7"
-      ; pci= pci_addr5
-      ; mac= mac_addr7
-      ; bios_eth_order= 5
-      ; multi_nic= true
-      }
-    ; {
-        name= "side-0-eth8"
-      ; pci= pci_addr8
-      ; mac= mac_addr8
-      ; bios_eth_order= 8
-      ; multi_nic= false
-      }
-    ]
+  let dev0 =
+    {
+      Dev.name= "side-0-eth0"
+    ; pci= pci_addr0
+    ; mac= mac_addr0
+    ; bios_eth_order= 0
+    ; multi_nic= false
+    }
   in
+  let dev1 =
+    {
+      Dev.name= "side-0-eth2"
+    ; pci= pci_addr1
+    ; mac= mac_addr1
+    ; bios_eth_order= 2
+    ; multi_nic= true
+    }
+  in
+  let dev2 =
+    {
+      Dev.name= "side-0-eth6"
+    ; pci= pci_addr1
+    ; mac= mac_addr2
+    ; bios_eth_order= 6
+    ; multi_nic= true
+    }
+  in
+  let dev3 =
+    {
+      Dev.name= "side-0-eth1"
+    ; pci= pci_addr1
+    ; mac= mac_addr3
+    ; bios_eth_order= 1
+    ; multi_nic= true
+    }
+  in
+  let dev4 =
+    {
+      Dev.name= "side-0-eth4"
+    ; pci= pci_addr4
+    ; mac= mac_addr4
+    ; bios_eth_order= 4
+    ; multi_nic= true
+    }
+  in
+  let dev5 =
+    {
+      Dev.name= "side-0-eth5"
+    ; pci= pci_addr5
+    ; mac= mac_addr5
+    ; bios_eth_order= 7
+    ; multi_nic= true
+    }
+  in
+  let dev6 =
+    {
+      Dev.name= "side-0-eth3"
+    ; pci= pci_addr5
+    ; mac= mac_addr6
+    ; bios_eth_order= 3
+    ; multi_nic= true
+    }
+  in
+  let dev7 =
+    {
+      Dev.name= "side-0-eth7"
+    ; pci= pci_addr5
+    ; mac= mac_addr7
+    ; bios_eth_order= 5
+    ; multi_nic= true
+    }
+  in
+  let dev8 =
+    {
+      Dev.name= "side-0-eth8"
+    ; pci= pci_addr8
+    ; mac= mac_addr8
+    ; bios_eth_order= 8
+    ; multi_nic= false
+    }
+  in
+  let currents = [dev0; dev1; dev2; dev3; dev4; dev5; dev6; dev7; dev8] in
   let order = sort' ~currents ~rules:[] ~last_order:[] in
   Alcotest.(check bool) "is Ok" true (Result.is_ok order) ;
   let order = Result.get_ok order in
   Alcotest.(check int) "9 devices in the order" 9 (List.length order) ;
-  Alcotest.(check int) "position assigned" 0 (pos_of_mac mac_addr0 order) ;
-  Alcotest.(check int) "position assigned" 1 (pos_of_mac mac_addr1 order) ;
-  Alcotest.(check int) "position assigned" 2 (pos_of_mac mac_addr2 order) ;
-  Alcotest.(check int) "position assigned" 6 (pos_of_mac mac_addr3 order) ;
-  Alcotest.(check int) "position assigned" 4 (pos_of_mac mac_addr4 order) ;
-  Alcotest.(check int) "position assigned" 3 (pos_of_mac mac_addr5 order) ;
-  Alcotest.(check int) "position assigned" 5 (pos_of_mac mac_addr6 order) ;
-  Alcotest.(check int) "position assigned" 7 (pos_of_mac mac_addr7 order) ;
-  Alcotest.(check int) "position assigned" 8 (pos_of_mac mac_addr8 order)
+  test_postion_and_present 0 true dev0 order ;
+  test_postion_and_present 1 true dev1 order ;
+  test_postion_and_present 2 true dev2 order ;
+  test_postion_and_present 6 true dev3 order ;
+  test_postion_and_present 4 true dev4 order ;
+  test_postion_and_present 3 true dev5 order ;
+  test_postion_and_present 5 true dev6 order ;
+  test_postion_and_present 7 true dev7 order ;
+  test_postion_and_present 8 true dev8 order
 
 let tests =
   [
