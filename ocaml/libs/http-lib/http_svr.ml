@@ -498,10 +498,8 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                    (Unix.error_message a) b c
                 )
         | exc ->
-            Backtrace.is_important exc ;
             response_internal_error exc fd
-              ~extra:(escape (Printexc.to_string exc)) ;
-            log_backtrace exc
+              ~extra:(escape (Printexc.to_string exc))
     ) ;
     (None, None)
 
