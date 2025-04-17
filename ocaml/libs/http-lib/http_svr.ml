@@ -474,6 +474,7 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
     in
     (Some r, proxy)
   with e ->
+    Backtrace.is_important e ;
     D.warn "%s (%s)" (Printexc.to_string e) __LOC__ ;
     best_effort (fun () ->
         match e with

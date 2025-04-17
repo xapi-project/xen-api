@@ -258,6 +258,10 @@ let with_thread_associated ?client ?(quiet = false) desc f x =
       (* This function is a top-level exception handler typically used on fresh
          threads. This is the last chance to do something with the backtrace *)
       if not quiet then (
+        (* It would seem that a Backtrace.is_important would be missing here.
+           But in fact it has actually been called in [let result] above,
+           so calling it again is not necessary.
+        *)
         output_log "backtrace" Syslog.Err "error"
           (Printf.sprintf "%s failed with exception %s" desc
              (Printexc.to_string exn)
