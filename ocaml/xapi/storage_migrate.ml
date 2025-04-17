@@ -500,9 +500,9 @@ let stop = MigrateLocal.stop
 
 let list = MigrateLocal.list
 
-let killall ~dbg = 
-with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg -> 
-MigrateLocal.killall ~dbg:(Debug_info.to_string dbg)
+let killall ~dbg =
+  with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
+  MigrateLocal.killall ~dbg:(Debug_info.to_string dbg)
 
 let stat = MigrateLocal.stat
 
