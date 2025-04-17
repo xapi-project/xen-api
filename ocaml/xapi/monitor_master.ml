@@ -173,7 +173,7 @@ let update_pifs ~__context host pifs =
                 |> List.concat_map vifs_on_local_bridge
                 |> List.iter set_carrier
               with e ->
-                log_backtrace () ;
+                log_backtrace e ;
                 error "Failed to update VIF carrier flags for PIF: %s"
                   (ExnHelper.string_of_exn e)
             ) ;

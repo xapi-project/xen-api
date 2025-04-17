@@ -79,6 +79,7 @@ let call_extension rpc =
   | Api_errors.Server_error (code, params) ->
       API.response_of_failure code params
   | e ->
+      Backtrace.is_important e ;
       error "Unexpected exception calling extension %s: %s" rpc.Rpc.name
         (Printexc.to_string e) ;
       Debug.log_backtrace e (Backtrace.get e) ;

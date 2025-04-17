@@ -91,13 +91,13 @@ let is_component_enabled ~component =
             )
             observers
         with e ->
-          D.log_backtrace () ;
+          D.log_backtrace e ;
           D.warn "is_component_enabled(%s) inner got exception: %s"
             (to_string component) (Printexc.to_string e) ;
           false
       )
   with e ->
-    D.log_backtrace () ;
+    D.log_backtrace e ;
     D.warn "is_component_enabled(%s) got exception: %s" (to_string component)
       (Printexc.to_string e) ;
     false

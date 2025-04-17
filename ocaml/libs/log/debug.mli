@@ -76,7 +76,15 @@ module type DEBUG = sig
   val audit : ?raw:bool -> ('a, unit, string, string) format4 -> 'a
   (** Audit function *)
 
-  val log_backtrace : unit -> unit
+  val log_backtrace : exn -> unit
+  (** [log_backtrace exn] logs the backtrace associated with [exn].
+      Either this or {!Backtrace.is_important} must be the first statement in an exception handler,
+      otherwise the backtrace may be overwritten (e.g. by formatting functions that internally raise and catch exceptions).
+
+      This has to be used instead of getting a new backtrace from Printexc if [Backtrace.is_important] was ever called,
+      because that function stashes away the backtrace and then overwrites the current backtrace (to avoid duplicate frames in the stacktrace,
+      when Backtrace.get is used).
+   *)
 
   val log_and_ignore_exn : (unit -> unit) -> unit
 end

@@ -68,7 +68,7 @@ let () =
   let old_hook = !Lwt.async_exception_hook in
   Lwt.async_exception_hook :=
     fun exn ->
-      D.log_backtrace () ;
+      D.log_backtrace exn ;
       D.error "Lwt caught async exception: %s" (Printexc.to_string exn) ;
       old_hook exn
 

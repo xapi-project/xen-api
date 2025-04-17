@@ -325,7 +325,7 @@ let generate_stats_exn () =
 let generate_stats () =
   try generate_stats_exn ()
   with e ->
-    D.log_backtrace () ;
+    D.log_backtrace e ;
     D.debug "Failed to generate stats: %s" (Printexc.to_string e) ;
     []
 

@@ -58,7 +58,7 @@ let with_xapi ~cache ?(timeout = 120.) f =
 let serve_forever_lwt path callback =
   let conn_closed _ = () in
   let on_exn e =
-    log_backtrace () ;
+    log_backtrace e ;
     warn "Exception: %s" (Printexc.to_string e)
   in
   let stop, do_stop = Lwt.task () in

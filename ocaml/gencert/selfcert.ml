@@ -109,6 +109,7 @@ let generate_pub_priv_key length =
       let stdout, _stderr = call_openssl args in
       Ok stdout
     with e ->
+      Backtrace.is_important e ;
       let msg = "generating RSA key failed" in
       D.error "selfcert.ml: %s" msg ;
       Debug.log_backtrace e (Backtrace.get e) ;

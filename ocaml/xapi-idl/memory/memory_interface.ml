@@ -87,7 +87,6 @@ let err =
       def= errors
     ; raiser=
         (fun e ->
-          log_backtrace () ;
           let exn = MemoryError e in
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
