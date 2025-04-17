@@ -278,7 +278,7 @@ module MigrateLocal = struct
 
     let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
-    let local_vdi = find_local_vdi ~dbg ~sr ~vdi in
+    let local_vdi, _ = find_vdi ~dbg ~sr ~vdi (module Local) in
     let mirror_id = State.mirror_id_of (sr, local_vdi.vdi) in
     debug "%s: Adding to active local mirrors before sending: id=%s"
       __FUNCTION__ mirror_id ;
