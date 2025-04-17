@@ -62,20 +62,20 @@ let vm_of_domid vmdomid =
         "Invalid domid, could not be converted to int, passing empty string." ;
       Storage_interface.Vm.of_string ""
 
-let attach_and_activate ~task ~_vm ~vmdomid ~dp ~sr ~vdi ~read_write =
+let attach ~task ~_vm ~vmdomid ~dp ~sr ~vdi ~read_write =
   let dbg = get_dbg task in
-  let result =
-    Xenops_task.with_subtask task
-      (Printf.sprintf "VDI.attach3 %s" dp)
-      (transform_exception (fun () ->
-           Client.VDI.attach3 dbg dp sr vdi vmdomid read_write
-       )
-      )
-  in
+  Xenops_task.with_subtask task
+    (Printf.sprintf "VDI.attach3 %s" dp)
+    (transform_exception (fun () ->
+         Client.VDI.attach3 dbg dp sr vdi vmdomid read_write
+     )
+    )
+
+let activate ~task ~_vm ~vmdomid ~dp ~sr ~vdi =
+  let dbg = get_dbg task in
   Xenops_task.with_subtask task
     (Printf.sprintf "VDI.activate3 %s" dp)
-    (transform_exception (fun () -> Client.VDI.activate3 dbg dp sr vdi vmdomid)) ;
-  result
+    (transform_exception (fun () -> Client.VDI.activate3 dbg dp sr vdi vmdomid))
 
 let deactivate task dp sr vdi vmdomid =
   debug "Deactivating disk %s %s" (Sr.string_of sr) (Vdi.string_of vdi) ;
