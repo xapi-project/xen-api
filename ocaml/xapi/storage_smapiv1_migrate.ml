@@ -162,26 +162,12 @@ module Copy = struct
         (Printf.sprintf "Remote SR %s not found"
            (Storage_interface.Sr.string_of dest)
         ) ;
-    let vdis = Remote.SR.scan dbg dest in
-    let remote_vdi =
-      try List.find (fun x -> x.vdi = dest_vdi) vdis
-      with Not_found ->
-        failwith
-          (Printf.sprintf "Remote VDI %s not found"
-             (Storage_interface.Vdi.string_of dest_vdi)
-          )
-    in
+
+    let remote_vdi = find_vdi ~dbg ~sr:dest ~vdi:dest_vdi (module Remote) in
     let dest_content_id = remote_vdi.content_id in
     (* Find the local VDI *)
     let vdis = Local.SR.scan dbg sr in
-    let local_vdi =
-      try List.find (fun x -> x.vdi = vdi) vdis
-      with Not_found ->
-        failwith
-          (Printf.sprintf "Local VDI %s not found"
-             (Storage_interface.Vdi.string_of vdi)
-          )
-    in
+    let local_vdi = find_vdi ~dbg ~sr ~vdi (module Local) in
     D.debug "copy local content_id=%s" local_vdi.content_id ;
     D.debug "copy remote content_id=%s" dest_content_id ;
     if local_vdi.virtual_size > remote_vdi.virtual_size then (
@@ -312,11 +298,7 @@ module Copy = struct
     let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
     try
-      let vdis = Local.SR.scan dbg sr in
-      let local_vdi =
-        try List.find (fun x -> x.vdi = vdi) vdis
-        with Not_found -> failwith (Printf.sprintf "Local VDI not found")
-      in
+      let local_vdi = find_vdi ~dbg ~sr ~vdi (module Local) in
       try
         let similar_vdis = Local.VDI.similar_content dbg sr vdi in
         let similars = List.map (fun vdi -> vdi.content_id) similar_vdis in
