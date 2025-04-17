@@ -19,6 +19,10 @@ module Pciaddr : sig
   (** [of_string s] returns [Ok pci] where [pci] is the PCI address converted
       from [s]. Otherwise, it returns [Error error] whenever [s] can't be
       parsed. [error] is for the parsing failure. *)
+
+  val compare : t -> t -> int
+  (** [compare x y] return 0 if [x] is equal to [y]; a negative integer if [x]
+      is less than [y], and a positive integer if [x] is greater than [y]. *)
 end
 
 module Macaddr : sig

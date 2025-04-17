@@ -39,14 +39,13 @@ module Pciaddr = struct
     <?> compare t1.bus t2.bus
     <?> compare t1.dev t2.dev
     <?> compare t1.fn t2.fn
-    <?> 0
 end
 
 module Macaddr = struct
   include Macaddr
 
   let of_string s =
-    try Ok (of_string_exn s) with _ -> Error (Mac_addr_parse_error s)
+    of_string s |> Result.map_error (fun _ -> Mac_addr_parse_error s)
 end
 
 module PciaddrMap = Map.Make (Pciaddr)
@@ -142,7 +141,7 @@ module Rule = struct
       )
     with _ -> Error (Rule_parse_error line)
 
-  let validate_rules (l : (t, error) result list) =
+  let validate (l : (t, error) result list) =
     let* rules = fold_results l in
     try
       IntUniqueMap.of_unique_list (fun dev -> dev.position) rules |> ignore ;
@@ -153,9 +152,7 @@ module Rule = struct
     if not (Sys.file_exists path) then
       Ok []
     else
-      Xapi_stdext_unix.Unixext.read_lines ~path
-      |> List.map parse
-      |> validate_rules
+      Xapi_stdext_unix.Unixext.read_lines ~path |> List.map parse |> validate
 end
 
 module Dev = struct
@@ -348,7 +345,7 @@ let assign_position_by_pci ~(last_pcis : OrderedDev.t list PciaddrMap.t)
     (fun (acc_ordered, acc_unordered) (dev : Dev.t) ->
       match (dev, PciaddrMap.find_opt dev.pci last_pcis) with
       | Dev.{multi_nic= false; _}, Some [{position; mac; _}] -> (
-        (* Not a multi-nic funciton.
+        (* Not a multi-nic function.
            And found a ever-seen device which had located at the same PCI address. *)
         match MacaddrSet.find_opt mac curr_macs with
         | None ->
