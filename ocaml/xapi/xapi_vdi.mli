@@ -23,7 +23,7 @@ val check_operation_error :
      __context:Context.t
   -> ?sr_records:'a list
   -> ?pbd_records:(API.ref_PBD * API.pBD_t) list
-  -> ?vbd_records:(API.ref_VBD * Db_actions.vBD_t) list
+  -> ?vbd_records:Db_actions.vBD_t list
   -> bool
   -> Db_actions.vDI_t
   -> API.ref_VDI
@@ -40,7 +40,7 @@ val update_allowed_operations_internal :
   -> self:[`VDI] API.Ref.t
   -> sr_records:'a list
   -> pbd_records:(API.ref_PBD * API.pBD_t) list
-  -> ?vbd_records:(API.ref_VBD * Db_actions.vBD_t) list
+  -> ?vbd_records:Db_actions.vBD_t list
   -> unit
   -> unit
 

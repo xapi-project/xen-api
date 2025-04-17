@@ -86,7 +86,10 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
   let* () =
     if
       Helpers.rolling_upgrade_in_progress ~__context
-      && not (List.mem op Xapi_globs.rpu_allowed_vdi_operations)
+      && not
+           (Xapi_globs.Vdi_operations_set.mem op
+              Xapi_globs.rpu_allowed_vdi_operations
+           )
     then
       Error (Api_errors.not_supported_during_upgrade, [])
     else
@@ -96,7 +99,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     (* Don't fail with other_operation_in_progress if VDI mirroring is in
        progress and destroy is called as part of VDI mirroring *)
     let is_vdi_mirroring_in_progress =
-      List.exists (fun (_, op) -> op = `mirror) current_ops && op = `destroy
+      op = `destroy && List.exists (fun (_, op) -> op = `mirror) current_ops
     in
     if
       List.exists (fun (_, op) -> op <> `copy) current_ops
@@ -130,7 +133,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
           pbd_records
   in
   let* () =
-    if pbds_attached = [] && List.mem op [`resize] then
+    if pbds_attached = [] && op = `resize then
       Error (Api_errors.sr_no_pbds, [Ref.string_of sr])
     else
       Ok ()
@@ -155,16 +158,14 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
                )
           )
     | Some records ->
-        List.map snd
-          (List.filter
-             (fun (_, vbd_record) ->
-               vbd_record.Db_actions.vBD_VDI = _ref'
-               && (vbd_record.Db_actions.vBD_currently_attached
-                  || vbd_record.Db_actions.vBD_reserved
-                  )
-             )
-             records
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && (vbd_record.Db_actions.vBD_currently_attached
+               || vbd_record.Db_actions.vBD_reserved
+               )
           )
+          records
   in
   let my_active_rw_vbd_records =
     List.filter (fun vbd -> vbd.Db_actions.vBD_mode = `RW) my_active_vbd_records
@@ -183,14 +184,12 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
                )
           )
     | Some records ->
-        List.map snd
-          (List.filter
-             (fun (_, vbd_record) ->
-               vbd_record.Db_actions.vBD_VDI = _ref'
-               && vbd_record.Db_actions.vBD_current_operations <> []
-             )
-             records
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && vbd_record.Db_actions.vBD_current_operations <> []
           )
+          records
   in
   (* If the VBD is currently_attached then some operations can still be
      performed ie: VDI.clone (if the VM is suspended we have to have the
@@ -467,7 +466,7 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
    *)
   let all_ops =
     Xapi_globs.pre_ely_vdi_operations
-    |> List.filter (function
+    |> Xapi_globs.Vdi_operations_set.filter (function
          | `blocked ->
              false (* CA-260245 *)
          | `force_unlock ->
@@ -477,6 +476,15 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
          )
   in
   let all = Db.VDI.get_record_internal ~__context ~self in
+  let vbd_records =
+    match vbd_records with
+    | None when Pool_role.is_master () ->
+        all.Db_actions.vDI_VBDs
+        |> List.rev_map (fun self -> Db.VBD.get_record_internal ~__context ~self)
+        |> Option.some
+    | v ->
+        v
+  in
   let allowed =
     let check x =
       match
@@ -484,18 +492,20 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
           ha_enabled all self x
       with
       | Ok () ->
-          [x]
+          true
       | _ ->
-          []
+          false
     in
-    List.fold_left (fun accu op -> check op @ accu) [] all_ops
+    all_ops |> Xapi_globs.Vdi_operations_set.filter check
   in
   let allowed =
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      Xapi_stdext_std.Listext.List.intersect allowed
-        Xapi_globs.rpu_allowed_vdi_operations
-    else
-      allowed
+    ( if Helpers.rolling_upgrade_in_progress ~__context then
+        Xapi_globs.Vdi_operations_set.inter allowed
+          Xapi_globs.rpu_allowed_vdi_operations
+      else
+        allowed
+    )
+    |> Xapi_globs.Vdi_operations_set.elements
   in
   Db.VDI.set_allowed_operations ~__context ~self ~value:allowed
 

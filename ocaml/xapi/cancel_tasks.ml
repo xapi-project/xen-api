@@ -83,14 +83,14 @@ let update_all_allowed_operations ~__context =
       in
       let vbd_records =
         List.map
-          (fun vbd -> (vbd, Db.VBD.get_record_internal ~__context ~self:vbd))
+          (fun vbd -> Db.VBD.get_record_internal ~__context ~self:vbd)
           all_vbds
       in
       List.iter
         (safe_wrapper "allowed_ops - VDIs" (fun self ->
              let relevant_vbds =
                List.filter
-                 (fun (_, vbd_record) -> vbd_record.Db_actions.vBD_VDI = self)
+                 (fun vbd_record -> vbd_record.Db_actions.vBD_VDI = self)
                  vbd_records
              in
              Xapi_vdi.update_allowed_operations_internal ~__context ~self
