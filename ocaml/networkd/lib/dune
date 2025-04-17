@@ -4,6 +4,7 @@
  (libraries
   astring
   forkexec
+  macaddr
   mtime
   mtime.clock.os
   re
@@ -19,6 +20,7 @@
   xapi-stdext-threads
   xapi-stdext-unix
   xapi-inventory
+  xapi-idl
   xapi-idl.network
   xapi-log
   xapi-open-uri
