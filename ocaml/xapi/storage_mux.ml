@@ -330,11 +330,54 @@ module Mux = struct
       Storage_migrate.update_snapshot_info_src ~dbg:(Debug_info.to_string di)
         ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
 
+    exception No_VDI
+
+    (* Find a VDI given a storage-layer SR and VDI *)
+    let find_vdi ~__context sr vdi =
+      let sr = s_of_sr sr in
+      let vdi = s_of_vdi vdi in
+      let open Xapi_database.Db_filter_types in
+      let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+      match
+        Db.VDI.get_records_where ~__context
+          ~expr:
+            (And
+               ( Eq (Field "location", Literal vdi)
+               , Eq (Field "SR", Literal (Ref.string_of sr))
+               )
+            )
+      with
+      | x :: _ ->
+          x
+      | _ ->
+          raise No_VDI
+
+    let set_is_a_snapshot _context ~dbg ~sr ~vdi ~is_a_snapshot =
+      Server_helpers.exec_with_new_task "VDI.set_is_a_snapshot"
+        ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let vdi, _ = find_vdi ~__context sr vdi in
+          Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:is_a_snapshot
+      )
+
+    let set_snapshot_time _context ~dbg ~sr ~vdi ~snapshot_time =
+      let module Date = Clock.Date in
+      Server_helpers.exec_with_new_task "VDI.set_snapshot_time"
+        ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let vdi, _ = find_vdi ~__context sr vdi in
+          let snapshot_time = Date.of_iso8601 snapshot_time in
+          Db.VDI.set_snapshot_time ~__context ~self:vdi ~value:snapshot_time
+      )
+
+    let set_snapshot_of _context ~dbg ~sr ~vdi ~snapshot_of =
+      Server_helpers.exec_with_new_task "VDI.set_snapshot_of"
+        ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let vdi, _ = find_vdi ~__context sr vdi in
+          let snapshot_of, _ = find_vdi ~__context sr snapshot_of in
+          Db.VDI.set_snapshot_of ~__context ~self:vdi ~value:snapshot_of
+      )
+
     let update_snapshot_info_dest () ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
-      with_dbg ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun di ->
-      let module C = StorageAPI (Idl.Exn.GenClient (struct
-        let rpc = of_sr sr
-      end)) in
+      with_dbg ~name:"SR.update_snapshot_info_dest" ~dbg @@ fun _di ->
       info
         "SR.update_snapshot_info_dest dbg:%s sr:%s vdi:%s ~src_vdi:%s \
          snapshot_pairs:%s"
@@ -348,8 +391,44 @@ module Mux = struct
         |> String.concat "; "
         |> Printf.sprintf "[%s]"
         ) ;
-      C.SR.update_snapshot_info_dest (Debug_info.to_string di) sr vdi src_vdi
-        snapshot_pairs
+      Server_helpers.exec_with_new_task "SR.update_snapshot_info_dest"
+        ~subtask_of:(Ref.of_string dbg) (fun __context ->
+          let local_vdis = scan () ~dbg ~sr in
+          let find_sm_vdi ~vdi ~vdi_info_list =
+            try List.find (fun x -> x.vdi = vdi) vdi_info_list
+            with Not_found ->
+              raise (Storage_error (Vdi_does_not_exist (s_of_vdi vdi)))
+          in
+          let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
+            if vdi_info1.content_id <> vdi_info2.content_id then
+              raise
+                (Storage_error
+                   (Content_ids_do_not_match
+                      (s_of_vdi vdi_info1.vdi, s_of_vdi vdi_info2.vdi)
+                   )
+                )
+          in
+          (* For each (local snapshot vdi, source snapshot vdi) pair:
+             					 * - Check that the content_ids are the same
+             					 * - Copy snapshot_time from the source VDI to the local VDI
+             					 * - Set the local VDI's snapshot_of to vdi
+             					 * - Set is_a_snapshot = true for the local snapshot *)
+          List.iter
+            (fun (local_snapshot, src_snapshot_info) ->
+              let local_snapshot_info =
+                find_sm_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis
+              in
+              assert_content_ids_match ~vdi_info1:local_snapshot_info
+                ~vdi_info2:src_snapshot_info ;
+              set_snapshot_time __context ~dbg ~sr ~vdi:local_snapshot
+                ~snapshot_time:src_snapshot_info.snapshot_time ;
+              set_snapshot_of __context ~dbg ~sr ~vdi:local_snapshot
+                ~snapshot_of:vdi ;
+              set_is_a_snapshot __context ~dbg ~sr ~vdi:local_snapshot
+                ~is_a_snapshot:true
+            )
+            snapshot_pairs
+      )
   end
 
   module VDI = struct

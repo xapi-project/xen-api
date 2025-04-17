@@ -132,32 +132,6 @@ module SMAPIv1 : Server_impl = struct
     let vdi_rec = Db.VDI.get_record ~__context ~self in
     vdi_info_of_vdi_rec __context vdi_rec
 
-  (* For SMAPIv1, is_a_snapshot, snapshot_time and snapshot_of are stored in
-     	 * xapi's database. For SMAPIv2 they should be implemented by the storage
-     	 * backend. *)
-  let set_is_a_snapshot _context ~dbg ~sr ~vdi ~is_a_snapshot =
-    Server_helpers.exec_with_new_task "VDI.set_is_a_snapshot"
-      ~subtask_of:(Ref.of_string dbg) (fun __context ->
-        let vdi, _ = find_vdi ~__context sr vdi in
-        Db.VDI.set_is_a_snapshot ~__context ~self:vdi ~value:is_a_snapshot
-    )
-
-  let set_snapshot_time _context ~dbg ~sr ~vdi ~snapshot_time =
-    Server_helpers.exec_with_new_task "VDI.set_snapshot_time"
-      ~subtask_of:(Ref.of_string dbg) (fun __context ->
-        let vdi, _ = find_vdi ~__context sr vdi in
-        let snapshot_time = Date.of_iso8601 snapshot_time in
-        Db.VDI.set_snapshot_time ~__context ~self:vdi ~value:snapshot_time
-    )
-
-  let set_snapshot_of _context ~dbg ~sr ~vdi ~snapshot_of =
-    Server_helpers.exec_with_new_task "VDI.set_snapshot_of"
-      ~subtask_of:(Ref.of_string dbg) (fun __context ->
-        let vdi, _ = find_vdi ~__context sr vdi in
-        let snapshot_of, _ = find_vdi ~__context sr snapshot_of in
-        Db.VDI.set_snapshot_of ~__context ~self:vdi ~value:snapshot_of
-    )
-
   module Query = struct
     let query _context ~dbg:_ =
       {
@@ -433,46 +407,9 @@ module SMAPIv1 : Server_impl = struct
         ~dest_vdi:_ ~snapshot_pairs:_ =
       assert false
 
-    let update_snapshot_info_dest _context ~dbg ~sr ~vdi ~src_vdi:_
-        ~snapshot_pairs =
-      Server_helpers.exec_with_new_task "SR.update_snapshot_info_dest"
-        ~subtask_of:(Ref.of_string dbg) (fun __context ->
-          let local_vdis = scan __context ~dbg ~sr in
-          let find_sm_vdi ~vdi ~vdi_info_list =
-            try List.find (fun x -> x.vdi = vdi) vdi_info_list
-            with Not_found ->
-              raise (Storage_error (Vdi_does_not_exist (s_of_vdi vdi)))
-          in
-          let assert_content_ids_match ~vdi_info1 ~vdi_info2 =
-            if vdi_info1.content_id <> vdi_info2.content_id then
-              raise
-                (Storage_error
-                   (Content_ids_do_not_match
-                      (s_of_vdi vdi_info1.vdi, s_of_vdi vdi_info2.vdi)
-                   )
-                )
-          in
-          (* For each (local snapshot vdi, source snapshot vdi) pair:
-             					 * - Check that the content_ids are the same
-             					 * - Copy snapshot_time from the source VDI to the local VDI
-             					 * - Set the local VDI's snapshot_of to vdi
-             					 * - Set is_a_snapshot = true for the local snapshot *)
-          List.iter
-            (fun (local_snapshot, src_snapshot_info) ->
-              let local_snapshot_info =
-                find_sm_vdi ~vdi:local_snapshot ~vdi_info_list:local_vdis
-              in
-              assert_content_ids_match ~vdi_info1:local_snapshot_info
-                ~vdi_info2:src_snapshot_info ;
-              set_snapshot_time __context ~dbg ~sr ~vdi:local_snapshot
-                ~snapshot_time:src_snapshot_info.snapshot_time ;
-              set_snapshot_of __context ~dbg ~sr ~vdi:local_snapshot
-                ~snapshot_of:vdi ;
-              set_is_a_snapshot __context ~dbg ~sr ~vdi:local_snapshot
-                ~is_a_snapshot:true
-            )
-            snapshot_pairs
-      )
+    let update_snapshot_info_dest _context ~dbg:_ ~sr:_ ~vdi:_ ~src_vdi:_
+        ~snapshot_pairs:_ =
+      assert false
   end
 
   module VDI = struct
