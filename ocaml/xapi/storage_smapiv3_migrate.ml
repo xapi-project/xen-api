@@ -36,4 +36,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let receive_finalize2 _ctx = u __FUNCTION__
 
   let receive_cancel _ctx = u __FUNCTION__
+
+  let receive_cancel2 _ctx = u __FUNCTION__
 end
