@@ -88,7 +88,6 @@ let gpu_err =
     ; raiser=
         (fun e ->
           let exn = Gpumon_error e in
-          log_backtrace exn ;
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
         )

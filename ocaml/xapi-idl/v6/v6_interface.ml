@@ -112,7 +112,6 @@ let err =
     ; raiser=
         (fun e ->
           let exn = V6_error e in
-          log_backtrace exn ;
           error "%s (%s)" (Printexc.to_string exn) __LOC__ ;
           raise exn
         )
