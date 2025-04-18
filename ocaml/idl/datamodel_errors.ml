@@ -897,6 +897,14 @@ let _ =
        the pool coordinator. Make sure the sm are of the same versions and try \
        again."
     () ;
+  error Api_errors.pool_joining_pool_cannot_enable_clustering_on_vlan_network
+    ["vlan"] ~doc:"The remote pool cannot enable clustering on vlan network" () ;
+  error Api_errors.pool_joining_host_must_have_only_one_IP_on_clustering_network
+    []
+    ~doc:
+      "The host joining the pool must have one and only one IP on the \
+       clustering network"
+    () ;
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
