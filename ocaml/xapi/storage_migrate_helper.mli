@@ -14,6 +14,10 @@
 
 module SXM : Debug.DEBUG
 
+open Storage_interface
+
+val failwith_fmt : ('a, unit, string, 'b) format4 -> 'a
+
 module State : sig
   module Receive_state : sig
     type t = {
@@ -256,3 +260,7 @@ end
 module Local : SMAPIv2
 
 val get_remote_backend : string -> bool -> (module SMAPIv2)
+
+val find_local_vdi : dbg:string -> sr:sr -> vdi:vdi -> vdi_info
+
+val similar_vdis : dbg:string -> sr:sr -> vdi:vdi -> uuid list

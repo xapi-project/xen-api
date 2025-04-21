@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (c) Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,12 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-module Winbind : sig
-  type t = Strong | Legacy | All
+module type SMAPIv2_MIRROR = Storage_interface.MIRROR
 
-  val to_string : t -> string
-
-  val to_encoding : t -> int
-
-  val of_string : string -> t option
-end
+module MIRROR : SMAPIv2_MIRROR

@@ -1745,6 +1745,11 @@ let disable_internal __context =
           )
           errors
     ) ;
+    (* CA-408230: mark current operation, `ha_enable or `ha_disable, as done,
+       as otherwise it will fail to update_allowed_operations for metadata_vdis
+       and statefile_vdis *)
+    let task_id = Ref.string_of (Context.get_task_id __context) in
+    Db.Pool.remove_from_current_operations ~__context ~self:pool ~key:task_id ;
     (* Update the allowed operations on the statefile VDIs for tidiness *)
     List.iter
       (fun vdi -> Xapi_vdi.update_allowed_operations ~__context ~self:vdi)

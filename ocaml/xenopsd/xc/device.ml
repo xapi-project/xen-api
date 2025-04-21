@@ -1215,30 +1215,6 @@ module PCI = struct
       |> String.trim
       |> int_of_string
     in
-    if hvm && qmp_add then
-      if Service.Qemu.is_running ~xs domid then
-        let id =
-          Printf.sprintf "pci-pt-%02x_%02x.%01x" host.bus host.dev host.fn
-        in
-        let _qmp_result =
-          qmp_send_cmd domid
-            (Qmp.Device_add
-               {
-                 driver= "xen-pci-passthrough"
-               ; device=
-                   Qmp.Device.PCI
-                     {
-                       id
-                     ; devfn
-                     ; hostaddr= string_of_address host
-                     ; permissive= false
-                     }
-               }
-            )
-        in
-        ()
-      else
-        raise (Domain_not_running (host, domid)) ;
     let addresses =
       sysfs_pci_dev ^ string_of_address host ^ "/resource"
       |> Unixext.string_of_file
@@ -1264,15 +1240,39 @@ module PCI = struct
             in
             Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
     in
-    List.iteri apply_io_permission addresses ;
     let xcext = Xenctrlext.get_handle () in
+    ignore (quarantine host) ;
+    Xenctrlext.assign_device xcext domid (encode_bdf host)
+      _xen_domctl_dev_rdm_relaxed ;
+    List.iteri apply_io_permission addresses ;
     ( if irq > 0 then
         Xenctrlext.physdev_map_pirq xcext domid irq |> fun x ->
         Xenctrl.domain_irq_permission xc domid x true
     ) ;
-    ignore (quarantine host) ;
-    Xenctrlext.assign_device xcext domid (encode_bdf host)
-      _xen_domctl_dev_rdm_relaxed
+    if hvm && qmp_add then
+      if Service.Qemu.is_running ~xs domid then
+        let id =
+          Printf.sprintf "pci-pt-%02x_%02x.%01x" host.bus host.dev host.fn
+        in
+        let _qmp_result =
+          qmp_send_cmd domid
+            (Qmp.Device_add
+               {
+                 driver= "xen-pci-passthrough"
+               ; device=
+                   Qmp.Device.PCI
+                     {
+                       id
+                     ; devfn
+                     ; hostaddr= string_of_address host
+                     ; permissive= false
+                     }
+               }
+            )
+        in
+        ()
+      else
+        raise (Domain_not_running (host, domid))
 
   let add ~xc ~xs ~hvm pcidevs domid =
     let host_addr {host; guest= _; _} = host in

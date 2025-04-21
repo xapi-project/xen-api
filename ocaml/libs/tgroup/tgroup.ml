@@ -253,6 +253,11 @@ module Group = struct
         External.name // External.Unauthenticated.name
 
   let to_string g = match g with Group group -> to_cgroup group
+
+  let authenticated_root =
+    of_creator (Creator.make ~identity:Identity.root_identity ())
+
+  let unauthenticated = Group External_Unauthenticated
 end
 
 module Cgroup = struct

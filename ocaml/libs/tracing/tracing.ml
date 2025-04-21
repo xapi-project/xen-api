@@ -437,10 +437,7 @@ module Span = struct
 
   let to_propagation_context span =
     let traceparent = span |> get_context |> SpanContext.to_traceparent in
-    span
-    |> get_context
-    |> SpanContext.context_of_span_context
-    |> TraceContext.with_traceparent (Some traceparent)
+    span |> get_trace_context |> TraceContext.with_traceparent (Some traceparent)
 
   let with_trace_context span trace_context =
     let span_context =
