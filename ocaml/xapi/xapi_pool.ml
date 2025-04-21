@@ -4079,3 +4079,5 @@ let disable_ssh = Ssh.disable
 let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 
 let set_console_idle_timeout = Ssh.set_console_timeout
+
+let set_ssh_auto_mode ~__context ~self:_ ~value:_ = ()

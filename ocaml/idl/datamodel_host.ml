@@ -2440,6 +2440,16 @@ let set_console_idle_timeout =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_ssh_auto_mode =
+  call ~name:"set_ssh_auto_mode" ~lifecycle:[]
+    ~doc:"Set the SSH auto mode for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (Bool, "value", "The SSH auto mode for the host")
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2601,6 +2611,7 @@ let t =
       ; disable_ssh
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
+      ; set_ssh_auto_mode
       ]
     ~contents:
       ([
@@ -3056,6 +3067,10 @@ let t =
             "console_idle_timeout"
             "The timeout in seconds after which idle console will be \
              automatically terminated (0 means never)"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool Constants.default_ssh_auto_mode))
+            "ssh_auto_mode"
+            "Reflects whether SSH auto mode is enabled for the host"
         ]
       )
     ()
