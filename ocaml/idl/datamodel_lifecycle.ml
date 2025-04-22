@@ -83,6 +83,8 @@ let prototyped_of_field = function
       Some "24.3.0"
   | "Cluster", "is_quorate" ->
       Some "24.3.0"
+  | "Cluster", "cluster_stack_version" ->
+      Some "24.15.0"
   | "VTPM", "contents" ->
       Some "22.26.0"
   | "VTPM", "is_protected" ->
