@@ -24,6 +24,9 @@ type error =
   | Duplicate_position
   | Invalid_biosdevname_key_value of (string * string)
 
+val string_of_error : error -> string
+(** [string_of_error e] returns a string representation of the error [e]. *)
+
 (** PCI address in format SBDF: domain:bus:device:function *)
 module Pciaddr : sig
   (** Type of the PCI address *)

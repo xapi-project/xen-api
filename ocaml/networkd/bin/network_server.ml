@@ -35,18 +35,66 @@ let write_config () =
     try Network_config.write_config !config
     with Network_config.Write_error -> ()
 
+let sort last_order =
+  match last_order with
+  | Some last_order -> (
+    match Network_device_order.sort last_order with
+    | Ok (interface_order, changes) ->
+        (Some interface_order, changes)
+    | Error err ->
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err) ;
+        (Some last_order, [])
+  )
+  | None ->
+      (None, [])
+
+let update_changes last_config changed_interfaces =
+  let update_name name =
+    let new_name =
+      List.assoc_opt name changed_interfaces |> Option.value ~default:name
+    in
+    if name <> new_name then
+      debug "Renaming %s to %s" name new_name ;
+    new_name
+  in
+  let update_port (port, port_conf) =
+    ( update_name port
+    , {port_conf with interfaces= List.map update_name port_conf.interfaces}
+    )
+  in
+  let bridge_config =
+    List.map
+      (fun (bridge, bridge_conf) ->
+        ( bridge
+        , {bridge_conf with ports= List.map update_port bridge_conf.ports}
+        )
+      )
+      last_config.bridge_config
+  in
+  let interface_config =
+    List.map
+      (fun (name, conf) -> (update_name name, conf))
+      last_config.interface_config
+  in
+  (bridge_config, interface_config)
+
 let read_config () =
   try
     config := Network_config.read_config () ;
-    debug "Read configuration from networkd.db file."
+    debug "Read configuration from networkd.db file." ;
+    let interface_order, changes = sort !config.interface_order in
+    let bridge_config, interface_config = update_changes !config changes in
+    config := {!config with bridge_config; interface_config; interface_order}
   with Network_config.Read_error -> (
     try
       (* No configuration file found. Try to get the initial network setup from
        * the first-boot data written by the host installer. *)
-      config := Network_config.read_management_conf () ;
+      let interface_order, _ = sort Network_config.initial_interface_order in
+      config := Network_config.read_management_conf interface_order ;
       debug "Read configuration from management.conf file."
     with Network_config.Read_error ->
-      debug "Could not interpret the configuration in management.conf"
+      error "Could not interpret the configuration in management.conf"
   )
 
 let on_shutdown signal =
@@ -69,7 +117,9 @@ let sync_state () =
   write_lock := false ;
   write_config ()
 
-let reset_state () = config := Network_config.read_management_conf ()
+let reset_state () =
+  let interface_order, _ = sort Network_config.initial_interface_order in
+  config := Network_config.read_management_conf interface_order
 
 let set_gateway_interface _dbg name =
   (* Remove dhclient conf (if any) for the old and new gateway interfaces.

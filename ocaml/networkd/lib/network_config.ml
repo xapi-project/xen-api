@@ -22,17 +22,35 @@ exception Read_error
 
 exception Write_error
 
-let empty_config = default_config
+(* If the interface-rename script dir exists, the devices are already renamed
+   to eth<N>, the <N> indicates device order *)
+let device_already_renamed =
+  let dir = "/etc/sysconfig/network-scripts/interface-rename-data" in
+  Sys.file_exists dir && Sys.is_directory dir
+
+(* If devices have already been renamed, then interface_order is None,
+   since the order is now reflected in their names. *)
+let initial_interface_order = if device_already_renamed then None else Some []
+
+let empty_config =
+  {default_config with interface_order= initial_interface_order}
 
 let config_file_path = "/var/lib/xcp/networkd.db"
 
 let temp_vlan = "xentemp"
 
-let bridge_naming_convention (device : string) =
-  if Astring.String.is_prefix ~affix:"eth" device then
+let bridge_name_of_device (device : string) =
+  if String.starts_with ~prefix:"eth" device then
     "xenbr" ^ String.sub device 3 (String.length device - 3)
   else
     "br" ^ device
+
+let bridge_naming_convention (device : string) pos_opt =
+  match pos_opt with
+  | Some index ->
+      "xenbr" ^ string_of_int index
+  | None ->
+      bridge_name_of_device device
 
 let get_list_from ~sep ~key args =
   List.assoc_opt key args
@@ -79,7 +97,11 @@ let parse_dns_config args =
   let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
   (nameservers, domains)
 
-let read_management_conf () =
+let write_manage_iface_to_inventory bridge_name =
+  info "Writing management interface to inventory: %s" bridge_name ;
+  Inventory.update Inventory._management_interface bridge_name
+
+let read_management_conf interface_order =
   try
     let management_conf =
       Xapi_stdext_unix.Unixext.string_of_file
@@ -114,7 +136,12 @@ let read_management_conf () =
       | _, hd :: _ ->
           hd
     in
-    Inventory.reread_inventory () ;
+    let pos_opt =
+      Option.bind interface_order @@ fun order ->
+      List.find_map
+        (fun x -> if x.name = device then Some x.position else None)
+        order
+    in
     let bridge_name =
       let inventory_bridge =
         try Some (Inventory.lookup Inventory._management_interface)
@@ -124,7 +151,7 @@ let read_management_conf () =
       | Some "" | None ->
           let bridge =
             if vlan = None then
-              bridge_naming_convention device
+              bridge_naming_convention device pos_opt
             else
               (* At this point, we don't know what the VLAN bridge name will be,
                * so use a temporary name. Xapi will replace the bridge once the name
@@ -132,6 +159,8 @@ let read_management_conf () =
               temp_vlan
           in
           debug "No management bridge in inventory file... using %s" bridge ;
+          if not device_already_renamed then
+            write_manage_iface_to_inventory bridge ;
           bridge
       | Some bridge ->
           debug "Management bridge in inventory file: %s" bridge ;
@@ -176,7 +205,7 @@ let read_management_conf () =
           , [(bridge_name, primary_bridge_conf)]
           )
       | Some vlan ->
-          let parent = bridge_naming_convention device in
+          let parent = bridge_naming_convention device pos_opt in
           let secondary_bridge_conf =
             {
               default_bridge with
@@ -203,7 +232,7 @@ let read_management_conf () =
     ; bridge_config
     ; gateway_interface= Some bridge_name
     ; dns_interface= Some bridge_name
-    ; interface_order= None
+    ; interface_order
     }
   with e ->
     error "Error while trying to read firstboot data: %s\n%s"
