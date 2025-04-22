@@ -97,6 +97,22 @@ let read_config () =
       error "Could not interpret the configuration in management.conf"
   )
 
+let get_index_from_ethx name =
+  if String.starts_with ~prefix:"eth" name then
+    let index = String.sub name 3 (String.length name - 3) in
+    int_of_string_opt index
+  else
+    None
+
+let sort_based_on_ethx () =
+  Sysfs.list ()
+  |> List.filter_map (fun name ->
+         if Sysfs.is_physical name then
+           get_index_from_ethx name |> Option.map (fun i -> (name, i))
+         else
+           None
+     )
+
 let on_shutdown signal =
   let dbg = "shutdown" in
   Debug.with_thread_associated dbg
@@ -320,6 +336,24 @@ module Interface = struct
 
   let get_all dbg () =
     Debug.with_thread_associated dbg (fun () -> Sysfs.list ()) ()
+
+  let get_interface_positions dbg () =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        match !config.interface_order with
+        | Some order ->
+            List.filter_map
+              (fun dev ->
+                if dev.present then
+                  Some (dev.name, dev.position)
+                else
+                  None
+              )
+              order
+        | None ->
+            sort_based_on_ethx ()
+      )
+      ()
 
   let exists dbg name =
     Debug.with_thread_associated dbg
