@@ -805,6 +805,8 @@ let sparse_dd = ref "sparse_dd"
 
 let vhd_tool = ref "vhd-tool"
 
+let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -1799,6 +1801,7 @@ module Resources = struct
       )
     ; ("sparse_dd", sparse_dd, "Path to sparse_dd")
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
+    ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
