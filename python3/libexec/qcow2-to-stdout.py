@@ -25,7 +25,6 @@
 # refcount tables and L1 tables when referring to those clusters.
 
 import argparse
-import errno
 import math
 import os
 import struct
@@ -57,23 +56,6 @@ def bitmap_iterator(bitmap, length):
 
 def align_up(num, d):
     return d * math.ceil(num / d)
-
-
-# Holes in the input file contain only zeroes so we can skip them and
-# save time. This function returns the indexes of the clusters that
-# are known to contain data. Those are the ones that we need to read.
-def clusters_with_data(fd, cluster_size):
-    data_to = 0
-    while True:
-        try:
-            data_from = os.lseek(fd, data_to, os.SEEK_DATA)
-            data_to = align_up(os.lseek(fd, data_from, os.SEEK_HOLE), cluster_size)
-            for idx in range(data_from // cluster_size, data_to // cluster_size):
-                yield idx
-        except OSError as err:
-            if err.errno == errno.ENXIO:  # End of file reached
-                break
-            raise err
 
 
 def write_features(cluster, offset, data_file_name):
@@ -115,8 +97,12 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits, data_file_name,
     refcounts_per_table  = cluster_size // 8
     refcounts_per_block  = cluster_size * 8 // refcount_bits
 
+    # Open the input file for reading
+    fd = os.open(input_file, os.O_RDONLY)
+
     # Virtual disk size, number of data clusters and L1 entries
-    disk_size = align_up(os.path.getsize(input_file), 512)
+    block_device_size = os.lseek(fd, 0, os.SEEK_END)
+    disk_size = align_up(block_device_size, 512)
     total_data_clusters = math.ceil(disk_size / cluster_size)
     l1_entries = math.ceil(total_data_clusters / l2_entries_per_table)
     allocated_l1_tables = math.ceil(l1_entries / l1_entries_per_table)
@@ -140,11 +126,10 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits, data_file_name,
         for idx in range(total_data_clusters):
             bitmap_set(l2_bitmap, idx)
     else:
-        # Open the input file for reading
-        fd = os.open(input_file, os.O_RDONLY)
         zero_cluster = bytes(cluster_size)
+        last_cluster = align_up(block_device_size, cluster_size) // cluster_size
         # Read all the clusters that contain data
-        for idx in clusters_with_data(fd, cluster_size):
+        for idx in range(0, last_cluster):
             cluster = os.pread(fd, cluster_size, cluster_size * idx)
             # If the last cluster is smaller than cluster_size pad it with zeroes
             if len(cluster) < cluster_size:
@@ -364,8 +349,8 @@ def main():
     if args.data_file_raw:
         args.data_file = True
 
-    if not os.path.isfile(args.input_file):
-        sys.exit(f"[Error] {args.input_file} does not exist or is not a regular file.")
+    if not os.path.exists(args.input_file):
+        sys.exit(f"[Error] {args.input_file} does not exist.")
 
     # A 512 byte header is too small for the data file name extension
     if args.data_file and args.cluster_size == 512:
