@@ -14,6 +14,8 @@
 
 type local_id = {path: string; shared_page_count: int}
 
+let finally f finally = Fun.protect ~finally f
+
 module File = struct
   let page_size = 4096
 
@@ -29,14 +31,17 @@ module File = struct
   let init {path; shared_page_count} =
     let size = shared_page_count * page_size in
     let fd = Unix.openfile path [Unix.O_RDWR; Unix.O_CREAT] 0o600 in
-    let mapping =
-      Bigarray.(
-        array1_of_genarray @@ Unix.map_file fd char c_layout true [|size|]
+    finally
+      (fun () ->
+        let mapping =
+          Bigarray.(
+            array1_of_genarray @@ Unix.map_file fd char c_layout true [|size|]
+          )
+        in
+        let cstruct = Cstruct.of_bigarray mapping in
+        (path, cstruct)
       )
-    in
-    Unix.close fd ;
-    let cstruct = Cstruct.of_bigarray mapping in
-    (path, cstruct)
+      (fun () -> Unix.close fd)
 
   let cleanup _ path _ = Unix.unlink path
 

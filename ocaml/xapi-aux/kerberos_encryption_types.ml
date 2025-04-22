@@ -20,6 +20,24 @@
 module Winbind = struct
   type t = Strong | Legacy | All
 
+  (*
+     * [X] 0x00000001 DES-CBC-CRC
+     * [X] 0x00000002 DES-CBC-MD5
+     * [X] 0x00000004 RC4-HMAC
+     * [X] 0x00000008 AES128-CTS-HMAC-SHA1-96
+     * [X] 0x00000010 AES256-CTS-HMAC-SHA1-96
+     * *)
+
+  let des_cbc_crc = 0x1
+
+  let des_cbc_md5 = 0x2
+
+  let rc4_hmac = 0x4
+
+  let aes128_cts_hmac_sha1_96 = 0x8
+
+  let aes256_cts_hmac_sha1_96 = 0x10
+
   let to_string = function
     | Strong ->
         "strong"
@@ -27,6 +45,20 @@ module Winbind = struct
         "legacy"
     | All ->
         "all"
+
+  let ( +++ ) x y = x lor y
+
+  let to_encoding = function
+    | Strong ->
+        aes128_cts_hmac_sha1_96 +++ aes256_cts_hmac_sha1_96
+    | Legacy ->
+        rc4_hmac
+    | All ->
+        des_cbc_crc
+        +++ des_cbc_md5
+        +++ rc4_hmac
+        +++ aes128_cts_hmac_sha1_96
+        +++ aes256_cts_hmac_sha1_96
 
   let of_string = function
     | "all" ->

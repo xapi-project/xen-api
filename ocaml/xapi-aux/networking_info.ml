@@ -17,7 +17,22 @@ module L = Debug.Make (struct let name = __MODULE__ end)
 
 let get_hostname () = try Unix.gethostname () with _ -> ""
 
-exception Unexpected_address_type of string
+type management_ip_error =
+  | Interface_missing
+  | Unexpected_address_type of string
+  | IP_missing
+  | Other of exn
+
+let management_ip_error_to_string = function
+  | Interface_missing ->
+      "Management interface is missing"
+  | IP_missing ->
+      "Management IP is missing"
+  | Unexpected_address_type s ->
+      Printf.sprintf
+        "Unexpected address type. Expected 'ipv4' or 'ipv6', got %s" s
+  | Other e ->
+      Printexc.to_string e
 
 (* Try to get all FQDNs, avoid localhost *)
 let dns_names () =
@@ -46,32 +61,63 @@ let ipaddr_to_cstruct = function
   | Ipaddr.V6 addr ->
       Cstruct.of_string (Ipaddr.V6.to_octets addr)
 
-let list_head lst = List.nth_opt lst 0
-
-let get_management_ip_addr ~dbg =
+let get_management_ip_addrs ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
   try
     if iface = "" || (not @@ Net.Interface.exists dbg iface) then
-      None
+      Error Interface_missing
     else
-      let addrs =
+      let ( let* ) = Result.bind in
+      let* addrs =
+        let ipv4 = Net.Interface.get_ipv4_addr dbg iface in
+        let ipv6 = Net.Interface.get_ipv6_addr dbg iface in
         match
           String.lowercase_ascii
             (Inventory.lookup Inventory._management_address_type ~default:"ipv4")
         with
         | "ipv4" ->
-            Net.Interface.get_ipv4_addr dbg iface
+            Ok (ipv4, ipv6)
         | "ipv6" ->
-            Net.Interface.get_ipv6_addr dbg iface
+            Ok (ipv6, ipv4)
         | s ->
-            let msg = Printf.sprintf "Expected 'ipv4' or 'ipv6', got %s" s in
-            L.error "%s: %s" __FUNCTION__ msg ;
-            raise (Unexpected_address_type msg)
+            Error (Unexpected_address_type s)
       in
-      addrs
-      |> List.map (fun (addr, _) -> Ipaddr_unix.of_inet_addr addr)
       (* Filter out link-local addresses *)
-      |> List.filter (fun addr -> Ipaddr.scope addr <> Ipaddr.Link)
-      |> List.map (fun ip -> (Ipaddr.to_string ip, ipaddr_to_cstruct ip))
-      |> list_head
-  with _ -> None
+      let no_local (addr, _) =
+        let addr = Ipaddr_unix.of_inet_addr addr in
+        if Ipaddr.scope addr <> Ipaddr.Link then
+          Some addr
+        else
+          None
+      in
+      Ok
+        ( List.filter_map no_local (fst addrs)
+        , List.filter_map no_local (snd addrs)
+        )
+  with e -> Error (Other e)
+
+let get_management_ip_addr ~dbg =
+  match get_management_ip_addrs ~dbg with
+  | Ok (preferred, _) ->
+      List.nth_opt preferred 0
+      |> Option.map (fun addr -> (Ipaddr.to_string addr, ipaddr_to_cstruct addr))
+  | Error _ ->
+      None
+
+let get_host_certificate_subjects ~dbg =
+  let ( let* ) = Result.bind in
+  let* ips, preferred_ip =
+    match get_management_ip_addrs ~dbg with
+    | Error e ->
+        Error e
+    | Ok (preferred, others) ->
+        let ips = List.(rev_append (rev preferred) others) in
+        Option.fold ~none:(Error IP_missing)
+          ~some:(fun ip -> Ok (List.map ipaddr_to_cstruct ips, ip))
+          (List.nth_opt ips 0)
+  in
+  let dns_names = dns_names () in
+  let name =
+    match dns_names with [] -> Ipaddr.to_string preferred_ip | dns :: _ -> dns
+  in
+  Ok (name, dns_names, ips)

@@ -54,7 +54,7 @@ let create_pool_record ~__context =
       ~update_sync_day:0L ~update_sync_enabled:false ~local_auth_max_threads:8L
       ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false
       ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
-      ~license_server:[]
+      ~license_server:[] ~ha_reboot_vm_on_internal_shutdown:true
 
 let set_master_ip ~__context =
   let ip =

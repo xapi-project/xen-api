@@ -1,6 +1,7 @@
 (library
   (name xapi_aux)
   (modes best)
+  (modules :standard \ version_test)
   (libraries
     astring
     clock
@@ -21,3 +22,11 @@
   (wrapped false)
 )
 
+; to run this test: dune exec ./version_test.exe
+(tests
+ (names version_test)
+  (modes (best exe))
+  (modules version_test)
+  (package xapi)
+  (libraries
+    xapi_aux alcotest))

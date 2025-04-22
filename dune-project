@@ -146,6 +146,17 @@
 
 (package
   (name xapi-storage-cli)
+  (depends
+   cmdliner
+   re
+   rpclib
+   ppx_deriving_rpc
+   (xapi-client (= :version))
+   (xapi-idl (= :version))
+   (xapi-types (= :version))
+  )
+  (synopsis "A CLI for xapi storage services")
+  (description "The CLI allows you to directly manipulate virtual disk images, without them being attached to VMs.")
 )
 
 (package
@@ -711,12 +722,14 @@ This package provides an Lwt compatible interface to the library.")
   (synopsis "Xapi's standard library extension, Threads")
   (authors "Jonathan Ludlam")
   (depends
+    ambient-context
     base-threads
     base-unix
     (alcotest :with-test)
     (clock (= :version))
     (fmt :with-test)
     mtime
+    tgroup
     (xapi-log (= :version))
     (xapi-stdext-pervasives (= :version))
     (xapi-stdext-unix (= :version))
