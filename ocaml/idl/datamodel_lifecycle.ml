@@ -126,7 +126,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "ha_reboot_vm_on_internal_shutdown" ->
-      Some "25.15.0-next"
+      Some "25.16.0"
   | "pool", "license_server" ->
       Some "25.6.0"
   | "pool", "recommendations" ->
