@@ -21,6 +21,7 @@ open D
 let safe_wrapper n f x =
   try f x
   with e ->
+    Backtrace.is_important e ;
     debug "Caught exception while cancelling tasks (%s): %s" n
       (ExnHelper.string_of_exn e) ;
     Debug.log_backtrace e (Backtrace.get e)

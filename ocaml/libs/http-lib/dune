@@ -1,109 +1,103 @@
 (library
-  (name http_lib)
-  (public_name http-lib)
-  (modes best)
-  (wrapped false)
-  (modules (:standard \ http_svr http_proxy server_io http_test radix_tree_test test_client test_server))
-  (preprocess (per_module ((pps ppx_deriving_rpc) Http)))
-  (libraries
-    astring
-    base64
-    fmt
-    ipaddr
-    mtime
-    mtime.clock.os
-    rpclib.core
-    rpclib.json
-    rpclib.xml
-    safe_resources
-    sha
-    stunnel
-    threads.posix
-    uuid
-    uri
-    xapi-backtrace
-    xapi-consts.xapi_version
-    xapi-idl.updates
-    xapi-log
-    clock
-    xapi-stdext-pervasives
-    xapi-stdext-threads
-    xapi-stdext-unix
-    xml-light2
-  )
-)
+ (name http_lib)
+ (public_name http-lib)
+ (modes best)
+ (wrapped false)
+ (modules
+  (:standard
+   \
+   http_svr
+   http_proxy
+   server_io
+   http_test
+   radix_tree_test
+   test_client
+   test_server))
+ (preprocess
+  (per_module
+   ((pps ppx_deriving_rpc)
+    Http)))
+ (libraries
+  astring
+  base64
+  fmt
+  ipaddr
+  mtime
+  mtime.clock.os
+  rpclib.core
+  rpclib.json
+  rpclib.xml
+  safe_resources
+  sha
+  stunnel
+  threads.posix
+  uuid
+  uri
+  xapi-backtrace
+  xapi-consts.xapi_version
+  xapi-idl.updates
+  xapi-log
+  clock
+  xapi-stdext-pervasives
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xml-light2))
 
 (library
-  (name httpsvr)
-  (wrapped false)
-  (modes best)
-  (modules http_svr http_proxy server_io)
-  (libraries
-    astring
-    http_lib
-    ipaddr
-    polly
-    tgroup
-    threads.posix
-    tracing
-    tracing_propagator
-    uri
-    xapi-log
-    xapi-stdext-pervasives
-    xapi-stdext-threads
-    xapi-stdext-unix
-  )
-)
+ (name httpsvr)
+ (wrapped false)
+ (modes best)
+ (modules http_svr http_proxy server_io)
+ (libraries
+  astring
+  http_lib
+  ipaddr
+  polly
+  tgroup
+  threads.posix
+  tracing
+  tracing_propagator
+  uri
+  xapi-backtrace
+  xapi-log
+  xapi-stdext-pervasives
+  xapi-stdext-threads
+  xapi-stdext-unix))
 
 (tests
-  (names http_test radix_tree_test)
-  (package http-lib)
-  (modes (best exe))
-  (modules http_test radix_tree_test)
-  (libraries
-    alcotest
-
-    fmt
-    http_lib
-  )
-)
+ (names http_test radix_tree_test)
+ (package http-lib)
+ (modes
+  (best exe))
+ (modules http_test radix_tree_test)
+ (libraries alcotest fmt http_lib))
 
 (executable
-  (modes exe)
-  (name test_client)
-  (modules test_client)
-  (libraries
-
-    http_lib
-    safe-resources
-    stunnel
-    threads.posix
-    xapi-backtrace
-    xapi-log
-    xapi-stdext-pervasives
-    xapi-stdext-unix
-  )
-)
+ (modes exe)
+ (name test_client)
+ (modules test_client)
+ (libraries
+  http_lib
+  safe-resources
+  stunnel
+  threads.posix
+  xapi-backtrace
+  xapi-log
+  xapi-stdext-pervasives
+  xapi-stdext-unix))
 
 (executable
-  (modes exe)
-  (name test_server)
-  (modules test_server)
-  (libraries
-
-    http_lib
-    httpsvr
-    safe-resources
-    threads.posix
-    xapi-stdext-threads
-    xapi-stdext-unix
-  )
-)
+ (modes exe)
+ (name test_server)
+ (modules test_server)
+ (libraries
+  http_lib
+  httpsvr
+  safe-resources
+  threads.posix
+  xapi-stdext-threads
+  xapi-stdext-unix))
 
 (cram
-  (package xapi)
-  (deps
-    test_client.exe
-    test_server.exe
-  )
-)
+ (package xapi)
+ (deps test_client.exe test_server.exe))

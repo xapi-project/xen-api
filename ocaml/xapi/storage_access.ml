@@ -162,6 +162,7 @@ let on_xapi_start ~__context =
       | Message_switch_failure ->
           [] (* no more logging *)
       | e ->
+          Backtrace.is_important e ;
           error "Unexpected error querying the message switch: %s"
             (Printexc.to_string e) ;
           Debug.log_backtrace e (Backtrace.get e) ;

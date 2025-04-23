@@ -299,7 +299,7 @@ let update_rrds uuid_domids paused_vms plugins_dss =
           reset_missing_data sr_rrdi.rrd missing_updates ;
 
           Hashtbl.replace sr_rrds sr_uuid sr_rrdi
-        with _ -> log_backtrace ()
+        with e -> log_backtrace e
       in
       let process_host plugins_dss available_dss =
         let host_rrdi = !host_rrd in

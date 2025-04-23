@@ -4052,7 +4052,6 @@ let rio_help printer minimal cmd =
         in
         printer (Cli_printer.PTable [recs])
     | None ->
-        D.log_backtrace () ;
         error "Responding with Unknown command %s" cmd ;
         printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
   in
