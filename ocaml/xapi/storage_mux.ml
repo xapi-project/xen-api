@@ -19,6 +19,7 @@ module D = Debug.Make (struct let name = "mux" end)
 open D
 open Storage_interface
 open Storage_mux_reg
+open Storage_utils
 
 let s_of_sr = Storage_interface.Sr.string_of
 
@@ -329,28 +330,6 @@ module Mux = struct
         ) ;
       Storage_migrate.update_snapshot_info_src ~dbg:(Debug_info.to_string di)
         ~sr ~vdi ~url ~dest ~dest_vdi ~snapshot_pairs
-
-    exception No_VDI
-
-    (* Find a VDI given a storage-layer SR and VDI *)
-    let find_vdi ~__context sr vdi =
-      let sr = s_of_sr sr in
-      let vdi = s_of_vdi vdi in
-      let open Xapi_database.Db_filter_types in
-      let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
-      match
-        Db.VDI.get_records_where ~__context
-          ~expr:
-            (And
-               ( Eq (Field "location", Literal vdi)
-               , Eq (Field "SR", Literal (Ref.string_of sr))
-               )
-            )
-      with
-      | x :: _ ->
-          x
-      | _ ->
-          raise No_VDI
 
     let set_is_a_snapshot _context ~dbg ~sr ~vdi ~is_a_snapshot =
       Server_helpers.exec_with_new_task "VDI.set_is_a_snapshot"

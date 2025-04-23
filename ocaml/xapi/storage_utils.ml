@@ -14,6 +14,10 @@
 
 open Storage_interface
 
+let s_of_sr = Storage_interface.Sr.string_of
+
+let s_of_vdi = Storage_interface.Vdi.string_of
+
 let string_of_vdi_type vdi_type =
   Rpc.string_of_rpc (API.rpc_of_vdi_type vdi_type)
 
@@ -173,3 +177,24 @@ let transform_storage_exn f =
         (Api_errors.Server_error
            (Api_errors.internal_error, [Printexc.to_string e])
         )
+
+exception No_VDI
+
+let find_vdi ~__context sr vdi =
+  let sr = s_of_sr sr in
+  let vdi = s_of_vdi vdi in
+  let open Xapi_database.Db_filter_types in
+  let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
+  match
+    Db.VDI.get_records_where ~__context
+      ~expr:
+        (And
+           ( Eq (Field "location", Literal vdi)
+           , Eq (Field "SR", Literal (Ref.string_of sr))
+           )
+        )
+  with
+  | x :: _ ->
+      x
+  | _ ->
+      raise No_VDI

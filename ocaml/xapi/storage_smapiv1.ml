@@ -18,8 +18,7 @@ open D
 module Date = Clock.Date
 module XenAPI = Client.Client
 open Storage_interface
-
-exception No_VDI
+open Storage_utils
 
 let s_of_vdi = Vdi.string_of
 
@@ -29,26 +28,6 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~module_name:"SMAPIv1" ~name ~dbg f
-
-(* Find a VDI given a storage-layer SR and VDI *)
-let find_vdi ~__context sr vdi =
-  let sr = s_of_sr sr in
-  let vdi = s_of_vdi vdi in
-  let open Xapi_database.Db_filter_types in
-  let sr = Db.SR.get_by_uuid ~__context ~uuid:sr in
-  match
-    Db.VDI.get_records_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "location", Literal vdi)
-           , Eq (Field "SR", Literal (Ref.string_of sr))
-           )
-        )
-  with
-  | x :: _ ->
-      x
-  | _ ->
-      raise No_VDI
 
 (* Find a VDI reference given a name *)
 let find_content ~__context ?sr name =
