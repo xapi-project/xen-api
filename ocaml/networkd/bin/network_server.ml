@@ -156,7 +156,9 @@ let on_timer () = write_config ()
 
 let clear_state () =
   write_lock := true ;
-  config := Network_config.empty_config
+  (* Do not clear interface_order, it is only maintained by networkd *)
+  config :=
+    {Network_config.empty_config with interface_order= !config.interface_order}
 
 let sync_state () =
   write_lock := false ;
