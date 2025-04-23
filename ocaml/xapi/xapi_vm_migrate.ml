@@ -1026,7 +1026,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
           (SMAPI.VDI.attach3 dbg new_dp vconf.sr vconf.location vconf.mirror_vm
              read_write
           ) ;
-        SMAPI.VDI.activate3 dbg new_dp vconf.sr vconf.location vconf.mirror_vm ;
+        (* SMAPI.VDI.activate3 dbg new_dp vconf.sr vconf.location vconf.mirror_vm ; *)
         let id =
           Storage_migrate_helper.State.mirror_id_of (vconf.sr, vconf.location)
         in
