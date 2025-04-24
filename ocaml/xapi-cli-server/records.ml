@@ -1584,6 +1584,17 @@ let pool_record rpc session_id pool =
               ~value:(safe_i64_of_string "console-idle-timeout" value)
           )
           ()
+      ; make_field ~name:"ssh-auto-mode"
+          ~get:(fun () ->
+            get_consistent_field_or_default ~rpc ~session_id
+              ~getter:Client.Host.get_ssh_auto_mode ~transform:string_of_bool
+              ~default:inconsistent
+          )
+          ~set:(fun value ->
+            Client.Pool.set_ssh_auto_mode ~rpc ~session_id ~self:pool
+              ~value:(safe_bool_of_string "ssh-auto-mode" value)
+          )
+          ()
       ]
   }
 
@@ -3373,6 +3384,13 @@ let host_record rpc session_id host =
           ~set:(fun value ->
             Client.Host.set_console_idle_timeout ~rpc ~session_id ~self:host
               ~value:(safe_i64_of_string "console-idle-timeout" value)
+          )
+          ()
+      ; make_field ~name:"ssh-auto-mode"
+          ~get:(fun () -> string_of_bool (x ()).API.host_ssh_auto_mode)
+          ~set:(fun value ->
+            Client.Host.set_ssh_auto_mode ~rpc ~session_id ~self:host
+              ~value:(safe_bool_of_string "ssh-auto-mode" value)
           )
           ()
       ]
