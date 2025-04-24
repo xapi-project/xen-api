@@ -558,6 +558,12 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
+
+    let read_write = true in
+    (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
+       It's not necessary for copy which will take care of that itself. *)
+    ignore (Local.VDI.attach3 dbg dp sr vdi (Vm.of_string "0") read_write) ;
+    Local.VDI.activate3 dbg dp sr vdi (Vm.of_string "0") ;
     match remote_mirror with
     | Mirror.QCOW2_mirror _ ->
         (* this should never happen *)

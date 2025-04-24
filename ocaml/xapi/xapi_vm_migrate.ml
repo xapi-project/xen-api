@@ -1019,14 +1019,6 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (* Though we have no intention of "write", here we use the same mode as the
            associated VBD on a mirrored VDIs (i.e. always RW). This avoids problem
            when we need to start/stop the VM along the migration. *)
-        let read_write = true in
-        (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
-           It's not necessary for copy which will take care of that itself. *)
-        ignore
-          (SMAPI.VDI.attach3 dbg new_dp vconf.sr vconf.location vconf.mirror_vm
-             read_write
-          ) ;
-        (* SMAPI.VDI.activate3 dbg new_dp vconf.sr vconf.location vconf.mirror_vm ; *)
         let id =
           Storage_migrate_helper.State.mirror_id_of (vconf.sr, vconf.location)
         in
