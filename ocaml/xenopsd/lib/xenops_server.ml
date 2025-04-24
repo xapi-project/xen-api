@@ -2022,6 +2022,9 @@ and parallel_atomic ~progress_callback ~description ~nested atoms t =
         | Some (Task.Completed _) ->
             TASK.destroy' id ; None
         | Some (Task.Failed e) ->
+            let backtrace =
+              Xenops_task.backtrace_of (Xenops_task.handle_of_id tasks id)
+            in
             TASK.destroy' id ;
             let e =
               match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
@@ -2030,7 +2033,7 @@ and parallel_atomic ~progress_callback ~description ~nested atoms t =
               | Error (`Msg x) ->
                   internal_error "Error unmarshalling failure: %s" x
             in
-            Some e
+            Backtrace.add e backtrace ; Some e
         | None | Some (Task.Pending _) ->
             (* Because pending tasks are filtered out in
                 queue_atomics_and_wait with task_ended the second case will
@@ -2148,12 +2151,14 @@ let rec immediate_operation dbg _id op =
   | Task.Completed _ ->
       ()
   | Task.Failed e -> (
-    match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
-    | Ok e ->
-        raise (Xenopsd_error e)
-    | Error (`Msg m) ->
-        internal_error "Failed to unmarshal error: %s" m
-  )
+      let backtrace = Xenops_task.backtrace_of task in
+      match Rpcmarshal.unmarshal Errors.error.Rpc.Types.ty e with
+      | Ok e ->
+          let e = Xenopsd_error e in
+          Backtrace.add e backtrace ; raise e
+      | Error (`Msg m) ->
+          internal_error "Failed to unmarshal error: %s" m
+    )
 
 (* At all times we ensure that an operation which partially fails leaves the
    system in a recoverable state. All that should be necessary is to call the

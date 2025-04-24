@@ -69,6 +69,8 @@ module Task : functor (Interface : INTERFACE) -> sig
 
   val to_interface_task : task_handle -> Interface.Task.t
 
+  val backtrace_of : task_handle -> Backtrace.t
+
   (* [add tasks dbg f] adds a new task with debug string [dbg] that will execute
      [f] when run *)
   val add :
