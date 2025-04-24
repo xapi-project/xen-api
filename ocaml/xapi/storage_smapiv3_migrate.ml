@@ -299,4 +299,29 @@ module MIRROR : SMAPIv2_MIRROR = struct
       )
       receive_state ;
     State.remove_receive_mirror mirror_id
+
+  let is_mirror_failed _ctx ~dbg ~mirror_id ~sr =
+    match State.find_active_local_mirror mirror_id with
+    | Some ({mirror_key= Some mk; vdi; live_vm; _} : State.Send_state.t) ->
+        let {failed; _} : Mirror.status =
+          Local.DATA.stat dbg sr vdi live_vm mk
+        in
+        failed
+    | _ ->
+        false
+
+  let pre_deactivate_hook ctx ~dbg ~dp ~sr ~vdi =
+    D.debug "%s dbg: %s dp: %s sr: %s vdi: %s" __FUNCTION__ dbg dp (s_of_sr sr)
+      (s_of_vdi vdi) ;
+    let mirror_id = State.mirror_id_of (sr, vdi) in
+    D.debug "%s looking for final stats" __FUNCTION__ ;
+    State.find_active_local_mirror mirror_id
+    |> Option.iter (fun (s : State.Send_state.t) ->
+           if is_mirror_failed ctx ~dbg ~mirror_id ~sr then (
+             D.error "%s QEMU reports mirroring failed" __FUNCTION__ ;
+             s.failed <- true
+           ) ;
+           Option.iter (Scheduler.cancel scheduler) s.watchdog ;
+           s.watchdog <- None
+       )
 end
