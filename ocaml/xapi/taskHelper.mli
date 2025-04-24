@@ -58,6 +58,8 @@ val cancel : __context:Context.t -> unit
 val failed : __context:Context.t -> exn -> unit
 (** Call this when a task fails with [exn] *)
 
+val reraise : __context:Context.t -> task:API.ref_task -> exn -> 'a
+
 val init : unit -> unit
 
 val rbac_assert_permission_fn :
