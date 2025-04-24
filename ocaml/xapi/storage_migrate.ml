@@ -200,28 +200,20 @@ module MigrateLocal = struct
         stop ~dbg ~id:mirror_id ;
         raise e
 
-  let stat ~dbg:_ ~id =
+  let stat ~dbg ~id =
     let recv_opt = State.find_active_receive_mirror id in
     let send_opt = State.find_active_local_mirror id in
     let copy_opt = State.find_active_copy id in
+    let sr, _vdi = State.of_mirror_id id in
     let open State in
     let failed =
       match send_opt with
       | Some send_state ->
+          let (module Migrate_Backend) = choose_backend dbg sr in
           let failed =
-            match send_state.Send_state.tapdev with
-            | Some tapdev -> (
-              try
-                let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-                stats.Tapctl.Stats.nbd_mirror_failed = 1
-              with _ ->
-                debug "Using cached copy of failure status" ;
-                send_state.Send_state.failed
-            )
-            | None ->
-                false
+            Migrate_Backend.is_mirror_failed () ~dbg ~mirror_id:id ~sr
           in
-          send_state.Send_state.failed <- failed ;
+          send_state.failed <- failed ;
           failed
       | None ->
           false
@@ -317,58 +309,9 @@ module MigrateLocal = struct
     State.clear ()
 end
 
-exception Timeout of Mtime.Span.t
-
-let reqs_outstanding_timeout = Mtime.Span.(150 * s)
-
-let pp_time () = Fmt.str "%a" Mtime.Span.pp
-
-(* Tapdisk should time out after 2 mins. We can wait a little longer *)
-
-let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
-  let open State.Send_state in
-  let id = State.mirror_id_of (sr, vdi) in
-  let start = Mtime_clock.counter () in
-  State.find_active_local_mirror id
-  |> Option.iter (fun s ->
-         (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
-            					   until the number of outstanding requests has gone to zero, then check the
-            					   status. This avoids confusing the backend (CA-128460) *)
-         try
-           match s.tapdev with
-           | None ->
-               ()
-           | Some tapdev ->
-               let open Tapctl in
-               let ctx = create () in
-               let rec wait () =
-                 let elapsed = Mtime_clock.count start in
-                 if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0 then
-                   raise (Timeout elapsed) ;
-                 let st = stats ctx tapdev in
-                 if st.Stats.reqs_outstanding > 0 then (
-                   Thread.delay 1.0 ; wait ()
-                 ) else
-                   (st, elapsed)
-               in
-               let st, elapsed = wait () in
-               debug "Got final stats after waiting %a" pp_time elapsed ;
-               if st.Stats.nbd_mirror_failed = 1 then (
-                 error "tapdisk reports mirroring failed" ;
-                 s.failed <- true
-               )
-         with
-         | Timeout elapsed ->
-             error
-               "Timeout out after %a waiting for tapdisk to complete all \
-                outstanding requests"
-               pp_time elapsed ;
-             s.failed <- true
-         | e ->
-             error "Caught exception while finally checking mirror state: %s"
-               (Printexc.to_string e) ;
-             s.failed <- true
-     )
+let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
+  let (module Migrate_Backend) = choose_backend dbg sr in
+  Migrate_Backend.pre_deactivate_hook () ~dbg ~dp ~sr ~vdi
 
 let post_deactivate_hook ~sr ~vdi ~dp:_ =
   let open State.Send_state in

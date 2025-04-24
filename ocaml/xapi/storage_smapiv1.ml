@@ -1162,6 +1162,10 @@ module SMAPIv1 : Server_impl = struct
 
       let receive_cancel2 _context ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
         assert false
+
+      let pre_deactivate_hook _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ = assert false
+
+      let is_mirror_failed _context ~dbg:_ ~mirror_id:_ ~sr:_ = assert false
     end
   end
 

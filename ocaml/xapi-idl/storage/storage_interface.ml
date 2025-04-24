@@ -1332,6 +1332,12 @@ module type MIRROR = sig
     -> url:string
     -> verify_dest:bool
     -> unit
+
+  val pre_deactivate_hook :
+    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit
+
+  val is_mirror_failed :
+    context -> dbg:debug_info -> mirror_id:Mirror.id -> sr:Sr.t -> bool
 end
 
 module type Server_impl = sig
