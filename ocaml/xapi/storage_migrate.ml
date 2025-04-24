@@ -172,8 +172,8 @@ module MigrateLocal = struct
           ~verify_dest
       in
       Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
-        ~mirror_id ~local_vdi ~copy_vm ~live_vm:(Vm.of_string "0") ~url
-        ~remote_mirror ~dest_sr:dest ~verify_dest ;
+        ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
+        ~dest_sr:dest ~verify_dest ;
       Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
