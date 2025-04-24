@@ -422,7 +422,7 @@ let nbd_handler req s ?(vm = "0") sr vdi dp =
 (** nbd_proxy is a http handler but will turn the http connection into an nbd connection.
 It proxies the connection between the sender and the generic nbd server, as returned
 by [get_nbd_server dp sr vdi vm]. *)
-let nbd_proxy req s vm sr vdi dp =
+let import_nbd_proxy req s vm sr vdi dp =
   debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
   let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
   req.Http.Request.close <- true ;

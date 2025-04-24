@@ -197,7 +197,8 @@ module Copy = struct
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
         Http.Url.set_uri url'
-          (Printf.sprintf "%s/nbdproxy/%s/%s/%s/%s" (Http.Url.get_uri url')
+          (Printf.sprintf "%s/nbdproxy/import/%s/%s/%s/%s"
+             (Http.Url.get_uri url')
              (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
