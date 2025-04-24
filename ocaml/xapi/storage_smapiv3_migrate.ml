@@ -124,8 +124,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
           )
     | Mirror.QCOW2_mirror {nbd_export; mirror_datapath; mirror_vdi} -> (
       try
-        let nbd_url =
-          Printf.sprintf "nbd+unix://%s?socket=%s" nbd_export nbd_proxy_path
+        let nbd_uri =
+          Uri.make ~scheme:"nbd+unix" ~host:"" ~path:nbd_export
+            ~query:[("socket", [nbd_proxy_path])]
+            ()
+          |> Uri.to_string
         in
         let _ : Thread.t =
           Thread.create
@@ -137,8 +140,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
         in
 
         D.info "%s nbd_proxy_path: %s nbd_url %s" __FUNCTION__ nbd_proxy_path
-          nbd_url ;
-        let mk = Local.DATA.mirror dbg sr vdi live_vm nbd_url in
+          nbd_uri ;
+        let mk = Local.DATA.mirror dbg sr vdi live_vm nbd_uri in
 
         D.debug "%s Updating active local mirrors: id=%s" __FUNCTION__ mirror_id ;
         let alm =
