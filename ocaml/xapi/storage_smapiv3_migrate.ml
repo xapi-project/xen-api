@@ -38,4 +38,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let receive_cancel _ctx = u __FUNCTION__
 
   let receive_cancel2 _ctx = u __FUNCTION__
+
+  let has_mirror_failed _ctx = u __FUNCTION__
+
+  let pre_deactivate_hook _ctx = u __FUNCTION__
 end

@@ -857,6 +857,12 @@ module Mux = struct
 
       let receive_cancel2 () ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
         u __FUNCTION__
+
+      let pre_deactivate_hook _ctx ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ =
+        u "DATA.MIRROR.pre_deactivate_hook"
+
+      let has_mirror_failed _ctx ~dbg:_ ~mirror_id:_ ~sr:_ =
+        u "DATA.MIRROR.has_mirror_failed"
     end
   end
 

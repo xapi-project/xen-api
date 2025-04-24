@@ -1927,6 +1927,8 @@ let bind ~volume_script_dir =
   S.DATA.MIRROR.receive_finalize2 (u "DATA.MIRROR.receive_finalize2") ;
   S.DATA.MIRROR.receive_cancel (u "DATA.MIRROR.receive_cancel") ;
   S.DATA.MIRROR.receive_cancel2 (u "DATA.MIRROR.receive_cancel2") ;
+  S.DATA.MIRROR.pre_deactivate_hook (u "DATA.MIRROR.pre_deactivate_hook") ;
+  S.DATA.MIRROR.has_mirror_failed (u "DATA.MIRROR.has_mirror_failed") ;
   S.DP.create (u "DP.create") ;
   S.TASK.cancel (u "TASK.cancel") ;
   S.TASK.list (u "TASK.list") ;
