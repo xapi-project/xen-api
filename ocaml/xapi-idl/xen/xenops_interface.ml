@@ -718,6 +718,11 @@ module XenopsAPI (R : RPC) = struct
           ~description:["when true, verify remote server certificate"]
           Types.bool
       in
+      let localhost_migration =
+        Param.mk ~name:"localhost_migration"
+          ~description:["when true, localhost migration is being performed"]
+          Types.bool
+      in
       declare "VM.migrate" []
         (debug_info_p
         @-> vm_id_p
@@ -727,6 +732,7 @@ module XenopsAPI (R : RPC) = struct
         @-> xenops_url
         @-> compress
         @-> verify_dest
+        @-> localhost_migration
         @-> returning task_id_p err
         )
 

@@ -297,6 +297,7 @@ type vm_migrate_op = {
   ; vmm_tmp_dest_id: Vm.id
   ; vmm_compress: bool
   ; vmm_verify_dest: bool
+  ; vmm_localhost_migration: bool
 }
 [@@deriving rpcty]
 
@@ -2628,19 +2629,30 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
           ~path:(Uri.path_unencoded url ^ snippet ^ id_str)
           ~query:(Uri.query url) ()
       in
-      (* CA-78365: set the memory dynamic range to a single value to stop
-         ballooning. *)
-      let atomic =
-        VM_set_memory_dynamic_range
-          (id, vm.Vm.memory_dynamic_min, vm.Vm.memory_dynamic_min)
-      in
-      let (_ : unit) =
-        perform_atomic ~progress_callback:(fun _ -> ()) atomic t
-      in
-      (* Waiting here is not essential but adds a degree of safety and
-         reducess unnecessary memory copying. *)
-      ( try B.VM.wait_ballooning t vm
-        with Xenopsd_error Ballooning_timeout_before_migration -> ()
+      (* CA-78365: set the memory dynamic range to a single value
+         to stop ballooning, if ballooning is enabled at all *)
+      ( if vm.memory_dynamic_min <> vm.memory_dynamic_max then
+          (* There's no need to balloon down when doing localhost migration -
+             we're not copying any memory in the first place. This would
+             likely increase VDI migration time as swap would be engaged.
+             Instead change the ballooning target to the current state *)
+          let new_balloon_target =
+            if vmm.vmm_localhost_migration then
+              (B.VM.get_state vm).memory_actual
+            else
+              vm.memory_dynamic_min
+          in
+          let atomic =
+            VM_set_memory_dynamic_range
+              (id, new_balloon_target, new_balloon_target)
+          in
+          let (_ : unit) =
+            perform_atomic ~progress_callback:(fun _ -> ()) atomic t
+          in
+          (* Waiting here is not essential but adds a degree of safety and
+             reducess unnecessary memory copying. *)
+          try B.VM.wait_ballooning t vm
+          with Xenopsd_error Ballooning_timeout_before_migration -> ()
       ) ;
       (* Find out the VM's current memory_limit: this will be used to allocate
          memory on the receiver *)
@@ -3597,7 +3609,7 @@ module VM = struct
   let s3resume _ dbg id = queue_operation dbg id (Atomic (VM_s3resume id))
 
   let migrate _context dbg id vmm_vdi_map vmm_vif_map vmm_vgpu_pci_map vmm_url
-      (compress : bool) (verify_dest : bool) =
+      (compress : bool) (localhost_migration : bool) (verify_dest : bool) =
     let tmp_uuid_of uuid ~kind =
       Printf.sprintf "%s00000000000%c" (String.sub uuid 0 24)
         (match kind with `dest -> '1' | `src -> '0')
@@ -3614,6 +3626,7 @@ module VM = struct
          ; vmm_tmp_dest_id= tmp_uuid_of id ~kind:`dest
          ; vmm_compress= compress
          ; vmm_verify_dest= verify_dest
+         ; vmm_localhost_migration= localhost_migration
          }
       )
 
