@@ -478,6 +478,7 @@ module SMAPIv1 : Server_impl = struct
                           ; backend_type= "vbd3"
                           }
                       ; BlockDevice {path= params}
+                      ; Nbd {uri= attach_info_v1.Smint.params_nbd}
                       ]
                   )
               }
