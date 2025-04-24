@@ -206,9 +206,9 @@ let put_handler (req : Http.Request.t) s _ =
       | [""; services; "SM"; "nbd"; vm; sr; vdi; dp] when services = _services
         ->
           Storage_migrate.nbd_handler req s ~vm sr vdi dp
-      | [""; services; "SM"; "nbdproxy"; vm; sr; vdi; dp]
+      | [""; services; "SM"; "nbdproxy"; "import"; vm; sr; vdi; dp]
         when services = _services ->
-          Storage_migrate.nbd_proxy req s vm sr vdi dp
+          Storage_migrate.import_nbd_proxy req s vm sr vdi dp
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
           req.Http.Request.close <- true
