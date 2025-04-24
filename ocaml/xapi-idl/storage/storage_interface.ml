@@ -291,11 +291,41 @@ module Mirror = struct
   }
   [@@deriving rpcty]
 
-  type mirror_receive_result = Vhd_mirror of mirror_receive_result_vhd_t
+  type mirror_receive_result_smapiv3_t = {
+      mirror_vdi: vdi_info
+    ; mirror_datapath: dp
+    ; nbd_export: string
+  }
+  [@@deriving rpcty]
+
+  (* The variant of the mirror receive result depends on the SMAPI version being used,
+     rather than the VDI image type. We call the new variant SMAPIv3_mirror to reflect
+     this, but keep the old one Vhd_mirror for backwards compatability reasons. *)
+  type mirror_receive_result =
+    | Vhd_mirror of mirror_receive_result_vhd_t
+    | SMAPIv3_mirror of mirror_receive_result_smapiv3_t
   [@@deriving rpcty]
 
   type similars = content_id list [@@deriving rpcty]
+
+  type copy_operation_v1 = string [@@deriving rpcty, show {with_path= false}]
+
+  type mirror_operation_v1 = string [@@deriving rpcty, show {with_path= false}]
+
+  (* SMAPIv3 mirror operation *)
+  type operation =
+    | CopyV1 of copy_operation_v1
+    | MirrorV1 of mirror_operation_v1
+  [@@deriving rpcty, show {with_path= false}]
+
+  (* status of SMAPIv3 mirror *)
+  type status = {failed: bool; complete: bool; progress: float option}
+  [@@deriving rpcty]
 end
+
+type operation = Mirror.operation
+
+type status = Mirror.status
 
 type async_result_t = Vdi_info of vdi_info | Mirror_id of Mirror.id
 [@@deriving rpcty]
@@ -373,7 +403,7 @@ module Errors = struct
     (* mirror_copy_failure: raised when copying of the base image fails (SMAPIv1 only) *)
     | Migration_mirror_copy_failure of string
     (* mirror_failure: raised when there is any issues that causes the mirror to crash
-       during SXM (SMAPIv3 only, v1 uses more specific errors as above) *)
+       during SXM (SMAPIv1 and SMAPIv3 *)
     | Migration_mirror_failure of string
     | Internal_error of string
     | Unknown_error
@@ -1106,6 +1136,8 @@ module StorageAPI (R : RPC) = struct
           @-> id_p
           @-> similar_p
           @-> vm_p
+          @-> url_p
+          @-> verify_dest_p
           @-> returning result err
           )
 
@@ -1124,13 +1156,29 @@ module StorageAPI (R : RPC) = struct
       should be used in conjunction with [receive_start2] *)
       let receive_finalize2 =
         declare "DATA.MIRROR.receive_finalize2" []
-          (dbg_p @-> id_p @-> returning unit_p err)
+          (dbg_p
+          @-> id_p
+          @-> sr_p
+          @-> url_p
+          @-> verify_dest_p
+          @-> returning unit_p err
+          )
 
       (** [receive_cancel dbg id] is called in the case of migration failure to
-      do the clean up.*)
+      do the clean up.
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_cancel
+        during SXM.  Use the receive_cancel2 function instead. 
+      *)
       let receive_cancel =
         declare "DATA.MIRROR.receive_cancel" []
           (dbg_p @-> id_p @-> returning unit_p err)
+
+      (** [receive_cancel2 dbg mirror_id url verify_dest] cleans up the side effects
+      done by [receive_start2] on the destination host when the migration fails. *)
+      let receive_cancel2 =
+        declare "DATA.MIRROR.receive_cancel2" []
+          (dbg_p @-> id_p @-> url_p @-> verify_dest_p @-> returning unit_p err)
     end
   end
 
@@ -1210,16 +1258,33 @@ module type MIRROR = sig
     -> dbg:debug_info
     -> sr:sr
     -> vdi_info:vdi_info
-    -> id:Mirror.id
+    -> mirror_id:Mirror.id
     -> similar:Mirror.similars
     -> vm:vm
+    -> url:string
+    -> verify_dest:bool
     -> Mirror.mirror_receive_result
 
   val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
 
-  val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
+  val receive_finalize2 :
+       context
+    -> dbg:debug_info
+    -> mirror_id:Mirror.id
+    -> sr:sr
+    -> url:string
+    -> verify_dest:bool
+    -> unit
 
   val receive_cancel : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val receive_cancel2 :
+       context
+    -> dbg:debug_info
+    -> mirror_id:Mirror.id
+    -> url:string
+    -> verify_dest:bool
+    -> unit
 end
 
 module type Server_impl = sig
@@ -1676,17 +1741,23 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
     ) ;
-    S.DATA.MIRROR.receive_start2 (fun dbg sr vdi_info id similar vm ->
-        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
+    S.DATA.MIRROR.receive_start2
+      (fun dbg sr vdi_info mirror_id similar vm url verify_dest ->
+        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~mirror_id
+          ~similar ~vm ~url ~verify_dest
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
         Impl.DATA.MIRROR.receive_cancel () ~dbg ~id
     ) ;
+    S.DATA.MIRROR.receive_cancel2 (fun dbg mirror_id url verify_dest ->
+        Impl.DATA.MIRROR.receive_cancel2 () ~dbg ~mirror_id ~url ~verify_dest
+    ) ;
     S.DATA.MIRROR.receive_finalize (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
     ) ;
-    S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
-        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
+    S.DATA.MIRROR.receive_finalize2 (fun dbg mirror_id sr url verify_dest ->
+        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~mirror_id ~sr ~url
+          ~verify_dest
     ) ;
     S.DATA.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
