@@ -141,7 +141,14 @@ let do_op_on_common ~local_fn ~__context ~host ~remote_fn f =
       local_fn ~__context
     else
       let task_opt = set_forwarding_on_task ~__context ~host in
-      f __context host task_opt remote_fn
+      try f __context host task_opt remote_fn
+      with Api_errors.Server_error (_, _) as e -> (
+        match task_opt with
+        | None ->
+            raise e
+        | Some task ->
+            TaskHelper.reraise ~__context ~task e
+      )
   with
   | ( Xmlrpc_client.Connection_reset
     | Http_client.Http_request_rejected _
