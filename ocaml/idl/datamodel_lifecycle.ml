@@ -78,7 +78,7 @@ let prototyped_of_field = function
   | "Cluster_host", "live" ->
       Some "24.3.0"
   | "Cluster", "expected_hosts" ->
-      Some "25.16.0-next"
+      Some "25.17.0"
   | "Cluster", "live_hosts" ->
       Some "24.3.0"
   | "Cluster", "quorum" ->
