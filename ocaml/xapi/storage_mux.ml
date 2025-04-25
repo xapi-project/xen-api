@@ -863,6 +863,11 @@ module Mux = struct
 
       let is_mirror_failed _ctx ~dbg:_ ~mirror_id:_ ~sr:_ =
         u "DATA.MIRROR.is_mirror_failed"
+
+      let list () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun di ->
+        info "%s dbg: %s" __FUNCTION__ dbg ;
+        Storage_migrate.list ~dbg:di.log
     end
   end
 

@@ -825,4 +825,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
     )
     | _ ->
         false
+
+  let list _ctx = u __FUNCTION__
 end

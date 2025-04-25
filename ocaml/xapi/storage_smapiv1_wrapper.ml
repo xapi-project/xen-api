@@ -1224,6 +1224,8 @@ functor
           u __FUNCTION__
 
         let is_mirror_failed _context ~dbg:_ ~mirror_id:_ ~sr:_ = u __FUNCTION__
+
+        let list _context ~dbg:_ = u __FUNCTION__
       end
     end
 
