@@ -188,6 +188,8 @@ module DATA = struct
 
     let has_mirror_failed ctx ~dbg ~mirror_id ~sr =
       u "DATA.MIRROR.has_mirror_failed"
+
+    let list ctx ~dbg = u "DATA.MIRROR.list"
   end
 end
 
