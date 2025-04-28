@@ -4,20 +4,27 @@
   bench_uuid
   bench_throttle2
   bench_cached_reads
-  bench_vdi_allowed_operations)
+  bench_vdi_allowed_operations
+  bench_pool_field)
  (libraries
   dune-build-info
   tracing
   bechamel
   bechamel-notty
+  clock
   cmdliner
   notty.unix
   tracing_export
   threads.posix
+  rpclib.core
+  rpclib.json
+  sexpr
   fmt
   notty
   uuid
   xapi_aux
   tests_common
   log
+  xapi_database
+  xapi_datamodel
   xapi_internal))
