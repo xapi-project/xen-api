@@ -77,12 +77,15 @@ let mirror_wait ~dbg ~sr ~vdi ~vm ~mirror_id mirror_key =
       Option.fold ~none:()
         ~some:(fun p -> D.info "%s progress is %f" __FUNCTION__ p)
         progress ;
-      D.info "%s completed" __FUNCTION__
+      D.info "%s qemu mirror %s completed" mirror_id __FUNCTION__
     ) else if failed then (
       Option.iter
         (fun (snd_state : State.Send_state.t) -> snd_state.failed <- true)
         (State.find_active_local_mirror mirror_id) ;
-      D.info "%s failed" __FUNCTION__ ;
+      D.info "%s qemu mirror %s failed" mirror_id __FUNCTION__ ;
+      State.find_active_local_mirror mirror_id
+      |> Option.iter (fun (s : State.Send_state.t) -> s.failed <- true) ;
+      Updates.add (Dynamic.Mirror mirror_id) updates ;
       raise
         (Storage_interface.Storage_error
            (Migration_mirror_failure "Mirror failed during syncing")
@@ -318,18 +321,16 @@ module MIRROR : SMAPIv2_MIRROR = struct
     | _ ->
         false
 
-  let pre_deactivate_hook ctx ~dbg ~dp ~sr ~vdi =
+  (* TODO currently we make the pre_deactivate_hook for SMAPIv3 a noop while for
+     SMAPIv1 it will do a final check of the state of the mirror and report error
+     if there is a mirror failure. We leave this for SMAPIv3 because the Data.stat
+     call, which checks for the state of the mirror stops working once the domain
+     has been paused, which happens before VDI.deactivate, hence we cannot do this check in
+     pre_deactivate_hook. Instead we work around this by doing mirror check in mirror_wait
+     as we repeatedly poll the state of the mirror job. In the future we might
+     want to invent a different hook that can be called to do a final check just
+     before the VM is paused. *)
+  let pre_deactivate_hook _ctx ~dbg ~dp ~sr ~vdi =
     D.debug "%s dbg: %s dp: %s sr: %s vdi: %s" __FUNCTION__ dbg dp (s_of_sr sr)
-      (s_of_vdi vdi) ;
-    let mirror_id = State.mirror_id_of (sr, vdi) in
-    D.debug "%s looking for final stats" __FUNCTION__ ;
-    State.find_active_local_mirror mirror_id
-    |> Option.iter (fun (s : State.Send_state.t) ->
-           if has_mirror_failed ctx ~dbg ~mirror_id ~sr then (
-             D.error "%s QEMU reports mirroring failed" __FUNCTION__ ;
-             s.failed <- true
-           ) ;
-           Option.iter (Scheduler.cancel scheduler) s.watchdog ;
-           s.watchdog <- None
-       )
+      (s_of_vdi vdi)
 end
