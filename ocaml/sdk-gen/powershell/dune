@@ -14,7 +14,7 @@
   (source_tree autogen))
  (action
   (progn
-   (concurrent
+   (progn
     (bash "cp -r autogen/ autogen-out/")
     (run %{x}))
    (bash "rm autogen-out/.gitignore")

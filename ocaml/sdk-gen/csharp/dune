@@ -25,7 +25,7 @@
   (source_tree templates))
  (action
   (progn
-   (concurrent
+   (progn
     (bash "cp -r autogen/ autogen-out/")
     (run %{x})
     (run %{x2} -s %{y}))
