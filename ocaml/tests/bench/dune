@@ -6,9 +6,11 @@
   bench_cached_reads
   bench_vdi_allowed_operations)
  (libraries
+  dune-build-info
   tracing
   bechamel
   bechamel-notty
+  cmdliner
   notty.unix
   tracing_export
   threads.posix
