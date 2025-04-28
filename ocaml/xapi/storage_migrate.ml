@@ -331,8 +331,7 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
          ) ;
          debug "Finished calling receive_finalize3" ;
          State.remove_local_mirror id ;
-         debug "Removed active local mirror: %s" id ;
-         Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog
+         debug "Removed active local mirror: %s" id
      )
 
 let nbd_handler req s ?(vm = "0") sr vdi dp =
