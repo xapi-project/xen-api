@@ -1,34 +1,26 @@
 (executable
-  (modes exe)
-  (name gen_c_binding)
-  (libraries
-    astring
-    CommonFunctions
-    
-    mustache
-    xapi-datamodel
-  )
-)
+ (modes exe)
+ (name gen_c_binding)
+ (libraries astring CommonFunctions mustache xapi-datamodel))
 
 (rule
-  (alias generate)
-  (package xapi-sdk)
-  (targets (dir autogen-out))
-  (deps
-    (:x gen_c_binding.exe)
-    (source_tree templates)
-    (source_tree autogen)
-  )
-  (action (concurrent
-    (bash "cp -r autogen/ autogen-out/")
-    (run %{x})
-  ))
-)
+ (alias generate)
+ (package xapi-sdk)
+ (targets
+  (dir autogen-out))
+ (deps
+  (:x gen_c_binding.exe)
+  (source_tree templates)
+  (source_tree autogen))
+ (action
+  (concurrent
+   (bash "cp -r autogen/ autogen-out/")
+   (run %{x}))))
 
 (data_only_dirs templates)
 
 (install
-	(package xapi-sdk)
-	(section share_root)
-    (dirs (autogen-out as c))
-)
+ (package xapi-sdk)
+ (section share_root)
+ (dirs
+  (autogen-out as c)))

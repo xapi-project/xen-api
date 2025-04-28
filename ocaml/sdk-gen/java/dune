@@ -1,44 +1,38 @@
 (executable
-  (modes exe)
-  (name main)
-  (libraries
-    astring
-    CommonFunctions
-    
-    mustache
-    str
-    xapi-datamodel
-    xapi-stdext-unix
-  )
-)
+ (modes exe)
+ (name main)
+ (libraries
+  astring
+  CommonFunctions
+  mustache
+  str
+  xapi-datamodel
+  xapi-stdext-unix))
 
 (rule
-  (targets LICENSE)
-  (deps
-    ../LICENSE
-  )
-  (action (copy %{deps} %{targets}))
-)
+ (targets LICENSE)
+ (deps ../LICENSE)
+ (action
+  (copy %{deps} %{targets})))
 
 (rule
-  (alias generate)
-  (targets (dir autogen-out))
-  (deps
-    LICENSE
-    (:x main.exe)
-    (source_tree templates)
-    (source_tree autogen)
-  )
-  (action (concurrent
-    (bash "cp -r autogen/ autogen-out/")
-    (run %{x})
-  ))
-)
+ (alias generate)
+ (targets
+  (dir autogen-out))
+ (deps
+  LICENSE
+  (:x main.exe)
+  (source_tree templates)
+  (source_tree autogen))
+ (action
+  (concurrent
+   (bash "cp -r autogen/ autogen-out/")
+   (run %{x}))))
 
 (data_only_dirs templates)
 
 (install
-	(package xapi-sdk)
-	(section share_root)
-    (dirs (autogen-out as java))
-)
+ (package xapi-sdk)
+ (section share_root)
+ (dirs
+  (autogen-out as java)))
