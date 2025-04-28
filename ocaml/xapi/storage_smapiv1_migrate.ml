@@ -846,7 +846,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
                  if st.Stats.nbd_mirror_failed = 1 then (
                    D.error "tapdisk reports mirroring failed" ;
                    s.failed <- true
-                 )
+                 ) ;
+                 Option.iter
+                   (fun id -> Scheduler.cancel scheduler id)
+                   s.watchdog
            with
            | Timeout elapsed ->
                D.error
