@@ -87,6 +87,7 @@ let parse_dns_config args =
   (nameservers, domains)
 
 let write_manage_iface_to_inventory bridge_name =
+  info "Writing management interface to inventory: %s" bridge_name ;
   Inventory.update Inventory._management_interface bridge_name
 
 let read_management_conf interface_order =

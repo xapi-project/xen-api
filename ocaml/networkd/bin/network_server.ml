@@ -97,7 +97,8 @@ let sort_and_update () =
           ; interface_order= Some new_order
           }
     | Error err ->
-        error "Failed to sort interface order"
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err)
 
 let sort_on_first_boot () =
   if Network_utils.is_sorted_by_script () then
@@ -107,7 +108,8 @@ let sort_on_first_boot () =
     | Ok (sorted, _) ->
         Some sorted
     | Error err ->
-        error "Failed to sort interface order" ;
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err) ;
         Some []
 
 let build_config () =
