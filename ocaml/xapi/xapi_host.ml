@@ -1044,7 +1044,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~tls_verification_enabled ~last_software_update ~last_update_hash
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
-    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ;
+    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout
+    ~ssh_auto_mode:Constants.default_ssh_auto_mode ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3157,6 +3158,33 @@ let schedule_disable_ssh_job ~__context ~self ~timeout =
 
   Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
 
+let set_ssh_auto_mode ~__context ~self ~value =
+  debug "Setting SSH auto mode for host %s to %B"
+    (Helpers.get_localhost_uuid ())
+    value ;
+
+  if value && Db.Host.get_ssh_enabled ~__context ~self then
+    raise (Api_errors.Server_error (Api_errors.ssh_auto_mode_conflict, [])) ;
+
+  Db.Host.set_ssh_auto_mode ~__context ~self ~value ;
+
+  try
+    if value then (
+      Xapi_systemctl.enable ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service ;
+      Xapi_systemctl.start ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service
+    ) else (
+      Xapi_systemctl.stop ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service ;
+      Xapi_systemctl.disable ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service
+    )
+  with e ->
+    error "Failed to configure SSH auto mode: %s" (Printexc.to_string e) ;
+    Helpers.internal_error "Failed to configure SSH auto mode: %s"
+      (Printexc.to_string e)
+
 let enable_ssh ~__context ~self =
   try
     debug "Enabling SSH for host %s" (Helpers.get_localhost_uuid ()) ;
@@ -3173,7 +3201,9 @@ let enable_ssh ~__context ~self =
         schedule_disable_ssh_job ~__context ~self ~timeout:t
     ) ;
 
-    Db.Host.set_ssh_enabled ~__context ~self ~value:true
+    Db.Host.set_ssh_enabled ~__context ~self ~value:true ;
+    (* Disable SSH auto mode when SSH is enabled manually *)
+    set_ssh_auto_mode ~__context ~self ~value:false
   with e ->
     error "Failed to enable SSH on host %s: %s" (Ref.string_of self)
       (Printexc.to_string e) ;
