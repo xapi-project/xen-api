@@ -370,9 +370,14 @@ let make_tables ~__context ~host =
   let dbg = Context.string_of_task __context in
   let device_to_position_table = Net.Interface.get_interface_positions dbg () in
   let device_to_mac_table =
-    List.map
-      (fun (name, _) -> (name, Net.Interface.get_mac dbg name))
-      device_to_position_table
+    List.filter_map
+      (fun name ->
+        if Net.Interface.is_physical dbg name then
+          Some (name, Net.Interface.get_mac dbg name)
+        else
+          None
+      )
+      (Net.Interface.get_all dbg ())
   in
   (* Get all PIFs on this host *)
   let pif_to_device_table =
