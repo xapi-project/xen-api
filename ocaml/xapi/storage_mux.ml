@@ -868,6 +868,11 @@ module Mux = struct
         with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun di ->
         info "%s dbg: %s" __FUNCTION__ dbg ;
         Storage_migrate.list ~dbg:di.log
+
+      let stat () ~dbg ~id =
+        with_dbg ~name:"DATA.MIRROR.stat" ~dbg @@ fun di ->
+        info "%s dbg: %s mirror_id: %s" __FUNCTION__ di.log id ;
+        Storage_migrate.stat ~dbg:di.log ~id
     end
   end
 

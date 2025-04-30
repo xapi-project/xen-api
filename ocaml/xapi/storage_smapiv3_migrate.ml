@@ -44,4 +44,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let pre_deactivate_hook _ctx = u __FUNCTION__
 
   let list _ctx = u __FUNCTION__
+
+  let stat _ctx = u __FUNCTION__
 end
