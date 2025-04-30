@@ -51,12 +51,19 @@ let merge_new_dss rrdi dss =
     !Rrdd_shared.enable_all_dss || ds.ds_default
   in
   let default_dss = StringMap.filter should_enable_ds dss in
+  let ds_names =
+    Array.fold_left
+      (fun (acc : StringSet.t) (e : Rrd.ds) : StringSet.t ->
+        StringSet.add e.ds_name acc
+      )
+      StringSet.empty rrdi.rrd.rrd_dss
+  in
   (* NOTE: Only add enabled dss to the live rrd, ignoring non-default ones.
      This is because non-default ones are added to the RRD when they are
      enabled. *)
   let new_enabled_dss =
     StringMap.filter
-      (fun ds_name _ -> not (StringMap.mem ds_name rrdi.dss))
+      (fun ds_name _ -> not (StringSet.mem ds_name ds_names))
       default_dss
   in
   (* fold on Map is not tail-recursive, but the depth of the stack should be
