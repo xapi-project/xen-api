@@ -1163,6 +1163,8 @@ module SMAPIv1 : Server_impl = struct
       let has_mirror_failed _context ~dbg:_ ~mirror_id:_ ~sr:_ = assert false
 
       let list _context ~dbg:_ = assert false
+
+      let stat _context ~dbg:_ ~id:_ = assert false
     end
   end
 

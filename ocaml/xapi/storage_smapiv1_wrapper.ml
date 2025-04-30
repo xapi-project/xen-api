@@ -1227,6 +1227,8 @@ functor
           u __FUNCTION__
 
         let list _context ~dbg:_ = u __FUNCTION__
+
+        let stat _context ~dbg:_ ~id:_ = u __FUNCTION__
       end
     end
 

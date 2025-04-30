@@ -1196,6 +1196,10 @@ module StorageAPI (R : RPC) = struct
           Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
         in
         declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
+
+      let stat =
+        let result_p = Param.mk ~name:"result" Mirror.t in
+        declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
     end
   end
 
@@ -1310,6 +1314,8 @@ module type MIRROR = sig
     context -> dbg:debug_info -> mirror_id:Mirror.id -> sr:Sr.t -> bool
 
   val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
 end
 
 module type Server_impl = sig
@@ -1791,6 +1797,7 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.has_mirror_failed () ~dbg ~mirror_id ~sr
     ) ;
     S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
+    S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
