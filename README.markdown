@@ -11,7 +11,7 @@ Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
 4.07.
 
 Xapi is the main component produced by the Linux Foundation's
-[Xapi Project](http://xenproject.org/developers/teams/xapi.html).
+[Xapi Project](https://xenproject.org/projects/xapi/).
 
 Build and Install
 -----------------
