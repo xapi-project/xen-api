@@ -106,6 +106,10 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                      )
                   )
             | None ->
+                (* FIXME: Currently, when importing an image with a virtual
+                   size that's bigger than the VDI's virtual size, we fail in
+                   an unhelpful manner on some write.
+                   We could instead parse the header first and fail early. *)
                 let vdi =
                   match
                     ( vdi_opt
@@ -122,6 +126,22 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                         ~virtual_size:length ~_type:`user ~sharable:false
                         ~read_only:false ~other_config:[] ~xenstore_data:[]
                         ~sm_config:[] ~tags:[]
+                  | None, Importexport.Format.Qcow, _, _ ->
+                      error
+                        "Importing a QCOW2 directly into an SR not yet \
+                         supported" ;
+                      raise
+                        (HandleError
+                           ( Api_errors.Server_error
+                               ( Api_errors.internal_error
+                               , [
+                                   "Importing a QCOW2 directly into an SR not \
+                                    yet supported"
+                                 ]
+                               )
+                           , Http.http_400_badrequest ~version:"1.0" ()
+                           )
+                        )
                   | None, Importexport.Format.Vhd, _, _ ->
                       error
                         "Importing a VHD directly into an SR not yet supported" ;
@@ -158,6 +178,13 @@ let localhost_handler rpc session_id vdi_opt (req : Request.t)
                 in
                 Http_svr.headers s headers ;
                 ( match format with
+                | Qcow ->
+                    Sm_fs_ops.with_block_attached_device __context rpc
+                      session_id vdi `RW (fun path ->
+                        Qcow_tool_wrapper.receive
+                          (Qcow_tool_wrapper.update_task_progress __context)
+                          s path
+                    )
                 | Raw | Vhd ->
                     let prezeroed =
                       not
