@@ -164,6 +164,7 @@
   psq
   ptime
   ptime.clock.os
+  qcow-stream
   rpclib.core
   rpclib.json
   rpclib.xml
