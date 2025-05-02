@@ -96,7 +96,8 @@ module type DB_ACCESS_FIELD = sig
 
   type field_out
 
-  val read_field_where : Db_ref.t -> Db_cache_types.where_record -> field list
+  val read_field_where :
+    Db_ref.t -> Db_cache_types.where_record -> field_out list
   (** [read_field_where {tbl,return,where_field,where_value}] returns a
       		list of the [return] fields in table [tbl] where the [where_field]
       		equals [where_value] *)
@@ -106,11 +107,12 @@ module type DB_ACCESS_FIELD = sig
   (** [create_row tbl kvpairs ref] create a new row in [tbl] with
       		key [ref] and contents [kvpairs] *)
 
-  val write_field : Db_ref.t -> table -> db_ref -> field_name -> field -> unit
+  val write_field :
+    Db_ref.t -> table -> db_ref -> field_name -> field_in -> unit
   (** [write_field context tbl ref fld val] changes field [fld] to [val] in
       		row [ref] in table [tbl] *)
 
-  val read_field : Db_ref.t -> table -> field_name -> db_ref -> field
+  val read_field : Db_ref.t -> table -> field_name -> db_ref -> field_out
   (** [read_field context tbl fld ref] returns the value of field [fld]
       		in row [ref] in table [tbl] *)
 
@@ -131,5 +133,17 @@ module type DB_ACCESS = sig
   include DB_ACCESS_COMMON
 
   include
+    DB_ACCESS_FIELD with type field_in = string and type field_out = string
+end
+
+module type DB_ACCESS2 = sig
+  include DB_ACCESS_COMMON
+
+  include
+    DB_ACCESS_FIELD
+      with type field_in = Schema.Value.t
+       and type field_out = Schema.maybe_cached_value
+
+  module Compat :
     DB_ACCESS_FIELD with type field_in = string and type field_out = string
 end
