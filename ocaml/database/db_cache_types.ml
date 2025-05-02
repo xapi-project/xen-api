@@ -548,9 +548,11 @@ let get_field tblname objref fldname db =
       (Table.find objref (TableSet.find tblname (Database.tableset db)))
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
+let empty = Schema.Value.string ""
+
 let unsafe_set_field g tblname objref fldname newval =
   (fun _ -> newval)
-  |> Row.update g fldname (Schema.Value.String "")
+  |> Row.update g fldname empty
   |> Table.update g objref Row.empty
   |> TableSet.update g tblname Table.empty
   |> Database.update
@@ -632,7 +634,7 @@ let set_field tblname objref fldname newval db =
     |> update_one_to_many g tblname objref remove_from_set
     |> Database.update
          ((fun _ -> newval)
-         |> Row.update g fldname (Schema.Value.String "")
+         |> Row.update g fldname empty
          |> Table.update g objref Row.empty
          |> TableSet.update g tblname Table.empty
          )
@@ -643,7 +645,7 @@ let set_field tblname objref fldname newval db =
     let g = Manifest.generation (Database.manifest db) in
     db
     |> ((fun _ -> newval)
-       |> Row.update g fldname (Schema.Value.String "")
+       |> Row.update g fldname empty
        |> Table.update g objref Row.empty
        |> TableSet.update g tblname Table.empty
        |> Database.update

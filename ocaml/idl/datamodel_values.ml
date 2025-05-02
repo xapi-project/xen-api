@@ -84,42 +84,42 @@ let to_db v =
   let open Schema.Value in
   match v with
   | VString s ->
-      String s
+      string s
   | VInt i ->
-      String (Int64.to_string i)
+      string (Int64.to_string i)
   | VFloat f ->
-      String (string_of_float f)
+      string (string_of_float f)
   | VBool true ->
-      String "true"
+      string "true"
   | VBool false ->
-      String "false"
+      string "false"
   | VDateTime d ->
-      String (Date.to_rfc3339 d)
+      string (Date.to_rfc3339 d)
   | VEnum e ->
-      String e
+      string e
   | VMap vvl ->
       Pairs (List.map (fun (k, v) -> (to_string k, to_string v)) vvl)
   | VSet vl ->
       Set (List.map to_string vl)
   | VRef r ->
-      String r
+      string r
 
 (* Generate suitable "empty" database value of specified type *)
 let gen_empty_db_val t =
   let open Schema in
   match t with
   | SecretString | String ->
-      Value.String ""
+      Value.string ""
   | Int ->
-      Value.String "0"
+      Value.string "0"
   | Float ->
-      Value.String (string_of_float 0.0)
+      Value.string (string_of_float 0.0)
   | Bool ->
-      Value.String "false"
+      Value.string "false"
   | DateTime ->
-      Value.String Date.(to_rfc3339 epoch)
+      Value.string Date.(to_rfc3339 epoch)
   | Enum (_, (enum_value, _) :: _) ->
-      Value.String enum_value
+      Value.string enum_value
   | Enum (_, []) ->
       assert false
   | Set _ ->
@@ -127,8 +127,8 @@ let gen_empty_db_val t =
   | Map _ ->
       Value.Pairs []
   | Ref _ ->
-      Value.String null_ref
+      Value.string null_ref
   | Record _ ->
-      Value.String ""
+      Value.string ""
   | Option _ ->
       Value.Set []

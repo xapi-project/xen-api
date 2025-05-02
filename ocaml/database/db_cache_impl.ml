@@ -230,7 +230,7 @@ let create_row t tblname kvs' new_objref =
       else
         (* we add the reference to the row itself so callers can use read_field_where to
            	   return the reference: awkward if it is just the key *)
-        let kvs' = (Db_names.ref, Schema.Value.String new_objref) :: kvs' in
+        let kvs' = (Db_names.ref, Schema.Value.string new_objref) :: kvs' in
         W.debug "create_row %s (%s) [%s]" tblname new_objref
           (String.concat ","
              (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')

@@ -25,6 +25,12 @@ module Value : sig
     | Pairs of (string * string) list
   [@@deriving sexp_of]
 
+  val string : string -> t
+
+  val set : string list -> t
+
+  val pairs : (string * string) list -> t
+
   val marshal : t -> string
 
   val unmarshal : Type.t -> string -> t

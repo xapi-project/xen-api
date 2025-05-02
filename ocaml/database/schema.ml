@@ -40,6 +40,12 @@ module Value = struct
     | Pairs of (string * string) list
   [@@deriving sexp_of]
 
+  let string s = String s
+
+  let set xs = Set xs
+
+  let pairs xs = Pairs xs
+
   let marshal = function
     | String x ->
         x

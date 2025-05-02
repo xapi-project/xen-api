@@ -205,11 +205,13 @@ functor
       let db =
         db
         |> add_row "bar" "bar:1"
-             (Row.add 0L Db_names.ref (String "bar:1")
+             (Row.add 0L Db_names.ref
+                (Schema.Value.string "bar:1")
                 (Row.add 0L "foos" (Set []) Row.empty)
              )
         |> add_row "foo" "foo:1"
-             (Row.add 0L Db_names.ref (String "foo:1")
+             (Row.add 0L Db_names.ref
+                (Schema.Value.string "foo:1")
                 (Row.add 0L "bars" (Set []) Row.empty)
              )
         |> set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Set []))
@@ -219,7 +221,7 @@ functor
         Table.find "bar:1" (TableSet.find "bar" (Database.tableset db))
       in
       let bar_foos = Row.find "foos" bar_1 in
-      if bar_foos <> Set ["foo:1"] then
+      if bar_foos <> Schema.Value.set ["foo:1"] then
         failwith_fmt
           "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s"
           (Schema.Value.marshal bar_foos) ;
@@ -235,13 +237,13 @@ functor
         failwith_fmt "check_many_to_many: bar(bar:1).foos expected () got %s"
           (Schema.Value.marshal bar_foos) ;
       (* add 'bar' to foo.bars *)
-      let db = set_field "foo" "foo:1" "bars" (Set ["bar:1"]) db in
+      let db = set_field "foo" "foo:1" "bars" (Schema.Value.set ["bar:1"]) db in
       (* check that 'bar.foos' includes 'foo' *)
       let bar_1 =
         Table.find "bar:1" (TableSet.find "bar" (Database.tableset db))
       in
       let bar_foos = Row.find "foos" bar_1 in
-      if bar_foos <> Set ["foo:1"] then
+      if bar_foos <> Schema.Value.set ["foo:1"] then
         failwith_fmt
           "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2"
           (Schema.Value.marshal bar_foos) ;
