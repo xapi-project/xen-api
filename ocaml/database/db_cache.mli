@@ -12,6 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val get : Db_ref.t -> (module Db_interface.DB_ACCESS)
+val get : Db_ref.t -> (module Db_interface.DB_ACCESS2)
 
 val apply_delta_to_cache : Redo_log.t -> Db_ref.t -> unit

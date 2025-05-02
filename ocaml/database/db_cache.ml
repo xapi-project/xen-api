@@ -19,30 +19,32 @@ module D = Debug.Make (struct let name = "db_cache" end)
 open D
 
 (** Masters will use this to modify the in-memory cache directly *)
-module Local_db : DB_ACCESS = Db_interface_compat.OfCached (Db_cache_impl)
+module Local_db : DB_ACCESS2 = Db_cache_impl
 
 (** Slaves will use this to call the master by XMLRPC *)
-module Remote_db : DB_ACCESS = Db_rpc_client_v1.Make (struct
+module Remote_db : DB_ACCESS2 =
+Db_interface_compat.OfCompat (Db_rpc_client_v1.Make (struct
   let initialise () =
     ignore (Master_connection.start_master_connection_watchdog ()) ;
     ignore (Master_connection.open_secure_connection ())
 
   let rpc request = Master_connection.execute_remote_fn request
-end)
+end))
 
 let get = function
   | Db_ref.In_memory _ ->
-      (module Local_db : DB_ACCESS)
+      (module Local_db : DB_ACCESS2)
   | Db_ref.Remote ->
-      (module Remote_db : DB_ACCESS)
+      (module Remote_db : DB_ACCESS2)
 
 let lifecycle_state_of ~obj fld =
   let open Datamodel in
   let {fld_states; _} = StringMap.find obj all_lifecycles in
   StringMap.find fld fld_states
 
+module DB = Db_interface_compat.OfCached (Local_db)
+
 let apply_delta_to_cache entry db_ref =
-  let module DB : DB_ACCESS = Local_db in
   match entry with
   | Redo_log.CreateRow (tblname, objref, kvs) ->
       debug "Redoing create_row %s (%s)" tblname objref ;

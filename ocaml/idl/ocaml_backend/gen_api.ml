@@ -484,7 +484,9 @@ let gen_db_actions _config highapi =
            (toposort_types highapi only_records)
        ; (* NB record types are ignored by dm_to_string and string_to_dm *)
          O.Module.strings_of (dm_to_string all_types_in_db)
+       ; O.Module.strings_of (dm_to_field all_types_in_db)
        ; O.Module.strings_of (string_to_dm all_types_in_db)
+       ; O.Module.strings_of (field_to_dm all_types_in_db)
        ; O.Module.strings_of (db_action highapi_in_db)
        ]
     @ List.map O.Module.strings_of (Gen_db_check.all highapi_in_db)

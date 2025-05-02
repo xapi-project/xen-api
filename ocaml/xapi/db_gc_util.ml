@@ -28,7 +28,7 @@ let gc_connector ~__context get_all get_record valid_ref1 valid_ref2
     delete_record =
   let db = Context.database_of __context in
   let module DB =
-    (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS)
+    (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS2)
   in
   let all_refs = get_all ~__context in
   let do_gc ref =
