@@ -1569,5 +1569,5 @@ let create_from_db_file ~__context ~filename =
     Xapi_database.Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename
     |> Xapi_database.Db_upgrade.generic_database_upgrade
   in
-  let db_ref = Some (Xapi_database.Db_ref.in_memory (ref (ref db))) in
+  let db_ref = Some (Xapi_database.Db_ref.in_memory (Atomic.make db)) in
   create_readonly_session ~__context ~uname:"db-from-file" ~db_ref
