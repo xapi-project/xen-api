@@ -1349,13 +1349,19 @@ let vm_to_string __context vm =
     raise (Api_errors.Server_error (Api_errors.invalid_value, [str])) ;
   let t = Context.database_of __context in
   let module DB =
-    (val Xapi_database.Db_cache.get t : Xapi_database.Db_interface.DB_ACCESS)
+    (val Xapi_database.Db_cache.get t : Xapi_database.Db_interface.DB_ACCESS2)
   in
-  let fields = fst (DB.read_record t Db_names.vm str) in
+  let fields, _ = DB.read_record t Db_names.vm str in
   let sexpr =
     SExpr.Node
       (List.map
-         (fun (key, value) -> SExpr.Node [SExpr.String key; SExpr.String value])
+         (fun (key, value) ->
+           SExpr.Node
+             [
+               SExpr.String key
+             ; SExpr.String (Schema.CachedValue.string_of value)
+             ]
+         )
          fields
       )
   in
