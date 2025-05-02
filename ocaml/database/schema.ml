@@ -84,6 +84,37 @@ module Value = struct
   end
 end
 
+(** We have a Value.t *)
+type present = [`Present of Value.t]
+
+(** We don't have a Value.t. For backwards compatibility with DB RPC protocols. *)
+type absent = [`Absent]
+
+type maybe = [present | absent]
+
+module CachedValue = struct
+  type !+'a t = {v: 'a; marshalled: string}
+
+  let v v = {v= `Present v; marshalled= Value.marshal v}
+
+  let of_string marshalled = {v= `Absent; marshalled}
+
+  let string_of t = t.marshalled
+
+  let value_of {v= `Present v; _} = v
+
+  let unmarshal ty t =
+    match t.v with
+    | `Present v ->
+        v
+    | `Absent ->
+        Value.unmarshal ty t.marshalled
+end
+
+type cached_value = present CachedValue.t
+
+type maybe_cached_value = maybe CachedValue.t
+
 module Column = struct
   type t = {
       name: string

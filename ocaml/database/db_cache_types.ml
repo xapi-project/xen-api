@@ -24,11 +24,33 @@ module HashedString = struct
   let hash = Hashtbl.hash
 end
 
-module StringPool = Weak.Make (HashedString)
+module Share : sig
+  val merge : string -> string
+  (** [merge str] merges [str] into the stringpool.
+    It returns a string equal to [str].
 
-let share =
-  let pool = StringPool.create 2048 in
-  StringPool.merge pool
+    This function is thread-safe, it skips adding the string to the pool
+    when called concurrently.
+    For best results call this while holding another lock.
+   *)
+end = struct
+  module StringPool = Weak.Make (HashedString)
+
+  let pool = StringPool.create 2048
+
+  let merge_running = Atomic.make 0
+
+  let merge str =
+    let str =
+      if Atomic.fetch_and_add merge_running 1 = 0 then
+        StringPool.merge pool str
+      else
+        (* no point in using a mutex here, just fall back to not sharing,
+           which is quicker. *)
+        str
+    in
+    Atomic.decr merge_running ; str
+end
 
 module Stat = struct
   type t = {created: Time.t; modified: Time.t; deleted: Time.t}
@@ -45,7 +67,7 @@ module StringMap = struct
     let compare = String.compare
   end)
 
-  let add key v t = add (share key) v t
+  let add key v t = add (Share.merge key) v t
 end
 
 module type VAL = sig
@@ -137,41 +159,33 @@ functor
 
 module Row = struct
   module CachedValue = struct
-    type t = Schema.Value.t * string
+    type t = Schema.cached_value
 
-    let v v = (v, Schema.Value.marshal v)
+    let v = Schema.CachedValue.v
   end
 
   include Make (CachedValue)
 
-  let add gen key v =
-    add gen key
-    @@ CachedValue.v
-    @@
-    match v with
-    | Schema.Value.String x ->
-        Schema.Value.String (share x)
-    | Schema.Value.Pairs ps ->
-        Schema.Value.Pairs (List.map (fun (x, y) -> (share x, share y)) ps)
-    | Schema.Value.Set xs ->
-        Schema.Value.Set (List.map share xs)
+  let add gen key v = add gen key @@ CachedValue.v v
 
   type t = map_t
 
   type value = Schema.Value.t
 
-  let iter f t = iter (fun k (v, _) -> f k v) t
+  let iter f t = iter (fun k v -> f k (Schema.CachedValue.value_of v)) t
 
   let touch generation key default row =
     touch generation key (CachedValue.v default) row
 
   let update gen key default f row =
-    let f (v, _) = f v |> CachedValue.v in
+    let f v = v |> Schema.CachedValue.value_of |> f |> CachedValue.v in
     update gen key (CachedValue.v default) f row
 
-  let find key t =
-    try find key t |> fst
+  let find' key t =
+    try find key t
     with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
+
+  let find key t = find' key t |> Schema.CachedValue.value_of
 
   let add_defaults g (schema : Schema.Table.t) t =
     let schema = Schema.Table.t'_of_t schema in
