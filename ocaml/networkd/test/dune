@@ -6,9 +6,12 @@
   astring
   
   fmt
+  macaddr
   networklibs
   rpclib.core
   rpclib.json
+  xapi-idl
+  xapi-idl.network
   xapi-log
   xapi-test-utils)
 )

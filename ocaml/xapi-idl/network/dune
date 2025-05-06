@@ -11,6 +11,7 @@
    xapi-idl
    xapi-log
    ipaddr
+   macaddr
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))
