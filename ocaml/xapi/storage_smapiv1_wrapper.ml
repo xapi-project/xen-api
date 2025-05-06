@@ -1152,7 +1152,7 @@ functor
         info "%s DATA.get_nbd_server dbg:%s dp:%s sr:%s vdi:%s vm:%s"
           __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) ;
         let attach_info = DP.attach_info context ~dbg:"nbd" ~sr ~vdi ~dp ~vm in
-        match Storage_migrate.tapdisk_of_attach_info attach_info with
+        match Storage_smapiv1_migrate.tapdisk_of_attach_info attach_info with
         | Some tapdev ->
             let minor = Tapctl.get_minor tapdev in
             let pid = Tapctl.get_tapdisk_pid tapdev in
@@ -1200,26 +1200,25 @@ functor
             (String.concat "," similar) ;
           Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
 
-        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-          info
-            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s similar:[%s] vm:%s"
-            dbg (s_of_sr sr) id
-            (String.concat "," similar)
-            (s_of_vm vm) ;
-          Impl.DATA.MIRROR.receive_start2 context ~dbg ~sr ~vdi_info ~id
-            ~similar ~vm
+        let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
+            ~similar:_ ~vm:_ =
+          u __FUNCTION__
 
         let receive_finalize context ~dbg ~id =
           info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_finalize context ~dbg ~id
 
-        let receive_finalize2 context ~dbg ~id =
-          info "DATA.MIRROR.receive_finalize2 dbg:%s id:%s" dbg id ;
-          Impl.DATA.MIRROR.receive_finalize2 context ~dbg ~id
+        let receive_finalize2 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
+            ~verify_dest:_ =
+          (* see storage_smapiv{1,3}_migrate *)
+          u __FUNCTION__
 
         let receive_cancel context ~dbg ~id =
           info "DATA.MIRROR.receive_cancel dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_cancel context ~dbg ~id
+
+        let receive_cancel2 _context ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
+          u __FUNCTION__
       end
     end
 

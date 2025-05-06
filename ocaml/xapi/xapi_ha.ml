@@ -527,7 +527,7 @@ module Monitor = struct
                   Xapi_ha_vm_failover.restart_auto_run_vms ~__context
                     liveset_refs to_tolerate
                 with e ->
-                  log_backtrace () ;
+                  log_backtrace e ;
                   error
                     "Caught unexpected exception when executing restart plan: \
                      %s"
@@ -832,7 +832,7 @@ module Monitor = struct
                       )
                 )
               with e ->
-                log_backtrace () ;
+                log_backtrace e ;
                 debug "Exception in HA monitor thread: %s"
                   (ExnHelper.string_of_exn e) ;
                 Thread.delay !Xapi_globs.ha_monitor_interval
@@ -1745,6 +1745,11 @@ let disable_internal __context =
           )
           errors
     ) ;
+    (* CA-408230: mark current operation, `ha_enable or `ha_disable, as done,
+       as otherwise it will fail to update_allowed_operations for metadata_vdis
+       and statefile_vdis *)
+    let task_id = Ref.string_of (Context.get_task_id __context) in
+    Db.Pool.remove_from_current_operations ~__context ~self:pool ~key:task_id ;
     (* Update the allowed operations on the statefile VDIs for tidiness *)
     List.iter
       (fun vdi -> Xapi_vdi.update_allowed_operations ~__context ~self:vdi)

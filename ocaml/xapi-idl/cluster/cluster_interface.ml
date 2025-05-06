@@ -159,6 +159,9 @@ type optional_path = string option [@@deriving rpcty]
 type quorum_info = {
     is_quorate: bool
   ; total_votes: int
+        (* number of nodes that the cluster stack thinks are currently in the cluster *)
+  ; expected_votes: int
+        (* number of nodes that the cluster stack is expecting to be in the cluster *)
   ; quorum: int  (** number of nodes required to form a quorum *)
   ; quorum_members: all_members option
 }
@@ -179,6 +182,7 @@ type diagnostics = {
   ; is_quorate: bool
   ; is_running: bool
   ; total_votes: int
+  ; expected_votes: int
   ; quorum: int
   ; quorum_members: all_members option
   ; startup_finished: bool

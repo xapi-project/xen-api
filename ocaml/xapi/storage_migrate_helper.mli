@@ -14,6 +14,8 @@
 
 module SXM : Debug.DEBUG
 
+open Storage_interface
+
 val failwith_fmt : ('a, unit, string, 'b) format4 -> 'a
 
 module State : sig
@@ -26,6 +28,8 @@ module State : sig
       ; parent_vdi: Storage_interface.vdi
       ; remote_vdi: Storage_interface.vdi
       ; mirror_vm: Storage_interface.vm
+      ; url: string
+      ; verify_dest: bool
     }
 
     val t_sr : (Storage_interface.sr, t) Rpc.Types.field
@@ -87,6 +91,9 @@ module State : sig
       ; tapdev: tapdev option
       ; mutable failed: bool
       ; mutable watchdog: handle option
+      ; vdi: Vdi.t [@default Vdi.of_string ""]
+      ; live_vm: Vm.t [@default Vm.of_string "0"]
+      ; mirror_key: Mirror.operation option [@default None]
     }
 
     val t_url : (string, t) Rpc.Types.field
@@ -258,3 +265,8 @@ end
 module Local : SMAPIv2
 
 val get_remote_backend : string -> bool -> (module SMAPIv2)
+
+val find_vdi :
+  dbg:string -> sr:sr -> vdi:vdi -> (module SMAPIv2) -> vdi_info * vdi_info list
+
+val similar_vdis : dbg:string -> sr:sr -> vdi:vdi -> uuid list

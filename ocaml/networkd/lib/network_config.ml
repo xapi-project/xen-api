@@ -34,6 +34,51 @@ let bridge_naming_convention (device : string) =
   else
     "br" ^ device
 
+let get_list_from ~sep ~key args =
+  List.assoc_opt key args
+  |> Option.map (fun v -> Astring.String.cuts ~empty:false ~sep v)
+  |> Option.value ~default:[]
+
+let parse_ipv4_config args = function
+  | Some "static" ->
+      let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
+      let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
+      let gateway =
+        Option.map Unix.inet_addr_of_string (List.assoc_opt "GATEWAY" args)
+      in
+      (Static4 [(ip, prefixlen)], gateway)
+  | Some "dhcp" ->
+      (DHCP4, None)
+  | _ ->
+      (None4, None)
+
+let parse_ipv6_config args = function
+  | Some "static" ->
+      let ipv6_arg = List.assoc "IPv6" args in
+      let ip, prefixlen =
+        Scanf.sscanf ipv6_arg "%s@/%d" (fun ip prefixlen ->
+            let ip = ip |> Unix.inet_addr_of_string in
+            (ip, prefixlen)
+        )
+      in
+      let gateway =
+        Option.map Unix.inet_addr_of_string (List.assoc_opt "IPv6_GATEWAY" args)
+      in
+      (Static6 [(ip, prefixlen)], gateway)
+  | Some "dhcp" ->
+      (DHCP6, None)
+  | Some "autoconf" ->
+      (Autoconf6, None)
+  | _ ->
+      (None6, None)
+
+let parse_dns_config args =
+  let nameservers =
+    get_list_from ~sep:"," ~key:"DNS" args |> List.map Unix.inet_addr_of_string
+  in
+  let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
+  (nameservers, domains)
+
 let read_management_conf () =
   try
     let management_conf =
@@ -42,35 +87,23 @@ let read_management_conf () =
     in
     let args =
       Astring.String.cuts ~empty:false ~sep:"\n" (String.trim management_conf)
-    in
-    let args =
-      List.map
-        (fun s ->
-          match Astring.String.cuts ~sep:"=" s with
-          | [k; v] ->
-              (k, Astring.String.trim ~drop:(( = ) '\'') v)
-          | _ ->
-              ("", "")
-        )
-        args
+      |> List.filter_map (fun s ->
+             match Astring.String.cut ~sep:"=" s with
+             | Some (_, "") | None ->
+                 None
+             | Some (k, v) ->
+                 Some (k, Astring.String.trim ~drop:(( = ) '\'') v)
+         )
     in
     debug "Firstboot file management.conf has: %s"
       (String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) args)) ;
     let vlan = List.assoc_opt "VLAN" args in
-    let bond_mode =
-      Option.value ~default:"" (List.assoc_opt "BOND_MODE" args)
-    in
-    let bond_members =
-      match List.assoc_opt "BOND_MEMBERS" args with
-      | None ->
-          []
-      | Some x ->
-          String.split_on_char ',' x
-    in
+    let bond_mode = List.assoc_opt "BOND_MODE" args in
+    let bond_members = get_list_from ~sep:"," ~key:"BOND_MEMBERS" args in
     let device =
       (* Take 1st member of bond *)
       match (bond_mode, bond_members) with
-      | "", _ | _, [] -> (
+      | None, _ | _, [] -> (
         match List.assoc_opt "LABEL" args with
         | Some x ->
             x
@@ -105,45 +138,28 @@ let read_management_conf () =
           bridge
     in
     let mac = Network_utils.Ip.get_mac device in
-    let ipv4_conf, ipv4_gateway, dns =
-      match List.assoc "MODE" args with
-      | "static" ->
-          let ip = List.assoc "IP" args |> Unix.inet_addr_of_string in
-          let prefixlen = List.assoc "NETMASK" args |> netmask_to_prefixlen in
-          let gateway =
-            if List.mem_assoc "GATEWAY" args then
-              Some (List.assoc "GATEWAY" args |> Unix.inet_addr_of_string)
-            else
-              None
-          in
-          let nameservers =
-            if List.mem_assoc "DNS" args && List.assoc "DNS" args <> "" then
-              List.map Unix.inet_addr_of_string
-                (Astring.String.cuts ~empty:false ~sep:","
-                   (List.assoc "DNS" args)
-                )
-            else
-              []
-          in
-          let domains =
-            if List.mem_assoc "DOMAIN" args && List.assoc "DOMAIN" args <> ""
-            then
-              Astring.String.cuts ~empty:false ~sep:" "
-                (List.assoc "DOMAIN" args)
-            else
-              []
-          in
-          let dns = (nameservers, domains) in
-          (Static4 [(ip, prefixlen)], gateway, dns)
-      | "dhcp" ->
-          (DHCP4, None, ([], []))
-      | _ ->
-          (None4, None, ([], []))
+    let dns = parse_dns_config args in
+    let (ipv4_conf, ipv4_gateway), (ipv6_conf, ipv6_gateway) =
+      match (List.assoc_opt "MODE" args, List.assoc_opt "MODEV6" args) with
+      | None, None ->
+          error "%s: at least one of 'MODE', 'MODEV6' needs to be specified"
+            __FUNCTION__ ;
+          raise Read_error
+      | v4, v6 ->
+          (parse_ipv4_config args v4, parse_ipv6_config args v6)
     in
 
     let phy_interface = {default_interface with persistent_i= true} in
     let bridge_interface =
-      {default_interface with ipv4_conf; ipv4_gateway; persistent_i= true; dns}
+      {
+        default_interface with
+        ipv4_conf
+      ; ipv4_gateway
+      ; ipv6_conf
+      ; ipv6_gateway
+      ; persistent_i= true
+      ; dns
+      }
     in
     let interface_config, bridge_config =
       let primary_bridge_conf =

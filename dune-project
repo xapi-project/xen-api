@@ -146,6 +146,17 @@
 
 (package
   (name xapi-storage-cli)
+  (depends
+   cmdliner
+   re
+   rpclib
+   ppx_deriving_rpc
+   (xapi-client (= :version))
+   (xapi-idl (= :version))
+   (xapi-types (= :version))
+  )
+  (synopsis "A CLI for xapi storage services")
+  (description "The CLI allows you to directly manipulate virtual disk images, without them being attached to VMs.")
 )
 
 (package

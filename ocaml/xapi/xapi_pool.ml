@@ -1358,6 +1358,7 @@ let create_or_get_secret_on_master __context rpc session_id (_secret_ref, secret
 let protect_exn f x =
   try Some (f x)
   with e ->
+    Backtrace.is_important e ;
     debug "Ignoring exception: %s" (Printexc.to_string e) ;
     Debug.log_backtrace e (Backtrace.get e) ;
     None

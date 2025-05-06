@@ -33,12 +33,6 @@ end)
    NB each key is annotated with whether it appears in windows and/or linux *)
 let pv_drivers_version =
   [
-    ("drivers/xenevtchn", "xenevtchn")
-  ; (* windows *)
-    ("drivers/xenvbd", "xenvbd")
-  ; (* windows *)
-    ("drivers/xennet", "xennet")
-  ; (* windows *)
     ("attr/PVAddons/MajorVersion", "major")
   ; (* linux + windows *)
     ("attr/PVAddons/MinorVersion", "minor")
@@ -294,7 +288,45 @@ let get_initial_guest_metrics (lookup : string -> string option)
     | None ->
         []
   in
-  let pv_drivers_version = to_map pv_drivers_version
+  (* enumerate all driver versions from xenstore, which are stored like
+     drivers/0 = "XenServer XENBUS 9.1.9.105 "
+     drivers/1 = "XenServer XENVBD 9.1.8.79 "
+     drivers/2 = "XenServer XENVIF 9.1.12.101 "
+     drivers/3 = "XenServer XENIFACE 9.1.10.87 "
+     drivers/4 = "XenServer XENNET 9.1.7.65 "
+
+     (see the format specified in xenstore-paths)
+  *)
+  let get_windows_driver_versions () =
+    (* Only look into directories that are numbers (indices) *)
+    let filter_dirs subdirs =
+      List.filter_map
+        (fun x ->
+          match int_of_string_opt x with
+          | Some _ ->
+              Some ("drivers/" ^ x, x)
+          | None ->
+              None
+        )
+        subdirs
+    in
+    let versions = list "drivers" |> filter_dirs |> to_map in
+    List.filter_map
+      (fun (_, version_string) ->
+        try
+          Scanf.sscanf version_string "%s@ %s@ %s@ %s@\n"
+            (fun vendor driver_name version attr ->
+              Some
+                ( String.lowercase_ascii driver_name
+                , String.concat " " [vendor; version; attr]
+                )
+          )
+        with _ -> None
+      )
+      versions
+  in
+  let pv_drivers_version =
+    to_map pv_drivers_version @ get_windows_driver_versions ()
   and os_version = to_map os_version
   and netbios_name =
     match to_map dns_domain with
