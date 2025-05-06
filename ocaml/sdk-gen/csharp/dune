@@ -1,60 +1,41 @@
 (executable
-  (modes exe)
-  (name gen_csharp_binding)
-  (modules Gen_csharp_binding)
-  (libraries
-    astring
-    CommonFunctions
-    
-    mustache
-    xapi-consts
-    xapi-datamodel
-  )
-)
+ (modes exe)
+ (name gen_csharp_binding)
+ (modules Gen_csharp_binding)
+ (libraries astring CommonFunctions mustache xapi-consts xapi-datamodel))
 
 (executable
-  (modes exe)
-  (name friendly_error_names)
-  (modules Friendly_error_names)
-  (libraries
-    CommonFunctions
-    
-    mustache
-    xapi-datamodel
-    xmllight2
-    str
-  )
-)
+ (modes exe)
+ (name friendly_error_names)
+ (modules Friendly_error_names)
+ (libraries CommonFunctions mustache xapi-datamodel xmllight2 str))
 
 (rule
-  (alias generate)
-  (targets (dir autogen-out))
-  (deps
-    (:x gen_csharp_binding.exe)
-    (source_tree templates)
-    (:sh ../windows-line-endings.sh)
-    (source_tree autogen)
-    (:x2 friendly_error_names.exe)
-    FriendlyErrorNames.resx
-    (:y XE_SR_ERRORCODES.xml)
-    (source_tree templates)
-  )
-  (action
-    (progn
-      (concurrent
-        (bash "cp -r autogen/ autogen-out/")
-        (run %{x})
-        (run %{x2} -s %{y})
-      )
-      (bash "rm autogen-out/.gitignore")
-      (bash "%{sh} autogen-out/")
-    ))
-)
+ (alias generate)
+ (targets
+  (dir autogen-out))
+ (deps
+  (:x gen_csharp_binding.exe)
+  (source_tree templates)
+  (:sh ../windows-line-endings.sh)
+  (source_tree autogen)
+  (:x2 friendly_error_names.exe)
+  FriendlyErrorNames.resx
+  (:y XE_SR_ERRORCODES.xml)
+  (source_tree templates))
+ (action
+  (progn
+   (progn
+    (bash "cp -r autogen/ autogen-out/")
+    (run %{x})
+    (run %{x2} -s %{y}))
+   (bash "rm autogen-out/.gitignore")
+   (bash "%{sh} autogen-out/"))))
 
 (data_only_dirs templates)
 
 (install
-	(package xapi-sdk)
-	(section share_root)
-    (dirs (autogen-out as csharp))
-)
+ (package xapi-sdk)
+ (section share_root)
+ (dirs
+  (autogen-out as csharp)))

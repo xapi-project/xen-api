@@ -77,12 +77,16 @@ let prototyped_of_field = function
       Some "24.3.0"
   | "Cluster_host", "live" ->
       Some "24.3.0"
+  | "Cluster", "expected_hosts" ->
+      Some "25.17.0"
   | "Cluster", "live_hosts" ->
       Some "24.3.0"
   | "Cluster", "quorum" ->
       Some "24.3.0"
   | "Cluster", "is_quorate" ->
       Some "24.3.0"
+  | "Cluster", "cluster_stack_version" ->
+      Some "24.15.0"
   | "VTPM", "contents" ->
       Some "22.26.0"
   | "VTPM", "is_protected" ->
@@ -124,7 +128,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "ha_reboot_vm_on_internal_shutdown" ->
-      Some "25.15.0-next"
+      Some "25.16.0"
   | "pool", "license_server" ->
       Some "25.6.0"
   | "pool", "recommendations" ->

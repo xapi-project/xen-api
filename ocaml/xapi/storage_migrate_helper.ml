@@ -36,6 +36,8 @@ module State = struct
       ; parent_vdi: Vdi.t
       ; remote_vdi: Vdi.t
       ; mirror_vm: Vm.t
+      ; url: string [@default ""]
+      ; verify_dest: bool [@default false]
     }
     [@@deriving rpcty]
 
@@ -92,6 +94,11 @@ module State = struct
       ; tapdev: tapdev option
       ; mutable failed: bool
       ; mutable watchdog: handle option
+      ; vdi: Vdi.t [@default Vdi.of_string ""] (* source vdi *)
+      ; live_vm: Vm.t
+            [@default Vm.of_string "0"]
+            (* vm to which the source vdi is attached *)
+      ; mirror_key: Mirror.operation option [@default None]
     }
     [@@deriving rpcty]
 
@@ -345,3 +352,39 @@ let get_remote_backend url verify_dest =
       Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2" remote_url
   end)) in
   (module Remote : SMAPIv2)
+
+let find_vdi ~dbg ~sr ~vdi (module SMAPIv2 : SMAPIv2) =
+  let vdis, _ = SMAPIv2.SR.scan2 dbg sr in
+  match List.find_opt (fun x -> x.vdi = vdi) vdis with
+  | None ->
+      failwith_fmt "VDI %s not found" (Storage_interface.Vdi.string_of vdi)
+  | Some v ->
+      (v, vdis)
+
+(** [similar_vdis dbg sr vdi] returns a list of content_ids of vdis
+  which are similar to the input [vdi] in [sr] *)
+let similar_vdis ~dbg ~sr ~vdi =
+  let similar_vdis = Local.VDI.similar_content dbg sr vdi in
+  let similars =
+    List.filter_map
+      (function
+        | {content_id; _} when content_id = "" ->
+            None
+        | {content_id; _} ->
+            Some content_id
+        )
+      similar_vdis
+  in
+
+  D.debug "%s Similar VDIs to = [ %s ]" __FUNCTION__
+    (String.concat "; "
+       (List.map
+          (fun x ->
+            Printf.sprintf "(vdi=%s,content_id=%s)"
+              (Storage_interface.Vdi.string_of x.vdi)
+              x.content_id
+          )
+          similar_vdis
+       )
+    ) ;
+  similars

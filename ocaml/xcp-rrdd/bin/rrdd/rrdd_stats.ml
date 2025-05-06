@@ -238,5 +238,6 @@ let print_snapshot () =
       print_stats ()
     )
   with e ->
+    Backtrace.is_important e ;
     debug "Caught: %s" (Printexc.to_string e) ;
-    log_backtrace ()
+    log_backtrace e
