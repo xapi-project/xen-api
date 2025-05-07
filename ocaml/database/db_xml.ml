@@ -67,7 +67,7 @@ module To = struct
         make_tag "row"
           (List.rev
              (Row.fold
-                (fun k _ v acc ->
+                (fun k _ (v, _) acc ->
                   (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc
                 )
                 row preamble

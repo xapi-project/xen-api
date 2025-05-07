@@ -116,11 +116,10 @@ let read_record_internal db tblname objref =
       else
         None
     in
-    let map_fvlist v = Schema.Value.marshal v in
     (* Unfortunately the interface distinguishes between Set(Ref _) types and
        ordinary fields *)
     Row.fold
-      (fun k _ d (accum_fvlist, accum_setref) ->
+      (fun k _ (d, cached) (accum_fvlist, accum_setref) ->
         let accum_setref =
           match map_setref_opt k d with
           | Some v ->
@@ -128,7 +127,7 @@ let read_record_internal db tblname objref =
           | None ->
               accum_setref
         in
-        let accum_fvlist = (k, map_fvlist d) :: accum_fvlist in
+        let accum_fvlist = (k, cached) :: accum_fvlist in
         (accum_fvlist, accum_setref)
       )
       row ([], [])
@@ -146,7 +145,8 @@ let delete_row_locked t tblname objref =
     Database.notify (PreDelete (tblname, objref)) db ;
     update_database t (remove_row tblname objref) ;
     Database.notify
-      (Delete (tblname, objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])
+      (Delete
+         (tblname, objref, Row.fold (fun k _ (v, _) acc -> (k, v) :: acc) row [])
       )
       (get_database t)
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
@@ -182,7 +182,10 @@ let create_row_locked t tblname kvs' new_objref =
   update_database t (add_row tblname new_objref row) ;
   Database.notify
     (Create
-       (tblname, new_objref, Row.fold (fun k _ v acc -> (k, v) :: acc) row [])
+       ( tblname
+       , new_objref
+       , Row.fold (fun k _ (v, _) acc -> (k, v) :: acc) row []
+       )
     )
     (get_database t)
 

@@ -25,7 +25,7 @@ verify-cert () {
 }
 
 mli-files () {
-  N=497
+  N=496
   X="ocaml/tests"
   X+="|ocaml/quicktest"
   X+="|ocaml/message-switch/core_test"
@@ -110,7 +110,7 @@ unixgetenv () {
 }
 
 hashtblfind () {
-  N=35
+  N=34
   # Looks for all .ml files except the ones using Core.Hashtbl.find,
   # which already returns Option
   HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)

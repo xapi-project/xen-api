@@ -136,10 +136,17 @@ functor
   end
 
 module Row = struct
-  include Make (Schema.Value)
+  module CachedValue = struct
+    type t = Schema.Value.t * string
+
+    let v v = (v, Schema.Value.marshal v)
+  end
+
+  include Make (CachedValue)
 
   let add gen key v =
     add gen key
+    @@ CachedValue.v
     @@
     match v with
     | Schema.Value.String x ->
@@ -153,8 +160,17 @@ module Row = struct
 
   type value = Schema.Value.t
 
+  let iter f t = iter (fun k (v, _) -> f k v) t
+
+  let touch generation key default row =
+    touch generation key (CachedValue.v default) row
+
+  let update gen key default f row =
+    let f (v, _) = f v |> CachedValue.v in
+    update gen key (CachedValue.v default) f row
+
   let find key t =
-    try find key t
+    try find key t |> fst
     with Not_found -> raise (DBCache_NotFound ("missing field", key, ""))
 
   let add_defaults g (schema : Schema.Table.t) t =
