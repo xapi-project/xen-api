@@ -1078,7 +1078,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (None, vdi.vdi)
       ) else
         let mirrorid = task_result |> mirror_of_task dbg in
-        let m = Storage_migrate.stat ~dbg ~id:mirrorid in
+        let m = SMAPI.DATA.MIRROR.stat dbg mirrorid in
         (Some mirrorid, m.Mirror.dest_vdi)
     in
     so_far := Int64.add !so_far vconf.size ;
@@ -1107,7 +1107,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         match mirror_id with
         | Some mid ->
             ignore (Storage_access.unregister_mirror mid) ;
-            let m = Storage_migrate.stat ~dbg ~id:mid in
+            let m = SMAPI.DATA.MIRROR.stat dbg mid in
             (try Storage_migrate.stop ~dbg ~id:mid with _ -> ()) ;
             m.Mirror.failed
         | None ->

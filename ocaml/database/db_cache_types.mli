@@ -79,6 +79,17 @@ module type MAP = sig
       On exit there will be a binding of [key] whose modification time is [now] *)
 end
 
+module Share : sig
+  val merge : string -> string
+  (** [merge str] merges [str] into the stringpool.
+    It returns a string equal to [str].
+
+    This function is thread-safe, it skips adding the string to the pool
+    when called concurrently.
+    For best results call this while holding another lock.
+   *)
+end
+
 module Row : sig
   include MAP with type value = Schema.Value.t
 
