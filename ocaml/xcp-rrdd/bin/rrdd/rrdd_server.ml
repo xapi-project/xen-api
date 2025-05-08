@@ -715,9 +715,20 @@ module Plugin = struct
          specified unique ID. If the plugin is not registered, -1 is returned. *)
       let next_reading (uid : P.uid) : float =
         let open Rrdd_shared in
+        let ( --- ) a b = Mtime.Span.abs_diff a b in
         if with_lock registered_m (fun _ -> Hashtbl.mem registered uid) then
-          with_lock last_loop_end_time_m (fun _ ->
-              !last_loop_end_time +. !timeslice -. Unix.gettimeofday ()
+          with_lock last_iteration_end_m (fun _ ->
+              let time_in_iteration =
+                Mtime_clock.count from_loop_start --- !last_iteration_end
+              in
+              if
+                Mtime.Span.is_longer ~than:!Rrdd_shared.timeslice
+                  time_in_iteration
+              then
+                -1.
+              else
+                Mtime.Span.to_float_ns (!timeslice --- time_in_iteration)
+                /. 1_000_000_000.
           )
         else
           -1.

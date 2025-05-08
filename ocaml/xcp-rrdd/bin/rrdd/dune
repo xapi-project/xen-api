@@ -46,6 +46,8 @@
     http_lib
     httpsvr
     inotify
+    mtime
+    mtime.clock
     rpclib.core
     rpclib.json
     rpclib.xml

@@ -535,19 +535,40 @@ let monitor_write_loop writers =
   Debug.with_thread_named "monitor_write"
     (fun () ->
       Xenctrl.with_intf (fun xc ->
+          let ( --- ) = Mtime.Span.abs_diff in
           while true do
             try
+              let last_iteration_start =
+                Mtime_clock.count Rrdd_shared.from_loop_start
+              in
               do_monitor_write xc writers ;
-              with_lock Rrdd_shared.last_loop_end_time_m (fun _ ->
-                  Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
+              with_lock Rrdd_shared.last_iteration_end_m (fun _ ->
+                  Rrdd_shared.last_iteration_end :=
+                    Mtime_clock.count Rrdd_shared.from_loop_start
               ) ;
-              Thread.delay !Rrdd_shared.timeslice
+              let time_in_iteration =
+                !Rrdd_shared.last_iteration_end --- last_iteration_start
+              in
+              if
+                Mtime.Span.is_longer ~than:!Rrdd_shared.timeslice
+                  time_in_iteration
+              then
+                warn
+                  "%s: Monitor write iteration took (%a), this is longer than \
+                   a full cycle, skipping the delay"
+                  __FUNCTION__ Debug.Pp.mtime_span time_in_iteration
+              else
+                Thread.delay
+                  (Mtime.Span.to_float_ns
+                     (!Rrdd_shared.timeslice --- time_in_iteration)
+                  /. 1_000_000_000.
+                  )
             with e ->
               Backtrace.is_important e ;
               warn
-                "Monitor/write thread caught an exception. Pausing for 10s, \
-                 then restarting: %s"
-                (Printexc.to_string e) ;
+                "%s: Monitor/write thread caught an exception. Pausing for \
+                 10s, then restarting: %s"
+                __FUNCTION__ (Printexc.to_string e) ;
               log_backtrace e ;
               Thread.delay 10.
           done
