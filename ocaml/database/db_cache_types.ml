@@ -24,11 +24,33 @@ module HashedString = struct
   let hash = Hashtbl.hash
 end
 
-module StringPool = Weak.Make (HashedString)
+module Share : sig
+  val merge : string -> string
+  (** [merge str] merges [str] into the stringpool.
+    It returns a string equal to [str].
 
-let share =
-  let pool = StringPool.create 2048 in
-  StringPool.merge pool
+    This function is thread-safe, it skips adding the string to the pool
+    when called concurrently.
+    For best results call this while holding another lock.
+   *)
+end = struct
+  module StringPool = Weak.Make (HashedString)
+
+  let pool = StringPool.create 2048
+
+  let merge_running = Atomic.make 0
+
+  let merge str =
+    let str =
+      if Atomic.fetch_and_add merge_running 1 = 0 then
+        StringPool.merge pool str
+      else
+        (* no point in using a mutex here, just fall back to not sharing,
+           which is quicker. *)
+        str
+    in
+    Atomic.decr merge_running ; str
+end
 
 module Stat = struct
   type t = {created: Time.t; modified: Time.t; deleted: Time.t}
@@ -45,7 +67,7 @@ module StringMap = struct
     let compare = String.compare
   end)
 
-  let add key v t = add (share key) v t
+  let add key v t = add (Share.merge key) v t
 end
 
 module type VAL = sig
@@ -150,11 +172,12 @@ module Row = struct
     @@
     match v with
     | Schema.Value.String x ->
-        Schema.Value.String (share x)
+        Schema.Value.String (Share.merge x)
     | Schema.Value.Pairs ps ->
-        Schema.Value.Pairs (List.map (fun (x, y) -> (share x, share y)) ps)
+        Schema.Value.Pairs
+          (List.map (fun (x, y) -> (Share.merge x, Share.merge y)) ps)
     | Schema.Value.Set xs ->
-        Schema.Value.Set (List.map share xs)
+        Schema.Value.Set (List.map Share.merge xs)
 
   type t = map_t
 
