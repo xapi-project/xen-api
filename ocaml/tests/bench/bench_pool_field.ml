@@ -64,6 +64,24 @@ let date_of_iso8601 () = Clock.Date.of_iso8601 date
 let local_session_hook () =
   Xapi_local_session.local_session_hook ~__context ~session_id:Ref.null
 
+let atomic = Atomic.make 0
+
+let atomic_inc () = Atomic.incr atomic
+
+let mutex = Mutex.create ()
+
+let locked_ref = ref 0
+
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+let inc_locked () = incr locked_ref
+
+let inc_with_mutex () = with_lock mutex inc_locked
+
+let noop () = Sys.opaque_identity ()
+
+let db_lock_uncontended () : unit = Xapi_database.Db_lock.with_lock noop
+
 let benchmarks =
   [
     Test.make ~name:"local_session_hook" (Staged.stage local_session_hook)
@@ -73,6 +91,10 @@ let benchmarks =
   ; Test.make ~name:"Db.Pool.get_all_records" (Staged.stage get_all)
   ; Test.make ~name:"pool_t -> Rpc.t" (Staged.stage serialize)
   ; Test.make ~name:"Rpc.t -> pool_t" (Staged.stage deserialize)
+  ; Test.make ~name:"Atomic.incr" (Staged.stage atomic_inc)
+  ; Test.make ~name:"Mutex+incr" (Staged.stage inc_with_mutex)
+  ; Test.make ~name:"Db_lock.with_lock uncontended"
+      (Staged.stage db_lock_uncontended)
   ]
 
 let () = Bechamel_simple_cli.cli benchmarks
