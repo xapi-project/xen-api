@@ -19,6 +19,8 @@
       functions have the suffix "_locked" to clearly identify them.
    2. functions which only read must only call "get_database" once,
       to ensure they see a consistent snapshot.
+      With the exception of looking at the database schema, which is assumed to not change
+      concurrently.
 *)
 open Db_exn
 open Db_lock
@@ -73,13 +75,6 @@ let ensure_utf8_xml string =
 let write_field_locked t tblname objref fldname newval =
   let current_val = get_field tblname objref fldname (get_database t) in
   if current_val <> newval then (
-    ( match newval with
-    | Schema.Value.String s ->
-        if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then
-          raise Invalid_value
-    | _ ->
-        ()
-    ) ;
     update_database t (set_field tblname objref fldname newval) ;
     Database.notify
       (WriteField (tblname, objref, fldname, current_val, newval))
@@ -87,10 +82,22 @@ let write_field_locked t tblname objref fldname newval =
   )
 
 let write_field t tblname objref fldname newval =
-  let db = get_database t in
-  let schema = Schema.table tblname (Database.schema db) in
+  let schema = Database.schema (get_database t) in
+  let schema = Schema.table tblname schema in
   let column = Schema.Table.find fldname schema in
   let newval = Schema.Value.unmarshal column.Schema.Column.ty newval in
+  let newval =
+    match newval with
+    | Schema.Value.String s ->
+        (* the other caller of write_field_locked only uses sets and maps,
+           so we only need to check for String here
+        *)
+        if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then
+          raise Invalid_value ;
+        Schema.Value.String (Share.merge s)
+    | _ ->
+        newval
+  in
   with_lock (fun () -> write_field_locked t tblname objref fldname newval)
 
 let touch_row t tblname objref =
@@ -138,7 +145,6 @@ let read_record t = read_record_internal (get_database t)
 (* Delete row from tbl *)
 let delete_row_locked t tblname objref =
   try
-    W.debug "delete_row %s (%s)" tblname objref ;
     let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
     let row = Table.find objref tbl in
     let db = get_database t in
@@ -152,33 +158,19 @@ let delete_row_locked t tblname objref =
   with Not_found -> raise (DBCache_NotFound ("missing row", tblname, objref))
 
 let delete_row t tblname objref =
+  W.debug "delete_row %s (%s)" tblname objref ;
   with_lock (fun () -> delete_row_locked t tblname objref)
 
 (* Create new row in tbl containing specified k-v pairs *)
 let create_row_locked t tblname kvs' new_objref =
   let db = get_database t in
-  let schema = Schema.table tblname (Database.schema db) in
-  let kvs' =
-    List.map
-      (fun (key, value) ->
-        let value = ensure_utf8_xml value in
-        let column = Schema.Table.find key schema in
-        (key, Schema.Value.unmarshal column.Schema.Column.ty value)
-      )
-      kvs'
-  in
-  (* we add the reference to the row itself so callers can use read_field_where to
-     	   return the reference: awkward if it is just the key *)
-  let kvs' = (Db_names.ref, Schema.Value.String new_objref) :: kvs' in
-  let g = Manifest.generation (Database.manifest (get_database t)) in
+  let g = Manifest.generation (Database.manifest db) in
   let row =
     List.fold_left (fun row (k, v) -> Row.add g k v row) Row.empty kvs'
   in
-  let schema = Schema.table tblname (Database.schema (get_database t)) in
+  let schema = Schema.table tblname (Database.schema db) in
   (* fill in default values if kv pairs for these are not supplied already *)
   let row = Row.add_defaults g schema row in
-  W.debug "create_row %s (%s) [%s]" tblname new_objref
-    (String.concat "," (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')) ;
   update_database t (add_row tblname new_objref row) ;
   Database.notify
     (Create
@@ -190,13 +182,31 @@ let create_row_locked t tblname kvs' new_objref =
     (get_database t)
 
 let fld_check t tblname objref (fldname, value) =
-  let v =
-    Schema.Value.marshal
-      (read_field_internal t tblname fldname objref (get_database t))
-  in
+  let v = read_field_internal t tblname fldname objref (get_database t) in
   (v = value, fldname, v)
 
 let create_row t tblname kvs' new_objref =
+  let schema = Database.schema (get_database t) in
+  let schema = Schema.table tblname schema in
+  let kvs' =
+    List.map
+      (fun (key, value) ->
+        let value = ensure_utf8_xml value in
+        let column = Schema.Table.find key schema in
+        let newval =
+          match Schema.Value.unmarshal column.Schema.Column.ty value with
+          | Schema.Value.String x ->
+              Schema.Value.String (Share.merge x)
+          | Schema.Value.Pairs ps ->
+              Schema.Value.Pairs
+                (List.map (fun (x, y) -> (Share.merge x, Share.merge y)) ps)
+          | Schema.Value.Set xs ->
+              Schema.Value.Set (List.map Share.merge xs)
+        in
+        (key, newval)
+      )
+      kvs'
+  in
   with_lock (fun () ->
       if is_valid_ref t new_objref then
         let uniq_check_list = List.map (fld_check t tblname new_objref) kvs' in
@@ -205,10 +215,17 @@ let create_row t tblname kvs' new_objref =
         in
         match failure_opt with
         | Some (_, f, v) ->
-            raise (Integrity_violation (tblname, f, v))
+            raise (Integrity_violation (tblname, f, Schema.Value.marshal v))
         | _ ->
             ()
       else
+        (* we add the reference to the row itself so callers can use read_field_where to
+           	   return the reference: awkward if it is just the key *)
+        let kvs' = (Db_names.ref, Schema.Value.String new_objref) :: kvs' in
+        W.debug "create_row %s (%s) [%s]" tblname new_objref
+          (String.concat ","
+             (List.map (fun (k, _) -> Printf.sprintf "(%s,v)" k) kvs')
+          ) ;
         create_row_locked t tblname kvs' new_objref
   )
 
@@ -302,9 +319,6 @@ let read_records_where t tbl expr =
 
 let process_structured_field_locked t (key, value) tblname fld objref
     proc_fn_selector =
-  (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
-  let key = ensure_utf8_xml key in
-  let value = ensure_utf8_xml value in
   try
     let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
     let row = Table.find objref tbl in
@@ -341,6 +355,9 @@ let process_structured_field_locked t (key, value) tblname fld objref
 
 let process_structured_field t (key, value) tblname fld objref proc_fn_selector
     =
+  (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
+  let key = ensure_utf8_xml key |> Share.merge in
+  let value = ensure_utf8_xml value |> Share.merge in
   with_lock (fun () ->
       process_structured_field_locked t (key, value) tblname fld objref
         proc_fn_selector
