@@ -37,6 +37,7 @@
    test_schemas
    unit_test_marshall
    unit_test_sql))
+ (modules_without_implementation db_interface)
  (libraries
   forkexec
   gzip

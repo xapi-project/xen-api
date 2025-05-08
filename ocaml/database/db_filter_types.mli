@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,13 +12,20 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
+type _val = Field of string | Literal of string
 
-let __callback :
-    (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
-  ref None
+val rpc_of__val : _val -> Rpc.t
 
-let events_register f = __callback := Some f
+val _val_of_rpc : Rpc.t -> _val
 
-let events_notify ?snapshot ty op ref =
-  match !__callback with None -> () | Some f -> f ?snapshot ty op ref
+type expr =
+  | True
+  | False
+  | Not of expr
+  | Eq of _val * _val
+  | And of expr * expr
+  | Or of expr * expr
+
+val rpc_of_expr : expr -> Rpc.t
+
+val expr_of_rpc : Rpc.t -> expr

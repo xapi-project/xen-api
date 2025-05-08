@@ -12,13 +12,12 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
+type vdi = {
+    uuid: string
+  ; reason: string
+  ; delete_next_boot: bool
+  ; currently_attached: bool
+  ; path: string option
+}
 
-let __callback :
-    (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
-  ref None
-
-let events_register f = __callback := Some f
-
-let events_notify ?snapshot ty op ref =
-  match !__callback with None -> () | Some f -> f ?snapshot ty op ref
+val list : unit -> vdi list

@@ -12,13 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
+type t = int64
 
-let __callback :
-    (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
-  ref None
+val of_string : string -> t
 
-let events_register f = __callback := Some f
+val to_string : int64 -> string
 
-let events_notify ?snapshot ty op ref =
-  match !__callback with None -> () | Some f -> f ?snapshot ty op ref
+val add_int : int64 -> int -> int64
+
+val null_generation : int64
+
+val suffix : string
