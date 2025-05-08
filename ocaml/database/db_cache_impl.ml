@@ -73,13 +73,15 @@ let ensure_utf8_xml string =
 let write_field_locked t tblname objref fldname newval =
   let current_val = get_field tblname objref fldname (get_database t) in
   if current_val <> newval then (
-    ( match newval with
-    | Schema.Value.String s ->
-        if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then
-          raise Invalid_value
-    | _ ->
-        ()
-    ) ;
+    let newval =
+      match newval with
+      | Schema.Value.String s ->
+          if not (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then
+            raise Invalid_value ;
+          Schema.Value.String (Share.merge s)
+      | _ ->
+          newval
+    in
     update_database t (set_field tblname objref fldname newval) ;
     Database.notify
       (WriteField (tblname, objref, fldname, current_val, newval))
@@ -163,7 +165,17 @@ let create_row_locked t tblname kvs' new_objref =
       (fun (key, value) ->
         let value = ensure_utf8_xml value in
         let column = Schema.Table.find key schema in
-        (key, Schema.Value.unmarshal column.Schema.Column.ty value)
+        let newval =
+          match Schema.Value.unmarshal column.Schema.Column.ty value with
+          | Schema.Value.String x ->
+              Schema.Value.String (Share.merge x)
+          | Schema.Value.Pairs ps ->
+              Schema.Value.Pairs
+                (List.map (fun (x, y) -> (Share.merge x, Share.merge y)) ps)
+          | Schema.Value.Set xs ->
+              Schema.Value.Set (List.map Share.merge xs)
+        in
+        (key, newval)
       )
       kvs'
   in
@@ -303,8 +315,8 @@ let read_records_where t tbl expr =
 let process_structured_field_locked t (key, value) tblname fld objref
     proc_fn_selector =
   (* Ensure that both keys and values are valid for UTF-8-encoded XML. *)
-  let key = ensure_utf8_xml key in
-  let value = ensure_utf8_xml value in
+  let key = ensure_utf8_xml key |> Share.merge in
+  let value = ensure_utf8_xml value |> Share.merge in
   try
     let tbl = TableSet.find tblname (Database.tableset (get_database t)) in
     let row = Table.find objref tbl in
