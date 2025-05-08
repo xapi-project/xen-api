@@ -6,9 +6,7 @@ module DBCacheRemoteListener = struct
 
   exception DBCacheListenerUnknownMessageName of string
 
-  let ctr_mutex = Mutex.create ()
-
-  let calls_processed = ref 0
+  let calls_processed = Atomic.make 0
 
   let success xml =
     let resp = XMLRPC.To.array [XMLRPC.To.string "success"; xml] in
@@ -34,8 +32,7 @@ module DBCacheRemoteListener = struct
       		Note that, although the messages still contain the pool_secret for historical reasons,
       		access has already been applied by the RBAC code in Xapi_http.add_handler. *)
   let process_xmlrpc xml =
-    let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute in
-    with_lock ctr_mutex (fun () -> calls_processed := !calls_processed + 1) ;
+    Atomic.incr calls_processed ;
     let fn_name, args =
       match XMLRPC.From.array (fun x -> x) xml with
       | [fn_name; _; args] ->
