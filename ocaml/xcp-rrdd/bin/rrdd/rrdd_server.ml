@@ -716,8 +716,12 @@ module Plugin = struct
       let next_reading (uid : P.uid) : float =
         let open Rrdd_shared in
         if with_lock registered_m (fun _ -> Hashtbl.mem registered uid) then
-          with_lock last_loop_end_time_m (fun _ ->
-              !last_loop_end_time +. !timeslice -. Unix.gettimeofday ()
+          with_lock next_iteration_start_m (fun _ ->
+              match Clock.Timer.remaining !next_iteration_start with
+              | Remaining diff ->
+                  Clock.Timer.span_to_s diff
+              | Expired diff ->
+                  Clock.Timer.span_to_s diff *. -1.
           )
         else
           -1.
