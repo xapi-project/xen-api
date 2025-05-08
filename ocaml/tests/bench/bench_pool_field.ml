@@ -82,6 +82,19 @@ let noop () = Sys.opaque_identity ()
 
 let db_lock_uncontended () : unit = Xapi_database.Db_lock.with_lock noop
 
+let event =
+  let open Event_types in
+  {
+    id= "id"
+  ; ts= "1000"
+  ; ty= "test"
+  ; op= `add
+  ; reference= "test"
+  ; snapshot= Some (Rpc.Dict [])
+  }
+
+let test_rpc_of_event () = Event_types.rpc_of_event event
+
 let benchmarks =
   [
     Test.make ~name:"local_session_hook" (Staged.stage local_session_hook)
@@ -95,6 +108,7 @@ let benchmarks =
   ; Test.make ~name:"Mutex+incr" (Staged.stage inc_with_mutex)
   ; Test.make ~name:"Db_lock.with_lock uncontended"
       (Staged.stage db_lock_uncontended)
+  ; Test.make ~name:"rpc_of_event" (Staged.stage test_rpc_of_event)
   ]
 
 let () = Bechamel_simple_cli.cli benchmarks
