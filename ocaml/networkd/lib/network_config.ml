@@ -132,19 +132,28 @@ let read_management_conf interface_order =
         order
     in
     let bridge_name =
-      let bridge =
-        if vlan = None then
-          bridge_naming_convention device pos_opt
-        else
-          (* At this point, we don't know what the VLAN bridge name will be,
-             * so use a temporary name. Xapi will replace the bridge once the name
-             * has been decided on. *)
-          temp_vlan
+      let inventory_bridge =
+        try Some (Inventory.lookup Inventory._management_interface)
+        with Inventory.Missing_inventory_key _ -> None
       in
-      debug "Management bridge name %s" bridge ;
-      if not @@ Network_utils.is_sorted_by_script () then
-        write_manage_iface_to_inventory bridge ;
-      bridge
+      match inventory_bridge with
+      | Some "" | None ->
+          let bridge =
+            if vlan = None then
+              bridge_naming_convention device pos_opt
+            else
+              (* At this point, we don't know what the VLAN bridge name will be,
+                 * so use a temporary name. Xapi will replace the bridge once the name
+                 * has been decided on. *)
+              temp_vlan
+          in
+          debug "No management bridge in inventory file... using %s" bridge ;
+          if not Network_utils.device_already_renamed then
+            write_manage_iface_to_inventory bridge ;
+          bridge
+      | Some bridge ->
+          debug "Management bridge in inventory file: %s" bridge ;
+          bridge
     in
     let mac = Network_utils.Ip.get_mac device in
     let dns = parse_dns_config args in

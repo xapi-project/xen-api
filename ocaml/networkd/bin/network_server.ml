@@ -36,7 +36,7 @@ let write_config () =
     with Network_config.Write_error -> ()
 
 let sort_and_update () =
-  if Network_utils.is_sorted_by_script () then
+  if Network_utils.device_already_renamed then
     ()
   else
     let last_config = !config in
@@ -45,48 +45,29 @@ let sort_and_update () =
     in
     match Network_device_order.sort last_interface_order with
     | Ok (new_order, changed_interfaces) ->
+        let update_name name =
+          List.assoc_opt name changed_interfaces |> Option.value ~default:name
+        in
+        let update_port (port, port_conf) =
+          ( update_name port
+          , {
+              port_conf with
+              interfaces= List.map update_name port_conf.interfaces
+            }
+          )
+        in
         let bridge_config =
           List.map
             (fun (bridge, bridge_conf) ->
               ( bridge
-              , {
-                  bridge_conf with
-                  ports=
-                    List.map
-                      (fun (port, port_conf) ->
-                        ( port
-                        , {
-                            port_conf with
-                            interfaces=
-                              List.map
-                                (fun iface ->
-                                  match
-                                    List.assoc_opt iface changed_interfaces
-                                  with
-                                  | Some new_name ->
-                                      new_name
-                                  | None ->
-                                      iface
-                                )
-                                port_conf.interfaces
-                          }
-                        )
-                      )
-                      bridge_conf.ports
-                }
+              , {bridge_conf with ports= List.map update_port bridge_conf.ports}
               )
             )
             last_config.bridge_config
         in
         let interface_config =
           List.map
-            (fun (name, conf) ->
-              match List.assoc_opt name changed_interfaces with
-              | Some new_name ->
-                  (new_name, conf)
-              | None ->
-                  (name, conf)
-            )
+            (fun (name, conf) -> (update_name name, conf))
             last_config.interface_config
         in
         config :=
@@ -101,7 +82,7 @@ let sort_and_update () =
           (Network_device_order.string_of_error err)
 
 let sort_on_first_boot () =
-  if Network_utils.is_sorted_by_script () then
+  if Network_utils.device_already_renamed then
     None
   else
     match Network_device_order.sort [] with
@@ -371,7 +352,7 @@ module Interface = struct
   let get_interface_positions dbg () =
     Debug.with_thread_associated dbg
       (fun () ->
-        if Network_utils.is_sorted_by_script () then
+        if Network_utils.device_already_renamed then
           sort_based_on_ethx ()
         else
           Option.value ~default:[] !config.interface_order
