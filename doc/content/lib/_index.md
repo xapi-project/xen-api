@@ -1,5 +1,4 @@
 ---
-title: Libraries
-hidden: true
+title: C Libraries in Xen
 ---
 {{% children description=true %}}

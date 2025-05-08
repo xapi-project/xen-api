@@ -25,9 +25,13 @@ In the Xen hypervisor, each vCPU has:
   Hard affinity is currently not used for NUMA placement, but can be configured
   manually for a given domain, either using `xe VCPUs-params:mask=` or the API.
 
-  For example, the vCPU’s pinning can be configured using a template with:
+  For example, the vCPU’s pinning can be configured for a VM with:[^1]
+  [^1]: The VM parameter
+  [VCPUs-params:mask](https://docs.xenserver.com/en-us/citrix-hypervisor/command-line-interface.html#vm-parameters)
+  is documented in the official XAPI user documentation.
+
   ```py
-  xe template-param-set uuid=<template_uuid> vCPUs-params:mask=1,2,3
+  xe vm-param-set uuid=<template_uuid> vCPUs-params:mask=1,2,3
   ```
 
   There are also host-level `guest_VCPUs_params` which are used by
