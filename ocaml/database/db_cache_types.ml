@@ -166,18 +166,7 @@ module Row = struct
 
   include Make (CachedValue)
 
-  let add gen key v =
-    add gen key
-    @@ CachedValue.v
-    @@
-    match v with
-    | Schema.Value.String x ->
-        Schema.Value.String (Share.merge x)
-    | Schema.Value.Pairs ps ->
-        Schema.Value.Pairs
-          (List.map (fun (x, y) -> (Share.merge x, Share.merge y)) ps)
-    | Schema.Value.Set xs ->
-        Schema.Value.Set (List.map Share.merge xs)
+  let add gen key v = add gen key @@ CachedValue.v v
 
   type t = map_t
 
