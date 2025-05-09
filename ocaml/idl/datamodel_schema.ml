@@ -77,7 +77,7 @@ let of_datamodel () =
     {
       Column.name= Db_names.ref
     ; persistent= true
-    ; empty= Value.String ""
+    ; empty= Value.string ""
     ; default= None
     ; ty= Type.String
     ; issetref= false

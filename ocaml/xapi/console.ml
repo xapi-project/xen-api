@@ -185,7 +185,7 @@ let console_of_request __context req =
   let db = Context.database_of __context in
   let is_vm, _ =
     let module DB =
-      (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS)
+      (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS2)
     in
     match DB.get_table_from_ref db _ref with
     | Some c when c = Db_names.vm ->

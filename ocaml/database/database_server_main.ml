@@ -33,8 +33,9 @@ let remote_database_access_handler_v2 req bio =
     flush stdout ;
     raise e
 
+open Xapi_database
 module Local_tests =
-  Xapi_database.Database_test.Tests (Xapi_database.Db_cache_impl)
+  Database_test.Tests (Db_interface_compat.OfCached (Db_cache_impl))
 
 let schema = Test_schemas.schema
 

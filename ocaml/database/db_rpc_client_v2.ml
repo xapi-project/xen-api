@@ -22,6 +22,10 @@ functor
   (RPC : Db_interface.RPC)
   ->
   struct
+    type field_in = string
+
+    type field_out = string
+
     let initialise = RPC.initialise
 
     let rpc x = RPC.rpc (Jsonrpc.to_string x) |> Jsonrpc.of_string

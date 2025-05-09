@@ -1,9 +1,11 @@
+let empty = Schema.Value.string ""
+
 let schema =
   let _ref =
     {
       Schema.Column.name= Db_names.ref
     ; persistent= true
-    ; empty= Schema.Value.String ""
+    ; empty
     ; default= None
     ; ty= Schema.Type.String
     ; issetref= false
@@ -13,7 +15,7 @@ let schema =
     {
       Schema.Column.name= Db_names.uuid
     ; persistent= true
-    ; empty= Schema.Value.String ""
+    ; empty
     ; default= None
     ; ty= Schema.Type.String
     ; issetref= false
@@ -23,7 +25,7 @@ let schema =
     {
       Schema.Column.name= Db_names.name_label
     ; persistent= true
-    ; empty= Schema.Value.String ""
+    ; empty
     ; default= None
     ; ty= Schema.Type.String
     ; issetref= false
@@ -33,7 +35,7 @@ let schema =
     {
       Schema.Column.name= "name__description"
     ; persistent= true
-    ; empty= Schema.Value.String ""
+    ; empty
     ; default= None
     ; ty= Schema.Type.String
     ; issetref= false
@@ -43,7 +45,7 @@ let schema =
     {
       Schema.Column.name= "type"
     ; persistent= true
-    ; empty= Schema.Value.String ""
+    ; empty
     ; default= None
     ; ty= Schema.Type.String
     ; issetref= false
@@ -73,8 +75,8 @@ let schema =
     {
       Schema.Column.name= "protection_policy"
     ; persistent= true
-    ; empty= Schema.Value.String ""
-    ; default= Some (Schema.Value.String "OpaqueRef:NULL")
+    ; empty
+    ; default= Some (Schema.Value.string "OpaqueRef:NULL")
     ; ty= Schema.Type.String
     ; issetref= false
     }
@@ -93,7 +95,7 @@ let schema =
     {
       Schema.Column.name= "VM"
     ; persistent= true
-    ; empty= Schema.Value.String ""
+    ; empty
     ; default= None
     ; ty= Schema.Type.String
     ; issetref= false
