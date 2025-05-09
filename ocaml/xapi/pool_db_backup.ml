@@ -192,7 +192,7 @@ let restore_from_xml __context dry_run (xml_filename : string) =
       (Db_xml.From.file (Datamodel_schema.of_datamodel ()) xml_filename)
   in
   version_check db ;
-  let db_ref = Db_ref.in_memory (ref (ref db)) in
+  let db_ref = Db_ref.in_memory (Atomic.make db) in
   let new_context = Context.make ~database:db_ref "restore_db" in
   prepare_database_for_restore ~old_context:__context ~new_context ;
   (* write manifest and unmarshalled db directly to db_temporary_restore_path, so its ready for us on restart *)

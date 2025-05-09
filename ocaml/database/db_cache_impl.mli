@@ -1,4 +1,4 @@
-include Db_interface.DB_ACCESS
+include Db_interface.DB_ACCESS2
 
 val make : Db_ref.t -> Parse_db_conf.db_connection list -> Schema.t -> unit
 (** [make t connections default_schema] initialises the in-memory cache *)

@@ -167,8 +167,10 @@ let copy_vm_fields ~__context ~metadata ~dst ~do_not_copy ~overrides =
   debug "copying metadata into %s" (Ref.string_of dst) ;
   let db = Context.database_of __context in
   let module DB =
-    (val Xapi_database.Db_cache.get db : Xapi_database.Db_interface.DB_ACCESS)
-  in
+    Xapi_database.Db_interface_compat.OfCached
+      (( val Xapi_database.Db_cache.get db
+           : Xapi_database.Db_interface.DB_ACCESS2
+         )) in
   List.iter
     (fun (key, value) ->
       let value = Option.value ~default:value (List.assoc_opt key overrides) in

@@ -107,7 +107,7 @@ open Xapi_database.Db_action_helper
 let is_valid_ref db = function
   | Schema.Value.String r -> (
     try
-      ignore (Database.table_of_ref r db) ;
+      ignore (Database.table_of_ref (r :> string) db) ;
       true
     with _ -> false
   )

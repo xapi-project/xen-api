@@ -79,14 +79,38 @@ module type MAP = sig
       On exit there will be a binding of [key] whose modification time is [now] *)
 end
 
+module Share : sig
+  val merge : string -> string
+  (** [merge str] merges [str] into the stringpool.
+    It returns a string equal to [str].
+
+    This function is thread-safe, it skips adding the string to the pool
+    when called concurrently.
+    For best results call this while holding another lock.
+   *)
+end
+
 module Row : sig
   include MAP with type value = Schema.Value.t
 
-  val fold : (string -> Stat.t -> value * string -> 'b -> 'b) -> t -> 'b -> 'b
+  val add' : Time.t -> string -> Schema.cached_value -> t -> t
+  (** [add now key value map] returns a new map with [key] associated with [value],
+      with creation time [now] *)
+
+  val find' : string -> t -> [> Schema.present] Schema.CachedValue.t
+  (** [find key t] returns the value associated with [key] in [t] or raises
+      [DBCache_NotFound] *)
+
+  val fold :
+    (string -> Stat.t -> Schema.cached_value -> 'b -> 'b) -> t -> 'b -> 'b
   (** [fold f t initial] folds [f key stats value acc] over the items in [t] *)
 
   val fold_over_recent :
-    Time.t -> (string -> Stat.t -> value * string -> 'b -> 'b) -> t -> 'b -> 'b
+       Time.t
+    -> (string -> Stat.t -> Schema.cached_value -> 'b -> 'b)
+    -> t
+    -> 'b
+    -> 'b
 
   val add_defaults : Time.t -> Schema.Table.t -> t -> t
   (** [add_defaults now schema t]: returns a row which is [t] extended to contain

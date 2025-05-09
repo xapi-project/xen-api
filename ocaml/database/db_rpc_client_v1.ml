@@ -22,6 +22,10 @@ functor
   struct
     exception Remote_db_server_returned_unknown_exception
 
+    type field_in = string
+
+    type field_out = string
+
     (* Process an exception returned from server, throwing local exception *)
     let process_exception_xml xml =
       match XMLRPC.From.array (fun x -> x) xml with

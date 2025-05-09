@@ -29,11 +29,13 @@ let check_many_to_many () =
   let db =
     db
     |> add_row "bar" "bar:1"
-         (Row.add 0L Db_names.ref (Schema.Value.String "bar:1")
+         (Row.add 0L Db_names.ref
+            (Schema.Value.string "bar:1")
             (Row.add 0L "foos" (Schema.Value.Set []) Row.empty)
          )
     |> add_row "foo" "foo:1"
-         (Row.add 0L Db_names.ref (Schema.Value.String "foo:1")
+         (Row.add 0L Db_names.ref
+            (Schema.Value.string "foo:1")
             (Row.add 0L "bars" (Schema.Value.Set []) Row.empty)
          )
     |> set_field "foo" "foo:1" "bars" (add_to_set "bar:1" (Schema.Value.Set []))
@@ -41,7 +43,7 @@ let check_many_to_many () =
   (* check that 'bar.foos' includes 'foo' *)
   let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
   let bar_foos = Row.find "foos" bar_1 in
-  if bar_foos <> Schema.Value.Set ["foo:1"] then
+  if bar_foos <> Schema.Value.set ["foo:1"] then
     failwith
       (Printf.sprintf
          "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s"
@@ -59,11 +61,11 @@ let check_many_to_many () =
          (Sexplib.Sexp.to_string (Schema.Value.sexp_of_t bar_foos))
       ) ;
   (* add 'bar' to foo.bars *)
-  let db = set_field "foo" "foo:1" "bars" (Schema.Value.Set ["bar:1"]) db in
+  let db = set_field "foo" "foo:1" "bars" (Schema.Value.set ["bar:1"]) db in
   (* check that 'bar.foos' includes 'foo' *)
   let bar_1 = Table.find "bar:1" (TableSet.find "bar" (Database.tableset db)) in
   let bar_foos = Row.find "foos" bar_1 in
-  if bar_foos <> Schema.Value.Set ["foo:1"] then
+  if bar_foos <> Schema.Value.set ["foo:1"] then
     failwith
       (Printf.sprintf
          "check_many_to_many: bar(bar:1).foos expected ('foo:1') got %s - 2"
