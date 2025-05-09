@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,13 +12,13 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
+type t = In_memory of Db_cache_types.Database.t ref ref | Remote
 
-let __callback :
-    (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
-  ref None
+exception Database_not_in_memory
 
-let events_register f = __callback := Some f
+val in_memory : Db_cache_types.Database.t ref ref -> t
 
-let events_notify ?snapshot ty op ref =
-  match !__callback with None -> () | Some f -> f ?snapshot ty op ref
+val get_database : t -> Db_cache_types.Database.t
+
+val update_database :
+  t -> (Db_cache_types.Database.t -> Db_cache_types.Database.t) -> unit

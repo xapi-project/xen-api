@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2009 Citrix Systems Inc.
+ * Copyright (C) Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -12,13 +12,18 @@
  * GNU Lesser General Public License for more details.
  *)
 
-(* General DB utils *)
+val get_dbs_and_gen_counts : unit -> (int64 * Parse_db_conf.db_connection) list
 
-let __callback :
-    (?snapshot:Rpc.t -> string -> string -> string -> unit) option ref =
-  ref None
+val choose :
+  Parse_db_conf.db_connection list -> Parse_db_conf.db_connection option
 
-let events_register f = __callback := Some f
+val preferred_write_db : unit -> Parse_db_conf.db_connection
 
-let events_notify ?snapshot ty op ref =
-  match !__callback with None -> () | Some f -> f ?snapshot ty op ref
+val exit_on_next_flush : bool ref
+
+val inc_db_flush_thread_refcount : unit -> unit
+
+val flush_dirty_and_maybe_exit :
+  Parse_db_conf.db_connection -> int option -> bool
+
+val flush : Parse_db_conf.db_connection -> Db_cache_types.Database.t -> unit

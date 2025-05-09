@@ -1,134 +1,133 @@
 (ocamllex db_filter_lex)
 
-(menhir (modules db_filter_parse))
+(menhir
+ (modules db_filter_parse))
 
 (library
-  (name xapi_schema)
-  (public_name xapi-schema)
-  (modules
-    db_names db_exn schema string_marshall_helper string_unmarshall_helper
-    test_schemas)
-  (libraries
-    sexpr
-    xapi-log
-    xapi-stdext-encodings
-  )
-  (wrapped false)
-  (preprocess (per_module ((pps ppx_sexp_conv) Schema)))
-)
+ (name xapi_schema)
+ (public_name xapi-schema)
+ (modules
+  db_names
+  db_exn
+  schema
+  string_marshall_helper
+  string_unmarshall_helper
+  test_schemas)
+ (libraries sexpr xapi-log xapi-stdext-encodings)
+ (wrapped false)
+ (preprocess
+  (per_module
+   ((pps ppx_sexp_conv)
+    Schema))))
 
 (library
-  (name xapi_database)
-  (modes best)
-  (modules
-    (:standard \ database_server_main db_cache_test db_names db_exn
-      block_device_io string_marshall_helper string_unmarshall_helper schema
-      test_schemas unit_test_marshall unit_test_sql))
-  (libraries
-    forkexec
-    gzip
-    mtime
-    mtime.clock.os
-    clock
-    rpclib.core
-    rpclib.json
-    safe-resources
-    stunnel
-    threads.posix
-    http_lib
-    httpsvr
-    uuid
-    xapi-backtrace
-    xapi-datamodel
-    xapi-log
-    (re_export xapi-schema)
-    xapi-idl.updates
-    xapi-stdext-encodings
-    xapi-stdext-pervasives
-    xapi-stdext-std
-    xapi-stdext-threads
-    xapi-stdext-unix
-    xapi_timeslice
-    xml-light2
-    xmlm
-  )
-  (preprocess
-    (per_module
-     ((pps ppx_deriving_rpc)
-      Db_cache_types Db_filter_types Db_rpc_common_v2 Db_secret_string)))
-)
+ (name xapi_database)
+ (modes best)
+ (modules
+  (:standard
+   \
+   database_server_main
+   db_cache_test
+   db_names
+   db_exn
+   block_device_io
+   string_marshall_helper
+   string_unmarshall_helper
+   schema
+   test_schemas
+   unit_test_marshall
+   unit_test_sql))
+ (modules_without_implementation db_interface)
+ (libraries
+  forkexec
+  gzip
+  mtime
+  mtime.clock.os
+  clock
+  rpclib.core
+  rpclib.json
+  safe-resources
+  stunnel
+  threads.posix
+  http_lib
+  httpsvr
+  uuid
+  xapi-backtrace
+  xapi-datamodel
+  xapi-log
+  (re_export xapi-schema)
+  xapi-idl.updates
+  xapi-stdext-encodings
+  xapi-stdext-pervasives
+  xapi-stdext-std
+  xapi-stdext-threads
+  xapi-stdext-unix
+  xapi_timeslice
+  xml-light2
+  xmlm)
+ (preprocess
+  (per_module
+   ((pps ppx_deriving_rpc)
+    Db_cache_types
+    Db_filter_types
+    Db_rpc_common_v2
+    Db_secret_string))))
 
 (executable
-  (modes exe)
-  (name block_device_io)
-  (modules block_device_io)
-  (libraries
-    
-    xapi_database
-    xapi-log
-    xapi-stdext-pervasives
-    xapi-stdext-unix
-    uuid
-  )
-)
+ (modes exe)
+ (name block_device_io)
+ (modules block_device_io)
+ (libraries
+  xapi_database
+  xapi-log
+  xapi-stdext-pervasives
+  xapi-stdext-unix
+  uuid))
 
 (install
-  (package xapi)
-  (files (block_device_io.exe as block_device_io))
-  (section libexec_root)
-)
+ (package xapi)
+ (files
+  (block_device_io.exe as block_device_io))
+ (section libexec_root))
 
 (executable
-  (name database_server_main)
-  (modes exe)
-  (modules database_server_main)
-  (libraries
-    
-    http_lib
-    httpsvr
-    threads.posix
-    xapi_database
-    xapi-stdext-threads
-    xapi-stdext-unix
-  )
-)
+ (name database_server_main)
+ (modes exe)
+ (modules database_server_main)
+ (libraries
+  http_lib
+  httpsvr
+  threads.posix
+  xapi_database
+  xapi-stdext-threads
+  xapi-stdext-unix))
 
 (tests
-  (names unit_test_marshall db_cache_test)
-  (modes exe)
-  (package xapi)
-  (modules db_cache_test unit_test_marshall)
-  (libraries
-    alcotest    
-    http_lib
-    rpclib.xml
-    sexplib
-    sexplib0
-    xapi_database
-    xml-light2
-  )
-)
+ (names unit_test_marshall db_cache_test)
+ (modes exe)
+ (package xapi)
+ (modules db_cache_test unit_test_marshall)
+ (libraries
+  alcotest
+  http_lib
+  rpclib.xml
+  sexplib
+  sexplib0
+  xapi_database
+  xml-light2))
 
 (test
-  (name unit_test_sql)
-  (modes exe)
-  (package xapi)
-  (modules unit_test_sql)
-  (deps
-    sql_msg_example.txt
-  )
-  (libraries
-    alcotest
-    xapi_database
-    xml-light2
-  )
-)
+ (name unit_test_sql)
+ (modes exe)
+ (package xapi)
+ (modules unit_test_sql)
+ (deps sql_msg_example.txt)
+ (libraries alcotest xapi_database xml-light2))
 
 (rule
-  (alias runtest)
-  (deps
-    (:x database_server_main.exe)
-  )
-  (package xapi)
-  (action (run %{x} --master db.xml --test))
-)
+ (alias runtest)
+ (deps
+  (:x database_server_main.exe))
+ (package xapi)
+ (action
+  (run %{x} --master db.xml --test)))
