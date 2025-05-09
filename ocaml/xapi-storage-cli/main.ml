@@ -149,7 +149,7 @@ let string_of_file filename =
 
 let mirror_list common_opts =
   wrap common_opts (fun () ->
-      let list = Storage_migrate.list ~dbg in
+      let list = Client.DATA.MIRROR.list dbg in
       List.iter
         (fun (id, status) -> Printf.printf "%s" (string_of_mirror id status))
         list

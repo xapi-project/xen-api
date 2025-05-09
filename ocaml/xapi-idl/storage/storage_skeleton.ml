@@ -182,6 +182,16 @@ module DATA = struct
 
     let receive_cancel2 ctx ~dbg ~mirror_id ~url ~verify_dest =
       u "DATA.MIRROR.receive_cancel2"
+
+    let pre_deactivate_hook ctx ~dbg ~dp ~sr ~vdi =
+      u "DATA.MIRROR.pre_deactivate_hook"
+
+    let has_mirror_failed ctx ~dbg ~mirror_id ~sr =
+      u "DATA.MIRROR.has_mirror_failed"
+
+    let list ctx ~dbg = u "DATA.MIRROR.list"
+
+    let stat ctx ~dbg ~id = u "DATA.MIRROR.stat"
   end
 end
 

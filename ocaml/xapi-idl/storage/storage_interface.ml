@@ -1179,6 +1179,27 @@ module StorageAPI (R : RPC) = struct
       let receive_cancel2 =
         declare "DATA.MIRROR.receive_cancel2" []
           (dbg_p @-> id_p @-> url_p @-> verify_dest_p @-> returning unit_p err)
+
+      let pre_deactivate_hook =
+        declare "DATA.MIRROR.pre_deactivate_hook" []
+          (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+
+      let has_mirror_failed =
+        let mirror_failed_p =
+          Param.mk ~name:"mirror_failed_p" ~description:[] Types.bool
+        in
+        declare "DATA.MIRROR.has_mirror_failed" []
+          (dbg_p @-> id_p @-> sr_p @-> returning mirror_failed_p err)
+
+      let list =
+        let result_p =
+          Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
+        in
+        declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
+
+      let stat =
+        let result_p = Param.mk ~name:"result" Mirror.t in
+        declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
     end
   end
 
@@ -1285,6 +1306,16 @@ module type MIRROR = sig
     -> url:string
     -> verify_dest:bool
     -> unit
+
+  val pre_deactivate_hook :
+    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit
+
+  val has_mirror_failed :
+    context -> dbg:debug_info -> mirror_id:Mirror.id -> sr:Sr.t -> bool
+
+  val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
 end
 
 module type Server_impl = sig
@@ -1759,6 +1790,14 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~mirror_id ~sr ~url
           ~verify_dest
     ) ;
+    S.DATA.MIRROR.pre_deactivate_hook (fun dbg dp sr vdi ->
+        Impl.DATA.MIRROR.pre_deactivate_hook () ~dbg ~dp ~sr ~vdi
+    ) ;
+    S.DATA.MIRROR.has_mirror_failed (fun dbg mirror_id sr ->
+        Impl.DATA.MIRROR.has_mirror_failed () ~dbg ~mirror_id ~sr
+    ) ;
+    S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
+    S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;
