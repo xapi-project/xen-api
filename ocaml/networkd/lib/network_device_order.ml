@@ -262,6 +262,9 @@ module Dev = struct
       )
       devs
 
+  let not_ibft t =
+    try Scanf.sscanf t.name "ibft%d%!" (fun _ -> false) with _ -> true
+
   let get_all () : (t list, error) result =
     let* devs =
       Network_utils.call_script cmd_biosdevname
@@ -271,6 +274,7 @@ module Dev = struct
       |> List.map parse
       |> fold_results
     in
+    let devs = List.filter not_ibft devs in
     try
       MacaddrUniqueMap.of_unique_list (fun v -> v.mac) devs |> ignore ;
       Ok (update_multi_nic devs)
