@@ -27,4 +27,5 @@
   log
   xapi_database
   xapi_datamodel
-  xapi_internal))
+  xapi_internal
+  xapi-stdext-threads))

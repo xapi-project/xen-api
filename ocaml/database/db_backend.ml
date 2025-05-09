@@ -21,11 +21,11 @@ let db_FLUSH_TIMER = 2.0
 
 (* --------------------- Util functions on db datastructures *)
 
-let master_database = ref (Db_cache_types.Database.make Schema.empty)
+let master_database = Atomic.make (Db_cache_types.Database.make Schema.empty)
 
-let __test_set_master_database db = master_database := db
+let __test_set_master_database db = Atomic.set master_database db
 
-let make () = Db_ref.in_memory (ref master_database)
+let make () = Db_ref.in_memory master_database
 
 (* !!! Right now this is called at cache population time. It would probably be preferable to call it on flush time instead, so we
    don't waste writes storing non-persistent field values on disk.. At the moment there's not much to worry about, since there are
