@@ -175,6 +175,9 @@ let parse_nbd_uri nbd =
   | _ ->
       fail ()
 
+let parse_nbd_uri_opt nbd =
+  try Some (parse_nbd_uri nbd) with Failure _e -> None
+
 (** Separates the implementations of the given backend returned from the
     VDI.attach2 SMAPIv2 call based on their type *)
 let implementations_of_backend backend =
@@ -191,6 +194,16 @@ let implementations_of_backend backend =
           (xendisks, blockdevices, files, nbd :: nbds)
     )
     ([], [], [], []) backend.implementations
+
+let nbd_export_of_attach_info (backend : backend) =
+  let _, _, _, nbds = implementations_of_backend backend in
+  match nbds with
+  | [] ->
+      debug "%s no nbd uri found" __FUNCTION__ ;
+      None
+  | uri :: _ ->
+      debug "%s found nbd uri %s" __FUNCTION__ uri.uri ;
+      parse_nbd_uri_opt uri |> Option.map snd
 
 (** Uniquely identifies the contents of a VDI *)
 type content_id = string [@@deriving rpcty]
@@ -1043,6 +1056,29 @@ module StorageAPI (R : RPC) = struct
         @-> returning result_p err
         )
 
+    let operation_p = Param.mk ~name:"operation" Mirror.operation
+
+    let mirror =
+      declare "DATA.mirror" []
+        (dbg_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> url_p
+        @-> returning operation_p err
+        )
+
+    let stat =
+      let status_p = Param.mk ~name:"status" Mirror.status in
+      declare "DATA.stat" []
+        (dbg_p
+        @-> sr_p
+        @-> vdi_p
+        @-> vm_p
+        @-> operation_p
+        @-> returning status_p err
+        )
+
     (** [import_activate dbg dp sr vdi vm] returns a server socket address to 
       which a fd can be passed via SCM_RIGHTS for mirroring purposes.*)
     let import_activate =
@@ -1179,6 +1215,27 @@ module StorageAPI (R : RPC) = struct
       let receive_cancel2 =
         declare "DATA.MIRROR.receive_cancel2" []
           (dbg_p @-> id_p @-> url_p @-> verify_dest_p @-> returning unit_p err)
+
+      let pre_deactivate_hook =
+        declare "DATA.MIRROR.pre_deactivate_hook" []
+          (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+
+      let is_mirror_failed =
+        let mirror_failed_p =
+          Param.mk ~name:"mirror_failed_p" ~description:[] Types.bool
+        in
+        declare "DATA.MIRROR.is_mirror_failed" []
+          (dbg_p @-> id_p @-> sr_p @-> returning mirror_failed_p err)
+
+      let list =
+        let result_p =
+          Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
+        in
+        declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
+
+      let stat =
+        let result_p = Param.mk ~name:"result" Mirror.t in
+        declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
     end
   end
 
@@ -1285,6 +1342,16 @@ module type MIRROR = sig
     -> url:string
     -> verify_dest:bool
     -> unit
+
+  val pre_deactivate_hook :
+    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit
+
+  val is_mirror_failed :
+    context -> dbg:debug_info -> mirror_id:Mirror.id -> sr:Sr.t -> bool
+
+  val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
 end
 
 module type Server_impl = sig
@@ -1543,6 +1610,24 @@ module type Server_impl = sig
       -> verify_dest:bool
       -> Task.id
 
+    val mirror :
+         context
+      -> dbg:debug_info
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> dest:string
+      -> operation
+
+    val stat :
+         context
+      -> dbg:debug_info
+      -> sr:sr
+      -> vdi:vdi
+      -> vm:vm
+      -> key:operation
+      -> status
+
     val import_activate :
          context
       -> dbg:debug_info
@@ -1717,6 +1802,12 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.copy (fun dbg sr vdi vm url dest verify_dest ->
         Impl.DATA.copy () ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest
     ) ;
+    S.DATA.mirror (fun dbg sr vdi vm dest ->
+        Impl.DATA.mirror () ~dbg ~sr ~vdi ~vm ~dest
+    ) ;
+    S.DATA.stat (fun dbg sr vdi vm key ->
+        Impl.DATA.stat () ~dbg ~sr ~vdi ~vm ~key
+    ) ;
     S.DATA.MIRROR.send_start
       (fun
         dbg
@@ -1759,6 +1850,14 @@ module Server (Impl : Server_impl) () = struct
         Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~mirror_id ~sr ~url
           ~verify_dest
     ) ;
+    S.DATA.MIRROR.pre_deactivate_hook (fun dbg dp sr vdi ->
+        Impl.DATA.MIRROR.pre_deactivate_hook () ~dbg ~dp ~sr ~vdi
+    ) ;
+    S.DATA.MIRROR.is_mirror_failed (fun dbg mirror_id sr ->
+        Impl.DATA.MIRROR.is_mirror_failed () ~dbg ~mirror_id ~sr
+    ) ;
+    S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
+    S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;

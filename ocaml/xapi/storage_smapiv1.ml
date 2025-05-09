@@ -478,6 +478,7 @@ module SMAPIv1 : Server_impl = struct
                           ; backend_type= "vbd3"
                           }
                       ; BlockDevice {path= params}
+                      ; Nbd {uri= attach_info_v1.Smint.params_nbd}
                       ]
                   )
               }
@@ -1128,6 +1129,10 @@ module SMAPIv1 : Server_impl = struct
     let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
+    let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ = assert false
+
+    let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ = assert false
+
     let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
 
     let get_nbd_server _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
@@ -1157,6 +1162,14 @@ module SMAPIv1 : Server_impl = struct
 
       let receive_cancel2 _context ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
         assert false
+
+      let pre_deactivate_hook _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ = assert false
+
+      let is_mirror_failed _context ~dbg:_ ~mirror_id:_ ~sr:_ = assert false
+
+      let list _context ~dbg:_ = assert false
+
+      let stat _context ~dbg:_ ~id:_ = assert false
     end
   end
 

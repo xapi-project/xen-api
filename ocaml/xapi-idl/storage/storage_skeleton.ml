@@ -154,6 +154,10 @@ let get_by_name ctx ~dbg ~name = u "get_by_name"
 module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
 
+  let mirror ctx ~dbg ~sr ~vdi ~vm ~dest = u "DATA.mirror"
+
+  let stat ctx ~dbg ~sr ~vdi ~vm ~key = u "DATA.stat"
+
   let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
     u "DATA.MIRROR.import_activate"
 
@@ -182,6 +186,16 @@ module DATA = struct
 
     let receive_cancel2 ctx ~dbg ~mirror_id ~url ~verify_dest =
       u "DATA.MIRROR.receive_cancel2"
+
+    let pre_deactivate_hook ctx ~dbg ~dp ~sr ~vdi =
+      u "DATA.MIRROR.pre_deactivate_hook"
+
+    let is_mirror_failed ctx ~dbg ~mirror_id ~sr =
+      u "DATA.MIRROR.is_mirror_failed"
+
+    let list ctx ~dbg = u "DATA.MIRROR.list"
+
+    let stat ctx ~dbg ~id = u "DATA.MIRROR.stat"
   end
 end
 
