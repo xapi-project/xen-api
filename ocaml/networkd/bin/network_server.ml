@@ -35,19 +35,95 @@ let write_config () =
     try Network_config.write_config !config
     with Network_config.Write_error -> ()
 
-let read_config () =
+let sort_and_update () =
+  if Network_utils.device_already_renamed then
+    ()
+  else
+    let last_config = !config in
+    let last_interface_order =
+      Option.value ~default:[] last_config.interface_order
+    in
+    match Network_device_order.sort last_interface_order with
+    | Ok (new_order, changed_interfaces) ->
+        let update_name name =
+          List.assoc_opt name changed_interfaces |> Option.value ~default:name
+        in
+        let update_port (port, port_conf) =
+          ( update_name port
+          , {
+              port_conf with
+              interfaces= List.map update_name port_conf.interfaces
+            }
+          )
+        in
+        let bridge_config =
+          List.map
+            (fun (bridge, bridge_conf) ->
+              ( bridge
+              , {bridge_conf with ports= List.map update_port bridge_conf.ports}
+              )
+            )
+            last_config.bridge_config
+        in
+        let interface_config =
+          List.map
+            (fun (name, conf) -> (update_name name, conf))
+            last_config.interface_config
+        in
+        config :=
+          {
+            last_config with
+            interface_config
+          ; bridge_config
+          ; interface_order= Some new_order
+          }
+    | Error err ->
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err)
+
+let sort_on_first_boot () =
+  if Network_utils.device_already_renamed then
+    None
+  else
+    match Network_device_order.sort [] with
+    | Ok (sorted, _) ->
+        Some sorted
+    | Error err ->
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err) ;
+        Some []
+
+let build_config () =
   try
     config := Network_config.read_config () ;
-    debug "Read configuration from networkd.db file."
+    debug "Read configuration from networkd.db file." ;
+    sort_and_update ()
   with Network_config.Read_error -> (
     try
       (* No configuration file found. Try to get the initial network setup from
        * the first-boot data written by the host installer. *)
-      config := Network_config.read_management_conf () ;
+      let interface_order = sort_on_first_boot () in
+      config := Network_config.read_management_conf interface_order ;
       debug "Read configuration from management.conf file."
     with Network_config.Read_error ->
-      debug "Could not interpret the configuration in management.conf"
+      error "Could not interpret the configuration in management.conf"
   )
+
+let get_index_from_ethx name =
+  if String.starts_with ~prefix:"eth" name then
+    let index = String.sub name 3 (String.length name - 3) in
+    int_of_string_opt index
+  else
+    None
+
+let sort_based_on_ethx () =
+  Sysfs.list ()
+  |> List.filter_map (fun name ->
+         if Sysfs.is_physical name then
+           get_index_from_ethx name |> Option.map (fun i -> (name, i))
+         else
+           None
+     )
 
 let on_shutdown signal =
   let dbg = "shutdown" in
@@ -63,13 +139,17 @@ let on_timer () = write_config ()
 
 let clear_state () =
   write_lock := true ;
-  config := Network_config.empty_config
+  (* Do not clear interface_order, it is only maintained by networkd *)
+  config :=
+    {Network_config.empty_config with interface_order= !config.interface_order}
 
 let sync_state () =
   write_lock := false ;
   write_config ()
 
-let reset_state () = config := Network_config.read_management_conf ()
+let reset_state () =
+  let interface_order = sort_on_first_boot () in
+  config := Network_config.read_management_conf interface_order
 
 let set_gateway_interface _dbg name =
   (* Remove dhclient conf (if any) for the old and new gateway interfaces.
@@ -268,6 +348,22 @@ module Interface = struct
 
   let get_all dbg () =
     Debug.with_thread_associated dbg (fun () -> Sysfs.list ()) ()
+
+  let get_interface_positions dbg () =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        if Network_utils.device_already_renamed then
+          sort_based_on_ethx ()
+        else
+          Option.value ~default:[] !config.interface_order
+          |> List.filter_map (fun dev ->
+                 if dev.present then
+                   Some (dev.name, dev.position)
+                 else
+                   None
+             )
+      )
+      ()
 
   let exists dbg name =
     Debug.with_thread_associated dbg
@@ -1571,7 +1667,7 @@ let on_startup () =
       in
       try
         (* the following is best-effort *)
-        read_config () ;
+        build_config () ;
         remove_centos_config () ;
         if !backend_kind = Openvswitch then
           Ovs.set_max_idle 5000 ;

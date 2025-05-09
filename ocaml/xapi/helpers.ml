@@ -129,8 +129,11 @@ let call_script ?(log_output = Always) ?env ?stdin ?timeout script args =
       raise e
 
 (** Construct a descriptive network name (used as name_label) for a give network interface. *)
-let choose_network_name_for_pif device =
-  Printf.sprintf "Pool-wide network associated with %s" device
+let choose_network_name_for_pif device pos_opt =
+  let pos_str =
+    match pos_opt with None -> "" | Some pos -> Printf.sprintf "[%d]" pos
+  in
+  Printf.sprintf "Pool-wide network associated with %s%s" device pos_str
 
 (* !! FIXME - trap proper MISSINGREFERENCE exception when this has been defined *)
 (* !! FIXME(2) - this code could be shared with the CLI? *)

@@ -147,6 +147,12 @@ let fork_script ?on_error ?log script args =
   in
   check_n_run ?on_error ?log fork_script_internal script args
 
+(* If the interface-rename script dir exists, the devices are already renamed
+   to eth<N>, the <N> indicates device order *)
+let device_already_renamed =
+  let dir = "/etc/sysconfig/network-scripts/interface-rename-data" in
+  Sys.file_exists dir && Sys.is_directory dir
+
 module Sysfs = struct
   let list_pci_drivers () =
     try Array.to_list (Sys.readdir "/sys/bus/pci/drivers")
