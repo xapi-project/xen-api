@@ -1923,10 +1923,16 @@ let bind ~volume_script_dir =
   S.DATA.MIRROR.send_start (u "DATA.MIRROR.send_start") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;
   S.DATA.MIRROR.receive_start2 (u "DATA.MIRROR.receive_start2") ;
+  S.DATA.MIRROR.receive_start3 (u "DATA.MIRROR.receive_start3") ;
   S.DATA.MIRROR.receive_finalize (u "DATA.MIRROR.receive_finalize") ;
   S.DATA.MIRROR.receive_finalize2 (u "DATA.MIRROR.receive_finalize2") ;
+  S.DATA.MIRROR.receive_finalize3 (u "DATA.MIRROR.receive_finalize3") ;
   S.DATA.MIRROR.receive_cancel (u "DATA.MIRROR.receive_cancel") ;
   S.DATA.MIRROR.receive_cancel2 (u "DATA.MIRROR.receive_cancel2") ;
+  S.DATA.MIRROR.pre_deactivate_hook (u "DATA.MIRROR.pre_deactivate_hook") ;
+  S.DATA.MIRROR.has_mirror_failed (u "DATA.MIRROR.has_mirror_failed") ;
+  S.DATA.MIRROR.list (u "DATA.MIRROR.list") ;
+  S.DATA.MIRROR.stat (u "DATA.MIRROR.stat") ;
   S.DP.create (u "DP.create") ;
   S.TASK.cancel (u "TASK.cancel") ;
   S.TASK.list (u "TASK.list") ;

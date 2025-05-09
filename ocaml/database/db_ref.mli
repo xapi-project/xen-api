@@ -12,11 +12,11 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = In_memory of Db_cache_types.Database.t ref ref | Remote
+type t = In_memory of Db_cache_types.Database.t Atomic.t | Remote
 
 exception Database_not_in_memory
 
-val in_memory : Db_cache_types.Database.t ref ref -> t
+val in_memory : Db_cache_types.Database.t Atomic.t -> t
 
 val get_database : t -> Db_cache_types.Database.t
 

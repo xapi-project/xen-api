@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2006-2011 Citrix Systems Inc.
+ * Copyright (C) Cloud Software Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -11,23 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Db_interface
 
-type t = In_memory of Db_cache_types.Database.t Atomic.t | Remote
+module OfCached : functor (_ : DB_ACCESS2) -> DB_ACCESS
 
-exception Database_not_in_memory
-
-let in_memory (rf : Db_cache_types.Database.t Atomic.t) = In_memory rf
-
-let get_database = function
-  | In_memory x ->
-      Atomic.get x
-  | Remote ->
-      raise Database_not_in_memory
-
-let update_database t f =
-  match t with
-  | In_memory x ->
-      let d : Db_cache_types.Database.t = f (get_database t) in
-      Atomic.set x d
-  | Remote ->
-      raise Database_not_in_memory
+module OfCompat : functor (_ : DB_ACCESS) -> DB_ACCESS2
