@@ -537,17 +537,30 @@ let monitor_write_loop writers =
       Xenctrl.with_intf (fun xc ->
           while true do
             try
+              let last_loop_start_time = Unix.gettimeofday () in
               do_monitor_write xc writers ;
               with_lock Rrdd_shared.last_loop_end_time_m (fun _ ->
                   Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
               ) ;
-              Thread.delay !Rrdd_shared.timeslice
+              (* Using computed delay (timeslice - loop time consuming) instead
+                 of fixed delay*)
+              let delay =
+                !Rrdd_shared.timeslice
+                -. (!Rrdd_shared.last_loop_end_time -. last_loop_start_time)
+              in
+              if delay > 0.0 then
+                Thread.delay delay
+              else
+                warn
+                  "%s: Monitor write loop took so long time that the delay \
+                   (%f) is less than 0, so skip the delay"
+                  __FUNCTION__ delay
             with e ->
               Backtrace.is_important e ;
               warn
-                "Monitor/write thread caught an exception. Pausing for 10s, \
-                 then restarting: %s"
-                (Printexc.to_string e) ;
+                "%s: Monitor/write thread caught an exception. Pausing for \
+                 10s, then restarting: %s"
+                __FUNCTION__ (Printexc.to_string e) ;
               log_backtrace e ;
               Thread.delay 10.
           done
