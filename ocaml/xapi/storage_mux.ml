@@ -861,7 +861,7 @@ module Mux = struct
         info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
         Storage_smapiv1_migrate.MIRROR.receive_finalize () ~dbg:di.log ~id
 
-      let receive_finalize2 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
+      let receive_finalize3 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
         u __FUNCTION__
 
       let receive_cancel () ~dbg ~id =

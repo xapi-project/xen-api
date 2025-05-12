@@ -681,7 +681,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
          stored in memory on different hosts. If receive_start is called, by an older
          host, this State.add is run on the destination host. On the other hand, if
          receive_start3 is called, this will be stored in memory on the source host.
-         receive_finalize2 and receive_cancel2 handles this similarly. *)
+         receive_finalize3 and receive_cancel2 handles this similarly. *)
       State.add id
         State.(
           Recv_op
@@ -749,7 +749,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
     State.remove_receive_mirror id
 
-  let receive_finalize2 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
+  let receive_finalize3 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
     D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
       mirror_id (s_of_sr sr) url verify_dest ;
     let (module Remote) =
