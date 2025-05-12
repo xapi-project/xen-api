@@ -29,7 +29,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
 
   let receive_start _ctx = u __FUNCTION__
 
-  let receive_start2 _ctx = u __FUNCTION__
+  let receive_start3 _ctx = u __FUNCTION__
 
   let receive_finalize _ctx = u __FUNCTION__
 

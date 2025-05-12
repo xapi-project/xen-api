@@ -837,8 +837,8 @@ module Mux = struct
         Storage_smapiv1_migrate.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id
           ~similar
 
-      (** see storage_smapiv{1,3}_migrate.receive_start2 *)
-      let receive_start2 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
+      (** see storage_smapiv{1,3}_migrate.receive_start3 *)
+      let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
           ~vm:_ =
         u __FUNCTION__
 

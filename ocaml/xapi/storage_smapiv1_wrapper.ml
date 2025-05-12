@@ -1200,7 +1200,7 @@ functor
             (String.concat "," similar) ;
           Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
 
-        let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
+        let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
             ~similar:_ ~vm:_ =
           u __FUNCTION__
 

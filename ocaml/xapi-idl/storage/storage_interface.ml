@@ -1110,7 +1110,7 @@ module StorageAPI (R : RPC) = struct
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
         compatibility with old xapis that call Remote.DATA.MIRROR.receive_start during SXM. 
-        Use the receive_start2 function instead. 
+        Use the receive_start3 function instead. 
       *)
       let receive_start =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
@@ -1126,10 +1126,10 @@ module StorageAPI (R : RPC) = struct
 
       (** Called on the receiving end to prepare for receipt of the storage. This
       function should be used in conjunction with [receive_finalize2]*)
-      let receive_start2 =
+      let receive_start3 =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
         let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
-        declare "DATA.MIRROR.receive_start2" []
+        declare "DATA.MIRROR.receive_start3" []
           (dbg_p
           @-> sr_p
           @-> VDI.vdi_info_p
@@ -1153,7 +1153,7 @@ module StorageAPI (R : RPC) = struct
       (** [receive_finalize2 dbg id] will stop the mirroring process and compose 
       the snapshot VDI with the mirror VDI. It also cleans up the storage resources 
       used by mirroring. It is called after the the source VM is paused. This fucntion
-      should be used in conjunction with [receive_start2] *)
+      should be used in conjunction with [receive_start3] *)
       let receive_finalize2 =
         declare "DATA.MIRROR.receive_finalize2" []
           (dbg_p
@@ -1175,7 +1175,7 @@ module StorageAPI (R : RPC) = struct
           (dbg_p @-> id_p @-> returning unit_p err)
 
       (** [receive_cancel2 dbg mirror_id url verify_dest] cleans up the side effects
-      done by [receive_start2] on the destination host when the migration fails. *)
+      done by [receive_start3] on the destination host when the migration fails. *)
       let receive_cancel2 =
         declare "DATA.MIRROR.receive_cancel2" []
           (dbg_p @-> id_p @-> url_p @-> verify_dest_p @-> returning unit_p err)
@@ -1274,7 +1274,7 @@ module type MIRROR = sig
     -> similar:Mirror.similars
     -> Mirror.mirror_receive_result
 
-  val receive_start2 :
+  val receive_start3 :
        context
     -> dbg:debug_info
     -> sr:sr
@@ -1772,9 +1772,9 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
     ) ;
-    S.DATA.MIRROR.receive_start2
+    S.DATA.MIRROR.receive_start3
       (fun dbg sr vdi_info mirror_id similar vm url verify_dest ->
-        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~mirror_id
+        Impl.DATA.MIRROR.receive_start3 () ~dbg ~sr ~vdi_info ~mirror_id
           ~similar ~vm ~url ~verify_dest
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->

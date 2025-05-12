@@ -131,7 +131,7 @@ module MigrateLocal = struct
     try
       let (module Migrate_Backend) = choose_backend dbg sr in
       let similars = similar_vdis ~dbg ~sr ~vdi in
-      Migrate_Backend.receive_start2 () ~dbg ~sr:dest ~vdi_info:local_vdi
+      Migrate_Backend.receive_start3 () ~dbg ~sr:dest ~vdi_info:local_vdi
         ~mirror_id ~similar:similars ~vm:mirror_vm ~url ~verify_dest
     with e ->
       error "%s Caught error %s while preparing for SXM" __FUNCTION__

@@ -680,7 +680,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
       (* The state tracking here does not need to be changed, however, it will be
          stored in memory on different hosts. If receive_start is called, by an older
          host, this State.add is run on the destination host. On the other hand, if
-         receive_start2 is called, this will be stored in memory on the source host.
+         receive_start3 is called, this will be stored in memory on the source host.
          receive_finalize2 and receive_cancel2 handles this similarly. *)
       State.add id
         State.(
@@ -724,7 +724,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
     receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
       (module Local)
 
-  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
+  let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
       ~verify_dest =
     D.debug "%s dbg: %s sr: %s vdi: %s id: %s vm: %s url: %s verify_dest: %B"
       __FUNCTION__ dbg (s_of_sr sr)
