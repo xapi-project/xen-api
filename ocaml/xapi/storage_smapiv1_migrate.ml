@@ -749,12 +749,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
     State.remove_receive_mirror id
 
-  let receive_finalize3 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
-    D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
-      mirror_id (s_of_sr sr) url verify_dest ;
-    let (module Remote) =
-      Storage_migrate_helper.get_remote_backend url verify_dest
-    in
+  let receive_finalize_common ~dbg ~mirror_id (module SMAPI : SMAPIv2) =
     let recv_state = State.find_active_receive_mirror mirror_id in
     let open State.Receive_state in
     Option.iter
@@ -764,15 +759,27 @@ module MIRROR : SMAPIv2_MIRROR = struct
           __FUNCTION__ (Sr.string_of r.sr)
           (Vdi.string_of r.parent_vdi)
           (Vdi.string_of r.leaf_vdi) ;
-        Remote.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
-        Remote.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
+        SMAPI.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
+        SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
         (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
            there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr r.dummy_vdi) ;
-        Remote.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
+        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
     State.remove_receive_mirror mirror_id
+
+  let receive_finalize2 _ctx ~dbg ~id =
+    D.debug "%s dbg:%s id: %s" __FUNCTION__ dbg id ;
+    receive_finalize_common ~dbg ~mirror_id:id (module Local)
+
+  let receive_finalize3 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
+      mirror_id (s_of_sr sr) url verify_dest ;
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    receive_finalize_common ~dbg ~mirror_id (module Remote)
 
   let receive_cancel _ctx ~dbg ~id =
     D.debug "%s dbg:%s mirror_id:%s" __FUNCTION__ dbg id ;
