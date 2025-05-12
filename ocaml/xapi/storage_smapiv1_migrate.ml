@@ -25,6 +25,12 @@ module SXM = Storage_migrate_helper.SXM
 
 module type SMAPIv2_MIRROR = Storage_interface.MIRROR
 
+let s_of_sr = Storage_interface.Sr.string_of
+
+let s_of_vdi = Storage_interface.Vdi.string_of
+
+let s_of_vm = Storage_interface.Vm.string_of
+
 let with_activated_disk ~dbg ~sr ~vdi ~dp ~vm f =
   let attached_vdi =
     Option.map
@@ -389,6 +395,11 @@ end
 let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
     ~dest_sr ~verify_dest ~(remote_mirror : Mirror.mirror_receive_result_vhd_t)
     =
+  D.debug
+    "%s dbg:%s dp:%s sr:%s vdi:%s mirror_vm:%s live_vm:%s mirror_id:%s url:%s \
+     dest_sr:%s verify_dest:%B"
+    __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm mirror_vm)
+    (s_of_vm live_vm) mirror_id url (s_of_sr dest_sr) verify_dest ;
   let remote_vdi = remote_mirror.mirror_vdi.vdi in
   let mirror_dp = remote_mirror.mirror_datapath in
 
@@ -482,6 +493,9 @@ let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
   tapdev
 
 let mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi =
+  D.debug "%s dbg:%s sr:%s dp:%s mirror_id:%s local_vdi:%s" __FUNCTION__ dbg
+    (s_of_sr sr) dp mirror_id
+    (string_of_vdi_info local_vdi) ;
   SXM.info "%s About to snapshot VDI = %s" __FUNCTION__
     (string_of_vdi_info local_vdi) ;
   let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
@@ -556,6 +570,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
 
   let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
       ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+    D.debug
+      "%s dbg: %s dp: %s sr: %s vdi:%s mirror_vm:%s mirror_id: %s live_vm: %s \
+       url:%s dest_sr:%s verify_dest:%B"
+      __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm mirror_vm)
+      mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr) verify_dest ;
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
@@ -699,11 +718,18 @@ module MIRROR : SMAPIv2_MIRROR = struct
       raise e
 
   let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~similar =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
+      (string_of_vdi_info vdi_info)
+      id ;
     receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
       (module Local)
 
   let receive_start2 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
       ~verify_dest =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s vm: %s url: %s verify_dest: %B"
+      __FUNCTION__ dbg (s_of_sr sr)
+      (string_of_vdi_info vdi_info)
+      mirror_id (s_of_vm vm) url verify_dest ;
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
@@ -711,12 +737,15 @@ module MIRROR : SMAPIv2_MIRROR = struct
       (module Remote)
 
   let receive_finalize _ctx ~dbg ~id =
+    D.debug "%s dbg:%s id: %s" __FUNCTION__ dbg id ;
     let recv_state = State.find_active_receive_mirror id in
     let open State.Receive_state in
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
     State.remove_receive_mirror id
 
-  let receive_finalize2 _ctx ~dbg ~mirror_id ~sr:_ ~url ~verify_dest =
+  let receive_finalize2 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
+      mirror_id (s_of_sr sr) url verify_dest ;
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
@@ -740,6 +769,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
     State.remove_receive_mirror mirror_id
 
   let receive_cancel _ctx ~dbg ~id =
+    D.debug "%s dbg:%s mirror_id:%s" __FUNCTION__ dbg id ;
     let receive_state = State.find_active_receive_mirror id in
     let open State.Receive_state in
     Option.iter
@@ -757,4 +787,79 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let receive_cancel2 _ctx ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
     (* see Storage_migrate.receive_cancel2 *)
     u __FUNCTION__
+
+  exception Timeout of Mtime.Span.t
+
+  let reqs_outstanding_timeout = Mtime.Span.(150 * s)
+
+  let pp_time () = Fmt.str "%a" Mtime.Span.pp
+
+  (* Tapdisk should time out after 2 mins. We can wait a little longer *)
+
+  let pre_deactivate_hook _ctx ~dbg ~dp ~sr ~vdi =
+    D.debug "%s dbg:%s dp:%s sr:%s vdi:%s" __FUNCTION__ dbg dp (s_of_sr sr)
+      (s_of_vdi vdi) ;
+    let open State.Send_state in
+    let id = State.mirror_id_of (sr, vdi) in
+    let start = Mtime_clock.counter () in
+    State.find_active_local_mirror id
+    |> Option.iter (fun s ->
+           (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
+              					   until the number of outstanding requests has gone to zero, then check the
+              					   status. This avoids confusing the backend (CA-128460) *)
+           try
+             match s.tapdev with
+             | None ->
+                 ()
+             | Some tapdev ->
+                 let open Tapctl in
+                 let ctx = create () in
+                 let rec wait () =
+                   let elapsed = Mtime_clock.count start in
+                   if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0
+                   then
+                     raise (Timeout elapsed) ;
+                   let st = stats ctx tapdev in
+                   if st.Stats.reqs_outstanding > 0 then (
+                     Thread.delay 1.0 ; wait ()
+                   ) else
+                     (st, elapsed)
+                 in
+                 let st, elapsed = wait () in
+                 D.debug "Got final stats after waiting %a" pp_time elapsed ;
+                 if st.Stats.nbd_mirror_failed = 1 then (
+                   D.error "tapdisk reports mirroring failed" ;
+                   s.failed <- true
+                 )
+           with
+           | Timeout elapsed ->
+               D.error
+                 "Timeout out after %a waiting for tapdisk to complete all \
+                  outstanding requests while migrating vdi %s of domain %s"
+                 pp_time elapsed (s_of_vdi vdi) (s_of_vm s.live_vm) ;
+               s.failed <- true
+           | e ->
+               D.error
+                 "Caught exception while finally checking mirror state: %s \
+                  when migrating vdi %s of domain %s"
+                 (Printexc.to_string e) (s_of_vdi vdi) (s_of_vm s.live_vm) ;
+               s.failed <- true
+       )
+
+  let has_mirror_failed _ctx ~dbg:_ ~mirror_id ~sr:_ =
+    match State.find_active_local_mirror mirror_id with
+    | Some {tapdev= Some tapdev; failed; _} -> (
+      try
+        let stats = Tapctl.stats (Tapctl.create ()) tapdev in
+        stats.Tapctl.Stats.nbd_mirror_failed = 1
+      with _ ->
+        D.debug "Using cached copy of failure status" ;
+        failed
+    )
+    | _ ->
+        false
+
+  let list _ctx = u __FUNCTION__
+
+  let stat _ctx = u __FUNCTION__
 end

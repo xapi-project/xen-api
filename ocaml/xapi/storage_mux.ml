@@ -857,6 +857,22 @@ module Mux = struct
 
       let receive_cancel2 () ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
         u __FUNCTION__
+
+      let pre_deactivate_hook _ctx ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ =
+        u "DATA.MIRROR.pre_deactivate_hook"
+
+      let has_mirror_failed _ctx ~dbg:_ ~mirror_id:_ ~sr:_ =
+        u "DATA.MIRROR.has_mirror_failed"
+
+      let list () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun di ->
+        info "%s dbg: %s" __FUNCTION__ dbg ;
+        Storage_migrate.list ~dbg:di.log
+
+      let stat () ~dbg ~id =
+        with_dbg ~name:"DATA.MIRROR.stat" ~dbg @@ fun di ->
+        info "%s dbg: %s mirror_id: %s" __FUNCTION__ di.log id ;
+        Storage_migrate.stat ~dbg:di.log ~id
     end
   end
 
