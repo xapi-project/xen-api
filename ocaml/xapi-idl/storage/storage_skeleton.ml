@@ -169,9 +169,12 @@ module DATA = struct
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
       u "DATA.MIRROR.receive_start"
 
-    let receive_start2 ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
-        ~verify_dest =
+    let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
       u "DATA.MIRROR.receive_start2"
+
+    let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
+        ~verify_dest =
+      u "DATA.MIRROR.receive_start3"
 
     let receive_finalize ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize"
 
