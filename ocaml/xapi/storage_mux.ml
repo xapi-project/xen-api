@@ -837,6 +837,20 @@ module Mux = struct
         Storage_smapiv1_migrate.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id
           ~similar
 
+      let receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+        with_dbg ~name:"DATA.MIRROR.receive_start2" ~dbg @@ fun _di ->
+        info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s vm: %s"
+          __FUNCTION__ dbg (s_of_sr sr)
+          (string_of_vdi_info vdi_info)
+          id
+          (String.concat ";" similar)
+          (s_of_vm vm) ;
+        info "%s dbg:%s" __FUNCTION__ dbg ;
+        (* This goes straight to storage_smapiv1_migrate for backwards compatability
+           reasons, new code should not call receive_start any more *)
+        Storage_smapiv1_migrate.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id
+          ~similar ~vm
+
       (** see storage_smapiv{1,3}_migrate.receive_start3 *)
       let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
           ~vm:_ =

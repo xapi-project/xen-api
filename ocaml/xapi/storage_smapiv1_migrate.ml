@@ -724,6 +724,12 @@ module MIRROR : SMAPIv2_MIRROR = struct
     receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
       (module Local)
 
+  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
+      (string_of_vdi_info vdi_info)
+      id ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm (module Local)
+
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
       ~verify_dest =
     D.debug "%s dbg: %s sr: %s vdi: %s id: %s vm: %s url: %s verify_dest: %B"

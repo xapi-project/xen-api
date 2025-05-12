@@ -1124,6 +1124,24 @@ module StorageAPI (R : RPC) = struct
           @-> returning result err
           )
 
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_start2 during SXM. 
+        Use the receive_start3 function instead. 
+      *)
+      let receive_start2 =
+        let similar_p = Param.mk ~name:"similar" Mirror.similars in
+        let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
+        declare "DATA.MIRROR.receive_start2" []
+          (dbg_p
+          @-> sr_p
+          @-> VDI.vdi_info_p
+          @-> id_p
+          @-> similar_p
+          @-> vm_p
+          @-> returning result err
+          )
+
       (** Called on the receiving end to prepare for receipt of the storage. This
       function should be used in conjunction with [receive_finalize2]*)
       let receive_start3 =
@@ -1272,6 +1290,16 @@ module type MIRROR = sig
     -> vdi_info:vdi_info
     -> id:Mirror.id
     -> similar:Mirror.similars
+    -> Mirror.mirror_receive_result
+
+  val receive_start2 :
+       context
+    -> dbg:debug_info
+    -> sr:sr
+    -> vdi_info:vdi_info
+    -> id:Mirror.id
+    -> similar:Mirror.similars
+    -> vm:vm
     -> Mirror.mirror_receive_result
 
   val receive_start3 :
@@ -1771,6 +1799,9 @@ module Server (Impl : Server_impl) () = struct
     ) ;
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
+    ) ;
+    S.DATA.MIRROR.receive_start2 (fun dbg sr vdi_info id similar vm ->
+        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
     ) ;
     S.DATA.MIRROR.receive_start3
       (fun dbg sr vdi_info mirror_id similar vm url verify_dest ->
