@@ -32,18 +32,56 @@ let _ =
   try
     let config = Network_config.read_config () in
     if !bridge <> "" then
-      if List.mem_assoc !bridge config.bridge_config then (
+      if List.mem_assoc !bridge config.bridge_config then
         let bridge_config = List.assoc !bridge config.bridge_config in
         let ifaces =
           List.concat_map (fun (_, port) -> port.interfaces) bridge_config.ports
         in
-        Printf.printf "interfaces=%s\n" (String.concat "," ifaces) ;
-        match bridge_config.vlan with
-        | None ->
-            ()
-        | Some (parent, id) ->
-            Printf.printf "vlan=%d\nparent=%s\n" id parent
-      ) else (
+        let mac_of_iface ~order name =
+          match List.find_opt (fun dev -> dev.name = name) order with
+          | Some dev ->
+              Ok (Macaddr.to_string dev.mac)
+          | None ->
+              Error (Printf.sprintf "Could not find MAC address of %s\n" name)
+        in
+        let macs =
+          match config.interface_order with
+          | Some order ->
+              List.map (mac_of_iface ~order) ifaces
+              |> List.fold_left
+                   (fun acc mac ->
+                     match (acc, mac) with
+                     | Ok acc, Ok mac ->
+                         Ok (mac :: acc)
+                     | Ok _, Error msg ->
+                         Error msg
+                     | Error msg, _ ->
+                         Error msg
+                   )
+                   (Ok [])
+          | None ->
+              if ifaces <> [] then
+                (* Fallback to use the bridge MAC address when the interface_order
+                   is not available. This can work only because the host installer
+                   requires only one network interface to setup its own networking so far. *)
+                Ok (Option.to_list bridge_config.bridge_mac)
+              else (* No ifaces, no hwaddrs. *)
+                Ok []
+        in
+        match macs with
+        | Error msg ->
+            rc := 1 ;
+            Printf.fprintf stderr "%s\n" msg
+        | Ok macs -> (
+            Printf.printf "interfaces=%s\n" (String.concat "," ifaces) ;
+            Printf.printf "hwaddrs=%s\n" (String.concat "," (List.rev macs)) ;
+            match bridge_config.vlan with
+            | None ->
+                ()
+            | Some (parent, id) ->
+                Printf.printf "vlan=%d\nparent=%s\n" id parent
+          )
+      else (
         rc := 1 ;
         Printf.fprintf stderr "Could not find bridge %s\n" !bridge
       ) ;
