@@ -1143,7 +1143,7 @@ module StorageAPI (R : RPC) = struct
           )
 
       (** Called on the receiving end to prepare for receipt of the storage. This
-      function should be used in conjunction with [receive_finalize2]*)
+      function should be used in conjunction with [receive_finalize3]*)
       let receive_start3 =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
         let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
@@ -1162,18 +1162,27 @@ module StorageAPI (R : RPC) = struct
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
         compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
-        during SXM.  Use the receive_finalize2 function instead. 
+        during SXM.  Use the receive_finalize3 function instead. 
       *)
       let receive_finalize =
         declare "DATA.MIRROR.receive_finalize" []
           (dbg_p @-> id_p @-> returning unit_p err)
 
-      (** [receive_finalize2 dbg id] will stop the mirroring process and compose 
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
+        during SXM.  Use the receive_finalize3 function instead. 
+      *)
+      let receive_finalize2 =
+        declare "DATA.MIRROR.receive_finalize2" []
+          (dbg_p @-> id_p @-> returning unit_p err)
+
+      (** [receive_finalize3 dbg id] will stop the mirroring process and compose 
       the snapshot VDI with the mirror VDI. It also cleans up the storage resources 
       used by mirroring. It is called after the the source VM is paused. This fucntion
       should be used in conjunction with [receive_start3] *)
-      let receive_finalize2 =
-        declare "DATA.MIRROR.receive_finalize2" []
+      let receive_finalize3 =
+        declare "DATA.MIRROR.receive_finalize3" []
           (dbg_p
           @-> id_p
           @-> sr_p
@@ -1316,7 +1325,9 @@ module type MIRROR = sig
 
   val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
 
-  val receive_finalize2 :
+  val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val receive_finalize3 :
        context
     -> dbg:debug_info
     -> mirror_id:Mirror.id
@@ -1817,8 +1828,11 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_finalize (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
     ) ;
-    S.DATA.MIRROR.receive_finalize2 (fun dbg mirror_id sr url verify_dest ->
-        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~mirror_id ~sr ~url
+    S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
+        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
+    ) ;
+    S.DATA.MIRROR.receive_finalize3 (fun dbg mirror_id sr url verify_dest ->
+        Impl.DATA.MIRROR.receive_finalize3 () ~dbg ~mirror_id ~sr ~url
           ~verify_dest
     ) ;
     S.DATA.MIRROR.pre_deactivate_hook (fun dbg dp sr vdi ->

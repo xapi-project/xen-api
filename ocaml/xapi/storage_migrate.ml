@@ -40,11 +40,11 @@ let choose_backend dbg sr =
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  (** [receive_finalize2 dbg mirror_id sr url verify_dest] takes an [sr] parameter
+  (** [receive_finalize3 dbg mirror_id sr url verify_dest] takes an [sr] parameter
   which is the source sr and multiplexes based on the type of that *)
-  let receive_finalize2 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+  let receive_finalize3 ~dbg ~mirror_id ~sr ~url ~verify_dest =
     let (module Migrate_Backend) = choose_backend dbg sr in
-    Migrate_Backend.receive_finalize2 () ~dbg ~mirror_id ~sr ~url ~verify_dest
+    Migrate_Backend.receive_finalize3 () ~dbg ~mirror_id ~sr ~url ~verify_dest
 
   let receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest =
     let (module Remote) =
@@ -332,12 +332,12 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
              r.remote_info
          in
          let (module Remote) = get_remote_backend r.url verify_dest in
-         debug "Calling receive_finalize2" ;
+         debug "Calling receive_finalize3" ;
          log_and_ignore_exn (fun () ->
-             MigrateRemote.receive_finalize2 ~dbg:"Mirror-cleanup" ~mirror_id:id
+             MigrateRemote.receive_finalize3 ~dbg:"Mirror-cleanup" ~mirror_id:id
                ~sr ~url:r.url ~verify_dest
          ) ;
-         debug "Finished calling receive_finalize2" ;
+         debug "Finished calling receive_finalize3" ;
          State.remove_local_mirror id ;
          debug "Removed active local mirror: %s" id ;
          Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog

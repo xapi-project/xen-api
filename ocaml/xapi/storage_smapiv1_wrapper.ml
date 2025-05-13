@@ -1218,7 +1218,11 @@ functor
           info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_finalize context ~dbg ~id
 
-        let receive_finalize2 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
+        let receive_finalize2 context ~dbg ~id =
+          info "DATA.MIRROR.receive_finalize2 dbg:%s id:%s" dbg id ;
+          Impl.DATA.MIRROR.receive_finalize2 context ~dbg ~id
+
+        let receive_finalize3 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
             ~verify_dest:_ =
           (* see storage_smapiv{1,3}_migrate *)
           u __FUNCTION__
