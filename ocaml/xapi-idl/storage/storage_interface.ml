@@ -1170,7 +1170,7 @@ module StorageAPI (R : RPC) = struct
 
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
-        compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize2
         during SXM.  Use the receive_finalize3 function instead. 
       *)
       let receive_finalize2 =
