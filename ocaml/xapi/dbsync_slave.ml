@@ -64,6 +64,7 @@ let create_localhost ~__context info =
         ~ssh_enabled_timeout:Constants.default_ssh_enabled_timeout
         ~ssh_expiry:Date.epoch
         ~console_idle_timeout:Constants.default_console_idle_timeout
+        ~ssh_auto_mode:Constants.default_ssh_auto_mode
     in
     ()
 

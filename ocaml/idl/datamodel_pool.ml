@@ -1606,6 +1606,21 @@ let set_console_idle_timeout =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_ssh_auto_mode =
+  call ~name:"set_ssh_auto_mode" ~lifecycle:[]
+    ~doc:"Set the SSH auto mode for all hosts in the pool"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Bool
+        , "value"
+        , "The SSH auto mode for all hosts in the pool，when set to true, SSH \
+           to normally be disabled and SSH to be enabled only in case of \
+           emergency e.g., xapi is down"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1704,6 +1719,7 @@ let t =
       ; disable_ssh
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
+      ; set_ssh_auto_mode
       ]
     ~contents:
       ([

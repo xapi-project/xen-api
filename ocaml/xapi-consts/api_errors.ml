@@ -1426,6 +1426,9 @@ let set_ssh_timeout_partially_failed =
 let set_console_timeout_partially_failed =
   add_error "SET_CONSOLE_TIMEOUT_PARTIALLY_FAILED"
 
+let set_ssh_auto_mode_partially_failed =
+  add_error "SET_SSH_AUTO_MODE_PARTIALLY_FAILED"
+
 let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
 
 let tls_verification_not_enabled_in_pool =

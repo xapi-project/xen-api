@@ -25,7 +25,7 @@ let add_host __context name =
        ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
        ~last_software_update:Clock.Date.epoch ~last_update_hash:""
        ~ssh_enabled:true ~ssh_enabled_timeout:0L ~ssh_expiry:Clock.Date.epoch
-       ~console_idle_timeout:0L
+       ~console_idle_timeout:0L ~ssh_auto_mode:false
     )
 
 (* Creates an unlicensed pool with the maximum number of hosts *)

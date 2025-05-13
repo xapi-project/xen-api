@@ -967,6 +967,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssh_enabled_timeout:host.API.host_ssh_enabled_timeout
           ~ssh_expiry:host.API.host_ssh_expiry
           ~console_idle_timeout:host.API.host_console_idle_timeout
+          ~ssh_auto_mode:host.API.host_ssh_auto_mode
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -4070,6 +4071,13 @@ module Ssh = struct
         Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_console_timeout_partially_failed
+
+  let set_ssh_auto_mode ~__context ~self:_ ~value =
+    operate ~__context
+      ~action:(fun ~rpc ~session_id ~self ->
+        Client.Host.set_ssh_auto_mode ~rpc ~session_id ~self ~value
+      )
+      ~error:Api_errors.set_ssh_auto_mode_partially_failed
 end
 
 let enable_ssh = Ssh.enable
@@ -4079,3 +4087,5 @@ let disable_ssh = Ssh.disable
 let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 
 let set_console_idle_timeout = Ssh.set_console_timeout
+
+let set_ssh_auto_mode = Ssh.set_ssh_auto_mode
