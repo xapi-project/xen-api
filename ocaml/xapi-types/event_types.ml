@@ -20,36 +20,14 @@ let rpc_of_op = API.rpc_of_event_operation
 let op_of_rpc = API.event_operation_of_rpc
 
 type event = {
-    id: string
-  ; ts: string
-  ; ty: string
-  ; op: op
-  ; reference: string
-  ; snapshot: Rpc.t option
+    id: string [@key "id"]
+  ; ts: string [@key "timestamp"]
+  ; ty: string [@key "class"]
+  ; op: op [@key "operation"]
+  ; reference: string [@key "ref"]
+  ; snapshot: Rpc.t option [@key "snapshot"]
 }
 [@@deriving rpc]
-
-let ev_struct_remap =
-  [
-    ("id", "id")
-  ; ("ts", "timestamp")
-  ; ("ty", "class")
-  ; ("op", "operation")
-  ; ("reference", "ref")
-  ; ("snapshot", "snapshot")
-  ]
-
-let remap map str =
-  match str with
-  | Rpc.Dict d ->
-      Rpc.Dict (List.map (fun (k, v) -> (List.assoc k map, v)) d)
-  | _ ->
-      str
-
-let rpc_of_event ev = remap ev_struct_remap (rpc_of_event ev)
-
-let event_of_rpc rpc =
-  event_of_rpc (remap (List.map (fun (k, v) -> (v, k)) ev_struct_remap) rpc)
 
 type events = event list [@@deriving rpc]
 
