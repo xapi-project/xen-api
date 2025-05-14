@@ -1708,8 +1708,8 @@ let _ =
     ~doc:"The provided certificate has expired." () ;
   error Api_errors.server_certificate_signature_not_supported []
     ~doc:
-      "The provided certificate is not using the SHA256 (SHA2) signature \
-       algorithm."
+      "The provided certificate is not using one of the following SHA2 \
+       signature algorithms:  SHA256, SHA512."
     () ;
 
   error Api_errors.server_certificate_chain_invalid []
