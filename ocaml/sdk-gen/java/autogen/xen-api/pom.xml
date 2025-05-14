@@ -74,12 +74,12 @@
         <repository>
             <id>vcc-releases</id>
             <name>VCC Release Repository</name>
-            <url>http://oss.sonatype.org/content/repositories/java-net-releases/</url>
+            <url>https://oss.sonatype.org/content/repositories/java-net-releases/</url>
         </repository>
         <snapshotRepository>
             <id>vcc-snapshots</id>
             <name>VCC Snapshot Repository</name>
-            <url>http://oss.sonatype.org/content/repositories/java-net-snapshots/</url>
+            <url>https://oss.sonatype.org/content/repositories/java-net-snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
     <build>
