@@ -16,6 +16,7 @@ module Plugin_client = Xapi_storage.Plugin.Plugin (Rpc_lwt.GenClient ())
 module Volume_client = Xapi_storage.Control.Volume (Rpc_lwt.GenClient ())
 module Sr_client = Xapi_storage.Control.Sr (Rpc_lwt.GenClient ())
 module Datapath_client = Xapi_storage.Data.Datapath (Rpc_lwt.GenClient ())
+module Data_client = Xapi_storage.Data.Data (Rpc_lwt.GenClient ())
 open Private.Lib
 
 let ( >>= ) = Lwt.bind
@@ -1456,6 +1457,9 @@ module VDIImpl (M : META) = struct
            set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
              ~key:_snapshot_of_key ~value:vdi
            >>>= fun () ->
+           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
+             ~key:_vdi_content_id_key ~value:vdi_info.content_id
+           >>>= fun () ->
            let response =
              {
                (vdi_of_volume response) with
@@ -1753,6 +1757,8 @@ module VDIImpl (M : META) = struct
     let vdi = Storage_interface.Vdi.string_of vdi in
     let* () = unset ~dbg ~sr ~vdi ~key:(_sm_config_prefix_key ^ key) in
     return ()
+
+  let similar_content_impl _dbg _sr _vdi = wrap @@ return []
 end
 
 module DPImpl (M : META) = struct
@@ -1788,6 +1794,62 @@ end
 
 module DATAImpl (M : META) = struct
   module VDI = VDIImpl (M)
+
+  let stat dbg sr vdi' _vm key =
+    let open Storage_interface in
+    let convert_key = function
+      | Mirror.CopyV1 k ->
+          Data_client.CopyV1 k
+      | Mirror.MirrorV1 k ->
+          Data_client.MirrorV1 k
+    in
+
+    let vdi = Vdi.string_of vdi' in
+    Attached_SRs.find sr >>>= fun sr ->
+    VDI.stat ~dbg ~sr ~vdi >>>= fun response ->
+    ( match
+        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
+      with
+    | None ->
+        return response
+    | Some temporary ->
+        VDI.stat ~dbg ~sr ~vdi:temporary
+    )
+    >>>= fun response ->
+    choose_datapath response >>>= fun (rpc, _datapath, _uri) ->
+    let key = convert_key key in
+    return_data_rpc (fun () -> Data_client.stat (rpc ~dbg) dbg key)
+    >>>= function
+    | {failed; complete; progress} ->
+        return Mirror.{failed; complete; progress}
+
+  let stat_impl dbg sr vdi vm key = wrap @@ stat dbg sr vdi vm key
+
+  let mirror dbg sr vdi' vm' remote =
+    let vdi = Storage_interface.Vdi.string_of vdi' in
+    let domain = Storage_interface.Vm.string_of vm' in
+    Attached_SRs.find sr >>>= fun sr ->
+    VDI.stat ~dbg ~sr ~vdi >>>= fun response ->
+    ( match
+        List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
+      with
+    | None ->
+        return response
+    | Some temporary ->
+        VDI.stat ~dbg ~sr ~vdi:temporary
+    )
+    >>>= fun response ->
+    choose_datapath response >>>= fun (rpc, _datapath, uri) ->
+    return_data_rpc (fun () ->
+        Data_client.mirror (rpc ~dbg) dbg uri domain remote
+    )
+    >>>= function
+    | CopyV1 v ->
+        return (Storage_interface.Mirror.CopyV1 v)
+    | MirrorV1 v ->
+        return (Storage_interface.Mirror.MirrorV1 v)
+
+  let mirror_impl dbg sr vdi vm remote = wrap @@ mirror dbg sr vdi vm remote
 
   let data_import_activate_impl dbg _dp sr vdi' vm' =
     wrap
@@ -1855,6 +1917,7 @@ let bind ~volume_script_dir =
     (* this version field will be updated once query is called *)
     let version = ref None
   end in
+  let u name _ = failwith ("Unimplemented: " ^ name) in
   let module Query = QueryImpl (RuntimeMeta) in
   S.Query.query Query.query_impl ;
   S.Query.diagnostics Query.query_diagnostics_impl ;
@@ -1899,16 +1962,19 @@ let bind ~volume_script_dir =
   S.VDI.set_content_id VDI.vdi_set_content_id_impl ;
   S.VDI.add_to_sm_config VDI.vdi_add_to_sm_config_impl ;
   S.VDI.remove_from_sm_config VDI.vdi_remove_from_sm_config_impl ;
+  S.VDI.similar_content VDI.similar_content_impl ;
 
   let module DP = DPImpl (RuntimeMeta) in
   S.DP.destroy2 DP.dp_destroy2 ;
   S.DP.attach_info DP.dp_attach_info_impl ;
 
   let module DATA = DATAImpl (RuntimeMeta) in
+  S.DATA.copy (u "DATA.copy") ;
+  S.DATA.mirror DATA.mirror_impl ;
+  S.DATA.stat DATA.stat_impl ;
   S.DATA.get_nbd_server DATA.get_nbd_server_impl ;
   S.DATA.import_activate DATA.data_import_activate_impl ;
 
-  let u name _ = failwith ("Unimplemented: " ^ name) in
   S.get_by_name (u "get_by_name") ;
   S.VDI.get_by_name (u "VDI.get_by_name") ;
   S.UPDATES.get (u "UPDATES.get") ;
@@ -1917,8 +1983,6 @@ let bind ~volume_script_dir =
   S.DP.diagnostics (u "DP.diagnostics") ;
   S.TASK.destroy (u "TASK.destroy") ;
   S.DP.destroy (u "DP.destroy") ;
-  S.VDI.similar_content (u "VDI.similar_content") ;
-  S.DATA.copy (u "DATA.copy") ;
   S.DP.stat_vdi (u "DP.stat_vdi") ;
   S.DATA.MIRROR.send_start (u "DATA.MIRROR.send_start") ;
   S.DATA.MIRROR.receive_start (u "DATA.MIRROR.receive_start") ;

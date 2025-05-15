@@ -154,6 +154,10 @@ let get_by_name ctx ~dbg ~name = u "get_by_name"
 module DATA = struct
   let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
 
+  let mirror ctx ~dbg ~sr ~vdi ~vm ~dest = u "DATA.mirror"
+
+  let stat ctx ~dbg ~sr ~vdi ~vm ~key = u "DATA.stat"
+
   let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
     u "DATA.MIRROR.import_activate"
 
