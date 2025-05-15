@@ -50,6 +50,11 @@ let valid_leaf_certificates =
     , "2020-02-01T00:00:00Z"
     , `SHA256
     )
+  ; ( "Valid, SHA512, matches key"
+    , "pkey_rsa_2048"
+    , "2020-02-01T00:00:00Z"
+    , `SHA512
+    )
   ]
 
 (* ( description, leaf_private_key, expected_private_key, time_of_validation,
@@ -77,6 +82,14 @@ let invalid_leaf_certificates =
     , "pkey_rsa_4096"
     , "2020-02-01T00:00:00Z"
     , `SHA256
+    , server_certificate_key_mismatch
+    , []
+    )
+  ; ( "Valid, SHA512, keys do not match"
+    , "pkey_rsa_2048"
+    , "pkey_rsa_4096"
+    , "2020-02-01T00:00:00Z"
+    , `SHA512
     , server_certificate_key_mismatch
     , []
     )

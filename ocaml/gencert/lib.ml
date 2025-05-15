@@ -93,9 +93,9 @@ let validate_pem_chain ~pem_leaf ~pem_chain now private_key =
     | _ ->
         Error (`Msg (server_certificate_key_mismatch, []))
   in
-  let ensure_sha256_signature_algorithm certificate =
+  let ensure_signature_algorithm certificate =
     match X509.Certificate.signature_algorithm certificate with
-    | Some (_, `SHA256) ->
+    | Some (_, (`SHA256 | `SHA512)) ->
         Ok certificate
     | _ ->
         Error (`Msg (server_certificate_signature_not_supported, []))
@@ -116,7 +116,7 @@ let validate_pem_chain ~pem_leaf ~pem_chain now private_key =
     ~error_not_yet:server_certificate_not_valid_yet
     ~error_expired:server_certificate_expired
   >>= ensure_keys_match private_key
-  >>= ensure_sha256_signature_algorithm
+  >>= ensure_signature_algorithm
   >>= fun cert ->
   match Option.map validate_chain pem_chain with
   | None ->
