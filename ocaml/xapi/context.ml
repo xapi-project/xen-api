@@ -464,29 +464,28 @@ let get_http_other_config http_req =
 let of_http_req ?session_id ?(internal_async_subtask = false) ~generate_task_for
     ~supports_async ~label ~http_req ~fd () =
   let http_other_config = get_http_other_config http_req in
+  let origin =
+    match fd with None -> Internal | Some fd -> Http (http_req, fd)
+  in
   let new_task_context () =
     let subtask_of =
       Option.map Ref.of_string http_req.Http.Request.subtask_of
     in
     make ?session_id ?subtask_of ~http_other_config ~task_in_database:true
-      ~origin:(Http (http_req, fd))
-      label
+      ~origin label
   in
   if internal_async_subtask then
     new_task_context ()
   else
     match http_req.Http.Request.task with
     | Some task_id ->
-        from_forwarded_task ?session_id ~http_other_config
-          ~origin:(Http (http_req, fd))
+        from_forwarded_task ?session_id ~http_other_config ~origin
           (Ref.of_string task_id)
     | None ->
         if generate_task_for && supports_async then
           new_task_context ()
         else
-          make ?session_id ~http_other_config
-            ~origin:(Http (http_req, fd))
-            label
+          make ?session_id ~http_other_config ~origin label
 
 let set_test_rpc context rpc = context.test_rpc <- Some rpc
 
