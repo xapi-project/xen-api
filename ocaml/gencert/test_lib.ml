@@ -166,11 +166,20 @@ let test_valid_leaf_cert pem_leaf time pkey () =
   match validate_pem_chain ~pem_leaf ~pem_chain:None time pkey with
   | Ok _ ->
       ()
-  | Error (`Msg (_, msg)) ->
+  | Error (`Msg err) ->
+      let err_to_str (name, params) =
+        let Datamodel_types.{err_doc; err_params; _} =
+          Hashtbl.find Datamodel_errors.errors name
+        in
+        let args = List.combine err_params params in
+        Format.asprintf "%s %a" err_doc
+          Fmt.(Dump.list (pair ~sep:(Fmt.any ":@ ") string string))
+          args
+      in
       Alcotest.fail
         (Format.asprintf "Valid certificate could not be validated: %a"
-           Fmt.(Dump.list string)
-           msg
+           (Fmt.of_to_string err_to_str)
+           err
         )
 
 let test_invalid_cert pem_leaf time pkey error reason =
