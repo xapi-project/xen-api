@@ -38,12 +38,15 @@ let blow_away_non_persistent_fields (schema : Schema.t) db =
   (* Generate a new row given a table schema *)
   let row schema row : Row.t * int64 =
     Row.fold
-      (fun name {Stat.created; modified; _} (v, _) (acc, max_upd) ->
+      (fun name {Stat.created; modified; _} v (acc, max_upd) ->
         try
           let col = Schema.Table.find name schema in
           let empty = col.Schema.Column.empty in
           let v', modified' =
-            if col.Schema.Column.persistent then (v, modified) else (empty, g)
+            if col.Schema.Column.persistent then
+              (Schema.CachedValue.value_of v, modified)
+            else
+              (empty, g)
           in
           ( Row.update modified' name empty
               (fun _ -> v')

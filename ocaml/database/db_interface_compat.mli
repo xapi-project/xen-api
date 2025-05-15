@@ -11,7 +11,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+open Db_interface
 
-val get : Db_ref.t -> (module Db_interface.DB_ACCESS2)
+module OfCached : functor (_ : DB_ACCESS2) -> DB_ACCESS
 
-val apply_delta_to_cache : Redo_log.t -> Db_ref.t -> unit
+module OfCompat : functor (_ : DB_ACCESS) -> DB_ACCESS2
