@@ -50,7 +50,9 @@ let receive (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   debug "Calling Qcow_stream.stream_decode (output_path = '%s')" path ;
   Qcow_stream.stream_decode ~progress_cb unix_fd path
 
-let send (progress_cb : int -> unit) (unix_fd : Unix.file_descr) (path : string)
-    (_size : Int64.t) =
-  let args = [path] in
+let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
+    (path : string) (_size : Int64.t) =
+  let args =
+    [path] @ match relative_to with None -> [] | Some vdi -> ["--diff"; vdi]
+  in
   run_qcow_tool progress_cb args unix_fd
