@@ -50,8 +50,10 @@ let receive (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
   let qcow_tool = !Xapi_globs.qcow_stream_tool in
   run_qcow_tool qcow_tool progress_cb args ~input_fd:unix_fd
 
-let send (progress_cb : int -> unit) (unix_fd : Unix.file_descr) (path : string)
-    (_size : Int64.t) =
-  let args = [path] in
+let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
+    (path : string) (_size : Int64.t) =
+  let args =
+    [path] @ match relative_to with None -> [] | Some vdi -> ["--diff"; vdi]
+  in
   let qcow_tool = !Xapi_globs.qcow_to_stdout in
   run_qcow_tool qcow_tool progress_cb args ~output_fd:unix_fd

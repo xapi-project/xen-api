@@ -49,7 +49,7 @@ let localhost_handler rpc session_id vdi (req : Http.Request.t)
               debug "Copying VDI contents..." ;
               match format with
               | Qcow ->
-                  Qcow_tool_wrapper.send
+                  Qcow_tool_wrapper.send ?relative_to:base_path
                     (Qcow_tool_wrapper.update_task_progress __context)
                     s path size
               | Vhd | Tar | Raw ->
