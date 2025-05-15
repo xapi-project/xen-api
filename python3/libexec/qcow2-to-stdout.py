@@ -90,7 +90,8 @@ def write_features(cluster, offset, data_file_name):
         offset += 48
 
 
-def write_qcow2_content(input_file, cluster_size, refcount_bits, data_file_name, data_file_raw):
+def write_qcow2_content(input_file, cluster_size, refcount_bits,
+                        data_file_name, data_file_raw, diff_file_name):
     # Some basic values
     l1_entries_per_table = cluster_size // 8
     l2_entries_per_table = cluster_size // 8
@@ -126,17 +127,17 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits, data_file_name,
         for idx in range(total_data_clusters):
             bitmap_set(l2_bitmap, idx)
     else:
-        zero_cluster = bytes(cluster_size)
-        last_cluster = align_up(block_device_size, cluster_size) // cluster_size
-        # Read all the clusters that contain data
-        for idx in range(0, last_cluster):
-            cluster = os.pread(fd, cluster_size, cluster_size * idx)
+        # Allocates a cluster in the appropriate bitmaps if it's different
+        # from cluster_to_compare_with
+        def check_cluster_allocate(idx, cluster, cluster_to_compare_with):
+            nonlocal allocated_data_clusters
+            nonlocal allocated_l2_tables
             # If the last cluster is smaller than cluster_size pad it with zeroes
             if len(cluster) < cluster_size:
                 cluster += bytes(cluster_size - len(cluster))
-            # If a cluster has non-zero data then it must be allocated
-            # in the output file and its L2 entry must be set
-            if cluster != zero_cluster:
+            # If a cluster has different data from the cluster_to_compare_with then it
+            # must be allocated in the output file and its L2 entry must be set
+            if cluster != cluster_to_compare_with:
                 bitmap_set(l2_bitmap, idx)
                 allocated_data_clusters += 1
                 # Allocated data clusters also need their corresponding L1 entry and L2 table
@@ -144,6 +145,36 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits, data_file_name,
                 if not bitmap_is_set(l1_bitmap, l1_idx):
                     bitmap_set(l1_bitmap, l1_idx)
                     allocated_l2_tables += 1
+
+        zero_cluster = bytes(cluster_size)
+        last_cluster = align_up(block_device_size, cluster_size) // cluster_size
+        if diff_file_name:
+            # Read all the clusters that differ from the diff_file_name
+            diff_fd = os.open(diff_file_name, os.O_RDONLY)
+            diff_block_device_size = os.lseek(diff_fd, 0, os.SEEK_END)
+            last_diff_cluster = align_up(diff_block_device_size, cluster_size) // cluster_size
+            # In case input_file is bigger than diff_file_name, first check
+            # if clusters from diff_file_name differ, and then check if the
+            # rest contain data
+            for idx in range(0, last_diff_cluster):
+                cluster = os.pread(fd, cluster_size, cluster_size * idx)
+                original_cluster = os.pread(diff_fd, cluster_size, cluster_size * idx)
+
+                # If a cluster has different data from the original_cluster
+                # then it must be allocated
+                check_cluster_allocate(idx, cluster, original_cluster)
+            for idx in range(last_diff_cluster, last_cluster):
+                cluster = os.pread(fd, cluster_size, cluster_size * idx)
+
+                # If a cluster has different data from the original_cluster
+                # then it must be allocated
+                check_cluster_allocate(idx, cluster, zero_cluster)
+        else:
+            # Read all the clusters that contain data
+            for idx in range(0, last_cluster):
+                cluster = os.pread(fd, cluster_size, cluster_size * idx)
+                # If a cluster has non-zero data then it must be allocated
+                check_cluster_allocate(idx, cluster, zero_cluster)
 
     # Total amount of allocated clusters excluding the refcount blocks and table
     total_allocated_clusters = 1 + allocated_l1_tables + allocated_l2_tables
@@ -315,6 +346,15 @@ def main():
     )
     parser.add_argument("input_file", help="name of the input file")
     parser.add_argument(
+        "--diff",
+        dest="diff_file_name",
+        metavar="diff_file_name",
+        help=("name of the original file to compare input_file against. "
+                "If specified, will only export clusters that are different "
+                "between the files"),
+        default=None,
+    )
+    parser.add_argument(
         "-c",
         dest="cluster_size",
         metavar="cluster_size",
@@ -352,6 +392,9 @@ def main():
     if not os.path.exists(args.input_file):
         sys.exit(f"[Error] {args.input_file} does not exist.")
 
+    if args.diff_file_name and not os.path.exists(args.diff_file_name):
+        sys.exit(f"[Error] {args.diff_file_name} does not exist.")
+
     # A 512 byte header is too small for the data file name extension
     if args.data_file and args.cluster_size == 512:
         sys.exit("[Error] External data files require a larger cluster size")
@@ -370,6 +413,7 @@ def main():
         args.refcount_bits,
         data_file_name,
         args.data_file_raw,
+        args.diff_file_name
     )
 
 
