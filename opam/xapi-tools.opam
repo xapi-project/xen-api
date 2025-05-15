@@ -24,6 +24,7 @@ depends: [
   "rpclib"
   "rresult"
   "uri"
+  "tyre"
   "xenctrl"
   "xmlm"
   "yojson"
