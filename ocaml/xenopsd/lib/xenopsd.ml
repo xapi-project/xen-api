@@ -59,8 +59,6 @@ let feature_flags_path = ref "/etc/xenserver/features.d"
 
 let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
-let numa_placement_compat = ref false
-
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
 
@@ -242,8 +240,11 @@ let options =
     , "Command line for the inner-xen for PV-in-PVH guests"
     )
   ; ( "numa-placement"
-    , Arg.Bool (fun x -> numa_placement_compat := x)
-    , (fun () -> string_of_bool !numa_placement_compat)
+    , Arg.Bool (fun _ -> ())
+    , (fun () ->
+        string_of_bool
+          (!Xenops_server.default_numa_affinity_policy = Best_effort)
+      )
     , "NUMA-aware placement of VMs (deprecated, use XAPI setting)"
     )
   ; ( "pci-quarantine"
