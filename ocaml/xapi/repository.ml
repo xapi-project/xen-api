@@ -33,6 +33,8 @@ let updates_in_cache : (API.ref_host, Yojson.Basic.t) Hashtbl.t =
 
 let introduce ~__context ~name_label ~name_description ~binary_url ~source_url
     ~update ~gpgkey_path =
+  assert_url_is_not_blocked ~url:binary_url ;
+  assert_url_is_not_blocked ~url:source_url ;
   assert_url_is_valid ~url:binary_url ;
   assert_url_is_valid ~url:source_url ;
   assert_gpgkey_path_is_valid gpgkey_path ;
