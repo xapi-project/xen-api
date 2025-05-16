@@ -48,7 +48,7 @@ let _ =
                     Either.Right name
               in
               match (config.interface_order, ifaces) with
-              | Some order, ifaces ->
+              | Some order, _ :: _ ->
                   let oks, errs = List.partition_map (to_mac ~order) ifaces in
                   if errs = [] then
                     Ok oks
@@ -57,7 +57,7 @@ let _ =
                       (Printf.sprintf "Could not find MAC address(es) for %s"
                          (String.concat ", " errs)
                       )
-              | None, [] ->
+              | _, [] ->
                   (* No ifaces, no hwaddrs. *)
                   Ok []
               | None, _ :: _ ->
