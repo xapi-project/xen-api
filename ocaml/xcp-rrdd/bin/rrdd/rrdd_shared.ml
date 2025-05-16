@@ -20,14 +20,17 @@ module StringSet = Set.Make (String)
 (* Whether to enable all non-default datasources *)
 let enable_all_dss = ref false
 
-(* The time between each monitoring loop. *)
-let timeslice : float ref = ref 5.
+(* The expected time span between each monitoring loop. *)
+let timeslice : Mtime.span ref = ref Mtime.Span.(5 * s)
 
-(* Timestamp of the last monitoring loop end. *)
-let last_loop_end_time : float ref = ref neg_infinity
+(* The counter since the start of all monitoring loops. *)
+let from_loop_start : Mtime_clock.counter = Mtime_clock.counter ()
 
-(* The mutex that protects the last_loop_end_time against data corruption. *)
-let last_loop_end_time_m : Mutex.t = Mutex.create ()
+(* The time span of the last monitoring loop end. *)
+let last_iteration_end : Mtime.Span.t ref = ref Mtime.Span.zero
+
+(* The mutex that protects the last_iteration_end against data corruption. *)
+let last_iteration_end_m : Mutex.t = Mutex.create ()
 
 (** Cache memory/target values *)
 let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
