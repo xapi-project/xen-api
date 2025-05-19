@@ -1920,9 +1920,11 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
       debug "Ignoring error during best-effort operation: %s"
         (Printexc.to_string e)
   )
-  | Parallel (_id, description, atoms) ->
+  | Parallel (_id, description, atoms) as atom ->
+      check_nesting atom ;
       parallel_atomic ~progress_callback ~description ~nested:false atoms t
-  | Nested_parallel (_id, description, atoms) ->
+  | Nested_parallel (_id, description, atoms) as atom ->
+      check_nesting atom ;
       parallel_atomic ~progress_callback ~description ~nested:true atoms t
   | Serial (_, _, atoms) ->
       List.iter (Fun.flip (perform_atomic ~progress_callback) t) atoms
@@ -2351,6 +2353,34 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
   | VM_softreboot id ->
       debug "VM.soft_reset %s" id ;
       B.VM.soft_reset t (VM_DB.read_exn id)
+
+and check_nesting atom =
+  let msg_prefix = "Nested atomics error" in
+  let rec check_nesting_inner found_parallel found_nested = function
+    | Parallel (_, _, rem) ->
+        if found_parallel then (
+          warn
+            "%s: Two or more Parallel atoms found, use Nested_parallel for the \
+             inner atom"
+            msg_prefix ;
+          true
+        ) else
+          List.exists (check_nesting_inner true found_nested) rem
+    | Nested_parallel (_, _, rem) ->
+        if found_nested then (
+          warn
+            "%s: Two or more Nested_parallel atoms found, there should only be \
+             one layer of nesting"
+            msg_prefix ;
+          true
+        ) else
+          List.exists (check_nesting_inner found_parallel true) rem
+    | Serial (_, _, rem) ->
+        List.exists (check_nesting_inner found_parallel found_nested) rem
+    | _ ->
+        false
+  in
+  ignore @@ check_nesting_inner false false atom
 
 and parallel_atomic ~progress_callback ~description ~nested atoms t =
   (* parallel_id is a unused unique name prefix for a parallel worker queue *)
