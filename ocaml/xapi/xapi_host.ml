@@ -2790,6 +2790,7 @@ let set_uefi_certificates ~__context ~host:_ ~value:_ =
 let set_iscsi_iqn ~__context ~host ~value =
   if value = "" then
     raise Api_errors.(Server_error (invalid_value, ["value"; value])) ;
+  D.debug "%s: iqn=%S" __FUNCTION__ value ;
   (* Note, the following sequence is carefully written - see the
      other-config watcher thread in xapi_host_helpers.ml *)
   Db.Host.remove_from_other_config ~__context ~self:host ~key:"iscsi_iqn" ;
