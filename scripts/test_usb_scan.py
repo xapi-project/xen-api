@@ -2,7 +2,11 @@
 #
 # unittest for usb_scan.py
 
-from collections import Mapping, Container, Iterable
+try:
+    from collections import Mapping, Container, Iterable
+except:
+    from collections.abc import Mapping, Container, Iterable
+
 import mock
 from nose.tools import nottest
 import os
