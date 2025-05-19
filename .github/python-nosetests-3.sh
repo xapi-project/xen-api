@@ -3,7 +3,7 @@
 
 set -uex
 
-sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ trusty main universe"
+sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ jammy main universe"
 sudo apt-get update
 sudo apt-get install -y python3-mock python3-nose
 pip3 install mock
