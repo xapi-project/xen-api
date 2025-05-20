@@ -116,7 +116,7 @@ let refresh_internal ~__context ~interface_tables ~self =
           info "PIF: device name changed from %s to %s" original_name name ;
         name
     | None -> (
-        (* This clause should be unlike to happen, if enter this, check the if
+        (* This clause should be unlikely to happen, if enter this, check the if
            we can get mac from networkd. If yes there may be a bug *)
         warn "PIF %s: no device found for position %d" original_name position ;
         try
