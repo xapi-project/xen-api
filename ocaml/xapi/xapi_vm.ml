@@ -89,9 +89,6 @@ let retrieve_wlb_recommendations ~__context ~vm =
 
 let assert_agile ~__context ~self = Agility.vm_assert_agile ~__context ~self
 
-(* helpers *)
-let immediate_complete ~__context = Helpers.progress ~__context (0.0 -. 1.0)
-
 (* API *)
 let set_actions_after_crash ~__context ~self ~value =
   set_actions_after_crash ~__context ~self ~value

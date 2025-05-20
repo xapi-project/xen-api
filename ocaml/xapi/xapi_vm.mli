@@ -32,8 +32,6 @@ val retrieve_wlb_recommendations :
 
 val assert_agile : __context:Context.t -> self:[`VM] Ref.t -> unit
 
-val immediate_complete : __context:Context.t -> unit
-
 val set_actions_after_crash :
      __context:Context.t
   -> self:[`VM] Ref.t
