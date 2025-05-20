@@ -606,14 +606,6 @@ let call_emergency_mode_functions hostname f =
     (fun () -> f rpc session_id)
     (fun () -> Client.Client.Session.local_logout ~rpc ~session_id)
 
-let progress ~__context t =
-  for i = 0 to int_of_float (t *. 100.) do
-    let v = float_of_int i /. 100. /. t in
-    TaskHelper.set_progress ~__context v ;
-    Thread.delay 1.
-  done ;
-  TaskHelper.set_progress ~__context 1.
-
 let is_domain_zero_with_record ~__context vm_ref vm_rec =
   let host_ref = vm_rec.API.vM_resident_on in
   vm_rec.API.vM_is_control_domain
