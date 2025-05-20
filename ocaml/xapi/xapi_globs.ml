@@ -1297,6 +1297,8 @@ let job_for_disable_ssh = ref "Disable SSH"
 
 let ssh_service = ref "sshd"
 
+let ssh_monitor_service = ref "xapi-ssh-monitor"
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
   "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="

@@ -428,3 +428,5 @@ let default_ssh_enabled = true
 let default_ssh_enabled_timeout = 0L
 
 let default_console_idle_timeout = 0L
+
+let default_ssh_auto_mode = false

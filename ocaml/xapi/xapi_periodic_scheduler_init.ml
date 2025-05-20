@@ -90,6 +90,7 @@ let register ~__context =
       if Int64.compare expiry_time current_time > 0 then
         let remaining = Int64.sub expiry_time current_time in
         Xapi_host.schedule_disable_ssh_job ~__context ~self ~timeout:remaining
+          ~auto_mode:true
       (* handle the case where XAPI is not active when the SSH timeout expires *)
       else if Fe_systemctl.is_active ~service:!Xapi_globs.ssh_service then
         Xapi_host.disable_ssh ~__context ~self
