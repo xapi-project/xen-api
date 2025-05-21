@@ -837,8 +837,22 @@ module Mux = struct
         Storage_smapiv1_migrate.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id
           ~similar
 
-      (** see storage_smapiv{1,3}_migrate.receive_start2 *)
-      let receive_start2 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
+      let receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+        with_dbg ~name:"DATA.MIRROR.receive_start2" ~dbg @@ fun _di ->
+        info "%s dbg: %s sr: %s vdi_info: %s mirror_id: %s similar: %s vm: %s"
+          __FUNCTION__ dbg (s_of_sr sr)
+          (string_of_vdi_info vdi_info)
+          id
+          (String.concat ";" similar)
+          (s_of_vm vm) ;
+        info "%s dbg:%s" __FUNCTION__ dbg ;
+        (* This goes straight to storage_smapiv1_migrate for backwards compatability
+           reasons, new code should not call receive_start any more *)
+        Storage_smapiv1_migrate.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id
+          ~similar ~vm
+
+      (** see storage_smapiv{1,3}_migrate.receive_start3 *)
+      let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
           ~vm:_ =
         u __FUNCTION__
 
@@ -847,7 +861,12 @@ module Mux = struct
         info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
         Storage_smapiv1_migrate.MIRROR.receive_finalize () ~dbg:di.log ~id
 
-      let receive_finalize2 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
+      let receive_finalize2 () ~dbg ~id =
+        with_dbg ~name:"DATA.MIRROR.receive_finalize2" ~dbg @@ fun di ->
+        info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
+        Storage_smapiv1_migrate.MIRROR.receive_finalize2 () ~dbg:di.log ~id
+
+      let receive_finalize3 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
         u __FUNCTION__
 
       let receive_cancel () ~dbg ~id =
@@ -857,6 +876,22 @@ module Mux = struct
 
       let receive_cancel2 () ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
         u __FUNCTION__
+
+      let pre_deactivate_hook _ctx ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ =
+        u "DATA.MIRROR.pre_deactivate_hook"
+
+      let has_mirror_failed _ctx ~dbg:_ ~mirror_id:_ ~sr:_ =
+        u "DATA.MIRROR.has_mirror_failed"
+
+      let list () ~dbg =
+        with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun di ->
+        info "%s dbg: %s" __FUNCTION__ dbg ;
+        Storage_migrate.list ~dbg:di.log
+
+      let stat () ~dbg ~id =
+        with_dbg ~name:"DATA.MIRROR.stat" ~dbg @@ fun di ->
+        info "%s dbg: %s mirror_id: %s" __FUNCTION__ di.log id ;
+        Storage_migrate.stat ~dbg:di.log ~id
     end
   end
 

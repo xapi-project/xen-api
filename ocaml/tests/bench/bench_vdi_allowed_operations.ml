@@ -50,10 +50,9 @@ let test_vdi_update_allowed_operations (__context, vm_disks) =
   Xapi_vdi.update_allowed_operations ~__context ~self:vdi_ref
 
 let benchmarks =
-  Test.make_grouped ~name:"update_allowed_operations"
-    [
-      Test.make_with_resource ~name:"VDI" ~allocate ~free:ignore Test.uniq
-        (Staged.stage test_vdi_update_allowed_operations)
-    ]
+  [
+    Test.make_with_resource ~name:"VDI" ~allocate ~free:ignore Test.uniq
+      (Staged.stage test_vdi_update_allowed_operations)
+  ]
 
 let () = Bechamel_simple_cli.cli benchmarks

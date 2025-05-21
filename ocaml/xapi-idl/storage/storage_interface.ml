@@ -1110,7 +1110,7 @@ module StorageAPI (R : RPC) = struct
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
         compatibility with old xapis that call Remote.DATA.MIRROR.receive_start during SXM. 
-        Use the receive_start2 function instead. 
+        Use the receive_start3 function instead. 
       *)
       let receive_start =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
@@ -1124,12 +1124,30 @@ module StorageAPI (R : RPC) = struct
           @-> returning result err
           )
 
-      (** Called on the receiving end to prepare for receipt of the storage. This
-      function should be used in conjunction with [receive_finalize2]*)
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_start2 during SXM. 
+        Use the receive_start3 function instead. 
+      *)
       let receive_start2 =
         let similar_p = Param.mk ~name:"similar" Mirror.similars in
         let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
         declare "DATA.MIRROR.receive_start2" []
+          (dbg_p
+          @-> sr_p
+          @-> VDI.vdi_info_p
+          @-> id_p
+          @-> similar_p
+          @-> vm_p
+          @-> returning result err
+          )
+
+      (** Called on the receiving end to prepare for receipt of the storage. This
+      function should be used in conjunction with [receive_finalize3]*)
+      let receive_start3 =
+        let similar_p = Param.mk ~name:"similar" Mirror.similars in
+        let result = Param.mk ~name:"result" Mirror.mirror_receive_result in
+        declare "DATA.MIRROR.receive_start3" []
           (dbg_p
           @-> sr_p
           @-> VDI.vdi_info_p
@@ -1144,18 +1162,27 @@ module StorageAPI (R : RPC) = struct
       (** Called on the receiving end 
         @deprecated This function is deprecated, and is only here to keep backward 
         compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
-        during SXM.  Use the receive_finalize2 function instead. 
+        during SXM.  Use the receive_finalize3 function instead. 
       *)
       let receive_finalize =
         declare "DATA.MIRROR.receive_finalize" []
           (dbg_p @-> id_p @-> returning unit_p err)
 
-      (** [receive_finalize2 dbg id] will stop the mirroring process and compose 
-      the snapshot VDI with the mirror VDI. It also cleans up the storage resources 
-      used by mirroring. It is called after the the source VM is paused. This fucntion
-      should be used in conjunction with [receive_start2] *)
+      (** Called on the receiving end 
+        @deprecated This function is deprecated, and is only here to keep backward 
+        compatibility with old xapis that call Remote.DATA.MIRROR.receive_finalize
+        during SXM.  Use the receive_finalize3 function instead. 
+      *)
       let receive_finalize2 =
         declare "DATA.MIRROR.receive_finalize2" []
+          (dbg_p @-> id_p @-> returning unit_p err)
+
+      (** [receive_finalize3 dbg id] will stop the mirroring process and compose 
+      the snapshot VDI with the mirror VDI. It also cleans up the storage resources 
+      used by mirroring. It is called after the the source VM is paused. This fucntion
+      should be used in conjunction with [receive_start3] *)
+      let receive_finalize3 =
+        declare "DATA.MIRROR.receive_finalize3" []
           (dbg_p
           @-> id_p
           @-> sr_p
@@ -1175,10 +1202,31 @@ module StorageAPI (R : RPC) = struct
           (dbg_p @-> id_p @-> returning unit_p err)
 
       (** [receive_cancel2 dbg mirror_id url verify_dest] cleans up the side effects
-      done by [receive_start2] on the destination host when the migration fails. *)
+      done by [receive_start3] on the destination host when the migration fails. *)
       let receive_cancel2 =
         declare "DATA.MIRROR.receive_cancel2" []
           (dbg_p @-> id_p @-> url_p @-> verify_dest_p @-> returning unit_p err)
+
+      let pre_deactivate_hook =
+        declare "DATA.MIRROR.pre_deactivate_hook" []
+          (dbg_p @-> dp_p @-> sr_p @-> vdi_p @-> returning unit_p err)
+
+      let has_mirror_failed =
+        let mirror_failed_p =
+          Param.mk ~name:"mirror_failed_p" ~description:[] Types.bool
+        in
+        declare "DATA.MIRROR.has_mirror_failed" []
+          (dbg_p @-> id_p @-> sr_p @-> returning mirror_failed_p err)
+
+      let list =
+        let result_p =
+          Param.mk ~name:"mirrors" TypeCombinators.(list (pair Mirror.(id, t)))
+        in
+        declare "DATA.MIRROR.list" [] (dbg_p @-> returning result_p err)
+
+      let stat =
+        let result_p = Param.mk ~name:"result" Mirror.t in
+        declare "DATA.MIRROR.stat" [] (dbg_p @-> id_p @-> returning result_p err)
     end
   end
 
@@ -1258,6 +1306,16 @@ module type MIRROR = sig
     -> dbg:debug_info
     -> sr:sr
     -> vdi_info:vdi_info
+    -> id:Mirror.id
+    -> similar:Mirror.similars
+    -> vm:vm
+    -> Mirror.mirror_receive_result
+
+  val receive_start3 :
+       context
+    -> dbg:debug_info
+    -> sr:sr
+    -> vdi_info:vdi_info
     -> mirror_id:Mirror.id
     -> similar:Mirror.similars
     -> vm:vm
@@ -1267,7 +1325,9 @@ module type MIRROR = sig
 
   val receive_finalize : context -> dbg:debug_info -> id:Mirror.id -> unit
 
-  val receive_finalize2 :
+  val receive_finalize2 : context -> dbg:debug_info -> id:Mirror.id -> unit
+
+  val receive_finalize3 :
        context
     -> dbg:debug_info
     -> mirror_id:Mirror.id
@@ -1285,6 +1345,16 @@ module type MIRROR = sig
     -> url:string
     -> verify_dest:bool
     -> unit
+
+  val pre_deactivate_hook :
+    context -> dbg:debug_info -> dp:dp -> sr:sr -> vdi:vdi -> unit
+
+  val has_mirror_failed :
+    context -> dbg:debug_info -> mirror_id:Mirror.id -> sr:Sr.t -> bool
+
+  val list : context -> dbg:debug_info -> (Mirror.id * Mirror.t) list
+
+  val stat : context -> dbg:debug_info -> id:Mirror.id -> Mirror.t
 end
 
 module type Server_impl = sig
@@ -1741,9 +1811,12 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_start (fun dbg sr vdi_info id similar ->
         Impl.DATA.MIRROR.receive_start () ~dbg ~sr ~vdi_info ~id ~similar
     ) ;
-    S.DATA.MIRROR.receive_start2
+    S.DATA.MIRROR.receive_start2 (fun dbg sr vdi_info id similar vm ->
+        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~id ~similar ~vm
+    ) ;
+    S.DATA.MIRROR.receive_start3
       (fun dbg sr vdi_info mirror_id similar vm url verify_dest ->
-        Impl.DATA.MIRROR.receive_start2 () ~dbg ~sr ~vdi_info ~mirror_id
+        Impl.DATA.MIRROR.receive_start3 () ~dbg ~sr ~vdi_info ~mirror_id
           ~similar ~vm ~url ~verify_dest
     ) ;
     S.DATA.MIRROR.receive_cancel (fun dbg id ->
@@ -1755,10 +1828,21 @@ module Server (Impl : Server_impl) () = struct
     S.DATA.MIRROR.receive_finalize (fun dbg id ->
         Impl.DATA.MIRROR.receive_finalize () ~dbg ~id
     ) ;
-    S.DATA.MIRROR.receive_finalize2 (fun dbg mirror_id sr url verify_dest ->
-        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~mirror_id ~sr ~url
+    S.DATA.MIRROR.receive_finalize2 (fun dbg id ->
+        Impl.DATA.MIRROR.receive_finalize2 () ~dbg ~id
+    ) ;
+    S.DATA.MIRROR.receive_finalize3 (fun dbg mirror_id sr url verify_dest ->
+        Impl.DATA.MIRROR.receive_finalize3 () ~dbg ~mirror_id ~sr ~url
           ~verify_dest
     ) ;
+    S.DATA.MIRROR.pre_deactivate_hook (fun dbg dp sr vdi ->
+        Impl.DATA.MIRROR.pre_deactivate_hook () ~dbg ~dp ~sr ~vdi
+    ) ;
+    S.DATA.MIRROR.has_mirror_failed (fun dbg mirror_id sr ->
+        Impl.DATA.MIRROR.has_mirror_failed () ~dbg ~mirror_id ~sr
+    ) ;
+    S.DATA.MIRROR.list (fun dbg -> Impl.DATA.MIRROR.list () ~dbg) ;
+    S.DATA.MIRROR.stat (fun dbg id -> Impl.DATA.MIRROR.stat () ~dbg ~id) ;
     S.DATA.import_activate (fun dbg dp sr vdi vm ->
         Impl.DATA.import_activate () ~dbg ~dp ~sr ~vdi ~vm
     ) ;

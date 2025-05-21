@@ -3,4 +3,5 @@
  (libraries log xapi-stdext-threads threads.posix xapi-backtrace))
 
 (cram
+ (package xapi-log)
  (deps log_test.exe))

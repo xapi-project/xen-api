@@ -757,6 +757,12 @@ let pool_joining_host_ca_certificates_conflict =
 let pool_joining_sm_features_incompatible =
   add_error "POOL_JOINING_SM_FEATURES_INCOMPATIBLE"
 
+let pool_joining_pool_cannot_enable_clustering_on_vlan_network =
+  add_error "POOL_JOINING_POOL_CANNOT_ENABLE_CLUSTERING_ON_VLAN_NETWORK"
+
+let pool_joining_host_must_have_only_one_IP_on_clustering_network =
+  add_error "POOL_JOINING_HOST_MUST_HAVE_ONLY_ONE_IP_ON_CLUSTERING_NETWORK"
+
 (*workload balancing*)
 let wlb_not_initialized = add_error "WLB_NOT_INITIALIZED"
 

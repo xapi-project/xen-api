@@ -897,6 +897,14 @@ let _ =
        the pool coordinator. Make sure the sm are of the same versions and try \
        again."
     () ;
+  error Api_errors.pool_joining_pool_cannot_enable_clustering_on_vlan_network
+    ["vlan"] ~doc:"The remote pool cannot enable clustering on vlan network" () ;
+  error Api_errors.pool_joining_host_must_have_only_one_IP_on_clustering_network
+    []
+    ~doc:
+      "The host joining the pool must have one and only one IP on the \
+       clustering network"
+    () ;
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
@@ -1700,8 +1708,8 @@ let _ =
     ~doc:"The provided certificate has expired." () ;
   error Api_errors.server_certificate_signature_not_supported []
     ~doc:
-      "The provided certificate is not using the SHA256 (SHA2) signature \
-       algorithm."
+      "The provided certificate is not using one of the following SHA2 \
+       signature algorithms:  SHA256, SHA512."
     () ;
 
   error Api_errors.server_certificate_chain_invalid []

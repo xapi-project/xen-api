@@ -244,7 +244,7 @@ let assert_licensed_storage_motion ~__context =
 
 let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
     ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map ~xenops_url ~compress
-    ~verify_cert =
+    ~verify_cert ~localhost_migration =
   let open Xapi_xenops_queue in
   let module Client = (val make_client queue_name : XENOPS) in
   let dbg = Context.string_of_task_and_tracing __context in
@@ -254,7 +254,7 @@ let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
     progress := "Client.VM.migrate" ;
     let t1 =
       Client.VM.migrate dbg vm_uuid xenops_vdi_map xenops_vif_map
-        xenops_vgpu_map xenops_url compress verify_dest
+        xenops_vgpu_map xenops_url compress verify_dest localhost_migration
     in
     progress := "sync_with_task" ;
     ignore (Xapi_xenops.sync_with_task __context queue_name t1)
@@ -281,7 +281,7 @@ let rec migrate_with_retries ~__context ~queue_name ~max ~try_no ~dbg:_ ~vm_uuid
           (Printexc.to_string e) !progress try_no max ;
         migrate_with_retries ~__context ~queue_name ~max ~try_no:(try_no + 1)
           ~dbg ~vm_uuid ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
-          ~xenops_url ~compress ~verify_cert
+          ~xenops_url ~compress ~verify_cert ~localhost_migration
     (* Something else went wrong *)
     | e ->
         debug
@@ -374,7 +374,8 @@ let pool_migrate ~__context ~vm ~host ~options =
   Pool_features.assert_enabled ~__context ~f:Features.Xen_motion ;
   let dbg = Context.string_of_task __context in
   let localhost = Helpers.get_localhost ~__context in
-  if host = localhost then
+  let localhost_migration = host = localhost in
+  if localhost_migration then
     info "This is a localhost migration" ;
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
@@ -431,7 +432,7 @@ let pool_migrate ~__context ~vm ~host ~options =
                 let verify_cert = Stunnel_client.pool () in
                 migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                   ~xenops_vdi_map:[] ~xenops_vif_map:[] ~xenops_vgpu_map
-                  ~xenops_url ~compress ~verify_cert ;
+                  ~xenops_url ~compress ~verify_cert ~localhost_migration ;
                 (* Delete all record of this VM locally (including caches) *)
                 Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
             )
@@ -1077,7 +1078,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         (None, vdi.vdi)
       ) else
         let mirrorid = task_result |> mirror_of_task dbg in
-        let m = Storage_migrate.stat ~dbg ~id:mirrorid in
+        let m = SMAPI.DATA.MIRROR.stat dbg mirrorid in
         (Some mirrorid, m.Mirror.dest_vdi)
     in
     so_far := Int64.add !so_far vconf.size ;
@@ -1106,7 +1107,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         match mirror_id with
         | Some mid ->
             ignore (Storage_access.unregister_mirror mid) ;
-            let m = Storage_migrate.stat ~dbg ~id:mid in
+            let m = SMAPI.DATA.MIRROR.stat dbg mid in
             (try Storage_migrate.stop ~dbg ~id:mid with _ -> ()) ;
             m.Mirror.failed
         | None ->
@@ -1601,7 +1602,8 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~vgpu_map
               let dbg = Context.string_of_task __context in
               migrate_with_retry ~__context ~queue_name ~dbg ~vm_uuid
                 ~xenops_vdi_map ~xenops_vif_map ~xenops_vgpu_map
-                ~xenops_url:remote.xenops_url ~compress ~verify_cert ;
+                ~xenops_url:remote.xenops_url ~compress ~verify_cert
+                ~localhost_migration:is_same_host ;
               Xapi_xenops.Xenopsd_metadata.delete ~__context vm_uuid
           )
         with

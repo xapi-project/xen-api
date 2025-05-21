@@ -23,7 +23,7 @@ let unescape_buf buf s =
   if Astring.String.fold_left aux false s then
     Buffer.add_char buf '\\'
 
-let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
+let is_escape_char = function '\\' | '\'' -> true | _ -> false
 
 (* XXX: This escapes "'c'" and "\'c\'" to "\\'c\\'".
  * They are both unescaped as "'c'". They have been ported
@@ -32,26 +32,22 @@ let is_escape_char = function '\\' | '"' | '\'' -> true | _ -> false
  * - Astring.String.Ascii.escape_string
  * - Astring.String.Ascii.unescape
  * that have guaranteed invariants and optimised performances *)
-let escape s =
+let escape_buf escaped s =
   let open Astring in
-  if String.exists is_escape_char s then (
-    let escaped = Buffer.create (String.length s + 10) in
+  if String.exists is_escape_char s then
     String.iter
       (fun c ->
         match c with
         | '\\' ->
             Buffer.add_string escaped "\\\\"
-        | '"' ->
-            Buffer.add_string escaped "\\\""
         | '\'' ->
             Buffer.add_string escaped "\\\'"
         | _ ->
             Buffer.add_char escaped c
       )
-      s ;
-    Buffer.contents escaped
-  ) else
-    s
+      s
+  else
+    Buffer.add_string escaped s
 
 let unescape s =
   if String.contains s '\\' then (
@@ -82,22 +78,7 @@ let string_of sexpr =
         Buffer.add_char buf ')'
     | Symbol s | String s ->
         Buffer.add_string buf "\'" ;
-        Buffer.add_string buf (escape s) ;
+        escape_buf buf s ;
         Buffer.add_string buf "\'"
   in
   __string_of_rec sexpr ; Buffer.contents buf
-
-let rec output_fmt ff = function
-  | Node list ->
-      let rec aux ?(first = true) = function
-        | [] ->
-            ()
-        | h :: t when first ->
-            output_fmt ff h ; aux ~first:false t
-        | h :: t ->
-            Format.fprintf ff "@;<1 2>%a" output_fmt h ;
-            aux ~first t
-      in
-      Format.fprintf ff "@[(" ; aux list ; Format.fprintf ff ")@]"
-  | Symbol s | String s ->
-      Format.fprintf ff "\"%s\"" (escape s)

@@ -1143,13 +1143,19 @@ module SMAPIv1 : Server_impl = struct
       let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
         assert false
 
-      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
+      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_
+          ~vm:_ =
+        assert false
+
+      let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
           ~similar:_ ~vm:_ ~url:_ ~verify_dest:_ =
         assert false
 
       let receive_finalize _context ~dbg:_ ~id:_ = assert false
 
-      let receive_finalize2 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
+      let receive_finalize2 _context ~dbg:_ ~id:_ = assert false
+
+      let receive_finalize3 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
           ~verify_dest:_ =
         assert false
 
@@ -1157,6 +1163,14 @@ module SMAPIv1 : Server_impl = struct
 
       let receive_cancel2 _context ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
         assert false
+
+      let pre_deactivate_hook _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ = assert false
+
+      let has_mirror_failed _context ~dbg:_ ~mirror_id:_ ~sr:_ = assert false
+
+      let list _context ~dbg:_ = assert false
+
+      let stat _context ~dbg:_ ~id:_ = assert false
     end
   end
 
