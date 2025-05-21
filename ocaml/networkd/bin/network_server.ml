@@ -136,8 +136,21 @@ let sync_state () =
   write_config ()
 
 let reset_state () =
-  let interface_order, _ = sort Network_config.initial_interface_order in
-  config := Network_config.read_management_conf interface_order
+  let reset_order =
+    match !config.interface_order with
+    | Some _ ->
+        (* Use empty config interface_order to sort to generate fresh-install
+           state for currently-installed hardware *)
+        sort Network_config.empty_config.interface_order |> fst
+    | None ->
+        ignore
+          (Forkhelpers.execute_command_get_output
+             "/etc/sysconfig/network-scripts/interface-rename.py"
+             ["--reset-to-install"]
+          ) ;
+        None
+  in
+  config := Network_config.read_management_conf reset_order
 
 let set_gateway_interface _dbg name =
   (* Remove dhclient conf (if any) for the old and new gateway interfaces.
