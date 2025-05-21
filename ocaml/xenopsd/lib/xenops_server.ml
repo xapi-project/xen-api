@@ -3556,9 +3556,9 @@ module VIF = struct
       ()
 end
 
-let default_numa_affinity_policy = ref Xenops_interface.Host.Any
+let default_numa_affinity_policy = ref Xenops_interface.Host.Best_effort
 
-let numa_placement = ref Xenops_interface.Host.Any
+let numa_placement = ref !default_numa_affinity_policy
 
 let string_of_numa_affinity_policy =
   Xenops_interface.Host.(function Any -> "any" | Best_effort -> "best-effort")
