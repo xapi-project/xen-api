@@ -203,7 +203,8 @@ module Copy = struct
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
         Http.Url.set_uri url'
-          (Printf.sprintf "%s/nbdproxy/%s/%s/%s/%s" (Http.Url.get_uri url')
+          (Printf.sprintf "%s/nbdproxy/import/%s/%s/%s/%s"
+             (Http.Url.get_uri url')
              (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
@@ -578,6 +579,12 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
+
+    let read_write = true in
+    (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
+       It's not necessary for copy which will take care of that itself. *)
+    ignore (Local.VDI.attach3 dbg dp sr vdi (Vm.of_string "0") read_write) ;
+    Local.VDI.activate3 dbg dp sr vdi (Vm.of_string "0") ;
     match remote_mirror with
     | Mirror.SMAPIv3_mirror _ ->
         (* this should never happen *)
@@ -797,10 +804,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
       receive_state ;
     State.remove_receive_mirror id
 
-  let receive_cancel2 _ctx ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
-    (* see Storage_migrate.receive_cancel2 *)
-    u __FUNCTION__
-
   exception Timeout of Mtime.Span.t
 
   let reqs_outstanding_timeout = Mtime.Span.(150 * s)
@@ -843,7 +846,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
                  if st.Stats.nbd_mirror_failed = 1 then (
                    D.error "tapdisk reports mirroring failed" ;
                    s.failed <- true
-                 )
+                 ) ;
+                 Option.iter
+                   (fun id -> Scheduler.cancel scheduler id)
+                   s.watchdog
            with
            | Timeout elapsed ->
                D.error
@@ -875,4 +881,22 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let list _ctx = u __FUNCTION__
 
   let stat _ctx = u __FUNCTION__
+
+  let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let receive_state = State.find_active_receive_mirror mirror_id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
+        List.iter
+          (fun v ->
+            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
+          )
+          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
+      )
+      receive_state ;
+    State.remove_receive_mirror mirror_id
 end

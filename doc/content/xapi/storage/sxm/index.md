@@ -9,7 +9,17 @@ Title: Storage migration
     - [Thought experiments on an alternative design](#thought-experiments-on-an-alternative-design)
   - [Design](#design)
 - [SMAPIv1 migration](#smapiv1-migration)
+  - [Preparation](#preparation)
+  - [Establishing mirror](#establishing-mirror)
+    - [Mirror](#mirror)
+    - [Snapshot](#snapshot)
+    - [Copy and compose](#copy-and-compose)
+    - [Finish](#finish)
 - [SMAPIv3 migration](#smapiv3-migration)
+  - [Preparation](#preparation-1)
+  - [Establishing mirror](#establishing-mirror-1)
+    - [Limitations](#limitations)
+  - [Finish](#finish-1)
 - [Error Handling](#error-handling)
   - [Preparation (SMAPIv1 and SMAPIv3)](#preparation-smapiv1-and-smapiv3)
   - [Snapshot and mirror failure (SMAPIv1)](#snapshot-and-mirror-failure-smapiv1)
@@ -122,10 +132,44 @@ it will be handled just as before.
 
 ## SMAPIv1 migration
 
+This section is about migration from SMAPIv1 SRs to SMAPIv1 or SMAPIv3 SRs, since
+the migration is driven by the source host, it is usally the source host that
+determines most of the logic during a storage migration.
+
+First we take a look at an overview diagram of what happens during SMAPIv1 SXM:
+the diagram is labelled with S1, S2 ... which indicates different stages of the migration.
+We will talk about each stage in more detail below.
+
+![overview-v1](sxm-overview-v1.svg)
+
+### Preparation
+
+Before we can start our migration process, there are a number of preparations 
+needed to prepare for the following mirror. For SMAPIv1 this involves:
+
+1. Create a new VDI (called leaf) that will be used as the receiving VDI for all the new writes
+2. Create a dummy snapshot of the VDI above to make sure it is a differencing disk and can be composed later on
+3. Create a VDI (called parent) that will be used to receive the existing content of the disk (the snapshot)
+
+Note that the leaf VDI needs to be attached and activated on the destination host (to a non-exsiting `mirror_vm`) 
+since it will later on accept writes to mirror what is written on the source host. 
+
+The parent VDI may be created in two different ways: 1. If there is a "similar VDI",
+clone it on the destination host and use it as the parent VDI; 2. If there is no
+such VDI, create a new blank VDI. The similarity here is defined by the distances
+between different VDIs in the VHD tree, which is exploiting the internal representation
+of the storage layer, hence we will not go into too much detail about this here.
+
+Once these preparations are done, a `mirror_receive_result` data structure is then
+passed back to the source host that will contain all the necessary information about
+these new VDIs, etc.
+
+### Establishing mirror
+
 At a high level, mirror establishment for SMAPIv1 works as follows:
 
 1. Take a snapshot of a VDI that is attached to VM1. This gives us an immutable 
-copy of the current state of the VDI, with all the data until the point we took 
+copy of the current state of the VDI, with all the data up until the point we took 
 the snapshot. This is illustrated in the diagram as a VDI and its snapshot connecting 
 to a shared parent, which stores the shared content for the snapshot and the writable 
 VDI from which we took the snapshot (snapshot)
@@ -135,12 +179,174 @@ client VDI will also be written to the mirrored VDI on the remote host (mirror)
 4. Compose the mirror and the snapshot to form a single VDI 
 5. Destroy the snapshot on the local host (cleanup)
 
+#### Mirror
 
-more detail to come...
+The mirroring process for SMAPIv1 is rather unconventional, so it is worth
+documenting how this works. Instead of a conventional client server architecture,
+where the source client connects to the destination server directly through the
+NBD protocol in tapdisk, the connection is established in xapi and then passed
+onto tapdisk. It was done in this rather unusual way mainly due to authentication
+issues. Because it is xapi that is creating the connection, tapdisk does not need
+to be concerned about authentication of the connection, thus simplifying the storage
+component. This is reasonable as the storage component should focus on handling
+storage requests rather than worrying about network security.
+
+The diagram below illustrates this prcess. First, xapi on the source host will
+initiate an https request to the remote xapi. This request contains the necessary
+information about the VDI to be mirrored, and the SR that contains it, etc. This
+information is then passed onto the https handler on the destination host (called
+`nbd_handler`) which then processes this information. Now the unusual step is that
+both the source and the destination xapi will pass this connection onto tapdisk,
+by sending the fd representing the socket connection to the tapdisk process. On
+the source this would be nbd client process of tapdisk, and on the destination
+this would be the nbd server process of the tapdisk. After this step, we can consider
+a client-server connection is established between two tapdisks on the client and
+server, as if the tapdisk on the source host makes a request to the tapdisk on the
+destination host and initiates the connection. On the diagram, this is indicated 
+by the dashed lines between the tapdisk processes. Logically, we can view this as
+xapi creates the connection, and then passes this connection down into tapdisk.
+
+![mirror](sxm-mirror-v1.svg)
+
+#### Snapshot
+
+The next step would be create a snapshot of the VDI. This is easily done as a
+`VDI.snapshot` operation. If the VDI was in VHD format, then internally this would
+create two children for, one for the snapshot, which only contains the metadata
+information and tends to be small, the other for the writable VDI where all the
+new writes will go to. The shared base copy contains the shared blocks.
+
+![snapshot](sxm-snapshot-v1.svg)
+
+#### Copy and compose
+
+Once the snapshot is created, we can then copy the snapshot from the source
+to the destination. This step is done by `sparse_dd` using the nbd protocol. This
+is also the step that takes the most time to complete.
+
+`sparse_dd` is a process forked by xapi that does the copying of the disk blocks.
+`sparse_dd` can supports a number of protocols, including nbd. In this case, `sparse_dd`
+will initiate an https put request to the destination host, with a url of the form
+`<address>/services/SM/nbdproxy/<sr>/<vdi>`. This https request then
+gets handled by the https handler on the destination host B, which will then spawn
+a handler thread. This handler will find the 
+"generic" nbd server[^2] of either tapdisk or qemu-dp, depending on the destination 
+SR type, and then start proxying data between the https connection socket and the 
+socket connected to the nbd server. 
+
+[^2]: The server is generic because it does not accept fd passing, and I call those
+"special" nbd server/fd receiver.
+
+![sxm new copy](sxm-new-copy-v1.svg)
+
+Once copying is done, the snapshot and mirrored VDI can be then composed into a
+single VDI.
+
+#### Finish
+
+At this point the VDI is synchronised to the new host! Mirror is still working at this point
+though because that will not be destroyed until the VM itself has been migrated
+as well. Some cleanups are done at this point, such as deleting the snapshot
+that is taken on the source, destroying the mirror datapath, etc.
+
+The end results look like the following. Note that VM2 is in dashed line as it
+is not yet created yet. The next steps would be to migrate the VM1 itself to the
+destination as well, but this is part of the VM migration process and will not
+be covered here.
+
+![final](sxm-final-v1.svg)
+
 
 ## SMAPIv3 migration
 
-More detail to come...
+This section covers the mechanism of migrations *from* SRs using SMAPIv3 (to
+SMAPIv1 or SMAPIv3). Although the core ideas are the same, SMAPIv3 has a rather 
+different mechanism for mirroring: 1. it does not require xapi to take snapshot
+of the VDI anymore, since the mirror itself will take care of replicating the
+existing data to the destination; 2. there is no fd passing for connection establishment anymore, and instead proxies are used for connection setup. 
+
+### Preparation
+
+The preparation work for SMAPIv3 is greatly simplified by the fact that the mirror
+at the storage layer will copy the existing data in the VDI to the destination.
+This means that snapshot of the source VDI is not required anymore. So we are left
+with only one thing:
+
+1. Create a VDI used for mirroring the data of the source VDI
+
+For this reason, the implementation logic for SMAPIv3 preparation is also shorter,
+as the complexity is now handled by the storage layer, which is where it is supposed
+to be handled.
+
+### Establishing mirror
+
+The other significant difference is that the storage backend for SMAPIv3 `qemu-dp` 
+SRs no longer accepts fds, so xapi needs to proxy the data between two nbd client
+and nbd server.
+
+SMAPIv3 provides the `Data.mirror uri domain remote` which needs three parameters: 
+`uri` for accessing the local disk, `doamin` for the domain slice on which mirroring 
+should happen, and most importantly for this design, a `remote` url which represents 
+the remote nbd server to which the blocks of data can be sent to. 
+
+This function itself, when called by xapi and forwarded to the storage layer's qemu-dp
+nbd client, will initiate a nbd connection to the nbd server pointed to by `remote`.
+This works fine when the storage migration happens entirely within a local host, 
+where qemu-dp's nbd client and nbd server can communicate over unix domain sockets. 
+However, it does not work for inter-host migrations as qemu-dp's nbd server is not 
+exposed publicly over the network (just as tapdisk's nbd server). Therefore a proxying
+service on the source host is needed for forwarding the nbd connection from the 
+source host to the destination host. And it would be the responsiblity of
+xapi to manage this proxy service.
+
+The following diagram illustrates the mirroring process of a single VDI:
+
+![sxm mirror](sxm-mirror-v3.svg)
+
+The first step for xapi is then to set up a nbd proxy thread that will be listening 
+on a local unix domain socket with path `/var/run/nbdproxy/export/<domain>` where 
+domain is the `domain` parameter mentioned above in `Data.mirror`. The nbd proxy 
+thread will accept nbd connections (or rather any connections, it does not 
+speak/care about nbd protocol at all) and sends an https put request 
+to the remote xapi. The proxy itself will then forward the data exactly as it is 
+to the remote side through the https connection.
+
+Once the proxy is set up, xapi will call `Data.mirror`, which 
+will be forwarded to the xapi-storage-script and is further forwarded to the qemu-dp. 
+This call contains, among other parameters, the destination NBD server url (`remote`)
+to be connected. In this case the destination nbd server is exactly the domain
+socket to which the proxy thread is listening. Therefore the `remote` parameter
+will be of the form `nbd+unix:///<export>?socket=<socket>` where the export is provided
+by the destination nbd server that represents the VDI prepared on the destination 
+host, and the socket will be the path of the unix domain socket where the proxy 
+thread (which we just created) is listening at.
+
+When this connection is set up, the proxy process will talk to the remote xapi via
+https requests, and on the remote side, an https handler will proxy this request to
+the appropriate nbd server of either tapdisk or qemu-dp, using exactly the same
+[import proxy](#copy-and-compose) as mentioned before.
+
+Note that this proxying service is tightly integrated with outbound SXM of SMAPIv3
+SRs. This is to make it simple to focus on the migration itself.
+
+Although there is no need to explicitly copy the VDI anymore, we still need to
+transfer the data and wait for it finish. For this we use `Data.stat` call provided
+by the storage backend to query the status of the mirror, and wait for it to finish
+as needed.
+
+#### Limitations
+
+This way of establishing the connection simplifies the implementation of the migration
+for SMAPIv3, but it also has limitations:
+
+One proxy per live VDI migration is needed, which can potentially consume lots of resources in dom0, and we should measure the impact of this before we switch to using more resource-efficient ways such as wire guard that allows establishing a single connection between multiple hosts.
+
+
+### Finish
+
+As there is no need to copy a VDI, there is also no need to compose or delete the
+snapshot. The cleanup procedure would therefore just involve destroy the datapath
+that was used for receiving writes for the mirrored VDI.
 
 ## Error Handling
 
@@ -168,10 +374,10 @@ helps separate the error handling logic into the `with` part of a `try with` blo
 which is where they are supposed to be. Since we need to accommodate the existing
 SMAPIv1 migration (which has more stages than SMAPIv3), the following stages are
 introduced: preparation (v1,v3), snapshot(v1), mirror(v1, v3), copy(v1). Note that
-each stage also roughly corresponds to a helper function that is called within `MIRROR.start`,
+each stage also roughly corresponds to a helper function that is called within `Storage_migrate.start`,
 which is the wrapper function that initiates storage migration. And each helper
 functions themselves would also have error handling logic within themselves as
-needed (e.g. see `Storage_smapiv1_migrate.receive_start) to deal with exceptions 
+needed (e.g. see `Storage_smapiv1_migrate.receive_start`) to deal with exceptions 
 that happen within each helper functions.
 
 ### Preparation (SMAPIv1 and SMAPIv3)
@@ -203,7 +409,16 @@ are migrating from.
 
 ### Mirror failure (SMAPIv3)
 
-To be filled...
+The `Data.stat` call in SMAPIv3 returns a data structure that includes the current
+progress of the mirror job, whether it has completed syncing the existing data and
+whether the mirorr has failed. Similar to how it is done in SMAPIv1, we wait for
+the sync to complete once we issue the `Data.mirror` call, by repeatedly polling
+the status of the mirror using the `Data.stat` call. During this process, the status
+of the mirror is also checked and if a failure is detected, a `Migration_mirror_failure`
+will be raised and then gets handled by the code in `storage_migrate.ml` by calling
+`Storage_smapiv3_migrate.receive_cancel2`, which will clean up the mirror datapath
+and destroy the mirror VDI, similar to what is done in SMAPIv1.
+
 
 ### Copy failure (SMAPIv1)
 
@@ -214,6 +429,14 @@ failure during copying.
 
 
 ## SMAPIv1 Migration implementation detail
+
+{{% notice info %}}
+The following doc refers to the xapi a [version](https://github.com/xapi-project/xen-api/blob/v24.37.0/ocaml/xapi/storage_migrate.ml) 
+of xapi that is before 24.37 after which point this code structure has undergone
+many changes as part of adding support for SMAPIv3 SXM. Therefore the following
+tutorial might be less relevant in terms of the implementation detail. Although
+the general principle should remain the same.
+{{% /notice %}}
 
 ```mermaid
 sequenceDiagram
