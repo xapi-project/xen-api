@@ -1323,6 +1323,8 @@ let configure_repositories_in_progress =
 
 let invalid_base_url = add_error "INVALID_BASE_URL"
 
+let blocked_repo_url = add_error "BLOCKED_REPO_URL"
+
 let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"

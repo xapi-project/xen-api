@@ -932,6 +932,13 @@ let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 
 let repository_domain_name_allowlist = ref []
 
+(*
+    This blocklist aims to prevent the creation of any repository whose URL matches an entry in the blocklist.
+    Additionally, if an existing repository contains a URL that matches an entry in the blocklist,
+    it should be removed automatically after xapi is restarted.
+*)
+let repository_url_blocklist = ref []
+
 let yum_cmd = ref "/usr/bin/yum"
 
 let dnf_cmd = ref "/usr/bin/dnf"
@@ -1599,6 +1606,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       repository_domain_name_allowlist
+  ; gen_list_option "repository-url-blocklist"
+      "space-separated list of blocked URL patterns in base URL in repository."
+      (fun s -> s)
+      (fun s -> s)
+      repository_url_blocklist
   ; ( "repository-gpgcheck"
     , Arg.Set repository_gpgcheck
     , (fun () -> string_of_bool !repository_gpgcheck)
