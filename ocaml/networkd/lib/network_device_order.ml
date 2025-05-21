@@ -36,6 +36,22 @@ type error =
   | Duplicate_position
   | Invalid_biosdevname_key_value of (string * string)
 
+let string_of_error = function
+  | Pci_addr_parse_error s ->
+      Printf.sprintf "Invalid PCI address: %s" s
+  | Mac_addr_parse_error s ->
+      Printf.sprintf "Invalid MAC address: %s" s
+  | Rule_parse_error s ->
+      Printf.sprintf "Invalid rule: %s" s
+  | Missing_biosdevname_key k ->
+      Printf.sprintf "Missing key in biosdevname output: %s" k
+  | Duplicate_mac_address ->
+      "Duplicate MAC address"
+  | Duplicate_position ->
+      "Duplicate position"
+  | Invalid_biosdevname_key_value (k, v) ->
+      Printf.sprintf "Invalid key-value pair in biosdevname output: %s=%s" k v
+
 module Pciaddr = struct
   type t = Xcp_pci.address
 

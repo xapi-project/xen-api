@@ -420,6 +420,18 @@ module Interface_API (R : RPC) = struct
         ["Get list of all interface names"]
         (debug_info_p @-> unit_p @-> returning iface_list_p err)
 
+    let get_interface_positions =
+      let module T = struct
+        type _iface_position_list_t = (iface * int) list [@@deriving rpcty]
+      end in
+      let iface_position_list_p =
+        Param.mk ~description:["interface postion list"]
+          T._iface_position_list_t
+      in
+      declare "Interface.get_interface_positions"
+        ["Get list of interface names and their positions"]
+        (debug_info_p @-> unit_p @-> returning iface_position_list_p err)
+
     let exists =
       let result = Param.mk ~description:["existence"] Types.bool in
       declare "Interface.exists"
