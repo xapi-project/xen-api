@@ -97,9 +97,12 @@ let parse_dns_config args =
   let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
   (nameservers, domains)
 
-let write_manage_iface_to_inventory bridge_name =
+let write_manage_iface_to_inventory bridge_name management_address_type =
   info "Writing management interface to inventory: %s" bridge_name ;
-  Inventory.update Inventory._management_interface bridge_name
+  Inventory.update Inventory._management_interface bridge_name ;
+  info "Writing management address type to inventory: %s"
+    management_address_type ;
+  Inventory.update Inventory._management_address_type management_address_type
 
 let read_management_conf interface_order =
   try
@@ -142,6 +145,22 @@ let read_management_conf interface_order =
         (fun x -> if x.name = device then Some x.position else None)
         order
     in
+    let (ipv4_conf, ipv4_gateway), (ipv6_conf, ipv6_gateway) =
+      match (List.assoc_opt "MODE" args, List.assoc_opt "MODEV6" args) with
+      | None, None ->
+          error "%s: at least one of 'MODE', 'MODEV6' needs to be specified"
+            __FUNCTION__ ;
+          raise Read_error
+      | v4, v6 ->
+          (parse_ipv4_config args v4, parse_ipv6_config args v6)
+    in
+    let management_address_type =
+      (* Default to IPv4 unless we have only got an IPv6 admin interface *)
+      if ipv4_conf = None4 && ipv6_conf <> None6 then
+        "IPv6"
+      else
+        "IPv4"
+    in
     let bridge_name =
       let inventory_bridge =
         try Some (Inventory.lookup Inventory._management_interface)
@@ -160,7 +179,7 @@ let read_management_conf interface_order =
           in
           debug "No management bridge in inventory file... using %s" bridge ;
           if not device_already_renamed then
-            write_manage_iface_to_inventory bridge ;
+            write_manage_iface_to_inventory bridge management_address_type ;
           bridge
       | Some bridge ->
           debug "Management bridge in inventory file: %s" bridge ;
@@ -168,15 +187,6 @@ let read_management_conf interface_order =
     in
     let mac = Network_utils.Ip.get_mac device in
     let dns = parse_dns_config args in
-    let (ipv4_conf, ipv4_gateway), (ipv6_conf, ipv6_gateway) =
-      match (List.assoc_opt "MODE" args, List.assoc_opt "MODEV6" args) with
-      | None, None ->
-          error "%s: at least one of 'MODE', 'MODEV6' needs to be specified"
-            __FUNCTION__ ;
-          raise Read_error
-      | v4, v6 ->
-          (parse_ipv4_config args v4, parse_ipv6_config args v6)
-    in
 
     let phy_interface = {default_interface with persistent_i= true} in
     let bridge_interface =
