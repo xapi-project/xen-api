@@ -928,6 +928,12 @@ module Redirector = struct
   let nested_parallel_queues =
     {queues= Queues.create (); mutex= Mutex.create ()}
 
+  (* We create another queue only for VM_receive_memory operations for the same reason again.
+     Migration spawns 2 operations, send and receive, so if there is limited available worker space
+     a deadlock can happen when VMs are migrating between hosts or on localhost migration
+     as the receiver has no free workers to receive memory. *)
+  let receive_memory_queues = {queues= Queues.create (); mutex= Mutex.create ()}
+
   (* we do not want to use = when comparing queues: queues can contain
      (uncomparable) functions, and we are only interested in comparing the
      equality of their static references *)
@@ -1062,6 +1068,7 @@ module Redirector = struct
             (default.queues
             :: parallel_queues.queues
             :: nested_parallel_queues.queues
+            :: receive_memory_queues.queues
             :: List.map snd (StringMap.bindings !overrides)
             )
       )
@@ -1297,7 +1304,8 @@ module WorkerPool = struct
     for _i = 1 to size do
       incr Redirector.default ;
       incr Redirector.parallel_queues ;
-      incr Redirector.nested_parallel_queues
+      incr Redirector.nested_parallel_queues ;
+      incr Redirector.receive_memory_queues
     done
 
   let set_size size =
@@ -1313,7 +1321,8 @@ module WorkerPool = struct
     in
     inner Redirector.default ;
     inner Redirector.parallel_queues ;
-    inner Redirector.nested_parallel_queues
+    inner Redirector.nested_parallel_queues ;
+    inner Redirector.receive_memory_queues
 end
 
 (* Keep track of which VMs we're rebooting so we avoid transient glitches where
@@ -3360,7 +3369,8 @@ let uses_mxgpu id =
     )
     (VGPU_DB.ids id)
 
-let queue_operation_int ?traceparent dbg id op =
+let queue_operation_int ?traceparent ?(redirector = Redirector.default) dbg id
+    op =
   let task =
     Xenops_task.add ?traceparent tasks dbg
       (let r = ref None in
@@ -3368,11 +3378,11 @@ let queue_operation_int ?traceparent dbg id op =
       )
   in
   let tag = if uses_mxgpu id then "mxgpu" else id in
-  Redirector.push Redirector.default tag (op, task) ;
+  Redirector.push redirector tag (op, task) ;
   task
 
-let queue_operation ?traceparent dbg id op =
-  let task = queue_operation_int ?traceparent dbg id op in
+let queue_operation ?traceparent ?redirector dbg id op =
+  let task = queue_operation_int ?traceparent ?redirector dbg id op in
   Xenops_task.id_of_handle task
 
 let queue_operation_and_wait dbg id op =
@@ -3821,7 +3831,12 @@ module VM = struct
                 ; vmr_compressed= compressed_memory
                 }
             in
-            let task = Some (queue_operation ?traceparent dbg id op) in
+            let task =
+              Some
+                (queue_operation ?traceparent
+                   ~redirector:Redirector.receive_memory_queues dbg id op
+                )
+            in
             Option.iter
               (fun t -> t |> Xenops_client.wait_for_task dbg |> ignore)
               task
