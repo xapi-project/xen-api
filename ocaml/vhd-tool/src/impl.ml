@@ -1319,7 +1319,7 @@ let serve common_options source source_fd source_format source_protocol
       protocol_of_string (require "source-protocol" source_protocol)
     in
 
-    let supported_formats = ["raw"; "vhd"] in
+    let supported_formats = ["raw"; "vhd"; "qcow2"] in
     if not (List.mem source_format supported_formats) then
       failwith (Printf.sprintf "%s is not a supported format" source_format) ;
     let supported_formats = ["raw"] in
@@ -1357,7 +1357,9 @@ let serve common_options source source_fd source_format source_protocol
           endpoint_of_string source
       | Some fd ->
           return
-            (File_descr (Lwt_unix.of_unix_file_descr (file_descr_of_int fd)))
+            ( Printf.fprintf stderr "GTNDEBUG: source fd is %d" fd ;
+              File_descr (Lwt_unix.of_unix_file_descr (file_descr_of_int fd))
+            )
       )
       >>= fun source_endpoint ->
       ( match source_endpoint with
