@@ -1670,10 +1670,15 @@ let join_common ~__context ~master_address ~master_username ~master_password
             Client.Host.get_console_idle_timeout ~rpc ~session_id
               ~self:remote_coordinator
           in
+          let ssh_auto_mode =
+            Client.Host.get_ssh_auto_mode ~rpc ~session_id
+              ~self:remote_coordinator
+          in
           Xapi_host.set_console_idle_timeout ~__context ~self:me
             ~value:console_idle_timeout ;
           Xapi_host.set_ssh_enabled_timeout ~__context ~self:me
             ~value:ssh_enabled_timeout ;
+          Xapi_host.set_ssh_auto_mode ~__context ~self:me ~value:ssh_auto_mode ;
           let ssh_enabled =
             Client.Host.get_ssh_enabled ~rpc ~session_id
               ~self:remote_coordinator
@@ -2056,6 +2061,8 @@ let eject_self ~__context ~host =
         (* Restore SSH service to default state *)
         Xapi_host.set_ssh_enabled_timeout ~__context ~self:host
           ~value:Constants.default_ssh_enabled_timeout ;
+        Xapi_host.set_ssh_auto_mode ~__context ~self:host
+          ~value:!Xapi_globs.ssh_auto_mode_default ;
         match Constants.default_ssh_enabled with
         | true ->
             Xapi_host.enable_ssh ~__context ~self:host
