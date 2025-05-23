@@ -2,7 +2,7 @@
 title: Add supported image formats in sm-list
 layout: default
 design_doc: true
-revision: 2
+revision: 3
 status: proposed
 ---
 
@@ -22,32 +22,16 @@ available formats.
 # Design Proposal
 
 To expose the available image formats to clients (e.g., XenCenter, XenOrchestra, etc.),
-we propose adding a new field called `supported-image-formats` to the Storage Manager (SM)
-module. This field will be included in the output of the `SM.get_all_records` call.
+we propose adding a new field called `supported_image_formats` to the Storage Manager
+(SM) module. This field will be included in the output of the `SM.get_all_records` call.
 
-The `supported-image-formats` field will be populated by retrieving information
-from the SMAPI drivers. Specifically, each driver will update its `DRIVER_INFO`
-dictionary with a new key, `supported_image_formats`, which will contain a list
-of strings representing the supported image formats
-(for example: `["vhd", "raw", "qcow2"]`).
-
-The list designates the driver's preferred VDI format as its first entry. That
-means that when migrating a VDI, the destination storage repository will
-attempt to create a VDI in this preferred format. If the default format cannot
-be used (e.g., due to size limitations), an error will be generated.
-
-If a driver does not provide this information (as is currently the case with existing
-drivers), the default value will be an empty array. This signifies that it is the
-driver that decides which format it will use. This ensures that the modification
-remains compatible with both current and future drivers.
-
-With this new information, listing all parameters of the SM object will return:
+- With this new information, listing all parameters of the SM object will return:
 
 ```bash
 # xe sm-list params=all
 ```
 
-will output something like:
+Output of the command will look like (notice that CLI uses hyphens):
 
 ```
 uuid ( RO)                         : c6ae9a43-fff6-e482-42a9-8c3f8c533e36
@@ -65,12 +49,84 @@ required-cluster-stack ( RO)       :
 supported-image-formats ( RO)       : vhd, raw, qcow2
 ```
 
-This change impacts the SM data model, and as such, the XAPI database version will
-be incremented.
+## Implementation details
+
+The `supported_image_formats` field will be populated by retrieving information
+from the SMAPI drivers. Specifically, each driver will update its `DRIVER_INFO`
+dictionary with a new key, `supported_image_formats`, which will contain a list
+of strings representing the supported image formats
+(for example: `["vhd", "raw", "qcow2"]`).
+
+### Driver behavior without `supported_image_formats`
+
+If a driver does not provide this information (as is currently the case with
+existing drivers), the default value will be an empty array (`[]`). This signifies
+that the driver determines which format to use when creating VDI. During a migration,
+the destination driver will choose the format of the VDI if none is explicitly
+specified. This ensures backward compatibility with both current and future drivers.
+
+### Specifying image formats for VDIs creation
+
+If the supported image format is exposed to the client, then when creating new VDI,
+user can specify the desired format via the `sm_config` parameter `type=qcow2` (or
+any format that is supported). If no format is specified, the dirver will use its
+preferred default format. If the specified format is not supported, an error will be
+generated indicating that the SR does not support it.
+
+```bash
+# xe vdi-create \
+    sr-uuid=cbe2851e-9f9b-f310-9bca-254c1cf3edd8 \
+    name-label="A new VDI" \
+    virtual-size=10240 \
+    sm-config:type=vhd
+```
+
+### Specifying image formats for VDIs migration
+
+When migrating a VDI, an API client may need to specify the desired image format if
+the destination SR supports multiple storage formats.
+
+#### VDI pool migrate
+
+To support this, a new parameter, `destination_image_format`, is introduced to
+`VDI.pool_migrate`. This field accepts a string specifying the desired format (e.g., *qcow2*),
+ensuring that the VDI is migrated in the correct format.
+
+If the specified format is not supported or cannot be used (e.g., due to size limitations),
+an error will be generated. Validation will be performed as early as possible to prevent
+disruptions during migration. These checks can be performed by examining the XAPI database
+to determine whether the SR provided as the destination has a corresponding SM object with
+the expected format. If this is not the case, a `format not found` error will be returned.
+If no format is specified by the client, the destination driver will determine the appropriate
+format.
+
+```bash
+# xe vdi-pool-migrate \
+    uuid=44b3fe1a-d19a-4132-8513-52f5c3087ecc \
+    sr-uuid=656bc0aa-a4ef-e378-0c67-1e2ce004989a \
+    destination-image-format=qcow2
+```
+
+#### VM migration to remote host
+
+A VDI migration can also occur during an intra-pool VM migration. In this case, we also need
+to be able to specify the expected destination format. The following parameters are used
+for migration: `vdi:<source-vdi-uuid>=<dest-sr-uuid>`.
+
+We propose to add a new parameter that allows specifying the desired format on the destination
+side for a given source VDI. Similar to the source VDI to SR UUID mapping, we propose the
+following format: `vdi_format:<source-vdi-uuid>=<destination-image-format>`. The destination
+image format will be a string such as `vhd`, `qcow2`, or any other supported format.
 
 # Impact
 
-- **Data Model:** A new field (`supported-image-formats`) is added to the SM records.
+It should have no impact on existing storage repositories that do not provide any information
+about the supported image format.
+
+This change impacts the SM data model, and as such, the XAPI database version will
+be incremented.
+
+- **Data Model:** A new field (`supported_image_formats`) is added to the SM records.
 - **Client Awareness:** Clients like the `xe` CLI will now be able to query and display the supported image formats for a given SR.
 - **Database Versioning:** The XAPI database version will be updated to reflect this change.
 
