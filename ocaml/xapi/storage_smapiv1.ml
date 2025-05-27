@@ -478,6 +478,7 @@ module SMAPIv1 : Server_impl = struct
                           ; backend_type= "vbd3"
                           }
                       ; BlockDevice {path= params}
+                      ; Nbd {uri= attach_info_v1.Smint.params_nbd}
                       ]
                   )
               }
@@ -1127,6 +1128,10 @@ module SMAPIv1 : Server_impl = struct
   module DATA = struct
     let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
+
+    let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ = assert false
+
+    let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ = assert false
 
     let import_activate _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ ~vm:_ = assert false
 

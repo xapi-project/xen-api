@@ -327,6 +327,31 @@ let server_run_in_emergency_mode () =
   in
   wait_to_die () ; exit 0
 
+let remove_blocked_repositories ~__context () =
+  try
+    let blocklist = !Xapi_globs.repository_url_blocklist in
+    let repos = Db.Repository.get_all ~__context in
+    let pool = Helpers.get_pool ~__context in
+    let is_repo_blocked repo =
+      let binary_url = Db.Repository.get_binary_url ~__context ~self:repo in
+      let source_url = Db.Repository.get_source_url ~__context ~self:repo in
+      Repository_helpers.url_matches ~url:binary_url blocklist
+      || Repository_helpers.url_matches ~url:source_url blocklist
+    in
+    let remove_repo repo =
+      debug "%s Removing repository %s due to it being blocked" __FUNCTION__
+        (Ref.string_of repo) ;
+      try
+        Xapi_pool.remove_repository ~__context ~self:pool ~value:repo ;
+        Db.Repository.destroy ~__context ~self:repo
+      with e ->
+        debug "%s Failed to remove repository for %s: %s" __FUNCTION__
+          (Ref.string_of repo) (Printexc.to_string e)
+    in
+    List.filter (fun x -> is_repo_blocked x) repos
+    |> List.iter (fun x -> remove_repo x)
+  with e -> error "Exception in %s: %s" __FUNCTION__ (Printexc.to_string e)
+
 let bring_up_management_if ~__context () =
   try
     let management_if =
@@ -1114,6 +1139,10 @@ let server_init () =
           ; ( "hi-level database upgrade"
             , [Startup.OnlyMaster]
             , Xapi_db_upgrade.hi_level_db_upgrade_rules ~__context
+            )
+          ; ( "removing blocked repositories"
+            , [Startup.OnlyMaster]
+            , remove_blocked_repositories ~__context
             )
           ; ( "bringing up management interface"
             , []

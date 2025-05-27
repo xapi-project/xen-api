@@ -209,6 +209,23 @@ let assert_url_is_valid ~url =
       error "Invalid url %s: %s" url (ExnHelper.string_of_exn e) ;
       raise Api_errors.(Server_error (invalid_base_url, [url]))
 
+let url_matches ~url (patterns : string list) : bool =
+  List.exists
+    (fun pattern ->
+      try
+        let re = Re.Perl.re pattern |> Re.compile in
+        Re.execp re url
+      with exn ->
+        error "Exception in %s: %s" __FUNCTION__ (Printexc.to_string exn) ;
+        false
+    )
+    patterns
+
+let assert_url_is_not_blocked ~url =
+  let blocklist = !Xapi_globs.repository_url_blocklist in
+  if url_matches ~url blocklist then
+    raise Api_errors.(Server_error (blocked_repo_url, [url]))
+
 let is_gpgkey_path_valid = function
   | 'A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '-' ->
       true
