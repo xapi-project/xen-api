@@ -19,6 +19,16 @@ module D = Debug.Make (struct let name = "observer_interface" end)
 
 open D
 
+let service_name = "observer"
+
+let queue_name = Xcp_service.common_prefix ^ service_name
+
+let default_sockets_dir = "/var/lib/xcp"
+
+let default_path = Filename.concat default_sockets_dir service_name
+
+let uri () = "file:" ^ default_path
+
 module Errors = struct
   type error =
     | Internal_error of string
@@ -148,3 +158,107 @@ module ObserverAPI (R : RPC) = struct
     declare "Observer.set_compress_tracing_files" []
       (dbg_p @-> bool_p @-> returning unit_p err)
 end
+
+module type Server_impl = sig
+  type context = unit
+
+  val create :
+       context
+    -> dbg:debug_info
+    -> uuid:string
+    -> name_label:string
+    -> attributes:(string * string) list
+    -> endpoints:string list
+    -> enabled:bool
+    -> unit
+
+  val destroy : context -> dbg:debug_info -> uuid:string -> unit
+
+  val set_enabled :
+    context -> dbg:debug_info -> uuid:string -> enabled:bool -> unit
+
+  val set_attributes :
+       context
+    -> dbg:debug_info
+    -> uuid:string
+    -> attributes:(string * string) list
+    -> unit
+
+  val set_endpoints :
+    context -> dbg:debug_info -> uuid:string -> endpoints:string list -> unit
+
+  val init : context -> dbg:debug_info -> unit
+
+  val set_trace_log_dir : context -> dbg:debug_info -> dir:string -> unit
+
+  val set_export_interval : context -> dbg:debug_info -> interval:float -> unit
+
+  val set_max_spans : context -> dbg:debug_info -> spans:int -> unit
+
+  val set_max_traces : context -> dbg:debug_info -> traces:int -> unit
+
+  val set_max_file_size : context -> dbg:debug_info -> file_size:int -> unit
+
+  val set_host_id : context -> dbg:debug_info -> host_id:string -> unit
+
+  val set_compress_tracing_files :
+    context -> dbg:debug_info -> enabled:bool -> unit
+end
+
+module Server (Impl : Server_impl) () = struct
+  module S = ObserverAPI (Idl.Exn.GenServer ())
+
+  let _ =
+    S.create (fun dbg uuid name_label attributes endpoints enabled ->
+        Impl.create () ~dbg ~uuid ~name_label ~attributes ~endpoints ~enabled
+    ) ;
+    S.destroy (fun dbg uuid -> Impl.destroy () ~dbg ~uuid) ;
+    S.set_enabled (fun dbg uuid enabled ->
+        Impl.set_enabled () ~dbg ~uuid ~enabled
+    ) ;
+    S.set_attributes (fun dbg uuid attributes ->
+        Impl.set_attributes () ~dbg ~uuid ~attributes
+    ) ;
+    S.set_endpoints (fun dbg uuid endpoints ->
+        Impl.set_endpoints () ~dbg ~uuid ~endpoints
+    ) ;
+    S.init (fun dbg -> Impl.init () ~dbg) ;
+    S.set_trace_log_dir (fun dbg dir -> Impl.set_trace_log_dir () ~dbg ~dir) ;
+    S.set_export_interval (fun dbg interval ->
+        Impl.set_export_interval () ~dbg ~interval
+    ) ;
+    S.set_max_spans (fun dbg spans -> Impl.set_max_spans () ~dbg ~spans) ;
+    S.set_max_traces (fun dbg traces -> Impl.set_max_traces () ~dbg ~traces) ;
+    S.set_max_file_size (fun dbg file_size ->
+        Impl.set_max_file_size () ~dbg ~file_size
+    ) ;
+    S.set_host_id (fun dbg host_id -> Impl.set_host_id () ~dbg ~host_id) ;
+    S.set_compress_tracing_files (fun dbg enabled ->
+        Impl.set_compress_tracing_files () ~dbg ~enabled
+    )
+
+  (* Bind all *)
+  let process call = Idl.Exn.server S.implementation call
+end
+
+let rec retry_econnrefused f =
+  try f () with
+  | Unix.Unix_error (Unix.ECONNREFUSED, "connect", _) ->
+      (* debug "Caught ECONNREFUSED; retrying in 5s"; *)
+      Thread.delay 5. ; retry_econnrefused f
+  | e ->
+      (* error "Caught %s: does the observer service need restarting?"
+         (Printexc.to_string e); *)
+      raise e
+
+module Client = ObserverAPI (Idl.Exn.GenClient (struct
+  open Xcp_client
+
+  let rpc call =
+    retry_econnrefused (fun () ->
+        if !use_switch then
+          json_switch_rpc queue_name call
+        else
+          xml_http_rpc ~srcstr:(get_user_agent ()) ~dststr:queue_name uri call
+    )
+end))
