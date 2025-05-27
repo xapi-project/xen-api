@@ -3121,7 +3121,8 @@ let disable_ssh_internal ~__context ~self =
   with e ->
     error "Failed to disable SSH for host %s: %s" (Ref.string_of self)
       (Printexc.to_string e) ;
-    Helpers.internal_error "Failed to disable SSH: %s" (Printexc.to_string e)
+    Helpers.internal_error "Failed to disable SSH access, host: %s"
+      (Ref.string_of self)
 
 let schedule_disable_ssh_job ~__context ~self ~timeout =
   let host_uuid = Helpers.get_localhost_uuid () in
@@ -3168,7 +3169,8 @@ let enable_ssh ~__context ~self =
     ( match timeout with
     | 0L ->
         Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue
-          !Xapi_globs.job_for_disable_ssh
+          !Xapi_globs.job_for_disable_ssh ;
+        Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
     | t ->
         schedule_disable_ssh_job ~__context ~self ~timeout:t
     ) ;
@@ -3177,7 +3179,8 @@ let enable_ssh ~__context ~self =
   with e ->
     error "Failed to enable SSH on host %s: %s" (Ref.string_of self)
       (Printexc.to_string e) ;
-    Helpers.internal_error "Failed to enable SSH: %s" (Printexc.to_string e)
+    Helpers.internal_error "Failed to enable SSH access, host: %s"
+      (Ref.string_of self)
 
 let disable_ssh ~__context ~self =
   Xapi_stdext_threads_scheduler.Scheduler.remove_from_queue
