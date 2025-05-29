@@ -41,6 +41,7 @@
     sexplib
     sexplib0
     uri
+    threads.posix
     xapi-backtrace
     xapi-consts
     xapi-consts.xapi_version
