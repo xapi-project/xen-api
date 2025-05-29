@@ -1314,13 +1314,12 @@ module VM = struct
     (* VCPU configuration *)
     let xcext = Xenctrlext.get_handle () in
     let pcpus = Xenctrlext.get_max_nr_cpus xcext in
-    let all_pcpus = mkints pcpus in
     let all_vcpus = mkints vm.vcpu_max in
     let masks =
       match vm.scheduler_params.affinity with
       | [] ->
-          (* Every vcpu can run on every pcpu *)
-          List.map (fun _ -> all_pcpus) all_vcpus
+          (* do not set affinity if it's missing *)
+          []
       | m :: ms ->
           (* Treat the first as the template for the rest *)
           let defaults = List.map (fun _ -> m) all_vcpus in
