@@ -950,6 +950,30 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
   log_reraise (Printf.sprintf "shadow_allocation_set %d MiB" shadow_mib)
     (fun () -> Xenctrl.shadow_allocation_set xc domid shadow_mib
   ) ;
+  let apply_hard_vcpu_map () =
+    let xcext = Xenctrlext.get_handle () in
+    let pcpus = Xenctrlext.get_max_nr_cpus xcext in
+    let bitmap cpus : bool array =
+      (* convert a mask into a boolean array, one element per pCPU *)
+      let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
+      let result = Array.init pcpus (fun _ -> false) in
+      List.iter (fun cpu -> result.(cpu) <- true) cpus ;
+      result
+    in
+    ( match hard_affinity with
+    | [] ->
+        []
+    | m :: ms ->
+        (* Treat the first as the template for the rest *)
+        let all_vcpus = List.init vcpus Fun.id in
+        let defaults = List.map (fun _ -> m) all_vcpus in
+        Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
+    )
+    |> List.iteri (fun vcpu mask ->
+           Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
+       )
+  in
+  apply_hard_vcpu_map () ;
   let node_placement =
     match !Xenops_server.numa_placement with
     | Any ->
