@@ -1287,7 +1287,7 @@ module VM = struct
       ; kernel= ""
       ; vcpus= vm.vcpu_max
       ; priv= builder_spec_info
-      ; has_hard_affinity= vm.scheduler_params.affinity <> []
+      ; hard_affinity= vm.scheduler_params.affinity
       }
     in
     VmExtra.
@@ -2040,7 +2040,7 @@ module VM = struct
       ; kernel
       ; vcpus= vm.vcpu_max
       ; priv
-      ; has_hard_affinity= vm.scheduler_params.affinity <> []
+      ; hard_affinity= vm.scheduler_params.affinity
       }
     in
     debug "static_max_mib=%Ld" static_max_mib ;
