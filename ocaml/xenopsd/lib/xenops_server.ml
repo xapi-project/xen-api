@@ -1763,7 +1763,8 @@ let rec atomics_of_operation = function
           serial "VIF.activate_and_plug" ~id
             [VIF_set_active (vif.Vif.id, true); VIF_plug vif.Vif.id]
       )
-  | VM_restore_devices (id, restore_vifs) ->
+  | VM_restore_devices (id, migration) ->
+      let restore_vifs = not migration in
       let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
       let vgpus = VGPU_DB.vgpus id in
       let pcis = PCI_DB.pcis id |> pci_plug_order in
@@ -1777,10 +1778,23 @@ let rec atomics_of_operation = function
               [VBD_set_active (vbd.Vbd.id, true); vbd_plug vbd.Vbd.id]
         )
       in
+      let activate_vbds typ vbds =
+        let name_multi = Printf.sprintf "VBDs.activate %s" typ in
+        parallel name_multi ~id
+          (List.map (fun vbd -> VBD_activate vbd.Vbd.id) vbds)
+      in
+      let prep_vbds =
+        if !xenopsd_vbd_plug_unplug_legacy || not migration then
+          plug_vbds
+        else
+          (* If plug is split into activate and attach, when migrating we don't
+             need to attach here as we attached outside of the VM downtime *)
+          activate_vbds
+      in
       [
         (* rw vbds must be plugged before ro vbds, see vbd_plug_sets *)
-        plug_vbds "RW" vbds_rw
-      ; plug_vbds "RO" vbds_ro
+        prep_vbds "RW" vbds_rw
+      ; prep_vbds "RO" vbds_ro
       ; (if restore_vifs then atomics_of_operation (VM_restore_vifs id) else [])
       ; (* Nvidia SRIOV PCI devices have been already been plugged *)
         parallel_map "VGPUs.activate" ~id vgpus (fun vgpu ->
@@ -1897,7 +1911,7 @@ let rec atomics_of_operation = function
         ]
       ; vgpu_start_operations
       ; [VM_restore (id, data, vgpu_data)]
-      ; atomics_of_operation (VM_restore_devices (id, true))
+      ; atomics_of_operation (VM_restore_devices (id, false))
       ; [
           (* At this point the domain is considered survivable. *)
           VM_set_domain_action_request (id, None)
@@ -2696,9 +2710,9 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
   | VM_restore_vifs id ->
       debug "VM_restore_vifs %s" id ;
       perform_atomics (atomics_of_operation op) t
-  | VM_restore_devices (id, restore_vifs) ->
+  | VM_restore_devices (id, migration) ->
       (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
-      debug "VM_restore_devices %s %b" id restore_vifs ;
+      debug "VM_restore_devices %s %b" id migration ;
       perform_atomics (atomics_of_operation op) t
   | VM_resume (id, _data) ->
       debug "VM.resume %s" id ;
@@ -3022,11 +3036,27 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
           ( try
               let no_sharept = VGPU_DB.vgpus id |> List.exists is_no_sharept in
               debug "VM %s no_sharept=%b (%s)" id no_sharept __LOC__ ;
+              let early_attach =
+                if !xenopsd_vbd_plug_unplug_legacy then
+                  []
+                else
+                  (* If plug is split into activate and attach, we can attach
+                     early so that it is outside of the VM downtime *)
+                  parallel_map "VBDs.set_active_and_attach" ~id (VBD_DB.vbds id)
+                    (fun vbd ->
+                      serial "VBD.set_active_and_attach" ~id
+                        [
+                          VBD_set_active (vbd.Vbd.id, true)
+                        ; VBD_attach vbd.Vbd.id
+                        ]
+                  )
+              in
               perform_atomics
                 ([VM_create (id, Some memory_limit, Some final_id, no_sharept)]
-                @ (* Perform as many operations as possible on the destination
-                     domain before pausing the original domain *)
-                atomics_of_operation (VM_restore_vifs id)
+                (* Perform as many operations as possible on the destination
+                   domain before pausing the original domain *)
+                @ atomics_of_operation (VM_restore_vifs id)
+                @ early_attach
                 )
                 t ;
               Handshake.send s Handshake.Success
@@ -3142,7 +3172,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
         ) ;
         debug "VM.receive_memory: restoring remaining devices and unpausing" ;
         perform_atomics
-          (atomics_of_operation (VM_restore_devices (final_id, false))
+          (atomics_of_operation (VM_restore_devices (final_id, true))
           @ [
               VM_unpause final_id
             ; VM_set_domain_action_request (final_id, None)
