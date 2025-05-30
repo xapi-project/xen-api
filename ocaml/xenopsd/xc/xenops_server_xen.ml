@@ -1287,7 +1287,7 @@ module VM = struct
       ; kernel= ""
       ; vcpus= vm.vcpu_max
       ; priv= builder_spec_info
-      ; has_hard_affinity= vm.scheduler_params.affinity <> []
+      ; hard_affinity= vm.scheduler_params.affinity
       }
     in
     VmExtra.
@@ -1303,8 +1303,6 @@ module VM = struct
     |> rpc_of VmExtra.persistent_t
     |> Jsonrpc.to_string
 
-  let mkints n = List.init n Fun.id
-
   let generate_create_info ~xs:_ vm persistent =
     let ty = match persistent.VmExtra.ty with Some ty -> ty | None -> vm.ty in
     let hvm =
@@ -1312,38 +1310,6 @@ module VM = struct
     in
     (* XXX add per-vcpu information to the platform data *)
     (* VCPU configuration *)
-    let xcext = Xenctrlext.get_handle () in
-    let pcpus = Xenctrlext.get_max_nr_cpus xcext in
-    let all_pcpus = mkints pcpus in
-    let all_vcpus = mkints vm.vcpu_max in
-    let masks =
-      match vm.scheduler_params.affinity with
-      | [] ->
-          (* Every vcpu can run on every pcpu *)
-          List.map (fun _ -> all_pcpus) all_vcpus
-      | m :: ms ->
-          (* Treat the first as the template for the rest *)
-          let defaults = List.map (fun _ -> m) all_vcpus in
-          Xapi_stdext_std.Listext.List.take vm.vcpu_max ((m :: ms) @ defaults)
-    in
-    (* convert a mask into a binary string, one char per pCPU *)
-    let bitmap cpus : string =
-      let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
-      let result = Bytes.make pcpus '0' in
-      List.iter (fun cpu -> Bytes.set result cpu '1') cpus ;
-      Bytes.unsafe_to_string result
-    in
-    let affinity =
-      snd
-        (List.fold_left
-           (fun (idx, acc) mask ->
-             ( idx + 1
-             , (Printf.sprintf "vcpu/%d/affinity" idx, bitmap mask) :: acc
-             )
-           )
-           (0, []) masks
-        )
-    in
     let weight =
       vm.scheduler_params.priority
       |> Option.map (fun (w, c) ->
@@ -1359,7 +1325,6 @@ module VM = struct
             (match vm.ty with PVinPVH _ -> vm.vcpu_max | _ -> vm.vcpus)
         )
       ]
-      @ affinity
       @ weight
     in
     let set_generation_id platformdata =
@@ -2040,7 +2005,7 @@ module VM = struct
       ; kernel
       ; vcpus= vm.vcpu_max
       ; priv
-      ; has_hard_affinity= vm.scheduler_params.affinity <> []
+      ; hard_affinity= vm.scheduler_params.affinity
       }
     in
     debug "static_max_mib=%Ld" static_max_mib ;

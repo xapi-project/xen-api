@@ -23,6 +23,8 @@
     xapi-stdext-unix
   )
   (wrapped false)
-  (preprocess (per_module ((pps ppx_deriving_rpc) API Event_types Features SecretString)))
+  (preprocess
+    (per_module
+      ((pps ppx_deriving_rpc) API Event_types SecretString)
+      ((pps ppx_deriving_rpc ppx_deriving.enum) Features)))
 )
-

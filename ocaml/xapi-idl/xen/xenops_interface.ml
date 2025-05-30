@@ -496,9 +496,12 @@ module Host = struct
   [@@deriving rpcty]
 
   type numa_affinity_policy =
-    | Any  (** VMs may run on any NUMA nodes. This is the default in 8.2CU1 *)
+    | Any  (** VMs may run on any NUMA nodes. *)
     | Best_effort
-        (** best effort placement on the smallest number of NUMA nodes where possible *)
+        (** Best-effort placement. Assigns the memory of the VM to a single
+            node, and soft-pins its VCPUs to the node, if possible. Otherwise
+            behaves like Any. *)
+    | Best_effort_hard  (** Like Best_effort, but hard-pins the VCPUs *)
   [@@deriving rpcty]
 
   type numa_affinity_policy_opt = numa_affinity_policy option [@@deriving rpcty]
