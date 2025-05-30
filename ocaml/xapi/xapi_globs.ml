@@ -1017,6 +1017,8 @@ let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
 
+let winbind_dns_sync_interval = ref 3600.
+
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
 
@@ -1219,6 +1221,7 @@ let xapi_globs_spec =
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Float winbind_machine_pwd_timeout)
+  ; ("winbind_dns_sync_interval", Float winbind_dns_sync_interval)
   ; ( "winbind_update_closest_kdc_interval"
     , Float winbind_update_closest_kdc_interval
     )
