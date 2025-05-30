@@ -1,0 +1,12 @@
+language: c
+sudo: false
+services:
+  - docker
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-docker.sh
+script: bash ./.travis-docker.sh
+env:
+  global:
+    - PACKAGE="qcow-tool"
+    - PINS="qcow:. mirage-block-ramdisk:https://github.com/mirage/mirage-block-ramdisk.git"
+ matrix:
+   - DISTRO=alpine OCAML_VERSION=4.09
