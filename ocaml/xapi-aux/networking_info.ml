@@ -55,11 +55,13 @@ let dns_names () =
      )
   |> Astring.String.uniquify
 
-let ipaddr_to_cstruct = function
+let ipaddr_to_octets = function
   | Ipaddr.V4 addr ->
-      Cstruct.of_string (Ipaddr.V4.to_octets addr)
+      Ipaddr.V4.to_octets addr
   | Ipaddr.V6 addr ->
-      Cstruct.of_string (Ipaddr.V6.to_octets addr)
+      Ipaddr.V6.to_octets addr
+
+let ipaddr_to_cstruct c = ipaddr_to_octets c |> Cstruct.of_string
 
 let get_management_ip_addrs ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
@@ -113,7 +115,7 @@ let get_host_certificate_subjects ~dbg =
     | Ok (preferred, others) ->
         let ips = List.(rev_append (rev preferred) others) in
         Option.fold ~none:(Error IP_missing)
-          ~some:(fun ip -> Ok (List.map ipaddr_to_cstruct ips, ip))
+          ~some:(fun ip -> Ok (List.map ipaddr_to_octets ips, ip))
           (List.nth_opt ips 0)
   in
   let dns_names = dns_names () in

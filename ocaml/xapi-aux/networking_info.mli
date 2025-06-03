@@ -31,6 +31,6 @@ val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
 
 val get_host_certificate_subjects :
      dbg:string
-  -> (string * string list * Cstruct.t list, management_ip_error) Result.t
+  -> (string * string list * string list, management_ip_error) Result.t
 (** [get_host_certificate_subjects ~dbg] returns the main, dns names and ip
     addresses that identify the host in secure connections. *)
