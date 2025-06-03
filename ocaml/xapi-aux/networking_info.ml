@@ -61,8 +61,6 @@ let ipaddr_to_octets = function
   | Ipaddr.V6 addr ->
       Ipaddr.V6.to_octets addr
 
-let ipaddr_to_cstruct c = ipaddr_to_octets c |> Cstruct.of_string
-
 let get_management_ip_addrs ~dbg =
   let iface = Inventory.lookup Inventory._management_interface in
   try
@@ -101,8 +99,7 @@ let get_management_ip_addrs ~dbg =
 let get_management_ip_addr ~dbg =
   match get_management_ip_addrs ~dbg with
   | Ok (preferred, _) ->
-      List.nth_opt preferred 0
-      |> Option.map (fun addr -> (Ipaddr.to_string addr, ipaddr_to_cstruct addr))
+      List.nth_opt preferred 0 |> Option.map Ipaddr.to_string
   | Error _ ->
       None
 
