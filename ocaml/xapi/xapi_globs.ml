@@ -502,6 +502,16 @@ let rpu_allowed_vm_operations =
   ; `update_allowed_operations
   ]
 
+module Vdi_operations = struct
+  type t = API.vdi_operations
+
+  (* this is more efficient than just 'let compare = Stdlib.compare',
+     because the compiler can specialize it to [t] without calling any runtime functions *)
+  let compare (a : t) (b : t) = Stdlib.compare a b
+end
+
+module Vdi_operations_set = Set.Make (Vdi_operations)
+
 (* Until the Ely release, the vdi_operations enum had stayed unchanged
  * since 2009 or earlier, but then Ely and some subsequent releases
  * added new members to the enum. *)
@@ -519,6 +529,7 @@ let pre_ely_vdi_operations =
   ; `generate_config
   ; `blocked
   ]
+  |> Vdi_operations_set.of_list
 
 (* We might consider restricting this further. *)
 let rpu_allowed_vdi_operations = pre_ely_vdi_operations
@@ -922,6 +933,13 @@ let domain_zero_domain_type = `pv
 let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 
 let repository_domain_name_allowlist = ref []
+
+(*
+    This blocklist aims to prevent the creation of any repository whose URL matches an entry in the blocklist.
+    Additionally, if an existing repository contains a URL that matches an entry in the blocklist,
+    it should be removed automatically after xapi is restarted.
+*)
+let repository_url_blocklist = ref []
 
 let yum_cmd = ref "/usr/bin/yum"
 
@@ -1596,6 +1614,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       repository_domain_name_allowlist
+  ; gen_list_option "repository-url-blocklist"
+      "space-separated list of blocked URL patterns in base URL in repository."
+      (fun s -> s)
+      (fun s -> s)
+      repository_url_blocklist
   ; ( "repository-gpgcheck"
     , Arg.Set repository_gpgcheck
     , (fun () -> string_of_bool !repository_gpgcheck)

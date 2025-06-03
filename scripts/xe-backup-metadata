@@ -24,7 +24,7 @@ if [ "${master_uuid}" != "${INSTALLATION_UUID}" ]; then
    exit 1
 fi
 
-history_kept=25
+history_kept=12
 metadata_version=1
 debug=/bin/true
 
@@ -129,7 +129,7 @@ if [ -z "${vdi_uuid}" ]; then
     echo -n "Creating new backup VDI: "
     label="Pool Metadata Backup"
     # the label must match what xapi_vdi.ml is using for backup VDIs
-    vdi_uuid=$(${XE} vdi-create virtual-size=500MiB sr-uuid="${sr_uuid}" type=user name-label="${label}")
+    vdi_uuid=$(${XE} vdi-create virtual-size=1GiB sr-uuid="${sr_uuid}" type=user name-label="${label}")
     init_fs=1
     if [ $? -ne 0 ]; then
        echo failed

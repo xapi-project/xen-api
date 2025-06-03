@@ -10,8 +10,8 @@
     http_lib
     httpsvr
     inotify
-    mtime
-    mtime.clock.os
+    clock
+    mtime.clock
     rpclib.core
     rrd-transport
     rrd-transport.lib
@@ -46,6 +46,7 @@
     http_lib
     httpsvr
     inotify
+    clock
     rpclib.core
     rpclib.json
     rpclib.xml
