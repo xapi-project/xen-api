@@ -76,7 +76,7 @@ let to_log_string t = t.log
 
 (* Sets the logging context based on `dbg`.
    Also adds a new tracing span, linked to the parent span from `dbg`, if available. *)
-let with_dbg ?(with_thread = false) ~module_name ~name ~dbg f =
+let with_dbg ?(with_thread = false) ?(module_name = "") ~name ~dbg f =
   let di = of_string dbg in
   let f_with_trace () =
     let name =

@@ -3682,7 +3682,9 @@ end
 module VM = struct
   module DB = VM_DB
 
-  let add _ dbg x = Debug.with_thread_associated dbg (fun () -> DB.add' x) ()
+  let add _ dbg x =
+    Debug_info.with_dbg ~with_thread:true ~name:__FUNCTION__ ~dbg @@ fun _ ->
+    DB.add' x
 
   let rename _ dbg id1 id2 when' =
     queue_operation dbg id1 (Atomic (VM_rename (id1, id2, when')))
@@ -3719,11 +3721,17 @@ module VM = struct
     in
     (vm_t, state)
 
-  let stat _ dbg id = Debug.with_thread_associated dbg (fun () -> stat' id) ()
+  let stat _ dbg id =
+    Debug_info.with_dbg ~with_thread:true ~name:__FUNCTION__ ~dbg @@ fun _ ->
+    stat' id
 
-  let exists _ _dbg id = match DB.read id with Some _ -> true | None -> false
+  let exists _ dbg id =
+    Debug_info.with_dbg ~name:__FUNCTION__ ~dbg @@ fun _ ->
+    match DB.read id with Some _ -> true | None -> false
 
-  let list _ dbg () = Debug.with_thread_associated dbg (fun () -> DB.list ()) ()
+  let list _ dbg () =
+    Debug_info.with_dbg ~with_thread:true ~name:__FUNCTION__ ~dbg @@ fun _ ->
+    DB.list ()
 
   let create _ dbg id =
     let no_sharept = false in
