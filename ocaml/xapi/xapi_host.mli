@@ -130,6 +130,10 @@ val create :
   -> ssl_legacy:bool
   -> last_software_update:API.datetime
   -> last_update_hash:string
+  -> ssh_enabled:bool
+  -> ssh_enabled_timeout:int64
+  -> ssh_expiry:API.datetime
+  -> console_idle_timeout:int64
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
@@ -567,3 +571,12 @@ val emergency_clear_mandatory_guidance : __context:Context.t -> unit
 val enable_ssh : __context:Context.t -> self:API.ref_host -> unit
 
 val disable_ssh : __context:Context.t -> self:API.ref_host -> unit
+
+val set_ssh_enabled_timeout :
+  __context:Context.t -> self:API.ref_host -> value:int64 -> unit
+
+val set_console_idle_timeout :
+  __context:Context.t -> self:API.ref_host -> value:int64 -> unit
+
+val schedule_disable_ssh_job :
+  __context:Context.t -> self:API.ref_host -> timeout:int64 -> unit

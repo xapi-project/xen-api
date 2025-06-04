@@ -1249,7 +1249,15 @@ let remove_repository =
 
 let sync_updates =
   call ~name:"sync_updates"
-    ~lifecycle:[(Published, "1.329.0", "")]
+    ~lifecycle:
+      [
+        (Published, "1.329.0", "")
+      ; ( Changed
+        , "25.7.0"
+        , "Added --username --password options to allow syncing updates from a \
+           remote_pool type repository"
+        )
+      ]
     ~doc:"Sync with the enabled repository"
     ~versioned_params:
       [
@@ -1286,14 +1294,14 @@ let sync_updates =
           param_type= String
         ; param_name= "username"
         ; param_doc= "The username of the remote pool"
-        ; param_release= numbered_release "25.6.0-next"
+        ; param_release= numbered_release "25.7.0"
         ; param_default= Some (VString "")
         }
       ; {
           param_type= String
         ; param_name= "password"
         ; param_doc= "The password of the remote pool"
-        ; param_release= numbered_release "25.6.0-next"
+        ; param_release= numbered_release "25.7.0"
         ; param_default= Some (VString "")
         }
       ]
@@ -1571,6 +1579,33 @@ let disable_ssh =
     ~params:[(Ref _pool, "self", "The pool")]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_ssh_enabled_timeout =
+  call ~name:"set_ssh_enabled_timeout" ~lifecycle:[]
+    ~doc:"Set the SSH enabled timeout for all hosts in the pool"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Int
+        , "value"
+        , "The SSH enabled timeout in seconds. (0 means no timeout, max 2 days)"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
+let set_console_idle_timeout =
+  call ~name:"set_console_idle_timeout" ~lifecycle:[]
+    ~doc:"Set the console idle timeout for all hosts in the pool"
+    ~params:
+      [
+        (Ref _pool, "self", "The pool")
+      ; ( Int
+        , "value"
+        , "The idle SSH/VNC session timeout in seconds. A value of 0 means no \
+           timeout."
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 (** A pool class *)
 let t =
   create_obj ~in_db:true
@@ -1667,6 +1702,8 @@ let t =
       ; get_guest_secureboot_readiness
       ; enable_ssh
       ; disable_ssh
+      ; set_ssh_enabled_timeout
+      ; set_console_idle_timeout
       ]
     ~contents:
       ([

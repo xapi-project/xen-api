@@ -422,3 +422,9 @@ let observer_components_all =
 let tgroups_enabled = ref false
 
 let when_tgroups_enabled f = if !tgroups_enabled then f () else ()
+
+let default_ssh_enabled = true
+
+let default_ssh_enabled_timeout = 0L
+
+let default_console_idle_timeout = 0L
