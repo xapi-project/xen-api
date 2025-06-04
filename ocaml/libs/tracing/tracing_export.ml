@@ -278,8 +278,8 @@ module Destination = struct
             ]
           in
           let@ _ =
-            with_tracing ~trace_context:TraceContext.empty ~parent ~attributes
-              ~name
+            with_tracing ~span_kind:Server ~trace_context:TraceContext.empty
+              ~parent ~attributes ~name
           in
           all_spans
           |> Content.Json.ZipkinV2.content_of
@@ -293,8 +293,8 @@ module Destination = struct
     let ((_span_list, span_count) as span_info) = Spans.since () in
     let attributes = [("export.traces.count", string_of_int span_count)] in
     let@ parent =
-      with_tracing ~trace_context:TraceContext.empty ~parent:None ~attributes
-        ~name:"Tracing.flush_spans"
+      with_tracing ~span_kind:Server ~trace_context:TraceContext.empty
+        ~parent:None ~attributes ~name:"Tracing.flush_spans"
     in
     TracerProvider.get_tracer_providers ()
     |> List.filter TracerProvider.get_enabled
