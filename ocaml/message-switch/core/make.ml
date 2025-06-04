@@ -229,7 +229,7 @@ functor
       in
       return (Ok t)
 
-    let rpc ~t ~queue ?timeout ~body:x () =
+    let rpc ?_span_parent ~t ~queue ?timeout ~body:x () =
       let ivar = M.Ivar.create () in
       let timer =
         Option.map

@@ -792,10 +792,14 @@ end
 let enable_span_garbage_collector ?(timeout = 86400.) () =
   Spans.GC.initialise_thread ~timeout
 
-let with_tracing ?(attributes = []) ?(parent = None) ?trace_context ~name f =
+let with_tracing ?(attributes = []) ?(parent = None) ?span_kind ?trace_context
+    ~name f =
   let tracer = Tracer.get_tracer ~name in
   if tracer.enabled then (
-    match Tracer.start ~tracer ?trace_context ~attributes ~name ~parent () with
+    match
+      Tracer.start ?span_kind ~tracer ?trace_context ~attributes ~name ~parent
+        ()
+    with
     | Ok span -> (
       try
         let result = f span in

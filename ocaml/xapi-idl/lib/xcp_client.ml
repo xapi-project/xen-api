@@ -38,10 +38,35 @@ let switch_rpc ?timeout queue_name string_of_call response_of_string =
     get_ok
       (Message_switch_unix.Protocol_unix.Client.connect ~switch:!switch_path ())
   in
-  fun call ->
+  fun (call : Rpc.call) ->
+    let _span_parent =
+      call.params
+      |> List.find_map (function Rpc.Dict kv_list -> Some kv_list | _ -> None)
+      |> Fun.flip Option.bind
+           (List.find_map (function
+             | "debug_info", Rpc.String debug_info ->
+                 let di = debug_info |> Debug_info.of_string in
+                 di.tracing
+             | _ ->
+                 None
+             )
+             )
+    in
+    let rpc_service = "message_switch" in
+    Tracing.with_tracing
+      ~attributes:
+        [
+          ("rpc.system", "ocaml-rpc")
+        ; ("rpc.service", rpc_service)
+        ; ("server.address", queue_name)
+        ; ("rpc.method", call.name)
+        ]
+      ~parent:_span_parent
+      ~name:(rpc_service ^ "/" ^ call.name)
+    @@ fun _span_parent ->
     response_of_string
       (get_ok
-         (Message_switch_unix.Protocol_unix.Client.rpc ~t ?timeout
+         (Message_switch_unix.Protocol_unix.Client.rpc ?_span_parent ~t ?timeout
             ~queue:queue_name ~body:(string_of_call call) ()
          )
       )

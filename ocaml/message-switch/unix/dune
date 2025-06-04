@@ -11,6 +11,7 @@
     rpclib.core
     rpclib.json
     threads.posix
+    tracing
     xapi-stdext-threads
     xapi-stdext-unix
   )
