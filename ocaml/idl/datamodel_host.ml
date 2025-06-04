@@ -1304,7 +1304,7 @@ let create_params =
       param_type= Bool
     ; param_name= "ssh_enabled"
     ; param_doc= "True if SSH access is enabled for the host"
-    ; param_release= numbered_release "25.14.0-next"
+    ; param_release= numbered_release "25.20.0-next"
     ; param_default= Some (VBool Constants.default_ssh_enabled)
     }
   ; {
@@ -1314,7 +1314,7 @@ let create_params =
         "The timeout in seconds after which SSH access will be automatically \
          disabled (0 means never), this setting will be applied every time the \
          SSH is enabled by XAPI"
-    ; param_release= numbered_release "25.14.0-next"
+    ; param_release= numbered_release "25.20.0-next"
     ; param_default= Some (VInt Constants.default_ssh_enabled_timeout)
     }
   ; {
@@ -1323,7 +1323,7 @@ let create_params =
     ; param_doc=
         "The time in UTC after which the SSH access will be automatically \
          disabled"
-    ; param_release= numbered_release "25.14.0-next"
+    ; param_release= numbered_release "25.20.0-next"
     ; param_default= Some (VDateTime Date.epoch)
     }
   ; {
@@ -1332,7 +1332,7 @@ let create_params =
     ; param_doc=
         "The timeout in seconds after which idle console will be automatically \
          terminated (0 means never)"
-    ; param_release= numbered_release "25.14.0-next"
+    ; param_release= numbered_release "25.20.0-next"
     ; param_default= Some (VInt Constants.default_console_idle_timeout)
     }
   ]
@@ -1348,7 +1348,7 @@ let create =
            kept for host joined a pool"
         )
       ; ( Changed
-        , "25.14.0-next"
+        , "25.20.0-next"
         , "Added --ssh_enabled --ssh_enabled_timeout --ssh_expiry \
            --console_idle_timeout options to allow them to be configured for \
            new host"

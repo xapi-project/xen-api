@@ -23,5 +23,5 @@ let is_valid_ref __context r =
     false
   else
     let t = Context.database_of __context in
-    let module DB = (val Db_cache.get t : Db_interface.DB_ACCESS) in
+    let module DB = (val Db_cache.get t : Db_interface.DB_ACCESS2) in
     DB.is_valid_ref t (Ref.string_of r)

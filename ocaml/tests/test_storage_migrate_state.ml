@@ -41,6 +41,9 @@ let sample_send_state =
           )
     ; failed= false
     ; watchdog= None
+    ; live_vm= Storage_interface.Vm.of_string "0"
+    ; mirror_key= None
+    ; vdi= Storage_interface.Vdi.of_string ""
     }
 
 let sample_receive_state =
@@ -54,6 +57,8 @@ let sample_receive_state =
     ; parent_vdi= Vdi.of_string "parent_vdi"
     ; remote_vdi= Vdi.of_string "remote_vdi"
     ; mirror_vm= Vm.of_string "mirror_vm"
+    ; url= ""
+    ; verify_dest= false
     }
 
 let sample_copy_state =

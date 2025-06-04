@@ -39,8 +39,6 @@ module To = struct
     Xmlm.output output `El_end
 
   (* Write out a string *)
-  let string (output : Xmlm.output) (key : string) (x : string) =
-    pair output key x
 
   (* Write out an int *)
   let int (output : Xmlm.output) (key : string) (x : int) =
@@ -68,7 +66,8 @@ module To = struct
           (List.rev
              (Row.fold
                 (fun k _ v acc ->
-                  (k, Xml_spaces.protect (Schema.Value.marshal v)) :: acc
+                  (k, Xml_spaces.protect (Schema.CachedValue.string_of v))
+                  :: acc
                 )
                 row preamble
              )

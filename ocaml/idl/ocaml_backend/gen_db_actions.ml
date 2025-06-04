@@ -25,7 +25,11 @@ open DT
 (* Names of the modules we're going to generate (use these to prevent typos) *)
 let _dm_to_string = "DM_to_String"
 
+let _dm_to_field = "DM_to_Field"
+
 let _string_to_dm = "String_to_DM"
+
+let _field_to_dm = "Field_to_DM"
 
 let _db_action = "DB_Action"
 
@@ -109,6 +113,44 @@ let dm_to_string tys : O.Module.t =
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys)
     ()
 
+let dm_to_field tys : O.Module.t =
+  let tys = List.filter type_marshalled_in_db tys in
+  (* For every type, we create a single function *)
+  let ty_fun ty =
+    let body =
+      match ty with
+      | DT.Map (String, String) ->
+          "Schema.Value.pairs"
+      | DT.Map (key, value) ->
+          Printf.sprintf
+            "fun s ->  s |> List.map (fun (k, v) -> %s.%s k, %s.%s v) |> \
+             Schema.Value.pairs"
+            _dm_to_string (OU.alias_of_ty key) _dm_to_string
+            (OU.alias_of_ty value)
+      | DT.Set String ->
+          "Schema.Value.set"
+      | DT.Set ty ->
+          Printf.sprintf "fun s ->  s |> List.map %s.%s |> Schema.Value.set"
+            _dm_to_string (OU.alias_of_ty ty)
+      | DT.String ->
+          "Schema.Value.string"
+      | _ ->
+          Printf.sprintf "fun s -> s |> %s.%s |> Schema.Value.string"
+            _dm_to_string (OU.alias_of_ty ty)
+    in
+    O.Let.make ~name:(OU.alias_of_ty ty) ~params:[] ~ty:"Db_interface.field_in"
+      ~body:[body] ()
+  in
+  O.Module.make ~name:_dm_to_field
+    ~preamble:
+      [
+        "exception StringEnumTypeError of string"
+      ; "exception DateTimeError of string"
+      ]
+    ~letrec:true
+    ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys)
+    ()
+
 (** Generate a module of string to datamodel type unmarshalling functions *)
 let string_to_dm tys : O.Module.t =
   let tys = List.filter type_marshalled_in_db tys in
@@ -167,6 +209,53 @@ let string_to_dm tys : O.Module.t =
         "exception StringEnumTypeError of string"
       ; "open String_unmarshall_helper"
       ]
+    ~letrec:true
+    ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys)
+    ()
+
+let field_to_dm tys : O.Module.t =
+  let tys = List.filter type_marshalled_in_db tys in
+  (* For every type, we create a single function *)
+  let ty_fun ty =
+    let name = OU.alias_of_ty ty in
+    let body =
+      match ty with
+      | DT.Map (key, value) ->
+          let conv =
+            match (key, value) with
+            | DT.String, DT.String ->
+                ""
+            | _ ->
+                Printf.sprintf " |> List.map (fun (k, v) -> %s.%s k, %s.%s v)"
+                  _string_to_dm (OU.alias_of_ty key) _string_to_dm
+                  (OU.alias_of_ty value)
+          in
+          "fun s -> s |> Schema.CachedValue.maybe_unmarshal Schema.Type.Pairs \
+           |> Schema.CachedValue.value_of |> Schema.Value.Unsafe_cast.pairs"
+          ^ conv
+      | DT.Set ty ->
+          let conv =
+            match ty with
+            | DT.String ->
+                ""
+            | _ ->
+                Printf.sprintf " |> List.map %s.%s" _string_to_dm
+                  (OU.alias_of_ty ty)
+          in
+          "fun s -> s |> Schema.CachedValue.maybe_unmarshal Schema.Type.Set |> \
+           Schema.CachedValue.value_of |> Schema.Value.Unsafe_cast.set"
+          ^ conv
+      | DT.String ->
+          "fun s -> s |> Schema.CachedValue.maybe_unmarshal Schema.Type.String \
+           |> Schema.CachedValue.value_of |> Schema.Value.Unsafe_cast.string"
+      | _ ->
+          Printf.sprintf "fun f -> f |> Schema.CachedValue.string_of |> %s.%s"
+            _string_to_dm name
+    in
+    O.Let.make ~name ~params:[] ~ty:(OU.alias_of_ty ty) ~body:[body] ()
+  in
+  O.Module.make ~name:_field_to_dm
+    ~preamble:["exception StringEnumTypeError of string"]
     ~letrec:true
     ~elements:(List.map (fun ty -> O.Module.Let (ty_fun ty)) tys)
     ()
@@ -283,7 +372,7 @@ let open_db_module =
   [
     "let __t = Context.database_of __context in"
   ; "let module DB = (val (Xapi_database.Db_cache.get __t) : \
-     Xapi_database.Db_interface.DB_ACCESS) in"
+     Xapi_database.Db_interface.DB_ACCESS2) in"
   ]
 
 let db_action api : O.Module.t =
@@ -331,7 +420,7 @@ let db_action api : O.Module.t =
           let ty_alias = OU.alias_of_ty f.DT.ty in
           let accessor = "find_regular" in
           let field_name = Escaping.escape_id f.full_name in
-          Printf.sprintf {|%s.%s (%s "%s")|} _string_to_dm ty_alias accessor
+          Printf.sprintf {|%s.%s (%s "%s")|} _field_to_dm ty_alias accessor
             field_name
     in
     let make_field f =
@@ -433,8 +522,13 @@ let db_action api : O.Module.t =
     let to_string arg =
       let binding = O.string_of_param arg in
       let converter = O.type_of_param arg in
-      Printf.sprintf "let %s = %s.%s %s in" binding _dm_to_string converter
-        binding
+      Printf.sprintf "let %s = %s.%s %s in" binding
+        ( if binding = Client._self || binding = "ref" then
+            _dm_to_string
+          else
+            _dm_to_field
+        )
+        converter binding
     in
     let body =
       match tag with
@@ -445,37 +539,38 @@ let db_action api : O.Module.t =
             (Escaping.escape_id fld.DT.full_name)
       | FromField (Getter, {DT.ty; full_name; _}) ->
           Printf.sprintf "%s.%s (DB.read_field __t \"%s\" \"%s\" %s)"
-            _string_to_dm (OU.alias_of_ty ty)
+            _field_to_dm (OU.alias_of_ty ty)
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
       | FromField (Add, {DT.ty= DT.Map (_, _); full_name; _}) ->
           Printf.sprintf
-            "DB.process_structured_field __t (%s,%s) \"%s\" \"%s\" %s \
-             AddMapLegacy"
+            "DB.process_structured_field __t (Schema.Value.marshal %s, \
+             Schema.Value.marshal %s) \"%s\" \"%s\" %s AddMapLegacy"
             Client._key Client._value
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
       | FromField (Add, {DT.ty= DT.Set _; full_name; _}) ->
           Printf.sprintf
-            "DB.process_structured_field __t (%s,\"\") \"%s\" \"%s\" %s AddSet"
+            "DB.process_structured_field __t (Schema.Value.marshal %s,\"\") \
+             \"%s\" \"%s\" %s AddSet"
             Client._value
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
       | FromField (Remove, {DT.ty= DT.Map (_, _); full_name; _}) ->
           Printf.sprintf
-            "DB.process_structured_field __t (%s,\"\") \"%s\" \"%s\" %s \
-             RemoveMap"
+            "DB.process_structured_field __t (Schema.Value.marshal %s,\"\") \
+             \"%s\" \"%s\" %s RemoveMap"
             Client._key
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
             Client._self
       | FromField (Remove, {DT.ty= DT.Set _; full_name; _}) ->
           Printf.sprintf
-            "DB.process_structured_field __t (%s,\"\") \"%s\" \"%s\" %s \
-             RemoveSet"
+            "DB.process_structured_field __t (Schema.Value.marshal %s,\"\") \
+             \"%s\" \"%s\" %s RemoveSet"
             Client._value
             (Escaping.escape_obj obj.DT.name)
             (Escaping.escape_id full_name)
@@ -517,7 +612,9 @@ let db_action api : O.Module.t =
         match (x.msg_params, x.msg_result) with
         | [{param_name= name; _}], Some (result_ty, _) ->
             let query =
-              Printf.sprintf "DB.db_get_by_uuid __t \"%s\" %s"
+              Printf.sprintf
+                "DB.db_get_by_uuid __t \"%s\" (Schema.Value.Unsafe_cast.string \
+                 %s)"
                 (Escaping.escape_obj obj.DT.name)
                 (OU.escape name)
             in
@@ -530,7 +627,7 @@ let db_action api : O.Module.t =
               ^ ")"
             in
             let query_opt =
-              Printf.sprintf "DB.db_get_by_uuid_opt __t \"%s\" %s"
+              Printf.sprintf "DB.db_get_by_uuid_opt __t \"%s\" (%s)"
                 (Escaping.escape_obj obj.DT.name)
                 (OU.escape name)
             in
@@ -555,7 +652,9 @@ let db_action api : O.Module.t =
         match (x.msg_params, x.msg_result) with
         | [{param_name= name; _}], Some (Set result_ty, _) ->
             let query =
-              Printf.sprintf "DB.db_get_by_name_label __t \"%s\" %s"
+              Printf.sprintf
+                "DB.db_get_by_name_label __t \"%s\" \
+                 (Schema.Value.Unsafe_cast.string %s)"
                 (Escaping.escape_obj obj.DT.name)
                 (OU.escape name)
             in
@@ -606,13 +705,15 @@ let db_action api : O.Module.t =
       | FromObject GetAllRecordsWhere ->
           String.concat "\n"
             [
-              "let expr' = Xapi_database.Db_filter.expr_of_string expr in"
+              "let expr' = Xapi_database.Db_filter.expr_of_string \
+               (Schema.Value.Unsafe_cast.string expr) in"
             ; "get_records_where ~" ^ Gen_common.context ^ " ~expr:expr'"
             ]
       | FromObject GetAllWhere ->
           String.concat "\n"
             [
-              "let expr' = Xapi_database.Db_filter.expr_of_string expr in"
+              "let expr' = Xapi_database.Db_filter.expr_of_string \
+               (Schema.Value.Unsafe_cast.string expr) in"
             ; "get_refs_where ~" ^ Gen_common.context ^ " ~expr:expr'"
             ]
       | _ ->
