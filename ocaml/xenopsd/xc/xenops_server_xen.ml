@@ -187,7 +187,7 @@ module VmExtra = struct
     ; pv_drivers_detected: bool [@default false]
     ; xen_platform: (int * int) option (* (device_id, revision) for QEMU *)
     ; platformdata: (string * string) list [@default []]
-    ; attached_vdis: (Vbd.id * attached_vdi) list [@default []]
+    ; attached_vdis: (string * attached_vdi) list [@default []]
   }
   [@@deriving rpcty]
 
@@ -3682,9 +3682,13 @@ module VBD = struct
                     persistent=
                       {
                         vm_t.VmExtra.persistent with
+                        (* Index by id_of vbd rather than vbd.id as VmExtra is
+                           already indexed by VM id, so the VM id part of
+                           vbd.id is unnecessary and causes issues finding the
+                           attached_vdi when the VM is renamed. *)
                         attached_vdis=
-                          (vbd.Vbd.id, vdi)
-                          :: List.remove_assoc vbd.Vbd.id
+                          (id_of vbd, vdi)
+                          :: List.remove_assoc (id_of vbd)
                                vm_t.persistent.attached_vdis
                       }
                   }
@@ -3706,7 +3710,7 @@ module VBD = struct
 
   let activate task vm vbd =
     let vmextra = DB.read_exn vm in
-    match List.assoc_opt vbd.id vmextra.persistent.attached_vdis with
+    match List.assoc_opt (id_of vbd) vmextra.persistent.attached_vdis with
     | None ->
         debug "No attached_vdi info, so not activating"
     | Some vdi ->
@@ -3857,7 +3861,7 @@ module VBD = struct
               )
               vm
           )
-          (fun () -> cleanup_attached_vdis vm vbd.id)
+          (fun () -> cleanup_attached_vdis vm (id_of vbd))
 
   let deactivate task vm vbd force =
     with_xc_and_xs (fun xc xs ->
@@ -4021,7 +4025,7 @@ module VBD = struct
         | _ ->
             ()
     ) ;
-    cleanup_attached_vdis vm vbd.id
+    cleanup_attached_vdis vm (id_of vbd)
 
   let insert task vm vbd d =
     on_frontend
