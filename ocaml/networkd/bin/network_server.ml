@@ -35,6 +35,51 @@ let write_config () =
     try Network_config.write_config !config
     with Network_config.Write_error -> ()
 
+let get_index_from_ethx name =
+  if String.starts_with ~prefix:"eth" name then
+    let index = String.sub name 3 (String.length name - 3) in
+    int_of_string_opt index
+  else
+    None
+
+let sort_based_on_ethx () =
+  Sysfs.list ()
+  |> List.filter_map (fun name ->
+         if Sysfs.is_physical name then
+           get_index_from_ethx name |> Option.map (fun i -> (name, i))
+         else
+           None
+     )
+
+let handle_upgrade () =
+  let interface_order =
+    match Network_device_order.sort [] with
+    | Ok (interface_order, _) ->
+        interface_order
+    | Error err ->
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err) ;
+        raise (Network_error (Internal_error "sorting failed"))
+  in
+  let previous_eth_devs =
+    List.filter_map
+      (fun (iface, _) ->
+        iface |> get_index_from_ethx |> Option.map (fun idx -> (iface, idx))
+      )
+      !config.interface_config
+  in
+  let changed_interfaces =
+    List.filter_map
+      (fun (name, pos) ->
+        List.find_opt
+          (fun dev -> dev.position = pos && dev.name <> name)
+          interface_order
+        |> Option.map (fun dev -> (name, dev.name))
+      )
+      previous_eth_devs
+  in
+  (Some interface_order, changed_interfaces)
+
 let sort last_order =
   let do_sort last_order =
     match Network_device_order.sort last_order with
@@ -57,7 +102,7 @@ let sort last_order =
   | false, None ->
       (* Upgrade from net dev renamed version. The previous order is converted
          and passed to initial rules. Just use [] here to sort. *)
-      do_sort []
+      handle_upgrade ()
   | false, Some last_order ->
       do_sort last_order
 
@@ -108,22 +153,6 @@ let read_config () =
     with Network_config.Read_error ->
       error "Could not interpret the configuration in management.conf"
   )
-
-let get_index_from_ethx name =
-  if String.starts_with ~prefix:"eth" name then
-    let index = String.sub name 3 (String.length name - 3) in
-    int_of_string_opt index
-  else
-    None
-
-let sort_based_on_ethx () =
-  Sysfs.list ()
-  |> List.filter_map (fun name ->
-         if Sysfs.is_physical name then
-           get_index_from_ethx name |> Option.map (fun i -> (name, i))
-         else
-           None
-     )
 
 let on_shutdown signal =
   let dbg = "shutdown" in
