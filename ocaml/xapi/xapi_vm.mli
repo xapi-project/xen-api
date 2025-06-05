@@ -399,6 +399,14 @@ val call_plugin :
   -> args:(string * string) list
   -> string
 
+val call_host_plugin :
+     __context:Context.t
+  -> vm:API.ref_VM
+  -> plugin:string
+  -> fn:string
+  -> args:(string * string) list
+  -> string
+
 val set_has_vendor_device :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
 
