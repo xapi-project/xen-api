@@ -155,9 +155,8 @@ let convert_to_owner_map dss =
     Also resets the value of datasources that are enabled in the RRD, but
     weren't updated on this refresh cycle.
     *)
-let update_rrds uuid_domids paused_vms plugins_dss =
+let update_rrds uuid_domids plugins_dss =
   let uuid_domids = List.to_seq uuid_domids |> StringMap.of_seq in
-  let paused_vms = List.to_seq paused_vms |> StringSet.of_seq in
   let per_owner_flattened_map, per_plugin_map =
     convert_to_owner_map plugins_dss
   in
@@ -237,18 +236,11 @@ let update_rrds uuid_domids paused_vms plugins_dss =
                      match vm_rrd with
                      | Some rrdi ->
                          let updated_dss, rrd = merge_new_dss rrdi dss in
-                         (* CA-34383: Memory updates from paused domains serve no useful
-                            purpose. During a migrate such updates can also cause undesirable
-                            discontinuities in the observed value of memory_actual. Hence, we
-                            ignore changes from paused domains: *)
-                         ( if not (StringSet.mem vm_uuid paused_vms) then
-                             let named_updates =
-                               StringMap.map to_named_updates dss
-                             in
-                             Rrd.ds_update_named rrd
-                               ~new_rrd:(domid <> rrdi.domid) timestamp
-                               named_updates
-                         ) ;
+                         let named_updates =
+                           StringMap.map to_named_updates dss
+                         in
+                         Rrd.ds_update_named rrd ~new_rrd:(domid <> rrdi.domid)
+                           timestamp named_updates ;
                          Some {rrd; dss= updated_dss; domid}
                      | None ->
                          debug "%s: Creating fresh RRD for VM uuid=%s"

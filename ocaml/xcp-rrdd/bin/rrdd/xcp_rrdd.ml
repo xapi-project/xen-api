@@ -258,71 +258,80 @@ let mem_available () =
 let dss_mem_vms doms =
   List.fold_left
     (fun acc (dom, uuid, domid) ->
-      let kib =
-        Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
-      in
-      let memory = Int64.mul kib 1024L in
-      let main_mem_ds =
-        ( Rrd.VM uuid
-        , Ds.ds_make ~name:"memory"
-            ~description:"Memory currently allocated to VM" ~units:"B"
-            ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-        )
-      in
-      let memory_target_opt =
-        with_lock Rrdd_shared.memory_targets_m (fun _ ->
-            Hashtbl.find_opt Rrdd_shared.memory_targets domid
-        )
-      in
-      let mem_target_ds =
-        Option.map
-          (fun memory_target ->
-            ( Rrd.VM uuid
-            , Ds.ds_make ~name:"memory_target"
-                ~description:"Target of VM balloon driver" ~units:"B"
-                ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
-                ~default:true ()
-            )
+      let add_vm_metrics () =
+        let kib =
+          Xenctrl.pages_to_kib
+            (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
+        in
+        let memory = Int64.mul kib 1024L in
+        let main_mem_ds =
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"memory"
+              ~description:"Memory currently allocated to VM" ~units:"B"
+              ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true
+              ()
           )
-          memory_target_opt
-      in
-      let other_ds =
-        if domid = 0 then
-          match mem_available () with
-          | Ok mem ->
+        in
+        let memory_target_opt =
+          with_lock Rrdd_shared.memory_targets_m (fun _ ->
+              Hashtbl.find_opt Rrdd_shared.memory_targets domid
+          )
+        in
+        let mem_target_ds =
+          Option.map
+            (fun memory_target ->
+              ( Rrd.VM uuid
+              , Ds.ds_make ~name:"memory_target"
+                  ~description:"Target of VM balloon driver" ~units:"B"
+                  ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
+                  ~default:true ()
+              )
+            )
+            memory_target_opt
+        in
+        let other_ds =
+          if domid = 0 then
+            match mem_available () with
+            | Ok mem ->
+                Some
+                  ( Rrd.VM uuid
+                  , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
+                      ~description:"Dom0 current free memory"
+                      ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
+                      ~default:true ()
+                  )
+            | Error msg ->
+                let _ =
+                  error "%s: retrieving  Dom0 free memory failed: %s"
+                    __FUNCTION__ msg
+                in
+                None
+          else
+            try
+              let mem_free =
+                Watch.IntMap.find domid !current_meminfofree_values
+              in
               Some
                 ( Rrd.VM uuid
                 , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
-                    ~description:"Dom0 current free memory"
-                    ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
+                    ~description:"Memory used as reported by the guest agent"
+                    ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0
                     ~default:true ()
                 )
-          | Error msg ->
-              let _ =
-                error "%s: retrieving  Dom0 free memory failed: %s" __FUNCTION__
-                  msg
-              in
-              None
-        else
-          try
-            let mem_free =
-              Watch.IntMap.find domid !current_meminfofree_values
-            in
-            Some
-              ( Rrd.VM uuid
-              , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
-                  ~description:"Memory used as reported by the guest agent"
-                  ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0
-                  ~default:true ()
-              )
-          with Not_found -> None
+            with Not_found -> None
+        in
+        List.concat
+          [
+            main_mem_ds :: Option.to_list other_ds
+          ; Option.to_list mem_target_ds
+          ; acc
+          ]
       in
-      List.concat
-        [
-          main_mem_ds :: Option.to_list other_ds
-        ; Option.to_list mem_target_ds
-        ; acc
-        ]
+      (* CA-34383: Memory updates from paused domains serve no useful purpose.
+         During a migrate such updates can also cause undesirable
+         discontinuities in the observed value of memory_actual. Hence, we
+         ignore changes from paused domains: *)
+      if dom.Xenctrl.paused then acc else add_vm_metrics ()
     )
     [] doms
 
@@ -466,14 +475,10 @@ let domain_snapshot xc =
   let domains =
     Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
   in
-  let domain_paused (d, uuid, _) =
-    if d.Xenctrl.paused then Some uuid else None
-  in
-  let paused_uuids = List.filter_map domain_paused domains in
   let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
   let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
   Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
-  (domains, paused_uuids)
+  domains
 
 let dom0_stat_generators =
   [
@@ -507,7 +512,7 @@ let write_dom0_stats writers tagged_dss =
 
 let do_monitor_write xc writers =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
-      let domains, my_paused_vms = domain_snapshot xc in
+      let domains = domain_snapshot xc in
       let tagged_dom0_stats = generate_all_dom0_stats xc domains in
       write_dom0_stats writers tagged_dom0_stats ;
       let dom0_stats =
@@ -523,7 +528,7 @@ let do_monitor_write xc writers =
       let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
 
       (* stats are grouped per plugin, which provides its timestamp *)
-      Rrdd_monitor.update_rrds uuid_domids my_paused_vms stats ;
+      Rrdd_monitor.update_rrds uuid_domids stats ;
 
       Rrdd_libs.Constants.datasource_dump_file
       |> Rrdd_server.dump_host_dss_to_file ;
