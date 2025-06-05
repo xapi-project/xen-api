@@ -74,60 +74,61 @@ let update_rrds_test ~timestamp ~dss ~uuid_domids ~expected_vm_rrds
 
 let update_rrds =
   let open Rrd in
+  let map_of_list ls = StringMap.of_seq (List.to_seq ls) in
   [
     ( "Null update"
-    , update_rrds_test ~timestamp:0. ~dss:[] ~uuid_domids:[]
+    , update_rrds_test ~timestamp:0. ~dss:[] ~uuid_domids:StringMap.empty
         ~expected_vm_rrds:[] ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Single host update"
     , update_rrds_test ~timestamp:0.
         ~dss:[(Host, ds_a)]
-        ~uuid_domids:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
+        ~uuid_domids:StringMap.empty ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[("host", [ds_a])]
     )
   ; ( "Multiple host updates"
     , update_rrds_test ~timestamp:0.
         ~dss:[(Host, ds_a); (Host, ds_b)]
-        ~uuid_domids:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
+        ~uuid_domids:StringMap.empty ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[("host", [ds_a; ds_b])]
     )
   ; ( "Single non-resident VM update"
     , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a)]
-        ~uuid_domids:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
+        ~uuid_domids:StringMap.empty ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[]
     )
   ; ( "Multiple non-resident VM updates"
     , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a); (VM "b", ds_a)]
-        ~uuid_domids:[] ~expected_vm_rrds:[] ~expected_sr_rrds:[]
+        ~uuid_domids:StringMap.empty ~expected_vm_rrds:[] ~expected_sr_rrds:[]
         ~expected_host_dss:[]
     )
   ; ( "Single resident VM update"
     , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a)]
-        ~uuid_domids:[("a", 1)]
+        ~uuid_domids:(map_of_list [("a", 1)])
         ~expected_vm_rrds:[("a", [ds_a])]
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple resident VM updates"
     , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "b", ds_b)]
-        ~uuid_domids:[("a", 1); ("b", 1)]
+        ~uuid_domids:(map_of_list [("a", 1); ("b", 1)])
         ~expected_vm_rrds:[("a", [ds_a]); ("b", [ds_a; ds_b])]
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple resident and non-resident VM updates"
     , update_rrds_test ~timestamp:0.
         ~dss:[(VM "a", ds_a); (VM "b", ds_a); (VM "c", ds_a)]
-        ~uuid_domids:[("a", 1); ("b", 1)]
+        ~uuid_domids:(map_of_list [("a", 1); ("b", 1)])
         ~expected_vm_rrds:[("a", [ds_a]); ("b", [ds_a])]
         ~expected_sr_rrds:[] ~expected_host_dss:[]
     )
   ; ( "Multiple SR updates"
     , update_rrds_test ~timestamp:0.
         ~dss:[(SR "a", ds_a); (SR "b", ds_a); (SR "b", ds_b)]
-        ~uuid_domids:[] ~expected_vm_rrds:[]
+        ~uuid_domids:StringMap.empty ~expected_vm_rrds:[]
         ~expected_sr_rrds:[("a", [ds_a]); ("b", [ds_a; ds_b])]
         ~expected_host_dss:[]
     )

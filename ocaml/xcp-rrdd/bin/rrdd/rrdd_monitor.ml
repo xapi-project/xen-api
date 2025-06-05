@@ -156,7 +156,6 @@ let convert_to_owner_map dss =
     weren't updated on this refresh cycle.
     *)
 let update_rrds uuid_domids plugins_dss =
-  let uuid_domids = List.to_seq uuid_domids |> StringMap.of_seq in
   let per_owner_flattened_map, per_plugin_map =
     convert_to_owner_map plugins_dss
   in
