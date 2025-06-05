@@ -34,6 +34,51 @@ type address =
 
 (* console is listening on a Unix domain socket *)
 
+(* This module limits VNC console sessions to at most one per VM/host.
+   Depending on configuration, either unlimited connections are allowed,
+   or only a single active connection per VM/host is allowed. *)
+module Connection_limit = struct
+  module VMSet = Set.Make (String)
+
+  let active_connections : VMSet.t ref = ref VMSet.empty
+
+  let mutex = Mutex.create ()
+
+  let add vm_id =
+    Mutex.lock mutex ;
+    active_connections := VMSet.add vm_id !active_connections ;
+    Mutex.unlock mutex
+
+  let remove vm_id =
+    Mutex.lock mutex ;
+    active_connections := VMSet.remove vm_id !active_connections ;
+    Mutex.unlock mutex
+
+  let exists vm_id =
+    Mutex.lock mutex ;
+    let present = VMSet.mem vm_id !active_connections in
+    Mutex.unlock mutex ; present
+
+  let can_add vm_id limit_console_sessions =
+    if not limit_console_sessions then
+      true
+    else
+      not (exists vm_id)
+end
+
+let connection_limit_reached __context vm_id =
+  let pool = Helpers.get_pool ~__context in
+  let limit_console_sessions =
+    Db.Pool.get_limit_console_sessions ~__context ~self:pool
+  in
+  if not (Connection_limit.can_add vm_id limit_console_sessions) then (
+    debug
+      "Console session limit reached: only one active session allowed for VM %s"
+      vm_id ;
+    true
+  ) else
+    false
+
 let string_of_address = function
   | Port x ->
       "localhost:" ^ string_of_int x
@@ -84,72 +129,88 @@ let address_of_console __context console : address option =
     ) ;
   address_option
 
-let real_proxy __context _ _ vnc_port s =
+let real_proxy __context console _ _ vnc_port s =
   try
-    Http_svr.headers s (Http.http_200_ok ()) ;
-    let vnc_sock =
-      match vnc_port with
-      | Port x ->
-          Unixext.open_connection_fd "127.0.0.1" x
-      | Path x ->
-          Unixext.open_connection_unix_fd x
-    in
-    (* Unixext.proxy closes fds itself so we must dup here *)
-    let s' = Unix.dup s in
-    debug "Connected; running proxy (between fds: %d and %d)"
-      (Unixext.int_of_file_descr vnc_sock)
-      (Unixext.int_of_file_descr s') ;
-    Unixext.proxy vnc_sock s' ;
-    debug "Proxy exited"
+    let vm = Db.Console.get_VM ~__context ~self:console in
+    let vm_id = Ref.string_of vm in
+    if connection_limit_reached __context vm_id then
+      Http_svr.headers s (Http.http_503_service_unavailable ())
+    else (
+      Http_svr.headers s (Http.http_200_ok ()) ;
+      let vnc_sock =
+        match vnc_port with
+        | Port x ->
+            Unixext.open_connection_fd "127.0.0.1" x
+        | Path x ->
+            Unixext.open_connection_unix_fd x
+      in
+      (* Unixext.proxy closes fds itself so we must dup here *)
+      let s' = Unix.dup s in
+      debug "Connected; running proxy (between fds: %d and %d)"
+        (Unixext.int_of_file_descr vnc_sock)
+        (Unixext.int_of_file_descr s') ;
+      Connection_limit.add vm_id ;
+      Unixext.proxy vnc_sock s' ;
+      Connection_limit.remove vm_id ;
+      debug "Proxy exited"
+    )
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let ws_proxy __context req protocol address s =
-  let addr = match address with Port p -> string_of_int p | Path p -> p in
-  let protocol =
-    match protocol with `rfb -> "rfb" | `vt100 -> "vt100" | `rdp -> "rdp"
+let ws_proxy __context _ req protocol address s =
+  let pool = Helpers.get_pool ~__context in
+  let limit_console_sessions =
+    Db.Pool.get_limit_console_sessions ~__context ~self:pool
   in
-  let real_path = Filename.concat "/var/lib/xcp" "websockproxy" in
-  let sock =
-    try Some (Fecomms.open_unix_domain_sock_client real_path)
-    with e ->
-      debug "Error connecting to wsproxy (%s)" (Printexc.to_string e) ;
-      Http_svr.headers s (Http.http_501_method_not_implemented ()) ;
-      None
-  in
-  (* Ensure we always close the socket *)
-  finally
-    (fun () ->
-      let upgrade_successful =
-        Option.map
-          (fun sock ->
-            try
-              let result = (sock, Some (Ws_helpers.upgrade req s)) in
-              result
-            with _ -> (sock, None)
-          )
-          sock
-      in
-      Option.iter
-        (function
-          | sock, Some ty ->
-              let wsprotocol =
-                match ty with
-                | Ws_helpers.Hixie76 ->
-                    "hixie76"
-                | Ws_helpers.Hybi10 ->
-                    "hybi10"
-              in
-              let message =
-                Printf.sprintf "%s:%s:%s" wsprotocol protocol addr
-              in
-              let len = String.length message in
-              ignore (Unixext.send_fd_substring sock message 0 len [] s)
-          | _, None ->
-              Http_svr.headers s (Http.http_501_method_not_implemented ())
-          )
-        upgrade_successful
-    )
-    (fun () -> Option.iter (fun sock -> Unix.close sock) sock)
+  (* Disable connection via websocket if the limit is set *)
+  if limit_console_sessions = true then
+    Http_svr.headers s (Http.http_503_service_unavailable ())
+  else
+    let addr = match address with Port p -> string_of_int p | Path p -> p in
+    let protocol =
+      match protocol with `rfb -> "rfb" | `vt100 -> "vt100" | `rdp -> "rdp"
+    in
+    let real_path = Filename.concat "/var/lib/xcp" "websockproxy" in
+    let sock =
+      try Some (Fecomms.open_unix_domain_sock_client real_path)
+      with e ->
+        debug "Error connecting to wsproxy (%s)" (Printexc.to_string e) ;
+        Http_svr.headers s (Http.http_501_method_not_implemented ()) ;
+        None
+    in
+    (* Ensure we always close the socket *)
+    finally
+      (fun () ->
+        let upgrade_successful =
+          Option.map
+            (fun sock ->
+              try
+                let result = (sock, Some (Ws_helpers.upgrade req s)) in
+                result
+              with _ -> (sock, None)
+            )
+            sock
+        in
+        Option.iter
+          (function
+            | sock, Some ty ->
+                let wsprotocol =
+                  match ty with
+                  | Ws_helpers.Hixie76 ->
+                      "hixie76"
+                  | Ws_helpers.Hybi10 ->
+                      "hybi10"
+                in
+                let message =
+                  Printf.sprintf "%s:%s:%s" wsprotocol protocol addr
+                in
+                let len = String.length message in
+                ignore (Unixext.send_fd_substring sock message 0 len [] s)
+            | _, None ->
+                Http_svr.headers s (Http.http_501_method_not_implemented ())
+            )
+          upgrade_successful
+      )
+      (fun () -> Option.iter (fun sock -> Unix.close sock) sock)
 
 let default_console_of_vm ~__context ~self =
   try
@@ -247,7 +308,7 @@ let handler proxy_fn (req : Request.t) s _ =
       check_vm_is_running_here __context console ;
       match address_of_console __context console with
       | Some vnc_port ->
-          proxy_fn __context req protocol vnc_port s
+          proxy_fn __context console req protocol vnc_port s
       | None ->
           Http_svr.headers s (Http.http_404_missing ())
   )
