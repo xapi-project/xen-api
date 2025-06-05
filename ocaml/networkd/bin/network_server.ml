@@ -36,8 +36,7 @@ let write_config () =
     with Network_config.Write_error -> ()
 
 let sort last_order =
-  match last_order with
-  | Some last_order -> (
+  let do_sort last_order =
     match Network_device_order.sort last_order with
     | Ok (interface_order, changes) ->
         (Some interface_order, changes)
@@ -45,9 +44,22 @@ let sort last_order =
         error "Failed to sort interface order [%s]"
           (Network_device_order.string_of_error err) ;
         (Some last_order, [])
-  )
-  | None ->
+  in
+  match (Network_config.device_already_renamed, last_order) with
+  | true, None ->
+      (* The net dev renamed version, skip sort *)
       (None, [])
+  | true, Some _ ->
+      (* Impossible *)
+      error "device renamed but order is not None" ;
+      raise
+        (Network_error (Internal_error "device renamed but order is not None"))
+  | false, None ->
+      (* Upgrade from net dev renamed version. The previous order is converted
+         and passed to initial rules. Just use [] here to sort. *)
+      do_sort []
+  | false, Some last_order ->
+      do_sort last_order
 
 let update_changes last_config changed_interfaces =
   let update_name name =
