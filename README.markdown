@@ -108,6 +108,9 @@ It certifies the patch's origin and is licensed under an
 appropriate open-source licence to include it in Xapi:
 https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff
 
+For more detailed guidelines on what makes a good contribution, see
+[CONTRIBUTING](./CONTRIBUTING.md).
+
 Discussions
 -----------
 
