@@ -48,6 +48,8 @@ let check_power_state_is ~__context ~self ~expected =
         (Record_util.vm_power_state_to_lowercase_string expected)
 
 let event_wait queue_name dbg ?from p =
+  Debug_info.with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  let dbg = Debug_info.to_string di in
   let finished = ref false in
   let event_id = ref from in
   let module Client = (val make_client queue_name : XENOPS) in
@@ -58,6 +60,8 @@ let event_wait queue_name dbg ?from p =
   done
 
 let task_ended queue_name dbg id =
+  Debug_info.with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  let dbg = Debug_info.to_string di in
   let module Client = (val make_client queue_name : XENOPS) in
   match (Client.TASK.stat dbg id).Task.state with
   | Task.Completed _ | Task.Failed _ ->
@@ -66,6 +70,8 @@ let task_ended queue_name dbg id =
       false
 
 let wait_for_task queue_name dbg id =
+  Debug_info.with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  let dbg = Debug_info.to_string di in
   let module Client = (val make_client queue_name : XENOPS) in
   let finished = function
     | Dynamic.Task id' ->
@@ -1419,6 +1425,8 @@ let id_of_vm ~__context ~self = Db.VM.get_uuid ~__context ~self
 let vm_of_id ~__context uuid = Db.VM.get_by_uuid ~__context ~uuid
 
 let vm_exists_in_xenopsd queue_name dbg id =
+  Debug_info.with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  let dbg = Debug_info.to_string di in
   let module Client = (val make_client queue_name : XENOPS) in
   Client.VM.exists dbg id
 
@@ -1793,6 +1801,18 @@ module Events_from_xenopsd = struct
     let module Client = (val make_client queue_name : XENOPS) in
     let t = make () in
     let id = register t in
+    Debug_info.with_dbg
+      ~attributes:
+        [
+          ("messaging.operation.name", "subscribe")
+        ; ("messaging.system", "event")
+        ; ("messaging.destination.subscription.name", vm_id)
+        ; ("messaging.message.id", string_of_int id)
+        ]
+      ~name:("subscribe" ^ " " ^ queue_name)
+      ~dbg
+    @@ fun di ->
+    let dbg = Debug_info.to_string di in
     debug "Client.UPDATES.inject_barrier %d" id ;
     Client.UPDATES.inject_barrier dbg vm_id id ;
     with_lock t.m (fun () ->
@@ -1802,6 +1822,17 @@ module Events_from_xenopsd = struct
     )
 
   let wakeup queue_name dbg id =
+    Debug_info.with_dbg
+      ~attributes:
+        [
+          ("messaging.operation.name", "settle")
+        ; ("messaging.system", "event")
+        ; ("messaging.message.id", string_of_int id)
+        ]
+      ~name:("settle" ^ " " ^ queue_name)
+      ~dbg
+    @@ fun di ->
+    let dbg = Debug_info.to_string di in
     let module Client = (val make_client queue_name : XENOPS) in
     Client.UPDATES.remove_barrier dbg id ;
     let t =
