@@ -51,6 +51,27 @@ let sort_based_on_ethx () =
            None
      )
 
+let read_previous_inventory () =
+  let previous_inventory = "/var/tmp/.previousInventory" in
+  Xapi_stdext_unix.Unixext.file_lines_fold
+    (fun acc line ->
+      match Inventory.parse_inventory_entry line with
+      | Some ("MANAGEMENT_INTERFACE", iface) ->
+          info "get management interface from previous inventory: %s" iface ;
+          (iface, snd acc)
+      | Some ("MANAGEMENT_ADDRESS_TYPE", addr_type) ->
+          info "get management address type from previous inventory: %s"
+            addr_type ;
+          (fst acc, addr_type)
+      | _ ->
+          acc
+    )
+    ("", "") previous_inventory
+
+let update_inventory () =
+  let iface, addr_type = read_previous_inventory () in
+  Network_config.write_manage_iface_to_inventory iface addr_type
+
 let handle_upgrade () =
   let interface_order =
     match Network_device_order.sort [] with
@@ -78,6 +99,7 @@ let handle_upgrade () =
       )
       previous_eth_devs
   in
+  update_inventory () ;
   (Some interface_order, changed_interfaces)
 
 let sort last_order =
