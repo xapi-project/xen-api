@@ -3516,6 +3516,18 @@ let vm_call_plugin fd printer rpc session_id params =
   let result = Client.VM.call_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args in
   printer (Cli_printer.PList [result])
 
+let vm_call_host_plugin fd printer rpc session_id params =
+  let vm_uuid = List.assoc "vm-uuid" params in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+  let plugin = List.assoc "plugin" params in
+  let fn = List.assoc "fn" params in
+  let args = read_map_params "args" params in
+  let args = List.map (args_file fd) args in
+  let result =
+    Client.VM.call_host_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args
+  in
+  printer (Cli_printer.PList [result])
+
 let data_source_to_kvs ds =
   [
     ("name_label", ds.API.data_source_name_label)
