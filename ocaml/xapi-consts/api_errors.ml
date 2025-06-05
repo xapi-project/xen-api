@@ -1323,6 +1323,8 @@ let configure_repositories_in_progress =
 
 let invalid_base_url = add_error "INVALID_BASE_URL"
 
+let blocked_repo_url = add_error "BLOCKED_REPO_URL"
+
 let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"
@@ -1425,6 +1427,12 @@ let disable_ssh_failed = add_error "DISABLE_SSH_FAILED"
 let enable_ssh_partially_failed = add_error "ENABLE_SSH_PARTIALLY_FAILED"
 
 let disable_ssh_partially_failed = add_error "DISABLE_SSH_PARTIALLY_FAILED"
+
+let set_ssh_timeout_partially_failed =
+  add_error "SET_SSH_TIMEOUT_PARTIALLY_FAILED"
+
+let set_console_timeout_partially_failed =
+  add_error "SET_CONSOLE_TIMEOUT_PARTIALLY_FAILED"
 
 let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
 

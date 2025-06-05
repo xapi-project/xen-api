@@ -153,7 +153,7 @@ type build_info = {
   ; kernel: string  (** in hvm case, point to hvmloader *)
   ; vcpus: int  (** vcpus max *)
   ; priv: builder_spec_info
-  ; has_hard_affinity: bool [@default false]
+  ; hard_affinity: int list list [@default []]
 }
 [@@deriving rpcty]
 
@@ -857,7 +857,13 @@ let numa_init () =
     )
     mem
 
-let numa_placement domid ~vcpus ~memory =
+let set_affinity = function
+  | Xenops_server.Hard ->
+      Xenctrlext.vcpu_setaffinity_hard
+  | Xenops_server.Soft ->
+      Xenctrlext.vcpu_setaffinity_soft
+
+let numa_placement domid ~vcpus ~memory affinity =
   let open Xenctrlext in
   let open Topology in
   with_lock numa_mutex (fun () ->
@@ -888,7 +894,7 @@ let numa_placement domid ~vcpus ~memory =
         | Some (cpu_affinity, mem_plan) ->
             let cpus = CPUSet.to_mask cpu_affinity in
             for i = 0 to vcpus - 1 do
-              Xenctrlext.vcpu_setaffinity_soft xcext domid i cpus
+              set_affinity affinity xcext domid i cpus
             done ;
             mem_plan
       in
@@ -898,7 +904,7 @@ let numa_placement domid ~vcpus ~memory =
       None
   )
 
-let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
+let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
   let open Memory in
   let uuid = get_uuid ~xc domid in
   debug "VM = %s; domid = %d; waiting for %Ld MiB of free host memory"
@@ -950,18 +956,46 @@ let build_pre ~xc ~xs ~vcpus ~memory ~has_hard_affinity domid =
   log_reraise (Printf.sprintf "shadow_allocation_set %d MiB" shadow_mib)
     (fun () -> Xenctrl.shadow_allocation_set xc domid shadow_mib
   ) ;
+  let apply_hard_vcpu_map () =
+    let xcext = Xenctrlext.get_handle () in
+    let pcpus = Xenctrlext.get_max_nr_cpus xcext in
+    let bitmap cpus : bool array =
+      (* convert a mask into a boolean array, one element per pCPU *)
+      let cpus = List.filter (fun x -> x >= 0 && x < pcpus) cpus in
+      let result = Array.init pcpus (fun _ -> false) in
+      List.iter (fun cpu -> result.(cpu) <- true) cpus ;
+      result
+    in
+    ( match hard_affinity with
+    | [] ->
+        []
+    | m :: ms ->
+        (* Treat the first as the template for the rest *)
+        let all_vcpus = List.init vcpus Fun.id in
+        let defaults = List.map (fun _ -> m) all_vcpus in
+        Xapi_stdext_std.Listext.List.take vcpus ((m :: ms) @ defaults)
+    )
+    |> List.iteri (fun vcpu mask ->
+           Xenctrlext.vcpu_setaffinity_hard xcext domid vcpu (bitmap mask)
+       )
+  in
+  apply_hard_vcpu_map () ;
   let node_placement =
     match !Xenops_server.numa_placement with
     | Any ->
         None
-    | Best_effort ->
+    | (Best_effort | Best_effort_hard) as pin ->
         log_reraise (Printf.sprintf "NUMA placement") (fun () ->
-            if has_hard_affinity then (
+            if hard_affinity <> [] then (
               D.debug "VM has hard affinity set, skipping NUMA optimization" ;
               None
             ) else
+              let affinity =
+                Xenops_server.affinity_of_numa_affinity_policy pin
+              in
               numa_placement domid ~vcpus
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
+                affinity
               |> Option.map fst
         )
   in
@@ -1129,7 +1163,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   let target_kib = info.memory_target in
   let vcpus = info.vcpus in
   let kernel = info.kernel in
-  let has_hard_affinity = info.has_hard_affinity in
+  let hard_affinity = info.hard_affinity in
   let force_arg = if force then ["--force"] else [] in
   assert_file_is_readable kernel ;
   (* Convert memory configuration values into the correct units. *)
@@ -1148,7 +1182,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         in
         maybe_ca_140252_workaround ~xc ~vcpus domid ;
         let store_port, console_port, numa_placement =
-          build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid
+          build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity domid
         in
         let store_mfn, console_mfn =
           let args =
@@ -1176,7 +1210,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         in
         Option.iter assert_file_is_readable pvinfo.ramdisk ;
         let store_port, console_port, numa_placement =
-          build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid
+          build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity domid
         in
         let store_mfn, console_mfn =
           let args =
@@ -1199,7 +1233,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         in
         maybe_ca_140252_workaround ~xc ~vcpus domid ;
         let store_port, console_port, numa_placement =
-          build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity domid
+          build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity domid
         in
         let store_mfn, console_mfn =
           let args =
@@ -1633,8 +1667,7 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
         (memory, vm_stuff, `pvh)
   in
   let store_port, console_port, numa_placements =
-    build_pre ~xc ~xs ~memory ~vcpus ~has_hard_affinity:info.has_hard_affinity
-      domid
+    build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity:info.hard_affinity domid
   in
   let store_mfn, console_mfn =
     restore_common task ~xc ~xs ~dm ~domain_type ~store_port ~store_domid

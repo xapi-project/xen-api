@@ -44,7 +44,7 @@ mli-files () {
 }
 
 structural-equality () {
-  N=9
+  N=7
   EQ=$(git grep -r --count ' == ' -- '**/*.ml' ':!ocaml/sdk-gen/**/*.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$EQ" -eq "$N" ]; then
     echo "OK counted $EQ usages of ' == '"
@@ -110,7 +110,7 @@ unixgetenv () {
 }
 
 hashtblfind () {
-  N=34
+  N=35
   # Looks for all .ml files except the ones using Core.Hashtbl.find,
   # which already returns Option
   HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)

@@ -538,18 +538,36 @@ let monitor_write_loop writers =
           while true do
             try
               do_monitor_write xc writers ;
-              with_lock Rrdd_shared.last_loop_end_time_m (fun _ ->
-                  Rrdd_shared.last_loop_end_time := Unix.gettimeofday ()
+              with_lock Rrdd_shared.next_iteration_start_m (fun _ ->
+                  Rrdd_shared.next_iteration_start :=
+                    Clock.Timer.extend_by !Rrdd_shared.timeslice
+                      !Rrdd_shared.next_iteration_start
               ) ;
-              Thread.delay !Rrdd_shared.timeslice
+              match Clock.Timer.remaining !Rrdd_shared.next_iteration_start with
+              | Remaining remaining ->
+                  Thread.delay (Clock.Timer.span_to_s remaining)
+              | Expired missed_by ->
+                  warn
+                    "%s: Monitor write iteration missed cycle by %a, skipping \
+                     the delay"
+                    __FUNCTION__ Debug.Pp.mtime_span missed_by ;
+                  (* To avoid to use up 100% CPU when the timer is already
+                     expired, still delay 1s *)
+                  Thread.delay 1.
             with e ->
               Backtrace.is_important e ;
               warn
-                "Monitor/write thread caught an exception. Pausing for 10s, \
-                 then restarting: %s"
-                (Printexc.to_string e) ;
+                "%s: Monitor/write thread caught an exception. Pausing for \
+                 10s, then restarting: %s"
+                __FUNCTION__ (Printexc.to_string e) ;
               log_backtrace e ;
-              Thread.delay 10.
+              Thread.delay 10. ;
+              with_lock Rrdd_shared.next_iteration_start_m (fun _ ->
+                  Rrdd_shared.next_iteration_start :=
+                    Clock.Timer.extend_by
+                      Mtime.Span.(10 * s)
+                      !Rrdd_shared.next_iteration_start
+              )
           done
       )
     )

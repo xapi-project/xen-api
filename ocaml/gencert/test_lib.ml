@@ -50,6 +50,11 @@ let valid_leaf_certificates =
     , "2020-02-01T00:00:00Z"
     , `SHA256
     )
+  ; ( "Valid, SHA512, matches key"
+    , "pkey_rsa_2048"
+    , "2020-02-01T00:00:00Z"
+    , `SHA512
+    )
   ]
 
 (* ( description, leaf_private_key, expected_private_key, time_of_validation,
@@ -77,6 +82,14 @@ let invalid_leaf_certificates =
     , "pkey_rsa_4096"
     , "2020-02-01T00:00:00Z"
     , `SHA256
+    , server_certificate_key_mismatch
+    , []
+    )
+  ; ( "Valid, SHA512, keys do not match"
+    , "pkey_rsa_2048"
+    , "pkey_rsa_4096"
+    , "2020-02-01T00:00:00Z"
+    , `SHA512
     , server_certificate_key_mismatch
     , []
     )
@@ -166,11 +179,20 @@ let test_valid_leaf_cert pem_leaf time pkey () =
   match validate_pem_chain ~pem_leaf ~pem_chain:None time pkey with
   | Ok _ ->
       ()
-  | Error (`Msg (_, msg)) ->
+  | Error (`Msg err) ->
+      let err_to_str (name, params) =
+        let Datamodel_types.{err_doc; err_params; _} =
+          Hashtbl.find Datamodel_errors.errors name
+        in
+        let args = List.combine err_params params in
+        Format.asprintf "%s %a" err_doc
+          Fmt.(Dump.list (pair ~sep:(Fmt.any ":@ ") string string))
+          args
+      in
       Alcotest.fail
         (Format.asprintf "Valid certificate could not be validated: %a"
-           Fmt.(Dump.list string)
-           msg
+           (Fmt.of_to_string err_to_str)
+           err
         )
 
 let test_invalid_cert pem_leaf time pkey error reason =

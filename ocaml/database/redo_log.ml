@@ -77,8 +77,7 @@ type redo_log_conf = {
   ; backoff_delay: int ref
   ; sock: Unix.file_descr option ref
   ; pid: (Forkhelpers.pidty * string * string) option ref
-  ; dying_processes_mutex: Mutex.t
-  ; num_dying_processes: int ref
+  ; num_dying_processes: int Atomic.t
   ; mutex: Mutex.t  (** exclusive access to this configuration *)
 }
 
@@ -585,14 +584,10 @@ let shutdown log =
             (Thread.create
                (fun () ->
                  D.debug "Waiting for I/O process with pid %d to die..." ipid ;
-                 with_lock log.dying_processes_mutex (fun () ->
-                     log.num_dying_processes := !(log.num_dying_processes) + 1
-                 ) ;
+                 Atomic.incr log.num_dying_processes ;
                  ignore (Forkhelpers.waitpid p) ;
                  D.debug "Finished waiting for process with pid %d" ipid ;
-                 with_lock log.dying_processes_mutex (fun () ->
-                     log.num_dying_processes := !(log.num_dying_processes) - 1
-                 )
+                 Atomic.decr log.num_dying_processes
                )
                ()
             ) ;
@@ -633,13 +628,11 @@ let startup log =
           () (* We're already started *)
       | None -> (
           (* Don't start if there are already some processes hanging around *)
-          with_lock log.dying_processes_mutex (fun () ->
-              if
-                !(log.num_dying_processes)
-                >= Db_globs.redo_log_max_dying_processes
-              then
-                raise TooManyProcesses
-          ) ;
+          if
+            Atomic.get log.num_dying_processes
+            >= Db_globs.redo_log_max_dying_processes
+          then
+            raise TooManyProcesses ;
           match !(log.device) with
           | None ->
               D.info "Could not find block device" ;
@@ -793,8 +786,7 @@ let create ~name ~state_change_callback ~read_only =
     ; backoff_delay= ref Db_globs.redo_log_initial_backoff_delay
     ; sock= ref None
     ; pid= ref None
-    ; dying_processes_mutex= Mutex.create ()
-    ; num_dying_processes= ref 0
+    ; num_dying_processes= Atomic.make 0
     ; mutex= Mutex.create ()
     }
   in

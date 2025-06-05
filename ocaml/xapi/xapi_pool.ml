@@ -1047,6 +1047,10 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssl_legacy:false
           ~last_software_update:host.API.host_last_software_update
           ~last_update_hash:host.API.host_last_update_hash
+          ~ssh_enabled:host.API.host_ssh_enabled
+          ~ssh_enabled_timeout:host.API.host_ssh_enabled_timeout
+          ~ssh_expiry:host.API.host_ssh_expiry
+          ~console_idle_timeout:host.API.host_console_idle_timeout
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -1640,6 +1644,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
         )
   in
 
+  let remote_coordinator = get_master ~rpc ~session_id in
   (* If management is on a VLAN, then get the Pool master
      management network bridge before we logout the session *)
   let pool_master_bridge, mgmt_pif =
@@ -1650,7 +1655,7 @@ let join_common ~__context ~master_address ~master_username ~master_password
     if Db.PIF.get_VLAN_master_of ~__context ~self:my_pif <> Ref.null then
       let pif =
         Client.Host.get_management_interface ~rpc ~session_id
-          ~host:(get_master ~rpc ~session_id)
+          ~host:remote_coordinator
       in
       let network = Client.PIF.get_network ~rpc ~session_id ~self:pif in
       (Some (Client.Network.get_bridge ~rpc ~session_id ~self:network), my_pif)
@@ -1740,8 +1745,39 @@ let join_common ~__context ~master_address ~master_username ~master_password
             "Unable to set the write the new pool certificates to the disk : %s"
             (ExnHelper.string_of_exn e)
       ) ;
-      Db.Host.set_latest_synced_updates_applied ~__context ~self:me
-        ~value:`unknown ;
+      ( try
+          let ssh_enabled_timeout =
+            Client.Host.get_ssh_enabled_timeout ~rpc ~session_id
+              ~self:remote_coordinator
+          in
+          let console_idle_timeout =
+            Client.Host.get_console_idle_timeout ~rpc ~session_id
+              ~self:remote_coordinator
+          in
+          Xapi_host.set_console_idle_timeout ~__context ~self:me
+            ~value:console_idle_timeout ;
+          Xapi_host.set_ssh_enabled_timeout ~__context ~self:me
+            ~value:ssh_enabled_timeout ;
+          let ssh_enabled =
+            Client.Host.get_ssh_enabled ~rpc ~session_id
+              ~self:remote_coordinator
+          in
+          (* As ssh_expiry will be updated by host.enable_ssh and host.disable_ssh,
+             there is a corner case when the joiner's SSH state will not match SSH
+             service state in its new coordinator exactly: if the joiner joins when
+             SSH service has been enabled in the new coordinator, while not timed
+             out yet, the joiner will start SSH service with timeout
+             host.ssh_enabled_timeout, which means SSH service in the joiner will
+             be disabled later than in the new coordinator. *)
+          match ssh_enabled with
+          | true ->
+              Xapi_host.enable_ssh ~__context ~self:me
+          | false ->
+              Xapi_host.disable_ssh ~__context ~self:me
+        with e ->
+          error "Unable to configure SSH service on local host: %s"
+            (ExnHelper.string_of_exn e)
+      ) ;
       (* this is where we try and sync up as much state as we can
          with the master. This is "best effort" rather than
          critical; if we fail part way through this then we carry
@@ -2097,6 +2133,23 @@ let eject_self ~__context ~host =
           control_domains_to_destroy
       with _ -> ()
     ) ;
+    ( try
+        (* Restore console idle timeout *)
+        Xapi_host.set_console_idle_timeout ~__context ~self:host
+          ~value:Constants.default_console_idle_timeout ;
+        (* Restore SSH service to default state *)
+        Xapi_host.set_ssh_enabled_timeout ~__context ~self:host
+          ~value:Constants.default_ssh_enabled_timeout ;
+        match Constants.default_ssh_enabled with
+        | true ->
+            Xapi_host.enable_ssh ~__context ~self:host
+        | false ->
+            Xapi_host.disable_ssh ~__context ~self:host
+      with e ->
+        warn "Caught %s while restoring ssh service. Ignoring"
+          (Printexc.to_string e)
+    ) ;
+
     debug "Pool.eject: setting our role to be master" ;
     Xapi_pool_transition.set_role Pool_role.Master ;
     debug "Pool.eject: forgetting pool secret" ;
@@ -4088,8 +4141,26 @@ module Ssh = struct
   let disable ~__context ~self:_ =
     operate ~__context ~action:Client.Host.disable_ssh
       ~error:Api_errors.disable_ssh_partially_failed
+
+  let set_enabled_timeout ~__context ~self:_ ~value =
+    operate ~__context
+      ~action:(fun ~rpc ~session_id ~self ->
+        Client.Host.set_ssh_enabled_timeout ~rpc ~session_id ~self ~value
+      )
+      ~error:Api_errors.set_ssh_timeout_partially_failed
+
+  let set_console_timeout ~__context ~self:_ ~value =
+    operate ~__context
+      ~action:(fun ~rpc ~session_id ~self ->
+        Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
+      )
+      ~error:Api_errors.set_console_timeout_partially_failed
 end
 
 let enable_ssh = Ssh.enable
 
 let disable_ssh = Ssh.disable
+
+let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
+
+let set_console_idle_timeout = Ssh.set_console_timeout

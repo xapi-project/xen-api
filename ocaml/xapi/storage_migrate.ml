@@ -40,29 +40,15 @@ let choose_backend dbg sr =
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  (** [receive_finalize2 dbg mirror_id sr url verify_dest] takes an [sr] parameter
+  (** [receive_finalize3 dbg mirror_id sr url verify_dest] takes an [sr] parameter
   which is the source sr and multiplexes based on the type of that *)
-  let receive_finalize2 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+  let receive_finalize3 ~dbg ~mirror_id ~sr ~url ~verify_dest =
     let (module Migrate_Backend) = choose_backend dbg sr in
-    Migrate_Backend.receive_finalize2 () ~dbg ~mirror_id ~sr ~url ~verify_dest
+    Migrate_Backend.receive_finalize3 () ~dbg ~mirror_id ~sr ~url ~verify_dest
 
-  let receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest =
-    let (module Remote) =
-      Storage_migrate_helper.get_remote_backend url verify_dest
-    in
-    let receive_state = State.find_active_receive_mirror mirror_id in
-    let open State.Receive_state in
-    Option.iter
-      (fun r ->
-        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
-        List.iter
-          (fun v ->
-            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
-          )
-          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
-      )
-      receive_state ;
-    State.remove_receive_mirror mirror_id
+  let receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    let (module Migrate_Backend) = choose_backend dbg sr in
+    Migrate_Backend.receive_cancel2 () ~dbg ~mirror_id ~url ~verify_dest
 end
 
 (** This module [MigrateLocal] consists of the concrete implementations of the 
@@ -107,7 +93,7 @@ module MigrateLocal = struct
                 debug "Snapshot VDI already cleaned up"
             ) ;
             try
-              MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id
+              MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id ~sr
                 ~url:remote_info.url ~verify_dest:remote_info.verify_dest
             with _ -> ()
           )
@@ -186,8 +172,8 @@ module MigrateLocal = struct
           ~verify_dest
       in
       Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
-        ~mirror_id ~local_vdi ~copy_vm ~live_vm:(Vm.of_string "0") ~url
-        ~remote_mirror ~dest_sr:dest ~verify_dest ;
+        ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
+        ~dest_sr:dest ~verify_dest ;
       Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
@@ -196,9 +182,14 @@ module MigrateLocal = struct
         raise (Api_errors.Server_error (Api_errors.sr_not_attached, [sr_uuid]))
     | ( Storage_error (Migration_mirror_fd_failure reason)
       | Storage_error (Migration_mirror_snapshot_failure reason) ) as e ->
-        error "%s: Caught %s: during storage migration preparation" __FUNCTION__
-          reason ;
-        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~url ~verify_dest ;
+        error "%s: Caught %s: during SMAPIv1 storage migration mirror "
+          __FUNCTION__ reason ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest ;
+        raise e
+    | Storage_error (Migration_mirror_failure reason) as e ->
+        error "%s: Caught :%s: during SMAPIv3 storage migration mirror"
+          __FUNCTION__ reason ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest ;
         raise e
     | Storage_error (Migration_mirror_copy_failure reason) as e ->
         error "%s: Caught %s: during storage migration copy" __FUNCTION__ reason ;
@@ -307,10 +298,11 @@ module MigrateLocal = struct
       copy_ops ;
     List.iter
       (fun (mirror_id, (recv_state : State.Receive_state.t)) ->
+        let sr, _vdi = State.of_mirror_id mirror_id in
         debug "Receive in progress: %s" mirror_id ;
         log_and_ignore_exn (fun () ->
-            MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~url:recv_state.url
-              ~verify_dest:recv_state.verify_dest
+            MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr
+              ~url:recv_state.url ~verify_dest:recv_state.verify_dest
         )
       )
       recv_ops ;
@@ -332,15 +324,14 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
              r.remote_info
          in
          let (module Remote) = get_remote_backend r.url verify_dest in
-         debug "Calling receive_finalize2" ;
+         debug "Calling receive_finalize3" ;
          log_and_ignore_exn (fun () ->
-             MigrateRemote.receive_finalize2 ~dbg:"Mirror-cleanup" ~mirror_id:id
+             MigrateRemote.receive_finalize3 ~dbg:"Mirror-cleanup" ~mirror_id:id
                ~sr ~url:r.url ~verify_dest
          ) ;
-         debug "Finished calling receive_finalize2" ;
+         debug "Finished calling receive_finalize3" ;
          State.remove_local_mirror id ;
-         debug "Removed active local mirror: %s" id ;
-         Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog
+         debug "Removed active local mirror: %s" id
      )
 
 let nbd_handler req s ?(vm = "0") sr vdi dp =
@@ -373,7 +364,7 @@ let nbd_handler req s ?(vm = "0") sr vdi dp =
 (** nbd_proxy is a http handler but will turn the http connection into an nbd connection.
 It proxies the connection between the sender and the generic nbd server, as returned
 by [get_nbd_server dp sr vdi vm]. *)
-let nbd_proxy req s vm sr vdi dp =
+let import_nbd_proxy req s vm sr vdi dp =
   debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
   let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
   req.Http.Request.close <- true ;
@@ -451,7 +442,9 @@ let stop = MigrateLocal.stop
 
 let list = MigrateLocal.list
 
-let killall = MigrateLocal.killall
+let killall ~dbg =
+  with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  MigrateLocal.killall ~dbg:(Debug_info.to_string di)
 
 let stat = MigrateLocal.stat
 

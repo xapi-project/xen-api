@@ -27,6 +27,8 @@ let s_of_vdi = Storage_interface.Vdi.string_of
 
 let s_of_vm = Storage_interface.Vm.string_of
 
+let s_of_operation = Storage_interface.Mirror.show_operation
+
 let with_dbg ~name ~dbg f =
   Debug_info.with_dbg ~with_thread:true ~module_name:"SMAPIv2" ~name ~dbg f
 
@@ -645,7 +647,13 @@ module Mux = struct
       let module C = StorageAPI (Idl.Exn.GenClient (struct
         let rpc = of_sr sr
       end)) in
-      C.VDI.deactivate (Debug_info.to_string di) dp sr vdi vm
+      C.VDI.deactivate (Debug_info.to_string di) dp sr vdi vm ;
+      (*XX The hook should not be called here, nor should storage_mux care about
+        the SMAPI version of the SR, but as xapi-storage-script cannot call code
+        xapi, and smapiv1_wrapper has state tracking logic, the hook has to be placed
+        here for now. *)
+      if smapi_version_of_sr sr = SMAPIv3 then
+        Storage_migrate.post_deactivate_hook ~sr ~vdi ~dp
 
     let detach () ~dbg ~dp ~sr ~vdi ~vm =
       with_dbg ~name:"VDI.detach" ~dbg @@ fun di ->
@@ -797,6 +805,24 @@ module Mux = struct
     let copy () ~dbg =
       with_dbg ~name:"DATA.copy" ~dbg @@ fun dbg -> Storage_migrate.copy ~dbg
 
+    let mirror () ~dbg ~sr ~vdi ~vm ~dest =
+      with_dbg ~name:"DATA.mirror" ~dbg @@ fun di ->
+      info "%s dbg:%s sr: %s vdi: %s vm:%s  remote:%s" __FUNCTION__ dbg
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) dest ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DATA.mirror (Debug_info.to_string di) sr vdi vm dest
+
+    let stat () ~dbg ~sr ~vdi ~vm ~key =
+      with_dbg ~name:"DATA.stat" ~dbg @@ fun di ->
+      info "%s dbg:%s sr: %s vdi: %s vm: %s opeartion_key: %s" __FUNCTION__ dbg
+        (s_of_sr sr) (s_of_vdi vdi) (s_of_vm vm) (s_of_operation key) ;
+      let module C = StorageAPI (Idl.Exn.GenClient (struct
+        let rpc = of_sr sr
+      end)) in
+      C.DATA.stat (Debug_info.to_string di) sr vdi vm key
+
     let import_activate () ~dbg ~dp ~sr ~vdi ~vm =
       with_dbg ~name:"DATA.import_activate" ~dbg @@ fun di ->
       info "%s dbg:%s dp:%s sr:%s vdi:%s vm:%s" __FUNCTION__ dbg dp (s_of_sr sr)
@@ -861,7 +887,12 @@ module Mux = struct
         info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
         Storage_smapiv1_migrate.MIRROR.receive_finalize () ~dbg:di.log ~id
 
-      let receive_finalize2 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
+      let receive_finalize2 () ~dbg ~id =
+        with_dbg ~name:"DATA.MIRROR.receive_finalize2" ~dbg @@ fun di ->
+        info "%s dbg: %s mirror_id: %s" __FUNCTION__ dbg id ;
+        Storage_smapiv1_migrate.MIRROR.receive_finalize2 () ~dbg:di.log ~id
+
+      let receive_finalize3 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
         u __FUNCTION__
 
       let receive_cancel () ~dbg ~id =

@@ -203,7 +203,8 @@ module Copy = struct
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
         Http.Url.set_uri url'
-          (Printf.sprintf "%s/nbdproxy/%s/%s/%s/%s" (Http.Url.get_uri url')
+          (Printf.sprintf "%s/nbdproxy/import/%s/%s/%s/%s"
+             (Http.Url.get_uri url')
              (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
@@ -578,6 +579,12 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
+
+    let read_write = true in
+    (* DP set up is only essential for MIRROR.start/stop due to their open ended pattern.
+       It's not necessary for copy which will take care of that itself. *)
+    ignore (Local.VDI.attach3 dbg dp sr vdi (Vm.of_string "0") read_write) ;
+    Local.VDI.activate3 dbg dp sr vdi (Vm.of_string "0") ;
     match remote_mirror with
     | Mirror.SMAPIv3_mirror _ ->
         (* this should never happen *)
@@ -681,7 +688,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
          stored in memory on different hosts. If receive_start is called, by an older
          host, this State.add is run on the destination host. On the other hand, if
          receive_start3 is called, this will be stored in memory on the source host.
-         receive_finalize2 and receive_cancel2 handles this similarly. *)
+         receive_finalize3 and receive_cancel2 handles this similarly. *)
       State.add id
         State.(
           Recv_op
@@ -749,12 +756,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
     Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
     State.remove_receive_mirror id
 
-  let receive_finalize2 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
-    D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
-      mirror_id (s_of_sr sr) url verify_dest ;
-    let (module Remote) =
-      Storage_migrate_helper.get_remote_backend url verify_dest
-    in
+  let receive_finalize_common ~dbg ~mirror_id (module SMAPI : SMAPIv2) =
     let recv_state = State.find_active_receive_mirror mirror_id in
     let open State.Receive_state in
     Option.iter
@@ -764,15 +766,27 @@ module MIRROR : SMAPIv2_MIRROR = struct
           __FUNCTION__ (Sr.string_of r.sr)
           (Vdi.string_of r.parent_vdi)
           (Vdi.string_of r.leaf_vdi) ;
-        Remote.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
-        Remote.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
+        SMAPI.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
+        SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
         (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
            there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr r.dummy_vdi) ;
-        Remote.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
+        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;
     State.remove_receive_mirror mirror_id
+
+  let receive_finalize2 _ctx ~dbg ~id =
+    D.debug "%s dbg:%s id: %s" __FUNCTION__ dbg id ;
+    receive_finalize_common ~dbg ~mirror_id:id (module Local)
+
+  let receive_finalize3 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
+      mirror_id (s_of_sr sr) url verify_dest ;
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    receive_finalize_common ~dbg ~mirror_id (module Remote)
 
   let receive_cancel _ctx ~dbg ~id =
     D.debug "%s dbg:%s mirror_id:%s" __FUNCTION__ dbg id ;
@@ -789,10 +803,6 @@ module MIRROR : SMAPIv2_MIRROR = struct
       )
       receive_state ;
     State.remove_receive_mirror id
-
-  let receive_cancel2 _ctx ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
-    (* see Storage_migrate.receive_cancel2 *)
-    u __FUNCTION__
 
   exception Timeout of Mtime.Span.t
 
@@ -836,7 +846,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
                  if st.Stats.nbd_mirror_failed = 1 then (
                    D.error "tapdisk reports mirroring failed" ;
                    s.failed <- true
-                 )
+                 ) ;
+                 Option.iter
+                   (fun id -> Scheduler.cancel scheduler id)
+                   s.watchdog
            with
            | Timeout elapsed ->
                D.error
@@ -868,4 +881,22 @@ module MIRROR : SMAPIv2_MIRROR = struct
   let list _ctx = u __FUNCTION__
 
   let stat _ctx = u __FUNCTION__
+
+  let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
+    let (module Remote) =
+      Storage_migrate_helper.get_remote_backend url verify_dest
+    in
+    let receive_state = State.find_active_receive_mirror mirror_id in
+    let open State.Receive_state in
+    Option.iter
+      (fun r ->
+        D.log_and_ignore_exn (fun () -> Remote.DP.destroy dbg r.leaf_dp false) ;
+        List.iter
+          (fun v ->
+            D.log_and_ignore_exn (fun () -> Remote.VDI.destroy dbg r.sr v)
+          )
+          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
+      )
+      receive_state ;
+    State.remove_receive_mirror mirror_id
 end

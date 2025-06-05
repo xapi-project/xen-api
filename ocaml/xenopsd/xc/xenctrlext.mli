@@ -78,6 +78,9 @@ type numainfo = {memory: meminfo array; distances: int array array}
 
 type cputopo = {core: int; socket: int; node: int}
 
+external vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
+  = "stub_xenctrlext_vcpu_setaffinity_hard"
+
 external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
   = "stub_xenctrlext_vcpu_setaffinity_soft"
 

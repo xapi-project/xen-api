@@ -1137,10 +1137,16 @@ functor
     end
 
     module DATA = struct
+      let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
+
       let copy context ~dbg ~sr ~vdi ~vm ~url ~dest =
         info "DATA.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) url (s_of_sr dest) ;
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
+
+      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ = u "DATA.mirror"
+
+      let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ = u "DATA.stat"
 
       (* tapdisk supports three kind of nbd servers, the old style nbdserver,
          the new style nbd server and a real nbd server. The old and new style nbd servers
@@ -1186,9 +1192,6 @@ functor
       module MIRROR = struct
         type context = unit
 
-        let u x =
-          raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
         let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
             ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
             ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
@@ -1218,7 +1221,11 @@ functor
           info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_finalize context ~dbg ~id
 
-        let receive_finalize2 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
+        let receive_finalize2 context ~dbg ~id =
+          info "DATA.MIRROR.receive_finalize2 dbg:%s id:%s" dbg id ;
+          Impl.DATA.MIRROR.receive_finalize2 context ~dbg ~id
+
+        let receive_finalize3 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
             ~verify_dest:_ =
           (* see storage_smapiv{1,3}_migrate *)
           u __FUNCTION__
