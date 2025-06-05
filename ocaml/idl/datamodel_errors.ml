@@ -2068,6 +2068,9 @@ let _ =
        enable it in XC or run xe pool-enable-tls-verification instead."
     () ;
 
+  error Api_errors.limit_console_access_failed []
+    ~doc:"Failed to limit console access." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

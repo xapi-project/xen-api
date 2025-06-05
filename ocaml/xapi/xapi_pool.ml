@@ -4164,3 +4164,24 @@ let disable_ssh = Ssh.disable
 let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 
 let set_console_idle_timeout = Ssh.set_console_timeout
+
+let limit_console_access ~__context ~self:_ ~value =
+  let assert_value_valid value =
+    if value < 0L then
+      raise
+        (Api_errors.Server_error
+           ( Api_errors.invalid_value
+           , ["console_access_limit"; Int64.to_string value]
+           )
+        )
+  in
+  assert_value_valid value ;
+
+  try
+    (* Currently, we limit the console access to 1 *)
+    let value = if value > 1L then 1L else value in
+    let pool = Helpers.get_pool ~__context in
+    Db.Pool.set_console_access_limit ~__context ~self:pool ~value
+  with e ->
+    error "Failed to set console access limit: %s" (Printexc.to_string e) ;
+    raise Api_errors.(Server_error (limit_console_access_failed, []))

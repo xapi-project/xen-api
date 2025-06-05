@@ -1197,6 +1197,10 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_console_idle_timeout ~__context ~self ~value
+
+      let limit_console_access ~__context ~self =
+        info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
+        Local.Pool.limit_console_access ~__context ~self
     end
 
     module VM = struct
