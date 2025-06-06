@@ -1170,6 +1170,7 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
 
 let call_host_plugin ~__context ~vm ~plugin ~fn ~args =
   (* vm is unused; was used to find the host *)
+  let _ = vm in
   Xapi_plugins.call_plugin (Context.get_session_id __context) plugin fn args
 
 let send_sysrq ~__context ~vm:_ ~key:_ =
