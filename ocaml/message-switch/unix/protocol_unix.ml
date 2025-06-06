@@ -364,7 +364,14 @@ module Client = struct
             do_rpc c.requests_conn (In.CreatePersistent dest_queue_name)
             >>|= fun (_ : string) ->
             let msg =
-              Tracing.with_tracing ~span_kind:Producer ~parent:_span_parent
+              Tracing.with_tracing
+                ~attributes:
+                  [
+                    ("messaging.operation.name", "send")
+                  ; ("messaging.system", "message-switch")
+                  ; ("messaging.destination.name", dest_queue_name)
+                  ]
+                ~span_kind:Producer ~parent:_span_parent
                 ~name:("send" ^ " " ^ dest_queue_name)
                 (fun _ ->
                   In.Send
