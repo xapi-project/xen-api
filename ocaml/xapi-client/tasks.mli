@@ -12,6 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module TaskSet : Set.S with type elt = API.ref_task
+
 val wait_for_all :
      rpc:(Rpc.call -> Rpc.response)
   -> session_id:API.ref_session
