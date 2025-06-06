@@ -347,7 +347,7 @@ module Client = struct
               Ok c'
       )
 
-  let rpc ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
+  let rpc ?_span_parent ~t:c ~queue:dest_queue_name ?timeout ~body:x () =
     let t = Ivar.create () in
     let timer =
       Option.map
@@ -364,9 +364,23 @@ module Client = struct
             do_rpc c.requests_conn (In.CreatePersistent dest_queue_name)
             >>|= fun (_ : string) ->
             let msg =
-              In.Send
-                ( dest_queue_name
-                , {Message.payload= x; kind= Message.Request c.reply_queue_name}
+              Tracing.with_tracing
+                ~attributes:
+                  [
+                    ("messaging.operation.name", "send")
+                  ; ("messaging.system", "message-switch")
+                  ; ("messaging.destination.name", dest_queue_name)
+                  ]
+                ~span_kind:Producer ~parent:_span_parent
+                ~name:("send" ^ " " ^ dest_queue_name)
+                (fun _ ->
+                  In.Send
+                    ( dest_queue_name
+                    , {
+                        Message.payload= x
+                      ; kind= Message.Request c.reply_queue_name
+                      }
+                    )
                 )
             in
             do_rpc c.requests_conn msg >>|= fun (id : string) ->

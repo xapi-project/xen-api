@@ -190,12 +190,12 @@ module Tracer : sig
     -> (Span.t option, exn) result
 
   val update_span_with_parent : Span.t -> Span.t option -> Span.t option
-  (**[update_span_with_parent s p] returns [Some span] where [span] is an 
+  (**[update_span_with_parent s p] returns [Some span] where [span] is an
   updated verison of the span [s].
-  If [p] is [Some parent], [span] is a child of [parent], otherwise it is the 
+  If [p] is [Some parent], [span] is a child of [parent], otherwise it is the
   original [s].
-  
-  If the span [s] is finished or is no longer considered an on-going span, 
+
+  If the span [s] is finished or is no longer considered an on-going span,
   returns [None].
   *)
 
@@ -209,7 +209,7 @@ module Tracer : sig
   val finished_span_hashtbl_is_empty : unit -> bool
 end
 
-(** [TracerProvider] module provides ways to intereact with the tracer providers. 
+(** [TracerProvider] module provides ways to intereact with the tracer providers.
     *)
 module TracerProvider : sig
   (** Type that represents a tracer provider.*)
@@ -222,7 +222,7 @@ module TracerProvider : sig
     -> name_label:string
     -> uuid:string
     -> unit
-  (** [create ~enabled ~attributes ~endpoints ~name_label ~uuid] initializes a 
+  (** [create ~enabled ~attributes ~endpoints ~name_label ~uuid] initializes a
       tracer provider based on the following parameters: [enabled], [attributes],
       [endpoints], [name_label], and [uuid]. *)
 
@@ -234,17 +234,17 @@ module TracerProvider : sig
     -> unit
     -> unit
   (** [set ?enabled ?attributes ?endpoints ~uuid ()] updates the tracer provider
-      identified by the given [uuid] with the new configuration paremeters: 
-      [enabled], [attributes], and [endpoints]. 
-        
+      identified by the given [uuid] with the new configuration paremeters:
+      [enabled], [attributes], and [endpoints].
+
       If any of the configuration parameters are
       missing, the old ones are kept.
-        
+
       Raises [Failure] if there are no tracer provider with the given [uuid].
       *)
 
   val destroy : uuid:string -> unit
-  (** [destroy ~uuid] destroys the tracer provider with the given [uuid]. 
+  (** [destroy ~uuid] destroys the tracer provider with the given [uuid].
       If there are no tracer provider with the given [uuid], it does nothing.
       *)
 
@@ -269,6 +269,7 @@ val enable_span_garbage_collector : ?timeout:float -> unit -> unit
 val with_tracing :
      ?attributes:(string * string) list
   -> ?parent:Span.t option
+  -> ?span_kind:SpanKind.t
   -> ?trace_context:TraceContext.t
   -> name:string
   -> (Span.t option -> 'a)
@@ -288,24 +289,24 @@ val get_observe : unit -> bool
 
 val validate_attribute : string * string -> bool
 
-(** [EnvHelpers] module is a helper module for the tracing library to easily 
-    transition back and forth between a string list of environment variables to 
-    a traceparent. 
+(** [EnvHelpers] module is a helper module for the tracing library to easily
+    transition back and forth between a string list of environment variables to
+    a traceparent.
     *)
 module EnvHelpers : sig
   val traceparent_key : string
   (** [traceparent_key] is a constant the represents the key of the traceparent
-      environment variable. 
+      environment variable.
       *)
 
   val of_traceparent : string option -> string list
   (** [of_traceparent traceparent_opt] returns a singleton list consisting of a
-      envirentment variable with the key [traceparent_key] and value [v] if 
+      envirentment variable with the key [traceparent_key] and value [v] if
       [traceparent_opt] is [Some v]. Otherwise, returns an empty list. *)
 
   val to_traceparent : string list -> string option
-  (** [to_traceparent env_var_lst] returns [Some v] where v is the value of the 
-      environmental variable coresponding to the key [traceparent_key] from a 
+  (** [to_traceparent env_var_lst] returns [Some v] where v is the value of the
+      environmental variable coresponding to the key [traceparent_key] from a
       string list of environmental variables [env_var_lst]. If there is no such
       evironmental variable in the list, it returns [None].
       *)
@@ -314,7 +315,7 @@ module EnvHelpers : sig
   (** [of_span span] returns a singleton list consisting of a
       envirentment variable with the key [traceparent_key] and value [v], where
       [v] is traceparent representation of span [s] (if [span] is [Some s]).
-        
+
       If [span] is [None], it returns an empty list.
       *)
 end
