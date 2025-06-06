@@ -2098,6 +2098,19 @@ let call_plugin =
     ~result:(String, "Result from the plugin")
     ~allowed_roles:_R_VM_OP ()
 
+let call_host_plugin =
+  call ~name:"call_host_plugin"
+    ~doc:"Call an API plugin on the host where this vm resides" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _vm, "vm", "The vm")
+      ; (String, "plugin", "The name of the plugin")
+      ; (String, "fn", "The name of the function within the plugin")
+      ; (Map (String, String), "args", "Arguments for the function")
+      ]
+    ~result:(String, "Result from the plugin")
+    ~allowed_roles:_R_VM_OP ()
+
 let set_has_vendor_device =
   call ~name:"set_has_vendor_device"
     ~lifecycle:
@@ -2545,6 +2558,7 @@ let t =
       ; set_groups
       ; query_services
       ; call_plugin
+      ; call_host_plugin
       ; set_has_vendor_device
       ; import
       ; set_actions_after_crash
