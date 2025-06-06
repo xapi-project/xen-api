@@ -2038,6 +2038,9 @@ functor
         let local_fn = Local.VM.call_host_plugin ~vm ~plugin ~fn ~args in
         let remote_fn = Client.VM.call_host_plugin ~vm ~plugin ~fn ~args in
         let power_state = Db.VM.get_power_state ~__context ~self:vm in
+        (* Insisting on running to make sure xenstore and domain exist
+           and the VM can react to xenstore events. Permitting Paused in
+           addition could be an option *)
         if power_state <> `Running then
           raise
             Api_errors.(
