@@ -2957,60 +2957,65 @@ let update_task ~__context queue_name id =
       error "xenopsd event: Caught %s while updating task" (string_of_exn e)
 
 let rec events_watch ~__context cancel queue_name from =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
-  let dbg = Context.string_of_task_and_tracing __context in
-  if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0 ;
-  let module Client = (val make_client queue_name : XENOPS) in
-  let barriers, events, next = Client.UPDATES.get dbg from None in
-  if !cancel then
-    raise (Api_errors.Server_error (Api_errors.task_cancelled, [])) ;
-  let done_events = ref [] in
-  let already_done x = List.mem x !done_events in
-  let add_event x = done_events := x :: !done_events in
-  let do_updates l =
-    let open Dynamic in
-    List.iter
-      (fun ev ->
-        debug "Processing event: %s"
-          (ev |> Dynamic.rpc_of_id |> Jsonrpc.to_string) ;
-        if already_done ev then
-          debug "Skipping (already processed this round)"
-        else (
-          add_event ev ;
-          match ev with
-          | Vm id ->
-              debug "xenops event on VM %s" id ;
-              update_vm ~__context id
-          | Vbd id ->
-              debug "xenops event on VBD %s.%s" (fst id) (snd id) ;
-              update_vbd ~__context id
-          | Vif id ->
-              debug "xenops event on VIF %s.%s" (fst id) (snd id) ;
-              update_vif ~__context id
-          | Pci id ->
-              debug "xenops event on PCI %s.%s" (fst id) (snd id) ;
-              update_pci ~__context id
-          | Vgpu id ->
-              debug "xenops event on VGPU %s.%s" (fst id) (snd id) ;
-              update_vgpu ~__context id
-          | Vusb id ->
-              debug "xenops event on VUSB %s.%s" (fst id) (snd id) ;
-              update_vusb ~__context id
-          | Task id ->
-              debug "xenops event on Task %s" id ;
-              update_task ~__context queue_name id
-        )
-      )
-      l
-  in
-  List.iter
-    (fun (id, b_events) ->
-      debug "Processing barrier %d" id ;
-      do_updates b_events ;
-      Events_from_xenopsd.wakeup queue_name dbg id
+  Context.complete_tracing __context ;
+  let next =
+    Context.with_tracing ~__context __FUNCTION__ (fun __context ->
+        let dbg = Context.string_of_task_and_tracing __context in
+        if Xapi_fist.delay_xenopsd_event_threads () then Thread.delay 30.0 ;
+        let module Client = (val make_client queue_name : XENOPS) in
+        let barriers, events, next = Client.UPDATES.get dbg from None in
+        if !cancel then
+          raise (Api_errors.Server_error (Api_errors.task_cancelled, [])) ;
+        let done_events = ref [] in
+        let already_done x = List.mem x !done_events in
+        let add_event x = done_events := x :: !done_events in
+        let do_updates l =
+          let open Dynamic in
+          List.iter
+            (fun ev ->
+              debug "Processing event: %s"
+                (ev |> Dynamic.rpc_of_id |> Jsonrpc.to_string) ;
+              if already_done ev then
+                debug "Skipping (already processed this round)"
+              else (
+                add_event ev ;
+                match ev with
+                | Vm id ->
+                    debug "xenops event on VM %s" id ;
+                    update_vm ~__context id
+                | Vbd id ->
+                    debug "xenops event on VBD %s.%s" (fst id) (snd id) ;
+                    update_vbd ~__context id
+                | Vif id ->
+                    debug "xenops event on VIF %s.%s" (fst id) (snd id) ;
+                    update_vif ~__context id
+                | Pci id ->
+                    debug "xenops event on PCI %s.%s" (fst id) (snd id) ;
+                    update_pci ~__context id
+                | Vgpu id ->
+                    debug "xenops event on VGPU %s.%s" (fst id) (snd id) ;
+                    update_vgpu ~__context id
+                | Vusb id ->
+                    debug "xenops event on VUSB %s.%s" (fst id) (snd id) ;
+                    update_vusb ~__context id
+                | Task id ->
+                    debug "xenops event on Task %s" id ;
+                    update_task ~__context queue_name id
+              )
+            )
+            l
+        in
+        List.iter
+          (fun (id, b_events) ->
+            debug "Processing barrier %d" id ;
+            do_updates b_events ;
+            Events_from_xenopsd.wakeup queue_name dbg id
+          )
+          barriers ;
+        do_updates events ;
+        next
     )
-    barriers ;
-  do_updates events ;
+  in
   events_watch ~__context cancel queue_name (Some next)
 
 let events_from_xenopsd queue_name =
