@@ -1213,7 +1213,7 @@ module MD = struct
       if not (List.mem_assoc Vm_platform.featureset platformdata) then
         let featureset =
           match
-            List.assoc_opt Xapi_globs.cpu_info_features_key
+            List.assoc_opt Constants.cpu_info_features_key
               vm.API.vM_last_boot_CPU_flags
           with
           | _ when vm.API.vM_power_state <> `Suspended ->
@@ -2418,12 +2418,12 @@ let update_vm ~__context id =
                     state.Vm.featureset ;
                   let vendor =
                     Db.Host.get_cpu_info ~__context ~self:localhost
-                    |> List.assoc Xapi_globs.cpu_info_vendor_key
+                    |> List.assoc Constants.cpu_info_vendor_key
                   in
                   let value =
                     [
-                      (Xapi_globs.cpu_info_vendor_key, vendor)
-                    ; (Xapi_globs.cpu_info_features_key, state.Vm.featureset)
+                      (Constants.cpu_info_vendor_key, vendor)
+                    ; (Constants.cpu_info_features_key, state.Vm.featureset)
                     ]
                   in
                   Db.VM.set_last_boot_CPU_flags ~__context ~self ~value
