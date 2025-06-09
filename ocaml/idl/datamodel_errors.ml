@@ -897,6 +897,14 @@ let _ =
        the pool coordinator. Make sure the sm are of the same versions and try \
        again."
     () ;
+  error Api_errors.pool_joining_pool_cannot_enable_clustering_on_vlan_network
+    ["vlan"] ~doc:"The remote pool cannot enable clustering on vlan network" () ;
+  error Api_errors.pool_joining_host_must_have_only_one_IP_on_clustering_network
+    []
+    ~doc:
+      "The host joining the pool must have one and only one IP on the \
+       clustering network"
+    () ;
 
   (* External directory service *)
   error Api_errors.subject_cannot_be_resolved []
@@ -1700,8 +1708,8 @@ let _ =
     ~doc:"The provided certificate has expired." () ;
   error Api_errors.server_certificate_signature_not_supported []
     ~doc:
-      "The provided certificate is not using the SHA256 (SHA2) signature \
-       algorithm."
+      "The provided certificate is not using one of the following SHA2 \
+       signature algorithms:  SHA256, SHA512."
     () ;
 
   error Api_errors.server_certificate_chain_invalid []
@@ -1913,6 +1921,11 @@ let _ =
     () ;
   error Api_errors.invalid_base_url ["url"]
     ~doc:"The base url in the repository is invalid." () ;
+  error Api_errors.blocked_repo_url ["url"]
+    ~doc:
+      "Cannot create the repository as the url is blocked, please check your \
+       settings."
+    () ;
   error Api_errors.invalid_gpgkey_path ["gpgkey_path"]
     ~doc:"The GPG public key file name in the repository is invalid." () ;
   error Api_errors.repository_already_exists ["ref"]
@@ -2039,6 +2052,12 @@ let _ =
 
   error Api_errors.disable_ssh_partially_failed ["hosts"]
     ~doc:"Some of hosts failed to disable SSH access." () ;
+
+  error Api_errors.set_ssh_timeout_partially_failed ["hosts"]
+    ~doc:"Some hosts failed to set SSH timeout." () ;
+
+  error Api_errors.set_console_timeout_partially_failed ["hosts"]
+    ~doc:"Some hosts failed to set console timeout." () ;
 
   error Api_errors.host_driver_no_hardware ["driver variant"]
     ~doc:"No hardware present for this host driver variant" () ;

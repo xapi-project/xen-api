@@ -517,17 +517,17 @@ let test_add_ipv4_localhost_to_hosts =
            localhost4.localdomain4"
         ]
       , [
-          "127.0.0.1   localhost localhost.localdomain localhost4 \
-           localhost4.localdomain4 hostname hostname.domain"
+          "127.0.0.1   hostname.domain hostname localhost \
+           localhost.localdomain localhost4 localhost4.localdomain4"
         ]
       )
     ; ( ["127.0.0.1   localhost hostname hostname.domain localhost.localdomain"]
-      , ["127.0.0.1   localhost localhost.localdomain hostname hostname.domain"]
+      , ["127.0.0.1   hostname.domain hostname localhost localhost.localdomain"]
       )
     ; ( ["192.168.0.1   some_host"]
-      , ["127.0.0.1 hostname hostname.domain"; "192.168.0.1   some_host"]
+      , ["127.0.0.1 hostname.domain hostname"; "192.168.0.1   some_host"]
       )
-    ; ([], ["127.0.0.1 hostname hostname.domain"])
+    ; ([], ["127.0.0.1 hostname.domain hostname"])
     ]
   in
   matrix |> List.map @@ fun (inp, exp) -> ("<omit inp>", `Quick, check inp exp)
@@ -549,18 +549,18 @@ let test_add_ipv4_and_ipv6_localhost_to_hosts =
     [
       ( ["127.0.0.1   localhost"]
       , [
-          "::1 hostname hostname.domain"
-        ; "127.0.0.1   localhost hostname hostname.domain"
+          "::1 hostname.domain hostname"
+        ; "127.0.0.1   hostname.domain hostname localhost"
         ]
       )
     ; ( ["127.0.0.1   localhost"; "::1 localhost"]
       , [
-          "127.0.0.1   localhost hostname hostname.domain"
-        ; "::1 localhost hostname hostname.domain"
+          "127.0.0.1   hostname.domain hostname localhost"
+        ; "::1 hostname.domain hostname localhost"
         ]
       )
     ; ( []
-      , ["127.0.0.1 hostname hostname.domain"; "::1 hostname hostname.domain"]
+      , ["127.0.0.1 hostname.domain hostname"; "::1 hostname.domain hostname"]
       )
     ]
   in

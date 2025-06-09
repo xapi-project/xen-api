@@ -145,9 +145,13 @@ module VBD = struct
 
   let epoch_end _ _ _ = ()
 
-  let plug _ _ _ = unimplemented "VBD.plug"
+  let attach _ _ _ = unimplemented "VBD.attach"
 
-  let unplug _ _ _ _ = unimplemented "VBD.unplug"
+  let activate _ _ _ = unimplemented "VBD.activate"
+
+  let deactivate _ _ _ _ = unimplemented "VBD.deactivate"
+
+  let detach _ _ _ = unimplemented "VBD.detach"
 
   let insert _ _ _ _ = unimplemented "VBD.insert"
 

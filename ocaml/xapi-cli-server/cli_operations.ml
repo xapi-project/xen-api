@@ -3490,28 +3490,29 @@ let vm_memory_target_wait printer rpc session_id params =
        params []
     )
 
+(** This implements the key:file=/path/to/file.txt syntax. The value for
+    key is the content of a file requested from the client *)
+let args_file fd ((k, v) as p) =
+  match Astring.String.cut ~sep:":" k with
+  | Some (key, "file") -> (
+    match get_client_file fd v with
+    | Some s ->
+        (key, s)
+    | None ->
+        marshal fd
+          (Command (PrintStderr (Printf.sprintf "Failed to read file %s\n" v))) ;
+        raise (ExitWithError 1)
+  )
+  | _ ->
+      p
+
 let vm_call_plugin fd printer rpc session_id params =
   let vm_uuid = List.assoc "vm-uuid" params in
   let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
   let plugin = List.assoc "plugin" params in
   let fn = List.assoc "fn" params in
   let args = read_map_params "args" params in
-  (* Syntax interpretation: args:key:file=filename equals args:key=filename_content *)
-  let convert ((k, v) as p) =
-    match Astring.String.cut ~sep:":" k with
-    | Some (key, "file") -> (
-      match get_client_file fd v with
-      | Some s ->
-          (key, s)
-      | None ->
-          marshal fd
-            (Command (PrintStderr (Printf.sprintf "Failed to read file %s\n" v))) ;
-          raise (ExitWithError 1)
-    )
-    | _ ->
-        p
-  in
-  let args = List.map convert args in
+  let args = List.map (args_file fd) args in
   let result = Client.VM.call_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args in
   printer (Cli_printer.PList [result])
 
@@ -6907,12 +6908,13 @@ let host_set_hostname_live _printer rpc session_id params =
   let hostname = List.assoc "host-name" params in
   Client.Host.set_hostname_live ~rpc ~session_id ~host ~hostname
 
-let host_call_plugin printer rpc session_id params =
+let host_call_plugin fd printer rpc session_id params =
   let host_uuid = List.assoc "host-uuid" params in
   let host = Client.Host.get_by_uuid ~rpc ~session_id ~uuid:host_uuid in
   let plugin = List.assoc "plugin" params in
   let fn = List.assoc "fn" params in
   let args = read_map_params "args" params in
+  let args = List.map (args_file fd) args in
   let result =
     Client.Host.call_plugin ~rpc ~session_id ~host ~plugin ~fn ~args
   in

@@ -2049,18 +2049,10 @@ let update_vm ~__context id =
                 ) ;
                 debug "xenopsd event: Updating VM %s power_state <- %s" id
                   (Record_util.vm_power_state_to_string power_state) ;
-                (* This will mark VBDs, VIFs as detached and clear resident_on
-                   if the VM has permanently shutdown.  current-operations
-                   should not be reset as there maybe a checkpoint is ongoing*)
-                Xapi_vm_lifecycle.force_state_reset_keep_current_operations
-                  ~__context ~self ~value:power_state ;
-                if power_state = `Running then create_guest_metrics_if_needed () ;
-                if power_state = `Suspended || power_state = `Halted then (
-                  Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self ;
-                  Storage_access.reset ~__context ~vm:self
-                ) ;
-                if power_state = `Halted then
-                  Xenopsd_metadata.delete ~__context id ;
+
+                (* NOTE: Pull xenopsd metadata as soon as possible so that
+                   nothing comes inbetween the power state change and the
+                   Xenopsd_metadata.pull and overwrites it. *)
                 ( if power_state = `Suspended then
                     let md = Xenopsd_metadata.pull ~__context id in
                     match md.Metadata.domains with
@@ -2071,8 +2063,22 @@ let update_vm ~__context id =
                         debug "VM %s last_booted_record set to %s"
                           (Ref.string_of self) x
                 ) ;
-                if power_state = `Halted then
+
+                (* This will mark VBDs, VIFs as detached and clear resident_on
+                   if the VM has permanently shutdown.  current-operations
+                   should not be reset as there maybe a checkpoint is ongoing*)
+                Xapi_vm_lifecycle.force_state_reset_keep_current_operations
+                  ~__context ~self ~value:power_state ;
+                if power_state = `Running then
+                  create_guest_metrics_if_needed () ;
+                if power_state = `Suspended || power_state = `Halted then (
+                  Xapi_network.detach_for_vm ~__context ~host:localhost ~vm:self ;
+                  Storage_access.reset ~__context ~vm:self
+                ) ;
+                if power_state = `Halted then (
+                  Xenopsd_metadata.delete ~__context id ;
                   !trigger_xenapi_reregister ()
+                )
               with e ->
                 error "Caught %s: while updating VM %s power_state"
                   (Printexc.to_string e) id
@@ -3104,6 +3110,12 @@ let resync_all_vms ~__context =
   in
   List.iter (fun vm -> refresh_vm ~__context ~self:vm) resident_vms_in_db
 
+(* experimental feature for hard-pinning vcpus *)
+let hard_numa_enabled ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+  List.assoc_opt "restrict_hard_numa" restrictions = Some "false"
+
 let set_numa_affinity_policy ~__context ~value =
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
@@ -3113,6 +3125,8 @@ let set_numa_affinity_policy ~__context ~value =
     match value with
     | `any ->
         Some Any
+    | `best_effort when hard_numa_enabled ~__context ->
+        Some Best_effort_hard
     | `best_effort ->
         Some Best_effort
     | `default_policy ->

@@ -1,9 +1,6 @@
 (alias
-  (name generate)
-  (deps
-    (source_tree .)
-  )
-)
+ (name generate)
+ (deps
+  (source_tree .)))
 
 (data_only_dirs xen-api)
-

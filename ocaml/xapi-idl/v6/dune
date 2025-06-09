@@ -19,7 +19,7 @@
  (modules v6_cli)
  (libraries
    cmdliner
-   
+
    rpclib.cmdliner
    rpclib.core
    rpclib.markdown
@@ -28,8 +28,6 @@
    xapi-log
  ))
 
-(rule
- (alias runtest)
- (deps (:x v6_cli.exe))
+(cram
  (package xapi-idl)
- (action (run %{x} --help=plain)))
+ (deps v6_cli.exe))

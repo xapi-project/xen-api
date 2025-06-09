@@ -204,7 +204,7 @@ let t =
              (Some (VString Constants.default_smapiv3_cluster_stack))
            "Simply the string 'corosync'. No other cluster stacks are \
             currently supported"
-       ; field ~qualifier:StaticRO ~lifecycle ~ty:Int "cluster_stack_version"
+       ; field ~qualifier:StaticRO ~lifecycle:[] ~ty:Int "cluster_stack_version"
            ~default_value:(Some (VInt 2L))
            "Version of cluster stack, not writable via the API. Defaulting to \
             2 for backwards compatibility when upgrading from a cluster \
@@ -219,6 +219,9 @@ let t =
        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "live_hosts"
            ~default_value:(Some (VInt 0L))
            "Current number of live hosts, according to the cluster stack"
+       ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Int "expected_hosts"
+           ~default_value:(Some (VInt 0L))
+           "Total number of hosts expected by the cluster stack"
        ]
       @ allowed_and_current_operations cluster_operation
       @ [

@@ -20,8 +20,6 @@
 
 open Safe_resources
 
-type db_record = (string * string) list * (string * string list) list
-
 module D = Debug.Make (struct let name = "master_connection" end)
 
 open D

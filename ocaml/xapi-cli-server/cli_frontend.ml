@@ -958,8 +958,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; optn= ["args:"]
       ; help=
           "Calls the function within the plugin on the given host with \
-           optional arguments."
-      ; implementation= No_fd Cli_operations.host_call_plugin
+           optional arguments. The syntax args:key:file=/path/file.ext passes \
+           the content of /path/file.ext under key to the plugin."
+      ; implementation= With_fd Cli_operations.host_call_plugin
       ; flags= []
       }
     )
@@ -4052,7 +4053,6 @@ let rio_help printer minimal cmd =
         in
         printer (Cli_printer.PTable [recs])
     | None ->
-        D.log_backtrace () ;
         error "Responding with Unknown command %s" cmd ;
         printer (Cli_printer.PList ["Unknown command '" ^ cmd ^ "'"])
   in

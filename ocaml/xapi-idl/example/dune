@@ -9,8 +9,6 @@
  )
  (preprocess (pps ppx_deriving_rpc)))
 
-(rule
- (alias runtest)
- (deps (:x example.exe))
+(cram
  (package xapi-idl)
- (action (run %{x} --help=plain)))
+ (deps example.exe))

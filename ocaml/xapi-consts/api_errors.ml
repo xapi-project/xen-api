@@ -757,6 +757,12 @@ let pool_joining_host_ca_certificates_conflict =
 let pool_joining_sm_features_incompatible =
   add_error "POOL_JOINING_SM_FEATURES_INCOMPATIBLE"
 
+let pool_joining_pool_cannot_enable_clustering_on_vlan_network =
+  add_error "POOL_JOINING_POOL_CANNOT_ENABLE_CLUSTERING_ON_VLAN_NETWORK"
+
+let pool_joining_host_must_have_only_one_IP_on_clustering_network =
+  add_error "POOL_JOINING_HOST_MUST_HAVE_ONLY_ONE_IP_ON_CLUSTERING_NETWORK"
+
 (*workload balancing*)
 let wlb_not_initialized = add_error "WLB_NOT_INITIALIZED"
 
@@ -1317,6 +1323,8 @@ let configure_repositories_in_progress =
 
 let invalid_base_url = add_error "INVALID_BASE_URL"
 
+let blocked_repo_url = add_error "BLOCKED_REPO_URL"
+
 let invalid_gpgkey_path = add_error "INVALID_GPGKEY_PATH"
 
 let repository_already_exists = add_error "REPOSITORY_ALREADY_EXISTS"
@@ -1419,6 +1427,12 @@ let disable_ssh_failed = add_error "DISABLE_SSH_FAILED"
 let enable_ssh_partially_failed = add_error "ENABLE_SSH_PARTIALLY_FAILED"
 
 let disable_ssh_partially_failed = add_error "DISABLE_SSH_PARTIALLY_FAILED"
+
+let set_ssh_timeout_partially_failed =
+  add_error "SET_SSH_TIMEOUT_PARTIALLY_FAILED"
+
+let set_console_timeout_partially_failed =
+  add_error "SET_CONSOLE_TIMEOUT_PARTIALLY_FAILED"
 
 let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
 

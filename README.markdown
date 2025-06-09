@@ -11,7 +11,7 @@ Xen API is written mostly in [OCaml](http://caml.inria.fr/ocaml/)
 4.07.
 
 Xapi is the main component produced by the Linux Foundation's
-[Xapi Project](http://xenproject.org/developers/teams/xapi.html).
+[Xapi Project](https://xenproject.org/projects/xapi/).
 
 Build and Install
 -----------------
@@ -107,6 +107,9 @@ It is required to add a `Signed-off-by:` as a
 It certifies the patch's origin and is licensed under an
 appropriate open-source licence to include it in Xapi:
 https://git-scm.com/docs/git-commit#Documentation/git-commit.txt---signoff
+
+For more detailed guidelines on what makes a good contribution, see
+[CONTRIBUTING](./CONTRIBUTING.md).
 
 Discussions
 -----------

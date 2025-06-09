@@ -31,12 +31,9 @@ let create ~__context ~pool =
   with_lock m (fun () -> Hashtbl.replace table r session) ;
   r
 
-let get_record ~__context ~self = with_lock m (fun () -> Hashtbl.find table self)
+let has_record ~__context ~self = with_lock m (fun () -> Hashtbl.mem table self)
 
 let destroy ~__context ~self = with_lock m (fun () -> Hashtbl.remove table self)
 
 let local_session_hook ~__context ~session_id =
-  try
-    ignore (get_record ~__context ~self:session_id) ;
-    true
-  with _ -> false
+  has_record ~__context ~self:session_id

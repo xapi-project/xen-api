@@ -299,7 +299,7 @@ let make_message_switch_server () =
         (* best effort resume *)
         let* () =
           Lwt.catch (resume ~vtpm_read_write ~uefi_read_write) (fun e ->
-              D.log_backtrace () ;
+              D.log_backtrace e ;
               D.warn "Resume failed: %s" (Printexc.to_string e) ;
               Lwt.return_unit
           )
@@ -321,7 +321,7 @@ let main log_level =
   let old_hook = !Lwt.async_exception_hook in
   (Lwt.async_exception_hook :=
      fun exn ->
-       D.log_backtrace () ;
+       D.log_backtrace exn ;
        D.error "Lwt caught async exception: %s" (Printexc.to_string exn) ;
        old_hook exn
   ) ;

@@ -196,7 +196,7 @@ let put_handler (req : Http.Request.t) s _ =
           http_proxy_to_plugin req s name
       | [""; services; "SM"; "data"; sr; vdi] when services = _services ->
           let vdi, _ =
-            Storage_smapiv1.find_vdi ~__context
+            Storage_utils.find_vdi ~__context
               (Storage_interface.Sr.of_string sr)
               (Storage_interface.Vdi.of_string vdi)
           in
@@ -207,8 +207,9 @@ let put_handler (req : Http.Request.t) s _ =
         ->
           Storage_migrate.nbd_handler req s ~vm sr vdi dp
       | [""; services; "SM"; "nbdproxy"; vm; sr; vdi; dp]
+      | [""; services; "SM"; "nbdproxy"; "import"; vm; sr; vdi; dp]
         when services = _services ->
-          Storage_migrate.nbd_proxy req s vm sr vdi dp
+          Storage_migrate.import_nbd_proxy req s vm sr vdi dp
       | _ ->
           Http_svr.headers s (Http.http_404_missing ~version:"1.0" ()) ;
           req.Http.Request.close <- true

@@ -856,8 +856,6 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   if state = `Suspended then
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
   if state = `Halted then (
-    remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
-    remove_pending_guidance ~__context ~self ~value:`restart_vm ;
     (* mark all devices as disconnected *)
     List.iter
       (fun vbd ->
@@ -899,7 +897,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
       )
       (Db.VM.get_VUSBs ~__context ~self) ;
     (* Blank the requires_reboot flag *)
-    Db.VM.set_requires_reboot ~__context ~self ~value:false
+    Db.VM.set_requires_reboot ~__context ~self ~value:false ;
+    remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
+    remove_pending_guidance ~__context ~self ~value:`restart_vm
   ) ;
   (* Do not clear resident_on for VM and VGPU in a checkpoint operation *)
   if

@@ -64,6 +64,7 @@
     rresult
     x509
     xapi-consts
+    xapi-datamodel
     xapi-stdext-unix
   )
   (deps
