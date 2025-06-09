@@ -66,21 +66,20 @@ let run_tasks'' n (__context, tasks) =
   Thread.join t
 
 let benchmarks =
-  Test.make_grouped ~name:"Task latency"
-    [
-      Test.make_indexed_with_resource ~name:"task complete+wait latency"
-        ~args:[1; 10; 100] Test.multiple ~allocate:allocate_tasks
-        ~free:free_tasks (fun n -> Staged.stage (run_tasks n)
-      )
-    ; Test.make_indexed_with_resource ~name:"task complete+wait all latency"
-        ~args:[1; 10; 100] Test.multiple ~allocate:allocate_tasks
-        ~free:free_tasks (fun n -> Staged.stage (run_tasks' n)
-      )
-    ; Test.make_indexed_with_resource
-        ~name:"task complete+wait all latency (thread)" ~args:[1; 10; 100]
-        Test.multiple ~allocate:allocate_tasks ~free:free_tasks (fun n ->
-          Staged.stage (run_tasks'' n)
-      )
-    ]
+  [
+    Test.make_indexed_with_resource ~name:"task complete+wait latency"
+      ~args:[1; 10; 100] Test.multiple ~allocate:allocate_tasks ~free:free_tasks
+      (fun n -> Staged.stage (run_tasks n)
+    )
+  ; Test.make_indexed_with_resource ~name:"task complete+wait all latency"
+      ~args:[1; 10; 100] Test.multiple ~allocate:allocate_tasks ~free:free_tasks
+      (fun n -> Staged.stage (run_tasks' n)
+    )
+  ; Test.make_indexed_with_resource
+      ~name:"task complete+wait all latency (thread)" ~args:[1; 10; 100]
+      Test.multiple ~allocate:allocate_tasks ~free:free_tasks (fun n ->
+        Staged.stage (run_tasks'' n)
+    )
+  ]
 
 let () = Bechamel_simple_cli.cli benchmarks

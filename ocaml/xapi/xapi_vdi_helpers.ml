@@ -184,7 +184,7 @@ let database_ref_of_vdi ~__context ~vdi =
     debug "Enabling redo_log with device reason [%s]" device ;
     Redo_log.enable_block_existing log device ;
     let db = Database.make (Datamodel_schema.of_datamodel ()) in
-    let db_ref = Xapi_database.Db_ref.in_memory (ref (ref db)) in
+    let db_ref = Xapi_database.Db_ref.in_memory (Atomic.make db) in
     Redo_log_usage.read_from_redo_log log Xapi_globs.foreign_metadata_db db_ref ;
     Redo_log.delete log ;
     (* Upgrade database to the local schema. *)

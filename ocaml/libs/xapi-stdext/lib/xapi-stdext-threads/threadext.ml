@@ -19,8 +19,8 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 module Mutex = struct
   (** execute the function f with the mutex hold *)
   let execute lock f =
-    Mutex.lock lock ;
-    finally f (fun () -> Mutex.unlock lock)
+    let finally () = Mutex.unlock lock in
+    Mutex.lock lock ; Fun.protect ~finally f
 end
 
 module Semaphore = struct

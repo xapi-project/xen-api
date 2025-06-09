@@ -59,9 +59,7 @@ module ReentrantLock : REENTRANT_LOCK = struct
   type t = {
       holder: tid option Atomic.t (* The holder of the lock *)
     ; mutable holds: int (* How many holds the holder has on the lock *)
-    ; lock: Mutex.t (* Barrier to signal waiting threads *)
-    ; condition: Condition.t
-          (* Waiting threads are signalled via this condition to reattempt to acquire the lock *)
+    ; lock: Mutex.t (* Mutex held by the holder thread *)
     ; statistics: statistics (* Bookkeeping of time taken to acquire lock *)
   }
 
@@ -73,7 +71,6 @@ module ReentrantLock : REENTRANT_LOCK = struct
       holder= Atomic.make None
     ; holds= 0
     ; lock= Mutex.create ()
-    ; condition= Condition.create ()
     ; statistics= create_statistics ()
     }
 
@@ -94,9 +91,7 @@ module ReentrantLock : REENTRANT_LOCK = struct
         let intended = Some me in
         let counter = Mtime_clock.counter () in
         Mutex.lock l.lock ;
-        while not (Atomic.compare_and_set l.holder None intended) do
-          Condition.wait l.condition l.lock
-        done ;
+        Atomic.set l.holder intended ;
         lock_acquired () ;
         let stats = l.statistics in
         let delta = Clock.Timer.span_to_s (Mtime_clock.count counter) in
@@ -104,7 +99,7 @@ module ReentrantLock : REENTRANT_LOCK = struct
         stats.min_time <- Float.min delta stats.min_time ;
         stats.max_time <- Float.max delta stats.max_time ;
         stats.acquires <- stats.acquires + 1 ;
-        Mutex.unlock l.lock ;
+        (* do not unlock, it will be done when holds reaches 0 instead *)
         l.holds <- 1
 
   let unlock l =
@@ -114,10 +109,8 @@ module ReentrantLock : REENTRANT_LOCK = struct
         l.holds <- l.holds - 1 ;
         if l.holds = 0 then (
           let () = Atomic.set l.holder None in
-          Mutex.lock l.lock ;
-          Condition.signal l.condition ;
-          Mutex.unlock l.lock ;
-          lock_released ()
+          (* the lock is held (acquired in [lock]), we only need to unlock *)
+          Mutex.unlock l.lock ; lock_released ()
         )
     | _ ->
         failwith

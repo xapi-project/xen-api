@@ -27,8 +27,6 @@
    xapi-idl
    xapi-idl.gpumon))
 
-(rule
- (alias runtest)
- (deps (:x gpumon_cli.exe))
+(cram
  (package xapi-idl)
- (action (run %{x} --help=plain)))
+ (deps gpumon_cli.exe))

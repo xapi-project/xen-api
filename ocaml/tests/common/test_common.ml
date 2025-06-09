@@ -170,13 +170,16 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(external_auth_service_name = "") ?(external_auth_configuration = [])
     ?(license_params = []) ?(edition = "free") ?(license_server = [])
     ?(local_cache_sr = Ref.null) ?(chipset_info = []) ?(ssl_legacy = false)
-    ?(last_software_update = Date.epoch) ?(last_update_hash = "") () =
+    ?(last_software_update = Date.epoch) ?(last_update_hash = "")
+    ?(ssh_enabled = true) ?(ssh_enabled_timeout = 0L) ?(ssh_expiry = Date.epoch)
+    ?(console_idle_timeout = 0L) () =
   let host =
     Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname
       ~address ~external_auth_type ~external_auth_service_name
       ~external_auth_configuration ~license_params ~edition ~license_server
       ~local_cache_sr ~chipset_info ~ssl_legacy ~last_software_update
-      ~last_update_hash
+      ~last_update_hash ~ssh_enabled ~ssh_enabled_timeout ~ssh_expiry
+      ~console_idle_timeout
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
@@ -215,7 +218,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref)
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
-    ~last_update_hash:"" ;
+    ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
+    ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")
@@ -626,12 +630,13 @@ let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
     ?(token_timeout = Constants.default_token_timeout_s)
     ?(token_timeout_coefficient = Constants.default_token_timeout_coefficient_s)
     ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null)
-    ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L) () =
+    ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L)
+    ?(expected_hosts = 0L) () =
   Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
     ~cluster_stack ~cluster_stack_version ~allowed_operations
     ~current_operations ~pool_auto_join ~token_timeout
     ~token_timeout_coefficient ~cluster_config ~other_config ~is_quorate ~quorum
-    ~live_hosts ;
+    ~live_hosts ~expected_hosts ;
   let cluster_host_ref =
     make_cluster_host ~__context ~cluster:ref ~host ~pIF ()
   in

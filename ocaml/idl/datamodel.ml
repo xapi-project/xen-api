@@ -3866,7 +3866,9 @@ module VIF = struct
                   , "order in which VIF backends are created by xapi"
                   )
                 ]
-              "device" "order in which VIF backends are created by xapi"
+              "device"
+              "order in which VIF backends are created by xapi. Guaranteed to \
+               be an unsigned decimal integer."
           ; field ~qualifier:StaticRO ~ty:(Ref _network)
               ~lifecycle:
                 [

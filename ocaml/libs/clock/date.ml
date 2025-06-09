@@ -64,12 +64,24 @@ let best_effort_iso8601_to_rfc3339 x =
       x
 
 let of_iso8601 x =
-  let rfc3339 = best_effort_iso8601_to_rfc3339 x in
-  match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
-  | Error _ ->
-      invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
-  | Ok (t, tz, _) ->
-      {t; tz}
+  if String.length x > 5 && x.[4] <> '-' && x.[String.length x - 1] = 'Z' then
+    (* dates in the DB look like "20250319T04:16:24Z", so decoding that should be the fastpath *)
+    Scanf.sscanf x "%04i%02i%02iT%02i:%02i:%02iZ" (fun y mon d hh mm ss ->
+        let tz = 0 in
+        let date = (y, mon, d) and time = ((hh, mm, ss), tz) in
+        match Ptime.of_date_time (date, time) with
+        | Some t ->
+            {t; tz= Some tz}
+        | None ->
+            invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
+    )
+  else
+    let rfc3339 = best_effort_iso8601_to_rfc3339 x in
+    match Ptime.of_rfc3339 rfc3339 |> Ptime.rfc3339_error_to_msg with
+    | Error _ ->
+        invalid_arg (Printf.sprintf "%s: %s" __FUNCTION__ x)
+    | Ok (t, tz, _) ->
+        {t; tz}
 
 let print_tz tz_s =
   match tz_s with

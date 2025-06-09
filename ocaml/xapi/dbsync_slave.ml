@@ -60,6 +60,10 @@ let create_localhost ~__context info =
         ~license_server:[("address", "localhost"); ("port", "27000")]
         ~local_cache_sr:Ref.null ~chipset_info:[] ~ssl_legacy:false
         ~last_software_update:Date.epoch ~last_update_hash:""
+        ~ssh_enabled:Constants.default_ssh_enabled
+        ~ssh_enabled_timeout:Constants.default_ssh_enabled_timeout
+        ~ssh_expiry:Date.epoch
+        ~console_idle_timeout:Constants.default_console_idle_timeout
     in
     ()
 
@@ -376,5 +380,10 @@ let update_env __context sync_keys =
       Create_misc.create_chipset_info ~__context info
   ) ;
   switched_sync Xapi_globs.sync_gpus (fun () -> Xapi_pgpu.update_gpus ~__context) ;
+  switched_sync Xapi_globs.sync_ssh_status (fun () ->
+      let ssh_service = !Xapi_globs.ssh_service in
+      let status = Fe_systemctl.is_active ~service:ssh_service in
+      Db.Host.set_ssh_enabled ~__context ~self:localhost ~value:status
+  ) ;
 
   remove_pending_guidances ~__context

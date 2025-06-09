@@ -368,6 +368,8 @@ let sync_bios_strings = "sync_bios_strings"
 
 let sync_chipset_info = "sync_chipset_info"
 
+let sync_ssh_status = "sync_ssh_status"
+
 let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
@@ -500,6 +502,16 @@ let rpu_allowed_vm_operations =
   ; `update_allowed_operations
   ]
 
+module Vdi_operations = struct
+  type t = API.vdi_operations
+
+  (* this is more efficient than just 'let compare = Stdlib.compare',
+     because the compiler can specialize it to [t] without calling any runtime functions *)
+  let compare (a : t) (b : t) = Stdlib.compare a b
+end
+
+module Vdi_operations_set = Set.Make (Vdi_operations)
+
 (* Until the Ely release, the vdi_operations enum had stayed unchanged
  * since 2009 or earlier, but then Ely and some subsequent releases
  * added new members to the enum. *)
@@ -517,6 +529,7 @@ let pre_ely_vdi_operations =
   ; `generate_config
   ; `blocked
   ]
+  |> Vdi_operations_set.of_list
 
 (* We might consider restricting this further. *)
 let rpu_allowed_vdi_operations = pre_ely_vdi_operations
@@ -921,6 +934,13 @@ let gen_pool_secret_script = ref "/usr/bin/pool_secret_wrapper"
 
 let repository_domain_name_allowlist = ref []
 
+(*
+    This blocklist aims to prevent the creation of any repository whose URL matches an entry in the blocklist.
+    Additionally, if an existing repository contains a URL that matches an entry in the blocklist,
+    it should be removed automatically after xapi is restarted.
+*)
+let repository_url_blocklist = ref []
+
 let yum_cmd = ref "/usr/bin/yum"
 
 let dnf_cmd = ref "/usr/bin/dnf"
@@ -998,6 +1018,8 @@ let winbind_debug_level = ref 2
 let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
+
+let winbind_dns_sync_interval = ref 3600.
 
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
@@ -1201,6 +1223,7 @@ let xapi_globs_spec =
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Float winbind_machine_pwd_timeout)
+  ; ("winbind_dns_sync_interval", Float winbind_dns_sync_interval)
   ; ( "winbind_update_closest_kdc_interval"
     , Float winbind_update_closest_kdc_interval
     )
@@ -1288,6 +1311,12 @@ let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 let gpumon_stop_timeout = ref 10.0
 
 let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
+
+let console_timeout_profile_path = ref "/etc/profile.d/console_timeout.sh"
+
+let job_for_disable_ssh = ref "Disable SSH"
+
+let ssh_service = ref "sshd"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
@@ -1588,6 +1617,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       repository_domain_name_allowlist
+  ; gen_list_option "repository-url-blocklist"
+      "space-separated list of blocked URL patterns in base URL in repository."
+      (fun s -> s)
+      (fun s -> s)
+      repository_url_blocklist
   ; ( "repository-gpgcheck"
     , Arg.Set repository_gpgcheck
     , (fun () -> string_of_bool !repository_gpgcheck)
