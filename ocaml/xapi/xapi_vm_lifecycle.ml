@@ -61,6 +61,7 @@ let allowed_power_states ~__context ~vmr ~(op : API.vm_operations) =
   | `send_sysrq
   | `send_trigger
   | `snapshot_with_quiesce
+  | `sysprep
   | `suspend ->
       [`Running]
   | `changing_dynamic_range ->
