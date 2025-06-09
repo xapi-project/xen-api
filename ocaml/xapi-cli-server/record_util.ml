@@ -75,6 +75,7 @@ let vm_operation_table =
   ; (`csvm, "csvm")
   ; (`call_plugin, "call_plugin")
   ; (`create_vtpm, "create_vtpm")
+  ; (`sysprep, "sysprep")
   ]
 
 (* Intentional shadowing - data_souces_op, assertoperationinvalid,

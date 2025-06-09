@@ -2764,6 +2764,15 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-sysprep"
+    , {
+        reqd= ["filename"]
+      ; optn= []
+      ; help= "Pass and execute sysprep configuration file"
+      ; implementation= With_fd Cli_operations.vm_sysprep
+      ; flags= [Vm_selectors]
+      }
+    )
   ; ( "diagnostic-vm-status"
     , {
         reqd= ["uuid"]

@@ -1701,3 +1701,6 @@ let get_secureboot_readiness ~__context ~self =
           )
       )
     )
+
+let sysprep ~__context ~self ~unattend =
+  Vm_sysprep.sysprep ~__context ~vm:self ~unattend
