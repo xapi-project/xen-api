@@ -5,7 +5,7 @@ LDFLAGS ?=
 all:: vfork_helper
 
 clean::
-	rm -f vfork_helper *.o
+	rm -f vfork_helper *.o *.o.d
 
 %.o: %.c
 	$(CC) $(CFLAGS) -MMD -MP -MF $@.d -c -o $@ $<
