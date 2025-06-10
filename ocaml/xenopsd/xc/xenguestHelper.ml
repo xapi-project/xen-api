@@ -200,13 +200,14 @@ let rec non_debug_receive ?(debug_callback = fun s -> debug "%s" s) cnx =
 
 (* Dump memory statistics on failure *)
 let non_debug_receive ?debug_callback cnx =
-  let debug_memory () =
+  let debug_memory log_type =
     Xenctrl.with_intf (fun xc ->
         let open Memory in
         let open Int64 in
         let open Xenctrl in
         let p = Xenctrl.physinfo xc in
-        error "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
+        (match log_type with Syslog.Debug -> debug | _ -> error)
+          "Memory F %Ld KiB S %Ld KiB T %Ld MiB"
           (p.free_pages |> of_nativeint |> kib_of_pages)
           (p.scrub_pages |> of_nativeint |> kib_of_pages)
           (p.total_pages |> of_nativeint |> mib_of_pages_free)
@@ -215,10 +216,18 @@ let non_debug_receive ?debug_callback cnx =
   try
     match non_debug_receive ?debug_callback cnx with
     | Error y as x ->
-        error "Received: %s" y ; debug_memory () ; x
+        error "Received: %s" y ; debug_memory Syslog.Err ; x
     | x ->
         x
-  with e -> debug_memory () ; raise e
+  with
+  | End_of_file as e ->
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          debug_memory Syslog.Debug
+      )
+  | e ->
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          debug_memory Syslog.Err
+      )
 
 (** For the simple case where we just want the successful result, return it. If
     we get an error message (or suspend) then throw an exception. *)
