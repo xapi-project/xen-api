@@ -6,7 +6,7 @@
   (libraries
     angstrom
     astring
-    cstruct
+    digestif
     forkexec
     mirage-crypto
     mirage-crypto-pk
@@ -52,7 +52,7 @@
   (modules test_lib test_pem)
   (libraries
     alcotest
-    cstruct
+    digestif
     fmt
     gencertlib
     mirage-crypto

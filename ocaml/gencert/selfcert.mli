@@ -23,7 +23,7 @@ val write_certs : string -> int -> string -> (unit, [> Rresult.R.msg]) result
 val host :
      name:string
   -> dns_names:string list
-  -> ips:Cstruct.t list
+  -> ips:string list
   -> ?valid_from:Ptime.t (* default: now *)
   -> valid_for_days:int
   -> string
