@@ -162,7 +162,8 @@ module Sysfs = struct
     with
     | End_of_file ->
         ""
-    | Unix.Unix_error (Unix.EINVAL, _, _) ->
+    | Unix.Unix_error (Unix.EINVAL, _, _) | Unix.Unix_error (Unix.ENOENT, _, _)
+      ->
         (* The device is not yet up *)
         raise (Network_error (Read_error file))
     | exn ->
