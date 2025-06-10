@@ -5381,13 +5381,21 @@ let host_evacuate _printer rpc session_id params =
            Client.Network.get_by_uuid ~rpc ~session_id ~uuid
        )
   in
+  let evacuate_batch_size =
+    match List.assoc_opt "batch-size" params with
+    | Some x ->
+        Scanf.sscanf x "%Lu%!" Fun.id
+    | None ->
+        0L
+  in
   ignore
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
          Client.Host.evacuate ~rpc ~session_id ~host:(host.getref ()) ~network
-           ~evacuate_batch_size:0L
+           ~evacuate_batch_size
        )
-       params ["network-uuid"]
+       params
+       ["network-uuid"; "batch-size"]
     )
 
 let host_get_vms_which_prevent_evacuation printer rpc session_id params =

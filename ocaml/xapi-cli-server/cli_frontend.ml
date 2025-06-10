@@ -2881,7 +2881,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "host-evacuate"
     , {
         reqd= []
-      ; optn= ["network-uuid"]
+      ; optn= ["network-uuid"; "batch-size"]
       ; help= "Migrate all VMs off a host."
       ; implementation= No_fd Cli_operations.host_evacuate
       ; flags= [Host_selectors]
