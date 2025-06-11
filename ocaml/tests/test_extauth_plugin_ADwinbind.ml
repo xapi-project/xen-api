@@ -219,6 +219,27 @@ let test_parse_wbinfo_uid_info =
           ; gecos= {|ladmin|}
           }
       )
+      (* XSI-1901: output of customer environment, has `:` in the gecos,
+         other fields does not likely contain it *)
+    ; ( {|HVS\udaadmin:*:3000000:3000000:ADMIN: Dalsem, Ulric:/home/HVS/udaadmin:/bin/bash|}
+      , Ok
+          {
+            user_name= {|HVS\udaadmin|}
+          ; uid= 3000000
+          ; gid= 3000000
+          ; gecos= {|ADMIN: Dalsem, Ulric|}
+          }
+      )
+      (* Multiple `:` in gecos *)
+    ; ( {|HVS\udaadmin:*:3000000:3000000:ADMIN: Dalsem, Ulric, POOL OP: udaadmin:/home/HVS/udaadmin:/bin/bash|}
+      , Ok
+          {
+            user_name= {|HVS\udaadmin|}
+          ; uid= 3000000
+          ; gid= 3000000
+          ; gecos= {|ADMIN: Dalsem, Ulric, POOL OP: udaadmin|}
+          }
+      )
     ; ( {|CONNAPP\locked:*:3000004:3000174::/home/CONNAPP/locked:/bin/bash|}
       , Ok
           {user_name= {|CONNAPP\locked|}; uid= 3000004; gid= 3000174; gecos= ""}
