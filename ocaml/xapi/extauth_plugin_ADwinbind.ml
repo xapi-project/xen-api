@@ -686,11 +686,30 @@ module Wbinfo = struct
   let parse_uid_info stdout =
     (* looks like one line from /etc/passwd: https://en.wikipedia.org/wiki/Passwd#Password_file *)
     match String.split_on_char ':' stdout with
-    | [user_name; _passwd; uid; gid; gecos; _homedir; _shell] -> (
-      try Ok {user_name; uid= int_of_string uid; gid= int_of_string gid; gecos}
-      with _ -> Error ()
-    )
+    | user_name :: _passwd :: uid :: gid :: rest -> (
+        (* We expect at least homedir and shell at the end *)
+        let rest = List.rev rest in
+        match rest with
+        | _shell :: _homedir :: tail -> (
+            (* Rev it back to original order *)
+            let tail = List.rev tail in
+            let gecos = String.concat ":" tail in
+            try
+              Ok
+                {
+                  user_name
+                ; uid= int_of_string uid
+                ; gid= int_of_string gid
+                ; gecos
+                }
+            with _ -> Error ()
+          )
+        | _ ->
+            debug "%s uid_info format error: %s" __FUNCTION__ stdout ;
+            Error ()
+      )
     | _ ->
+        debug "%s uid_info format error: %s" __FUNCTION__ stdout ;
         Error ()
 
   let uid_info_of_uid (uid : int) =
