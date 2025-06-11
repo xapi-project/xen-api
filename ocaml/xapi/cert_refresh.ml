@@ -79,7 +79,7 @@ let host ~__context ~type' =
         Server_error
           (cannot_contact_host, [Ref.string_of (HostSet.choose unreachable)])
       ) ;
-  let content = X509.Certificate.encode_pem cert |> Cstruct.to_string in
+  let content = X509.Certificate.encode_pem cert in
   (* distribute public part of new cert in pool *)
   Cert_distrib.distribute_new_host_cert ~__context ~host ~content ;
   (* replace certs in file system on host *)

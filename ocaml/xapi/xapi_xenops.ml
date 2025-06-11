@@ -3110,6 +3110,12 @@ let resync_all_vms ~__context =
   in
   List.iter (fun vm -> refresh_vm ~__context ~self:vm) resident_vms_in_db
 
+(* experimental feature for hard-pinning vcpus *)
+let hard_numa_enabled ~__context =
+  let pool = Helpers.get_pool ~__context in
+  let restrictions = Db.Pool.get_restrictions ~__context ~self:pool in
+  List.assoc_opt "restrict_hard_numa" restrictions = Some "false"
+
 let set_numa_affinity_policy ~__context ~value =
   let dbg = Context.string_of_task __context in
   let open Xapi_xenops_queue in
@@ -3119,6 +3125,8 @@ let set_numa_affinity_policy ~__context ~value =
     match value with
     | `any ->
         Some Any
+    | `best_effort when hard_numa_enabled ~__context ->
+        Some Best_effort_hard
     | `best_effort ->
         Some Best_effort
     | `default_policy ->

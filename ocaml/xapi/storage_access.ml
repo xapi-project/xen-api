@@ -183,12 +183,14 @@ let on_xapi_start ~__context =
       let self, _ = List.assoc ty existing in
       try Db.SM.destroy ~__context ~self with _ -> ()
     )
-    (List.concat
-       [
-         Listext.List.set_difference (List.map fst existing) to_keep
-       ; List.map fst unavailable
-       ]
-    ) ;
+    (Listext.List.set_difference (List.map fst existing) to_keep) ;
+  List.iter
+    (fun (name, (self, rc)) ->
+      info "%s: unregistering SM plugin %s (%s) since it is unavailable"
+        __FUNCTION__ name rc.API.sM_uuid ;
+      try Db.SM.destroy ~__context ~self with _ -> ()
+    )
+    unavailable ;
 
   (* Synchronize SMAPIv1 plugins *)
 

@@ -13,7 +13,7 @@ let pp_hash_test =
     (fun (hashable, expected) ->
       let test_hash () =
         let digest =
-          Cstruct.of_string hashable |> Mirage_crypto.Hash.digest `SHA256
+          Digestif.SHA256.(digest_string hashable |> to_raw_string)
         in
         Alcotest.(check string)
           "fingerprints must match" expected

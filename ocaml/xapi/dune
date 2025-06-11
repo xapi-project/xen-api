@@ -138,6 +138,7 @@
   clock
   cohttp
   cohttp_posix
+  digestif
   domain-name
   ezxenstore.core
   fmt

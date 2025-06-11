@@ -27,8 +27,6 @@
    xapi-idl
    xapi-idl.cluster))
 
-(rule
- (alias runtest)
- (deps (:x cluster_cli.exe))
+(cram
  (package xapi-idl)
- (action (run %{x} --help=plain)))
+ (deps cluster_cli.exe))

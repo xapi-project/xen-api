@@ -24,13 +24,12 @@ val management_ip_error_to_string : management_ip_error -> string
 (** [management_ip_error err] returns a string representation of [err], useful
     only for logging. *)
 
-val get_management_ip_addr : dbg:string -> (string * Cstruct.t) option
+val get_management_ip_addr : dbg:string -> string option
 (** [get_management_ip_addr ~dbg] returns the preferred IP of the management
-    network, or None. The address is returned in two formats: a human-readable
-    string and its bytes representation. *)
+    network, or None. The address is returned in a human-readable string *)
 
 val get_host_certificate_subjects :
      dbg:string
-  -> (string * string list * Cstruct.t list, management_ip_error) Result.t
+  -> (string * string list * string list, management_ip_error) Result.t
 (** [get_host_certificate_subjects ~dbg] returns the main, dns names and ip
     addresses that identify the host in secure connections. *)

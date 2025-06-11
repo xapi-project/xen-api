@@ -32,7 +32,7 @@ open D
 type t_trusted = CA_Certificate | CRL
 
 let pem_of_string x =
-  match Cstruct.of_string x |> X509.Certificate.decode_pem with
+  match X509.Certificate.decode_pem x with
   | Error _ ->
       D.error "pem_of_string: failed to parse certificate string" ;
       raise
@@ -75,7 +75,7 @@ let to_string = function CA_Certificate -> "CA certificate" | CRL -> "CRL"
     adding a colon between every octet, in uppercase.
  *)
 let pp_hash hash =
-  let hex = Hex.(show @@ of_cstruct hash) in
+  let hex = Hex.(show @@ of_string hash) in
   let length = (3 * String.length hex / 2) - 1 in
   let value_of i =
     match (i + 1) mod 3 with
@@ -441,9 +441,7 @@ let get_internal_server_certificate () =
 open Rresult
 
 let hostnames_of_pem_cert pem =
-  Cstruct.of_string pem
-  |> X509.Certificate.decode_pem
-  >>| X509.Certificate.hostnames
+  X509.Certificate.decode_pem pem >>| X509.Certificate.hostnames
 
 let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key ~path =
   let installation =

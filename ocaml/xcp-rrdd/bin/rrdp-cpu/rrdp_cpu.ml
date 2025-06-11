@@ -63,7 +63,7 @@ let dss_vcpus xc doms =
           , Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time0 /. 1.0e9))
               ~description:"Fraction of time that all VCPUs are running"
-              ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+              ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
           )
           :: ( Rrd.VM uuid
              , Ds.ds_make ~name:"runstate_full_contention" ~units:"(fraction)"
@@ -71,7 +71,7 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that all VCPUs are runnable (i.e., \
                     waiting for CPU)"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make ~name:"runstate_concurrency_hazard"
@@ -80,14 +80,14 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that some VCPUs are running and some are \
                     runnable"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make ~name:"runstate_blocked" ~units:"(fraction)"
                  ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time3 /. 1.0e9))
                  ~description:
                    "Fraction of time that all VCPUs are blocked or offline"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make ~name:"runstate_partial_run" ~units:"(fraction)"
@@ -95,7 +95,7 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that some VCPUs are running, and some are \
                     blocked"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make ~name:"runstate_partial_contention"
@@ -104,7 +104,7 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that some VCPUs are runnable and some are \
                     blocked"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make

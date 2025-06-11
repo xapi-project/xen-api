@@ -335,14 +335,49 @@ reset_signal_handlers(void)
 static void
 clear_cgroup(void)
 {
-    int fd = open("/sys/fs/cgroup/systemd/cgroup.procs", O_WRONLY|O_CLOEXEC);
-    if (fd >= 0) {
-        char string_pid[32];
-        int ignored __attribute__((unused));
-        sprintf(string_pid, "%d\n", (int) getpid());
-        ignored = write(fd, string_pid, strlen(string_pid));
+    // list of files to try, terminated by NULL
+    static const char *const cgroup_files[] = {
+        "/sys/fs/cgroup/systemd/cgroup.procs",
+        "/sys/fs/cgroup/cgroup.procs",
+        NULL
+    };
+
+    char string_pid[32];
+    int last_error = 0;
+    const char *last_error_operation = NULL;
+    const char *last_fn = NULL;
+
+    snprintf(string_pid, sizeof(string_pid), "%ld\n", (long int) getpid());
+
+    for (const char *const *fn = cgroup_files; *fn != NULL; ++fn) {
+        last_fn = *fn;
+        int fd = open(*fn, O_WRONLY|O_CLOEXEC);
+        if (fd < 0) {
+            last_error = errno;
+            last_error_operation = "opening";
+            continue;
+        }
+
+        // Here we are writing to a virtual file system, partial write is
+        // not possible.
+        ssize_t written = write(fd, string_pid, strlen(string_pid));
+        if (written < 0) {
+            last_error = errno;
+            last_error_operation = "writing";
+        }
+        // Error ignored, we are using a virtual file system, only potential
+        // errors would be if we have a race and the file was replaced or a
+        // memory error in the kernel.
         close(fd);
+        if (written >= 0)
+            return;
     }
+
+    // If we reach this point something went wrong.
+    // Report error and exit, unless we are not root user, we should be
+    // root so probably we are testing.
+    if (last_error_operation && geteuid() == 0)
+        error(last_error, "Error %s file %s", last_error_operation, last_fn);
 }
 
 static const char *

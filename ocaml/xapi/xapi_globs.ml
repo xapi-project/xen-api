@@ -368,6 +368,8 @@ let sync_bios_strings = "sync_bios_strings"
 
 let sync_chipset_info = "sync_chipset_info"
 
+let sync_ssh_status = "sync_ssh_status"
+
 let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
@@ -1017,6 +1019,8 @@ let winbind_cache_time = ref 60
 
 let winbind_machine_pwd_timeout = ref (2. *. 7. *. 24. *. 3600.)
 
+let winbind_dns_sync_interval = ref 3600.
+
 let winbind_update_closest_kdc_interval = ref (3600. *. 22.)
 (* every 22 hours *)
 
@@ -1219,6 +1223,7 @@ let xapi_globs_spec =
   ; ("winbind_debug_level", Int winbind_debug_level)
   ; ("winbind_cache_time", Int winbind_cache_time)
   ; ("winbind_machine_pwd_timeout", Float winbind_machine_pwd_timeout)
+  ; ("winbind_dns_sync_interval", Float winbind_dns_sync_interval)
   ; ( "winbind_update_closest_kdc_interval"
     , Float winbind_update_closest_kdc_interval
     )
@@ -1306,6 +1311,12 @@ let default_xenopsd = ref "org.xen.xapi.xenops.xenlight"
 let gpumon_stop_timeout = ref 10.0
 
 let reboot_required_hfxs = ref "/run/reboot-required.hfxs"
+
+let console_timeout_profile_path = ref "/etc/profile.d/console_timeout.sh"
+
+let job_for_disable_ssh = ref "Disable SSH"
+
+let ssh_service = ref "sshd"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
