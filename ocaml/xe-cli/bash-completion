@@ -588,7 +588,21 @@ _xe()
                     __xe_debug "fst is '$fst', snd is '$snd'"
                     if [[ "$snd" == "list" || "$fst" == "vm" ]]; then
                         IFS=$'\n,'
-                        set_completions_for_names "${fst}-list" "$param" "$value"
+
+                        # Try to provide a helpful "description" to the suggestions
+                        case "$param" in
+                         resident-on | affinity)
+                            SHOW_DESCRIPTION=1
+                            class="host"
+                             ;;
+                         *)
+                             ;;
+                        esac
+
+                        local name_label_cmd="$xe ${class}-list params=name-label 2>/dev/null --minimal uuid="
+                        __xe_debug "description class is '$class'"
+
+                        set_completions_for_names "${fst}-list" "$param" "$value" "$name_label_cmd"
                         return 0
                     fi
                 fi
