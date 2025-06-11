@@ -168,7 +168,7 @@ let setify =
     This needs to be as small as possible to reduce latency.
 
     Too small values reduce performance due to context switching overheads
-  
+
     4ms = 1/HZ in Dom0 seems like a good default,
     a better value will be written by a boot time service.
  *)
@@ -357,7 +357,7 @@ let command_of ?(name = Sys.argv.(0)) ?(version = "unknown")
     ; `S _common_options
     ; `P "These options are common to all services."
     ; `S "BUGS"
-    ; `P "Check bug reports at http://github.com/xapi-project/xcp-idl"
+    ; `P "Check bug reports at http://github.com/xapi-project/xen-api"
     ]
   in
   Cmd.v

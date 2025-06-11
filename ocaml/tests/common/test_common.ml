@@ -170,13 +170,16 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
     ?(external_auth_service_name = "") ?(external_auth_configuration = [])
     ?(license_params = []) ?(edition = "free") ?(license_server = [])
     ?(local_cache_sr = Ref.null) ?(chipset_info = []) ?(ssl_legacy = false)
-    ?(last_software_update = Date.epoch) ?(last_update_hash = "") () =
+    ?(last_software_update = Date.epoch) ?(last_update_hash = "")
+    ?(ssh_enabled = true) ?(ssh_enabled_timeout = 0L) ?(ssh_expiry = Date.epoch)
+    ?(console_idle_timeout = 0L) () =
   let host =
     Xapi_host.create ~__context ~uuid ~name_label ~name_description ~hostname
       ~address ~external_auth_type ~external_auth_service_name
       ~external_auth_configuration ~license_params ~edition ~license_server
       ~local_cache_sr ~chipset_info ~ssl_legacy ~last_software_update
-      ~last_update_hash
+      ~last_update_hash ~ssh_enabled ~ssh_enabled_timeout ~ssh_expiry
+      ~console_idle_timeout
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
@@ -215,7 +218,8 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~last_software_update:(Xapi_host.get_servertime ~__context ~host:ref)
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[]
-    ~last_update_hash:"" ;
+    ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
+    ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

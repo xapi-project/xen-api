@@ -34,8 +34,7 @@ let validate_private_key pkcs8_private_key =
         let key_type = X509.(Key_type.to_string (Private_key.key_type key)) in
         Error (`Msg (server_certificate_key_algorithm_not_supported, [key_type]))
   in
-  let raw_pem = Cstruct.of_string pkcs8_private_key in
-  X509.Private_key.decode_pem raw_pem
+  X509.Private_key.decode_pem pkcs8_private_key
   |> R.reword_error (fun (`Msg err_msg) ->
          let unknown_algorithm = "Unknown algorithm " in
          if Astring.String.is_prefix ~affix:"multi-prime RSA" err_msg then
@@ -56,9 +55,8 @@ let validate_private_key pkcs8_private_key =
      )
   >>= ensure_rsa_key_length
 
-let pem_of_string x ~error_invalid =
-  let raw_pem = Cstruct.of_string x in
-  X509.Certificate.decode_pem raw_pem
+let decode_cert pem ~error_invalid =
+  X509.Certificate.decode_pem pem
   |> R.reword_error (fun (`Msg err_msg) ->
          D.info {|Failed to validate certificate because "%s"|} err_msg ;
          `Msg (error_invalid, [])
@@ -76,7 +74,7 @@ let assert_not_expired ~now certificate ~error_not_yet ~error_expired =
 
 let _validate_not_expired ~now (blob : string) ~error_invalid ~error_not_yet
     ~error_expired =
-  pem_of_string blob ~error_invalid >>= fun cert ->
+  decode_cert blob ~error_invalid >>= fun cert ->
   assert_not_expired ~now cert ~error_not_yet ~error_expired
 
 let validate_not_expired x ~error_not_yet ~error_expired ~error_invalid =
@@ -101,8 +99,7 @@ let validate_pem_chain ~pem_leaf ~pem_chain now private_key =
         Error (`Msg (server_certificate_signature_not_supported, []))
   in
   let validate_chain pem_chain =
-    let raw_pem = Cstruct.of_string pem_chain in
-    X509.Certificate.decode_pem_multiple raw_pem |> function
+    X509.Certificate.decode_pem_multiple pem_chain |> function
     | Ok (_ :: _ as certs) ->
         Ok certs
     | Ok [] ->
@@ -135,17 +132,13 @@ let install_server_certificate ~pem_chain ~pem_leaf ~pkcs8_private_key
     ~server_cert_path ~cert_gid =
   let now = Ptime_clock.now () in
   validate_private_key pkcs8_private_key >>= fun priv ->
-  let pkcs8_private_key =
-    X509.Private_key.encode_pem priv |> Cstruct.to_string
-  in
+  let pkcs8_private_key = X509.Private_key.encode_pem priv in
   validate_pem_chain ~pem_leaf ~pem_chain now priv >>= fun (cert, chain) ->
-  let pem_leaf = X509.Certificate.encode_pem cert |> Cstruct.to_string in
+  let pem_leaf = X509.Certificate.encode_pem cert in
   Option.fold
     ~none:(Ok [pkcs8_private_key; pem_leaf])
     ~some:(fun chain ->
-      let pem_chain =
-        X509.Certificate.encode_pem_multiple chain |> Cstruct.to_string
-      in
+      let pem_chain = X509.Certificate.encode_pem_multiple chain in
       Ok [pkcs8_private_key; pem_leaf; pem_chain]
     )
     chain

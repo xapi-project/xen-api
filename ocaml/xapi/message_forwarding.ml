@@ -1185,6 +1185,18 @@ functor
       let disable_ssh ~__context ~self =
         info "%s: pool = '%s'" __FUNCTION__ (pool_uuid ~__context self) ;
         Local.Pool.disable_ssh ~__context ~self
+
+      let set_ssh_enabled_timeout ~__context ~self ~value =
+        info "Pool.set_ssh_enabled_timeout: pool='%s' value='%Ld'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ssh_enabled_timeout ~__context ~self ~value
+
+      let set_console_idle_timeout ~__context ~self ~value =
+        info "Pool.set_console_idle_timeout: pool='%s' value='%Ld'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_console_idle_timeout ~__context ~self ~value
     end
 
     module VM = struct
@@ -2014,6 +2026,34 @@ functor
         let local_fn = Local.VM.call_plugin ~vm ~plugin ~fn ~args in
         let remote_fn = Client.VM.call_plugin ~vm ~plugin ~fn ~args in
         with_vm_operation ~__context ~self:vm ~doc:"VM.call_plugin"
+          ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately (fun () ->
+            forward_vm_op ~local_fn ~__context ~vm ~remote_fn
+        )
+
+      let call_host_plugin ~__context ~vm ~plugin ~fn ~args =
+        info
+          "VM.call_host_plugin: VM = '%s'; plugin = '%s'; fn = '%s'; args = [ \
+           'hidden' ]"
+          (vm_uuid ~__context vm) plugin fn ;
+        let local_fn = Local.VM.call_host_plugin ~vm ~plugin ~fn ~args in
+        let remote_fn = Client.VM.call_host_plugin ~vm ~plugin ~fn ~args in
+        let power_state = Db.VM.get_power_state ~__context ~self:vm in
+        (* Insisting on running to make sure xenstore and domain exist
+           and the VM can react to xenstore events. Permitting Paused in
+           addition could be an option *)
+        if power_state <> `Running then
+          raise
+            Api_errors.(
+              Server_error
+                ( vm_bad_power_state
+                , [
+                    Ref.string_of vm
+                  ; Record_util.vm_power_state_to_string `Running
+                  ; Record_util.vm_power_state_to_string power_state
+                  ]
+                )
+            ) ;
+        with_vm_operation ~__context ~self:vm ~doc:"VM.call_host_plugin"
           ~op:`call_plugin ~policy:Helpers.Policy.fail_immediately (fun () ->
             forward_vm_op ~local_fn ~__context ~vm ~remote_fn
         )
@@ -4034,6 +4074,22 @@ functor
         info "%s: host = '%s'" __FUNCTION__ (host_uuid ~__context self) ;
         let local_fn = Local.Host.disable_ssh ~self in
         let remote_fn = Client.Host.disable_ssh ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ssh_enabled_timeout ~__context ~self ~value =
+        info "Host.set_ssh_enabled_timeout: host='%s' value='%Ld'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_ssh_enabled_timeout ~self ~value in
+        let remote_fn = Client.Host.set_ssh_enabled_timeout ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_console_idle_timeout ~__context ~self ~value =
+        info "Host.set_console_idle_timeout: host='%s' value='%Ld'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_console_idle_timeout ~self ~value in
+        let remote_fn = Client.Host.set_console_idle_timeout ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 

@@ -3570,8 +3570,21 @@ let default_numa_affinity_policy = ref Xenops_interface.Host.Best_effort
 
 let numa_placement = ref !default_numa_affinity_policy
 
+type affinity = Soft | Hard
+
 let string_of_numa_affinity_policy =
-  Xenops_interface.Host.(function Any -> "any" | Best_effort -> "best-effort")
+  let open Xenops_interface.Host in
+  function
+  | Any ->
+      "any"
+  | Best_effort ->
+      "best-effort"
+  | Best_effort_hard ->
+      "best-effort-hard"
+
+let affinity_of_numa_affinity_policy =
+  let open Xenops_interface.Host in
+  function Any | Best_effort -> Soft | Best_effort_hard -> Hard
 
 module HOST = struct
   let stat _ dbg =

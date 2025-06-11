@@ -192,10 +192,11 @@ let clear_current_operations ~__context ~self =
 
 (**************************************************************************************)
 
-(** Check if the device string has the right form *)
+(** Check if the device string has the right form - it should only be an
+    unsigned decimal integer *)
 let valid_device dev =
   try
-    ignore (int_of_string dev) ;
+    Scanf.sscanf dev "%u%!" ignore ;
     true
   with _ -> false
 
