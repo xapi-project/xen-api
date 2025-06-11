@@ -784,7 +784,8 @@ __preprocess_suggestions()
 {
     wordlist=$( echo "$1" | \
                 sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
-                sed -e 's/ *$//')
+                sed -e 's/ *$//' | \
+                sort -u )
     local IFS=$'\n'
     for word in $wordlist; do
         if [[ "$word" =~ ^$prefix.* ]]; then
