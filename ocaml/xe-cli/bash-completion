@@ -772,8 +772,8 @@ __add_completion()
         COMPREPLY+=( $(printf '%s%q' "$description" "$word") )
     else
         if [[ $SHOW_DESCRIPTION == 1 ]]; then
-            __xe_debug "\t  showing command description - '$description'"
             description=" - $(eval $description_cmd$word)"
+            __xe_debug "\t  showing command description - '$description'"
         fi
         # Right-pad the command with spaces before the help string
         COMPREPLY+=( $(printf "%-${max_cmd_length}q %s" "$word" "$description") )
