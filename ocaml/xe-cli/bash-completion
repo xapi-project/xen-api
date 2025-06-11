@@ -755,6 +755,10 @@ __add_completion()
     local description_cmd="$2"
     local max_cmd_length="$3"
 
+    if [ "$word" = "<not in database>" ]; then
+        return 0
+    fi
+
     COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
     __xe_debug "\t$word"
 
