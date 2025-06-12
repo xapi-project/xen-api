@@ -1299,6 +1299,8 @@ let ssh_service = ref "sshd"
 
 let ssh_monitor_service = ref "xapi-ssh-monitor"
 
+let ssh_auto_mode_default = ref true
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
   "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
@@ -1742,6 +1744,12 @@ let other_options =
     , Arg.Set validate_reusable_pool_session
     , (fun () -> string_of_bool !validate_reusable_pool_session)
     , "Enable validation of reusable pool sessions before use"
+    )
+  ; ( "ssh-auto-mode"
+    , Arg.Bool (fun b -> ssh_auto_mode_default := b)
+    , (fun () -> string_of_bool !ssh_auto_mode_default)
+    , "Defaults to true; overridden to false via \
+       /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
     )
   ]
 
