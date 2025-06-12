@@ -19,9 +19,15 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
-let get_datasources ~prefix rrd_files =
-  List.filter (String.starts_with ~prefix) rrd_files
-  |> List.map (fun fn -> (fn, Monitor_types.datasources_from_filename fn))
+let get_datasources rrd_files =
+  List.filter_map
+    (fun filename ->
+      if String.starts_with ~prefix:Xapi_globs.metrics_prefix_mem filename then
+        Some (filename, Monitor_types.datasources_from_filename filename)
+      else
+        None
+    )
+    rrd_files
 
 module Host = struct
   let get_changes datasources =
@@ -78,28 +84,19 @@ module Host = struct
         Mcache.host_memory_total_cached := total_bytes
     )
 
-  let update rrd_files =
-    Server_helpers.exec_with_new_task "Updating host memory metrics"
-      (fun __context ->
-        let datasources =
-          get_datasources ~prefix:Xapi_globs.metrics_prefix_mem_host rrd_files
-        in
-        let changes = get_changes datasources in
-        match changes with
-        | None ->
-            ()
-        | Some ((free, total) as c) -> (
-          try
-            let host = Helpers.get_localhost ~__context in
-            let metrics = Db.Host.get_metrics ~__context ~self:host in
-            Db.Host_metrics.set_memory_total ~__context ~self:metrics
-              ~value:total ;
-            Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free ;
-            set_changes c
-          with e ->
-            error "Unable to update host memory metrics: %s"
-              (Printexc.to_string e)
-        )
+  let update __context datasources =
+    match get_changes datasources with
+    | None ->
+        ()
+    | Some ((free, total) as c) -> (
+      try
+        let host = Helpers.get_localhost ~__context in
+        let metrics = Db.Host.get_metrics ~__context ~self:host in
+        Db.Host_metrics.set_memory_total ~__context ~self:metrics ~value:total ;
+        Db.Host_metrics.set_memory_free ~__context ~self:metrics ~value:free ;
+        set_changes c
+      with e ->
+        error "Unable to update host memory metrics: %s" (Printexc.to_string e)
     )
 end
 
@@ -146,32 +143,36 @@ module VMs = struct
           ~target:Mcache.vm_memory_cached ()
     )
 
-  let update rrd_files =
-    Server_helpers.exec_with_new_task "Updating VM memory usage"
-      (fun __context ->
-        let datasources =
-          get_datasources ~prefix:Xapi_globs.metrics_prefix_mem_vms rrd_files
-        in
-        let host = Helpers.get_localhost ~__context in
-        let keeps = ref [] in
-        List.iter
-          (fun (vm_uuid, memory) ->
-            try
-              let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
-              let vmm = Db.VM.get_metrics ~__context ~self:vm in
-              if Db.VM.get_resident_on ~__context ~self:vm = host then
-                Db.VM_metrics.set_memory_actual ~__context ~self:vmm
-                  ~value:memory
-              else
-                Mcache.clear_cache_for_vm ~vm_uuid
-            with e ->
-              keeps := vm_uuid :: !keeps ;
-              error "Unable to update memory usage for VM %s: %s" vm_uuid
-                (Printexc.to_string e)
-          )
-          (get_changes datasources) ;
-        set_changes ~except:!keeps ()
-    )
+  let update __context datasources =
+    let host = Helpers.get_localhost ~__context in
+    let keeps = ref [] in
+    List.iter
+      (fun (vm_uuid, memory) ->
+        try
+          let vm = Db.VM.get_by_uuid ~__context ~uuid:vm_uuid in
+          let vmm = Db.VM.get_metrics ~__context ~self:vm in
+          if Db.VM.get_resident_on ~__context ~self:vm = host then
+            Db.VM_metrics.set_memory_actual ~__context ~self:vmm ~value:memory
+          else
+            Mcache.clear_cache_for_vm ~vm_uuid
+        with e ->
+          keeps := vm_uuid :: !keeps ;
+          error "Unable to update memory usage for VM %s: %s" vm_uuid
+            (Printexc.to_string e)
+      )
+      (get_changes datasources) ;
+    set_changes ~except:!keeps ()
 end
 
-let update rrd_files = Host.update rrd_files ; VMs.update rrd_files
+let update rrd_files =
+  let ( let@ ) f x = f x in
+  let@ __context =
+    Server_helpers.exec_with_new_task "Updating memory metrics"
+  in
+  let datasources = get_datasources rrd_files in
+  if datasources = [] then
+    error "%s: no memory datasources found!" __FUNCTION__
+  else (
+    Host.update __context datasources ;
+    VMs.update __context datasources
+  )

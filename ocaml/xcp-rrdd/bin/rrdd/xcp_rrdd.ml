@@ -119,40 +119,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-(*****************************************************)
-(* memory stats                                      *)
-(*****************************************************)
-let dss_mem_host xc =
-  let physinfo = Xenctrl.physinfo xc in
-  let total_kib =
-    Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
-  and free_kib =
-    Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
-  in
-  [
-    ( Rrd.Host
-    , Ds.ds_make ~name:"memory_total_kib"
-        ~description:"Total amount of memory in the host"
-        ~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" ()
-    )
-  ; ( Rrd.Host
-    , Ds.ds_make ~name:"memory_free_kib"
-        ~description:"Total amount of free memory"
-        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" ()
-    )
-  ]
-
-(** estimate the space needed to serialize all the dss_mem_vms in a host. the
-    json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes. these
-    bytes plus some overhead make 1024 bytes an upper bound. *)
-
-let bytes_per_mem_vm = 1024
-
-let mem_vm_writer_pages =
-  ((Rrd_interface.max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
-
 let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
 
 module IntSet = Set.Make (Int)
@@ -191,31 +157,6 @@ let domain_snapshot xc =
     Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
   in
   domains |> List.to_seq
-
-let dss_mem_vms xc =
-  let mem_metrics_of (dom, uuid, _) =
-    let vm_metrics () =
-      let kib =
-        Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
-      in
-      let memory = Int64.mul kib 1024L in
-      let main_mem_ds =
-        ( Rrd.VM uuid
-        , Ds.ds_make ~name:"memory"
-            ~description:"Memory currently allocated to VM" ~units:"B"
-            ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-        )
-      in
-      Some main_mem_ds
-    in
-    (* CA-34383: Memory updates from paused domains serve no useful purpose.
-       During a migrate such updates can also cause undesirable
-       discontinuities in the observed value of memory_actual. Hence, we
-       ignore changes from paused domains: *)
-    if dom.Xenctrl.paused then None else vm_metrics ()
-  in
-  let domains = domain_snapshot xc in
-  Seq.filter_map mem_metrics_of domains |> List.of_seq
 
 (**** Local cache SR stuff *)
 
@@ -323,8 +264,6 @@ let handle_exn log f default =
 let dom0_stat_generators =
   [
     ("ha", fun _ _ -> Rrdd_ha_stats.all ())
-  ; ("mem_host", fun xc _ -> dss_mem_host xc)
-  ; ("mem_vms", fun xc _ -> dss_mem_vms xc)
   ; ("cache", fun _ timestamp -> dss_cache timestamp)
   ]
 
@@ -335,23 +274,9 @@ let generate_all_dom0_stats xc =
   in
   List.map handle_generator dom0_stat_generators
 
-let write_dom0_stats writers tagged_dss =
-  let write_dss (name, writer) =
-    match List.assoc_opt name tagged_dss with
-    | None ->
-        debug
-          "Could not write stats for \"%s\": no stats were associated with \
-           this name"
-          name
-    | Some (timestamp, dss) ->
-        writer.Rrd_writer.write_payload {timestamp; datasources= dss}
-  in
-  List.iter write_dss writers
-
-let do_monitor_write domains_before xc writers =
+let do_monitor_write domains_before xc =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
       let tagged_dom0_stats = generate_all_dom0_stats xc in
-      write_dom0_stats writers tagged_dom0_stats ;
       let dom0_stats =
         tagged_dom0_stats
         |> List.to_seq
@@ -380,14 +305,14 @@ let do_monitor_write domains_before xc writers =
       domains_after
   )
 
-let monitor_write_loop writers =
+let monitor_write_loop () =
   Debug.with_thread_named "monitor_write"
     (fun () ->
       Xenctrl.with_intf (fun xc ->
           let domains = ref Seq.empty in
           while true do
             try
-              domains := do_monitor_write !domains xc writers ;
+              domains := do_monitor_write !domains xc ;
               with_lock Rrdd_shared.next_iteration_start_m (fun _ ->
                   Rrdd_shared.next_iteration_start :=
                     Clock.Timer.extend_by !Rrdd_shared.timeslice
@@ -579,45 +504,15 @@ let doc =
        the datasources and records historical data in RRD format."
     ]
 
-(** write memory stats to the filesystem so they can be propagated to xapi,
-    along with the number of pages they require to be allocated *)
-let stats_to_write = [("mem_host", 1); ("mem_vms", mem_vm_writer_pages)]
-
-let writer_basename = ( ^ ) "xcp-rrdd-"
-
-let configure_writers () =
-  List.map
-    (fun (name, n_pages) ->
-      let path = Rrdd_server.Plugin.get_path (writer_basename name) in
-      ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644) ;
-      let writer =
-        snd
-          (Rrd_writer.FileWriter.create
-             {path; shared_page_count= n_pages}
-             Rrd_protocol_v2.protocol
-          )
-      in
-      (name, writer)
-    )
-    stats_to_write
-
-(** we need to make sure we call exit on fatal signals to make sure profiling
-    data is dumped *)
-let stop err writers signal =
-  debug "caught signal %a" Debug.Pp.signal signal ;
-  List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers ;
-  exit err
-
 (* Entry point. *)
-let _ =
+let () =
   Rrdd_bindings.Rrd_daemon.bind () ;
   (* bind PPX-generated server calls to implementation of API *)
-  let writers = configure_writers () in
   (* Prevent shutdown due to sigpipe interrupt. This protects against potential
      stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
-  Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1 writers)) ;
-  Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0 writers)) ;
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun _ -> exit 1)) ;
+  Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 0)) ;
   (* Enable the new logging library. *)
   Debug.set_facility Syslog.Local5 ;
   (* Read configuration file. *)
@@ -647,11 +542,8 @@ let _ =
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () ->
       Idl.Exn.server Rrdd_bindings.Server.implementation
   ) ;
-  ignore
-  @@ Discover.start
-       (List.map (fun (name, _) -> writer_basename name) stats_to_write) ;
-  ignore @@ GCLog.start () ;
-  debug "Starting xenstore-watching thread .." ;
+  let _ : Thread.t = Discover.start [] in
+  let _ : Thread.t = GCLog.start () in
   let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
   if Daemon.systemd_booted () then
     if Daemon.systemd_notify Daemon.State.Ready then
@@ -660,7 +552,7 @@ let _ =
       warn "Sending systemd notification failed at %s" __LOC__ ;
   debug "Creating monitoring loop thread .." ;
   let () =
-    try Debug.with_thread_associated "main" monitor_write_loop writers
+    try Debug.with_thread_associated "main" monitor_write_loop ()
     with _ -> error "monitoring loop thread has failed"
   in
   while true do

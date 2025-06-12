@@ -635,9 +635,7 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 let metrics_root = "/dev/shm/metrics"
 
-let metrics_prefix_mem_host = "xcp-rrdd-mem_host"
-
-let metrics_prefix_mem_vms = "xcp-rrdd-mem_vms"
+let metrics_prefix_mem = "xcp-rrdd-squeezed"
 
 let metrics_prefix_pvs_proxy = "pvsproxy-"
 

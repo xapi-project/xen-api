@@ -131,7 +131,7 @@ let get_domain_stats xc =
 
 let bytes_of_kib kib = Int64.mul 1024L kib
 
-let generate_host_sources counters =
+let generate_host_sources xc counters =
   let memory_reclaimed, memory_possibly_reclaimed =
     (* Calculate host metrics
        - Host memory reclaimed by squeezed =
@@ -169,6 +169,13 @@ let generate_host_sources counters =
   in
   let memory_reclaimed = bytes_of_kib memory_reclaimed in
   let memory_possibly_reclaimed = bytes_of_kib memory_possibly_reclaimed in
+  let physinfo = Xenctrl.physinfo xc in
+  let total_kib =
+    Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
+  in
+  let free_kib =
+    Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
+  in
   (* Build corresponding Ds.ds values *)
   [
     ( Rrd.Host
@@ -182,6 +189,18 @@ let generate_host_sources counters =
         ~description:"Host memory that could be reclaimed by squeezed"
         ~value:(Rrd.VT_Int64 memory_possibly_reclaimed) ~ty:Rrd.Gauge
         ~default:true ~units:"B" ()
+    )
+  ; ( Rrd.Host
+    , Ds.ds_make ~name:"memory_total_kib"
+        ~description:"Total amount of memory in the host"
+        ~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
+        ~units:"KiB" ()
+    )
+  ; ( Rrd.Host
+    , Ds.ds_make ~name:"memory_free_kib"
+        ~description:"Total amount of free memory"
+        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
+        ~units:"KiB" ()
     )
   ]
 
@@ -233,6 +252,8 @@ let free_other uuid free =
         ~value:(Rrd.VT_Int64 free) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
     )
 
+let get_list f = Option.to_list (f ())
+
 let generate_vm_sources domains =
   let metrics_of ((dom, uuid, domid), {target; free; _}) =
     let target () =
@@ -254,6 +275,19 @@ let generate_vm_sources domains =
       else
         Option.bind free (free_other uuid)
     in
+    let total () =
+      let memory =
+        Int64.of_nativeint dom.Xenctrl.total_memory_pages
+        |> Xenctrl.pages_to_kib
+        |> bytes_of_kib
+      in
+      Some
+        ( Rrd.VM uuid
+        , Ds.ds_make ~name:"memory"
+            ~description:"Memory currently allocated to VM" ~units:"B"
+            ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
+        )
+    in
     (* CA-34383: Memory updates from paused domains serve no useful purpose.
        During a migrate such updates can also cause undesirable
        discontinuities in the observed value of memory_actual. Hence, we
@@ -261,14 +295,14 @@ let generate_vm_sources domains =
     if dom.Xenctrl.paused then
       []
     else
-      Option.to_list (target ()) @ Option.to_list (free ())
+      get_list target @ get_list free @ get_list total
   in
 
   List.concat_map metrics_of domains
 
 let generate_sources xc () =
   let domain_stats = get_domain_stats xc in
-  generate_host_sources domain_stats @ generate_vm_sources domain_stats
+  generate_host_sources xc domain_stats @ generate_vm_sources domain_stats
 
 (** The json-like serialization for 3 dss in dss_mem_vms takes 622 bytes. These
     bytes plus some overhead make 1024 bytes an upper bound. *)
