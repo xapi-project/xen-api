@@ -8118,7 +8118,9 @@ module VTPM = struct
   let create printer rpc session_id params =
     let vm_uuid = List.assoc "vm-uuid" params in
     let vM = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
-    let is_unique = get_bool_param params "is_unique" in
+    let is_unique =
+      get_bool_param params "is_unique" || get_bool_param params "is-unique"
+    in
     let ref = Client.VTPM.create ~rpc ~session_id ~vM ~is_unique in
     let uuid = Client.VTPM.get_uuid ~rpc ~session_id ~self:ref in
     printer (Cli_printer.PList [uuid])
