@@ -542,12 +542,16 @@ _xe()
               hvm | nomigrate | nested-virt | PV-drivers-up-to-date | \
               PV-drivers-detected | live | cooperative | enforce-homogeneity | \
               host-metrics-live | sharable | read-only | storage-lock | missing | \
-              metadata-latest | empty | clustered | pool-auto-join | joined)
+              metadata-latest | empty | clustered | pool-auto-join | joined | \
+              dry-run | metadata | paused | approximate | copy | progress | public | \
+              include-snapshots | preserve-power-state | soft | update | is-unique)
                 # Until autocompletion can be generated from the
                 # datamodel, this is just naive hardcoding. These cases were
                 # obtained by looking for boolean fields:
                 # 'xapi-cli-server/records.ml | grep bool_of_string' and
                 # 'grep string_of_bool'
+                # and
+                # 'xapi-cli-server/cli_frontend.ml | grep get_bool_param'
                 __xe_debug "triggering autocompletion for boolean params"
                 IFS=$'\n,'
                 set_completions 'true,false' "$value"
