@@ -36,8 +36,8 @@ let temp_name prefix suffix =
   Printf.sprintf "%s%06x%s" prefix rnd suffix
 
 (** [mkdtmp] creates a directory in [dir] and returns its path. If [dir]
-    does not yet exist it is created. It is a an error if [dir] is not a
-    directory. *)
+    does not yet exist it is created. It is a an error if [dir] exists
+    and is not a directory. *)
 let mkdtemp ?(dir = temp_dir) ?(perms = 0o700) prefix suffix =
   ( match Sys.file_exists dir with
   | true when not (Sys.is_directory dir) ->
@@ -68,15 +68,18 @@ let iso_name ~vm_uuid =
   let now = Ptime_clock.now () |> Ptime.to_rfc3339 in
   Printf.sprintf "config-%s-%s.iso" vm_uuid now
 
+(** Create an ISO in [sr_dir] with content [unattend]. [sr_dir] is
+    created if it not already exists. *)
 let make_iso ~vm_uuid ~unattend =
   try
-    let _iso = sr_dir // iso_name ~vm_uuid in
+    let iso = sr_dir // iso_name ~vm_uuid in
     Xapi_stdext_unix.Unixext.mkdir_rec sr_dir 0o755 ;
     with_temp_dir ~dir:"/var/tmp/xapi" "sysprep-" "-iso" @@ fun temp_dir ->
-    debug "%s: %s = %b" __FUNCTION__ temp_dir (Sys.file_exists temp_dir) ;
     let path = temp_dir // "unattend.xml" in
     Unixext.write_string_to_file path unattend ;
-    debug "%s: written to %s" __FUNCTION__ path
+    debug "%s: written to %s" __FUNCTION__ path ;
+    let args = ["-r"; "-J"; "-o"; iso; temp_dir] in
+    Forkhelpers.execute_command_get_output genisoimage args |> ignore
   with e ->
     let msg = Printexc.to_string e in
     Helpers.internal_error "%s failed: %s" __FUNCTION__ msg
