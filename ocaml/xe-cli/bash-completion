@@ -566,11 +566,18 @@ _xe()
                     else
                         all="--all"
                     fi
-                    if [[ "$fst" == "into-vdi" || "$fst" == "base-vdi" || "$fst" == "vdi-from" || "$fst" == "vdi-to" ]]; then
+
+                    case "$fst" in
+                      into-vdi | base-vdi | vdi-from | vdi-to | suspend-VDI)
                         class=vdi
-                    else
+                        ;;
+                      suspend-SR)
+                        class=sr
+                        ;;
+                      *)
                         class="$fst"
-                    fi
+                        ;;
+                    esac
 
                     # Show corresponding name labels for each UUID
                     SHOW_DESCRIPTION=1
@@ -588,7 +595,21 @@ _xe()
                     __xe_debug "fst is '$fst', snd is '$snd'"
                     if [[ "$snd" == "list" || "$fst" == "vm" ]]; then
                         IFS=$'\n,'
-                        set_completions_for_names "${fst}-list" "$param" "$value"
+
+                        # Try to provide a helpful "description" to the suggestions
+                        case "$param" in
+                         resident-on | affinity)
+                            SHOW_DESCRIPTION=1
+                            class="host"
+                             ;;
+                         *)
+                             ;;
+                        esac
+
+                        local name_label_cmd="$xe ${class}-list params=name-label 2>/dev/null --minimal uuid="
+                        __xe_debug "description class is '$class'"
+
+                        set_completions_for_names "${fst}-list" "$param" "$value" "$name_label_cmd"
                         return 0
                     fi
                 fi
@@ -755,6 +776,10 @@ __add_completion()
     local description_cmd="$2"
     local max_cmd_length="$3"
 
+    if [ "$word" = "<not in database>" ]; then
+        return 0
+    fi
+
     COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
     __xe_debug "\t$word"
 
@@ -768,8 +793,8 @@ __add_completion()
         COMPREPLY+=( $(printf '%s%q' "$description" "$word") )
     else
         if [[ $SHOW_DESCRIPTION == 1 ]]; then
-            __xe_debug "\t  showing command description - '$description'"
             description=" - $(eval $description_cmd$word)"
+            __xe_debug "\t  showing command description - '$description'"
         fi
         # Right-pad the command with spaces before the help string
         COMPREPLY+=( $(printf "%-${max_cmd_length}q %s" "$word" "$description") )
@@ -780,7 +805,8 @@ __preprocess_suggestions()
 {
     wordlist=$( echo "$1" | \
                 sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
-                sed -e 's/ *$//')
+                sed -e 's/ *$//' | \
+                sort -u )
     local IFS=$'\n'
     for word in $wordlist; do
         if [[ "$word" =~ ^$prefix.* ]]; then
