@@ -306,6 +306,8 @@ module Destination = struct
   (* Note this signal will flush the spans and terminate the exporter thread *)
   let signal () = Delay.signal delay
 
+  let wait_exit = Delay.make ()
+
   let create_exporter () =
     enable_span_garbage_collector () ;
     Thread.create
@@ -319,7 +321,8 @@ module Destination = struct
             signaled := true
           ) ;
           flush_spans ()
-        done
+        done ;
+        Delay.signal wait_exit
       )
       ()
 
@@ -339,6 +342,12 @@ module Destination = struct
     )
 end
 
-let flush_and_exit = Destination.signal
+let flush_and_exit ~max_wait () =
+  D.debug "flush_and_exit: signaling thread to export now" ;
+  Destination.signal () ;
+  if Delay.wait Destination.wait_exit max_wait then
+    D.info "flush_and_exit: timeout on span export"
+  else
+    D.debug "flush_and_exit: span export finished"
 
 let main = Destination.main
