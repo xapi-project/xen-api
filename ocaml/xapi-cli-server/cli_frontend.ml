@@ -128,14 +128,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; (* "host-introduce",
-       {
-       reqd=["name"; "address"; "remote-port"; "remote-username"; "remote-password"];
-       optn=["description"];
-       help="Introduce a remote host";
-       implementation=No_fd Cli_operations.host_introduce
-       };*)
-    ( "pool-enable-binary-storage"
+  ; ( "pool-enable-binary-storage"
     , {
         reqd= []
       ; optn= []
@@ -2768,17 +2761,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Standard]
       }
     )
-  ; (*
-   "diagnostic-event-deltas",
-    {
-      reqd=["class"];
-      optn=[];
-      help="Print the changes that are happening to all objects of class specified.";
-      implementation=With_fd Cli_operations.diagnostic_event_deltas;
-      flags=[];
-    };
-*)
-    ( "diagnostic-license-status"
+  ; ( "diagnostic-license-status"
     , {
         reqd= []
       ; optn= []
@@ -2998,35 +2981,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; (*
-   "alert-create",
-    {
-      reqd=["message"];
-      optn=["alert-level"];
-      help="Create a new alert.";
-      implementation=No_fd Cli_operations.alert_create;
-      flags=[];
-    };
-   "alert-destroy",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Destroy an Alert.";
-      implementation=No_fd Cli_operations.alert_destroy;
-      flags=[];
-    };
-*)
-    (*
-   "host-fence",
-    {
-      reqd=["host-uuid"];
-      optn=[];
-      help="Fence a host";
-      implementation=No_fd_local_session Cli_operations.host_fence;
-      flags=[];
-    };
-*)
-    ( "pool-vlan-create"
+  ; ( "pool-vlan-create"
     , {
         reqd= ["pif-uuid"; "vlan"; "network-uuid"]
       ; optn= []
@@ -3187,28 +3142,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Hidden; Neverforward]
       }
     )
-  ; (*
-   "host-ha-query",
-    {
-      reqd=[];
-      optn=[];
-      help="Query the HA configuration of the local host.";
-      implementation=No_fd_local_session Cli_operations.host_ha_query;
-      flags=[Neverforward];
-    };
-
-*)
-    (*
-    "subject-list",
-    {
-      reqd=[];
-      optn=[];
-      help="Returns a list of subject names that can access the pool";
-      implementation=No_fd Cli_operations.subject_list;
-      flags=[]
-    };
-*)
-    ( "subject-add"
+  ; ( "subject-add"
     , {
         reqd= ["subject-name"]
       ; optn= []
@@ -3254,17 +3188,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; (* RBAC 2.0 only
-       "role-create",
-       {
-         reqd=["id";"name"];
-         optn=[];
-         help="Add a role to the pool";
-         implementation=No_fd Cli_operations.role_create;
-         flags=[]
-       };
-    *)
-    ( "session-subject-identifier-list"
+  ; ( "session-subject-identifier-list"
     , {
         reqd= []
       ; optn= []

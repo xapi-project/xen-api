@@ -7237,58 +7237,10 @@ let host_send_debug_keys _printer rpc session_id params =
   let keys = List.assoc "keys" params in
   Client.Host.send_debug_keys ~rpc ~session_id ~host ~keys
 
-(*
-  let host_introduce printer rpc session_id params =
-  let name = List.assoc "name" params in
-  let descr = if List.mem_assoc "description" params then List.assoc "description" params else "" in
-  let address = List.assoc "address" params in
-  let port = List.assoc "remote-port" params in
-  let remote_username = List.assoc "remote-username" params in
-  let remote_password = List.assoc "remote-password" params in
-  ignore(Client.Credential.create_with_password ~rpc ~session_id name descr address (Int64.of_string port) remote_username remote_password)
- *)
-
 let task_cancel _printer rpc session_id params =
   let uuid = List.assoc "uuid" params in
   let task = Client.Task.get_by_uuid ~rpc ~session_id ~uuid in
   Client.Task.cancel ~rpc ~session_id ~task
-
-(*
-  let alert_create printer rpc session_id params =
-  let string_to_alert_level s =
-  match s with
-  | "info"             -> `Info
-  | "warning" | "warn" -> `Warn
-  | "error"            -> `Error
-  | _                  -> `Info
-  in
-  let message = List.assoc "message" params in
-  let level = if List.mem_assoc "level" params then List.assoc "level" params else "info" in
-  let level = string_to_alert_level level in
-  let alert = Client.Alert.create ~rpc ~session_id message [] level in
-  let uuid = Client.Alert.get_uuid ~rpc ~session_id alert in
-  printer (Cli_printer.PList [uuid])
-
-  let alert_destroy printer rpc session_id params =
-  let uuid = List.assoc "uuid" params in
-  let alert = Client.Alert.get_by_uuid ~rpc ~session_id uuid in
-  Client.Alert.destroy ~rpc ~session_id alert
- *)
-
-(*
-  let subject_list printer rpc session_id params =
-(* we get all subjects from the pool *)
-  let subjects = Client.Subject.get_all_records ~rpc ~session_id in
-  let table_of_subject (subject,record) =
-  [ "subject-uuid", record.API.subject_uuid;
-  "subject-identifier", record.API.subject_subject_identifier;
-(*  "subject-name", Client.Subject.get_subject_name ~rpc ~session_id subject;*)
-  ] @
-  record.API.subject_other_config
-  in
-  let all = List.map table_of_subject subjects in
-  printer (Cli_printer.PTable all)
- *)
 
 let subject_add printer rpc session_id params =
   let subject_name = List.assoc "subject-name" params in
@@ -7379,13 +7331,6 @@ let audit_log_get fd _printer rpc session_id params =
   in
   download_file_with_task fd rpc session_id filename Constants.audit_log_uri
     query label label
-
-(* RBAC 2.0 only
-   let role_create printer rpc session_id params =
-   (*let id = List.assoc "id" params in*)
-   let name = List.assoc "name" params in
-   ignore (Client.Role.create ~rpc ~session_id ~name ~description:"" ~permissions:[] ~is_basic:false ~is_complete:false)
-*)
 
 let session_subject_identifier_list printer rpc session_id _params =
   let subject_identifiers =
