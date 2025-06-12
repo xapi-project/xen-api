@@ -638,7 +638,7 @@ _xe()
         local previous_params="${OLDSTYLE_WORDS[@]:2:$params_len}"
         previous_params=$( echo "$previous_params" | cut -d= -f1 | \
                            sed -r '/^\s*$/d' | cut -d: -f1 | \
-                           sed -re 's/^/-e "\\s*/g' -e 's/$/[=:]"/g' | paste -sd " ")
+                           sed -re 's/^/-e "^\\s*/g' -e 's/$/[=:]"/g' | paste -sd " ")
 
         set_completions "$SUBCOMMAND_PARAMS" "$param" "" "$previous_params"
 
