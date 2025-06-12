@@ -23,13 +23,17 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let temp_dir = Filename.get_temp_dir_name ()
 
-let sr_dir = "/var/opt/iso"
-
 let genisoimage = "/usr/bin/genisoimage"
 
 let failwith_fmt fmt = Printf.ksprintf failwith fmt
 
 let prng = Random.State.make_self_init ()
+
+module SR = struct
+  let dir = "/var/opt/iso"
+
+  let name hostname = Printf.sprintf "SYSPREP-%s" hostname
+end
 
 let temp_name prefix suffix =
   let rnd = Random.State.bits prng land 0xFFFFFF in
@@ -64,16 +68,16 @@ let with_temp_dir ?(dir = temp_dir) ?(perms = 0o700) prefix suffix f =
   finally (fun () -> f dir) (fun () -> Unixext.rm_rec dir)
 
 (** name of the ISO we will use for a VMi; this is not a path *)
-let iso_name ~vm_uuid =
+let iso_basename ~vm_uuid =
   let now = Ptime_clock.now () |> Ptime.to_rfc3339 in
-  Printf.sprintf "config-%s-%s.iso" vm_uuid now
+  Printf.sprintf "sysprep-%s-%s.iso" vm_uuid now
 
-(** Create an ISO in [sr_dir] with content [unattend]. [sr_dir] is
+(** Create an ISO in [SR.dir] with content [unattend]. [SR.dir] is
     created if it not already exists. Returns the path of the ISO image *)
 let make_iso ~vm_uuid ~unattend =
   try
-    let iso = sr_dir // iso_name ~vm_uuid in
-    Xapi_stdext_unix.Unixext.mkdir_rec sr_dir 0o755 ;
+    let iso = SR.dir // iso_basename ~vm_uuid in
+    Xapi_stdext_unix.Unixext.mkdir_rec SR.dir 0o755 ;
     with_temp_dir ~dir:"/var/tmp/xapi" "sysprep-" "-iso" (fun temp_dir ->
         let path = temp_dir // "unattend.xml" in
         Unixext.write_string_to_file path unattend ;
@@ -86,9 +90,32 @@ let make_iso ~vm_uuid ~unattend =
     let msg = Printexc.to_string e in
     Helpers.internal_error "%s failed: %s" __FUNCTION__ msg
 
+(** create a local ISO SR when necessary and update it such that it
+    recognises any ISO we added or removed *)
+let update_sr ~__context =
+  let host = Helpers.get_localhost ~__context in
+  let hostname = Db.Host.get_hostname ~__context ~self:host in
+  let label = SR.name hostname in
+  let mib n = Int64.(n * 1024 * 1024 |> of_int) in
+  let sr =
+    match Db.SR.get_by_name_label ~__context ~label with
+    | [sr] ->
+        sr
+    | sr :: _ ->
+        warn "%s: more than one SR with label %s" __FUNCTION__ label ;
+        sr
+    | [] ->
+        let device_config = [("location", SR.dir); ("legcay_mode", "true")] in
+        Xapi_sr.create ~__context ~host ~name_label:label ~device_config
+          ~content_type:"iso" ~_type:"iso" ~name_description:"Sysprep ISOs"
+          ~shared:false ~sm_config:[] ~physical_size:(mib 512)
+  in
+  Xapi_sr.scan ~__context ~sr
+
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend =
   debug "%s" __FUNCTION__ ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let iso = make_iso ~vm_uuid ~unattend in
-  debug "%s: created %s" __FUNCTION__ iso
+  debug "%s: created ISO %s" __FUNCTION__ iso ;
+  update_sr ~__context
