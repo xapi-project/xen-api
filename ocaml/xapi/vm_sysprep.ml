@@ -23,7 +23,7 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let temp_dir = Filename.get_temp_dir_name ()
 
-let sr_dir = "/opt/opt/iso"
+let sr_dir = "/var/opt/iso"
 
 let genisoimage = "/usr/bin/genisoimage"
 
@@ -69,17 +69,19 @@ let iso_name ~vm_uuid =
   Printf.sprintf "config-%s-%s.iso" vm_uuid now
 
 (** Create an ISO in [sr_dir] with content [unattend]. [sr_dir] is
-    created if it not already exists. *)
+    created if it not already exists. Returns the path of the ISO image *)
 let make_iso ~vm_uuid ~unattend =
   try
     let iso = sr_dir // iso_name ~vm_uuid in
     Xapi_stdext_unix.Unixext.mkdir_rec sr_dir 0o755 ;
-    with_temp_dir ~dir:"/var/tmp/xapi" "sysprep-" "-iso" @@ fun temp_dir ->
-    let path = temp_dir // "unattend.xml" in
-    Unixext.write_string_to_file path unattend ;
-    debug "%s: written to %s" __FUNCTION__ path ;
-    let args = ["-r"; "-J"; "-o"; iso; temp_dir] in
-    Forkhelpers.execute_command_get_output genisoimage args |> ignore
+    with_temp_dir ~dir:"/var/tmp/xapi" "sysprep-" "-iso" (fun temp_dir ->
+        let path = temp_dir // "unattend.xml" in
+        Unixext.write_string_to_file path unattend ;
+        debug "%s: written to %s" __FUNCTION__ path ;
+        let args = ["-r"; "-J"; "-o"; iso; temp_dir] in
+        Forkhelpers.execute_command_get_output genisoimage args |> ignore ;
+        iso
+    )
   with e ->
     let msg = Printexc.to_string e in
     Helpers.internal_error "%s failed: %s" __FUNCTION__ msg
@@ -88,4 +90,5 @@ let make_iso ~vm_uuid ~unattend =
 let sysprep ~__context ~vm ~unattend =
   debug "%s" __FUNCTION__ ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  make_iso ~vm_uuid ~unattend
+  let iso = make_iso ~vm_uuid ~unattend in
+  debug "%s: created %s" __FUNCTION__ iso
