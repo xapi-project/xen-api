@@ -35,19 +35,98 @@ let write_config () =
     try Network_config.write_config !config
     with Network_config.Write_error -> ()
 
+let get_index_from_ethx name =
+  try Scanf.sscanf name "eth%d%!" Option.some with _ -> None
+
+let sort_based_on_ethx () =
+  Sysfs.list ()
+  |> List.filter_map (fun name ->
+         if Sysfs.is_physical name then
+           get_index_from_ethx name |> Option.map (fun i -> (name, i))
+         else
+           None
+     )
+
+let read_previous_inventory previous_inventory =
+  try
+    Xapi_stdext_unix.Unixext.file_lines_fold
+      (fun acc line ->
+        match Inventory.parse_inventory_entry line with
+        | Some ("MANAGEMENT_INTERFACE", iface) ->
+            info "get management interface from previous inventory: %s" iface ;
+            (Some iface, snd acc)
+        | Some ("MANAGEMENT_ADDRESS_TYPE", addr_type) ->
+            info "get management address type from previous inventory: %s"
+              addr_type ;
+            (fst acc, Some addr_type)
+        | _ ->
+            acc
+      )
+      (None, None) previous_inventory
+  with e ->
+    error "Failed to read previous inventory %s: %s" previous_inventory
+      (Printexc.to_string e) ;
+    (None, None)
+
+let update_inventory () =
+  let previous_inventory = "/var/tmp/.previousInventory" in
+  match read_previous_inventory previous_inventory with
+  | Some iface, Some addr_type ->
+      Network_config.write_manage_iface_to_inventory iface addr_type
+  | _ ->
+      error "Failed to find management interface or address type from %s"
+        previous_inventory
+
+let changed_interfaces_after_upgrade interface_order =
+  let previous_eth_devs =
+    List.filter_map
+      (fun (iface, _) ->
+        iface |> get_index_from_ethx |> Option.map (fun idx -> (iface, idx))
+      )
+      !config.interface_config
+  in
+  List.filter_map
+    (fun (name, pos) ->
+      List.find_opt (fun dev -> dev.position = pos) interface_order |> function
+      | Some dev ->
+          if dev.name <> name then Some (name, dev.name) else None
+      | None ->
+          error "Can't find previous interface %s in sorted interfaces" name ;
+          None
+    )
+    previous_eth_devs
+
 let sort last_order =
-  match last_order with
-  | Some last_order -> (
+  let do_sort last_order =
     match Network_device_order.sort last_order with
-    | Ok (interface_order, changes) ->
-        (Some interface_order, changes)
+    | Ok r ->
+        r
     | Error err ->
         error "Failed to sort interface order [%s]"
           (Network_device_order.string_of_error err) ;
-        (Some last_order, [])
-  )
-  | None ->
+        (last_order, [])
+  in
+  match (Network_config.device_already_renamed, last_order) with
+  | true, None ->
+      (* The net dev renamed version, skip sort *)
       (None, [])
+  | true, Some _ ->
+      (* Impossible *)
+      error "%s: device renamed but order is not None" __FUNCTION__ ;
+      raise
+        (Network_error (Internal_error "device renamed but order is not None"))
+  | false, None ->
+      (* Upgrade from net dev renamed version. The previous order is converted
+         and passed to initial rules. Just use [] here to sort. *)
+      let interface_order, _ = do_sort [] in
+      let changed_interfaces =
+        changed_interfaces_after_upgrade interface_order
+      in
+      update_inventory () ;
+      (Some interface_order, changed_interfaces)
+  | false, Some last_order ->
+      let interface_order, changed_interfaces = do_sort last_order in
+      (Some interface_order, changed_interfaces)
 
 let update_changes last_config changed_interfaces =
   let update_name name =
@@ -96,22 +175,6 @@ let read_config () =
     with Network_config.Read_error ->
       error "Could not interpret the configuration in management.conf"
   )
-
-let get_index_from_ethx name =
-  if String.starts_with ~prefix:"eth" name then
-    let index = String.sub name 3 (String.length name - 3) in
-    int_of_string_opt index
-  else
-    None
-
-let sort_based_on_ethx () =
-  Sysfs.list ()
-  |> List.filter_map (fun name ->
-         if Sysfs.is_physical name then
-           get_index_from_ethx name |> Option.map (fun i -> (name, i))
-         else
-           None
-     )
 
 let on_shutdown signal =
   let dbg = "shutdown" in
