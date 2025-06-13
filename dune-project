@@ -651,6 +651,7 @@
    (= :version))
   (xapi-stdext-threads
    (= :version))
+  (xapi-tracing (= :version))
   (odoc :with-doc)))
 
 (package
@@ -669,7 +670,8 @@
   ppx_deriving_rpc
   rpclib
   (xapi-stdext-threads
-   (= :version))))
+   (= :version))
+  (xapi-tracing (= :version))))
 
 (package
  (name message-switch))
