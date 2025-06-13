@@ -1842,6 +1842,21 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "vm-call-host-plugin"
+    , {
+        reqd= ["vm-uuid"; "plugin"; "fn"]
+      ; optn= ["args:"]
+      ; help=
+          "Calls function fn within the plugin on the host where the VM is \
+           running with arguments (args:key=value). To pass a \"value\" string \
+           with special characters in it (e.g. new line), an alternative \
+           syntax args:key:file=local_file can be used in place, where the \
+           content of local_file will be retrieved and assigned to \"key\" as \
+           a whole."
+      ; implementation= With_fd Cli_operations.vm_call_host_plugin
+      ; flags= []
+      }
+    )
   ; ( "snapshot-export-to-template"
     , {
         reqd= ["filename"; "snapshot-uuid"]
@@ -2866,7 +2881,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "host-evacuate"
     , {
         reqd= []
-      ; optn= ["network-uuid"]
+      ; optn= ["network-uuid"; "batch-size"]
       ; help= "Migrate all VMs off a host."
       ; implementation= No_fd Cli_operations.host_evacuate
       ; flags= [Host_selectors]

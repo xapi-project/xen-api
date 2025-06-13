@@ -3516,6 +3516,18 @@ let vm_call_plugin fd printer rpc session_id params =
   let result = Client.VM.call_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args in
   printer (Cli_printer.PList [result])
 
+let vm_call_host_plugin fd printer rpc session_id params =
+  let vm_uuid = List.assoc "vm-uuid" params in
+  let vm = Client.VM.get_by_uuid ~rpc ~session_id ~uuid:vm_uuid in
+  let plugin = List.assoc "plugin" params in
+  let fn = List.assoc "fn" params in
+  let args = read_map_params "args" params in
+  let args = List.map (args_file fd) args in
+  let result =
+    Client.VM.call_host_plugin ~rpc ~session_id ~vm ~plugin ~fn ~args
+  in
+  printer (Cli_printer.PList [result])
+
 let data_source_to_kvs ds =
   [
     ("name_label", ds.API.data_source_name_label)
@@ -5369,13 +5381,21 @@ let host_evacuate _printer rpc session_id params =
            Client.Network.get_by_uuid ~rpc ~session_id ~uuid
        )
   in
+  let evacuate_batch_size =
+    match List.assoc_opt "batch-size" params with
+    | Some x ->
+        Scanf.sscanf x "%Lu%!" Fun.id
+    | None ->
+        0L
+  in
   ignore
     (do_host_op rpc session_id ~multiple:false
        (fun _ host ->
          Client.Host.evacuate ~rpc ~session_id ~host:(host.getref ()) ~network
-           ~evacuate_batch_size:0L
+           ~evacuate_batch_size
        )
-       params ["network-uuid"]
+       params
+       ["network-uuid"; "batch-size"]
     )
 
 let host_get_vms_which_prevent_evacuation printer rpc session_id params =

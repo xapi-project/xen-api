@@ -255,9 +255,51 @@ let mem_available () =
   let* size, kb = scan "/proc/meminfo" in
   match kb with "kB" -> ok size | _ -> res_error "unexpected unit: %s" kb
 
-let dss_mem_vms doms =
-  List.fold_left
-    (fun acc (dom, uuid, domid) ->
+let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
+
+module IntSet = Set.Make (Int)
+
+let domain_snapshot xc =
+  let metadata_of_domain dom =
+    let ( let* ) = Option.bind in
+    let* uuid_raw = Uuidx.of_int_array dom.Xenctrl.handle in
+    let uuid = Uuidx.to_string uuid_raw in
+    let domid = dom.Xenctrl.domid in
+    let start = String.sub uuid 0 18 in
+    (* Actively hide migrating VM uuids, these are temporary and xenops writes
+       the original and the final uuid to xenstore *)
+    let uuid_from_key key =
+      let path = Printf.sprintf "/vm/%s/%s" uuid key in
+      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
+      with Xs_protocol.Enoent _hint ->
+        info "Couldn't read path %s; falling back to actual uuid" path ;
+        uuid
+    in
+    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
+    if List.mem start uuid_blacklist then
+      None
+    else
+      let key =
+        if Astring.String.is_suffix ~affix:"000000000000" uuid then
+          Some "origin-uuid"
+        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
+          Some "final-uuid"
+        else
+          None
+      in
+      Some (dom, stable_uuid key, domid)
+  in
+  let domains =
+    Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
+  in
+  let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
+  let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
+  Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
+  domains |> List.to_seq
+
+let dss_mem_vms xc =
+  let mem_metrics_of (dom, uuid, domid) =
+    let vm_metrics () =
       let kib =
         Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
       in
@@ -317,14 +359,20 @@ let dss_mem_vms doms =
               )
           with Not_found -> None
       in
-      List.concat
-        [
-          main_mem_ds :: Option.to_list other_ds
-        ; Option.to_list mem_target_ds
-        ; acc
-        ]
-    )
-    [] doms
+      let metrics =
+        List.concat
+          [main_mem_ds :: Option.to_list other_ds; Option.to_list mem_target_ds]
+      in
+      Some (List.to_seq metrics)
+    in
+    (* CA-34383: Memory updates from paused domains serve no useful purpose.
+       During a migrate such updates can also cause undesirable
+       discontinuities in the observed value of memory_actual. Hence, we
+       ignore changes from paused domains: *)
+    if dom.Xenctrl.paused then None else vm_metrics ()
+  in
+  let domains = domain_snapshot xc in
+  Seq.filter_map mem_metrics_of domains |> Seq.concat |> List.of_seq
 
 (**** Local cache SR stuff *)
 
@@ -429,66 +477,18 @@ let handle_exn log f default =
       (Printexc.to_string e) ;
     default
 
-let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
-
-module IntSet = Set.Make (Int)
-
-let domain_snapshot xc =
-  let metadata_of_domain dom =
-    let ( let* ) = Option.bind in
-    let* uuid_raw = Uuidx.of_int_array dom.Xenctrl.handle in
-    let uuid = Uuidx.to_string uuid_raw in
-    let domid = dom.Xenctrl.domid in
-    let start = String.sub uuid 0 18 in
-    (* Actively hide migrating VM uuids, these are temporary and xenops writes
-       the original and the final uuid to xenstore *)
-    let uuid_from_key key =
-      let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
-      with Xs_protocol.Enoent _hint ->
-        info "Couldn't read path %s; falling back to actual uuid" path ;
-        uuid
-    in
-    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
-    if List.mem start uuid_blacklist then
-      None
-    else
-      let key =
-        if Astring.String.is_suffix ~affix:"000000000000" uuid then
-          Some "origin-uuid"
-        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
-          Some "final-uuid"
-        else
-          None
-      in
-      Some (dom, stable_uuid key, domid)
-  in
-  let domains =
-    Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
-  in
-  let domain_paused (d, uuid, _) =
-    if d.Xenctrl.paused then Some uuid else None
-  in
-  let paused_uuids = List.filter_map domain_paused domains in
-  let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
-  let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
-  Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
-  (domains, paused_uuids)
-
 let dom0_stat_generators =
   [
-    ("ha", fun _ _ _ -> Rrdd_ha_stats.all ())
-  ; ("mem_host", fun xc _ _ -> dss_mem_host xc)
-  ; ("mem_vms", fun _ _ domains -> dss_mem_vms domains)
-  ; ("cache", fun _ timestamp _ -> dss_cache timestamp)
+    ("ha", fun _ _ -> Rrdd_ha_stats.all ())
+  ; ("mem_host", fun xc _ -> dss_mem_host xc)
+  ; ("mem_vms", fun xc _ -> dss_mem_vms xc)
+  ; ("cache", fun _ timestamp -> dss_cache timestamp)
   ]
 
-let generate_all_dom0_stats xc domains =
+let generate_all_dom0_stats xc =
   let handle_generator (name, generator) =
     let timestamp = Unix.gettimeofday () in
-    ( name
-    , (timestamp, handle_exn name (fun _ -> generator xc timestamp domains) [])
-    )
+    (name, (timestamp, handle_exn name (fun _ -> generator xc timestamp) []))
   in
   List.map handle_generator dom0_stat_generators
 
@@ -505,10 +505,9 @@ let write_dom0_stats writers tagged_dss =
   in
   List.iter write_dss writers
 
-let do_monitor_write xc writers =
+let do_monitor_write domains_before xc writers =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
-      let domains, my_paused_vms = domain_snapshot xc in
-      let tagged_dom0_stats = generate_all_dom0_stats xc domains in
+      let tagged_dom0_stats = generate_all_dom0_stats xc in
       write_dom0_stats writers tagged_dom0_stats ;
       let dom0_stats =
         tagged_dom0_stats
@@ -518,26 +517,34 @@ let do_monitor_write xc writers =
            )
       in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
+      let domains_after = domain_snapshot xc in
       let stats = Seq.append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
-      let uuid_domids = List.map (fun (_, u, i) -> (u, i)) domains in
-
+      (* merge the domain ids from the previous iteration and the current one
+         to avoid missing updates *)
+      let uuid_domids =
+        Seq.append domains_before domains_after
+        |> Seq.map (fun (_, u, i) -> (u, i))
+        |> Rrd.StringMap.of_seq
+      in
       (* stats are grouped per plugin, which provides its timestamp *)
-      Rrdd_monitor.update_rrds uuid_domids my_paused_vms stats ;
+      Rrdd_monitor.update_rrds uuid_domids stats ;
 
       Rrdd_libs.Constants.datasource_dump_file
       |> Rrdd_server.dump_host_dss_to_file ;
       Rrdd_libs.Constants.datasource_vm_dump_file
-      |> Rrdd_server.dump_vm_dss_to_file
+      |> Rrdd_server.dump_vm_dss_to_file ;
+      domains_after
   )
 
 let monitor_write_loop writers =
   Debug.with_thread_named "monitor_write"
     (fun () ->
       Xenctrl.with_intf (fun xc ->
+          let domains = ref Seq.empty in
           while true do
             try
-              do_monitor_write xc writers ;
+              domains := do_monitor_write !domains xc writers ;
               with_lock Rrdd_shared.next_iteration_start_m (fun _ ->
                   Rrdd_shared.next_iteration_start :=
                     Clock.Timer.extend_by !Rrdd_shared.timeslice

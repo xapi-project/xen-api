@@ -930,7 +930,6 @@ let upgrade_ca_fingerprints =
               try
                 let* certificate =
                   Xapi_stdext_unix.Unixext.string_of_file filename
-                  |> Cstruct.of_string
                   |> X509.Certificate.decode_pem
                 in
                 let sha1 =
