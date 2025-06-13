@@ -108,7 +108,7 @@ let dss_vcpus xc doms =
                  ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runnable" ~units:"(fraction)"
+             , Ds.ds_make ~name:"runnable_any" ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
                       (Int64.to_float
@@ -122,7 +122,7 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that at least one vCPU is runnable in the \
                     domain"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make
