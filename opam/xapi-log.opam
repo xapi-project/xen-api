@@ -16,7 +16,6 @@ depends: [
   "mtime"
   "xapi-backtrace"
   "xapi-stdext-pervasives" {= version}
-  "xapi-stdext-threads" {with-test & = version}
   "odoc" {with-doc}
 ]
 build: [

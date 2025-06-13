@@ -231,8 +231,7 @@
   logs
   mtime
   xapi-backtrace
-  (xapi-stdext-pervasives (= :version))
-  (xapi-stdext-threads (and :with-test (= :version)))))
+  (xapi-stdext-pervasives (= :version))))
 
 (package
  (name xapi-idl))
