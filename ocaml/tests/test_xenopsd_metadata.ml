@@ -38,8 +38,8 @@ let load_vm_config __context conf =
   in
   let flags =
     [
-      (Xapi_globs.cpu_info_vendor_key, "AuthenticAMD")
-    ; (Xapi_globs.cpu_info_features_key, "deadbeef-deadbeef")
+      (Constants.cpu_info_vendor_key, "AuthenticAMD")
+    ; (Constants.cpu_info_features_key, "deadbeef-deadbeef")
     ]
   in
   Db.VM.set_last_boot_CPU_flags ~__context ~self ~value:flags ;

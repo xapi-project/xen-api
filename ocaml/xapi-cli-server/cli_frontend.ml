@@ -529,6 +529,18 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
+  ; ( "pool-get-cpu-features"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          {|Prints a hexadecimal representation of the pool's physical-CPU
+           features for PV and HVM VMs. These are combinations of all the
+           hosts' policies and are used when starting new VMs in a pool.|}
+      ; implementation= No_fd Cli_operations.pool_get_cpu_features
+      ; flags= []
+      }
+    )
   ; ( "host-is-in-emergency-mode"
     , {
         reqd= []
@@ -1012,8 +1024,10 @@ let rec cmdtable_data : (string * cmd_spec) list =
         reqd= []
       ; optn= ["uuid"]
       ; help=
-          "Prints a hexadecimal representation of the host's physical-CPU \
-           features."
+          {|Prints a hexadecimal representation of the host's physical-CPU
+           features for PV and HVM VMs. features_{hvm,pv} are "maximum"
+           featuresets the host will accept during migrations, and
+           features_{hvm,pv}_host will be used to start new VMs.|}
       ; implementation= No_fd Cli_operations.host_get_cpu_features
       ; flags= []
       }

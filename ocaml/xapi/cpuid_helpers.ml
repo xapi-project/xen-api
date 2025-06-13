@@ -12,8 +12,6 @@
  * GNU Lesser General Public License for more details.
  *)
 
-open Xapi_globs
-
 module D = Debug.Make (struct let name = "cpuid_helpers" end)
 
 open D
@@ -24,20 +22,19 @@ let features_t t =
     (Xenops_interface.CPU_policy.of_string t)
     Xenops_interface.CPU_policy.to_string
 
-let features =
-  Map_check.(field Xapi_globs.cpu_info_features_key (features_t `vm))
+let features = Map_check.(field Constants.cpu_info_features_key (features_t `vm))
 
 let features_pv =
-  Map_check.(field Xapi_globs.cpu_info_features_pv_key (features_t `host))
+  Map_check.(field Constants.cpu_info_features_pv_key (features_t `host))
 
 let features_hvm =
-  Map_check.(field Xapi_globs.cpu_info_features_hvm_key (features_t `host))
+  Map_check.(field Constants.cpu_info_features_hvm_key (features_t `host))
 
 let features_pv_host =
-  Map_check.(field Xapi_globs.cpu_info_features_pv_host_key (features_t `host))
+  Map_check.(field Constants.cpu_info_features_pv_host_key (features_t `host))
 
 let features_hvm_host =
-  Map_check.(field Xapi_globs.cpu_info_features_hvm_host_key (features_t `host))
+  Map_check.(field Constants.cpu_info_features_hvm_host_key (features_t `host))
 
 let cpu_count = Map_check.(field "cpu_count" int)
 
@@ -55,7 +52,7 @@ let get_flags_for_vm ~__context domain_type cpu_info =
     | `pv ->
         features_pv
   in
-  let vendor = List.assoc cpu_info_vendor_key cpu_info in
+  let vendor = List.assoc Constants.cpu_info_vendor_key cpu_info in
   let migration = Map_check.getf features_field cpu_info in
   (vendor, migration)
 
@@ -124,16 +121,18 @@ let assert_vm_is_compatible ~__context ~vm ~host =
         get_host_compatibility_info ~__context ~domain_type ~host ()
       in
       let vm_cpu_info = vm_rec.API.vM_last_boot_CPU_flags in
-      if List.mem_assoc cpu_info_vendor_key vm_cpu_info then (
+      if List.mem_assoc Constants.cpu_info_vendor_key vm_cpu_info then (
         (* Check the VM was last booted on a CPU with the same vendor as this host's CPU. *)
-        let vm_cpu_vendor = List.assoc cpu_info_vendor_key vm_cpu_info in
+        let vm_cpu_vendor =
+          List.assoc Constants.cpu_info_vendor_key vm_cpu_info
+        in
         debug "VM last booted on CPU of vendor %s; host CPUs are of vendor %s"
           vm_cpu_vendor host_cpu_vendor ;
         if vm_cpu_vendor <> host_cpu_vendor then
           fail
             "VM last booted on a host which had a CPU from a different vendor."
       ) ;
-      if List.mem_assoc cpu_info_features_key vm_cpu_info then (
+      if List.mem_assoc Constants.cpu_info_features_key vm_cpu_info then (
         (* Check the VM was last booted on a CPU whose features are a subset of the features of this host's CPU. *)
         let vm_cpu_features = Map_check.getf features vm_cpu_info in
         debug
