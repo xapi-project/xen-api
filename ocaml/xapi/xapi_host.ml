@@ -2769,7 +2769,7 @@ let write_uefi_certificates_to_disk ~__context ~host =
     ["KEK.auth"; "db.auth"]
     |> List.iter (fun cert ->
            let log_of found =
-             (if found then info else error)
+             (if found then info else warn)
                "check_valid_uefi_certs: %s %s in %s"
                (if found then "found" else "missing")
                cert path

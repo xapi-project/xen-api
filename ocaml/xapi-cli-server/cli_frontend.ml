@@ -101,6 +101,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "sr-uuid"
           ; "network-uuid"
           ; "pool-uuid"
+          ; "public"
           ]
       ; help= "Create a binary blob to be associated with an API object"
       ; implementation= No_fd Cli_operations.blob_create
@@ -127,14 +128,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; (* "host-introduce",
-       {
-       reqd=["name"; "address"; "remote-port"; "remote-username"; "remote-password"];
-       optn=["description"];
-       help="Introduce a remote host";
-       implementation=No_fd Cli_operations.host_introduce
-       };*)
-    ( "pool-enable-binary-storage"
+  ; ( "pool-enable-binary-storage"
     , {
         reqd= []
       ; optn= []
@@ -816,7 +810,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "host-emergency-ha-disable"
     , {
         reqd= []
-      ; optn= ["force"]
+      ; optn= ["force"; "soft"]
       ; help=
           "Disable HA on the local host. Only to be used to recover a pool \
            with a broken HA setup."
@@ -1776,6 +1770,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "host-password"
           ; "type"
           ; "remote-config"
+          ; "dry-run"
+          ; "metadata"
           ; "url"
           ; "vdi:"
           ]
@@ -1789,7 +1785,8 @@ let rec cmdtable_data : (string * cmd_spec) list =
            VDIs will be imported into the Pool's default SR unless an override \
            is provided. If the force option is given then any disk data \
            checksum failures will be ignored. If the parameter 'url' is \
-           specified, xapi will attempt to import from that URL."
+           specified, xapi will attempt to import from that URL. Only metadata \
+           will be imported if 'metadata' is true"
       ; implementation= With_fd Cli_operations.vm_import
       ; flags= [Standard]
       }
@@ -1803,6 +1800,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "compress"
           ; "metadata"
           ; "excluded-device-types"
+          ; "include-snapshots"
           ]
       ; help= "Export a VM to <filename>."
       ; implementation= With_fd Cli_operations.vm_export
@@ -2393,6 +2391,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
             "name-description"
           ; "sharable"
           ; "read-only"
+          ; "managed"
           ; "other-config:"
           ; "xenstore-data:"
           ; "sm-config:"
@@ -2762,17 +2761,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Standard]
       }
     )
-  ; (*
-   "diagnostic-event-deltas",
-    {
-      reqd=["class"];
-      optn=[];
-      help="Print the changes that are happening to all objects of class specified.";
-      implementation=With_fd Cli_operations.diagnostic_event_deltas;
-      flags=[];
-    };
-*)
-    ( "diagnostic-license-status"
+  ; ( "diagnostic-license-status"
     , {
         reqd= []
       ; optn= []
@@ -2992,35 +2981,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; (*
-   "alert-create",
-    {
-      reqd=["message"];
-      optn=["alert-level"];
-      help="Create a new alert.";
-      implementation=No_fd Cli_operations.alert_create;
-      flags=[];
-    };
-   "alert-destroy",
-    {
-      reqd=["uuid"];
-      optn=[];
-      help="Destroy an Alert.";
-      implementation=No_fd Cli_operations.alert_destroy;
-      flags=[];
-    };
-*)
-    (*
-   "host-fence",
-    {
-      reqd=["host-uuid"];
-      optn=[];
-      help="Fence a host";
-      implementation=No_fd_local_session Cli_operations.host_fence;
-      flags=[];
-    };
-*)
-    ( "pool-vlan-create"
+  ; ( "pool-vlan-create"
     , {
         reqd= ["pif-uuid"; "vlan"; "network-uuid"]
       ; optn= []
@@ -3181,28 +3142,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Hidden; Neverforward]
       }
     )
-  ; (*
-   "host-ha-query",
-    {
-      reqd=[];
-      optn=[];
-      help="Query the HA configuration of the local host.";
-      implementation=No_fd_local_session Cli_operations.host_ha_query;
-      flags=[Neverforward];
-    };
-
-*)
-    (*
-    "subject-list",
-    {
-      reqd=[];
-      optn=[];
-      help="Returns a list of subject names that can access the pool";
-      implementation=No_fd Cli_operations.subject_list;
-      flags=[]
-    };
-*)
-    ( "subject-add"
+  ; ( "subject-add"
     , {
         reqd= ["subject-name"]
       ; optn= []
@@ -3248,17 +3188,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= []
       }
     )
-  ; (* RBAC 2.0 only
-       "role-create",
-       {
-         reqd=["id";"name"];
-         optn=[];
-         help="Add a role to the pool";
-         implementation=No_fd Cli_operations.role_create;
-         flags=[]
-       };
-    *)
-    ( "session-subject-identifier-list"
+  ; ( "session-subject-identifier-list"
     , {
         reqd= []
       ; optn= []
@@ -3831,7 +3761,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vtpm-create"
     , {
         reqd= ["vm-uuid"]
-      ; optn= []
+      ; optn= ["is-unique"]
       ; help= "Create a VTPM associated with a VM."
       ; implementation= No_fd Cli_operations.VTPM.create
       ; flags= []
