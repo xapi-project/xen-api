@@ -108,7 +108,7 @@ let dss_vcpus xc doms =
                  ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
-             , Ds.ds_make ~name:"runnable" ~units:"(fraction)"
+             , Ds.ds_make ~name:"runnable_any" ~units:"(fraction)"
                  ~value:
                    (Rrd.VT_Float
                       (Int64.to_float
