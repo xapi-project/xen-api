@@ -122,7 +122,7 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that at least one vCPU is runnable in the \
                     domain"
-                 ~ty:Rrd.Derive ~default:false ~min:0.0 ()
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
              , Ds.ds_make
