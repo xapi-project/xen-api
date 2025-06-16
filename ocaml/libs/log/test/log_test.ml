@@ -6,12 +6,16 @@ let a = [||]
 
 let buggy () = a.(1) <- 0
 
+let with_lock mutex f =
+  let finally () = Mutex.unlock mutex in
+  Mutex.lock mutex ; Fun.protect ~finally f
+
 let () =
   Printexc.record_backtrace true ;
   Debug.log_to_stdout () ;
   ()
   |> Debug.with_thread_associated "main" @@ fun () ->
-     try Xapi_stdext_threads.Threadext.Mutex.execute m buggy
+     try with_lock m buggy
      with e ->
        D.log_backtrace e ;
        D.warn "Got exception: %s" (Printexc.to_string e)
