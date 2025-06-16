@@ -21,8 +21,6 @@ let ( // ) = Filename.concat
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let temp_dir = Filename.get_temp_dir_name ()
-
 let genisoimage = "/usr/bin/genisoimage"
 
 let failwith_fmt fmt = Printf.ksprintf failwith fmt
@@ -35,9 +33,12 @@ module SR = struct
   let name hostname = Printf.sprintf "SYSPREP-%s" hostname
 end
 
+(** create a name with a random infix *)
 let temp_name prefix suffix =
   let rnd = Random.State.bits prng land 0xFFFFFF in
   Printf.sprintf "%s%06x%s" prefix rnd suffix
+
+let temp_dir = Filename.get_temp_dir_name ()
 
 (** [mkdtmp] creates a directory in [dir] and returns its path. If [dir]
     does not yet exist it is created. It is a an error if [dir] exists
@@ -67,7 +68,7 @@ let with_temp_dir ?(dir = temp_dir) ?(perms = 0o700) prefix suffix f =
   let dir = mkdtemp ~dir ~perms prefix suffix in
   finally (fun () -> f dir) (fun () -> Unixext.rm_rec dir)
 
-(** name of the ISO we will use for a VMi; this is not a path *)
+(** name of the ISO we will use for a VM; this is not a path *)
 let iso_basename ~vm_uuid =
   let now = Ptime_clock.now () |> Ptime.to_rfc3339 in
   Printf.sprintf "sysprep-%s-%s.iso" vm_uuid now
@@ -76,7 +77,8 @@ let iso_basename ~vm_uuid =
     created if it not already exists. Returns the path of the ISO image *)
 let make_iso ~vm_uuid ~unattend =
   try
-    let iso = SR.dir // iso_basename ~vm_uuid in
+    let basename = iso_basename ~vm_uuid in
+    let iso = SR.dir // basename in
     Xapi_stdext_unix.Unixext.mkdir_rec SR.dir 0o755 ;
     with_temp_dir ~dir:"/var/tmp/xapi" "sysprep-" "-iso" (fun temp_dir ->
         let path = temp_dir // "unattend.xml" in
@@ -84,7 +86,7 @@ let make_iso ~vm_uuid ~unattend =
         debug "%s: written to %s" __FUNCTION__ path ;
         let args = ["-r"; "-J"; "-o"; iso; temp_dir] in
         Forkhelpers.execute_command_get_output genisoimage args |> ignore ;
-        iso
+        (iso, basename)
     )
   with e ->
     let msg = Printexc.to_string e in
@@ -105,17 +107,53 @@ let update_sr ~__context =
         warn "%s: more than one SR with label %s" __FUNCTION__ label ;
         sr
     | [] ->
-        let device_config = [("location", SR.dir); ("legcay_mode", "true")] in
+        let device_config = [("location", SR.dir); ("legacy_mode", "true")] in
         Xapi_sr.create ~__context ~host ~name_label:label ~device_config
           ~content_type:"iso" ~_type:"iso" ~name_description:"Sysprep ISOs"
           ~shared:false ~sm_config:[] ~physical_size:(mib 512)
   in
-  Xapi_sr.scan ~__context ~sr
+  Xapi_sr.scan ~__context ~sr ;
+  sr
+
+let find_cdr_vbd ~__context ~vm =
+  let vbds = Db.VM.get_VBDs ~__context ~self:vm in
+  let vbds' =
+    List.map (fun self -> (self, Db.VBD.get_record ~__context ~self)) vbds
+  in
+  let is_cd (_rf, rc) =
+    let open API in
+    rc.vBD_type = `CD && rc.vBD_empty
+  in
+  let uuid = Db.VM.get_uuid ~__context ~self:vm in
+  match List.filter is_cd vbds' with
+  | [] ->
+      failwith_fmt "%s: can't find CDR for VM %s" __FUNCTION__ uuid
+  | [(rf, rc)] ->
+      debug "%s: for VM %s using VBD %s" __FUNCTION__ uuid rc.API.vBD_uuid ;
+      rf
+  | (rf, rc) :: _ ->
+      debug "%s: for VM %s using VBD %s" __FUNCTION__ uuid rc.API.vBD_uuid ;
+      warn "%s: for VM %s found additions VBDs" __FUNCTION__ uuid ;
+      rf
+
+let find_vdi ~__context ~label =
+  match Db.VDI.get_by_name_label ~__context ~label with
+  | [] ->
+      failwith_fmt "%s: can't find VDI for %s" __FUNCTION__ label
+  | [vdi] ->
+      vdi
+  | vdi :: _ ->
+      warn "%s: more than one VDI with label %s" __FUNCTION__ label ;
+      vdi
 
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend =
   debug "%s" __FUNCTION__ ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
-  let iso = make_iso ~vm_uuid ~unattend in
+  let iso, label = make_iso ~vm_uuid ~unattend in
   debug "%s: created ISO %s" __FUNCTION__ iso ;
-  update_sr ~__context
+  let _sr = update_sr ~__context in
+  let vbd = find_cdr_vbd ~__context ~vm in
+  let vdi = find_vdi ~__context ~label in
+  debug "%s: inserting Syspep VDI for VM %s" __FUNCTION__ vm_uuid ;
+  Xapi_vbd.insert ~__context ~vdi ~vbd
