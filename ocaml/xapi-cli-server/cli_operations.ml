@@ -6819,6 +6819,28 @@ let pool_get_guest_secureboot_readiness printer rpc session_id params =
        (Record_util.pool_guest_secureboot_readiness_to_string result)
     )
 
+let cpu_info_features_of feature_keys cpu_info =
+  let ( let* ) = Option.bind in
+  List.filter_map
+    (fun key ->
+      let* features = List.assoc_opt key cpu_info in
+      Some (key, features)
+    )
+    feature_keys
+
+let pool_get_cpu_features printer rpc session_id params =
+  let pool = get_pool_with_default rpc session_id params "uuid" in
+  let cpu_info = Client.Pool.get_cpu_info ~rpc ~session_id ~self:pool in
+
+  let feature_keys =
+    [
+      Constants.cpu_info_features_pv_host_key
+    ; Constants.cpu_info_features_hvm_host_key
+    ]
+  in
+  let features = cpu_info_features_of feature_keys cpu_info in
+  printer (Cli_printer.PTable [features])
+
 let pool_sync_bundle fd _printer rpc session_id params =
   let filename_opt = List.assoc_opt "filename" params in
   match filename_opt with
@@ -6988,8 +7010,17 @@ let host_get_cpu_features printer rpc session_id params =
       get_host_from_session rpc session_id
   in
   let cpu_info = Client.Host.get_cpu_info ~rpc ~session_id ~self:host in
-  let features = List.assoc "features" cpu_info in
-  printer (Cli_printer.PMsg features)
+
+  let feature_keys =
+    [
+      Constants.cpu_info_features_pv_key
+    ; Constants.cpu_info_features_hvm_key
+    ; Constants.cpu_info_features_pv_host_key
+    ; Constants.cpu_info_features_hvm_host_key
+    ]
+  in
+  let features = cpu_info_features_of feature_keys cpu_info in
+  printer (Cli_printer.PTable [features])
 
 let host_enable_display printer rpc session_id params =
   let host =
