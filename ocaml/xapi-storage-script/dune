@@ -41,6 +41,7 @@
     sexplib
     sexplib0
     uri
+    threads.posix
     xapi-backtrace
     xapi-consts
     xapi-consts.xapi_version
@@ -76,20 +77,19 @@
   (files (xapi-storage-script.8 as man8/xapi-storage-script.8))
 )
 
-(rule
+(cram
   (alias runtest-python)
+  (runtest_alias false)
   (package xapi-storage-script)
   (deps
-    (:x main.exe)
+    main.exe
+    ../xapi-storage/python/xapi/storage/api/v5/datapath.py
+    ../xapi-storage/python/xapi/storage/api/v5/plugin.py
+    ../xapi-storage/python/xapi/storage/api/v5/task.py
+    ../xapi-storage/python/xapi/storage/api/v5/volume.py
+    (source_tree ../xapi-storage/python/xapi)
     (source_tree test/volume)
-    (:p
-     ../xapi-storage/python/xapi/storage/api/v5/datapath.py
-     ../xapi-storage/python/xapi/storage/api/v5/plugin.py
-     ../xapi-storage/python/xapi/storage/api/v5/task.py
-     ../xapi-storage/python/xapi/storage/api/v5/volume.py
-     )
   )
-  (action (bash "export PYTHONPATH=../xapi-storage/python/; echo $PYTHONPATH; ./%{x} --root=$PWD/test --self-test-only=true"))
 )
 
 (data_only_dirs test examples)

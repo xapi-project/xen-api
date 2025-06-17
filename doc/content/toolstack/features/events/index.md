@@ -72,9 +72,9 @@ while True:
     events = session.xenapi.event.next() # block until a xapi event on a xapi DB object is available
     for event in events:
       print "received event op=%s class=%s ref=%s" % (event['operation'], event['class'], event['ref'])                                      
-      if event['class'] == 'vm' and event['operatoin'] == 'mod':
+      if event['class'] == 'vm' and event['operation'] == 'mod':
         vm = event['snapshot']
-        print "xapi-event on vm: vm_uuid=%s, power_state=%s, current_operation=%s" % (vm['uuid'],vm['name_label'],vm['power_state'],vm['current_operations'].values())
+        print "xapi-event on vm: vm_uuid=%s, vm_name_label=%s, power_state=%s, current_operation=%s" % (vm['uuid'],vm['name_label'],vm['power_state'],vm['current_operations'].values())
   except XenAPI.Failure, e:
     if len(e.details) > 0 and e.details[0] == 'EVENTS_LOST':
       session.xenapi.event.unregister(["VM","pool"])

@@ -1,4 +1,7 @@
 _build/
+helper/*.o
+helper/*.o.d
+helper/vfork_helper
 .merlin
 *.install
 

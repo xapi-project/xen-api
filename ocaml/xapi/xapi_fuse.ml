@@ -53,6 +53,8 @@ let light_fuse_and_run ?(fuse_length = !Constants.fuse_time) () =
   let new_fuse_length = max 5. (fuse_length -. delay_so_far) in
   debug "light_fuse_and_run: current RRDs have been saved" ;
   ignore
+    (Thread.create Tracing_export.(flush_and_exit ~max_wait:new_fuse_length) ()) ;
+  ignore
     (Thread.create
        (fun () ->
          let open Xapi_database in

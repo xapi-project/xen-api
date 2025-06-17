@@ -253,6 +253,46 @@ module AssertUrlIsValid = Generic.MakeStateless (struct
       ]
 end)
 
+module AssertUrlIsNotBlocked = Generic.MakeStateless (struct
+  module Io = struct
+    type input_t = string * string list
+
+    type output_t = (unit, exn) result
+
+    let string_of_input_t = Fmt.(str "%a" Dump.(pair string (list string)))
+
+    let string_of_output_t =
+      Fmt.(str "%a" Dump.(result ~ok:(any "()") ~error:exn))
+  end
+
+  let transform (url, url_blocklist) =
+    Xapi_globs.repository_url_blocklist := url_blocklist ;
+    try Ok (assert_url_is_not_blocked ~url) with e -> Error e
+
+  let tests =
+    `QuickAndAutoDocumented
+      [
+        (* no blocklist *)
+        (("https://test.com", []), Ok ())
+      ; (* Not match in blocklist *)
+        ( ("https://test.com", ["http://blocked.com"; "http://also/blocked.com"])
+        , Ok ()
+        )
+      ; (* match in blocklist *)
+        ( ( "http://blocked.com"
+          , ["http://blocked.com"; "http://also/blocked.com"]
+          )
+        , Error
+            Api_errors.(Server_error (blocked_repo_url, ["http://blocked.com"]))
+        )
+      ; (* match keyword in blocklist *)
+        ( ("http://blocked.com", ["private"; "blocked"])
+        , Error
+            Api_errors.(Server_error (blocked_repo_url, ["http://blocked.com"]))
+        )
+      ]
+end)
+
 module WriteYumConfig = Generic.MakeStateless (struct
   module Io = struct
     (*           ( (source_url, binary_url),  (need_gpg_check, gpgkey_path) ) *)
@@ -4780,6 +4820,7 @@ let tests =
     [
       ("update_of_json", UpdateOfJsonTest.tests)
     ; ("assert_url_is_valid", AssertUrlIsValid.tests)
+    ; ("assert_url_is_not_blocked", AssertUrlIsNotBlocked.tests)
     ; ("write_yum_config", WriteYumConfig.tests)
     ; ("eval_guidance_for_one_update", EvalGuidanceForOneUpdate.tests)
     ; ("get_update_in_json", GetUpdateInJson.tests)

@@ -32,8 +32,6 @@ val retrieve_wlb_recommendations :
 
 val assert_agile : __context:Context.t -> self:[`VM] Ref.t -> unit
 
-val immediate_complete : __context:Context.t -> unit
-
 val set_actions_after_crash :
      __context:Context.t
   -> self:[`VM] Ref.t
@@ -394,6 +392,14 @@ val request_rdp_on : __context:Context.t -> vm:API.ref_VM -> unit
 val request_rdp_off : __context:Context.t -> vm:API.ref_VM -> unit
 
 val call_plugin :
+     __context:Context.t
+  -> vm:API.ref_VM
+  -> plugin:string
+  -> fn:string
+  -> args:(string * string) list
+  -> string
+
+val call_host_plugin :
      __context:Context.t
   -> vm:API.ref_VM
   -> plugin:string

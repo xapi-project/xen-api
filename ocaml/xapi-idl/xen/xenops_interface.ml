@@ -496,9 +496,12 @@ module Host = struct
   [@@deriving rpcty]
 
   type numa_affinity_policy =
-    | Any  (** VMs may run on any NUMA nodes. This is the default in 8.2CU1 *)
+    | Any  (** VMs may run on any NUMA nodes. *)
     | Best_effort
-        (** best effort placement on the smallest number of NUMA nodes where possible *)
+        (** Best-effort placement. Assigns the memory of the VM to a single
+            node, and soft-pins its VCPUs to the node, if possible. Otherwise
+            behaves like Any. *)
+    | Best_effort_hard  (** Like Best_effort, but hard-pins the VCPUs *)
   [@@deriving rpcty]
 
   type numa_affinity_policy_opt = numa_affinity_policy option [@@deriving rpcty]
@@ -718,6 +721,11 @@ module XenopsAPI (R : RPC) = struct
           ~description:["when true, verify remote server certificate"]
           Types.bool
       in
+      let localhost_migration =
+        Param.mk ~name:"localhost_migration"
+          ~description:["when true, localhost migration is being performed"]
+          Types.bool
+      in
       declare "VM.migrate" []
         (debug_info_p
         @-> vm_id_p
@@ -727,6 +735,7 @@ module XenopsAPI (R : RPC) = struct
         @-> xenops_url
         @-> compress
         @-> verify_dest
+        @-> localhost_migration
         @-> returning task_id_p err
         )
 
@@ -1146,80 +1155,5 @@ module XenopsAPI (R : RPC) = struct
         (debug_info_p @-> unit_p @-> returning unit_p err)
   end
 
-  module Observer = struct
-    open TypeCombinators
-
-    let endpoints_p = Param.mk ~name:"endpoints" (list Types.string)
-
-    let bool_p = Param.mk ~name:"bool" Types.bool
-
-    let uuid_p = Param.mk ~name:"uuid" Types.string
-
-    let name_label_p = Param.mk ~name:"name_label" Types.string
-
-    let dict_p = Param.mk ~name:"dict" dict
-
-    let string_p = Param.mk ~name:"string" Types.string
-
-    let int_p = Param.mk ~name:"int" Types.int
-
-    let float_p = Param.mk ~name:"float" Types.float
-
-    let create =
-      declare "Observer.create" []
-        (debug_info_p
-        @-> uuid_p
-        @-> name_label_p
-        @-> dict_p
-        @-> endpoints_p
-        @-> bool_p
-        @-> returning unit_p err
-        )
-
-    let destroy =
-      declare "Observer.destroy" []
-        (debug_info_p @-> uuid_p @-> returning unit_p err)
-
-    let set_enabled =
-      declare "Observer.set_enabled" []
-        (debug_info_p @-> uuid_p @-> bool_p @-> returning unit_p err)
-
-    let set_attributes =
-      declare "Observer.set_attributes" []
-        (debug_info_p @-> uuid_p @-> dict_p @-> returning unit_p err)
-
-    let set_endpoints =
-      declare "Observer.set_endpoints" []
-        (debug_info_p @-> uuid_p @-> endpoints_p @-> returning unit_p err)
-
-    let init = declare "Observer.init" [] (debug_info_p @-> returning unit_p err)
-
-    let set_trace_log_dir =
-      declare "Observer.set_trace_log_dir" []
-        (debug_info_p @-> string_p @-> returning unit_p err)
-
-    let set_export_interval =
-      declare "Observer.set_export_interval" []
-        (debug_info_p @-> float_p @-> returning unit_p err)
-
-    let set_host_id =
-      declare "Observer.set_host_id" []
-        (debug_info_p @-> string_p @-> returning unit_p err)
-
-    let set_max_traces =
-      declare "Observer.set_max_traces" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_max_spans =
-      declare "Observer.set_max_spans" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_max_file_size =
-      declare "Observer.set_max_file_size" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_compress_tracing_files =
-      declare "Observer.set_compress_tracing_files" []
-        (debug_info_p @-> bool_p @-> returning unit_p err)
-  end
+  module Observer = Observer_helpers.ObserverAPI (R)
 end

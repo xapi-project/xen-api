@@ -5239,6 +5239,9 @@ let cluster_record rpc session_id cluster =
       ; make_field ~name:"live-hosts"
           ~get:(fun () -> Int64.to_string (x ()).API.cluster_live_hosts)
           ()
+      ; make_field ~name:"expected-hosts"
+          ~get:(fun () -> Int64.to_string (x ()).API.cluster_expected_hosts)
+          ()
       ]
   }
 

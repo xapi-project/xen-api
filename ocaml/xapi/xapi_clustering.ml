@@ -516,6 +516,8 @@ module Watcher = struct
         Db.Cluster.set_quorum ~__context ~self:cluster
           ~value:(Int64.of_int diag.quorum) ;
         Db.Cluster.set_live_hosts ~__context ~self:cluster
+          ~value:(Int64.of_int diag.total_votes) ;
+        Db.Cluster.set_expected_hosts ~__context ~self:cluster
           ~value:(Int64.of_int diag.total_votes)
     | Error (InternalError message) | Error (Unix_error message) ->
         warn "%s Cannot query diagnostics due to %s, not performing update"

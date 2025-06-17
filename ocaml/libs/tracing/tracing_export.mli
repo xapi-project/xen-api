@@ -85,9 +85,9 @@ module Destination : sig
   end
 end
 
-val flush_and_exit : unit -> unit
-(** [flush_and_exit ()] sends a signal to flush the finish spans and terminate
-    the exporter thread.
+val flush_and_exit : max_wait:float -> unit -> unit
+(** [flush_and_exit ~max_wait ()] sends a signal to flush the finish spans and terminate
+    the exporter thread. It waits at most [max_wait] seconds.
   *)
 
 val main : unit -> Thread.t

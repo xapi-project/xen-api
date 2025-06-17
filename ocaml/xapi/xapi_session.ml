@@ -801,12 +801,12 @@ module Caching = struct
        and type password = string
        and type session = external_auth_result
 
-  let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
+  let () = Mirage_crypto_rng_unix.use_default ()
 
   let create_salt () =
     (* Creates a Cstruct of length 8. *)
     let data = Mirage_crypto_rng.generate 8 in
-    let bytes = Cstruct.to_bytes data in
+    let bytes = Bytes.of_string data in
     (* Encode the salt as a hex string. Each byte becomes 2
        hexadecimal digits, so the length is 16 (the maximum for
        crypt_r). *)
@@ -1569,5 +1569,5 @@ let create_from_db_file ~__context ~filename =
     Xapi_database.Db_xml.From.file (Datamodel_schema.of_datamodel ()) filename
     |> Xapi_database.Db_upgrade.generic_database_upgrade
   in
-  let db_ref = Some (Xapi_database.Db_ref.in_memory (ref (ref db))) in
+  let db_ref = Some (Xapi_database.Db_ref.in_memory (Atomic.make db)) in
   create_readonly_session ~__context ~uname:"db-from-file" ~db_ref

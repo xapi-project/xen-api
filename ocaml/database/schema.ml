@@ -40,6 +40,12 @@ module Value = struct
     | Pairs of (string * string) list
   [@@deriving sexp_of]
 
+  let string s = String s
+
+  let set xs = Set xs
+
+  let pairs xs = Pairs xs
+
   let marshal = function
     | String x ->
         x
@@ -83,6 +89,49 @@ module Value = struct
           raise (Type.Error (Type.Pairs, Type.Set))
   end
 end
+
+(** We have a Value.t *)
+type present = [`Present of Value.t]
+
+(** We don't have a Value.t. For backwards compatibility with DB RPC protocols. *)
+type absent = [`Absent]
+
+type maybe = [present | absent]
+
+module CachedValue = struct
+  type !+'a t = {v: 'a; marshalled: string}
+
+  let v v = {v= `Present v; marshalled= Value.marshal v}
+
+  let of_string marshalled = {v= `Absent; marshalled}
+
+  let string_of t = t.marshalled
+
+  let value_of {v= `Present v; _} = v
+
+  let unmarshal ty t =
+    match t.v with
+    | `Present v ->
+        v
+    | `Absent ->
+        Value.unmarshal ty t.marshalled
+
+  let of_typed_string ty marshalled =
+    let v = Value.unmarshal ty marshalled in
+    {v= `Present v; marshalled}
+
+  let maybe_unmarshal ty = function
+    | {v= `Present _; _} as p ->
+        p
+    | {v= `Absent; marshalled} ->
+        of_typed_string ty marshalled
+
+  let open_present ({v= `Present _; _} as t) = t
+end
+
+type cached_value = present CachedValue.t
+
+type maybe_cached_value = maybe CachedValue.t
 
 module Column = struct
   type t = {

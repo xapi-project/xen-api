@@ -497,10 +497,13 @@ module Configuration = struct
     [iqn; hostname_chopped]
 
   let set_initiator_name iqn =
+    if iqn = "" then
+      raise Api_errors.(Server_error (invalid_value, ["iqn"; iqn])) ;
     let hostname = Unix.gethostname () in
     (* CA-377454 - robustness, create dir if necessary *)
     Unixext.mkdir_rec "/var/lock/sm/iscsiadm" 0o700 ;
     let args = make_set_initiator_args iqn hostname in
+    D.debug "%s: iqn=%S" __FUNCTION__ iqn ;
     ignore (Helpers.call_script !Xapi_globs.set_iSCSI_initiator_script args)
 
   let set_multipathing enabled =
@@ -541,6 +544,7 @@ module Configuration = struct
             | Some "" ->
                 ()
             | Some iqn when iqn <> host_rec.API.host_iscsi_iqn ->
+                D.debug "%s: iqn=%S" __FUNCTION__ iqn ;
                 Client.Client.Host.set_iscsi_iqn ~rpc ~session_id ~host:host_ref
                   ~value:iqn
             | _ ->

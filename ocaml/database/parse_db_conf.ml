@@ -62,9 +62,6 @@ let generation_read dbconn =
   try Generation.of_string (Unixext.string_of_file gencount_fname)
   with _ -> 0L
 
-(* The db conf used for bootstrap purposes, e.g. mounting the 'real' db on shared storage *)
-let db_snapshot_dbconn = {dummy_conf with path= Db_globs.snapshot_db}
-
 let from_mode v =
   match v with Write_limit -> "write_limit" | No_limit -> "no_limit"
 

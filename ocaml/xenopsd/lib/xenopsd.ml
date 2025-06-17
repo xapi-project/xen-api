@@ -59,7 +59,7 @@ let feature_flags_path = ref "/etc/xenserver/features.d"
 
 let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
-let numa_placement_compat = ref false
+let numa_placement_compat = ref true
 
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
@@ -282,6 +282,11 @@ let options =
     , Arg.Set_int test_open
     , (fun () -> string_of_int !test_open)
     , "TESTING only: open N file descriptors"
+    )
+  ; ( "xenopsd-vbd-plug-unplug-legacy"
+    , Arg.Bool (fun x -> Xenops_server.xenopsd_vbd_plug_unplug_legacy := x)
+    , (fun () -> string_of_bool !Xenops_server.xenopsd_vbd_plug_unplug_legacy)
+    , "False if we want to split the plug atomic into attach/activate"
     )
   ]
 

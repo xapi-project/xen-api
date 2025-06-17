@@ -630,12 +630,13 @@ let make_cluster_and_cluster_host ~__context ?(ref = Ref.make ())
     ?(token_timeout = Constants.default_token_timeout_s)
     ?(token_timeout_coefficient = Constants.default_token_timeout_coefficient_s)
     ?(cluster_config = []) ?(other_config = []) ?(host = Ref.null)
-    ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L) () =
+    ?(is_quorate = false) ?(quorum = 0L) ?(live_hosts = 0L)
+    ?(expected_hosts = 0L) () =
   Db.Cluster.create ~__context ~ref ~uuid ~cluster_token ~pending_forget:[]
     ~cluster_stack ~cluster_stack_version ~allowed_operations
     ~current_operations ~pool_auto_join ~token_timeout
     ~token_timeout_coefficient ~cluster_config ~other_config ~is_quorate ~quorum
-    ~live_hosts ;
+    ~live_hosts ~expected_hosts ;
   let cluster_host_ref =
     make_cluster_host ~__context ~cluster:ref ~host ~pIF ()
   in

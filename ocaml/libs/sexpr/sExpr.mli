@@ -16,5 +16,3 @@ type t = Node of t list | Symbol of string | String of string
 val mkstring : string -> t
 
 val string_of : t -> string
-
-val output_fmt : Format.formatter -> t -> unit

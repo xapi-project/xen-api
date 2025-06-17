@@ -39,11 +39,11 @@
 #include "blkgetsize.h"
 
 /* Set the TCP_NODELAY flag on a Unix.file_descr */
-CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value bool)
+CAMLprim value stub_unixext_set_tcp_nodelay (value fd, value nodelay)
 {
-	CAMLparam2 (fd, bool);
+	CAMLparam2 (fd, nodelay);
 	int c_fd = Int_val(fd);
-	int opt = (Bool_val(bool)) ? 1 : 0;
+	int opt = (Bool_val(nodelay)) ? 1 : 0;
 	if (setsockopt(c_fd, IPPROTO_TCP, TCP_NODELAY, (void *)&opt, sizeof(opt)) != 0){
 		uerror("setsockopt", Nothing);
 	}

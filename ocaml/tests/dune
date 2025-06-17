@@ -15,7 +15,7 @@
     angstrom
     astring
     cstruct
-
+    digestif
     fmt
     http_lib
     httpsvr

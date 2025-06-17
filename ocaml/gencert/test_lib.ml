@@ -8,7 +8,7 @@ open Rresult.R.Infix
 let ( let* ) = Rresult.R.bind
 
 (* Initialize RNG for testing certificates *)
-let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
+let () = Mirage_crypto_rng_unix.use_default ()
 
 let time_of_rfc3339 date =
   match Ptime.of_rfc3339 date with
@@ -50,6 +50,11 @@ let valid_leaf_certificates =
     , "2020-02-01T00:00:00Z"
     , `SHA256
     )
+  ; ( "Valid, SHA512, matches key"
+    , "pkey_rsa_2048"
+    , "2020-02-01T00:00:00Z"
+    , `SHA512
+    )
   ]
 
 (* ( description, leaf_private_key, expected_private_key, time_of_validation,
@@ -77,6 +82,14 @@ let invalid_leaf_certificates =
     , "pkey_rsa_4096"
     , "2020-02-01T00:00:00Z"
     , `SHA256
+    , server_certificate_key_mismatch
+    , []
+    )
+  ; ( "Valid, SHA512, keys do not match"
+    , "pkey_rsa_2048"
+    , "pkey_rsa_4096"
+    , "2020-02-01T00:00:00Z"
+    , `SHA512
     , server_certificate_key_mismatch
     , []
     )
@@ -166,11 +179,20 @@ let test_valid_leaf_cert pem_leaf time pkey () =
   match validate_pem_chain ~pem_leaf ~pem_chain:None time pkey with
   | Ok _ ->
       ()
-  | Error (`Msg (_, msg)) ->
+  | Error (`Msg err) ->
+      let err_to_str (name, params) =
+        let Datamodel_types.{err_doc; err_params; _} =
+          Hashtbl.find Datamodel_errors.errors name
+        in
+        let args = List.combine err_params params in
+        Format.asprintf "%s %a" err_doc
+          Fmt.(Dump.list (pair ~sep:(Fmt.any ":@ ") string string))
+          args
+      in
       Alcotest.fail
         (Format.asprintf "Valid certificate could not be validated: %a"
-           Fmt.(Dump.list string)
-           msg
+           (Fmt.of_to_string err_to_str)
+           err
         )
 
 let test_invalid_cert pem_leaf time pkey error reason =
@@ -182,7 +204,7 @@ let test_invalid_cert pem_leaf time pkey error reason =
         "Error must match" (error, reason) msg
 
 let load_pkcs8 name =
-  X509.Private_key.decode_pem (Cstruct.of_string (load_test_data name))
+  X509.Private_key.decode_pem (load_test_data name)
   |> Rresult.R.reword_error (fun (`Msg msg) ->
          `Msg
            (Printf.sprintf "Could not load private key with name '%s': %s" name
@@ -200,7 +222,6 @@ let sign_leaf_cert host_name digest pkey_leaf =
   load_pkcs8 "pkey_rsa_4096" >>= fun pkey_sign ->
   sign_cert host_name ~pkey_sign digest pkey_leaf
   >>| X509.Certificate.encode_pem
-  >>| Cstruct.to_string
 
 let valid_leaf_cert_tests =
   List.map
@@ -278,8 +299,7 @@ let valid_chain_cert_tests =
         (pkey_root, Ok []) key_chain
     in
     sign_leaf_cert host_name `SHA256 pkey_leaf >>= fun pem_leaf ->
-    chain >>| X509.Certificate.encode_pem_multiple >>| Cstruct.to_string
-    >>| fun pem_chain ->
+    chain >>| X509.Certificate.encode_pem_multiple >>| fun pem_chain ->
     test_valid_cert_chain ~pem_leaf ~pem_chain time pkey_leaf
   in
   [("Validation of a supported certificate chain", `Quick, test_cert)]

@@ -1,22 +1,10 @@
-(menhir (modules sExprParser))
+(menhir
+ (modules sExprParser))
 
 (ocamllex sExprLexer)
 
 (library
-  (name sexpr)
-  (public_name sexpr)
-  (wrapped false)
-  (modules (:standard \ sexprpp))
-  (libraries
-    astring
-  )
-)
-
-(executable
-  (modes exe)
-  (name sexprpp)
-  (modules sexprpp)
-  (libraries
-    sexpr
-  )
-)
+ (name sexpr)
+ (public_name sexpr)
+ (wrapped false)
+ (libraries astring))

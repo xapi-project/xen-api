@@ -25,10 +25,7 @@ module Exporter = struct
       | _ ->
           ()
 
-  (** Export traces from file system to a remote endpoint. *)
-  let export erase src dst =
-    let dst = Uri.of_string dst in
-    let submit_json = submit_json dst in
+  let iter_src src f =
     let rec export_file = function
       | path when Sys.is_directory path ->
           (* Recursively export trace files. *)
@@ -38,7 +35,7 @@ module Exporter = struct
           (* Decompress compressed trace file and submit each line iteratively *)
           let args = [|"zstdcat"; path|] in
           let ic = Unix.open_process_args_in args.(0) args in
-          Unixext.lines_iter submit_json ic ;
+          Unixext.lines_iter f ic ;
           match Unix.close_process_in ic with
           | Unix.WEXITED 0 ->
               ()
@@ -47,15 +44,27 @@ module Exporter = struct
         )
       | path when Filename.check_suffix path ".ndjson" ->
           (* Submit traces line by line. *)
-          Unixext.readfile_line submit_json path
+          Unixext.readfile_line f path
       | path ->
           (* Assume any other extension is a valid JSON file. *)
           let json = Unixext.string_of_file path in
-          submit_json json
+          f json
     in
-    export_file src ;
+    export_file src
+
+  (** Export traces from file system to a remote endpoint. *)
+  let export erase src dst =
+    let dst = Uri.of_string dst in
+    let submit_json = submit_json dst in
+    iter_src src submit_json ;
     if erase then
       Unixext.rm_rec ~rm_top:true src
+
+  let pretty_print src =
+    iter_src src @@ fun line ->
+    line
+    |> Yojson.Safe.from_string
+    |> Yojson.Safe.pretty_to_channel ~std:true stdout
 end
 
 module Cli = struct
@@ -83,6 +92,11 @@ module Cli = struct
     let doc = "copy a trace to an endpoint and erase it afterwards" in
     Cmd.(v (info "mv" ~doc) term)
 
+  let pp_cmd =
+    let term = Term.(const Exporter.pretty_print $ src) in
+    let doc = "Pretty print NDJSON traces" in
+    Cmd.(v (info "pp" ~doc) term)
+
   let xs_trace_cmd =
     let man =
       [
@@ -94,7 +108,7 @@ module Cli = struct
       let doc = "utility for working with local trace files" in
       Cmd.info "xs-trace" ~doc ~version:"0.1" ~man
     in
-    Cmd.group desc [cp_cmd; mv_cmd]
+    Cmd.group desc [cp_cmd; mv_cmd; pp_cmd]
 
   let main () = Cmd.eval xs_trace_cmd
 end

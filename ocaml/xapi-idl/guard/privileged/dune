@@ -18,7 +18,7 @@
  (package varstored-guard)
  (libraries
    cmdliner
-   
+
    rpclib.cmdliner
    rpclib.core
    rpclib.markdown
@@ -26,8 +26,6 @@
    xapi-idl.guard.privileged
  ))
 
-(rule
- (alias runtest)
- (deps xapiguard_cli.exe)
+(cram
  (package varstored-guard)
- (action (run %{deps} --help=plain)))
+ (deps xapiguard_cli.exe))

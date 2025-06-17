@@ -133,7 +133,7 @@ type build_info = {
   ; kernel: string  (** image to load. In HVM case, point to hvmloader *)
   ; vcpus: int  (** vcpus max *)
   ; priv: builder_spec_info
-  ; has_hard_affinity: bool
+  ; hard_affinity: int list list  (** vcpu -> pcpu map *)
 }
 
 val typ_of_build_info : build_info Rpc.Types.typ

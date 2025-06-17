@@ -323,40 +323,72 @@ CAMLprim value stub_xenctrlext_domain_update_channels(value xch_val, value domid
 }
 
 /* based on xenctrl_stubs.c */
-static int get_cpumap_len(value xch_val, value cpumap)
+static int get_cpumap_len(xc_interface *xch, value cpumap_val)
 {
-	xc_interface* xch = xch_of_val(xch_val);
-	int ml_len = Wosize_val(cpumap);
+	int ml_len = Wosize_val(cpumap_val);
 	int xc_len = xc_get_max_cpus(xch);
 
 	return (ml_len < xc_len ? ml_len : xc_len);
 }
 
-CAMLprim value stub_xenctrlext_vcpu_setaffinity_soft(value xch_val, value domid,
-                                                     value vcpu, value cpumap)
+static void populate_cpumap(xc_interface *xch, xc_cpumap_t cpumap,
+                            value cpumap_val)
 {
-	CAMLparam4(xch_val, domid, vcpu, cpumap);
-	int i, len = get_cpumap_len(xch_val, cpumap);
-	xc_cpumap_t c_cpumap;
-	int retval;
+	int i, len = get_cpumap_len(xch, cpumap_val);
+	for (i=0; i<len; i++)
+		if (Bool_val(Field(cpumap_val, i)))
+			cpumap[i/8] |= 1 << (i&7);
+}
+
+CAMLprim value stub_xenctrlext_vcpu_setaffinity_hard(value xch_val,
+                                                     value domid_val,
+                                                     value vcpu_val,
+                                                     value cpumap_val)
+{
+	CAMLparam4(xch_val, domid_val, vcpu_val, cpumap_val);
+	uint32_t domid = Int_val(domid_val);
+	int ret, vcpu = Int_val(vcpu_val);
 	xc_interface* xch = xch_of_val(xch_val);
+	xc_cpumap_t cpumap;
 
-	c_cpumap = xc_cpumap_alloc(xch);
-	if (c_cpumap == NULL)
+	cpumap = xc_cpumap_alloc(xch);
+	if (cpumap == NULL)
 		failwith_xc(xch);
 
-	for (i=0; i<len; i++) {
-		if (Bool_val(Field(cpumap, i)))
-			c_cpumap[i/8] |= 1 << (i&7);
-	}
-	retval = xc_vcpu_setaffinity(xch, Int_val(domid),
-				     Int_val(vcpu),
-				     NULL, c_cpumap,
-				     XEN_VCPUAFFINITY_SOFT);
-	free(c_cpumap);
+	populate_cpumap(xch, cpumap, cpumap_val);
 
-	if (retval < 0)
+	ret = xc_vcpu_setaffinity(xch, domid, vcpu, cpumap, NULL,
+	                          XEN_VCPUAFFINITY_HARD);
+	free(cpumap);
+	if (ret < 0)
 		failwith_xc(xch);
+
+	CAMLreturn(Val_unit);
+}
+
+CAMLprim value stub_xenctrlext_vcpu_setaffinity_soft(value xch_val,
+                                                     value domid_val,
+                                                     value vcpu_val,
+                                                     value cpumap_val)
+{
+	CAMLparam4(xch_val, domid_val, vcpu_val, cpumap_val);
+	uint32_t domid = Int_val(domid_val);
+	int ret, vcpu = Int_val(vcpu_val);
+	xc_interface* xch = xch_of_val(xch_val);
+	xc_cpumap_t cpumap;
+
+	cpumap = xc_cpumap_alloc(xch);
+	if (cpumap == NULL)
+		failwith_xc(xch);
+
+	populate_cpumap(xch, cpumap, cpumap_val);
+
+	ret = xc_vcpu_setaffinity(xch, domid, vcpu, NULL, cpumap,
+	                          XEN_VCPUAFFINITY_SOFT);
+	free(cpumap);
+	if (ret < 0)
+		failwith_xc(xch);
+
 	CAMLreturn(Val_unit);
 }
 

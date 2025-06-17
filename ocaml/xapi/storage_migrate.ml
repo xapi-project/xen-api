@@ -40,149 +40,15 @@ let choose_backend dbg sr =
 (** module [MigrateRemote] is similar to [MigrateLocal], but most of these functions
 tend to be executed on the receiver side. *)
 module MigrateRemote = struct
-  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-    let on_fail : (unit -> unit) list ref = ref [] in
-    let vdis = Local.SR.scan dbg sr in
-    (* We drop cbt_metadata VDIs that do not have any actual data *)
-    let vdis = List.filter (fun vdi -> vdi.ty <> "cbt_metadata") vdis in
-    let leaf_dp = Local.DP.create dbg Uuidx.(to_string (make ())) in
-    try
-      let vdi_info = {vdi_info with sm_config= [("base_mirror", id)]} in
-      let leaf = Local.VDI.create dbg sr vdi_info in
-      info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
-      on_fail := (fun () -> Local.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
-      (* dummy VDI is created so that the leaf VDI becomes a differencing disk,
-         useful for calling VDI.compose later on *)
-      let dummy = Local.VDI.snapshot dbg sr leaf in
-      on_fail := (fun () -> Local.VDI.destroy dbg sr dummy.vdi) :: !on_fail ;
-      debug "%s Created dummy snapshot for mirror receive: %s" __FUNCTION__
-        (string_of_vdi_info dummy) ;
-      let _ : backend = Local.VDI.attach3 dbg leaf_dp sr leaf.vdi vm true in
-      Local.VDI.activate3 dbg leaf_dp sr leaf.vdi vm ;
-      let nearest =
-        List.fold_left
-          (fun acc content_id ->
-            match acc with
-            | Some _ ->
-                acc
-            | None -> (
-              try
-                Some
-                  (List.find
-                     (fun vdi ->
-                       vdi.content_id = content_id
-                       && vdi.virtual_size <= vdi_info.virtual_size
-                     )
-                     vdis
-                  )
-              with Not_found -> None
-            )
-          )
-          None similar
-      in
-      debug "Nearest VDI: content_id=%s vdi=%s"
-        (Option.fold ~none:"None" ~some:(fun x -> x.content_id) nearest)
-        (Option.fold ~none:"None"
-           ~some:(fun x -> Storage_interface.Vdi.string_of x.vdi)
-           nearest
-        ) ;
-      let parent =
-        match nearest with
-        | Some vdi ->
-            debug "Cloning VDI" ;
-            let vdi = add_to_sm_config vdi "base_mirror" id in
-            let vdi_clone = Local.VDI.clone dbg sr vdi in
-            debug "Clone: %s" (Storage_interface.Vdi.string_of vdi_clone.vdi) ;
-            ( if vdi_clone.virtual_size <> vdi_info.virtual_size then
-                let new_size =
-                  Local.VDI.resize dbg sr vdi_clone.vdi vdi_info.virtual_size
-                in
-                debug "Resize local clone VDI to %Ld: result %Ld"
-                  vdi_info.virtual_size new_size
-            ) ;
-            vdi_clone
-        | None ->
-            debug "Creating a blank remote VDI" ;
-            Local.VDI.create dbg sr vdi_info
-      in
-      debug "Parent disk content_id=%s" parent.content_id ;
-      State.add id
-        State.(
-          Recv_op
-            Receive_state.
-              {
-                sr
-              ; dummy_vdi= dummy.vdi
-              ; leaf_vdi= leaf.vdi
-              ; leaf_dp
-              ; parent_vdi= parent.vdi
-              ; remote_vdi= vdi_info.vdi
-              ; mirror_vm= vm
-              }
-        ) ;
-      let nearest_content_id = Option.map (fun x -> x.content_id) nearest in
-      Mirror.Vhd_mirror
-        {
-          Mirror.mirror_vdi= leaf
-        ; mirror_datapath= leaf_dp
-        ; copy_diffs_from= nearest_content_id
-        ; copy_diffs_to= parent.vdi
-        ; dummy_vdi= dummy.vdi
-        }
-    with e ->
-      List.iter
-        (fun op ->
-          try op ()
-          with e ->
-            debug "Caught exception in on_fail: %s" (Printexc.to_string e)
-        )
-        !on_fail ;
-      raise e
+  (** [receive_finalize3 dbg mirror_id sr url verify_dest] takes an [sr] parameter
+  which is the source sr and multiplexes based on the type of that *)
+  let receive_finalize3 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    let (module Migrate_Backend) = choose_backend dbg sr in
+    Migrate_Backend.receive_finalize3 () ~dbg ~mirror_id ~sr ~url ~verify_dest
 
-  let receive_start ~dbg ~sr ~vdi_info ~id ~similar =
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
-
-  let receive_start2 ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
-
-  let receive_finalize ~dbg ~id =
-    let recv_state = State.find_active_receive_mirror id in
-    let open State.Receive_state in
-    Option.iter (fun r -> Local.DP.destroy dbg r.leaf_dp false) recv_state ;
-    State.remove_receive_mirror id
-
-  let receive_finalize2 ~dbg ~id =
-    let recv_state = State.find_active_receive_mirror id in
-    let open State.Receive_state in
-    Option.iter
-      (fun r ->
-        SXM.info
-          "%s Mirror done. Compose on the dest sr %s parent %s and leaf %s"
-          __FUNCTION__ (Sr.string_of r.sr)
-          (Vdi.string_of r.parent_vdi)
-          (Vdi.string_of r.leaf_vdi) ;
-        Local.DP.destroy2 dbg r.leaf_dp r.sr r.leaf_vdi r.mirror_vm false ;
-        Local.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
-        (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
-           there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr r.dummy_vdi) ;
-        Local.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
-      )
-      recv_state ;
-    State.remove_receive_mirror id
-
-  let receive_cancel ~dbg ~id =
-    let receive_state = State.find_active_receive_mirror id in
-    let open State.Receive_state in
-    Option.iter
-      (fun r ->
-        log_and_ignore_exn (fun () -> Local.DP.destroy dbg r.leaf_dp false) ;
-        List.iter
-          (fun v -> log_and_ignore_exn (fun () -> Local.VDI.destroy dbg r.sr v))
-          [r.dummy_vdi; r.leaf_vdi; r.parent_vdi]
-      )
-      receive_state ;
-    State.remove_receive_mirror id
+  let receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest =
+    let (module Migrate_Backend) = choose_backend dbg sr in
+    Migrate_Backend.receive_cancel2 () ~dbg ~mirror_id ~url ~verify_dest
 end
 
 (** This module [MigrateLocal] consists of the concrete implementations of the 
@@ -226,11 +92,10 @@ module MigrateLocal = struct
             | None ->
                 debug "Snapshot VDI already cleaned up"
             ) ;
-
-            let (module Remote) =
-              get_remote_backend remote_info.url remote_info.verify_dest
-            in
-            try Remote.DATA.MIRROR.receive_cancel dbg id with _ -> ()
+            try
+              MigrateRemote.receive_cancel2 ~dbg ~mirror_id:id ~sr
+                ~url:remote_info.url ~verify_dest:remote_info.verify_dest
+            with _ -> ()
           )
         | None ->
             ()
@@ -250,18 +115,17 @@ module MigrateLocal = struct
   let prepare ~dbg ~sr ~vdi ~dest ~local_vdi ~mirror_id ~mirror_vm ~url
       ~verify_dest =
     try
-      let (module Remote) = get_remote_backend url verify_dest in
+      let (module Migrate_Backend) = choose_backend dbg sr in
       let similars = similar_vdis ~dbg ~sr ~vdi in
-
-      Remote.DATA.MIRROR.receive_start2 dbg dest local_vdi mirror_id similars
-        mirror_vm
+      Migrate_Backend.receive_start3 () ~dbg ~sr:dest ~vdi_info:local_vdi
+        ~mirror_id ~similar:similars ~vm:mirror_vm ~url ~verify_dest
     with e ->
       error "%s Caught error %s while preparing for SXM" __FUNCTION__
         (Printexc.to_string e) ;
       raise
         (Storage_error (Migration_preparation_failure (Printexc.to_string e)))
 
-  let start ~task_id ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest
+  let start ~task_id ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url ~dest
       ~verify_dest =
     SXM.info
       "%s sr:%s vdi:%s dp: %s mirror_vm: %s copy_vm: %s url:%s dest:%s \
@@ -278,7 +142,7 @@ module MigrateLocal = struct
 
     let (module Remote) = get_remote_backend url verify_dest in
     (* Find the local VDI *)
-    let local_vdi = find_local_vdi ~dbg ~sr ~vdi in
+    let local_vdi, _ = find_vdi ~dbg ~sr ~vdi (module Local) in
     let mirror_id = State.mirror_id_of (sr, local_vdi.vdi) in
     debug "%s: Adding to active local mirrors before sending: id=%s"
       __FUNCTION__ mirror_id ;
@@ -292,6 +156,9 @@ module MigrateLocal = struct
         ; tapdev= None
         ; failed= false
         ; watchdog= None
+        ; live_vm
+        ; vdi
+        ; mirror_key= None
         }
     in
 
@@ -305,8 +172,8 @@ module MigrateLocal = struct
           ~verify_dest
       in
       Migrate_Backend.send_start () ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm
-        ~mirror_id ~local_vdi ~copy_vm ~live_vm:(Vm.of_string "0") ~url
-        ~remote_mirror ~dest_sr:dest ~verify_dest ;
+        ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror
+        ~dest_sr:dest ~verify_dest ;
       Some (Mirror_id mirror_id)
     with
     | Storage_error (Sr_not_attached sr_uuid) ->
@@ -315,9 +182,14 @@ module MigrateLocal = struct
         raise (Api_errors.Server_error (Api_errors.sr_not_attached, [sr_uuid]))
     | ( Storage_error (Migration_mirror_fd_failure reason)
       | Storage_error (Migration_mirror_snapshot_failure reason) ) as e ->
-        error "%s: Caught %s: during storage migration preparation" __FUNCTION__
-          reason ;
-        MigrateRemote.receive_cancel ~dbg ~id:mirror_id ;
+        error "%s: Caught %s: during SMAPIv1 storage migration mirror "
+          __FUNCTION__ reason ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest ;
+        raise e
+    | Storage_error (Migration_mirror_failure reason) as e ->
+        error "%s: Caught :%s: during SMAPIv3 storage migration mirror"
+          __FUNCTION__ reason ;
+        MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr ~url ~verify_dest ;
         raise e
     | Storage_error (Migration_mirror_copy_failure reason) as e ->
         error "%s: Caught %s: during storage migration copy" __FUNCTION__ reason ;
@@ -328,28 +200,20 @@ module MigrateLocal = struct
         stop ~dbg ~id:mirror_id ;
         raise e
 
-  let stat ~dbg:_ ~id =
+  let stat ~dbg ~id =
     let recv_opt = State.find_active_receive_mirror id in
     let send_opt = State.find_active_local_mirror id in
     let copy_opt = State.find_active_copy id in
+    let sr, _vdi = State.of_mirror_id id in
     let open State in
     let failed =
       match send_opt with
       | Some send_state ->
+          let (module Migrate_Backend) = choose_backend dbg sr in
           let failed =
-            match send_state.Send_state.tapdev with
-            | Some tapdev -> (
-              try
-                let stats = Tapctl.stats (Tapctl.create ()) tapdev in
-                stats.Tapctl.Stats.nbd_mirror_failed = 1
-              with _ ->
-                debug "Using cached copy of failure status" ;
-                send_state.Send_state.failed
-            )
-            | None ->
-                false
+            Migrate_Backend.has_mirror_failed () ~dbg ~mirror_id:id ~sr
           in
-          send_state.Send_state.failed <- failed ;
+          send_state.failed <- failed ;
           failed
       | None ->
           false
@@ -433,66 +297,21 @@ module MigrateLocal = struct
       )
       copy_ops ;
     List.iter
-      (fun (id, _recv_state) ->
-        debug "Receive in progress: %s" id ;
-        log_and_ignore_exn (fun () -> Local.DATA.MIRROR.receive_cancel dbg id)
+      (fun (mirror_id, (recv_state : State.Receive_state.t)) ->
+        let sr, _vdi = State.of_mirror_id mirror_id in
+        debug "Receive in progress: %s" mirror_id ;
+        log_and_ignore_exn (fun () ->
+            MigrateRemote.receive_cancel2 ~dbg ~mirror_id ~sr
+              ~url:recv_state.url ~verify_dest:recv_state.verify_dest
+        )
       )
       recv_ops ;
     State.clear ()
 end
 
-exception Timeout of Mtime.Span.t
-
-let reqs_outstanding_timeout = Mtime.Span.(150 * s)
-
-let pp_time () = Fmt.str "%a" Mtime.Span.pp
-
-(* Tapdisk should time out after 2 mins. We can wait a little longer *)
-
-let pre_deactivate_hook ~dbg:_ ~dp:_ ~sr ~vdi =
-  let open State.Send_state in
-  let id = State.mirror_id_of (sr, vdi) in
-  let start = Mtime_clock.counter () in
-  State.find_active_local_mirror id
-  |> Option.iter (fun s ->
-         (* We used to pause here and then check the nbd_mirror_failed key. Now, we poll
-            					   until the number of outstanding requests has gone to zero, then check the
-            					   status. This avoids confusing the backend (CA-128460) *)
-         try
-           match s.tapdev with
-           | None ->
-               ()
-           | Some tapdev ->
-               let open Tapctl in
-               let ctx = create () in
-               let rec wait () =
-                 let elapsed = Mtime_clock.count start in
-                 if Mtime.Span.compare elapsed reqs_outstanding_timeout > 0 then
-                   raise (Timeout elapsed) ;
-                 let st = stats ctx tapdev in
-                 if st.Stats.reqs_outstanding > 0 then (
-                   Thread.delay 1.0 ; wait ()
-                 ) else
-                   (st, elapsed)
-               in
-               let st, elapsed = wait () in
-               debug "Got final stats after waiting %a" pp_time elapsed ;
-               if st.Stats.nbd_mirror_failed = 1 then (
-                 error "tapdisk reports mirroring failed" ;
-                 s.failed <- true
-               )
-         with
-         | Timeout elapsed ->
-             error
-               "Timeout out after %a waiting for tapdisk to complete all \
-                outstanding requests"
-               pp_time elapsed ;
-             s.failed <- true
-         | e ->
-             error "Caught exception while finally checking mirror state: %s"
-               (Printexc.to_string e) ;
-             s.failed <- true
-     )
+let pre_deactivate_hook ~dbg ~dp ~sr ~vdi =
+  let (module Migrate_Backend) = choose_backend dbg sr in
+  Migrate_Backend.pre_deactivate_hook () ~dbg ~dp ~sr ~vdi
 
 let post_deactivate_hook ~sr ~vdi ~dp:_ =
   let open State.Send_state in
@@ -505,14 +324,14 @@ let post_deactivate_hook ~sr ~vdi ~dp:_ =
              r.remote_info
          in
          let (module Remote) = get_remote_backend r.url verify_dest in
-         debug "Calling receive_finalize2" ;
+         debug "Calling receive_finalize3" ;
          log_and_ignore_exn (fun () ->
-             Remote.DATA.MIRROR.receive_finalize2 "Mirror-cleanup" id
+             MigrateRemote.receive_finalize3 ~dbg:"Mirror-cleanup" ~mirror_id:id
+               ~sr ~url:r.url ~verify_dest
          ) ;
-         debug "Finished calling receive_finalize2" ;
+         debug "Finished calling receive_finalize3" ;
          State.remove_local_mirror id ;
-         debug "Removed active local mirror: %s" id ;
-         Option.iter (fun id -> Scheduler.cancel scheduler id) r.watchdog
+         debug "Removed active local mirror: %s" id
      )
 
 let nbd_handler req s ?(vm = "0") sr vdi dp =
@@ -545,7 +364,7 @@ let nbd_handler req s ?(vm = "0") sr vdi dp =
 (** nbd_proxy is a http handler but will turn the http connection into an nbd connection.
 It proxies the connection between the sender and the generic nbd server, as returned
 by [get_nbd_server dp sr vdi vm]. *)
-let nbd_proxy req s vm sr vdi dp =
+let import_nbd_proxy req s vm sr vdi dp =
   debug "%s: vm=%s sr=%s vdi=%s dp=%s" __FUNCTION__ vm sr vdi dp ;
   let sr, vdi = Storage_interface.(Sr.of_string sr, Vdi.of_string vdi) in
   req.Http.Request.close <- true ;
@@ -608,13 +427,14 @@ let copy ~dbg ~sr ~vdi ~vm ~url ~dest ~verify_dest =
         ~sr ~vdi ~vm ~url ~dest ~verify_dest
   )
 
-let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest ~verify_dest =
+let start ~dbg ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url ~dest ~verify_dest
+    =
   with_dbg ~name:__FUNCTION__ ~dbg @@ fun dbg ->
   with_task_and_thread ~dbg (fun task ->
       MigrateLocal.start
         ~task_id:(Storage_task.id_of_handle task)
-        ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~url ~dest
-        ~verify_dest
+        ~dbg:dbg.Debug_info.log ~sr ~vdi ~dp ~mirror_vm ~copy_vm ~live_vm ~url
+        ~dest ~verify_dest
   )
 
 (* XXX: PR-1255: copy the xenopsd 'raise Exception' pattern *)
@@ -622,19 +442,11 @@ let stop = MigrateLocal.stop
 
 let list = MigrateLocal.list
 
-let killall = MigrateLocal.killall
+let killall ~dbg =
+  with_dbg ~name:__FUNCTION__ ~dbg @@ fun di ->
+  MigrateLocal.killall ~dbg:(Debug_info.to_string di)
 
 let stat = MigrateLocal.stat
-
-let receive_start = MigrateRemote.receive_start
-
-let receive_start2 = MigrateRemote.receive_start2
-
-let receive_finalize = MigrateRemote.receive_finalize
-
-let receive_finalize2 = MigrateRemote.receive_finalize2
-
-let receive_cancel = MigrateRemote.receive_cancel
 
 (* The remote end of this call, SR.update_snapshot_info_dest, is implemented in
  * the SMAPIv1 section of storage_migrate.ml. It needs to access the setters

@@ -62,8 +62,8 @@ let test_xapi_restart_inner () =
   in
   let flags =
     [
-      (Xapi_globs.cpu_info_vendor_key, "AuthenticAMD")
-    ; (Xapi_globs.cpu_info_features_key, "deadbeef-deadbeef")
+      (Constants.cpu_info_vendor_key, "AuthenticAMD")
+    ; (Constants.cpu_info_features_key, "deadbeef-deadbeef")
     ]
   in
   let add_flags vm =
