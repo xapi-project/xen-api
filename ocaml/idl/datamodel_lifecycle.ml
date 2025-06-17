@@ -77,12 +77,16 @@ let prototyped_of_field = function
       Some "24.3.0"
   | "Cluster_host", "live" ->
       Some "24.3.0"
+  | "Cluster", "expected_hosts" ->
+      Some "25.17.0"
   | "Cluster", "live_hosts" ->
       Some "24.3.0"
   | "Cluster", "quorum" ->
       Some "24.3.0"
   | "Cluster", "is_quorate" ->
       Some "24.3.0"
+  | "Cluster", "cluster_stack_version" ->
+      Some "24.15.0"
   | "VTPM", "contents" ->
       Some "22.26.0"
   | "VTPM", "is_protected" ->
@@ -93,6 +97,14 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
+  | "host", "console_idle_timeout" ->
+      Some "25.21.0"
+  | "host", "ssh_expiry" ->
+      Some "25.21.0"
+  | "host", "ssh_enabled_timeout" ->
+      Some "25.21.0"
+  | "host", "ssh_enabled" ->
+      Some "25.21.0"
   | "host", "last_update_hash" ->
       Some "24.10.0"
   | "host", "pending_guidances_full" ->
@@ -124,7 +136,7 @@ let prototyped_of_field = function
   | "VM", "actions__after_softreboot" ->
       Some "23.1.0"
   | "pool", "ha_reboot_vm_on_internal_shutdown" ->
-      Some "25.15.0-next"
+      Some "25.16.0"
   | "pool", "license_server" ->
       Some "25.6.0"
   | "pool", "recommendations" ->
@@ -209,6 +221,10 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "host", "set_console_idle_timeout" ->
+      Some "25.21.0"
+  | "host", "set_ssh_enabled_timeout" ->
+      Some "25.21.0"
   | "host", "disable_ssh" ->
       Some "25.13.0"
   | "host", "enable_ssh" ->
@@ -229,8 +245,14 @@ let prototyped_of_message = function
       Some "24.17.0"
   | "VM", "restart_device_models" ->
       Some "23.30.0"
+  | "VM", "call_host_plugin" ->
+      Some "25.22.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
+  | "pool", "set_console_idle_timeout" ->
+      Some "25.21.0"
+  | "pool", "set_ssh_enabled_timeout" ->
+      Some "25.21.0"
   | "pool", "disable_ssh" ->
       Some "25.13.0"
   | "pool", "enable_ssh" ->

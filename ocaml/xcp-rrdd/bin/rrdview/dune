@@ -1,0 +1,17 @@
+(executable
+ (modes byte exe)
+ (name rrdview)
+ ;(public_name rrdview)
+ (libraries
+  threads
+  xapi-rrd.unix
+  bos.setup
+  astring
+  fpath
+  rresult
+  xmlm
+  tyre
+  xapi-rrd
+  result)
+ ;(package xapi-tools)
+ )

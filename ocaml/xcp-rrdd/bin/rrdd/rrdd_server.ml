@@ -300,7 +300,6 @@ let migrate_rrd (session_id : string option) (remote_address : string)
           Some x
       | None ->
           debug "VM %s RRDs not found on migrate! Continuing anyway..." vm_uuid ;
-          log_backtrace () ;
           None
   )
   |> Option.iter (fun rrdi ->
@@ -693,12 +692,13 @@ module Plugin = struct
           (* reset skip counts *)
           payload
         with e -> (
+          Backtrace.is_important e ;
           incr_skip_count uid plugin ;
           (* increase skip count *)
           let log e =
             info "Failed to process plugin metrics file: %s (%s)"
               (P.string_of_uid ~uid) (Printexc.to_string e) ;
-            log_backtrace ()
+            log_backtrace e
           in
           let open Rrd_protocol in
           match e with
@@ -716,8 +716,12 @@ module Plugin = struct
       let next_reading (uid : P.uid) : float =
         let open Rrdd_shared in
         if with_lock registered_m (fun _ -> Hashtbl.mem registered uid) then
-          with_lock last_loop_end_time_m (fun _ ->
-              !last_loop_end_time +. !timeslice -. Unix.gettimeofday ()
+          with_lock next_iteration_start_m (fun _ ->
+              match Clock.Timer.remaining !next_iteration_start with
+              | Remaining diff ->
+                  Clock.Timer.span_to_s diff
+              | Expired diff ->
+                  Clock.Timer.span_to_s diff *. -1.
           )
         else
           -1.

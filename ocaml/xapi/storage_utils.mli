@@ -64,3 +64,12 @@ val rpc :
 
 val transform_storage_exn : (unit -> 'a) -> 'a
 (** [transform_storage_exn f] runs [f], rethrowing any storage error as a nice XenAPI error *)
+
+exception No_VDI
+
+val find_vdi :
+     __context:Context.t
+  -> Storage_interface.sr
+  -> Storage_interface.vdi
+  -> [`VDI] Ref.t * API.vDI_t
+(** Find a VDI given a storage-layer SR and VDI *)

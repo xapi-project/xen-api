@@ -18,33 +18,6 @@
 
 open Db_filter_types
 
-let string_of_val = function
-  | Field x ->
-      "Field " ^ x
-  | Literal x ->
-      "Literal " ^ x
-
-let rec string_of_expr =
-  let binexpr name a b =
-    Printf.sprintf "%s (%s, %s)" name (string_of_expr a) (string_of_expr b)
-  in
-  let binval name a b =
-    Printf.sprintf "%s (%s, %s)" name (string_of_val a) (string_of_val b)
-  in
-  function
-  | True ->
-      "True"
-  | False ->
-      "False"
-  | Not x ->
-      Printf.sprintf "Not ( %s )" (string_of_expr x)
-  | And (a, b) ->
-      binexpr "And" a b
-  | Or (a, b) ->
-      binexpr "Or" a b
-  | Eq (a, b) ->
-      binval "Eq" a b
-
 exception XML_unmarshall_error
 
 let val_of_xml xml =

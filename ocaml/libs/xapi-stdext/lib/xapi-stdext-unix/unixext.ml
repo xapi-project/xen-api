@@ -17,6 +17,11 @@ exception Unix_error of int
 
 let _exit = Unix._exit
 
+let raise_with_preserved_backtrace exn f =
+  let bt = Printexc.get_raw_backtrace () in
+  f () ;
+  Printexc.raise_with_backtrace exn bt
+
 (** remove a file, but doesn't raise an exception if the file is already removed *)
 let unlink_safe file =
   try Unix.unlink file with (* Unix.Unix_error (Unix.ENOENT, _ , _)*) _ -> ()

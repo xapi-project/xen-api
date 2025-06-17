@@ -89,9 +89,6 @@ let retrieve_wlb_recommendations ~__context ~vm =
 
 let assert_agile ~__context ~self = Agility.vm_assert_agile ~__context ~self
 
-(* helpers *)
-let immediate_complete ~__context = Helpers.progress ~__context (0.0 -. 1.0)
-
 (* API *)
 let set_actions_after_crash ~__context ~self ~value =
   set_actions_after_crash ~__context ~self ~value
@@ -1170,6 +1167,11 @@ let call_plugin ~__context ~vm ~plugin ~fn ~args =
       (Api_errors.Server_error
          (Api_errors.xenapi_plugin_failure, ["failed to execute fn"; msg; msg])
       )
+
+let call_host_plugin ~__context ~vm ~plugin ~fn ~args =
+  (* vm is unused; was used to find the host *)
+  let _ = vm in
+  Xapi_plugins.call_plugin (Context.get_session_id __context) plugin fn args
 
 let send_sysrq ~__context ~vm:_ ~key:_ =
   raise (Api_errors.Server_error (Api_errors.not_implemented, ["send_sysrq"]))

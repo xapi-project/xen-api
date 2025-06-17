@@ -285,6 +285,7 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
       Xapi_guest_agent.get_initial_guest_metrics (lookup tree) (list tree)
     in
     guest_metrics.Xapi_guest_agent.networks
+    @ guest_metrics.Xapi_guest_agent.pv_drivers_version
 
   let tests =
     `QuickAndAutoDocumented
@@ -464,6 +465,33 @@ module Initial_guest_metrics = Generic.MakeStateless (struct
           ; ("xenserver/attr/net-sriov-vf/0/ipv4/1", "192.168.0.1")
           ]
         , []
+        )
+      ; (* windows pv driver versions parsing *)
+        ( [
+            ("drivers/0", "XenServer XENBUS 9.1.9.105 ")
+          ; ("drivers/1", "XenServer XENVBD 9.1.8.79 ")
+          ; ("drivers/2", "XenServer XENVIF 9.1.12.101 ")
+          ; ("drivers/3", "XenServer XENIFACE 9.1.10.87 ")
+          ; ("drivers/4", "XenServer XENNET 9.1.7.65 ")
+          ]
+        , [
+            ("micro", "-1")
+          ; ("xennet", "XenServer 9.1.7.65 ")
+          ; ("xeniface", "XenServer 9.1.10.87 ")
+          ; ("xenvif", "XenServer 9.1.12.101 ")
+          ; ("xenvbd", "XenServer 9.1.8.79 ")
+          ; ("xenbus", "XenServer 9.1.9.105 ")
+          ]
+        )
+      ; ( [
+            ("drivers/0", "XenServer XENBUS 9.1.9.105 (DEBUG) (MOREDEBUG)")
+          ; ("drivers/2", "XCP_ng XENVIF 9.1.12.101 ")
+          ]
+        , [
+            ("micro", "-1")
+          ; ("xenvif", "XCP_ng 9.1.12.101 ")
+          ; ("xenbus", "XenServer 9.1.9.105 (DEBUG) (MOREDEBUG)")
+          ]
         )
       ]
 end)

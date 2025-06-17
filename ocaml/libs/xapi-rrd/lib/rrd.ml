@@ -468,11 +468,23 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
               in
               (* Apply the transform after the raw value has been calculated *)
               let raw = apply_transform_function transform raw in
+
               (* Make sure the values are not out of bounds after all the processing *)
-              if raw < ds.ds_min || raw > ds.ds_max then
-                (i, nan)
-              else
-                (i, raw)
+              match (ds.ds_ty, raw) with
+              | Derive, _ when raw > ds.ds_max && raw < ds.ds_max *. (1. +. 0.05)
+                ->
+                  (* CA-411679: To handle deviations in CPU rates, Derive values
+                     exceeding the maximum by up to 5% are capped at the maximum;
+                     others are marked as unknown. This logic is specific to
+                     Derive data sources because they represent rates derived
+                     from differences over time, which can occasionally exceed
+                     expected bounds due to measurement inaccuracies. *)
+                  (i, ds.ds_max)
+              | (Derive | Gauge | Absolute), _
+                when raw < ds.ds_min || raw > ds.ds_max ->
+                  (i, nan)
+              | (Derive | Gauge | Absolute), _ ->
+                  (i, raw)
           )
           valuesandtransforms
       in

@@ -159,6 +159,9 @@ type optional_path = string option [@@deriving rpcty]
 type quorum_info = {
     is_quorate: bool
   ; total_votes: int
+        (* number of nodes that the cluster stack thinks are currently in the cluster *)
+  ; expected_votes: int
+        (* number of nodes that the cluster stack is expecting to be in the cluster *)
   ; quorum: int  (** number of nodes required to form a quorum *)
   ; quorum_members: all_members option
 }
@@ -179,6 +182,7 @@ type diagnostics = {
   ; is_quorate: bool
   ; is_running: bool
   ; total_votes: int
+  ; expected_votes: int
   ; quorum: int
   ; quorum_members: all_members option
   ; startup_finished: bool
@@ -380,80 +384,5 @@ module LocalAPI (R : RPC) = struct
         (debug_info_p @-> timeout_p @-> returning result_p err)
   end
 
-  module Observer = struct
-    open TypeCombinators
-
-    let endpoints_p = Param.mk ~name:"endpoints" (list Types.string)
-
-    let bool_p = Param.mk ~name:"bool" Types.bool
-
-    let uuid_p = Param.mk ~name:"uuid" Types.string
-
-    let name_label_p = Param.mk ~name:"name_label" Types.string
-
-    let dict_p = Param.mk ~name:"dict" dict
-
-    let string_p = Param.mk ~name:"string" Types.string
-
-    let int_p = Param.mk ~name:"int" Types.int
-
-    let float_p = Param.mk ~name:"float" Types.float
-
-    let create =
-      declare "Observer.create" []
-        (debug_info_p
-        @-> uuid_p
-        @-> name_label_p
-        @-> dict_p
-        @-> endpoints_p
-        @-> bool_p
-        @-> returning unit_p err
-        )
-
-    let destroy =
-      declare "Observer.destroy" []
-        (debug_info_p @-> uuid_p @-> returning unit_p err)
-
-    let set_enabled =
-      declare "Observer.set_enabled" []
-        (debug_info_p @-> uuid_p @-> bool_p @-> returning unit_p err)
-
-    let set_attributes =
-      declare "Observer.set_attributes" []
-        (debug_info_p @-> uuid_p @-> dict_p @-> returning unit_p err)
-
-    let set_endpoints =
-      declare "Observer.set_endpoints" []
-        (debug_info_p @-> uuid_p @-> endpoints_p @-> returning unit_p err)
-
-    let init = declare "Observer.init" [] (debug_info_p @-> returning unit_p err)
-
-    let set_trace_log_dir =
-      declare "Observer.set_trace_log_dir" []
-        (debug_info_p @-> string_p @-> returning unit_p err)
-
-    let set_export_interval =
-      declare "Observer.set_export_interval" []
-        (debug_info_p @-> float_p @-> returning unit_p err)
-
-    let set_host_id =
-      declare "Observer.set_host_id" []
-        (debug_info_p @-> string_p @-> returning unit_p err)
-
-    let set_max_traces =
-      declare "Observer.set_max_traces" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_max_spans =
-      declare "Observer.set_max_spans" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_max_file_size =
-      declare "Observer.set_max_file_size" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_compress_tracing_files =
-      declare "Observer.set_compress_tracing_files" []
-        (debug_info_p @-> bool_p @-> returning unit_p err)
-  end
+  module Observer = Observer_helpers.ObserverAPI (R)
 end

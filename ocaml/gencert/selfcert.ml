@@ -43,7 +43,7 @@ let valid_from' date =
 
 (* Needed to initialize the rng to create random serial codes when signing
    certificates *)
-let () = Mirage_crypto_rng_unix.initialize (module Mirage_crypto_rng.Fortuna)
+let () = Mirage_crypto_rng_unix.use_default ()
 
 (** [write_cert] writes a PKCS12 file to [path]. The typical file
  extension would be ".pem". It attempts to do that atomically by
@@ -109,6 +109,7 @@ let generate_pub_priv_key length =
       let stdout, _stderr = call_openssl args in
       Ok stdout
     with e ->
+      Backtrace.is_important e ;
       let msg = "generating RSA key failed" in
       D.error "selfcert.ml: %s" msg ;
       Debug.log_backtrace e (Backtrace.get e) ;
@@ -116,7 +117,6 @@ let generate_pub_priv_key length =
   in
   let* privkey =
     rsa_string
-    |> Cstruct.of_string
     |> X509.Private_key.decode_pem
     |> R.reword_error (fun _ -> R.msg "decoding private key failed")
   in
@@ -131,9 +131,7 @@ let selfsign' issuer extensions key_length expiration =
   let* cert = sign expiration privkey pubkey issuer req extensions in
   let key_pem = X509.Private_key.encode_pem privkey in
   let cert_pem = X509.Certificate.encode_pem cert in
-  let pkcs12 =
-    String.concat "\n\n" [Cstruct.to_string key_pem; Cstruct.to_string cert_pem]
-  in
+  let pkcs12 = String.concat "\n\n" [key_pem; cert_pem] in
   Ok (cert, pkcs12)
 
 let selfsign issuer extensions key_length expiration certfile cert_gid =

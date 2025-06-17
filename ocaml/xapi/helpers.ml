@@ -157,7 +157,7 @@ let get_management_iface_is_connected ~__context =
 
 let get_management_ip_addr ~__context =
   let dbg = Context.string_of_task __context in
-  Option.map fst (Networking_info.get_management_ip_addr ~dbg)
+  Networking_info.get_management_ip_addr ~dbg
 
 let get_localhost_uuid () =
   Xapi_inventory.lookup Xapi_inventory._installation_uuid
@@ -171,8 +171,13 @@ let get_localhost ~__context =
   match localhost_ref = Ref.null with
   | false ->
       localhost_ref
-  | true ->
-      get_localhost_uncached ~__context
+  | true -> (
+    try get_localhost_uncached ~__context
+    with Db_exn.Read_missing_uuid (_, _, _) as e ->
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          warn "The database has not fully come up yet, so localhost is missing"
+      )
+  )
 
 (* Determine the gateway and DNS PIFs:
  * If one of the PIFs with IP has other_config:defaultroute=true, then
@@ -605,14 +610,6 @@ let call_emergency_mode_functions hostname f =
   finally
     (fun () -> f rpc session_id)
     (fun () -> Client.Client.Session.local_logout ~rpc ~session_id)
-
-let progress ~__context t =
-  for i = 0 to int_of_float (t *. 100.) do
-    let v = float_of_int i /. 100. /. t in
-    TaskHelper.set_progress ~__context v ;
-    Thread.delay 1.
-  done ;
-  TaskHelper.set_progress ~__context 1.
 
 let is_domain_zero_with_record ~__context vm_ref vm_rec =
   let host_ref = vm_rec.API.vM_resident_on in
@@ -1349,13 +1346,19 @@ let vm_to_string __context vm =
     raise (Api_errors.Server_error (Api_errors.invalid_value, [str])) ;
   let t = Context.database_of __context in
   let module DB =
-    (val Xapi_database.Db_cache.get t : Xapi_database.Db_interface.DB_ACCESS)
+    (val Xapi_database.Db_cache.get t : Xapi_database.Db_interface.DB_ACCESS2)
   in
-  let fields = fst (DB.read_record t Db_names.vm str) in
+  let fields, _ = DB.read_record t Db_names.vm str in
   let sexpr =
     SExpr.Node
       (List.map
-         (fun (key, value) -> SExpr.Node [SExpr.String key; SExpr.String value])
+         (fun (key, value) ->
+           SExpr.Node
+             [
+               SExpr.String key
+             ; SExpr.String (Schema.CachedValue.string_of value)
+             ]
+         )
          fields
       )
   in

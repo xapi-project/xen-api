@@ -25,7 +25,7 @@ let export_thread =
   (* need to ensure this isn't running outside the benchmarked section,
      or bechamel might fail with 'Failed to stabilize GC'
   *)
-  let after _ = Tracing_export.flush_and_exit () in
+  let after _ = Tracing_export.flush_and_exit ~max_wait:0. () in
   Bechamel_simple_cli.thread_workload ~before:Tracing_export.main ~after
     ~run:ignore
 
@@ -52,7 +52,7 @@ let allocate () =
 
 let free t =
   Tracing.TracerProvider.destroy ~uuid ;
-  Tracing_export.flush_and_exit () ;
+  Tracing_export.flush_and_exit ~max_wait:0. () ;
   Thread.join t
 
 let test_tracing_on ?(overflow = false) ~name f =
@@ -64,24 +64,23 @@ let test_tracing_on ?(overflow = false) ~name f =
     allocate ()
   and free t =
     if overflow then (
-      Tracing.Spans.set_max_spans Bechamel_simple_cli.limit ;
-      Tracing.Spans.set_max_traces Bechamel_simple_cli.limit
+      Tracing.Spans.set_max_spans Bechamel_simple_cli.default_limit ;
+      Tracing.Spans.set_max_traces Bechamel_simple_cli.default_limit
     ) ;
     free t
   in
   Test.make_with_resource ~name ~allocate ~free Test.uniq f
 
 let benchmarks =
-  Tracing.Spans.set_max_spans Bechamel_simple_cli.limit ;
-  Tracing.Spans.set_max_traces Bechamel_simple_cli.limit ;
-  Test.make_grouped ~name:"tracing"
-    [
-      Test.make ~name:"overhead(off)" (Staged.stage trace_test_off)
-    ; test_tracing_on ~name:"overhead(on, no span)" (Staged.stage trace_test_off)
-    ; test_tracing_on ~name:"overhead(on, create span)"
-        (Staged.stage trace_test_span)
-    ; test_tracing_on ~overflow:true ~name:"max span overflow"
-        (Staged.stage trace_test_span)
-    ]
+  Tracing.Spans.set_max_spans Bechamel_simple_cli.default_limit ;
+  Tracing.Spans.set_max_traces Bechamel_simple_cli.default_limit ;
+  [
+    Test.make ~name:"overhead(off)" (Staged.stage trace_test_off)
+  ; test_tracing_on ~name:"overhead(on, no span)" (Staged.stage trace_test_off)
+  ; test_tracing_on ~name:"overhead(on, create span)"
+      (Staged.stage trace_test_span)
+  ; test_tracing_on ~overflow:true ~name:"max span overflow"
+      (Staged.stage trace_test_span)
+  ]
 
 let () = Bechamel_simple_cli.cli ~always:[export_thread] ~workloads benchmarks

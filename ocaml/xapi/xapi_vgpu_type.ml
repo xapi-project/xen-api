@@ -1033,7 +1033,9 @@ module Nvidia_compat = struct
           read_configs ac tl
       )
     in
-    let conf_files = Array.to_list (Sys.readdir conf_dir) in
+    let conf_files =
+      try Array.to_list (Sys.readdir conf_dir) with Sys_error _ -> []
+    in
     debug "Reading NVIDIA vGPU config files %s/{%s}" conf_dir
       (String.concat ", " conf_files) ;
     read_configs []

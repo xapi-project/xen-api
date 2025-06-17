@@ -15,6 +15,10 @@
 
 val _exit : int -> unit
 
+val raise_with_preserved_backtrace : exn -> (unit -> unit) -> 'b
+(** A wrapper that preserves the backtrace (otherwise erased by calling
+    formatting functions, for example) *)
+
 val unlink_safe : string -> unit
 
 val mkdir_safe : string -> Unix.file_perm -> unit

@@ -83,12 +83,6 @@ jobs:
           name: SDK_Binaries_CSharp
           path: dist/
 
-      - name: Retrieve PowerShell 5.x SDK distribution artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: SDK_Binaries_XenServerPowerShell_NET45
-          path: sdk_powershell_5x/
-
       - name: Retrieve PowerShell 7.x SDK distribution artifacts
         uses: actions/download-artifact@v4
         with:
@@ -104,10 +98,6 @@ jobs:
           rm -rf libxenserver/usr/local/lib/
           tar -zcvf libxenserver-prerelease.src.tar.gz -C ./libxenserver/usr/local .
 
-      - name: Zip PowerShell 5.x SDK artifacts for deployment
-        shell: bash
-        run: zip PowerShell-SDK-5.x-prerelease-unsigned.zip ./sdk_powershell_5x -r
-
       - name: Zip PowerShell 7.x SDK artifacts for deployment
         shell: bash
         run: zip PowerShell-SDK-7.x-prerelease-unsigned.zip ./sdk_powershell_7x -r
@@ -120,7 +110,6 @@ jobs:
         shell: bash
         run: |
           gh release create ${{ github.ref_name }} --repo ${{ github.repository }} --generate-notes dist/* \
-          PowerShell-SDK-5.x-prerelease-unsigned.zip \
           PowerShell-SDK-7.x-prerelease-unsigned.zip \
           Go-SDK-prerelease-unsigned.zip \
           libxenserver-prerelease.tar.gz libxenserver-prerelease.src.tar.gz
