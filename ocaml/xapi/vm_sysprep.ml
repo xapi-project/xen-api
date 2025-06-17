@@ -115,6 +115,7 @@ let update_sr ~__context =
   Xapi_sr.scan ~__context ~sr ;
   sr
 
+(** Find the VBD for the CD drive on [vm] *)
 let find_cdr_vbd ~__context ~vm =
   let vbds = Db.VM.get_VBDs ~__context ~self:vm in
   let vbds' =
@@ -136,6 +137,8 @@ let find_cdr_vbd ~__context ~vm =
       warn "%s: for VM %s found additions VBDs" __FUNCTION__ uuid ;
       rf
 
+(** Find the VDI that contains the unattend.xml based on its name. This
+    should be unique *)
 let find_vdi ~__context ~label =
   match Db.VDI.get_by_name_label ~__context ~label with
   | [] ->
@@ -146,14 +149,29 @@ let find_vdi ~__context ~label =
       warn "%s: more than one VDI with label %s" __FUNCTION__ label ;
       vdi
 
+let trigger ~domid =
+  let open Ezxenstore_core.Xenstore in
+  let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
+  with_xs (fun xs ->
+      xs.Xs.write (control // "filename") "D://unattend.xml" ;
+      Thread.delay 5.0 ;
+      xs.Xs.write (control // "action") "sysprep"
+  ) ;
+  debug "%s: notified domain %Ld" __FUNCTION__ domid
+
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend =
   debug "%s" __FUNCTION__ ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
+  let domid = Db.VM.get_domid ~__context ~self:vm in
+  if domid <= 0L then
+    failwith_fmt "%s: VM %s does not have a domain" __FUNCTION__ vm_uuid ;
   let iso, label = make_iso ~vm_uuid ~unattend in
   debug "%s: created ISO %s" __FUNCTION__ iso ;
   let _sr = update_sr ~__context in
   let vbd = find_cdr_vbd ~__context ~vm in
   let vdi = find_vdi ~__context ~label in
-  debug "%s: inserting Syspep VDI for VM %s" __FUNCTION__ vm_uuid ;
-  Xapi_vbd.insert ~__context ~vdi ~vbd
+  debug "%s: inserting Sysppep VDI for VM %s" __FUNCTION__ vm_uuid ;
+  Xapi_vbd.insert ~__context ~vdi ~vbd ;
+  Thread.delay 5.0 ;
+  trigger ~domid
