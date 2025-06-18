@@ -161,7 +161,7 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
 
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
-      let@ () = Context.finally_destroy_context ~__context in
+      let@ __context = Context.finally_destroy_context ~__context in
       exec_with_context ~__context ~need_complete ?f_forward:forward_op
         ~marshaller op_fn
       |> marshaller
@@ -197,29 +197,26 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
 (* in the following functions, it is our responsibility to complete any tasks we create *)
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id
     ?task_in_database ?task_description ?origin task_name f =
-  let __context =
-    Context.make ?http_other_config ?quiet ?subtask_of ?session_id
+  let@ __context =
+    Context.with_context ?http_other_config ?quiet ?subtask_of ?session_id
       ?task_in_database ?task_description ?origin task_name
   in
-  let@ () = Context.finally_destroy_context ~__context in
-  exec_with_context ?quiet ~__context ~need_complete:true (fun ~__context ->
+  exec_with_context ~__context ~need_complete:true (fun ~__context ->
       f __context
   )
 
 let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
-  let __context =
-    Context.from_forwarded_task ?http_other_config ?session_id ?origin task_id
+  let@ __context =
+    Context.with_forwarded_task ?http_other_config ?session_id ?origin task_id
   in
-  let@ () = Context.finally_destroy_context ~__context in
   exec_with_context ~__context ~need_complete:true (fun ~__context ->
       f __context
   )
 
 let exec_with_subtask ~__context ?task_in_database task_name f =
-  let __context =
-    Context.make_subcontext ~__context ?task_in_database task_name
+  let@ __context =
+    Context.with_subcontext ~__context ?task_in_database task_name
   in
-  let@ () = Context.finally_destroy_context ~__context in
   exec_with_context ~__context ~need_complete:true f
 
 let forward_extension ~__context rbac call =

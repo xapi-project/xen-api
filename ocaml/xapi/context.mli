@@ -146,7 +146,43 @@ val complete_tracing : ?error:exn * Printexc.raw_backtrace -> t -> unit
 
 val tracing_of : t -> Tracing.Span.t option
 
-val finally_destroy_context : __context:t -> (unit -> 'a) -> 'a
+val finally_destroy_context : __context:t -> (t -> 'a) -> 'a
+(** [finally_destroy_context ~context f] executes [f ~__context] and then
+    ensure [__context] is destroyed.*)
+
+val with_context :
+     ?http_other_config:(string * string) list
+  -> ?quiet:bool
+  -> ?subtask_of:API.ref_task
+  -> ?session_id:API.ref_session
+  -> ?database:Xapi_database.Db_ref.t
+  -> ?task_in_database:bool
+  -> ?task_description:string
+  -> ?origin:origin
+  -> string
+  -> (t -> 'a)
+  -> 'a
+(** [with_context ?http_other_config ?quiet ?subtask_of ?session_id ?database
+    ?task_in_database ?task_description ?origin name f] creates a
+    context [__context], executes [f ~__context] and then ensure [__context] is
+    destroyed.*)
+
+val with_subcontext :
+  __context:t -> ?task_in_database:bool -> string -> (t -> 'a) -> 'a
+(** [with_subcontext ~__context ?task_in_database name] creates a subcontext
+    [__context], executes [f ~__context] and then ensure `__context` is
+    destroyed.*)
+
+val with_forwarded_task :
+     ?http_other_config:(string * string) list
+  -> ?session_id:API.ref_session
+  -> ?origin:origin
+  -> API.ref_task
+  -> (t -> 'a)
+  -> 'a
+(** [with_forwarded_task ?http_other_config ?session_id ?origin task f]
+    creates a context form frowarded task [task], executes [f ~__context] and
+    then ensure [__context] is destroyed.*)
 
 val with_tracing :
   ?originator:string -> __context:t -> string -> (t -> 'a) -> 'a
