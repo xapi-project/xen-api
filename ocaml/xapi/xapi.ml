@@ -1170,6 +1170,10 @@ let server_init () =
             , [Startup.OnThread]
             , Remote_requests.handle_requests
             )
+          ; ( "Remove local ISO SR"
+            , [Startup.OnThread]
+            , fun () -> Vm_sysprep.on_startup ~__context
+            )
           ] ;
         ( match Pool_role.get_role () with
         | Pool_role.Master ->
