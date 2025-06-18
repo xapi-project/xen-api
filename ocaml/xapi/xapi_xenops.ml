@@ -2124,7 +2124,6 @@ let update_vm ~__context id =
                 debug "xenopsd event: Updating VM %s consoles" id ;
                 Option.iter
                   (fun (_, state) ->
-                    let localhost = Helpers.get_localhost ~__context in
                     let address =
                       Db.Host.get_address ~__context ~self:localhost
                     in
