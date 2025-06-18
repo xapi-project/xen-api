@@ -2461,7 +2461,11 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
     )
 
 let update_vm ~__context id =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.vm", id)]
+      ~__context __FUNCTION__
+  in
   try
     if Events_from_xenopsd.are_suppressed id then
       debug "xenopsd event: ignoring event for VM (VM %s migrating away)" id
@@ -2484,7 +2488,11 @@ let update_vm ~__context id =
       (string_of_exn e)
 
 let update_vbd ~__context (id : string * string) =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.vm", fst id); ("xapi.event.on.vbd", snd id)]
+      ~__context __FUNCTION__
+  in
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
       debug "xenopsd event: ignoring event for VBD (VM %s migrating away)"
@@ -2587,7 +2595,11 @@ let update_vbd ~__context (id : string * string) =
     error "xenopsd event: Caught %s while updating VBD" (string_of_exn e)
 
 let update_vif ~__context id =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.vm", fst id); ("xapi.event.on.vif", snd id)]
+      ~__context __FUNCTION__
+  in
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
       debug "xenopsd event: ignoring event for VIF (VM %s migrating away)"
@@ -2696,7 +2708,11 @@ let update_vif ~__context id =
     error "xenopsd event: Caught %s while updating VIF" (string_of_exn e)
 
 let update_pci ~__context id =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.vm", fst id); ("xapi.event.on.pci", snd id)]
+      ~__context __FUNCTION__
+  in
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
       debug "xenopsd event: ignoring event for PCI (VM %s migrating away)"
@@ -2765,7 +2781,11 @@ let update_pci ~__context id =
     error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
 
 let update_vgpu ~__context id =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.vm", fst id); ("xapi.event.on.vgpu", snd id)]
+      ~__context __FUNCTION__
+  in
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
       debug "xenopsd event: ignoring event for VGPU (VM %s migrating away)"
@@ -2830,7 +2850,11 @@ let update_vgpu ~__context id =
     error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
 
 let update_vusb ~__context (id : string * string) =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.vm", fst id); ("xapi.event.on.vusb", snd id)]
+      ~__context __FUNCTION__
+  in
   try
     if Events_from_xenopsd.are_suppressed (fst id) then
       debug "xenopsd event: ignoring event for VUSB (VM %s migrating away)"
@@ -2896,7 +2920,11 @@ let unregister_task __context queue_name id =
   id
 
 let update_task ~__context queue_name id =
-  let@ __context = Context.with_tracing ~__context __FUNCTION__ in
+  let@ __context =
+    Context.with_tracing
+      ~attributes:[("xapi.event.on.task", id)]
+      ~__context __FUNCTION__
+  in
   try
     let self = TaskHelper.id_to_task_exn (TaskHelper.Xenops (queue_name, id)) in
     (* throws Not_found *)
