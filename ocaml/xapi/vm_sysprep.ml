@@ -149,15 +149,19 @@ let find_vdi ~__context ~label =
       warn "%s: more than one VDI with label %s" __FUNCTION__ label ;
       vdi
 
+(** notify the VM with [domid] to run sysprep and where to find the
+    file. *)
 let trigger ~domid =
   let open Ezxenstore_core.Xenstore in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
-  with_xs (fun xs ->
-      xs.Xs.write (control // "filename") "D://unattend.xml" ;
-      Thread.delay 5.0 ;
-      xs.Xs.write (control // "action") "sysprep"
-  ) ;
-  debug "%s: notified domain %Ld" __FUNCTION__ domid
+  with_xs @@ fun xs ->
+  xs.Xs.write (control // "filename") "D://unattend.xml" ;
+  Thread.delay 5.0 ;
+  xs.Xs.write (control // "action") "sysprep" ;
+  debug "%s: notified domain %Ld" __FUNCTION__ domid ;
+  Thread.delay 5.0 ;
+  let action = xs.Xs.read (control // "action") in
+  debug "%s: sysprep for domain %Ld reports %S" __FUNCTION__ domid action
 
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend =
