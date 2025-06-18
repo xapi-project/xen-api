@@ -146,6 +146,8 @@ val complete_tracing : ?error:exn * Printexc.raw_backtrace -> t -> unit
 
 val tracing_of : t -> Tracing.Span.t option
 
+val finally_destroy_context : __context:t -> (unit -> 'a) -> 'a
+
 val with_tracing :
   ?originator:string -> __context:t -> string -> (t -> 'a) -> 'a
 

@@ -504,6 +504,14 @@ let get_client_ip context =
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
 
+let finally_destroy_context ~__context f =
+  let tracing = __context.tracing in
+  Xapi_stdext_pervasives.Pervasiveext.finally f (fun () ->
+      __context.tracing <- tracing ;
+      destroy __context ;
+      __context.tracing <- None
+  )
+
 let with_tracing ?originator ~__context name f =
   let open Tracing in
   let parent = __context.tracing in
