@@ -12,4 +12,14 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val sysprep : __context:Context.t -> vm:API.ref_VM -> unattend:string -> unit
+val on_startup : __context:Context.t -> unit
+(** clean up on toolstart start up *)
+
+val sysprep :
+     __context:Context.t
+  -> vm:API.ref_VM
+  -> unattend:string
+  -> (unit, string) Result.t
+(** Execute sysprep on [vm] using script [unattend]. This requires
+    driver support from the VM and is checked. [unattend:string] must
+    not exceed 32kb. *)

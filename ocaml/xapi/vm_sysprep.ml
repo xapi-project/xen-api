@@ -31,7 +31,35 @@ module SR = struct
   let dir = "/var/opt/iso"
 
   let name hostname = Printf.sprintf "SYSPREP-%s" hostname
+
+  let find_opt ~__context ~label =
+    match Db.SR.get_by_name_label ~__context ~label with
+    | [sr] ->
+        Some sr
+    | sr :: _ ->
+        warn "%s: more than one SR with label %s" __FUNCTION__ label ;
+        Some sr
+    | [] ->
+        None
 end
+
+(** This is called on xapi startup. Opportunity to set up or clean up.
+    We destroy all VDIs that are unused. *)
+let on_startup ~__context =
+  let host = Helpers.get_localhost ~__context in
+  let hostname = Db.Host.get_hostname ~__context ~self:host in
+  match SR.find_opt ~__context ~label:(SR.name hostname) with
+  | None ->
+      ()
+  | Some sr -> (
+      Db.SR.get_VDIs ~__context ~self:sr
+      |> List.iter @@ fun self ->
+         match Db.VDI.get_record ~__context ~self with
+         | API.{vDI_VBDs= []; vDI_location= _location; _} ->
+             Xapi_vdi.destroy ~__context ~self
+         | _ ->
+             ()
+    )
 
 (** create a name with a random infix *)
 let temp_name prefix suffix =
@@ -52,15 +80,16 @@ let mkdtemp ?(dir = temp_dir) ?(perms = 0o700) prefix suffix =
   | false ->
       Unixext.mkdir_rec dir perms
   ) ;
-  let rec loop = function
-    | n when n >= 20 ->
+  let rec try_upto = function
+    | n when n < 0 ->
         failwith_fmt "s: can't create directory in %s" __FUNCTION__ dir
     | n -> (
         let path = Filename.concat dir (temp_name prefix suffix) in
-        try Sys.mkdir path perms ; path with Sys_error _ -> loop (n + 1)
+        try Sys.mkdir path perms ; path
+        with Sys_error _ -> try_upto (n - 1)
       )
   in
-  loop 0
+  try_upto 20
 
 (** Crteate a temporary directory, and pass its path to [f]. Once [f]
     returns the directory is removed again *)
@@ -100,13 +129,10 @@ let update_sr ~__context =
   let label = SR.name hostname in
   let mib n = Int64.(n * 1024 * 1024 |> of_int) in
   let sr =
-    match Db.SR.get_by_name_label ~__context ~label with
-    | [sr] ->
+    match SR.find_opt ~__context ~label with
+    | Some sr ->
         sr
-    | sr :: _ ->
-        warn "%s: more than one SR with label %s" __FUNCTION__ label ;
-        sr
-    | [] ->
+    | None ->
         let device_config = [("location", SR.dir); ("legacy_mode", "true")] in
         Xapi_sr.create ~__context ~host ~name_label:label ~device_config
           ~content_type:"iso" ~_type:"iso" ~name_description:"Sysprep ISOs"
@@ -154,28 +180,62 @@ let find_vdi ~__context ~label =
 let trigger ~domid =
   let open Ezxenstore_core.Xenstore in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
-  with_xs @@ fun xs ->
-  xs.Xs.write (control // "filename") "D://unattend.xml" ;
-  Thread.delay 5.0 ;
-  xs.Xs.write (control // "action") "sysprep" ;
-  debug "%s: notified domain %Ld" __FUNCTION__ domid ;
-  Thread.delay 5.0 ;
-  let action = xs.Xs.read (control // "action") in
-  debug "%s: sysprep for domain %Ld reports %S" __FUNCTION__ domid action
+  with_xs (fun xs ->
+      xs.Xs.write (control // "filename") "D://unattend.xml" ;
+      Thread.delay 5.0 ;
+      xs.Xs.write (control // "action") "sysprep" ;
+      debug "%s: notified domain %Ld" __FUNCTION__ domid ;
+      let rec wait n =
+        match (n, xs.Xs.read (control // "action")) with
+        | _, "running" ->
+            "running"
+        | n, action when n < 0 ->
+            action
+        | _, _ ->
+            Thread.delay 1.0 ;
+            wait (n - 1)
+      in
+      (* wait up to 5 iterations for runnung to appear or report whatever
+         is the status at the end *)
+      wait 5
+  )
 
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend =
+  let open Ezxenstore_core.Xenstore in
   debug "%s" __FUNCTION__ ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let domid = Db.VM.get_domid ~__context ~self:vm in
+  let control = Printf.sprintf "/local/domain/%Ld/control" domid in
   if domid <= 0L then
-    failwith_fmt "%s: VM %s does not have a domain" __FUNCTION__ vm_uuid ;
+    failwith_fmt "%s: VM %s is not running" __FUNCTION__ vm_uuid ;
+  if String.length unattend > 32 * 1024 then
+    fail "%s: provided file for %s larger than 32KiB" __FUNCTION__ vm_uuid ;
+  with_xs (fun xs ->
+      match xs.Xs.read (control // "feature-sysprep") with
+      | "1" ->
+          debug "%s: VM %s supports sysprep" __FUNCTION__ vm_uuid
+      | _ ->
+          fail "VM %s does not support sysprep" vm_uuid
+      | exception _ ->
+          fail "VM %s does not support sysprep" vm_uuid
+  ) ;
   let iso, label = make_iso ~vm_uuid ~unattend in
   debug "%s: created ISO %s" __FUNCTION__ iso ;
   let _sr = update_sr ~__context in
   let vbd = find_cdr_vbd ~__context ~vm in
   let vdi = find_vdi ~__context ~label in
-  debug "%s: inserting Sysppep VDI for VM %s" __FUNCTION__ vm_uuid ;
+  debug "%s: inserting Sysprep VDI for VM %s" __FUNCTION__ vm_uuid ;
   Xapi_vbd.insert ~__context ~vdi ~vbd ;
   Thread.delay 5.0 ;
-  trigger ~domid
+  match trigger ~domid with
+  | "running" ->
+      debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
+      Xapi_vbd.eject ~__context ~vbd ;
+      Sys.remove iso ;
+      Result.ok ()
+  | status ->
+      debug "%s: sysprep %S, ejecting CD" __FUNCTION__ status ;
+      Xapi_vbd.eject ~__context ~vbd ;
+      Sys.remove iso ;
+      Result.error status
