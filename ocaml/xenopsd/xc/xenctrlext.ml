@@ -125,5 +125,7 @@ module NumaNode = struct
   let from = Fun.id
 end
 
+exception Not_available
+
 let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
   stub_domain_claim_pages handle domid numa_node nr_pages

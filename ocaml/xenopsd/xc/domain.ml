@@ -914,13 +914,18 @@ let numa_placement domid ~vcpus ~memory affinity =
       try
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
         Some (node, memory)
-      with Xenctrlext.Unix_error (errno, _) ->
-        D.info
-          "%s: unable to claim enough memory, domain %d won't be hosted in a \
-           single NUMA node. (error %s)"
-          __FUNCTION__ domid
-          Unix.(error_message errno) ;
-      None
+      with
+      | Xenctrlext.Not_available ->
+          (* Xen does not provide the interface to claim pages from a single NUMA
+             node, ignore the error and continue. *)
+          None
+      | Xenctrlext.Unix_error (errno, _) ->
+          D.info
+            "%s: unable to claim enough memory, domain %d won't be hosted in a \
+             single NUMA node. (error %s)"
+            __FUNCTION__ domid
+            Unix.(error_message errno) ;
+          None
   )
 
 let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
