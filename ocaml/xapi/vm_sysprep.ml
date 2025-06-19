@@ -27,6 +27,8 @@ let failwith_fmt fmt = Printf.ksprintf failwith fmt
 
 let prng = Random.State.make_self_init ()
 
+(* A local ISO SR; we create an ISO that holds an unattend.xml file that
+   is than passed as CD to a VM *)
 module SR = struct
   let dir = "/var/opt/iso"
 
@@ -61,7 +63,8 @@ let on_startup ~__context =
              ()
     )
 
-(** create a name with a random infix *)
+(** create a name with a random infix. We need random names for
+    temporay directories to avoid collition *)
 let temp_name prefix suffix =
   let rnd = Random.State.bits prng land 0xFFFFFF in
   Printf.sprintf "%s%06x%s" prefix rnd suffix
