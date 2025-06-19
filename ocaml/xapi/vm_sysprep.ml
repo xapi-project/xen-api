@@ -85,8 +85,7 @@ let mkdtemp ?(dir = temp_dir) ?(perms = 0o700) prefix suffix =
         failwith_fmt "s: can't create directory in %s" __FUNCTION__ dir
     | n -> (
         let path = Filename.concat dir (temp_name prefix suffix) in
-        try Sys.mkdir path perms ; path
-        with Sys_error _ -> try_upto (n - 1)
+        try Sys.mkdir path perms ; path with Sys_error _ -> try_upto (n - 1)
       )
   in
   try_upto 20
@@ -204,6 +203,8 @@ let trigger ~domid =
 let sysprep ~__context ~vm ~unattend =
   let open Ezxenstore_core.Xenstore in
   debug "%s" __FUNCTION__ ;
+  if not !Xapi_globs.vm_sysprep_enabled then
+    fail "Experimental VM.sysprep API call is not enabled" ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let domid = Db.VM.get_domid ~__context ~self:vm in
   let control = Printf.sprintf "/local/domain/%Ld/control" domid in

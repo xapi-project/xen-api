@@ -1089,6 +1089,9 @@ let reuse_pool_sessions = ref false
 let validate_reusable_pool_session = ref false
 (* Validate a reusable session before each use. This is slower and should not be required *)
 
+let vm_sysprep_enabled = ref false
+(* enable VM.sysprep API *)
+
 let test_open = ref 0
 
 let xapi_requests_cgroup =
@@ -1750,6 +1753,11 @@ let other_options =
     , Arg.Set validate_reusable_pool_session
     , (fun () -> string_of_bool !validate_reusable_pool_session)
     , "Enable validation of reusable pool sessions before use"
+    )
+  ; ( "vm-sysprep-enabled"
+    , Arg.Set vm_sysprep_enabled
+    , (fun () -> string_of_bool !vm_sysprep_enabled)
+    , "Enable VM.sysprep API"
     )
   ]
 
