@@ -288,10 +288,7 @@ module type S = sig
   end
 
   module UPDATES : sig
-    val get :
-         Updates.id option
-      -> int option
-      -> Dynamic.barrier list * Dynamic.id list * Updates.id
+    val get : Updates.id option -> int option -> Updates.get_result
   end
 
   module DEBUG : sig
