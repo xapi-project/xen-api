@@ -444,16 +444,6 @@ module Dynamic = struct
 
   type barrier = int * id list [@@deriving rpcty]
 
-  type t =
-    | Vm_t of Vm.id * (Vm.t * Vm.state) option
-    | Vbd_t of Vbd.id * (Vbd.t * Vbd.state) option
-    | Vif_t of Vif.id * (Vif.t * Vif.state) option
-    | Pci_t of Pci.id * (Pci.t * Pci.state) option
-    | Vgpu_t of Vgpu.id * (Vgpu.t * Vgpu.state) option
-    | Vusb_t of Vusb.id * (Vusb.t * Vusb.state) option
-    | Task_t of Task.id * Task.t option
-  [@@deriving rpcty]
-
   let rpc_of_id = Rpcmarshal.marshal id.Rpc.Types.ty
 end
 
