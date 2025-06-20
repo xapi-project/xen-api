@@ -76,13 +76,14 @@ let to_log_string t = t.log
 
 (* Sets the logging context based on `dbg`.
    Also adds a new tracing span, linked to the parent span from `dbg`, if available. *)
-let with_dbg ?(with_thread = false) ?(module_name = "") ~name ~dbg f =
+let with_dbg ?attributes ?(with_thread = false) ?(module_name = "") ~name ~dbg f
+    =
   let di = of_string dbg in
   let f_with_trace () =
     let name =
       match module_name with "" -> name | _ -> module_name ^ "." ^ name
     in
-    Tracing.with_tracing ~parent:di.tracing ~name (fun span ->
+    Tracing.with_tracing ?attributes ~parent:di.tracing ~name (fun span ->
         match span with Some _ -> f {di with tracing= span} | None -> f di
     )
   in
