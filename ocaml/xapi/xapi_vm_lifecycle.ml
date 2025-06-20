@@ -777,12 +777,9 @@ let allowable_ops =
   List.filter (fun op -> not (List.mem op ignored_ops)) API.vm_operations__all
 
 let update_allowed_operations ~__context ~self =
+  let check' = check_operation_error ~__context ~ref:self in
   let check accu op =
-    match check_operation_error ~__context ~ref:self ~op ~strict:true with
-    | None ->
-        op :: accu
-    | Some _err ->
-        accu
+    match check' ~op ~strict:true with None -> op :: accu | Some _err -> accu
   in
   let allowed = List.fold_left check [] allowable_ops in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
