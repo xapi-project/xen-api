@@ -220,7 +220,7 @@ Type 'no' to cancel.
 
     # Ensure xapi is not running
     print("Stopping xapi...")
-    os.system('service xapi stop >/dev/null 2>/dev/null')
+    os.system('systemctl stop xapi >/dev/null 2>/dev/null')
 
     # Reconfigure new management interface
     print("Reconfiguring " + device + "...")
