@@ -23,7 +23,12 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let genisoimage = "/usr/bin/genisoimage"
 
-let failwith_fmt fmt = Printf.ksprintf failwith fmt
+(** This will be shown to the user to explain a failure *)
+exception Failure of string
+
+let failwith_fmt fmt = Printf.ksprintf (fun msg -> raise (Failure msg)) fmt
+
+let internal_error = Helpers.internal_error
 
 let prng = lazy (Random.State.make_self_init ())
 
@@ -78,7 +83,7 @@ let temp_dir = Filename.get_temp_dir_name ()
 let mkdtemp ?(dir = temp_dir) ?(perms = 0o700) prefix suffix =
   ( match Sys.file_exists dir with
   | true when not (Sys.is_directory dir) ->
-      failwith_fmt "s: %s is not a directory" __FUNCTION__ dir
+      internal_error "s: %s is not a directory" __FUNCTION__ dir
   | true ->
       ()
   | false ->
@@ -86,7 +91,7 @@ let mkdtemp ?(dir = temp_dir) ?(perms = 0o700) prefix suffix =
   ) ;
   let rec try_upto = function
     | n when n < 0 ->
-        failwith_fmt "s: can't create directory in %s" __FUNCTION__ dir
+        internal_error "%s: can't create directory %S" __FUNCTION__ dir
     | n -> (
         let path = Filename.concat dir (temp_name prefix suffix) in
         try Sys.mkdir path perms ; path with Sys_error _ -> try_upto (n - 1)
@@ -157,7 +162,7 @@ let find_cdr_vbd ~__context ~vm =
   let uuid = Db.VM.get_uuid ~__context ~self:vm in
   match List.filter is_cd vbds' with
   | [] ->
-      failwith_fmt "%s: can't find CDR for VM %s" __FUNCTION__ uuid
+      failwith_fmt "can't find CDR for VM %s" uuid
   | [(rf, rc)] ->
       debug "%s: for VM %s using VBD %s" __FUNCTION__ uuid rc.API.vBD_uuid ;
       rf
@@ -171,7 +176,7 @@ let find_cdr_vbd ~__context ~vm =
 let find_vdi ~__context ~label =
   match Db.VDI.get_by_name_label ~__context ~label with
   | [] ->
-      failwith_fmt "%s: can't find VDI for %s" __FUNCTION__ label
+      internal_error "%s: can't find VDI for %s" __FUNCTION__ label
   | [vdi] ->
       vdi
   | vdi :: _ ->
@@ -213,7 +218,7 @@ let sysprep ~__context ~vm ~unattend =
   let domid = Db.VM.get_domid ~__context ~self:vm in
   let control = Printf.sprintf "/local/domain/%Ld/control" domid in
   if domid <= 0L then
-    failwith_fmt "%s: VM %s is not running" __FUNCTION__ vm_uuid ;
+    failwith_fmt " VM %s is not running" __FUNCTION__ vm_uuid ;
   if String.length unattend > 32 * 1024 then
     failwith_fmt "%s: provided file for %s larger than 32KiB" __FUNCTION__
       vm_uuid ;
@@ -236,10 +241,10 @@ let sysprep ~__context ~vm ~unattend =
   | "running" ->
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
       Xapi_vbd.eject ~__context ~vbd ;
-      Sys.remove iso ;
-      Result.ok ()
+      Sys.remove iso
   | status ->
       debug "%s: sysprep %S, ejecting CD" __FUNCTION__ status ;
       Xapi_vbd.eject ~__context ~vbd ;
       Sys.remove iso ;
-      Result.error status
+      failwith_fmt "VM %s sysprep not found running as expected: %S" vm_uuid
+        status
