@@ -62,7 +62,7 @@ let on_startup ~__context =
       Db.SR.get_VDIs ~__context ~self:sr
       |> List.iter @@ fun self ->
          match Db.VDI.get_record ~__context ~self with
-         | API.{vDI_VBDs= []; vDI_location= location; _} ->
+         | API.{vDI_VBDs= []; vDI_location= _location; _} ->
              Xapi_vdi.destroy ~__context ~self
          | _ ->
              ()
@@ -154,7 +154,7 @@ let find_cdr_vbd ~__context ~vm =
   let vbds' =
     List.map (fun self -> (self, Db.VBD.get_record ~__context ~self)) vbds
   in
-  let is_cd (rf, rc) =
+  let is_cd (_rf, rc) =
     let open API in
     rc.vBD_type = `CD && rc.vBD_empty
   in
