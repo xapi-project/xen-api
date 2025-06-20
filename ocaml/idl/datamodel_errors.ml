@@ -2068,6 +2068,9 @@ let _ =
        enable it in XC or run xe pool-enable-tls-verification instead."
     () ;
 
+  error Api_errors.sysprep ["vm"; "message"]
+    ~doc:"VM.sysprep error with details in the message" () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:
