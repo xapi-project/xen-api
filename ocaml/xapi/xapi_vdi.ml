@@ -68,6 +68,84 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
   let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
+  let rolling_upgrade_in_progress =
+    Helpers.rolling_upgrade_in_progress ~__context
+  in
+  (* check to see whether it's a local cd drive *)
+  let sr = record.Db_actions.vDI_SR in
+  let sr_type = Db.SR.get_type ~__context ~self:sr in
+  let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
+  (* Check to see if any PBDs are attached *)
+  let open Xapi_database.Db_filter_types in
+  let pbds_attached =
+    match pbd_records with
+    | [] ->
+        Db.PBD.get_records_where ~__context
+          ~expr:
+            (And
+               ( Eq (Field "SR", Literal (Ref.string_of sr))
+               , Eq (Field "currently_attached", Literal "true")
+               )
+            )
+    | _ ->
+        List.filter
+          (fun (_, pbd_record) ->
+            pbd_record.API.pBD_SR = sr && pbd_record.API.pBD_currently_attached
+          )
+          pbd_records
+  in
+
+  (* Only a 'live' operation can be performed if there are active (even RO) devices *)
+  let my_active_vbd_records =
+    match vbd_records with
+    | None ->
+        List.map snd
+          (Db.VBD.get_internal_records_where ~__context
+             ~expr:
+               (And
+                  ( Eq (Field "VDI", Literal _ref)
+                  , Or
+                      ( Eq (Field "currently_attached", Literal "true")
+                      , Eq (Field "reserved", Literal "true")
+                      )
+                  )
+               )
+          )
+    | Some records ->
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && (vbd_record.Db_actions.vBD_currently_attached
+               || vbd_record.Db_actions.vBD_reserved
+               )
+          )
+          records
+  in
+  let my_active_rw_vbd_records =
+    List.filter (fun vbd -> vbd.Db_actions.vBD_mode = `RW) my_active_vbd_records
+  in
+  (* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
+  let my_has_current_operation_vbd_records =
+    match vbd_records with
+    | None ->
+        List.map snd
+          (Db.VBD.get_internal_records_where ~__context
+             ~expr:
+               (And
+                  ( Eq (Field "VDI", Literal _ref)
+                  , Not (Eq (Field "current_operations", Literal "()"))
+                  )
+               )
+          )
+    | Some records ->
+        List.filter
+          (fun vbd_record ->
+            vbd_record.Db_actions.vBD_VDI = _ref'
+            && vbd_record.Db_actions.vBD_current_operations <> []
+          )
+          records
+  in
+
   (* Policy:
      	   1. any current_operation besides copy implies exclusivity; fail everything
      	      else; except vdi mirroring is in current operations and destroy is performed
@@ -83,11 +161,15 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
      	   5. HA prevents you from deleting statefiles or metadata volumes
      	   6. During rolling pool upgrade, only operations known by older releases are allowed
   *)
+  let sm_features =
+    Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type
+  in
+  let vdi_is_ha_state_or_redolog =
+    List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
+  in
+
   fun op ->
     let* () =
-      let rolling_upgrade_in_progress =
-        Helpers.rolling_upgrade_in_progress ~__context
-      in
       if
         rolling_upgrade_in_progress
         && not
@@ -113,30 +195,6 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       else
         Ok ()
     in
-    (* check to see whether it's a local cd drive *)
-    let sr = record.Db_actions.vDI_SR in
-    let sr_type = Db.SR.get_type ~__context ~self:sr in
-    let is_tools_sr = Db.SR.get_is_tools_sr ~__context ~self:sr in
-    (* Check to see if any PBDs are attached *)
-    let open Xapi_database.Db_filter_types in
-    let pbds_attached =
-      match pbd_records with
-      | [] ->
-          Db.PBD.get_records_where ~__context
-            ~expr:
-              (And
-                 ( Eq (Field "SR", Literal (Ref.string_of sr))
-                 , Eq (Field "currently_attached", Literal "true")
-                 )
-              )
-      | _ ->
-          List.filter
-            (fun (_, pbd_record) ->
-              pbd_record.API.pBD_SR = sr
-              && pbd_record.API.pBD_currently_attached
-            )
-            pbd_records
-    in
     let* () =
       if pbds_attached = [] && op = `resize then
         Error (Api_errors.sr_no_pbds, [Ref.string_of sr])
@@ -146,58 +204,6 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
 
     (* check to see whether VBDs exist which are using this VDI *)
 
-    (* Only a 'live' operation can be performed if there are active (even RO) devices *)
-    let my_active_vbd_records =
-      match vbd_records with
-      | None ->
-          List.map snd
-            (Db.VBD.get_internal_records_where ~__context
-               ~expr:
-                 (And
-                    ( Eq (Field "VDI", Literal _ref)
-                    , Or
-                        ( Eq (Field "currently_attached", Literal "true")
-                        , Eq (Field "reserved", Literal "true")
-                        )
-                    )
-                 )
-            )
-      | Some records ->
-          List.filter
-            (fun vbd_record ->
-              vbd_record.Db_actions.vBD_VDI = _ref'
-              && (vbd_record.Db_actions.vBD_currently_attached
-                 || vbd_record.Db_actions.vBD_reserved
-                 )
-            )
-            records
-    in
-    let my_active_rw_vbd_records =
-      List.filter
-        (fun vbd -> vbd.Db_actions.vBD_mode = `RW)
-        my_active_vbd_records
-    in
-    (* VBD operations (plug/unplug) (which should be transient) cause us to serialise *)
-    let my_has_current_operation_vbd_records =
-      match vbd_records with
-      | None ->
-          List.map snd
-            (Db.VBD.get_internal_records_where ~__context
-               ~expr:
-                 (And
-                    ( Eq (Field "VDI", Literal _ref)
-                    , Not (Eq (Field "current_operations", Literal "()"))
-                    )
-                 )
-            )
-      | Some records ->
-          List.filter
-            (fun vbd_record ->
-              vbd_record.Db_actions.vBD_VDI = _ref'
-              && vbd_record.Db_actions.vBD_current_operations <> []
-            )
-            records
-    in
     (* If the VBD is currently_attached then some operations can still be
        performed ie: VDI.clone (if the VM is suspended we have to have the
         'allow_clone_suspended_vm' flag); VDI.snapshot; VDI.resize_online;
@@ -275,9 +281,6 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       else
         Ok ()
     in
-    let sm_features =
-      Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type
-    in
     let* () = check_sm_feature_error op sm_features sr in
     let allowed_for_cbt_metadata_vdi =
       match op with
@@ -341,16 +344,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       else
         Ok ()
     in
-    let vdi_is_ha_state_or_redolog =
-      List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-    in
     let check_destroy () =
-      let ha_enable_in_progress =
-        Xapi_pool_helpers.ha_enable_in_progress ~__context
-      in
-      let ha_disable_in_progress =
-        Xapi_pool_helpers.ha_disable_in_progress ~__context
-      in
       if sr_type = "udev" then
         Error (Api_errors.vdi_is_a_physical_device, [_ref])
       else if is_tools_sr then
