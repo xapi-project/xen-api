@@ -1703,15 +1703,16 @@ let get_secureboot_readiness ~__context ~self =
     )
 
 let sysprep ~__context ~self ~unattend =
+  let uuid = Db.VM.get_uuid ~__context ~self in
+  debug "%s %S (1/2)" __FUNCTION__ uuid ;
   match Vm_sysprep.sysprep ~__context ~vm:self ~unattend with
-  | Ok _ ->
+  | () ->
+      debug "%s %S (2/2)" __FUNCTION__ uuid ;
       ()
-  | Error msg ->
-      let uuid = Db.VM.get_uuid ~__context ~self in
-      raise
-        Api_errors.(
-          Server_error (sysprep, [uuid; "Sysprep not found running: " ^ msg])
-        )
-  | exception Failure msg ->
-      let uuid = Db.VM.get_uuid ~__context ~self in
+  | exception Vm_sysprep.Sysprep msg ->
+      debug "%s %S (2/2)" __FUNCTION__ uuid ;
+      raise Api_errors.(Server_error (sysprep, [uuid; msg]))
+  | exception e ->
+      debug "%s %S (2/2)" __FUNCTION__ uuid ;
+      let msg = Printexc.to_string e in
       raise Api_errors.(Server_error (sysprep, [uuid; msg]))
