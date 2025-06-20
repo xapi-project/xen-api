@@ -85,8 +85,11 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
   *)
   fun op ->
     let* () =
-      if
+      let rolling_upgrade_in_progress =
         Helpers.rolling_upgrade_in_progress ~__context
+      in
+      if
+        rolling_upgrade_in_progress
         && not
              (Xapi_globs.Vdi_operations_set.mem op
                 Xapi_globs.rpu_allowed_vdi_operations
@@ -338,25 +341,31 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       else
         Ok ()
     in
+    let vdi_is_ha_state_or_redolog =
+      List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
+    in
     let check_destroy () =
+      let ha_enable_in_progress =
+        Xapi_pool_helpers.ha_enable_in_progress ~__context
+      in
+      let ha_disable_in_progress =
+        Xapi_pool_helpers.ha_disable_in_progress ~__context
+      in
       if sr_type = "udev" then
         Error (Api_errors.vdi_is_a_physical_device, [_ref])
       else if is_tools_sr then
         Error (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
       else if List.mem record.Db_actions.vDI_type [`rrd] then
         Error (Api_errors.vdi_has_rrds, [_ref])
-      else if
-        ha_enabled
-        && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-      then
+      else if ha_enabled && vdi_is_ha_state_or_redolog then
         Error (Api_errors.ha_is_enabled, [])
       else if
-        List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
+        vdi_is_ha_state_or_redolog
         && Xapi_pool_helpers.ha_enable_in_progress ~__context
       then
         Error (Api_errors.ha_enable_in_progress, [])
       else if
-        List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
+        vdi_is_ha_state_or_redolog
         && Xapi_pool_helpers.ha_disable_in_progress ~__context
       then
         Error (Api_errors.ha_disable_in_progress, [])
@@ -365,10 +374,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
     in
     match op with
     | `forget ->
-        if
-          ha_enabled
-          && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-        then
+        if ha_enabled && vdi_is_ha_state_or_redolog then
           Error (Api_errors.ha_is_enabled, [])
         else if List.mem record.Db_actions.vDI_type [`rrd] then
           Error (Api_errors.vdi_has_rrds, [_ref])
@@ -387,18 +393,12 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
         else
           check_destroy ()
     | `resize ->
-        if
-          ha_enabled
-          && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-        then
+        if ha_enabled && vdi_is_ha_state_or_redolog then
           Error (Api_errors.ha_is_enabled, [])
         else
           Ok ()
     | `resize_online ->
-        if
-          ha_enabled
-          && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-        then
+        if ha_enabled && vdi_is_ha_state_or_redolog then
           Error (Api_errors.ha_is_enabled, [])
         else
           Ok ()
@@ -415,7 +415,7 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
         else
           Ok ()
     | `copy ->
-        if List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log] then
+        if vdi_is_ha_state_or_redolog then
           Error
             ( Api_errors.operation_not_allowed
             , [

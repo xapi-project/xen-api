@@ -528,10 +528,10 @@ let check_operation_error ~__context ~ref =
     in
     let current_error =
       let metrics = Db.VM.get_metrics ~__context ~self:ref in
+      let is_nested_virt = nested_virt ~__context ref metrics in
       check current_error (fun () ->
           match op with
-          | `changing_dynamic_range
-            when nested_virt ~__context ref metrics && strict ->
+          | `changing_dynamic_range when is_nested_virt && strict ->
               Some (Api_errors.vm_is_using_nested_virt, [ref_str])
           | _ ->
               None
@@ -542,13 +542,11 @@ let check_operation_error ~__context ~ref =
     (* make use of the Helpers.ballooning_enabled_for_vm function.   *)
     let current_error =
       check current_error (fun () ->
-          let vm_ref () =
+          let is_domain_zero =
             Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid
+            |> Helpers.is_domain_zero ~__context
           in
-          if
-            (op = `changing_VCPUs || op = `destroy)
-            && Helpers.is_domain_zero ~__context (vm_ref ())
-          then
+          if (op = `changing_VCPUs || op = `destroy) && is_domain_zero then
             Some
               ( Api_errors.operation_not_allowed
               , ["This operation is not allowed on dom0"]
@@ -668,8 +666,11 @@ let check_operation_error ~__context ~ref =
     in
     (* Check for errors caused by VM being in an appliance. *)
     let current_error =
+      let is_appliance_valid =
+        Db.is_valid_ref __context vmr.Db_actions.vM_appliance
+      in
       check current_error (fun () ->
-          if Db.is_valid_ref __context vmr.Db_actions.vM_appliance then
+          if is_appliance_valid then
             check_appliance ~vmr ~op ~ref_str
           else
             None
@@ -677,8 +678,11 @@ let check_operation_error ~__context ~ref =
     in
     (* Check for errors caused by VM being assigned to a protection policy. *)
     let current_error =
+      let is_protection_policy_valid =
+        Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy
+      in
       check current_error (fun () ->
-          if Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy then
+          if is_protection_policy_valid then
             check_protection_policy ~vmr ~op ~ref_str
           else
             None
@@ -686,8 +690,11 @@ let check_operation_error ~__context ~ref =
     in
     (* Check for errors caused by VM being assigned to a snapshot schedule. *)
     let current_error =
+      let is_snapshort_schedule_valid =
+        Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule
+      in
       check current_error (fun () ->
-          if Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule then
+          if is_snapshort_schedule_valid then
             check_snapshot_schedule ~vmr ~ref_str op
           else
             None
@@ -709,9 +716,12 @@ let check_operation_error ~__context ~ref =
       )
     in
     let current_error =
+      let rolling_upgrade_in_progress =
+        Helpers.rolling_upgrade_in_progress ~__context
+      in
       check current_error (fun () ->
           if
-            Helpers.rolling_upgrade_in_progress ~__context
+            rolling_upgrade_in_progress
             && not (List.mem op Xapi_globs.rpu_allowed_vm_operations)
           then
             Some (Api_errors.not_supported_during_upgrade, [])
