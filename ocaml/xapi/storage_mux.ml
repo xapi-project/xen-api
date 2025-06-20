@@ -844,12 +844,11 @@ module Mux = struct
     module MIRROR = struct
       type context = unit
 
-      let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
       let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
           ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
           ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
-        u "DATA.MIRROR.send_start" (* see storage_smapi{v1,v3}_migrate.ml *)
+        Storage_interface.unimplemented
+          __FUNCTION__ (* see storage_smapi{v1,v3}_migrate.ml *)
 
       let receive_start () ~dbg ~sr ~vdi_info ~id ~similar =
         with_dbg ~name:"DATA.MIRROR.receive_start" ~dbg @@ fun _di ->
@@ -880,7 +879,7 @@ module Mux = struct
       (** see storage_smapiv{1,3}_migrate.receive_start3 *)
       let receive_start3 () ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_ ~similar:_
           ~vm:_ =
-        u __FUNCTION__
+        Storage_interface.unimplemented __FUNCTION__
 
       let receive_finalize () ~dbg ~id =
         with_dbg ~name:"DATA.MIRROR.receive_finalize" ~dbg @@ fun di ->
@@ -893,7 +892,7 @@ module Mux = struct
         Storage_smapiv1_migrate.MIRROR.receive_finalize2 () ~dbg:di.log ~id
 
       let receive_finalize3 () ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_ ~verify_dest:_ =
-        u __FUNCTION__
+        Storage_interface.unimplemented __FUNCTION__
 
       let receive_cancel () ~dbg ~id =
         with_dbg ~name:"DATA.MIRROR.receive_cancel" ~dbg @@ fun di ->
@@ -901,13 +900,13 @@ module Mux = struct
         Storage_smapiv1_migrate.MIRROR.receive_cancel () ~dbg:di.log ~id
 
       let receive_cancel2 () ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
-        u __FUNCTION__
+        Storage_interface.unimplemented __FUNCTION__
 
       let pre_deactivate_hook _ctx ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ =
-        u "DATA.MIRROR.pre_deactivate_hook"
+        Storage_interface.unimplemented __FUNCTION__
 
       let has_mirror_failed _ctx ~dbg:_ ~mirror_id:_ ~sr:_ =
-        u "DATA.MIRROR.has_mirror_failed"
+        Storage_interface.unimplemented __FUNCTION__
 
       let list () ~dbg =
         with_dbg ~name:"DATA.MIRROR.list" ~dbg @@ fun di ->

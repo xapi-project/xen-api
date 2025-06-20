@@ -1137,16 +1137,16 @@ functor
     end
 
     module DATA = struct
-      let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
       let copy context ~dbg ~sr ~vdi ~vm ~url ~dest =
         info "DATA.copy dbg:%s sr:%s vdi:%s url:%s dest:%s" dbg (s_of_sr sr)
           (s_of_vdi vdi) url (s_of_sr dest) ;
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
 
-      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ = u "DATA.mirror"
+      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ =
+        Storage_interface.unimplemented __FUNCTION__
 
-      let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ = u "DATA.stat"
+      let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ =
+        Storage_interface.unimplemented __FUNCTION__
 
       (* tapdisk supports three kind of nbd servers, the old style nbdserver,
          the new style nbd server and a real nbd server. The old and new style nbd servers
@@ -1195,7 +1195,7 @@ functor
         let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
             ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
             ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
-          u "DATA.MIRROR.send_start"
+          Storage_interface.unimplemented __FUNCTION__
 
         let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
           info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" dbg
@@ -1215,7 +1215,7 @@ functor
         let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
             ~similar:_ ~vm:_ =
           (* See Storage_smapiv1_migrate.receive_start3 *)
-          u __FUNCTION__
+          Storage_interface.unimplemented __FUNCTION__
 
         let receive_finalize context ~dbg ~id =
           info "DATA.MIRROR.receive_finalize dbg:%s id:%s" dbg id ;
@@ -1228,24 +1228,25 @@ functor
         let receive_finalize3 _context ~dbg:_ ~mirror_id:_ ~sr:_ ~url:_
             ~verify_dest:_ =
           (* see storage_smapiv{1,3}_migrate *)
-          u __FUNCTION__
+          Storage_interface.unimplemented __FUNCTION__
 
         let receive_cancel context ~dbg ~id =
           info "DATA.MIRROR.receive_cancel dbg:%s id:%s" dbg id ;
           Impl.DATA.MIRROR.receive_cancel context ~dbg ~id
 
         let receive_cancel2 _context ~dbg:_ ~mirror_id:_ ~url:_ ~verify_dest:_ =
-          u __FUNCTION__
+          Storage_interface.unimplemented __FUNCTION__
 
         let pre_deactivate_hook _context ~dbg:_ ~dp:_ ~sr:_ ~vdi:_ =
-          u __FUNCTION__
+          Storage_interface.unimplemented __FUNCTION__
 
         let has_mirror_failed _context ~dbg:_ ~mirror_id:_ ~sr:_ =
-          u __FUNCTION__
+          Storage_interface.unimplemented __FUNCTION__
 
-        let list _context ~dbg:_ = u __FUNCTION__
+        let list _context ~dbg:_ = Storage_interface.unimplemented __FUNCTION__
 
-        let stat _context ~dbg:_ ~id:_ = u __FUNCTION__
+        let stat _context ~dbg:_ ~id:_ =
+          Storage_interface.unimplemented __FUNCTION__
       end
     end
 
