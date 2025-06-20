@@ -63,7 +63,6 @@ let on_startup ~__context =
       |> List.iter @@ fun self ->
          match Db.VDI.get_record ~__context ~self with
          | API.{vDI_VBDs= []; vDI_location= location; _} ->
-             Sys.remove (SR.dir // location) ;
              Xapi_vdi.destroy ~__context ~self
          | _ ->
              ()
