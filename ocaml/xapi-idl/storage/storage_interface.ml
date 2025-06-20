@@ -425,6 +425,8 @@ end
 
 exception Storage_error of Errors.error
 
+let unimplemented x = raise (Storage_error (Errors.Unimplemented x))
+
 let () =
   (* register printer *)
   let sprintf = Printf.sprintf in
