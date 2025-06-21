@@ -393,8 +393,7 @@ let nested_virt ~__context vm metrics =
     let key = "nested-virt" in
     Vm_platform.is_true ~key ~platformdata ~default:false
 
-let is_mobile ~__context vm strict =
-  let metrics = Db.VM.get_metrics ~__context ~self:vm in
+let is_mobile ~__context vm strict metrics =
   (not @@ nomigrate ~__context vm metrics)
   && (not @@ nested_virt ~__context vm metrics)
   || not strict
@@ -447,6 +446,42 @@ let check_operation_error ~__context ~ref =
       vmr.Db_actions.vM_VBDs
     |> List.filter (Db.is_valid_ref __context)
   in
+  let current_ops = vmr.Db_actions.vM_current_operations in
+  let metrics = Db.VM.get_metrics ~__context ~self:ref in
+  let is_nested_virt = nested_virt ~__context ref metrics in
+  let is_domain_zero =
+    Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid
+    |> Helpers.is_domain_zero ~__context
+  in
+  let vdis_reset_and_caching =
+    List.filter_map
+      (fun vdi ->
+        try
+          let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
+          Some
+            ( List.assoc_opt "on_boot" sm_config = Some "reset"
+            , bool_of_assoc "caching" sm_config
+            )
+        with _ -> None
+      )
+      vdis
+  in
+  let sriov_pcis = nvidia_sriov_pcis ~__context vmr.Db_actions.vM_VGPUs in
+  let is_not_sriov pci = not @@ List.mem pci sriov_pcis in
+  let pcis = vmr.Db_actions.vM_attached_PCIs in
+  let is_appliance_valid =
+    Db.is_valid_ref __context vmr.Db_actions.vM_appliance
+  in
+  let is_protection_policy_valid =
+    Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy
+  in
+  let rolling_upgrade_in_progress =
+    Helpers.rolling_upgrade_in_progress ~__context
+  in
+  let is_snapshort_schedule_valid =
+    Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule
+  in
+
   fun ~op ~strict ->
     let current_error = None in
     let check c f = match c with Some e -> Some e | None -> f () in
@@ -470,7 +505,6 @@ let check_operation_error ~__context ~ref =
     (* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
     let current_error =
       check current_error (fun () ->
-          let current_ops = vmr.Db_actions.vM_current_operations in
           if
             List.length current_ops <> 0
             && not (is_allowed_concurrently ~op ~current_ops)
@@ -520,18 +554,16 @@ let check_operation_error ~__context ~ref =
       check current_error (fun () ->
           match op with
           | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
-            when not (is_mobile ~__context ref strict) ->
+            when not (is_mobile ~__context ref strict metrics) ->
               Some (Api_errors.vm_is_immobile, [ref_str])
           | _ ->
               None
       )
     in
     let current_error =
-      let metrics = Db.VM.get_metrics ~__context ~self:ref in
       check current_error (fun () ->
           match op with
-          | `changing_dynamic_range
-            when nested_virt ~__context ref metrics && strict ->
+          | `changing_dynamic_range when is_nested_virt && strict ->
               Some (Api_errors.vm_is_using_nested_virt, [ref_str])
           | _ ->
               None
@@ -542,13 +574,7 @@ let check_operation_error ~__context ~ref =
     (* make use of the Helpers.ballooning_enabled_for_vm function.   *)
     let current_error =
       check current_error (fun () ->
-          let vm_ref () =
-            Db.VM.get_by_uuid ~__context ~uuid:vmr.Db_actions.vM_uuid
-          in
-          if
-            (op = `changing_VCPUs || op = `destroy)
-            && Helpers.is_domain_zero ~__context (vm_ref ())
-          then
+          if (op = `changing_VCPUs || op = `destroy) && is_domain_zero then
             Some
               ( Api_errors.operation_not_allowed
               , ["This operation is not allowed on dom0"]
@@ -594,19 +620,6 @@ let check_operation_error ~__context ~ref =
     (* Check for an error due to VDI caching/reset behaviour *)
     let current_error =
       check current_error (fun () ->
-          let vdis_reset_and_caching =
-            List.filter_map
-              (fun vdi ->
-                try
-                  let sm_config = Db.VDI.get_sm_config ~__context ~self:vdi in
-                  Some
-                    ( List.assoc_opt "on_boot" sm_config = Some "reset"
-                    , bool_of_assoc "caching" sm_config
-                    )
-                with _ -> None
-              )
-              vdis
-          in
           if
             op = `checkpoint
             || op = `snapshot
@@ -635,9 +648,6 @@ let check_operation_error ~__context ~ref =
     (* If a PCI device is passed-through, check if the operation is allowed *)
     let current_error =
       check current_error @@ fun () ->
-      let sriov_pcis = nvidia_sriov_pcis ~__context vmr.Db_actions.vM_VGPUs in
-      let is_not_sriov pci = not @@ List.mem pci sriov_pcis in
-      let pcis = vmr.Db_actions.vM_attached_PCIs in
       match op with
       | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
         when List.exists is_not_sriov pcis ->
@@ -669,7 +679,7 @@ let check_operation_error ~__context ~ref =
     (* Check for errors caused by VM being in an appliance. *)
     let current_error =
       check current_error (fun () ->
-          if Db.is_valid_ref __context vmr.Db_actions.vM_appliance then
+          if is_appliance_valid then
             check_appliance ~vmr ~op ~ref_str
           else
             None
@@ -678,7 +688,7 @@ let check_operation_error ~__context ~ref =
     (* Check for errors caused by VM being assigned to a protection policy. *)
     let current_error =
       check current_error (fun () ->
-          if Db.is_valid_ref __context vmr.Db_actions.vM_protection_policy then
+          if is_protection_policy_valid then
             check_protection_policy ~vmr ~op ~ref_str
           else
             None
@@ -687,7 +697,7 @@ let check_operation_error ~__context ~ref =
     (* Check for errors caused by VM being assigned to a snapshot schedule. *)
     let current_error =
       check current_error (fun () ->
-          if Db.is_valid_ref __context vmr.Db_actions.vM_snapshot_schedule then
+          if is_snapshort_schedule_valid then
             check_snapshot_schedule ~vmr ~ref_str op
           else
             None
@@ -711,7 +721,7 @@ let check_operation_error ~__context ~ref =
     let current_error =
       check current_error (fun () ->
           if
-            Helpers.rolling_upgrade_in_progress ~__context
+            rolling_upgrade_in_progress
             && not (List.mem op Xapi_globs.rpu_allowed_vm_operations)
           then
             Some (Api_errors.not_supported_during_upgrade, [])
@@ -777,12 +787,9 @@ let allowable_ops =
   List.filter (fun op -> not (List.mem op ignored_ops)) API.vm_operations__all
 
 let update_allowed_operations ~__context ~self =
+  let check' = check_operation_error ~__context ~ref:self in
   let check accu op =
-    match check_operation_error ~__context ~ref:self ~op ~strict:true with
-    | None ->
-        op :: accu
-    | Some _err ->
-        accu
+    match check' ~op ~strict:true with None -> op :: accu | Some _err -> accu
   in
   let allowed = List.fold_left check [] allowable_ops in
   (* FIXME: need to be able to deal with rolling-upgrade for orlando as well *)
