@@ -15,6 +15,7 @@
 module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
+open Client
 open Xapi_stdext_unix
 
 let ( // ) = Filename.concat
@@ -23,14 +24,26 @@ let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let genisoimage = !Xapi_globs.genisoimage_path
 
-(** This will be shown to the user to explain a failure *)
-exception Sysprep of string
+type error =
+  | API_not_enabled
+  | Other of string
+  | VM_CDR_not_found
+  | VM_misses_feature
+  | VM_not_running
+  | VM_sysprep_timeout
+  | XML_too_large
 
-let fail fmt = Printf.ksprintf (fun msg -> raise (Sysprep msg)) fmt
+exception Sysprep of error
+
+let _fail_fmt fmt = Printf.ksprintf (fun msg -> raise (Sysprep (Other msg))) fmt
+
+let fail error = raise (Sysprep error)
 
 let internal_error = Helpers.internal_error
 
 let prng = Random.State.make_self_init ()
+
+let call = Helpers.call_api_functions
 
 (* A local ISO SR; we create an ISO that holds an unattend.xml file that
    is than passed as CD to a VM *)
@@ -62,14 +75,15 @@ let on_startup ~__context =
       Db.SR.get_VDIs ~__context ~self:sr
       |> List.iter @@ fun self ->
          match Db.VDI.get_record ~__context ~self with
-         | API.{vDI_VBDs= []; vDI_location= _location; _} ->
-             Xapi_vdi.destroy ~__context ~self
+         | API.{vDI_VBDs= []; _} ->
+             call ~__context @@ fun rpc session_id ->
+             Client.VDI.destroy ~rpc ~session_id ~self
          | _ ->
              ()
     )
 
 (** create a name with a random infix. We need random names for
-    temporay directories to avoid collition *)
+    temporary directories to avoid collisions of concurrent API calls *)
 let temp_name prefix suffix =
   let rnd = Random.State.bits prng land 0xFFFFFF in
   Printf.sprintf "%s%06x%s" prefix rnd suffix
@@ -141,11 +155,13 @@ let update_sr ~__context =
         sr
     | None ->
         let device_config = [("location", SR.dir); ("legacy_mode", "true")] in
-        Xapi_sr.create ~__context ~host ~name_label:label ~device_config
+        call ~__context @@ fun rpc session_id ->
+        Client.SR.create ~rpc ~session_id ~host ~name_label:label ~device_config
           ~content_type:"iso" ~_type:"iso" ~name_description:"Sysprep ISOs"
           ~shared:false ~sm_config:[] ~physical_size:(mib 512)
   in
-  Xapi_sr.scan ~__context ~sr ;
+  call ~__context @@ fun rpc session_id ->
+  Client.SR.scan ~rpc ~session_id ~sr ;
   sr
 
 (** Find the VBD for the CD drive on [vm] *)
@@ -161,7 +177,7 @@ let find_cdr_vbd ~__context ~vm =
   let uuid = Db.VM.get_uuid ~__context ~self:vm in
   match List.filter is_cd vbds' with
   | [] ->
-      fail "can't find CDR for VM %s" uuid
+      fail VM_CDR_not_found
   | [(rf, rc)] ->
       debug "%s: for VM %s using VBD %s" __FUNCTION__ uuid rc.API.vBD_uuid ;
       rf
@@ -189,7 +205,6 @@ let trigger ~domid =
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
   with_xs (fun xs ->
       xs.Xs.write (control // "filename") "D://unattend.xml" ;
-      Thread.delay 5.0 ;
       xs.Xs.write (control // "action") "sysprep" ;
       debug "%s: notified domain %Ld" __FUNCTION__ domid ;
       let rec wait n =
@@ -209,25 +224,27 @@ let trigger ~domid =
 
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend =
-  let open Ezxenstore_core.Xenstore in
   debug "%s" __FUNCTION__ ;
   if not !Xapi_globs.vm_sysprep_enabled then
-    fail "Experimental VM.sysprep API call is not enabled" ;
+    fail API_not_enabled ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
   let domid = Db.VM.get_domid ~__context ~self:vm in
   let control = Printf.sprintf "/local/domain/%Ld/control" domid in
   if domid <= 0L then
-    fail " VM %s is not running" __FUNCTION__ vm_uuid ;
+    fail VM_not_running ;
   if String.length unattend > 32 * 1024 then
-    fail "%s: provided file for %s larger than 32KiB" __FUNCTION__ vm_uuid ;
-  with_xs (fun xs ->
+    fail XML_too_large ;
+  Ezxenstore_core.Xenstore.with_xs (fun xs ->
+      let open Ezxenstore_core.Xenstore in
       match xs.Xs.read (control // "feature-sysprep") with
       | "1" ->
           debug "%s: VM %s supports sysprep" __FUNCTION__ vm_uuid
       | _ ->
-          fail "VM %s does not support sysprep" vm_uuid
+          debug "%s: VM %s does not support sysprep" __FUNCTION__ vm_uuid ;
+          fail VM_misses_feature
       | exception _ ->
-          fail "VM %s does not support sysprep" vm_uuid
+          debug "%s: VM %s does not support sysprep" __FUNCTION__ vm_uuid ;
+          fail VM_misses_feature
   ) ;
   let iso, label = make_iso ~vm_uuid ~unattend in
   debug "%s: created ISO %s" __FUNCTION__ iso ;
@@ -235,15 +252,16 @@ let sysprep ~__context ~vm ~unattend =
   let vbd = find_cdr_vbd ~__context ~vm in
   let vdi = find_vdi ~__context ~label in
   debug "%s: inserting Sysprep VDI for VM %s" __FUNCTION__ vm_uuid ;
-  Xapi_vbd.insert ~__context ~vdi ~vbd ;
+  call ~__context @@ fun rpc session_id ->
+  Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
   Thread.delay 5.0 ;
   match trigger ~domid with
   | "running" ->
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
-      Xapi_vbd.eject ~__context ~vbd ;
+      Client.VBD.eject ~rpc ~session_id ~vbd ;
       Sys.remove iso
   | status ->
       debug "%s: sysprep %S, ejecting CD" __FUNCTION__ status ;
-      Xapi_vbd.eject ~__context ~vbd ;
+      Client.VBD.eject ~rpc ~session_id ~vbd ;
       Sys.remove iso ;
-      fail "VM %s sysprep not found running as expected: %S" vm_uuid status
+      fail VM_sysprep_timeout

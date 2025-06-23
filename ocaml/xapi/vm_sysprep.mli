@@ -13,7 +13,16 @@
  *)
 
 (** error message that may be passed to API clients *)
-exception Sysprep of string
+type error =
+  | API_not_enabled
+  | Other of string
+  | VM_CDR_not_found
+  | VM_misses_feature
+  | VM_not_running
+  | VM_sysprep_timeout
+  | XML_too_large
+
+exception Sysprep of error
 
 val on_startup : __context:Context.t -> unit
 (** clean up on toolstart start up *)

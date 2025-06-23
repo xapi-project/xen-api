@@ -3124,8 +3124,7 @@ functor
         with_vm_operation ~__context ~self ~doc:"VM.sysprep" ~op:`sysprep
           ~policy (fun () ->
             forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
-        ) ;
-        Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+        )
     end
 
     module VM_metrics = struct end

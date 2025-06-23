@@ -240,7 +240,7 @@ let prototyped_of_message = function
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
   | "VM", "sysprep" ->
-      Some "25.22.0"
+      Some "25.23.0-next"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
