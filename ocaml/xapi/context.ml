@@ -532,11 +532,12 @@ let with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
   in
   finally_destroy_context ~__context f
 
-let with_tracing ?originator ~__context name f =
+let with_tracing ?(attributes = []) ?originator ~__context name f =
   let open Tracing in
   let parent = __context.tracing in
   let span_attributes =
     Attributes.attr_of_originator originator
+    @ attributes
     @ make_attributes ~task_id:__context.task_id
         ?session_id:__context.session_id ()
   in
