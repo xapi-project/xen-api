@@ -1097,6 +1097,8 @@ let test_open = ref 0
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
 
+let genisoimage_path = ref "/usr/bin/genisoimage"
+
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
   let name = Printf.sprintf "%s_delay" name in
@@ -1950,6 +1952,7 @@ module Resources = struct
       , pvsproxy_close_cache_vdi
       , "Path to close-cache-vdi.sh"
       )
+    ; ("genisoimage", genisoimage_path, "Path to genisoimage")
     ]
 
   let essential_files =
