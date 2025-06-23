@@ -2433,8 +2433,8 @@ let update_vbd ~__context (id : string * string) =
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
-        let info = try Some (Client.VBD.stat dbg id) with _ -> None in
-        if Option.map snd info <> previous then (
+        let info = try Some (snd (Client.VBD.stat dbg id)) with _ -> None in
+        if info <> previous then (
           let vbds = Db.VM.get_VBDs ~__context ~self:vm in
           let vbdrs =
             List.map
@@ -2469,7 +2469,7 @@ let update_vbd ~__context (id : string * string) =
           debug "VBD %s.%s matched device %s" (fst id) (snd id)
             vbd_r.API.vBD_userdevice ;
           Option.iter
-            (fun (_, state) ->
+            (fun state ->
               let currently_attached = state.Vbd.plugged || state.Vbd.active in
               debug
                 "xenopsd event: Updating VBD %s.%s device <- %s; \
@@ -2512,7 +2512,7 @@ let update_vbd ~__context (id : string * string) =
               )
             )
             info ;
-          Xenops_cache.update_vbd id (Option.map snd info) ;
+          Xenops_cache.update_vbd id info ;
           Xapi_vbd_helpers.update_allowed_operations ~__context ~self:vbd ;
           if not (Db.VBD.get_empty ~__context ~self:vbd) then
             let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
@@ -2535,8 +2535,8 @@ let update_vif ~__context id =
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
-        let info = try Some (Client.VIF.stat dbg id) with _ -> None in
-        if Option.map snd info <> previous then (
+        let info = try Some (snd (Client.VIF.stat dbg id)) with _ -> None in
+        if info <> previous then (
           let vifs = Db.VM.get_VIFs ~__context ~self:vm in
           let vifrs =
             List.map
@@ -2547,7 +2547,7 @@ let update_vif ~__context id =
             List.find (fun (_, vifr) -> vifr.API.vIF_device = snd id) vifrs
           in
           Option.iter
-            (fun (_, state) ->
+            (fun state ->
               if not (state.Vif.plugged || state.Vif.active) then (
                 ( try Xapi_network.deregister_vif ~__context vif
                   with e ->
@@ -2623,7 +2623,7 @@ let update_vif ~__context id =
                 ~value:(state.plugged || state.active)
             )
             info ;
-          Xenops_cache.update_vif id (Option.map snd info) ;
+          Xenops_cache.update_vif id info ;
           Xapi_vif_helpers.update_allowed_operations ~__context ~self:vif
         )
   with e ->
@@ -2643,8 +2643,8 @@ let update_pci ~__context id =
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
-        let info = try Some (Client.PCI.stat dbg id) with _ -> None in
-        if Option.map snd info <> previous then (
+        let info = try Some (snd (Client.PCI.stat dbg id)) with _ -> None in
+        if info <> previous then (
           let pcis = Db.Host.get_PCIs ~__context ~self:localhost in
           let pcirs =
             List.map
@@ -2661,7 +2661,7 @@ let update_pci ~__context id =
             List.mem vm (Db.PCI.get_attached_VMs ~__context ~self:pci)
           in
           Option.iter
-            (fun (_, state) ->
+            (fun state ->
               debug "xenopsd event: Updating PCI %s.%s currently_attached <- %b"
                 (fst id) (snd id) state.Pci.plugged ;
               if attached_in_db && not state.Pci.plugged then
@@ -2692,7 +2692,7 @@ let update_pci ~__context id =
                 vgpu_opt
             )
             info ;
-          Xenops_cache.update_pci id (Option.map snd info)
+          Xenops_cache.update_pci id info
         )
   with e ->
     error "xenopsd event: Caught %s while updating PCI" (string_of_exn e)
@@ -2711,8 +2711,8 @@ let update_vgpu ~__context id =
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
-        let info = try Some (Client.VGPU.stat dbg id) with _ -> None in
-        if Option.map snd info <> previous then (
+        let info = try Some (snd (Client.VGPU.stat dbg id)) with _ -> None in
+        if info <> previous then (
           let vgpus = Db.VM.get_VGPUs ~__context ~self:vm in
           let vgpu_records =
             List.map
@@ -2733,7 +2733,7 @@ let update_vgpu ~__context id =
             = None
           then
             Option.iter
-              (fun (_, state) ->
+              (fun state ->
                 ( if state.Vgpu.plugged then
                     let scheduled =
                       Db.VGPU.get_scheduled_to_be_resident_on ~__context
@@ -2756,7 +2756,7 @@ let update_vgpu ~__context id =
                 )
               )
               info ;
-          Xenops_cache.update_vgpu id (Option.map snd info)
+          Xenops_cache.update_vgpu id info
         )
   with e ->
     error "xenopsd event: Caught %s while updating VGPU" (string_of_exn e)
@@ -2775,8 +2775,8 @@ let update_vusb ~__context (id : string * string) =
         let module Client =
           (val make_client (queue_of_vm ~__context ~self:vm) : XENOPS)
         in
-        let info = try Some (Client.VUSB.stat dbg id) with _ -> None in
-        if Option.map snd info <> previous then (
+        let info = try Some (snd (Client.VUSB.stat dbg id)) with _ -> None in
+        if info <> previous then (
           let pusb, _ =
             Db.VM.get_VUSBs ~__context ~self:vm
             |> List.map (fun self -> Db.VUSB.get_USB_group ~__context ~self)
@@ -2791,7 +2791,7 @@ let update_vusb ~__context (id : string * string) =
           let usb_group = Db.PUSB.get_USB_group ~__context ~self:pusb in
           let vusb = Helpers.get_first_vusb ~__context usb_group in
           Option.iter
-            (fun (_, state) ->
+            (fun state ->
               debug "xenopsd event: Updating USB %s.%s; plugged <- %b" (fst id)
                 (snd id) state.Vusb.plugged ;
               let currently_attached = state.Vusb.plugged in
@@ -2799,7 +2799,7 @@ let update_vusb ~__context (id : string * string) =
                 ~value:currently_attached
             )
             info ;
-          Xenops_cache.update_vusb id (Option.map snd info) ;
+          Xenops_cache.update_vusb id info ;
           Xapi_vusb_helpers.update_allowed_operations ~__context ~self:vusb
         )
   with e ->
