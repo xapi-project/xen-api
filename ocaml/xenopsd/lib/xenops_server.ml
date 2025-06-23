@@ -4039,7 +4039,7 @@ module UPDATES = struct
     Debug.with_thread_associated dbg
       (fun () ->
         debug "UPDATES.inject_barrier %s %d" vm_id id ;
-        let filter k _ =
+        let filter k =
           match k with
           | Dynamic.Task _ ->
               false

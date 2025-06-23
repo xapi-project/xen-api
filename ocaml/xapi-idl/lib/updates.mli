@@ -64,7 +64,7 @@ module Updates : functor (Interface : INTERFACE) -> sig
   (* [inject_barrier n p t] Inject a barrier identified by [n] into [t]. The
      barrier will contain a snapshot of all current updates that match the
      predicate [p]. *)
-  val inject_barrier : int -> (Interface.Dynamic.id -> int -> bool) -> t -> unit
+  val inject_barrier : int -> (Interface.Dynamic.id -> bool) -> t -> unit
 
   (* Removes a barrier *)
   val remove_barrier : int -> t -> unit
