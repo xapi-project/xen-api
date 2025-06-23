@@ -21,7 +21,7 @@ let ( // ) = Filename.concat
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let genisoimage = "/usr/bin/genisoimage"
+let genisoimage = !Xapi_globs.genisoimage_path
 
 (** This will be shown to the user to explain a failure *)
 exception Sysprep of string
@@ -245,5 +245,5 @@ let sysprep ~__context ~vm ~unattend =
   | status ->
       debug "%s: sysprep %S, ejecting CD" __FUNCTION__ status ;
       Xapi_vbd.eject ~__context ~vbd ;
+      Sys.remove iso ;
       fail "VM %s sysprep not found running as expected: %S" vm_uuid status
-        status

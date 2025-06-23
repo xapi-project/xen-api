@@ -12,7 +12,8 @@
  * GNU Lesser General Public License for more details.
  *)
 
-exception Failure of string
+(** error message that may be passed to API clients *)
+exception Sysprep of string
 
 val on_startup : __context:Context.t -> unit
 (** clean up on toolstart start up *)
