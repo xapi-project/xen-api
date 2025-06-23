@@ -64,50 +64,49 @@ module VM = struct
 
   let remove _ = ()
 
-  let create _ _ _ _ = unimplemented "VM.create"
+  let create _ _ _ _ = unimplemented __FUNCTION__
 
-  let build ?restore_fd:_ _ _ _ _ _ = unimplemented "VM.build"
+  let build ?restore_fd:_ _ _ _ _ _ = unimplemented __FUNCTION__
 
-  let create_device_model _ _ _ _ _ = unimplemented "VM.create_device_model"
+  let create_device_model _ _ _ _ _ = unimplemented __FUNCTION__
 
-  let destroy_device_model _ _ = unimplemented "VM.destroy_device_model"
+  let destroy_device_model _ _ = unimplemented __FUNCTION__
 
-  let destroy _ _ = unimplemented "VM.destroy"
+  let destroy _ _ = unimplemented __FUNCTION__
 
-  let pause _ _ = unimplemented "VM.pause"
+  let pause _ _ = unimplemented __FUNCTION__
 
-  let unpause _ _ = unimplemented "VM.unpause"
+  let unpause _ _ = unimplemented __FUNCTION__
 
-  let set_xsdata _ _ _ = unimplemented "VM.set_xsdata"
+  let set_xsdata _ _ _ = unimplemented __FUNCTION__
 
-  let set_vcpus _ _ _ = unimplemented "VM.set_vcpus"
+  let set_vcpus _ _ _ = unimplemented __FUNCTION__
 
-  let set_shadow_multiplier _ _ _ = unimplemented "VM.set_shadow_multipler"
+  let set_shadow_multiplier _ _ _ = unimplemented __FUNCTION__
 
-  let set_memory_dynamic_range _ _ _ _ =
-    unimplemented "VM.set_memory_dynamic_range"
+  let set_memory_dynamic_range _ _ _ _ = unimplemented __FUNCTION__
 
-  let request_shutdown _ _ _ _ = unimplemented "VM.request_shutdown"
+  let request_shutdown _ _ _ _ = unimplemented __FUNCTION__
 
-  let wait_shutdown _ _ _ _ = unimplemented "VM.wait_shutdown"
+  let wait_shutdown _ _ _ _ = unimplemented __FUNCTION__
 
-  let assert_can_save _ = unimplemented "VM.assert_can_save"
+  let assert_can_save _ = unimplemented __FUNCTION__
 
-  let save _ _ _ _ _ _ _ = unimplemented "VM.save"
+  let save _ _ _ _ _ _ _ = unimplemented __FUNCTION__
 
-  let restore _ _ _ _ _ _ _ = unimplemented "VM.restore"
+  let restore _ _ _ _ _ _ _ = unimplemented __FUNCTION__
 
-  let s3suspend _ _ = unimplemented "VM.s3suspend"
+  let s3suspend _ _ = unimplemented __FUNCTION__
 
-  let s3resume _ _ = unimplemented "VM.s3resume"
+  let s3resume _ _ = unimplemented __FUNCTION__
 
-  let soft_reset _ _ = unimplemented "VM.soft_reset"
+  let soft_reset _ _ = unimplemented __FUNCTION__
 
   let get_state _ = Xenops_utils.halted_vm
 
-  let request_rdp _ _ = unimplemented "VM.request_rdp"
+  let request_rdp _ _ = unimplemented __FUNCTION__
 
-  let run_script _ _ _ = unimplemented "VM.run_script"
+  let run_script _ _ _ = unimplemented __FUNCTION__
 
   let set_domain_action_request _ _ = ()
 
@@ -131,9 +130,9 @@ module PCI = struct
 
   let dequarantine _ = ()
 
-  let plug _ _ _ = unimplemented "PCI.plug"
+  let plug _ _ _ = unimplemented __FUNCTION__
 
-  let unplug _ _ _ = unimplemented "PCI.unplug"
+  let unplug _ _ _ = unimplemented __FUNCTION__
 
   let get_device_action_request _ _ = None
 end
@@ -145,17 +144,17 @@ module VBD = struct
 
   let epoch_end _ _ _ = ()
 
-  let attach _ _ _ = unimplemented "VBD.attach"
+  let attach _ _ _ = unimplemented __FUNCTION__
 
-  let activate _ _ _ = unimplemented "VBD.activate"
+  let activate _ _ _ = unimplemented __FUNCTION__
 
-  let deactivate _ _ _ _ = unimplemented "VBD.deactivate"
+  let deactivate _ _ _ _ = unimplemented __FUNCTION__
 
-  let detach _ _ _ = unimplemented "VBD.detach"
+  let detach _ _ _ = unimplemented __FUNCTION__
 
-  let insert _ _ _ _ = unimplemented "VBD.insert"
+  let insert _ _ _ _ = unimplemented __FUNCTION__
 
-  let eject _ _ _ = unimplemented "VBD.eject"
+  let eject _ _ _ = unimplemented __FUNCTION__
 
   let set_qos _ _ _ = ()
 
@@ -167,23 +166,21 @@ end
 module VIF = struct
   let set_active _ _ _ _ = ()
 
-  let plug _ _ _ = unimplemented "VIF.plug"
+  let plug _ _ _ = unimplemented __FUNCTION__
 
-  let unplug _ _ _ _ = unimplemented "VIF.unplug"
+  let unplug _ _ _ _ = unimplemented __FUNCTION__
 
-  let move _ _ _ _ = unimplemented "VIF.move"
+  let move _ _ _ _ = unimplemented __FUNCTION__
 
-  let set_carrier _ _ _ _ = unimplemented "VIF.set_carrier"
+  let set_carrier _ _ _ _ = unimplemented __FUNCTION__
 
-  let set_locking_mode _ _ _ _ = unimplemented "VIF.set_locking_mode"
+  let set_locking_mode _ _ _ _ = unimplemented __FUNCTION__
 
-  let set_ipv4_configuration _ _ _ _ =
-    unimplemented "VIF.set_ipv4_configuration"
+  let set_ipv4_configuration _ _ _ _ = unimplemented __FUNCTION__
 
-  let set_ipv6_configuration _ _ _ _ =
-    unimplemented "VIF.set_ipv6_configuration"
+  let set_ipv6_configuration _ _ _ _ = unimplemented __FUNCTION__
 
-  let set_pvs_proxy _ _ _ _ = unimplemented "VIF.set_pvs_proxy"
+  let set_pvs_proxy _ _ _ _ = unimplemented __FUNCTION__
 
   let get_state _ _ = unplugged_vif
 
@@ -191,7 +188,7 @@ module VIF = struct
 end
 
 module VGPU = struct
-  let start _ _ _ _ = unimplemented "VGPU.start"
+  let start _ _ _ _ = unimplemented __FUNCTION__
 
   let set_active _ _ _ _ = ()
 
@@ -199,9 +196,9 @@ module VGPU = struct
 end
 
 module VUSB = struct
-  let plug _ _ _ = unimplemented "VUSB.plug"
+  let plug _ _ _ = unimplemented __FUNCTION__
 
-  let unplug _ _ _ = unimplemented "VUSB.unplug"
+  let unplug _ _ _ = unimplemented __FUNCTION__
 
   let get_state _ _ = unplugged_vusb
 
@@ -216,4 +213,4 @@ module UPDATES = struct
     assert false
 end
 
-module DEBUG = struct let trigger _ _ = unimplemented "DEBUG.trigger" end
+module DEBUG = struct let trigger _ _ = unimplemented __FUNCTION__ end
