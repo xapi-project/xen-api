@@ -4935,7 +4935,6 @@ module Actions = struct
     let open Printf in
     [
       sprintf "/local/domain/%d/attr" domid
-    ; sprintf "/local/domain/%d/data/updated" domid
     ; sprintf "/local/domain/%d/data/ts" domid
     ; sprintf "/local/domain/%d/data/service" domid
     ; sprintf "/local/domain/%d/memory/target" domid
