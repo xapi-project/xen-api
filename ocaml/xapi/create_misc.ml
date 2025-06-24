@@ -307,7 +307,7 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
   let location =
     Uri.(
       make ~scheme:"https" ~host:address ~path:Constants.console_uri
-        ~query:[("ref", [Ref.string_of domain_zero_ref])]
+        ~query:[("ref", [Ref.string_of console_ref])]
         ()
       |> to_string
     )
