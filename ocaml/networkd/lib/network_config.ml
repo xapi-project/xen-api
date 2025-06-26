@@ -39,18 +39,15 @@ let config_file_path = "/var/lib/xcp/networkd.db"
 
 let temp_vlan = "xentemp"
 
-let bridge_name_of_device (device : string) =
-  if String.starts_with ~prefix:"eth" device then
-    "xenbr" ^ String.sub device 3 (String.length device - 3)
-  else
-    "br" ^ device
+let get_index_from_ethx name =
+  try Scanf.sscanf name "eth%d%!" Option.some with _ -> None
 
 let bridge_naming_convention (device : string) pos_opt =
   match pos_opt with
   | Some index ->
       "xenbr" ^ string_of_int index
   | None ->
-      bridge_name_of_device device
+      "br" ^ device
 
 let get_list_from ~sep ~key args =
   List.assoc_opt key args
@@ -140,10 +137,13 @@ let read_management_conf interface_order =
           hd
     in
     let pos_opt =
-      Option.bind interface_order @@ fun order ->
-      List.find_map
-        (fun x -> if x.name = device then Some x.position else None)
-        order
+      match interface_order with
+      | Some order ->
+          List.find_map
+            (fun x -> if x.name = device then Some x.position else None)
+            order
+      | None ->
+          get_index_from_ethx device
     in
     let (ipv4_conf, ipv4_gateway), (ipv6_conf, ipv6_gateway) =
       match (List.assoc_opt "MODE" args, List.assoc_opt "MODEV6" args) with

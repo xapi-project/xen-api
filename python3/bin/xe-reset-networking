@@ -72,8 +72,9 @@ def get_bridge_name(device, vlan):
     # NOTE: Only correct when interface-rename script exists
     if vlan != None:
         return 'xentemp'
-    if device[:3] == 'eth':
-        return 'xenbr' + device[3:]
+    m = re.match(r'^eth(\d+)$', device)
+    if m:
+        return 'xenbr' + m.group(1)
     return 'br' + device
 
 if __name__ == "__main__":
