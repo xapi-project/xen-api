@@ -292,9 +292,6 @@ let domain_snapshot xc =
   let domains =
     Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
   in
-  let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
-  let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
-  Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
   domains |> List.to_seq
 
 let dss_mem_vms xc =
@@ -310,23 +307,6 @@ let dss_mem_vms xc =
             ~description:"Memory currently allocated to VM" ~units:"B"
             ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
         )
-      in
-      let memory_target_opt =
-        with_lock Rrdd_shared.memory_targets_m (fun _ ->
-            Hashtbl.find_opt Rrdd_shared.memory_targets domid
-        )
-      in
-      let mem_target_ds =
-        Option.map
-          (fun memory_target ->
-            ( Rrd.VM uuid
-            , Ds.ds_make ~name:"memory_target"
-                ~description:"Target of VM balloon driver" ~units:"B"
-                ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
-                ~default:true ()
-            )
-          )
-          memory_target_opt
       in
       let other_ds =
         if domid = 0 then
@@ -359,10 +339,7 @@ let dss_mem_vms xc =
               )
           with Not_found -> None
       in
-      let metrics =
-        List.concat
-          [main_mem_ds :: Option.to_list other_ds; Option.to_list mem_target_ds]
-      in
+      let metrics = List.concat [main_mem_ds :: Option.to_list other_ds] in
       Some (List.to_seq metrics)
     in
     (* CA-34383: Memory updates from paused domains serve no useful purpose.

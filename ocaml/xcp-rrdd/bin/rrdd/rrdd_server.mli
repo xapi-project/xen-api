@@ -50,8 +50,6 @@ val query_sr_ds : string -> string -> float
 
 val update_use_min_max : bool -> unit
 
-val update_vm_memory_target : int -> int64 -> unit
-
 val set_cache_sr : string -> unit
 
 val unset_cache_sr : unit -> unit

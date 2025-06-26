@@ -104,11 +104,11 @@ type values = {
   ; target: int64 option
 }
 
-let get_values (_, uuid, domid) =
+let get_values ((_, _, domid) as dom) =
   let get_current_value current_values =
     IntMap.find_opt domid !current_values
   in
-  ( (uuid, domid)
+  ( dom
   , {
       dynamic_max= get_current_value current_dynamic_max_values
     ; dynamic_min= get_current_value current_dynamic_min_values
@@ -172,14 +172,45 @@ let generate_host_sources counters =
     )
   ]
 
-let generate_sources xc () =
-  let counters = get_domain_stats xc in
-  generate_host_sources counters
+let generate_vm_sources domains =
+  let metrics_of ((dom, uuid, _), {target; _}) =
+    let target =
+      Option.map
+        (fun target ->
+          ( Rrd.VM uuid
+          , Ds.ds_make ~name:"memory_target"
+              ~description:"Target of VM balloon driver" ~units:"B"
+              ~value:(Rrd.VT_Int64 target) ~ty:Rrd.Gauge ~min:0.0 ~default:true
+              ()
+          )
+        )
+        target
+    in
+    (* CA-34383: Memory updates from paused domains serve no useful purpose.
+       During a migrate such updates can also cause undesirable
+       discontinuities in the observed value of memory_actual. Hence, we
+       ignore changes from paused domains: *)
+    if dom.Xenctrl.paused then
+      []
+    else
+      Option.to_list target
+  in
 
-(* This plugin always reports two datasources only, so one page is fine. *)
+  List.concat_map metrics_of domains
+
+let generate_sources xc () =
+  let domain_stats = get_domain_stats xc in
+  generate_host_sources domain_stats @ generate_vm_sources domain_stats
+
+(** The json-like serialization for 3 dss in dss_mem_vms takes 622 bytes. These
+    bytes plus some overhead make 1024 bytes an upper bound. *)
+
+let bytes_per_mem_vm = 1024
+
 let host_page_count = 1
 
-let vm_page_count = 0
+let vm_page_count =
+  ((Rrd_interface.max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
 
 let shared_page_count = host_page_count + vm_page_count
 
