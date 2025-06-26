@@ -199,6 +199,7 @@ val create :
   -> generation_id:string
   -> hardware_platform_version:int64
   -> has_vendor_device:bool
+  -> xen_platform_pci_bar_uc:bool
   -> reference_label:string
   -> domain_type:API.domain_type
   -> nVRAM:(string * string) list
@@ -408,6 +409,9 @@ val call_host_plugin :
   -> string
 
 val set_has_vendor_device :
+  __context:Context.t -> self:API.ref_VM -> value:bool -> unit
+
+val set_xen_platform_pci_bar_uc :
   __context:Context.t -> self:API.ref_VM -> value:bool -> unit
 
 val import :

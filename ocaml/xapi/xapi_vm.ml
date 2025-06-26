@@ -582,8 +582,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~blocked_operations:_ ~protection_policy:_ ~is_snapshot_from_vmpp:_
     ~snapshot_schedule:_ ~is_vmss_snapshot:_ ~appliance ~start_delay
     ~shutdown_delay ~order ~suspend_SR ~version ~generation_id
-    ~hardware_platform_version ~has_vendor_device ~reference_label ~domain_type
-    ~nVRAM : API.ref_VM =
+    ~hardware_platform_version ~has_vendor_device ~xen_platform_pci_bar_uc
+    ~reference_label ~domain_type ~nVRAM : API.ref_VM =
   (* Add random mac_seed if there isn't one specified already *)
   let other_config =
     let gen_mac_seed () = Uuidx.to_string (Uuidx.make ()) in
@@ -661,9 +661,10 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~is_snapshot_from_vmpp:false ~snapshot_schedule:Ref.null
     ~is_vmss_snapshot:false ~appliance ~start_delay ~shutdown_delay ~order
     ~suspend_SR ~version ~generation_id ~hardware_platform_version
-    ~has_vendor_device ~requires_reboot:false ~reference_label ~domain_type
-    ~pending_guidances:[] ~recommended_guidances:[]
-    ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;
+    ~has_vendor_device ~xen_platform_pci_bar_uc ~requires_reboot:false
+    ~reference_label ~domain_type ~pending_guidances:[]
+    ~recommended_guidances:[] ~pending_guidances_recommended:[]
+    ~pending_guidances_full:[] ;
   Xapi_vm_lifecycle.update_allowed_operations ~__context ~self:vm_ref ;
   update_memory_overhead ~__context ~vm:vm_ref ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:vm_ref ;
@@ -1584,6 +1585,16 @@ let set_has_vendor_device ~__context ~self ~value =
   Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
     ~expected:`Halted ;
   Db.VM.set_has_vendor_device ~__context ~self ~value ;
+  update_vm_virtual_hardware_platform_version ~__context ~vm:self
+
+let set_xen_platform_pci_bar_uc ~__context ~self ~value =
+  (* Not inherently dangerous to modify this param outside halted state.
+     This assert helps to avoid confusion. This parameter will not change
+     dynamically the performance of a running domain. It's only checked
+     at boot. *)
+  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self
+    ~expected:`Halted ;
+  Db.VM.set_xen_platform_pci_bar_uc ~__context ~self ~value ;
   update_vm_virtual_hardware_platform_version ~__context ~vm:self
 
 let set_domain_type ~__context ~self ~value =

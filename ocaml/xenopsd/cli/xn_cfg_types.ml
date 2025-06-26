@@ -86,4 +86,6 @@ let _vm_pci_power_mgmt = "pci_power_mgmt"
 
 let _vm_has_vendor_device = "has_vendor_device"
 
+let _vm_xen_platform_pci_bar_uc = "xen_platform_pci_bar_uc"
+
 let _vtpm = "vtpm"

@@ -252,6 +252,7 @@ let create_vm vmid =
   ; pci_msitranslate= true
   ; pci_power_mgmt= false
   ; has_vendor_device= false
+  ; xen_platform_pci_bar_uc= true
   ; generation_id= None
   }
 

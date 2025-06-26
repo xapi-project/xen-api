@@ -530,6 +530,20 @@ let default_has_vendor_device_false =
       )
   }
 
+let default_xen_platform_pci_bar_uc_true =
+  {
+    description= "Defaulting xen_platform_pci_bar_uc true"
+  ; version= (fun x -> x < (5, 787))
+  ; fn=
+      (fun ~__context ->
+        List.iter
+          (fun self ->
+            Db.VM.set_xen_platform_pci_bar_uc ~__context ~self ~value:true
+          )
+          (Db.VM.get_all ~__context)
+      )
+  }
+
 let default_pv_drivers_detected_false =
   {
     description= "Defaulting PV_drivers_detected false"
@@ -994,6 +1008,7 @@ let rules =
   ; empty_pool_uefi_certificates
   ; upgrade_update_guidance
   ; upgrade_ca_fingerprints
+  ; default_xen_platform_pci_bar_uc_true
   ]
 
 (* Maybe upgrade most recent db *)

@@ -393,6 +393,7 @@ let copy_vm_record ?snapshot_info_record ~__context ~vm ~disk_op ~new_name
     ~suspend_SR:Ref.null ~version:0L ~generation_id
     ~hardware_platform_version:all.Db_actions.vM_hardware_platform_version
     ~has_vendor_device:all.Db_actions.vM_has_vendor_device
+    ~xen_platform_pci_bar_uc:all.Db_actions.vM_xen_platform_pci_bar_uc
     ~requires_reboot:false ~reference_label:all.Db_actions.vM_reference_label
     ~domain_type:all.Db_actions.vM_domain_type ~nVRAM:all.Db_actions.vM_NVRAM
     ~pending_guidances:[] ~recommended_guidances:[]

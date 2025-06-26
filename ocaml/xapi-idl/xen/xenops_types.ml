@@ -171,6 +171,7 @@ module Vm = struct
     ; pci_msitranslate: bool
     ; pci_power_mgmt: bool
     ; has_vendor_device: bool [@default false]
+    ; xen_platform_pci_bar_uc: bool [@default true]
     ; generation_id: string option
   }
   [@@deriving rpcty, sexp]

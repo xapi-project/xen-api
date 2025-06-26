@@ -85,6 +85,7 @@ type create_info = {
   ; platformdata: (string * string) list
   ; bios_strings: (string * string) list
   ; has_vendor_device: bool
+  ; xen_platform_pci_bar_uc: bool
   ; is_uefi: bool
   ; pci_passthrough: bool
 }

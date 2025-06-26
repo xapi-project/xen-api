@@ -2659,6 +2659,13 @@ let vm_record rpc session_id vm =
               ~value:(safe_bool_of_string "has-vendor-device" x)
           )
           ()
+      ; make_field ~name:"xen-platform-pci-bar-uc"
+          ~get:(fun () -> string_of_bool (x ()).API.vM_xen_platform_pci_bar_uc)
+          ~set:(fun x ->
+            Client.VM.set_xen_platform_pci_bar_uc ~rpc ~session_id ~self:vm
+              ~value:(safe_bool_of_string "xen-platform-pci-bar-uc" x)
+          )
+          ()
       ; make_field ~name:"requires-reboot"
           ~get:(fun () -> string_of_bool (x ()).API.vM_requires_reboot)
           ()

@@ -585,6 +585,12 @@ let add' _copts x () =
             else
               false
           in
+          let xen_platform_pci_bar_uc =
+            if mem _vm_xen_platform_pci_bar_uc then
+              find _vm_xen_platform_pci_bar_uc |> bool
+            else
+              true
+          in
           let vm =
             {
               id= uuid
@@ -617,6 +623,7 @@ let add' _copts x () =
             ; pci_msitranslate
             ; pci_power_mgmt
             ; has_vendor_device
+            ; xen_platform_pci_bar_uc
             ; generation_id= None
             }
           in

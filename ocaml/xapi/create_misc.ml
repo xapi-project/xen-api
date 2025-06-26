@@ -290,7 +290,8 @@ and create_domain_zero_record ~__context ~domain_zero_ref (host_info : host_info
     ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance:Ref.null
     ~start_delay:0L ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null
     ~version:0L ~generation_id:"" ~hardware_platform_version:0L
-    ~has_vendor_device:false ~requires_reboot:false ~reference_label:""
+    ~has_vendor_device:false ~xen_platform_pci_bar_uc:true
+    ~requires_reboot:false ~reference_label:""
     ~domain_type:Xapi_globs.domain_zero_domain_type ~nVRAM:[]
     ~pending_guidances:[] ~recommended_guidances:[]
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ;

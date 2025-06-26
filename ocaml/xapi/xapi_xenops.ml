@@ -1332,6 +1332,7 @@ module MD = struct
     ; pci_msitranslate
     ; pci_power_mgmt= false
     ; has_vendor_device= vm.API.vM_has_vendor_device
+    ; xen_platform_pci_bar_uc= vm.API.vM_xen_platform_pci_bar_uc
     ; generation_id
     }
 end

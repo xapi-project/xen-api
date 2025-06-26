@@ -2859,7 +2859,8 @@ let vm_create printer rpc session_id params =
       ~snapshot_schedule:Ref.null ~is_vmss_snapshot:false ~appliance:Ref.null
       ~start_delay:0L ~shutdown_delay:0L ~order:0L ~suspend_SR:Ref.null
       ~suspend_VDI:Ref.null ~version:0L ~generation_id:""
-      ~hardware_platform_version:0L ~has_vendor_device:false ~reference_label:""
+      ~hardware_platform_version:0L ~has_vendor_device:false
+      ~xen_platform_pci_bar_uc:true ~reference_label:""
       ~domain_type:`unspecified ~nVRAM:[] ~last_booted_record:""
       ~last_boot_CPU_flags:[] ~power_state:`Halted
   in

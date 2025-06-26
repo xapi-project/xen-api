@@ -2137,6 +2137,20 @@ let set_has_vendor_device =
       ]
     ~allowed_roles:_R_VM_ADMIN ~doc_tags:[Windows] ()
 
+let set_xen_platform_pci_bar_uc =
+  call ~name:"set_xen_platform_pci_bar_uc" ~lifecycle:[]
+    ~doc:
+      "Controls whether, when the VM starts in HVM mode, the Xen PCI MMIO used \
+       by grant tables is mapped as Uncached (UC, the default) or WriteBack \
+       (WB, the workaround). WB mapping could improve performance of devices \
+       using grant tables. This is useful on AMD platform only."
+    ~params:
+      [
+        (Ref _vm, "self", "The VM on which to set this flag")
+      ; (Bool, "value", "False to enable WB MMIO bar.")
+      ]
+    ~allowed_roles:_R_VM_ADMIN ()
+
 let import =
   call ~name:"import"
     ~lifecycle:[(Published, rel_dundee, "Import an XVA from a URI")]
@@ -2560,6 +2574,7 @@ let t =
       ; call_plugin
       ; call_host_plugin
       ; set_has_vendor_device
+      ; set_xen_platform_pci_bar_uc
       ; import
       ; set_actions_after_crash
       ; set_domain_type
@@ -3097,6 +3112,19 @@ let t =
             "When an HVM guest starts, this controls the presence of the \
              emulated C000 PCI device which triggers Windows Update to fetch \
              or update PV drivers."
+        ; field ~qualifier:StaticRO
+            ~lifecycle:
+              [
+                ( Published
+                , rel_ely
+                , "Controls whether, when the VM starts in HVM mode, the MMIO \
+                   is mapped as UC or WB."
+                )
+              ]
+            ~default_value:(Some (VBool true)) ~ty:Bool
+            "xen_platform_pci_bar_uc"
+            "Controls whether, when the VM starts in HVM mode, the MMIO is \
+             mapped as UC or WB."
         ; field ~qualifier:DynamicRO ~ty:Bool
             ~lifecycle:[(Published, rel_ely, "")]
             ~default_value:(Some (VBool false)) "requires_reboot"

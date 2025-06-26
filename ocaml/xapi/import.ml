@@ -623,6 +623,12 @@ module VM : HandlerTools = struct
           {vm_record with API.vM_has_vendor_device= false}
       in
       let vm_record =
+        if vm_has_field ~x ~name:"xen_platform_pci_bar_uc" then
+          vm_record
+        else
+          {vm_record with API.vM_xen_platform_pci_bar_uc= true}
+      in
+      let vm_record =
         {
           vm_record with
           API.vM_memory_overhead=

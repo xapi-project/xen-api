@@ -2054,6 +2054,11 @@ functor
           (vm_uuid ~__context self) value ;
         Local.VM.set_has_vendor_device ~__context ~self ~value
 
+      let set_xen_platform_pci_bar_uc ~__context ~self ~value =
+        info "VM.set_xen_platform_pci_bar_uc: VM = '%s' to %b"
+          (vm_uuid ~__context self) value ;
+        Local.VM.set_xen_platform_pci_bar_uc ~__context ~self ~value
+
       let set_xenstore_data ~__context ~self ~value =
         info "VM.set_xenstore_data: VM = '%s'" (vm_uuid ~__context self) ;
         Db.VM.set_xenstore_data ~__context ~self ~value ;

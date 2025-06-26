@@ -1363,6 +1363,7 @@ module VM = struct
     ; platformdata
     ; bios_strings= vm.bios_strings
     ; has_vendor_device= vm.has_vendor_device
+    ; xen_platform_pci_bar_uc= vm.xen_platform_pci_bar_uc
     ; is_uefi
     ; pci_passthrough
     }
