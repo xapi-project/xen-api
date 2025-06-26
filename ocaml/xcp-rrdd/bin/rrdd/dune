@@ -50,6 +50,7 @@
     rpclib.json
     rpclib.xml
     rrdd_libs_internal
+    rrdd_plugin_xenctrl
     rrd-transport
     threads.posix
     uuid

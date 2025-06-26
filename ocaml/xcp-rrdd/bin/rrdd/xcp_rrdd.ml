@@ -119,45 +119,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
-
-module IntSet = Set.Make (Int)
-
-let domain_snapshot xc =
-  let metadata_of_domain dom =
-    let ( let* ) = Option.bind in
-    let* uuid_raw = Uuidx.of_int_array dom.Xenctrl.handle in
-    let uuid = Uuidx.to_string uuid_raw in
-    let domid = dom.Xenctrl.domid in
-    let start = String.sub uuid 0 18 in
-    (* Actively hide migrating VM uuids, these are temporary and xenops writes
-       the original and the final uuid to xenstore *)
-    let uuid_from_key key =
-      let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
-      with Xs_protocol.Enoent _hint ->
-        info "Couldn't read path %s; falling back to actual uuid" path ;
-        uuid
-    in
-    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
-    if List.mem start uuid_blacklist then
-      None
-    else
-      let key =
-        if Astring.String.is_suffix ~affix:"000000000000" uuid then
-          Some "origin-uuid"
-        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
-          Some "final-uuid"
-        else
-          None
-      in
-      Some (dom, stable_uuid key, domid)
-  in
-  let domains =
-    Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
-  in
-  domains |> List.to_seq
-
 (**** Local cache SR stuff *)
 
 type last_vals = {
@@ -285,7 +246,8 @@ let do_monitor_write domains_before xc =
            )
       in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
-      let domains_after = domain_snapshot xc in
+      let _, domains_after, _ = Xenctrl_lib.domain_snapshot xc in
+      let domains_after = List.to_seq domains_after in
       let stats = Seq.append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       (* merge the domain ids from the previous iteration and the current one
