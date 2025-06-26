@@ -2,8 +2,8 @@
   (modes exe)
   (name rrdp_squeezed)
   (libraries
-    
     rrdd-plugin
+    rrdd_plugin_xenctrl
     rrdd_plugins_libs
     xapi-stdext-std
     ezxenstore

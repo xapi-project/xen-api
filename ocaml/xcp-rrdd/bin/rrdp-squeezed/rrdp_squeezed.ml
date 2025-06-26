@@ -17,10 +17,6 @@ open Rrdd_plugin
 
 module Process = Process (struct let name = "xcp-rrdd-squeezed" end)
 
-open Process
-
-let with_xc f = Xenctrl.with_intf f
-
 module Xs = struct
   module Client = Xs_client_unix.Client (Xs_transport_unix_client)
   include Client
@@ -37,10 +33,6 @@ module Xs = struct
         client := Some c ;
         c
 end
-
-(* Return a list of domids of VMs running on this host *)
-let get_running_domains xc =
-  Xenctrl.domain_getinfolist xc 0 |> List.map (fun di -> di.Xenctrl.domid)
 
 module D = Debug.Make (struct let name = "rrdd-plugins" end)
 
@@ -106,40 +98,61 @@ end
 
 module Watcher = WatchXenstore (MemoryActions)
 
-(* Return a tuple (dynamic-max, dynamic-min, target) for a running VM *)
-let get_squeezed_data domid =
-  let get_current_value ~label current_values =
-    try IntMap.find domid !current_values
-    with _ ->
-      if domid <> 0 then
-        D.warn "Couldn't find cached %s value for domain %d, using 0" label
-          domid ;
-      0L
+type values = {
+    dynamic_max: int64 option
+  ; dynamic_min: int64 option
+  ; target: int64 option
+}
+
+let get_values (_, uuid, domid) =
+  let get_current_value current_values =
+    IntMap.find_opt domid !current_values
   in
-  ( get_current_value ~label:"dynamic-max" current_dynamic_max_values
-  , get_current_value ~label:"dynamic-min" current_dynamic_min_values
-  , get_current_value ~label:"target" current_target_values
+  ( (uuid, domid)
+  , {
+      dynamic_max= get_current_value current_dynamic_max_values
+    ; dynamic_min= get_current_value current_dynamic_min_values
+    ; target= get_current_value current_target_values
+    }
   )
 
-let get_datas () =
-  (* Create a tuple (dynamic-max, dynamic-min, target) for each VM running on the host *)
-  let domids = with_xc get_running_domains in
-  List.map get_squeezed_data domids
+let get_domain_stats xc =
+  let _, domains, _ = Xenctrl_lib.domain_snapshot xc in
+  List.map get_values domains
 
-let generate_squeezed_dss () =
+let generate_host_sources counters =
   let memory_reclaimed, memory_possibly_reclaimed =
-    get_datas ()
-    (* Calculate metrics
-       			 - Host memory reclaimed by squeezed =
-       					 sum_across_running_vms(dynamic_max - target)
-       			 - Host memory that could be reclaimed by squeezed =
-       					 sum_across_running_vms(target - dynamic_min)
+    (* Calculate host metrics
+       - Host memory reclaimed by squeezed =
+       	   sum_across_running_vms(dynamic_max - target)
+       - Host memory that could be reclaimed by squeezed =
+       		 sum_across_running_vms(target - dynamic_min)
     *)
+    let ( let* ) = Option.bind in
+    counters
     |> List.fold_left
-         (fun (acc1, acc2) (max, min, target) ->
-           ( Int64.add acc1 (Int64.sub max target)
-           , Int64.add acc2 (Int64.sub target min)
-           )
+         (fun (acc1, acc2) (_, {dynamic_max; dynamic_min; target}) ->
+           let r =
+             let* target in
+             let acc1 =
+               let* max = dynamic_max in
+               Some (Int64.add acc1 (Int64.sub max target))
+             in
+             let acc2 =
+               let* min = dynamic_min in
+               Some (Int64.add acc2 (Int64.sub target min))
+             in
+             Some (acc1, acc2)
+           in
+           match r with
+           | None | Some (None, None) ->
+               (acc1, acc2)
+           | Some (Some acc1, Some acc2) ->
+               (acc1, acc2)
+           | Some (Some acc1, None) ->
+               (acc1, acc2)
+           | Some (None, Some acc2) ->
+               (acc1, acc2)
          )
          (Int64.zero, Int64.zero)
   in
@@ -159,11 +172,22 @@ let generate_squeezed_dss () =
     )
   ]
 
-(* This plugin always reports two datasources only, so one page is fine. *)
-let shared_page_count = 1
+let generate_sources xc () =
+  let counters = get_domain_stats xc in
+  generate_host_sources counters
 
-let _ =
-  initialise () ;
+(* This plugin always reports two datasources only, so one page is fine. *)
+let host_page_count = 1
+
+let vm_page_count = 0
+
+let shared_page_count = host_page_count + vm_page_count
+
+let () =
   Watcher.create_watcher_thread () ;
-  main_loop ~neg_shift:0.5 ~target:(Reporter.Local shared_page_count)
-    ~protocol:Rrd_interface.V2 ~dss_f:generate_squeezed_dss
+  Process.initialise () ;
+  Xenctrl.with_intf (fun xc ->
+      Process.main_loop ~neg_shift:0.5
+        ~target:(Reporter.Local shared_page_count) ~protocol:Rrd_interface.V2
+        ~dss_f:(generate_sources xc)
+  )
