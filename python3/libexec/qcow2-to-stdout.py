@@ -28,13 +28,8 @@ import argparse
 import errno
 import math
 import os
-import signal
 import struct
-import subprocess
 import sys
-import tempfile
-import time
-from contextlib import contextmanager
 
 QCOW2_DEFAULT_CLUSTER_SIZE = 65536
 QCOW2_DEFAULT_REFCOUNT_BITS = 16
@@ -44,7 +39,6 @@ QCOW2_V3_HEADER_LENGTH = 112  # Header length in QEMU 9.0. Must be a multiple of
 QCOW2_INCOMPAT_DATA_FILE_BIT = 2
 QCOW2_AUTOCLEAR_DATA_FILE_RAW_BIT = 1
 QCOW_OFLAG_COPIED = 1 << 63
-QEMU_STORAGE_DAEMON = "qemu-storage-daemon"
 
 
 def bitmap_set(bitmap, idx):
@@ -80,46 +74,6 @@ def clusters_with_data(fd, cluster_size):
             if err.errno == errno.ENXIO:  # End of file reached
                 break
             raise err
-
-
-# write_qcow2_content() expects a raw input file. If we have a different
-# format we can use qemu-storage-daemon to make it appear as raw.
-@contextmanager
-def get_input_as_raw_file(input_file, input_format):
-    if input_format == "raw":
-        yield input_file
-        return
-    try:
-        temp_dir = tempfile.mkdtemp()
-        pid_file = os.path.join(temp_dir, "pid")
-        raw_file = os.path.join(temp_dir, "raw")
-        open(raw_file, "wb").close()
-        ret = subprocess.run(
-            [
-                QEMU_STORAGE_DAEMON,
-                "--daemonize",
-                "--pidfile", pid_file,
-                "--blockdev", f"driver=file,node-name=file0,driver=file,filename={input_file},read-only=on",
-                "--blockdev", f"driver={input_format},node-name=disk0,file=file0,read-only=on",
-                "--export", f"type=fuse,id=export0,node-name=disk0,mountpoint={raw_file},writable=off",
-            ],
-            capture_output=True,
-        )
-        if ret.returncode != 0:
-            sys.exit("[Error] Could not start the qemu-storage-daemon:\n" +
-                     ret.stderr.decode().rstrip('\n'))
-        yield raw_file
-    finally:
-        # Kill the storage daemon on exit
-        # and remove all temporary files
-        if os.path.exists(pid_file):
-            with open(pid_file, "r") as f:
-                pid = int(f.readline())
-            os.kill(pid, signal.SIGTERM)
-            while os.path.exists(pid_file):
-                time.sleep(0.1)
-        os.unlink(raw_file)
-        os.rmdir(temp_dir)
 
 
 def write_features(cluster, offset, data_file_name):
@@ -376,13 +330,6 @@ def main():
     )
     parser.add_argument("input_file", help="name of the input file")
     parser.add_argument(
-        "-f",
-        dest="input_format",
-        metavar="input_format",
-        help="format of the input file (default: raw)",
-        default="raw",
-    )
-    parser.add_argument(
         "-c",
         dest="cluster_size",
         metavar="cluster_size",
@@ -420,9 +367,6 @@ def main():
     if not os.path.isfile(args.input_file):
         sys.exit(f"[Error] {args.input_file} does not exist or is not a regular file.")
 
-    if args.data_file and args.input_format != "raw":
-        sys.exit("[Error] External data files can only be used with raw input images")
-
     # A 512 byte header is too small for the data file name extension
     if args.data_file and args.cluster_size == 512:
         sys.exit("[Error] External data files require a larger cluster size")
@@ -435,14 +379,13 @@ def main():
     else:
         data_file_name = None
 
-    with get_input_as_raw_file(args.input_file, args.input_format) as raw_file:
-        write_qcow2_content(
-            raw_file,
-            args.cluster_size,
-            args.refcount_bits,
-            data_file_name,
-            args.data_file_raw,
-        )
+    write_qcow2_content(
+        args.input_file,
+        args.cluster_size,
+        args.refcount_bits,
+        data_file_name,
+        args.data_file_raw,
+    )
 
 
 if __name__ == "__main__":
