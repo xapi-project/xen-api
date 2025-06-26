@@ -120,84 +120,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (*****************************************************)
-(* xenstore related code                             *)
-(*****************************************************)
-
-module XSW_Debug = Debug.Make (struct let name = "xenstore_watch" end)
-
-module Watch = Ez_xenstore_watch.Make (XSW_Debug)
-
-module Xs = struct
-  module Client = Xs_client_unix.Client (Xs_transport_unix_client)
-
-  let client = ref None
-
-  (* Initialise the clients on demand - must be done after daemonisation! *)
-  let get_client () =
-    match !client with
-    | Some client ->
-        client
-    | None ->
-        let c = Client.make () in
-        client := Some c ;
-        c
-end
-
-(* Map from domid to the latest seen meminfo_free value *)
-let current_meminfofree_values = ref Watch.IntMap.empty
-
-let meminfo_path domid =
-  Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
-
-module Meminfo = struct
-  let watch_token domid = Printf.sprintf "xcp-rrdd:domain-%d" domid
-
-  let interesting_paths_for_domain domid _uuid = [meminfo_path domid]
-
-  let fire_event_on_vm domid domains =
-    let d = int_of_string domid in
-    if not (Watch.IntMap.mem d domains) then
-      info "Ignoring watch on shutdown domain %d" d
-    else
-      let path = meminfo_path d in
-      try
-        let client = Xs.get_client () in
-        let meminfo_free_string =
-          Xs.Client.immediate client (fun xs -> Xs.Client.read xs path)
-        in
-        let meminfo_free = Int64.of_string meminfo_free_string in
-        info "memfree has changed to %Ld in domain %d" meminfo_free d ;
-        current_meminfofree_values :=
-          Watch.IntMap.add d meminfo_free !current_meminfofree_values
-      with Xs_protocol.Enoent _hint ->
-        info
-          "Couldn't read path %s; forgetting last known memfree value for \
-           domain %d"
-          path d ;
-        current_meminfofree_values :=
-          Watch.IntMap.remove d !current_meminfofree_values
-
-  let watch_fired _ _xc path domains _ =
-    match
-      List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path)
-    with
-    | ["local"; "domain"; domid; "data"; "meminfo_free"] ->
-        fire_event_on_vm domid domains
-    | _ ->
-        debug "Ignoring unexpected watch: %s" path
-
-  let unmanaged_domain _ _ = false
-
-  let found_running_domain _ _ = ()
-
-  let domain_appeared _ _ _ = ()
-
-  let domain_disappeared _ _ _ = ()
-end
-
-module Watcher = Watch.WatchXenstore (Meminfo)
-
-(*****************************************************)
 (* memory stats                                      *)
 (*****************************************************)
 let dss_mem_host xc =
@@ -230,30 +152,6 @@ let bytes_per_mem_vm = 1024
 
 let mem_vm_writer_pages =
   ((Rrd_interface.max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
-
-let res_error fmt = Printf.ksprintf Result.error fmt
-
-let ok x = Result.ok x
-
-let ( let* ) = Result.bind
-
-let finally f always = Fun.protect ~finally:always f
-
-let scanning path f =
-  let io = Scanf.Scanning.open_in path in
-  finally (fun () -> f io) (fun () -> Scanf.Scanning.close_in io)
-
-let scan path =
-  try
-    scanning path @@ fun io ->
-    Scanf.bscanf io {|MemTotal: %_d %_s MemFree: %_d %_s MemAvailable: %Ld %s|}
-      (fun size kb -> ok (size, kb)
-    )
-  with _ -> res_error "failed to scan %s" path
-
-let mem_available () =
-  let* size, kb = scan "/proc/meminfo" in
-  match kb with "kB" -> ok size | _ -> res_error "unexpected unit: %s" kb
 
 let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
 
@@ -295,7 +193,7 @@ let domain_snapshot xc =
   domains |> List.to_seq
 
 let dss_mem_vms xc =
-  let mem_metrics_of (dom, uuid, domid) =
+  let mem_metrics_of (dom, uuid, _) =
     let vm_metrics () =
       let kib =
         Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
@@ -308,39 +206,7 @@ let dss_mem_vms xc =
             ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
         )
       in
-      let other_ds =
-        if domid = 0 then
-          match mem_available () with
-          | Ok mem ->
-              Some
-                ( Rrd.VM uuid
-                , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
-                    ~description:"Dom0 current free memory"
-                    ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
-                    ~default:true ()
-                )
-          | Error msg ->
-              let _ =
-                error "%s: retrieving  Dom0 free memory failed: %s" __FUNCTION__
-                  msg
-              in
-              None
-        else
-          try
-            let mem_free =
-              Watch.IntMap.find domid !current_meminfofree_values
-            in
-            Some
-              ( Rrd.VM uuid
-              , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
-                  ~description:"Memory used as reported by the guest agent"
-                  ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0
-                  ~default:true ()
-              )
-          with Not_found -> None
-      in
-      let metrics = List.concat [main_mem_ds :: Option.to_list other_ds] in
-      Some (List.to_seq metrics)
+      Some main_mem_ds
     in
     (* CA-34383: Memory updates from paused domains serve no useful purpose.
        During a migrate such updates can also cause undesirable
@@ -349,7 +215,7 @@ let dss_mem_vms xc =
     if dom.Xenctrl.paused then None else vm_metrics ()
   in
   let domains = domain_snapshot xc in
-  Seq.filter_map mem_metrics_of domains |> Seq.concat |> List.of_seq
+  Seq.filter_map mem_metrics_of domains |> List.of_seq
 
 (**** Local cache SR stuff *)
 
@@ -786,10 +652,6 @@ let _ =
        (List.map (fun (name, _) -> writer_basename name) stats_to_write) ;
   ignore @@ GCLog.start () ;
   debug "Starting xenstore-watching thread .." ;
-  let () =
-    try Watcher.create_watcher_thread ()
-    with _ -> error "xenstore-watching thread has failed"
-  in
   let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
   if Daemon.systemd_booted () then
     if Daemon.systemd_notify Daemon.State.Ready then

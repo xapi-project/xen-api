@@ -41,7 +41,6 @@
   (libraries
     astring
     ezxenstore.core
-    ezxenstore.watch
     forkexec
     http_lib
     httpsvr
@@ -66,9 +65,6 @@
     xapi-stdext-threads
     xapi-stdext-unix
     xenctrl
-    xenstore
-    xenstore.unix
-    xenstore_transport.unix
   )
 )
 
