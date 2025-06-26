@@ -532,26 +532,6 @@ let _ =
       "You attempted an operation on a VM which requires a more recent version \
        of the PV drivers. Please upgrade your PV drivers."
     () ;
-  error Api_errors.vm_lacks_feature_shutdown ["vm"]
-    ~doc:
-      "You attempted an operation which needs the cooperative shutdown feature \
-       on a VM which lacks it."
-    () ;
-  error Api_errors.vm_lacks_feature_vcpu_hotplug ["vm"]
-    ~doc:
-      "You attempted an operation which needs the VM hotplug-vcpu feature on a \
-       VM which lacks it."
-    () ;
-  error Api_errors.vm_lacks_feature_suspend ["vm"]
-    ~doc:
-      "You attempted an operation which needs the VM cooperative suspend \
-       feature on a VM which lacks it."
-    () ;
-  error Api_errors.vm_lacks_feature_static_ip_setting ["vm"]
-    ~doc:
-      "You attempted an operation which needs the VM static-ip-setting feature \
-       on a VM which lacks it."
-    () ;
   error Api_errors.vm_lacks_feature ["vm"]
     ~doc:"You attempted an operation on a VM which lacks the feature." () ;
   error Api_errors.vm_is_template ["vm"]
