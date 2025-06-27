@@ -644,16 +644,23 @@ module Mux = struct
       with_dbg ~name:"VDI.deativate" ~dbg @@ fun di ->
       info "VDI.deactivate dbg:%s dp:%s sr:%s vdi:%s vm:%s" dbg dp (s_of_sr sr)
         (s_of_vdi vdi) (s_of_vm vm) ;
-      let module C = StorageAPI (Idl.Exn.GenClient (struct
-        let rpc = of_sr sr
-      end)) in
-      C.VDI.deactivate (Debug_info.to_string di) dp sr vdi vm ;
-      (*XX The hook should not be called here, nor should storage_mux care about
-        the SMAPI version of the SR, but as xapi-storage-script cannot call code
-        xapi, and smapiv1_wrapper has state tracking logic, the hook has to be placed
-        here for now. *)
-      if smapi_version_of_sr sr = SMAPIv3 then
-        Storage_migrate.post_deactivate_hook ~sr ~vdi ~dp
+      let open DP_info in
+      match read dp with
+      | Some {sr; vdi; vm; _} ->
+          let module C = StorageAPI (Idl.Exn.GenClient (struct
+            let rpc = of_sr sr
+          end)) in
+          C.VDI.deactivate (Debug_info.to_string di) dp sr vdi vm ;
+          (*XX The hook should not be called here, nor should storage_mux care about
+            the SMAPI version of the SR, but as xapi-storage-script cannot call code
+            xapi, and smapiv1_wrapper has state tracking logic, the hook has to be placed
+            here for now. *)
+          if smapi_version_of_sr sr = SMAPIv3 then
+            Storage_migrate.post_deactivate_hook ~sr ~vdi ~dp
+      | None ->
+          info
+            "dp %s is not associated with a locally attached VDI; nothing to do"
+            dp
 
     let detach () ~dbg ~dp ~sr ~vdi ~vm =
       with_dbg ~name:"VDI.detach" ~dbg @@ fun di ->
