@@ -127,8 +127,7 @@ let monitor_dbcall_thread () =
     try
       let rrd_files = Monitor_types.find_rrd_files () in
       pifs_update_fn () ;
-      Monitor_mem_host.update rrd_files ;
-      Monitor_mem_vms.update rrd_files ;
+      Monitor_mem.update rrd_files ;
       Monitor_pvs_proxy.update rrd_files ;
       Thread.delay 5.
     with e ->

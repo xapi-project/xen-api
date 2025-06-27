@@ -2389,18 +2389,6 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
               with e ->
                 error "Caught %s: while updating VM %s xsdata"
                   (Printexc.to_string e) id
-            ) ;
-          different
-            (fun x -> x.Vm.memory_target)
-            Fun.id
-            (fun memory_target ->
-              try
-                debug "xenopsd event: Updating VM %s domid %d memory target" id
-                  domid ;
-                Rrdd.update_vm_memory_target domid memory_target
-              with e ->
-                error "Caught %s: while updating VM %s memory_target"
-                  (Printexc.to_string e) id
             )
         )
         state.Vm.domids

@@ -47,8 +47,6 @@ module type RRDD_IMPLEMENTATION = sig
 
   val update_use_min_max : bool -> unit
 
-  val update_vm_memory_target : int -> int64 -> unit
-
   val set_cache_sr : string -> unit
 
   val unset_cache_sr : unit -> unit
@@ -119,7 +117,6 @@ module Make (Impl : RRDD_IMPLEMENTATION) = struct
     Server.query_possible_sr_dss Impl.query_possible_sr_dss ;
     Server.query_sr_ds Impl.query_sr_ds ;
     Server.update_use_min_max Impl.update_use_min_max ;
-    Server.update_vm_memory_target Impl.update_vm_memory_target ;
     Server.set_cache_sr Impl.set_cache_sr ;
     Server.unset_cache_sr Impl.unset_cache_sr ;
     (* module Plugin*)
