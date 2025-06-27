@@ -513,6 +513,12 @@
                 <value>117</value>
         </code>
 
+        <code>
+                <name>PVMultiIDs</name>
+                <description>PVs found with multiple SCSI IDs</description>
+                <value>119</value>
+        </code>
+
        <!-- Agent database query errors 150+ -->
         <code>
                 <name>APISession</name>

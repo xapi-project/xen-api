@@ -411,19 +411,6 @@ let observer_config_dir =
   in
   dir // component // "enabled"
 
-(** Determine if SM API observation is enabled from the
-    filesystem. Ordinarily, determining if a component is enabled
-    would consist of querying the 'components' field of an observer
-    from the xapi database. *)
-let observer_is_component_enabled () =
-  let is_enabled () =
-    let is_config_file path = Filename.check_suffix path ".observer.conf" in
-    let* files = Sys.readdir observer_config_dir in
-    Lwt.return (List.exists is_config_file files)
-  in
-  let* result = Deferred.try_with is_enabled in
-  Lwt.return (Option.value (Result.to_option result) ~default:false)
-
 (** Call the script named after the RPC method in the [script_dir]
     directory. The arguments (not the whole JSON-RPC call) are passed as JSON
     to its stdin, and stdout is returned. In case of a non-zero exit code,
@@ -2247,6 +2234,19 @@ let register_exn_pretty_printers () =
         assert false
     )
 
+module XapiStorageScript : Observer_helpers.Server_impl = struct
+  include Observer_skeleton.Observer
+
+  let create _context ~dbg:_ ~uuid:_ ~name_label:_ ~attributes:_ ~endpoints:_
+      ~enabled =
+    config.use_observer <- enabled
+
+  let destroy _context ~dbg:_ ~uuid:_ = config.use_observer <- false
+
+  let set_enabled _context ~dbg:_ ~uuid:_ ~enabled =
+    config.use_observer <- enabled
+end
+
 let () =
   register_exn_pretty_printers () ;
   let root_dir = ref "/var/lib/xapi/storage-scripts" in
@@ -2293,9 +2293,17 @@ let () =
 
   Logs.set_reporter (lwt_reporter ()) ;
   Logs.set_level ~all:true (Some Logs.Info) ;
+
+  let module S = Observer_helpers.Server (XapiStorageScript) () in
+  let s =
+    Xcp_service.make ~path:Observer_helpers.default_path
+      ~queue_name:Observer_helpers.queue_name ~rpc_fn:S.process ()
+  in
+  let (_ : Thread.t) =
+    Thread.create (fun () -> Xcp_service.serve_forever s) ()
+  in
+
   let main =
-    let* observer_enabled = observer_is_component_enabled () in
-    config.use_observer <- observer_enabled ;
     if !self_test_only then
       self_test ~root_dir:!root_dir
     else

@@ -329,8 +329,19 @@ let wlb_request ~__context ~host ~port ~auth ~meth ~params ~handler ~enable_log
   with
   | Remote_requests.Timed_out ->
       raise_timeout timeout
-  | Http_client.Http_request_rejected _ | Http_client.Http_error _ ->
-      raise_authentication_failed ()
+  | Http_client.Http_error (code, _) as e -> (
+      error "%s: Caught %s when contacting WLB" __FUNCTION__
+        (Printexc.to_string e) ;
+      match code with
+      | "401" | "403" ->
+          raise_authentication_failed ()
+      | _ ->
+          raise_connection_reset ()
+    )
+  | Http_client.Http_request_rejected _ as e ->
+      error "%s: Caught %s when contacting WLB" __FUNCTION__
+        (Printexc.to_string e) ;
+      raise_connection_reset ()
   | Xmlrpc_client.Connection_reset ->
       raise_connection_reset ()
   | Stunnel.Stunnel_verify_error reason ->

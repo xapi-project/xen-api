@@ -246,7 +246,7 @@ let prototyped_of_message = function
   | "VM", "restart_device_models" ->
       Some "23.30.0"
   | "VM", "call_host_plugin" ->
-      Some "25.21.0-next"
+      Some "25.22.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
   | "pool", "set_console_idle_timeout" ->

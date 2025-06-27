@@ -221,7 +221,17 @@
  (name xapi-nbd))
 
 (package
- (name xapi-log))
+ (name xapi-log)
+ (synopsis "A Logs library required by xapi")
+ (description
+  "This package is provided for backwards compatibility only. No new package should use it.")
+ (depends
+  astring
+  fmt
+  logs
+  mtime
+  xapi-backtrace
+  (xapi-stdext-pervasives (= :version))))
 
 (package
  (name xapi-idl))
@@ -651,6 +661,7 @@
    (= :version))
   (xapi-stdext-threads
    (= :version))
+  (xapi-tracing (= :version))
   (odoc :with-doc)))
 
 (package
@@ -669,7 +680,8 @@
   ppx_deriving_rpc
   rpclib
   (xapi-stdext-threads
-   (= :version))))
+   (= :version))
+  (xapi-tracing (= :version))))
 
 (package
  (name message-switch))

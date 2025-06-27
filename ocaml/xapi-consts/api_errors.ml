@@ -440,15 +440,6 @@ let vm_old_pv_drivers = add_error "VM_OLD_PV_DRIVERS"
 
 let vm_lacks_feature = add_error "VM_LACKS_FEATURE"
 
-let vm_lacks_feature_shutdown = add_error "VM_LACKS_FEATURE_SHUTDOWN"
-
-let vm_lacks_feature_suspend = add_error "VM_LACKS_FEATURE_SUSPEND"
-
-let vm_lacks_feature_vcpu_hotplug = add_error "VM_LACKS_FEATURE_VCPU_HOTPLUG"
-
-let vm_lacks_feature_static_ip_setting =
-  add_error "VM_LACKS_FEATURE_STATIC_IP_SETTING"
-
 let vm_cannot_delete_default_template =
   add_error "VM_CANNOT_DELETE_DEFAULT_TEMPLATE"
 

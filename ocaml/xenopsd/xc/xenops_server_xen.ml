@@ -4935,7 +4935,6 @@ module Actions = struct
     let open Printf in
     [
       sprintf "/local/domain/%d/attr" domid
-    ; sprintf "/local/domain/%d/data/updated" domid
     ; sprintf "/local/domain/%d/data/ts" domid
     ; sprintf "/local/domain/%d/data/service" domid
     ; sprintf "/local/domain/%d/memory/target" domid
@@ -5259,6 +5258,8 @@ let init () =
         {Xs_protocol.ACL.owner= 0; other= Xs_protocol.ACL.READ; acl= []}
   ) ;
   Device.Backend.init () ;
+  Xenops_server.default_numa_affinity_policy :=
+    if !Xenopsd.numa_placement_compat then Best_effort else Any ;
   info "Default NUMA affinity policy is '%s'"
     Xenops_server.(string_of_numa_affinity_policy !default_numa_affinity_policy) ;
   Xenops_server.numa_placement := !Xenops_server.default_numa_affinity_policy ;

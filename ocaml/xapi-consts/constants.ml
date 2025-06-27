@@ -177,6 +177,20 @@ let hvm_boot_params_order = "order"
 
 let hvm_default_boot_order = "cd"
 
+(** Keys for different CPUID policies in {Host,Pool}.cpu_info *)
+
+let cpu_info_vendor_key = "vendor"
+
+let cpu_info_features_key = "features"
+
+let cpu_info_features_pv_key = "features_pv"
+
+let cpu_info_features_hvm_key = "features_hvm"
+
+let cpu_info_features_pv_host_key = "features_pv_host"
+
+let cpu_info_features_hvm_host_key = "features_hvm_host"
+
 (* Key we put in VM.other_config when we upgrade a VM from Zurich/Geneva to Rio *)
 let vm_upgrade_time = "upgraded at"
 

@@ -59,6 +59,8 @@ let feature_flags_path = ref "/etc/xenserver/features.d"
 
 let pvinpvh_xen_cmdline = ref "pv-shim console=xen"
 
+let numa_placement_compat = ref true
+
 (* O(N^2) operations, until we get a xenstore cache, so use a small number here *)
 let vm_guest_agent_xenstore_quota = ref 128
 
@@ -240,11 +242,8 @@ let options =
     , "Command line for the inner-xen for PV-in-PVH guests"
     )
   ; ( "numa-placement"
-    , Arg.Bool (fun _ -> ())
-    , (fun () ->
-        string_of_bool
-          (!Xenops_server.default_numa_affinity_policy = Best_effort)
-      )
+    , Arg.Bool (fun x -> numa_placement_compat := x)
+    , (fun () -> string_of_bool !numa_placement_compat)
     , "NUMA-aware placement of VMs (deprecated, use XAPI setting)"
     )
   ; ( "pci-quarantine"
@@ -301,29 +300,74 @@ let json_path () = path () ^ ".json"
 
 let rpc_fn call =
   (* Upgrade import_metadata API call *)
-  let call' =
+  let call', call_name, span_parent =
     match (call.Rpc.name, call.Rpc.params) with
-    | "VM.import_metadata", [debug_info; metadata] ->
+    | ("VM.import_metadata" as call_name), [Rpc.String debug_info; metadata] ->
         debug "Upgrading VM.import_metadata" ;
-        Rpc.
-          {
-            name= "VM.import_metadata"
-          ; params=
-              [Rpc.Dict [("debug_info", debug_info); ("metadata", metadata)]]
-          ; is_notification= false
-          }
-    | "query", [debug_info; unit_p] ->
+        let span_parent =
+          let di = debug_info |> Debug_info.of_string in
+          di.tracing
+        in
+        ( Rpc.
+            {
+              name= "VM.import_metadata"
+            ; params=
+                [
+                  Rpc.Dict
+                    [
+                      ("debug_info", Rpc.String debug_info)
+                    ; ("metadata", metadata)
+                    ]
+                ]
+            ; is_notification= false
+            }
+        , call_name
+        , span_parent
+        )
+    | ("query" as call_name), [Rpc.String debug_info; unit_p] ->
         debug "Upgrading query" ;
-        Rpc.
-          {
-            name= "query"
-          ; params= [Rpc.Dict [("debug_info", debug_info); ("unit", unit_p)]]
-          ; is_notification= false
-          }
-    | _ ->
-        call
+        let span_parent =
+          let di = debug_info |> Debug_info.of_string in
+          di.tracing
+        in
+        ( Rpc.
+            {
+              name= "query"
+            ; params=
+                [
+                  Rpc.Dict
+                    [("debug_info", Rpc.String debug_info); ("unit", unit_p)]
+                ]
+            ; is_notification= false
+            }
+        , call_name
+        , span_parent
+        )
+    | call_name, [Rpc.Dict kv_list] ->
+        let span_parent =
+          kv_list
+          |> List.find_map (function
+               | "debug_info", Rpc.String debug_info ->
+                   let di = debug_info |> Debug_info.of_string in
+                   di.tracing
+               | _ ->
+                   None
+               )
+        in
+        (call, call_name, span_parent)
+    | call_name, _ ->
+        (call, call_name, None)
   in
-  Idl.Exn.server Xenops_server.Server.implementation call'
+  Tracing.with_tracing
+    ~attributes:
+      [
+        ("messaging.operation.name", "process")
+      ; ("messaging.system", "message-switch")
+      ; ("messaging.destination.name", !Xenops_interface.queue_name)
+      ]
+    ~span_kind:Tracing.SpanKind.Consumer ~parent:span_parent
+    ~name:("process" ^ " " ^ call_name)
+  @@ fun _ -> Idl.Exn.server Xenops_server.Server.implementation call'
 
 let handle_received_fd this_connection =
   let msg_size = 16384 in

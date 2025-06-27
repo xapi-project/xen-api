@@ -16,6 +16,7 @@ depends: [
   "ppx_deriving_rpc"
   "rpclib"
   "xapi-stdext-threads" {= version}
+  "xapi-tracing" {= version}
   "odoc" {with-doc}
 ]
 build: [

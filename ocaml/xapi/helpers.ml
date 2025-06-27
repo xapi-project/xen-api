@@ -171,8 +171,13 @@ let get_localhost ~__context =
   match localhost_ref = Ref.null with
   | false ->
       localhost_ref
-  | true ->
-      get_localhost_uncached ~__context
+  | true -> (
+    try get_localhost_uncached ~__context
+    with Db_exn.Read_missing_uuid (_, _, _) as e ->
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          warn "The database has not fully come up yet, so localhost is missing"
+      )
+  )
 
 (* Determine the gateway and DNS PIFs:
  * If one of the PIFs with IP has other_config:defaultroute=true, then

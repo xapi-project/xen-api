@@ -30,6 +30,7 @@ depends: [
   "sexplib"
   "shared-block-ring" {>= "2.3.0"}
   "xapi-stdext-unix"
+  "xapi-tracing"
 ]
 synopsis: "A simple store-and-forward message switch"
 description: """

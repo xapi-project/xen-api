@@ -567,8 +567,6 @@ let mirror_cleanup ~dbg ~sr ~snapshot =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
   let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
       ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
     D.debug
@@ -878,9 +876,9 @@ module MIRROR : SMAPIv2_MIRROR = struct
     | _ ->
         false
 
-  let list _ctx = u __FUNCTION__
+  let list _ctx = Storage_interface.unimplemented __FUNCTION__
 
-  let stat _ctx = u __FUNCTION__
+  let stat _ctx = Storage_interface.unimplemented __FUNCTION__
 
   let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
     let (module Remote) =

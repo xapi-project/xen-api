@@ -63,51 +63,13 @@ let check_sm_feature_error (op : API.vdi_operations) sm_features sr =
     specified, it should contain at least all the VBD records from the database
     that are linked to this VDI. *)
 let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
-    ?vbd_records ha_enabled record _ref' op =
+    ?vbd_records ha_enabled record _ref' =
   let ( let* ) = Result.bind in
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vDI_current_operations in
   let reset_on_boot = record.Db_actions.vDI_on_boot = `reset in
-  (* Policy:
-     	   1. any current_operation besides copy implies exclusivity; fail everything
-     	      else; except vdi mirroring is in current operations and destroy is performed
-     	      as part of vdi_pool_migrate.
-     	   2. if a copy is ongoing, don't fail with other_operation_in_progress, as
-     	      blocked operations could then get stuck behind a long-running copy.
-     	      Instead, rely on the blocked_by_attach check further down to decide
-     	      whether an operation should be allowed.
-     	   3. if doing a VM start then assume the sharing check is done elsewhere
-     	      (so VMs may share disks but our operations cannot)
-     	   4. for other operations, fail if any VBD has currently-attached=true or any VBD
-     	      has a current_operation itself
-     	   5. HA prevents you from deleting statefiles or metadata volumes
-     	   6. During rolling pool upgrade, only operations known by older releases are allowed
-  *)
-  let* () =
-    if
-      Helpers.rolling_upgrade_in_progress ~__context
-      && not
-           (Xapi_globs.Vdi_operations_set.mem op
-              Xapi_globs.rpu_allowed_vdi_operations
-           )
-    then
-      Error (Api_errors.not_supported_during_upgrade, [])
-    else
-      Ok ()
-  in
-  let* () =
-    (* Don't fail with other_operation_in_progress if VDI mirroring is in
-       progress and destroy is called as part of VDI mirroring *)
-    let is_vdi_mirroring_in_progress =
-      op = `destroy && List.exists (fun (_, op) -> op = `mirror) current_ops
-    in
-    if
-      List.exists (fun (_, op) -> op <> `copy) current_ops
-      && not is_vdi_mirroring_in_progress
-    then
-      Error (Api_errors.other_operation_in_progress, ["VDI"; _ref])
-    else
-      Ok ()
+  let rolling_upgrade_in_progress =
+    Helpers.rolling_upgrade_in_progress ~__context
   in
   (* check to see whether it's a local cd drive *)
   let sr = record.Db_actions.vDI_SR in
@@ -132,14 +94,6 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
           )
           pbd_records
   in
-  let* () =
-    if pbds_attached = [] && op = `resize then
-      Error (Api_errors.sr_no_pbds, [Ref.string_of sr])
-    else
-      Ok ()
-  in
-
-  (* check to see whether VBDs exist which are using this VDI *)
 
   (* Only a 'live' operation can be performed if there are active (even RO) devices *)
   let my_active_vbd_records =
@@ -191,252 +145,302 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
           )
           records
   in
-  (* If the VBD is currently_attached then some operations can still be
-     performed ie: VDI.clone (if the VM is suspended we have to have the
-      'allow_clone_suspended_vm' flag); VDI.snapshot; VDI.resize_online;
-      'blocked' (CP-831); VDI.data_destroy: it is not allowed on VDIs linked
-      to a VM, but the implementation first waits for the VDI's VBDs to be
-      unplugged and destroyed, and the checks are performed there.
+
+  (* Policy:
+     	   1. any current_operation besides copy implies exclusivity; fail everything
+     	      else; except vdi mirroring is in current operations and destroy is performed
+     	      as part of vdi_pool_migrate.
+     	   2. if a copy is ongoing, don't fail with other_operation_in_progress, as
+     	      blocked operations could then get stuck behind a long-running copy.
+     	      Instead, rely on the blocked_by_attach check further down to decide
+     	      whether an operation should be allowed.
+     	   3. if doing a VM start then assume the sharing check is done elsewhere
+     	      (so VMs may share disks but our operations cannot)
+     	   4. for other operations, fail if any VBD has currently-attached=true or any VBD
+     	      has a current_operation itself
+     	   5. HA prevents you from deleting statefiles or metadata volumes
+     	   6. During rolling pool upgrade, only operations known by older releases are allowed
   *)
-  let operation_can_be_performed_live =
-    match op with
-    | `snapshot
-    | `resize_online
-    | `blocked
-    | `clone
-    | `mirror
-    | `enable_cbt
-    | `disable_cbt
-    | `data_destroy ->
-        true
-    | _ ->
-        false
-  in
-  let operation_can_be_performed_with_ro_attach =
-    operation_can_be_performed_live
-    || match op with `copy -> true | _ -> false
-  in
-  (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
-  let blocked_by_attach =
-    let blocked_by_attach =
-      if operation_can_be_performed_live then
-        false
-      else if operation_can_be_performed_with_ro_attach then
-        my_active_rw_vbd_records <> []
-      else
-        my_active_vbd_records <> []
-    in
-    let allow_attached_vbds =
-      (* We use Valid_ref_list.list to ignore exceptions due to invalid
-         references that could propagate to the message forwarding layer, which
-         calls this function to check for errors - these exceptions would
-         prevent the actual XenAPI function from being run. Checks called from
-         the message forwarding layer should not fail with an exception. *)
-      let true_for_all_active_vbds f =
-        Valid_ref_list.for_all f my_active_vbd_records
-      in
-      match op with
-      | `list_changed_blocks ->
-          let vbd_connected_to_vm_snapshot vbd =
-            let vm = vbd.Db_actions.vBD_VM in
-            Db.is_valid_ref __context vm
-            && Db.VM.get_is_a_snapshot ~__context ~self:vm
-          in
-          (* We allow list_changed_blocks on VDIs attached to snapshot VMs,
-             because VM.checkpoint may set the currently_attached fields of the
-             snapshot's VBDs to true, and this would block list_changed_blocks. *)
-          true_for_all_active_vbds vbd_connected_to_vm_snapshot
-      | _ ->
-          false
-    in
-    blocked_by_attach && not allow_attached_vbds
-  in
-  let* () =
-    if blocked_by_attach then
-      Error
-        (Api_errors.vdi_in_use, [_ref; Record_util.vdi_operations_to_string op])
-    else if
-      (* data_destroy first waits for all the VBDs to disappear in its
-         implementation, so it is harmless to allow it when any of the VDI's
-         VBDs have operations in progress. This ensures that we avoid the retry
-         mechanism of message forwarding and only use the event loop. *)
-      my_has_current_operation_vbd_records <> [] && op <> `data_destroy
-    then
-      Error (Api_errors.other_operation_in_progress, ["VDI"; _ref])
-    else
-      Ok ()
-  in
   let sm_features =
     Xapi_sr_operations.features_of_sr_internal ~__context ~_type:sr_type
   in
-  let* () = check_sm_feature_error op sm_features sr in
-  let allowed_for_cbt_metadata_vdi =
-    match op with
-    | `clone
-    | `copy
-    | `disable_cbt
-    | `enable_cbt
-    | `mirror
-    | `resize
-    | `resize_online
-    | `snapshot
-    | `set_on_boot ->
-        false
-    | `blocked
-    | `data_destroy
-    | `destroy
-    | `list_changed_blocks
-    | `force_unlock
-    | `forget
-    | `generate_config
-    | `update ->
-        true
+  let vdi_is_ha_state_or_redolog =
+    List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
   in
-  let* () =
-    if
-      (not allowed_for_cbt_metadata_vdi)
-      && record.Db_actions.vDI_type = `cbt_metadata
-    then
-      Error
-        ( Api_errors.vdi_incompatible_type
-        , [_ref; Record_util.vdi_type_to_string `cbt_metadata]
-        )
-    else
-      Ok ()
-  in
-  let allowed_when_cbt_enabled =
-    match op with
-    | `mirror | `set_on_boot ->
-        false
-    | `blocked
-    | `clone
-    | `copy
-    | `data_destroy
-    | `destroy
-    | `disable_cbt
-    | `enable_cbt
-    | `list_changed_blocks
-    | `force_unlock
-    | `forget
-    | `generate_config
-    | `resize
-    | `resize_online
-    | `snapshot
-    | `update ->
-        true
-  in
-  let* () =
-    if (not allowed_when_cbt_enabled) && record.Db_actions.vDI_cbt_enabled then
-      Error (Api_errors.vdi_cbt_enabled, [_ref])
-    else
-      Ok ()
-  in
-  let check_destroy () =
-    if sr_type = "udev" then
-      Error (Api_errors.vdi_is_a_physical_device, [_ref])
-    else if is_tools_sr then
-      Error (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
-    else if List.mem record.Db_actions.vDI_type [`rrd] then
-      Error (Api_errors.vdi_has_rrds, [_ref])
-    else if
-      ha_enabled
-      && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-    then
-      Error (Api_errors.ha_is_enabled, [])
-    else if
-      List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-      && Xapi_pool_helpers.ha_enable_in_progress ~__context
-    then
-      Error (Api_errors.ha_enable_in_progress, [])
-    else if
-      List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-      && Xapi_pool_helpers.ha_disable_in_progress ~__context
-    then
-      Error (Api_errors.ha_disable_in_progress, [])
-    else
-      Ok ()
-  in
-  match op with
-  | `forget ->
+
+  fun op ->
+    let* () =
       if
-        ha_enabled
-        && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
+        rolling_upgrade_in_progress
+        && not
+             (Xapi_globs.Vdi_operations_set.mem op
+                Xapi_globs.rpu_allowed_vdi_operations
+             )
       then
-        Error (Api_errors.ha_is_enabled, [])
-      else if List.mem record.Db_actions.vDI_type [`rrd] then
-        Error (Api_errors.vdi_has_rrds, [_ref])
+        Error (Api_errors.not_supported_during_upgrade, [])
       else
         Ok ()
-  | `destroy ->
-      check_destroy ()
-  | `data_destroy ->
-      if not record.Db_actions.vDI_is_a_snapshot then
+    in
+    let* () =
+      (* Don't fail with other_operation_in_progress if VDI mirroring is in
+         progress and destroy is called as part of VDI mirroring *)
+      let is_vdi_mirroring_in_progress =
+        op = `destroy && List.exists (fun (_, op) -> op = `mirror) current_ops
+      in
+      if
+        List.exists (fun (_, op) -> op <> `copy) current_ops
+        && not is_vdi_mirroring_in_progress
+      then
+        Error (Api_errors.other_operation_in_progress, ["VDI"; _ref])
+      else
+        Ok ()
+    in
+    let* () =
+      if pbds_attached = [] && op = `resize then
+        Error (Api_errors.sr_no_pbds, [Ref.string_of sr])
+      else
+        Ok ()
+    in
+
+    (* check to see whether VBDs exist which are using this VDI *)
+
+    (* If the VBD is currently_attached then some operations can still be
+       performed ie: VDI.clone (if the VM is suspended we have to have the
+        'allow_clone_suspended_vm' flag); VDI.snapshot; VDI.resize_online;
+        'blocked' (CP-831); VDI.data_destroy: it is not allowed on VDIs linked
+        to a VM, but the implementation first waits for the VDI's VBDs to be
+        unplugged and destroyed, and the checks are performed there.
+    *)
+    let operation_can_be_performed_live =
+      match op with
+      | `snapshot
+      | `resize_online
+      | `blocked
+      | `clone
+      | `mirror
+      | `enable_cbt
+      | `disable_cbt
+      | `data_destroy ->
+          true
+      | _ ->
+          false
+    in
+    let operation_can_be_performed_with_ro_attach =
+      operation_can_be_performed_live
+      || match op with `copy -> true | _ -> false
+    in
+    (* NB RO vs RW sharing checks are done in xapi_vbd.ml *)
+    let blocked_by_attach =
+      let blocked_by_attach =
+        if operation_can_be_performed_live then
+          false
+        else if operation_can_be_performed_with_ro_attach then
+          my_active_rw_vbd_records <> []
+        else
+          my_active_vbd_records <> []
+      in
+      let allow_attached_vbds =
+        (* We use Valid_ref_list.list to ignore exceptions due to invalid
+           references that could propagate to the message forwarding layer, which
+           calls this function to check for errors - these exceptions would
+           prevent the actual XenAPI function from being run. Checks called from
+           the message forwarding layer should not fail with an exception. *)
+        let true_for_all_active_vbds f =
+          Valid_ref_list.for_all f my_active_vbd_records
+        in
+        match op with
+        | `list_changed_blocks ->
+            let vbd_connected_to_vm_snapshot vbd =
+              let vm = vbd.Db_actions.vBD_VM in
+              Db.is_valid_ref __context vm
+              && Db.VM.get_is_a_snapshot ~__context ~self:vm
+            in
+            (* We allow list_changed_blocks on VDIs attached to snapshot VMs,
+               because VM.checkpoint may set the currently_attached fields of the
+               snapshot's VBDs to true, and this would block list_changed_blocks. *)
+            true_for_all_active_vbds vbd_connected_to_vm_snapshot
+        | _ ->
+            false
+      in
+      blocked_by_attach && not allow_attached_vbds
+    in
+    let* () =
+      if blocked_by_attach then
         Error
-          (Api_errors.operation_not_allowed, ["VDI is not a snapshot: " ^ _ref])
-      else if not record.Db_actions.vDI_cbt_enabled then
-        Error (Api_errors.vdi_no_cbt_metadata, [_ref])
-      else
-        check_destroy ()
-  | `resize ->
-      if
-        ha_enabled
-        && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-      then
-        Error (Api_errors.ha_is_enabled, [])
-      else
-        Ok ()
-  | `resize_online ->
-      if
-        ha_enabled
-        && List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log]
-      then
-        Error (Api_errors.ha_is_enabled, [])
-      else
-        Ok ()
-  | `snapshot when record.Db_actions.vDI_sharable ->
-      Error (Api_errors.vdi_is_sharable, [_ref])
-  | (`snapshot | `copy) when reset_on_boot ->
-      Error (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
-  | `snapshot ->
-      if List.exists (fun (_, op) -> op = `copy) current_ops then
-        Error
-          ( Api_errors.operation_not_allowed
-          , ["Snapshot operation not allowed during copy."]
+          ( Api_errors.vdi_in_use
+          , [_ref; Record_util.vdi_operations_to_string op]
           )
+      else if
+        (* data_destroy first waits for all the VBDs to disappear in its
+           implementation, so it is harmless to allow it when any of the VDI's
+           VBDs have operations in progress. This ensures that we avoid the retry
+           mechanism of message forwarding and only use the event loop. *)
+        my_has_current_operation_vbd_records <> [] && op <> `data_destroy
+      then
+        Error (Api_errors.other_operation_in_progress, ["VDI"; _ref])
       else
         Ok ()
-  | `copy ->
-      if List.mem record.Db_actions.vDI_type [`ha_statefile; `redo_log] then
-        Error
-          ( Api_errors.operation_not_allowed
-          , [
-              "VDI containing HA statefile or redo log cannot be copied (check \
-               the VDI's allowed operations)."
-            ]
-          )
-      else
-        Ok ()
-  | `enable_cbt | `disable_cbt ->
-      if record.Db_actions.vDI_is_a_snapshot then
-        Error (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
-      else if not (List.mem record.Db_actions.vDI_type [`user; `system]) then
+    in
+    let* () = check_sm_feature_error op sm_features sr in
+    let allowed_for_cbt_metadata_vdi =
+      match op with
+      | `clone
+      | `copy
+      | `disable_cbt
+      | `enable_cbt
+      | `mirror
+      | `resize
+      | `resize_online
+      | `snapshot
+      | `set_on_boot ->
+          false
+      | `blocked
+      | `data_destroy
+      | `destroy
+      | `list_changed_blocks
+      | `force_unlock
+      | `forget
+      | `generate_config
+      | `update ->
+          true
+    in
+    let* () =
+      if
+        (not allowed_for_cbt_metadata_vdi)
+        && record.Db_actions.vDI_type = `cbt_metadata
+      then
         Error
           ( Api_errors.vdi_incompatible_type
-          , [_ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type]
+          , [_ref; Record_util.vdi_type_to_string `cbt_metadata]
           )
-      else if reset_on_boot then
-        Error (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
       else
         Ok ()
-  | `mirror
-  | `clone
-  | `generate_config
-  | `force_unlock
-  | `set_on_boot
-  | `list_changed_blocks
-  | `blocked
-  | `update ->
-      Ok ()
+    in
+    let allowed_when_cbt_enabled =
+      match op with
+      | `mirror | `set_on_boot ->
+          false
+      | `blocked
+      | `clone
+      | `copy
+      | `data_destroy
+      | `destroy
+      | `disable_cbt
+      | `enable_cbt
+      | `list_changed_blocks
+      | `force_unlock
+      | `forget
+      | `generate_config
+      | `resize
+      | `resize_online
+      | `snapshot
+      | `update ->
+          true
+    in
+    let* () =
+      if (not allowed_when_cbt_enabled) && record.Db_actions.vDI_cbt_enabled
+      then
+        Error (Api_errors.vdi_cbt_enabled, [_ref])
+      else
+        Ok ()
+    in
+    let check_destroy () =
+      if sr_type = "udev" then
+        Error (Api_errors.vdi_is_a_physical_device, [_ref])
+      else if is_tools_sr then
+        Error (Api_errors.sr_operation_not_supported, [Ref.string_of sr])
+      else if List.mem record.Db_actions.vDI_type [`rrd] then
+        Error (Api_errors.vdi_has_rrds, [_ref])
+      else if ha_enabled && vdi_is_ha_state_or_redolog then
+        Error (Api_errors.ha_is_enabled, [])
+      else if
+        vdi_is_ha_state_or_redolog
+        && Xapi_pool_helpers.ha_enable_in_progress ~__context
+      then
+        Error (Api_errors.ha_enable_in_progress, [])
+      else if
+        vdi_is_ha_state_or_redolog
+        && Xapi_pool_helpers.ha_disable_in_progress ~__context
+      then
+        Error (Api_errors.ha_disable_in_progress, [])
+      else
+        Ok ()
+    in
+    match op with
+    | `forget ->
+        if ha_enabled && vdi_is_ha_state_or_redolog then
+          Error (Api_errors.ha_is_enabled, [])
+        else if List.mem record.Db_actions.vDI_type [`rrd] then
+          Error (Api_errors.vdi_has_rrds, [_ref])
+        else
+          Ok ()
+    | `destroy ->
+        check_destroy ()
+    | `data_destroy ->
+        if not record.Db_actions.vDI_is_a_snapshot then
+          Error
+            ( Api_errors.operation_not_allowed
+            , ["VDI is not a snapshot: " ^ _ref]
+            )
+        else if not record.Db_actions.vDI_cbt_enabled then
+          Error (Api_errors.vdi_no_cbt_metadata, [_ref])
+        else
+          check_destroy ()
+    | `resize ->
+        if ha_enabled && vdi_is_ha_state_or_redolog then
+          Error (Api_errors.ha_is_enabled, [])
+        else
+          Ok ()
+    | `resize_online ->
+        if ha_enabled && vdi_is_ha_state_or_redolog then
+          Error (Api_errors.ha_is_enabled, [])
+        else
+          Ok ()
+    | `snapshot when record.Db_actions.vDI_sharable ->
+        Error (Api_errors.vdi_is_sharable, [_ref])
+    | (`snapshot | `copy) when reset_on_boot ->
+        Error (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+    | `snapshot ->
+        if List.exists (fun (_, op) -> op = `copy) current_ops then
+          Error
+            ( Api_errors.operation_not_allowed
+            , ["Snapshot operation not allowed during copy."]
+            )
+        else
+          Ok ()
+    | `copy ->
+        if vdi_is_ha_state_or_redolog then
+          Error
+            ( Api_errors.operation_not_allowed
+            , [
+                "VDI containing HA statefile or redo log cannot be copied \
+                 (check the VDI's allowed operations)."
+              ]
+            )
+        else
+          Ok ()
+    | `enable_cbt | `disable_cbt ->
+        if record.Db_actions.vDI_is_a_snapshot then
+          Error
+            (Api_errors.operation_not_allowed, ["VDI is a snapshot: " ^ _ref])
+        else if not (List.mem record.Db_actions.vDI_type [`user; `system]) then
+          Error
+            ( Api_errors.vdi_incompatible_type
+            , [_ref; Record_util.vdi_type_to_string record.Db_actions.vDI_type]
+            )
+        else if reset_on_boot then
+          Error (Api_errors.vdi_on_boot_mode_incompatible_with_operation, [])
+        else
+          Ok ()
+    | `mirror
+    | `clone
+    | `generate_config
+    | `force_unlock
+    | `set_on_boot
+    | `list_changed_blocks
+    | `blocked
+    | `update ->
+        Ok ()
 
 let assert_operation_valid ~__context ~self ~(op : API.vdi_operations) =
   let pool = Helpers.get_pool ~__context in
@@ -486,16 +490,11 @@ let update_allowed_operations_internal ~__context ~self ~sr_records ~pbd_records
         v
   in
   let allowed =
-    let check x =
-      match
-        check_operation_error ~__context ~sr_records ~pbd_records ?vbd_records
-          ha_enabled all self x
-      with
-      | Ok () ->
-          true
-      | _ ->
-          false
+    let check' =
+      check_operation_error ~__context ~sr_records ~pbd_records ?vbd_records
+        ha_enabled all self
     in
+    let check x = match check' x with Ok () -> true | _ -> false in
     all_ops |> Xapi_globs.Vdi_operations_set.filter check
   in
   let allowed =
