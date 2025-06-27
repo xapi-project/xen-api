@@ -60,6 +60,24 @@ let dss_vcpus xc doms =
         let ( ++ ) = Int64.add in
         try
           let ri = Xenctrl.domain_get_runstate_info xc domid in
+          let runnable_vcpus_ds =
+            match ri.Xenctrl.runnable with
+            | 0L ->
+                []
+            | _ ->
+                [
+                  ( Rrd.VM uuid
+                  , Ds.ds_make ~name:"runnable_vcpus" ~units:"(fraction)"
+                      ~value:
+                        (Rrd.VT_Float
+                           (Int64.to_float ri.Xenctrl.runnable /. 1.0e9)
+                        )
+                      ~description:
+                        "Fraction of time that vCPUs of the domain are runnable"
+                      ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
+                  )
+                ]
+          in
           ( Rrd.VM uuid
           , Ds.ds_make ~name:"runstate_fullrun" ~units:"(fraction)"
               ~value:(Rrd.VT_Float (Int64.to_float ri.Xenctrl.time0 /. 1.0e9))
@@ -133,6 +151,7 @@ let dss_vcpus xc doms =
                  ~min:0.0 ~max:1.0 ()
              )
           :: dss
+          @ runnable_vcpus_ds
         with _ -> dss
       in
       try cpus 0 dss with _ -> dss
