@@ -278,6 +278,7 @@ let vbd_of_disk_info vm_id info =
   ; extra_private_keys= []
   ; qos= None
   ; persistent= true
+  ; can_attach_early= false
   }
 
 let print_disk vbd =

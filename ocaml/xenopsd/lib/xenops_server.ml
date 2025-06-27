@@ -1763,7 +1763,8 @@ let rec atomics_of_operation = function
           serial "VIF.activate_and_plug" ~id
             [VIF_set_active (vif.Vif.id, true); VIF_plug vif.Vif.id]
       )
-  | VM_restore_devices (id, restore_vifs) ->
+  | VM_restore_devices (id, migration) ->
+      let restore_vifs = not migration in
       let vbds_rw, vbds_ro = VBD_DB.vbds id |> vbd_plug_sets in
       let vgpus = VGPU_DB.vgpus id in
       let pcis = PCI_DB.pcis id |> pci_plug_order in
@@ -1773,8 +1774,22 @@ let rec atomics_of_operation = function
         let name_multi = pf "VBDs.activate_and_plug %s" typ in
         let name_one = pf "VBD.activate_and_plug %s" typ in
         parallel_map name_multi ~id vbds (fun vbd ->
-            serial name_one ~id
-              [VBD_set_active (vbd.Vbd.id, true); vbd_plug vbd.Vbd.id]
+            (* When migrating, attach early if the vbd's SM allows it.
+               Note: there is a bug here for SxM if migrating between API
+               versions as the Vbd's new SR won't have propagated to xenopsd
+               yet. This means can_attach_early will be based on the origin SR.
+               This is a non-issue as v1 <-> v3 migration is still experimental
+               and v1 is already early-attaching in SxM through mirroring.
+            *)
+            if
+              migration
+              && (not !xenopsd_vbd_plug_unplug_legacy)
+              && vbd.Vbd.can_attach_early
+            then
+              [VBD_activate vbd.Vbd.id]
+            else
+              serial name_one ~id
+                [VBD_set_active (vbd.Vbd.id, true); vbd_plug vbd.Vbd.id]
         )
       in
       [
@@ -1897,7 +1912,7 @@ let rec atomics_of_operation = function
         ]
       ; vgpu_start_operations
       ; [VM_restore (id, data, vgpu_data)]
-      ; atomics_of_operation (VM_restore_devices (id, true))
+      ; atomics_of_operation (VM_restore_devices (id, false))
       ; [
           (* At this point the domain is considered survivable. *)
           VM_set_domain_action_request (id, None)
@@ -2696,9 +2711,9 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
   | VM_restore_vifs id ->
       debug "VM_restore_vifs %s" id ;
       perform_atomics (atomics_of_operation op) t
-  | VM_restore_devices (id, restore_vifs) ->
+  | VM_restore_devices (id, migration) ->
       (* XXX: this is delayed due to the 'attach'/'activate' behaviour *)
-      debug "VM_restore_devices %s %b" id restore_vifs ;
+      debug "VM_restore_devices %s %b" id migration ;
       perform_atomics (atomics_of_operation op) t
   | VM_resume (id, _data) ->
       debug "VM.resume %s" id ;
@@ -3022,11 +3037,31 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
           ( try
               let no_sharept = VGPU_DB.vgpus id |> List.exists is_no_sharept in
               debug "VM %s no_sharept=%b (%s)" id no_sharept __LOC__ ;
+              (* If plug is split into activate and attach, we could attach
+                 early so that it is outside of the VM downtime (if the SM
+                 supports this) *)
+              let early_attach =
+                parallel_map "VBDs.set_active_and_attach" ~id (VBD_DB.vbds id)
+                  (fun vbd ->
+                    if
+                      (not !xenopsd_vbd_plug_unplug_legacy)
+                      && vbd.Vbd.can_attach_early
+                    then
+                      serial "VBD.set_active_and_attach" ~id
+                        [
+                          VBD_set_active (vbd.Vbd.id, true)
+                        ; VBD_attach vbd.Vbd.id
+                        ]
+                    else
+                      []
+                )
+              in
               perform_atomics
                 ([VM_create (id, Some memory_limit, Some final_id, no_sharept)]
-                @ (* Perform as many operations as possible on the destination
-                     domain before pausing the original domain *)
-                atomics_of_operation (VM_restore_vifs id)
+                (* Perform as many operations as possible on the destination
+                   domain before pausing the original domain *)
+                @ atomics_of_operation (VM_restore_vifs id)
+                @ early_attach
                 )
                 t ;
               Handshake.send s Handshake.Success
@@ -3142,7 +3177,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
         ) ;
         debug "VM.receive_memory: restoring remaining devices and unpausing" ;
         perform_atomics
-          (atomics_of_operation (VM_restore_devices (final_id, false))
+          (atomics_of_operation (VM_restore_devices (final_id, true))
           @ [
               VM_unpause final_id
             ; VM_set_domain_action_request (final_id, None)

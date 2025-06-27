@@ -303,6 +303,7 @@ module Vbd = struct
     ; extra_private_keys: (string * string) list [@default []]
     ; qos: qos option [@default None]
     ; persistent: bool [@default true]
+    ; can_attach_early: bool [@default false]
   }
   [@@deriving rpcty]
 
