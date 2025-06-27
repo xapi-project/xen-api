@@ -30,6 +30,7 @@ install:
 	$(IPROG) libexec/mail-alarm $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/backup-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) libexec/restore-sr-metadata.py $(DESTDIR)$(LIBEXECDIR)
+	$(IPROG) libexec/qcow2-to-stdout.py $(DESTDIR)$(LIBEXECDIR)
 
 	$(IPROG) bin/hfx_filename $(DESTDIR)$(OPTDIR)/bin
 	$(IPROG) bin/xe-reset-networking $(DESTDIR)$(OPTDIR)/bin
