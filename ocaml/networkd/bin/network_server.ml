@@ -35,8 +35,7 @@ let write_config () =
     try Network_config.write_config !config
     with Network_config.Write_error -> ()
 
-let get_index_from_ethx name =
-  try Scanf.sscanf name "eth%d%!" Option.some with _ -> None
+let get_index_from_ethx = Network_config.get_index_from_ethx
 
 let sort_based_on_ethx () =
   Sysfs.list ()
