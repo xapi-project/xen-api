@@ -243,7 +243,17 @@ module Dev = struct
       )
     ; ( "Bus Info"
       , fun r v ->
-          let* pci = Pciaddr.of_string v in
+          let pci_str =
+            match String.split_on_char '-' v with
+            | ["usb"; pci; _] ->
+                (* For USB device, the bus-info is like
+                   "usb-<PCI address of USB controller>-<USB port path>",
+                    use the PCI address of the USB controller *)
+                pci
+            | _ ->
+                v
+          in
+          let* pci = Pciaddr.of_string pci_str in
           Ok {r with pci}
       )
     ]
