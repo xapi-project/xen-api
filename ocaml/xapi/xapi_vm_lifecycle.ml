@@ -166,10 +166,6 @@ let has_definitely_booted_pv ~vmmr =
   )
 
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
- *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
- *  on resume (only on startup), so we cannot rely just on that flag. We therefore
- *  add a clause that enables all features when PV drivers are present using the
- *  old-style check.
  *  The "strict" param should be true for determining the allowed_operations list
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
@@ -180,8 +176,6 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
     power_state <> `Running
     (* PV guests offer support implicitly *)
     || has_definitely_booted_pv ~vmmr
-    || Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr))
-    (* Full PV drivers imply all features *)
   then
     None
   else
