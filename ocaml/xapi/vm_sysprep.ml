@@ -140,7 +140,7 @@ let make_iso ~vm_uuid ~unattend =
     Xapi_stdext_unix.Unixext.mkdir_rec SR.dir 0o755 ;
     with_temp_dir ~dir:"/var/tmp/xapi" "sysprep-" "-iso" (fun temp_dir ->
         let path = temp_dir // "unattend.xml" in
-        Unixext.write_string_to_file path unattend ;
+        SecretString.write_to_file path unattend ;
         debug "%s: written to %s" __FUNCTION__ path ;
         let args = ["-r"; "-J"; "-o"; iso; temp_dir] in
         Forkhelpers.execute_command_get_output genisoimage args |> ignore ;
@@ -262,7 +262,7 @@ let sysprep ~__context ~vm ~unattend ~timeout =
   let control = Printf.sprintf "/local/domain/%Ld/control" domid in
   if domid <= 0L then
     fail VM_not_running ;
-  if String.length unattend > 32 * 1024 then
+  if SecretString.length unattend > 32 * 1024 then
     fail XML_too_large ;
   Ezxenstore_core.Xenstore.with_xs (fun xs ->
       let open Ezxenstore_core.Xenstore in
