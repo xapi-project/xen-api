@@ -2375,7 +2375,7 @@ let sysprep =
     ~params:
       [
         (Ref _vm, "self", "The VM")
-      ; (String, "unattend", "XML content passed to sysprep")
+      ; (SecretString, "unattend", "XML content passed to sysprep")
       ]
     ~doc:"Pass unattend.xml to Windows sysprep" ~allowed_roles:_R_VM_ADMIN ()
 

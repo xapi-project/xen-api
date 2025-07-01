@@ -24,6 +24,8 @@ let write_to_channel c s = output_string c s
 
 let equal = String.equal
 
+let length = String.length
+
 let pool_secret = "pool_secret"
 
 let with_cookie t cookies = (pool_secret, t) :: cookies
