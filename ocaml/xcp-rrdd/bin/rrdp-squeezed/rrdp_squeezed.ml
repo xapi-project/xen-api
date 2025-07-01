@@ -266,7 +266,7 @@ let dss_numa_info xc dom uuid domid =
         for each numa node used by the host, show the
         corresponding amount of memory used by the vm
       *)
-      let is_node_used_by_vm = tot_pages_per_node > 0L in
+      let is_node_used_by_vm = tot_pages_per_node > 4096L in
       let is_node_used_by_host = node_id < host_nr_nodes in
       if is_node_used_by_host then
         ( ( Rrd.VM uuid
