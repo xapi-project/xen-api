@@ -113,11 +113,14 @@ CAMLprim value stub_xenctrlext_get_runstate_info(value xch_val, value domid)
 	CAMLparam2(xch_val, domid);
 #if defined(XENCTRL_HAS_GET_RUNSTATE_INFO)
 	CAMLlocal1(result);
-	xc_runstate_info_t info;
+	xc_runstate_info_t info = { 0 };
 	int retval;
 	xc_interface *xch = xch_of_val(xch_val);
+	uint32_t c_domid = Int_val(domid);
 
-	retval = xc_get_runstate_info(xch, Int_val(domid), &info);
+	caml_release_runtime_system();
+	retval = xc_get_runstate_info(xch, c_domid, &info);
+	caml_acquire_runtime_system();
 	if (retval < 0)
 		failwith_xc(xch);
 
@@ -126,8 +129,9 @@ CAMLprim value stub_xenctrlext_get_runstate_info(value xch_val, value domid)
 	   1 : missed_changes (int32)
 	   2 : state_entry_time (int64)
 	   3-8 : times (int64s)
+	   9 : runnable (int64)
 	*/
-	result = caml_alloc_tuple(9);
+	result = caml_alloc_tuple(10);
 	Store_field(result, 0, caml_copy_int32(info.state));
 	Store_field(result, 1, caml_copy_int32(info.missed_changes));
 	Store_field(result, 2, caml_copy_int64(info.state_entry_time));
@@ -137,6 +141,7 @@ CAMLprim value stub_xenctrlext_get_runstate_info(value xch_val, value domid)
 	Store_field(result, 6, caml_copy_int64(info.time[3]));
 	Store_field(result, 7, caml_copy_int64(info.time[4]));
 	Store_field(result, 8, caml_copy_int64(info.time[5]));
+	Store_field(result, 9, caml_copy_int64(info.runnable));
 
 	CAMLreturn(result);
 #else
