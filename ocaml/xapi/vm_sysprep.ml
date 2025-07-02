@@ -59,14 +59,14 @@ module SR = struct
     Printf.sprintf "SYSPREP-%s-%s" hostname (digest hostname)
 
   let find_opt ~__context ~label =
-    match Db.SR.get_by_name_label ~__context ~label with
-    | [sr] ->
-        Some sr
-    | sr :: _ ->
-        warn "%s: more than one SR with label %s" __FUNCTION__ label ;
-        Some sr
-    | [] ->
-        None
+    let check sr =
+      match Db.SR.get_record ~__context ~self:sr with
+      | API.{sR_type= "iso"; _} ->
+          true
+      | _ ->
+          false
+    in
+    Db.SR.get_by_name_label ~__context ~label |> List.find_opt check
 end
 
 (** This is called on xapi startup. Opportunity to set up or clean up.
