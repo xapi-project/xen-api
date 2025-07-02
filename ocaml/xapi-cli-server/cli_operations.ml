@@ -3593,7 +3593,7 @@ let vm_sysprep fd printer rpc session_id params =
   let unattend =
     match get_client_file fd filename with
     | Some xml ->
-        xml |> SecretString.of_string
+        xml
     | None ->
         marshal fd (Command (PrintStderr "Failed to read file.\n")) ;
         raise (ExitWithError 1)

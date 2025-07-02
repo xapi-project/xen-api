@@ -27,8 +27,7 @@ exception Sysprep of error
 val on_startup : __context:Context.t -> unit
 (** clean up on toolstart start up *)
 
-val sysprep :
-  __context:Context.t -> vm:API.ref_VM -> unattend:SecretString.t -> unit
+val sysprep : __context:Context.t -> vm:API.ref_VM -> unattend:string -> unit
 (** Execute sysprep on [vm] using script [unattend]. This requires
-    driver support from the VM and is checked. [unattend] must
+    driver support from the VM and is checked. [unattend:string] must
     not exceed 32kb. Raised [Failure] that must be handled, *)
