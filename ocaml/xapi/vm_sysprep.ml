@@ -145,6 +145,7 @@ let make_iso ~vm_uuid ~unattend =
         (iso, basename)
     )
   with e ->
+    Backtrace.is_important e ;
     let msg = Printexc.to_string e in
     Helpers.internal_error "%s failed: %s" __FUNCTION__ msg
 
