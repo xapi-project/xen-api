@@ -50,7 +50,13 @@ let call = Helpers.call_api_functions
 module SR = struct
   let dir = "/var/opt/iso"
 
-  let name hostname = Printf.sprintf "SYSPREP-%s" hostname
+  (* We create a deterministic unique name label to protect us against a
+     user using the same name *)
+  let name hostname =
+    let digest str =
+      Digest.(string str |> to_hex) |> fun hex -> String.sub hex 0 4
+    in
+    Printf.sprintf "SYSPREP-%s-%s" hostname (digest hostname)
 
   let find_opt ~__context ~label =
     match Db.SR.get_by_name_label ~__context ~label with
