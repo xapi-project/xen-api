@@ -534,6 +534,8 @@ let _ =
     () ;
   error Api_errors.vm_lacks_feature ["vm"]
     ~doc:"You attempted an operation on a VM which lacks the feature." () ;
+  error Api_errors.vm_non_suspendable ["vm"; "reason"]
+    ~doc:"You attempted an operation on a VM which is not suspendable." () ;
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" () ;
   error Api_errors.other_operation_in_progress ["class"; "object"]

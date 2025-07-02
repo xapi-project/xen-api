@@ -151,6 +151,12 @@ let has_feature ~vmgmr ~feature =
       try List.assoc feature other = "1" with Not_found -> false
     )
 
+let get_feature ~vmgmr ~feature =
+  Option.bind vmgmr (fun gmr ->
+      let other = gmr.Db_actions.vM_guest_metrics_other in
+      List.assoc_opt feature other
+  )
+
 (* Returns `true` only if we are certain that the VM has booted PV (if there
  * is no metrics record, then we can't tell) *)
 let has_definitely_booted_pv ~vmmr =
@@ -194,9 +200,15 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
         some_err Api_errors.vm_lacks_feature
     | `changing_VCPUs_live when lack_feature "feature-vcpu-hotplug" ->
         some_err Api_errors.vm_lacks_feature
-    | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
-      when strict && lack_feature "feature-suspend" ->
-        some_err Api_errors.vm_lacks_feature
+    | `suspend | `checkpoint | `pool_migrate | `migrate_send -> (
+      match get_feature ~vmgmr ~feature:"data-cant-suspend-reason" with
+      | Some reason ->
+          Some (Api_errors.vm_non_suspendable, [Ref.string_of ref; reason])
+      | None when strict && lack_feature "feature-suspend" ->
+          some_err Api_errors.vm_lacks_feature
+      | None ->
+          None
+    )
     | _ ->
         None
 
