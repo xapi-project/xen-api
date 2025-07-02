@@ -75,9 +75,7 @@ let on_startup ~__context =
   let host = Helpers.get_localhost ~__context in
   let hostname = Db.Host.get_hostname ~__context ~self:host in
   match SR.find_opt ~__context ~label:(SR.name hostname) with
-  | None ->
-      ()
-  | Some sr -> (
+  | Some sr when !Xapi_globs.vm_sysprep_enabled -> (
       Db.SR.get_VDIs ~__context ~self:sr
       |> List.iter @@ fun self ->
          match Db.VDI.get_record ~__context ~self with
@@ -87,6 +85,8 @@ let on_startup ~__context =
          | _ ->
              ()
     )
+  | _ ->
+      () (* none found or not enabled *)
 
 (** create a name with a random infix. We need random names for
     temporary directories to avoid collisions of concurrent API calls *)
