@@ -145,6 +145,7 @@ let make_iso ~vm_uuid ~unattend =
 (** create a local ISO SR when necessary and update it such that it
     recognises any ISO we added or removed *)
 let update_sr ~__context =
+    Backtrace.is_important e ;
   let host = Helpers.get_localhost ~__context in
   let hostname = Db.Host.get_hostname ~__context ~self:host in
   let label = SR.name hostname in
