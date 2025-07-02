@@ -207,11 +207,12 @@ let find_vdi ~__context ~label =
 
 (** notify the VM with [domid] to run sysprep and where to find the
     file. *)
-let trigger ~domid =
+let trigger ~domid ~uuid =
   let open Ezxenstore_core.Xenstore in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
   with_xs (fun xs ->
       xs.Xs.write (control // "filename") "D://unattend.xml" ;
+      xs.Xs.write (control // "vdi-uuid") uuid ;
       xs.Xs.write (control // "action") "sysprep" ;
       debug "%s: notified domain %Ld" __FUNCTION__ domid ;
       let rec wait n =
@@ -258,11 +259,12 @@ let sysprep ~__context ~vm ~unattend =
   let _sr = update_sr ~__context in
   let vbd = find_cdr_vbd ~__context ~vm in
   let vdi = find_vdi ~__context ~label in
+  let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   debug "%s: inserting Sysprep VDI for VM %s" __FUNCTION__ vm_uuid ;
   call ~__context @@ fun rpc session_id ->
   Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
   Thread.delay 5.0 ;
-  match trigger ~domid with
+  match trigger ~domid ~uuid with
   | "running" ->
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
       Client.VBD.eject ~rpc ~session_id ~vbd ;
