@@ -201,7 +201,8 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
     | `changing_VCPUs_live when lack_feature "feature-vcpu-hotplug" ->
         some_err Api_errors.vm_lacks_feature
     | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
-      when strict && lack_feature "feature-suspend" ->
+      when has_feature ~vmgmr ~feature:"data-cant-suspend-reason"
+           || (strict && lack_feature "feature-suspend") ->
         some_err Api_errors.vm_lacks_feature
     | _ ->
         None
