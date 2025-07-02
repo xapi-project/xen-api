@@ -1092,6 +1092,8 @@ let validate_reusable_pool_session = ref false
 let vm_sysprep_enabled = ref false
 (* enable VM.sysprep API *)
 
+let vm_sysprep_wait = ref 5.0 (* seconds *)
+
 let test_open = ref 0
 
 let xapi_requests_cgroup =
@@ -1760,6 +1762,11 @@ let other_options =
     , Arg.Set vm_sysprep_enabled
     , (fun () -> string_of_bool !vm_sysprep_enabled)
     , "Enable VM.sysprep API"
+    )
+  ; ( "vm-sysprep-wait"
+    , Arg.Set_float vm_sysprep_wait
+    , (fun () -> string_of_float !vm_sysprep_wait)
+    , "Time in seconds to wait for VM to recognise inserted CD"
     )
   ]
 
