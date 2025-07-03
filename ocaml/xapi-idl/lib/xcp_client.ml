@@ -190,3 +190,21 @@ let binary_rpc string_of_call response_of_string ?(srcstr = "unset")
 
 let json_binary_rpc =
   binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+
+let rec retry_econnrefused f =
+  try f () with
+  | Unix.Unix_error (Unix.ECONNREFUSED, "connect", _) ->
+      (* debug "Caught ECONNREFUSED; retrying in 5s"; *)
+      Thread.delay 5. ; retry_econnrefused f
+  | e ->
+      (* error "Caught %s: does the service need restarting?"
+         (Printexc.to_string e); *)
+      raise e
+
+let retry_and_switch_rpc call ~use_switch ~queue_name ~dststr ~uri =
+  retry_econnrefused (fun () ->
+      if use_switch then
+        json_switch_rpc queue_name call
+      else
+        xml_http_rpc ~srcstr:(get_user_agent ()) ~dststr uri call
+  )
