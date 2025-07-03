@@ -209,25 +209,20 @@ let find_vdi ~__context ~label =
     file. *)
 let trigger ~domid ~uuid =
   let open Ezxenstore_core.Xenstore in
+  let module Watch = Ezxenstore_core.Watch in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
   with_xs (fun xs ->
       xs.Xs.write (control // "filename") "D://unattend.xml" ;
       xs.Xs.write (control // "vdi-uuid") uuid ;
       xs.Xs.write (control // "action") "sysprep" ;
       debug "%s: notified domain %Ld" __FUNCTION__ domid ;
-      let rec wait n =
-        match (n, xs.Xs.read (control // "action")) with
-        | _, "running" ->
-            "running"
-        | n, action when n < 0 ->
-            action
-        | _, _ ->
-            Thread.delay 1.0 ;
-            wait (n - 1)
-      in
-      (* wait up to 5 iterations for runnung to appear or report whatever
-         is the status at the end *)
-      wait 5
+      try
+        Watch.(
+          wait_for ~xs ~timeout:5.0
+            (value_to_become (control // "action") "running")
+        ) ;
+        "running"
+      with Watch.Timeout _ -> xs.Xs.read (control // "action")
   )
 
 (* This function is executed on the host where [vm] is running *)
@@ -267,6 +262,7 @@ let sysprep ~__context ~vm ~unattend =
   match trigger ~domid ~uuid with
   | "running" ->
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
+      Thread.delay 1.0 ;
       Client.VBD.eject ~rpc ~session_id ~vbd ;
       Sys.remove iso
   | status ->
