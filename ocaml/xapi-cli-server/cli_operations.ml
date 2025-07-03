@@ -3588,6 +3588,24 @@ let vm_data_source_forget printer rpc session_id params =
        params ["data-source"]
     )
 
+let vm_sysprep fd printer rpc session_id params =
+  let filename = List.assoc "filename" params in
+  let unattend =
+    match get_client_file fd filename with
+    | Some xml ->
+        xml
+    | None ->
+        marshal fd (Command (PrintStderr "Failed to read file.\n")) ;
+        raise (ExitWithError 1)
+  in
+  ignore
+    (do_vm_op printer rpc session_id
+       (fun vm ->
+         Client.VM.sysprep ~rpc ~session_id ~self:(vm.getref ()) ~unattend
+       )
+       params ["filename"]
+    )
+
 (* APIs to collect SR level RRDs *)
 let sr_data_source_list printer rpc session_id params =
   ignore

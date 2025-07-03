@@ -1429,3 +1429,5 @@ let host_driver_no_hardware = add_error "HOST_DRIVER_NO_HARDWARE"
 
 let tls_verification_not_enabled_in_pool =
   add_error "TLS_VERIFICATION_NOT_ENABLED_IN_POOL"
+
+let sysprep = add_error "SYSPREP"

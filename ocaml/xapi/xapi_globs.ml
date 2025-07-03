@@ -1089,10 +1089,17 @@ let reuse_pool_sessions = ref false
 let validate_reusable_pool_session = ref false
 (* Validate a reusable session before each use. This is slower and should not be required *)
 
+let vm_sysprep_enabled = ref false
+(* enable VM.sysprep API *)
+
+let vm_sysprep_wait = ref 5.0 (* seconds *)
+
 let test_open = ref 0
 
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
+
+let genisoimage_path = ref "/usr/bin/genisoimage"
 
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
@@ -1751,6 +1758,16 @@ let other_options =
     , (fun () -> string_of_bool !validate_reusable_pool_session)
     , "Enable validation of reusable pool sessions before use"
     )
+  ; ( "vm-sysprep-enabled"
+    , Arg.Set vm_sysprep_enabled
+    , (fun () -> string_of_bool !vm_sysprep_enabled)
+    , "Enable VM.sysprep API"
+    )
+  ; ( "vm-sysprep-wait"
+    , Arg.Set_float vm_sysprep_wait
+    , (fun () -> string_of_float !vm_sysprep_wait)
+    , "Time in seconds to wait for VM to recognise inserted CD"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1942,6 +1959,7 @@ module Resources = struct
       , pvsproxy_close_cache_vdi
       , "Path to close-cache-vdi.sh"
       )
+    ; ("genisoimage", genisoimage_path, "Path to genisoimage")
     ]
 
   let essential_files =

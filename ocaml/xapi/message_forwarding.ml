@@ -3115,6 +3115,16 @@ functor
           (vm_uuid ~__context self) ;
         Local.VM.remove_from_blocked_operations ~__context ~self ~key ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
+
+      let sysprep ~__context ~self ~unattend =
+        info "VM.sysprep: self = '%s'" (vm_uuid ~__context self) ;
+        let local_fn = Local.VM.sysprep ~self ~unattend in
+        let remote_fn = Client.VM.sysprep ~self ~unattend in
+        let policy = Helpers.Policy.fail_immediately in
+        with_vm_operation ~__context ~self ~doc:"VM.sysprep" ~op:`sysprep
+          ~policy (fun () ->
+            forward_vm_op ~local_fn ~__context ~vm:self ~remote_fn
+        )
     end
 
     module VM_metrics = struct end
