@@ -263,7 +263,7 @@ let sysprep ~__context ~vm ~unattend =
   debug "%s: inserting Sysprep VDI for VM %s" __FUNCTION__ vm_uuid ;
   call ~__context @@ fun rpc session_id ->
   Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
-  Thread.delay 5.0 ;
+  Thread.delay !Xapi_globs.vm_sysprep_wait ;
   match trigger ~domid ~uuid with
   | "running" ->
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
