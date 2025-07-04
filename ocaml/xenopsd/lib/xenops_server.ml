@@ -2097,10 +2097,7 @@ let rec perform_atomic ~progress_callback ?result (op : atomic)
   | VBD_unplug (id, force) ->
       debug "VBD.unplug %s" (VBD_DB.string_of_id id) ;
       finally
-        (fun () ->
-          B.VBD.deactivate t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force ;
-          B.VBD.detach t (VBD_DB.vm_of id) (VBD_DB.read_exn id)
-        )
+        (fun () -> B.VBD.unplug t (VBD_DB.vm_of id) (VBD_DB.read_exn id) force)
         (fun () -> VBD_DB.signal id)
   | VBD_deactivate (id, force) ->
       debug "VBD.deactivate %s" (VBD_DB.string_of_id id) ;
