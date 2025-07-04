@@ -402,6 +402,7 @@
     (= :version))) ; the public library is only used for testing
   integers
   ipaddr
+  qcow-stream
   logs
   magic-mime
   mirage-crypto

@@ -35,7 +35,7 @@ END {
     for (idx in CALLS[SYM]) {
       caller = CALLS[SYM][idx];
       print "--"
-      if (caller ~ /caml(Thread|Unix__fun_).*/) {
+      if (caller ~ /caml(Thread|Unix__fun_|Lwt_engine__fun_).*/) {
         # direct calls from these functions to unix_select are expected
         print caller "[expected]"
       } else {

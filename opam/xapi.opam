@@ -34,6 +34,7 @@ depends: [
   "http-lib" {with-test & = version}
   "integers"
   "ipaddr"
+  "qcow-stream"
   "logs"
   "magic-mime"
   "mirage-crypto"
