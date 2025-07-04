@@ -49,6 +49,8 @@ let default_vbd_backend_kind = ref "vbd"
 
 let ca_140252_workaround = ref false
 
+let xen_platform_pci_bar_uc = ref true
+
 let action_after_qemu_crash = ref None
 
 let additional_ballooning_timeout = ref 120.
@@ -206,6 +208,14 @@ let options =
     , Arg.Bool (fun x -> ca_140252_workaround := x)
     , (fun () -> string_of_bool !ca_140252_workaround)
     , "Workaround for evtchn misalignment for legacy PV tools"
+    )
+  ; ( "xen-platform-pci-bar-uc"
+    , Arg.Bool (fun x -> xen_platform_pci_bar_uc := x)
+    , (fun () -> string_of_bool !xen_platform_pci_bar_uc)
+    , "Controls whether, when the VM starts in HVM mode, the Xen PCI MMIO used \
+       by grant tables is mapped as Uncached (UC, the default) or WriteBack \
+       (WB, the workaround). WB mapping could improve performance of devices \
+       using grant tables. This is useful on AMD platform only."
     )
   ; ( "additional-ballooning-timeout"
     , Arg.Set_float additional_ballooning_timeout
