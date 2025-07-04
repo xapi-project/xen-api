@@ -3155,6 +3155,8 @@ let set_ssh_auto_mode ~__context ~self ~value =
        SSH is only enabled during emergency scenarios
        (e.g., when XAPI is down) to allow administrative access for troubleshooting. *)
     if value then (
+      (* Ensure SSH is always enabled when SSH auto mode is on*)
+      Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
       Xapi_systemctl.enable ~wait_until_success:false
         !Xapi_globs.ssh_monitor_service ;
       Xapi_systemctl.start ~wait_until_success:false
@@ -3183,8 +3185,7 @@ let disable_ssh_internal ~__context ~self =
     Helpers.internal_error "Failed to disable SSH access, host: %s"
       (Ref.string_of self)
 
-let schedule_disable_ssh_job ~__context ~self ~timeout ~auto_mode =
-  let host_uuid = Helpers.get_localhost_uuid () in
+let set_expiry ~__context ~self ~timeout =
   let expiry_time =
     match
       Ptime.add_span (Ptime_clock.now ())
@@ -3201,6 +3202,10 @@ let schedule_disable_ssh_job ~__context ~self ~timeout ~auto_mode =
     | Some t ->
         Ptime.to_float_s t |> Date.of_unix_time
   in
+  Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+
+let schedule_disable_ssh_job ~__context ~self ~timeout ~auto_mode =
+  let host_uuid = Helpers.get_localhost_uuid () in
 
   debug "Scheduling SSH disable job for host %s with timeout %Ld seconds"
     host_uuid timeout ;
@@ -3217,9 +3222,7 @@ let schedule_disable_ssh_job ~__context ~self ~timeout ~auto_mode =
       (* re-enable SSH auto mode if it was enabled before calling host.enable_ssh *)
       if auto_mode then
         set_ssh_auto_mode ~__context ~self ~value:true
-  ) ;
-
-  Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+  )
 
 let enable_ssh ~__context ~self =
   try
@@ -3239,6 +3242,7 @@ let enable_ssh ~__context ~self =
           !Xapi_globs.job_for_disable_ssh ;
         Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
     | t ->
+        set_expiry ~__context ~self ~timeout:t ;
         schedule_disable_ssh_job ~__context ~self ~timeout:t
           ~auto_mode:cached_ssh_auto_mode
     ) ;
@@ -3279,6 +3283,7 @@ let set_ssh_enabled_timeout ~__context ~self ~value =
           !Xapi_globs.job_for_disable_ssh ;
         Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
     | t ->
+        set_expiry ~__context ~self ~timeout:t ;
         schedule_disable_ssh_job ~__context ~self ~timeout:t ~auto_mode:false
 
 let set_console_idle_timeout ~__context ~self ~value =
