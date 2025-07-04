@@ -15,7 +15,7 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #
 # attach
-# ./usb_reset.py attach device -d dom-id [-r]
+# ./usb_reset.py attach device -d dom-id -p pid [-r]
 # ./usb_reset.py attach 2-2 -d 12 -p 4130
 # ./usb_reset.py attach 2-2 -d 12 -p 4130 -r
 # 1. reset device
@@ -23,18 +23,21 @@
 # 2. if it's the first USB device to pass-through
 #      a) bind mount /sys in chroot directory (/var/xen/qemu/root-<domid>)
 #      b) clone (create the device with same major/minor number and mode) in chroot directory with same path
+#      c) bind mount /proc/<pid> to chroot directory (/var/xen/qemu/root-<domid>/proc/self)
 # 3. set device file uid/gid to (qemu_base + dom-id)
 #
 # detach
 # ./usb_reset.py detach device -d dom-id
 # ./usb_reset.py detach 2-2 -d 12
 # 1. Remove the cloned device file in chroot directory
+# 2. Umount /proc/self from chroot directory if it is mounted
 #
 # cleanup
 # ./usb_reset.py cleanup -d dom-id
 # ./usb_reset.py cleanup -d 12
 # 1.umount /sys from chroot directory if they are mounted.
-# 2.remove /dev/bus directory in chroot directory if it exists
+# 2.umount /proc/self from chroot directory if they are mounted.
+# 3.remove /dev/bus directory in chroot directory if it exists
 
 import argparse
 import ctypes
@@ -58,6 +61,8 @@ def parse_arg():
     attach.add_argument("device", help="the target usb device")
     attach.add_argument("-d", dest="domid", type=int, required=True,
                         help="specify the domid of the VM")
+    attach.add_argument("-p", dest="pid", type=int, required=True,
+                        help="the process id of QEMU")
     attach.add_argument("-r", dest="reset_only", action="store_true",
                         help="reset device only, for privileged mode")
 
@@ -152,7 +157,7 @@ def clone_device(path, root_dir, domid):
         exit(1)
 
 
-def attach(device, domid, reset_only):
+def attach(device, domid, pid, reset_only):
     path = dev_path(device)
 
     # reset device
@@ -177,15 +182,18 @@ def attach(device, domid, reset_only):
     clone_device(path, root_dir, domid)
 
     sys_dir = root_dir + "/sys"
+    proc_dir = root_dir + "/proc"
     # sys_dir could already be mounted because of PCI pass-through
-    if not os.path.isdir(sys_dir):
-        try:
-            os.mkdir(sys_dir, 0o755)
-        except OSError:
-            log.error("Failed to create sys dir in chroot")
-            exit(1)
+    os.makedirs(sys_dir, exist_ok=True, mode=0o755)
     if not os.path.isdir(sys_dir + "/devices"):
         mount("/sys", sys_dir, "sysfs")
+
+    self_dir = os.path.join(proc_dir, "self")
+    os.makedirs(self_dir , exist_ok=True, mode=0o755)
+    fd_dir = os.path.join(self_dir, "fd")
+    if not os.path.isdir(fd_dir):
+        MS_BIND = 4096  # mount flags, from fs.h
+        mount(f"/proc/{pid}/", self_dir, "", MS_BIND)
 
 
 def detach(device, domid):
@@ -201,11 +209,17 @@ def cleanup(domid):
     dev_dir = root_dir + "/dev"
     sys_dir = root_dir + "/sys"
     bus_dir = dev_dir + "/bus"
+    proc_dir = root_dir + "/proc"
+    self_dir = proc_dir + "/self"
     if os.path.isdir(bus_dir):
         log.info("Removing bus directory: {} for cleanup".format(bus_dir))
         shutil.rmtree(bus_dir)
     if os.path.isdir(sys_dir + "/devices"):
         umount(sys_dir)
+    if os.path.exists(sys_dir) and os.path.ismount(self_dir):
+        umount(self_dir)
+        log.info("Removing proc directory: {} for cleanup".format(proc_dir))
+        shutil.rmtree(proc_dir)
 
 
 if __name__ == "__main__":
@@ -214,7 +228,7 @@ if __name__ == "__main__":
     arg = parse_arg()
 
     if "attach" == arg.command:
-        attach(arg.device, arg.domid, arg.reset_only)
+        attach(arg.device, arg.domid, arg.pid, arg.reset_only)
     elif "detach" == arg.command:
         detach(arg.device, arg.domid)
     elif "cleanup" == arg.command:
