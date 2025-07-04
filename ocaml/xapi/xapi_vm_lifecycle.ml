@@ -152,6 +152,12 @@ let has_feature ~vmgmr ~feature =
       try List.assoc feature other = "1" with Not_found -> false
     )
 
+let get_feature ~vmgmr ~feature =
+  Option.bind vmgmr (fun gmr ->
+      let other = gmr.Db_actions.vM_guest_metrics_other in
+      List.assoc_opt feature other
+  )
+
 (* Returns `true` only if we are certain that the VM has booted PV (if there
  * is no metrics record, then we can't tell) *)
 let has_definitely_booted_pv ~vmmr =
@@ -167,10 +173,6 @@ let has_definitely_booted_pv ~vmmr =
   )
 
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
- *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
- *  on resume (only on startup), so we cannot rely just on that flag. We therefore
- *  add a clause that enables all features when PV drivers are present using the
- *  old-style check.
  *  The "strict" param should be true for determining the allowed_operations list
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
@@ -181,8 +183,6 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
     power_state <> `Running
     (* PV guests offer support implicitly *)
     || has_definitely_booted_pv ~vmmr
-    || Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr))
-    (* Full PV drivers imply all features *)
   then
     None
   else
@@ -201,9 +201,15 @@ let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
         some_err Api_errors.vm_lacks_feature
     | `changing_VCPUs_live when lack_feature "feature-vcpu-hotplug" ->
         some_err Api_errors.vm_lacks_feature
-    | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
-      when strict && lack_feature "feature-suspend" ->
-        some_err Api_errors.vm_lacks_feature
+    | `suspend | `checkpoint | `pool_migrate | `migrate_send -> (
+      match get_feature ~vmgmr ~feature:"data-cant-suspend-reason" with
+      | Some reason ->
+          Some (Api_errors.vm_non_suspendable, [Ref.string_of ref; reason])
+      | None when strict && lack_feature "feature-suspend" ->
+          some_err Api_errors.vm_lacks_feature
+      | None ->
+          None
+    )
     | _ ->
         None
 
