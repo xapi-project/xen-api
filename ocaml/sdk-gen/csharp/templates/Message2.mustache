@@ -47,6 +47,7 @@ namespace XenAPI
             WLB_HOST_POWER_ON,
             WLB_SERVER_TIME_DISCREPANCY,
             WLB_VM_RELOCATION,
+            LICENSE_SERVER_NOT_REGISTERED,
 {{#message_types}}
             {{{message_type}}},
 {{/message_types}}
@@ -85,6 +86,8 @@ namespace XenAPI
                         return MessageType.WLB_SERVER_TIME_DISCREPANCY;
                     case "WLB_VM_RELOCATION":
                         return MessageType.WLB_VM_RELOCATION;
+                    case "LICENSE_SERVER_NOT_REGISTERED":
+                        return MessageType.LICENSE_SERVER_NOT_REGISTERED;
 {{#message_types}}
                     case "{{{message_type}}}":
                         return MessageType.{{{message_type}}};
