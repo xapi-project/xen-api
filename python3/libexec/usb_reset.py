@@ -22,7 +22,8 @@
 # if without -r, do step 2~3
 # 2. if it's the first USB device to pass-through
 #      a) bind mount /sys in chroot directory (/var/xen/qemu/root-<domid>)
-#      b) clone (create the device with same major/minor number and mode) in chroot directory with same path
+#      b) clone (create the device with same major/minor number and mode)
+#         in chroot directory with same path
 #      c) bind mount /proc/<pid> to chroot directory (/var/xen/qemu/root-<domid>/proc/self)
 # 3. set device file uid/gid to (qemu_base + dom-id)
 #
@@ -44,13 +45,14 @@ import ctypes
 import ctypes.util
 import fcntl
 import grp
-import xcp.logger as log  # pytype: disable=import-error
 import logging
 import os
 import pwd
 import re
 import shutil
+import sys
 
+import xcp.logger as log  # pytype: disable=import-error
 
 def parse_arg():
     parser = argparse.ArgumentParser(
@@ -94,14 +96,14 @@ def dev_path(device):
     pat = re.compile(r"\d+-\d+(\.\d+)*$")
     if pat.match(device) is None:
         log.error("Unexpected device node: {}".format(device))
-        exit(1)
+        sys.exit(1)
     try:
         bus = read_int("/sys/bus/usb/devices/{}/busnum".format(device))
         dev = read_int("/sys/bus/usb/devices/{}/devnum".format(device))
         return "/dev/bus/usb/{0:03d}/{1:03d}".format(bus, dev)
     except (IOError, ValueError) as e:
         log.error("Failed to get device path {}: {}".format(device, str(e)))
-        exit(1)
+        sys.exit(1)
 
 
 def mount(source, target, fs, flags=0):
@@ -110,7 +112,7 @@ def mount(source, target, fs, flags=0):
         log.error("Failed to mount {} ({}) to {} with flags {}: {}".
                   format(source, fs, target, flags,
                          os.strerror(ctypes.get_errno())))
-        exit(1)
+        sys.exit(1)
 
 
 def umount(target):
@@ -140,7 +142,7 @@ def clone_device(path, root_dir, domid):
         st = os.stat(path)
     except OSError as e:
         log.error("Failed to get stat of {}: {}".format(path, str(e)))
-        exit(1)
+        sys.exit(1)
 
     mode = st.st_mode
     major = os.major(st.st_rdev)
@@ -154,7 +156,7 @@ def clone_device(path, root_dir, domid):
                  grp.getgrnam("qemu_base").gr_gid + domid)
     except OSError as e:
         log.error("Failed to chown device file {}: {}".format(path, str(e)))
-        exit(1)
+        sys.exit(1)
 
 
 def attach(device, domid, pid, reset_only):
@@ -177,7 +179,7 @@ def attach(device, domid, pid, reset_only):
     dev_dir = root_dir + "/dev"
     if not os.path.isdir(root_dir) or not os.path.isdir(dev_dir):
         log.error("Error: The chroot or dev directory doesn't exist")
-        exit(1)
+        sys.exit(1)
 
     clone_device(path, root_dir, domid)
 
@@ -235,4 +237,4 @@ if __name__ == "__main__":
         cleanup(arg.domid)
     else:
         log.error("Unexpected command: {}".format(arg.command))
-        exit(1)
+        sys.exit(1)
