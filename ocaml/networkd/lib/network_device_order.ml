@@ -65,12 +65,11 @@ module Pciaddr = struct
 
   let compare t1 t2 =
     let open Xcp_pci in
-    let ( <?> ) a b = match a () with 0 -> b | x -> Fun.const x in
-    let cmp1 () = compare t1.domain t2.domain in
-    let cmp2 () = compare t1.bus t2.bus in
-    let cmp3 () = compare t1.dev t2.dev in
-    let cmp4 () = compare t1.fn t2.fn in
-    (cmp1 <?> cmp2 <?> cmp3 <?> cmp4) ()
+    let ( <?> ) a b = if a = 0 then Lazy.force b else a in
+    compare t1.domain t2.domain
+    <?> lazy (compare t1.bus t2.bus)
+    <?> lazy (compare t1.dev t2.dev)
+    <?> lazy (compare t1.fn t2.fn)
 end
 
 module Macaddr = struct
