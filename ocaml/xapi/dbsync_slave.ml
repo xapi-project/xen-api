@@ -396,7 +396,17 @@ let update_env __context sync_keys =
          and user may have disabled monitor service by mistake as well, so we need to check the status. *)
       if auto_mode_in_db <> ssh_monitor_enabled then
         Xapi_host.set_ssh_auto_mode ~__context ~self:localhost
-          ~value:auto_mode_in_db
+          ~value:auto_mode_in_db ;
+      let console_timeout =
+        Db.Host.get_console_idle_timeout ~__context ~self:localhost
+      in
+      let console_timeout_file_exists =
+        Sys.file_exists !Xapi_globs.console_timeout_profile_path
+      in
+      (* Ensure the console timeout profile file exists if the timeout is configured *)
+      if console_timeout > 0L && not console_timeout_file_exists then
+        Xapi_host.set_console_idle_timeout ~__context ~self:localhost
+          ~value:console_timeout
   ) ;
 
   remove_pending_guidances ~__context
