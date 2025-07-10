@@ -102,5 +102,9 @@ module NumaNode : sig
   val from : int -> t
 end
 
+exception Not_available
+
 val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
-(** Raises {Unix_error} if there's not enough memory to claim in the system *)
+(** Raises {Unix_error} if there's not enough memory to claim in the system.
+    Raises {Not_available} if a single numa node is requested and xen does not
+    provide page claiming for single numa nodes. *)

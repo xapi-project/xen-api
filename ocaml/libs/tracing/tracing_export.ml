@@ -278,8 +278,8 @@ module Destination = struct
             ]
           in
           let@ _ =
-            with_tracing ~trace_context:TraceContext.empty ~parent ~attributes
-              ~name
+            with_tracing ~span_kind:Server ~trace_context:TraceContext.empty
+              ~parent ~attributes ~name
           in
           all_spans
           |> Content.Json.ZipkinV2.content_of
@@ -293,8 +293,8 @@ module Destination = struct
     let ((_span_list, span_count) as span_info) = Spans.since () in
     let attributes = [("export.traces.count", string_of_int span_count)] in
     let@ parent =
-      with_tracing ~trace_context:TraceContext.empty ~parent:None ~attributes
-        ~name:"Tracing.flush_spans"
+      with_tracing ~span_kind:Server ~trace_context:TraceContext.empty
+        ~parent:None ~attributes ~name:"Tracing.flush_spans"
     in
     TracerProvider.get_tracer_providers ()
     |> List.filter TracerProvider.get_enabled
@@ -305,6 +305,8 @@ module Destination = struct
 
   (* Note this signal will flush the spans and terminate the exporter thread *)
   let signal () = Delay.signal delay
+
+  let wait_exit = Delay.make ()
 
   let create_exporter () =
     enable_span_garbage_collector () ;
@@ -319,7 +321,8 @@ module Destination = struct
             signaled := true
           ) ;
           flush_spans ()
-        done
+        done ;
+        Delay.signal wait_exit
       )
       ()
 
@@ -339,6 +342,12 @@ module Destination = struct
     )
 end
 
-let flush_and_exit = Destination.signal
+let flush_and_exit ~max_wait () =
+  D.debug "flush_and_exit: signaling thread to export now" ;
+  Destination.signal () ;
+  if Delay.wait Destination.wait_exit max_wait then
+    D.info "flush_and_exit: timeout on span export"
+  else
+    D.debug "flush_and_exit: span export finished"
 
 let main = Destination.main

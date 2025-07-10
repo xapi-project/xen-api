@@ -307,7 +307,7 @@ and create_domain_zero_console_record_with_protocol ~__context ~domain_zero_ref
   let location =
     Uri.(
       make ~scheme:"https" ~host:address ~path:Constants.console_uri
-        ~query:[("ref", [Ref.string_of domain_zero_ref])]
+        ~query:[("ref", [Ref.string_of console_ref])]
         ()
       |> to_string
     )
@@ -579,16 +579,16 @@ let create_host_cpu ~__context host_info =
         ; ("model", cpu_info.model)
         ; ("stepping", cpu_info.stepping)
         ; ("flags", cpu_info.flags)
-        ; ( Xapi_globs.cpu_info_features_pv_key
+        ; ( Constants.cpu_info_features_pv_key
           , CPU_policy.to_string cpu_info.features_pv
           )
-        ; ( Xapi_globs.cpu_info_features_hvm_key
+        ; ( Constants.cpu_info_features_hvm_key
           , CPU_policy.to_string cpu_info.features_hvm
           )
-        ; ( Xapi_globs.cpu_info_features_hvm_host_key
+        ; ( Constants.cpu_info_features_hvm_host_key
           , CPU_policy.to_string cpu_info.features_hvm_host
           )
-        ; ( Xapi_globs.cpu_info_features_pv_host_key
+        ; ( Constants.cpu_info_features_pv_host_key
           , CPU_policy.to_string cpu_info.features_pv_host
           )
         ]
@@ -698,8 +698,8 @@ let create_pool_cpuinfo ~__context =
       ("vendor", "")
     ; ("socket_count", "0")
     ; ("cpu_count", "0")
-    ; (Xapi_globs.cpu_info_features_pv_host_key, "")
-    ; (Xapi_globs.cpu_info_features_hvm_host_key, "")
+    ; (Constants.cpu_info_features_pv_host_key, "")
+    ; (Constants.cpu_info_features_hvm_host_key, "")
     ]
   in
   let pool_cpuinfo = List.fold_left merge zero all_host_cpus in

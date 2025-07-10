@@ -303,6 +303,7 @@ module Vbd = struct
     ; extra_private_keys: (string * string) list [@default []]
     ; qos: qos option [@default None]
     ; persistent: bool [@default true]
+    ; can_attach_early: bool [@default false]
   }
   [@@deriving rpcty]
 
@@ -443,16 +444,6 @@ module Dynamic = struct
   [@@deriving rpcty]
 
   type barrier = int * id list [@@deriving rpcty]
-
-  type t =
-    | Vm_t of Vm.id * (Vm.t * Vm.state) option
-    | Vbd_t of Vbd.id * (Vbd.t * Vbd.state) option
-    | Vif_t of Vif.id * (Vif.t * Vif.state) option
-    | Pci_t of Pci.id * (Pci.t * Pci.state) option
-    | Vgpu_t of Vgpu.id * (Vgpu.t * Vgpu.state) option
-    | Vusb_t of Vusb.id * (Vusb.t * Vusb.state) option
-    | Task_t of Task.id * Task.t option
-  [@@deriving rpcty]
 
   let rpc_of_id = Rpcmarshal.marshal id.Rpc.Types.ty
 end
@@ -1155,80 +1146,5 @@ module XenopsAPI (R : RPC) = struct
         (debug_info_p @-> unit_p @-> returning unit_p err)
   end
 
-  module Observer = struct
-    open TypeCombinators
-
-    let endpoints_p = Param.mk ~name:"endpoints" (list Types.string)
-
-    let bool_p = Param.mk ~name:"bool" Types.bool
-
-    let uuid_p = Param.mk ~name:"uuid" Types.string
-
-    let name_label_p = Param.mk ~name:"name_label" Types.string
-
-    let dict_p = Param.mk ~name:"dict" dict
-
-    let string_p = Param.mk ~name:"string" Types.string
-
-    let int_p = Param.mk ~name:"int" Types.int
-
-    let float_p = Param.mk ~name:"float" Types.float
-
-    let create =
-      declare "Observer.create" []
-        (debug_info_p
-        @-> uuid_p
-        @-> name_label_p
-        @-> dict_p
-        @-> endpoints_p
-        @-> bool_p
-        @-> returning unit_p err
-        )
-
-    let destroy =
-      declare "Observer.destroy" []
-        (debug_info_p @-> uuid_p @-> returning unit_p err)
-
-    let set_enabled =
-      declare "Observer.set_enabled" []
-        (debug_info_p @-> uuid_p @-> bool_p @-> returning unit_p err)
-
-    let set_attributes =
-      declare "Observer.set_attributes" []
-        (debug_info_p @-> uuid_p @-> dict_p @-> returning unit_p err)
-
-    let set_endpoints =
-      declare "Observer.set_endpoints" []
-        (debug_info_p @-> uuid_p @-> endpoints_p @-> returning unit_p err)
-
-    let init = declare "Observer.init" [] (debug_info_p @-> returning unit_p err)
-
-    let set_trace_log_dir =
-      declare "Observer.set_trace_log_dir" []
-        (debug_info_p @-> string_p @-> returning unit_p err)
-
-    let set_export_interval =
-      declare "Observer.set_export_interval" []
-        (debug_info_p @-> float_p @-> returning unit_p err)
-
-    let set_host_id =
-      declare "Observer.set_host_id" []
-        (debug_info_p @-> string_p @-> returning unit_p err)
-
-    let set_max_traces =
-      declare "Observer.set_max_traces" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_max_spans =
-      declare "Observer.set_max_spans" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_max_file_size =
-      declare "Observer.set_max_file_size" []
-        (debug_info_p @-> int_p @-> returning unit_p err)
-
-    let set_compress_tracing_files =
-      declare "Observer.set_compress_tracing_files" []
-        (debug_info_p @-> bool_p @-> returning unit_p err)
-  end
+  module Observer = Observer_helpers.ObserverAPI (R)
 end

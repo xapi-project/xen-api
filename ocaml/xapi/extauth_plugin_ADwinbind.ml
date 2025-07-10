@@ -686,11 +686,30 @@ module Wbinfo = struct
   let parse_uid_info stdout =
     (* looks like one line from /etc/passwd: https://en.wikipedia.org/wiki/Passwd#Password_file *)
     match String.split_on_char ':' stdout with
-    | [user_name; _passwd; uid; gid; gecos; _homedir; _shell] -> (
-      try Ok {user_name; uid= int_of_string uid; gid= int_of_string gid; gecos}
-      with _ -> Error ()
-    )
+    | user_name :: _passwd :: uid :: gid :: rest -> (
+        (* We expect at least homedir and shell at the end *)
+        let rest = List.rev rest in
+        match rest with
+        | _shell :: _homedir :: tail -> (
+            (* Rev it back to original order *)
+            let tail = List.rev tail in
+            let gecos = String.concat ":" tail in
+            try
+              Ok
+                {
+                  user_name
+                ; uid= int_of_string uid
+                ; gid= int_of_string gid
+                ; gecos
+                }
+            with _ -> Error ()
+          )
+        | _ ->
+            debug "%s uid_info format error: %s" __FUNCTION__ stdout ;
+            Error ()
+      )
     | _ ->
+        debug "%s uid_info format error: %s" __FUNCTION__ stdout ;
         Error ()
 
   let uid_info_of_uid (uid : int) =
@@ -1415,23 +1434,6 @@ module ConfigHosts = struct
     |> write_string_to_file path
 end
 
-module ResolveConfig = struct
-  let path = "/etc/resolv.conf"
-
-  type t = Add | Remove
-
-  let handle op domain =
-    let open Xapi_stdext_unix.Unixext in
-    let config = Printf.sprintf "search %s" domain in
-    read_lines ~path |> List.filter (fun x -> x <> config) |> fun x ->
-    (match op with Add -> config :: x | Remove -> x) |> fun x ->
-    x @ [""] |> String.concat "\n" |> write_string_to_file path
-
-  let join ~domain = handle Add domain
-
-  let leave ~domain = handle Remove domain
-end
-
 module DNSSync = struct
   let task_name = "Sync hostname with DNS"
 
@@ -1808,7 +1810,11 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
       ClosestKdc.trigger_update ~start:0. ;
       RotateMachinePassword.trigger_rotate ~start:0. ;
       ConfigHosts.join ~domain:service_name ~name:netbios_name ;
-      ResolveConfig.join ~domain:service_name ;
+      let _, _ =
+        Forkhelpers.execute_command_get_output !Xapi_globs.set_hostname
+          [get_localhost_name ()]
+      in
+      (* Trigger right now *)
       DNSSync.trigger_sync ~start:0. ;
       Winbind.set_machine_account_encryption_type netbios_name ;
       debug "Succeed to join domain %s" service_name
@@ -1817,7 +1823,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         error "Join domain: %s error: %s" service_name stdout ;
         clear_winbind_config () ;
         ConfigHosts.leave ~domain:service_name ~name:netbios_name ;
-        ResolveConfig.leave ~domain:service_name ;
         (* The configure is kept for debug purpose with max level *)
         raise (Auth_service_error (stdout |> tag_from_err_msg, stdout))
     | Xapi_systemctl.Systemctl_fail _ ->
@@ -1825,7 +1830,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         error "Start daemon error: %s" msg ;
         config_winbind_daemon ~domain:None ~workgroup:None ~netbios_name:None ;
         ConfigHosts.leave ~domain:service_name ~name:netbios_name ;
-        ResolveConfig.leave ~domain:service_name ;
         raise (Auth_service_error (E_GENERIC, msg))
     | e ->
         let msg =
@@ -1837,7 +1841,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
         error "Enable extauth error: %s" msg ;
         clear_winbind_config () ;
         ConfigHosts.leave ~domain:service_name ~name:netbios_name ;
-        ResolveConfig.leave ~domain:service_name ;
         raise (Auth_service_error (E_GENERIC, msg))
 
   (* unit on_disable()
@@ -1852,7 +1855,6 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
     let user = List.assoc_opt "user" config_params in
     let pass = List.assoc_opt "pass" config_params in
     let {service_name; netbios_name; _} = get_domain_info_from_db () in
-    ResolveConfig.leave ~domain:service_name ;
     DNSSync.stop_sync () ;
     ( match netbios_name with
     | Some netbios ->

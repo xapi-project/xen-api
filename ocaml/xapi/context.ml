@@ -504,11 +504,40 @@ let get_client_ip context =
 let get_user_agent context =
   match context.origin with Internal -> None | Http (rq, _) -> rq.user_agent
 
-let with_tracing ?originator ~__context name f =
+let finally_destroy_context ~__context f =
+  let tracing = __context.tracing in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () -> f __context)
+    (fun () ->
+      __context.tracing <- tracing ;
+      destroy __context ;
+      __context.tracing <- None
+    )
+
+let with_context ?http_other_config ?quiet ?subtask_of ?session_id ?database
+    ?task_in_database ?task_description ?origin task_name f =
+  let __context =
+    make ?http_other_config ?quiet ?subtask_of ?session_id ?database
+      ?task_in_database ?task_description ?origin task_name
+  in
+  finally_destroy_context ~__context f
+
+let with_subcontext ~__context ?task_in_database task_name f =
+  let __context = make_subcontext ~__context ?task_in_database task_name in
+  finally_destroy_context ~__context f
+
+let with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
+  let __context =
+    from_forwarded_task ?http_other_config ?session_id ?origin task_id
+  in
+  finally_destroy_context ~__context f
+
+let with_tracing ?(attributes = []) ?originator ~__context name f =
   let open Tracing in
   let parent = __context.tracing in
   let span_attributes =
     Attributes.attr_of_originator originator
+    @ attributes
     @ make_attributes ~task_id:__context.task_id
         ?session_id:__context.session_id ()
   in

@@ -162,7 +162,8 @@ module Sysfs = struct
     with
     | End_of_file ->
         ""
-    | Unix.Unix_error (Unix.EINVAL, _, _) ->
+    | Unix.Unix_error (Unix.EINVAL, _, _) | Unix.Unix_error (Unix.ENOENT, _, _)
+      ->
         (* The device is not yet up *)
         raise (Network_error (Read_error file))
     | exn ->
@@ -180,17 +181,28 @@ module Sysfs = struct
       close_out outchan ;
       raise (Network_error (Write_error file))
 
-  let is_physical name =
+  exception Unable_to_read_driver_link
+
+  let is_vif name =
+    let devpath = getpath name "device" in
     try
-      let devpath = getpath name "device" in
       let driver_link = Unix.readlink (devpath ^ "/driver") in
       (* filter out symlinks under device/driver which look like
          /../../../devices/xen-backend/vif- *)
-      not
-        (List.mem "xen-backend"
-           (Astring.String.cuts ~empty:false ~sep:"/" driver_link)
-        )
+      List.mem "xen-backend"
+        (Astring.String.cuts ~empty:false ~sep:"/" driver_link)
+    with _ -> raise Unable_to_read_driver_link
+
+  let is_vf name =
+    let devpath = getpath name "device" in
+    try
+      ignore @@ Unix.readlink (devpath ^ "/physfn") ;
+      true
     with _ -> false
+
+  let is_physical name =
+    try not (is_vif name || is_vf name)
+    with Unable_to_read_driver_link -> false
 
   (* device types are defined in linux/if_arp.h *)
   let is_ether_device name =
@@ -1546,7 +1558,7 @@ module Ovs = struct
       let vif_arg =
         let existing_vifs =
           List.filter
-            (fun iface -> not (Sysfs.is_physical iface))
+            (fun iface -> try Sysfs.is_vif iface with _ -> false)
             (bridge_to_interfaces name)
         in
         let ifaces_with_type =

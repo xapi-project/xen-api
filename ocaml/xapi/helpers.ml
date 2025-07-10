@@ -174,8 +174,13 @@ let get_localhost ~__context =
   match localhost_ref = Ref.null with
   | false ->
       localhost_ref
-  | true ->
-      get_localhost_uncached ~__context
+  | true -> (
+    try get_localhost_uncached ~__context
+    with Db_exn.Read_missing_uuid (_, _, _) as e ->
+      Unixext.raise_with_preserved_backtrace e (fun () ->
+          warn "The database has not fully come up yet, so localhost is missing"
+      )
+  )
 
 (* Determine the gateway and DNS PIFs:
  * If one of the PIFs with IP has other_config:defaultroute=true, then
@@ -589,6 +594,7 @@ let call_api_functions ~__context f =
       call_api_functions_internal ~__context f
 
 let call_emergency_mode_functions hostname f =
+  let __FUN = __FUNCTION__ in
   let open Xmlrpc_client in
   let transport =
     SSL
@@ -607,7 +613,13 @@ let call_emergency_mode_functions hostname f =
   in
   finally
     (fun () -> f rpc session_id)
-    (fun () -> Client.Client.Session.local_logout ~rpc ~session_id)
+    (fun () ->
+      try Client.Client.Session.local_logout ~rpc ~session_id
+      with _ ->
+        (* This is an emergency mode function, so we don't care about the error
+           in logout *)
+        debug "%s: The logout failed in emergency mode function" __FUN
+    )
 
 let is_domain_zero_with_record ~__context vm_ref vm_rec =
   let host_ref = vm_rec.API.vM_resident_on in

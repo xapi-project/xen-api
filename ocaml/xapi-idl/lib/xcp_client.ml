@@ -38,10 +38,35 @@ let switch_rpc ?timeout queue_name string_of_call response_of_string =
     get_ok
       (Message_switch_unix.Protocol_unix.Client.connect ~switch:!switch_path ())
   in
-  fun call ->
+  fun (call : Rpc.call) ->
+    let _span_parent =
+      call.params
+      |> List.find_map (function Rpc.Dict kv_list -> Some kv_list | _ -> None)
+      |> Fun.flip Option.bind
+           (List.find_map (function
+             | "debug_info", Rpc.String debug_info ->
+                 let di = debug_info |> Debug_info.of_string in
+                 di.tracing
+             | _ ->
+                 None
+             )
+             )
+    in
+    let rpc_service = "message_switch" in
+    Tracing.with_tracing
+      ~attributes:
+        [
+          ("rpc.system", "ocaml-rpc")
+        ; ("rpc.service", rpc_service)
+        ; ("server.address", queue_name)
+        ; ("rpc.method", call.name)
+        ]
+      ~parent:_span_parent
+      ~name:(rpc_service ^ "/" ^ call.name)
+    @@ fun _span_parent ->
     response_of_string
       (get_ok
-         (Message_switch_unix.Protocol_unix.Client.rpc ~t ?timeout
+         (Message_switch_unix.Protocol_unix.Client.rpc ?_span_parent ~t ?timeout
             ~queue:queue_name ~body:(string_of_call call) ()
          )
       )
@@ -165,3 +190,21 @@ let binary_rpc string_of_call response_of_string ?(srcstr = "unset")
 
 let json_binary_rpc =
   binary_rpc Jsonrpc.string_of_call Jsonrpc.response_of_string
+
+let rec retry_econnrefused f =
+  try f () with
+  | Unix.Unix_error (Unix.ECONNREFUSED, "connect", _) ->
+      (* debug "Caught ECONNREFUSED; retrying in 5s"; *)
+      Thread.delay 5. ; retry_econnrefused f
+  | e ->
+      (* error "Caught %s: does the service need restarting?"
+         (Printexc.to_string e); *)
+      raise e
+
+let retry_and_switch_rpc call ~use_switch ~queue_name ~dststr ~uri =
+  retry_econnrefused (fun () ->
+      if use_switch then
+        json_switch_rpc queue_name call
+      else
+        xml_http_rpc ~srcstr:(get_user_agent ()) ~dststr uri call
+  )

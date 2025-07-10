@@ -25,7 +25,7 @@ let export_thread =
   (* need to ensure this isn't running outside the benchmarked section,
      or bechamel might fail with 'Failed to stabilize GC'
   *)
-  let after _ = Tracing_export.flush_and_exit () in
+  let after _ = Tracing_export.flush_and_exit ~max_wait:0. () in
   Bechamel_simple_cli.thread_workload ~before:Tracing_export.main ~after
     ~run:ignore
 
@@ -52,7 +52,7 @@ let allocate () =
 
 let free t =
   Tracing.TracerProvider.destroy ~uuid ;
-  Tracing_export.flush_and_exit () ;
+  Tracing_export.flush_and_exit ~max_wait:0. () ;
   Thread.join t
 
 let test_tracing_on ?(overflow = false) ~name f =

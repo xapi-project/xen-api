@@ -239,6 +239,8 @@ let prototyped_of_message = function
       Some "25.2.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
+  | "VM", "sysprep" ->
+      Some "25.24.0"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
@@ -246,7 +248,7 @@ let prototyped_of_message = function
   | "VM", "restart_device_models" ->
       Some "23.30.0"
   | "VM", "call_host_plugin" ->
-      Some "25.21.0-next"
+      Some "25.22.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
   | "pool", "set_console_idle_timeout" ->

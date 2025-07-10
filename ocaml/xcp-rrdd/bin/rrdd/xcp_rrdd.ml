@@ -119,261 +119,6 @@ let start (xmlrpc_path, http_fwd_path) process =
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-(*****************************************************)
-(* xenstore related code                             *)
-(*****************************************************)
-
-module XSW_Debug = Debug.Make (struct let name = "xenstore_watch" end)
-
-module Watch = Ez_xenstore_watch.Make (XSW_Debug)
-
-module Xs = struct
-  module Client = Xs_client_unix.Client (Xs_transport_unix_client)
-
-  let client = ref None
-
-  (* Initialise the clients on demand - must be done after daemonisation! *)
-  let get_client () =
-    match !client with
-    | Some client ->
-        client
-    | None ->
-        let c = Client.make () in
-        client := Some c ;
-        c
-end
-
-(* Map from domid to the latest seen meminfo_free value *)
-let current_meminfofree_values = ref Watch.IntMap.empty
-
-let meminfo_path domid =
-  Printf.sprintf "/local/domain/%d/data/meminfo_free" domid
-
-module Meminfo = struct
-  let watch_token domid = Printf.sprintf "xcp-rrdd:domain-%d" domid
-
-  let interesting_paths_for_domain domid _uuid = [meminfo_path domid]
-
-  let fire_event_on_vm domid domains =
-    let d = int_of_string domid in
-    if not (Watch.IntMap.mem d domains) then
-      info "Ignoring watch on shutdown domain %d" d
-    else
-      let path = meminfo_path d in
-      try
-        let client = Xs.get_client () in
-        let meminfo_free_string =
-          Xs.Client.immediate client (fun xs -> Xs.Client.read xs path)
-        in
-        let meminfo_free = Int64.of_string meminfo_free_string in
-        info "memfree has changed to %Ld in domain %d" meminfo_free d ;
-        current_meminfofree_values :=
-          Watch.IntMap.add d meminfo_free !current_meminfofree_values
-      with Xs_protocol.Enoent _hint ->
-        info
-          "Couldn't read path %s; forgetting last known memfree value for \
-           domain %d"
-          path d ;
-        current_meminfofree_values :=
-          Watch.IntMap.remove d !current_meminfofree_values
-
-  let watch_fired _ _xc path domains _ =
-    match
-      List.filter (fun x -> x <> "") Astring.String.(cuts ~sep:"/" path)
-    with
-    | ["local"; "domain"; domid; "data"; "meminfo_free"] ->
-        fire_event_on_vm domid domains
-    | _ ->
-        debug "Ignoring unexpected watch: %s" path
-
-  let unmanaged_domain _ _ = false
-
-  let found_running_domain _ _ = ()
-
-  let domain_appeared _ _ _ = ()
-
-  let domain_disappeared _ _ _ = ()
-end
-
-module Watcher = Watch.WatchXenstore (Meminfo)
-
-(*****************************************************)
-(* memory stats                                      *)
-(*****************************************************)
-let dss_mem_host xc =
-  let physinfo = Xenctrl.physinfo xc in
-  let total_kib =
-    Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.total_pages)
-  and free_kib =
-    Xenctrl.pages_to_kib (Int64.of_nativeint physinfo.Xenctrl.free_pages)
-  in
-  [
-    ( Rrd.Host
-    , Ds.ds_make ~name:"memory_total_kib"
-        ~description:"Total amount of memory in the host"
-        ~value:(Rrd.VT_Int64 total_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" ()
-    )
-  ; ( Rrd.Host
-    , Ds.ds_make ~name:"memory_free_kib"
-        ~description:"Total amount of free memory"
-        ~value:(Rrd.VT_Int64 free_kib) ~ty:Rrd.Gauge ~min:0.0 ~default:true
-        ~units:"KiB" ()
-    )
-  ]
-
-(** estimate the space needed to serialize all the dss_mem_vms in a host. the
-    json-like serialization for the 3 dss in dss_mem_vms takes 622 bytes. these
-    bytes plus some overhead make 1024 bytes an upper bound. *)
-
-let bytes_per_mem_vm = 1024
-
-let mem_vm_writer_pages =
-  ((Rrd_interface.max_supported_vms * bytes_per_mem_vm) + 4095) / 4096
-
-let res_error fmt = Printf.ksprintf Result.error fmt
-
-let ok x = Result.ok x
-
-let ( let* ) = Result.bind
-
-let finally f always = Fun.protect ~finally:always f
-
-let scanning path f =
-  let io = Scanf.Scanning.open_in path in
-  finally (fun () -> f io) (fun () -> Scanf.Scanning.close_in io)
-
-let scan path =
-  try
-    scanning path @@ fun io ->
-    Scanf.bscanf io {|MemTotal: %_d %_s MemFree: %_d %_s MemAvailable: %Ld %s|}
-      (fun size kb -> ok (size, kb)
-    )
-  with _ -> res_error "failed to scan %s" path
-
-let mem_available () =
-  let* size, kb = scan "/proc/meminfo" in
-  match kb with "kB" -> ok size | _ -> res_error "unexpected unit: %s" kb
-
-let uuid_blacklist = ["00000000-0000-0000"; "deadbeef-dead-beef"]
-
-module IntSet = Set.Make (Int)
-
-let domain_snapshot xc =
-  let metadata_of_domain dom =
-    let ( let* ) = Option.bind in
-    let* uuid_raw = Uuidx.of_int_array dom.Xenctrl.handle in
-    let uuid = Uuidx.to_string uuid_raw in
-    let domid = dom.Xenctrl.domid in
-    let start = String.sub uuid 0 18 in
-    (* Actively hide migrating VM uuids, these are temporary and xenops writes
-       the original and the final uuid to xenstore *)
-    let uuid_from_key key =
-      let path = Printf.sprintf "/vm/%s/%s" uuid key in
-      try Ezxenstore_core.Xenstore.(with_xs (fun xs -> xs.read path))
-      with Xs_protocol.Enoent _hint ->
-        info "Couldn't read path %s; falling back to actual uuid" path ;
-        uuid
-    in
-    let stable_uuid = Option.fold ~none:uuid ~some:uuid_from_key in
-    if List.mem start uuid_blacklist then
-      None
-    else
-      let key =
-        if Astring.String.is_suffix ~affix:"000000000000" uuid then
-          Some "origin-uuid"
-        else if Astring.String.is_suffix ~affix:"000000000001" uuid then
-          Some "final-uuid"
-        else
-          None
-      in
-      Some (dom, stable_uuid key, domid)
-  in
-  let domains =
-    Xenctrl.domain_getinfolist xc 0 |> List.filter_map metadata_of_domain
-  in
-  let domids = List.map (fun (_, _, i) -> i) domains |> IntSet.of_list in
-  let domains_only k v = Option.map (Fun.const v) (IntSet.find_opt k domids) in
-  Hashtbl.filter_map_inplace domains_only Rrdd_shared.memory_targets ;
-  domains |> List.to_seq
-
-let dss_mem_vms xc =
-  let mem_metrics_of (dom, uuid, domid) =
-    let vm_metrics () =
-      let kib =
-        Xenctrl.pages_to_kib (Int64.of_nativeint dom.Xenctrl.total_memory_pages)
-      in
-      let memory = Int64.mul kib 1024L in
-      let main_mem_ds =
-        ( Rrd.VM uuid
-        , Ds.ds_make ~name:"memory"
-            ~description:"Memory currently allocated to VM" ~units:"B"
-            ~value:(Rrd.VT_Int64 memory) ~ty:Rrd.Gauge ~min:0.0 ~default:true ()
-        )
-      in
-      let memory_target_opt =
-        with_lock Rrdd_shared.memory_targets_m (fun _ ->
-            Hashtbl.find_opt Rrdd_shared.memory_targets domid
-        )
-      in
-      let mem_target_ds =
-        Option.map
-          (fun memory_target ->
-            ( Rrd.VM uuid
-            , Ds.ds_make ~name:"memory_target"
-                ~description:"Target of VM balloon driver" ~units:"B"
-                ~value:(Rrd.VT_Int64 memory_target) ~ty:Rrd.Gauge ~min:0.0
-                ~default:true ()
-            )
-          )
-          memory_target_opt
-      in
-      let other_ds =
-        if domid = 0 then
-          match mem_available () with
-          | Ok mem ->
-              Some
-                ( Rrd.VM uuid
-                , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
-                    ~description:"Dom0 current free memory"
-                    ~value:(Rrd.VT_Int64 mem) ~ty:Rrd.Gauge ~min:0.0
-                    ~default:true ()
-                )
-          | Error msg ->
-              let _ =
-                error "%s: retrieving  Dom0 free memory failed: %s" __FUNCTION__
-                  msg
-              in
-              None
-        else
-          try
-            let mem_free =
-              Watch.IntMap.find domid !current_meminfofree_values
-            in
-            Some
-              ( Rrd.VM uuid
-              , Ds.ds_make ~name:"memory_internal_free" ~units:"KiB"
-                  ~description:"Memory used as reported by the guest agent"
-                  ~value:(Rrd.VT_Int64 mem_free) ~ty:Rrd.Gauge ~min:0.0
-                  ~default:true ()
-              )
-          with Not_found -> None
-      in
-      let metrics =
-        List.concat
-          [main_mem_ds :: Option.to_list other_ds; Option.to_list mem_target_ds]
-      in
-      Some (List.to_seq metrics)
-    in
-    (* CA-34383: Memory updates from paused domains serve no useful purpose.
-       During a migrate such updates can also cause undesirable
-       discontinuities in the observed value of memory_actual. Hence, we
-       ignore changes from paused domains: *)
-    if dom.Xenctrl.paused then None else vm_metrics ()
-  in
-  let domains = domain_snapshot xc in
-  Seq.filter_map mem_metrics_of domains |> Seq.concat |> List.of_seq
-
 (**** Local cache SR stuff *)
 
 type last_vals = {
@@ -480,8 +225,6 @@ let handle_exn log f default =
 let dom0_stat_generators =
   [
     ("ha", fun _ _ -> Rrdd_ha_stats.all ())
-  ; ("mem_host", fun xc _ -> dss_mem_host xc)
-  ; ("mem_vms", fun xc _ -> dss_mem_vms xc)
   ; ("cache", fun _ timestamp -> dss_cache timestamp)
   ]
 
@@ -492,23 +235,9 @@ let generate_all_dom0_stats xc =
   in
   List.map handle_generator dom0_stat_generators
 
-let write_dom0_stats writers tagged_dss =
-  let write_dss (name, writer) =
-    match List.assoc_opt name tagged_dss with
-    | None ->
-        debug
-          "Could not write stats for \"%s\": no stats were associated with \
-           this name"
-          name
-    | Some (timestamp, dss) ->
-        writer.Rrd_writer.write_payload {timestamp; datasources= dss}
-  in
-  List.iter write_dss writers
-
-let do_monitor_write domains_before xc writers =
+let do_monitor_write domains_before xc =
   Rrdd_libs.Stats.time_this "monitor" (fun _ ->
       let tagged_dom0_stats = generate_all_dom0_stats xc in
-      write_dom0_stats writers tagged_dom0_stats ;
       let dom0_stats =
         tagged_dom0_stats
         |> List.to_seq
@@ -517,7 +246,8 @@ let do_monitor_write domains_before xc writers =
            )
       in
       let plugins_stats = Rrdd_server.Plugin.read_stats () in
-      let domains_after = domain_snapshot xc in
+      let _, domains_after, _ = Xenctrl_lib.domain_snapshot xc in
+      let domains_after = List.to_seq domains_after in
       let stats = Seq.append plugins_stats dom0_stats in
       Rrdd_stats.print_snapshot () ;
       (* merge the domain ids from the previous iteration and the current one
@@ -537,14 +267,14 @@ let do_monitor_write domains_before xc writers =
       domains_after
   )
 
-let monitor_write_loop writers =
+let monitor_write_loop () =
   Debug.with_thread_named "monitor_write"
     (fun () ->
       Xenctrl.with_intf (fun xc ->
           let domains = ref Seq.empty in
           while true do
             try
-              domains := do_monitor_write !domains xc writers ;
+              domains := do_monitor_write !domains xc ;
               with_lock Rrdd_shared.next_iteration_start_m (fun _ ->
                   Rrdd_shared.next_iteration_start :=
                     Clock.Timer.extend_by !Rrdd_shared.timeslice
@@ -736,45 +466,15 @@ let doc =
        the datasources and records historical data in RRD format."
     ]
 
-(** write memory stats to the filesystem so they can be propagated to xapi,
-    along with the number of pages they require to be allocated *)
-let stats_to_write = [("mem_host", 1); ("mem_vms", mem_vm_writer_pages)]
-
-let writer_basename = ( ^ ) "xcp-rrdd-"
-
-let configure_writers () =
-  List.map
-    (fun (name, n_pages) ->
-      let path = Rrdd_server.Plugin.get_path (writer_basename name) in
-      ignore (Xapi_stdext_unix.Unixext.mkdir_safe (Filename.dirname path) 0o644) ;
-      let writer =
-        snd
-          (Rrd_writer.FileWriter.create
-             {path; shared_page_count= n_pages}
-             Rrd_protocol_v2.protocol
-          )
-      in
-      (name, writer)
-    )
-    stats_to_write
-
-(** we need to make sure we call exit on fatal signals to make sure profiling
-    data is dumped *)
-let stop err writers signal =
-  debug "caught signal %a" Debug.Pp.signal signal ;
-  List.iter (fun (_, writer) -> writer.Rrd_writer.cleanup ()) writers ;
-  exit err
-
 (* Entry point. *)
-let _ =
+let () =
   Rrdd_bindings.Rrd_daemon.bind () ;
   (* bind PPX-generated server calls to implementation of API *)
-  let writers = configure_writers () in
   (* Prevent shutdown due to sigpipe interrupt. This protects against potential
      stunnel crashes. *)
   Sys.set_signal Sys.sigpipe Sys.Signal_ignore ;
-  Sys.set_signal Sys.sigterm (Sys.Signal_handle (stop 1 writers)) ;
-  Sys.set_signal Sys.sigint (Sys.Signal_handle (stop 0 writers)) ;
+  Sys.set_signal Sys.sigterm (Sys.Signal_handle (fun _ -> exit 1)) ;
+  Sys.set_signal Sys.sigint (Sys.Signal_handle (fun _ -> exit 0)) ;
   (* Enable the new logging library. *)
   Debug.set_facility Syslog.Local5 ;
   (* Read configuration file. *)
@@ -804,15 +504,8 @@ let _ =
   start (!Rrd_interface.default_path, !Rrd_interface.forwarded_path) (fun () ->
       Idl.Exn.server Rrdd_bindings.Server.implementation
   ) ;
-  ignore
-  @@ Discover.start
-       (List.map (fun (name, _) -> writer_basename name) stats_to_write) ;
-  ignore @@ GCLog.start () ;
-  debug "Starting xenstore-watching thread .." ;
-  let () =
-    try Watcher.create_watcher_thread ()
-    with _ -> error "xenstore-watching thread has failed"
-  in
+  let _ : Thread.t = Discover.start [] in
+  let _ : Thread.t = GCLog.start () in
   let module Daemon = Xapi_stdext_unix.Unixext.Daemon in
   if Daemon.systemd_booted () then
     if Daemon.systemd_notify Daemon.State.Ready then
@@ -821,7 +514,7 @@ let _ =
       warn "Sending systemd notification failed at %s" __LOC__ ;
   debug "Creating monitoring loop thread .." ;
   let () =
-    try Debug.with_thread_associated "main" monitor_write_loop writers
+    try Debug.with_thread_associated "main" monitor_write_loop ()
     with _ -> error "monitoring loop thread has failed"
   in
   while true do

@@ -542,12 +542,16 @@ _xe()
               hvm | nomigrate | nested-virt | PV-drivers-up-to-date | \
               PV-drivers-detected | live | cooperative | enforce-homogeneity | \
               host-metrics-live | sharable | read-only | storage-lock | missing | \
-              metadata-latest | empty | clustered | pool-auto-join | joined)
+              metadata-latest | empty | clustered | pool-auto-join | joined | \
+              dry-run | metadata | paused | approximate | copy | progress | public | \
+              include-snapshots | preserve-power-state | soft | update | is-unique)
                 # Until autocompletion can be generated from the
                 # datamodel, this is just naive hardcoding. These cases were
                 # obtained by looking for boolean fields:
                 # 'xapi-cli-server/records.ml | grep bool_of_string' and
                 # 'grep string_of_bool'
+                # and
+                # 'xapi-cli-server/cli_frontend.ml | grep get_bool_param'
                 __xe_debug "triggering autocompletion for boolean params"
                 IFS=$'\n,'
                 set_completions 'true,false' "$value"
@@ -566,11 +570,18 @@ _xe()
                     else
                         all="--all"
                     fi
-                    if [[ "$fst" == "into-vdi" || "$fst" == "base-vdi" || "$fst" == "vdi-from" || "$fst" == "vdi-to" ]]; then
+
+                    case "$fst" in
+                      into-vdi | base-vdi | vdi-from | vdi-to | suspend-VDI)
                         class=vdi
-                    else
+                        ;;
+                      suspend-SR)
+                        class=sr
+                        ;;
+                      *)
                         class="$fst"
-                    fi
+                        ;;
+                    esac
 
                     # Show corresponding name labels for each UUID
                     SHOW_DESCRIPTION=1
@@ -588,7 +599,21 @@ _xe()
                     __xe_debug "fst is '$fst', snd is '$snd'"
                     if [[ "$snd" == "list" || "$fst" == "vm" ]]; then
                         IFS=$'\n,'
-                        set_completions_for_names "${fst}-list" "$param" "$value"
+
+                        # Try to provide a helpful "description" to the suggestions
+                        case "$param" in
+                         resident-on | affinity)
+                            SHOW_DESCRIPTION=1
+                            class="host"
+                             ;;
+                         *)
+                             ;;
+                        esac
+
+                        local name_label_cmd="$xe ${class}-list params=name-label 2>/dev/null --minimal uuid="
+                        __xe_debug "description class is '$class'"
+
+                        set_completions_for_names "${fst}-list" "$param" "$value" "$name_label_cmd"
                         return 0
                     fi
                 fi
@@ -638,7 +663,7 @@ _xe()
         local previous_params="${OLDSTYLE_WORDS[@]:2:$params_len}"
         previous_params=$( echo "$previous_params" | cut -d= -f1 | \
                            sed -r '/^\s*$/d' | cut -d: -f1 | \
-                           sed -re 's/^/-e "\\s*/g' -e 's/$/[=:]"/g' | paste -sd " ")
+                           sed -re 's/^/-e "^\\s*/g' -e 's/$/[=:]"/g' | paste -sd " ")
 
         set_completions "$SUBCOMMAND_PARAMS" "$param" "" "$previous_params"
 
@@ -755,6 +780,10 @@ __add_completion()
     local description_cmd="$2"
     local max_cmd_length="$3"
 
+    if [ "$word" = "<not in database>" ]; then
+        return 0
+    fi
+
     COMPLETION_SUGGESTIONS=$((COMPLETION_SUGGESTIONS+1))
     __xe_debug "\t$word"
 
@@ -768,8 +797,8 @@ __add_completion()
         COMPREPLY+=( $(printf '%s%q' "$description" "$word") )
     else
         if [[ $SHOW_DESCRIPTION == 1 ]]; then
-            __xe_debug "\t  showing command description - '$description'"
             description=" - $(eval $description_cmd$word)"
+            __xe_debug "\t  showing command description - '$description'"
         fi
         # Right-pad the command with spaces before the help string
         COMPREPLY+=( $(printf "%-${max_cmd_length}q %s" "$word" "$description") )
@@ -780,7 +809,8 @@ __preprocess_suggestions()
 {
     wordlist=$( echo "$1" | \
                 sed -re 's/(^|[^\])((\\\\)*),,*/\1\2\n/g' -e 's/\\,/,/g' -e 's/\\\\/\\/g' | \
-                sed -e 's/ *$//')
+                sed -e 's/ *$//' | \
+                sort -u )
     local IFS=$'\n'
     for word in $wordlist; do
         if [[ "$word" =~ ^$prefix.* ]]; then

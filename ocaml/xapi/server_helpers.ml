@@ -53,9 +53,10 @@ let parameter_count_mismatch_failure func expected received =
   API.response_of_failure Api_errors.message_parameter_count_mismatch
     [func; expected; received]
 
-(** WARNING: the context is destroyed when execution is finished if the task is not forwarded, in database and not called asynchronous. *)
-let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
-    ?(called_async = false) ?quiet f =
+(** WARNING: DOES NOT DESTROY the context when execution is finished. The
+    caller must destroy it *)
+let exec_with_context ~__context ~need_complete ?marshaller ?f_forward ?quiet f
+    =
   (* Execute fn f in specified __context, marshalling result with "marshaller" *)
   let exec () =
     (* NB:
@@ -95,23 +96,15 @@ let exec_with_context ~__context ~need_complete ?marshaller ?f_forward
         if need_complete then TaskHelper.failed ~__context e ;
         raise e
   in
-  Locking_helpers.Thread_state.with_named_thread
-    (TaskHelper.get_name ~__context) (Context.get_task_id __context) (fun () ->
-      let client = Context.get_client __context in
-      Debug.with_thread_associated ?client ?quiet
-        (Context.string_of_task __context)
-        (fun () ->
-          (* CP-982: promote tracking debug line to info status *)
-          if called_async then
-            info "spawning a new thread to handle the current task%s"
-              (Context.trackid ~with_brackets:true ~prefix:" " __context) ;
-          Xapi_stdext_pervasives.Pervasiveext.finally exec (fun () ->
-              if not called_async then Context.destroy __context
-              (* else debug "nothing more to process for this thread" *)
-          )
-        )
-        ()
-  )
+  let@ () =
+    Locking_helpers.Thread_state.with_named_thread
+      (TaskHelper.get_name ~__context)
+      (Context.get_task_id __context)
+  in
+  let client = Context.get_client __context in
+  Debug.with_thread_associated ?client ?quiet
+    (Context.string_of_task __context)
+    exec ()
 
 let dispatch_exn_wrapper f =
   try f ()
@@ -168,18 +161,22 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
 
     let sync () =
       let need_complete = not (Context.forwarded_task __context) in
-      exec_with_context ~__context ~need_complete ~called_async
-        ?f_forward:forward_op ~marshaller op_fn
+      let@ __context = Context.finally_destroy_context ~__context in
+      exec_with_context ~__context ~need_complete ?f_forward:forward_op
+        ~marshaller op_fn
       |> marshaller
       |> Rpc.success
     in
+
     let async ~need_complete =
       (* Fork thread in which to execute async call *)
+      info "spawning a new thread to handle the current task%s"
+        (Context.trackid ~with_brackets:true ~prefix:" " __context) ;
       ignore
         (Thread.create
            (fun () ->
-             exec_with_context ~__context ~need_complete ~called_async
-               ?f_forward:forward_op ~marshaller op_fn
+             exec_with_context ~__context ~need_complete ?f_forward:forward_op
+               ~marshaller op_fn
            )
            ()
         ) ;
@@ -200,26 +197,27 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
 (* in the following functions, it is our responsibility to complete any tasks we create *)
 let exec_with_new_task ?http_other_config ?quiet ?subtask_of ?session_id
     ?task_in_database ?task_description ?origin task_name f =
-  exec_with_context ?quiet
-    ~__context:
-      (Context.make ?http_other_config ?quiet ?subtask_of ?session_id
-         ?task_in_database ?task_description ?origin task_name
-      ) ~need_complete:true (fun ~__context -> f __context
+  let@ __context =
+    Context.with_context ?http_other_config ?quiet ?subtask_of ?session_id
+      ?task_in_database ?task_description ?origin task_name
+  in
+  exec_with_context ~__context ~need_complete:true (fun ~__context ->
+      f __context
   )
 
 let exec_with_forwarded_task ?http_other_config ?session_id ?origin task_id f =
-  exec_with_context
-    ~__context:
-      (Context.from_forwarded_task ?http_other_config ?session_id ?origin
-         task_id
-      ) ~need_complete:true (fun ~__context -> f __context
+  let@ __context =
+    Context.with_forwarded_task ?http_other_config ?session_id ?origin task_id
+  in
+  exec_with_context ~__context ~need_complete:true (fun ~__context ->
+      f __context
   )
 
 let exec_with_subtask ~__context ?task_in_database task_name f =
-  let subcontext =
-    Context.make_subcontext ~__context ?task_in_database task_name
+  let@ __context =
+    Context.with_subcontext ~__context ?task_in_database task_name
   in
-  exec_with_context ~__context:subcontext ~need_complete:true f
+  exec_with_context ~__context ~need_complete:true f
 
 let forward_extension ~__context rbac call =
   rbac __context (fun () -> Xapi_extensions.call_extension call)
