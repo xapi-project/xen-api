@@ -1702,9 +1702,9 @@ let get_secureboot_readiness ~__context ~self =
       )
     )
 
-let sysprep ~__context ~self ~unattend =
+let sysprep ~__context ~self ~unattend ~timeout =
   let uuid = Db.VM.get_uuid ~__context ~self in
-  debug "%s %S" __FUNCTION__ uuid ;
+  debug "%s %S (timeout %f)" __FUNCTION__ uuid timeout ;
   match Vm_sysprep.sysprep ~__context ~vm:self ~unattend with
   | () ->
       debug "%s %S success" __FUNCTION__ uuid ;

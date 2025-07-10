@@ -3590,6 +3590,15 @@ let vm_data_source_forget printer rpc session_id params =
 
 let vm_sysprep fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
+  let timeout =
+    match List.assoc "timeout" params |> float_of_string with
+    | exception _ ->
+        0.0
+    | s when s < 0.0 ->
+        0.0
+    | s ->
+        s
+  in
   let unattend =
     match get_client_file fd filename with
     | Some xml ->
@@ -3602,8 +3611,9 @@ let vm_sysprep fd printer rpc session_id params =
     (do_vm_op printer rpc session_id
        (fun vm ->
          Client.VM.sysprep ~rpc ~session_id ~self:(vm.getref ()) ~unattend
+           ~timeout
        )
-       params ["filename"]
+       params ["filename"; "timeout"]
     )
 
 (* APIs to collect SR level RRDs *)

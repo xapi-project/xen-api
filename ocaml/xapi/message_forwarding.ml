@@ -3116,10 +3116,10 @@ functor
         Local.VM.remove_from_blocked_operations ~__context ~self ~key ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
-      let sysprep ~__context ~self ~unattend =
+      let sysprep ~__context ~self ~unattend ~timeout =
         info "VM.sysprep: self = '%s'" (vm_uuid ~__context self) ;
-        let local_fn = Local.VM.sysprep ~self ~unattend in
-        let remote_fn = Client.VM.sysprep ~self ~unattend in
+        let local_fn = Local.VM.sysprep ~self ~unattend ~timeout in
+        let remote_fn = Client.VM.sysprep ~self ~unattend ~timeout in
         let policy = Helpers.Policy.fail_immediately in
         with_vm_operation ~__context ~self ~doc:"VM.sysprep" ~op:`sysprep
           ~policy (fun () ->
