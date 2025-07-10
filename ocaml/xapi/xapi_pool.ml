@@ -118,9 +118,15 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       | pif when pif = Ref.null ->
           ()
       | pif -> (
-        match Client.PIF.get_VLAN ~rpc ~session_id ~self:pif with
-        | vlan when vlan > 0L ->
-            error "Cannot join pool whose clustering is enabled on VLAN network" ;
+        match
+          ( Client.PIF.get_VLAN ~rpc ~session_id ~self:pif
+          , Client.PIF.get_management ~rpc ~session_id ~self:pif
+          )
+        with
+        | vlan, false when vlan > 0L ->
+            error
+              "Cannot join pool whose clustering is enabled on a \
+               non-management VLAN network" ;
             raise
               (Api_errors.Server_error
                  ( Api_errors
@@ -128,7 +134,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
                  , [Int64.to_string vlan]
                  )
               )
-        | 0L | _ -> (
+        | _ -> (
             let clustering_bridges_in_pool =
               ( match
                   Client.PIF.get_bond_master_of ~rpc ~session_id ~self:pif
