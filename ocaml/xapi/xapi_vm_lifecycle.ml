@@ -276,20 +276,24 @@ let report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str =
   Some (Api_errors.vm_bad_power_state, [ref_str; expected; actual])
 
 let report_concurrent_operations_error ~current_ops ~ref_str =
-  let current_ops_str =
+  let current_ops_ref_str, current_ops_str =
+    let op_to_str = Record_util.vm_operation_to_string in
+    let ( >> ) f g x = g (f x) in
     match current_ops with
     | [] ->
         failwith "No concurrent operation to report"
-    | [(_, cop)] ->
-        Record_util.vm_operation_to_string cop
+    | [(op_ref, cop)] ->
+        (op_ref, op_to_str cop)
     | l ->
-        "{"
-        ^ String.concat ","
-            (List.map Record_util.vm_operation_to_string (List.map snd l))
-        ^ "}"
+        ( Printf.sprintf "{%s}" (String.concat "," (List.map fst l))
+        , Printf.sprintf "{%s}"
+            (String.concat "," (List.map (snd >> op_to_str) l))
+        )
   in
   Some
-    (Api_errors.other_operation_in_progress, ["VM." ^ current_ops_str; ref_str])
+    ( Api_errors.other_operation_in_progress
+    , ["VM"; ref_str; current_ops_str; current_ops_ref_str]
+    )
 
 let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   let is_migratable vgpu =
