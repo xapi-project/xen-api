@@ -501,6 +501,9 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings ;
     if vm_info.is_uefi then
       xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+    xs.Xs.write
+      (dom_path ^ "/hvmloader/pci/xen-platform-pci-bar-uc")
+      (if !Xenopsd.xen_platform_pci_bar_uc then "1" else "0") ;
     (* If a toolstack sees a domain which it should own in this state then the
        domain is not completely setup and should be shutdown. *)
     xs.Xs.write (dom_path ^ "/action-request") "poweroff" ;
