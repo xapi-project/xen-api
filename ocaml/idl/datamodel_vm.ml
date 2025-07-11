@@ -2376,8 +2376,12 @@ let sysprep =
       [
         (Ref _vm, "self", "The VM")
       ; (String, "unattend", "XML content passed to sysprep")
+      ; (Float, "timeout", "timeout in seconds for expected reboot")
       ]
-    ~doc:"Pass unattend.xml to Windows sysprep" ~allowed_roles:_R_VM_ADMIN ()
+    ~doc:
+      "Pass unattend.xml to Windows sysprep and wait for the VM to shut down \
+       as part of a reboot."
+    ~allowed_roles:_R_VM_ADMIN ()
 
 let vm_uefi_mode =
   Enum
