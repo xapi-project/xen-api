@@ -223,7 +223,10 @@ let trigger ~domid ~uuid ~timeout =
           wait_for ~xs ~timeout:5.0
             (value_to_become (control // "action") "running")
         ) ;
-        debug "%s: sysprep is runnung; waiting for shutdown" __FUNCTION__ ;
+        debug "%s: sysprep is runnung; waiting for sysprep to finish"
+          __FUNCTION__ ;
+        Watch.(wait_for ~xs ~timeout (key_to_disappear (control // "action"))) ;
+        debug "%s sysprep is finished" __FUNCTION__ ;
         Watch.(wait_for ~xs ~timeout (key_to_disappear domain)) ;
         true
       with Watch.Timeout _ ->
