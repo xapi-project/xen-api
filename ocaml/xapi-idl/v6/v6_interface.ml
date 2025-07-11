@@ -78,7 +78,8 @@ type errors =
       (** Thrown by license_check when expiry date matches or precedes current
           date *)
   | License_processing_error  (** License could not be processed *)
-  | License_checkout_error of string  (** License could not be checked out *)
+  | License_checkout_error of string * string
+      (** License could not be checked out *)
   | Missing_connection_details
       (** Thrown if connection port or address parameter not supplied to
           check_license *)
