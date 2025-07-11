@@ -207,27 +207,33 @@ let find_vdi ~__context ~label =
 
 (** notify the VM with [domid] to run sysprep and where to find the
     file. *)
-let trigger ~domid ~uuid =
+let trigger ~domid ~uuid ~timeout =
   let open Ezxenstore_core.Xenstore in
   let module Watch = Ezxenstore_core.Watch in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
+  let domain = Printf.sprintf "/local/domain/%Ld" domid in
   with_xs (fun xs ->
       xs.Xs.write (control // "filename") "D://unattend.xml" ;
       xs.Xs.write (control // "vdi-uuid") uuid ;
       xs.Xs.write (control // "action") "sysprep" ;
       debug "%s: notified domain %Ld" __FUNCTION__ domid ;
       try
+        (* wait for sysprep to start, then domain to dissapear *)
         Watch.(
           wait_for ~xs ~timeout:5.0
             (value_to_become (control // "action") "running")
         ) ;
-        "running"
-      with Watch.Timeout _ -> xs.Xs.read (control // "action")
+        debug "%s: sysprep is runnung; waiting for shutdown" __FUNCTION__ ;
+        Watch.(wait_for ~xs ~timeout (key_to_disappear domain)) ;
+        true
+      with Watch.Timeout _ ->
+        debug "%s: sysprep timeout" __FUNCTION__ ;
+        false
   )
 
 (* This function is executed on the host where [vm] is running *)
-let sysprep ~__context ~vm ~unattend =
-  debug "%s" __FUNCTION__ ;
+let sysprep ~__context ~vm ~unattend ~timeout =
+  debug "%s (timeout %f)" __FUNCTION__ timeout ;
   if not !Xapi_globs.vm_sysprep_enabled then
     fail API_not_enabled ;
   let vm_uuid = Db.VM.get_uuid ~__context ~self:vm in
@@ -259,14 +265,13 @@ let sysprep ~__context ~vm ~unattend =
   call ~__context @@ fun rpc session_id ->
   Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
   Thread.delay !Xapi_globs.vm_sysprep_wait ;
-  match trigger ~domid ~uuid with
-  | "running" ->
+  match trigger ~domid ~uuid ~timeout with
+  | true ->
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
-      Thread.delay 1.0 ;
       Client.VBD.eject ~rpc ~session_id ~vbd ;
       Sys.remove iso
-  | status ->
-      debug "%s: sysprep %S, ejecting CD" __FUNCTION__ status ;
+  | false ->
+      debug "%s: sysprep timeout, ejecting CD" __FUNCTION__ ;
       Client.VBD.eject ~rpc ~session_id ~vbd ;
       Sys.remove iso ;
       fail VM_sysprep_timeout

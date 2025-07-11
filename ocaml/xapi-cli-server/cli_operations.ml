@@ -3593,7 +3593,7 @@ let vm_sysprep fd printer rpc session_id params =
   let timeout =
     match List.assoc "timeout" params |> float_of_string with
     | exception _ ->
-        0.0
+        3.0 *. 60.0 (* default in the CLI, no default in the API *)
     | s when s < 0.0 ->
         0.0
     | s ->
