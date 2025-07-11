@@ -554,7 +554,8 @@ module Interface = struct
   let set_dns _ dbg ~name ~nameservers ~domains =
     Debug.with_thread_associated dbg
       (fun () ->
-        update_config name {(get_config name) with dns= (nameservers, domains)} ;
+        update_config name
+          {(get_config name) with dns= Some (nameservers, domains)} ;
         debug "Configuring DNS for %s: nameservers: [%s]; domains: [%s]" name
           (String.concat ", " (List.map Unix.string_of_inet_addr nameservers))
           (String.concat ", " domains) ;
@@ -727,7 +728,7 @@ module Interface = struct
                   ; ipv6_conf
                   ; ipv6_gateway
                   ; ipv4_routes
-                  ; dns= nameservers, domains
+                  ; dns
                   ; mtu
                   ; ethtool_settings
                   ; ethtool_offload
@@ -736,16 +737,13 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    (* We only apply the DNS settings when not in a DHCP mode
-                       to avoid conflicts. The `dns` field
-                       should really be an option type so that we don't have to
-                       derive the intention of the caller by looking at other
-                       fields. *)
-                    match (ipv4_conf, ipv6_conf) with
-                    | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
-                        set_dns () dbg ~name ~nameservers ~domains
-                    | _ ->
+                    (* Old configs used empty dns lists to mean none, keep that
+                       behaviour instead of writing an empty resolv.conf *)
+                    match dns with
+                    | None | Some ([], []) ->
                         ()
+                    | Some (nameservers, domains) ->
+                        set_dns () dbg ~name ~nameservers ~domains
                 ) ;
                 exec (fun () -> set_ipv4_conf dbg name ipv4_conf) ;
                 exec (fun () ->

@@ -639,24 +639,20 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               let dns =
                 match (static, rc.API.pIF_DNS) with
                 | false, _ | true, "" ->
-                    ([], [])
+                    None
                 | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
-                        (String.split ',' pif_dns)
+                        (String.split_on_char ',' pif_dns)
                     in
                     let domains =
                       match List.assoc_opt "domain" rc.API.pIF_other_config with
-                      | None ->
+                      | None | Some "" ->
                           []
-                      | Some domains -> (
-                        try String.split ',' domains
-                        with _ ->
-                          warn "Invalid DNS search domains: %s" domains ;
-                          []
-                      )
+                      | Some domains ->
+                          String.split_on_char ',' domains
                     in
-                    (nameservers, domains)
+                    Some (nameservers, domains)
               in
               let mtu = determine_mtu rc net_rc in
               let ethtool_settings, ethtool_offload =
