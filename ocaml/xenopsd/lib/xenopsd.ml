@@ -49,7 +49,14 @@ let default_vbd_backend_kind = ref "vbd"
 
 let ca_140252_workaround = ref false
 
-let xen_platform_pci_bar_uc = ref true
+(* Optimize performance: set MTRR WB attribute on Xen PCI MMIO BAR.
+   This is useful for AMD, and mostly a noop on Intel (which achieves a similar
+   effect using Intel-only features in Xen)
+
+   Turning on WB is done by disabling UC:
+   UnCached=false -> WriteBack=true
+*)
+let xen_platform_pci_bar_uc = ref false
 
 let action_after_qemu_crash = ref None
 
