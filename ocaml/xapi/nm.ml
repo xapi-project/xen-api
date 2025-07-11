@@ -634,6 +634,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     rc.API.pIF_ip_configuration_mode = `Static
                 | `IPv6 ->
                     rc.API.pIF_ipv6_configuration_mode = `Static
+                    || rc.API.pIF_ipv6_configuration_mode = `Autoconf
               in
               let dns =
                 match (static, rc.API.pIF_DNS) with
