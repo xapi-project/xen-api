@@ -5720,14 +5720,21 @@ functor
             if Helpers.i_am_srmaster ~__context ~sr then
               List.iter
                 (fun vdi ->
-                  if Db.VDI.get_current_operations ~__context ~self:vdi <> []
-                  then
-                    raise
-                      (Api_errors.Server_error
-                         ( Api_errors.other_operation_in_progress
-                         , [Datamodel_common._vdi; Ref.string_of vdi]
-                         )
-                      )
+                  match Db.VDI.get_current_operations ~__context ~self:vdi with
+                  | (op_ref, op_type) :: _ ->
+                      raise
+                        (Api_errors.Server_error
+                           ( Api_errors.other_operation_in_progress
+                           , [
+                               Datamodel_common._vdi
+                             ; Ref.string_of vdi
+                             ; API.vdi_operations_to_string op_type
+                             ; op_ref
+                             ]
+                           )
+                        )
+                  | [] ->
+                      ()
                 )
                 (Db.SR.get_VDIs ~__context ~self:sr) ;
             SR.mark_sr ~__context ~sr ~doc ~op
