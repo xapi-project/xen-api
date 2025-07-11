@@ -187,13 +187,18 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
       let is_vdi_mirroring_in_progress =
         op = `destroy && List.exists (fun (_, op) -> op = `mirror) current_ops
       in
-      if
-        List.exists (fun (_, op) -> op <> `copy) current_ops
-        && not is_vdi_mirroring_in_progress
-      then
-        Error (Api_errors.other_operation_in_progress, ["VDI"; _ref])
-      else
-        Ok ()
+      match
+        ( is_vdi_mirroring_in_progress
+        , List.find_opt (fun (_, op) -> op <> `copy) current_ops
+        )
+      with
+      | false, Some (op_ref, op_type) ->
+          Error
+            ( Api_errors.other_operation_in_progress
+            , ["VDI"; _ref; API.vdi_operations_to_string op_type; op_ref]
+            )
+      | _ ->
+          Ok ()
     in
     let* () =
       if pbds_attached = [] && op = `resize then
@@ -277,7 +282,15 @@ let check_operation_error ~__context ?sr_records:_ ?(pbd_records = [])
            mechanism of message forwarding and only use the event loop. *)
         my_has_current_operation_vbd_records <> [] && op <> `data_destroy
       then
-        Error (Api_errors.other_operation_in_progress, ["VDI"; _ref])
+        let op_ref, op_type =
+          List.hd
+            (List.hd my_has_current_operation_vbd_records)
+              .Db_actions.vBD_current_operations
+        in
+        Error
+          ( Api_errors.other_operation_in_progress
+          , ["VDI"; _ref; API.vbd_operations_to_string op_type; op_ref]
+          )
       else
         Ok ()
     in
