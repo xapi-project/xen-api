@@ -538,7 +538,8 @@ let _ =
     ~doc:"You attempted an operation on a VM which is not suspendable." () ;
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" () ;
-  error Api_errors.other_operation_in_progress ["class"; "object"]
+  error Api_errors.other_operation_in_progress
+    ["class"; "object"; "operation_type"; "operation_ref"]
     ~doc:"Another operation involving the object is currently in progress" () ;
   error Api_errors.vbd_not_removable_media ["vbd"]
     ~doc:"Media could not be ejected because it is not removable" () ;
