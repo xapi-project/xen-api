@@ -1012,7 +1012,7 @@ let pool_has_different_host_platform_versions ~__context =
   let is_different_to_me platform_version =
     platform_version <> Xapi_version.platform_version ()
   in
-  List.fold_left ( || ) false (List.map is_different_to_me platform_versions)
+  List.exists is_different_to_me platform_versions
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)

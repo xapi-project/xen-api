@@ -91,7 +91,7 @@ let track callback rpc (session_id : API.ref_session) task =
               | _ ->
                   false
             in
-            finished := List.fold_left ( || ) false (List.map matches events)
+            finished := List.exists matches events
           done
         with
         | Api_errors.Server_error (code, _)

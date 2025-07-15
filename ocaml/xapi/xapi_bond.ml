@@ -427,9 +427,9 @@ let create ~__context ~network ~members ~mAC ~mode ~properties =
       in
       let disallow_unplug =
         (* this is always true if one of the PIFs is a cluster_host.PIF *)
-        List.fold_left
-          (fun a m -> Db.PIF.get_disallow_unplug ~__context ~self:m || a)
-          false members
+        List.exists
+          (fun m -> Db.PIF.get_disallow_unplug ~__context ~self:m)
+          members
       in
       (* Validate constraints: *)
       (* 1. Members must not be in a bond already *)
