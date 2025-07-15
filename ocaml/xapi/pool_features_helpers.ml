@@ -58,17 +58,16 @@ let rec compute_additional_restrictions all_host_params = function
       []
   | flag :: rest ->
       let switches =
-        List.map
+        List.exists
           (function
             | params ->
-                if List.mem_assoc flag params then
-                  bool_of_string (List.assoc flag params)
-                else
-                  true
+                List.assoc_opt flag params
+                |> Fun.flip Option.bind bool_of_string_opt
+                |> Option.value ~default:true
             )
           all_host_params
       in
-      (flag, string_of_bool (List.fold_left ( || ) false switches))
+      (flag, string_of_bool switches)
       :: compute_additional_restrictions all_host_params rest
 
 (* Combine the host-level feature restrictions into pool-level ones, and write
