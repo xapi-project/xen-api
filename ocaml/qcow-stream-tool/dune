@@ -1,0 +1,10 @@
+(executable
+  (modes exe)
+  (name qcow_stream_tool)
+  (public_name qcow-stream-tool)
+  (package qcow-stream-tool)
+  (libraries
+    qcow-stream
+    cmdliner
+  )
+)
