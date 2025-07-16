@@ -805,6 +805,8 @@ let vhd_tool = ref "vhd-tool"
 
 let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
 
+let qcow_stream_tool = ref "qcow-stream-tool"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -1813,6 +1815,7 @@ module Resources = struct
     ; ("sparse_dd", sparse_dd, "Path to sparse_dd")
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
     ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
+    ; ("qcow_stream_tool", qcow_stream_tool, "Path to qcow-stream-tool")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
