@@ -68,7 +68,7 @@ let _ =
       "The license-server connection details (address or port) were missing or \
        incomplete."
     () ;
-  error Api_errors.license_checkout_error ["reason"]
+  error Api_errors.license_checkout_error ["code"; "message"]
     ~doc:"The license for the edition you requested is not available." () ;
   error Api_errors.license_file_deprecated []
     ~doc:
