@@ -1059,6 +1059,8 @@ let max_spans = ref 10000
 
 let max_traces = ref 10000
 
+let max_span_depth = ref 100
+
 let use_xmlrpc = ref true
 
 let compress_tracing_files = ref true
@@ -1782,6 +1784,11 @@ let other_options =
     , Arg.Set_float vm_sysprep_wait
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
+    )
+  ; ( "max-span-depth"
+    , Arg.Set_int max_span_depth
+    , (fun () -> string_of_int !max_span_depth)
+    , "The maximum depth to which spans are recorded in a trace in Tracing"
     )
   ]
 

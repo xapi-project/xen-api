@@ -599,6 +599,7 @@ let initialise_observer ~__context component =
   initialise_observer_component ~__context component
 
 let initialise ~__context =
+  Tracing.Spans.set_max_depth !Xapi_globs.max_span_depth ;
   List.iter (initialise_observer_meta ~__context) (startup_components ()) ;
   Db.Observer.get_all ~__context
   |> List.iter (fun self ->
