@@ -200,24 +200,35 @@ let valid_operations ~__context ?op record _ref' : table =
   let check_parallel_ops ~__context _record =
     let safe_to_parallelise = [`plug] in
     let current_ops =
-      Xapi_stdext_std.Listext.List.setify (List.map snd current_ops)
+      List.sort_uniq
+        (fun (_ref1, op1) (_ref2, op2) -> compare op1 op2)
+        current_ops
     in
     (* If there are any current operations, all the non_parallelisable operations
        must definitely be stopped *)
-    if current_ops <> [] then
-      set_errors Api_errors.other_operation_in_progress
-        ["SR"; _ref; sr_operation_to_string (List.hd current_ops)]
-        (Xapi_stdext_std.Listext.List.set_difference all_ops safe_to_parallelise) ;
-    let all_are_parallelisable =
-      List.fold_left ( && ) true
-        (List.map (fun op -> List.mem op safe_to_parallelise) current_ops)
-    in
-    (* If not all are parallelisable (eg a vdi_resize), ban the otherwise
-       parallelisable operations too *)
-    if not all_are_parallelisable then
-      set_errors Api_errors.other_operation_in_progress
-        ["SR"; _ref; sr_operation_to_string (List.hd current_ops)]
-        safe_to_parallelise
+    match current_ops with
+    | (current_op_ref, current_op_type) :: _ ->
+        set_errors Api_errors.other_operation_in_progress
+          ["SR"; _ref; sr_operation_to_string current_op_type; current_op_ref]
+          (Xapi_stdext_std.Listext.List.set_difference all_ops
+             safe_to_parallelise
+          ) ;
+        let non_parallelisable_op =
+          List.find_opt
+            (fun (_, op) -> not (List.mem op safe_to_parallelise))
+            current_ops
+        in
+        (* If not all are parallelisable (eg a vdi_resize), ban the otherwise
+           parallelisable operations too *)
+        Option.iter
+          (fun (op_ref, op_type) ->
+            set_errors Api_errors.other_operation_in_progress
+              ["SR"; _ref; sr_operation_to_string op_type; op_ref]
+              safe_to_parallelise
+          )
+          non_parallelisable_op
+    | [] ->
+        ()
   in
   let check_cluster_stack_compatible ~__context _record =
     (* Check whether there are any conflicts with HA that prevent us from

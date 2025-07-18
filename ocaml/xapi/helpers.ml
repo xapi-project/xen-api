@@ -1685,7 +1685,7 @@ module Repeat_with_uniform_backoff : POLICY = struct
     debug "Waiting for up to %f seconds before retrying..." this_timeout ;
     let start = Unix.gettimeofday () in
     ( match e with
-    | Api_errors.Server_error (code, [cls; objref])
+    | Api_errors.Server_error (code, cls :: objref :: _)
       when code = Api_errors.other_operation_in_progress ->
         Early_wakeup.wait (cls, objref) this_timeout
     | _ ->
