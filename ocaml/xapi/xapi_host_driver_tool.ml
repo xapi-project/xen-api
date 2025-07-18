@@ -243,6 +243,15 @@ module Mock = struct
 set -o errexit
 set -o pipefail
 
+function deselect {
+  cat <<EOF
+{
+  "driver": "$1",
+  "exit": 0
+}
+EOF
+}
+
 function selection {
   cat <<EOF
 {
@@ -252,6 +261,7 @@ function selection {
 }
 EOF
 }
+
 
 function list() {
   cat <<EOF
@@ -606,9 +616,10 @@ l_flag=false
 s_flag=false
 n_value=""
 v_value=""
+d_value=""
 
 # Use getopt to parse command-line options
-while getopts "lsn:v:" opt; do
+while getopts "lsn:v:d:" opt; do
   case "$opt" in
     l)
       l_flag=true
@@ -621,6 +632,9 @@ while getopts "lsn:v:" opt; do
       ;;
     v)
       v_value="$OPTARG"
+      ;;
+    d)
+      d_value="$OPTARG"
       ;;
     \?)  # Invalid option
       echo "Invalid option: -$OPTARG" >&2  #>&2 redirects error message to stderr
@@ -654,6 +668,11 @@ if $s_flag; then
   fi
 
   selection "$n_value" "$v_value"
+  exit 0
+fi
+
+if [ -n "$d_value" ]; then
+  deselect "$d_value"
   exit 0
 fi
 |}
