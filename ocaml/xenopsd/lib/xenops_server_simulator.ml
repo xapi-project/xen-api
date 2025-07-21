@@ -677,6 +677,8 @@ module VBD = struct
 
   let activate _ (_vm : Vm.id) (_vbd : Vbd.t) = ()
 
+  let unplug _ vm vbd _ = with_lock m (remove_vbd vm vbd)
+
   let deactivate _ vm vbd _ = with_lock m (remove_vbd vm vbd)
 
   let detach _ _vm _vbd = ()

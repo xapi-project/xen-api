@@ -84,7 +84,7 @@ let test_inject_barrier () =
   let u = M.empty scheduler in
   M.add update_a u ;
   M.add update_b u ;
-  M.inject_barrier 1 (fun _ _ -> true) u ;
+  M.inject_barrier 1 (fun _ -> true) u ;
   M.add update_a u ;
   M.add update_c u ;
   let barriers, updates, _id = M.get "dbg" None (Some 1) u in
@@ -107,7 +107,7 @@ let test_remove_barrier () =
   let u = M.empty scheduler in
   M.add update_a u ;
   M.add update_b u ;
-  M.inject_barrier 1 (fun _ _ -> true) u ;
+  M.inject_barrier 1 (fun _ -> true) u ;
   M.add update_a u ;
   M.add update_c u ;
   M.remove_barrier 1 u ;
@@ -125,7 +125,7 @@ let test_inject_barrier_rpc () =
   let u = M.empty scheduler in
   M.add update_a u ;
   M.add update_b u ;
-  M.inject_barrier 1 (fun _ _ -> true) u ;
+  M.inject_barrier 1 (fun _ -> true) u ;
   M.add update_a u ;
   M.add update_c u ;
   let barriers, updates, _id = M.get "dbg" None (Some 1) u in
@@ -175,7 +175,7 @@ let test_filter () =
 let test_dump () =
   let u = M.empty scheduler in
   M.add update_a u ;
-  M.inject_barrier 1 (fun _ _ -> true) u ;
+  M.inject_barrier 1 (fun _ -> true) u ;
   let dump = M.Dump.make u in
   let dumped_rpc = M.Dump.rpc_of_dump dump in
   let expected_rpc =

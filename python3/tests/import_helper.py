@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from types import ModuleType
 
 from typing import Generator
-from mock import Mock
+from unittest.mock import MagicMock
 
 
 @contextmanager
@@ -28,7 +28,7 @@ def mocked_modules(*module_names: str) -> Generator[None, None, None]:
     ```
     """
     for module_name in module_names:
-        sys.modules[module_name] = Mock()
+        sys.modules[module_name] = MagicMock()
     yield
     for module_name in module_names:
         sys.modules.pop(module_name)

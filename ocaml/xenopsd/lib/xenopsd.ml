@@ -49,6 +49,15 @@ let default_vbd_backend_kind = ref "vbd"
 
 let ca_140252_workaround = ref false
 
+(* Optimize performance: set MTRR WB attribute on Xen PCI MMIO BAR.
+   This is useful for AMD, and mostly a noop on Intel (which achieves a similar
+   effect using Intel-only features in Xen)
+
+   Turning on WB is done by disabling UC:
+   UnCached=false -> WriteBack=true
+*)
+let xen_platform_pci_bar_uc = ref false
+
 let action_after_qemu_crash = ref None
 
 let additional_ballooning_timeout = ref 120.
@@ -207,6 +216,14 @@ let options =
     , (fun () -> string_of_bool !ca_140252_workaround)
     , "Workaround for evtchn misalignment for legacy PV tools"
     )
+  ; ( "xen-platform-pci-bar-uc"
+    , Arg.Bool (fun x -> xen_platform_pci_bar_uc := x)
+    , (fun () -> string_of_bool !xen_platform_pci_bar_uc)
+    , "Controls whether, when the VM starts in HVM mode, the Xen PCI MMIO used \
+       by grant tables is mapped as Uncached (UC, the default) or WriteBack \
+       (WB, the workaround). WB mapping could improve performance of devices \
+       using grant tables. This is useful on AMD platform only."
+    )
   ; ( "additional-ballooning-timeout"
     , Arg.Set_float additional_ballooning_timeout
     , (fun () -> string_of_float !additional_ballooning_timeout)
@@ -300,29 +317,74 @@ let json_path () = path () ^ ".json"
 
 let rpc_fn call =
   (* Upgrade import_metadata API call *)
-  let call' =
+  let call', call_name, span_parent =
     match (call.Rpc.name, call.Rpc.params) with
-    | "VM.import_metadata", [debug_info; metadata] ->
+    | ("VM.import_metadata" as call_name), [Rpc.String debug_info; metadata] ->
         debug "Upgrading VM.import_metadata" ;
-        Rpc.
-          {
-            name= "VM.import_metadata"
-          ; params=
-              [Rpc.Dict [("debug_info", debug_info); ("metadata", metadata)]]
-          ; is_notification= false
-          }
-    | "query", [debug_info; unit_p] ->
+        let span_parent =
+          let di = debug_info |> Debug_info.of_string in
+          di.tracing
+        in
+        ( Rpc.
+            {
+              name= "VM.import_metadata"
+            ; params=
+                [
+                  Rpc.Dict
+                    [
+                      ("debug_info", Rpc.String debug_info)
+                    ; ("metadata", metadata)
+                    ]
+                ]
+            ; is_notification= false
+            }
+        , call_name
+        , span_parent
+        )
+    | ("query" as call_name), [Rpc.String debug_info; unit_p] ->
         debug "Upgrading query" ;
-        Rpc.
-          {
-            name= "query"
-          ; params= [Rpc.Dict [("debug_info", debug_info); ("unit", unit_p)]]
-          ; is_notification= false
-          }
-    | _ ->
-        call
+        let span_parent =
+          let di = debug_info |> Debug_info.of_string in
+          di.tracing
+        in
+        ( Rpc.
+            {
+              name= "query"
+            ; params=
+                [
+                  Rpc.Dict
+                    [("debug_info", Rpc.String debug_info); ("unit", unit_p)]
+                ]
+            ; is_notification= false
+            }
+        , call_name
+        , span_parent
+        )
+    | call_name, [Rpc.Dict kv_list] ->
+        let span_parent =
+          kv_list
+          |> List.find_map (function
+               | "debug_info", Rpc.String debug_info ->
+                   let di = debug_info |> Debug_info.of_string in
+                   di.tracing
+               | _ ->
+                   None
+               )
+        in
+        (call, call_name, span_parent)
+    | call_name, _ ->
+        (call, call_name, None)
   in
-  Idl.Exn.server Xenops_server.Server.implementation call'
+  Tracing.with_tracing
+    ~attributes:
+      [
+        ("messaging.operation.name", "process")
+      ; ("messaging.system", "message-switch")
+      ; ("messaging.destination.name", !Xenops_interface.queue_name)
+      ]
+    ~span_kind:Tracing.SpanKind.Consumer ~parent:span_parent
+    ~name:("process" ^ " " ^ call_name)
+  @@ fun _ -> Idl.Exn.server Xenops_server.Server.implementation call'
 
 let handle_received_fd this_connection =
   let msg_size = 16384 in

@@ -184,19 +184,26 @@ let create ~__context ~vM ~vDI ~device ~userdevice ~bootable ~mode ~_type
   (* CA-75697: Disallow VBD.create on a VM that's in the middle of a migration *)
   debug "Checking whether there's a migrate in progress..." ;
   let vm_current_ops =
-    Xapi_stdext_std.Listext.List.setify
-      (List.map snd (Db.VM.get_current_operations ~__context ~self:vM))
+    List.sort_uniq
+      (fun (_ref1, op1) (_ref2, op2) -> compare op1 op2)
+      (Db.VM.get_current_operations ~__context ~self:vM)
   in
+
   let migrate_ops = [`migrate_send; `pool_migrate] in
   let migrate_ops_in_progress =
-    List.filter (fun op -> List.mem op vm_current_ops) migrate_ops
+    List.filter (fun (_, op) -> List.mem op migrate_ops) vm_current_ops
   in
   match migrate_ops_in_progress with
-  | op :: _ ->
+  | (op_ref, op_type) :: _ ->
       raise
         (Api_errors.Server_error
            ( Api_errors.other_operation_in_progress
-           , ["VM"; Ref.string_of vM; Record_util.vm_operation_to_string op]
+           , [
+               "VM"
+             ; Ref.string_of vM
+             ; Record_util.vm_operation_to_string op_type
+             ; op_ref
+             ]
            )
         )
   | _ ->

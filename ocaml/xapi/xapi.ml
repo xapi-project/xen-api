@@ -1380,6 +1380,10 @@ let server_init () =
             , cache_metadata_vdis
             )
           ; ("Stats reporting thread", [], Xapi_stats.start)
+          ; ( "Remove local ISO SR"
+            , [Startup.OnThread]
+            , fun () -> Vm_sysprep.on_startup ~__context
+            )
           ] ;
         if !debug_dummy_data then
           Startup.run ~__context

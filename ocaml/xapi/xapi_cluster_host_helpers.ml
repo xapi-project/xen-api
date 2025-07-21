@@ -22,19 +22,23 @@ let is_allowed_concurrently ~op:_ ~current_ops:_ =
   false
 
 let report_concurrent_operations_error ~current_ops ~ref_str =
-  let current_ops_str =
+  let current_ops_ref_str, current_ops_str =
     let op_to_str = Record_util.cluster_host_operation_to_string in
+    let ( >> ) f g x = g (f x) in
     match current_ops with
     | [] ->
         failwith "No concurrent operation to report"
-    | [(_, cop)] ->
-        op_to_str cop
+    | [(op_ref, cop)] ->
+        (op_ref, op_to_str cop)
     | l ->
-        "{" ^ String.concat "," (List.map op_to_str (List.map snd l)) ^ "}"
+        ( Printf.sprintf "{%s}" (String.concat "," (List.map fst l))
+        , Printf.sprintf "{%s}"
+            (String.concat "," (List.map (snd >> op_to_str) l))
+        )
   in
   Some
     ( Api_errors.other_operation_in_progress
-    , ["Cluster_host." ^ current_ops_str; ref_str]
+    , ["Cluster_host"; ref_str; current_ops_str; current_ops_ref_str]
     )
 
 (** Take an internal Cluster_host record and a proposed operation. Return None iff the operation

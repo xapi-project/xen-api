@@ -68,7 +68,7 @@ let _ =
       "The license-server connection details (address or port) were missing or \
        incomplete."
     () ;
-  error Api_errors.license_checkout_error ["reason"]
+  error Api_errors.license_checkout_error ["code"; "message"]
     ~doc:"The license for the edition you requested is not available." () ;
   error Api_errors.license_file_deprecated []
     ~doc:
@@ -532,31 +532,14 @@ let _ =
       "You attempted an operation on a VM which requires a more recent version \
        of the PV drivers. Please upgrade your PV drivers."
     () ;
-  error Api_errors.vm_lacks_feature_shutdown ["vm"]
-    ~doc:
-      "You attempted an operation which needs the cooperative shutdown feature \
-       on a VM which lacks it."
-    () ;
-  error Api_errors.vm_lacks_feature_vcpu_hotplug ["vm"]
-    ~doc:
-      "You attempted an operation which needs the VM hotplug-vcpu feature on a \
-       VM which lacks it."
-    () ;
-  error Api_errors.vm_lacks_feature_suspend ["vm"]
-    ~doc:
-      "You attempted an operation which needs the VM cooperative suspend \
-       feature on a VM which lacks it."
-    () ;
-  error Api_errors.vm_lacks_feature_static_ip_setting ["vm"]
-    ~doc:
-      "You attempted an operation which needs the VM static-ip-setting feature \
-       on a VM which lacks it."
-    () ;
   error Api_errors.vm_lacks_feature ["vm"]
     ~doc:"You attempted an operation on a VM which lacks the feature." () ;
+  error Api_errors.vm_non_suspendable ["vm"; "reason"]
+    ~doc:"You attempted an operation on a VM which is not suspendable." () ;
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" () ;
-  error Api_errors.other_operation_in_progress ["class"; "object"]
+  error Api_errors.other_operation_in_progress
+    ["class"; "object"; "operation_type"; "operation_ref"]
     ~doc:"Another operation involving the object is currently in progress" () ;
   error Api_errors.vbd_not_removable_media ["vbd"]
     ~doc:"Media could not be ejected because it is not removable" () ;
@@ -2070,6 +2053,9 @@ let _ =
       "TLS verification has not been enabled in the pool successfully, please \
        enable it in XC or run xe pool-enable-tls-verification instead."
     () ;
+
+  error Api_errors.sysprep ["vm"; "message"]
+    ~doc:"VM.sysprep error with details in the message" () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

@@ -66,6 +66,7 @@ functor
           )
 
         let inject_barrier id filterfn t =
+          let filterfn key _ = filterfn key in
           ( {
               map= t.map
             ; barriers=

@@ -304,7 +304,7 @@ module Ds_selector = struct
     if fs = [] then
       true
     else
-      List.fold_left (fun acc f -> acc || filter11 f d) false fs
+      List.exists (fun f -> filter11 f d) fs
 
   (* Returns the d \in ds that passes at least one of the filters
      fs *)

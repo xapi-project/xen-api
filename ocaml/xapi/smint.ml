@@ -132,7 +132,7 @@ module Feature = struct
         Some (feature, 1L)
     )
     | feature :: _ ->
-        error "SM.feature: unknown feature %s" feature ;
+        warn "SM.feature: unknown feature %s" feature ;
         None
 
   (** [compat_features features1 features2] finds the compatible features in the input

@@ -63,7 +63,7 @@ let names =
 
 let vdi_exists sr vdi =
   let all = Client.SR.scan dbg sr in
-  List.fold_left (fun acc vdi_info -> acc || vdi_info.vdi = vdi) false all
+  List.exists (fun vdi_info -> vdi_info.vdi = vdi) all
 
 let create sr name_label =
   let vdi_info =

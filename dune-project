@@ -578,6 +578,15 @@
     (>= "2.4.0")))))
 
 (package
+  (name qcow-stream-tool)
+  (synopsis "Minimal CLI wrapper for qcow-stream")
+  (depends
+    qcow-stream
+    cmdliner
+  )
+)
+
+(package
  (name varstored-guard))
 
 (package
