@@ -1080,3 +1080,15 @@ let get_live_hosts ~__context ~sr =
     Xapi_vm_helpers.assert_can_see_specified_SRs ~__context ~reqd_srs:[sr] ~host
   in
   Xapi_vm_helpers.possible_hosts ~__context ~choose_fn ()
+
+let required_api_version_of_sr ~__context ~sr =
+  let sr_type = Db.SR.get_type ~__context ~self:sr in
+  let expr =
+    Xapi_database.Db_filter_types.(Eq (Field "type", Literal sr_type))
+  in
+  match Db.SM.get_records_where ~__context ~expr with
+  | (_, sm) :: _ ->
+      Some sm.API.sM_required_api_version
+  | [] ->
+      warn "Couldn't find SM with type %s" sr_type ;
+      None

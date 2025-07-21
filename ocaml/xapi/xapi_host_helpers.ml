@@ -31,7 +31,7 @@ let all_operations = API.host_allowed_operations__all
 (** Returns a table of operations -> API error options (None if the operation would be ok) *)
 let valid_operations ~__context record _ref' =
   let _ref = Ref.string_of _ref' in
-  let current_ops = List.map snd record.Db_actions.host_current_operations in
+  let current_ops = record.Db_actions.host_current_operations in
   let table = Hashtbl.create 10 in
   List.iter (fun x -> Hashtbl.replace table x None) all_operations ;
   let set_errors (code : string) (params : string list)
@@ -49,40 +49,53 @@ let valid_operations ~__context record _ref' =
   let is_creating_new x = List.mem x [`provision; `vm_resume; `vm_migrate] in
   let is_removing x = List.mem x [`evacuate; `reboot; `shutdown] in
   let creating_new =
-    List.fold_left (fun acc op -> acc || is_creating_new op) false current_ops
+    List.find_opt (fun (_, op) -> is_creating_new op) current_ops
   in
-  let removing =
-    List.fold_left (fun acc op -> acc || is_removing op) false current_ops
-  in
+  let removing = List.find_opt (fun (_, op) -> is_removing op) current_ops in
   List.iter
     (fun op ->
-      if (is_creating_new op && removing) || (is_removing op && creating_new)
-      then
-        set_errors Api_errors.other_operation_in_progress
-          ["host"; _ref; host_operation_to_string (List.hd current_ops)]
-          [op]
+      match (is_creating_new op, removing, is_removing op, creating_new) with
+      | true, Some (op_ref, op_type), _, _ | _, _, true, Some (op_ref, op_type)
+        ->
+          set_errors Api_errors.other_operation_in_progress
+            ["host"; _ref; host_operation_to_string op_type; op_ref]
+            [op]
+      | _ ->
+          ()
     )
     (List.filter (fun x -> x <> `power_on) all_operations) ;
   (* reboot, shutdown and apply_updates cannot run concurrently *)
-  if List.mem `reboot current_ops then
-    set_errors Api_errors.other_operation_in_progress
-      ["host"; _ref; host_operation_to_string `reboot]
-      [`shutdown; `apply_updates] ;
-  if List.mem `shutdown current_ops then
-    set_errors Api_errors.other_operation_in_progress
-      ["host"; _ref; host_operation_to_string `shutdown]
-      [`reboot; `apply_updates] ;
-  if List.mem `apply_updates current_ops then
-    set_errors Api_errors.other_operation_in_progress
-      ["host"; _ref; host_operation_to_string `apply_updates]
-      [`reboot; `shutdown; `enable] ;
+  Option.iter
+    (fun (op_ref, _op_type) ->
+      set_errors Api_errors.other_operation_in_progress
+        ["host"; _ref; host_operation_to_string `reboot; op_ref]
+        [`shutdown; `apply_updates]
+    )
+    (List.find_opt (fun (_, op) -> op = `reboot) current_ops) ;
+  Option.iter
+    (fun (op_ref, _op_type) ->
+      set_errors Api_errors.other_operation_in_progress
+        ["host"; _ref; host_operation_to_string `shutdown; op_ref]
+        [`reboot; `apply_updates]
+    )
+    (List.find_opt (fun (_, op) -> op = `shutdown) current_ops) ;
+  Option.iter
+    (fun (op_ref, _op_type) ->
+      set_errors Api_errors.other_operation_in_progress
+        ["host"; _ref; host_operation_to_string `apply_updates; op_ref]
+        [`reboot; `shutdown; `enable]
+    )
+    (List.find_opt (fun (_, op) -> op = `apply_updates) current_ops) ;
   (* Prevent more than one provision happening at a time to prevent extreme dom0
      load (in the case of the debian template). Once the template becomes a 'real'
      template we can relax this. *)
-  if List.mem `provision current_ops then
-    set_errors Api_errors.other_operation_in_progress
-      ["host"; _ref; host_operation_to_string `provision]
-      [`provision] ;
+  Option.iter
+    (fun (op_ref, _op_type) ->
+      set_errors Api_errors.other_operation_in_progress
+        ["host"; _ref; host_operation_to_string `provision; op_ref]
+        [`provision]
+    )
+    (List.find_opt (fun (_, op) -> op = `provision) current_ops) ;
   (* The host must be disabled before reboots or shutdowns are permitted *)
   if record.Db_actions.host_enabled then
     set_errors Api_errors.host_not_disabled []

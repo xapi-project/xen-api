@@ -166,11 +166,6 @@
              observed values will be created alongside the standard archive of
              average values
   
-         update_vm_memory_target [OPTION]… domid target
-             Sets the `memory_target` value for a VM. This is called by xapi
-             when it is told by xenopsd that squeezed has changed the target
-             for a VM.
-  
   COMMON OPTIONS
          --help[=FMT] (default=auto)
              Show this help in format FMT. The value FMT must be one of auto,

@@ -909,4 +909,4 @@ __autocomplete_reqd_params_names()
     return 0
 }
 
-bind -x '"\C-rq":"__autocomplete_reqd_params_names"'
+bind -x '"\eq":"__autocomplete_reqd_params_names"'

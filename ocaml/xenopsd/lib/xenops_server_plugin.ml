@@ -211,6 +211,8 @@ module type S = sig
 
     val activate : Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
 
+    val unplug : Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit
+
     val deactivate : Xenops_task.task_handle -> Vm.id -> Vbd.t -> bool -> unit
 
     val detach : Xenops_task.task_handle -> Vm.id -> Vbd.t -> unit
@@ -288,10 +290,7 @@ module type S = sig
   end
 
   module UPDATES : sig
-    val get :
-         Updates.id option
-      -> int option
-      -> Dynamic.barrier list * Dynamic.id list * Updates.id
+    val get : Updates.id option -> int option -> Updates.get_result
   end
 
   module DEBUG : sig

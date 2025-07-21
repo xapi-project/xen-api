@@ -2079,8 +2079,8 @@ let apply_edition_internal ~__context ~host ~edition ~additional =
         raise Api_errors.(Server_error (license_processing_error, []))
     | V6_interface.(V6_error Missing_connection_details) ->
         raise Api_errors.(Server_error (missing_connection_details, []))
-    | V6_interface.(V6_error (License_checkout_error s)) ->
-        raise Api_errors.(Server_error (license_checkout_error, [s]))
+    | V6_interface.(V6_error (License_checkout_error (code, msg))) ->
+        raise Api_errors.(Server_error (license_checkout_error, [code; msg]))
     | V6_interface.(V6_error (Internal_error e)) ->
         Helpers.internal_error "%s" e
   in
@@ -2185,19 +2185,19 @@ let reset_networking ~__context ~host =
       (Db.PIF.get_all ~__context)
   in
   let bond_is_local bond =
-    List.fold_left
-      (fun a pif -> Db.Bond.get_master ~__context ~self:bond = pif || a)
-      false local_pifs
+    List.exists
+      (fun pif -> Db.Bond.get_master ~__context ~self:bond = pif)
+      local_pifs
   in
   let vlan_is_local vlan =
-    List.fold_left
-      (fun a pif -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan = pif || a)
-      false local_pifs
+    List.exists
+      (fun pif -> Db.VLAN.get_untagged_PIF ~__context ~self:vlan = pif)
+      local_pifs
   in
   let tunnel_is_local tunnel =
-    List.fold_left
-      (fun a pif -> Db.Tunnel.get_access_PIF ~__context ~self:tunnel = pif || a)
-      false local_pifs
+    List.exists
+      (fun pif -> Db.Tunnel.get_access_PIF ~__context ~self:tunnel = pif)
+      local_pifs
   in
   let bonds = List.filter bond_is_local (Db.Bond.get_all ~__context) in
   List.iter

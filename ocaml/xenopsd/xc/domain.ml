@@ -501,6 +501,9 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept =
     xs.Xs.writev (dom_path ^ "/bios-strings") vm_info.bios_strings ;
     if vm_info.is_uefi then
       xs.Xs.write (dom_path ^ "/hvmloader/bios") "ovmf" ;
+    xs.Xs.write
+      (dom_path ^ "/hvmloader/pci/xen-platform-pci-bar-uc")
+      (if !Xenopsd.xen_platform_pci_bar_uc then "1" else "0") ;
     (* If a toolstack sees a domain which it should own in this state then the
        domain is not completely setup and should be shutdown. *)
     xs.Xs.write (dom_path ^ "/action-request") "poweroff" ;
@@ -886,7 +889,7 @@ let numa_placement domid ~vcpus ~memory affinity =
             Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
       in
       numa_resources := Some nodea ;
-      let _ =
+      let memory_plan =
         match Softaffinity.plan ~vm host nodea with
         | None ->
             D.debug "NUMA-aware placement failed for domid %d" domid ;
@@ -898,10 +901,34 @@ let numa_placement domid ~vcpus ~memory affinity =
             done ;
             mem_plan
       in
-      (* Neither xenguest nor emu-manager allow allocating pages to a single
-         NUMA node, don't return any NUMA in any case. Claiming the memory
-         would be done here, but it conflicts with DMC. *)
-      None
+      (* Xen only allows a single node when using memory claims, or none at all. *)
+      let* numa_node, node =
+        match memory_plan with
+        | [Node node] ->
+            Some (Xenctrlext.NumaNode.from node, node)
+        | [] | _ :: _ :: _ ->
+            D.debug
+              "%s: domain %d can't fit a single NUMA node, falling back to \
+               default behaviour"
+              __FUNCTION__ domid ;
+            None
+      in
+      let nr_pages = Int64.div memory 4096L |> Int64.to_int in
+      try
+        Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
+        Some (node, memory)
+      with
+      | Xenctrlext.Not_available ->
+          (* Xen does not provide the interface to claim pages from a single NUMA
+             node, ignore the error and continue. *)
+          None
+      | Xenctrlext.Unix_error (errno, _) ->
+          D.info
+            "%s: unable to claim enough memory, domain %d won't be hosted in a \
+             single NUMA node. (error %s)"
+            __FUNCTION__ domid
+            Unix.(error_message errno) ;
+          None
   )
 
 let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =

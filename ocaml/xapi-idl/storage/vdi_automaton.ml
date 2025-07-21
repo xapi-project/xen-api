@@ -94,15 +94,9 @@ let ( + ) state operation =
 
 let superstate states =
   let activated =
-    List.fold_left
-      (fun acc s -> acc || s = Activated RO || s = Activated RW)
-      false states
+    List.exists (fun s -> s = Activated RO || s = Activated RW) states
   in
-  let rw =
-    List.fold_left
-      (fun acc s -> acc || s = Activated RW || s = Attached RW)
-      false states
-  in
+  let rw = List.exists (fun s -> s = Activated RW || s = Attached RW) states in
   if states = [] then
     Detached
   else if activated then

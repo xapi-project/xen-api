@@ -239,6 +239,8 @@ let prototyped_of_message = function
       Some "25.2.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
+  | "VM", "sysprep" ->
+      Some "25.24.0"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->

@@ -13,8 +13,6 @@
  *)
 [@@@ocaml.warning "-27"]
 
-let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
 type context = unit
 
 module UPDATES = struct
@@ -27,193 +25,231 @@ module UPDATES = struct
 end
 
 module Query = struct
-  let query ctx ~dbg = u "Query.query"
+  let query ctx ~dbg = Storage_interface.unimplemented __FUNCTION__
 
-  let diagnostics ctx ~dbg = u "Query.diagnostics"
+  let diagnostics ctx ~dbg = Storage_interface.unimplemented __FUNCTION__
 end
 
 module DP = struct
-  let create ctx ~dbg ~id = u "DP.create"
+  let create ctx ~dbg ~id = Storage_interface.unimplemented __FUNCTION__
 
-  let destroy ctx ~dbg ~dp ~allow_leak = u "DP.destroy"
+  let destroy ctx ~dbg ~dp ~allow_leak =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let destroy2 ctx ~dbg ~dp ~sr ~vdi ~vm ~allow_leak = u "DP.destroy2"
+  let destroy2 ctx ~dbg ~dp ~sr ~vdi ~vm ~allow_leak =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let attach_info ctx ~dbg ~sr ~vdi ~dp ~vm = u "DP.attach_info"
+  let attach_info ctx ~dbg ~sr ~vdi ~dp ~vm =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let diagnostics ctx () = u "DP.diagnostics"
+  let diagnostics ctx () = Storage_interface.unimplemented __FUNCTION__
 
-  let stat_vdi ctx ~dbg ~sr ~vdi () = u "DP.stat_vdi"
+  let stat_vdi ctx ~dbg ~sr ~vdi () =
+    Storage_interface.unimplemented __FUNCTION__
 end
 
 module SR = struct
   let create ctx ~dbg ~sr ~name_label ~name_description ~device_config
       ~physical_size =
-    u "SR.create"
+    Storage_interface.unimplemented __FUNCTION__
 
-  let attach ctx ~dbg ~sr ~device_config = u "SR.attach"
+  let attach ctx ~dbg ~sr ~device_config =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let set_name_label ctx ~dbg ~sr ~new_name_label = u "SR.set_name_label"
+  let set_name_label ctx ~dbg ~sr ~new_name_label =
+    Storage_interface.unimplemented __FUNCTION__
 
   let set_name_description ctx ~dbg ~sr ~new_name_description =
-    u "SR.set_name_description"
+    Storage_interface.unimplemented __FUNCTION__
 
-  let detach ctx ~dbg ~sr = u "SR.detach"
+  let detach ctx ~dbg ~sr = Storage_interface.unimplemented __FUNCTION__
 
-  let reset ctx ~dbg ~sr = u "SR.reset"
+  let reset ctx ~dbg ~sr = Storage_interface.unimplemented __FUNCTION__
 
-  let destroy ctx ~dbg ~sr = u "SR.destroy"
+  let destroy ctx ~dbg ~sr = Storage_interface.unimplemented __FUNCTION__
 
-  let probe ctx ~dbg ~queue ~device_config ~sm_config = u "SR.probe"
+  let probe ctx ~dbg ~queue ~device_config ~sm_config =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let scan ctx ~dbg ~sr = u "SR.scan"
+  let scan ctx ~dbg ~sr = Storage_interface.unimplemented __FUNCTION__
 
-  let scan2 ctx ~dbg ~sr = u "SR.scan2"
+  let scan2 ctx ~dbg ~sr = Storage_interface.unimplemented __FUNCTION__
 
   let update_snapshot_info_src ctx ~dbg ~sr ~vdi ~url ~dest ~dest_vdi
       ~snapshot_pairs =
-    u "SR.update_snapshot_info_src"
+    Storage_interface.unimplemented __FUNCTION__
 
   let update_snapshot_info_dest ctx ~dbg ~sr ~vdi ~src_vdi ~snapshot_pairs =
-    u "SR.update_snapshot_info_dest"
+    Storage_interface.unimplemented __FUNCTION__
 
-  let stat ctx ~dbg ~sr = u "SR.stat"
+  let stat ctx ~dbg ~sr = Storage_interface.unimplemented __FUNCTION__
 
-  let list ctx ~dbg = u "SR.list"
+  let list ctx ~dbg = Storage_interface.unimplemented __FUNCTION__
 end
 
 module VDI = struct
-  let create ctx ~dbg ~sr ~vdi_info = u "VDI.create"
+  let create ctx ~dbg ~sr ~vdi_info =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let set_name_label ctx ~dbg ~sr ~vdi ~new_name_label = u "VDI.set_name_label"
+  let set_name_label ctx ~dbg ~sr ~vdi ~new_name_label =
+    Storage_interface.unimplemented __FUNCTION__
 
   let set_name_description ctx ~dbg ~sr ~vdi ~new_name_description =
-    u "VDI.set_name_description"
+    Storage_interface.unimplemented __FUNCTION__
 
-  let snapshot ctx ~dbg ~sr ~vdi_info = u "VDI.snapshot"
+  let snapshot ctx ~dbg ~sr ~vdi_info =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let clone ctx ~dbg ~sr ~vdi_info = u "VDI.clone"
+  let clone ctx ~dbg ~sr ~vdi_info =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let resize ctx ~dbg ~sr ~vdi ~new_size = u "VDI.resize"
+  let resize ctx ~dbg ~sr ~vdi ~new_size =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let destroy ctx ~dbg ~sr ~vdi = u "VDI.destroy"
+  let destroy ctx ~dbg ~sr ~vdi = Storage_interface.unimplemented __FUNCTION__
 
-  let stat ctx ~dbg ~sr ~vdi = u "VDI.stat"
+  let stat ctx ~dbg ~sr ~vdi = Storage_interface.unimplemented __FUNCTION__
 
-  let introduce ctx ~dbg ~sr ~uuid ~sm_config ~location = u "VDI.introduce"
+  let introduce ctx ~dbg ~sr ~uuid ~sm_config ~location =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let set_persistent ctx ~dbg ~sr ~vdi ~persistent = u "VDI.set_persistent"
+  let set_persistent ctx ~dbg ~sr ~vdi ~persistent =
+    Storage_interface.unimplemented __FUNCTION__
 
   let epoch_begin ctx ~dbg ~sr ~vdi ~vm ~persistent = ()
 
-  let attach ctx ~dbg ~dp ~sr ~vdi ~read_write = u "VDI.attach"
+  let attach ctx ~dbg ~dp ~sr ~vdi ~read_write =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let attach2 ctx ~dbg ~dp ~sr ~vdi ~read_write = u "VDI.attach2"
+  let attach2 ctx ~dbg ~dp ~sr ~vdi ~read_write =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let attach3 ctx ~dbg ~dp ~sr ~vdi ~vm ~read_write = u "VDI.attach3"
+  let attach3 ctx ~dbg ~dp ~sr ~vdi ~vm ~read_write =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let activate ctx ~dbg ~dp ~sr ~vdi = u "VDI.activate"
+  let activate ctx ~dbg ~dp ~sr ~vdi =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let activate3 ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.activate3"
+  let activate3 ctx ~dbg ~dp ~sr ~vdi ~vm =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let activate_readonly ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.activate_readonly"
+  let activate_readonly ctx ~dbg ~dp ~sr ~vdi ~vm =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let deactivate ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.deactivate"
+  let deactivate ctx ~dbg ~dp ~sr ~vdi ~vm =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let detach ctx ~dbg ~dp ~sr ~vdi ~vm = u "VDI.detach"
+  let detach ctx ~dbg ~dp ~sr ~vdi ~vm =
+    Storage_interface.unimplemented __FUNCTION__
 
   let epoch_end ctx ~dbg ~sr ~vdi ~vm = ()
 
-  let get_url ctx ~dbg ~sr ~vdi = u "VDI.get_url"
+  let get_url ctx ~dbg ~sr ~vdi = Storage_interface.unimplemented __FUNCTION__
 
-  let similar_content ctx ~dbg ~sr ~vdi = u "VDI.similar_content"
+  let similar_content ctx ~dbg ~sr ~vdi =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let get_by_name ctx ~dbg ~sr ~name = u "VDI.get_by_name"
+  let get_by_name ctx ~dbg ~sr ~name =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let set_content_id ctx ~dbg ~sr ~vdi ~content_id = u "VDI.set_content_id"
+  let set_content_id ctx ~dbg ~sr ~vdi ~content_id =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let compose ctx ~dbg ~sr ~vdi1 ~vdi2 = u "VDI.compose"
+  let compose ctx ~dbg ~sr ~vdi1 ~vdi2 =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let add_to_sm_config ctx ~dbg ~sr ~vdi ~key ~value = u "VDI.add_to_sm_config"
+  let add_to_sm_config ctx ~dbg ~sr ~vdi ~key ~value =
+    Storage_interface.unimplemented __FUNCTION__
 
   let remove_from_sm_config ctx ~dbg ~sr ~vdi ~key =
-    u "VDI.remove_from_sm_config"
+    Storage_interface.unimplemented __FUNCTION__
 
-  let enable_cbt ctx ~dbg ~sr ~vdi = u "VDI.enable_cbt"
+  let enable_cbt ctx ~dbg ~sr ~vdi =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let disable_cbt ctx ~dbg ~sr ~vdi = u "VDI.disable_cbt"
+  let disable_cbt ctx ~dbg ~sr ~vdi =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let data_destroy ctx ~dbg ~sr ~vdi = u "VDI.data_destroy"
+  let data_destroy ctx ~dbg ~sr ~vdi =
+    Storage_interface.unimplemented __FUNCTION__
 
   let list_changed_blocks ctx ~dbg ~sr ~vdi_from ~vdi_to =
-    u "VDI.list_changed_blocks"
+    Storage_interface.unimplemented __FUNCTION__
 end
 
-let get_by_name ctx ~dbg ~name = u "get_by_name"
+let get_by_name ctx ~dbg ~name = Storage_interface.unimplemented __FUNCTION__
 
 module DATA = struct
-  let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest = u "DATA.copy"
+  let copy ctx ~dbg ~sr ~vdi ~vm ~url ~dest =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let mirror ctx ~dbg ~sr ~vdi ~vm ~dest = u "DATA.mirror"
+  let mirror ctx ~dbg ~sr ~vdi ~vm ~dest =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let stat ctx ~dbg ~sr ~vdi ~vm ~key = u "DATA.stat"
+  let stat ctx ~dbg ~sr ~vdi ~vm ~key =
+    Storage_interface.unimplemented __FUNCTION__
 
   let import_activate ctx ~dbg ~dp ~sr ~vdi ~vm =
-    u "DATA.MIRROR.import_activate"
+    Storage_interface.unimplemented __FUNCTION__
 
-  let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm = u "DATA.MIRROR.get_nbd_server"
+  let get_nbd_server ctx ~dbg ~dp ~sr ~vdi ~vm =
+    Storage_interface.unimplemented __FUNCTION__
 
   module MIRROR = struct
     type context = unit
 
     let send_start ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
         ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
-      u "DATA.MIRROR.send_start"
+      Storage_interface.unimplemented __FUNCTION__
 
     let receive_start ctx ~dbg ~sr ~vdi_info ~id ~similar =
-      u "DATA.MIRROR.receive_start"
+      Storage_interface.unimplemented __FUNCTION__
 
     let receive_start2 ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-      u "DATA.MIRROR.receive_start2"
+      Storage_interface.unimplemented __FUNCTION__
 
     let receive_start3 ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
         ~verify_dest =
-      u "DATA.MIRROR.receive_start3"
+      Storage_interface.unimplemented __FUNCTION__
 
-    let receive_finalize ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize"
+    let receive_finalize ctx ~dbg ~id =
+      Storage_interface.unimplemented __FUNCTION__
 
-    let receive_finalize2 ctx ~dbg ~id = u "DATA.MIRROR.receive_finalize2"
+    let receive_finalize2 ctx ~dbg ~id =
+      Storage_interface.unimplemented __FUNCTION__
 
     let receive_finalize3 ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
-      u "DATA.MIRROR.receive_finalize3"
+      Storage_interface.unimplemented __FUNCTION__
 
-    let receive_cancel ctx ~dbg ~id = u "DATA.MIRROR.receive_cancel"
+    let receive_cancel ctx ~dbg ~id =
+      Storage_interface.unimplemented __FUNCTION__
 
     let receive_cancel2 ctx ~dbg ~mirror_id ~url ~verify_dest =
-      u "DATA.MIRROR.receive_cancel2"
+      Storage_interface.unimplemented __FUNCTION__
 
     let pre_deactivate_hook ctx ~dbg ~dp ~sr ~vdi =
-      u "DATA.MIRROR.pre_deactivate_hook"
+      Storage_interface.unimplemented __FUNCTION__
 
     let has_mirror_failed ctx ~dbg ~mirror_id ~sr =
-      u "DATA.MIRROR.has_mirror_failed"
+      Storage_interface.unimplemented __FUNCTION__
 
-    let list ctx ~dbg = u "DATA.MIRROR.list"
+    let list ctx ~dbg = Storage_interface.unimplemented __FUNCTION__
 
-    let stat ctx ~dbg ~id = u "DATA.MIRROR.stat"
+    let stat ctx ~dbg ~id = Storage_interface.unimplemented __FUNCTION__
   end
 end
 
 module Policy = struct
-  let get_backend_vm ctx ~dbg ~vm ~sr ~vdi = u "Policy.get_backend_vm"
+  let get_backend_vm ctx ~dbg ~vm ~sr ~vdi =
+    Storage_interface.unimplemented __FUNCTION__
 end
 
 module TASK = struct
-  let stat ctx ~dbg ~task = u "TASK.stat"
+  let stat ctx ~dbg ~task = Storage_interface.unimplemented __FUNCTION__
 
-  let cancel ctx ~dbg ~task = u "TASK.cancel"
+  let cancel ctx ~dbg ~task = Storage_interface.unimplemented __FUNCTION__
 
-  let destroy ctx ~dbg ~task = u "TASK.destroy"
+  let destroy ctx ~dbg ~task = Storage_interface.unimplemented __FUNCTION__
 
-  let list ctx ~dbg = u "TASK.list"
+  let list ctx ~dbg = Storage_interface.unimplemented __FUNCTION__
 end

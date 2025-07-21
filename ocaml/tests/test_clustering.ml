@@ -581,11 +581,21 @@ let test_disallow_unplug_during_cluster_host_create () =
     let key = Context.get_task_id __context |> Ref.string_of in
     Db.Cluster.add_to_current_operations ~__context ~self:cluster ~key ~value
   in
-  let check_disallow_unplug_false_fails self msg =
+  let check_disallow_unplug_false_fails self op msg =
+    let op_ref, _ =
+      List.hd (Db.Cluster.get_current_operations ~__context ~self:cluster)
+    in
     Alcotest.check_raises msg
       Api_errors.(
         Server_error
-          (other_operation_in_progress, ["Cluster"; Ref.string_of cluster])
+          ( other_operation_in_progress
+          , [
+              "Cluster"
+            ; Ref.string_of cluster
+            ; API.cluster_operation_to_string op
+            ; op_ref
+            ]
+          )
       )
       (fun () -> Xapi_pif.set_disallow_unplug ~__context ~self ~value:false)
   in
@@ -598,14 +608,14 @@ let test_disallow_unplug_during_cluster_host_create () =
   let test_with_current op =
     Xapi_pif.set_disallow_unplug ~__context ~self:pIF ~value:true ;
     add_op op ;
-    check_disallow_unplug_false_fails pIF
+    check_disallow_unplug_false_fails pIF op
       "disallow_unplug cannot be set to false during cluster_host creation or \
        enable on same PIF" ;
     let other_pif = T.make_pif ~__context ~network ~host () in
     check_successful_disallow_unplug true other_pif
       "Should always be able to set disallow_unplug:true regardless of \
        clustering operations" ;
-    check_disallow_unplug_false_fails other_pif
+    check_disallow_unplug_false_fails other_pif op
       "disallow_unplug cannot be set to false during cluster_host creation or \
        enable on any PIF" ;
     let key = Context.get_task_id __context |> Ref.string_of in

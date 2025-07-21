@@ -50,18 +50,20 @@ let valid_operations ~__context record _ref' : table =
   in
   let vm = Db.VIF.get_VM ~__context ~self:_ref' in
   (* Any current_operations preclude everything else *)
-  if current_ops <> [] then (
-    debug "No operations are valid because current-operations = [ %s ]"
-      (String.concat "; "
-         (List.map
-            (fun (task, op) -> task ^ " -> " ^ vif_operations_to_string op)
-            current_ops
-         )
-      ) ;
-    let concurrent_op = snd (List.hd current_ops) in
-    set_errors Api_errors.other_operation_in_progress
-      ["VIF"; _ref; vif_operations_to_string concurrent_op]
-      all_ops
+  ( if current_ops <> [] then
+      let concurrent_op_refs, concurrent_op_types =
+        List.fold_left
+          (fun (refs, types) (ref, op) ->
+            (ref :: refs, vif_operations_to_string op :: types)
+          )
+          ([], []) current_ops
+      in
+      let format x = Printf.sprintf "{%s}" (String.concat "; " x) in
+      let concurrent_op_refs = format concurrent_op_refs in
+      let concurrent_op_types = format concurrent_op_types in
+      set_errors Api_errors.other_operation_in_progress
+        ["VIF"; _ref; concurrent_op_types; concurrent_op_refs]
+        all_ops
   ) ;
   (* No hotplug on dom0 *)
   if Helpers.is_domain_zero ~__context vm then

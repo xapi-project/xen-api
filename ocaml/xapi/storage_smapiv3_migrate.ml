@@ -108,8 +108,6 @@ let mirror_wait ~dbg ~sr ~vdi ~vm ~mirror_id mirror_key =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let u x = raise Storage_interface.(Storage_error (Errors.Unimplemented x))
-
   let send_start _ctx ~dbg ~task_id:_ ~dp ~sr ~vdi ~mirror_vm ~mirror_id
       ~local_vdi:_ ~copy_vm:_ ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest
       =
@@ -187,10 +185,10 @@ module MIRROR : SMAPIv2_MIRROR = struct
     )
 
   let receive_start _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
-    u "DATA.MIRROR.receive_start"
+    Storage_interface.unimplemented __FUNCTION__
 
   let receive_start2 _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ ~vm:_ =
-    u "DATA.MIRROR.receive_start2"
+    Storage_interface.unimplemented __FUNCTION__
 
   let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar:_ ~vm ~url
       ~verify_dest =
@@ -269,9 +267,11 @@ module MIRROR : SMAPIv2_MIRROR = struct
         !on_fail ;
       raise e
 
-  let receive_finalize _ctx ~dbg:_ ~id:_ = u "DATA.MIRROR.receive_finalize"
+  let receive_finalize _ctx ~dbg:_ ~id:_ =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let receive_finalize2 _ctx ~dbg:_ ~id:_ = u "DATA.MIRROR.receive_finalize2"
+  let receive_finalize2 _ctx ~dbg:_ ~id:_ =
+    Storage_interface.unimplemented __FUNCTION__
 
   let receive_finalize3 _ctx ~dbg ~mirror_id ~sr ~url ~verify_dest =
     D.debug "%s dbg:%s id: %s sr: %s url: %s verify_dest: %B" __FUNCTION__ dbg
@@ -289,11 +289,12 @@ module MIRROR : SMAPIv2_MIRROR = struct
       recv_state ;
     State.remove_receive_mirror mirror_id
 
-  let receive_cancel _ctx ~dbg:_ ~id:_ = u __FUNCTION__
+  let receive_cancel _ctx ~dbg:_ ~id:_ =
+    Storage_interface.unimplemented __FUNCTION__
 
-  let list _ctx = u __FUNCTION__
+  let list _ctx = Storage_interface.unimplemented __FUNCTION__
 
-  let stat _ctx = u __FUNCTION__
+  let stat _ctx = Storage_interface.unimplemented __FUNCTION__
 
   let receive_cancel2 _ctx ~dbg ~mirror_id ~url ~verify_dest =
     D.debug "%s dbg:%s mirror_id:%s url:%s verify_dest:%B" __FUNCTION__ dbg

@@ -635,9 +635,7 @@ let event_hook_auth_on_xapi_initialize_succeeded = ref false
 
 let metrics_root = "/dev/shm/metrics"
 
-let metrics_prefix_mem_host = "xcp-rrdd-mem_host"
-
-let metrics_prefix_mem_vms = "xcp-rrdd-mem_vms"
+let metrics_prefix_mem = "xcp-rrdd-squeezed"
 
 let metrics_prefix_pvs_proxy = "pvsproxy-"
 
@@ -804,6 +802,10 @@ let pbis_force_domain_leave_script = ref "pbis-force-domain-leave"
 let sparse_dd = ref "sparse_dd"
 
 let vhd_tool = ref "vhd-tool"
+
+let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
+
+let qcow_stream_tool = ref "qcow-stream-tool"
 
 let fence = ref "fence"
 
@@ -1091,10 +1093,17 @@ let reuse_pool_sessions = ref false
 let validate_reusable_pool_session = ref false
 (* Validate a reusable session before each use. This is slower and should not be required *)
 
+let vm_sysprep_enabled = ref false
+(* enable VM.sysprep API *)
+
+let vm_sysprep_wait = ref 5.0 (* seconds *)
+
 let test_open = ref 0
 
 let xapi_requests_cgroup =
   "/sys/fs/cgroup/cpu/control.slice/xapi.service/request"
+
+let genisoimage_path = ref "/usr/bin/genisoimage"
 
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
@@ -1331,18 +1340,14 @@ let gen_list_option name desc of_string string_of opt =
 let sm_plugins = ref []
 
 let accept_sm_plugin name =
-  List.(
-    fold_left ( || ) false
-      (map
-         (function
-           | `All ->
-               true
-           | `Sm x ->
-               String.lowercase_ascii x = String.lowercase_ascii name
-           )
-         !sm_plugins
+  List.exists
+    (function
+      | `All ->
+          true
+      | `Sm x ->
+          String.lowercase_ascii x = String.lowercase_ascii name
       )
-  )
+    !sm_plugins
 
 let nvidia_multi_vgpu_enabled_driver_versions =
   ref ["430.42"; "430.62"; "440.00+"]
@@ -1763,6 +1768,16 @@ let other_options =
     , "Defaults to true; overridden to false via \
        /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
     )
+  ; ( "vm-sysprep-enabled"
+    , Arg.Set vm_sysprep_enabled
+    , (fun () -> string_of_bool !vm_sysprep_enabled)
+    , "Enable VM.sysprep API"
+    )
+  ; ( "vm-sysprep-wait"
+    , Arg.Set_float vm_sysprep_wait
+    , (fun () -> string_of_float !vm_sysprep_wait)
+    , "Time in seconds to wait for VM to recognise inserted CD"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1809,6 +1824,8 @@ module Resources = struct
       )
     ; ("sparse_dd", sparse_dd, "Path to sparse_dd")
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
+    ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
+    ; ("qcow_stream_tool", qcow_stream_tool, "Path to qcow-stream-tool")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload
@@ -1954,6 +1971,7 @@ module Resources = struct
       , pvsproxy_close_cache_vdi
       , "Path to close-cache-vdi.sh"
       )
+    ; ("genisoimage", genisoimage_path, "Path to genisoimage")
     ]
 
   let essential_files =
