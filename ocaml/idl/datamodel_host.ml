@@ -1339,7 +1339,7 @@ let create_params =
       param_type= Bool
     ; param_name= "ssh_auto_mode"
     ; param_doc= "True if SSH auto mode is enabled for the host"
-    ; param_release= numbered_release "25.14.0-next"
+    ; param_release= numbered_release "25.26.0-next"
     ; param_default= Some (VBool Constants.default_ssh_auto_mode)
     }
   ]
