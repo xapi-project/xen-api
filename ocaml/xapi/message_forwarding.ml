@@ -1188,6 +1188,12 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_console_idle_timeout ~__context ~self ~value
+
+      let set_ssh_auto_mode ~__context ~self ~value =
+        info "Pool.set_ssh_auto_mode: pool='%s' value='%b'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ssh_auto_mode ~__context ~self ~value
     end
 
     module VM = struct
@@ -4091,6 +4097,14 @@ functor
           value ;
         let local_fn = Local.Host.set_console_idle_timeout ~self ~value in
         let remote_fn = Client.Host.set_console_idle_timeout ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ssh_auto_mode ~__context ~self ~value =
+        info "Host.set_ssh_auto_mode: host='%s' value='%b'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_ssh_auto_mode ~self ~value in
+        let remote_fn = Client.Host.set_ssh_auto_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 

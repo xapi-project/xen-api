@@ -1008,7 +1008,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
-    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout =
+    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1073,7 +1073,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~tls_verification_enabled ~last_software_update ~last_update_hash
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
-    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ;
+    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3142,10 +3142,41 @@ let emergency_clear_mandatory_guidance ~__context =
      ) ;
   Db.Host.set_pending_guidances ~__context ~self ~value:[]
 
+let set_ssh_auto_mode ~__context ~self ~value =
+  debug "Setting SSH auto mode for host %s to %B"
+    (Helpers.get_localhost_uuid ())
+    value ;
+
+  Db.Host.set_ssh_auto_mode ~__context ~self ~value ;
+
+  try
+    (* When enabled, the ssh_monitor_service regularly checks XAPI status to manage SSH availability.
+       During normal operation when XAPI is running properly, SSH is automatically disabled.
+       SSH is only enabled during emergency scenarios
+       (e.g., when XAPI is down) to allow administrative access for troubleshooting. *)
+    if value then (
+      (* Ensure SSH is always enabled when SSH auto mode is on*)
+      Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
+      Xapi_systemctl.enable ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service ;
+      Xapi_systemctl.start ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service
+    ) else (
+      Xapi_systemctl.stop ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service ;
+      Xapi_systemctl.disable ~wait_until_success:false
+        !Xapi_globs.ssh_monitor_service
+    )
+  with e ->
+    error "Failed to configure SSH auto mode: %s" (Printexc.to_string e) ;
+    Helpers.internal_error "Failed to configure SSH auto mode: %s"
+      (Printexc.to_string e)
+
 let disable_ssh_internal ~__context ~self =
   try
     debug "Disabling SSH for host %s" (Helpers.get_localhost_uuid ()) ;
-    Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ssh_service ;
+    if not (Db.Host.get_ssh_auto_mode ~__context ~self) then
+      Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ssh_service ;
     Xapi_systemctl.stop ~wait_until_success:false !Xapi_globs.ssh_service ;
     Db.Host.set_ssh_enabled ~__context ~self ~value:false
   with e ->
@@ -3154,8 +3185,7 @@ let disable_ssh_internal ~__context ~self =
     Helpers.internal_error "Failed to disable SSH access, host: %s"
       (Ref.string_of self)
 
-let schedule_disable_ssh_job ~__context ~self ~timeout =
-  let host_uuid = Helpers.get_localhost_uuid () in
+let set_expiry ~__context ~self ~timeout =
   let expiry_time =
     match
       Ptime.add_span (Ptime_clock.now ())
@@ -3172,6 +3202,10 @@ let schedule_disable_ssh_job ~__context ~self ~timeout =
     | Some t ->
         Ptime.to_float_s t |> Date.of_unix_time
   in
+  Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+
+let schedule_disable_ssh_job ~__context ~self ~timeout ~auto_mode =
+  let host_uuid = Helpers.get_localhost_uuid () in
 
   debug "Scheduling SSH disable job for host %s with timeout %Ld seconds"
     host_uuid timeout ;
@@ -3183,14 +3217,20 @@ let schedule_disable_ssh_job ~__context ~self ~timeout =
   Xapi_stdext_threads_scheduler.Scheduler.add_to_queue
     !Xapi_globs.job_for_disable_ssh
     Xapi_stdext_threads_scheduler.Scheduler.OneShot (Int64.to_float timeout)
-    (fun () -> disable_ssh_internal ~__context ~self
-  ) ;
-
-  Db.Host.set_ssh_expiry ~__context ~self ~value:expiry_time
+    (fun () ->
+      disable_ssh_internal ~__context ~self ;
+      (* re-enable SSH auto mode if it was enabled before calling host.enable_ssh *)
+      if auto_mode then
+        set_ssh_auto_mode ~__context ~self ~value:true
+  )
 
 let enable_ssh ~__context ~self =
   try
     debug "Enabling SSH for host %s" (Helpers.get_localhost_uuid ()) ;
+
+    let cached_ssh_auto_mode = Db.Host.get_ssh_auto_mode ~__context ~self in
+    (* Disable SSH auto mode when SSH is enabled manually *)
+    set_ssh_auto_mode ~__context ~self ~value:false ;
 
     Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
     Xapi_systemctl.start ~wait_until_success:false !Xapi_globs.ssh_service ;
@@ -3202,7 +3242,9 @@ let enable_ssh ~__context ~self =
           !Xapi_globs.job_for_disable_ssh ;
         Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
     | t ->
+        set_expiry ~__context ~self ~timeout:t ;
         schedule_disable_ssh_job ~__context ~self ~timeout:t
+          ~auto_mode:cached_ssh_auto_mode
     ) ;
 
     Db.Host.set_ssh_enabled ~__context ~self ~value:true
@@ -3241,7 +3283,8 @@ let set_ssh_enabled_timeout ~__context ~self ~value =
           !Xapi_globs.job_for_disable_ssh ;
         Db.Host.set_ssh_expiry ~__context ~self ~value:Date.epoch
     | t ->
-        schedule_disable_ssh_job ~__context ~self ~timeout:t
+        set_expiry ~__context ~self ~timeout:t ;
+        schedule_disable_ssh_job ~__context ~self ~timeout:t ~auto_mode:false
 
 let set_console_idle_timeout ~__context ~self ~value =
   let assert_timeout_valid timeout =

@@ -90,9 +90,15 @@ let register ~__context =
       if Int64.compare expiry_time current_time > 0 then
         let remaining = Int64.sub expiry_time current_time in
         Xapi_host.schedule_disable_ssh_job ~__context ~self ~timeout:remaining
-      (* handle the case where XAPI is not active when the SSH timeout expires *)
-      else if Fe_systemctl.is_active ~service:!Xapi_globs.ssh_service then
-        Xapi_host.disable_ssh ~__context ~self
+          ~auto_mode:true
+      (* Handle the case where XAPI is not active when the SSH timeout expires.
+         This typically occurs when XAPI has been down for an extended period that
+         exceeds the timeout duration. In this scenario, we need to enable SSH auto
+         mode to ensure the SSH service remains continuously available. *)
+      else if Fe_systemctl.is_active ~service:!Xapi_globs.ssh_service then (
+        Xapi_host.disable_ssh ~__context ~self ;
+        Xapi_host.set_ssh_auto_mode ~__context ~self ~value:true
+      )
   in
   let update_all_subjects_delay = 10.0 in
   (* initial delay = 10 seconds *)
