@@ -2767,7 +2767,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "vm-sysprep"
     , {
         reqd= ["filename"]
-      ; optn= []
+      ; optn= ["timeout"]
       ; help= "Pass and execute sysprep configuration file"
       ; implementation= With_fd Cli_operations.vm_sysprep
       ; flags= [Vm_selectors]

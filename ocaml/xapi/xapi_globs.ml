@@ -805,6 +805,8 @@ let vhd_tool = ref "vhd-tool"
 
 let qcow_to_stdout = ref "/opt/xensource/libexec/qcow2-to-stdout.py"
 
+let qcow_stream_tool = ref "qcow-stream-tool"
+
 let fence = ref "fence"
 
 let host_bugreport_upload = ref "host-bugreport-upload"
@@ -1311,6 +1313,10 @@ let job_for_disable_ssh = ref "Disable SSH"
 
 let ssh_service = ref "sshd"
 
+let ssh_monitor_service = ref "xapi-ssh-monitor"
+
+let ssh_auto_mode_default = ref true
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
   "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
@@ -1334,18 +1340,14 @@ let gen_list_option name desc of_string string_of opt =
 let sm_plugins = ref []
 
 let accept_sm_plugin name =
-  List.(
-    fold_left ( || ) false
-      (map
-         (function
-           | `All ->
-               true
-           | `Sm x ->
-               String.lowercase_ascii x = String.lowercase_ascii name
-           )
-         !sm_plugins
+  List.exists
+    (function
+      | `All ->
+          true
+      | `Sm x ->
+          String.lowercase_ascii x = String.lowercase_ascii name
       )
-  )
+    !sm_plugins
 
 let nvidia_multi_vgpu_enabled_driver_versions =
   ref ["430.42"; "430.62"; "440.00+"]
@@ -1760,6 +1762,12 @@ let other_options =
     , (fun () -> string_of_bool !validate_reusable_pool_session)
     , "Enable validation of reusable pool sessions before use"
     )
+  ; ( "ssh-auto-mode"
+    , Arg.Bool (fun b -> ssh_auto_mode_default := b)
+    , (fun () -> string_of_bool !ssh_auto_mode_default)
+    , "Defaults to true; overridden to false via \
+       /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
+    )
   ; ( "vm-sysprep-enabled"
     , Arg.Set vm_sysprep_enabled
     , (fun () -> string_of_bool !vm_sysprep_enabled)
@@ -1817,6 +1825,7 @@ module Resources = struct
     ; ("sparse_dd", sparse_dd, "Path to sparse_dd")
     ; ("vhd-tool", vhd_tool, "Path to vhd-tool")
     ; ("qcow_to_stdout", qcow_to_stdout, "Path to qcow-to-stdout script")
+    ; ("qcow_stream_tool", qcow_stream_tool, "Path to qcow-stream-tool")
     ; ("fence", fence, "Path to fence binary, used for HA host fencing")
     ; ( "host-bugreport-upload"
       , host_bugreport_upload

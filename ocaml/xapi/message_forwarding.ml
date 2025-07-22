@@ -1188,6 +1188,12 @@ functor
           (pool_uuid ~__context self)
           value ;
         Local.Pool.set_console_idle_timeout ~__context ~self ~value
+
+      let set_ssh_auto_mode ~__context ~self ~value =
+        info "Pool.set_ssh_auto_mode: pool='%s' value='%b'"
+          (pool_uuid ~__context self)
+          value ;
+        Local.Pool.set_ssh_auto_mode ~__context ~self ~value
     end
 
     module VM = struct
@@ -3116,10 +3122,10 @@ functor
         Local.VM.remove_from_blocked_operations ~__context ~self ~key ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
-      let sysprep ~__context ~self ~unattend =
+      let sysprep ~__context ~self ~unattend ~timeout =
         info "VM.sysprep: self = '%s'" (vm_uuid ~__context self) ;
-        let local_fn = Local.VM.sysprep ~self ~unattend in
-        let remote_fn = Client.VM.sysprep ~self ~unattend in
+        let local_fn = Local.VM.sysprep ~self ~unattend ~timeout in
+        let remote_fn = Client.VM.sysprep ~self ~unattend ~timeout in
         let policy = Helpers.Policy.fail_immediately in
         with_vm_operation ~__context ~self ~doc:"VM.sysprep" ~op:`sysprep
           ~policy (fun () ->
@@ -4091,6 +4097,14 @@ functor
           value ;
         let local_fn = Local.Host.set_console_idle_timeout ~self ~value in
         let remote_fn = Client.Host.set_console_idle_timeout ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ssh_auto_mode ~__context ~self ~value =
+        info "Host.set_ssh_auto_mode: host='%s' value='%b'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_ssh_auto_mode ~self ~value in
+        let remote_fn = Client.Host.set_ssh_auto_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
@@ -5720,14 +5734,21 @@ functor
             if Helpers.i_am_srmaster ~__context ~sr then
               List.iter
                 (fun vdi ->
-                  if Db.VDI.get_current_operations ~__context ~self:vdi <> []
-                  then
-                    raise
-                      (Api_errors.Server_error
-                         ( Api_errors.other_operation_in_progress
-                         , [Datamodel_common._vdi; Ref.string_of vdi]
-                         )
-                      )
+                  match Db.VDI.get_current_operations ~__context ~self:vdi with
+                  | (op_ref, op_type) :: _ ->
+                      raise
+                        (Api_errors.Server_error
+                           ( Api_errors.other_operation_in_progress
+                           , [
+                               Datamodel_common._vdi
+                             ; Ref.string_of vdi
+                             ; API.vdi_operations_to_string op_type
+                             ; op_ref
+                             ]
+                           )
+                        )
+                  | [] ->
+                      ()
                 )
                 (Db.SR.get_VDIs ~__context ~self:sr) ;
             SR.mark_sr ~__context ~sr ~doc ~op

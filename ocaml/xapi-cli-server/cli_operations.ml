@@ -3590,6 +3590,15 @@ let vm_data_source_forget printer rpc session_id params =
 
 let vm_sysprep fd printer rpc session_id params =
   let filename = List.assoc "filename" params in
+  let timeout =
+    match List.assoc "timeout" params |> float_of_string with
+    | exception _ ->
+        3.0 *. 60.0 (* default in the CLI, no default in the API *)
+    | s when s < 0.0 ->
+        0.0
+    | s ->
+        s
+  in
   let unattend =
     match get_client_file fd filename with
     | Some xml ->
@@ -3602,8 +3611,9 @@ let vm_sysprep fd printer rpc session_id params =
     (do_vm_op printer rpc session_id
        (fun vm ->
          Client.VM.sysprep ~rpc ~session_id ~self:(vm.getref ()) ~unattend
+           ~timeout
        )
-       params ["filename"]
+       params ["filename"; "timeout"]
     )
 
 (* APIs to collect SR level RRDs *)
@@ -5328,9 +5338,8 @@ let with_license_server_changes printer rpc session_id params hosts f =
           )
           hosts
   ) ;
-  let now = Unix.gettimeofday () in
   try f rpc session_id with
-  | Api_errors.Server_error (name, _) as e
+  | Api_errors.Server_error (name, [_; msg])
     when name = Api_errors.license_checkout_error ->
       (* Put back original license_server_details *)
       List.iter
@@ -5339,28 +5348,8 @@ let with_license_server_changes printer rpc session_id params hosts f =
             ~value:license_server
         )
         current_license_servers ;
-      let alerts =
-        Client.Message.get_since ~rpc ~session_id
-          ~since:(Date.of_unix_time (now -. 1.))
-      in
-      let print_if_checkout_error (ref, msg) =
-        if
-          false
-          || msg.API.message_name = fst Api_messages.v6_rejected
-          || msg.API.message_name = fst Api_messages.v6_comm_error
-          || msg.API.message_name
-             = fst Api_messages.v6_license_server_version_obsolete
-        then (
-          Client.Message.destroy ~rpc ~session_id ~self:ref ;
-          printer (Cli_printer.PStderr (msg.API.message_body ^ "\n"))
-        )
-      in
-      if alerts = [] then
-        raise e
-      else (
-        List.iter print_if_checkout_error alerts ;
-        raise (ExitWithError 1)
-      )
+      printer (Cli_printer.PStderr (msg ^ "\n")) ;
+      raise (ExitWithError 1)
   | Api_errors.Server_error (name, _) as e
     when name = Api_errors.invalid_edition ->
       let host = get_host_from_session rpc session_id in

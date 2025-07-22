@@ -1335,6 +1335,13 @@ let create_params =
     ; param_release= numbered_release "25.21.0"
     ; param_default= Some (VInt Constants.default_console_idle_timeout)
     }
+  ; {
+      param_type= Bool
+    ; param_name= "ssh_auto_mode"
+    ; param_doc= "True if SSH auto mode is enabled for the host"
+    ; param_release= numbered_release "25.26.0-next"
+    ; param_default= Some (VBool Constants.default_ssh_auto_mode)
+    }
   ]
 
 let create =
@@ -1350,8 +1357,8 @@ let create =
       ; ( Changed
         , "25.21.0"
         , "Added --ssh_enabled --ssh_enabled_timeout --ssh_expiry \
-           --console_idle_timeout options to allow them to be configured for \
-           new host"
+           --console_idle_timeout --ssh_auto_mode options to allow them to be \
+           configured for new host"
         )
       ]
     ~versioned_params:create_params ~doc:"Create a new host record"
@@ -2440,6 +2447,21 @@ let set_console_idle_timeout =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let set_ssh_auto_mode =
+  call ~name:"set_ssh_auto_mode" ~lifecycle:[]
+    ~doc:"Set the SSH auto mode for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( Bool
+        , "value"
+        , "The SSH auto mode for the host，when set to true, SSH to normally be \
+           disabled and SSH to be enabled only in case of emergency e.g., xapi \
+           is down"
+        )
+      ]
+    ~allowed_roles:_R_POOL_ADMIN ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2601,6 +2623,7 @@ let t =
       ; disable_ssh
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
+      ; set_ssh_auto_mode
       ]
     ~contents:
       ([
@@ -3056,6 +3079,10 @@ let t =
             "console_idle_timeout"
             "The timeout in seconds after which idle console will be \
              automatically terminated (0 means never)"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool Constants.default_ssh_auto_mode))
+            "ssh_auto_mode"
+            "Reflects whether SSH auto mode is enabled for the host"
         ]
       )
     ()

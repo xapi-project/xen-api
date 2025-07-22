@@ -42,7 +42,9 @@ type table = (API.vbd_operations, (string * string list) option) Hashtbl.t
 let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops =
-    Listext.List.setify (List.map snd record.Db_actions.vBD_current_operations)
+    List.sort_uniq
+      (fun (_ref1, op1) (_ref2, op2) -> compare op1 op2)
+      record.Db_actions.vBD_current_operations
   in
   (* Policy:
      * current_ops must be empty [ will make exceptions later for eg eject/unplug of attached vbd ]
@@ -74,30 +76,48 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
   let safe_to_parallelise = [`pause; `unpause] in
   (* Any current_operations preclude everything that isn't safe to parallelise *)
   ( if current_ops <> [] then
-      let concurrent_op = List.hd current_ops in
+      let concurrent_op_ref, concurrent_op_type = List.hd current_ops in
       set_errors Api_errors.other_operation_in_progress
-        ["VBD"; _ref; vbd_operations_to_string concurrent_op]
+        [
+          "VBD"
+        ; _ref
+        ; vbd_operations_to_string concurrent_op_type
+        ; concurrent_op_ref
+        ]
         (Listext.List.set_difference all_ops safe_to_parallelise)
   ) ;
   (* If not all operations are parallisable then preclude pause *)
-  let all_are_parallelisable =
-    List.fold_left ( && ) true
-      (List.map (fun op -> List.mem op safe_to_parallelise) current_ops)
+  let non_parallelisable_op =
+    List.find_opt
+      (fun (_, op) -> not (List.mem op safe_to_parallelise))
+      current_ops
   in
   (* If not all are parallelisable, ban the otherwise
      parallelisable operations too *)
-  if not all_are_parallelisable then
-    set_errors Api_errors.other_operation_in_progress
-      ["VBD"; _ref; vbd_operations_to_string (List.hd current_ops)]
-      [`pause] ;
+  ( match non_parallelisable_op with
+  | Some (concurrent_op_ref, concurrent_op_type) ->
+      set_errors Api_errors.other_operation_in_progress
+        [
+          "VBD"
+        ; _ref
+        ; vbd_operations_to_string concurrent_op_type
+        ; concurrent_op_ref
+        ]
+        [`pause]
+  | None ->
+      ()
+  ) ;
+
   (* If something other than `pause `unpause *and* `attach (for VM.reboot, see CA-24282) then disallow unpause *)
-  if
-    Listext.List.set_difference current_ops (`attach :: safe_to_parallelise)
-    <> []
-  then
-    set_errors Api_errors.other_operation_in_progress
-      ["VBD"; _ref; vbd_operations_to_string (List.hd current_ops)]
-      [`unpause] ;
+  let set_difference a b = List.filter (fun (_, x) -> not (List.mem x b)) a in
+  ( match set_difference current_ops (`attach :: safe_to_parallelise) with
+  | (op_ref, op_type) :: _ ->
+      set_errors Api_errors.other_operation_in_progress
+        ["VBD"; _ref; vbd_operations_to_string op_type; op_ref]
+        [`unpause]
+  | [] ->
+      ()
+  ) ;
   (* Drives marked as not unpluggable cannot be unplugged *)
   if not record.Db_actions.vBD_unpluggable then
     set_errors Api_errors.vbd_not_unpluggable [_ref] [`unplug; `unplug_force] ;
@@ -128,7 +148,10 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
       let bad_ops = [`plug; `unplug; `unplug_force] in
       (* However allow VBD pause and unpause if the VM is paused: *)
       let bad_ops' =
-        if power_state = `Paused then bad_ops else `pause :: `unpause :: bad_ops
+        if power_state = `Paused then
+          bad_ops
+        else
+          `pause :: `unpause :: bad_ops
       in
       set_errors Api_errors.vm_bad_power_state
         [Ref.string_of vm; expected; actual]
@@ -226,17 +249,23 @@ let valid_operations ~expensive_sharing_checks ~__context record _ref' : table =
         | _ ->
             true
       in
-      List.exists
+      List.find_opt
         (fun (_, operation) -> is_illegal_operation operation)
         vdi_record.Db_actions.vDI_current_operations
     in
-    ( if vdi_operations_besides_copy then
-        let concurrent_op =
-          snd (List.hd vdi_record.Db_actions.vDI_current_operations)
-        in
+
+    ( match vdi_operations_besides_copy with
+    | Some (concurrent_op_ref, concurrent_op_type) ->
         set_errors Api_errors.other_operation_in_progress
-          ["VDI"; Ref.string_of vdi; vdi_operations_to_string concurrent_op]
+          [
+            "VDI"
+          ; Ref.string_of vdi
+          ; vdi_operations_to_string concurrent_op_type
+          ; concurrent_op_ref
+          ]
           [`attach; `plug; `insert]
+    | None ->
+        ()
     ) ;
     if
       (not record.Db_actions.vBD_currently_attached) && expensive_sharing_checks

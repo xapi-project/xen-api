@@ -993,17 +993,25 @@ let assert_cluster_host_operation_not_in_progress ~__context =
   match Db.Cluster.get_all ~__context with
   | [] ->
       ()
-  | cluster :: _ ->
-      let ops =
-        Db.Cluster.get_current_operations ~__context ~self:cluster
-        |> List.map snd
-      in
-      if List.mem `enable ops || List.mem `add ops then
-        raise
-          Api_errors.(
-            Server_error
-              (other_operation_in_progress, ["Cluster"; Ref.string_of cluster])
-          )
+  | cluster :: _ -> (
+      let ops = Db.Cluster.get_current_operations ~__context ~self:cluster in
+      match List.find_opt (fun (_, op) -> op = `enable || op = `add) ops with
+      | Some (op_ref, op_type) ->
+          raise
+            Api_errors.(
+              Server_error
+                ( other_operation_in_progress
+                , [
+                    "Cluster"
+                  ; Ref.string_of cluster
+                  ; API.cluster_operation_to_string op_type
+                  ; op_ref
+                  ]
+                )
+            )
+      | None ->
+          ()
+    )
 
 (* Block allowing unplug if
    - a cluster host is enabled on this PIF

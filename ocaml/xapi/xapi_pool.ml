@@ -118,9 +118,15 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
       | pif when pif = Ref.null ->
           ()
       | pif -> (
-        match Client.PIF.get_VLAN ~rpc ~session_id ~self:pif with
-        | vlan when vlan > 0L ->
-            error "Cannot join pool whose clustering is enabled on VLAN network" ;
+        match
+          ( Client.PIF.get_VLAN ~rpc ~session_id ~self:pif
+          , Client.PIF.get_management ~rpc ~session_id ~self:pif
+          )
+        with
+        | vlan, false when vlan > 0L ->
+            error
+              "Cannot join pool whose clustering is enabled on a \
+               non-management VLAN network" ;
             raise
               (Api_errors.Server_error
                  ( Api_errors
@@ -128,7 +134,7 @@ let pre_join_checks ~__context ~rpc ~session_id ~force =
                  , [Int64.to_string vlan]
                  )
               )
-        | 0L | _ -> (
+        | _ -> (
             let clustering_bridges_in_pool =
               ( match
                   Client.PIF.get_bond_master_of ~rpc ~session_id ~self:pif
@@ -1051,6 +1057,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssh_enabled_timeout:host.API.host_ssh_enabled_timeout
           ~ssh_expiry:host.API.host_ssh_expiry
           ~console_idle_timeout:host.API.host_console_idle_timeout
+          ~ssh_auto_mode:host.API.host_ssh_auto_mode
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -1754,10 +1761,15 @@ let join_common ~__context ~master_address ~master_username ~master_password
             Client.Host.get_console_idle_timeout ~rpc ~session_id
               ~self:remote_coordinator
           in
+          let ssh_auto_mode =
+            Client.Host.get_ssh_auto_mode ~rpc ~session_id
+              ~self:remote_coordinator
+          in
           Xapi_host.set_console_idle_timeout ~__context ~self:me
             ~value:console_idle_timeout ;
           Xapi_host.set_ssh_enabled_timeout ~__context ~self:me
             ~value:ssh_enabled_timeout ;
+          Xapi_host.set_ssh_auto_mode ~__context ~self:me ~value:ssh_auto_mode ;
           let ssh_enabled =
             Client.Host.get_ssh_enabled ~rpc ~session_id
               ~self:remote_coordinator
@@ -2139,6 +2151,8 @@ let eject_self ~__context ~host =
         (* Restore SSH service to default state *)
         Xapi_host.set_ssh_enabled_timeout ~__context ~self:host
           ~value:Constants.default_ssh_enabled_timeout ;
+        Xapi_host.set_ssh_auto_mode ~__context ~self:host
+          ~value:!Xapi_globs.ssh_auto_mode_default ;
         match Constants.default_ssh_enabled with
         | true ->
             Xapi_host.enable_ssh ~__context ~self:host
@@ -4149,6 +4163,13 @@ module Ssh = struct
         Client.Host.set_console_idle_timeout ~rpc ~session_id ~self ~value
       )
       ~error:Api_errors.set_console_timeout_partially_failed
+
+  let set_ssh_auto_mode ~__context ~self:_ ~value =
+    operate ~__context
+      ~action:(fun ~rpc ~session_id ~self ->
+        Client.Host.set_ssh_auto_mode ~rpc ~session_id ~self ~value
+      )
+      ~error:Api_errors.set_ssh_auto_mode_partially_failed
 end
 
 let enable_ssh = Ssh.enable
@@ -4158,3 +4179,5 @@ let disable_ssh = Ssh.disable
 let set_ssh_enabled_timeout = Ssh.set_enabled_timeout
 
 let set_console_idle_timeout = Ssh.set_console_timeout
+
+let set_ssh_auto_mode = Ssh.set_ssh_auto_mode

@@ -443,3 +443,6 @@ val set_ssh_enabled_timeout :
 
 val set_console_idle_timeout :
   __context:Context.t -> self:API.ref_pool -> value:int64 -> unit
+
+val set_ssh_auto_mode :
+  __context:Context.t -> self:API.ref_pool -> value:bool -> unit

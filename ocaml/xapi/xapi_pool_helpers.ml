@@ -99,7 +99,7 @@ type validity = Unknown | Allowed | Disallowed of string * string list
 let compute_valid_operations ~__context record pool :
     API.pool_allowed_operations -> validity =
   let ref = Ref.string_of pool in
-  let current_ops = List.map snd record.Db_actions.pool_current_operations in
+  let current_ops = record.Db_actions.pool_current_operations in
   let table = (Hashtbl.create 32 : (all_operations, validity) Hashtbl.t) in
   let set_validity = Hashtbl.replace table in
   (* Start by assuming all operations are allowed. *)
@@ -118,30 +118,45 @@ let compute_valid_operations ~__context record pool :
     in
     List.iter populate ops
   in
-  let other_operation_in_progress =
-    (Api_errors.other_operation_in_progress, [Datamodel_common._pool; ref])
+  let other_operation_in_progress waiting_op =
+    let additional_info =
+      match waiting_op with
+      | Some (op_ref, op_type) ->
+          [API.pool_allowed_operations_to_string op_type; op_ref]
+      | _ ->
+          []
+    in
+    ( Api_errors.other_operation_in_progress
+    , [Datamodel_common._pool; ref] @ additional_info
+    )
   in
-  let is_current_op = Fun.flip List.mem current_ops in
+  let is_current_op op =
+    List.exists (fun (_, current_op) -> op = current_op) current_ops
+  in
   let blocking =
     List.find_opt (fun (op, _) -> is_current_op op) blocking_ops_table
   in
-  let waiting = List.find_opt is_current_op waiting_ops in
+  let waiting =
+    List.find_opt
+      (fun (_, current_op) -> List.mem current_op waiting_ops)
+      current_ops
+  in
   ( match (blocking, waiting) with
-  | Some (_, reason), _ ->
+  | Some (_, reason), waiting_current_op ->
       (* Mark all potentially blocking operations as invalid due
          to the specific blocking operation's "in progress" error. *)
       set_errors blocking_ops (reason, []) ;
       (* Mark all waiting operations as invalid for the generic
          "OTHER_OPERATION_IN_PROGRESS" reason. *)
-      set_errors waiting_ops other_operation_in_progress
+      set_errors waiting_ops (other_operation_in_progress waiting_current_op)
       (* Note that all_operations ⊆ blocking_ops ∪ waiting_ops, so this
          invalidates all operations (with the reason partitioned
          between whether the operation is blocking or waiting). *)
-  | None, Some _ ->
+  | None, (Some _ as waiting_current_op) ->
       (* If there's no blocking operation in current operations, but
          there is a waiting operation, invalidate all operations for the
          generic reason. Again, this covers every operation. *)
-      set_errors all_operations other_operation_in_progress
+      set_errors all_operations (other_operation_in_progress waiting_current_op)
   | None, None -> (
       (* If there's no blocking or waiting operation in current
          operations (i.e. current operations is empty), we can report
