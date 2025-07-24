@@ -66,24 +66,26 @@ let debug fmt =
 exception Usage
 
 let usage () =
-  error
-    "Usage:\n\
-    \  %s <command>\n\
-    \    [ -s <server> ]            XenServer host \n\
-    \    [ -p <port> ]              XenServer port number \n\
-    \    [ -u <username> -pw <password> | -pwf <password file> ] \n\
-    \                               User authentication (password or file) \n\
-    \    [ --nossl ]                Disable SSL/TLS \n\
-    \    [ --debug ]                Enable debug output \n\
-    \    [ --debug-on-fail ]        Enable debug output only on failure \n\
-    \    [ --traceparent <value> ]  Distributed tracing context \n\
-    \    [ <other arguments> ... ]  Command-specific options \n"
-    Sys.argv.(0) ;
-  error
-    "\n\
-     A full list of commands can be obtained by running \n\
-    \  %s help -s <server> -p <port>\n"
-    Sys.argv.(0)
+  let help =
+    Printf.sprintf
+      {|Usage: 
+  %s <command>
+    [ -s <server> ]            XenServer host
+    [ -p <port> ]              XenServer port number
+    [ -u <username> -pw <password> | -pwf <password file> ]
+                               User authentication (password or file)
+    [ --nossl ]                Disable SSL/TLS
+    [ --debug ]                Enable debug output
+    [ --debug-on-fail ]        Enable debug output only on failure
+    [ --traceparent <value> ]  Distributed tracing context
+    [ <other arguments> ... ]  Command-specific options
+
+A full list of commands can be obtained by running
+  %s help -s <server> -p <port>
+|}
+      Sys.argv.(0) Sys.argv.(0)
+  in
+  error "%s" help
 
 let is_localhost ip = ip = "127.0.0.1"
 
