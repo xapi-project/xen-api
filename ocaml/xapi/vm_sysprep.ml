@@ -209,7 +209,6 @@ let find_vdi ~__context ~label =
     file. *)
 let trigger ~domid ~uuid ~timeout =
   let open Ezxenstore_core.Xenstore in
-  let module Watch = Ezxenstore_core.Watch in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
   let domain = Printf.sprintf "/local/domain/%Ld" domid in
   with_xs (fun xs ->
@@ -219,17 +218,19 @@ let trigger ~domid ~uuid ~timeout =
       debug "%s: notified domain %Ld" __FUNCTION__ domid ;
       try
         (* wait for sysprep to start, then domain to dissapear *)
-        Watch.(
+        Ezxenstore_core.Watch.(
           wait_for ~xs ~timeout:5.0
             (value_to_become (control // "action") "running")
         ) ;
         debug "%s: sysprep is runnung; waiting for sysprep to finish"
           __FUNCTION__ ;
-        Watch.(wait_for ~xs ~timeout (key_to_disappear (control // "action"))) ;
+        Ezxenstore_core.Watch.(
+          wait_for ~xs ~timeout (key_to_disappear (control // "action"))
+        ) ;
         debug "%s sysprep is finished" __FUNCTION__ ;
-        Watch.(wait_for ~xs ~timeout (key_to_disappear domain)) ;
+        Ezxenstore_core.Watch.(wait_for ~xs ~timeout (key_to_disappear domain)) ;
         true
-      with Watch.Timeout _ ->
+      with Ezxenstore_core.Watch.Timeout _ ->
         debug "%s: sysprep timeout" __FUNCTION__ ;
         false
   )
