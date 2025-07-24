@@ -206,9 +206,18 @@ let find_vdi ~__context ~label =
       warn "%s: more than one VDI with label %s" __FUNCTION__ label ;
       vdi
 
+(* Ejecting the CD/VDI/ISO may fail with a timeout *)
+let eject ~rpc ~session_id ~vbd ~iso =
+  try
+    Client.VBD.eject ~rpc ~session_id ~vbd ;
+    Sys.remove iso
+  with exn ->
+    debug "%s: ejecting CD failed: %s" __FUNCTION__ (Printexc.to_string exn) ;
+    fail VM_CDR_eject
+
 (** notify the VM with [domid] to run sysprep and where to find the
     file. *)
-let trigger ~domid ~uuid ~timeout =
+let trigger ~rpc ~session_id ~domid ~uuid ~timeout ~vbd ~iso =
   let open Ezxenstore_core.Xenstore in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
   let domain = Printf.sprintf "/local/domain/%Ld" domid in
@@ -228,18 +237,14 @@ let trigger ~domid ~uuid ~timeout =
         Ezxenstore_core.Watch.(
           wait_for ~xs ~timeout (key_to_disappear (control // "action"))
         ) ;
-        debug "%s sysprep is finished" __FUNCTION__ ;
+        debug "%s sysprep is finished; ejecting CD" __FUNCTION__ ;
+        eject ~rpc ~session_id ~vbd ~iso ;
         Ezxenstore_core.Watch.(wait_for ~xs ~timeout (key_to_disappear domain)) ;
         true
       with Ezxenstore_core.Watch.Timeout _ ->
         debug "%s: sysprep timeout" __FUNCTION__ ;
         false
   )
-
-(* Ejecting the CD/VDI/ISO may fail with a timeout *)
-let eject ~rpc ~session_id iso vbd =
-  Client.VBD.eject ~rpc ~session_id ~vbd ;
-  Sys.remove iso
 
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend ~timeout =
@@ -275,19 +280,8 @@ let sysprep ~__context ~vm ~unattend ~timeout =
   call ~__context @@ fun rpc session_id ->
   Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
   Thread.delay !Xapi_globs.vm_sysprep_wait ;
-  match trigger ~domid ~uuid ~timeout with
-  | true -> (
-      debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
-      try eject ~rpc ~session_id iso vbd
-      with exn ->
-        debug "%s: ejecting CD failed: %s" __FUNCTION__ (Printexc.to_string exn) ;
-        fail VM_CDR_eject
-    )
+  match trigger ~rpc ~session_id ~domid ~uuid ~timeout ~vbd ~iso with
+  | true ->
+      ()
   | false ->
-      debug "%s: sysprep timeout, ejecting CD" __FUNCTION__ ;
-      ( try eject ~rpc ~session_id iso vbd
-        with exn ->
-          debug "%s: ejecting CD failed: %s" __FUNCTION__
-            (Printexc.to_string exn)
-      ) ;
       fail VM_sysprep_timeout
