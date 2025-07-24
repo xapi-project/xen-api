@@ -38,7 +38,7 @@ jobs:
           opam pin add -y dune-compiledb https://github.com/edwintorok/dune-compiledb/releases/download/0.6.0/dune-compiledb-0.6.0.tbz
 
       - name: Trim dune cache
-        run: opam exec -- dune cache trim --size=2GiB         
+        run: opam exec -- dune cache trim --size=2GiB
 
       - name: Generate compile_commands.json
         run: opam exec -- make compile_commands.json
@@ -73,7 +73,10 @@ jobs:
           name: codechecker_sarif
           path: codechecker.sarif
 
-      - name: Upload SARIF report
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-         sarif_file: codechecker.sarif
+      # TODO: reenable after fixing
+      # https://github.blog/changelog/2025-07-21-code-scanning-will-stop-combining-multiple-sarif-runs-uploaded-in-the-same-sarif-file/
+      #
+      #- name: Upload SARIF report
+      #  uses: github/codeql-action/upload-sarif@v3
+      #  with:
+      #   sarif_file: codechecker.sarif
