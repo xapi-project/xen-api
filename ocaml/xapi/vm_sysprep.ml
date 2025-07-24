@@ -28,6 +28,7 @@ type error =
   | API_not_enabled
   | Other of string
   | VM_CDR_not_found
+  | VM_CDR_eject
   | VM_misses_feature
   | VM_not_running
   | VM_sysprep_timeout
@@ -222,7 +223,7 @@ let trigger ~domid ~uuid ~timeout =
           wait_for ~xs ~timeout:5.0
             (value_to_become (control // "action") "running")
         ) ;
-        debug "%s: sysprep is runnung; waiting for sysprep to finish"
+        debug "%s: sysprep is running; waiting for sysprep to finish"
           __FUNCTION__ ;
         Ezxenstore_core.Watch.(
           wait_for ~xs ~timeout (key_to_disappear (control // "action"))
@@ -234,6 +235,11 @@ let trigger ~domid ~uuid ~timeout =
         debug "%s: sysprep timeout" __FUNCTION__ ;
         false
   )
+
+(* Ejecting the CD/VDI/ISO may fail with a timeout *)
+let eject ~rpc ~session_id iso vbd =
+  Client.VBD.eject ~rpc ~session_id ~vbd ;
+  Sys.remove iso
 
 (* This function is executed on the host where [vm] is running *)
 let sysprep ~__context ~vm ~unattend ~timeout =
@@ -270,12 +276,18 @@ let sysprep ~__context ~vm ~unattend ~timeout =
   Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
   Thread.delay !Xapi_globs.vm_sysprep_wait ;
   match trigger ~domid ~uuid ~timeout with
-  | true ->
+  | true -> (
       debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
-      Client.VBD.eject ~rpc ~session_id ~vbd ;
-      Sys.remove iso
+      try eject ~rpc ~session_id iso vbd
+      with exn ->
+        debug "%s: ejecting CD failed: %s" __FUNCTION__ (Printexc.to_string exn) ;
+        fail VM_CDR_eject
+    )
   | false ->
       debug "%s: sysprep timeout, ejecting CD" __FUNCTION__ ;
-      Client.VBD.eject ~rpc ~session_id ~vbd ;
-      Sys.remove iso ;
+      ( try eject ~rpc ~session_id iso vbd
+        with exn ->
+          debug "%s: ejecting CD failed: %s" __FUNCTION__
+            (Printexc.to_string exn)
+      ) ;
       fail VM_sysprep_timeout
