@@ -17,6 +17,7 @@ type error =
   | API_not_enabled
   | Other of string
   | VM_CDR_not_found
+  | VM_CDR_eject
   | VM_misses_feature
   | VM_not_running
   | VM_sysprep_timeout
