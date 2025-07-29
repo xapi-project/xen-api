@@ -43,6 +43,7 @@ let default_cpu_info =
     ("cpu_count", "0")
   ; ("socket_count", "0")
   ; ("threads_per_core", "0")
+  ; ("nr_nodes", "0")
   ; ("vendor", "Abacus")
   ; ("speed", "")
   ; ("modelname", "")
@@ -79,6 +80,7 @@ let make_localhost ~__context ?(features = Features.all_features) () =
             cpu_count= 1
           ; socket_count= 1
           ; threads_per_core= 1
+          ; nr_nodes= 1
           ; vendor= ""
           ; speed= ""
           ; modelname= ""
