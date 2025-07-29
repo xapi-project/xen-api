@@ -1725,6 +1725,8 @@ let sysprep ~__context ~self ~unattend ~timeout =
         )
   | exception Vm_sysprep.Sysprep VM_not_running ->
       raise Api_errors.(Server_error (sysprep, [uuid; "VM is not running"]))
+  | exception Vm_sysprep.Sysprep VM_CDR_eject ->
+      raise Api_errors.(Server_error (sysprep, [uuid; "VM failed to eject CD"]))
   | exception Vm_sysprep.Sysprep VM_sysprep_timeout ->
       raise
         Api_errors.(

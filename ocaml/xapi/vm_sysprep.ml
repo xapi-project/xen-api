@@ -28,6 +28,7 @@ type error =
   | API_not_enabled
   | Other of string
   | VM_CDR_not_found
+  | VM_CDR_eject
   | VM_misses_feature
   | VM_not_running
   | VM_sysprep_timeout
@@ -205,9 +206,18 @@ let find_vdi ~__context ~label =
       warn "%s: more than one VDI with label %s" __FUNCTION__ label ;
       vdi
 
+(* Ejecting the CD/VDI/ISO may fail with a timeout *)
+let eject ~rpc ~session_id ~vbd ~iso =
+  try
+    Client.VBD.eject ~rpc ~session_id ~vbd ;
+    Sys.remove iso
+  with exn ->
+    warn "%s: ejecting CD failed: %s" __FUNCTION__ (Printexc.to_string exn) ;
+    fail VM_CDR_eject
+
 (** notify the VM with [domid] to run sysprep and where to find the
     file. *)
-let trigger ~domid ~uuid ~timeout =
+let trigger ~rpc ~session_id ~domid ~uuid ~timeout ~vbd ~iso =
   let open Ezxenstore_core.Xenstore in
   let control = Printf.sprintf "/local/domain/%Ld/control/sysprep" domid in
   let domain = Printf.sprintf "/local/domain/%Ld" domid in
@@ -217,17 +227,21 @@ let trigger ~domid ~uuid ~timeout =
       xs.Xs.write (control // "action") "sysprep" ;
       debug "%s: notified domain %Ld" __FUNCTION__ domid ;
       try
-        (* wait for sysprep to start, then domain to dissapear *)
-        Ezxenstore_core.Watch.(
-          wait_for ~xs ~timeout:5.0
-            (value_to_become (control // "action") "running")
-        ) ;
-        debug "%s: sysprep is runnung; waiting for sysprep to finish"
-          __FUNCTION__ ;
-        Ezxenstore_core.Watch.(
-          wait_for ~xs ~timeout (key_to_disappear (control // "action"))
-        ) ;
-        debug "%s sysprep is finished" __FUNCTION__ ;
+        finally
+          (fun () ->
+            (* wait for sysprep to start, then domain to dissapear *)
+            Ezxenstore_core.Watch.(
+              wait_for ~xs ~timeout:5.0
+                (value_to_become (control // "action") "running")
+            ) ;
+            debug "%s: sysprep is running; waiting for sysprep to finish"
+              __FUNCTION__ ;
+            Ezxenstore_core.Watch.(
+              wait_for ~xs ~timeout (key_to_disappear (control // "action"))
+            )
+          )
+          (fun () -> eject ~rpc ~session_id ~vbd ~iso) ;
+        debug "%s waiting for domain to dissapear" __FUNCTION__ ;
         Ezxenstore_core.Watch.(wait_for ~xs ~timeout (key_to_disappear domain)) ;
         true
       with Ezxenstore_core.Watch.Timeout _ ->
@@ -269,13 +283,8 @@ let sysprep ~__context ~vm ~unattend ~timeout =
   call ~__context @@ fun rpc session_id ->
   Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
   Thread.delay !Xapi_globs.vm_sysprep_wait ;
-  match trigger ~domid ~uuid ~timeout with
+  match trigger ~rpc ~session_id ~domid ~uuid ~timeout ~vbd ~iso with
   | true ->
-      debug "%s: sysprep running, ejecting CD" __FUNCTION__ ;
-      Client.VBD.eject ~rpc ~session_id ~vbd ;
-      Sys.remove iso
+      ()
   | false ->
-      debug "%s: sysprep timeout, ejecting CD" __FUNCTION__ ;
-      Client.VBD.eject ~rpc ~session_id ~vbd ;
-      Sys.remove iso ;
       fail VM_sysprep_timeout
