@@ -4047,6 +4047,26 @@ let rio_help printer minimal cmd =
     let cmds =
       List.sort (fun (name1, _) (name2, _) -> compare name1 name2) cmds
     in
+    let help =
+      Printf.sprintf
+        {|Usage: 
+  %s <command>
+    [ -s <server> ]            XenServer host
+    [ -p <port> ]              XenServer port number
+    [ -u <username> -pw <password> | -pwf <password file> ]
+                               User authentication (password or file)
+    [ --nossl ]                Disable SSL/TLS
+    [ --debug ]                Enable debug output
+    [ --debug-on-fail ]        Enable debug output only on failure
+    [ --traceparent <value> ]  Distributed tracing context
+    [ <other arguments> ... ]  Command-specific options
+
+To get help on a specific command: 
+  %s help <command>
+
+|}
+        cmd.argv0 cmd.argv0
+    in
     if List.mem_assoc "all" cmd.params && List.assoc "all" cmd.params = "true"
     then
       let cmds = List.map fst cmds in
@@ -4056,20 +4076,9 @@ let rio_help printer minimal cmd =
       let vm_cmds, other =
         List.partition (fun n -> Astring.String.is_prefix ~affix:"vm-" n) other
       in
-      let h =
-        "Usage: "
-        ^ cmd.argv0
-        ^ " <command> [-s server] [-pw passwd] [-p port] [-u user] [-pwf \
-           password-file]\n"
-      in
-      let h = h ^ "  [command specific arguments]\n\n" in
-      let h =
-        h
-        ^ "To get help on a specific command: "
-        ^ cmd.argv0
-        ^ " help <command>\n\n"
-      in
-      let h = h ^ "Full command list\n-----------------" in
+      let h = help ^ {|Full command list
+-----------------
+|} in
       if minimal then
         printer (Cli_printer.PList cmds)
       else (
@@ -4086,25 +4095,16 @@ let rio_help printer minimal cmd =
       in
       let cmds = List.map fst cmds in
       let h =
-        "Usage: "
-        ^ cmd.argv0
-        ^ " <command> [-s server] [-pw passwd] [-p port] [-u user] [-pwf \
-           password-file]\n"
+        help
+        ^ Printf.sprintf
+            {|To get a full listing of commands:
+  %s help --all
+
+Common command list
+-------------------
+|}
+            cmd.argv0
       in
-      let h = h ^ "  [command specific arguments]\n\n" in
-      let h =
-        h
-        ^ "To get help on a specific command: "
-        ^ cmd.argv0
-        ^ " help <command>\n"
-      in
-      let h =
-        h
-        ^ "To get a full listing of commands: "
-        ^ cmd.argv0
-        ^ " help --all\n\n"
-      in
-      let h = h ^ "Common command list\n-------------------" in
       if minimal then
         printer (Cli_printer.PList cmds)
       else (
