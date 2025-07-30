@@ -449,7 +449,7 @@ let gen_module api : O.Module.t =
              ~params:
                [
                  O.Anon (Some "http_req", "Http.Request.t")
-               ; O.Anon (Some "fd", "Unix.file_descr")
+               ; O.Anon (Some "fd", "Unix.file_descr option")
                ; O.Anon (Some "call", "Rpc.call")
                ]
              ~ty:"response"
