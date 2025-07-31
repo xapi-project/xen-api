@@ -472,15 +472,7 @@ let revalidate_external_session ~__context ~session =
 
           (* CP-827: if the user was suspended (disabled,expired,locked-out), then we must destroy the session *)
           let suspended, _ =
-            is_subject_suspended ~__context ~cache:true authenticated_user_sid
-          in
-          let suspended =
-            if suspended then
-              is_subject_suspended ~__context ~cache:false
-                authenticated_user_sid
-              |> fst
-            else
-              suspended
+            is_subject_suspended ~__context ~cache:false authenticated_user_sid
           in
           if suspended then (
             debug
