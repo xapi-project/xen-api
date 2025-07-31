@@ -420,7 +420,7 @@ let destroy_db_session ~__context ~self =
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
 (* in response to external authentication/directory services updates, such as *)
 (* e.g. group membership changes, or even account disabled *)
-let revalidate_external_session ~__context ~session =
+let revalidate_external_session ~__context acc session =
   Context.with_tracing ~__context __FUNCTION__ @@ fun __context ->
   try
     (* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
@@ -430,8 +430,7 @@ let revalidate_external_session ~__context ~session =
         (Db.Session.get_is_local_superuser ~__context ~self:session
         || Xapi_database.Db_backend.is_session_registered (Ref.string_of session)
         )
-    then (
-      (* 1. is the external authentication disabled in the pool? *)
+    then (* 1. is the external authentication disabled in the pool? *)
       let master = Helpers.get_master ~__context in
       let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
       if auth_type = "" then (
@@ -442,14 +441,13 @@ let revalidate_external_session ~__context ~session =
             (trackid session)
         in
         debug "%s" msg ;
-        destroy_db_session ~__context ~self:session
+        destroy_db_session ~__context ~self:session ;
+        acc
       ) else
         (* otherwise, we try to revalidate it against the external authentication service *)
         let session_lifespan = 60.0 *. 30.0 in
         (* allowed session lifespan = 30 minutes *)
         let random_lifespan = Random.float 60.0 *. 10.0 in
-
-        (* extra random (up to 10min) lifespan to spread access to external directory *)
 
         (* 2. has the external session expired/does it need revalidation? *)
         let session_last_validation_time =
@@ -457,16 +455,35 @@ let revalidate_external_session ~__context ~session =
             (Db.Session.get_validation_time ~__context ~self:session)
         in
         let now = Date.now () in
-        let session_needs_revalidation =
+        let session_timeout =
           Date.to_unix_time now
           > session_last_validation_time +. session_lifespan +. random_lifespan
         in
-        if session_needs_revalidation then (
+
+        (* extra random (up to 10min) lifespan to spread access to external directory *)
+        let authenticated_user_sid =
+          Db.Session.get_auth_user_sid ~__context ~self:session
+        in
+        let user_validated =
+          (* acc is [(sid, check_result)] , true for check pass, false for check failed *)
+          match List.assoc_opt authenticated_user_sid acc with
+          | None ->
+              false
+          | Some v ->
+              if v = false && session_timeout then (
+                debug
+                  "Destory session %s as previous check for user %s not pass"
+                  (trackid session) authenticated_user_sid ;
+                destroy_db_session ~__context ~self:session
+              ) ;
+              debug "Skip check session %s as previous check for user %s exists"
+                (trackid session) authenticated_user_sid ;
+              true
+        in
+
+        if session_timeout && not user_validated then (
           (* if so, then:*)
           debug "session %s needs revalidation" (trackid session) ;
-          let authenticated_user_sid =
-            Db.Session.get_auth_user_sid ~__context ~self:session
-          in
 
           (* 2a. revalidate external authentication *)
 
@@ -480,7 +497,8 @@ let revalidate_external_session ~__context ~session =
                %s"
               authenticated_user_sid (trackid session) ;
             (* we must destroy the session in this case *)
-            destroy_db_session ~__context ~self:session
+            destroy_db_session ~__context ~self:session ;
+            (authenticated_user_sid, false) :: acc
           ) else
             try
               (* if the user is not in the external directory service anymore, this call raises Not_found *)
@@ -517,7 +535,8 @@ let revalidate_external_session ~__context ~session =
                 in
                 debug "%s" msg ;
                 (* we must destroy the session in this case *)
-                destroy_db_session ~__context ~self:session
+                destroy_db_session ~__context ~self:session ;
+                (authenticated_user_sid, false) :: acc
               ) else (
                 (* non-empty intersection: externally-authenticated subject still has login rights in the pool *)
 
@@ -544,7 +563,9 @@ let revalidate_external_session ~__context ~session =
                       ~value:subject_in_intersection ;
                     debug "updated subject for session %s, sid %s "
                       (trackid session) authenticated_user_sid
-                  )
+                  ) ;
+                  debug "end revalidation of session %s " (trackid session) ;
+                  (authenticated_user_sid, true) :: acc
                 with Not_found ->
                   (* subject ref for intersection's sid does not exist in our metadata!!! *)
                   (* this should never happen, it's an internal metadata inconsistency between steps 2b and 2c *)
@@ -556,7 +577,8 @@ let revalidate_external_session ~__context ~session =
                   in
                   debug "%s" msg ;
                   (* we must destroy the session in this case *)
-                  destroy_db_session ~__context ~self:session
+                  destroy_db_session ~__context ~self:session ;
+                  (authenticated_user_sid, false) :: acc
               )
             with Auth_signature.Subject_cannot_be_resolved | Not_found ->
               (* user was not found in external directory in order to obtain group membership *)
@@ -569,15 +591,18 @@ let revalidate_external_session ~__context ~session =
               in
               debug "%s" msg ;
               (* user is not in the external directory anymore: we must destroy the session in this case *)
-              destroy_db_session ~__context ~self:session
-        ) ;
-        debug "end revalidation of session %s " (trackid session)
-    )
+              destroy_db_session ~__context ~self:session ;
+              (authenticated_user_sid, false) :: acc
+        ) else
+          acc
+    else
+      acc
   with e ->
     (*unexpected exception: we absorb it and print out a debug line *)
     debug "Unexpected exception while revalidating session %s: %s"
       (trackid session)
-      (ExnHelper.string_of_exn e)
+      (ExnHelper.string_of_exn e) ;
+    acc
 
 (* CP-703: ensure that activate sessions are invalidated in a bounded time *)
 (* in response to external authentication/directory services updates, such as *)
@@ -587,21 +612,16 @@ let revalidate_all_sessions ~__context =
   try
     debug "revalidating all external sessions in the local host" ;
     (* obtain all sessions in the pool *)
-    let sessions = Db.Session.get_all ~__context in
+    Db.Session.get_all ~__context
     (* filter out those sessions where is_local_superuser or client_certificate is true *)
     (* we only want to revalidate the sessions created using the external authentication service *)
-    let external_sessions =
-      List.filter
-        (fun session ->
-          (not (Db.Session.get_is_local_superuser ~__context ~self:session))
-          && not (Db.Session.get_client_certificate ~__context ~self:session)
-        )
-        sessions
-    in
-    (* revalidate each external session *)
-    List.iter
-      (fun session -> revalidate_external_session ~__context ~session)
-      external_sessions
+    |> List.filter (fun session ->
+           (not (Db.Session.get_is_local_superuser ~__context ~self:session))
+           && not (Db.Session.get_client_certificate ~__context ~self:session)
+       )
+    |> (* revalidate each external session *)
+    List.fold_left (revalidate_external_session ~__context) []
+    |> ignore
   with e ->
     (*unexpected exception: we absorb it and print out a debug line *)
     debug "Unexpected exception while revalidating external sessions: %s"
