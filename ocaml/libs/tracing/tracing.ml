@@ -351,7 +351,7 @@ module Span = struct
     let span_id = Span_id.make () in
     let extra_context_with_depth =
       TraceContext.(
-        with_added_baggage depth_key (string_of_int depth) extra_context
+        update_with_baggage depth_key (string_of_int depth) extra_context
       )
     in
     let context : SpanContext.t =
@@ -363,7 +363,7 @@ module Span = struct
       match trace_context with
       | Some tc ->
           let tc_with_depth =
-            TraceContext.(with_added_baggage depth_key (string_of_int depth) tc)
+            TraceContext.(update_with_baggage depth_key (string_of_int depth) tc)
           in
           SpanContext.with_trace_context tc_with_depth context
       | None ->
@@ -751,7 +751,7 @@ module Tracer = struct
     let tc = SpanContext.context_of_span_context context in
     let new_depth = TraceContext.baggage_depth_of tc in
     let new_tc =
-      TraceContext.(with_added_baggage depth_key (string_of_int new_depth) tc)
+      TraceContext.(update_with_baggage depth_key (string_of_int new_depth) tc)
     in
     let context = SpanContext.with_trace_context new_tc context in
     {
@@ -811,7 +811,7 @@ module Tracer = struct
                  let new_context : SpanContext.t =
                    let trace_context =
                      TraceContext.(
-                       with_added_baggage depth_key (string_of_int new_depth)
+                       update_with_baggage depth_key (string_of_int new_depth)
                          span.Span.context.trace_context
                      )
                    in
@@ -993,7 +993,7 @@ module Propagator = struct
             in
             let trace_context'' =
               TraceContext.(
-                with_added_baggage depth_key new_depth trace_context'
+                update_with_baggage depth_key new_depth trace_context'
               )
             in
             let carrier' = P.inject_into trace_context'' carrier in
