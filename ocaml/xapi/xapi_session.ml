@@ -32,6 +32,7 @@ module Listext = Xapi_stdext_std.Listext
 open Client
 open Auth_signature
 open Extauth
+module SessionValidateMap = Map.Make (String)
 
 module AuthFail : sig
   (* stats are reset each time you query, so if there hasn't
@@ -455,7 +456,7 @@ let revalidate_external_session ~__context acc session =
             (Db.Session.get_validation_time ~__context ~self:session)
         in
         let now = Date.now () in
-        let session_timeout =
+        let session_timed_out =
           Date.to_unix_time now
           > session_last_validation_time +. session_lifespan +. random_lifespan
         in
@@ -464,25 +465,24 @@ let revalidate_external_session ~__context acc session =
         let authenticated_user_sid =
           Db.Session.get_auth_user_sid ~__context ~self:session
         in
-        let user_validated =
-          (* acc is [(sid, check_result)] , true for check pass, false for check failed *)
-          match List.assoc_opt authenticated_user_sid acc with
+        let validate_with_memo acc f =
+          match SessionValidateMap.find_opt authenticated_user_sid acc with
           | None ->
-              false
-          | Some v ->
-              if v = false && session_timeout then (
-                debug
-                  "Destory session %s as previous check for user %s not pass"
-                  (trackid session) authenticated_user_sid ;
-                destroy_db_session ~__context ~self:session
-              ) ;
-              debug "Skip check session %s as previous check for user %s exists"
+              f acc
+          | Some false ->
+              debug "Destory session %s as previous check for user %s not pass"
                 (trackid session) authenticated_user_sid ;
-              true
+              destroy_db_session ~__context ~self:session ;
+              acc
+          | Some true ->
+              debug "Skip check session %s as previous check for user %s pass"
+                (trackid session) authenticated_user_sid ;
+              acc
         in
 
-        if session_timeout && not user_validated then (
+        if session_timed_out then (
           (* if so, then:*)
+          validate_with_memo acc @@ fun acc ->
           debug "session %s needs revalidation" (trackid session) ;
 
           (* 2a. revalidate external authentication *)
@@ -498,7 +498,7 @@ let revalidate_external_session ~__context acc session =
               authenticated_user_sid (trackid session) ;
             (* we must destroy the session in this case *)
             destroy_db_session ~__context ~self:session ;
-            (authenticated_user_sid, false) :: acc
+            SessionValidateMap.add authenticated_user_sid false acc
           ) else
             try
               (* if the user is not in the external directory service anymore, this call raises Not_found *)
@@ -536,7 +536,7 @@ let revalidate_external_session ~__context acc session =
                 debug "%s" msg ;
                 (* we must destroy the session in this case *)
                 destroy_db_session ~__context ~self:session ;
-                (authenticated_user_sid, false) :: acc
+                SessionValidateMap.add authenticated_user_sid false acc
               ) else (
                 (* non-empty intersection: externally-authenticated subject still has login rights in the pool *)
 
@@ -565,7 +565,7 @@ let revalidate_external_session ~__context acc session =
                       (trackid session) authenticated_user_sid
                   ) ;
                   debug "end revalidation of session %s " (trackid session) ;
-                  (authenticated_user_sid, true) :: acc
+                  SessionValidateMap.add authenticated_user_sid true acc
                 with Not_found ->
                   (* subject ref for intersection's sid does not exist in our metadata!!! *)
                   (* this should never happen, it's an internal metadata inconsistency between steps 2b and 2c *)
@@ -578,7 +578,7 @@ let revalidate_external_session ~__context acc session =
                   debug "%s" msg ;
                   (* we must destroy the session in this case *)
                   destroy_db_session ~__context ~self:session ;
-                  (authenticated_user_sid, false) :: acc
+                  SessionValidateMap.add authenticated_user_sid false acc
               )
             with Auth_signature.Subject_cannot_be_resolved | Not_found ->
               (* user was not found in external directory in order to obtain group membership *)
@@ -592,7 +592,7 @@ let revalidate_external_session ~__context acc session =
               debug "%s" msg ;
               (* user is not in the external directory anymore: we must destroy the session in this case *)
               destroy_db_session ~__context ~self:session ;
-              (authenticated_user_sid, false) :: acc
+              SessionValidateMap.add authenticated_user_sid false acc
         ) else
           acc
     else
@@ -620,7 +620,9 @@ let revalidate_all_sessions ~__context =
            && not (Db.Session.get_client_certificate ~__context ~self:session)
        )
     |> (* revalidate each external session *)
-    List.fold_left (revalidate_external_session ~__context) []
+    List.fold_left
+      (revalidate_external_session ~__context)
+      SessionValidateMap.empty
     |> ignore
   with e ->
     (*unexpected exception: we absorb it and print out a debug line *)
