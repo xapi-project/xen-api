@@ -1055,6 +1055,8 @@ let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
 let export_interval = ref 30.
 
+let export_chunk_size = ref 10000
+
 let max_spans = ref 10000
 
 let max_traces = ref 10000
@@ -1677,6 +1679,11 @@ let other_options =
     , Arg.Set_float export_interval
     , (fun () -> string_of_float !export_interval)
     , "The interval for exports in Tracing"
+    )
+  ; ( "export-chunk-size"
+    , Arg.Set_int export_chunk_size
+    , (fun () -> string_of_int !export_chunk_size)
+    , "The span chunk size for exports in Tracing"
     )
   ; ( "max-spans"
     , Arg.Set_int max_spans
