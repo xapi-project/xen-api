@@ -1105,6 +1105,8 @@ let xapi_requests_cgroup =
 
 let genisoimage_path = ref "/usr/bin/genisoimage"
 
+let interested_user_agents = ref []
+
 (* Event.{from,next} batching delays *)
 let make_batching name ~delay_before ~delay_between =
   let name = Printf.sprintf "%s_delay" name in
@@ -1617,6 +1619,10 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       repository_url_blocklist
+  ; gen_list_option "interested-user-agents"
+      "A white list of user agents that are interested to record in \
+       pool_metrics.user_agents"
+      Fun.id Fun.id interested_user_agents
   ; ( "repository-gpgcheck"
     , Arg.Set repository_gpgcheck
     , (fun () -> string_of_bool !repository_gpgcheck)

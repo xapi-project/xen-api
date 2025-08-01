@@ -615,6 +615,75 @@ let revalidate_all_sessions ~__context =
     debug "Unexpected exception while revalidating external sessions: %s"
       (ExnHelper.string_of_exn e)
 
+(* User-Agent format is like "name/version comment", see rfc2616.
+   Parse it as
+   - name: the first part of the string, up to the first space or slash, and
+     in the whitelist
+   - version: the part after the slash, up to the next space or end of string,
+     if no slash is found, then the version is empty
+   - comment: the rest of the string, which is ignored
+   Add length limit to user_agent for safety, drop it if it is too long.
+   Example:
+   whitelist: ["XAPI"]
+   "XAPI/1.0" -> ("XAPI", "1.0")
+   "XAPI/1.0 comment" -> ("XAPI", "1.0")
+   "XAPI" -> ("XAPI", "")
+   "XAPI 1.0 comment" -> ("XAPI", "")
+   "XAPI1.0" -> None
+*)
+let record_user_agent ~__context =
+  let ( let@ ) o f = Option.iter f o in
+  let@ user_agent = Context.get_user_agent __context in
+  let user_agent_len = String.length user_agent in
+  let whitelist = !Xapi_globs.interested_user_agents in
+  let len_limit = 64 in
+  if user_agent_len > len_limit then
+    ()
+  else
+    let@ name =
+      List.find_opt (fun s -> String.starts_with ~prefix:s user_agent) whitelist
+    in
+    let name_len = String.length name in
+    let@ coming_version =
+      if user_agent_len <= name_len then
+        Some ""
+      else
+        match user_agent.[name_len] with
+        | ' ' ->
+            Some ""
+        | '/' ->
+            Some
+              ( match String.index_from_opt user_agent (name_len + 1) ' ' with
+              | Some idx ->
+                  String.sub user_agent (name_len + 1) (idx - name_len - 1)
+              | None ->
+                  String.sub user_agent (name_len + 1)
+                    (user_agent_len - name_len - 1)
+              )
+        | _ ->
+            None
+    in
+    let pool = Helpers.get_pool ~__context in
+    let pool_metrics = Db.Pool.get_metrics ~__context ~self:pool in
+    let agents =
+      Db.Pool_metrics.get_user_agents ~__context ~self:pool_metrics
+    in
+    match List.assoc_opt name agents with
+    | Some v ->
+        if v <> coming_version then (
+          (* different version, update it *)
+          let agents = List.filter (fun (n, _) -> n <> name) agents in
+          Db.Pool_metrics.set_user_agents ~__context ~self:pool_metrics
+            ~value:((name, coming_version) :: agents) ;
+          debug "update user-agent %s: %s -> %s" name v coming_version
+        ) else
+          ()
+    | None ->
+        (* new user agent, record it *)
+        Db.Pool_metrics.set_user_agents ~__context ~self:pool_metrics
+          ~value:((name, coming_version) :: agents) ;
+        debug "append user-agent %s: %s" name coming_version
+
 let login_no_password_common_create_session ~__context ~uname ~originator ~host
     ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
     ~rbac_permissions ~db_ref ~client_certificate =
@@ -664,6 +733,7 @@ let login_no_password_common_create_session ~__context ~uname ~originator ~host
   (* Force the time to be updated by calling an API function with this session *)
   let rpc = Helpers.make_rpc ~__context in
   ignore (Client.Pool.get_all ~rpc ~session_id) ;
+  record_user_agent ~__context ;
   session_id
 
 let login_no_password_common ~__context ~uname ~originator ~host ~pool
