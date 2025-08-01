@@ -131,3 +131,7 @@ let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
   if numa_node <> NumaNode.none then
     raise Not_available ;
   stub_domain_claim_pages handle domid numa_node nr_pages
+
+let get_nr_nodes handle =
+  let info = numainfo handle in
+  Array.length info.memory

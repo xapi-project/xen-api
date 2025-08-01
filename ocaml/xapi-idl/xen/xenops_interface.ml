@@ -453,6 +453,7 @@ module Host = struct
       cpu_count: int
     ; socket_count: int
     ; threads_per_core: int
+    ; nr_nodes: int
     ; vendor: string
     ; speed: string
     ; modelname: string
