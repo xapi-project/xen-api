@@ -741,7 +741,7 @@ let ha_default_timeout_base = ref 60.
 let guest_liveness_timeout = ref 300.
 
 (** The default time, in µs, in which tapdisk3 will keep polling the vbd ring buffer in expectation for extra requests from the guest *)
-let default_vbd3_polling_duration = ref 1000
+let default_vbd3_polling_duration = ref 8000
 
 (** The default % of idle dom0 cpu above which tapdisk3 will keep polling the vbd ring buffer *)
 let default_vbd3_polling_idle_threshold = ref 50
