@@ -230,7 +230,17 @@ let real_proxy' ~__context ~vm vnc_port s =
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let real_proxy __context vm _ _ vnc_port s =
+let respond_console_limit_exceeded req s vm_id =
+  let body =
+    Printf.sprintf
+      "<html><body><h1>Connection Limit Exceeded</h1><p>The \
+       limit_console_sessions is set to true. Console connection is rejected \
+       for VM %s. Please try again later.</p></body></html>"
+      vm_id
+  in
+  Http_svr.response_custom_error ~req s "503" "Connection Limit Exceeded" body
+
+let real_proxy __context vm req _ vnc_port s =
   let vm_id = Ref.string_of vm in
   let pool = Helpers.get_pool ~__context in
   let is_limit_enabled =
@@ -241,7 +251,7 @@ let real_proxy __context vm _ _ vnc_port s =
       (fun () -> real_proxy' ~__context ~vm vnc_port s)
       (fun () -> Connection_limit.drop vm_id)
   else
-    Http_svr.headers s (Http.http_503_service_unavailable ())
+    respond_console_limit_exceeded req s vm_id
 
 let go_if_no_limit __context s f =
   let pool = Helpers.get_pool ~__context in
