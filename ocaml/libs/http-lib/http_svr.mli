@@ -97,6 +97,9 @@ val response_unauthorised :
 
 val response_forbidden : ?req:Http.Request.t -> Unix.file_descr -> unit
 
+val response_forbidden_with_body :
+  ?req:Http.Request.t -> Unix.file_descr -> string -> unit
+
 val response_badrequest : ?req:Http.Request.t -> Unix.file_descr -> unit
 
 val response_internal_error :

@@ -166,6 +166,10 @@ let response_forbidden ?req s =
   in
   response_error_html ?version s "403" "Forbidden" [] body
 
+let response_forbidden_with_body ?req s body =
+  let version = Option.map get_return_version req in
+  response_error_html ?version s "403" "Forbidden" [] body
+
 let response_badrequest ?req s =
   let version = Option.map get_return_version req in
   let body =

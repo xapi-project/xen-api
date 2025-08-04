@@ -230,7 +230,19 @@ let real_proxy' ~__context ~vm vnc_port s =
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let real_proxy __context vm _ _ vnc_port s =
+let respond_console_limit_exceeded ~__context req s =
+  let session_id = Xapi_http.get_session_id req in
+  let user = Db.Session.get_auth_user_name ~__context ~self:session_id in
+  let body =
+    Printf.sprintf
+      "<html><body><h1>Connection Limit Exceeded</h1><p>User '%s': Only 1 \
+       connection is allowed at a time. Please try again \
+       later.</p></body></html>"
+      user
+  in
+  Http_svr.response_forbidden_with_body ~req s body
+
+let real_proxy __context vm req _ vnc_port s =
   let vm_id = Ref.string_of vm in
   let pool = Helpers.get_pool ~__context in
   let is_limit_enabled =
@@ -241,7 +253,7 @@ let real_proxy __context vm _ _ vnc_port s =
       (fun () -> real_proxy' ~__context ~vm vnc_port s)
       (fun () -> Connection_limit.drop vm_id)
   else
-    Http_svr.headers s (Http.http_503_service_unavailable ())
+    respond_console_limit_exceeded ~__context req s
 
 let go_if_no_limit __context s f =
   let pool = Helpers.get_pool ~__context in
