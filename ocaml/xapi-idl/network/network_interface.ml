@@ -268,6 +268,7 @@ type errors =
   | Interface_does_not_exist of string
       (** The named network interface does not exist *)
   | Bridge_does_not_exist of string  (** The named bridge does not exist *)
+  | Bridge_not_supported  (** The bridge is not supported *)
   | Internal_error of string
   | Unknown_error  (** The default variant for forward compatibility. *)
 [@@default Unknown_error] [@@deriving rpcty]

@@ -146,6 +146,13 @@ let options =
       )
     , "JSON RPC write timeout value in ms"
     )
+  ; ( "support-linux-bridge"
+    , Arg.Bool (fun b -> Network_server.support_linux_bridge := b)
+    , (fun () -> string_of_bool !Network_server.support_linux_bridge)
+    , "Used to determine if the Linux bridge is supported. true if networkd \
+       selects the network backend (OVS or bridge) based on network-conf file \
+       content. false if networkd only supports OVS"
+    )
   ]
 
 let start server =
