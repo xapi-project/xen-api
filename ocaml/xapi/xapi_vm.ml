@@ -1701,3 +1701,43 @@ let get_secureboot_readiness ~__context ~self =
           )
       )
     )
+
+let sysprep ~__context ~self ~unattend ~timeout =
+  let uuid = Db.VM.get_uuid ~__context ~self in
+  debug "%s %S (timeout %f)" __FUNCTION__ uuid timeout ;
+  if timeout < 0.0 then
+    raise
+      Api_errors.(
+        Server_error (invalid_value, ["timeout"; string_of_float timeout])
+      ) ;
+  match Vm_sysprep.sysprep ~__context ~vm:self ~unattend ~timeout with
+  | () ->
+      debug "%s %S success" __FUNCTION__ uuid ;
+      ()
+  | exception Vm_sysprep.Sysprep API_not_enabled ->
+      raise Api_errors.(Server_error (sysprep, [uuid; "API call is disabled"]))
+  | exception Vm_sysprep.Sysprep VM_CDR_not_found ->
+      raise Api_errors.(Server_error (sysprep, [uuid; "CD-ROM drive not found"]))
+  | exception Vm_sysprep.Sysprep VM_misses_feature ->
+      raise
+        Api_errors.(
+          Server_error (sysprep, [uuid; "VM driver does not support sysprep"])
+        )
+  | exception Vm_sysprep.Sysprep VM_not_running ->
+      raise Api_errors.(Server_error (sysprep, [uuid; "VM is not running"]))
+  | exception Vm_sysprep.Sysprep VM_CDR_eject ->
+      raise Api_errors.(Server_error (sysprep, [uuid; "VM failed to eject CD"]))
+  | exception Vm_sysprep.Sysprep VM_sysprep_timeout ->
+      raise
+        Api_errors.(
+          Server_error (sysprep, [uuid; "sysprep not found running - timeout"])
+        )
+  | exception Vm_sysprep.Sysprep XML_too_large ->
+      raise
+        Api_errors.(
+          Server_error (sysprep, [uuid; "unattend.xml file too large"])
+        )
+  | exception Vm_sysprep.Sysprep (Other msg) ->
+      raise Api_errors.(Server_error (sysprep, [uuid; msg]))
+  | exception e ->
+      raise e

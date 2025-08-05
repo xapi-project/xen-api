@@ -97,6 +97,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
+  | "host", "ssh_auto_mode" ->
+      Some "25.27.0"
   | "host", "console_idle_timeout" ->
       Some "25.21.0"
   | "host", "ssh_expiry" ->
@@ -221,6 +223,8 @@ let prototyped_of_message = function
       Some "22.26.0"
   | "VTPM", "create" ->
       Some "22.26.0"
+  | "host", "set_ssh_auto_mode" ->
+      Some "25.27.0"
   | "host", "set_console_idle_timeout" ->
       Some "25.21.0"
   | "host", "set_ssh_enabled_timeout" ->
@@ -239,6 +243,8 @@ let prototyped_of_message = function
       Some "25.2.0"
   | "host", "set_numa_affinity_policy" ->
       Some "24.0.0"
+  | "VM", "sysprep" ->
+      Some "25.24.0"
   | "VM", "get_secureboot_readiness" ->
       Some "24.17.0"
   | "VM", "set_uefi_mode" ->
@@ -249,6 +255,8 @@ let prototyped_of_message = function
       Some "25.22.0"
   | "VM", "set_groups" ->
       Some "24.19.1"
+  | "pool", "set_ssh_auto_mode" ->
+      Some "25.27.0"
   | "pool", "set_console_idle_timeout" ->
       Some "25.21.0"
   | "pool", "set_ssh_enabled_timeout" ->

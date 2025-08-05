@@ -412,18 +412,6 @@ module RPC_API (R : RPC) = struct
       ]
       (value_p @-> returning unit_p rrd_err)
 
-  let update_vm_memory_target =
-    let target_p =
-      Param.mk ~name:"target" ~description:["VM memory target"] Types.int64
-    in
-    declare "update_vm_memory_target"
-      [
-        "Sets the `memory_target` value for a VM. This is called by xapi when \
-         it is told by"
-      ; "xenopsd that squeezed has changed the target for a VM."
-      ]
-      (domid_p @-> target_p @-> returning unit_p rrd_err)
-
   let set_cache_sr =
     declare "set_cache_sr"
       [

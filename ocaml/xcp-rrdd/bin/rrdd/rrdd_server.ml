@@ -571,11 +571,6 @@ let update_use_min_max (value : bool) : unit =
   debug "Updating use_min_max: New value=%b" value ;
   use_min_max := value
 
-let update_vm_memory_target (domid : int) (target : int64) : unit =
-  with_lock memory_targets_m (fun _ ->
-      Hashtbl.replace memory_targets domid target
-  )
-
 let set_cache_sr (sr_uuid : string) : unit =
   with_lock cache_sr_lock (fun () -> cache_sr_uuid := Some sr_uuid)
 

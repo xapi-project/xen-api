@@ -61,6 +61,7 @@ let allowed_power_states ~__context ~vmr ~(op : API.vm_operations) =
   | `send_sysrq
   | `send_trigger
   | `snapshot_with_quiesce
+  | `sysprep
   | `suspend ->
       [`Running]
   | `changing_dynamic_range ->
@@ -151,6 +152,12 @@ let has_feature ~vmgmr ~feature =
       try List.assoc feature other = "1" with Not_found -> false
     )
 
+let get_feature ~vmgmr ~feature =
+  Option.bind vmgmr (fun gmr ->
+      let other = gmr.Db_actions.vM_guest_metrics_other in
+      List.assoc_opt feature other
+  )
+
 (* Returns `true` only if we are certain that the VM has booted PV (if there
  * is no metrics record, then we can't tell) *)
 let has_definitely_booted_pv ~vmmr =
@@ -166,45 +173,58 @@ let has_definitely_booted_pv ~vmmr =
   )
 
 (** Return an error iff vmr is an HVM guest and lacks a needed feature.
- *  Note: it turned out that the Windows guest agent does not write "feature-suspend"
- *  on resume (only on startup), so we cannot rely just on that flag. We therefore
- *  add a clause that enables all features when PV drivers are present using the
- *  old-style check.
+
+ *  Note: The FreeBSD driver used by NetScaler supports all power actions.
+ *  However, older versions of the FreeBSD driver do not explicitly advertise
+ *  these support. As a result, xapi does not attempt to signal these power
+ *  actions. To address this as a workaround, all power actions should be
+ *  permitted for FreeBSD guests.
+
+ *  Additionally, VMs with an explicit `data/cant_suspend_reason` set aren't
+ *  allowed to suspend, which would crash Windows and other UEFI VMs.
+
  *  The "strict" param should be true for determining the allowed_operations list
  *  (which is advisory only) and false (more permissive) when we are potentially about
  *  to perform an operation. This makes a difference for ops that require the guest to
  *  react helpfully. *)
 let check_op_for_feature ~__context ~vmr:_ ~vmmr ~vmgmr ~power_state ~op ~ref
     ~strict =
-  if
+  let implicit_support =
     power_state <> `Running
     (* PV guests offer support implicitly *)
     || has_definitely_booted_pv ~vmmr
     || Xapi_pv_driver_version.(has_pv_drivers (of_guest_metrics vmgmr))
     (* Full PV drivers imply all features *)
-  then
-    None
-  else
-    let some_err e = Some (e, [Ref.string_of ref]) in
-    let lack_feature feature = not (has_feature ~vmgmr ~feature) in
-    match op with
-    | `clean_shutdown
-      when strict
-           && lack_feature "feature-shutdown"
-           && lack_feature "feature-poweroff" ->
+  in
+  let some_err e = Some (e, [Ref.string_of ref]) in
+  let lack_feature feature = not (has_feature ~vmgmr ~feature) in
+  match op with
+  | `suspend | `checkpoint | `pool_migrate | `migrate_send -> (
+    match get_feature ~vmgmr ~feature:"data-cant-suspend-reason" with
+    | Some reason ->
+        Some (Api_errors.vm_non_suspendable, [Ref.string_of ref; reason])
+    | None
+      when (not implicit_support) && strict && lack_feature "feature-suspend" ->
         some_err Api_errors.vm_lacks_feature
-    | `clean_reboot
-      when strict
-           && lack_feature "feature-shutdown"
-           && lack_feature "feature-reboot" ->
-        some_err Api_errors.vm_lacks_feature
-    | `changing_VCPUs_live when lack_feature "feature-vcpu-hotplug" ->
-        some_err Api_errors.vm_lacks_feature
-    | (`suspend | `checkpoint | `pool_migrate | `migrate_send)
-      when strict && lack_feature "feature-suspend" ->
-        some_err Api_errors.vm_lacks_feature
-    | _ ->
+    | None ->
         None
+  )
+  | _ when implicit_support ->
+      None
+  | `clean_shutdown
+    when strict
+         && lack_feature "feature-shutdown"
+         && lack_feature "feature-poweroff" ->
+      some_err Api_errors.vm_lacks_feature
+  | `clean_reboot
+    when strict
+         && lack_feature "feature-shutdown"
+         && lack_feature "feature-reboot" ->
+      some_err Api_errors.vm_lacks_feature
+  | `changing_VCPUs_live when lack_feature "feature-vcpu-hotplug" ->
+      some_err Api_errors.vm_lacks_feature
+  | _ ->
+      None
 
 (* N.B. In the pattern matching above, "pat1 | pat2 | pat3" counts as
    	 * one pattern, and the whole thing can be guarded by a "when" clause. *)
@@ -269,20 +289,24 @@ let report_power_state_error ~__context ~vmr ~power_state ~op ~ref_str =
   Some (Api_errors.vm_bad_power_state, [ref_str; expected; actual])
 
 let report_concurrent_operations_error ~current_ops ~ref_str =
-  let current_ops_str =
+  let current_ops_ref_str, current_ops_str =
+    let op_to_str = Record_util.vm_operation_to_string in
+    let ( >> ) f g x = g (f x) in
     match current_ops with
     | [] ->
         failwith "No concurrent operation to report"
-    | [(_, cop)] ->
-        Record_util.vm_operation_to_string cop
+    | [(op_ref, cop)] ->
+        (op_ref, op_to_str cop)
     | l ->
-        "{"
-        ^ String.concat ","
-            (List.map Record_util.vm_operation_to_string (List.map snd l))
-        ^ "}"
+        ( Printf.sprintf "{%s}" (String.concat "," (List.map fst l))
+        , Printf.sprintf "{%s}"
+            (String.concat "," (List.map (snd >> op_to_str) l))
+        )
   in
   Some
-    (Api_errors.other_operation_in_progress, ["VM." ^ current_ops_str; ref_str])
+    ( Api_errors.other_operation_in_progress
+    , ["VM"; ref_str; current_ops_str; current_ops_ref_str]
+    )
 
 let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   let is_migratable vgpu =

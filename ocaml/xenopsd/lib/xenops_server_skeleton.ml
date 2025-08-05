@@ -148,6 +148,8 @@ module VBD = struct
 
   let activate _ _ _ = unimplemented __FUNCTION__
 
+  let unplug _ _ _ _ = unimplemented __FUNCTION__
+
   let deactivate _ _ _ _ = unimplemented __FUNCTION__
 
   let detach _ _ _ = unimplemented __FUNCTION__

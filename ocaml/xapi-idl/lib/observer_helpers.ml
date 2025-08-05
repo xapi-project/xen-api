@@ -241,24 +241,10 @@ module Server (Impl : Server_impl) () = struct
   let process call = Idl.Exn.server S.implementation call
 end
 
-let rec retry_econnrefused f =
-  try f () with
-  | Unix.Unix_error (Unix.ECONNREFUSED, "connect", _) ->
-      (* debug "Caught ECONNREFUSED; retrying in 5s"; *)
-      Thread.delay 5. ; retry_econnrefused f
-  | e ->
-      (* error "Caught %s: does the observer service need restarting?"
-         (Printexc.to_string e); *)
-      raise e
-
 module Client = ObserverAPI (Idl.Exn.GenClient (struct
-  open Xcp_client
-
   let rpc call =
-    retry_econnrefused (fun () ->
-        if !use_switch then
-          json_switch_rpc queue_name call
-        else
-          xml_http_rpc ~srcstr:(get_user_agent ()) ~dststr:queue_name uri call
+    Xcp_client.(
+      retry_and_switch_rpc call ~use_switch:!use_switch ~queue_name
+        ~dststr:queue_name ~uri
     )
 end))

@@ -45,10 +45,7 @@ let check_plan config dead_hosts plan =
   let memory_remaining = account config.hosts config.vms plan in
   (*    List.iter (fun mem -> Printf.printf "%Ld\n" mem) free; *)
   (* No host should be overcommitted: *)
-  if
-    List.fold_left ( || ) false
-      (List.map (fun x -> x < 0L) (List.map snd memory_remaining))
-  then
+  if List.exists (fun (_, x) -> x < 0L) memory_remaining then
     raise BadPlan ;
   (* All failed VMs should be restarted: *)
   let failed_vms = get_failed_vms config dead_hosts in

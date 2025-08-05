@@ -553,6 +553,10 @@ let list_net_sriov_vf_pcis ~__context ~vm =
              None
      )
 
+module StringMap = Map.Make (String)
+
+let sr_version_cache = ref StringMap.empty
+
 module MD = struct
   (** Convert between xapi DB records and xenopsd records *)
 
@@ -684,6 +688,31 @@ module MD = struct
       ) else
         disk_of_vdi ~__context ~self:vbd.API.vBD_VDI
     in
+    let can_attach_early =
+      let sr_opt =
+        try Some (Db.VDI.get_SR ~__context ~self:vbd.API.vBD_VDI)
+        with _ -> None
+      in
+      match sr_opt with
+      | Some sr -> (
+          let sr_key = Ref.string_of sr in
+          match StringMap.find_opt sr_key !sr_version_cache with
+          | Some cached_api_version ->
+              Version.String.ge cached_api_version "3.0"
+          | None -> (
+            match Xapi_sr.required_api_version_of_sr ~__context ~sr with
+            | Some api_version ->
+                sr_version_cache :=
+                  StringMap.add sr_key api_version !sr_version_cache ;
+                Version.String.ge api_version "3.0"
+            | None ->
+                false
+          )
+        )
+      | None ->
+          (* If we can't get the SR, we have to default to false *)
+          false
+    in
     {
       id= (vm.API.vM_uuid, Device_number.to_linux_device device_number)
     ; position= Some device_number
@@ -707,6 +736,7 @@ module MD = struct
         ( try Db.VDI.get_on_boot ~__context ~self:vbd.API.vBD_VDI = `persist
           with _ -> true
         )
+    ; can_attach_early
     }
 
   let of_pvs_proxy ~__context vif proxy =
@@ -2388,18 +2418,6 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
                 Db.VM.set_xenstore_data ~__context ~self ~value:xsdata_state
               with e ->
                 error "Caught %s: while updating VM %s xsdata"
-                  (Printexc.to_string e) id
-            ) ;
-          different
-            (fun x -> x.Vm.memory_target)
-            Fun.id
-            (fun memory_target ->
-              try
-                debug "xenopsd event: Updating VM %s domid %d memory target" id
-                  domid ;
-                Rrdd.update_vm_memory_target domid memory_target
-              with e ->
-                error "Caught %s: while updating VM %s memory_target"
                   (Printexc.to_string e) id
             )
         )

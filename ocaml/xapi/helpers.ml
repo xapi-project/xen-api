@@ -591,6 +591,7 @@ let call_api_functions ~__context f =
       call_api_functions_internal ~__context f
 
 let call_emergency_mode_functions hostname f =
+  let __FUN = __FUNCTION__ in
   let open Xmlrpc_client in
   let transport =
     SSL
@@ -609,7 +610,13 @@ let call_emergency_mode_functions hostname f =
   in
   finally
     (fun () -> f rpc session_id)
-    (fun () -> Client.Client.Session.local_logout ~rpc ~session_id)
+    (fun () ->
+      try Client.Client.Session.local_logout ~rpc ~session_id
+      with _ ->
+        (* This is an emergency mode function, so we don't care about the error
+           in logout *)
+        debug "%s: The logout failed in emergency mode function" __FUN
+    )
 
 let is_domain_zero_with_record ~__context vm_ref vm_rec =
   let host_ref = vm_rec.API.vM_resident_on in
@@ -1005,7 +1012,7 @@ let pool_has_different_host_platform_versions ~__context =
   let is_different_to_me platform_version =
     platform_version <> Xapi_version.platform_version ()
   in
-  List.fold_left ( || ) false (List.map is_different_to_me platform_versions)
+  List.exists is_different_to_me platform_versions
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
@@ -1678,7 +1685,7 @@ module Repeat_with_uniform_backoff : POLICY = struct
     debug "Waiting for up to %f seconds before retrying..." this_timeout ;
     let start = Unix.gettimeofday () in
     ( match e with
-    | Api_errors.Server_error (code, [cls; objref])
+    | Api_errors.Server_error (code, cls :: objref :: _)
       when code = Api_errors.other_operation_in_progress ->
         Early_wakeup.wait (cls, objref) this_timeout
     | _ ->

@@ -2211,6 +2211,7 @@ let operations =
         ; ("reverting", "Reverting the VM to a previous snapshotted state")
         ; ("destroy", "refers to the act of uninstalling the VM")
         ; ("create_vtpm", "Creating and adding a VTPM to this VM")
+        ; ("sysprep", "Performing a Windows sysprep on this VM")
         ]
     )
 
@@ -2368,6 +2369,19 @@ let restart_device_models =
       ]
     ~allowed_roles:(_R_VM_POWER_ADMIN ++ _R_CLIENT_CERT)
     ()
+
+let sysprep =
+  call ~name:"sysprep" ~lifecycle:[]
+    ~params:
+      [
+        (Ref _vm, "self", "The VM")
+      ; (String, "unattend", "XML content passed to sysprep")
+      ; (Float, "timeout", "timeout in seconds for expected reboot")
+      ]
+    ~doc:
+      "Pass unattend.xml to Windows sysprep and wait for the VM to shut down \
+       as part of a reboot."
+    ~allowed_roles:_R_VM_ADMIN ()
 
 let vm_uefi_mode =
   Enum
@@ -2571,6 +2585,7 @@ let t =
       ; set_blocked_operations
       ; add_to_blocked_operations
       ; remove_from_blocked_operations
+      ; sysprep
       ]
     ~contents:
       ([

@@ -18,38 +18,48 @@ let check_operation_error ~__context record self op =
   let _ref = Ref.string_of self in
   let current_ops = record.Db_actions.vM_appliance_current_operations in
   (* Only allow one operation of [`start | `clean_shutdown | `hard_shutdown | `shutdown ] at a time. *)
-  if current_ops <> [] then
-    Some (Api_errors.other_operation_in_progress, ["VM_appliance"; _ref])
-  else
-    let vms = Db.VM_appliance.get_VMs ~__context ~self in
-    if vms = [] then
-      Some (Api_errors.operation_not_allowed, ["Appliance has no VMs."])
-    else (* Allow the op if any VMs are in a state where the op makes sense. *)
-      let power_states =
-        List.map (fun vm -> Db.VM.get_power_state ~__context ~self:vm) vms
-      in
-      let predicate, error =
-        match op with
-        (* Can start if any are halted. *)
-        | `start ->
-            ( (fun power_state -> power_state = `Halted)
-            , "There are no halted VMs in this appliance."
-            )
-        (* Can clean_shutdown if any are running. *)
-        | `clean_shutdown ->
-            ( (fun power_state -> power_state = `Running)
-            , "There are no running VMs in this appliance."
-            )
-        (* Can hard_shutdown/shutdown if any are not halted. *)
-        | `hard_shutdown | `shutdown ->
-            ( (fun power_state -> power_state <> `Halted)
-            , "All VMs in this appliance are halted."
-            )
-      in
-      if List.exists predicate power_states then
-        None
+  match current_ops with
+  | (op_ref, op_type) :: _ ->
+      Some
+        ( Api_errors.other_operation_in_progress
+        , [
+            "VM_appliance"
+          ; _ref
+          ; API.vm_appliance_operation_to_string op_type
+          ; op_ref
+          ]
+        )
+  | [] ->
+      let vms = Db.VM_appliance.get_VMs ~__context ~self in
+      if vms = [] then
+        Some (Api_errors.operation_not_allowed, ["Appliance has no VMs."])
       else
-        Some (Api_errors.operation_not_allowed, [error])
+        (* Allow the op if any VMs are in a state where the op makes sense. *)
+        let power_states =
+          List.map (fun vm -> Db.VM.get_power_state ~__context ~self:vm) vms
+        in
+        let predicate, error =
+          match op with
+          (* Can start if any are halted. *)
+          | `start ->
+              ( (fun power_state -> power_state = `Halted)
+              , "There are no halted VMs in this appliance."
+              )
+          (* Can clean_shutdown if any are running. *)
+          | `clean_shutdown ->
+              ( (fun power_state -> power_state = `Running)
+              , "There are no running VMs in this appliance."
+              )
+          (* Can hard_shutdown/shutdown if any are not halted. *)
+          | `hard_shutdown | `shutdown ->
+              ( (fun power_state -> power_state <> `Halted)
+              , "All VMs in this appliance are halted."
+              )
+        in
+        if List.exists predicate power_states then
+          None
+        else
+          Some (Api_errors.operation_not_allowed, [error])
 
 let assert_operation_valid ~__context ~self ~(op : API.vm_appliance_operation) =
   let all = Db.VM_appliance.get_record_internal ~__context ~self in

@@ -68,7 +68,7 @@ let _ =
       "The license-server connection details (address or port) were missing or \
        incomplete."
     () ;
-  error Api_errors.license_checkout_error ["reason"]
+  error Api_errors.license_checkout_error ["code"; "message"]
     ~doc:"The license for the edition you requested is not available." () ;
   error Api_errors.license_file_deprecated []
     ~doc:
@@ -534,9 +534,12 @@ let _ =
     () ;
   error Api_errors.vm_lacks_feature ["vm"]
     ~doc:"You attempted an operation on a VM which lacks the feature." () ;
+  error Api_errors.vm_non_suspendable ["vm"; "reason"]
+    ~doc:"You attempted an operation on a VM which is not suspendable." () ;
   error Api_errors.vm_is_template ["vm"]
     ~doc:"The operation attempted is not valid for a template VM" () ;
-  error Api_errors.other_operation_in_progress ["class"; "object"]
+  error Api_errors.other_operation_in_progress
+    ["class"; "object"; "operation_type"; "operation_ref"]
     ~doc:"Another operation involving the object is currently in progress" () ;
   error Api_errors.vbd_not_removable_media ["vbd"]
     ~doc:"Media could not be ejected because it is not removable" () ;
@@ -2039,6 +2042,9 @@ let _ =
   error Api_errors.set_console_timeout_partially_failed ["hosts"]
     ~doc:"Some hosts failed to set console timeout." () ;
 
+  error Api_errors.set_ssh_auto_mode_partially_failed ["hosts"]
+    ~doc:"Some hosts failed to set SSH auto mode." () ;
+
   error Api_errors.host_driver_no_hardware ["driver variant"]
     ~doc:"No hardware present for this host driver variant" () ;
 
@@ -2047,6 +2053,9 @@ let _ =
       "TLS verification has not been enabled in the pool successfully, please \
        enable it in XC or run xe pool-enable-tls-verification instead."
     () ;
+
+  error Api_errors.sysprep ["vm"; "message"]
+    ~doc:"VM.sysprep error with details in the message" () ;
 
   message
     (fst Api_messages.ha_pool_overcommitted)

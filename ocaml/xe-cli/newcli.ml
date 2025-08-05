@@ -66,15 +66,26 @@ let debug fmt =
 exception Usage
 
 let usage () =
-  error
-    "Usage: %s <cmd> [-s server] [-p port] ([-u username] [-pw password] or \
-     [-pwf <password file>]) [--traceparent traceparent] <other arguments>\n"
-    Sys.argv.(0) ;
-  error
-    "\n\
-     A full list of commands can be obtained by running \n\
-     \t%s help -s <server> -p <port>\n"
-    Sys.argv.(0)
+  let help =
+    Printf.sprintf
+      {|Usage: 
+  %s <command>
+    [ -s <server> ]            XenServer host
+    [ -p <port> ]              XenServer port number
+    [ -u <username> -pw <password> | -pwf <password file> ]
+                               User authentication (password or file)
+    [ --nossl ]                Disable SSL/TLS
+    [ --debug ]                Enable debug output
+    [ --debug-on-fail ]        Enable debug output only on failure
+    [ --traceparent <value> ]  Distributed tracing context
+    [ <other arguments> ... ]  Command-specific options
+
+A full list of commands can be obtained by running
+  %s help -s <server> -p <port>
+|}
+      Sys.argv.(0) Sys.argv.(0)
+  in
+  error "%s" help
 
 let is_localhost ip = ip = "127.0.0.1"
 

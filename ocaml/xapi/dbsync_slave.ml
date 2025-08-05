@@ -64,6 +64,7 @@ let create_localhost ~__context info =
         ~ssh_enabled_timeout:Constants.default_ssh_enabled_timeout
         ~ssh_expiry:Date.epoch
         ~console_idle_timeout:Constants.default_console_idle_timeout
+        ~ssh_auto_mode:!Xapi_globs.ssh_auto_mode_default
     in
     ()
 
@@ -383,7 +384,29 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_ssh_status (fun () ->
       let ssh_service = !Xapi_globs.ssh_service in
       let status = Fe_systemctl.is_active ~service:ssh_service in
-      Db.Host.set_ssh_enabled ~__context ~self:localhost ~value:status
+      Db.Host.set_ssh_enabled ~__context ~self:localhost ~value:status ;
+      let auto_mode_in_db =
+        Db.Host.get_ssh_auto_mode ~__context ~self:localhost
+      in
+      let ssh_monitor_enabled =
+        Fe_systemctl.is_active ~service:!Xapi_globs.ssh_monitor_service
+      in
+      (* For xs9 when fresh install, the ssh_monitor service is not enabled by default.
+         If the auto_mode is enabled, we need to enable the ssh_monitor service.
+         and user may have disabled monitor service by mistake as well, so we need to check the status. *)
+      if auto_mode_in_db <> ssh_monitor_enabled then
+        Xapi_host.set_ssh_auto_mode ~__context ~self:localhost
+          ~value:auto_mode_in_db ;
+      let console_timeout =
+        Db.Host.get_console_idle_timeout ~__context ~self:localhost
+      in
+      let console_timeout_file_exists =
+        Sys.file_exists !Xapi_globs.console_timeout_profile_path
+      in
+      (* Ensure the console timeout profile file exists if the timeout is configured *)
+      if console_timeout > 0L && not console_timeout_file_exists then
+        Xapi_host.set_console_idle_timeout ~__context ~self:localhost
+          ~value:console_timeout
   ) ;
 
   remove_pending_guidances ~__context

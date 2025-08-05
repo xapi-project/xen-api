@@ -9,14 +9,14 @@ import tempfile
 import unittest
 from collections.abc import Mapping
 from typing import cast
+from unittest.mock import MagicMock
 
-import mock
 
 from python3.tests.import_helper import import_file_as_module
 # mock modules to avoid dependencies
-sys.modules["xcp"] = mock.Mock()
-sys.modules["xcp.logger"] = mock.Mock()
-sys.modules["pyudev"] = mock.Mock()
+sys.modules["xcp"] = MagicMock()
+sys.modules["xcp.logger"] = MagicMock()
+sys.modules["pyudev"] = MagicMock()
 usb_scan = import_file_as_module("python3/libexec/usb_scan.py")
 
 
@@ -90,7 +90,7 @@ def mock_setup(mod, devices, interfaces, path):
     mod.log.error = verify_log
     mod.log.debug = verify_log
     mod.Policy._PATH = path
-    mod.pyudev.Context = mock.Mock(
+    mod.pyudev.Context = MagicMock(
             return_value=MocContext(devices, interfaces))
 
 

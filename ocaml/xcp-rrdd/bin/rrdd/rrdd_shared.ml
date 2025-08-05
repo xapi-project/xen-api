@@ -30,11 +30,6 @@ let next_iteration_start : Clock.Timer.t ref =
 (* The mutex that protects the next_iteration_start against data corruption. *)
 let next_iteration_start_m : Mutex.t = Mutex.create ()
 
-(** Cache memory/target values *)
-let memory_targets : (int, int64) Hashtbl.t = Hashtbl.create 20
-
-let memory_targets_m = Mutex.create ()
-
 let cache_sr_uuid : string option ref = ref None
 
 let cache_sr_lock = Mutex.create ()
