@@ -57,6 +57,7 @@ let dss_vcpus xc doms =
         let dom_cpu_time =
           dom_cpu_time /. (1.0e9 *. float_of_int dom.Xenctrl.nr_online_vcpus)
         in
+        let ( ++ ) = Int64.add in
         try
           let ri = Xenctrl.domain_get_runstate_info xc domid in
           ( Rrd.VM uuid
@@ -104,6 +105,23 @@ let dss_vcpus xc doms =
                  ~description:
                    "Fraction of time that some vCPUs are runnable and some are \
                     blocked"
+                 ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
+             )
+          :: ( Rrd.VM uuid
+             , Ds.ds_make ~name:"runnable_any" ~units:"(fraction)"
+                 ~value:
+                   (Rrd.VT_Float
+                      (Int64.to_float
+                         (ri.Xenctrl.time1
+                         ++ ri.Xenctrl.time2
+                         ++ ri.Xenctrl.time5
+                         )
+                      /. 1.0e9
+                      )
+                   )
+                 ~description:
+                   "Fraction of time that at least one vCPU is runnable in the \
+                    domain"
                  ~ty:Rrd.Derive ~default:false ~min:0.0 ~max:1.0 ()
              )
           :: ( Rrd.VM uuid
