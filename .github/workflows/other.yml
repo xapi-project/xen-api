@@ -51,7 +51,7 @@ jobs:
       - uses: pre-commit/action@v3.0.1
         name: Run pre-commit checks (no spaces at end of lines, etc)
         with:
-          extra_args: --all-files --verbose --hook-stage commit
+          extra_args: --all-files --verbose --hook-stage pre-commit
         env:
           SKIP: no-commit-to-branch
 

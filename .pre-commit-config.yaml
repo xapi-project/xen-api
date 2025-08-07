@@ -13,7 +13,7 @@
 ## For manually executing the pre-push hook:
 # pre-commit run -av --hook-stage pre-push
 #
-default_stages: [commit, push]
+default_stages: [pre-commit, pre-push]
 default_language_version:
     python: python3.11
 repos:
@@ -68,7 +68,7 @@ repos:
         entry: env PYTHONDEVMODE=yes sh -c 'coverage run && coverage xml &&
             coverage html && coverage report &&
             diff-cover --ignore-whitespace --compare-branch=origin/master
-            --show-uncovered --html-report .git/coverage-diff.html
+            --show-uncovered --format html:.git/coverage-diff.html
             --fail-under 50 .git/coverage3.11.xml'
         require_serial: true
         pass_filenames: false
@@ -108,7 +108,7 @@ repos:
     hooks:
     -   id: pylint
         files: python3/
-        stages: [push]
+        stages: [pre-push]
         name: check that changes to python3 tree pass pylint
         entry: diff-quality --violations=pylint
             --ignore-whitespace --compare-branch=origin/master
@@ -134,7 +134,7 @@ repos:
         entry: python3 pytype_reporter.py
         pass_filenames: false
         types: [python]
-        stages: [push]
+        stages: [pre-push]
         verbose: true
         # This hook runs locally only when Python files change:
         language: python
