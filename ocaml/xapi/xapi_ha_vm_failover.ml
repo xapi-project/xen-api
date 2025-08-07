@@ -1259,9 +1259,26 @@ let restart_failed : (API.ref_VM, unit) Hashtbl.t = Hashtbl.create 10
 (* We also limit the rate we attempt to retry starting the VM. *)
 let last_start_attempt : (API.ref_VM, float) Hashtbl.t = Hashtbl.create 10
 
+module VMRefOrd = struct
+  type t = [`VM] Ref.t
+
+  let compare = Ref.compare
+end
+
+module VMMap = Map.Make (VMRefOrd)
+
+(* When a host is up, it will be added in the HA live set. But it may be still
+   in disabled state so that starting best-effort VMs on it would fail.
+   Meanwhile we don't want to retry on starting them forever.
+   This data is to remember the best-effort VMs which failed to start due to
+   this and the key of the map is the VM ref. And its value is the count of the
+   attempts of starting. This is to avoid retrying for ever and can be adjusted
+   according to how hong the host becomes enabled since it is in HA live set. *)
+let tried_best_eff_vms = ref VMMap.empty
+
 (* Takes the current live_set and number of hosts we're planning to handle, updates the host records in the database
    and restarts any offline protected VMs *)
-let restart_auto_run_vms ~__context live_set n =
+let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
   (* ensure we have live=false on the host_metrics for those hosts not in the live_set; and force state to Halted for
      	   all VMs that are "running" or "paused" with resident_on set to one of the hosts that is now dead
   *)
@@ -1566,32 +1583,87 @@ let restart_auto_run_vms ~__context live_set n =
          			   ok since this is 'best-effort'). NOTE we do not use the restart_vm function above as this will mark the
          			   pool as overcommitted if an HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN is received (although this should never
          			   happen it's better safe than sorry) *)
-      map_parallel
-        ~order_f:(fun vm -> order_f (vm, Db.VM.get_record ~__context ~self:vm))
-        (fun vm ->
+      let is_best_effort r =
+        r.API.vM_ha_restart_priority = Constants.ha_restart_best_effort
+        && r.API.vM_power_state = `Halted
+      in
+      let resets =
+        !reset_vms
+        |> List.map (fun self -> (self, Db.VM.get_record ~__context ~self))
+      in
+      let revalidate_tried m =
+        let valid, invalid =
+          VMMap.bindings m
+          |> List.partition_map (fun (self, _) ->
+                 match Db.VM.get_record ~__context ~self with
+                 | r ->
+                     Left (self, r)
+                 | exception _ ->
+                     Right self
+             )
+        in
+        let to_retry, to_remove =
+          List.partition (fun (_, r) -> is_best_effort r) valid
+        in
+        let m' =
+          List.map fst to_remove
+          |> List.rev_append invalid
+          |> List.fold_left (fun acc vm -> VMMap.remove vm acc) m
+        in
+        (to_retry, m')
+      in
+      let best_effort_vms =
+        (* Carefully decide which best-effort VMs should attempt to start. *)
+        let all_prot_is_ok = List.for_all (fun (_, r) -> r = Ok ()) started in
+        let is_better = List.length live_set > List.length last_live_set in
+        ( match (all_prot_is_ok, is_better, last_live_set = live_set) with
+        | true, true, _ ->
+            (* Try to start all the best-effort halted VMs when HA is being
+               enabled or some hosts are transiting to HA live.
+               The DB has been updated by Xapi_vm_lifecycle.force_state_reset.
+               Read again. *)
+            tried_best_eff_vms := VMMap.empty ;
+            Db.VM.get_all_records ~__context
+        | true, false, true ->
+            (* Retry for best-effort VMs which attepmted but failed last time. *)
+            let to_retry, m = revalidate_tried !tried_best_eff_vms in
+            tried_best_eff_vms := m ;
+            List.rev_append to_retry resets
+        | true, false, false | false, _, _ ->
+            (* Try to start only the reset VMs. They were observed as residing
+               on the non-live hosts in this run.
+               Give up starting tried VMs as the HA situation changes. *)
+            tried_best_eff_vms := VMMap.empty ;
+            resets
+        )
+        |> List.filter (fun (_, r) -> is_best_effort r)
+      in
+      map_parallel ~order_f
+        (fun (vm, _) ->
           ( vm
-          , if
-              Db.VM.get_power_state ~__context ~self:vm = `Halted
-              && Db.VM.get_ha_restart_priority ~__context ~self:vm
-                 = Constants.ha_restart_best_effort
-            then
-              TaskChains.task (fun () ->
-                  Client.Client.Async.VM.start ~rpc ~session_id ~vm
-                    ~start_paused:false ~force:true
-              )
-            else
-              TaskChains.ok Rpc.Null
+          , TaskChains.task (fun () ->
+                Client.Client.Async.VM.start ~rpc ~session_id ~vm
+                  ~start_paused:false ~force:true
+            )
           )
         )
-        !reset_vms
+        best_effort_vms
       |> List.iter (fun (vm, result) ->
              match result with
              | Error e ->
+                 tried_best_eff_vms :=
+                   VMMap.update vm
+                     (Option.fold ~none:(Some 1) ~some:(fun n ->
+                          if n < 2 then Some (n + 1) else None
+                      )
+                     )
+                     !tried_best_eff_vms ;
                  error "Failed to restart best-effort VM %s (%s): %s"
                    (Db.VM.get_uuid ~__context ~self:vm)
                    (Db.VM.get_name_label ~__context ~self:vm)
                    (ExnHelper.string_of_exn e)
              | Ok _ ->
+                 tried_best_eff_vms := VMMap.remove vm !tried_best_eff_vms ;
                  ()
          )
   )
