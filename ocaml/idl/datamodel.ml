@@ -1437,6 +1437,28 @@ module Pool_patch = struct
       ()
 end
 
+module Pool_metrics = struct
+  let t =
+    create_obj ~in_db:true ~lifecycle:[] ~in_oss_since:None
+      ~persist:PersistEverything ~gen_constructor_destructor:false
+      ~name:_pool_metrics ~descr:"The metrics associated with a pool"
+      ~gen_events:true ~doccomments:[]
+      ~messages_default_allowed_roles:_R_POOL_OP ~messages:[]
+      ~contents:
+        [
+          uid _pool_metrics
+            ~lifecycle:
+              [(Published, rel_rio, "Unique identifier/object reference")]
+        ; field ~qualifier:DynamicRO ~lifecycle:[]
+            ~ty:(Map (String, String))
+            ~reader_roles:_R_LOCAL_ROOT_ONLY ~default_value:(Some (VMap []))
+            "user_agents"
+            "The user agents (name version pair) that are seen connected to \
+             the host"
+        ]
+      ()
+end
+
 (* Management of host patches. Just like the crash dumps it would be marginally neater if
    the patches were stored as VDIs. *)
 
@@ -10470,6 +10492,7 @@ let all_system =
     Datamodel_pool.t
   ; Pool_patch.t
   ; Pool_update.t
+  ; Pool_metrics.t
   ; Datamodel_vm.t
   ; VM_metrics.t
   ; VM_guest_metrics.t
@@ -10749,6 +10772,7 @@ let expose_get_all_messages_for =
   ; _sm
   ; _pool_patch
   ; _pool_update
+  ; _pool_metrics
   ; _bond
   ; _vlan
   ; _blob

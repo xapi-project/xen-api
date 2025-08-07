@@ -60,6 +60,7 @@ type without_secret =
   | `pool
   | `pool_patch
   | `pool_update
+  | `pool_metrics
   | `probe_result
   | `PUSB
   | `PVS_cache_storage

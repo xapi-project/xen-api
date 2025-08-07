@@ -38,6 +38,7 @@ type event_record =
   | Console of [`console] Ref.t * API.console_t option
   | User of [`user] Ref.t * API.user_t option
   | Pool of [`pool] Ref.t * API.pool_t option
+  | Pool_metrics of [`pool_metrics] Ref.t * API.pool_metrics_t option
   | Message of [`message] Ref.t * API.message_t option
   | Secret of [`secret] Ref.t * API.secret_t option
   | VMPP of [`VMPP] Ref.t * API.vMPP_t option
@@ -149,6 +150,11 @@ let record_of_event ev =
       Pool
         ( Ref.of_string ev.Event_types.reference
         , Option.map API.pool_t_of_rpc rpc
+        )
+  | "pool_metrics" ->
+      Pool_metrics
+        ( Ref.of_string ev.Event_types.reference
+        , Option.map API.pool_metrics_t_of_rpc rpc
         )
   | "message" ->
       Message

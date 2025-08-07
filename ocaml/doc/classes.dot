@@ -24,6 +24,7 @@ digraph "graph" {
 
   node [shape=ellipse style=filled fillcolor=wheat];
       pool [URL="?c=pool"]
+      pool_metrics [URL="?c=pool_metrics"]
       task [URL="?c=task"]
       event [URL="?c=event"]
       host_cpu [URL="?c=host_cpu"]
@@ -58,4 +59,5 @@ digraph "graph" {
   network -> PIF [arrowhead="crow"]
   host -> PIF [arrowhead="crow"]
   PIF -> PIF_metrics
+  pool -> pool_metrics
 }

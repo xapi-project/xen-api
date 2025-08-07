@@ -2250,6 +2250,9 @@ let t =
             "Indicates whether an HA-protected VM that is shut down from \
              inside (not through the API) should be automatically rebooted \
              when HA is enabled"
+        ; field ~qualifier:DynamicRO ~ty:(Ref _pool_metrics) ~lifecycle:[]
+            ~default_value:(Some (VRef null_ref)) "metrics"
+            "metrics associated with this pool"
         ]
       )
     ()
