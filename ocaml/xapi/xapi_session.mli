@@ -102,6 +102,8 @@ val record_login_failure :
   -> (unit -> 'a)
   -> 'a
 
+val record_user_agent : __context:Context.t -> unit
+
 val get_failed_login_stats : unit -> string option
 
 val get_total_sessions : unit -> Int64.t
