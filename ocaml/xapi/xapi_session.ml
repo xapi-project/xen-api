@@ -633,56 +633,45 @@ let revalidate_all_sessions ~__context =
 *)
 let record_user_agent ~__context =
   let ( let@ ) o f = Option.iter f o in
+  let when_true b f = if b then f () else () in
   let@ user_agent = Context.get_user_agent __context in
   let user_agent_len = String.length user_agent in
   let whitelist = !Xapi_globs.interested_user_agents in
   let len_limit = 64 in
-  if user_agent_len > len_limit then
-    ()
-  else
-    let@ name =
-      List.find_opt (fun s -> String.starts_with ~prefix:s user_agent) whitelist
-    in
-    let name_len = String.length name in
-    let@ coming_version =
-      if user_agent_len <= name_len then
-        Some ""
-      else
-        match user_agent.[name_len] with
-        | ' ' ->
-            Some ""
-        | '/' ->
-            Some
-              ( match String.index_from_opt user_agent (name_len + 1) ' ' with
-              | Some idx ->
-                  String.sub user_agent (name_len + 1) (idx - name_len - 1)
-              | None ->
-                  String.sub user_agent (name_len + 1)
-                    (user_agent_len - name_len - 1)
-              )
-        | _ ->
-            None
-    in
-    let pool = Helpers.get_pool ~__context in
-    let pool_metrics = Db.Pool.get_metrics ~__context ~self:pool in
-    let agents =
-      Db.Pool_metrics.get_user_agents ~__context ~self:pool_metrics
-    in
-    match List.assoc_opt name agents with
-    | Some v ->
-        if v <> coming_version then (
-          (* different version, update it *)
-          let agents = List.filter (fun (n, _) -> n <> name) agents in
-          Db.Pool_metrics.set_user_agents ~__context ~self:pool_metrics
-            ~value:((name, coming_version) :: agents) ;
-          debug "update user-agent %s: %s -> %s" name v coming_version
-        ) else
-          ()
-    | None ->
-        (* new user agent, record it *)
+  when_true (user_agent_len <= len_limit) @@ fun () ->
+  let@ name, coming_version =
+    match String.split_on_char ' ' user_agent with
+    | name_version :: _ -> (
+      match String.split_on_char '/' name_version with
+      | name :: version :: _ ->
+          Some (name, version)
+      | name :: [] ->
+          Some (name, "")
+      | [] ->
+          None
+    )
+    | [] ->
+        None
+  in
+  when_true (List.mem name whitelist) @@ fun () ->
+  let pool = Helpers.get_pool ~__context in
+  let pool_metrics = Db.Pool.get_metrics ~__context ~self:pool in
+  let agents = Db.Pool_metrics.get_user_agents ~__context ~self:pool_metrics in
+  match List.assoc_opt name agents with
+  | Some v ->
+      if v <> coming_version then (
+        (* different version, update it *)
+        let agents = List.filter (fun (n, _) -> n <> name) agents in
         Db.Pool_metrics.set_user_agents ~__context ~self:pool_metrics
           ~value:((name, coming_version) :: agents) ;
-        debug "append user-agent %s: %s" name coming_version
+        debug "update user-agent %s: %s -> %s" name v coming_version
+      ) else
+        ()
+  | None ->
+      (* new user agent, record it *)
+      Db.Pool_metrics.set_user_agents ~__context ~self:pool_metrics
+        ~value:((name, coming_version) :: agents) ;
+      debug "append user-agent %s: %s" name coming_version
 
 let login_no_password_common_create_session ~__context ~uname ~originator ~host
     ~pool ~is_local_superuser ~subject ~auth_user_sid ~auth_user_name
