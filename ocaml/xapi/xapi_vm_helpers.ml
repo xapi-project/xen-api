@@ -1304,9 +1304,9 @@ let allowed_VBD_devices_HVM_floppy =
     (fun x -> Device_number.(make Floppy ~disk:x ~partition:0))
     (inclusive_range 0 1)
 
-let allowed_VIF_devices_HVM = vif_inclusive_range 0 6
+let allowed_VIF_devices_HVM = vif_inclusive_range 0 15
 
-let allowed_VIF_devices_PV = vif_inclusive_range 0 6
+let allowed_VIF_devices_PV = vif_inclusive_range 0 15
 
 (** [possible_VBD_devices_of_string s] returns a list of Device_number.t which
     	represent possible interpretations of [s]. *)
