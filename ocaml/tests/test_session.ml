@@ -169,6 +169,24 @@ let test_failed_logins_from_both_known_and_unknown_clients () =
 </body>|}
     stats
 
+let test_pool_metrics_user_agents ~coming ~stored ~whitelist ~expected () =
+  let __context =
+    make_ctx ~user_agent:(Some coming) ~client_ip:(Some "1.2.3.4")
+  in
+  let pool_metrics_ref = Ref.make () in
+  Db.Pool_metrics.create ~__context ~ref:pool_metrics_ref
+    ~uuid:(Uuidx.to_string (Uuidx.make ()))
+    ~user_agents:stored ;
+  let pool = Helpers.get_pool ~__context in
+  Db.Pool.set_metrics ~__context ~self:pool ~value:pool_metrics_ref ;
+  Xapi_globs.interested_user_agents := whitelist ;
+  Xapi_session.record_user_agent ~__context ;
+  let new_user_agents =
+    Db.Pool_metrics.get_user_agents ~__context ~self:pool_metrics_ref
+  in
+  Alcotest.(check (list (pair string string)))
+    "new user agents are equal to expected" expected new_user_agents
+
 let tests =
   [
     ( "AuthFail"
@@ -188,6 +206,56 @@ let tests =
       ; ( "test_failed_logins_from_both_known_and_unknown_clients"
         , `Quick
         , test_failed_logins_from_both_known_and_unknown_clients
+        )
+      ]
+    )
+  ; ( "pool_metrics_user_agents"
+    , [
+        ( "test_pool_metrics_user_agents_base"
+        , `Quick
+        , test_pool_metrics_user_agents ~coming:"XenCenter/2025.2.0.8315"
+            ~stored:[] ~whitelist:["XenCenter"; "XenAPI"]
+            ~expected:[("XenCenter", "2025.2.0.8315")]
+        )
+      ; ( "test_pool_metrics_user_agents_version_update"
+        , `Quick
+        , test_pool_metrics_user_agents ~coming:"XenCenter/2025.2.0.8316"
+            ~stored:[("XenCenter", "2025.2.0.8315")]
+            ~whitelist:["XenCenter"; "XenAPI"]
+            ~expected:[("XenCenter", "2025.2.0.8316")]
+        )
+      ; ( "test_pool_metrics_user_agents_not_in_whitelist"
+        , `Quick
+        , test_pool_metrics_user_agents
+            ~coming:"Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+            ~stored:[("XenCenter", "2025.2.0.8315"); ("XenAPI", "2.15")]
+            ~whitelist:["XenCenter"; "XenAPI"]
+            ~expected:[("XenCenter", "2025.2.0.8315"); ("XenAPI", "2.15")]
+        )
+      ; ( "test_pool_metrics_user_agents_no_version"
+        , `Quick
+        , test_pool_metrics_user_agents ~coming:"XenCenter"
+            ~stored:[("XenCenter", "2025.2.0.8315")]
+            ~whitelist:["XenCenter"; "XenAPI"]
+            ~expected:[("XenCenter", "")]
+        )
+      ; ( "test_pool_metrics_user_agents_invalid_format"
+        , `Quick
+        , test_pool_metrics_user_agents ~coming:"XenCenter 2025.2.0.8315"
+            ~stored:[] ~whitelist:["XenCenter"; "XenAPI"]
+            ~expected:[("XenCenter", "")]
+        )
+      ; ( "test_pool_metrics_user_agents_invalid_format2"
+        , `Quick
+        , test_pool_metrics_user_agents ~coming:"XenCenterFake/2025.2.0.8315"
+            ~stored:[] ~whitelist:["XenCenter"; "XenAPI"] ~expected:[]
+        )
+      ; ( "test_pool_metrics_user_agents_exceeding_length"
+        , `Quick
+        , test_pool_metrics_user_agents
+            ~coming:
+              "XenCenter/2025.2.0.8315.11111111111111111111111111111111111111111"
+            ~stored:[] ~whitelist:["XenCenter"; "XenAPI"] ~expected:[]
         )
       ]
     )

@@ -55,6 +55,7 @@ let create_pool_record ~__context =
       ~ext_auth_max_threads:1L ~ext_auth_cache_enabled:false
       ~ext_auth_cache_size:50L ~ext_auth_cache_expiry:300L ~recommendations:[]
       ~license_server:[] ~ha_reboot_vm_on_internal_shutdown:true
+      ~metrics:Ref.null
 
 let set_master_ip ~__context =
   let ip =
@@ -339,6 +340,22 @@ let setup_telemetry ~__context =
       )
       ()
 
+let ensure_pool_metrics_records_exist __context =
+  let pool = Helpers.get_pool ~__context in
+  let ref = Db.Pool.get_metrics ~__context ~self:pool in
+  if not (Db.is_valid_ref __context ref) then (
+    info "Creating pool metrics record" ;
+    let m = Ref.make () in
+    Db.Pool_metrics.create ~__context ~ref:m
+      ~uuid:(Uuidx.to_string (Uuidx.make ()))
+      ~user_agents:[] ;
+    Db.Pool.set_metrics ~__context ~self:pool ~value:m
+  )
+
+let ensure_pool_metrics_records_exist_noexn ~__context =
+  Helpers.log_exn_continue "ensuring Pool_metrics flags exist"
+    ensure_pool_metrics_records_exist __context
+
 let update_pool_recommendations_noexn ~__context =
   Helpers.log_exn_continue "update pool recommendations"
     (fun () ->
@@ -362,6 +379,7 @@ let update_env __context =
   set_master_ip ~__context ;
   set_master_live ~__context ;
   setup_telemetry ~__context ;
+  ensure_pool_metrics_records_exist_noexn ~__context ;
   (* CA-15449: when we restore from backup we end up with Hosts being forgotten and VMs
      marked as running with dangling resident_on references. We delete the control domains
      and reset the rest to Halted. *)

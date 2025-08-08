@@ -49,6 +49,9 @@ module Actions = struct
   module Pool = Xapi_pool
   module Pool_update = Xapi_pool_update
   module Pool_patch = Xapi_pool_patch
+
+  module Pool_metrics = struct end
+
   module Host_patch = Xapi_host_patch
 
   module Host_metrics = struct end

@@ -6034,6 +6034,8 @@ functor
         do_op_on ~local_fn ~__context ~host ~remote_fn
     end
 
+    module Pool_metrics = struct end
+
     module VGPU_type = struct end
 
     module LVHD = struct end

@@ -251,6 +251,8 @@ let _pool_patch = "pool_patch"
 
 let _pool_update = "pool_update"
 
+let _pool_metrics = "pool_metrics"
+
 let _data_source = "data_source"
 
 let _blob = "blob"
