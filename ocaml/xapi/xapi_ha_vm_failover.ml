@@ -1654,7 +1654,10 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
                  tried_best_eff_vms :=
                    VMMap.update vm
                      (Option.fold ~none:(Some 1) ~some:(fun n ->
-                          if n < 2 then Some (n + 1) else None
+                          if n < !Xapi_globs.ha_best_effort_max_retries then
+                            Some (n + 1)
+                          else
+                            None
                       )
                      )
                      !tried_best_eff_vms ;
