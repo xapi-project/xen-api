@@ -1389,7 +1389,8 @@ module VM = struct
         in
         (device_id, revision)
 
-  let create_exn task memory_upper_bound vm final_id no_sharept =
+  let create_exn task memory_upper_bound vm final_id no_sharept num_of_vbds
+      num_of_vifs =
     let k = vm.Vm.id in
     with_xc_and_xs (fun xc xs ->
         (* Ensure the DB contains something for this VM - this is to avoid a
@@ -1518,7 +1519,8 @@ module VM = struct
                   let create_info = generate_create_info ~xs vm persistent in
                   let domid =
                     Domain.make ~xc ~xs create_info vm.vcpu_max domain_config
-                      (uuid_of_vm vm) final_id no_sharept
+                      (uuid_of_vm vm) final_id no_sharept num_of_vbds
+                      num_of_vifs
                   in
                   Mem.transfer_reservation_to_domain dbg domid reservation_id ;
                   let initial_target =
