@@ -1615,7 +1615,7 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
       let best_effort_vms =
         (* Carefully decide which best-effort VMs should attempt to start. *)
         let all_prot_is_ok = List.for_all (fun (_, r) -> r = Ok ()) started in
-        let is_better = List.length live_set > List.length last_live_set in
+        let is_better = List.compare_lengths live_set last_live_set > 0 in
         ( match (all_prot_is_ok, is_better, last_live_set = live_set) with
         | true, true, _ ->
             (* Try to start all the best-effort halted VMs when HA is being
