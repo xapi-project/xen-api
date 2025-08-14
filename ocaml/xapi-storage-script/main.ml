@@ -1817,7 +1817,9 @@ module DATAImpl (M : META) = struct
 
   let stat_impl dbg sr vdi vm key = wrap @@ stat dbg sr vdi vm key
 
-  let mirror dbg sr vdi' vm' remote =
+  let mirror dbg sr vdi' image_format vm' remote =
+    let _ = image_format in
+    (* TODO: really use image format *)
     let vdi = Storage_interface.Vdi.string_of vdi' in
     let domain = Storage_interface.Vm.string_of vm' in
     Attached_SRs.find sr >>>= fun sr ->
@@ -1841,7 +1843,8 @@ module DATAImpl (M : META) = struct
     | MirrorV1 v ->
         return (Storage_interface.Mirror.MirrorV1 v)
 
-  let mirror_impl dbg sr vdi vm remote = wrap @@ mirror dbg sr vdi vm remote
+  let mirror_impl dbg sr vdi image_format vm remote =
+    wrap @@ mirror dbg sr vdi image_format vm remote
 
   let data_import_activate_impl dbg _dp sr vdi' vm' =
     wrap
