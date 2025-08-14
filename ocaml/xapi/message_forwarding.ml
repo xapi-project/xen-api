@@ -3111,14 +3111,16 @@ functor
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
       let add_to_blocked_operations ~__context ~self ~key ~value =
-        info "VM.add_to_blocked_operations: self = '%s'"
-          (vm_uuid ~__context self) ;
+        info "VM.add_to_blocked_operations: self = '%s', key = '%s'"
+          (vm_uuid ~__context self)
+          (API.vm_operations_to_string key) ;
         Local.VM.add_to_blocked_operations ~__context ~self ~key ~value ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
       let remove_from_blocked_operations ~__context ~self ~key =
-        info "VM.remove_from_blocked_operations: self = '%s'"
-          (vm_uuid ~__context self) ;
+        info "VM.remove_from_blocked_operations: self = '%s', key = '%s'"
+          (vm_uuid ~__context self)
+          (API.vm_operations_to_string key) ;
         Local.VM.remove_from_blocked_operations ~__context ~self ~key ;
         Xapi_vm_lifecycle.update_allowed_operations ~__context ~self
 
