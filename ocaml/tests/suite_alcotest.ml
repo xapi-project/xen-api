@@ -70,4 +70,5 @@ let () =
     @ Test_session.tests
     @ Test_xapi_cmd_result.tests
     @ Test_extauth_plugin_ADwinbind.tests
+    @ Test_tracked_user_agents.tests
     )
