@@ -1714,6 +1714,13 @@ let migrate_send =
         ; param_release= inverness_release
         ; param_default= Some (VMap [])
         }
+      ; {
+          param_type= Map (Ref _vdi, String)
+        ; param_name= "vdi_format_map"
+        ; param_doc= "Map of source VDI to it's expected type on destination"
+        ; param_release= numbered_release "26.0.0-next"
+        ; param_default= Some (VMap [])
+        }
       ]
     ~result:
       (Ref _vm, "The reference of the newly created VM in the destination pool")

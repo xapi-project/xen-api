@@ -113,14 +113,15 @@ let mirror_wait ~dbg ~sr ~vdi ~vm ~mirror_id mirror_key =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let send_start _ctx ~dbg ~task_id:_ ~dp ~sr ~vdi ~mirror_vm ~mirror_id
-      ~local_vdi:_ ~copy_vm:_ ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest
-      =
+  let send_start _ctx ~dbg ~task_id:_ ~dp ~sr ~vdi ~image_format ~mirror_vm
+      ~mirror_id ~local_vdi:_ ~copy_vm:_ ~live_vm ~url ~remote_mirror ~dest_sr
+      ~verify_dest =
     D.debug
-      "%s dbg: %s dp: %s sr: %s vdi:%s mirror_vm:%s mirror_id: %s live_vm: %s \
-       url:%s dest_sr:%s verify_dest:%B"
-      __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm mirror_vm)
-      mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr) verify_dest ;
+      "%s dbg: %s dp: %s sr: %s vdi:%s image_format:%s mirror_vm:%s mirror_id: \
+       %s live_vm: %s url:%s dest_sr:%s verify_dest:%B"
+      __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) image_format
+      (s_of_vm mirror_vm) mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr)
+      verify_dest ;
     ignore (Local.VDI.attach3 dbg dp sr vdi (Vm.of_string "0") true) ;
     (* TODO we are not activating the VDI here because SMAPIv3 does not support
        activating the VDI again on dom 0 when it is already activated on the live_vm.
@@ -156,7 +157,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
 
         D.info "%s nbd_proxy_path: %s nbd_url %s" __FUNCTION__ nbd_proxy_path
           nbd_uri ;
-        let mk = Local.DATA.mirror dbg sr vdi live_vm nbd_uri in
+        let mk = Local.DATA.mirror dbg sr vdi image_format live_vm nbd_uri in
 
         D.debug "%s Updating active local mirrors: id=%s" __FUNCTION__ mirror_id ;
         let alm =
@@ -189,18 +190,22 @@ module MIRROR : SMAPIv2_MIRROR = struct
           )
     )
 
-  let receive_start _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
+  let receive_start _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
+      ~similar:_ =
     Storage_interface.unimplemented __FUNCTION__
 
-  let receive_start2 _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ ~vm:_ =
+  let receive_start2 _ctx ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
+      ~similar:_ ~vm:_ =
     Storage_interface.unimplemented __FUNCTION__
 
-  let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar:_ ~vm ~url
-      ~verify_dest =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s vm: %s url: %s verify_dest: %B"
+  let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar:_
+      ~vm ~url ~verify_dest =
+    D.debug
+      "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s vm: %s url: %s \
+       verify_dest: %B"
       __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      mirror_id (s_of_vm vm) url verify_dest ;
+      mirror_id image_format (s_of_vm vm) url verify_dest ;
     let module Remote = StorageAPI (Idl.Exn.GenClient (struct
       let rpc =
         Storage_utils.rpc ~srcstr:"smapiv2" ~dststr:"dst_smapiv2"

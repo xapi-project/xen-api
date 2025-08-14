@@ -5454,6 +5454,10 @@ module VDI = struct
         [
           (Ref _vdi, "vdi", "The VDI to migrate")
         ; (Ref _sr, "sr", "The destination SR")
+        ; ( String
+          , "dest_img_format"
+          , "The image format to use on destination SR: raw, vhd, qcow2"
+          )
         ; (Map (String, String), "options", "Other parameters")
         ]
       ~result:(Ref _vdi, "The new reference of the migrated VDI.")
