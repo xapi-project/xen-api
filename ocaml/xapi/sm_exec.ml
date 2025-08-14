@@ -570,6 +570,13 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
       )
       (XMLRPC.From.array XMLRPC.From.structure (safe_assoc "configuration" info))
   in
+  let image_formats =
+    match List.assoc_opt "supported_image_formats" info with
+    | None ->
+        []
+    | Some lst ->
+        XMLRPC.From.array XMLRPC.From.string lst
+  in
   {
     sr_driver_filename= driver
   ; sr_driver_name= name
@@ -582,7 +589,7 @@ let parse_sr_get_driver_info driver (xml : Xml.xml) =
   ; sr_driver_configuration= configuration
   ; sr_driver_text_features= text_features
   ; sr_driver_required_cluster_stack= []
-  ; sr_driver_supported_image_formats= []
+  ; sr_driver_supported_image_formats= image_formats
   ; sr_smapi_version= SMAPIv1
   }
 
