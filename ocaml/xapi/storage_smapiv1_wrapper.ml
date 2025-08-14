@@ -1156,7 +1156,7 @@ functor
           (s_of_vdi vdi) url (s_of_sr dest) ;
         Impl.DATA.copy context ~dbg ~sr ~vdi ~vm ~url ~dest
 
-      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ =
+      let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~image_format:_ ~vm:_ ~dest:_ =
         Storage_interface.unimplemented __FUNCTION__
 
       let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ =
@@ -1206,28 +1206,34 @@ functor
       module MIRROR = struct
         type context = unit
 
-        let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
-            ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+        let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~image_format:_
+            ~mirror_vm:_ ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
             ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
           Storage_interface.unimplemented __FUNCTION__
 
-        let receive_start context ~dbg ~sr ~vdi_info ~id ~similar =
-          info "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s similar:[%s]" dbg
-            (s_of_sr sr) id
-            (String.concat "," similar) ;
-          Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id ~similar
-
-        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~similar ~vm =
+        let receive_start context ~dbg ~sr ~vdi_info ~id ~image_format ~similar
+            =
           info
-            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s similar:[%s] vm:%s"
-            dbg (s_of_sr sr) id
+            "DATA.MIRROR.receive_start dbg:%s sr:%s id:%s image_format:%s \
+             similar:[%s]"
+            dbg (s_of_sr sr) id image_format
+            (String.concat "," similar) ;
+          Impl.DATA.MIRROR.receive_start context ~dbg ~sr ~vdi_info ~id
+            ~image_format ~similar
+
+        let receive_start2 context ~dbg ~sr ~vdi_info ~id ~image_format ~similar
+            ~vm =
+          info
+            "DATA.MIRROR.receive_start2 dbg:%s sr:%s id:%s image_format:%s \
+             similar:[%s] vm:%s"
+            dbg (s_of_sr sr) id image_format
             (String.concat "," similar)
             (s_of_vm vm) ;
           Impl.DATA.MIRROR.receive_start2 context ~dbg ~sr ~vdi_info ~id
-            ~similar ~vm
+            ~image_format ~similar ~vm
 
         let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
-            ~similar:_ ~vm:_ =
+            ~image_format:_ ~similar:_ ~vm:_ =
           (* See Storage_smapiv1_migrate.receive_start3 *)
           Storage_interface.unimplemented __FUNCTION__
 

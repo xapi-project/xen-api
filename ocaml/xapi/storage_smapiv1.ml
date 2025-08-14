@@ -1133,7 +1133,8 @@ module SMAPIv1 : Server_impl = struct
     let copy _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~url:_ ~dest:_ ~verify_dest:_ =
       assert false
 
-    let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~dest:_ = assert false
+    let mirror _context ~dbg:_ ~sr:_ ~vdi:_ ~image_format:_ ~vm:_ ~dest:_ =
+      assert false
 
     let stat _context ~dbg:_ ~sr:_ ~vdi:_ ~vm:_ ~key:_ = assert false
 
@@ -1144,20 +1145,21 @@ module SMAPIv1 : Server_impl = struct
     module MIRROR = struct
       type context = unit
 
-      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~mirror_vm:_
-          ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
+      let send_start _ctx ~dbg:_ ~task_id:_ ~dp:_ ~sr:_ ~vdi:_ ~image_format:_
+          ~mirror_vm:_ ~mirror_id:_ ~local_vdi:_ ~copy_vm:_ ~live_vm:_ ~url:_
           ~remote_mirror:_ ~dest_sr:_ ~verify_dest:_ =
         assert false
 
-      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_ =
+      let receive_start _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
+          ~similar:_ =
         assert false
 
-      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~similar:_
-          ~vm:_ =
+      let receive_start2 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~id:_ ~image_format:_
+          ~similar:_ ~vm:_ =
         assert false
 
       let receive_start3 _context ~dbg:_ ~sr:_ ~vdi_info:_ ~mirror_id:_
-          ~similar:_ ~vm:_ ~url:_ ~verify_dest:_ =
+          ~image_format:_ ~similar:_ ~vm:_ ~url:_ ~verify_dest:_ =
         assert false
 
       let receive_finalize _context ~dbg:_ ~id:_ = assert false
