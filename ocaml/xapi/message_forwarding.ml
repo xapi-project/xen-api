@@ -2596,16 +2596,16 @@ functor
           ~vgpu_map ~options
 
       let migrate_send ~__context ~vm ~dest ~live ~vdi_map ~vif_map ~options
-          ~vgpu_map =
+          ~vgpu_map ~vdi_format_map =
         info "VM.migrate_send: VM = '%s'" (vm_uuid ~__context vm) ;
         let source_host = Db.VM.get_resident_on ~__context ~self:vm in
         let local_fn =
-          Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~vgpu_map
-            ~options
+          Local.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vdi_format_map
+            ~vif_map ~vgpu_map ~options
         in
         let remote_fn =
-          Client.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vif_map ~options
-            ~vgpu_map
+          Client.VM.migrate_send ~vm ~dest ~live ~vdi_map ~vdi_format_map
+            ~vif_map ~options ~vgpu_map
         in
         let migration_type =
           if Xapi_vm_lifecycle_helpers.is_live ~__context ~self:vm then
@@ -2626,7 +2626,8 @@ functor
                 Helpers.try_internal_async ~__context API.ref_VM_of_rpc
                   (fun () ->
                     Client.InternalAsync.VM.migrate_send ~rpc ~session_id ~vm
-                      ~dest ~live ~vdi_map ~vif_map ~options ~vgpu_map
+                      ~dest ~live ~vdi_map ~vdi_format_map ~vif_map ~options
+                      ~vgpu_map
                   )
                   (fun () -> remote_fn ~session_id ~rpc)
             )

@@ -499,14 +499,22 @@ let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
     mirror_id ;
   tapdev
 
-let mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi =
-  D.debug "%s dbg:%s sr:%s dp:%s mirror_id:%s local_vdi:%s" __FUNCTION__ dbg
-    (s_of_sr sr) dp mirror_id
-    (string_of_vdi_info local_vdi) ;
+let mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi ~image_format =
+  D.debug "%s dbg:%s sr:%s dp:%s mirror_id:%s local_vdi:%s image_format:%s"
+    __FUNCTION__ dbg (s_of_sr sr) dp mirror_id
+    (string_of_vdi_info local_vdi)
+    image_format ;
   SXM.info "%s About to snapshot VDI = %s" __FUNCTION__
     (string_of_vdi_info local_vdi) ;
   let local_vdi = add_to_sm_config local_vdi "mirror" ("nbd:" ^ dp) in
   let local_vdi = add_to_sm_config local_vdi "base_mirror" mirror_id in
+  let local_vdi =
+    match image_format with
+    | "" ->
+        local_vdi
+    | fmt ->
+        add_to_sm_config local_vdi "image-format" fmt
+  in
   let snapshot =
     try Local.VDI.snapshot dbg sr local_vdi with
     | Storage_interface.Storage_error (Backend_error (code, _))
@@ -573,13 +581,15 @@ let mirror_cleanup ~dbg ~sr ~snapshot =
 module MIRROR : SMAPIv2_MIRROR = struct
   type context = unit
 
-  let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~mirror_vm ~mirror_id
-      ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr ~verify_dest =
+  let send_start _ctx ~dbg ~task_id ~dp ~sr ~vdi ~image_format ~mirror_vm
+      ~mirror_id ~local_vdi ~copy_vm ~live_vm ~url ~remote_mirror ~dest_sr
+      ~verify_dest =
     D.debug
-      "%s dbg: %s dp: %s sr: %s vdi:%s mirror_vm:%s mirror_id: %s live_vm: %s \
-       url:%s dest_sr:%s verify_dest:%B"
-      __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) (s_of_vm mirror_vm)
-      mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr) verify_dest ;
+      "%s dbg: %s dp: %s sr: %s vdi:%s image_format:%s mirror_vm:%s mirror_id: \
+       %s live_vm: %s url:%s dest_sr:%s verify_dest:%B"
+      __FUNCTION__ dbg dp (s_of_sr sr) (s_of_vdi vdi) image_format
+      (s_of_vm mirror_vm) mirror_id (s_of_vm live_vm) url (s_of_sr dest_sr)
+      verify_dest ;
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
@@ -604,7 +614,9 @@ module MIRROR : SMAPIv2_MIRROR = struct
             ~dest_sr ~verify_dest ~remote_mirror:mirror_res
         in
 
-        let snapshot = mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi in
+        let snapshot =
+          mirror_snapshot ~dbg ~sr ~dp ~mirror_id ~local_vdi ~image_format
+        in
 
         mirror_checker mirror_id tapdev ;
         let task = Storage_task.(handle_of_id tasks) task_id in
@@ -621,7 +633,7 @@ module MIRROR : SMAPIv2_MIRROR = struct
           (Storage_interface.Vdi.string_of mirror_res.Mirror.mirror_vdi.vdi) ;
         mirror_cleanup ~dbg ~sr ~snapshot
 
-  let receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm
+  let receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm
       (module SMAPI : SMAPIv2) =
     let on_fail : (unit -> unit) list ref = ref [] in
     let vdis = SMAPI.SR.scan dbg sr in
@@ -630,6 +642,13 @@ module MIRROR : SMAPIv2_MIRROR = struct
     let leaf_dp = SMAPI.DP.create dbg Uuidx.(to_string (make ())) in
     try
       let vdi_info = {vdi_info with sm_config= [("base_mirror", id)]} in
+      let vdi_info =
+        match image_format with
+        | "" ->
+            vdi_info
+        | fmt ->
+            add_to_sm_config vdi_info "image-format" fmt
+      in
       let leaf = SMAPI.VDI.create dbg sr vdi_info in
       D.info "Created leaf VDI for mirror receive: %s" (string_of_vdi_info leaf) ;
       on_fail := (fun () -> SMAPI.VDI.destroy dbg sr leaf.vdi) :: !on_fail ;
@@ -683,9 +702,19 @@ module MIRROR : SMAPIv2_MIRROR = struct
                   vdi_info.virtual_size new_size
             ) ;
             vdi_clone
-        | None ->
+        | None -> (
             D.debug "Creating a blank remote VDI" ;
-            SMAPI.VDI.create dbg sr vdi_info
+            D.debug "image_format is set to <%s>" image_format ;
+            match image_format with
+            | "" ->
+                SMAPI.VDI.create dbg sr vdi_info
+            | _ ->
+                SMAPI.VDI.create dbg sr
+                  {
+                    vdi_info with
+                    sm_config= ("type", image_format) :: vdi_info.sm_config
+                  }
+          )
       in
       D.debug "Parent disk content_id=%s" parent.content_id ;
       (* The state tracking here does not need to be changed, however, it will be
@@ -728,29 +757,36 @@ module MIRROR : SMAPIv2_MIRROR = struct
         !on_fail ;
       raise e
 
-  let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~similar =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
+  let receive_start _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s" __FUNCTION__ dbg
+      (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      id ;
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm:(Vm.of_string "0")
+      id image_format ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar
+      ~vm:(Vm.of_string "0")
       (module Local)
 
-  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~similar ~vm =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s" __FUNCTION__ dbg (s_of_sr sr)
+  let receive_start2 _ctx ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm =
+    D.debug "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s" __FUNCTION__ dbg
+      (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      id ;
-    receive_start_common ~dbg ~sr ~vdi_info ~id ~similar ~vm (module Local)
+      id image_format ;
+    receive_start_common ~dbg ~sr ~vdi_info ~id ~image_format ~similar ~vm
+      (module Local)
 
-  let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~similar ~vm ~url
-      ~verify_dest =
-    D.debug "%s dbg: %s sr: %s vdi: %s id: %s vm: %s url: %s verify_dest: %B"
+  let receive_start3 _ctx ~dbg ~sr ~vdi_info ~mirror_id ~image_format ~similar
+      ~vm ~url ~verify_dest =
+    D.debug
+      "%s dbg: %s sr: %s vdi: %s id: %s image_format: %s vm: %s url: %s \
+       verify_dest: %B"
       __FUNCTION__ dbg (s_of_sr sr)
       (string_of_vdi_info vdi_info)
-      mirror_id (s_of_vm vm) url verify_dest ;
+      mirror_id image_format (s_of_vm vm) url verify_dest ;
     let (module Remote) =
       Storage_migrate_helper.get_remote_backend url verify_dest
     in
-    receive_start_common ~dbg ~sr ~vdi_info ~id:mirror_id ~similar ~vm
+    receive_start_common ~dbg ~sr ~vdi_info ~id:mirror_id ~image_format ~similar
+      ~vm
       (module Remote)
 
   let receive_finalize _ctx ~dbg ~id =
