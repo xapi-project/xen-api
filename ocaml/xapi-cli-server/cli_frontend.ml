@@ -2142,7 +2142,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           "Create a VBD. Appropriate values for the device field are listed in \
            the parameter 'allowed-VBD-devices' on the VM. If no VDI is \
            specified, an empty VBD will be created. The type parameter can be \
-           'Disk' or 'CD', and the mode is 'RO' or 'RW'."
+           'Disk', 'CD' or 'Floppy', and the mode is 'RO' or 'RW'."
       ; implementation= No_fd Cli_operations.vbd_create
       ; flags= []
       }
