@@ -165,6 +165,8 @@ module Spans : sig
 
   val set_max_traces : int -> unit
 
+  val set_max_depth : int -> unit
+
   val span_count : unit -> int
 
   val since : unit -> Span.t list * int
