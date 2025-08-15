@@ -30,6 +30,8 @@ let write_lock = ref false
 
 let backend_kind = ref Openvswitch
 
+let support_linux_bridge = ref true
+
 let write_config () =
   if not !write_lock then
     try Network_config.write_config !config
@@ -803,8 +805,16 @@ module Bridge = struct
       match backend with
       | "openvswitch" | "vswitch" ->
           backend_kind := Openvswitch
-      | "bridge" ->
+      | "bridge" when !support_linux_bridge ->
           backend_kind := Bridge
+      | "bridge" when not !support_linux_bridge ->
+          (* XS 9 and later XS version does not support Linux bridge. Force
+             using Open vSwitch as network backend even if the network.conf is
+             set to `bridge`. *)
+          warn
+            "The network backend does not support Linux bridge anymore. Force \
+             using Open vSwitch." ;
+          backend_kind := Openvswitch
       | backend ->
           warn "Network backend unknown (%s). Falling back to Open vSwitch."
             backend ;
