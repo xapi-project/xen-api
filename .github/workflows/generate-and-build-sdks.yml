@@ -188,7 +188,7 @@ jobs:
       - name: Build C# SDK
         shell: pwsh
         run: |
-          dotnet build source/src `
+          dotnet build source/src/XenServer.csproj `
           --disable-build-servers `
           --configuration Release `
           -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
