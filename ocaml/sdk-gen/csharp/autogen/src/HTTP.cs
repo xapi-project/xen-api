@@ -38,7 +38,10 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+
+#if !(NET8_0_OR_GREATER)
 using System.Runtime.Serialization;
+#endif
 
 namespace XenAPI
 {
@@ -64,6 +67,7 @@ namespace XenAPI
 
             public TooManyRedirectsException(string message, Exception exception) : base(message, exception) { }
 
+#if !(NET8_0_OR_GREATER)
             protected TooManyRedirectsException(SerializationInfo info, StreamingContext context)
                 : base(info, context)
             {
@@ -81,6 +85,7 @@ namespace XenAPI
 
                 base.GetObjectData(info, context);
             }
+#endif
         }
 
         [Serializable]
@@ -92,7 +97,9 @@ namespace XenAPI
 
             public BadServerResponseException(string message, Exception exception) : base(message, exception) { }
 
+#if !(NET8_0_OR_GREATER)
             protected BadServerResponseException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+#endif
         }
 
         [Serializable]
@@ -103,8 +110,9 @@ namespace XenAPI
             public CancelledException(string message) : base(message) { }
 
             public CancelledException(string message, Exception exception) : base(message, exception) { }
-
+#if !(NET8_0_OR_GREATER)
             protected CancelledException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+#endif
         }
 
         [Serializable]
@@ -115,8 +123,9 @@ namespace XenAPI
             public ProxyServerAuthenticationException(string message) : base(message) { }
 
             public ProxyServerAuthenticationException(string message, Exception exception) : base(message, exception) { }
-
+#if !(NET8_0_OR_GREATER)
             protected ProxyServerAuthenticationException(SerializationInfo info, StreamingContext context) : base(info, context) { }
+#endif
         }
 
         #endregion
