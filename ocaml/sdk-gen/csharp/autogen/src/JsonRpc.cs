@@ -49,9 +49,9 @@ namespace XenAPI
     {
         protected JsonRequest(int id, string method, JToken parameters)
         {
-            this.Id = id;
-            this.Method = method;
-            this.Parameters = parameters;
+            Id = id;
+            Method = method;
+            Parameters = parameters;
         }
 
         public static JsonRequest Create(JsonRpcVersion jsonRpcVersion, int id, string method, JToken parameters)
@@ -105,18 +105,15 @@ namespace XenAPI
         }
 
         [JsonProperty("jsonrpc", Required = Required.Always)]
-        public string JsonRPC
-        {
-            get { return "2.0"; }
-        }
+        public string JsonRPC => "2.0";
     }
 
 
     internal abstract class JsonResponse<T>
     {
-        [JsonProperty("id", Required = Required.AllowNull)] public int Id = 0;
+        [JsonProperty("id", Required = Required.AllowNull)] public int Id { get; set; }
 
-        [JsonProperty("result", Required = Required.Default)] public T Result = default(T);
+        [JsonProperty("result", Required = Required.Default)] public T Result { get; set; }
 
         public override string ToString()
         {
@@ -126,23 +123,23 @@ namespace XenAPI
 
     internal class JsonResponseV1<T> : JsonResponse<T>
     {
-        [JsonProperty("error", Required = Required.AllowNull)] public JToken Error = null;
+        [JsonProperty("error", Required = Required.AllowNull)] public JToken Error { get; set; }
     }
 
     internal class JsonResponseV2<T> : JsonResponse<T>
     {
-        [JsonProperty("error", Required = Required.DisallowNull)] public JsonResponseV2Error Error = null;
+        [JsonProperty("error", Required = Required.DisallowNull)] public JsonResponseV2Error Error { get; set; }
 
-        [JsonProperty("jsonrpc", Required = Required.Always)] public string JsonRpc = null;
+        [JsonProperty("jsonrpc", Required = Required.Always)] public string JsonRpc { get; set; }
     }
 
     internal class JsonResponseV2Error
     {
-        [JsonProperty("code", Required = Required.Always)] public int Code = 0;
+        [JsonProperty("code", Required = Required.Always)] public int Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)] public string Message = null;
+        [JsonProperty("message", Required = Required.Always)] public string Message { get; set; }
 
-        [JsonProperty("data", Required = Required.Default)] public JToken Data = null;
+        [JsonProperty("data", Required = Required.Default)] public JToken Data { get; set; }
 
         public override string ToString()
         {
