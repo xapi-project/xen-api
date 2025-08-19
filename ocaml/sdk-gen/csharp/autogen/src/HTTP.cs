@@ -38,7 +38,6 @@ using System.Net.Security;
 using System.Security.Authentication;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
-
 #if !(NET8_0_OR_GREATER)
 using System.Runtime.Serialization;
 #endif
@@ -303,7 +302,8 @@ namespace XenAPI
         /// <returns>The secure hash as a hex string.</returns>
         private static string _MD5Hash(string str)
         {
-            return ComputeHash(str, "MD5");
+            using (var hasher = MD5.Create())
+                return ComputeHash(hasher, str);
         }
 
         /// <summary>
@@ -313,32 +313,24 @@ namespace XenAPI
         /// <returns>The secure hash as a hex string.</returns>
         private static string Sha256Hash(string str)
         {
-            return ComputeHash(str, "SHA256");
+            using (var hasher = SHA256.Create())
+                return ComputeHash(hasher, str);
         }
 
-        private static string ComputeHash(string input, string method)
+        private static string ComputeHash(HashAlgorithm hasher, string input)
         {
-            if (input == null)
+            if (hasher == null || input == null)
                 return null;
 
             var enc = new UTF8Encoding();
             byte[] bytes = enc.GetBytes(input);
-
-            using (var hasher = HashAlgorithm.Create(method))
-            {
-                if (hasher != null)
-                {
-                    byte[] hash = hasher.ComputeHash(bytes);
-                    return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-                }
-            }
-
-            return null;
+            byte[] hash = hasher.ComputeHash(bytes);
+            return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
         }
 
         private static string GenerateNonce()
         {
-            using (var rngCsProvider = new RNGCryptoServiceProvider())
+            using (var rngCsProvider = RandomNumberGenerator.Create())
             {
                 var nonceBytes = new byte[NONCE_LENGTH];
                 rngCsProvider.GetBytes(nonceBytes);
@@ -492,7 +484,7 @@ namespace XenAPI
                 if (UseSSL(uri))
                 {
                     SslStream sslStream = new SslStream(stream, false, ValidateServerCertificate, null);
-                    sslStream.AuthenticateAsClient("", null, SslProtocols.Tls | SslProtocols.Tls11 | SslProtocols.Tls12, true);
+                    sslStream.AuthenticateAsClient("", null, SslProtocols.Tls12, true);
 
                     stream = sslStream;
                 }
