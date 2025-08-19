@@ -32,6 +32,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 #if (NET8_0_OR_GREATER)
+using System.Diagnostics;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -71,6 +72,8 @@ namespace XenAPI
             }
         }
 
+        public abstract string JsonRPC { get;}
+
         /// <summary>
         /// Unique call id. Can be null in JSON_RPC v2.0, but xapi disallows it.
         /// </summary>
@@ -101,6 +104,9 @@ namespace XenAPI
             : base(id, method, parameters)
         {
         }
+
+        [JsonIgnore]
+        public override string JsonRPC => "1.0";
     }
 
     internal class JsonRequestV2 : JsonRequest
@@ -111,7 +117,7 @@ namespace XenAPI
         }
 
         [JsonProperty("jsonrpc", Required = Required.Always)]
-        public string JsonRPC => "2.0";
+        public override string JsonRPC => "2.0";
     }
 
 
@@ -157,6 +163,42 @@ namespace XenAPI
     public partial class JsonRpcClient
     {
         private int _globalId;
+
+#if (NET8_0_OR_GREATER)
+        private static readonly Type ClassType = typeof(JsonRpcClient);
+        private static readonly System.Reflection.AssemblyName ClassAssemblyName = ClassType?.Assembly?.GetName();
+        private static readonly ActivitySource source = new ActivitySource(ClassAssemblyName.Name + "." + ClassType?.FullName, ClassAssemblyName.Version?.ToString());
+
+        // Follow naming conventions from OpenTelemetry.SemanticConventions
+        // Not yet on NuGet though:
+        // dotnet add package OpenTelemetry.SemanticConventions
+        private static class RpcAttributes
+        {
+            public const string AttributeRpcMethod = "rpc.method";
+            public const string AttributeRpcSystem = "rpc.system";
+            public const string AttributeRpcService = "rpc.service";
+            public const string AttributeRpcJsonrpcErrorCode = "rpc.jsonrpc.error_code";
+            public const string AttributeRpcJsonrpcErrorMessage = "rpc.jsonrpc.error_message";
+            public const string AttributeRpcJsonrpcRequestId = "rpc.jsonrpc.request_id";
+            public const string AttributeRpcJsonrpcVersion = "rpc.jsonrpc.version";
+            public const string AttributeRpcMessageType = "rpc.message.type";
+            
+            public static class RpcMessageTypeValues
+            {
+                public const string Sent = "SENT";
+                public const string Received = "RECEIVED";
+            }
+        }
+
+        private static class ServerAttributes
+        {
+            public const string AttributeServerAddress = "server.address";
+        }
+
+        // not part of the SemanticConventions package
+        private const string ValueJsonRpc = "jsonrpc";
+        private const string EventRpcMessage = "rpc.message";
+#endif
 
         public JsonRpcClient(string baseUrl)
         {
@@ -216,63 +258,98 @@ namespace XenAPI
             // therefore the latter will be done only in DEBUG mode
             using (var postStream = new MemoryStream())
             {
-                using (var sw = new StreamWriter(postStream))
+#if (NET8_0_OR_GREATER)
+                // the semantic convention is $package.$service/$method
+                using (Activity activity = source.CreateActivity("XenAPI/" + callName, ActivityKind.Client))
                 {
-#if DEBUG
-                    var settings = CreateSettings(serializer.Converters);
-                    string jsonReq = JsonConvert.SerializeObject(request, settings);
-                    if (RequestEvent != null)
-                        RequestEvent(jsonReq);
-                    sw.Write(jsonReq);
-#else
-                    if (RequestEvent != null)
-                        RequestEvent(callName);
-                    serializer.Serialize(sw, request);
+                    activity?.Start();
+                    // Set the fields described in the OpenTelemetry Semantic Conventions:
+                    // https://opentelemetry.io/docs/specs/semconv/rpc/json-rpc/
+                    // https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/
+                    activity?.SetTag(RpcAttributes.AttributeRpcSystem, ValueJsonRpc);
+                    activity?.SetTag(ServerAttributes.AttributeServerAddress, new Uri(Url).Host);
+                    activity?.SetTag(RpcAttributes.AttributeRpcMethod, callName);
+                    activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcRequestId, id.ToString());
 #endif
-                    sw.Flush();
-                    postStream.Seek(0, SeekOrigin.Begin);
-
-                    using (var responseStream = new MemoryStream())
+                    using (var sw = new StreamWriter(postStream))
                     {
-                        PerformPostRequest(postStream, responseStream);
-                        responseStream.Position = 0;
+#if DEBUG
+                        var settings = CreateSettings(serializer.Converters);
+                        string jsonReq = JsonConvert.SerializeObject(request, settings);
+                        if (RequestEvent != null)
+                            RequestEvent(jsonReq);
+                        sw.Write(jsonReq);
+#else
+                        if (RequestEvent != null)
+                            RequestEvent(callName);
+                        serializer.Serialize(sw, request);
+#endif
+                        sw.Flush();
+                        postStream.Seek(0, SeekOrigin.Begin);
 
-                        using (var responseReader = new StreamReader(responseStream))
+                        using (var responseStream = new MemoryStream())
                         {
-                            switch (JsonRpcVersion)
+                            PerformPostRequest(postStream, responseStream);
+                            responseStream.Position = 0;
+
+                            using (var responseReader = new StreamReader(responseStream))
                             {
-                                case JsonRpcVersion.v2:
-#if DEBUG
-                                    string json2 = responseReader.ReadToEnd();
-                                    var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
-#else
-                                    var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
+#if (NET8_0_OR_GREATER)
+                                activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcVersion, request.JsonRPC);
 #endif
-                                    if (res2.Error != null)
-                                    {
-                                        var descr = new List<string> { res2.Error.Message };
-                                        descr.AddRange(res2.Error.Data.ToObject<string[]>());
-                                        throw new Failure(descr);
-                                    }
-                                    return res2.Result;
-                                default:
+                                switch (JsonRpcVersion)
+                                {
+                                    case JsonRpcVersion.v2:
 #if DEBUG
-                                    string json1 = responseReader.ReadToEnd();
-                                    var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
+                                        string json2 = responseReader.ReadToEnd();
+                                        var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
 #else
-                                    var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
+                                        var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
 #endif
-                                    if (res1.Error != null)
-                                    {
-                                        var errorArray = res1.Error.ToObject<string[]>();
+                                        if (res2.Error != null)
+                                        {
+                                            var descr = new List<string> { res2.Error.Message };
+                                            descr.AddRange(res2.Error.Data.ToObject<string[]>());
+#if (NET8_0_OR_GREATER)
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorCode, res2.Error.Code);
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, descr);
+                                            activity?.SetStatus(ActivityStatusCode.Error);
+#endif
+                                            throw new Failure(descr);
+                                        }
+#if (NET8_0_OR_GREATER)
+                                        activity?.SetStatus(ActivityStatusCode.Ok);
+#endif
+                                        return res2.Result;
+                                    default:
+#if DEBUG
+                                        string json1 = responseReader.ReadToEnd();
+                                        var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
+#else
+                                        var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
+#endif
+                                        var errorArray = res1.Error?.ToObject<string[]>();
                                         if (errorArray != null)
+                                        {
+#if (NET8_0_OR_GREATER)
+                                            activity?.SetStatus(ActivityStatusCode.Error);
+                                            // we can't be sure whether we'll have a Code here
+                                            // the exact format of an error object is not specified in JSONRPC v1
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, errorArray.ToString());
+#endif
                                             throw new Failure(errorArray);
-                                    }
-                                    return res1.Result;
+                                        }
+#if (NET8_0_OR_GREATER)
+                                        activity?.SetStatus(ActivityStatusCode.Ok);
+#endif
+                                        return res1.Result;
+                                }
                             }
                         }
                     }
+#if (NET8_0_OR_GREATER)
                 }
+#endif
             }
         }
 
@@ -317,6 +394,26 @@ namespace XenAPI
                         requestMessage.Headers.Add(header.Key, header.Value);
                 }
 
+                // propagate W3C traceparent and tracestate
+                // HttpClient would do this automatically on .NET 5,
+                // and .NET 6 would provide even more control over this: https://blog.ladeak.net/posts/opentelemetry-net6-httpclient
+                // the caller must ensure that the activity is in W3C format (by inheritance or direct setting)
+                var activity = Activity.Current;
+                if (activity != null)
+                {
+                    if (activity.IdFormat == ActivityIdFormat.W3C)
+                    {
+                        requestMessage.Headers.Add("traceparent", activity.Id);
+                        var state = activity.TraceStateString;
+
+                        if (state?.Length > 0)
+                            requestMessage.Headers.Add("tracestate", state);
+                    }
+
+                    var tags = new ActivityTagsCollection { { RpcAttributes.AttributeRpcMessageType, RpcAttributes.RpcMessageTypeValues.Sent } };
+                    activity.AddEvent(new ActivityEvent(EventRpcMessage, DateTimeOffset.Now, tags));
+                }
+
                 responseMessage = httpClient.SendAsync(requestMessage).Result;
                 responseMessage.EnsureSuccessStatusCode();
 
@@ -325,10 +422,16 @@ namespace XenAPI
                 responseStream.Flush();
 
                 ResponseHeaders = responseMessage.Headers.ToDictionary(header => header.Key, header => string.Join(",", header.Value));
+
+                if (activity != null)
+                {
+                    var tags = new ActivityTagsCollection { { RpcAttributes.AttributeRpcMessageType, RpcAttributes.RpcMessageTypeValues.Received } };
+                    activity.AddEvent(new ActivityEvent(EventRpcMessage, DateTimeOffset.Now, tags));
+                }
             }
             finally
             {
-				RequestHeaders = null;
+                RequestHeaders = null;
                 responseMessage?.Dispose();
                 requestMessage?.Dispose();
                 httpClient?.Dispose();
