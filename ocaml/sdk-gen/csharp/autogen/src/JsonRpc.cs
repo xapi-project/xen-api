@@ -31,6 +31,12 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+#if (NET8_0_OR_GREATER)
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
+#endif
 using System.Net.Security;
 using System.Threading;
 using Newtonsoft.Json;
@@ -177,7 +183,13 @@ namespace XenAPI
         public bool AllowAutoRedirect { get; set; }
         public bool PreAuthenticate { get; set; }
         public CookieContainer Cookies { get; set; }
+
+#if (NET8_0_OR_GREATER)
+        public Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> ServerCertificateValidationCallback { get; set; }
+#else
         public RemoteCertificateValidationCallback ServerCertificateValidationCallback { get; set; }
+#endif
+
         public Dictionary<string, string> RequestHeaders { get; set; }
         public Dictionary<string, string> ResponseHeaders { get; set; }
 
@@ -264,9 +276,65 @@ namespace XenAPI
             }
         }
 
-
         protected virtual void PerformPostRequest(Stream postStream, Stream responseStream)
         {
+#if (NET8_0_OR_GREATER)
+            HttpClient httpClient = null;
+            HttpClientHandler httpHandler = null;
+            HttpRequestMessage requestMessage = null;
+            HttpResponseMessage responseMessage = null;
+
+            try
+            {
+                httpHandler = new HttpClientHandler
+                {
+                    AllowAutoRedirect = AllowAutoRedirect,
+                    PreAuthenticate = PreAuthenticate,
+                    CookieContainer = Cookies ?? new CookieContainer(),
+                    Proxy = WebProxy
+                };
+
+                Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> callBack = null;
+                if (ServicePointManager.ServerCertificateValidationCallback != null)
+                    callBack = ServicePointManager.ServerCertificateValidationCallback.Invoke;
+
+                httpHandler.ServerCertificateCustomValidationCallback = ServerCertificateValidationCallback ?? callBack;
+
+                httpClient = new HttpClient(httpHandler) { Timeout = TimeSpan.FromMilliseconds(Timeout) };
+
+                requestMessage = new HttpRequestMessage(HttpMethod.Post, new Uri(JsonRpcUrl));
+                if (ProtocolVersion != null)
+                    requestMessage.Version = ProtocolVersion;
+                requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                requestMessage.Headers.UserAgent.ParseAdd(UserAgent);
+                requestMessage.Headers.ConnectionClose = !KeepAlive;
+                requestMessage.Headers.ExpectContinue = Expect100Continue;
+                requestMessage.Content = new StreamContent(postStream);
+
+                if (RequestHeaders != null)
+                {
+                    foreach (var header in RequestHeaders)
+                        requestMessage.Headers.Add(header.Key, header.Value);
+                }
+
+                responseMessage = httpClient.SendAsync(requestMessage).Result;
+                responseMessage.EnsureSuccessStatusCode();
+
+                var str = responseMessage.Content.ReadAsStream();
+                str.CopyTo(responseStream);
+                responseStream.Flush();
+
+                ResponseHeaders = responseMessage.Headers.ToDictionary(header => header.Key, header => string.Join(",", header.Value));
+            }
+            finally
+            {
+				RequestHeaders = null;
+                responseMessage?.Dispose();
+                requestMessage?.Dispose();
+                httpClient?.Dispose();
+                httpHandler?.Dispose();
+            }
+#else
             var webRequest = (HttpWebRequest)WebRequest.Create(JsonRpcUrl);
             webRequest.Method = "POST";
             webRequest.ContentType = "application/json";
@@ -329,6 +397,7 @@ namespace XenAPI
                 RequestHeaders = null;
                 webResponse?.Dispose();
             }
+#endif
         }
 
         private JsonSerializerSettings CreateSettings(IList<JsonConverter> converters)
