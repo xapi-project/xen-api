@@ -48,6 +48,13 @@ let bridge_naming_convention (device : string) (pos_opt : int option) =
 let n_of_xenbrn_opt bridge =
   try Scanf.sscanf bridge "xenbr%d%!" Option.some with _ -> None
 
+let get_pif_position ~__context pif =
+  if pif.API.pIF_physical then
+    let bridge = Db.Network.get_bridge ~__context ~self:pif.API.pIF_network in
+    n_of_xenbrn_opt bridge
+  else
+    None
+
 type tables = {
     device_to_position_table: (string * int) list
   ; device_to_mac_table: (string * string) list
@@ -133,15 +140,12 @@ let refresh_internal ~__context ~interface_tables ~self =
   (* Pif device name maybe change. Look up device_to_position table to get the
      new device name. *)
   let pif_device_name =
-    if pif.API.pIF_physical then (
-      match n_of_xenbrn_opt bridge with
-      | Some position ->
-          find_name_by_position position pif.API.pIF_device
-      | None ->
-          info "PIF %s: no position found for this device" pif.API.pIF_device ;
-          pif.API.pIF_device
-    ) else
-      pif.API.pIF_device
+    match get_pif_position ~__context pif with
+    | Some position ->
+        find_name_by_position position pif.API.pIF_device
+    | None ->
+        info "PIF %s: no position found for this device" pif.API.pIF_device ;
+        pif.API.pIF_device
   in
   (* Update the specified PIF field in the database, if
    * and only if a corresponding value can be read from
