@@ -37,7 +37,6 @@ let bridge_naming_convention (device : string) =
 let get_list_from ~sep ~key args =
   List.assoc_opt key args
   |> Option.map (fun v -> Astring.String.cuts ~empty:false ~sep v)
-  |> Option.value ~default:[]
 
 let parse_ipv4_config args = function
   | Some "static" ->
@@ -73,11 +72,13 @@ let parse_ipv6_config args = function
       (None6, None)
 
 let parse_dns_config args =
-  let nameservers =
-    get_list_from ~sep:"," ~key:"DNS" args |> List.map Unix.inet_addr_of_string
+  let ( let* ) = Option.bind in
+  let* nameservers =
+    get_list_from ~sep:"," ~key:"DNS" args
+    |> Option.map (List.map Unix.inet_addr_of_string)
   in
-  let domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
-  (nameservers, domains)
+  let* domains = get_list_from ~sep:" " ~key:"DOMAIN" args in
+  Some (nameservers, domains)
 
 let read_management_conf () =
   try
@@ -103,7 +104,7 @@ let read_management_conf () =
     let device =
       (* Take 1st member of bond *)
       match (bond_mode, bond_members) with
-      | None, _ | _, [] -> (
+      | None, _ | _, (None | Some []) -> (
         match List.assoc_opt "LABEL" args with
         | Some x ->
             x
@@ -111,7 +112,7 @@ let read_management_conf () =
             error "%s: missing LABEL in %s" __FUNCTION__ management_conf ;
             raise Read_error
       )
-      | _, hd :: _ ->
+      | _, Some (hd :: _) ->
           hd
     in
     Inventory.reread_inventory () ;
