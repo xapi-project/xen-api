@@ -222,6 +222,7 @@ namespace XenAPI
             throw new Exception("The method or operation is not implemented.");
         }
 
+        [Obsolete("Use the calls setting individual fields of the API object instead.")]
         public override string SaveChanges(Session session, string serverOpaqueRef, Session serverObject)
         {
             throw new Exception("The method or operation is not implemented.");

@@ -45,6 +45,7 @@ namespace XenAPI
             id = update.id;
         }
 
+        [Obsolete("Use the calls setting individual fields of the API object instead.")]
         public override string SaveChanges(Session session, string opaqueRef, Event serverObject)
         {
             if (opaqueRef == null)
