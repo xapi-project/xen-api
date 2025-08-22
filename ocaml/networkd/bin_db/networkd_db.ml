@@ -38,6 +38,8 @@ let _ =
           List.concat_map (fun (_, port) -> port.interfaces) bridge_config.ports
         in
         Printf.printf "interfaces=%s\n" (String.concat "," ifaces) ;
+        Printf.printf "hwaddrs=%s\n"
+          (Option.value ~default:"" bridge_config.bridge_mac) ;
         match bridge_config.vlan with
         | None ->
             ()
