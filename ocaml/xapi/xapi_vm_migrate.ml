@@ -395,7 +395,7 @@ let pool_migrate ~__context ~vm ~host ~options =
   let compress = use_compression ~__context options localhost host in
   debug "%s using stream compression=%b" __FUNCTION__ compress ;
   let http =
-    if !Xapi_globs.migration_https_only && host <> localhost then
+    if !Xapi_globs.migration_https_only then
       "https"
     else
       "http"
