@@ -18,7 +18,11 @@
 val all_protected_vms : __context:Context.t -> (API.ref_VM * API.vM_t) list
 
 val restart_auto_run_vms :
-  __context:Context.t -> API.ref_host list -> int -> unit
+     __context:Context.t
+  -> last_live_set:API.ref_host list
+  -> live_set:API.ref_host list
+  -> int
+  -> unit
 (** Take a set of live VMs and attempt to restart all protected VMs which have failed *)
 
 val compute_evacuation_plan :
