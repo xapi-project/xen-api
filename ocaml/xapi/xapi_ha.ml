@@ -508,6 +508,14 @@ module Monitor = struct
               let liveset_uuids =
                 List.sort compare (uuids_of_liveset liveset)
               in
+              let to_refs uuids =
+                List.map
+                  (fun uuid ->
+                    Db.Host.get_by_uuid ~__context ~uuid:(Uuidx.to_string uuid)
+                  )
+                  uuids
+              in
+              let last_live_set = to_refs !last_liveset_uuids in
               if !last_liveset_uuids <> liveset_uuids then (
                 warn
                   "Liveset looks different; assuming we need to rerun the \
@@ -515,17 +523,11 @@ module Monitor = struct
                 plan_out_of_date := true ;
                 last_liveset_uuids := liveset_uuids
               ) ;
-              let liveset_refs =
-                List.map
-                  (fun uuid ->
-                    Db.Host.get_by_uuid ~__context ~uuid:(Uuidx.to_string uuid)
-                  )
-                  liveset_uuids
-              in
+              let live_set = to_refs liveset_uuids in
               if local_failover_decisions_are_ok () then (
                 try
                   Xapi_ha_vm_failover.restart_auto_run_vms ~__context
-                    liveset_refs to_tolerate
+                    ~last_live_set ~live_set to_tolerate
                 with e ->
                   log_backtrace e ;
                   error
@@ -539,9 +541,7 @@ module Monitor = struct
               (* Next update the Host_metrics.live value to spot hosts coming back *)
               let all_hosts = Db.Host.get_all ~__context in
               let livemap =
-                List.map
-                  (fun host -> (host, List.mem host liveset_refs))
-                  all_hosts
+                List.map (fun host -> (host, List.mem host live_set)) all_hosts
               in
               List.iter
                 (fun (host, live) ->
@@ -704,8 +704,7 @@ module Monitor = struct
               in
               if plan_too_old || !plan_out_of_date then (
                 let changed =
-                  Xapi_ha_vm_failover.update_pool_status ~__context
-                    ~live_set:liveset_refs ()
+                  Xapi_ha_vm_failover.update_pool_status ~__context ~live_set ()
                 in
                 (* Extremely bad: something managed to break our careful plan *)
                 if changed && not !plan_out_of_date then

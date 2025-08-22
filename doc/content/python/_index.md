@@ -52,7 +52,7 @@ in the [pre-commit] configuration file [.pre-commit-config.yaml].
         entry: sh -c 'coverage run && coverage xml &&
             coverage html && coverage report &&
             diff-cover --ignore-whitespace --compare-branch=origin/master
-            --show-uncovered --html-report .git/coverage-diff.html
+            --show-uncovered --format html:.git/coverage-diff.html
             --fail-under 50 .git/coverage3.11.xml'
         require_serial: true
         pass_filenames: false

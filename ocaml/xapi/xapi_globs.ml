@@ -436,6 +436,10 @@ let xapi_clusterd_port = ref 8896
  *)
 let local_yum_repo_port = ref 8000
 
+(* The maximum number of start attempts for HA best-effort VMs. Each attempt is
+   spaced 20 seconds apart. *)
+let ha_best_effort_max_retries = ref 2
+
 (* When a host is known to be shutting down or rebooting, we add it's reference in here.
    This can be used to force the Host_metrics.live flag to false. *)
 let hosts_which_are_shutting_down : API.ref_host list ref = ref []
@@ -741,7 +745,7 @@ let ha_default_timeout_base = ref 60.
 let guest_liveness_timeout = ref 300.
 
 (** The default time, in µs, in which tapdisk3 will keep polling the vbd ring buffer in expectation for extra requests from the guest *)
-let default_vbd3_polling_duration = ref 1000
+let default_vbd3_polling_duration = ref 8000
 
 (** The default % of idle dom0 cpu above which tapdisk3 will keep polling the vbd ring buffer *)
 let default_vbd3_polling_idle_threshold = ref 50
@@ -1238,6 +1242,7 @@ let xapi_globs_spec =
   ; ("max_observer_file_size", Int max_observer_file_size)
   ; ("test-open", Int test_open) (* for consistency with xenopsd *)
   ; ("local_yum_repo_port", Int local_yum_repo_port)
+  ; ("ha_best_effort_max_retries", Int ha_best_effort_max_retries)
   ]
 
 let xapi_globs_spec_with_descriptions =

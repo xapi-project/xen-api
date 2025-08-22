@@ -372,3 +372,11 @@ ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
 ALLOW # Otherwise allow everything else
 """
         self.verify_usb_config_error_common(content, "to unpack")
+
+    def test_usb_config_empty_line(self):
+        content = """# empty line
+ALLOW:vid=056a pid=0314 class=03  # Wacom Intuos tablet
+
+ALLOW # Otherwise allow everything else
+"""
+        self.verify_usb_config_error_common(content, "")

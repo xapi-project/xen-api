@@ -84,6 +84,8 @@ module type S = sig
       -> Vm.t
       -> Vm.id option
       -> bool (* no_sharept*)
+      -> int (* num_of_vbds *)
+      -> int (* num_of_vifs *)
       -> unit
 
     val build :
