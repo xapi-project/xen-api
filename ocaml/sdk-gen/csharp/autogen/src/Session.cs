@@ -317,7 +317,7 @@ namespace XenAPI
         /// instead use Permissions. This list should only be used for UI purposes.
         /// </summary>
         [JsonConverter(typeof(XenRefListConverter<Role>))]
-        public List<Role> Roles { get; private set; }
+        public List<Role> Roles { get; private set; } = new List<Role>();
 
         #endregion
 
