@@ -18,6 +18,7 @@ type error =
   | Other of string
   | VM_CDR_not_found
   | VM_CDR_eject
+  | VM_CDR_insert
   | VM_misses_feature
   | VM_not_running
   | VM_sysprep_timeout

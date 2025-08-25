@@ -29,6 +29,7 @@ type error =
   | Other of string
   | VM_CDR_not_found
   | VM_CDR_eject
+  | VM_CDR_insert
   | VM_misses_feature
   | VM_not_running
   | VM_sysprep_timeout
@@ -212,6 +213,8 @@ let eject ~rpc ~session_id ~vbd ~iso =
     Client.VBD.eject ~rpc ~session_id ~vbd ;
     Sys.remove iso
   with exn ->
+    Sys.remove iso ;
+    (* still remove ISO to protect it *)
     warn "%s: ejecting CD failed: %s" __FUNCTION__ (Printexc.to_string exn) ;
     fail VM_CDR_eject
 
@@ -281,7 +284,13 @@ let sysprep ~__context ~vm ~unattend ~timeout =
   let uuid = Db.VDI.get_uuid ~__context ~self:vdi in
   debug "%s: inserting Sysprep VDI for VM %s" __FUNCTION__ vm_uuid ;
   call ~__context @@ fun rpc session_id ->
-  Client.VBD.insert ~rpc ~session_id ~vdi ~vbd ;
+  ( try Client.VBD.insert ~rpc ~session_id ~vdi ~vbd
+    with e ->
+      debug "%s: failed to insert CD, removing ISO %s: %s" __FUNCTION__ iso
+        (Printexc.to_string e) ;
+      Sys.remove iso ;
+      fail VM_CDR_insert
+  ) ;
   Thread.delay !Xapi_globs.vm_sysprep_wait ;
   match trigger ~rpc ~session_id ~domid ~uuid ~timeout ~vbd ~iso with
   | true ->

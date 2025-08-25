@@ -1727,10 +1727,13 @@ let sysprep ~__context ~self ~unattend ~timeout =
       raise Api_errors.(Server_error (sysprep, [uuid; "VM is not running"]))
   | exception Vm_sysprep.Sysprep VM_CDR_eject ->
       raise Api_errors.(Server_error (sysprep, [uuid; "VM failed to eject CD"]))
+  | exception Vm_sysprep.Sysprep VM_CDR_insert ->
+      raise Api_errors.(Server_error (sysprep, [uuid; "VM failed to insert CD"]))
   | exception Vm_sysprep.Sysprep VM_sysprep_timeout ->
       raise
         Api_errors.(
-          Server_error (sysprep, [uuid; "sysprep not found running - timeout"])
+          Server_error
+            (sysprep, [uuid; "No response from sysprep within allocated time"])
         )
   | exception Vm_sysprep.Sysprep XML_too_large ->
       raise
