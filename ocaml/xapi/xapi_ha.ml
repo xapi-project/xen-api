@@ -966,6 +966,16 @@ let redo_log_ha_enabled_at_startup () =
 
 (* ----------------------------- *)
 
+let ha_start_daemon () =
+  let module Fw =
+    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+        : Firewall.FIREWALL
+      )
+  in
+  Fw.update_firewall_status ~service:Firewall.Xenha ~status:Firewall.Enabled ;
+  let (_ : string) = call_script ha_start_daemon [] in
+  ()
+
 let on_server_restart () =
   let armed = bool_of_string (Localdb.get Constants.ha_armed) in
   if armed then (
@@ -993,7 +1003,7 @@ let on_server_restart () =
           failwith "simulating xha daemon startup failure" ;
         (* CA-21406: Try again to reattach the statefile VDI *)
         Static_vdis.reattempt_on_boot_attach () ;
-        let (_ : string) = call_script ha_start_daemon [] in
+        ha_start_daemon () ;
         finished := true
       with
       | Xha_error Xha_errno.Mtc_exit_daemon_is_present ->
@@ -1123,7 +1133,14 @@ let ha_set_excluded __context _localhost =
   ()
 
 let ha_stop_daemon __context _localhost =
+  let module Fw =
+    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+        : Firewall.FIREWALL
+      )
+  in
   Monitor.stop () ;
+  Fw.update_firewall_status ~service:Firewall.Xenha ~status:Firewall.Disabled ;
+
   let (_ : string) = call_script ha_stop_daemon [] in
   ()
 
@@ -1367,7 +1384,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
 
 let join_liveset __context host =
   info "Host.ha_join_liveset host = %s" (Ref.string_of host) ;
-  let (_ : string) = call_script ha_start_daemon [] in
+  ha_start_daemon () ;
   Localdb.put Constants.ha_disable_failover_decisions "false" ;
   Localdb.put Constants.ha_armed "true" ;
   info "Local flag ha_armed <- true" ;
