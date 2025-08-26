@@ -861,6 +861,10 @@ let nbd_firewall_config_script =
 
 let firewall_port_config_script = ref "/etc/xapi.d/plugins/firewall-port"
 
+let firewall_cmd = ref "/usr/bin/firewall-cmd"
+
+let firewall_cmd_wrapper = ref "/usr/bin/firewall-cmd-wrapper"
+
 let nbd_client_manager_script =
   ref "/opt/xensource/libexec/nbd_client_manager.py"
 
@@ -1316,6 +1320,14 @@ let ssh_service = ref "sshd"
 let ssh_monitor_service = ref "xapi-ssh-monitor"
 
 let ssh_auto_mode_default = ref true
+
+type firewall_backend_type = Firewalld | Iptables
+
+(* Firewall backend to use. iptables in XS 8, firewalld in XS 9. *)
+let firewall_backend = ref Iptables
+
+(* For firewalld, if dynamic control firewalld service. *)
+let dynamic_control_firewalld_service = ref true
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
@@ -1778,6 +1790,34 @@ let other_options =
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
     )
+  ; ( "firewall-backend"
+    , Arg.String
+        (fun s ->
+          firewall_backend :=
+            match s with
+            | "firewalld" ->
+                Firewalld
+            | "iptables" ->
+                Iptables
+            | _ ->
+                D.error "Unknown firewall backend: %s" s ;
+                failwith "Unknown firewall backend"
+        )
+    , (fun () ->
+        match !firewall_backend with
+        | Firewalld ->
+            "firewalld"
+        | Iptables ->
+            "iptables"
+      )
+    , "Firewall backend. iptables (in XS 8) or firewalld (in XS 9 or later XS \
+       version)"
+    )
+  ; ( "dynamic-control-firewalld-service"
+    , Arg.Bool (fun b -> dynamic_control_firewalld_service := b)
+    , (fun () -> string_of_bool !dynamic_control_firewalld_service)
+    , "Enable dynamic control firewalld service"
+    )
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
@@ -1916,6 +1956,15 @@ module Resources = struct
       , firewall_port_config_script
       , "Executed when starting/stopping xapi-clusterd to configure firewall \
          port"
+      )
+    ; ( "firewall-cmd"
+      , firewall_cmd
+      , "Executed when enable/disable a service on a firewalld zone"
+      )
+    ; ( "firewall-cmd-wrapper"
+      , firewall_cmd_wrapper
+      , "Executed when enable/disable a service on a firewalld zone and \
+         interface"
       )
     ; ( "nbd_client_manager"
       , nbd_client_manager_script

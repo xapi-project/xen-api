@@ -3116,13 +3116,17 @@ let cc_prep () =
       true
 
 let set_https_only ~__context ~self ~value =
-  let state = match value with true -> "close" | false -> "open" in
   match cc_prep () with
   | false ->
-      ignore
-      @@ Helpers.call_script
-           !Xapi_globs.firewall_port_config_script
-           [state; "80"] ;
+      let status =
+        match value with true -> Firewall.Disabled | false -> Firewall.Enabled
+      in
+      let module F =
+        ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+            : Firewall.FIREWALL
+          )
+      in
+      F.update_firewall_status ~service:Firewall.Http ~status ;
       Db.Host.set_https_only ~__context ~self ~value
   | true when value = Db.Host.get_https_only ~__context ~self ->
       (* the new value is the same as the old value *)
