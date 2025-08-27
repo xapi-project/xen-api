@@ -2501,6 +2501,8 @@ functor
             let snapshot = Db.VM.get_record ~__context ~self:vm in
             reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
+                if Db.VM.get_VGPUs ~__context ~self:vm <> [] then
+                  Xapi_stats.incr_pool_vgpu_migration_count () ;
                 forward_vm_op ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
@@ -2622,6 +2624,8 @@ functor
                   assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
                     ~vif_map ~vgpu_map ~options
               ) ;
+              if vgpu_map <> [] then
+                Xapi_stats.incr_pool_vgpu_migration_count () ;
               forward_migrate_send ()
           )
         in
