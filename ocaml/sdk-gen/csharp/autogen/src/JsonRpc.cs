@@ -31,6 +31,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+#if (NET8_0_OR_GREATER)
+using System.Diagnostics;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Cryptography.X509Certificates;
+#endif
 using System.Net.Security;
 using System.Threading;
 using Newtonsoft.Json;
@@ -49,9 +56,9 @@ namespace XenAPI
     {
         protected JsonRequest(int id, string method, JToken parameters)
         {
-            this.Id = id;
-            this.Method = method;
-            this.Parameters = parameters;
+            Id = id;
+            Method = method;
+            Parameters = parameters;
         }
 
         public static JsonRequest Create(JsonRpcVersion jsonRpcVersion, int id, string method, JToken parameters)
@@ -64,6 +71,8 @@ namespace XenAPI
                     return new JsonRequestV1(id, method, parameters);
             }
         }
+
+        public abstract string JsonRPC { get;}
 
         /// <summary>
         /// Unique call id. Can be null in JSON_RPC v2.0, but xapi disallows it.
@@ -95,6 +104,9 @@ namespace XenAPI
             : base(id, method, parameters)
         {
         }
+
+        [JsonIgnore]
+        public override string JsonRPC => "1.0";
     }
 
     internal class JsonRequestV2 : JsonRequest
@@ -105,18 +117,15 @@ namespace XenAPI
         }
 
         [JsonProperty("jsonrpc", Required = Required.Always)]
-        public string JsonRPC
-        {
-            get { return "2.0"; }
-        }
+        public override string JsonRPC => "2.0";
     }
 
 
     internal abstract class JsonResponse<T>
     {
-        [JsonProperty("id", Required = Required.AllowNull)] public int Id = 0;
+        [JsonProperty("id", Required = Required.AllowNull)] public int Id { get; set; }
 
-        [JsonProperty("result", Required = Required.Default)] public T Result = default(T);
+        [JsonProperty("result", Required = Required.Default)] public T Result { get; set; }
 
         public override string ToString()
         {
@@ -126,23 +135,23 @@ namespace XenAPI
 
     internal class JsonResponseV1<T> : JsonResponse<T>
     {
-        [JsonProperty("error", Required = Required.AllowNull)] public JToken Error = null;
+        [JsonProperty("error", Required = Required.AllowNull)] public JToken Error { get; set; }
     }
 
     internal class JsonResponseV2<T> : JsonResponse<T>
     {
-        [JsonProperty("error", Required = Required.DisallowNull)] public JsonResponseV2Error Error = null;
+        [JsonProperty("error", Required = Required.DisallowNull)] public JsonResponseV2Error Error { get; set; }
 
-        [JsonProperty("jsonrpc", Required = Required.Always)] public string JsonRpc = null;
+        [JsonProperty("jsonrpc", Required = Required.Always)] public string JsonRpc { get; set; }
     }
 
     internal class JsonResponseV2Error
     {
-        [JsonProperty("code", Required = Required.Always)] public int Code = 0;
+        [JsonProperty("code", Required = Required.Always)] public int Code { get; set; }
 
-        [JsonProperty("message", Required = Required.Always)] public string Message = null;
+        [JsonProperty("message", Required = Required.Always)] public string Message { get; set; }
 
-        [JsonProperty("data", Required = Required.Default)] public JToken Data = null;
+        [JsonProperty("data", Required = Required.Default)] public JToken Data { get; set; }
 
         public override string ToString()
         {
@@ -154,6 +163,42 @@ namespace XenAPI
     public partial class JsonRpcClient
     {
         private int _globalId;
+
+#if (NET8_0_OR_GREATER)
+        private static readonly Type ClassType = typeof(JsonRpcClient);
+        private static readonly System.Reflection.AssemblyName ClassAssemblyName = ClassType?.Assembly?.GetName();
+        private static readonly ActivitySource source = new ActivitySource(ClassAssemblyName.Name + "." + ClassType?.FullName, ClassAssemblyName.Version?.ToString());
+
+        // Follow naming conventions from OpenTelemetry.SemanticConventions
+        // Not yet on NuGet though:
+        // dotnet add package OpenTelemetry.SemanticConventions
+        private static class RpcAttributes
+        {
+            public const string AttributeRpcMethod = "rpc.method";
+            public const string AttributeRpcSystem = "rpc.system";
+            public const string AttributeRpcService = "rpc.service";
+            public const string AttributeRpcJsonrpcErrorCode = "rpc.jsonrpc.error_code";
+            public const string AttributeRpcJsonrpcErrorMessage = "rpc.jsonrpc.error_message";
+            public const string AttributeRpcJsonrpcRequestId = "rpc.jsonrpc.request_id";
+            public const string AttributeRpcJsonrpcVersion = "rpc.jsonrpc.version";
+            public const string AttributeRpcMessageType = "rpc.message.type";
+            
+            public static class RpcMessageTypeValues
+            {
+                public const string Sent = "SENT";
+                public const string Received = "RECEIVED";
+            }
+        }
+
+        private static class ServerAttributes
+        {
+            public const string AttributeServerAddress = "server.address";
+        }
+
+        // not part of the SemanticConventions package
+        private const string ValueJsonRpc = "jsonrpc";
+        private const string EventRpcMessage = "rpc.message";
+#endif
 
         public JsonRpcClient(string baseUrl)
         {
@@ -180,7 +225,13 @@ namespace XenAPI
         public bool AllowAutoRedirect { get; set; }
         public bool PreAuthenticate { get; set; }
         public CookieContainer Cookies { get; set; }
+
+#if (NET8_0_OR_GREATER)
+        public Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> ServerCertificateValidationCallback { get; set; }
+#else
         public RemoteCertificateValidationCallback ServerCertificateValidationCallback { get; set; }
+#endif
+
         public Dictionary<string, string> RequestHeaders { get; set; }
         public Dictionary<string, string> ResponseHeaders { get; set; }
 
@@ -207,69 +258,186 @@ namespace XenAPI
             // therefore the latter will be done only in DEBUG mode
             using (var postStream = new MemoryStream())
             {
-                using (var sw = new StreamWriter(postStream))
+#if (NET8_0_OR_GREATER)
+                // the semantic convention is $package.$service/$method
+                using (Activity activity = source.CreateActivity("XenAPI/" + callName, ActivityKind.Client))
                 {
-#if DEBUG
-                    var settings = CreateSettings(serializer.Converters);
-                    string jsonReq = JsonConvert.SerializeObject(request, settings);
-                    if (RequestEvent != null)
-                        RequestEvent(jsonReq);
-                    sw.Write(jsonReq);
-#else
-                    if (RequestEvent != null)
-                        RequestEvent(callName);
-                    serializer.Serialize(sw, request);
+                    activity?.Start();
+                    // Set the fields described in the OpenTelemetry Semantic Conventions:
+                    // https://opentelemetry.io/docs/specs/semconv/rpc/json-rpc/
+                    // https://opentelemetry.io/docs/specs/semconv/rpc/rpc-spans/
+                    activity?.SetTag(RpcAttributes.AttributeRpcSystem, ValueJsonRpc);
+                    activity?.SetTag(ServerAttributes.AttributeServerAddress, new Uri(Url).Host);
+                    activity?.SetTag(RpcAttributes.AttributeRpcMethod, callName);
+                    activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcRequestId, id.ToString());
 #endif
-                    sw.Flush();
-                    postStream.Seek(0, SeekOrigin.Begin);
-
-                    using (var responseStream = new MemoryStream())
+                    using (var sw = new StreamWriter(postStream))
                     {
-                        PerformPostRequest(postStream, responseStream);
-                        responseStream.Position = 0;
+#if DEBUG
+                        var settings = CreateSettings(serializer.Converters);
+                        string jsonReq = JsonConvert.SerializeObject(request, settings);
+                        if (RequestEvent != null)
+                            RequestEvent(jsonReq);
+                        sw.Write(jsonReq);
+#else
+                        if (RequestEvent != null)
+                            RequestEvent(callName);
+                        serializer.Serialize(sw, request);
+#endif
+                        sw.Flush();
+                        postStream.Seek(0, SeekOrigin.Begin);
 
-                        using (var responseReader = new StreamReader(responseStream))
+                        using (var responseStream = new MemoryStream())
                         {
-                            switch (JsonRpcVersion)
+                            PerformPostRequest(postStream, responseStream);
+                            responseStream.Position = 0;
+
+                            using (var responseReader = new StreamReader(responseStream))
                             {
-                                case JsonRpcVersion.v2:
-#if DEBUG
-                                    string json2 = responseReader.ReadToEnd();
-                                    var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
-#else
-                                    var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
+#if (NET8_0_OR_GREATER)
+                                activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcVersion, request.JsonRPC);
 #endif
-                                    if (res2.Error != null)
-                                    {
-                                        var descr = new List<string> { res2.Error.Message };
-                                        descr.AddRange(res2.Error.Data.ToObject<string[]>());
-                                        throw new Failure(descr);
-                                    }
-                                    return res2.Result;
-                                default:
+                                switch (JsonRpcVersion)
+                                {
+                                    case JsonRpcVersion.v2:
 #if DEBUG
-                                    string json1 = responseReader.ReadToEnd();
-                                    var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
+                                        string json2 = responseReader.ReadToEnd();
+                                        var res2 = JsonConvert.DeserializeObject<JsonResponseV2<T>>(json2, settings);
 #else
-                                    var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
+                                        var res2 = (JsonResponseV2<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV2<T>));
 #endif
-                                    if (res1.Error != null)
-                                    {
-                                        var errorArray = res1.Error.ToObject<string[]>();
+                                        if (res2.Error != null)
+                                        {
+                                            var descr = new List<string> { res2.Error.Message };
+                                            descr.AddRange(res2.Error.Data.ToObject<string[]>());
+#if (NET8_0_OR_GREATER)
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorCode, res2.Error.Code);
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, descr);
+                                            activity?.SetStatus(ActivityStatusCode.Error);
+#endif
+                                            throw new Failure(descr);
+                                        }
+#if (NET8_0_OR_GREATER)
+                                        activity?.SetStatus(ActivityStatusCode.Ok);
+#endif
+                                        return res2.Result;
+                                    default:
+#if DEBUG
+                                        string json1 = responseReader.ReadToEnd();
+                                        var res1 = JsonConvert.DeserializeObject<JsonResponseV1<T>>(json1, settings);
+#else
+                                        var res1 = (JsonResponseV1<T>)serializer.Deserialize(responseReader, typeof(JsonResponseV1<T>));
+#endif
+                                        var errorArray = res1.Error?.ToObject<string[]>();
                                         if (errorArray != null)
+                                        {
+#if (NET8_0_OR_GREATER)
+                                            activity?.SetStatus(ActivityStatusCode.Error);
+                                            // we can't be sure whether we'll have a Code here
+                                            // the exact format of an error object is not specified in JSONRPC v1
+                                            activity?.SetTag(RpcAttributes.AttributeRpcJsonrpcErrorMessage, errorArray.ToString());
+#endif
                                             throw new Failure(errorArray);
-                                    }
-                                    return res1.Result;
+                                        }
+#if (NET8_0_OR_GREATER)
+                                        activity?.SetStatus(ActivityStatusCode.Ok);
+#endif
+                                        return res1.Result;
+                                }
                             }
                         }
                     }
+#if (NET8_0_OR_GREATER)
                 }
+#endif
             }
         }
 
-
         protected virtual void PerformPostRequest(Stream postStream, Stream responseStream)
         {
+#if (NET8_0_OR_GREATER)
+            HttpClient httpClient = null;
+            HttpClientHandler httpHandler = null;
+            HttpRequestMessage requestMessage = null;
+            HttpResponseMessage responseMessage = null;
+
+            try
+            {
+                httpHandler = new HttpClientHandler
+                {
+                    AllowAutoRedirect = AllowAutoRedirect,
+                    PreAuthenticate = PreAuthenticate,
+                    CookieContainer = Cookies ?? new CookieContainer(),
+                    Proxy = WebProxy
+                };
+
+                Func<HttpRequestMessage, X509Certificate2, X509Chain, SslPolicyErrors, bool> callBack = null;
+                if (ServicePointManager.ServerCertificateValidationCallback != null)
+                    callBack = ServicePointManager.ServerCertificateValidationCallback.Invoke;
+
+                httpHandler.ServerCertificateCustomValidationCallback = ServerCertificateValidationCallback ?? callBack;
+
+                httpClient = new HttpClient(httpHandler) { Timeout = TimeSpan.FromMilliseconds(Timeout) };
+
+                requestMessage = new HttpRequestMessage(HttpMethod.Post, new Uri(JsonRpcUrl));
+                if (ProtocolVersion != null)
+                    requestMessage.Version = ProtocolVersion;
+                requestMessage.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                requestMessage.Headers.UserAgent.ParseAdd(UserAgent);
+                requestMessage.Headers.ConnectionClose = !KeepAlive;
+                requestMessage.Headers.ExpectContinue = Expect100Continue;
+                requestMessage.Content = new StreamContent(postStream);
+
+                if (RequestHeaders != null)
+                {
+                    foreach (var header in RequestHeaders)
+                        requestMessage.Headers.Add(header.Key, header.Value);
+                }
+
+                // propagate W3C traceparent and tracestate
+                // HttpClient would do this automatically on .NET 5,
+                // and .NET 6 would provide even more control over this: https://blog.ladeak.net/posts/opentelemetry-net6-httpclient
+                // the caller must ensure that the activity is in W3C format (by inheritance or direct setting)
+                var activity = Activity.Current;
+                if (activity != null)
+                {
+                    if (activity.IdFormat == ActivityIdFormat.W3C)
+                    {
+                        requestMessage.Headers.Add("traceparent", activity.Id);
+                        var state = activity.TraceStateString;
+
+                        if (state?.Length > 0)
+                            requestMessage.Headers.Add("tracestate", state);
+                    }
+
+                    var tags = new ActivityTagsCollection { { RpcAttributes.AttributeRpcMessageType, RpcAttributes.RpcMessageTypeValues.Sent } };
+                    activity.AddEvent(new ActivityEvent(EventRpcMessage, DateTimeOffset.Now, tags));
+                }
+
+                responseMessage = httpClient.SendAsync(requestMessage).Result;
+                responseMessage.EnsureSuccessStatusCode();
+
+                var str = responseMessage.Content.ReadAsStream();
+                str.CopyTo(responseStream);
+                responseStream.Flush();
+
+                ResponseHeaders = responseMessage.Headers.ToDictionary(header => header.Key, header => string.Join(",", header.Value));
+
+                if (activity != null)
+                {
+                    var tags = new ActivityTagsCollection { { RpcAttributes.AttributeRpcMessageType, RpcAttributes.RpcMessageTypeValues.Received } };
+                    activity.AddEvent(new ActivityEvent(EventRpcMessage, DateTimeOffset.Now, tags));
+                }
+            }
+            finally
+            {
+                RequestHeaders = null;
+                responseMessage?.Dispose();
+                requestMessage?.Dispose();
+                httpClient?.Dispose();
+                httpHandler?.Dispose();
+            }
+#else
             var webRequest = (HttpWebRequest)WebRequest.Create(JsonRpcUrl);
             webRequest.Method = "POST";
             webRequest.ContentType = "application/json";
@@ -332,6 +500,7 @@ namespace XenAPI
                 RequestHeaders = null;
                 webResponse?.Dispose();
             }
+#endif
         }
 
         private JsonSerializerSettings CreateSettings(IList<JsonConverter> converters)

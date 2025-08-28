@@ -353,6 +353,8 @@ and gen_class out_chan cls =
   print
     ";\n\
     \        }\n\n\
+    \        [Obsolete(\"Use the calls setting individual fields of the API \
+     object instead.\")]\n\
     \        public override string SaveChanges(Session session, string \
      opaqueRef, %s server)\n\
     \        {\n\
