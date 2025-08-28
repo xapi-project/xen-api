@@ -18,8 +18,6 @@ type status = Enabled | Disabled
 
 module type FIREWALL = sig
   val update_firewall_status : service:service_type -> status:status -> unit
-
-  val is_firewall_service_enabled : service:service_type -> bool
 end
 
 module Firewalld : FIREWALL
