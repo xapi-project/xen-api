@@ -634,25 +634,28 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     rc.API.pIF_ip_configuration_mode = `Static
                 | `IPv6 ->
                     rc.API.pIF_ipv6_configuration_mode = `Static
-                    || rc.API.pIF_ipv6_configuration_mode = `Autoconf
               in
               let dns =
                 match (static, rc.API.pIF_DNS) with
                 | false, _ | true, "" ->
-                    None
+                    ([], [])
                 | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
-                        (String.split_on_char ',' pif_dns)
+                        (String.split ',' pif_dns)
                     in
                     let domains =
                       match List.assoc_opt "domain" rc.API.pIF_other_config with
-                      | None | Some "" ->
+                      | None ->
                           []
-                      | Some domains ->
-                          String.split_on_char ',' domains
+                      | Some domains -> (
+                        try String.split ',' domains
+                        with _ ->
+                          warn "Invalid DNS search domains: %s" domains ;
+                          []
+                      )
                     in
-                    Some (nameservers, domains)
+                    (nameservers, domains)
               in
               let mtu = determine_mtu rc net_rc in
               let ethtool_settings, ethtool_offload =
