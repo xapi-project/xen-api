@@ -158,10 +158,7 @@ type interface_config_t = {
   ; ipv6_conf: ipv6 [@default None6]
   ; ipv6_gateway: Unix.inet_addr option [@default None]
   ; ipv4_routes: ipv4_route_t list [@default []]
-  ; dns: (Unix.inet_addr list * string list) option [@default None]
-        (** the list
-  of nameservers and domains to persist in /etc/resolv.conf. Must be None when
-  using a DHCP mode *)
+  ; dns: Unix.inet_addr list * string list [@default [], []]
   ; mtu: int [@default 1500]
   ; ethtool_settings: (string * string) list [@default []]
   ; ethtool_offload: (string * string) list [@default [("lro", "off")]]
@@ -203,7 +200,7 @@ let default_interface =
   ; ipv6_conf= None6
   ; ipv6_gateway= None
   ; ipv4_routes= []
-  ; dns= None
+  ; dns= ([], [])
   ; mtu= 1500
   ; ethtool_settings= []
   ; ethtool_offload= [("lro", "off")]
