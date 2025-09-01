@@ -205,7 +205,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["6", "8"]
+        dotnet: ["8"]
     needs: build-csharp-sdk
     runs-on: windows-2022
     permissions:
