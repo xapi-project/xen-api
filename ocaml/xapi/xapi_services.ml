@@ -255,6 +255,7 @@ let get_handler (req : Http.Request.t) s _ =
             ; features= List.map (fun x -> path [_services; x]) [_SM]
             ; configuration= []
             ; required_cluster_stack= []
+            ; supported_image_formats= []
             ; smapi_version= SMAPIv2
             }
           in
