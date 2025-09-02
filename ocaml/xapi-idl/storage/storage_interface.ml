@@ -476,6 +476,7 @@ type query_result = {
   ; features: string list
   ; configuration: (string * string) list
   ; required_cluster_stack: string list
+  ; supported_image_formats: string list
   ; smapi_version: smapi_version
 }
 [@@deriving rpcty]

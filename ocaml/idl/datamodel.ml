@@ -4998,6 +4998,17 @@ module SR = struct
 end
 
 module SM = struct
+  let formats =
+    [
+      ("raw", "Plain disk image")
+    ; ("vhd", "Virtual Hard Disk")
+    ; ("qcow2", "Qemu Copy-On-Write version 2")
+    ]
+
+  let formats_desc = formats |> List.map fst |> String.concat ", "
+
+  let image_format_type = Enum ("image_format_type", formats)
+
   (** XXX: just make this a field and be done with it. Cowardly refusing to change the schema for now. *)
   let get_driver_filename =
     call ~name:"get_driver_filename" ~in_oss_since:None
@@ -5118,6 +5129,10 @@ module SM = struct
             ~ty:(Set String) "required_cluster_stack"
             "The storage plugin requires that one of these cluster stacks is \
              configured and running."
+        ; field ~lifecycle:[] ~qualifier:DynamicRO
+            ~default_value:(Some (VSet [])) ~ty:(Set image_format_type)
+            "supported_image_formats"
+            (Printf.sprintf "Image formats supported by the SR: %s" formats_desc)
         ]
       ()
 end
