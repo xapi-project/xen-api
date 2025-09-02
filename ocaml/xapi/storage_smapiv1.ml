@@ -125,6 +125,7 @@ module SMAPIv1 : Server_impl = struct
       ; features= []
       ; configuration= []
       ; required_cluster_stack= []
+      ; supported_image_formats= []
       ; smapi_version= SMAPIv1
       }
 
