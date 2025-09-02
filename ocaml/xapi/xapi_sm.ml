@@ -49,6 +49,7 @@ let create_from_query_result ~__context q =
       ~host_pending_features:[] ~configuration:q.configuration ~other_config:[]
       ~driver_filename:(Sm_exec.cmd_name q.driver)
       ~required_cluster_stack:q.required_cluster_stack
+      ~supported_image_formats:q.supported_image_formats
   )
 
 let find_pending_features existing_features features =
@@ -143,7 +144,10 @@ let update_from_query_result ~__context (self, r) q_result =
     if r.API.sM_configuration <> q_result.configuration then
       Db.SM.set_configuration ~__context ~self ~value:q_result.configuration ;
     if r.API.sM_driver_filename <> driver_filename then
-      Db.SM.set_driver_filename ~__context ~self ~value:driver_filename
+      Db.SM.set_driver_filename ~__context ~self ~value:driver_filename ;
+    if r.API.sM_supported_image_formats <> q_result.supported_image_formats then
+      Db.SM.set_supported_image_formats ~__context ~self
+        ~value:q_result.supported_image_formats
   )
 
 let is_v1 x = version_of_string x < [2; 0]
