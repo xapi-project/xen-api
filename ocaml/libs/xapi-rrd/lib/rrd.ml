@@ -342,9 +342,9 @@ let rra_update rrd proc_pdp_st elapsed_pdp_st pdps =
 
 (* We assume that the data being given is of the form of a rate; that is,
    it's dependent on the time interval between updates.
-   Gauge and Absolute data sources are simply kept as is without any
-   time-based calculations, while Derive data sources will be changed according
-   to the time passed since the last measurement. (see CA-404597) *)
+   Gauge data sources are simply kept as is without any time-based
+   calculations, while Absolute and Derive data sources will be changed
+   according to the time passed since the last measurement. (see CA-404597) *)
 let process_ds_value ds value interval new_rrd =
   if interval > ds.ds_mrhb then
     nan
@@ -361,8 +361,10 @@ let process_ds_value ds value interval new_rrd =
 
     let rate =
       match (ds.ds_ty, new_rrd) with
-      | Absolute, _ | Derive, true | Gauge, _ ->
+      | Derive, true | Gauge, _ ->
           value_raw
+      | Absolute, _ ->
+          value_raw /. interval
       | Derive, false -> (
         match (ds.ds_last, value) with
         | VT_Int64 x, VT_Int64 y ->
