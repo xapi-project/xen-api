@@ -3319,3 +3319,7 @@ let set_console_idle_timeout ~__context ~self ~value =
     error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
     Helpers.internal_error "Failed to set console timeout: %Ld: %s" value
       (Printexc.to_string e)
+
+let get_tracked_user_agents ~__context ~self =
+  let _ : [`host] Ref.t = self in
+  Xapi_tracked_user_agents.get ()
