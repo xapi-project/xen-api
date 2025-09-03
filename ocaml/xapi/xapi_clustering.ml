@@ -250,10 +250,21 @@ module Daemon = struct
     | None ->
         ignore (Helpers.call_script script params)
 
+  let maybe_update_firewall ~__context ~status =
+    match Context.get_test_clusterd_rpc __context with
+    | Some _ ->
+        debug "in unit test, not update firewall"
+    | None ->
+        let module Fw =
+          ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+              : Firewall.FIREWALL
+            )
+        in
+        Fw.update_firewall_status ~service:Firewall.Dlm ~status
+
   let service = "xapi-clusterd"
 
   let enable ~__context =
-    let port = string_of_int !Xapi_globs.xapi_clusterd_port in
     debug "Enabling and starting the clustering daemon" ;
     ( try maybe_call_script ~__context !Xapi_globs.systemctl ["cat"; service]
       with _ ->
@@ -262,9 +273,7 @@ module Daemon = struct
         raise Api_errors.(Server_error (not_implemented, ["Cluster.create"]))
     ) ;
     ( try
-        maybe_call_script ~__context
-          !Xapi_globs.firewall_port_config_script
-          ["open"; port] ;
+        maybe_update_firewall ~__context ~status:Firewall.Enabled ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["enable"; service] ;
         maybe_call_script ~__context !Xapi_globs.systemctl ["start"; service]
       with _ -> Helpers.internal_error "could not start %s" service
@@ -273,18 +282,16 @@ module Daemon = struct
     debug "Cluster daemon: enabled & started"
 
   let disable ~__context =
-    let port = string_of_int !Xapi_globs.xapi_clusterd_port in
     debug "Disabling and stopping the clustering daemon" ;
     Atomic.set enabled false ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["disable"; service] ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["stop"; service] ;
-    maybe_call_script ~__context
-      !Xapi_globs.firewall_port_config_script
-      ["close"; port] ;
+    maybe_update_firewall ~__context ~status:Firewall.Disabled ;
     debug "Cluster daemon: disabled & stopped"
 
   let restart ~__context =
     debug "Attempting to restart the clustering daemon" ;
+    maybe_update_firewall ~__context ~status:Firewall.Enabled ;
     maybe_call_script ~__context !Xapi_globs.systemctl ["restart"; service] ;
     debug "Cluster daemon: restarted"
 end

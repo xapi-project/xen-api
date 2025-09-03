@@ -139,8 +139,19 @@ let refresh_localhost_info ~__context info =
         : Firewall.FIREWALL
       )
   in
-  let enabled = F.is_firewall_service_enabled ~service:Firewall.Http in
-  Db.Host.set_https_only ~__context ~self:host ~value:(not enabled)
+  let status =
+    match Db.Host.get_https_only ~__context ~self:host with
+    | true ->
+        Firewall.Disabled
+    | false ->
+        Firewall.Enabled
+  in
+  let module Fw =
+    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+        : Firewall.FIREWALL
+      )
+  in
+  Fw.update_firewall_status ~service:Firewall.Http ~status
 (*************** update database tools ******************)
 
 (** Record host memory properties in database *)

@@ -785,10 +785,13 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               | `vxlan ->
                   debug
                     "Opening VxLAN UDP port for tunnel with protocol 'vxlan'" ;
-                  ignore
-                  @@ Helpers.call_script
-                       !Xapi_globs.firewall_port_config_script
-                       ["open"; "4789"; "udp"]
+                  let module Fw =
+                    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+                        : Firewall.FIREWALL
+                      )
+                  in
+                  Fw.update_firewall_status ~service:Firewall.Vxlan
+                    ~status:Firewall.Enabled
               | `gre ->
                   ()
             )
@@ -846,10 +849,13 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                 in
                 if no_more_vxlan then (
                   debug "Last VxLAN tunnel was closed, closing VxLAN UDP port" ;
-                  ignore
-                  @@ Helpers.call_script
-                       !Xapi_globs.firewall_port_config_script
-                       ["close"; "4789"; "udp"]
+                  let module Fw =
+                    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+                        : Firewall.FIREWALL
+                      )
+                  in
+                  Fw.update_firewall_status ~service:Firewall.Vxlan
+                    ~status:Firewall.Disabled
                 )
             | `gre ->
                 ()
