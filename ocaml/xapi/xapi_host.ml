@@ -74,7 +74,7 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
         + HA is enabled and this host has broken storage or networking which would cause protected VMs
         to become non-agile
 *)
-let assert_safe_to_reenable ~__context ~self =
+let assert_safe_to_reenable ~__context ~self ~user_request =
   assert_startup_complete () ;
   Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
     ~host:self ;
@@ -86,6 +86,15 @@ let assert_safe_to_reenable ~__context ~self =
     raise
       (Api_errors.Server_error
          (Api_errors.host_disabled_until_reboot, [Ref.string_of self])
+      ) ;
+  let host_disabled_across_reboot =
+    try bool_of_string (Localdb.get Constants.host_disabled_across_reboot)
+    with _ -> false
+  in
+  if host_disabled_across_reboot && not user_request then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.host_disabled_across_reboot, [Ref.string_of self])
       ) ;
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then (
     let pbds = Db.Host.get_PBDs ~__context ~self in
@@ -799,7 +808,8 @@ let shutdown_agent ~__context =
     ~reason:Xapi_hooks.reason__clean_shutdown ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
-let disable ~__context ~host ~host_disabled_until_reboot =
+let disable ~__context ~host ~host_disabled_until_reboot
+    ~host_disabled_across_reboot =
   if Db.Host.get_enabled ~__context ~self:host then (
     info
       "Host.enabled: setting host %s (%s) to disabled because of user request"
@@ -808,12 +818,14 @@ let disable ~__context ~host ~host_disabled_until_reboot =
     Db.Host.set_enabled ~__context ~self:host ~value:false ;
     Xapi_host_helpers.user_requested_host_disable := true ;
     if host_disabled_until_reboot then
-      Localdb.put Constants.host_disabled_until_reboot "true";
+      Localdb.put Constants.host_disabled_until_reboot "true" ;
+    if host_disabled_across_reboot then
+      Localdb.put Constants.host_disabled_across_reboot "true"
   )
 
 let enable ~__context ~host =
   if not (Db.Host.get_enabled ~__context ~self:host) then (
-    assert_safe_to_reenable ~__context ~self:host ;
+    assert_safe_to_reenable ~__context ~self:host ~user_request:true ;
     Xapi_host_helpers.user_requested_host_disable := false ;
     info "Host.enabled: setting host %s (%s) to enabled because of user request"
       (Ref.string_of host)
@@ -3089,7 +3101,8 @@ let apply_updates ~__context ~self ~hash =
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise Api_errors.(Server_error (ha_is_enabled, [])) ;
     if Db.Host.get_enabled ~__context ~self then (
-      disable ~__context ~host:self ~host_disabled_until_reboot:false ;
+      disable ~__context ~host:self ~host_disabled_until_reboot:false
+        ~host_disabled_across_reboot:false ;
       Xapi_host_helpers.update_allowed_operations ~__context ~self
     ) ;
     Xapi_host_helpers.with_host_operation ~__context ~self

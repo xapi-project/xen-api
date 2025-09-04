@@ -628,7 +628,9 @@ let disable =
       ; ( Changed
         , "25.31.0"
         , "Added host_disabled_until_reboot option to allow persisting the \
-           state after toolstack restarts"
+           state after toolstack restarts. Added host_disabled_across_reboot \
+           option to allow disabling the host indefinitely until manually \
+           re-enabled."
         )
       ]
     ~name:"disable"
@@ -650,6 +652,15 @@ let disable =
         ; param_doc=
             "If true, the host will stay disabled after toolstack restarts, \
              and will only be re-enabled after a reboot"
+        ; param_release= numbered_release "25.31.0"
+        ; param_default= Some (VBool false)
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "host_disabled_across_reboot"
+        ; param_doc=
+            "If true, the host will stay disabled indefinitely, both across \
+             toolstack restarts and reboots, until re-enabled explicitly."
         ; param_release= numbered_release "25.31.0"
         ; param_default= Some (VBool false)
         }

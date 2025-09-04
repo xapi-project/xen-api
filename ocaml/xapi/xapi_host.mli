@@ -83,6 +83,7 @@ val disable :
      __context:Context.t
   -> host:[`host] Ref.t
   -> host_disabled_until_reboot:bool
+  -> host_disabled_across_reboot:bool
   -> unit
 
 val enable : __context:Context.t -> host:[`host] Ref.t -> unit
