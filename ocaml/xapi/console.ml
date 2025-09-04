@@ -38,25 +38,43 @@ type address =
    Depending on configuration, either unlimited connections are allowed,
    or only a single active connection per VM/host is allowed. *)
 module Connection_limit = struct
-  module VMSet = Set.Make (String)
+  module VMMap = Map.Make (String)
 
-  let active_connections : VMSet.t ref = ref VMSet.empty
+  let active_connections : int VMMap.t ref = ref VMMap.empty
 
   let mutex = Mutex.create ()
 
   let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-  let remove vm_id =
+  let drop vm_id =
     with_lock mutex (fun () ->
-        active_connections := VMSet.remove vm_id !active_connections
+        match VMMap.find_opt vm_id !active_connections with
+        | Some n when n > 1 ->
+            active_connections := VMMap.add vm_id (n - 1) !active_connections
+        | Some _ | None ->
+            active_connections := VMMap.remove vm_id !active_connections
     )
 
-  let try_add vm_id =
+  (* When the limit is disabled (false), we must still track the connection count for each vm_id.
+     This ensures that if the limit is later enabled (set to true), any existing connections are accounted for,
+     and the limit can be correctly enforced for subsequent connection attempts. *)
+  let try_add vm_id is_limit_enabled =
     with_lock mutex (fun () ->
-        if VMSet.mem vm_id !active_connections then
+        let count =
+          match VMMap.find_opt vm_id !active_connections with
+          | Some n ->
+              n
+          | None ->
+              0
+        in
+        if is_limit_enabled && count > 0 then (
+          debug
+            "limit_console_sessions is true. Console connection is rejected \
+             for VM %s, active connections: %d"
+            vm_id count ;
           false
-        else (
-          active_connections := VMSet.add vm_id !active_connections ;
+        ) else (
+          active_connections := VMMap.add vm_id (count + 1) !active_connections ;
           true
         )
     )
@@ -112,34 +130,37 @@ let address_of_console __context console : address option =
     ) ;
   address_option
 
+let real_proxy' vnc_port s =
+  try
+    Http_svr.headers s (Http.http_200_ok ()) ;
+    let vnc_sock =
+      match vnc_port with
+      | Port x ->
+          Unixext.open_connection_fd "127.0.0.1" x
+      | Path x ->
+          Unixext.open_connection_unix_fd x
+    in
+    (* Unixext.proxy closes fds itself so we must dup here *)
+    let s' = Unix.dup s in
+    debug "Connected; running proxy (between fds: %d and %d)"
+      (Unixext.int_of_file_descr vnc_sock)
+      (Unixext.int_of_file_descr s') ;
+    Unixext.proxy vnc_sock s' ;
+    debug "Proxy exited"
+  with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
+
 let real_proxy __context vm _ _ vnc_port s =
   let vm_id = Ref.string_of vm in
   let pool = Helpers.get_pool ~__context in
-  let is_limit_set = Db.Pool.get_limit_console_sessions ~__context ~self:pool in
-  if is_limit_set && not (Connection_limit.try_add vm_id) then
+  let is_limit_enabled =
+    Db.Pool.get_limit_console_sessions ~__context ~self:pool
+  in
+  if not (Connection_limit.try_add vm_id is_limit_enabled) then
     Http_svr.headers s (Http.http_503_service_unavailable ())
-  else (* Ensure we remove the vm from the set if any exceptions occur *)
-    finally
-      (fun () ->
-        try
-          Http_svr.headers s (Http.http_200_ok ()) ;
-          let vnc_sock =
-            match vnc_port with
-            | Port x ->
-                Unixext.open_connection_fd "127.0.0.1" x
-            | Path x ->
-                Unixext.open_connection_unix_fd x
-          in
-          (* Unixext.proxy closes fds itself so we must dup here *)
-          let s' = Unix.dup s in
-          debug "Connected; running proxy (between fds: %d and %d)"
-            (Unixext.int_of_file_descr vnc_sock)
-            (Unixext.int_of_file_descr s') ;
-          Unixext.proxy vnc_sock s' ;
-          debug "Proxy exited"
-        with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
-      )
-      (fun () -> if is_limit_set then Connection_limit.remove vm_id)
+  else
+    finally (* Ensure we drop the vm connection count if exceptions occur *)
+      (fun () -> real_proxy' vnc_port s)
+      (fun () -> Connection_limit.drop vm_id)
 
 let go_if_no_limit __context s f =
   let pool = Helpers.get_pool ~__context in
