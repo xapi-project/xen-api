@@ -207,14 +207,6 @@ let refresh_internal ~__context ~interface_tables ~self =
       Int64.to_string
   )
 
-let refresh ~__context ~host ~self =
-  let localhost = Helpers.get_localhost ~__context in
-  let interface_tables = make_tables ~__context ~host in
-  if not (host = localhost) then
-    Helpers.internal_error "refresh: Host mismatch, expected %s but got %s"
-      (Ref.string_of host) (Ref.string_of localhost) ;
-  refresh_internal ~__context ~interface_tables ~self
-
 let refresh_all ~__context ~host =
   let localhost = Helpers.get_localhost ~__context in
   if not (host = localhost) then

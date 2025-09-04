@@ -43,10 +43,6 @@
 
 (** {2 API functions} *)
 
-val refresh :
-  __context:Context.t -> host:[`host] Ref.t -> self:[`PIF] Ref.t -> unit
-(** Refresh the metadata of an existing PIF on the current host. *)
-
 val refresh_all : __context:Context.t -> host:[`host] Ref.t -> unit
 (** Refresh the metadata of all existing PIFs on the current host. *)
 
