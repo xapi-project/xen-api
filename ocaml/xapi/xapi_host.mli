@@ -79,7 +79,11 @@ val restart_agent : __context:'a -> host:'b -> unit
 
 val shutdown_agent : __context:Context.t -> unit
 
-val disable : __context:Context.t -> host:[`host] Ref.t -> unit
+val disable :
+     __context:Context.t
+  -> host:[`host] Ref.t
+  -> host_disabled_until_reboot:bool
+  -> unit
 
 val enable : __context:Context.t -> host:[`host] Ref.t -> unit
 

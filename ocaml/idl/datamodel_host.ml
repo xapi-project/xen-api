@@ -625,12 +625,35 @@ let disable =
         , "Puts the host into a state in which no new VMs can be started. \
            Currently active VMs on the host continue to execute."
         )
+      ; ( Changed
+        , "25.31.0"
+        , "Added host_disabled_until_reboot option to allow persisting the \
+           state after toolstack restarts"
+        )
       ]
     ~name:"disable"
     ~doc:
       "Puts the host into a state in which no new VMs can be started. \
        Currently active VMs on the host continue to execute."
-    ~params:[(Ref _host, "host", "The Host to disable")]
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The Host to disable"
+        ; param_release= rio_release
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "host_disabled_until_reboot"
+        ; param_doc=
+            "If true, the host will stay disabled after toolstack restarts, \
+             and will only be re-enabled after a reboot"
+        ; param_release= numbered_release "25.31.0"
+        ; param_default= Some (VBool false)
+        }
+      ]
     ~allowed_roles:(_R_POOL_OP ++ _R_CLIENT_CERT)
     ()
 

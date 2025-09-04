@@ -799,14 +799,16 @@ let shutdown_agent ~__context =
     ~reason:Xapi_hooks.reason__clean_shutdown ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
-let disable ~__context ~host =
+let disable ~__context ~host ~host_disabled_until_reboot =
   if Db.Host.get_enabled ~__context ~self:host then (
     info
       "Host.enabled: setting host %s (%s) to disabled because of user request"
       (Ref.string_of host)
       (Db.Host.get_hostname ~__context ~self:host) ;
     Db.Host.set_enabled ~__context ~self:host ~value:false ;
-    Xapi_host_helpers.user_requested_host_disable := true
+    Xapi_host_helpers.user_requested_host_disable := true ;
+    if host_disabled_until_reboot then
+      Localdb.put Constants.host_disabled_until_reboot "true";
   )
 
 let enable ~__context ~host =
@@ -3087,7 +3089,7 @@ let apply_updates ~__context ~self ~hash =
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise Api_errors.(Server_error (ha_is_enabled, [])) ;
     if Db.Host.get_enabled ~__context ~self then (
-      disable ~__context ~host:self ;
+      disable ~__context ~host:self ~host_disabled_until_reboot:false ;
       Xapi_host_helpers.update_allowed_operations ~__context ~self
     ) ;
     Xapi_host_helpers.with_host_operation ~__context ~self
