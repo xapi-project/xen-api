@@ -113,6 +113,8 @@ let host_disabled = add_error "HOST_DISABLED"
 
 let host_disabled_until_reboot = add_error "HOST_DISABLED_UNTIL_REBOOT"
 
+let host_disabled_across_reboot = add_error "HOST_DISABLED_ACROSS_REBOOT"
+
 let host_not_disabled = add_error "HOST_NOT_DISABLED"
 
 let host_not_live = add_error "HOST_NOT_LIVE"
