@@ -119,6 +119,8 @@ let pool_size_is_restricted ~__context =
   not (Pool_features.is_enabled ~__context Features.Pool_size)
 
 let bugreport_upload ~__context ~host:_ ~url ~options =
+  if url = "" then
+    raise Api_errors.(Server_error (invalid_value, ["url"; ""])) ;
   let proxy =
     if List.mem_assoc "http_proxy" options then
       List.assoc "http_proxy" options
