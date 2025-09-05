@@ -88,6 +88,8 @@ let service_type_to_service_info = function
 
 module type FIREWALL = sig
   val update_firewall_status : service:service_type -> status:status -> unit
+
+  val update_firewall_status_for_nbd : interfaces:string list -> unit
 end
 
 module Firewalld : FIREWALL = struct
@@ -113,6 +115,10 @@ module Firewalld : FIREWALL = struct
         Helpers.internal_error "Failed to update firewall service (%s)"
           service_info.name
     )
+
+  let update_firewall_status_for_nbd ~interfaces =
+    let status = match interfaces with _ :: _ -> Enabled | [] -> Disabled in
+    update_firewall_status ~service:Nbd ~status
 end
 
 module Iptables : FIREWALL = struct
@@ -137,6 +143,13 @@ module Iptables : FIREWALL = struct
         Helpers.internal_error "Failed to update firewall service (%s)"
           service_info.name
     )
+
+  let update_firewall_status_for_nbd ~interfaces =
+    let args = "set" :: interfaces in
+    Forkhelpers.execute_command_get_output
+      !Xapi_globs.nbd_firewall_config_script
+      args
+    |> ignore
 end
 
 let firewall_provider (backend : Xapi_globs.firewall_backend_type) :
