@@ -61,11 +61,7 @@ module Connection_limit = struct
   let try_add vm_id is_limit_enabled =
     with_lock mutex (fun () ->
         let count =
-          match VMMap.find_opt vm_id !active_connections with
-          | Some n ->
-              n
-          | None ->
-              0
+          VMMap.find_opt vm_id !active_connections |> Option.value ~default:0
         in
         if is_limit_enabled && count > 0 then (
           debug
@@ -155,12 +151,12 @@ let real_proxy __context vm _ _ vnc_port s =
   let is_limit_enabled =
     Db.Pool.get_limit_console_sessions ~__context ~self:pool
   in
-  if not (Connection_limit.try_add vm_id is_limit_enabled) then
-    Http_svr.headers s (Http.http_503_service_unavailable ())
-  else
+  if Connection_limit.try_add vm_id is_limit_enabled then
     finally (* Ensure we drop the vm connection count if exceptions occur *)
       (fun () -> real_proxy' vnc_port s)
       (fun () -> Connection_limit.drop vm_id)
+  else
+    Http_svr.headers s (Http.http_503_service_unavailable ())
 
 let go_if_no_limit __context s f =
   let pool = Helpers.get_pool ~__context in
