@@ -149,5 +149,6 @@ let destroy ~__context ~self =
 
 let upload ~__context ~self ~url ~options =
   let filename = Db.Host_crashdump.get_filename ~__context ~self in
-  let url = if url = "" then upload_url filename else url in
+  if url = "" then
+    raise Api_errors.(Server_error (invalid_value, ["url"; ""])) ;
   do_upload "host-crash-upload" (crash_dir ^ "/" ^ filename) url options
