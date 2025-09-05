@@ -18,3 +18,6 @@ val start : unit -> unit
 
 val stop : unit -> unit
 (** Stop the stats reporting thread. *)
+
+val incr_pool_vgpu_migration_count : unit -> unit
+(** Increments the pool_vgpu_migration_count by 1 . *)

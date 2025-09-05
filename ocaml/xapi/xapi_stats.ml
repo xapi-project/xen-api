@@ -16,6 +16,10 @@ module D = Debug.Make (struct let name = "xapi_stats" end)
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let pool_vgpu_migration_count : int Atomic.t = Atomic.make 0
+
+let incr_pool_vgpu_migration_count () = Atomic.incr pool_vgpu_migration_count
+
 let generate_master_stats ~__context =
   let session_count =
     Db.Session.get_all ~__context |> List.length |> Int64.of_int
@@ -44,7 +48,23 @@ let generate_master_stats ~__context =
         ~min:0.0 ~units:"sessions/s" ()
     )
   in
-  [session_count_ds; task_count_ds; session_count_change_ds]
+  let vgpu_migration_count =
+    Atomic.exchange pool_vgpu_migration_count 0 |> Int64.of_int
+  in
+  let vgpu_migration_count_ds =
+    ( Rrd.Host
+    , Ds.ds_make ~name:"pool_vgpu_migration_rate"
+        ~description:"Number of vGPU migrations occurred per second"
+        ~value:(Rrd.VT_Int64 vgpu_migration_count) ~ty:Rrd.Absolute
+        ~default:true ~min:0. ~units:"migrations/s" ()
+    )
+  in
+  [
+    session_count_ds
+  ; task_count_ds
+  ; session_count_change_ds
+  ; vgpu_migration_count_ds
+  ]
 
 let gc_debug = ref true
 
