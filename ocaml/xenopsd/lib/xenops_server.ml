@@ -4311,6 +4311,12 @@ module Observer = struct
       (fun () -> Tracing_export.set_export_interval interval)
       ()
 
+  let set_export_chunk_size _ dbg size =
+    debug "Observer.set_export_chunk_size : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing_export.set_export_chunk_size size)
+      ()
+
   let set_max_spans _ dbg spans =
     debug "Observer.set_max_spans : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
@@ -4321,6 +4327,12 @@ module Observer = struct
     debug "Observer.set_max_traces : dbg=%s" dbg ;
     Debug.with_thread_associated dbg
       (fun () -> Tracing.Spans.set_max_traces traces)
+      ()
+
+  let set_max_depth _ dbg depth =
+    debug "Observer.set_max_depth : dbg=%s" dbg ;
+    Debug.with_thread_associated dbg
+      (fun () -> Tracing.Spans.set_max_depth depth)
       ()
 
   let set_max_file_size _ dbg file_size =
@@ -4446,8 +4458,10 @@ let _ =
   Server.Observer.init (Observer.init ()) ;
   Server.Observer.set_trace_log_dir (Observer.set_trace_log_dir ()) ;
   Server.Observer.set_export_interval (Observer.set_export_interval ()) ;
+  Server.Observer.set_export_chunk_size (Observer.set_export_chunk_size ()) ;
   Server.Observer.set_max_spans (Observer.set_max_spans ()) ;
   Server.Observer.set_max_traces (Observer.set_max_traces ()) ;
+  Server.Observer.set_max_depth (Observer.set_max_depth ()) ;
   Server.Observer.set_max_file_size (Observer.set_max_file_size ()) ;
   Server.Observer.set_host_id (Observer.set_host_id ()) ;
   Server.Observer.set_compress_tracing_files

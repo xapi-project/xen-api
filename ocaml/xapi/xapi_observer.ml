@@ -48,9 +48,13 @@ module type ObserverInterface = sig
 
   val set_export_interval : __context:Context.t -> interval:float -> unit
 
+  val set_export_chunk_size : __context:Context.t -> size:int -> unit
+
   val set_max_spans : __context:Context.t -> spans:int -> unit
 
   val set_max_traces : __context:Context.t -> traces:int -> unit
+
+  val set_max_depth : __context:Context.t -> depth:int -> unit
 
   val set_max_file_size : __context:Context.t -> file_size:int -> unit
 
@@ -93,6 +97,10 @@ module Observer : ObserverInterface = struct
     debug "xapi Observer.set_export_interval" ;
     Tracing_export.set_export_interval interval
 
+  let set_export_chunk_size ~__context ~size =
+    debug "xapi Observer.set_export_chunk_size" ;
+    Tracing_export.set_export_chunk_size size
+
   let set_max_spans ~__context ~spans =
     debug "xapi Observer.set_max_spans" ;
     Tracing.Spans.set_max_spans spans
@@ -100,6 +108,10 @@ module Observer : ObserverInterface = struct
   let set_max_traces ~__context ~traces =
     debug "xapi Observer.set_max_traces" ;
     Tracing.Spans.set_max_traces traces
+
+  let set_max_depth ~__context ~depth =
+    debug "xapi Observer.set_max_depth" ;
+    Tracing.Spans.set_max_depth depth
 
   let set_max_file_size ~__context ~file_size =
     debug "xapi Observer.set_max_file_size" ;
@@ -189,6 +201,12 @@ module Xapi_cluster = struct
       let dbg = Context.string_of_task __context in
       S.Observer.set_export_interval dbg interval
 
+    let set_export_chunk_size ~__context ~size =
+      debug "xapi_cluster Observer.set_export_chunk_size" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_export_chunk_size dbg size
+
     let set_max_spans ~__context ~spans =
       debug "xapi_cluster Observer.set_max_spans" ;
       let module S = (val local_client ~__context : XAPI_CLUSTER) in
@@ -200,6 +218,12 @@ module Xapi_cluster = struct
       let module S = (val local_client ~__context : XAPI_CLUSTER) in
       let dbg = Context.string_of_task __context in
       S.Observer.set_max_traces dbg traces
+
+    let set_max_depth ~__context ~depth =
+      debug "xapi_cluster Observer.set_max_depth" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_max_depth dbg depth
 
     let set_max_file_size ~__context ~file_size =
       debug "xapi_cluster Observer.set_max_file_size" ;
@@ -370,9 +394,13 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
 
   let set_export_interval ~__context:_ ~interval:_ = ()
 
+  let set_export_chunk_size ~__context:_ ~size:_ = ()
+
   let set_max_spans ~__context:_ ~spans:_ = ()
 
   let set_max_traces ~__context:_ ~traces:_ = ()
+
+  let set_max_depth ~__context:_ ~depth:_ = ()
 
   let set_max_file_size ~__context:_ ~file_size:_ = ()
 
@@ -542,6 +570,10 @@ let set_export_interval ~__context interval component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
   Forwarder.set_export_interval ~__context ~interval
 
+let set_export_chunk_size ~__context size component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_export_chunk_size ~__context ~size
+
 let set_max_spans ~__context spans component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
   Forwarder.set_max_spans ~__context ~spans
@@ -549,6 +581,10 @@ let set_max_spans ~__context spans component =
 let set_max_traces ~__context traces component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
   Forwarder.set_max_traces ~__context ~traces
+
+let set_max_depth ~__context depth component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_max_depth ~__context ~depth
 
 let set_max_file_size ~__context file_size component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
@@ -585,8 +621,10 @@ let initialise_observer_component ~__context component =
 let initialise_observer_meta ~__context component =
   set_trace_log_dir ~__context !Xapi_globs.trace_log_dir component ;
   set_export_interval ~__context !Xapi_globs.export_interval component ;
+  set_export_chunk_size ~__context !Xapi_globs.export_chunk_size component ;
   set_max_spans ~__context !Xapi_globs.max_spans component ;
   set_max_traces ~__context !Xapi_globs.max_traces component ;
+  set_max_depth ~__context !Xapi_globs.max_span_depth component ;
   set_max_file_size ~__context !Xapi_globs.max_observer_file_size component ;
   set_host_id ~__context (Helpers.get_localhost_uuid ()) component ;
   set_compress_tracing_files ~__context

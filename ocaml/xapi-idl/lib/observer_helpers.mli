@@ -77,6 +77,11 @@ module ObserverAPI : functor (R : Idl.RPC) -> sig
   (** [set_export_interval dbg interval] notifies the fowarder that the interval
       between trace exports has been set to [interval]. *)
 
+  val set_export_chunk_size :
+    (debug_info -> int -> (unit, Errors.error) R.comp) R.res
+  (** [set_export_chunk_size dbg size] notifies the fowarder that the max size
+      of each chunk of finished spans exported has been set to [size]. *)
+
   val set_max_spans : (debug_info -> int -> (unit, Errors.error) R.comp) R.res
   (** [set_max_spans dbg spans] notifies the fowarder that the max number of
       spans has been set to [spans]. *)
@@ -84,6 +89,10 @@ module ObserverAPI : functor (R : Idl.RPC) -> sig
   val set_max_traces : (debug_info -> int -> (unit, Errors.error) R.comp) R.res
   (** [set_max_traces dbg traces] notifies the fowarder that the max number of
       traces has been set to [traces]. *)
+
+  val set_max_depth : (debug_info -> int -> (unit, Errors.error) R.comp) R.res
+  (** [set_max_depth dbg depth] notifies the fowarder that the max depth of
+      a span in a trace has been set to [depth]. *)
 
   val set_max_file_size :
     (debug_info -> int -> (unit, Errors.error) R.comp) R.res
@@ -135,9 +144,13 @@ module type Server_impl = sig
 
   val set_export_interval : context -> dbg:debug_info -> interval:float -> unit
 
+  val set_export_chunk_size : context -> dbg:debug_info -> size:int -> unit
+
   val set_max_spans : context -> dbg:debug_info -> spans:int -> unit
 
   val set_max_traces : context -> dbg:debug_info -> traces:int -> unit
+
+  val set_max_depth : context -> dbg:debug_info -> depth:int -> unit
 
   val set_max_file_size : context -> dbg:debug_info -> file_size:int -> unit
 
@@ -176,9 +189,13 @@ module Server : functor (_ : Server_impl) () -> sig
 
     val set_export_interval : (debug_info -> float -> unit) -> unit
 
+    val set_export_chunk_size : (debug_info -> int -> unit) -> unit
+
     val set_max_spans : (debug_info -> int -> unit) -> unit
 
     val set_max_traces : (debug_info -> int -> unit) -> unit
+
+    val set_max_depth : (debug_info -> int -> unit) -> unit
 
     val set_max_file_size : (debug_info -> int -> unit) -> unit
 
@@ -215,9 +232,13 @@ module Client : sig
 
   val set_export_interval : debug_info -> float -> unit
 
+  val set_export_chunk_size : debug_info -> int -> unit
+
   val set_max_spans : debug_info -> int -> unit
 
   val set_max_traces : debug_info -> int -> unit
+
+  val set_max_depth : debug_info -> int -> unit
 
   val set_max_file_size : debug_info -> int -> unit
 

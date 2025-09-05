@@ -222,6 +222,8 @@ module TraceContext = struct
 
   let empty = {traceparent= None; baggage= None}
 
+  let depth_key = "span.depth"
+
   let with_traceparent traceparent ctx = {ctx with traceparent}
 
   let with_baggage baggage ctx = {ctx with baggage}
@@ -229,6 +231,20 @@ module TraceContext = struct
   let traceparent_of ctx = ctx.traceparent
 
   let baggage_of ctx = ctx.baggage
+
+  let baggage_depth_of ctx =
+    Option.bind (baggage_of ctx) (List.assoc_opt depth_key)
+    |> Option.value ~default:"1"
+    |> int_of_string
+
+  let update_with_baggage k v ctx =
+    let new_baggage =
+      baggage_of ctx
+      |> Option.value ~default:[]
+      |> List.remove_assoc k
+      |> List.cons (k, v)
+    in
+    with_baggage (Some new_baggage) ctx
 
   let parse input =
     let open Astring.String in
@@ -322,22 +338,36 @@ module Span = struct
 
   let start ?(attributes = Attributes.empty)
       ?(trace_context : TraceContext.t option) ~name ~parent ~span_kind () =
-    let trace_id, extra_context =
+    let trace_id, extra_context, depth =
       match parent with
       | None ->
-          (Trace_id.make (), TraceContext.empty)
+          (Trace_id.make (), TraceContext.empty, 1)
       | Some span_parent ->
-          (span_parent.context.trace_id, span_parent.context.trace_context)
+          ( span_parent.context.trace_id
+          , span_parent.context.trace_context
+          , TraceContext.baggage_depth_of span_parent.context.trace_context + 1
+          )
     in
     let span_id = Span_id.make () in
+    let extra_context_with_depth =
+      TraceContext.(
+        update_with_baggage depth_key (string_of_int depth) extra_context
+      )
+    in
     let context : SpanContext.t =
-      {trace_id; span_id; trace_context= extra_context}
+      {trace_id; span_id; trace_context= extra_context_with_depth}
     in
     let context =
-      (* If trace_context is provided to the call, override any inherited trace context. *)
-      trace_context
-      |> Option.fold ~none:context
-           ~some:(Fun.flip SpanContext.with_trace_context context)
+      (* If trace_context is provided to the call, override any inherited trace
+         context except span.depth which should still be maintained. *)
+      match trace_context with
+      | Some tc ->
+          let tc_with_depth =
+            TraceContext.(update_with_baggage depth_key (string_of_int depth) tc)
+          in
+          SpanContext.with_trace_context tc_with_depth context
+      | None ->
+          context
     in
     (* Using gettimeofday over Mtime as it is better for sharing timestamps between the systems *)
     let begin_time = Unix.gettimeofday () in
@@ -472,6 +502,11 @@ module Spans = struct
   let max_traces = Atomic.make 1000
 
   let set_max_traces x = Atomic.set max_traces x
+
+  (* Default is much larger than the largest current traces, so effectively off *)
+  let max_depth = Atomic.make 100
+
+  let set_max_depth x = Atomic.set max_depth x
 
   let finished_spans = Atomic.make ([], 0)
 
@@ -713,12 +748,18 @@ module Tracer = struct
   let get_tracer ~name:_ = TracerProvider.get_current ()
 
   let span_of_span_context context name : Span.t =
+    let tc = SpanContext.context_of_span_context context in
+    let new_depth = TraceContext.baggage_depth_of tc in
+    let new_tc =
+      TraceContext.(update_with_baggage depth_key (string_of_int new_depth) tc)
+    in
+    let context = SpanContext.with_trace_context new_tc context in
     {
       context
     ; status= {status_code= Status.Unset; _description= None}
     ; name
     ; parent= None
-    ; span_kind= SpanKind.Client (* This will be the span of the client call*)
+    ; span_kind= SpanKind.Client (* This will be the span of the client call *)
     ; begin_time= Unix.gettimeofday ()
     ; end_time= None
     ; links= []
@@ -730,10 +771,32 @@ module Tracer = struct
       ?(span_kind = SpanKind.Internal) ~name ~parent () :
       (Span.t option, exn) result =
     let open TracerProvider in
-    (* Do not start span if the TracerProvider is disabled*)
+    let parent_depth =
+      Option.fold ~none:1
+        ~some:(fun parent ->
+          parent.Span.context
+          |> SpanContext.context_of_span_context
+          |> TraceContext.baggage_depth_of
+        )
+        parent
+    in
+    (* Do not start span if the TracerProvider is disabled *)
     if not t.enabled then
+      ok_none (* Do not start span if the max depth has been reached *)
+    else if parent_depth >= Atomic.get Spans.max_depth then (
+      let parent_trace_id =
+        Option.fold ~none:"None"
+          ~some:(fun p ->
+            p.Span.context
+            |> SpanContext.span_id_of_span_context
+            |> Span_id.to_string
+          )
+          parent
+      in
+      debug "Max_span_depth limit reached, not creating span %s (parent %s)"
+        name parent_trace_id ;
       ok_none
-    else
+    ) else
       let attributes = Attributes.merge_into t.attributes attributes in
       let span =
         Span.start ~attributes ?trace_context ~name ~parent ~span_kind ()
@@ -750,8 +813,17 @@ module Tracer = struct
           |> Spans.remove_from_spans
           |> Option.map (fun existing_span ->
                  let old_context = Span.get_context existing_span in
+                 let parent_trace_context = Span.get_trace_context parent in
+                 let new_depth =
+                   TraceContext.baggage_depth_of parent_trace_context + 1
+                 in
                  let new_context : SpanContext.t =
-                   let trace_context = span.Span.context.trace_context in
+                   let trace_context =
+                     TraceContext.(
+                       update_with_baggage depth_key (string_of_int new_depth)
+                         span.Span.context.trace_context
+                     )
+                   in
                    SpanContext.context
                      (SpanContext.trace_id_of_span_context parent.context)
                      old_context.span_id
@@ -759,7 +831,6 @@ module Tracer = struct
                  in
                  let updated_span = {existing_span with parent= Some parent} in
                  let updated_span = {updated_span with context= new_context} in
-
                  let () = Spans.add_to_spans ~span:updated_span in
                  updated_span
              )
@@ -926,7 +997,15 @@ module Propagator = struct
             let trace_context' =
               TraceContext.with_traceparent (Some traceparent) trace_context
             in
-            let carrier' = P.inject_into trace_context' carrier in
+            let new_depth =
+              TraceContext.baggage_depth_of trace_context' + 1 |> string_of_int
+            in
+            let trace_context'' =
+              TraceContext.(
+                update_with_baggage depth_key new_depth trace_context'
+              )
+            in
+            let carrier' = P.inject_into trace_context'' carrier in
             f carrier'
         | _ ->
             f carrier

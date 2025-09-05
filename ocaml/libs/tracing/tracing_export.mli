@@ -23,6 +23,13 @@ val set_export_interval : float -> unit
     Default is every [30.] seconds.
   *)
 
+val set_export_chunk_size : int -> unit
+(** [set_export_chunk_size size] sets the maximum number of finished spans that
+    can be exported in one chunk to [size].
+
+    Default is 10000 spans.
+  *)
+
 val set_host_id : string -> unit
 (** [set_host_id id] sets the id of the host to [id]. 
 

@@ -21,9 +21,13 @@
   
          Observer.set_endpoints [OPTION]… dbg uuid endpoints
   
+         Observer.set_export_chunk_size [OPTION]… dbg int
+  
          Observer.set_export_interval [OPTION]… dbg float
   
          Observer.set_host_id [OPTION]… dbg string
+  
+         Observer.set_max_depth [OPTION]… dbg int
   
          Observer.set_max_file_size [OPTION]… dbg int
   

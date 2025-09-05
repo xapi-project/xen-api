@@ -36,9 +36,13 @@ module Observer = struct
 
   let set_export_interval ctx ~dbg ~interval = unimplemented __FUNCTION__
 
+  let set_export_chunk_size ctx ~dbg ~size = unimplemented __FUNCTION__
+
   let set_max_spans ctx ~dbg ~spans = unimplemented __FUNCTION__
 
   let set_max_traces ctx ~dbg ~traces = unimplemented __FUNCTION__
+
+  let set_max_depth ctx ~dbg ~depth = unimplemented __FUNCTION__
 
   let set_max_file_size ctx ~dbg ~file_size = unimplemented __FUNCTION__
 

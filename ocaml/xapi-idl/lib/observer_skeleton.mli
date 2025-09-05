@@ -34,9 +34,13 @@ module Observer : sig
 
   val set_export_interval : context -> dbg:string -> interval:float -> unit
 
+  val set_export_chunk_size : context -> dbg:string -> size:int -> unit
+
   val set_max_spans : context -> dbg:string -> spans:int -> unit
 
   val set_max_traces : context -> dbg:string -> traces:int -> unit
+
+  val set_max_depth : context -> dbg:string -> depth:int -> unit
 
   val set_max_file_size : context -> dbg:string -> file_size:int -> unit
 

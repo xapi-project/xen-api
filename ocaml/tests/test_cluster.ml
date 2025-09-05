@@ -34,9 +34,11 @@ let test_clusterd_rpc ~__context call =
       | "Observer.init"
       | "Observer.set_trace_log_dir"
       | "Observer.set_export_interval"
+      | "Observer.set_export_chunk_size"
       | "Observer.set_host_id"
       | "Observer.set_max_traces"
       | "Observer.set_max_spans"
+      | "Observer.set_max_depth"
       | "Observer.set_max_file_size"
       | "Observer.set_compress_tracing_files" )
     , _ ) ->
