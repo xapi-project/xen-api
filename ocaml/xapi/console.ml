@@ -34,6 +34,48 @@ type address =
 
 (* console is listening on a Unix domain socket *)
 
+(* This module limits VNC console sessions to at most one per VM/host.
+   Depending on configuration, either unlimited connections are allowed,
+   or only a single active connection per VM/host is allowed. *)
+module Connection_limit = struct
+  module VMMap = Map.Make (String)
+
+  let active_connections : int VMMap.t ref = ref VMMap.empty
+
+  let mutex = Mutex.create ()
+
+  let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+
+  let drop vm_id =
+    with_lock mutex (fun () ->
+        match VMMap.find_opt vm_id !active_connections with
+        | Some n when n > 1 ->
+            active_connections := VMMap.add vm_id (n - 1) !active_connections
+        | Some _ | None ->
+            active_connections := VMMap.remove vm_id !active_connections
+    )
+
+  (* When the limit is disabled (false), we must still track the connection count for each vm_id.
+     This ensures that if the limit is later enabled (set to true), any existing connections are accounted for,
+     and the limit can be correctly enforced for subsequent connection attempts. *)
+  let try_add vm_id is_limit_enabled =
+    with_lock mutex (fun () ->
+        let count =
+          VMMap.find_opt vm_id !active_connections |> Option.value ~default:0
+        in
+        if is_limit_enabled && count > 0 then (
+          debug
+            "limit_console_sessions is true. Console connection is rejected \
+             for VM %s, active connections: %d"
+            vm_id count ;
+          false
+        ) else (
+          active_connections := VMMap.add vm_id (count + 1) !active_connections ;
+          true
+        )
+    )
+end
+
 let string_of_address = function
   | Port x ->
       "localhost:" ^ string_of_int x
@@ -84,7 +126,7 @@ let address_of_console __context console : address option =
     ) ;
   address_option
 
-let real_proxy __context _ _ vnc_port s =
+let real_proxy' vnc_port s =
   try
     Http_svr.headers s (Http.http_200_ok ()) ;
     let vnc_sock =
@@ -103,7 +145,28 @@ let real_proxy __context _ _ vnc_port s =
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let ws_proxy __context req protocol address s =
+let real_proxy __context vm _ _ vnc_port s =
+  let vm_id = Ref.string_of vm in
+  let pool = Helpers.get_pool ~__context in
+  let is_limit_enabled =
+    Db.Pool.get_limit_console_sessions ~__context ~self:pool
+  in
+  if Connection_limit.try_add vm_id is_limit_enabled then
+    finally (* Ensure we drop the vm connection count if exceptions occur *)
+      (fun () -> real_proxy' vnc_port s)
+      (fun () -> Connection_limit.drop vm_id)
+  else
+    Http_svr.headers s (Http.http_503_service_unavailable ())
+
+let go_if_no_limit __context s f =
+  let pool = Helpers.get_pool ~__context in
+  if Db.Pool.get_limit_console_sessions ~__context ~self:pool then
+    Http_svr.headers s (Http.http_503_service_unavailable ())
+  else
+    f ()
+
+let ws_proxy __context _ req protocol address s =
+  go_if_no_limit __context s @@ fun () ->
   let addr = match address with Port p -> string_of_int p | Path p -> p in
   let protocol =
     match protocol with `rfb -> "rfb" | `vt100 -> "vt100" | `rdp -> "rdp"
@@ -240,6 +303,7 @@ let handler proxy_fn (req : Request.t) s _ =
       (* only sessions with 'http/connect_console/host_console' permission *)
       let protocol = Db.Console.get_protocol ~__context ~self:console in
       (* can access dom0 host consoles *)
+      let vm = Db.Console.get_VM ~__context ~self:console in
       rbac_check_for_control_domain __context req console
         Rbac_static.permission_http_connect_console_host_console
           .Db_actions.role_name_label ;
@@ -247,7 +311,7 @@ let handler proxy_fn (req : Request.t) s _ =
       check_vm_is_running_here __context console ;
       match address_of_console __context console with
       | Some vnc_port ->
-          proxy_fn __context req protocol vnc_port s
+          proxy_fn __context vm req protocol vnc_port s
       | None ->
           Http_svr.headers s (Http.http_404_missing ())
   )

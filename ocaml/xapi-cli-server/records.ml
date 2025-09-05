@@ -1595,6 +1595,13 @@ let pool_record rpc session_id pool =
               ~value:(safe_bool_of_string "ssh-auto-mode" value)
           )
           ()
+      ; make_field ~name:"limit-console-sessions"
+          ~get:(fun () -> string_of_bool (x ()).API.pool_limit_console_sessions)
+          ~set:(fun x ->
+            Client.Pool.set_limit_console_sessions ~rpc ~session_id ~self:pool
+              ~value:(safe_bool_of_string "limit-console-sessions" x)
+          )
+          ()
       ]
   }
 

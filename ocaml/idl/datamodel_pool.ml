@@ -2250,6 +2250,12 @@ let t =
             "Indicates whether an HA-protected VM that is shut down from \
              inside (not through the API) should be automatically rebooted \
              when HA is enabled"
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "limit_console_sessions"
+            "When true, only one console connection per VM/host in the pool is \
+             accepted. Otherwise every connection for a VM/host's console is \
+             accepted. Note: when true, connection attempts via websocket will \
+             be rejected."
         ]
       )
     ()
