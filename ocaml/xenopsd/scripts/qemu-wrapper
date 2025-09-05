@@ -102,7 +102,15 @@ def prepare_exec():
                 g = open("/sys/fs/cgroup/cpu/%s/cgroup.procs" % cgroup_slice, 'w')
             except FileNotFoundError:
                 # cgroup-v2 path:
-                g = open("/sys/fs/cgroup/%s/cgroup.procs" % cgroup_slice, 'w')
+                # Note cgroups v2 "no internal processes" rule
+                # if cgroup.subtree_control is not empty, and we attach a pid
+                # into cgroup.procs, kernel would return EBUSY
+                cgroup_slice_dir = os.path.join("/sys/fs/cgroup", cgroup_slice)
+                qemu_dm_dir = os.path.join(cgroup_slice_dir, "qemu-dm")
+                if not os.path.exists(qemu_dm_dir):
+                    os.mkdir(qemu_dm_dir)
+                procs_file = os.path.join(qemu_dm_dir, "cgroup.procs")
+                g = open(procs_file, 'w')
             g.write(str(os.getpid()))
             g.close()
         except IOError as e:
