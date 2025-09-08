@@ -17,7 +17,16 @@ type service_type = Dlm | Nbd | Ssh | Vxlan | Http | Xenha
 type status = Enabled | Disabled
 
 module type FIREWALL = sig
-  val update_firewall_status : service:service_type -> status:status -> unit
+  val update_firewall_status :
+    ?interfaces:string list -> service_type -> status -> unit
+  (** [update_firewall_status] updates the firewalld service status based on the
+      status of the corresponding service.
+
+      [interfaces]  is a list of bridge names of the Network objects whose
+      purpose is `nbd` or `insecure_nbd`. [interfaces] is only used to controll
+      the NBD iptables port dynamically, to specify which interfaces are
+      permitted for NBD connections.
+  *)
 end
 
 module Firewalld : FIREWALL

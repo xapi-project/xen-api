@@ -3126,7 +3126,7 @@ let set_https_only ~__context ~self ~value =
             : Firewall.FIREWALL
           )
       in
-      Fw.update_firewall_status ~service:Firewall.Http ~status ;
+      Fw.update_firewall_status Firewall.Http status ;
       Db.Host.set_https_only ~__context ~self ~value
   | true when value = Db.Host.get_https_only ~__context ~self ->
       (* the new value is the same as the old value *)
@@ -3165,7 +3165,7 @@ let set_ssh_auto_mode ~__context ~self ~value =
        (e.g., when XAPI is down) to allow administrative access for troubleshooting. *)
     if value then (
       (* Ensure SSH is always enabled when SSH auto mode is on*)
-      Fw.update_firewall_status ~service:Firewall.Ssh ~status:Firewall.Enabled ;
+      Fw.update_firewall_status Firewall.Ssh Firewall.Enabled ;
       Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
       Xapi_systemctl.enable ~wait_until_success:false
         !Xapi_globs.ssh_monitor_service ;
@@ -3176,7 +3176,7 @@ let set_ssh_auto_mode ~__context ~self ~value =
         !Xapi_globs.ssh_monitor_service ;
       Xapi_systemctl.disable ~wait_until_success:false
         !Xapi_globs.ssh_monitor_service ;
-      Fw.update_firewall_status ~service:Firewall.Ssh ~status:Firewall.Disabled
+      Fw.update_firewall_status Firewall.Ssh Firewall.Disabled
     )
   with e ->
     error "Failed to configure SSH auto mode: %s" (Printexc.to_string e) ;
@@ -3194,7 +3194,7 @@ let disable_ssh_internal ~__context ~self =
           : Firewall.FIREWALL
         )
     in
-    Fw.update_firewall_status ~service:Firewall.Ssh ~status:Firewall.Disabled ;
+    Fw.update_firewall_status Firewall.Ssh Firewall.Disabled ;
     Db.Host.set_ssh_enabled ~__context ~self ~value:false
   with e ->
     error "Failed to disable SSH for host %s: %s" (Ref.string_of self)
@@ -3254,7 +3254,7 @@ let enable_ssh ~__context ~self =
           : Firewall.FIREWALL
         )
     in
-    Fw.update_firewall_status ~service:Firewall.Ssh ~status:Firewall.Enabled ;
+    Fw.update_firewall_status Firewall.Ssh Firewall.Enabled ;
     Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
     Xapi_systemctl.start ~wait_until_success:false !Xapi_globs.ssh_service ;
 

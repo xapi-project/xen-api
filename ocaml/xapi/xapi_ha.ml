@@ -972,7 +972,7 @@ let ha_start_daemon () =
         : Firewall.FIREWALL
       )
   in
-  Fw.update_firewall_status ~service:Firewall.Xenha ~status:Firewall.Enabled ;
+  Fw.update_firewall_status Firewall.Xenha Firewall.Enabled ;
   let (_ : string) = call_script ha_start_daemon [] in
   ()
 
@@ -1139,7 +1139,7 @@ let ha_stop_daemon __context _localhost =
       )
   in
   Monitor.stop () ;
-  Fw.update_firewall_status ~service:Firewall.Xenha ~status:Firewall.Disabled ;
+  Fw.update_firewall_status Firewall.Xenha Firewall.Disabled ;
 
   let (_ : string) = call_script ha_stop_daemon [] in
   ()

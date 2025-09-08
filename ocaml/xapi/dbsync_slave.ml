@@ -134,11 +134,6 @@ let refresh_localhost_info ~__context info =
   ) else
     Db.Host.remove_from_other_config ~__context ~self:host
       ~key:Xapi_globs.host_no_local_storage ;
-  let module F =
-    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
-        : Firewall.FIREWALL
-      )
-  in
   let status =
     match Db.Host.get_https_only ~__context ~self:host with
     | true ->
@@ -151,7 +146,7 @@ let refresh_localhost_info ~__context info =
         : Firewall.FIREWALL
       )
   in
-  Fw.update_firewall_status ~service:Firewall.Http ~status
+  Fw.update_firewall_status Firewall.Http status
 (*************** update database tools ******************)
 
 (** Record host memory properties in database *)
