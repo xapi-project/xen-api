@@ -151,6 +151,10 @@ let _dbv = "dbv"
 
 let _db_schema = "db_schema"
 
+let _xapi_build_version = "xapi_build"
+
+let _xen_version = "xen"
+
 (* When comparing two host versions, always treat a host that has platform_version defined as newer
  * than any host that does not have platform_version defined.
  * Substituting this default when a host does not have platform_version defined will be acceptable,
