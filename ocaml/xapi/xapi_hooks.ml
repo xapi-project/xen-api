@@ -102,13 +102,11 @@ let execute_hook ~__context ~script_name ~args ~reason =
       )
       scripts
 
-let execute_vm_hook ~__context ~reason ~vm =
-  let vmuuid = Db.VM.get_uuid ~__context ~self:vm in
-  execute_hook ~__context ~args:["-vmuuid"; vmuuid] ~reason
+let execute_vm_hook ~__context ~reason ~vm_uuid =
+  execute_hook ~__context ~args:["-vmuuid"; vm_uuid] ~reason
 
-let execute_host_hook ~__context ~reason ~host =
-  let uuid = Db.Host.get_uuid ~__context ~self:host in
-  execute_hook ~__context ~args:["-hostuuid"; uuid] ~reason
+let execute_host_hook ~__context ~reason ~host_uuid =
+  execute_hook ~__context ~args:["-hostuuid"; host_uuid] ~reason
 
 let execute_pool_hook ~__context ~reason =
   execute_hook ~__context ~args:[] ~reason
@@ -116,8 +114,9 @@ let execute_pool_hook ~__context ~reason =
 let host_pre_declare_dead ~__context ~host ~reason =
   info "Running host pre declare dead hook for %s" (Ref.string_of host) ;
   (* this could use power fencing *)
+  let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   execute_host_hook ~__context ~script_name:scriptname__host_pre_declare_dead
-    ~reason ~host ;
+    ~reason ~host_uuid ;
   if String.equal reason reason__dbdestroy then
     log_and_ignore_exn (fun () ->
         (* declare it as dead to the clustering daemon if any *)
@@ -132,11 +131,10 @@ let host_pre_declare_dead ~__context ~host ~reason =
             ()
     )
 
-let xapi_pre_shutdown ~__context ~host ~reason =
-  info "%s Running xapi pre shutdown hooks for %s" __FUNCTION__
-    (Ref.string_of host) ;
+let xapi_pre_shutdown ~__context ~host_uuid ~reason =
+  info "%s Running xapi pre shutdown hooks for %s" __FUNCTION__ host_uuid ;
   execute_host_hook ~__context ~script_name:scriptname__xapi_pre_shutdown
-    ~reason ~host
+    ~reason ~host_uuid
 
 (* Called when host died -- !! hook code in here to abort outstanding forwarded ops *)
 let internal_host_dead_hook __context host =
@@ -159,8 +157,9 @@ let internal_host_dead_hook __context host =
 let host_post_declare_dead ~__context ~host ~reason =
   (* Cancel outstanding tasks first-- should release necessary locks *)
   internal_host_dead_hook __context host ;
+  let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   execute_host_hook ~__context ~script_name:scriptname__host_post_declare_dead
-    ~reason ~host
+    ~reason ~host_uuid
 
 let pool_ha_overcommitted_hook ~__context =
   execute_pool_hook ~__context ~script_name:scriptname__pool_ha_overcommitted
