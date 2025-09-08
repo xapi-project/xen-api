@@ -4,8 +4,6 @@
 #
 # Upload a bugreport to the support website
 
-DEFAULT_BASE_URL="ftp://support.xensource.com/uploads/"
-
 # If the user supplies a bare filename without a URI scheme,
 # we ignore it -- if they _really_ want to upload named files
 # to our support server, they can specify the URI scheme.
@@ -19,7 +17,7 @@ if [ -z "$FILENAME" ]; then
   . @INVENTORY@
   FILENAME=${INSTALLATION_UUID}-${now}
 fi
-[ ! -z "${BASE_URL}" ] || BASE_URL="${DEFAULT_BASE_URL}"
+[ -n "${BASE_URL}" ] || exit 1
 
 URL="${BASE_URL}${FILENAME}"
 
