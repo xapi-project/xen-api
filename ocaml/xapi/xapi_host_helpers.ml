@@ -422,17 +422,33 @@ let consider_enabling_host_nolock ~__context =
       else
         f ()
     in
+    let host_auto_enable =
+      try bool_of_string (Localdb.get Constants.host_auto_enable)
+      with _ -> true
+    in
     if !Xapi_globs.on_system_boot then (
       debug "Host.enabled: system has just restarted" ;
       if_no_pending_guidances (fun () ->
           debug
             "Host.enabled: system has just restarted and no pending mandatory \
-             guidances: setting localhost to enabled" ;
-          Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
-          update_allowed_operations ~__context ~self:localhost ;
+             guidances: clearing host_disabled_until_reboot" ;
           Localdb.put Constants.host_disabled_until_reboot "false" ;
-          (* Start processing pending VM powercycle events *)
-          Local_work_queue.start_vm_lifecycle_queue ()
+
+          (* If the host was persistently disabled, honour it *)
+          if host_auto_enable then (
+            debug
+              "Host.enabled: system has just restarted, no pending mandatory \
+               guidances and host_auto_enable=true: setting localhost to \
+               enabled" ;
+            Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+            update_allowed_operations ~__context ~self:localhost ;
+            (* Start processing pending VM powercycle events *)
+            Local_work_queue.start_vm_lifecycle_queue ()
+          ) else
+            debug
+              "Host.enabled: system has just restarted, no pending mandatory \
+               guidances, but host_auto_enable=false: Leaving host disabled \
+               until manually re-enabled by the user"
       )
     ) else if
         try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
@@ -446,14 +462,22 @@ let consider_enabling_host_nolock ~__context =
         "Host.enabled: system not just rebooted && host_disabled_until_reboot \
          not set" ;
       if_no_pending_guidances (fun () ->
-          debug
-            "Host.enabled: system not just rebooted && \
-             host_disabled_until_reboot not set and no pending mandatory \
-             guidances: setting localhost to enabled" ;
-          Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
-          update_allowed_operations ~__context ~self:localhost ;
-          (* Start processing pending VM powercycle events *)
-          Local_work_queue.start_vm_lifecycle_queue ()
+          if host_auto_enable then (
+            debug
+              "Host.enabled: system not just rebooted && \
+               host_disabled_until_reboot not set and no pending mandatory \
+               guidances and host_auto_enable=true: setting localhost to \
+               enabled" ;
+            Db.Host.set_enabled ~__context ~self:localhost ~value:true ;
+            update_allowed_operations ~__context ~self:localhost ;
+            (* Start processing pending VM powercycle events *)
+            Local_work_queue.start_vm_lifecycle_queue ()
+          ) else
+            debug
+              "Host.enabled: system not just rebooted && \
+               host_disabled_until_reboot not set and no pending mandatory \
+               guidances but host_auto_enable=false: Leaving host disabled \
+               until manually re-enabled by the user"
       )
     ) ;
     (* If Host has been enabled and HA is also enabled then tell the master to recompute its plan *)

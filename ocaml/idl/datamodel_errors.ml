@@ -648,6 +648,11 @@ let _ =
       "The specified server is disabled and cannot be re-enabled until after \
        it has rebooted."
     () ;
+  error Api_errors.host_disabled_indefinitely ["host"]
+    ~doc:
+      "The specified server is disabled and can only be re-enabled manually \
+       with Host.enable."
+    () ;
   error Api_errors.no_hosts_available []
     ~doc:"There were no servers available to complete the specified operation."
     () ;
