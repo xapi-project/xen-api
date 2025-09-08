@@ -892,6 +892,8 @@ let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
 
 let kpatch_list = ref "/usr/sbin/kpatch list"
 
+let guest_service_keys = ref ["pvs_target/target_software_version"]
+
 let modprobe_path = ref "/usr/sbin/modprobe"
 
 let usb_path = "usb_path"
