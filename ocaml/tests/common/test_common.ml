@@ -306,7 +306,7 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ?(update_sync_day = 0L) ?(update_sync_enabled = false)
     ?(recommendations = []) ?(license_server = [])
     ?(ha_reboot_vm_on_internal_shutdown = true)
-    ?(limit_console_sessions = false) () =
+    ?(limit_console_sessions = false) ?(vm_console_idle_timeout = 0L) () =
   let pool_ref = Ref.make () in
   Db.Pool.create ~__context ~ref:pool_ref ~uuid:(make_uuid ()) ~name_label
     ~name_description ~master ~default_SR ~suspend_image_SR ~crash_dump_SR
@@ -327,7 +327,8 @@ let make_pool ~__context ~master ?(name_label = "") ?(name_description = "")
     ~ext_auth_cache_enabled:false ~ext_auth_cache_size:50L
     ~ext_auth_cache_expiry:300L ~update_sync_frequency ~update_sync_day
     ~update_sync_enabled ~recommendations ~license_server
-    ~ha_reboot_vm_on_internal_shutdown ~limit_console_sessions ;
+    ~ha_reboot_vm_on_internal_shutdown ~limit_console_sessions
+    ~vm_console_idle_timeout ;
   pool_ref
 
 let default_sm_features =

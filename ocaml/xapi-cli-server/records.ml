@@ -1602,6 +1602,15 @@ let pool_record rpc session_id pool =
               ~value:(safe_bool_of_string "limit-console-sessions" x)
           )
           ()
+      ; make_field ~name:"vm-console-idle-timeout"
+          ~get:(fun () ->
+            (x ()).API.pool_vm_console_idle_timeout |> Int64.to_string
+          )
+          ~set:(fun x ->
+            Client.Pool.set_vm_console_idle_timeout ~rpc ~session_id ~self:pool
+              ~value:(safe_i64_of_string "vm-console-idle-timeout" x)
+          )
+          ()
       ]
   }
 
