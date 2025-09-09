@@ -227,11 +227,13 @@ module MemFS = struct
       match (path, fs) with
       | [], Dir d ->
           d
-      | p :: ps, Dir d ->
-          if StringMap.mem p !d then
-            aux ps (StringMap.find p !d)
-          else
+      | p :: ps, Dir d -> (
+        match StringMap.find_opt p !d with
+        | Some x ->
+            aux ps x
+        | None ->
             raise Not_dir
+      )
       | _, Leaf _ ->
           raise Not_dir
     in
@@ -285,14 +287,13 @@ module MemFS = struct
           (fun p ->
             let dir = dir_locked (dirname p) in
             let deletable =
-              if StringMap.mem (filename p) !dir then
-                match StringMap.find (filename p) !dir with
-                | Dir child ->
-                    StringMap.is_empty !child
-                | Leaf _ ->
-                    true
-              else
-                false
+              match StringMap.find_opt (filename p) !dir with
+              | Some (Dir child) ->
+                  StringMap.is_empty !child
+              | Some (Leaf _) ->
+                  true
+              | None ->
+                  false
             in
             if deletable then dir := StringMap.remove (filename p) !dir
           )

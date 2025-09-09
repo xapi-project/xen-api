@@ -421,6 +421,10 @@ class Policy:
         :param line: (str) single line of policy file
         :return: None
         """
+        # 0. skip empty lines
+        if line.strip() == '':
+            return
+
         # 1. remove comments
         # ^([^#]*)(#.*)?$
         i = line.find("#")

@@ -29,17 +29,6 @@ jobs:
         shell: bash
         run: opam exec -- make sdk
 
-      # sdk-ci runs some Go unit tests.
-      # This setting ensures that SDK date time
-      # tests are run on a machine that
-      # isn't using UTC
-      - name: Set Timezone to Tokyo for datetime tests
-        run: |
-          sudo timedatectl set-timezone Asia/Tokyo
-
-      - name: Run CI for SDKs
-        uses: ./.github/workflows/sdk-ci
-
       - name: Store C SDK source
         uses: actions/upload-artifact@v4
         with:
@@ -60,7 +49,13 @@ jobs:
           name: SDK_Source_PowerShell
           path: _build/install/default/share/powershell/*
 
-      - name: Store Go SDK Artifacts
+      - name: Store Java SDK source
+        uses: actions/upload-artifact@v4
+        with:
+          name: SDK_Source_Java
+          path: _build/install/default/share/java/*
+
+      - name: Store Go SDK source
         uses: actions/upload-artifact@v4
         with:
           name: SDK_Artifacts_Go
@@ -69,11 +64,16 @@ jobs:
             !_build/install/default/share/go/dune
             !_build/install/default/share/go/**/*_test.go
 
-      - name: Store Java SDK source
-        uses: actions/upload-artifact@v4
-        with:
-          name: SDK_Source_Java
-          path: _build/install/default/share/java/*
+      # sdk-ci runs some Go unit tests.
+      # This setting ensures that SDK date time
+      # tests are run on a machine that
+      # isn't using UTC
+      - name: Set Timezone to Tokyo for datetime tests
+        run: |
+          sudo timedatectl set-timezone Asia/Tokyo
+
+      - name: Run CI for SDKs
+        uses: ./.github/workflows/sdk-ci
 
       - name: Trim dune cache
         run: opam exec -- dune cache trim --size=2GiB
@@ -188,7 +188,7 @@ jobs:
       - name: Build C# SDK
         shell: pwsh
         run: |
-          dotnet build source/src `
+          dotnet build source/src/XenServer.csproj `
           --disable-build-servers `
           --configuration Release `
           -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
@@ -205,7 +205,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["6", "8"]
+        dotnet: ["8"]
     needs: build-csharp-sdk
     runs-on: windows-2022
     permissions:

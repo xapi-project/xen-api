@@ -42,15 +42,7 @@ namespace XenAPI
         /// </summary>
         public abstract void UpdateFrom(S record);
 
-        /// <summary>
-        /// Save any changed fields to the server.
-        /// This method is usually invoked on a thread pool thread.
-        /// </summary>
-        /// <param name="session"></param>
-        /// <param name="serverOpaqueRef"/>
-        /// <param name="serverObject">Changes are sent to the server if the field in "this"
-        /// is different from serverObject. Can be the object in the cache, or another reference
-        /// object that we want to save changes to.</param>
+        [Obsolete("Use the calls setting individual fields of the API object instead.")]
         public abstract string SaveChanges(Session session, string serverOpaqueRef, S serverObject);
 
         public string opaque_ref { get; set; }

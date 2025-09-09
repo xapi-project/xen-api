@@ -105,6 +105,7 @@ let render_converts destdir =
            let json : Mustache.Json.t = of_json params in
            render_template template json ()
        )
+    |> List.sort_uniq compare
     |> String.concat ""
   in
   let rendered =

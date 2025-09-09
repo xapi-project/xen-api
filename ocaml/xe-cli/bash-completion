@@ -342,7 +342,7 @@ _xe()
                 __xe_debug "triggering autocompletion for type, class is '$fst'"
 
                 if [[ "$fst" == "vbd" ]]; then
-                    set_completions 'Disk,CD' "$value"
+                    set_completions 'Disk,CD,Floppy' "$value"
                 elif [[ "$fst" == "vdi" ]]; then
                     set_completions 'system,user,suspend,crashdump' "$value"
                 elif [[ "$fst" == "sr" ]]; then
