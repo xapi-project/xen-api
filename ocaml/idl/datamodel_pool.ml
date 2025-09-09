@@ -2256,6 +2256,13 @@ let t =
              accepted. Otherwise every connection for a VM/host's console is \
              accepted. Note: when true, connection attempts via websocket will \
              be rejected."
+        ; field ~writer_roles:_R_POOL_OP ~qualifier:RW ~lifecycle:[] ~ty:Int
+            ~default_value:(Some (VInt 0L)) "vm_console_idle_timeout"
+            "The maximum time (in seconds) that a VM's console can be idle \
+             before it is automatically disconnected. The default value 0 \
+             means never timeout. This setting applies only to VM consoles; \
+             for host consoles, use the separate parameter \
+             'host.console_idle_timeout'."
         ]
       )
     ()
