@@ -1,5 +1,5 @@
 open Bechamel
-open Xapi_stdext_encodings.Encodings
+open Xapi_stdext_encodings
 
 let test name f =
   Test.make_indexed_with_resource ~name ~args:[10; 1000; 10000]
@@ -10,6 +10,6 @@ let test name f =
 
 let benchmarks =
   Test.make_grouped ~name:"Encodings.validate"
-    [test "UTF8_XML" UTF8_XML.validate]
+    [test "UTF8.XML" Utf8.XML.is_valid]
 
 let () = Bechamel_simple_cli.cli benchmarks
