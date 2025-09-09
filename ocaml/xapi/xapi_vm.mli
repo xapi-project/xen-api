@@ -454,6 +454,6 @@ val remove_from_blocked_operations :
 val sysprep :
      __context:Context.t
   -> self:API.ref_VM
-  -> unattend:string
+  -> unattend:SecretString.t
   -> timeout:float
   -> unit

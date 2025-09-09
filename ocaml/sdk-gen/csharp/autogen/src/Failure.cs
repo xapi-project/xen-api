@@ -31,9 +31,11 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Resources;
+#if !(NET8_0_OR_GREATER)
 using System.Runtime.Serialization;
 using System.Text.RegularExpressions;
 using System.Xml;
+#endif
 using Newtonsoft.Json.Linq;
 
 
@@ -88,12 +90,14 @@ namespace XenAPI
             ParseExceptionMessage();
         }
 
+#if !(NET8_0_OR_GREATER)
         protected Failure(SerializationInfo info, StreamingContext context)
             : base(info, context)
         {
             errorDescription = (List<string>)info.GetValue("errorDescription", typeof(List<string>));
             errorText = info.GetString("errorText");
         }
+#endif
 
         #endregion
 
@@ -174,7 +178,7 @@ namespace XenAPI
         {
             return Message;
         }
-
+#if !(NET8_0_OR_GREATER)
         public override void GetObjectData(SerializationInfo info, StreamingContext context)
         {
             if (info == null)
@@ -185,5 +189,6 @@ namespace XenAPI
 
             base.GetObjectData(info, context);
         }
+#endif
     }
 }
