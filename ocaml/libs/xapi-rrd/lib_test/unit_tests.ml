@@ -147,46 +147,22 @@ let absolute_rrd =
 
 let absolute_rrd_CA_404597 () =
   let rra = rra_create CF_Average 100 1 0.5 in
-  let rra2 = rra_create CF_Average 100 10 0.5 in
-  let rra3 = rra_create CF_Average 100 100 0.5 in
-  let rra4 = rra_create CF_Average 100 1000 0.5 in
-  let ts = 1000000000.0 in
+  let ts = 0.0 in
   let ds =
-    ds_create "foo" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
+    ds_create "foo" Absolute ~mrhb:1000.0 ~min:0. ~max:infinity (VT_Float 0.0)
   in
-  let ds2 =
-    ds_create "bar" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
-  in
-  let ds3 =
-    ds_create "baz" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
-  in
-  let ds4 =
-    ds_create "boo" Absolute ~mrhb:10.0 ~min:0. ~max:infinity (VT_Float 0.0)
-  in
-  let rrd = rrd_create [|ds; ds2; ds3; ds4|] [|rra; rra2; rra3; rra4|] 1L ts in
+  let rrd = rrd_create [|ds|] [|rra|] 1L ts in
   let id = Identity in
   for i = 1 to 100000 do
-    let t = 1000000.0 +. (0.7 *. float_of_int i) in
+    let t = 300. *. float_of_int i in
     let ((_, val1) as v1) =
-      (0, {value= VT_Float (0.5 +. (0.5 *. sin (t /. 10.0))); transform= id})
+      (0, {value= VT_Float (300. *. float_of_int i); transform= id})
     in
-    let ((_, val2) as v2) =
-      (1, {value= VT_Float (1.5 +. (0.5 *. cos (t /. 80.0))); transform= id})
-    in
-    let ((_, val3) as v3) =
-      (2, {value= VT_Float (3.5 +. (0.5 *. sin (t /. 700.0))); transform= id})
-    in
-    let ((_, val4) as v4) =
-      (3, {value= VT_Float (6.5 +. (0.5 *. cos (t /. 5000.0))); transform= id})
-    in
-    ds_update rrd t [|v1; v2; v3; v4|] false ;
+    ds_update rrd t [|v1|] false ;
 
-    Array.iter2
-      (fun ds value ->
-        compare_float __LOC__ ds.ds_value
-          (float_of_string (ds_value_to_string value.value))
-      )
-      rrd.rrd_dss [|val1; val2; val3; val4|]
+    compare_float __LOC__
+      (float_of_string (ds_value_to_string val1.value) /. 300.)
+      rrd.rrd_dss.(0).ds_value
   done
 
 (** Verify that Gauge data soruce values are correctly handled by the RRD lib

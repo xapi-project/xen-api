@@ -188,7 +188,7 @@ jobs:
       - name: Build C# SDK
         shell: pwsh
         run: |
-          dotnet build source/src `
+          dotnet build source/src/XenServer.csproj `
           --disable-build-servers `
           --configuration Release `
           -p:Version=${{ env.XAPI_VERSION_NUMBER }}-prerelease-unsigned `
@@ -205,7 +205,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        dotnet: ["6", "8"]
+        dotnet: ["8"]
     needs: build-csharp-sdk
     runs-on: windows-2022
     permissions:

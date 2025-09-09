@@ -18,6 +18,7 @@ type error =
   | Other of string
   | VM_CDR_not_found
   | VM_CDR_eject
+  | VM_CDR_insert
   | VM_misses_feature
   | VM_not_running
   | VM_sysprep_timeout
@@ -31,9 +32,9 @@ val on_startup : __context:Context.t -> unit
 val sysprep :
      __context:Context.t
   -> vm:API.ref_VM
-  -> unattend:string
+  -> unattend:SecretString.t
   -> timeout:float
   -> unit
 (** Execute sysprep on [vm] using script [unattend]. This requires
-    driver support from the VM and is checked. [unattend:string] must
+    driver support from the VM and is checked. [unattend] must
     not exceed 32kb. Raised [Failure] that must be handled, *)

@@ -2375,7 +2375,7 @@ let sysprep =
     ~params:
       [
         (Ref _vm, "self", "The VM")
-      ; (String, "unattend", "XML content passed to sysprep")
+      ; (SecretString, "unattend", "XML content passed to sysprep")
       ; (Float, "timeout", "timeout in seconds for expected reboot")
       ]
     ~doc:

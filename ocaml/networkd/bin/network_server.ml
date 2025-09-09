@@ -715,8 +715,7 @@ module Interface = struct
   let set_dns _ dbg ~name ~nameservers ~domains =
     Debug.with_thread_associated dbg
       (fun () ->
-        update_config name
-          {(get_config name) with dns= Some (nameservers, domains)} ;
+        update_config name {(get_config name) with dns= (nameservers, domains)} ;
         debug "Configuring DNS for %s: nameservers: [%s]; domains: [%s]" name
           (String.concat ", " (List.map Unix.string_of_inet_addr nameservers))
           (String.concat ", " domains) ;
@@ -889,7 +888,7 @@ module Interface = struct
                   ; ipv6_conf
                   ; ipv6_gateway
                   ; ipv4_routes
-                  ; dns
+                  ; dns= nameservers, domains
                   ; mtu
                   ; ethtool_settings
                   ; ethtool_offload
@@ -898,10 +897,15 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    match dns with
-                    | Some (nameservers, domains) ->
+                    (* We only apply the DNS settings when not in a DHCP mode
+                       to avoid conflicts. The `dns` field
+                       should really be an option type so that we don't have to
+                       derive the intention of the caller by looking at other
+                       fields. *)
+                    match (ipv4_conf, ipv6_conf) with
+                    | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
                         set_dns () dbg ~name ~nameservers ~domains
-                    | None ->
+                    | _ ->
                         ()
                 ) ;
                 exec (fun () -> set_ipv4_conf dbg name ipv4_conf) ;
