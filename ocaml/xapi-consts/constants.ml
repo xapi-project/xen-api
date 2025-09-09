@@ -233,6 +233,11 @@ let master_scripts = "master_scripts"
    This will prevent anyone from re-enabling the host and starting VMs on it during shutdown. *)
 let host_disabled_until_reboot = "host_disabled_until_reboot"
 
+(* This flag is set to false when the host is forcibly disabled in a
+   persistent way - it will not be re-enabled on startup (even after reboots)
+   until manually directed by the user *)
+let host_auto_enable = "host_auto_enable"
+
 (* Set when shutting down and rebooting. If we come up and finds no new crashdump and HA is enabled,
    we assume the host was fenced. *)
 let host_restarted_cleanly = "host_restarted_cleanly"
