@@ -101,8 +101,7 @@ let register ~__context =
               : Firewall.FIREWALL
             )
         in
-        Fw.update_firewall_status ~service:Firewall.Ssh
-          ~status:Firewall.Disabled ;
+        Fw.update_firewall_status Firewall.Ssh Firewall.Disabled ;
         Xapi_host.disable_ssh ~__context ~self ;
         Xapi_host.set_ssh_auto_mode ~__context ~self ~value:true
       )

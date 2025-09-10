@@ -260,7 +260,7 @@ module Daemon = struct
               : Firewall.FIREWALL
             )
         in
-        Fw.update_firewall_status ~service:Firewall.Dlm ~status
+        Fw.update_firewall_status Firewall.Dlm status
 
   let service = "xapi-clusterd"
 

@@ -790,8 +790,7 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                         : Firewall.FIREWALL
                       )
                   in
-                  Fw.update_firewall_status ~service:Firewall.Vxlan
-                    ~status:Firewall.Enabled
+                  Fw.update_firewall_status Firewall.Vxlan Firewall.Enabled
               | `gre ->
                   ()
             )
@@ -854,8 +853,7 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                         : Firewall.FIREWALL
                       )
                   in
-                  Fw.update_firewall_status ~service:Firewall.Vxlan
-                    ~status:Firewall.Disabled
+                  Fw.update_firewall_status Firewall.Vxlan Firewall.Disabled
                 )
             | `gre ->
                 ()
