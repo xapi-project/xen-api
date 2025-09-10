@@ -3355,3 +3355,26 @@ let set_console_idle_timeout ~__context ~self ~value =
     error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
     Helpers.internal_error "Failed to set console timeout: %Ld: %s" value
       (Printexc.to_string e)
+
+let get_nbd_interfaces ~__context ~self =
+  let pifs = Db.Host.get_PIFs ~__context ~self in
+  let allowed_connected_networks =
+    (* We use Valid_ref_list to continue processing the list in case some
+       network refs are null or invalid *)
+    Valid_ref_list.filter_map
+      (fun pif ->
+        let network = Db.PIF.get_network ~__context ~self:pif in
+        let purpose = Db.Network.get_purpose ~__context ~self:network in
+        if List.mem `nbd purpose || List.mem `insecure_nbd purpose then
+          Some network
+        else
+          None
+      )
+      pifs
+  in
+  let interfaces =
+    List.map
+      (fun network -> Db.Network.get_bridge ~__context ~self:network)
+      allowed_connected_networks
+  in
+  Xapi_stdext_std.Listext.List.setify interfaces
