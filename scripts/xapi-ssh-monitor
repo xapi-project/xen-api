@@ -165,20 +165,32 @@ class XapiMonitor:
         """
         action = "starting" if enable else "stopping"
         try:
+            firewall_cmd = '/usr/bin/firewall-cmd'
+            use_firewalld = os.path.exists(firewall_cmd)
             if enable:
+                if use_firewalld:
+                    ret0, _, stderr0 = self._run_command([firewall_cmd, '--add-service', 'ssh'])
+                else:
+                    ret0, stderr0 = 0, "n/a"
                 ret1, _, stderr1 = self._run_command(['systemctl', 'enable', 'sshd'])
                 ret2, _, stderr2 = self._run_command(['systemctl', 'start', 'sshd'])
-                success = (ret1 == 0 and ret2 == 0)
+                success = (ret0 == 0 and ret1 == 0 and ret2 == 0)
             else:
                 ret2, _, stderr2 = self._run_command(['systemctl', 'stop', 'sshd'])
                 ret1, _, stderr1 = self._run_command(['systemctl', 'disable', 'sshd'])
-                success = (ret1 == 0 and ret2 == 0)
+                if use_firewalld:
+                    ret0, _, stderr0 = self._run_command([firewall_cmd, '--remove-service', 'ssh'])
+                else:
+                    ret0, stderr0 = 0, "n/a"
+                success = (ret0 == 0 and ret1 == 0 and ret2 == 0)
                 
             if success:
                 self.logger.info(f"SSH service {action} successful")
             else:
-                self.logger.error(f"SSH service {action} failed: enable/disable stderr: {stderr1}, start/stop stderr: {stderr2}")
-                
+                err_msg = f"""SSH service {action} failed: enable/disable firewalld service stderr: {stderr0},
+                    enable/disable sshd stderr: {stderr1}, start/stop sshd stderr: {stderr2} """
+                self.logger.error(err_msg)
+
             return success
         except Exception as e:
             self.logger.error(f"SSH service {action} failed with exception: {e}")
