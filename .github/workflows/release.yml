@@ -86,7 +86,7 @@ jobs:
       - name: Retrieve PowerShell 7.x SDK distribution artifacts
         uses: actions/download-artifact@v4
         with:
-          name: SDK_Binaries_XenServerPowerShell_NET6
+          name: SDK_Binaries_XenServerPowerShell_NET8
           path: sdk_powershell_7x/
 
       - name: Package C SDK artifacts for deployment

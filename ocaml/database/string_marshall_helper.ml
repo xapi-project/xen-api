@@ -22,9 +22,7 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 let ensure_utf8_xml string =
   let length = String.length string in
-  let prefix =
-    Xapi_stdext_encodings.Encodings.UTF8_XML.longest_valid_prefix string
-  in
+  let prefix = Xapi_stdext_encodings.Utf8.XML.longest_valid_prefix string in
   if length > String.length prefix then
     D.warn "Whilst doing 'set' of structured field, string truncated to: '%s'."
       prefix ;

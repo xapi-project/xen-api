@@ -2501,6 +2501,8 @@ functor
             let snapshot = Db.VM.get_record ~__context ~self:vm in
             reserve_memory_for_vm ~__context ~vm ~host ~snapshot
               ~host_op:`vm_migrate (fun () ->
+                if Db.VM.get_VGPUs ~__context ~self:vm <> [] then
+                  Xapi_stats.incr_pool_vgpu_migration_count () ;
                 forward_vm_op ~local_fn ~__context ~vm ~remote_fn
             )
         ) ;
@@ -2622,6 +2624,8 @@ functor
                   assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
                     ~vif_map ~vgpu_map ~options
               ) ;
+              if vgpu_map <> [] then
+                Xapi_stats.incr_pool_vgpu_migration_count () ;
               forward_migrate_send ()
           )
         in
@@ -3345,13 +3349,15 @@ functor
           (host_uuid ~__context host) ;
         Local.Host.get_management_interface ~__context ~host
 
-      let disable ~__context ~host =
-        info "Host.disable: host = '%s'" (host_uuid ~__context host) ;
+      let disable ~__context ~host ~auto_enable =
+        info "Host.disable: host = '%s', auto_enable = '%b'"
+          (host_uuid ~__context host)
+          auto_enable ;
         (* Block call if this would break our VM restart plan *)
         Xapi_ha_vm_failover.assert_host_disable_preserves_ha_plan ~__context
           host ;
-        let local_fn = Local.Host.disable ~host in
-        let remote_fn = Client.Host.disable ~host in
+        let local_fn = Local.Host.disable ~host ~auto_enable in
+        let remote_fn = Client.Host.disable ~host ~auto_enable in
         do_op_on ~local_fn ~__context ~host ~remote_fn ;
         Xapi_host_helpers.update_allowed_operations ~__context ~self:host
 

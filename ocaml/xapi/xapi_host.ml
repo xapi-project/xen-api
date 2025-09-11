@@ -74,7 +74,7 @@ let set_power_on_mode ~__context ~self ~power_on_mode ~power_on_config =
         + HA is enabled and this host has broken storage or networking which would cause protected VMs
         to become non-agile
 *)
-let assert_safe_to_reenable ~__context ~self =
+let assert_safe_to_reenable ~__context ~self ~user_request =
   assert_startup_complete () ;
   Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
     ~host:self ;
@@ -86,6 +86,14 @@ let assert_safe_to_reenable ~__context ~self =
     raise
       (Api_errors.Server_error
          (Api_errors.host_disabled_until_reboot, [Ref.string_of self])
+      ) ;
+  let host_auto_enable =
+    try bool_of_string (Localdb.get Constants.host_auto_enable) with _ -> true
+  in
+  if (not host_auto_enable) && not user_request then
+    raise
+      (Api_errors.Server_error
+         (Api_errors.host_disabled_indefinitely, [Ref.string_of self])
       ) ;
   if Db.Pool.get_ha_enabled ~__context ~self:(Helpers.get_pool ~__context) then (
     let pbds = Db.Host.get_PBDs ~__context ~self in
@@ -119,6 +127,8 @@ let pool_size_is_restricted ~__context =
   not (Pool_features.is_enabled ~__context Features.Pool_size)
 
 let bugreport_upload ~__context ~host:_ ~url ~options =
+  if url = "" then
+    raise Api_errors.(Server_error (invalid_value, ["url"; ""])) ;
   let proxy =
     if List.mem_assoc "http_proxy" options then
       List.assoc "http_proxy" options
@@ -793,26 +803,29 @@ let restart_agent ~__context ~host:_ =
     )
 
 let shutdown_agent ~__context =
-  debug "Host.restart_agent: Host agent will shutdown in 1s!!!!" ;
-  let localhost = Helpers.get_localhost ~__context in
-  Xapi_hooks.xapi_pre_shutdown ~__context ~host:localhost
+  debug "Host.shutdown_agent: Host agent will shutdown in 1s!!!!" ;
+  let host_uuid = Helpers.get_localhost_uuid () in
+  Xapi_hooks.xapi_pre_shutdown ~__context ~host_uuid
     ~reason:Xapi_hooks.reason__clean_shutdown ;
   Xapi_fuse.light_fuse_and_dont_restart ~fuse_length:1. ()
 
-let disable ~__context ~host =
+let disable ~__context ~host ~auto_enable =
   if Db.Host.get_enabled ~__context ~self:host then (
     info
       "Host.enabled: setting host %s (%s) to disabled because of user request"
       (Ref.string_of host)
       (Db.Host.get_hostname ~__context ~self:host) ;
     Db.Host.set_enabled ~__context ~self:host ~value:false ;
-    Xapi_host_helpers.user_requested_host_disable := true
+    Xapi_host_helpers.user_requested_host_disable := true ;
+    if not auto_enable then
+      Localdb.put Constants.host_auto_enable "false"
   )
 
 let enable ~__context ~host =
   if not (Db.Host.get_enabled ~__context ~self:host) then (
-    assert_safe_to_reenable ~__context ~self:host ;
+    assert_safe_to_reenable ~__context ~self:host ~user_request:true ;
     Xapi_host_helpers.user_requested_host_disable := false ;
+    Localdb.put Constants.host_auto_enable "true" ;
     info "Host.enabled: setting host %s (%s) to enabled because of user request"
       (Ref.string_of host)
       (Db.Host.get_hostname ~__context ~self:host) ;
@@ -3087,7 +3100,7 @@ let apply_updates ~__context ~self ~hash =
     if Db.Pool.get_ha_enabled ~__context ~self:pool then
       raise Api_errors.(Server_error (ha_is_enabled, [])) ;
     if Db.Host.get_enabled ~__context ~self then (
-      disable ~__context ~host:self ;
+      disable ~__context ~host:self ~auto_enable:true ;
       Xapi_host_helpers.update_allowed_operations ~__context ~self
     ) ;
     Xapi_host_helpers.with_host_operation ~__context ~self

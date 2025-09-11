@@ -38,6 +38,8 @@ let _ =
           List.concat_map (fun (_, port) -> port.interfaces) bridge_config.ports
         in
         Printf.printf "interfaces=%s\n" (String.concat "," ifaces) ;
+        Printf.printf "hwaddrs=%s\n"
+          (Option.value ~default:"" bridge_config.bridge_mac) ;
         match bridge_config.vlan with
         | None ->
             ()
@@ -74,25 +76,20 @@ let _ =
                     [("gateway", Unix.string_of_inet_addr addr)]
               in
               let dns =
-                interface_config.dns
-                |> Option.map fst
-                |> Option.map (List.map Unix.string_of_inet_addr)
-                |> Option.fold ~none:[] ~some:(function
-                     | [] ->
-                         []
-                     | dns' ->
-                         [("dns", String.concat "," dns')]
-                     )
+                let dns' =
+                  List.map Unix.string_of_inet_addr (fst interface_config.dns)
+                in
+                if dns' = [] then
+                  []
+                else
+                  [("dns", String.concat "," dns')]
               in
               let domains =
-                interface_config.dns
-                |> Option.map snd
-                |> Option.fold ~none:[] ~some:(function
-                     | [] ->
-                         []
-                     | domains' ->
-                         [("domain", String.concat "," domains')]
-                     )
+                let domains' = snd interface_config.dns in
+                if domains' = [] then
+                  []
+                else
+                  [("domain", String.concat "," domains')]
               in
               mode @ addrs @ gateway @ dns @ domains
           | None4 ->

@@ -32,6 +32,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Management.Automation;
 using System.Net;
+#if NET8_0_OR_GREATER
+using System.Net.Http;
+#endif
 using System.Net.Security;
 using System.Runtime.InteropServices;
 using System.Security;
@@ -159,7 +162,7 @@ namespace Citrix.XenServer.Commands
             }
 
             ServicePointManager.ServerCertificateValidationCallback = ValidateServerCertificate;
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
             if (Url == null || Url.Length == 0)
             {
@@ -209,7 +212,7 @@ namespace Citrix.XenServer.Commands
                             throw;
                         }
                     }
-                    catch (WebException e)
+                    catch (Exception e)
                     {
                         var inner = e.InnerException?.InnerException ?? //.NET case
                                     e.InnerException; //.NET Framework case
@@ -271,8 +274,13 @@ namespace Citrix.XenServer.Commands
                 bool ignoreChanged = Force || NoWarnCertificates || (bool)GetVariableValue("NoWarnCertificates", false);
                 bool ignoreNew = Force || NoWarnNewCertificates || (bool)GetVariableValue("NoWarnNewCertificates", false);
 
-                HttpWebRequest webreq = (HttpWebRequest)sender;
-                string hostname = webreq.Address.Host;
+#if NET8_0_OR_GREATER
+                var requestMessage = sender as HttpRequestMessage;
+                string hostname = requestMessage?.RequestUri?.Host ?? string.Empty;
+#else
+                var webreq = sender as HttpWebRequest;
+                string hostname = webreq?.Address?.Host ?? string.Empty;
+#endif
                 string fingerprint = CommonCmdletFunctions.FingerprintPrettyString(certificate.GetCertHashString());
 
                 bool trusted = VerifyInAllStores(new X509Certificate2(certificate));
