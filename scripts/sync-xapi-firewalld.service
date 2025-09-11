@@ -1,0 +1,12 @@
+[Unit]
+Description=Synchronize firewalld service for xapi
+PartOf=firewalld.service
+After=firewalld.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'xe host-sync-firewalld-service-status || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
