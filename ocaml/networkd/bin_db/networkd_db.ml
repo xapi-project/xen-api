@@ -76,20 +76,25 @@ let _ =
                     [("gateway", Unix.string_of_inet_addr addr)]
               in
               let dns =
-                let dns' =
-                  List.map Unix.string_of_inet_addr (fst interface_config.dns)
-                in
-                if dns' = [] then
-                  []
-                else
-                  [("dns", String.concat "," dns')]
+                interface_config.dns
+                |> Option.map fst
+                |> Option.map (List.map Unix.string_of_inet_addr)
+                |> Option.fold ~none:[] ~some:(function
+                     | [] ->
+                         []
+                     | dns' ->
+                         [("dns", String.concat "," dns')]
+                     )
               in
               let domains =
-                let domains' = snd interface_config.dns in
-                if domains' = [] then
-                  []
-                else
-                  [("domain", String.concat "," domains')]
+                interface_config.dns
+                |> Option.map snd
+                |> Option.fold ~none:[] ~some:(function
+                     | [] ->
+                         []
+                     | domains' ->
+                         [("domain", String.concat "," domains')]
+                     )
               in
               mode @ addrs @ gateway @ dns @ domains
           | None4 ->
