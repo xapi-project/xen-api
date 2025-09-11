@@ -3378,3 +3378,63 @@ let get_nbd_interfaces ~__context ~self =
       allowed_connected_networks
   in
   Xapi_stdext_std.Listext.List.setify interfaces
+
+let sync_firewalld_service_status ~__context =
+  match !Xapi_globs.firewall_backend with
+  | Firewalld -> (
+      let module Fw = Firewall.Firewalld in
+      let self = Helpers.get_localhost ~__context in
+      ( match Xapi_clustering.Daemon.is_enabled () with
+      | true ->
+          Fw.update_firewall_status Firewall.Dlm Firewall.Enabled
+      | false ->
+          ()
+      ) ;
+      ( match Db.Host.get_https_only ~__context ~self with
+      | false ->
+          Fw.update_firewall_status Firewall.Http Firewall.Enabled
+      | true ->
+          ()
+      ) ;
+      ( match get_nbd_interfaces ~__context ~self with
+      | _ :: _ ->
+          Fw.update_firewall_status Firewall.Nbd Firewall.Enabled
+      | [] ->
+          ()
+      ) ;
+      ( match Db.Host.get_ssh_enabled ~__context ~self with
+      | true ->
+          Fw.update_firewall_status Firewall.Ssh Firewall.Enabled
+      | false ->
+          ()
+      ) ;
+      let tunnel_pifs =
+        Db.Host.get_PIFs ~__context ~self
+        |> List.filter_map (fun pif ->
+               let rc = Db.PIF.get_record ~__context ~self:pif in
+               match Xapi_pif_helpers.get_pif_type rc with
+               | Tunnel_access tunnel_ref -> (
+                 match Db.Tunnel.get_protocol ~__context ~self:tunnel_ref with
+                 | `vxlan ->
+                     Some rc
+                 | `gre ->
+                     None
+               )
+               | _ ->
+                   None
+           )
+      in
+      ( match tunnel_pifs with
+      | _ :: _ ->
+          Fw.update_firewall_status Firewall.Vxlan Firewall.Enabled
+      | [] ->
+          ()
+      ) ;
+      match bool_of_string (Localdb.get Constants.ha_armed) with
+      | true ->
+          Fw.update_firewall_status Firewall.Xenha Firewall.Enabled
+      | false ->
+          ()
+    )
+  | Iptables ->
+      debug "No need to sync firewalld service status when using iptables"
