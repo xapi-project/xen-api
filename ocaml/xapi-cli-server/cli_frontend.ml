@@ -2922,6 +2922,18 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Neverforward]
       }
     )
+  ; ( "host-sync-firewalld-service-status"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Update the status of all the firewalld services to match the state \
+           of the corresponding services."
+      ; implementation=
+          No_fd_local_session Cli_operations.host_sync_firewalld_service_status
+      ; flags= []
+      }
+    )
   ; ( "diagnostic-compact"
     , {
         reqd= []
