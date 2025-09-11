@@ -1,0 +1,14 @@
+[Unit]
+Description=XAPI SSH monitor service
+After=network.target
+After=xapi.service
+OnFailure=sshd.service
+
+[Service]
+Type=simple
+RemainAfterExit=true
+ExecStart=/opt/xensource/bin/xapi-ssh-monitor
+ExecStop=/bin/true
+
+[Install]
+WantedBy=multi-user.target
