@@ -998,11 +998,10 @@ let host_versions_not_decreasing ~__context ~host_from ~host_to =
   let sw_vers_to = get_software_versions ~__context host_to in
   compare_all_versions ~is_greater_or_equal:sw_vers_to ~than:sw_vers_from
 
-let are_host_versions_same_on_master ~__context ~host =
+let are_host_versions_same_on_master_inner ~__context ~host ~master =
   if is_pool_master ~__context ~host then
     true
   else
-    let master = get_master ~__context in
     let sw_ver_master = get_software_versions ~__context (LocalObject master) in
     let sw_ver_host = get_software_versions ~__context (LocalObject host) in
     List.for_all
@@ -1010,6 +1009,10 @@ let are_host_versions_same_on_master ~__context ~host =
         compare_versions ~version_key sw_ver_master sw_ver_host = 0
       )
       version_keys_list
+
+let are_host_versions_same_on_master ~__context ~host =
+  let master = get_master ~__context in
+  are_host_versions_same_on_master_inner ~__context ~host ~master
 
 let maybe_raise_vtpm_unimplemented func message =
   if not !ignore_vtpm_unimplemented then (
@@ -1044,19 +1047,10 @@ let assert_host_has_highest_version_in_pool :
 
 let pool_has_different_host_platform_versions ~__context =
   let all_hosts = Db.Host.get_all ~__context in
-  let platform_versions =
-    List.map
-      (fun host ->
-        get_software_versions ~__context (LocalObject host)
-        |> version_of ~version_key:Xapi_globs._platform_version
-      )
-      all_hosts
-  in
-  let is_different_to_me platform_version =
-    platform_version
-    <> (Xapi_version.platform_version () |> version_numbers_of_string)
-  in
-  List.exists is_different_to_me platform_versions
+  let master = get_master ~__context in
+  List.for_all
+    (fun host -> are_host_versions_same_on_master_inner ~__context ~host ~master)
+    all_hosts
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
