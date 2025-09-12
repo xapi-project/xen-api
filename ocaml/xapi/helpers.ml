@@ -1048,9 +1048,13 @@ let assert_host_has_highest_version_in_pool :
 let pool_has_different_host_platform_versions ~__context =
   let all_hosts = Db.Host.get_all ~__context in
   let master = get_master ~__context in
-  List.for_all
-    (fun host -> are_host_versions_same_on_master_inner ~__context ~host ~master)
-    all_hosts
+  not
+    (List.for_all
+       (fun host ->
+         are_host_versions_same_on_master_inner ~__context ~host ~master
+       )
+       all_hosts
+    )
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)
