@@ -267,19 +267,18 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
     raise (Api_errors.Server_error (Api_errors.mac_invalid, [mAC])) ;
   (* Make people aware that non-shared networks being added to VMs makes them not agile *)
   let pool = Helpers.get_pool ~__context in
-  if
-    true
-    && Db.Pool.get_ha_enabled ~__context ~self:pool
-    && (not (Db.Pool.get_ha_allow_overcommit ~__context ~self:pool))
-    && Helpers.is_xha_protected ~__context ~self:vM
-    && not (Agility.is_network_properly_shared ~__context ~self:network)
-  then (
-    warn "Creating VIF %s makes VM %s not agile" (Ref.string_of ref)
-      (Ref.string_of vM) ;
-    raise
-      (Api_errors.Server_error
-         (Api_errors.ha_operation_would_break_failover_plan, [])
-      )
+  ( if
+      true
+      && Db.Pool.get_ha_enabled ~__context ~self:pool
+      && (not (Db.Pool.get_ha_allow_overcommit ~__context ~self:pool))
+      && Helpers.is_xha_protected ~__context ~self:vM
+      && not (Agility.is_network_properly_shared ~__context ~self:network)
+    then
+      let net = Ref.string_of network in
+      raise
+        Api_errors.(
+          Server_error (ha_constraint_violation_network_not_shared, [net])
+        )
   ) ;
   (* Check to make sure the device is unique *)
   Xapi_stdext_threads.Threadext.Mutex.execute m (fun () ->
