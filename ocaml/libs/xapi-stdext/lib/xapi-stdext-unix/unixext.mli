@@ -124,9 +124,20 @@ val open_connection_unix_fd : string -> Unix.file_descr
 
 exception Process_still_alive
 
+type vnc_console_state = {
+    is_idle_timeout_set: bool
+  ; is_idle: bool
+  ; poll_event_timeout_ms: int
+}
+
 val kill_and_wait : ?signal:int -> ?timeout:float -> int -> unit
 
-val proxy : Unix.file_descr -> Unix.file_descr -> unit
+val proxy :
+     ?console_init_state:vnc_console_state
+  -> ?vnc_console_idle_timeout_callback:(bytes option -> vnc_console_state)
+  -> Unix.file_descr
+  -> Unix.file_descr
+  -> unit
 
 val really_read : Unix.file_descr -> bytes -> int -> int -> unit
 

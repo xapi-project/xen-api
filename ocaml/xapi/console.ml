@@ -19,6 +19,7 @@
 
 open Http
 module Unixext = Xapi_stdext_unix.Unixext
+module Timer = Clock.Timer
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -126,7 +127,309 @@ let address_of_console __context console : address option =
     ) ;
   address_option
 
-let real_proxy' vnc_port s =
+let log_in_file ?(file = "/var/log/idle_timeout.txt") msg =
+  let oc = open_out_gen [Open_creat; Open_text; Open_append] 0o644 file in
+  let time_str =
+    let tm = Unix.localtime (Unix.time ()) in
+    Printf.sprintf "%04d-%02d-%02d %02d:%02d:%02d" (tm.tm_year + 1900)
+      (tm.tm_mon + 1) tm.tm_mday tm.tm_hour tm.tm_min tm.tm_sec
+  in
+  output_string oc (Printf.sprintf "[%s] %s\n" time_str msg) ;
+  close_out oc
+
+(* https://github.com/rfbproto/rfbproto/blob/master/rfbproto.rst *)
+module RFB_msg_type_parser = struct
+  type state = {
+      mutable rfb_phase: [`Handshake | `Security | `ClientInit | `Messages]
+    ; mutable incomplete_msg_remaining: int
+          (* bytes needed to complete current message *)
+    ; mutable received_msg_types: int list
+          (* List of message types parsed from input data *)
+  }
+
+  let create () =
+    {rfb_phase= `Handshake; incomplete_msg_remaining= 0; received_msg_types= []}
+
+  (* https://github.com/rfbproto/rfbproto/blob/master/rfbproto.rst#client-to-server-messages *)
+  let message_length msg_type =
+    match msg_type with
+    | 0 ->
+        20 (* SetPixelFormat *)
+    | 2 ->
+        -1 (* SetEncodings - variable, need to read count *)
+    | 3 ->
+        10 (* FramebufferUpdateRequest *)
+    | 4 ->
+        8 (* KeyEvent *)
+    | 5 ->
+        6 (* PointerEvent *)
+    | 6 ->
+        -1 (* ClientCutText - variable, need to read length *)
+    | _ ->
+        -2 (* Unknown - cannot determine length, stop parsing *)
+
+  (* Handle variable length messages. For now, only SetEncodings(2) and ClientCutText(6) *)
+  let handle_variable_message data offset msg_type available =
+    match msg_type with
+    | 2 when available >= 4 ->
+        (* SetEncodings *)
+        let count =
+          ((Bytes.get data (offset + 2) |> int_of_char) lsl 8)
+          lor (Bytes.get data (offset + 3) |> int_of_char)
+        in
+        let total_len = 4 + (count * 4) in
+        log_in_file
+          (Printf.sprintf "[rfb] SetEncodings total length: %d" total_len) ;
+        if available >= total_len then
+          `Complete total_len
+        else
+          `Incomplete (total_len - available)
+    | 6 when available >= 8 ->
+        (* ClientCutText *)
+        let text_len =
+          ((Bytes.get data (offset + 4) |> int_of_char) lsl 24)
+          lor ((Bytes.get data (offset + 5) |> int_of_char) lsl 16)
+          lor ((Bytes.get data (offset + 6) |> int_of_char) lsl 8)
+          lor (Bytes.get data (offset + 7) |> int_of_char)
+        in
+        let total_len = 8 + text_len in
+        log_in_file
+          (Printf.sprintf "[rfb] ClientCutText total length: %d" total_len) ;
+        if available >= total_len then
+          `Complete total_len
+        else
+          `Incomplete (total_len - available)
+    (* Incomplete header cases - need more data to determine message length *)
+    | 2 ->
+        `Incomplete (4 - available) (* Need more data for SetEncodings header *)
+    | 6 ->
+        `Incomplete (8 - available)
+        (* Need more data for ClientCutText header *)
+    | _ ->
+        `Skip_All
+
+  (* Process a single message in Messages phase *)
+  let process_single_message state data offset available =
+    let msg_type = Bytes.get data offset |> int_of_char in
+    state.received_msg_types <- state.received_msg_types @ [msg_type] ;
+    let msg_len = message_length msg_type in
+    log_in_file
+      (Printf.sprintf "[rfb] Message length for type %d: %d" msg_type msg_len) ;
+
+    match msg_len with
+    | -1 ->
+        handle_variable_message data offset msg_type available
+    | len when len > 0 ->
+        if available >= len then
+          `Complete len
+        else
+          `Incomplete (len - available)
+    | _ ->
+        log_in_file
+          (Printf.sprintf
+             "[rfb] Unknown RFB message type: %d (0x%02X), skipping remaining \
+              data"
+             msg_type msg_type
+          ) ;
+        `Skip_All
+
+  (* Different RFB versions have variations in their handshake protocols,
+     so we implement a simplified handshake parser that handles the most common cases.
+     If handshake parsing encounters unexpected data, we gracefully transition to
+     the Messages phase where unknown message types can be handled appropriately.
+     This prevents the parser from getting stuck on protocol variations while
+     ensuring we can still achieve our primary goal: detecting KeyEvent and
+     PointerEvent messages for activity monitoring. *)
+  let progress_handshake state data_len offset =
+    match state.rfb_phase with
+    | `Handshake when data_len - offset >= 12 ->
+        log_in_file (Printf.sprintf "[rfb] Handshake 12 bytes") ;
+        state.rfb_phase <- `ClientInit ;
+        Some 12
+    | `ClientInit when data_len - offset >= 1 ->
+        log_in_file (Printf.sprintf "[rfb] ClientInit 1 byte") ;
+        state.rfb_phase <- `Messages ;
+        Some 1
+    | _ ->
+        state.rfb_phase <- `Messages ;
+        None
+
+  (* Handle incomplete message continuation *)
+  let continue_incomplete_message state data_len offset =
+    let available = data_len - offset in
+    if available >= state.incomplete_msg_remaining then (
+      let consumed = state.incomplete_msg_remaining in
+      state.incomplete_msg_remaining <- 0 ;
+      Some (offset + consumed)
+    ) else (
+      state.incomplete_msg_remaining <-
+        state.incomplete_msg_remaining - available ;
+      None
+    )
+
+  let rec process_data state data offset =
+    let data_len = Bytes.length data in
+
+    if offset >= data_len then
+      ()
+    else if state.incomplete_msg_remaining > 0 then
+      (* Continue processing incomplete message *)
+      match continue_incomplete_message state data_len offset with
+      | Some new_offset ->
+          process_data state data new_offset
+      | None ->
+          ()
+    else (* Start new message or handle handshake *)
+      match state.rfb_phase with
+      | `Messages -> (
+          let available = data_len - offset in
+          match process_single_message state data offset available with
+          | `Complete msg_len ->
+              process_data state data (offset + msg_len)
+          | `Incomplete remaining ->
+              state.incomplete_msg_remaining <- remaining
+          | `Skip_All ->
+              (* Stop processing the current buffer and treat the next incoming data as fresh.
+                 Since each network read likely starts with a message header, this allows
+                 graceful recovery from parsing errors without getting permanently out of sync
+                 with the RFB protocol stream. *)
+              state.incomplete_msg_remaining <- 0
+        )
+      | _ -> (
+        (* Handle handshake phases *)
+        match progress_handshake state data_len offset with
+        | Some consumed_bytes ->
+            process_data state data (offset + consumed_bytes)
+        | None ->
+            ()
+      )
+end
+
+module Console_idle_monitor = struct
+  let read_console_config ~__context ~vm =
+    try
+      let idle_timeout =
+        if Db.VM.get_is_control_domain ~__context ~self:vm then
+          let host = Helpers.get_localhost ~__context in
+          Db.Host.get_console_idle_timeout ~__context ~self:host
+        else
+          let pool = Helpers.get_pool ~__context in
+          Db.Pool.get_vm_console_idle_timeout ~__context ~self:pool
+      in
+      let poll_event_timeout_ms =
+        if idle_timeout > 0L then
+          !Xapi_globs.proxy_poll_event_timeout_ms
+        else
+          -1 (* -1 means block indefinitely *)
+      in
+      (idle_timeout > 0L, poll_event_timeout_ms, idle_timeout)
+    with _ -> (false, -1, 0L)
+  (* Default: no timeout, block indefinitely *)
+
+  (* Returns the initial vnc_console_state for a console *)
+  let get_init_console_state ~__context ~vm =
+    let is_idle_timeout_set, poll_event_timeout_ms, _ =
+      read_console_config ~__context ~vm
+    in
+    let initial_state =
+      {
+        Unixext.is_idle_timeout_set
+      ; Unixext.is_idle= false
+      ; Unixext.poll_event_timeout_ms
+      }
+    in
+    log_in_file
+      (Printf.sprintf
+         "[get_init_console_state] initial_state: is_idle_timeout_set=%b, \
+          is_idle=%b, poll_event_timeout_ms=%d"
+         initial_state.is_idle_timeout_set initial_state.is_idle
+         initial_state.poll_event_timeout_ms
+      ) ;
+    initial_state
+
+  (* Creates a VNC console idle timeout callback closure to determine is_idle *)
+  let create_vnc_console_idle_timeout_callback ~__context ~vm
+      initial_console_state =
+    let simple_rfb_parser = RFB_msg_type_parser.create () in
+    let current_console_state = ref initial_console_state in
+    let idle_timer = ref None in
+
+    (* Helper function to start/restart the idle timer *)
+    let start_idle_timer reason =
+      let _, _, idle_timeout_seconds = read_console_config ~__context ~vm in
+      let timeout_duration =
+        Timer.s_to_span (Int64.to_float idle_timeout_seconds) |> Option.get
+      in
+      idle_timer := Some (Timer.start ~duration:timeout_duration) ;
+      log_in_file
+        (Printf.sprintf "[idle_timeout] Starting/ restarting idle timer %s"
+           reason
+        )
+    in
+
+    (* Start the timer immediately if idle timeout is enabled *)
+    if initial_console_state.Unixext.is_idle_timeout_set then
+      start_idle_timer "on callback creation" ;
+    fun received_data_opt ->
+      (* First update any configuration that might have changed *)
+      let is_idle_timeout_set, poll_event_timeout_ms, _ =
+        read_console_config ~__context ~vm
+      in
+      current_console_state :=
+        {
+          !current_console_state with
+          Unixext.is_idle_timeout_set
+        ; Unixext.poll_event_timeout_ms
+        } ;
+
+      if !current_console_state.Unixext.is_idle_timeout_set then
+        (* Though the callback is only invoked when the timeout is set,
+           we still check here in case the setting changed from true to false.
+           The case from false to true would never reach here *)
+        match !idle_timer with
+        (* Check if idle timer has expired first, regardless of received data *)
+        | Some timer when Timer.has_expired timer ->
+            log_in_file
+              "[idle_timeout] Idle timeout reached - session should be \
+               terminated" ;
+            {!current_console_state with Unixext.is_idle= true}
+        | _ -> (
+          (* Timer not expired or not started yet, continue processing *)
+          match received_data_opt with
+          | None ->
+              !current_console_state
+          | Some data ->
+              RFB_msg_type_parser.process_data simple_rfb_parser data 0 ;
+
+              (* Check if we received KeyEvent (4) or PointerEvent (5) messages *)
+              let has_activity =
+                List.exists
+                  (fun msg_type -> msg_type = 4 || msg_type = 5)
+                  simple_rfb_parser.received_msg_types
+              in
+
+              if has_activity then (
+                log_in_file
+                  "[idle_timeout] User activity detected - resetting idle timer" ;
+                (* Clear the received messages for next iteration *)
+                simple_rfb_parser.received_msg_types <- [] ;
+                (* Start/restart the idle timer *)
+                start_idle_timer "after user activity" ;
+                {!current_console_state with Unixext.is_idle= false}
+              ) else (
+                log_in_file
+                  "[idle_timeout] No user activity detected in current data" ;
+                !current_console_state
+              )
+        )
+      else (
+        (* Idle timeout not enabled, clear the existing timer *)
+        idle_timer := None ;
+        !current_console_state
+      )
+end
+
+let real_proxy' ~__context ~vm vnc_port s console_state =
   try
     Http_svr.headers s (Http.http_200_ok ()) ;
     let vnc_sock =
@@ -141,7 +444,13 @@ let real_proxy' vnc_port s =
     debug "Connected; running proxy (between fds: %d and %d)"
       (Unixext.int_of_file_descr vnc_sock)
       (Unixext.int_of_file_descr s') ;
-    Unixext.proxy vnc_sock s' ;
+
+    let idle_callback =
+      Console_idle_monitor.create_vnc_console_idle_timeout_callback ~__context
+        ~vm console_state
+    in
+    Unixext.proxy ~console_init_state:console_state
+      ~vnc_console_idle_timeout_callback:idle_callback vnc_sock s' ;
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
@@ -152,8 +461,11 @@ let real_proxy __context vm _ _ vnc_port s =
     Db.Pool.get_limit_console_sessions ~__context ~self:pool
   in
   if Connection_limit.try_add vm_id is_limit_enabled then
+    let console_state =
+      Console_idle_monitor.get_init_console_state ~__context ~vm
+    in
     finally (* Ensure we drop the vm connection count if exceptions occur *)
-      (fun () -> real_proxy' vnc_port s)
+      (fun () -> real_proxy' ~__context ~vm vnc_port s console_state)
       (fun () -> Connection_limit.drop vm_id)
   else
     Http_svr.headers s (Http.http_503_service_unavailable ())

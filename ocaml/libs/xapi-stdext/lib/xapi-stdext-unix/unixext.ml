@@ -339,6 +339,31 @@ module CBuf = struct
     let read = Unix.read fd x.buffer next len in
     if read = 0 then x.r_closed <- true ;
     x.len <- x.len + read
+
+  (* Read data from the fd to the buffer and return the newly read data *)
+  let read_and_return (x : t) fd : bytes option =
+    let before_len = x.len in
+    let before_start = x.start in
+    read x fd ;
+    let after_len = x.len in
+    let newly_read = after_len - before_len in
+    if newly_read > 0 then (
+      let result = Bytes.create newly_read in
+      let start_pos = (before_start + before_len) mod Bytes.length x.buffer in
+      let buffer_size = Bytes.length x.buffer in
+
+      ( if start_pos + newly_read <= buffer_size then
+          (* No wraparound - single blit *)
+          Bytes.blit x.buffer start_pos result 0 newly_read
+        else (* Wraparound - two blits *)
+          let first_part = buffer_size - start_pos in
+          let second_part = newly_read - first_part in
+          Bytes.blit x.buffer start_pos result 0 first_part ;
+          Bytes.blit x.buffer 0 result first_part second_part
+      ) ;
+      Some result
+    ) else
+      None
 end
 
 exception Process_still_alive
@@ -381,11 +406,38 @@ let with_polly f =
   let finally () = Polly.close polly in
   Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f polly) finally
 
-let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
+exception Idle_timeout
+
+type vnc_console_state = {
+    is_idle_timeout_set: bool
+  ; is_idle: bool
+  ; poll_event_timeout_ms: int
+}
+
+let default_vnc_console_state =
+  {
+    is_idle_timeout_set= false
+  ; is_idle= false
+  ; poll_event_timeout_ms= -1 (* wait indefinitely *)
+  }
+
+let proxy ?(console_init_state = default_vnc_console_state)
+    ?(vnc_console_idle_timeout_callback =
+      fun _data -> default_vnc_console_state) (a : Unix.file_descr)
+    (b : Unix.file_descr) =
   let size = 64 * 1024 in
   (* [a'] is read from [a] and will be written to [b] *)
   (* [b'] is read from [b] and will be written to [a] *)
   let a' = CBuf.empty size and b' = CBuf.empty size in
+  let console_state = ref console_init_state in
+  let handle_idle_timeout () =
+    if !console_state.is_idle then (
+      Unix.shutdown a Unix.SHUTDOWN_ALL ;
+      Unix.shutdown b Unix.SHUTDOWN_ALL ;
+      raise Idle_timeout
+    )
+  in
+
   Unix.set_nonblock a ;
   Unix.set_nonblock b ;
   with_polly @@ fun polly ->
@@ -413,13 +465,22 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
         Polly.upd polly a a_events ;
       if Polly.Events.(b_events <> empty) then
         Polly.upd polly b b_events ;
-      Polly.wait_fold polly 4 (-1) () (fun _polly fd events () ->
+      Polly.wait_fold polly 4 !console_state.poll_event_timeout_ms ()
+        (fun _polly fd events () ->
           (* Do the writing before the reading *)
           if Polly.Events.(test out events) then
             if a = fd then CBuf.write b' a else CBuf.write a' b ;
           if Polly.Events.(test inp events) then
-            if a = fd then CBuf.read a' a else CBuf.read b' b
+            if a = fd then
+              CBuf.read a' a
+            else if !console_state.is_idle_timeout_set then (
+              let received_data = CBuf.read_and_return b' b in
+              console_state := vnc_console_idle_timeout_callback received_data ;
+              ()
+            ) else
+              CBuf.read b' b
       ) ;
+      if !console_state.is_idle_timeout_set then handle_idle_timeout () ;
       (* If there's nothing else to read or write then signal the other end *)
       List.iter
         (fun (buf, fd) ->
