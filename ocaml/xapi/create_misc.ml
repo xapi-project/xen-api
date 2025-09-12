@@ -76,10 +76,12 @@ let make_xen_livepatch_list () =
 (** The format of the response looks like
  *  # kpatch list
  *  Loaded patch modules:
- *  kpatch_hp_1_1
- *  kpatch_hp_2_1
-
- *  Installed patch modules: *)
+ *  lp_4_19_19__8_0_32_xs8__4_19_19__8_0_33_xs8 [enabled]
+ *  lp_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
+ *
+ *  Installed patch modules:
+ *
+ *  Only patch name are returned, status are excluded. *)
 let make_kpatch_list () =
   let start_line = "Loaded patch modules:" in
   let end_line = "Installed patch modules:" in
@@ -99,7 +101,14 @@ let make_kpatch_list () =
     | line :: rest ->
         let line' = String.trim line in
         if line' <> "" && started then
-          loop (line' :: acc) true rest
+          let patch_name =
+            match String.split_on_char ' ' line' with
+            | patch :: _ ->
+                patch
+            | [] ->
+                line'
+          in
+          loop (patch_name :: acc) true rest
         else
           loop acc started rest
   in
