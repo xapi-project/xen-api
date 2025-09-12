@@ -114,13 +114,18 @@ let abort_if_storage_attached_to_protected_vms ~__context ~self =
           (fun vbd ->
             let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
             if List.mem vdi vdis then (
-              warn
-                "PBD.unplug will make protected VM %s not agile since it has a \
-                 VBD attached to VDI %s"
-                (Ref.string_of vm_ref) (Ref.string_of vdi) ;
+              let vm = Ref.string_of vm_ref in
+              let pbd = Ref.string_of self in
+              let sr = Ref.string_of sr in
+              info
+                "The protected VM %s must remain agile and blocked the \
+                 operation. The PBD %s of must be plugged to ensure this. This \
+                 happened because the SR %s is used by both the VM and the \
+                 PBD."
+                vm pbd sr ;
               raise
-                (Api_errors.Server_error
-                   (Api_errors.ha_operation_would_break_failover_plan, [])
+                Api_errors.(
+                  Server_error (ha_constraint_violation_sr_not_shared, [sr])
                 )
             )
           )

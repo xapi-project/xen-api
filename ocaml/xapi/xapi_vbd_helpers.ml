@@ -358,24 +358,17 @@ let assert_attachable ~__context ~self =
 
 let assert_doesnt_make_vm_non_agile ~__context ~vm ~vdi =
   let pool = Helpers.get_pool ~__context in
-  let properly_shared =
-    Agility.is_sr_properly_shared ~__context
-      ~self:(Db.VDI.get_SR ~__context ~self:vdi)
-  in
+  let sr = Db.VDI.get_SR ~__context ~self:vdi in
+  let properly_shared = Agility.is_sr_properly_shared ~__context ~self:sr in
   if
     true
     && Db.Pool.get_ha_enabled ~__context ~self:pool
     && (not (Db.Pool.get_ha_allow_overcommit ~__context ~self:pool))
     && Helpers.is_xha_protected ~__context ~self:vm
     && not properly_shared
-  then (
-    warn "Attaching VDI %s makes VM %s not agile" (Ref.string_of vdi)
-      (Ref.string_of vm) ;
-    raise
-      (Api_errors.Server_error
-         (Api_errors.ha_operation_would_break_failover_plan, [])
-      )
-  )
+  then
+    let sr = Ref.string_of sr in
+    raise Api_errors.(Server_error (ha_constraint_violation_sr_not_shared, [sr]))
 
 let update_allowed_operations ~__context ~self : unit =
   let all = Db.VBD.get_record_internal ~__context ~self in
