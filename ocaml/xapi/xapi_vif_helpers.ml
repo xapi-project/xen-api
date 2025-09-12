@@ -290,8 +290,7 @@ let create ~__context ~device ~network ~vM ~mAC ~mTU ~other_config
       in
       let new_device = int_of_string device in
       if List.exists (fun (_, d) -> d = new_device) all_vifs_with_devices then
-        raise
-          (Api_errors.Server_error (Api_errors.device_already_exists, [device])) ;
+        raise Api_errors.(Server_error (device_already_exists, [device])) ;
 
       (* If the VM uses a PVS_proxy, then the proxy _must_ be associated with
          the VIF that has the lowest device number. Check that the new VIF
