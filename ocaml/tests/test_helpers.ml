@@ -492,18 +492,17 @@ module Version = struct
   let test_version_numbers_of_string () =
     let test_cases =
       [
-        ( "Standard major.minor.patch version, e.g. xapi build version stored in\n\
-          \        the database"
+        ( "Standard major.minor.patch version, e.g. xapi build version stored \
+           in the database"
         , "25.30.0"
         , [25; 30; 0]
         )
-      ; ( "Dev build version, e.g. xapi build version stored in\n\
-          \        the database"
+      ; ( "Dev build version, e.g. xapi build version stored in the database"
         , "25.30.0.6.gb239bd75a"
         , [25; 30; 0; 6]
         )
-      ; ( "Version with a patch identifier e.g. xen versions stored in the\n\
-          \        database"
+      ; ( "Version with a patch identifier e.g. xen versions stored in the \
+           database"
         , "25.15.0-13"
         , [25; 15; 0; 13]
         )
