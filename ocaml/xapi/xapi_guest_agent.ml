@@ -345,7 +345,21 @@ let get_initial_guest_metrics (lookup : string -> string option)
          ; networks "xenserver/attr" "net-sriov-vf" list
          ]
       )
-  and services = get_guest_services lookup list
+  and services =
+    let services = get_guest_services lookup list in
+    let keys = !Xapi_globs.guest_service_keys in
+    let res =
+      List.fold_left
+        (fun acc key ->
+          match lookup ("data/" ^ key) with
+          | Some value ->
+              (key, value) :: acc
+          | None ->
+              acc
+        )
+        [] keys
+    in
+    List.rev_append services res
   and other = List.append (to_map (other all_control)) ts
   and memory = to_map memory
   and last_updated = Unix.gettimeofday () in

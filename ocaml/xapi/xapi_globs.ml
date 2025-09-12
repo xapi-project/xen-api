@@ -896,6 +896,8 @@ let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
 
 let kpatch_list = ref "/usr/sbin/kpatch list"
 
+let guest_service_keys = ref ["pvs_target/target_software_version"]
+
 let modprobe_path = ref "/usr/sbin/modprobe"
 
 let usb_path = "usb_path"
@@ -1496,6 +1498,12 @@ let other_options =
     , Arg.Set_string kpatch_list
     , (fun () -> !kpatch_list)
     , "Command to query current kernel patch list"
+    )
+  ; ( "guest_service_keys"
+    , Arg.String (fun s -> guest_service_keys := s :: !guest_service_keys)
+    , (fun () -> String.concat "," !guest_service_keys)
+    , "Guest service key paths for guest metrics (can be specified multiple \
+       times)"
     )
   ; ( "modprobe_path"
     , Arg.Set_string modprobe_path
