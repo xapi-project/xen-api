@@ -2628,7 +2628,6 @@ module VM = struct
             in
             ({x with Domain.memory_target= initial_target}, timeoffset)
       in
-      let no_incr_generationid = false in
       let vtpm = vtpm_of ~vm in
       ( try
           with_data ~xc ~xs task data false @@ fun fd ->
@@ -2644,9 +2643,8 @@ module VM = struct
                 None
           in
           let manager_path = choose_emu_manager vm.Vm.platformdata in
-          Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
-            ~console_domid ~no_incr_generationid ~timeoffset ~extras build_info
-            ~manager_path ~vtpm domid fd vgpu_fd
+          Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~timeoffset ~extras
+            build_info ~manager_path ~vtpm domid fd vgpu_fd
         with e ->
           error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;
           (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
