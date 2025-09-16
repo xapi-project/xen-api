@@ -247,9 +247,6 @@ val restore :
   -> xc:Xenctrl.handle
   -> xs:Ezxenstore_core.Xenstore.Xs.xsh
   -> dm:Device.Profile.t
-  -> store_domid:int
-  -> console_domid:int
-  -> no_incr_generationid:bool
   -> timeoffset:string
   -> extras:string list
   -> build_info
