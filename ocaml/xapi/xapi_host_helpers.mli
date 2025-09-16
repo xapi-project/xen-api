@@ -79,7 +79,8 @@ val consider_enabling_host : __context:Context.t -> unit
     {ul
     {- the user asked the host to be disabled and there was a problem}
     {- HA is enabled and one-or-more PBDs failed to plug}
-    {- `disabled_until_next_reboot` is set in the local DB}}
+    {- `host_disabled_until_reboot` is set in the local DB and the system
+    hasn't just booted up}}
 *)
 
 val consider_enabling_host_request : __context:Context.t -> unit

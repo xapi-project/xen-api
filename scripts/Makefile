@@ -137,6 +137,8 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-tracing-log-trim.cron $(DESTDIR)/etc/cron.d/xapi-tracing-log-trim.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
+	$(IPROG) xapi-ssh-monitor $(DESTDIR)$(OPTDIR)/bin
+	$(IDATA) xapi-ssh-monitor.service $(DESTDIR)/usr/lib/systemd/system/xapi-ssh-monitor.service
 # host-backup-restore
 	$(IPROG) host-backup-restore/host-backup $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)

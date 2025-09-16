@@ -1057,9 +1057,13 @@ let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
 let export_interval = ref 30.
 
+let export_chunk_size = ref 10000
+
 let max_spans = ref 10000
 
 let max_traces = ref 10000
+
+let max_span_depth = ref 100
 
 let use_xmlrpc = ref true
 
@@ -1678,6 +1682,11 @@ let other_options =
     , (fun () -> string_of_float !export_interval)
     , "The interval for exports in Tracing"
     )
+  ; ( "export-chunk-size"
+    , Arg.Set_int export_chunk_size
+    , (fun () -> string_of_int !export_chunk_size)
+    , "The span chunk size for exports in Tracing"
+    )
   ; ( "max-spans"
     , Arg.Set_int max_spans
     , (fun () -> string_of_int !max_spans)
@@ -1784,6 +1793,11 @@ let other_options =
     , Arg.Set_float vm_sysprep_wait
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
+    )
+  ; ( "max-span-depth"
+    , Arg.Set_int max_span_depth
+    , (fun () -> string_of_int !max_span_depth)
+    , "The maximum depth to which spans are recorded in a trace in Tracing"
     )
   ]
 
