@@ -138,12 +138,20 @@ module ObserverAPI (R : RPC) = struct
     declare "Observer.set_export_interval" []
       (dbg_p @-> float_p @-> returning unit_p err)
 
+  let set_export_chunk_size =
+    declare "Observer.set_export_chunk_size" []
+      (dbg_p @-> int_p @-> returning unit_p err)
+
   let set_max_spans =
     declare "Observer.set_max_spans" []
       (dbg_p @-> int_p @-> returning unit_p err)
 
   let set_max_traces =
     declare "Observer.set_max_traces" []
+      (dbg_p @-> int_p @-> returning unit_p err)
+
+  let set_max_depth =
+    declare "Observer.set_max_depth" []
       (dbg_p @-> int_p @-> returning unit_p err)
 
   let set_max_file_size =
@@ -193,9 +201,13 @@ module type Server_impl = sig
 
   val set_export_interval : context -> dbg:debug_info -> interval:float -> unit
 
+  val set_export_chunk_size : context -> dbg:debug_info -> size:int -> unit
+
   val set_max_spans : context -> dbg:debug_info -> spans:int -> unit
 
   val set_max_traces : context -> dbg:debug_info -> traces:int -> unit
+
+  val set_max_depth : context -> dbg:debug_info -> depth:int -> unit
 
   val set_max_file_size : context -> dbg:debug_info -> file_size:int -> unit
 
@@ -227,8 +239,12 @@ module Server (Impl : Server_impl) () = struct
     S.set_export_interval (fun dbg interval ->
         Impl.set_export_interval () ~dbg ~interval
     ) ;
+    S.set_export_chunk_size (fun dbg size ->
+        Impl.set_export_chunk_size () ~dbg ~size
+    ) ;
     S.set_max_spans (fun dbg spans -> Impl.set_max_spans () ~dbg ~spans) ;
     S.set_max_traces (fun dbg traces -> Impl.set_max_traces () ~dbg ~traces) ;
+    S.set_max_depth (fun dbg depth -> Impl.set_max_depth () ~dbg ~depth) ;
     S.set_max_file_size (fun dbg file_size ->
         Impl.set_max_file_size () ~dbg ~file_size
     ) ;
