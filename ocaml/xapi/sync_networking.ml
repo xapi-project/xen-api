@@ -54,6 +54,20 @@ let fix_bonds ~__context () =
   in
   List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) my_bonds
 
+let get_my_physical_pifs_with_position ~__context =
+  let me = !Xapi_globs.localhost_ref in
+  Db.PIF.get_records_where ~__context
+    ~expr:
+      (And
+         ( Eq (Field "host", Literal (Ref.string_of me))
+         , Eq (Field "physical", Literal "true")
+         )
+      )
+  |> List.filter_map (fun (pif_ref, pif_rec) ->
+         Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
+         |> Option.map (fun position -> (pif_ref, pif_rec, position))
+     )
+
 (** Copy Bonds from master *)
 let copy_bonds_from_master ~__context () =
   (* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
@@ -84,22 +98,8 @@ let copy_bonds_from_master ~__context () =
            )
         )
   in
-  let my_phy_pifs =
-    Db.PIF.get_records_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "host", Literal (Ref.string_of me))
-           , Eq (Field "physical", Literal "true")
-           )
-        )
-  in
-  let my_phy_pifs_with_position =
-    List.filter_map
-      (fun (pif_ref, pif_rec) ->
-        Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
-        |> Option.map (fun position -> (pif_ref, pif_rec, position))
-      )
-      my_phy_pifs
+  let my_physical_pifs_with_position =
+    get_my_physical_pifs_with_position ~__context
   in
   (* Consider Bonds *)
   debug "Resynchronising bonds" ;
@@ -156,7 +156,7 @@ let copy_bonds_from_master ~__context () =
     let my_slave_pifs_with_position =
       List.filter
         (fun (_, _, position) -> List.mem position slave_positions)
-        my_phy_pifs_with_position
+        my_physical_pifs_with_position
     in
     let my_slave_pif_refs =
       List.map (fun (pif_ref, _, _) -> pif_ref) my_slave_pifs_with_position
@@ -280,6 +280,7 @@ let copy_tunnels_from_master ~__context () =
 let copy_network_sriovs_from_master ~__context () =
   let me = !Xapi_globs.localhost_ref in
   let master = Helpers.get_master ~__context in
+  let ( let& ) o f = Option.iter f o in
   let master_sriov_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
@@ -298,14 +299,8 @@ let copy_network_sriovs_from_master ~__context () =
            )
         )
   in
-  let my_physical_pifs =
-    Db.PIF.get_records_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "host", Literal (Ref.string_of me))
-           , Eq (Field "physical", Literal "true")
-           )
-        )
+  let my_physical_pifs_with_position =
+    get_my_physical_pifs_with_position ~__context
   in
   debug "Resynchronising network-sriovs" ;
   let maybe_create_sriov_for_me (_, master_pif_rec) =
@@ -316,20 +311,34 @@ let copy_network_sriovs_from_master ~__context () =
         my_sriov_pifs
     in
     if existing_pif = [] then
-      let device = master_pif_rec.API.pIF_device in
+      let& master_sriov_physical_pif =
+        match
+          Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:master_pif_rec
+        with
+        | Network_sriov_logical _ :: Physical physical_pif :: _ ->
+            Some physical_pif
+        | _ ->
+            None
+      in
+      let& position =
+        Xapi_pif_helpers.get_pif_position ~__context
+          ~pif_rec:master_sriov_physical_pif
+      in
       let pifs =
         List.filter
-          (fun (_, pif_rec) -> pif_rec.API.pIF_device = device)
-          my_physical_pifs
+          (fun (_, _, pos) -> pos = position)
+          my_physical_pifs_with_position
       in
       match pifs with
       | [] ->
           info
             "Cannot sync network sriov because cannot find PIF whose device \
-             name is %s"
-            device
-      | (pif_ref, pif_rec) :: _ -> (
+             position is %d"
+            position
+      | (pif_ref, pif_rec, _) :: _ -> (
         try
+          debug "Syncing network sriov for PIF %s position %d"
+            pif_rec.API.pIF_uuid position ;
           Xapi_network_sriov.create ~__context ~pif:pif_ref
             ~network:sriov_network
           |> ignore
