@@ -45,9 +45,6 @@ let bridge_naming_convention (device : string) (pos_opt : int option) =
   | None ->
       "br" ^ device
 
-let n_of_xenbrn_opt bridge =
-  try Scanf.sscanf bridge "xenbr%d%!" Option.some with _ -> None
-
 type tables = {
     device_to_position_table: (string * int) list
   ; device_to_mac_table: (string * string) list
@@ -81,10 +78,7 @@ let get_physical_pif_device ~__context ~interface_tables ~pif_rec =
       )
   in
   if pif_rec.API.pIF_physical then (
-    let bridge =
-      Db.Network.get_bridge ~__context ~self:pif_rec.API.pIF_network
-    in
-    match n_of_xenbrn_opt bridge with
+    match Xapi_pif_helpers.get_pif_position ~__context ~pif_rec with
     | Some position ->
         find_name_by_position position pif_rec.API.pIF_device
     | None ->
