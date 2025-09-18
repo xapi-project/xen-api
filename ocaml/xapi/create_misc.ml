@@ -48,11 +48,11 @@ type host_info = {
 
 (** The format of the response looks like
  *  # xen-livepatch list
- *   ID                                     | status
- *  ----------------------------------------+------------
- *  hp_1_1                                  | CHECKED
- *  hp_2_1                                  | APPLIED
- *  hp_3_2                                  | APPLIED *)
+ *   ID                                     | status     | metadata
+ *  ----------------------------------------+------------+---------------
+ *  hp_1_1                                  | CHECKED    |
+ *  hp_2_1                                  | APPLIED    |
+ *  hp_3_2                                  | APPLIED    | *)
 let make_xen_livepatch_list () =
   let lines =
     try
@@ -63,8 +63,8 @@ let make_xen_livepatch_list () =
   let patches =
     List.fold_left
       (fun acc l ->
-        match List.map String.trim (Xstringext.String.split ~limit:2 '|' l) with
-        | [key; "APPLIED"] ->
+        match List.map String.trim (String.split_on_char '|' l) with
+        | key :: "APPLIED" :: _ ->
             key :: acc
         | _ ->
             acc
