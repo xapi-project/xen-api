@@ -28,7 +28,7 @@
  *)
 
 module Date = Clock.Date
-module Encodings = Xapi_stdext_encodings.Encodings
+module Encodings = Xapi_stdext_encodings
 module Listext = Xapi_stdext_std.Listext
 module Pervasiveext = Xapi_stdext_pervasives.Pervasiveext
 module Unixext = Xapi_stdext_unix.Unixext
@@ -414,7 +414,7 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   debug "Message.create %s %Ld %s %s" name priority
     (Record_util.cls_to_string cls)
     obj_uuid ;
-  if not (Encodings.UTF8_XML.is_valid body) then
+  if not (Encodings.Utf8.is_valid body) then
     raise (Api_errors.Server_error (Api_errors.invalid_value, ["UTF8 expected"])) ;
   if not (check_uuid ~__context ~cls ~uuid:obj_uuid) then
     raise

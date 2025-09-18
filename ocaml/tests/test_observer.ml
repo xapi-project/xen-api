@@ -305,6 +305,7 @@ let verify_json_fields_and_values ~json =
             ; ("xs.host.uuid", `String _)
             ; ("xs.host.name", `String _)
             ; ("service.name", `String _)
+            ; ("span.depth", `String _)
             ]
         )
       ; ("annotations", `List _)

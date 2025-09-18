@@ -579,8 +579,10 @@ let rec cmdtable_data : (string * cmd_spec) list =
   ; ( "host-disable"
     , {
         reqd= []
-      ; optn= []
-      ; help= "Disable the XE host."
+      ; optn= ["auto-enable"]
+      ; help=
+          "Disable the XE host. Setting auto-enable=false will keep the host \
+           persistently disabled until manually re-enabled with Host.enable."
       ; implementation= No_fd Cli_operations.host_disable
       ; flags= [Host_selectors]
       }
@@ -4049,7 +4051,7 @@ let rio_help printer minimal cmd =
     in
     let help =
       Printf.sprintf
-        {|Usage: 
+        {|Usage:
   %s <command>
     [ -s <server> ]            XenServer host
     [ -p <port> ]              XenServer port number
@@ -4061,7 +4063,7 @@ let rio_help printer minimal cmd =
     [ --traceparent <value> ]  Distributed tracing context
     [ <other arguments> ... ]  Command-specific options
 
-To get help on a specific command: 
+To get help on a specific command:
   %s help <command>
 
 |}

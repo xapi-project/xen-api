@@ -457,7 +457,7 @@ let gen_module api : O.Module.t =
                ([
                   "let __call, __params = call.Rpc.name, call.Rpc.params in"
                 ; "List.iter (fun p -> let s = Rpc.to_string p in if not \
-                   (Xapi_stdext_encodings.Encodings.UTF8_XML.is_valid s) then"
+                   (Xapi_stdext_encodings.Utf8.is_valid s) then"
                 ; "raise (Api_errors.Server_error(Api_errors.invalid_value, \
                    [\"Invalid UTF-8 string in parameter\"; s])))  __params;"
                 ; "let __label = __call in"

@@ -2240,6 +2240,9 @@ let print_assert_exception e =
       "VM requires access to SR: " ^ Cli_util.ref_convert (get_arg 2 params)
   | Api_errors.Server_error (code, _) when code = Api_errors.host_disabled ->
       "Host disabled (use 'xe host-enable' to re-enable)"
+  | Api_errors.Server_error (code, _)
+    when code = Api_errors.host_disabled_indefinitely ->
+      "Host disabled indefinitely (use 'xe host-enable' to re-enable)"
   | Api_errors.Server_error (code, _) when code = Api_errors.host_not_live ->
       "Host down"
   | Api_errors.Server_error (code, _)
@@ -6565,12 +6568,14 @@ let bond_set_mode _printer rpc session_id params =
   Client.Bond.set_mode ~rpc ~session_id ~self:bond ~value:mode
 
 let host_disable _printer rpc session_id params =
+  let auto_enable = get_bool_param ~default:true params "auto-enable" in
   ignore
     (do_host_op rpc session_id
        (fun _ host ->
          Client.Host.disable ~rpc ~session_id ~host:(host.getref ())
+           ~auto_enable
        )
-       params []
+       params ["auto-enable"]
     )
 
 let host_sync_data _printer rpc session_id params =

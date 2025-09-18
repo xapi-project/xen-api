@@ -366,13 +366,17 @@ let abort_if_network_attached_to_protected_vms ~__context ~self =
     List.iter
       (fun vm ->
         if Helpers.is_xha_protected ~__context ~self:vm then (
-          warn
-            "PIF.unplug will make protected VM %s not agile since it has a VIF \
-             attached to network %s"
-            (Ref.string_of vm) (Ref.string_of net) ;
+          let vm = Ref.string_of vm in
+          let pif = Ref.string_of self in
+          let net = Ref.string_of net in
+          info
+            "The protected VM %s must remain agile and blocked the operation. \
+             PIF %s must be plugged this. This happened because network %s is \
+             used by both the VM and the PIF"
+            vm pif net ;
           raise
-            (Api_errors.Server_error
-               (Api_errors.ha_operation_would_break_failover_plan, [])
+            Api_errors.(
+              Server_error (ha_constraint_violation_network_not_shared, [net])
             )
         )
       )
