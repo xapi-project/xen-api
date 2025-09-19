@@ -497,7 +497,8 @@ let compute_evacuation_plan_wlb ~__context ~self =
       if
         Db.Host.get_control_domain ~__context ~self:target_host <> v
         && Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
-      then (* resident host and migration host are the same. Reject this plan *)
+        (* resident host and migration host are the same. Reject this plan *)
+      then
         raise
           (Api_errors.Server_error
              ( Api_errors.wlb_malformed_response
