@@ -408,5 +408,8 @@ let update_env __context sync_keys =
         Xapi_host.set_console_idle_timeout ~__context ~self:localhost
           ~value:console_timeout
   ) ;
+  switched_sync Xapi_globs.sync_max_cstate (fun () ->
+      Xapi_host.sync_max_cstate ~__context ~host:localhost
+  ) ;
 
   remove_pending_guidances ~__context

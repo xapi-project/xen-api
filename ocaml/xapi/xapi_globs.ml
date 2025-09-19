@@ -374,6 +374,8 @@ let sync_chipset_info = "sync_chipset_info"
 
 let sync_ssh_status = "sync_ssh_status"
 
+let sync_max_cstate = "sync_max_cstate"
+
 let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
