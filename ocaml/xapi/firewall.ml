@@ -16,7 +16,7 @@ module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
-type service_type = Dlm | Nbd | Ssh | Vxlan | Http | Xenha
+type service_type = Dlm | Nbd | Ssh | Vxlan | Http | Xenha [@@deriving enum]
 
 type status = Enabled | Disabled
 
@@ -37,6 +37,12 @@ type service_info = {
   ; protocol: protocol
   ; dynamic_control_iptables_port: bool
 }
+
+let all_service_types =
+  let length = max_service_type - min_service_type + 1 in
+  List.init length (fun i ->
+      service_type_of_enum (min_service_type + i) |> Option.get
+  )
 
 let status_to_string = function Enabled -> "enabled" | Disabled -> "disabled"
 

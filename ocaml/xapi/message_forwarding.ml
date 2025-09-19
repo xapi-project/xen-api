@@ -4114,6 +4114,10 @@ functor
         let local_fn = Local.Host.set_ssh_auto_mode ~self ~value in
         let remote_fn = Client.Host.set_ssh_auto_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let update_firewalld_service_status ~__context =
+        info "Host.update_firewalld_service_status" ;
+        Local.Host.update_firewalld_service_status ~__context
     end
 
     module Host_crashdump = struct

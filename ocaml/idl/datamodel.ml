@@ -10704,6 +10704,7 @@ let emergency_calls =
   ; (Datamodel_host.t, Datamodel_host.emergency_disable_tls_verification)
   ; (Datamodel_host.t, Datamodel_host.emergency_reenable_tls_verification)
   ; (Datamodel_host.t, Datamodel_host.emergency_clear_mandatory_guidance)
+  ; (Datamodel_host.t, Datamodel_host.update_firewalld_service_status)
   ]
 
 (** Whitelist of calls that will not get forwarded from the slave to master via the unix domain socket *)

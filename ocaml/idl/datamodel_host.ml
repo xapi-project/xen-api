@@ -2487,6 +2487,14 @@ let set_ssh_auto_mode =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let update_firewalld_service_status =
+  call ~name:"update_firewalld_service_status" ~flags:[`Session] ~lifecycle:[]
+    ~pool_internal:true ~hide_from_docs:true
+    ~doc:
+      "Update firewalld services based on the corresponding xapi services \
+       status."
+    ~allowed_roles:_R_POOL_OP ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2649,6 +2657,7 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; update_firewalld_service_status
       ]
     ~contents:
       ([

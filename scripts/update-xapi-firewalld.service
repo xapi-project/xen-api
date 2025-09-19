@@ -1,0 +1,16 @@
+[Unit]
+Description=Update firewalld service for xapi
+PartOf=firewalld.service
+After=firewalld.service xapi.service xapi-init-complete.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'xe host-update-firewalld-service-status'
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitInterval=30s
+
+[Install]
+WantedBy=multi-user.target

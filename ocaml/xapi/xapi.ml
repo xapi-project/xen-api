@@ -1504,6 +1504,10 @@ let server_init () =
                 Xapi_host.write_uefi_certificates_to_disk ~__context
                   ~host:(Helpers.get_localhost ~__context)
             )
+          ; ( "Update firewalld service status"
+            , [Startup.NoExnRaising]
+            , fun () -> Xapi_host.update_firewalld_service_status ~__context
+            )
           ; ( "writing init complete"
             , []
             , fun () -> Helpers.touch_file !Xapi_globs.init_complete

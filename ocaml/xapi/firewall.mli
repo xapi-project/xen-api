@@ -16,6 +16,8 @@ type service_type = Dlm | Nbd | Ssh | Vxlan | Http | Xenha
 
 type status = Enabled | Disabled
 
+val all_service_types : service_type list
+
 module type FIREWALL = sig
   val update_firewall_status :
     ?interfaces:string list -> service_type -> status -> unit

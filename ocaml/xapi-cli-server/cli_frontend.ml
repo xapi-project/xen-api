@@ -2922,6 +2922,19 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Neverforward]
       }
     )
+  ; ( "host-update-firewalld-service-status"
+    , {
+        reqd= []
+      ; optn= []
+      ; help=
+          "Update firewalld services status based the corresponding xapi \
+           services status."
+      ; implementation=
+          No_fd_local_session
+            Cli_operations.host_update_firewalld_service_status
+      ; flags= [Neverforward]
+      }
+    )
   ; ( "diagnostic-compact"
     , {
         reqd= []
