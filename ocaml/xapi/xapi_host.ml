@@ -3378,3 +3378,36 @@ let get_nbd_interfaces ~__context ~self =
       allowed_connected_networks
   in
   Xapi_stdext_std.Listext.List.setify interfaces
+
+let update_firewalld_service_status ~__context =
+  let open Firewall in
+  let enable_firewalld_service service =
+    try Firewalld.update_firewall_status service Enabled with _ -> ()
+  in
+  match !Xapi_globs.firewall_backend with
+  | Firewalld ->
+      let self = Helpers.get_localhost ~__context in
+      let is_enabled = function
+        | Dlm ->
+            Xapi_clustering.Daemon.is_enabled ()
+        | Http ->
+            not (Db.Host.get_https_only ~__context ~self)
+        | Nbd ->
+            get_nbd_interfaces ~__context ~self <> []
+        | Ssh ->
+            Db.Host.get_ssh_enabled ~__context ~self
+        | Vxlan ->
+            List.exists
+              (fun tunnel ->
+                Db.PIF.get_currently_attached ~__context
+                  ~self:(Db.Tunnel.get_access_PIF ~__context ~self:tunnel)
+              )
+              (Db.Tunnel.get_all ~__context)
+        | Xenha ->
+            bool_of_string (Localdb.get Constants.ha_armed)
+      in
+      List.iter
+        (fun s -> if is_enabled s then enable_firewalld_service s)
+        all_service_types
+  | Iptables ->
+      debug "No need to update firewalld service status when using iptables"
