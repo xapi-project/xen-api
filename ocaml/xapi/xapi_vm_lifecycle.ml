@@ -442,7 +442,7 @@ let nvidia_sriov_pcis ~__context vgpus =
          Db.VGPU_type.get_implementation ~__context ~self:typ |> function
          | `nvidia_sriov ->
              let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
-             if Db.is_valid_ref __context pci then Some pci else None
+             Some pci
          | _ ->
              None
      )
@@ -947,7 +947,8 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null ;
            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
              ~value:Ref.null ;
-           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null
+           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null ;
+           Db.VGPU.set_VM ~__context ~self:vgpu ~value:Ref.null
        ) ;
     Db.VM.get_attached_PCIs ~__context ~self
     |> List.iter (fun pci ->
