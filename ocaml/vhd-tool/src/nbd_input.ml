@@ -131,7 +131,13 @@ let vhd ?(extent_reader = "/opt/xensource/libexec/get_nbd_extents.py") raw
        for all blocks that contain data. *)
     let add_new i l =
       (* Add i to list l, unless the list's head is already equal to i *)
-      match l with [] -> [i] | j :: _ when i = j -> l | _ -> i :: l
+      match l with
+      | [] ->
+          [i]
+      | j :: _ when i = j ->
+          l
+      | _ ->
+          i :: l
     in
     let next_offset offset e =
       assert_integer_sectors e.length ;

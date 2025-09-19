@@ -162,7 +162,7 @@ let main port certfile _ =
                     handle_connection fd tls_role
                   )
                   (* ignore the exception resulting from double-closing the socket *)
-                    (fun () ->
+                  (fun () ->
                     ignore_exn_delayed (fun () -> Lwt_unix.close fd) ()
                     >>= dec_conn
                   )

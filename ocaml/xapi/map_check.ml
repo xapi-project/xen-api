@@ -135,7 +135,11 @@ let with_ks ~kss ~fn =
   if corrected_values = [] then
     []
   else
-    match List.hd corrected_values with None -> [] | Some cv -> cv
+    match List.hd corrected_values with
+    | None ->
+        []
+    | Some cv ->
+        cv
 
 let assert_req_values ~field ~ks ~vs =
   (* each required values in this ks must match the one in the vs map this key/value belongs to *)

@@ -450,7 +450,11 @@ let create ~__context ~name ~priority ~cls ~obj_uuid ~body =
   (* Write the message to disk *)
   let gen = write ~__context ~_ref ~message in
   (* Return the message ref, or Ref.null if the message wasn't written *)
-  match gen with Some _ -> _ref | None -> Ref.null
+  match gen with
+  | Some _ ->
+      _ref
+  | None ->
+      Ref.null
 
 let deleted : (Xapi_database.Generation.t * API.ref_message) list ref =
   ref [(0L, Ref.null)]

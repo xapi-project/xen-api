@@ -15,8 +15,9 @@ let leaked wrapped =
 
 let finalise t =
   ( try Option.iter leaked !t
-    with _ -> (* this is a finaliser, do not let exceptions escape *)
-              ()
+    with _ ->
+      (* this is a finaliser, do not let exceptions escape *)
+      ()
   ) ;
   (* make sure finalizer doesn't get run again *)
   t := None

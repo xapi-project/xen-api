@@ -42,7 +42,7 @@ let test_valid_ref_filter =
         assert_equal [vm1; vm4] (Valid_ref_list.filter f l)
     | _ ->
         Alcotest.fail "The test list should contain 4 VMs"
-  )
+    )
 
 let test_for_all =
   with_vm_list (fun __context l ->
@@ -95,7 +95,7 @@ let test_filter_map =
         assert_equal ["a"; "d"] (Valid_ref_list.filter_map f l)
     | _ ->
         Alcotest.fail "The test list should contain 4 VMs"
-  )
+    )
 
 let test_iter =
   with_vm_list (fun __context l ->

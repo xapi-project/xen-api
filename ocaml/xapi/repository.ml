@@ -741,18 +741,18 @@ let apply_livepatches' ~__context ~host ~livepatches =
 let update_cache ~host ~failed_livepatches =
   Hashtbl.replace updates_in_cache host
     (`Assoc
-      [
-        ("updates", `List [])
-      ; ("accumulative_updates", `List [])
-      ; ( "livepatches"
-        , `List
-            (List.map
-               (fun (lp, _) -> `String (LivePatch.to_string lp))
-               failed_livepatches
-            )
-        )
-      ]
-      )
+       [
+         ("updates", `List [])
+       ; ("accumulative_updates", `List [])
+       ; ( "livepatches"
+         , `List
+             (List.map
+                (fun (lp, _) -> `String (LivePatch.to_string lp))
+                failed_livepatches
+             )
+         )
+       ]
+    )
 
 let maybe_set_restart_for_all_vms ~__context ~updates_of_hosts =
   let open Guidance in

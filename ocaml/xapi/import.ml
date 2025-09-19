@@ -1525,7 +1525,7 @@ module VIF : HandlerTools = struct
     let vif_opt =
       if config.full_restore then (
         (* If there's already a VIF with the same UUID and we're preserving UUIDs, use that one. *)
-        match get_vif () with
+          match get_vif () with
         | Some x ->
             Some x
         | None ->
@@ -1753,7 +1753,7 @@ module VGPU : HandlerTools = struct
     let vgpu_opt =
       if config.full_restore then (
         (* If there's already a VGPU with the same UUID and we're preserving UUIDs, use that one. *)
-        match get_vgpu () with
+          match get_vgpu () with
         | Some x ->
             Some x
         | None ->

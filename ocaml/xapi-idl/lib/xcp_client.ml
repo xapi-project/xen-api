@@ -49,8 +49,7 @@ let switch_rpc ?timeout queue_name string_of_call response_of_string =
                  di.tracing
              | _ ->
                  None
-             )
-             )
+             ))
     in
     let rpc_service = "message_switch" in
     Tracing.with_tracing

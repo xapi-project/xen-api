@@ -20,18 +20,17 @@ module Uuidm = struct
                 Ok uuid
             | None ->
                 Error
-                  (`Msg
-                    (Printf.sprintf "typ_of_vm_uuid: not a valid UUID: %s" s)
-                    )
+                  (`Msg (Printf.sprintf "typ_of_vm_uuid: not a valid UUID: %s" s)
+                  )
           )
           | r ->
               Error
                 (`Msg
-                  (Printf.sprintf
-                     "typ_of_vm_uuid: expected rpc string but got %s"
-                     (Rpc.to_string r)
-                  )
-                  )
+                   (Printf.sprintf
+                      "typ_of_vm_uuid: expected rpc string but got %s"
+                      (Rpc.to_string r)
+                   )
+                )
           )
       }
 

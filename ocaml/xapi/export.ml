@@ -901,21 +901,21 @@ let handler (req : Request.t) s _ =
       if not host_ok (* redirect *) then (
         (* We do this outside the Xapi_http.with_context below since that will complete the *)
         (* task when it exits, and we don't want to do that *)
-        try
-          let host = find_host_for_VM ~__context vm_ref in
-          let address = Db.Host.get_address ~__context ~self:host in
-          let url =
-            Uri.(
-              make ~scheme:"https" ~host:address ~path:req.Request.uri
-                ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
-                ()
-              |> to_string
-            )
-          in
-          info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url ;
-          let headers = Http.http_302_redirect url in
-          Http_svr.headers s headers
-        with
+          try
+            let host = find_host_for_VM ~__context vm_ref in
+            let address = Db.Host.get_address ~__context ~self:host in
+            let url =
+              Uri.(
+                make ~scheme:"https" ~host:address ~path:req.Request.uri
+                  ~query:(List.map (fun (a, b) -> (a, [b])) req.Request.query)
+                  ()
+                |> to_string
+              )
+            in
+            info "export VM = %s redirecting to: %s" (Ref.string_of vm_ref) url ;
+            let headers = Http.http_302_redirect url in
+            Http_svr.headers s headers
+          with
         | Api_errors.Server_error _ as e -> (
             error "Caught exception in export handler: %s"
               (ExnHelper.string_of_exn e) ;

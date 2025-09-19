@@ -2063,7 +2063,10 @@ let vdi_pool_migrate printer rpc session_id params =
     Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "uuid" params)
   and sr =
     Client.SR.get_by_uuid ~rpc ~session_id ~uuid:(List.assoc "sr-uuid" params)
-  and options = [] (* no options implemented yet *) in
+  and options =
+    []
+    (* no options implemented yet *)
+  in
   let newvdi = Client.VDI.pool_migrate ~rpc ~session_id ~vdi ~sr ~options in
   let newuuid = Client.VDI.get_uuid ~rpc ~session_id ~self:newvdi in
   printer (Cli_printer.PList [newuuid])
@@ -6373,8 +6376,8 @@ let diagnostic_license_status printer rpc session_id _params =
     Client.Pool.get_all_records ~rpc ~session_id
     |> List.hd
     |> (fun (pool, _) ->
-         Client.Pool.get_restrictions ~rpc ~session_id ~self:pool
-       )
+    Client.Pool.get_restrictions ~rpc ~session_id ~self:pool
+    )
     |> Features.of_assoc_list
   in
   let divider = ["-"; "-"; "-"; "-"; "-"; "-"] in

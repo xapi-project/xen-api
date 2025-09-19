@@ -191,7 +191,11 @@ let gen_module api : O.Module.t =
       if x.msg_custom_marshaller then
         "Rpc.t"
       else if sync then
-        match x.msg_result with Some (x, _) -> OU.alias_of_ty x | _ -> "unit"
+        match x.msg_result with
+        | Some (x, _) ->
+            OU.alias_of_ty x
+        | _ ->
+            "unit"
       else
         OU.alias_of_ty task
     in

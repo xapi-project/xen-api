@@ -2891,7 +2891,7 @@ let enable_external_auth ~__context ~pool:_ ~config ~service_name ~auth_type =
             if
               List.for_all
                 (*List.for_all goes through the list up to the point when the predicate fails, inclusive *)
-                  (fun h ->
+                (fun h ->
                   (* forward the call to the host in the pool *)
                   try
                     debug "trying to enable external authentication on host %s"
@@ -3060,14 +3060,17 @@ let disable_external_auth ~__context ~pool:_ ~config =
       let failedhosts_list =
         List.filter (fun (_, err, _) -> err <> "") host_msgs_list
       in
-      if failedhosts_list <> [] then ((* FAILED *)
-        match List.hd failedhosts_list with
+      if failedhosts_list <> [] then (
+        (* FAILED *)
+          match List.hd failedhosts_list with
         | host, err, msg ->
             debug
               "Failed to disable the external authentication of at least one \
                host in the pool" ;
-            if String.starts_with ~prefix:Api_errors.auth_disable_failed err
-            then (* tagged exception *)
+            if
+              String.starts_with ~prefix:Api_errors.auth_disable_failed err
+              (* tagged exception *)
+            then
               raise
                 (Api_errors.Server_error
                    (Api_errors.pool_auth_prefix ^ err, [Ref.string_of host; msg])
@@ -3551,7 +3554,10 @@ let alert_failed_login_attempts () =
 let perform ~local_fn ~__context ~host ~remote_fn =
   let rpc' _context hostname (task_opt : API.ref_task option) xml =
     let open Xmlrpc_client in
-    let verify_cert = Some Stunnel.pool (* verify! *) in
+    let verify_cert =
+      Some Stunnel.pool
+      (* verify! *)
+    in
     let task_id = Option.map Ref.string_of task_opt in
     let tracing = Context.set_client_span __context in
     let http = xmlrpc ?task_id ~version:"1.0" "/" in

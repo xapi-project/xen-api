@@ -160,8 +160,8 @@ let copy_vdi ~__context ?base vdi_src vdi_dst =
                    							 *
                    							 * Note that progress updates are still applied directly to the
                    							 * VDI.copy task. *)
-                Server_helpers.exec_with_subtask ~__context
-                  ~task_in_database:true "sparse_dd" (fun ~__context ->
+                  Server_helpers.exec_with_subtask ~__context
+                    ~task_in_database:true "sparse_dd" (fun ~__context ->
                     let import_task_id = Context.get_task_id __context in
                     let remote_uri =
                       import_vdi_url ~__context ~prefer_slaves:true rpc

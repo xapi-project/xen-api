@@ -678,7 +678,8 @@ module Plugin = struct
       (* we are skipping a reading *)
       let decr_skip_count ((_uid, plugin) as p) =
         if skip p then
-          with_lock registered_m (fun () -> plugin.skip <- plugin.skip - 1)
+          with_lock registered_m (fun () -> plugin.skip <- plugin.skip - 1
+          )
 
       let get_payload ~(uid : P.uid) plugin : Rrd_protocol.payload =
         try

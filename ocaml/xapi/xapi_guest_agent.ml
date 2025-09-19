@@ -94,7 +94,7 @@ let ( // ) = Filename.concat
  *
  * Add support for SR-IOV VF, so there are two kinds of vif_type, either to be
  * `vif` or `net-sriov-vf`
- * *)
+ *)
 let networks path vif_type (list : string -> string list) =
   (* Find all ipv6 addresses under a path. *)
   let find_ipv6 path prefix =
@@ -392,9 +392,11 @@ let create_and_set_guest_metrics (lookup : string -> string option)
     ~can_use_hotplug_vif:initial_gm.can_use_hotplug_vif ;
   Db.VM.set_guest_metrics ~__context ~self ~value:new_gm_ref ;
   (* Update the cache with the new values *)
-  with_lock mutex (fun () -> Hashtbl.replace cache domid initial_gm) ;
+  with_lock mutex (fun () -> Hashtbl.replace cache domid initial_gm
+  ) ;
   (* We've just set the thing to live, let's make sure it's not in the dead list *)
-  with_lock mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains) ;
+  with_lock mutex (fun () -> dead_domains := IntSet.remove domid !dead_domains
+  ) ;
   let sl xs = String.concat "; " (List.map (fun (k, v) -> k ^ ": " ^ v) xs) in
   info
     "Received initial update from guest agent in VM %s; os_version = [ %s ]; \
@@ -486,9 +488,9 @@ let all (lookup : string -> string option) (list : string -> string list)
     )
     || guest_metrics_cached.can_use_hotplug_vbd <> can_use_hotplug_vbd
     || guest_metrics_cached.can_use_hotplug_vif <> can_use_hotplug_vif
-    (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
-    (* ||
-       guest_metrics_cached.memory <> memory)*)
+  (* Nb. we're ignoring the memory updates as far as the VM_guest_metrics API object is concerned. We are putting them into an RRD instead *)
+  (* ||
+         guest_metrics_cached.memory <> memory)*)
   then (
     let gm =
       let existing = Db.VM.get_guest_metrics ~__context ~self in

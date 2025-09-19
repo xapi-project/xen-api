@@ -16,7 +16,7 @@
  * It is still possible to convert it to Rpc.t and recover it that way,
  * it is not a protection against willfully recovering the protected string
  * (we do need to send these as parameters in RPCs).
- * *)
+ *)
 
 (** a type with no direct conversions to string *)
 type t

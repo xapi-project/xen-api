@@ -112,7 +112,7 @@ end = struct
           k x
       | Task (task, next) ->
           (* similar reasoning as above, when we get the result we need to chain the computations,
-             * refer to http://okmij.org/ftp/Computation/free-monad.html for a deeper theoretical explanation *)
+           * refer to http://okmij.org/ftp/Computation/free-monad.html for a deeper theoretical explanation *)
           Task (task, fun x -> next x >>= k)
   end
 
@@ -135,7 +135,7 @@ end = struct
             ((k, r) :: completed, pending, tasks)
         | (_, Task (task, _)) as t ->
             (completed, t :: pending, task :: tasks)
-      )
+        )
       (completed, [], []) lst
 
   let parallel ~__context ~rpc ~session_id lst =
@@ -426,7 +426,8 @@ let compute_spread_evenly_plan ~__context pool_state anti_aff_vms =
 let compute_no_breach_plan ~__context pool_state anti_aff_vms =
   info "compute_no_breach_plan" ;
   List.fold_left
-    (fun (acc_mapping, acc_not_planned_vms, acc_pool_state) (vm, vm_size, group) ->
+    (fun (acc_mapping, acc_not_planned_vms, acc_pool_state) (vm, vm_size, group)
+       ->
       debug "No breach plan: try to plan for anti-affinity VM (%s %s %s)."
         (Ref.string_of vm)
         (Db.VM.get_name_label ~__context ~self:vm)

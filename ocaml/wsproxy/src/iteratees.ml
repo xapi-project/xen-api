@@ -294,7 +294,8 @@ module Iteratee (IO : Monad) = struct
       | Chunk str ->
           let len = String.length str in
           if len < n then
-            IO.bind (k s) (fun (i, _) -> IO.return (take (n - len) i, Chunk ""))
+            IO.bind (k s) (fun (i, _) -> IO.return (take (n - len) i, Chunk "")
+            )
           else
             let str1, str2 = split str n in
             IO.bind (k (Chunk str1)) (fun (i, _) ->

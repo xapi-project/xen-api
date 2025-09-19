@@ -37,7 +37,10 @@ let _ =
       ( "-mode"
       , Arg.String
           (function
-          | "local" -> mode := Rrdd_plugin.Reporter.Local 1 | x -> invalid_arg x
+          | "local" ->
+              mode := Rrdd_plugin.Reporter.Local 1
+          | x ->
+              invalid_arg x
           )
       , "mode, currently only local mode"
       )

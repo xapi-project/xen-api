@@ -139,7 +139,7 @@ end = struct
               f :: l
           | Namespace (_name, contents) ->
               flatten_contents contents @ l
-        )
+          )
         [] contents
     in
     let fields = flatten_contents obj.contents in
@@ -489,7 +489,7 @@ end = struct
                   f :: l
               | Namespace (_name, contents) ->
                   flatten_contents contents @ l
-            )
+              )
             [] contents
         in
         let fields = flatten_contents obj.contents in

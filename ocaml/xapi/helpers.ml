@@ -1997,8 +1997,9 @@ end = struct
       ( try
           Unix.access !Xapi_globs.pool_secret_path [Unix.F_OK] ;
           Unixext.string_of_file !Xapi_globs.pool_secret_path
-        with _ -> (* No pool secret exists. *)
-                  _make ()
+        with _ ->
+          (* No pool secret exists. *)
+          _make ()
       )
       |> to_secret
     in

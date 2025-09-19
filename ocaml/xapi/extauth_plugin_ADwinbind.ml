@@ -208,7 +208,7 @@ module Ldap = struct
     (*
      * Escape characters according to
      * https://docs.microsoft.com/en-gb/windows/win32/adsi/search-filter-syntax?redirectedfrom=MSDN#special-characters
-     * *)
+     *)
 
     let reg_star = {|*|} |> Re.str |> Re.compile
 
@@ -402,7 +402,7 @@ module Ldap = struct
     let* stdout =
       try
         (* Query KDC instead of use domain here
-           * Just in case cannot resolve domain name from DNS *)
+         * Just in case cannot resolve domain name from DNS *)
         let args =
           [
             "ads"
@@ -553,7 +553,7 @@ module Wbinfo = struct
      * Name              : UCC
      * Alt_Name          : ucc.local
      * SID               : S-1-5-21-2850064427-2368465266-4270348630
-     * *)
+     *)
     let args = ["--domain-info"; from_name] in
     let* stdout = call_wbinfo args in
     let key =
@@ -614,7 +614,7 @@ module Wbinfo = struct
      * CHILD1
      * GRANDCHILD
      * UDDCHILD1
-     * *)
+     *)
     let args = ["--all-domains"] in
     let* stdout = call_wbinfo args in
     Ok
@@ -1655,7 +1655,7 @@ module AuthADWinbind : Auth_signature.AUTH_MODULE = struct
            * the joined domain (with 1 way trust ) , just return the default value
            * This is NOT a regression issue of PBIS
            * PBIS cannot handle such case neither
-           * *)
+           *)
           debug "Fallback to default value as no DC info in xapi database" ;
           Ok default_account
     in

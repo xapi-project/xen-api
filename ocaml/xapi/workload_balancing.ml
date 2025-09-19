@@ -262,7 +262,8 @@ let parse_result_code meth xml_data response initial_error enable_log =
            "After failing to retrieve valid response, an error codecould not \
             be found. Some data is missing or corrupt.\n\
             Attempt retrieve valid response: (%s)\n\
-            Attempt to retrieve error code: (%s)" initial_error error
+            Attempt to retrieve error code: (%s)"
+           initial_error error
         )
         ( if enable_log then
             response

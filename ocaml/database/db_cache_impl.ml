@@ -482,24 +482,24 @@ let spawn_db_flush_threads () =
                    try
                      Thread.delay Db_backend.db_FLUSH_TIMER ;
                      (* If I have some writing capacity left in this write period then consider doing a write; or
-                        								   if the connection is not write-limited then consider doing a write too.
-                        								   We also have to consider doing a write if exit_on_next_flush is set: because when this is
-                        								   set (by a signal handler) we want to do a flush whether or not our write limit has been
-                        								   exceeded.
+                        if the connection is not write-limited then consider doing a write too.
+                        We also have to consider doing a write if exit_on_next_flush is set: because when this is
+                        set (by a signal handler) we want to do a flush whether or not our write limit has been
+                        exceeded.
                      *)
+                     (* always flush straight away; this request is urgent
+                        otherwise, we only write if
+                          (i) "coalesscing period has come to an end"; and
+                          (ii) "write limiting requirements are met": *)
                      ( if
                          !Db_connections.exit_on_next_flush
-                         (* always flush straight away; this request is urgent *)
-                         || (* otherwise, we only write if (i) "coalesscing period has come to an end"; and (ii) "write limiting requirements are met": *)
-                         (not (in_coallescing_period ()))
-                         (* see (i) above *)
-                         && (!my_writes_this_period
-                             < dbconn.Parse_db_conf.write_limit_write_cycles
-                            || dbconn.Parse_db_conf.mode
-                               = Parse_db_conf.No_limit
-                               (* (ii) above *)
-                            )
-                       then (* debug "[%s] considering flush" db_path; *)
+                         || (not (in_coallescing_period ()))
+                            && (!my_writes_this_period
+                                < dbconn.Parse_db_conf.write_limit_write_cycles
+                               || dbconn.Parse_db_conf.mode
+                                  = Parse_db_conf.No_limit
+                               )
+                       then
                          let was_anything_flushed =
                            Xapi_stdext_threads.Threadext.Mutex.execute
                              Db_lock.global_flush_mutex (fun () ->
@@ -509,7 +509,7 @@ let spawn_db_flush_threads () =
                          if was_anything_flushed then (
                            my_writes_this_period := !my_writes_this_period + 1 ;
                            (* when we do a write, reset the coallesce_period_start to now -- recall that this
-                              												   variable tracks the time since last write *)
+                              variable tracks the time since last write *)
                            coallesce_period_start := Unix.gettimeofday ()
                          )
                      ) ;

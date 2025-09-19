@@ -3399,11 +3399,11 @@ module Backend = struct
               ]
             ; ["-S"]
             ; Config.extra_qemu_args ~nic_type
-            ; (info.Dm_Common.parallel |> function
-               | None ->
-                   ["-parallel"; "null"]
-               | Some x ->
-                   ["-parallel"; x]
+            ; ( info.Dm_Common.parallel |> function
+                | None ->
+                    ["-parallel"; "null"]
+                | Some x ->
+                    ["-parallel"; x]
               )
             ; qmp
             ; Config.XenPlatform.device ~xs ~domid ~info

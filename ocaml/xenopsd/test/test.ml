@@ -727,7 +727,8 @@ functor
           let (dev_id : id) = add dev in
           plug dev_id |> wait_for_task |> success_task ;
           (* no unplug *)
-          fail_connected (fun () -> remove dev_id)
+          fail_connected (fun () -> remove dev_id
+          )
       )
   end
 

@@ -679,12 +679,12 @@ let eval_guidances ~updates_info ~updates ~kind ~livepatches =
     )
     GuidanceSet.empty updates
   |> (fun l ->
-       match kind with
-       | Recommended ->
-           append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches l
-       | _ ->
-           l
-     )
+  match kind with
+  | Recommended ->
+      append_livepatch_guidance ~updates_info ~upd_ids_of_livepatches l
+  | _ ->
+      l
+  )
   |> GuidanceSet.resort
 
 let parse_line_of_repoquery acc line =

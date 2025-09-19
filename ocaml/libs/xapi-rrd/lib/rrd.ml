@@ -439,7 +439,7 @@ let ds_update rrd timestamp valuesandtransforms new_rrd =
           (* CA-404597 - Gauge and Absolute values should be passed as-is,
              without being involved in time-based calculations at all.
              This applies to calculations below as well *)
-          match ds.ds_ty with
+            match ds.ds_ty with
           | Gauge | Absolute ->
               ds.ds_value <- value
           | Derive ->

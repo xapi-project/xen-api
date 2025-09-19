@@ -15,18 +15,18 @@
 (* Kerberos support several different encrytion types
  * winbind support it as strong, legacy and all
  * details, https://www.samba.org/samba/docs/current/man-html/smb.conf.5.html
- * *)
+ *)
 
 module Winbind = struct
   type t = Strong | Legacy | All
 
   (*
-     * [X] 0x00000001 DES-CBC-CRC
-     * [X] 0x00000002 DES-CBC-MD5
-     * [X] 0x00000004 RC4-HMAC
-     * [X] 0x00000008 AES128-CTS-HMAC-SHA1-96
-     * [X] 0x00000010 AES256-CTS-HMAC-SHA1-96
-     * *)
+   * [X] 0x00000001 DES-CBC-CRC
+   * [X] 0x00000002 DES-CBC-MD5
+   * [X] 0x00000004 RC4-HMAC
+   * [X] 0x00000008 AES128-CTS-HMAC-SHA1-96
+   * [X] 0x00000010 AES256-CTS-HMAC-SHA1-96
+   *)
 
   let des_cbc_crc = 0x1
 

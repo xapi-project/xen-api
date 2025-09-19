@@ -1831,21 +1831,21 @@ module GetUpdateInJson = Generic.MakeStateless (struct
           )
         , Ok
             (`Assoc
-              [
-                ("name", `String "xsconsole")
-              ; ("arch", `String "x86_64")
-              ; ( "newEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "(none)")
-                    ; ("version", `String "0.2.2")
-                    ; ("release", `String "9.el7")
-                    ]
-                )
-              ; ("updateId", `Null)
-              ; ("repository", `String "regular")
-              ]
-              )
+               [
+                 ("name", `String "xsconsole")
+               ; ("arch", `String "x86_64")
+               ; ( "newEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "(none)")
+                     ; ("version", `String "0.2.2")
+                     ; ("release", `String "9.el7")
+                     ]
+                 )
+               ; ("updateId", `Null)
+               ; ("repository", `String "regular")
+               ]
+            )
         )
       ; (* A normal case *)
         ( ( [
@@ -1883,29 +1883,29 @@ module GetUpdateInJson = Generic.MakeStateless (struct
           )
         , Ok
             (`Assoc
-              [
-                ("name", `String "xsconsole")
-              ; ("arch", `String "x86_64")
-              ; ( "newEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "(none)")
-                    ; ("version", `String "0.2.2")
-                    ; ("release", `String "9.el7")
-                    ]
-                )
-              ; ("updateId", `Null)
-              ; ("repository", `String "regular")
-              ; ( "oldEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "(none)")
-                    ; ("version", `String "0.2.1")
-                    ; ("release", `String "29.el7")
-                    ]
-                )
-              ]
-              )
+               [
+                 ("name", `String "xsconsole")
+               ; ("arch", `String "x86_64")
+               ; ( "newEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "(none)")
+                     ; ("version", `String "0.2.2")
+                     ; ("release", `String "9.el7")
+                     ]
+                 )
+               ; ("updateId", `Null)
+               ; ("repository", `String "regular")
+               ; ( "oldEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "(none)")
+                     ; ("version", `String "0.2.1")
+                     ; ("release", `String "29.el7")
+                     ]
+                 )
+               ]
+            )
         )
       ; (* A package with update ID *)
         ( ( [
@@ -1943,29 +1943,29 @@ module GetUpdateInJson = Generic.MakeStateless (struct
           )
         , Ok
             (`Assoc
-              [
-                ("name", `String "xsconsole")
-              ; ("arch", `String "x86_64")
-              ; ( "newEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "(none)")
-                    ; ("version", `String "0.2.2")
-                    ; ("release", `String "9.el7")
-                    ]
-                )
-              ; ("updateId", `String "UPDATE-01")
-              ; ("repository", `String "regular")
-              ; ( "oldEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "(none)")
-                    ; ("version", `String "0.2.1")
-                    ; ("release", `String "29.el7")
-                    ]
-                )
-              ]
-              )
+               [
+                 ("name", `String "xsconsole")
+               ; ("arch", `String "x86_64")
+               ; ( "newEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "(none)")
+                     ; ("version", `String "0.2.2")
+                     ; ("release", `String "9.el7")
+                     ]
+                 )
+               ; ("updateId", `String "UPDATE-01")
+               ; ("repository", `String "regular")
+               ; ( "oldEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "(none)")
+                     ; ("version", `String "0.2.1")
+                     ; ("release", `String "29.el7")
+                     ]
+                 )
+               ]
+            )
         )
       ; (* A normal case with epoch *)
         ( ( [
@@ -2003,29 +2003,29 @@ module GetUpdateInJson = Generic.MakeStateless (struct
           )
         , Ok
             (`Assoc
-              [
-                ("name", `String "xsconsole")
-              ; ("arch", `String "x86_64")
-              ; ( "newEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "1")
-                    ; ("version", `String "0.1.1")
-                    ; ("release", `String "9.el7")
-                    ]
-                )
-              ; ("updateId", `Null)
-              ; ("repository", `String "regular")
-              ; ( "oldEpochVerRel"
-                , `Assoc
-                    [
-                      ("epoch", `String "(none)")
-                    ; ("version", `String "0.2.1")
-                    ; ("release", `String "29.el7")
-                    ]
-                )
-              ]
-              )
+               [
+                 ("name", `String "xsconsole")
+               ; ("arch", `String "x86_64")
+               ; ( "newEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "1")
+                     ; ("version", `String "0.1.1")
+                     ; ("release", `String "9.el7")
+                     ]
+                 )
+               ; ("updateId", `Null)
+               ; ("repository", `String "regular")
+               ; ( "oldEpochVerRel"
+                 , `Assoc
+                     [
+                       ("epoch", `String "(none)")
+                     ; ("version", `String "0.2.1")
+                     ; ("release", `String "29.el7")
+                     ]
+                 )
+               ]
+            )
         )
       ]
 end)

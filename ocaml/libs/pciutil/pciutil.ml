@@ -25,13 +25,14 @@ let parse_from file vendor device =
   let vendor_str = ref (unknown_vendor vendor)
   and device_str = ref (unknown_device device) in
   (* CA-26771: As we parse the file we keep track of the current vendor.
-     	   When we find a device match we only accept it if it's from the right vendor; it doesn't make
-     	   sense to pair vendor 2's device with vendor 1. *)
+     When we find a device match we only accept it if it's from the right
+     vendor; it doesn't make sense to pair vendor 2's device with vendor 1. *)
   let current_xvendor = ref "" in
   Unixext.readfile_line
     (fun line ->
+      (* ignore subvendors/subdevices, blank lines and comments *)
       if line = "" || line.[0] = '#' || (line.[0] = '\t' && line.[1] = '\t')
-      then (* ignore subvendors/subdevices, blank lines and comments *)
+      then
         ()
       else if line.[0] = '\t' then (
         if

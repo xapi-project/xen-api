@@ -143,7 +143,11 @@ let lwt_reporter () =
     let pf = Format.fprintf in
     let pp_header ppf (l, h) =
       if l = Logs.App then
-        match h with None -> () | Some h -> pf ppf "[%s] " h
+        match h with
+        | None ->
+            ()
+        | Some h ->
+            pf ppf "[%s] " h
       else
         match h with
         | None ->
@@ -1138,65 +1142,60 @@ module SRImpl (M : META) = struct
   let sr_set_name_label_impl dbg sr new_name_label =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () ->
-               Sr_client.set_name (volume_rpc ~dbg) dbg sr new_name_label
-           )
-         )
+    return_volume_rpc (fun () ->
+        Sr_client.set_name (volume_rpc ~dbg) dbg sr new_name_label
+    )
+    )
     |> wrap
 
   let sr_set_name_description_impl dbg sr new_name_description =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () ->
-               Sr_client.set_description (volume_rpc ~dbg) dbg sr
-                 new_name_description
-           )
-         )
+    return_volume_rpc (fun () ->
+        Sr_client.set_description (volume_rpc ~dbg) dbg sr new_name_description
+    )
+    )
     |> wrap
 
   let sr_destroy_impl dbg sr =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () ->
-               Sr_client.destroy (volume_rpc ~dbg) dbg sr
-           )
-         )
+    return_volume_rpc (fun () -> Sr_client.destroy (volume_rpc ~dbg) dbg sr)
+    )
     |> wrap
 
   let sr_scan_impl dbg sr =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () ->
-               Sr_client.ls
-                 (volume_rpc ~dbg ~compat_out:Compat.compat_out_volumes)
-                 dbg sr
-           )
-           >>>= fun response ->
-           let response = Array.to_list response in
-           (* Filter out volumes which are clone-on-boot transients *)
-           let transients =
-             List.fold_left
-               (fun set x ->
-                 match
-                   List.assoc_opt _clone_on_boot_key x.Xapi_storage.Control.keys
-                 with
-                 | None ->
-                     set
-                 | Some transient ->
-                     Base.Set.add set transient
-               )
-               (Base.Set.empty (module Base.String))
-               response
-           in
-           let response =
-             List.filter
-               (fun x ->
-                 not (Base.Set.mem transients x.Xapi_storage.Control.key)
-               )
-               response
-           in
-           return (List.map vdi_of_volume response)
-         )
+    return_volume_rpc (fun () ->
+        Sr_client.ls
+          (volume_rpc ~dbg ~compat_out:Compat.compat_out_volumes)
+          dbg sr
+    )
+    >>>= fun response ->
+    let response = Array.to_list response in
+    (* Filter out volumes which are clone-on-boot transients *)
+    let transients =
+      List.fold_left
+        (fun set x ->
+          match
+            List.assoc_opt _clone_on_boot_key x.Xapi_storage.Control.keys
+          with
+          | None ->
+              set
+          | Some transient ->
+              Base.Set.add set transient
+        )
+        (Base.Set.empty (module Base.String))
+        response
+    in
+    let response =
+      List.filter
+        (fun x -> not (Base.Set.mem transients x.Xapi_storage.Control.key))
+        response
+    in
+    return (List.map vdi_of_volume response)
+    )
     |> wrap
 
   let sr_scan2_impl dbg sr =
@@ -1287,29 +1286,29 @@ module SRImpl (M : META) = struct
   let sr_stat_impl dbg sr =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () -> Sr_client.stat (volume_rpc ~dbg) dbg sr)
-           >>>= fun response ->
-           return
-             {
-               Storage_interface.sr_uuid= response.Xapi_storage.Control.uuid
-             ; name_label= response.Xapi_storage.Control.name
-             ; name_description= response.Xapi_storage.Control.description
-             ; total_space= response.Xapi_storage.Control.total_space
-             ; free_space= response.Xapi_storage.Control.free_space
-             ; clustered= response.Xapi_storage.Control.clustered
-             ; health=
-                 ( match response.Xapi_storage.Control.health with
-                 | Xapi_storage.Control.Healthy _ ->
-                     Healthy
-                 | Xapi_storage.Control.Recovering _ ->
-                     Recovering
-                 | Xapi_storage.Control.Unreachable _ ->
-                     Unreachable
-                 | Xapi_storage.Control.Unavailable _ ->
-                     Unavailable
-                 )
-             }
-         )
+    return_volume_rpc (fun () -> Sr_client.stat (volume_rpc ~dbg) dbg sr)
+    >>>= fun response ->
+    return
+      {
+        Storage_interface.sr_uuid= response.Xapi_storage.Control.uuid
+      ; name_label= response.Xapi_storage.Control.name
+      ; name_description= response.Xapi_storage.Control.description
+      ; total_space= response.Xapi_storage.Control.total_space
+      ; free_space= response.Xapi_storage.Control.free_space
+      ; clustered= response.Xapi_storage.Control.clustered
+      ; health=
+          ( match response.Xapi_storage.Control.health with
+          | Xapi_storage.Control.Healthy _ ->
+              Healthy
+          | Xapi_storage.Control.Recovering _ ->
+              Recovering
+          | Xapi_storage.Control.Unreachable _ ->
+              Unreachable
+          | Xapi_storage.Control.Unavailable _ ->
+              Unavailable
+          )
+      }
+    )
     |> wrap
 
   let sr_list _dbg = Attached_SRs.list () >>>= (fun srs -> return srs) |> wrap
@@ -1393,17 +1392,16 @@ module VDIImpl (M : META) = struct
   let vdi_create_impl dbg sr (vdi_info : Storage_interface.vdi_info) =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           return_volume_rpc (fun () ->
-               Volume_client.create
-                 (volume_rpc ~dbg ~compat_out:Compat.compat_out_volume)
-                 dbg sr vdi_info.Storage_interface.name_label
-                 vdi_info.name_description vdi_info.virtual_size
-                 vdi_info.sharable
-           )
-           >>>= update_keys ~dbg ~sr ~key:_vdi_type_key
-                  ~value:(match vdi_info.ty with "" -> None | s -> Some s)
-           >>>= fun response -> return (vdi_of_volume response)
-         )
+    return_volume_rpc (fun () ->
+        Volume_client.create
+          (volume_rpc ~dbg ~compat_out:Compat.compat_out_volume)
+          dbg sr vdi_info.Storage_interface.name_label vdi_info.name_description
+          vdi_info.virtual_size vdi_info.sharable
+    )
+    >>>= update_keys ~dbg ~sr ~key:_vdi_type_key
+           ~value:(match vdi_info.ty with "" -> None | s -> Some s)
+    >>>= fun response -> return (vdi_of_volume response)
+    )
     |> wrap
 
   let vdi_destroy_impl dbg sr vdi' =
@@ -1427,49 +1425,46 @@ module VDIImpl (M : META) = struct
   let vdi_snapshot_impl dbg sr vdi_info =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           let vdi =
-             Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi
-           in
-           return_volume_rpc (fun () ->
-               Volume_client.snapshot (volume_rpc ~dbg) dbg sr vdi
-           )
-           >>>= fun response ->
-           let now = Clock.Date.(to_rfc3339 (now ())) in
-           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
-             ~key:_snapshot_time_key ~value:now
-           >>>= fun () ->
-           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
-             ~key:_is_a_snapshot_key ~value:(string_of_bool true)
-           >>>= fun () ->
-           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
-             ~key:_snapshot_of_key ~value:vdi
-           >>>= fun () ->
-           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
-             ~key:_vdi_content_id_key ~value:vdi_info.content_id
-           >>>= fun () ->
-           set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key
-             ~key:_vdi_type_key ~value:vdi_info.ty
-           >>>= fun () ->
-           let response =
-             {
-               (vdi_of_volume response) with
-               snapshot_time= now
-             ; is_a_snapshot= true
-             ; snapshot_of= Storage_interface.Vdi.of_string vdi
-             }
-           in
-           return response
-         )
+    let vdi = Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi in
+    return_volume_rpc (fun () ->
+        Volume_client.snapshot (volume_rpc ~dbg) dbg sr vdi
+    )
+    >>>= fun response ->
+    let now = Clock.Date.(to_rfc3339 (now ())) in
+    set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_snapshot_time_key
+      ~value:now
+    >>>= fun () ->
+    set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_is_a_snapshot_key
+      ~value:(string_of_bool true)
+    >>>= fun () ->
+    set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_snapshot_of_key
+      ~value:vdi
+    >>>= fun () ->
+    set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_vdi_content_id_key
+      ~value:vdi_info.content_id
+    >>>= fun () ->
+    set ~dbg ~sr ~vdi:response.Xapi_storage.Control.key ~key:_vdi_type_key
+      ~value:vdi_info.ty
+    >>>= fun () ->
+    let response =
+      {
+        (vdi_of_volume response) with
+        snapshot_time= now
+      ; is_a_snapshot= true
+      ; snapshot_of= Storage_interface.Vdi.of_string vdi
+      }
+    in
+    return response
+    )
     |> wrap
 
   let vdi_clone_impl dbg sr vdi_info =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           clone ~dbg ~sr
-             ~vdi:
-               (Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
-           >>>= fun response -> return (vdi_of_volume response)
-         )
+    clone ~dbg ~sr
+      ~vdi:(Storage_interface.Vdi.string_of vdi_info.Storage_interface.vdi)
+    >>>= fun response -> return (vdi_of_volume response)
+    )
     |> wrap
 
   let vdi_set_name_label_impl dbg sr vdi' new_name_label =
@@ -1514,10 +1509,9 @@ module VDIImpl (M : META) = struct
   let vdi_introduce_impl dbg sr _uuid _sm_config location =
     Attached_SRs.find sr
     >>>= (fun sr ->
-           let vdi = location in
-           stat ~dbg ~sr ~vdi >>>= fun response ->
-           return (vdi_of_volume response)
-         )
+    let vdi = location in
+    stat ~dbg ~sr ~vdi >>>= fun response -> return (vdi_of_volume response)
+    )
     |> wrap
 
   let vdi_attach3_impl dbg dp sr vdi' vm _readwrite =
@@ -1619,7 +1613,7 @@ module VDIImpl (M : META) = struct
         make a temporary clone now and attach/detach etc this file. *)
      if Datapath_plugins.supports_feature datapath _nonpersistent then
        (* We delegate handling non-persistent disks to the datapath plugin. *)
-       return_data_rpc (fun () ->
+         return_data_rpc (fun () ->
            Datapath_client.open_ (rpc ~dbg) dbg uri persistent
        )
      else if not persistent then
@@ -1650,7 +1644,8 @@ module VDIImpl (M : META) = struct
      stat ~dbg ~sr ~vdi >>>= fun response ->
      choose_datapath response >>>= fun (rpc, datapath, uri) ->
      if Datapath_plugins.supports_feature datapath _nonpersistent then
-       return_data_rpc (fun () -> Datapath_client.close (rpc ~dbg) dbg uri)
+       return_data_rpc (fun () -> Datapath_client.close (rpc ~dbg) dbg uri
+       )
      else
        match
          List.assoc_opt _clone_on_boot_key response.Xapi_storage.Control.keys
@@ -2123,50 +2118,49 @@ let self_test_plugin ~root_dir plugin =
       let open Rpc_lwt.ErrM in
       Test.Query.query rpc dbg
       >>= (fun query_result ->
-            Test.Query.diagnostics rpc dbg >>= fun _msg ->
-            let sr = Storage_interface.Sr.of_string "dummySR" in
-            let name_label = "dummy name" in
-            let name_description = "dummy description" in
-            let device_config = [("uri", "file:///dev/null")] in
-            let physical_size = 0L in
-            Test.SR.create rpc dbg sr name_label name_description device_config
-              physical_size
-            >>= fun device_config ->
-            Test.SR.detach rpc dbg sr >>= fun () ->
-            Test.SR.attach rpc dbg sr device_config >>= fun () ->
-            let vdi_info =
-              {
-                Storage_interface.vdi=
-                  Storage_interface.Vdi.of_string "vdi-uuid-1"
-              ; uuid= None
-              ; content_id= ""
-              ; name_label= "vdi name"
-              ; name_description= "vdi description"
-              ; ty= "redolog"
-              ; metadata_of_pool= ""
-              ; is_a_snapshot= false
-              ; snapshot_time= ""
-              ; snapshot_of= Storage_interface.Vdi.of_string ""
-              ; read_only= false
-              ; cbt_enabled= false
-              ; virtual_size= 0L
-              ; physical_utilisation= 0L
-              ; persistent= false
-              ; sm_config= []
-              ; sharable= false
-              }
-            in
-            Test.VDI.create rpc dbg sr vdi_info >>= fun vdi_info ->
-            Test.VDI.stat rpc dbg sr vdi_info.vdi >>= fun _vdi_info ->
-            Test.VDI.destroy rpc dbg sr vdi_info.vdi >>= fun () ->
-            Test.SR.stat rpc dbg sr >>= fun _sr_info ->
-            Test.SR.scan rpc dbg sr >>= fun _sr_list ->
-            if List.mem "SR_PROBE" query_result.features then
-              Test.SR.probe rpc dbg plugin device_config [] >>= fun _result ->
-              return ()
-            else
-              return ()
-          )
+      Test.Query.diagnostics rpc dbg >>= fun _msg ->
+      let sr = Storage_interface.Sr.of_string "dummySR" in
+      let name_label = "dummy name" in
+      let name_description = "dummy description" in
+      let device_config = [("uri", "file:///dev/null")] in
+      let physical_size = 0L in
+      Test.SR.create rpc dbg sr name_label name_description device_config
+        physical_size
+      >>= fun device_config ->
+      Test.SR.detach rpc dbg sr >>= fun () ->
+      Test.SR.attach rpc dbg sr device_config >>= fun () ->
+      let vdi_info =
+        {
+          Storage_interface.vdi= Storage_interface.Vdi.of_string "vdi-uuid-1"
+        ; uuid= None
+        ; content_id= ""
+        ; name_label= "vdi name"
+        ; name_description= "vdi description"
+        ; ty= "redolog"
+        ; metadata_of_pool= ""
+        ; is_a_snapshot= false
+        ; snapshot_time= ""
+        ; snapshot_of= Storage_interface.Vdi.of_string ""
+        ; read_only= false
+        ; cbt_enabled= false
+        ; virtual_size= 0L
+        ; physical_utilisation= 0L
+        ; persistent= false
+        ; sm_config= []
+        ; sharable= false
+        }
+      in
+      Test.VDI.create rpc dbg sr vdi_info >>= fun vdi_info ->
+      Test.VDI.stat rpc dbg sr vdi_info.vdi >>= fun _vdi_info ->
+      Test.VDI.destroy rpc dbg sr vdi_info.vdi >>= fun () ->
+      Test.SR.stat rpc dbg sr >>= fun _sr_info ->
+      Test.SR.scan rpc dbg sr >>= fun _sr_list ->
+      if List.mem "SR_PROBE" query_result.features then
+        Test.SR.probe rpc dbg plugin device_config [] >>= fun _result ->
+        return ()
+      else
+        return ()
+      )
       |> Rpc_lwt.T.get
   )
   >>= function

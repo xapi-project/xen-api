@@ -191,8 +191,7 @@ module Ds_selector = struct
               Some "\"\""
           | _ ->
               None
-          )
-          )
+          ))
     else if String.contains s ',' || String.contains s '\n' then
       quote s
     else

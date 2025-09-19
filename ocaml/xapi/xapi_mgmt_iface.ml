@@ -90,7 +90,8 @@ end = struct
     if Pool_role.is_master () && addr = None then
       (* NB if we synchronously bring up the management interface on a master with a blank
          database this can fail... this is ok because the database will be synchronised later *)
-      Server_helpers.exec_with_new_task "refreshing consoles" (fun __context ->
+        Server_helpers.exec_with_new_task "refreshing consoles"
+          (fun __context ->
           Dbsync_master.set_master_ip ~__context ;
           Helpers.update_getty () ;
           Dbsync_master.refresh_console_urls ~__context

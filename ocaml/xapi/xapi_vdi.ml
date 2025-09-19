@@ -1152,7 +1152,7 @@ let copy ~__context ~vdi ~sr ~base_vdi ~into_vdi =
         (* When creating a new VDI, clone as many properties of the
            original as we can. If we're not cloning a property, please
            explain why in a comment. *)
-        Helpers.call_api_functions ~__context (fun rpc session_id ->
+          Helpers.call_api_functions ~__context (fun rpc session_id ->
             let new_vdi =
               Client.VDI.create ~rpc ~session_id
                 ~name_label:src.API.vDI_name_label
@@ -1501,8 +1501,8 @@ let _get_nbd_info ~__context ~self ~get_server_certificate =
              | set when Host_set.is_empty set ->
                  Error
                    (`Msg
-                     "Found no subject DNS names in this hosts's certificate."
-                     )
+                      "Found no subject DNS names in this hosts's certificate."
+                   )
              | set ->
                  let strict_or_wildcard = function
                    | `Strict, _ ->

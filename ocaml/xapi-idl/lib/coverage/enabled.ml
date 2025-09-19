@@ -98,20 +98,23 @@ module Dispatcher = struct
     let result =
       Client.connect ~switch:!Xcp_client.switch_path ()
       >>= (fun t ->
-            Client.list ~t ~prefix ~filter:`Alive () >>= fun queues ->
-            queues
-            |> (* filter out ourselves *)
-            List.filter (fun q -> self <> q)
-            |> (* best-effort: collect and return all non-failed results, log
-                  errors *)
-            List.rev_map (rpc_ignore_err ~t ~body)
-            |> (* multiple return values converted to a single string, suitable
-                  for use in a command like: mv $(message-cli call
-                  org.xen.xapi.coverage.dispatch --timeout 60 --body 'dump
-                  {jobid}') /tmp/coverage/ *)
-            String.concat " "
-            |> ok
-          )
+      Client.list ~t ~prefix ~filter:`Alive () >>= fun queues ->
+      queues
+      |>
+      (* filter out ourselves *)
+      List.filter (fun q -> self <> q)
+      |>
+      (* best-effort: collect and return all non-failed results, log
+                           errors *)
+      List.rev_map (rpc_ignore_err ~t ~body)
+      |>
+      (* multiple return values converted to a single string, suitable
+                           for use in a command like: mv $(message-cli call
+                           org.xen.xapi.coverage.dispatch --timeout 60 --body 'dump
+                           {jobid}') /tmp/coverage/ *)
+      String.concat " "
+      |> ok
+      )
       |> Client.error_to_msg
       |> string_of_result
     in

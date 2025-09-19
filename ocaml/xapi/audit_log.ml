@@ -91,7 +91,8 @@ let transfer_all_audit_files fd_out ?filter since =
   let atransfer_try_gz infix =
     ignore_exn (fun () -> atransfer infix "gz") ;
     (* try the compressed file *)
-    ignore_exn (fun () -> atransfer infix "")
+    ignore_exn (fun () -> atransfer infix ""
+    )
     (* then the uncompressed one *)
   in
   (* go through audit.log.n->0 first, ascending order of time *)

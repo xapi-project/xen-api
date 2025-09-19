@@ -426,12 +426,13 @@ let revalidate_external_session ~__context acc session =
   try
     (* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
     (* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
+    (* 1. is the external authentication disabled in the pool? *)
     if
       not
         (Db.Session.get_is_local_superuser ~__context ~self:session
         || Xapi_database.Db_backend.is_session_registered (Ref.string_of session)
         )
-    then (* 1. is the external authentication disabled in the pool? *)
+    then
       let master = Helpers.get_master ~__context in
       let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
       if auth_type = "" then (
@@ -482,7 +483,8 @@ let revalidate_external_session ~__context acc session =
 
         if session_timed_out then (
           (* if so, then:*)
-          validate_with_memo acc @@ fun acc ->
+          validate_with_memo acc
+          @@ fun acc ->
           debug "session %s needs revalidation" (trackid session) ;
 
           (* 2a. revalidate external authentication *)
@@ -619,7 +621,8 @@ let revalidate_all_sessions ~__context =
            (not (Db.Session.get_is_local_superuser ~__context ~self:session))
            && not (Db.Session.get_client_certificate ~__context ~self:session)
        )
-    |> (* revalidate each external session *)
+    |>
+    (* revalidate each external session *)
     List.fold_left
       (revalidate_external_session ~__context)
       SessionValidateMap.empty
