@@ -30,7 +30,7 @@ val get : string -> string
  * /etc/shadow database if an entry exists, otherwise it tries to
  * obtain the password from the /etc/passwd database. It raises [Error]
  * if that fails.
- * *)
+ *)
 
 val setpwd : string -> string -> unit
 
