@@ -920,6 +920,8 @@ let systemctl = ref "/usr/bin/systemctl"
 
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
 
+let xenpm_bin = ref "/usr/sbin/xenpm"
+
 let alert_certificate_check = ref "alert-certificate-check"
 
 let sr_health_check_task_label = "SR Recovering"
