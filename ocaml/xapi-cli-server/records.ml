@@ -3393,6 +3393,12 @@ let host_record rpc session_id host =
               ~value:(safe_bool_of_string "ssh-auto-mode" value)
           )
           ()
+      ; make_field ~name:"max-cstate"
+          ~get:(fun () -> (x ()).API.host_max_cstate)
+          ~set:(fun value ->
+            Client.Host.set_max_cstate ~rpc ~session_id ~self:host ~value
+          )
+          ()
       ]
   }
 
