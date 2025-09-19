@@ -1783,52 +1783,52 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
       ) else
         (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
-
         (* we try to use the configuration to set up the new external authentication service *)
 
         (* we persist as much set up configuration now as we can *)
-        try
-          Db.Host.set_external_auth_service_name ~__context ~self:host
-            ~value:service_name ;
+          try
+            Db.Host.set_external_auth_service_name ~__context ~self:host
+              ~value:service_name ;
 
-          (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
-          (* filter out any one-time credentials such as the administrator password, so we *)
-          (* should not call here 'host.set_external_auth_configuration ~config' *)
+            (* the ext_auth.on_enable dispatcher called below will store the configuration params, and also *)
+            (* filter out any one-time credentials such as the administrator password, so we *)
+            (* should not call here 'host.set_external_auth_configuration ~config' *)
 
-          (* use the special 'named dispatcher' function to call an extauth plugin function even though we have *)
-          (* not yet set up the external_auth_type value that will enable generic access to the extauth plugin. *)
-          (Ext_auth.nd auth_type).on_enable ~__context config ;
+            (* use the special 'named dispatcher' function to call an extauth plugin function even though we have *)
+            (* not yet set up the external_auth_type value that will enable generic access to the extauth plugin. *)
+            (Ext_auth.nd auth_type).on_enable ~__context config ;
 
-          (* from this point on, we have successfully enabled the external authentication services. *)
+            (* from this point on, we have successfully enabled the external authentication services. *)
 
-          (* Up to this point, we cannot call external auth functions via extauth's generic dispatcher d(). *)
-          Db.Host.set_external_auth_type ~__context ~self:host ~value:auth_type ;
+            (* Up to this point, we cannot call external auth functions via extauth's generic dispatcher d(). *)
+            Db.Host.set_external_auth_type ~__context ~self:host
+              ~value:auth_type ;
 
-          (* From this point on, anyone can call external auth functions via extauth.ml's generic dispatcher d(), which depends on the value of external_auth_type. *)
-          (* This enables all functions to the external authentication and directory service that xapi makes available to the user, *)
-          (* such as external login, subject id/info queries, group membership etc *)
+            (* From this point on, anyone can call external auth functions via extauth.ml's generic dispatcher d(), which depends on the value of external_auth_type. *)
+            (* This enables all functions to the external authentication and directory service that xapi makes available to the user, *)
+            (* such as external login, subject id/info queries, group membership etc *)
 
-          (* CP-709: call extauth hook-script after extauth.enable *)
-          (* we must not fork, intead block until the script has returned *)
-          (* so that at most one enable-external-auth event script is running at any one time in the same host *)
-          (* we use its local variation without mutex, otherwise we will deadlock *)
-          let call_plugin_fn () =
-            call_extauth_plugin_nomutex ~__context ~host
-              ~fn:Extauth.event_name_after_extauth_enable
-              ~args:(Extauth.get_event_params ~__context host)
-          in
-          ignore
-            (Extauth.call_extauth_hook_script_in_host_wrapper ~__context host
-               Extauth.event_name_after_extauth_enable ~call_plugin_fn
-            ) ;
-          debug
-            "external authentication service type %s for service name %s \
-             enabled successfully in host %s"
-            auth_type service_name host_name_label ;
-          Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
-          (* CA-24856: detect non-homogeneous external-authentication config in this host *)
-          detect_nonhomogeneous_external_auth_in_host ~__context ~host
-        with
+            (* CP-709: call extauth hook-script after extauth.enable *)
+            (* we must not fork, intead block until the script has returned *)
+            (* so that at most one enable-external-auth event script is running at any one time in the same host *)
+            (* we use its local variation without mutex, otherwise we will deadlock *)
+            let call_plugin_fn () =
+              call_extauth_plugin_nomutex ~__context ~host
+                ~fn:Extauth.event_name_after_extauth_enable
+                ~args:(Extauth.get_event_params ~__context host)
+            in
+            ignore
+              (Extauth.call_extauth_hook_script_in_host_wrapper ~__context host
+                 Extauth.event_name_after_extauth_enable ~call_plugin_fn
+              ) ;
+            debug
+              "external authentication service type %s for service name %s \
+               enabled successfully in host %s"
+              auth_type service_name host_name_label ;
+            Xapi_globs.event_hook_auth_on_xapi_initialize_succeeded := true ;
+            (* CA-24856: detect non-homogeneous external-authentication config in this host *)
+            detect_nonhomogeneous_external_auth_in_host ~__context ~host
+          with
         | Extauth.Unknown_extauth_type msg ->
             (* unknown plugin *)
             (* we rollback to the original xapi configuration *)
@@ -2848,7 +2848,7 @@ let set_iscsi_iqn ~__context ~host ~value =
    * when you update the `iscsi_iqn` field we want to update `other_config`,
    * but when updating `other_config` we want to update `iscsi_iqn` too.
    * we have to be careful not to introduce an infinite loop of updates.
-   * *)
+   *)
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value ;
   Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value ;
   Xapi_host_helpers.Configuration.set_initiator_name value

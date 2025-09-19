@@ -191,23 +191,23 @@ let make_server config trace_config =
   in
   let perform ops =
     let queues' = List.fold_left Q.do_op !queues ops in
-    (redo_log >>= function
-     | None ->
-         return ()
-     | Some redo_log ->
-         let rec loop = function
-           | [] ->
-               return ()
-           | op :: ops -> (
-               Redo_log.push redo_log op >>= function
-               | Result.Ok _waiter ->
-                   loop ops
-               | Result.Error (`Msg txt) ->
-                   error "Failed to push to redo-log: %s" txt ;
-                   fail (Failure "Failed to push to redo-log")
-             )
-         in
-         loop ops
+    ( redo_log >>= function
+      | None ->
+          return ()
+      | Some redo_log ->
+          let rec loop = function
+            | [] ->
+                return ()
+            | op :: ops -> (
+                Redo_log.push redo_log op >>= function
+                | Result.Ok _waiter ->
+                    loop ops
+                | Result.Error (`Msg txt) ->
+                    error "Failed to push to redo-log: %s" txt ;
+                    fail (Failure "Failed to push to redo-log")
+              )
+          in
+          loop ops
     )
     >>= fun () ->
     queues := queues' ;

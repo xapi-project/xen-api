@@ -102,7 +102,8 @@ let wait_until_next_reading (module D : Debug.DEBUG) ~neg_shift ~uid ~protocol
       let backoff_time = 2. ** (float_of_int overdue_count -. 1.) in
       D.debug
         "rrdd says next reading is overdue, seems like rrdd is busy;\n\
-         \t\t\t\tBacking off for %.1f seconds" backoff_time ;
+         \t\t\t\tBacking off for %.1f seconds"
+        backoff_time ;
       match reporter with
       | Some reporter ->
           let (_ : bool) = Delay.wait reporter.delay backoff_time in

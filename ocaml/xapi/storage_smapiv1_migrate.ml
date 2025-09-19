@@ -768,7 +768,8 @@ module MIRROR : SMAPIv2_MIRROR = struct
         SMAPI.VDI.compose dbg r.sr r.parent_vdi r.leaf_vdi ;
         (* On SMAPIv3, compose would have removed the now invalid dummy vdi, so
            there is no need to destroy it anymore, while this is necessary on SMAPIv1 SRs. *)
-        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi) ;
+        D.log_and_ignore_exn (fun () -> SMAPI.VDI.destroy dbg r.sr r.dummy_vdi
+        ) ;
         SMAPI.VDI.remove_from_sm_config dbg r.sr r.leaf_vdi "base_mirror"
       )
       recv_state ;

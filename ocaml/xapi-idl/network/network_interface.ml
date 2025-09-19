@@ -72,11 +72,11 @@ module Unix = struct
           | r ->
               Error
                 (`Msg
-                  (Printf.sprintf
-                     "typ_of_inet_addr: expectd rpc string but got %s"
-                     (Rpc.to_string r)
-                  )
-                  )
+                   (Printf.sprintf
+                      "typ_of_inet_addr: expectd rpc string but got %s"
+                      (Rpc.to_string r)
+                   )
+                )
           )
       }
 end

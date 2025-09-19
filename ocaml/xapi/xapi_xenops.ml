@@ -831,7 +831,7 @@ module MD = struct
     let carrier =
       if !Xapi_globs.pass_through_pif_carrier then
         (* We need to reflect the carrier of the local PIF on the network (if any) *)
-        match pifs with
+          match pifs with
         | [] ->
             true (* Internal network; consider as "always up" *)
         | pif :: _ -> (
@@ -3797,7 +3797,8 @@ let maybe_refresh_vm ~__context ~self =
     (* By calling with_events_suppressed we can guarentee that an refresh_vm
      * will be called with events enabled and therefore we get Xenopsd into a
      * consistent state with Xapi *)
-    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ())
+    Events_from_xenopsd.with_suppressed queue_name dbg id (fun _ -> ()
+    )
   )
 
 let start ~__context ~self paused force =

@@ -780,8 +780,10 @@ module DeviceCache = struct
               (* force refresh of domid cache *)
               refresh_cache ()
           with _ -> (
-            try (* attempt to refresh cache *)
-                refresh_cache () with _ -> ()
+            try
+              (* attempt to refresh cache *)
+              refresh_cache ()
+            with _ -> ()
           )
         ) ;
         try PerVMCache.find domid_cache (Some key)
@@ -1770,13 +1772,17 @@ module VM = struct
           !n + 1
         in
         if current > target then
-          for (* need to deplug cpus *)
-              i = current - 1 downto target do
+          for
+            (* need to deplug cpus *)
+            i = current - 1 downto target
+          do
             Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid false
           done
         else if current < target then
-          for (* need to plug cpus *)
-              i = current to target - 1 do
+          for
+            (* need to plug cpus *)
+            i = current to target - 1
+          do
             Device.Vcpu.set ~xs ~dm:(dm_of ~vm) ~devid:i domid true
           done
     )
@@ -3237,7 +3243,11 @@ module VM = struct
     let original_profile =
       (* Never overwrite the original_profile, if one is present. If not
          present, then make it equal to the profile derived above. *)
-      match persistent.VmExtra.original_profile with None -> profile | p -> p
+      match persistent.VmExtra.original_profile with
+      | None ->
+          profile
+      | p ->
+          p
     in
     let platformdata =
       (* If platformdata is missing from state, take the one from vm *)
@@ -4965,26 +4975,25 @@ module Actions = struct
     let _ =
       DB.update vm
         (Option.map (function {VmExtra.persistent} as extra ->
-             ( match persistent with
-             | {VmExtra.ty= Some (Vm.HVM hvm_info); _} ->
-                 let platformdata =
-                   ("timeoffset", timeoffset)
-                   :: List.remove_assoc "timeoffset" persistent.platformdata
-                 in
-                 let persistent =
-                   {
-                     persistent with
-                     VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
-                   ; platformdata
-                   }
-                 in
-                 debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
-                 VmExtra.{persistent}
-             | _ ->
-                 extra
-             )
-             )
-          )
+            ( match persistent with
+            | {VmExtra.ty= Some (Vm.HVM hvm_info); _} ->
+                let platformdata =
+                  ("timeoffset", timeoffset)
+                  :: List.remove_assoc "timeoffset" persistent.platformdata
+                in
+                let persistent =
+                  {
+                    persistent with
+                    VmExtra.ty= Some (Vm.HVM {hvm_info with Vm.timeoffset})
+                  ; platformdata
+                  }
+                in
+                debug "VM = %s; rtc/timeoffset <- %s" vm timeoffset ;
+                VmExtra.{persistent}
+            | _ ->
+                extra
+            )
+            ))
     in
     ()
 
@@ -5038,12 +5047,11 @@ module Actions = struct
             let updated =
               DB.update vm
                 (Option.map (function {VmExtra.persistent} ->
-                     let persistent =
-                       {persistent with VmExtra.pv_drivers_detected}
-                     in
-                     VmExtra.{persistent}
-                     )
-                  )
+                    let persistent =
+                      {persistent with VmExtra.pv_drivers_detected}
+                    in
+                    VmExtra.{persistent}
+                    ))
             in
             if updated then
               Updates.add (Dynamic.Vm vm) internal_updates

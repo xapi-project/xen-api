@@ -348,7 +348,8 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
   (* Any guest using PCI devices needs an IOMMU configuration. *)
   let iommu = vm_info.pci_passthrough in
   if iommu then
-    assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable") ;
+    assert_capability CAP_DirectIO ~on_error:(fun () -> "IOMMU unavailable"
+    ) ;
   let nested_virt =
     get_platform_key ~key:"nested-virt" ~default:false require_hvm
   in
@@ -389,7 +390,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
           with _ ->
             let max_per_vif = 8 in
             (* 1 VIF takes up (256 rx entries + 256 tx entries) * 8 queues max
-               * 8 bytes per grant table entry / 4096 bytes size of frame *)
+             * 8 bytes per grant table entry / 4096 bytes size of frame *)
             let reasonable_per_vbd = 1 in
             (* (1 ring (itself taking up one granted page) + 1 ring *
                32 requests * 11 grant refs contained in each * 8 bytes ) /
@@ -1129,11 +1130,11 @@ let xenguest_args_base ~domid ~store_port ~store_domid ~console_port
 let xenguest_args_hvm ~domid ~store_port ~store_domid ~console_port
     ~console_domid ~memory ~kernel ~vgpus ~numa_placement =
   ["-mode"; "hvm_build"; "-image"; kernel]
-  @ (vgpus |> function
-     | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
-         ["-vgpu"]
-     | _ ->
-         []
+  @ ( vgpus |> function
+      | Xenops_interface.Vgpu.{implementation= Nvidia _; _} :: _ ->
+          ["-vgpu"]
+      | _ ->
+          []
     )
   @ xenguest_args_base ~domid ~store_port ~store_domid ~console_port
       ~console_domid ~memory ~numa_placement

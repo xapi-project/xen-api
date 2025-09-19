@@ -3027,7 +3027,8 @@ functor
 
         let batmap andthen =
           if emit_batmap then
-            write_sectors batmap_header (fun () -> write_sectors batmap andthen)
+            write_sectors batmap_header (fun () -> write_sectors batmap andthen
+            )
           else
             andthen ()
         in

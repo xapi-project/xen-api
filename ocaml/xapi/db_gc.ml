@@ -102,7 +102,7 @@ let check_host_liveness ~__context =
         if not (Clock.Timer.has_expired timer) then
           (* From the heartbeat PoV the host looks alive. We try to (i) minimise database sets; and (ii)
              	     avoid toggling the host back to live if it has been marked as shutting_down. *)
-          with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
+            with_lock Xapi_globs.hosts_which_are_shutting_down_m (fun () ->
               let shutting_down =
                 List.exists
                   (fun x -> x = host)

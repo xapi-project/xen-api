@@ -483,7 +483,8 @@ let revalidate_external_session ~__context acc session =
 
         if session_timed_out then (
           (* if so, then:*)
-          validate_with_memo acc @@ fun acc ->
+          validate_with_memo acc
+          @@ fun acc ->
           debug "session %s needs revalidation" (trackid session) ;
 
           (* 2a. revalidate external authentication *)
@@ -620,7 +621,8 @@ let revalidate_all_sessions ~__context =
            (not (Db.Session.get_is_local_superuser ~__context ~self:session))
            && not (Db.Session.get_client_certificate ~__context ~self:session)
        )
-    |> (* revalidate each external session *)
+    |>
+    (* revalidate each external session *)
     List.fold_left
       (revalidate_external_session ~__context)
       SessionValidateMap.empty

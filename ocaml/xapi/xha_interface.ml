@@ -493,7 +493,7 @@ module LiveSetInformation = struct
         ( match first_xml_element_with_name elements "localhost" with
         | Some
             (Xml.Element
-              (_, _, Xml.Element ("HostID", _, [Xml.PCData local_host_id]) :: _)
+               (_, _, Xml.Element ("HostID", _, [Xml.PCData local_host_id]) :: _)
               ) -> (
           match Uuidx.of_string local_host_id with
           | None ->

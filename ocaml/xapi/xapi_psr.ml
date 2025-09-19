@@ -90,7 +90,8 @@ functor
 
     let string_of_checkpoint x =
       Rpcmarshal.marshal checkpoint.Rpc.Types.ty x |> Jsonrpc.to_string
-      |> (* remove leading and trailing '"' *)
+      |>
+      (* remove leading and trailing '"' *)
       fun s -> String.sub s 1 (String.length s - 2)
 
     let checkpoint_of_string s =

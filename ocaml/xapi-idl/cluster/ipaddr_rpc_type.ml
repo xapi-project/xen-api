@@ -15,11 +15,11 @@ module Ipaddr = struct
           | r ->
               Error
                 (`Msg
-                  (Printf.sprintf
-                     "typ_of_vm_uuid: expected rpc string but got %s"
-                     (Rpc.to_string r)
-                  )
-                  )
+                   (Printf.sprintf
+                      "typ_of_vm_uuid: expected rpc string but got %s"
+                      (Rpc.to_string r)
+                   )
+                )
           )
       }
 end

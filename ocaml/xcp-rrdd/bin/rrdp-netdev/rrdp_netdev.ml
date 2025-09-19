@@ -68,8 +68,9 @@ let get_link_stats () =
       Astring.String.is_prefix ~affix:"eth" name && String.contains name '.'
     in
     List.map (fun link -> (standardise_name (Link.get_name link), link)) links
-    |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
-          devices (ethx.y). *)
+    |>
+    (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
+             devices (ethx.y). *)
     List.filter (fun (name, _) -> is_whitelisted name && not (is_vlan name))
   in
   let devs =

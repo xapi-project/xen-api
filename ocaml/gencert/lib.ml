@@ -24,10 +24,10 @@ let validate_private_key pkcs8_private_key =
         if length < 2048 || length > 4096 then
           Error
             (`Msg
-              ( server_certificate_key_rsa_length_not_supported
-              , [Int.to_string length]
-              )
-              )
+               ( server_certificate_key_rsa_length_not_supported
+               , [Int.to_string length]
+               )
+            )
         else
           Ok (`RSA priv)
     | key ->

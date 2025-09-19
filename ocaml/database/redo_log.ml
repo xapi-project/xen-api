@@ -760,7 +760,11 @@ let perform_action f desc sock log =
 let connect_and_do f log =
   if !(log.pid) = None then startup log ;
   (* try to connect if not already connected *)
-  match !(log.sock) with None -> () (* do nothing *) | Some sock -> f sock log
+  match !(log.sock) with
+  | None ->
+      () (* do nothing *)
+  | Some sock ->
+      f sock log
 
 (* execute the function, passing the socket and the redo_log state *)
 
@@ -843,7 +847,7 @@ let write_db generation_count write_fn log =
 let write_delta generation_count t flush_db_fn log =
   if is_enabled log && !ready_to_write then
     (* If we're not currently connected, then try to re-connect (by calling flush_db_fn) at increasing time intervals. *)
-    match !(log.sock) with
+      match !(log.sock) with
     | None ->
         (* Instead of writing a delta, try to write the whole DB *)
         D.debug

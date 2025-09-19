@@ -97,7 +97,8 @@ let can_execute_extauth_hook_script ~__context host event_name =
   let auth_type = Db.Host.get_external_auth_type ~__context ~self:host in
   (* if extauth is enabled, we call the hook-script for any event *)
   auth_type <> ""
-  || (* otherwise, if extauth is disabled, we call the hook-script only when enabling extauth or initializing xapi *)
+  ||
+  (* otherwise, if extauth is disabled, we call the hook-script only when enabling extauth or initializing xapi *)
   List.mem event_name
     [event_name_after_extauth_enable; event_name_after_xapi_initialize]
 

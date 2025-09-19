@@ -58,7 +58,7 @@ let with_fd fd ~callback =
   Lwt.finalize
     (fun () -> callback fd)
     (* The Lwt.catch below prevents errors on double close of the fd. *)
-      (fun () ->
+    (fun () ->
       Lwt.catch (fun () -> Lwt_unix.close fd) (fun _ -> Lwt.return_unit)
     )
 

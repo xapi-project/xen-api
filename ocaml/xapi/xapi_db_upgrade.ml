@@ -649,19 +649,19 @@ let upgrade_recommendations_for_gpu_passthru =
                   then (
                     Xmlm.output o
                       (`El_start
-                        ( ("", name)
-                        , [
-                            (("", "field"), "allow-gpu-passthrough")
-                          ; (("", "value"), "1")
-                          ]
-                        )
-                        ) ;
+                         ( ("", name)
+                         , [
+                             (("", "field"), "allow-gpu-passthrough")
+                           ; (("", "value"), "1")
+                           ]
+                         )
+                      ) ;
                     Xmlm.output o
                       (`El_start
-                        ( ("", name)
-                        , [(("", "field"), "allow-vgpu"); (("", "value"), "0")]
-                        )
-                        ) ;
+                         ( ("", name)
+                         , [(("", "field"), "allow-vgpu"); (("", "value"), "0")]
+                         )
+                      ) ;
                     updated := true
                   ) else
                     Xmlm.output o el ;

@@ -333,8 +333,10 @@ module DaemonMgmt (D : DAEMONPIDPATH) = struct
     | None ->
         false
     | Some p -> (
-      try Unix.kill p 0 ; (* This checks the existence of pid p *)
-                          true
+      try
+        Unix.kill p 0 ;
+        (* This checks the existence of pid p *)
+        true
       with _ -> false
     )
 

@@ -117,125 +117,125 @@ module GenTestData (C : CONFIG) (M : MARSHALLER) = struct
   open M
 
   let declare_ response_needed name _ ty =
-    let rec inner :
-        type b. ((string * Rpc.t) list * Rpc.t list) list -> b fn -> unit =
+    let rec inner : type b.
+        ((string * Rpc.t) list * Rpc.t list) list -> b fn -> unit =
      fun params -> function
-      | Function (t, f) -> (
-          let vs =
-            Rpc_genfake.genall 2
-              ( match t.Param.name with
-              | Some n ->
-                  n
-              | None ->
-                  t.Param.typedef.Rpc.Types.name
-              )
-              t.Param.typedef.Rpc.Types.ty
-          in
-          let marshalled =
-            List.map
-              (fun v -> Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)
-              vs
-          in
-          match t.Param.name with
-          | Some n ->
-              inner
-                (List.concat_map
-                   (fun marshalled ->
-                     match (marshalled, t.Param.typedef.Rpc.Types.ty) with
-                     | Rpc.Enum [], Rpc.Types.Option _ ->
-                         params
-                     | Rpc.Enum [x], Rpc.Types.Option _ ->
-                         List.map
-                           (fun (named, unnamed) -> ((n, x) :: named, unnamed))
-                           params
-                     | _, _ ->
-                         List.map
-                           (fun (named, unnamed) ->
-                             ((n, marshalled) :: named, unnamed)
-                           )
-                           params
-                   )
-                   marshalled
-                )
-                f
-          | None ->
-              inner
-                (List.concat_map
-                   (fun marshalled ->
-                     List.map
-                       (fun (named, unnamed) -> (named, marshalled :: unnamed))
-                       params
-                   )
-                   marshalled
-                )
-                f
-        )
-      | NoargsFunction f ->
-          inner [] f
-      | Returning (t, e) ->
-          let wire_name = Idl.get_wire_name !description name in
-          let calls =
-            List.map
-              (fun (named, unnamed) ->
-                let args =
-                  match named with
-                  | [] ->
-                      List.rev unnamed
-                  | _ ->
-                      Rpc.Dict named :: List.rev unnamed
-                in
-                let rpccall =
-                  if response_needed then Rpc.notification else Rpc.call
-                in
-                rpccall wire_name args
-              )
-              params
-          in
-          List.iteri
-            (fun i call ->
-              let request_str = string_of_call call in
-              write_str
-                (Printf.sprintf "%s/requests/%s.request.%d" C.test_data_path
-                   wire_name i
-                )
-                request_str
-            )
-            calls ;
-          let vs =
-            Rpc_genfake.genall 2
-              ( match t.Param.name with
-              | Some n ->
-                  n
-              | None ->
-                  t.Param.typedef.Rpc.Types.name
-              )
-              t.Param.typedef.Rpc.Types.ty
-          in
-          let marshalled_vs =
-            List.map
-              (fun v ->
-                Rpc.success (Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)
-              )
-              vs
-          in
-          let errs = Rpc_genfake.genall 2 "error" e.Error.def.Rpc.Types.ty in
-          let marshalled_errs =
-            List.map
-              (fun err ->
-                Rpc.failure (Rpcmarshal.marshal e.Error.def.Rpc.Types.ty err)
-              )
-              errs
-          in
-          List.iteri
-            (fun i response ->
-              let response_str = string_of_response response in
-              write_str
-                (Printf.sprintf "%s/responses/%s.response.%d" C.test_data_path
-                   wire_name i
-                )
-                response_str
-            )
-            (marshalled_vs @ marshalled_errs)
+       | Function (t, f) -> (
+           let vs =
+             Rpc_genfake.genall 2
+               ( match t.Param.name with
+               | Some n ->
+                   n
+               | None ->
+                   t.Param.typedef.Rpc.Types.name
+               )
+               t.Param.typedef.Rpc.Types.ty
+           in
+           let marshalled =
+             List.map
+               (fun v -> Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)
+               vs
+           in
+           match t.Param.name with
+           | Some n ->
+               inner
+                 (List.concat_map
+                    (fun marshalled ->
+                      match (marshalled, t.Param.typedef.Rpc.Types.ty) with
+                      | Rpc.Enum [], Rpc.Types.Option _ ->
+                          params
+                      | Rpc.Enum [x], Rpc.Types.Option _ ->
+                          List.map
+                            (fun (named, unnamed) -> ((n, x) :: named, unnamed))
+                            params
+                      | _, _ ->
+                          List.map
+                            (fun (named, unnamed) ->
+                              ((n, marshalled) :: named, unnamed)
+                            )
+                            params
+                    )
+                    marshalled
+                 )
+                 f
+           | None ->
+               inner
+                 (List.concat_map
+                    (fun marshalled ->
+                      List.map
+                        (fun (named, unnamed) -> (named, marshalled :: unnamed))
+                        params
+                    )
+                    marshalled
+                 )
+                 f
+         )
+       | NoargsFunction f ->
+           inner [] f
+       | Returning (t, e) ->
+           let wire_name = Idl.get_wire_name !description name in
+           let calls =
+             List.map
+               (fun (named, unnamed) ->
+                 let args =
+                   match named with
+                   | [] ->
+                       List.rev unnamed
+                   | _ ->
+                       Rpc.Dict named :: List.rev unnamed
+                 in
+                 let rpccall =
+                   if response_needed then Rpc.notification else Rpc.call
+                 in
+                 rpccall wire_name args
+               )
+               params
+           in
+           List.iteri
+             (fun i call ->
+               let request_str = string_of_call call in
+               write_str
+                 (Printf.sprintf "%s/requests/%s.request.%d" C.test_data_path
+                    wire_name i
+                 )
+                 request_str
+             )
+             calls ;
+           let vs =
+             Rpc_genfake.genall 2
+               ( match t.Param.name with
+               | Some n ->
+                   n
+               | None ->
+                   t.Param.typedef.Rpc.Types.name
+               )
+               t.Param.typedef.Rpc.Types.ty
+           in
+           let marshalled_vs =
+             List.map
+               (fun v ->
+                 Rpc.success (Rpcmarshal.marshal t.Param.typedef.Rpc.Types.ty v)
+               )
+               vs
+           in
+           let errs = Rpc_genfake.genall 2 "error" e.Error.def.Rpc.Types.ty in
+           let marshalled_errs =
+             List.map
+               (fun err ->
+                 Rpc.failure (Rpcmarshal.marshal e.Error.def.Rpc.Types.ty err)
+               )
+               errs
+           in
+           List.iteri
+             (fun i response ->
+               let response_str = string_of_response response in
+               write_str
+                 (Printf.sprintf "%s/responses/%s.response.%d" C.test_data_path
+                    wire_name i
+                 )
+                 response_str
+             )
+             (marshalled_vs @ marshalled_errs)
     in
     let test_fn () =
       let mkdir_safe p =
@@ -286,9 +286,9 @@ let get_arg call has_named name is_opt =
   | true, _, _ ->
       Result.Error
         (`Msg
-          "Marshalling error: Expecting dict as first argument when named \
-           parameters exist"
-          )
+           "Marshalling error: Expecting dict as first argument when named \
+            parameters exist"
+        )
   | false, None, head :: tail ->
       Result.Ok (head, {call with Rpc.params= tail})
   | false, None, [] ->

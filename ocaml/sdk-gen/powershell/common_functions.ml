@@ -182,7 +182,13 @@ and get_http_action_verb name meth =
   else if List.exists (fun x -> x = "put") parts then
     "Send"
   else
-    match meth with Get -> "Receive" | Put -> "Send" | _ -> assert false
+    match meth with
+    | Get ->
+        "Receive"
+    | Put ->
+        "Send"
+    | _ ->
+        assert false
 
 and get_common_verb_category verb =
   match verb with

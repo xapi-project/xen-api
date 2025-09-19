@@ -117,8 +117,9 @@ module AuthX : Auth_signature.AUTH_MODULE = struct
   *)
   let get_subject_identifier ~__context subject_name =
     let@ __context = Context.with_tracing ~__context __FUNCTION__ in
-    try (* looks up list of users*)
-        "u" ^ getent_idbyname "passwd" subject_name
+    try
+      (* looks up list of users*)
+      "u" ^ getent_idbyname "passwd" subject_name
     with Not_found ->
       (* looks up list of groups*)
       "g" ^ getent_idbyname "group" subject_name

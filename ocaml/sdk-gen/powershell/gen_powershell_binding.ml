@@ -339,7 +339,8 @@ and print_header_constructor message classname =
     \    [OutputType(typeof(%s))]%s\n\
     \    [OutputType(typeof(void))]\n\
     \    public class NewXen%sCommand : XenServerCmdlet\n\
-    \    {" Licence.bsd_two_clause
+    \    {"
+    Licence.bsd_two_clause
     (ocaml_class_to_csharp_class classname)
     (qualified_class_name classname)
     ( if message.msg_async then
@@ -1188,7 +1189,8 @@ and print_param_xen_object qualifiedClassName publicName =
     "\n\
     \        [Parameter(ParameterSetName = \"XenObject\", Mandatory = true, \
      ValueFromPipeline = true, Position = 0)]\n\
-    \        public %s %s { get; set; }" qualifiedClassName publicName
+    \        public %s %s { get; set; }"
+    qualifiedClassName publicName
 
 and print_param_uuid hasUuid =
   if hasUuid then
@@ -1507,7 +1509,8 @@ and print_pass_thru x =
     "\n\
     \                    if (PassThru)\n\
     \                    {%s\n\
-    \                    }" x
+    \                    }"
+    x
 
 and gen_csharp_api_call_async message classname commonVerb =
   sprintf "\n                    taskRef = %s.async_%s(%s);\n"
