@@ -135,6 +135,7 @@
   astring
   cstruct
   base64
+  bigstringaf
   clock
   cohttp
   cohttp_posix
