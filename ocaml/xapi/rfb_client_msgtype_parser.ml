@@ -12,61 +12,76 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(** RFB (Remote Framebuffer) Protocol Parser for VNC Console Connections
+    
+    This module provides a stateful parser only for RFB client-to-server messages,
+    aiming to identify message types from clients.
+*)
+
 open Angstrom
 
 module D = Debug.Make (struct let name = "rfb_parser" end)
 
 open D
 
-(* RFB Message Types *)
-type rfb_message_type =
-  | Handshake
-  | SetPixelFormat
-  | SetEncodings
-  | FramebufferUpdateRequest
-  | KeyEvent
-  | PointerEvent
-  | ClientCutText
-  | QEMUClientMessage
-  | Unknown
-  | Fail
-
-let string_of_message_type = function
-  | Handshake ->
-      "Handshake"
-  | SetPixelFormat ->
-      "SetPixelFormat"
-  | SetEncodings ->
-      "SetEncodings"
-  | FramebufferUpdateRequest ->
-      "FramebufferUpdateRequest"
-  | KeyEvent ->
-      "KeyEvent"
-  | PointerEvent ->
-      "PointerEvent"
-  | ClientCutText ->
-      "ClientCutText"
-  | QEMUClientMessage ->
-      "QEMUClientMessage"
-  | Unknown ->
-      "Unknown"
-  | Fail ->
-      "Fail"
-
-(* RFB Protocol Parser *)
 module RfbParser = struct
+
+  type ok_msg =
+    | Handshake
+    | SetPixelFormat
+    | SetEncodings
+    | FramebufferUpdateRequest
+    | KeyEvent
+    | PointerEvent
+    | ClientCutText
+    | QEMUClientMessage
+
+  type unsupported =
+    | BadHandshake of string  (** Failed/unsupported handshake with raw data *)
+    | UnknownMsg of string    (** Unrecognized message type with raw data *)
+
+  type msg_type =
+    | Ok of ok_msg
+    | Unsupported of unsupported
+    | Fail
+
   (* Helper function to format binary data as hex string, up to max_bytes *)
   let hex_dump_data data max_bytes =
     let len = min (String.length data) max_bytes in
-    let hex_chars = ref [] in
-    for i = 0 to len - 1 do
-      hex_chars := Printf.sprintf "%02x" (Char.code data.[i]) :: !hex_chars
-    done ;
-    let hex_str = String.concat " " (List.rev !hex_chars) in
+    let hex_str = 
+      String.fold_left (fun acc c ->
+        let hex_byte = Printf.sprintf "%02x" (Char.code c) in
+        if acc = "" then hex_byte else acc ^ " " ^ hex_byte
+      ) "" (String.sub data 0 len)
+    in
     if String.length data > max_bytes then
       hex_str ^ "..."
     else
       hex_str
+
+  let string_of_msg = function
+    | Ok Handshake ->
+        "Handshake"
+    | Ok SetPixelFormat ->
+        "SetPixelFormat"
+    | Ok SetEncodings ->
+        "SetEncodings"
+    | Ok FramebufferUpdateRequest ->
+        "FramebufferUpdateRequest"
+    | Ok KeyEvent ->
+        "KeyEvent"
+    | Ok PointerEvent ->
+        "PointerEvent"
+    | Ok ClientCutText ->
+        "ClientCutText"
+    | Ok QEMUClientMessage ->
+        "QEMUClientMessage"
+    | Unsupported (BadHandshake data) ->
+        Printf.sprintf "BadHandshake(%s)" (hex_dump_data data 20)
+    | Unsupported (UnknownMsg data) ->
+        Printf.sprintf "UnknownMsg(%s)" (hex_dump_data data 20)
+    | Fail ->
+        "Fail"
 
   (*
     https://github.com/rfbproto/rfbproto/blob/master/rfbproto.rst#client-to-server-messages
@@ -76,34 +91,35 @@ module RfbParser = struct
 
   (* Parse ProtocolVersion: "RFB 003.003\n" (12 bytes) *)
   let parse_protocol_version =
-    take 12 >>| fun data ->
+    take 12 >>= fun data ->
     if data = "RFB 003.003\n" then
-      true
+      return (true, "")
     else
-      false
+      return (false, data)
 
   (* Parse ClientInit: 1 byte shared-flag (0 or 1) *)
   let parse_client_init =
-    take 1 >>| fun data ->
+    take 1 >>= fun data ->
     let shared_flag = Char.code data.[0] in
     if shared_flag = 0 || shared_flag = 1 then
-      true
+      return (true, "")
     else
-      false
+      return (false, data)
 
-  (* Parse complete handshake using 'both' combinator *)
+  (* Combine protocol version and client init parsers *)
   let parse_handshake =
-    both parse_protocol_version parse_client_init >>| fun (proto_ok, init_ok) ->
+    both parse_protocol_version parse_client_init >>= fun ((proto_ok, proto_data), (init_ok, init_data)) ->
     if proto_ok && init_ok then
-      Handshake
+      return (Ok Handshake)
     else
-      Unknown
+      let failed_data = proto_data ^ init_data in
+      return (Unsupported (BadHandshake failed_data))
 
   (* Parse SetPixelFormat: message-type(1) + padding(3) + pixel-format(16) = 20 bytes *)
   let parse_set_pixel_format =
     take 1 >>= fun msg_type ->
     if Char.code msg_type.[0] = 0 then
-      take 19 >>| fun _ -> SetPixelFormat
+      take 19 >>| fun _ -> Ok SetPixelFormat
     else
       fail "Not SetPixelFormat"
 
@@ -113,7 +129,7 @@ module RfbParser = struct
     if Char.code msg_type.[0] = 2 then
       take 1 >>= fun _ ->
       Angstrom.BE.any_uint16 >>= fun num_encodings ->
-      take (num_encodings * 4) >>| fun _ -> SetEncodings
+      take (num_encodings * 4) >>| fun _ -> Ok SetEncodings
     else
       fail "Not SetEncodings"
 
@@ -121,7 +137,7 @@ module RfbParser = struct
   let parse_framebuffer_update_request =
     take 1 >>= fun msg_type ->
     if Char.code msg_type.[0] = 3 then
-      take 9 >>| fun _ -> FramebufferUpdateRequest
+      take 9 >>| fun _ -> Ok FramebufferUpdateRequest
     else
       fail "Not FramebufferUpdateRequest"
 
@@ -129,7 +145,7 @@ module RfbParser = struct
   let parse_key_event =
     take 1 >>= fun msg_type ->
     if Char.code msg_type.[0] = 4 then
-      take 7 >>| fun _ -> KeyEvent
+      take 7 >>| fun _ -> Ok KeyEvent
     else
       fail "Not KeyEvent"
 
@@ -137,7 +153,7 @@ module RfbParser = struct
   let parse_pointer_event =
     take 1 >>= fun msg_type ->
     if Char.code msg_type.[0] = 5 then
-      take 5 >>| fun _ -> PointerEvent
+      take 5 >>| fun _ -> Ok PointerEvent
     else
       fail "Not PointerEvent"
 
@@ -147,7 +163,7 @@ module RfbParser = struct
     if Char.code msg_type.[0] = 6 then
       take 3 >>= fun _ ->
       Angstrom.BE.any_int32 >>= fun text_length ->
-      take (Int32.to_int text_length) >>| fun _ -> ClientCutText
+      take (Int32.to_int text_length) >>| fun _ -> Ok ClientCutText
     else
       fail "Not ClientCutText"
 
@@ -155,12 +171,14 @@ module RfbParser = struct
   let parse_qemu_client_message =
     take 1 >>= fun msg_type ->
     if Char.code msg_type.[0] = 255 then
-      take 11 >>| fun _ -> QEMUClientMessage
+      take 11 >>| fun _ -> Ok QEMUClientMessage
     else
       fail "Not QEMUClientMessage"
 
   (* Fallback parser for unknown messages *)
-  let parse_unknown_message = return Unknown
+  let parse_unsupported_message = 
+    take 1 >>= fun msg_type ->
+    return (Unsupported (UnknownMsg msg_type))
 
   let parse_rfb_message handshake_completed =
     if not handshake_completed then
@@ -175,7 +193,7 @@ module RfbParser = struct
         ; parse_pointer_event
         ; parse_client_cut_text
         ; parse_qemu_client_message
-        ; parse_unknown_message (* Fallback *)
+        ; parse_unsupported_message (* Fallback *)
         ]
 
   (* Create RFB parser with closure-based state encapsulation *)
@@ -192,22 +210,10 @@ module RfbParser = struct
   let create () =
     let module State = struct
       type t = {
-          parser: rfb_message_type Angstrom.Buffered.state
+          parser: msg_type Angstrom.Buffered.state
         ; handshake_completed: bool
-        ; (* Rolling buffer of last 50 bytes for debugging
-             When an error occurs, the last 50 bytes of data are logged for debugging *)
-          debug_buffer: string
       }
     end in
-    (* Helper to update debug buffer with new data, keeping last 50 bytes *)
-    let update_debug_buffer buffer new_data =
-      let combined = buffer ^ new_data in
-      let len = String.length combined in
-      if len <= 50 then
-        combined
-      else
-        String.sub combined (len - 50) 50
-    in
 
     (* Private state hidden in closure *)
     let state =
@@ -216,7 +222,6 @@ module RfbParser = struct
           State.parser=
             Angstrom.Buffered.parse (parse_rfb_message false)
         ; handshake_completed= false
-        ; debug_buffer= ""
         }
     in
 
@@ -226,10 +231,10 @@ module RfbParser = struct
     in
 
     (* Update handshake completion based on parsed message *)
-    let update_handshake_state current_completed message_type =
+    let update_handshake_state current_state message_type =
       match message_type with
-      | Handshake -> true
-      | _ -> current_completed
+      | Ok Handshake -> true
+      | _ -> current_state
     in
 
     let rec process_parser parser messages =
@@ -240,11 +245,9 @@ module RfbParser = struct
             update_handshake_state !state.State.handshake_completed message_type
           in
 
-          if message_type = Unknown then (
-            debug
-              "Stopping RFB parsing due to Unknown message. Last 50 bytes: %s"
-              (hex_dump_data !state.State.debug_buffer 50) ;
-            (* Return Unknown message to caller to stop parsing *)
+          if (match message_type with Unsupported _ -> true | _ -> false) then (
+            debug "Stopping RFB parsing due to unsupported message: %s" (string_of_msg message_type) ;
+            (* Return unsupported message to caller to stop parsing *)
             (parser, !state.State.handshake_completed, new_messages)
           ) else if unconsumed.len > 0 then
             let next_parser =
@@ -265,18 +268,14 @@ module RfbParser = struct
       | Angstrom.Buffered.Fail (unconsumed, _, error_msg) ->
           (* Generate a Fail message for caller to stop parsing *)
           debug
-            "RFB parser failed: %s, unconsumed data (%d bytes), last 50 bytes: \
-             %s"
+            "RFB parser failed: %s, unconsumed data (%d bytes): %s"
             error_msg unconsumed.len
-            (hex_dump_data !state.State.debug_buffer 50) ;
+            (hex_dump_data (unconsumed_to_string unconsumed) 20) ;
           let fail_messages = Fail :: messages in
           (parser, !state.State.handshake_completed, fail_messages)
     in
 
     let on_data data_chunk =
-      let updated_debug_buffer =
-        update_debug_buffer !state.State.debug_buffer data_chunk
-      in
       let new_parser =
         Angstrom.Buffered.feed !state.State.parser (`String data_chunk)
       in
@@ -287,9 +286,8 @@ module RfbParser = struct
         {
           State.parser= final_parser
         ; handshake_completed= final_handshake_completed
-        ; debug_buffer= updated_debug_buffer
         } ;
-      List.rev_map string_of_message_type new_messages
+      List.rev_map string_of_msg new_messages
     in
 
     (* Return the data processing function *)
