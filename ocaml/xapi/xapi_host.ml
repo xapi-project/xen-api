@@ -497,7 +497,8 @@ let compute_evacuation_plan_wlb ~__context ~self =
       if
         Db.Host.get_control_domain ~__context ~self:target_host <> v
         && Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
-      then (* resident host and migration host are the same. Reject this plan *)
+        (* resident host and migration host are the same. Reject this plan *)
+      then
         raise
           (Api_errors.Server_error
              ( Api_errors.wlb_malformed_response
@@ -1782,7 +1783,6 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
       ) else
         (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
-
         (* we try to use the configuration to set up the new external authentication service *)
 
         (* we persist as much set up configuration now as we can *)
@@ -2847,7 +2847,7 @@ let set_iscsi_iqn ~__context ~host ~value =
    * when you update the `iscsi_iqn` field we want to update `other_config`,
    * but when updating `other_config` we want to update `iscsi_iqn` too.
    * we have to be careful not to introduce an infinite loop of updates.
-   * *)
+   *)
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value ;
   Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value ;
   Xapi_host_helpers.Configuration.set_initiator_name value
