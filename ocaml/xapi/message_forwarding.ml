@@ -2579,7 +2579,7 @@ functor
             forward_vm_op ~local_fn ~__context ~vm
               ~remote_fn:(fun ~rpc ~session_id ->
                 (* try InternalAsync.VM.migrate_send first to avoid long running idle stunnel connection
-                   * fall back on Async.VM.migrate_send if slave doesn't support InternalAsync *)
+                 * fall back on Async.VM.migrate_send if slave doesn't support InternalAsync *)
                 Helpers.try_internal_async ~__context API.ref_VM_of_rpc
                   (fun () ->
                     Client.InternalAsync.VM.migrate_send ~rpc ~session_id ~vm
@@ -2624,7 +2624,7 @@ functor
                   assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
                     ~vif_map ~vgpu_map ~options
               ) ;
-              if vgpu_map <> [] then
+              if Db.VM.get_VGPUs ~__context ~self:vm <> [] then
                 Xapi_stats.incr_pool_vgpu_migration_count () ;
               forward_migrate_send ()
           )
@@ -6410,7 +6410,7 @@ functor
         let remote_fn = Client.Cluster_host.forget ~self in
         (* We need to ask another host that has a cluster host to mark it as dead.
          * We might've run force destroy and this host would no longer have a cluster host
-         * *)
+         *)
         let other_hosts =
           Db.Cluster.get_cluster_hosts ~__context ~self:cluster
           |> List.filter (( <> ) self)

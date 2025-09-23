@@ -65,7 +65,7 @@ let update_allowed_operations ~__context ~self =
 let assert_can_boot_here ~__context ~self ~host =
   let snapshot = Db.VM.get_record ~__context ~self in
   if Helpers.rolling_upgrade_in_progress ~__context then
-    Helpers.assert_platform_version_is_same_on_master ~__context ~host ~self ;
+    Helpers.assert_host_versions_are_same_on_master ~__context ~host ~self ;
   assert_can_boot_here ~__context ~self ~host ~snapshot ~do_cpuid_check:true ()
 
 let retrieve_wlb_recommendations ~__context ~vm =
@@ -1351,11 +1351,11 @@ let set_suspend_VDI ~__context ~self ~value =
   let dst_vdi = value in
   if src_vdi <> dst_vdi then (
     (*
-	 * We don't care if the future host can see current suspend VDI or not, but
-	 * we want to make sure there's at least a host can see all the VDIs of the
-	 * VM + the new suspend VDI. We raise an exception if there's no suitable
-	 * host.
-	 *)
+     * We don't care if the future host can see current suspend VDI or not, but
+     * we want to make sure there's at least a host can see all the VDIs of the
+     * VM + the new suspend VDI. We raise an exception if there's no suitable
+     * host.
+     *)
     let vbds = Db.VM.get_VBDs ~__context ~self in
     let vbds =
       List.filter (fun self -> not (Db.VBD.get_empty ~__context ~self)) vbds
@@ -1615,7 +1615,7 @@ let nvram = Mutex.create ()
 let set_NVRAM_EFI_variables ~__context ~self ~value =
   with_lock nvram (fun () ->
       (* do not use remove_from_NVRAM: we do not want to
-         * temporarily end up with an empty NVRAM in HA *)
+       * temporarily end up with an empty NVRAM in HA *)
       let key = "EFI-variables" in
       let nvram = Db.VM.get_NVRAM ~__context ~self in
       let value = (key, value) :: List.remove_assoc key nvram in
