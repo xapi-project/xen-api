@@ -272,25 +272,6 @@ module Sysfs = struct
         Result.Error
           (Fail_to_get_driver_name, "Failed to get driver name for: " ^ dev)
 
-  (** Returns the features bitmap for the driver for [dev]. The features bitmap
-      is a set of NETIF_F_ flags supported by its driver. *)
-  let get_features dev =
-    try Some (int_of_string (read_one_line (getpath dev "features")))
-    with _ -> None
-
-  (** Returns [true] if [dev] supports VLAN acceleration, [false] otherwise. *)
-  let has_vlan_accel dev =
-    let flag_NETIF_F_HW_VLAN_TX = 128 in
-    let flag_NETIF_F_HW_VLAN_RX = 256 in
-    let flag_NETIF_F_VLAN =
-      flag_NETIF_F_HW_VLAN_TX lor flag_NETIF_F_HW_VLAN_RX
-    in
-    match get_features dev with
-    | None ->
-        false
-    | Some features ->
-        features land flag_NETIF_F_VLAN <> 0
-
   let set_multicast_snooping bridge value =
     try
       let path = getpath bridge "bridge/multicast_snooping" in
