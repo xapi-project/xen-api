@@ -2624,7 +2624,7 @@ functor
                   assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
                     ~vif_map ~vgpu_map ~options
               ) ;
-              if vgpu_map <> [] then
+              if Db.VM.get_VGPUs ~__context ~self:vm <> [] then
                 Xapi_stats.incr_pool_vgpu_migration_count () ;
               forward_migrate_send ()
           )
