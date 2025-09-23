@@ -76,10 +76,10 @@ module RfbParser = struct
         "ClientCutText"
     | Ok QEMUClientMessage ->
         "QEMUClientMessage"
-    | Unsupported (BadHandshake data) ->
-        Printf.sprintf "BadHandshake(%s)" (hex_dump_data data 20)
-    | Unsupported (UnknownMsg data) ->
-        Printf.sprintf "UnknownMsg(%s)" (hex_dump_data data 20)
+    | Unsupported (BadHandshake _) ->
+        "BadHandshake"
+    | Unsupported (UnknownMsg _) ->
+        "UnknownMsg"
     | Fail ->
         "Fail"
 
@@ -246,7 +246,14 @@ module RfbParser = struct
           in
 
           if (match message_type with Unsupported _ -> true | _ -> false) then (
-            debug "Stopping RFB parsing due to unsupported message: %s" (string_of_msg message_type) ;
+            let data_info = match message_type with
+              | Unsupported (BadHandshake data) -> 
+                  Printf.sprintf "BadHandshake with data: %s" (hex_dump_data data 20)
+              | Unsupported (UnknownMsg data) ->
+                  Printf.sprintf "UnknownMsg with data: %s" (hex_dump_data data 20)
+              | _ -> "Unsupported message"
+            in
+            debug "Stopping RFB parsing due to unsupported message: %s" data_info ;
             (* Return unsupported message to caller to stop parsing *)
             (parser, !state.State.handshake_completed, new_messages)
           ) else if unconsumed.len > 0 then

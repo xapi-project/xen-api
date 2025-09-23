@@ -38,8 +38,8 @@ module RfbParser : sig
       - "QEMUClientMessage" - QEMU-specific message (12 bytes)
       
       Error handling:
-      - Returns ["BadHandshake(hex_data)"] for failed handshake with captured data
-      - Returns ["UnknownMsg(hex_data)"] when encountering unrecognized message types
+      - Returns ["BadHandshake"] for failed handshake
+      - Returns ["UnknownMsg"] when encountering unrecognized message types
       - Returns ["Fail"] when parsing fails due to malformed data
       - Caller should stop using parser after receiving error messages
       
