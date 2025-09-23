@@ -88,21 +88,27 @@ module MessageParsingTests = struct
 
   let test_invalid_protocol_version () =
     let parser = RfbParser.create () in
-    let result = parser (TestData.invalid_protocol_version ^ TestData.client_init) in
+    let result =
+      parser (TestData.invalid_protocol_version ^ TestData.client_init)
+    in
     match result with
-    | [] -> Alcotest.fail "Expected BadHandshake message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Invalid protocol version returns BadHandshake" 
-        "BadHandshake" msg
+    | [] ->
+        Alcotest.fail "Expected BadHandshake message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Invalid protocol version returns BadHandshake" "BadHandshake" msg
 
   let test_invalid_protocol_version_rfb_004 () =
     let parser = RfbParser.create () in
-    let result = parser (TestData.invalid_protocol_version_rfb_004 ^ TestData.client_init) in
+    let result =
+      parser (TestData.invalid_protocol_version_rfb_004 ^ TestData.client_init)
+    in
     match result with
-    | [] -> Alcotest.fail "Expected BadHandshake message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "RFB 003.004 version returns BadHandshake" 
-        "BadHandshake" msg
+    | [] ->
+        Alcotest.fail "Expected BadHandshake message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "RFB 003.004 version returns BadHandshake" "BadHandshake" msg
 
   let test_incomplete_protocol_version () =
     let parser = RfbParser.create () in
@@ -114,31 +120,41 @@ module MessageParsingTests = struct
     let parser = RfbParser.create () in
     let result = parser (TestData.protocol_version ^ TestData.client_init) in
     Alcotest.(check (list string))
-      "Complete handshake with shared ClientInit parsed correctly" ["Handshake"] result
+      "Complete handshake with shared ClientInit parsed correctly" ["Handshake"]
+      result
 
   let test_client_init_exclusive () =
     let parser = RfbParser.create () in
-    let result = parser (TestData.protocol_version ^ TestData.client_init_exclusive) in
+    let result =
+      parser (TestData.protocol_version ^ TestData.client_init_exclusive)
+    in
     Alcotest.(check (list string))
-      "Complete handshake with exclusive ClientInit parsed correctly" ["Handshake"] result
+      "Complete handshake with exclusive ClientInit parsed correctly"
+      ["Handshake"] result
 
   let test_client_init_invalid () =
     let parser = RfbParser.create () in
-    let result = parser (TestData.protocol_version ^ TestData.client_init_invalid) in
+    let result =
+      parser (TestData.protocol_version ^ TestData.client_init_invalid)
+    in
     match result with
-    | [] -> Alcotest.fail "Expected BadHandshake message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Invalid ClientInit returns BadHandshake" 
-        "BadHandshake" msg
+    | [] ->
+        Alcotest.fail "Expected BadHandshake message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Invalid ClientInit returns BadHandshake" "BadHandshake" msg
 
   let test_client_init_invalid_255 () =
     let parser = RfbParser.create () in
-    let result = parser (TestData.protocol_version ^ TestData.client_init_invalid_255) in
+    let result =
+      parser (TestData.protocol_version ^ TestData.client_init_invalid_255)
+    in
     match result with
-    | [] -> Alcotest.fail "Expected BadHandshake message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Invalid ClientInit (255) returns BadHandshake" 
-        "BadHandshake" msg
+    | [] ->
+        Alcotest.fail "Expected BadHandshake message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Invalid ClientInit (255) returns BadHandshake" "BadHandshake" msg
 
   let test_client_init_parsing () =
     let parser = RfbParser.create () in
@@ -225,7 +241,8 @@ module StateTransitionTests = struct
 
     (* Should now accept client messages *)
     let result2 = parser TestData.key_event in
-    Alcotest.(check (list string)) "Post-handshake state: KeyEvent" ["KeyEvent"] result2
+    Alcotest.(check (list string))
+      "Post-handshake state: KeyEvent" ["KeyEvent"] result2
 
   let test_incomplete_message_in_state () =
     let parser = RfbParser.create () in
@@ -237,10 +254,11 @@ module StateTransitionTests = struct
     (* Complete with wrong protocol but valid client init *)
     let result2 = parser (".003\n" ^ TestData.client_init) in
     match result2 with
-    | [] -> Alcotest.fail "Expected BadHandshake message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Completed wrong handshake returns BadHandshake" 
-        "BadHandshake" msg
+    | [] ->
+        Alcotest.fail "Expected BadHandshake message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Completed wrong handshake returns BadHandshake" "BadHandshake" msg
 
   let test_complete_wrong_message_in_state () =
     let parser = RfbParser.create () in
@@ -248,10 +266,11 @@ module StateTransitionTests = struct
     let wrong_handshake_data = "VNC 003.003\n" ^ TestData.client_init in
     let result = parser wrong_handshake_data in
     match result with
-    | [] -> Alcotest.fail "Expected BadHandshake message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Complete wrong handshake returns BadHandshake" 
-        "BadHandshake" msg
+    | [] ->
+        Alcotest.fail "Expected BadHandshake message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Complete wrong handshake returns BadHandshake" "BadHandshake" msg
 
   let test_multiple_messages_in_sequence () =
     let parser = RfbParser.create () in
@@ -281,10 +300,11 @@ module ErrorHandlingTests = struct
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.unknown_message in
     match result with
-    | [] -> Alcotest.fail "Expected UnknownMsg message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Unknown message returns UnknownMsg" 
-        "UnknownMsg" msg
+    | [] ->
+        Alcotest.fail "Expected UnknownMsg message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Unknown message returns UnknownMsg" "UnknownMsg" msg
 
   let test_partial_message_handling () =
     let parser = RfbParser.create () in
@@ -340,9 +360,7 @@ module IntegrationTests = struct
     let combined_data = TestData.protocol_version ^ TestData.client_init in
     let result = parser combined_data in
     Alcotest.(check (list string))
-      "Concatenated handshake parsed correctly"
-      ["Handshake"]
-      result
+      "Concatenated handshake parsed correctly" ["Handshake"] result
 
   let test_mixed_valid_invalid_messages () =
     let parser = RfbParser.create () in
@@ -353,10 +371,11 @@ module IntegrationTests = struct
     let _ = parser TestData.key_event in
     let result = parser TestData.unknown_message in
     match result with
-    | [] -> Alcotest.fail "Expected UnknownMsg message but got empty list"
-    | msg :: _ -> 
-        Alcotest.(check string) "Invalid message after valid returns UnknownMsg" 
-        "UnknownMsg" msg
+    | [] ->
+        Alcotest.fail "Expected UnknownMsg message but got empty list"
+    | msg :: _ ->
+        Alcotest.(check string)
+          "Invalid message after valid returns UnknownMsg" "UnknownMsg" msg
 
   let test_complete_protocol_flow () =
     let parser = RfbParser.create () in
@@ -371,8 +390,7 @@ module IntegrationTests = struct
     let result5 = parser TestData.key_event in
     let result6 = parser TestData.pointer_event in
 
-    Alcotest.(check (list string))
-      "Complete handshake" ["Handshake"] result1 ;
+    Alcotest.(check (list string)) "Complete handshake" ["Handshake"] result1 ;
     Alcotest.(check (list string)) "Set pixel format" ["SetPixelFormat"] result2 ;
     Alcotest.(check (list string)) "Set encodings" ["SetEncodings"] result3 ;
     Alcotest.(check (list string))
@@ -499,9 +517,7 @@ let tests =
       ]
     )
   ; ( "Utility Functions"
-    , [
-        ("test_parser_creation", `Quick, UtilityTests.test_parser_creation)
-      ]
+    , [("test_parser_creation", `Quick, UtilityTests.test_parser_creation)]
     )
   ; ( "Integration Tests"
     , [

@@ -25,7 +25,6 @@ module D = Debug.Make (struct let name = "rfb_parser" end)
 open D
 
 module RfbParser = struct
-
   type ok_msg =
     | Handshake
     | SetPixelFormat
@@ -38,21 +37,20 @@ module RfbParser = struct
 
   type unsupported =
     | BadHandshake of string  (** Failed/unsupported handshake with raw data *)
-    | UnknownMsg of string    (** Unrecognized message type with raw data *)
+    | UnknownMsg of string  (** Unrecognized message type with raw data *)
 
-  type msg_type =
-    | Ok of ok_msg
-    | Unsupported of unsupported
-    | Fail
+  type msg_type = Ok of ok_msg | Unsupported of unsupported | Fail
 
   (* Helper function to format binary data as hex string, up to max_bytes *)
   let hex_dump_data data max_bytes =
     let len = min (String.length data) max_bytes in
-    let hex_str = 
-      String.fold_left (fun acc c ->
-        let hex_byte = Printf.sprintf "%02x" (Char.code c) in
-        if acc = "" then hex_byte else acc ^ " " ^ hex_byte
-      ) "" (String.sub data 0 len)
+    let hex_str =
+      String.fold_left
+        (fun acc c ->
+          let hex_byte = Printf.sprintf "%02x" (Char.code c) in
+          if acc = "" then hex_byte else acc ^ " " ^ hex_byte
+        )
+        "" (String.sub data 0 len)
     in
     if String.length data > max_bytes then
       hex_str ^ "..."
@@ -108,7 +106,8 @@ module RfbParser = struct
 
   (* Combine protocol version and client init parsers *)
   let parse_handshake =
-    both parse_protocol_version parse_client_init >>= fun ((proto_ok, proto_data), (init_ok, init_data)) ->
+    both parse_protocol_version parse_client_init
+    >>= fun ((proto_ok, proto_data), (init_ok, init_data)) ->
     if proto_ok && init_ok then
       return (Ok Handshake)
     else
@@ -176,9 +175,8 @@ module RfbParser = struct
       fail "Not QEMUClientMessage"
 
   (* Fallback parser for unknown messages *)
-  let parse_unsupported_message = 
-    take 1 >>= fun msg_type ->
-    return (Unsupported (UnknownMsg msg_type))
+  let parse_unsupported_message =
+    take 1 >>= fun msg_type -> return (Unsupported (UnknownMsg msg_type))
 
   let parse_rfb_message handshake_completed =
     if not handshake_completed then
@@ -214,13 +212,11 @@ module RfbParser = struct
         ; handshake_completed: bool
       }
     end in
-
     (* Private state hidden in closure *)
     let state =
       ref
         {
-          State.parser=
-            Angstrom.Buffered.parse (parse_rfb_message false)
+          State.parser= Angstrom.Buffered.parse (parse_rfb_message false)
         ; handshake_completed= false
         }
     in
@@ -232,9 +228,7 @@ module RfbParser = struct
 
     (* Update handshake completion based on parsed message *)
     let update_handshake_state current_state message_type =
-      match message_type with
-      | Ok Handshake -> true
-      | _ -> current_state
+      match message_type with Ok Handshake -> true | _ -> current_state
     in
 
     let rec process_parser parser messages =
@@ -245,15 +239,20 @@ module RfbParser = struct
             update_handshake_state !state.State.handshake_completed message_type
           in
 
-          if (match message_type with Unsupported _ -> true | _ -> false) then (
-            let data_info = match message_type with
-              | Unsupported (BadHandshake data) -> 
-                  Printf.sprintf "BadHandshake with data: %s" (hex_dump_data data 20)
+          if match message_type with Unsupported _ -> true | _ -> false then (
+            let data_info =
+              match message_type with
+              | Unsupported (BadHandshake data) ->
+                  Printf.sprintf "BadHandshake with data: %s"
+                    (hex_dump_data data 20)
               | Unsupported (UnknownMsg data) ->
-                  Printf.sprintf "UnknownMsg with data: %s" (hex_dump_data data 20)
-              | _ -> "Unsupported message"
+                  Printf.sprintf "UnknownMsg with data: %s"
+                    (hex_dump_data data 20)
+              | _ ->
+                  "Unsupported message"
             in
-            debug "Stopping RFB parsing due to unsupported message: %s" data_info ;
+            debug "Stopping RFB parsing due to unsupported message: %s"
+              data_info ;
             (* Return unsupported message to caller to stop parsing *)
             (parser, !state.State.handshake_completed, new_messages)
           ) else if unconsumed.len > 0 then
@@ -274,8 +273,7 @@ module RfbParser = struct
           (parser, !state.State.handshake_completed, messages)
       | Angstrom.Buffered.Fail (unconsumed, _, error_msg) ->
           (* Generate a Fail message for caller to stop parsing *)
-          debug
-            "RFB parser failed: %s, unconsumed data (%d bytes): %s"
+          debug "RFB parser failed: %s, unconsumed data (%d bytes): %s"
             error_msg unconsumed.len
             (hex_dump_data (unconsumed_to_string unconsumed) 20) ;
           let fail_messages = Fail :: messages in
