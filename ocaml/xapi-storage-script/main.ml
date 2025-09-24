@@ -1352,6 +1352,8 @@ module VDIImpl (M : META) = struct
           dbg sr vdi
     )
 
+  let ( let* ) = Lwt_result.bind
+
   let update_keys ~dbg ~sr ~key ~value response =
     match value with
     | None ->
@@ -1369,6 +1371,11 @@ module VDIImpl (M : META) = struct
   let destroy ~dbg ~sr ~vdi =
     return_volume_rpc (fun () ->
         Volume_client.destroy (volume_rpc ~dbg) dbg sr vdi
+    )
+
+  let revert ~dbg ~sr ~snapshot ~vdi =
+    return_volume_rpc (fun () ->
+        Volume_client.revert (volume_rpc ~dbg) dbg sr snapshot vdi
     )
 
   let vdi_attach_common dbg sr vdi domain =
@@ -1420,6 +1427,14 @@ module VDIImpl (M : META) = struct
      >>>= fun () -> destroy ~dbg ~sr ~vdi
     )
     |> wrap
+
+  let revert_impl dbg sr snapshot_info =
+    wrap
+    @@
+    let snapshot = Storage_interface.(Vdi.string_of snapshot_info.vdi) in
+    let vdi = Storage_interface.(Vdi.string_of snapshot_info.snapshot_of) in
+    let* sr = Attached_SRs.find sr in
+    revert ~dbg ~sr ~snapshot ~vdi
 
   let vdi_snapshot_impl dbg sr vdi_info =
     Attached_SRs.find sr
@@ -1658,8 +1673,6 @@ module VDIImpl (M : META) = struct
     |> wrap
 
   let vdi_set_persistent_impl _dbg _sr _vdi _persistent = return () |> wrap
-
-  let ( let* ) = Lwt_result.bind
 
   let vdi_enable_cbt_impl dbg sr vdi =
     wrap
@@ -1946,6 +1959,7 @@ let bind ~volume_script_dir =
   S.VDI.add_to_sm_config VDI.vdi_add_to_sm_config_impl ;
   S.VDI.remove_from_sm_config VDI.vdi_remove_from_sm_config_impl ;
   S.VDI.similar_content VDI.similar_content_impl ;
+  S.VDI.revert VDI.revert_impl ;
 
   let module DP = DPImpl (RuntimeMeta) in
   S.DP.destroy2 DP.dp_destroy2 ;

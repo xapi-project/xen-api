@@ -60,6 +60,7 @@ module Feature = struct
     | Large_vdi  (** Supports >2TB VDIs *)
     | Thin_provisioning
     | Vdi_read_caching
+    | Vdi_revert
 
   type t = capability * int64
 
@@ -101,6 +102,7 @@ module Feature = struct
     ; ("LARGE_VDI", Large_vdi)
     ; ("THIN_PROVISIONING", Thin_provisioning)
     ; ("VDI_READ_CACHING", Vdi_read_caching)
+    ; ("VDI_REVERT", Vdi_revert)
     ]
 
   let capability_to_string_table =
