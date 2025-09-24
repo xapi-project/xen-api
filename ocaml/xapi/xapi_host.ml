@@ -295,13 +295,18 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
      	   the source host. So as long as host versions aren't decreasing,
      	   we're allowed to migrate VMs between hosts. *)
   debug "evacuating host version: %s"
-    (Helpers.version_string_of ~__context (Helpers.LocalObject host)) ;
+    (Helpers.get_software_versions ~__context (Helpers.LocalObject host)
+    |> Helpers.versions_string_of
+    ) ;
   let target_hosts =
     List.filter
       (fun target ->
         debug "host %s version: %s"
           (Db.Host.get_hostname ~__context ~self:target)
-          (Helpers.version_string_of ~__context (Helpers.LocalObject target)) ;
+          Helpers.(
+            get_software_versions ~__context (LocalObject target)
+            |> versions_string_of
+          ) ;
         Helpers.host_versions_not_decreasing ~__context
           ~host_from:(Helpers.LocalObject host)
           ~host_to:(Helpers.LocalObject target)
@@ -497,7 +502,8 @@ let compute_evacuation_plan_wlb ~__context ~self =
       if
         Db.Host.get_control_domain ~__context ~self:target_host <> v
         && Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
-      then (* resident host and migration host are the same. Reject this plan *)
+        (* resident host and migration host are the same. Reject this plan *)
+      then
         raise
           (Api_errors.Server_error
              ( Api_errors.wlb_malformed_response
@@ -1782,7 +1788,6 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
       ) else
         (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
-
         (* we try to use the configuration to set up the new external authentication service *)
 
         (* we persist as much set up configuration now as we can *)
@@ -2847,7 +2852,7 @@ let set_iscsi_iqn ~__context ~host ~value =
    * when you update the `iscsi_iqn` field we want to update `other_config`,
    * but when updating `other_config` we want to update `iscsi_iqn` too.
    * we have to be careful not to introduce an infinite loop of updates.
-   * *)
+   *)
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value ;
   Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value ;
   Xapi_host_helpers.Configuration.set_initiator_name value

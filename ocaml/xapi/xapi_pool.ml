@@ -3066,8 +3066,10 @@ let disable_external_auth ~__context ~pool:_ ~config =
             debug
               "Failed to disable the external authentication of at least one \
                host in the pool" ;
-            if String.starts_with ~prefix:Api_errors.auth_disable_failed err
-            then (* tagged exception *)
+            if
+              String.starts_with ~prefix:Api_errors.auth_disable_failed err
+              (* tagged exception *)
+            then
               raise
                 (Api_errors.Server_error
                    (Api_errors.pool_auth_prefix ^ err, [Ref.string_of host; msg])

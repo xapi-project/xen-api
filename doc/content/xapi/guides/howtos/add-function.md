@@ -172,8 +172,8 @@ the Host module:
     let price_of ~__context ~host ~item =
         info "Host.price_of for item %s" item;
         let local_fn = Local.Host.price_of ~host ~item in
-        do_op_on ~local_fn ~__context ~host
-          (fun session_id rpc -> Client.Host.price_of ~rpc ~session_id ~host ~item)
+        let remote_fn = Client.Host.price_of ~host ~item in
+        do_op_on ~local_fn ~__context ~host ~remote_fn
 
 After the ~__context parameter, the parameters of this new function should
 match the parameters we specified for the message. In this case, that is the

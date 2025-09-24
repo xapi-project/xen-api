@@ -466,6 +466,138 @@ module RunInParallel = Generic.MakeStateless (struct
       ]
 end)
 
+module Version = struct
+  let test_compare_int_list () =
+    let test_cases =
+      [
+        ("Equal Lists", [1; 2; 3], [1; 2; 3], 0)
+      ; ("Empty Lists", [], [], 0)
+      ; ("'a' is smaller (first element)", [1; 10; 100], [2; 0; 0], -1)
+      ; ("'a' is smaller (later element)", [1; 2; 3], [1; 2; 4], -1)
+      ; ("'a' is greater (first element)", [5; 1; 1], [2; 10; 10], 1)
+      ; ("'a' is greater (later element)", [1; 3; 3], [1; 2; 4], 1)
+      ; ("Lists with negative numbers", [0; -5; 10], [0; -2; -10], -1)
+      ; ("Single element lists (equal)", [42], [42], 0)
+      ; ("Single element lists (unequal)", [42], [43], -1)
+      ; ("Different number of element in lists", [25; 27], [25; 27; 1], -1)
+      ]
+    in
+    let test_compare (description, list1, list2, expected) =
+      let actual = Helpers.compare_int_lists list1 list2 in
+      let description = Printf.sprintf "compate_int_lists: %s" description in
+      Alcotest.(check int) description expected actual
+    in
+    List.iter test_compare test_cases
+
+  let test_version_numbers_of_string () =
+    let test_cases =
+      [
+        ( "Standard major.minor.patch version, e.g. xapi build version stored \
+           in the database"
+        , "25.30.0"
+        , [25; 30; 0]
+        )
+      ; ( "Dev build version, e.g. xapi build version stored in the database"
+        , "25.30.0.6.gb239bd75a"
+        , [25; 30; 0; 6]
+        )
+      ; ( "Version with a patch identifier e.g. xen versions stored in the \
+           database"
+        , "25.15.0-13"
+        , [25; 15; 0; 13]
+        )
+      ; ("Default version", "0.0.0", [0; 0; 0])
+      ]
+    in
+    let test_version_numbers (description, version_string, expected) =
+      let actual = Helpers.version_numbers_of_string version_string in
+      let description =
+        Printf.sprintf "version_numbers_of_string: %s" description
+      in
+      Alcotest.(check @@ list int) description expected actual
+    in
+    List.iter test_version_numbers test_cases
+
+  let test_compare_versions () =
+    let sw_vers_a =
+      Xapi_globs.[(_platform_version, "2.4.0"); (_xen_version, "4.14.0-13")]
+    in
+    let sw_vers_b = Xapi_globs.[(_xen_version, "4.13.0-13")] in
+    let test_cases =
+      Xapi_globs.
+        [
+          ( "Software versions 'b' are missing platform version"
+          , _platform_version
+          , sw_vers_a
+          , sw_vers_b
+          , 1
+          )
+        ; ( "Software versions 'a' are missing platform version"
+          , _platform_version
+          , sw_vers_b
+          , sw_vers_a
+          , -1
+          )
+        ; ( "xen version exists in both (`a` is greater)"
+          , _xen_version
+          , sw_vers_a
+          , sw_vers_b
+          , 1
+          )
+        ; ( "xapi build version is missing from both (equal)"
+          , _xapi_build_version
+          , sw_vers_a
+          , sw_vers_b
+          , 0
+          )
+        ]
+    in
+    let test_compare (description, key, value_a, value_b, expected) =
+      let actual = Helpers.compare_versions ~version_key:key value_a value_b in
+      let description = Printf.sprintf "compare_versions: %s" description in
+      Alcotest.(check int) description expected actual
+    in
+    List.iter test_compare test_cases
+
+  let test_compare_all_versions () =
+    let current =
+      Xapi_globs.[(_platform_version, "8.1.0"); (_xen_version, "4.13.0-15")]
+    in
+    let newer =
+      Xapi_globs.[(_platform_version, "8.2.0"); (_xen_version, "4.13.0-15")]
+    in
+    let mixed =
+      Xapi_globs.[(_platform_version, "8.2.0"); (_xen_version, "4.12.0-15")]
+    in
+    let test_cases =
+      [
+        ("Newer is greater or equal than Current", newer, current, true)
+      ; ("Current is greater or equal than Current", current, current, true)
+      ; ("Current is not greater or equal than Newer", current, newer, false)
+      ; ("Mixed is not greater or equal then Current", mixed, current, false)
+      ; ("Current is not greater or equal than Mixed", current, mixed, false)
+      ]
+    in
+    let test_compare (description, vers_a, vers_b, expected) =
+      let actual =
+        Helpers.compare_all_versions ~is_greater_or_equal:vers_a ~than:vers_b
+      in
+      let description = Printf.sprintf "compare_all_versions: %s" description in
+      Alcotest.(check bool) description expected actual
+    in
+    List.iter test_compare test_cases
+
+  let test =
+    [
+      ("Compare int list", `Quick, test_compare_int_list)
+    ; ("Version numbers from string", `Quick, test_version_numbers_of_string)
+    ; ("Compare versions", `Quick, test_compare_versions)
+    ; ("Compare all versions", `Quick, test_compare_all_versions)
+    ]
+
+  let tests = [("Version compare tests", test)]
+end
+
 let tests =
   make_suite "helpers_"
     [
@@ -476,3 +608,4 @@ let tests =
     ; ("assert_is_valid_cidr", CIDRCheckers.tests)
     ; ("run_in_parallel", RunInParallel.tests)
     ]
+  @ Version.tests

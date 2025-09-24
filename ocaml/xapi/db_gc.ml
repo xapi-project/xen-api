@@ -165,16 +165,18 @@ let detect_rolling_upgrade ~__context =
         in
         (* Resynchronise *)
         if actually_in_progress <> pool_says_in_progress then (
-          let platform_versions =
+          let host_versions =
             List.map
               (fun host ->
-                Helpers.version_string_of ~__context (Helpers.LocalObject host)
+                Helpers.get_software_versions ~__context
+                  (Helpers.LocalObject host)
+                |> Helpers.versions_string_of
               )
               (Db.Host.get_all ~__context)
           in
           debug "xapi platform version = %s; host platform versions = [ %s ]"
             (Xapi_version.platform_version ())
-            (String.concat "; " platform_versions) ;
+            (String.concat "; " host_versions) ;
           warn
             "Pool thinks rolling upgrade%s in progress but Host version \
              numbers indicate otherwise; correcting"

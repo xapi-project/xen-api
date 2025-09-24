@@ -65,7 +65,8 @@ let periodic =
 let set ?(sampling_rate = 1e-4) interval =
   Atomic.set yield_interval
     (Mtime.Span.of_float_ns @@ (interval *. 1e9) |> Option.get) ;
-  Gc.Memprof.start ~sampling_rate ~callstack_size:0 periodic
+  let _ = Gc.Memprof.start ~sampling_rate ~callstack_size:0 periodic in
+  ()
 
 let clear () =
   Gc.Memprof.stop () ;
