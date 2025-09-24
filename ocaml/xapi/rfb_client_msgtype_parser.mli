@@ -6,43 +6,56 @@
 
 (** RFB Protocol Parser module *)
 module RfbParser : sig
-  val create : unit -> string -> string list
+  type msg =
+    | Handshake
+    | SetPixelFormat
+    | SetEncodings
+    | FramebufferUpdateRequest
+    | KeyEvent
+    | PointerEvent
+    | ClientCutText
+    | QEMUClientMessage
+
+  val string_of_msg : msg -> string
+  (** Convert a message type to its string representation *)
+
+  val create : unit -> string -> (msg list, string) result
   (** Create a new RFB parser instance.
       
       Returns a function that processes incoming data chunks and returns
-      a list of parsed message type names as strings.
+      either a list of parsed messages or an error string.
       
       Usage:
       {[
         let parser = RfbParser.create () in
-        let messages = parser data_chunk in
-        List.iter (fun msg -> 
-          match msg with
-          | "BadHandshake" | "UnknownMsg" | "Fail" -> handle_error msg
-          | _ -> process_message msg
-        ) messages
+        match parser data_chunk with
+        | Ok messages -> 
+            List.iter (fun msg -> 
+              Printf.printf "Parsed: %s\n" (string_of_msg msg)
+            ) messages
+        | Error error_msg -> 
+            Printf.printf "Parse error: %s\n" error_msg
       ]}
       
       The parser maintains internal state including:
-      - Handshake completion status (boolean)
+      - Current parser type (handshake_parser or message_parser)
       - Parser state for handling partial messages
       
       Supported message types:
-      - "Handshake" - Successful RFB handshake (ProtocolVersion + ClientInit)
-      - "SetPixelFormat" - Set pixel format (20 bytes)
-      - "SetEncodings" - Set encodings (variable length)
-      - "FramebufferUpdateRequest" - Request framebuffer update (10 bytes)
-      - "KeyEvent" - Keyboard input (8 bytes)
-      - "PointerEvent" - Mouse/pointer input (6 bytes)
-      - "ClientCutText" - Clipboard text (variable length)
-      - "QEMUClientMessage" - QEMU-specific message (12 bytes)
+      - Handshake - Successful RFB handshake (ProtocolVersion + ClientInit)
+      - SetPixelFormat - Set pixel format (20 bytes)
+      - SetEncodings - Set encodings (variable length)
+      - FramebufferUpdateRequest - Request framebuffer update (10 bytes)
+      - KeyEvent - Keyboard input (8 bytes)
+      - PointerEvent - Mouse/pointer input (6 bytes)
+      - ClientCutText - Clipboard text (variable length)
+      - QEMUClientMessage - QEMU-specific message (12 bytes)
       
       Error handling:
-      - Returns ["BadHandshake"] for failed handshake
-      - Returns ["UnknownMsg"] when encountering unrecognized message types
-      - Returns ["Fail"] when parsing fails due to malformed data
-      - Caller should stop using parser after receiving error messages
+      - Returns Error "BadHandshake: ..." for failed handshake
+      - Returns Error "UnsupportedMsg: ..." for unrecognized message types
+      - Returns Error "Parse error: ..." for malformed data
       
-      @return function of type (string -> string list) that processes data chunks
+      @return function of type (string -> (msg list, string) result) that processes data chunks
   *)
 end
