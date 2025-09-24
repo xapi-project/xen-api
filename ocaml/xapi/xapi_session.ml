@@ -426,12 +426,13 @@ let revalidate_external_session ~__context acc session =
   try
     (* guard: we only want to revalidate external sessions, where is_local_superuser is false *)
     (* Neither do we want to revalidate the special read-only external database sessions, since they can exist independent of external authentication. *)
+    (* 1. is the external authentication disabled in the pool? *)
     if
       not
         (Db.Session.get_is_local_superuser ~__context ~self:session
         || Xapi_database.Db_backend.is_session_registered (Ref.string_of session)
         )
-    then (* 1. is the external authentication disabled in the pool? *)
+    then
       let master = Helpers.get_master ~__context in
       let auth_type = Db.Host.get_external_auth_type ~__context ~self:master in
       if auth_type = "" then (

@@ -389,7 +389,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
           with _ ->
             let max_per_vif = 8 in
             (* 1 VIF takes up (256 rx entries + 256 tx entries) * 8 queues max
-               * 8 bytes per grant table entry / 4096 bytes size of frame *)
+             * 8 bytes per grant table entry / 4096 bytes size of frame *)
             let reasonable_per_vbd = 1 in
             (* (1 ring (itself taking up one granted page) + 1 ring *
                32 requests * 11 grant refs contained in each * 8 bytes ) /
@@ -1214,8 +1214,8 @@ let correct_shadow_allocation xc domid uuid shadow_mib =
   )
 
 (* puts value in store after the domain build succeed *)
-let build_post ~xc ~xs ~vcpus:_ ~static_max_mib ~target_mib domid domain_type
-    store_mfn store_port ents vments =
+let build_post ~xc ~xs ~static_max_mib ~target_mib domid domain_type store_mfn
+    store_port ents vments =
   let uuid = get_uuid ~xc domid in
   let dom_path = xs.Xs.getdomainpath domid in
   (* Unit conversion. *)
@@ -1350,8 +1350,8 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
         )
   in
   let local_stuff = console_keys console_port console_mfn in
-  build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib domid domain_type
-    store_mfn store_port local_stuff vm_stuff
+  build_post ~xc ~xs ~target_mib ~static_max_mib domid domain_type store_mfn
+    store_port local_stuff vm_stuff
 
 type suspend_flag = Live | Debug
 
@@ -1452,8 +1452,7 @@ let consume_qemu_record fd limit domid uuid =
     (fun () -> Unix.close fd2)
 
 let restore_common (task : Xenops_task.task_handle) ~xc ~xs
-    ~(dm : Device.Profile.t) ~domain_type ~store_port ~store_domid:_
-    ~console_port ~console_domid:_ ~no_incr_generationid:_ ~vcpus:_ ~extras
+    ~(dm : Device.Profile.t) ~domain_type ~store_port ~console_port ~extras
     ~vtpm ~numa_placements manager_path domid main_fd vgpu_fd =
   let module DD = Debug.Make (struct let name = "mig64" end) in
   let open DD in
@@ -1719,9 +1718,8 @@ let restore_common (task : Xenops_task.task_handle) ~xc ~xs
         (Uuidx.to_string uuid) domid e ;
       raise Suspend_image_failure
 
-let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
-    ~console_domid ~no_incr_generationid ~timeoffset ~extras info ~manager_path
-    ~vtpm domid fd vgpu_fd =
+let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~timeoffset ~extras
+    info ~manager_path ~vtpm domid fd vgpu_fd =
   let static_max_kib = info.memory_max in
   let target_kib = info.memory_target in
   let vcpus = info.vcpus in
@@ -1766,16 +1764,15 @@ let restore (task : Xenops_task.task_handle) ~xc ~xs ~dm ~store_domid
     build_pre ~xc ~xs ~memory ~vcpus ~hard_affinity:info.hard_affinity domid
   in
   let store_mfn, console_mfn =
-    restore_common task ~xc ~xs ~dm ~domain_type ~store_port ~store_domid
-      ~console_port ~console_domid ~no_incr_generationid ~vcpus ~extras ~vtpm
-      ~numa_placements manager_path domid fd vgpu_fd
+    restore_common task ~xc ~xs ~dm ~domain_type ~store_port ~console_port
+      ~extras ~vtpm ~numa_placements manager_path domid fd vgpu_fd
   in
   let local_stuff = console_keys console_port console_mfn in
   (* And finish domain's building *)
-  build_post ~xc ~xs ~vcpus ~target_mib ~static_max_mib domid domain_type
-    store_mfn store_port local_stuff vm_stuff
+  build_post ~xc ~xs ~target_mib ~static_max_mib domid domain_type store_mfn
+    store_port local_stuff vm_stuff
 
-let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xc:_ ~xs ~domain_type
+let suspend_emu_manager ~(task : Xenops_task.task_handle) ~xs ~domain_type
     ~is_uefi ~vtpm ~dm ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags
     ~progress_callback ~qemu_domid ~do_suspend_callback =
   let open Suspend_image in
@@ -1987,9 +1984,9 @@ let suspend (task : Xenops_task.task_handle) ~xc ~xs ~domain_type ~is_uefi ~dm
     write_header main_fd (Xenops, Int64.of_int xenops_rec_len) >>= fun () ->
     debug "Writing Xenops record contents" ;
     Io.write main_fd xenops_record ;
-    suspend_emu_manager ~task ~xc ~xs ~domain_type ~is_uefi ~vtpm ~dm
-      ~manager_path ~domid ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback
-      ~qemu_domid ~do_suspend_callback
+    suspend_emu_manager ~task ~xs ~domain_type ~is_uefi ~vtpm ~dm ~manager_path
+      ~domid ~uuid ~main_fd ~vgpu_fd ~flags ~progress_callback ~qemu_domid
+      ~do_suspend_callback
     >>= fun () ->
     ( if is_uefi then
         write_varstored_record task ~xs domid main_fd >>= fun () ->
