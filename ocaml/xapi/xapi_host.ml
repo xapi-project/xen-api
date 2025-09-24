@@ -1092,7 +1092,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~tls_verification_enabled ~last_software_update ~last_update_hash
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
-    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode ;
+    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
+    ~max_cstate:"" ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3337,3 +3338,38 @@ let set_console_idle_timeout ~__context ~self ~value =
     error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
     Helpers.internal_error "Failed to set console timeout: %Ld: %s" value
       (Printexc.to_string e)
+
+let set_max_cstate ~__context ~self ~value =
+  if Helpers.get_localhost ~__context <> self then
+    failwith "Forwarded to the wrong host" ;
+  let allowed_cstates = [None; Some 0; Some 1] in
+  let max_cstate, max_sub_cstate =
+    try Xapi_host_max_cstate.of_string value
+    with e ->
+      error "Invalid max_cstate value: %s" (Printexc.to_string e) ;
+      raise Api_errors.(Server_error (invalid_value, ["max_cstate"; value]))
+  in
+  if not (List.mem max_cstate allowed_cstates) then
+    let err_msg = "Only C0, C1 and unlimited are supported for max-cstate" in
+    raise
+      Api_errors.(
+        Server_error (value_not_supported, ["max_cstate"; value; err_msg])
+      )
+  else
+    try
+      Xapi_host_max_cstate.xenpm_set max_cstate max_sub_cstate ;
+      Xapi_host_max_cstate.xen_cmdline_set max_cstate max_sub_cstate ;
+      Db.Host.set_max_cstate ~__context ~self ~value
+    with e ->
+      let err_msg =
+        Printf.sprintf "Failed to update max_cstate: %s" (Printexc.to_string e)
+      in
+      error "%s" err_msg ;
+      Helpers.internal_error "%s" err_msg
+
+let sync_max_cstate ~__context ~host =
+  try
+    let max_cstate, max_sub_cstate = Xapi_host_max_cstate.xen_cmdline_get () in
+    let value = Xapi_host_max_cstate.to_string (max_cstate, max_sub_cstate) in
+    Db.Host.set_max_cstate ~__context ~self:host ~value
+  with e -> error "Failed to sync max_cstate: %s" (Printexc.to_string e)

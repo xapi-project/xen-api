@@ -374,6 +374,8 @@ let sync_chipset_info = "sync_chipset_info"
 
 let sync_ssh_status = "sync_ssh_status"
 
+let sync_max_cstate = "sync_max_cstate"
+
 let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
@@ -919,6 +921,8 @@ let list_domains = ref "/usr/bin/list_domains"
 let systemctl = ref "/usr/bin/systemctl"
 
 let xen_cmdline_script = ref "/opt/xensource/libexec/xen-cmdline"
+
+let xenpm_bin = ref "/usr/sbin/xenpm"
 
 let alert_certificate_check = ref "alert-certificate-check"
 
