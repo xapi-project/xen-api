@@ -79,18 +79,18 @@ end
 (* Test individual message type parsing functions *)
 module MessageParsingTests = struct
   let test_protocol_version_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result = parser (TestData.protocol_version ^ TestData.client_init) in
     match result with
     | Ok messages ->
         Alcotest.(check (list string))
           "Complete handshake parsed correctly" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_invalid_protocol_version () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result =
       parser (TestData.invalid_protocol_version ^ TestData.client_init)
     in
@@ -104,7 +104,7 @@ module MessageParsingTests = struct
           "Expected Error but got Ok - invalid handshake should fail"
 
   let test_invalid_protocol_version_rfb_004 () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result =
       parser (TestData.invalid_protocol_version_rfb_004 ^ TestData.client_init)
     in
@@ -118,30 +118,30 @@ module MessageParsingTests = struct
           "Expected Error but got Ok - invalid handshake should fail"
 
   let test_incomplete_protocol_version () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result = parser TestData.incomplete_protocol_version in
     match result with
     | Ok messages ->
         Alcotest.(check (list string))
           "Incomplete protocol version returns empty (partial)" []
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_client_init_shared () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result = parser (TestData.protocol_version ^ TestData.client_init) in
     match result with
     | Ok messages ->
         Alcotest.(check (list string))
           "Complete handshake with shared ClientInit parsed correctly"
           ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_client_init_exclusive () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result =
       parser (TestData.protocol_version ^ TestData.client_init_exclusive)
     in
@@ -150,12 +150,12 @@ module MessageParsingTests = struct
         Alcotest.(check (list string))
           "Complete handshake with exclusive ClientInit parsed correctly"
           ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_client_init_invalid () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result =
       parser (TestData.protocol_version ^ TestData.client_init_invalid)
     in
@@ -169,7 +169,7 @@ module MessageParsingTests = struct
           "Expected Error but got Ok - invalid handshake should fail"
 
   let test_client_init_invalid_255 () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result =
       parser (TestData.protocol_version ^ TestData.client_init_invalid_255)
     in
@@ -183,18 +183,18 @@ module MessageParsingTests = struct
           "Expected Error but got Ok - invalid handshake should fail"
 
   let test_client_init_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result = parser (TestData.protocol_version ^ TestData.client_init) in
     match result with
     | Ok messages ->
         Alcotest.(check (list string))
           "Complete handshake parsed correctly" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_set_pixel_format_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.set_pixel_format in
@@ -202,12 +202,12 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "SetPixelFormat parsed correctly" ["SetPixelFormat"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_set_encodings_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.set_encodings_simple in
@@ -215,12 +215,12 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "SetEncodings parsed correctly" ["SetEncodings"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_multiple_encodings_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.set_encodings_multiple in
@@ -228,12 +228,12 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Multiple encodings parsed correctly" ["SetEncodings"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_framebuffer_update_request_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.framebuffer_update_request in
@@ -242,12 +242,12 @@ module MessageParsingTests = struct
         Alcotest.(check (list string))
           "FramebufferUpdateRequest parsed correctly"
           ["FramebufferUpdateRequest"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_key_event_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.key_event in
@@ -255,12 +255,12 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "KeyEvent parsed correctly" ["KeyEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_pointer_event_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.pointer_event in
@@ -268,12 +268,12 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "PointerEvent parsed correctly" ["PointerEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_client_cut_text_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.client_cut_text in
@@ -281,12 +281,12 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "ClientCutText parsed correctly" ["ClientCutText"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_qemu_client_message_parsing () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.qemu_client_message in
@@ -294,7 +294,7 @@ module MessageParsingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "QEMUClientMessage parsed correctly" ["QEMUClientMessage"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 end
@@ -302,7 +302,7 @@ end
 (* Test protocol state transitions *)
 module StateTransitionTests = struct
   let test_protocol_state_progression () =
-    let parser = RfbParser.create () in
+    let parser = create () in
 
     (* Complete handshake should return Handshake *)
     let result1 = parser (TestData.protocol_version ^ TestData.client_init) in
@@ -310,7 +310,7 @@ module StateTransitionTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Handshake state: complete handshake" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -321,19 +321,19 @@ module StateTransitionTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Post-handshake state: KeyEvent" ["KeyEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_incomplete_message_in_state () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Send incomplete handshake data (less than 13 bytes total) *)
     let result1 = parser "VNC 003" in
     ( match result1 with
     | Ok messages ->
         Alcotest.(check (list string))
           "Incomplete handshake returns empty list" []
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -350,7 +350,7 @@ module StateTransitionTests = struct
           "Expected Error but got Ok - invalid handshake should fail"
 
   let test_complete_wrong_message_in_state () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Send wrong handshake data *)
     let wrong_handshake_data = "VNC 003.003\n" ^ TestData.client_init in
     let result = parser wrong_handshake_data in
@@ -364,7 +364,7 @@ module StateTransitionTests = struct
           "Expected Error but got Ok - invalid handshake should fail"
 
   let test_multiple_messages_in_sequence () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Send protocol version and client init *)
     let _ = parser TestData.protocol_version in
     let _ = parser TestData.client_init in
@@ -378,7 +378,7 @@ module StateTransitionTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "First client message" ["KeyEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -386,7 +386,7 @@ module StateTransitionTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Second client message" ["PointerEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -395,7 +395,7 @@ module StateTransitionTests = struct
         Alcotest.(check (list string))
           "Third client message"
           ["FramebufferUpdateRequest"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 end
@@ -403,7 +403,7 @@ end
 (* Test error handling and edge cases *)
 module ErrorHandlingTests = struct
   let test_unsupported_message_handling () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
     let result = parser TestData.unsupported_message in
@@ -417,14 +417,14 @@ module ErrorHandlingTests = struct
           "Expected Error but got Ok - unsupported message should fail"
 
   let test_partial_message_handling () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Send only part of handshake *)
     let result1 = parser "RFB 003" in
     ( match result1 with
     | Ok messages ->
         Alcotest.(check (list string))
           "Partial message returns empty" []
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -435,23 +435,23 @@ module ErrorHandlingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Completed handshake parses correctly" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_empty_data_handling () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     let result = parser "" in
     match result with
     | Ok messages ->
         Alcotest.(check (list string))
           "Empty data returns empty list" []
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_very_large_data_handling () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
 
@@ -466,7 +466,7 @@ module ErrorHandlingTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Large message parsed correctly" ["ClientCutText"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 end
@@ -474,8 +474,8 @@ end
 (* Test parser lifecycle and helper functions *)
 module UtilityTests = struct
   let test_parser_creation () =
-    let parser1 = RfbParser.create () in
-    let parser2 = RfbParser.create () in
+    let parser1 = create () in
+    let parser2 = create () in
     (* Verify that different parser instances are independent *)
     let _ = parser1 (TestData.protocol_version ^ TestData.client_init) in
     let result = parser2 (TestData.protocol_version ^ TestData.client_init) in
@@ -483,7 +483,7 @@ module UtilityTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "New parser starts fresh" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
@@ -493,7 +493,7 @@ end
 (* Test concatenated messages and complex scenarios *)
 module IntegrationTests = struct
   let test_concatenated_messages () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Send protocol version and client init in one chunk *)
     let combined_data = TestData.protocol_version ^ TestData.client_init in
     let result = parser combined_data in
@@ -501,12 +501,12 @@ module IntegrationTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Concatenated handshake parsed correctly" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 
   let test_mixed_valid_invalid_messages () =
-    let parser = RfbParser.create () in
+    let parser = create () in
     (* Complete handshake first *)
     let _ = parser (TestData.protocol_version ^ TestData.client_init) in
 
@@ -523,7 +523,7 @@ module IntegrationTests = struct
           "Expected Error but got Ok - unsupported message should fail"
 
   let test_complete_protocol_flow () =
-    let parser = RfbParser.create () in
+    let parser = create () in
 
     (* Complete protocol handshake *)
     let result1 = parser (TestData.protocol_version ^ TestData.client_init) in
@@ -539,7 +539,7 @@ module IntegrationTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Complete handshake" ["Handshake"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -547,7 +547,7 @@ module IntegrationTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Set pixel format" ["SetPixelFormat"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -555,7 +555,7 @@ module IntegrationTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Set encodings" ["SetEncodings"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -564,7 +564,7 @@ module IntegrationTests = struct
         Alcotest.(check (list string))
           "Framebuffer update request"
           ["FramebufferUpdateRequest"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -572,7 +572,7 @@ module IntegrationTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Key event" ["KeyEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
     ) ;
@@ -580,7 +580,7 @@ module IntegrationTests = struct
     | Ok messages ->
         Alcotest.(check (list string))
           "Pointer event" ["PointerEvent"]
-          (List.map RfbParser.string_of_msg messages)
+          (List.map string_of_msg messages)
     | Error msg ->
         Alcotest.fail ("Expected Ok but got Error: " ^ msg)
 end
