@@ -223,8 +223,6 @@ let sanity_check_path p =
 let extract (task : Xenops_task.task_handle) ~bootloader ~disk
     ?(legacy_args = "") ?(extra_args = "") ?(pv_bootloader_args = "")
     ~vm:vm_uuid ~domid () =
-  (* Without this path, pygrub will fail: *)
-  Unixext.mkdir_rec "/var/run/xend/boot" 0o0755 ;
   let bootloader_path, cmdline =
     command bootloader true pv_bootloader_args disk vm_uuid domid
   in
