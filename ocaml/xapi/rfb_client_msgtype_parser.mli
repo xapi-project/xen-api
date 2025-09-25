@@ -35,10 +35,7 @@ val create : unit -> string -> (msg list, string) result
           Printf.printf "Parse error: %s\n" error_msg
     ]}
     
-    The parser maintains internal state including:
-    - Current parser type (handshake_parser or message_parser)
-    - Parser state for handling partial messages
-    
+   
     Supported message types:
     - Handshake - Successful RFB handshake (ProtocolVersion + ClientInit)
     - SetPixelFormat - Set pixel format (20 bytes)

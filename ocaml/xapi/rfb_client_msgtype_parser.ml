@@ -179,13 +179,8 @@ let message_parser =
 
 (* Create RFB parser with closure-based state encapsulation *)
 let create () =
-  let module State = struct
-    type t = {parser_state: msg Angstrom.Buffered.state}
-  end in
   (* Private state hidden in closure *)
-  let state =
-    ref {State.parser_state= Angstrom.Buffered.parse handshake_parser}
-  in
+  let state = ref (Angstrom.Buffered.parse handshake_parser) in
 
   (* Helper to get unconsumed data as string *)
   let unconsumed_to_string {Angstrom.Buffered.buf; off; len} =
@@ -214,11 +209,11 @@ let create () =
 
   let on_data data_chunk =
     let new_parser =
-      Angstrom.Buffered.feed !state.State.parser_state (`String data_chunk)
+      Angstrom.Buffered.feed !state (`String data_chunk)
     in
     check_parsing_result (Ok (new_parser, []))
     |> Result.map (fun (final_parser, messages) ->
-           state := {State.parser_state= final_parser} ;
+           state := final_parser ;
            List.rev messages
        )
   in
