@@ -73,16 +73,17 @@ let parse_protocol_version =
   if data = "RFB 003.003\n" then
     return (Ok ())
   else
-    return (Error data)
+    let hex_data = hex_dump_data data 12 in
+    return (Error hex_data)
 
 (* Parse ClientInit: 1 byte shared-flag (0 or 1) *)
 let parse_client_init =
-  take 1 >>= fun data ->
-  let shared_flag = Char.code data.[0] in
+  any_uint8 >>= fun shared_flag ->
   if shared_flag = 0 || shared_flag = 1 then
     return (Ok ())
   else
-    return (Error data)
+    let hex_data = Printf.sprintf "%02x" shared_flag in
+    return (Error hex_data)
 
 (* Combine protocol_version and client_init to one parser *)
 let parse_handshake =
@@ -101,16 +102,16 @@ let parse_handshake =
 
 (* Parse SetPixelFormat: message-type(1) + padding(3) + pixel-format(16) = 20 bytes *)
 let parse_set_pixel_format =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 0 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 0 then
     take 19 >>| fun _ -> SetPixelFormat
   else
     fail __FUNCTION__
 
 (* Parse SetEncodings: message-type(1) + padding(1) + num-encodings(2) + encodings(4*n) *)
 let parse_set_encodings =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 2 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 2 then
     take 1 >>= fun _ ->
     Angstrom.BE.any_uint16 >>= fun num_encodings ->
     take (num_encodings * 4) >>| fun _ -> SetEncodings
@@ -119,32 +120,32 @@ let parse_set_encodings =
 
 (* Parse FramebufferUpdateRequest: message-type(1) + incremental(1) + x(2) + y(2) + width(2) + height(2) = 10 bytes *)
 let parse_framebuffer_update_request =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 3 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 3 then
     take 9 >>| fun _ -> FramebufferUpdateRequest
   else
     fail __FUNCTION__
 
 (* Parse KeyEvent: message-type(1) + down-flag(1) + padding(2) + key(4) = 8 bytes *)
 let parse_key_event =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 4 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 4 then
     take 7 >>| fun _ -> KeyEvent
   else
     fail __FUNCTION__
 
 (* Parse PointerEvent: message-type(1) + button-mask(1) + x(2) + y(2) = 6 bytes *)
 let parse_pointer_event =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 5 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 5 then
     take 5 >>| fun _ -> PointerEvent
   else
     fail __FUNCTION__
 
 (* Parse ClientCutText: message-type(1) + padding(3) + length(4) + text(length) *)
 let parse_client_cut_text =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 6 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 6 then
     take 3 >>= fun _ ->
     Angstrom.BE.any_int32 >>= fun text_length ->
     take (Int32.to_int text_length) >>| fun _ -> ClientCutText
@@ -153,16 +154,16 @@ let parse_client_cut_text =
 
 (* Parse QEMU Client Message: message-type(1) + submessage-type(1) + data(10) = 12 bytes *)
 let parse_qemu_client_message =
-  take 1 >>= fun msg_type ->
-  if Char.code msg_type.[0] = 255 then
+  any_uint8 >>= fun msg_type ->
+  if msg_type = 255 then
     take 11 >>| fun _ -> QEMUClientMessage
   else
     fail __FUNCTION__
 
 (* Fallback parser for unknown messages *)
 let parse_unsupported_message =
-  take 1 >>= fun msg_type ->
-  let hex_data = hex_dump_data msg_type 1 in
+  any_uint8 >>= fun msg_type ->
+  let hex_data = Printf.sprintf "%02x" msg_type in
   (* Use commit to prevent backtracking, so we can fail and get the error message *)
   commit *> fail (String.concat "" ["UnsupportedMsg: "; hex_data])
 
