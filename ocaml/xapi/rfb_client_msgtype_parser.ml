@@ -71,28 +71,33 @@ let string_of_msg = function
 let parse_protocol_version =
   take 12 >>= fun data ->
   if data = "RFB 003.003\n" then
-    return (true, "")
+    return (Ok ())
   else
-    return (false, data)
+    return (Error data)
 
 (* Parse ClientInit: 1 byte shared-flag (0 or 1) *)
 let parse_client_init =
   take 1 >>= fun data ->
   let shared_flag = Char.code data.[0] in
   if shared_flag = 0 || shared_flag = 1 then
-    return (true, "")
+    return (Ok ())
   else
-    return (false, data)
+    return (Error data)
 
 (* Combine protocol_version and client_init to one parser *)
 let parse_handshake =
   both parse_protocol_version parse_client_init
-  >>= fun ((proto_ok, proto_data), (init_ok, init_data)) ->
-  if proto_ok && init_ok then
-    return Handshake
-  else
-    let failed_data = String.concat "" [proto_data; init_data] in
-    fail (String.concat "" ["BadHandshake: "; failed_data])
+  >>= fun (proto_result, init_result) ->
+  match (proto_result, init_result) with
+  | Ok (), Ok () ->
+      return Handshake
+  | Error proto_data, Ok () ->
+      fail (String.concat "" ["BadHandshake: "; proto_data])
+  | Ok (), Error init_data ->
+      fail (String.concat "" ["BadHandshake: "; init_data])
+  | Error proto_data, Error init_data ->
+      let failed_data = String.concat "" [proto_data; init_data] in
+      fail (String.concat "" ["BadHandshake: "; failed_data])
 
 (* Parse SetPixelFormat: message-type(1) + padding(3) + pixel-format(16) = 20 bytes *)
 let parse_set_pixel_format =
@@ -207,16 +212,11 @@ let create () =
         Error (String.concat "" ["Parse error: "; error_msg])
   in
 
-  let on_data data_chunk =
-    let new_parser =
-      Angstrom.Buffered.feed !state (`String data_chunk)
-    in
+  (* Return the data processing function *)
+  fun data_chunk ->
+    let new_parser = Angstrom.Buffered.feed !state (`String data_chunk) in
     check_parsing_result (Ok (new_parser, []))
     |> Result.map (fun (final_parser, messages) ->
            state := final_parser ;
            List.rev messages
        )
-  in
-
-  (* Return the data processing function *)
-  on_data
