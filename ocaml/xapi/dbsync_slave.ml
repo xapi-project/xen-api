@@ -414,7 +414,10 @@ let update_env __context sync_keys =
         try
           let contents = Unixext.string_of_file !Xapi_globs.secure_boot_path in
           contents.[4] <> '\x00'
-        with _ -> false
+        with e ->
+          debug "caught error %s while opening secure boot file"
+            (ExnHelper.string_of_exn e) ;
+          false
       in
       Db.Host.set_secure_boot ~__context ~self:localhost ~value:result
   ) ;

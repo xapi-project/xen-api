@@ -1792,7 +1792,7 @@ let other_options =
     , "Defaults to true; overridden to false via \
        /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
     )
-  ; ( "secure-boot"
+  ; ( "secure-boot-efi-path"
     , Arg.Set_string secure_boot_path
     , (fun () -> !secure_boot_path)
     , "Path to secure boot status file"
