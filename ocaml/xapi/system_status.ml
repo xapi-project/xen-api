@@ -91,17 +91,18 @@ let send_via_cp __context s entries output =
   in
   let () = debug "running %s" cmd in
   try
-    let filename = String.rtrim (Helpers.get_process_output cmd) in
+    let filepath = String.rtrim (Helpers.get_process_output cmd) in
+    let filename = Filename.basename filepath in
     let hsts_time = !Xapi_globs.hsts_max_age in
     finally
       (fun () ->
-        debug "bugball path: %s" filename ;
-        Http_svr.response_file ~mime_content_type:content_type ~hsts_time s
-          filename
+        debug "bugball path: %s" filepath ;
+        Http_svr.response_file ~mime_content_type:content_type ~hsts_time
+          ~download_name:filename s filepath
       )
       (fun () ->
         Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink
-          filename
+          filepath
       )
   with e ->
     let msg = "xen-bugtool failed: " ^ ExnHelper.string_of_exn e in
