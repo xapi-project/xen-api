@@ -16,8 +16,6 @@ module Request = Http.Request
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let xen_bugtool = "/usr/sbin/xen-bugtool"
-
 let task_label = "Retrieving system status"
 
 module L = Debug.Make (struct let name = __MODULE__ end)
@@ -53,27 +51,43 @@ module Output = struct
         "application/zip"
 end
 
-let get_capabilities () =
-  let cmd = Printf.sprintf "%s --capabilities" xen_bugtool in
-  Helpers.get_process_output cmd
+module Bugtool = struct
+  let path = "/usr/sbin/xen-bugtool"
 
-(* This fn outputs xen-bugtool straight to the socket, only
-   for tar output. It should work on embedded edition *)
-let send_via_fd __context s entries output =
-  let s_uuid = Uuidx.to_string (Uuidx.make ()) in
-  let extension = Output.to_extension output in
-  let content_type = Output.to_mime output in
-  let params =
+  let params_cp ~entries ~extension =
     [
       Printf.sprintf "--entries=%s" entries
     ; "--silent"
     ; "--yestoall"
     ; Printf.sprintf "--output=%s" extension
-    ; "--outfd=" ^ s_uuid
     ]
-  in
-  let cmd = Printf.sprintf "%s %s" xen_bugtool (String.concat " " params) in
-  L.debug "%s: running %s" __FUNCTION__ cmd ;
+
+  let cmd_capabilities = Printf.sprintf "%s --capabilities" path
+
+  let params_fd ~entries ~extension ~uuid =
+    let params =
+      params_cp ~entries ~extension @ [Printf.sprintf "--outfd=%s" uuid]
+    in
+    let cmd = String.concat " " (path :: params) in
+    L.debug "%s: running %s" __FUNCTION__ cmd ;
+    params
+
+  let cmd_cp ~entries ~extension =
+    let params = params_cp ~entries ~extension in
+    let cmd = String.concat " " (path :: params) in
+    L.debug "%s: running %s" __FUNCTION__ cmd ;
+    cmd
+end
+
+let get_capabilities () = Helpers.get_process_output Bugtool.cmd_capabilities
+
+(* This fn outputs xen-bugtool straight to the socket, only
+   for tar output. It should work on embedded edition *)
+let send_via_fd __context s entries output =
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
+  let extension = Output.to_extension output in
+  let content_type = Output.to_mime output in
+  let params = Bugtool.params_fd ~entries ~extension ~uuid in
   try
     let headers =
       Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
@@ -89,8 +103,8 @@ let send_via_fd __context s entries output =
       Forkhelpers.with_logfile_fd "get-system-status" (fun log_fd ->
           let pid =
             Forkhelpers.safe_close_and_exec None (Some log_fd) (Some log_fd)
-              [(s_uuid, s)]
-              xen_bugtool params
+              [(uuid, s)]
+              Bugtool.path params
           in
           Forkhelpers.waitpid_fail_if_bad_exit pid
       )
@@ -114,11 +128,7 @@ let send_via_fd __context s entries output =
 let send_via_cp __context s entries output =
   let extension = Output.to_extension output in
   let content_type = Output.to_mime output in
-  let cmd =
-    Printf.sprintf "%s --entries=%s --silent --yestoall --output=%s" xen_bugtool
-      entries extension
-  in
-  let () = L.debug "%s: running %s" __FUNCTION__ cmd in
+  let cmd = Bugtool.cmd_cp ~entries ~extension in
   try
     let filepath = String.trim (Helpers.get_process_output cmd) in
     let filename = Filename.basename filepath in
