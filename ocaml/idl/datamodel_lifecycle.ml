@@ -97,6 +97,8 @@ let prototyped_of_field = function
       Some "22.26.0"
   | "SM", "host_pending_features" ->
       Some "24.37.0"
+  | "host", "secure_boot" ->
+      Some "25.31.0"
   | "host", "ssh_auto_mode" ->
       Some "25.27.0"
   | "host", "console_idle_timeout" ->
