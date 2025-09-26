@@ -3117,7 +3117,7 @@ let t =
             "Reflects whether SSH auto mode is enabled for the host"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "secure_boot"
-            "Reflects whether host is in secure boot mode"
+            "Whether the host has booted in secure boot mode"
         ]
       )
     ()
