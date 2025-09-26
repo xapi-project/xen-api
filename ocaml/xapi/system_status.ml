@@ -22,9 +22,7 @@ let xen_bugtool = "/usr/sbin/xen-bugtool"
 
 let task_label = "Retrieving system status"
 
-module D = Debug.Make (struct let name = __MODULE__ end)
-
-open D
+module L = Debug.Make (struct let name = __MODULE__ end)
 
 let get_capabilities () =
   let cmd = Printf.sprintf "%s --capabilities" xen_bugtool in
@@ -44,7 +42,7 @@ let send_via_fd __context s entries output =
     ]
   in
   let cmd = Printf.sprintf "%s %s" xen_bugtool (String.concat " " params) in
-  debug "running %s" cmd ;
+  L.debug "%s: running %s" __FUNCTION__ cmd ;
   try
     let headers =
       Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
@@ -67,13 +65,13 @@ let send_via_fd __context s entries output =
     in
     match result with
     | Success _ ->
-        debug "xen-bugtool exited successfully"
+        ()
     | Failure (log, exn) ->
-        debug "xen-bugtool failed with output: %s" log ;
+        L.debug "%s: xen-bugtool failed with output: %s" __FUNCTION__ log ;
         raise exn
   with e ->
     let msg = "xen-bugtool failed: " ^ Printexc.to_string e in
-    error "%s" msg ;
+    L.error "%s: %s" __FUNCTION__ msg ;
     raise
       (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg])
       )
@@ -86,14 +84,13 @@ let send_via_cp __context s entries output =
     Printf.sprintf "%s --entries=%s --silent --yestoall --output=%s" xen_bugtool
       entries output
   in
-  let () = debug "running %s" cmd in
+  let () = L.debug "%s: running %s" __FUNCTION__ cmd in
   try
     let filepath = String.trim (Helpers.get_process_output cmd) in
     let filename = Filename.basename filepath in
     let hsts_time = !Xapi_globs.hsts_max_age in
     finally
       (fun () ->
-        debug "bugball path: %s" filepath ;
         Http_svr.response_file ~mime_content_type:content_type ~hsts_time
           ~download_name:filename s filepath
       )
@@ -103,16 +100,14 @@ let send_via_cp __context s entries output =
       )
   with e ->
     let msg = "xen-bugtool failed: " ^ ExnHelper.string_of_exn e in
-    error "%s" msg ;
+    L.error "%s: %s" __FUNCTION__ msg ;
     raise Api_errors.(Server_error (system_status_retrieval_failed, [msg]))
 
 let handler (req : Request.t) s _ =
-  debug "In system status http handler..." ;
   req.Request.close <- true ;
   let get_param s = try List.assoc s req.Request.query with _ -> "" in
   let entries = get_param "entries" in
   let output = get_param "output" in
-  let () = debug "session_id: %s" (get_param "session_id") in
   Xapi_http.with_context task_label req s (fun __context ->
       if Helpers.on_oem ~__context && output <> "tar" then
         raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
