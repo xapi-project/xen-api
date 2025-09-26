@@ -149,19 +149,35 @@ let with_api_errors f ctx s entries output =
       let msg = "xen-bugtool failed: " ^ Printexc.to_string exn in
       raise Api_errors.(Server_error (system_status_retrieval_failed, [msg]))
 
+let send_capabilities req s =
+  let content = get_capabilities () in
+  let xml_type = "application/xml" in
+  let hdrs =
+    [
+      ("Server", Xapi_version.xapi_user_agent); (Http.Hdr.content_type, xml_type)
+    ]
+  in
+  Http_svr.response_str req ~hdrs s content
+
 let handler (req : Request.t) s _ =
   req.Request.close <- true ;
   let get_param s = List.assoc_opt s req.Request.query in
+  let list_capabilies = Option.is_some (get_param "list") in
   let entries = Option.value ~default:"" (get_param "entries") in
-  let output =
-    Option.bind (get_param "output") Output.of_string
-    |> Option.value ~default:Output.Tar
-  in
-  Xapi_http.with_context task_label req s (fun __context ->
-      if Helpers.on_oem ~__context && output <> Output.Tar then
-        raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
-      else if output = Output.Tar then
+  let output = Option.bind (get_param "output") Output.of_string in
+
+  let send_list () = send_capabilities req s in
+  let send_file () =
+    Xapi_http.with_context task_label req s @@ fun __context ->
+    match
+      (Helpers.on_oem ~__context, Option.value ~default:Output.Tar output)
+    with
+    | _, (Output.Tar as output) ->
         with_api_errors send_via_fd __context s entries output
-      else
+    | false, output ->
         with_api_errors send_via_cp __context s entries output
-  )
+    | true, _ ->
+        raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
+  in
+
+  if list_capabilies then send_list () else send_file ()
