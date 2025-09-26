@@ -16,13 +16,42 @@ module Request = Http.Request
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
-let content_type = "application/data"
-
 let xen_bugtool = "/usr/sbin/xen-bugtool"
 
 let task_label = "Retrieving system status"
 
 module L = Debug.Make (struct let name = __MODULE__ end)
+
+module Output = struct
+  (** The output formats of xen-bugtool *)
+  type t = Tar | TarBz2 | Zip
+
+  let of_string = function
+    | "tar" ->
+        Some Tar
+    | "tar.bz2" ->
+        Some TarBz2
+    | "zip" ->
+        Some Zip
+    | _ ->
+        None
+
+  let to_extension = function
+    | Tar ->
+        "tar"
+    | TarBz2 ->
+        "tar.bz2"
+    | Zip ->
+        "zip"
+
+  let to_mime = function
+    | Tar ->
+        "appliation/x-tar"
+    | TarBz2 ->
+        "application/x-bzip2"
+    | Zip ->
+        "application/zip"
+end
 
 let get_capabilities () =
   let cmd = Printf.sprintf "%s --capabilities" xen_bugtool in
@@ -32,12 +61,14 @@ let get_capabilities () =
    for tar output. It should work on embedded edition *)
 let send_via_fd __context s entries output =
   let s_uuid = Uuidx.to_string (Uuidx.make ()) in
+  let extension = Output.to_extension output in
+  let content_type = Output.to_mime output in
   let params =
     [
       Printf.sprintf "--entries=%s" entries
     ; "--silent"
     ; "--yestoall"
-    ; Printf.sprintf "--output=%s" output
+    ; Printf.sprintf "--output=%s" extension
     ; "--outfd=" ^ s_uuid
     ]
   in
@@ -49,7 +80,8 @@ let send_via_fd __context s entries output =
       @ [
           "Server: " ^ Xapi_version.xapi_user_agent
         ; Http.Hdr.content_type ^ ": " ^ content_type
-        ; "Content-Disposition: attachment; filename=\"system_status.tgz\""
+        ; Printf.sprintf {|%s: attachment; filename="system_status.%s"|}
+            Http.Hdr.content_disposition extension
         ]
     in
     Http_svr.headers s headers ;
@@ -80,9 +112,11 @@ let send_via_fd __context s entries output =
    file out to the socket, to deal with zipped bugtool outputs
    It will not work on embedded edition *)
 let send_via_cp __context s entries output =
+  let extension = Output.to_extension output in
+  let content_type = Output.to_mime output in
   let cmd =
     Printf.sprintf "%s --entries=%s --silent --yestoall --output=%s" xen_bugtool
-      entries output
+      entries extension
   in
   let () = L.debug "%s: running %s" __FUNCTION__ cmd in
   try
@@ -105,13 +139,16 @@ let send_via_cp __context s entries output =
 
 let handler (req : Request.t) s _ =
   req.Request.close <- true ;
-  let get_param s = try List.assoc s req.Request.query with _ -> "" in
-  let entries = get_param "entries" in
-  let output = get_param "output" in
+  let get_param s = List.assoc_opt s req.Request.query in
+  let entries = Option.value ~default:"" (get_param "entries") in
+  let output =
+    Option.bind (get_param "output") Output.of_string
+    |> Option.value ~default:Output.Tar
+  in
   Xapi_http.with_context task_label req s (fun __context ->
-      if Helpers.on_oem ~__context && output <> "tar" then
+      if Helpers.on_oem ~__context && output <> Output.Tar then
         raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
-      else if output = "tar" then
+      else if output = Output.Tar then
         send_via_fd __context s entries output
       else
         send_via_cp __context s entries output
