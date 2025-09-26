@@ -88,39 +88,27 @@ let send_via_fd __context s entries output =
   let extension = Output.to_extension output in
   let content_type = Output.to_mime output in
   let params = Bugtool.params_fd ~entries ~extension ~uuid in
-  try
-    let headers =
-      Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
-      @ [
-          "Server: " ^ Xapi_version.xapi_user_agent
-        ; Http.Hdr.content_type ^ ": " ^ content_type
-        ; Printf.sprintf {|%s: attachment; filename="system_status.%s"|}
-            Http.Hdr.content_disposition extension
-        ]
-    in
-    Http_svr.headers s headers ;
-    let result =
-      Forkhelpers.with_logfile_fd "get-system-status" (fun log_fd ->
-          let pid =
-            Forkhelpers.safe_close_and_exec None (Some log_fd) (Some log_fd)
-              [(uuid, s)]
-              Bugtool.path params
-          in
-          Forkhelpers.waitpid_fail_if_bad_exit pid
-      )
-    in
-    match result with
-    | Success _ ->
-        ()
-    | Failure (log, exn) ->
-        L.debug "%s: xen-bugtool failed with output: %s" __FUNCTION__ log ;
-        raise exn
-  with e ->
-    let msg = "xen-bugtool failed: " ^ Printexc.to_string e in
-    L.error "%s: %s" __FUNCTION__ msg ;
-    raise
-      (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg])
-      )
+  let headers =
+    Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
+    @ [
+        "Server: " ^ Xapi_version.xapi_user_agent
+      ; Http.Hdr.content_type ^ ": " ^ content_type
+      ; Printf.sprintf {|%s: attachment; filename="system_status.%s"|}
+          Http.Hdr.content_disposition extension
+      ]
+  in
+  Http_svr.headers s headers ;
+  let result =
+    Forkhelpers.with_logfile_fd "get-system-status" (fun log_fd ->
+        let pid =
+          Forkhelpers.safe_close_and_exec None (Some log_fd) (Some log_fd)
+            [(uuid, s)]
+            Bugtool.path params
+        in
+        Forkhelpers.waitpid_fail_if_bad_exit pid
+    )
+  in
+  match result with Success _ -> Ok () | Failure (log, exn) -> Error (log, exn)
 
 (* This fn outputs xen-bugtool into a file and then write the
    file out to the socket, to deal with zipped bugtool outputs
@@ -141,11 +129,18 @@ let send_via_cp __context s entries output =
       (fun () ->
         Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink
           filepath
-      )
-  with e ->
-    let msg = "xen-bugtool failed: " ^ ExnHelper.string_of_exn e in
-    L.error "%s: %s" __FUNCTION__ msg ;
-    raise Api_errors.(Server_error (system_status_retrieval_failed, [msg]))
+      ) ;
+    Ok ()
+  with e -> Error ("(Not captured)", e)
+
+let with_api_errors f ctx s entries output =
+  match f ctx s entries output with
+  | Ok () ->
+      ()
+  | Error (log, exn) ->
+      L.debug "xen-bugtool failed with output: %s" log ;
+      let msg = "xen-bugtool failed: " ^ Printexc.to_string exn in
+      raise Api_errors.(Server_error (system_status_retrieval_failed, [msg]))
 
 let handler (req : Request.t) s _ =
   req.Request.close <- true ;
@@ -159,7 +154,7 @@ let handler (req : Request.t) s _ =
       if Helpers.on_oem ~__context && output <> Output.Tar then
         raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
       else if output = Output.Tar then
-        send_via_fd __context s entries output
+        with_api_errors send_via_fd __context s entries output
       else
-        send_via_cp __context s entries output
+        with_api_errors send_via_cp __context s entries output
   )
