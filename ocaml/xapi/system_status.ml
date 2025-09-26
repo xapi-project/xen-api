@@ -11,11 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Http
-open Printf
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_std.Xstringext
-open Forkhelpers
+
+module Request = Http.Request
+
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let content_type = "application/data"
 
@@ -23,14 +22,12 @@ let xen_bugtool = "/usr/sbin/xen-bugtool"
 
 let task_label = "Retrieving system status"
 
-let module_key = "system_status"
-
-module D = Debug.Make (struct let name = module_key end)
+module D = Debug.Make (struct let name = __MODULE__ end)
 
 open D
 
 let get_capabilities () =
-  let cmd = sprintf "%s --capabilities" xen_bugtool in
+  let cmd = Printf.sprintf "%s --capabilities" xen_bugtool in
   Helpers.get_process_output cmd
 
 (* This fn outputs xen-bugtool straight to the socket, only
@@ -39,14 +36,14 @@ let send_via_fd __context s entries output =
   let s_uuid = Uuidx.to_string (Uuidx.make ()) in
   let params =
     [
-      sprintf "--entries=%s" entries
+      Printf.sprintf "--entries=%s" entries
     ; "--silent"
     ; "--yestoall"
-    ; sprintf "--output=%s" output
+    ; Printf.sprintf "--output=%s" output
     ; "--outfd=" ^ s_uuid
     ]
   in
-  let cmd = sprintf "%s %s" xen_bugtool (String.concat " " params) in
+  let cmd = Printf.sprintf "%s %s" xen_bugtool (String.concat " " params) in
   debug "running %s" cmd ;
   try
     let headers =
@@ -59,13 +56,13 @@ let send_via_fd __context s entries output =
     in
     Http_svr.headers s headers ;
     let result =
-      with_logfile_fd "get-system-status" (fun log_fd ->
+      Forkhelpers.with_logfile_fd "get-system-status" (fun log_fd ->
           let pid =
-            safe_close_and_exec None (Some log_fd) (Some log_fd)
+            Forkhelpers.safe_close_and_exec None (Some log_fd) (Some log_fd)
               [(s_uuid, s)]
               xen_bugtool params
           in
-          waitpid_fail_if_bad_exit pid
+          Forkhelpers.waitpid_fail_if_bad_exit pid
       )
     in
     match result with
@@ -86,12 +83,12 @@ let send_via_fd __context s entries output =
    It will not work on embedded edition *)
 let send_via_cp __context s entries output =
   let cmd =
-    sprintf "%s --entries=%s --silent --yestoall --output=%s" xen_bugtool
+    Printf.sprintf "%s --entries=%s --silent --yestoall --output=%s" xen_bugtool
       entries output
   in
   let () = debug "running %s" cmd in
   try
-    let filepath = String.rtrim (Helpers.get_process_output cmd) in
+    let filepath = String.trim (Helpers.get_process_output cmd) in
     let filename = Filename.basename filepath in
     let hsts_time = !Xapi_globs.hsts_max_age in
     finally
@@ -107,9 +104,7 @@ let send_via_cp __context s entries output =
   with e ->
     let msg = "xen-bugtool failed: " ^ ExnHelper.string_of_exn e in
     error "%s" msg ;
-    raise
-      (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg])
-      )
+    raise Api_errors.(Server_error (system_status_retrieval_failed, [msg]))
 
 let handler (req : Request.t) s _ =
   debug "In system status http handler..." ;
@@ -120,10 +115,7 @@ let handler (req : Request.t) s _ =
   let () = debug "session_id: %s" (get_param "session_id") in
   Xapi_http.with_context task_label req s (fun __context ->
       if Helpers.on_oem ~__context && output <> "tar" then
-        raise
-          (Api_errors.Server_error
-             (Api_errors.system_status_must_use_tar_on_oem, [])
-          )
+        raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
       else if output = "tar" then
         send_via_fd __context s entries output
       else
