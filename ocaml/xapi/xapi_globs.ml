@@ -374,6 +374,8 @@ let sync_chipset_info = "sync_chipset_info"
 
 let sync_ssh_status = "sync_ssh_status"
 
+let sync_secure_boot = "sync_secure_boot"
+
 let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
@@ -1330,6 +1332,10 @@ let ssh_monitor_service = ref "xapi-ssh-monitor"
 
 let ssh_auto_mode_default = ref true
 
+let secure_boot_path =
+  ref
+    "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
+
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
   "NERDNTUzMDMwRUMwNDFFNDI4N0M4OEVCRUFEMzlGOTJEOEE5REUyNg=="
@@ -1785,6 +1791,11 @@ let other_options =
     , (fun () -> string_of_bool !ssh_auto_mode_default)
     , "Defaults to true; overridden to false via \
        /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
+    )
+  ; ( "secure-boot-efi-path"
+    , Arg.Set_string secure_boot_path
+    , (fun () -> !secure_boot_path)
+    , "Path to secure boot status file"
     )
   ; ( "vm-sysprep-enabled"
     , Arg.Set vm_sysprep_enabled
