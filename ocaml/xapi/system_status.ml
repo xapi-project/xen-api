@@ -77,6 +77,12 @@ module Bugtool = struct
     let cmd = String.concat " " (path :: params) in
     L.debug "%s: running %s" __FUNCTION__ cmd ;
     cmd
+
+  let filename __context extension =
+    let timestamp = Ptime_clock.now () |> Ptime.to_rfc3339 ~tz_offset_s:0 in
+    let self = Helpers.get_localhost ~__context in
+    let hostname = Db.Host.get_hostname ~__context ~self in
+    Printf.sprintf "system_status-%s-%s.%s" timestamp hostname extension
 end
 
 let get_capabilities () = Helpers.get_process_output Bugtool.cmd_capabilities
@@ -87,14 +93,15 @@ let send_via_fd __context s entries output =
   let uuid = Uuidx.to_string (Uuidx.make ()) in
   let extension = Output.to_extension output in
   let content_type = Output.to_mime output in
+  let filename = Bugtool.filename __context extension in
   let params = Bugtool.params_fd ~entries ~extension ~uuid in
   let headers =
     Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
     @ [
-        "Server: " ^ Xapi_version.xapi_user_agent
-      ; Http.Hdr.content_type ^ ": " ^ content_type
-      ; Printf.sprintf {|%s: attachment; filename="system_status.%s"|}
-          Http.Hdr.content_disposition extension
+        Printf.sprintf "Server: %s" Xapi_version.xapi_user_agent
+      ; Printf.sprintf "%s: %s" Http.Hdr.content_type content_type
+      ; Printf.sprintf {|%s: attachment; filename="%s"|}
+          Http.Hdr.content_disposition filename
       ]
   in
   Http_svr.headers s headers ;
@@ -119,7 +126,7 @@ let send_via_cp __context s entries output =
   let cmd = Bugtool.cmd_cp ~entries ~extension in
   try
     let filepath = String.trim (Helpers.get_process_output cmd) in
-    let filename = Filename.basename filepath in
+    let filename = Bugtool.filename __context extension in
     let hsts_time = !Xapi_globs.hsts_max_age in
     finally
       (fun () ->
