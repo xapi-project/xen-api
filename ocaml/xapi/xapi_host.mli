@@ -595,3 +595,9 @@ val set_max_cstate :
   __context:Context.t -> self:API.ref_host -> value:string -> unit
 
 val sync_max_cstate : __context:Context.t -> host:API.ref_host -> unit
+
+val set_ntp_mode :
+  __context:Context.t -> self:API.ref_host -> value:API.host_ntp_mode -> unit
+
+val set_ntp_custom_servers :
+  __context:Context.t -> self:API.ref_host -> value:string list -> unit
