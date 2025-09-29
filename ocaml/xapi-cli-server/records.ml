@@ -3399,6 +3399,23 @@ let host_record rpc session_id host =
             Client.Host.set_max_cstate ~rpc ~session_id ~self:host ~value
           )
           ()
+      ; make_field ~name:"ntp-mode"
+          ~get:(fun () ->
+            Record_util.host_ntp_mode_to_string (x ()).API.host_ntp_mode
+          )
+          ~set:(fun value ->
+            Client.Host.set_ntp_mode ~rpc ~session_id ~self:host
+              ~value:(Record_util.host_ntp_mode_of_string value)
+          )
+          ()
+      ; make_field ~name:"ntp-custom-servers"
+          ~get:(fun () -> concat_with_comma (x ()).API.host_ntp_custom_servers)
+          ~get_set:(fun () -> (x ()).API.host_ntp_custom_servers)
+          ~set:(fun value ->
+            Client.Host.set_ntp_custom_servers ~rpc ~session_id ~self:host
+              ~value:(String.split_on_char ',' value |> List.map String.trim)
+          )
+          ()
       ]
   }
 
