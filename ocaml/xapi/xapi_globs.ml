@@ -1395,6 +1395,8 @@ let nvidia_gpumon_detach = ref false
 
 let failed_login_alert_freq = ref 3600
 
+let default_ntp_servers = ref []
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1844,6 +1846,11 @@ let other_options =
     , (fun () -> !ntp_dhcp_dir)
     , "Path to the ntp dhcp directory"
     )
+  ; gen_list_option "default-ntp-servers"
+      "space-separated list of default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      default_ntp_servers
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.
