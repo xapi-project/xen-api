@@ -34,10 +34,6 @@ let get_handle () =
       handle := Some h ;
       h
 
-external get_boot_cpufeatures :
-  handle -> int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32
-  = "stub_xenctrlext_get_boot_cpufeatures"
-
 external domain_set_timer_mode : handle -> domid -> int -> unit
   = "stub_xenctrlext_domain_set_timer_mode"
 
