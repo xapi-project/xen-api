@@ -5,6 +5,7 @@
  (libraries
   CommonFunctions
   mustache
+  unix
   xapi-datamodel
   xapi-stdext-unix
   gen_go_helper))

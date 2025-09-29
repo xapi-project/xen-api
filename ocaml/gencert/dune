@@ -16,6 +16,7 @@
     ptime.clock.os
     result
     rresult
+    unix
     x509
     xapi-backtrace
     xapi-consts
@@ -32,6 +33,7 @@
   (libraries
     astring
     gencertlib
+    unix
     x509
     xapi-inventory
     xapi_aux

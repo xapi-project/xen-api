@@ -8,6 +8,7 @@
     xapi-stdext-std
     ezxenstore
     ezxenstore.watch
+    unix
     xapi-idl.rrd
     xapi-log
     xapi-rrd

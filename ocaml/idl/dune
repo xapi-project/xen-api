@@ -33,6 +33,7 @@
     xapi-stdext-std
     xapi-stdext-pervasives
     xapi-stdext-unix
+    unix
   )
 )
 

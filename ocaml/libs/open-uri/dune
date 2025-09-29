@@ -5,6 +5,7 @@
    cohttp
    safe-resources
    stunnel
+   unix
    uri
    xapi-backtrace
    xapi-consts

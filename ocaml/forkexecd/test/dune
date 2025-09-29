@@ -1,7 +1,7 @@
 (executable
  (modes exe)
  (name fe_test)
- (libraries fmt forkexec mtime clock mtime.clock.os uuid xapi-stdext-unix fd-send-recv xapi-log))
+ (libraries fmt forkexec mtime clock mtime.clock.os str uuid xapi-stdext-unix fd-send-recv xapi-log unix))
 
 ; preload library to redirect "/dev/log"
 (rule
