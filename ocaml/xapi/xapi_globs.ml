@@ -900,7 +900,7 @@ let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
 
 let kpatch_list = ref "/usr/sbin/kpatch list"
 
-let guest_service_keys = ref ["pvs_target/target_software_version"]
+let guest_service_keys = ref []
 
 let modprobe_path = ref "/usr/sbin/modprobe"
 
@@ -1437,6 +1437,11 @@ let other_options =
       (fun s -> s)
       (fun s -> s)
       disable_dbsync_for
+  ; gen_list_option "guest-service-keys"
+      "space-separated list of guest service keys to monitor in xenstore"
+      (fun s -> s)
+      (fun s -> s)
+      guest_service_keys
   ; ( "xenopsd-queues"
     , Arg.String (fun x -> xenopsd_queues := String.split ',' x)
     , (fun () -> String.concat "," !xenopsd_queues)
