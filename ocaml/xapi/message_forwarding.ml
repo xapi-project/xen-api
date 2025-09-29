@@ -4114,6 +4114,14 @@ functor
         let local_fn = Local.Host.set_ssh_auto_mode ~self ~value in
         let remote_fn = Client.Host.set_ssh_auto_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_max_cstate ~__context ~self ~value =
+        info "Host.set_max_cstate: host='%s' value='%s'"
+          (host_uuid ~__context self)
+          value ;
+        let local_fn = Local.Host.set_max_cstate ~self ~value in
+        let remote_fn = Client.Host.set_max_cstate ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct
