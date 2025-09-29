@@ -966,13 +966,20 @@ let redo_log_ha_enabled_at_startup () =
 
 (* ----------------------------- *)
 
+let update_ha_firewalld_service status =
+  (* Only xha needs to enable firewalld service. Other HA cluster stacks don't
+     need. *)
+  if Localdb.get Constants.ha_cluster_stack = !Xapi_globs.cluster_stack_default
+  then
+    let module Fw =
+      ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+          : Firewall.FIREWALL
+        )
+    in
+    Fw.update_firewall_status Firewall.Xenha status
+
 let ha_start_daemon () =
-  let module Fw =
-    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
-        : Firewall.FIREWALL
-      )
-  in
-  Fw.update_firewall_status Firewall.Xenha Firewall.Enabled ;
+  update_ha_firewalld_service Firewall.Enabled ;
   let (_ : string) = call_script ha_start_daemon [] in
   ()
 
@@ -1133,15 +1140,9 @@ let ha_set_excluded __context _localhost =
   ()
 
 let ha_stop_daemon __context _localhost =
-  let module Fw =
-    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
-        : Firewall.FIREWALL
-      )
-  in
   Monitor.stop () ;
-  Fw.update_firewall_status Firewall.Xenha Firewall.Disabled ;
-
   let (_ : string) = call_script ha_stop_daemon [] in
+  update_ha_firewalld_service Firewall.Disabled ;
   ()
 
 let emergency_ha_disable __context soft =
@@ -1235,7 +1236,8 @@ let ha_wait_for_shutdown_via_statefile __context _localhost =
   with Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
     info
       "ha_wait_for_shutdown_via_statefile: daemon has exited so returning \
-       success"
+       success" ;
+    update_ha_firewalld_service Firewall.Disabled
 
 (** Attach the statefile VDIs and return the resulting list of paths in dom0 *)
 let attach_statefiles ~__context statevdis =
