@@ -795,6 +795,14 @@ let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
 
+let ntp_service = ref "chronyd"
+
+let ntp_conf = ref (Filename.concat "/etc" "chrony.conf")
+
+let ntp_dhcp_script = ref (Filename.concat "/etc/dhcp/dhclient.d" "chrony.sh")
+
+let ntp_dhcp_dir = ref "/run/chrony-dhcp"
+
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
@@ -1815,6 +1823,26 @@ let other_options =
     , Arg.Set_int max_span_depth
     , (fun () -> string_of_int !max_span_depth)
     , "The maximum depth to which spans are recorded in a trace in Tracing"
+    )
+  ; ( "ntp-service"
+    , Arg.Set_string ntp_service
+    , (fun () -> !ntp_service)
+    , "Name of the NTP service to manage"
+    )
+  ; ( "ntp-config-path"
+    , Arg.Set_string ntp_conf
+    , (fun () -> !ntp_conf)
+    , "Path to the ntp configuration file"
+    )
+  ; ( "ntp-dhcp-script-path"
+    , Arg.Set_string ntp_dhcp_script
+    , (fun () -> !ntp_dhcp_script)
+    , "Path to the ntp dhcp script file"
+    )
+  ; ( "ntp-dhcp-dir"
+    , Arg.Set_string ntp_dhcp_dir
+    , (fun () -> !ntp_dhcp_dir)
+    , "Path to the ntp dhcp directory"
     )
   ]
 
