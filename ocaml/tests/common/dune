@@ -12,6 +12,7 @@
     rpclib.xml
     threads.posix
     uuid
+    unix
     xapi_aux
     xapi-consts
     xapi_database

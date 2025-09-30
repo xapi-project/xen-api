@@ -1,7 +1,7 @@
 (executable
  (modes exe)
  (name fe_cli)
- (libraries forkexec))
+ (libraries forkexec unix))
 
 (install
  (package xapi-forkexecd)

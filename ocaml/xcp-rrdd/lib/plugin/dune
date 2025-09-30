@@ -12,6 +12,7 @@
     xapi-stdext-threads
     xapi-stdext-unix
     threads.posix
+    unix
     xapi-rrd
     rrd-transport.file
     rrd-transport.lib
@@ -32,6 +33,7 @@
     xenctrl
     ezxenstore.core
     uuid
+    unix
     xapi-log
     threads.posix
   )
@@ -48,6 +50,7 @@
     rrd-transport.file
     rrd-transport.lib
     threads.posix
+    unix
     xapi-idl.rrd
     xapi-log
     xapi-stdext-threads

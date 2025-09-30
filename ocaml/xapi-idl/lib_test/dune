@@ -4,7 +4,7 @@
   (name test_lib)
   (modules idl_test_common)
   (libraries
-    (re_export alcotest) xapi-idl (re_export rpclib.core) rpclib.json rpclib.xml result)
+    (re_export alcotest) xapi-idl (re_export rpclib.core) rpclib.json rpclib.xml result unix)
   (wrapped false)
 )
 
@@ -13,6 +13,7 @@
  (modules guard_interfaces_test)
  (libraries
    test_lib
+   unix
    xapi-idl.guard.privileged
    xapi-idl.guard.varstored
  )
@@ -52,6 +53,7 @@
    rpclib.xml
    test_lib
    threads.posix
+   unix
    xapi-idl
    xapi-idl.cluster
    xapi-idl.rrd

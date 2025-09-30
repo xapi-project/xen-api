@@ -90,6 +90,7 @@
   sexpr
   tgroup
   forkexec
+  unix
   xapi-idl
   xapi_aux
   xapi-stdext-std
@@ -178,6 +179,7 @@
   sexplib0
   sexpr
   sha
+  str
   stunnel
   tapctl
   tar
@@ -186,6 +188,7 @@
   threads.posix
   tracing
   tracing_propagator
+  unix
   unixpwd
   uri
   uuid
@@ -270,6 +273,7 @@
   xapi_internal_minimal
   http_lib
   rpclib.core
+  unix
   xapi-types
   xapi-log
   xapi-stdext-encodings
@@ -297,6 +301,7 @@
   threads.posix
   tracing
   tracing_propagator
+  unix
   xapi-backtrace
   xapi-client
   xapi-consts
@@ -326,6 +331,7 @@
  (package xapi)
  (modules xapi_main)
  (libraries
+  unix
   xapi_internal
   xapi_internal_server
   xapi_internal_minimal

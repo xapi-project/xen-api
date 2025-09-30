@@ -6,6 +6,7 @@
     xapi-backtrace
     fmt
     threads.posix
+    unix
     xapi-stdext-pervasives
     xapi-stdext-threads
   )

@@ -1,6 +1,6 @@
 (executable
  (name pvs_proxy_setup)
- (libraries ezxenstore.core bos xapi-consts.xapi_version xapi-idl cmdliner log rresult)
+ (libraries ezxenstore.core bos xapi-consts.xapi_version xapi-idl cmdliner log rresult unix)
 )
 
 (install

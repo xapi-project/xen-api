@@ -14,6 +14,7 @@
     rpclib.json
     rpclib.xml
     ssl
+    unix
     uri
     xapi-client
     xapi-consts

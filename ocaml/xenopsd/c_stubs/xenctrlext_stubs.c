@@ -144,35 +144,6 @@ CAMLprim value stub_xenctrlext_get_runstate_info(value xch_val, value domid)
 #endif
 }
 
-CAMLprim value stub_xenctrlext_get_boot_cpufeatures(value xch_val)
-{
-	CAMLparam1(xch_val);
-#if defined(XENCTRL_HAS_GET_CPUFEATURES)
-	CAMLlocal1(v);
-	uint32_t a, b, c, d, e, f, g, h;
-	int ret;
-	xc_interface *xch = xch_of_val(xch_val);
-
-	ret = xc_get_boot_cpufeatures(xch, &a, &b, &c, &d, &e, &f, &g, &h);
-	if (ret < 0)
-	  failwith_xc(xch);
-
-	v = caml_alloc_tuple(8);
-	Store_field(v, 0, caml_copy_int32(a));
-	Store_field(v, 1, caml_copy_int32(b));
-	Store_field(v, 2, caml_copy_int32(c));
-	Store_field(v, 3, caml_copy_int32(d));
-	Store_field(v, 4, caml_copy_int32(e));
-	Store_field(v, 5, caml_copy_int32(f));
-	Store_field(v, 6, caml_copy_int32(g));
-	Store_field(v, 7, caml_copy_int32(h));
-
-	CAMLreturn(v);
-#else
-	caml_failwith("XENCTRL_HAS_GET_CPUFEATURES not defined");
-#endif
-}
-
 static int xcext_domain_send_s3resume(xc_interface *xch, unsigned int domid)
 {
 	return xc_set_hvm_param(xch, domid, HVM_PARAM_ACPI_S_STATE, 0);

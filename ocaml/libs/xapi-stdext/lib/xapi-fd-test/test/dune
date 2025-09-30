@@ -2,5 +2,5 @@
 (test
 	(package xapi-stdext-unix)
 	(name test_xapi_fd_test)
-	(libraries xapi_fd_test alcotest fmt mtime.clock.os)
+	(libraries xapi_fd_test alcotest fmt mtime.clock.os unix)
 )
