@@ -16,7 +16,7 @@ tags: ["org:mirage" "org:xapi-project"]
 homepage: "https://github.com/mirage/ocaml-vhd"
 bug-reports: "https://github.com/mirage/ocaml-vhd/issues"
 depends: [
-  "dune" {>= "3.15"}
+  "dune" {>= "3.20"}
   "ocaml" {>= "4.10.0"}
   "alcotest" {with-test}
   "alcotest-lwt" {with-test & >= "1.0.0"}
@@ -46,5 +46,6 @@ build: [
   ]
 ]
 dev-repo: "git+https://github.com/mirage/ocaml-vhd.git"
+x-maintenance-intent: ["(latest)"]
 available: os = "linux" | os = "macos"
 depexts: ["linux-headers"] {os-distribution = "alpine"}
