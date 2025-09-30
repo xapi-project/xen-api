@@ -450,6 +450,11 @@ let xha_timeout = "timeout"
 
 let message_limit = ref 10000
 
+(* The timeout (in seconds) for event polling in the proxy loop.
+   If set to a positive value, the poll will wake up periodically,
+   which is useful for implementing features like idle timeout or periodic inspection of proxy buffers. *)
+let poll_timeout_sec = ref 5
+
 let xapi_message_script = ref "mail-alarm"
 
 (* Emit a warning if more than this amount of clock skew detected *)
@@ -1782,6 +1787,14 @@ let other_options =
     , Arg.Set_float vm_sysprep_wait
     , (fun () -> string_of_float !vm_sysprep_wait)
     , "Time in seconds to wait for VM to recognise inserted CD"
+    )
+  ; ( "poll_timeout_sec"
+    , Arg.Set_int poll_timeout_sec
+    , (fun () -> string_of_int !poll_timeout_sec)
+    , "Timeout (in seconds) for event polling in network proxy loops. When \
+       positive, the proxy will wake up periodically to check tasks like vnc \
+       idle timeouts or perform other maintenance tasks. Set to -1 to wait \
+       indefinitely for network events without periodic wake-ups."
     )
   ]
 

@@ -338,7 +338,8 @@ module CBuf = struct
     in
     let read = Unix.read fd x.buffer next len in
     if read = 0 then x.r_closed <- true ;
-    x.len <- x.len + read
+    x.len <- x.len + read ;
+    (x.buffer, read, next)
 end
 
 exception Process_still_alive
@@ -381,11 +382,21 @@ let with_polly f =
   let finally () = Polly.close polly in
   Xapi_stdext_pervasives.Pervasiveext.finally (fun () -> f polly) finally
 
-let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
+exception Close_proxy
+
+let proxy ?(should_close : (bytes * int * int -> bool) option = None)
+    ?(poll_timeout = -1) (a : Unix.file_descr) (b : Unix.file_descr) =
   let size = 64 * 1024 in
   (* [a'] is read from [a] and will be written to [b] *)
   (* [b'] is read from [b] and will be written to [a] *)
   let a' = CBuf.empty size and b' = CBuf.empty size in
+
+  let close_proxy () =
+    Unix.shutdown a Unix.SHUTDOWN_ALL ;
+    Unix.shutdown b Unix.SHUTDOWN_ALL ;
+    raise Close_proxy
+  in
+
   Unix.set_nonblock a ;
   Unix.set_nonblock b ;
   with_polly @@ fun polly ->
@@ -413,12 +424,28 @@ let proxy (a : Unix.file_descr) (b : Unix.file_descr) =
         Polly.upd polly a a_events ;
       if Polly.Events.(b_events <> empty) then
         Polly.upd polly b b_events ;
-      Polly.wait_fold polly 4 (-1) () (fun _polly fd events () ->
+      Polly.wait_fold polly 4 poll_timeout () (fun _polly fd events () ->
           (* Do the writing before the reading *)
           if Polly.Events.(test out events) then
             if a = fd then CBuf.write b' a else CBuf.write a' b ;
           if Polly.Events.(test inp events) then
-            if a = fd then CBuf.read a' a else CBuf.read b' b
+            if a = fd then
+              ignore (CBuf.read a' a)
+            else
+              match should_close with
+              | Some cb ->
+                  let buf, read_len, offset = CBuf.read b' b in
+                  if cb (buf, read_len, offset) then
+                    close_proxy ()
+              | None ->
+                  ignore (CBuf.read b' b)
+      ) ;
+      ( match should_close with
+      | Some cb ->
+          if cb (Bytes.empty, 0, 0) then
+            close_proxy ()
+      | None ->
+          ()
       ) ;
       (* If there's nothing else to read or write then signal the other end *)
       List.iter
