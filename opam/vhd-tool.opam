@@ -12,7 +12,7 @@ depends: [
   "alcotest-lwt" {with-test}
   "astring"
   "bigarray-compat"
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
   "cohttp"
   "cohttp-lwt"
   "conf-libssl"

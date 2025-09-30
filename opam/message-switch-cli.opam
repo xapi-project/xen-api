@@ -16,7 +16,7 @@ depends: [
   "ocaml"
   "dune" {>= "3.15"}
   "odoc" {with-doc}
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
   "message-switch-unix"
   "ppx_deriving_rpc"
 ]

@@ -14,7 +14,7 @@ depends: [
   "angstrom"
   "astring"
   "base64"
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
   "cohttp"
   "cstruct"
   "ctypes"

@@ -20,7 +20,7 @@ depends: [
   "ppx_deriving_rpc"
   "rpclib"
   "xmlm"
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
 ]
 synopsis: "Code and documentation generator for the Xapi storage interface"
 url {

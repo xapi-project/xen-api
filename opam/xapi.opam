@@ -19,7 +19,7 @@ depends: [
   "bos" {with-test}
   "cdrom"
   "clock" {= version}
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
   "cohttp"
   "conf-pam"
   "crowbar" {with-test}

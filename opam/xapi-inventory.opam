@@ -21,7 +21,7 @@ depends: [
   "astring"
   "xapi-stdext-unix"
   "xapi-stdext-threads"
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
   "uuidm"
 ]
 synopsis: "Library for accessing the xapi toolstack inventory file"

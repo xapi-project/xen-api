@@ -168,7 +168,7 @@
 (package
  (name xapi-storage-cli)
  (depends
-  cmdliner
+  (cmdliner (< "2.0.0"))
   re
   rpclib
   ppx_deriving_rpc
@@ -278,7 +278,7 @@
   angstrom
   astring
   base64
-  cmdliner
+  (cmdliner (< "2.0.0"))
   cohttp
   cstruct
   ctypes
@@ -336,7 +336,7 @@
  (depends
   astring
   base64
-  cmdliner
+  (cmdliner (< "2.0.0"))
   cstruct-unix
   fmt
   logs
@@ -383,7 +383,7 @@
   cdrom
   (clock
    (= :version))
-  cmdliner
+  (cmdliner (< "2.0.0"))
   cohttp
   conf-pam
   (crowbar :with-test)
@@ -498,7 +498,7 @@
   (alcotest-lwt :with-test)
   astring
   bigarray-compat
-  cmdliner
+  (cmdliner (< "2.0.0"))
   cohttp
   cohttp-lwt
   conf-libssl
@@ -582,7 +582,7 @@
   (synopsis "Minimal CLI wrapper for qcow-stream")
   (depends
     qcow-stream
-    cmdliner
+    (cmdliner (< "2.0.0"))
   )
 )
 

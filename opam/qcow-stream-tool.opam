@@ -9,7 +9,7 @@ bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.15"}
   "qcow-stream"
-  "cmdliner"
+  "cmdliner" {< "2.0.0"}
   "odoc" {with-doc}
 ]
 build: [
