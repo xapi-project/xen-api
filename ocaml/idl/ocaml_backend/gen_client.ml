@@ -92,26 +92,33 @@ let ctor_fields (obj : obj) =
     (function {DT.qualifier= DT.StaticRO | DT.RW; _} -> true | _ -> false)
     (DU.fields_of_obj obj)
 
-(* Compute a message parameter list from a message suitable for the client (only!) *)
-let args_of_message ?(expand_record = true) (obj : obj)
+(* Compute a list of message parameters and their default values from a
+   message suitable for the client (only!) *)
+let args_of_message_with_default ?(expand_record = true) (obj : obj)
     ({msg_tag= tag; _} as msg) =
   let arg_of_param = function
-    | {param_type= Record x; _} -> (
+    | {param_type= Record x; param_default= default; _} -> (
       match tag with
       | FromObject Make ->
           if x <> obj.DT.name then failwith "args_of_message" ;
           if expand_record then
-            List.map param_of_field (ctor_fields obj)
+            List.map
+              (fun x -> (x, None))
+              (List.map param_of_field (ctor_fields obj))
           else
-            [custom _value (Record x)]
+            [(custom _value (Record x), default)]
       | _ ->
           failwith "arg_of_param: encountered a Record in an unexpected place"
     )
     | p ->
-        [of_param p]
+        [(of_param p, p.param_default)]
   in
-  let session = if msg.msg_session then [session] else [] in
+  let session = if msg.msg_session then [(session, None)] else [] in
   List.concat (session :: List.map arg_of_param msg.msg_params)
+
+(* Compute a message parameter list from a message suitable for the client (only!) *)
+let args_of_message ?(expand_record = true) obj x =
+  List.map fst (args_of_message_with_default ~expand_record obj x)
 
 let gen_module api : O.Module.t =
   (* Generate any additional helper functions for an operation here *)
@@ -148,7 +155,8 @@ let gen_module api : O.Module.t =
   in
   (* Convert an operation into a Let-binding *)
   let operation ~sync (obj : obj) (x : message) =
-    let args = args_of_message obj x in
+    let args_with_default = args_of_message_with_default obj x in
+    let args = List.map fst args_with_default in
     let to_rpc (arg : O.param) =
       let binding = O.string_of_param arg in
       let converter = O.type_of_param arg in
@@ -171,6 +179,31 @@ let gen_module api : O.Module.t =
         [O.string_of_param session; "args"]
       else
         List.map O.string_of_param args
+    in
+    let defaults =
+      List.map
+        (fun (_, default_value) ->
+          match default_value with
+          | Some x ->
+              Printf.sprintf "Some (%s)" (Datamodel_values.to_ocaml_string x)
+          | None ->
+              "None"
+        )
+        args_with_default
+    in
+    let rightmost_arg_default =
+      Some true
+      = List.fold_right
+          (fun (_, x) rightmost_arg_default ->
+            match rightmost_arg_default with
+            | None when Option.is_some x ->
+                Some true
+            | Some true ->
+                Some true
+            | _ ->
+                Some false
+          )
+          args_with_default None
     in
     let task = DT.Ref Datamodel_common._task in
     let from_xmlrpc t =
@@ -203,15 +236,41 @@ let gen_module api : O.Module.t =
         (List.map to_rpc args
         @ [
             (if is_ctor then ctor_record else "")
+          ; ( if (not is_ctor) && rightmost_arg_default then
+                (* Skip specifying arguments which are equal to their default
+                   values. This way, when a newer client talks to an older
+                   server that does not know about a new parameter, it can
+                   silently skip sending it, avoiding an error *)
+                Printf.sprintf
+                  {|
+      let needed_args, _ = List.fold_right2
+        (fun param default (acc, skipped)->
+          (* Since arguments are positional, we can only skip specifying an
+             argument that's equal to its default value if all the arguments to
+             its right were also not specified *)
+          if skipped then
+            (match default with
+            | Some default_value when param = default_value -> (acc, true)
+            | _ -> (param::acc, false))
+          else
+            (param :: acc, false)
+        ) [ %s ] [ %s ] ([], true)
+      in
+      |}
+                  (String.concat "; " rpc_args)
+                  (String.concat "; " defaults)
+              else
+                Printf.sprintf "let needed_args = [ %s ] in"
+                  (String.concat "; " rpc_args)
+            )
           ; Printf.sprintf
-              "rpc_wrapper rpc %s [ %s ] >>= fun x -> return (%s x)"
+              "rpc_wrapper rpc %s needed_args >>= fun x -> return (%s x)"
               ( if sync then
                   Printf.sprintf "\"%s\"" wire_name
                 else
                   Printf.sprintf {|(Printf.sprintf "%%s%s" AQ.async_qualifier)|}
                     wire_name
               )
-              (String.concat "; " rpc_args)
               (from_xmlrpc x.msg_result)
           ]
         )
@@ -227,9 +286,6 @@ let gen_module api : O.Module.t =
         obj.messages
     in
     let fields = fields_of (operations @ helpers) in
-    (*
-    let fields = List.map (fun x -> O.Module.Let (operation ~sync obj x)) obj.messages in
-*)
     O.Module.make ~name:(OU.ocaml_of_obj_name obj.DT.name) ~elements:fields ()
   in
   let preamble =
