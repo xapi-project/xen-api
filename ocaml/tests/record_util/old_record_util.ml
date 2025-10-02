@@ -360,6 +360,8 @@ let sr_operation_to_string : API.storage_operations -> string = function
       "VDI.resize_online"
   | `vdi_update ->
       "VDI.update"
+  | `vdi_revert ->
+      "VDI.revert"
 
 let vbd_operation_to_string = function
   | `attach ->
