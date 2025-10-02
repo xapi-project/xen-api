@@ -1107,7 +1107,7 @@ let reuse_pool_sessions = ref false
 let validate_reusable_pool_session = ref false
 (* Validate a reusable session before each use. This is slower and should not be required *)
 
-let vm_sysprep_enabled = ref false
+let vm_sysprep_enabled = ref true
 (* enable VM.sysprep API *)
 
 let vm_sysprep_wait = ref 5.0 (* seconds *)
