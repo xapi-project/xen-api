@@ -8,9 +8,10 @@ status: confirmed
 
 ## Overview
 
-Currently there is a XenAPI `VM.revert` which reverts a VM to the state it was
-in when a VM-level snapshot was taken. Because there is no `VDI.revert`,
-`VM.revert` uses `VDI.clone` on the snapshot to change the state of the disks.
+XenAPI allows users to rollback the state of a VM to a previous state, which is
+stored in a snapshot, using the call `VM.revert`. Because there is no
+`VDI.revert` call, `VM.revert` uses `VDI.clone` on the snapshot to duplicate
+the contents of that disk and then use the new clone as the storage for the VM.
 
 Because `VDI.clone` creates new VDI refs and uuids, some problematic
 behaviours arise:
@@ -20,17 +21,25 @@ behaviours arise:
   logic to keep track of the disks they are actively managing
 - Because the snapshot is cloned and the original vdi is deleted, VDI
   references to the VDI become invalid, like `VDI.snapshot_of`. This means
-  there the database has to be combed through to change these references. 
-  Because the database doesn't support transaction this operation is not atomic
+  that the database has to be combed through to change these references. 
+  Because the database doesn't support transactions this operation is not atomic
   and can produce inconsistent database states.
+
+Additionally, some filesystems support snapshots natively, doing the clone
+procedure is much costlier than allowing the filesystem to do the revert.
 
 We will fix these problems by:
 
-- defining a new storage operation `VDI.revert` in storage_interface and
-  calling this from `VM.revert`
+- introducing the new feature `VDI_REVERT` in SM interface (`xapi_smint`). This
+  allows backends to advertise that they support the new functionality
+- defining a new storage operation `VDI.revert` in storage_interface, which is
+  gated by the feature `VDI_REVERT`
 - proxying the storage operation to SMAPIv3 and SMAPv1 backends accordingly
-- changing the Xapi implementation of `VM.revert` to first try the
-  `VDI.revert`, and fall back to `VDI.clone` if that fails
+- adding `VDI.revert` to xapi_vdi which will call the storage operation if the
+  backend advertises it, and fallback to the previous method that uses
+  `VDI.clone` if it doesn't advertise it, or issues are detected at runtime
+  that prevent it
+- changing the Xapi implementation of `VM.revert` to use `VDI.revert`
 - implement `vdi_revert` for common storage types, including File and LVM-based
   SRs
 - adding unit and quick tests to xapi to test that `VM.revert` does not regress
@@ -43,16 +52,18 @@ The function `VDI.revert` will be added, with arguments:
 
 - in: `snapshot: Ref(VDI)`: the snapshot to which we want to revert
 - in: `driver_params: Map(String,String)`: optional extra parameters
-- out: `Ref(VDI)` the new VDI
+- out: `Ref(VDI)` reference to the new VDI with the reverted contents
 
-The function will look up the VDI which this is a `snapshot_of`, check that
-the value is not invalid nor null, and use that VDI reference to call SM to
-change the VDI to have the same contents as the snapshot. The snapshot object
-will not be modified, and the reference returned is the reference in
-`snapshot_of`.
-If anything impedes the successful finish of an in-place revert, the previous
-method of using `VDI.clone` is used as fallback, and the reference returned
-refers to the fresh VDI created by the `VDI.clone` fallback.
+The function will extract the reference of VDI whose contents need to be
+replaced. This is the snapshot's `snapshot_of` field, then it will call the
+storage function function `VDI.revert` to have its contents replaced with the
+snapshot's. The VDI object will not be modified, and the reference returned is
+the VDI's original reference.
+If anything impedes the successful finish of an in-place revert, like the SM
+backend does not advertise the feature `VDI_REVERT`, does not implement it, or
+the `snapshot_of` reference is invalid; the previous method of using
+`VDI.clone` is used as fallback, and the reference returned refers to the fresh
+VDI created by the `VDI.clone` fallback.
 
 ### Xapi Storage
 
@@ -62,7 +73,6 @@ The function `VDI.revert` is added, with the following arguments:
 - in: `sr`: SR where the new VDI must be created
 - in: `snapshot_info`: metadata of the snapshot, the contents of which must be
        made available in the VDI indicated by the `snapshot_of` field
-- out: `vdi_info`: metadata of the resulting VDI
 
 #### SMAPIv1
 
@@ -87,14 +97,14 @@ following arguments:
 - in: `sr`: the UUID of the SR containing both the VDI and the snapshot
 - in: `snapshot`: the UUID of the snapshot whose contents must be duplicated
 - in: `vdi`: the UUID of the VDI whose contents must be replaced
-- 
+
 ### Xapi
 
+- add the capability `VDI_REVERT` so backends can advertise it
 - use `VDI.revert` in the `VM.revert` code-path and fall back to `VDI.clone` if
   a `Not_implemented` exception is thrown, or the snapshot_of contains an
   invalid reference
 - expose a new `xe vdi-revert` CLI command
-- implement the `VDI.revert` 
 
 ## SM changes
 
