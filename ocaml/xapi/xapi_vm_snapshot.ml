@@ -211,61 +211,155 @@ let with_vdis_on_error ~vdis f = try f () with e -> Error (e, vdis)
 
 let ( let@ ) f x = f x
 
-(* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old
-   disks. This operation destroys the data of the dest VM. *)
+(* Revert the VBDs of a VM to have the contents of the snapshot and copy the
+   VIFs from a snapshot VM to the VM. This operation destroys the data of the
+   dest VM. *)
+
 type cloned = {
     disks: ([`VBD] Ref.t * API.ref_VDI * bool) list
   ; cds: ([`VBD] Ref.t * API.ref_VDI * bool) list
   ; suspend_VDI: [`VDI] Ref.t
 }
 
+module VDISet = Set.Make (struct
+  type t = [`VDI] Ref.t
+
+  let compare = Ref.compare
+end)
+
+module VBDSet = Set.Make (struct
+  type t = [`VBD] Ref.t
+
+  let compare = Ref.compare
+end)
+
 let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
-  let snap_VBDs = Db.VM.get_VBDs ~__context ~self:snapshot in
+  let get_snapshot_of vdi = Db.VDI.get_snapshot_of ~__context ~self:vdi in
+
+  let disks_of_vbds vbds =
+    vbds
+    |> VBDSet.to_seq
+    |> Seq.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd)
+    |> VDISet.of_seq
+  in
+
   let snap_VBDs_disk, snap_VBDs_CD =
-    List.partition
-      (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk)
-      snap_VBDs
-  in
-  let snap_disks =
-    List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) snap_VBDs_disk
-  in
-  let snap_disks_snapshot_of =
-    List.map (fun vdi -> Db.VDI.get_snapshot_of ~__context ~self:vdi) snap_disks
+    Db.VM.get_VBDs ~__context ~self:snapshot
+    |> VBDSet.of_list
+    |> VBDSet.partition (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk)
   in
   let snap_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:snapshot in
+  let snap_disks_all = disks_of_vbds snap_VBDs_disk in
+  let snap_disks_snapshot_of = VDISet.map get_snapshot_of snap_disks_all in
 
-  let vm_VBDs = Db.VM.get_VBDs ~__context ~self:vm in
-  (* Filter VBDs to ensure that we don't read empty CDROMs *)
+  let vm_VBDs_all = Db.VM.get_VBDs ~__context ~self:vm |> VBDSet.of_list in
   let vm_VBDs_disk =
-    List.filter
+    (* Filter VBDs to ensure that we don't read empty CDROMs *)
+    VBDSet.filter
       (fun vbd -> Db.VBD.get_type ~__context ~self:vbd = `Disk)
-      vm_VBDs
+      vm_VBDs_all
   in
-  (* Filter out VM disks for which the snapshot does not have a corresponding
-     disk - these disks will be left unattached after the revert is complete. *)
-  let vm_disks =
-    List.map (fun vbd -> Db.VBD.get_VDI ~__context ~self:vbd) vm_VBDs_disk
-  in
-  let vm_disks_with_snapshot =
-    List.filter (fun vdi -> List.mem vdi snap_disks_snapshot_of) vm_disks
-  in
-  let vm_suspend_VDI = Db.VM.get_suspend_VDI ~__context ~self:vm in
+  let vm_disks_all = disks_of_vbds vm_VBDs_disk in
 
-  debug "Cleaning up the old VBDs and VDIs to have more free space" ;
-  List.iter (safe_destroy_vbd ~__context ~rpc ~session_id) vm_VBDs ;
-  List.iter
+  let vm_suspend_VDI =
+    Db.VM.get_suspend_VDI ~__context ~self:vm |> VDISet.singleton
+  in
+
+  if VDISet.cardinal snap_disks_all <> 0 then
+    debug "%s: trying to revert VDIs using VDI.revert" __FUNCTION__ ;
+
+  let snap_disks_reverted =
+    VDISet.filter
+      (fun snapshot ->
+        try
+          Client.VDI.revert ~rpc ~session_id ~snapshot ;
+          true
+        with _ -> false
+      )
+      snap_disks_all
+  in
+
+  let vm_disks_already_reverted =
+    VDISet.map get_snapshot_of snap_disks_reverted
+  in
+
+  let vm_disks_to_be_destroyed =
+    let ( --- ) = VDISet.diff in
+    let ( +++ ) = VDISet.union in
+
+    (* Disks without snapshot are left unattached after the revert is complete. *)
+    let vm_disks_without_snapshot = vm_disks_all --- snap_disks_snapshot_of in
+
+    vm_disks_all
+    --- vm_disks_without_snapshot
+    --- vm_disks_already_reverted
+    +++ vm_suspend_VDI
+  in
+
+  let filter_vbds_from_vdis vbds vdis =
+    vbds
+    |> VBDSet.filter (fun vbd ->
+        VDISet.mem (Db.VBD.get_VDI ~__context ~self:vbd) vdis
+    )
+  in
+
+  let vm_vbds_to_be_destroyed =
+    filter_vbds_from_vdis vm_VBDs_all vm_disks_to_be_destroyed
+  in
+
+  let snap_VBDs_reverted =
+    filter_vbds_from_vdis snap_VBDs_disk snap_disks_reverted
+  in
+
+  (*
+     snap VBDs (disk)
+   - snap VBDs from reverted disks
+   = snap VBDs to be cloned
+   *)
+  let snap_VBDs_to_be_cloned =
+    let ( --- ) = VBDSet.diff in
+    snap_VBDs_disk --- snap_VBDs_reverted
+  in
+  if
+    VBDSet.cardinal vm_vbds_to_be_destroyed <> 0
+    || VDISet.cardinal vm_disks_to_be_destroyed <> 0
+  then
+    debug "%s: Cleaning up the old VBDs and VDIs to have more free space"
+      __FUNCTION__ ;
+  VBDSet.iter
+    (safe_destroy_vbd ~__context ~rpc ~session_id)
+    vm_vbds_to_be_destroyed ;
+  VDISet.iter
     (safe_destroy_vdi ~__context ~rpc ~session_id)
-    (vm_suspend_VDI :: vm_disks_with_snapshot) ;
+    vm_disks_to_be_destroyed ;
   TaskHelper.set_progress ~__context 0.2 ;
-  debug "Cloning the snapshotted disks" ;
+  if VBDSet.cardinal snap_VBDs_to_be_cloned <> 0 then
+    debug "%s: Cloning the snapshotted disks" __FUNCTION__ ;
+
   let driver_params = Xapi_vm_clone.make_driver_params () in
   let cloned_disks =
-    Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
-      ~__context snap_VBDs_disk driver_params
+    (* the list of cloned VDIs maintains the order of the VBDs given, use this
+       to correlate the VDI with the original VDI before the clone *)
+    let snap_VBDs_to_be_cloned =
+      snap_VBDs_to_be_cloned |> VBDSet.to_seq |> List.of_seq
+    in
+    let snap_disks_previous_snapshot_of =
+      snap_VBDs_to_be_cloned
+      |> List.map (fun vbd ->
+          let vdi = Db.VBD.get_VDI ~__context ~self:vbd in
+          Db.VDI.get_snapshot_of ~__context ~self:vdi
+      )
+    in
+
+    let cloned =
+      Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
+        ~__context snap_VBDs_to_be_cloned driver_params
+    in
+    List.combine cloned snap_disks_previous_snapshot_of
   in
   let destroy_vdis_on_error =
     List.filter_map
-      (fun (_, vdi, on_error_delete) ->
+      (fun ((_, vdi, on_error_delete), _) ->
         if on_error_delete then
           Some vdi
         else
@@ -275,20 +369,22 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
   let cloned_CDs =
+    let snap_VBDs_CD = snap_VBDs_CD |> VBDSet.to_seq |> List.of_seq in
     Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
       ~__context snap_VBDs_CD driver_params
   in
   TaskHelper.set_progress ~__context 0.5 ;
-  debug "Updating the snapshot_of fields for relevant VDIs" ;
-  List.iter2
-    (fun snap_disk (_, cloned_disk, _) ->
+  if cloned_disks <> [] then
+    debug "%s: Updating the snapshot_of fields for relevant VDIs" __FUNCTION__ ;
+
+  List.iter
+    (fun ((_, cloned_disk, _), snapshot_of) ->
       (* For each snapshot disk which was just cloned:
          1) Find the value of snapshot_of
          2) Find all snapshots with the same snapshot_of
          3) Update each of these snapshots so that their snapshot_of points
             to the new cloned disk. *)
       let open Xapi_database.Db_filter_types in
-      let snapshot_of = Db.VDI.get_snapshot_of ~__context ~self:snap_disk in
       let all_snaps_in_tree =
         Db.VDI.get_refs_where ~__context
           ~expr:(Eq (Field "snapshot_of", Literal (Ref.string_of snapshot_of)))
@@ -299,7 +395,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
         )
         all_snaps_in_tree
     )
-    snap_disks cloned_disks ;
+    cloned_disks ;
   debug "Cloning the suspend VDI if needed" ;
   let cloned_suspend_VDI =
     if snap_suspend_VDI = Ref.null then
@@ -310,12 +406,13 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   let destroy_vdis_on_error = cloned_suspend_VDI :: destroy_vdis_on_error in
   let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
+  let vbds_to_copy = List.map fst cloned_disks @ cloned_CDs in
   TaskHelper.set_progress ~__context 0.6 ;
-  debug "Copying the VBDs" ;
+  if vbds_to_copy <> [] then debug "%s: Copying the VBDs" __FUNCTION__ ;
   let (_ : [`VBD] Ref.t list) =
     List.map
       (fun (vbd, vdi, _) -> Xapi_vbd_helpers.copy ~__context ~vm ~vdi vbd)
-      (cloned_disks @ cloned_CDs)
+      vbds_to_copy
   in
   debug "Update the suspend_VDI" ;
   Db.VM.set_suspend_VDI ~__context ~self:vm ~value:cloned_suspend_VDI ;
