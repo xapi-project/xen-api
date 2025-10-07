@@ -2618,7 +2618,9 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
 let enable_disable_m = Mutex.create ()
 
 let enable_ha ~__context ~heartbeat_srs ~configuration =
-  if not (Helpers.pool_has_different_host_platform_versions ~__context) then
+  if
+    not (Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context)
+  then
     with_lock enable_disable_m (fun () ->
         Xapi_ha.enable __context heartbeat_srs configuration
     )

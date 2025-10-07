@@ -876,7 +876,7 @@ let vm_can_run_on_host ~__context ~vm ~snapshot ~do_memory_check host =
   let is_control_domain = Db.VM.get_is_control_domain ~__context ~self:vm in
   let host_has_proper_version () =
     if Helpers.rolling_upgrade_in_progress ~__context then
-      Helpers.host_has_highest_version_in_pool ~__context
+      Helpers.Checks.RPU.host_has_highest_version_in_pool ~__context
         ~host:(Helpers.LocalObject host)
     else
       true
