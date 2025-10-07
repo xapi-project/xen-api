@@ -65,7 +65,7 @@ let create_localhost ~__context info =
         ~ssh_expiry:Date.epoch
         ~console_idle_timeout:Constants.default_console_idle_timeout
         ~ssh_auto_mode:!Xapi_globs.ssh_auto_mode_default
-        ~secure_boot:false
+        ~secure_boot:false ~software_version:[]
     in
     ()
 

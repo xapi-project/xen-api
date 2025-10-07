@@ -1059,6 +1059,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~console_idle_timeout:host.API.host_console_idle_timeout
           ~ssh_auto_mode:host.API.host_ssh_auto_mode
           ~secure_boot:host.API.host_secure_boot
+          ~software_version:host.API.host_software_version
       in
       (* Copy other-config into newly created host record: *)
       no_exn

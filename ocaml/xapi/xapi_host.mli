@@ -137,6 +137,7 @@ val create :
   -> console_idle_timeout:int64
   -> ssh_auto_mode:bool
   -> secure_boot:bool
+  -> software_version:(string * string) list
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit

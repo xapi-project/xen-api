@@ -178,6 +178,10 @@ let vdi_tar_export_dir = "vdi"
 
 let software_version () =
   (* In the case of XCP, all product_* fields will be blank. *)
+  let get_xapi_verstring () =
+    Printf.sprintf "%d.%d" Xapi_version.xapi_version_major
+      Xapi_version.xapi_version_minor
+  in
   List.filter
     (fun (_, value) -> value <> "")
     [
@@ -187,6 +191,7 @@ let software_version () =
     ; (_platform_name, Xapi_version.platform_name ())
     ; (_platform_version, Xapi_version.platform_version ())
     ; (_product_brand, Xapi_version.product_brand ())
+    ; (_xapi_version, get_xapi_verstring ())
     ; (_build_number, Xapi_version.build_number ())
     ; (_git_id, Xapi_version.git_id)
     ; (_hostname, Xapi_version.hostname)
