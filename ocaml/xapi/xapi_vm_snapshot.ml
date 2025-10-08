@@ -206,6 +206,10 @@ let safe_destroy_vusb ~__context ~rpc ~session_id vusb =
   if Db.is_valid_ref __context vusb then
     Client.VUSB.destroy ~rpc ~session_id ~self:vusb
 
+let with_vdis_on_error ~vdis f = try f () with e -> Error (e, vdis)
+
+let ( let@ ) f x = f x
+
 (* Copy the VBDs and VIFs from a source VM to a dest VM and then delete the old
    disks. This operation destroys the data of the dest VM. *)
 type cloned = {
@@ -258,6 +262,17 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
     Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
       ~__context snap_VBDs_disk driver_params
   in
+  let destroy_vdis_on_error =
+    List.filter_map
+      (fun (_, vdi, on_error_delete) ->
+        if on_error_delete then
+          Some vdi
+        else
+          None
+      )
+      cloned_disks
+  in
+  let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
   let cloned_CDs =
     Xapi_vm_clone.safe_clone_disks rpc session_id Xapi_vm_clone.Disk_op_clone
       ~__context snap_VBDs_CD driver_params
@@ -292,6 +307,8 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
       Xapi_vm_clone.clone_single_vdi rpc session_id Xapi_vm_clone.Disk_op_clone
         ~__context snap_suspend_VDI driver_params
   in
+  let destroy_vdis_on_error = cloned_suspend_VDI :: destroy_vdis_on_error in
+  let@ () = with_vdis_on_error ~vdis:destroy_vdis_on_error in
   TaskHelper.set_progress ~__context 0.6 ;
   debug "Copying the VBDs" ;
   let (_ : [`VBD] Ref.t list) =
@@ -301,16 +318,7 @@ let revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm =
   in
   debug "Update the suspend_VDI" ;
   Db.VM.set_suspend_VDI ~__context ~self:vm ~value:cloned_suspend_VDI ;
-
-  cloned_suspend_VDI
-  :: List.fold_left
-       (fun acc (_, vdi, on_error_delete) ->
-         if on_error_delete then
-           vdi :: acc
-         else
-           acc
-       )
-       [] cloned_disks
+  Ok destroy_vdis_on_error
 
 let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
   let snap_VIFs = Db.VM.get_VIFs ~__context ~self:snapshot in
@@ -321,11 +329,11 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
 
   (* clone all the disks of the snapshot *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      let vdis_to_cleanup =
-        revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm
-      in
-      TaskHelper.set_progress ~__context 0.7 ;
-      try
+      let ( let* ) = Result.bind in
+      let destroy_error_vdis =
+        let* new_vdis = revert_vbds ~__context ~rpc ~session_id ~snapshot ~vm in
+        let@ () = with_vdis_on_error ~vdis:new_vdis in
+        TaskHelper.set_progress ~__context 0.7 ;
         debug "Cleaning up the old VIFs" ;
         List.iter (safe_destroy_vif ~__context ~rpc ~session_id) vm_VIFs ;
         debug "Setting up the new VIFs" ;
@@ -347,13 +355,18 @@ let update_vifs_vbds_vgpus_and_vusbs ~__context ~snapshot ~vm =
         let (_ : [`VGPU] Ref.t list) =
           List.map (fun vgpu -> Xapi_vgpu.copy ~__context ~vm vgpu) snap_VGPUs
         in
-        TaskHelper.set_progress ~__context 0.9
-      with e ->
-        error
-          "Error while updating the new VBD, VDI, VIF and VGPU records. \
-           Cleaning up the cloned VDIs." ;
-        List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis_to_cleanup ;
-        raise e
+        TaskHelper.set_progress ~__context 0.9 ;
+        Ok ()
+      in
+      match destroy_error_vdis with
+      | Ok () ->
+          ()
+      | Error (e, vdis) ->
+          error
+            "Error while updating the new VBD, VDI, VIF and VGPU records. \
+             Cleaning up the cloned VDIs." ;
+          List.iter (safe_destroy_vdi ~__context ~rpc ~session_id) vdis ;
+          raise e
   )
 
 let update_guest_metrics ~__context ~vm ~snapshot =
