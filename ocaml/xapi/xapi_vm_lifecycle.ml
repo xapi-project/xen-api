@@ -925,8 +925,7 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
            Db.VGPU.set_resident_on ~__context ~self:vgpu ~value:Ref.null ;
            Db.VGPU.set_scheduled_to_be_resident_on ~__context ~self:vgpu
              ~value:Ref.null ;
-           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null ;
-           Db.VGPU.set_VM ~__context ~self:vgpu ~value:Ref.null
+           Db.VGPU.set_PCI ~__context ~self:vgpu ~value:Ref.null
        ) ;
     Db.VM.get_attached_PCIs ~__context ~self
     |> List.iter (fun pci ->
