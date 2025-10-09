@@ -4,6 +4,7 @@
  ;(public_name rrdview)
  (libraries
   threads
+  unix
   xapi-rrd.unix
   bos.setup
   astring

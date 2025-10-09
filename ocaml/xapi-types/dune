@@ -17,6 +17,7 @@
     rpclib.core
     rpclib.json
     rpclib.xml
+    unix
     uuid
     xapi-consts
     clock

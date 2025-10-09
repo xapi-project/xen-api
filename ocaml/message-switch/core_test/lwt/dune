@@ -13,6 +13,7 @@
     message-switch-core
     message-switch-lwt
     uri
+    unix
   )
 )
 

@@ -3,6 +3,7 @@
   (public_name xapi-cli-protocol)
   (libraries
     threads
+    unix
     xapi-stdext-unix
   )
   (wrapped false)

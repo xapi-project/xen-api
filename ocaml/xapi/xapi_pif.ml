@@ -1207,7 +1207,7 @@ let start_of_day_best_effort_bring_up ~__context () =
   debug "Configured network backend: %s"
     (Network_interface.string_of_kind (Net.Bridge.get_kind dbg ())) ;
   (* Clear the state of the network daemon, before refreshing it by plugging
-     * the most important PIFs (see above). *)
+   * the most important PIFs (see above). *)
   Net.clear_state () ;
   List.iter
     (fun (pif, pifr) ->

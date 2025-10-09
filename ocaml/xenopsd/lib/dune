@@ -21,6 +21,7 @@
    sexplib
    sexplib0
    stunnel
+   unix
    uri
    uuid
    uuidm

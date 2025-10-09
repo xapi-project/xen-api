@@ -15,6 +15,7 @@
   nbd-unix
   rpclib.core
   uri
+  unix
   uuid
   vbd_store
   xapi-consts

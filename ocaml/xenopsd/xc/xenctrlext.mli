@@ -20,10 +20,6 @@ external interface_open : unit -> handle = "stub_xenctrlext_interface_open"
 
 val get_handle : unit -> handle
 
-external get_boot_cpufeatures :
-  handle -> int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32
-  = "stub_xenctrlext_get_boot_cpufeatures"
-
 external domain_set_timer_mode : handle -> domid -> int -> unit
   = "stub_xenctrlext_domain_set_timer_mode"
 

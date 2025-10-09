@@ -2620,7 +2620,7 @@ let t =
                 )
               ]
             "Creators of VMs and templates may store version information here."
-        ; field ~effect:true ~ty:Bool "is_a_template"
+        ; field ~has_effect:true ~ty:Bool "is_a_template"
             ~lifecycle:
               [
                 ( Published
@@ -2815,7 +2815,7 @@ let t =
             ~ty:String "recommendations"
             "An XML specification of recommended values and ranges for \
              properties of this VM"
-        ; field ~effect:true ~in_oss_since:None
+        ; field ~has_effect:true ~in_oss_since:None
             ~ty:(Map (String, String))
             ~lifecycle:
               [

@@ -389,7 +389,7 @@ let make ~xc ~xs vm_info vcpus domain_config uuid final_uuid no_sharept
           with _ ->
             let max_per_vif = 8 in
             (* 1 VIF takes up (256 rx entries + 256 tx entries) * 8 queues max
-               * 8 bytes per grant table entry / 4096 bytes size of frame *)
+             * 8 bytes per grant table entry / 4096 bytes size of frame *)
             let reasonable_per_vbd = 1 in
             (* (1 ring (itself taking up one granted page) + 1 ring *
                32 requests * 11 grant refs contained in each * 8 bytes ) /
