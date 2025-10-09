@@ -26,19 +26,6 @@ def send_perfmon_cmd(cmd):
 
     return str(rc == len(cmd_bytes))
 
-
-def stop(session, args):
-    rc = os.system("/etc/init.d/perfmon stop &>/dev/null")
-    return str(rc == 0)
-
-def start(session, args):
-    rc = os.system("/etc/init.d/perfmon start &>/dev/null")
-    return str(rc == 0)
-
-def restart(session, args):
-    rc = os.system("/etc/init.d/perfmon restart &>/dev/null")
-    return str(rc == 0)
-
 def refresh(session, args):
     return send_perfmon_cmd("refresh")
 
@@ -46,4 +33,4 @@ def debug_mem(session,args):
     return send_perfmon_cmd("debug_mem")
 
 if __name__ == "__main__":
-    XenAPIPlugin.dispatch({"stop": stop, "start": start, "restart": restart, "refresh": refresh, "debug_mem": debug_mem})
+    XenAPIPlugin.dispatch({"refresh": refresh, "debug_mem": debug_mem})
