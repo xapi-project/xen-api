@@ -940,9 +940,26 @@ let get_diagnostic_timing_stats =
       ]
     ~name:"get_diagnostic_timing_stats"
     ~doc:"Return timing statistics for diagnostic purposes"
-    ~params:[(Ref _host, "host", "The host to interrogate")]
     ~result:(Map (String, String), "population name to summary map")
-    ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY ()
+    ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The host"
+        ; param_release= miami_release
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "counts"
+        ; param_doc= "Include counts in the result"
+        ; param_release= numbered_release "25.33.0"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ()
 
 let create_new_blob =
   call ~name:"create_new_blob"

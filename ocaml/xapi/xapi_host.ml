@@ -1365,8 +1365,8 @@ let get_thread_diagnostics ~__context ~host:_ =
 let sm_dp_destroy ~__context ~host:_ ~dp ~allow_leak =
   Storage_access.dp_destroy ~__context dp allow_leak
 
-let get_diagnostic_timing_stats ~__context ~host:_ =
-  Xapi_database.Stats.summarise ()
+let get_diagnostic_timing_stats ~__context ~host:_ ~counts =
+  Xapi_database.Stats.summarise ~counts ()
 
 (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
 (* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
