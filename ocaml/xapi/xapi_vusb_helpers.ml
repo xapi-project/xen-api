@@ -29,11 +29,11 @@ let valid_operations ~__context record _ref' : table =
   let _ref = Ref.string_of _ref' in
   let current_ops = record.Db_actions.vUSB_current_operations in
   (* Policy:
-     * one operation at a time
-     * a running VM can do plug depending on whether the VUSB is already attached to VM.
-     * a running VM can do unplug depending on whether the VUSB is already attached to VM.
-     *
-  *)
+   * one operation at a time
+   * a running VM can do plug depending on whether the VUSB is already attached to VM.
+   * a running VM can do unplug depending on whether the VUSB is already attached to VM.
+   *
+   *)
   let table : table = Hashtbl.create 10 in
   List.iter (fun x -> Hashtbl.replace table x None) all_ops ;
   let set_errors (code : string) (params : string list)

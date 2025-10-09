@@ -4,6 +4,7 @@
   (preprocess (pps ppx_cstruct))
   (libraries
     cstruct-unix
+    unix
   )
 )
 

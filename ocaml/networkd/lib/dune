@@ -14,6 +14,7 @@
   rpclib.json
   rresult
   threads.posix
+  unix
   uri
   xapi-stdext-pervasives
   xapi-stdext-std

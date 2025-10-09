@@ -16,6 +16,7 @@
     mtime
     mtime.clock.os
     (re_export rpclib.core)
+    unix
     xapi-consts
     xapi-log
     xapi-types

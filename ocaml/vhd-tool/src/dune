@@ -25,6 +25,7 @@
     sha
     ssl
     tar
+    unix
     uri
     uuidm
     vhd-format

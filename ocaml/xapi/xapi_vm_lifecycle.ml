@@ -309,26 +309,6 @@ let report_concurrent_operations_error ~current_ops ~ref_str =
     )
 
 let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
-  let is_migratable vgpu =
-    try
-      (* Prevent VMs with VGPU from being migrated from pre-Jura to Jura and later hosts during RPU *)
-      let host_from =
-        Db.VGPU.get_VM ~__context ~self:vgpu |> fun vm ->
-        Db.VM.get_resident_on ~__context ~self:vm |> fun host ->
-        Helpers.LocalObject host
-      in
-      (* true if platform version of host_from more than inverness' 2.4.0 *)
-      Helpers.(
-        compare_int_lists
-          (version_of ~__context host_from)
-          platform_version_inverness
-      )
-      > 0
-    with e ->
-      debug "is_migratable: %s" (ExnHelper.string_of_exn e) ;
-      (* best effort: yes if not possible to decide *)
-      true
-  in
   let is_suspendable vgpu =
     Db.VGPU.get_type ~__context ~self:vgpu |> fun self ->
     Db.VGPU_type.get_implementation ~__context ~self |> function
@@ -343,9 +323,7 @@ let check_vgpu ~__context ~op ~ref_str ~vgpus ~power_state =
   match op with
   | `migrate_send when power_state = `Halted ->
       None
-  | (`pool_migrate | `migrate_send)
-    when List.for_all is_migratable vgpus && List.for_all is_suspendable vgpus
-    ->
+  | (`pool_migrate | `migrate_send) when List.for_all is_suspendable vgpus ->
       None
   | `checkpoint when power_state = `Suspended ->
       None
@@ -442,7 +420,7 @@ let nvidia_sriov_pcis ~__context vgpus =
          Db.VGPU_type.get_implementation ~__context ~self:typ |> function
          | `nvidia_sriov ->
              let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
-             if Db.is_valid_ref __context pci then Some pci else None
+             Some pci
          | _ ->
              None
      )

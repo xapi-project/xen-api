@@ -21,6 +21,7 @@
     fmt
     mtime.clock.os
     qcheck-core
+    unix
   )
 )
 

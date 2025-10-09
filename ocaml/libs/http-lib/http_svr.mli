@@ -109,6 +109,7 @@ val response_redirect : ?req:Http.Request.t -> Unix.file_descr -> string -> unit
 
 val response_file :
      ?mime_content_type:string
+  -> ?download_name:string
   -> hsts_time:int
   -> Unix.file_descr
   -> string

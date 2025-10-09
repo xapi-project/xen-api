@@ -11,6 +11,7 @@
     stunnel
     threads
     tracing
+    unix
     uri
     yojson
     xapi-backtrace

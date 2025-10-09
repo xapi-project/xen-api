@@ -14,6 +14,7 @@
   lwt_log
   lwt.unix
   rpclib.core
+  unix
   xapi-types
   xen-api-client-lwt
  )
@@ -26,6 +27,7 @@
   lwt
   lwt_log
   lwt.unix
+  unix
  )
  (modules vbd_store)
 )

@@ -30,6 +30,7 @@ let vncsnapshot_handler (req : Request.t) s _ =
           Rbac_static.permission_http_get_vncsnapshot_host_console
             .Db_actions.role_name_label ;
         let tmp = Filename.temp_file "snapshot" "jpg" in
+        let filename = Filename.basename tmp in
         Xapi_stdext_pervasives.Pervasiveext.finally
           (fun () ->
             let vnc_port =
@@ -48,7 +49,7 @@ let vncsnapshot_handler (req : Request.t) s _ =
             in
             let hsts_time = !Xapi_globs.hsts_max_age in
             waitpid_fail_if_bad_exit pid ;
-            Http_svr.response_file ~hsts_time s tmp
+            Http_svr.response_file ~hsts_time s tmp ~download_name:filename
           )
           (fun () -> try Unix.unlink tmp with _ -> ())
       with e ->

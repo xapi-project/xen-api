@@ -107,10 +107,10 @@ let show ~service =
 let stop ~service =
   action ~service "stop" ;
   (* Stopping shouldn't fail because it should fall back to SIGKILL which should almost always work,
-   * unless there is a kernel bug that keeps a process stuck.
-   * In the unlikely scenario that this does fail we leave the transient service file behind
-   * so that the failure can be investigated.
-   * *)
+     unless there is a kernel bug that keeps a process stuck.
+     In the unlikely scenario that this does fail we leave the transient service file behind
+     so that the failure can be investigated.
+  *)
   let status = show ~service in
   (* allow systemd to garbage-collect the status and the unit, preventing leaks.
    * See CollectMode in systemd.unit(5) for details. *)
@@ -162,7 +162,7 @@ let start_transient ?env ?properties ?(exec_ty = Type.Simple) ~service cmd args
     (* If start failed we do not know what state the service is in:
      * try to stop it and clean up.
      * Stopping could fail as well, in which case report the original exception.
-     * *)
+     *)
     ( try
         let (_ : status) = stop ~service in
         ()

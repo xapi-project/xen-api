@@ -31,6 +31,7 @@
   sha
   stunnel
   threads.posix
+  unix
   uuid
   uri
   xapi-backtrace
@@ -57,6 +58,7 @@
   threads.posix
   tracing
   tracing_propagator
+  unix
   uri
   xapi-backtrace
   xapi-log
@@ -70,7 +72,7 @@
  (modes
   (best exe))
  (modules http_test radix_tree_test)
- (libraries alcotest fmt http_lib))
+ (libraries alcotest fmt http_lib unix))
 
 (executable
  (modes exe)
@@ -81,6 +83,7 @@
   safe-resources
   stunnel
   threads.posix
+  unix
   xapi-backtrace
   xapi-log
   xapi-stdext-pervasives
@@ -95,6 +98,7 @@
   httpsvr
   safe-resources
   threads.posix
+  unix
   xapi-stdext-threads
   xapi-stdext-unix))
 

@@ -10,7 +10,7 @@ open Datamodel_roles
               to leave a gap for potential hotfixes needing to increment the schema version.*)
 let schema_major_vsn = 5
 
-let schema_minor_vsn = 790
+let schema_minor_vsn = 791
 
 (* Historical schema versions just in case this is useful later *)
 let rio_schema_major_vsn = 5
@@ -578,8 +578,8 @@ let get_deprecated lifecycle =
   with Not_found -> None
 
 let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?result
-    ?(flags = [`Session; `Async]) ?(effect = true) ?(tag = Custom) ?(errs = [])
-    ?(custom_marshaller = false) ?(db_only = false)
+    ?(flags = [`Session; `Async]) ?(has_effect = true) ?(tag = Custom)
+    ?(errs = []) ?(custom_marshaller = false) ?(db_only = false)
     ?(no_current_operations = false) ?(secret = false) ?(hide_from_docs = false)
     ?(pool_internal = false) ~allowed_roles ?(map_keys_roles = [])
     ?(params = []) ?versioned_params ?lifecycle ?(doc_tags = []) ?forward_to ()
@@ -633,7 +633,7 @@ let call ~name ?(doc = "") ?(in_oss_since = Some "3.0.3") ?result
   ; msg_db_only= db_only
   ; msg_release= call_release
   ; msg_lifecycle= Lifecycle.from lifecycle
-  ; msg_has_effect= effect
+  ; msg_has_effect= has_effect
   ; msg_tag= tag
   ; msg_obj_name= ""
   ; msg_force_custom= None
@@ -659,8 +659,8 @@ let operation_enum x =
 (** Make an object field record *)
 let field ?(in_oss_since = Some "3.0.3") ?(internal_only = false)
     ?(ignore_foreign_key = false) ?(writer_roles = None) ?(reader_roles = None)
-    ?(qualifier = RW) ?(ty = String) ?(effect = false) ?(default_value = None)
-    ?(persist = true) ?(map_keys_roles = [])
+    ?(qualifier = RW) ?(ty = String) ?(has_effect = false)
+    ?(default_value = None) ?(persist = true) ?(map_keys_roles = [])
     ?(* list of (key_name,(writer_roles)) for a map field *)
      lifecycle ?(doc_tags = []) name desc =
   let lifecycle =
@@ -695,7 +695,7 @@ let field ?(in_oss_since = Some "3.0.3") ?(internal_only = false)
     ; full_name= [name]
     ; field_description= desc
     ; field_persist= persist
-    ; field_has_effect= effect
+    ; field_has_effect= has_effect
     ; field_ignore_foreign_key= ignore_foreign_key
     ; field_setter_roles= writer_roles
     ; field_getter_roles= reader_roles
