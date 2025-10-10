@@ -3404,7 +3404,11 @@ let update_firewalld_service_status ~__context =
               )
               (Db.Tunnel.get_all ~__context)
         | Xenha ->
+            (* Only xha needs to enable firewalld service. Other HA cluster
+               stacks don't need. *)
             bool_of_string (Localdb.get Constants.ha_armed)
+            && Localdb.get Constants.ha_cluster_stack
+               = !Xapi_globs.cluster_stack_default
       in
       List.iter
         (fun s -> if is_enabled s then enable_firewalld_service s)
