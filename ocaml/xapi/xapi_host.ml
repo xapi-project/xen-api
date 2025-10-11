@@ -1094,7 +1094,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~max_cstate:"" ~secure_boot ~ntp_mode:`ntp_mode_dhcp ~ntp_custom_servers:[] ;
+    ~max_cstate:"" ~secure_boot ~ntp_mode:`ntp_mode_dhcp ~ntp_custom_servers:[]
+    ~ntp_enabled:false ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3377,6 +3378,7 @@ let sync_max_cstate ~__context ~host =
 
 let set_ntp_mode ~__context ~self ~value =
   let current_mode = Db.Host.get_ntp_mode ~__context ~self in
+  let ntp_enabled = Db.Host.get_ntp_enabled ~__context ~self in
   if current_mode <> value then (
     let open Xapi_host_ntp in
     let ensure_custom_servers_exist servers =
@@ -3410,7 +3412,7 @@ let set_ntp_mode ~__context ~self ~value =
     | _, _ ->
         ()
     ) ;
-    restart_ntp_service () ;
+    if ntp_enabled then Xapi_host_ntp.restart_ntp_service () ;
     Db.Host.set_ntp_mode ~__context ~self ~value
   )
 
@@ -3431,3 +3433,11 @@ let set_ntp_custom_servers ~__context ~self ~value =
       Db.Host.set_ntp_custom_servers ~__context ~self ~value
   | _ ->
       Db.Host.set_ntp_custom_servers ~__context ~self ~value
+
+let enable_ntp ~__context ~self =
+  Xapi_host_ntp.enable_ntp_service () ;
+  Db.Host.set_ntp_enabled ~__context ~self ~value:true
+
+let disable_ntp ~__context ~self =
+  Xapi_host_ntp.disable_ntp_service () ;
+  Db.Host.set_ntp_enabled ~__context ~self ~value:false

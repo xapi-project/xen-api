@@ -1098,6 +1098,24 @@ let rec cmdtable_data : (string * cmd_spec) list =
       ; flags= [Neverforward]
       }
     )
+  ; ( "host-enable-ntp"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Enable ntp service on the host."
+      ; implementation= No_fd Cli_operations.host_enable_ntp
+      ; flags= [Host_selectors]
+      }
+    )
+  ; ( "host-disable-ntp"
+    , {
+        reqd= []
+      ; optn= []
+      ; help= "Disable ntp service on the host."
+      ; implementation= No_fd Cli_operations.host_disable_ntp
+      ; flags= [Host_selectors]
+      }
+    )
   ; ( "patch-upload"
     , {
         reqd= ["file-name"]

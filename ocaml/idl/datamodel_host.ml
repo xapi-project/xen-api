@@ -2575,6 +2575,16 @@ let set_ntp_custom_servers =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let disable_ntp =
+  call ~name:"disable_ntp" ~lifecycle:[] ~doc:"Disable NTP on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_POOL_OP ()
+
+let enable_ntp =
+  call ~name:"enable_ntp" ~lifecycle:[] ~doc:"Enable NTP on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2722,6 +2732,8 @@ let t =
       ; set_max_cstate
       ; set_ntp_mode
       ; set_ntp_custom_servers
+      ; disable_ntp
+      ; enable_ntp
       ]
     ~contents:
       ([
@@ -3196,6 +3208,9 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set String)
             ~default_value:(Some (VSet [])) "ntp_custom_servers"
             "The set of NTP servers configured for the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "ntp_enabled"
+            "Reflects whether NTP is enabled on the host"
         ]
       )
     ()
