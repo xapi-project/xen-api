@@ -601,3 +601,7 @@ val set_ntp_mode :
 
 val set_ntp_custom_servers :
   __context:Context.t -> self:API.ref_host -> value:string list -> unit
+
+val enable_ntp : __context:Context.t -> self:API.ref_host -> unit
+
+val disable_ntp : __context:Context.t -> self:API.ref_host -> unit

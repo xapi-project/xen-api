@@ -3423,6 +3423,9 @@ let host_record rpc session_id host =
                 )
           )
           ()
+      ; make_field ~name:"ntp_enabled"
+          ~get:(fun () -> string_of_bool (x ()).API.host_ntp_enabled)
+          ()
       ]
   }
 

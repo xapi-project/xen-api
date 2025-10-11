@@ -4138,6 +4138,18 @@ functor
         let local_fn = Local.Host.set_ntp_custom_servers ~self ~value in
         let remote_fn = Client.Host.set_ntp_custom_servers ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let enable_ntp ~__context ~self =
+        info "Host.enable_ntp: host='%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.enable_ntp ~self in
+        let remote_fn = Client.Host.enable_ntp ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let disable_ntp ~__context ~self =
+        info "Host.disable_ntp: host='%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.disable_ntp ~self in
+        let remote_fn = Client.Host.disable_ntp ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct
