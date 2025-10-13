@@ -937,9 +937,9 @@ module Checks = struct
 
   let version_numbers_of_string version_string =
     ( match String.split_on_char '-' version_string with
-    | [standard_version; patch] ->
-        String.split_on_char '.' standard_version @ [patch]
-    | [standard_version] ->
+    | standard_version :: patch :: _ ->
+        List.concat_map (String.split_on_char '.') [standard_version; patch]
+    | standard_version :: [] ->
         String.split_on_char '.' standard_version
     | _ ->
         ["0"; "0"; "0"]

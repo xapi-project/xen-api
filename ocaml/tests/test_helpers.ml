@@ -507,6 +507,8 @@ module Version = struct
         , [25; 15; 0; 13]
         )
       ; ("Default version", "0.0.0", [0; 0; 0])
+      ; ("Xen Debug build version", "4.17.5-20-d", [4; 17; 5; 20])
+      ; ("Xen dev build version", "4.17.5-20.abcd", [4; 17; 5; 20])
       ]
     in
     let test_version_numbers (description, version_string, expected) =
