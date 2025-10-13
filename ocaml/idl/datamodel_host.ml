@@ -940,9 +940,26 @@ let get_diagnostic_timing_stats =
       ]
     ~name:"get_diagnostic_timing_stats"
     ~doc:"Return timing statistics for diagnostic purposes"
-    ~params:[(Ref _host, "host", "The host to interrogate")]
     ~result:(Map (String, String), "population name to summary map")
-    ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY ()
+    ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The host"
+        ; param_release= miami_release
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "counts"
+        ; param_doc= "Include counts in the result"
+        ; param_release= numbered_release "25.33.0"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ()
 
 let create_new_blob =
   call ~name:"create_new_blob"
@@ -1366,6 +1383,13 @@ let create_params =
     ; param_doc= "True if SSH auto mode is enabled for the host"
     ; param_release= numbered_release "25.27.0"
     ; param_default= Some (VBool Constants.default_ssh_auto_mode)
+    }
+  ; {
+      param_type= Bool
+    ; param_name= "secure_boot"
+    ; param_doc= "True if the host is in secure boot mode"
+    ; param_release= numbered_release "25.32.0"
+    ; param_default= Some (VBool false)
     }
   ]
 
@@ -3129,6 +3153,9 @@ let t =
             "The maximum C-state that the host is allowed to enter, \"\" means \
              unlimited; \"N\" means limit to CN; \"N,M\" means limit to CN \
              with max sub cstate M."
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "secure_boot"
+            "Whether the host has booted in secure boot mode"
         ]
       )
     ()

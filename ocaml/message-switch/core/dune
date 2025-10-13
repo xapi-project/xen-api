@@ -10,6 +10,7 @@
     sexplib0
     threads.posix
     tracing
+    unix
     uri
     xapi-log
     xapi-stdext-threads

@@ -8,6 +8,7 @@
   result
   rpclib.core
   rpclib.json
+  unix
   xapi-idl
   xapi-idl.xen.interface
   xapi-idl.xen.interface.types

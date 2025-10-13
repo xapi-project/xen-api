@@ -6,6 +6,7 @@
   (libraries    
     http_lib
     threads.posix
+    unix
     uuid
     xapi-client
     xapi-consts

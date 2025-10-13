@@ -51,6 +51,7 @@
   threads.posix
   http_lib
   httpsvr
+  unix
   uuid
   xapi-backtrace
   xapi-datamodel
@@ -78,6 +79,7 @@
  (name block_device_io)
  (modules block_device_io)
  (libraries
+  unix
   xapi_database
   xapi-log
   xapi-stdext-pervasives
@@ -98,6 +100,7 @@
   http_lib
   httpsvr
   threads.posix
+  unix
   xapi_database
   xapi-stdext-threads
   xapi-stdext-unix))
@@ -113,6 +116,7 @@
   rpclib.xml
   sexplib
   sexplib0
+  unix
   xapi_database
   xml-light2))
 

@@ -3,9 +3,9 @@
   (package rrd-transport)
   (libraries
     alcotest
-    
     fmt
     rrd-transport
+    unix
     xapi-idl.rrd
     xapi-rrd
   )

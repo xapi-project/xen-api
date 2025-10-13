@@ -5,6 +5,7 @@
    astring
    fd-send-recv
    forkexec
+   unix
    uuid
    xapi-log
    xapi-stdext-unix

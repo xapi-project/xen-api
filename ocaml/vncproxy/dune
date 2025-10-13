@@ -7,6 +7,7 @@
     
     http_lib
     stunnel
+    unix
     xapi-client
     xapi-consts
     xapi-types

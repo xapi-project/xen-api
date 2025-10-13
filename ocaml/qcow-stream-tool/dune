@@ -6,5 +6,6 @@
   (libraries
     qcow-stream
     cmdliner
+    unix
   )
 )

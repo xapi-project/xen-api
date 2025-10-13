@@ -68,8 +68,12 @@ let sd (p : Normal_population.t) =
   in
   sqrt v
 
-let string_of (p : Normal_population.t) =
-  Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
+let string_of ?(counts = false) (p : Normal_population.t) =
+  match counts with
+  | false ->
+      Printf.sprintf "%f [sd = %f]" (mean p) (sd p)
+  | true ->
+      Printf.sprintf "%f [sd = %f, n=%d]" (mean p) (sd p) p.n
 
 (** [sample thing t] records new time [t] for population named [thing] *)
 let sample (name : string) (x : float) : unit =
@@ -104,7 +108,7 @@ let time_this (name : string) f =
           name
   )
 
-let summarise () =
+let summarise ?(counts = false) () =
   with_lock timings_m (fun () ->
-      Hashtbl.fold (fun k v acc -> (k, string_of v) :: acc) timings []
+      Hashtbl.fold (fun k v acc -> (k, string_of ~counts v) :: acc) timings []
   )

@@ -4,11 +4,11 @@
  (libraries
   alcotest
   astring
-  
   fmt
   networklibs
   rpclib.core
   rpclib.json
+  unix
   xapi-log
   xapi-test-utils)
 )

@@ -9,6 +9,7 @@
     rpclib.core
     rpclib.json
     threads.posix
+    unix
   )
   (preprocess (pps ppx_deriving_rpc))
 )

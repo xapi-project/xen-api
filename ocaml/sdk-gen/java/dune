@@ -6,6 +6,7 @@
   CommonFunctions
   mustache
   str
+  unix
   xapi-datamodel
   xapi-stdext-unix))
 

@@ -376,6 +376,8 @@ let sync_ssh_status = "sync_ssh_status"
 
 let sync_max_cstate = "sync_max_cstate"
 
+let sync_secure_boot = "sync_secure_boot"
+
 let sync_pci_devices = "sync_pci_devices"
 
 let sync_gpus = "sync_gpus"
@@ -1109,7 +1111,7 @@ let reuse_pool_sessions = ref false
 let validate_reusable_pool_session = ref false
 (* Validate a reusable session before each use. This is slower and should not be required *)
 
-let vm_sysprep_enabled = ref false
+let vm_sysprep_enabled = ref true
 (* enable VM.sysprep API *)
 
 let vm_sysprep_wait = ref 5.0 (* seconds *)
@@ -1333,6 +1335,10 @@ let ssh_service = ref "sshd"
 let ssh_monitor_service = ref "xapi-ssh-monitor"
 
 let ssh_auto_mode_default = ref true
+
+let secure_boot_path =
+  ref
+    "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
@@ -1789,6 +1795,11 @@ let other_options =
     , (fun () -> string_of_bool !ssh_auto_mode_default)
     , "Defaults to true; overridden to false via \
        /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
+    )
+  ; ( "secure-boot-efi-path"
+    , Arg.Set_string secure_boot_path
+    , (fun () -> !secure_boot_path)
+    , "Path to secure boot status file"
     )
   ; ( "vm-sysprep-enabled"
     , Arg.Set vm_sysprep_enabled

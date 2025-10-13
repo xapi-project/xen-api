@@ -39,6 +39,7 @@
  (libraries
    rpclib.core
    threads.posix
+   unix
    xapi-idl
    xapi-idl.storage.interface
    clock
@@ -53,7 +54,7 @@
  (libraries
    alcotest
    cmdliner
-   
+   unix
    xapi-idl
    xapi-idl.storage
    xapi-idl.storage.interface
