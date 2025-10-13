@@ -25,3 +25,7 @@ val restart_ntp_service : unit -> unit
 val enable_ntp_service : unit -> unit
 
 val disable_ntp_service : unit -> unit
+
+val is_ntp_service_active : unit -> bool
+
+val get_servers_status : unit -> (string * string) list

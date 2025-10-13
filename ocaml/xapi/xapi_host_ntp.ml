@@ -79,6 +79,9 @@ let disable_ntp_service () =
   Xapi_systemctl.stop ~wait_until_success:false !Xapi_globs.ntp_service ;
   Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ntp_service
 
+let is_ntp_service_active () =
+  Fe_systemctl.is_active ~service:!Xapi_globs.ntp_service
+
 let parse_ntp_conf () =
   try
     Xapi_stdext_unix.Unixext.read_lines ~path:!Xapi_globs.ntp_conf
@@ -99,3 +102,41 @@ let set_servers_in_conf servers =
   write_ntp_conf other servers
 
 let clear_servers_in_conf () = set_servers_in_conf []
+
+(* chronyc -c sources output the ntp servers status in csv format. Example:
+    ^,-,10.62.16.11,5,6,377,54,0.000496471,0.000496471,0.071449950
+    ^,?,17.253.14.123,0,8,0,4294967295,0.000000000,0.000000000,0.000000000
+    ^,?,104.40.149.189,0,8,0,4294967295,0.000000000,0.000000000,0.000000000
+    ^,*,10.71.56.11,5,6,377,57,-0.000006851,-0.000118707,0.082518920
+   Source mode: '^' = server, '=' = peer, '#' = local clock.
+   Source state: '*' = current synced, '+' = combined, '-' = not combined,
+        '?' = unreachable, 'x' = time may be in error, '~' = time too variable
+*)
+let get_servers_status () =
+  let convert = function
+    | "*" ->
+        "synced"
+    | "+" ->
+        "combined"
+    | "-" ->
+        "uncombined"
+    | "x" ->
+        "error"
+    | "~" ->
+        "variable"
+    | "?" ->
+        "unreachable"
+    | _ ->
+        "unknown"
+  in
+  let r = Helpers.call_script !Xapi_globs.ntp_client_path ["-c"; "sources"] in
+  let lines = String.split_on_char '\n' r in
+  List.filter_map
+    (fun line ->
+      line |> String.trim |> String.split_on_char ',' |> function
+      | "^" :: status :: server :: _ ->
+          Some (server, convert status)
+      | _ ->
+          None
+    )
+    lines

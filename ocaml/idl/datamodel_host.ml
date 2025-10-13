@@ -2585,6 +2585,17 @@ let enable_ntp =
     ~params:[(Ref _host, "self", "The host")]
     ~allowed_roles:_R_POOL_OP ()
 
+let get_ntp_servers_status =
+  call ~name:"get_ntp_servers_status" ~lifecycle:[]
+    ~doc:"Get the NTP servers status on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Map (String, String)
+      , "The map of NTP server to its status, status may be \
+         synced/combined/uncombined/error/variable/unreachable/unknown"
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2734,6 +2745,7 @@ let t =
       ; set_ntp_custom_servers
       ; disable_ntp
       ; enable_ntp
+      ; get_ntp_servers_status
       ]
     ~contents:
       ([

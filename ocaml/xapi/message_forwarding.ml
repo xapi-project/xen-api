@@ -4150,6 +4150,13 @@ functor
         let local_fn = Local.Host.disable_ntp ~self in
         let remote_fn = Client.Host.disable_ntp ~self in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_ntp_servers_status ~__context ~self =
+        info "Host.get_ntp_servers_status: host = '%s'"
+          (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_ntp_servers_status ~self in
+        let remote_fn = Client.Host.get_ntp_servers_status ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct

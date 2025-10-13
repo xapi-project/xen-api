@@ -3430,3 +3430,9 @@ let enable_ntp ~__context ~self =
 let disable_ntp ~__context ~self =
   Xapi_host_ntp.disable_ntp_service () ;
   Db.Host.set_ntp_enabled ~__context ~self ~value:false
+
+let get_ntp_servers_status ~__context ~self:_ =
+  if Xapi_host_ntp.is_ntp_service_active () then
+    Xapi_host_ntp.get_servers_status ()
+  else
+    []
