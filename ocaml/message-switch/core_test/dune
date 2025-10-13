@@ -15,6 +15,7 @@
     message-switch-core
     message-switch-lwt
     threads.posix
+    unix
   )
 )
 

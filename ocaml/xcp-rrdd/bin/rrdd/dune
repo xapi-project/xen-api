@@ -17,6 +17,7 @@
     rrd-transport.lib
     stunnel
     threads.posix
+    unix
     uuid
     xapi-backtrace
     xapi-consts
@@ -53,6 +54,7 @@
     rrdd_plugin_xenctrl
     rrd-transport
     threads.posix
+    unix
     uuid
     xapi-backtrace
     xapi-consts.xapi_version

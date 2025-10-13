@@ -7,6 +7,7 @@
   forkexec
   result
   uuid
+  unix
   xapi-consts.xapi_version
   xapi-idl
   xapi-log

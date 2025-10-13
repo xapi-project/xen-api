@@ -18,6 +18,7 @@
   rpclib.core
   rpclib-lwt
   rpclib.xml
+  unix
   uuidm
   uri
   xapi_guard
@@ -44,6 +45,7 @@
   mtime
   mtime.clock
   mtime.clock.os
+  unix
   uuidm
   uri
   xapi-backtrace

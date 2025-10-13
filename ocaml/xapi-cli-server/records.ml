@@ -3399,6 +3399,9 @@ let host_record rpc session_id host =
             Client.Host.set_max_cstate ~rpc ~session_id ~self:host ~value
           )
           ()
+      ; make_field ~name:"secure-boot"
+          ~get:(fun () -> string_of_bool (x ()).API.host_secure_boot)
+          ()
       ]
   }
 

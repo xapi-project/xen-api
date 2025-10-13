@@ -10,6 +10,7 @@
    rpclib.core
    rpclib.json
    rpclib.xml
+   unix
    uuid
    xapi-backtrace
    xapi-log

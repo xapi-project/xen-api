@@ -11,6 +11,7 @@
     ipaddr.unix
     tar
     threads.posix
+    unix
     xapi-consts
     xapi-idl.network
     xapi-inventory

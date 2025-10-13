@@ -43,5 +43,6 @@
     fmt
     tgroup
     threads.posix
+    unix
     xapi_stdext_threads_scheduler)
 )

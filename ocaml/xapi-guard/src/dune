@@ -13,6 +13,7 @@
    rpclib.core
    rpclib.json
    rpclib-lwt
+   unix
    uuidm
    xapi_guard
    xapi_guard_server

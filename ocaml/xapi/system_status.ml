@@ -11,120 +11,173 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-open Http
-open Printf
-open Xapi_stdext_pervasives.Pervasiveext
-open Xapi_stdext_std.Xstringext
-open Forkhelpers
 
-let content_type = "application/data"
+module Request = Http.Request
 
-let xen_bugtool = "/usr/sbin/xen-bugtool"
+let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
 let task_label = "Retrieving system status"
 
-let module_key = "system_status"
+module L = Debug.Make (struct let name = __MODULE__ end)
 
-module D = Debug.Make (struct let name = module_key end)
+module Output = struct
+  (** The output formats of xen-bugtool *)
+  type t = Tar | TarBz2 | Zip
 
-open D
+  let of_string = function
+    | "tar" ->
+        Some Tar
+    | "tar.bz2" ->
+        Some TarBz2
+    | "zip" ->
+        Some Zip
+    | _ ->
+        None
 
-let get_capabilities () =
-  let cmd = sprintf "%s --capabilities" xen_bugtool in
-  Helpers.get_process_output cmd
+  let to_extension = function
+    | Tar ->
+        "tar"
+    | TarBz2 ->
+        "tar.bz2"
+    | Zip ->
+        "zip"
+
+  let to_mime = function
+    | Tar ->
+        "appliation/x-tar"
+    | TarBz2 ->
+        "application/x-bzip2"
+    | Zip ->
+        "application/zip"
+end
+
+module Bugtool = struct
+  let path = "/usr/sbin/xen-bugtool"
+
+  let params_cp ~entries ~extension =
+    [
+      Printf.sprintf "--entries=%s" entries
+    ; "--silent"
+    ; "--yestoall"
+    ; Printf.sprintf "--output=%s" extension
+    ]
+
+  let cmd_capabilities = Printf.sprintf "%s --capabilities" path
+
+  let params_fd ~entries ~extension ~uuid =
+    let params =
+      params_cp ~entries ~extension @ [Printf.sprintf "--outfd=%s" uuid]
+    in
+    let cmd = String.concat " " (path :: params) in
+    L.debug "%s: running %s" __FUNCTION__ cmd ;
+    params
+
+  let cmd_cp ~entries ~extension =
+    let params = params_cp ~entries ~extension in
+    let cmd = String.concat " " (path :: params) in
+    L.debug "%s: running %s" __FUNCTION__ cmd ;
+    cmd
+
+  let filename __context extension =
+    let timestamp = Ptime_clock.now () |> Ptime.to_rfc3339 ~tz_offset_s:0 in
+    let self = Helpers.get_localhost ~__context in
+    let hostname = Db.Host.get_hostname ~__context ~self in
+    Printf.sprintf "system_status-%s-%s.%s" timestamp hostname extension
+end
+
+let get_capabilities () = Helpers.get_process_output Bugtool.cmd_capabilities
 
 (* This fn outputs xen-bugtool straight to the socket, only
    for tar output. It should work on embedded edition *)
 let send_via_fd __context s entries output =
-  let s_uuid = Uuidx.to_string (Uuidx.make ()) in
-  let params =
-    [
-      sprintf "--entries=%s" entries
-    ; "--silent"
-    ; "--yestoall"
-    ; sprintf "--output=%s" output
-    ; "--outfd=" ^ s_uuid
-    ]
+  let uuid = Uuidx.to_string (Uuidx.make ()) in
+  let extension = Output.to_extension output in
+  let content_type = Output.to_mime output in
+  let filename = Bugtool.filename __context extension in
+  let params = Bugtool.params_fd ~entries ~extension ~uuid in
+  let headers =
+    Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
+    @ [
+        Printf.sprintf "Server: %s" Xapi_version.xapi_user_agent
+      ; Printf.sprintf "%s: %s" Http.Hdr.content_type content_type
+      ; Printf.sprintf {|%s: attachment; filename="%s"|}
+          Http.Hdr.content_disposition filename
+      ]
   in
-  let cmd = sprintf "%s %s" xen_bugtool (String.concat " " params) in
-  debug "running %s" cmd ;
-  try
-    let headers =
-      Http.http_200_ok ~keep_alive:false ~version:"1.0" ()
-      @ [
-          "Server: " ^ Xapi_version.xapi_user_agent
-        ; Http.Hdr.content_type ^ ": " ^ content_type
-        ; "Content-Disposition: attachment; filename=\"system_status.tgz\""
-        ]
-    in
-    Http_svr.headers s headers ;
-    let result =
-      with_logfile_fd "get-system-status" (fun log_fd ->
-          let pid =
-            safe_close_and_exec None (Some log_fd) (Some log_fd)
-              [(s_uuid, s)]
-              xen_bugtool params
-          in
-          waitpid_fail_if_bad_exit pid
-      )
-    in
-    match result with
-    | Success _ ->
-        debug "xen-bugtool exited successfully"
-    | Failure (log, exn) ->
-        debug "xen-bugtool failed with output: %s" log ;
-        raise exn
-  with e ->
-    let msg = "xen-bugtool failed: " ^ Printexc.to_string e in
-    error "%s" msg ;
-    raise
-      (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg])
-      )
+  Http_svr.headers s headers ;
+  let result =
+    Forkhelpers.with_logfile_fd "get-system-status" (fun log_fd ->
+        let pid =
+          Forkhelpers.safe_close_and_exec None (Some log_fd) (Some log_fd)
+            [(uuid, s)]
+            Bugtool.path params
+        in
+        Forkhelpers.waitpid_fail_if_bad_exit pid
+    )
+  in
+  match result with Success _ -> Ok () | Failure (log, exn) -> Error (log, exn)
 
 (* This fn outputs xen-bugtool into a file and then write the
    file out to the socket, to deal with zipped bugtool outputs
    It will not work on embedded edition *)
 let send_via_cp __context s entries output =
-  let cmd =
-    sprintf "%s --entries=%s --silent --yestoall --output=%s" xen_bugtool
-      entries output
-  in
-  let () = debug "running %s" cmd in
+  let extension = Output.to_extension output in
+  let content_type = Output.to_mime output in
+  let cmd = Bugtool.cmd_cp ~entries ~extension in
   try
-    let filename = String.rtrim (Helpers.get_process_output cmd) in
+    let filepath = String.trim (Helpers.get_process_output cmd) in
+    let filename = Bugtool.filename __context extension in
     let hsts_time = !Xapi_globs.hsts_max_age in
     finally
       (fun () ->
-        debug "bugball path: %s" filename ;
-        Http_svr.response_file ~mime_content_type:content_type ~hsts_time s
-          filename
+        Http_svr.response_file ~mime_content_type:content_type ~hsts_time
+          ~download_name:filename s filepath
       )
       (fun () ->
         Helpers.log_exn_continue "deleting xen-bugtool output" Unix.unlink
-          filename
-      )
-  with e ->
-    let msg = "xen-bugtool failed: " ^ ExnHelper.string_of_exn e in
-    error "%s" msg ;
-    raise
-      (Api_errors.Server_error (Api_errors.system_status_retrieval_failed, [msg])
-      )
+          filepath
+      ) ;
+    Ok ()
+  with e -> Error ("(Not captured)", e)
+
+let with_api_errors f ctx s entries output =
+  match f ctx s entries output with
+  | Ok () ->
+      ()
+  | Error (log, exn) ->
+      L.debug "xen-bugtool failed with output: %s" log ;
+      let msg = "xen-bugtool failed: " ^ Printexc.to_string exn in
+      raise Api_errors.(Server_error (system_status_retrieval_failed, [msg]))
+
+let send_capabilities req s =
+  let content = get_capabilities () in
+  let xml_type = "application/xml" in
+  let hdrs =
+    [
+      ("Server", Xapi_version.xapi_user_agent); (Http.Hdr.content_type, xml_type)
+    ]
+  in
+  Http_svr.response_str req ~hdrs s content
 
 let handler (req : Request.t) s _ =
-  debug "In system status http handler..." ;
   req.Request.close <- true ;
-  let get_param s = try List.assoc s req.Request.query with _ -> "" in
-  let entries = get_param "entries" in
-  let output = get_param "output" in
-  let () = debug "session_id: %s" (get_param "session_id") in
-  Xapi_http.with_context task_label req s (fun __context ->
-      if Helpers.on_oem ~__context && output <> "tar" then
-        raise
-          (Api_errors.Server_error
-             (Api_errors.system_status_must_use_tar_on_oem, [])
-          )
-      else if output = "tar" then
-        send_via_fd __context s entries output
-      else
-        send_via_cp __context s entries output
-  )
+  let get_param s = List.assoc_opt s req.Request.query in
+  let list_capabilies = Option.is_some (get_param "list") in
+  let entries = Option.value ~default:"" (get_param "entries") in
+  let output = Option.bind (get_param "output") Output.of_string in
+
+  let send_list () = send_capabilities req s in
+  let send_file () =
+    Xapi_http.with_context task_label req s @@ fun __context ->
+    match
+      (Helpers.on_oem ~__context, Option.value ~default:Output.Tar output)
+    with
+    | _, (Output.Tar as output) ->
+        with_api_errors send_via_fd __context s entries output
+    | false, output ->
+        with_api_errors send_via_cp __context s entries output
+    | true, _ ->
+        raise Api_errors.(Server_error (system_status_must_use_tar_on_oem, []))
+  in
+
+  if list_capabilies then send_list () else send_file ()

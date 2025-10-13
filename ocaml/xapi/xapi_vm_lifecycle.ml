@@ -420,7 +420,7 @@ let nvidia_sriov_pcis ~__context vgpus =
          Db.VGPU_type.get_implementation ~__context ~self:typ |> function
          | `nvidia_sriov ->
              let pci = Db.VGPU.get_PCI ~__context ~self:vgpu in
-             if Db.is_valid_ref __context pci then Some pci else None
+             Some pci
          | _ ->
              None
      )

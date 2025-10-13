@@ -6,6 +6,7 @@
     forkexec
     threads
     safe-resources
+    unix
     xapi-log
     xapi-stdext-pervasives
     xapi-stdext-unix
@@ -19,4 +20,4 @@
  ; don't install this
  ; (public_name xapi-gzip)
  ; (package xapi-compression)
- (libraries xapi_compression cmdliner))
+ (libraries xapi_compression cmdliner unix))

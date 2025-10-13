@@ -31,6 +31,7 @@
     tests_common
     threads.posix
     uuid
+    unix
     xapi-backtrace
     xapi-consts
     xapi-datamodel
@@ -71,6 +72,7 @@
     http_lib
     xapi-log
     clock
+    unix
     xapi-types
     xapi_internal
     xapi_internal_server
@@ -102,6 +104,7 @@
     rresult
     tests_common
     threads.posix
+    unix
     uuid
     xapi-client
     xapi-consts
