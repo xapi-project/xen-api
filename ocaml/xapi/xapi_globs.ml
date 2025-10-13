@@ -805,6 +805,8 @@ let ntp_dhcp_script = ref (Filename.concat "/etc/dhcp/dhclient.d" "chrony.sh")
 
 let ntp_dhcp_dir = ref "/run/chrony-dhcp"
 
+let ntp_client_path = ref "/usr/bin/chronyc"
+
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
 let udhcpd_leases_db = ref "/var/lib/xcp/dhcp-leases.db"
@@ -1847,6 +1849,11 @@ let other_options =
     , Arg.Set_string ntp_dhcp_dir
     , (fun () -> !ntp_dhcp_dir)
     , "Path to the ntp dhcp directory"
+    )
+  ; ( "ntp-client-path"
+    , Arg.Set_string ntp_client_path
+    , (fun () -> !ntp_client_path)
+    , "Path to the ntp client binary"
     )
   ; gen_list_option "default-ntp-servers"
       "space-separated list of default NTP servers"

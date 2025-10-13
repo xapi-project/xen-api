@@ -607,3 +607,6 @@ val enable_ntp : __context:Context.t -> self:API.ref_host -> unit
 val disable_ntp : __context:Context.t -> self:API.ref_host -> unit
 
 val sync_ntp_config : __context:Context.t -> host:API.ref_host -> unit
+
+val get_ntp_servers_status :
+  __context:Context.t -> self:API.ref_host -> (string * string) list

@@ -3461,3 +3461,9 @@ let sync_ntp_config ~__context ~host =
     Db.Host.set_ntp_custom_servers ~__context ~self:host ~value:servers ;
   let ntp_enabled = Xapi_host_ntp.is_ntp_service_active () in
   Db.Host.set_ntp_enabled ~__context ~self:host ~value:ntp_enabled
+
+let get_ntp_servers_status ~__context ~self:_ =
+  if Xapi_host_ntp.is_ntp_service_active () then
+    Xapi_host_ntp.get_servers_status ()
+  else
+    []

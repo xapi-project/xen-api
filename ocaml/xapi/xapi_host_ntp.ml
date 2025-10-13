@@ -117,3 +117,41 @@ let is_ntp_dhcp_enabled () =
     let stat = Unix.stat !Xapi_globs.ntp_dhcp_script in
     stat.Unix.st_perm land 0o100 <> 0
   with _ -> false
+
+(* chronyc -c sources output the ntp servers status in csv format. Example:
+    ^,-,10.62.16.11,5,6,377,54,0.000496471,0.000496471,0.071449950
+    ^,?,17.253.14.123,0,8,0,4294967295,0.000000000,0.000000000,0.000000000
+    ^,?,104.40.149.189,0,8,0,4294967295,0.000000000,0.000000000,0.000000000
+    ^,*,10.71.56.11,5,6,377,57,-0.000006851,-0.000118707,0.082518920
+   Source mode: '^' = server, '=' = peer, '#' = local clock.
+   Source state: '*' = current synced, '+' = combined, '-' = not combined,
+        '?' = unreachable, 'x' = time may be in error, '~' = time too variable
+*)
+let get_servers_status () =
+  let convert = function
+    | "*" ->
+        "synced"
+    | "+" ->
+        "combined"
+    | "-" ->
+        "uncombined"
+    | "x" ->
+        "error"
+    | "~" ->
+        "variable"
+    | "?" ->
+        "unreachable"
+    | _ ->
+        "unknown"
+  in
+  let r = Helpers.call_script !Xapi_globs.ntp_client_path ["-c"; "sources"] in
+  let lines = String.split_on_char '\n' r in
+  List.filter_map
+    (fun line ->
+      line |> String.trim |> String.split_on_char ',' |> function
+      | "^" :: status :: server :: _ ->
+          Some (server, convert status)
+      | _ ->
+          None
+    )
+    lines
