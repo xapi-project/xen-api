@@ -638,8 +638,10 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               in
               let dns =
                 match (static, rc.API.pIF_DNS) with
-                | false, _ | true, "" ->
+                | false, _ ->
                     None
+                | true, "" ->
+                    Some ([], [])
                 | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
