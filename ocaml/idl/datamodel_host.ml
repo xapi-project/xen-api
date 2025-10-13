@@ -1391,6 +1391,13 @@ let create_params =
     ; param_release= numbered_release "25.32.0"
     ; param_default= Some (VBool false)
     }
+  ; {
+      param_type= Map (String, String)
+    ; param_name= "software_version"
+    ; param_doc= "Information about the software versions on the host"
+    ; param_release= numbered_release "25.32.0-next"
+    ; param_default= Some (VMap [])
+    }
   ]
 
 let create =

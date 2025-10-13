@@ -1921,7 +1921,8 @@ functor
 
       let start_on ~__context ~vm ~host ~start_paused ~force =
         if Helpers.rolling_upgrade_in_progress ~__context then
-          Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
+          Helpers.Checks.RPU.assert_host_has_highest_version_in_pool ~__context
+            ~host ;
         Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Xapi_vm_helpers.assert_matches_control_domain_affinity ~__context
           ~self:vm ~host ;
@@ -2427,7 +2428,8 @@ functor
 
       let resume_on ~__context ~vm ~host ~start_paused ~force =
         if Helpers.rolling_upgrade_in_progress ~__context then
-          Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
+          Helpers.Checks.RPU.assert_host_has_highest_version_in_pool ~__context
+            ~host ;
         info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
@@ -2485,7 +2487,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate"
           ~op:`pool_migrate ~strict:(not force) (fun () ->
             let to_equal_or_greater_version =
-              Helpers.host_versions_not_decreasing ~__context
+              Helpers.Checks.Migration.host_versions_not_decreasing ~__context
                 ~host_from:(Helpers.LocalObject source_host)
                 ~host_to:(Helpers.LocalObject host)
             in

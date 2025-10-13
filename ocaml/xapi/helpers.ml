@@ -919,142 +919,167 @@ let sort_by_schwarzian ?(descending = false) f list =
   |> List.sort (fun (_, x') (_, y') -> comp x' y')
   |> List.map (fun (x, _) -> x)
 
-let version_keys_list =
-  Xapi_globs.[_platform_version; _xapi_build_version; _xen_version]
+module Checks = struct
+  let get_software_versions ~version_keys ~__context host =
+    ( match host with
+    | LocalObject self ->
+        Db.Host.get_software_version ~__context ~self
+    | RemoteObject (rpc, session_id, self) ->
+        Client.Client.Host.get_software_version ~rpc ~session_id ~self
+    )
+    |> List.filter (fun (k, _) -> List.mem k version_keys)
 
-let get_software_versions ~__context host =
-  ( match host with
-  | LocalObject self ->
-      Db.Host.get_software_version ~__context ~self
-  | RemoteObject (rpc, session_id, self) ->
-      Client.Client.Host.get_software_version ~rpc ~session_id ~self
-  )
-  |> List.filter (fun (k, _) -> List.mem k version_keys_list)
+  let versions_string_of : (string * string) list -> string =
+   fun ver_list ->
+    ver_list
+    |> List.map (fun (k, v) -> Printf.sprintf "%s: %s" k v)
+    |> String.concat ","
 
-let versions_string_of : (string * string) list -> string =
- fun ver_list ->
-  ver_list
-  |> List.map (fun (k, v) -> Printf.sprintf "%s: %s" k v)
-  |> String.concat ","
+  let version_numbers_of_string version_string =
+    ( match String.split_on_char '-' version_string with
+    | [standard_version; patch] ->
+        String.split_on_char '.' standard_version @ [patch]
+    | [standard_version] ->
+        String.split_on_char '.' standard_version
+    | _ ->
+        ["0"; "0"; "0"]
+    )
+    |> List.filter_map int_of_string_opt
 
-let version_numbers_of_string version_string =
-  ( match String.split_on_char '-' version_string with
-  | [standard_version; patch] ->
-      String.split_on_char '.' standard_version @ [patch]
-  | [standard_version] ->
-      String.split_on_char '.' standard_version
-  | _ ->
-      ["0"; "0"; "0"]
-  )
-  |> List.filter_map int_of_string_opt
+  let version_of : version_key:string -> (string * string) list -> int list =
+   fun ~version_key versions_list ->
+    List.assoc_opt version_key versions_list
+    |> Option.value ~default:"0.0.0"
+    |> version_numbers_of_string
 
-let version_of : version_key:string -> (string * string) list -> int list =
- fun ~version_key versions_list ->
-  List.assoc_opt version_key versions_list
-  |> Option.value ~default:"0.0.0"
-  |> version_numbers_of_string
+  (* Compares host versions, analogous to Stdlib.compare. *)
+  let compare_versions :
+         version_key:string
+      -> (string * string) list
+      -> (string * string) list
+      -> int =
+   fun ~version_key sw_ver_a sw_ver_b ->
+    let version_a = version_of ~version_key sw_ver_a in
+    let version_b = version_of ~version_key sw_ver_b in
+    compare_int_lists version_a version_b
 
-(* Compares host versions, analogous to Stdlib.compare. *)
-let compare_versions :
-       version_key:string
-    -> (string * string) list
-    -> (string * string) list
-    -> int =
- fun ~version_key sw_ver_a sw_ver_b ->
-  let version_a = version_of ~version_key sw_ver_a in
-  let version_b = version_of ~version_key sw_ver_b in
-  compare_int_lists version_a version_b
-
-let compare_all_versions ~is_greater_or_equal:a ~than:b =
-  List.for_all
-    (fun version_key -> compare_versions ~version_key a b >= 0)
-    version_keys_list
-
-let max_version_in_pool : __context:Context.t -> (string * string) list =
- fun ~__context ->
-  let max_version a b =
-    if a = [] then
-      b
-    else if compare_all_versions ~is_greater_or_equal:a ~than:b then
-      a
-    else
-      b
-  and versions =
-    List.map
-      (fun host_ref -> get_software_versions ~__context (LocalObject host_ref))
-      (Db.Host.get_all ~__context)
-  in
-  List.fold_left max_version [] versions
-
-let host_has_highest_version_in_pool :
-    __context:Context.t -> host:[`host] api_object -> bool =
- fun ~__context ~host ->
-  let host_versions = get_software_versions ~__context host
-  and max_version = max_version_in_pool ~__context in
-  compare_all_versions ~is_greater_or_equal:host_versions ~than:max_version
-
-let host_versions_not_decreasing ~__context ~host_from ~host_to =
-  let sw_vers_from = get_software_versions ~__context host_from in
-  let sw_vers_to = get_software_versions ~__context host_to in
-  compare_all_versions ~is_greater_or_equal:sw_vers_to ~than:sw_vers_from
-
-let are_host_versions_same_on_master_inner ~__context ~host ~master =
-  if is_pool_master ~__context ~host then
-    true
-  else
-    let sw_ver_master = get_software_versions ~__context (LocalObject master) in
-    let sw_ver_host = get_software_versions ~__context (LocalObject host) in
+  let compare_all_versions ~version_keys ~is_greater_or_equal:a ~than:b =
     List.for_all
-      (fun version_key ->
-        compare_versions ~version_key sw_ver_master sw_ver_host = 0
-      )
-      version_keys_list
+      (fun version_key -> compare_versions ~version_key a b >= 0)
+      version_keys
 
-let are_host_versions_same_on_master ~__context ~host =
-  let master = get_master ~__context in
-  are_host_versions_same_on_master_inner ~__context ~host ~master
+  module RPU = struct
+    let version_keys = Xapi_globs.[_platform_version; _xapi_version]
+
+    let get_software_versions ~__context host =
+      get_software_versions ~version_keys ~__context host
+
+    let compare_all_versions ~is_greater_or_equal:a ~than:b =
+      compare_all_versions ~version_keys ~is_greater_or_equal:a ~than:b
+
+    let max_version_in_pool : __context:Context.t -> (string * string) list =
+     fun ~__context ->
+      let max_version a b =
+        if a = [] then
+          b
+        else if compare_all_versions ~is_greater_or_equal:a ~than:b then
+          a
+        else
+          b
+      and versions =
+        List.map
+          (fun host_ref ->
+            get_software_versions ~__context (LocalObject host_ref)
+          )
+          (Db.Host.get_all ~__context)
+      in
+      List.fold_left max_version [] versions
+
+    let host_has_highest_version_in_pool :
+        __context:Context.t -> host:[`host] api_object -> bool =
+     fun ~__context ~host ->
+      let host_versions = get_software_versions ~__context host
+      and max_version = max_version_in_pool ~__context in
+      compare_all_versions ~is_greater_or_equal:host_versions ~than:max_version
+
+    (* Assertion functions which raise an exception if certain invariants
+       are broken during an upgrade. *)
+    let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
+     fun ~__context ->
+      if rolling_upgrade_in_progress ~__context then
+        raise
+          (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+
+    let assert_host_has_highest_version_in_pool ~(__context : Context.t)
+        ~(host : API.ref_host) : unit =
+      if
+        not
+          (host_has_highest_version_in_pool ~__context ~host:(LocalObject host))
+      then
+        raise
+          (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
+
+    let are_host_versions_same_on_master_inner ~__context ~host ~master =
+      if is_pool_master ~__context ~host then
+        true
+      else
+        let sw_ver_master =
+          get_software_versions ~__context (LocalObject master)
+        in
+        let sw_ver_host = get_software_versions ~__context (LocalObject host) in
+        List.for_all
+          (fun version_key ->
+            compare_versions ~version_key sw_ver_master sw_ver_host = 0
+          )
+          version_keys
+
+    let are_host_versions_same_on_master ~__context ~host =
+      let master = get_master ~__context in
+      are_host_versions_same_on_master_inner ~__context ~host ~master
+
+    let pool_has_different_host_platform_versions ~__context =
+      let all_hosts = Db.Host.get_all ~__context in
+      let master = get_master ~__context in
+      not
+        (List.for_all
+           (fun host ->
+             are_host_versions_same_on_master_inner ~__context ~host ~master
+           )
+           all_hosts
+        )
+
+    let assert_host_versions_are_same_on_master ~__context ~host ~self =
+      if not (are_host_versions_same_on_master ~__context ~host) then
+        raise
+          (Api_errors.Server_error
+             ( Api_errors.vm_host_incompatible_version
+             , [Ref.string_of host; Ref.string_of self]
+             )
+          )
+  end
+
+  module Migration = struct
+    let version_keys =
+      Xapi_globs.[_platform_version; _xapi_build_version; _xen_version]
+
+    let get_software_versions ~__context host =
+      get_software_versions ~version_keys ~__context host
+
+    let compare_all_versions ~is_greater_or_equal:a ~than:b =
+      compare_all_versions ~version_keys ~is_greater_or_equal:a ~than:b
+
+    let host_versions_not_decreasing ~__context ~host_from ~host_to =
+      let sw_vers_from = get_software_versions ~__context host_from in
+      let sw_vers_to = get_software_versions ~__context host_to in
+      compare_all_versions ~is_greater_or_equal:sw_vers_to ~than:sw_vers_from
+  end
+end
 
 let maybe_raise_vtpm_unimplemented func message =
   if not !ignore_vtpm_unimplemented then (
     error {|%s: Functionality not implemented yet. "%s"|} func message ;
     raise Api_errors.(Server_error (not_implemented, [message]))
   )
-
-let assert_host_versions_are_same_on_master ~__context ~host ~self =
-  if not (are_host_versions_same_on_master ~__context ~host) then
-    raise
-      (Api_errors.Server_error
-         ( Api_errors.vm_host_incompatible_version
-         , [Ref.string_of host; Ref.string_of self]
-         )
-      )
-
-(** PR-1007 - block operations during rolling upgrade *)
-
-(* Assertion functions which raise an exception if certain invariants
-   are broken during an upgrade. *)
-let assert_rolling_upgrade_not_in_progress : __context:Context.t -> unit =
- fun ~__context ->
-  if rolling_upgrade_in_progress ~__context then
-    raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
-
-let assert_host_has_highest_version_in_pool :
-    __context:Context.t -> host:API.ref_host -> unit =
- fun ~__context ~host ->
-  if not (host_has_highest_version_in_pool ~__context ~host:(LocalObject host))
-  then
-    raise (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, []))
-
-let pool_has_different_host_platform_versions ~__context =
-  let all_hosts = Db.Host.get_all ~__context in
-  let master = get_master ~__context in
-  not
-    (List.for_all
-       (fun host ->
-         are_host_versions_same_on_master_inner ~__context ~host ~master
-       )
-       all_hosts
-    )
 
 (* Checks that a host has a PBD for a particular SR (meaning that the
    SR is visible to the host) *)

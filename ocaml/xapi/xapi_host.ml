@@ -295,19 +295,20 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
      	   the source host. So as long as host versions aren't decreasing,
      	   we're allowed to migrate VMs between hosts. *)
   debug "evacuating host version: %s"
-    (Helpers.get_software_versions ~__context (Helpers.LocalObject host)
-    |> Helpers.versions_string_of
+    (Helpers.Checks.Migration.get_software_versions ~__context
+       (Helpers.LocalObject host)
+    |> Helpers.Checks.versions_string_of
     ) ;
   let target_hosts =
     List.filter
       (fun target ->
         debug "host %s version: %s"
           (Db.Host.get_hostname ~__context ~self:target)
-          Helpers.(
-            get_software_versions ~__context (LocalObject target)
+          Helpers.Checks.(
+            Migration.get_software_versions ~__context (LocalObject target)
             |> versions_string_of
           ) ;
-        Helpers.host_versions_not_decreasing ~__context
+        Helpers.Checks.Migration.host_versions_not_decreasing ~__context
           ~host_from:(Helpers.LocalObject host)
           ~host_to:(Helpers.LocalObject target)
       )
@@ -1028,7 +1029,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~secure_boot =
+    ~secure_boot ~software_version =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1063,9 +1064,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     (* no or multiple pools *)
   in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
-    ~allowed_operations:[] ~https_only:false
-    ~software_version:(Xapi_globs.software_version ())
-    ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
+    ~allowed_operations:[] ~https_only:false ~software_version ~enabled:false
+    ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
     ~aPI_version_vendor:Datamodel_common.api_version_vendor
     ~aPI_version_vendor_implementation:
