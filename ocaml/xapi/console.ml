@@ -126,7 +126,87 @@ let address_of_console __context console : address option =
     ) ;
   address_option
 
-let real_proxy' vnc_port s =
+module Console_idle_monitor = struct
+  let get_idle_timeout_config ~__context ~vm =
+    try
+      let idle_timeout =
+        if Db.VM.get_is_control_domain ~__context ~self:vm then
+          let host = Helpers.get_localhost ~__context in
+          Db.Host.get_console_idle_timeout ~__context ~self:host
+        else
+          let pool = Helpers.get_pool ~__context in
+          Db.Pool.get_vm_console_idle_timeout ~__context ~self:pool
+      in
+      if idle_timeout > 0L then Some (Int64.to_float idle_timeout) else None
+    with _ -> None
+
+  let is_active messages =
+    List.exists
+      (function
+        | Rfb_client_msgtype_parser.KeyEvent
+        | Rfb_client_msgtype_parser.PointerEvent
+        | Rfb_client_msgtype_parser.QEMUClientMessage ->
+            true
+        | _ ->
+            false
+        )
+      messages
+
+  let timed_out ~idle_timeout_seconds ~last_activity =
+    let elapsed = Mtime_clock.count last_activity in
+    Mtime.Span.to_float_ns elapsed /. 1e9 > idle_timeout_seconds
+
+  (* Create an idle timeout callback for the console,
+     if idle timeout, then close the proxy *)
+  let create_idle_timeout_callback ~__context ~vm =
+    match get_idle_timeout_config ~__context ~vm with
+    | Some idle_timeout_seconds -> (
+        let module P = Rfb_client_msgtype_parser in
+        let state = ref (Some (P.create (), Mtime_clock.counter ())) in
+        (* Return true for idle timeout to close the proxy,
+            otherwise return false to keep the proxy open *)
+        fun (buf, read_len, offset) ->
+          match !state with
+          | None ->
+              false
+          | Some (rfb_parser, last_activity) ->
+              let ok msgs =
+                if is_active msgs then (
+                  state := Some (rfb_parser, Mtime_clock.counter ()) ;
+                  false
+                ) else
+                  let timeout_result =
+                    timed_out ~idle_timeout_seconds ~last_activity
+                  in
+                  if timeout_result then
+                    debug
+                      "Console connection idle timeout exceeded for VM %s \
+                       (timeout: %.1fs)"
+                      (Ref.string_of vm) idle_timeout_seconds ;
+                  timeout_result
+              in
+              let error msg =
+                debug "RFB parse error: %s" msg ;
+                state := None ;
+                false
+              in
+              Bytes.sub_string buf offset read_len
+              |> rfb_parser
+              |> Result.fold ~ok ~error
+      )
+    | None ->
+        Fun.const false
+end
+
+let get_poll_timeout =
+  let poll_period_timeout = !Xapi_globs.proxy_poll_period_timeout in
+  if poll_period_timeout < 0. then
+    -1
+  else
+    Float.to_int (poll_period_timeout *. 1000.)
+(* convert to milliseconds *)
+
+let real_proxy' ~__context ~vm vnc_port s =
   try
     Http_svr.headers s (Http.http_200_ok ()) ;
     let vnc_sock =
@@ -141,7 +221,12 @@ let real_proxy' vnc_port s =
     debug "Connected; running proxy (between fds: %d and %d)"
       (Unixext.int_of_file_descr vnc_sock)
       (Unixext.int_of_file_descr s') ;
-    Unixext.proxy vnc_sock s' ;
+
+    let poll_timeout = get_poll_timeout in
+    let should_close =
+      Console_idle_monitor.create_idle_timeout_callback ~__context ~vm
+    in
+    Unixext.proxy ~should_close ~poll_timeout vnc_sock s' ;
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
@@ -153,7 +238,7 @@ let real_proxy __context vm _ _ vnc_port s =
   in
   if Connection_limit.try_add vm_id is_limit_enabled then
     finally (* Ensure we drop the vm connection count if exceptions occur *)
-      (fun () -> real_proxy' vnc_port s)
+      (fun () -> real_proxy' ~__context ~vm vnc_port s)
       (fun () -> Connection_limit.drop vm_id)
   else
     Http_svr.headers s (Http.http_503_service_unavailable ())
