@@ -98,6 +98,7 @@ module TracerProvider = struct
       ; "xs.host.name"
       ; "xs.host.uuid"
       ; "xs.observer.name"
+      ; "xs.observer.uuid"
       ; "service.name"
       ]
 
@@ -301,6 +302,7 @@ let verify_json_fields_and_values ~json =
         , `Assoc
             [
               ("xs.pool.uuid", `String _)
+            ; ("xs.observer.uuid", `String _)
             ; ("xs.observer.name", `String "test-observer")
             ; ("xs.host.uuid", `String _)
             ; ("xs.host.name", `String _)
