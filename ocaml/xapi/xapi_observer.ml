@@ -245,16 +245,19 @@ module Xapi_cluster = struct
   end
 end
 
-let default_attributes ~__context ~host ~name_label ~component =
+let default_attributes ~__context ~host ~observer ~component =
   let pool = Helpers.get_pool ~__context in
   let host_label = Db.Host.get_name_label ~__context ~self:host in
   let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+  let name_label = Db.Observer.get_name_label ~__context ~self:observer in
+  let observer_uuid = Db.Observer.get_uuid ~__context ~self:observer in
   [
     ("xs.pool.uuid", pool_uuid)
   ; ("xs.host.name", host_label)
   ; ("xs.host.uuid", host_uuid)
   ; ("xs.observer.name", name_label)
+  ; ("xs.observer.uuid", observer_uuid)
   ; ("service.name", to_string component)
   ]
 
@@ -289,13 +292,12 @@ module ObserverConfig = struct
        from and updated instead of being regenerated. *)
     let endpoints = Db.Observer.get_endpoints ~__context ~self:observer in
     let host = Helpers.get_localhost ~__context in
-    let name_label = Db.Observer.get_name_label ~__context ~self:observer in
     {
       otel_service_name= to_string component
     ; otel_resource_attributes=
         attributes_to_W3CBaggage
           (Db.Observer.get_attributes ~__context ~self:observer
-          @ default_attributes ~__context ~host ~name_label ~component
+          @ default_attributes ~__context ~host ~observer ~component
           )
     ; xs_exporter_zipkin_endpoints= zipkin_endpoints endpoints
     ; xs_exporter_bugtool_endpoint= bugtool_endpoint endpoints
@@ -513,11 +515,11 @@ let assert_valid_attributes attributes =
     attributes
 
 let register_component ~__context ~self ~host ~component =
-  let name_label = Db.Observer.get_name_label ~__context ~self in
   let attributes =
-    default_attributes ~__context ~host ~name_label ~component
+    default_attributes ~__context ~host ~observer:self ~component
     @ Db.Observer.get_attributes ~__context ~self
   in
+  let name_label = Db.Observer.get_name_label ~__context ~self in
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let endpoints = Db.Observer.get_endpoints ~__context ~self in
   let enabled = Db.Observer.get_enabled ~__context ~self in
@@ -691,14 +693,13 @@ let set_attributes ~__context ~self ~value =
   assert_valid_attributes value ;
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let host = Helpers.get_localhost ~__context in
-  let name_label = Db.Observer.get_name_label ~__context ~self in
   let observation_fn () =
     List.iter
       (fun c ->
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_attributes ~__context ~uuid
           ~attributes:
-            (default_attributes ~__context ~host ~name_label ~component:c
+            (default_attributes ~__context ~host ~observer:self ~component:c
             @ value
             )
       )
