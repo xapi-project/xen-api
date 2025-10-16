@@ -149,6 +149,10 @@ let response_error_html ?(version = "1.1") s code message hdrs body =
   D.debug "Response %s" (Http.Response.to_string res) ;
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
+let response_custom_error ?req s error_code reason body =
+  let version = Option.map get_return_version req in
+  response_error_html ?version s error_code reason [] body
+
 let response_unauthorised ?req label s =
   let version = Option.map get_return_version req in
   let body =
@@ -164,10 +168,6 @@ let response_forbidden ?req s =
     "<html><body><h1>HTTP 403 forbidden</h1>Access to the requested resource \
      is forbidden.</body></html>"
   in
-  response_error_html ?version s "403" "Forbidden" [] body
-
-let response_forbidden_with_body ?req s body =
-  let version = Option.map get_return_version req in
   response_error_html ?version s "403" "Forbidden" [] body
 
 let response_badrequest ?req s =
