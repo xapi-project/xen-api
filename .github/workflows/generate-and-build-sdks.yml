@@ -24,6 +24,7 @@ jobs:
         uses: ./.github/workflows/setup-xapi-environment
         with:
           xapi_version: ${{ inputs.xapi_version }}
+          ocaml_version: "4.14.2"
 
       - name: Generate SDKs
         shell: bash
