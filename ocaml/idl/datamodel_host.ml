@@ -2544,6 +2544,58 @@ let set_max_cstate =
       ]
     ~allowed_roles:_R_POOL_OP ()
 
+let host_ntp_mode =
+  Enum
+    ( "host_ntp_mode"
+    , [
+        ("ntp_mode_dhcp", "Using NTP servers assigned by DHCP to sync time")
+      ; ( "ntp_mode_custom"
+        , "Using custom NTP servers configured by user to sync time"
+        )
+      ; ("ntp_mode_default", "Using default NTP servers to sync time")
+      ]
+    )
+
+let set_ntp_mode =
+  call ~name:"set_ntp_mode" ~lifecycle:[] ~doc:"Set the NTP mode for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (host_ntp_mode, "value", "The NTP mode to set")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let set_ntp_custom_servers =
+  call ~name:"set_ntp_custom_servers" ~lifecycle:[]
+    ~doc:"Set the custom NTP servers for the host"
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; (Set String, "value", "The set of custom NTP servers to configure")
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let disable_ntp =
+  call ~name:"disable_ntp" ~lifecycle:[] ~doc:"Disable NTP on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_POOL_OP ()
+
+let enable_ntp =
+  call ~name:"enable_ntp" ~lifecycle:[] ~doc:"Enable NTP on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_POOL_OP ()
+
+let get_ntp_servers_status =
+  call ~name:"get_ntp_servers_status" ~lifecycle:[]
+    ~doc:"Get the NTP servers status on the host"
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Map (String, String)
+      , "The map of NTP server to its status, status may be \
+         synced/combined/uncombined/error/variable/unreachable/unknown"
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2689,6 +2741,11 @@ let t =
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
       ; set_max_cstate
+      ; set_ntp_mode
+      ; set_ntp_custom_servers
+      ; disable_ntp
+      ; enable_ntp
+      ; get_ntp_servers_status
       ]
     ~contents:
       ([
@@ -3156,6 +3213,16 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "secure_boot"
             "Whether the host has booted in secure boot mode"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_ntp_mode
+            ~default_value:(Some (VEnum "ntp_mode_dhcp")) "ntp_mode"
+            "Indicates NTP servers are assigned by DHCP, or configured by \
+             user, or the default servers"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set String)
+            ~default_value:(Some (VSet [])) "ntp_custom_servers"
+            "The set of NTP servers configured for the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "ntp_enabled"
+            "Reflects whether NTP is enabled on the host"
         ]
       )
     ()
