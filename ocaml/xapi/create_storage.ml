@@ -79,24 +79,20 @@ let maybe_create_pbd rpc session_id sr device_config me =
       (fun self -> Client.PBD.get_host ~rpc ~session_id ~self = me)
       pbds
   in
-  (* Check not more than 1 pbd in the database *)
-  let pbds =
-    if List.length pbds > 1 then (
-      (* shouldn't happen... delete all but first pbd to make db consistent again *)
-      List.iter
-        (fun pbd -> Client.PBD.destroy ~rpc ~session_id ~self:pbd)
-        (List.tl pbds) ;
-      [List.hd pbds]
-    ) else
-      pbds
-  in
-  if pbds = [] (* If there's no PBD, create it *) then
+  let create () : [`PBD] Ref.t =
     Client.PBD.create ~rpc ~session_id ~host:me ~sR:sr ~device_config
       ~other_config:[]
-  else
-    List.hd pbds
-
-(* Otherwise, return the current one *)
+  in
+  (* Ensure there's a single PBD *)
+  match pbds with
+  | [] ->
+      ignore (create ())
+  | [_] ->
+      ()
+  | _ :: pbds ->
+      (* shouldn't happen... delete all but first pbd to make db consistent
+         again *)
+      List.iter (fun pbd -> Client.PBD.destroy ~rpc ~session_id ~self:pbd) pbds
 
 let maybe_remove_tools_sr rpc session_id __context =
   let srs = Db.SR.get_all ~__context in
@@ -153,17 +149,13 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
       List.filter (fun (_, pbd_rec) -> pbd_rec.API.pBD_host = master) pbds
     in
     let maybe_create_pbd_for_shared_sr s =
-      let _, mpbd_rec =
-        List.find (fun (_, pbdr) -> pbdr.API.pBD_SR = s) master_pbds
-      in
-      let master_devconf = mpbd_rec.API.pBD_device_config in
-      let my_devconf = List.remove_assoc "SRmaster" master_devconf in
-      (* this should never be used *)
-      maybe_create_pbd rpc session_id s my_devconf me
+      List.find_opt (fun (_, pbdr) -> pbdr.API.pBD_SR = s) master_pbds
+      |> Option.iter @@ fun (_, mpbd_rec) ->
+         let master_devconf = mpbd_rec.API.pBD_device_config in
+         let my_devconf = List.remove_assoc "SRmaster" master_devconf in
+         try maybe_create_pbd rpc session_id s my_devconf me with _ -> ()
     in
-    List.iter
-      (fun s -> try ignore (maybe_create_pbd_for_shared_sr s) with _ -> ())
-      shared_sr_refs
+    List.iter maybe_create_pbd_for_shared_sr shared_sr_refs
   in
   let other_config =
     try
@@ -173,9 +165,8 @@ let initialise_storage (me : API.ref_host) rpc session_id __context : unit =
   in
   if
     not
-      (List.mem_assoc Xapi_globs.sync_create_pbds other_config
-      && List.assoc Xapi_globs.sync_create_pbds other_config
-         = Xapi_globs.sync_switch_off
+      (List.assoc_opt Xapi_globs.sync_create_pbds other_config
+      = Some Xapi_globs.sync_switch_off
       )
   then (
     debug "Creating PBDs for shared SRs" ;

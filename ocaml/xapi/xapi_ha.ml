@@ -1869,10 +1869,7 @@ let enable __context heartbeat_srs configuration =
         with _ -> false
       in
       if not alive then
-        raise
-          (Api_errors.Server_error
-             (Api_errors.host_offline, [Ref.string_of host])
-          )
+        raise Api_errors.(Server_error (host_offline, [Ref.string_of host]))
     )
     (Db.Host.get_all ~__context) ;
   let pool = Helpers.get_pool ~__context in
@@ -1897,20 +1894,23 @@ let enable __context heartbeat_srs configuration =
       else
         heartbeat_srs
     in
-    if possible_srs = [] then
-      raise (Api_errors.Server_error (Api_errors.cannot_create_state_file, [])) ;
-    (* For the moment we'll create a state file in one compatible SR since the xHA component only handles one *)
-    let srs = [List.hd possible_srs] in
+    (* For the moment we'll create a state file in one compatible SR since the
+       xHA component only handles one *)
+    let sr =
+      match possible_srs with
+      | [] ->
+          raise Api_errors.(Server_error (cannot_create_state_file, []))
+      | sr :: _ ->
+          sr
+    in
     List.iter
       (fun sr ->
         let vdi = Xha_statefile.find_or_create ~__context ~sr ~cluster_stack in
         statefile_vdis := vdi :: !statefile_vdis
       )
-      srs ;
+      [sr] ;
     (* For storing the database, assume there is only one SR *)
-    let database_vdi =
-      Xha_metadata_vdi.find_or_create ~__context ~sr:(List.hd srs)
-    in
+    let database_vdi = Xha_metadata_vdi.find_or_create ~__context ~sr in
     database_vdis := database_vdi :: !database_vdis ;
     (* Record the statefile UUIDs in the Pool.ha_statefile set *)
     Db.Pool.set_ha_statefiles ~__context ~self:pool
@@ -1991,14 +1991,16 @@ let enable __context heartbeat_srs configuration =
               (ExnHelper.string_of_exn e)
           )
           errors ;
-        if errors <> [] then (
-          (* Perform a disable since the pool HA state isn't consistent *)
-          error "Attempting to disable HA pool-wide" ;
-          Helpers.log_exn_continue
-            "Disabling HA after a failure joining all hosts to the liveset"
-            disable_internal __context ;
-          raise (snd (List.hd errors))
-        ) ;
+        List.iter
+          (fun (_, exn) ->
+            (* Perform a disable since the pool HA state isn't consistent *)
+            error "Attempting to disable HA pool-wide" ;
+            Helpers.log_exn_continue
+              "Disabling HA after a failure joining all hosts to the liveset"
+              disable_internal __context ;
+            raise exn
+          )
+          errors ;
         (* We have to set the HA enabled flag before forcing a database resynchronisation *)
         Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true ;
         debug "HA enabled" ;
@@ -2036,13 +2038,16 @@ let enable __context heartbeat_srs configuration =
               (ExnHelper.string_of_exn e)
           )
           errors ;
-        if errors <> [] then (
-          (* Perform a disable since the pool HA state isn't consistent *)
-          error "Attempting to disable HA pool-wide" ;
-          Helpers.log_exn_continue "Disabling HA after a failure during enable"
-            disable_internal __context ;
-          raise (snd (List.hd errors))
-        ) ;
+        List.iter
+          (fun (_, exn) ->
+            (* Perform a disable since the pool HA state isn't consistent *)
+            error "Attempting to disable HA pool-wide" ;
+            Helpers.log_exn_continue
+              "Disabling HA after a failure during enable" disable_internal
+              __context ;
+            raise exn
+          )
+          errors ;
         (* Update the allowed_operations on the HA volumes to prevent people thinking they can mess with them *)
         List.iter
           (fun vdi -> Xapi_vdi.update_allowed_operations ~__context ~self:vdi)
