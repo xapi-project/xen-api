@@ -380,7 +380,7 @@ let consider_enabling_host_nolock ~__context =
         Disabled hosts are excluded from the HA planning calculations. Otherwise a host may boot,
         fail to plug in a PBD and cause all protected VMs to suddenly become non-agile. *)
   let ha_enabled =
-    try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
   in
   let localhost = Helpers.get_localhost ~__context in
   let pbds = Db.Host.get_PBDs ~__context ~self:localhost in
@@ -423,8 +423,7 @@ let consider_enabling_host_nolock ~__context =
         f ()
     in
     let host_auto_enable =
-      try bool_of_string (Localdb.get Constants.host_auto_enable)
-      with _ -> true
+      Localdb.get_bool Constants.host_auto_enable |> Option.value ~default:true
     in
     if !Xapi_globs.on_system_boot then (
       debug "Host.enabled: system has just restarted" ;
@@ -451,8 +450,8 @@ let consider_enabling_host_nolock ~__context =
                until manually re-enabled by the user"
       )
     ) else if
-        try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
-        with _ -> false
+        Localdb.get_bool Constants.host_disabled_until_reboot
+        |> Option.value ~default:false
       then
       debug
         "Host.enabled: system not just rebooted but host_disabled_until_reboot \

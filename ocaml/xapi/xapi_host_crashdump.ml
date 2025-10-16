@@ -71,8 +71,8 @@ let resynchronise ~__context ~host =
   let gone_away = Listext.List.set_difference db_filenames real_filenames
   and arrived = Listext.List.set_difference real_filenames db_filenames in
   let was_shutdown_cleanly =
-    try bool_of_string (Localdb.get Constants.host_restarted_cleanly)
-    with _ -> false
+    Localdb.get_bool Constants.host_restarted_cleanly
+    |> Option.value ~default:false
   in
   Localdb.put Constants.host_restarted_cleanly "false" ;
   (* If HA is enabled AND no crashdump appeared AND we weren't shutdown cleanly then assume it was a fence. *)

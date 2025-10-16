@@ -76,8 +76,11 @@ let propose_master () =
 
 (** Returns true if local failover decisions have not been disabled on this node *)
 let local_failover_decisions_are_ok () =
-  try not (bool_of_string (Localdb.get Constants.ha_disable_failover_decisions))
-  with _ -> true
+  let disabled =
+    Localdb.get_bool Constants.ha_disable_failover_decisions
+    |> Option.value ~default:false
+  in
+  not disabled
 
 (** Since the liveset info doesn't include the host IP address, we persist these ourselves *)
 let write_uuid_to_ip_mapping ~__context =
@@ -91,8 +94,11 @@ let write_uuid_to_ip_mapping ~__context =
 
 (** Since the liveset info doesn't include the host IP address, we persist these ourselves *)
 let get_uuid_to_ip_mapping () =
-  let v = Localdb.get Constants.ha_peers in
-  String_unmarshall_helper.map (fun x -> x) (fun x -> x) v
+  match Localdb.get Constants.ha_peers with
+  | Some peers ->
+      String_unmarshall_helper.map (fun k -> k) (fun v -> v) peers
+  | None ->
+      []
 
 (** Without using the Pool's database, returns the IP address of a particular host
     named by UUID. *)
@@ -303,7 +309,7 @@ module Monitor = struct
             let statefiles = Xha_statefile.list_existing_statefiles () in
             debug "HA background thread starting" ;
             (* Grab the base timeout value so we can cook the reported latencies *)
-            let base_t = int_of_string (Localdb.get Constants.ha_base_t) in
+            let base_t = int_of_string (Localdb.get_exn Constants.ha_base_t) in
             let timeouts = Timeouts.derive base_t in
             (* Set up our per-host alert triggers *)
             let localhost_uuid = Helpers.get_localhost_uuid () in
@@ -501,8 +507,6 @@ module Monitor = struct
                   )
               in
 
-              (* let planned_for = Int64.to_int (Db.Pool.get_ha_plan_exists_for ~__context ~self:pool) in *)
-
               (* First consider whether VM failover actions need to happen.
                  Convert the liveset into a list of Host references used by the VM failover code *)
               let liveset_uuids =
@@ -629,11 +633,9 @@ module Monitor = struct
                 (* and yet has no statefile access *)
               in
               let all_live_nodes_lost_statefile =
-                List.fold_left ( && ) true
-                  (List.map
-                     (fun (_, xha_host) -> relying_on_rule_2 xha_host)
-                     host_host_table
-                  )
+                List.for_all
+                  (fun (_, xha_host) -> relying_on_rule_2 xha_host)
+                  host_host_table
               in
               warning_all_live_nodes_lost_statefile
                 all_live_nodes_lost_statefile ;
@@ -971,6 +973,7 @@ let update_ha_firewalld_service status =
      need. *)
   if
     Localdb.get Constants.ha_cluster_stack
+    |> Option.value ~default:!Xapi_globs.cluster_stack_default
     = Constants.Ha_cluster_stack.(to_string Xhad)
   then
     let module Fw =
@@ -986,8 +989,10 @@ let ha_start_daemon () =
   ()
 
 let on_server_restart () =
-  let armed = bool_of_string (Localdb.get Constants.ha_armed) in
-  if armed then (
+  let armed () =
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
+  in
+  if armed () then (
     debug "HA is supposed to be armed" ;
     (* Make sure daemons are up *)
     let finished = ref false in
@@ -995,10 +1000,7 @@ let on_server_restart () =
        XXX we might need some kind of user-override *)
     while not !finished do
       (* If someone has called Host.emergency_ha_disable in the background then we notice the change here *)
-      if
-        not
-          (try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false)
-      then (
+      if not (armed ()) then (
         warn
           "ha_start_daemon aborted because someone has called \
            Host.emergency_ha_disable" ;
@@ -1149,7 +1151,7 @@ let ha_stop_daemon __context _localhost =
 
 let emergency_ha_disable __context soft =
   let ha_armed =
-    try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
   in
   if not ha_armed then
     if soft then
