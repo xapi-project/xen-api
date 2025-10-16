@@ -148,36 +148,6 @@ let is_in_use ~__context ~self =
   else
     false
 
-(* [wait_for ?timeout f] returns true if [f()] (called at 1Hz) returns true within
-   the [timeout] period and false otherwise *)
-let wait_for ?(timeout = 120.) f =
-  let start = Unix.gettimeofday () in
-  let finished = ref false in
-  let success = ref false in
-  while not !finished do
-    let remaining = timeout -. (Unix.gettimeofday () -. start) in
-    if remaining < 0. then
-      finished := true
-    else
-      try
-        if f () then (
-          success := true ;
-          finished := true
-        ) else
-          Thread.delay 1.
-      with _ -> Thread.delay 1.
-  done ;
-  !success
-
-let pingable ip () =
-  try
-    let (_ : string * string) =
-      Forkhelpers.execute_command_get_output "/bin/ping"
-        ["-c"; "1"; "-w"; "1"; ip]
-    in
-    true
-  with _ -> false
-
 let queryable ~__context transport () =
   let open Xmlrpc_client in
   let tracing = Context.set_client_span __context in
@@ -196,47 +166,6 @@ let queryable ~__context transport () =
       (string_of_transport transport)
       (Printexc.to_string e) ;
     false
-
-let ip_of ~__context driver =
-  (* Find the VIF on the Host internal management network *)
-  let vifs = Db.VM.get_VIFs ~__context ~self:driver in
-  let hin = Helpers.get_host_internal_management_network ~__context in
-  let ip =
-    let vif =
-      try
-        List.find
-          (fun vif -> Db.VIF.get_network ~__context ~self:vif = hin)
-          vifs
-      with Not_found ->
-        failwith
-          (Printf.sprintf
-             "driver domain %s has no VIF on host internal management network"
-             (Ref.string_of driver)
-          )
-    in
-    match Xapi_udhcpd.get_ip ~__context vif with
-    | Some (a, b, c, d) ->
-        Printf.sprintf "%d.%d.%d.%d" a b c d
-    | None ->
-        failwith
-          (Printf.sprintf
-             "driver domain %s has no IP on the host internal management \
-              network"
-             (Ref.string_of driver)
-          )
-  in
-  info "driver domain uuid:%s ip:%s" (Db.VM.get_uuid ~__context ~self:driver) ip ;
-  if not (wait_for (pingable ip)) then
-    failwith
-      (Printf.sprintf "driver domain %s is not responding to IP ping"
-         (Ref.string_of driver)
-      ) ;
-  if not (wait_for (queryable ~__context (Xmlrpc_client.TCP (ip, 80)))) then
-    failwith
-      (Printf.sprintf "driver domain %s is not responding to XMLRPC query"
-         (Ref.string_of driver)
-      ) ;
-  ip
 
 type service = {uuid: string; ty: string; instance: string; url: string}
 [@@deriving rpc]

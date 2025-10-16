@@ -51,9 +51,6 @@ val is_in_use : __context:Context.t -> self:API.ref_VM -> bool
 val queryable : __context:Context.t -> Xmlrpc_client.transport -> unit -> bool
 (** [queryable ip port ()] returns true if [ip]:[port] responsds to an XMLRPC query *)
 
-val ip_of : __context:Context.t -> API.ref_VM -> string
-(** [ip_of __context vm] returns the IP of the given VM on the internal management network *)
-
 (** One of many service running in a driver domain *)
 type service = {uuid: string; ty: string; instance: string; url: string}
 
