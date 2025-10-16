@@ -3383,7 +3383,13 @@ let set_ntp_mode ~__context ~self ~value =
     let open Xapi_host_ntp in
     let ensure_custom_servers_exist servers =
       if servers = [] then
-        Helpers.internal_error "ntp_custom_servers is empty, please set first"
+        raise
+          Api_errors.(
+            Server_error
+              ( invalid_ntp_config
+              , ["Can't set ntp_mode_custom when ntp_custom_servers is empty"]
+              )
+          )
     in
     let default_servers = !Xapi_globs.default_ntp_servers in
     ( match (current_mode, value) with
@@ -3414,8 +3420,13 @@ let set_ntp_custom_servers ~__context ~self ~value =
   let current_mode = Db.Host.get_ntp_mode ~__context ~self in
   match (current_mode, value) with
   | `ntp_mode_custom, [] ->
-      Helpers.internal_error
-        "ntp_mode is custom, can't clear ntp_custom_servers"
+      raise
+        Api_errors.(
+          Server_error
+            ( invalid_ntp_config
+            , ["Can't set ntp_custom_servers empty when ntp_mode is custom"]
+            )
+        )
   | `ntp_mode_custom, servers ->
       Xapi_host_ntp.set_servers_in_conf servers ;
       Xapi_host_ntp.restart_ntp_service () ;
