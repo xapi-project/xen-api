@@ -525,7 +525,7 @@ let handle_one (x : 'a Server.t) ss context req =
     let empty = TE.empty () in
     let te =
       Option.value ~default:empty
-        (Radix_tree.longest_prefix req.Request.path method_map)
+        (Radix_tree.longest_prefix_with_boundary req.Request.path '/' method_map)
     in
     let@ _ = Tracing.with_child_trace span ~name:"handler" in
     te.TE.handler req ss context ;
