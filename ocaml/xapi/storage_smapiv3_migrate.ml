@@ -42,7 +42,7 @@ let export_nbd_proxy ~remote_url ~mirror_vm ~sr ~vdi ~dp ~verify_dest =
         (Vm.string_of mirror_vm) (Sr.string_of sr) (Vdi.string_of vdi) dp
     in
 
-    let dest_url = Http.Url.set_uri (Http.Url.of_string remote_url) uri in
+    let dest_url = Http.Url.set_path (Http.Url.of_string remote_url) uri in
     D.debug "%s now waiting for connection at %s" __FUNCTION__ path ;
     let nbd_client, _addr = Unix.accept proxy_srv in
     D.debug "%s connection accepted" __FUNCTION__ ;

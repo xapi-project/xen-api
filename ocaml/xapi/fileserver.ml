@@ -63,11 +63,11 @@ let send_file (uri_base : string) (dir : string) (req : Request.t)
   else if is_external_http && Option.is_some req.Request.host then
     (* Redirect towards HTTPS *)
     let host = Option.get req.Request.host in
-    let path = req.Request.uri in
+    let path = req.Request.path in
     let dest = Uri.make ~scheme:"https" ~host ~path () |> Uri.to_string in
     Http_svr.response_redirect ~req s dest
   else
-    let uri = req.Request.uri in
+    let uri = req.Request.path in
     try
       let relative_url =
         String.sub uri uri_base_len (String.length uri - uri_base_len)

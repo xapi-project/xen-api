@@ -809,10 +809,10 @@ let proxy_request req s host_uuid =
   )
 
 let pool_update_download_handler (req : Request.t) s _ =
-  debug "pool_update.pool_update_download_handler URL %s" req.Request.uri ;
+  debug "pool_update.pool_update_download_handler URL %s" req.Request.path ;
   req.Request.close <- true ;
   let localhost_uuid = Helpers.get_localhost_uuid () in
-  let host_uuid, filepath = path_and_host_from_uri req.Request.uri in
+  let host_uuid, filepath = path_and_host_from_uri req.Request.path in
   debug "pool_update.pool_update_download_handler %s" filepath ;
   if host_uuid <> localhost_uuid then
     proxy_request req s host_uuid

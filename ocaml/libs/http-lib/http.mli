@@ -72,7 +72,7 @@ end
 module Request : sig
   type t = {
       m: method_t
-    ; uri: string
+    ; path: string
     ; query: (string * string) list
     ; version: string
     ; frame: bool
@@ -254,7 +254,7 @@ module Url : sig
 
   type scheme = Http of http | File of file
 
-  type data = {uri: string; query_params: (string * string) list}
+  type data = {path: string; query_params: (string * string) list}
 
   type t = scheme * data
 
@@ -264,9 +264,9 @@ module Url : sig
 
   val to_string : t -> string
 
-  val get_uri : t -> string
+  val get_path : t -> string
 
-  val set_uri : t -> string -> t
+  val set_path : t -> string -> t
 
   val get_query_params : t -> (string * string) list
 

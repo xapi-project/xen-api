@@ -103,7 +103,7 @@ module Helper = struct
   include Tracing.Propagator.Make (struct
     include Tracing_propagator.Propagator.Http
 
-    let name_span req = req.Http.Request.uri
+    let name_span req = req.Http.Request.path
   end)
 end
 
@@ -310,13 +310,13 @@ module Server = struct
 
   let empty default_context = {handlers= MethodMap.empty; default_context}
 
-  let add_handler x ty uri handler =
+  let add_handler x ty path handler =
     let existing =
       Option.value (MethodMap.find_opt ty x.handlers) ~default:Radix_tree.empty
     in
     x.handlers <-
       MethodMap.add ty
-        (Radix_tree.insert uri {(TE.empty ()) with TE.handler} existing)
+        (Radix_tree.insert path {(TE.empty ()) with TE.handler} existing)
         x.handlers
 
   let find_stats x m uri =
@@ -386,7 +386,7 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                  (* Request-Line   = Method SP Request-URI SP HTTP-Version CRLF *)
                  let uri_t = Uri.of_string uri in
                  if uri_t = Uri.empty then raise Http_parse_failure ;
-                 let uri = Uri.path_unencoded uri_t in
+                 let path = Uri.path_unencoded uri_t in
                  let query = Uri.query uri_t |> kvlist_flatten in
                  let m = Http.method_t_of_string meth in
                  let version =
@@ -396,7 +396,7 @@ let read_request_exn ~proxy_seen ~read_timeout ~total_timeout ~max_length fd =
                      (String.length x - String.length prefix)
                  in
                  let close = version = "1.0" in
-                 (true, {req with m; uri; query; version; close})
+                 (true, {req with m; path; query; version; close})
              | _ ->
                  raise Http_parse_failure
            else
@@ -525,7 +525,7 @@ let handle_one (x : 'a Server.t) ss context req =
     let empty = TE.empty () in
     let te =
       Option.value ~default:empty
-        (Radix_tree.longest_prefix req.Request.uri method_map)
+        (Radix_tree.longest_prefix req.Request.path method_map)
     in
     let@ _ = Tracing.with_child_trace span ~name:"handler" in
     te.TE.handler req ss context ;
