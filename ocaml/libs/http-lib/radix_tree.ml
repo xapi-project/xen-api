@@ -93,3 +93,17 @@ let fold f acc t =
         List.fold_left (fun acc n -> inner pp acc n) acc ns
   in
   inner "" acc t
+
+let rec longest_prefix_with_boundary key boundary = function
+  | Node (p, v, _) when p = key ->
+      v
+  | Node (p, v, ns) when is_prefix p key -> (
+      let remaining = sub key p in
+      match choose remaining ns with
+      | Some (n, _) ->
+          longest_prefix_with_boundary remaining boundary n
+      | None ->
+          if remaining.[0] = boundary then v else None
+    )
+  | _ ->
+      None

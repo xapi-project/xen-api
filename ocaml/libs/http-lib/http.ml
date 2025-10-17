@@ -505,7 +505,7 @@ end
 module Request = struct
   type t = {
       m: method_t
-    ; uri: string
+    ; path: string
     ; query: (string * string) list
     ; version: string
     ; frame: bool
@@ -528,7 +528,7 @@ module Request = struct
   let empty =
     {
       m= Unknown ""
-    ; uri= ""
+    ; path= ""
     ; query= []
     ; version= ""
     ; frame= false
@@ -563,7 +563,7 @@ module Request = struct
     ; host
     ; user_agent= Some user_agent
     ; m= meth
-    ; uri= path
+    ; path
     ; additional_headers= headers
     ; body
     ; accept
@@ -577,10 +577,10 @@ module Request = struct
       String.concat "; " (List.map (fun (k, v) -> k ^ "=" ^ v) x)
     in
     Printf.sprintf
-      "{ frame = %b; method = %s; uri = %s; query = [ %s ]; content_length = [ \
-       %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = %s; \
-       subtask_of = %s; content-type = %s; host = %s; user_agent = %s; }"
-      x.frame (string_of_method_t x.m) x.uri (kvpairs x.query)
+      "{ frame = %b; method = %s; path = %s; query = [ %s ]; content_length = \
+       [ %s ]; transfer encoding = %s; version = %s; cookie = [ %s ]; task = \
+       %s; subtask_of = %s; content-type = %s; host = %s; user_agent = %s; }"
+      x.frame (string_of_method_t x.m) x.path (kvpairs x.query)
       (Option.fold ~none:"" ~some:Int64.to_string x.content_length)
       (Option.value ~default:"" x.transfer_encoding)
       x.version "(value filtered)" (* cookies *)
@@ -642,7 +642,7 @@ module Request = struct
       [(Hdr.connection ^ ": " ^ if x.close then "close" else "keep-alive")]
     in
     [
-      Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.uri query
+      Printf.sprintf "%s %s%s HTTP/%s" (string_of_method_t x.m) x.path query
         x.version
     ]
     @ cookie
@@ -809,17 +809,17 @@ module Url = struct
 
   type scheme = Http of http | File of file
 
-  type data = {uri: string; query_params: (string * string) list}
+  type data = {path: string; query_params: (string * string) list}
 
   type t = scheme * data
 
-  let file_equal a b = String.equal a.path b.path
+  let file_equal (a : file) (b : file) = String.equal a.path b.path
 
   let query_params_equal (ak, av) (bk, bv) =
     String.equal ak bk && String.equal av bv
 
   let data_equal a b =
-    String.equal a.uri b.uri
+    String.equal a.path b.path
     && List.equal query_params_equal a.query_params b.query_params
 
   let http_equal a b =
@@ -858,7 +858,7 @@ module Url = struct
       in
       let data =
         {
-          uri= (match Uri.path_unencoded uri with "" -> "/" | path -> path)
+          path= (match Uri.path_unencoded uri with "" -> "/" | path -> path)
         ; query_params= Uri.query uri |> List.map query
         }
       in
@@ -872,19 +872,19 @@ module Url = struct
           (scheme ~ssl:true, data)
       | Some "file" ->
           let scheme = File {path= Uri.path_unencoded uri} in
-          (scheme, {data with uri= "/"})
+          (scheme, {data with path= "/"})
       | _ ->
           failwith "unsupported URI scheme"
     with e ->
       fail "%s: can't parse '%s': %s" __FUNCTION__ url (Printexc.to_string e)
 
-  let data_to_string {uri; query_params= params} =
+  let data_to_string {path; query_params= params} =
     let kvpairs x =
       String.concat "&"
         (List.map (fun (k, v) -> urlencode k ^ "=" ^ urlencode v) x)
     in
     let params = if params = [] then "" else "?" ^ kvpairs params in
-    uri ^ params
+    path ^ params
 
   let to_string scheme =
     let query (k, v) = (k, [v]) in
@@ -893,7 +893,7 @@ module Url = struct
       | File {path}, {query_params= params; _} ->
           Uri.make ~scheme:"file" ~path ~query:(List.map query params) ()
           |> Uri.to_string
-      | Http h, {uri; query_params= params} ->
+      | Http h, {path; query_params= params} ->
           let auth =
             match h.auth with
             | Some (Basic (username, password)) ->
@@ -905,16 +905,16 @@ module Url = struct
           in
           Uri.make
             ~scheme:(if h.ssl then "https" else "http")
-            ~host:h.host ?port:h.port ?userinfo:auth ~path:uri
+            ~host:h.host ?port:h.port ?userinfo:auth ~path
             ~query:(List.map query params) ()
           |> Uri.to_string
     in
     debug "%s: %s" __FUNCTION__ str ;
     str
 
-  let get_uri (_scheme, data) = data.uri
+  let get_path (_scheme, data) = data.path
 
-  let set_uri (scheme, data) u = (scheme, {data with uri= u})
+  let set_path (scheme, data) u = (scheme, {data with path= u})
 
   let get_query_params (_scheme, data) = data.query_params
 
