@@ -104,29 +104,28 @@ let get_uuid_to_ip_mapping () =
     named by UUID. *)
 let address_of_host_uuid uuid =
   let table = get_uuid_to_ip_mapping () in
-  if not (List.mem_assoc uuid table) then (
-    error "Failed to find the IP address of host UUID %s" uuid ;
-    raise Not_found
-  ) else
-    List.assoc uuid table
+  List.assoc_opt uuid table |> Option.to_result ~none:Not_found
 
 (** Without using the Pool's database, returns the UUID of a particular host named by
     heartbeat IP address. This is only necesary because the liveset info doesn't include
     the host IP address *)
 let uuid_of_host_address address =
   let table = List.map (fun (k, v) -> (v, k)) (get_uuid_to_ip_mapping ()) in
-  match List.assoc_opt address table with
-  | None ->
-      error "Failed to find the UUID address of host with address %s" address ;
-      raise Not_found
-  | Some uuid_str -> (
-    match Uuidx.of_string uuid_str with
-    | None ->
-        error "Failed parse UUID of host with address %s" address ;
-        raise (Invalid_argument "Invalid UUID")
-    | Some uuid ->
-        uuid
-  )
+  let invalid_uuid = Invalid_argument "Invalid UUID" in
+  let to_uuid str =
+    Uuidx.of_string str |> Option.to_result ~none:invalid_uuid
+  in
+  List.assoc_opt address table
+  |> Option.to_result ~none:Not_found
+  |> Fun.flip Result.bind to_uuid
+
+let ok_or_raise map_error = function Ok v -> v | Error exn -> map_error exn
+
+let master_address_exn __FUN e =
+  let exn = Printexc.to_string e in
+  let msg = Printf.sprintf "unable to gather the coordinator's IP: %s" exn in
+  error "%s: %s" __FUN msg ;
+  raise Api_errors.(Server_error (internal_error, [msg]))
 
 (** Called in two circumstances:
     1. When I started up I thought I was the master but my proposal was rejected by the
@@ -145,7 +144,9 @@ let on_master_failure () =
     done
   in
   let become_slave_of uuid =
-    let address = address_of_host_uuid uuid in
+    let address =
+      address_of_host_uuid uuid |> ok_or_raise (master_address_exn __FUNCTION__)
+    in
     info "This node will become the slave of host %s (%s)" uuid address ;
     Xapi_pool_transition.become_another_masters_slave address ;
     (* XXX CA-16388: prevent blocking *)
@@ -170,19 +171,17 @@ let on_master_failure () =
           "ha_can_not_be_master_on_next_boot set: I cannot be master; looking \
            for another master" ;
       let liveset = query_liveset () in
+      let open Xha_interface.LiveSetInformation in
       match
         Hashtbl.fold
           (fun uuid host acc ->
-            if
-              host.Xha_interface.LiveSetInformation.Host.master
-              && host.Xha_interface.LiveSetInformation.Host.liveness
-              (* CP-25481: a dead host may still have the master lock *)
-            then
+            (* CP-25481: a dead host may still have the master lock *)
+            if host.Host.master && host.Host.liveness then
               uuid :: acc
             else
               acc
           )
-          liveset.Xha_interface.LiveSetInformation.hosts []
+          liveset.hosts []
       with
       | [] ->
           info "no other master exists yet; waiting 5 seconds and retrying" ;
@@ -196,6 +195,18 @@ let on_master_failure () =
           failwith "multiple masters"
     )
   done
+
+let master_uuid_exn __FUN e =
+  let exn = Printexc.to_string e in
+  let msg = Printf.sprintf "unable to gather the coordinator's UUID: %s" exn in
+  error "%s: %s" __FUN msg ;
+  raise Api_errors.(Server_error (internal_error, [msg]))
+
+let master_not_in_liveset_exn __FUN e =
+  let exn = Printexc.to_string e in
+  let msg = Printf.sprintf "unable to gather the coordinator's info: %s" exn in
+  error "%s: %s" __FUN msg ;
+  raise Api_errors.(Server_error (internal_error, [msg]))
 
 module Timeouts = struct
   type t = {
@@ -463,16 +474,17 @@ module Monitor = struct
             (* WARNING: must not touch the database or perform blocking I/O *)
             let process_liveset_on_slave liveset =
               let address = Pool_role.get_master_address () in
-              let master_uuid = uuid_of_host_address address in
-              let master_info =
-                Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-                  master_uuid
+              let master_uuid =
+                uuid_of_host_address address
+                |> ok_or_raise (master_uuid_exn __FUNCTION__)
               in
-              if
-                true
-                && master_info.Xha_interface.LiveSetInformation.Host.liveness
-                && master_info.Xha_interface.LiveSetInformation.Host.master
-              then
+              let open Xha_interface.LiveSetInformation in
+              let master_info =
+                Hashtbl.find_opt liveset.hosts master_uuid
+                |> Option.to_result ~none:Not_found
+                |> ok_or_raise (master_not_in_liveset_exn __FUNCTION__)
+              in
+              if master_info.Host.liveness && master_info.Host.master then
                 debug
                   "The node we think is the master is still alive and marked \
                    as master; this is OK"
@@ -1389,6 +1401,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
   Localdb.put Constants.ha_base_t (string_of_int base_t)
 
 let join_liveset __context host =
+  let __FUN = __FUNCTION__ in
   info "Host.ha_join_liveset host = %s" (Ref.string_of host) ;
   ha_start_daemon () ;
   Localdb.put Constants.ha_disable_failover_decisions "false" ;
@@ -1406,7 +1419,10 @@ let join_liveset __context host =
       (* If this host is a slave then we must wait to confirm that the master manages to
          assert itself, otherwise our monitoring thread might attempt a hostile takeover *)
       let master_address = Pool_role.get_master_address () in
-      let master_uuid = uuid_of_host_address master_address in
+      let master_uuid =
+        uuid_of_host_address master_address
+        |> ok_or_raise (master_uuid_exn __FUN)
+      in
       let master_found = ref false in
       while not !master_found do
         (* It takes a non-trivial amount of time for the master to assert itself: we might
@@ -1414,30 +1430,24 @@ let join_liveset __context host =
            should wait. *)
         Thread.delay 5. ;
         let liveset = query_liveset () in
-        debug "Liveset: %s"
-          (Xha_interface.LiveSetInformation.to_summary_string liveset) ;
-        if
-          liveset.Xha_interface.LiveSetInformation.status
-          = Xha_interface.LiveSetInformation.Status.Online
-        then
+        let open Xha_interface.LiveSetInformation in
+        debug "Liveset: %s" (to_summary_string liveset) ;
+        if liveset.status = Status.Online then
           (* 'master' is the node we believe should become the xHA-level master initially *)
           let master =
-            Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-              master_uuid
+            Hashtbl.find_opt liveset.hosts master_uuid
+            |> Option.to_result ~none:Not_found
+            |> ok_or_raise (master_not_in_liveset_exn __FUN)
           in
-          if master.Xha_interface.LiveSetInformation.Host.master then (
+          if master.Host.master then (
             info "existing master has successfully asserted itself" ;
             master_found := true (* loop will terminate *)
           ) else if
               false
-              || (not master.Xha_interface.LiveSetInformation.Host.liveness)
-              || master
-                   .Xha_interface.LiveSetInformation.Host.state_file_corrupted
-              || (not
-                    master
-                      .Xha_interface.LiveSetInformation.Host.state_file_access
-                 )
-              || master.Xha_interface.LiveSetInformation.Host.excluded
+              || (not master.Host.liveness)
+              || master.Host.state_file_corrupted
+              || (not master.Host.state_file_access)
+              || master.Host.excluded
             then (
             error "Existing master has failed during HA enable process" ;
             failwith "Existing master failed during HA enable process"
