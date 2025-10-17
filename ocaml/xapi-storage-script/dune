@@ -7,6 +7,7 @@
     inotify.lwt
     lwt
     lwt.unix
+    unix
     rpclib.core
     )
   (preprocess (pps ppx_deriving_rpc))
@@ -16,7 +17,7 @@
   (name test_lib)
   (modules test_lib)
   (package xapi-storage-script)
-  (libraries alcotest alcotest-lwt lwt fmt private)
+  (libraries alcotest alcotest-lwt lwt fmt private unix)
   )
 
 (executable
@@ -42,6 +43,7 @@
     sexplib0
     uri
     threads.posix
+    unix
     xapi-backtrace
     xapi-consts
     xapi-consts.xapi_version

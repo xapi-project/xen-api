@@ -737,11 +737,21 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    (* Old configs used empty dns lists to mean none, keep that
-                       behaviour instead of writing an empty resolv.conf *)
                     match dns with
-                    | None | Some ([], []) ->
+                    | None ->
                         ()
+                    | Some ([], []) -> (
+                      match (ipv4_conf, ipv6_conf) with
+                      | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
+                          (* clear DNS for Static mode *)
+                          set_dns () dbg ~name ~nameservers:[] ~domains:[]
+                      | _ ->
+                          (* networkd.db in v25.28.0 and before stores empty
+                             dns lists for DHCP mode, this case is to keep
+                             resolv.conf intact when Toolstack update from
+                             version earlier than v25.28.0 *)
+                          ()
+                    )
                     | Some (nameservers, domains) ->
                         set_dns () dbg ~name ~nameservers ~domains
                 ) ;
@@ -933,12 +943,6 @@ module Bridge = struct
                   "standalone"
                 )
             in
-            let vlan_bug_workaround =
-              if List.mem_assoc "vlan-bug-workaround" other_config then
-                Some (List.assoc "vlan-bug-workaround" other_config = "true")
-              else
-                None
-            in
             let external_id =
               if List.mem_assoc "network-uuids" other_config then
                 Some
@@ -966,7 +970,7 @@ module Bridge = struct
             Option.iter (destroy_existing_vlan_ovs_bridge dbg name) vlan ;
             ignore
               (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
-                 ?igmp_snooping vlan vlan_bug_workaround name
+                 ?igmp_snooping vlan name
               ) ;
             if igmp_snooping = Some true && not old_igmp_snooping then
               Ovs.inject_igmp_query ~name

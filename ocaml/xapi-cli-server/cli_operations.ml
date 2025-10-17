@@ -195,14 +195,15 @@ let get_file_or_fail fd desc filename =
   | Some chunks ->
       chunks
 
-let diagnostic_timing_stats printer rpc session_id _params =
+let diagnostic_timing_stats printer rpc session_id params =
+  let counts = get_bool_param params "counts" in
   let table_of_host host =
     [
       ("host-uuid", Client.Host.get_uuid ~rpc ~session_id ~self:host)
     ; ("host-name-label", Client.Host.get_name_label ~rpc ~session_id ~self:host)
     ]
     @
-    try Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host
+    try Client.Host.get_diagnostic_timing_stats ~rpc ~session_id ~host ~counts
     with e -> [("Error", Api_errors.to_string e)]
   in
   let all = List.map table_of_host (Client.Host.get_all ~rpc ~session_id) in

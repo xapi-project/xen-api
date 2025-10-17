@@ -7,5 +7,6 @@
     xenctrl
     uuidm
     threads.posix
+    unix
    )
 )

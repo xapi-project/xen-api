@@ -295,14 +295,20 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
      	   the source host. So as long as host versions aren't decreasing,
      	   we're allowed to migrate VMs between hosts. *)
   debug "evacuating host version: %s"
-    (Helpers.version_string_of ~__context (Helpers.LocalObject host)) ;
+    (Helpers.Checks.Migration.get_software_versions ~__context
+       (Helpers.LocalObject host)
+    |> Helpers.Checks.versions_string_of
+    ) ;
   let target_hosts =
     List.filter
       (fun target ->
         debug "host %s version: %s"
           (Db.Host.get_hostname ~__context ~self:target)
-          (Helpers.version_string_of ~__context (Helpers.LocalObject target)) ;
-        Helpers.host_versions_not_decreasing ~__context
+          Helpers.Checks.(
+            Migration.get_software_versions ~__context (LocalObject target)
+            |> versions_string_of
+          ) ;
+        Helpers.Checks.Migration.host_versions_not_decreasing ~__context
           ~host_from:(Helpers.LocalObject host)
           ~host_to:(Helpers.LocalObject target)
       )
@@ -497,7 +503,8 @@ let compute_evacuation_plan_wlb ~__context ~self =
       if
         Db.Host.get_control_domain ~__context ~self:target_host <> v
         && Db.Host.get_uuid ~__context ~self:resident_h = target_uuid
-      then (* resident host and migration host are the same. Reject this plan *)
+        (* resident host and migration host are the same. Reject this plan *)
+      then
         raise
           (Api_errors.Server_error
              ( Api_errors.wlb_malformed_response
@@ -1021,7 +1028,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~external_auth_type ~external_auth_service_name ~external_auth_configuration
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
-    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode =
+    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
+    ~secure_boot ~software_version =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1056,9 +1064,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     (* no or multiple pools *)
   in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
-    ~allowed_operations:[] ~https_only:false
-    ~software_version:(Xapi_globs.software_version ())
-    ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
+    ~allowed_operations:[] ~https_only:false ~software_version ~enabled:false
+    ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
     ~aPI_version_vendor:Datamodel_common.api_version_vendor
     ~aPI_version_vendor_implementation:
@@ -1086,7 +1093,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~tls_verification_enabled ~last_software_update ~last_update_hash
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
-    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode ;
+    ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
+    ~secure_boot ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -1357,8 +1365,8 @@ let get_thread_diagnostics ~__context ~host:_ =
 let sm_dp_destroy ~__context ~host:_ ~dp ~allow_leak =
   Storage_access.dp_destroy ~__context dp allow_leak
 
-let get_diagnostic_timing_stats ~__context ~host:_ =
-  Xapi_database.Stats.summarise ()
+let get_diagnostic_timing_stats ~__context ~host:_ ~counts =
+  Xapi_database.Stats.summarise ~counts ()
 
 (* CP-825: Serialize execution of host-enable-extauth and host-disable-extauth *)
 (* We need to protect against concurrent execution of the extauth-hook script and host.enable/disable extauth, *)
@@ -1782,7 +1790,6 @@ let enable_external_auth ~__context ~host ~config ~service_name ~auth_type =
         raise (Api_errors.Server_error (Api_errors.auth_unknown_type, [msg]))
       ) else
         (* if no auth_type is currently defined (it is an empty string), then we can set up a new one *)
-
         (* we try to use the configuration to set up the new external authentication service *)
 
         (* we persist as much set up configuration now as we can *)
@@ -2847,7 +2854,7 @@ let set_iscsi_iqn ~__context ~host ~value =
    * when you update the `iscsi_iqn` field we want to update `other_config`,
    * but when updating `other_config` we want to update `iscsi_iqn` too.
    * we have to be careful not to introduce an infinite loop of updates.
-   * *)
+   *)
   Db.Host.set_iscsi_iqn ~__context ~self:host ~value ;
   Db.Host.add_to_other_config ~__context ~self:host ~key:"iscsi_iqn" ~value ;
   Xapi_host_helpers.Configuration.set_initiator_name value

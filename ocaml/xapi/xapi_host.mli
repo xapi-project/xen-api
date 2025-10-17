@@ -136,6 +136,8 @@ val create :
   -> ssh_expiry:API.datetime
   -> console_idle_timeout:int64
   -> ssh_auto_mode:bool
+  -> secure_boot:bool
+  -> software_version:(string * string) list
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
@@ -206,7 +208,7 @@ val get_system_status_capabilities :
   __context:Context.t -> host:API.ref_host -> string
 
 val get_diagnostic_timing_stats :
-  __context:Context.t -> host:'b -> (string * string) list
+  __context:Context.t -> host:'b -> counts:bool -> (string * string) list
 
 val set_hostname_live :
   __context:Context.t -> host:[`host] Ref.t -> hostname:string -> unit

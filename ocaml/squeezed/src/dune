@@ -8,10 +8,10 @@
     xapi-stdext-unix
     xapi_version
     astring
-    
     rpclib.core
     squeeze
     threads.posix
+    unix
     xenctrl
     xenstore
     xenstore.unix

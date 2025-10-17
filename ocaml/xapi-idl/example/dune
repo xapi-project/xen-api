@@ -3,6 +3,7 @@
  (libraries
    astring
    rpclib.core
+   unix
    xapi-consts.xapi_version
    xapi-idl
    xapi-log

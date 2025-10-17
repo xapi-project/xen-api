@@ -345,7 +345,7 @@ let assert_cluster_host_quorate ~__context ~self =
    * achieved quorum yet if we have just booted and haven't seen enough hosts.
    * Do this via an API call rather than reading a field in the database, because the field in the
    * database could be out of date.
-   * *)
+   *)
   let result =
     Cluster_client.LocalClient.diagnostics (rpc ~__context)
       "assert_cluster_host_quorate"

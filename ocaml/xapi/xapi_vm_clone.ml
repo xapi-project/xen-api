@@ -507,9 +507,6 @@ let clone ?snapshot_info_record ?(ignore_vdis = []) disk_op ~__context ~vm
                 let original = Db.VM.get_suspend_VDI ~__context ~self:vm in
                 if original = Ref.null || disk_op = Disk_op_snapshot then
                   Ref.null
-                else if disk_op = Disk_op_checkpoint && power_state = `Runnning
-                then
-                  original
                 else
                   clone_single_vdi rpc session_id disk_op ~__context original
                     driver_params

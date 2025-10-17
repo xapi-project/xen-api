@@ -434,10 +434,6 @@ let create_root_user ~__context =
   if all = [] then
     Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
-let get_xapi_verstring () =
-  Printf.sprintf "%d.%d" Xapi_version.xapi_version_major
-    Xapi_version.xapi_version_minor
-
 (** Create assoc list of Supplemental-Pack information.
  *  The package information is taking from the [XS-REPOSITORY] XML file in the package
  *  directory.
@@ -531,8 +527,7 @@ let make_software_version ~__context host_info =
   Xapi_globs.software_version ()
   @ v6_version
   @ [
-      (Xapi_globs._xapi_version, get_xapi_verstring ())
-    ; ("xapi_build", Xapi_version.version)
+      ("xapi_build", Xapi_version.version)
     ; ("xen", Option.value ~default:"(unknown)" host_info.xen_verstring)
     ; ("linux", host_info.linux_verstring)
     ; ("xencenter_min", Xapi_globs.xencenter_min_verstring)

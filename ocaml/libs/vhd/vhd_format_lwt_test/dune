@@ -2,4 +2,4 @@
  (name parse_test)
  (package vhd-format-lwt)
  (libraries alcotest alcotest-lwt cstruct disk fmt io-page lwt lwt.unix vhd-format
-   vhd_format_lwt))
+   vhd_format_lwt unix))

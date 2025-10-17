@@ -3,7 +3,7 @@
  (name xs_trace)
  (public_name xs-trace)
  (package xapi-tools)
- (libraries uri tracing cmdliner tracing_export yojson xapi-stdext-unix zstd))
+ (libraries uri tracing cmdliner tracing_export yojson xapi-stdext-unix zstd unix))
 
 (rule
  (targets xs-trace.1)

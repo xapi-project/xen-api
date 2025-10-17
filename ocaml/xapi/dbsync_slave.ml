@@ -65,6 +65,7 @@ let create_localhost ~__context info =
         ~ssh_expiry:Date.epoch
         ~console_idle_timeout:Constants.default_console_idle_timeout
         ~ssh_auto_mode:!Xapi_globs.ssh_auto_mode_default
+        ~secure_boot:false ~software_version:[]
     in
     ()
 
@@ -411,5 +412,17 @@ let update_env __context sync_keys =
         Xapi_host.set_console_idle_timeout ~__context ~self:localhost
           ~value:console_timeout
   ) ;
-
+  switched_sync Xapi_globs.sync_secure_boot (fun () ->
+      let result =
+        try
+          let contents = Unixext.string_of_file !Xapi_globs.secure_boot_path in
+          contents.[4] <> '\x00'
+        with e ->
+          warn "%s error while reading %S: %s" __FUNCTION__
+            !Xapi_globs.secure_boot_path
+            (Printexc.to_string e) ;
+          false
+      in
+      Db.Host.set_secure_boot ~__context ~self:localhost ~value:result
+  ) ;
   remove_pending_guidances ~__context
