@@ -598,7 +598,7 @@ let get_host_updates_in_json ~__context ~installed =
 
 let get_repository_handler (req : Http.Request.t) s _ =
   let open Http in
-  debug "%s URL: %s" __FUNCTION__ req.Request.uri ;
+  debug "%s URL: %s" __FUNCTION__ req.Request.path ;
   req.Request.close <- true ;
   Fileserver.send_file Constants.get_repository_uri
     !Xapi_globs.local_pool_repo_dir
@@ -606,7 +606,7 @@ let get_repository_handler (req : Http.Request.t) s _ =
 
 let get_enabled_repository_handler (req : Http.Request.t) s _ =
   let open Http in
-  debug "%s URL: %s" __FUNCTION__ req.Request.uri ;
+  debug "%s URL: %s" __FUNCTION__ req.Request.path ;
   req.Request.close <- true ;
   Xapi_http.with_context __FUNCTION__ req s (fun __context ->
       let enabled_repo = get_single_enabled_update_repository ~__context in
