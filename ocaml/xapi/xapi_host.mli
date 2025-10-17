@@ -591,3 +591,6 @@ val schedule_disable_ssh_job :
 
 val set_ssh_auto_mode :
   __context:Context.t -> self:API.ref_host -> value:bool -> unit
+
+val get_tracked_user_agents :
+  __context:Context.t -> self:API.ref_host -> (string * string) list

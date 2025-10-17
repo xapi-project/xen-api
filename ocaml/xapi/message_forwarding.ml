@@ -4116,6 +4116,13 @@ functor
         let local_fn = Local.Host.set_ssh_auto_mode ~self ~value in
         let remote_fn = Client.Host.set_ssh_auto_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_tracked_user_agents ~__context ~self =
+        info "Host.get_tracked_user_agents: host = '%s'"
+          (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_tracked_user_agents ~self in
+        let remote_fn = Client.Host.get_tracked_user_agents ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct

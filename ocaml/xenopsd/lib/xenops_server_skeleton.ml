@@ -27,6 +27,7 @@ module HOST = struct
           Host.cpu_count= 0
         ; socket_count= 0
         ; threads_per_core= 0
+        ; nr_nodes= 0
         ; vendor= "unknown"
         ; speed= ""
         ; modelname= ""

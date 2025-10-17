@@ -2536,6 +2536,22 @@ let latest_synced_updates_applied_state =
       ]
     )
 
+let get_tracked_user_agents =
+  call ~name:"get_tracked_user_agents" ~lifecycle:[]
+    ~doc:
+      "Get the (name, version) list of tracked user agents on this host. If \
+       different versions of the same name are seen, keep the last-seen \
+       version. The oldest entry will be removed if reach the max num. Note \
+       that the list is cleared after host/XAPI restart"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_READ_ONLY
+    ~result:
+      ( Map (String, String)
+      , "The (name, version) list of user agents that have been tracked on \
+         this host"
+      )
+    ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2680,6 +2696,7 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; get_tracked_user_agents
       ]
     ~contents:
       ([
