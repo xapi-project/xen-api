@@ -72,7 +72,7 @@ let localhost_connection_args () : connection_args =
   let url =
     Http.Url.
       ( Http {host= "127.0.0.1"; auth= None; port= None; ssl= false}
-      , {uri= Constants.sm_uri; query_params= []}
+      , {path= Constants.sm_uri; query_params= []}
       )
   in
 
@@ -90,7 +90,7 @@ let intra_pool_connection_args_of_ip ip : connection_args =
           ; port= None
           ; ssl= !Xapi_globs.migration_https_only
           }
-      , {uri= Constants.sm_uri; query_params= []}
+      , {path= Constants.sm_uri; query_params= []}
       )
   in
 

@@ -202,9 +202,9 @@ module Copy = struct
       let leaf_dp = Uuidx.(to_string (make ())) in
       let dest_vdi_url =
         let url' = Http.Url.of_string url in
-        Http.Url.set_uri url'
+        Http.Url.set_path url'
           (Printf.sprintf "%s/nbdproxy/import/%s/%s/%s/%s"
-             (Http.Url.get_uri url')
+             (Http.Url.get_path url')
              (Storage_interface.Vm.string_of vm)
              (Storage_interface.Sr.string_of dest)
              (Storage_interface.Vdi.string_of dest_vdi)
@@ -412,7 +412,7 @@ let mirror_pass_fds ~dbg ~dp ~sr ~vdi ~mirror_vm ~live_vm ~mirror_id ~url
       mirror_dp
   in
   D.debug "%s: uri of http request for mirroring is %s" __FUNCTION__ uri ;
-  let dest_url = Http.Url.set_uri (Http.Url.of_string url) uri in
+  let dest_url = Http.Url.set_path (Http.Url.of_string url) uri in
   D.debug "%s url of http request for mirroring is %s" __FUNCTION__
     (Http.Url.to_string dest_url) ;
   let request =
