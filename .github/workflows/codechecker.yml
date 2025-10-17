@@ -31,6 +31,7 @@ jobs:
         uses: ./.github/workflows/setup-xapi-environment
         with:
           xapi_version: ${{ env.XAPI_VERSION }}
+          ocaml_version: "4.14.2"
 
       - name: Install dune-compiledb to generate compile_commands.json
         run: |
