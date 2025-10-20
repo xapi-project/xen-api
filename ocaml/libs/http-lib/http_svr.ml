@@ -514,10 +514,48 @@ let read_request ?proxy_seen ~read_timeout ~total_timeout ~max_length fd =
 
 let handle_one (x : 'a Server.t) ss context req =
   let@ req = Helper.with_tracing ~name:__FUNCTION__ req in
-  let span = Helper.traceparent_of req in
+  let parent_span_opt = Helper.traceparent_of req in
   let finished = ref false in
+
+  (* --- Build full request URI --- *)
+  let query_str =
+    match req.Http.Request.query with
+    | [] -> ""
+    | qs ->
+        let encoded =
+          qs
+          |> List.map (fun (k, v) ->
+                 Printf.sprintf "%s=%s"
+                   (Uri.pct_encode k)
+                   (Uri.pct_encode v))
+          |> String.concat "&"
+        in
+        "?" ^ encoded
+  in
+  let uri_full =
+    match req.Http.Request.host with
+    | Some host ->
+        Printf.sprintf "http://%s%s%s" host req.Http.Request.path query_str
+    | None -> req.Http.Request.path ^ query_str
+  in
+  (match parent_span_opt with
+  | Some span ->
+      let http_attrs =
+        List.filter (fun (_, v) -> v <> "") [
+          ("http.method", Http.string_of_method_t req.Request.m);
+          ("url.full", uri_full);
+          ("http.target", req.Request.path ^ query_str);
+          ("http.version", req.Request.version);
+          ("http.user_agent", Option.value ~default:"" req.Request.user_agent);
+          ("http.host", Option.value ~default:"" req.Request.host);
+        ]
+      in
+      let _span_with_event = Tracing.Span.add_event span "http.request" http_attrs in
+      ()
+  | None -> ());
+
   try
-    D.debug "Request %s" (Http.Request.to_string req) ;
+    D.debug "Request %s" (Http.Request.to_string req);
     let method_map =
       try MethodMap.find req.Request.m x.Server.handlers
       with Not_found -> raise Method_not_implemented
@@ -525,40 +563,36 @@ let handle_one (x : 'a Server.t) ss context req =
     let empty = TE.empty () in
     let te =
       Option.value ~default:empty
-        (Radix_tree.longest_prefix req.Request.path method_map)
+        (Radix_tree.longest_prefix_with_boundary req.Request.path '/' method_map)
     in
-    let@ _ = Tracing.with_child_trace span ~name:"handler" in
-    te.TE.handler req ss context ;
-    finished := req.Request.close ;
-    Stats.update te.TE.stats te.TE.stats_m req ;
+    let@ _ = Tracing.with_child_trace parent_span_opt ~name:"handler" in
+    te.TE.handler req ss context;
+    finished := req.Request.close;
+    Stats.update te.TE.stats te.TE.stats_m req;
     !finished
   with e ->
-    finished := true ;
+    finished := true;
     best_effort (fun () ->
         match e with
-        (* Specific errors thrown by handlers *)
         | Generic_error s ->
             response_internal_error e ~req ss ~extra:s
         | Http.Unauthorised realm ->
             response_unauthorised ~req realm ss
         | Http.Forbidden ->
             response_forbidden ~req ss
-        (* Generic errors thrown by handlers *)
         | Http.Method_not_implemented ->
             response_method_not_implemented ~req ss
         | End_of_file ->
             ()
-        (* Premature termination of connection! *)
         | Unix.Unix_error (a, b, c) ->
             response_internal_error ~req e ss
               ~extra:
                 (Printf.sprintf "Got UNIX error: %s %s %s"
-                   (Unix.error_message a) b c
-                )
+                   (Unix.error_message a) b c)
         | exc ->
             response_internal_error ~req exc ss
               ~extra:(escape (Printexc.to_string exc))
-    ) ;
+    );
     !finished
 
 let handle_connection ~header_read_timeout ~header_total_timeout
