@@ -1,62 +1,100 @@
 ---
-title: Improving snapshot revert behaviour
+title: Better VM revert
 layout: default
 design_doc: true
-revision: 1
+revision: 2
 status: confirmed
 ---
 
-Currently there is a XenAPI `VM.revert` which reverts a "VM" to the state it
-was in when a VM-level snapshot was taken. There is no `VDI.revert` so
-`VM.revert` uses `VDI.clone` to change the state of the disks.
+## Overview
 
-The use of `VDI.clone` has the side-effect of changing VDI refs and uuids.
-This causes the following problems:
+XenAPI allows users to rollback the state of a VM to a previous state, which is
+stored in a snapshot, using the call `VM.revert`. Because there is no
+`VDI.revert` call, `VM.revert` uses `VDI.clone` on the snapshot to duplicate
+the contents of that disk and then use the new clone as the storage for the VM.
 
-- It is difficult for clients
-  such as [Apache CloudStack](http://cloudstack.apache.org) to keep track
-  of the disks it is actively managing
-- VDI snapshot metadata (`VDI.snapshot_of` et al) has to be carefully
-  fixed up since all the old refs are now dangling
+Because `VDI.clone` creates new VDI refs and uuids, some problematic
+behaviours arise:
+
+- Clients such as 
+  [Apache CloudStack](http://cloudstack.apache.org) need to include complex
+  logic to keep track of the disks they are actively managing
+- Because the snapshot is cloned and the original vdi is deleted, VDI
+  references to the VDI become invalid, like `VDI.snapshot_of`. This means
+  that the database has to be combed through to change these references. 
+  Because the database doesn't support transactions this operation is not atomic
+  and can produce inconsistent database states.
+
+Additionally, some filesystems support snapshots natively, doing the clone
+procedure is much costlier than allowing the filesystem to do the revert.
 
 We will fix these problems by:
 
-1. adding a `VDI.revert` to the SMAPIv2 and calling this from `VM.revert`
-2. defining a new SMAPIv1 operation `vdi_revert` and a corresponding capability
-   `VDI_REVERT`
-3. the Xapi implementation of `VDI.revert` will first try the `vdi_revert`,
-   and fall back to `VDI.clone` if that fails
-4. implement `vdi_revert` for common storage types, including File and LVM-based
-   SRs.
+- introducing the new feature `VDI_REVERT` in SM interface (`xapi_smint`). This
+  allows backends to advertise that they support the new functionality
+- defining a new storage operation `VDI.revert` in storage_interface, which is
+  gated by the feature `VDI_REVERT`
+- proxying the storage operation to SMAPIv3 and SMAPv1 backends accordingly
+- adding `VDI.revert` to xapi_vdi which will call the storage operation if the
+  backend advertises it, and fallback to the previous method that uses
+  `VDI.clone` if it doesn't advertise it, or issues are detected at runtime
+  that prevent it
+- changing the Xapi implementation of `VM.revert` to use `VDI.revert`
+- implement `vdi_revert` for common storage types, including File and LVM-based
+  SRs
+- adding unit and quick tests to xapi to test that `VM.revert` does not regress
 
-XenAPI changes
---------------
+## Current VM.revert behaviour
 
-We will add the function `VDI.revert` with arguments:
+The code that reverts the state of storage is located in 
+[update_vifs_vbds_vgpus_and_vusbs](https://github.com/xapi-project/xen-api/blob/bc0ba4e9dc8dc4b85b7cbdbf3e0ba5915b4ad76d/ocaml/xapi/xapi_vm_snapshot.ml#L211).
+The steps it does is:
+1. destroys the VM's VBDs (both disks and CDs)
+2. destroys the VM's VDI (disks only), referenced by the snapshot's VDIs using
+   `snapshot_of`; as well as the suspend VDI.
+3. clones the snapshot's VDIs (disks and CDs), if one clone fails none remain.
+4. searches the database for all `snapshot_of` references to the deleted VDIs
+   and replaces them with the referenced of the newly cloned snapshots.
+5. clones the snapshot's resume VDI
+6. creates copies of all the cloned VBDs and associates them with the cloned VDIs
+7. assigns the new resume VDI to the VM
+
+## XenAPI design
+
+### API
+
+The function `VDI.revert` will be added, with arguments:
 
 - in: `snapshot: Ref(VDI)`: the snapshot to which we want to revert
 - in: `driver_params: Map(String,String)`: optional extra parameters
-- out: `Ref(VDI)` the new VDI
+- out: `Ref(VDI)` reference to the new VDI with the reverted contents
 
-The function will look up the VDI which this is a `snapshot_of`, and change
-the VDI to have the same contents as the snapshot. The snapshot will not be
-modified. If the implementation is able to revert in-place, then the reference
-returned will be the VDI this is a `snapshot_of`; otherwise it is a reference
-to a fresh VDI (created by the `VDI.clone` fallback path)
+The function will extract the reference of VDI whose contents need to be
+replaced. This is the snapshot's `snapshot_of` field, then it will call the
+storage function function `VDI.revert` to have its contents replaced with the
+snapshot's. The VDI object will not be modified, and the reference returned is
+the VDI's original reference.
+If anything impedes the successful finish of an in-place revert, like the SM
+backend does not advertising the feature `VDI_REVERT`, not implement the
+feature, or the `snapshot_of` reference is invalid; an exception will be
+raised.
 
-References:
+### Xapi Storage
 
-- @johnelse's [pull request](https://github.com/xapi-project/xen-api/pull/1963)
-  which implements this
+The function `VDI.revert` is added, with the following arguments:
 
-SMAPIv1 changes
----------------
+- in: `dbg`: the task identifier, useful for tracing
+- in: `sr`: SR where the new VDI must be created
+- in: `snapshot_info`: metadata of the snapshot, the contents of which must be
+       made available in the VDI indicated by the `snapshot_of` field
 
-We will define the function `vdi_revert` with arguments:
+#### SMAPIv1
+
+The function `vdi_revert` is defined with the following arguments:
 
 - in: `sr_uuid`: the UUID of the SR containing both the VDI and the snapshot
-- in: `vdi_uuid`: the UUID of the snapshot whose contents should be duplicated
-- in: `target_uuid`: the UUID of the target whose contents should be replaced
+- in: `vdi_uuid`: the UUID of the snapshot whose contents must be duplicated
+- in: `target_uuid`: the UUID of the target whose contents must be replaced
 
 The function will replace the contents of the `target_uuid` VDI with the
 contents of the `vdi_uuid` VDI without changing the identify of the target
@@ -64,22 +102,27 @@ contents of the `vdi_uuid` VDI without changing the identify of the target
 The `vdi_uuid` is preserved by this operation. The operation is obvoiusly
 idempotent.
 
-Xapi changes
-------------
+#### SMAPIv3
 
-Xapi will
+In an analogous way to SMAPIv1, the function `Volume.revert` is defined with the
+following arguments:
 
-- use `VDI.revert` in the `VM.revert` code-path
+- in: `dbg`: the task identifier, useful for tracing
+- in: `sr`: the UUID of the SR containing both the VDI and the snapshot
+- in: `snapshot`: the UUID of the snapshot whose contents must be duplicated
+- in: `vdi`: the UUID of the VDI whose contents must be replaced
+
+### Xapi
+
+- add the capability `VDI_REVERT` so backends can advertise it
+- use `VDI.revert` in the `VM.revert` after the VDIs have been destroyed, and
+  before the snapshot's VDIs have been cloned. If any of the reverts fail
+  because a `Not_implemented` exception is thrown, or the `snapshot_of`
+  contains an invalid reference, add the affected VDIs to the list to be cloned
+  and recovered, using the existing method
 - expose a new `xe vdi-revert` CLI command
-- implement the `VDI.revert` by calling the SMAPIv1 function and falling back
-  to `VDI.clone` if a `Not_implemented` exception is thrown
 
-References:
-
-- @johnelse's [pull request](https://github.com/xapi-project/xen-api/pull/1963)
-
-SM changes
-----------
+## SM changes
 
 We will modify
 
@@ -92,8 +135,7 @@ We will modify
   snapshot/clone machinery
 - LVHDoISCSISR.py and LVHDoHBASR.py to advertise the `VDI_REVERT` capability
 
-Prototype code
-==============
+# Prototype code from the previous proposal
 
 Prototype code exists here:
 
