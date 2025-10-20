@@ -262,7 +262,9 @@
     System_domains
     Xapi_psr
     Xapi_services
-    Xapi_udhcpd))))
+    Xapi_udhcpd)
+   ((pps ppx_deriving.enum)
+    Firewall))))
 
 (library
  (name xapi_internal_server_only)

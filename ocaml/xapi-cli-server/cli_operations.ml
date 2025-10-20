@@ -5451,6 +5451,9 @@ let host_retrieve_wlb_evacuate_recommendations printer rpc session_id params =
 let host_shutdown_agent _printer rpc session_id _params =
   ignore (Client.Host.shutdown_agent ~rpc ~session_id)
 
+let host_update_firewalld_service_status _printer rpc session_id _params =
+  ignore (Client.Host.update_firewalld_service_status ~rpc ~session_id)
+
 let vdi_import fd _printer rpc session_id params =
   let filename = List.assoc "filename" params in
   let vdi =

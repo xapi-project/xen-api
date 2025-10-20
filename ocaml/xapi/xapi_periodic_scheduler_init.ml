@@ -96,6 +96,12 @@ let register ~__context =
          exceeds the timeout duration. In this scenario, we need to enable SSH auto
          mode to ensure the SSH service remains continuously available. *)
       else if Fe_systemctl.is_active ~service:!Xapi_globs.ssh_service then (
+        let module Fw =
+          ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+              : Firewall.FIREWALL
+            )
+        in
+        Fw.update_firewall_status Firewall.Ssh Firewall.Disabled ;
         Xapi_host.disable_ssh ~__context ~self ;
         Xapi_host.set_ssh_auto_mode ~__context ~self ~value:true
       )
