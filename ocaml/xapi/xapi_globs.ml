@@ -376,6 +376,8 @@ let sync_ssh_status = "sync_ssh_status"
 
 let sync_max_cstate = "sync_max_cstate"
 
+let sync_ntp_config = "sync_ntp_config"
+
 let sync_secure_boot = "sync_secure_boot"
 
 let sync_pci_devices = "sync_pci_devices"

@@ -79,6 +79,9 @@ let disable_ntp_service () =
   Xapi_systemctl.stop ~wait_until_success:false !Xapi_globs.ntp_service ;
   Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ntp_service
 
+let is_ntp_service_active () =
+  Fe_systemctl.is_active ~service:!Xapi_globs.ntp_service
+
 let parse_ntp_conf () =
   try
     Xapi_stdext_unix.Unixext.read_lines ~path:!Xapi_globs.ntp_conf
@@ -99,3 +102,18 @@ let set_servers_in_conf servers =
   write_ntp_conf other servers
 
 let clear_servers_in_conf () = set_servers_in_conf []
+
+let get_servers_from_conf () =
+  let servers, _ = parse_ntp_conf () in
+  List.filter_map
+    (fun line ->
+      try Scanf.sscanf line "server %s@ iburst%!" Option.some with _ -> None
+    )
+    servers
+
+let is_ntp_dhcp_enabled () =
+  (* check ntp_dhcp_script exec permission *)
+  try
+    let stat = Unix.stat !Xapi_globs.ntp_dhcp_script in
+    stat.Unix.st_perm land 0o100 <> 0
+  with _ -> false

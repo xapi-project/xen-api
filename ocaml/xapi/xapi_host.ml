@@ -3441,3 +3441,23 @@ let enable_ntp ~__context ~self =
 let disable_ntp ~__context ~self =
   Xapi_host_ntp.disable_ntp_service () ;
   Db.Host.set_ntp_enabled ~__context ~self ~value:false
+
+let sync_ntp_config ~__context ~host =
+  let servers = Xapi_host_ntp.get_servers_from_conf () in
+  let is_ntp_dhcp_enabled = Xapi_host_ntp.is_ntp_dhcp_enabled () in
+  let ntp_mode =
+    match (is_ntp_dhcp_enabled, servers) with
+    | true, _ ->
+        `ntp_mode_dhcp
+    | false, s
+      when Xapi_stdext_std.Listext.List.set_equiv s
+             !Xapi_globs.default_ntp_servers ->
+        `ntp_mode_default
+    | false, _ ->
+        `ntp_mode_custom
+  in
+  Db.Host.set_ntp_mode ~__context ~self:host ~value:ntp_mode ;
+  if ntp_mode = `ntp_mode_custom then
+    Db.Host.set_ntp_custom_servers ~__context ~self:host ~value:servers ;
+  let ntp_enabled = Xapi_host_ntp.is_ntp_service_active () in
+  Db.Host.set_ntp_enabled ~__context ~self:host ~value:ntp_enabled

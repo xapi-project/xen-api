@@ -412,6 +412,9 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_max_cstate (fun () ->
       Xapi_host.sync_max_cstate ~__context ~host:localhost
   ) ;
+  switched_sync Xapi_globs.sync_ntp_config (fun () ->
+      Xapi_host.sync_ntp_config ~__context ~host:localhost
+  ) ;
 
   switched_sync Xapi_globs.sync_secure_boot (fun () ->
       let result =
