@@ -507,9 +507,7 @@ let check_operation_error ~__context ~ref =
     (* if other operations are in progress, check that the new operation is allowed concurrently with them. *)
     let current_error =
       check current_error (fun () ->
-          if
-            List.length current_ops <> 0
-            && not (is_allowed_concurrently ~op ~current_ops)
+          if current_ops <> [] && not (is_allowed_concurrently ~op ~current_ops)
           then
             report_concurrent_operations_error ~current_ops ~ref_str
           else

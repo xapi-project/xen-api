@@ -130,7 +130,9 @@ unnecessary-length () {
   UNNECESSARY_LENGTH=$(local_grep "List.length.*=+\s*0")
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*=+\s*List.length")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s>\s*0")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s<>\s*0")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*<\s*List.length")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*<>\s*List.length")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s<\s*1")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "1\s*>\s*List.length")))
   if [ "$UNNECESSARY_LENGTH" -eq "$N" ]; then
