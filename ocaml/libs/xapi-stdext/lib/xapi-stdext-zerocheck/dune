@@ -1,5 +1,13 @@
 (library
   (public_name xapi-stdext-zerocheck)
   (name xapi_stdext_zerocheck)
+  (modules :standard \ zerocheck_test)
   (foreign_stubs (language c) (names zerocheck_stub))
+)
+
+(test
+  (name zerocheck_test)
+  (package xapi-stdext-zerocheck)
+  (modules zerocheck_test)
+  (libraries alcotest xapi-stdext-zerocheck)
 )
