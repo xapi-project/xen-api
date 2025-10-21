@@ -2545,11 +2545,11 @@ functor
              assuming it can ignore this check."
 
       let assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map
-          ~options ~vgpu_map ~vdi_format_map =
+          ~options ~vgpu_map =
         info "VM.assert_can_migrate: VM = '%s'" (vm_uuid ~__context vm) ;
         (* Run the checks that can be done using just the DB directly on the master *)
-        Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
-          ~vdi_format_map ~vif_map ~vgpu_map ~options ;
+        Local.VM.assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map ~vif_map
+          ~vgpu_map ~options ;
         (* Run further checks on the sending host *)
         assert_can_migrate_sender ~__context ~vm ~dest ~live ~vdi_map ~vif_map
           ~vgpu_map ~options
@@ -2625,7 +2625,7 @@ functor
               Server_helpers.exec_with_subtask ~__context
                 "VM.assert_can_migrate" (fun ~__context ->
                   assert_can_migrate ~__context ~vm ~dest ~live ~vdi_map
-                    ~vdi_format_map ~vif_map ~vgpu_map ~options
+                    ~vif_map ~vgpu_map ~options
               ) ;
               if Db.VM.get_VGPUs ~__context ~self:vm <> [] then
                 Xapi_stats.incr_pool_vgpu_migration_count () ;

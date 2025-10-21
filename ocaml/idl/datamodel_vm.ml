@@ -1718,7 +1718,7 @@ let migrate_send =
           param_type= Map (Ref _vdi, String)
         ; param_name= "vdi_format_map"
         ; param_doc= "Map of source VDI to it's expected type on destination"
-        ; param_release= numbered_release "25.24.0-next"
+        ; param_release= numbered_release "25.33.0-next"
         ; param_default= Some (VMap [])
         }
       ]
@@ -1786,13 +1786,6 @@ let assert_can_migrate =
         ; param_name= "vgpu_map"
         ; param_doc= "Map of source vGPU to destination GPU group"
         ; param_release= inverness_release
-        ; param_default= Some (VMap [])
-        }
-      ; {
-          param_type= Map (Ref _vdi, String)
-        ; param_name= "vdi_format_map"
-        ; param_doc= "Map of source VDI to it's expected type on destination"
-        ; param_release= numbered_release "25.24.0-next"
         ; param_default= Some (VMap [])
         }
       ]

@@ -1818,6 +1818,8 @@ module DATAImpl (M : META) = struct
   let stat_impl dbg sr vdi vm key = wrap @@ stat dbg sr vdi vm key
 
   let mirror dbg sr vdi' image_format vm' remote =
+    let _ = image_format in
+    (* TODO: really use image format *)
     let vdi = Storage_interface.Vdi.string_of vdi' in
     let domain = Storage_interface.Vm.string_of vm' in
     Attached_SRs.find sr >>>= fun sr ->

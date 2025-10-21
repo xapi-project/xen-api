@@ -216,62 +216,91 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
          op_supported_on_dest_sr sr remote_ops sm_record remote
      )
 
+(** [check_supported_image_format] checks that the [image_format] string
+    corresponds to valid image format type listed in [sm_formats].
+    If [sm_formats] is an empty list or [image_format] is an empty string
+    there function does nothing. Otherwise, if [image_format] is not found
+    in [sm_formats], an exception is raised. *)
+let check_supported_image_format ~image_format ~sm_formats ~sr_uuid =
+  if image_format = "" || sm_formats = [] then
+    ()
+  else
+    let ty = Record_util.image_format_type_of_string image_format in
+    if not (List.mem ty sm_formats) then
+      let msg =
+        Printf.sprintf "Image format %s is not supported by %s" image_format
+          sr_uuid
+      in
+      raise Api_errors.(Server_error (vdi_incompatible_type, [msg]))
+
 (** [assert_vdi_format_is_supported] checks that all VDIs in [vdi_map] are included in the list of
     supported image format of their corresponding SM. The type of the VDI is found in [vdi_format_map].
     - If no VDI type is specified we just returned so no error is raised.
     - If an SM reports an empty list of supported formats, we cannot verify compatibility and no error
       is raised. So if the format is not actually supported, the failure will be detected later when
       attempting to create the VDI using that image format. *)
-let assert_vdi_format_is_supported ~__context ~vdi_map ~vdi_format_map =
+let assert_vdi_format_is_supported ~__context ~remote_opt ~vdi_map
+    ~vdi_format_map =
+  let get_uuid_sr sr_ref =
+    match remote_opt with
+    | None ->
+        Db.SR.get_uuid ~__context ~self:sr_ref
+    | Some r ->
+        XenAPI.SR.get_uuid ~rpc:r.rpc ~session_id:r.session ~self:sr_ref
+  in
+  let get_sr_type sr_ref =
+    match remote_opt with
+    | None ->
+        Db.SR.get_type ~__context ~self:sr_ref
+    | Some r ->
+        XenAPI.SR.get_type ~rpc:r.rpc ~session_id:r.session ~self:sr_ref
+  in
+  let get_sm_refs sr_type =
+    match remote_opt with
+    | None ->
+        Db.SM.get_refs_where ~__context
+          ~expr:(Eq (Field "type", Literal sr_type))
+    | Some r ->
+        XenAPI.SM.get_all_where ~rpc:r.rpc ~session_id:r.session
+          ~expr:(Printf.sprintf {|(field "type"="%s")|} sr_type)
+  in
+  let get_sm_formats sm_ref =
+    match remote_opt with
+    | None ->
+        Db.SM.get_supported_image_formats ~__context ~self:sm_ref
+    | Some r ->
+        XenAPI.SM.get_supported_image_formats ~rpc:r.rpc ~session_id:r.session
+          ~self:sm_ref
+  in
   List.iter
     (fun (vdi_ref, sr_ref) ->
       let vdi_uuid = Db.VDI.get_uuid ~__context ~self:vdi_ref in
-      let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
+      let sr_uuid = get_uuid_sr sr_ref in
       match List.assoc_opt vdi_ref vdi_format_map with
       | None ->
-          debug "GTNDEBUG: read vdi %s, sr %s. No type specified for the VDI"
-            vdi_uuid sr_uuid
-      | Some ty -> (
+          debug "read vdi %s, sr %s. No type specified." vdi_uuid sr_uuid
+      | Some image_format -> (
+          debug "GTNDEBUG: within assert vdi format is supported" ;
           (* To get the supported image format from SM we need the SR type because both have
              the same type. *)
-          let sr_type = Db.SR.get_type ~__context ~self:sr_ref in
-          let sm_refs =
-            Db.SM.get_refs_where ~__context
-              ~expr:(Eq (Field "type", Literal sr_type))
-          in
+          let sr_type = get_sr_type sr_ref in
+          debug "GTNDEBUG: SR has type %s" sr_type ;
+          let sm_refs = get_sm_refs sr_type in
           (* We expect that one sr_type matches one sm_ref *)
           match sm_refs with
           | [sm_ref] ->
-              debug "GTNDEBUG: read vdi %s, sr %s. Type is %s" vdi_uuid sr_uuid
-                ty ;
-              let sm_formats =
-                Db.SM.get_supported_image_formats ~__context ~self:sm_ref
-              in
-              if ty <> "" && sm_formats <> [] && not (List.mem ty sm_formats)
-              then
-                raise
-                  Api_errors.(
-                    Server_error
-                      ( vdi_incompatible_type
-                      , [
-                          Printf.sprintf
-                            "Image format %s is not supported by %s" ty sr_uuid
-                        ]
-                      )
-                  )
+              debug "read vdi %s, sr %s. Type is %s" vdi_uuid sr_uuid
+                image_format ;
+              let sm_formats = get_sm_formats sm_ref in
+              check_supported_image_format ~image_format ~sm_formats ~sr_uuid
           | _ ->
-              raise
-                Api_errors.(
-                  Server_error
-                    ( vdi_incompatible_type
-                    , [
-                        Printf.sprintf
-                          "Found more than one SM ref (%d) when checking type \
-                           (%s) of VDI."
-                          (List.length sm_refs) ty
-                      ]
-                    )
-                )
+              let msg =
+                Printf.sprintf
+                  "Found more than one SM ref (%d) when checking type (%s) of \
+                   VDI."
+                  (List.length sm_refs) image_format
+              in
+              raise Api_errors.(Server_error (vdi_incompatible_type, [msg]))
         )
     )
     vdi_map
@@ -281,7 +310,7 @@ let assert_vdi_format_is_supported ~__context ~vdi_map ~vdi_format_map =
     [vdi_map], which contains all the VDIs of the VM.
     [check_vdi_map] should be called before this function to verify that this
     is the case. *)
-let assert_can_migrate_vdis ~__context ~vdi_map ~vdi_format_map =
+let assert_can_migrate_vdis ~__context ~vdi_map =
   let assert_cbt_not_enabled vdi =
     if Db.VDI.get_cbt_enabled ~__context ~self:vdi then
       raise Api_errors.(Server_error (vdi_cbt_enabled, [Ref.string_of vdi]))
@@ -291,7 +320,6 @@ let assert_can_migrate_vdis ~__context ~vdi_map ~vdi_format_map =
     if List.exists (fun (key, _value) -> key = "key_hash") sm_config then
       raise Api_errors.(Server_error (vdi_is_encrypted, [Ref.string_of vdi]))
   in
-  assert_vdi_format_is_supported ~__context ~vdi_map ~vdi_format_map ;
   List.iter
     (fun (vdi, target_sr) ->
       if target_sr <> Db.VDI.get_SR ~__context ~self:vdi then (
@@ -792,27 +820,22 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map
     debug "Remote SMAPI doesn't implement update_snapshot_info_src - ignoring"
 
 type vdi_mirror = {
-    vdi: [`VDI] API.Ref.t
-  ; (* The API reference of the local VDI *)
-    format: string
-  ; (* The image format of the VDI the must be used during its creation *)
-    dp: string
-  ; (* The datapath the VDI will be using if the VM is running *)
-    location: Storage_interface.Vdi.t
-  ; (* The location of the VDI in the current SR *)
-    sr: Storage_interface.Sr.t
-  ; (* The VDI's current SR uuid *)
-    xenops_locator: string
-  ; (* The 'locator' xenops uses to refer to the VDI on the current host *)
-    size: Int64.t
-  ; (* Size of the VDI *)
-    snapshot_of: [`VDI] API.Ref.t
-  ; (* API's snapshot_of reference *)
-    do_mirror: bool (* Whether we should mirror or just copy the VDI *)
+    vdi: [`VDI] API.Ref.t  (** The API reference of the local VDI *)
+  ; format: string
+        (** The image format of the VDI that must be used during its creation *)
+  ; dp: string  (** The datapath the VDI will be using if the VM is running *)
+  ; location: Storage_interface.Vdi.t
+        (** The location of the VDI in the current SR *)
+  ; sr: Storage_interface.Sr.t  (** The VDI's current SR uuid *)
+  ; xenops_locator: string
+        (** The 'locator' xenops uses to refer to the VDI on the current host *)
+  ; size: Int64.t  (** Size of the VDI *)
+  ; snapshot_of: [`VDI] API.Ref.t  (** API's snapshot_of reference *)
+  ; do_mirror: bool  (** Whether we should mirror or just copy the VDI *)
   ; mirror_vm: Vm.t
-        (* The domain slice to which SMAPI calls should be made when mirroring this vdi *)
+        (** The domain slice to which SMAPI calls should be made when mirroring this vdi *)
   ; copy_vm: Vm.t
-        (* The domain slice to which SMAPI calls should be made when copying this vdi *)
+        (** The domain slice to which SMAPI calls should be made when copying this vdi *)
 }
 
 (* For VMs (not snapshots) xenopsd does not allow remapping, so we
@@ -1469,7 +1492,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
   let all_vdis =
     List.map
       (fun vm ->
-        match get_vdi_type vm.vdi vdi_format_map with
+        match get_vdi_type ~vdi_ref:vm.vdi ~vdi_format_map with
         | None ->
             vm
         | Some vdi_ty ->
@@ -1480,7 +1503,9 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
   in
   (* This is a good time to check our VDIs, because the vdi_map should be
      complete at this point; it should include all the VDIs in the all_vdis list. *)
-  assert_can_migrate_vdis ~__context ~vdi_map ~vdi_format_map ;
+  assert_can_migrate_vdis ~__context ~vdi_map ;
+  let remote_opt = if is_same_host then None else Some remote in
+  assert_vdi_format_is_supported ~__context ~remote_opt ~vdi_map ~vdi_format_map ;
   let dbg = Context.string_of_task_and_tracing __context in
   let open Xapi_xenops_queue in
   let queue_name = queue_of_vm ~__context ~self:vm in
@@ -1859,7 +1884,7 @@ let migration_type ~__context ~remote =
     `cross_pool
 
 let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
-    ~vgpu_map ~vdi_format_map =
+    ~vgpu_map =
   Xapi_vm_helpers.assert_no_legacy_hardware ~__context ~vm ;
   assert_licensed_storage_motion ~__context ;
   let remote = remote_of_dest ~__context dest in
@@ -2020,7 +2045,7 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
   (* Previously there was also a check that none of the VDIs have CBT enabled.
      This is unnecessary, we only need to check that none of the VDIs that
      *will be moved* have CBT enabled. *)
-  assert_can_migrate_vdis ~__context ~vdi_map ~vdi_format_map
+  assert_can_migrate_vdis ~__context ~vdi_map
 
 let assert_can_migrate_sender ~__context ~vm ~dest ~live:_ ~vdi_map:_ ~vif_map:_
     ~vgpu_map ~options:_ =
@@ -2131,9 +2156,8 @@ let vdi_pool_migrate ~__context ~vdi ~sr ~dest_img_format ~options =
         XenAPI.Host.migrate_receive ~rpc ~session_id ~host:dest_host ~network
           ~options
       in
-      assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map
-        ~vdi_format_map:[(vdi, dest_img_format)]
-        ~vif_map:[] ~vgpu_map:[] ~options:[] ;
+      assert_can_migrate ~__context ~vm ~dest ~live:true ~vdi_map ~vif_map:[]
+        ~vgpu_map:[] ~options:[] ;
       assert_can_migrate_sender ~__context ~vm ~dest ~live:true ~vdi_map
         ~vif_map:[] ~vgpu_map:[] ~options:[] ;
       ignore
