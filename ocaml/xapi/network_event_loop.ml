@@ -44,26 +44,9 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
     let token, allowed_interfaces =
       try
         let token = wait_for_network_change ~token in
-        let pifs = Db.Host.get_PIFs ~__context ~self:localhost in
-        let allowed_connected_networks =
-          (* We use Valid_ref_list to continue processing the list in case some network refs are null or invalid *)
-          Valid_ref_list.filter_map
-            (fun pif ->
-              let network = Db.PIF.get_network ~__context ~self:pif in
-              let purpose = Db.Network.get_purpose ~__context ~self:network in
-              if List.mem `nbd purpose || List.mem `insecure_nbd purpose then
-                Some network
-              else
-                None
-            )
-            pifs
-        in
         let interfaces =
-          List.map
-            (fun network -> Db.Network.get_bridge ~__context ~self:network)
-            allowed_connected_networks
+          Xapi_host.get_nbd_interfaces ~__context ~self:localhost
         in
-        let interfaces = Xapi_stdext_std.Listext.List.setify interfaces in
         let needs_firewall_update =
           match allowed_interfaces with
           | Some allowed_interfaces ->
@@ -110,11 +93,20 @@ let _watch_networks_for_nbd_changes __context ~update_firewall
   loop ~token:"" ~allowed_interfaces
 
 let update_firewall interfaces_allowed_for_nbd =
-  let args = "set" :: interfaces_allowed_for_nbd in
-  Forkhelpers.execute_command_get_output
-    !Xapi_globs.nbd_firewall_config_script
-    args
-  |> ignore
+  let module Fw =
+    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+        : Firewall.FIREWALL
+      )
+  in
+  let status =
+    match interfaces_allowed_for_nbd with
+    | [] ->
+        Firewall.Disabled
+    | _ ->
+        Firewall.Enabled
+  in
+  Fw.update_firewall_status ~interfaces:interfaces_allowed_for_nbd Firewall.Nbd
+    status
 
 let watch_networks_for_nbd_changes () =
   Server_helpers.exec_with_new_task "watching networks for NBD-related changes"
