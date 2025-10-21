@@ -83,8 +83,8 @@ and an extension of type used by and existing function.
       = "stub_xc_domain_get_numa_info_node_pages_size"
 ```
 
-Thia function reports the nunber of NUMA nodes used by a domain
-(supplied as an ergument)
+This function reports the number of NUMA nodes used by a domain
+(supplied as an argument)
 
 ```ocaml
     type domain_numainfo_node_pages = {
