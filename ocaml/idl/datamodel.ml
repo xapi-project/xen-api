@@ -5456,7 +5456,7 @@ module VDI = struct
         ; (Ref _sr, "sr", "The destination SR")
         ; ( String
           , "dest_img_format"
-          , "The image format to use on destination SR"
+          , "The image format to use on destination SR: raw, vhd, qcow2"
           )
         ; (Map (String, String), "options", "Other parameters")
         ]

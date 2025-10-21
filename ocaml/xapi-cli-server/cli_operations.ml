@@ -4907,7 +4907,6 @@ let vm_migrate printer rpc session_id params =
               let vdi =
                 Client.VDI.get_by_uuid ~rpc ~session_id ~uuid:vdi_uuid
               in
-              debug "GTNDEBUG: add image format %s,%s" vdi_uuid vdi_fmt ;
               (vdi, vdi_fmt)
             )
             (read_map_params "image-format" params)

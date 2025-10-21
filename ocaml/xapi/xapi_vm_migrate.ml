@@ -216,6 +216,23 @@ let assert_sr_support_operations ~__context ~vdi_map ~remote ~local_ops
          op_supported_on_dest_sr sr remote_ops sm_record remote
      )
 
+(** [check_supported_image_format] checks that the [image_format] string
+    corresponds to valid image format type listed in [sm_formats].
+    If [sm_formats] is an empty list or [image_format] is an empty string
+    there function does nothing. Otherwise, if [image_format] is not found
+    in [sm_formats], an exception is raised. *)
+let check_supported_image_format ~image_format ~sm_formats ~sr_uuid =
+  if image_format = "" || sm_formats = [] then
+    ()
+  else
+    let ty = Record_util.image_format_type_of_string image_format in
+    if not (List.mem ty sm_formats) then
+      let msg =
+        Printf.sprintf "Image format %s is not supported by %s" image_format
+          sr_uuid
+      in
+      raise Api_errors.(Server_error (vdi_incompatible_type, [msg]))
+
 (** [assert_vdi_format_is_supported] checks that all VDIs in [vdi_map] are included in the list of
     supported image format of their corresponding SM. The type of the VDI is found in [vdi_format_map].
     - If no VDI type is specified we just returned so no error is raised.
@@ -229,9 +246,9 @@ let assert_vdi_format_is_supported ~__context ~vdi_map ~vdi_format_map =
       let sr_uuid = Db.SR.get_uuid ~__context ~self:sr_ref in
       match List.assoc_opt vdi_ref vdi_format_map with
       | None ->
-          debug "GTNDEBUG: read vdi %s, sr %s. No type specified for the VDI"
-            vdi_uuid sr_uuid
-      | Some ty -> (
+          debug "read vdi %s, sr %s. No type specified for the VDI" vdi_uuid
+            sr_uuid
+      | Some image_format -> (
           (* To get the supported image format from SM we need the SR type because both have
              the same type. *)
           let sr_type = Db.SR.get_type ~__context ~self:sr_ref in
@@ -242,36 +259,20 @@ let assert_vdi_format_is_supported ~__context ~vdi_map ~vdi_format_map =
           (* We expect that one sr_type matches one sm_ref *)
           match sm_refs with
           | [sm_ref] ->
-              debug "GTNDEBUG: read vdi %s, sr %s. Type is %s" vdi_uuid sr_uuid
-                ty ;
+              debug "read vdi %s, sr %s. Type is %s" vdi_uuid sr_uuid
+                image_format ;
               let sm_formats =
                 Db.SM.get_supported_image_formats ~__context ~self:sm_ref
               in
-              if ty <> "" && sm_formats <> [] && not (List.mem ty sm_formats)
-              then
-                raise
-                  Api_errors.(
-                    Server_error
-                      ( vdi_incompatible_type
-                      , [
-                          Printf.sprintf
-                            "Image format %s is not supported by %s" ty sr_uuid
-                        ]
-                      )
-                  )
+              check_supported_image_format ~image_format ~sm_formats ~sr_uuid
           | _ ->
-              raise
-                Api_errors.(
-                  Server_error
-                    ( vdi_incompatible_type
-                    , [
-                        Printf.sprintf
-                          "Found more than one SM ref (%d) when checking type \
-                           (%s) of VDI."
-                          (List.length sm_refs) ty
-                      ]
-                    )
-                )
+              let msg =
+                Printf.sprintf
+                  "Found more than one SM ref (%d) when checking type (%s) of \
+                   VDI."
+                  (List.length sm_refs) image_format
+              in
+              raise Api_errors.(Server_error (vdi_incompatible_type, [msg]))
         )
     )
     vdi_map
@@ -792,27 +793,22 @@ let update_snapshot_info ~__context ~dbg ~url ~vdi_map ~snapshots_map
     debug "Remote SMAPI doesn't implement update_snapshot_info_src - ignoring"
 
 type vdi_mirror = {
-    vdi: [`VDI] API.Ref.t
-  ; (* The API reference of the local VDI *)
-    format: string
-  ; (* The image format of the VDI the must be used during its creation *)
-    dp: string
-  ; (* The datapath the VDI will be using if the VM is running *)
-    location: Storage_interface.Vdi.t
-  ; (* The location of the VDI in the current SR *)
-    sr: Storage_interface.Sr.t
-  ; (* The VDI's current SR uuid *)
-    xenops_locator: string
-  ; (* The 'locator' xenops uses to refer to the VDI on the current host *)
-    size: Int64.t
-  ; (* Size of the VDI *)
-    snapshot_of: [`VDI] API.Ref.t
-  ; (* API's snapshot_of reference *)
-    do_mirror: bool (* Whether we should mirror or just copy the VDI *)
+    vdi: [`VDI] API.Ref.t  (** The API reference of the local VDI *)
+  ; format: string
+        (** The image format of the VDI that must be used during its creation *)
+  ; dp: string  (** The datapath the VDI will be using if the VM is running *)
+  ; location: Storage_interface.Vdi.t
+        (** The location of the VDI in the current SR *)
+  ; sr: Storage_interface.Sr.t  (** The VDI's current SR uuid *)
+  ; xenops_locator: string
+        (** The 'locator' xenops uses to refer to the VDI on the current host *)
+  ; size: Int64.t  (** Size of the VDI *)
+  ; snapshot_of: [`VDI] API.Ref.t  (** API's snapshot_of reference *)
+  ; do_mirror: bool  (** Whether we should mirror or just copy the VDI *)
   ; mirror_vm: Vm.t
-        (* The domain slice to which SMAPI calls should be made when mirroring this vdi *)
+        (** The domain slice to which SMAPI calls should be made when mirroring this vdi *)
   ; copy_vm: Vm.t
-        (* The domain slice to which SMAPI calls should be made when copying this vdi *)
+        (** The domain slice to which SMAPI calls should be made when copying this vdi *)
 }
 
 (* For VMs (not snapshots) xenopsd does not allow remapping, so we
@@ -1468,7 +1464,7 @@ let migrate_send' ~__context ~vm ~dest ~live:_ ~vdi_map ~vdi_format_map ~vif_map
   let all_vdis =
     List.map
       (fun vm ->
-        match get_vdi_type vm.vdi vdi_format_map with
+        match get_vdi_type ~vdi_ref:vm.vdi ~vdi_format_map with
         | None ->
             vm
         | Some vdi_ty ->
