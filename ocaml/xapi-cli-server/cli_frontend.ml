@@ -1613,6 +1613,7 @@ let rec cmdtable_data : (string * cmd_spec) list =
           ; "compress"
           ; "vif:"
           ; "vdi:"
+          ; "image-format:"
           ]
       ; help=
           "Migrate the selected VM(s). The parameter '--live' will migrate the \
@@ -1626,7 +1627,9 @@ let rec cmdtable_data : (string * cmd_spec) list =
            'copy=true' will enable the copy mode so that a stopped vm can be \
            copied, instead of migrating, to the destination pool. The vif and \
            vdi mapping parameters take the form 'vif:<source vif uuid>=<dest \
-           network uuid>' and 'vdi:<source vdi uuid>=<dest sr uuid>'. \
+           network uuid>' and 'vdi:<source vdi uuid>=<dest sr uuid>'. You can \
+           also specify the destination image format of the VDI using \
+           'image-format:<source vdi uuid>=<destination image format>'. \
            Unfortunately, destination uuids cannot be tab-completed."
       ; implementation= No_fd Cli_operations.vm_migrate
       ; flags= [Standard; Vm_selectors]
