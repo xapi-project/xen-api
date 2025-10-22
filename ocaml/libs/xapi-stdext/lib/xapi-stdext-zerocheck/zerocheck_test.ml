@@ -21,7 +21,7 @@ module Str = struct
       Bytes.set non_zeroes (size - 1) '\x01' ;
       let non_zeroes = Bytes.unsafe_to_string non_zeroes in
       let expected = true in
-      let actual = not (Zerocheck.is_all_zeros non_zeroes size) in
+      let actual = not (Zerocheck.is_all_zeros non_zeroes) in
       Alcotest.(check bool) "The last byte is not zero" expected actual
     in
     List.map (fun (name, size) -> (name, `Quick, test size)) spec
@@ -31,7 +31,7 @@ module Str = struct
       let size = 2147483647 + 1 in
       let zeroes = String.make size '\x00' in
       let expected = true in
-      let actual = Zerocheck.is_all_zeros zeroes size in
+      let actual = Zerocheck.is_all_zeros zeroes in
       Alcotest.(check bool) "All bytes are zero" expected actual
     in
     [("2 GiBs + 1", `Quick, test)]
