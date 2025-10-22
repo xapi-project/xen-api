@@ -22,23 +22,24 @@ NUMA is more generally discussed as
 
 Xen 4.20 implements NUMA optimisation. We want to expose the following
 NUMA-related properties of VMs to API clients, and in particualar
-XenCenter. Each one is represented by a new field in XAPI's VM data
-model:
+XenCenter. Each one is represented by a new field in XAPI's `VM_metrics`
+data model:
 
-* RO `VM.numa_optimised`: boolean: if the VM is optimised for NUMA
-* RO `VM.numa_nodes`: integer: number of NUMA nodes of the host the VM
-  is using
-* MRO `VM.numa_node_memory`: list of tuple (`node_X`: integer,
-  `amount_in_bytes`: int64): amount of VM memory in NUMA node `X`.
+* RO `VM_metrics.numa_optimised`: boolean: if the VM_metrics is
+  optimised for NUMA
+* RO `VM_metrics.numa_nodes`: integer: number of NUMA nodes of the host
+  the VM_metrics is using
+* MRO `VM_metrics.numa_node_memory`: int -> int map; mapping a NUMA node
+  (int) to an amount of memory (bytes) in that node.
 
 Required NUMA support is only available in Xen 4.20. Some parts of the
 code will have to be managed by patches.
 
 ## XAPI High-Level Implementation
 
-As far as Xapi clients are concerned, we implement new fields in the VM
-class of the data model and surface the values in the CLI via
-`records.ml`; we could decide to make `numa_optimised` visible by
+As far as Xapi clients are concerned, we implement new fields in the
+`VM_metrics` class of the data model and surface the values in the CLI
+via `records.ml`; we could decide to make `numa_optimised` visible by
 default in `xe vm-list`.
 
 Introducing new fields requires defaults; these would be:
@@ -54,7 +55,7 @@ The data model ensures that the values are visible to API clients.
 NUMA properties are observed by Xenopsd and Xapi learns about them as
 part of the `Client.VM.stat` call implemented by Xenopsd. Xapi makes
 these calls frequently and we will update the Xapi VM fields related to
-NUMA simply as part of processing the result of sucha  call in Xapi.
+NUMA simply as part of processing the result of such a call in Xapi.
 
 For this to work, we extend the return type of `VM.stat` in
 
@@ -77,8 +78,9 @@ Xenopsd implements the `VM.stat` return value in
 where the three fields would be set. Xenopsds relies on bindings to Xen to
 observe NUMA-related properties of a domain.
 
-Given that NUMA related functionality is only available for Xen 4.20, we probably will have to maintain a patch in xapi.spec for
-compatibility with earlier Xen versions.
+Given that NUMA related functionality is only available for Xen 4.20, we
+probably will have to maintain a patch in xapi.spec for compatibility
+with earlier Xen versions.
 
 The (existing) C bindings and changes come in two forms: new functions
 and an extension of a type used by and existing function.
