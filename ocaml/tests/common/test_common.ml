@@ -43,6 +43,7 @@ let default_cpu_info =
     ("cpu_count", "0")
   ; ("socket_count", "0")
   ; ("threads_per_core", "0")
+  ; ("nr_nodes", "0")
   ; ("vendor", "Abacus")
   ; ("speed", "")
   ; ("modelname", "")
@@ -79,6 +80,7 @@ let make_localhost ~__context ?(features = Features.all_features) () =
             cpu_count= 1
           ; socket_count= 1
           ; threads_per_core= 1
+          ; nr_nodes= 1
           ; vendor= ""
           ; speed= ""
           ; modelname= ""
@@ -181,6 +183,7 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
       ~local_cache_sr ~chipset_info ~ssl_legacy ~last_software_update
       ~last_update_hash ~ssh_enabled ~ssh_enabled_timeout ~ssh_expiry
       ~console_idle_timeout ~ssh_auto_mode ~secure_boot
+      ~software_version:(Xapi_globs.software_version ())
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host

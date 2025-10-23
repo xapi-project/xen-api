@@ -702,7 +702,8 @@ let apply_livepatch ~__context ~host:_ ~component ~base_build_id ~base_version
   with
   | Some livepatch_file ->
       Livepatch.apply ~component:component' ~livepatch_file ~base_build_id
-        ~base_version ~base_release ~to_version ~to_release
+        ~base_version ~base_release ~to_version ~to_release ;
+      Create_misc.create_software_version ~__context ()
   | None ->
       Helpers.internal_error ~log_err:true "No expected livepatch file for %s"
         component

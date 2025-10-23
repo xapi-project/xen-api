@@ -1391,6 +1391,13 @@ let create_params =
     ; param_release= numbered_release "25.32.0"
     ; param_default= Some (VBool false)
     }
+  ; {
+      param_type= Map (String, String)
+    ; param_name= "software_version"
+    ; param_doc= "Information about the software versions on the host"
+    ; param_release= numbered_release "25.32.0-next"
+    ; param_default= Some (VMap [])
+    }
   ]
 
 let create =
@@ -2511,6 +2518,14 @@ let set_ssh_auto_mode =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let update_firewalld_service_status =
+  call ~name:"update_firewalld_service_status" ~flags:[`Session] ~lifecycle:[]
+    ~pool_internal:true ~hide_from_docs:true
+    ~doc:
+      "Update firewalld services based on the corresponding xapi services \
+       status."
+    ~allowed_roles:_R_POOL_OP ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2528,6 +2543,22 @@ let latest_synced_updates_applied_state =
         )
       ]
     )
+
+let get_tracked_user_agents =
+  call ~name:"get_tracked_user_agents" ~lifecycle:[]
+    ~doc:
+      "Get the (name, version) list of tracked user agents on this host. If \
+       different versions of the same name are seen, keep the last-seen \
+       version. The oldest entry will be removed if reach the max num. Note \
+       that the list is cleared after host/XAPI restart"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_READ_ONLY
+    ~result:
+      ( Map (String, String)
+      , "The (name, version) list of user agents that have been tracked on \
+         this host"
+      )
+    ()
 
 let set_max_cstate =
   call ~name:"set_max_cstate" ~lifecycle:[]
@@ -2740,6 +2771,8 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; get_tracked_user_agents
+      ; update_firewalld_service_status
       ; set_max_cstate
       ; set_ntp_mode
       ; set_ntp_custom_servers

@@ -1921,7 +1921,8 @@ functor
 
       let start_on ~__context ~vm ~host ~start_paused ~force =
         if Helpers.rolling_upgrade_in_progress ~__context then
-          Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
+          Helpers.Checks.RPU.assert_host_has_highest_version_in_pool ~__context
+            ~host ;
         Pool_features.assert_enabled ~__context ~f:Features.VM_start ;
         Xapi_vm_helpers.assert_matches_control_domain_affinity ~__context
           ~self:vm ~host ;
@@ -2427,7 +2428,8 @@ functor
 
       let resume_on ~__context ~vm ~host ~start_paused ~force =
         if Helpers.rolling_upgrade_in_progress ~__context then
-          Helpers.assert_host_has_highest_version_in_pool ~__context ~host ;
+          Helpers.Checks.RPU.assert_host_has_highest_version_in_pool ~__context
+            ~host ;
         info "VM.resume_on: VM = '%s'; host = '%s'" (vm_uuid ~__context vm)
           (host_uuid ~__context host) ;
         let local_fn = Local.VM.resume_on ~vm ~host ~start_paused ~force in
@@ -2485,7 +2487,7 @@ functor
         with_vm_operation ~__context ~self:vm ~doc:"VM.pool_migrate"
           ~op:`pool_migrate ~strict:(not force) (fun () ->
             let to_equal_or_greater_version =
-              Helpers.host_versions_not_decreasing ~__context
+              Helpers.Checks.Migration.host_versions_not_decreasing ~__context
                 ~host_from:(Helpers.LocalObject source_host)
                 ~host_to:(Helpers.LocalObject host)
             in
@@ -4114,6 +4116,17 @@ functor
         let local_fn = Local.Host.set_ssh_auto_mode ~self ~value in
         let remote_fn = Client.Host.set_ssh_auto_mode ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_tracked_user_agents ~__context ~self =
+        info "Host.get_tracked_user_agents: host = '%s'"
+          (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_tracked_user_agents ~self in
+        let remote_fn = Client.Host.get_tracked_user_agents ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let update_firewalld_service_status ~__context =
+        info "Host.update_firewalld_service_status" ;
+        Local.Host.update_firewalld_service_status ~__context
 
       let set_max_cstate ~__context ~self ~value =
         info "Host.set_max_cstate: host='%s' value='%s'"

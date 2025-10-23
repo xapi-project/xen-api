@@ -149,7 +149,7 @@ let detect_rolling_upgrade ~__context =
     (* NB: it is critical this code runs once in the master of a pool of one before the dbsync, since this
        		   is the only time at which the master's Version will be out of sync with its database record *)
     let actually_in_progress =
-      Helpers.pool_has_different_host_platform_versions ~__context
+      Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context
     in
     (* Check the current state of the Pool as indicated by the Pool.other_config:rolling_upgrade_in_progress *)
     let pools = Db.Pool.get_all ~__context in
@@ -168,9 +168,9 @@ let detect_rolling_upgrade ~__context =
           let host_versions =
             List.map
               (fun host ->
-                Helpers.get_software_versions ~__context
+                Helpers.Checks.RPU.get_software_versions ~__context
                   (Helpers.LocalObject host)
-                |> Helpers.versions_string_of
+                |> Helpers.Checks.versions_string_of
               )
               (Db.Host.get_all ~__context)
           in

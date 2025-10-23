@@ -679,6 +679,7 @@ let login_no_password_common_create_session ~__context ~uname ~originator ~host
   (* Force the time to be updated by calling an API function with this session *)
   let rpc = Helpers.make_rpc ~__context in
   ignore (Client.Pool.get_all ~rpc ~session_id) ;
+  Xapi_tracked_user_agents.track ~__context ;
   session_id
 
 let login_no_password_common ~__context ~uname ~originator ~host ~pool

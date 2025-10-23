@@ -295,19 +295,20 @@ let compute_evacuation_plan_no_wlb ~__context ~host ?(ignore_ha = false) () =
      	   the source host. So as long as host versions aren't decreasing,
      	   we're allowed to migrate VMs between hosts. *)
   debug "evacuating host version: %s"
-    (Helpers.get_software_versions ~__context (Helpers.LocalObject host)
-    |> Helpers.versions_string_of
+    (Helpers.Checks.Migration.get_software_versions ~__context
+       (Helpers.LocalObject host)
+    |> Helpers.Checks.versions_string_of
     ) ;
   let target_hosts =
     List.filter
       (fun target ->
         debug "host %s version: %s"
           (Db.Host.get_hostname ~__context ~self:target)
-          Helpers.(
-            get_software_versions ~__context (LocalObject target)
+          Helpers.Checks.(
+            Migration.get_software_versions ~__context (LocalObject target)
             |> versions_string_of
           ) ;
-        Helpers.host_versions_not_decreasing ~__context
+        Helpers.Checks.Migration.host_versions_not_decreasing ~__context
           ~host_from:(Helpers.LocalObject host)
           ~host_to:(Helpers.LocalObject target)
       )
@@ -1028,7 +1029,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~license_params ~edition ~license_server ~local_cache_sr ~chipset_info
     ~ssl_legacy:_ ~last_software_update ~last_update_hash ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~secure_boot =
+    ~secure_boot ~software_version =
   (* fail-safe. We already test this on the joining host, but it's racy, so multiple concurrent
      pool-join might succeed. Note: we do it in this order to avoid a problem checking restrictions during
      the initial setup of the database *)
@@ -1063,9 +1064,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     (* no or multiple pools *)
   in
   Db.Host.create ~__context ~ref:host ~current_operations:[]
-    ~allowed_operations:[] ~https_only:false
-    ~software_version:(Xapi_globs.software_version ())
-    ~enabled:false ~aPI_version_major:Datamodel_common.api_version_major
+    ~allowed_operations:[] ~https_only:false ~software_version ~enabled:false
+    ~aPI_version_major:Datamodel_common.api_version_major
     ~aPI_version_minor:Datamodel_common.api_version_minor
     ~aPI_version_vendor:Datamodel_common.api_version_vendor
     ~aPI_version_vendor_implementation:
@@ -3137,13 +3137,17 @@ let cc_prep () =
       true
 
 let set_https_only ~__context ~self ~value =
-  let state = match value with true -> "close" | false -> "open" in
   match cc_prep () with
   | false ->
-      ignore
-      @@ Helpers.call_script
-           !Xapi_globs.firewall_port_config_script
-           [state; "80"] ;
+      let status =
+        match value with true -> Firewall.Disabled | false -> Firewall.Enabled
+      in
+      let module Fw =
+        ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+            : Firewall.FIREWALL
+          )
+      in
+      Fw.update_firewall_status Firewall.Http status ;
       Db.Host.set_https_only ~__context ~self ~value
   | true when value = Db.Host.get_https_only ~__context ~self ->
       (* the new value is the same as the old value *)
@@ -3170,6 +3174,11 @@ let set_ssh_auto_mode ~__context ~self ~value =
 
   Db.Host.set_ssh_auto_mode ~__context ~self ~value ;
 
+  let module Fw =
+    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+        : Firewall.FIREWALL
+      )
+  in
   try
     (* When enabled, the ssh_monitor_service regularly checks XAPI status to manage SSH availability.
        During normal operation when XAPI is running properly, SSH is automatically disabled.
@@ -3177,6 +3186,7 @@ let set_ssh_auto_mode ~__context ~self ~value =
        (e.g., when XAPI is down) to allow administrative access for troubleshooting. *)
     if value then (
       (* Ensure SSH is always enabled when SSH auto mode is on*)
+      Fw.update_firewall_status Firewall.Ssh Firewall.Enabled ;
       Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
       Xapi_systemctl.enable ~wait_until_success:false
         !Xapi_globs.ssh_monitor_service ;
@@ -3186,7 +3196,8 @@ let set_ssh_auto_mode ~__context ~self ~value =
       Xapi_systemctl.stop ~wait_until_success:false
         !Xapi_globs.ssh_monitor_service ;
       Xapi_systemctl.disable ~wait_until_success:false
-        !Xapi_globs.ssh_monitor_service
+        !Xapi_globs.ssh_monitor_service ;
+      Fw.update_firewall_status Firewall.Ssh Firewall.Disabled
     )
   with e ->
     error "Failed to configure SSH auto mode: %s" (Printexc.to_string e) ;
@@ -3199,6 +3210,12 @@ let disable_ssh_internal ~__context ~self =
     if not (Db.Host.get_ssh_auto_mode ~__context ~self) then
       Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ssh_service ;
     Xapi_systemctl.stop ~wait_until_success:false !Xapi_globs.ssh_service ;
+    let module Fw =
+      ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+          : Firewall.FIREWALL
+        )
+    in
+    Fw.update_firewall_status Firewall.Ssh Firewall.Disabled ;
     Db.Host.set_ssh_enabled ~__context ~self ~value:false
   with e ->
     error "Failed to disable SSH for host %s: %s" (Ref.string_of self)
@@ -3253,6 +3270,12 @@ let enable_ssh ~__context ~self =
     (* Disable SSH auto mode when SSH is enabled manually *)
     set_ssh_auto_mode ~__context ~self ~value:false ;
 
+    let module Fw =
+      ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+          : Firewall.FIREWALL
+        )
+    in
+    Fw.update_firewall_status Firewall.Ssh Firewall.Enabled ;
     Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ssh_service ;
     Xapi_systemctl.start ~wait_until_success:false !Xapi_globs.ssh_service ;
 
@@ -3340,6 +3363,70 @@ let set_console_idle_timeout ~__context ~self ~value =
     error "Failed to configure console timeout: %s" (Printexc.to_string e) ;
     Helpers.internal_error "Failed to set console timeout: %Ld: %s" value
       (Printexc.to_string e)
+
+let get_tracked_user_agents ~__context ~self =
+  let _ : [`host] Ref.t = self in
+  Xapi_tracked_user_agents.get ()
+
+let get_nbd_interfaces ~__context ~self =
+  let pifs = Db.Host.get_PIFs ~__context ~self in
+  let allowed_connected_networks =
+    (* We use Valid_ref_list to continue processing the list in case some
+       network refs are null or invalid *)
+    Valid_ref_list.filter_map
+      (fun pif ->
+        let network = Db.PIF.get_network ~__context ~self:pif in
+        let purpose = Db.Network.get_purpose ~__context ~self:network in
+        if List.mem `nbd purpose || List.mem `insecure_nbd purpose then
+          Some network
+        else
+          None
+      )
+      pifs
+  in
+  let interfaces =
+    List.map
+      (fun network -> Db.Network.get_bridge ~__context ~self:network)
+      allowed_connected_networks
+  in
+  Xapi_stdext_std.Listext.List.setify interfaces
+
+let update_firewalld_service_status ~__context =
+  let open Firewall in
+  let enable_firewalld_service service =
+    try Firewalld.update_firewall_status service Enabled with _ -> ()
+  in
+  match !Xapi_globs.firewall_backend with
+  | Firewalld ->
+      let self = Helpers.get_localhost ~__context in
+      let is_enabled = function
+        | Dlm ->
+            Xapi_clustering.Daemon.is_enabled ()
+        | Http ->
+            not (Db.Host.get_https_only ~__context ~self)
+        | Nbd ->
+            get_nbd_interfaces ~__context ~self <> []
+        | Ssh ->
+            Db.Host.get_ssh_enabled ~__context ~self
+        | Vxlan ->
+            List.exists
+              (fun tunnel ->
+                Db.PIF.get_currently_attached ~__context
+                  ~self:(Db.Tunnel.get_access_PIF ~__context ~self:tunnel)
+              )
+              (Db.Tunnel.get_all ~__context)
+        | Xenha ->
+            (* Only xha needs to enable firewalld service. Other HA cluster
+               stacks don't need. *)
+            bool_of_string (Localdb.get Constants.ha_armed)
+            && Localdb.get Constants.ha_cluster_stack
+               = !Xapi_globs.cluster_stack_default
+      in
+      List.iter
+        (fun s -> if is_enabled s then enable_firewalld_service s)
+        all_service_types
+  | Iptables ->
+      debug "No need to update firewalld service status when using iptables"
 
 let set_max_cstate ~__context ~self ~value =
   if Helpers.get_localhost ~__context <> self then

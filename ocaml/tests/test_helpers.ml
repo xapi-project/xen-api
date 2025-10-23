@@ -507,10 +507,12 @@ module Version = struct
         , [25; 15; 0; 13]
         )
       ; ("Default version", "0.0.0", [0; 0; 0])
+      ; ("Xen Debug build version", "4.17.5-20-d", [4; 17; 5; 20])
+      ; ("Xen dev build version", "4.17.5-20.abcd", [4; 17; 5; 20])
       ]
     in
     let test_version_numbers (description, version_string, expected) =
-      let actual = Helpers.version_numbers_of_string version_string in
+      let actual = Helpers.Checks.version_numbers_of_string version_string in
       let description =
         Printf.sprintf "version_numbers_of_string: %s" description
       in
@@ -553,13 +555,15 @@ module Version = struct
         ]
     in
     let test_compare (description, key, value_a, value_b, expected) =
-      let actual = Helpers.compare_versions ~version_key:key value_a value_b in
+      let actual =
+        Helpers.Checks.compare_versions ~version_key:key value_a value_b
+      in
       let description = Printf.sprintf "compare_versions: %s" description in
       Alcotest.(check int) description expected actual
     in
     List.iter test_compare test_cases
 
-  let test_compare_all_versions () =
+  let test_compare_all_versions_migration () =
     let current =
       Xapi_globs.[(_platform_version, "8.1.0"); (_xen_version, "4.13.0-15")]
     in
@@ -580,7 +584,8 @@ module Version = struct
     in
     let test_compare (description, vers_a, vers_b, expected) =
       let actual =
-        Helpers.compare_all_versions ~is_greater_or_equal:vers_a ~than:vers_b
+        Helpers.Checks.Migration.compare_all_versions
+          ~is_greater_or_equal:vers_a ~than:vers_b
       in
       let description = Printf.sprintf "compare_all_versions: %s" description in
       Alcotest.(check bool) description expected actual
@@ -592,7 +597,10 @@ module Version = struct
       ("Compare int list", `Quick, test_compare_int_list)
     ; ("Version numbers from string", `Quick, test_version_numbers_of_string)
     ; ("Compare versions", `Quick, test_compare_versions)
-    ; ("Compare all versions", `Quick, test_compare_all_versions)
+    ; ( "Compare all versions for migration"
+      , `Quick
+      , test_compare_all_versions_migration
+      )
     ]
 
   let tests = [("Version compare tests", test)]

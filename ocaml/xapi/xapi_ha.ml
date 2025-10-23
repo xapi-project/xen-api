@@ -966,6 +966,23 @@ let redo_log_ha_enabled_at_startup () =
 
 (* ----------------------------- *)
 
+let update_ha_firewalld_service status =
+  (* Only xha needs to enable firewalld service. Other HA cluster stacks don't
+     need. *)
+  if Localdb.get Constants.ha_cluster_stack = !Xapi_globs.cluster_stack_default
+  then
+    let module Fw =
+      ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+          : Firewall.FIREWALL
+        )
+    in
+    Fw.update_firewall_status Firewall.Xenha status
+
+let ha_start_daemon () =
+  update_ha_firewalld_service Firewall.Enabled ;
+  let (_ : string) = call_script ha_start_daemon [] in
+  ()
+
 let on_server_restart () =
   let armed = bool_of_string (Localdb.get Constants.ha_armed) in
   if armed then (
@@ -993,7 +1010,7 @@ let on_server_restart () =
           failwith "simulating xha daemon startup failure" ;
         (* CA-21406: Try again to reattach the statefile VDI *)
         Static_vdis.reattempt_on_boot_attach () ;
-        let (_ : string) = call_script ha_start_daemon [] in
+        ha_start_daemon () ;
         finished := true
       with
       | Xha_error Xha_errno.Mtc_exit_daemon_is_present ->
@@ -1125,6 +1142,7 @@ let ha_set_excluded __context _localhost =
 let ha_stop_daemon __context _localhost =
   Monitor.stop () ;
   let (_ : string) = call_script ha_stop_daemon [] in
+  update_ha_firewalld_service Firewall.Disabled ;
   ()
 
 let emergency_ha_disable __context soft =
@@ -1218,7 +1236,8 @@ let ha_wait_for_shutdown_via_statefile __context _localhost =
   with Xha_error Xha_errno.Mtc_exit_daemon_is_not_present ->
     info
       "ha_wait_for_shutdown_via_statefile: daemon has exited so returning \
-       success"
+       success" ;
+    update_ha_firewalld_service Firewall.Disabled
 
 (** Attach the statefile VDIs and return the resulting list of paths in dom0 *)
 let attach_statefiles ~__context statevdis =
@@ -1367,7 +1386,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
 
 let join_liveset __context host =
   info "Host.ha_join_liveset host = %s" (Ref.string_of host) ;
-  let (_ : string) = call_script ha_start_daemon [] in
+  ha_start_daemon () ;
   Localdb.put Constants.ha_disable_failover_decisions "false" ;
   Localdb.put Constants.ha_armed "true" ;
   info "Local flag ha_armed <- true" ;

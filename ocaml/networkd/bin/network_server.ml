@@ -737,11 +737,21 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    (* Old configs used empty dns lists to mean none, keep that
-                       behaviour instead of writing an empty resolv.conf *)
                     match dns with
-                    | None | Some ([], []) ->
+                    | None ->
                         ()
+                    | Some ([], []) -> (
+                      match (ipv4_conf, ipv6_conf) with
+                      | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
+                          (* clear DNS for Static mode *)
+                          set_dns () dbg ~name ~nameservers:[] ~domains:[]
+                      | _ ->
+                          (* networkd.db in v25.28.0 and before stores empty
+                             dns lists for DHCP mode, this case is to keep
+                             resolv.conf intact when Toolstack update from
+                             version earlier than v25.28.0 *)
+                          ()
+                    )
                     | Some (nameservers, domains) ->
                         set_dns () dbg ~name ~nameservers ~domains
                 ) ;
