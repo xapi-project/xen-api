@@ -1420,6 +1420,8 @@ let failed_login_alert_freq = ref 3600
 
 let default_ntp_servers = ref []
 
+let legacy_default_ntp_servers = ref []
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1902,6 +1904,11 @@ let other_options =
     , (fun () -> !ntp_client_path)
     , "Path to the ntp client binary"
     )
+  ; gen_list_option "legacy-default-ntp-servers"
+      "space-separated list of legacy default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      legacy_default_ntp_servers
   ; gen_list_option "default-ntp-servers"
       "space-separated list of default NTP servers"
       (fun s -> s)

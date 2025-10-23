@@ -20,6 +20,8 @@ val set_servers_in_conf : string list -> unit
 
 val clear_servers_in_conf : unit -> unit
 
+val promote_legacy_default_servers : unit -> unit
+
 val restart_ntp_service : unit -> unit
 
 val enable_ntp_service : unit -> unit
