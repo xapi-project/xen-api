@@ -226,7 +226,9 @@ let prototyped_of_message = function
   | "VTPM", "create" ->
       Some "22.26.0"
   | "host", "update_firewalld_service_status" ->
-      Some "25.30.0-next"
+      Some "25.33.0-next"
+  | "host", "get_tracked_user_agents" ->
+      Some "25.33.0-next"
   | "host", "set_ssh_auto_mode" ->
       Some "25.27.0"
   | "host", "set_console_idle_timeout" ->
