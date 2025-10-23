@@ -2062,6 +2062,9 @@ let _ =
   error Api_errors.sysprep ["vm"; "message"]
     ~doc:"VM.sysprep error with details in the message" () ;
 
+  error Api_errors.invalid_ntp_config ["reason"]
+    ~doc:"The NTP configuration is invalid." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

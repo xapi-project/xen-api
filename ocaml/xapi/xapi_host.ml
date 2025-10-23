@@ -1094,7 +1094,8 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~recommended_guidances:[] ~latest_synced_updates_applied:`unknown
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
-    ~max_cstate:"" ~secure_boot ;
+    ~max_cstate:"" ~secure_boot ~ntp_mode:`ntp_mode_dhcp ~ntp_custom_servers:[]
+    ~ntp_enabled:false ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3374,3 +3375,95 @@ let sync_max_cstate ~__context ~host =
     let value = Xapi_host_max_cstate.to_string (max_cstate, max_sub_cstate) in
     Db.Host.set_max_cstate ~__context ~self:host ~value
   with e -> error "Failed to sync max_cstate: %s" (Printexc.to_string e)
+
+let set_ntp_mode ~__context ~self ~value =
+  let current_mode = Db.Host.get_ntp_mode ~__context ~self in
+  let ntp_enabled = Db.Host.get_ntp_enabled ~__context ~self in
+  if current_mode <> value then (
+    let open Xapi_host_ntp in
+    let ensure_custom_servers_exist servers =
+      if servers = [] then
+        raise
+          Api_errors.(
+            Server_error
+              ( invalid_ntp_config
+              , ["Can't set ntp_mode_custom when ntp_custom_servers is empty"]
+              )
+          )
+    in
+    let default_servers = !Xapi_globs.default_ntp_servers in
+    ( match (current_mode, value) with
+    | `ntp_mode_dhcp, `ntp_mode_custom ->
+        let custom_servers = Db.Host.get_ntp_custom_servers ~__context ~self in
+        ensure_custom_servers_exist custom_servers ;
+        remove_dhcp_ntp_servers () ;
+        set_servers_in_conf custom_servers
+    | `ntp_mode_default, `ntp_mode_custom ->
+        let custom_servers = Db.Host.get_ntp_custom_servers ~__context ~self in
+        ensure_custom_servers_exist custom_servers ;
+        set_servers_in_conf custom_servers
+    | _, `ntp_mode_dhcp ->
+        clear_servers_in_conf () ; add_dhcp_ntp_servers ()
+    | `ntp_mode_dhcp, `ntp_mode_default ->
+        remove_dhcp_ntp_servers () ;
+        set_servers_in_conf default_servers
+    | `ntp_mode_custom, `ntp_mode_default ->
+        set_servers_in_conf default_servers
+    | _, _ ->
+        ()
+    ) ;
+    if ntp_enabled then Xapi_host_ntp.restart_ntp_service () ;
+    Db.Host.set_ntp_mode ~__context ~self ~value
+  )
+
+let set_ntp_custom_servers ~__context ~self ~value =
+  let current_mode = Db.Host.get_ntp_mode ~__context ~self in
+  match (current_mode, value) with
+  | `ntp_mode_custom, [] ->
+      raise
+        Api_errors.(
+          Server_error
+            ( invalid_ntp_config
+            , ["Can't set ntp_custom_servers empty when ntp_mode is custom"]
+            )
+        )
+  | `ntp_mode_custom, servers ->
+      Xapi_host_ntp.set_servers_in_conf servers ;
+      Xapi_host_ntp.restart_ntp_service () ;
+      Db.Host.set_ntp_custom_servers ~__context ~self ~value
+  | _ ->
+      Db.Host.set_ntp_custom_servers ~__context ~self ~value
+
+let enable_ntp ~__context ~self =
+  Xapi_host_ntp.enable_ntp_service () ;
+  Db.Host.set_ntp_enabled ~__context ~self ~value:true
+
+let disable_ntp ~__context ~self =
+  Xapi_host_ntp.disable_ntp_service () ;
+  Db.Host.set_ntp_enabled ~__context ~self ~value:false
+
+let sync_ntp_config ~__context ~host =
+  let servers = Xapi_host_ntp.get_servers_from_conf () in
+  let is_ntp_dhcp_enabled = Xapi_host_ntp.is_ntp_dhcp_enabled () in
+  let ntp_mode =
+    match (is_ntp_dhcp_enabled, servers) with
+    | true, _ ->
+        `ntp_mode_dhcp
+    | false, s
+      when Xapi_stdext_std.Listext.List.set_equiv s
+             !Xapi_globs.default_ntp_servers ->
+        `ntp_mode_default
+    | false, _ ->
+        `ntp_mode_custom
+  in
+  Db.Host.set_ntp_mode ~__context ~self:host ~value:ntp_mode ;
+  if ntp_mode = `ntp_mode_custom then
+    Db.Host.set_ntp_custom_servers ~__context ~self:host ~value:servers ;
+  let ntp_enabled = Xapi_host_ntp.is_ntp_service_active () in
+  Db.Host.set_ntp_enabled ~__context ~self:host ~value:ntp_enabled
+
+let get_ntp_servers_status ~__context ~self:_ =
+  if Xapi_host_ntp.is_ntp_service_active () then
+    Xapi_host_ntp.get_servers_status ()
+  else
+    []

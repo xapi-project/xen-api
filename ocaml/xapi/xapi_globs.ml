@@ -376,6 +376,8 @@ let sync_ssh_status = "sync_ssh_status"
 
 let sync_max_cstate = "sync_max_cstate"
 
+let sync_ntp_config = "sync_ntp_config"
+
 let sync_secure_boot = "sync_secure_boot"
 
 let sync_pci_devices = "sync_pci_devices"
@@ -794,6 +796,16 @@ let pool_bundle_path = ref "/etc/stunnel/xapi-pool-ca-bundle.pem"
 let stunnel_conf = ref "/etc/stunnel/xapi.conf"
 
 let udhcpd_conf = ref (Filename.concat "/etc/xensource" "udhcpd.conf")
+
+let ntp_service = ref "chronyd"
+
+let ntp_conf = ref (Filename.concat "/etc" "chrony.conf")
+
+let ntp_dhcp_script = ref (Filename.concat "/etc/dhcp/dhclient.d" "chrony.sh")
+
+let ntp_dhcp_dir = ref "/run/chrony-dhcp"
+
+let ntp_client_path = ref "/usr/bin/chronyc"
 
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
@@ -1387,6 +1399,8 @@ let nvidia_gpumon_detach = ref false
 
 let failed_login_alert_freq = ref 3600
 
+let default_ntp_servers = ref []
+
 let other_options =
   [
     gen_list_option "sm-plugins"
@@ -1816,6 +1830,36 @@ let other_options =
     , (fun () -> string_of_int !max_span_depth)
     , "The maximum depth to which spans are recorded in a trace in Tracing"
     )
+  ; ( "ntp-service"
+    , Arg.Set_string ntp_service
+    , (fun () -> !ntp_service)
+    , "Name of the NTP service to manage"
+    )
+  ; ( "ntp-config-path"
+    , Arg.Set_string ntp_conf
+    , (fun () -> !ntp_conf)
+    , "Path to the ntp configuration file"
+    )
+  ; ( "ntp-dhcp-script-path"
+    , Arg.Set_string ntp_dhcp_script
+    , (fun () -> !ntp_dhcp_script)
+    , "Path to the ntp dhcp script file"
+    )
+  ; ( "ntp-dhcp-dir"
+    , Arg.Set_string ntp_dhcp_dir
+    , (fun () -> !ntp_dhcp_dir)
+    , "Path to the ntp dhcp directory"
+    )
+  ; ( "ntp-client-path"
+    , Arg.Set_string ntp_client_path
+    , (fun () -> !ntp_client_path)
+    , "Path to the ntp client binary"
+    )
+  ; gen_list_option "default-ntp-servers"
+      "space-separated list of default NTP servers"
+      (fun s -> s)
+      (fun s -> s)
+      default_ntp_servers
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.

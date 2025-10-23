@@ -4122,6 +4122,41 @@ functor
         let local_fn = Local.Host.set_max_cstate ~self ~value in
         let remote_fn = Client.Host.set_max_cstate ~self ~value in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ntp_mode ~__context ~self ~value =
+        info "Host.set_ntp_mode: host='%s' value='%s'"
+          (host_uuid ~__context self)
+          (Record_util.host_ntp_mode_to_string value) ;
+        let local_fn = Local.Host.set_ntp_mode ~self ~value in
+        let remote_fn = Client.Host.set_ntp_mode ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_ntp_custom_servers ~__context ~self ~value =
+        info "Host.set_ntp_custom_servers: host='%s' value='%s'"
+          (host_uuid ~__context self)
+          ("[" ^ String.concat ", " value ^ "]") ;
+        let local_fn = Local.Host.set_ntp_custom_servers ~self ~value in
+        let remote_fn = Client.Host.set_ntp_custom_servers ~self ~value in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let enable_ntp ~__context ~self =
+        info "Host.enable_ntp: host='%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.enable_ntp ~self in
+        let remote_fn = Client.Host.enable_ntp ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let disable_ntp ~__context ~self =
+        info "Host.disable_ntp: host='%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.disable_ntp ~self in
+        let remote_fn = Client.Host.disable_ntp ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_ntp_servers_status ~__context ~self =
+        info "Host.get_ntp_servers_status: host = '%s'"
+          (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_ntp_servers_status ~self in
+        let remote_fn = Client.Host.get_ntp_servers_status ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct
