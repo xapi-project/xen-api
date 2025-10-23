@@ -1804,7 +1804,10 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
       (* Prevent VMs from being migrated onto a host with a lower platform version *)
       let host_to = Helpers.LocalObject remote.dest_host in
       if
-        not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to)
+        not
+          (Helpers.Checks.Migration.host_versions_not_decreasing ~__context
+             ~host_from ~host_to
+          )
       then
         raise
           (Api_errors.Server_error (Api_errors.not_supported_during_upgrade, [])) ;
@@ -1832,7 +1835,10 @@ let assert_can_migrate ~__context ~vm ~dest ~live:_ ~vdi_map ~vif_map ~options
         Helpers.RemoteObject (remote.rpc, remote.session, remote.dest_host)
       in
       if
-        not (Helpers.host_versions_not_decreasing ~__context ~host_from ~host_to)
+        not
+          (Helpers.Checks.Migration.host_versions_not_decreasing ~__context
+             ~host_from ~host_to
+          )
       then
         raise
           (Api_errors.Server_error
