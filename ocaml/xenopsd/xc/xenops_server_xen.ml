@@ -2972,6 +2972,9 @@ module VM = struct
                 | Some x ->
                     List.assoc "featureset" x.VmExtra.persistent.platformdata
                 )
+            ; numa_optimised= false
+            ; numa_nodes= 0
+            ; numa_node_memory= []
             }
     )
 

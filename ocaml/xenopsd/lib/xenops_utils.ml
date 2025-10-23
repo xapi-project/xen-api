@@ -505,6 +505,9 @@ let halted_vm =
   ; nested_virt= false
   ; domain_type= Vm.Domain_undefined
   ; featureset= ""
+  ; numa_optimised= false
+  ; numa_nodes= 0
+  ; numa_node_memory= []
   }
 
 let unplugged_pci = {Pci.plugged= false}
