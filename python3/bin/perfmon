@@ -940,11 +940,11 @@ class SRMonitor(ObjectMonitor):
             num seconds this alarm disabled after an alarm is sent (default '3600')
        * consolidation_fn:
             how to combine variables from rrd_updates into one value
-            (default is 'get_percent_sr_usage' for 'physical_utilistation',
+            (default is 'get_percent_sr_usage' for 'physical_utilisation',
             & 'sum' for everything else)
        * rrd_regex matches the names of variables
          from (xe sr-data-sources-list uuid=$sruuid) used to compute value
-         (has default for "physical_utilistaion")
+         (has default for "physical_utilisation")
     """
 
     def __init__(self, *args):
@@ -975,7 +975,7 @@ class SRMonitor(ObjectMonitor):
         elif config_tag == "alarm_auto_inhibit_period":
             return "3600"  # 1 hour
         elif config_tag == "alarm_trigger_level":
-            if variable_name == "physical_utilistaion":
+            if variable_name == "physical_utilisation":
                 return "0.8"  # trigger when 80% full
             else:
                 raise XmlConfigException(
