@@ -121,7 +121,7 @@ rename_network_label() {
         if [ -z "${bridge}" ]; then
             continue
         fi
-        device_id=$(echo ${bridge} | sed 's/^xenbr//')
+        device_id="${bridge#xenbr}"
         if [ ${device_id} -eq 0 ]; then
             name_label="Management Network"
         elif [ ${device_id} -eq 1 ]; then
