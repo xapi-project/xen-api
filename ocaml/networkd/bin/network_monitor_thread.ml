@@ -26,10 +26,7 @@ let bonds_status : (string, int * int) Hashtbl.t = Hashtbl.create 10
 
 let monitor_whitelist =
   ref
-    [
-      "eth"
-    ; "vif" (* This includes "tap" owing to the use of standardise_name below *)
-    ]
+    ["vif" (* This includes "tap" owing to the use of standardise_name below *)]
 
 let rpc xml =
   let open Xmlrpc_client in
@@ -108,7 +105,10 @@ let standardise_name name =
     newname
   with _ -> name
 
-let get_link_stats () =
+let get_link_stats dbg () =
+  let managed_host_net_devs =
+    Network_server.Interface.get_interface_positions dbg () |> List.map fst
+  in
   let open Netlink in
   let s = Socket.alloc () in
   Socket.connect s Socket.NETLINK_ROUTE ;
@@ -119,9 +119,10 @@ let get_link_stats () =
       List.exists
         (fun s -> Astring.String.is_prefix ~affix:s name)
         !monitor_whitelist
+      || List.mem name managed_host_net_devs
     in
     let is_vlan name =
-      Astring.String.is_prefix ~affix:"eth" name && String.contains name '.'
+      List.mem name managed_host_net_devs && String.contains name '.'
     in
     List.map (fun link -> standardise_name (Link.get_name link)) links
     |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
@@ -226,7 +227,7 @@ let rec monitor dbg () =
         Network_server.Bridge.get_all_bonds dbg from_cache
       in
       let add_bonds bonds devs = List.map fst bonds @ devs in
-      let devs = get_link_stats () |> add_bonds bonds |> get_stats bonds in
+      let devs = get_link_stats dbg () |> add_bonds bonds |> get_stats bonds in
       ( if List.length bonds <> Hashtbl.length bonds_status then
           let dead_bonds =
             Hashtbl.fold

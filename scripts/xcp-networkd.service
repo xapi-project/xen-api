@@ -1,8 +1,16 @@
 [Unit]
 Description=XCP networking daemon
 Documentation=man:xcp-networkd(1)
-After=forkexecd.service message-switch.service syslog.target
-Wants=forkexecd.service message-switch.service syslog.target
+After=systemd-udev-settle.service
+After=systemd-udev-trigger.service
+After=forkexecd.service
+After=message-switch.service
+After=syslog.target
+Wants=systemd-udev-settle.service
+Wants=systemd-udev-trigger.service
+Wants=forkexecd.service
+Wants=message-switch.service
+Wants=syslog.target
 PartOf=toolstack.target
 
 [Service]

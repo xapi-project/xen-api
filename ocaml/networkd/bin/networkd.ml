@@ -183,6 +183,7 @@ let bind () =
   S.set_gateway_interface set_gateway_interface ;
   S.set_dns_interface set_dns_interface ;
   S.Interface.get_all Interface.get_all ;
+  S.Interface.get_interface_positions Interface.get_interface_positions ;
   S.Interface.exists Interface.exists ;
   S.Interface.get_mac Interface.get_mac ;
   S.Interface.get_pci_bus_path Interface.get_pci_bus_path ;
