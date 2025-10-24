@@ -11,4 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
-external is_all_zeros : string -> int -> bool = "is_all_zeros"
+
+external is_all_zeros_in_length : string -> int -> bool = "is_all_zeros"
+
+let is_all_zeros str = is_all_zeros_in_length str (String.length str)

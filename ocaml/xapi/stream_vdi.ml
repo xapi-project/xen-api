@@ -295,13 +295,9 @@ let send_all refresh_session ofd ~__context rpc session_id
                   in
                   Unixext.really_read ifd buffer 0 this_chunk ;
                   if
-                    (not
-                       (Zerocheck.is_all_zeros
-                          (Bytes.unsafe_to_string buffer)
-                          this_chunk
-                       )
-                    )
-                    || first_or_last
+                    first_or_last
+                    || not
+                         (Zerocheck.is_all_zeros (Bytes.unsafe_to_string buffer))
                   then (
                     last_transmission_time := now ;
                     write_block ~__context filename buffer ofd this_chunk
