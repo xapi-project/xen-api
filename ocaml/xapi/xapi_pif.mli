@@ -43,10 +43,6 @@
 
 (** {2 API functions} *)
 
-val refresh :
-  __context:Context.t -> host:[`host] Ref.t -> self:[`PIF] Ref.t -> unit
-(** Refresh the metadata of an existing PIF on the current host. *)
-
 val refresh_all : __context:Context.t -> host:[`host] Ref.t -> unit
 (** Refresh the metadata of all existing PIFs on the current host. *)
 
@@ -160,9 +156,10 @@ val plug : __context:Context.t -> self:[`PIF] Ref.t -> unit
 
 (** {2 Miscellaneous Helper Functions} *)
 
-val bridge_naming_convention : string -> string
-(** Constructs a bridge name from a device (network interface) name by replacing
- *  [eth] by [xenbr], or prepending [br] if the device name does not start with [eth].
+val bridge_naming_convention : string -> int option -> string
+(** Constructs a bridge name from a [device] (network interface) name and an optional
+    position [pos_opt]. If [pos_opt] is Some [pos], the bridge name will be
+    "xenbr" ^ [pos], else "br" ^ [device].
 *)
 
 val read_bridges_from_inventory : unit -> string list

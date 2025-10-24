@@ -38,7 +38,112 @@ let get_device_pci ~__context ~host ~device =
   | _ ->
       Ref.null
 
-let refresh_internal ~__context ~self =
+let bridge_naming_convention (device : string) (pos_opt : int option) =
+  match pos_opt with
+  | Some index ->
+      "xenbr" ^ string_of_int index
+  | None ->
+      "br" ^ device
+
+type tables = {
+    device_to_position_table: (string * int) list
+  ; device_to_mac_table: (string * string) list
+  ; pif_to_device_table: (API.ref_PIF * string) list
+}
+
+let get_physical_pif_device ~__context ~interface_tables ~pif_rec =
+  let dbg = Context.string_of_task __context in
+  let find_name_by_position position original_name =
+    match
+      List.find_map
+        (fun (name, pos) -> if pos = position then Some name else None)
+        interface_tables.device_to_position_table
+    with
+    | Some name ->
+        if name <> original_name then
+          info "PIF: device name changed from %s to %s" original_name name ;
+        name
+    | None -> (
+        (* This clause should be unlikely to happen, if enter this, check the if
+           we can get mac from networkd. If yes there may be a bug *)
+        warn "PIF %s: no device found for position %d" original_name position ;
+        try
+          let mac = Net.Interface.get_mac dbg original_name in
+          error
+            "PIF %s: no device found for position %d, but get MAC address %s , \
+             there may be a bug in networkd sorting."
+            original_name position mac ;
+          original_name
+        with _ -> original_name
+      )
+  in
+  if pif_rec.API.pIF_physical then (
+    match Xapi_pif_helpers.get_pif_position ~__context ~pif_rec with
+    | Some position ->
+        find_name_by_position position pif_rec.API.pIF_device
+    | None ->
+        info "PIF %s: no position found for this device" pif_rec.API.pIF_device ;
+        pif_rec.API.pIF_device
+  ) else
+    pif_rec.API.pIF_device
+
+(* For different pif types, get the proper device name
+   - Physical: maybe change, need to lookup device_to_position_table
+   - VLAN_untagged: get the underlying physical PIF device
+   - Network_sriov_logical: get the underlying physical PIF device
+   - Tunnel_access: tunnel<N>, no need to change
+   - Bond_master: bond<N>, no need to change
+*)
+let get_pif_device ~__context ~interface_tables ~pif_rec =
+  match Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec with
+  | VLAN_untagged _ :: Network_sriov_logical _ :: Physical pif :: _
+  | VLAN_untagged _ :: Physical pif :: _
+  | Network_sriov_logical _ :: Physical pif :: _
+  | Physical pif :: _ ->
+      get_physical_pif_device ~__context ~interface_tables ~pif_rec:pif
+  | _ ->
+      pif_rec.API.pIF_device
+
+let make_tables ~__context ~host =
+  let dbg = Context.string_of_task __context in
+  let device_to_position_table = Net.Interface.get_interface_positions dbg () in
+  let device_to_mac_table =
+    List.filter_map
+      (fun name ->
+        if Net.Interface.is_physical dbg name then
+          Some (name, Net.Interface.get_mac dbg name)
+        else
+          None
+      )
+      (Net.Interface.get_all dbg ())
+  in
+  (* Get all PIFs on this host *)
+  let pif_to_device_table =
+    Db.PIF.get_records_where ~__context
+      ~expr:
+        (And
+           ( Eq (Field "host", Literal (Ref.string_of host))
+           , Eq (Field "physical", Literal "true")
+           )
+        )
+    |> List.map (fun (pref, prec) -> (pref, prec.API.pIF_device))
+  in
+  debug "tables: device_to_position_table = %s"
+    (String.concat "; "
+       (List.map
+          (fun (d, p) -> d ^ ":" ^ string_of_int p)
+          device_to_position_table
+       )
+    ) ;
+  debug "tables: device_to_mac_table = %s"
+    (String.concat "; "
+       (List.map (fun (d, m) -> d ^ ":" ^ m) device_to_mac_table)
+    ) ;
+  debug "tables: pif_to_device_table = %s"
+    (String.concat "; " (List.map snd pif_to_device_table)) ;
+  {device_to_position_table; device_to_mac_table; pif_to_device_table}
+
+let refresh_internal ~__context ~interface_tables ~self =
   let dbg = Context.string_of_task __context in
   let pif = Db.PIF.get_record ~__context ~self in
   let network =
@@ -51,11 +156,16 @@ let refresh_internal ~__context ~self =
       pif.API.pIF_network
   in
   let bridge = Db.Network.get_bridge ~__context ~self:network in
+  (* Pif device name maybe change. Look up device_to_position table to get the
+     new device name. *)
+  let pif_device_name =
+    get_pif_device ~__context ~interface_tables ~pif_rec:pif
+  in
   (* Update the specified PIF field in the database, if
-     	 * and only if a corresponding value can be read from
-     	 * the underlying network device and if that value is
-     	 * different from the current field value.
-  *)
+   * and only if a corresponding value can be read from
+   * the underlying network device and if that value is
+   * different from the current field value.
+   *)
   let maybe_update_database field_name db_value set_field get_value print_value
       =
     Option.iter
@@ -68,57 +178,42 @@ let refresh_internal ~__context ~self =
       )
       (try Some (get_value ()) with _ -> None)
   in
-  if pif.API.pIF_physical then
+  maybe_update_database "device" pif.API.pIF_device Db.PIF.set_device
+    (fun () -> pif_device_name)
+    Fun.id ;
+  if pif.API.pIF_physical then (
     maybe_update_database "MAC" pif.API.pIF_MAC Db.PIF.set_MAC
-      (fun () -> Net.Interface.get_mac dbg pif.API.pIF_device)
-      (fun x -> x) ;
-  maybe_update_database "PCI" pif.API.pIF_PCI Db.PIF.set_PCI
-    (fun () ->
-      get_device_pci ~__context ~host:pif.API.pIF_host
-        ~device:pif.API.pIF_device
-    )
-    Ref.string_of ;
-  maybe_update_database "MTU" pif.API.pIF_MTU Db.PIF.set_MTU
-    (fun () -> Int64.of_int (Net.Interface.get_mtu dbg bridge))
-    Int64.to_string ;
-  if pif.API.pIF_physical then
+      (fun () -> Net.Interface.get_mac dbg pif_device_name)
+      Fun.id ;
     maybe_update_database "capabilities" pif.API.pIF_capabilities
       Db.PIF.set_capabilities
-      (fun () -> Net.Interface.get_capabilities dbg pif.API.pIF_device)
+      (fun () -> Net.Interface.get_capabilities dbg pif_device_name)
       (String.concat "; ")
-
-let refresh ~__context ~host ~self =
-  let localhost = Helpers.get_localhost ~__context in
-  if not (host = localhost) then
-    Helpers.internal_error "refresh: Host mismatch, expected %s but got %s"
-      (Ref.string_of host) (Ref.string_of localhost) ;
-  refresh_internal ~__context ~self
+  ) ;
+  if pif.API.pIF_physical || pif.API.pIF_currently_attached then (
+    maybe_update_database "PCI" pif.API.pIF_PCI Db.PIF.set_PCI
+      (fun () ->
+        get_device_pci ~__context ~host:pif.API.pIF_host ~device:pif_device_name
+      )
+      Ref.string_of ;
+    maybe_update_database "MTU" pif.API.pIF_MTU Db.PIF.set_MTU
+      (fun () -> Int64.of_int (Net.Interface.get_mtu dbg bridge))
+      Int64.to_string
+  )
 
 let refresh_all ~__context ~host =
   let localhost = Helpers.get_localhost ~__context in
   if not (host = localhost) then
     Helpers.internal_error "refresh_all: Host mismatch, expected %s but got %s"
       (Ref.string_of host) (Ref.string_of localhost) ;
-  (* Only refresh physical or attached PIFs *)
   let pifs =
     Db.PIF.get_refs_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "host", Literal (Ref.string_of host))
-           , Or
-               ( Eq (Field "physical", Literal "true")
-               , Eq (Field "currently_attached", Literal "true")
-               )
-           )
-        )
+      ~expr:(Eq (Field "host", Literal (Ref.string_of host)))
   in
-  List.iter (fun self -> refresh_internal ~__context ~self) pifs
-
-let bridge_naming_convention (device : string) =
-  if String.starts_with ~prefix:"eth" device then
-    "xenbr" ^ String.sub device 3 (String.length device - 3)
-  else
-    "br" ^ device
+  let interface_tables = make_tables ~__context ~host in
+  List.iter
+    (fun self -> refresh_internal ~__context ~interface_tables ~self)
+    pifs
 
 let read_bridges_from_inventory () =
   try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
@@ -341,8 +436,8 @@ let assert_fcoe_not_in_use ~__context ~self =
                  ()
          )
 
-let find_or_create_network (bridge : string) (device : string) ~managed
-    ~__context =
+let find_or_create_network (bridge : string) (device : string)
+    (pos_opt : int option) ~managed ~__context =
   let nets =
     Db.Network.get_refs_where ~__context
       ~expr:(Eq (Field "bridge", Literal bridge))
@@ -356,41 +451,12 @@ let find_or_create_network (bridge : string) (device : string) ~managed
       let () =
         Db.Network.create ~__context ~ref:net_ref ~uuid:net_uuid
           ~current_operations:[] ~allowed_operations:[]
-          ~name_label:(Helpers.choose_network_name_for_pif device)
+          ~name_label:(Helpers.choose_network_name_for_pif device pos_opt)
           ~name_description:"" ~mTU:1500L ~purpose:[] ~bridge ~managed
           ~other_config:[] ~blobs:[] ~tags:[] ~default_locking_mode:`unlocked
           ~assigned_ips:[]
       in
       net_ref
-
-type tables = {
-    device_to_mac_table: (string * string) list
-  ; pif_to_device_table: (API.ref_PIF * string) list
-}
-
-let make_tables ~__context ~host =
-  let dbg = Context.string_of_task __context in
-  let devices =
-    List.filter
-      (fun name -> Net.Interface.is_physical dbg name)
-      (Net.Interface.get_all dbg ())
-  in
-  let pifs =
-    Db.PIF.get_records_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "host", Literal (Ref.string_of host))
-           , Eq (Field "physical", Literal "true")
-           )
-        )
-  in
-  {
-    device_to_mac_table=
-      List.combine devices
-        (List.map (fun name -> Net.Interface.get_mac dbg name) devices)
-  ; pif_to_device_table=
-      List.map (fun (pref, prec) -> (pref, prec.API.pIF_device)) pifs
-  }
 
 let is_my_management_pif ~__context ~self =
   let net = Db.PIF.get_network ~__context ~self in
@@ -449,16 +515,19 @@ let db_introduce = pool_introduce
 let db_forget ~__context ~self = Db.PIF.destroy ~__context ~self
 
 (* Internal [introduce] is passed a pre-built table [t] *)
-let introduce_internal ?network ?(physical = true) ~t:_ ~__context ~host ~mAC
-    ~mTU ~device ~vLAN ~vLAN_master_of ?metrics ~managed
-    ?(disallow_unplug = false) () =
-  let bridge = if managed then bridge_naming_convention device else "" in
+let introduce_internal ?network ?(physical = true) ~t ~__context ~host ~mAC ~mTU
+    ~device ~vLAN ~vLAN_master_of ?metrics ~managed ?(disallow_unplug = false)
+    () =
+  let pos_opt = List.assoc_opt device t.device_to_position_table in
+  let bridge =
+    if managed then bridge_naming_convention device pos_opt else ""
+  in
   (* If we are not told which network to use,
      	 * apply the default convention *)
   let net_ref =
     match network with
     | None ->
-        find_or_create_network bridge device ~managed ~__context
+        find_or_create_network bridge device pos_opt ~managed ~__context
     | Some x ->
         x
   in

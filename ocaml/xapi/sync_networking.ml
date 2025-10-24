@@ -54,6 +54,20 @@ let fix_bonds ~__context () =
   in
   List.iter (fun bond -> Xapi_bond.fix_bond ~__context ~bond) my_bonds
 
+let get_my_physical_pifs_with_position ~__context =
+  let me = !Xapi_globs.localhost_ref in
+  Db.PIF.get_records_where ~__context
+    ~expr:
+      (And
+         ( Eq (Field "host", Literal (Ref.string_of me))
+         , Eq (Field "physical", Literal "true")
+         )
+      )
+  |> List.filter_map (fun (pif_ref, pif_rec) ->
+         Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
+         |> Option.map (fun position -> (pif_ref, pif_rec, position))
+     )
+
 (** Copy Bonds from master *)
 let copy_bonds_from_master ~__context () =
   (* if slave: then inherit network config (bonds and vlans) from master (if we don't already have them) *)
@@ -84,26 +98,21 @@ let copy_bonds_from_master ~__context () =
            )
         )
   in
-  let my_phy_pifs =
-    Db.PIF.get_records_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "host", Literal (Ref.string_of me))
-           , Eq (Field "physical", Literal "true")
-           )
-        )
+  let my_physical_pifs_with_position =
+    get_my_physical_pifs_with_position ~__context
   in
   (* Consider Bonds *)
   debug "Resynchronising bonds" ;
   let maybe_create_bond_for_me bond =
     let network = Db.PIF.get_network ~__context ~self:bond.API.bond_master in
-    let slaves_to_mac_and_device_map =
-      List.map
+    let slaves_to_mac_device_and_position_map =
+      List.filter_map
         (fun self ->
-          ( self
-          , Db.PIF.get_MAC ~__context ~self
-          , Db.PIF.get_device ~__context ~self
-          )
+          let pif_rec = Db.PIF.get_record ~__context ~self in
+          Xapi_pif_helpers.get_pif_position ~__context ~pif_rec
+          |> Option.map (fun position ->
+                 (self, pif_rec.API.pIF_MAC, pif_rec.API.pIF_device, position)
+             )
         )
         bond.API.bond_slaves
     in
@@ -119,50 +128,55 @@ let copy_bonds_from_master ~__context () =
     let master_slaves_with_same_mac_as_bond
         (* expecting a list of at most 1 here *) =
       List.filter
-        (fun (_, mac, _) -> mac = master_bond_mac)
-        slaves_to_mac_and_device_map
+        (fun (_, mac, _, _) -> mac = master_bond_mac)
+        slaves_to_mac_device_and_position_map
     in
     (* This tells us the device that the master used to inherit the bond's MAC address
        		 * (if indeed that is what it did; we set it to None if we think it didn't do this) *)
-    let device_of_primary_slave =
+    let position_of_primary_slave =
       match master_slaves_with_same_mac_as_bond with
       | [] ->
           None
-      | [(_, _, device)] ->
-          debug "Master bond has MAC address derived from %s" device ;
+      | [(_, _, device, position)] ->
+          debug "Master bond has MAC address derived from %s, position %d"
+            device position ;
           (* found single slave with mac matching bond master =>
              				 * this was one that we inherited mac from *)
-          Some device
+          Some position
       | _ ->
           None
     in
     (* Look at the master's slaves and find the corresponding slave PIFs. Note that the slave
        		 * might not have the necessary devices: in this case we'll try to make partial bonds *)
-    let slave_devices =
-      List.map (fun (_, _, device) -> device) slaves_to_mac_and_device_map
+    let slave_positions =
+      List.map
+        (fun (_, _, _, position) -> position)
+        slaves_to_mac_device_and_position_map
     in
-    let my_slave_pifs =
+    let my_slave_pifs_with_position =
       List.filter
-        (fun (_, pif) -> List.mem pif.API.pIF_device slave_devices)
-        my_phy_pifs
+        (fun (_, _, position) -> List.mem position slave_positions)
+        my_physical_pifs_with_position
     in
-    let my_slave_pif_refs = List.map fst my_slave_pifs in
+    let my_slave_pif_refs =
+      List.map (fun (pif_ref, _, _) -> pif_ref) my_slave_pifs_with_position
+    in
     (* Do I have a pif that I should treat as a primary pif -
        		 * i.e. the one to inherit the MAC address from on my bond create? *)
     let my_primary_slave =
-      match device_of_primary_slave with
+      match position_of_primary_slave with
       | None ->
           None
           (* don't care cos we couldn't even figure out who master's primary slave was *)
       | Some master_primary -> (
         match
           List.filter
-            (fun (_, pif) -> pif.API.pIF_device = master_primary)
-            my_slave_pifs
+            (fun (_, _, position) -> position = master_primary)
+            my_slave_pifs_with_position
         with
         | [] ->
             None
-        | [(pifref, _)] ->
+        | [(pifref, _, _)] ->
             debug
               "I have found a PIF to use as primary bond slave (will inherit \
                MAC address of bond from this PIF)." ;
@@ -185,7 +199,7 @@ let copy_bonds_from_master ~__context () =
     in
     match
       ( List.filter (fun (_, pif) -> pif.API.pIF_network = network) my_bond_pifs
-      , my_slave_pifs
+      , my_slave_pifs_with_position
       )
     with
     | [], [] ->
@@ -266,6 +280,7 @@ let copy_tunnels_from_master ~__context () =
 let copy_network_sriovs_from_master ~__context () =
   let me = !Xapi_globs.localhost_ref in
   let master = Helpers.get_master ~__context in
+  let ( let& ) o f = Option.iter f o in
   let master_sriov_pifs =
     Db.PIF.get_records_where ~__context
       ~expr:
@@ -284,14 +299,8 @@ let copy_network_sriovs_from_master ~__context () =
            )
         )
   in
-  let my_physical_pifs =
-    Db.PIF.get_records_where ~__context
-      ~expr:
-        (And
-           ( Eq (Field "host", Literal (Ref.string_of me))
-           , Eq (Field "physical", Literal "true")
-           )
-        )
+  let my_physical_pifs_with_position =
+    get_my_physical_pifs_with_position ~__context
   in
   debug "Resynchronising network-sriovs" ;
   let maybe_create_sriov_for_me (_, master_pif_rec) =
@@ -302,20 +311,34 @@ let copy_network_sriovs_from_master ~__context () =
         my_sriov_pifs
     in
     if existing_pif = [] then
-      let device = master_pif_rec.API.pIF_device in
+      let& master_sriov_physical_pif =
+        match
+          Xapi_pif_helpers.get_pif_topo ~__context ~pif_rec:master_pif_rec
+        with
+        | Network_sriov_logical _ :: Physical physical_pif :: _ ->
+            Some physical_pif
+        | _ ->
+            None
+      in
+      let& position =
+        Xapi_pif_helpers.get_pif_position ~__context
+          ~pif_rec:master_sriov_physical_pif
+      in
       let pifs =
         List.filter
-          (fun (_, pif_rec) -> pif_rec.API.pIF_device = device)
-          my_physical_pifs
+          (fun (_, _, pos) -> pos = position)
+          my_physical_pifs_with_position
       in
       match pifs with
       | [] ->
           info
             "Cannot sync network sriov because cannot find PIF whose device \
-             name is %s"
-            device
-      | (pif_ref, pif_rec) :: _ -> (
+             position is %d"
+            position
+      | (pif_ref, pif_rec, _) :: _ -> (
         try
+          debug "Syncing network sriov for PIF %s position %d"
+            pif_rec.API.pIF_uuid position ;
           Xapi_network_sriov.create ~__context ~pif:pif_ref
             ~network:sriov_network
           |> ignore
