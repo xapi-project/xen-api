@@ -612,7 +612,8 @@ let create ~__context ~name_label ~name_description ~power_state ~user_version
     ~memory_actual:0L ~vCPUs_number:0L ~vCPUs_utilisation ~vCPUs_CPU:[]
     ~vCPUs_params:[] ~vCPUs_flags:[] ~state:[] ~start_time:Date.epoch
     ~install_time:Date.epoch ~last_updated:Date.epoch ~other_config:[]
-    ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type ;
+    ~hvm:false ~nested_virt:false ~nomigrate:false ~current_domain_type
+    ~numa_optimised:false ~numa_nodes:0L ~numa_node_memory:[] ;
   let domain_type =
     if domain_type = `unspecified then
       derive_domain_type ~hVM_boot_policy
