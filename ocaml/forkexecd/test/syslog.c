@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <alloca.h>
+#include <string.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <syslog.h>
@@ -103,7 +104,7 @@ static void vsyslog_internal(int priority, const char *format, va_list ap)
 		struct sockaddr_un addr;
 		addr.sun_family = AF_UNIX;
 		strcpy(addr.sun_path, "/tmp/xyz");
-		sendto(sock, buf, prefix_len + l, MSG_NOSIGNAL, &addr, sizeof(addr));
+		sendto(sock, buf, prefix_len + l, MSG_NOSIGNAL, (struct sockaddr *)&addr, sizeof(addr));
 
 		close(sock);
 	}
