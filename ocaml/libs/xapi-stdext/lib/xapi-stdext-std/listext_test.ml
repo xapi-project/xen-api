@@ -174,38 +174,6 @@ let test_chop =
   let error_tests = List.map error_test error_specs in
   ("chop", tests @ error_tests)
 
-let test_sub =
-  let specs =
-    [
-      ([], 0, 0, [])
-    ; ([], 0, 1, [])
-    ; ([0], 0, 0, [])
-    ; ([0], 0, 1, [0])
-    ; ([0], 1, 1, [])
-    ; ([0], 0, 2, [0])
-    ; ([0; 1], 0, 0, [])
-    ; ([0; 1], 0, 1, [0])
-    ; ([0; 1], 0, 2, [0; 1])
-    ; ([0; 1], 1, 1, [])
-    ; ([0; 1], 1, 2, [1])
-    ; ([0; 1], 2, 2, [])
-      (* test_cases below used to fail *) [@ocamlformat "disable"]
-    ; ([0], -1, 0, [])
-    ; ([0], 0, -1, [])
-    ; ([0; 1], 1, 0, [])
-    ]
-  in
-  let test (whole, from, until, expected) =
-    let name =
-      Printf.sprintf "sub [%s] from %i to %i"
-        (String.concat "; " (List.map string_of_int whole))
-        from until
-    in
-    test_list (Listext.sub from until) (name, whole, expected)
-  in
-  let tests = List.map test specs in
-  ("sub", tests)
-
 let test_find_minimum (name, pp, typ, specs) =
   let test ((cmp, cmp_name), input, expected) =
     let name = Printf.sprintf "%s of [%s]" cmp_name (pp input) in
@@ -261,7 +229,6 @@ let () =
     ; test_drop
     ; test_last
     ; test_chop
-    ; test_sub
     ; test_find_minimum_int
     ; test_find_minimum_tuple
     ]

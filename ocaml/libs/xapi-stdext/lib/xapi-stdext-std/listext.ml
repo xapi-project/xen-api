@@ -84,8 +84,6 @@ module List = struct
     | _ :: xs ->
         last xs
 
-  let sub i j l = drop i l |> take (j - max i 0)
-
   let rec chop i l =
     match (i, l) with
     | j, _ when j < 0 ->
@@ -96,49 +94,6 @@ module List = struct
         (fun (fr, ba) -> (h :: fr, ba)) (chop (i - 1) t)
     | _, [] ->
         invalid_arg "chop: index not in list"
-
-  let rev_chop i l =
-    let rec aux i fr ba =
-      match (i, fr, ba) with
-      | i, _, _ when i < 0 ->
-          invalid_arg "rev_chop: index cannot be negative"
-      | 0, fr, ba ->
-          (fr, ba)
-      | i, fr, h :: t ->
-          aux (i - 1) (h :: fr) t
-      | _ ->
-          invalid_arg "rev_chop"
-    in
-    aux i [] l
-
-  let chop_tr i l = (fun (fr, ba) -> (rev fr, ba)) (rev_chop i l)
-
-  let rec dice m l =
-    match chop m l with l, [] -> [l] | l1, l2 -> l1 :: dice m l2
-
-  let remove i l =
-    match rev_chop i l with
-    | rfr, _ :: t ->
-        rev_append rfr t
-    | _ ->
-        invalid_arg "remove"
-
-  let insert i e l =
-    match rev_chop i l with rfr, ba -> rev_append rfr (e :: ba)
-
-  let replace i e l =
-    match rev_chop i l with
-    | rfr, _ :: t ->
-        rev_append rfr (e :: t)
-    | _ ->
-        invalid_arg "replace"
-
-  let morph i f l =
-    match rev_chop i l with
-    | rfr, h :: t ->
-        rev_append rfr (f h :: t)
-    | _ ->
-        invalid_arg "morph"
 
   let rec between e = function
     | [] ->
