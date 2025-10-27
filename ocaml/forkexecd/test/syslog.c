@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <time.h>
 #include <alloca.h>
+#include <string.h>
 #include <unistd.h>
 #include <dlfcn.h>
 #include <syslog.h>
