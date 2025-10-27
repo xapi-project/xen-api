@@ -22,8 +22,7 @@ module List = struct
     | x :: xs ->
         if mem x xs then setify xs else x :: setify xs
 
-  let subset s1 s2 =
-    List.fold_left ( && ) true (List.map (fun s -> List.mem s s2) s1)
+  let subset s1 s2 = List.for_all (fun s -> List.mem s s2) s1
 
   let set_equiv s1 s2 = subset s1 s2 && subset s2 s1
 
@@ -84,16 +83,16 @@ module List = struct
     | _ :: xs ->
         last xs
 
-  let rec chop i l =
-    match (i, l) with
-    | j, _ when j < 0 ->
-        invalid_arg "chop: index cannot be negative"
-    | 0, l ->
-        ([], l)
-    | _, h :: t ->
-        (fun (fr, ba) -> (h :: fr, ba)) (chop (i - 1) t)
-    | _, [] ->
-        invalid_arg "chop: index not in list"
+  let split_at n list =
+    let rec loop i acc = function
+      | x :: xs when i < n ->
+          loop (i + 1) (x :: acc) xs
+      | xs ->
+          (List.rev acc, xs)
+    in
+    loop 0 [] list
+
+  let chop = split_at
 
   let rec between e = function
     | [] ->

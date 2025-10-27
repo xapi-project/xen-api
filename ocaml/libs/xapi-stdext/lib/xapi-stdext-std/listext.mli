@@ -27,6 +27,12 @@ module List : sig
   (** [drop n list] returns the list without the first [n] elements of [list]
       (or [] if list is shorter). *)
 
+  val split_at : int -> 'a list -> 'a list * 'a list
+  (** [split_at n list] returns a tuple with the first element being the first
+  [n] elements of [list] (or less if the list is shorter); and the second
+  element being the rest of elements of the list (or [] if the list is
+  shorter). The results with negative values of [n] are the same as using 0. *)
+
   val last : 'a list -> 'a
   (** [last l] returns the last element of a list or raise Invalid_argument if 
     the list is empty *)
@@ -70,8 +76,7 @@ module List : sig
   (** {1 Using indices to manipulate lists} *)
 
   val chop : int -> 'a list -> 'a list * 'a list
-  (** [chop k l] splits [l] at index [k] to return a pair of lists. Raises
-      invalid_arg when [i] is negative or greater than the length of [l]. *)
+  (** [chop k l] is an alias for [split_at k l]. *)
 
   (** {1 Association Lists} *)
 
