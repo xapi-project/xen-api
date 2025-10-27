@@ -189,7 +189,8 @@ unixpwd_setspw(const char *user, char *password)
         fclose(spasswd_file);
         if (tmp_file)
             fclose(tmp_file);
-        close(tmp);
+        else
+            close(tmp);
         unlink(tmp_name);
         return ENOLCK;
     }
