@@ -73,35 +73,6 @@ module List : sig
   (** [chop k l] splits [l] at index [k] to return a pair of lists. Raises
       invalid_arg when [i] is negative or greater than the length of [l]. *)
 
-  val rev_chop : int -> 'a list -> 'a list * 'a list
-  (** [rev_chop k l] splits [l] at index [k] to return a pair of lists, the
-      first in reverse order. Raises invalid_arg when [i] is negative or
-      greater than the length of [l]. *)
-
-  val chop_tr : int -> 'a list -> 'a list * 'a list
-  (** Tail-recursive {!chop}. *)
-
-  val dice : int -> 'a list -> 'a list list
-  (** [dice k l] splits [l] into lists with [k] elements each. Raises
-      {!Invalid_arg} if [List.length l] is not divisible by [k]. *)
-
-  val sub : int -> int -> 'a list -> 'a list
-  (** [sub from to l] returns the sub-list of [l] that starts at index [from]
-      and ends at [to] or an empty list if [to] is equal or less than [from].
-      Negative indices are treated as 0 and indeces higher than [List.length l
-      - 1] are treated as [List.length l - 1]. *)
-
-  val remove : int -> 'a list -> 'a list
-  (** Remove the element at the given index. *)
-
-  val insert : int -> 'a -> 'a list -> 'a list
-  (** Insert the given element at the given index. *)
-
-  val replace : int -> 'a -> 'a list -> 'a list
-  (** Replace the element at the given index with the given value. *)
-
-  val morph : int -> ('a -> 'a) -> 'a list -> 'a list
-  (** Apply the given function to the element at the given index. *)
 
   (** {1 Association Lists} *)
 
