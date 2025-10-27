@@ -859,6 +859,7 @@ let common_http_handlers () =
     ; ("get_wlb_diagnostics", Wlb_reports.diagnostics_handler)
     ; ("get_audit_log", Audit_log.handler)
     ; ("post_root", Api_server.callback false)
+    ; ("post_RPC2", Api_server.callback false)
     ; ("post_json", Api_server.callback true)
     ; ("post_jsonrpc", Api_server.jsoncallback)
     ; ("post_root_options", Api_server.options_callback)
