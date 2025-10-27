@@ -11081,6 +11081,7 @@ let http_actions =
     )
   ; (* XMLRPC callback *)
     ("post_root", (Post, "/", false, [], _R_READ_ONLY, []))
+  ; ("post_RPC2", (Post, "/RPC2", false, [], _R_READ_ONLY, []))
   ; (* JSON callback *)
     ("post_json", (Post, Constants.json_uri, false, [], _R_READ_ONLY, []))
   ; ("post_root_options", (Options, "/", false, [], _R_READ_ONLY, []))
@@ -11133,6 +11134,7 @@ let http_actions =
 let public_http_actions_with_no_rbac_check =
   [
     "post_root"
+  ; "post_RPC2"
   ; (* XMLRPC (API) calls -> checks RBAC internally *)
     "post_cli"
   ; (* CLI commands -> calls XMLRPC *)
