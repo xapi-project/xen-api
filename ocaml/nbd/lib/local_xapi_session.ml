@@ -16,7 +16,7 @@ open Lwt.Infix
 module Xen_api = Xen_api_client_lwt.Xen_api_lwt_unix
 
 let wait_for_xapi_and_login () =
-  let rpc = Xen_api.make Consts.xapi_unix_domain_socket_uri in
+  let rpc = Xen_api.make_json Consts.xapi_unix_domain_socket_uri in
   let rec loop () =
     Lwt.catch
       (fun () ->
