@@ -12,6 +12,10 @@
  * GNU Lesser General Public License for more details.
  *)
 
+module D = Debug.Make (struct let name = "xapi_host_ntp" end)
+
+open D
+
 let ( // ) = Filename.concat
 
 let ntp_dhcp_server_path interface =
@@ -155,3 +159,19 @@ let get_servers_status () =
           None
     )
     lines
+
+let promote_legacy_default_servers () =
+  let servers = get_servers_from_conf () in
+  let legacy = !Xapi_globs.legacy_default_ntp_servers in
+  let defaults = !Xapi_globs.default_ntp_servers in
+  if
+    legacy <> []
+    && defaults <> []
+    && Xapi_stdext_std.Listext.List.set_equiv servers legacy
+  then (
+    info "Promoting legacy default NTP servers (%s) to new default servers (%s)"
+      (String.concat "," servers)
+      (String.concat "," defaults) ;
+    set_servers_in_conf defaults ;
+    restart_ntp_service ()
+  )

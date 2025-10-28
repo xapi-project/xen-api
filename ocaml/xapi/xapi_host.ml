@@ -3530,6 +3530,7 @@ let disable_ntp ~__context ~self =
   Db.Host.set_ntp_enabled ~__context ~self ~value:false
 
 let sync_ntp_config ~__context ~host =
+  Xapi_host_ntp.promote_legacy_default_servers () ;
   let servers = Xapi_host_ntp.get_servers_from_conf () in
   let is_ntp_dhcp_enabled = Xapi_host_ntp.is_ntp_dhcp_enabled () in
   let ntp_mode =
