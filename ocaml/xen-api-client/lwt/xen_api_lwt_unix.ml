@@ -129,7 +129,6 @@ let exn_to_string = function
       Printexc.to_string e
 
 let do_it uri string =
-  let uri = Uri.of_string uri in
   let connection = M.make uri in
   Lwt.finalize
     (fun () ->
@@ -179,7 +178,7 @@ module SessionCache = struct
 
   let make_rpc ?timeout target =
     let uri = Uri.with_path target "/jsonrpc" in
-    make_json ?timeout @@ Uri.to_string @@ uri
+    make_json ?timeout uri
 
   let create_rpc ?timeout rpc ~uname ~pwd ~version ~originator () =
     let acquire () =
