@@ -293,6 +293,12 @@ let gc_vtpms ~__context =
 
 let probation_pending_tasks = Hashtbl.create 53
 
+let sort_and_split compare n tasks =
+  if List.length tasks <= n then
+    (tasks, [])
+  else
+    Listext.List.split_at n (List.sort compare tasks)
+
 let timeout_tasks ~__context =
   let all_tasks =
     Db.Task.get_internal_records_where ~__context
@@ -368,32 +374,20 @@ let timeout_tasks ~__context =
   let lucky, unlucky =
     if List.length young <= Xapi_globs.max_tasks then
       (young, []) (* keep them all *)
-    else (* Compute how many we'd like to delete *)
-      let overflow = List.length young - Xapi_globs.max_tasks in
-      (* We only consider deleting completed tasks *)
+    else (* We only consider deleting completed tasks *)
       let completed, pending =
         List.partition
           (fun (_, t) -> TaskHelper.status_is_completed t.Db_actions.task_status)
           young
       in
-      (* Sort the completed tasks so we delete oldest tasks in preference *)
-      let completed =
-        List.sort
-          (fun (_, t1) (_, t2) ->
-            compare
-              (Date.to_unix_time t1.Db_actions.task_finished)
-              (Date.to_unix_time t2.Db_actions.task_finished)
-          )
-          completed
+      (* pending tasks limit the amount of completed tasks to keep, negatives
+         values are equivalent to 0 *)
+      let limit = Xapi_globs.max_tasks - List.length completed in
+      (* Reverse compare order so oldest dates (earliest) are sorted last *)
+      let compare (_, t1) (_, t2) =
+        Date.compare t2.Db_actions.task_finished t1.Db_actions.task_finished
       in
-      (* From the completes set, choose up to 'overflow' *)
-      let unlucky, lucky =
-        if List.length completed > overflow then
-          Listext.List.chop overflow completed
-        else
-          (completed, [])
-      in
-      (* not enough to delete, oh well *)
+      let lucky, unlucky = sort_and_split compare limit completed in
       (* Keep all pending and any which were not chosen from the completed set *)
       (pending @ lucky, unlucky)
   in
@@ -456,11 +450,8 @@ let timeout_sessions_common ~__context sessions limit session_group =
   in
   (* If there are too many young sessions then we need to delete the oldest *)
   let _, unlucky =
-    if List.length young <= limit then
-      (young, []) (* keep them all *)
-    else (* Need to reverse sort by last active and drop the oldest *)
-      Listext.List.chop limit
-        (List.sort (fun (_, a, _) (_, b, _) -> compare b a) young)
+    let compare (_, a, _) (_, b, _) = compare b a in
+    sort_and_split compare limit young
   in
   let cancel doc sessions =
     List.iter
