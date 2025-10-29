@@ -25,9 +25,13 @@ let test_option typ tested_f (name, case, expected) =
   let check () = Alcotest.(check @@ option typ) name expected (tested_f case) in
   (name, `Quick, check)
 
+let t_exception = Alcotest.testable (Fmt.of_to_string Printexc.to_string) ( = )
+
 let test_chopped_list tested_f (name, case, expected) =
+  let tested_f case = try Ok (tested_f case) with e -> Error e in
   let check () =
-    Alcotest.(check @@ pair (list int) (list int)) name expected (tested_f case)
+    Alcotest.(check @@ result (pair (list int) (list int)) t_exception)
+      name expected (tested_f case)
   in
   (name, `Quick, check)
 
@@ -138,18 +142,15 @@ let test_last =
 let test_chop =
   let specs =
     [
-      ([], 0, ([], []))
-    ; ([0], 0, ([], [0]))
-    ; ([0], 1, ([0], []))
-    ; ([0; 1], 0, ([], [0; 1]))
-    ; ([0; 1], 1, ([0], [1]))
-    ; ([0; 1], 2, ([0; 1], []))
-    ]
-  in
-  let error_specs =
-    [
-      ([0], -1, Invalid_argument "chop: index cannot be negative")
-    ; ([0], 2, Invalid_argument "chop: index not in list")
+      ([], 0, Ok ([], []))
+    ; ([0], 0, Ok ([], [0]))
+    ; ([0], 1, Ok ([0], []))
+    ; ([0; 1], 0, Ok ([], [0; 1]))
+    ; ([0; 1], 1, Ok ([0], [1]))
+    ; ([0; 1], 2, Ok ([0; 1], []))
+    (* test invalid arguments *) [@ocamlformat "disable"]
+    ; ([0], -1, Error (Invalid_argument "chop: index cannot be negative"))
+    ; ([0], 2, Error (Invalid_argument "chop: index not in list"))
     ]
   in
   let test (whole, number, expected) =
@@ -161,18 +162,7 @@ let test_chop =
     test_chopped_list (Listext.chop number) (name, whole, expected)
   in
   let tests = List.map test specs in
-  let error_test (whole, number, error) =
-    let name =
-      Printf.sprintf "chop [%s] with %i fails"
-        (String.concat "; " (List.map string_of_int whole))
-        number
-    in
-    test_error
-      (fun ls () -> ignore (Listext.chop number ls))
-      (name, whole, error)
-  in
-  let error_tests = List.map error_test error_specs in
-  ("chop", tests @ error_tests)
+  ("chop", tests)
 
 let test_find_minimum (name, pp, typ, specs) =
   let test ((cmp, cmp_name), input, expected) =
