@@ -73,7 +73,6 @@ module List : sig
   (** [chop k l] splits [l] at index [k] to return a pair of lists. Raises
       invalid_arg when [i] is negative or greater than the length of [l]. *)
 
-
   (** {1 Association Lists} *)
 
   val make_assoc : ('a -> 'b) -> 'a list -> ('a * 'b) list
