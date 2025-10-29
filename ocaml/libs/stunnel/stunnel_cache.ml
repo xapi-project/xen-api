@@ -125,7 +125,7 @@ let unlocked_gc () =
       List.filter (fun (idx, _) -> not (List.mem idx !to_gc)) times'
     in
     (* Sort into descending order of donation time, ie youngest first *)
-    let times' = List.sort (fun (x, _) (y, _) -> compare y x) times' in
+    let times' = List.sort (fun (_, x) (_, y) -> Float.compare y x) times' in
     let oldest = list_drop max_stunnel times' in
     let oldest_ids = List.map fst oldest in
     List.iter
