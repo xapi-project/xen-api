@@ -59,6 +59,7 @@
   xapi_xenopsd_c_stubs
   xapi_xenopsd_xc_c_stubs
   xenctrl
+  xenctrl_ext
   xenstore
   xenstore_transport.unix
  )
@@ -74,7 +75,8 @@
 (executable
  (name numa)
  (modules numa)
- (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl xenopsd_xc unix)
+ (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl
+            xenctrl_ext xenopsd_xc unix)
 )
 
 (executable
@@ -91,6 +93,7 @@
   xapi-stdext-unix
   xapi_xenopsd
   xenctrl
+  xenctrl_ext
   xenstore_transport.unix
   xenopsd_xc
  )
@@ -110,6 +113,7 @@
   clock
   xapi-stdext-unix
   xenctrl
+  xenctrl_ext
   xenopsd_xc
   xenstore_transport.unix
  )
@@ -131,6 +135,7 @@
   xapi-stdext-unix
   xapi_xenopsd
   xenctrl
+  xenctrl_ext
  )
 )
 
@@ -142,6 +147,7 @@
   cmdliner
   ezxenstore
   xenctrl
+  xenctrl_ext
  )
 )
 
@@ -157,6 +163,7 @@
   xapi-idl.xen.interface
   xapi_xenopsd
   xenctrl
+  xenctrl_ext
   xenopsd_xc
   xenstore_transport.unix
  )
