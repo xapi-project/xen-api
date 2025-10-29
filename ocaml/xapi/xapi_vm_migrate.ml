@@ -1100,6 +1100,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         ) ;
       result
     with e ->
+      error "Catch error in post_mirror: %s" (Printexc.to_string e) ;
       let mirror_failed =
         match mirror_id with
         | Some mid ->

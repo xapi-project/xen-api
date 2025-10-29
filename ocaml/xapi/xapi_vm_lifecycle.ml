@@ -862,6 +862,9 @@ let force_state_reset_keep_current_operations ~__context ~self ~value:state =
   (* First update the power_state. Some operations below indirectly rely on this. *)
   let old_state = Db.VM.get_power_state ~__context ~self in
   Db.VM.set_power_state ~__context ~self ~value:state ;
+  debug "%s: VM power state changed from %s to %s" __FUNCTION__
+    (Record_util.vm_power_state_to_string old_state)
+    (Record_util.vm_power_state_to_string state) ;
   if state = `Suspended then
     remove_pending_guidance ~__context ~self ~value:`restart_device_model ;
   if state = `Halted then (
