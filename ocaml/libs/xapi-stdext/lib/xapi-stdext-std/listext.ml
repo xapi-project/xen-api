@@ -92,8 +92,6 @@ module List = struct
     in
     loop 0 [] list
 
-  let chop = split_at
-
   let rec between e = function
     | [] ->
         []

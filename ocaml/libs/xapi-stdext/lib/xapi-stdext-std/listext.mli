@@ -73,11 +73,6 @@ module List : sig
       When using OCaml compilers 5.1 or later, please use the standard library
       instead. *)
 
-  (** {1 Using indices to manipulate lists} *)
-
-  val chop : int -> 'a list -> 'a list * 'a list
-  (** [chop k l] is an alias for [split_at k l]. *)
-
   (** {1 Association Lists} *)
 
   val make_assoc : ('a -> 'b) -> 'a list -> ('a * 'b) list
