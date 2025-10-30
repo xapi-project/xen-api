@@ -113,6 +113,17 @@ func ConvertMapToVgpuMap(input map[string]interface{}) (map[xenapi.VGPURef]xenap
 	return output, nil
 }
 
+func ConvertMapToVdiFormatMap(input map[string]interface{}) (map[xenapi.VDIRef]string, error) {
+	output := make(map[xenapi.VDIRef]string)
+	for key, value := range input {
+		strValue, ok := value.(string)
+		if !ok {
+			return nil, fmt.Errorf("non-string value found for key %s: %v", key, value)
+		}
+		output[xenapi.VDIRef(key)] = strValue
+	}
+	return output, nil
+}
 func TestMain(m *testing.M) {
 	flag.Parse()
 	exitVal := m.Run()
