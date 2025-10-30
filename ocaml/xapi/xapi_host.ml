@@ -3581,3 +3581,10 @@ let list_timezones ~__context ~self:_ =
     Helpers.call_script !Xapi_globs.timedatectl ["list-timezones"]
     |> Astring.String.cuts ~empty:false ~sep:"\n"
   with e -> Helpers.internal_error "%s" (ExnHelper.string_of_exn e)
+
+let get_ntp_synchronized ~__context ~self:_ =
+  match Xapi_host_ntp.is_synchronized () with
+  | Ok r ->
+      r
+  | Error msg ->
+      Helpers.internal_error "%s" msg

@@ -4184,6 +4184,12 @@ functor
         let local_fn = Local.Host.list_timezones ~self in
         let remote_fn = Client.Host.list_timezones ~self in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_ntp_synchronized ~__context ~self =
+        info "Host.get_ntp_synchronized: host = '%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_ntp_synchronized ~self in
+        let remote_fn = Client.Host.get_ntp_synchronized ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct
