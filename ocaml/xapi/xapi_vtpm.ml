@@ -85,8 +85,8 @@ let copy ~__context ~vM ref =
 
 let destroy ~__context ~self =
   let vm = Db.VTPM.get_VM ~__context ~self in
-  Xapi_vm_lifecycle.assert_initial_power_state_is ~__context ~self:vm
-    ~expected:`Halted ;
+  Xapi_vm_lifecycle.assert_initial_power_state_in ~__context ~self:vm
+    ~allowed:[`Halted; `Suspended] ;
   let secret = Db.VTPM.get_contents ~__context ~self in
   Db.Secret.destroy ~__context ~self:secret ;
   Db.VTPM.destroy ~__context ~self

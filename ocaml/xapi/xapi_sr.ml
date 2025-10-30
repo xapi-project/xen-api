@@ -357,7 +357,7 @@ let create ~__context ~host ~device_config ~(physical_size : int64) ~name_label
       __LOC__ (fun () ->
         Xapi_clustering.assert_cluster_host_is_enabled_for_matching_sms
           ~__context ~host ~sr_sm_type:_type ;
-        Helpers.assert_rolling_upgrade_not_in_progress ~__context ;
+        Helpers.Checks.RPU.assert_rolling_upgrade_not_in_progress ~__context ;
         debug "SR.create name_label=%s sm_config=[ %s ]" name_label
           (String.concat "; " (List.map (fun (k, v) -> k ^ " = " ^ v) sm_config)) ;
         let sr_uuid = Uuidx.make () in

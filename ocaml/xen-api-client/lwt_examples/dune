@@ -20,9 +20,9 @@
   (modules upload_disk)
   (libraries
     cstruct
-    
     lwt
     lwt.unix
+    unix
     uri
     xapi-consts
     xapi-types

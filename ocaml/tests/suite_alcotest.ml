@@ -71,4 +71,5 @@ let () =
     @ Test_xapi_cmd_result.tests
     @ Test_extauth_plugin_ADwinbind.tests
     @ Test_rfb_client_msgtype_parser.tests
+    @ Test_tracked_user_agents.tests
     )

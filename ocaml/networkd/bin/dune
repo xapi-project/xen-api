@@ -26,6 +26,7 @@
   result
   rresult
   threads.posix
+  unix
   xapi-client
   xapi-consts
   xapi-consts.xapi_version

@@ -634,28 +634,27 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
                     rc.API.pIF_ip_configuration_mode = `Static
                 | `IPv6 ->
                     rc.API.pIF_ipv6_configuration_mode = `Static
+                    || rc.API.pIF_ipv6_configuration_mode = `Autoconf
               in
               let dns =
                 match (static, rc.API.pIF_DNS) with
-                | false, _ | true, "" ->
-                    ([], [])
+                | false, _ ->
+                    None
+                | true, "" ->
+                    Some ([], [])
                 | true, pif_dns ->
                     let nameservers =
                       List.map Unix.inet_addr_of_string
-                        (String.split ',' pif_dns)
+                        (String.split_on_char ',' pif_dns)
                     in
                     let domains =
                       match List.assoc_opt "domain" rc.API.pIF_other_config with
-                      | None ->
+                      | None | Some "" ->
                           []
-                      | Some domains -> (
-                        try String.split ',' domains
-                        with _ ->
-                          warn "Invalid DNS search domains: %s" domains ;
-                          []
-                      )
+                      | Some domains ->
+                          String.split_on_char ',' domains
                     in
-                    (nameservers, domains)
+                    Some (nameservers, domains)
               in
               let mtu = determine_mtu rc net_rc in
               let ethtool_settings, ethtool_offload =
@@ -788,10 +787,12 @@ let bring_pif_up ~__context ?(management_interface = false) (pif : API.ref_PIF)
               | `vxlan ->
                   debug
                     "Opening VxLAN UDP port for tunnel with protocol 'vxlan'" ;
-                  ignore
-                  @@ Helpers.call_script
-                       !Xapi_globs.firewall_port_config_script
-                       ["open"; "4789"; "udp"]
+                  let module Fw =
+                    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+                        : Firewall.FIREWALL
+                      )
+                  in
+                  Fw.update_firewall_status Firewall.Vxlan Firewall.Enabled
               | `gre ->
                   ()
             )
@@ -849,10 +850,12 @@ let bring_pif_down ~__context ?(force = false) (pif : API.ref_PIF) =
                 in
                 if no_more_vxlan then (
                   debug "Last VxLAN tunnel was closed, closing VxLAN UDP port" ;
-                  ignore
-                  @@ Helpers.call_script
-                       !Xapi_globs.firewall_port_config_script
-                       ["close"; "4789"; "udp"]
+                  let module Fw =
+                    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+                        : Firewall.FIREWALL
+                      )
+                  in
+                  Fw.update_firewall_status Firewall.Vxlan Firewall.Disabled
                 )
             | `gre ->
                 ()

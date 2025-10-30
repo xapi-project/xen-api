@@ -9,7 +9,7 @@
   ; avoid rebuilding everything when the implementation (of e.g. date) changes
   ; accessing version information is not performance critical:
   ; we don't want it inlined
-  (flags (:standard -opaque))
+  (flags (:standard -opaque -w -58))
   (libraries
     dune-build-info
     xapi-inventory

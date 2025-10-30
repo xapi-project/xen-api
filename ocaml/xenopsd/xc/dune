@@ -32,6 +32,7 @@
   sexplib0
   qmp
   threads.posix
+  unix
   uri
   uuid
   uuidm
@@ -58,6 +59,7 @@
   xapi_xenopsd_c_stubs
   xapi_xenopsd_xc_c_stubs
   xenctrl
+  xenctrl_ext
   xenstore
   xenstore_transport.unix
  )
@@ -73,7 +75,8 @@
 (executable
  (name numa)
  (modules numa)
- (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl xenopsd_xc)
+ (libraries fmt logs logs.fmt mtime mtime.clock threads.posix xenctrl
+            xenctrl_ext xenopsd_xc unix)
 )
 
 (executable
@@ -82,6 +85,7 @@
  (modules xenops_xc_main)
  (libraries
   ezxenstore.core
+  unix
   uuid
   xapi-idl
   xapi-idl.xen.interface
@@ -89,6 +93,7 @@
   xapi-stdext-unix
   xapi_xenopsd
   xenctrl
+  xenctrl_ext
   xenstore_transport.unix
   xenopsd_xc
  )
@@ -101,13 +106,14 @@
  (libraries
   astring
   cmdliner
-
   ezxenstore.core
   uuid
+  unix
   xapi-idl.memory
   clock
   xapi-stdext-unix
   xenctrl
+  xenctrl_ext
   xenopsd_xc
   xenstore_transport.unix
  )
@@ -129,6 +135,7 @@
   xapi-stdext-unix
   xapi_xenopsd
   xenctrl
+  xenctrl_ext
  )
 )
 
@@ -140,6 +147,7 @@
   cmdliner
   ezxenstore
   xenctrl
+  xenctrl_ext
  )
 )
 
@@ -155,6 +163,7 @@
   xapi-idl.xen.interface
   xapi_xenopsd
   xenctrl
+  xenctrl_ext
   xenopsd_xc
   xenstore_transport.unix
  )

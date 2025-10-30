@@ -940,9 +940,26 @@ let get_diagnostic_timing_stats =
       ]
     ~name:"get_diagnostic_timing_stats"
     ~doc:"Return timing statistics for diagnostic purposes"
-    ~params:[(Ref _host, "host", "The host to interrogate")]
     ~result:(Map (String, String), "population name to summary map")
-    ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY ()
+    ~hide_from_docs:true ~allowed_roles:_R_READ_ONLY
+    ~versioned_params:
+      [
+        {
+          param_type= Ref _host
+        ; param_name= "host"
+        ; param_doc= "The host"
+        ; param_release= miami_release
+        ; param_default= None
+        }
+      ; {
+          param_type= Bool
+        ; param_name= "counts"
+        ; param_doc= "Include counts in the result"
+        ; param_release= numbered_release "25.33.0"
+        ; param_default= Some (VBool false)
+        }
+      ]
+    ()
 
 let create_new_blob =
   call ~name:"create_new_blob"
@@ -1366,6 +1383,20 @@ let create_params =
     ; param_doc= "True if SSH auto mode is enabled for the host"
     ; param_release= numbered_release "25.27.0"
     ; param_default= Some (VBool Constants.default_ssh_auto_mode)
+    }
+  ; {
+      param_type= Bool
+    ; param_name= "secure_boot"
+    ; param_doc= "True if the host is in secure boot mode"
+    ; param_release= numbered_release "25.32.0"
+    ; param_default= Some (VBool false)
+    }
+  ; {
+      param_type= Map (String, String)
+    ; param_name= "software_version"
+    ; param_doc= "Information about the software versions on the host"
+    ; param_release= numbered_release "25.32.0-next"
+    ; param_default= Some (VMap [])
     }
   ]
 
@@ -2487,6 +2518,14 @@ let set_ssh_auto_mode =
       ]
     ~allowed_roles:_R_POOL_ADMIN ()
 
+let update_firewalld_service_status =
+  call ~name:"update_firewalld_service_status" ~flags:[`Session] ~lifecycle:[]
+    ~pool_internal:true ~hide_from_docs:true
+    ~doc:
+      "Update firewalld services based on the corresponding xapi services \
+       status."
+    ~allowed_roles:_R_POOL_OP ()
+
 let latest_synced_updates_applied_state =
   Enum
     ( "latest_synced_updates_applied_state"
@@ -2504,6 +2543,22 @@ let latest_synced_updates_applied_state =
         )
       ]
     )
+
+let get_tracked_user_agents =
+  call ~name:"get_tracked_user_agents" ~lifecycle:[]
+    ~doc:
+      "Get the (name, version) list of tracked user agents on this host. If \
+       different versions of the same name are seen, keep the last-seen \
+       version. The oldest entry will be removed if reach the max num. Note \
+       that the list is cleared after host/XAPI restart"
+    ~params:[(Ref _host, "self", "The host")]
+    ~allowed_roles:_R_READ_ONLY
+    ~result:
+      ( Map (String, String)
+      , "The (name, version) list of user agents that have been tracked on \
+         this host"
+      )
+    ()
 
 (** Hosts *)
 let t =
@@ -2649,6 +2704,8 @@ let t =
       ; set_ssh_enabled_timeout
       ; set_console_idle_timeout
       ; set_ssh_auto_mode
+      ; get_tracked_user_agents
+      ; update_firewalld_service_status
       ]
     ~contents:
       ([
@@ -3108,6 +3165,9 @@ let t =
             ~default_value:(Some (VBool Constants.default_ssh_auto_mode))
             "ssh_auto_mode"
             "Reflects whether SSH auto mode is enabled for the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
+            ~default_value:(Some (VBool false)) "secure_boot"
+            "Whether the host has booted in secure boot mode"
         ]
       )
     ()

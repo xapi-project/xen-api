@@ -151,6 +151,10 @@ let _dbv = "dbv"
 
 let _db_schema = "db_schema"
 
+let _xapi_build_version = "xapi_build"
+
+let _xen_version = "xen"
+
 (* When comparing two host versions, always treat a host that has platform_version defined as newer
  * than any host that does not have platform_version defined.
  * Substituting this default when a host does not have platform_version defined will be acceptable,
@@ -174,6 +178,10 @@ let vdi_tar_export_dir = "vdi"
 
 let software_version () =
   (* In the case of XCP, all product_* fields will be blank. *)
+  let get_xapi_verstring () =
+    Printf.sprintf "%d.%d" Xapi_version.xapi_version_major
+      Xapi_version.xapi_version_minor
+  in
   List.filter
     (fun (_, value) -> value <> "")
     [
@@ -183,6 +191,7 @@ let software_version () =
     ; (_platform_name, Xapi_version.platform_name ())
     ; (_platform_version, Xapi_version.platform_version ())
     ; (_product_brand, Xapi_version.product_brand ())
+    ; (_xapi_version, get_xapi_verstring ())
     ; (_build_number, Xapi_version.build_number ())
     ; (_git_id, Xapi_version.git_id)
     ; (_hostname, Xapi_version.hostname)
@@ -369,6 +378,8 @@ let sync_bios_strings = "sync_bios_strings"
 let sync_chipset_info = "sync_chipset_info"
 
 let sync_ssh_status = "sync_ssh_status"
+
+let sync_secure_boot = "sync_secure_boot"
 
 let sync_pci_devices = "sync_pci_devices"
 
@@ -870,6 +881,10 @@ let nbd_firewall_config_script =
 
 let firewall_port_config_script = ref "/etc/xapi.d/plugins/firewall-port"
 
+let firewall_cmd = ref "/usr/bin/firewall-cmd"
+
+let firewall_cmd_wrapper = ref "/usr/bin/firewall-cmd-wrapper"
+
 let nbd_client_manager_script =
   ref "/opt/xensource/libexec/nbd_client_manager.py"
 
@@ -900,6 +915,8 @@ let mxgpu_whitelist = ref "/etc/mxgpu-whitelist"
 let xen_livepatch_list = ref "/usr/sbin/xen-livepatch list"
 
 let kpatch_list = ref "/usr/sbin/kpatch list"
+
+let guest_service_keys = ref ["pvs_target/target_software_version"]
 
 let modprobe_path = ref "/usr/sbin/modprobe"
 
@@ -1060,9 +1077,13 @@ let trace_log_dir = ref "/var/log/dt/zipkinv2/json"
 
 let export_interval = ref 30.
 
+let export_chunk_size = ref 10000
+
 let max_spans = ref 10000
 
 let max_traces = ref 10000
+
+let max_span_depth = ref 100
 
 let use_xmlrpc = ref true
 
@@ -1102,7 +1123,7 @@ let reuse_pool_sessions = ref false
 let validate_reusable_pool_session = ref false
 (* Validate a reusable session before each use. This is slower and should not be required *)
 
-let vm_sysprep_enabled = ref false
+let vm_sysprep_enabled = ref true
 (* enable VM.sysprep API *)
 
 let vm_sysprep_wait = ref 5.0 (* seconds *)
@@ -1326,6 +1347,18 @@ let ssh_service = ref "sshd"
 let ssh_monitor_service = ref "xapi-ssh-monitor"
 
 let ssh_auto_mode_default = ref true
+
+type firewall_backend_type = Firewalld | Iptables
+
+(* Firewall backend to use. iptables in XS 8, firewalld in XS 9. *)
+let firewall_backend = ref Iptables
+
+(* For firewalld, if dynamic control firewalld service. *)
+let dynamic_control_firewalld_service = ref true
+
+let secure_boot_path =
+  ref
+    "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c"
 
 (* Fingerprint of default patch key *)
 let citrix_patch_key =
@@ -1681,6 +1714,11 @@ let other_options =
     , (fun () -> string_of_float !export_interval)
     , "The interval for exports in Tracing"
     )
+  ; ( "export-chunk-size"
+    , Arg.Set_int export_chunk_size
+    , (fun () -> string_of_int !export_chunk_size)
+    , "The span chunk size for exports in Tracing"
+    )
   ; ( "max-spans"
     , Arg.Set_int max_spans
     , (fun () -> string_of_int !max_spans)
@@ -1778,6 +1816,11 @@ let other_options =
     , "Defaults to true; overridden to false via \
        /etc/xapi.conf.d/ssh-auto-mode.conf(e.g., in XenServer 8)"
     )
+  ; ( "secure-boot-efi-path"
+    , Arg.Set_string secure_boot_path
+    , (fun () -> !secure_boot_path)
+    , "Path to secure boot status file"
+    )
   ; ( "vm-sysprep-enabled"
     , Arg.Set vm_sysprep_enabled
     , (fun () -> string_of_bool !vm_sysprep_enabled)
@@ -1795,6 +1838,39 @@ let other_options =
        positive, the proxy will wake up periodically to check tasks like vnc \
        idle timeouts or perform other maintenance tasks. Set to -1 to wait \
        indefinitely for network events without periodic wake-ups."
+    )
+  ; ( "max-span-depth"
+    , Arg.Set_int max_span_depth
+    , (fun () -> string_of_int !max_span_depth)
+    , "The maximum depth to which spans are recorded in a trace in Tracing"
+    )
+  ; ( "firewall-backend"
+    , Arg.String
+        (fun s ->
+          firewall_backend :=
+            match s with
+            | "firewalld" ->
+                Firewalld
+            | "iptables" ->
+                Iptables
+            | _ ->
+                D.error "Unknown firewall backend: %s" s ;
+                failwith "Unknown firewall backend"
+        )
+    , (fun () ->
+        match !firewall_backend with
+        | Firewalld ->
+            "firewalld"
+        | Iptables ->
+            "iptables"
+      )
+    , "Firewall backend. iptables (in XS 8) or firewalld (in XS 9 or later XS \
+       version)"
+    )
+  ; ( "dynamic-control-firewalld-service"
+    , Arg.Bool (fun b -> dynamic_control_firewalld_service := b)
+    , (fun () -> string_of_bool !dynamic_control_firewalld_service)
+    , "Enable dynamic control firewalld service"
     )
   ]
 
@@ -1934,6 +2010,15 @@ module Resources = struct
       , firewall_port_config_script
       , "Executed when starting/stopping xapi-clusterd to configure firewall \
          port"
+      )
+    ; ( "firewall-cmd"
+      , firewall_cmd
+      , "Executed when enable/disable a service on a firewalld zone"
+      )
+    ; ( "firewall-cmd-wrapper"
+      , firewall_cmd_wrapper
+      , "Executed when enable/disable a service on a firewalld zone and \
+         interface"
       )
     ; ( "nbd_client_manager"
       , nbd_client_manager_script

@@ -3409,6 +3409,9 @@ let host_record rpc session_id host =
               ~value:(safe_bool_of_string "ssh-auto-mode" value)
           )
           ()
+      ; make_field ~name:"secure-boot"
+          ~get:(fun () -> string_of_bool (x ()).API.host_secure_boot)
+          ()
       ]
   }
 

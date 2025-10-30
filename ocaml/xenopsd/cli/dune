@@ -13,6 +13,7 @@
       rpclib.json
       rresult
       threads
+      unix
       uuid
       uuidm
       xapi-idl

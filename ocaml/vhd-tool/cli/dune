@@ -13,6 +13,7 @@
     ssl
     tapctl
     threads.posix
+    unix
     uri
     vhd-format
     vhd-format-lwt

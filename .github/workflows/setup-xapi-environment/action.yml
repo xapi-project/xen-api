@@ -5,6 +5,9 @@ inputs:
   xapi_version:
     description: "XenAPI version, pass to configure as --xapi_version=<value>"
     required: true
+  ocaml_version:
+    description: "OCaml compiler version"
+    required: true
 runs:
   using: "composite"
   steps:
@@ -52,7 +55,7 @@ runs:
     - name: Use ocaml
       uses: ocaml/setup-ocaml@v3
       with:
-        ocaml-compiler: ${{ steps.dotenv.outputs.ocaml_version_full }}
+        ocaml-compiler: ${{ inputs.ocaml_version }}
         opam-repositories: |
           xs-opam: ${{ steps.dotenv.outputs.repository }}
         dune-cache: true

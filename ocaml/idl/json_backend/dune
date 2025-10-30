@@ -3,6 +3,7 @@
   (name gen_json)
   (libraries    
     fmt
+    unix
     xapi-datamodel
     xapi-consts
     xapi-stdext-unix

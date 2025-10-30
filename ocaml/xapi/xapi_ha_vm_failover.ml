@@ -112,7 +112,7 @@ end = struct
           k x
       | Task (task, next) ->
           (* similar reasoning as above, when we get the result we need to chain the computations,
-             * refer to http://okmij.org/ftp/Computation/free-monad.html for a deeper theoretical explanation *)
+           * refer to http://okmij.org/ftp/Computation/free-monad.html for a deeper theoretical explanation *)
           Task (task, fun x -> next x >>= k)
   end
 
@@ -1223,9 +1223,6 @@ let assert_configuration_change_preserves_ha_plan ~__context c =
             "assert_configuration_change_preserves_ha_plan: plan exists after \
              change"
       | Plan_exists_excluding_non_agile_VMs | No_plan_exists ->
-          debug
-            "assert_configuration_change_preserves_ha_plan: proposed change \
-             breaks plan" ;
           raise
             (Api_errors.Server_error
                (Api_errors.ha_operation_would_break_failover_plan, [])
@@ -1413,8 +1410,9 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
   let open TaskChains.Infix in
   (* execute the plan *)
   Helpers.call_api_functions ~__context (fun rpc session_id ->
-      (* Helper function to start a VM somewhere. If the HA overcommit protection stops us then disable it and try once more.
-         			   Returns true if the VM was restarted and false otherwise. *)
+      (* Helper function to start a VM somewhere. If the HA overcommit
+         protection stops us then disable it and try once more. Returns true if
+         the VM was restarted and false otherwise. *)
       let restart_vm vm ?host () =
         let go () =
           ( if Xapi_fist.simulate_restart_failure () then
@@ -1579,10 +1577,11 @@ let restart_auto_run_vms ~__context ~last_live_set ~live_set n =
       in
       gc_table last_start_attempt ;
       gc_table restart_failed ;
-      (* Consider restarting the best-effort VMs we *think* have failed (but we might get this wrong --
-         			   ok since this is 'best-effort'). NOTE we do not use the restart_vm function above as this will mark the
-         			   pool as overcommitted if an HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN is received (although this should never
-         			   happen it's better safe than sorry) *)
+      (* Consider restarting the best-effort VMs we *think* have failed (but we
+         might get this wrong -- ok since this is 'best-effort'). NOTE we do
+         not use the restart_vm function above as this will mark the pool as
+         overcommitted if an HA_OPERATION_WOULD_BREAK_FAILOVER_PLAN is received
+         (although this should never happen it's better safe than sorry) *)
       let is_best_effort r =
         r.API.vM_ha_restart_priority = Constants.ha_restart_best_effort
         && r.API.vM_power_state = `Halted

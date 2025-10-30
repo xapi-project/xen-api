@@ -237,7 +237,7 @@ let response_redirect ?req s dest =
   in
   Unixext.really_write_string s (Http.Response.to_wire_string res)
 
-let response_file ?mime_content_type ~hsts_time s file =
+let response_file ?mime_content_type ?download_name ~hsts_time s file =
   let size = (Unix.LargeFile.stat file).Unix.LargeFile.st_size in
   let keep_alive = [(Http.Hdr.connection, "keep-alive")] in
   let hsts_header =
@@ -252,9 +252,17 @@ let response_file ?mime_content_type ~hsts_time s file =
       ~some:(fun ty -> [(Hdr.content_type, ty)])
       mime_content_type
   in
+  let content_disposition =
+    let hdr = Hdr.content_disposition in
+    let typ = "attachment" in
+    Option.fold ~none:[]
+      ~some:(fun name -> [(hdr, Printf.sprintf {|%s; filename="%s"|} typ name)])
+      download_name
+  in
   let res =
     Http.Response.make ~version:"1.1"
-      ~headers:(List.concat [keep_alive; hsts_header; mime_header])
+      ~headers:
+        (List.concat [keep_alive; hsts_header; mime_header; content_disposition])
       ~length:size "200" "OK"
   in
   Unixext.with_file file [Unix.O_RDONLY] 0 (fun f ->

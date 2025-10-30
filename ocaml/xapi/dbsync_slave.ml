@@ -65,6 +65,7 @@ let create_localhost ~__context info =
         ~ssh_expiry:Date.epoch
         ~console_idle_timeout:Constants.default_console_idle_timeout
         ~ssh_auto_mode:!Xapi_globs.ssh_auto_mode_default
+        ~secure_boot:false ~software_version:[]
     in
     ()
 
@@ -134,16 +135,19 @@ let refresh_localhost_info ~__context info =
   ) else
     Db.Host.remove_from_other_config ~__context ~self:host
       ~key:Xapi_globs.host_no_local_storage ;
-  let script_output =
-    Helpers.call_script !Xapi_globs.firewall_port_config_script ["check"; "80"]
+  let status =
+    match Db.Host.get_https_only ~__context ~self:host with
+    | true ->
+        Firewall.Disabled
+    | false ->
+        Firewall.Enabled
   in
-  try
-    let network_state = Scanf.sscanf script_output "Port 80 open: %B" Fun.id in
-    Db.Host.set_https_only ~__context ~self:host ~value:network_state
-  with _ ->
-    Helpers.internal_error
-      "unexpected output from /etc/xapi.d/plugins/firewall-port: %s"
-      script_output
+  let module Fw =
+    ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
+        : Firewall.FIREWALL
+      )
+  in
+  Fw.update_firewall_status Firewall.Http status
 (*************** update database tools ******************)
 
 (** Record host memory properties in database *)
@@ -408,5 +412,17 @@ let update_env __context sync_keys =
         Xapi_host.set_console_idle_timeout ~__context ~self:localhost
           ~value:console_timeout
   ) ;
-
+  switched_sync Xapi_globs.sync_secure_boot (fun () ->
+      let result =
+        try
+          let contents = Unixext.string_of_file !Xapi_globs.secure_boot_path in
+          contents.[4] <> '\x00'
+        with e ->
+          warn "%s error while reading %S: %s" __FUNCTION__
+            !Xapi_globs.secure_boot_path
+            (Printexc.to_string e) ;
+          false
+      in
+      Db.Host.set_secure_boot ~__context ~self:localhost ~value:result
+  ) ;
   remove_pending_guidances ~__context

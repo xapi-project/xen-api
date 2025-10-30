@@ -7,6 +7,7 @@
     lwt.unix
     rpclib.core
     rpclib.xml
+    unix
     xapi_storage
   )
 )

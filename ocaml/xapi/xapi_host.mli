@@ -136,6 +136,8 @@ val create :
   -> ssh_expiry:API.datetime
   -> console_idle_timeout:int64
   -> ssh_auto_mode:bool
+  -> secure_boot:bool
+  -> software_version:(string * string) list
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit
@@ -206,7 +208,7 @@ val get_system_status_capabilities :
   __context:Context.t -> host:API.ref_host -> string
 
 val get_diagnostic_timing_stats :
-  __context:Context.t -> host:'b -> (string * string) list
+  __context:Context.t -> host:'b -> counts:bool -> (string * string) list
 
 val set_hostname_live :
   __context:Context.t -> host:[`host] Ref.t -> hostname:string -> unit
@@ -589,3 +591,19 @@ val schedule_disable_ssh_job :
 
 val set_ssh_auto_mode :
   __context:Context.t -> self:API.ref_host -> value:bool -> unit
+
+val get_tracked_user_agents :
+  __context:Context.t -> self:API.ref_host -> (string * string) list
+
+val get_nbd_interfaces : __context:Context.t -> self:API.ref_host -> string list
+
+val update_firewalld_service_status : __context:Context.t -> unit
+(* Update the status of all the firewalld services to match the state of the
+   corresponding services.
+   This function is used in 2 scenarios:
+   1. When xapi starts, to ensure that all the firewalld services are in the
+      correct state.
+   2. When the firewalld restarts, all firewalld services are reset to the
+      default status. This function should be called to update these firewalld
+      services to the correct status. Xapi will expose an xe command line for
+      this scenario. *)
