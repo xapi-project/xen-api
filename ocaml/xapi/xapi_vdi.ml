@@ -849,6 +849,7 @@ let snapshot_and_clone call_f ~__context ~vdi ~driver_params =
   Db.VDI.set_on_boot ~__context ~self:newvdi ~value:vdi_rec.API.vDI_on_boot ;
   Db.VDI.set_allow_caching ~__context ~self:newvdi
     ~value:vdi_rec.API.vDI_allow_caching ;
+  Db.VDI.set_tags ~__context ~self:newvdi ~value:vdi_rec.API.vDI_tags ;
   newvdi
 
 let snapshot ~__context ~vdi ~driver_params =
