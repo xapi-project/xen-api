@@ -858,7 +858,7 @@ let migration_https_only = ref true
 
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
-let cluster_stack_default = ref "xhad"
+let cluster_stack_default = ref Constants.default_cluster_stack
 
 let xen_cmdline_path = ref "/opt/xensource/libexec/xen-cmdline"
 
