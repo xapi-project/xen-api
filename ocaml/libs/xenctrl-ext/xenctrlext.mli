@@ -107,3 +107,9 @@ val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
 
 val get_nr_nodes : handle -> int
 (** Returns the count of NUMA nodes available in the system. *)
+
+module DomainNuma : sig
+  type t = {optimised: bool; nodes: int; memory: int64 array (* bytes *)}
+
+  val state : handle -> domid:int -> t
+end

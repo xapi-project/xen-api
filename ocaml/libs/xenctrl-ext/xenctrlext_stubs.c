@@ -696,6 +696,51 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
         CAMLreturn(Val_unit);
 }
 
+CAMLprim value stub_xc_domain_numa_get_node_pages(value xch_val, value domid)
+{
+        CAMLparam2(xch_val, domid);
+#if 0
+        CAMLlocal2(o_result, o_result_array);
+        xc_interface *xch = xch_of_val(xch_val);
+        int i, retval;
+
+        uint32_t c_domid = Int_val(domid);
+        uint32_t c_max_nodes = 0xfe; /* 0xff is NUMA_NO_NODE in memflags */
+        /* Will be updated to the number of nodes by the hypercall */
+        uint32_t c_nr_nodes = 0xff;
+        uint64_t *c_node_tot_pages = malloc(c_nr_nodes * sizeof(*c_node_tot_pages));
+
+        if (!c_node_tot_pages)
+                caml_raise_out_of_memory();
+
+        caml_enter_blocking_section();
+        retval = xc_domain_numa_get_node_pages(xch, c_domid,
+                                                   &c_nr_nodes, c_node_tot_pages);
+        caml_leave_blocking_section();
+
+        /* c_nr_nodes is updated by the hypercall */
+        if (retval < 0 || c_nr_nodes > c_max_nodes) {
+                free(c_node_tot_pages);
+                failwith_xc(xch);
+        }
+
+        o_result_array = caml_alloc(c_nr_nodes, 0);
+        for (i = 0; i < c_nr_nodes; i++)
+                Store_field(o_result_array, i, caml_copy_int64(c_node_tot_pages[i]));
+
+        free(c_node_tot_pages);
+
+        o_result = caml_alloc_tuple(1);
+        Store_field(o_result, 0, o_result_array);
+
+        CAMLreturn(o_result);
+#else
+        caml_failwith(__func__);
+        CAMLnoreturn;
+#endif
+}
+
+
 /*
 * Local variables:
 * indent-tabs-mode: t
