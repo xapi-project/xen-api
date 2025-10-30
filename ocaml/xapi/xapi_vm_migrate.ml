@@ -489,11 +489,6 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
     ~value:`restart_device_model ;
   let dbg = Context.string_of_task __context in
   let queue_name = Xapi_xenops_queue.queue_of_vm ~__context ~self:vm in
-  (* Reset the state, which will update allowed operations, clear reservations
-     for halted VMs, disconnect devices *)
-  let power_state = Db.VM.get_power_state ~__context ~self:vm in
-  Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context
-    ~self:vm ~value:power_state ;
   if Xapi_xenops.vm_exists_in_xenopsd queue_name dbg id then (
     remove_stale_pcis ~__context ~vm ;
     Xapi_xenops.set_resident_on ~__context ~self:vm ;
@@ -501,6 +496,11 @@ let pool_migrate_complete ~__context ~vm ~host:_ =
     Xapi_xenops.refresh_vm ~__context ~self:vm ;
     Monitor_dbcalls_cache.clear_cache_for_vm ~vm_uuid:id
   ) ;
+  (* Reset the state, which will update allowed operations, clear reservations
+     for halted VMs, disconnect devices *)
+  let power_state = Db.VM.get_power_state ~__context ~self:vm in
+  Xapi_vm_lifecycle.force_state_reset_keep_current_operations ~__context
+    ~self:vm ~value:power_state ;
   Xapi_vm_group_helpers.maybe_update_vm_anti_affinity_alert_for_vm ~__context
     ~vm
 
@@ -1100,6 +1100,7 @@ let vdi_copy_fun __context dbg vdi_map remote is_intra_pool remote_vdis so_far
         ) ;
       result
     with e ->
+      error "Catch error in post_mirror: %s" (Printexc.to_string e) ;
       let mirror_failed =
         match mirror_id with
         | Some mid ->
