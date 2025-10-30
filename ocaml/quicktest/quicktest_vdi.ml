@@ -2,6 +2,8 @@ module A = Quicktest_args
 
 let ( let@ ) f x = f x
 
+let tags = ["quick"; "test"]
+
 (** If VDI_CREATE and VDI_DELETE are present then make sure VDIs appear and disappear correctly
     VDI_CREATE should make a fresh disk; VDI_DELETE should remove it *)
 let vdi_create_destroy rpc session_id sr_info () =
@@ -175,6 +177,7 @@ let check_clone_snapshot_fields rpc session_id original_vdi new_vdi =
       , fun vdi -> vdi.API.vDI_virtual_size |> Int64.to_string
       )
     ; (`Different, "location", fun vdi -> vdi.API.vDI_location)
+    ; (`Same, "tags", fun vdi -> String.concat ", " vdi.API.vDI_tags)
     ]
   in
   let a = Client.Client.VDI.get_record ~rpc ~session_id ~self:original_vdi in
@@ -202,10 +205,12 @@ let check_vdi_snapshot rpc session_id vdi =
 
 let test_vdi_snapshot rpc session_id sr_info () =
   let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Client.Client.VDI.set_tags ~rpc ~session_id ~self:vdi ~value:tags ;
   check_vdi_snapshot rpc session_id vdi
 
 let test_vdi_clone rpc session_id sr_info () =
   let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Client.Client.VDI.set_tags ~rpc ~session_id ~self:vdi ~value:tags ;
   let vdi' = Client.Client.VDI.clone ~rpc ~session_id ~vdi ~driver_params:[] in
   let@ () = Qt.VDI.with_destroyed rpc session_id vdi' in
   check_clone_snapshot_fields rpc session_id vdi vdi'
@@ -221,6 +226,7 @@ let vbd_create_helper ~rpc ~session_id ~vM ~vDI ?(userdevice = "autodetect") ()
 (** Check that snapshot works regardless which host has the VDI activated *)
 let vdi_snapshot_in_pool rpc session_id sr_info () =
   let@ vdi = Qt.VDI.with_any rpc session_id sr_info in
+  Client.Client.VDI.set_tags ~rpc ~session_id ~self:vdi ~value:tags ;
   let localhost =
     Client.Client.Host.get_by_uuid ~rpc ~session_id ~uuid:Qt.localhost_uuid
   in
