@@ -2477,11 +2477,20 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
   different
     (fun x -> x.Vm.numa_optimised)
     Fun.id
-    (fun opt -> debug "Updating VM %s NUMA optimised=%b" id opt) ;
+    (fun opt ->
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA optimised=%b" id opt ;
+      Db.VM_metrics.set_numa_optimised ~__context ~self:metrics ~value:opt
+    ) ;
   different
     (fun x -> x.Vm.numa_nodes)
     Fun.id
-    (fun n -> debug "Updating VM %s NUMA nodes=%d" id n) ;
+    (fun n ->
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA nodes=%d" id n ;
+      Db.VM_metrics.set_numa_nodes ~__context ~self:metrics
+        ~value:(Int64.of_int n)
+    ) ;
   different
     (fun x -> x.Vm.numa_node_memory)
     Fun.id
@@ -2493,7 +2502,10 @@ let update_vm_internal ~__context ~id ~self ~previous ~info ~localhost =
           assoc
         |> String.concat " "
       in
-      debug "Updating VM %s NUMA assignment [%s]" id assignment
+      let metrics = Db.VM.get_metrics ~__context ~self in
+      debug "Updating VM %s NUMA assignment [%s]" id assignment ;
+      Db.VM_metrics.set_numa_node_memory ~__context ~self:metrics
+        ~value:(List.map (fun (x, y) -> (Int64.of_int x, y)) assoc)
     ) ;
 
   Xenops_cache.update_vm id info ;
