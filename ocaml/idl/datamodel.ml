@@ -11005,6 +11005,16 @@ let http_actions =
       , []
       )
     )
+    (* For XC < 8460 compatibility, remove when out of support *)
+  ; ( "get_vm_rrds"
+    , ( Get
+      , "/vm_rrds"
+      , true
+      , [String_query_arg "uuid"; Bool_query_arg "json"]
+      , _R_READ_ONLY
+      , []
+      )
+    )
   ; ( Constants.get_host_rrd
     , ( Get
       , Constants.get_host_rrd_uri
@@ -11013,6 +11023,10 @@ let http_actions =
       , _R_READ_ONLY
       , []
       )
+    )
+    (* For XC < 8460 compatibility, remove when out of support *)
+  ; ( "get_host_rrds"
+    , (Get, "/host_rrds", true, [Bool_query_arg "json"], _R_READ_ONLY, [])
     )
   ; ( Constants.get_sr_rrd
     , ( Get
