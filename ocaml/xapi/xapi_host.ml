@@ -3417,9 +3417,12 @@ let update_firewalld_service_status ~__context =
         | Xenha ->
             (* Only xha needs to enable firewalld service. Other HA cluster
                stacks don't need. *)
-            bool_of_string (Localdb.get Constants.ha_armed)
-            && Localdb.get Constants.ha_cluster_stack
-               = !Xapi_globs.cluster_stack_default
+            let is_armed () = bool_of_string (Localdb.get Constants.ha_armed) in
+            let uses_xhad () =
+              Localdb.get Constants.ha_cluster_stack
+              = Constants.Ha_cluster_stack.(to_string Xhad)
+            in
+            is_armed () && uses_xhad ()
       in
       List.iter
         (fun s -> if is_enabled s then enable_firewalld_service s)
