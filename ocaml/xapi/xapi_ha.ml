@@ -969,7 +969,9 @@ let redo_log_ha_enabled_at_startup () =
 let update_ha_firewalld_service status =
   (* Only xha needs to enable firewalld service. Other HA cluster stacks don't
      need. *)
-  if Localdb.get Constants.ha_cluster_stack = !Xapi_globs.cluster_stack_default
+  if
+    Localdb.get Constants.ha_cluster_stack
+    = Constants.Ha_cluster_stack.(to_string Xhad)
   then
     let module Fw =
       ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
