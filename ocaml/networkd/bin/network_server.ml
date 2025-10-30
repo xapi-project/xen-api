@@ -35,18 +35,144 @@ let write_config () =
     try Network_config.write_config !config
     with Network_config.Write_error -> ()
 
+let get_index_from_ethx = Network_config.get_index_from_ethx
+
+let sort_based_on_ethx () =
+  Sysfs.list ()
+  |> List.filter_map (fun name ->
+         if Sysfs.is_physical name then
+           get_index_from_ethx name |> Option.map (fun i -> (name, i))
+         else
+           None
+     )
+
+let read_previous_inventory previous_inventory =
+  try
+    Xapi_stdext_unix.Unixext.file_lines_fold
+      (fun acc line ->
+        match Inventory.parse_inventory_entry line with
+        | Some ("MANAGEMENT_INTERFACE", iface) ->
+            info "get management interface from previous inventory: %s" iface ;
+            (Some iface, snd acc)
+        | Some ("MANAGEMENT_ADDRESS_TYPE", addr_type) ->
+            info "get management address type from previous inventory: %s"
+              addr_type ;
+            (fst acc, Some addr_type)
+        | _ ->
+            acc
+      )
+      (None, None) previous_inventory
+  with e ->
+    error "Failed to read previous inventory %s: %s" previous_inventory
+      (Printexc.to_string e) ;
+    (None, None)
+
+let update_inventory () =
+  let previous_inventory = "/var/tmp/.previousInventory" in
+  match read_previous_inventory previous_inventory with
+  | Some iface, Some addr_type ->
+      Network_config.write_manage_iface_to_inventory iface addr_type
+  | _ ->
+      error "Failed to find management interface or address type from %s"
+        previous_inventory
+
+let changed_interfaces_after_upgrade interface_order =
+  let previous_eth_devs =
+    List.filter_map
+      (fun (iface, _) ->
+        iface |> get_index_from_ethx |> Option.map (fun idx -> (iface, idx))
+      )
+      !config.interface_config
+  in
+  List.filter_map
+    (fun (name, pos) ->
+      List.find_opt (fun dev -> dev.position = pos) interface_order |> function
+      | Some dev ->
+          if dev.name <> name then Some (name, dev.name) else None
+      | None ->
+          error "Can't find previous interface %s in sorted interfaces" name ;
+          None
+    )
+    previous_eth_devs
+
+let sort last_order =
+  let do_sort last_order =
+    match Network_device_order.sort last_order with
+    | Ok r ->
+        r
+    | Error err ->
+        error "Failed to sort interface order [%s]"
+          (Network_device_order.string_of_error err) ;
+        (last_order, [])
+  in
+  match (Network_config.device_already_renamed, last_order) with
+  | true, None ->
+      (* The net dev renamed version, skip sort *)
+      (None, [])
+  | true, Some _ ->
+      (* Impossible *)
+      error "%s: device renamed but order is not None" __FUNCTION__ ;
+      raise
+        (Network_error (Internal_error "device renamed but order is not None"))
+  | false, None ->
+      (* Upgrade from net dev renamed version. The previous order is converted
+         and passed to initial rules. Just use [] here to sort. *)
+      let interface_order, _ = do_sort [] in
+      let changed_interfaces =
+        changed_interfaces_after_upgrade interface_order
+      in
+      update_inventory () ;
+      (Some interface_order, changed_interfaces)
+  | false, Some last_order ->
+      let interface_order, changed_interfaces = do_sort last_order in
+      (Some interface_order, changed_interfaces)
+
+let update_changes last_config changed_interfaces =
+  let update_name name =
+    let new_name =
+      List.assoc_opt name changed_interfaces |> Option.value ~default:name
+    in
+    if name <> new_name then
+      debug "Renaming %s to %s" name new_name ;
+    new_name
+  in
+  let update_port (port, port_conf) =
+    ( update_name port
+    , {port_conf with interfaces= List.map update_name port_conf.interfaces}
+    )
+  in
+  let bridge_config =
+    List.map
+      (fun (bridge, bridge_conf) ->
+        ( bridge
+        , {bridge_conf with ports= List.map update_port bridge_conf.ports}
+        )
+      )
+      last_config.bridge_config
+  in
+  let interface_config =
+    List.map
+      (fun (name, conf) -> (update_name name, conf))
+      last_config.interface_config
+  in
+  (bridge_config, interface_config)
+
 let read_config () =
   try
     config := Network_config.read_config () ;
-    debug "Read configuration from networkd.db file."
+    debug "Read configuration from networkd.db file." ;
+    let interface_order, changes = sort !config.interface_order in
+    let bridge_config, interface_config = update_changes !config changes in
+    config := {!config with bridge_config; interface_config; interface_order}
   with Network_config.Read_error -> (
     try
       (* No configuration file found. Try to get the initial network setup from
        * the first-boot data written by the host installer. *)
-      config := Network_config.read_management_conf () ;
+      let interface_order, _ = sort Network_config.initial_interface_order in
+      config := Network_config.read_management_conf interface_order ;
       debug "Read configuration from management.conf file."
     with Network_config.Read_error ->
-      debug "Could not interpret the configuration in management.conf"
+      error "Could not interpret the configuration in management.conf"
   )
 
 let on_shutdown signal =
@@ -63,13 +189,30 @@ let on_timer () = write_config ()
 
 let clear_state () =
   write_lock := true ;
-  config := Network_config.empty_config
+  (* Do not clear interface_order, it is only maintained by networkd *)
+  config :=
+    {Network_config.empty_config with interface_order= !config.interface_order}
 
 let sync_state () =
   write_lock := false ;
   write_config ()
 
-let reset_state () = config := Network_config.read_management_conf ()
+let reset_state () =
+  let reset_order =
+    match !config.interface_order with
+    | Some _ ->
+        (* Use empty config interface_order to sort to generate fresh-install
+           state for currently-installed hardware *)
+        sort Network_config.empty_config.interface_order |> fst
+    | None ->
+        ignore
+          (Forkhelpers.execute_command_get_output
+             "/etc/sysconfig/network-scripts/interface-rename.py"
+             ["--reset-to-install"]
+          ) ;
+        None
+  in
+  config := Network_config.read_management_conf reset_order
 
 let set_gateway_interface _dbg name =
   (* Remove dhclient conf (if any) for the old and new gateway interfaces.
@@ -268,6 +411,24 @@ module Interface = struct
 
   let get_all dbg () =
     Debug.with_thread_associated dbg (fun () -> Sysfs.list ()) ()
+
+  let get_interface_positions dbg () =
+    Debug.with_thread_associated dbg
+      (fun () ->
+        match !config.interface_order with
+        | Some order ->
+            List.filter_map
+              (fun dev ->
+                if dev.present then
+                  Some (dev.name, dev.position)
+                else
+                  None
+              )
+              order
+        | None ->
+            sort_based_on_ethx ()
+      )
+      ()
 
   let exists dbg name =
     Debug.with_thread_associated dbg
@@ -554,7 +715,8 @@ module Interface = struct
   let set_dns _ dbg ~name ~nameservers ~domains =
     Debug.with_thread_associated dbg
       (fun () ->
-        update_config name {(get_config name) with dns= (nameservers, domains)} ;
+        update_config name
+          {(get_config name) with dns= Some (nameservers, domains)} ;
         debug "Configuring DNS for %s: nameservers: [%s]; domains: [%s]" name
           (String.concat ", " (List.map Unix.string_of_inet_addr nameservers))
           (String.concat ", " domains) ;
@@ -727,7 +889,7 @@ module Interface = struct
                   ; ipv6_conf
                   ; ipv6_gateway
                   ; ipv4_routes
-                  ; dns= nameservers, domains
+                  ; dns
                   ; mtu
                   ; ethtool_settings
                   ; ethtool_offload
@@ -736,16 +898,23 @@ module Interface = struct
                 ) ) ->
                 update_config name c ;
                 exec (fun () ->
-                    (* We only apply the DNS settings when not in a DHCP mode
-                       to avoid conflicts. The `dns` field
-                       should really be an option type so that we don't have to
-                       derive the intention of the caller by looking at other
-                       fields. *)
-                    match (ipv4_conf, ipv6_conf) with
-                    | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
-                        set_dns () dbg ~name ~nameservers ~domains
-                    | _ ->
+                    match dns with
+                    | None ->
                         ()
+                    | Some ([], []) -> (
+                      match (ipv4_conf, ipv6_conf) with
+                      | Static4 _, _ | _, Static6 _ | _, Autoconf6 ->
+                          (* clear DNS for Static mode *)
+                          set_dns () dbg ~name ~nameservers:[] ~domains:[]
+                      | _ ->
+                          (* networkd.db in v25.28.0 and before stores empty
+                             dns lists for DHCP mode, this case is to keep
+                             resolv.conf intact when Toolstack update from
+                             version earlier than v25.28.0 *)
+                          ()
+                    )
+                    | Some (nameservers, domains) ->
+                        set_dns () dbg ~name ~nameservers ~domains
                 ) ;
                 exec (fun () -> set_ipv4_conf dbg name ipv4_conf) ;
                 exec (fun () ->
@@ -935,12 +1104,6 @@ module Bridge = struct
                   "standalone"
                 )
             in
-            let vlan_bug_workaround =
-              if List.mem_assoc "vlan-bug-workaround" other_config then
-                Some (List.assoc "vlan-bug-workaround" other_config = "true")
-              else
-                None
-            in
             let external_id =
               if List.mem_assoc "network-uuids" other_config then
                 Some
@@ -968,7 +1131,7 @@ module Bridge = struct
             Option.iter (destroy_existing_vlan_ovs_bridge dbg name) vlan ;
             ignore
               (Ovs.create_bridge ?mac ~fail_mode ?external_id ?disable_in_band
-                 ?igmp_snooping vlan vlan_bug_workaround name
+                 ?igmp_snooping vlan name
               ) ;
             if igmp_snooping = Some true && not old_igmp_snooping then
               Ovs.inject_igmp_query ~name

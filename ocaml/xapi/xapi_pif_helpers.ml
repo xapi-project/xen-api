@@ -265,3 +265,10 @@ let get_primary_address ~__context ~pif =
   )
   | `IPv6 ->
       List.nth_opt (get_non_link_ipv6 ~__context ~pif) 0
+
+let get_pif_position ~__context ~pif_rec =
+  let n_of_xenbrn_opt bridge =
+    try Scanf.sscanf bridge "xenbr%d%!" Option.some with _ -> None
+  in
+  let bridge = Db.Network.get_bridge ~__context ~self:pif_rec.API.pIF_network in
+  n_of_xenbrn_opt bridge

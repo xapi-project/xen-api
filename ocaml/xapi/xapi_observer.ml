@@ -48,9 +48,13 @@ module type ObserverInterface = sig
 
   val set_export_interval : __context:Context.t -> interval:float -> unit
 
+  val set_export_chunk_size : __context:Context.t -> size:int -> unit
+
   val set_max_spans : __context:Context.t -> spans:int -> unit
 
   val set_max_traces : __context:Context.t -> traces:int -> unit
+
+  val set_max_depth : __context:Context.t -> depth:int -> unit
 
   val set_max_file_size : __context:Context.t -> file_size:int -> unit
 
@@ -93,6 +97,10 @@ module Observer : ObserverInterface = struct
     debug "xapi Observer.set_export_interval" ;
     Tracing_export.set_export_interval interval
 
+  let set_export_chunk_size ~__context ~size =
+    debug "xapi Observer.set_export_chunk_size" ;
+    Tracing_export.set_export_chunk_size size
+
   let set_max_spans ~__context ~spans =
     debug "xapi Observer.set_max_spans" ;
     Tracing.Spans.set_max_spans spans
@@ -100,6 +108,10 @@ module Observer : ObserverInterface = struct
   let set_max_traces ~__context ~traces =
     debug "xapi Observer.set_max_traces" ;
     Tracing.Spans.set_max_traces traces
+
+  let set_max_depth ~__context ~depth =
+    debug "xapi Observer.set_max_depth" ;
+    Tracing.Spans.set_max_depth depth
 
   let set_max_file_size ~__context ~file_size =
     debug "xapi Observer.set_max_file_size" ;
@@ -189,6 +201,12 @@ module Xapi_cluster = struct
       let dbg = Context.string_of_task __context in
       S.Observer.set_export_interval dbg interval
 
+    let set_export_chunk_size ~__context ~size =
+      debug "xapi_cluster Observer.set_export_chunk_size" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_export_chunk_size dbg size
+
     let set_max_spans ~__context ~spans =
       debug "xapi_cluster Observer.set_max_spans" ;
       let module S = (val local_client ~__context : XAPI_CLUSTER) in
@@ -200,6 +218,12 @@ module Xapi_cluster = struct
       let module S = (val local_client ~__context : XAPI_CLUSTER) in
       let dbg = Context.string_of_task __context in
       S.Observer.set_max_traces dbg traces
+
+    let set_max_depth ~__context ~depth =
+      debug "xapi_cluster Observer.set_max_depth" ;
+      let module S = (val local_client ~__context : XAPI_CLUSTER) in
+      let dbg = Context.string_of_task __context in
+      S.Observer.set_max_depth dbg depth
 
     let set_max_file_size ~__context ~file_size =
       debug "xapi_cluster Observer.set_max_file_size" ;
@@ -221,16 +245,19 @@ module Xapi_cluster = struct
   end
 end
 
-let default_attributes ~__context ~host ~name_label ~component =
+let default_attributes ~__context ~host ~observer ~component =
   let pool = Helpers.get_pool ~__context in
   let host_label = Db.Host.get_name_label ~__context ~self:host in
   let host_uuid = Db.Host.get_uuid ~__context ~self:host in
   let pool_uuid = Db.Pool.get_uuid ~__context ~self:pool in
+  let name_label = Db.Observer.get_name_label ~__context ~self:observer in
+  let observer_uuid = Db.Observer.get_uuid ~__context ~self:observer in
   [
     ("xs.pool.uuid", pool_uuid)
   ; ("xs.host.name", host_label)
   ; ("xs.host.uuid", host_uuid)
   ; ("xs.observer.name", name_label)
+  ; ("xs.observer.uuid", observer_uuid)
   ; ("service.name", to_string component)
   ]
 
@@ -265,13 +292,12 @@ module ObserverConfig = struct
        from and updated instead of being regenerated. *)
     let endpoints = Db.Observer.get_endpoints ~__context ~self:observer in
     let host = Helpers.get_localhost ~__context in
-    let name_label = Db.Observer.get_name_label ~__context ~self:observer in
     {
       otel_service_name= to_string component
     ; otel_resource_attributes=
         attributes_to_W3CBaggage
           (Db.Observer.get_attributes ~__context ~self:observer
-          @ default_attributes ~__context ~host ~name_label ~component
+          @ default_attributes ~__context ~host ~observer ~component
           )
     ; xs_exporter_zipkin_endpoints= zipkin_endpoints endpoints
     ; xs_exporter_bugtool_endpoint= bugtool_endpoint endpoints
@@ -370,9 +396,13 @@ module Dom0ObserverConfig (ObserverComponent : OBSERVER_COMPONENT) :
 
   let set_export_interval ~__context:_ ~interval:_ = ()
 
+  let set_export_chunk_size ~__context:_ ~size:_ = ()
+
   let set_max_spans ~__context:_ ~spans:_ = ()
 
   let set_max_traces ~__context:_ ~traces:_ = ()
+
+  let set_max_depth ~__context:_ ~depth:_ = ()
 
   let set_max_file_size ~__context:_ ~file_size:_ = ()
 
@@ -485,11 +515,11 @@ let assert_valid_attributes attributes =
     attributes
 
 let register_component ~__context ~self ~host ~component =
-  let name_label = Db.Observer.get_name_label ~__context ~self in
   let attributes =
-    default_attributes ~__context ~host ~name_label ~component
+    default_attributes ~__context ~host ~observer:self ~component
     @ Db.Observer.get_attributes ~__context ~self
   in
+  let name_label = Db.Observer.get_name_label ~__context ~self in
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let endpoints = Db.Observer.get_endpoints ~__context ~self in
   let enabled = Db.Observer.get_enabled ~__context ~self in
@@ -542,6 +572,10 @@ let set_export_interval ~__context interval component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
   Forwarder.set_export_interval ~__context ~interval
 
+let set_export_chunk_size ~__context size component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_export_chunk_size ~__context ~size
+
 let set_max_spans ~__context spans component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
   Forwarder.set_max_spans ~__context ~spans
@@ -549,6 +583,10 @@ let set_max_spans ~__context spans component =
 let set_max_traces ~__context traces component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
   Forwarder.set_max_traces ~__context ~traces
+
+let set_max_depth ~__context depth component =
+  let module Forwarder = (val get_forwarder component : ObserverInterface) in
+  Forwarder.set_max_depth ~__context ~depth
 
 let set_max_file_size ~__context file_size component =
   let module Forwarder = (val get_forwarder component : ObserverInterface) in
@@ -585,8 +623,10 @@ let initialise_observer_component ~__context component =
 let initialise_observer_meta ~__context component =
   set_trace_log_dir ~__context !Xapi_globs.trace_log_dir component ;
   set_export_interval ~__context !Xapi_globs.export_interval component ;
+  set_export_chunk_size ~__context !Xapi_globs.export_chunk_size component ;
   set_max_spans ~__context !Xapi_globs.max_spans component ;
   set_max_traces ~__context !Xapi_globs.max_traces component ;
+  set_max_depth ~__context !Xapi_globs.max_span_depth component ;
   set_max_file_size ~__context !Xapi_globs.max_observer_file_size component ;
   set_host_id ~__context (Helpers.get_localhost_uuid ()) component ;
   set_compress_tracing_files ~__context
@@ -653,14 +693,13 @@ let set_attributes ~__context ~self ~value =
   assert_valid_attributes value ;
   let uuid = Db.Observer.get_uuid ~__context ~self in
   let host = Helpers.get_localhost ~__context in
-  let name_label = Db.Observer.get_name_label ~__context ~self in
   let observation_fn () =
     List.iter
       (fun c ->
         let module Forwarder = (val get_forwarder c : ObserverInterface) in
         Forwarder.set_attributes ~__context ~uuid
           ~attributes:
-            (default_attributes ~__context ~host ~name_label ~component:c
+            (default_attributes ~__context ~host ~observer:self ~component:c
             @ value
             )
       )

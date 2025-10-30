@@ -24,6 +24,10 @@ let export_interval = ref 30.
 
 let set_export_interval t = export_interval := t
 
+let export_chunk_size = Atomic.make 10000
+
+let set_export_chunk_size x = Atomic.set export_chunk_size x
+
 let host_id = ref "localhost"
 
 let set_host_id id = host_id := id
@@ -289,6 +293,22 @@ module Destination = struct
     with exn ->
       debug "Tracing: unable to export span : %s" (Printexc.to_string exn)
 
+  let rec span_info_chunks span_info batch_size =
+    let rec list_to_chunks_inner l n curr chunks =
+      if n = 0 then
+        if l <> [] then
+          list_to_chunks_inner l batch_size [] ((curr, batch_size) :: chunks)
+        else
+          (curr, batch_size) :: chunks
+      else
+        match l with
+        | [] ->
+            (curr, List.length curr) :: chunks
+        | h :: t ->
+            list_to_chunks_inner t (n - 1) (h :: curr) chunks
+    in
+    list_to_chunks_inner (fst span_info) batch_size [] []
+
   let flush_spans () =
     let ((_span_list, span_count) as span_info) = Spans.since () in
     let attributes = [("export.traces.count", string_of_int span_count)] in
@@ -296,10 +316,17 @@ module Destination = struct
       with_tracing ~span_kind:Server ~trace_context:TraceContext.empty
         ~parent:None ~attributes ~name:"Tracing.flush_spans"
     in
-    TracerProvider.get_tracer_providers ()
-    |> List.filter TracerProvider.get_enabled
-    |> List.concat_map TracerProvider.get_endpoints
-    |> List.iter (export_to_endpoint parent span_info)
+    let endpoints =
+      TracerProvider.get_tracer_providers ()
+      |> List.filter TracerProvider.get_enabled
+      |> List.concat_map TracerProvider.get_endpoints
+    in
+    let span_info_chunks =
+      span_info_chunks span_info (Atomic.get export_chunk_size)
+    in
+    List.iter
+      (fun s_i -> List.iter (export_to_endpoint parent s_i) endpoints)
+      span_info_chunks
 
   let delay = Delay.make ()
 

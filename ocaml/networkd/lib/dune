@@ -4,6 +4,7 @@
  (libraries
   astring
   forkexec
+  macaddr
   mtime
   mtime.clock.os
   re
@@ -13,12 +14,14 @@
   rpclib.json
   rresult
   threads.posix
+  unix
   uri
   xapi-stdext-pervasives
   xapi-stdext-std
   xapi-stdext-threads
   xapi-stdext-unix
   xapi-inventory
+  xapi-idl
   xapi-idl.network
   xapi-log
   xapi-open-uri

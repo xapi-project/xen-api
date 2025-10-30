@@ -4,11 +4,14 @@
  (libraries
   alcotest
   astring
-  
   fmt
+  macaddr
   networklibs
   rpclib.core
   rpclib.json
+  xapi-idl
+  xapi-idl.network
+  unix
   xapi-log
   xapi-test-utils)
 )

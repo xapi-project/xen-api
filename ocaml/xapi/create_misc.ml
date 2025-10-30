@@ -48,11 +48,11 @@ type host_info = {
 
 (** The format of the response looks like
  *  # xen-livepatch list
- *   ID                                     | status
- *  ----------------------------------------+------------
- *  hp_1_1                                  | CHECKED
- *  hp_2_1                                  | APPLIED
- *  hp_3_2                                  | APPLIED *)
+ *   ID                                     | status     | metadata
+ *  ----------------------------------------+------------+---------------
+ *  hp_1_1                                  | CHECKED    |
+ *  hp_2_1                                  | APPLIED    |
+ *  hp_3_2                                  | APPLIED    | *)
 let make_xen_livepatch_list () =
   let lines =
     try
@@ -63,8 +63,8 @@ let make_xen_livepatch_list () =
   let patches =
     List.fold_left
       (fun acc l ->
-        match List.map String.trim (Xstringext.String.split ~limit:2 '|' l) with
-        | [key; "APPLIED"] ->
+        match List.map String.trim (String.split_on_char '|' l) with
+        | key :: "APPLIED" :: _ ->
             key :: acc
         | _ ->
             acc
@@ -76,10 +76,12 @@ let make_xen_livepatch_list () =
 (** The format of the response looks like
  *  # kpatch list
  *  Loaded patch modules:
- *  kpatch_hp_1_1
- *  kpatch_hp_2_1
-
- *  Installed patch modules: *)
+ *  lp_4_19_19__8_0_32_xs8__4_19_19__8_0_33_xs8 [enabled]
+ *  lp_4_19_19__8_0_20_xs8__4_19_19__8_0_21_xs8 [enabled]
+ *
+ *  Installed patch modules:
+ *
+ *  Only patch name are returned, status are excluded. *)
 let make_kpatch_list () =
   let start_line = "Loaded patch modules:" in
   let end_line = "Installed patch modules:" in
@@ -99,7 +101,14 @@ let make_kpatch_list () =
     | line :: rest ->
         let line' = String.trim line in
         if line' <> "" && started then
-          loop (line' :: acc) true rest
+          let patch_name =
+            match String.split_on_char ' ' line' with
+            | patch :: _ ->
+                patch
+            | [] ->
+                line'
+          in
+          loop (patch_name :: acc) true rest
         else
           loop acc started rest
   in
@@ -434,10 +443,6 @@ let create_root_user ~__context =
   if all = [] then
     Db.User.create ~__context ~ref ~fullname ~short_name ~uuid ~other_config:[]
 
-let get_xapi_verstring () =
-  Printf.sprintf "%d.%d" Xapi_version.xapi_version_major
-    Xapi_version.xapi_version_minor
-
 (** Create assoc list of Supplemental-Pack information.
  *  The package information is taking from the [XS-REPOSITORY] XML file in the package
  *  directory.
@@ -531,8 +536,7 @@ let make_software_version ~__context host_info =
   Xapi_globs.software_version ()
   @ v6_version
   @ [
-      (Xapi_globs._xapi_version, get_xapi_verstring ())
-    ; ("xapi_build", Xapi_version.version)
+      ("xapi_build", Xapi_version.version)
     ; ("xen", Option.value ~default:"(unknown)" host_info.xen_verstring)
     ; ("linux", host_info.linux_verstring)
     ; ("xencenter_min", Xapi_globs.xencenter_min_verstring)
@@ -572,6 +576,7 @@ let create_host_cpu ~__context host_info =
           ("cpu_count", string_of_int cpu_info.cpu_count)
         ; ("socket_count", string_of_int cpu_info.socket_count)
         ; ("threads_per_core", string_of_int cpu_info.threads_per_core)
+        ; ("nr_nodes", string_of_int cpu_info.nr_nodes)
         ; ("vendor", cpu_info.vendor)
         ; ("speed", cpu_info.speed)
         ; ("modelname", cpu_info.modelname)
@@ -597,11 +602,12 @@ let create_host_cpu ~__context host_info =
       let old_cpu_info = Db.Host.get_cpu_info ~__context ~self:host in
       debug
         "create_host_cpuinfo: setting host cpuinfo: socket_count=%d, \
-         cpu_count=%d, threads_per_core=%d, features_hvm=%s, features_pv=%s, \
-         features_hvm_host=%s, features_pv_host=%s"
+         cpu_count=%d, threads_per_core=%d, nr_nodes=%d, features_hvm=%s, \
+         features_pv=%s, features_hvm_host=%s, features_pv_host=%s"
         (Map_check.getf socket_count cpu)
         (Map_check.getf cpu_count cpu)
         (Map_check.getf threads_per_core cpu)
+        (Map_check.getf nr_nodes cpu)
         (Map_check.getf features_hvm cpu |> CPU_policy.to_string)
         (Map_check.getf features_pv cpu |> CPU_policy.to_string)
         (Map_check.getf features_hvm_host cpu |> CPU_policy.to_string)

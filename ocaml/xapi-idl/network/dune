@@ -8,9 +8,11 @@
    rpclib.json
    rresult
    threads.posix
+   unix
    xapi-idl
    xapi-log
    ipaddr
+   macaddr
  )
  (wrapped false)
  (preprocess (pps ppx_deriving_rpc)))

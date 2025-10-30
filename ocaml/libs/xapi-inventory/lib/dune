@@ -5,6 +5,7 @@
   (libraries
     uuidm
     astring
+    unix
     xapi-stdext-unix
     xapi-stdext-threads
     threads.posix

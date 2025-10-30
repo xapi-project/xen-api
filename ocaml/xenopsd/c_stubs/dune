@@ -10,11 +10,9 @@
 (library
  (name xapi_xenopsd_xc_c_stubs)
  (wrapped false)
- (libraries xenctrl)
  (foreign_stubs
   (language c)
-  (names tuntap_stubs xenctrlext_stubs)
+  (names tuntap_stubs)
  )
-  (c_library_flags (-L/lib64 -lxenforeignmemory))
 )
 

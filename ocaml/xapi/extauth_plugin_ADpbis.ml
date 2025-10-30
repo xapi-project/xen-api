@@ -942,10 +942,9 @@ module AuthADlw : Auth_signature.AUTH_MODULE = struct
                 Db.Host.get_external_auth_service_name ~__context ~self:host
             )
           in
-          if
-            List.mem_assoc "domain" config_params
-            (* legacy test: do we have domain name in config? *)
-          then (* then config:domain must match service-name *)
+          (* legacy test: do we have domain name in config?
+                 then config:domain must match service-name *)
+          if List.mem_assoc "domain" config_params then
             let _domain = List.assoc "domain" config_params in
             if service_name <> _domain then
               raise

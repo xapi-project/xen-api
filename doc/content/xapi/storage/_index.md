@@ -26,57 +26,60 @@ D --> F[SMAPIv3 plugins]
 
 ## SMAPIv1
 
-These are the files related to SMAPIv1 in `xen-api/ocaml/xapi/`:
+These are the files related to SMAPIv1 in [`/ocaml/xapi/`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi):
 
--   sm.ml: OCaml "bindings" for the SMAPIv1 Python "drivers" (SM)
--   sm_exec.ml:
-    support for implementing the above "bindings". The
-    parameters are converted to XML-RPC, passed to the relevant python
-    script ("driver"), and then the standard output of the program is
-    parsed as an XML-RPC response (we use
-    `xen-api-libs-transitional/http-svr/xMLRPC.ml` for parsing XML-RPC).
+-   [`sm.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/sm.ml):
+    OCaml "bindings" for the SMAPIv1 Python "drivers" (SM)
+-   [`sm_exec.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/sm_exec.ml):
+    support for implementing the above "bindings".
+    The parameters are converted to XML-RPC, passed to the relevant python script ("driver"),
+    and then the standard output of the program is parsed as an XML-RPC response (we use
+    [`ocaml/libs/http-lib/xMLRPC.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/libs/http-lib/xMLRPC.ml)
+    for parsing XML-RPC).
     When adding new functionality, we can modify `type call` to add parameters,
     but when we don't add any common ones, we should just pass the new
     parameters in the args record.
--   `smint.ml`: Contains types, exceptions, ... for the SMAPIv1 OCaml
-    interface
--   `storage_smapiv1_wrapper.ml`: A state machine for SMAPIv1 operations. It computes
-    the required actions to reach the desired state from the current state.
--   `storage_smapiv1.ml`: Contains the actual translation of SMAPIv2 calls to SMAPIv1
-    calls, by calling the bindings provided in sm.ml.
+-   [`smint.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/smint.ml):
+    Contains types, exceptions, ... for the SMAPIv1 OCaml interface.
+-   [`storage_smapiv1_wrapper.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml):
+    The [`Wrapper`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml#L360)
+    module wraps a SMAPIv2 server (`Server_impl`) and takes care of
+    locking and datapaths (in case of multiple connections (=datapaths)
+    from VMs to the same VDI, using a state machine for SMAPIv1 operations.
+    It will use the superstate computed by the
+    [`vdi_automaton.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/vdi_automaton.ml)
+    in xapi-idl) to compute the required actions to reach the desired state from the current one.
+    It also implements some functionality, like the `DP` module, that is not implemented in lower layers.
+-   [`storage_smapiv1.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1.ml):
+    a SMAPIv2 server that translates SMAPIv2 calls to SMAPIv1 ones, by calling
+    [`ocaml/xapi/sm.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/sm.ml).
+    It calls passes the XML-RPC requests as the first command-line argument to the
+    corresponding Python script, which returns an XML-RPC response on standard
+    output.
 
 ## SMAPIv2
 
 These are the files related to SMAPIv2, which need to be modified to
 implement new calls:
 
--   [xcp-idl/storage/storage\_interface.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_interface.ml):
+-   [`ocaml/xapi-idl/storage/storage_interface.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_interface.ml):
     Contains the SMAPIv2 interface
--   [xcp-idl/storage/storage\_skeleton.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_skeleton.ml):
+-   [`ocaml/xapi-idl/storage/storage_skeleton.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_skeleton.ml):
     A stub SMAPIv2 storage server implementation that matches the
     SMAPIv2 storage server interface (this is verified by
-    [storage\_skeleton\_test.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_skeleton_test.ml)),
+    [`storage_skeleton_test.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/storage_skeleton_test.ml)),
     each of its function just raise a `Storage_interface.Unimplemented`
     error. This skeleton is used to automatically fill the unimplemented
     methods of the below storage servers to satisfy the interface.
--   [xen-api/ocaml/xapi/storage\_smapiv1.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1.ml):
-    a SMAPIv2 server that does SMAPIv2 -> SMAPIv1 translation.
-    It passes the XML-RPC requests as the first command-line argument to the
-    corresponding Python script, which returns an XML-RPC response on standard
-    output.
--   [xen-api/ocaml/xapi/storage_smapiv1_wrapper.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml):
-    The [Wrapper](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml#L360)
-    module wraps a SMAPIv2 server (Server\_impl) and takes care of
-    locking and datapaths (in case of multiple connections (=datapaths)
-    from VMs to the same VDI, it will use the superstate computed by the
-    [Vdi_automaton](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-idl/storage/vdi_automaton.ml)
-    in xcp-idl). It also implements some functionality, like the `DP`
-    module, that is not implemented in lower layers.
--   [xen-api/ocaml/xapi/storage\_mux.ml](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_mux.ml):
+-   [`ocaml/xapi/storage_mux.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_mux.ml):
     A SMAPIv2 server, which multiplexes between other servers. A
     different SMAPIv2 server can be registered for each SR. Then it
     forwards the calls for each SR to the "storage plugin" registered
     for that SR.
+-   [`ocaml/xapi/storage_smapiv1_wrapper.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1_wrapper.ml):
+    Implements a state machine to compute SMAPIv1 actions needed to reach the desired state, see [SMAPIv1](#smapiv1).
+-   [`ocaml/xapi/storage_smapiv1.ml`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi/storage_smapiv1.ml):
+    Translates the SMAPIv2 calls to SMAPIv1, see [SMAPIv1](#smapiv1).
 
 ### How SMAPIv2 works:
 
@@ -211,31 +214,28 @@ It also implements the `Policy` module from the SMAPIv2 interface.
 
 ## SMAPIv3
 
-[SMAPIv3](https://xapi-project.github.io/xapi-storage/) has a slightly
-different interface from SMAPIv2.The
-[xapi-storage-script](https://github.com/xapi-project/xen-api/tree/v25.11.0/ocaml/xapi-storage-script)
-daemon is a SMAPIv2 plugin separate from xapi that is doing the SMAPIv2
-↔ SMAPIv3 translation. It keeps the plugins registered with xapi-idl
-(their message-switch queues) up to date as their files appear or
-disappear from the relevant directory.
+[SMAPIv3](https://xapi-project.github.io/xapi-storage/) has a slightly different interface from SMAPIv2.
+The
+[`xapi-storage-script`](https://github.com/xapi-project/xen-api/tree/v25.11.0/ocaml/xapi-storage-script)
+daemon is a SMAPIv2 plugin separate from xapi that is doing the SMAPIv2 ↔ SMAPIv3 translation.
+It keeps the plugins registered with xapi-idl (their message-switch queues)
+up to date as their files appear or disappear from the relevant directory.
 
 ### SMAPIv3 Interface
 
 The SMAPIv3 interface is defined using an OCaml-based IDL from the
-[ocaml-rpc](https://github.com/mirage/ocaml-rpc) library, and is in this
-repo: <https://github.com/xapi-project/xapi-storage>
+[`ocaml-rpc`](https://github.com/mirage/ocaml-rpc) library, and is located at
+[`xen-api/ocaml/xapi-storage`](https://github.com/xapi-project/xen-api/tree/v25.11.0/ocaml/xapi-storage)
 
 From this interface we generate
 
--   OCaml RPC client bindings used in
-    [xapi-storage-script](https://github.com/xapi-project/xapi-storage-script)
--   The [SMAPIv3 API
-    reference](https://xapi-project.github.io/xapi-storage)
+-   OCaml RPC client bindings used in `xapi-storage-script`
+-   The 
+    [SMAPIv3 API reference](https://xapi-project.github.io/xapi-storage)
 -   Python bindings, used by the SM scripts that implement the SMAPIv3
     interface.
-    -   These bindings are built by running "`make`" in the root
-        [xapi-storage](https://github.com/xapi-project/xapi-storage),
-        and appear in the` _build/default/python/xapi/storage/api/v5`
+    -   These bindings are built by running `make` at the root level,
+        and appear in the` _build/default/ocaml/xapi-storage/python/xapi/storage/api/v5/`
         directory.
     -   On a XenServer host, they are stored in the
         `/usr/lib/python3.6/site-packages/xapi/storage/api/v5/`
@@ -258,20 +258,20 @@ stored in subdirectories of the
 `/usr/libexec/xapi-storage-script/volume/` and
 `/usr/libexec/xapi-storage-script/datapath/` directories, respectively.
 When it finds a new datapath plugin, it adds the plugin to a lookup table and
-uses it the next time that datapath is required. When it finds a new volume
-plugin, it binds a new [message-switch](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-storage-script/main.ml#L2023) queue named after the plugin's
-subdirectory to a new server instance that uses these volume scripts.
+uses it the next time that datapath is required.
+When it finds a new volume plugin, it binds a new
+[`message-switch`](https://github.com/xapi-project/xen-api/blob/v25.11.0/ocaml/xapi-storage-script/main.ml#L2023)
+queue named after the plugin's subdirectory to a new server instance that uses these volume scripts.
 
 To invoke a SMAPIv3 method, it executes a program named
-`<Interface name>.<function name>` in the plugin's directory, for
-example
+`<Interface name>.<function name>` in the plugin's directory,
+for example
 `/usr/libexec/xapi-storage-script/volume/org.xen.xapi.storage.gfs2/SR.ls`.
 The inputs to each script can be passed as command-line arguments and
-are type-checked using the generated Python bindings, and so are the
-outputs. The URIs of the SRs that xapi-storage-script knows about are
-stored in the `/var/run/nonpersistent/xapi-storage-script/state.db`
-file, these URIs can be used on the command line when an sr argument is
-expected.
+are type-checked using the generated Python bindings, and so are the outputs.
+The URIs of the SRs that xapi-storage-script knows about are stored in the
+ `/var/run/nonpersistent/xapi-storage-script/state.db` file,
+these URIs can be used on the command line when an sr argument is expected.
 
 #### Registration of the various SMAPIv3 plugins
 

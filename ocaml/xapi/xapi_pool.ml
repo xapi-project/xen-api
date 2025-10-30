@@ -1058,6 +1058,8 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssh_expiry:host.API.host_ssh_expiry
           ~console_idle_timeout:host.API.host_console_idle_timeout
           ~ssh_auto_mode:host.API.host_ssh_auto_mode
+          ~secure_boot:host.API.host_secure_boot
+          ~software_version:host.API.host_software_version
       in
       (* Copy other-config into newly created host record: *)
       no_exn
@@ -2136,7 +2138,6 @@ let eject_self ~__context ~host =
         configuration_file
     in
     write_first_boot_management_interface_configuration_file () ;
-    Net.reset_state () ;
     Xapi_inventory.update Xapi_inventory._current_interfaces "" ;
     (* Destroy my control domains, since you can't do this from the API [operation not allowed] *)
     ( try
@@ -2215,15 +2216,10 @@ let eject_self ~__context ~host =
               (!Xapi_globs.remote_db_conf_fragment_path ^ ".bak")
           )
           () ;
-        (* Reset the domain 0 network interface naming configuration
-           			 * back to a fresh-install state for the currently-installed
-           			 * hardware.
-        *)
-        ignore
-          (Forkhelpers.execute_command_get_output
-             "/etc/sysconfig/network-scripts/interface-rename.py"
-             ["--reset-to-install"]
-          )
+        (* Reset the domain 0 network interface order back to a fresh-install
+         * state for the currently-installed hardware and reset networkd config.
+         *)
+        Net.reset_state ()
       )
       (fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject ()) ;
     Xapi_hooks.pool_eject_hook ~__context
@@ -2617,7 +2613,9 @@ let create_VLAN_from_PIF ~__context ~pif ~network ~vLAN =
 let enable_disable_m = Mutex.create ()
 
 let enable_ha ~__context ~heartbeat_srs ~configuration =
-  if not (Helpers.pool_has_different_host_platform_versions ~__context) then
+  if
+    not (Helpers.Checks.RPU.pool_has_different_host_platform_versions ~__context)
+  then
     with_lock enable_disable_m (fun () ->
         Xapi_ha.enable __context heartbeat_srs configuration
     )
@@ -3066,8 +3064,10 @@ let disable_external_auth ~__context ~pool:_ ~config =
             debug
               "Failed to disable the external authentication of at least one \
                host in the pool" ;
-            if String.starts_with ~prefix:Api_errors.auth_disable_failed err
-            then (* tagged exception *)
+            if
+              String.starts_with ~prefix:Api_errors.auth_disable_failed err
+              (* tagged exception *)
+            then
               raise
                 (Api_errors.Server_error
                    (Api_errors.pool_auth_prefix ^ err, [Ref.string_of host; msg])

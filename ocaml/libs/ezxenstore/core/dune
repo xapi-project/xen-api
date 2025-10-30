@@ -5,6 +5,7 @@
     cmdliner
     logs
     threads
+    unix
     uuidm
     (re_export xenstore)
     (re_export xenstore_transport)

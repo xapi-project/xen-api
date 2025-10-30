@@ -174,7 +174,7 @@ let set_type ~__context ~self ~value =
 (* Workaround for `param-set` calling `remove_from_schedule` first then `add_to_schedule`
  * In case `value` supplied is invalid for `add_to_schedule` it must not remove the key
  * We need the cache the original value before removing the key
- * *)
+ *)
 let schedule_backup = ref []
 
 let remove_from_schedule ~__context ~self ~key =

@@ -42,6 +42,8 @@ let socket_count = Map_check.(field "socket_count" int)
 
 let threads_per_core = Map_check.(field "threads_per_core" int)
 
+let nr_nodes = Map_check.(field "nr_nodes" int)
+
 let vendor = Map_check.(field "vendor" string)
 
 let get_flags_for_vm ~__context domain_type cpu_info =

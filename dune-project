@@ -1,4 +1,4 @@
-(lang dune 3.15)
+(lang dune 3.20)
 
 (formatting
  (enabled_for ocaml))

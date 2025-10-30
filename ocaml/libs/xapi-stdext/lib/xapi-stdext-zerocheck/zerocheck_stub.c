@@ -23,9 +23,9 @@ value is_all_zeros(value string, value length)
 {
 	CAMLparam2(string, length);
 	const char *s = String_val(string);
-	unsigned int *p;
-	int len = Int_val(length);
-	int i;
+	unsigned const int *p;
+	long len = Long_val(length);
+	long i;
 
 	p = (unsigned int *) s;
 	for (i = len / 4; i > 0; i--)

@@ -989,6 +989,7 @@ module HOST = struct
           p.nr_cpus / (p.threads_per_core * p.cores_per_socket)
         in
         let threads_per_core = p.threads_per_core in
+        let nr_nodes = Xenctrlext.(get_handle () |> get_nr_nodes) in
         let features = get_cpu_featureset xc Featureset_host in
         (* this is Default policy in Xen's terminology, used on boot for new VMs *)
         let features_pv_host = get_cpu_featureset xc Featureset_pv in
@@ -1017,6 +1018,7 @@ module HOST = struct
               Host.cpu_count
             ; socket_count
             ; threads_per_core
+            ; nr_nodes
             ; vendor
             ; speed
             ; modelname
@@ -2628,7 +2630,6 @@ module VM = struct
             in
             ({x with Domain.memory_target= initial_target}, timeoffset)
       in
-      let no_incr_generationid = false in
       let vtpm = vtpm_of ~vm in
       ( try
           with_data ~xc ~xs task data false @@ fun fd ->
@@ -2644,9 +2645,8 @@ module VM = struct
                 None
           in
           let manager_path = choose_emu_manager vm.Vm.platformdata in
-          Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~store_domid
-            ~console_domid ~no_incr_generationid ~timeoffset ~extras build_info
-            ~manager_path ~vtpm domid fd vgpu_fd
+          Domain.restore task ~xc ~xs ~dm:(dm_of ~vm) ~timeoffset ~extras
+            build_info ~manager_path ~vtpm domid fd vgpu_fd
         with e ->
           error "VM %s: restore failed: %s" vm.Vm.id (Printexc.to_string e) ;
           (* As of xen-unstable.hg 779c0ef9682 libxenguest will destroy
@@ -2834,6 +2834,8 @@ module VM = struct
               ; ("data", None, 0)
                 (* in particular avoid data/volumes which contains many entries for each disk *)
               ; ("data/service", None, 1) (* data/service/<service-name>/<key>*)
+              ; ("data/pvs_target", None, 0)
+                (* data/pvs_target/<pvs-target-key>*)
               ]
               |> List.fold_left
                    (fun acc (dir, excludes, depth) ->
@@ -5064,6 +5066,7 @@ module Actions = struct
       sprintf "/local/domain/%d/attr" domid
     ; sprintf "/local/domain/%d/data/ts" domid
     ; sprintf "/local/domain/%d/data/service" domid
+    ; sprintf "/local/domain/%d/data/pvs_target" domid
     ; sprintf "/local/domain/%d/memory/target" domid
     ; sprintf "/local/domain/%d/memory/uncooperative" domid
     ; sprintf "/local/domain/%d/console/vnc-port" domid

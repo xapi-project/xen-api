@@ -42,17 +42,18 @@ let default_stats =
 
 let monitor_whitelist =
   ref
-    [
-      "eth"
-    ; "vif" (* This includes "tap" owing to the use of standardise_name below *)
-    ]
+    ["vif" (* This includes "tap" owing to the use of standardise_name below *)]
 
 (** Transform names of the form 'tapX.X' to 'vifX.X' so these can be handled
    consistently later *)
 let standardise_name name =
   try Scanf.sscanf name "tap%d.%d" @@ Printf.sprintf "vif%d.%d" with _ -> name
 
-let get_link_stats () =
+let get_link_stats dbg () =
+  let managed_host_net_devs =
+    Network_client.Client.Interface.get_interface_positions dbg ()
+    |> List.map fst
+  in
   let open Netlink in
   let s = Socket.alloc () in
   Socket.connect s Socket.NETLINK_ROUTE ;
@@ -63,13 +64,14 @@ let get_link_stats () =
       List.exists
         (fun s -> Astring.String.is_prefix ~affix:s name)
         !monitor_whitelist
+      || List.mem name managed_host_net_devs
     in
     let is_vlan name =
-      Astring.String.is_prefix ~affix:"eth" name && String.contains name '.'
+      List.mem name managed_host_net_devs && String.contains name '.'
     in
     List.map (fun link -> (standardise_name (Link.get_name link), link)) links
     |> (* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
-          devices (ethx.y). *)
+                devices (ethx.y). *)
     List.filter (fun (name, _) -> is_whitelisted name && not (is_vlan name))
   in
   let devs =
@@ -160,7 +162,7 @@ let generate_netdev_dss () =
     Network_client.Client.Bridge.get_all_bonds dbg from_cache
   in
 
-  let stats = get_link_stats () |> add_bonds bonds |> transform_taps in
+  let stats = get_link_stats dbg () |> add_bonds bonds |> transform_taps in
   let dss, sum_rx, sum_tx =
     List.fold_left
       (fun (dss, sum_rx, sum_tx) (dev, stat) ->

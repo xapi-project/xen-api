@@ -5,6 +5,7 @@
   alcotest
   alcotest-lwt
   lwt
+  unix
   uuid
   vbd_store)
 )

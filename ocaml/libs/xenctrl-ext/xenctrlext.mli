@@ -18,25 +18,7 @@ type domid = Xenctrl.domid
 
 external interface_open : unit -> handle = "stub_xenctrlext_interface_open"
 
-let handle = ref None
-
-let get_handle () =
-  match !handle with
-  | Some h ->
-      h
-  | None ->
-      let h =
-        try interface_open ()
-        with e ->
-          let msg = Printexc.to_string e in
-          failwith ("failed to open xenctrlext: " ^ msg)
-      in
-      handle := Some h ;
-      h
-
-external get_boot_cpufeatures :
-  handle -> int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32
-  = "stub_xenctrlext_get_boot_cpufeatures"
+val get_handle : unit -> handle
 
 external domain_set_timer_mode : handle -> domid -> int -> unit
   = "stub_xenctrlext_domain_set_timer_mode"
@@ -48,10 +30,6 @@ external domain_get_acpi_s_state : handle -> domid -> int
   = "stub_xenctrlext_domain_get_acpi_s_state"
 
 exception Unix_error of Unix.error * string
-
-let _ =
-  Callback.register_exception "Xenctrlext.Unix_error"
-    (Unix_error (Unix.E2BIG, ""))
 
 type runstateinfo = {
     state: int32
@@ -90,17 +68,17 @@ external domain_soft_reset : handle -> domid -> unit
 external domain_update_channels : handle -> domid -> int -> int -> unit
   = "stub_xenctrlext_domain_update_channels"
 
-external vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
-  = "stub_xenctrlext_vcpu_setaffinity_hard"
-
-external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
-  = "stub_xenctrlext_vcpu_setaffinity_soft"
-
 type meminfo = {memfree: int64; memsize: int64}
 
 type numainfo = {memory: meminfo array; distances: int array array}
 
 type cputopo = {core: int; socket: int; node: int}
+
+external vcpu_setaffinity_hard : handle -> domid -> int -> bool array -> unit
+  = "stub_xenctrlext_vcpu_setaffinity_hard"
+
+external vcpu_setaffinity_soft : handle -> domid -> int -> bool array -> unit
+  = "stub_xenctrlext_vcpu_setaffinity_soft"
 
 external numainfo : handle -> numainfo = "stub_xenctrlext_numainfo"
 
@@ -112,22 +90,20 @@ external combine_cpu_policies : int64 array -> int64 array -> int64 array
 external policy_is_compatible : int64 array -> int64 array -> string option
   = "stub_xenctrlext_featuresets_are_compatible"
 
-external stub_domain_claim_pages : handle -> domid -> int -> int -> unit
-  = "stub_xenctrlext_domain_claim_pages"
+module NumaNode : sig
+  type t
 
-module NumaNode = struct
-  type t = int
+  val none : t
 
-  (** Defined as XC_NUMA_NO_NODE in xen.git/tools/include/xenguest.h, it's an
-      unsigned int (~0U) *)
-  let none = 0xFFFFFFFF
-
-  let from = Fun.id
+  val from : int -> t
 end
 
 exception Not_available
 
-let domain_claim_pages handle domid ?(numa_node = NumaNode.none) nr_pages =
-  if numa_node <> NumaNode.none then
-    raise Not_available ;
-  stub_domain_claim_pages handle domid numa_node nr_pages
+val domain_claim_pages : handle -> domid -> ?numa_node:NumaNode.t -> int -> unit
+(** Raises {Unix_error} if there's not enough memory to claim in the system.
+    Raises {Not_available} if a single numa node is requested and xen does not
+    provide page claiming for single numa nodes. *)
+
+val get_nr_nodes : handle -> int
+(** Returns the count of NUMA nodes available in the system. *)

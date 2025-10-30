@@ -68,6 +68,7 @@ install:
 	$(IDATA) wsproxy.service $(DESTDIR)/usr/lib/systemd/system/wsproxy.service
 	$(IDATA) wsproxy.socket $(DESTDIR)/usr/lib/systemd/system/wsproxy.socket
 	$(IDATA) varstored-guard.service $(DESTDIR)/usr/lib/systemd/system/varstored-guard.service
+	$(IDATA) update-xapi-firewalld.service $(DESTDIR)/usr/lib/systemd/system/update-xapi-firewalld.service
 	$(IDATA) network-init.service $(DESTDIR)/usr/lib/systemd/system/network-init.service
 	$(IDATA) control-domain-params-init.service $(DESTDIR)/usr/lib/systemd/system/control-domain-params-init.service
 	$(IDATA) xapi-nbd.service $(DESTDIR)/usr/lib/systemd/system/xapi-nbd.service
@@ -137,6 +138,8 @@ install:
 	mkdir -p $(DESTDIR)/etc/cron.d
 	$(IDATA) xapi-tracing-log-trim.cron $(DESTDIR)/etc/cron.d/xapi-tracing-log-trim.cron
 	mkdir -p $(DESTDIR)/opt/xensource/gpg
+	$(IPROG) xapi-ssh-monitor $(DESTDIR)$(OPTDIR)/bin
+	$(IDATA) xapi-ssh-monitor.service $(DESTDIR)/usr/lib/systemd/system/xapi-ssh-monitor.service
 # host-backup-restore
 	$(IPROG) host-backup-restore/host-backup $(DESTDIR)$(LIBEXECDIR)
 	$(IPROG) host-backup-restore/host-restore $(DESTDIR)$(LIBEXECDIR)

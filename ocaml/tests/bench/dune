@@ -25,6 +25,7 @@
   xapi_aux
   tests_common
   log
+  unix
   xapi_database
   xapi_datamodel
   xapi_internal

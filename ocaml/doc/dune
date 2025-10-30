@@ -5,6 +5,7 @@
     mustache
     rpclib.core
     rpclib.json
+    unix
     uuid
     xapi-consts
     xapi-datamodel

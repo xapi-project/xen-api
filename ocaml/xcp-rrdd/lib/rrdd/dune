@@ -4,6 +4,7 @@
   (flags (:standard -bin-annot))
   (libraries
     threads.posix
+    unix
     xapi-log
     xapi-stdext-threads
     xapi_version

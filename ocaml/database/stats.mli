@@ -12,7 +12,7 @@
  * GNU Lesser General Public License for more details.
  *)
 
-val summarise : unit -> (string * string) list
+val summarise : ?counts:bool -> unit -> (string * string) list
 (** Produce a string name -> string mean, standard deviation summary for each population *)
 
 val time_this : string -> (unit -> 'a) -> 'a

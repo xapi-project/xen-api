@@ -274,7 +274,7 @@ let run state comms_sock fd_sock fd_sock_path =
       let (_ : int list) = Unix.sigprocmask Unix.SIG_BLOCK [Sys.sigchld] in
 
       (* First test whether the child has exited - if it has then report this
-         * via the socket and exit. *)
+       * via the socket and exit. *)
       match Unix.waitpid [Unix.WNOHANG] result with
       | pid, status when pid = result ->
           report_child_exit comms_sock args result status ;
