@@ -3555,3 +3555,10 @@ let get_ntp_servers_status ~__context ~self:_ =
     Xapi_host_ntp.get_servers_status ()
   else
     []
+
+let get_ntp_synchronized ~__context ~self:_ =
+  match Xapi_host_ntp.is_synchronized () with
+  | Ok r ->
+      r
+  | Error msg ->
+      Helpers.internal_error "%s" msg

@@ -627,3 +627,5 @@ val sync_ntp_config : __context:Context.t -> host:API.ref_host -> unit
 
 val get_ntp_servers_status :
   __context:Context.t -> self:API.ref_host -> (string * string) list
+
+val get_ntp_synchronized : __context:Context.t -> self:API.ref_host -> bool
