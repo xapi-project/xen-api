@@ -1,4 +1,10 @@
-+++ title = "NUMA" +++
+---
+title: NUMA
+layout: default
+design_doc: true
+revision: 1
+status: proposed
+---
 
 # NUMA
 
