@@ -517,7 +517,7 @@ end
 let return_302_redirect (req : Http.Request.t) s address =
   let url =
     Uri.(
-      make ~scheme:"https" ~host:address ~path:req.Http.Request.uri
+      make ~scheme:"https" ~host:address ~path:req.Http.Request.path
         ~query:(List.map (fun (a, b) -> (a, [b])) req.Http.Request.query)
         ()
       |> to_string

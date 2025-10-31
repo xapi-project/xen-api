@@ -837,7 +837,7 @@ let handler (req : Http.Request.t) fd _ =
             Uri.(
               make ~scheme:"https"
                 ~host:(Pool_role.get_master_address ())
-                ~path:req.Http.Request.uri
+                ~path:req.Http.Request.path
                 ~query:(List.map (fun (k, v) -> (k, [v])) req.Http.Request.query)
                 ()
               |> to_string

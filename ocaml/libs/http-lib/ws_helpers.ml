@@ -21,10 +21,10 @@
 
 (* Websockets helper functions *)
 
-(* A couple of short helper functions for upgrading an HTTP 
- * connection to a websockets connection 
+(* A couple of short helper functions for upgrading an HTTP
+ * connection to a websockets connection
  * See for reference:
- * http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17 
+ * http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17
  *)
 
 type protocol = Hixie76 | Hybi10
@@ -123,7 +123,7 @@ let hixie_v76_upgrade req s =
     try Some (find_header headers "sec-websocket-protocol") with _ -> None
   in
   let real_uri =
-    req.Http.Request.uri
+    req.Http.Request.path
     ^ "?"
     ^ String.concat "&"
         (List.map

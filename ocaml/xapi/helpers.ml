@@ -507,7 +507,7 @@ let make_remote_rpc_of_url ~verify_cert ~srcstr ~dststr (url, pool_secret) call
   let http =
     xmlrpc ~version:"1.0" ?auth:(Http.Url.auth_of url)
       ~query:(Http.Url.get_query_params url)
-      (Http.Url.get_uri url)
+      (Http.Url.get_path url)
   in
   let http =
     match pool_secret with

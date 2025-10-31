@@ -170,7 +170,7 @@ module URL = struct
     let open Http.Url in
     [
       ( "file:/var/xapi/storage"
-      , (File {path= "/var/xapi/storage"}, {uri= "/"; query_params= []})
+      , (File {path= "/var/xapi/storage"}, {path= "/"; query_params= []})
       )
     ; ( "http://root:foo@localhost"
       , ( Http
@@ -180,17 +180,17 @@ module URL = struct
             ; host= "localhost"
             ; port= None
             }
-        , {uri= "/"; query_params= []}
+        , {path= "/"; query_params= []}
         )
       )
     ; ( "https://google.com/gmail"
       , ( Http {auth= None; ssl= true; host= "google.com"; port= None}
-        , {uri= "/gmail"; query_params= []}
+        , {path= "/gmail"; query_params= []}
         )
       )
     ; ( "https://xapi.xen.org/services/SM"
       , ( Http {auth= None; ssl= true; host= "xapi.xen.org"; port= None}
-        , {uri= "/services/SM"; query_params= []}
+        , {path= "/services/SM"; query_params= []}
         )
       )
     ; ( "https://root:foo@xapi.xen.org:1234/services/SM"
@@ -201,12 +201,12 @@ module URL = struct
             ; host= "xapi.xen.org"
             ; port= Some 1234
             }
-        , {uri= "/services/SM"; query_params= []}
+        , {path= "/services/SM"; query_params= []}
         )
       )
     ; ( "https://xapi.xen.org/services/SM?foo=bar"
       , ( Http {auth= None; ssl= true; host= "xapi.xen.org"; port= None}
-        , {uri= "/services/SM"; query_params= [("foo", "bar")]}
+        , {path= "/services/SM"; query_params= [("foo", "bar")]}
         )
       )
     ]
@@ -221,7 +221,7 @@ module URL = struct
     let data = "https://xapi.xen.org/services/SM?foo=bar" in
     let expected = "https://xapi.xen.org/services/SM/data?foo=bar" in
     let u = Http.Url.of_string data in
-    let u' = Http.Url.set_uri u (Http.Url.get_uri u ^ "/data") in
+    let u' = Http.Url.set_path u (Http.Url.get_path u ^ "/data") in
     let actual = Http.Url.to_string u' in
     Alcotest.(check string) data expected actual
 
