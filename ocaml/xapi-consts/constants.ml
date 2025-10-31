@@ -212,12 +212,29 @@ let ballooning_enabled = "ballooning.enabled"
 let redo_log_enabled = "redo_log.enabled"
 
 (* Valid cluster stack values *)
-let ha_cluster_stack = "ha_cluster_stack"
+module Ha_cluster_stack = struct
+  type t = Xhad | Corosync
 
-let default_smapiv3_cluster_stack = "corosync"
+  let key = "ha_cluster_stack"
 
-(* Note: default without clustering is in !Xapi_globs.default_cluster_stack *)
-let supported_smapiv3_cluster_stacks = ["corosync"]
+  let to_string = function Xhad -> "xhad" | Corosync -> "corosync"
+
+  let of_string = function
+    | "xhad" ->
+        Some Xhad
+    | "corosync" ->
+        Some Corosync
+    | _ ->
+        None
+end
+
+let ha_cluster_stack = Ha_cluster_stack.key
+
+let default_cluster_stack = Ha_cluster_stack.(to_string Xhad)
+
+let default_smapiv3_cluster_stack = Ha_cluster_stack.(to_string Corosync)
+
+let supported_smapiv3_cluster_stacks = [default_smapiv3_cluster_stack]
 
 (* Set in the local db to cause us to emit an alert when we come up as a master after
    a transition or HA failover *)

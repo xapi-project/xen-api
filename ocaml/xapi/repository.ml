@@ -232,7 +232,7 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
     Xapi_stdext_pervasives.Pervasiveext.finally
       (fun () ->
         let config_repo config =
-          if List.length config <> 0 then (* Set params to yum/dnf *)
+          if config <> [] then (* Set params to yum/dnf *)
             let Pkg_mgr.{cmd; params} = Pkgs.config_repo ~repo_name ~config in
             ignore
               (Helpers.call_script ~log_output:Helpers.On_failure cmd params)

@@ -3,7 +3,7 @@
 set -e
 
 list-hd () {
-  N=274
+  N=268
   LIST_HD=$(git grep -r --count 'List.hd' -- **/*.ml | cut -d ':' -f 2 | paste -sd+ - | bc)
   if [ "$LIST_HD" -eq "$N" ]; then
     echo "OK counted $LIST_HD List.hd usages"
@@ -110,7 +110,7 @@ unixgetenv () {
 }
 
 hashtblfind () {
-  N=35
+  N=33
   # Looks for all .ml files except the ones using Core.Hashtbl.find,
   # which already returns Option
   HASHTBLFIND=$(git grep -P -r --count 'Hashtbl.find(?!_opt)' -- '**/*.ml' ':!ocaml/xapi-storage-script/main.ml' | cut -d ':' -f 2 | paste -sd+ - | bc)
@@ -130,7 +130,9 @@ unnecessary-length () {
   UNNECESSARY_LENGTH=$(local_grep "List.length.*=+\s*0")
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*=+\s*List.length")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s>\s*0")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s<>\s*0")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*<\s*List.length")))
+  UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "0\s*<>\s*List.length")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "List.length.*\s<\s*1")))
   UNNECESSARY_LENGTH=$((UNNECESSARY_LENGTH+$(local_grep "1\s*>\s*List.length")))
   if [ "$UNNECESSARY_LENGTH" -eq "$N" ]; then

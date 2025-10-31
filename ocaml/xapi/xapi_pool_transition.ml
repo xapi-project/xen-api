@@ -62,7 +62,7 @@ let run_external_scripts becoming_master =
       order
   in
   let already_run =
-    try bool_of_string (Localdb.get Constants.master_scripts) with _ -> false
+    Localdb.get_bool Constants.master_scripts |> Option.value ~default:false
   in
   (* Only do anything if we're switching mode *)
   if already_run <> becoming_master then (
@@ -228,8 +228,8 @@ let become_another_masters_slave master_address =
 (** If we just transitioned slave -> master (as indicated by the localdb flag) then generate a single alert *)
 let consider_sending_alert __context () =
   if
-    try bool_of_string (Localdb.get Constants.this_node_just_became_master)
-    with _ -> false
+    Localdb.get_bool Constants.this_node_just_became_master
+    |> Option.value ~default:false
   then
     let obj_uuid = Helpers.get_localhost_uuid () in
     let name, priority = Api_messages.pool_master_transition in

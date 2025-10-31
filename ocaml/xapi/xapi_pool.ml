@@ -1880,15 +1880,14 @@ let exchange_ca_certificates_on_join ~__context ~import ~export :
   in
   Cert_distrib.exchange_ca_certificates_with_joiner ~__context ~import ~export
 
-(* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
-  if Localdb.get Constants.ha_armed = "true" then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+  if Localdb.get_bool Constants.ha_armed |> Option.value ~default:false then
+    raise Api_errors.(Server_error (ha_is_enabled, [])) ;
   Xapi_pool_transition.become_master ()
 
 let emergency_reset_master ~__context ~master_address =
-  if Localdb.get Constants.ha_armed = "true" then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+  if Localdb.get_bool Constants.ha_armed |> Option.value ~default:false then
+    raise Api_errors.(Server_error (ha_is_enabled, [])) ;
   let master_address = Helpers.gethostbyname master_address in
   Xapi_pool_transition.become_another_masters_slave master_address
 
