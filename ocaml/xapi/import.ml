@@ -877,7 +877,10 @@ module Metrics : HandlerTools = struct
       ~hvm:vmm_record.API.vM_metrics_hvm
       ~nested_virt:vmm_record.API.vM_metrics_nested_virt
       ~nomigrate:vmm_record.API.vM_metrics_nomigrate
-      ~current_domain_type:vmm_record.API.vM_metrics_current_domain_type ;
+      ~current_domain_type:vmm_record.API.vM_metrics_current_domain_type
+      ~numa_optimised:vmm_record.API.vM_metrics_numa_optimised
+      ~numa_nodes:vmm_record.API.vM_metrics_numa_nodes
+      ~numa_node_memory:vmm_record.API.vM_metrics_numa_node_memory ;
     state.table <- (x.cls, x.id, Ref.string_of vmm) :: state.table
 end
 

@@ -294,7 +294,8 @@ let ensure_vm_metrics_records_exist __context =
           ~vCPUs_flags:[] ~start_time:Clock.Date.epoch
           ~install_time:Clock.Date.epoch ~state:[]
           ~last_updated:Clock.Date.epoch ~other_config:[] ~hvm:false
-          ~nested_virt:false ~nomigrate:false ~current_domain_type:`unspecified ;
+          ~nested_virt:false ~nomigrate:false ~current_domain_type:`unspecified
+          ~numa_optimised:false ~numa_nodes:0L ~numa_node_memory:[] ;
         Db.VM.set_metrics ~__context ~self:vm ~value:m
       )
     )

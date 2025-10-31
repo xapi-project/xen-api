@@ -129,6 +129,12 @@ let prototyped_of_field = function
       Some "25.15.0"
   | "VM_guest_metrics", "netbios_name" ->
       Some "24.28.0"
+  | "VM_metrics", "numa_node_memory" ->
+      Some "25.35.0"
+  | "VM_metrics", "numa_nodes" ->
+      Some "25.35.0"
+  | "VM_metrics", "numa_optimised" ->
+      Some "25.35.0"
   | "VM", "groups" ->
       Some "24.19.1"
   | "VM", "pending_guidances_full" ->
