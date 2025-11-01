@@ -612,6 +612,8 @@
    (= :version))
   (xapi-stdext-pervasives
    (= :version))
+  (xapi-stdext-std
+   (= :version))
   (xapi-stdext-threads
    (= :version))
   (xapi-stdext-unix

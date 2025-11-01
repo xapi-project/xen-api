@@ -27,6 +27,12 @@ module List : sig
   (** [drop n list] returns the list without the first [n] elements of [list]
       (or [] if list is shorter). *)
 
+  val split_at : int -> 'a list -> 'a list * 'a list
+  (** [split_at n list] returns a tuple with the first element being the first
+  [n] elements of [list] (or less if the list is shorter); and the second
+  element being the rest of elements of the list (or [] if the list is
+  shorter). The results with negative values of [n] are the same as using 0. *)
+
   val last : 'a list -> 'a
   (** [last l] returns the last element of a list or raise Invalid_argument if 
     the list is empty *)
@@ -66,42 +72,6 @@ module List : sig
 
       When using OCaml compilers 5.1 or later, please use the standard library
       instead. *)
-
-  (** {1 Using indices to manipulate lists} *)
-
-  val chop : int -> 'a list -> 'a list * 'a list
-  (** [chop k l] splits [l] at index [k] to return a pair of lists. Raises
-      invalid_arg when [i] is negative or greater than the length of [l]. *)
-
-  val rev_chop : int -> 'a list -> 'a list * 'a list
-  (** [rev_chop k l] splits [l] at index [k] to return a pair of lists, the
-      first in reverse order. Raises invalid_arg when [i] is negative or
-      greater than the length of [l]. *)
-
-  val chop_tr : int -> 'a list -> 'a list * 'a list
-  (** Tail-recursive {!chop}. *)
-
-  val dice : int -> 'a list -> 'a list list
-  (** [dice k l] splits [l] into lists with [k] elements each. Raises
-      {!Invalid_arg} if [List.length l] is not divisible by [k]. *)
-
-  val sub : int -> int -> 'a list -> 'a list
-  (** [sub from to l] returns the sub-list of [l] that starts at index [from]
-      and ends at [to] or an empty list if [to] is equal or less than [from].
-      Negative indices are treated as 0 and indeces higher than [List.length l
-      - 1] are treated as [List.length l - 1]. *)
-
-  val remove : int -> 'a list -> 'a list
-  (** Remove the element at the given index. *)
-
-  val insert : int -> 'a -> 'a list -> 'a list
-  (** Insert the given element at the given index. *)
-
-  val replace : int -> 'a -> 'a list -> 'a list
-  (** Replace the element at the given index with the given value. *)
-
-  val morph : int -> ('a -> 'a) -> 'a list -> 'a list
-  (** Apply the given function to the element at the given index. *)
 
   (** {1 Association Lists} *)
 
