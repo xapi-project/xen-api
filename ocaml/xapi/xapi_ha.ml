@@ -42,6 +42,10 @@ let ha_redo_log =
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
+exception Address_not_found of string
+
+exception Uuid_not_found of string
+
 (** Returns the current live set info *)
 let query_liveset () =
   let txt = call_script ~log_output:On_failure ha_query_liveset [] in
@@ -76,8 +80,11 @@ let propose_master () =
 
 (** Returns true if local failover decisions have not been disabled on this node *)
 let local_failover_decisions_are_ok () =
-  try not (bool_of_string (Localdb.get Constants.ha_disable_failover_decisions))
-  with _ -> true
+  let disabled =
+    Localdb.get_bool Constants.ha_disable_failover_decisions
+    |> Option.value ~default:false
+  in
+  not disabled
 
 (** Since the liveset info doesn't include the host IP address, we persist these ourselves *)
 let write_uuid_to_ip_mapping ~__context =
@@ -91,36 +98,40 @@ let write_uuid_to_ip_mapping ~__context =
 
 (** Since the liveset info doesn't include the host IP address, we persist these ourselves *)
 let get_uuid_to_ip_mapping () =
-  let v = Localdb.get Constants.ha_peers in
-  String_unmarshall_helper.map (fun x -> x) (fun x -> x) v
+  match Localdb.get Constants.ha_peers with
+  | Some peers ->
+      String_unmarshall_helper.map (fun k -> k) (fun v -> v) peers
+  | None ->
+      []
 
 (** Without using the Pool's database, returns the IP address of a particular host
     named by UUID. *)
 let address_of_host_uuid uuid =
   let table = get_uuid_to_ip_mapping () in
-  if not (List.mem_assoc uuid table) then (
-    error "Failed to find the IP address of host UUID %s" uuid ;
-    raise Not_found
-  ) else
-    List.assoc uuid table
+  let uuid_not_found = Uuid_not_found uuid in
+  List.assoc_opt uuid table |> Option.to_result ~none:uuid_not_found
 
 (** Without using the Pool's database, returns the UUID of a particular host named by
     heartbeat IP address. This is only necesary because the liveset info doesn't include
     the host IP address *)
 let uuid_of_host_address address =
   let table = List.map (fun (k, v) -> (v, k)) (get_uuid_to_ip_mapping ()) in
-  match List.assoc_opt address table with
-  | None ->
-      error "Failed to find the UUID address of host with address %s" address ;
-      raise Not_found
-  | Some uuid_str -> (
-    match Uuidx.of_string uuid_str with
-    | None ->
-        error "Failed parse UUID of host with address %s" address ;
-        raise (Invalid_argument "Invalid UUID")
-    | Some uuid ->
-        uuid
-  )
+  let invalid_uuid = Invalid_argument "Invalid UUID" in
+  let address_not_found = Address_not_found address in
+  let to_uuid str =
+    Uuidx.of_string str |> Option.to_result ~none:invalid_uuid
+  in
+  List.assoc_opt address table
+  |> Option.to_result ~none:address_not_found
+  |> Fun.flip Result.bind to_uuid
+
+let ok_or_raise map_error = function Ok v -> v | Error exn -> map_error exn
+
+let master_address_exn __FUN e =
+  let exn = Printexc.to_string e in
+  let msg = Printf.sprintf "unable to gather the coordinator's IP: %s" exn in
+  error "%s: %s" __FUN msg ;
+  raise Api_errors.(Server_error (internal_error, [msg]))
 
 (** Called in two circumstances:
     1. When I started up I thought I was the master but my proposal was rejected by the
@@ -139,7 +150,9 @@ let on_master_failure () =
     done
   in
   let become_slave_of uuid =
-    let address = address_of_host_uuid uuid in
+    let address =
+      address_of_host_uuid uuid |> ok_or_raise (master_address_exn __FUNCTION__)
+    in
     info "This node will become the slave of host %s (%s)" uuid address ;
     Xapi_pool_transition.become_another_masters_slave address ;
     (* XXX CA-16388: prevent blocking *)
@@ -164,19 +177,17 @@ let on_master_failure () =
           "ha_can_not_be_master_on_next_boot set: I cannot be master; looking \
            for another master" ;
       let liveset = query_liveset () in
+      let open Xha_interface.LiveSetInformation in
       match
         Hashtbl.fold
           (fun uuid host acc ->
-            if
-              host.Xha_interface.LiveSetInformation.Host.master
-              && host.Xha_interface.LiveSetInformation.Host.liveness
-              (* CP-25481: a dead host may still have the master lock *)
-            then
+            (* CP-25481: a dead host may still have the master lock *)
+            if host.Host.master && host.Host.liveness then
               uuid :: acc
             else
               acc
           )
-          liveset.Xha_interface.LiveSetInformation.hosts []
+          liveset.hosts []
       with
       | [] ->
           info "no other master exists yet; waiting 5 seconds and retrying" ;
@@ -190,6 +201,18 @@ let on_master_failure () =
           failwith "multiple masters"
     )
   done
+
+let master_uuid_exn __FUN e =
+  let exn = Printexc.to_string e in
+  let msg = Printf.sprintf "unable to gather the coordinator's UUID: %s" exn in
+  error "%s: %s" __FUN msg ;
+  raise Api_errors.(Server_error (internal_error, [msg]))
+
+let master_not_in_liveset_exn __FUN e =
+  let exn = Printexc.to_string e in
+  let msg = Printf.sprintf "unable to gather the coordinator's info: %s" exn in
+  error "%s: %s" __FUN msg ;
+  raise Api_errors.(Server_error (internal_error, [msg]))
 
 module Timeouts = struct
   type t = {
@@ -303,7 +326,7 @@ module Monitor = struct
             let statefiles = Xha_statefile.list_existing_statefiles () in
             debug "HA background thread starting" ;
             (* Grab the base timeout value so we can cook the reported latencies *)
-            let base_t = int_of_string (Localdb.get Constants.ha_base_t) in
+            let base_t = int_of_string (Localdb.get_exn Constants.ha_base_t) in
             let timeouts = Timeouts.derive base_t in
             (* Set up our per-host alert triggers *)
             let localhost_uuid = Helpers.get_localhost_uuid () in
@@ -457,16 +480,20 @@ module Monitor = struct
             (* WARNING: must not touch the database or perform blocking I/O *)
             let process_liveset_on_slave liveset =
               let address = Pool_role.get_master_address () in
-              let master_uuid = uuid_of_host_address address in
-              let master_info =
-                Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-                  master_uuid
+              let master_uuid =
+                uuid_of_host_address address
+                |> ok_or_raise (master_uuid_exn __FUNCTION__)
               in
-              if
-                true
-                && master_info.Xha_interface.LiveSetInformation.Host.liveness
-                && master_info.Xha_interface.LiveSetInformation.Host.master
-              then
+              let open Xha_interface.LiveSetInformation in
+              let uuid_not_found =
+                Uuid_not_found (Uuidx.to_string master_uuid)
+              in
+              let master_info =
+                Hashtbl.find_opt liveset.hosts master_uuid
+                |> Option.to_result ~none:uuid_not_found
+                |> ok_or_raise (master_not_in_liveset_exn __FUNCTION__)
+              in
+              if master_info.Host.liveness && master_info.Host.master then
                 debug
                   "The node we think is the master is still alive and marked \
                    as master; this is OK"
@@ -500,8 +527,6 @@ module Monitor = struct
                      ~self:pool
                   )
               in
-
-              (* let planned_for = Int64.to_int (Db.Pool.get_ha_plan_exists_for ~__context ~self:pool) in *)
 
               (* First consider whether VM failover actions need to happen.
                  Convert the liveset into a list of Host references used by the VM failover code *)
@@ -629,11 +654,9 @@ module Monitor = struct
                 (* and yet has no statefile access *)
               in
               let all_live_nodes_lost_statefile =
-                List.fold_left ( && ) true
-                  (List.map
-                     (fun (_, xha_host) -> relying_on_rule_2 xha_host)
-                     host_host_table
-                  )
+                List.for_all
+                  (fun (_, xha_host) -> relying_on_rule_2 xha_host)
+                  host_host_table
               in
               warning_all_live_nodes_lost_statefile
                 all_live_nodes_lost_statefile ;
@@ -969,7 +992,10 @@ let redo_log_ha_enabled_at_startup () =
 let update_ha_firewalld_service status =
   (* Only xha needs to enable firewalld service. Other HA cluster stacks don't
      need. *)
-  if Localdb.get Constants.ha_cluster_stack = !Xapi_globs.cluster_stack_default
+  if
+    Localdb.get Constants.ha_cluster_stack
+    |> Option.value ~default:!Xapi_globs.cluster_stack_default
+    = Constants.Ha_cluster_stack.(to_string Xhad)
   then
     let module Fw =
       ( val Firewall.firewall_provider !Xapi_globs.firewall_backend
@@ -984,8 +1010,10 @@ let ha_start_daemon () =
   ()
 
 let on_server_restart () =
-  let armed = bool_of_string (Localdb.get Constants.ha_armed) in
-  if armed then (
+  let armed () =
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
+  in
+  if armed () then (
     debug "HA is supposed to be armed" ;
     (* Make sure daemons are up *)
     let finished = ref false in
@@ -993,10 +1021,7 @@ let on_server_restart () =
        XXX we might need some kind of user-override *)
     while not !finished do
       (* If someone has called Host.emergency_ha_disable in the background then we notice the change here *)
-      if
-        not
-          (try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false)
-      then (
+      if not (armed ()) then (
         warn
           "ha_start_daemon aborted because someone has called \
            Host.emergency_ha_disable" ;
@@ -1147,7 +1172,7 @@ let ha_stop_daemon __context _localhost =
 
 let emergency_ha_disable __context soft =
   let ha_armed =
-    try bool_of_string (Localdb.get Constants.ha_armed) with _ -> false
+    Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
   in
   if not ha_armed then
     if soft then
@@ -1385,6 +1410,7 @@ let preconfigure_host __context localhost statevdis metadata_vdi generation =
   Localdb.put Constants.ha_base_t (string_of_int base_t)
 
 let join_liveset __context host =
+  let __FUN = __FUNCTION__ in
   info "Host.ha_join_liveset host = %s" (Ref.string_of host) ;
   ha_start_daemon () ;
   Localdb.put Constants.ha_disable_failover_decisions "false" ;
@@ -1402,7 +1428,10 @@ let join_liveset __context host =
       (* If this host is a slave then we must wait to confirm that the master manages to
          assert itself, otherwise our monitoring thread might attempt a hostile takeover *)
       let master_address = Pool_role.get_master_address () in
-      let master_uuid = uuid_of_host_address master_address in
+      let master_uuid =
+        uuid_of_host_address master_address
+        |> ok_or_raise (master_uuid_exn __FUN)
+      in
       let master_found = ref false in
       while not !master_found do
         (* It takes a non-trivial amount of time for the master to assert itself: we might
@@ -1410,30 +1439,24 @@ let join_liveset __context host =
            should wait. *)
         Thread.delay 5. ;
         let liveset = query_liveset () in
-        debug "Liveset: %s"
-          (Xha_interface.LiveSetInformation.to_summary_string liveset) ;
-        if
-          liveset.Xha_interface.LiveSetInformation.status
-          = Xha_interface.LiveSetInformation.Status.Online
-        then
+        let open Xha_interface.LiveSetInformation in
+        debug "Liveset: %s" (to_summary_string liveset) ;
+        if liveset.status = Status.Online then
           (* 'master' is the node we believe should become the xHA-level master initially *)
           let master =
-            Hashtbl.find liveset.Xha_interface.LiveSetInformation.hosts
-              master_uuid
+            Hashtbl.find_opt liveset.hosts master_uuid
+            |> Option.to_result ~none:Not_found
+            |> ok_or_raise (master_not_in_liveset_exn __FUN)
           in
-          if master.Xha_interface.LiveSetInformation.Host.master then (
+          if master.Host.master then (
             info "existing master has successfully asserted itself" ;
             master_found := true (* loop will terminate *)
           ) else if
               false
-              || (not master.Xha_interface.LiveSetInformation.Host.liveness)
-              || master
-                   .Xha_interface.LiveSetInformation.Host.state_file_corrupted
-              || (not
-                    master
-                      .Xha_interface.LiveSetInformation.Host.state_file_access
-                 )
-              || master.Xha_interface.LiveSetInformation.Host.excluded
+              || (not master.Host.liveness)
+              || master.Host.state_file_corrupted
+              || (not master.Host.state_file_access)
+              || master.Host.excluded
             then (
             error "Existing master has failed during HA enable process" ;
             failwith "Existing master failed during HA enable process"
@@ -1869,10 +1892,7 @@ let enable __context heartbeat_srs configuration =
         with _ -> false
       in
       if not alive then
-        raise
-          (Api_errors.Server_error
-             (Api_errors.host_offline, [Ref.string_of host])
-          )
+        raise Api_errors.(Server_error (host_offline, [Ref.string_of host]))
     )
     (Db.Host.get_all ~__context) ;
   let pool = Helpers.get_pool ~__context in
@@ -1897,20 +1917,23 @@ let enable __context heartbeat_srs configuration =
       else
         heartbeat_srs
     in
-    if possible_srs = [] then
-      raise (Api_errors.Server_error (Api_errors.cannot_create_state_file, [])) ;
-    (* For the moment we'll create a state file in one compatible SR since the xHA component only handles one *)
-    let srs = [List.hd possible_srs] in
+    (* For the moment we'll create a state file in one compatible SR since the
+       xHA component only handles one *)
+    let sr =
+      match possible_srs with
+      | [] ->
+          raise Api_errors.(Server_error (cannot_create_state_file, []))
+      | sr :: _ ->
+          sr
+    in
     List.iter
       (fun sr ->
         let vdi = Xha_statefile.find_or_create ~__context ~sr ~cluster_stack in
         statefile_vdis := vdi :: !statefile_vdis
       )
-      srs ;
+      [sr] ;
     (* For storing the database, assume there is only one SR *)
-    let database_vdi =
-      Xha_metadata_vdi.find_or_create ~__context ~sr:(List.hd srs)
-    in
+    let database_vdi = Xha_metadata_vdi.find_or_create ~__context ~sr in
     database_vdis := database_vdi :: !database_vdis ;
     (* Record the statefile UUIDs in the Pool.ha_statefile set *)
     Db.Pool.set_ha_statefiles ~__context ~self:pool
@@ -1991,14 +2014,16 @@ let enable __context heartbeat_srs configuration =
               (ExnHelper.string_of_exn e)
           )
           errors ;
-        if errors <> [] then (
-          (* Perform a disable since the pool HA state isn't consistent *)
-          error "Attempting to disable HA pool-wide" ;
-          Helpers.log_exn_continue
-            "Disabling HA after a failure joining all hosts to the liveset"
-            disable_internal __context ;
-          raise (snd (List.hd errors))
-        ) ;
+        List.iter
+          (fun (_, exn) ->
+            (* Perform a disable since the pool HA state isn't consistent *)
+            error "Attempting to disable HA pool-wide" ;
+            Helpers.log_exn_continue
+              "Disabling HA after a failure joining all hosts to the liveset"
+              disable_internal __context ;
+            raise exn
+          )
+          errors ;
         (* We have to set the HA enabled flag before forcing a database resynchronisation *)
         Db.Pool.set_ha_enabled ~__context ~self:pool ~value:true ;
         debug "HA enabled" ;
@@ -2036,13 +2061,16 @@ let enable __context heartbeat_srs configuration =
               (ExnHelper.string_of_exn e)
           )
           errors ;
-        if errors <> [] then (
-          (* Perform a disable since the pool HA state isn't consistent *)
-          error "Attempting to disable HA pool-wide" ;
-          Helpers.log_exn_continue "Disabling HA after a failure during enable"
-            disable_internal __context ;
-          raise (snd (List.hd errors))
-        ) ;
+        List.iter
+          (fun (_, exn) ->
+            (* Perform a disable since the pool HA state isn't consistent *)
+            error "Attempting to disable HA pool-wide" ;
+            Helpers.log_exn_continue
+              "Disabling HA after a failure during enable" disable_internal
+              __context ;
+            raise exn
+          )
+          errors ;
         (* Update the allowed_operations on the HA volumes to prevent people thinking they can mess with them *)
         List.iter
           (fun vdi -> Xapi_vdi.update_allowed_operations ~__context ~self:vdi)

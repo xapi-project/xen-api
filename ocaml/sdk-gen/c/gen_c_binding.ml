@@ -346,7 +346,7 @@ and gen_impl cls =
       ; ("async_params", `A (List.map paramJson (asyncParams msg)))
       ; ("msg_params", `A (List.map paramJson msg.msg_params))
       ; ("abstract_result_type", `String (result_type msg))
-      ; ("has_params", `Bool (List.length msg.msg_params <> 0))
+      ; ("has_params", `Bool (msg.msg_params <> []))
       ; ("param_count", `String (string_of_int (List.length msg.msg_params)))
       ; ("has_result", `Bool (String.compare (result_type msg) "" <> 0))
       ; ("init_result", `Bool (init_result msg))
