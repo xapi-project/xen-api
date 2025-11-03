@@ -42,6 +42,10 @@ let ha_redo_log =
 (*********************************************************************************************)
 (* Interface with the low-level HA subsystem                                                 *)
 
+exception Address_not_found of string
+
+exception Uuid_not_found of string
+
 (** Returns the current live set info *)
 let query_liveset () =
   let txt = call_script ~log_output:On_failure ha_query_liveset [] in
@@ -104,7 +108,8 @@ let get_uuid_to_ip_mapping () =
     named by UUID. *)
 let address_of_host_uuid uuid =
   let table = get_uuid_to_ip_mapping () in
-  List.assoc_opt uuid table |> Option.to_result ~none:Not_found
+  let uuid_not_found = Uuid_not_found uuid in
+  List.assoc_opt uuid table |> Option.to_result ~none:uuid_not_found
 
 (** Without using the Pool's database, returns the UUID of a particular host named by
     heartbeat IP address. This is only necesary because the liveset info doesn't include
@@ -112,11 +117,12 @@ let address_of_host_uuid uuid =
 let uuid_of_host_address address =
   let table = List.map (fun (k, v) -> (v, k)) (get_uuid_to_ip_mapping ()) in
   let invalid_uuid = Invalid_argument "Invalid UUID" in
+  let address_not_found = Address_not_found address in
   let to_uuid str =
     Uuidx.of_string str |> Option.to_result ~none:invalid_uuid
   in
   List.assoc_opt address table
-  |> Option.to_result ~none:Not_found
+  |> Option.to_result ~none:address_not_found
   |> Fun.flip Result.bind to_uuid
 
 let ok_or_raise map_error = function Ok v -> v | Error exn -> map_error exn
@@ -479,9 +485,12 @@ module Monitor = struct
                 |> ok_or_raise (master_uuid_exn __FUNCTION__)
               in
               let open Xha_interface.LiveSetInformation in
+              let uuid_not_found =
+                Uuid_not_found (Uuidx.to_string master_uuid)
+              in
               let master_info =
                 Hashtbl.find_opt liveset.hosts master_uuid
-                |> Option.to_result ~none:Not_found
+                |> Option.to_result ~none:uuid_not_found
                 |> ok_or_raise (master_not_in_liveset_exn __FUNCTION__)
               in
               if master_info.Host.liveness && master_info.Host.master then
