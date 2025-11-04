@@ -634,3 +634,6 @@ val set_timezone :
 val list_timezones : __context:Context.t -> self:API.ref_host -> string list
 
 val get_ntp_synchronized : __context:Context.t -> self:API.ref_host -> bool
+
+val set_servertime :
+  __context:Context.t -> self:API.ref_host -> value:Clock.Date.t -> unit

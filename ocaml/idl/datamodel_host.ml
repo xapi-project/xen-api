@@ -2659,6 +2659,20 @@ let get_ntp_synchronized =
       )
     ~allowed_roles:_R_READ_ONLY ()
 
+let set_servertime =
+  call ~name:"set_servertime" ~lifecycle:[]
+    ~doc:"Set the host's system clock when NTP is disabled."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( DateTime
+        , "value"
+        , "A date/time to be set. When a timezone offset is missing, UTC is \
+           assumed."
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2814,6 +2828,7 @@ let t =
       ; set_timezone
       ; list_timezones
       ; get_ntp_synchronized
+      ; set_servertime
       ]
     ~contents:
       ([
