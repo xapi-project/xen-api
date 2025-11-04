@@ -2922,6 +2922,9 @@ module VM = struct
                     (Printexc.to_string e) ;
                   -1.0
             in
+            let domid = di.Xenctrl.domid in
+            let xh = Xenctrlext.get_handle () in
+            let numa = Xenctrlext.DomainNuma.state xh ~domid in
             {
               Vm.power_state= (if di.Xenctrl.paused then Paused else Running)
             ; domids= [di.Xenctrl.domid]
@@ -2972,9 +2975,12 @@ module VM = struct
                 | Some x ->
                     List.assoc "featureset" x.VmExtra.persistent.platformdata
                 )
-            ; numa_optimised= false
-            ; numa_nodes= 0
-            ; numa_node_memory= []
+            ; numa_optimised= numa.Xenctrlext.DomainNuma.optimised
+            ; numa_nodes= numa.Xenctrlext.DomainNuma.nodes
+            ; numa_node_memory=
+                numa.Xenctrlext.DomainNuma.memory
+                |> Array.mapi (fun i mem -> (i, mem))
+                |> Array.to_list
             }
     )
 
