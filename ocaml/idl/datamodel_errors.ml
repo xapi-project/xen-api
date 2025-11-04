@@ -2065,6 +2065,12 @@ let _ =
   error Api_errors.invalid_ntp_config ["reason"]
     ~doc:"The NTP configuration is invalid." () ;
 
+  error Api_errors.not_allowed_when_ntp_is_enabled ["host"]
+    ~doc:"The operation is not allowed on the host when the NTP is enabled." () ;
+
+  error Api_errors.not_allowed_tz_in_localtime []
+    ~doc:"The timezone is not allowed in localtime." () ;
+
   message
     (fst Api_messages.ha_pool_overcommitted)
     ~doc:

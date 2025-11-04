@@ -3562,3 +3562,21 @@ let get_ntp_synchronized ~__context ~self:_ =
       r
   | Error msg ->
       Helpers.internal_error "%s" msg
+
+let set_server_localtime ~__context ~self:_ ~value =
+  let param =
+    match value with
+    | Date.{t; tz= Some 0} | Date.{t; tz= None} ->
+        (* Ideally it should be of a new type like NaiveDateTime. For
+           simplicity, reuse DateTime here. But it can't tell if the UTC is
+           specified explicitly or not. Just ignore it in that case. *)
+        let (y, mon, d), ((h, min, s), _) = Ptime.to_date_time t in
+        Printf.sprintf "%04i-%02i-%02i %02i:%02i:%02i" y mon d h min s
+    | _ ->
+        raise
+          (Api_errors.Server_error (Api_errors.not_allowed_tz_in_localtime, []))
+  in
+  try
+    Helpers.call_script !Xapi_globs.timedatectl ["set-time"; param] |> ignore ;
+    ()
+  with e -> Helpers.internal_error "%s" (ExnHelper.string_of_exn e)

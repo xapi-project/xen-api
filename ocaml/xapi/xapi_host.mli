@@ -629,3 +629,6 @@ val get_ntp_servers_status :
   __context:Context.t -> self:API.ref_host -> (string * string) list
 
 val get_ntp_synchronized : __context:Context.t -> self:API.ref_host -> bool
+
+val set_server_localtime :
+  __context:Context.t -> self:API.ref_host -> value:Clock.Date.t -> unit
