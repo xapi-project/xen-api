@@ -2180,6 +2180,15 @@ let vm_record rpc session_id vm =
               )
               (xm ())
           )
+          ~get_map:(fun () ->
+            Option.fold ~none:[]
+              ~some:(fun m ->
+                List.map
+                  (fun (x, y) -> (Int64.to_string x, Int64.to_string y))
+                  m.API.vM_metrics_numa_node_memory
+              )
+              (xm ())
+          )
           ()
       ; make_field ~name:"allowed-operations"
           ~get:(fun () ->
