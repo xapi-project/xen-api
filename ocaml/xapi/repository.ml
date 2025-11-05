@@ -293,7 +293,11 @@ let sync ~__context ~self ~token ~token_id ~username ~password =
          * will always write_initial_yum_config every time before syncing repo,
          * this should be ok.
          *)
-        write_initial_yum_config ~binary_url
+        match Pkgs.manager with
+        | Yum ->
+            write_initial_yum_config ~binary_url
+        | Dnf ->
+            Unixext.unlink_safe !Xapi_globs.dnf_repo_config_file
       ) ;
     (* The custom yum-utils will fully download repository metadata including
      * the repo gpg signature.

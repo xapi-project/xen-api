@@ -972,6 +972,9 @@ let pvsproxy_close_cache_vdi = ref "/opt/citrix/pvsproxy/close-cache-vdi.sh"
 
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
 
+let dnf_repo_config_file =
+  ref "/etc/dnf/repos.override.d/99-config_manager.repo"
+
 let remote_repository_prefix = ref "remote"
 
 let bundle_repository_prefix = ref "bundle"
