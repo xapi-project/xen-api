@@ -1,0 +1,11 @@
+(library
+ (name xenctrl_ext)
+ (wrapped false)
+ (libraries unix xenctrl)
+ (foreign_stubs
+  (language c)
+  (names xenctrlext_stubs)
+ )
+  (c_library_flags (-L/lib64 -lxenforeignmemory))
+)
+

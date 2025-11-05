@@ -3273,16 +3273,24 @@ functor
       open Raw
 
       let vhd t =
-        let include_block block_size index =
+        let include_block block_size index zero buffer =
           (* is the next data byte in the next block? *)
           let offset = Int64.(mul block_size (of_int index)) in
           F.lseek_data t.Raw.handle offset >>= fun data ->
-          return Int64.(add offset block_size > data)
+          if Int64.(add offset block_size > data) then
+            (* Check if the block is filled with zeros *)
+            really_read t.Raw.handle offset buffer >>= fun () ->
+            return (not (Cstruct.equal buffer zero))
+          else
+            return false
         in
         let find_data_blocks ~blocks ~block_size =
+          (* Cstruct.create fills the buffer with 0 bytes *)
+          let zero = Cstruct.create (Int64.to_int block_size) in
+          let buffer = Memory.alloc (Int64.to_int block_size) in
           let rec loop index acc =
             if index < blocks then
-              include_block block_size index >>= function
+              include_block block_size index zero buffer >>= function
               | true ->
                   loop (index + 1) (index :: acc)
               | false ->

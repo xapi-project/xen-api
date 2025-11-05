@@ -59,6 +59,9 @@
          Network.Interface.get_dns [OPTION]… string name
              Get DNS
   
+         Network.Interface.get_interface_positions [OPTION]… string
+             Get list of interface names and their positions
+  
          Network.Interface.get_ipv4_addr [OPTION]… string name
              Get list of IPv4 addresses of the interface
   

@@ -1880,15 +1880,14 @@ let exchange_ca_certificates_on_join ~__context ~import ~export :
   in
   Cert_distrib.exchange_ca_certificates_with_joiner ~__context ~import ~export
 
-(* Assume that db backed up from master will be there and ready to go... *)
 let emergency_transition_to_master ~__context =
-  if Localdb.get Constants.ha_armed = "true" then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+  if Localdb.get_bool Constants.ha_armed |> Option.value ~default:false then
+    raise Api_errors.(Server_error (ha_is_enabled, [])) ;
   Xapi_pool_transition.become_master ()
 
 let emergency_reset_master ~__context ~master_address =
-  if Localdb.get Constants.ha_armed = "true" then
-    raise (Api_errors.Server_error (Api_errors.ha_is_enabled, [])) ;
+  if Localdb.get_bool Constants.ha_armed |> Option.value ~default:false then
+    raise Api_errors.(Server_error (ha_is_enabled, [])) ;
   let master_address = Helpers.gethostbyname master_address in
   Xapi_pool_transition.become_another_masters_slave master_address
 
@@ -2138,7 +2137,6 @@ let eject_self ~__context ~host =
         configuration_file
     in
     write_first_boot_management_interface_configuration_file () ;
-    Net.reset_state () ;
     Xapi_inventory.update Xapi_inventory._current_interfaces "" ;
     (* Destroy my control domains, since you can't do this from the API [operation not allowed] *)
     ( try
@@ -2217,15 +2215,10 @@ let eject_self ~__context ~host =
               (!Xapi_globs.remote_db_conf_fragment_path ^ ".bak")
           )
           () ;
-        (* Reset the domain 0 network interface naming configuration
-           			 * back to a fresh-install state for the currently-installed
-           			 * hardware.
-        *)
-        ignore
-          (Forkhelpers.execute_command_get_output
-             "/etc/sysconfig/network-scripts/interface-rename.py"
-             ["--reset-to-install"]
-          )
+        (* Reset the domain 0 network interface order back to a fresh-install
+         * state for the currently-installed hardware and reset networkd config.
+         *)
+        Net.reset_state ()
       )
       (fun () -> Xapi_fuse.light_fuse_and_reboot_after_eject ()) ;
     Xapi_hooks.pool_eject_hook ~__context

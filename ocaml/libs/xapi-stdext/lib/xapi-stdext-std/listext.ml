@@ -22,8 +22,7 @@ module List = struct
     | x :: xs ->
         if mem x xs then setify xs else x :: setify xs
 
-  let subset s1 s2 =
-    List.fold_left ( && ) true (List.map (fun s -> List.mem s s2) s1)
+  let subset s1 s2 = List.for_all (fun s -> List.mem s s2) s1
 
   let set_equiv s1 s2 = subset s1 s2 && subset s2 s1
 
@@ -84,61 +83,14 @@ module List = struct
     | _ :: xs ->
         last xs
 
-  let sub i j l = drop i l |> take (j - max i 0)
-
-  let rec chop i l =
-    match (i, l) with
-    | j, _ when j < 0 ->
-        invalid_arg "chop: index cannot be negative"
-    | 0, l ->
-        ([], l)
-    | _, h :: t ->
-        (fun (fr, ba) -> (h :: fr, ba)) (chop (i - 1) t)
-    | _, [] ->
-        invalid_arg "chop: index not in list"
-
-  let rev_chop i l =
-    let rec aux i fr ba =
-      match (i, fr, ba) with
-      | i, _, _ when i < 0 ->
-          invalid_arg "rev_chop: index cannot be negative"
-      | 0, fr, ba ->
-          (fr, ba)
-      | i, fr, h :: t ->
-          aux (i - 1) (h :: fr) t
-      | _ ->
-          invalid_arg "rev_chop"
+  let split_at n list =
+    let rec loop i acc = function
+      | x :: xs when i < n ->
+          loop (i + 1) (x :: acc) xs
+      | xs ->
+          (List.rev acc, xs)
     in
-    aux i [] l
-
-  let chop_tr i l = (fun (fr, ba) -> (rev fr, ba)) (rev_chop i l)
-
-  let rec dice m l =
-    match chop m l with l, [] -> [l] | l1, l2 -> l1 :: dice m l2
-
-  let remove i l =
-    match rev_chop i l with
-    | rfr, _ :: t ->
-        rev_append rfr t
-    | _ ->
-        invalid_arg "remove"
-
-  let insert i e l =
-    match rev_chop i l with rfr, ba -> rev_append rfr (e :: ba)
-
-  let replace i e l =
-    match rev_chop i l with
-    | rfr, _ :: t ->
-        rev_append rfr (e :: t)
-    | _ ->
-        invalid_arg "replace"
-
-  let morph i f l =
-    match rev_chop i l with
-    | rfr, h :: t ->
-        rev_append rfr (f h :: t)
-    | _ ->
-        invalid_arg "morph"
+    loop 0 [] list
 
   let rec between e = function
     | [] ->

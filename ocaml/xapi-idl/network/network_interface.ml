@@ -81,6 +81,34 @@ module Unix = struct
       }
 end
 
+module Macaddr = struct
+  include Macaddr
+
+  let typ_of =
+    Rpc.Types.Abstract
+      {
+        aname= "macaddr"
+      ; test_data= [Macaddr.of_string_exn "ca:fe:ba:be:ee:ee"]
+      ; rpc_of= (fun t -> Rpc.String (Macaddr.to_octets t))
+      ; of_rpc=
+          (function
+          | Rpc.String s ->
+              Macaddr.of_octets s
+              |> Result.map_error (fun (`Msg e) ->
+                     `Msg (Printf.sprintf "typ_of_macaddr: %s" e)
+                 )
+          | r ->
+              Error
+                (`Msg
+                  (Printf.sprintf
+                     "typ_of_macaddr: expectd rpc string but got %s"
+                     (Rpc.to_string r)
+                  )
+                  )
+          )
+      }
+end
+
 (** {2 Types} *)
 
 type debug_info = string [@@deriving rpcty]
@@ -90,6 +118,8 @@ type iface = string [@@deriving rpcty]
 type port = string [@@deriving rpcty]
 
 type bridge = string [@@deriving rpcty]
+
+type mac_address = Macaddr.t [@@deriving rpcty]
 
 (* rpcty cannot handle polymorphic variant, so change the definition to variant *)
 type dhcp_options = Set_gateway | Set_dns [@@deriving rpcty]
@@ -187,11 +217,21 @@ type bridge_config_t = {
 }
 [@@deriving rpcty]
 
+type ordered_iface = {
+    name: iface
+  ; position: int
+  ; mac: mac_address
+  ; pci: Xcp_pci.address
+  ; present: bool
+}
+[@@deriving rpcty]
+
 type config_t = {
     interface_config: (iface * interface_config_t) list [@default []]
   ; bridge_config: (bridge * bridge_config_t) list [@default []]
   ; gateway_interface: iface option [@default None]
   ; dns_interface: iface option [@default None]
+  ; interface_order: ordered_iface list option [@default None]
 }
 [@@deriving rpcty]
 
@@ -229,6 +269,7 @@ let default_config =
   ; bridge_config= []
   ; gateway_interface= None
   ; dns_interface= None
+  ; interface_order= None
   }
 
 (** {2 Configuration manipulation} *)
@@ -381,6 +422,18 @@ module Interface_API (R : RPC) = struct
       declare "Interface.get_all"
         ["Get list of all interface names"]
         (debug_info_p @-> unit_p @-> returning iface_list_p err)
+
+    let get_interface_positions =
+      let module T = struct
+        type _iface_position_list_t = (iface * int) list [@@deriving rpcty]
+      end in
+      let iface_position_list_p =
+        Param.mk ~description:["interface postion list"]
+          T._iface_position_list_t
+      in
+      declare "Interface.get_interface_positions"
+        ["Get list of interface names and their positions"]
+        (debug_info_p @-> unit_p @-> returning iface_position_list_p err)
 
     let exists =
       let result = Param.mk ~description:["existence"] Types.bool in

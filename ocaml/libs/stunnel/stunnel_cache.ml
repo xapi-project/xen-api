@@ -27,6 +27,8 @@ open Safe_resources
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
+let list_drop = Xapi_stdext_std.Listext.List.drop
+
 (* Disable debug-level logging but leave higher-priority enabled.  It would be
  * better to handle this sort of configuration in the Debug module itself.
  *)
@@ -93,17 +95,6 @@ let unlocked_gc () =
            !index ""
         )
   ) ;
-  (* Split a list at the given index to give a pair of lists.
-   *  From Xapi_stdext_std.Listext *)
-  let rec chop i l =
-    match (i, l) with
-    | 0, l ->
-        ([], l)
-    | i, h :: t ->
-        (fun (fr, ba) -> (h :: fr, ba)) (chop (i - 1) t)
-    | _ ->
-        invalid_arg "chop"
-  in
   let all_ids = Tbl.fold !stunnels (fun k _ acc -> k :: acc) [] in
   let to_gc = ref [] in
   (* Find the ones which are too old *)
@@ -134,8 +125,8 @@ let unlocked_gc () =
       List.filter (fun (idx, _) -> not (List.mem idx !to_gc)) times'
     in
     (* Sort into descending order of donation time, ie youngest first *)
-    let times' = List.sort (fun x y -> compare (fst y) (fst x)) times' in
-    let _youngest, oldest = chop max_stunnel times' in
+    let times' = List.sort (fun (_, x) (_, y) -> Float.compare y x) times' in
+    let oldest = list_drop max_stunnel times' in
     let oldest_ids = List.map fst oldest in
     List.iter
       (fun x ->
