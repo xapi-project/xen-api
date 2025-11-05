@@ -2627,6 +2627,34 @@ let get_ntp_servers_status =
       )
     ~allowed_roles:_R_READ_ONLY ()
 
+let get_ntp_synchronized =
+  call ~name:"get_ntp_synchronized" ~lifecycle:[]
+    ~doc:
+      "Returns true if the system clock on the host is synchronized with the \
+       NTP servers."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Bool
+      , "true if the system clock on the host is synchronized with the NTP \
+         servers."
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
+let set_server_localtime =
+  call ~name:"set_server_localtime" ~lifecycle:[]
+    ~doc:
+      "Set the host's system clock in its local timezone when NTP is disabled."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( DateTime
+        , "value"
+        , "A datetime without timezone information. If UTC is specified, the \
+           timezone will be ignored."
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2779,6 +2807,8 @@ let t =
       ; disable_ntp
       ; enable_ntp
       ; get_ntp_servers_status
+      ; get_ntp_synchronized
+      ; set_server_localtime
       ]
     ~contents:
       ([

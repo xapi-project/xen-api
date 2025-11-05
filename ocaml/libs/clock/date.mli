@@ -21,7 +21,9 @@
     datetime string. This timezone is determined when creating a value and
     cannot be changed. For timestamps created from datetime strings, the
     timezone is maintained. For all other values UTC is used. *)
-type t
+type tz = int option
+
+type t = {t: Ptime.t; tz: tz}
 
 (** Conversions *)
 
