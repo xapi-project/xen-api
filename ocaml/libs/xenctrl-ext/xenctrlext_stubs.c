@@ -699,7 +699,7 @@ CAMLprim value stub_xenctrlext_domain_claim_pages(value xch_val, value domid_val
 CAMLprim value stub_xc_domain_numa_get_node_pages(value xch_val, value domid)
 {
         CAMLparam2(xch_val, domid);
-#if 0
+#ifdef XEN_DOMCTL_NUMA_OP_GET_NODE_PAGES
         CAMLlocal2(o_result, o_result_array);
         xc_interface *xch = xch_of_val(xch_val);
         int i, retval;
