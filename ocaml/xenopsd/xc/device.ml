@@ -1170,7 +1170,7 @@ module PCI = struct
     (* Sort into the order the devices were plugged *)
     List.sort (fun a b -> compare (fst a) (fst b)) pairs
 
-  let encode_bdf pci =
+  let encode_sbdf pci =
     (pci.Xenops_interface.Pci.domain lsl 16)
     lor ((pci.bus land 0xff) lsl 8)
     lor ((pci.dev land 0x1f) lsl 3)
@@ -1178,16 +1178,16 @@ module PCI = struct
 
   let _quarantine pci quarantine =
     if !Xenopsd.pci_quarantine then
-      let pci_bdf = encode_bdf pci in
+      let pci_sbdf = encode_sbdf pci in
       let domid = Xenctrlext.domid_quarantine () in
       let xcext = Xenctrlext.get_handle () in
       try
         match quarantine with
         | true ->
-            Xenctrlext.assign_device xcext domid pci_bdf 0 ;
+            Xenctrlext.assign_device xcext domid pci_sbdf 0 ;
             true
         | false ->
-            Xenctrlext.deassign_device xcext domid pci_bdf ;
+            Xenctrlext.deassign_device xcext domid pci_sbdf ;
             true
       with
       | Xenctrlext.Unix_error (Unix.ESRCH, _) ->
@@ -1242,7 +1242,7 @@ module PCI = struct
     in
     let xcext = Xenctrlext.get_handle () in
     ignore (quarantine host) ;
-    Xenctrlext.assign_device xcext domid (encode_bdf host)
+    Xenctrlext.assign_device xcext domid (encode_sbdf host)
       _xen_domctl_dev_rdm_relaxed ;
     List.iteri apply_io_permission addresses ;
     ( if irq > 0 then
