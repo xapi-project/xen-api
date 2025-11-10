@@ -1104,6 +1104,8 @@ module PCI = struct
   (* same as libxl_internal: PROC_PCI_NUM_RESOURCES *)
   let _proc_pci_num_resources = 7
 
+  let _proc_pci_rom_resource = 6
+
   (* same as libxl_internal: PCI_BAR_IO *)
   let _pci_bar_io = 0x01n
 
@@ -1226,7 +1228,7 @@ module PCI = struct
       if i < _proc_pci_num_resources then
         Scanf.sscanf addr "0x%nx 0x%nx 0x%nx"
         @@ fun scan_start scan_end scan_flags ->
-        if scan_start <> 0n then
+        if scan_start <> 0n then (
           let scan_size = Nativeint.(sub scan_end scan_start |> succ) in
           if Nativeint.(logand scan_flags _pci_bar_io > 0n) then
             Xenctrl.domain_ioport_permission xc domid
@@ -1240,7 +1242,45 @@ module PCI = struct
                 shift_right_logical (add _page_size scan_size |> pred) 12
               )
             in
+            (* Linux disables the ROM BARs if not used and by default does
+               not set the start address.
+               Force it to set the address using "rom" file.
+               This method works also with lockdown mode enabled. *)
+            let enable_rom start =
+              (* read current configured ROM address to check if enabled *)
+              let config_fn = Filename.concat sysfs_pci_dev "config" in
+              let out = Bytes.make 4 '\x00' in
+              let current_addr =
+                Unixext.with_file config_fn [Unix.O_RDONLY; Unix.O_CLOEXEC] 0
+                  (fun fd ->
+                    Unix.(lseek fd 0x30 SEEK_SET) |> ignore ;
+                    (* this is a virtual file that control PCI configuration,
+                       it will either fail or return 4 *)
+                    Unix.(read fd out 0 4) |> ignore ;
+                    Nativeint.(
+                      logand (of_int32 (Bytes.get_int32_le out 0)) 0xfffff800n
+                    )
+                )
+              in
+              if current_addr <> start then (
+                (* to enable output "1" on "rom" file and try to read it *)
+                let rom_fn = Filename.concat sysfs_pci_dev "rom" in
+                Unixext.with_file rom_fn [Unix.O_WRONLY; Unix.O_CLOEXEC] 0
+                  (fun fd ->
+                    Unix.(single_write fd (Bytes.of_string "1\n") 0 2) |> ignore
+                ) ;
+                Unixext.with_file rom_fn [Unix.O_RDONLY; Unix.O_CLOEXEC] 0
+                  (fun fd ->
+                    (* ignore any error, the ROM could be not correct,
+                       just trying to read does the trick *)
+                    try Unix.(read fd out 0 4) |> ignore with _ -> ()
+                )
+              )
+            in
+            if i = _proc_pci_rom_resource then
+              enable_rom scan_start ;
             Xenctrl.domain_iomem_permission xc domid scan_start scan_size true
+        )
     in
     let xcext = Xenctrlext.get_handle () in
     ignore (quarantine host) ;
