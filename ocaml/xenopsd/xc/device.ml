@@ -1205,18 +1205,20 @@ module PCI = struct
 
   let _pci_add ~xc ~xs ~hvm domid {host; guest= _, guest_addr; qmp_add} =
     let open Xenops_interface.Pci in
-    let sysfs_pci_dev = "/sys/bus/pci/devices/" in
+    let sysfs_pci_dev =
+      Filename.concat "/sys/bus/pci/devices" (string_of_address host)
+    in
     let devfn =
       match guest_addr with None -> None | Some g -> Some (g.dev, g.fn)
     in
     let irq =
-      sysfs_pci_dev ^ Pci.string_of_address host ^ "/irq"
+      Filename.concat sysfs_pci_dev "irq"
       |> Unixext.string_of_file
       |> String.trim
       |> int_of_string
     in
     let addresses =
-      sysfs_pci_dev ^ string_of_address host ^ "/resource"
+      Filename.concat sysfs_pci_dev "resource"
       |> Unixext.string_of_file
       |> String.split_on_char '\n'
     in
