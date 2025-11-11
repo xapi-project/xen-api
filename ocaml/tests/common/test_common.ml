@@ -225,7 +225,7 @@ let make_host2 ~__context ?(ref = Ref.make ()) ?(uuid = make_uuid ())
     ~last_update_hash:"" ~ssh_enabled:true ~ssh_enabled_timeout:0L
     ~ssh_expiry:Date.epoch ~console_idle_timeout:0L ~ssh_auto_mode:false
     ~max_cstate:"" ~secure_boot:false ~ntp_mode:`ntp_mode_dhcp
-    ~ntp_custom_servers:[] ~ntp_enabled:false ;
+    ~ntp_custom_servers:[] ~ntp_enabled:false ~timezone:"UTC" ;
   ref
 
 let make_pif ~__context ~network ~host ?(device = "eth0")

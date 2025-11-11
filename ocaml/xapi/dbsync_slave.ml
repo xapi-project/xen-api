@@ -418,6 +418,18 @@ let update_env __context sync_keys =
   switched_sync Xapi_globs.sync_ntp_config (fun () ->
       Xapi_host.sync_ntp_config ~__context ~host:localhost
   ) ;
+  switched_sync Xapi_globs.sync_timezone (fun () ->
+      let timezone =
+        try
+          let linkpath = Unix.realpath "/etc/localtime" in
+          Scanf.sscanf linkpath "/usr/share/zoneinfo/%s" (fun tz -> tz)
+        with e ->
+          warn "%s error when sync timezone: %s" __FUNCTION__
+            (Printexc.to_string e) ;
+          "UTC"
+      in
+      Db.Host.set_timezone ~__context ~self:localhost ~value:timezone
+  ) ;
 
   switched_sync Xapi_globs.sync_secure_boot (fun () ->
       let result =

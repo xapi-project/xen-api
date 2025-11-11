@@ -383,6 +383,8 @@ let sync_max_cstate = "sync_max_cstate"
 
 let sync_ntp_config = "sync_ntp_config"
 
+let sync_timezone = "sync_timezone"
+
 let sync_secure_boot = "sync_secure_boot"
 
 let sync_pci_devices = "sync_pci_devices"
@@ -811,6 +813,8 @@ let ntp_dhcp_script = ref (Filename.concat "/etc/dhcp/dhclient.d" "chrony.sh")
 let ntp_dhcp_dir = ref "/run/chrony-dhcp"
 
 let ntp_client_path = ref "/usr/bin/chronyc"
+
+let timedatectl = ref "/usr/bin/timedatectl"
 
 let udhcpd_skel = ref (Filename.concat "/etc/xensource" "udhcpd.skel")
 
@@ -1906,6 +1910,11 @@ let other_options =
     , Arg.Set_string ntp_client_path
     , (fun () -> !ntp_client_path)
     , "Path to the ntp client binary"
+    )
+  ; ( "timedatectl"
+    , Arg.Set_string timedatectl
+    , (fun () -> !timedatectl)
+    , "Path to the timedatectl executable"
     )
   ; gen_list_option "legacy-default-ntp-servers"
       "space-separated list of legacy default NTP servers"

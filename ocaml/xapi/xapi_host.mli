@@ -627,3 +627,8 @@ val sync_ntp_config : __context:Context.t -> host:API.ref_host -> unit
 
 val get_ntp_servers_status :
   __context:Context.t -> self:API.ref_host -> (string * string) list
+
+val set_timezone :
+  __context:Context.t -> self:API.ref_host -> value:string -> unit
+
+val list_timezones : __context:Context.t -> self:API.ref_host -> string list
