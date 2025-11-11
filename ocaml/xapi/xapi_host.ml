@@ -79,8 +79,8 @@ let assert_safe_to_reenable ~__context ~self ~user_request =
   Repository_helpers.assert_no_host_pending_mandatory_guidance ~__context
     ~host:self ;
   let host_disabled_until_reboot =
-    try bool_of_string (Localdb.get Constants.host_disabled_until_reboot)
-    with _ -> false
+    Localdb.get_bool Constants.host_disabled_until_reboot
+    |> Option.value ~default:false
   in
   if host_disabled_until_reboot then
     raise
@@ -88,7 +88,7 @@ let assert_safe_to_reenable ~__context ~self ~user_request =
          (Api_errors.host_disabled_until_reboot, [Ref.string_of self])
       ) ;
   let host_auto_enable =
-    try bool_of_string (Localdb.get Constants.host_auto_enable) with _ -> true
+    Localdb.get_bool Constants.host_auto_enable |> Option.value ~default:true
   in
   if (not host_auto_enable) && not user_request then
     raise
@@ -3417,9 +3417,15 @@ let update_firewalld_service_status ~__context =
         | Xenha ->
             (* Only xha needs to enable firewalld service. Other HA cluster
                stacks don't need. *)
-            bool_of_string (Localdb.get Constants.ha_armed)
-            && Localdb.get Constants.ha_cluster_stack
-               = !Xapi_globs.cluster_stack_default
+            let is_armed () =
+              Localdb.get_bool Constants.ha_armed |> Option.value ~default:false
+            in
+            let uses_xhad () =
+              Localdb.get Constants.ha_cluster_stack
+              |> Option.value ~default:!Xapi_globs.cluster_stack_default
+              = Constants.Ha_cluster_stack.(to_string Xhad)
+            in
+            is_armed () && uses_xhad ()
       in
       List.iter
         (fun s -> if is_enabled s then enable_firewalld_service s)

@@ -25,7 +25,7 @@ let test_option typ tested_f (name, case, expected) =
   let check () = Alcotest.(check @@ option typ) name expected (tested_f case) in
   (name, `Quick, check)
 
-let test_chopped_list tested_f (name, case, expected) =
+let test_split_at_list tested_f (name, case, expected) =
   let check () =
     Alcotest.(check @@ pair (list int) (list int)) name expected (tested_f case)
   in
@@ -135,7 +135,7 @@ let test_last =
   let error_tests = List.map error_test error_specs in
   ("last", tests @ error_tests)
 
-let test_chop =
+let test_split_at =
   let specs =
     [
       ([], 0, ([], []))
@@ -144,67 +144,21 @@ let test_chop =
     ; ([0; 1], 0, ([], [0; 1]))
     ; ([0; 1], 1, ([0], [1]))
     ; ([0; 1], 2, ([0; 1], []))
-    ]
-  in
-  let error_specs =
-    [
-      ([0], -1, Invalid_argument "chop: index cannot be negative")
-    ; ([0], 2, Invalid_argument "chop: index not in list")
+    (* test invalid arguments *) [@ocamlformat "disable"]
+    ; ([0], -1, ([], [0]))
+    ; ([0], 2, ([0], []))
     ]
   in
   let test (whole, number, expected) =
     let name =
-      Printf.sprintf "chop [%s] with %i"
+      Printf.sprintf "split_at [%s] with %i"
         (String.concat "; " (List.map string_of_int whole))
         number
     in
-    test_chopped_list (Listext.chop number) (name, whole, expected)
+    test_split_at_list (Listext.split_at number) (name, whole, expected)
   in
   let tests = List.map test specs in
-  let error_test (whole, number, error) =
-    let name =
-      Printf.sprintf "chop [%s] with %i fails"
-        (String.concat "; " (List.map string_of_int whole))
-        number
-    in
-    test_error
-      (fun ls () -> ignore (Listext.chop number ls))
-      (name, whole, error)
-  in
-  let error_tests = List.map error_test error_specs in
-  ("chop", tests @ error_tests)
-
-let test_sub =
-  let specs =
-    [
-      ([], 0, 0, [])
-    ; ([], 0, 1, [])
-    ; ([0], 0, 0, [])
-    ; ([0], 0, 1, [0])
-    ; ([0], 1, 1, [])
-    ; ([0], 0, 2, [0])
-    ; ([0; 1], 0, 0, [])
-    ; ([0; 1], 0, 1, [0])
-    ; ([0; 1], 0, 2, [0; 1])
-    ; ([0; 1], 1, 1, [])
-    ; ([0; 1], 1, 2, [1])
-    ; ([0; 1], 2, 2, [])
-      (* test_cases below used to fail *) [@ocamlformat "disable"]
-    ; ([0], -1, 0, [])
-    ; ([0], 0, -1, [])
-    ; ([0; 1], 1, 0, [])
-    ]
-  in
-  let test (whole, from, until, expected) =
-    let name =
-      Printf.sprintf "sub [%s] from %i to %i"
-        (String.concat "; " (List.map string_of_int whole))
-        from until
-    in
-    test_list (Listext.sub from until) (name, whole, expected)
-  in
-  let tests = List.map test specs in
-  ("sub", tests)
+  ("split_at", tests)
 
 let test_find_minimum (name, pp, typ, specs) =
   let test ((cmp, cmp_name), input, expected) =
@@ -260,8 +214,7 @@ let () =
     ; test_take
     ; test_drop
     ; test_last
-    ; test_chop
-    ; test_sub
+    ; test_split_at
     ; test_find_minimum_int
     ; test_find_minimum_tuple
     ]

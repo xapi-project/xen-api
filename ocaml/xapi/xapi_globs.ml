@@ -858,7 +858,7 @@ let migration_https_only = ref true
 
 let cluster_stack_root = ref "/usr/libexec/xapi/cluster-stack"
 
-let cluster_stack_default = ref "xhad"
+let cluster_stack_default = ref Constants.default_cluster_stack
 
 let xen_cmdline_path = ref "/opt/xensource/libexec/xen-cmdline"
 
@@ -971,6 +971,9 @@ let udevadm = ref "/usr/sbin/udevadm"
 let pvsproxy_close_cache_vdi = ref "/opt/citrix/pvsproxy/close-cache-vdi.sh"
 
 let yum_repos_config_dir = ref "/etc/yum.repos.d"
+
+let dnf_repo_config_file =
+  ref "/etc/dnf/repos.override.d/99-config_manager.repo"
 
 let remote_repository_prefix = ref "remote"
 
