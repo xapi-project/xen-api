@@ -72,16 +72,17 @@ let remove_dhcp_ntp_servers () =
            Sys.remove (!Xapi_globs.ntp_dhcp_dir // fname)
      )
 
-let restart_ntp_service () =
-  Xapi_systemctl.restart ~wait_until_success:false !Xapi_globs.ntp_service
-
 let enable_ntp_service () =
-  Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ntp_service ;
-  Xapi_systemctl.start ~wait_until_success:false !Xapi_globs.ntp_service
+  Helpers.call_script !Xapi_globs.timedatectl ["set-ntp"; "true"] |> ignore
 
 let disable_ntp_service () =
-  Xapi_systemctl.stop ~wait_until_success:false !Xapi_globs.ntp_service ;
-  Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ntp_service
+  Helpers.call_script !Xapi_globs.timedatectl ["set-ntp"; "false"] |> ignore
+
+let restart_ntp_service () =
+  (* Make sure the NTP service is enabled before restarting, and the timedatectl
+     ntp enabled status is consistent with the service state *)
+  enable_ntp_service () ;
+  Xapi_systemctl.restart ~wait_until_success:false !Xapi_globs.ntp_service
 
 let is_ntp_service_active () =
   Fe_systemctl.is_active ~service:!Xapi_globs.ntp_service
