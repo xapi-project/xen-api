@@ -174,7 +174,7 @@ def main(argv):
                       '%s,accel=xen,max-ram-below-4g=%lu,'
                       'suppress-vmdesc=on,'
                       'allow-unassigned=true,trad_compat=%s%s'
-                      % (machine, mmio_start, trad_compat, igdpt)])
+                      % (machine, mmio_start, trad_compat and "on" or "off", igdpt)])
 
     qemu_args.extend(argv[2:])
 
