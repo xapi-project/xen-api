@@ -23,6 +23,7 @@ import subprocess
 import ctypes
 import ctypes.util
 import os
+import re
 from resource import getrlimit, RLIMIT_CORE, RLIMIT_FSIZE, setrlimit
 
 import xen.lowlevel.xs as xs
@@ -53,6 +54,9 @@ CLONE_NEWNS = 0x00020000 # mount namespace
 CLONE_NEWNET = 0x40000000 # network namespace
 CLONE_NEWIPC = 0x08000000 # IPC namespace
 
+QEMU_VERSION_REGEX = "QEMU emulator version (\d+)\.\d+\.\d+"
+QEMU_UPGRADED_MAJOR_VERSION = 10
+
 def unshare(flags):
     libc = ctypes.CDLL(ctypes.util.find_library('c'), use_errno=True)
     unshare_prototype = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int, use_errno=True)
@@ -77,6 +81,21 @@ def xenstore_ls(path):
 def close_fds():
     for i in open_fds:
         os.close(i)
+
+def get_qemu_major_version(qemu_dm):
+    process = subprocess.run([qemu_dm, "-version"], capture_output=True, text=True)
+    process.check_returncode()
+
+    qemu_version_line = process.stdout.splitlines()[0]
+    match = re.match(QEMU_VERSION_REGEX, qemu_version_line)
+    if not match:
+        print("Checking major version of qemu_dm=%s" % qemu_dm)
+        print("$ %s -version" % qemu_dm)
+        print(process.stdout)
+        print(process.stderr)
+        raise Exception("Could not identify QEMU major version")
+
+    return int(match.group(1))
 
 def prepare_exec():
     """Set up the execution environment for QEMU."""
@@ -129,6 +148,7 @@ def main(argv):
             break
 
     qemu_dm = '/usr/lib64/xen/bin/qemu-system-i386'
+    qemu_version = get_qemu_major_version(qemu_dm)
     qemu_args = ['qemu-dm-%d' % domid]
 
     mmio_start = HVM_BELOW_4G_MMIO_START
@@ -283,11 +303,16 @@ def main(argv):
                 raise
 
         qemu_args += ["-xen-domid-restrict"]
-        qemu_args += ["-chroot", root_dir]
 
         uid = pwd.getpwnam('qemu_base').pw_uid + domid
         gid = grp.getgrnam('qemu_base').gr_gid + domid
-        qemu_args += ["-runas", "%d:%d" % (uid, gid)]
+
+        if qemu_version >= QEMU_UPGRADED_MAJOR_VERSION:
+            qemu_args += ["-run-with", "chroot=%s" % root_dir]
+            qemu_args += ["-run-with", "user=%d:%d" % (uid, gid)]
+        else:
+            qemu_args += ["-chroot", root_dir]
+            qemu_args += ["-runas", "%d:%d" % (uid, gid)]
 
     xenstore_write("/libxl/%d/dm-version" % domid, "qemu_xen")
 
