@@ -58,7 +58,7 @@ let config_file_sync_handler (req : Http.Request.t) s _ =
   Xapi_http.with_context "Syncing dom0 config files over HTTP" req s
     (fun __context ->
       let uri =
-        String.split '/' req.Http.Request.uri |> List.filter (fun x -> x <> "")
+        String.split '/' req.Http.Request.path |> List.filter (fun x -> x <> "")
       in
       req.Http.Request.close <- true ;
       debug "sending headers" ;

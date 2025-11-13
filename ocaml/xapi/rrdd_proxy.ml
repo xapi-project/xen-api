@@ -34,7 +34,7 @@ let make_url_from_query ~(address : string) ~(uri : string)
 
 let make_url ~(address : string) ~(req : Http.Request.t) : string =
   let open Http.Request in
-  make_url_from_query ~address ~uri:req.uri ~query:req.query
+  make_url_from_query ~address ~uri:req.path ~query:req.query
 
 let fail_req_with (s : Unix.file_descr) msg (http_err : unit -> string list) =
   error msg ;
@@ -67,11 +67,11 @@ let get_vm_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
       in
       let unarchive_at address =
         let query = (Constants.rrd_unarchive, "") :: query in
-        let url = make_url_from_query ~address ~uri:req.uri ~query in
+        let url = make_url_from_query ~address ~uri:req.path ~query in
         Http_svr.headers s (Http.http_302_redirect url)
       in
       let unarchive () =
-        let req = {req with m= Post; uri= Constants.rrd_unarchive_uri} in
+        let req = {req with m= Post; path= Constants.rrd_unarchive_uri} in
         ignore
           (Xapi_services.hand_over_connection req s
              !Rrd_interface.forwarded_path
@@ -136,7 +136,7 @@ let get_host_rrd_forwarder (req : Http.Request.t) (s : Unix.file_descr) _ =
             Http.http_400_badrequest
         else (
           debug "get_host_rrd_forwarder: forward to unarchive" ;
-          let req = {req with Http.Request.uri= Constants.rrd_unarchive_uri} in
+          let req = {req with Http.Request.path= Constants.rrd_unarchive_uri} in
           ignore
             (Xapi_services.hand_over_connection req s
                !Rrd_interface.forwarded_path
