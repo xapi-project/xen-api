@@ -7820,26 +7820,6 @@ let host_disable_ssh _printer rpc session_id params =
        params []
     )
 
-let host_enable_ntp _printer rpc session_id params =
-  ignore
-    (do_host_op rpc session_id
-       (fun _ host ->
-         let host = host.getref () in
-         Client.Host.enable_ntp ~rpc ~session_id ~self:host
-       )
-       params []
-    )
-
-let host_disable_ntp _printer rpc session_id params =
-  ignore
-    (do_host_op rpc session_id
-       (fun _ host ->
-         let host = host.getref () in
-         Client.Host.disable_ntp ~rpc ~session_id ~self:host
-       )
-       params []
-    )
-
 module SDN_controller = struct
   let introduce printer rpc session_id params =
     let port =

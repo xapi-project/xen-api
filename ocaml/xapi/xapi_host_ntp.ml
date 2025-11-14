@@ -162,8 +162,8 @@ let get_servers_status () =
 
 let promote_legacy_default_servers () =
   let servers = get_servers_from_conf () in
-  let legacy = !Xapi_globs.legacy_default_ntp_servers in
-  let defaults = !Xapi_globs.default_ntp_servers in
+  let legacy = !Xapi_globs.legacy_factory_ntp_servers in
+  let defaults = !Xapi_globs.factory_ntp_servers in
   if
     legacy <> []
     && defaults <> []
