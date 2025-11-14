@@ -463,6 +463,7 @@ functor
       (* reference which we create *)
       let valid_ref = "ref1" in
       let valid_uuid = "uuid1" in
+      let new_uuid = "uuid2" in
       let invalid_ref = "foo" in
       let invalid_uuid = "bar" in
       let t =
@@ -626,6 +627,32 @@ functor
           "read_field_where <valid table> <valid return> <valid field> <valid \
            value>" ;
       test_invalid_where_record "read_field_where" (Client.read_field_where t) ;
+
+      (* before changing the UUID, the new UUID should be missing *)
+      expect_missing_uuid "VM" new_uuid (fun () ->
+          let (_ : string) = Client.db_get_by_uuid t "VM" new_uuid in
+          ()
+      ) ;
+      (* change UUID, can happen during VM import *)
+      Client.write_field t "VM" valid_ref Db_names.uuid new_uuid ;
+      let old_uuid = valid_uuid in
+      (* new UUID should be found *)
+      let r = Client.db_get_by_uuid t "VM" new_uuid in
+      if r <> valid_ref then
+        failwith_fmt "db_get_by_uuid <new uuid>: got %s; expected %s" r
+          valid_ref ;
+      let r = Client.db_get_by_uuid_opt t "VM" new_uuid in
+      ( if r <> Some valid_ref then
+          let rs = Option.value ~default:"None" r in
+          failwith_fmt "db_get_by_uuid_opt <new uuid>: got %s; expected %s" rs
+            valid_ref
+      ) ;
+      (* old UUID should not be found anymore *)
+      expect_missing_uuid "VM" old_uuid (fun () ->
+          let (_ : string) = Client.db_get_by_uuid t "VM" old_uuid in
+          ()
+      ) ;
+
       Printf.printf "write_field <invalid table>\n" ;
       expect_missing_tbl "Vm" (fun () ->
           let (_ : unit) = Client.write_field t "Vm" "" "" "" in
@@ -842,5 +869,23 @@ functor
           )
         in
         Printf.printf "bad sequence: %.2f calls/sec\n%!" malign_time
-      )
+      ) ;
+      Client.delete_row t "VM" valid_ref ;
+      (* after deleting the row, both old and new uuid must be missing *)
+      expect_missing_uuid "VM" new_uuid (fun () ->
+          let (_ : string) = Client.db_get_by_uuid t "VM" new_uuid in
+          ()
+      ) ;
+      expect_missing_uuid "VM" old_uuid (fun () ->
+          let (_ : string) = Client.db_get_by_uuid t "VM" old_uuid in
+          ()
+      ) ;
+      let r = Client.db_get_by_uuid_opt t "VM" old_uuid in
+      if not (Option.is_none r) then
+        failwith_fmt "db_get_by_uuid_opt <old uuid>: got %s; expected None"
+          valid_ref ;
+      let r = Client.db_get_by_uuid_opt t "VM" new_uuid in
+      if not (Option.is_none r) then
+        failwith_fmt "db_get_by_uuid_opt <old uuid>: got %s; expected None"
+          valid_ref
   end

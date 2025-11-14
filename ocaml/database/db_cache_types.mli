@@ -195,6 +195,8 @@ module Database : sig
 
   val lookup_key : string -> t -> (string * string) option
 
+  val lookup_uuid : string -> t -> (string * string) option
+
   val reindex : t -> t
 
   val register_callback : string -> (update -> t -> unit) -> t -> t

@@ -508,6 +508,8 @@ module Database = struct
 
   let lookup_key key db = KeyMap.find_opt (Ref key) db.keymap
 
+  let lookup_uuid key db = KeyMap.find_opt (Uuid key) db.keymap
+
   let make schema =
     {
       tables= TableSet.empty
@@ -615,6 +617,33 @@ let update_many_to_many g tblname objref f db =
       db
       (Schema.many_to_many tblname (Database.schema db))
 
+let uuid_of ~tblname ~objref db =
+  try
+    Some
+      (Schema.Value.Unsafe_cast.string
+         (Row.find Db_names.uuid
+            (Table.find objref (TableSet.find tblname (Database.tableset db)))
+         )
+      )
+  with _ -> None
+
+let maybe_update_uuid_keymap ~tblname ~objref ~fldname ~newval db =
+  if fldname = Db_names.uuid then
+    db
+    |> Database.update_keymap @@ fun keymap ->
+       let keymap =
+         match uuid_of ~tblname ~objref db with
+         | None ->
+             keymap
+         | Some uuid ->
+             KeyMap.remove (Uuid uuid) keymap
+       in
+       KeyMap.add_unique tblname Db_names.uuid
+         (Uuid (Schema.Value.Unsafe_cast.string newval))
+         (tblname, objref) keymap
+  else
+    db
+
 let set_field tblname objref fldname newval db =
   if fldname = Db_names.ref then
     failwith (Printf.sprintf "Cannot safely update field: %s" fldname) ;
@@ -632,6 +661,7 @@ let set_field tblname objref fldname newval db =
   if need_other_table_update then
     let g = Manifest.generation (Database.manifest db) in
     db
+    |> maybe_update_uuid_keymap ~tblname ~objref ~fldname ~newval
     |> update_many_to_many g tblname objref remove_from_set
     |> update_one_to_many g tblname objref remove_from_set
     |> Database.update
@@ -646,6 +676,7 @@ let set_field tblname objref fldname newval db =
   else
     let g = Manifest.generation (Database.manifest db) in
     db
+    |> maybe_update_uuid_keymap ~tblname ~objref ~fldname ~newval
     |> ((fun _ -> newval)
        |> Row.update g fldname empty
        |> Table.update g objref Row.empty
@@ -696,16 +727,7 @@ let add_row tblname objref newval db =
   |> Database.increment
 
 let remove_row tblname objref db =
-  let uuid =
-    try
-      Some
-        (Schema.Value.Unsafe_cast.string
-           (Row.find Db_names.uuid
-              (Table.find objref (TableSet.find tblname (Database.tableset db)))
-           )
-        )
-    with _ -> None
-  in
+  let uuid = uuid_of ~tblname ~objref db in
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
