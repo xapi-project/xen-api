@@ -171,7 +171,11 @@ let export_import_vhd = export_import_vdi ~exportformat:"vhd"
 
 let export_import_tar = export_import_vdi ~exportformat:"tar"
 
+let export_import_qcow = export_import_vdi ~exportformat:"qcow2"
+
 let delta_export_import_vhd = export_delta_import_vdi ~exportformat:"vhd"
+
+let delta_export_import_qcow = export_delta_import_vdi ~exportformat:"qcow2"
 
 let data_integrity_tests vdi_op op_name =
   [
@@ -275,6 +279,14 @@ let tests () =
     |> supported_srs
     )
   @ (data_integrity_tests export_import_tar "VDI export/import to/from TAR file"
+    |> supported_srs
+    )
+  @ (data_integrity_tests export_import_qcow
+       "VDI export/import to/from QCOW file"
+    |> supported_srs
+    )
+  @ (delta_data_integrity_tests delta_export_import_qcow
+       "VDI delta export/import to/from QCOW file"
     |> supported_srs
     )
   @ (large_data_integrity_tests export_import_tar
