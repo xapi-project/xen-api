@@ -625,6 +625,23 @@ let uuid_of ~tblname ~objref db =
       )
   with _ -> None
 
+let maybe_update_uuid_keymap ~tblname ~objref ~fldname ~newval db =
+  if fldname = Db_names.uuid then
+    db
+    |> Database.update_keymap @@ fun keymap ->
+       let keymap =
+         match uuid_of ~tblname ~objref db with
+         | None ->
+             keymap
+         | Some uuid ->
+             KeyMap.remove (Uuid uuid) keymap
+       in
+       KeyMap.add_unique tblname Db_names.uuid
+         (Uuid (Schema.Value.Unsafe_cast.string newval))
+         (tblname, objref) keymap
+  else
+    db
+
 let set_field tblname objref fldname newval db =
   if fldname = Db_names.ref then
     failwith (Printf.sprintf "Cannot safely update field: %s" fldname) ;
@@ -642,6 +659,7 @@ let set_field tblname objref fldname newval db =
   if need_other_table_update then
     let g = Manifest.generation (Database.manifest db) in
     db
+    |> maybe_update_uuid_keymap ~tblname ~objref ~fldname ~newval
     |> update_many_to_many g tblname objref remove_from_set
     |> update_one_to_many g tblname objref remove_from_set
     |> Database.update
@@ -656,6 +674,7 @@ let set_field tblname objref fldname newval db =
   else
     let g = Manifest.generation (Database.manifest db) in
     db
+    |> maybe_update_uuid_keymap ~tblname ~objref ~fldname ~newval
     |> ((fun _ -> newval)
        |> Row.update g fldname empty
        |> Table.update g objref Row.empty
