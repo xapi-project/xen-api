@@ -615,6 +615,16 @@ let update_many_to_many g tblname objref f db =
       db
       (Schema.many_to_many tblname (Database.schema db))
 
+let uuid_of ~tblname ~objref db =
+  try
+    Some
+      (Schema.Value.Unsafe_cast.string
+         (Row.find Db_names.uuid
+            (Table.find objref (TableSet.find tblname (Database.tableset db)))
+         )
+      )
+  with _ -> None
+
 let set_field tblname objref fldname newval db =
   if fldname = Db_names.ref then
     failwith (Printf.sprintf "Cannot safely update field: %s" fldname) ;
@@ -696,16 +706,7 @@ let add_row tblname objref newval db =
   |> Database.increment
 
 let remove_row tblname objref db =
-  let uuid =
-    try
-      Some
-        (Schema.Value.Unsafe_cast.string
-           (Row.find Db_names.uuid
-              (Table.find objref (TableSet.find tblname (Database.tableset db)))
-           )
-        )
-    with _ -> None
-  in
+  let uuid = uuid_of ~tblname ~objref db in
   let g = db.Database.manifest.Manifest.generation_count in
   db
   |> Database.update_keymap (fun m ->
