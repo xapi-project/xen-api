@@ -3426,6 +3426,12 @@ let host_record rpc session_id host =
       ; make_field ~name:"ntp_enabled"
           ~get:(fun () -> string_of_bool (x ()).API.host_ntp_enabled)
           ()
+      ; make_field ~name:"timezone"
+          ~get:(fun () -> (x ()).API.host_timezone)
+          ~set:(fun value ->
+            Client.Host.set_timezone ~rpc ~session_id ~self:host ~value
+          )
+          ()
       ]
   }
 

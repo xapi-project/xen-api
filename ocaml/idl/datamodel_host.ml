@@ -2627,6 +2627,25 @@ let get_ntp_servers_status =
       )
     ~allowed_roles:_R_READ_ONLY ()
 
+let set_timezone =
+  call ~name:"set_timezone" ~lifecycle:[] ~doc:"Set the host's timezone."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( String
+        , "value"
+        , "The time zone identifier as defined in the IANA Time Zone Database"
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
+let list_timezones =
+  call ~name:"list_timezones" ~lifecycle:[]
+    ~doc:"List all available timezones on the host."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:(Set String, "The set of available timezones on the host")
+    ~allowed_roles:_R_READ_ONLY ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2779,6 +2798,8 @@ let t =
       ; disable_ntp
       ; enable_ntp
       ; get_ntp_servers_status
+      ; set_timezone
+      ; list_timezones
       ]
     ~contents:
       ([
@@ -3256,6 +3277,9 @@ let t =
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
             ~default_value:(Some (VBool false)) "ntp_enabled"
             "Reflects whether NTP is enabled on the host"
+        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
+            ~default_value:(Some (VString "UTC")) "timezone"
+            "The time zone identifier as defined in the IANA Time Zone Database"
         ]
       )
     ()

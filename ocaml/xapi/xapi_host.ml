@@ -1095,7 +1095,7 @@ let create ~__context ~uuid ~name_label ~name_description:_ ~hostname ~address
     ~pending_guidances_recommended:[] ~pending_guidances_full:[] ~ssh_enabled
     ~ssh_enabled_timeout ~ssh_expiry ~console_idle_timeout ~ssh_auto_mode
     ~max_cstate:"" ~secure_boot ~ntp_mode:`ntp_mode_dhcp ~ntp_custom_servers:[]
-    ~ntp_enabled:false ;
+    ~ntp_enabled:false ~timezone:"UTC" ;
   (* If the host we're creating is us, make sure its set to live *)
   Db.Host_metrics.set_last_updated ~__context ~self:metrics ~value:(Date.now ()) ;
   Db.Host_metrics.set_live ~__context ~self:metrics ~value:host_is_us ;
@@ -3561,3 +3561,23 @@ let get_ntp_servers_status ~__context ~self:_ =
     Xapi_host_ntp.get_servers_status ()
   else
     []
+
+let set_timezone ~__context ~self ~value =
+  try
+    let _ =
+      Helpers.call_script !Xapi_globs.timedatectl ["set-timezone"; value]
+    in
+    Db.Host.set_timezone ~__context ~self ~value
+  with
+  | Forkhelpers.Spawn_internal_error (stderr, _, _)
+    when String.starts_with ~prefix:"Failed to set time zone: Invalid" stderr ->
+      raise
+        (Api_errors.Server_error (Api_errors.invalid_value, ["timezone"; value]))
+  | e ->
+      Helpers.internal_error "%s" (ExnHelper.string_of_exn e)
+
+let list_timezones ~__context ~self:_ =
+  try
+    Helpers.call_script !Xapi_globs.timedatectl ["list-timezones"]
+    |> Astring.String.cuts ~empty:false ~sep:"\n"
+  with e -> Helpers.internal_error "%s" (ExnHelper.string_of_exn e)
