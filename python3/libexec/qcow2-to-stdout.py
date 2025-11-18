@@ -24,6 +24,7 @@
 # clusters. For the sake of simplicity the code sometimes talks about
 # refcount tables and L1 tables when referring to those clusters.
 
+import json
 import argparse
 import math
 import os
@@ -91,7 +92,9 @@ def write_features(cluster, offset, data_file_name):
 
 
 def write_qcow2_content(input_file, cluster_size, refcount_bits,
-                        data_file_name, data_file_raw, diff_file_name):
+                        data_file_name, data_file_raw, diff_file_name,
+                        virtual_size, nonzero_clusters,
+                        diff_virtual_size, diff_nonzero_clusters):
     # Some basic values
     l1_entries_per_table = cluster_size // 8
     l2_entries_per_table = cluster_size // 8
@@ -102,8 +105,12 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
     fd = os.open(input_file, os.O_RDONLY)
 
     # Virtual disk size, number of data clusters and L1 entries
-    block_device_size = os.lseek(fd, 0, os.SEEK_END)
-    disk_size = align_up(block_device_size, 512)
+    if virtual_size is None:
+        block_device_size = os.lseek(fd, 0, os.SEEK_END)
+        disk_size = align_up(block_device_size, 512)
+    else:
+        block_device_size = virtual_size
+        disk_size = virtual_size
     total_data_clusters = math.ceil(disk_size / cluster_size)
     l1_entries = math.ceil(total_data_clusters / l2_entries_per_table)
     allocated_l1_tables = math.ceil(l1_entries / l1_entries_per_table)
@@ -118,6 +125,28 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
     allocated_l2_tables = 0
     allocated_data_clusters = 0
 
+    def allocate_cluster(idx):
+        nonlocal allocated_data_clusters
+        nonlocal allocated_l2_tables
+        bitmap_set(l2_bitmap, idx)
+        allocated_data_clusters += 1
+        # Allocated data clusters also need their corresponding L1 entry and L2 table
+        l1_idx = math.floor(idx / l2_entries_per_table)
+        if not bitmap_is_set(l1_bitmap, l1_idx):
+            bitmap_set(l1_bitmap, l1_idx)
+            allocated_l2_tables += 1
+
+    # Allocates a cluster in the appropriate bitmaps if it's different
+    # from cluster_to_compare_with
+    def check_cluster_allocate(idx, cluster, cluster_to_compare_with):
+        # If the last cluster is smaller than cluster_size pad it with zeroes
+        if len(cluster) < cluster_size:
+            cluster += bytes(cluster_size - len(cluster))
+        # If a cluster has different data from the cluster_to_compare_with then it
+        # must be allocated in the output file and its L2 entry must be set
+        if cluster != cluster_to_compare_with:
+            allocate_cluster(idx)
+
     if data_file_raw:
         # If data_file_raw is set then all clusters are allocated and
         # we don't need to read the input file at all.
@@ -126,26 +155,39 @@ def write_qcow2_content(input_file, cluster_size, refcount_bits,
             bitmap_set(l1_bitmap, idx)
         for idx in range(total_data_clusters):
             bitmap_set(l2_bitmap, idx)
-    else:
-        # Allocates a cluster in the appropriate bitmaps if it's different
-        # from cluster_to_compare_with
-        def check_cluster_allocate(idx, cluster, cluster_to_compare_with):
-            nonlocal allocated_data_clusters
-            nonlocal allocated_l2_tables
-            # If the last cluster is smaller than cluster_size pad it with zeroes
-            if len(cluster) < cluster_size:
-                cluster += bytes(cluster_size - len(cluster))
-            # If a cluster has different data from the cluster_to_compare_with then it
-            # must be allocated in the output file and its L2 entry must be set
-            if cluster != cluster_to_compare_with:
-                bitmap_set(l2_bitmap, idx)
-                allocated_data_clusters += 1
-                # Allocated data clusters also need their corresponding L1 entry and L2 table
-                l1_idx = math.floor(idx / l2_entries_per_table)
-                if not bitmap_is_set(l1_bitmap, l1_idx):
-                    bitmap_set(l1_bitmap, l1_idx)
-                    allocated_l2_tables += 1
 
+    elif nonzero_clusters is not None:
+        if diff_file_name:
+            if diff_virtual_size is None or diff_nonzero_clusters is None:
+                sys.exit("[Error] QCOW headers for the diff file were not provided.")
+            # Read all the clusters that differ from the diff_file_name
+            diff_fd = os.open(diff_file_name, os.O_RDONLY)
+            last_diff_cluster = align_up(diff_virtual_size, cluster_size) // cluster_size
+            # In case input_file is bigger than diff_file_name, first check
+            # if clusters from diff_file_name differ, and then check if the
+            # rest contain data
+            diff_nonzero_clusters_set = set(diff_nonzero_clusters)
+            for cluster in nonzero_clusters:
+                if cluster >= last_diff_cluster:
+                    allocate_cluster(cluster)
+                elif cluster in diff_nonzero_clusters_set:
+                    # If a cluster has different data from the original_cluster
+                    # then it must be allocated
+                    cluster_data = os.pread(fd, cluster_size, cluster_size * cluster)
+                    original_cluster = os.pread(diff_fd, cluster_size, cluster_size * cluster)
+                    check_cluster_allocate(cluster, cluster_data, original_cluster)
+                    diff_nonzero_clusters_set.remove(cluster)
+                else:
+                    allocate_cluster(cluster)
+
+            # These are not present in the original file
+            for cluster in diff_nonzero_clusters_set:
+                allocate_cluster(cluster)
+        else:
+            for cluster in nonzero_clusters:
+                allocate_cluster(cluster)
+
+    else:
         zero_cluster = bytes(cluster_size)
         last_cluster = align_up(block_device_size, cluster_size) // cluster_size
         if diff_file_name:
@@ -384,10 +426,53 @@ def main():
         help="enable data_file_raw on the generated image (implies -d)",
         action="store_true",
     )
+    parser.add_argument(
+        "--json-header",
+        dest="json_header",
+        help="stdin contains a JSON of pre-parsed QCOW2 information"
+        "(virtual_size, data_clusters, cluster_bits)",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--json-header-diff",
+        dest="json_header_diff",
+        metavar="json_header_diff",
+        help="File descriptor that contains a JSON of pre-parsed QCOW2 "
+        "information for the diff_file_name",
+        type=int,
+        default=None,
+    )
     args = parser.parse_args()
 
     if args.data_file_raw:
         args.data_file = True
+
+    virtual_size = None
+    nonzero_clusters = None
+    diff_virtual_size = None
+    diff_nonzero_clusters = None
+    if args.json_header:
+        json_header = json.load(sys.stdin)
+        try:
+            virtual_size = json_header['virtual_size']
+            source_cluster_size = 2 ** json_header['cluster_bits']
+            if source_cluster_size != args.cluster_size:
+                args.cluster_size = source_cluster_size
+            nonzero_clusters = json_header['data_clusters']
+        except KeyError as e:
+            raise RuntimeError(f'Incomplete JSON - missing value for {str(e)}') from e
+    if args.json_header_diff:
+        f = os.fdopen(args.json_header_diff)
+        json_header = json.load(f)
+        try:
+            diff_virtual_size = json_header['virtual_size']
+            if 2 ** json_header['cluster_bits'] == args.cluster_size:
+                diff_nonzero_clusters = json_header['data_clusters']
+            else:
+                sys.exit(f"[Error] Cluster size in the files being compared are "
+                         f"different: {2**json_header['cluster_bits']} vs. {args.cluster_size}")
+        except KeyError as e:
+            raise RuntimeError(f'Incomplete JSON for the diff - missing value for {str(e)}') from e
 
     if not os.path.exists(args.input_file):
         sys.exit(f"[Error] {args.input_file} does not exist.")
@@ -413,7 +498,11 @@ def main():
         args.refcount_bits,
         data_file_name,
         args.data_file_raw,
-        args.diff_file_name
+        args.diff_file_name,
+        virtual_size,
+        nonzero_clusters,
+        diff_virtual_size,
+        diff_nonzero_clusters
     )
 
 
