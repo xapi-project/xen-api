@@ -4184,6 +4184,26 @@ functor
         let local_fn = Local.Host.list_timezones ~self in
         let remote_fn = Client.Host.list_timezones ~self in
         do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let get_ntp_synchronized ~__context ~self =
+        info "Host.get_ntp_synchronized: host = '%s'" (host_uuid ~__context self) ;
+        let local_fn = Local.Host.get_ntp_synchronized ~self in
+        let remote_fn = Client.Host.get_ntp_synchronized ~self in
+        do_op_on ~local_fn ~__context ~host:self ~remote_fn
+
+      let set_servertime ~__context ~self ~value =
+        info "Host.set_servertime : host = '%s'; value = '%s'"
+          (host_uuid ~__context self)
+          (Clock.Date.to_rfc3339 value) ;
+        if Db.Host.get_ntp_enabled ~__context ~self then
+          raise
+            (Api_errors.Server_error
+               (Api_errors.not_allowed_when_ntp_is_enabled, [Ref.string_of self])
+            )
+        else
+          let local_fn = Local.Host.set_servertime ~self ~value in
+          let remote_fn = Client.Host.set_servertime ~self ~value in
+          do_op_on ~local_fn ~__context ~host:self ~remote_fn
     end
 
     module Host_crashdump = struct

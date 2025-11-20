@@ -150,6 +150,8 @@ let strip_tz tz t =
   in
   {t; tz= None}
 
+let to_utc {t; _} = {t; tz= utc}
+
 let _localtime_string tz t = strip_tz tz t |> to_rfc3339
 
 let localtime () =
