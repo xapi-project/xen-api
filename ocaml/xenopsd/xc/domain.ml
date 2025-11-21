@@ -1076,6 +1076,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
        )
   in
   apply_hard_vcpu_map () ;
+  let threads_per_core = (Xenctrl.physinfo xc).threads_per_core in
   let node_placement =
     match !Xenops_server.numa_placement with
     | Any ->
@@ -1089,7 +1090,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               let affinity =
                 Xenops_server.affinity_of_numa_affinity_policy pin
               in
-              numa_placement domid ~vcpus
+              numa_placement domid ~vcpus:(vcpus * threads_per_core)
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
                 affinity
               |> Option.map fst
