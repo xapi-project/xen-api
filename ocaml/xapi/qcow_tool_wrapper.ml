@@ -79,7 +79,7 @@ let parse_header qcow_path =
 let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) (_size : Int64.t) =
   let qcow_of_device =
-    Vhd_tool_wrapper.backing_file_of_device ~driver:"qcow2"
+    Xapi_vdi_helpers.backing_file_of_device ~driver:"qcow2"
   in
   let qcow_path = qcow_of_device path in
 

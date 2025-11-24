@@ -131,63 +131,6 @@ let write_block ~__context filename buffer ofd len =
     else
       raise e
 
-let get_device_numbers path =
-  let rdev = (Unix.LargeFile.stat path).Unix.LargeFile.st_rdev in
-  let major = rdev / 256 and minor = rdev mod 256 in
-  (major, minor)
-
-let is_nbd_device path =
-  let nbd_device_num = 43 in
-  let major, _ = get_device_numbers path in
-  major = nbd_device_num
-
-type nbd_connect_info = {path: string; exportname: string} [@@deriving rpc]
-
-let get_nbd_device path =
-  let nbd_device_prefix = "/dev/nbd" in
-  if
-    Astring.String.is_prefix ~affix:nbd_device_prefix path && is_nbd_device path
-  then
-    let nbd_number =
-      Astring.String.with_range ~first:(String.length nbd_device_prefix) path
-    in
-    let {path; exportname} =
-      (* persistent_nbd_info_dir is written from nbd_client_manager.py as part of VBD plug*)
-      let persistent_nbd_info_dir = "/var/run/nonpersistent/nbd" in
-      let filename = persistent_nbd_info_dir ^ "/" ^ nbd_number in
-      Xapi_stdext_unix.Unixext.string_of_file filename
-      |> Jsonrpc.of_string
-      |> nbd_connect_info_of_rpc
-    in
-    Some (path, exportname)
-  else
-    None
-
-(* Copied from vhd-tool/src/image.ml.
- * Just keep the situation of xapi doesn't depend on vhd-tool OCaml module.
- *)
-let image_behind_nbd_device = function
-  | Some (path, _exportname) as image ->
-      (* The nbd server path exposed by tapdisk can lead us to the actual image
-         file below. Following the symlink gives a path like
-            `/run/blktap-control/nbd<pid>.<minor>`,
-         containing the tapdisk pid and minor number. Using this information,
-         we can get the file path from tap-ctl.
-      *)
-      let default _ _ = image in
-      let filename = Unix.realpath path |> Filename.basename in
-      Scanf.ksscanf filename default "nbd%d.%d" (fun pid minor ->
-          match Tapctl.find (Tapctl.create ()) ~pid ~minor with
-          | _, _, Some ("vhd", vhd) ->
-              Some ("vhd", vhd)
-          | _, _, Some ("aio", vhd) ->
-              Some ("raw", vhd)
-          | _, _, _ | (exception _) ->
-              None
-      )
-  | _ ->
-      None
-
 type extent = {flags: int32; length: int64} [@@deriving rpc]
 
 type extent_list = extent list [@@deriving rpc]
@@ -257,7 +200,7 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
   let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
   with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
     (fun ifd dom0_path ->
-      match get_nbd_device dom0_path with
+      match Xapi_vdi_helpers.get_nbd_device dom0_path with
       | None ->
           (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
           let last_transmission_time = ref 0. in
