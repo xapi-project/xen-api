@@ -3562,8 +3562,12 @@ let get_ntp_servers_status ~__context ~self:_ =
   else
     []
 
+(* Prevent concurrent time/timezeone operations from interleaving. *)
+let time_m = Mutex.create ()
+
 let set_timezone ~__context ~self ~value =
   try
+    with_lock time_m @@ fun () ->
     let _ =
       Helpers.call_script !Xapi_globs.timedatectl ["set-timezone"; value]
     in
@@ -3581,3 +3585,34 @@ let list_timezones ~__context ~self:_ =
     Helpers.call_script !Xapi_globs.timedatectl ["list-timezones"]
     |> Astring.String.cuts ~empty:false ~sep:"\n"
   with e -> Helpers.internal_error "%s" (ExnHelper.string_of_exn e)
+
+let get_ntp_synchronized ~__context ~self:_ =
+  match Xapi_host_ntp.is_synchronized () with
+  | Ok r ->
+      r
+  | Error msg ->
+      Helpers.internal_error "%s" msg
+
+let set_servertime ~__context ~self ~value =
+  let f = Helpers.call_script !Xapi_globs.timedatectl in
+  with_lock time_m @@ fun () ->
+  let tz = Db.Host.get_timezone ~__context ~self in
+  let not_utc = tz <> "UTC" in
+  try
+    (* The [value] stores only a naive date/time and a fixed timezone offset.
+       Convert it to UTC to avoid ambiguities caused by additional timezone
+       details, such as Daylight Saving Time (DST) rules or historical changes. *)
+    match Date.to_utc value |> Option.map Date.to_ptime with
+    | Some t ->
+        let (y, mon, d), ((h, min, s), _) = Ptime.to_date_time t in
+        let naive_in_utc =
+          Printf.sprintf "%04i-%02i-%02i %02i:%02i:%02i" y mon d h min s
+        in
+        if not_utc then (f ["set-timezone"; "UTC"] : string) |> ignore ;
+        (f ["set-time"; naive_in_utc] : string) |> ignore ;
+        if not_utc then (f ["set-timezone"; tz] : string) |> ignore ;
+        debug "%s: %s" __FUNCTION__ (f ["status"])
+    | None ->
+        raise (Invalid_argument "Missing timezone offset in value")
+  with e ->
+    Helpers.internal_error "%s: %s" __FUNCTION__ (ExnHelper.string_of_exn e)

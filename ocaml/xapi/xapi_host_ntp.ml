@@ -175,3 +175,12 @@ let promote_legacy_default_servers () =
     set_servers_in_conf defaults ;
     restart_ntp_service ()
   )
+
+let is_synchronized () =
+  let patterns = ["System clock synchronized: yes"; "NTP synchronized: yes"] in
+  try
+    Helpers.call_script !Xapi_globs.timedatectl ["status"]
+    |> String.split_on_char '\n'
+    |> List.exists ((Fun.flip List.mem) patterns)
+    |> Result.ok
+  with e -> Error (ExnHelper.string_of_exn e)

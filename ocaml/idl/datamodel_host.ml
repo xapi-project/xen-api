@@ -2646,6 +2646,33 @@ let list_timezones =
     ~result:(Set String, "The set of available timezones on the host")
     ~allowed_roles:_R_READ_ONLY ()
 
+let get_ntp_synchronized =
+  call ~name:"get_ntp_synchronized" ~lifecycle:[]
+    ~doc:
+      "Returns true if the system clock on the host is synchronized with the \
+       NTP servers."
+    ~params:[(Ref _host, "self", "The host")]
+    ~result:
+      ( Bool
+      , "true if the system clock on the host is synchronized with the NTP \
+         servers."
+      )
+    ~allowed_roles:_R_READ_ONLY ()
+
+let set_servertime =
+  call ~name:"set_servertime" ~lifecycle:[]
+    ~doc:"Set the host's system clock when NTP is disabled."
+    ~params:
+      [
+        (Ref _host, "self", "The host")
+      ; ( DateTime
+        , "value"
+        , "A date/time to be set. When a timezone offset is missing, UTC is \
+           assumed."
+        )
+      ]
+    ~allowed_roles:_R_POOL_OP ()
+
 (** Hosts *)
 let t =
   create_obj ~in_db:true
@@ -2800,6 +2827,8 @@ let t =
       ; get_ntp_servers_status
       ; set_timezone
       ; list_timezones
+      ; get_ntp_synchronized
+      ; set_servertime
       ]
     ~contents:
       ([
