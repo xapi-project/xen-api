@@ -335,7 +335,7 @@ module Server = struct
       x.handlers []
 end
 
-let escape uri =
+let escape str =
   (* from xapi-stdext-std xstringext *)
   let escaped ~rules string =
     let aux h t =
@@ -357,7 +357,7 @@ let escape uri =
       ; ('"', "&quot;")
       ; ('&', "&amp;")
       ]
-    uri
+    str
 
 exception Generic_error of string
 
