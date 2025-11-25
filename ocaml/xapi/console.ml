@@ -40,39 +40,61 @@ type address =
 module Connection_limit = struct
   module VMMap = Map.Make (String)
 
-  let active_connections : int VMMap.t ref = ref VMMap.empty
+  type connection_info = {user_name: string; connection_id: string}
+
+  (* VMMap maps VM IDs to a list of connection_info records representing active connections *)
+  let active_connections : connection_info list VMMap.t ref = ref VMMap.empty
 
   let mutex = Mutex.create ()
 
   let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-  let drop vm_id =
+  let generate_connection_id () = Uuidx.to_string (Uuidx.make ())
+
+  let drop vm_id connection_id =
     with_lock mutex (fun () ->
-        match VMMap.find_opt vm_id !active_connections with
-        | Some n when n > 1 ->
-            active_connections := VMMap.add vm_id (n - 1) !active_connections
-        | Some _ | None ->
-            active_connections := VMMap.remove vm_id !active_connections
+        let f conns =
+          Option.bind conns (fun conns ->
+              match
+                List.filter
+                  (fun conn -> conn.connection_id <> connection_id)
+                  conns
+              with
+              | [] ->
+                  None
+              | l ->
+                  Some l
+          )
+        in
+        active_connections := VMMap.update vm_id f !active_connections
     )
 
-  (* When the limit is disabled (false), we must still track the connection count for each vm_id.
+  (* When the limit is disabled (false), we must still track the connections for each vm_id.
      This ensures that if the limit is later enabled (set to true), any existing connections are accounted for,
      and the limit can be correctly enforced for subsequent connection attempts. *)
-  let try_add vm_id is_limit_enabled =
+  let try_add vm_id user_name is_limit_enabled =
     with_lock mutex (fun () ->
-        let count =
-          VMMap.find_opt vm_id !active_connections |> Option.value ~default:0
+        let connections =
+          VMMap.find_opt vm_id !active_connections |> Option.value ~default:[]
         in
-        if is_limit_enabled && count > 0 then (
-          debug
-            "limit_console_sessions is true. Console connection is rejected \
-             for VM %s, active connections: %d"
-            vm_id count ;
-          false
-        ) else (
-          active_connections := VMMap.add vm_id (count + 1) !active_connections ;
-          true
-        )
+        match (is_limit_enabled, connections) with
+        | true, _ :: _ ->
+            let connected_users =
+              List.map (fun conn -> conn.user_name) connections
+            in
+            debug
+              "limit_console_sessions is true. Console connection is rejected \
+               for VM %s, active connections: %d"
+              vm_id (List.length connections) ;
+            Error connected_users
+        | _ ->
+            let connection_id = generate_connection_id () in
+            let updated_connections =
+              {user_name; connection_id} :: connections
+            in
+            active_connections :=
+              VMMap.add vm_id updated_connections !active_connections ;
+            Ok connection_id
     )
 end
 
@@ -230,13 +252,28 @@ let real_proxy' ~__context ~vm vnc_port s =
     debug "Proxy exited"
   with exn -> debug "error: %s" (ExnHelper.string_of_exn exn)
 
-let respond_console_limit_exceeded req s vm_id =
+let respond_console_limit_exceeded req s vm_id connected_users =
   let body =
+    let users_text =
+      match
+        (!Xapi_globs.include_console_username_in_error, connected_users)
+      with
+      | true, [] ->
+          error "The connected user list should not be empty." ;
+          raise Failure
+      | true, [user] ->
+          Printf.sprintf "User '%s' is" (Http_svr.escape user)
+      | true, users ->
+          let escaped_users = List.map Http_svr.escape users in
+          Printf.sprintf "Users '%s' are" (String.concat ", " escaped_users)
+      | false, _ ->
+          "There're users"
+    in
     Printf.sprintf
-      "<html><body><h1>Connection Limit Exceeded</h1><p>The \
-       limit_console_sessions is set to true. Console connection is rejected \
-       for VM %s. Please try again later.</p></body></html>"
-      vm_id
+      "<html><body><h1>Connection Limit Exceeded</h1><p>%s currently connected \
+       to this console (VM %s). No more connections are allowed when \
+       limit_console_sessions is enabled.</p></body></html>"
+      users_text vm_id
   in
   Http_svr.response_custom_error ~req s "503" "Connection Limit Exceeded" body
 
@@ -246,12 +283,15 @@ let real_proxy __context vm req _ vnc_port s =
   let is_limit_enabled =
     Db.Pool.get_limit_console_sessions ~__context ~self:pool
   in
-  if Connection_limit.try_add vm_id is_limit_enabled then
-    finally (* Ensure we drop the vm connection count if exceptions occur *)
-      (fun () -> real_proxy' ~__context ~vm vnc_port s)
-      (fun () -> Connection_limit.drop vm_id)
-  else
-    respond_console_limit_exceeded req s vm_id
+  let session_id = Xapi_http.get_session_id req in
+  let user = Db.Session.get_auth_user_name ~__context ~self:session_id in
+  match Connection_limit.try_add vm_id user is_limit_enabled with
+  | Ok connection_id ->
+      finally (* Ensure we drop the vm connection count if exceptions occur *)
+        (fun () -> real_proxy' ~__context ~vm vnc_port s)
+        (fun () -> Connection_limit.drop vm_id connection_id)
+  | Error connected_users ->
+      respond_console_limit_exceeded req s vm_id connected_users
 
 let go_if_no_limit __context s f =
   let pool = Helpers.get_pool ~__context in

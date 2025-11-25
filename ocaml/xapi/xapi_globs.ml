@@ -1348,6 +1348,8 @@ let ssh_monitor_service = ref "xapi-ssh-monitor"
 
 let ssh_auto_mode_default = ref true
 
+let include_console_username_in_error = ref true
+
 type firewall_backend_type = Firewalld | Iptables
 
 (* Firewall backend to use. iptables in XS 8, firewalld in XS 9. *)
@@ -1454,6 +1456,11 @@ let other_options =
     , (fun () -> string_of_bool !relax_xsm_sr_check)
     , "allow storage migration when SRs have been mirrored out-of-band (and \
        have matching SR uuids)"
+    )
+  ; ( "include-console-username-in-error"
+    , Arg.Set include_console_username_in_error
+    , (fun () -> string_of_bool !include_console_username_in_error)
+    , "Allow displaying user names in XenCenter"
     )
   ; gen_list_option "disable-logging-for"
       "space-separated list of modules to suppress logging from"
