@@ -86,8 +86,8 @@ let with_rpc f switch () =
     Server_interface.make_server_varstored push_nothing ~cache path vm_uuid
   in
   (* rpc simulates what varstored would do *)
-  let uri = Uri.make ~scheme:"file" ~path () |> Uri.to_string in
-  D.debug "Connecting to %s" uri ;
+  let uri = Uri.make ~scheme:"file" ~path () in
+  D.debug "Connecting to %s" (Uri.to_string uri) ;
   let rpc = make uri in
   Lwt.finalize
     (fun () ->

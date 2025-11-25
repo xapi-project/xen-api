@@ -1,6 +1,7 @@
 (library
  (name consts)
  (modes best)
+ (libraries uri)
  (modules consts)
 )
 

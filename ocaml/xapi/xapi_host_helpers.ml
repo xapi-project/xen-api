@@ -181,20 +181,24 @@ let assert_operation_valid ~__context ~self ~(op : API.host_allowed_operations)
   throw_error table op
 
 let update_allowed_operations ~__context ~self : unit =
-  let all = Db.Host.get_record_internal ~__context ~self in
-  let valid = valid_operations ~__context all self in
-  let keys =
-    Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
-  in
-  (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
-  let keys =
-    if Helpers.rolling_upgrade_in_progress ~__context then
-      Xapi_stdext_std.Listext.List.intersect keys
-        Xapi_globs.host_operations_miami
-    else
-      keys
-  in
-  Db.Host.set_allowed_operations ~__context ~self ~value:keys
+  try
+    (* This might fail if the coordinator has been updated *)
+    let all = Db.Host.get_record_internal ~__context ~self in
+    let valid = valid_operations ~__context all self in
+    let keys =
+      Hashtbl.fold (fun k v acc -> if v = None then k :: acc else acc) valid []
+    in
+    (* CA-18377: If there's a rolling upgrade in progress, only send Miami keys across the wire. *)
+    let keys =
+      if Helpers.rolling_upgrade_in_progress ~__context then
+        Xapi_stdext_std.Listext.List.intersect keys
+          Xapi_globs.host_operations_miami
+      else
+        keys
+    in
+    Db.Host.set_allowed_operations ~__context ~self ~value:keys
+  with e ->
+    error "Failed to update host.allowed_operations: %s" (Printexc.to_string e)
 
 let update_allowed_operations_all_hosts ~__context : unit =
   let hosts = Db.Host.get_all ~__context in
