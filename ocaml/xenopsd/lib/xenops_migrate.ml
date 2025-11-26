@@ -93,7 +93,7 @@ end
 module Forwarded_http_request = struct
   (** Subset of the structure sent by xapi *)
   type t = {
-      uri: string
+      path: string
     ; query: (string * string) list
     ; additional_headers: (string * string) list
     ; cookie: (string * string) list

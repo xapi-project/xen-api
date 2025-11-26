@@ -16,6 +16,10 @@
    to minimise the number of times we run the operation i.e. if a large set of changes happen we'd ideally like to
    just execute the function once or twice but not once per thing that changed. *)
 
+module D = Debug.Make (struct let name = "at_least_once_more" end)
+
+open D
+
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 (** Type of the function executed in the background *)
@@ -50,7 +54,7 @@ let again (x : manager) =
           Thread.create
             (fun () ->
               (* Always do the operation immediately: thread is only created when work needs doing *)
-              x.f () ;
+              log_and_ignore_exn x.f ;
               while
                 with_lock x.m (fun () ->
                     if x.needs_doing_again then (
@@ -63,7 +67,7 @@ let again (x : manager) =
                     )
                 )
               do
-                x.f ()
+                log_and_ignore_exn x.f
               done
             )
             ()

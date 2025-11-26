@@ -1,5 +1,6 @@
 (** Xapi's local Unix domain socket *)
-let xapi_unix_domain_socket_uri = "file:///var/xapi/xapi"
+let xapi_unix_domain_socket_uri =
+  Uri.make ~scheme:"file" ~path:"/var/xapi/xapi" ()
 
 (** Location of the xensource-inventory file on XenServer *)
 let xensource_inventory_filename = "/etc/xensource-inventory"

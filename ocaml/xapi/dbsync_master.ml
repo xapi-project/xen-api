@@ -355,6 +355,7 @@ let update_pool_recommendations_noexn ~__context =
 (* Update the database to reflect current state. Called for both start of day and after
    an agent restart. *)
 let update_env __context =
+  Db_gc.detect_rolling_upgrade ~__context ;
   debug "creating root user" ;
   Create_misc.create_root_user ~__context ;
   debug "creating pool record" ;
