@@ -23,3 +23,5 @@ val send :
   -> string
   -> int64
   -> unit
+
+val parse_header : string -> int * int list
