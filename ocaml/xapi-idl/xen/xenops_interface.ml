@@ -494,6 +494,8 @@ module Host = struct
             node, and soft-pins its VCPUs to the node, if possible. Otherwise
             behaves like Any. *)
     | Best_effort_hard  (** Like Best_effort, but hard-pins the VCPUs *)
+    | Prio_mem_only
+        (** Prioritizes reducing memory bandwidth, ignores CPU overload *)
   [@@deriving rpcty]
 
   type numa_affinity_policy_opt = numa_affinity_policy option [@@deriving rpcty]

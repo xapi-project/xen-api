@@ -1090,7 +1090,7 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
     match !Xenops_server.numa_placement with
     | Any ->
         None
-    | (Best_effort | Best_effort_hard) as pin ->
+    | (Best_effort | Best_effort_hard | Prio_mem_only) as pin ->
         log_reraise (Printf.sprintf "NUMA placement") (fun () ->
             if hard_affinity <> [] then (
               D.debug "VM has hard affinity set, skipping NUMA optimization" ;

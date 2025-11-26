@@ -5389,7 +5389,13 @@ let init () =
   ) ;
   Device.Backend.init () ;
   Xenops_server.default_numa_affinity_policy :=
-    if !Xenopsd.numa_placement_compat then Best_effort else Any ;
+    if !Xenopsd.numa_placement_compat then
+      if !Xenopsd.numa_best_effort_prio_mem_only then
+        Prio_mem_only
+      else
+        Best_effort
+    else
+      Any ;
   info "Default NUMA affinity policy is '%s'"
     Xenops_server.(string_of_numa_affinity_policy !default_numa_affinity_policy) ;
   Xenops_server.numa_placement := !Xenops_server.default_numa_affinity_policy ;
