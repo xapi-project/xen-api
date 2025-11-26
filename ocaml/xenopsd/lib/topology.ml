@@ -58,23 +58,36 @@ module NUMAResource = struct
 end
 
 module NUMARequest = struct
-  type t = {memory: int64; vcpus: int}
+  type t = {memory: int64; vcpus: int; cores: int}
 
-  let make ~memory ~vcpus =
+  let make ~memory ~vcpus ~cores =
     if Int64.compare memory 0L < 0 then
       invalid_arg (Printf.sprintf "NUMARequest: memory must be > 0: %Ld" memory) ;
     if vcpus < 0 then
       invalid_arg (Printf.sprintf "vcpus cannot be negative: %d" vcpus) ;
-    {memory; vcpus}
+    if cores < 0 then
+      invalid_arg (Printf.sprintf "cores cannot be negative: %d" cores) ;
+    {memory; vcpus; cores}
 
   let fits requested available =
+    (* this is a hard constraint: a VM cannot boot if it doesn't have
+       enough memory *)
     Int64.compare requested.memory available.NUMAResource.memfree <= 0
+    (* this is a soft constraint: a VM can still boot if the (soft) affinity
+       constraint is not met, although if hard affinity is used this is a hard
+       constraint too *)
     && CPUSet.(cardinal available.NUMAResource.affinity >= requested.vcpus)
+    && (* this is an optional constraint: it is desirable to be able to leave
+          hyperthread siblings idle, when the system is not busy.
+          However requested.cores can also be 0.
+       *)
+    available.NUMAResource.cores >= requested.cores
 
   let shrink a b =
     make
       ~memory:(max 0L (Int64.sub a.memory b.NUMAResource.memfree))
       ~vcpus:(max 0 (a.vcpus - CPUSet.cardinal b.NUMAResource.affinity))
+      ~cores:(max 0 (a.cores - b.NUMAResource.cores))
 
   let pp_dump =
     Fmt.(
@@ -82,6 +95,7 @@ module NUMARequest = struct
         [
           Dump.field "memory" (fun t -> t.memory) int64
         ; Dump.field "vcpus" (fun t -> t.vcpus) int
+        ; Dump.field "cores" (fun t -> t.cores) int
         ]
     )
 end

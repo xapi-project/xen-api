@@ -945,7 +945,7 @@ let set_affinity = function
   | Xenops_server.Soft ->
       Xenctrlext.vcpu_setaffinity_soft
 
-let numa_placement domid ~vcpus ~memory affinity =
+let numa_placement domid ~vcpus ~cores ~memory affinity =
   let open Xenctrlext in
   let open Topology in
   with_lock numa_mutex (fun () ->
@@ -959,7 +959,7 @@ let numa_placement domid ~vcpus ~memory affinity =
           numa_meminfo
           ~f:(fun node m -> NUMA.resource host node ~memory:m.memfree)
       in
-      let vm = NUMARequest.make ~memory ~vcpus in
+      let vm = NUMARequest.make ~memory ~vcpus ~cores in
       let nodea =
         match !numa_resources with
         | None ->
@@ -1096,10 +1096,11 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
               D.debug "VM has hard affinity set, skipping NUMA optimization" ;
               None
             ) else
-              let affinity =
-                Xenops_server.affinity_of_numa_affinity_policy pin
+              let affinity = Xenops_server.affinity_of_numa_affinity_policy pin
+              and cores =
+                Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus
+              numa_placement domid ~vcpus ~cores
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
                 affinity
               |> Option.map fst

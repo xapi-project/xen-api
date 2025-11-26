@@ -216,7 +216,7 @@ let test_allocate ?(mem = default_mem) (expected_cores, h) ~vms () =
   |> List.fold_left
        (fun (costs_old, costs_new, plans) i ->
          D.debug "Planning VM %d" i ;
-         let vm = NUMARequest.make ~memory:mem ~vcpus:vm_cores in
+         let vm = NUMARequest.make ~memory:mem ~vcpus:vm_cores ~cores:0 in
          match Softaffinity.plan h nodes ~vm with
          | None ->
              Alcotest.fail "No NUMA plan"

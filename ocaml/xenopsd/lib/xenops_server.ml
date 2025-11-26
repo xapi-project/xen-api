@@ -3627,6 +3627,8 @@ let affinity_of_numa_affinity_policy =
   let open Xenops_interface.Host in
   function Any | Best_effort -> Soft | Best_effort_hard -> Hard
 
+let cores_of_numa_affinity_policy _policy ~vcpus:_ = 0
+
 module HOST = struct
   let stat _ dbg =
     Debug.with_thread_associated dbg

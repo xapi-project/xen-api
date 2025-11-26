@@ -62,11 +62,11 @@ end
 
 module NUMARequest : sig
   (** A (VM) requesting resources *)
-  type t = private {memory: int64; vcpus: int}
+  type t = private {memory: int64; vcpus: int; cores: int}
 
-  val make : memory:int64 -> vcpus:int -> t
-  (**[make ~memory ~vcpus] constructs a request. [memory] and [vcpus] must be
-     strictly positive. *)
+  val make : memory:int64 -> vcpus:int -> cores:int -> t
+  (**[make ~memory ~vcpus ~cores] constructs a request. [memory], [vcpus] and
+     [cores] must be strictly positive. *)
 
   val fits : t -> NUMAResource.t -> bool
   (** [fits requested available] checks whether the [available] resources can
