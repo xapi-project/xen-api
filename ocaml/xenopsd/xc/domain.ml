@@ -908,8 +908,18 @@ let numa_hierarchy =
   lazy
     (let xcext = get_handle () in
      let distances = (numainfo xcext).distances in
-     let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
-     NUMA.make ~distances ~cpu_to_node
+     let topoinfo = cputopoinfo xcext in
+     let core t = t.core and node t = t.node in
+     let cpu_to_node = topoinfo |> Array.map node
+     and node_cores =
+       let module IntSet = Set.Make (Int) in
+       let a = Array.make (Array.length distances) IntSet.empty in
+       Array.iter
+         (fun t -> a.(node t) <- IntSet.add (core t) a.(node t))
+         topoinfo ;
+       Array.map IntSet.cardinal a
+     in
+     NUMA.make ~distances ~cpu_to_node ~node_cores
     )
 
 let numa_mutex = Mutex.create ()
