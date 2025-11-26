@@ -62,6 +62,20 @@ let read_header qcow_path =
     (fun () -> Unix.close pipe_writer) ;
   pipe_reader
 
+let parse_header qcow_path =
+  let pipe_reader = read_header qcow_path in
+  let ic = Unix.in_channel_of_descr pipe_reader in
+  let buf = Buffer.create 4096 in
+  let json = Yojson.Basic.from_channel ~buf ~fname:"qcow_header.json" ic in
+  In_channel.close ic ;
+  let cluster_size =
+    1 lsl Yojson.Basic.Util.(member "cluster_bits" json |> to_int)
+  in
+  let cluster_list =
+    Yojson.Basic.Util.(member "data_clusters" json |> to_list |> List.map to_int)
+  in
+  (cluster_size, cluster_list)
+
 let send ?relative_to (progress_cb : int -> unit) (unix_fd : Unix.file_descr)
     (path : string) (_size : Int64.t) =
   let qcow_of_device =
