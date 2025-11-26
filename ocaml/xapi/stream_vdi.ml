@@ -17,6 +17,7 @@
 
 module Zerocheck = Xapi_stdext_zerocheck.Zerocheck
 module Unixext = Xapi_stdext_unix.Unixext
+module ChunkSet = Set.Make (Int)
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
@@ -194,95 +195,174 @@ let get_chunk_numbers_in_increasing_order descriptor_list offset =
   let chunks = process [] offset descriptor_list in
   List.rev chunks
 
+let get_allocated_chunks_from_clusters cluster_size cluster_list =
+  let chunk_size = Int64.to_int chunk_size in
+  let chunks_in_cluster = (cluster_size + chunk_size - 1) / chunk_size in
+  let set =
+    List.fold_left
+      (fun set cluster_no ->
+        let cluster_offset = cluster_no * cluster_size in
+        let chunk_no = cluster_offset / chunk_size in
+        let chunks_to_add =
+          Seq.init chunks_in_cluster (fun i -> chunk_no + i)
+        in
+        ChunkSet.add_seq chunks_to_add set
+      )
+      ChunkSet.empty cluster_list
+  in
+  set
+
 let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
     (prefix, vdi_ref, _size) =
   let size = Db.VDI.get_virtual_size ~__context ~self:vdi_ref in
+  (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
+  let last_transmission_time = ref 0L in
   let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
+
+  (* Generic function that reads a chunk of [this_chunk_size] at [offset] and,
+     if [write_check chunk] is true, then writes the chunk to the filename with
+     [this_chunk_no] suffix *)
+  let actually_write_chunk ~(this_chunk_no : int) ~(offset : int64)
+      ~(this_chunk_size : int) ~ifd ~write_check ~first_or_last ~seek =
+    let buffer =
+      if this_chunk_size = Int64.to_int chunk_size then
+        reusable_buffer
+      else
+        Bytes.make this_chunk_size '\000'
+    in
+    let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
+    if seek then
+      Unix.LargeFile.lseek ifd offset Unix.SEEK_SET |> ignore ;
+    Unixext.really_read ifd buffer 0 this_chunk_size ;
+    if write_check buffer first_or_last then (
+      last_transmission_time := Mtime_clock.now_ns () ;
+      write_block ~__context filename buffer ofd this_chunk_size
+    ) ;
+    made_progress __context progress (Int64.of_int this_chunk_size)
+  in
+
   with_open_vdi __context rpc session_id vdi_ref `RO [Unix.O_RDONLY] 0o644
     (fun ifd dom0_path ->
       match Xapi_vdi_helpers.get_nbd_device dom0_path with
-      | None ->
-          (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
-          let last_transmission_time = ref 0. in
+      | None -> (
           (* NB. It used to be that chunks could be larger than a native int *)
           (* could handle, but this is no longer the case! Ensure all chunks *)
           (* are strictly less than 2^30 bytes *)
-          let rec stream_from (chunk_no : int) (offset : int64) =
+          let rec write_chunk (this_chunk_no : int) (offset : int64)
+              ~write_check ~seek ~timeout_workaround =
             refresh_session () ;
             let remaining = Int64.sub size offset in
-            if remaining > 0L then (
-              let this_chunk = min remaining chunk_size in
-              let last_chunk = this_chunk = remaining in
-              let this_chunk = Int64.to_int this_chunk in
-              let filename = Printf.sprintf "%s/%08d" prefix chunk_no in
-              let now = Unix.gettimeofday () in
-              let time_since_transmission = now -. !last_transmission_time in
+            if remaining > 0L then
+              let this_chunk_size =
+                min (Int64.to_int remaining) (Int64.to_int chunk_size)
+              in
+              let last_chunk = this_chunk_size = Int64.to_int remaining in
+              let now = Mtime_clock.now_ns () in
+              let time_since_transmission =
+                Int64.sub now !last_transmission_time
+              in
               (* We always include the first and last blocks *)
-              let first_or_last = chunk_no = 0 || last_chunk in
-              if time_since_transmission > 5. && not first_or_last then (
+              let first_or_last = this_chunk_no = 0 || last_chunk in
+              if
+                time_since_transmission > 5_000_000_000L
+                && (not first_or_last)
+                && timeout_workaround
+              then (
                 last_transmission_time := now ;
+                let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
                 write_block ~__context filename Bytes.empty ofd 0 ;
                 (* no progress has been made *)
-                stream_from (chunk_no + 1) offset
-              ) else
-                let buffer =
-                  if Int64.of_int this_chunk = chunk_size then
-                    reusable_buffer
-                  else
-                    Bytes.make this_chunk '\000'
-                in
-                Unixext.really_read ifd buffer 0 this_chunk ;
-                if
-                  first_or_last
-                  || not (Zerocheck.is_all_zeros (Bytes.unsafe_to_string buffer))
-                then (
-                  last_transmission_time := now ;
-                  write_block ~__context filename buffer ofd this_chunk
-                ) ;
-                made_progress __context progress (Int64.of_int this_chunk) ;
-                stream_from (chunk_no + 1) (Int64.add offset chunk_size)
-            )
+                Some offset
+              ) else (
+                actually_write_chunk ~this_chunk_no ~offset ~this_chunk_size
+                  ~ifd ~write_check ~first_or_last ~seek ;
+                Some (Int64.add offset chunk_size)
+              )
+            else
+              None
           in
-          stream_from 0 0L
-      | Some (path, exportname) ->
-          let last_transmission_time = ref 0L in
-          let actually_write_chunk (this_chunk_no : int) (this_chunk_size : int)
-              =
-            let buffer =
-              if this_chunk_size = Int64.to_int chunk_size then
-                reusable_buffer
-              else
-                Bytes.make this_chunk_size '\000'
+
+          (* Read all clusters and check if they are filled with zeros *)
+          let rec stream_from (this_chunk_no : int) (offset : int64)
+              ~write_check ~seek =
+            let new_offset =
+              write_chunk this_chunk_no offset ~write_check ~seek
+                ~timeout_workaround:true
             in
-            let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
-            Unix.LargeFile.lseek ifd
-              (Int64.mul (Int64.of_int this_chunk_no) chunk_size)
-              Unix.SEEK_SET
-            |> ignore ;
-            Unixext.really_read ifd buffer 0 this_chunk_size ;
-            last_transmission_time := Mtime_clock.now_ns () ;
-            write_block ~__context filename buffer ofd this_chunk_size ;
-            made_progress __context progress (Int64.of_int this_chunk_size)
+            Option.iter
+              (fun offset ->
+                stream_from (this_chunk_no + 1) offset ~write_check ~seek
+              )
+              new_offset
           in
+          let write_check buffer first_or_last =
+            first_or_last
+            || not (Zerocheck.is_all_zeros (Bytes.unsafe_to_string buffer))
+          in
+
+          let backing_info =
+            Xapi_vdi_helpers.backing_info_of_device dom0_path
+          in
+          match backing_info with
+          | Some (driver, path) when driver = "vhd" || driver = "qcow2" -> (
+            try
+              (* Read backing file headers, then only read and write
+                 allocated clusters from the bitmap *)
+              let cluster_size, cluster_list =
+                match driver with
+                | "vhd" ->
+                    Vhd_tool_wrapper.parse_header path
+                | "qcow2" ->
+                    Qcow_tool_wrapper.parse_header path
+                | _ ->
+                    failwith (Printf.sprintf "%s: unreachable" __FUNCTION__)
+              in
+              let set =
+                get_allocated_chunks_from_clusters cluster_size cluster_list
+              in
+              (* First and last chunks are always written - it's a limitation
+                 of the XVA format *)
+              let last_chunk =
+                Int64.((to_int size - to_int chunk_size + 1) / to_int chunk_size)
+              in
+              let set = set |> ChunkSet.add 0 |> ChunkSet.add last_chunk in
+              ChunkSet.iter
+                (fun this_chunk_no ->
+                  let offset = Int64.(mul (of_int this_chunk_no) chunk_size) in
+                  let _ =
+                    write_chunk this_chunk_no offset
+                      ~write_check:(fun _ _ -> true)
+                      ~seek:true ~timeout_workaround:false
+                  in
+                  ()
+                )
+                set
+            with e ->
+              debug "%s: Falling back to reading the whole raw disk after %s"
+                __FUNCTION__ (Printexc.to_string e) ;
+              stream_from 0 0L ~write_check ~seek:false
+          )
+          | _ ->
+              stream_from 0 0L ~write_check ~seek:false
+        )
+      | Some (path, exportname) ->
           let rec stream_from_offset (offset : int64) =
             let remaining = Int64.sub size offset in
             if remaining > 0L then (
               let this_chunk_size =
                 min (Int64.to_int chunk_size) (Int64.to_int remaining)
               in
-              let this_chunk_no = Int64.div offset chunk_size in
+              let this_chunk_no = Int64.(to_int (div offset chunk_size)) in
               let now = Mtime_clock.now_ns () in
               let time_since_transmission =
                 Int64.sub now !last_transmission_time
               in
-              if
-                offset = 0L
-                || remaining <= chunk_size
-                || time_since_transmission > 5000000000L
-              then (
-                actually_write_chunk
-                  (Int64.to_int this_chunk_no)
-                  this_chunk_size ;
+              let first_or_last = offset = 0L || remaining <= chunk_size in
+              if first_or_last || time_since_transmission > 5000000000L then (
+                actually_write_chunk ~this_chunk_no ~offset ~this_chunk_size
+                  ~ifd ~first_or_last
+                  ~write_check:(fun _ _ -> true)
+                  ~seek:true ;
                 stream_from_offset
                   (Int64.add offset (Int64.of_int this_chunk_size))
               ) else
@@ -313,8 +393,12 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
                 in
                 List.iter
                   (fun chunk ->
-                    actually_write_chunk (Int64.to_int chunk)
-                      (Int64.to_int chunk_size)
+                    let offset = Int64.mul chunk chunk_size in
+                    actually_write_chunk ~this_chunk_no:(Int64.to_int chunk)
+                      ~offset ~this_chunk_size:(Int64.to_int chunk_size) ~ifd
+                      ~first_or_last:false
+                      ~write_check:(fun _ _ -> true)
+                      ~seek:true
                   )
                   chunks ;
                 stream_from_offset (Int64.add offset sparseness_size)
