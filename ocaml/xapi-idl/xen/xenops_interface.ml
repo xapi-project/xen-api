@@ -492,7 +492,9 @@ module Host = struct
     | Best_effort
         (** Best-effort placement. Assigns the memory of the VM to a single
             node, and soft-pins its VCPUs to the node, if possible. Otherwise
-            behaves like Any. *)
+            behaves like Any.
+            The node(s) need to have enough cores to run all the vCPUs of the VM
+            *)
     | Best_effort_hard  (** Like Best_effort, but hard-pins the VCPUs *)
     | Prio_mem_only
         (** Prioritizes reducing memory bandwidth, ignores CPU overload *)

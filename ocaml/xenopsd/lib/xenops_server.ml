@@ -3630,9 +3630,9 @@ let affinity_of_numa_affinity_policy =
   function
   | Any | Best_effort | Prio_mem_only -> Soft | Best_effort_hard -> Hard
 
-let cores_of_numa_affinity_policy policy ~vcpus:_ =
+let cores_of_numa_affinity_policy policy ~vcpus =
   let open Xenops_interface.Host in
-  match policy with _ -> 0
+  match policy with Any | Prio_mem_only -> 0 | _ -> vcpus
 
 module HOST = struct
   let stat _ dbg =
