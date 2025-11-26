@@ -112,6 +112,23 @@ let receive progress_cb format protocol (s : Unix.file_descr)
   in
   run_vhd_tool progress_cb args s s' path
 
+let read_vhd_header path =
+  let vhd_tool = !Xapi_globs.vhd_tool in
+  let args = ["read_headers"; path] in
+  let pipe_reader, pipe_writer = Unix.pipe ~cloexec:true () in
+
+  let progress_cb _ = () in
+  Xapi_stdext_pervasives.Pervasiveext.finally
+    (fun () ->
+      Vhd_qcow_parsing.run_tool vhd_tool progress_cb args ~output_fd:pipe_writer
+    )
+    (fun () -> Unix.close pipe_writer) ;
+  pipe_reader
+
+let parse_header vhd_path =
+  let pipe_reader = read_vhd_header vhd_path in
+  Vhd_qcow_parsing.parse_header pipe_reader
+
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
   let vhd_of_device =
