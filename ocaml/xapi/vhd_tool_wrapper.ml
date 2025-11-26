@@ -114,7 +114,9 @@ let receive progress_cb format protocol (s : Unix.file_descr)
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
-  let vhd_of_device = Xapi_vdi_helpers.backing_file_of_device ~driver:"vhd" in
+  let vhd_of_device =
+    Xapi_vdi_helpers.backing_file_of_device_with_driver ~driver:"vhd"
+  in
   let s' = Uuidx.(to_string (make ())) in
   let source_format, source =
     match

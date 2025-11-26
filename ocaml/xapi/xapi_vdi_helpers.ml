@@ -394,35 +394,40 @@ let find_backend_device path =
         raise Not_found
   with _ -> None
 
-(** [backing_file_of_device path] returns (Some backing_file) where 'backing_file'
-    is the leaf backing a particular device [path] (with a driver of type
-    [driver] or None. [path] may either be a blktap2 device *or* a blkfront
-    device backed by a blktap2 device. If the latter then the script must be
-    run in the same domain as blkback. *)
-let backing_file_of_device path ~driver =
+(** [backing_info_of_device] returns Some (driver_type, backing_file) for the
+    leaf backing a particular device [path]. *)
+let backing_info_of_device path =
   let tapdisk_of_path path =
     try
-      match Tapctl.of_device (Tapctl.create ()) path with
-      | _, _, Some (typ, backing_file) when typ = driver ->
-          Some backing_file
-      | _, _, _ ->
-          raise Not_found
+      let _, _, backing_info = Tapctl.of_device (Tapctl.create ()) path in
+      backing_info
     with
+    | Tapctl.Not_a_device ->
+        debug "%s is not a device" path ;
+        None
     | Tapctl.Not_blktap -> (
         debug "Device %s is not controlled by blktap" path ;
         (* Check if it is a [driver] behind a NBD device *)
         get_nbd_device path |> image_behind_nbd_device |> function
-        | Some (typ, backing_file) when typ = driver ->
-            debug "%s is a %s behind NBD device %s" backing_file driver path ;
-            Some backing_file
+        | Some (typ, backing_file) as backing_info ->
+            debug "%s is a %s behind NBD device %s" backing_file typ path ;
+            backing_info
         | _ ->
             None
       )
-    | Tapctl.Not_a_device ->
-        debug "%s is not a device" path ;
-        None
-    | _ ->
-        debug "Device %s has an unknown driver" path ;
-        None
   in
   find_backend_device path |> Option.value ~default:path |> tapdisk_of_path
+
+(** [backing_file_of_device_with_driver path driver] returns Some backing_file
+    where [backing_file] is the leaf backing a particular device [path]
+    (with a driver of type [driver]) or None.
+    [path] may either be a blktap2 device *or* a blkfront device backed by a
+    blktap2 device. If the latter then the script must be
+    run in the same domain as blkback. *)
+let backing_file_of_device_with_driver path ~driver =
+  match backing_info_of_device path with
+  | Some (typ, backing_file) when typ = driver ->
+      Some backing_file
+  | _ ->
+      debug "Device %s has an unknown driver" path ;
+      None
