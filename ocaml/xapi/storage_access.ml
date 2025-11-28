@@ -154,8 +154,7 @@ let on_xapi_start ~__context =
         |> List.filter (( <> ) !Storage_interface.queue_name)
         |> List.map (fun driver ->
                (* Get the last component of the queue name: org.xen.xapi.storage.sr_type -> sr_type *)
-               (* split_on_char returns a non-empty list *)
-               String.split_on_char '.' driver |> List.rev |> List.hd
+               Filename.extension driver
            )
       with
       | Message_switch_failure ->
