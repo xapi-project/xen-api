@@ -11,3 +11,5 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  *)
+
+val bucket_table : Rate_limit.Bucket_table.t
