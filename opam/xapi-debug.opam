@@ -58,6 +58,7 @@ depends: [
   "xapi-types"
   "xapi-stdext-pervasives"
   "xapi-stdext-unix"
+  "xapi-stdext-zerocheck"
   "xen-api-client"
   "xen-api-client-lwt"
   "xenctrl"

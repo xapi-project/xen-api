@@ -8,6 +8,7 @@ homepage: "https://xapi-project.github.io/"
 bug-reports: "https://github.com/xapi-project/xen-api/issues"
 depends: [
   "dune" {>= "3.20"}
+  "alcotest" {with-test}
   "odoc" {with-doc}
 ]
 build: [
