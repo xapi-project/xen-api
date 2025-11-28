@@ -142,7 +142,7 @@ let test_cbt_enable_disable () =
 let test_set_metadata_of_pool_doesnt_allow_cbt_metadata_vdi () =
   let __context = Test_common.make_test_database () in
   let self = Test_common.make_vdi ~__context ~_type:`cbt_metadata () in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   Alcotest.check_raises
     "VDI.set_metadata_of_pool should throw VDI_INCOMPATIBLE_TYPE for a \
      cbt_metadata VDI"

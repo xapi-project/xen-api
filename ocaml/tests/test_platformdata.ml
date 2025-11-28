@@ -97,7 +97,7 @@ module Licensing = struct
   let test_nested_virt_licensing (platform, should_raise) () =
     let __context = Test_common.make_test_database () in
 
-    let pool = Db.Pool.get_all ~__context |> List.hd in
+    let pool = Helpers.get_pool ~__context in
     let test_checks =
       if should_raise then
         Alcotest.check_raises
