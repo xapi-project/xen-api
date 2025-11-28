@@ -62,12 +62,13 @@ let parse vendor device =
       (fun path -> try Unix.access path perms ; true with _ -> false)
       l
   in
-  try
-    (* is that the correct path ? *)
-    let l =
-      access_list
-        ["/usr/share/hwdata/pci.ids"; "/usr/share/misc/pci.ids"]
-        [Unix.R_OK]
-    in
-    parse_from (List.hd l) vendor device
-  with _ -> (unknown_vendor vendor, unknown_device device)
+  access_list
+    ["/usr/share/hwdata/pci.ids"; "/usr/share/misc/pci.ids"]
+    [Unix.R_OK]
+  |> Fun.flip List.nth_opt 0
+  |> Option.map (fun path -> parse_from path vendor device)
+  |> function
+  | Some vd ->
+      vd
+  | None ->
+      (unknown_vendor vendor, unknown_device device)

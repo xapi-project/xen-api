@@ -78,9 +78,8 @@ module Unsafe = struct
   (* Low-level (unsafe) function which forks, runs a 'pre_exec' function and
      	 then executes some other binary. It makes sure to catch any exception thrown by
      	 exec* so that we don't end up with two ocaml processes. *)
-  let fork_and_exec ?(pre_exec = fun () -> ()) ?env (cmdline : string list) =
-    let args = Array.of_list cmdline in
-    let argv0 = List.hd cmdline in
+  let fork_and_exec ?(pre_exec = fun () -> ()) ?env argv0 (args : string list) =
+    let args = Array.of_list (argv0 :: args) in
     let pid = Unix.fork () in
     if pid = 0 then
       try
@@ -342,7 +341,7 @@ let attempt_one_connect ?(use_fork_exec_helper = true)
                    List.iter Unsafe.do_fd_operation fdops ;
                    Unixext.close_all_fds_except fds_needed
                  )
-                 (path :: args)
+                 path args
               )
         in
         Unixfd.safe_close config_out ;
