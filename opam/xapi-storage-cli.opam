@@ -17,6 +17,7 @@ depends: [
   "xapi-client" {= version}
   "xapi-idl" {= version}
   "xapi-types" {= version}
+  "xapi-stdext-zerocheck" {= version}
   "odoc" {with-doc}
 ]
 build: [
