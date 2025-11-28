@@ -166,6 +166,7 @@
   psq
   ptime
   ptime.clock.os
+  rate-limit
   rpclib.core
   rpclib.json
   rpclib.xml
