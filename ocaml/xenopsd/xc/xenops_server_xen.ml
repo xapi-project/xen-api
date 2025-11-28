@@ -1995,7 +1995,8 @@ module VM = struct
       ) ;
       debug "Moving xenstore tree" ;
       Domain.move_xstree ~xs di.Xenctrl.domid old_name new_name ;
-      DB.rename old_name new_name
+      DB.rename old_name new_name ;
+      Watcher.mark_refresh_domains ()
     in
     Option.iter rename_domain (di_of_uuid ~xc (uuid_of_string old_name))
 
