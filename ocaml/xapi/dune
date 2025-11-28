@@ -65,6 +65,7 @@
   exnHelper
   rbac_static
   xapi_role
+  xapi_rate_limit
   xapi_extensions
   db)
  (modes best)
@@ -83,6 +84,7 @@
   threads.posix
   fmt
   clock
+  rate-limit
   astring
   stunnel
   sexplib0
@@ -129,6 +131,7 @@
    locking_helpers
    exnHelper
    xapi_role
+   xapi_rate_limit
    xapi_extensions
    db))
  (libraries

@@ -183,6 +183,9 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       (* Return task id immediately *)
       Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
+    Rate_limit.Bucket_table.consume_and_block Xapi_rate_limit.bucket_table
+      (Option.value http_req.user_agent ~default:"")
+      1. ;
     match sync_ty with
     | `Sync ->
         sync ()

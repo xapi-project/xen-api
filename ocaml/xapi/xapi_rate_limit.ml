@@ -19,10 +19,11 @@ let bucket_table =
   List.iter
     (fun s ->
       match String.split_on_char ':' s with
-      | [name; burst_s; refill_s] -> (
-        match (float_of_string_opt burst_s, float_of_string_opt refill_s) with
-        | Some burst, Some refill ->
-            Rate_limit.Bucket_table.add_bucket table name burst refill
+      | [user_agent; burst_s; fill_s] -> (
+        match (float_of_string_opt burst_s, float_of_string_opt fill_s) with
+        | Some burst_size, Some fill_rate ->
+            Rate_limit.Bucket_table.add_bucket table ~user_agent ~burst_size
+              ~fill_rate
         | _ ->
             Printf.eprintf "Skipping invalid numeric values in: %s\n" s
       )
