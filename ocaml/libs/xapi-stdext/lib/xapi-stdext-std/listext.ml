@@ -85,13 +85,9 @@ module List = struct
     in
     loop 0 list
 
-  let rec last = function
-    | [] ->
-        invalid_arg "last: empty list"
-    | [x] ->
-        x
-    | _ :: xs ->
-        last xs
+  let head = function [] -> None | x :: _ -> Some x
+
+  let rec last = function [] -> None | [x] -> Some x | _ :: xs -> last xs
 
   let split_at n list =
     let rec loop i acc = function
