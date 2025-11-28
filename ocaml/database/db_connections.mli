@@ -18,6 +18,9 @@ val choose :
   Parse_db_conf.db_connection list -> Parse_db_conf.db_connection option
 
 val preferred_write_db : unit -> Parse_db_conf.db_connection
+(** [preferred_write_db ()] returns the database connection currently
+    available for writing. Raises [Db_not_initialized] if there's none available
+  *)
 
 val exit_on_next_flush : bool ref
 

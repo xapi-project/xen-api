@@ -4,8 +4,8 @@ val make : Db_ref.t -> Parse_db_conf.db_connection list -> Schema.t -> unit
 (** [make t connections default_schema] initialises the in-memory cache *)
 
 val flush_and_exit : Parse_db_conf.db_connection -> int -> unit
-(** [flush_and_exit db code] flushes the specific backend [db] and exits
-    	xapi with [code] *)
+(** [flush_and_exit db code] flushes the specific backend [db] and exits xapi
+    with [code] *)
 
 val sync : Parse_db_conf.db_connection list -> Db_cache_types.Database.t -> unit
 (** [sync db] forcibly flushes the database to disk *)
