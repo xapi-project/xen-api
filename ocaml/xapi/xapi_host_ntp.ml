@@ -51,6 +51,9 @@ let get_dhcp_ntp_server interface =
      )
 
 let add_dhcp_ntp_servers () =
+  let ntp_dhcp_dir = !Xapi_globs.ntp_dhcp_dir in
+  if not (Sys.file_exists ntp_dhcp_dir && Sys.is_directory ntp_dhcp_dir) then
+    Xapi_stdext_unix.Unixext.mkdir_rec ntp_dhcp_dir 0o755 ;
   get_dhclient_interfaces ()
   |> List.iter (fun interface ->
          match get_dhcp_ntp_server interface with
