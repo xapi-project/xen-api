@@ -432,7 +432,11 @@ let sync conns db =
 let flush_dirty dbconn = Db_connections.flush_dirty_and_maybe_exit dbconn None
 
 let flush_and_exit dbconn ret_code =
-  ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code))
+  match dbconn with
+  | Some dbconn ->
+      ignore (Db_connections.flush_dirty_and_maybe_exit dbconn (Some ret_code))
+  | None ->
+      raise Db_not_initialized
 
 let spawn_db_flush_threads () =
   (* Spawn threads that flush cache to db connections at regular intervals *)

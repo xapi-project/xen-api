@@ -37,3 +37,5 @@ exception Remote_db_server_returned_bad_message
 exception Empty_key_in_map
 
 exception Invalid_value
+
+exception Db_not_initialized
