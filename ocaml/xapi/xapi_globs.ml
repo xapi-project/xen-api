@@ -1134,6 +1134,8 @@ let python3_path = Constants.python3_path
 let observer_experimental_components =
   ref (StringSet.singleton Constants.observer_component_smapi)
 
+let rate_limited_clients = ref ["test-rate-limit:1.0:0.1"]
+
 let pool_recommendations_dir = ref "/etc/xapi.pool-recommendations.d"
 
 let disable_webserver = ref false
@@ -1819,6 +1821,12 @@ let other_options =
         |> String.concat ","
       )
     , "Comma-separated list of experimental observer components"
+    )
+  ; ( "rate-limited-clients"
+    , Arg.String (fun s -> rate_limited_clients := String.split_on_char ',' s)
+    , (fun () -> String.concat "," !rate_limited_clients)
+    , "Comma-separated list of rate limited clients and their configurations, \
+       in format client:burst:refill"
     )
   ; ( "disable-webserver"
     , Arg.Set disable_webserver
