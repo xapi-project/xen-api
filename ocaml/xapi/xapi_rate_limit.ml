@@ -13,8 +13,9 @@
  *)
 module D = Debug.Make (struct let name = "xapi_rate_limit" end)
 
-let bucket_table =
-  let table = Rate_limit.Bucket_table.create () in
+let bucket_table = Rate_limit.Bucket_table.create ()
+
+let register_xapi_globs () =
   let configs = !Xapi_globs.rate_limited_clients in
   List.iter
     (fun s ->
@@ -26,13 +27,12 @@ let bucket_table =
               "Adding user agent %s to bucket table with burst size %f and \
                fill rate %f"
               user_agent burst_size fill_rate ;
-            Rate_limit.Bucket_table.add_bucket table ~user_agent ~burst_size
-              ~fill_rate
+            Rate_limit.Bucket_table.add_bucket bucket_table ~user_agent
+              ~burst_size ~fill_rate
         | _ ->
-            Printf.eprintf "Skipping invalid numeric values in: %s\n" s
+            D.debug "Skipping invalid numeric values in: %s\n" s
       )
       | _ ->
-          Printf.eprintf "Skipping invalid item format: %s\n" s
+          D.debug "Skipping invalid item format: %s\n" s
     )
-    configs ;
-  table
+    configs

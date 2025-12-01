@@ -1117,6 +1117,10 @@ let server_init () =
             , fun () ->
                 List.iter Xapi_http.add_handler master_only_http_handlers
             )
+          ; ( "Registering rate limits"
+            , [Startup.OnlyMaster]
+            , fun () -> Xapi_rate_limit.register_xapi_globs ()
+            )
           ; ( "Listening unix socket"
             , []
             , fun () -> listen_unix_socket Xapi_globs.unix_domain_socket
