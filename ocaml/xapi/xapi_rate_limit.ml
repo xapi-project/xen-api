@@ -22,6 +22,10 @@ let bucket_table =
       | [user_agent; burst_s; fill_s] -> (
         match (float_of_string_opt burst_s, float_of_string_opt fill_s) with
         | Some burst_size, Some fill_rate ->
+            D.debug
+              "Adding user agent %s to bucket table with burst size %f and \
+               fill rate %f"
+              user_agent burst_size fill_rate ;
             Rate_limit.Bucket_table.add_bucket table ~user_agent ~burst_size
               ~fill_rate
         | _ ->
