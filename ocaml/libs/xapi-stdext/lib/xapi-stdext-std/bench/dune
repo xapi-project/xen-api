@@ -1,0 +1,6 @@
+(executable
+ (name bench_xstringext)
+ (modes exe)
+ (optional)
+ (libraries bechamel xapi-stdext-std bechamel-notty notty.unix fmt)
+)

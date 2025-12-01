@@ -142,7 +142,12 @@ let checknull f = try f () with _ -> "<not in database>"
 let ignore_invalid_ref f (x : 'a Ref.t) =
   try Ref.to_option (f x) with Db_exn.DBCache_NotFound _ -> None
 
-let get_pool ~__context = List.hd (Db.Pool.get_all ~__context)
+let get_pool ~__context =
+  match Db.Pool.get_all ~__context with
+  | [] ->
+      raise (Failure "Helpers.get_pool: No pool available")
+  | pool :: _ ->
+      pool
 
 let get_master ~__context =
   Db.Pool.get_master ~__context ~self:(get_pool ~__context)

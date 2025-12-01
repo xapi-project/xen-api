@@ -177,7 +177,9 @@
   (xapi-idl
    (= :version))
   (xapi-types
-   (= :version)))
+   (= :version))
+  (xapi-stdext-zerocheck
+    (= :version)))
  (synopsis "A CLI for xapi storage services")
  (description
   "The CLI allows you to directly manipulate virtual disk images, without them being attached to VMs."))
@@ -322,6 +324,7 @@
   xapi-types
   xapi-stdext-pervasives
   xapi-stdext-unix
+  xapi-stdext-zerocheck
   xen-api-client
   xen-api-client-lwt
   xenctrl
@@ -874,4 +877,5 @@
  (synopsis "Xapi's standard library extension, Zerocheck")
  (authors "Jonathan Ludlam")
  (depends
+  (alcotest :with-test)
   (odoc :with-doc)))

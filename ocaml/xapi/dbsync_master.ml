@@ -25,8 +25,7 @@ open Recommendations
 
 (* create pool record (if master and not one already there) *)
 let create_pool_record ~__context =
-  let pools = Db.Pool.get_all ~__context in
-  if pools = [] then
+  if Db.Pool.get_all ~__context = [] then
     Db.Pool.create ~__context ~ref:(Ref.make ())
       ~uuid:(Uuidx.to_string (Uuidx.make ()))
       ~name_label:"" ~name_description:""
