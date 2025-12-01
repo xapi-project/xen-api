@@ -1425,9 +1425,9 @@ let nvidia_gpumon_detach = ref false
 
 let failed_login_alert_freq = ref 3600
 
-let default_ntp_servers = ref []
+let factory_ntp_servers = ref []
 
-let legacy_default_ntp_servers = ref []
+let legacy_factory_ntp_servers = ref []
 
 let other_options =
   [
@@ -1916,16 +1916,16 @@ let other_options =
     , (fun () -> !timedatectl)
     , "Path to the timedatectl executable"
     )
-  ; gen_list_option "legacy-default-ntp-servers"
+  ; gen_list_option "legacy-factory-ntp-servers"
       "space-separated list of legacy default NTP servers"
       (fun s -> s)
       (fun s -> s)
-      legacy_default_ntp_servers
-  ; gen_list_option "default-ntp-servers"
+      legacy_factory_ntp_servers
+  ; gen_list_option "factory-ntp-servers"
       "space-separated list of default NTP servers"
       (fun s -> s)
       (fun s -> s)
-      default_ntp_servers
+      factory_ntp_servers
   ]
 
 (* The options can be set with the variable xapiflags in /etc/sysconfig/xapi.

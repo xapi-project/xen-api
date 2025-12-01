@@ -22,11 +22,11 @@ val clear_servers_in_conf : unit -> unit
 
 val promote_legacy_default_servers : unit -> unit
 
-val restart_ntp_service : unit -> unit
-
 val enable_ntp_service : unit -> unit
 
 val disable_ntp_service : unit -> unit
+
+val restart_ntp_service : unit -> unit
 
 val is_ntp_service_active : unit -> bool
 

@@ -38,8 +38,7 @@ cache for the getter APIs.
 
 New fields:  
 `host.ntp_mode`, enum host_ntp_mode(DHCP, Custom, Factory, Disabled)  
-`host.ntp_custom_servers`, string set  
-`host.ntp_enabled`, bool  
+`host.ntp_custom_servers`, string set
 
 New APIs: `host.set_ntp_mode`, `host.set_ntp_custom_servers`, `host.get_ntp_mode`,
 `host.get_ntp_custom_servers`, `host.get_ntp_servers_status`
@@ -201,7 +200,6 @@ host.timezone
 host.set_timezone
 host.list_timezones
 host.get_timezone
-host.get_ntp_enabled
 host.get_ntp_synchronized
 host.set_ntp_mode
 host.get_ntp_mode

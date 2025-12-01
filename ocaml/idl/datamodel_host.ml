@@ -2579,11 +2579,10 @@ let host_ntp_mode =
   Enum
     ( "host_ntp_mode"
     , [
-        ("ntp_mode_dhcp", "Using NTP servers assigned by DHCP to sync time")
-      ; ( "ntp_mode_custom"
-        , "Using custom NTP servers configured by user to sync time"
-        )
-      ; ("ntp_mode_default", "Using default NTP servers to sync time")
+        ("DHCP", "Using NTP servers assigned by DHCP to sync time")
+      ; ("Custom", "Using custom NTP servers configured by user to sync time")
+      ; ("Factory", "Using built-in NTP servers to sync time")
+      ; ("Disabled", "NTP is disabled on the host")
       ]
     )
 
@@ -2604,16 +2603,6 @@ let set_ntp_custom_servers =
         (Ref _host, "self", "The host")
       ; (Set String, "value", "The set of custom NTP servers to configure")
       ]
-    ~allowed_roles:_R_POOL_OP ()
-
-let disable_ntp =
-  call ~name:"disable_ntp" ~lifecycle:[] ~doc:"Disable NTP on the host"
-    ~params:[(Ref _host, "self", "The host")]
-    ~allowed_roles:_R_POOL_OP ()
-
-let enable_ntp =
-  call ~name:"enable_ntp" ~lifecycle:[] ~doc:"Enable NTP on the host"
-    ~params:[(Ref _host, "self", "The host")]
     ~allowed_roles:_R_POOL_OP ()
 
 let get_ntp_servers_status =
@@ -2822,8 +2811,6 @@ let t =
       ; set_max_cstate
       ; set_ntp_mode
       ; set_ntp_custom_servers
-      ; disable_ntp
-      ; enable_ntp
       ; get_ntp_servers_status
       ; set_timezone
       ; list_timezones
@@ -3297,15 +3284,12 @@ let t =
             ~default_value:(Some (VBool false)) "secure_boot"
             "Whether the host has booted in secure boot mode"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:host_ntp_mode
-            ~default_value:(Some (VEnum "ntp_mode_dhcp")) "ntp_mode"
+            ~default_value:(Some (VEnum "Factory")) "ntp_mode"
             "Indicates NTP servers are assigned by DHCP, or configured by \
-             user, or the default servers"
+             user, or the factory servers, or NTP is disabled"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:(Set String)
             ~default_value:(Some (VSet [])) "ntp_custom_servers"
-            "The set of NTP servers configured for the host"
-        ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:Bool
-            ~default_value:(Some (VBool false)) "ntp_enabled"
-            "Reflects whether NTP is enabled on the host"
+            "Custom NTP servers configured by users, used in Custom NTP mode"
         ; field ~qualifier:DynamicRO ~lifecycle:[] ~ty:String
             ~default_value:(Some (VString "UTC")) "timezone"
             "The time zone identifier as defined in the IANA Time Zone Database"

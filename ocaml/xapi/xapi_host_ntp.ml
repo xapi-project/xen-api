@@ -51,6 +51,9 @@ let get_dhcp_ntp_server interface =
      )
 
 let add_dhcp_ntp_servers () =
+  let ntp_dhcp_dir = !Xapi_globs.ntp_dhcp_dir in
+  if not (Sys.file_exists ntp_dhcp_dir && Sys.is_directory ntp_dhcp_dir) then
+    Xapi_stdext_unix.Unixext.mkdir_rec ntp_dhcp_dir 0o755 ;
   get_dhclient_interfaces ()
   |> List.iter (fun interface ->
          match get_dhcp_ntp_server interface with
@@ -72,16 +75,17 @@ let remove_dhcp_ntp_servers () =
            Sys.remove (!Xapi_globs.ntp_dhcp_dir // fname)
      )
 
-let restart_ntp_service () =
-  Xapi_systemctl.restart ~wait_until_success:false !Xapi_globs.ntp_service
-
 let enable_ntp_service () =
-  Xapi_systemctl.enable ~wait_until_success:false !Xapi_globs.ntp_service ;
-  Xapi_systemctl.start ~wait_until_success:false !Xapi_globs.ntp_service
+  Helpers.call_script !Xapi_globs.timedatectl ["set-ntp"; "true"] |> ignore
 
 let disable_ntp_service () =
-  Xapi_systemctl.stop ~wait_until_success:false !Xapi_globs.ntp_service ;
-  Xapi_systemctl.disable ~wait_until_success:false !Xapi_globs.ntp_service
+  Helpers.call_script !Xapi_globs.timedatectl ["set-ntp"; "false"] |> ignore
+
+let restart_ntp_service () =
+  (* Make sure the NTP service is enabled before restarting, and the timedatectl
+     ntp enabled status is consistent with the service state *)
+  enable_ntp_service () ;
+  Xapi_systemctl.restart ~wait_until_success:false !Xapi_globs.ntp_service
 
 let is_ntp_service_active () =
   Fe_systemctl.is_active ~service:!Xapi_globs.ntp_service
@@ -162,8 +166,8 @@ let get_servers_status () =
 
 let promote_legacy_default_servers () =
   let servers = get_servers_from_conf () in
-  let legacy = !Xapi_globs.legacy_default_ntp_servers in
-  let defaults = !Xapi_globs.default_ntp_servers in
+  let legacy = !Xapi_globs.legacy_factory_ntp_servers in
+  let defaults = !Xapi_globs.factory_ntp_servers in
   if
     legacy <> []
     && defaults <> []
