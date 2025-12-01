@@ -23,13 +23,17 @@ type t = {
 }
 
 let create_with_timestamp timestamp ~burst_size ~fill_rate =
-  {
-    burst_size
-  ; fill_rate
-  ; tokens= burst_size
-  ; last_refill= timestamp
-  ; mutex= Mutex.create ()
-  }
+  if fill_rate <= 0. then
+    None
+  else
+    Some
+      {
+        burst_size
+      ; fill_rate
+      ; tokens= burst_size
+      ; last_refill= timestamp
+      ; mutex= Mutex.create ()
+      }
 
 let create = create_with_timestamp (Mtime_clock.elapsed ())
 

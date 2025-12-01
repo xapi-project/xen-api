@@ -34,7 +34,7 @@
 
 type t
 
-val create : burst_size:float -> fill_rate:float -> t
+val create : burst_size:float -> fill_rate:float -> t option
 (** Create token bucket with given parameters.
     @param burst_size Maximum number of tokens that can fit in the bucket
     @param fill_rate Number of tokens added to the bucket per second
@@ -66,7 +66,7 @@ val delay_until_available : t -> float -> float
 (* Fuctions accepting a timestamp are meant for testing only *)
 
 val create_with_timestamp :
-  Mtime.span -> burst_size:float -> fill_rate:float -> t
+  Mtime.span -> burst_size:float -> fill_rate:float -> t option
 (** Create token bucket with given parameters and supplied inital timestamp
     @param timestamp Initial timestamp
     @param burst_size Maximum number of tokens that can fit in the bucket

@@ -27,8 +27,15 @@ let register_xapi_globs () =
               "Adding user agent %s to bucket table with burst size %f and \
                fill rate %f"
               user_agent burst_size fill_rate ;
-            Rate_limit.Bucket_table.add_bucket bucket_table ~user_agent
-              ~burst_size ~fill_rate
+            if
+              not
+                (Rate_limit.Bucket_table.add_bucket bucket_table ~user_agent
+                   ~burst_size ~fill_rate
+                )
+            then
+              D.error
+                "Bucket creation failed for user agent %s: invalid fill rate %f"
+                user_agent fill_rate
         | _ ->
             D.debug "Skipping invalid numeric values in: %s\n" s
       )
