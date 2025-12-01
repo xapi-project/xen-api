@@ -2,11 +2,22 @@ open Thread
 open Rate_limit
 open QCheck
 
+let test_bad_fill_rate () =
+  let tb_zero = Token_bucket.create ~burst_size:1.0 ~fill_rate:0.0 in
+  Alcotest.(check bool)
+    "Creating a token bucket with 0 fill rate should fail" true (tb_zero = None) ;
+  let tb_negative = Token_bucket.create ~burst_size:1.0 ~fill_rate:~-.1.0 in
+  Alcotest.(check bool)
+    "Creating a token bucket with negative fill rate should fail" true
+    (tb_negative = None)
+
 let test_consume_removes_correct_amount () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
-    Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
-      ~fill_rate:2.0
+    Option.get
+      (Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
+         ~fill_rate:2.0
+      )
   in
 
   Alcotest.(check (float 0.0))
@@ -25,8 +36,10 @@ let test_consume_removes_correct_amount () =
 let test_consume_more_than_available () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
-    Token_bucket.create_with_timestamp initial_time ~burst_size:5.0
-      ~fill_rate:1.0
+    Option.get
+      (Token_bucket.create_with_timestamp initial_time ~burst_size:5.0
+         ~fill_rate:1.0
+      )
   in
 
   let _ = Token_bucket.consume_with_timestamp (fun () -> initial_time) tb 4.0 in
@@ -43,8 +56,10 @@ let test_consume_more_than_available () =
 let test_consume_refills_before_removing () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
-    Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
-      ~fill_rate:2.0
+    Option.get
+      (Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
+         ~fill_rate:2.0
+      )
   in
 
   let first_consume =
@@ -67,8 +82,10 @@ let test_consume_refills_before_removing () =
 let test_peek_respects_burst_size () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
-    Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
-      ~fill_rate:5.0
+    Option.get
+      (Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
+         ~fill_rate:5.0
+      )
   in
 
   let _ = Token_bucket.consume_with_timestamp (fun () -> initial_time) tb 8.0 in
@@ -80,8 +97,10 @@ let test_peek_respects_burst_size () =
 
 let test_concurrent_access () =
   let tb =
-    Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:15.0
-      ~fill_rate:0.0
+    Option.get
+      (Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:15.0
+         ~fill_rate:0.01
+      )
   in
   let threads =
     Array.init 10 (fun _ ->
@@ -101,14 +120,14 @@ let test_concurrent_access () =
     5.0
 
 let test_sleep () =
-  let tb = Token_bucket.create ~burst_size:20.0 ~fill_rate:5.0 in
+  let tb = Option.get (Token_bucket.create ~burst_size:20.0 ~fill_rate:5.0) in
   let _ = Token_bucket.consume tb 10.0 in
   Thread.delay 1.0 ;
   Alcotest.(check (float 0.2))
     "Sleep 1 should refill token bucket by fill_rate" 15.0 (Token_bucket.peek tb)
 
 let test_system_time_versions () =
-  let tb = Token_bucket.create ~burst_size:10.0 ~fill_rate:2.0 in
+  let tb = Option.get (Token_bucket.create ~burst_size:10.0 ~fill_rate:2.0) in
 
   let initial_peek = Token_bucket.peek tb in
   Alcotest.(check (float 0.01))
@@ -122,7 +141,7 @@ let test_system_time_versions () =
     "After consume, should have 7 tokens" 7.0 after_consume_peek
 
 let test_concurrent_system_time () =
-  let tb = Token_bucket.create ~burst_size:100.0 ~fill_rate:10.0 in
+  let tb = Option.get (Token_bucket.create ~burst_size:100.0 ~fill_rate:10.0) in
   let num_threads = 20 in
   let consume_per_thread = 3 in
 
@@ -149,8 +168,10 @@ let test_concurrent_system_time () =
 
 let test_consume_more_than_available_concurrent () =
   let tb =
-    Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:5.0
-      ~fill_rate:0.0
+    Option.get
+      (Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:5.0
+         ~fill_rate:0.1
+      )
   in
   let num_threads = 10 in
   let consume_per_thread = 1 in
@@ -180,15 +201,17 @@ let test_consume_more_than_available_concurrent () =
 
   Alcotest.(check int)
     "Only 5 consumptions should succeed" 5 !successful_consumes ;
-  Alcotest.(check (float 0.0))
+  Alcotest.(check (float 0.1))
     "Bucket should be empty after consumptions" 0.0
     (Token_bucket.peek_with_timestamp Mtime.Span.zero tb)
 
 let test_delay_until_available () =
   let initial_time = Mtime.Span.of_uint64_ns 0L in
   let tb =
-    Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
-      ~fill_rate:2.0
+    Option.get
+      (Token_bucket.create_with_timestamp initial_time ~burst_size:10.0
+         ~fill_rate:2.0
+      )
   in
 
   let _ =
@@ -201,7 +224,9 @@ let test_delay_until_available () =
   Alcotest.(check (float 0.01))
     "Delay for 4 tokens at 2 tokens/sec should be 2 seconds" 2.0 delay ;
 
-  let tb_fresh = Token_bucket.create ~burst_size:10.0 ~fill_rate:2.0 in
+  let tb_fresh =
+    Option.get (Token_bucket.create ~burst_size:10.0 ~fill_rate:2.0)
+  in
   let _ = Token_bucket.consume tb_fresh 10.0 in
   let delay_system = Token_bucket.delay_until_available tb_fresh 4.0 in
 
@@ -209,34 +234,22 @@ let test_delay_until_available () =
     "System time delay should be approximately 2 seconds" 2.0 delay_system
 
 let test_edge_cases () =
-  let tb_zero_rate =
-    Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:5.0
-      ~fill_rate:0.0
-  in
-  let _ =
-    Token_bucket.consume_with_timestamp
-      (fun () -> Mtime.Span.zero)
-      tb_zero_rate 2.0
-  in
-  let later_time = Mtime.Span.of_uint64_ns 1_000_000_000_000L in
-  let available = Token_bucket.peek_with_timestamp later_time tb_zero_rate in
-  Alcotest.(check (float 0.0))
-    "Zero fill rate should not add tokens" 3.0 available ;
-
-  let tb_zero_amount =
-    Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:5.0
-      ~fill_rate:1.0
+  let tb =
+    Option.get
+      (Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:5.0
+         ~fill_rate:1.0
+      )
   in
   let success =
-    Token_bucket.consume_with_timestamp
-      (fun () -> Mtime.Span.zero)
-      tb_zero_amount 0.0
+    Token_bucket.consume_with_timestamp (fun () -> Mtime.Span.zero) tb 0.0
   in
   Alcotest.(check bool) "Consuming zero tokens should succeed" true success ;
 
   let tb_small =
-    Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:1.0
-      ~fill_rate:0.1
+    Option.get
+      (Token_bucket.create_with_timestamp Mtime.Span.zero ~burst_size:1.0
+         ~fill_rate:0.1
+      )
   in
   let success_small =
     Token_bucket.consume_with_timestamp
@@ -244,14 +257,7 @@ let test_edge_cases () =
       tb_small 0.001
   in
   Alcotest.(check bool)
-    "Consuming very small amount should succeed" true success_small ;
-
-  let tb_zero = Token_bucket.create ~burst_size:0.0 ~fill_rate:0.0 in
-  let success_zero = Token_bucket.consume tb_zero 0.0 in
-  let success_small = Token_bucket.consume tb_zero 0.001 in
-  Alcotest.(check bool) "Consuming zero tokens should succeed" true success_zero ;
-  Alcotest.(check bool)
-    "Consuming very small amount should fail" false success_small
+    "Consuming very small amount should succeed" true success_small
 
 let test_consume_quickcheck =
   let open QCheck.Gen in
@@ -289,7 +295,8 @@ let test_consume_quickcheck =
   let property (burst_size, fill_rate, operations) =
     let initial_time = Mtime.Span.of_uint64_ns 0L in
     let tb =
-      Token_bucket.create_with_timestamp initial_time ~burst_size ~fill_rate
+      Option.get
+        (Token_bucket.create_with_timestamp initial_time ~burst_size ~fill_rate)
     in
 
     let rec check_operations op_num time_ns last_refill_ns current_tokens ops =
@@ -345,7 +352,9 @@ let test_consume_quickcheck =
   in
 
   let gen_all =
-    map3 (fun burst fill ops -> (burst, fill, ops)) pfloat pfloat gen_operations
+    map3
+      (fun burst fill ops -> (burst, fill, ops))
+      pfloat (float_range 1e-9 1e9) gen_operations
   in
 
   let arb_all =
@@ -371,7 +380,11 @@ let test_consume_quickcheck =
 
 let test =
   [
-    ( "Consume removes correct amount"
+    ( "A bucket with zero or negative fill rate cannot be created"
+    , `Quick
+    , test_bad_fill_rate
+    )
+  ; ( "Consume removes correct amount"
     , `Quick
     , test_consume_removes_correct_amount
     )

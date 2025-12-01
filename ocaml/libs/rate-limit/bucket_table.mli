@@ -12,17 +12,29 @@
  * GNU Lesser General Public License for more details.
  *)
 
+(** Hash table mapping client identifiers to their token buckets for rate limiting. *)
 type t = (string, Token_bucket.t) Hashtbl.t
 
 val create : unit -> t
+(** [create ()] creates a new empty bucket table. *)
 
 val add_bucket :
-  t -> user_agent:string -> burst_size:float -> fill_rate:float -> unit
+  t -> user_agent:string -> burst_size:float -> fill_rate:float -> bool
+(** [add_bucket table ~user_agent ~burst_size ~fill_rate] adds a token bucket
+    for the given user agent. Returns [false] if a bucket already exists, or if
+    the bucket configuration is invalid, e.g. negative fill rate. *)
 
 val peek : t -> user_agent:string -> float option
+(** [peek table ~user_agent] returns the current token count for the user agent,
+    or [None] if no bucket exists. *)
 
 val delete_bucket : t -> user_agent:string -> unit
+(** [delete_bucket table ~user_agent] removes the bucket for the user agent. *)
 
 val try_consume : t -> user_agent:string -> float -> bool
+(** [try_consume table ~user_agent amount] attempts to consume tokens.
+    Returns [true] on success, [false] if insufficient tokens. *)
 
 val consume_and_block : t -> user_agent:string -> float -> unit
+(** [consume_and_block table ~user_agent amount] consumes tokens, blocking
+    until sufficient tokens are available. *)

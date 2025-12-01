@@ -17,8 +17,13 @@ type t = (string, Token_bucket.t) Hashtbl.t
 let create () = Hashtbl.create 16
 
 let add_bucket table ~user_agent ~burst_size ~fill_rate =
-  let bucket = Token_bucket.create ~burst_size ~fill_rate in
-  Hashtbl.add table user_agent bucket
+  let bucket_option = Token_bucket.create ~burst_size ~fill_rate in
+  match bucket_option with
+  | Some bucket ->
+      Hashtbl.add table user_agent bucket ;
+      true
+  | None ->
+      false
 
 let delete_bucket table ~user_agent = Hashtbl.remove table user_agent
 
