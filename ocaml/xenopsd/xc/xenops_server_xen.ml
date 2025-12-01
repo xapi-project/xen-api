@@ -25,12 +25,7 @@ module D = Debug.Make (struct let name = service_name end)
 open D
 module RRDD = Rrd_client.Client
 module StringSet = Set.Make (String)
-
-module IntMap = Map.Make (struct
-  type t = int
-
-  let compare = compare
-end)
+module IntMap = Map.Make (Int)
 
 let finally = Xapi_stdext_pervasives.Pervasiveext.finally
 
