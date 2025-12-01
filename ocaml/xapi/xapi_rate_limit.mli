@@ -13,3 +13,5 @@
  *)
 
 val bucket_table : Rate_limit.Bucket_table.t
+
+val register_xapi_globs : unit -> unit
