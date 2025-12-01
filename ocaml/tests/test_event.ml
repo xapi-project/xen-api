@@ -117,7 +117,7 @@ let event_next_test () =
   let __context, _ = event_setup_common () in
   let () = Xapi_event.register ~__context ~classes:["pool"] in
   let wait_hdl = Delay.make () in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   let key = "event_next_test" in
   ( try Db.Pool.remove_from_other_config ~__context ~self:pool ~key
     with _ -> ()
@@ -146,7 +146,7 @@ let event_next_test () =
 let wait_for_pool_key __context key =
   let token = ref "" in
   let finished = ref false in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   while not !finished do
     let events =
       Xapi_event.from ~__context ~classes:["pool"] ~token:!token ~timeout:10.
@@ -160,7 +160,7 @@ let wait_for_pool_key __context key =
 let event_from_test () =
   let __context, _ = event_setup_common () in
   let wait_hdl = Delay.make () in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   let key = "event_from_test" in
   ( try Db.Pool.remove_from_other_config ~__context ~self:pool ~key
     with _ -> ()
@@ -180,7 +180,7 @@ let event_from_test () =
 
 let event_from_parallel_test () =
   let __context, _ = event_setup_common () in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   let key = "event_next_test" in
   ( try Db.Pool.remove_from_other_config ~__context ~self:pool ~key
     with _ -> ()

@@ -115,6 +115,10 @@ module Make (Debug : DEBUG) = struct
         in
         List.map fst (IntMap.bindings c)
 
+      let need_refresh_domains = Atomic.make false
+
+      let mark_refresh_domains () = Atomic.set need_refresh_domains true
+
       let with_xc_and_xs f =
         Xenctrl.with_intf (fun xc -> with_xs (fun xs -> f xc xs))
 
@@ -196,9 +200,13 @@ module Make (Debug : DEBUG) = struct
               in
 
               let process_one_watch c (path, _token) =
-                if path = _introduceDomain || path = _releaseDomain then
-                  look_for_different_domains ()
-                else
+                if
+                  Atomic.exchange need_refresh_domains false
+                  || path = _introduceDomain
+                  || path = _releaseDomain
+                then
+                  look_for_different_domains () ;
+                if path <> _introduceDomain && path <> _releaseDomain then
                   Client.immediate c (fun h ->
                       let xs = Xs.ops h in
                       Actions.watch_fired xc xs path !domains !watches

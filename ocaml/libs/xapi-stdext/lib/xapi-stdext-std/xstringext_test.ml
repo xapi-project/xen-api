@@ -147,6 +147,49 @@ let test_rtrim =
   in
   ("rtrim", List.map test spec)
 
+(** Simple implementation of escaped for testing against *)
+let escaped_spec ?rules string =
+  match rules with
+  | None ->
+      String.escaped string
+  | Some rules ->
+      let apply_rules char =
+        match List.assoc_opt char rules with
+        | None ->
+            Seq.return char
+        | Some replacement ->
+            String.to_seq replacement
+      in
+      string |> String.to_seq |> Seq.concat_map apply_rules |> String.of_seq
+
+let test_escaped =
+  let open QCheck2 in
+  (* Generator for escape rules: list of (char, string) mappings *)
+  let gen_rules =
+    let open Gen in
+    let gen_rule = pair char (string_size (int_range 0 5) ~gen:char) in
+    list gen_rule
+  in
+  (* Generator for test input: string and optional rules *)
+  let gen_input = Gen.pair Gen.string (Gen.opt gen_rules) in
+  let property (s, rules) =
+    let expected = escaped_spec ?rules s in
+    let actual = XString.escaped ?rules s in
+    String.equal expected actual
+  in
+  let test =
+    Test.make ~name:"escaped matches reference implementation" ~count:1000
+      gen_input property
+  in
+  ("escaped", [QCheck_alcotest.to_alcotest test])
+
 let () =
   Alcotest.run "Xstringext"
-    [test_rev_map; test_split; test_split_f; test_has_substr; test_rtrim]
+    [
+      test_rev_map
+    ; test_split
+    ; test_split_f
+    ; test_has_substr
+    ; test_rtrim
+    ; test_escaped
+    ]
