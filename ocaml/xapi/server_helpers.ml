@@ -183,9 +183,24 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
       (* Return task id immediately *)
       Rpc.success (API.rpc_of_ref_task (Context.get_task_id __context))
     in
-    Rate_limit.Bucket_table.consume_and_block Xapi_rate_limit.bucket_table
-      (Option.value http_req.user_agent ~default:"")
-      1. ;
+    let user_agent_option = http_req.user_agent in
+    let peek_result =
+      Option.bind user_agent_option (fun user_agent ->
+          Rate_limit.Bucket_table.peek Xapi_rate_limit.bucket_table ~user_agent
+      )
+    in
+    ( match user_agent_option with
+    | Some user_agent ->
+        D.debug
+          "Bucket table: Expecting to consume %f tokens from user_agent %s"
+          (Option.value peek_result ~default:0.)
+          user_agent ;
+        Rate_limit.Bucket_table.consume_and_block Xapi_rate_limit.bucket_table
+          ~user_agent:(Option.value http_req.user_agent ~default:"")
+          1.
+    | None ->
+        D.debug "Bucket table: user_agent was None, not throttling"
+    ) ;
     match sync_ty with
     | `Sync ->
         sync ()

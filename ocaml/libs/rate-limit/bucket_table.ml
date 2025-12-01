@@ -22,14 +22,17 @@ let add_bucket table ~user_agent ~burst_size ~fill_rate =
 
 let delete_bucket table ~user_agent = Hashtbl.remove table user_agent
 
-let try_consume table user_agent amount =
+let try_consume table ~user_agent amount =
   match Hashtbl.find_opt table user_agent with
   | None ->
       false
   | Some bucket ->
       Token_bucket.consume bucket amount
 
-let consume_and_block table user_agent amount =
+let peek table ~user_agent =
+  Option.map Token_bucket.peek (Hashtbl.find_opt table user_agent)
+
+let consume_and_block table ~user_agent amount =
   match Hashtbl.find_opt table user_agent with
   | None ->
       ()

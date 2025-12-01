@@ -19,8 +19,10 @@ val create : unit -> t
 val add_bucket :
   t -> user_agent:string -> burst_size:float -> fill_rate:float -> unit
 
+val peek : t -> user_agent:string -> float option
+
 val delete_bucket : t -> user_agent:string -> unit
 
-val try_consume : t -> string -> float -> bool
+val try_consume : t -> user_agent:string -> float -> bool
 
-val consume_and_block : t -> string -> float -> unit
+val consume_and_block : t -> user_agent:string -> float -> unit
