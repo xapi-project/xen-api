@@ -1,4 +1,6 @@
 let prototyped_of_class = function
+  | "Rate_limit" ->
+      Some "25.38.0-next"
   | "Driver_variant" ->
       Some "25.2.0"
   | "Host_driver" ->
@@ -13,6 +15,14 @@ let prototyped_of_class = function
       None
 
 let prototyped_of_field = function
+  | "Rate_limit", "fill_rate" ->
+      Some "25.38.0-next"
+  | "Rate_limit", "burst_size" ->
+      Some "25.38.0-next"
+  | "Rate_limit", "client_id" ->
+      Some "25.38.0-next"
+  | "Rate_limit", "uuid" ->
+      Some "25.38.0-next"
   | "Driver_variant", "status" ->
       Some "25.2.0"
   | "Driver_variant", "priority" ->

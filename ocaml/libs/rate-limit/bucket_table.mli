@@ -22,7 +22,11 @@ val add_bucket :
   t -> user_agent:string -> burst_size:float -> fill_rate:float -> bool
 (** [add_bucket table ~user_agent ~burst_size ~fill_rate] adds a token bucket
     for the given user agent. Returns [false] if a bucket already exists, or if
-    the bucket configuration is invalid, e.g. negative fill rate. *)
+    the bucket configuration is invalid, e.g. negative/zero fill rate. *)
+
+val mem : t -> user_agent:string -> bool
+(** [mem table ~user_agent] returns whether [user_agent] has an associated
+    token bucket in the bucket table *)
 
 val peek : t -> user_agent:string -> float option
 (** [peek table ~user_agent] returns the current token count for the user agent,
