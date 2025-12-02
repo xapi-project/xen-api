@@ -20,7 +20,7 @@ let add_bucket table ~user_agent ~burst_size ~fill_rate =
   let bucket_option = Token_bucket.create ~burst_size ~fill_rate in
   match bucket_option with
   | Some bucket ->
-      Hashtbl.add table user_agent bucket ;
+      Hashtbl.replace table user_agent bucket ;
       true
   | None ->
       false

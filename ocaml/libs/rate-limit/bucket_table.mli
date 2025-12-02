@@ -13,7 +13,7 @@
  *)
 
 (** Hash table mapping client identifiers to their token buckets for rate limiting. *)
-type t = (string, Token_bucket.t) Hashtbl.t
+type t
 
 val create : unit -> t
 (** [create ()] creates a new empty bucket table. *)
