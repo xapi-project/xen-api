@@ -12,57 +12,61 @@
  * GNU Lesser General Public License for more details.
  *)
 
-let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
+type state = {tokens: float; last_refill: Mtime.span}
 
-type t = {
-    burst_size: float
-  ; fill_rate: float
-  ; mutable tokens: float
-  ; mutable last_refill: Mtime.span
-  ; mutex: Mutex.t
-}
+type t = {burst_size: float; fill_rate: float; state: state Atomic.t}
 
 let create_with_timestamp timestamp ~burst_size ~fill_rate =
   if fill_rate <= 0. then
     None
   else
-    Some
-      {
-        burst_size
-      ; fill_rate
-      ; tokens= burst_size
-      ; last_refill= timestamp
-      ; mutex= Mutex.create ()
-      }
+    let state = Atomic.make {tokens= burst_size; last_refill= timestamp} in
+    Some {burst_size; fill_rate; state}
 
 let create = create_with_timestamp (Mtime_clock.elapsed ())
 
-let peek_with_timestamp timestamp tb =
-  let time_delta = Mtime.Span.abs_diff tb.last_refill timestamp in
+let compute_tokens timestamp {tokens; last_refill} ~burst_size ~fill_rate =
+  let time_delta = Mtime.Span.abs_diff last_refill timestamp in
   let time_delta_seconds = Mtime.Span.to_float_ns time_delta *. 1e-9 in
-  min tb.burst_size (tb.tokens +. (time_delta_seconds *. tb.fill_rate))
+  min burst_size (tokens +. (time_delta_seconds *. fill_rate))
+
+let peek_with_timestamp timestamp tb =
+  let tb_state = Atomic.get tb.state in
+  compute_tokens timestamp tb_state ~burst_size:tb.burst_size
+    ~fill_rate:tb.fill_rate
 
 let peek tb = peek_with_timestamp (Mtime_clock.elapsed ()) tb
 
 let consume_with_timestamp get_time tb amount =
-  let do_consume () =
+  let rec try_consume () =
     let timestamp = get_time () in
-    let new_tokens = peek_with_timestamp timestamp tb in
-    tb.last_refill <- timestamp ;
-    if new_tokens >= amount then (
-      tb.tokens <- new_tokens -. amount ;
-      true
-    ) else (
-      tb.tokens <- new_tokens ;
-      false
-    )
+    let old_state = Atomic.get tb.state in
+    let new_tokens =
+      compute_tokens timestamp old_state ~burst_size:tb.burst_size
+        ~fill_rate:tb.fill_rate
+    in
+    let success, final_tokens =
+      if new_tokens >= amount then
+        (true, new_tokens -. amount)
+      else
+        (false, new_tokens)
+    in
+    let new_state = {tokens= final_tokens; last_refill= timestamp} in
+    if Atomic.compare_and_set tb.state old_state new_state then
+      success
+    else
+      try_consume ()
   in
-  with_lock tb.mutex do_consume
+  try_consume ()
 
 let consume = consume_with_timestamp Mtime_clock.elapsed
 
 let get_delay_until_available_timestamp timestamp tb amount =
-  let current_tokens = peek_with_timestamp timestamp tb in
+  let {tokens; last_refill} = Atomic.get tb.state in
+  let current_tokens =
+    compute_tokens timestamp {tokens; last_refill} ~burst_size:tb.burst_size
+      ~fill_rate:tb.fill_rate
+  in
   let required_tokens = max 0. (amount -. current_tokens) in
   required_tokens /. tb.fill_rate
 
