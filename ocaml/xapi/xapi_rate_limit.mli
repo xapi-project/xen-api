@@ -1,5 +1,5 @@
 (*
- * Copyright (C) 2025 Citrix Systems Inc.
+ * Copyright (C) Citrix Systems Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published
@@ -13,5 +13,14 @@
  *)
 
 val bucket_table : Rate_limit.Bucket_table.t
+
+val create :
+     __context:Context.t
+  -> client_id:string
+  -> burst_size:float
+  -> fill_rate:float
+  -> [`Rate_limit] Ref.t
+
+val destroy : __context:Context.t -> self:[`Rate_limit] API.Ref.t -> unit
 
 val register_xapi_globs : unit -> unit
