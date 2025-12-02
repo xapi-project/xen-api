@@ -952,20 +952,19 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       let ( let* ) = Option.bind in
       let xcext = get_handle () in
       let* host = Lazy.force numa_hierarchy in
-      let numa_meminfo = (numainfo xcext).memory |> Array.to_list in
+      let numa_meminfo = (numainfo xcext).memory |> Array.to_seq in
       let nodes =
-        ListLabels.map2
-          (NUMA.nodes host |> List.of_seq)
-          numa_meminfo
-          ~f:(fun node m -> NUMA.resource host node ~memory:m.memfree)
+        Seq.map2
+          (fun node m -> NUMA.resource host node ~memory:m.memfree)
+          (NUMA.nodes host) numa_meminfo
       in
       let vm = NUMARequest.make ~memory ~vcpus ~cores in
       let nodea =
         match !numa_resources with
         | None ->
-            Array.of_list nodes
+            Array.of_seq nodes
         | Some a ->
-            Array.map2 NUMAResource.min_memory (Array.of_list nodes) a
+            Array.map2 NUMAResource.min_memory (Array.of_seq nodes) a
       in
       numa_resources := Some nodea ;
       let memory_plan =
