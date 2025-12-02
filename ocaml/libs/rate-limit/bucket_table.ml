@@ -31,6 +31,10 @@ let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
 let create () = Atomic.make StringMap.empty
 
+let mem t ~user_agent =
+  let map = Atomic.get t in
+  StringMap.mem user_agent map
+
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
 let rec worker_loop ~bucket ~process_queue ~process_queue_lock

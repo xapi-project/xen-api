@@ -7,7 +7,7 @@
     datamodel_values datamodel_schema datamodel_certificate
     datamodel_diagnostics datamodel_repository datamodel_lifecycle
     datamodel_vtpm datamodel_observer datamodel_vm_group api_version
-    datamodel_host_driver datamodel_driver_variant)
+    datamodel_host_driver datamodel_driver_variant datamodel_rate_limit)
   (libraries
     rpclib.core
     sexplib0

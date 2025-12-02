@@ -315,6 +315,8 @@ let _host_driver = "Host_driver"
 
 let _driver_variant = "Driver_variant"
 
+let _rate_limit = "Rate_limit"
+
 let update_guidances =
   Enum
     ( "update_guidances"

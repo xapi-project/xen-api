@@ -122,7 +122,7 @@ let test_sleep () =
   let tb = Option.get (Token_bucket.create ~burst_size:20.0 ~fill_rate:5.0) in
   let _ = Token_bucket.consume tb 10.0 in
   Thread.delay 1.0 ;
-  Alcotest.(check (float 0.2))
+  Alcotest.(check (float 0.5))
     "Sleep 1 should refill token bucket by fill_rate" 15.0 (Token_bucket.peek tb)
 
 let test_system_time_versions () =

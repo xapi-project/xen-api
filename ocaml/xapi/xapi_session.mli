@@ -15,8 +15,6 @@
  * @group XenAPI functions
 *)
 
-(** {2 (Fill in Title!)} *)
-
 (* TODO: consider updating sm_exec.ml and removing login_no_password from this mli *)
 val login_no_password :
      __context:Context.t
