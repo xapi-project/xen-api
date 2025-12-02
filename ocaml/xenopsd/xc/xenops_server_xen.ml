@@ -3022,7 +3022,7 @@ module VM = struct
     )
 
   let resume t vm =
-    on_domain t vm (fun xc xs task vm di ->
+    on_domain t vm (fun xc xs task _vm di ->
         let domid = di.Xenctrl.domid in
         let qemu_domid = this_domid ~xs in
         let domain_type =

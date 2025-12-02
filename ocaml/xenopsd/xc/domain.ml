@@ -1364,7 +1364,7 @@ let build (task : Xenops_task.task_handle) ~xc ~xs ~store_domid ~console_domid
   build_post ~xc ~xs ~target_mib ~static_max_mib domid domain_type store_mfn
     store_port local_stuff vm_stuff
 
-let resume_post ~xc ~xs domid =
+let resume_post ~xc:_ ~xs domid =
   let dom_path = xs.Xs.getdomainpath domid in
   let store_mfn_s = xs.Xs.read (dom_path ^ "/store/ring-ref") in
   let store_mfn = Nativeint.of_string store_mfn_s in
