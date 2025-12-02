@@ -1,6 +1,5 @@
 open Thread
 open Rate_limit
-open QCheck
 
 let test_bad_fill_rate () =
   let tb_zero = Token_bucket.create ~burst_size:1.0 ~fill_rate:0.0 in
@@ -374,8 +373,8 @@ let test_consume_quickcheck =
       gen_all
   in
 
-  Test.make ~name:"Consume operations maintain correct token count" ~count:100
-    arb_all (fun (burst, fill, ops) -> property (burst, fill, ops)
+  QCheck.Test.make ~name:"Consume operations maintain correct token count"
+    ~count:100 arb_all (fun (burst, fill, ops) -> property (burst, fill, ops)
   )
 
 let test =
