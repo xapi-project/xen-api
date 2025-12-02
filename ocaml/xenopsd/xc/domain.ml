@@ -908,8 +908,18 @@ let numa_hierarchy =
   lazy
     (let xcext = get_handle () in
      let distances = (numainfo xcext).distances in
-     let cpu_to_node = cputopoinfo xcext |> Array.map (fun t -> t.node) in
-     NUMA.make ~distances ~cpu_to_node
+     let topoinfo = cputopoinfo xcext in
+     let core t = t.core and node t = t.node in
+     let cpu_to_node = topoinfo |> Array.map node
+     and node_cores =
+       let module IntSet = Set.Make (Int) in
+       let a = Array.make (Array.length distances) IntSet.empty in
+       Array.iter
+         (fun t -> a.(node t) <- IntSet.add (core t) a.(node t))
+         topoinfo ;
+       Array.map IntSet.cardinal a
+     in
+     NUMA.make ~distances ~cpu_to_node ~node_cores
     )
 
 let numa_mutex = Mutex.create ()
@@ -935,7 +945,7 @@ let set_affinity = function
   | Xenops_server.Soft ->
       Xenctrlext.vcpu_setaffinity_soft
 
-let numa_placement domid ~vcpus ~memory affinity =
+let numa_placement domid ~vcpus ~cores ~memory affinity =
   let open Xenctrlext in
   let open Topology in
   with_lock numa_mutex (fun () ->
@@ -949,7 +959,7 @@ let numa_placement domid ~vcpus ~memory affinity =
           numa_meminfo
           ~f:(fun node m -> NUMA.resource host node ~memory:m.memfree)
       in
-      let vm = NUMARequest.make ~memory ~vcpus in
+      let vm = NUMARequest.make ~memory ~vcpus ~cores in
       let nodea =
         match !numa_resources with
         | None ->
@@ -1080,16 +1090,17 @@ let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
     match !Xenops_server.numa_placement with
     | Any ->
         None
-    | (Best_effort | Best_effort_hard) as pin ->
+    | (Best_effort | Best_effort_hard | Prio_mem_only) as pin ->
         log_reraise (Printf.sprintf "NUMA placement") (fun () ->
             if hard_affinity <> [] then (
               D.debug "VM has hard affinity set, skipping NUMA optimization" ;
               None
             ) else
-              let affinity =
-                Xenops_server.affinity_of_numa_affinity_policy pin
+              let affinity = Xenops_server.affinity_of_numa_affinity_policy pin
+              and cores =
+                Xenops_server.cores_of_numa_affinity_policy pin ~vcpus
               in
-              numa_placement domid ~vcpus
+              numa_placement domid ~vcpus ~cores
                 ~memory:(Int64.mul memory.xen_max_mib 1048576L)
                 affinity
               |> Option.map fst

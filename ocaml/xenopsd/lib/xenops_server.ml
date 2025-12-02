@@ -3622,10 +3622,17 @@ let string_of_numa_affinity_policy =
       "best-effort"
   | Best_effort_hard ->
       "best-effort-hard"
+  | Prio_mem_only ->
+      "prio-mem-only"
 
 let affinity_of_numa_affinity_policy =
   let open Xenops_interface.Host in
-  function Any | Best_effort -> Soft | Best_effort_hard -> Hard
+  function
+  | Any | Best_effort | Prio_mem_only -> Soft | Best_effort_hard -> Hard
+
+let cores_of_numa_affinity_policy policy ~vcpus =
+  let open Xenops_interface.Host in
+  match policy with Any | Prio_mem_only -> 0 | _ -> vcpus
 
 module HOST = struct
   let stat _ dbg =
