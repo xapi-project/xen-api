@@ -5933,3 +5933,38 @@ let pci_record rpc session_id pci =
           ()
       ]
   }
+
+let rate_limit_record rpc session_id rate_limit =
+  let _ref = ref rate_limit in
+  let empty_record =
+    ToGet (fun () -> Client.Rate_limit.get_record ~rpc ~session_id ~self:!_ref)
+  in
+  let record = ref empty_record in
+  let x () = lzy_get record in
+  {
+    setref=
+      (fun r ->
+        _ref := r ;
+        record := empty_record
+      )
+  ; setrefrec=
+      (fun (a, b) ->
+        _ref := a ;
+        record := Got b
+      )
+  ; record= x
+  ; getref= (fun () -> !_ref)
+  ; fields=
+      [
+        make_field ~name:"uuid" ~get:(fun () -> (x ()).API.rate_limit_uuid) ()
+      ; make_field ~name:"client_id"
+          ~get:(fun () -> (x ()).API.rate_limit_client_id)
+          ()
+      ; make_field ~name:"burst_size"
+          ~get:(fun () -> string_of_float (x ()).API.rate_limit_burst_size)
+          ()
+      ; make_field ~name:"fill_rate"
+          ~get:(fun () -> string_of_float (x ()).API.rate_limit_fill_rate)
+          ()
+      ]
+  }
