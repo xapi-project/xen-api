@@ -258,6 +258,12 @@ def main(argv):
             n += 1
             continue
 
+        if p == "-device":
+            if qemu_args[n + 1].startswith('nvme,'):
+                qemu_args[n + 1] += ',mdts=9'
+            n += 1
+            continue
+
         if p == "-loadvm":
             loadvm_path = qemu_args[n+1]
             incoming_fd = os.open(loadvm_path, os.O_RDONLY)
