@@ -8275,3 +8275,23 @@ module VM_group = struct
     in
     Client.VM_group.destroy ~rpc ~session_id ~self:ref
 end
+
+module Rate_limit = struct
+  let create printer rpc session_id params =
+    let client_id = List.assoc "client-id" params in
+    let burst_size = float_of_string (List.assoc "burst-size" params) in
+    let fill_rate = float_of_string (List.assoc "fill-rate" params) in
+    let ref =
+      Client.Rate_limit.create ~rpc ~session_id ~client_id ~burst_size
+        ~fill_rate
+    in
+    let uuid = Client.Rate_limit.get_uuid ~rpc ~session_id ~self:ref in
+    printer (Cli_printer.PMsg uuid)
+
+  let destroy _printer rpc session_id params =
+    let ref =
+      Client.Rate_limit.get_by_uuid ~rpc ~session_id
+        ~uuid:(List.assoc "uuid" params)
+    in
+    Client.Rate_limit.destroy ~rpc ~session_id ~self:ref
+end
