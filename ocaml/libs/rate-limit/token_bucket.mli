@@ -53,13 +53,15 @@ val consume : t -> float -> bool
      @return Whether the tokens were successfully consumed
    *)
 
-val delay_until_available : t -> float -> float
+val get_delay_until_available : t -> float -> float
 (** Get number of seconds that need to pass until bucket is expected to have
     enough tokens to fulfil the request
     @param tb Token bucket
     @param amount How many tokens we want to consume
     @return Number of seconds until tokens are available
 *)
+
+val delay_then_consume : t -> float -> unit
 
 (**/**)
 
@@ -90,7 +92,7 @@ val consume_with_timestamp : (unit -> Mtime.span) -> t -> float -> bool
      @return Whether the tokens were successfully consumed
    *)
 
-val delay_until_available_timestamp : Mtime.span -> t -> float -> float
+val get_delay_until_available_timestamp : Mtime.span -> t -> float -> float
 (** Get number of seconds that need to pass until bucket is expected to have
     enough tokens to fulfil the request
     @param timestamp
