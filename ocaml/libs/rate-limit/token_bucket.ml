@@ -61,10 +61,19 @@ let consume_with_timestamp get_time tb amount =
 
 let consume = consume_with_timestamp Mtime_clock.elapsed
 
-let delay_until_available_timestamp timestamp tb amount =
+let get_delay_until_available_timestamp timestamp tb amount =
   let current_tokens = peek_with_timestamp timestamp tb in
   let required_tokens = max 0. (amount -. current_tokens) in
   required_tokens /. tb.fill_rate
 
-let delay_until_available tb amount =
-  delay_until_available_timestamp (Mtime_clock.elapsed ()) tb amount
+let get_delay_until_available tb amount =
+  get_delay_until_available_timestamp (Mtime_clock.elapsed ()) tb amount
+
+(* This implementation only works when there is only one thread trying to
+   consume - fairness needs to be implemented on top of it with a queue.
+   If there is no contention, it should only delay once. *)
+let rec delay_then_consume tb amount =
+  if not (consume tb amount) then (
+    Thread.delay (get_delay_until_available tb amount) ;
+    delay_then_consume tb amount
+  )

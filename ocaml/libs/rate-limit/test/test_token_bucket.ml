@@ -218,7 +218,7 @@ let test_delay_until_available () =
   in
 
   let delay =
-    Token_bucket.delay_until_available_timestamp initial_time tb 4.0
+    Token_bucket.get_delay_until_available_timestamp initial_time tb 4.0
   in
   Alcotest.(check (float 0.01))
     "Delay for 4 tokens at 2 tokens/sec should be 2 seconds" 2.0 delay ;
@@ -227,7 +227,7 @@ let test_delay_until_available () =
     Option.get (Token_bucket.create ~burst_size:10.0 ~fill_rate:2.0)
   in
   let _ = Token_bucket.consume tb_fresh 10.0 in
-  let delay_system = Token_bucket.delay_until_available tb_fresh 4.0 in
+  let delay_system = Token_bucket.get_delay_until_available tb_fresh 4.0 in
 
   Alcotest.(check (float 0.1))
     "System time delay should be approximately 2 seconds" 2.0 delay_system
