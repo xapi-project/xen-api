@@ -189,26 +189,28 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
           Rate_limit.Bucket_table.peek Xapi_rate_limit.bucket_table ~user_agent
       )
     in
-    ( match user_agent_option with
+    let callback () =
+      match sync_ty with
+      | `Sync ->
+          sync ()
+      | `Async ->
+          let need_complete = not (Context.forwarded_task __context) in
+          async ~need_complete
+      | `InternalAsync ->
+          async ~need_complete:true
+    in
+    match user_agent_option with
     | Some user_agent ->
         D.debug
           "Bucket table: Expecting to consume %f tokens from user_agent %s"
           (Option.value peek_result ~default:0.)
           user_agent ;
-        Rate_limit.Bucket_table.consume_and_block Xapi_rate_limit.bucket_table
+        Rate_limit.Bucket_table.submit_sync Xapi_rate_limit.bucket_table
           ~user_agent:(Option.value http_req.user_agent ~default:"")
-          1.
+          ~callback 1.
     | None ->
-        D.debug "Bucket table: user_agent was None, not throttling"
-    ) ;
-    match sync_ty with
-    | `Sync ->
-        sync ()
-    | `Async ->
-        let need_complete = not (Context.forwarded_task __context) in
-        async ~need_complete
-    | `InternalAsync ->
-        async ~need_complete:true
+        D.debug "Bucket table: user_agent was None, not throttling" ;
+        callback ()
 
 (* regardless of forwarding, we are expected to complete the task *)
 

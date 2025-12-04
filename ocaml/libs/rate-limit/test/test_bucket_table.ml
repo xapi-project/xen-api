@@ -106,25 +106,97 @@ let test_multiple_agents () =
     "Agent2 tokens unchanged" (Some 20.0)
     (Bucket_table.peek table ~user_agent:"agent2")
 
-let test_consume_and_block () =
+let test_submit () =
   let table = Bucket_table.create () in
   let _ =
     Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
       ~fill_rate:10.0
   in
   let _ = Bucket_table.try_consume table ~user_agent:"agent1" 10.0 in
+  let executed = ref false in
   let start_counter = Mtime_clock.counter () in
-  Bucket_table.consume_and_block table ~user_agent:"agent1" 5.0 ;
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> executed := true)
+    5.0 ;
   let elapsed_span = Mtime_clock.count start_counter in
   let elapsed_seconds = Mtime.Span.to_float_ns elapsed_span *. 1e-9 in
-  Alcotest.(check (float 0.1))
-    "consume_and_block should wait for tokens" elapsed_seconds 0.5
+  (* submit should return immediately (non-blocking) *)
+  Alcotest.(check bool) "submit returns immediately" true (elapsed_seconds < 0.1) ;
+  (* Wait for callback to be executed by worker *)
+  Thread.delay 0.6 ;
+  Alcotest.(check bool) "callback eventually executed" true !executed
 
-let test_consume_and_block_nonexistent () =
+let test_submit_nonexistent () =
   let table = Bucket_table.create () in
-  Bucket_table.consume_and_block table ~user_agent:"nonexistent" 1.0 ;
-  Alcotest.(check pass)
-    "consume_and_block on nonexistent bucket should not block" () ()
+  let executed = ref false in
+  Bucket_table.submit table ~user_agent:"nonexistent"
+    ~callback:(fun () -> executed := true)
+    1.0 ;
+  Alcotest.(check bool)
+    "submit on nonexistent bucket runs callback immediately" true !executed
+
+let test_submit_fairness () =
+  (* Test that callbacks are executed in FIFO order regardless of token cost *)
+  let table = Bucket_table.create () in
+  let _ =
+    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:5.0
+      ~fill_rate:5.0
+  in
+  (* Drain the bucket *)
+  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  let execution_order = ref [] in
+  let order_mutex = Mutex.create () in
+  let record_execution id =
+    Mutex.lock order_mutex ;
+    execution_order := id :: !execution_order ;
+    Mutex.unlock order_mutex
+  in
+  (* Submit callbacks with varying costs - order should be preserved *)
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> record_execution 1)
+    1.0 ;
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> record_execution 2)
+    3.0 ;
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> record_execution 3)
+    1.0 ;
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> record_execution 4)
+    2.0 ;
+  (* Wait for all callbacks to complete (total cost = 7 tokens, rate = 5/s) *)
+  Thread.delay 2.0 ;
+  let order = List.rev !execution_order in
+  Alcotest.(check (list int))
+    "callbacks execute in FIFO order" [1; 2; 3; 4] order
+
+let test_submit_sync () =
+  let table = Bucket_table.create () in
+  let _ =
+    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:10.0
+      ~fill_rate:10.0
+  in
+  (* Test 1: Returns callback result immediately when tokens available *)
+  let result =
+    Bucket_table.submit_sync table ~user_agent:"agent1"
+      ~callback:(fun () -> 42)
+      5.0
+  in
+  Alcotest.(check int) "returns callback result" 42 result ;
+  (* Test 2: Blocks and waits for tokens, then returns result *)
+  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  (* drain bucket *)
+  let start_counter = Mtime_clock.counter () in
+  let result2 =
+    Bucket_table.submit_sync table ~user_agent:"agent1"
+      ~callback:(fun () -> "hello")
+      5.0
+  in
+  let elapsed_span = Mtime_clock.count start_counter in
+  let elapsed_seconds = Mtime.Span.to_float_ns elapsed_span *. 1e-9 in
+  Alcotest.(check string) "returns string result" "hello" result2 ;
+  Alcotest.(check bool)
+    "blocked waiting for tokens" true (elapsed_seconds >= 0.4)
 
 let test_add_same_key_race () =
   (* Test the check-then-act race in add_bucket.
@@ -318,8 +390,10 @@ let test =
   ; ("Try consume nonexistent", `Quick, test_try_consume_nonexistent)
   ; ("Peek nonexistent", `Quick, test_peek_nonexistent)
   ; ("Multiple agents", `Quick, test_multiple_agents)
-  ; ("Consume and block", `Slow, test_consume_and_block)
-  ; ("Consume and block nonexistent", `Quick, test_consume_and_block_nonexistent)
+  ; ("Submit", `Slow, test_submit)
+  ; ("Submit nonexistent", `Quick, test_submit_nonexistent)
+  ; ("Submit fairness", `Slow, test_submit_fairness)
+  ; ("Submit sync", `Slow, test_submit_sync)
   ; ("Add same key race", `Quick, test_add_same_key_race)
   ; ("Concurrent add/delete stress", `Quick, test_concurrent_add_delete_stress)
   ; ("Consume during delete race", `Quick, test_consume_during_delete_race)

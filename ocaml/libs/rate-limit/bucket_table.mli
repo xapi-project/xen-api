@@ -35,6 +35,13 @@ val try_consume : t -> user_agent:string -> float -> bool
 (** [try_consume table ~user_agent amount] attempts to consume tokens.
     Returns [true] on success, [false] if insufficient tokens. *)
 
-val consume_and_block : t -> user_agent:string -> float -> unit
-(** [consume_and_block table ~user_agent amount] consumes tokens, blocking
-    until sufficient tokens are available. *)
+val submit : t -> user_agent:string -> callback:(unit -> unit) -> float -> unit
+(** [submit table ~user_agent ~callback amount] submits a callback to be executed
+    under rate limiting. If tokens are immediately available and no callbacks are
+    queued, the callback runs synchronously. Otherwise, it is enqueued and will
+    be executed by a worker thread when tokens become available. Returns immediately. *)
+
+val submit_sync : t -> user_agent:string -> callback:(unit -> 'a) -> float -> 'a
+(** [submit_sync table ~user_agent ~callback amount] submits a callback to be
+    executed under rate limiting and blocks until it completes, returning the
+    callback's result. *)
