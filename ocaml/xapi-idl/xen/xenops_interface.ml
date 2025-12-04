@@ -855,6 +855,10 @@ module XenopsAPI (R : RPC) = struct
       declare "VM.resume" []
         (debug_info_p @-> vm_id_p @-> disk_p @-> returning task_id_p err)
 
+    let fast_resume =
+      declare "VM.fast_resume" []
+        (debug_info_p @-> vm_id_p @-> returning task_id_p err)
+
     let s3suspend =
       declare "VM.s3suspend" []
         (debug_info_p @-> vm_id_p @-> returning task_id_p err)
