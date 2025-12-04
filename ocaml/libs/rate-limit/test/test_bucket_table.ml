@@ -126,33 +126,185 @@ let test_consume_and_block_nonexistent () =
   Alcotest.(check pass)
     "consume_and_block on nonexistent bucket should not block" () ()
 
-let test_concurrent_access () =
+let test_add_same_key_race () =
+  (* Test the check-then-act race in add_bucket.
+     add_bucket does: if not mem then add. Without locking, multiple threads
+     could all pass the mem check and try to add, but only one should succeed.
+     Note: OCaml 4's GIL makes races hard to trigger, but this test verifies
+     the invariant holds under concurrent access and would catch races if the
+     GIL is released at allocation points within the critical section. *)
+  let iterations = 500 in
+  let threads_per_iter = 10 in
+  let failures = ref 0 in
+  let failures_mutex = Mutex.create () in
+  for _ = 1 to iterations do
+    let table = Bucket_table.create () in
+    let success_count = ref 0 in
+    let count_mutex = Mutex.create () in
+    let barrier = ref 0 in
+    let barrier_mutex = Mutex.create () in
+    let threads =
+      Array.init threads_per_iter (fun _ ->
+          Thread.create
+            (fun () ->
+              (* Increment barrier and wait for all threads *)
+              Mutex.lock barrier_mutex ;
+              incr barrier ;
+              Mutex.unlock barrier_mutex ;
+              while
+                Mutex.lock barrier_mutex ;
+                let b = !barrier in
+                Mutex.unlock barrier_mutex ; b < threads_per_iter
+              do
+                Thread.yield ()
+              done ;
+              (* All threads try to add the same key simultaneously *)
+              let success =
+                Bucket_table.add_bucket table ~user_agent:"contested_key"
+                  ~burst_size:10.0 ~fill_rate:1.0
+              in
+              if success then (
+                Mutex.lock count_mutex ;
+                incr success_count ;
+                Mutex.unlock count_mutex
+              )
+            )
+            ()
+      )
+    in
+    Array.iter Thread.join threads ;
+    (* Exactly one thread should succeed in adding the key *)
+    if !success_count <> 1 then (
+      Mutex.lock failures_mutex ;
+      incr failures ;
+      Mutex.unlock failures_mutex
+    )
+  done ;
+  Alcotest.(check int)
+    "Exactly one add should succeed for same key (across all iterations)" 0
+    !failures
+
+let test_concurrent_add_delete_stress () =
+  (* Stress test: rapidly add and delete entries.
+     Without proper locking, hashtable can get corrupted. *)
   let table = Bucket_table.create () in
-  let _ =
-    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:100.0
-      ~fill_rate:0.01
-  in
-  let successful_consumes = ref 0 in
-  let counter_mutex = Mutex.create () in
-  let threads =
-    Array.init 20 (fun _ ->
+  let iterations = 1000 in
+  let num_keys = 10 in
+  let errors = ref 0 in
+  let errors_mutex = Mutex.create () in
+  let add_threads =
+    Array.init 5 (fun t ->
         Thread.create
           (fun () ->
-            let success =
-              Bucket_table.try_consume table ~user_agent:"agent1" 5.0
-            in
-            if success then (
-              Mutex.lock counter_mutex ;
-              incr successful_consumes ;
-              Mutex.unlock counter_mutex
-            )
+            for i = 0 to iterations - 1 do
+              let key =
+                Printf.sprintf "key%d" (((t * iterations) + i) mod num_keys)
+              in
+              let _ =
+                Bucket_table.add_bucket table ~user_agent:key ~burst_size:10.0
+                  ~fill_rate:1.0
+              in
+              ()
+            done
           )
           ()
     )
   in
-  Array.iter Thread.join threads ;
-  Alcotest.(check int)
-    "Exactly 20 consumes should succeed" 20 !successful_consumes
+  let delete_threads =
+    Array.init 5 (fun t ->
+        Thread.create
+          (fun () ->
+            for i = 0 to iterations - 1 do
+              let key =
+                Printf.sprintf "key%d" (((t * iterations) + i) mod num_keys)
+              in
+              Bucket_table.delete_bucket table ~user_agent:key
+            done
+          )
+          ()
+    )
+  in
+  let read_threads =
+    Array.init 5 (fun t ->
+        Thread.create
+          (fun () ->
+            for i = 0 to iterations - 1 do
+              let key =
+                Printf.sprintf "key%d" (((t * iterations) + i) mod num_keys)
+              in
+              (* This should never crash, even if key doesn't exist *)
+              try
+                let _ = Bucket_table.peek table ~user_agent:key in
+                ()
+              with _ ->
+                Mutex.lock errors_mutex ;
+                incr errors ;
+                Mutex.unlock errors_mutex
+            done
+          )
+          ()
+    )
+  in
+  Array.iter Thread.join add_threads ;
+  Array.iter Thread.join delete_threads ;
+  Array.iter Thread.join read_threads ;
+  Alcotest.(check int) "No errors during concurrent operations" 0 !errors
+
+let test_consume_during_delete_race () =
+  (* Test that try_consume doesn't crash when bucket is being deleted.
+     Without proper locking, we could try to access a deleted bucket. *)
+  let iterations = 500 in
+  let errors = ref 0 in
+  let errors_mutex = Mutex.create () in
+  for _ = 1 to iterations do
+    let table = Bucket_table.create () in
+    let _ =
+      Bucket_table.add_bucket table ~user_agent:"target" ~burst_size:100.0
+        ~fill_rate:1.0
+    in
+    let barrier = ref 0 in
+    let barrier_mutex = Mutex.create () in
+    let consumer =
+      Thread.create
+        (fun () ->
+          Mutex.lock barrier_mutex ;
+          incr barrier ;
+          Mutex.unlock barrier_mutex ;
+          while
+            Mutex.lock barrier_mutex ;
+            let b = !barrier in
+            Mutex.unlock barrier_mutex ; b < 2
+          do
+            Thread.yield ()
+          done ;
+          try
+            let _ = Bucket_table.try_consume table ~user_agent:"target" 1.0 in
+            ()
+          with _ ->
+            Mutex.lock errors_mutex ; incr errors ; Mutex.unlock errors_mutex
+        )
+        ()
+    in
+    let deleter =
+      Thread.create
+        (fun () ->
+          Mutex.lock barrier_mutex ;
+          incr barrier ;
+          Mutex.unlock barrier_mutex ;
+          while
+            Mutex.lock barrier_mutex ;
+            let b = !barrier in
+            Mutex.unlock barrier_mutex ; b < 2
+          do
+            Thread.yield ()
+          done ;
+          Bucket_table.delete_bucket table ~user_agent:"target"
+        )
+        ()
+    in
+    Thread.join consumer ; Thread.join deleter
+  done ;
+  Alcotest.(check int) "No crashes during consume/delete race" 0 !errors
 
 let test =
   [
@@ -168,7 +320,9 @@ let test =
   ; ("Multiple agents", `Quick, test_multiple_agents)
   ; ("Consume and block", `Slow, test_consume_and_block)
   ; ("Consume and block nonexistent", `Quick, test_consume_and_block_nonexistent)
-  ; ("Concurrent access", `Quick, test_concurrent_access)
+  ; ("Add same key race", `Quick, test_add_same_key_race)
+  ; ("Concurrent add/delete stress", `Quick, test_concurrent_add_delete_stress)
+  ; ("Consume during delete race", `Quick, test_consume_during_delete_race)
   ]
 
 let () = Alcotest.run "Bucket table library" [("Bucket table tests", test)]

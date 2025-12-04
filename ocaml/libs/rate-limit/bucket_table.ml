@@ -12,33 +12,75 @@
  * GNU Lesser General Public License for more details.
  *)
 
-type t = (string, Token_bucket.t) Hashtbl.t
+type t = {
+    table: (string, Token_bucket.t) Hashtbl.t
+  ; mutable readers: int
+  ; reader_count: Mutex.t (* protects readers count *)
+  ; resource: Mutex.t (* held collectively by readers, exclusively by writers *)
+}
 
-let create () = Hashtbl.create 16
+let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let add_bucket table ~user_agent ~burst_size ~fill_rate =
-  let bucket_option = Token_bucket.create ~burst_size ~fill_rate in
-  match bucket_option with
-  | Some bucket ->
-      Hashtbl.replace table user_agent bucket ;
-      true
-  | None ->
-      false
+let with_read_lock t f =
+  with_lock t.reader_count (fun () ->
+      t.readers <- t.readers + 1 ;
+      if t.readers = 1 then Mutex.lock t.resource
+  ) ;
+  Fun.protect f ~finally:(fun () ->
+      with_lock t.reader_count (fun () ->
+          t.readers <- t.readers - 1 ;
+          if t.readers = 0 then Mutex.unlock t.resource
+      )
+  )
 
-let delete_bucket table ~user_agent = Hashtbl.remove table user_agent
+let with_write_lock t f = with_lock t.resource f
 
-let try_consume table ~user_agent amount =
-  match Hashtbl.find_opt table user_agent with
-  | None ->
-      false
-  | Some bucket ->
-      Token_bucket.consume bucket amount
+let create () =
+  {
+    table= Hashtbl.create 10
+  ; readers= 0
+  ; reader_count= Mutex.create ()
+  ; resource= Mutex.create ()
+  }
 
-let peek table ~user_agent =
-  Option.map Token_bucket.peek (Hashtbl.find_opt table user_agent)
+(* TODO: Indicate failure reason - did we get invalid config or try to add an
+   already present user_agent? *)
+let add_bucket t ~user_agent ~burst_size ~fill_rate =
+  with_write_lock t (fun () ->
+      if Hashtbl.mem t.table user_agent then
+        false
+      else
+        match Token_bucket.create ~burst_size ~fill_rate with
+        | Some bucket ->
+            Hashtbl.add t.table user_agent bucket ;
+            true
+        | None ->
+            false
+  )
 
-let consume_and_block table ~user_agent amount =
-  match Hashtbl.find_opt table user_agent with
+let delete_bucket t ~user_agent =
+  with_write_lock t (fun () -> Hashtbl.remove t.table user_agent)
+
+let try_consume t ~user_agent amount =
+  with_read_lock t (fun () ->
+      match Hashtbl.find_opt t.table user_agent with
+      | None ->
+          false
+      | Some bucket ->
+          Token_bucket.consume bucket amount
+  )
+
+let peek t ~user_agent =
+  with_read_lock t (fun () ->
+      Option.map Token_bucket.peek (Hashtbl.find_opt t.table user_agent)
+  )
+
+(* TODO this has fairness issues - fix with queue or similar *)
+let consume_and_block t ~user_agent amount =
+  let bucket_opt =
+    with_read_lock t (fun () -> Hashtbl.find_opt t.table user_agent)
+  in
+  match bucket_opt with
   | None ->
       ()
   | Some bucket ->
