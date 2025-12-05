@@ -36,6 +36,7 @@ type t
 
 val create : burst_size:float -> fill_rate:float -> t option
 (** Create token bucket with given parameters.
+    Returns None if the fill rate is 0 or negative.
     @param burst_size Maximum number of tokens that can fit in the bucket
     @param fill_rate Number of tokens added to the bucket per second
     *)
@@ -70,6 +71,7 @@ val delay_then_consume : t -> float -> unit
 val create_with_timestamp :
   Mtime.span -> burst_size:float -> fill_rate:float -> t option
 (** Create token bucket with given parameters and supplied inital timestamp
+    Returns None if the fill_rate is 0 or negative.
     @param timestamp Initial timestamp
     @param burst_size Maximum number of tokens that can fit in the bucket
     @param fill_rate Number of tokens added to the bucket per second
@@ -77,7 +79,7 @@ val create_with_timestamp :
 
 val peek_with_timestamp : Mtime.span -> t -> float
 (** Retrieve token amount in token bucket at given timestamp.
-      Undefined behaviour when [timestamp] <= [tb.timestamp]
+    Undefined behaviour when [timestamp] <= [tb.timestamp]
      @param timestamp Current time
      @param tb Token bucket
      @return Amount of tokens in the token bucket
