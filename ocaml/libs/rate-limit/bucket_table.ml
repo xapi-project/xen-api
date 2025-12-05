@@ -23,37 +23,13 @@ type rate_limit_data = {
 }
 [@@warning "-69"]
 
-type t = {
-    table: (string, rate_limit_data) Hashtbl.t
-  ; mutable readers: int
-  ; readers_lock: Mutex.t (* protects readers count *)
-  ; table_lock: Mutex.t
-        (* held collectively by readers, exclusively by writers *)
-}
+module StringMap = Map.Make (String)
+
+type t = rate_limit_data StringMap.t Atomic.t
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
 
-let with_read_lock t f =
-  with_lock t.readers_lock (fun () ->
-      t.readers <- t.readers + 1 ;
-      if t.readers = 1 then Mutex.lock t.table_lock
-  ) ;
-  Fun.protect f ~finally:(fun () ->
-      with_lock t.readers_lock (fun () ->
-          t.readers <- t.readers - 1 ;
-          if t.readers = 0 then Mutex.unlock t.table_lock
-      )
-  )
-
-let with_write_lock t f = with_lock t.table_lock f
-
-let create () =
-  {
-    table= Hashtbl.create 10
-  ; readers= 0
-  ; readers_lock= Mutex.create ()
-  ; table_lock= Mutex.create ()
-  }
+let create () = Atomic.make StringMap.empty
 
 (* The worker thread is responsible for calling the callback when the token
    amount becomes available *)
@@ -81,73 +57,70 @@ let rec worker_loop ~bucket ~process_queue ~process_queue_lock
 (* TODO: Indicate failure reason - did we get invalid config or try to add an
    already present user_agent? *)
 let add_bucket t ~user_agent ~burst_size ~fill_rate =
-  with_write_lock t (fun () ->
-      if Hashtbl.mem t.table user_agent then
+  let map = Atomic.get t in
+  if StringMap.mem user_agent map then
+    false
+  else
+    match Token_bucket.create ~burst_size ~fill_rate with
+    | Some bucket ->
+        let process_queue = Queue.create () in
+        let process_queue_lock = Mutex.create () in
+        let worker_thread_cond = Condition.create () in
+        let should_terminate = ref false in
+        let worker_thread =
+          Thread.create
+            (fun () ->
+              worker_loop ~bucket ~process_queue ~process_queue_lock
+                ~worker_thread_cond ~should_terminate
+            )
+            ()
+        in
+        let data =
+          {
+            bucket
+          ; process_queue
+          ; process_queue_lock
+          ; worker_thread_cond
+          ; should_terminate
+          ; worker_thread
+          }
+        in
+        let updated_map = StringMap.add user_agent data map in
+        Atomic.set t updated_map ; true
+    | None ->
         false
-      else
-        match Token_bucket.create ~burst_size ~fill_rate with
-        | Some bucket ->
-            let process_queue = Queue.create () in
-            let process_queue_lock = Mutex.create () in
-            let worker_thread_cond = Condition.create () in
-            let should_terminate = ref false in
-            let worker_thread =
-              Thread.create
-                (fun () ->
-                  worker_loop ~bucket ~process_queue ~process_queue_lock
-                    ~worker_thread_cond ~should_terminate
-                )
-                ()
-            in
-            let data =
-              {
-                bucket
-              ; process_queue
-              ; process_queue_lock
-              ; worker_thread_cond
-              ; should_terminate
-              ; worker_thread
-              }
-            in
-            Hashtbl.add t.table user_agent data ;
-            true
-        | None ->
-            false
-  )
 
 let delete_bucket t ~user_agent =
-  with_write_lock t (fun () ->
-      match Hashtbl.find_opt t.table user_agent with
-      | None ->
-          ()
-      | Some data ->
-          Mutex.lock data.process_queue_lock ;
-          data.should_terminate := true ;
-          Condition.signal data.worker_thread_cond ;
-          Mutex.unlock data.process_queue_lock ;
-          Hashtbl.remove t.table user_agent
-  )
+  let map = Atomic.get t in
+  match StringMap.find_opt user_agent map with
+  | None ->
+      ()
+  | Some data ->
+      Mutex.lock data.process_queue_lock ;
+      data.should_terminate := true ;
+      Condition.signal data.worker_thread_cond ;
+      Mutex.unlock data.process_queue_lock ;
+      Atomic.set t (StringMap.remove user_agent map)
 
 let try_consume t ~user_agent amount =
-  with_read_lock t (fun () ->
-      match Hashtbl.find_opt t.table user_agent with
-      | None ->
-          false
-      | Some data ->
-          Token_bucket.consume data.bucket amount
-  )
+  let map = Atomic.get t in
+  match StringMap.find_opt user_agent map with
+  | None ->
+      false
+  | Some data ->
+      Token_bucket.consume data.bucket amount
 
 let peek t ~user_agent =
-  with_read_lock t (fun () ->
-      Option.map
-        (fun contents -> Token_bucket.peek contents.bucket)
-        (Hashtbl.find_opt t.table user_agent)
-  )
+  let map = Atomic.get t in
+  Option.map
+    (fun contents -> Token_bucket.peek contents.bucket)
+    (StringMap.find_opt user_agent map)
 
 (* The callback should return quickly - if it is a longer task it is
    responsible for creating a thread to do the task *)
 let submit t ~user_agent ~callback amount =
-  match with_read_lock t (fun () -> Hashtbl.find_opt t.table user_agent) with
+  let map = Atomic.get t in
+  match StringMap.find_opt user_agent map with
   | None ->
       callback ()
   | Some {bucket; process_queue; process_queue_lock; worker_thread_cond; _} ->
