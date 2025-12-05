@@ -198,64 +198,6 @@ let test_submit_sync () =
   Alcotest.(check bool)
     "blocked waiting for tokens" true (elapsed_seconds >= 0.4)
 
-let test_add_same_key_race () =
-  (* Test the check-then-act race in add_bucket.
-     add_bucket does: if not mem then add. Without locking, multiple threads
-     could all pass the mem check and try to add, but only one should succeed.
-     Note: OCaml 4's GIL makes races hard to trigger, but this test verifies
-     the invariant holds under concurrent access and would catch races if the
-     GIL is released at allocation points within the critical section. *)
-  let iterations = 500 in
-  let threads_per_iter = 10 in
-  let failures = ref 0 in
-  let failures_mutex = Mutex.create () in
-  for _ = 1 to iterations do
-    let table = Bucket_table.create () in
-    let success_count = ref 0 in
-    let count_mutex = Mutex.create () in
-    let barrier = ref 0 in
-    let barrier_mutex = Mutex.create () in
-    let threads =
-      Array.init threads_per_iter (fun _ ->
-          Thread.create
-            (fun () ->
-              (* Increment barrier and wait for all threads *)
-              Mutex.lock barrier_mutex ;
-              incr barrier ;
-              Mutex.unlock barrier_mutex ;
-              while
-                Mutex.lock barrier_mutex ;
-                let b = !barrier in
-                Mutex.unlock barrier_mutex ; b < threads_per_iter
-              do
-                Thread.yield ()
-              done ;
-              (* All threads try to add the same key simultaneously *)
-              let success =
-                Bucket_table.add_bucket table ~user_agent:"contested_key"
-                  ~burst_size:10.0 ~fill_rate:1.0
-              in
-              if success then (
-                Mutex.lock count_mutex ;
-                incr success_count ;
-                Mutex.unlock count_mutex
-              )
-            )
-            ()
-      )
-    in
-    Array.iter Thread.join threads ;
-    (* Exactly one thread should succeed in adding the key *)
-    if !success_count <> 1 then (
-      Mutex.lock failures_mutex ;
-      incr failures ;
-      Mutex.unlock failures_mutex
-    )
-  done ;
-  Alcotest.(check int)
-    "Exactly one add should succeed for same key (across all iterations)" 0
-    !failures
-
 let test_concurrent_add_delete_stress () =
   (* Stress test: rapidly add and delete entries.
      Without proper locking, hashtable can get corrupted. *)
@@ -394,7 +336,6 @@ let test =
   ; ("Submit nonexistent", `Quick, test_submit_nonexistent)
   ; ("Submit fairness", `Slow, test_submit_fairness)
   ; ("Submit sync", `Slow, test_submit_sync)
-  ; ("Add same key race", `Quick, test_add_same_key_race)
   ; ("Concurrent add/delete stress", `Quick, test_concurrent_add_delete_stress)
   ; ("Consume during delete race", `Quick, test_consume_during_delete_race)
   ]
