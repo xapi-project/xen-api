@@ -11154,6 +11154,10 @@ let http_actions =
   ; ("put_bundle", (Put, Constants.put_bundle_uri, true, [], _R_POOL_OP, []))
   ]
 
+(* Actions that incorporate the rate limiter from Xapi_rate_limiting within their handler
+   For now, just RPC calls *)
+let custom_rate_limit_http_actions = ["post_root"; "post_RPC2"; "post_jsonrpc"]
+
 (* these public http actions will NOT be checked by RBAC *)
 (* they are meant to be used in exceptional cases where RBAC is already *)
 (* checked inside them, such as in the XMLRPC (API) calls *)
