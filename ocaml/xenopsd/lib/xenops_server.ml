@@ -3240,7 +3240,7 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
               vm.Vm.on_crash
         | Some Needs_suspend ->
             warn "VM %s has unexpectedly suspended" id ;
-            [Vm.Shutdown]
+            [Vm.Recover]
         | Some Needs_softreset ->
             vm.Vm.on_softreboot
         | None ->
@@ -3252,6 +3252,12 @@ and perform_exn ?result (op : operation) (t : Xenops_task.task_handle) : unit =
             []
         | Vm.Shutdown ->
             [VM_shutdown (id, None)]
+        | Vm.Recover ->
+            [VM_shutdown (id, None)]
+            (* This could instead try to recover the device model and
+               fast-resume the VM. Recovery of the device model is the^
+               difficult part. As part of it, qemu must be unpaused.
+            *)
         | Vm.Start ->
             let delay =
               if run_time < B.VM.minimum_reboot_delay then (
