@@ -351,7 +351,17 @@ let add_handler (name, handler) =
       failwith (Printf.sprintf "Unregistered HTTP handler: %s" name)
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
-  let h req ic context =
+  let rate_limit user_agent_opt handler =
+    if List.mem name Datamodel.custom_rate_limit_http_actions then
+      match user_agent_opt with
+      | None ->
+          handler ()
+      | Some user_agent ->
+          debug "Rate limiting handler %s with user_agent %s" name user_agent ;
+          Rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
+            ~user_agent ~callback:handler 1.0
+  in
+  let h req ic () =
     let client =
       Http_svr.(client_of_req_and_fd req ic |> Option.map string_of_client)
     in
@@ -361,15 +371,13 @@ let add_handler (name, handler) =
           if check_rbac then (
             try
               (* session and rbac checks *)
-              assert_credentials_ok name req
-                ~fn:(fun () -> handler req ic context)
-                ic
+              assert_credentials_ok name req ~fn:(handler req ic) ic
             with e ->
               debug "Leaving RBAC-handler in xapi_http after: %s"
                 (ExnHelper.string_of_exn e) ;
               raise e
           ) else (* no rbac checks *)
-            handler req ic context
+            rate_limit req.user_agent (handler req ic)
         with Api_errors.Server_error (name, params) as e ->
           error "Unhandled Api_errors.Server_error(%s, [ %s ])" name
             (String.concat "; " params) ;
