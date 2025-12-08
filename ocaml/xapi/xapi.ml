@@ -1115,10 +1115,6 @@ let server_init () =
             , fun () ->
                 List.iter Xapi_http.add_handler master_only_http_handlers
             )
-          ; ( "Registering rate limits"
-            , [Startup.OnlyMaster]
-            , fun () -> Xapi_rate_limit.register_xapi_globs ()
-            )
           ; ( "Listening unix socket"
             , []
             , fun () -> listen_unix_socket Xapi_globs.unix_domain_socket
@@ -1170,6 +1166,10 @@ let server_init () =
           ; ( "Update database state of TLS verification"
             , []
             , fun () -> report_tls_verification ~__context
+            )
+          ; ( "Registering rate limits"
+            , [Startup.OnlyMaster]
+            , fun () -> Xapi_rate_limit.register ~__context
             )
           ; ( "Remote requests"
             , [Startup.OnThread]

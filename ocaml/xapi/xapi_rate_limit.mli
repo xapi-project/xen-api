@@ -23,4 +23,5 @@ val create :
 
 val destroy : __context:Context.t -> self:[`Rate_limit] API.Ref.t -> unit
 
-val register_xapi_globs : unit -> unit
+val register : __context:Context.t -> unit
+(** Create token buckets in the bucket table for each record in the database *)
