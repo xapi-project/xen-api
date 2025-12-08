@@ -1,0 +1,7 @@
+(library
+ (name rate_limit)
+ (public_name rate-limit)
+ (libraries threads.posix mtime mtime.clock.os xapi-log xapi-stdext-threads clock)
+)
+
+

@@ -10535,6 +10535,7 @@ let all_system =
   ; Datamodel_vm_group.t
   ; Datamodel_host_driver.t
   ; Datamodel_driver_variant.t
+  ; Datamodel_rate_limit.t
   ]
 
 (* If the relation is one-to-many, the "many" nodes (one edge each) must come before the "one" node (many edges) *)
@@ -10786,6 +10787,7 @@ let expose_get_all_messages_for =
   ; _observer
   ; _host_driver
   ; _driver_variant
+  ; _rate_limit
   ]
 
 let no_task_id_for = [_task; (* _alert; *) _event]
@@ -11141,6 +11143,10 @@ let http_actions =
     )
   ; ("put_bundle", (Put, Constants.put_bundle_uri, true, [], _R_POOL_OP, []))
   ]
+
+(* Actions that incorporate the rate limiter from Xapi_rate_limiting within their handler
+   For now, just RPC calls *)
+let custom_rate_limit_http_actions = ["post_root"; "post_RPC2"; "post_jsonrpc"]
 
 (* these public http actions will NOT be checked by RBAC *)
 (* they are meant to be used in exceptional cases where RBAC is already *)
