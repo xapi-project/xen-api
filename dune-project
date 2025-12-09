@@ -361,6 +361,7 @@
   ; because it is not in xs-opam yet
   rrd-transport
   rrdd-plugin
+  xapi-stdext-std
   xapi-tracing-export
   xen-api-client
   (alcotest :with-test)

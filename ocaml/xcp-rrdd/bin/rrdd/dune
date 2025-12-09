@@ -28,6 +28,7 @@
     xapi-rrd
     xapi-rrd.unix
     rrdd_libs
+    xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
     xmlm
