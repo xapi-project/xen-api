@@ -16,6 +16,7 @@
     xapi-idl.network
     xapi-inventory
     xapi-log
+    xapi-stdext-std
     xapi-stdext-threads
     xapi-stdext-unix
     xml-light2

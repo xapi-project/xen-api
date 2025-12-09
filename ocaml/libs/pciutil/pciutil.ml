@@ -65,7 +65,7 @@ let parse vendor device =
   access_list
     ["/usr/share/hwdata/pci.ids"; "/usr/share/misc/pci.ids"]
     [Unix.R_OK]
-  |> Fun.flip List.nth_opt 0
+  |> Xapi_stdext_std.Listext.List.head
   |> Option.map (fun path -> parse_from path vendor device)
   |> function
   | Some vd ->
