@@ -55,7 +55,7 @@ let choose connections =
       Some most_recent
 
 let preferred_write_db () =
-  List.nth_opt (Db_conn_store.read_db_connections ()) 0
+  Xapi_stdext_std.Listext.List.head (Db_conn_store.read_db_connections ())
 
 (* !!! FIX ME *)
 

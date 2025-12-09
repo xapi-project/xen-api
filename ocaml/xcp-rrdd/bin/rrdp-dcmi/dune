@@ -8,6 +8,7 @@
     xapi-idl.rrd
     xapi-log
     xapi-rrd
+    xapi-stdext-std
     astring
   )
 )
