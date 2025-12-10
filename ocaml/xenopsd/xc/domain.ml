@@ -992,7 +992,19 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
             None
       in
       let nr_pages = Int64.div memory 4096L |> Int64.to_int in
-      try
+      let reset_affinity () =
+        let all_cpus = NUMA.all_cpus host in
+        D.debug
+          "%s: resetting vcpu affinity for domain %d to all CPUs: %s"
+          __FUNCTION__ domid
+          (Fmt.to_to_string CPUSet.pp_dump all_cpus) ;
+        let all_cpus_mask = CPUSet.to_mask all_cpus in
+        for i = 0 to vcpus - 1 do
+          set_affinity affinity xcext domid i all_cpus_mask
+        done
+      in
+      let on_none f opt = if Option.is_none opt then f () ; opt in
+      (try
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
         Some (node, memory)
       with
@@ -1007,6 +1019,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
             __FUNCTION__ domid
             Unix.(error_message errno) ;
           None
+      ) |> on_none reset_affinity
   )
 
 let build_pre ~xc ~xs ~vcpus ~memory ~hard_affinity domid =
