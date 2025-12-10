@@ -586,6 +586,7 @@
   (depends
     qcow-stream
     cmdliner
+    yojson
   )
 )
 
