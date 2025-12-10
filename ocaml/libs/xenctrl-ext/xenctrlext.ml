@@ -141,7 +141,7 @@ module DomainNuma = struct
 
   external domain_get_numa_info_node_pages :
     handle -> int -> domain_numainfo_node_pages
-    = "stub_xc_domain_numa_get_node_pages"
+    = "stub_xc_domain_numa_get_node_pages_wrapper"
 
   type t = {optimised: bool; nodes: int; memory: int64 array (* bytes *)}
 
