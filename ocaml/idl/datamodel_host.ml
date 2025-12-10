@@ -1398,6 +1398,14 @@ let create_params =
     ; param_release= numbered_release "25.32.0-next"
     ; param_default= Some (VMap [])
     }
+  ; {
+      param_type= Bool
+    ; param_name= "https_only"
+    ; param_doc=
+        "updates firewall to open or close port 80 depending on the value"
+    ; param_release= numbered_release "25.38.0-next"
+    ; param_default= Some (VBool false)
+    }
   ]
 
 let create =
@@ -1416,6 +1424,7 @@ let create =
            --console_idle_timeout --ssh_auto_mode options to allow them to be \
            configured for new host"
         )
+      ; (Changed, "25.38.0-next", "Added --https_only to disable http")
       ]
     ~versioned_params:create_params ~doc:"Create a new host record"
     ~result:(Ref _host, "Reference to the newly created host object.")

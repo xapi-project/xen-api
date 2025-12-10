@@ -138,6 +138,7 @@ val create :
   -> ssh_auto_mode:bool
   -> secure_boot:bool
   -> software_version:(string * string) list
+  -> https_only:bool
   -> [`host] Ref.t
 
 val destroy : __context:Context.t -> self:API.ref_host -> unit

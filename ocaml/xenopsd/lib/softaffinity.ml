@@ -39,7 +39,7 @@ let plan host nodes ~vm =
       (Fmt.to_to_string NUMAResource.pp_dump allocated)
       (Fmt.to_to_string NUMARequest.pp_dump remaining)
       avg ;
-    if remaining.NUMARequest.memory > 0L || remaining.NUMARequest.vcpus > 0 then
+    if not (NUMARequest.fits remaining NUMAResource.empty) then
       (* [vm] doesn't fit on these nodes *)
       None
     else

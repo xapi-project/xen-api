@@ -149,7 +149,7 @@ let test_rpu_suppression () =
   let __context, calls, host1, host2, watcher, token =
     setup_test_oc_watcher ()
   in
-  let pool = Db.Pool.get_all ~__context |> List.hd in
+  let pool = Helpers.get_pool ~__context in
   Db.Pool.add_to_other_config ~__context ~self:pool
     ~key:Xapi_globs.rolling_upgrade_in_progress ~value:"true" ;
   Db.Host.set_multipathing ~__context ~self:host1 ~value:false ;

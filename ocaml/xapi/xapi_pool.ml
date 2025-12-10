@@ -1033,6 +1033,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           create_or_get_sr_on_master __context rpc session_id
             (my_local_cache_sr, my_local_cache_sr_rec)
       in
+
       debug "Creating host object on master" ;
       let ref =
         Client.Host.create ~rpc ~session_id ~uuid:my_uuid
@@ -1060,6 +1061,7 @@ let rec create_or_get_host_on_master __context rpc session_id (host_ref, host) :
           ~ssh_auto_mode:host.API.host_ssh_auto_mode
           ~secure_boot:host.API.host_secure_boot
           ~software_version:host.API.host_software_version
+          ~https_only:host.API.host_https_only
       in
       (* Copy other-config into newly created host record: *)
       no_exn

@@ -61,7 +61,7 @@ let pool_patch_upload_handler (req : Http.Request.t) s _ =
             | Some _ ->
                 query (* There was already an SR specified *)
             | None ->
-                let pool = Db.Pool.get_all ~__context |> List.hd in
+                let pool = Helpers.get_pool ~__context in
                 let default_SR = Db.Pool.get_default_SR ~__context ~self:pool in
                 ("sr_id", Ref.string_of default_SR) :: query
           in

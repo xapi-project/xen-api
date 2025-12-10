@@ -97,6 +97,8 @@ module VM = struct
 
   let restore _ _ _ _ _ _ _ = unimplemented __FUNCTION__
 
+  let resume _ _ = unimplemented __FUNCTION__
+
   let s3suspend _ _ = unimplemented __FUNCTION__
 
   let s3resume _ _ = unimplemented __FUNCTION__

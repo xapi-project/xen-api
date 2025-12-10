@@ -317,6 +317,25 @@ let resume_cmd =
   , Cmd.info "resume" ~sdocs:_common_options ~doc ~man
   )
 
+let fast_resume_cmd =
+  let vm = vm_arg "resumed" in
+  let doc = "fast-resume a VM" in
+  let man =
+    [
+      `S "DESCRIPTION"
+    ; `P "Fast-resume a VM."
+    ; `P
+        {|The suspended domain will be resumed
+          and the VM will be left in a Running state.|}
+    ; `S "ERRORS"
+    ; `P "Something about the current power state."
+    ]
+    @ help
+  in
+  ( Term.(ret (const Xn.fast_resume $ common_options_t $ vm))
+  , Cmd.info "fast-resume" ~sdocs:_common_options ~doc ~man
+  )
+
 let pause_cmd =
   let vm = vm_arg "paused" in
   let doc = "pause a VM" in
@@ -491,6 +510,7 @@ let cmds =
   ; reboot_cmd
   ; suspend_cmd
   ; resume_cmd
+  ; fast_resume_cmd
   ; pause_cmd
   ; unpause_cmd
   ; import_cmd

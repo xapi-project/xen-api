@@ -149,25 +149,27 @@ let find_backend_device path =
         raise Not_found
   with _ -> None
 
-(** [vhd_of_device path] returns (Some vhd) where 'vhd' is the vhd leaf backing a particular device [path] or None.
-    [path] may either be a blktap2 device *or* a blkfront device backed by a blktap2 device. If the latter then
-    the script must be run in the same domain as blkback. *)
-let vhd_of_device path =
+(** [backing_file_of_device path] returns (Some backing_file) where 'backing_file'
+    is the leaf backing a particular device [path] (with a driver of type
+    [driver] or None. [path] may either be a blktap2 device *or* a blkfront
+    device backed by a blktap2 device. If the latter then the script must be
+    run in the same domain as blkback. *)
+let backing_file_of_device path ~driver =
   let tapdisk_of_path path =
     try
       match Tapctl.of_device (Tapctl.create ()) path with
-      | _, _, Some ("vhd", vhd) ->
-          Some vhd
+      | _, _, Some (typ, backing_file) when typ = driver ->
+          Some backing_file
       | _, _, _ ->
           raise Not_found
     with
     | Tapctl.Not_blktap -> (
         debug "Device %s is not controlled by blktap" path ;
-        (* Check if it is a VHD behind a NBD deivce *)
+        (* Check if it is a [driver] behind a NBD device *)
         Stream_vdi.(get_nbd_device path |> image_behind_nbd_device) |> function
-        | Some ("vhd", vhd) ->
-            debug "%s is a VHD behind NBD device %s" vhd path ;
-            Some vhd
+        | Some (typ, backing_file) when typ = driver ->
+            debug "%s is a %s behind NBD device %s" backing_file driver path ;
+            Some backing_file
         | _ ->
             None
       )
@@ -182,6 +184,7 @@ let vhd_of_device path =
 
 let send progress_cb ?relative_to (protocol : string) (dest_format : string)
     (s : Unix.file_descr) (path : string) (size : Int64.t) (prefix : string) =
+  let vhd_of_device = backing_file_of_device ~driver:"vhd" in
   let s' = Uuidx.(to_string (make ())) in
   let source_format, source =
     match (Stream_vdi.get_nbd_device path, vhd_of_device path, relative_to) with

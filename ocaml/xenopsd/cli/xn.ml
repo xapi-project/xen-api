@@ -873,6 +873,15 @@ let suspend _copts disk x =
 
 let suspend copts disk x = diagnose_error (need_vm (suspend copts disk) x)
 
+let fast_resume _copts x =
+  let open Vm in
+  let vm, _ = find_by_name x in
+  Client.VM.fast_resume dbg vm.id
+  |> wait_for_task dbg
+  |> success_task ignore_task
+
+let fast_resume copts x = diagnose_error (need_vm (fast_resume copts) x)
+
 let resume _copts disk x =
   (* We don't currently store where the suspend image is *)
   let disk =
