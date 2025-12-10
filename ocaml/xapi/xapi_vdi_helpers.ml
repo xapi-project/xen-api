@@ -399,7 +399,8 @@ let find_backend_device path =
 let backing_info_of_device path =
   let tapdisk_of_path path =
     try
-      let _, _, backing_info = Tapctl.of_device (Tapctl.create ()) path in
+      let ( let* ) = Option.bind in
+      let* _, _, backing_info = Tapctl.of_device (Tapctl.create ()) path in
       backing_info
     with
     | Tapctl.Not_a_device ->
