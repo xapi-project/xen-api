@@ -216,7 +216,11 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
     (prefix, vdi_ref, _size) =
   let size = Db.VDI.get_virtual_size ~__context ~self:vdi_ref in
   (* Remember when we last wrote something so that we can work around firewalls which close 'idle' connections *)
-  let last_transmission_time = ref 0L in
+  let time_since_transmission = ref (Mtime_clock.counter ()) in
+  let timeout = Mtime.Span.(5 * s) in
+  let need_to_retransmit time_since =
+    Mtime.Span.(is_longer ~than:timeout time_since)
+  in
   let reusable_buffer = Bytes.make (Int64.to_int chunk_size) '\000' in
 
   (* Generic function that reads a chunk of [this_chunk_size] at [offset] and,
@@ -235,7 +239,7 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
       Unix.LargeFile.lseek ifd offset Unix.SEEK_SET |> ignore ;
     Unixext.really_read ifd buffer 0 this_chunk_size ;
     if write_check buffer first_or_last then (
-      last_transmission_time := Mtime_clock.now_ns () ;
+      time_since_transmission := Mtime_clock.counter () ;
       write_block ~__context filename buffer ofd this_chunk_size
     ) ;
     made_progress __context progress (Int64.of_int this_chunk_size)
@@ -257,18 +261,14 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
                 min (Int64.to_int remaining) (Int64.to_int chunk_size)
               in
               let last_chunk = this_chunk_size = Int64.to_int remaining in
-              let now = Mtime_clock.now_ns () in
-              let time_since_transmission =
-                Int64.sub now !last_transmission_time
-              in
               (* We always include the first and last blocks *)
               let first_or_last = this_chunk_no = 0 || last_chunk in
               if
-                time_since_transmission > 5_000_000_000L
+                need_to_retransmit (Mtime_clock.count !time_since_transmission)
                 && (not first_or_last)
                 && timeout_workaround
               then (
-                last_transmission_time := now ;
+                time_since_transmission := Mtime_clock.counter () ;
                 let filename = Printf.sprintf "%s/%08d" prefix this_chunk_no in
                 write_block ~__context filename Bytes.empty ofd 0 ;
                 (* no progress has been made *)
@@ -353,12 +353,12 @@ let send_one ofd (__context : Context.t) rpc session_id progress refresh_session
                 min (Int64.to_int chunk_size) (Int64.to_int remaining)
               in
               let this_chunk_no = Int64.(to_int (div offset chunk_size)) in
-              let now = Mtime_clock.now_ns () in
-              let time_since_transmission =
-                Int64.sub now !last_transmission_time
-              in
               let first_or_last = offset = 0L || remaining <= chunk_size in
-              if first_or_last || time_since_transmission > 5000000000L then (
+              if
+                first_or_last
+                || need_to_retransmit
+                     (Mtime_clock.count !time_since_transmission)
+              then (
                 actually_write_chunk ~this_chunk_no ~offset ~this_chunk_size
                   ~ifd ~first_or_last
                   ~write_check:(fun _ _ -> true)
