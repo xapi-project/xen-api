@@ -13,6 +13,7 @@
     xapi-log
     xapi-rrd
     xenctrl
+    xenctrl_ext
     xenstore
     xenstore.unix
     xenstore_transport
