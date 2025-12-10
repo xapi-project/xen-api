@@ -363,8 +363,15 @@ functor
       with _ -> "invalid"
 
     let current_pool_uuid ~__context =
+      let get_pool_record () =
+        match Db.Pool.get_all_records ~__context with
+        | [] ->
+            raise (Failure "current_pool_uuid: no pool available")
+        | (_, pool) :: _ ->
+            pool
+      in
       if Pool_role.is_master () then
-        let _, pool = List.hd (Db.Pool.get_all_records ~__context) in
+        let pool = get_pool_record () in
         Printf.sprintf "%s%s" pool.API.pool_uuid
           (add_brackets pool.API.pool_name_label)
       else
