@@ -967,17 +967,26 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
             Array.map2 NUMAResource.min_memory (Array.of_seq nodes) a
       in
       numa_resources := Some nodea ;
-      let memory_plan =
+      let cpu_affinity, memory_plan =
         match Softaffinity.plan ~vm host nodea with
         | None ->
             D.debug "NUMA-aware placement failed for domid %d" domid ;
-            []
+            (None, [])
         | Some (cpu_affinity, mem_plan) ->
+            (Some cpu_affinity, mem_plan)
+      in
+      let set_vcpu_affinity = function
+        | None ->
+            D.debug "%s: not setting vcpu affinity for domain %d" __FUNCTION__
+              domid
+        | Some cpu_affinity ->
+            D.debug "%s: setting vcpu affinity for domain %d: %s" __FUNCTION__
+              domid
+              (Fmt.to_to_string CPUSet.pp_dump cpu_affinity) ;
             let cpus = CPUSet.to_mask cpu_affinity in
             for i = 0 to vcpus - 1 do
               set_affinity affinity xcext domid i cpus
-            done ;
-            mem_plan
+            done
       in
       (* Xen only allows a single node when using memory claims, or none at all. *)
       let* numa_node, node =
@@ -994,6 +1003,7 @@ let numa_placement domid ~vcpus ~cores ~memory affinity =
       let nr_pages = Int64.div memory 4096L |> Int64.to_int in
       try
         Xenctrlext.domain_claim_pages xcext domid ~numa_node nr_pages ;
+        set_vcpu_affinity cpu_affinity ;
         Some (node, memory)
       with
       | Xenctrlext.Not_available ->
