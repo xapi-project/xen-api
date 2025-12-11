@@ -25,6 +25,8 @@ type rate_limit_data = {
 
 module StringMap = Map.Make (String)
 
+module D = Debug.Make (struct let name = "bucket_table" end)
+
 type t = rate_limit_data StringMap.t Atomic.t
 
 let with_lock = Xapi_stdext_threads.Threadext.Mutex.execute
@@ -126,16 +128,23 @@ let submit t ~user_agent ~callback amount =
   let map = Atomic.get t in
   match StringMap.find_opt user_agent map with
   | None ->
+      D.debug "Found no rate limited user_agent for %s, returning" user_agent ;
       callback ()
   | Some {bucket; process_queue; process_queue_lock; worker_thread_cond; _} ->
       with_lock process_queue_lock (fun () ->
           if Queue.is_empty process_queue && Token_bucket.consume bucket amount
-          then
+          then (
+            D.debug
+              "Processing callback immediately: consumed %f tokens in call \
+               from user_agent %s"
+              amount user_agent ;
             callback ()
-          else
-            let need_signal = Queue.is_empty process_queue in
+          ) else (
+            D.debug "Adding callback for %f tokens from user_agent %s to queue"
+              amount user_agent ;
             Queue.add (amount, callback) process_queue ;
-            if need_signal then Condition.signal worker_thread_cond
+            Condition.signal worker_thread_cond
+          )
       )
 
 (* Block and execute on the same thread *)
