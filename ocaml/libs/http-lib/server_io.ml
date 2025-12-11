@@ -54,10 +54,10 @@ let establish_server ?(signal_fds = []) forker handler sock =
              try ignore (forker handler s caller)
              with exc ->
                Backtrace.is_important exc ;
-               (* NB provided 'forker' is configured to make a background thread then the
-                  only way we can get here is if Thread.create fails.
-                  This means we haven't executed any code which could close the fd therefore
-                  we should do it ourselves. *)
+               (* NB provided 'forker' is configured to make a background
+                  thread then the only way we can get here is if Thread.create
+                  fails. This means we haven't executed any code which could
+                  close the fd therefore we should do it ourselves. *)
                debug "Got exception in server_io.ml: %s" (Printexc.to_string exc) ;
                log_backtrace exc ;
                Unix.close s ;
