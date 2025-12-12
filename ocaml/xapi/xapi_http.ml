@@ -352,7 +352,7 @@ let add_handler (name, handler) =
   in
   let check_rbac = Rbac.is_rbac_enabled_for_http_action name in
   let rate_limit user_agent_opt handler () =
-    if List.mem name Datamodel.custom_rate_limit_http_actions then
+    if List.mem name Datamodel.custom_rate_limit_http_actions then (
       match user_agent_opt with
       | None ->
           handler ()
@@ -360,7 +360,7 @@ let add_handler (name, handler) =
           debug "Rate limiting handler %s with user_agent %s" name user_agent ;
           Rate_limit.Bucket_table.submit Xapi_rate_limit.bucket_table
             ~user_agent ~callback:handler 1.0
-    else
+    ) else
       handler ()
   in
   let h req ic () =

@@ -200,14 +200,20 @@ let do_dispatch ?session_id ?forward_op ?self:_ supports_async called_fn_name
           async ~need_complete:true
     in
     match user_agent_option with
-    | Some user_agent ->
-        D.debug
-          "Bucket table: Expecting to consume %f tokens from user_agent %s"
-          (Option.value peek_result ~default:0.)
-          user_agent ;
-        Rate_limit.Bucket_table.submit_sync Xapi_rate_limit.bucket_table
-          ~user_agent:(Option.value http_req.user_agent ~default:"")
-          ~callback 1.
+    | Some user_agent -> (
+      match peek_result with
+      | Some tokens ->
+          D.debug
+            "Bucket table: Expecting to consume 1 token from user_agent %s \
+             with available tokens %f"
+            user_agent tokens ;
+          Rate_limit.Bucket_table.submit_sync Xapi_rate_limit.bucket_table
+            ~user_agent:(Option.value http_req.user_agent ~default:"")
+            ~callback 1.
+      | None ->
+          D.debug "%s not registered, not throttling" user_agent ;
+          callback ()
+    )
     | None ->
         D.debug "Bucket table: user_agent was None, not throttling" ;
         callback ()
