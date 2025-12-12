@@ -143,10 +143,5 @@ module String = struct
     ) else
       s
 
-  let escaped ?rules s =
-    match rules with
-    | None ->
-        String.escaped s
-    | Some rules ->
-        map_unlikely s (fun c -> List.assoc_opt c rules)
+  let replaced ~replace s = map_unlikely s replace
 end
