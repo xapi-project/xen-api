@@ -68,6 +68,9 @@ val start :
 
 val handle_one : 'a Server.t -> Unix.file_descr -> 'a -> Http.Request.t -> bool
 
+val escape_html : string -> string
+(** Escapes HTML: replaces characters with their character references *)
+
 exception Socket_not_found
 
 val stop : socket -> unit

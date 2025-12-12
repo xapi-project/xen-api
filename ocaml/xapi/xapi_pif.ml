@@ -19,7 +19,6 @@ module L = Debug.Make (struct let name = "license" end)
 
 open Xapi_database.Db_filter_types
 module Listext = Xapi_stdext_std.Listext.List
-open Xapi_stdext_std.Xstringext
 module Date = Clock.Date
 open Network
 
@@ -216,7 +215,9 @@ let refresh_all ~__context ~host =
     pifs
 
 let read_bridges_from_inventory () =
-  try String.split ' ' (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
+  try
+    String.split_on_char ' '
+      (Xapi_inventory.lookup Xapi_inventory._current_interfaces)
   with _ -> []
 
 (* Ensure the PIF is not a bond slave. *)
@@ -707,6 +708,8 @@ let forget ~__context ~self =
 
 let scan_m = Mutex.create ()
 
+let fields_of = Astring.(String.fields ~empty:false ~is_sep:Char.Ascii.is_white)
+
 let scan ~__context ~host =
   let dbg = Context.string_of_task __context in
   refresh_all ~__context ~host ;
@@ -716,15 +719,15 @@ let scan ~__context ~host =
         let output, _ =
           Forkhelpers.execute_command_get_output !Xapi_globs.non_managed_pifs []
         in
-        let dsplit = String.split '\n' output in
+        let dsplit = String.split_on_char '\n' output in
         match dsplit with
         | [] | [""] | "" :: "" :: _ ->
             debug "No boot from SAN interface found" ;
             ([], [])
         | m :: u :: _ ->
-            (String.split_f String.isspace m, String.split_f String.isspace u)
+            (fields_of m, fields_of u)
         | m :: _ ->
-            (String.split_f String.isspace m, [])
+            (fields_of m, [])
       with e ->
         warn "Error when executing script %s: %s; ignoring"
           !Xapi_globs.non_managed_pifs

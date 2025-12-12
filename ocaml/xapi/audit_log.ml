@@ -102,12 +102,8 @@ let transfer_all_audit_files fd_out ?filter since =
   atransfer_try_gz ""
 
 (* map the ISO8601 timestamp format into the one in our logs *)
-let log_timestamp_of_iso8601 iso8601_timestamp =
-  let module Xstringext = Xapi_stdext_std.Xstringext in
-  let step1 = iso8601_timestamp in
-  let step2 = Xstringext.String.replace "-" "" step1 in
-  let step3 = Xstringext.String.replace "Z" "" step2 in
-  step3
+let log_timestamp_of_iso8601 iso8601 =
+  Astring.String.filter (function '-' | 'Z' -> false | _ -> true) iso8601
 
 (*
  Assume that RBAC access for the session_id already verified by xapi_http.ml
