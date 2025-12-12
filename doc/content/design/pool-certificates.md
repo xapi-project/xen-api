@@ -2,7 +2,7 @@
 title: TLS vertification for intra-pool communications
 layout: default
 design_doc: true
-revision: 2
+revision: 3
 status: released (22.6.0)
 ---
 
@@ -62,9 +62,14 @@ The hosts will exploit this to request a particular service when they establish 
 When initiating a connection to another host in the pool, a server will create requests for TLS connections with the server_name `xapi:pool` with the `name_type` `DNS`, this goes against RFC-6066 as this `server_name` is not resolvable.
 This still works because we control the implementation in both peers of the connection and can follow the same convention.
 
-In addition connections to the WLB appliance will continue to be validated using the current scheme of user-installed CA certificates.
-This means that hosts connecting to the appliance will need a special case to only trust user-installed certificated when establishing the connection.
-Conversely pool connections will ignore these certificates.
+As the unified API for the whole system, XAPI also exposes interfaces for users to install and manage trusted certificates that are used by system components for different purposes, such as outbound TLS connections to WLB appliance, License Server, LDAPS servers, etc.
+This means that the TLS clients need to only trust the user-installed certificates when establishing a TLS connection for a specific purpose. Conversely pool connections will ignore these certificates.
+Two kinds of trusted certificates can be supported when validating a server certificate, which also represent two validation modes:
+* root CA certificate, which is used in standard PKI validation where the server’s certificate chain is built with it;
+* peer certificate, which represents the expected server leaf certificate and hence can be used to compare with the received server leaf certificate. This model supports quick trust establishment, including Trust‑On‑First‑Use (TOFU) and self-signed server certificate scenarios where the first received leaf certificate is trusted to avoid user intervention or configuration.
+
+It's up to the TLS client to determine how to use the peer and root CA certificates.
+
 | Name | Filesystem location | User-configurable | Used for |
 | ---- | ------------------- | ----------------- | -------- |
 | Host Default    | /etc/xensource/xapi-ssl.pem      | yes (using API) | Hosts serve it to normal API clients
@@ -73,13 +78,19 @@ Conversely pool connections will ignore these certificates.
 | Trusted Pool    | /etc/stunnel/certs-pool/         | no              | Certificates that are managed by the pool for host-to-host communications
 | Default Bundle  | /etc/stunnel/xapi-stunnel-ca-bundle.pem | no       | Bundle of certificates that hosts use to verify appliances (in particular WLB), this is kept in sync with "Trusted Default"
 | Pool Bundle     | /etc/stunnel/xapi-pool-ca-bundle.pem    | no       | Bundle of certificates that hosts use to verify other hosts on pool communications, this is kept in sync with "Trusted Pool"
+| Trusted root CA for \<PURPOSE\>| /etc/stunnel/certs-ca-\<PURPOSE\>/      | no (derived from the \<PURPOSE\>) | Root CA certificates that users have installed to validate the server certificate for \<PURPOSE\>
+| Trusted peer for \<PURPOSE\>| /etc/stunnel/certs-peer-\<PURPOSE\>/       | no (derived from the \<PURPOSE\>) | Peer certificates that users have installed to validate the server certificate for \<PURPOSE\>
+| Trusted root CA bundle for \<PURPOSE\>| /etc/stunnel/ca-\<PURPOSE\>-bundle.pem  | no (derived from the \<PURPOSE\>) | Bundle of root CA certificates containing all certificates under /etc/stunnel/certs-ca-\<PURPOSE\>/
+| Trusted peer bundle for \<PURPOSE\>| /etc/stunnel/peer-\<PURPOSE\>-bundle.pem   | no (derived from the \<PURPOSE\>) | Bundle of peer certificates containing all certificates under /etc/stunnel/certs-peer-\<PURPOSE\>/
+
+The \<PURPOSE\> is used to separate different purposes and is extensible for more use cases.
 
 ## Cryptography of certificates
 
 The certificates until now have been signed using sha256WithRSAEncryption:
 
 * Pre-8.0 releases use 1024-bit RSA keys.
-* 8.0, 8.1 and 8.2 use 2048-bit RSA keys.
+* 8.0, 8.1, 8.2, and 8.4 use 2048-bit RSA keys.
 
 The Default Certificates served to API clients will continue to use sha256WithRSAEncryption with 2048-bit RSA keys. The Pool certificates will use the same algorithms for consistency.
 
@@ -295,6 +306,11 @@ This call imposes the same requirements in a pool as the pool secret rotation: I
 The API call is Pool.rotate_internal_certificates.
 It is exposed by xe as pool-rotate-internal-certificates.
 
+## U13. Install trusted peer certificates for Licensing
+
+The licensing function itself is not in the XAPI process. But a user can use the XAPI API to install peer certificates for licensing purposes.
+Then the licensing function, which is another process, can use the bundle file "/etc/stunnel/peer-licensing-bundle.pem" to validate the License Server certificate when establishing a TLS connection to the License Server.
+
 # Changes
 
 Xapi startup has to account for host changes that affect this feature and modify the filesystem and pool database accordingly.
@@ -304,6 +320,8 @@ Xapi startup has to account for host changes that affect this feature and modify
 * Pool certificate changed: On first boot, after a pool join and after having done emergency repairs the internal server certificate record may not match the contents of the filesystem. A check is to be introduced that detects if the database does not associate a certificate with the host or if the certificate's public key in the database and the filesystem are different. This check is made aware whether the host is joining a pool or is on first-boot, it does this by counting the amount of hosts in the pool from the database. In the case where it's joining a pool it simply updated the database record with the correct information from the filesystem as the filesystem contents have been put in place before the restart. In the case of first boot the public part of the certificate is copied to the directory and the bundle for internally-trusted certificates: /etc/stunnel/certs-pool/ and /etc/stunnel/xapi-pool-ca-bundle.pem.
 
 The xapi database records for certificates must be changed according with the additions explained before.
+Particularly, the existing "type" field of Certificate class is extended to accept a new enum value "peer", besides its current supported values "ca", "host", and "host_internal". The new value is for the peer trusted certificates which are just the server leaf certificates.
+And a new field "purposes" is added to the class as a set of new type "purpose". By default it is an empty set to stand for the existing "Trusted Default" for backwards compatibility.
 
 ### API
 
@@ -313,10 +331,12 @@ Additions
 * TLS_VERIFICATION_ENABLE_IN_PROGRESS is a new error that is produced when trying to do other pool operations while enabling TLS verification is in progress
 * Host.emergency_disable_tls_verification: this called is allowed for role _R_LOCAL_ROOT_ONLY: it's an emergency command and acts locally. It forces connections in xapi to stop verifying the peers on outgoing connections. It generates an alert to warn the administrators of this uncommon state.
 * Host.emergency_reenable_tls_verification: this call is allowed for role _R_LOCAL_ROOT_ONLY: it's an emergency command and acts locally. It changes the configuration so xapi verifies connections by default after being switched off with the previous command.
-* Pool.install_ca_certificate: rename of Pool.certificate_install, add the ca certificate to the database.
+* Pool.install_ca_certificate: rename of Pool.certificate_install, add the ca certificate to the database. A <purposes> argument is appended as a set of purposes. By default it is empty standing for "Trusted Default".
 * Pool.uninstall_ca_certificate: rename of Pool.certificate_uninstall, removes the certificate from the database.
 * Host.reset_server_certificate: replaces Host.emergency_reset_server_certificate, now it's allowed for role _R_POOL_ADMIN. It adds a record for the generated Default Certificate to the database while removing the previous record, if any.
 * Pool.rotate_internal_certificates: This call generates new Pool certificates, and substitutes the previous certificates with these. See the certificate expiry section for more details.
+* Pool.install_peer_certificate: adds the peer certificate to the database.
+* Pool.uninstall_peer_certificate: removes the peer certificate from the database
 
 Modifications:
 * Pool.join: certificates must be correctly distributed. API Error POOL_JOINING_HOST_TLS_VERIFICATION_MISMATCH is returned if the tls_verification of the two pools doesn't match.
@@ -340,6 +360,8 @@ Following API additions:
 * host-reset-server-certificate
 * host-emergency-disable-tls-verification (emits a warning when verification is off and the pool-level is on)
 * host-emergency-reenable-tls-verification
+* pool-install-peer-certificate
+* pool-uninstall-peer-certificate
 
 And removals:
 * host-emergency-server-certificate
