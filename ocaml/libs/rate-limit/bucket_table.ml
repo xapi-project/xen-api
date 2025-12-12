@@ -131,21 +131,18 @@ let submit t ~user_agent ~callback amount =
       D.debug "Found no rate limited user_agent for %s, returning" user_agent ;
       callback ()
   | Some {bucket; process_queue; process_queue_lock; worker_thread_cond; _} ->
-      with_lock process_queue_lock (fun () ->
-          if Queue.is_empty process_queue && Token_bucket.consume bucket amount
-          then (
-            D.debug
-              "Processing callback immediately: consumed %f tokens in call \
-               from user_agent %s"
-              amount user_agent ;
-            callback ()
-          ) else (
-            D.debug "Adding callback for %f tokens from user_agent %s to queue"
-              amount user_agent ;
-            Queue.add (amount, callback) process_queue ;
-            Condition.signal worker_thread_cond
-          )
-      )
+      let run_immediately =
+        with_lock process_queue_lock (fun () ->
+            let immediate =
+              Queue.is_empty process_queue && Token_bucket.consume bucket amount
+            in
+            if not immediate then
+              Queue.add (amount, callback) process_queue ;
+            Condition.signal worker_thread_cond ;
+            immediate
+        )
+      in
+      if run_immediately then callback ()
 
 (* Block and execute on the same thread *)
 let submit_sync t ~user_agent ~callback amount =
