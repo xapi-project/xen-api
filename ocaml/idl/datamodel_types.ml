@@ -359,6 +359,9 @@ let release_order_full =
 let release_order =
   List.filter (fun x -> x.code_name <> None) release_order_full
 
+let latest_release =
+  Xapi_stdext_std.Listext.List.last release_order |> Option.get
+
 exception Unknown_release of string
 
 exception UnspecifiedRelease

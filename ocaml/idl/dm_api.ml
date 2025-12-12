@@ -369,6 +369,7 @@ let check api emergency_calls =
   let are_in_vsn_order ps =
     let release_lt x y = release_leq x y && x <> y in
     let in_since releases =
+      let last = code_name_of_release latest_release in
       (* been in since the lowest of releases *)
       List.fold_left
         (fun sofar r ->
@@ -378,8 +379,7 @@ let check api emergency_calls =
           | r ->
               if release_lt r sofar then r else sofar
         )
-        (Xapi_stdext_std.Listext.List.last release_order |> code_name_of_release)
-        releases
+        last releases
     in
     let rec check_vsns max_release_sofar ps =
       match ps with
