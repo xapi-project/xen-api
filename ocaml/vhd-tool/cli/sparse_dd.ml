@@ -244,14 +244,14 @@ let with_paused_tapdisk path f =
   let path = find_backend_device path |> Opt.default path in
   let context = Tapctl.create () in
   match Tapctl.of_device context path with
-  | tapdev, _, Some (_driver, path) ->
+  | Some (tapdev, _, Some (_driver, path)) ->
       debug "pausing tapdisk for %s" path ;
       Tapctl.pause context tapdev ;
       after f (fun () ->
           debug "unpausing tapdisk for %s" path ;
           Tapctl.unpause context tapdev path Tapctl.Vhd
       )
-  | _, _, _ ->
+  | _ ->
       failwith (Printf.sprintf "Failed to pause tapdisk for %s" path)
 
 (* Record when the binary started for performance measuring *)

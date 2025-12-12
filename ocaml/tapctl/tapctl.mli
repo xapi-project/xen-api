@@ -91,7 +91,7 @@ exception Not_blktap
 (** Thrown by [of_device x] when [x] is not a device *)
 exception Not_a_device
 
-val of_device : context -> string -> t
+val of_device : context -> string -> t option
 (** Given a path to a device, return the corresponding tap information *)
 
 val find : context -> pid:int -> minor:int -> t
