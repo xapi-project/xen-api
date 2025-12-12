@@ -198,6 +198,106 @@ let test_submit_sync () =
   Alcotest.(check bool)
     "blocked waiting for tokens" true (elapsed_seconds >= 0.4)
 
+let test_submit_sync_nonexistent () =
+  let table = Bucket_table.create () in
+  let result =
+    Bucket_table.submit_sync table ~user_agent:"nonexistent"
+      ~callback:(fun () -> 99)
+      1.0
+  in
+  Alcotest.(check int)
+    "submit_sync on nonexistent bucket runs callback immediately" 99 result
+
+let test_submit_sync_with_queued_items () =
+  (* Test that submit_sync respects FIFO ordering when queue has items *)
+  let table = Bucket_table.create () in
+  let _ =
+    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:5.0
+      ~fill_rate:10.0
+  in
+  (* Drain the bucket *)
+  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 5.0 in
+  let execution_order = ref [] in
+  let order_mutex = Mutex.create () in
+  let record_execution id =
+    Mutex.lock order_mutex ;
+    execution_order := id :: !execution_order ;
+    Mutex.unlock order_mutex
+  in
+  (* Submit async items first *)
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> record_execution 1)
+    1.0 ;
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> record_execution 2)
+    1.0 ;
+  (* Now submit_sync should queue behind the async items *)
+  let result =
+    Bucket_table.submit_sync table ~user_agent:"agent1"
+      ~callback:(fun () -> record_execution 3 ; "sync_result")
+      1.0
+  in
+  Alcotest.(check string)
+    "submit_sync returns correct result" "sync_result" result ;
+  let order = List.rev !execution_order in
+  Alcotest.(check (list int))
+    "submit_sync executes after queued items" [1; 2; 3] order
+
+let test_submit_sync_concurrent () =
+  (* Test multiple concurrent submit_sync calls *)
+  let table = Bucket_table.create () in
+  let _ =
+    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:1.0
+      ~fill_rate:10.0
+  in
+  (* Drain the bucket to force queueing *)
+  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 1.0 in
+  let results = Array.make 5 0 in
+  let threads =
+    Array.init 5 (fun i ->
+        Thread.create
+          (fun () ->
+            let r =
+              Bucket_table.submit_sync table ~user_agent:"agent1"
+                ~callback:(fun () -> i + 1)
+                1.0
+            in
+            results.(i) <- r
+          )
+          ()
+    )
+  in
+  Array.iter Thread.join threads ;
+  (* Each thread should get its own result back *)
+  for i = 0 to 4 do
+    Alcotest.(check int)
+      (Printf.sprintf "thread %d gets correct result" i)
+      (i + 1) results.(i)
+  done
+
+let test_submit_sync_interleaved () =
+  (* Test interleaving submit and submit_sync *)
+  let table = Bucket_table.create () in
+  let _ =
+    Bucket_table.add_bucket table ~user_agent:"agent1" ~burst_size:2.0
+      ~fill_rate:10.0
+  in
+  (* Drain the bucket *)
+  let _ = Bucket_table.try_consume table ~user_agent:"agent1" 2.0 in
+  let async_executed = ref false in
+  (* Submit async first *)
+  Bucket_table.submit table ~user_agent:"agent1"
+    ~callback:(fun () -> async_executed := true)
+    1.0 ;
+  (* Submit sync should wait for async to complete first *)
+  let sync_result =
+    Bucket_table.submit_sync table ~user_agent:"agent1"
+      ~callback:(fun () -> !async_executed)
+      1.0
+  in
+  Alcotest.(check bool)
+    "sync callback sees async already executed" true sync_result
+
 let test_concurrent_add_delete_stress () =
   (* Stress test: rapidly add and delete entries.
      Without proper locking, hashtable can get corrupted. *)
@@ -336,6 +436,10 @@ let test =
   ; ("Submit nonexistent", `Quick, test_submit_nonexistent)
   ; ("Submit fairness", `Slow, test_submit_fairness)
   ; ("Submit sync", `Slow, test_submit_sync)
+  ; ("Submit sync interleaved", `Slow, test_submit_sync_interleaved)
+  ; ("Submit sync nonexistent", `Slow, test_submit_sync_nonexistent)
+  ; ("Submit sync concurrent", `Slow, test_submit_sync_concurrent)
+  ; ("Submit sync with queue", `Slow, test_submit_sync_with_queued_items)
   ; ("Concurrent add/delete stress", `Quick, test_concurrent_add_delete_stress)
   ; ("Consume during delete race", `Quick, test_consume_during_delete_race)
   ]
