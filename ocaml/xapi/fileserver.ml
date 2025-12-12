@@ -22,23 +22,11 @@ module D = Debug.Make (struct let name = "fileserver" end)
 
 open D
 
-let escape uri =
-  Xstringext.escaped
-    ~rules:
-      [
-        ('<', "&lt;")
-      ; ('>', "&gt;")
-      ; ('\'', "&apos;")
-      ; ('"', "&quot;")
-      ; ('&', "&amp;")
-      ]
-    uri
-
 let missing uri =
   "<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\"> <html><head> \
    <title>404 Not Found</title> </head><body> <h1>Not Found</h1> <p>The \
    requested URL "
-  ^ escape uri
+  ^ Http_svr.escape_html uri
   ^ " was not found on this server.</p> <hr><address>Xapi \
      Server</address></body></html>"
 
