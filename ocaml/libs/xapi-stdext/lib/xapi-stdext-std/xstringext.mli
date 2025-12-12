@@ -15,10 +15,10 @@ module String : sig
   val isspace : char -> bool
   (** True if the character is whitespace *)
 
-  val escaped : ?rules:(char * string) list -> string -> string
-  (** Backward-compatible string escaping, defaulting to the built-in
-      	OCaml string escaping but allowing an arbitrary mapping from characters
-      	to strings. *)
+  val replaced : replace:(char -> string option) -> string -> string
+  (** [replaced ~replacement str] applies [replace] to all characters in [str]
+      and when it returns [Some rep] the character is replaced with [rep] in
+      the resulting string *)
 
   val split_f : (char -> bool) -> string -> string list
   (** Take a predicate and a string, return a list of strings separated by
