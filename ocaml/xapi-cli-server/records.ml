@@ -6054,13 +6054,13 @@ let rate_limit_record rpc session_id rate_limit =
   ; fields=
       [
         make_field ~name:"uuid" ~get:(fun () -> (x ()).API.rate_limit_uuid) ()
-      ; make_field ~name:"client_id"
+      ; make_field ~name:"client-id"
           ~get:(fun () -> (x ()).API.rate_limit_client_id)
           ()
-      ; make_field ~name:"burst_size"
+      ; make_field ~name:"burst-size"
           ~get:(fun () -> string_of_float (x ()).API.rate_limit_burst_size)
           ()
-      ; make_field ~name:"fill_rate"
+      ; make_field ~name:"fill-rate"
           ~get:(fun () -> string_of_float (x ()).API.rate_limit_fill_rate)
           ()
       ]
