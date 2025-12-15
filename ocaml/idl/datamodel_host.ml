@@ -1226,6 +1226,24 @@ let host_numa_affinity_policy =
       ]
     )
 
+let latest_synced_updates_applied_state =
+  Enum
+    ( "latest_synced_updates_applied_state"
+    , [
+        ( "yes"
+        , "The host is up to date with the latest updates synced from remote \
+           CDN"
+        )
+      ; ( "no"
+        , "The host is outdated with the latest updates synced from remote CDN"
+        )
+      ; ( "unknown"
+        , "If the host is up to date with the latest updates synced from \
+           remote CDN is unknown"
+        )
+      ]
+    )
+
 let create_params =
   [
     {
@@ -1429,6 +1447,36 @@ let create_params =
     ; param_doc= "NUMA-aware VM memory and vCPU placement policy"
     ; param_release= numbered_release "25.39.0-next"
     ; param_default= Some (VEnum "default_policy")
+    }
+  ; {
+      param_type= latest_synced_updates_applied_state
+    ; param_name= "latest_synced_updates_applied"
+    ; param_doc=
+        "Default as 'unknown', 'yes' if the host is up to date with updates \
+         synced from remote CDN, otherwise 'no'"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= Set update_guidances
+    ; param_name= "pending_guidances_full"
+    ; param_doc=
+        "The set of pending full guidances after applying updates, which a \
+         user should follow to make some updates, e.g. specific hardware \
+         drivers or CPU features, fully effective, but the 'average user' \
+         doesn't need to"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VSet [])
+    }
+  ; {
+      param_type= Set update_guidances
+    ; param_name= "pending_guidances_recommended"
+    ; param_doc=
+        "The set of pending recommended guidances after applying updates, \
+         which most users should follow to make the updates effective, but if \
+         not followed, will not cause a failure"
+    ; param_release= numbered_release "25.39.0-next"
+    ; param_default= Some (VSet [])
     }
   ]
 
@@ -2541,24 +2589,6 @@ let update_firewalld_service_status =
       "Update firewalld services based on the corresponding xapi services \
        status."
     ~allowed_roles:_R_POOL_OP ()
-
-let latest_synced_updates_applied_state =
-  Enum
-    ( "latest_synced_updates_applied_state"
-    , [
-        ( "yes"
-        , "The host is up to date with the latest updates synced from remote \
-           CDN"
-        )
-      ; ( "no"
-        , "The host is outdated with the latest updates synced from remote CDN"
-        )
-      ; ( "unknown"
-        , "If the host is up to date with the latest updates synced from \
-           remote CDN is unknown"
-        )
-      ]
-    )
 
 let get_tracked_user_agents =
   call ~name:"get_tracked_user_agents" ~lifecycle:[]

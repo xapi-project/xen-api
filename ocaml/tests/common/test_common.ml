@@ -185,6 +185,8 @@ let make_host ~__context ?(uuid = make_uuid ()) ?(name_label = "host")
       ~console_idle_timeout ~ssh_auto_mode ~secure_boot
       ~software_version:(Xapi_globs.software_version ())
       ~https_only ~numa_affinity_policy:`default_policy
+      ~latest_synced_updates_applied:`unknown ~pending_guidances_full:[]
+      ~pending_guidances_recommended:[]
   in
   Db.Host.set_cpu_info ~__context ~self:host ~value:default_cpu_info ;
   host
